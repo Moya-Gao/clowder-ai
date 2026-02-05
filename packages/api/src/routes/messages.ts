@@ -6,17 +6,28 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { CatId } from '@cat-cafe/shared';
-import { ClaudeAgentService } from '../domains/cats/services/index.js';
+import { createCatId } from '@cat-cafe/shared';
+import {
+  ClaudeAgentService,
+  CodexAgentService,
+  GeminiAgentService,
+  AgentRouter,
+} from '../domains/cats/services/index.js';
 import { getSocketManager } from '../index.js';
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(10000),
+  userId: z.string().min(1).max(100).default('default-user'),
   mentions: z.array(z.enum(['opus', 'codex', 'gemini'])).optional(),
 });
 
 export const messagesRoutes: FastifyPluginAsync = async (app) => {
-  const claudeService = new ClaudeAgentService();
+  // Create agent router with all three services
+  const router = new AgentRouter({
+    claudeService: new ClaudeAgentService(),
+    codexService: new CodexAgentService(),
+    geminiService: new GeminiAgentService(),
+  });
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
@@ -36,14 +47,15 @@ export const messagesRoutes: FastifyPluginAsync = async (app) => {
     // Process in background and broadcast via WebSocket
     void (async () => {
       try {
-        for await (const msg of claudeService.invoke(body.content)) {
+        // Use router.route() to handle @ mentions and route to appropriate agents
+        for await (const msg of router.route(body.userId, body.content)) {
           socketManager.broadcastAgentMessage(msg);
         }
       } catch (err) {
         console.error('[messages] Background processing error:', err);
         socketManager.broadcastAgentMessage({
           type: 'error',
-          catId: 'opus' as CatId,
+          catId: createCatId('opus'),
           error: err instanceof Error ? err.message : 'Unknown error',
           timestamp: Date.now(),
         });
