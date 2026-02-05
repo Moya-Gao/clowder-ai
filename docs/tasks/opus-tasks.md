@@ -12,7 +12,8 @@
 |-------|------|------|
 | Phase 0 | ✅ 完成 | 地基已建好，缅因猫 review 通过 |
 | Phase 1 | ✅ 完成 | 单猫通信，缅因猫 review 通过 |
-| Phase 2 | 🔜 待开始 | 三猫接入 |
+| Phase 2 | ✅ 完成 | 三猫接入，待缅因猫 review |
+| Phase 3 | 🔜 待开始 | 完整体验 |
 
 ---
 
@@ -83,52 +84,44 @@
 
 ---
 
-### Phase 2: 三猫接入（优先级：P1）
+### Phase 2: 三猫接入（优先级：P1）✅ 已完成
 
 **目标：接入缅因猫和暹罗猫**
 
-- [ ] **CodexAgentService 实现**
-  ```typescript
-  import { Codex } from "@openai/codex-sdk";
+- [x] **CodexAgentService 实现**
+  - 使用 `@openai/codex-sdk` 的 `runStreamed()` API
+  - 支持 session resume (`resumeThread`)
+  - 依赖注入支持测试
+  - 9 个单元测试
 
-  class CodexAgentService {
-    private codex = new Codex();
+- [x] **GeminiAgentService 实现**
+  - 使用 `@google/generative-ai`（ADK 太不成熟，已降级）
+  - 内存中维护 chat history 支持 session
+  - 9 个单元测试
 
-    async invoke(prompt: string, threadId?: string) {
-      const thread = threadId
-        ? this.codex.resumeThread(threadId)
-        : this.codex.startThread();
-      return await thread.run(prompt);
-    }
-  }
-  ```
-  - [ ] 测试 MCP 集成（可能需要 STDIO 代理）
+- [x] **AgentRouter 实现**
+  - @ 提及解析（中英文，大小写不敏感）
+  - 无提及默认路由到布偶猫
+  - 多猫串行调用，后一只猫收到前一只的回复
+  - Session 管理（内存，待迁移 Redis）
+  - 16 个单元测试
 
-- [ ] **GeminiAgentService 实现**
-  ```typescript
-  import { LlmAgent, InMemoryRunner } from '@google/adk';
+- [x] **前端多猫支持**
+  - ChatContainer 正确处理不同 catId 的消息
+  - ChatMessage 根据 catId 显示不同颜色和名称
 
-  class GeminiAgentService {
-    // 实现 ADK 集成
-  }
-  ```
-  - [ ] 测试 ADK 稳定性
-  - [ ] 如果 ADK 不稳定，降级到 Gemini API
-
-- [ ] **AgentRouter 实现**
-  - [ ] @ 提及解析
-  - [ ] 路由逻辑
-  - [ ] 多猫串行调用
-  - [ ] Session 管理
-
-- [ ] **MCP 工具扩展**
+- [ ] **MCP 工具扩展**（移至 Phase 3）
   - [ ] `post_message` - 发送聊天消息
   - [ ] `notify_cats` - 通知其他猫
   - [ ] `delegate_task` - 任务委派
 
-**验收标准：**
+**验收标准：** ✅
 - `@布偶` `@缅因` `@暹罗` 都能正确路由
 - 多猫协作能串行执行
+
+**技术决策：**
+- ADK 不成熟 → 使用 Gemini API 降级方案
+- Session 暂存内存 → Phase 3 迁移到 Redis
 
 ---
 
