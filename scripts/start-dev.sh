@@ -84,21 +84,21 @@ main() {
     echo "启动服务..."
 
     # 启动 MCP Server (如果存在)
-    if [ -d "packages/mcp-server" ]; then
+    if [ -f "packages/mcp-server/package.json" ]; then
         echo "启动 MCP Server (端口 $MCP_PORT)..."
         (cd packages/mcp-server && pnpm run dev) &
         sleep 1
     fi
 
     # 启动 API Server (如果存在)
-    if [ -d "packages/api" ]; then
+    if [ -f "packages/api/package.json" ]; then
         echo "启动 API Server (端口 $API_PORT)..."
         (cd packages/api && pnpm run dev) &
         sleep 1
     fi
 
     # 启动 Frontend (如果存在)
-    if [ -d "packages/web" ]; then
+    if [ -f "packages/web/package.json" ]; then
         echo "启动 Frontend (端口 $WEB_PORT)..."
         (cd packages/web && pnpm run dev) &
     fi

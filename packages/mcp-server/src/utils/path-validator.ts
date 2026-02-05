@@ -6,6 +6,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import {
+  findDeepestExistingPath,
+  isWithinPath,
+  resolveAbsolutePath,
+  tryRealpathSync,
+} from './path-utils.js';
 
 /**
  * 配置接口
@@ -33,7 +39,10 @@ export function getDefaultConfig(): PathConfig {
   // 解析允许的工作目录
   const allowedWorkspaceDirs = process.env['ALLOWED_WORKSPACE_DIRS'];
   const additionalDirs = allowedWorkspaceDirs
-    ? allowedWorkspaceDirs.split(':').filter(Boolean)
+    ? allowedWorkspaceDirs
+        .split(/[:,]/)
+        .map((dir) => dir.trim())
+        .filter(Boolean)
     : [];
 
   // 默认允许 cat-cafe 目录和额外配置的目录
@@ -58,17 +67,43 @@ export function isPathAllowed(
   const { allowedDirs } = config ?? getDefaultConfig();
 
   // 解析为绝对路径
-  const resolvedPath = path.resolve(targetPath);
+  const resolvedPath = resolveAbsolutePath(targetPath);
 
-  // 检查是否在任一允许的目录下
-  return allowedDirs.some((allowedDir) => {
-    const resolvedAllowedDir = path.resolve(allowedDir);
-    // 确保路径在允许目录内（包括子目录）
-    return (
-      resolvedPath === resolvedAllowedDir ||
-      resolvedPath.startsWith(resolvedAllowedDir + path.sep)
-    );
-  });
+  const resolvedAllowedDirs = allowedDirs.map(resolveAbsolutePath);
+
+  // Quick reject using pure path prefix check
+  const prefixAllowed = resolvedAllowedDirs.some((allowedDir) =>
+    isWithinPath(resolvedPath, allowedDir)
+  );
+  if (!prefixAllowed) {
+    return false;
+  }
+
+  const realAllowedDirs = resolvedAllowedDirs.map(
+    (allowedDir) => tryRealpathSync(allowedDir) ?? allowedDir
+  );
+
+  // If target exists, validate its realpath; otherwise validate the realpath of the deepest
+  // existing prefix to prevent symlink escapes like allowed/link -> /etc.
+  if (fs.existsSync(resolvedPath)) {
+    const realTarget = tryRealpathSync(resolvedPath);
+    if (realTarget === null) {
+      return false;
+    }
+    return realAllowedDirs.some((allowedDir) => isWithinPath(realTarget, allowedDir));
+  }
+
+  const existingPath = findDeepestExistingPath(resolvedPath);
+  if (existingPath === null) {
+    return false;
+  }
+
+  const realExisting = tryRealpathSync(existingPath);
+  if (realExisting === null) {
+    return false;
+  }
+
+  return realAllowedDirs.some((allowedDir) => isWithinPath(realExisting, allowedDir));
 }
 
 /**
@@ -78,7 +113,7 @@ export function isPathAllowed(
  */
 export function getCatCafeDir(config?: PathConfig): string {
   const { catCafeDir } = config ?? getDefaultConfig();
-  return catCafeDir;
+  return resolveAbsolutePath(catCafeDir);
 }
 
 /**
@@ -123,7 +158,7 @@ export function getSafePath(
   targetPath: string,
   config?: PathConfig
 ): string | null {
-  const resolvedPath = path.resolve(targetPath);
+  const resolvedPath = resolveAbsolutePath(targetPath);
 
   if (!isPathAllowed(resolvedPath, config)) {
     return null;
