@@ -15,7 +15,7 @@ export function ChatContainer() {
   const currentMessageIdRef = useRef<string | null>(null);
 
   const handleAgentMessage = useCallback(
-    (msg: { type: string; catId: string; content?: string }) => {
+    (msg: { type: string; catId: string; content?: string; error?: string }) => {
       if (msg.type === 'text' && msg.content) {
         if (!currentMessageIdRef.current) {
           // First text chunk - create new message
@@ -42,7 +42,7 @@ export function ChatContainer() {
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
-          content: `Error: ${msg.content || 'Unknown error'}`,
+          content: `Error: ${msg.error ?? msg.content ?? 'Unknown error'}`,
           timestamp: Date.now(),
         });
       }
