@@ -76,7 +76,15 @@ export class SessionStore {
 
   async getCatState(catId: string): Promise<Record<string, unknown> | null> {
     const state = await this.redis.get(SessionKeys.catState(catId));
-    return state ? JSON.parse(state) : null;
+    if (!state) {
+      return null;
+    }
+    try {
+      return JSON.parse(state) as Record<string, unknown>;
+    } catch (err) {
+      console.error(`[SessionStore] Invalid JSON for key ${SessionKeys.catState(catId)}:`, err);
+      return null;
+    }
   }
 
   async setCatState(catId: string, state: Record<string, unknown>): Promise<void> {

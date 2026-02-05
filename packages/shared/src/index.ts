@@ -1,6 +1,10 @@
 /**
  * @cat-cafe/shared
  * 共享类型和 schemas
+ *
+ * Note: Redis utils are NOT exported from root to avoid pulling
+ * Node-only dependencies into frontend bundles.
+ * Import from '@cat-cafe/shared/utils' instead.
  */
 
 // Export all types
@@ -8,6 +12,3 @@ export * from './types/index.js';
 
 // Export all schemas
 export * from './schemas/index.js';
-
-// Export all utils
-export * from './utils/index.js';
