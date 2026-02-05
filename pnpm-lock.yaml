@@ -29,6 +29,12 @@ importers:
       '@fastify/websocket':
         specifier: ^10.0.0
         version: 10.0.1
+      '@google/generative-ai':
+        specifier: ^0.24.1
+        version: 0.24.1
+      '@openai/codex-sdk':
+        specifier: ^0.97.0
+        version: 0.97.0
       fastify:
         specifier: ^4.25.0
         version: 4.29.1
@@ -496,6 +502,11 @@ packages:
       - utf-8-validate
     dev: false
 
+  /@google/generative-ai@0.24.1:
+    resolution: {integrity: sha512-MqO+MLfM6kjxcKoy0p1wRzG3b4ZZXtPI+z2IE26UogS2Cm/XHO+7gGRBh6gcJsOiIVoH93UwKvW4HdgiOZCy9Q==}
+    engines: {node: '>=18.0.0'}
+    dev: false
+
   /@hono/node-server@1.19.9(hono@4.11.7):
     resolution: {integrity: sha512-vHL6w3ecZsky+8P5MD+eFfaGTyCeOHUIFYMGpQGbrBTSmNNoxv0if69rEZ5giu36weC5saFuznL411gRX7bJDw==}
     engines: {node: '>=18.14.1'}
@@ -865,6 +876,11 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
     dev: true
+
+  /@openai/codex-sdk@0.97.0:
+    resolution: {integrity: sha512-4ZeuhKgCwC/4oSn9rPqheMDDlzCrx2aSjSPvi8aQXsccLAKhKHwzKEOKG7KytmFKJEA6WVfkXp9FuFpFwuCuiA==}
+    engines: {node: '>=18'}
+    dev: false
 
   /@pinojs/redact@0.4.0:
     resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
