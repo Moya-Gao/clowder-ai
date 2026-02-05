@@ -1,0 +1,41 @@
+:root {
+  /* Base Colors */
+  --color-base-white: #FDF8F3; /* Warm White / Cream */
+  --color-base-black: #1E1E24; /* Soft Black / Charcoal */
+  
+  /* Opus (The Architect) - Purple */
+  --color-opus-primary: #9B7EBD;   /* Lavender Purple */
+  --color-opus-light: #D4C1EC;     /* Light Lilac */
+  --color-opus-dark: #6D5A8C;      /* Deep Purple */
+  --color-opus-bg: #F3EAF8;        /* Very pale purple bg */
+
+  /* Codex (The Engineer) - Green */
+  --color-codex-primary: #5B8C5A;  /* Forest Green */
+  --color-codex-light: #8FB98E;    /* Sage Green */
+  --color-codex-dark: #3A5F39;     /* Deep Moss */
+  --color-codex-bg: #EAF6EA;       /* Very pale green bg */
+
+  /* Gemini (The Creative) - Blue */
+  --color-gemini-primary: #5B9BD5; /* Sky Blue */
+  --color-gemini-light: #9CC0E7;   /* Baby Blue */
+  --color-gemini-dark: #3A6FA5;    /* Ocean Blue */
+  --color-gemini-bg: #EAF4FB;      /* Very pale blue bg */
+
+  /* UI Tokens - Light Mode (Default) */
+  --bg-app: var(--color-base-white);
+  --text-primary: var(--color-base-black);
+  --text-secondary: #666666;
+  --border-radius-base: 16px;
+  --spacing-unit: 8px;
+}
+
+[data-theme="dark"] {
+  --bg-app: var(--color-base-black);
+  --text-primary: var(--color-base-white);
+  --text-secondary: #AAAAAA;
+  
+  /* Adjust accent backgrounds for dark mode transparency/opacity if needed */
+  --color-opus-bg: rgba(155, 126, 189, 0.15);
+  --color-codex-bg: rgba(91, 140, 90, 0.15);
+  --color-gemini-bg: rgba(91, 155, 213, 0.15);
+}

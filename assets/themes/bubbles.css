@@ -1,0 +1,70 @@
+/* Message Bubble Base Styles */
+.message-bubble {
+    padding: 12px 16px;
+    border-radius: var(--border-radius-base);
+    max-width: 80%;
+    margin-bottom: 12px;
+    position: relative;
+    font-family: 'Inter', sans-serif;
+    /* Or project default */
+    line-height: 1.5;
+    transition: transform 0.2s ease;
+}
+
+.message-bubble:hover {
+    transform: translateY(-2px);
+}
+
+/* Agent Variations */
+
+/* OPUS (Architect) - Elegant, Purple */
+.message-bubble--opus {
+    background-color: var(--color-opus-bg);
+    border: 1px solid var(--color-opus-light);
+    color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+    /* Distinctive shape */
+}
+
+/* CODEX (Engineer) - Structured, Green */
+.message-bubble--codex {
+    background-color: var(--color-codex-bg);
+    border: 1px solid var(--color-codex-light);
+    color: var(--text-primary);
+    border-bottom-right-radius: 4px;
+    /* Distinctive shape */
+    font-family: 'Roboto Mono', monospace;
+    /* Monospace for code cat! */
+    font-size: 0.95em;
+}
+
+/* GEMINI (Creative) - Playful, Blue */
+.message-bubble--gemini {
+    background-color: var(--color-gemini-bg);
+    border: 1px solid var(--color-gemini-light);
+    color: var(--text-primary);
+    border-radius: 20px;
+    /* Rounder bubbles */
+    border-top-right-radius: 4px;
+    /* Distinctive shape */
+}
+
+/* Header/Sender Name */
+.message-sender {
+    font-weight: bold;
+    font-size: 0.85em;
+    margin-bottom: 4px;
+    display: block;
+}
+
+.message-sender--opus {
+    color: var(--color-opus-dark);
+}
+
+.message-sender--codex {
+    color: var(--color-codex-dark);
+}
+
+.message-sender--gemini {
+    color: var(--color-gemini-dark);
+}
