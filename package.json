@@ -4,6 +4,8 @@
   "private": true,
   "description": "三只 AI 猫猫的协作空间",
   "scripts": {
+    "init": "./scripts/init-cafe.sh",
+    "start": "./scripts/start-dev.sh",
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
