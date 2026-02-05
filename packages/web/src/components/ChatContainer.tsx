@@ -9,18 +9,29 @@ import { ChatInput } from './ChatInput';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 export function ChatContainer() {
-  const { messages, isLoading, addMessage, appendToLastMessage, setLoading } =
-    useChatStore();
+  const {
+    messages,
+    isLoading,
+    addMessage,
+    appendToLastMessage,
+    setStreaming,
+    setLoading,
+  } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const currentMessageIdRef = useRef<string | null>(null);
+  const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
 
   const handleAgentMessage = useCallback(
     (msg: { type: string; catId: string; content?: string; error?: string }) => {
       if (msg.type === 'text' && msg.content) {
-        if (!currentMessageIdRef.current) {
-          // First text chunk - create new message
-          const id = `msg-${Date.now()}`;
-          currentMessageIdRef.current = id;
+        // Check if we need to create a new message (first chunk or different cat)
+        const needNewMessage =
+          !currentMessageRef.current ||
+          currentMessageRef.current.catId !== msg.catId;
+
+        if (needNewMessage) {
+          // Create new message for this cat
+          const id = `msg-${Date.now()}-${msg.catId}`;
+          currentMessageRef.current = { id, catId: msg.catId };
           addMessage({
             id,
             type: 'assistant',
@@ -30,24 +41,32 @@ export function ChatContainer() {
             isStreaming: true,
           });
         } else {
-          // Append to existing message
+          // Append to existing message from same cat
           appendToLastMessage(msg.content);
         }
       } else if (msg.type === 'done') {
-        currentMessageIdRef.current = null;
+        // Mark current message as not streaming, but don't reset
+        // (multi-cat may have more cats coming)
+        // Reset only happens when all cats are done (when we get final done)
+        if (currentMessageRef.current) {
+          setStreaming(currentMessageRef.current.id, false);
+        }
+        // Note: setLoading(false) is called for each cat's done message
+        // This is fine since the last cat's done will be the final state
         setLoading(false);
       } else if (msg.type === 'error') {
-        currentMessageIdRef.current = null;
+        currentMessageRef.current = null;
         setLoading(false);
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
-          content: `Error: ${msg.error ?? msg.content ?? 'Unknown error'}`,
+          catId: msg.catId,
+          content: `Error: ${msg.error ?? 'Unknown error'}`,
           timestamp: Date.now(),
         });
       }
     },
-    [addMessage, appendToLastMessage, setLoading]
+    [addMessage, appendToLastMessage, setStreaming, setLoading]
   );
 
   useSocket(handleAgentMessage);
