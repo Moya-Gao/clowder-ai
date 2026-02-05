@@ -50,15 +50,19 @@ OpenClaw 提供了 token-based 方案：
 
 ```bash
 # 新 session
-codex exec --json --sandbox workspace-write --approval-mode on-failure "prompt"
+codex exec --json --sandbox workspace-write --full-auto "prompt"
 
 # Resume session
-codex exec resume <session-id> --json
+codex exec resume <session-id> "prompt" --json --full-auto
 ```
 
 **认证**: 已登录的 ChatGPT Plus/Pro 账号
 **Agent 能力**: ✅ 完整（文件操作、沙箱执行）
 **Session Resume**: ✅ 支持 `exec resume`
+
+**参数兼容性备注（2026-02-05）**：
+- 当前环境的 `codex exec --help` 不支持 `--approval-mode`
+- 自动化建议使用 `--full-auto`（并保持 `--sandbox workspace-write`）
 
 **结论**: CLI 方案直接可用。
 
@@ -160,25 +164,22 @@ opencode run "Hello" --model=google/antigravity-gemini-3-pro
 - **Claude**: `claude -p` CLI，用 Max plan
 - **Codex**: `codex exec` CLI，用 ChatGPT Plus/Pro
 
-### 5.2 暹罗猫：方案待定 ⚠️
+### 5.2 暹罗猫：Phase 2.5 方案已确定（双 Adapter） ✅
 
-**问题**：
-1. Gemini CLI 的 agent 能力有限（铲屎官反馈不好用）
-2. Antigravity IDE 没有官方 programmatic API
-3. 社区方案要么只有 chat 能力，要么违反 ToS
+**决策**：
+1. **主力**：`antigravity-desktop`（半自动，本地 GUI）
+2. **fallback**：`gemini-cli`（全自动/headless，用于 CI/远程）
 
-**可能的方案**：
+**理由**：
+1. 纯 headless 无法获得 Antigravity IDE 的完整 agent 工作流
+2. `antigravity chat --mode agent` 可唤醒本地 IDE，并通过 MCP 回传结果
+3. `gemini-cli` 提供部署场景的自动化兜底
 
-1. **方案 A**: 使用 Gemini CLI（agent 能力有限）
-2. **方案 B**: 使用 antigravity2api-nodejs 代理（只有 chat）
-3. **方案 C**: 暂时跳过暹罗猫的 agent 能力，Phase 3 再解决
-4. **方案 D**: 等 Google 官方提供 Antigravity 的 headless API
+### 5.3 实施前提（必须满足）
 
-### 5.3 建议
-
-**Phase 2.5 先实现布偶猫和缅因猫**，暹罗猫的方案需要进一步讨论：
-- 如果接受 agent 能力有限 → 用 Gemini CLI
-- 如果需要完整 agent 能力 → 等官方 API 或承担 ToS 风险
+1. 由 Cat Café 后端下发 `invocationId + callbackToken`，用作 MCP 回传关联与鉴权
+2. 暹罗猫回传不走 CLI stdout，统一走 `cat_cafe.post_message`
+3. token 设置短 TTL，并在后端审计所有回传事件
 
 ---
 
@@ -200,4 +201,4 @@ opencode run "Hello" --model=google/antigravity-gemini-3-pro
 
 ---
 
-*布偶猫备注：暹罗猫的方案是这次研究最大的未知数。建议和铲屎官讨论后决定。*
+*布偶猫备注（v3.1）：暹罗猫路线从“待定”更新为“已定双 adapter”，但要严格依赖 MCP 回传鉴权与线程关联。*
