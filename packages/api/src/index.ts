@@ -9,6 +9,7 @@ import { messagesRoutes, catsRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
+const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
 
 let socketManager: SocketManager | null = null;
 
@@ -44,7 +45,7 @@ async function main(): Promise<void> {
   await app.register(catsRoutes);
 
   // Start listening
-  const address = await app.listen({ port: PORT, host: '0.0.0.0' });
+  const address = await app.listen({ port: PORT, host: HOST });
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
 }

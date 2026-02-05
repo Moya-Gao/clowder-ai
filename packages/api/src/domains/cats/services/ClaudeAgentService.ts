@@ -60,9 +60,8 @@ export class ClaudeAgentService implements AgentService {
         prompt,
         options: {
           model: 'claude-sonnet-4-5-20250929',
-          allowedTools: ['Read', 'Edit', 'Bash', 'Glob', 'Grep'],
-          permissionMode: 'bypassPermissions',
-          allowDangerouslySkipPermissions: true,
+          allowedTools: ['Read', 'Edit', 'Glob', 'Grep'],
+          permissionMode: 'dontAsk',
           ...(options?.sessionId ? { resume: options.sessionId } : {}),
           ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
         },
