@@ -6,7 +6,9 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import type { CatId } from '@cat-cafe/shared';
 import { ClaudeAgentService } from '../domains/cats/services/index.js';
+import { getSocketManager } from '../index.js';
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(10000),
@@ -16,7 +18,7 @@ const sendMessageSchema = z.object({
 export const messagesRoutes: FastifyPluginAsync = async (app) => {
   const claudeService = new ClaudeAgentService();
 
-  // POST /api/messages - 发送消息（SSE 流式响应）
+  // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
     // Validate request body
     const parseResult = sendMessageSchema.safeParse(request.body);
@@ -26,22 +28,27 @@ export const messagesRoutes: FastifyPluginAsync = async (app) => {
     }
     const body = parseResult.data;
 
-    // Set up SSE
-    reply.raw.setHeader('Content-Type', 'text/event-stream');
-    reply.raw.setHeader('Cache-Control', 'no-cache');
-    reply.raw.setHeader('Connection', 'keep-alive');
+    const socketManager = getSocketManager();
 
-    try {
-      for await (const msg of claudeService.invoke(body.content)) {
-        const data = JSON.stringify(msg);
-        reply.raw.write(`data: ${data}\n\n`);
+    // Return immediately with processing status
+    reply.send({ status: 'processing', timestamp: Date.now() });
+
+    // Process in background and broadcast via WebSocket
+    void (async () => {
+      try {
+        for await (const msg of claudeService.invoke(body.content)) {
+          socketManager.broadcastAgentMessage(msg);
+        }
+      } catch (err) {
+        console.error('[messages] Background processing error:', err);
+        socketManager.broadcastAgentMessage({
+          type: 'error',
+          catId: 'opus' as CatId,
+          error: err instanceof Error ? err.message : 'Unknown error',
+          timestamp: Date.now(),
+        });
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
-      reply.raw.write(`data: ${JSON.stringify({ type: 'error', error: errorMsg })}\n\n`);
-    }
-
-    reply.raw.end();
+    })();
   });
 
   // GET /api/messages - 获取历史消息（placeholder）
