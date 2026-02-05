@@ -21,7 +21,7 @@ export function ChatContainer() {
   const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
 
   const handleAgentMessage = useCallback(
-    (msg: { type: string; catId: string; content?: string; error?: string }) => {
+    (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean }) => {
       if (msg.type === 'text' && msg.content) {
         // Check if we need to create a new message (first chunk or different cat)
         const needNewMessage =
@@ -45,15 +45,15 @@ export function ChatContainer() {
           appendToLastMessage(msg.content);
         }
       } else if (msg.type === 'done') {
-        // Mark current message as not streaming, but don't reset
-        // (multi-cat may have more cats coming)
-        // Reset only happens when all cats are done (when we get final done)
+        // Mark current message as not streaming
         if (currentMessageRef.current) {
           setStreaming(currentMessageRef.current.id, false);
         }
-        // Note: setLoading(false) is called for each cat's done message
-        // This is fine since the last cat's done will be the final state
-        setLoading(false);
+        // Only unlock loading state when all cats are done (isFinal = true)
+        // This prevents premature unlock in multi-cat invocations
+        if (msg.isFinal) {
+          setLoading(false);
+        }
       } else if (msg.type === 'error') {
         currentMessageRef.current = null;
         setLoading(false);
@@ -78,6 +78,10 @@ export function ChatContainer() {
 
   const handleSend = useCallback(
     async (content: string) => {
+      // Reset currentMessageRef before sending new message
+      // This ensures new responses create fresh messages instead of appending to old ones
+      currentMessageRef.current = null;
+
       // Add user message
       addMessage({
         id: `user-${Date.now()}`,

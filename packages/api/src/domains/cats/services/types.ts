@@ -34,6 +34,8 @@ export interface AgentMessage {
   toolInput?: Record<string, unknown>;
   /** Error message (for 'error' type) */
   error?: string;
+  /** Whether this is the final 'done' in a multi-cat invocation (for 'done' type) */
+  isFinal?: boolean;
   /** When this message was created */
   timestamp: number;
 }

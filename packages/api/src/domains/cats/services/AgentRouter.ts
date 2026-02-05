@@ -32,6 +32,12 @@ export interface AgentRouterOptions {
 }
 
 /**
+ * Maximum number of sessions to keep in memory
+ * Prevents unbounded memory growth before Redis migration in Phase 3
+ */
+const MAX_SESSIONS = 1000;
+
+/**
  * Router that parses @ mentions and routes to appropriate agent services
  */
 export class AgentRouter {
@@ -42,6 +48,7 @@ export class AgentRouter {
   /**
    * In-memory session storage (key: userId:catId, value: sessionId)
    * In Phase 3, this will be migrated to Redis
+   * Note: Limited to MAX_SESSIONS entries to prevent unbounded growth
    */
   private sessions: Map<string, string>;
 
@@ -60,19 +67,26 @@ export class AgentRouter {
   private parseMentions(message: string): CatId[] {
     const lowerMessage = message.toLowerCase();
     const mentions: ParsedMention[] = [];
-    const seenCats = new Set<string>();
 
-    // Check each cat's mention patterns
+    // Check each cat's mention patterns and find the earliest occurrence
     for (const config of Object.values(CAT_CONFIGS)) {
+      let earliestPosition = -1;
+
+      // Find the earliest position among all patterns for this cat
       for (const pattern of config.mentionPatterns) {
         const lowerPattern = pattern.toLowerCase();
         const position = lowerMessage.indexOf(lowerPattern);
 
-        if (position !== -1 && !seenCats.has(config.id)) {
-          mentions.push({ catId: config.id, position });
-          seenCats.add(config.id);
-          break; // Found a match for this cat, no need to check other patterns
+        if (position !== -1) {
+          if (earliestPosition === -1 || position < earliestPosition) {
+            earliestPosition = position;
+          }
         }
+      }
+
+      // If this cat was mentioned, record its earliest position
+      if (earliestPosition !== -1) {
+        mentions.push({ catId: config.id, position: earliestPosition });
       }
     }
 
@@ -106,9 +120,24 @@ export class AgentRouter {
 
   /**
    * Store session ID for user + cat combination
+   * Evicts oldest entries when MAX_SESSIONS is exceeded (simple LRU)
    */
   private storeSession(userId: string, catId: CatId, sessionId: string): void {
     const key = this.getSessionKey(userId, catId);
+
+    // If key already exists, delete it first so it moves to the end (most recent)
+    if (this.sessions.has(key)) {
+      this.sessions.delete(key);
+    }
+
+    // Evict oldest entries if we're at capacity
+    while (this.sessions.size >= MAX_SESSIONS) {
+      const oldestKey = this.sessions.keys().next().value;
+      if (oldestKey !== undefined) {
+        this.sessions.delete(oldestKey);
+      }
+    }
+
     this.sessions.set(key, sessionId);
   }
 
@@ -139,7 +168,9 @@ export class AgentRouter {
     const previousResponses: { catId: CatId; content: string }[] = [];
 
     // Invoke each cat in order
-    for (const catId of targetCats) {
+    const totalCats = targetCats.length;
+    for (const [index, catId] of targetCats.entries()) {
+      const isLastCat = index === totalCats - 1;
       const service = this.getService(catId);
 
       // Build prompt: original message + previous responses
@@ -170,9 +201,12 @@ export class AgentRouter {
           textContent += msg.content;
         }
 
-        // Yield all messages except 'done' for intermediate cats
-        // (we want continuous streaming without intermediate 'done' messages)
-        yield msg;
+        // For 'done' messages, mark isFinal only for the last cat
+        if (msg.type === 'done') {
+          yield { ...msg, isFinal: isLastCat };
+        } else {
+          yield msg;
+        }
       }
 
       // Store response for next cat in chain

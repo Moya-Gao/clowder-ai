@@ -22,6 +22,12 @@ const CAT_ID = createCatId('gemini');
 const DEFAULT_MODEL = 'gemini-2.0-flash';
 
 /**
+ * Maximum number of chat histories to keep in memory
+ * Prevents unbounded memory growth before Redis migration in Phase 3
+ */
+const MAX_SESSIONS = 1000;
+
+/**
  * Interface for GoogleGenerativeAI SDK (for dependency injection)
  */
 interface GenAILike {
@@ -139,6 +145,18 @@ export class GeminiAgentService implements AgentService {
         { role: 'user', parts: [{ text: prompt }] },
         { role: 'model', parts: [{ text: responseText }] },
       ];
+
+      // Evict oldest entries if we're at capacity (simple LRU)
+      // Delete existing key first so it moves to the end (most recent)
+      if (this.chatHistories.has(sessionId)) {
+        this.chatHistories.delete(sessionId);
+      }
+      while (this.chatHistories.size >= MAX_SESSIONS) {
+        const oldestKey = this.chatHistories.keys().next().value;
+        if (oldestKey !== undefined) {
+          this.chatHistories.delete(oldestKey);
+        }
+      }
       this.chatHistories.set(sessionId, updatedHistory);
 
       // Yield text response
