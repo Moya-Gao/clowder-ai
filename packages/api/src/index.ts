@@ -3,7 +3,6 @@
  * 后端 API 入口
  */
 
-import { createServer } from 'node:http';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { messagesRoutes, catsRoutes } from './routes/index.js';
@@ -36,24 +35,18 @@ async function main(): Promise<void> {
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
-  // Create HTTP server from Fastify's server handler
-  const httpServer = createServer(app.server);
-
-  // Initialize WebSocket manager BEFORE routes (routes use getSocketManager())
-  socketManager = new SocketManager(httpServer);
+  // Initialize WebSocket manager BEFORE routes (routes use getSocketManager()).
+  // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
+  socketManager = new SocketManager(app.server);
 
   // Register routes (safe to call getSocketManager() now)
   await app.register(messagesRoutes);
   await app.register(catsRoutes);
 
-  // Prepare Fastify
-  await app.ready();
-
   // Start listening
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`[api] Server running on http://localhost:${PORT}`);
-    console.log(`[ws] WebSocket server ready`);
-  });
+  const address = await app.listen({ port: PORT, host: '0.0.0.0' });
+  app.log.info(`[api] Server running on ${address}`);
+  app.log.info(`[ws] WebSocket server ready`);
 }
 
 main().catch((err) => {
