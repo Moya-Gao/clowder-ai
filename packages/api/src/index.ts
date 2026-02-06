@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
-  // Initialize WebSocket manager BEFORE routes (routes use getSocketManager()).
+  // Initialize WebSocket manager BEFORE routes (injected via opts, no circular import).
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server);
 
@@ -50,10 +50,11 @@ async function main(): Promise<void> {
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
 
-  // Register routes (safe to call getSocketManager() now)
+  // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
     messageStore,
+    socketManager,
     ...(sessionStore ? { sessionStore } : {}),
   });
   await app.register(catsRoutes);

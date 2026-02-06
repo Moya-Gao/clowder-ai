@@ -16,16 +16,24 @@ import {
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
-import { getSocketManager } from '../index.js';
+import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 /**
- * Dependencies injected via Fastify plugin options
+ * Dependencies injected via Fastify plugin options.
+ * socketManager is injected to avoid circular import from index.ts.
  */
 export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
+  socketManager: SocketManager;
   sessionStore?: SessionStore;
 }
+
+const getMessagesSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  before: z.coerce.number().int().optional(),
+  userId: z.string().min(1).max(100).default('default-user'),
+});
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(10000),
@@ -55,8 +63,6 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     }
     const body = parseResult.data;
 
-    const socketManager = getSocketManager();
-
     // Return immediately with processing status
     reply.send({ status: 'processing', timestamp: Date.now() });
 
@@ -65,11 +71,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       try {
         // Use router.route() to handle @ mentions and route to appropriate agents
         for await (const msg of router.route(body.userId, body.content)) {
-          socketManager.broadcastAgentMessage(msg);
+          opts.socketManager.broadcastAgentMessage(msg);
         }
       } catch (err) {
         console.error('[messages] Background processing error:', err);
-        socketManager.broadcastAgentMessage({
+        opts.socketManager.broadcastAgentMessage({
           type: 'error',
           catId: createCatId('opus'),
           error: err instanceof Error ? err.message : 'Unknown error',
@@ -79,9 +85,31 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     })();
   });
 
-  // GET /api/messages - 获取历史消息（placeholder）
-  app.get('/api/messages', async () => {
-    // TODO: Implement message history from file/redis
-    return { messages: [], total: 0 };
+  // GET /api/messages - 获取历史消息
+  app.get('/api/messages', async (request) => {
+    const parseResult = getMessagesSchema.safeParse(request.query);
+    if (!parseResult.success) {
+      return { messages: [], hasMore: false };
+    }
+    const { limit, before, userId } = parseResult.data;
+
+    const messages = before
+      ? await opts.messageStore.getBefore(before, limit + 1, userId)
+      : await opts.messageStore.getRecent(limit + 1, userId);
+
+    // Fetch limit+1 to determine hasMore
+    const hasMore = messages.length > limit;
+    const page = hasMore ? messages.slice(0, limit) : messages;
+
+    return {
+      messages: page.map((m) => ({
+        id: m.id,
+        type: m.catId ? 'assistant' : 'user',
+        catId: m.catId,
+        content: m.content,
+        timestamp: m.timestamp,
+      })),
+      hasMore,
+    };
   });
 };

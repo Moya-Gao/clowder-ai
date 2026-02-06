@@ -13,23 +13,32 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
   let createRedisClient;
   let redis;
   let store;
+  let connected = false;
 
   before(async () => {
-    const storeModule = await import('../src/domains/cats/services/RedisMessageStore.js');
+    const storeModule = await import('../dist/domains/cats/services/RedisMessageStore.js');
     RedisMessageStore = storeModule.RedisMessageStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
 
     redis = createRedisClient({ url: REDIS_URL });
+    // Connectivity check: skip all tests if Redis is unreachable
+    try {
+      await redis.ping();
+      connected = true;
+    } catch {
+      console.warn('[redis-message-store.test] Redis unreachable, skipping tests');
+      await redis.quit().catch(() => {});
+      return;
+    }
     store = new RedisMessageStore(redis, { ttlSeconds: 60 });
   });
 
   after(async () => {
-    if (redis) {
+    if (redis && connected) {
       // Clean up test keys
       const keys = await redis.keys('cat-cafe:msg:*');
       if (keys.length > 0) {
-        // Strip prefix for pipeline del (ioredis keyPrefix applies automatically)
         const stripped = keys.map(k => k.replace(/^cat-cafe:/, ''));
         await redis.del(...stripped);
       }
@@ -37,7 +46,8 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     }
   });
 
-  beforeEach(async () => {
+  beforeEach(async (t) => {
+    if (!connected) return t.skip('Redis not connected');
     // Clean up before each test
     const keys = await redis.keys('cat-cafe:msg:*');
     if (keys.length > 0) {
