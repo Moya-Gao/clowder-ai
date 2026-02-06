@@ -2,6 +2,60 @@
 @tailwind components;
 @tailwind utilities;
 
+/* === Cat Cafe Design System Variables (from 暹罗猫) === */
+:root {
+  /* Base Colors */
+  --color-base-white: #FDF8F3;
+  --color-base-black: #1E1E24;
+
+  /* Opus (The Architect) - Purple */
+  --color-opus-primary: #9B7EBD;
+  --color-opus-light: #D4C1EC;
+  --color-opus-dark: #6D5A8C;
+  --color-opus-bg: #F3EAF8;
+
+  /* Codex (The Engineer) - Green */
+  --color-codex-primary: #5B8C5A;
+  --color-codex-light: #8FB98E;
+  --color-codex-dark: #3A5F39;
+  --color-codex-bg: #EAF6EA;
+
+  /* Gemini (The Creative) - Blue */
+  --color-gemini-primary: #5B9BD5;
+  --color-gemini-light: #9CC0E7;
+  --color-gemini-dark: #3A6FA5;
+  --color-gemini-bg: #EAF4FB;
+
+  /* Owner (Shit Shoveler) - Coffee/Latte */
+  --color-owner-primary: #E29578;
+  --color-owner-light: #FFDDD2;
+  --color-owner-dark: #815B5B;
+  --color-owner-bg: #FFF5F2;
+
+  /* UI Tokens */
+  --bg-app: var(--color-base-white);
+  --text-primary: var(--color-base-black);
+  --text-secondary: #666666;
+  --border-radius-base: 16px;
+  --spacing-unit: 8px;
+}
+
+[data-theme="dark"] {
+  --bg-app: var(--color-base-black);
+  --text-primary: var(--color-base-white);
+  --text-secondary: #AAAAAA;
+  --color-opus-bg: rgba(155, 126, 189, 0.15);
+  --color-codex-bg: rgba(91, 140, 90, 0.15);
+  --color-gemini-bg: rgba(91, 155, 213, 0.15);
+}
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-app);
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
