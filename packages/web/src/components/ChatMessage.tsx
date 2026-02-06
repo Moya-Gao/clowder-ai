@@ -1,36 +1,81 @@
 'use client';
 
 import type { ChatMessage as ChatMessageType } from '@/stores/chatStore';
+import { CatAvatar } from './CatAvatar';
 
-const CAT_COLORS: Record<string, { bg: string; border: string; name: string }> = {
-  opus: { bg: 'bg-opus-secondary', border: 'border-opus-primary', name: '布偶猫' },
-  codex: { bg: 'bg-codex-secondary', border: 'border-codex-primary', name: '缅因猫' },
-  gemini: { bg: 'bg-gemini-secondary', border: 'border-gemini-primary', name: '暹罗猫' },
+const CAT_STYLES: Record<string, {
+  bg: string;
+  border: string;
+  name: string;
+  radius: string;
+  font?: string;
+}> = {
+  opus: {
+    bg: 'bg-opus-bg',
+    border: 'border-opus-light',
+    name: '布偶猫',
+    radius: 'rounded-2xl rounded-bl-sm',
+  },
+  codex: {
+    bg: 'bg-codex-bg',
+    border: 'border-codex-light',
+    name: '缅因猫',
+    radius: 'rounded-2xl rounded-br-sm',
+    font: 'font-mono',
+  },
+  gemini: {
+    bg: 'bg-gemini-bg',
+    border: 'border-gemini-light',
+    name: '暹罗猫',
+    radius: 'rounded-2xl rounded-tr-sm',
+  },
 };
 
 export function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.type === 'user';
-  const cat = message.catId ? CAT_COLORS[message.catId] : null;
+  const isSystem = message.type === 'system';
+  const cat = message.catId ? CAT_STYLES[message.catId] : null;
+
+  if (isSystem) {
+    return (
+      <div className="flex justify-center mb-3">
+        <div className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-full">
+          {message.content}
+        </div>
+      </div>
+    );
+  }
+
+  if (isUser) {
+    return (
+      <div className="flex justify-end mb-4">
+        <div className="max-w-[75%] bg-owner-light text-owner-dark rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5">
+          <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+    <div className="flex gap-2 mb-4 items-end">
+      {cat && <CatAvatar catId={message.catId!} size={32} />}
       <div
-        className={`max-w-[80%] rounded-lg p-4 ${
-          isUser
-            ? 'bg-gray-200 text-gray-900'
-            : cat
-            ? `${cat.bg} border-l-4 ${cat.border}`
-            : 'bg-white border border-gray-200'
+        className={`max-w-[75%] border px-4 py-3 transition-transform hover:-translate-y-0.5 ${
+          cat
+            ? `${cat.bg} ${cat.border} ${cat.radius} ${cat.font ?? ''}`
+            : 'bg-white border-gray-200 rounded-2xl'
         }`}
       >
-        {!isUser && cat && (
-          <div className="text-sm font-medium mb-1 text-gray-600">
+        {cat && (
+          <div className="text-xs font-semibold mb-1 opacity-60">
             {cat.name}
           </div>
         )}
-        <div className="whitespace-pre-wrap">{message.content}</div>
+        <div className={`whitespace-pre-wrap text-sm ${cat?.font ?? ''}`}>
+          {message.content}
+        </div>
         {message.isStreaming && (
-          <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1" />
+          <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
         )}
       </div>
     </div>

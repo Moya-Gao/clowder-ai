@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useCallback, KeyboardEvent } from 'react';
+import { SendIcon } from './icons/SendIcon';
+import { LoadingIcon } from './icons/LoadingIcon';
 
 interface ChatInputProps {
   onSend: (content: string) => void;
@@ -26,23 +28,28 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className="border-t border-gray-200 p-4 bg-white">
-      <div className="flex gap-2">
+    <div className="border-t border-owner-light p-4 bg-owner-bg">
+      <div className="flex gap-2 items-end">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="输入消息... (@ 可召唤猫猫)"
-          className="flex-1 resize-none rounded-lg border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-opus-primary"
+          className="flex-1 resize-none rounded-xl border border-owner-light bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-owner-primary placeholder:text-gray-400"
           rows={2}
           disabled={disabled}
         />
         <button
           onClick={handleSend}
           disabled={disabled || !input.trim()}
-          className="px-6 py-2 bg-opus-primary text-white rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="Send message"
         >
-          发送
+          {disabled ? (
+            <LoadingIcon className="w-5 h-5" />
+          ) : (
+            <SendIcon className="w-5 h-5" />
+          )}
         </button>
       </div>
     </div>

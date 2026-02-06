@@ -5,6 +5,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -23,13 +24,11 @@ export function ChatContainer() {
   const handleAgentMessage = useCallback(
     (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean }) => {
       if (msg.type === 'text' && msg.content) {
-        // Check if we need to create a new message (first chunk or different cat)
         const needNewMessage =
           !currentMessageRef.current ||
           currentMessageRef.current.catId !== msg.catId;
 
         if (needNewMessage) {
-          // Create new message for this cat
           const id = `msg-${Date.now()}-${msg.catId}`;
           currentMessageRef.current = { id, catId: msg.catId };
           addMessage({
@@ -41,16 +40,12 @@ export function ChatContainer() {
             isStreaming: true,
           });
         } else {
-          // Append to existing message from same cat
           appendToLastMessage(msg.content);
         }
       } else if (msg.type === 'done') {
-        // Mark current message as not streaming
         if (currentMessageRef.current) {
           setStreaming(currentMessageRef.current.id, false);
         }
-        // Only unlock loading state when all cats are done (isFinal = true)
-        // This prevents premature unlock in multi-cat invocations
         if (msg.isFinal) {
           setLoading(false);
         }
@@ -71,18 +66,14 @@ export function ChatContainer() {
 
   useSocket(handleAgentMessage);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSend = useCallback(
     async (content: string) => {
-      // Reset currentMessageRef before sending new message
-      // This ensures new responses create fresh messages instead of appending to old ones
       currentMessageRef.current = null;
 
-      // Add user message
       addMessage({
         id: `user-${Date.now()}`,
         type: 'user',
@@ -92,7 +83,6 @@ export function ChatContainer() {
 
       setLoading(true);
 
-      // Send to API
       try {
         await fetch(`${API_URL}/api/messages`, {
           method: 'POST',
@@ -114,16 +104,20 @@ export function ChatContainer() {
 
   return (
     <div className="flex flex-col h-screen">
-      <header className="border-b border-gray-200 p-4 bg-white">
-        <h1 className="text-xl font-bold text-opus-primary">Cat Cafe</h1>
-        <p className="text-sm text-gray-500">三只 AI 猫猫的协作空间</p>
+      <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2">
+        <PawIcon className="w-6 h-6 text-owner-primary" />
+        <div>
+          <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
+          <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
+        </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4 bg-gray-50">
+      <main className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <div className="text-center text-gray-400 mt-20">
-            <p className="text-lg mb-2">欢迎来到 Cat Cafe!</p>
-            <p>输入 @布偶 召唤布偶猫开始聊天</p>
+          <div className="text-center mt-20">
+            <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
+            <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
+            <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
           </div>
         ) : (
           messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
