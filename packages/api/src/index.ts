@@ -9,7 +9,7 @@ import { messagesRoutes, catsRoutes, callbacksRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
-import { createRedisClient } from '@cat-cafe/shared/utils';
+import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -48,9 +48,14 @@ async function main(): Promise<void> {
   const redisUrl = process.env['REDIS_URL'];
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
   const messageStore = createMessageStore(redis);
+  const sessionStore = redis ? new SessionStore(redis) : undefined;
 
   // Register routes (safe to call getSocketManager() now)
-  await app.register(messagesRoutes, { registry, messageStore });
+  await app.register(messagesRoutes, {
+    registry,
+    messageStore,
+    ...(sessionStore ? { sessionStore } : {}),
+  });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager });
 

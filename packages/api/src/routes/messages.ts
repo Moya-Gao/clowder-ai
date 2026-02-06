@@ -15,6 +15,7 @@ import {
 } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { SessionStore } from '@cat-cafe/shared/utils';
 import { getSocketManager } from '../index.js';
 
 /**
@@ -23,6 +24,7 @@ import { getSocketManager } from '../index.js';
 export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
+  sessionStore?: SessionStore;
 }
 
 const sendMessageSchema = z.object({
@@ -40,6 +42,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     geminiService: new GeminiAgentService(),
     registry: opts.registry,
     messageStore: opts.messageStore,
+    ...(opts.sessionStore ? { sessionStore: opts.sessionStore } : {}),
   });
 
   // POST /api/messages - 发送消息（WebSocket 广播）

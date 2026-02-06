@@ -7,11 +7,12 @@
  * - 支持中英文提及模式
  * - 多猫提及时按出现顺序串行执行
  * - 后一只猫的 prompt 包含前一只猫的回复
- * - Session 管理（内存存储，key 为 userId:catId）
+ * - Session 管理: Redis (有 SessionStore) 或内存 Map (降级)
  */
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
@@ -35,11 +36,12 @@ export interface AgentRouterOptions {
   registry: InvocationRegistry;
   /** Message store for thread context / mentions */
   messageStore: IMessageStore;
+  /** Optional Redis session store; falls back to in-memory Map when absent */
+  sessionStore?: SessionStore;
 }
 
 /**
- * Maximum number of sessions to keep in memory
- * Prevents unbounded memory growth before Redis migration in Phase 3
+ * Maximum number of sessions to keep in memory (fallback mode only)
  */
 const MAX_SESSIONS = 1000;
 
@@ -52,12 +54,9 @@ export class AgentRouter {
   private geminiService: AgentService;
   private registry: InvocationRegistry;
   private messageStore: IMessageStore;
+  private sessionStore: SessionStore | null;
 
-  /**
-   * In-memory session storage (key: userId:catId, value: sessionId)
-   * In Phase 3, this will be migrated to Redis
-   * Note: Limited to MAX_SESSIONS entries to prevent unbounded growth
-   */
+  /** In-memory fallback when no Redis SessionStore is provided */
   private sessions: Map<string, string>;
 
   constructor(options: AgentRouterOptions) {
@@ -66,6 +65,7 @@ export class AgentRouter {
     this.geminiService = options.geminiService;
     this.registry = options.registry;
     this.messageStore = options.messageStore;
+    this.sessionStore = options.sessionStore ?? null;
     this.sessions = new Map();
   }
 
@@ -129,10 +129,15 @@ export class AgentRouter {
   }
 
   /**
-   * Store session ID for user + cat combination
-   * Evicts oldest entries when MAX_SESSIONS is exceeded (simple LRU)
+   * Store session ID for user + cat combination.
+   * Uses Redis SessionStore when available, falls back to in-memory Map.
    */
-  private storeSession(userId: string, catId: CatId, sessionId: string): void {
+  private async storeSession(userId: string, catId: CatId, sessionId: string): Promise<void> {
+    if (this.sessionStore) {
+      await this.sessionStore.setSessionId(userId, catId, sessionId);
+      return;
+    }
+
     const key = this.getSessionKey(userId, catId);
 
     // If key already exists, delete it first so it moves to the end (most recent)
@@ -152,9 +157,15 @@ export class AgentRouter {
   }
 
   /**
-   * Get stored session ID for user + cat combination
+   * Get stored session ID for user + cat combination.
+   * Uses Redis SessionStore when available, falls back to in-memory Map.
    */
-  private getSession(userId: string, catId: CatId): string | undefined {
+  private async getSession(userId: string, catId: CatId): Promise<string | undefined> {
+    if (this.sessionStore) {
+      const result = await this.sessionStore.getSessionId(userId, catId);
+      return result ?? undefined;
+    }
+
     const key = this.getSessionKey(userId, catId);
     return this.sessions.get(key);
   }
@@ -206,7 +217,7 @@ export class AgentRouter {
       }
 
       // Get stored session for this user + cat
-      const sessionId = this.getSession(userId, catId);
+      const sessionId = await this.getSession(userId, catId);
 
       // Create invocation for MCP callback auth
       const { invocationId, callbackToken } = this.registry.create(userId, catId);
@@ -229,7 +240,7 @@ export class AgentRouter {
         for await (const msg of service.invoke(prompt, options)) {
           // Store session ID when we receive session_init
           if (msg.type === 'session_init' && msg.sessionId) {
-            this.storeSession(userId, catId, msg.sessionId);
+            await this.storeSession(userId, catId, msg.sessionId);
           }
 
           // Accumulate text content for chaining
