@@ -45,8 +45,8 @@ export interface IMessageStore {
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getByThread(threadId: string, limit?: number): StoredMessage[] | Promise<StoredMessage[]>;
-  getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
 }
 
 /** Max messages to keep in memory */
@@ -167,15 +167,15 @@ export class MessageStore {
   /**
    * Get the most recent N messages in a specific thread.
    */
-  getByThread(threadId: string, limit?: number): StoredMessage[] {
+  getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if (msg.threadId === threadId) {
-        matches.push(msg);
-      }
+      if (msg.threadId !== threadId) continue;
+      if (userId && msg.userId !== userId) continue;
+      matches.push(msg);
     }
     return matches.reverse();
   }
@@ -187,7 +187,8 @@ export class MessageStore {
     threadId: string,
     timestamp: number,
     limit?: number,
-    beforeId?: string
+    beforeId?: string,
+    userId?: string
   ): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
@@ -195,6 +196,7 @@ export class MessageStore {
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
       if (msg.threadId !== threadId) continue;
+      if (userId && msg.userId !== userId) continue;
       if (msg.timestamp > timestamp) continue;
       if (msg.timestamp === timestamp) {
         if (!beforeId || msg.id >= beforeId) continue;

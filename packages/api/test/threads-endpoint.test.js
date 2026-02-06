@@ -192,6 +192,33 @@ describe('GET /api/messages with threadId', () => {
     assert.equal(body.messages[0].content, 'thread-a msg');
   });
 
+  it('thread query filters by userId (regression: cross-user leak)', async () => {
+    messageStore.append({
+      userId: 'alice',
+      catId: null,
+      content: 'alice in thread',
+      mentions: [],
+      timestamp: 1000,
+      threadId: 'shared-thread',
+    });
+    messageStore.append({
+      userId: 'bob',
+      catId: null,
+      content: 'bob in thread',
+      mentions: [],
+      timestamp: 2000,
+      threadId: 'shared-thread',
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/messages?threadId=shared-thread&userId=alice',
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].content, 'alice in thread');
+  });
+
   it('thread-scoped pagination with before cursor', async () => {
     for (let i = 0; i < 5; i++) {
       messageStore.append({

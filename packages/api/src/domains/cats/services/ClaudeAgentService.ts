@@ -175,7 +175,7 @@ export class ClaudeAgentService implements AgentService {
     }
 
     // Pass image paths via --images flag (needs smoke test to confirm flag name)
-    const imagePaths = extractImagePaths(options?.contentBlocks);
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     for (const imgPath of imagePaths) {
       args.push('--images', imgPath);
     }

@@ -140,7 +140,8 @@ export class AgentRouter {
     userId: string,
     message: string,
     threadId?: string,
-    contentBlocks?: readonly MessageContent[]
+    contentBlocks?: readonly MessageContent[],
+    uploadDir?: string
   ): AsyncIterable<AgentMessage> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
     const targetCats = await this.resolveTargets(message, resolvedThreadId);
@@ -197,6 +198,7 @@ export class AgentRouter {
           ...(sessionId ? { sessionId } : {}),
           callbackEnv,
           ...(contentBlocks ? { contentBlocks } : {}),
+          ...(uploadDir ? { uploadDir } : {}),
         };
 
         for await (const msg of service.invoke(prompt, options)) {

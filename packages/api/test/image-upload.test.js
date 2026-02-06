@@ -91,6 +91,17 @@ describe('saveUploadedImages', () => {
     const diskFiles = await readdir(uploadDir);
     assert.equal(diskFiles.length, 2);
   });
+
+  it('uses MIME extension, ignores malicious filename (regression: XSS via .html)', async () => {
+    const { saveUploadedImages } = await import('../dist/routes/image-upload.js');
+
+    const fakeFile = createMockFile('evil.html', 'image/png', Buffer.from('fake-png'));
+    const saved = await saveUploadedImages([fakeFile], uploadDir);
+
+    assert.equal(saved.length, 1);
+    assert.ok(saved[0].absPath.endsWith('.png'), `expected .png, got ${saved[0].absPath}`);
+    assert.ok(saved[0].urlPath.endsWith('.png'), `expected .png URL, got ${saved[0].urlPath}`);
+  });
 });
 
 describe('extractImagePaths', () => {
@@ -122,6 +133,16 @@ describe('extractImagePaths', () => {
       { type: 'code', language: 'js', code: 'x=1' },
     ];
     assert.deepEqual(extractImagePaths(blocks), []);
+  });
+
+  it('uses custom uploadDir when provided (regression: env vs opts mismatch)', async () => {
+    const { extractImagePaths } = await import('../dist/domains/cats/services/image-paths.js');
+    const { resolve } = await import('node:path');
+
+    const blocks = [{ type: 'image', url: '/uploads/test.png' }];
+    const paths = extractImagePaths(blocks, '/custom/upload/dir');
+    assert.equal(paths.length, 1);
+    assert.equal(paths[0], resolve('/custom/upload/dir', 'test.png'));
   });
 });
 

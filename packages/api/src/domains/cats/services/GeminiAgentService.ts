@@ -151,7 +151,7 @@ export class GeminiAgentService implements AgentService {
     const args: string[] = ['-p', prompt, '-o', 'stream-json', '-y'];
 
     // Pass image paths via -i flag (gemini CLI v0.27.2+)
-    const imagePaths = extractImagePaths(options?.contentBlocks);
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     for (const imgPath of imagePaths) {
       args.push('-i', imgPath);
     }

@@ -5,7 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { extname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import type { MultipartFile } from '@fastify/multipart';
 import type { ImageContent } from '@cat-cafe/shared';
 
@@ -51,7 +51,8 @@ export async function saveUploadedImages(
       );
     }
 
-    const ext = extname(file.filename) || mimeToExt(file.mimetype);
+    // SECURITY: derive extension from validated MIME only, never trust filename
+    const ext = mimeToExt(file.mimetype);
     const filename = `${Date.now()}-${randomUUID().slice(0, 8)}${ext}`;
     const absPath = resolve(join(uploadDir, filename));
 

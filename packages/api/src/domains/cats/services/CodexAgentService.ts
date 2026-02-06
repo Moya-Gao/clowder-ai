@@ -103,7 +103,7 @@ export class CodexAgentService implements AgentService {
   ): AsyncIterable<AgentMessage> {
     // Codex CLI has no image flag; embed paths in prompt text (best effort)
     let effectivePrompt = prompt;
-    const imagePaths = extractImagePaths(options?.contentBlocks);
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     if (imagePaths.length > 0) {
       const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
       effectivePrompt = `${prompt}\n\n${refs}`;

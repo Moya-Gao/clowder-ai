@@ -103,7 +103,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // Process in background and broadcast via WebSocket
     void (async () => {
       try {
-        for await (const msg of router.route(userId, content, threadId, contentBlocks)) {
+        for await (const msg of router.route(userId, content, threadId, contentBlocks, uploadDir)) {
           opts.socketManager.broadcastAgentMessage(msg);
         }
       } catch (err) {
@@ -146,8 +146,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     let messages;
     if (threadId) {
       messages = beforeTs != null
-        ? await opts.messageStore.getByThreadBefore(threadId, beforeTs, limit + 1, beforeId)
-        : await opts.messageStore.getByThread(threadId, limit + 1);
+        ? await opts.messageStore.getByThreadBefore(threadId, beforeTs, limit + 1, beforeId, userId)
+        : await opts.messageStore.getByThread(threadId, limit + 1, userId);
     } else {
       messages = beforeTs != null
         ? await opts.messageStore.getBefore(beforeTs, limit + 1, userId, beforeId)

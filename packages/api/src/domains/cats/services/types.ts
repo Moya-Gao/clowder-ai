@@ -52,6 +52,8 @@ export interface AgentServiceOptions {
   callbackEnv?: Record<string, string>;
   /** Rich content blocks (e.g. images) to pass to the CLI agent */
   contentBlocks?: readonly MessageContent[];
+  /** Upload directory for resolving image paths */
+  uploadDir?: string;
 }
 
 /**

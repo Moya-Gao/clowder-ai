@@ -150,36 +150,46 @@ export class RedisMessageStore {
     return this.hydrateMessages(ids.reverse());
   }
 
-  async getByThread(threadId: string, limit?: number): Promise<StoredMessage[]> {
+  async getByThread(threadId: string, limit?: number, userId?: string): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
 
-    const ids = await this.redis.zrevrange(key, 0, n - 1);
+    // Over-fetch when userId filter is needed, then trim after hydration
+    const fetchN = userId ? n * 2 : n;
+    const ids = await this.redis.zrevrange(key, 0, fetchN - 1);
     if (ids.length === 0) return [];
 
-    return this.hydrateMessages(ids.reverse());
+    const messages = await this.hydrateMessages(ids.reverse());
+    if (!userId) return messages.slice(-n);
+    return messages.filter((m) => m.userId === userId).slice(-n);
   }
 
   async getByThreadBefore(
     threadId: string,
     timestamp: number,
     limit?: number,
-    beforeId?: string
+    beforeId?: string,
+    userId?: string
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
+    const fetchN = userId ? n * 2 : n;
 
     if (!beforeId) {
       const ids = await this.redis.zrevrangebyscore(
-        key, `(${timestamp}`, '-inf', 'LIMIT', 0, n
+        key, `(${timestamp}`, '-inf', 'LIMIT', 0, fetchN
       );
       if (ids.length === 0) return [];
-      return this.hydrateMessages(ids.reverse());
+      const messages = await this.hydrateMessages(ids.reverse());
+      if (!userId) return messages;
+      return messages.filter((m) => m.userId === userId).slice(-n);
     }
 
-    const ids = await this.fetchBeforeWithCursor(key, timestamp, beforeId, n);
+    const ids = await this.fetchBeforeWithCursor(key, timestamp, beforeId, fetchN);
     if (ids.length === 0) return [];
-    return this.hydrateMessages(ids.reverse());
+    const messages = await this.hydrateMessages(ids.reverse());
+    if (!userId) return messages;
+    return messages.filter((m) => m.userId === userId).slice(-n);
   }
 
   /**
