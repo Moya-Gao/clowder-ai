@@ -15,6 +15,7 @@
 import { createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
+import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import type {
   AgentMessage,
@@ -83,20 +84,6 @@ function transformCodexEvent(
   return null;
 }
 
-function formatCliExitError(event: {
-  exitCode: number | null;
-  signal: string | null;
-  stderr: string;
-}): string {
-  const status =
-    event.exitCode !== null ? `code ${event.exitCode}` : 'no exit code';
-  const signalText = event.signal ? `, signal ${event.signal}` : '';
-  const stderr = event.stderr.trim();
-  return stderr.length > 0
-    ? `Codex CLI exited (${status}${signalText}): ${stderr}`
-    : `Codex CLI exited (${status}${signalText})`;
-}
-
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -136,7 +123,7 @@ export class CodexAgentService implements AgentService {
           yield {
             type: 'error',
             catId: CAT_ID,
-            error: formatCliExitError(event),
+            error: formatCliExitError('Codex CLI', event),
             timestamp: Date.now(),
           };
           continue;

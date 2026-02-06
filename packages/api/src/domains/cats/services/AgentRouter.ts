@@ -224,24 +224,36 @@ export class AgentRouter {
       // Collect text content for chaining
       let textContent = '';
 
-      // Invoke the service and yield messages
-      for await (const msg of service.invoke(prompt, options)) {
-        // Store session ID when we receive session_init
-        if (msg.type === 'session_init' && msg.sessionId) {
-          this.storeSession(userId, catId, msg.sessionId);
-        }
+      try {
+        // Invoke the service and yield messages
+        for await (const msg of service.invoke(prompt, options)) {
+          // Store session ID when we receive session_init
+          if (msg.type === 'session_init' && msg.sessionId) {
+            this.storeSession(userId, catId, msg.sessionId);
+          }
 
-        // Accumulate text content for chaining
-        if (msg.type === 'text' && msg.content) {
-          textContent += msg.content;
-        }
+          // Accumulate text content for chaining
+          if (msg.type === 'text' && msg.content) {
+            textContent += msg.content;
+          }
 
-        // For 'done' messages, mark isFinal only for the last cat
-        if (msg.type === 'done') {
-          yield { ...msg, isFinal: isLastCat };
-        } else {
-          yield msg;
+          // For 'done' messages, mark isFinal only for the last cat
+          if (msg.type === 'done') {
+            yield { ...msg, isFinal: isLastCat };
+          } else {
+            yield msg;
+          }
         }
+      } catch (err) {
+        // Single cat error should not break the multi-cat chain
+        yield {
+          type: 'error' as const,
+          catId,
+          error: err instanceof Error ? err.message : String(err),
+          timestamp: Date.now(),
+        };
+        // Still yield done so the chain can continue
+        yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
       }
 
       // Store cat's response for next cat in chain + thread context

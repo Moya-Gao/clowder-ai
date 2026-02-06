@@ -13,3 +13,4 @@ export type {
 export { parseNDJSON, isParseError } from './ndjson-parser.js';
 export { spawnCli, isCliError, KILL_GRACE_MS } from './cli-spawn.js';
 export type { CliSpawnerDeps } from './cli-spawn.js';
+export { formatCliExitError } from './cli-format.js';

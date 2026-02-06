@@ -21,6 +21,7 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import { createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
+import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import type {
   AgentMessage,
@@ -112,20 +113,6 @@ function transformGeminiEvent(
   return null;
 }
 
-function formatCliExitError(event: {
-  exitCode: number | null;
-  signal: string | null;
-  stderr: string;
-}): string {
-  const status =
-    event.exitCode !== null ? `code ${event.exitCode}` : 'no exit code';
-  const signalText = event.signal ? `, signal ${event.signal}` : '';
-  const stderr = event.stderr.trim();
-  return stderr.length > 0
-    ? `Gemini CLI exited (${status}${signalText}): ${stderr}`
-    : `Gemini CLI exited (${status}${signalText})`;
-}
-
 /**
  * Service for invoking Gemini via CLI subprocess (dual adapter).
  * Uses Google AI Pro/Ultra subscription instead of API key.
@@ -180,7 +167,7 @@ export class GeminiAgentService implements AgentService {
           yield {
             type: 'error',
             catId: CAT_ID,
-            error: formatCliExitError(event),
+            error: formatCliExitError('Gemini CLI', event),
             timestamp: Date.now(),
           };
           continue;
