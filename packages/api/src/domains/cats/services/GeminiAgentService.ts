@@ -23,6 +23,7 @@ import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
+import { extractImagePaths } from './image-paths.js';
 import type {
   AgentMessage,
   AgentService,
@@ -148,6 +149,12 @@ export class GeminiAgentService implements AgentService {
     // Note: gemini CLI --resume uses local index (not UUID), incompatible
     // with AgentRouter's sessionId mechanism. Resume not supported.
     const args: string[] = ['-p', prompt, '-o', 'stream-json', '-y'];
+
+    // Pass image paths via -i flag (gemini CLI v0.27.2+)
+    const imagePaths = extractImagePaths(options?.contentBlocks);
+    for (const imgPath of imagePaths) {
+      args.push('-i', imgPath);
+    }
 
     try {
       const events = spawnCli(

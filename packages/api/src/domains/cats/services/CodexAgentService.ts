@@ -17,6 +17,7 @@ import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
+import { extractImagePaths } from './image-paths.js';
 import type {
   AgentMessage,
   AgentService,
@@ -100,10 +101,18 @@ export class CodexAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    // Codex CLI has no image flag; embed paths in prompt text (best effort)
+    let effectivePrompt = prompt;
+    const imagePaths = extractImagePaths(options?.contentBlocks);
+    if (imagePaths.length > 0) {
+      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
+      effectivePrompt = `${prompt}\n\n${refs}`;
+    }
+
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     const args: string[] = options?.sessionId
-      ? ['exec', 'resume', options.sessionId, prompt, '--json', '--full-auto']
-      : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', prompt];
+      ? ['exec', 'resume', options.sessionId, effectivePrompt, '--json', '--full-auto']
+      : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
 
     try {
       const events = spawnCli(

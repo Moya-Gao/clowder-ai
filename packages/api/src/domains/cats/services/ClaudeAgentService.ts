@@ -21,6 +21,7 @@ import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
+import { extractImagePaths } from './image-paths.js';
 import type {
   AgentMessage,
   AgentService,
@@ -171,6 +172,12 @@ export class ClaudeAgentService implements AgentService {
           },
         },
       }));
+    }
+
+    // Pass image paths via --images flag (needs smoke test to confirm flag name)
+    const imagePaths = extractImagePaths(options?.contentBlocks);
+    for (const imgPath of imagePaths) {
+      args.push('--images', imgPath);
     }
 
     try {

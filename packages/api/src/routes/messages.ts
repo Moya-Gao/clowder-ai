@@ -1,12 +1,14 @@
 /**
  * Messages API Routes
- * POST /api/messages - 发送消息
+ * POST /api/messages - 发送消息 (JSON or multipart with images)
  * GET /api/messages - 获取历史消息
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
+import type { MessageContent, TextContent, ImageContent } from '@cat-cafe/shared';
 import {
   ClaudeAgentService,
   CodexAgentService,
@@ -18,6 +20,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { saveUploadedImages, ImageUploadError } from './image-upload.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
@@ -29,6 +32,7 @@ export interface MessagesRoutesOptions {
   socketManager: SocketManager;
   sessionStore?: SessionStore;
   threadStore?: IThreadStore;
+  uploadDir?: string;
 }
 
 const getMessagesSchema = z.object({
@@ -46,8 +50,18 @@ const sendMessageSchema = z.object({
   threadId: z.string().min(1).max(100).optional(),
 });
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILES = 5;
+
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
   async (app, opts) => {
+  const uploadDir = opts.uploadDir ?? process.env['UPLOAD_DIR'] ?? './uploads';
+
+  // Register multipart parser for image uploads
+  await app.register(multipart, {
+    limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES },
+  });
+
   // Create agent router with all three services
   const router = new AgentRouter({
     claudeService: new ClaudeAgentService(),
@@ -61,22 +75,35 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
-    // Validate request body
-    const parseResult = sendMessageSchema.safeParse(request.body);
-    if (!parseResult.success) {
-      reply.status(400);
-      return { error: 'Invalid request body', details: parseResult.error.issues };
-    }
-    const body = parseResult.data;
+    let content: string;
+    let userId: string;
+    let threadId: string | undefined;
+    let contentBlocks: MessageContent[] | undefined;
 
-    // Return immediately with processing status
+    if (request.isMultipart()) {
+      // Parse multipart: text fields + image files
+      const parsed = await parseMultipart(request, uploadDir);
+      if ('error' in parsed) {
+        reply.status(400);
+        return { error: parsed.error };
+      }
+      ({ content, userId, threadId, contentBlocks } = parsed);
+    } else {
+      // JSON mode (backwards compatible)
+      const parseResult = sendMessageSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parseResult.error.issues };
+      }
+      ({ content, userId, threadId } = parseResult.data);
+    }
+
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket
     void (async () => {
       try {
-        // Use router.route() to handle @ mentions and route to appropriate agents
-        for await (const msg of router.route(body.userId, body.content, body.threadId)) {
+        for await (const msg of router.route(userId, content, threadId, contentBlocks)) {
           opts.socketManager.broadcastAgentMessage(msg);
         }
       } catch (err) {
@@ -137,9 +164,54 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         type: m.catId ? 'assistant' : 'user',
         catId: m.catId,
         content: m.content,
+        ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
         timestamp: m.timestamp,
       })),
       hasMore,
     };
   });
 };
+
+/** Parse multipart request into validated message fields + contentBlocks */
+async function parseMultipart(
+  request: { parts: () => AsyncIterableIterator<import('@fastify/multipart').Multipart> },
+  uploadDir: string,
+): Promise<
+  | { content: string; userId: string; threadId?: string; contentBlocks: MessageContent[] }
+  | { error: string }
+> {
+  const fields: Record<string, string> = {};
+  const files: import('@fastify/multipart').MultipartFile[] = [];
+
+  for await (const part of request.parts()) {
+    if (part.type === 'field' && typeof part.value === 'string') {
+      fields[part.fieldname] = part.value;
+    } else if (part.type === 'file') {
+      files.push(part);
+    }
+  }
+
+  const parseResult = sendMessageSchema.safeParse(fields);
+  if (!parseResult.success) {
+    return { error: 'Invalid form fields' };
+  }
+
+  const { content, userId, threadId } = parseResult.data;
+  const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
+
+  if (files.length > 0) {
+    try {
+      const saved = await saveUploadedImages(files, uploadDir);
+      for (const img of saved) {
+        blocks.push(img.content as ImageContent);
+      }
+    } catch (err) {
+      if (err instanceof ImageUploadError) {
+        return { error: err.message };
+      }
+      throw err;
+    }
+  }
+
+  return { content, userId, ...(threadId ? { threadId } : {}), contentBlocks: blocks };
+}

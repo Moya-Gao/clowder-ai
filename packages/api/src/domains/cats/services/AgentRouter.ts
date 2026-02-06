@@ -13,7 +13,7 @@
  */
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 import { SessionManager } from './SessionManager.js';
@@ -139,7 +139,8 @@ export class AgentRouter {
   async *route(
     userId: string,
     message: string,
-    threadId?: string
+    threadId?: string,
+    contentBlocks?: readonly MessageContent[]
   ): AsyncIterable<AgentMessage> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
     const targetCats = await this.resolveTargets(message, resolvedThreadId);
@@ -155,6 +156,7 @@ export class AgentRouter {
       mentions: targetCats,
       timestamp: Date.now(),
       threadId: resolvedThreadId,
+      ...(contentBlocks ? { contentBlocks } : {}),
     });
 
     const previousResponses: { catId: CatId; content: string }[] = [];
@@ -194,6 +196,7 @@ export class AgentRouter {
         const options: AgentServiceOptions = {
           ...(sessionId ? { sessionId } : {}),
           callbackEnv,
+          ...(contentBlocks ? { contentBlocks } : {}),
         };
 
         for await (const msg of service.invoke(prompt, options)) {
