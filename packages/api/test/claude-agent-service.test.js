@@ -234,6 +234,50 @@ test('yields error on CLI non-zero exit', async () => {
   assert.ok(errMsg.error.includes('authentication failed'));
 });
 
+test('does not duplicate error when result/error is followed by non-zero exit', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('bad'));
+
+  proc.stdout.write(
+    `${JSON.stringify({
+      type: 'result',
+      subtype: 'error_during_execution',
+      errors: ['rate limited'],
+    })}\n`
+  );
+  proc.stderr.write('rate limited\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const msgs = await promise;
+  const errors = msgs.filter((m) => m.type === 'error');
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].error, 'rate limited');
+});
+
+test('includes exit signal in CLI error message when no exit code', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('crash'));
+
+  proc.stderr.write('killed by supervisor\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', null, 'SIGKILL');
+
+  const msgs = await promise;
+  const errMsg = msgs.find((m) => m.type === 'error');
+  assert.ok(errMsg);
+  assert.ok(errMsg.error.includes('signal SIGKILL'));
+  assert.ok(errMsg.error.includes('killed by supervisor'));
+});
+
 test('yields error on spawn ENOENT', async () => {
   const proc = createMockProcess();
   proc.kill = mock.fn(() => true);

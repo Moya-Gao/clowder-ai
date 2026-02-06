@@ -92,16 +92,13 @@ test('ClaudeAgentService does not bypass permissions or allow Bash', async () =>
   assert.ok(!src.includes('dangerously'), 'must not use any dangerous flags');
 
   // Must use acceptEdits permission mode (CLI flag value)
-  assert.ok(
-    src.includes("'acceptEdits'"),
-    'must use acceptEdits permission mode'
-  );
+  assert.match(src, /const PERMISSION_MODE = 'acceptEdits';/, 'must define PERMISSION_MODE as acceptEdits');
+  assert.match(src, /const ALLOWED_TOOLS = 'Read,Edit,Glob,Grep';/, 'must define exact allowed tools');
 
-  // Must pass --permission-mode and --allowedTools CLI flags
-  assert.ok(src.includes('--permission-mode'), 'must pass --permission-mode flag');
-  assert.ok(src.includes('--allowedTools'), 'must pass --allowedTools flag');
+  // Must bind flags to secure constants (not just contain string literals)
+  assert.match(src, /'--permission-mode',\s*PERMISSION_MODE/, 'must bind --permission-mode to PERMISSION_MODE');
+  assert.match(src, /'--allowedTools',\s*ALLOWED_TOOLS/, 'must bind --allowedTools to ALLOWED_TOOLS');
 
-  // Must have correct allowed tools without Bash
-  assert.ok(src.includes('Read,Edit,Glob,Grep'), 'must have correct allowed tools');
+  // Must not allow Bash tool
   assert.ok(!src.includes('Bash'), 'must not allow Bash tool');
 });

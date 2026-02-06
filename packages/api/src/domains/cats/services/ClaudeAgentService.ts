@@ -100,19 +100,39 @@ function transformClaudeEvent(
 
   // result/error → error message
   if (e['type'] === 'result' && e['subtype'] !== 'success') {
-    const errors = Array.isArray(e['errors'])
-      ? (e['errors'] as string[]).join('; ')
-      : 'Unknown error';
+    const rawErrors = Array.isArray(e['errors']) ? e['errors'] : [];
+    const errors = rawErrors
+      .filter((item): item is string => typeof item === 'string')
+      .join('; ');
     return {
       type: 'error',
       catId,
-      error: errors,
+      error: errors || 'Unknown error',
       timestamp: Date.now(),
     };
   }
 
   // result/success, system/hook, etc. → skip
   return null;
+}
+
+function isResultErrorEvent(event: unknown): boolean {
+  if (typeof event !== 'object' || event === null) return false;
+  const e = event as Record<string, unknown>;
+  return e['type'] === 'result' && e['subtype'] !== 'success';
+}
+
+function formatCliExitError(event: {
+  exitCode: number | null;
+  signal: string | null;
+  stderr: string;
+}): string {
+  const status = event.exitCode !== null ? `code ${event.exitCode}` : 'no exit code';
+  const signalText = event.signal ? `, signal ${event.signal}` : '';
+  const stderr = event.stderr.trim();
+  return stderr.length > 0
+    ? `Claude CLI exited (${status}${signalText}): ${stderr}`
+    : `Claude CLI exited (${status}${signalText})`;
 }
 
 /**
@@ -149,6 +169,7 @@ export class ClaudeAgentService implements AgentService {
     }
 
     try {
+      let sawResultError = false;
       const events = spawnCli(
         {
           command: 'claude',
@@ -160,21 +181,26 @@ export class ClaudeAgentService implements AgentService {
 
       for await (const event of events) {
         if (isCliError(event)) {
+          if (sawResultError) continue;
           yield {
             type: 'error',
             catId: CAT_ID,
-            error: `Claude CLI exited with code ${(event as { exitCode: number | null }).exitCode}: ${(event as { stderr: string }).stderr}`,
+            error: formatCliExitError(event),
             timestamp: Date.now(),
           };
           continue;
         }
 
+        const fromResultError = isResultErrorEvent(event);
         const result = transformClaudeEvent(event, CAT_ID);
         if (result === null) continue;
 
         if (Array.isArray(result)) {
           for (const msg of result) yield msg;
         } else {
+          if (fromResultError && result.type === 'error') {
+            sawResultError = true;
+          }
           yield result;
         }
       }
