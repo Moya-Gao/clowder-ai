@@ -1,8 +1,8 @@
 # 布偶猫（Opus）任务清单
 
 > 角色：主架构师 + 核心开发
-> 工具：Claude Code / Claude Agent SDK
-> 更新日期：2026-02-05（Phase 1 完成后）
+> 工具：Claude Code / CLI subprocess + MCP tools
+> 更新日期：2026-02-06（Phase 2.5 完成后）
 
 ---
 
@@ -12,26 +12,26 @@
 |-------|------|------|
 | Phase 0 | ✅ 完成 | 地基已建好，缅因猫 review 通过 |
 | Phase 1 | ✅ 完成 | 单猫通信，缅因猫 review 通过 |
-| Phase 2 | ✅ 完成 | 三猫接入，待缅因猫 review |
+| Phase 2 | ✅ 完成 | 三猫接入，缅因猫 review 通过 |
+| Phase 2.5 | ✅ 完成 | SDK → CLI 迁移，120 tests |
 | Phase 3 | 🔜 待开始 | 完整体验 |
 
 ---
 
-## 技术债务 (Phase 2 前需关注)
+## 技术债务 (Phase 3 前需关注)
 
 ### P1 - 必须做
-- [ ] **MCP 工具接入**: 把 ClaudeAgentService 的文件操作切到共享 MCP Server
+- [ ] **MCP 工具接入**: 把文件操作切到共享 MCP Server
+- [ ] **Session 迁移 Redis**: AgentRouter 的内存 session
 
 ### P2 - 建议做
 - [ ] **循环依赖**: `routes/messages.ts` import `getSocketManager()` 从 `index.ts`
   - 方案: 用 Fastify decorate 或工厂函数
-- [ ] **Zod 版本**: claude-agent-sdk 要 zod@^4，项目是 zod@3.x
-  - 方案: 先 pin 住，等 SDK 稳定再升级
+- [ ] **AgentRouter 错误处理**: 服务抛异常时需要 try-catch
 
 ### P3 - 可选
 - [ ] **requestId**: POST /api/messages 返回 requestId，避免并发串流
 - [ ] 移除未使用的 `@fastify/websocket`
-- [ ] 避免 `'opus' as CatId`，用 `createCatId()`
 
 ---
 
@@ -40,7 +40,7 @@
 1. **架构设计**：定义系统结构、领域模型、API 契约
 2. **后端开发**：实现 API、MCP Server、Agent Services
 3. **前端开发**：实现 Next.js 页面和组件
-4. **SDK 集成**：实现三只猫的 Agent Service
+4. **CLI 集成**：实现三只猫的 Agent Service（CLI 子进程 + MCP 回传）
 
 ---
 
@@ -67,7 +67,7 @@
 
 **目标：实现布偶猫的完整调用链路**
 
-- [x] **ClaudeAgentService 实现** - `@anthropic-ai/claude-agent-sdk` 封装
+- [x] **ClaudeAgentService 实现** - CLI 子进程模式 (`claude --output-format stream-json`)
 - [x] **API 路由** - POST/GET /api/messages, GET /api/cats
 - [x] **WebSocket 实时通信** - Socket.io 绑定到 Fastify server
 - [x] **前端聊天界面** - ChatContainer, ChatMessage, ChatInput, useSocket, chatStore
@@ -89,15 +89,15 @@
 **目标：接入缅因猫和暹罗猫**
 
 - [x] **CodexAgentService 实现**
-  - 使用 `@openai/codex-sdk` 的 `runStreamed()` API
-  - 支持 session resume (`resumeThread`)
+  - CLI 子进程模式 (`codex exec --json`)
+  - 支持 session resume (`codex exec resume`)
   - 依赖注入支持测试
-  - 9 个单元测试
+  - 10 个单元测试
 
 - [x] **GeminiAgentService 实现**
-  - 使用 `@google/generative-ai`（ADK 太不成熟，已降级）
-  - 内存中维护 chat history 支持 session
-  - 9 个单元测试
+  - 双 adapter：`gemini-cli` (headless) / `antigravity` (IDE + MCP 回传)
+  - `GEMINI_ADAPTER=antigravity|gemini-cli` 环境变量切换
+  - 16 个单元测试
 
 - [x] **AgentRouter 实现**
   - @ 提及解析（中英文，大小写不敏感）
@@ -110,17 +110,18 @@
   - ChatContainer 正确处理不同 catId 的消息
   - ChatMessage 根据 catId 显示不同颜色和名称
 
-- [ ] **MCP 工具扩展**（移至 Phase 3）
-  - [ ] `post_message` - 发送聊天消息
-  - [ ] `notify_cats` - 通知其他猫
-  - [ ] `delegate_task` - 任务委派
+- [x] **MCP 回传工具**（Phase 2.5 Task 5 实现）
+  - [x] `cat_cafe.post_message` - 主动发言
+  - [x] `cat_cafe.get_pending_mentions` - 感知 @ 消息
+  - [x] `cat_cafe.get_thread_context` - 获取对话上下文
 
 **验收标准：** ✅
 - `@布偶` `@缅因` `@暹罗` 都能正确路由
 - 多猫协作能串行执行
 
 **技术决策：**
-- ADK 不成熟 → 使用 Gemini API 降级方案
+- SDK → CLI 子进程模式（Phase 2.5 迁移，原因：订阅额度）
+- Gemini 双 adapter：gemini-cli + antigravity
 - Session 暂存内存 → Phase 3 迁移到 Redis
 
 ---
@@ -172,8 +173,8 @@
 | Phase | 审查重点 |
 |-------|----------|
 | Phase 0 | 项目结构、类型定义、MCP 安全 |
-| Phase 1 | SDK 集成、WebSocket 安全、Session 管理 |
-| Phase 2 | 多 SDK 协调、错误处理、降级策略 |
+| Phase 1 | CLI 集成、WebSocket 安全、Session 管理 |
+| Phase 2 | 多 CLI 协调、错误处理、降级策略 |
 | Phase 3 | 文件上传安全、性能优化 |
 
 ---
@@ -187,16 +188,16 @@
 4. **测试先行**：核心逻辑写单元测试
 5. **文档同步**：修改架构时更新设计文档
 
-### SDK 集成守则
-1. 每个 SDK 独立封装在 `AgentService` 类中
+### CLI 集成守则
+1. 每个 CLI 独立封装在 `AgentService` 类中，使用 `CliTransformer` 解析输出
 2. 使用统一的 `AgentMessage` 接口
-3. 异常处理要完善，不能让 SDK 错误传播到前端
-4. Session ID 存储在 Redis，而非内存
+3. 异常处理要完善，不能让 CLI 错误传播到前端
+4. `spawnCli()` 统一管理超时、abort、僵尸进程防护
 
 ### 已知坑位
-1. **Codex MCP**：可能需要 STDIO-to-HTTP 代理
-2. **ADK 不成熟**：准备 API 降级方案
-3. **Session 恢复**：Claude 的 context limit 可能导致 session 损坏
+1. **CLI 启动开销**：每次 spawn ~500ms-2s，可考虑进程池
+2. **NDJSON 格式变化**：CLI 升级可能改变输出格式，需版本锁定 + 容错解析
+3. **Antigravity 回传**：MCP callback 可能无响应，需 gemini-cli fallback
 
 ---
 
@@ -205,7 +206,7 @@
 - **完成一个 Phase 后**：@ 缅因猫做 code review
 - **需要视觉资产时**：检查 assets/ 或 @ 暹罗猫
 - **重要决策**：记录到 docs/decisions/
-- **遇到 SDK 问题**：记录到 docs/decisions/ 并讨论降级方案
+- **遇到 CLI 问题**：记录到 docs/decisions/ 并讨论降级方案
 
 ---
 

@@ -1,7 +1,7 @@
 # Cat Café - 布偶猫（Opus）项目指引
 
 > 欢迎回家，布偶猫！这是你和另外两只猫一起住的地方。
-> 更新日期：2026-02-04（研究成果整合后）
+> 更新日期：2026-02-06（Phase 2.5 完成）
 
 ## 你是谁
 
@@ -42,53 +42,50 @@ docs/decisions/001-agent-invocation-approach.md
 
 ### 2. 研究成果速览
 
-三猫研究团队已完成技术调研，结论：
+三猫研究团队已完成技术调研。**原方案 C (SDK) 已在 Phase 2.5 推翻**，改为 CLI 子进程模式。
 
-**Agent 调用方式：SDK 模式（方案 C）**
-```typescript
-// 布偶猫
-import { query } from "@anthropic-ai/claude-agent-sdk";
+**Agent 调用方式：CLI 子进程模式 + MCP 回传**
+- **布偶猫**：`spawn('claude', ['-p', ..., '--output-format', 'stream-json'])`
+- **缅因猫**：`spawn('codex', ['exec', '--json', ...])`
+- **暹罗猫**：双 adapter — `gemini-cli` (headless) / `antigravity` (IDE + MCP 回传)
 
-// 缅因猫
-import { Codex } from "@openai/codex-sdk";
+**MCP 回传工具**（三猫共享）：猫猫通过 HTTP callback 主动发言、获取上下文。
 
-// 暹罗猫
-import { LlmAgent } from "@google/adk";
-```
+**Session 管理**：内存存储（Phase 3 迁移 Redis）。
 
-**共享 MCP Server**：三只猫共用一个 MCP Server，通过 Streamable HTTP transport 支持多 Session。
-
-**Session 管理**：使用 Redis 存储 Session ID，支持跨请求恢复。
+> 详见：`docs/plans/2026-02-05-phase2.5-sdk-to-cli-migration.md`
 
 ### 3. 当前进度
 
 - [x] 设计文档完成
 - [x] 技术调研完成
 - [x] 架构决策记录
-- [ ] **Phase 0: 地基** ← 当前阶段
-- [ ] Phase 1: 单猫通信
-- [ ] Phase 2: 三猫接入
-- [ ] Phase 3: 完整体验
+- [x] Phase 0: 地基
+- [x] Phase 1: 单猫通信
+- [x] Phase 2: 三猫接入
+- [x] Phase 2.5: SDK → CLI 迁移
+- [ ] **Phase 3: 完整体验** ← 下一阶段
 - [ ] Phase 4: 高级功能
 
 ### 4. 已知坑位（重要！）
 
 | 问题 | 描述 | 缓解方案 |
 |------|------|----------|
-| Codex MCP | 只支持 STDIO，不支持 HTTP | 可能需要 STDIO-to-HTTP 代理 |
-| ADK 不成熟 | v0.1.0，标注"不建议生产" | 准备 Gemini API 降级方案 |
-| Session 恢复 | context limit 可能导致损坏 | 使用外部 Memory Server |
+| CLI 启动开销 | 每次 spawn ~500ms-2s | 可考虑进程池 |
+| NDJSON 格式变化 | CLI 升级可能改变输出格式 | 版本锁定 + 容错解析 |
+| Antigravity 回传 | MCP callback 可能无响应 | gemini-cli fallback |
+| Session 内存存储 | 重启丢失 | Phase 3 迁移 Redis |
 
 ## 技术栈
 
 - **前端**：Next.js + TypeScript + Tailwind
 - **后端**：Node.js + Fastify + TypeScript
 - **MCP**：@modelcontextprotocol/sdk
-- **Agent SDKs**：
-  - `@anthropic-ai/claude-agent-sdk`
-  - `@openai/codex-sdk`
-  - `@google/adk`
-- **存储**：文件系统 + Redis
+- **Agent 调用**：CLI 子进程 + NDJSON 流解析
+  - `claude` CLI (Max plan)
+  - `codex` CLI (ChatGPT Plus/Pro)
+  - `gemini` CLI / Antigravity IDE
+- **存储**：文件系统 + Redis（Session 暂用内存）
 
 ## 目录结构
 
