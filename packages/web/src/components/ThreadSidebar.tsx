@@ -19,14 +19,12 @@ function formatRelativeTime(ts: number): string {
   return `${Math.floor(diff / 86400_000)}天前`;
 }
 
-/** Extract display name from a project path */
 function projectDisplayName(path: string): string {
   if (path === 'default') return '未分类';
   const parts = path.replace(/\/+$/, '').split('/');
   return parts[parts.length - 1] || path;
 }
 
-/** Collect unique project paths from threads */
 function getProjectPaths(threads: Thread[]): string[] {
   const paths = new Set<string>();
   for (const t of threads) {
@@ -37,25 +35,223 @@ function getProjectPaths(threads: Thread[]): string[] {
   return [...paths].sort();
 }
 
-/** Group threads by projectPath, with default thread pulled out */
 function groupThreadsByProject(threads: Thread[]) {
   const groups = new Map<string, Thread[]>();
-
   for (const thread of threads) {
     if (thread.id === 'default') continue;
     const key = thread.projectPath;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(thread);
   }
-
-  const sorted = [...groups.entries()].sort(([a], [b]) => {
+  return [...groups.entries()].sort(([a], [b]) => {
     if (a === 'default') return 1;
     if (b === 'default') return -1;
     return a.localeCompare(b);
   });
-
-  return sorted;
 }
+
+// ─── Directory Browser Modal ───
+
+interface DirEntry {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+}
+
+interface BrowseResult {
+  current: string;
+  name: string;
+  parent: string | null;
+  entries: DirEntry[];
+}
+
+function DirectoryPickerModal({
+  existingProjects,
+  onSelect,
+  onCancel,
+}: {
+  existingProjects: string[];
+  onSelect: (projectPath: string | undefined) => void;
+  onCancel: () => void;
+}) {
+  const [browseData, setBrowseData] = useState<BrowseResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  const browseTo = useCallback(async (path?: string) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const params = path ? `?path=${encodeURIComponent(path)}` : '';
+      const res = await fetch(`${API_URL}/api/projects/browse${params}`);
+      if (!res.ok) {
+        const data = await res.json();
+        setError(data.error || 'Failed to browse');
+        return;
+      }
+      setBrowseData(await res.json());
+    } catch {
+      setError('无法连接到服务器');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Start from server's cwd
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/projects/cwd`);
+        if (res.ok) {
+          const data = await res.json();
+          await browseTo(data.path);
+        } else {
+          await browseTo();
+        }
+      } catch {
+        await browseTo();
+      }
+    })();
+  }, [browseTo]);
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onCancel]);
+
+  // Close on backdrop click
+  const handleBackdropClick = useCallback(
+    (e: React.MouseEvent) => {
+      if (modalRef.current && !modalRef.current.contains(e.target as Node)) {
+        onCancel();
+      }
+    },
+    [onCancel]
+  );
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-xl shadow-2xl w-[480px] max-h-[70vh] flex flex-col overflow-hidden"
+      >
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-base font-semibold text-cafe-black">选择项目目录</h2>
+          <button
+            onClick={onCancel}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Quick options: lobby + existing projects */}
+        <div className="px-5 py-3 border-b border-gray-100 space-y-1">
+          <button
+            onClick={() => onSelect(undefined)}
+            className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span className="text-base">🏠</span>
+            <span>大厅 (无项目)</span>
+          </button>
+          {existingProjects.map((path) => (
+            <button
+              key={path}
+              onClick={() => onSelect(path)}
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+              title={path}
+            >
+              <FolderIcon className="text-owner-primary" />
+              <span className="truncate font-medium">{projectDisplayName(path)}</span>
+              <span className="text-[10px] text-gray-300 ml-auto truncate max-w-[180px]">{path}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Directory browser */}
+        <div className="flex-1 overflow-y-auto">
+          {/* Current path bar */}
+          {browseData && (
+            <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500">
+              <FolderIcon className="text-gray-400 flex-shrink-0" />
+              <span className="truncate" title={browseData.current}>{browseData.current}</span>
+              {/* Select current directory */}
+              <button
+                onClick={() => onSelect(browseData.current)}
+                className="ml-auto flex-shrink-0 px-2.5 py-1 rounded-md bg-owner-primary text-white text-xs hover:bg-owner-dark transition-colors"
+              >
+                选择此目录
+              </button>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="text-center py-8 text-sm text-gray-400">加载中...</div>
+          )}
+          {error && (
+            <div className="text-center py-8 text-sm text-red-400">{error}</div>
+          )}
+
+          {browseData && !isLoading && (
+            <div className="py-1">
+              {/* Go up */}
+              {browseData.parent && (
+                <button
+                  onClick={() => browseTo(browseData.parent!)}
+                  className="w-full text-left px-5 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                  </svg>
+                  <span>.. 上级目录</span>
+                </button>
+              )}
+
+              {browseData.entries.length === 0 && (
+                <div className="text-center py-6 text-xs text-gray-300">无子目录</div>
+              )}
+
+              {browseData.entries.map((entry) => (
+                <button
+                  key={entry.path}
+                  onClick={() => browseTo(entry.path)}
+                  className="w-full text-left px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 group"
+                >
+                  <FolderIcon className="text-gray-400 group-hover:text-owner-primary" />
+                  <span className="truncate">{entry.name}</span>
+                  <svg className="w-3 h-3 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 12 12" fill="currentColor">
+                    <path d="M4 2l4 4-4 4V2z" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FolderIcon({ className }: { className?: string }) {
+  return (
+    <svg className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
+    </svg>
+  );
+}
+
+// ─── Main Sidebar ───
 
 export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
   const {
@@ -68,29 +264,8 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     setLoadingThreads,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
-  const [showProjectPicker, setShowProjectPicker] = useState(false);
-  const [newProjectInput, setNewProjectInput] = useState('');
+  const [showPicker, setShowPicker] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
-  const pickerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  // Close picker on outside click
-  useEffect(() => {
-    if (!showProjectPicker) return;
-    const handler = (e: MouseEvent) => {
-      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
-        setShowProjectPicker(false);
-        setNewProjectInput('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [showProjectPicker]);
-
-  // Focus input when picker opens
-  useEffect(() => {
-    if (showProjectPicker) inputRef.current?.focus();
-  }, [showProjectPicker]);
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -112,8 +287,7 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
 
   const createInProject = useCallback(async (projectPath?: string) => {
     setIsCreating(true);
-    setShowProjectPicker(false);
-    setNewProjectInput('');
+    setShowPicker(false);
     try {
       const res = await fetch(`${API_URL}/api/threads`, {
         method: 'POST',
@@ -136,6 +310,20 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     }
   }, [threads, setThreads, setCurrentThread, setCurrentProject, onThreadSwitch]);
 
+  const handleDelete = useCallback(async (threadId: string) => {
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${threadId}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) return;
+      setThreads(threads.filter((t) => t.id !== threadId));
+      if (threadId === currentThreadId) {
+        setCurrentThread('default');
+        onThreadSwitch('default');
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [threads, currentThreadId, setThreads, setCurrentThread, onThreadSwitch]);
+
   const handleSelect = useCallback(
     (threadId: string) => {
       if (threadId === currentThreadId) return;
@@ -154,126 +342,64 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     });
   }, []);
 
-  const selectProject = useCallback(
-    (projectPath: string) => {
-      setCurrentProject(projectPath);
-    },
-    [setCurrentProject]
-  );
-
   const grouped = useMemo(() => groupThreadsByProject(threads), [threads]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
 
   return (
-    <aside className="w-60 border-r border-owner-light bg-white flex flex-col h-full">
-      <div className="p-3 border-b border-owner-light flex items-center justify-between relative">
-        <span className="text-sm font-semibold text-cafe-black">对话</span>
-        <button
-          onClick={() => setShowProjectPicker((v) => !v)}
-          disabled={isCreating}
-          className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
-        >
-          {isCreating ? '...' : '+ 新对话'}
-        </button>
-
-        {/* Project picker dropdown */}
-        {showProjectPicker && (
-          <div
-            ref={pickerRef}
-            className="absolute top-full right-2 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden"
+    <>
+      <aside className="w-60 border-r border-owner-light bg-white flex flex-col h-full">
+        <div className="p-3 border-b border-owner-light flex items-center justify-between">
+          <span className="text-sm font-semibold text-cafe-black">对话</span>
+          <button
+            onClick={() => setShowPicker(true)}
+            disabled={isCreating}
+            className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
           >
-            <div className="px-3 py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100">
-              选择项目目录
-            </div>
+            {isCreating ? '...' : '+ 新对话'}
+          </button>
+        </div>
 
-            {/* "No project" option */}
-            <button
-              onClick={() => createInProject()}
-              className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-owner-bg transition-colors flex items-center gap-2"
-            >
-              <span className="text-gray-400">--</span>
-              <span>大厅 (无项目)</span>
-            </button>
+        <div className="flex-1 overflow-y-auto">
+          {isLoadingThreads && threads.length === 0 && (
+            <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
+          )}
 
-            {/* Existing projects */}
-            {existingProjects.map((path) => (
-              <button
-                key={path}
-                onClick={() => createInProject(path)}
-                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg transition-colors flex items-center gap-2"
-                title={path}
-              >
-                <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-                  <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
-                </svg>
-                <span className="truncate">{projectDisplayName(path)}</span>
-              </button>
-            ))}
-
-            {/* New project path input */}
-            <div className="border-t border-gray-100 px-3 py-2">
-              <div className="text-[11px] text-gray-400 mb-1">新目录路径</div>
-              <div className="flex gap-1">
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={newProjectInput}
-                  onChange={(e) => setNewProjectInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newProjectInput.trim()) {
-                      createInProject(newProjectInput.trim());
-                    }
-                  }}
-                  placeholder="/Users/.../project"
-                  className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:border-owner-primary min-w-0"
-                />
-                <button
-                  onClick={() => {
-                    if (newProjectInput.trim()) createInProject(newProjectInput.trim());
-                  }}
-                  disabled={!newProjectInput.trim()}
-                  className="text-xs px-2 py-1.5 rounded-md bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors flex-shrink-0"
-                >
-                  创建
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
-        {isLoadingThreads && threads.length === 0 && (
-          <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
-        )}
-
-        {/* Default thread (lobby) always at top */}
-        <ThreadItem
-          id="default"
-          title="大厅"
-          participants={[]}
-          lastActiveAt={Date.now()}
-          isActive={currentThreadId === 'default'}
-          onSelect={handleSelect}
-        />
-
-        {/* Project groups */}
-        {grouped.map(([projectPath, projectThreads]) => (
-          <ProjectGroup
-            key={projectPath}
-            projectPath={projectPath}
-            threads={projectThreads}
-            isCollapsed={collapsedProjects.has(projectPath)}
-            currentThreadId={currentThreadId}
-            onToggle={toggleProject}
-            onSelectProject={selectProject}
-            onSelectThread={handleSelect}
+          <ThreadItem
+            id="default"
+            title="大厅"
+            participants={[]}
+            lastActiveAt={Date.now()}
+            isActive={currentThreadId === 'default'}
+            onSelect={handleSelect}
           />
-        ))}
-      </div>
-    </aside>
+
+          {grouped.map(([projectPath, projectThreads]) => (
+            <ProjectGroup
+              key={projectPath}
+              projectPath={projectPath}
+              threads={projectThreads}
+              isCollapsed={collapsedProjects.has(projectPath)}
+              currentThreadId={currentThreadId}
+              onToggle={toggleProject}
+              onSelectThread={handleSelect}
+              onDeleteThread={handleDelete}
+            />
+          ))}
+        </div>
+      </aside>
+
+      {showPicker && (
+        <DirectoryPickerModal
+          existingProjects={existingProjects}
+          onSelect={createInProject}
+          onCancel={() => setShowPicker(false)}
+        />
+      )}
+    </>
   );
 }
+
+// ─── Sub-components ───
 
 function ProjectGroup({
   projectPath,
@@ -281,31 +407,26 @@ function ProjectGroup({
   isCollapsed,
   currentThreadId,
   onToggle,
-  onSelectProject,
   onSelectThread,
+  onDeleteThread,
 }: {
   projectPath: string;
   threads: Thread[];
   isCollapsed: boolean;
   currentThreadId: string;
   onToggle: (path: string) => void;
-  onSelectProject: (path: string) => void;
   onSelectThread: (threadId: string) => void;
+  onDeleteThread: (threadId: string) => void;
 }) {
   return (
     <div className="mt-1">
       <button
-        onClick={() => {
-          onToggle(projectPath);
-          onSelectProject(projectPath);
-        }}
+        onClick={() => onToggle(projectPath)}
         className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors"
         title={projectPath === 'default' ? '未分类对话' : projectPath}
       >
         <svg
-          className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${
-            isCollapsed ? '' : 'rotate-90'
-          }`}
+          className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
           viewBox="0 0 12 12"
           fill="currentColor"
         >
@@ -329,6 +450,7 @@ function ProjectGroup({
             lastActiveAt={t.lastActiveAt}
             isActive={currentThreadId === t.id}
             onSelect={onSelectThread}
+            onDelete={onDeleteThread}
             indented
           />
         ))}
@@ -343,6 +465,7 @@ function ThreadItem({
   lastActiveAt,
   isActive,
   onSelect,
+  onDelete,
   indented,
 }: {
   id: string;
@@ -351,22 +474,41 @@ function ThreadItem({
   lastActiveAt: number;
   isActive: boolean;
   onSelect: (id: string) => void;
+  onDelete?: (id: string) => void;
   indented?: boolean;
 }) {
+  const canDelete = id !== 'default' && onDelete;
+
   return (
-    <button
-      onClick={() => onSelect(id)}
-      className={`w-full text-left ${indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors ${
+    <div
+      className={`group relative ${indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors cursor-pointer ${
         isActive ? 'bg-owner-bg' : 'hover:bg-gray-50'
       }`}
+      onClick={() => onSelect(id)}
     >
       <div className="flex items-center justify-between mb-0.5">
         <span className={`text-sm truncate ${isActive ? 'font-semibold text-cafe-black' : 'text-gray-700'}`}>
           {title ?? (id === 'default' ? '大厅' : '未命名对话')}
         </span>
-        <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">
-          {formatRelativeTime(lastActiveAt)}
-        </span>
+        <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          {canDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(id);
+              }}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-red-50 transition-all"
+              title="删除对话"
+            >
+              <svg className="w-3 h-3 text-gray-300 hover:text-red-400" viewBox="0 0 16 16" fill="currentColor">
+                <path fillRule="evenodd" d="M5 3.25V4H2.75a.75.75 0 000 1.5h.3l.815 8.15A1.5 1.5 0 005.357 15h5.285a1.5 1.5 0 001.493-1.35l.815-8.15h.3a.75.75 0 000-1.5H11v-.75A2.25 2.25 0 008.75 1h-1.5A2.25 2.25 0 005 3.25zm2.25-.75a.75.75 0 00-.75.75V4h3v-.75a.75.75 0 00-.75-.75h-1.5z" clipRule="evenodd" />
+              </svg>
+            </button>
+          )}
+          <span className="text-[10px] text-gray-400">
+            {formatRelativeTime(lastActiveAt)}
+          </span>
+        </div>
       </div>
       {participants.length > 0 && (
         <div className="flex gap-1 mt-1">
@@ -381,6 +523,6 @@ function ThreadItem({
           <span className="text-[10px] text-gray-300">还没有猫猫加入</span>
         </div>
       )}
-    </button>
+    </div>
   );
 }
