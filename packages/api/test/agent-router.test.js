@@ -581,4 +581,88 @@ describe('AgentRouter', () => {
 
     assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
   });
+
+  test('continues chain when first cat throws an error', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    // Opus throws, Codex should still execute
+    const mockClaudeService = {
+      invoke: mock.fn(async function* () {
+        throw new Error('Claude CLI crashed');
+      }),
+    };
+    const mockCodexService = createMockAgentService('codex', 'Codex response');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const messages = [];
+    for await (const msg of router.route('user-1', '@opus write, @codex review')) {
+      messages.push(msg);
+    }
+
+    // Opus error should be yielded
+    const errors = messages.filter((m) => m.type === 'error');
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0].catId, 'opus');
+    assert.ok(errors[0].error.includes('Claude CLI crashed'));
+
+    // Codex should still have been called
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
+    assert.equal(codexText.length, 1);
+
+    // Both done messages should exist, only codex isFinal
+    const dones = messages.filter((m) => m.type === 'done');
+    assert.equal(dones.length, 2);
+    const opusDone = dones.find((m) => m.catId === 'opus');
+    const codexDone = dones.find((m) => m.catId === 'codex');
+    assert.equal(opusDone?.isFinal, false);
+    assert.equal(codexDone?.isFinal, true);
+  });
+
+  test('error from first cat is not passed as context to second cat', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let codexReceivedPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* () {
+        throw new Error('boom');
+      }),
+    };
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexReceivedPrompt = prompt;
+        yield { type: 'session_init', catId: 'codex', sessionId: 'c-1', timestamp: Date.now() };
+        yield { type: 'text', catId: 'codex', content: 'done', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+    const mockGeminiService = createMockAgentService('gemini');
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '@opus then @codex')) {
+      // consume
+    }
+
+    // Codex gets original message only (no opus response since it crashed)
+    assert.equal(codexReceivedPrompt, '@opus then @codex');
+  });
 });

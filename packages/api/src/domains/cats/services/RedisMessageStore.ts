@@ -59,6 +59,15 @@ export class RedisMessageStore {
       pipeline.zadd(MessageKeys.mentions(catId), String(score), id);
     }
 
+    // Prune expired entries from sorted sets (score < now - TTL).
+    // Runs on every append to prevent unbounded zset growth.
+    const cutoff = String(Date.now() - this.ttl * 1000);
+    pipeline.zremrangebyscore(MessageKeys.TIMELINE, '-inf', cutoff);
+    pipeline.zremrangebyscore(MessageKeys.user(msg.userId), '-inf', cutoff);
+    for (const catId of msg.mentions) {
+      pipeline.zremrangebyscore(MessageKeys.mentions(catId), '-inf', cutoff);
+    }
+
     await pipeline.exec();
     return stored;
   }
@@ -84,13 +93,20 @@ export class RedisMessageStore {
 
     let ids: string[];
     if (userId) {
-      // Intersect mentions set with user set
-      const mentionIds = await this.redis.zrevrange(mentionKey, 0, n * 2);
+      // Paginated scan: walk the mentions zset in chunks until we collect n
+      // matching IDs or exhaust the set. Avoids the n*2 fixed-multiplier bug.
+      const CHUNK = 50;
       ids = [];
-      for (const id of mentionIds) {
-        if (ids.length >= n) break;
-        const score = await this.redis.zscore(MessageKeys.user(userId), id);
-        if (score !== null) ids.push(id);
+      let offset = 0;
+      while (ids.length < n) {
+        const chunk = await this.redis.zrevrange(mentionKey, offset, offset + CHUNK - 1);
+        if (chunk.length === 0) break; // exhausted
+        for (const id of chunk) {
+          if (ids.length >= n) break;
+          const score = await this.redis.zscore(MessageKeys.user(userId), id);
+          if (score !== null) ids.push(id);
+        }
+        offset += CHUNK;
       }
     } else {
       ids = await this.redis.zrevrange(mentionKey, 0, n - 1);
