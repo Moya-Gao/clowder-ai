@@ -68,6 +68,14 @@ export class RedisMessageStore {
       pipeline.zremrangebyscore(MessageKeys.mentions(catId), '-inf', cutoff);
     }
 
+    // Set EXPIRE on index zsets so "silent user" keys eventually disappear
+    // even if no new appends trigger zremrangebyscore for that key.
+    pipeline.expire(MessageKeys.TIMELINE, this.ttl);
+    pipeline.expire(MessageKeys.user(msg.userId), this.ttl);
+    for (const catId of msg.mentions) {
+      pipeline.expire(MessageKeys.mentions(catId), this.ttl);
+    }
+
     await pipeline.exec();
     return stored;
   }
