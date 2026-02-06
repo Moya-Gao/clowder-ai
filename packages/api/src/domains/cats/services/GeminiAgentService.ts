@@ -158,11 +158,9 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    // Note: gemini CLI --resume uses local index (not UUID), incompatible
+    // with AgentRouter's sessionId mechanism. Resume not supported.
     const args: string[] = [prompt, '-o', 'stream-json', '-y'];
-
-    if (options?.sessionId) {
-      args.push('--session', options.sessionId);
-    }
 
     try {
       const events = spawnCli(
