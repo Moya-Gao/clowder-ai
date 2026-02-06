@@ -1,319 +1,439 @@
 /**
- * GeminiAgentService Tests
- * 测试暹罗猫 (Gemini) 的 Agent 服务
- *
- * Uses constructor injection for testability.
+ * GeminiAgentService Tests (CLI dual adapter mode)
+ * 测试暹罗猫 CLI 子进程调用 (gemini-cli + antigravity-desktop)
  */
 
-import { test, mock } from 'node:test';
+import { test, mock, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import { EventEmitter } from 'node:events';
 
-// Create mock factory for each test
-function createMocks() {
-  const mockChat = {
-    sendMessage: mock.fn(),
-    getHistory: mock.fn(() => Promise.resolve([])),
-  };
+const { GeminiAgentService } = await import(
+  '../dist/domains/cats/services/GeminiAgentService.js'
+);
 
-  const mockModel = {
-    startChat: mock.fn(() => mockChat),
-  };
-
-  const mockGenAI = {
-    getGenerativeModel: mock.fn(() => mockModel),
-  };
-
-  return { mockChat, mockModel, mockGenAI };
+/** Helper: collect all items from async iterable */
+async function collect(iterable) {
+  const items = [];
+  for await (const item of iterable) {
+    items.push(item);
+  }
+  return items;
 }
 
-test('GeminiAgentService yields session_init, text, and done messages on success', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockGenAI } = createMocks();
-  const responseText = 'Hello from Gemini!';
-
-  mockChat.sendMessage.mock.mockImplementation(async () => ({
-    response: {
-      text: () => responseText,
+/**
+ * Create a mock child process for testing spawnCli path.
+ */
+function createMockProcess() {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const emitter = new EventEmitter();
+  const proc = {
+    stdout,
+    stderr,
+    pid: 12345,
+    exitCode: null,
+    kill: mock.fn(() => {
+      process.nextTick(() => {
+        if (!stdout.destroyed) stdout.end();
+        emitter.emit('exit', null, 'SIGTERM');
+      });
+      return true;
+    }),
+    on: (event, listener) => {
+      emitter.on(event, listener);
+      return proc;
     },
-  }));
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init, text, and done
-  assert.equal(messages.length, 3);
-
-  // Check session_init
-  assert.equal(messages[0].type, 'session_init');
-  assert.equal(messages[0].catId, 'gemini');
-  assert.ok(messages[0].sessionId, 'should have a sessionId');
-
-  // Check text message
-  assert.equal(messages[1].type, 'text');
-  assert.equal(messages[1].catId, 'gemini');
-  assert.equal(messages[1].content, responseText);
-
-  // Check done
-  assert.equal(messages[2].type, 'done');
-  assert.equal(messages[2].catId, 'gemini');
-});
-
-test('GeminiAgentService supports session resume via options.sessionId', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockGenAI } = createMocks();
-  const existingSessionId = 'existing-session-456';
-  const responseText = 'Resumed session response';
-
-  // Simulate existing history from resumed session
-  const existingHistory = [
-    { role: 'user', parts: [{ text: 'First message' }] },
-    { role: 'model', parts: [{ text: 'First response' }] },
-  ];
-  mockChat.getHistory.mock.mockImplementation(() =>
-    Promise.resolve(existingHistory)
-  );
-  mockChat.sendMessage.mock.mockImplementation(async () => ({
-    response: {
-      text: () => responseText,
+    once: (event, listener) => {
+      emitter.once(event, listener);
+      return proc;
     },
-  }));
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-
-  // First call to establish session
-  for await (const msg of service.invoke('First message')) {
-    if (msg.type === 'session_init') {
-      // Store session for later (simulated by setting internal state)
-    }
-  }
-
-  // Manually add history for the session ID (simulate resume)
-  service._setHistoryForTest(existingSessionId, existingHistory);
-
-  // Resume with the session ID
-  const messages = [];
-  for await (const msg of service.invoke('Continue', {
-    sessionId: existingSessionId,
-  })) {
-    messages.push(msg);
-  }
-
-  // Should return same session ID
-  assert.equal(messages[0].type, 'session_init');
-  assert.equal(messages[0].sessionId, existingSessionId);
-});
-
-test('GeminiAgentService yields error message on API error', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockGenAI } = createMocks();
-  const errorMessage = 'API rate limit exceeded';
-
-  mockChat.sendMessage.mock.mockImplementation(async () => {
-    throw new Error(errorMessage);
-  });
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init and error
-  assert.ok(messages.length >= 2);
-
-  // Find error message
-  const errorMsg = messages.find((m) => m.type === 'error');
-  assert.ok(errorMsg, 'should have error message');
-  assert.equal(errorMsg.catId, 'gemini');
-  assert.equal(errorMsg.error, errorMessage);
-});
-
-test('GeminiAgentService yields error when API key is missing', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  // No genAI provided and no GOOGLE_API_KEY
-  const originalEnv = process.env.GOOGLE_API_KEY;
-  delete process.env.GOOGLE_API_KEY;
-
-  try {
-    const service = new GeminiAgentService();
-    const messages = [];
-
-    for await (const msg of service.invoke('Hello')) {
-      messages.push(msg);
-    }
-
-    // Should have error
-    const errorMsg = messages.find((m) => m.type === 'error');
-    assert.ok(errorMsg, 'should have error message');
-    assert.ok(
-      errorMsg.error.includes('GOOGLE_API_KEY'),
-      'error should mention GOOGLE_API_KEY'
-    );
-  } finally {
-    if (originalEnv) {
-      process.env.GOOGLE_API_KEY = originalEnv;
-    }
-  }
-});
-
-test('GeminiAgentService catId is gemini', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockGenAI } = createMocks();
-  mockChat.sendMessage.mock.mockImplementation(async () => ({
-    response: {
-      text: () => 'Test response',
-    },
-  }));
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // All messages should have catId 'gemini'
-  for (const msg of messages) {
-    assert.equal(msg.catId, 'gemini', `Expected catId 'gemini' for ${msg.type} message`);
-  }
-});
-
-test('GeminiAgentService handles empty response', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockGenAI } = createMocks();
-  mockChat.sendMessage.mock.mockImplementation(async () => ({
-    response: {
-      text: () => '',
-    },
-  }));
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init, text (even if empty), and done
-  assert.equal(messages.length, 3);
-  assert.equal(messages[1].type, 'text');
-  assert.equal(messages[1].content, '');
-});
-
-test('GeminiAgentService maintains chat history for session', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockChat, mockModel, mockGenAI } = createMocks();
-
-  mockModel.startChat.mock.mockImplementation(() => {
-    return mockChat;
-  });
-
-  mockChat.sendMessage.mock.mockImplementation(async () => ({
-    response: {
-      text: () => 'Response',
-    },
-  }));
-
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  let sessionId = null;
-
-  // First call - new session
-  for await (const msg of service.invoke('First message')) {
-    if (msg.type === 'session_init') {
-      sessionId = msg.sessionId;
-    }
-  }
-
-  assert.ok(sessionId, 'should have sessionId');
-
-  // Second call with same session - should have history
-  for await (const _ of service.invoke('Second message', { sessionId })) {
-    // Just iterate through
-  }
-
-  // Check that startChat was called with history on second invocation
-  assert.ok(
-    mockModel.startChat.mock.callCount() >= 2,
-    'startChat should be called at least twice'
-  );
-});
-
-test('GeminiAgentService uses gemini-2.0-flash model by default', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
-
-  const { mockGenAI, mockModel } = createMocks();
-
-  let capturedModelName = null;
-  mockGenAI.getGenerativeModel.mock.mockImplementation((params) => {
-    capturedModelName = params?.model;
-    return mockModel;
-  });
-
-  const mockChat = {
-    sendMessage: mock.fn(async () => ({
-      response: { text: () => 'Test' },
-    })),
-    getHistory: mock.fn(() => Promise.resolve([])),
+    _emitter: emitter,
   };
-  mockModel.startChat.mock.mockImplementation(() => mockChat);
+  return proc;
+}
 
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  for await (const _ of service.invoke('Hello')) {
-    // Just iterate through
+/** Create a mock SpawnFn for gemini-cli adapter */
+function createMockSpawnFn(proc) {
+  return mock.fn(() => proc);
+}
+
+/** Write NDJSON events to mock process stdout, then end with exit 0 */
+function emitGeminiEvents(proc, events) {
+  for (const event of events) {
+    proc.stdout.write(JSON.stringify(event) + '\n');
   }
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+}
 
-  assert.equal(capturedModelName, 'gemini-2.0-flash');
-});
+// ===== gemini-cli adapter tests =====
 
-test('GeminiAgentService handles blocked prompt', async () => {
-  const { GeminiAgentService } = await import(
-    '../dist/domains/cats/services/GeminiAgentService.js'
-  );
+describe('GeminiAgentService (gemini-cli adapter)', () => {
+  test('yields session_init, text, and done on basic success', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
-  const { mockChat, mockGenAI } = createMocks();
-  const blockedError = new Error('The prompt was blocked');
-  blockedError.name = 'GoogleGenerativeAIResponseError';
+    const promise = collect(service.invoke('Hello'));
 
-  mockChat.sendMessage.mock.mockImplementation(async () => {
-    throw blockedError;
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'sess-abc', model: 'gemini-3-pro' },
+      { type: 'message', role: 'user', content: 'Hello' },
+      { type: 'message', role: 'assistant', content: 'Hello from Gemini!', delta: true },
+      { type: 'result', status: 'success', stats: { total_tokens: 100 } },
+    ]);
+
+    const msgs = await promise;
+
+    assert.equal(msgs.length, 3);
+    assert.equal(msgs[0].type, 'session_init');
+    assert.equal(msgs[0].sessionId, 'sess-abc');
+    assert.equal(msgs[0].catId, 'gemini');
+    assert.equal(msgs[1].type, 'text');
+    assert.equal(msgs[1].content, 'Hello from Gemini!');
+    assert.equal(msgs[2].type, 'done');
   });
 
-  const service = new GeminiAgentService({ genAI: mockGenAI });
-  const messages = [];
+  test('passes correct CLI args', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
 
-  for await (const msg of service.invoke('Harmful content')) {
-    messages.push(msg);
-  }
+    const promise = collect(service.invoke('test prompt'));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+    ]);
+    await promise;
 
-  const errorMsg = messages.find((m) => m.type === 'error');
-  assert.ok(errorMsg, 'should have error message');
-  assert.ok(errorMsg.error.includes('blocked'), 'error should mention blocked');
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args[0], 'test prompt');
+    assert.ok(args.includes('-o'));
+    assert.ok(args.includes('stream-json'));
+    assert.ok(args.includes('-y'));
+  });
+
+  test('passes callbackEnv as env', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-123',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-456',
+    };
+
+    const promise = collect(
+      service.invoke('test', { callbackEnv })
+    );
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+    ]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.equal(spawnOpts.env.CAT_CAFE_INVOCATION_ID, 'inv-123');
+    assert.equal(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'tok-456');
+  });
+
+  test('maps tool_use events', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('read a file'));
+
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+      { type: 'message', role: 'user', content: 'read a file' },
+      { type: 'tool_use', tool_name: 'read_file', tool_id: 'r1', parameters: { path: '/tmp/test' } },
+      { type: 'tool_result', tool_id: 'r1', status: 'success', output: 'content' },
+      { type: 'message', role: 'assistant', content: 'Done', delta: true },
+      { type: 'result', status: 'success', stats: {} },
+    ]);
+
+    const msgs = await promise;
+    const toolMsg = msgs.find((m) => m.type === 'tool_use');
+    assert.ok(toolMsg);
+    assert.equal(toolMsg.toolName, 'read_file');
+    assert.deepEqual(toolMsg.toolInput, { path: '/tmp/test' });
+
+    // tool_result should be skipped
+    const toolResults = msgs.filter((m) => m.toolName === undefined && m.type === 'tool_use');
+    assert.equal(toolResults.length, 0);
+  });
+
+  test('yields error on CLI non-zero exit', async () => {
+    const proc = createMockProcess();
+    proc.kill = mock.fn(() => true);
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('crash'));
+
+    proc.stderr.write('Error: authentication failed\n');
+    proc.stdout.end();
+    proc._emitter.emit('exit', 1, null);
+
+    const msgs = await promise;
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.ok(errMsg.error.includes('1'));
+    assert.ok(errMsg.error.includes('authentication failed'));
+  });
+
+  test('yields error on spawn ENOENT', async () => {
+    const proc = createMockProcess();
+    proc.kill = mock.fn(() => true);
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('hi'));
+
+    process.nextTick(() => {
+      const err = new Error('spawn gemini ENOENT');
+      err.code = 'ENOENT';
+      proc._emitter.emit('error', err);
+      proc.stdout.end();
+      proc._emitter.emit('exit', null, null);
+    });
+
+    const msgs = await promise;
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.ok(errMsg.error.includes('ENOENT'));
+  });
+
+  test('skips user echo and result/success events', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('test'));
+
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+      { type: 'message', role: 'user', content: 'test' },
+      { type: 'message', role: 'assistant', content: 'Response', delta: true },
+      { type: 'result', status: 'success', stats: { total_tokens: 50 } },
+      { type: 'unknown_event', data: 'something' },
+    ]);
+
+    const msgs = await promise;
+    // Only session_init, text, done — everything else skipped
+    assert.equal(msgs.length, 3);
+    assert.equal(msgs[0].type, 'session_init');
+    assert.equal(msgs[1].type, 'text');
+    assert.equal(msgs[1].content, 'Response');
+    assert.equal(msgs[2].type, 'done');
+  });
+
+  test('all messages have catId gemini', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('check'));
+
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's-catid', model: 'auto' },
+      { type: 'message', role: 'assistant', content: 'Test', delta: true },
+    ]);
+
+    const msgs = await promise;
+    for (const msg of msgs) {
+      assert.equal(msg.catId, 'gemini', `expected catId gemini for ${msg.type} message`);
+    }
+  });
+
+  test('maps result with non-success status to error', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('fail'));
+
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+      { type: 'result', status: 'error', error: 'Model overloaded' },
+    ]);
+
+    const msgs = await promise;
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.equal(errMsg.error, 'Model overloaded');
+  });
+});
+
+// ===== antigravity adapter tests =====
+
+describe('GeminiAgentService (antigravity adapter)', () => {
+  test('yields session_init, notification text, and done', async () => {
+    const antigravitySpawnFn = mock.fn(() => ({
+      unref: mock.fn(),
+      pid: 99999,
+    }));
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-1',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-1',
+    };
+
+    const msgs = await collect(service.invoke('Design a logo', { callbackEnv }));
+
+    assert.equal(msgs.length, 3);
+    assert.equal(msgs[0].type, 'session_init');
+    assert.ok(msgs[0].sessionId.startsWith('antigravity-'));
+    assert.equal(msgs[1].type, 'text');
+    assert.ok(msgs[1].content.includes('Antigravity'));
+    assert.equal(msgs[2].type, 'done');
+  });
+
+  test('spawns antigravity with correct args and env', async () => {
+    const antigravitySpawnFn = mock.fn(() => ({
+      unref: mock.fn(),
+      pid: 99999,
+    }));
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-2',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-2',
+    };
+
+    await collect(service.invoke('Design a logo', { callbackEnv }));
+
+    assert.equal(antigravitySpawnFn.mock.callCount(), 1);
+    const call = antigravitySpawnFn.mock.calls[0];
+    assert.equal(call.arguments[0], 'antigravity');
+    assert.deepEqual(call.arguments[1], ['chat', '--mode', 'agent', 'Design a logo']);
+
+    const spawnOpts = call.arguments[2];
+    assert.equal(spawnOpts.detached, true);
+    assert.equal(spawnOpts.stdio, 'ignore');
+    assert.equal(spawnOpts.env.CAT_CAFE_INVOCATION_ID, 'inv-2');
+    assert.equal(spawnOpts.env.CAT_CAFE_CALLBACK_TOKEN, 'tok-2');
+  });
+
+  test('errors when callbackEnv is missing', async () => {
+    const antigravitySpawnFn = mock.fn();
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const msgs = await collect(service.invoke('test'));
+
+    assert.equal(msgs.length, 1);
+    assert.equal(msgs[0].type, 'error');
+    assert.ok(msgs[0].error.includes('callbackEnv'));
+    // Should not have spawned anything
+    assert.equal(antigravitySpawnFn.mock.callCount(), 0);
+  });
+
+  test('handles spawn failure gracefully', async () => {
+    const antigravitySpawnFn = mock.fn(() => {
+      throw new Error('spawn antigravity ENOENT');
+    });
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-3',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-3',
+    };
+
+    const msgs = await collect(service.invoke('test', { callbackEnv }));
+
+    // Should have session_init then error (no text or done after error)
+    assert.equal(msgs[0].type, 'session_init');
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg);
+    assert.ok(errMsg.error.includes('ENOENT'));
+  });
+
+  test('all messages have catId gemini', async () => {
+    const antigravitySpawnFn = mock.fn(() => ({
+      unref: mock.fn(),
+      pid: 99999,
+    }));
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-4',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-4',
+    };
+
+    const msgs = await collect(service.invoke('test', { callbackEnv }));
+
+    for (const msg of msgs) {
+      assert.equal(msg.catId, 'gemini', `expected catId gemini for ${msg.type} message`);
+    }
+  });
+});
+
+// ===== facade / adapter selection tests =====
+
+describe('GeminiAgentService (adapter selection)', () => {
+  test('defaults to gemini-cli adapter', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    // No adapter option → should default to gemini-cli
+    const service = new GeminiAgentService({ spawnFn });
+
+    const promise = collect(service.invoke('test'));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's1', model: 'auto' },
+    ]);
+    await promise;
+
+    // Verify gemini CLI was spawned (not antigravity)
+    assert.equal(spawnFn.mock.callCount(), 1);
+    assert.equal(spawnFn.mock.calls[0].arguments[0], 'gemini');
+  });
+
+  test('selects antigravity via constructor option', async () => {
+    const antigravitySpawnFn = mock.fn(() => ({
+      unref: mock.fn(),
+      pid: 99999,
+    }));
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-5',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-5',
+    };
+
+    await collect(service.invoke('test', { callbackEnv }));
+
+    assert.equal(antigravitySpawnFn.mock.callCount(), 1);
+    assert.equal(antigravitySpawnFn.mock.calls[0].arguments[0], 'antigravity');
+  });
 });
