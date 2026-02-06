@@ -347,11 +347,13 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     assert.equal(antigravitySpawnFn.mock.callCount(), 0);
   });
 
-  test('handles async spawn error without crashing', async () => {
-    let errorHandler;
+  test('yields error on async spawn failure (ENOENT on next tick)', async () => {
     const antigravitySpawnFn = mock.fn(() => ({
       on: mock.fn((event, handler) => {
-        if (event === 'error') errorHandler = handler;
+        if (event === 'error') {
+          // Fire ENOENT on next tick (simulates real spawn behavior)
+          process.nextTick(() => handler(new Error('spawn antigravity ENOENT')));
+        }
       }),
       unref: mock.fn(),
       pid: 99999,
@@ -370,15 +372,12 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
 
-    // Generator has already finished with session_init + text + done
-    assert.equal(msgs.length, 3);
-    assert.equal(msgs[2].type, 'done');
-
-    // Simulate async ENOENT — should NOT throw/crash
-    assert.ok(errorHandler, 'error handler should be registered on child');
-    assert.doesNotThrow(() => {
-      errorHandler(new Error('spawn antigravity ENOENT'));
-    });
+    // Should yield session_init then error — no text or done
+    assert.equal(msgs[0].type, 'session_init');
+    const errMsg = msgs.find((m) => m.type === 'error');
+    assert.ok(errMsg, 'should yield error for async ENOENT');
+    assert.ok(errMsg.error.includes('ENOENT'));
+    assert.ok(!msgs.some((m) => m.type === 'done'), 'should not yield done after error');
   });
 
   test('handles synchronous spawn failure gracefully', async () => {

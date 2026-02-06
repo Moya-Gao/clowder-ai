@@ -225,6 +225,8 @@ export class GeminiAgentService implements AgentService {
       timestamp: Date.now(),
     };
 
+    let spawnError: Error | null = null;
+
     try {
       const child = this.antigravitySpawnFn(
         'antigravity',
@@ -235,11 +237,9 @@ export class GeminiAgentService implements AgentService {
           env: { ...process.env, ...options.callbackEnv },
         }
       );
-      // Prevent unhandled 'error' from crashing API process.
-      // Generator has already yielded done by the time async errors fire,
-      // so we can only log here.
-      child.on('error', (err) => {
-        console.error('[GeminiAgentService] antigravity spawn error:', err.message);
+      // Capture async spawn errors (ENOENT etc.) that fire on next tick.
+      child.on('error', (err: Error) => {
+        spawnError = err;
       });
       child.unref();
     } catch (err) {
@@ -247,6 +247,19 @@ export class GeminiAgentService implements AgentService {
         type: 'error',
         catId: CAT_ID,
         error: `Failed to launch Antigravity: ${err instanceof Error ? err.message : String(err)}`,
+        timestamp: Date.now(),
+      };
+      return;
+    }
+
+    // Wait one tick — most spawn errors (ENOENT, EACCES) fire here.
+    await new Promise((resolve) => process.nextTick(resolve));
+
+    if (spawnError) {
+      yield {
+        type: 'error',
+        catId: CAT_ID,
+        error: `Failed to launch Antigravity: ${(spawnError as Error).message}`,
         timestamp: Date.now(),
       };
       return;
