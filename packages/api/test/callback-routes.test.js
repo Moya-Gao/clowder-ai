@@ -238,6 +238,56 @@ describe('Callback Routes', () => {
     assert.equal(body.messages.length, 3);
   });
 
+  // ---- Cross-user isolation (P1 regression) ----
+
+  test('GET thread-context only returns messages from the same user', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    // user-1's message
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'User 1 msg', mentions: [], timestamp: 1,
+    });
+    // user-2's message (should NOT be visible to user-1's invocation)
+    messageStore.append({
+      userId: 'user-2', catId: null, content: 'User 2 msg', mentions: [], timestamp: 2,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].content, 'User 1 msg');
+  });
+
+  test('GET pending-mentions only returns mentions from the same user', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    // user-1 mentions opus
+    messageStore.append({
+      userId: 'user-1', catId: null, content: '@opus from user-1', mentions: ['opus'], timestamp: 1,
+    });
+    // user-2 also mentions opus (should NOT be visible)
+    messageStore.append({
+      userId: 'user-2', catId: null, content: '@opus from user-2', mentions: ['opus'], timestamp: 2,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/pending-mentions?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.mentions.length, 1);
+    assert.equal(body.mentions[0].message, '@opus from user-1');
+  });
+
   test('GET pending-mentions returns 400 without credentials', async () => {
     const app = await createApp();
 

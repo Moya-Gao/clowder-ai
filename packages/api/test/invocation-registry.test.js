@@ -77,7 +77,7 @@ describe('InvocationRegistry', () => {
     assert.equal(record, null);
   });
 
-  test('LRU eviction removes oldest when at capacity', async () => {
+  test('LRU eviction removes oldest unused when at capacity', async () => {
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
     );
@@ -88,12 +88,29 @@ describe('InvocationRegistry', () => {
     registry.create('user-2', 'codex');
     registry.create('user-3', 'gemini');
 
-    // First should still be valid
-    assert.ok(registry.verify(first.invocationId, first.callbackToken) !== null);
-
-    // Adding a 4th should evict the first
+    // Adding a 4th should evict first (oldest, never verified/refreshed)
     registry.create('user-4', 'opus');
     assert.equal(registry.verify(first.invocationId, first.callbackToken), null);
+  });
+
+  test('verify() refreshes recency (true LRU)', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry({ maxRecords: 3 });
+
+    const first = registry.create('user-1', 'opus');
+    const second = registry.create('user-2', 'codex');
+    const third = registry.create('user-3', 'gemini');
+
+    // Access first — refreshes its recency, making second the oldest
+    assert.ok(registry.verify(first.invocationId, first.callbackToken) !== null);
+
+    // Adding a 4th should evict second (oldest unused), not first (recently verified)
+    registry.create('user-4', 'opus');
+    assert.ok(registry.verify(first.invocationId, first.callbackToken) !== null, 'first should survive (recently used)');
+    assert.equal(registry.verify(second.invocationId, second.callbackToken), null, 'second should be evicted (oldest unused)');
   });
 
   test('multiple creates produce unique IDs', async () => {

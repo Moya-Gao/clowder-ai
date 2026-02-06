@@ -58,24 +58,38 @@ export class MessageStore {
   }
 
   /**
-   * Get the most recent N messages (global context).
+   * Get the most recent N messages.
+   * When userId is provided, only returns messages from that user's session.
    */
-  getRecent(limit?: number): StoredMessage[] {
+  getRecent(limit?: number, userId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
-    return this.messages.slice(-n);
+
+    if (!userId) {
+      return this.messages.slice(-n);
+    }
+
+    const matches: StoredMessage[] = [];
+    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+      const msg = this.messages[i]!;
+      if (msg.userId === userId) {
+        matches.push(msg);
+      }
+    }
+    return matches.reverse();
   }
 
   /**
    * Get recent messages that mention a specific cat.
+   * When userId is provided, only returns messages from that user's session.
    */
-  getMentionsFor(catId: CatId, limit?: number): StoredMessage[] {
+  getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
     // Walk backwards for efficiency
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if (msg.mentions.includes(catId)) {
+      if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
         matches.push(msg);
       }
     }

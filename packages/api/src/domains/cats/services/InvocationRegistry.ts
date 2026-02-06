@@ -100,6 +100,10 @@ export class InvocationRegistry {
       return null;
     }
 
+    // Refresh recency (LRU): delete + re-set moves to end of Map iteration order
+    this.records.delete(invocationId);
+    this.records.set(invocationId, record);
+
     return record;
   }
 
