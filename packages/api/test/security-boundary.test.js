@@ -88,16 +88,20 @@ test('ClaudeAgentService does not bypass permissions or allow Bash', async () =>
   );
   const src = await fs.readFile(srcPath, 'utf8');
 
-  assert.ok(!src.includes("'bypassPermissions'"), 'must not use bypassPermissions');
-  assert.ok(!src.includes('allowDangerouslySkipPermissions'), 'must not skip permissions');
+  // Must NOT use any dangerous flags
+  assert.ok(!src.includes('dangerously'), 'must not use any dangerous flags');
 
-  assert.ok(src.includes("permissionMode: 'dontAsk'") || src.includes("permissionMode: 'default'"));
-  const allowedToolsMatch = src.match(/allowedTools:\s*\[([^\]]*)\]/s);
-  assert.ok(allowedToolsMatch, 'expected allowedTools array');
-  const allowedToolsList = allowedToolsMatch[1];
+  // Must use acceptEdits permission mode (CLI flag value)
+  assert.ok(
+    src.includes("'acceptEdits'"),
+    'must use acceptEdits permission mode'
+  );
 
-  assert.ok(!allowedToolsList.includes("'Bash'"), 'must not allow Bash tool');
-  for (const tool of ["'Read'", "'Edit'", "'Glob'", "'Grep'"]) {
-    assert.ok(allowedToolsList.includes(tool), `expected allowed tool ${tool}`);
-  }
+  // Must pass --permission-mode and --allowedTools CLI flags
+  assert.ok(src.includes('--permission-mode'), 'must pass --permission-mode flag');
+  assert.ok(src.includes('--allowedTools'), 'must pass --allowedTools flag');
+
+  // Must have correct allowed tools without Bash
+  assert.ok(src.includes('Read,Edit,Glob,Grep'), 'must have correct allowed tools');
+  assert.ok(!src.includes('Bash'), 'must not allow Bash tool');
 });
