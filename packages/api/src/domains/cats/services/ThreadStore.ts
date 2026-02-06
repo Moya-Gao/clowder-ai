@@ -133,12 +133,17 @@ export class ThreadStore implements IThreadStore {
 
   private evictIfNeeded(): void {
     while (this.threads.size >= this.maxThreads) {
-      const oldestKey = this.threads.keys().next().value;
-      if (oldestKey !== undefined && oldestKey !== DEFAULT_THREAD_ID) {
-        this.threads.delete(oldestKey);
-      } else {
-        break;
+      // Find the oldest non-default key (Map preserves insertion order)
+      let evicted = false;
+      for (const key of this.threads.keys()) {
+        if (key !== DEFAULT_THREAD_ID) {
+          this.threads.delete(key);
+          evicted = true;
+          break;
+        }
       }
+      // Only default thread left — cannot evict further
+      if (!evicted) break;
     }
   }
 }

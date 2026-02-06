@@ -15,7 +15,7 @@
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from './MessageStore.js';
-import type { StoredMessage } from './MessageStore.js';
+import type { AppendMessageInput, StoredMessage } from './MessageStore.js';
 import { MessageKeys } from './message-keys.js';
 
 const DEFAULT_LIMIT = 50;
@@ -30,7 +30,7 @@ export class RedisMessageStore {
     this.ttl = options?.ttlSeconds ?? DEFAULT_TTL_SECONDS;
   }
 
-  async append(msg: Omit<StoredMessage, 'id'>): Promise<StoredMessage> {
+  async append(msg: AppendMessageInput): Promise<StoredMessage> {
     const id = generateSortableId(msg.timestamp);
     const threadId = msg.threadId ?? DEFAULT_THREAD_ID;
     const stored: StoredMessage = { ...msg, id, threadId };
@@ -145,23 +145,9 @@ export class RedisMessageStore {
       return this.hydrateMessages(ids.reverse());
     }
 
-    const OVERFETCH = n + 20;
-    const ids = await this.redis.zrevrangebyscore(
-      key, String(timestamp), '-inf', 'LIMIT', 0, OVERFETCH
-    );
-
-    const filtered: string[] = [];
-    for (const id of ids) {
-      if (filtered.length >= n) break;
-      const score = await this.redis.zscore(key, id);
-      if (score !== null && parseInt(score, 10) === timestamp && id >= beforeId) {
-        continue;
-      }
-      filtered.push(id);
-    }
-
-    if (filtered.length === 0) return [];
-    return this.hydrateMessages(filtered.reverse());
+    const ids = await this.fetchBeforeWithCursor(key, timestamp, beforeId, n);
+    if (ids.length === 0) return [];
+    return this.hydrateMessages(ids.reverse());
   }
 
   async getByThread(threadId: string, limit?: number): Promise<StoredMessage[]> {
@@ -191,23 +177,44 @@ export class RedisMessageStore {
       return this.hydrateMessages(ids.reverse());
     }
 
-    const OVERFETCH = n + 20;
-    const ids = await this.redis.zrevrangebyscore(
-      key, String(timestamp), '-inf', 'LIMIT', 0, OVERFETCH
-    );
+    const ids = await this.fetchBeforeWithCursor(key, timestamp, beforeId, n);
+    if (ids.length === 0) return [];
+    return this.hydrateMessages(ids.reverse());
+  }
 
+  /**
+   * Fetch IDs before a composite cursor (timestamp + beforeId) using chunked scanning.
+   * Loops until we have `limit` results or exhaust the sorted set.
+   */
+  private async fetchBeforeWithCursor(
+    key: string,
+    timestamp: number,
+    beforeId: string,
+    limit: number
+  ): Promise<string[]> {
+    const CHUNK = 50;
     const filtered: string[] = [];
-    for (const id of ids) {
-      if (filtered.length >= n) break;
-      const score = await this.redis.zscore(key, id);
-      if (score !== null && parseInt(score, 10) === timestamp && id >= beforeId) {
-        continue;
+    let offset = 0;
+
+    while (filtered.length < limit) {
+      const chunk = await this.redis.zrevrangebyscore(
+        key, String(timestamp), '-inf', 'LIMIT', offset, CHUNK
+      );
+      if (chunk.length === 0) break;
+
+      for (const id of chunk) {
+        if (filtered.length >= limit) break;
+        const score = await this.redis.zscore(key, id);
+        if (score !== null && parseInt(score, 10) === timestamp && id >= beforeId) {
+          continue;
+        }
+        filtered.push(id);
       }
-      filtered.push(id);
+
+      offset += CHUNK;
     }
 
-    if (filtered.length === 0) return [];
-    return this.hydrateMessages(filtered.reverse());
+    return filtered;
   }
 
   /** Hydrate message IDs into full StoredMessage objects */

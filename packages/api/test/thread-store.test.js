@@ -149,6 +149,36 @@ describe('ThreadStore', () => {
     assert.ok(store.get(t4.id));
   });
 
+  test('LRU eviction skips default thread and evicts next oldest (regression)', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore({ maxThreads: 3 });
+
+    // Access default first — it becomes the oldest key in the Map
+    store.get('default');
+    const t1 = store.create('u', 'T1');
+    const t2 = store.create('u', 'T2');
+    // Now: default, t1, t2 → size=3, at capacity
+
+    // Creating t3 should evict t1 (oldest non-default), NOT break
+    const t3 = store.create('u', 'T3');
+
+    assert.equal(store.size, 3); // was 4 before fix
+    assert.ok(store.get('default')); // protected
+    assert.equal(store.get(t1.id), null); // evicted (oldest non-default)
+    assert.ok(store.get(t2.id));
+    assert.ok(store.get(t3.id));
+
+    // Creating t4 should evict t2
+    const t4 = store.create('u', 'T4');
+    assert.equal(store.size, 3);
+    assert.equal(store.get(t2.id), null);
+    assert.ok(store.get(t3.id));
+    assert.ok(store.get(t4.id));
+  });
+
   test('create() with no title sets null', async () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/ThreadStore.js'

@@ -12,12 +12,12 @@ import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 export { DEFAULT_THREAD_ID };
 
 /**
- * A stored message entry
+ * A stored message entry (after append — threadId always present)
  */
 export interface StoredMessage {
   id: string;
-  /** Thread this message belongs to (defaults to 'default'). Always set after append(). */
-  threadId?: string;
+  /** Thread this message belongs to (always set after append) */
+  threadId: string;
   userId: string;
   /** null = user message, CatId = cat message */
   catId: CatId | null;
@@ -30,11 +30,18 @@ export interface StoredMessage {
 }
 
 /**
+ * Input for appending a message. threadId is optional (defaults to 'default').
+ */
+export type AppendMessageInput = Omit<StoredMessage, 'id' | 'threadId'> & {
+  threadId?: string;
+};
+
+/**
  * Common interface for message stores (in-memory and Redis).
  * Methods that may hit Redis are async; in-memory returns immediately.
  */
 export interface IMessageStore {
-  append(msg: Omit<StoredMessage, 'id'>): StoredMessage | Promise<StoredMessage>;
+  append(msg: AppendMessageInput): StoredMessage | Promise<StoredMessage>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
@@ -74,9 +81,7 @@ export class MessageStore {
   /**
    * Append a message to the store. Returns the stored message with generated id.
    */
-  append(
-    msg: Omit<StoredMessage, 'id'>
-  ): StoredMessage {
+  append(msg: AppendMessageInput): StoredMessage {
     const stored: StoredMessage = {
       ...msg,
       id: generateSortableId(msg.timestamp),
@@ -168,7 +173,7 @@ export class MessageStore {
 
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if ((msg.threadId ?? DEFAULT_THREAD_ID) === threadId) {
+      if (msg.threadId === threadId) {
         matches.push(msg);
       }
     }
@@ -189,7 +194,7 @@ export class MessageStore {
 
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if ((msg.threadId ?? DEFAULT_THREAD_ID) !== threadId) continue;
+      if (msg.threadId !== threadId) continue;
       if (msg.timestamp > timestamp) continue;
       if (msg.timestamp === timestamp) {
         if (!beforeId || msg.id >= beforeId) continue;
