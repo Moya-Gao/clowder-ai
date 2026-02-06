@@ -629,6 +629,53 @@ describe('AgentRouter', () => {
     assert.equal(codexDone?.isFinal, true);
   });
 
+  test('session store failure degrades gracefully without crashing route', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let capturedOptions = null;
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (_prompt, options) {
+        capturedOptions = options;
+        yield { type: 'session_init', catId: 'opus', sessionId: 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'Hello', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // SessionStore that throws on every operation (simulates Redis down)
+    const brokenSessionStore = {
+      getSessionId: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+      setSessionId: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+      deleteSession: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      sessionStore: brokenSessionStore,
+    });
+
+    // Should NOT throw — should degrade to no-session
+    const messages = [];
+    for await (const msg of router.route('user-1', 'Hello')) {
+      messages.push(msg);
+    }
+
+    // Service was called without session (degraded)
+    assert.equal(capturedOptions?.sessionId, undefined);
+    // Text message still came through
+    const texts = messages.filter((m) => m.type === 'text');
+    assert.equal(texts.length, 1);
+    assert.equal(texts[0].content, 'Hello');
+  });
+
   test('error from first cat is not passed as context to second cat', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'

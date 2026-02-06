@@ -11,9 +11,9 @@
  * 消息 TTL 可配置 (默认 7 天)。
  */
 
-import { randomUUID } from 'node:crypto';
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
+import { generateSortableId } from './MessageStore.js';
 import type { StoredMessage } from './MessageStore.js';
 import { MessageKeys } from './message-keys.js';
 
@@ -30,7 +30,7 @@ export class RedisMessageStore {
   }
 
   async append(msg: Omit<StoredMessage, 'id'>): Promise<StoredMessage> {
-    const id = randomUUID();
+    const id = generateSortableId(msg.timestamp);
     const stored: StoredMessage = { ...msg, id };
     const score = msg.timestamp;
 
@@ -127,23 +127,51 @@ export class RedisMessageStore {
   async getBefore(
     timestamp: number,
     limit?: number,
-    userId?: string
+    userId?: string,
+    beforeId?: string
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = userId ? MessageKeys.user(userId) : MessageKeys.TIMELINE;
 
-    // Get IDs with score < timestamp, from highest to lowest
+    if (!beforeId) {
+      // Simple: get IDs with score < timestamp
+      const ids = await this.redis.zrevrangebyscore(
+        key,
+        `(${timestamp}`, // exclusive upper bound
+        '-inf',
+        'LIMIT',
+        0,
+        n
+      );
+      if (ids.length === 0) return [];
+      return this.hydrateMessages(ids.reverse());
+    }
+
+    // Composite cursor: fetch score <= timestamp, then filter out id >= beforeId
+    // at the boundary timestamp. Over-fetch to account for same-ts filtering.
+    const OVERFETCH = n + 20;
     const ids = await this.redis.zrevrangebyscore(
       key,
-      `(${timestamp}`, // exclusive upper bound
+      String(timestamp), // inclusive upper bound
       '-inf',
       'LIMIT',
       0,
-      n
+      OVERFETCH
     );
 
-    if (ids.length === 0) return [];
-    return this.hydrateMessages(ids.reverse());
+    const filtered: string[] = [];
+    for (const id of ids) {
+      if (filtered.length >= n) break;
+      // At exact cursor timestamp, skip ids >= beforeId
+      const score = await this.redis.zscore(key, id);
+      if (score !== null && parseInt(score, 10) === timestamp && id >= beforeId) {
+        continue;
+      }
+      filtered.push(id);
+    }
+
+    if (filtered.length === 0) return [];
+    return this.hydrateMessages(filtered.reverse());
   }
 
   /** Hydrate message IDs into full StoredMessage objects */

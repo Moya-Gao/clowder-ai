@@ -31,7 +31,8 @@ export interface MessagesRoutesOptions {
 
 const getMessagesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
-  before: z.coerce.number().int().optional(),
+  /** Cursor: "timestamp:id" or legacy plain timestamp */
+  before: z.string().optional(),
   userId: z.string().min(1).max(100).default('default-user'),
 });
 
@@ -93,13 +94,29 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     }
     const { limit, before, userId } = parseResult.data;
 
-    const messages = before
-      ? await opts.messageStore.getBefore(before, limit + 1, userId)
+    // Parse composite cursor "timestamp:id" or legacy plain timestamp
+    let beforeTs: number | undefined;
+    let beforeId: string | undefined;
+    if (before) {
+      const colonIdx = before.indexOf(':');
+      if (colonIdx > 0) {
+        beforeTs = parseInt(before.slice(0, colonIdx), 10);
+        beforeId = before.slice(colonIdx + 1);
+      } else {
+        beforeTs = parseInt(before, 10);
+      }
+      if (!Number.isFinite(beforeTs!)) {
+        return { messages: [], hasMore: false };
+      }
+    }
+
+    const messages = beforeTs != null
+      ? await opts.messageStore.getBefore(beforeTs, limit + 1, userId, beforeId)
       : await opts.messageStore.getRecent(limit + 1, userId);
 
-    // Fetch limit+1 to determine hasMore
+    // Fetch limit+1 to determine hasMore; drop oldest (first) probe item
     const hasMore = messages.length > limit;
-    const page = hasMore ? messages.slice(0, limit) : messages;
+    const page = hasMore ? messages.slice(1) : messages;
 
     return {
       messages: page.map((m) => ({

@@ -216,9 +216,6 @@ export class AgentRouter {
         prompt = `${message}\n\n${contextParts.join('\n')}`;
       }
 
-      // Get stored session for this user + cat
-      const sessionId = await this.getSession(userId, catId);
-
       // Create invocation for MCP callback auth
       const { invocationId, callbackToken } = this.registry.create(userId, catId);
       const callbackEnv: Record<string, string> = {
@@ -227,20 +224,32 @@ export class AgentRouter {
         CAT_CAFE_CALLBACK_TOKEN: callbackToken,
       };
 
-      const options: AgentServiceOptions = {
-        ...(sessionId ? { sessionId } : {}),
-        callbackEnv,
-      };
-
       // Collect text content for chaining
       let textContent = '';
 
       try {
+        // Get stored session (degrade to no-session if Redis fails)
+        let sessionId: string | undefined;
+        try {
+          sessionId = await this.getSession(userId, catId);
+        } catch {
+          // Redis read failure — continue without session (lose resume, not crash)
+        }
+
+        const options: AgentServiceOptions = {
+          ...(sessionId ? { sessionId } : {}),
+          callbackEnv,
+        };
+
         // Invoke the service and yield messages
         for await (const msg of service.invoke(prompt, options)) {
-          // Store session ID when we receive session_init
+          // Store session ID when we receive session_init (degrade on failure)
           if (msg.type === 'session_init' && msg.sessionId) {
-            await this.storeSession(userId, catId, msg.sessionId);
+            try {
+              await this.storeSession(userId, catId, msg.sessionId);
+            } catch {
+              // Redis write failure — session won't persist, but chain continues
+            }
           }
 
           // Accumulate text content for chaining

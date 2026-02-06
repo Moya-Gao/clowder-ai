@@ -31,7 +31,7 @@ export interface IMessageStore {
   append(msg: Omit<StoredMessage, 'id'>): StoredMessage | Promise<StoredMessage>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getBefore(timestamp: number, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
 }
 
 /** Max messages to keep in memory */
@@ -43,6 +43,18 @@ const DEFAULT_LIMIT = 50;
 /**
  * In-memory bounded message store.
  */
+/**
+ * Generate a sortable message ID: zero-padded timestamp + sequence + UUID suffix.
+ * Lexicographic order matches insertion order even within the same millisecond.
+ */
+let _seq = 0;
+export function generateSortableId(timestamp: number): string {
+  const ts = String(timestamp).padStart(16, '0');
+  const seq = String(_seq++).padStart(6, '0');
+  const suffix = randomUUID().slice(0, 8);
+  return `${ts}-${seq}-${suffix}`;
+}
+
 export class MessageStore {
   private messages: StoredMessage[] = [];
   private readonly maxMessages: number;
@@ -57,7 +69,7 @@ export class MessageStore {
   append(
     msg: Omit<StoredMessage, 'id'>
   ): StoredMessage {
-    const stored: StoredMessage = { ...msg, id: randomUUID() };
+    const stored: StoredMessage = { ...msg, id: generateSortableId(msg.timestamp) };
     this.messages.push(stored);
 
     // Trim oldest if over capacity
@@ -110,17 +122,23 @@ export class MessageStore {
   }
 
   /**
-   * Get messages before a given timestamp (cursor-based pagination).
+   * Get messages before a given cursor (cursor-based pagination).
+   * When beforeId is provided, also excludes messages at the same timestamp
+   * with id >= beforeId (composite cursor to handle same-millisecond messages).
    * Returns messages in chronological order (oldest first).
    */
-  getBefore(timestamp: number, limit?: number, userId?: string): StoredMessage[] {
+  getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
     // Walk backwards from most recent, collecting messages before the cursor
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if (msg.timestamp >= timestamp) continue;
+      if (msg.timestamp > timestamp) continue;
+      if (msg.timestamp === timestamp) {
+        // Same timestamp: use id as tiebreaker (skip if id >= beforeId)
+        if (!beforeId || msg.id >= beforeId) continue;
+      }
       if (userId && msg.userId !== userId) continue;
       matches.push(msg);
     }

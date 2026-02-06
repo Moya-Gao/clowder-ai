@@ -30,12 +30,12 @@ export function ChatContainer() {
 
   // Fetch history page from API
   const fetchHistory = useCallback(
-    async (before?: number) => {
+    async (cursor?: string) => {
       if (isLoadingHistory) return;
       setLoadingHistory(true);
       try {
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
-        if (before) params.set('before', String(before));
+        if (cursor) params.set('before', cursor);
         const res = await fetch(`${API_URL}/api/messages?${params}`);
         if (!res.ok) return;
         const data = await res.json();
@@ -66,24 +66,50 @@ export function ChatContainer() {
     }
   }, [fetchHistory]);
 
-  // Scroll to bottom on new messages (but not on history prepend)
+  // Detect prepend vs append and handle scroll accordingly
+  const prevFirstIdRef = useRef<string | null>(null);
   const prevCountRef = useRef(0);
+  const scrollSnapshotRef = useRef<number | null>(null);
+
+  // Before render: snapshot scroll height when we expect a prepend
   useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (el && isLoadingHistory) {
+      scrollSnapshotRef.current = el.scrollHeight;
+    }
+  }, [isLoadingHistory]);
+
+  // After messages change: scroll to bottom on append, preserve position on prepend
+  useEffect(() => {
+    const el = scrollContainerRef.current;
     const prevCount = prevCountRef.current;
+    const prevFirstId = prevFirstIdRef.current;
+    const currentFirstId = messages.length > 0 ? messages[0].id : null;
+
     prevCountRef.current = messages.length;
-    // Only auto-scroll if messages were appended (not prepended)
-    if (messages.length > prevCount && prevCount > 0) {
+    prevFirstIdRef.current = currentFirstId;
+
+    if (messages.length === 0) return;
+
+    // First load: scroll to bottom
+    if (prevCount === 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+
+    // Prepend detected: first message ID changed → preserve viewport
+    if (prevFirstId && currentFirstId !== prevFirstId && el && scrollSnapshotRef.current !== null) {
+      const heightDelta = el.scrollHeight - scrollSnapshotRef.current;
+      el.scrollTop += heightDelta;
+      scrollSnapshotRef.current = null;
+      return;
+    }
+
+    // Append: new messages added at the end → scroll to bottom
+    if (messages.length > prevCount) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
-
-  // Also scroll to bottom on initial load
-  useEffect(() => {
-    if (messages.length > 0 && prevCountRef.current === messages.length) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoadingHistory]);
 
   // Load more when scrolled to top
   const handleScroll = useCallback(() => {
@@ -91,7 +117,7 @@ export function ChatContainer() {
     if (!el || !hasMore || isLoadingHistory) return;
     if (el.scrollTop < 80 && messages.length > 0) {
       const oldest = messages[0];
-      void fetchHistory(oldest.timestamp);
+      void fetchHistory(`${oldest.timestamp}:${oldest.id}`);
     }
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 

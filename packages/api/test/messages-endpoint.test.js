@@ -114,6 +114,100 @@ describe('GET /api/messages', () => {
     assert.equal(body.hasMore, false);
   });
 
+  it('pagination covers all messages without gaps (regression: slice direction)', async () => {
+    // Insert 6 messages with distinct timestamps
+    for (let i = 0; i < 6; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: null,
+        content: `msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 100,
+      });
+    }
+
+    // Page 1: most recent 2
+    const page1 = await app.inject({
+      method: 'GET',
+      url: '/api/messages?limit=2',
+    });
+    const body1 = JSON.parse(page1.body);
+    assert.equal(body1.messages.length, 2);
+    assert.equal(body1.hasMore, true);
+    // Should be the 2 newest: msg 4 and msg 5
+    assert.equal(body1.messages[0].content, 'msg 4');
+    assert.equal(body1.messages[1].content, 'msg 5');
+
+    // Page 2: before the oldest message of page 1
+    const cursor = body1.messages[0].timestamp;
+    const page2 = await app.inject({
+      method: 'GET',
+      url: `/api/messages?limit=2&before=${cursor}`,
+    });
+    const body2 = JSON.parse(page2.body);
+    assert.equal(body2.messages.length, 2);
+    assert.equal(body2.hasMore, true);
+    assert.equal(body2.messages[0].content, 'msg 2');
+    assert.equal(body2.messages[1].content, 'msg 3');
+
+    // Page 3: before page 2's oldest
+    const cursor2 = body2.messages[0].timestamp;
+    const page3 = await app.inject({
+      method: 'GET',
+      url: `/api/messages?limit=2&before=${cursor2}`,
+    });
+    const body3 = JSON.parse(page3.body);
+    assert.equal(body3.messages.length, 2);
+    assert.equal(body3.hasMore, false);
+    assert.equal(body3.messages[0].content, 'msg 0');
+    assert.equal(body3.messages[1].content, 'msg 1');
+
+    // Verify: union of all pages = all 6 messages, no gaps
+    const allContents = [
+      ...body3.messages,
+      ...body2.messages,
+      ...body1.messages,
+    ].map((m) => m.content);
+    assert.deepEqual(allContents, ['msg 0', 'msg 1', 'msg 2', 'msg 3', 'msg 4', 'msg 5']);
+  });
+
+  it('composite cursor handles same-timestamp messages without gaps', async () => {
+    // All messages at the same timestamp (simulates burst writes)
+    for (let i = 0; i < 4; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: null,
+        content: `burst ${i}`,
+        mentions: [],
+        timestamp: 5000, // all same timestamp
+      });
+    }
+
+    // First page: most recent 2
+    const page1 = await app.inject({
+      method: 'GET',
+      url: '/api/messages?limit=2',
+    });
+    const body1 = JSON.parse(page1.body);
+    assert.equal(body1.messages.length, 2);
+    assert.equal(body1.hasMore, true);
+
+    // Composite cursor: "timestamp:id" of the oldest message on page 1
+    const oldest = body1.messages[0];
+    const cursor = `${oldest.timestamp}:${oldest.id}`;
+    const page2 = await app.inject({
+      method: 'GET',
+      url: `/api/messages?limit=2&before=${encodeURIComponent(cursor)}`,
+    });
+    const body2 = JSON.parse(page2.body);
+    assert.equal(body2.messages.length, 2);
+    assert.equal(body2.hasMore, false);
+
+    // Union should have all 4, no duplicates
+    const allIds = [...body2.messages, ...body1.messages].map((m) => m.id);
+    assert.equal(new Set(allIds).size, 4, 'All 4 messages should be unique across pages');
+  });
+
   it('filters by userId', async () => {
     messageStore.append({
       userId: 'alice',
