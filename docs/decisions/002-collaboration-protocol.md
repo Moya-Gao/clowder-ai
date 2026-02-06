@@ -40,9 +40,9 @@ Cat Café 的核心目标是让三只猫脱离“人肉路由”模式，形成�
 commit message 需带猫猫签名，便于追溯责任与意图。
 
 示例：
-- `[布偶猫🐾] feat(api): add mcp callback registry`
-- `[缅因猫🐾] fix(api): handle cli non-zero exit`
-- `[暹罗猫🐾] feat(web): add sticker panel v1`
+- `feat(api): add mcp callback registry [布偶猫🐾]`
+- `fix(api): handle cli non-zero exit [缅因猫🐾]`
+- `feat(web): add sticker panel v1 [暹罗猫🐾]`
 
 建议在 commit body 增加 `Why:` 一行，记录关键决策理由。
 

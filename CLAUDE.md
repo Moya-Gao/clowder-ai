@@ -152,7 +152,7 @@ cat-cafe/
 默认规则：完成一个完整且可验证的子任务，就提交一次 commit。
 commit message 需要包含猫猫签名，便于回溯“谁做的、为什么做”。
 
-- 布偶猫签名示例：`[布偶猫🐾] feat(api): add mcp callback registry`
+- 布偶猫签名示例：`feat(api): add mcp callback registry [布偶猫🐾]`
 - 在 commit body 里补一行 `Why:`，说明关键决策理由
 
 如果暂时不能提交（例如工作未达可验证状态），要在交接里明确说明原因和补提交通知点。

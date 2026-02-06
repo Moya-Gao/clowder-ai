@@ -139,7 +139,7 @@ assets/
 默认规则：完成一个完整且可验证的子任务，就提交一次 commit。
 commit message 需要包含猫猫签名，便于回溯“谁做的、为什么做”。
 
-- 暹罗猫签名示例：`[暹罗猫🐾] feat(web): add cat sticker pack v1`
+- 暹罗猫签名示例：`feat(web): add cat sticker pack v1 [暹罗猫🐾]`
 - 在 commit body 里补一行 `Why:`，说明关键决策理由
 
 如果暂时不能提交（例如工作未达可验证状态），要在交接里明确说明原因和补提交通知点。
