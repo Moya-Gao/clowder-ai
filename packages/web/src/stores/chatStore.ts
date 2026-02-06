@@ -12,20 +12,41 @@ export interface ChatMessage {
 interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
+  isLoadingHistory: boolean;
+  hasMore: boolean;
   addMessage: (msg: ChatMessage) => void;
+  prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
+  setLoadingHistory: (loading: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   messages: [],
   isLoading: false,
+  isLoadingHistory: false,
+  hasMore: true,
 
   addMessage: (msg) =>
-    set((state) => ({
-      messages: [...state.messages, msg],
-    })),
+    set((state) => {
+      // Deduplicate by id (history load + realtime socket can overlap)
+      if (state.messages.some((m) => m.id === msg.id)) {
+        return state;
+      }
+      return { messages: [...state.messages, msg] };
+    }),
+
+  prependHistory: (msgs, hasMore) =>
+    set((state) => {
+      // Deduplicate: only prepend messages not already in store
+      const existingIds = new Set(state.messages.map((m) => m.id));
+      const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
+      return {
+        messages: [...newMsgs, ...state.messages],
+        hasMore,
+      };
+    }),
 
   appendToLastMessage: (content) =>
     set((state) => {
@@ -48,4 +69,5 @@ export const useChatStore = create<ChatState>((set) => ({
     })),
 
   setLoading: (loading) => set({ isLoading: loading }),
+  setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
 }));

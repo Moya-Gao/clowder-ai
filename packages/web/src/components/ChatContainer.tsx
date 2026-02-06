@@ -8,18 +8,92 @@ import { ChatInput } from './ChatInput';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+const HISTORY_PAGE_SIZE = 50;
 
 export function ChatContainer() {
   const {
     messages,
     isLoading,
+    isLoadingHistory,
+    hasMore,
     addMessage,
+    prependHistory,
     appendToLastMessage,
     setStreaming,
     setLoading,
+    setLoadingHistory,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
+  const initialLoadDone = useRef(false);
+
+  // Fetch history page from API
+  const fetchHistory = useCallback(
+    async (before?: number) => {
+      if (isLoadingHistory) return;
+      setLoadingHistory(true);
+      try {
+        const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
+        if (before) params.set('before', String(before));
+        const res = await fetch(`${API_URL}/api/messages?${params}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const historyMsgs = (data.messages ?? []).map(
+          (m: { id: string; type: string; catId?: string; content: string; timestamp: number }) => ({
+            id: m.id,
+            type: m.type as 'user' | 'assistant' | 'system',
+            catId: m.catId,
+            content: m.content,
+            timestamp: m.timestamp,
+          })
+        );
+        prependHistory(historyMsgs, data.hasMore ?? false);
+      } catch {
+        // Silently ignore fetch errors for history
+      } finally {
+        setLoadingHistory(false);
+      }
+    },
+    [isLoadingHistory, setLoadingHistory, prependHistory]
+  );
+
+  // Load initial history on mount
+  useEffect(() => {
+    if (!initialLoadDone.current) {
+      initialLoadDone.current = true;
+      void fetchHistory();
+    }
+  }, [fetchHistory]);
+
+  // Scroll to bottom on new messages (but not on history prepend)
+  const prevCountRef = useRef(0);
+  useEffect(() => {
+    const prevCount = prevCountRef.current;
+    prevCountRef.current = messages.length;
+    // Only auto-scroll if messages were appended (not prepended)
+    if (messages.length > prevCount && prevCount > 0) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  // Also scroll to bottom on initial load
+  useEffect(() => {
+    if (messages.length > 0 && prevCountRef.current === messages.length) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoadingHistory]);
+
+  // Load more when scrolled to top
+  const handleScroll = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el || !hasMore || isLoadingHistory) return;
+    if (el.scrollTop < 80 && messages.length > 0) {
+      const oldest = messages[0];
+      void fetchHistory(oldest.timestamp);
+    }
+  }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 
   const handleAgentMessage = useCallback(
     (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean }) => {
@@ -66,10 +140,6 @@ export function ChatContainer() {
 
   useSocket(handleAgentMessage);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
   const handleSend = useCallback(
     async (content: string) => {
       currentMessageRef.current = null;
@@ -112,8 +182,22 @@ export function ChatContainer() {
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto p-4">
-        {messages.length === 0 ? (
+      <main
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto p-4"
+      >
+        {isLoadingHistory && (
+          <div className="text-center py-3 text-sm text-gray-400">
+            加载历史消息...
+          </div>
+        )}
+        {!hasMore && messages.length > 0 && (
+          <div className="text-center py-3 text-xs text-gray-300">
+            没有更多消息了
+          </div>
+        )}
+        {messages.length === 0 && !isLoadingHistory ? (
           <div className="text-center mt-20">
             <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
             <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
