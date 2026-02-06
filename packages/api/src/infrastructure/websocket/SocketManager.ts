@@ -33,11 +33,25 @@ export class SocketManager {
         socket.join(room);
         console.log(`[ws] ${socket.id} joined room: ${room}`);
       });
+
+      socket.on('leave_room', (room: string) => {
+        socket.leave(room);
+        console.log(`[ws] ${socket.id} left room: ${room}`);
+      });
     });
   }
 
-  broadcastAgentMessage(message: AgentMessage): void {
-    this.io.emit('agent_message', message);
+  /**
+   * Broadcast agent message, optionally scoped to a thread room.
+   * When threadId is provided, emits only to sockets in that room.
+   * Falls back to global broadcast when no threadId (backwards compatible).
+   */
+  broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
+    if (threadId) {
+      this.io.to(`thread:${threadId}`).emit('agent_message', message);
+    } else {
+      this.io.emit('agent_message', message);
+    }
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {

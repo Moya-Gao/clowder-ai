@@ -104,7 +104,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     void (async () => {
       try {
         for await (const msg of router.route(userId, content, threadId, contentBlocks, uploadDir)) {
-          opts.socketManager.broadcastAgentMessage(msg);
+          opts.socketManager.broadcastAgentMessage(msg, threadId);
         }
       } catch (err) {
         console.error('[messages] Background processing error:', err);
@@ -113,7 +113,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           catId: createCatId('opus'),
           error: err instanceof Error ? err.message : 'Unknown error',
           timestamp: Date.now(),
-        });
+        }, threadId);
       }
     })();
   });

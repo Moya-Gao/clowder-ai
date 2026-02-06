@@ -58,22 +58,23 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      // Store the message
+      // Store the message (scoped to the invocation's thread)
       await messageStore.append({
         userId: record.userId,
         catId: record.catId,
         content,
         mentions: [],
         timestamp: Date.now(),
+        threadId: record.threadId,
       });
 
-      // Broadcast via Socket.io
+      // Broadcast via Socket.io (scoped to thread room)
       socketManager.broadcastAgentMessage({
         type: 'text',
         catId: record.catId,
         content,
         timestamp: Date.now(),
-      });
+      }, record.threadId);
 
       return { status: 'ok', replyTo };
     });
