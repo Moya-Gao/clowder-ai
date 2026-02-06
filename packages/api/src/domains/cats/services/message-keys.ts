@@ -15,4 +15,7 @@ export const MessageKeys = {
 
   /** Per-cat mentions sorted set: msg:mentions:{catId} */
   mentions: (catId: string) => `msg:mentions:${catId}`,
+
+  /** Per-thread timeline sorted set: msg:thread:{threadId} */
+  thread: (threadId: string) => `msg:thread:${threadId}`,
 } as const;

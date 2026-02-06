@@ -3,21 +3,27 @@
  * 内存消息存储，供 MCP 回传工具 get_thread_context / get_pending_mentions 使用
  *
  * 有界数组实现，超过 MAX_MESSAGES 时丢弃最旧消息。
- * Phase 3 将迁移到 Redis。
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, MessageContent } from '@cat-cafe/shared';
+
+/** Default thread ID for backwards compatibility (lobby) */
+export const DEFAULT_THREAD_ID = 'default';
 
 /**
  * A stored message entry
  */
 export interface StoredMessage {
   id: string;
+  /** Thread this message belongs to (defaults to 'default'). Always set after append(). */
+  threadId?: string;
   userId: string;
   /** null = user message, CatId = cat message */
   catId: CatId | null;
   content: string;
+  /** Rich content blocks (text, images, code). When absent, use content string. */
+  contentBlocks?: readonly MessageContent[];
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
@@ -32,6 +38,8 @@ export interface IMessageStore {
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThread(threadId: string, limit?: number): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
 }
 
 /** Max messages to keep in memory */
@@ -69,7 +77,11 @@ export class MessageStore {
   append(
     msg: Omit<StoredMessage, 'id'>
   ): StoredMessage {
-    const stored: StoredMessage = { ...msg, id: generateSortableId(msg.timestamp) };
+    const stored: StoredMessage = {
+      ...msg,
+      id: generateSortableId(msg.timestamp),
+      threadId: msg.threadId ?? DEFAULT_THREAD_ID,
+    };
     this.messages.push(stored);
 
     // Trim oldest if over capacity
@@ -144,6 +156,46 @@ export class MessageStore {
     }
 
     // Reverse so oldest first
+    return matches.reverse();
+  }
+
+  /**
+   * Get the most recent N messages in a specific thread.
+   */
+  getByThread(threadId: string, limit?: number): StoredMessage[] {
+    const n = limit ?? DEFAULT_LIMIT;
+    const matches: StoredMessage[] = [];
+
+    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+      const msg = this.messages[i]!;
+      if ((msg.threadId ?? DEFAULT_THREAD_ID) === threadId) {
+        matches.push(msg);
+      }
+    }
+    return matches.reverse();
+  }
+
+  /**
+   * Get messages in a thread before a given cursor (cursor-based pagination).
+   */
+  getByThreadBefore(
+    threadId: string,
+    timestamp: number,
+    limit?: number,
+    beforeId?: string
+  ): StoredMessage[] {
+    const n = limit ?? DEFAULT_LIMIT;
+    const matches: StoredMessage[] = [];
+
+    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+      const msg = this.messages[i]!;
+      if ((msg.threadId ?? DEFAULT_THREAD_ID) !== threadId) continue;
+      if (msg.timestamp > timestamp) continue;
+      if (msg.timestamp === timestamp) {
+        if (!beforeId || msg.id >= beforeId) continue;
+      }
+      matches.push(msg);
+    }
     return matches.reverse();
   }
 

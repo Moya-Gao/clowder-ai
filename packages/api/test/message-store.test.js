@@ -196,4 +196,88 @@ describe('MessageStore', () => {
     assert.deepEqual(store.getMentionsFor('opus'), []);
     assert.equal(store.size, 0);
   });
+
+  test('append() defaults threadId to "default"', async () => {
+    const { MessageStore, DEFAULT_THREAD_ID } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const msg = store.append({
+      userId: 'u1', catId: null, content: 'hi', mentions: [], timestamp: 1,
+    });
+    assert.equal(msg.threadId, DEFAULT_THREAD_ID);
+  });
+
+  test('append() preserves explicit threadId', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const msg = store.append({
+      userId: 'u1', catId: null, content: 'hi', mentions: [], timestamp: 1,
+      threadId: 'thread-abc',
+    });
+    assert.equal(msg.threadId, 'thread-abc');
+  });
+
+  test('getByThread() returns messages for a specific thread', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'u', catId: null, content: 'A', mentions: [], timestamp: 1, threadId: 'th-1' });
+    store.append({ userId: 'u', catId: null, content: 'B', mentions: [], timestamp: 2, threadId: 'th-2' });
+    store.append({ userId: 'u', catId: null, content: 'C', mentions: [], timestamp: 3, threadId: 'th-1' });
+    store.append({ userId: 'u', catId: null, content: 'D', mentions: [], timestamp: 4 }); // default thread
+
+    const th1 = store.getByThread('th-1');
+    assert.equal(th1.length, 2);
+    assert.equal(th1[0].content, 'A');
+    assert.equal(th1[1].content, 'C');
+
+    const th2 = store.getByThread('th-2');
+    assert.equal(th2.length, 1);
+    assert.equal(th2[0].content, 'B');
+
+    const def = store.getByThread('default');
+    assert.equal(def.length, 1);
+    assert.equal(def[0].content, 'D');
+  });
+
+  test('getByThreadBefore() paginates within a thread', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'u', catId: null, content: 'A', mentions: [], timestamp: 100, threadId: 'th-1' });
+    store.append({ userId: 'u', catId: null, content: 'B', mentions: [], timestamp: 200, threadId: 'th-1' });
+    store.append({ userId: 'u', catId: null, content: 'C', mentions: [], timestamp: 300, threadId: 'th-1' });
+    store.append({ userId: 'u', catId: null, content: 'X', mentions: [], timestamp: 250, threadId: 'th-2' }); // different thread
+
+    const before300 = store.getByThreadBefore('th-1', 300, 10);
+    assert.equal(before300.length, 2);
+    assert.equal(before300[0].content, 'A');
+    assert.equal(before300[1].content, 'B');
+  });
+
+  test('append() preserves contentBlocks', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const blocks = [
+      { type: 'text', text: 'hello' },
+      { type: 'image', url: '/uploads/test.png' },
+    ];
+    const msg = store.append({
+      userId: 'u', catId: null, content: 'hello', mentions: [], timestamp: 1,
+      contentBlocks: blocks,
+    });
+    assert.deepEqual(msg.contentBlocks, blocks);
+  });
 });
