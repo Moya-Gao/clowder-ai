@@ -9,21 +9,20 @@
  * - 支持中英文提及模式
  * - 多猫提及时按出现顺序串行执行
  * - 后一只猫的 prompt 包含前一只猫的回复
- * - Session 管理: Redis (有 SessionStore) 或内存 Map (降级)
+ * - Session 管理委托给 SessionManager
  */
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID } from './MessageStore.js';
+import { DEFAULT_THREAD_ID } from './ThreadStore.js';
+import { SessionManager } from './SessionManager.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
 import type { IThreadStore } from './ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 
-/**
- * Parsed mention with position for ordering
- */
+/** Parsed mention with position for ordering */
 interface ParsedMention {
   catId: CatId;
   position: number;
@@ -47,11 +46,6 @@ export interface AgentRouterOptions {
 }
 
 /**
- * Maximum number of sessions to keep in memory (fallback mode only)
- */
-const MAX_SESSIONS = 1000;
-
-/**
  * Router that parses @ mentions and routes to appropriate agent services
  */
 export class AgentRouter {
@@ -60,11 +54,8 @@ export class AgentRouter {
   private geminiService: AgentService;
   private registry: InvocationRegistry;
   private messageStore: IMessageStore;
-  private sessionStore: SessionStore | null;
+  private sessionManager: SessionManager;
   private threadStore: IThreadStore | null;
-
-  /** In-memory fallback when no Redis SessionStore is provided */
-  private sessions: Map<string, string>;
 
   constructor(options: AgentRouterOptions) {
     this.claudeService = options.claudeService;
@@ -72,50 +63,37 @@ export class AgentRouter {
     this.geminiService = options.geminiService;
     this.registry = options.registry;
     this.messageStore = options.messageStore;
-    this.sessionStore = options.sessionStore ?? null;
+    this.sessionManager = new SessionManager(options.sessionStore);
     this.threadStore = options.threadStore ?? null;
-    this.sessions = new Map();
   }
 
   /**
    * Parse message for @ mentions and return ordered list of cat IDs
-   * @param message The user's message
-   * @returns Array of cat IDs in order of appearance (deduplicated)
    */
   private parseMentions(message: string): CatId[] {
     const lowerMessage = message.toLowerCase();
     const mentions: ParsedMention[] = [];
 
-    // Check each cat's mention patterns and find the earliest occurrence
     for (const config of Object.values(CAT_CONFIGS)) {
       let earliestPosition = -1;
 
-      // Find the earliest position among all patterns for this cat
       for (const pattern of config.mentionPatterns) {
-        const lowerPattern = pattern.toLowerCase();
-        const position = lowerMessage.indexOf(lowerPattern);
-
-        if (position !== -1) {
-          if (earliestPosition === -1 || position < earliestPosition) {
-            earliestPosition = position;
-          }
+        const position = lowerMessage.indexOf(pattern.toLowerCase());
+        if (position !== -1 && (earliestPosition === -1 || position < earliestPosition)) {
+          earliestPosition = position;
         }
       }
 
-      // If this cat was mentioned, record its earliest position
       if (earliestPosition !== -1) {
         mentions.push({ catId: config.id, position: earliestPosition });
       }
     }
 
-    // Sort by position and extract cat IDs
     mentions.sort((a, b) => a.position - b.position);
     return mentions.map((m) => m.catId);
   }
 
-  /**
-   * Get the agent service for a given cat ID
-   */
+  /** Get the agent service for a given cat ID */
   private getService(catId: CatId): AgentService {
     switch (catId) {
       case 'opus':
@@ -130,75 +108,21 @@ export class AgentRouter {
   }
 
   /**
-   * Get session key for user + cat combination
-   */
-  private getSessionKey(userId: string, catId: CatId): string {
-    return `${userId}:${catId}`;
-  }
-
-  /**
-   * Store session ID for user + cat combination.
-   * Uses Redis SessionStore when available, falls back to in-memory Map.
-   */
-  private async storeSession(userId: string, catId: CatId, sessionId: string): Promise<void> {
-    if (this.sessionStore) {
-      await this.sessionStore.setSessionId(userId, catId, sessionId);
-      return;
-    }
-
-    const key = this.getSessionKey(userId, catId);
-
-    // If key already exists, delete it first so it moves to the end (most recent)
-    if (this.sessions.has(key)) {
-      this.sessions.delete(key);
-    }
-
-    // Evict oldest entries if we're at capacity
-    while (this.sessions.size >= MAX_SESSIONS) {
-      const oldestKey = this.sessions.keys().next().value;
-      if (oldestKey !== undefined) {
-        this.sessions.delete(oldestKey);
-      }
-    }
-
-    this.sessions.set(key, sessionId);
-  }
-
-  /**
-   * Get stored session ID for user + cat combination.
-   * Uses Redis SessionStore when available, falls back to in-memory Map.
-   */
-  private async getSession(userId: string, catId: CatId): Promise<string | undefined> {
-    if (this.sessionStore) {
-      const result = await this.sessionStore.getSessionId(userId, catId);
-      return result ?? undefined;
-    }
-
-    const key = this.getSessionKey(userId, catId);
-    return this.sessions.get(key);
-  }
-
-  /**
    * Resolve target cats using mentions + thread participants.
    * - Has @mentions → route to those cats, update thread participants
    * - No @mentions + thread has participants → route to all participants
    * - No @mentions + no participants → default to opus
    */
-  private async resolveTargets(
-    message: string,
-    threadId: string
-  ): Promise<CatId[]> {
+  private async resolveTargets(message: string, threadId: string): Promise<CatId[]> {
     const mentionedCats = this.parseMentions(message);
 
     if (mentionedCats.length > 0) {
-      // Update thread participants with newly mentioned cats
       if (this.threadStore) {
         await this.threadStore.addParticipants(threadId, mentionedCats);
       }
       return mentionedCats;
     }
 
-    // No mentions — check thread participants
     if (this.threadStore) {
       const participants = await this.threadStore.getParticipants(threadId);
       if (participants.length > 0) {
@@ -206,16 +130,11 @@ export class AgentRouter {
       }
     }
 
-    // No participants — default to opus
     return [createCatId('opus')];
   }
 
   /**
    * Route message to appropriate agent(s) based on @ mentions and thread participants
-   * @param userId User ID for session management
-   * @param message The user's message
-   * @param threadId Thread ID for participant tracking (defaults to 'default')
-   * @returns AsyncIterable of agent messages from all invoked agents
    */
   async *route(
     userId: string,
@@ -223,16 +142,12 @@ export class AgentRouter {
     threadId?: string
   ): AsyncIterable<AgentMessage> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
-
-    // Resolve target cats (mentions, participants, or default)
     const targetCats = await this.resolveTargets(message, resolvedThreadId);
 
-    // Update thread activity timestamp
     if (this.threadStore) {
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
 
-    // Store user message to MessageStore
     await this.messageStore.append({
       userId,
       catId: null,
@@ -242,20 +157,15 @@ export class AgentRouter {
       threadId: resolvedThreadId,
     });
 
-    // Accumulate responses for chaining
     const previousResponses: { catId: CatId; content: string }[] = [];
-
-    // API URL for MCP callback tools
     const apiPort = process.env['API_SERVER_PORT'] ?? '3002';
     const apiUrl = `http://127.0.0.1:${apiPort}`;
-
-    // Invoke each cat in order
     const totalCats = targetCats.length;
+
     for (const [index, catId] of targetCats.entries()) {
       const isLastCat = index === totalCats - 1;
       const service = this.getService(catId);
 
-      // Build prompt: original message + previous responses
       let prompt = message;
       if (previousResponses.length > 0) {
         const contextParts = previousResponses.map(
@@ -264,24 +174,21 @@ export class AgentRouter {
         prompt = `${message}\n\n${contextParts.join('\n')}`;
       }
 
-      // Create invocation for MCP callback auth (include threadId)
-      const { invocationId, callbackToken } = this.registry.create(userId, catId);
+      const { invocationId, callbackToken } = this.registry.create(userId, catId, resolvedThreadId);
       const callbackEnv: Record<string, string> = {
         CAT_CAFE_API_URL: apiUrl,
         CAT_CAFE_INVOCATION_ID: invocationId,
         CAT_CAFE_CALLBACK_TOKEN: callbackToken,
       };
 
-      // Collect text content for chaining
       let textContent = '';
 
       try {
-        // Get stored session (degrade to no-session if Redis fails)
         let sessionId: string | undefined;
         try {
-          sessionId = await this.getSession(userId, catId);
+          sessionId = await this.sessionManager.get(userId, catId);
         } catch {
-          // Redis read failure — continue without session (lose resume, not crash)
+          // Redis read failure — continue without session
         }
 
         const options: AgentServiceOptions = {
@@ -289,23 +196,19 @@ export class AgentRouter {
           callbackEnv,
         };
 
-        // Invoke the service and yield messages
         for await (const msg of service.invoke(prompt, options)) {
-          // Store session ID when we receive session_init (degrade on failure)
           if (msg.type === 'session_init' && msg.sessionId) {
             try {
-              await this.storeSession(userId, catId, msg.sessionId);
+              await this.sessionManager.store(userId, catId, msg.sessionId);
             } catch {
               // Redis write failure — session won't persist, but chain continues
             }
           }
 
-          // Accumulate text content for chaining
           if (msg.type === 'text' && msg.content) {
             textContent += msg.content;
           }
 
-          // For 'done' messages, mark isFinal only for the last cat
           if (msg.type === 'done') {
             yield { ...msg, isFinal: isLastCat };
           } else {
@@ -313,18 +216,15 @@ export class AgentRouter {
           }
         }
       } catch (err) {
-        // Single cat error should not break the multi-cat chain
         yield {
           type: 'error' as const,
           catId,
           error: err instanceof Error ? err.message : String(err),
           timestamp: Date.now(),
         };
-        // Still yield done so the chain can continue
         yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
       }
 
-      // Store cat's response for next cat in chain + thread context
       if (textContent) {
         previousResponses.push({ catId, content: textContent });
         await this.messageStore.append({

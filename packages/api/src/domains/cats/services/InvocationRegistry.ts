@@ -22,6 +22,8 @@ export interface InvocationRecord {
   callbackToken: string;
   userId: string;
   catId: CatId;
+  /** Thread this invocation belongs to (for WebSocket room scoping) */
+  threadId: string;
   createdAt: number;
   expiresAt: number;
 }
@@ -52,7 +54,8 @@ export class InvocationRegistry {
    */
   create(
     userId: string,
-    catId: CatId
+    catId: CatId,
+    threadId: string = 'default'
   ): { invocationId: string; callbackToken: string } {
     this.cleanup();
 
@@ -73,6 +76,7 @@ export class InvocationRegistry {
       callbackToken,
       userId,
       catId,
+      threadId,
       createdAt: now,
       expiresAt: now + this.ttlMs,
     });

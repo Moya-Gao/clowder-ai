@@ -7,9 +7,9 @@
 
 import { randomUUID } from 'node:crypto';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-
-/** Default thread ID for backwards compatibility (lobby) */
-export const DEFAULT_THREAD_ID = 'default';
+// Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
+import { DEFAULT_THREAD_ID } from './ThreadStore.js';
+export { DEFAULT_THREAD_ID };
 
 /**
  * A stored message entry
