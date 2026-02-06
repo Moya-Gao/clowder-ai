@@ -17,6 +17,7 @@ export const DEFAULT_THREAD_ID = 'default';
  */
 export interface Thread {
   id: string;
+  projectPath: string;
   title: string | null;
   createdBy: string;
   participants: CatId[];
@@ -28,9 +29,10 @@ export interface Thread {
  * Common interface for thread stores (in-memory and future Redis).
  */
 export interface IThreadStore {
-  create(userId: string, title?: string): Thread | Promise<Thread>;
+  create(userId: string, title?: string, projectPath?: string): Thread | Promise<Thread>;
   get(threadId: string): Thread | null | Promise<Thread | null>;
   list(userId: string): Thread[] | Promise<Thread[]>;
+  listByProject(userId: string, projectPath: string): Thread[] | Promise<Thread[]>;
   addParticipants(threadId: string, catIds: CatId[]): void | Promise<void>;
   getParticipants(threadId: string): CatId[] | Promise<CatId[]>;
   updateLastActive(threadId: string): void | Promise<void>;
@@ -50,11 +52,12 @@ export class ThreadStore implements IThreadStore {
     this.maxThreads = options?.maxThreads ?? MAX_THREADS;
   }
 
-  create(userId: string, title?: string): Thread {
+  create(userId: string, title?: string, projectPath?: string): Thread {
     this.evictIfNeeded();
 
     const thread: Thread = {
       id: generateThreadId(),
+      projectPath: projectPath ?? 'default',
       title: title ?? null,
       createdBy: userId,
       participants: [],
@@ -71,6 +74,7 @@ export class ThreadStore implements IThreadStore {
     if (threadId === DEFAULT_THREAD_ID && !this.threads.has(DEFAULT_THREAD_ID)) {
       const defaultThread: Thread = {
         id: DEFAULT_THREAD_ID,
+        projectPath: 'default',
         title: null,
         createdBy: 'system',
         participants: [],
@@ -93,6 +97,10 @@ export class ThreadStore implements IThreadStore {
     // Sort by lastActiveAt descending (most recent first)
     result.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
     return result;
+  }
+
+  listByProject(userId: string, projectPath: string): Thread[] {
+    return this.list(userId).filter((t) => t.projectPath === projectPath);
   }
 
   addParticipants(threadId: string, catIds: CatId[]): void {

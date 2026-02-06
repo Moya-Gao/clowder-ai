@@ -25,6 +25,7 @@ export interface ChatMessage {
 
 export interface Thread {
   id: string;
+  projectPath: string;
   title: string | null;
   createdBy: string;
   participants: string[];
@@ -40,6 +41,7 @@ interface ChatState {
 
   // Thread state
   currentThreadId: string;
+  currentProjectPath: string;
   threads: Thread[];
   isLoadingThreads: boolean;
 
@@ -55,6 +57,7 @@ interface ChatState {
   // Thread actions
   setThreads: (threads: Thread[]) => void;
   setCurrentThread: (threadId: string) => void;
+  setCurrentProject: (projectPath: string) => void;
   setLoadingThreads: (loading: boolean) => void;
 }
 
@@ -65,6 +68,7 @@ export const useChatStore = create<ChatState>((set) => ({
   hasMore: true,
 
   currentThreadId: 'default',
+  currentProjectPath: 'default',
   threads: [],
   isLoadingThreads: false,
 
@@ -114,5 +118,6 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setThreads: (threads) => set({ threads }),
   setCurrentThread: (threadId) => set({ currentThreadId: threadId }),
+  setCurrentProject: (projectPath) => set({ currentProjectPath: projectPath }),
   setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
 }));

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { PawIcon } from './icons/PawIcon';
@@ -19,16 +19,48 @@ function formatRelativeTime(ts: number): string {
   return `${Math.floor(diff / 86400_000)}天前`;
 }
 
+/** Extract display name from a project path */
+function projectDisplayName(path: string): string {
+  if (path === 'default') return '未分类';
+  // Take the last directory component
+  const parts = path.replace(/\/+$/, '').split('/');
+  return parts[parts.length - 1] || path;
+}
+
+/** Group threads by projectPath, with default thread pulled out */
+function groupThreadsByProject(threads: Thread[]) {
+  const groups = new Map<string, Thread[]>();
+
+  for (const thread of threads) {
+    if (thread.id === 'default') continue; // handled separately
+    const key = thread.projectPath;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(thread);
+  }
+
+  // Sort groups: non-default projects first (alphabetically), 'default' last
+  const sorted = [...groups.entries()].sort(([a], [b]) => {
+    if (a === 'default') return 1;
+    if (b === 'default') return -1;
+    return a.localeCompare(b);
+  });
+
+  return sorted;
+}
+
 export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
   const {
     threads,
     currentThreadId,
+    currentProjectPath,
     setThreads,
     setCurrentThread,
+    setCurrentProject,
     isLoadingThreads,
     setLoadingThreads,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
+  const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -54,7 +86,10 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
       const res = await fetch(`${API_URL}/api/threads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'default-user' }),
+        body: JSON.stringify({
+          userId: 'default-user',
+          ...(currentProjectPath !== 'default' ? { projectPath: currentProjectPath } : {}),
+        }),
       });
       if (!res.ok) return;
       const thread: Thread = await res.json();
@@ -66,7 +101,7 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     } finally {
       setIsCreating(false);
     }
-  }, [threads, setThreads, setCurrentThread, onThreadSwitch]);
+  }, [threads, currentProjectPath, setThreads, setCurrentThread, onThreadSwitch]);
 
   const handleSelect = useCallback(
     (threadId: string) => {
@@ -76,6 +111,24 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     },
     [currentThreadId, setCurrentThread, onThreadSwitch]
   );
+
+  const toggleProject = useCallback((projectPath: string) => {
+    setCollapsedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(projectPath)) next.delete(projectPath);
+      else next.add(projectPath);
+      return next;
+    });
+  }, []);
+
+  const selectProject = useCallback(
+    (projectPath: string) => {
+      setCurrentProject(projectPath);
+    },
+    [setCurrentProject]
+  );
+
+  const grouped = useMemo(() => groupThreadsByProject(threads), [threads]);
 
   return (
     <aside className="w-60 border-r border-owner-light bg-white flex flex-col h-full">
@@ -95,7 +148,7 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
           <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
         )}
 
-        {/* Default thread always shown first */}
+        {/* Default thread (lobby) always at top */}
         <ThreadItem
           id="default"
           title="大厅"
@@ -105,21 +158,87 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
           onSelect={handleSelect}
         />
 
-        {threads
-          .filter((t) => t.id !== 'default')
-          .map((t) => (
-            <ThreadItem
-              key={t.id}
-              id={t.id}
-              title={t.title}
-              participants={t.participants}
-              lastActiveAt={t.lastActiveAt}
-              isActive={currentThreadId === t.id}
-              onSelect={handleSelect}
-            />
-          ))}
+        {/* Project groups */}
+        {grouped.map(([projectPath, projectThreads]) => (
+          <ProjectGroup
+            key={projectPath}
+            projectPath={projectPath}
+            threads={projectThreads}
+            isCollapsed={collapsedProjects.has(projectPath)}
+            isSelectedProject={currentProjectPath === projectPath}
+            currentThreadId={currentThreadId}
+            onToggle={toggleProject}
+            onSelectProject={selectProject}
+            onSelectThread={handleSelect}
+          />
+        ))}
       </div>
     </aside>
+  );
+}
+
+function ProjectGroup({
+  projectPath,
+  threads,
+  isCollapsed,
+  isSelectedProject,
+  currentThreadId,
+  onToggle,
+  onSelectProject,
+  onSelectThread,
+}: {
+  projectPath: string;
+  threads: Thread[];
+  isCollapsed: boolean;
+  isSelectedProject: boolean;
+  currentThreadId: string;
+  onToggle: (path: string) => void;
+  onSelectProject: (path: string) => void;
+  onSelectThread: (threadId: string) => void;
+}) {
+  return (
+    <div className="mt-1">
+      <button
+        onClick={() => {
+          onToggle(projectPath);
+          onSelectProject(projectPath);
+        }}
+        className={`w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors ${
+          isSelectedProject ? 'bg-gray-50' : ''
+        }`}
+        title={projectPath === 'default' ? '未分类对话' : projectPath}
+      >
+        <svg
+          className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${
+            isCollapsed ? '' : 'rotate-90'
+          }`}
+          viewBox="0 0 12 12"
+          fill="currentColor"
+        >
+          <path d="M4 2l4 4-4 4V2z" />
+        </svg>
+        <span className="text-xs font-medium text-gray-500 truncate">
+          {projectDisplayName(projectPath)}
+        </span>
+        <span className="text-[10px] text-gray-300 flex-shrink-0 ml-auto">
+          {threads.length}
+        </span>
+      </button>
+
+      {!isCollapsed &&
+        threads.map((t) => (
+          <ThreadItem
+            key={t.id}
+            id={t.id}
+            title={t.title}
+            participants={t.participants}
+            lastActiveAt={t.lastActiveAt}
+            isActive={currentThreadId === t.id}
+            onSelect={onSelectThread}
+            indented
+          />
+        ))}
+    </div>
   );
 }
 
@@ -130,6 +249,7 @@ function ThreadItem({
   lastActiveAt,
   isActive,
   onSelect,
+  indented,
 }: {
   id: string;
   title: string | null;
@@ -137,11 +257,12 @@ function ThreadItem({
   lastActiveAt: number;
   isActive: boolean;
   onSelect: (id: string) => void;
+  indented?: boolean;
 }) {
   return (
     <button
       onClick={() => onSelect(id)}
-      className={`w-full text-left px-3 py-2.5 border-b border-gray-50 transition-colors ${
+      className={`w-full text-left ${indented ? 'pl-7 pr-3' : 'px-3'} py-2.5 border-b border-gray-50 transition-colors ${
         isActive ? 'bg-owner-bg' : 'hover:bg-gray-50'
       }`}
     >

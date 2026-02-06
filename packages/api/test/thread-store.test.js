@@ -188,4 +188,58 @@ describe('ThreadStore', () => {
     const thread = store.create('user-1');
     assert.equal(thread.title, null);
   });
+
+  test('create() defaults projectPath to "default"', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'My thread');
+    assert.equal(thread.projectPath, 'default');
+  });
+
+  test('create() with explicit projectPath sets it', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'In project', '/Users/lysander/projects/cat-cafe');
+    assert.equal(thread.projectPath, '/Users/lysander/projects/cat-cafe');
+  });
+
+  test('get() auto-created default thread has projectPath "default"', async () => {
+    const { ThreadStore, DEFAULT_THREAD_ID } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.get(DEFAULT_THREAD_ID);
+    assert.equal(thread.projectPath, 'default');
+  });
+
+  test('listByProject() returns only threads in that project', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    store.create('alice', 'In cat-cafe', '/projects/cat-cafe');
+    store.create('alice', 'Also cat-cafe', '/projects/cat-cafe');
+    store.create('alice', 'In relay', '/projects/relay');
+    store.create('alice', 'No project'); // defaults to 'default'
+
+    const catCafeThreads = store.listByProject('alice', '/projects/cat-cafe');
+    assert.equal(catCafeThreads.length, 2);
+    assert.ok(catCafeThreads.every(t => t.projectPath === '/projects/cat-cafe'));
+
+    const relayThreads = store.listByProject('alice', '/projects/relay');
+    assert.equal(relayThreads.length, 1);
+
+    // 'default' project includes auto-created default thread + thread with no explicit project
+    store.get('default'); // trigger auto-create
+    const defaultThreads = store.listByProject('alice', 'default');
+    assert.ok(defaultThreads.length >= 1);
+  });
 });

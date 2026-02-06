@@ -267,6 +267,94 @@ describe('WebSocket broadcastAgentMessage supports threadId', () => {
   });
 });
 
+describe('Project-scoped threads: create and list by project', () => {
+  let app;
+  let threadStore;
+
+  beforeEach(async () => {
+    threadStore = new ThreadStore();
+    app = Fastify();
+    await app.register(threadsRoutes, { threadStore });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('threads created with projectPath are only returned for that project', async () => {
+    // Create threads in different projects
+    await app.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'In cat-cafe', projectPath: '/projects/cat-cafe' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'In relay', projectPath: '/projects/relay' },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'No project' },
+    });
+
+    // Query by project
+    const resCatCafe = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&projectPath=/projects/cat-cafe',
+    });
+    const catCafeThreads = JSON.parse(resCatCafe.body).threads;
+    assert.equal(catCafeThreads.length, 1);
+    assert.equal(catCafeThreads[0].title, 'In cat-cafe');
+    assert.equal(catCafeThreads[0].projectPath, '/projects/cat-cafe');
+
+    // Query all (no projectPath filter)
+    const resAll = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice',
+    });
+    const allThreads = JSON.parse(resAll.body).threads;
+    // Should include all 3 created + default (auto-created by list())
+    assert.ok(allThreads.length >= 3);
+  });
+});
+
+describe('AgentRouter passes workingDirectory from thread.projectPath', () => {
+  it('route() sets workingDirectory when thread has non-default projectPath', async () => {
+    const threadStore = new ThreadStore();
+    const messageStore = new MessageStore();
+    const registry = new InvocationRegistry();
+
+    // Create thread with a project path
+    const thread = threadStore.create('alice', 'Project thread', '/Users/test/project');
+
+    let receivedOptions = null;
+    const mockClaudeService = {
+      invoke: async function* (_prompt, options) {
+        receivedOptions = options;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: { invoke: async function* () {} },
+      geminiService: { invoke: async function* () {} },
+      registry,
+      messageStore,
+      threadStore,
+    });
+
+    await collect(router.route('alice', '@opus hello', thread.id));
+
+    assert.ok(receivedOptions);
+    assert.equal(receivedOptions.workingDirectory, '/Users/test/project');
+  });
+});
+
 describe('MCP callback stores message with threadId', () => {
   let app;
   let registry;

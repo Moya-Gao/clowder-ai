@@ -194,9 +194,19 @@ export class AgentRouter {
           // Redis read failure — continue without session
         }
 
-        const options: AgentServiceOptions = {
+        // Resolve workingDirectory from thread's projectPath
+      let workingDirectory: string | undefined;
+      if (this.threadStore) {
+        const thread = await this.threadStore.get(resolvedThreadId);
+        if (thread?.projectPath && thread.projectPath !== 'default') {
+          workingDirectory = thread.projectPath;
+        }
+      }
+
+      const options: AgentServiceOptions = {
           ...(sessionId ? { sessionId } : {}),
           callbackEnv,
+          ...(workingDirectory ? { workingDirectory } : {}),
           ...(contentBlocks ? { contentBlocks } : {}),
           ...(uploadDir ? { uploadDir } : {}),
         };

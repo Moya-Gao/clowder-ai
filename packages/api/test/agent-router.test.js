@@ -32,12 +32,13 @@ function createMockMessageStore() {
   };
 }
 
-function createMockThreadStore(initialParticipants = {}) {
+function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}) {
   const participants = { ...initialParticipants };
   return {
-    create: (userId, title) => ({ id: `thread_mock`, title: title ?? null, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() }),
-    get: (threadId) => ({ id: threadId, title: null, createdBy: 'system', participants: participants[threadId] ?? [], lastActiveAt: Date.now(), createdAt: Date.now() }),
+    create: (userId, title, projectPath) => ({ id: `thread_mock`, projectPath: projectPath ?? 'default', title: title ?? null, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() }),
+    get: (threadId) => ({ id: threadId, projectPath: threadProjectPaths[threadId] ?? 'default', title: null, createdBy: 'system', participants: participants[threadId] ?? [], lastActiveAt: Date.now(), createdAt: Date.now() }),
     list: () => [],
+    listByProject: () => [],
     addParticipants: (threadId, catIds) => {
       if (!participants[threadId]) participants[threadId] = [];
       for (const catId of catIds) {
@@ -936,5 +937,75 @@ describe('AgentRouter', () => {
 
     // Codex gets original message only (no opus response since it crashed)
     assert.equal(codexReceivedPrompt, '@opus then @codex');
+  });
+
+  test('passes workingDirectory when thread has non-default projectPath', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let receivedOptions = null;
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (_prompt, options) {
+        receivedOptions = options;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const threadStore = createMockThreadStore({}, {
+      'thread-proj': '/Users/lysander/projects/cat-cafe',
+    });
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    for await (const _ of router.route('user-1', '@opus hello', 'thread-proj')) {
+      // consume
+    }
+
+    assert.ok(receivedOptions);
+    assert.equal(receivedOptions.workingDirectory, '/Users/lysander/projects/cat-cafe');
+  });
+
+  test('does NOT pass workingDirectory when thread has default projectPath', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let receivedOptions = null;
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (_prompt, options) {
+        receivedOptions = options;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const threadStore = createMockThreadStore({}, {
+      'thread-default': 'default',
+    });
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    for await (const _ of router.route('user-1', '@opus hello', 'thread-default')) {
+      // consume
+    }
+
+    assert.ok(receivedOptions);
+    assert.equal(receivedOptions.workingDirectory, undefined);
   });
 });

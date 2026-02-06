@@ -18,10 +18,12 @@ export interface ThreadsRoutesOptions {
 const createThreadSchema = z.object({
   userId: z.string().min(1).max(100),
   title: z.string().min(1).max(200).optional(),
+  projectPath: z.string().min(1).max(500).optional(),
 });
 
 const listThreadsSchema = z.object({
   userId: z.string().min(1).max(100).default('default-user'),
+  projectPath: z.string().min(1).max(500).optional(),
 });
 
 const updateThreadSchema = z.object({
@@ -40,8 +42,8 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId, title } = parseResult.data;
-    const thread = await threadStore.create(userId, title);
+    const { userId, title, projectPath } = parseResult.data;
+    const thread = await threadStore.create(userId, title, projectPath);
     reply.status(201);
     return thread;
   });
@@ -53,7 +55,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { threads: [] };
     }
 
-    const threads = await threadStore.list(parseResult.data.userId);
+    const { userId, projectPath } = parseResult.data;
+    const threads = projectPath
+      ? await threadStore.listByProject(userId, projectPath)
+      : await threadStore.list(userId);
     return { threads };
   });
 
