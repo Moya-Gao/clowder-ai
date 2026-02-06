@@ -15,6 +15,7 @@ import {
 } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
@@ -27,6 +28,7 @@ export interface MessagesRoutesOptions {
   messageStore: IMessageStore;
   socketManager: SocketManager;
   sessionStore?: SessionStore;
+  threadStore?: IThreadStore;
 }
 
 const getMessagesSchema = z.object({
@@ -34,12 +36,14 @@ const getMessagesSchema = z.object({
   /** Cursor: "timestamp:id" or legacy plain timestamp */
   before: z.string().optional(),
   userId: z.string().min(1).max(100).default('default-user'),
+  threadId: z.string().min(1).max(100).optional(),
 });
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(10000),
   userId: z.string().min(1).max(100).default('default-user'),
   mentions: z.array(z.enum(['opus', 'codex', 'gemini'])).optional(),
+  threadId: z.string().min(1).max(100).optional(),
 });
 
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
@@ -52,6 +56,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     registry: opts.registry,
     messageStore: opts.messageStore,
     ...(opts.sessionStore ? { sessionStore: opts.sessionStore } : {}),
+    ...(opts.threadStore ? { threadStore: opts.threadStore } : {}),
   });
 
   // POST /api/messages - 发送消息（WebSocket 广播）
@@ -71,7 +76,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     void (async () => {
       try {
         // Use router.route() to handle @ mentions and route to appropriate agents
-        for await (const msg of router.route(body.userId, body.content)) {
+        for await (const msg of router.route(body.userId, body.content, body.threadId)) {
           opts.socketManager.broadcastAgentMessage(msg);
         }
       } catch (err) {
@@ -92,7 +97,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     if (!parseResult.success) {
       return { messages: [], hasMore: false };
     }
-    const { limit, before, userId } = parseResult.data;
+    const { limit, before, userId, threadId } = parseResult.data;
 
     // Parse composite cursor "timestamp:id" or legacy plain timestamp
     let beforeTs: number | undefined;
@@ -110,9 +115,17 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
     }
 
-    const messages = beforeTs != null
-      ? await opts.messageStore.getBefore(beforeTs, limit + 1, userId, beforeId)
-      : await opts.messageStore.getRecent(limit + 1, userId);
+    // Thread-scoped or global query
+    let messages;
+    if (threadId) {
+      messages = beforeTs != null
+        ? await opts.messageStore.getByThreadBefore(threadId, beforeTs, limit + 1, beforeId)
+        : await opts.messageStore.getByThread(threadId, limit + 1);
+    } else {
+      messages = beforeTs != null
+        ? await opts.messageStore.getBefore(beforeTs, limit + 1, userId, beforeId)
+        : await opts.messageStore.getRecent(limit + 1, userId);
+    }
 
     // Fetch limit+1 to determine hasMore; drop oldest (first) probe item
     const hasMore = messages.length > limit;
