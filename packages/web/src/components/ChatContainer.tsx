@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { ThreadSidebar } from './ThreadSidebar';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -16,35 +17,41 @@ export function ChatContainer() {
     isLoading,
     isLoadingHistory,
     hasMore,
+    currentThreadId,
     addMessage,
     prependHistory,
     appendToLastMessage,
     setStreaming,
     setLoading,
     setLoadingHistory,
+    clearMessages,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
   const initialLoadDone = useRef(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   // Fetch history page from API
   const fetchHistory = useCallback(
-    async (cursor?: string) => {
+    async (cursor?: string, threadId?: string) => {
       if (isLoadingHistory) return;
       setLoadingHistory(true);
       try {
+        const tid = threadId ?? currentThreadId;
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
         if (cursor) params.set('before', cursor);
+        if (tid !== 'default') params.set('threadId', tid);
         const res = await fetch(`${API_URL}/api/messages?${params}`);
         if (!res.ok) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; timestamp: number }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; timestamp: number }) => ({
             id: m.id,
             type: m.type as 'user' | 'assistant' | 'system',
             catId: m.catId,
             content: m.content,
+            ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
             timestamp: m.timestamp,
           })
         );
@@ -55,7 +62,7 @@ export function ChatContainer() {
         setLoadingHistory(false);
       }
     },
-    [isLoadingHistory, setLoadingHistory, prependHistory]
+    [isLoadingHistory, setLoadingHistory, prependHistory, currentThreadId]
   );
 
   // Load initial history on mount
@@ -71,7 +78,6 @@ export function ChatContainer() {
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
 
-  // Before render: snapshot scroll height when we expect a prepend
   useEffect(() => {
     const el = scrollContainerRef.current;
     if (el && isLoadingHistory) {
@@ -79,7 +85,6 @@ export function ChatContainer() {
     }
   }, [isLoadingHistory]);
 
-  // After messages change: scroll to bottom on append, preserve position on prepend
   useEffect(() => {
     const el = scrollContainerRef.current;
     const prevCount = prevCountRef.current;
@@ -91,13 +96,11 @@ export function ChatContainer() {
 
     if (messages.length === 0) return;
 
-    // First load: scroll to bottom
     if (prevCount === 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
       return;
     }
 
-    // Prepend detected: first message ID changed → preserve viewport
     if (prevFirstId && currentFirstId !== prevFirstId && el && scrollSnapshotRef.current !== null) {
       const heightDelta = el.scrollHeight - scrollSnapshotRef.current;
       el.scrollTop += heightDelta;
@@ -105,7 +108,6 @@ export function ChatContainer() {
       return;
     }
 
-    // Append: new messages added at the end → scroll to bottom
     if (messages.length > prevCount) {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
@@ -164,10 +166,22 @@ export function ChatContainer() {
     [addMessage, appendToLastMessage, setStreaming, setLoading]
   );
 
-  useSocket(handleAgentMessage);
+  const { switchRoom } = useSocket(handleAgentMessage, currentThreadId);
+
+  // Thread switching handler
+  const handleThreadSwitch = useCallback(
+    (threadId: string) => {
+      currentMessageRef.current = null;
+      clearMessages();
+      switchRoom(threadId);
+      // Load history for the new thread
+      void fetchHistory(undefined, threadId);
+    },
+    [clearMessages, switchRoom, fetchHistory]
+  );
 
   const handleSend = useCallback(
-    async (content: string) => {
+    async (content: string, images?: File[]) => {
       currentMessageRef.current = null;
 
       addMessage({
@@ -180,11 +194,31 @@ export function ChatContainer() {
       setLoading(true);
 
       try {
-        await fetch(`${API_URL}/api/messages`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
-        });
+        if (images && images.length > 0) {
+          // Multipart upload with images
+          const formData = new FormData();
+          formData.append('content', content);
+          if (currentThreadId !== 'default') {
+            formData.append('threadId', currentThreadId);
+          }
+          for (const img of images) {
+            formData.append('images', img);
+          }
+          await fetch(`${API_URL}/api/messages`, {
+            method: 'POST',
+            body: formData,
+          });
+        } else {
+          // JSON mode (backwards compatible)
+          await fetch(`${API_URL}/api/messages`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content,
+              ...(currentThreadId !== 'default' ? { threadId: currentThreadId } : {}),
+            }),
+          });
+        }
       } catch (err) {
         setLoading(false);
         addMessage({
@@ -195,47 +229,64 @@ export function ChatContainer() {
         });
       }
     },
-    [addMessage, setLoading]
+    [addMessage, setLoading, currentThreadId]
   );
 
   return (
-    <div className="flex flex-col h-screen">
-      <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2">
-        <PawIcon className="w-6 h-6 text-owner-primary" />
-        <div>
-          <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
-          <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
-        </div>
-      </header>
+    <div className="flex h-screen">
+      {/* Thread sidebar */}
+      {sidebarOpen && (
+        <ThreadSidebar onThreadSwitch={handleThreadSwitch} />
+      )}
 
-      <main
-        ref={scrollContainerRef}
-        onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4"
-      >
-        {isLoadingHistory && (
-          <div className="text-center py-3 text-sm text-gray-400">
-            加载历史消息...
+      {/* Main chat area */}
+      <div className="flex flex-col flex-1 min-w-0">
+        <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2">
+          <button
+            onClick={() => setSidebarOpen((v) => !v)}
+            className="p-1 rounded-lg hover:bg-owner-light transition-colors mr-1"
+            aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
+          >
+            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <PawIcon className="w-6 h-6 text-owner-primary" />
+          <div>
+            <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
+            <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
-        )}
-        {!hasMore && messages.length > 0 && (
-          <div className="text-center py-3 text-xs text-gray-300">
-            没有更多消息了
-          </div>
-        )}
-        {messages.length === 0 && !isLoadingHistory ? (
-          <div className="text-center mt-20">
-            <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
-            <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
-            <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
-          </div>
-        ) : (
-          messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
-        )}
-        <div ref={messagesEndRef} />
-      </main>
+        </header>
 
-      <ChatInput onSend={handleSend} disabled={isLoading} />
+        <main
+          ref={scrollContainerRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto p-4"
+        >
+          {isLoadingHistory && (
+            <div className="text-center py-3 text-sm text-gray-400">
+              加载历史消息...
+            </div>
+          )}
+          {!hasMore && messages.length > 0 && (
+            <div className="text-center py-3 text-xs text-gray-300">
+              没有更多消息了
+            </div>
+          )}
+          {messages.length === 0 && !isLoadingHistory ? (
+            <div className="text-center mt-20">
+              <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
+              <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
+              <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
+            </div>
+          ) : (
+            messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+          )}
+          <div ref={messagesEndRef} />
+        </main>
+
+        <ChatInput onSend={handleSend} disabled={isLoading} />
+      </div>
     </div>
   );
 }

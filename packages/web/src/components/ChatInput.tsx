@@ -3,9 +3,11 @@
 import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
 import { SendIcon } from './icons/SendIcon';
 import { LoadingIcon } from './icons/LoadingIcon';
+import { AttachIcon } from './icons/AttachIcon';
+import { ImagePreview } from './ImagePreview';
 
 interface ChatInputProps {
-  onSend: (content: string) => void;
+  onSend: (content: string, images?: File[]) => void;
   disabled?: boolean;
 }
 
@@ -15,22 +17,27 @@ const CAT_OPTIONS = [
   { id: 'gemini', label: '@暹罗猫', desc: 'Gemini · 设计 & 创意', insert: '@暹罗 ', color: 'text-gemini-primary' },
 ];
 
+const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
+
 export function ChatInput({ onSend, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
+  const [images, setImages] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = useCallback(() => {
     const trimmed = input.trim();
     if (trimmed && !disabled) {
-      onSend(trimmed);
+      onSend(trimmed, images.length > 0 ? images : undefined);
       setInput('');
+      setImages([]);
       setShowMentions(false);
     }
-  }, [input, disabled, onSend]);
+  }, [input, disabled, onSend, images]);
 
   const insertMention = useCallback((option: typeof CAT_OPTIONS[number]) => {
     const before = input.slice(0, mentionStart);
@@ -38,7 +45,6 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     setInput(before + option.insert + after);
     setShowMentions(false);
     setMentionStart(-1);
-    // Focus back on textarea
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [input, mentionStart]);
 
@@ -47,13 +53,11 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     setInput(val);
 
     const pos = e.target.selectionStart;
-    // Check if we just typed @ or are in the middle of @xxx
     const textBefore = val.slice(0, pos);
     const atIdx = textBefore.lastIndexOf('@');
 
     if (atIdx >= 0) {
       const fragment = textBefore.slice(atIdx + 1);
-      // Show menu if @ is at start or preceded by whitespace, and fragment is short
       const charBefore = atIdx > 0 ? val[atIdx - 1] : ' ';
       if (/\s/.test(charBefore!) && fragment.length <= 4 && !/\s/.test(fragment)) {
         setShowMentions(true);
@@ -66,7 +70,6 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   }, []);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // IME composing guard
     if (e.nativeEvent.isComposing) return;
 
     if (showMentions) {
@@ -98,6 +101,22 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     }
   };
 
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    const newImages = [...images];
+    for (let i = 0; i < files.length && newImages.length < 5; i++) {
+      newImages.push(files[i]);
+    }
+    setImages(newImages);
+    // Reset so same file can be re-selected
+    e.target.value = '';
+  }, [images]);
+
+  const handleRemoveImage = useCallback((index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   // Close menu on outside click
   useEffect(() => {
     if (!showMentions) return;
@@ -111,7 +130,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   }, [showMentions]);
 
   return (
-    <div className="border-t border-owner-light p-4 bg-owner-bg relative">
+    <div className="border-t border-owner-light bg-owner-bg relative">
       {/* @ Mention autocomplete menu */}
       {showMentions && (
         <div
@@ -126,7 +145,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
               }`}
               onMouseEnter={() => setSelectedIdx(i)}
               onMouseDown={(e) => {
-                e.preventDefault(); // prevent blur
+                e.preventDefault();
                 insertMention(opt);
               }}
             >
@@ -148,7 +167,30 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
         </div>
       )}
 
-      <div className="flex gap-2 items-end">
+      {/* Image preview strip */}
+      <ImagePreview files={images} onRemove={handleRemoveImage} />
+
+      <div className="flex gap-2 items-end p-4 pt-2">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_TYPES}
+          multiple
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        {/* Attach button */}
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled || images.length >= 5}
+          className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          aria-label="Attach images"
+        >
+          <AttachIcon className="w-5 h-5" />
+        </button>
+
         <textarea
           ref={textareaRef}
           value={input}

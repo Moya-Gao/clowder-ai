@@ -1,12 +1,35 @@
 import { create } from 'zustand';
 
+/** Content block types matching backend MessageContent */
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+export interface ImageContent {
+  type: 'image';
+  url: string;
+}
+
+export type MessageContent = TextContent | ImageContent;
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system';
   catId?: string;
   content: string;
+  contentBlocks?: MessageContent[];
   timestamp: number;
   isStreaming?: boolean;
+}
+
+export interface Thread {
+  id: string;
+  title: string | null;
+  createdBy: string;
+  participants: string[];
+  lastActiveAt: number;
+  createdAt: number;
 }
 
 interface ChatState {
@@ -14,12 +37,25 @@ interface ChatState {
   isLoading: boolean;
   isLoadingHistory: boolean;
   hasMore: boolean;
+
+  // Thread state
+  currentThreadId: string;
+  threads: Thread[];
+  isLoadingThreads: boolean;
+
+  // Message actions
   addMessage: (msg: ChatMessage) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setLoadingHistory: (loading: boolean) => void;
+  clearMessages: () => void;
+
+  // Thread actions
+  setThreads: (threads: Thread[]) => void;
+  setCurrentThread: (threadId: string) => void;
+  setLoadingThreads: (loading: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -27,6 +63,10 @@ export const useChatStore = create<ChatState>((set) => ({
   isLoading: false,
   isLoadingHistory: false,
   hasMore: true,
+
+  currentThreadId: 'default',
+  threads: [],
+  isLoadingThreads: false,
 
   addMessage: (msg) =>
     set((state) => {
@@ -70,4 +110,9 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
+  clearMessages: () => set({ messages: [], hasMore: true }),
+
+  setThreads: (threads) => set({ threads }),
+  setCurrentThread: (threadId) => set({ currentThreadId: threadId }),
+  setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
 }));

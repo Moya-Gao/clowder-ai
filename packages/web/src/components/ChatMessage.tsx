@@ -1,8 +1,10 @@
 'use client';
 
-import type { ChatMessage as ChatMessageType } from '@/stores/chatStore';
+import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { OwnerIcon } from './icons/OwnerIcon';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
 const CAT_STYLES: Record<string, {
   bg: string;
@@ -75,6 +77,34 @@ function renderContent(text: string) {
   return parts;
 }
 
+/** Render rich contentBlocks (text + images) */
+function renderContentBlocks(blocks: MessageContent[]) {
+  return blocks.map((block, i) => {
+    if (block.type === 'text') {
+      return (
+        <div key={i} className="whitespace-pre-wrap text-sm">
+          {renderContent(block.text)}
+        </div>
+      );
+    }
+    if (block.type === 'image') {
+      const src = block.url.startsWith('/uploads/')
+        ? `${API_URL}${block.url}`
+        : block.url;
+      return (
+        <img
+          key={i}
+          src={src}
+          alt="attached image"
+          className="max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => window.open(src, '_blank')}
+        />
+      );
+    }
+    return null;
+  });
+}
+
 function formatTime(ts: number): string {
   const d = new Date(ts);
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -84,6 +114,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const cat = message.catId ? CAT_STYLES[message.catId] : null;
+  const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
 
   if (isSystem) {
     return (
@@ -104,7 +135,11 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
           </div>
           <div className="bg-owner-light text-owner-dark rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5">
-            <div className="whitespace-pre-wrap text-sm">{renderContent(message.content)}</div>
+            {hasBlocks ? (
+              renderContentBlocks(message.contentBlocks!)
+            ) : (
+              <div className="whitespace-pre-wrap text-sm">{renderContent(message.content)}</div>
+            )}
           </div>
         </div>
         <div className="w-8 h-8 rounded-full bg-owner-primary flex items-center justify-center flex-shrink-0 ring-2 ring-owner-light">
@@ -133,9 +168,13 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
               : 'bg-white border-gray-200 rounded-2xl'
           }`}
         >
-          <div className={`whitespace-pre-wrap text-sm ${cat?.font ?? ''}`}>
-            {renderContent(message.content)}
-          </div>
+          {hasBlocks ? (
+            renderContentBlocks(message.contentBlocks!)
+          ) : (
+            <div className={`whitespace-pre-wrap text-sm ${cat?.font ?? ''}`}>
+              {renderContent(message.content)}
+            </div>
+          )}
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
           )}
