@@ -1,29 +1,40 @@
 /**
- * Multi-Cat Integration Tests
- * 测试真实 SDK 调用的集成测试
+ * Multi-Cat Integration Tests (CLI mode)
+ * 测试真实 CLI 调用的集成测试
  *
- * IMPORTANT: 这些测试需要真实的 API keys，默认跳过
+ * IMPORTANT: 这些测试需要真实的 CLI 工具已登录，默认跳过
  * 运行方式:
- *   RUN_INTEGRATION_TESTS=true ANTHROPIC_API_KEY=xxx OPENAI_API_KEY=xxx GOOGLE_API_KEY=xxx node --test test/integration/multi-cat.test.js
+ *   RUN_INTEGRATION_TESTS=true node --test test/integration/multi-cat.test.js
  *
- * 环境变量:
- *   - RUN_INTEGRATION_TESTS: 设置为 "true" 才会运行测试
- *   - ANTHROPIC_API_KEY: Claude API key
- *   - OPENAI_API_KEY: Codex/OpenAI API key
- *   - GOOGLE_API_KEY: Gemini API key
+ * 前提条件:
+ *   - `claude` CLI 已安装并登录 (Max plan)
+ *   - `codex` CLI 已安装并登录 (ChatGPT Plus/Pro)
+ *   - `gemini` CLI 已安装并登录 (Google AI)
+ *
+ * 不再需要 API keys — CLI 使用订阅额度。
  */
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { execSync } from 'node:child_process';
 
 // Check if integration tests should run
 const shouldRunIntegrationTests =
   process.env['RUN_INTEGRATION_TESTS'] === 'true';
 
-// Check for required API keys
-const hasAnthropicKey = !!process.env['ANTHROPIC_API_KEY'];
-const hasOpenAIKey = !!process.env['OPENAI_API_KEY'];
-const hasGoogleKey = !!process.env['GOOGLE_API_KEY'];
+// Check for CLI availability (not API keys)
+function hasCli(cmd) {
+  try {
+    execSync(`which ${cmd}`, { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const hasClaude = hasCli('claude');
+const hasCodex = hasCli('codex');
+const hasGemini = hasCli('gemini');
 
 // Helper to conditionally skip tests
 const itOrSkip = shouldRunIntegrationTests ? test : test.skip;
@@ -33,6 +44,40 @@ if (!shouldRunIntegrationTests) {
   console.log(
     '\n[multi-cat.test.js] Skipping integration tests (RUN_INTEGRATION_TESTS not set)\n'
   );
+} else {
+  console.log(
+    `\n[multi-cat.test.js] CLI availability: claude=${hasClaude} codex=${hasCodex} gemini=${hasGemini}\n`
+  );
+}
+
+/** Create a fully wired router with real services (no mock) */
+async function createRealRouter() {
+  const { ClaudeAgentService } = await import(
+    '../../dist/domains/cats/services/ClaudeAgentService.js'
+  );
+  const { CodexAgentService } = await import(
+    '../../dist/domains/cats/services/CodexAgentService.js'
+  );
+  const { GeminiAgentService } = await import(
+    '../../dist/domains/cats/services/GeminiAgentService.js'
+  );
+  const { AgentRouter } = await import(
+    '../../dist/domains/cats/services/AgentRouter.js'
+  );
+  const { InvocationRegistry } = await import(
+    '../../dist/domains/cats/services/InvocationRegistry.js'
+  );
+  const { MessageStore } = await import(
+    '../../dist/domains/cats/services/MessageStore.js'
+  );
+
+  return new AgentRouter({
+    claudeService: new ClaudeAgentService(),
+    codexService: new CodexAgentService(),
+    geminiService: new GeminiAgentService(),
+    registry: new InvocationRegistry(),
+    messageStore: new MessageStore(),
+  });
 }
 
 describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, () => {
@@ -40,25 +85,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
    * Test: Default routing to Claude (opus)
    * 无提及时默认路由到布偶猫
    */
-  itOrSkip('routes to Claude (opus) when no @ mention is present', { skip: !hasAnthropicKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('routes to Claude (opus) when no @ mention is present', { skip: !hasClaude, timeout: 60_000 }, async () => {
+    const router = await createRealRouter();
 
     const messages = [];
     for await (const msg of router.route('test-user-1', 'Say "hello" in exactly one word')) {
@@ -90,25 +118,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
    * Test: Routing to Codex via @缅因猫
    * @缅因 路由到缅因猫 (Codex)
    */
-  itOrSkip('routes to Codex when @缅因 is mentioned', { skip: !hasOpenAIKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('routes to Codex when @缅因 is mentioned', { skip: !hasCodex, timeout: 60_000 }, async () => {
+    const router = await createRealRouter();
 
     const messages = [];
     for await (const msg of router.route('test-user-2', '@缅因 说 "你好"')) {
@@ -131,25 +142,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
    * Test: Routing to Gemini via @暹罗猫
    * @暹罗 路由到暹罗猫 (Gemini)
    */
-  itOrSkip('routes to Gemini when @暹罗 is mentioned', { skip: !hasGoogleKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('routes to Gemini when @暹罗 is mentioned', { skip: !hasGemini, timeout: 60_000 }, async () => {
+    const router = await createRealRouter();
 
     const messages = [];
     for await (const msg of router.route('test-user-3', '@暹罗 说 "你好"')) {
@@ -172,25 +166,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
    * Test: Multi-cat serial invocation
    * 多猫串行调用 - @opus 和 @codex 按顺序执行
    */
-  itOrSkip('executes multiple cats in order for multi-mention', { skip: !hasAnthropicKey || !hasOpenAIKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('executes multiple cats in order for multi-mention', { skip: !hasClaude || !hasCodex, timeout: 120_000 }, async () => {
+    const router = await createRealRouter();
 
     const messages = [];
     for await (const msg of router.route(
@@ -227,25 +204,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
    * Test: Three-cat serial invocation
    * 三猫串行调用
    */
-  itOrSkip('executes all three cats in order', { skip: !hasAnthropicKey || !hasOpenAIKey || !hasGoogleKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('executes all three cats in order', { skip: !hasClaude || !hasCodex || !hasGemini, timeout: 180_000 }, async () => {
+    const router = await createRealRouter();
 
     const messages = [];
     for await (const msg of router.route(
@@ -279,28 +239,12 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
   });
 
   /**
-   * Test: Session persistence
-   * 验证 session 在多次调用间保持
+   * Test: Session persistence (Claude only)
+   * 验证 Claude session 在多次调用间保持
+   * Note: Gemini CLI --resume 用 local index，不兼容 AgentRouter 的 sessionId
    */
-  itOrSkip('maintains session across multiple calls', { skip: !hasAnthropicKey }, async () => {
-    const { ClaudeAgentService } = await import(
-      '../../dist/domains/cats/services/ClaudeAgentService.js'
-    );
-    const { CodexAgentService } = await import(
-      '../../dist/domains/cats/services/CodexAgentService.js'
-    );
-    const { GeminiAgentService } = await import(
-      '../../dist/domains/cats/services/GeminiAgentService.js'
-    );
-    const { AgentRouter } = await import(
-      '../../dist/domains/cats/services/AgentRouter.js'
-    );
-
-    const router = new AgentRouter({
-      claudeService: new ClaudeAgentService(),
-      codexService: new CodexAgentService(),
-      geminiService: new GeminiAgentService(),
-    });
+  itOrSkip('maintains Claude session across multiple calls', { skip: !hasClaude, timeout: 120_000 }, async () => {
+    const router = await createRealRouter();
 
     // First call - should create session
     const messages1 = [];
@@ -335,7 +279,7 @@ describe('Individual Service Integration Tests', { skip: !shouldRunIntegrationTe
   /**
    * Test: ClaudeAgentService direct invocation
    */
-  itOrSkip('ClaudeAgentService responds to prompt', { skip: !hasAnthropicKey }, async () => {
+  itOrSkip('ClaudeAgentService responds to prompt', { skip: !hasClaude, timeout: 60_000 }, async () => {
     const { ClaudeAgentService } = await import(
       '../../dist/domains/cats/services/ClaudeAgentService.js'
     );
@@ -365,7 +309,7 @@ describe('Individual Service Integration Tests', { skip: !shouldRunIntegrationTe
   /**
    * Test: CodexAgentService direct invocation
    */
-  itOrSkip('CodexAgentService responds to prompt', { skip: !hasOpenAIKey }, async () => {
+  itOrSkip('CodexAgentService responds to prompt', { skip: !hasCodex, timeout: 60_000 }, async () => {
     const { CodexAgentService } = await import(
       '../../dist/domains/cats/services/CodexAgentService.js'
     );
@@ -378,7 +322,6 @@ describe('Individual Service Integration Tests', { skip: !shouldRunIntegrationTe
     }
 
     assert.ok(messages.length > 0, 'Should receive messages');
-    // Codex may or may not emit session_init depending on SDK version
     assert.ok(
       messages.some((m) => m.type === 'text' || m.type === 'done' || m.type === 'error'),
       'Should have some response'
@@ -388,7 +331,7 @@ describe('Individual Service Integration Tests', { skip: !shouldRunIntegrationTe
   /**
    * Test: GeminiAgentService direct invocation
    */
-  itOrSkip('GeminiAgentService responds to prompt', { skip: !hasGoogleKey }, async () => {
+  itOrSkip('GeminiAgentService responds to prompt', { skip: !hasGemini, timeout: 60_000 }, async () => {
     const { GeminiAgentService } = await import(
       '../../dist/domains/cats/services/GeminiAgentService.js'
     );
