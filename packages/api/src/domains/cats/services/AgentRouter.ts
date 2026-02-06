@@ -13,7 +13,7 @@
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { InvocationRegistry } from './InvocationRegistry.js';
-import type { MessageStore } from './MessageStore.js';
+import type { IMessageStore } from './MessageStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 
 /**
@@ -34,7 +34,7 @@ export interface AgentRouterOptions {
   /** Invocation registry for MCP callback auth */
   registry: InvocationRegistry;
   /** Message store for thread context / mentions */
-  messageStore: MessageStore;
+  messageStore: IMessageStore;
 }
 
 /**
@@ -51,7 +51,7 @@ export class AgentRouter {
   private codexService: AgentService;
   private geminiService: AgentService;
   private registry: InvocationRegistry;
-  private messageStore: MessageStore;
+  private messageStore: IMessageStore;
 
   /**
    * In-memory session storage (key: userId:catId, value: sessionId)
@@ -175,7 +175,7 @@ export class AgentRouter {
     }
 
     // Store user message to MessageStore
-    this.messageStore.append({
+    await this.messageStore.append({
       userId,
       catId: null,
       content: message,
@@ -259,7 +259,7 @@ export class AgentRouter {
       // Store cat's response for next cat in chain + thread context
       if (textContent) {
         previousResponses.push({ catId, content: textContent });
-        this.messageStore.append({
+        await this.messageStore.append({
           userId,
           catId,
           content: textContent,

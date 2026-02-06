@@ -23,6 +23,17 @@ export interface StoredMessage {
   timestamp: number;
 }
 
+/**
+ * Common interface for message stores (in-memory and Redis).
+ * Methods that may hit Redis are async; in-memory returns immediately.
+ */
+export interface IMessageStore {
+  append(msg: Omit<StoredMessage, 'id'>): StoredMessage | Promise<StoredMessage>;
+  getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getBefore(timestamp: number, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+}
+
 /** Max messages to keep in memory */
 const MAX_MESSAGES = 2000;
 
@@ -92,6 +103,26 @@ export class MessageStore {
       if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
         matches.push(msg);
       }
+    }
+
+    // Reverse so oldest first
+    return matches.reverse();
+  }
+
+  /**
+   * Get messages before a given timestamp (cursor-based pagination).
+   * Returns messages in chronological order (oldest first).
+   */
+  getBefore(timestamp: number, limit?: number, userId?: string): StoredMessage[] {
+    const n = limit ?? DEFAULT_LIMIT;
+    const matches: StoredMessage[] = [];
+
+    // Walk backwards from most recent, collecting messages before the cursor
+    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+      const msg = this.messages[i]!;
+      if (msg.timestamp >= timestamp) continue;
+      if (userId && msg.userId !== userId) continue;
+      matches.push(msg);
     }
 
     // Reverse so oldest first

@@ -11,7 +11,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
-import type { MessageStore } from '../domains/cats/services/MessageStore.js';
+import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 /**
@@ -19,7 +19,7 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
  */
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
-  messageStore: MessageStore;
+  messageStore: IMessageStore;
   socketManager: SocketManager;
 }
 
@@ -59,7 +59,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }
 
       // Store the message
-      messageStore.append({
+      await messageStore.append({
         userId: record.userId,
         catId: record.catId,
         content,
@@ -93,7 +93,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const mentions = messageStore.getMentionsFor(record.catId, 20, record.userId);
+      const mentions = await messageStore.getMentionsFor(record.catId, 20, record.userId);
       return {
         mentions: mentions.map((m) => ({
           id: m.id,
@@ -119,7 +119,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const messages = messageStore.getRecent(limit ?? 20, record.userId);
+      const messages = await messageStore.getRecent(limit ?? 20, record.userId);
       return {
         messages: messages.map((m) => ({
           id: m.id,

@@ -14,7 +14,7 @@ import {
   AgentRouter,
 } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
-import type { MessageStore } from '../domains/cats/services/MessageStore.js';
+import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import { getSocketManager } from '../index.js';
 
 /**
@@ -22,7 +22,7 @@ import { getSocketManager } from '../index.js';
  */
 export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
-  messageStore: MessageStore;
+  messageStore: IMessageStore;
 }
 
 const sendMessageSchema = z.object({

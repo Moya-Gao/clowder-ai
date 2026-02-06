@@ -155,6 +155,37 @@ describe('MessageStore', () => {
     assert.equal(allMentions.length, 2);
   });
 
+  test('getBefore() returns messages before timestamp', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'u', catId: null, content: 'old', mentions: [], timestamp: 100 });
+    store.append({ userId: 'u', catId: null, content: 'mid', mentions: [], timestamp: 200 });
+    store.append({ userId: 'u', catId: null, content: 'new', mentions: [], timestamp: 300 });
+
+    const before = store.getBefore(300, 10);
+    assert.equal(before.length, 2);
+    assert.equal(before[0].content, 'old');
+    assert.equal(before[1].content, 'mid');
+  });
+
+  test('getBefore() filters by userId', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'alice', catId: null, content: 'alice old', mentions: [], timestamp: 100 });
+    store.append({ userId: 'bob', catId: null, content: 'bob old', mentions: [], timestamp: 150 });
+    store.append({ userId: 'alice', catId: null, content: 'alice new', mentions: [], timestamp: 200 });
+
+    const before = store.getBefore(200, 10, 'alice');
+    assert.equal(before.length, 1);
+    assert.equal(before[0].content, 'alice old');
+  });
+
   test('empty store returns empty arrays', async () => {
     const { MessageStore } = await import(
       '../dist/domains/cats/services/MessageStore.js'
