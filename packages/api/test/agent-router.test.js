@@ -26,6 +26,30 @@ function createMockMessageStore() {
     append: () => ({ id: 'msg-1', userId: '', catId: null, content: '', mentions: [], timestamp: 0 }),
     getRecent: () => [],
     getMentionsFor: () => [],
+    getBefore: () => [],
+    getByThread: () => [],
+    getByThreadBefore: () => [],
+  };
+}
+
+function createMockThreadStore(initialParticipants = {}) {
+  const participants = { ...initialParticipants };
+  return {
+    create: (userId, title) => ({ id: `thread_mock`, title: title ?? null, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() }),
+    get: (threadId) => ({ id: threadId, title: null, createdBy: 'system', participants: participants[threadId] ?? [], lastActiveAt: Date.now(), createdAt: Date.now() }),
+    list: () => [],
+    addParticipants: (threadId, catIds) => {
+      if (!participants[threadId]) participants[threadId] = [];
+      for (const catId of catIds) {
+        if (!participants[threadId].includes(catId)) {
+          participants[threadId].push(catId);
+        }
+      }
+    },
+    getParticipants: (threadId) => participants[threadId] ?? [],
+    updateLastActive: () => {},
+    delete: () => true,
+    _participants: participants, // exposed for test assertions
   };
 }
 
@@ -674,6 +698,207 @@ describe('AgentRouter', () => {
     const texts = messages.filter((m) => m.type === 'text');
     assert.equal(texts.length, 1);
     assert.equal(texts[0].content, 'Hello');
+  });
+
+  // --- Participant tracking tests (Phase 3.2 Task 3) ---
+
+  test('@ mentions update thread participants via threadStore', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore();
+    const router = new AgentRouter({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    for await (const _ of router.route('user-1', '@opus @codex help', 'thread_1')) {}
+
+    // Participants should have been added
+    assert.deepEqual(threadStore._participants['thread_1'], ['opus', 'codex']);
+  });
+
+  test('no @ mention routes to all thread participants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // Thread already has opus + codex as participants
+    const threadStore = createMockThreadStore({ thread_1: ['opus', 'codex'] });
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    const messages = [];
+    // No @ mention — should route to existing participants
+    for await (const msg of router.route('user-1', 'what do you think?', 'thread_1')) {
+      messages.push(msg);
+    }
+
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
+  });
+
+  test('no @ mention + no participants defaults to opus', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // Thread exists but has no participants
+    const threadStore = createMockThreadStore({});
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    for await (const _ of router.route('user-1', 'hello', 'thread_new')) {}
+
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 0);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
+  });
+
+  test('@three cats then no-@ routes to all three', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    const threadStore = createMockThreadStore();
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    // First: @ all three cats
+    for await (const _ of router.route('user-1', '@opus @codex @gemini meeting', 'thread_x')) {}
+
+    // Verify all three called
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
+
+    // Second: no @ — should still route to all three (participants remembered)
+    for await (const _ of router.route('user-1', 'what about this?', 'thread_x')) {}
+
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 2);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 2);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 2);
+  });
+
+  test('route with explicit threadId passes it to messageStore.append', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const appendedMessages = [];
+    const msgStore = {
+      ...createMockMessageStore(),
+      append: (msg) => { appendedMessages.push(msg); return { ...msg, id: 'msg-1' }; },
+    };
+
+    const router = new AgentRouter({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: msgStore,
+    });
+
+    for await (const _ of router.route('user-1', 'hi', 'my-thread')) {}
+
+    // User message should have threadId
+    assert.equal(appendedMessages[0].threadId, 'my-thread');
+    // Cat response message should also have threadId
+    if (appendedMessages.length > 1) {
+      assert.equal(appendedMessages[1].threadId, 'my-thread');
+    }
+  });
+
+  test('no threadStore degrades to default opus routing', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // No threadStore — old behavior
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', 'hello')) {}
+
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 0);
+  });
+
+  test('new @ mention adds to existing participants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // Thread already has opus
+    const threadStore = createMockThreadStore({ thread_y: ['opus'] });
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    });
+
+    // @gemini — should add gemini to participants and route only to gemini
+    for await (const _ of router.route('user-1', '@gemini design this', 'thread_y')) {}
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 0); // not called — only @gemini
+
+    // Now no @ — should route to opus + gemini (both participants)
+    for await (const _ of router.route('user-1', 'looks good?', 'thread_y')) {}
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 2);
+    assert.deepEqual(threadStore._participants['thread_y'], ['opus', 'gemini']);
   });
 
   test('error from first cat is not passed as context to second cat', async () => {

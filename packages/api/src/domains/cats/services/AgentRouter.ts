@@ -3,7 +3,9 @@
  * 解析 @ 提及，路由到对应的 Agent Service
  *
  * Features:
- * - 无 @ 提及时默认路由到布偶猫 (opus)
+ * - 有 @ 提及时路由到指定猫 + 更新对话参与者
+ * - 无 @ 提及时路由到对话中所有活跃参与者
+ * - 无参与者的新对话默认路由到布偶猫 (opus)
  * - 支持中英文提及模式
  * - 多猫提及时按出现顺序串行执行
  * - 后一只猫的 prompt 包含前一只猫的回复
@@ -13,8 +15,10 @@
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
+import { DEFAULT_THREAD_ID } from './MessageStore.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
+import type { IThreadStore } from './ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 
 /**
@@ -38,6 +42,8 @@ export interface AgentRouterOptions {
   messageStore: IMessageStore;
   /** Optional Redis session store; falls back to in-memory Map when absent */
   sessionStore?: SessionStore;
+  /** Optional thread store for participant tracking */
+  threadStore?: IThreadStore;
 }
 
 /**
@@ -55,6 +61,7 @@ export class AgentRouter {
   private registry: InvocationRegistry;
   private messageStore: IMessageStore;
   private sessionStore: SessionStore | null;
+  private threadStore: IThreadStore | null;
 
   /** In-memory fallback when no Redis SessionStore is provided */
   private sessions: Map<string, string>;
@@ -66,6 +73,7 @@ export class AgentRouter {
     this.registry = options.registry;
     this.messageStore = options.messageStore;
     this.sessionStore = options.sessionStore ?? null;
+    this.threadStore = options.threadStore ?? null;
     this.sessions = new Map();
   }
 
@@ -171,18 +179,57 @@ export class AgentRouter {
   }
 
   /**
-   * Route message to appropriate agent(s) based on @ mentions
+   * Resolve target cats using mentions + thread participants.
+   * - Has @mentions → route to those cats, update thread participants
+   * - No @mentions + thread has participants → route to all participants
+   * - No @mentions + no participants → default to opus
+   */
+  private async resolveTargets(
+    message: string,
+    threadId: string
+  ): Promise<CatId[]> {
+    const mentionedCats = this.parseMentions(message);
+
+    if (mentionedCats.length > 0) {
+      // Update thread participants with newly mentioned cats
+      if (this.threadStore) {
+        await this.threadStore.addParticipants(threadId, mentionedCats);
+      }
+      return mentionedCats;
+    }
+
+    // No mentions — check thread participants
+    if (this.threadStore) {
+      const participants = await this.threadStore.getParticipants(threadId);
+      if (participants.length > 0) {
+        return participants;
+      }
+    }
+
+    // No participants — default to opus
+    return [createCatId('opus')];
+  }
+
+  /**
+   * Route message to appropriate agent(s) based on @ mentions and thread participants
    * @param userId User ID for session management
    * @param message The user's message
+   * @param threadId Thread ID for participant tracking (defaults to 'default')
    * @returns AsyncIterable of agent messages from all invoked agents
    */
-  async *route(userId: string, message: string): AsyncIterable<AgentMessage> {
-    // Parse mentions to get ordered list of cats to invoke
-    let targetCats = this.parseMentions(message);
+  async *route(
+    userId: string,
+    message: string,
+    threadId?: string
+  ): AsyncIterable<AgentMessage> {
+    const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
 
-    // Default to opus if no mentions
-    if (targetCats.length === 0) {
-      targetCats = [createCatId('opus')];
+    // Resolve target cats (mentions, participants, or default)
+    const targetCats = await this.resolveTargets(message, resolvedThreadId);
+
+    // Update thread activity timestamp
+    if (this.threadStore) {
+      await this.threadStore.updateLastActive(resolvedThreadId);
     }
 
     // Store user message to MessageStore
@@ -192,6 +239,7 @@ export class AgentRouter {
       content: message,
       mentions: targetCats,
       timestamp: Date.now(),
+      threadId: resolvedThreadId,
     });
 
     // Accumulate responses for chaining
@@ -216,7 +264,7 @@ export class AgentRouter {
         prompt = `${message}\n\n${contextParts.join('\n')}`;
       }
 
-      // Create invocation for MCP callback auth
+      // Create invocation for MCP callback auth (include threadId)
       const { invocationId, callbackToken } = this.registry.create(userId, catId);
       const callbackEnv: Record<string, string> = {
         CAT_CAFE_API_URL: apiUrl,
@@ -285,6 +333,7 @@ export class AgentRouter {
           content: textContent,
           mentions: [],
           timestamp: Date.now(),
+          threadId: resolvedThreadId,
         });
       }
     }

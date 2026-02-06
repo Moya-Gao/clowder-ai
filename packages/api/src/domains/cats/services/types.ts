@@ -3,7 +3,7 @@
  * Agent 服务的共享类型定义
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, MessageContent } from '@cat-cafe/shared';
 
 /**
  * Types of messages that can be yielded from an agent
@@ -50,6 +50,8 @@ export interface AgentServiceOptions {
   workingDirectory?: string;
   /** Env vars to pass to CLI process for MCP callback auth */
   callbackEnv?: Record<string, string>;
+  /** Rich content blocks (e.g. images) to pass to the CLI agent */
+  contentBlocks?: readonly MessageContent[];
 }
 
 /**
