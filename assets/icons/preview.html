@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Cat Café Icons (Polished)</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            padding: 40px;
+            background: #FDF8F3;
+            color: #1E1E24;
+        }
+
+        h1 {
+            text-align: center;
+            color: #9B7EBD;
+            margin-bottom: 40px;
+        }
+
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 30px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .icon-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(155, 126, 189, 0.1);
+            transition: transform 0.2s;
+            border: 1px solid rgba(0, 0, 0, 0.05);
+        }
+
+        .icon-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .icon-card h3 {
+            margin-top: 15px;
+            margin-bottom: 5px;
+            font-size: 1rem;
+        }
+
+        .icon-card p {
+            font-size: 0.8rem;
+            color: #888;
+            margin: 0;
+        }
+
+        svg {
+            width: 48px;
+            height: 48px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            display: inline-block;
+        }
+
+        /* Loading Animation */
+        .spin {
+            animation: spin 2s linear infinite;
+        }
+
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Cat Café Design System Icons v1.1 🐾</h1>
+    <div class="icon-grid">
+
+        <!-- ICON: SEND (Paper Plane) -->
+        <div class="icon-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#5B9BD5" stroke-width="2">
+                <!-- Cleaner Paper Plane -->
+                <path d="M22 2L11 13" />
+                <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+            </svg>
+            <h3>Send</h3>
+            <p>Paper Plane</p>
+        </div>
+
+        <!-- ICON: PAW (Cute Toe Beans) -->
+        <div class="icon-card">
+            <svg viewBox="0 0 24 24" fill="none">
+                <!-- Main Pad -->
+                <path
+                    d="M12 15C15 15 17.5 17 17.5 19.5C17.5 21 16 22.5 12 22.5C8 22.5 6.5 21 6.5 19.5C6.5 17 9 15 12 15Z"
+                    fill="#FFB7C5" />
+                <!-- Toe Beans -->
+                <ellipse cx="6" cy="11.5" rx="2.5" ry="3" fill="#FFB7C5" />
+                <ellipse cx="12" cy="10" rx="3" ry="3.5" fill="#FFB7C5" />
+                <ellipse cx="18" cy="11.5" rx="2.5" ry="3" fill="#FFB7C5" />
+            </svg>
+            <h3>Paw</h3>
+            <p>Cute Pink Mode</p>
+        </div>
+
+        <!-- ICON: LOADING (Fishbone) -->
+        <div class="icon-card">
+            <svg viewBox="0 0 24 24" fill="none" class="spin">
+                <!-- Head -->
+                <path d="M18 12L21 9M21 15L18 12" stroke="#5B8C5A" stroke-width="2" />
+                <!-- Spine -->
+                <path d="M3 12H18" stroke="#5B8C5A" stroke-width="2" />
+                <!-- Tail -->
+                <path d="M3 12L6 8M6 16L3 12" stroke="#5B8C5A" stroke-width="2" />
+                <!-- Ribs (Symmetrical) -->
+                <path d="M10 8V16" stroke="#5B8C5A" stroke-width="2" />
+                <path d="M14 8V16" stroke="#5B8C5A" stroke-width="2" />
+            </svg>
+            <h3>Loading</h3>
+            <p>Fishbone Spinner</p>
+        </div>
+
+        <!-- ICON: OWNER (Coffee) -->
+        <div class="icon-card">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#E29578" stroke-width="2">
+                <path d="M17 8H19C20.1046 8 21 8.89543 21 10V12C21 13.1046 20.1046 14 19 14H17" />
+                <path d="M4 8H17V15C17 17.2091 15.2091 19 13 19H8C5.79086 19 4 17.2091 4 15V8Z" />
+                <path d="M10 3V5" stroke-linecap="round" />
+                <path d="M14 3V5" stroke-linecap="round" />
+                <path d="M6 3V5" stroke-linecap="round" />
+            </svg>
+            <h3>Owner</h3>
+            <p>Hot Latte</p>
+        </div>
+
+    </div>
+</body>
+
+</html>
