@@ -1,0 +1,111 @@
+/**
+ * InvocationRegistry Tests
+ * 测试 MCP 回传鉴权的 invocation 注册和验证
+ */
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+describe('InvocationRegistry', () => {
+  test('create() returns invocationId and callbackToken', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const result = registry.create('user-1', 'opus');
+
+    assert.ok(typeof result.invocationId === 'string');
+    assert.ok(typeof result.callbackToken === 'string');
+    assert.ok(result.invocationId.length > 0);
+    assert.ok(result.callbackToken.length > 0);
+  });
+
+  test('verify() returns record for valid credentials', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const record = registry.verify(invocationId, callbackToken);
+    assert.ok(record !== null);
+    assert.equal(record.userId, 'user-1');
+    assert.equal(record.catId, 'opus');
+    assert.equal(record.invocationId, invocationId);
+    assert.equal(record.callbackToken, callbackToken);
+  });
+
+  test('verify() returns null for wrong token', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId } = registry.create('user-1', 'opus');
+
+    const record = registry.verify(invocationId, 'wrong-token');
+    assert.equal(record, null);
+  });
+
+  test('verify() returns null for unknown invocationId', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    registry.create('user-1', 'opus');
+
+    const record = registry.verify('unknown-id', 'any-token');
+    assert.equal(record, null);
+  });
+
+  test('verify() returns null for expired invocation', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    // Use very short TTL
+    const registry = new InvocationRegistry({ ttlMs: 1 });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    // Wait for expiry
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const record = registry.verify(invocationId, callbackToken);
+    assert.equal(record, null);
+  });
+
+  test('LRU eviction removes oldest when at capacity', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry({ maxRecords: 3 });
+
+    const first = registry.create('user-1', 'opus');
+    registry.create('user-2', 'codex');
+    registry.create('user-3', 'gemini');
+
+    // First should still be valid
+    assert.ok(registry.verify(first.invocationId, first.callbackToken) !== null);
+
+    // Adding a 4th should evict the first
+    registry.create('user-4', 'opus');
+    assert.equal(registry.verify(first.invocationId, first.callbackToken), null);
+  });
+
+  test('multiple creates produce unique IDs', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const r1 = registry.create('user-1', 'opus');
+    const r2 = registry.create('user-1', 'opus');
+
+    assert.notEqual(r1.invocationId, r2.invocationId);
+    assert.notEqual(r1.callbackToken, r2.callbackToken);
+  });
+});

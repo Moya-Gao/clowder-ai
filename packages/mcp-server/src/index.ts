@@ -14,6 +14,12 @@ import {
   handleReadFile,
   handleWriteFile,
   handleListFiles,
+  postMessageInputSchema,
+  getPendingMentionsInputSchema,
+  getThreadContextInputSchema,
+  handlePostMessage,
+  handleGetPendingMentions,
+  handleGetThreadContext,
 } from './tools/index.js';
 
 /**
@@ -54,6 +60,37 @@ function createServer(): McpServer {
     listFilesInputSchema,
     async (args: { path: string; recursive?: boolean }) => {
       const result = await handleListFiles(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // 注册 MCP 回传工具 (三猫共享)
+  server.tool(
+    'cat_cafe_post_message',
+    'Post a message to the Cat Café chat. Use this to share results, respond to other cats, or communicate with the user.',
+    postMessageInputSchema,
+    async (args: { content: string; replyTo?: string | undefined }) => {
+      const result = await handlePostMessage(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_get_pending_mentions',
+    'Get recent messages that @-mention you. Use this to check if anyone is trying to get your attention.',
+    getPendingMentionsInputSchema,
+    async (_args: Record<string, never>) => {
+      const result = await handleGetPendingMentions(_args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_get_thread_context',
+    'Get recent conversation messages for context. Use this to understand what has been discussed recently.',
+    getThreadContextInputSchema,
+    async (args: { limit?: number }) => {
+      const result = await handleGetThreadContext(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

@@ -12,6 +12,8 @@
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import type { InvocationRegistry } from './InvocationRegistry.js';
+import type { MessageStore } from './MessageStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 
 /**
@@ -29,6 +31,10 @@ export interface AgentRouterOptions {
   claudeService: AgentService;
   codexService: AgentService;
   geminiService: AgentService;
+  /** Invocation registry for MCP callback auth */
+  registry: InvocationRegistry;
+  /** Message store for thread context / mentions */
+  messageStore: MessageStore;
 }
 
 /**
@@ -44,6 +50,8 @@ export class AgentRouter {
   private claudeService: AgentService;
   private codexService: AgentService;
   private geminiService: AgentService;
+  private registry: InvocationRegistry;
+  private messageStore: MessageStore;
 
   /**
    * In-memory session storage (key: userId:catId, value: sessionId)
@@ -56,6 +64,8 @@ export class AgentRouter {
     this.claudeService = options.claudeService;
     this.codexService = options.codexService;
     this.geminiService = options.geminiService;
+    this.registry = options.registry;
+    this.messageStore = options.messageStore;
     this.sessions = new Map();
   }
 
@@ -164,8 +174,21 @@ export class AgentRouter {
       targetCats = [createCatId('opus')];
     }
 
+    // Store user message to MessageStore
+    this.messageStore.append({
+      userId,
+      catId: null,
+      content: message,
+      mentions: targetCats,
+      timestamp: Date.now(),
+    });
+
     // Accumulate responses for chaining
     const previousResponses: { catId: CatId; content: string }[] = [];
+
+    // API URL for MCP callback tools
+    const apiPort = process.env['API_SERVER_PORT'] ?? '3002';
+    const apiUrl = `http://127.0.0.1:${apiPort}`;
 
     // Invoke each cat in order
     const totalCats = targetCats.length;
@@ -184,7 +207,19 @@ export class AgentRouter {
 
       // Get stored session for this user + cat
       const sessionId = this.getSession(userId, catId);
-      const options: AgentServiceOptions = sessionId ? { sessionId } : {};
+
+      // Create invocation for MCP callback auth
+      const { invocationId, callbackToken } = this.registry.create(userId, catId);
+      const callbackEnv: Record<string, string> = {
+        CAT_CAFE_API_URL: apiUrl,
+        CAT_CAFE_INVOCATION_ID: invocationId,
+        CAT_CAFE_CALLBACK_TOKEN: callbackToken,
+      };
+
+      const options: AgentServiceOptions = {
+        ...(sessionId ? { sessionId } : {}),
+        callbackEnv,
+      };
 
       // Collect text content for chaining
       let textContent = '';
@@ -209,9 +244,16 @@ export class AgentRouter {
         }
       }
 
-      // Store response for next cat in chain
+      // Store cat's response for next cat in chain + thread context
       if (textContent) {
         previousResponses.push({ catId, content: textContent });
+        this.messageStore.append({
+          userId,
+          catId,
+          content: textContent,
+          mentions: [],
+          timestamp: Date.now(),
+        });
       }
     }
   }

@@ -40,6 +40,8 @@ interface ClaudeAgentServiceOptions {
   spawnFn?: SpawnFn;
   /** Model override (default: CLAUDE_MODEL env or 'claude-sonnet-4-5-20250929') */
   model?: string;
+  /** Absolute path to MCP server entry (dist/index.js) for --mcp-config */
+  mcpServerPath?: string;
 }
 
 /**
@@ -143,12 +145,15 @@ export class ClaudeAgentService implements AgentService {
   readonly catId = CAT_ID;
   private readonly spawnFn: SpawnFn | undefined;
   private readonly model: string;
+  private readonly mcpServerPath: string | undefined;
 
   constructor(options?: ClaudeAgentServiceOptions) {
     this.spawnFn = options?.spawnFn;
     this.model = options?.model
       ?? process.env['CLAUDE_MODEL']
       ?? 'claude-sonnet-4-5-20250929';
+    this.mcpServerPath = options?.mcpServerPath
+      ?? process.env['CAT_CAFE_MCP_SERVER_PATH'];
   }
 
   async *invoke(
@@ -168,6 +173,18 @@ export class ClaudeAgentService implements AgentService {
       args.push('--resume', options.sessionId);
     }
 
+    // Add MCP server config when callback env is present
+    if (options?.callbackEnv && this.mcpServerPath) {
+      args.push('--mcp-config', JSON.stringify({
+        mcpServers: {
+          'cat-cafe': {
+            command: 'node',
+            args: [this.mcpServerPath],
+          },
+        },
+      }));
+    }
+
     try {
       let sawResultError = false;
       const events = spawnCli(
@@ -175,6 +192,7 @@ export class ClaudeAgentService implements AgentService {
           command: 'claude',
           args,
           ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
+          ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
         },
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined
       );

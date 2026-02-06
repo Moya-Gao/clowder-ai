@@ -126,6 +126,7 @@ export class CodexAgentService implements AgentService {
           ...(options?.workingDirectory
             ? { cwd: options.workingDirectory }
             : {}),
+          ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
         },
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined
       );

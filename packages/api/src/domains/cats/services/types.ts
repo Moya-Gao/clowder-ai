@@ -48,6 +48,8 @@ export interface AgentServiceOptions {
   sessionId?: string;
   /** Working directory for the agent */
   workingDirectory?: string;
+  /** Env vars to pass to CLI process for MCP callback auth */
+  callbackEnv?: Record<string, string>;
 }
 
 /**

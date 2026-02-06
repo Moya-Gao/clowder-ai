@@ -9,6 +9,26 @@ import { test, describe, mock } from 'node:test';
 import assert from 'node:assert/strict';
 
 
+// Create mock dependencies for AgentRouter
+function createMockRegistry() {
+  let counter = 0;
+  return {
+    create: () => ({
+      invocationId: `inv-${++counter}`,
+      callbackToken: `tok-${counter}`,
+    }),
+    verify: () => null,
+  };
+}
+
+function createMockMessageStore() {
+  return {
+    append: () => ({ id: 'msg-1', userId: '', catId: null, content: '', mentions: [], timestamp: 0 }),
+    getRecent: () => [],
+    getMentionsFor: () => [],
+  };
+}
+
 // Create mock agent services
 function createMockAgentService(catId, responseText = 'Hello from mock') {
   const invoke = mock.fn(async function* (prompt, options) {
@@ -49,6 +69,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -79,6 +101,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -104,6 +128,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -129,6 +155,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -155,6 +183,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -179,6 +209,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -205,6 +237,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -229,6 +263,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -271,6 +307,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -309,6 +347,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     // First call - no session yet
@@ -346,6 +386,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     // User 1 first call
@@ -385,6 +427,8 @@ describe('AgentRouter', () => {
         claudeService: mockClaudeService,
         codexService: mockCodexService,
         geminiService: mockGeminiService,
+        registry: createMockRegistry(),
+        messageStore: createMockMessageStore(),
       });
 
       for await (const _ of router.route('user-1', `${mention} do something`)) {
@@ -425,6 +469,8 @@ describe('AgentRouter', () => {
         claudeService: mockClaudeService,
         codexService: mockCodexService,
         geminiService: mockGeminiService,
+        registry: createMockRegistry(),
+        messageStore: createMockMessageStore(),
       });
 
       for await (const _ of router.route('user-1', `${mention} 做某事`)) {
@@ -458,6 +504,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -494,6 +542,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     const messages = [];
@@ -521,6 +571,8 @@ describe('AgentRouter', () => {
       claudeService: mockClaudeService,
       codexService: mockCodexService,
       geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
     });
 
     for await (const _ of router.route('user-1', '@OPUS help me')) {

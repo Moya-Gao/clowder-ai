@@ -15,3 +15,13 @@ export {
   handleListFiles,
   fileTools,
 } from './file-tools.js';
+
+export {
+  postMessageInputSchema,
+  getPendingMentionsInputSchema,
+  getThreadContextInputSchema,
+  handlePostMessage,
+  handleGetPendingMentions,
+  handleGetThreadContext,
+  callbackTools,
+} from './callback-tools.js';

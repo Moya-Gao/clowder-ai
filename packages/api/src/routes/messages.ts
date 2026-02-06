@@ -13,7 +13,17 @@ import {
   GeminiAgentService,
   AgentRouter,
 } from '../domains/cats/services/index.js';
+import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
+import type { MessageStore } from '../domains/cats/services/MessageStore.js';
 import { getSocketManager } from '../index.js';
+
+/**
+ * Dependencies injected via Fastify plugin options
+ */
+export interface MessagesRoutesOptions {
+  registry: InvocationRegistry;
+  messageStore: MessageStore;
+}
 
 const sendMessageSchema = z.object({
   content: z.string().min(1).max(10000),
@@ -21,12 +31,15 @@ const sendMessageSchema = z.object({
   mentions: z.array(z.enum(['opus', 'codex', 'gemini'])).optional(),
 });
 
-export const messagesRoutes: FastifyPluginAsync = async (app) => {
+export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
+  async (app, opts) => {
   // Create agent router with all three services
   const router = new AgentRouter({
     claudeService: new ClaudeAgentService(),
     codexService: new CodexAgentService(),
     geminiService: new GeminiAgentService(),
+    registry: opts.registry,
+    messageStore: opts.messageStore,
   });
 
   // POST /api/messages - 发送消息（WebSocket 广播）

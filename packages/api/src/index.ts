@@ -5,8 +5,10 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
+import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
+import { MessageStore } from './domains/cats/services/MessageStore.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -40,9 +42,14 @@ async function main(): Promise<void> {
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server);
 
+  // Create shared service instances for MCP callback flow
+  const registry = new InvocationRegistry();
+  const messageStore = new MessageStore();
+
   // Register routes (safe to call getSocketManager() now)
-  await app.register(messagesRoutes);
+  await app.register(messagesRoutes, { registry, messageStore });
   await app.register(catsRoutes);
+  await app.register(callbacksRoutes, { registry, messageStore, socketManager });
 
   // Start listening
   const address = await app.listen({ port: PORT, host: HOST });
