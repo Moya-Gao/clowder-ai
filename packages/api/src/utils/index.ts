@@ -11,5 +11,5 @@ export type {
 } from './cli-types.js';
 
 export { parseNDJSON, isParseError } from './ndjson-parser.js';
-export { spawnCli } from './cli-spawn.js';
+export { spawnCli, isCliError, KILL_GRACE_MS } from './cli-spawn.js';
 export type { CliSpawnerDeps } from './cli-spawn.js';

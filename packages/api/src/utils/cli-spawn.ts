@@ -11,7 +11,7 @@ import { parseNDJSON, isParseError } from './ndjson-parser.js';
 const DEFAULT_TIMEOUT_MS = 300_000;
 
 /** Grace period between SIGTERM and SIGKILL */
-const KILL_GRACE_MS = 3_000;
+export const KILL_GRACE_MS = 3_000;
 
 /**
  * Options for spawnCli (dependency injection for testing)
@@ -24,8 +24,11 @@ export interface CliSpawnerDeps {
 /**
  * Spawns a CLI process and yields parsed NDJSON events from stdout.
  *
- * Handles: NDJSON parsing, stderr buffering, timeout with SIGTERM→SIGKILL,
+ * Handles: NDJSON parsing, stderr buffering, timeout with SIGTERM->SIGKILL,
  * AbortSignal, cleanup on generator return, zombie prevention.
+ *
+ * On non-zero exit: yields a final `{ __cliError, exitCode, stderr }` object.
+ * On spawn error (e.g. ENOENT): throws.
  */
 export async function* spawnCli(
   options: CliSpawnOptions,
@@ -46,11 +49,31 @@ export async function* spawnCli(
     stderrBuffer += chunk.toString();
   });
 
+  // Track child exit state (P1: prevents PID reuse kills)
+  let childExited = false;
+  let exitCode: number | null = null;
+  let exitSignal: NodeJS.Signals | null = null;
+
+  const exitPromise = new Promise<void>((resolve) => {
+    child.once('exit', (code, signal) => {
+      childExited = true;
+      exitCode = code;
+      exitSignal = signal;
+      resolve();
+    });
+  });
+
+  // Handle spawn errors (P2: ENOENT for command-not-found)
+  let spawnError: Error | undefined;
+  child.once('error', (err: Error) => {
+    spawnError = err;
+  });
+
   let killed = false;
   let escalationTimer: ReturnType<typeof setTimeout> | undefined;
 
   function killChild(): void {
-    if (killed) return;
+    if (killed || childExited) return;
     killed = true;
     child.kill('SIGTERM');
     escalationTimer = setTimeout(() => {
@@ -76,9 +99,9 @@ export async function* spawnCli(
     }
   }
 
-  // Zombie prevention
+  // Zombie prevention (P1: guard with childExited to prevent PID reuse kills)
   const exitHandler = (): void => {
-    if (!killed && child.pid !== undefined) {
+    if (!childExited && child.pid !== undefined) {
       try {
         process.kill(child.pid, 'SIGKILL');
       } catch {
@@ -93,14 +116,38 @@ export async function* spawnCli(
       throw new Error(`CLI process ${options.command} has no stdout`);
     }
 
+    // Throw on spawn error before iterating
+    if (spawnError) {
+      throw spawnError;
+    }
+
     for await (const event of parseNDJSON(child.stdout)) {
+      if (spawnError) throw spawnError;
       if (isParseError(event)) {
-        // Log but don't yield parse errors
         const parseErr = event as { line: string };
         console.error(`[cli-spawn] JSON parse error from ${options.command}: ${parseErr.line}`);
         continue;
       }
       yield event;
+    }
+
+    // Check for spawn error that arrived during/after iteration
+    if (spawnError) throw spawnError;
+
+    // Wait for child to fully exit after stdout closes
+    await exitPromise;
+
+    // Yield error on abnormal exit (only if WE didn't kill it)
+    // Covers both non-zero exitCode AND external signal kills
+    if (!killed && (exitCode !== 0 || exitSignal !== null)) {
+      const stderrTail = stderrBuffer.trim().slice(-500);
+      yield {
+        __cliError: true,
+        exitCode,
+        signal: exitSignal,
+        stderr: stderrTail,
+        command: options.command,
+      };
     }
   } finally {
     clearTimeout(timeoutTimer);
@@ -111,6 +158,20 @@ export async function* spawnCli(
     process.off('exit', exitHandler);
     killChild();
   }
+}
+
+/**
+ * Type guard for CLI error objects (abnormal exit or external signal kill)
+ */
+export function isCliError(
+  value: unknown
+): value is { __cliError: true; exitCode: number | null; signal: string | null; stderr: string; command: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '__cliError' in value &&
+    (value as Record<string, unknown>)['__cliError'] === true
+  );
 }
 
 /**

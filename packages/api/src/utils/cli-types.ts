@@ -50,6 +50,12 @@ export interface ChildProcessLike {
   ): this;
   on(event: 'error', listener: (err: Error) => void): this;
   on(event: string, listener: (...args: unknown[]) => void): this;
+  once(
+    event: 'exit',
+    listener: (code: number | null, signal: NodeJS.Signals | null) => void
+  ): this;
+  once(event: 'error', listener: (err: Error) => void): this;
+  once(event: string, listener: (...args: unknown[]) => void): this;
 }
 
 /**
