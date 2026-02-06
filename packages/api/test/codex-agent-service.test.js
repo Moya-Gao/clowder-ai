@@ -1,271 +1,152 @@
 /**
- * CodexAgentService Tests
- * 测试缅因猫 (Codex) 的 Agent 服务
- *
- * Uses constructor injection for testability.
+ * CodexAgentService Tests (CLI mode)
+ * 测试缅因猫 CLI 子进程调用
  */
 
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { PassThrough } from 'node:stream';
+import { EventEmitter } from 'node:events';
 
-// Helper to create an async generator from events
-async function* createEventStream(events) {
+const { CodexAgentService } = await import(
+  '../dist/domains/cats/services/CodexAgentService.js'
+);
+
+/** Helper: collect all items from async iterable */
+async function collect(iterable) {
+  const items = [];
+  for await (const item of iterable) {
+    items.push(item);
+  }
+  return items;
+}
+
+/**
+ * Create a mock child process for testing.
+ */
+function createMockProcess() {
+  const stdout = new PassThrough();
+  const stderr = new PassThrough();
+  const emitter = new EventEmitter();
+  const proc = {
+    stdout,
+    stderr,
+    pid: 12345,
+    exitCode: null,
+    kill: mock.fn(() => {
+      process.nextTick(() => {
+        if (!stdout.destroyed) stdout.end();
+        emitter.emit('exit', null, 'SIGTERM');
+      });
+      return true;
+    }),
+    on: (event, listener) => {
+      emitter.on(event, listener);
+      return proc;
+    },
+    once: (event, listener) => {
+      emitter.once(event, listener);
+      return proc;
+    },
+    _emitter: emitter,
+  };
+  return proc;
+}
+
+/** Create a mock SpawnFn */
+function createMockSpawnFn(proc) {
+  return mock.fn(() => proc);
+}
+
+/** Write NDJSON events to mock process stdout, then end with exit 0 */
+function emitCodexEvents(proc, events) {
   for (const event of events) {
-    yield event;
+    proc.stdout.write(JSON.stringify(event) + '\n');
   }
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
 }
 
-// Create mock factory for each test
-function createMocks() {
-  const mockThread = {
-    id: null,
-    runStreamed: mock.fn(),
-  };
+// --- Test cases ---
 
-  const mockCodex = {
-    startThread: mock.fn(() => mockThread),
-    resumeThread: mock.fn(() => mockThread),
-  };
+test('yields session_init, text, and done on basic success', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
 
-  return { mockThread, mockCodex };
-}
+  const promise = collect(service.invoke('Hello'));
 
-test('CodexAgentService yields session_init, text, and done messages on success', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
-
-  const { mockThread, mockCodex } = createMocks();
-  const threadId = 'test-thread-123';
-  const responseText = 'Hello from Codex!';
-
-  // Mock events stream
-  const events = [
-    { type: 'thread.started', thread_id: threadId },
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-abc' },
     { type: 'turn.started' },
     {
       type: 'item.completed',
-      item: {
-        id: 'msg-1',
-        type: 'agent_message',
-        text: responseText,
-      },
+      item: { id: 'msg-1', type: 'agent_message', text: 'Hello from Codex!' },
     },
-    { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 20, cached_input_tokens: 0 } },
-  ];
+    { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 20 } },
+  ]);
 
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
+  const msgs = await promise;
 
-  // Use dependency injection
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init, text, and done
-  assert.equal(messages.length, 3);
-
-  // Check session_init
-  assert.equal(messages[0].type, 'session_init');
-  assert.equal(messages[0].catId, 'codex');
-  assert.equal(messages[0].sessionId, threadId);
-
-  // Check text message
-  assert.equal(messages[1].type, 'text');
-  assert.equal(messages[1].catId, 'codex');
-  assert.equal(messages[1].content, responseText);
-
-  // Check done
-  assert.equal(messages[2].type, 'done');
-  assert.equal(messages[2].catId, 'codex');
-
-  // Verify startThread was called
-  assert.equal(mockCodex.startThread.mock.callCount(), 1);
+  assert.equal(msgs.length, 3);
+  assert.equal(msgs[0].type, 'session_init');
+  assert.equal(msgs[0].sessionId, 'thread-abc');
+  assert.equal(msgs[0].catId, 'codex');
+  assert.equal(msgs[1].type, 'text');
+  assert.equal(msgs[1].content, 'Hello from Codex!');
+  assert.equal(msgs[2].type, 'done');
 });
 
-test('CodexAgentService supports session resume via options.sessionId', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
+test('uses exec resume when sessionId is provided', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('Continue', { sessionId: 'existing-thread-456' })
   );
-
-  const { mockThread, mockCodex } = createMocks();
-  const existingSessionId = 'existing-session-456';
-  const responseText = 'Resumed session response';
-
-  const events = [
-    { type: 'thread.started', thread_id: existingSessionId },
-    { type: 'turn.started' },
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'existing-thread-456' },
     {
       type: 'item.completed',
-      item: {
-        id: 'msg-1',
-        type: 'agent_message',
-        text: responseText,
-      },
+      item: { id: 'msg-1', type: 'agent_message', text: 'Resumed' },
     },
-    { type: 'turn.completed', usage: { input_tokens: 5, output_tokens: 10, cached_input_tokens: 0 } },
-  ];
+  ]);
+  await promise;
 
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Continue', { sessionId: existingSessionId })) {
-    messages.push(msg);
-  }
-
-  // Verify resumeThread was called with the session ID
-  assert.equal(mockCodex.resumeThread.mock.callCount(), 1);
-  assert.equal(mockCodex.resumeThread.mock.calls[0].arguments[0], existingSessionId);
-
-  // Should still yield proper messages
-  assert.equal(messages[0].type, 'session_init');
-  assert.equal(messages[0].sessionId, existingSessionId);
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.equal(args[0], 'exec');
+  assert.equal(args[1], 'resume');
+  assert.equal(args[2], 'existing-thread-456');
+  assert.equal(args[3], 'Continue');
 });
 
-test('CodexAgentService yields error message on turn.failed', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
+test('does not include resume when no sessionId', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
 
-  const { mockThread, mockCodex } = createMocks();
-  const threadId = 'test-thread-error';
-  const errorMessage = 'Something went wrong';
+  const promise = collect(service.invoke('hello'));
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 't1' },
+  ]);
+  await promise;
 
-  const events = [
-    { type: 'thread.started', thread_id: threadId },
-    { type: 'turn.started' },
-    { type: 'turn.failed', error: { message: errorMessage } },
-  ];
-
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init, error, and done
-  assert.ok(messages.length >= 2);
-
-  // Find error message
-  const errorMsg = messages.find((m) => m.type === 'error');
-  assert.ok(errorMsg, 'should have error message');
-  assert.equal(errorMsg.catId, 'codex');
-  assert.equal(errorMsg.error, errorMessage);
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.equal(args[0], 'exec');
+  assert.equal(args[1], '--json');
+  assert.ok(!args.includes('resume'));
 });
 
-test('CodexAgentService yields error message on stream error event', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
+test('handles multiple agent_message items', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
 
-  const { mockThread, mockCodex } = createMocks();
-  const threadId = 'test-thread-stream-error';
-  const errorMessage = 'Stream error occurred';
+  const promise = collect(service.invoke('Multi'));
 
-  const events = [
-    { type: 'thread.started', thread_id: threadId },
-    { type: 'error', message: errorMessage },
-  ];
-
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Find error message
-  const errorMsg = messages.find((m) => m.type === 'error');
-  assert.ok(errorMsg, 'should have error message');
-  assert.equal(errorMsg.error, errorMessage);
-});
-
-test('CodexAgentService yields error on SDK exception', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
-
-  const { mockThread, mockCodex } = createMocks();
-  const sdkError = new Error('SDK connection failed');
-
-  mockThread.runStreamed.mock.mockImplementation(async () => {
-    throw sdkError;
-  });
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have error message
-  const errorMsg = messages.find((m) => m.type === 'error');
-  assert.ok(errorMsg, 'should have error message');
-  assert.equal(errorMsg.catId, 'codex');
-  assert.equal(errorMsg.error, 'SDK connection failed');
-});
-
-test('CodexAgentService passes workingDirectory to thread options', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
-
-  const { mockThread, mockCodex } = createMocks();
-  const events = [
-    { type: 'thread.started', thread_id: 'test-123' },
-    { type: 'turn.started' },
-    {
-      type: 'item.completed',
-      item: { id: 'msg-1', type: 'agent_message', text: 'Done' },
-    },
-    { type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1, cached_input_tokens: 0 } },
-  ];
-
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-  const workDir = '/home/user/project';
-
-  for await (const msg of service.invoke('Hello', { workingDirectory: workDir })) {
-    messages.push(msg);
-  }
-
-  // Verify startThread was called with workingDirectory option
-  assert.equal(mockCodex.startThread.mock.callCount(), 1);
-  const threadOptions = mockCodex.startThread.mock.calls[0].arguments[0];
-  assert.equal(threadOptions?.workingDirectory, workDir);
-});
-
-test('CodexAgentService handles multiple agent_message items', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
-
-  const { mockThread, mockCodex } = createMocks();
-  const events = [
-    { type: 'thread.started', thread_id: 'test-multi' },
-    { type: 'turn.started' },
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-multi' },
     {
       type: 'item.completed',
       item: { id: 'msg-1', type: 'agent_message', text: 'First message' },
@@ -274,36 +155,24 @@ test('CodexAgentService handles multiple agent_message items', async () => {
       type: 'item.completed',
       item: { id: 'msg-2', type: 'agent_message', text: 'Second message' },
     },
-    { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 20, cached_input_tokens: 0 } },
-  ];
+  ]);
 
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should have session_init, 2 text messages, and done
-  const textMessages = messages.filter((m) => m.type === 'text');
-  assert.equal(textMessages.length, 2);
-  assert.equal(textMessages[0].content, 'First message');
-  assert.equal(textMessages[1].content, 'Second message');
+  const msgs = await promise;
+  const textMsgs = msgs.filter((m) => m.type === 'text');
+  assert.equal(textMsgs.length, 2);
+  assert.equal(textMsgs[0].content, 'First message');
+  assert.equal(textMsgs[1].content, 'Second message');
 });
 
-test('CodexAgentService ignores non-agent_message items', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
+test('ignores command_execution and file_change items', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
 
-  const { mockThread, mockCodex } = createMocks();
-  const events = [
-    { type: 'thread.started', thread_id: 'test-ignore' },
-    { type: 'turn.started' },
+  const promise = collect(service.invoke('With tools'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-tools' },
     {
       type: 'item.completed',
       item: { id: 'cmd-1', type: 'command_execution', command: 'ls', aggregated_output: '', status: 'completed' },
@@ -316,55 +185,117 @@ test('CodexAgentService ignores non-agent_message items', async () => {
       type: 'item.completed',
       item: { id: 'file-1', type: 'file_change', changes: [], status: 'completed' },
     },
-    { type: 'turn.completed', usage: { input_tokens: 10, output_tokens: 20, cached_input_tokens: 0 } },
-  ];
+  ]);
 
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
-  }
-
-  // Should only have session_init, one text message, and done
-  const textMessages = messages.filter((m) => m.type === 'text');
-  assert.equal(textMessages.length, 1);
-  assert.equal(textMessages[0].content, 'Response');
+  const msgs = await promise;
+  const textMsgs = msgs.filter((m) => m.type === 'text');
+  assert.equal(textMsgs.length, 1);
+  assert.equal(textMsgs[0].content, 'Response');
 });
 
-test('CodexAgentService catId is codex', async () => {
-  const { CodexAgentService } = await import(
-    '../dist/domains/cats/services/CodexAgentService.js'
-  );
+test('yields error on CLI non-zero exit', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
 
-  const { mockThread, mockCodex } = createMocks();
-  const events = [
-    { type: 'thread.started', thread_id: 'test-catid' },
-    { type: 'turn.started' },
+  const promise = collect(service.invoke('crash'));
+
+  proc.stderr.write('Error: authentication failed\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const msgs = await promise;
+  const errMsg = msgs.find((m) => m.type === 'error');
+  assert.ok(errMsg);
+  assert.ok(errMsg.error.includes('1'));
+  assert.ok(errMsg.error.includes('authentication failed'));
+});
+
+test('yields error on spawn ENOENT', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('hi'));
+
+  process.nextTick(() => {
+    const err = new Error('spawn codex ENOENT');
+    err.code = 'ENOENT';
+    proc._emitter.emit('error', err);
+    proc.stdout.end();
+    proc._emitter.emit('exit', null, null);
+  });
+
+  const msgs = await promise;
+  const errMsg = msgs.find((m) => m.type === 'error');
+  assert.ok(errMsg);
+  assert.ok(errMsg.error.includes('ENOENT'));
+});
+
+test('passes cwd from workingDirectory option', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('hi', { workingDirectory: '/my/project' })
+  );
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 't1' },
+  ]);
+  await promise;
+
+  const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+  assert.equal(spawnOpts.cwd, '/my/project');
+});
+
+test('all messages have catId codex', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('check'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-catid' },
     {
       type: 'item.completed',
       item: { id: 'msg-1', type: 'agent_message', text: 'Test' },
     },
-    { type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1, cached_input_tokens: 0 } },
-  ];
+  ]);
 
-  mockThread.runStreamed.mock.mockImplementation(async () => ({
-    events: createEventStream(events),
-  }));
-
-  const service = new CodexAgentService({ codex: mockCodex });
-  const messages = [];
-
-  for await (const msg of service.invoke('Hello')) {
-    messages.push(msg);
+  const msgs = await promise;
+  for (const msg of msgs) {
+    assert.equal(msg.catId, 'codex', `expected catId codex for ${msg.type} message`);
   }
+});
 
-  // All messages should have catId 'codex'
-  for (const msg of messages) {
-    assert.equal(msg.catId, 'codex', `Expected catId 'codex' for ${msg.type} message`);
-  }
+test('ignores turn.started and turn.completed control events', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('test'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-ctrl' },
+    { type: 'turn.started' },
+    { type: 'item.started', item: { id: 'msg-1', type: 'agent_message' } },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'Hello' },
+    },
+    { type: 'turn.completed', usage: { input_tokens: 5, output_tokens: 10 } },
+    { type: 'unknown_event', data: 'something' },
+  ]);
+
+  const msgs = await promise;
+  // Only session_init, text, done — all control/unknown events skipped
+  assert.equal(msgs.length, 3);
+  assert.equal(msgs[0].type, 'session_init');
+  assert.equal(msgs[1].type, 'text');
+  assert.equal(msgs[1].content, 'Hello');
+  assert.equal(msgs[2].type, 'done');
 });

@@ -1,16 +1,21 @@
 /**
  * Codex Agent Service
- * 使用 @openai/codex-sdk 调用缅因猫 (Codex)
+ * 使用 Codex CLI 子进程调用缅因猫 (Codex)
  *
- * SDK API Notes:
- * - Codex.startThread(options) returns Thread
- * - Codex.resumeThread(id, options) resumes existing thread
- * - thread.runStreamed(input) returns { events: AsyncGenerator<ThreadEvent> }
- * - ThreadEvent types: thread.started, turn.started, item.completed, turn.completed, etc.
+ * CLI 调用方式:
+ *   codex exec --json --sandbox workspace-write --full-auto "prompt"
+ *   codex exec resume SESSION_ID "prompt" --json --sandbox workspace-write --full-auto
+ *
+ * NDJSON 事件格式:
+ *   thread.started  → session_init (含 thread_id)
+ *   item.completed (agent_message) → text
+ *   turn.started / turn.completed / item.started / command_execution / file_change → 跳过
  */
 
-import { Codex, type ThreadEvent } from '@openai/codex-sdk';
 import { createCatId } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
+import type { SpawnFn } from '../../../utils/cli-types.js';
 import type {
   AgentMessage,
   AgentService,
@@ -19,152 +24,138 @@ import type {
 
 const CAT_ID = createCatId('codex');
 
-/**
- * Interface for Codex SDK (for dependency injection)
- */
-interface CodexLike {
-  startThread(options?: { workingDirectory?: string }): ThreadLike;
-  resumeThread(id: string, options?: { workingDirectory?: string }): ThreadLike;
-}
-
-interface ThreadLike {
-  runStreamed(input: string): Promise<{ events: AsyncGenerator<ThreadEvent> }>;
-}
+/** CLI flag for OS-level sandbox (statically scannable) */
+const SANDBOX_MODE = 'workspace-write';
 
 /**
- * Options for CodexAgentService constructor
+ * Options for constructing CodexAgentService (dependency injection)
  */
 interface CodexAgentServiceOptions {
-  /** Injected Codex instance (for testing) */
-  codex?: CodexLike;
+  /** Inject a custom spawn function (for testing) */
+  spawnFn?: SpawnFn;
 }
 
 /**
- * Type guard for thread.started event
+ * Transform a raw Codex CLI NDJSON event into an AgentMessage.
+ * Returns null to skip events we don't care about.
  */
-function isThreadStartedEvent(
-  event: ThreadEvent
-): event is ThreadEvent & { type: 'thread.started'; thread_id: string } {
-  return event.type === 'thread.started' && 'thread_id' in event;
+function transformCodexEvent(
+  event: unknown,
+  catId: CatId
+): AgentMessage | null {
+  if (typeof event !== 'object' || event === null) return null;
+  const e = event as Record<string, unknown>;
+
+  // thread.started → session_init
+  if (e['type'] === 'thread.started') {
+    const threadId = e['thread_id'];
+    if (typeof threadId === 'string') {
+      return {
+        type: 'session_init',
+        catId,
+        sessionId: threadId,
+        timestamp: Date.now(),
+      };
+    }
+    return null;
+  }
+
+  // item.completed with agent_message → text
+  if (e['type'] === 'item.completed') {
+    const item = e['item'] as Record<string, unknown> | undefined;
+    if (
+      item &&
+      item['type'] === 'agent_message' &&
+      typeof item['text'] === 'string'
+    ) {
+      return {
+        type: 'text',
+        catId,
+        content: item['text'],
+        timestamp: Date.now(),
+      };
+    }
+    // Non-agent_message items (command_execution, file_change) → skip
+    return null;
+  }
+
+  // Everything else (turn.started, turn.completed, item.started, etc.) → skip
+  return null;
+}
+
+function formatCliExitError(event: {
+  exitCode: number | null;
+  signal: string | null;
+  stderr: string;
+}): string {
+  const status =
+    event.exitCode !== null ? `code ${event.exitCode}` : 'no exit code';
+  const signalText = event.signal ? `, signal ${event.signal}` : '';
+  const stderr = event.stderr.trim();
+  return stderr.length > 0
+    ? `Codex CLI exited (${status}${signalText}): ${stderr}`
+    : `Codex CLI exited (${status}${signalText})`;
 }
 
 /**
- * Type guard for item.completed event with agent_message
- */
-function isAgentMessageCompleted(
-  event: ThreadEvent
-): event is ThreadEvent & {
-  type: 'item.completed';
-  item: { type: 'agent_message'; text: string };
-} {
-  return (
-    event.type === 'item.completed' &&
-    'item' in event &&
-    event.item?.type === 'agent_message' &&
-    typeof event.item?.text === 'string'
-  );
-}
-
-/**
- * Type guard for turn.failed event
- */
-function isTurnFailedEvent(
-  event: ThreadEvent
-): event is ThreadEvent & { type: 'turn.failed'; error: { message: string } } {
-  return event.type === 'turn.failed' && 'error' in event;
-}
-
-/**
- * Type guard for error event
- */
-function isErrorEvent(
-  event: ThreadEvent
-): event is ThreadEvent & { type: 'error'; message: string } {
-  return event.type === 'error' && 'message' in event;
-}
-
-/**
- * Service for invoking Codex via the codex-sdk
+ * Service for invoking Codex via CLI subprocess.
+ * Uses ChatGPT Plus/Pro subscription instead of API key.
  */
 export class CodexAgentService implements AgentService {
-  private codex: CodexLike;
+  readonly catId = CAT_ID;
+  private readonly spawnFn: SpawnFn | undefined;
 
   constructor(options?: CodexAgentServiceOptions) {
-    this.codex = options?.codex ?? new Codex();
+    this.spawnFn = options?.spawnFn;
   }
 
   async *invoke(
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    const args: string[] = options?.sessionId
+      ? [
+          'exec',
+          'resume',
+          options.sessionId,
+          prompt,
+          '--json',
+          '--sandbox',
+          SANDBOX_MODE,
+          '--full-auto',
+        ]
+      : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', prompt];
+
     try {
-      // Build thread options
-      const threadOptions = options?.workingDirectory
-        ? { workingDirectory: options.workingDirectory }
-        : undefined;
-
-      // Start or resume thread
-      const thread: ThreadLike = options?.sessionId
-        ? this.codex.resumeThread(options.sessionId, threadOptions)
-        : this.codex.startThread(threadOptions);
-
-      // Run streamed
-      const { events } = await thread.runStreamed(prompt);
+      const events = spawnCli(
+        {
+          command: 'codex',
+          args,
+          ...(options?.workingDirectory
+            ? { cwd: options.workingDirectory }
+            : {}),
+        },
+        this.spawnFn ? { spawnFn: this.spawnFn } : undefined
+      );
 
       for await (const event of events) {
-        // Handle thread.started - extract thread ID as session ID
-        if (isThreadStartedEvent(event)) {
-          yield {
-            type: 'session_init',
-            catId: CAT_ID,
-            sessionId: event.thread_id,
-            timestamp: Date.now(),
-          };
-          continue;
-        }
-
-        // Handle agent_message items
-        if (isAgentMessageCompleted(event)) {
-          yield {
-            type: 'text',
-            catId: CAT_ID,
-            content: event.item.text,
-            timestamp: Date.now(),
-          };
-          continue;
-        }
-
-        // Handle turn.failed
-        if (isTurnFailedEvent(event)) {
+        if (isCliError(event)) {
           yield {
             type: 'error',
             catId: CAT_ID,
-            error: event.error.message,
+            error: formatCliExitError(event),
             timestamp: Date.now(),
           };
           continue;
         }
 
-        // Handle stream error
-        if (isErrorEvent(event)) {
-          yield {
-            type: 'error',
-            catId: CAT_ID,
-            error: event.message,
-            timestamp: Date.now(),
-          };
-          continue;
+        const result = transformCodexEvent(event, CAT_ID);
+        if (result !== null) {
+          yield result;
         }
-
-        // Other event types (turn.started, turn.completed, item.started, etc.)
-        // are ignored for now - we can add them later if needed
       }
 
-      yield {
-        type: 'done',
-        catId: CAT_ID,
-        timestamp: Date.now(),
-      };
+      yield { type: 'done', catId: CAT_ID, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
