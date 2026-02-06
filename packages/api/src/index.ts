@@ -32,7 +32,7 @@ async function main(): Promise<void> {
 
   // CORS for frontend
   await app.register(cors, {
-    origin: ['http://localhost:3000'],
+    origin: ['http://localhost:3000', 'http://localhost:3001'],
     credentials: true,
   });
 
