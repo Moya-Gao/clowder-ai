@@ -113,17 +113,9 @@ export class CodexAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     const args: string[] = options?.sessionId
-      ? [
-          'exec',
-          'resume',
-          options.sessionId,
-          prompt,
-          '--json',
-          '--sandbox',
-          SANDBOX_MODE,
-          '--full-auto',
-        ]
+      ? ['exec', 'resume', options.sessionId, prompt, '--json', '--full-auto']
       : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', prompt];
 
     try {

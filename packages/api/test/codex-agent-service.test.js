@@ -119,6 +119,10 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.equal(args[1], 'resume');
   assert.equal(args[2], 'existing-thread-456');
   assert.equal(args[3], 'Continue');
+  // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
+  assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
+  assert.ok(args.includes('--json'), 'resume args must include --json');
+  assert.ok(args.includes('--full-auto'), 'resume args must include --full-auto');
 });
 
 test('does not include resume when no sessionId', async () => {
