@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { PawIcon } from './icons/PawIcon';
@@ -22,9 +22,19 @@ function formatRelativeTime(ts: number): string {
 /** Extract display name from a project path */
 function projectDisplayName(path: string): string {
   if (path === 'default') return '未分类';
-  // Take the last directory component
   const parts = path.replace(/\/+$/, '').split('/');
   return parts[parts.length - 1] || path;
+}
+
+/** Collect unique project paths from threads */
+function getProjectPaths(threads: Thread[]): string[] {
+  const paths = new Set<string>();
+  for (const t of threads) {
+    if (t.projectPath && t.projectPath !== 'default') {
+      paths.add(t.projectPath);
+    }
+  }
+  return [...paths].sort();
 }
 
 /** Group threads by projectPath, with default thread pulled out */
@@ -32,13 +42,12 @@ function groupThreadsByProject(threads: Thread[]) {
   const groups = new Map<string, Thread[]>();
 
   for (const thread of threads) {
-    if (thread.id === 'default') continue; // handled separately
+    if (thread.id === 'default') continue;
     const key = thread.projectPath;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(thread);
   }
 
-  // Sort groups: non-default projects first (alphabetically), 'default' last
   const sorted = [...groups.entries()].sort(([a], [b]) => {
     if (a === 'default') return 1;
     if (b === 'default') return -1;
@@ -52,7 +61,6 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
   const {
     threads,
     currentThreadId,
-    currentProjectPath,
     setThreads,
     setCurrentThread,
     setCurrentProject,
@@ -60,7 +68,29 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     setLoadingThreads,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
+  const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [newProjectInput, setNewProjectInput] = useState('');
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Close picker on outside click
+  useEffect(() => {
+    if (!showProjectPicker) return;
+    const handler = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowProjectPicker(false);
+        setNewProjectInput('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showProjectPicker]);
+
+  // Focus input when picker opens
+  useEffect(() => {
+    if (showProjectPicker) inputRef.current?.focus();
+  }, [showProjectPicker]);
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -80,28 +110,31 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     void loadThreads();
   }, [loadThreads]);
 
-  const handleCreate = useCallback(async () => {
+  const createInProject = useCallback(async (projectPath?: string) => {
     setIsCreating(true);
+    setShowProjectPicker(false);
+    setNewProjectInput('');
     try {
       const res = await fetch(`${API_URL}/api/threads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: 'default-user',
-          ...(currentProjectPath !== 'default' ? { projectPath: currentProjectPath } : {}),
+          ...(projectPath ? { projectPath } : {}),
         }),
       });
       if (!res.ok) return;
       const thread: Thread = await res.json();
       setThreads([thread, ...threads]);
       setCurrentThread(thread.id);
+      if (projectPath) setCurrentProject(projectPath);
       onThreadSwitch(thread.id);
     } catch {
       // Silently ignore
     } finally {
       setIsCreating(false);
     }
-  }, [threads, currentProjectPath, setThreads, setCurrentThread, onThreadSwitch]);
+  }, [threads, setThreads, setCurrentThread, setCurrentProject, onThreadSwitch]);
 
   const handleSelect = useCallback(
     (threadId: string) => {
@@ -129,18 +162,84 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
   );
 
   const grouped = useMemo(() => groupThreadsByProject(threads), [threads]);
+  const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
 
   return (
     <aside className="w-60 border-r border-owner-light bg-white flex flex-col h-full">
-      <div className="p-3 border-b border-owner-light flex items-center justify-between">
+      <div className="p-3 border-b border-owner-light flex items-center justify-between relative">
         <span className="text-sm font-semibold text-cafe-black">对话</span>
         <button
-          onClick={handleCreate}
+          onClick={() => setShowProjectPicker((v) => !v)}
           disabled={isCreating}
           className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
         >
           {isCreating ? '...' : '+ 新对话'}
         </button>
+
+        {/* Project picker dropdown */}
+        {showProjectPicker && (
+          <div
+            ref={pickerRef}
+            className="absolute top-full right-2 mt-1 w-56 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden"
+          >
+            <div className="px-3 py-2 text-[11px] font-medium text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              选择项目目录
+            </div>
+
+            {/* "No project" option */}
+            <button
+              onClick={() => createInProject()}
+              className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-owner-bg transition-colors flex items-center gap-2"
+            >
+              <span className="text-gray-400">--</span>
+              <span>大厅 (无项目)</span>
+            </button>
+
+            {/* Existing projects */}
+            {existingProjects.map((path) => (
+              <button
+                key={path}
+                onClick={() => createInProject(path)}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg transition-colors flex items-center gap-2"
+                title={path}
+              >
+                <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
+                </svg>
+                <span className="truncate">{projectDisplayName(path)}</span>
+              </button>
+            ))}
+
+            {/* New project path input */}
+            <div className="border-t border-gray-100 px-3 py-2">
+              <div className="text-[11px] text-gray-400 mb-1">新目录路径</div>
+              <div className="flex gap-1">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={newProjectInput}
+                  onChange={(e) => setNewProjectInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newProjectInput.trim()) {
+                      createInProject(newProjectInput.trim());
+                    }
+                  }}
+                  placeholder="/Users/.../project"
+                  className="flex-1 text-xs px-2 py-1.5 border border-gray-200 rounded-md focus:outline-none focus:border-owner-primary min-w-0"
+                />
+                <button
+                  onClick={() => {
+                    if (newProjectInput.trim()) createInProject(newProjectInput.trim());
+                  }}
+                  disabled={!newProjectInput.trim()}
+                  className="text-xs px-2 py-1.5 rounded-md bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors flex-shrink-0"
+                >
+                  创建
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -165,7 +264,6 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
             projectPath={projectPath}
             threads={projectThreads}
             isCollapsed={collapsedProjects.has(projectPath)}
-            isSelectedProject={currentProjectPath === projectPath}
             currentThreadId={currentThreadId}
             onToggle={toggleProject}
             onSelectProject={selectProject}
@@ -181,7 +279,6 @@ function ProjectGroup({
   projectPath,
   threads,
   isCollapsed,
-  isSelectedProject,
   currentThreadId,
   onToggle,
   onSelectProject,
@@ -190,7 +287,6 @@ function ProjectGroup({
   projectPath: string;
   threads: Thread[];
   isCollapsed: boolean;
-  isSelectedProject: boolean;
   currentThreadId: string;
   onToggle: (path: string) => void;
   onSelectProject: (path: string) => void;
@@ -203,9 +299,7 @@ function ProjectGroup({
           onToggle(projectPath);
           onSelectProject(projectPath);
         }}
-        className={`w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors ${
-          isSelectedProject ? 'bg-gray-50' : ''
-        }`}
+        className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors"
         title={projectPath === 'default' ? '未分类对话' : projectPath}
       >
         <svg
