@@ -6,7 +6,7 @@
  *   gemini-cli (默认):  spawn 'gemini' CLI + NDJSON → 全自动 headless
  *   antigravity (opt-in): spawn Antigravity IDE → MCP 回传 → 半自动
  *
- * gemini CLI NDJSON 事件格式 (v0.11.3):
+ * gemini CLI NDJSON 事件格式 (v0.27.2):
  *   init              → session_init (含 session_id)
  *   message/assistant  → text (content 字段)
  *   tool_use           → tool_use
@@ -160,7 +160,7 @@ export class GeminiAgentService implements AgentService {
   ): AsyncIterable<AgentMessage> {
     // Note: gemini CLI --resume uses local index (not UUID), incompatible
     // with AgentRouter's sessionId mechanism. Resume not supported.
-    const args: string[] = [prompt, '-o', 'stream-json', '-y'];
+    const args: string[] = ['-p', prompt, '-o', 'stream-json', '-y'];
 
     try {
       const events = spawnCli(
@@ -235,6 +235,12 @@ export class GeminiAgentService implements AgentService {
           env: { ...process.env, ...options.callbackEnv },
         }
       );
+      // Prevent unhandled 'error' from crashing API process.
+      // Generator has already yielded done by the time async errors fire,
+      // so we can only log here.
+      child.on('error', (err) => {
+        console.error('[GeminiAgentService] antigravity spawn error:', err.message);
+      });
       child.unref();
     } catch (err) {
       yield {

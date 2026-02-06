@@ -107,7 +107,8 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     await promise;
 
     const args = spawnFn.mock.calls[0].arguments[1];
-    assert.equal(args[0], 'test prompt');
+    assert.equal(args[0], '-p');
+    assert.equal(args[1], 'test prompt');
     assert.ok(args.includes('-o'));
     assert.ok(args.includes('stream-json'));
     assert.ok(args.includes('-y'));
@@ -271,6 +272,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
 describe('GeminiAgentService (antigravity adapter)', () => {
   test('yields session_init, notification text, and done', async () => {
     const antigravitySpawnFn = mock.fn(() => ({
+      on: mock.fn(),
       unref: mock.fn(),
       pid: 99999,
     }));
@@ -298,6 +300,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
   test('spawns antigravity with correct args and env', async () => {
     const antigravitySpawnFn = mock.fn(() => ({
+      on: mock.fn(),
       unref: mock.fn(),
       pid: 99999,
     }));
@@ -344,7 +347,41 @@ describe('GeminiAgentService (antigravity adapter)', () => {
     assert.equal(antigravitySpawnFn.mock.callCount(), 0);
   });
 
-  test('handles spawn failure gracefully', async () => {
+  test('handles async spawn error without crashing', async () => {
+    let errorHandler;
+    const antigravitySpawnFn = mock.fn(() => ({
+      on: mock.fn((event, handler) => {
+        if (event === 'error') errorHandler = handler;
+      }),
+      unref: mock.fn(),
+      pid: 99999,
+    }));
+
+    const service = new GeminiAgentService({
+      adapter: 'antigravity',
+      antigravitySpawnFn,
+    });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-async',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-async',
+    };
+
+    const msgs = await collect(service.invoke('test', { callbackEnv }));
+
+    // Generator has already finished with session_init + text + done
+    assert.equal(msgs.length, 3);
+    assert.equal(msgs[2].type, 'done');
+
+    // Simulate async ENOENT — should NOT throw/crash
+    assert.ok(errorHandler, 'error handler should be registered on child');
+    assert.doesNotThrow(() => {
+      errorHandler(new Error('spawn antigravity ENOENT'));
+    });
+  });
+
+  test('handles synchronous spawn failure gracefully', async () => {
     const antigravitySpawnFn = mock.fn(() => {
       throw new Error('spawn antigravity ENOENT');
     });
@@ -371,6 +408,7 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
   test('all messages have catId gemini', async () => {
     const antigravitySpawnFn = mock.fn(() => ({
+      on: mock.fn(),
       unref: mock.fn(),
       pid: 99999,
     }));
@@ -416,6 +454,7 @@ describe('GeminiAgentService (adapter selection)', () => {
 
   test('selects antigravity via constructor option', async () => {
     const antigravitySpawnFn = mock.fn(() => ({
+      on: mock.fn(),
       unref: mock.fn(),
       pid: 99999,
     }));
