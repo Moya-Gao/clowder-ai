@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-06 (Phase 3.5 完成后整理)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.6 完成后更新)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -84,5 +84,10 @@
 | taskStore upsert 补全 | Phase 3.5 final review | `bb10eb1` |
 | fetchTasks 初始加载 + 线程切换 | Phase 3.5 final review | `bb10eb1` |
 | done/error handler size===0 误触发 | Phase 3.5 final review | `445ec34` |
+| 跨猫 Context Assembly (ContextAssembler) | Phase 3.6 Step 1 | `1930372` |
+| SystemPrompt 诚实规则 (不确定说不知道) | Phase 3.6 Step 2 | `d697316` |
+| Redis 自动启动 (start-dev.sh) | Phase 3.6 Step 3 | `58a45ee` |
+| Gemini resume 注释更新 (调研结论) | Phase 3.6 Step 0 | `e92d5a0` |
+| 聊天记录导出 Markdown (export route) | Phase 3.6 Step 4 | `1c48089` |
 
 </details>
