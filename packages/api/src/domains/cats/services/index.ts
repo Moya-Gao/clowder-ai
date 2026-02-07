@@ -16,4 +16,6 @@ export { createMessageStore } from './MessageStoreFactory.js';
 export type { AnyMessageStore } from './MessageStoreFactory.js';
 export { ThreadStore, DEFAULT_THREAD_ID } from './ThreadStore.js';
 export type { Thread, IThreadStore } from './ThreadStore.js';
+export { buildSystemPrompt } from './SystemPromptBuilder.js';
+export type { InvocationContext } from './SystemPromptBuilder.js';
 export * from './types.js';
