@@ -87,12 +87,24 @@ build_api() {
     echo -e "${GREEN}  ✓ API 构建完成${NC}"
 }
 
-# 检查 Redis (非阻塞 — 没有 Redis 也能跑，只是用内存存储)
+# 检查 Redis — 未运行时尝试自动启动 (非阻塞，失败回退内存存储)
 check_redis() {
     if redis-cli ping &> /dev/null; then
         echo -e "${GREEN}  ✓ Redis 已运行${NC}"
     else
-        echo -e "${YELLOW}  ⚠ Redis 未运行 (将使用内存存储，重启丢数据)${NC}"
+        echo -e "${YELLOW}  ⚠ Redis 未运行，尝试启动...${NC}"
+        if command -v redis-server &> /dev/null; then
+            redis-server --daemonize yes 2>/dev/null
+            sleep 1
+            if redis-cli ping &> /dev/null; then
+                echo -e "${GREEN}  ✓ Redis 已启动${NC}"
+            else
+                echo -e "${RED}  ✗ Redis 启动失败 (将使用内存存储，重启丢数据)${NC}"
+            fi
+        else
+            echo -e "${RED}  ✗ Redis 未安装 (将使用内存存储，重启丢数据)${NC}"
+            echo -e "${YELLOW}    安装: brew install redis${NC}"
+        fi
     fi
 }
 
