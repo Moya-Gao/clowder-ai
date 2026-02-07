@@ -1,0 +1,140 @@
+/**
+ * Redis Task Store (毛线球)
+ * Redis-backed task storage with same interface as in-memory TaskStore.
+ *
+ * Redis 数据结构:
+ *   cat-cafe:task:{taskId}              → Hash (任务详情)
+ *   cat-cafe:tasks:thread:{threadId}    → Sorted Set (每线程任务列表, score=createdAt)
+ *
+ * TTL 默认 30 天。
+ */
+
+import type { TaskItem, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import type { RedisClient } from '@cat-cafe/shared/utils';
+import { generateSortableId } from './MessageStore.js';
+import type { ITaskStore } from './TaskStore.js';
+import { TaskKeys } from './task-keys.js';
+
+const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
+
+export class RedisTaskStore implements ITaskStore {
+  private readonly redis: RedisClient;
+  private readonly ttl: number;
+
+  constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
+    this.redis = redis;
+    this.ttl = options?.ttlSeconds ?? DEFAULT_TTL;
+  }
+
+  async create(input: CreateTaskInput): Promise<TaskItem> {
+    const now = Date.now();
+    const task: TaskItem = {
+      id: generateSortableId(now),
+      threadId: input.threadId,
+      title: input.title,
+      ownerCatId: input.ownerCatId ?? null,
+      status: 'todo',
+      why: input.why,
+      createdBy: input.createdBy,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const key = TaskKeys.detail(task.id);
+    const pipeline = this.redis.multi();
+    pipeline.hset(key, this.serializeTask(task));
+    pipeline.expire(key, this.ttl);
+    pipeline.zadd(TaskKeys.thread(task.threadId), String(now), task.id);
+    pipeline.expire(TaskKeys.thread(task.threadId), this.ttl);
+    await pipeline.exec();
+
+    return task;
+  }
+
+  async get(taskId: string): Promise<TaskItem | null> {
+    const data = await this.redis.hgetall(TaskKeys.detail(taskId));
+    if (!data || !data['id']) return null;
+    return this.hydrateTask(data);
+  }
+
+  async update(taskId: string, input: UpdateTaskInput): Promise<TaskItem | null> {
+    const existing = await this.get(taskId);
+    if (!existing) return null;
+
+    const updated: TaskItem = {
+      ...existing,
+      ...(input.title !== undefined ? { title: input.title } : {}),
+      ...(input.ownerCatId !== undefined ? { ownerCatId: input.ownerCatId } : {}),
+      ...(input.status !== undefined ? { status: input.status } : {}),
+      ...(input.why !== undefined ? { why: input.why } : {}),
+      updatedAt: Date.now(),
+    };
+
+    await this.redis.hset(TaskKeys.detail(taskId), this.serializeTask(updated));
+    return updated;
+  }
+
+  async listByThread(threadId: string): Promise<TaskItem[]> {
+    const ids = await this.redis.zrange(TaskKeys.thread(threadId), 0, -1);
+    if (ids.length === 0) return [];
+
+    const pipeline = this.redis.multi();
+    for (const id of ids) {
+      pipeline.hgetall(TaskKeys.detail(id));
+    }
+    const results = await pipeline.exec();
+    if (!results) return [];
+
+    const tasks: TaskItem[] = [];
+    for (const [err, data] of results) {
+      if (err || !data || typeof data !== 'object') continue;
+      const d = data as Record<string, string>;
+      if (!d['id']) continue;
+      tasks.push(this.hydrateTask(d));
+    }
+    return tasks;
+  }
+
+  async delete(taskId: string): Promise<boolean> {
+    const data = await this.redis.hgetall(TaskKeys.detail(taskId));
+    if (!data || !data['id']) return false;
+
+    const threadId = data['threadId'] ?? '';
+    const pipeline = this.redis.multi();
+    pipeline.del(TaskKeys.detail(taskId));
+    if (threadId) {
+      pipeline.zrem(TaskKeys.thread(threadId), taskId);
+    }
+    await pipeline.exec();
+    return true;
+  }
+
+  private serializeTask(task: TaskItem): Record<string, string> {
+    return {
+      id: task.id,
+      threadId: task.threadId,
+      title: task.title,
+      ownerCatId: task.ownerCatId ?? '',
+      status: task.status,
+      why: task.why,
+      createdBy: task.createdBy,
+      createdAt: String(task.createdAt),
+      updatedAt: String(task.updatedAt),
+    };
+  }
+
+  private hydrateTask(data: Record<string, string>): TaskItem {
+    return {
+      id: data['id'] ?? '',
+      threadId: data['threadId'] ?? '',
+      title: data['title'] ?? '',
+      ownerCatId: (data['ownerCatId'] || null) as CatId | null,
+      status: (data['status'] ?? 'todo') as TaskItem['status'],
+      why: data['why'] ?? '',
+      createdBy: (data['createdBy'] ?? 'user') as TaskItem['createdBy'],
+      createdAt: parseInt(data['createdAt'] ?? '0', 10),
+      updatedAt: parseInt(data['updatedAt'] ?? '0', 10),
+    };
+  }
+}

@@ -11,8 +11,8 @@ import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.j
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import { createThreadStore } from './domains/cats/services/ThreadStoreFactory.js';
-import { TaskStore } from './domains/cats/services/TaskStore.js';
-import { SummaryStore } from './domains/cats/services/SummaryStore.js';
+import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
+import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
@@ -57,8 +57,8 @@ async function main(): Promise<void> {
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const threadStore = createThreadStore(redis);
-  const taskStore = new TaskStore();
-  const summaryStore = new SummaryStore();
+  const taskStore = createTaskStore(redis);
+  const summaryStore = createSummaryStore(redis);
 
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
