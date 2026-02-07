@@ -6,6 +6,15 @@
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 
 /**
+ * Metadata about the provider/model behind an agent message
+ */
+export interface MessageMetadata {
+  provider: string;
+  model: string;
+  sessionId?: string;
+}
+
+/**
  * Types of messages that can be yielded from an agent
  */
 export type AgentMessageType =
@@ -36,6 +45,8 @@ export interface AgentMessage {
   error?: string;
   /** Whether this is the final 'done' in a multi-cat invocation (for 'done' type) */
   isFinal?: boolean;
+  /** Provider/model metadata (set by agent services) */
+  metadata?: MessageMetadata;
   /** When this message was created */
   timestamp: number;
 }
