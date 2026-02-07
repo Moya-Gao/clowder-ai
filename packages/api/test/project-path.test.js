@@ -105,3 +105,48 @@ describe('validateProjectPath', () => {
     }
   });
 });
+
+describe('PROJECT_ALLOWED_ROOTS env var', () => {
+  let savedEnv;
+
+  before(() => {
+    savedEnv = process.env['PROJECT_ALLOWED_ROOTS'];
+  });
+
+  after(() => {
+    if (savedEnv === undefined) {
+      delete process.env['PROJECT_ALLOWED_ROOTS'];
+    } else {
+      process.env['PROJECT_ALLOWED_ROOTS'] = savedEnv;
+    }
+  });
+
+  it('uses default roots when env var is not set', () => {
+    delete process.env['PROJECT_ALLOWED_ROOTS'];
+    // Default: homedir + /tmp + /private/tmp
+    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
+    assert.strictEqual(isUnderAllowedRoot('/tmp/foo'), true);
+  });
+
+  it('uses env var roots when set', () => {
+    process.env['PROJECT_ALLOWED_ROOTS'] = '/opt/projects:/srv/data';
+    assert.strictEqual(isUnderAllowedRoot('/opt/projects/my-app'), true);
+    assert.strictEqual(isUnderAllowedRoot('/srv/data/files'), true);
+    // Default roots should no longer work
+    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), false);
+    assert.strictEqual(isUnderAllowedRoot('/tmp/foo'), false);
+  });
+
+  it('falls back to defaults when env var is empty', () => {
+    process.env['PROJECT_ALLOWED_ROOTS'] = '';
+    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
+  });
+
+  it('handles multiple colon-separated paths', () => {
+    process.env['PROJECT_ALLOWED_ROOTS'] = `/opt/a:/opt/b:${homedir()}`;
+    assert.strictEqual(isUnderAllowedRoot('/opt/a/x'), true);
+    assert.strictEqual(isUnderAllowedRoot('/opt/b/y'), true);
+    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'z')), true);
+    assert.strictEqual(isUnderAllowedRoot('/opt/c/w'), false);
+  });
+});

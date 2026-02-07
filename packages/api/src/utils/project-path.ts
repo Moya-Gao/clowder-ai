@@ -12,9 +12,18 @@ import { resolve, relative } from 'node:path';
 
 /**
  * Allowed root directories for project paths.
- * On macOS, /tmp → /private/tmp via realpath, so include both.
+ * Configurable via PROJECT_ALLOWED_ROOTS env var (colon-separated).
+ * Default: homedir + /tmp + /private/tmp (macOS realpath).
  */
-const ALLOWED_ROOTS = () => [homedir(), '/tmp', '/private/tmp'];
+const DEFAULT_ROOTS = () => [homedir(), '/tmp', '/private/tmp'];
+
+const ALLOWED_ROOTS = (): string[] => {
+  const envRoots = process.env['PROJECT_ALLOWED_ROOTS'];
+  if (envRoots && envRoots.trim()) {
+    return envRoots.split(':').filter(Boolean);
+  }
+  return DEFAULT_ROOTS();
+};
 
 /**
  * Check if a path is an allowed project directory.
