@@ -1,7 +1,8 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { homedir } from 'node:os';
-import { mkdirSync, symlinkSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, symlinkSync, rmSync, existsSync } from 'node:fs';
+import { realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const { validateProjectPath, isUnderAllowedRoot } = await import(
@@ -38,11 +39,15 @@ describe('isUnderAllowedRoot', () => {
 });
 
 describe('validateProjectPath', () => {
-  const testDir = join(homedir(), '.cat-cafe-test-path-validation');
-  const subDir = join(testDir, 'project-a');
+  // NOTE: tests run in a workspace-write sandbox where $HOME might be read-only.
+  // Use /tmp (allowed root) for temp directory creation.
+  let testDir;
+  let subDir;
 
   before(() => {
     // Create test directories
+    testDir = mkdtempSync('/tmp/cat-cafe-test-path-validation-');
+    subDir = join(testDir, 'project-a');
     mkdirSync(subDir, { recursive: true });
   });
 
@@ -54,7 +59,7 @@ describe('validateProjectPath', () => {
   it('returns canonicalized path for valid directory', async () => {
     const result = await validateProjectPath(subDir);
     assert.ok(result);
-    assert.strictEqual(result, subDir);
+    assert.strictEqual(result, await realpath(subDir));
   });
 
   it('returns null for nonexistent path', async () => {
