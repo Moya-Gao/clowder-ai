@@ -95,6 +95,13 @@ describe('cat-config-loader', () => {
       const path = writeTempConfig(bad);
       assert.throws(() => loadCatConfig(path), /Invalid cat config/);
     });
+
+    it('rejects invalid catId (not opus/codex/gemini)', () => {
+      const bad = validConfig();
+      bad.breeds[0].catId = 'foobar';
+      const path = writeTempConfig(bad);
+      assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+    });
   });
 
   describe('getDefaultVariant', () => {

@@ -416,9 +416,9 @@ describe('AgentRouter + Services wiring', () => {
       messageStore,
     });
 
-    await collect(router.route('user-1', '@opus @codex hello'));
+    await collect(router.route('user-1', '#execute @opus @codex hello'));
 
-    // Codex spawn should receive prompt containing opus's reply
+    // Codex spawn should receive prompt containing opus's reply (serial chain)
     const codexArgs = codexSpawn._calls[0].args;
     // The prompt is the last positional arg for fresh codex calls
     const prompt = codexArgs[codexArgs.length - 1];
@@ -428,7 +428,7 @@ describe('AgentRouter + Services wiring', () => {
     );
   });
 
-  test('yields isFinal=true only on last cat done', async () => {
+  test('yields isFinal=true only on last cat done (#execute serial)', async () => {
     const claudeSpawn = createTrackingSpawnFn(() =>
       claudeEvents('s-1', 'opus reply')
     );
@@ -447,7 +447,7 @@ describe('AgentRouter + Services wiring', () => {
       messageStore,
     });
 
-    const msgs = await collect(router.route('user-1', '@opus @codex hello'));
+    const msgs = await collect(router.route('user-1', '#execute @opus @codex hello'));
 
     const doneMessages = msgs.filter((m) => m.type === 'done');
     assert.equal(doneMessages.length, 2, 'should have 2 done messages');

@@ -99,7 +99,23 @@ export class AgentRouter {
     return service;
   }
 
-  /** Resolve target cats using mentions + thread participants */
+  /**
+   * Read-only target resolution: mentions → participants → default opus.
+   * Does NOT mutate thread participants.
+   */
+  private async peekTargets(message: string, threadId: string): Promise<CatId[]> {
+    const mentionedCats = this.parseMentions(message);
+    if (mentionedCats.length > 0) return mentionedCats;
+
+    if (this.threadStore) {
+      const participants = await this.threadStore.getParticipants(threadId);
+      if (participants.length > 0) return participants;
+    }
+
+    return [createCatId('opus')];
+  }
+
+  /** Resolve target cats and persist new mentions as thread participants */
   private async resolveTargets(message: string, threadId: string): Promise<CatId[]> {
     const mentionedCats = this.parseMentions(message);
 
@@ -130,15 +146,15 @@ export class AgentRouter {
   }
 
   /**
-   * Resolve targets and intent for a message (public, for pre-route broadcast).
-   * Does NOT have side effects — call route() to actually execute.
+   * Read-only peek at targets and intent (for pre-route broadcast).
+   * Does NOT mutate thread participants — safe to call before route().
    */
   async resolveTargetsAndIntent(
     message: string,
     threadId?: string,
   ): Promise<{ targetCats: CatId[]; intent: IntentResult }> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
-    const targetCats = await this.resolveTargets(message, resolvedThreadId);
+    const targetCats = await this.peekTargets(message, resolvedThreadId);
     const intent = parseIntent(message, targetCats.length);
     return { targetCats, intent };
   }

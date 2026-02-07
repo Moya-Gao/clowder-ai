@@ -29,7 +29,7 @@ const catVariantSchema = z.object({
 
 const catBreedSchema = z.object({
   id: z.string().min(1),
-  catId: z.string().min(1),
+  catId: z.enum(['opus', 'codex', 'gemini']),
   name: z.string().min(1),
   displayName: z.string().min(1),
   avatar: z.string().min(1),

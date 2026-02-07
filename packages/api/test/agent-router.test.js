@@ -516,7 +516,7 @@ describe('AgentRouter', () => {
     }
   });
 
-  test('executes three cats in order for triple mention', async () => {
+  test('invokes all three cats for triple mention (parallel, no order guarantee)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'
     );
@@ -546,12 +546,11 @@ describe('AgentRouter', () => {
     assert.equal(mockCodexService.invoke.mock.callCount(), 1);
     assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
 
-    // Check order of text messages
+    // All three texts present (parallel — order not guaranteed)
     const textMessages = messages.filter((m) => m.type === 'text');
     assert.equal(textMessages.length, 3);
-    assert.equal(textMessages[0].catId, 'opus');
-    assert.equal(textMessages[1].catId, 'codex');
-    assert.equal(textMessages[2].catId, 'gemini');
+    const catIds = textMessages.map((m) => m.catId).sort();
+    assert.deepEqual(catIds, ['codex', 'gemini', 'opus']);
   });
 
   test('does not duplicate same cat when mentioned multiple times', async () => {
