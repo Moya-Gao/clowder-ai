@@ -28,50 +28,55 @@ describe('McpPromptInjector', () => {
     assert.equal(needsMcpInjection('gemini'), true);
   });
 
-  it('buildMcpCallbackInstructions includes correct URLs and parameters', async () => {
+  it('buildMcpCallbackInstructions uses correct hyphenated endpoints', async () => {
     const { buildMcpCallbackInstructions } = await import(
       '../dist/domains/cats/services/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({
       apiUrl: 'http://127.0.0.1:3002',
-      threadId: 'thread-42',
-      catId: 'codex',
-      invocationId: 'inv-123',
     });
 
-    // Should contain all three callback endpoints
-    assert.ok(instructions.includes('/api/callbacks/post_message'));
-    assert.ok(instructions.includes('/api/callbacks/get_thread_context'));
-    assert.ok(instructions.includes('/api/callbacks/get_pending_mentions'));
+    // Must use hyphenated endpoints matching callbacks.ts routes
+    assert.ok(instructions.includes('/api/callbacks/post-message'), 'should use post-message (hyphen)');
+    assert.ok(instructions.includes('/api/callbacks/thread-context'), 'should use thread-context (hyphen)');
+    assert.ok(instructions.includes('/api/callbacks/pending-mentions'), 'should use pending-mentions (hyphen)');
+    assert.ok(instructions.includes('/api/callbacks/update-task'), 'should use update-task (hyphen)');
 
-    // Should contain correct apiUrl
-    assert.ok(instructions.includes('http://127.0.0.1:3002'));
-
-    // Should contain threadId and catId
-    assert.ok(instructions.includes('thread-42'));
-    assert.ok(instructions.includes('codex'));
-
-    // Should contain invocationId header
-    assert.ok(instructions.includes('inv-123'));
-    assert.ok(instructions.includes('X-Invocation-Id'));
+    // Must NOT contain underscore versions
+    assert.ok(!instructions.includes('post_message'), 'should NOT use post_message (underscore)');
+    assert.ok(!instructions.includes('get_thread_context'), 'should NOT use get_thread_context');
+    assert.ok(!instructions.includes('get_pending_mentions'), 'should NOT use get_pending_mentions');
   });
 
-  it('buildMcpCallbackInstructions works without invocationId', async () => {
+  it('buildMcpCallbackInstructions references env var credentials', async () => {
     const { buildMcpCallbackInstructions } = await import(
       '../dist/domains/cats/services/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({
-      apiUrl: 'http://localhost:3002',
-      threadId: 'thread-1',
-      catId: 'gemini',
+      apiUrl: 'http://127.0.0.1:3002',
     });
 
-    // Should still contain the three endpoints
-    assert.ok(instructions.includes('/api/callbacks/post_message'));
-    assert.ok(instructions.includes('/api/callbacks/get_thread_context'));
-    assert.ok(instructions.includes('/api/callbacks/get_pending_mentions'));
+    // Must reference env vars for auth (set by invokeSingleCat at spawn)
+    assert.ok(instructions.includes('$CAT_CAFE_INVOCATION_ID'), 'should reference INVOCATION_ID env var');
+    assert.ok(instructions.includes('$CAT_CAFE_CALLBACK_TOKEN'), 'should reference CALLBACK_TOKEN env var');
 
-    // Should contain catId
-    assert.ok(instructions.includes('gemini'));
+    // POST bodies must include invocationId + callbackToken fields (escaped in template literal)
+    assert.ok(instructions.includes('invocationId'), 'POST body should include invocationId field');
+    assert.ok(instructions.includes('callbackToken'), 'POST body should include callbackToken field');
+
+    // GET requests must include auth in query params
+    assert.ok(instructions.includes('invocationId=$CAT_CAFE_INVOCATION_ID'), 'GET should have invocationId in query');
+    assert.ok(instructions.includes('callbackToken=$CAT_CAFE_CALLBACK_TOKEN'), 'GET should have callbackToken in query');
+  });
+
+  it('buildMcpCallbackInstructions includes correct apiUrl', async () => {
+    const { buildMcpCallbackInstructions } = await import(
+      '../dist/domains/cats/services/McpPromptInjector.js'
+    );
+    const instructions = buildMcpCallbackInstructions({
+      apiUrl: 'http://localhost:9999',
+    });
+
+    assert.ok(instructions.includes('http://localhost:9999'), 'should include custom apiUrl');
   });
 });

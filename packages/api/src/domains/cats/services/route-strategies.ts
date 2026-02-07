@@ -79,11 +79,7 @@ export async function* routeSerial(
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({
-          apiUrl: deps.invocationDeps.apiUrl,
-          threadId,
-          catId: catId as string,
-        })
+      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
     if (systemPrompt || mcpInstructions) {
@@ -157,11 +153,7 @@ export async function* routeParallel(
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({
-          apiUrl: deps.invocationDeps.apiUrl,
-          threadId,
-          catId: catId as string,
-        })
+      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
     let prompt: string;
