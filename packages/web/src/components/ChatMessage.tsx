@@ -3,6 +3,7 @@
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { MetadataBadge } from './MetadataBadge';
+import { SummaryCard } from './SummaryCard';
 import { OwnerIcon } from './icons/OwnerIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -42,17 +43,13 @@ const CAT_STYLES: Record<string, {
     mentionColor: 'text-gemini-primary',
   },
 };
-
-/** All @mention patterns to highlight */
 const MENTION_RE = /@(布偶猫?|缅因猫?|暹罗猫?|opus|codex|gemini)/gi;
-
 const MENTION_TO_CAT: Record<string, string> = {
   '布偶': 'opus', '布偶猫': 'opus', 'opus': 'opus',
   '缅因': 'codex', '缅因猫': 'codex', 'codex': 'codex',
   '暹罗': 'gemini', '暹罗猫': 'gemini', 'gemini': 'gemini',
 };
 
-/** Render message content with @mention highlighting */
 function renderContent(text: string) {
   const parts: (string | JSX.Element)[] = [];
   let lastIndex = 0;
@@ -78,7 +75,6 @@ function renderContent(text: string) {
   return parts;
 }
 
-/** Render rich contentBlocks (text + images) */
 function renderContentBlocks(blocks: MessageContent[]) {
   return blocks.map((block, i) => {
     if (block.type === 'text') {
@@ -116,8 +112,21 @@ function formatTime(ts: number): string {
 export function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
+  const isSummary = message.type === 'summary';
   const cat = message.catId ? CAT_STYLES[message.catId] : null;
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
+
+  if (isSummary && message.summary) {
+    return (
+      <SummaryCard
+        topic={message.summary.topic}
+        conclusions={message.summary.conclusions}
+        openQuestions={message.summary.openQuestions}
+        createdBy={message.summary.createdBy}
+        timestamp={message.timestamp}
+      />
+    );
+  }
 
   if (isSystem) {
     return (

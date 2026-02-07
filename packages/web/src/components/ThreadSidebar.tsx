@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { TaskPanel } from './TaskPanel';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -388,6 +389,8 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
             />
           ))}
         </div>
+
+        <TaskPanel />
       </aside>
 
       {showPicker && (

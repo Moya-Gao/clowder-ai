@@ -13,9 +13,8 @@ interface AgentMsg {
 }
 
 /**
- * Hook for handling agent message streaming.
- * Tracks the current streaming message via a single ref (serial only).
- * Phase 3.5 Step 6 will convert to Map<catId, ref> for parallel streams.
+ * Hook for handling agent message streaming (parallel-aware).
+ * Tracks active streams via Map<catId, ref> for simultaneous multi-cat output.
  *
  * Returns:
  * - handleAgentMessage: socket event handler
@@ -25,23 +24,27 @@ interface AgentMsg {
 export function useAgentMessages() {
   const {
     addMessage,
-    appendToLastMessage,
+    appendToMessage,
     setStreaming,
     setLoading,
+    setIntentMode,
   } = useChatStore();
 
-  const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
+  /** Map<catId, { id: messageId, catId }> — one entry per active stream */
+  const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
 
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
       if (msg.type === 'text' && msg.content) {
-        const needNewMessage =
-          !currentMessageRef.current ||
-          currentMessageRef.current.catId !== msg.catId;
+        const existing = activeRefs.current.get(msg.catId);
 
-        if (needNewMessage) {
+        if (existing) {
+          // Append to this cat's active message
+          appendToMessage(existing.id, msg.content);
+        } else {
+          // New message for this cat
           const id = `msg-${Date.now()}-${msg.catId}`;
-          currentMessageRef.current = { id, catId: msg.catId };
+          activeRefs.current.set(msg.catId, { id, catId: msg.catId });
           addMessage({
             id,
             type: 'assistant',
@@ -51,45 +54,56 @@ export function useAgentMessages() {
             timestamp: Date.now(),
             isStreaming: true,
           });
-        } else {
-          appendToLastMessage(msg.content);
         }
       } else if (msg.type === 'done') {
-        if (currentMessageRef.current) {
-          setStreaming(currentMessageRef.current.id, false);
+        const ref = activeRefs.current.get(msg.catId);
+        if (ref) {
+          setStreaming(ref.id, false);
+          activeRefs.current.delete(msg.catId);
         }
         if (msg.isFinal) {
           setLoading(false);
+          setIntentMode(null);
         }
       } else if (msg.type === 'error') {
-        currentMessageRef.current = null;
-        setLoading(false);
+        const ref = activeRefs.current.get(msg.catId);
+        if (ref) {
+          setStreaming(ref.id, false);
+          activeRefs.current.delete(msg.catId);
+        }
         addMessage({
-          id: `err-${Date.now()}`,
+          id: `err-${Date.now()}-${msg.catId}`,
           type: 'system',
           catId: msg.catId,
           content: `Error: ${msg.error ?? 'Unknown error'}`,
           timestamp: Date.now(),
         });
+        // If no more active streams, stop loading
+        if (activeRefs.current.size === 0) {
+          setLoading(false);
+          setIntentMode(null);
+        }
       }
     },
-    [addMessage, appendToLastMessage, setStreaming, setLoading]
+    [addMessage, appendToMessage, setStreaming, setLoading, setIntentMode]
   );
 
   const handleStop = useCallback(
     (cancelFn: (threadId: string) => void, threadId: string) => {
       cancelFn(threadId);
       setLoading(false);
-      if (currentMessageRef.current) {
-        setStreaming(currentMessageRef.current.id, false);
-        currentMessageRef.current = null;
+      setIntentMode(null);
+      // Stop all active streams
+      for (const ref of activeRefs.current.values()) {
+        setStreaming(ref.id, false);
       }
+      activeRefs.current.clear();
     },
-    [setLoading, setStreaming]
+    [setLoading, setStreaming, setIntentMode]
   );
 
   const resetRefs = useCallback(() => {
-    currentMessageRef.current = null;
+    activeRefs.current.clear();
   }, []);
 
   return { handleAgentMessage, handleStop, resetRefs };

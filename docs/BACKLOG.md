@@ -36,14 +36,15 @@
 | 13 | cats.ts TODO: 从 Redis 获取猫状态 | [ ] | 代码 TODO | `packages/api/src/routes/cats.ts` |
 | 14 | sendMessageSchema 语义归属 | [ ] | Phase 3.5 Step 0 review | 当前在 `parse-multipart.ts`，建议迁到 `messages.schema.ts` |
 | 15 | AgentRouter.ts 超 200 行 (344行) | [ ] | Phase 3.5 Step 3 | 提取 routeSerial/routeParallel 到 `route-strategies.ts` |
+| 16 | Invocation 新入口必须传 threadId | [ ] | Phase 3.5 缅因猫 review | 跨线程鉴权依赖 `registry.create()` 携带正确 threadId；新增入口需保持约束，否则合法请求被误拒 |
 
 ## P3 — 可选优化
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 16 | blob URL 同 thread 连发大量图累积 | [ ] | Phase 3.3b review R1 | clearMessages 时已回收，但不切 thread 会累积 |
-| 17 | 冷/热状态视觉反馈 (猫头像发光) | [ ] | 暹罗猫提议 | CSS class 切换，低成本 |
-| 18 | Antigravity cancel 无效 (detached 进程) | [ ] | Phase 3.3b review | gemini-cli fallback 可选 |
+| 17 | blob URL 同 thread 连发大量图累积 | [ ] | Phase 3.3b review R1 | clearMessages 时已回收，但不切 thread 会累积 |
+| 18 | 冷/热状态视觉反馈 (猫头像发光) | [ ] | 暹罗猫提议 | CSS class 切换，低成本 |
+| 19 | Antigravity cancel 无效 (detached 进程) | [ ] | Phase 3.3b review | gemini-cli fallback 可选 |
 
 ## 已知限制（非 bug，需意识到）
 

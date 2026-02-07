@@ -21,13 +21,20 @@ export interface ChatMessageMetadata {
 
 export interface ChatMessage {
   id: string;
-  type: 'user' | 'assistant' | 'system';
+  type: 'user' | 'assistant' | 'system' | 'summary';
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
   metadata?: ChatMessageMetadata;
   timestamp: number;
   isStreaming?: boolean;
+  summary?: {
+    id: string;
+    topic: string;
+    conclusions: string[];
+    openQuestions: string[];
+    createdBy: string;
+  };
 }
 
 export interface Thread {
@@ -45,6 +52,7 @@ interface ChatState {
   isLoading: boolean;
   isLoadingHistory: boolean;
   hasMore: boolean;
+  intentMode: 'execute' | 'ideate' | null;
 
   // Thread state
   currentThreadId: string;
@@ -56,9 +64,11 @@ interface ChatState {
   addMessage: (msg: ChatMessage) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
+  appendToMessage: (id: string, content: string) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setLoadingHistory: (loading: boolean) => void;
+  setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
   clearMessages: () => void;
 
   // Thread actions
@@ -74,6 +84,7 @@ export const useChatStore = create<ChatState>((set) => ({
   isLoading: false,
   isLoadingHistory: false,
   hasMore: true,
+  intentMode: null,
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
@@ -113,6 +124,13 @@ export const useChatStore = create<ChatState>((set) => ({
       return { messages };
     }),
 
+  appendToMessage: (id, content) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, content: m.content + content } : m
+      ),
+    })),
+
   setStreaming: (id, streaming) =>
     set((state) => ({
       messages: state.messages.map((m) =>
@@ -122,6 +140,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
+  setIntentMode: (mode) => set({ intentMode: mode }),
   clearMessages: () =>
     set((state) => {
       // Revoke blob URLs to prevent memory leak (P3 fix)

@@ -17,11 +17,16 @@ interface AgentMessage {
   timestamp: number;
 }
 
-export function useSocket(
-  onMessage: (msg: AgentMessage) => void,
-  threadId?: string,
-  onThreadUpdated?: (data: { threadId: string; title: string }) => void,
-) {
+export interface SocketCallbacks {
+  onMessage: (msg: AgentMessage) => void;
+  onThreadUpdated?: (data: { threadId: string; title: string }) => void;
+  onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
+  onTaskCreated?: (task: Record<string, unknown>) => void;
+  onTaskUpdated?: (task: Record<string, unknown>) => void;
+  onThreadSummary?: (summary: Record<string, unknown>) => void;
+}
+
+export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
   const currentRoomRef = useRef<string | null>(null);
   const threadIdRef = useRef(threadId);
@@ -34,7 +39,6 @@ export function useSocket(
 
     socket.on('connect', () => {
       console.log('[ws] Connected');
-      // Join thread room on connect
       const tid = threadIdRef.current;
       if (tid) {
         const room = `thread:${tid}`;
@@ -44,11 +48,27 @@ export function useSocket(
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
-      onMessage(msg);
+      callbacks.onMessage(msg);
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
-      onThreadUpdated?.(data);
+      callbacks.onThreadUpdated?.(data);
+    });
+
+    socket.on('intent_mode', (data: { threadId: string; mode: string; targetCats: string[] }) => {
+      callbacks.onIntentMode?.(data);
+    });
+
+    socket.on('task_created', (task: Record<string, unknown>) => {
+      callbacks.onTaskCreated?.(task);
+    });
+
+    socket.on('task_updated', (task: Record<string, unknown>) => {
+      callbacks.onTaskUpdated?.(task);
+    });
+
+    socket.on('thread_summary', (summary: Record<string, unknown>) => {
+      callbacks.onThreadSummary?.(summary);
     });
 
     socket.on('disconnect', () => {
@@ -60,9 +80,8 @@ export function useSocket(
     return () => {
       socket.disconnect();
     };
-  }, [onMessage]);
+  }, [callbacks]);
 
-  // Switch rooms when threadId changes
   const switchRoom = useCallback((newThreadId: string) => {
     const socket = socketRef.current;
     if (!socket) return;

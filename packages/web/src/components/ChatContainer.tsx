@@ -1,12 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
-import { useSocket } from '@/hooks/useSocket';
+import { useTaskStore, type TaskItem } from '@/stores/taskStore';
+import { useSocket, type SocketCallbacks } from '@/hooks/useSocket';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThreadSidebar } from './ThreadSidebar';
+import { IdeateHeader } from './IdeateHeader';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -19,13 +21,16 @@ export function ChatContainer() {
     isLoadingHistory,
     hasMore,
     currentThreadId,
+    intentMode,
     addMessage,
     prependHistory,
     setLoading,
     setLoadingHistory,
+    setIntentMode,
     clearMessages,
     updateThreadTitle,
   } = useChatStore();
+  const { addTask, updateTask, clearTasks } = useTaskStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const initialLoadDone = useRef(false);
@@ -125,14 +130,25 @@ export function ChatContainer() {
     }
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 
-  const handleThreadUpdated = useCallback(
-    (data: { threadId: string; title: string }) => {
-      updateThreadTitle(data.threadId, data.title);
+  const socketCallbacks = useMemo<SocketCallbacks>(() => ({
+    onMessage: handleAgentMessage,
+    onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
+    onIntentMode: (data) => setIntentMode(data.mode as 'ideate' | 'execute'),
+    onTaskCreated: (task) => addTask(task as unknown as TaskItem),
+    onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
+    onThreadSummary: (summary) => {
+      const s = summary as { id: string; threadId: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string; createdAt: number };
+      addMessage({
+        id: `summary-${s.id}`,
+        type: 'summary',
+        content: s.topic,
+        timestamp: s.createdAt,
+        summary: { id: s.id, topic: s.topic, conclusions: s.conclusions, openQuestions: s.openQuestions, createdBy: s.createdBy },
+      });
     },
-    [updateThreadTitle]
-  );
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, addTask, updateTask, addMessage]);
 
-  const { switchRoom, cancelInvocation } = useSocket(handleAgentMessage, currentThreadId, handleThreadUpdated);
+  const { switchRoom, cancelInvocation } = useSocket(socketCallbacks, currentThreadId);
 
   const handleStop = useCallback(() => {
     stopHandler(cancelInvocation, currentThreadId);
@@ -142,10 +158,12 @@ export function ChatContainer() {
     (threadId: string) => {
       resetRefs();
       clearMessages();
+      clearTasks();
+      setIntentMode(null);
       switchRoom(threadId);
       void fetchHistory(undefined, threadId);
     },
-    [resetRefs, clearMessages, switchRoom, fetchHistory]
+    [resetRefs, clearMessages, clearTasks, setIntentMode, switchRoom, fetchHistory]
   );
 
   const handleSend = useCallback(
@@ -230,6 +248,8 @@ export function ChatContainer() {
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
         </header>
+
+        {intentMode === 'ideate' && <IdeateHeader />}
 
         <main
           ref={scrollContainerRef}
