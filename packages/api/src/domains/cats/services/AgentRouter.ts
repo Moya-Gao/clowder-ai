@@ -22,6 +22,7 @@ import { parseIntent, stripIntentTags } from './IntentParser.js';
 import type { IntentResult } from './IntentParser.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
+import { assembleContext } from './ContextAssembler.js';
 import { mergeStreams } from './stream-merge.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
@@ -179,6 +180,11 @@ export class AgentRouter {
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
 
+    // Fetch thread history BEFORE storing user message (so user message isn't doubled)
+    const historyLimit = Number(process.env['CONTEXT_HISTORY_LIMIT']) || 20;
+    const history = await this.messageStore.getByThread(resolvedThreadId, historyLimit);
+    const { contextText: contextHistory } = assembleContext(history);
+
     await this.messageStore.append({
       userId,
       catId: null,
@@ -192,12 +198,12 @@ export class AgentRouter {
     if (intent.intent === 'ideate' && targetCats.length > 1) {
       yield* this.routeParallel(
         targetCats, cleanMessage, userId, resolvedThreadId,
-        contentBlocks, uploadDir, signal, intent.promptTags,
+        contentBlocks, uploadDir, signal, intent.promptTags, contextHistory,
       );
     } else {
       yield* this.routeSerial(
         targetCats, cleanMessage, userId, resolvedThreadId,
-        contentBlocks, uploadDir, signal, intent.promptTags,
+        contentBlocks, uploadDir, signal, intent.promptTags, contextHistory,
       );
     }
   }
@@ -212,6 +218,7 @@ export class AgentRouter {
     uploadDir?: string,
     signal?: AbortSignal,
     promptTags?: readonly string[],
+    contextHistory?: string,
   ): AsyncIterable<AgentMessage> {
     const previousResponses: { catId: CatId; content: string }[] = [];
     const deps = this.getInvocationDeps();
@@ -241,7 +248,11 @@ export class AgentRouter {
         ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       });
       if (systemPrompt) {
-        prompt = `${systemPrompt}\n\n---\n\n${prompt}`;
+        const parts = [systemPrompt];
+        if (contextHistory) parts.push(contextHistory);
+        prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
+      } else if (contextHistory) {
+        prompt = `${contextHistory}\n\n---\n\n${prompt}`;
       }
 
       let textContent = '';
@@ -292,6 +303,7 @@ export class AgentRouter {
     uploadDir?: string,
     signal?: AbortSignal,
     promptTags?: readonly string[],
+    contextHistory?: string,
   ): AsyncIterable<AgentMessage> {
     const deps = this.getInvocationDeps();
     const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
@@ -305,9 +317,16 @@ export class AgentRouter {
         mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
         ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       });
-      const prompt = systemPrompt
-        ? `${systemPrompt}\n\n---\n\n${message}`
-        : message;
+      let prompt: string;
+      if (systemPrompt) {
+        const parts = [systemPrompt];
+        if (contextHistory) parts.push(contextHistory);
+        prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
+      } else if (contextHistory) {
+        prompt = `${contextHistory}\n\n---\n\n${message}`;
+      } else {
+        prompt = message;
+      }
 
       return invokeSingleCat(deps, {
         catId,

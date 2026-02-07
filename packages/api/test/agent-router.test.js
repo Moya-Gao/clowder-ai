@@ -1274,6 +1274,159 @@ describe('AgentRouter', () => {
     assert.equal(dones.filter((m) => m.isFinal).length, 1);
   });
 
+  // --- Context history injection tests (Phase 3.6) ---
+
+  test('context history: single cat prompt includes thread history', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const store = {
+      ...createMockMessageStore(),
+      getByThread: () => [
+        { id: 'm1', threadId: 't1', userId: 'u1', catId: null, content: 'earlier question', mentions: [], timestamp: 1000 },
+        { id: 'm2', threadId: 't1', userId: 'u1', catId: 'opus', content: 'earlier answer', mentions: [], timestamp: 2000 },
+      ],
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: store,
+    });
+
+    for await (const _ of router.route('user-1', '@opus follow up')) {}
+
+    assert.ok(opusPrompt.includes('对话历史'), 'Prompt should contain context history header');
+    assert.ok(opusPrompt.includes('earlier question'), 'Prompt should contain user history');
+    assert.ok(opusPrompt.includes('earlier answer'), 'Prompt should contain cat history');
+  });
+
+  test('context history: serial multi-cat — both cats receive history', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusPrompt = '';
+    let codexPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'opus reply', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'codex reply', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const store = {
+      ...createMockMessageStore(),
+      getByThread: () => [
+        { id: 'm1', threadId: 't1', userId: 'u1', catId: 'gemini', content: 'gemini said something', mentions: [], timestamp: 1000 },
+      ],
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: store,
+    });
+
+    for await (const _ of router.route('user-1', '#execute @opus @codex review')) {}
+
+    assert.ok(opusPrompt.includes('gemini said something'), 'Opus should see gemini history');
+    assert.ok(codexPrompt.includes('gemini said something'), 'Codex should see gemini history');
+  });
+
+  test('context history: parallel multi-cat — both cats receive history', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusPrompt = '';
+    let codexPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'a', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'b', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const store = {
+      ...createMockMessageStore(),
+      getByThread: () => [
+        { id: 'm1', threadId: 't1', userId: 'u1', catId: null, content: 'user said hi', mentions: [], timestamp: 1000 },
+      ],
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: store,
+    });
+
+    for await (const _ of router.route('user-1', '@opus @codex think about this')) {}
+
+    assert.ok(opusPrompt.includes('user said hi'), 'Opus should see history in parallel mode');
+    assert.ok(codexPrompt.includes('user said hi'), 'Codex should see history in parallel mode');
+  });
+
+  test('context history: empty history — no context header in prompt', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(), // getByThread returns []
+    });
+
+    for await (const _ of router.route('user-1', '@opus first message')) {}
+
+    assert.ok(!opusPrompt.includes('对话历史'), 'Empty history should not add context header');
+    assert.ok(opusPrompt.includes('first message'), 'Prompt should still have the message');
+  });
+
   test('parallel: resolveTargetsAndIntent returns correct intent', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'

@@ -23,6 +23,8 @@ export { TaskStore } from './TaskStore.js';
 export type { ITaskStore } from './TaskStore.js';
 export { SummaryStore } from './SummaryStore.js';
 export type { ISummaryStore } from './SummaryStore.js';
+export { assembleContext, formatMessage } from './ContextAssembler.js';
+export type { AssembledContext, ContextAssemblerOptions } from './ContextAssembler.js';
 export { buildSystemPrompt } from './SystemPromptBuilder.js';
 export type { InvocationContext } from './SystemPromptBuilder.js';
 export { parseIntent, stripIntentTags } from './IntentParser.js';
