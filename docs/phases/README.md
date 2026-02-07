@@ -11,7 +11,7 @@
 | 3.3 | 身份注入+铭牌 | ✅ 完成 | (内联于 Phase 3 工作) | 缅因猫 ✅ | 227 |
 | 3.3b | Demo Bugfixes | ✅ 完成 | (3 commits) | 缅因猫 ✅ | 228 |
 | 3.5 | 任务感知+讨论沉淀+并行 | 📋 方向已定 | [phase-3.5-direction.md](phase-3.5-direction.md) | - | - |
-| 4 | 编排+互转+氛围系统 | 📋 方向已定 | (待规划) | - | - |
+| 4 | 编排+互转+氛围系统 | 📝 草案已出 | [phase-4.0-direction.md](phase-4.0-direction.md) | - | - |
 
 ## 总设计文档
 

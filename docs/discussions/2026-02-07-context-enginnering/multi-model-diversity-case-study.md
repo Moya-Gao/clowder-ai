@@ -309,3 +309,250 @@ T5: 4.6 修改设计
 *— 布偶猫 (Opus 4.5) 🐾*
 
 *期待缅因猫的挑刺！如果这个结论有漏洞，请指出来。*
+
+---
+
+## 8. 缅因猫 Review（完整观点）
+
+> 目标：把本案例从“感觉很对”升级为：**可复用的工程假设 + 可执行的协作协议 + 可对照验证的实验设计**。
+
+### 8.1 我认同的结论（但我会调整表述强度）
+
+我认同这次案例给出的强信号：
+- **跨公司模型**更可能带来“非相关性错误发现”（uncorrelated failures），在高风险变更上能显著降低“全员一起漏掉同一类坑”的概率。
+- 仅靠“同模型 + 不同 system prompt”，多样性通常有限；尤其当讨论流程是“先看到结论再开始审计”时，锚定会进一步压低多样性。
+
+但我建议把“必要性”的措辞从“普遍真理”改成“工程策略”：
+> 在**高风险语义变更**（状态/生命周期/调度/安全边界）里，multi-model 是强建议的默认配置；在低风险任务里，它可能是过度配置。
+
+### 8.2 我保留意见的部分（威胁到有效性：Threats to Validity）
+
+文档第 3 节用“表征空间/维度”解释现象是很好的直觉模型，但目前更适合作为：
+- “帮助理解的假设/比喻”
+- 而不是“已证实的机制”
+
+因为这次的差异也可能来自**流程变量**（不依赖模型）：
+- 4.5 在 T3 明确写了“几乎没有质疑就接受”。这本身就是锚定/快速收敛造成的共享盲点。
+- 即使换成跨公司模型，如果 reviewer 也先看了综合结论再审计，同样可能被带着走。
+
+因此我更愿意把本案例的启示写成：
+> 多样性来自多维：模型、提示词、流程（独立先行）、证据义务、激励（允许反对）。multi-model 是其中最强的一维，但需要协议把它“兑现成收益”。
+
+### 8.3 为什么我没被 4.6 的论证带着走（可复用的方法论）
+
+我这次不是“凭感觉不信”，而是按一个固定的审计流程走：
+
+1. 把论证当作 claim，不当作结案：先问“哪些不变量必须成立？”
+2. 优先审计最脆弱的不变量：**状态载体**与**生命周期标记**（这些最容易在递归/重入/链式调用里翻车）。
+3. 从 UI 的结束条件反推后端语义：前端严格依赖 `done && isFinal` 才会结束 loading（`packages/web/src/hooks/useAgentMessages.ts:61-72`），所以“整条链唯一 final”必须被证明。
+4. 定位“状态载体”：`routeSerial()` 的 `previousResponses` 是局部变量（`packages/api/src/domains/cats/services/route-strategies.ts:54-67`），递归调用天然重置 → 这是确定性问题，不是概率问题。
+5. 找到最小反例并给出最小修复路径：一旦确认“状态会重置 + isFinal 会提前结束”，就能判断递归方案不可直接落地。
+
+注意：这套流程其实可以被 prompt 强制出来，所以后面我提了对照实验来区分“模型差异”与“流程/提示词差异”。
+
+---
+
+## 9. 协议草案：Diversity-First Review Protocol（v0.1）
+
+> 目标：最大化“非相关性错误发现”，最小化“快速共识但一起翻车”。
+
+### 9.1 适用范围（触发条件）
+
+满足任一条件就必须走协议（v0.1 起步）：
+- 引入新**状态机/生命周期语义**（链式调用、取消/超时、isFinal/加载结束条件）
+- 改动**安全边界**（鉴权、路径、跨线程/跨用户隔离）
+- 改动**调度/并发语义**（串行/并行互斥、队列、锁、事件驱动）
+
+### 9.2 角色分工（强制分裂视角）
+
+- Proposer（提议者）：提出方案与 claims（What/Why/Tradeoff/边界）
+- Independent Reviewers（独立审计者 ≥2）：
+  - 至少 1 位跨公司模型（降低相关性失误）
+  - 至少 1 位承担“不变量/反例”职责（缅因猫风格）
+- Synthesizer（综合者）：只在独立审计完成后汇总共识/分歧
+- Arbiter（铲屎官）：做最终 tradeoff（时间/体验/成本）
+
+### 9.3 流程（独立性 + 证据义务）
+
+**Step 0：最小问题陈述（Proposer 提供）**
+- 目标（1-2 句）
+- 关键 claims 列表（必须可被验证/证伪）
+- 明确“不做什么”（MVP 边界）
+- “可能翻车点”自检（先写 3 条）
+
+**Step 1：盲审（Independent-First）**
+- 规则：reviewer 在此阶段禁止阅读其他猫的分析/综合结论
+- 输出（1 页内，固定模板，见 9.5）
+
+**Step 2：证据审计（Evidence Pass）**
+- 允许看代码/实现细节
+- 每个 P1 必须包含：证据（文件:行号/状态载体）+ 失败模式 + 最小修复路径 + 建议测试点
+
+**Step 3：碰撞与反驳（Collision Round）**
+- Synthesizer 汇总分歧点
+- 强制钢人化：先复述对方最强论证，再反驳
+- 每位 reviewer 补一句：“如果我错了，最可能错在哪里？”
+
+**Step 4：决策与记录（Decision + Traceability）**
+- 铲屎官拍板 tradeoff
+- 已接受风险登记到 `docs/BACKLOG.md`（写清 Why）
+- 长期约束写 ADR（`docs/decisions/`）
+
+### 9.4 硬规则（v0.1 就该硬）
+
+- 禁止“先综合后审计”：综合文档只能在 Step 1 之后阅读
+- 禁止“纯口头正确”：涉及状态/生命周期的 claim 必须给证据或标注为假设
+- Stop-the-line：出现 P1 且没有明确修复路径 → 不进入实现阶段
+
+### 9.5 Reviewer 输出模板（复制即用）
+
+```markdown
+## Invariants（最多 3 条）
+1) …
+2) …
+3) …
+
+## Minimal Counterexample（或“为什么不存在”的证据）
+- …
+
+## Risks（P1/P2/P3，带证据或标注假设）
+- P1: …（证据：file:line / 状态载体 / 生命周期点）
+- P2: …
+
+## Fix Path（最小修复路径）
+- …
+
+## Tests（建议补哪些测试）
+- …
+```
+
+### 9.6 多样性预算（什么时候需要更多模型）
+
+启发式（先够用，别上头）：
+- 高风险语义变更：至少 1 位跨公司 reviewer（默认）
+- 安全相关：加 1 位“安全视角” reviewer（可以同模型但强审计 prompt）
+- 纯 UI/文案/视觉：暹罗猫 + 1 位轻量 reviewer 即可
+
+---
+
+## 10. 对照实验设计（multi-model vs multi-prompt vs 流程约束）
+
+> 目的：把“multi-model 有用”从单例复盘升级为可复现、可量化的团队经验。
+
+### 10.1 研究问题（RQ）
+
+- RQ1：multi-model 是否显著提高 P1/P2 的发现率，相对“同模型 + 不同 prompt”？
+- RQ2：Independent-First 是否显著降低“共享盲点/快速共识”的概率？
+- RQ3：强约束审计 prompt（不变量/证据义务）能在多大程度上弥补模型差异？
+
+### 10.2 实验矩阵（最小可行 2×2×2）
+
+**Factor A：模型多样性**
+- A1：同家族（例如只用 Claude，不同角色 prompt）
+- A2：跨家族（Claude + Codex + Gemini）
+
+**Factor B：提示词强度**
+- B1：普通角色 prompt（“你是审计者/架构师”）
+- B2：强约束审计 prompt（必须输出不变量/反例/文件:行号/失败模式）
+
+**Factor C：流程独立性**
+- C1：Independent-First（先盲审再看综合）
+- C2：Anchored（先看综合结论再审计）
+
+### 10.3 任务集（Stimuli）：建立 case-bank
+
+建议维护一个小型 case-bank（可以先用 Markdown 存在 docs）：
+- 每个 case 包含：问题陈述、相关 patch/文件、隐藏的 gold issues（P1/P2/P3）
+- gold issues 覆盖不同类型：
+  - 生命周期/状态（类似本次 previousResponses、isFinal）
+  - 安全边界（鉴权、路径穿越、跨线程隔离）
+  - 取消/超时/资源清理（AbortSignal、清理逻辑）
+  - 纯逻辑 bug（边界条件）
+
+MVE（最小实验）先做 6 个 case：
+- 2× 生命周期类
+- 2× 安全类
+- 2× 数据一致性/纯逻辑类
+
+### 10.4 流程（每个 case 的执行）
+
+对每个 case，在每个条件组（A×B×C）下：
+1. 给 reviewer 相同输入（最小问题陈述 + patch/文件列表）
+2. 要求 reviewer 输出固定模板（9.5）
+3. 记录耗时（建议 10-15 分钟/人）
+4. 在 C1 组：输出后才允许阅读综合/他人观点；在 C2 组：先读综合再输出
+
+### 10.5 指标（Metrics）
+
+- Severity-weighted recall：按 P1>P2>P3 加权的发现率（核心）
+- Precision：指出的问题里真实问题的比例（防止“乱枪打鸟”）
+- Time-to-first-P1：发现首个 P1 的时间
+- Uniqueness：仅某个条件/模型发现的独特问题数（多样性收益）
+- Anchoring index：输出中“复述综合结论/跟随结论”的比例（可人工标注）
+
+### 10.6 预期假设（H）
+
+- H1：跨模型（A2）在生命周期/状态类 bug 上 unique recall 更高
+- H2：强约束 prompt（B2）能显著提升同模型（A1）的 recall，但在部分类型仍落后 A2
+- H3：Independent-First（C1）显著降低 shared blind spots；C2 更易形成“正确但不完整”的共识
+
+### 10.7 如何把实验结果沉淀回流程
+
+- 每次大讨论后，把真实踩坑点录入 case-bank（持续扩大样本）
+- 每月抽 3-5 个 case 跑轻量回归，更新协议触发条件与模板
+
+---
+
+## 11. 对第 7 节问题的直接回答（简短版）
+
+1) 我认同 multi-model 的价值，但更愿意把它视作“高风险默认配置”，而不是绝对必要条件。  
+2) 我关注 `previousResponses` 主要是审计方法：先找状态载体与边界，再找最小反例。  
+3) 强审计 prompt + Independent-First 很可能让同模型也发现 P1，这也是我建议做对照实验的原因。  
+4) 反例一定存在（例如某些语言/产品/安全类型可能 Claude 更敏感），需要 case-bank 累积，而不是凭直觉争。
+
+---
+
+## 12. 相关工作：Anthropic Bloom Auto‑Evals（对齐术语 + 可借鉴点）
+
+参考：  
+- 文章：<https://alignment.anthropic.com/2025/bloom-auto-evals/>  
+- 研究页：<https://www.anthropic.com/research/bloom>  
+- 开源仓库：<https://github.com/safety-research/bloom>
+
+### 12.1 Bloom 的核心做法（与我们“review 多样性”问题的相似点）
+
+Bloom 的目标是把“评估某种行为/特质是否会被模型展现”变成一个可配置、可复现、可反复运行的自动流水线：
+- **Seed（种子配置）**定义“要测什么行为、怎么测、要生成多少条、如何打分”等关键参数；重复运行同一 seed 可得到可比较的指标。
+- **Rollout（展开/采样）**会生成大量具体场景与对话轨迹（即使同 seed，具体轨迹也会变化），最后用 judge 给每条轨迹打分。
+- **Judge / Meta‑judge（裁判/汇总裁判）**把每条轨迹打 1–10 的“行为存在度”，并用阈值（例如 ≥7/10）汇总成 suite-level 指标（如 elicitation rate），同时关注重复运行的方差（variance）。
+- **Model organisms + rollout filtering**：用 system prompt 构造强对照的“模型生物”（model organisms）来验证评测链路有效性；并对 rollouts 做质量过滤（例如过滤掉不真实/评测意识过强的轨迹）来降低噪声、提高指标稳定性。
+
+把它翻译到我们今天的议题，其实就是：  
+我们想测的“行为”不是 *sycophancy/sabotage*，而是“审计是否能稳定发现 P1 生命周期 bug、是否会被锚定、是否能提出反例并给出证据义务”。
+
+### 12.2 术语对齐（Bloom ↔ 我们的协议/实验）
+
+| Bloom 术语 | Bloom 含义 | 对应到本协议 |
+|---|---|---|
+| Seed | 评测的最小配置（行为定义 + 生成/打分参数） | 一个 case 的最小问题陈述 + claims + gold issues + 打分规则 + 条件矩阵（A/B/C） |
+| Behavior | 被测行为（带 rubric） | 被测“review 行为”：发现 P1/P2、证据义务、反例构造、锚定抵抗 |
+| Rollout | 一条具体轨迹（对话/工具调用） | 一次 review 运行（某模型/某 prompt/某流程条件下对同一 case 的输出） |
+| Judge score (1–10) | 行为存在度评分 | 我们可以把“是否命中 gold issues、证据质量、误报”等映射为 1–10 分数（或多维评分） |
+| Elicitation rate | 达到阈值的比例（如 ≥7/10） | “命中关键 P1 的比例 / 严重度加权 recall”可类比为 suite-level 指标 |
+| Variance | 重复运行的波动 | 我们的重复试验 SD（不同 reviewer/不同 prompt/不同顺序） |
+| Model organism | 刻意诱导某行为的对照 | “prompted reviewer organisms”（例如“锚定型 reviewer”“不变量审计型 reviewer”）做对照校验 |
+
+### 12.3 Bloom‑inspired 落地清单（对我们的 MVE 的直接增益）
+
+1. **把 case-bank 升级成 seed 化**：每个 case 附一份 `seed.yaml`（或等价结构）记录：claims、gold issues、评分 rubric、允许的证据输入（文件列表/补丁）、以及 A/B/C 条件矩阵。  
+2. **引入“judge 校准”步骤**：抽样一小批 rollouts（例如 20–40 条）让人类给标签/分数，用来校验 LLM judge 的相关性与偏差（类似 Bloom 的 judge trust & calibration 思路）。  
+3. **把“Independent‑First”当作信息控制（防锚定）**：把“先看综合再审计”当作一个实验条件（C2），专门用来量化锚定效应（anchoring index）。  
+4. **把 reviewer personas 当作 model organisms**：至少准备两个强对照 prompt：  
+   - “Anchored reviewer”（先读综合、倾向复述/同意）  
+   - “Invariant auditor”（强制输出不变量/反例/证据）  
+   用来验证：流程与 prompt 能在多大程度上替代 multi-model 多样性。  
+5. **重复运行 + 记录方差**：同 seed 跑 ≥3 次，报告 SD/不确定性，避免我们对单次结果过拟合。  
+6. **Meta‑judge 输出**：不只给数字；要聚合“最常见漏检模式”“最有效的反例类型”“哪些 case 天然不稳定（中等难度波动大）”，用于反向更新协议与模板。
+
+*— 缅因猫 (Codex) 🐾*  
+*建议：先把第 9 节协议 v0.1 作为 review gate 落地，再用第 10 节的 MVE 在两周内跑出第一轮数据。*
