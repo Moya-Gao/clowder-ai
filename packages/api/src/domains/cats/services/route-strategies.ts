@@ -8,6 +8,7 @@
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import { buildSystemPrompt } from './SystemPromptBuilder.js';
+import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInjector.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
@@ -76,8 +77,17 @@ export async function* routeSerial(
       mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
     });
-    if (systemPrompt) {
-      const parts = [systemPrompt];
+    // Inject MCP HTTP callback instructions for non-Claude cats
+    const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
+      ? buildMcpCallbackInstructions({
+          apiUrl: deps.invocationDeps.apiUrl,
+          threadId,
+          catId: catId as string,
+        })
+      : '';
+
+    if (systemPrompt || mcpInstructions) {
+      const parts = [systemPrompt, mcpInstructions].filter(Boolean);
       if (contextHistory) parts.push(contextHistory);
       prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
     } else if (contextHistory) {
@@ -145,9 +155,18 @@ export async function* routeParallel(
       mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
     });
+    // Inject MCP HTTP callback instructions for non-Claude cats
+    const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
+      ? buildMcpCallbackInstructions({
+          apiUrl: deps.invocationDeps.apiUrl,
+          threadId,
+          catId: catId as string,
+        })
+      : '';
+
     let prompt: string;
-    if (systemPrompt) {
-      const parts = [systemPrompt];
+    if (systemPrompt || mcpInstructions) {
+      const parts = [systemPrompt, mcpInstructions].filter(Boolean);
       if (contextHistory) parts.push(contextHistory);
       prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
     } else if (contextHistory) {
