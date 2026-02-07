@@ -116,4 +116,44 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.a2a.maxDepth, 2);
     assert.equal(snapshot.a2a.enabled, true);
   });
+
+  it('has perCatBudgets for all three cats', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.perCatBudgets, 'has perCatBudgets');
+    assert.ok(snapshot.perCatBudgets.opus, 'has opus budget');
+    assert.ok(snapshot.perCatBudgets.codex, 'has codex budget');
+    assert.ok(snapshot.perCatBudgets.gemini, 'has gemini budget');
+  });
+
+  it('perCatBudgets contains all budget fields', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    const opusBudget = snapshot.perCatBudgets.opus;
+    assert.ok(opusBudget.maxPromptChars > 0, 'opus has maxPromptChars');
+    assert.ok(opusBudget.maxContextChars > 0, 'opus has maxContextChars');
+    assert.ok(opusBudget.maxMessages > 0, 'opus has maxMessages');
+    assert.ok(opusBudget.maxContentLengthPerMsg > 0, 'opus has maxContentLengthPerMsg');
+  });
+
+  it('context section has deprecation note', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.context.note, 'context has note');
+    assert.ok(snapshot.context.note.includes('perCatBudgets'), 'note mentions perCatBudgets');
+  });
+
+  it('perCatBudgets reflects different budgets per cat', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    // codex has lower budget than opus (80k vs 150k)
+    assert.ok(
+      snapshot.perCatBudgets.codex.maxPromptChars < snapshot.perCatBudgets.opus.maxPromptChars,
+      'codex should have lower maxPromptChars than opus'
+    );
+  });
 });

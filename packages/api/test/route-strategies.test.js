@@ -329,6 +329,58 @@ describe('routeSerial resilience', () => {
   });
 });
 
+describe('routeSerial per-cat budget', () => {
+  it('uses history for context assembly when provided', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const captureService = createCapturingService('opus', 'response');
+    const deps = createMockDeps({ opus: captureService });
+
+    // Provide history in options
+    const history = [
+      { id: 'm1', threadId: 'thread1', userId: 'user1', catId: null, content: '之前说了什么', mentions: [], timestamp: Date.now() - 1000 },
+      { id: 'm2', threadId: 'thread1', userId: 'user1', catId: 'opus', content: '我回复了', mentions: [], timestamp: Date.now() - 500 },
+    ];
+
+    for await (const _ of routeSerial(deps, ['opus'], 'new message', 'user1', 'thread1', { history })) {}
+
+    // Check that prompt includes context from history
+    assert.equal(captureService.calls.length, 1, 'opus should be called once');
+    const prompt = captureService.calls[0];
+    assert.ok(prompt.includes('对话历史'), 'prompt should include history header');
+    assert.ok(prompt.includes('之前说了什么'), 'prompt should include history content');
+  });
+
+  it('falls back to legacy contextHistory when provided', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const captureService = createCapturingService('opus', 'response');
+    const deps = createMockDeps({ opus: captureService });
+
+    for await (const _ of routeSerial(deps, ['opus'], 'msg', 'user1', 'thread1', { contextHistory: '[对话历史] 测试上下文' })) {}
+
+    const prompt = captureService.calls[0];
+    assert.ok(prompt.includes('[对话历史] 测试上下文'), 'prompt should include legacy contextHistory');
+  });
+});
+
+describe('routeParallel per-cat budget', () => {
+  it('uses history for context assembly when provided', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const opusService = createCapturingService('opus', 'opus says');
+    const codexService = createCapturingService('codex', 'codex says');
+    const deps = createMockDeps({ opus: opusService, codex: codexService });
+
+    const history = [
+      { id: 'm1', threadId: 'thread1', userId: 'user1', catId: null, content: '历史消息', mentions: [], timestamp: Date.now() - 1000 },
+    ];
+
+    for await (const _ of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { history })) {}
+
+    // Both cats should receive history in their prompts
+    assert.ok(opusService.calls[0].includes('对话历史'), 'opus prompt should include history');
+    assert.ok(codexService.calls[0].includes('历史消息'), 'codex prompt should include history content');
+  });
+});
+
 describe('routeParallel A2A safety', () => {
   it('does not chain A2A even when mentions are detected', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');

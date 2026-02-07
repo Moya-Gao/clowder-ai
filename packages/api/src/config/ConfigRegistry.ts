@@ -7,15 +7,24 @@
  */
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
+import type { ContextBudget } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
+import { getAllCatBudgets } from './cat-budgets.js';
 
 export interface ConfigSnapshot {
   context: {
+    /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default. */
     maxMessages: number;
+    /** @deprecated Use perCatBudgets for actual limits. */
     maxContentLength: number;
+    /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default, overridden per-cat at route time. */
     maxTotalChars: number;
+    /** @deprecated Use perCatBudgets for actual limits. */
     maxPromptChars: number;
+    note: string;
   };
+  /** Per-cat context budgets (Phase 4.0) — the actual limits used at route time */
+  perCatBudgets: Record<string, ContextBudget>;
   cli: {
     timeoutMs: number;
     killGraceMs: number;
@@ -97,7 +106,14 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const a2aMaxDepth = Number(env['MAX_A2A_DEPTH']) || 2;
 
   return {
-    context: { maxMessages, maxContentLength, maxTotalChars, maxPromptChars },
+    context: {
+      maxMessages,
+      maxContentLength,
+      maxTotalChars,
+      maxPromptChars,
+      note: 'These are assembleContext defaults; see perCatBudgets for actual per-cat limits',
+    },
+    perCatBudgets: getAllCatBudgets(),
     cli: { timeoutMs, killGraceMs },
     storage: { messageTTL, threadTTL, taskTTL, maxMessages: maxMessagesStore, maxThreads },
     upload: { maxFileSize, maxFiles },

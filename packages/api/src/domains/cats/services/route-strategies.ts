@@ -12,10 +12,12 @@ import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInje
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
-import type { IMessageStore } from './MessageStore.js';
+import type { IMessageStore, StoredMessage } from './MessageStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
+import { assembleContext } from './ContextAssembler.js';
+import { getCatContextBudget } from '../../../config/cat-budgets.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -30,7 +32,10 @@ export interface RouteOptions {
   uploadDir?: string | undefined;
   signal?: AbortSignal | undefined;
   promptTags?: readonly string[] | undefined;
+  /** Pre-assembled context (deprecated: use history for per-cat budget) */
   contextHistory?: string | undefined;
+  /** Raw thread history for per-cat context assembly */
+  history?: StoredMessage[] | undefined;
   /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
   maxA2ADepth?: number | undefined;
 }
@@ -60,7 +65,7 @@ export async function* routeSerial(
   threadId: string,
   options: RouteOptions = {},
 ): AsyncIterable<AgentMessage> {
-  const { contentBlocks, uploadDir, signal, promptTags, contextHistory } = options;
+  const { contentBlocks, uploadDir, signal, promptTags, contextHistory, history } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
 
@@ -102,12 +107,27 @@ export async function* routeSerial(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
+    // Per-cat context budget (Phase 4.0): assemble context with cat-specific limits
+    let catContextHistory = contextHistory; // fallback to legacy pre-assembled
+    if (history && history.length > 0 && !contextHistory) {
+      const catName = catId as 'opus' | 'codex' | 'gemini';
+      const budget = getCatContextBudget(catName);
+      // Reserve space for system prompt (~300), user message, overhead (~1000)
+      const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
+      const { contextText } = assembleContext(history, {
+        maxMessages: budget.maxMessages,
+        maxContentLength: budget.maxContentLengthPerMsg,
+        maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+      });
+      catContextHistory = contextText || undefined;
+    }
+
     if (systemPrompt || mcpInstructions) {
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      if (contextHistory) parts.push(contextHistory);
+      if (catContextHistory) parts.push(catContextHistory);
       prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
-    } else if (contextHistory) {
-      prompt = `${contextHistory}\n\n---\n\n${prompt}`;
+    } else if (catContextHistory) {
+      prompt = `${catContextHistory}\n\n---\n\n${prompt}`;
     }
 
     let textContent = '';
@@ -216,7 +236,7 @@ export async function* routeParallel(
   threadId: string,
   options: RouteOptions = {},
 ): AsyncIterable<AgentMessage> {
-  const { contentBlocks, uploadDir, signal, promptTags, contextHistory } = options;
+  const { contentBlocks, uploadDir, signal, promptTags, contextHistory, history } = options;
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
 
   const streams = targetCats.map((catId) => {
@@ -233,13 +253,27 @@ export async function* routeParallel(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
+    // Per-cat context budget (Phase 4.0)
+    let catContextHistory = contextHistory;
+    if (history && history.length > 0 && !contextHistory) {
+      const catName = catId as 'opus' | 'codex' | 'gemini';
+      const budget = getCatContextBudget(catName);
+      const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
+      const { contextText } = assembleContext(history, {
+        maxMessages: budget.maxMessages,
+        maxContentLength: budget.maxContentLengthPerMsg,
+        maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+      });
+      catContextHistory = contextText || undefined;
+    }
+
     let prompt: string;
     if (systemPrompt || mcpInstructions) {
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      if (contextHistory) parts.push(contextHistory);
+      if (catContextHistory) parts.push(catContextHistory);
       prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
-    } else if (contextHistory) {
-      prompt = `${contextHistory}\n\n---\n\n${message}`;
+    } else if (catContextHistory) {
+      prompt = `${catContextHistory}\n\n---\n\n${message}`;
     } else {
       prompt = message;
     }
