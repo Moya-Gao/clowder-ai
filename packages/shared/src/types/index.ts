@@ -73,3 +73,9 @@ export type {
   CreateTaskInput,
   UpdateTaskInput,
 } from './task.js';
+
+// Summary types (拍立得照片墙)
+export type {
+  ThreadSummary,
+  CreateSummaryInput,
+} from './summary.js';
