@@ -29,6 +29,8 @@ export { SummaryStore } from './SummaryStore.js';
 export type { ISummaryStore } from './SummaryStore.js';
 export { RedisSummaryStore } from './RedisSummaryStore.js';
 export { createSummaryStore } from './SummaryStoreFactory.js';
+export { routeSerial, routeParallel } from './route-strategies.js';
+export type { RouteStrategyDeps, RouteOptions } from './route-strategies.js';
 export { assembleContext, formatMessage } from './ContextAssembler.js';
 export type { AssembledContext, ContextAssemblerOptions } from './ContextAssembler.js';
 export { buildSystemPrompt } from './SystemPromptBuilder.js';
