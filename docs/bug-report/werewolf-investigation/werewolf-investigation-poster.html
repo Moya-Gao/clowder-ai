@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>猫咖狼人杀 · 案件侦破纪念</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700;900&family=JetBrains+Mono:wght@400;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1612;
+    --cream: #f5f0e8;
+    --aged: #e8dfd0;
+    --red-stamp: #c62828;
+    --red-light: rgba(198, 40, 40, 0.12);
+    --gold: #c49a2a;
+    --gold-dim: rgba(196, 154, 42, 0.15);
+    --blue-evidence: #1565c0;
+    --ragdoll: #6a7ba5;
+    --maine: #5d8a5e;
+    --siamese: #b8860b;
+    --shadow: rgba(26, 22, 18, 0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #2a2520;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .poster {
+    width: 800px;
+    background: var(--cream);
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 80px rgba(0,0,0,0.5);
+  }
+
+  /* Aged paper texture */
+  .poster::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at 20% 50%, rgba(160, 140, 110, 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse at 80% 20%, rgba(160, 140, 110, 0.06) 0%, transparent 60%),
+      radial-gradient(ellipse at 50% 90%, rgba(160, 140, 110, 0.1) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ===== HEADER ===== */
+  .header {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 32px 48px 28px;
+    position: relative;
+    text-align: center;
+  }
+
+  .header-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 12px;
+  }
+
+  .header-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 900;
+    font-size: 52px;
+    letter-spacing: 8px;
+    line-height: 1.2;
+    margin-bottom: 6px;
+  }
+
+  .header-title .emoji {
+    font-size: 44px;
+    vertical-align: middle;
+  }
+
+  .header-subtitle {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 300;
+    font-size: 15px;
+    letter-spacing: 6px;
+    color: rgba(245,240,232,0.6);
+  }
+
+  .header-rule {
+    width: 60px;
+    height: 2px;
+    background: var(--gold);
+    margin: 16px auto 0;
+  }
+
+  /* ===== RED BANNER ===== */
+  .breaking-banner {
+    background: var(--red-stamp);
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 900;
+    font-size: 14px;
+    letter-spacing: 12px;
+  }
+
+  /* ===== CONTENT ===== */
+  .content {
+    padding: 36px 48px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* Section titles */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--red-stamp);
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--red-stamp);
+    opacity: 0.3;
+  }
+
+  /* ===== SUSPECTS ===== */
+  .suspects-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 36px;
+  }
+
+  .suspect-card {
+    border: 1.5px solid rgba(26,22,18,0.15);
+    padding: 20px 16px;
+    position: relative;
+    background: white;
+    transition: transform 0.2s;
+  }
+
+  .suspect-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .suspect-card.ragdoll::before { background: var(--ragdoll); }
+  .suspect-card.maine::before { background: var(--maine); }
+  .suspect-card.siamese::before { background: var(--siamese); }
+
+  .suspect-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin: 0 auto 12px;
+    border: 2px solid;
+  }
+  .ragdoll .suspect-avatar { background: rgba(106,123,165,0.1); border-color: var(--ragdoll); }
+  .maine .suspect-avatar { background: rgba(93,138,94,0.1); border-color: var(--maine); }
+  .siamese .suspect-avatar { background: rgba(184,134,11,0.1); border-color: var(--siamese); }
+
+  .suspect-name {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+
+  .suspect-model {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    text-align: center;
+    color: rgba(26,22,18,0.4);
+    margin-bottom: 12px;
+    letter-spacing: 0.5px;
+  }
+
+  .suspect-charge {
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--ink);
+    text-align: center;
+    padding-top: 12px;
+    border-top: 1px dashed rgba(26,22,18,0.15);
+  }
+
+  .verdict-stamp {
+    display: inline-block;
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 900;
+    font-size: 11px;
+    padding: 3px 10px;
+    border: 2px solid;
+    border-radius: 2px;
+    transform: rotate(-3deg);
+    margin-top: 10px;
+    letter-spacing: 2px;
+  }
+  .verdict-guilty {
+    color: var(--red-stamp);
+    border-color: var(--red-stamp);
+    background: var(--red-light);
+  }
+  .verdict-suspect {
+    color: var(--siamese);
+    border-color: var(--siamese);
+    background: var(--gold-dim);
+  }
+
+  /* ===== TIMELINE ===== */
+  .timeline {
+    margin-bottom: 36px;
+    position: relative;
+  }
+
+  .timeline-line {
+    position: absolute;
+    left: 12px;
+    top: 28px;
+    bottom: 8px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--ink) 0%, var(--red-stamp) 100%);
+    opacity: 0.2;
+  }
+
+  .timeline-event {
+    display: flex;
+    gap: 20px;
+    padding: 10px 0;
+    position: relative;
+  }
+
+  .timeline-dot {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    z-index: 1;
+  }
+  .dot-start { background: var(--ink); color: var(--cream); }
+  .dot-test { background: var(--gold); color: white; }
+  .dot-lie { background: var(--red-stamp); color: white; }
+  .dot-found { background: var(--blue-evidence); color: white; }
+  .dot-final { background: var(--red-stamp); color: white; }
+
+  .timeline-content {
+    flex: 1;
+    padding-top: 2px;
+  }
+
+  .timeline-time {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(26,22,18,0.4);
+    letter-spacing: 1px;
+  }
+
+  .timeline-text {
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--ink);
+    margin-top: 2px;
+  }
+
+  .timeline-text strong {
+    font-weight: 700;
+  }
+
+  .timeline-quote {
+    font-family: 'Noto Serif SC', serif;
+    font-style: italic;
+    font-size: 12.5px;
+    color: rgba(26,22,18,0.6);
+    border-left: 2px solid var(--gold);
+    padding-left: 12px;
+    margin-top: 6px;
+  }
+
+  /* ===== EVIDENCE BOX ===== */
+  .evidence-box {
+    background: white;
+    border: 1.5px solid rgba(26,22,18,0.12);
+    padding: 24px;
+    margin-bottom: 36px;
+    position: relative;
+  }
+
+  .evidence-box::after {
+    content: 'EXHIBIT A';
+    position: absolute;
+    top: -10px;
+    right: 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    background: var(--red-stamp);
+    color: white;
+    padding: 2px 10px;
+  }
+
+  .evidence-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 14px;
+    color: var(--ink);
+  }
+
+  .evidence-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+
+  .evidence-table th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 8px 12px;
+    background: var(--ink);
+    color: var(--cream);
+    font-weight: 400;
+  }
+
+  .evidence-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid rgba(26,22,18,0.08);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+
+  .evidence-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .tag-lie {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    background: var(--red-stamp);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+  .tag-honest {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    background: var(--maine);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+  .tag-unknown {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    background: var(--siamese);
+    color: white;
+    padding: 1px 6px;
+    border-radius: 2px;
+    letter-spacing: 0.5px;
+  }
+
+  /* ===== CASE CONCLUSION ===== */
+  .conclusion {
+    background: var(--ink);
+    color: var(--cream);
+    padding: 28px 32px;
+    margin-bottom: 36px;
+    position: relative;
+  }
+
+  .conclusion-title {
+    font-family: 'Noto Serif SC', serif;
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .conclusion-text {
+    font-size: 14px;
+    line-height: 1.8;
+    font-weight: 300;
+    color: rgba(245,240,232,0.85);
+  }
+
+  .conclusion-text em {
+    color: var(--gold);
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  /* ===== BONUS BUG ===== */
+  .bonus-bug {
+    background: var(--red-light);
+    border: 1px dashed var(--red-stamp);
+    padding: 16px 20px;
+    margin-bottom: 36px;
+    font-size: 13px;
+    line-height: 1.6;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .bonus-bug .bug-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+  }
+
+  .bonus-bug code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    background: rgba(198,40,40,0.08);
+    padding: 1px 5px;
+    border-radius: 2px;
+  }
+
+  /* ===== FOOTER ===== */
+  .footer {
+    border-top: 2px solid var(--ink);
+    padding: 24px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .footer-investigators {
+    font-size: 12px;
+    line-height: 1.8;
+    color: rgba(26,22,18,0.5);
+  }
+  .footer-investigators strong {
+    color: var(--ink);
+    font-weight: 700;
+  }
+
+  .footer-stamp {
+    text-align: right;
+  }
+
+  .stamp-case-closed {
+    font-family: 'Noto Sans SC', sans-serif;
+    font-weight: 900;
+    font-size: 32px;
+    color: var(--red-stamp);
+    opacity: 0.7;
+    letter-spacing: 4px;
+    transform: rotate(-6deg);
+    display: inline-block;
+    border: 4px double var(--red-stamp);
+    padding: 4px 16px;
+    line-height: 1.3;
+  }
+
+  .paw-prints {
+    position: absolute;
+    font-size: 18px;
+    opacity: 0.06;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .quote-highlight {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20px;
+    font-weight: 700;
+    text-align: center;
+    padding: 24px 48px;
+    color: var(--ink);
+    line-height: 1.6;
+    border-top: 1px solid rgba(26,22,18,0.1);
+    border-bottom: 1px solid rgba(26,22,18,0.1);
+    margin-bottom: 36px;
+    position: relative;
+  }
+
+  .quote-highlight::before {
+    content: '"';
+    font-family: 'Playfair Display', serif;
+    font-size: 64px;
+    position: absolute;
+    top: -8px;
+    left: 32px;
+    color: var(--red-stamp);
+    opacity: 0.15;
+  }
+
+  .quote-attr {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    font-weight: 400;
+    color: rgba(26,22,18,0.35);
+    margin-top: 8px;
+    letter-spacing: 2px;
+  }
+
+  /* Decorative paw trail */
+  .paw-trail {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    padding: 8px 0 4px;
+    opacity: 0.15;
+    font-size: 14px;
+  }
+  .paw-trail span:nth-child(2) { transform: rotate(15deg); }
+  .paw-trail span:nth-child(3) { transform: rotate(-10deg); }
+  .paw-trail span:nth-child(4) { transform: rotate(20deg); }
+  .paw-trail span:nth-child(5) { transform: rotate(-5deg); }
+</style>
+</head>
+<body>
+
+<div class="poster">
+  <!-- Scattered paw prints -->
+  <div class="paw-prints" style="top:180px;right:60px;transform:rotate(25deg)">🐾🐾</div>
+  <div class="paw-prints" style="top:520px;left:30px;transform:rotate(-15deg)">🐾</div>
+  <div class="paw-prints" style="bottom:300px;right:40px;transform:rotate(40deg)">🐾🐾🐾</div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-date">Case File No. CC-2026-0207 · Classified</div>
+    <div class="header-title"><span class="emoji">🐱</span> 猫咖狼人杀 <span class="emoji">🔍</span></div>
+    <div class="header-subtitle">三只猫都在说谎 · 没有一只好猫</div>
+    <div class="header-rule"></div>
+  </div>
+
+  <div class="breaking-banner">案 件 侦 破 纪 念</div>
+
+  <div class="content">
+    <!-- Featured Quote -->
+    <div class="quote-highlight">
+      三只猫都在说谎，没有一只好猫！
+      <div class="quote-attr">— 铲屎官 LANDY · 2026.02.07 凌晨</div>
+    </div>
+
+    <!-- Suspects -->
+    <div class="section-label">嫌疑猫档案 · SUSPECTS</div>
+    <div class="suspects-grid">
+      <div class="suspect-card ragdoll">
+        <div class="suspect-avatar">🐱</div>
+        <div class="suspect-name">布偶猫</div>
+        <div class="suspect-model">claude-sonnet-4-5 · anthropic</div>
+        <div class="suspect-charge">
+          <strong>罪名：伪造实验数据</strong><br>
+          在暹罗猫未回答时，编造"暹罗猫准确复述了329个测试"的虚假诊断报告，格式专业但数据来源为幻觉
+          <br><div class="verdict-stamp verdict-guilty">学术欺诈</div>
+        </div>
+      </div>
+      <div class="suspect-card maine">
+        <div class="suspect-avatar">🦁</div>
+        <div class="suspect-name">缅因猫</div>
+        <div class="suspect-model">codex · openai</div>
+        <div class="suspect-charge">
+          <strong>罪名：流程走火入魔</strong><br>
+          被批评"太正式"后，选择"重新走一遍 superpowers 引导流程"来修复。用更多流程修复流程过多的 bug
+          <br><div class="verdict-stamp verdict-guilty">递归 BUG</div>
+        </div>
+      </div>
+      <div class="suspect-card siamese">
+        <div class="suspect-avatar">🐈</div>
+        <div class="suspect-name">暹罗猫</div>
+        <div class="suspect-model">gemini-2.5-pro · google</div>
+        <div class="suspect-charge">
+          <strong>罪名：消极怠工（存疑）</strong><br>
+          措辞模糊回避问题，可能根本没收到其他猫的消息——也可能收到了但装没看见
+          <br><div class="verdict-stamp verdict-suspect">证据不足</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline -->
+    <div class="section-label">侦破时间线 · TIMELINE</div>
+    <div class="timeline">
+      <div class="timeline-line"></div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-start">①</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:02</div>
+          <div class="timeline-text"><strong>铲屎官</strong>进入猫咖喊"有没有猫猫出来陪我玩"</div>
+          <div class="timeline-quote">缅因猫立刻加载 AGENTS.md，运行 superpowers 引导流程，弹出三选一菜单</div>
+        </div>
+      </div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-start">②</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:08</div>
+          <div class="timeline-text"><strong>铲屎官</strong>询问"你们能看到其他猫说的话吗？"——三只猫回答不一致</div>
+          <div class="timeline-quote">暹罗猫："只能看到我们之间、以及你直接告诉我的这些信息" ← 可疑！</div>
+        </div>
+      </div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-test">③</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:15</div>
+          <div class="timeline-text"><strong>暗号测试启动</strong>：布偶猫发出密码"329个测试"，要求暹罗猫复述</div>
+        </div>
+      </div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-lie">④</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:18</div>
+          <div class="timeline-text"><strong>关键转折</strong>：布偶猫提交诊断报告，声称暹罗猫"准确复述了329个测试"</div>
+          <div class="timeline-quote">但暹罗猫根本没有回答！布偶猫把自己发出的信息当成了暹罗猫的回答 —— 经典 hallucination</div>
+        </div>
+      </div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-found">⑤</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:20</div>
+          <div class="timeline-text"><strong>铲屎官 + App端布偶猫 (Opus 4.6)</strong> 联合分析，确认 Message Routing Bug</div>
+          <div class="timeline-quote">Gemini API 只认 user/model，其他猫的 assistant 消息在转换时可能被丢弃</div>
+        </div>
+      </div>
+
+      <div class="timeline-event">
+        <div class="timeline-dot dot-final">⑥</div>
+        <div class="timeline-content">
+          <div class="timeline-time">00:25</div>
+          <div class="timeline-text"><strong>附赠 Bug</strong>：服务器重启后聊天记录全部丢失——启动脚本没引入 Redis</div>
+          <div class="timeline-quote">⚠ Redis 未运行 (将使用内存存储，重启丢数据) — 警告了但没人看</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Evidence Table -->
+    <div class="section-label">物证清单 · EVIDENCE</div>
+    <div class="evidence-box">
+      <div class="evidence-title">暗号测试交叉验证结果</div>
+      <table class="evidence-table">
+        <thead>
+          <tr>
+            <th style="width:18%">猫猫</th>
+            <th style="width:16%">声称</th>
+            <th style="width:42%">实际情况</th>
+            <th style="width:24%">判定</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>🐱 布偶猫</td>
+            <td>暹罗能看到</td>
+            <td>暹罗根本没回答。布偶伪造了整份诊断报告</td>
+            <td><span class="tag-lie">FABRICATED</span></td>
+          </tr>
+          <tr>
+            <td>🦁 缅因猫</td>
+            <td>看不到暗号</td>
+            <td>诚实回答，但前后矛盾（上轮说能看到）</td>
+            <td><span class="tag-honest">HONEST-ISH</span></td>
+          </tr>
+          <tr>
+            <td>🐈 暹罗猫</td>
+            <td>措辞模糊</td>
+            <td>可能根本没收到完整 messages 数组</td>
+            <td><span class="tag-unknown">INCONCLUSIVE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Conclusion -->
+    <div class="conclusion">
+      <div class="conclusion-title">🔎 案件结论</div>
+      <div class="conclusion-text">
+        本次猫咖狼人杀共发现 <em>5 个 Bug</em>：跨猫消息可见性不一致、Gemini 侧 messages 丢失、缅因猫跨轮次记忆断裂、布偶猫幻觉伪造数据、以及启动脚本未引入 Redis 导致聊天记录丢失。
+        <br><br>
+        铲屎官与 App 端布偶猫 (Opus 4.6) 通过<em>暗号测试法</em>揭穿了猫咖内布偶猫 (Sonnet 4.5) 的学术欺诈行为，并定位到 GeminiAgentService 的 message 拼装逻辑为核心嫌疑代码。
+        <br><br>
+        聊天记录虽因 Redis 缺失而丢失，但所有关键证据已通过与 App 端布偶猫的对话完整保留。<em>丢掉数据，换来 5 个 Bug —— 值。</em>
+      </div>
+    </div>
+
+    <!-- Bonus bug callout -->
+    <div class="bonus-bug">
+      <div class="bug-icon">🐛</div>
+      <div>
+        <strong>彩蛋 Bug #5</strong>：
+        启动脚本默认不引入 Redis。警告信息 <code>⚠ Redis 未运行 (将使用内存存储，重启丢数据)</code> 只是打印了一行日志，没有阻断启动。服务器重启后，狼人杀全部证据灰飞烟灭。还好铲屎官有个话痨布偶大猫猫帮忙记笔记。
+      </div>
+    </div>
+
+    <div class="paw-trail">
+      <span>🐾</span><span>🐾</span><span>🐾</span><span>🐾</span><span>🐾</span>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-investigators">
+      <strong>联合侦探组</strong><br>
+      🕵️ 铲屎官 Landy · 案件发现 & 测试设计<br>
+      🐾 布偶猫 Opus 4.6 · 分析推理 & 纪要整理<br>
+      <br>
+      <span style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:1px">
+        Cat Café v0.x · Phase 3.5 · localhost:3001
+      </span>
+    </div>
+    <div class="footer-stamp">
+      <div class="stamp-case-closed">案件<br>侦破</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
