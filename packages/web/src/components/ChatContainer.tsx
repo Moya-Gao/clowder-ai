@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useChatStore } from '@/stores/chatStore';
+import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useSocket } from '@/hooks/useSocket';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -187,12 +187,22 @@ export function ChatContainer() {
     async (content: string, images?: File[]) => {
       currentMessageRef.current = null;
 
-      addMessage({
+      const userMsg: ChatMessageData = {
         id: `user-${Date.now()}`,
         type: 'user',
         content,
         timestamp: Date.now(),
-      });
+      };
+      if (images && images.length > 0) {
+        userMsg.contentBlocks = [
+          { type: 'text' as const, text: content },
+          ...images.map((img) => ({
+            type: 'image' as const,
+            url: URL.createObjectURL(img),
+          })),
+        ];
+      }
+      addMessage(userMsg);
 
       setLoading(true);
 
