@@ -12,7 +12,7 @@ import type { StoredMessage } from './MessageStore.js';
 export interface ContextAssemblerOptions {
   /** Maximum number of recent messages to include (default: 20) */
   maxMessages?: number;
-  /** Maximum characters per message content (default: 500) */
+  /** Maximum characters per message content (default: 1500) */
   maxContentLength?: number;
   /** Maximum total characters for assembled context (default: 8000) */
   maxTotalChars?: number;
