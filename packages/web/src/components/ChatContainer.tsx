@@ -41,7 +41,8 @@ export function ChatContainer() {
         const tid = threadId ?? currentThreadId;
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
         if (cursor) params.set('before', cursor);
-        if (tid !== 'default') params.set('threadId', tid);
+        // Always send threadId (including 'default') for proper room isolation
+        params.set('threadId', tid);
         const res = await fetch(`${API_URL}/api/messages?${params}`);
         if (!res.ok) return;
         const data = await res.json();
@@ -198,9 +199,7 @@ export function ChatContainer() {
           // Multipart upload with images
           const formData = new FormData();
           formData.append('content', content);
-          if (currentThreadId !== 'default') {
-            formData.append('threadId', currentThreadId);
-          }
+          formData.append('threadId', currentThreadId);
           for (const img of images) {
             formData.append('images', img);
           }
@@ -215,7 +214,7 @@ export function ChatContainer() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               content,
-              ...(currentThreadId !== 'default' ? { threadId: currentThreadId } : {}),
+              threadId: currentThreadId,
             }),
           });
         }

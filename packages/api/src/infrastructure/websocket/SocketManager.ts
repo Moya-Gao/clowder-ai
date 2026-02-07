@@ -42,16 +42,13 @@ export class SocketManager {
   }
 
   /**
-   * Broadcast agent message, optionally scoped to a thread room.
-   * When threadId is provided, emits only to sockets in that room.
-   * Falls back to global broadcast when no threadId (backwards compatible).
+   * Broadcast agent message to a thread room.
+   * Always scoped to a room — defaults to 'thread:default' when threadId is omitted.
+   * Never broadcasts globally to prevent cross-thread message leak.
    */
   broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
-    if (threadId) {
-      this.io.to(`thread:${threadId}`).emit('agent_message', message);
-    } else {
-      this.io.emit('agent_message', message);
-    }
+    const room = `thread:${threadId ?? 'default'}`;
+    this.io.to(room).emit('agent_message', message);
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {

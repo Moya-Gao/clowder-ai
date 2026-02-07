@@ -14,6 +14,7 @@
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
+import { isUnderAllowedRoot } from '../../../utils/project-path.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 import { SessionManager } from './SessionManager.js';
@@ -194,12 +195,14 @@ export class AgentRouter {
           // Redis read failure — continue without session
         }
 
-        // Resolve workingDirectory from thread's projectPath
+        // Resolve workingDirectory from thread's projectPath (defensive: re-check boundary)
       let workingDirectory: string | undefined;
       if (this.threadStore) {
         const thread = await this.threadStore.get(resolvedThreadId);
         if (thread?.projectPath && thread.projectPath !== 'default') {
-          workingDirectory = thread.projectPath;
+          if (isUnderAllowedRoot(thread.projectPath)) {
+            workingDirectory = thread.projectPath;
+          }
         }
       }
 

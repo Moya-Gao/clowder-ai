@@ -10,6 +10,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import { validateProjectPath } from '../utils/project-path.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -43,6 +44,20 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     }
 
     const { userId, title, projectPath } = parseResult.data;
+
+    // Validate projectPath is a real directory under allowed roots
+    if (projectPath && projectPath !== 'default') {
+      const validated = await validateProjectPath(projectPath);
+      if (!validated) {
+        reply.status(400);
+        return { error: 'Invalid projectPath: must be an existing directory under home' };
+      }
+      // Use canonicalized path (symlinks resolved)
+      const thread = await threadStore.create(userId, title, validated);
+      reply.status(201);
+      return thread;
+    }
+
     const thread = await threadStore.create(userId, title, projectPath);
     reply.status(201);
     return thread;

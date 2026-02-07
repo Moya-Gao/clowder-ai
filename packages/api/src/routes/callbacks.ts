@@ -120,7 +120,10 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const messages = await messageStore.getRecent(limit ?? 20, record.userId);
+      // Scope to the invocation's thread (not user-level global)
+      const messages = record.threadId
+        ? await messageStore.getByThread(record.threadId, limit ?? 20, record.userId)
+        : await messageStore.getRecent(limit ?? 20, record.userId);
       return {
         messages: messages.map((m) => ({
           id: m.id,

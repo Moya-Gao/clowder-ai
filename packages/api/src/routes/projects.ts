@@ -5,9 +5,10 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, realpath } from 'node:fs/promises';
 import { resolve, basename } from 'node:path';
 import { homedir } from 'node:os';
+import { validateProjectPath, isUnderAllowedRoot } from '../utils/project-path.js';
 
 export interface ProjectEntry {
   name: string;
@@ -27,24 +28,15 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     const query = request.query as { path?: string };
     const targetPath = query.path || homedir();
 
-    // Resolve to absolute path
-    const absPath = resolve(targetPath);
-
-    // Safety: only allow paths under home directory or /tmp
-    const home = homedir();
-    if (!absPath.startsWith(home) && !absPath.startsWith('/tmp')) {
+    // Validate path: realpath() resolves symlinks, then boundary check
+    const validatedPath = await validateProjectPath(targetPath);
+    if (!validatedPath) {
       reply.status(403);
-      return { error: 'Access denied: path must be under home directory' };
+      return { error: 'Access denied: path must be an existing directory under home' };
     }
 
     try {
-      const info = await stat(absPath);
-      if (!info.isDirectory()) {
-        reply.status(400);
-        return { error: 'Not a directory' };
-      }
-
-      const entries = await readdir(absPath, { withFileTypes: true });
+      const entries = await readdir(validatedPath, { withFileTypes: true });
       const dirs: ProjectEntry[] = [];
 
       for (const entry of entries) {
@@ -54,26 +46,30 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
         if (entry.name === 'node_modules') continue;
 
         if (entry.isDirectory()) {
-          dirs.push({
-            name: entry.name,
-            path: resolve(absPath, entry.name),
-            isDirectory: true,
-          });
+          // Resolve child realpath to prevent symlink escape in entries
+          const childPath = resolve(validatedPath, entry.name);
+          try {
+            const childReal = await realpath(childPath);
+            if (!isUnderAllowedRoot(childReal)) continue;
+            dirs.push({ name: entry.name, path: childReal, isDirectory: true });
+          } catch {
+            continue; // broken symlink or permission error
+          }
         }
       }
 
       // Sort alphabetically
       dirs.sort((a, b) => a.name.localeCompare(b.name));
 
-      // Compute parent
-      const parentParts = absPath.split('/');
+      // Compute parent (use validatedPath which is already canonicalized)
+      const parentParts = validatedPath.split('/');
       parentParts.pop();
       const parent = parentParts.length > 0 ? parentParts.join('/') || '/' : null;
-      const canGoUp = parent !== null && parent.startsWith(home);
+      const canGoUp = parent !== null && isUnderAllowedRoot(parent);
 
       return {
-        current: absPath,
-        name: basename(absPath),
+        current: validatedPath,
+        name: basename(validatedPath),
         parent: canGoUp ? parent : null,
         entries: dirs,
       };

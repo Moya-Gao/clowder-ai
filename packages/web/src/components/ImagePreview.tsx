@@ -1,11 +1,27 @@
 'use client';
 
+import { useEffect, useMemo } from 'react';
+
 interface ImagePreviewProps {
   files: File[];
   onRemove: (index: number) => void;
 }
 
 export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
+  // Create object URLs once per file set, revoke on cleanup
+  const urls = useMemo(
+    () => files.map((f) => URL.createObjectURL(f)),
+    [files]
+  );
+
+  useEffect(() => {
+    return () => {
+      for (const url of urls) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [urls]);
+
   if (files.length === 0) return null;
 
   return (
@@ -13,7 +29,7 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
       {files.map((file, i) => (
         <div key={`${file.name}-${i}`} className="relative flex-shrink-0 group">
           <img
-            src={URL.createObjectURL(file)}
+            src={urls[i]}
             alt={file.name}
             className="w-16 h-16 object-cover rounded-lg border border-gray-200"
           />

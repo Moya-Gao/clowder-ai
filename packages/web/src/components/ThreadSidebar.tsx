@@ -299,30 +299,32 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
       });
       if (!res.ok) return;
       const thread: Thread = await res.json();
-      setThreads([thread, ...threads]);
       setCurrentThread(thread.id);
       if (projectPath) setCurrentProject(projectPath);
       onThreadSwitch(thread.id);
+      // Reload full list from server (avoids stale closure)
+      await loadThreads();
     } catch {
       // Silently ignore
     } finally {
       setIsCreating(false);
     }
-  }, [threads, setThreads, setCurrentThread, setCurrentProject, onThreadSwitch]);
+  }, [setCurrentThread, setCurrentProject, onThreadSwitch, loadThreads]);
 
   const handleDelete = useCallback(async (threadId: string) => {
     try {
       const res = await fetch(`${API_URL}/api/threads/${threadId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) return;
-      setThreads(threads.filter((t) => t.id !== threadId));
       if (threadId === currentThreadId) {
         setCurrentThread('default');
         onThreadSwitch('default');
       }
+      // Reload full list from server (avoids stale closure)
+      await loadThreads();
     } catch {
       // Silently ignore
     }
-  }, [threads, currentThreadId, setThreads, setCurrentThread, onThreadSwitch]);
+  }, [currentThreadId, setCurrentThread, onThreadSwitch, loadThreads]);
 
   const handleSelect = useCallback(
     (threadId: string) => {

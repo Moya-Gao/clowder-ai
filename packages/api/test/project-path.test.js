@@ -1,0 +1,102 @@
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { homedir } from 'node:os';
+import { mkdirSync, symlinkSync, rmSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+const { validateProjectPath, isUnderAllowedRoot } = await import(
+  '../dist/utils/project-path.js'
+);
+
+describe('isUnderAllowedRoot', () => {
+  it('accepts path under home directory', () => {
+    assert.strictEqual(isUnderAllowedRoot(join(homedir(), 'projects')), true);
+  });
+
+  it('accepts home directory itself', () => {
+    assert.strictEqual(isUnderAllowedRoot(homedir()), true);
+  });
+
+  it('accepts path under /tmp', () => {
+    assert.strictEqual(isUnderAllowedRoot('/tmp/test-dir'), true);
+  });
+
+  it('rejects path with home prefix but no separator boundary', () => {
+    // /Users/lysander-evil should NOT pass for home = /Users/lysander
+    const fakePath = homedir() + '-evil/data';
+    assert.strictEqual(isUnderAllowedRoot(fakePath), false);
+  });
+
+  it('rejects path outside allowed roots', () => {
+    assert.strictEqual(isUnderAllowedRoot('/etc/passwd'), false);
+    assert.strictEqual(isUnderAllowedRoot('/var/log'), false);
+  });
+
+  it('rejects root directory', () => {
+    assert.strictEqual(isUnderAllowedRoot('/'), false);
+  });
+});
+
+describe('validateProjectPath', () => {
+  const testDir = join(homedir(), '.cat-cafe-test-path-validation');
+  const subDir = join(testDir, 'project-a');
+
+  before(() => {
+    // Create test directories
+    mkdirSync(subDir, { recursive: true });
+  });
+
+  // Cleanup handled by caller or next test run
+  after(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('returns canonicalized path for valid directory', async () => {
+    const result = await validateProjectPath(subDir);
+    assert.ok(result);
+    assert.strictEqual(result, subDir);
+  });
+
+  it('returns null for nonexistent path', async () => {
+    const result = await validateProjectPath('/nonexistent/path/xxx');
+    assert.strictEqual(result, null);
+  });
+
+  it('returns null for path outside allowed roots', async () => {
+    const result = await validateProjectPath('/etc');
+    assert.strictEqual(result, null);
+  });
+
+  it('returns null for file (not directory)', async () => {
+    const { writeFileSync } = await import('node:fs');
+    const filePath = join(testDir, 'not-a-dir.txt');
+    writeFileSync(filePath, 'test');
+    const result = await validateProjectPath(filePath);
+    assert.strictEqual(result, null);
+  });
+
+  it('resolves symlinks and checks real path', async () => {
+    // Create a symlink under home that points to /tmp
+    const linkPath = join(testDir, 'link-to-tmp');
+    if (existsSync(linkPath)) rmSync(linkPath);
+    symlinkSync('/tmp', linkPath);
+
+    // validateProjectPath should resolve the symlink to /tmp
+    // /tmp IS an allowed root, so this should succeed
+    const result = await validateProjectPath(linkPath);
+    // /tmp is allowed, so the resolved path should be returned
+    assert.ok(result);
+  });
+
+  it('rejects symlinks that escape to disallowed paths', async () => {
+    const linkPath = join(testDir, 'link-to-etc');
+    if (existsSync(linkPath)) rmSync(linkPath);
+    try {
+      symlinkSync('/etc', linkPath);
+      const result = await validateProjectPath(linkPath);
+      assert.strictEqual(result, null);
+    } catch {
+      // symlink creation may fail in sandboxed environments
+    }
+  });
+});

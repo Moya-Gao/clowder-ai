@@ -91,13 +91,15 @@ function renderContentBlocks(blocks: MessageContent[]) {
       const src = block.url.startsWith('/uploads/')
         ? `${API_URL}${block.url}`
         : block.url;
+      // Only allow safe schemes for window.open (prevent javascript: XSS)
+      const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
       return (
         <img
           key={i}
           src={src}
           alt="attached image"
           className="max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => window.open(src, '_blank')}
+          onClick={() => isSafeUrl && window.open(src, '_blank', 'noopener')}
         />
       );
     }

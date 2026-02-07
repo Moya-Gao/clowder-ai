@@ -98,13 +98,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       ({ content, userId, threadId } = parseResult.data);
     }
 
+    // Default to 'default' thread for lobby (prevents global broadcast)
+    const resolvedThreadId = threadId ?? 'default';
+
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket
     void (async () => {
       try {
-        for await (const msg of router.route(userId, content, threadId, contentBlocks, uploadDir)) {
-          opts.socketManager.broadcastAgentMessage(msg, threadId);
+        for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir)) {
+          opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
         }
       } catch (err) {
         console.error('[messages] Background processing error:', err);
@@ -113,7 +116,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           catId: createCatId('opus'),
           error: err instanceof Error ? err.message : 'Unknown error',
           timestamp: Date.now(),
-        }, threadId);
+        }, resolvedThreadId);
       }
     })();
   });
@@ -142,17 +145,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
     }
 
-    // Thread-scoped or global query
-    let messages;
-    if (threadId) {
-      messages = beforeTs != null
-        ? await opts.messageStore.getByThreadBefore(threadId, beforeTs, limit + 1, beforeId, userId)
-        : await opts.messageStore.getByThread(threadId, limit + 1, userId);
-    } else {
-      messages = beforeTs != null
-        ? await opts.messageStore.getBefore(beforeTs, limit + 1, userId, beforeId)
-        : await opts.messageStore.getRecent(limit + 1, userId);
-    }
+    // Always thread-scoped — default to 'default' thread for lobby
+    const resolvedThreadId = threadId ?? 'default';
+    const messages = beforeTs != null
+      ? await opts.messageStore.getByThreadBefore(resolvedThreadId, beforeTs, limit + 1, beforeId, userId)
+      : await opts.messageStore.getByThread(resolvedThreadId, limit + 1, userId);
 
     // Fetch limit+1 to determine hasMore; drop oldest (first) probe item
     const hasMore = messages.length > limit;
