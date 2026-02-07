@@ -72,7 +72,7 @@ export function buildSystemPrompt(context: InvocationContext): string {
       }
     }
   }
-  lines.push('铲屎官是真人用户，是你们的老板。', '');
+  lines.push('铲屎官是真人用户，是团队的共创伙伴。重要决策时由铲屎官拍板。', '');
 
   // A2A collaboration (only in serial/execute mode, not parallel/ideate)
   // Callable cats = ALL cats except self (not just current invocation teammates),
