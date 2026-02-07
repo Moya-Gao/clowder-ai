@@ -26,7 +26,7 @@ export interface AssembledContext {
 }
 
 const DEFAULT_MAX_MESSAGES = 20;
-const DEFAULT_MAX_CONTENT_LENGTH = 500;
+const DEFAULT_MAX_CONTENT_LENGTH = 1500;
 const DEFAULT_MAX_TOTAL_CHARS = 8000;
 
 /**
@@ -74,7 +74,8 @@ export function assembleContext(
   options?: ContextAssemblerOptions,
 ): AssembledContext {
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES;
-  const maxContentLength = options?.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
+  const maxContentLength = options?.maxContentLength
+    ?? (Number(process.env['MAX_CONTEXT_MSG_CHARS']) || DEFAULT_MAX_CONTENT_LENGTH);
   const maxTotalChars = options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
 
   if (messages.length === 0) {

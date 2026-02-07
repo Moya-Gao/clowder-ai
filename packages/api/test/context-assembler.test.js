@@ -173,7 +173,7 @@ describe('assembleContext', () => {
     assert.ok(result.contextText.includes('猫猫回复'));
   });
 
-  test('uses default maxMessages=20 and maxContentLength=500', async () => {
+  test('uses default maxMessages=20 and maxContentLength=1500', async () => {
     const { assembleContext } = await import(
       '../dist/domains/cats/services/ContextAssembler.js'
     );
@@ -183,6 +183,34 @@ describe('assembleContext', () => {
     const result = assembleContext(msgs);
     assert.equal(result.messageCount, 20);
     assert.ok(result.contextText.includes('最近 20 条'));
+  });
+
+  test('default maxContentLength=1500 does not truncate 600-char messages', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const content = 'A'.repeat(600);
+    const msgs = [mockMsg({ content })];
+    const result = assembleContext(msgs);
+    // 600 chars < 1500 default, so should NOT be truncated
+    assert.ok(result.contextText.includes(content), 'should contain full 600 chars');
+    assert.ok(!result.contextText.includes('...'), 'should not have truncation marker');
+  });
+
+  test('respects MAX_CONTEXT_MSG_CHARS env var override', async () => {
+    process.env['MAX_CONTEXT_MSG_CHARS'] = '200';
+    try {
+      // Re-import to pick up env var (assembleContext reads env at call time)
+      const { assembleContext: ac } = await import(
+        '../dist/domains/cats/services/ContextAssembler.js'
+      );
+      const msgs = [mockMsg({ content: 'B'.repeat(300) })];
+      const result = ac(msgs);
+      // 300 chars > 200 env limit, should be truncated
+      assert.ok(result.contextText.includes('B'.repeat(200) + '...'), 'should truncate at env limit');
+    } finally {
+      delete process.env['MAX_CONTEXT_MSG_CHARS'];
+    }
   });
 
   test('maxTotalChars limits context to fit within budget', async () => {
