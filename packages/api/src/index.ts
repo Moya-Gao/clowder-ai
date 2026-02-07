@@ -10,7 +10,7 @@ import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
-import { ThreadStore } from './domains/cats/services/ThreadStore.js';
+import { createThreadStore } from './domains/cats/services/ThreadStoreFactory.js';
 import { TaskStore } from './domains/cats/services/TaskStore.js';
 import { SummaryStore } from './domains/cats/services/SummaryStore.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
@@ -56,7 +56,7 @@ async function main(): Promise<void> {
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
-  const threadStore = new ThreadStore();
+  const threadStore = createThreadStore(redis);
   const taskStore = new TaskStore();
   const summaryStore = new SummaryStore();
 

@@ -19,6 +19,8 @@ export { createMessageStore } from './MessageStoreFactory.js';
 export type { AnyMessageStore } from './MessageStoreFactory.js';
 export { ThreadStore, DEFAULT_THREAD_ID } from './ThreadStore.js';
 export type { Thread, IThreadStore } from './ThreadStore.js';
+export { RedisThreadStore } from './RedisThreadStore.js';
+export { createThreadStore } from './ThreadStoreFactory.js';
 export { TaskStore } from './TaskStore.js';
 export type { ITaskStore } from './TaskStore.js';
 export { SummaryStore } from './SummaryStore.js';
