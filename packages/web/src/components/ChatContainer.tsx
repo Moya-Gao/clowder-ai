@@ -232,13 +232,14 @@ export function ChatContainer() {
           for (const img of images) {
             formData.append('images', img);
           }
-          await fetch(`${API_URL}/api/messages`, {
+          const res = await fetch(`${API_URL}/api/messages`, {
             method: 'POST',
             body: formData,
           });
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
         } else {
           // JSON mode (backwards compatible)
-          await fetch(`${API_URL}/api/messages`, {
+          const res = await fetch(`${API_URL}/api/messages`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -246,6 +247,7 @@ export function ChatContainer() {
               threadId: currentThreadId,
             }),
           });
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
         }
       } catch (err) {
         setLoading(false);

@@ -27,8 +27,9 @@ export class InvocationTracker {
     return true;
   }
 
-  /** Mark an invocation as complete (cleanup). */
-  complete(threadId: string): void {
+  /** Mark an invocation as complete (cleanup). Only removes if controller matches. */
+  complete(threadId: string, controller?: AbortController): void {
+    if (controller && this.active.get(threadId) !== controller) return;
     this.active.delete(threadId);
   }
 

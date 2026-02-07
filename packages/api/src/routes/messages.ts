@@ -137,7 +137,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           timestamp: Date.now(),
         }, resolvedThreadId);
       } finally {
-        opts.invocationTracker?.complete(resolvedThreadId);
+        opts.invocationTracker?.complete(resolvedThreadId, controller);
       }
     })();
   });

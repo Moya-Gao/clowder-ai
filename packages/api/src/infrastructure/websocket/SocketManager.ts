@@ -45,6 +45,12 @@ export class SocketManager {
 
       socket.on('cancel_invocation', (data: { threadId: string }) => {
         if (!this.invocationTracker || !data?.threadId) return;
+        // Only allow cancel if the socket is in the target thread's room
+        const room = `thread:${data.threadId}`;
+        if (!socket.rooms.has(room)) {
+          console.warn(`[ws] ${socket.id} tried to cancel thread ${data.threadId} without being in room`);
+          return;
+        }
         const cancelled = this.invocationTracker.cancel(data.threadId);
         if (cancelled) {
           console.log(`[ws] Cancelled invocation for thread: ${data.threadId}`);

@@ -122,7 +122,20 @@ export const useChatStore = create<ChatState>((set) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
-  clearMessages: () => set({ messages: [], hasMore: true }),
+  clearMessages: () =>
+    set((state) => {
+      // Revoke blob URLs to prevent memory leak (P3 fix)
+      for (const msg of state.messages) {
+        if (msg.contentBlocks) {
+          for (const block of msg.contentBlocks) {
+            if (block.type === 'image' && block.url.startsWith('blob:')) {
+              URL.revokeObjectURL(block.url);
+            }
+          }
+        }
+      }
+      return { messages: [], hasMore: true };
+    }),
 
   setThreads: (threads) => set({ threads }),
   setCurrentThread: (threadId) => set({ currentThreadId: threadId }),
