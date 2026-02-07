@@ -14,6 +14,8 @@ export interface ContextAssemblerOptions {
   maxMessages?: number;
   /** Maximum characters per message content (default: 500) */
   maxContentLength?: number;
+  /** Maximum total characters for assembled context (default: 8000) */
+  maxTotalChars?: number;
 }
 
 export interface AssembledContext {
@@ -25,6 +27,7 @@ export interface AssembledContext {
 
 const DEFAULT_MAX_MESSAGES = 20;
 const DEFAULT_MAX_CONTENT_LENGTH = 500;
+const DEFAULT_MAX_TOTAL_CHARS = 8000;
 
 /**
  * Get display name for a message sender.
@@ -72,6 +75,7 @@ export function assembleContext(
 ): AssembledContext {
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const maxContentLength = options?.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
+  const maxTotalChars = options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
 
   if (messages.length === 0) {
     return { contextText: '', messageCount: 0 };
@@ -82,9 +86,29 @@ export function assembleContext(
     ? messages.slice(-maxMessages)
     : messages;
 
-  const lines = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));
-  const header = `[对话历史 - 最近 ${recent.length} 条]`;
-  const contextText = `${header}\n${lines.join('\n')}\n---`;
+  // Format all messages, then apply total char budget from most-recent backward
+  const formatted = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));
 
-  return { contextText, messageCount: recent.length };
+  // header + separator overhead
+  const headerTemplate = '[对话历史 - 最近 X 条]';
+  const overhead = headerTemplate.length + 10 + 4; // "\n" + "---"
+
+  let totalChars = overhead;
+  let startIndex = formatted.length; // will walk backward
+  for (let i = formatted.length - 1; i >= 0; i--) {
+    const lineLen = formatted[i]!.length + 1; // +1 for newline
+    if (totalChars + lineLen > maxTotalChars) break;
+    totalChars += lineLen;
+    startIndex = i;
+  }
+
+  const included = formatted.slice(startIndex);
+  if (included.length === 0) {
+    return { contextText: '', messageCount: 0 };
+  }
+
+  const header = `[对话历史 - 最近 ${included.length} 条]`;
+  const contextText = `${header}\n${included.join('\n')}\n---`;
+
+  return { contextText, messageCount: included.length };
 }

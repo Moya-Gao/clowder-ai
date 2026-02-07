@@ -177,7 +177,13 @@ export class AgentRouter {
     // Fetch thread history BEFORE storing user message (so user message isn't doubled)
     const historyLimit = Number(process.env['CONTEXT_HISTORY_LIMIT']) || 20;
     const history = await this.messageStore.getByThread(resolvedThreadId, historyLimit);
-    const { contextText: contextHistory } = assembleContext(history);
+
+    // Token budget: total prompt chars - systemPrompt (~300) - user message - overhead
+    const maxPromptChars = Number(process.env['MAX_PROMPT_CHARS']) || 32000;
+    const budgetForContext = Math.max(0, maxPromptChars - 300 - message.length - 1000);
+    const { contextText: contextHistory } = assembleContext(history, {
+      maxTotalChars: budgetForContext,
+    });
 
     await this.messageStore.append({
       userId,

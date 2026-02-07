@@ -184,4 +184,52 @@ describe('assembleContext', () => {
     assert.equal(result.messageCount, 20);
     assert.ok(result.contextText.includes('最近 20 条'));
   });
+
+  test('maxTotalChars limits context to fit within budget', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    // Create 10 messages each ~50 chars formatted (timestamp + sender + content)
+    const msgs = Array.from({ length: 10 }, (_, i) =>
+      mockMsg({ content: `message-content-${i}-padding`, timestamp: i * 1000 })
+    );
+    // Budget so small only a few messages fit
+    const result = assembleContext(msgs, { maxTotalChars: 200 });
+    assert.ok(result.messageCount < 10, `expected fewer than 10, got ${result.messageCount}`);
+    assert.ok(result.messageCount > 0, 'should include at least 1 message');
+    assert.ok(result.contextText.length <= 250, 'total chars should respect budget roughly');
+  });
+
+  test('maxTotalChars large enough includes all messages', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const msgs = Array.from({ length: 5 }, (_, i) =>
+      mockMsg({ content: `short${i}`, timestamp: i * 1000 })
+    );
+    const result = assembleContext(msgs, { maxTotalChars: 10000 });
+    assert.equal(result.messageCount, 5);
+  });
+
+  test('maxTotalChars=0 returns empty context', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const msgs = [mockMsg({ content: 'hello' })];
+    const result = assembleContext(msgs, { maxTotalChars: 0 });
+    assert.equal(result.contextText, '');
+    assert.equal(result.messageCount, 0);
+  });
+
+  test('maxContentLength truncates before maxTotalChars budget check', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    // One very long message that would be 600 chars raw
+    const msgs = [mockMsg({ content: 'Z'.repeat(600) })];
+    // maxContentLength=100 truncates to ~100 chars, then maxTotalChars budget allows it
+    const result = assembleContext(msgs, { maxContentLength: 100, maxTotalChars: 300 });
+    assert.equal(result.messageCount, 1);
+    assert.ok(result.contextText.includes('Z'.repeat(100) + '...'));
+  });
 });
