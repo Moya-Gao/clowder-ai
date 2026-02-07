@@ -70,6 +70,14 @@ export function useAgentMessages() {
           setIntentMode(null);
           clearCatStatuses();
         }
+      } else if (msg.type === 'a2a_handoff') {
+        addMessage({
+          id: `a2a-${Date.now()}-${msg.catId}`,
+          type: 'system',
+          variant: 'info',
+          content: msg.content ?? '',
+          timestamp: Date.now(),
+        });
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
