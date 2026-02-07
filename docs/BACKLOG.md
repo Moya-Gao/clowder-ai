@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 4.0 协作地基)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 4.0 协作地基 + 缅因猫 Review)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -41,6 +41,9 @@
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [ ] | 辩论测试发现 | 前端应先 POST /api/threads；需要 ThreadStore.createWithId() 或严格校验 |
+| 31 | /api/memory 与 /api/commands 身份/权限边界 | [ ] | Phase 4.0 缅因猫 review P2-1 | 当前依赖 threadId 不可猜；多用户需统一 userId 来源 |
+| 32 | DegradationPolicy 绑定实际链路 | [ ] | Phase 4.0 缅因猫 review P2-2 | 目前是 framework only；需绑定至少一个 user-facing system_info |
+| 33 | TaskExtractor prompt/解析鲁棒性 | [ ] | Phase 4.0 缅因猫 review P2-3 | sourceIndex 语义暧昧；解析层需类型校验 |
 
 ## P3 — 可选优化
 
@@ -148,5 +151,7 @@
 | /tasks extract 4-A MVP | Phase 4.0 Step 7 | `fe5f528` |
 | DegradationPolicy 降级框架 | Phase 4.0 Step 8 | `b2bcc23` |
 | Deliberate 两轮制类型预埋 | Phase 4.0 Step 9 | `552385e` |
+| cat-config.json 默认路径稳定 | Phase 4.0 R1 | `af80d41` |
+| routeParallel append 失败降级 | Phase 4.0 R1 | `af80d41` |
 
 </details>
