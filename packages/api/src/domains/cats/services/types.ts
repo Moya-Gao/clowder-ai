@@ -65,6 +65,8 @@ export interface AgentServiceOptions {
   contentBlocks?: readonly MessageContent[];
   /** Upload directory for resolving image paths */
   uploadDir?: string;
+  /** AbortSignal to cancel the invocation */
+  signal?: AbortSignal;
 }
 
 /**

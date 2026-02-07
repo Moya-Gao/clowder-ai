@@ -9,6 +9,7 @@ export { GeminiAgentService } from './GeminiAgentService.js';
 export { AgentRouter } from './AgentRouter.js';
 export type { AgentRouterOptions } from './AgentRouter.js';
 export { InvocationRegistry } from './InvocationRegistry.js';
+export { InvocationTracker } from './InvocationTracker.js';
 export { MessageStore } from './MessageStore.js';
 export type { AppendMessageInput, IMessageStore, StoredMessage } from './MessageStore.js';
 export { RedisMessageStore } from './RedisMessageStore.js';

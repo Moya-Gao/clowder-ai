@@ -20,6 +20,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { saveUploadedImages, ImageUploadError } from './image-upload.js';
 
 /**
@@ -33,6 +34,7 @@ export interface MessagesRoutesOptions {
   sessionStore?: SessionStore;
   threadStore?: IThreadStore;
   uploadDir?: string;
+  invocationTracker?: InvocationTracker;
 }
 
 const getMessagesSchema = z.object({
@@ -120,9 +122,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket
+    const controller = opts.invocationTracker?.start(resolvedThreadId);
     void (async () => {
       try {
-        for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir)) {
+        for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir, controller?.signal)) {
           opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
         }
       } catch (err) {
@@ -133,6 +136,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           error: err instanceof Error ? err.message : 'Unknown error',
           timestamp: Date.now(),
         }, resolvedThreadId);
+      } finally {
+        opts.invocationTracker?.complete(resolvedThreadId);
       }
     })();
   });

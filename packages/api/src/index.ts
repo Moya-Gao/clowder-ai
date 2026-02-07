@@ -11,6 +11,7 @@ import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.j
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import { ThreadStore } from './domains/cats/services/ThreadStore.js';
+import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -40,9 +41,12 @@ async function main(): Promise<void> {
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
+  // Create invocation tracker for cancellation support
+  const invocationTracker = new InvocationTracker();
+
   // Initialize WebSocket manager BEFORE routes (injected via opts, no circular import).
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
-  socketManager = new SocketManager(app.server);
+  socketManager = new SocketManager(app.server, invocationTracker);
 
   // Create shared service instances for MCP callback flow
   const registry = new InvocationRegistry();
@@ -59,6 +63,7 @@ async function main(): Promise<void> {
     socketManager,
     ...(sessionStore ? { sessionStore } : {}),
     threadStore,
+    invocationTracker,
   });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager });

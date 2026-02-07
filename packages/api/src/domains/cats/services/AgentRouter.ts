@@ -143,7 +143,8 @@ export class AgentRouter {
     message: string,
     threadId?: string,
     contentBlocks?: readonly MessageContent[],
-    uploadDir?: string
+    uploadDir?: string,
+    signal?: AbortSignal,
   ): AsyncIterable<AgentMessage> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
     const targetCats = await this.resolveTargets(message, resolvedThreadId);
@@ -168,6 +169,7 @@ export class AgentRouter {
     const totalCats = targetCats.length;
 
     for (const [index, catId] of targetCats.entries()) {
+      if (signal?.aborted) break;
       const isLastCat = index === totalCats - 1;
       const service = this.getService(catId);
 
@@ -229,6 +231,7 @@ export class AgentRouter {
           ...(workingDirectory ? { workingDirectory } : {}),
           ...(contentBlocks ? { contentBlocks } : {}),
           ...(uploadDir ? { uploadDir } : {}),
+          ...(signal ? { signal } : {}),
         };
 
         for await (const msg of service.invoke(prompt, options)) {

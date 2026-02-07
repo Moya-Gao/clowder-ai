@@ -8,6 +8,7 @@ import { ImagePreview } from './ImagePreview';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
+  onStop?: () => void;
   disabled?: boolean;
 }
 
@@ -19,7 +20,7 @@ const CAT_OPTIONS = [
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -201,18 +202,30 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
           rows={2}
           disabled={disabled}
         />
-        <button
-          onClick={handleSend}
-          disabled={disabled || !input.trim()}
-          className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label="Send message"
-        >
-          {disabled ? (
-            <LoadingIcon className="w-5 h-5" />
-          ) : (
-            <SendIcon className="w-5 h-5" />
-          )}
-        </button>
+        {disabled && onStop ? (
+          <button
+            onClick={onStop}
+            className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors"
+            aria-label="Stop generation"
+          >
+            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+              <rect x="4" y="4" width="12" height="12" rx="2" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            onClick={handleSend}
+            disabled={disabled || !input.trim()}
+            className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            aria-label="Send message"
+          >
+            {disabled ? (
+              <LoadingIcon className="w-5 h-5" />
+            ) : (
+              <SendIcon className="w-5 h-5" />
+            )}
+          </button>
+        )}
       </div>
     </div>
   );

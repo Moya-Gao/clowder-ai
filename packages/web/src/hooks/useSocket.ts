@@ -79,5 +79,9 @@ export function useSocket(
     currentRoomRef.current = newRoom;
   }, []);
 
-  return { socketRef, switchRoom };
+  const cancelInvocation = useCallback((tid: string) => {
+    socketRef.current?.emit('cancel_invocation', { threadId: tid });
+  }, []);
+
+  return { socketRef, switchRoom, cancelInvocation };
 }

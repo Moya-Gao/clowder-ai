@@ -177,7 +177,16 @@ export function ChatContainer() {
     [updateThreadTitle]
   );
 
-  const { switchRoom } = useSocket(handleAgentMessage, currentThreadId, handleThreadUpdated);
+  const { switchRoom, cancelInvocation } = useSocket(handleAgentMessage, currentThreadId, handleThreadUpdated);
+
+  const handleStop = useCallback(() => {
+    cancelInvocation(currentThreadId);
+    setLoading(false);
+    if (currentMessageRef.current) {
+      setStreaming(currentMessageRef.current.id, false);
+      currentMessageRef.current = null;
+    }
+  }, [cancelInvocation, currentThreadId, setLoading, setStreaming]);
 
   // Thread switching handler
   const handleThreadSwitch = useCallback(
@@ -304,7 +313,7 @@ export function ChatContainer() {
           <div ref={messagesEndRef} />
         </main>
 
-        <ChatInput onSend={handleSend} disabled={isLoading} />
+        <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
       </div>
     </div>
   );

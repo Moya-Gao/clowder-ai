@@ -5,12 +5,16 @@
 
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
+import { createCatId } from '@cat-cafe/shared';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
+import type { InvocationTracker } from '../../domains/cats/services/InvocationTracker.js';
 
 export class SocketManager {
   private io: Server;
+  private invocationTracker: InvocationTracker | null;
 
-  constructor(httpServer: HttpServer) {
+  constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
+    this.invocationTracker = invocationTracker ?? null;
     this.io = new Server(httpServer, {
       cors: {
         origin: ['http://localhost:3000', 'http://localhost:3001'],
@@ -37,6 +41,20 @@ export class SocketManager {
       socket.on('leave_room', (room: string) => {
         socket.leave(room);
         console.log(`[ws] ${socket.id} left room: ${room}`);
+      });
+
+      socket.on('cancel_invocation', (data: { threadId: string }) => {
+        if (!this.invocationTracker || !data?.threadId) return;
+        const cancelled = this.invocationTracker.cancel(data.threadId);
+        if (cancelled) {
+          console.log(`[ws] Cancelled invocation for thread: ${data.threadId}`);
+          this.broadcastAgentMessage({
+            type: 'done',
+            catId: createCatId('opus'),
+            isFinal: true,
+            timestamp: Date.now(),
+          }, data.threadId);
+        }
       });
     });
   }
