@@ -129,9 +129,14 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   }
 
   if (isSystem) {
+    const isInfo = message.variant === 'info';
     return (
       <div className="flex justify-center mb-3">
-        <div className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-full">
+        <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${
+          isInfo
+            ? 'text-blue-700 bg-blue-50'
+            : 'text-red-500 bg-red-50 rounded-full'
+        }`}>
           {message.content}
         </div>
       </div>

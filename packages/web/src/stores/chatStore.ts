@@ -22,6 +22,8 @@ export interface ChatMessageMetadata {
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary';
+  /** Visual variant for system messages: 'error' (red, default) or 'info' (blue-gray) */
+  variant?: 'error' | 'info';
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
