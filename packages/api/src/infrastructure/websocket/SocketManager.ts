@@ -55,6 +55,14 @@ export class SocketManager {
         const cancelled = this.invocationTracker.cancel(data.threadId, userId);
         if (cancelled) {
           console.log(`[ws] Cancelled invocation for thread: ${data.threadId}`);
+          // Send system_info first to show cancel feedback
+          this.broadcastAgentMessage({
+            type: 'system_info',
+            catId: createCatId('opus'),
+            content: '⏹ 已取消',
+            timestamp: Date.now(),
+          }, data.threadId);
+          // Then send done to stop loading
           this.broadcastAgentMessage({
             type: 'done',
             catId: createCatId('opus'),

@@ -24,7 +24,8 @@ export type AgentMessageType =
   | 'tool_result'
   | 'error'
   | 'done'
-  | 'a2a_handoff';
+  | 'a2a_handoff'
+  | 'system_info';  // budget warnings, cancel feedback, extraction progress
 
 /**
  * A message yielded from an agent during invocation

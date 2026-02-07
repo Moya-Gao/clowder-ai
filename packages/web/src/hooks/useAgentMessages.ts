@@ -78,6 +78,15 @@ export function useAgentMessages() {
           content: msg.content ?? '',
           timestamp: Date.now(),
         });
+      } else if (msg.type === 'system_info') {
+        // System notifications: budget warnings, cancel feedback, etc.
+        addMessage({
+          id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'system',
+          variant: 'info',
+          content: msg.content ?? '',
+          timestamp: Date.now(),
+        });
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
