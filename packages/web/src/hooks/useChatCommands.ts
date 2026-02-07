@@ -1,0 +1,137 @@
+'use client';
+
+import { useCallback } from 'react';
+import { useChatStore } from '@/stores/chatStore';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ConfigSnapshot = any;
+
+/** Format ConfigSnapshot into readable multi-line text for /config display */
+function formatConfigForDisplay(config: ConfigSnapshot): string {
+  const lines: string[] = ['⚙️ Cat Cafe 运行配置', ''];
+
+  // Per-cat budgets first (the actual limits used)
+  if (config.perCatBudgets) {
+    lines.push('🎯 Per-Cat 上下文预算');
+    for (const [catId, budget] of Object.entries(config.perCatBudgets)) {
+      const b = budget as { maxPromptChars: number; maxContextChars: number; maxMessages: number; maxContentLengthPerMsg: number };
+      lines.push(`  ${catId}: prompt ${(b.maxPromptChars / 1000).toFixed(0)}k, context ${(b.maxContextChars / 1000).toFixed(0)}k, ${b.maxMessages} msgs, ${b.maxContentLengthPerMsg}/msg`);
+    }
+    lines.push('');
+  }
+
+  // Legacy context section (deprecated)
+  if (config.context) {
+    lines.push('📋 上下文默认值 (deprecated, see per-cat)');
+    lines.push(`  历史条数: ${config.context.maxMessages}`);
+    lines.push(`  每条截断: ${config.context.maxContentLength} 字符`);
+    lines.push(`  总上下文: ${config.context.maxTotalChars} 字符`);
+    lines.push(`  总 prompt: ${config.context.maxPromptChars} 字符`);
+    if (config.context.note) {
+      lines.push(`  注: ${config.context.note}`);
+    }
+    lines.push('');
+  }
+
+  if (config.cli) {
+    lines.push('🖥️ CLI');
+    lines.push(`  超时: ${config.cli.timeoutMs / 1000}s`);
+    lines.push(`  强制终止: ${config.cli.killGraceMs / 1000}s`);
+    lines.push('');
+  }
+
+  if (config.storage) {
+    lines.push('💾 存储');
+    lines.push(`  消息 TTL: ${config.storage.messageTTL}`);
+    lines.push(`  对话 TTL: ${config.storage.threadTTL}`);
+    lines.push(`  任务 TTL: ${config.storage.taskTTL}`);
+    lines.push(`  最大消息数: ${config.storage.maxMessages}`);
+    lines.push(`  最大对话数: ${config.storage.maxThreads}`);
+    lines.push('');
+  }
+
+  if (config.upload) {
+    lines.push('📎 上传');
+    lines.push(`  最大文件: ${config.upload.maxFileSize}`);
+    lines.push(`  最大数量: ${config.upload.maxFiles}`);
+    lines.push('');
+  }
+
+  if (config.server) {
+    lines.push('🌐 服务器');
+    lines.push(`  地址: ${config.server.host}:${config.server.port}`);
+    lines.push(`  存储: ${config.server.redis === 'connected' ? 'Redis' : '内存'}`);
+    lines.push('');
+  }
+
+  if (config.cats) {
+    lines.push('🐱 猫猫配置');
+    for (const [id, cat] of Object.entries(config.cats)) {
+      const c = cat as { displayName: string; provider: string; model: string; mcpSupport: boolean };
+      lines.push(`  ${c.displayName} (${id}): ${c.provider}/${c.model} ${c.mcpSupport ? '[MCP]' : ''}`);
+    }
+    lines.push('');
+  }
+
+  if (config.a2a) {
+    lines.push('🔗 A2A 猫猫互调');
+    lines.push(`  启用: ${config.a2a.enabled ? '是' : '否'}`);
+    lines.push(`  最大深度: ${config.a2a.maxDepth}`);
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Hook for processing chat commands (e.g., /config).
+ * Returns true if the input was a command that was handled.
+ */
+export function useChatCommands() {
+  const { addMessage } = useChatStore();
+
+  const processCommand = useCallback(
+    async (input: string): Promise<boolean> => {
+      const trimmed = input.trim();
+
+      // /config command
+      if (trimmed === '/config') {
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: '/config',
+          timestamp: Date.now(),
+        });
+        try {
+          const res = await fetch(`${API_URL}/api/config`);
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          const data = await res.json();
+          addMessage({
+            id: `config-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: formatConfigForDisplay(data.config),
+            timestamp: Date.now(),
+          });
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `Failed to load config: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
+      // Future commands: /remember, /recall, /tasks extract
+      // will be added in subsequent steps
+
+      return false;
+    },
+    [addMessage]
+  );
+
+  return { processCommand };
+}
