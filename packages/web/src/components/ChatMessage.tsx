@@ -2,6 +2,7 @@
 
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { MetadataBadge } from './MetadataBadge';
 import { OwnerIcon } from './icons/OwnerIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -181,6 +182,9 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
           )}
         </div>
+        {!message.isStreaming && message.metadata && (
+          <MetadataBadge metadata={message.metadata} />
+        )}
       </div>
     </div>
   );

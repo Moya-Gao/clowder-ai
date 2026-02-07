@@ -13,12 +13,19 @@ export interface ImageContent {
 
 export type MessageContent = TextContent | ImageContent;
 
+export interface ChatMessageMetadata {
+  provider: string;
+  model: string;
+  sessionId?: string;
+}
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system';
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
+  metadata?: ChatMessageMetadata;
   timestamp: number;
   isStreaming?: boolean;
 }

@@ -47,12 +47,13 @@ export function ChatContainer() {
         if (!res.ok) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; timestamp: number }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; timestamp: number }) => ({
             id: m.id,
             type: m.type as 'user' | 'assistant' | 'system',
             catId: m.catId,
             content: m.content,
             ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
+            ...(m.metadata ? { metadata: m.metadata } : {}),
             timestamp: m.timestamp,
           })
         );
@@ -125,7 +126,7 @@ export function ChatContainer() {
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 
   const handleAgentMessage = useCallback(
-    (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean }) => {
+    (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean; metadata?: { provider: string; model: string; sessionId?: string } }) => {
       if (msg.type === 'text' && msg.content) {
         const needNewMessage =
           !currentMessageRef.current ||
@@ -139,6 +140,7 @@ export function ChatContainer() {
             type: 'assistant',
             catId: msg.catId,
             content: msg.content,
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
             timestamp: Date.now(),
             isStreaming: true,
           });

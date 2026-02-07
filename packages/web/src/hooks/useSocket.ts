@@ -13,6 +13,7 @@ interface AgentMessage {
   toolName?: string;
   error?: string;
   isFinal?: boolean;
+  metadata?: { provider: string; model: string; sessionId?: string };
   timestamp: number;
 }
 
