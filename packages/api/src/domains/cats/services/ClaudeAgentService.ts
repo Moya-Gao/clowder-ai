@@ -22,6 +22,7 @@ import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js'
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
+import { getCatModel } from '../../../config/cat-models.js';
 import type {
   AgentMessage,
   AgentService,
@@ -139,9 +140,8 @@ export class ClaudeAgentService implements AgentService {
 
   constructor(options?: ClaudeAgentServiceOptions) {
     this.spawnFn = options?.spawnFn;
-    this.model = options?.model
-      ?? process.env['CLAUDE_MODEL']
-      ?? 'claude-sonnet-4-5-20250929';
+    // Priority: constructor option > CAT_OPUS_MODEL env > CLAUDE_MODEL env > default
+    this.model = options?.model ?? getCatModel('opus');
     this.mcpServerPath = options?.mcpServerPath
       ?? process.env['CAT_CAFE_MCP_SERVER_PATH'];
   }

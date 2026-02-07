@@ -96,10 +96,20 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // Default to 'default' thread for lobby (prevents global broadcast)
     const resolvedThreadId = threadId ?? 'default';
 
-    // Auto-title untitled threads on first message
+    // Ensure thread exists and auto-title on first message
     if (resolvedThreadId !== 'default' && opts.threadStore) {
       const thread = await opts.threadStore.get(resolvedThreadId);
-      if (thread && thread.title === null) {
+
+      if (!thread) {
+        // Thread doesn't exist — messages will be orphaned!
+        // Frontend should always call POST /api/threads first.
+        // TODO: Add createWithId() to ThreadStore for proper fix.
+        console.warn(
+          `[messages] Thread ${resolvedThreadId} not found. Messages will be orphaned. ` +
+          `Frontend should call POST /api/threads before sending messages.`,
+        );
+      } else if (thread.title === null) {
+        // Auto-title existing untitled thread
         const autoTitle = content.length > 30
           ? content.slice(0, 30) + '...'
           : content;

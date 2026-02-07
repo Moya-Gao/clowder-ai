@@ -7,6 +7,7 @@
  */
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { getCatModel } from './cat-models.js';
 
 export interface ConfigSnapshot {
   context: {
@@ -80,13 +81,14 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const host = env['API_SERVER_HOST'] ?? '127.0.0.1';
   const redis: 'connected' | 'memory' = env['REDIS_URL'] ? 'connected' : 'memory';
 
-  // Cats
+  // Cats (with env override support)
   const cats: ConfigSnapshot['cats'] = {};
   for (const [id, config] of Object.entries(CAT_CONFIGS)) {
+    const catName = id as 'opus' | 'codex' | 'gemini';
     cats[id] = {
       displayName: config.displayName,
       provider: config.provider,
-      model: config.defaultModel,
+      model: getCatModel(catName),
       mcpSupport: config.mcpSupport,
     };
   }

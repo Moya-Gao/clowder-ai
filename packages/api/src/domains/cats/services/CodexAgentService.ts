@@ -18,6 +18,7 @@ import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js'
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
+import { getCatModel } from '../../../config/cat-models.js';
 import type {
   AgentMessage,
   AgentService,
@@ -115,7 +116,7 @@ export class CodexAgentService implements AgentService {
       ? ['exec', 'resume', options.sessionId, effectivePrompt, '--json', '--full-auto']
       : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
 
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: CAT_CONFIGS.codex.defaultModel };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
 
     try {
       const events = spawnCli(

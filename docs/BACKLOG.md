@@ -40,20 +40,21 @@
 | 18 | isFinal 丢失防护 | [ ] | Phase 3.5 缅因猫 final review | 前端完全信任后端 isFinal 结束 loading；若后端漏发则 loading 卡死。可加超时兜底或心跳检测 |
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
+| 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [ ] | 辩论测试发现 | 前端应先 POST /api/threads；需要 ThreadStore.createWithId() 或严格校验 |
 
 ## P3 — 可选优化
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 21 | blob URL 同 thread 连发大量图累积 | [ ] | Phase 3.3b review | clearMessages 时已回收，但不切 thread 会累积 |
-| 22 | 冷/热状态视觉反馈 (猫头像发光) | [ ] | 暹罗猫提议 | CSS class 切换，低成本；与 P1 #6 可观测性相关 |
-| 23 | Antigravity cancel 无效 (detached 进程) | [ ] | Phase 3.3b review | gemini-cli fallback 可选 |
-| 24 | Docker 化部署 | [ ] | 铲屎官建议 (~5.x) | Redis + API + Web 打包，Docker MCP 可让猫管理容器；开发阶段脚本够用 |
-| 25 | Gemini/Codex resume 作为补充 context 源 | [ ] | Phase 3.6 决策 2 | prompt prepend 跑稳后，resume 减少 token 开销；Gemini index 问题需等 CLI 支持 UUID |
-| 26 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
-| 27 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [ ] | Phase 3.9 | `parseA2AMentions` (行首匹配) 与 `parseMentions` (indexOf) 两套解析，应统一 |
-| 28 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
-| 29 | /config context 数字误导 | [ ] | Phase 3.9 缅因猫 review P2 | maxTotalChars=8000 是 assembleContext 默认值，但 AgentRouter 动态计算 budgetForContext；字段需标注为 default/upperBound |
+| 22 | blob URL 同 thread 连发大量图累积 | [ ] | Phase 3.3b review | clearMessages 时已回收，但不切 thread 会累积 |
+| 23 | 冷/热状态视觉反馈 (猫头像发光) | [ ] | 暹罗猫提议 | CSS class 切换，低成本；与 P1 #6 可观测性相关 |
+| 24 | Antigravity cancel 无效 (detached 进程) | [ ] | Phase 3.3b review | gemini-cli fallback 可选 |
+| 25 | Docker 化部署 | [ ] | 铲屎官建议 (~5.x) | Redis + API + Web 打包，Docker MCP 可让猫管理容器；开发阶段脚本够用 |
+| 26 | Gemini/Codex resume 作为补充 context 源 | [ ] | Phase 3.6 决策 2 | prompt prepend 跑稳后，resume 减少 token 开销；Gemini index 问题需等 CLI 支持 UUID |
+| 27 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
+| 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [ ] | Phase 3.9 | `parseA2AMentions` (行首匹配) 与 `parseMentions` (indexOf) 两套解析，应统一 |
+| 29 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
+| 30 | /config context 数字误导 | [ ] | Phase 3.9 缅因猫 review P2 | maxTotalChars=8000 是 assembleContext 默认值，但 AgentRouter 动态计算 budgetForContext；字段需标注为 default/upperBound |
 
 ## Feature Requests — 新功能需求
 

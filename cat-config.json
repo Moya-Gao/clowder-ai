@@ -15,7 +15,7 @@
         {
           "id": "opus-default",
           "provider": "anthropic",
-          "defaultModel": "claude-sonnet-4-5-20250929",
+          "defaultModel": "claude-opus-4-6",
           "mcpSupport": true,
           "cli": {
             "command": "claude",
@@ -41,7 +41,7 @@
         {
           "id": "codex-default",
           "provider": "openai",
-          "defaultModel": "codex",
+          "defaultModel": "gpt-5.3-codex",
           "mcpSupport": false,
           "cli": {
             "command": "codex",
@@ -67,7 +67,7 @@
         {
           "id": "gemini-default",
           "provider": "google",
-          "defaultModel": "gemini-2.5-pro",
+          "defaultModel": "gemini-3-pro",
           "mcpSupport": false,
           "cli": {
             "command": "gemini",

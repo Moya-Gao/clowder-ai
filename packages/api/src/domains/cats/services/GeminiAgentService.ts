@@ -24,6 +24,7 @@ import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js'
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
+import { getCatModel } from '../../../config/cat-models.js';
 import type {
   AgentMessage,
   AgentService,
@@ -147,7 +148,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: CAT_CONFIGS.gemini.defaultModel };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: getCatModel('gemini') };
 
     // Note: gemini CLI --resume accepts index number or "latest", not UUID.
     // e.g. `gemini --resume 5` or `gemini --resume latest`
@@ -223,7 +224,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: `${CAT_CONFIGS.gemini.defaultModel} (antigravity)` };
+    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: `${getCatModel('gemini')} (antigravity)` };
 
     if (!options?.callbackEnv) {
       yield {
