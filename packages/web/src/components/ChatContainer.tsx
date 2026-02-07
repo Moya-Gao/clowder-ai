@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useSocket } from '@/hooks/useSocket';
+import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThreadSidebar } from './ThreadSidebar';
@@ -20,8 +21,6 @@ export function ChatContainer() {
     currentThreadId,
     addMessage,
     prependHistory,
-    appendToLastMessage,
-    setStreaming,
     setLoading,
     setLoadingHistory,
     clearMessages,
@@ -29,9 +28,10 @@ export function ChatContainer() {
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const currentMessageRef = useRef<{ id: string; catId: string } | null>(null);
   const initialLoadDone = useRef(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const { handleAgentMessage, handleStop: stopHandler, resetRefs } = useAgentMessages();
 
   // Fetch history page from API
   const fetchHistory = useCallback(
@@ -42,7 +42,6 @@ export function ChatContainer() {
         const tid = threadId ?? currentThreadId;
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
         if (cursor) params.set('before', cursor);
-        // Always send threadId (including 'default') for proper room isolation
         params.set('threadId', tid);
         const res = await fetch(`${API_URL}/api/messages?${params}`);
         if (!res.ok) return;
@@ -76,7 +75,7 @@ export function ChatContainer() {
     }
   }, [fetchHistory]);
 
-  // Detect prepend vs append and handle scroll accordingly
+  // Scroll handling for prepend vs append
   const prevFirstIdRef = useRef<string | null>(null);
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
@@ -126,50 +125,6 @@ export function ChatContainer() {
     }
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 
-  const handleAgentMessage = useCallback(
-    (msg: { type: string; catId: string; content?: string; error?: string; isFinal?: boolean; metadata?: { provider: string; model: string; sessionId?: string } }) => {
-      if (msg.type === 'text' && msg.content) {
-        const needNewMessage =
-          !currentMessageRef.current ||
-          currentMessageRef.current.catId !== msg.catId;
-
-        if (needNewMessage) {
-          const id = `msg-${Date.now()}-${msg.catId}`;
-          currentMessageRef.current = { id, catId: msg.catId };
-          addMessage({
-            id,
-            type: 'assistant',
-            catId: msg.catId,
-            content: msg.content,
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            timestamp: Date.now(),
-            isStreaming: true,
-          });
-        } else {
-          appendToLastMessage(msg.content);
-        }
-      } else if (msg.type === 'done') {
-        if (currentMessageRef.current) {
-          setStreaming(currentMessageRef.current.id, false);
-        }
-        if (msg.isFinal) {
-          setLoading(false);
-        }
-      } else if (msg.type === 'error') {
-        currentMessageRef.current = null;
-        setLoading(false);
-        addMessage({
-          id: `err-${Date.now()}`,
-          type: 'system',
-          catId: msg.catId,
-          content: `Error: ${msg.error ?? 'Unknown error'}`,
-          timestamp: Date.now(),
-        });
-      }
-    },
-    [addMessage, appendToLastMessage, setStreaming, setLoading]
-  );
-
   const handleThreadUpdated = useCallback(
     (data: { threadId: string; title: string }) => {
       updateThreadTitle(data.threadId, data.title);
@@ -180,29 +135,22 @@ export function ChatContainer() {
   const { switchRoom, cancelInvocation } = useSocket(handleAgentMessage, currentThreadId, handleThreadUpdated);
 
   const handleStop = useCallback(() => {
-    cancelInvocation(currentThreadId);
-    setLoading(false);
-    if (currentMessageRef.current) {
-      setStreaming(currentMessageRef.current.id, false);
-      currentMessageRef.current = null;
-    }
-  }, [cancelInvocation, currentThreadId, setLoading, setStreaming]);
+    stopHandler(cancelInvocation, currentThreadId);
+  }, [stopHandler, cancelInvocation, currentThreadId]);
 
-  // Thread switching handler
   const handleThreadSwitch = useCallback(
     (threadId: string) => {
-      currentMessageRef.current = null;
+      resetRefs();
       clearMessages();
       switchRoom(threadId);
-      // Load history for the new thread
       void fetchHistory(undefined, threadId);
     },
-    [clearMessages, switchRoom, fetchHistory]
+    [resetRefs, clearMessages, switchRoom, fetchHistory]
   );
 
   const handleSend = useCallback(
     async (content: string, images?: File[]) => {
-      currentMessageRef.current = null;
+      resetRefs();
 
       const userMsg: ChatMessageData = {
         id: `user-${Date.now()}`,
@@ -220,12 +168,10 @@ export function ChatContainer() {
         ];
       }
       addMessage(userMsg);
-
       setLoading(true);
 
       try {
         if (images && images.length > 0) {
-          // Multipart upload with images
           const formData = new FormData();
           formData.append('content', content);
           formData.append('threadId', currentThreadId);
@@ -238,7 +184,6 @@ export function ChatContainer() {
           });
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
         } else {
-          // JSON mode (backwards compatible)
           const res = await fetch(`${API_URL}/api/messages`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -259,17 +204,15 @@ export function ChatContainer() {
         });
       }
     },
-    [addMessage, setLoading, currentThreadId]
+    [resetRefs, addMessage, setLoading, currentThreadId]
   );
 
   return (
     <div className="flex h-screen">
-      {/* Thread sidebar */}
       {sidebarOpen && (
         <ThreadSidebar onThreadSwitch={handleThreadSwitch} />
       )}
 
-      {/* Main chat area */}
       <div className="flex flex-col flex-1 min-w-0">
         <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2">
           <button

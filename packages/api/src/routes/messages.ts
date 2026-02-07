@@ -8,7 +8,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
-import type { MessageContent, TextContent, ImageContent } from '@cat-cafe/shared';
+import type { MessageContent } from '@cat-cafe/shared';
 import {
   ClaudeAgentService,
   CodexAgentService,
@@ -21,7 +21,7 @@ import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
-import { saveUploadedImages, ImageUploadError } from './image-upload.js';
+import { parseMultipart, sendMessageSchema } from './parse-multipart.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
@@ -42,13 +42,6 @@ const getMessagesSchema = z.object({
   /** Cursor: "timestamp:id" or legacy plain timestamp */
   before: z.string().optional(),
   userId: z.string().min(1).max(100).default('default-user'),
-  threadId: z.string().min(1).max(100).optional(),
-});
-
-const sendMessageSchema = z.object({
-  content: z.string().min(1).max(10000),
-  userId: z.string().min(1).max(100).default('default-user'),
-  mentions: z.array(z.enum(['opus', 'codex', 'gemini'])).optional(),
   threadId: z.string().min(1).max(100).optional(),
 });
 
@@ -191,46 +184,3 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
   });
 };
 
-/** Parse multipart request into validated message fields + contentBlocks */
-async function parseMultipart(
-  request: { parts: () => AsyncIterableIterator<import('@fastify/multipart').Multipart> },
-  uploadDir: string,
-): Promise<
-  | { content: string; userId: string; threadId?: string; contentBlocks: MessageContent[] }
-  | { error: string }
-> {
-  const fields: Record<string, string> = {};
-  const files: import('@fastify/multipart').MultipartFile[] = [];
-
-  for await (const part of request.parts()) {
-    if (part.type === 'field' && typeof part.value === 'string') {
-      fields[part.fieldname] = part.value;
-    } else if (part.type === 'file') {
-      files.push(part);
-    }
-  }
-
-  const parseResult = sendMessageSchema.safeParse(fields);
-  if (!parseResult.success) {
-    return { error: 'Invalid form fields' };
-  }
-
-  const { content, userId, threadId } = parseResult.data;
-  const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
-
-  if (files.length > 0) {
-    try {
-      const saved = await saveUploadedImages(files, uploadDir);
-      for (const img of saved) {
-        blocks.push(img.content as ImageContent);
-      }
-    } catch (err) {
-      if (err instanceof ImageUploadError) {
-        return { error: err.message };
-      }
-      throw err;
-    }
-  }
-
-  return { content, userId, ...(threadId ? { threadId } : {}), contentBlocks: blocks };
-}

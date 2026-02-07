@@ -8,6 +8,8 @@ export { CodexAgentService } from './CodexAgentService.js';
 export { GeminiAgentService } from './GeminiAgentService.js';
 export { AgentRouter } from './AgentRouter.js';
 export type { AgentRouterOptions } from './AgentRouter.js';
+export { invokeSingleCat } from './invoke-single-cat.js';
+export type { InvocationDeps, InvocationParams } from './invoke-single-cat.js';
 export { InvocationRegistry } from './InvocationRegistry.js';
 export { InvocationTracker } from './InvocationTracker.js';
 export { MessageStore } from './MessageStore.js';
