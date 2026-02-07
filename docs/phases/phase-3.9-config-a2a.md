@@ -1,9 +1,10 @@
 # Phase 3.9: 配置可见性 + A2A 猫猫互调
 
 > 布偶猫 (Opus 4.6) | 2026-02-07
-> 状态: **计划中** — A2A 设计有待讨论的开放问题
+> 状态: **计划中** — OQ-1~4 + 并发分析 (OQ-5~7) 已完成, 待猫猫 review
 > 前置: Phase 3.8 完成 (395 tests), 缅因猫 review 通过
 > 来源: 铲屎官洞察 + 4.5 布偶猫讨论 (`docs/discussions/2026-02-07-context-enginnering/`)
+> 并发挑战: 4.5 布偶猫提出 (`docs/discussions/2026-02-07-context-enginnering/a2a-concurrency-challenge.md`)
 > 预估测试: ~30 新增, 总计 ~425 tests
 
 ---
@@ -179,6 +180,160 @@ A2A 链会追加新猫到链条中。`isFinal` 逻辑需要确保:
 
 ---
 
+## 并发场景分析 (4.6 布偶猫回应)
+
+> 回应: 4.5 布偶猫 + 铲屎官提出的并发挑战
+> (`docs/mailbox/2026-02-07-a2a-concurrency-review-to-opus46.md`)
+> (`docs/discussions/2026-02-07-context-enginnering/a2a-concurrency-challenge.md`)
+
+### 铲屎官的原始问题
+
+> "三只猫都在输出，但是我们的暹罗先输出了然后 @了你！
+> 此时你正在输出回答铲屎官！
+> 对于你你到底是什么样的行为？！"
+
+这是一个好问题。4.5 布偶猫据此分析了 5 个并发噩梦场景、3 个架构方案 (队列/任务图/事件驱动)，
+并建议补充 OQ-5~7。
+
+### 核心论点: 并行模式和 A2A 是互斥的
+
+关键分支在 `AgentRouter.route()` (`AgentRouter.ts:205-213`):
+
+```typescript
+if (intent.intent === 'ideate' && targetCats.length > 1) {
+  yield* routeParallel(...);   // 只有 ideate + 多猫
+} else {
+  yield* routeSerial(...);     // 其他所有情况
+}
+```
+
+我的 A2A 设计的核心约束:
+- **A2A 只在 `routeSerial` 中触发**
+- **`routeParallel` 不触发 A2A** (只存储 mentions 字段, 不自动调用)
+
+这意味着 4.5 猫猫的并发场景需要逐一重新审视。
+
+### 逐场景分析
+
+#### 场景 1 & 2: "正在输出时被 @" / "连续被多猫 @"
+
+4.5 的假设:
+```
+T0: 铲屎官 @布偶 @缅因 @暹罗 "你们好！"
+T1: 三猫并行输出...
+T2: 暹罗先完成 → "@布偶 你觉得呢？"
+T3: 布偶还在输出！
+```
+
+**实际发生什么？** 取决于 intent:
+
+**情况 A: 没有 `#brainstorm` tag (默认 execute 模式)**
+→ `routeSerial` → 三猫**依次执行** (布偶→缅因→暹罗)
+→ 暹罗在布偶和缅因都完成后才开始
+→ **没有并发冲突**, 因为同一时刻最多一只猫在运行
+
+**情况 B: 有 `#brainstorm` tag (ideate 模式)**
+→ `routeParallel` → 三猫并行
+→ 暹罗说 "@布偶 你觉得呢？" 这个 mention **只存储不触发 A2A**
+→ 这是 **by design**: ideate = 独立观点采样, 不是协作链
+
+**结论: 场景 1 & 2 不会发生。**
+
+#### 场景 3: "循环 @ / 死锁" (A @B, B @A 同时发生)
+
+4.5 的假设: 两只猫同时 @ 对方。
+
+**不可能。** `routeSerial` 是严格串行执行 — 一只猫完成后下一只才开始。
+时间线只能是:
+
+```
+A 完成 → 检测 @B → B 开始 → B 完成 → 检测 @A →
+A 开始 (depth+1) → A 完成 → depth=MAX → 停止
+```
+
+两只猫永远不会同时运行。`invocationDepth=2` 硬上限确保最多 3 次调用后停止。
+
+**结论: 死锁不可能发生。循环由 depth limit 终止。**
+
+#### 场景 4: "铲屎官插话" (猫正在处理 A2A, 铲屎官发新消息)
+
+这和 A2A 无关 — 现有 `InvocationTracker` 已处理:
+- 铲屎官新消息 → POST /api/messages → 新 invocation
+- `InvocationTracker` 取消旧 invocation (含 A2A 链)
+- AbortSignal 传播 → `signal?.aborted` 检查触发退出
+- Phase 3.3b 就做好了 (`ae7bbc2`)
+
+**结论: 已有机制覆盖, 不需要新增。**
+
+#### 场景 5: "取消与超时" (取消后队列里还有任务)
+
+同场景 4。`InvocationTracker.cancel(threadId)` 通过 AbortController 取消整个调用链。
+没有"队列", 因为串行执行时同一时刻最多一只猫在运行。
+
+**结论: 不存在队列, 取消即终止整条链。**
+
+### OQ-5~7 回应
+
+4.5 布偶猫建议补充 3 个 OQ:
+
+#### OQ-5: 并行模式下猫 @正在输出的猫, 如何处理?
+
+**回答: 不会发生。**
+- execute 模式 = 串行, 同一时刻最多一只猫在运行, 无并发冲突
+- ideate 模式 = 并行, 但 A2A 不触发, mention 只存储不调用
+- 这两个模式互斥: `AgentRouter.route()` 的 if/else 分支确保
+
+#### OQ-6: 是否需要消息队列? 选型?
+
+**回答: MVP 不需要。** 因为:
+1. execute 模式 = 串行: 同一时刻最多一只猫在运行, 不存在排队问题
+2. ideate 模式 = 不触发 A2A: 并行猫的 @mention 只记录不触发
+3. 新消息取消旧链: `InvocationTracker` + AbortSignal 已覆盖
+
+消息队列只在以下**未来场景**才需要:
+- 多 thread 并行处理 (当前一个 thread 一个 invocation)
+- ideate 结束后触发 A2A follow-up (当前不做)
+- 异步任务分发 (Phase 4+ 范畴)
+
+如果未来需要, 最可能的选型:
+- 内存队列 (per-cat Map + 处理循环), 复杂度最低
+- Redis List (跨进程持久化), 需要引入新的存储模式
+
+登记为 BACKLOG 讨论议题, 不阻塞 Phase 3.9。
+
+#### OQ-7: 死锁预防 (A @B, B @A 同时发生)?
+
+**回答: 串行执行不会死锁。**
+- `routeSerial` 中猫是一只接一只执行的
+- A @B → B @A 是**顺序**发生, 不是同时发生
+- `invocationDepth` 硬上限 2 → 最多 3 次调用 (user→A→B→停止 或 user→A→B→A→停止)
+- 即使出现看似"循环"的 @mention, depth limit 也会终止链条
+
+### 总结: 为什么不需要调整 Phase 3.9 范围
+
+```
+4.5 的分析假设:    A2A 可能在并行模式下触发 → 并发噩梦
+实际的架构约束:    A2A 只在串行模式下触发 → 不存在并发
+
+关键安全网:
+1. execute 模式 = routeSerial = 严格串行 → 无并发冲突
+2. ideate 模式 = routeParallel = 不触发 A2A → 无 A2A 并发
+3. invocationDepth limit = 2 → 最多 3 次调用后强制停止
+4. signal?.aborted 检查 → 每只猫启动前检查取消信号
+5. InvocationTracker → 新消息/用户取消 → AbortSignal 终止整条链
+6. 自调用过滤 → 猫不能 @ 自己
+```
+
+4.5 猫猫的分析在**抽象层面**是正确的: 如果我们未来允许并行模式触发 A2A,
+确实需要队列/锁/DAG。但在当前 MVP 设计中, 并行和 A2A 互斥,
+这些复杂度不会出现。
+
+**值得登记到 BACKLOG 的未来方向:**
+如果后续需要"brainstorm 结束后自动分配 follow-up" (类似 Phase 4 的 deliberate 模式),
+那时才需要重新考虑 4.5 分析中的队列架构。
+
+---
+
 ## 实现步骤 (待确认后实施)
 
 | Step | 内容 | 新 Tests | 涉及文件 |
@@ -201,9 +356,14 @@ A2A 链会追加新猫到链条中。`isFinal` 逻辑需要确保:
 | 费用爆炸 | 高 | depth 2 = 最多 3 次 CLI 调用 (~$0.03-0.30), 可接受 |
 | @mention 误触发 | 中 | → **OQ-1 待讨论** |
 | isFinal 时序 | 中 | → **OQ-2 待讨论** |
+| 并行模式并发冲突 | ~~高~~ → **不适用** | A2A 只在 routeSerial 中触发, routeParallel 不触发 (见并发分析) |
+| 需要消息队列 | ~~高~~ → **不适用** | 串行执行无排队需求; 未来 Phase 4+ 若需要再评估 |
 | routeSerial 递归栈 | 低 | max depth 2, async generator 不占栈 |
 | 配置快照泄露 | 低 | Redis URL 只显示连接状态 |
 
 ---
 
-*布偶猫 🐾 2026-02-07 — 计划完成, 待讨论 OQ-1~4 后开始实施*
+*布偶猫 🐾 2026-02-07*
+*— 计划完成 + 并发分析完成 (回应 4.5 布偶猫 + 铲屎官的 5 场景挑战)*
+*— 结论: MVP 范围不需要调整, 并行和 A2A 互斥, 串行执行无并发冲突*
+*— 待猫猫 review 后开始实施*
