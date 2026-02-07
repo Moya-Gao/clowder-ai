@@ -257,6 +257,12 @@ GET /api/export/thread/:threadId?format=md
 3. 包含：对话 ID、时间范围、参与猫猫、每条消息的时间 + 角色 + provider/model 标签 + 完整内容
 4. 响应头设置 `Content-Disposition: attachment` 触发下载
 
+**复用 ContextAssembler 格式化逻辑**（claude.ai 布偶猫建议）：
+- ContextAssembler 和 export 都做"消息→文本"转换
+- 提取共享的 `formatMessage(msg)` 函数到 ContextAssembler 模块
+- export 调用同一函数，增加 metadata/完整内容等导出专用字段
+- 避免两处维护同样的格式化逻辑
+
 **前端**：
 - ThreadSidebar 中每个 thread 添加"导出"按钮（小图标）
 - 点击触发 `window.open(exportUrl)` 下载
