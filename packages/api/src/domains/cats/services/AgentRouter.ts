@@ -7,8 +7,8 @@
  * - 无 @ 提及时路由到对话中所有活跃参与者
  * - 无参与者的新对话默认路由到布偶猫 (opus)
  * - 支持中英文提及模式
- * - 多猫提及时按出现顺序串行执行
- * - 后一只猫的 prompt 包含前一只猫的回复
+ * - ideate intent + 多猫 → 并行独立思考 (mergeStreams)
+ * - execute intent 或单猫 → 串行执行 (前猫回复注入后猫)
  * - Session 管理委托给 SessionManager
  */
 
@@ -22,6 +22,7 @@ import { parseIntent, stripIntentTags } from './IntentParser.js';
 import type { IntentResult } from './IntentParser.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
+import { mergeStreams } from './stream-merge.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
 import type { IThreadStore } from './ThreadStore.js';
@@ -172,11 +173,17 @@ export class AgentRouter {
       ...(contentBlocks ? { contentBlocks } : {}),
     });
 
-    // Step 3 will add: if (intent.intent === 'ideate' && targetCats.length > 1) routeParallel
-    yield* this.routeSerial(
-      targetCats, cleanMessage, userId, resolvedThreadId,
-      contentBlocks, uploadDir, signal, intent.promptTags,
-    );
+    if (intent.intent === 'ideate' && targetCats.length > 1) {
+      yield* this.routeParallel(
+        targetCats, cleanMessage, userId, resolvedThreadId,
+        contentBlocks, uploadDir, signal, intent.promptTags,
+      );
+    } else {
+      yield* this.routeSerial(
+        targetCats, cleanMessage, userId, resolvedThreadId,
+        contentBlocks, uploadDir, signal, intent.promptTags,
+      );
+    }
   }
 
   /** Serial execution: cats respond one by one, each seeing previous responses */
@@ -255,6 +262,82 @@ export class AgentRouter {
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
         });
+      }
+    }
+  }
+
+  /** Parallel execution: all cats respond independently to the same message */
+  private async *routeParallel(
+    targetCats: CatId[],
+    message: string,
+    userId: string,
+    threadId: string,
+    contentBlocks?: readonly MessageContent[],
+    uploadDir?: string,
+    signal?: AbortSignal,
+    promptTags?: readonly string[],
+  ): AsyncIterable<AgentMessage> {
+    const deps = this.getInvocationDeps();
+    const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+
+    const streams = targetCats.map((catId) => {
+      const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+      const systemPrompt = buildSystemPrompt({
+        catId,
+        mode: 'parallel',
+        teammates: targetCats.filter((id) => id !== catId),
+        mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
+        ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+      });
+      const prompt = systemPrompt
+        ? `${systemPrompt}\n\n---\n\n${message}`
+        : message;
+
+      return invokeSingleCat(deps, {
+        catId,
+        service: this.getService(catId),
+        prompt,
+        userId,
+        threadId,
+        ...(contentBlocks ? { contentBlocks } : {}),
+        ...(uploadDir ? { uploadDir } : {}),
+        ...(signal ? { signal } : {}),
+        isLastCat: false,
+      });
+    });
+
+    const catText = new Map<string, string>();
+    const catMeta = new Map<string, MessageMetadata>();
+    let completedCount = 0;
+
+    for await (const msg of mergeStreams(streams, (idx, err) => {
+      console.error(`[routeParallel] Stream ${idx} error:`, err);
+    })) {
+      if (msg.type === 'text' && msg.content && msg.catId) {
+        catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
+      }
+      if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
+        catMeta.set(msg.catId, msg.metadata);
+      }
+
+      if (msg.type === 'done' && msg.catId) {
+        completedCount++;
+        const text = catText.get(msg.catId);
+        if (text) {
+          const meta = catMeta.get(msg.catId);
+          await this.messageStore.append({
+            userId,
+            catId: msg.catId as CatId,
+            content: text,
+            mentions: [],
+            timestamp: Date.now(),
+            threadId,
+            ...(meta ? { metadata: meta } : {}),
+          });
+        }
+        yield { ...msg, isFinal: completedCount === targetCats.length };
+      } else {
+        yield msg;
       }
     }
   }

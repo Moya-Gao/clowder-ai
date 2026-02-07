@@ -118,6 +118,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     const controller = opts.invocationTracker?.start(resolvedThreadId);
     void (async () => {
       try {
+        // Pre-resolve intent so frontend can show IdeateHeader immediately
+        const { targetCats, intent } = await router.resolveTargetsAndIntent(
+          content, resolvedThreadId,
+        );
+        opts.socketManager.broadcastToRoom(
+          `thread:${resolvedThreadId}`,
+          'intent_mode',
+          { threadId: resolvedThreadId, mode: intent.intent, targetCats },
+        );
+
         for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir, controller?.signal)) {
           opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
         }

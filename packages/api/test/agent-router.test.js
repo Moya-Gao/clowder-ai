@@ -275,7 +275,7 @@ describe('AgentRouter', () => {
     assert.ok(messages.every((m) => m.catId === 'gemini'));
   });
 
-  test('executes multiple cats in order when multiple @ mentions are present', async () => {
+  test('executes multiple cats in order when multiple @ mentions are present (#execute)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'
     );
@@ -295,7 +295,7 @@ describe('AgentRouter', () => {
     const messages = [];
     for await (const msg of router.route(
       'user-1',
-      '@opus write code, then @codex review it'
+      '#execute @opus write code, then @codex review it'
     )) {
       messages.push(msg);
     }
@@ -311,7 +311,7 @@ describe('AgentRouter', () => {
     assert.equal(textMessages[1].catId, 'codex');
   });
 
-  test('multi-cat chain includes previous responses in prompt', async () => {
+  test('multi-cat serial chain includes previous responses in prompt (#execute)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'
     );
@@ -339,7 +339,7 @@ describe('AgentRouter', () => {
     const messages = [];
     for await (const msg of router.route(
       'user-1',
-      '@opus write code, then @codex review it'
+      '#execute @opus write code, then @codex review it'
     )) {
       messages.push(msg);
     }
@@ -1040,7 +1040,7 @@ describe('AgentRouter', () => {
     assert.ok(opusReceivedPrompt.includes('hello'), 'Opus prompt should contain original message');
   });
 
-  test('identity injection: codex prompt in multi-cat chain contains 缅因猫', async () => {
+  test('identity injection: codex prompt in serial chain contains 缅因猫 (#execute)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'
     );
@@ -1063,11 +1063,239 @@ describe('AgentRouter', () => {
       messageStore: createMockMessageStore(),
     });
 
-    for await (const _ of router.route('user-1', '@opus @codex hello')) {
+    for await (const _ of router.route('user-1', '#execute @opus @codex hello')) {
       // consume
     }
 
     assert.ok(codexReceivedPrompt.includes('缅因猫'), 'Codex prompt should contain 缅因猫');
     assert.ok(codexReceivedPrompt.includes('2/2'), 'Codex prompt should show chain position 2/2');
+  });
+
+  // --- Parallel routing tests ---
+
+  test('parallel: 2 cats both invoked with mode=parallel (auto ideate)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusPrompt = '';
+    let codexPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'Opus thinks', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'Codex thinks', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const messages = [];
+    for await (const msg of router.route('user-1', '@opus @codex what do you think?')) {
+      messages.push(msg);
+    }
+
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+
+    // Both prompts should contain parallel mode text, NOT chain position
+    assert.ok(opusPrompt.includes('独立思考'), 'Opus should get parallel mode');
+    assert.ok(codexPrompt.includes('独立思考'), 'Codex should get parallel mode');
+    assert.ok(!opusPrompt.includes('被召唤'), 'Opus should NOT have serial chain text');
+    assert.ok(!codexPrompt.includes('被召唤'), 'Codex should NOT have serial chain text');
+
+    // Both texts should be present
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 2);
+  });
+
+  test('parallel: codex does NOT see opus response (independent thinking)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let codexPrompt = '';
+    const mockClaudeService = createMockAgentService('opus', 'Opus unique response');
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'Codex response', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '@opus @codex brainstorm this')) {
+      // consume
+    }
+
+    assert.ok(!codexPrompt.includes('Opus unique response'),
+      'Codex should NOT see opus response in parallel mode');
+  });
+
+  test('parallel: isFinal only on last done message', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const router = new AgentRouter({
+      claudeService: createMockAgentService('opus', 'a'),
+      codexService: createMockAgentService('codex', 'b'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const doneMessages = [];
+    for await (const msg of router.route('user-1', '@opus @codex parallel test')) {
+      if (msg.type === 'done') doneMessages.push(msg);
+    }
+
+    assert.equal(doneMessages.length, 2, 'Should have 2 done messages');
+    // Exactly one should have isFinal=true
+    const finalCount = doneMessages.filter((m) => m.isFinal).length;
+    assert.equal(finalCount, 1, 'Exactly one done should be isFinal');
+    // The last done should be isFinal
+    assert.ok(doneMessages[doneMessages.length - 1].isFinal, 'Last done should be isFinal');
+  });
+
+  test('parallel: #execute forces serial even with multiple cats', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let codexPrompt = '';
+    const mockClaudeService = createMockAgentService('opus', 'Serial opus');
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'Serial codex', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '#execute @opus @codex do this')) {
+      // consume
+    }
+
+    // Serial mode: codex should see opus's response
+    assert.ok(codexPrompt.includes('Serial opus'),
+      '#execute should force serial chain (codex sees opus response)');
+    assert.ok(codexPrompt.includes('被召唤'),
+      '#execute should use serial mode text');
+  });
+
+  test('parallel: all cat responses are stored in messageStore', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const appendedMessages = [];
+    const store = {
+      ...createMockMessageStore(),
+      append: (msg) => { appendedMessages.push(msg); return { ...msg, id: 'msg-1' }; },
+    };
+    const router = new AgentRouter({
+      claudeService: createMockAgentService('opus', 'Opus stored'),
+      codexService: createMockAgentService('codex', 'Codex stored'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: store,
+    });
+
+    for await (const _ of router.route('user-1', '@opus @codex store test')) {
+      // consume
+    }
+
+    // User message + 2 cat responses = 3 appends
+    assert.equal(appendedMessages.length, 3);
+    const appendedCatIds = appendedMessages.map((m) => m.catId).filter(Boolean);
+    assert.ok(appendedCatIds.includes('opus'), 'Opus response should be stored');
+    assert.ok(appendedCatIds.includes('codex'), 'Codex response should be stored');
+  });
+
+  test('parallel: 3 cats all invoked independently', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const mockClaude = createMockAgentService('opus', 'a');
+    const mockCodex = createMockAgentService('codex', 'b');
+    const mockGemini = createMockAgentService('gemini', 'c');
+
+    const router = new AgentRouter({
+      claudeService: mockClaude,
+      codexService: mockCodex,
+      geminiService: mockGemini,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const messages = [];
+    for await (const msg of router.route('user-1', '@opus @codex @gemini three way')) {
+      messages.push(msg);
+    }
+
+    assert.equal(mockClaude.invoke.mock.callCount(), 1);
+    assert.equal(mockCodex.invoke.mock.callCount(), 1);
+    assert.equal(mockGemini.invoke.mock.callCount(), 1);
+
+    const textMsgs = messages.filter((m) => m.type === 'text');
+    assert.equal(textMsgs.length, 3);
+    const dones = messages.filter((m) => m.type === 'done');
+    assert.equal(dones.length, 3);
+    assert.equal(dones.filter((m) => m.isFinal).length, 1);
+  });
+
+  test('parallel: resolveTargetsAndIntent returns correct intent', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    const router = new AgentRouter({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const result1 = await router.resolveTargetsAndIntent('@opus @codex think');
+    assert.equal(result1.intent.intent, 'ideate', '2 cats should auto-ideate');
+    assert.equal(result1.targetCats.length, 2);
+
+    const result2 = await router.resolveTargetsAndIntent('#execute @opus @codex do');
+    assert.equal(result2.intent.intent, 'execute', '#execute should force execute');
+
+    const result3 = await router.resolveTargetsAndIntent('@opus solo');
+    assert.equal(result3.intent.intent, 'execute', '1 cat should default to execute');
   });
 });
