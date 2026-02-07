@@ -39,6 +39,14 @@ export {
   getAllCatIds,
 } from './cat.js';
 
+// Cat breed/variant types (Breed+Variant two-layer schema)
+export type {
+  CliConfig,
+  CatVariant,
+  CatBreed,
+  CatCafeConfig,
+} from './cat-breed.js';
+
 // Message types
 export type {
   MessageSender,
