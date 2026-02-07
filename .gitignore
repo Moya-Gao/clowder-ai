@@ -11,11 +11,23 @@ build/
 .env.local
 .env.*.local
 
-# IDE
+# IDE & AI tools
 .idea/
 .vscode/
+.cursor/
+.agent/
+.agents/
+.augment/
+.kiro/
+.trae/
 *.swp
 *.swo
+
+# MCP config (personal, contains local URLs)
+.mcp.json
+
+# Claude Code skills (personal)
+.claude/skills/
 
 # OS files
 .DS_Store
