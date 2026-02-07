@@ -30,7 +30,7 @@ export function ChatContainer() {
     clearMessages,
     updateThreadTitle,
   } = useChatStore();
-  const { addTask, updateTask, clearTasks } = useTaskStore();
+  const { setTasks, addTask, updateTask, clearTasks } = useTaskStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const initialLoadDone = useRef(false);
@@ -72,13 +72,24 @@ export function ChatContainer() {
     [isLoadingHistory, setLoadingHistory, prependHistory, currentThreadId]
   );
 
-  // Load initial history on mount
+  const fetchTasks = useCallback(async (threadId?: string) => {
+    try {
+      const tid = threadId ?? currentThreadId;
+      const res = await fetch(`${API_URL}/api/tasks?threadId=${encodeURIComponent(tid)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setTasks(data.tasks ?? []);
+    } catch { /* ignore */ }
+  }, [currentThreadId, setTasks]);
+
+  // Load initial history + tasks on mount
   useEffect(() => {
     if (!initialLoadDone.current) {
       initialLoadDone.current = true;
       void fetchHistory();
+      void fetchTasks();
     }
-  }, [fetchHistory]);
+  }, [fetchHistory, fetchTasks]);
 
   // Scroll handling for prepend vs append
   const prevFirstIdRef = useRef<string | null>(null);
@@ -162,8 +173,9 @@ export function ChatContainer() {
       setIntentMode(null);
       switchRoom(threadId);
       void fetchHistory(undefined, threadId);
+      void fetchTasks(threadId);
     },
-    [resetRefs, clearMessages, clearTasks, setIntentMode, switchRoom, fetchHistory]
+    [resetRefs, clearMessages, clearTasks, setIntentMode, switchRoom, fetchHistory, fetchTasks]
   );
 
   const handleSend = useCallback(

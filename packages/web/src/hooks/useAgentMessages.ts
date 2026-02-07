@@ -61,7 +61,7 @@ export function useAgentMessages() {
           setStreaming(ref.id, false);
           activeRefs.current.delete(msg.catId);
         }
-        if (msg.isFinal) {
+        if (msg.isFinal || activeRefs.current.size === 0) {
           setLoading(false);
           setIntentMode(null);
         }

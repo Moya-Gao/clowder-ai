@@ -23,7 +23,8 @@ function formatTime(ts: number): string {
  * Polaroid-style card for discussion summaries.
  */
 export function SummaryCard({ topic, conclusions, openQuestions, createdBy, timestamp }: SummaryCardProps) {
-  const isCat = CAT_NAMES[createdBy];
+  const catName = CAT_NAMES[createdBy];
+  const creatorLabel = catName ?? '铲屎官';
 
   return (
     <div className="flex justify-center mb-4">
@@ -66,13 +67,13 @@ export function SummaryCard({ topic, conclusions, openQuestions, createdBy, time
 
         {/* Footer: creator + time */}
         <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-          {isCat ? (
+          {catName ? (
             <CatAvatar catId={createdBy} size={16} />
           ) : (
             <span className="text-xs">👤</span>
           )}
           <span className="text-[10px] text-gray-400">
-            {isCat ?? '铲屎官'} · {formatTime(timestamp)}
+            {creatorLabel} · {formatTime(timestamp)}
           </span>
         </div>
       </div>

@@ -33,9 +33,14 @@ export const useTaskStore = create<TaskState>((set) => ({
     }),
 
   updateTask: (task) =>
-    set((state) => ({
-      tasks: state.tasks.map((t) => (t.id === task.id ? task : t)),
-    })),
+    set((state) => {
+      const exists = state.tasks.some((t) => t.id === task.id);
+      if (exists) {
+        return { tasks: state.tasks.map((t) => (t.id === task.id ? task : t)) };
+      }
+      // Upsert: task_updated for unknown task → insert it
+      return { tasks: [...state.tasks, task] };
+    }),
 
   removeTask: (taskId) =>
     set((state) => ({
