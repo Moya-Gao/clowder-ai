@@ -1,10 +1,5 @@
 /**
- * Callback API Routes
- * MCP 回传工具的 HTTP 端点
- *
- * 这些端点由 MCP server（CLI 子进程内）通过 HTTP 调用，
- * 用于猫猫主动发言、获取上下文和感知 @ 提及。
- *
+ * Callback API Routes — MCP 回传端点
  * 安全: 每个请求都需要 invocationId + callbackToken 验证。
  */
 
@@ -165,11 +160,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      // Verify the task exists and the cat owns it
+      // Verify the task exists, belongs to same thread, and the cat owns it
       const existing = await taskStore.get(taskId);
       if (!existing) {
         reply.status(404);
         return { error: 'Task not found' };
+      }
+
+      if (existing.threadId !== record.threadId) {
+        reply.status(403);
+        return { error: 'Task belongs to a different thread' };
       }
 
       if (existing.ownerCatId && existing.ownerCatId !== record.catId) {

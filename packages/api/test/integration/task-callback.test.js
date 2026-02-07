@@ -57,7 +57,7 @@ describe('Task Callback Integration', () => {
     const app = await createApp();
 
     // Create invocation for opus
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
 
     // Create a task owned by opus
     const task = taskStore.create({
@@ -112,7 +112,7 @@ describe('Task Callback Integration', () => {
     const app = await createApp();
 
     // Invocation for codex
-    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
 
     // Task owned by opus
     const task = taskStore.create({
@@ -140,7 +140,7 @@ describe('Task Callback Integration', () => {
   test('MCP update-task allows unowned task', async () => {
     const app = await createApp();
 
-    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
 
     // Task with no owner
     const task = taskStore.create({
@@ -163,5 +163,35 @@ describe('Task Callback Integration', () => {
 
     assert.equal(response.statusCode, 200);
     assert.equal(response.json().task.status, 'doing');
+  });
+
+  test('MCP update-task rejects cross-thread update', async () => {
+    const app = await createApp();
+
+    // Invocation in thread-A
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+
+    // Task in thread-B
+    const task = taskStore.create({
+      threadId: 'thread-B',
+      title: 'Task in another thread',
+      why: 'Cross-thread test',
+      createdBy: 'user',
+      ownerCatId: 'opus',
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/update-task',
+      payload: {
+        invocationId,
+        callbackToken,
+        taskId: task.id,
+        status: 'done',
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
+    assert.match(response.json().error, /different thread/);
   });
 });
