@@ -16,6 +16,7 @@ import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from './MessageStore.js';
 import type { AppendMessageInput, StoredMessage } from './MessageStore.js';
+import type { MessageMetadata } from './types.js';
 import { MessageKeys } from './message-keys.js';
 
 const DEFAULT_LIMIT = 50;
@@ -39,7 +40,7 @@ export class RedisMessageStore {
     const hashKey = MessageKeys.detail(id);
     const pipeline = this.redis.multi();
 
-    // Store message hash (including threadId and contentBlocks)
+    // Store message hash (including threadId, contentBlocks, metadata)
     pipeline.hset(hashKey, {
       id,
       threadId,
@@ -47,6 +48,7 @@ export class RedisMessageStore {
       catId: msg.catId ?? '',
       content: msg.content,
       contentBlocks: msg.contentBlocks ? JSON.stringify(msg.contentBlocks) : '',
+      metadata: msg.metadata ? JSON.stringify(msg.metadata) : '',
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
     });
@@ -243,6 +245,7 @@ export class RedisMessageStore {
       if (!d['id']) continue;
 
       const contentBlocks = safeParseContentBlocks(d['contentBlocks']);
+      const parsedMetadata = safeParseMetadata(d['metadata']);
       messages.push({
         id: d['id'],
         threadId: d['threadId'] || DEFAULT_THREAD_ID,
@@ -250,6 +253,7 @@ export class RedisMessageStore {
         catId: (d['catId'] || null) as CatId | null,
         content: d['content'] ?? '',
         ...(contentBlocks ? { contentBlocks } : {}),
+        ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
         mentions: safeParseMentions(d['mentions']),
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
       });
@@ -273,6 +277,19 @@ function safeParseContentBlocks(raw: string | undefined): readonly MessageConten
   try {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function safeParseMetadata(raw: string | undefined): MessageMetadata | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null && typeof parsed.provider === 'string') {
+      return parsed as MessageMetadata;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
