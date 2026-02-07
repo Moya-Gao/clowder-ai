@@ -94,7 +94,7 @@ check_redis() {
     else
         echo -e "${YELLOW}  ⚠ Redis 未运行，尝试启动...${NC}"
         if command -v redis-server &> /dev/null; then
-            redis-server --daemonize yes 2>/dev/null
+            redis-server --daemonize yes 2>/dev/null || true
             sleep 1
             if redis-cli ping &> /dev/null; then
                 echo -e "${GREEN}  ✓ Redis 已启动${NC}"

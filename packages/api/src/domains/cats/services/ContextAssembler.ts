@@ -64,14 +64,6 @@ export function formatMessage(
 }
 
 /**
- * Check if a message is a system/error message that should be excluded from context.
- * StoredMessage has no 'type' field — infer from catId + content pattern.
- */
-function isSystemMessage(msg: StoredMessage): boolean {
-  return msg.catId === null && msg.content.startsWith('Error:');
-}
-
-/**
  * Assemble recent thread history into a context string for prompt prepend.
  */
 export function assembleContext(
@@ -81,17 +73,14 @@ export function assembleContext(
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const maxContentLength = options?.maxContentLength ?? DEFAULT_MAX_CONTENT_LENGTH;
 
-  // Filter out system/error messages
-  const filtered = messages.filter((m) => !isSystemMessage(m));
-
-  if (filtered.length === 0) {
+  if (messages.length === 0) {
     return { contextText: '', messageCount: 0 };
   }
 
   // Take the most recent N messages (messages are already chronological from store)
-  const recent = filtered.length > maxMessages
-    ? filtered.slice(-maxMessages)
-    : filtered;
+  const recent = messages.length > maxMessages
+    ? messages.slice(-maxMessages)
+    : messages;
 
   const lines = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));
   const header = `[对话历史 - 最近 ${recent.length} 条]`;

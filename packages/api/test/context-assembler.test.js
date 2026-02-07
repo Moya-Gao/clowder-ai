@@ -157,33 +157,20 @@ describe('assembleContext', () => {
     assert.ok(!result.contextText.includes('X'.repeat(101)));
   });
 
-  test('filters out system/error messages', async () => {
+  test('includes user messages starting with "Error:" (no false-positive filtering)', async () => {
     const { assembleContext } = await import(
       '../dist/domains/cats/services/ContextAssembler.js'
     );
     const msgs = [
-      mockMsg({ catId: null, content: 'Error: something went wrong', timestamp: 1000 }),
+      mockMsg({ catId: null, content: 'Error: Cannot find module "foo"', timestamp: 1000 }),
       mockMsg({ catId: null, content: '正常消息', timestamp: 2000 }),
       mockMsg({ catId: 'opus', content: '猫猫回复', timestamp: 3000 }),
     ];
     const result = assembleContext(msgs);
-    assert.equal(result.messageCount, 2);
-    assert.ok(!result.contextText.includes('Error:'));
+    assert.equal(result.messageCount, 3);
+    assert.ok(result.contextText.includes('Error: Cannot find module'));
     assert.ok(result.contextText.includes('正常消息'));
     assert.ok(result.contextText.includes('猫猫回复'));
-  });
-
-  test('returns empty when all messages are errors', async () => {
-    const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
-    );
-    const msgs = [
-      mockMsg({ catId: null, content: 'Error: fail 1' }),
-      mockMsg({ catId: null, content: 'Error: fail 2' }),
-    ];
-    const result = assembleContext(msgs);
-    assert.equal(result.contextText, '');
-    assert.equal(result.messageCount, 0);
   });
 
   test('uses default maxMessages=20 and maxContentLength=500', async () => {
