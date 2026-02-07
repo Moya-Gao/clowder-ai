@@ -240,4 +240,28 @@ describe('SystemPromptBuilder', () => {
     });
     assert.ok(!prompt.includes('批判性分析'));
   });
+
+  // --- Phase 3.6: honesty rule ---
+
+  test('contains "不确定" honesty rule', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(prompt.includes('不确定'), 'Prompt should tell cats to say "I\'m not sure"');
+  });
+
+  test('contains "不要编造" anti-fabrication rule', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(prompt.includes('编造'), 'Prompt should tell cats not to fabricate');
+  });
 });

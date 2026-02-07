@@ -95,7 +95,7 @@ export function buildSystemPrompt(context: InvocationContext): string {
   }
 
   // Rules
-  lines.push('规则：不要冒充其他猫。不要编造自己的型号。用你自己的风格回答。');
+  lines.push('规则：不要冒充其他猫。不要编造自己的型号。不确定时明确说"我不确定"或"我需要查证"，绝不编造信息。用你自己的风格回答。');
 
   return lines.join('\n');
 }
