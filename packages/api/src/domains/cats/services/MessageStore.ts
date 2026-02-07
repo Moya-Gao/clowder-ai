@@ -50,6 +50,8 @@ export interface IMessageStore {
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  /** Delete all messages in a thread (cascade delete support) */
+  deleteByThread(threadId: string): number | Promise<number>;
 }
 
 /** Max messages to keep in memory */
@@ -207,6 +209,15 @@ export class MessageStore {
       matches.push(msg);
     }
     return matches.reverse();
+  }
+
+  /**
+   * Delete all messages in a thread. Returns count of deleted messages.
+   */
+  deleteByThread(threadId: string): number {
+    const before = this.messages.length;
+    this.messages = this.messages.filter((m) => m.threadId !== threadId);
+    return before - this.messages.length;
   }
 
   /**

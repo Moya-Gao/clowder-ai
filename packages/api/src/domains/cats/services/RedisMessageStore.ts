@@ -229,6 +229,33 @@ export class RedisMessageStore {
     return filtered;
   }
 
+  /**
+   * Delete all messages in a thread. Returns count of deleted messages.
+   */
+  async deleteByThread(threadId: string): Promise<number> {
+    const key = MessageKeys.thread(threadId);
+
+    // Get all message IDs in this thread
+    const ids = await this.redis.zrange(key, 0, -1);
+    if (ids.length === 0) return 0;
+
+    const pipeline = this.redis.multi();
+
+    // Delete each message hash
+    for (const id of ids) {
+      pipeline.del(MessageKeys.detail(id));
+    }
+
+    // Delete the thread sorted set
+    pipeline.del(key);
+
+    // Note: We don't clean up global timeline, user timeline, or mention sets
+    // as those will auto-expire via TTL. Cleaning them would be O(n) expensive.
+
+    await pipeline.exec();
+    return ids.length;
+  }
+
   /** Hydrate message IDs into full StoredMessage objects */
   private async hydrateMessages(ids: string[]): Promise<StoredMessage[]> {
     const pipeline = this.redis.multi();

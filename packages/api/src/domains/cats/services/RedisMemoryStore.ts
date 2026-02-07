@@ -70,6 +70,16 @@ export class RedisMemoryStore implements IMemoryStore {
     return result > 0;
   }
 
+  /** Delete all entries for a thread. Returns count of deleted entries. */
+  async deleteThread(threadId: string): Promise<number> {
+    const key = memoryKey(threadId);
+    const count = await this.redis.hlen(key);
+    if (count > 0) {
+      await this.redis.del(key);
+    }
+    return count;
+  }
+
   private async evictOldest(_threadId: string, hashKey: string): Promise<void> {
     const all = await this.redis.hgetall(hashKey);
     let oldest: { key: string; time: number } | null = null;

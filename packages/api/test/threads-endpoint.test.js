@@ -134,6 +134,92 @@ describe('Thread API', () => {
   });
 });
 
+describe('Thread cascade delete', () => {
+  let app;
+  let threadStore;
+  let messageStore;
+  let taskStore;
+  let memoryStore;
+
+  beforeEach(async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { TaskStore } = await import('../dist/domains/cats/services/TaskStore.js');
+    const { MemoryStore } = await import('../dist/domains/cats/services/MemoryStore.js');
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+
+    threadStore = new ThreadStore();
+    messageStore = new MessageStore();
+    taskStore = new TaskStore();
+    memoryStore = new MemoryStore();
+
+    app = Fastify();
+    await app.register(threadsRoutes, { threadStore, messageStore, taskStore, memoryStore });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('DELETE /api/threads/:id cascades to messages, tasks, and memory', async () => {
+    const thread = threadStore.create('alice', 'Cascade Test');
+    const threadId = thread.id;
+
+    // Add some messages
+    messageStore.append({
+      userId: 'alice',
+      catId: null,
+      content: 'test message 1',
+      mentions: [],
+      timestamp: Date.now(),
+      threadId,
+    });
+    messageStore.append({
+      userId: 'alice',
+      catId: null,
+      content: 'test message 2',
+      mentions: [],
+      timestamp: Date.now() + 1,
+      threadId,
+    });
+
+    // Add a task
+    taskStore.create({
+      threadId,
+      title: 'Test task',
+      why: 'testing',
+      createdBy: 'user',
+    });
+
+    // Add memory
+    memoryStore.set({
+      threadId,
+      key: 'test-key',
+      value: 'test-value',
+      updatedBy: 'user',
+    });
+
+    // Verify data exists
+    assert.equal(messageStore.getByThread(threadId).length, 2);
+    assert.equal(taskStore.listByThread(threadId).length, 1);
+    assert.equal(memoryStore.list(threadId).length, 1);
+
+    // Delete thread
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${threadId}`,
+    });
+    assert.equal(res.statusCode, 204);
+
+    // Verify cascade delete
+    assert.equal(threadStore.get(threadId), null);
+    assert.equal(messageStore.getByThread(threadId).length, 0);
+    assert.equal(taskStore.listByThread(threadId).length, 0);
+    assert.equal(memoryStore.list(threadId).length, 0);
+  });
+});
+
 describe('GET /api/messages with threadId', () => {
   let app;
   let messageStore;

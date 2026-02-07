@@ -110,6 +110,22 @@ export class RedisTaskStore implements ITaskStore {
     return true;
   }
 
+  /** Delete all tasks in a thread. Returns count of deleted tasks. */
+  async deleteByThread(threadId: string): Promise<number> {
+    const key = TaskKeys.thread(threadId);
+    const ids = await this.redis.zrange(key, 0, -1);
+    if (ids.length === 0) return 0;
+
+    const pipeline = this.redis.multi();
+    for (const id of ids) {
+      pipeline.del(TaskKeys.detail(id));
+    }
+    pipeline.del(key);
+    await pipeline.exec();
+
+    return ids.length;
+  }
+
   private serializeTask(task: TaskItem): Record<string, string> {
     return {
       id: task.id,

@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });
-  await app.register(threadsRoutes, { threadStore });
+  await app.register(threadsRoutes, { threadStore, messageStore, taskStore, memoryStore });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);

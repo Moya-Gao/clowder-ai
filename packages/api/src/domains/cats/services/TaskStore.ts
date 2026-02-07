@@ -19,6 +19,8 @@ export interface ITaskStore {
   update(taskId: string, input: UpdateTaskInput): TaskItem | null | Promise<TaskItem | null>;
   listByThread(threadId: string): TaskItem[] | Promise<TaskItem[]>;
   delete(taskId: string): boolean | Promise<boolean>;
+  /** Delete all tasks in a thread (cascade delete support) */
+  deleteByThread(threadId: string): number | Promise<number>;
 }
 
 /**
@@ -87,6 +89,18 @@ export class TaskStore implements ITaskStore {
 
   delete(taskId: string): boolean {
     return this.tasks.delete(taskId);
+  }
+
+  /** Delete all tasks in a thread. Returns count of deleted tasks. */
+  deleteByThread(threadId: string): number {
+    let count = 0;
+    for (const [id, task] of this.tasks) {
+      if (task.threadId === threadId) {
+        this.tasks.delete(id);
+        count++;
+      }
+    }
+    return count;
   }
 
   /** Current task count (for testing) */

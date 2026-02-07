@@ -10,10 +10,19 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
+import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
+  /** Optional: cascade delete messages when thread is deleted */
+  messageStore?: IMessageStore;
+  /** Optional: cascade delete tasks when thread is deleted */
+  taskStore?: ITaskStore;
+  /** Optional: cascade delete memory when thread is deleted */
+  memoryStore?: IMemoryStore;
 }
 
 const createThreadSchema = z.object({
@@ -33,7 +42,7 @@ const updateThreadSchema = z.object({
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   async (app, opts) => {
-  const { threadStore } = opts;
+  const { threadStore, messageStore, taskStore, memoryStore } = opts;
 
   // POST /api/threads - 创建对话
   app.post('/api/threads', async (request, reply) => {
@@ -108,7 +117,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     return thread;
   });
 
-  // DELETE /api/threads/:id - 删除对话
+  // DELETE /api/threads/:id - 删除对话 (with cascade delete)
   app.delete('/api/threads/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const deleted = await threadStore.delete(id);
@@ -116,6 +125,21 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       reply.status(400);
       return { error: 'Cannot delete this thread' };
     }
+
+    // Cascade delete associated data (best-effort, don't fail if stores unavailable)
+    const cascadeResults = await Promise.allSettled([
+      messageStore?.deleteByThread(id),
+      taskStore?.deleteByThread(id),
+      memoryStore?.deleteThread(id),
+    ]);
+
+    // Log any cascade failures but don't fail the request
+    for (const result of cascadeResults) {
+      if (result.status === 'rejected') {
+        console.warn(`[threads] Cascade delete warning for ${id}:`, result.reason);
+      }
+    }
+
     reply.status(204);
     return;
   });

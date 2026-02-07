@@ -23,6 +23,9 @@ export interface IMemoryStore {
 
   /** Delete a single entry */
   delete(threadId: string, key: string): boolean | Promise<boolean>;
+
+  /** Delete all entries for a thread (cascade delete support) */
+  deleteThread(threadId: string): number | Promise<number>;
 }
 
 /**
@@ -76,6 +79,15 @@ export class MemoryStore implements IMemoryStore {
     const threadMap = this.data.get(threadId);
     if (!threadMap) return false;
     return threadMap.delete(key);
+  }
+
+  /** Delete all entries for a thread. Returns count of deleted entries. */
+  deleteThread(threadId: string): number {
+    const threadMap = this.data.get(threadId);
+    if (!threadMap) return 0;
+    const count = threadMap.size;
+    this.data.delete(threadId);
+    return count;
   }
 
   private findOldestKey(threadMap: Map<string, MemoryEntry>): string | null {
