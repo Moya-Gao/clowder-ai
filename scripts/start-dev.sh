@@ -2,8 +2,10 @@
 
 # Cat Cafe 开发服务器启动脚本
 # 用法:
-#   pnpm start          — 正常启动 (清理缓存 + rebuild + 启动)
-#   pnpm start --quick  — 跳过 rebuild，仅清缓存后启动
+#   pnpm start            — 正常启动 (Redis 持久化 + rebuild)
+#   pnpm start --quick    — 跳过 rebuild
+#   pnpm start --memory   — 使用内存存储 (重启丢数据)
+#   pnpm start --no-redis — 同 --memory
 
 set -e
 
@@ -23,9 +25,11 @@ NC='\033[0m' # No Color
 
 # 解析参数
 QUICK_MODE=false
+USE_REDIS=true
 for arg in "$@"; do
     case $arg in
         --quick|-q) QUICK_MODE=true ;;
+        --memory|--no-redis) USE_REDIS=false ;;
     esac
 done
 
@@ -39,6 +43,7 @@ fi
 # 默认端口
 API_PORT=${API_SERVER_PORT:-3002}
 WEB_PORT=${FRONTEND_PORT:-3001}
+REDIS_PORT=${REDIS_PORT:-6399}
 
 # 杀掉占用端口的进程
 kill_port() {
@@ -87,32 +92,51 @@ build_api() {
     echo -e "${GREEN}  ✓ API 构建完成${NC}"
 }
 
-# 检查 Redis — 未运行时尝试自动启动 (非阻塞，失败回退内存存储)
-check_redis() {
-    if redis-cli ping &> /dev/null; then
-        echo -e "${GREEN}  ✓ Redis 已运行${NC}"
-    else
-        echo -e "${YELLOW}  ⚠ Redis 未运行，尝试启动...${NC}"
-        if command -v redis-server &> /dev/null; then
-            redis-server --daemonize yes 2>/dev/null || true
-            sleep 1
-            if redis-cli ping &> /dev/null; then
-                echo -e "${GREEN}  ✓ Redis 已启动${NC}"
-            else
-                echo -e "${RED}  ✗ Redis 启动失败 (将使用内存存储，重启丢数据)${NC}"
-            fi
+# 检查/启动 Redis
+# USE_REDIS=true (默认): 尝试启动 Redis, 失败则回退内存
+# USE_REDIS=false (--memory): 跳过 Redis, 强制内存存储
+setup_storage() {
+    if [ "$USE_REDIS" = false ]; then
+        echo -e "${YELLOW}  ⚡ 内存模式 (--memory)，重启丢数据${NC}"
+        unset REDIS_URL
+        return
+    fi
+
+    # 默认: 尝试 Redis 持久化 (专属端口，避免与系统 Redis 冲突)
+    if redis-cli -p $REDIS_PORT ping &> /dev/null; then
+        echo -e "${GREEN}  ✓ Redis 已运行 (端口 $REDIS_PORT)${NC}"
+        export REDIS_URL="redis://localhost:$REDIS_PORT"
+        return
+    fi
+
+    echo -e "${YELLOW}  ⚠ Redis 未运行，尝试在端口 $REDIS_PORT 启动...${NC}"
+    if command -v redis-server &> /dev/null; then
+        redis-server --port $REDIS_PORT --daemonize yes 2>/dev/null || true
+        sleep 1
+        if redis-cli -p $REDIS_PORT ping &> /dev/null; then
+            echo -e "${GREEN}  ✓ Redis 已启动 (端口 $REDIS_PORT)${NC}"
+            export REDIS_URL="redis://localhost:$REDIS_PORT"
         else
-            echo -e "${RED}  ✗ Redis 未安装 (将使用内存存储，重启丢数据)${NC}"
-            echo -e "${YELLOW}    安装: brew install redis${NC}"
+            echo -e "${RED}  ✗ Redis 启动失败 (回退内存存储)${NC}"
+            unset REDIS_URL
         fi
+    else
+        echo -e "${RED}  ✗ Redis 未安装 (回退内存存储)${NC}"
+        echo -e "${YELLOW}    安装: brew install redis${NC}"
+        unset REDIS_URL
     fi
 }
 
-# 清理函数 — Ctrl+C 时杀所有子进程
+# 清理函数 — Ctrl+C 时杀所有子进程 + 关闭专属 Redis
 cleanup() {
     echo ""
     echo "正在关闭服务..."
     kill $(jobs -p) 2>/dev/null || true
+    # 关闭我们启动的专属 Redis (不影响系统默认 6379)
+    if [ "$USE_REDIS" = true ] && redis-cli -p $REDIS_PORT ping &> /dev/null 2>&1; then
+        redis-cli -p $REDIS_PORT shutdown nosave &> /dev/null || true
+        echo "  Redis (端口 $REDIS_PORT) 已关闭"
+    fi
     wait 2>/dev/null || true
     echo "再见！🐾"
 }
@@ -141,7 +165,7 @@ main() {
     # 4. 检查外部依赖
     echo ""
     echo -e "${CYAN}检查依赖...${NC}"
-    check_redis
+    setup_storage
 
     # 5. 启动服务
     echo ""
@@ -157,6 +181,13 @@ main() {
     (cd packages/web && PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
     sleep 3
 
+    # 显示存储模式
+    if [ -n "$REDIS_URL" ]; then
+        STORAGE_INFO="${GREEN}Redis 持久化${NC} ($REDIS_URL)"
+    else
+        STORAGE_INFO="${YELLOW}内存模式${NC} (重启丢数据)"
+    fi
+
     echo ""
     echo "========================"
     echo -e "${GREEN}🎉 Cat Café 已启动！${NC}"
@@ -164,6 +195,7 @@ main() {
     echo "服务地址："
     echo "  - Frontend: http://localhost:$WEB_PORT"
     echo "  - API:      http://localhost:$API_PORT"
+    echo -e "  - 存储:     $STORAGE_INFO"
     echo ""
     echo "按 Ctrl+C 停止所有服务"
     echo ""
