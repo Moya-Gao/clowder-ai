@@ -237,36 +237,10 @@ describe('contentBlocks round-trip: store and retrieve', () => {
   });
 });
 
-describe('WebSocket broadcastAgentMessage supports threadId', () => {
-  it('broadcastAgentMessage with threadId emits to room', () => {
-    const emitted = [];
-    const mockIo = {
-      emit: (event, data) => emitted.push({ event, data, room: null }),
-      to: (room) => ({
-        emit: (event, data) => emitted.push({ event, data, room }),
-      }),
-    };
-
-    // Simulate SocketManager behavior
-    function broadcastAgentMessage(message, threadId) {
-      if (threadId) {
-        mockIo.to(`thread:${threadId}`).emit('agent_message', message);
-      } else {
-        mockIo.emit('agent_message', message);
-      }
-    }
-
-    // Without threadId → global
-    broadcastAgentMessage({ type: 'text', catId: 'opus', content: 'global', timestamp: 1 });
-    assert.equal(emitted.length, 1);
-    assert.equal(emitted[0].room, null);
-
-    // With threadId → room-scoped
-    broadcastAgentMessage({ type: 'text', catId: 'opus', content: 'scoped', timestamp: 2 }, 'thread-123');
-    assert.equal(emitted.length, 2);
-    assert.equal(emitted[1].room, 'thread:thread-123');
-  });
-});
+// NOTE: Old "broadcastAgentMessage supports threadId" test removed —
+// it tested the pre-P1-3 behavior (no threadId → global emit) which no longer exists.
+// Real SocketManager behavior is now tested below in
+// "SocketManager.broadcastAgentMessage always uses room, never global".
 
 describe('Project-scoped threads: create and list by project', () => {
   let app;

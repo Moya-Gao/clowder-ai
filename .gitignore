@@ -29,6 +29,10 @@ pnpm-debug.log*
 # Test coverage
 coverage/
 
+# Uploaded files (keep dir, ignore contents)
+packages/api/uploads/*
+!packages/api/uploads/.gitkeep
+
 # Temporary files
 tmp/
 temp/
