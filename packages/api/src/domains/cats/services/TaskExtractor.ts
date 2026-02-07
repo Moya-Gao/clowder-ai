@@ -40,6 +40,29 @@ function formatMessagesForExtraction(messages: StoredMessage[]): string {
   }).join('\n\n');
 }
 
+/**
+ * Normalize sourceIndex from LLM response.
+ * Handles: number, string number ("3"), msg-N format ("msg-3"), or undefined.
+ */
+function normalizeSourceIndex(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    // Try parsing "msg-N" format
+    const msgMatch = value.match(/^msg-(\d+)$/i);
+    if (msgMatch) {
+      return parseInt(msgMatch[1]!, 10);
+    }
+    // Try parsing plain number string
+    const num = parseInt(value, 10);
+    if (!isNaN(num) && num >= 0) {
+      return num;
+    }
+  }
+  return null;
+}
+
 /** Parse LLM JSON response */
 function parseExtractedTasks(response: string, messages: StoredMessage[]): ExtractedTask[] | null {
   // Try to extract JSON array from response
@@ -48,14 +71,14 @@ function parseExtractedTasks(response: string, messages: StoredMessage[]): Extra
 
   try {
     const parsed = JSON.parse(jsonMatch[0]) as Array<{
-      title?: string;
-      why?: string;
-      ownerCatId?: string;
-      sourceIndex?: number;
+      title?: unknown;
+      why?: unknown;
+      ownerCatId?: unknown;
+      sourceIndex?: unknown;
     }>;
 
     return parsed
-      .filter((item): item is { title: string; why: string; ownerCatId?: string; sourceIndex?: number } =>
+      .filter((item): item is { title: string; why: string; ownerCatId?: unknown; sourceIndex?: unknown } =>
         typeof item.title === 'string' && typeof item.why === 'string'
       )
       .map((item) => {
@@ -63,11 +86,14 @@ function parseExtractedTasks(response: string, messages: StoredMessage[]): Extra
           title: item.title.slice(0, 200),
           why: item.why.slice(0, 500),
         };
-        if (item.ownerCatId) {
+        // Validate ownerCatId is a known cat
+        if (typeof item.ownerCatId === 'string' && ['opus', 'codex', 'gemini'].includes(item.ownerCatId)) {
           task.ownerCatId = item.ownerCatId as CatId;
         }
-        if (item.sourceIndex !== undefined && messages[item.sourceIndex]) {
-          task.sourceMessageId = messages[item.sourceIndex]!.id;
+        // Normalize and validate sourceIndex
+        const idx = normalizeSourceIndex(item.sourceIndex);
+        if (idx !== null && messages[idx]) {
+          task.sourceMessageId = messages[idx]!.id;
         }
         return task;
       });

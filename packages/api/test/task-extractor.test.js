@@ -130,6 +130,81 @@ describe('toCreateTaskInputs', () => {
   });
 });
 
+describe('sourceIndex normalization (#33)', () => {
+  const messagesWithIds = [
+    { id: 'msg-aaa', content: 'First message', catId: null },
+    { id: 'msg-bbb', content: 'Second message', catId: null },
+    { id: 'msg-ccc', content: 'Third message', catId: 'opus' },
+  ];
+
+  it('parses sourceIndex as number', async () => {
+    const mockService = {
+      async *invoke() {
+        yield { type: 'text', content: '[{"title": "Task", "why": "Test", "sourceIndex": 1}]' };
+        yield { type: 'done', catId: 'opus' };
+      },
+    };
+    const result = await extractTasks(messagesWithIds, mockService, {
+      threadId: 't1', userId: 'u1',
+    });
+    assert.equal(result.tasks[0].sourceMessageId, 'msg-bbb');
+  });
+
+  it('parses sourceIndex as string number "1"', async () => {
+    const mockService = {
+      async *invoke() {
+        yield { type: 'text', content: '[{"title": "Task", "why": "Test", "sourceIndex": "1"}]' };
+        yield { type: 'done', catId: 'opus' };
+      },
+    };
+    const result = await extractTasks(messagesWithIds, mockService, {
+      threadId: 't1', userId: 'u1',
+    });
+    assert.equal(result.tasks[0].sourceMessageId, 'msg-bbb');
+  });
+
+  it('parses sourceIndex as "msg-N" format', async () => {
+    const mockService = {
+      async *invoke() {
+        yield { type: 'text', content: '[{"title": "Task", "why": "Test", "sourceIndex": "msg-2"}]' };
+        yield { type: 'done', catId: 'opus' };
+      },
+    };
+    const result = await extractTasks(messagesWithIds, mockService, {
+      threadId: 't1', userId: 'u1',
+    });
+    assert.equal(result.tasks[0].sourceMessageId, 'msg-ccc');
+  });
+
+  it('ignores invalid sourceIndex', async () => {
+    const mockService = {
+      async *invoke() {
+        yield { type: 'text', content: '[{"title": "Task", "why": "Test", "sourceIndex": "invalid"}]' };
+        yield { type: 'done', catId: 'opus' };
+      },
+    };
+    const result = await extractTasks(messagesWithIds, mockService, {
+      threadId: 't1', userId: 'u1',
+    });
+    assert.equal(result.tasks[0].sourceMessageId, undefined);
+  });
+
+  it('validates ownerCatId to known cats only', async () => {
+    const mockService = {
+      async *invoke() {
+        yield { type: 'text', content: '[{"title": "Task1", "why": "T", "ownerCatId": "opus"}, {"title": "Task2", "why": "T", "ownerCatId": "unknown"}, {"title": "Task3", "why": "T", "ownerCatId": 123}]' };
+        yield { type: 'done', catId: 'opus' };
+      },
+    };
+    const result = await extractTasks(messagesWithIds, mockService, {
+      threadId: 't1', userId: 'u1',
+    });
+    assert.equal(result.tasks[0].ownerCatId, 'opus');
+    assert.equal(result.tasks[1].ownerCatId, undefined);
+    assert.equal(result.tasks[2].ownerCatId, undefined);
+  });
+});
+
 describe('Pattern extraction fallback', () => {
   it('extracts TODO patterns', async () => {
     const msgs = [{ id: 'm1', content: 'TODO: fix the bug', catId: null }];
