@@ -51,7 +51,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(prompt.includes('gemini'));
   });
 
-  test('contains teammate info', async () => {
+  test('contains teammate info only for cats in context.teammates', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -59,10 +59,22 @@ describe('SystemPromptBuilder', () => {
       teammates: ['codex', 'gemini'],
       mcpAvailable: false,
     });
-    // Should list all other cats as teammates (including codex and gemini)
     assert.ok(prompt.includes('缅因猫'));
     assert.ok(prompt.includes('暹罗猫'));
     assert.ok(prompt.includes('队友'));
+  });
+
+  test('omits teammate header when teammates is empty', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(!prompt.includes('队友'));
+    // Still mentions 铲屎官
+    assert.ok(prompt.includes('铲屎官'));
   });
 
   test('contains 铲屎官 reference', async () => {

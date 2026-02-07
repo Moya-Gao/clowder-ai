@@ -181,13 +181,14 @@ export class AgentRouter {
 
       // Prepend identity context so the cat knows who it is
       const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+      const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
       const systemPrompt = buildSystemPrompt({
         catId,
         mode: totalCats > 1 ? 'serial' : 'independent',
         chainIndex: index + 1,
         chainTotal: totalCats,
         teammates: targetCats.filter((id) => id !== catId),
-        mcpAvailable: catConfig?.mcpSupport ?? false,
+        mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       });
       if (systemPrompt) {
         prompt = `${systemPrompt}\n\n---\n\n${prompt}`;

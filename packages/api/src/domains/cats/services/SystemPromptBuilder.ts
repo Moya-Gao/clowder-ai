@@ -57,17 +57,17 @@ export function buildSystemPrompt(context: InvocationContext): string {
     '',
   );
 
-  // Teammates
-  const allCatIds = Object.keys(CAT_CONFIGS) as Array<keyof typeof CAT_CONFIGS>;
-  const otherCats = allCatIds.filter((id) => id !== context.catId);
-  if (otherCats.length > 0) {
+  // Teammates — only list cats actually in this invocation
+  if (context.teammates.length > 0) {
     lines.push('你的队友：');
-    for (const id of otherCats) {
-      const c = CAT_CONFIGS[id];
-      lines.push(`- ${c.displayName}（${c.name}）：${c.roleDescription}`);
+    for (const id of context.teammates) {
+      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
+      if (c) {
+        lines.push(`- ${c.displayName}（${c.name}）：${c.roleDescription}`);
+      }
     }
-    lines.push('铲屎官是真人用户，是你们的老板。', '');
   }
+  lines.push('铲屎官是真人用户，是你们的老板。', '');
 
   // Mode context
   if (context.mode === 'serial' && context.chainIndex != null && context.chainTotal != null) {

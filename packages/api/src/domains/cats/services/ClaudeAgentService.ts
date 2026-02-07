@@ -16,7 +16,7 @@
  *   result/success → 跳过 (done 在循环后 yield)
  */
 
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
@@ -181,7 +181,7 @@ export class ClaudeAgentService implements AgentService {
       args.push('--images', imgPath);
     }
 
-    const metadata: MessageMetadata = { provider: 'anthropic', model: this.model };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS.opus.provider, model: this.model };
 
     try {
       let sawResultError = false;

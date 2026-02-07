@@ -286,7 +286,11 @@ function safeParseMetadata(raw: string | undefined): MessageMetadata | undefined
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null && typeof parsed.provider === 'string') {
+    if (
+      typeof parsed === 'object' && parsed !== null &&
+      typeof parsed.provider === 'string' &&
+      typeof parsed.model === 'string'
+    ) {
       return parsed as MessageMetadata;
     }
     return undefined;

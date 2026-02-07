@@ -18,7 +18,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { spawn as nodeSpawn } from 'node:child_process';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
@@ -147,7 +147,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const metadata: MessageMetadata = { provider: 'google', model: 'gemini' };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: CAT_CONFIGS.gemini.defaultModel };
 
     // Note: gemini CLI --resume uses local index (not UUID), incompatible
     // with AgentRouter's sessionId mechanism. Resume not supported.
@@ -209,7 +209,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const agMetadata: MessageMetadata = { provider: 'google', model: 'gemini (antigravity)' };
+    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: `${CAT_CONFIGS.gemini.defaultModel} (antigravity)` };
 
     if (!options?.callbackEnv) {
       yield {

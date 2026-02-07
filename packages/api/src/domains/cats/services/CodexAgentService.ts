@@ -12,7 +12,7 @@
  *   turn.started / turn.completed / item.started / command_execution / file_change → 跳过
  */
 
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
@@ -115,7 +115,7 @@ export class CodexAgentService implements AgentService {
       ? ['exec', 'resume', options.sessionId, effectivePrompt, '--json', '--full-auto']
       : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
 
-    const metadata: MessageMetadata = { provider: 'openai', model: 'codex' };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: CAT_CONFIGS.codex.defaultModel };
 
     try {
       const events = spawnCli(
