@@ -14,7 +14,7 @@
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
-import { spawnCli, isCliError } from '../../../utils/cli-spawn.js';
+import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
@@ -132,6 +132,16 @@ export class CodexAgentService implements AgentService {
       );
 
       for await (const event of events) {
+        if (isCliTimeout(event)) {
+          yield {
+            type: 'error',
+            catId: CAT_ID,
+            error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
+            metadata,
+            timestamp: Date.now(),
+          };
+          continue;
+        }
         if (isCliError(event)) {
           yield {
             type: 'error',

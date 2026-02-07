@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
-const { spawnCli, isCliError, KILL_GRACE_MS } = await import('../dist/utils/cli-spawn.js');
+const { spawnCli, isCliError, isCliTimeout, KILL_GRACE_MS } = await import('../dist/utils/cli-spawn.js');
 
 /** Helper: collect all items from async iterable */
 async function collect(iterable) {
@@ -325,7 +325,7 @@ test('spawnCli yields __cliError when killed by external signal', async () => {
   assert.ok(results[0].stderr.includes('Killed by OOM'));
 });
 
-test('spawnCli does NOT yield __cliError when WE killed the process', async () => {
+test('spawnCli yields __cliTimeout (not __cliError) on timeout kill', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
 
@@ -340,9 +340,17 @@ test('spawnCli does NOT yield __cliError when WE killed the process', async () =
 
   const results = await promise;
 
-  // Should NOT contain a __cliError (we killed it, exit code is expected)
+  // Should NOT contain a __cliError (we killed it via timeout)
   const hasCliError = results.some((r) => isCliError(r));
   assert.equal(hasCliError, false);
+
+  // Should contain a __cliTimeout instead
+  const hasTimeout = results.some((r) => isCliTimeout(r));
+  assert.equal(hasTimeout, true);
+
+  const timeout = results.find((r) => isCliTimeout(r));
+  assert.equal(timeout.timeoutMs, 50);
+  assert.equal(timeout.command, 'test-cli');
 });
 
 test('isCliError type guard works correctly', () => {
@@ -351,6 +359,37 @@ test('isCliError type guard works correctly', () => {
   assert.equal(isCliError({ type: 'message' }), false);
   assert.equal(isCliError(null), false);
   assert.equal(isCliError('string'), false);
+});
+
+test('isCliTimeout type guard works correctly', () => {
+  assert.equal(isCliTimeout({ __cliTimeout: true, timeoutMs: 300000, stderr: '', command: 'x' }), true);
+  assert.equal(isCliTimeout({ __cliTimeout: false }), false);
+  assert.equal(isCliTimeout({ __cliError: true }), false);
+  assert.equal(isCliTimeout(null), false);
+  assert.equal(isCliTimeout('string'), false);
+});
+
+test('AbortSignal cancel does NOT yield __cliTimeout', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const controller = new AbortController();
+
+  const promise = collect(spawnCli(
+    { command: 'test-cli', args: [], signal: controller.signal },
+    { spawnFn }
+  ));
+
+  // Cancel via AbortSignal (not timeout)
+  controller.abort();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  proc.stdout.end();
+
+  const results = await promise;
+
+  const hasTimeout = results.some((r) => isCliTimeout(r));
+  assert.equal(hasTimeout, false, 'User cancel should not yield __cliTimeout');
+  const hasCliError = results.some((r) => isCliError(r));
+  assert.equal(hasCliError, false, 'User cancel should not yield __cliError');
 });
 
 test('spawnCli escalates SIGTERM to SIGKILL after grace period', async () => {

@@ -70,6 +70,7 @@ export async function* spawnCli(
   });
 
   let killed = false;
+  let timedOut = false;
   let escalationTimer: ReturnType<typeof setTimeout> | undefined;
 
   function killChild(): void {
@@ -85,8 +86,11 @@ export async function* spawnCli(
     });
   }
 
-  // Timeout
-  const timeoutTimer = setTimeout(() => killChild(), timeoutMs);
+  // Timeout (distinct from user cancel via AbortSignal)
+  const timeoutTimer = setTimeout(() => {
+    timedOut = true;
+    killChild();
+  }, timeoutMs);
   timeoutTimer.unref();
 
   // AbortSignal
@@ -149,6 +153,17 @@ export async function* spawnCli(
         command: options.command,
       };
     }
+
+    // Yield timeout error (distinct from user cancel which stays silent)
+    if (timedOut) {
+      const stderrTail = stderrBuffer.trim().slice(-500);
+      yield {
+        __cliTimeout: true,
+        timeoutMs,
+        stderr: stderrTail,
+        command: options.command,
+      };
+    }
   } finally {
     clearTimeout(timeoutTimer);
     if (escalationTimer !== undefined) clearTimeout(escalationTimer);
@@ -171,6 +186,20 @@ export function isCliError(
     value !== null &&
     '__cliError' in value &&
     (value as Record<string, unknown>)['__cliError'] === true
+  );
+}
+
+/**
+ * Type guard for CLI timeout objects (process killed due to timeout)
+ */
+export function isCliTimeout(
+  value: unknown
+): value is { __cliTimeout: true; timeoutMs: number; stderr: string; command: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    '__cliTimeout' in value &&
+    (value as Record<string, unknown>)['__cliTimeout'] === true
   );
 }
 
