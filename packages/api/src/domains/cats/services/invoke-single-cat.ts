@@ -32,6 +32,7 @@ export interface InvocationDeps {
 export interface InvocationParams {
   readonly catId: CatId;
   readonly service: AgentService;
+  /** The fully-orchestrated prompt (system prompt + chain context already prepended by caller) */
   readonly prompt: string;
   readonly userId: string;
   readonly threadId: string;

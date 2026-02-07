@@ -14,7 +14,8 @@ interface AgentMsg {
 
 /**
  * Hook for handling agent message streaming.
- * Tracks the current streaming message per cat via ref.
+ * Tracks the current streaming message via a single ref (serial only).
+ * Phase 3.5 Step 6 will convert to Map<catId, ref> for parallel streams.
  *
  * Returns:
  * - handleAgentMessage: socket event handler

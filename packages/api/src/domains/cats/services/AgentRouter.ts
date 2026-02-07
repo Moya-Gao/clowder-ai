@@ -217,8 +217,8 @@ export class AgentRouter {
         if (msg.type === 'text' && msg.content) {
           textContent += msg.content;
         }
-        if ('metadata' in msg && msg.metadata && !firstMetadata) {
-          firstMetadata = msg.metadata as MessageMetadata;
+        if (msg.metadata && !firstMetadata) {
+          firstMetadata = msg.metadata;
         }
         yield msg;
       }
