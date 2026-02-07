@@ -35,7 +35,7 @@ export function ChatContainer() {
   const { addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const { handleAgentMessage, handleStop: stopHandler, resetRefs } = useAgentMessages();
+  const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
   const {
     fetchHistory,
     fetchTasks,
@@ -68,7 +68,8 @@ export function ChatContainer() {
         summary: { id: s.id, topic: s.topic, conclusions: s.conclusions, openQuestions: s.openQuestions, createdBy: s.createdBy },
       } as ChatMessageData);
     },
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage]);
+    onHeartbeat: () => resetTimeout(),
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, resetTimeout]);
 
   const { switchRoom, cancelInvocation } = useSocket(socketCallbacks, currentThreadId);
 

@@ -24,6 +24,8 @@ export interface SocketCallbacks {
   onTaskCreated?: (task: Record<string, unknown>) => void;
   onTaskUpdated?: (task: Record<string, unknown>) => void;
   onThreadSummary?: (summary: Record<string, unknown>) => void;
+  /** Called when heartbeat received (resets timeout timer) */
+  onHeartbeat?: () => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -70,6 +72,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     socket.on('thread_summary', (summary: Record<string, unknown>) => {
       callbacks.onThreadSummary?.(summary);
+    });
+
+    socket.on('heartbeat', () => {
+      callbacks.onHeartbeat?.();
     });
 
     socket.on('disconnect', () => {

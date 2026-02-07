@@ -128,6 +128,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // Process in background and broadcast via WebSocket
     const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
     void (async () => {
+      // Heartbeat interval to keep frontend informed during long operations
+      const HEARTBEAT_INTERVAL_MS = 30_000;
+      const heartbeatInterval = setInterval(() => {
+        opts.socketManager.broadcastToRoom(
+          `thread:${resolvedThreadId}`,
+          'heartbeat',
+          { threadId: resolvedThreadId, timestamp: Date.now() },
+        );
+      }, HEARTBEAT_INTERVAL_MS);
+
       try {
         // Pre-resolve intent so frontend can show IdeateHeader immediately
         const { targetCats, intent } = await router.resolveTargetsAndIntent(
@@ -151,6 +161,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           timestamp: Date.now(),
         }, resolvedThreadId);
       } finally {
+        clearInterval(heartbeatInterval);
         opts.invocationTracker?.complete(resolvedThreadId, controller);
       }
     })();
