@@ -115,7 +115,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket
-    const controller = opts.invocationTracker?.start(resolvedThreadId);
+    const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
     void (async () => {
       try {
         // Pre-resolve intent so frontend can show IdeateHeader immediately

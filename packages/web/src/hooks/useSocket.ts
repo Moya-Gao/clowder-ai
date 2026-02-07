@@ -35,6 +35,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   useEffect(() => {
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
+      query: { userId: 'default-user' },
     });
 
     socket.on('connect', () => {

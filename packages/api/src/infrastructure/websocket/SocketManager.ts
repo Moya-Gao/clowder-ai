@@ -27,7 +27,8 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      console.log(`[ws] Client connected: ${socket.id}`);
+      const userId = (socket.handshake.query['userId'] as string) || 'anonymous';
+      console.log(`[ws] Client connected: ${socket.id} (user: ${userId})`);
 
       socket.on('disconnect', () => {
         console.log(`[ws] Client disconnected: ${socket.id}`);
@@ -51,7 +52,7 @@ export class SocketManager {
           console.warn(`[ws] ${socket.id} tried to cancel thread ${data.threadId} without being in room`);
           return;
         }
-        const cancelled = this.invocationTracker.cancel(data.threadId);
+        const cancelled = this.invocationTracker.cancel(data.threadId, userId);
         if (cancelled) {
           console.log(`[ws] Cancelled invocation for thread: ${data.threadId}`);
           this.broadcastAgentMessage({
