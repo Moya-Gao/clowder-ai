@@ -68,7 +68,7 @@
 | F1 | ~~配置可见性~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `6a671ac` — ConfigRegistry + GET /api/config + `/config` chat command |
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | ~~显式记忆 (F3-lite)~~ | [x] | Phase 4.0 计划 | Phase 4.0 Step 6 `25ca123` — /remember /recall 命令 + MemoryStore |
-| F3b | 协作记忆 (Hindsight 全量) | P2 | 上下文工程讨论 | **已完成 F3-lite (per-thread KV)**，剩余：跨 thread 共享、跨猫共享、自动总结、语义检索。暂缓，等功能性试用后再推进 |
+| F3b | 协作记忆 (Hindsight 全量) | P2 | 上下文工程讨论 | **F3-lite 已完成 (Phase 4.0 Step 6)**；剩余：跨 thread 共享、跨猫共享、自动总结、语义检索。详见 `docs/discussions/2026-02-07-context-engineering/` |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
 | F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
 
