@@ -84,4 +84,20 @@ describe('SystemPromptBuilder A2A injection', () => {
     });
     assert.ok(!prompt.includes('## 协作'), 'should NOT include 协作 section in parallel');
   });
+
+  it('includes A2A section even with empty teammates (single-cat scenario)', async () => {
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    // Single-cat: only opus in worklist, teammates = []
+    const prompt = buildSystemPrompt({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(prompt.includes('协作'), 'should include 协作 even with empty teammates');
+    assert.ok(prompt.includes('@缅因猫'), 'should list codex as callable');
+    assert.ok(prompt.includes('@暹罗猫'), 'should list gemini as callable');
+    assert.ok(!prompt.includes('@布偶猫'), 'should NOT list self as callable');
+  });
 });

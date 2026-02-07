@@ -139,22 +139,29 @@ export async function* routeSerial(
       }
     }
 
+    let a2aMentions: CatId[] = [];
+
     if (textContent) {
       previousResponses.push({ catId, content: textContent });
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
-      const a2aMentions = parseA2AMentions(textContent, catId);
+      a2aMentions = parseA2AMentions(textContent, catId);
 
-      // Store with actual mentions (replaces hardcoded [])
-      await deps.messageStore.append({
-        userId,
-        catId,
-        content: textContent,
-        mentions: a2aMentions,
-        timestamp: Date.now(),
-        threadId,
-        ...(firstMetadata ? { metadata: firstMetadata } : {}),
-      });
+      // Store with actual mentions — degrade on failure to ensure done reaches frontend
+      // (缅因猫 review P1-2: Redis failure must not block done yield)
+      try {
+        await deps.messageStore.append({
+          userId,
+          catId,
+          content: textContent,
+          mentions: a2aMentions,
+          timestamp: Date.now(),
+          threadId,
+          ...(firstMetadata ? { metadata: firstMetadata } : {}),
+        });
+      } catch (err) {
+        console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
+      }
 
       // A2A: extend worklist if mention found + depth allows
       if (a2aMentions.length > 0 && a2aCount < maxDepth && !signal?.aborted) {
@@ -172,19 +179,24 @@ export async function* routeSerial(
         } as AgentMessage;
       }
     } else {
-      // No text content — still store empty mentions
-      await deps.messageStore.append({
-        userId,
-        catId,
-        content: '',
-        mentions: [],
-        timestamp: Date.now(),
-        threadId,
-        ...(firstMetadata ? { metadata: firstMetadata } : {}),
-      });
+      // No text content — still store empty mentions, degrade on failure
+      try {
+        await deps.messageStore.append({
+          userId,
+          catId,
+          content: '',
+          mentions: [],
+          timestamp: Date.now(),
+          threadId,
+          ...(firstMetadata ? { metadata: firstMetadata } : {}),
+        });
+      } catch (err) {
+        console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
+      }
     }
 
     // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
+    // MUST always reach here regardless of append success (缅因猫 review P1-2)
     if (doneMsg) {
       yield { ...doneMsg, isFinal: index === worklist.length - 1 };
     }

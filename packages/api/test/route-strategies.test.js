@@ -287,6 +287,48 @@ describe('routeSerial A2A worklist', () => {
   });
 });
 
+describe('routeSerial resilience', () => {
+  it('yields done even when messageStore.append throws (Redis failure)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    // Create deps with a failing messageStore
+    let counter = 0;
+    const deps = {
+      services: { opus: createMockService('opus', '结果在这里') },
+      invocationDeps: {
+        registry: {
+          create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
+          verify: () => null,
+        },
+        sessionManager: {
+          getOrCreate: async () => ({}),
+          resolveWorkingDirectory: () => '/tmp/test',
+        },
+        threadStore: null,
+        apiUrl: 'http://127.0.0.1:3002',
+      },
+      messageStore: {
+        append: async () => { throw new Error('Redis connection refused'); },
+        getRecent: () => [],
+        getMentionsFor: () => [],
+        getBefore: () => [],
+        getByThread: () => [],
+        getByThreadBefore: () => [],
+      },
+    };
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    // done MUST still be yielded despite append failure
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.ok(doneMsgs.length > 0, 'done must be yielded even when append throws');
+    assert.ok(doneMsgs[0].isFinal, 'done should be isFinal');
+  });
+});
+
 describe('routeParallel A2A safety', () => {
   it('does not chain A2A even when mentions are detected', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');

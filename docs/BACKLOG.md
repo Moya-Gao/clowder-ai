@@ -53,6 +53,7 @@
 | 26 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
 | 27 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [ ] | Phase 3.9 | `parseA2AMentions` (行首匹配) 与 `parseMentions` (indexOf) 两套解析，应统一 |
 | 28 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
+| 29 | /config context 数字误导 | [ ] | Phase 3.9 缅因猫 review P2 | maxTotalChars=8000 是 assembleContext 默认值，但 AgentRouter 动态计算 budgetForContext；字段需标注为 default/upperBound |
 
 ## Feature Requests — 新功能需求
 

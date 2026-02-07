@@ -75,14 +75,16 @@ export function buildSystemPrompt(context: InvocationContext): string {
   lines.push('铲屎官是真人用户，是你们的老板。', '');
 
   // A2A collaboration (only in serial/execute mode, not parallel/ideate)
+  // Callable cats = ALL cats except self (not just current invocation teammates),
+  // so single-cat scenarios still teach the cat to @ others (缅因猫 review P1-1).
   if (context.a2aEnabled && context.mode !== 'parallel') {
-    const teammateNames = context.teammates
-      .map((id) => CAT_CONFIGS[id as keyof typeof CAT_CONFIGS]?.displayName)
-      .filter(Boolean);
-    if (teammateNames.length > 0) {
+    const callableNames = Object.entries(CAT_CONFIGS)
+      .filter(([id]) => id !== context.catId)
+      .map(([, cfg]) => cfg.displayName);
+    if (callableNames.length > 0) {
       lines.push('## 协作');
       lines.push(
-        `你可以在新行开头写 @队友 邀请他们加入对话: ${teammateNames.map((n) => `@${n}`).join(' / ')}`,
+        `你可以在新行开头写 @队友 邀请他们加入对话: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
       );
       lines.push('用于任何你觉得需要队友的场景 (review, debug, 观点征询, 交接)。');
       lines.push('每次 @ 只触发一轮，铲屎官的消息优先级最高。');
