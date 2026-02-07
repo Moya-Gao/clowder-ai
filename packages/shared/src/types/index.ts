@@ -26,6 +26,7 @@ export {
 
 // Cat types
 export type {
+  CatProvider,
   CatStatus,
   CatColor,
   CatConfig,

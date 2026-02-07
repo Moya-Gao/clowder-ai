@@ -7,6 +7,11 @@ import type { CatId, SessionId } from './ids.js';
 import { createCatId } from './ids.js';
 
 /**
+ * AI provider behind a cat
+ */
+export type CatProvider = 'anthropic' | 'openai' | 'google';
+
+/**
  * Cat status in the system
  */
 export type CatStatus = 'idle' | 'thinking' | 'working' | 'error' | 'offline';
@@ -29,6 +34,11 @@ export interface CatConfig {
   readonly avatar: string;
   readonly color: CatColor;
   readonly mentionPatterns: readonly string[];
+  readonly provider: CatProvider;
+  readonly defaultModel: string;
+  readonly mcpSupport: boolean;
+  readonly roleDescription: string;
+  readonly personality: string;
 }
 
 /**
@@ -56,6 +66,11 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
       secondary: '#E8DFF5',
     },
     mentionPatterns: ['@opus', '@布偶猫', '@布偶', '@ragdoll'],
+    provider: 'anthropic',
+    defaultModel: 'claude-sonnet-4-5-20250929',
+    mcpSupport: true,
+    roleDescription: '主架构师和核心开发者，擅长深度思考和系统设计',
+    personality: '温柔但有主见，喜欢深入分析问题，写代码快但注重质量',
   },
   codex: {
     id: createCatId('codex'),
@@ -67,6 +82,11 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
       secondary: '#D4E6D3',
     },
     mentionPatterns: ['@codex', '@缅因猫', '@缅因', '@maine'],
+    provider: 'openai',
+    defaultModel: 'codex',
+    mcpSupport: false,
+    roleDescription: '代码审查专家，擅长安全分析、测试覆盖和代码质量把控',
+    personality: '严谨认真，注重细节，会直言不讳地指出问题',
   },
   gemini: {
     id: createCatId('gemini'),
@@ -78,6 +98,11 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
       secondary: '#D6E9F8',
     },
     mentionPatterns: ['@gemini', '@暹罗猫', '@暹罗', '@siamese'],
+    provider: 'google',
+    defaultModel: 'gemini-2.5-pro',
+    mcpSupport: false,
+    roleDescription: '视觉设计师和创意顾问，擅长 UI/UX 设计和视觉表达',
+    personality: '活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物',
   },
 } as const;
 
