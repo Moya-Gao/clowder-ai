@@ -84,8 +84,13 @@ clean_cache() {
     fi
 }
 
-# 构建 API (tsc)
-build_api() {
+# 构建 shared + API (tsc)
+build_packages() {
+    echo ""
+    echo -e "${CYAN}构建 shared...${NC}"
+    (cd packages/shared && pnpm run build) 2>&1 | tail -3
+    echo -e "${GREEN}  ✓ shared 构建完成${NC}"
+
     echo ""
     echo -e "${CYAN}构建 API...${NC}"
     (cd packages/api && pnpm run build) 2>&1 | tail -3
@@ -154,12 +159,12 @@ main() {
     # 2. 清理缓存
     clean_cache
 
-    # 3. 构建 API (除非 --quick)
+    # 3. 构建 shared + API (除非 --quick)
     if [ "$QUICK_MODE" = false ]; then
-        build_api
+        build_packages
     else
         echo ""
-        echo -e "${YELLOW}跳过 API 构建 (--quick 模式)${NC}"
+        echo -e "${YELLOW}跳过构建 (--quick 模式)${NC}"
     fi
 
     # 4. 检查外部依赖

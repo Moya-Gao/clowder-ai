@@ -65,7 +65,7 @@
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | 协作记忆 (Hindsight) | P1 | 上下文工程讨论 | 三猫共享长期记忆：cafe-shared + cafe-{catId}。详见 `docs/discussions/2026-02-07-context-enginnering/` |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
-| F5 | ideate 模式 A2A follow-up | P3 | Phase 3.9 | 并行模式后 A2A 跟进：多猫独立回答后自动进入串行讨论轮，需要消息队列 |
+| F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
 
 ## 讨论议题 — 待探索的方向
 
