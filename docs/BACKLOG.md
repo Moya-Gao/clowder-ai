@@ -52,6 +52,26 @@
 | 25 | Gemini/Codex resume 作为补充 context 源 | [ ] | Phase 3.6 决策 2 | prompt prepend 跑稳后，resume 减少 token 开销；Gemini index 问题需等 CLI 支持 UUID |
 | 26 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
 
+## Feature Requests — 新功能需求
+
+> 区别于技术债务：这里是"想做的新功能"，不是"应该做好但没做好的"。
+
+| # | 功能 | 优先级 | 来源 | 描述 |
+|---|------|--------|------|------|
+| F1 | 配置可见性 | P2 | 铲屎官洞察 🐬 | 魔法数字问题：截断长度、超时时间等配置不可见。方案：配置页面 / `/config` 命令 / 启动日志 |
+| F2 | Agent-to-Agent 调用 (A2A) | P1 | 铲屎官洞察 🐬 | 猫猫互相 @：布偶写完 → @缅因 review → 缅因 @布偶 反馈。减少铲屎官当"人肉路由器" |
+| F3 | 协作记忆 (Hindsight) | P1 | 上下文工程讨论 | 三猫共享长期记忆：cafe-shared + cafe-{catId}。详见 `docs/discussions/2026-02-07-context-enginnering/` |
+
+## 讨论议题 — 待探索的方向
+
+> 这里记录值得深入讨论但还没形成具体需求的话题。
+
+| # | 议题 | 来源 | 备注 |
+|---|------|------|------|
+| D1 | Google A2A 协议为何没成标准？ | 铲屎官洞察 🐬 | Agent 调用 Agent 的方式：API / MCP / 我们的 @机制？各有什么优劣？ |
+| D2 | 上下文工程方向选择 | 四方圆桌 | Layer 1/2 (索引) vs Layer 4 (调度) 的投入优先级 |
+| D3 | 可维护性法则提炼 | 圆桌设计 | Cat Café 做对了什么？如何迁移到其他项目？详见 `docs/discussions/2026-02-07-context-enginnering/maintainability-roundtable-design.md` |
+
 ## 已知限制（非 bug，需意识到）
 
 | 项目 | 严重度 | 缓解方案 |
