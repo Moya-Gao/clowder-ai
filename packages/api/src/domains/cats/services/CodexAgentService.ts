@@ -22,6 +22,7 @@ import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
+  MessageMetadata,
 } from './types.js';
 
 const CAT_ID = createCatId('codex');
@@ -114,6 +115,8 @@ export class CodexAgentService implements AgentService {
       ? ['exec', 'resume', options.sessionId, effectivePrompt, '--json', '--full-auto']
       : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
 
+    const metadata: MessageMetadata = { provider: 'openai', model: 'codex' };
+
     try {
       const events = spawnCli(
         {
@@ -133,6 +136,7 @@ export class CodexAgentService implements AgentService {
             type: 'error',
             catId: CAT_ID,
             error: formatCliExitError('Codex CLI', event),
+            metadata,
             timestamp: Date.now(),
           };
           continue;
@@ -140,16 +144,20 @@ export class CodexAgentService implements AgentService {
 
         const result = transformCodexEvent(event, CAT_ID);
         if (result !== null) {
-          yield result;
+          if (result.type === 'session_init' && result.sessionId) {
+            metadata.sessionId = result.sessionId;
+          }
+          yield { ...result, metadata };
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, timestamp: Date.now() };
+      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
         catId: CAT_ID,
         error: err instanceof Error ? err.message : String(err),
+        metadata,
         timestamp: Date.now(),
       };
     }

@@ -28,6 +28,7 @@ import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
+  MessageMetadata,
 } from './types.js';
 
 const CAT_ID = createCatId('gemini');
@@ -146,6 +147,8 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    const metadata: MessageMetadata = { provider: 'google', model: 'gemini' };
+
     // Note: gemini CLI --resume uses local index (not UUID), incompatible
     // with AgentRouter's sessionId mechanism. Resume not supported.
     const args: string[] = ['-p', prompt, '-o', 'stream-json', '-y'];
@@ -175,6 +178,7 @@ export class GeminiAgentService implements AgentService {
             type: 'error',
             catId: CAT_ID,
             error: formatCliExitError('Gemini CLI', event),
+            metadata,
             timestamp: Date.now(),
           };
           continue;
@@ -182,16 +186,20 @@ export class GeminiAgentService implements AgentService {
 
         const result = transformGeminiEvent(event, CAT_ID);
         if (result !== null) {
-          yield result;
+          if (result.type === 'session_init' && result.sessionId) {
+            metadata.sessionId = result.sessionId;
+          }
+          yield { ...result, metadata };
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, timestamp: Date.now() };
+      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
         catId: CAT_ID,
         error: err instanceof Error ? err.message : String(err),
+        metadata,
         timestamp: Date.now(),
       };
     }
@@ -201,21 +209,26 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    const agMetadata: MessageMetadata = { provider: 'google', model: 'gemini (antigravity)' };
+
     if (!options?.callbackEnv) {
       yield {
         type: 'error',
         catId: CAT_ID,
         error: 'antigravity adapter requires callbackEnv for MCP callback',
+        metadata: agMetadata,
         timestamp: Date.now(),
       };
       return;
     }
 
     const sessionId = `antigravity-${randomUUID()}`;
+    agMetadata.sessionId = sessionId;
     yield {
       type: 'session_init',
       catId: CAT_ID,
       sessionId,
+      metadata: agMetadata,
       timestamp: Date.now(),
     };
 
@@ -241,6 +254,7 @@ export class GeminiAgentService implements AgentService {
         type: 'error',
         catId: CAT_ID,
         error: `Failed to launch Antigravity: ${err instanceof Error ? err.message : String(err)}`,
+        metadata: agMetadata,
         timestamp: Date.now(),
       };
       return;
@@ -254,6 +268,7 @@ export class GeminiAgentService implements AgentService {
         type: 'error',
         catId: CAT_ID,
         error: `Failed to launch Antigravity: ${(spawnError as Error).message}`,
+        metadata: agMetadata,
         timestamp: Date.now(),
       };
       return;
@@ -264,9 +279,10 @@ export class GeminiAgentService implements AgentService {
       catId: CAT_ID,
       content:
         '暹罗猫已在 Antigravity 中开始工作，结果将通过 MCP 回传到对话中。',
+      metadata: agMetadata,
       timestamp: Date.now(),
     };
 
-    yield { type: 'done', catId: CAT_ID, timestamp: Date.now() };
+    yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
   }
 }

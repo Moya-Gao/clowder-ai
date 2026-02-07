@@ -26,6 +26,7 @@ import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
+  MessageMetadata,
 } from './types.js';
 
 const CAT_ID = createCatId('opus');
@@ -180,6 +181,8 @@ export class ClaudeAgentService implements AgentService {
       args.push('--images', imgPath);
     }
 
+    const metadata: MessageMetadata = { provider: 'anthropic', model: this.model };
+
     try {
       let sawResultError = false;
       const events = spawnCli(
@@ -199,6 +202,7 @@ export class ClaudeAgentService implements AgentService {
             type: 'error',
             catId: CAT_ID,
             error: formatCliExitError('Claude CLI', event),
+            metadata,
             timestamp: Date.now(),
           };
           continue;
@@ -209,21 +213,31 @@ export class ClaudeAgentService implements AgentService {
         if (result === null) continue;
 
         if (Array.isArray(result)) {
-          for (const msg of result) yield msg;
+          for (const msg of result) {
+            // Capture sessionId into metadata
+            if (msg.type === 'session_init' && msg.sessionId) {
+              metadata.sessionId = msg.sessionId;
+            }
+            yield { ...msg, metadata };
+          }
         } else {
+          if (result.type === 'session_init' && result.sessionId) {
+            metadata.sessionId = result.sessionId;
+          }
           if (fromResultError && result.type === 'error') {
             sawResultError = true;
           }
-          yield result;
+          yield { ...result, metadata };
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, timestamp: Date.now() };
+      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
         catId: CAT_ID,
         error: err instanceof Error ? err.message : String(err),
+        metadata,
         timestamp: Date.now(),
       };
     }
