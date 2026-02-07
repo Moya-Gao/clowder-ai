@@ -204,4 +204,9 @@ main() {
     wait
 }
 
-main "$@"
+# Allow sourcing for testing without executing main
+[[ "${1:-}" == "--source-only" ]] && return 0 2>/dev/null || {
+    if [[ "${1:-}" != "--source-only" ]]; then
+        main "$@"
+    fi
+}
