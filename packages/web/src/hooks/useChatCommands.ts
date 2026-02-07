@@ -79,6 +79,27 @@ function formatConfigForDisplay(config: ConfigSnapshot): string {
     lines.push('🔗 A2A 猫猫互调');
     lines.push(`  启用: ${config.a2a.enabled ? '是' : '否'}`);
     lines.push(`  最大深度: ${config.a2a.maxDepth}`);
+    lines.push('');
+  }
+
+  if (config.memory) {
+    lines.push('📝 显式记忆 (F3-lite)');
+    lines.push(`  启用: ${config.memory.enabled ? '是' : '否'}`);
+    lines.push(`  每对话最大条数: ${config.memory.maxKeysPerThread}`);
+    lines.push('');
+  }
+
+  if (config.governance) {
+    lines.push('🛡️ 治理 (4-D-lite)');
+    lines.push(`  降级策略: ${config.governance.degradationEnabled ? '启用' : '禁用'}`);
+    lines.push(`  Done 超时: ${config.governance.doneTimeoutMs / 1000}s`);
+    lines.push(`  心跳间隔: ${config.governance.heartbeatIntervalMs / 1000}s`);
+    lines.push('');
+  }
+
+  if (config.deliberate) {
+    lines.push('🤔 两轮思考 (4-E)');
+    lines.push(`  状态: ${config.deliberate.status === 'types_only' ? '类型预埋' : '已实现'}`);
   }
 
   return lines.join('\n');

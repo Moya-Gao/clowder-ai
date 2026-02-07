@@ -156,4 +156,41 @@ describe('ConfigRegistry', () => {
       'codex should have lower maxPromptChars than opus'
     );
   });
+
+  it('has memory section (F3-lite)', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.memory, 'has memory section');
+    assert.equal(snapshot.memory.enabled, true);
+    assert.equal(snapshot.memory.maxKeysPerThread, 50);
+  });
+
+  it('has governance section (4-D-lite)', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.governance, 'has governance section');
+    assert.equal(snapshot.governance.degradationEnabled, true);
+    assert.equal(snapshot.governance.doneTimeoutMs, 5 * 60 * 1000);
+    assert.equal(snapshot.governance.heartbeatIntervalMs, 30000);
+  });
+
+  it('has deliberate section (4-E)', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.deliberate, 'has deliberate section');
+    assert.equal(snapshot.deliberate.status, 'types_only');
+  });
+
+  it('snapshot contains all 10 categories (Phase 4.0)', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    const categories = ['context', 'perCatBudgets', 'cli', 'storage', 'upload', 'server', 'cats', 'a2a', 'memory', 'governance', 'deliberate'];
+    for (const cat of categories) {
+      assert.ok(snapshot[cat], `has ${cat}`);
+    }
+  });
 });

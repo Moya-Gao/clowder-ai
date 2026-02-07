@@ -55,6 +55,21 @@ export interface ConfigSnapshot {
     enabled: boolean;
     maxDepth: number;
   };
+  /** Memory store settings (F3-lite) */
+  memory: {
+    enabled: boolean;
+    maxKeysPerThread: number;
+  };
+  /** Governance settings (4-D-lite) */
+  governance: {
+    degradationEnabled: boolean;
+    doneTimeoutMs: number;
+    heartbeatIntervalMs: number;
+  };
+  /** Deliberate mode status (4-E) */
+  deliberate: {
+    status: 'types_only';
+  };
 }
 
 /**
@@ -120,5 +135,12 @@ export function collectConfigSnapshot(): ConfigSnapshot {
     server: { port, host, redis },
     cats,
     a2a: { enabled: true, maxDepth: a2aMaxDepth },
+    memory: { enabled: true, maxKeysPerThread: 50 },
+    governance: {
+      degradationEnabled: true,
+      doneTimeoutMs: 5 * 60 * 1000,
+      heartbeatIntervalMs: 30_000,
+    },
+    deliberate: { status: 'types_only' },
   };
 }

@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.9 配置可见性 + A2A)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 4.0 协作地基)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -31,13 +31,13 @@
 | 9 | 前端图片压缩 | [ ] | Phase 3.2 review | 当前 10MB/张直传 |
 | 10 | 对话级联删除 | [ ] | Phase 3.2 review | DELETE thread 不删消息，依赖 TTL |
 | 11 | cancel_invocation 真正鉴权 | [x] | Phase 3.3b review | Phase 3.7 `0c3d318` — userId 追踪 + 校验 |
-| 12 | 取消后显示"已取消"标记 | [ ] | Phase 3.3b review | 现在只停止 loading，没有视觉提示 |
+| 12 | 取消后显示"已取消"标记 | [x] | Phase 3.3b review | Phase 4.0 Step 4 `f379b67` — system_info 事件 + "⏹ 已取消" |
 | 13 | cats.ts TODO: 从 Redis 获取猫状态 | [ ] | 代码 TODO | `packages/api/src/routes/cats.ts:33` |
-| 14 | sendMessageSchema 语义归属 | [ ] | Phase 3.5 Step 0 review | 当前在 `parse-multipart.ts`，建议迁到 `messages.schema.ts` |
+| 14 | sendMessageSchema 语义归属 | [x] | Phase 3.5 Step 0 review | Phase 4.0 Step 0 — 迁到 `messages.schema.ts` |
 | 15 | AgentRouter.ts 超 200 行 (379行) | [x] | Phase 3.5 Step 3 | Phase 3.7 `122ff12` — 379→209行, 提取 route-strategies.ts |
-| 16 | ChatContainer.tsx 超 200 行 (297行) | [ ] | Phase 3.5 final review | 提取 fetchHistory/fetchTasks/handleSend 到自定义 hook |
+| 16 | ChatContainer.tsx 超 200 行 (297行) | [x] | Phase 3.5 final review | Phase 4.0 Step 3 — 拆分为 useChatHistory/useChatCommands/useSendMessage hooks |
 | 17 | Invocation 新入口必须传 threadId | [ ] | Phase 3.5 缅因猫 review | 跨线程鉴权依赖正确 threadId；新增入口需保持约束 |
-| 18 | isFinal 丢失防护 | [ ] | Phase 3.5 缅因猫 final review | 前端完全信任后端 isFinal 结束 loading；若后端漏发则 loading 卡死。可加超时兜底或心跳检测 |
+| 18 | isFinal 丢失防护 | [x] | Phase 3.5 缅因猫 final review | Phase 4.0 Step 5 `f379b67` — 5 分钟 timeout + 30s heartbeat |
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [ ] | 辩论测试发现 | 前端应先 POST /api/threads；需要 ThreadStore.createWithId() 或严格校验 |
@@ -54,7 +54,7 @@
 | 27 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
 | 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [ ] | Phase 3.9 | `parseA2AMentions` (行首匹配) 与 `parseMentions` (indexOf) 两套解析，应统一 |
 | 29 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
-| 30 | /config context 数字误导 | [ ] | Phase 3.9 缅因猫 review P2 | maxTotalChars=8000 是 assembleContext 默认值，但 AgentRouter 动态计算 budgetForContext；字段需标注为 default/upperBound |
+| 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
 
 ## Feature Requests — 新功能需求
 
@@ -64,7 +64,8 @@
 |---|------|--------|------|------|
 | F1 | ~~配置可见性~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `6a671ac` — ConfigRegistry + GET /api/config + `/config` chat command |
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
-| F3 | 协作记忆 (Hindsight) | P1 | 上下文工程讨论 | 三猫共享长期记忆：cafe-shared + cafe-{catId}。详见 `docs/discussions/2026-02-07-context-enginnering/` |
+| F3 | ~~显式记忆 (F3-lite)~~ | [x] | Phase 4.0 计划 | Phase 4.0 Step 6 `25ca123` — /remember /recall 命令 + MemoryStore |
+| F3b | 协作记忆 (Hindsight 全量) | P2 | 上下文工程讨论 | 三猫共享长期记忆：cafe-shared + cafe-{catId}。详见 `docs/discussions/2026-02-07-context-enginnering/` |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
 | F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
 
@@ -139,5 +140,13 @@
 | 配置可见性 (ConfigRegistry + /config) | Phase 3.9 | `6a671ac` |
 | A2A 猫猫互调 (worklist chain) | Phase 3.9 | `7a519b9` |
 | A2A 前端显示 (a2a_handoff info msg) | Phase 3.9 | `e7cc2ff` |
+| Per-cat 上下文预算 (cat-budgets.ts) | Phase 4.0 Step 1-2 | - |
+| ChatContainer 拆分 (hooks) | Phase 4.0 Step 3 | - |
+| system_info + 取消反馈 | Phase 4.0 Step 4 | `f379b67` |
+| Done timeout + heartbeat | Phase 4.0 Step 5 | `f379b67` |
+| 显式记忆 F3-lite (/remember /recall) | Phase 4.0 Step 6 | `25ca123` |
+| /tasks extract 4-A MVP | Phase 4.0 Step 7 | `fe5f528` |
+| DegradationPolicy 降级框架 | Phase 4.0 Step 8 | `b2bcc23` |
+| Deliberate 两轮制类型预埋 | Phase 4.0 Step 9 | `552385e` |
 
 </details>
