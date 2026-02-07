@@ -149,8 +149,11 @@ export class GeminiAgentService implements AgentService {
   ): AsyncIterable<AgentMessage> {
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: CAT_CONFIGS.gemini.defaultModel };
 
-    // Note: gemini CLI --resume uses local index (not UUID), incompatible
-    // with AgentRouter's sessionId mechanism. Resume not supported.
+    // Note: gemini CLI --resume accepts index number or "latest", not UUID.
+    // e.g. `gemini --resume 5` or `gemini --resume latest`
+    // `gemini --list-sessions` shows UUIDs but --resume doesn't accept them.
+    // Multi-session index instability makes this unreliable for programmatic use.
+    // Context history is provided via prompt prepend (ContextAssembler) instead.
     const args: string[] = ['-p', prompt, '-o', 'stream-json', '-y'];
 
     // Pass image paths via -i flag (gemini CLI v0.27.2+)
