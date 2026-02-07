@@ -21,4 +21,6 @@ export { ThreadStore, DEFAULT_THREAD_ID } from './ThreadStore.js';
 export type { Thread, IThreadStore } from './ThreadStore.js';
 export { buildSystemPrompt } from './SystemPromptBuilder.js';
 export type { InvocationContext } from './SystemPromptBuilder.js';
+export { parseIntent, stripIntentTags } from './IntentParser.js';
+export type { Intent, IntentResult } from './IntentParser.js';
 export * from './types.js';

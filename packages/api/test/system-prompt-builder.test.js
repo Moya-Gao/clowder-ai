@@ -200,4 +200,44 @@ describe('SystemPromptBuilder', () => {
     });
     assert.ok(prompt.includes('Anthropic'));
   });
+
+  test('parallel mode produces independent thinking text', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'parallel',
+      teammates: ['codex'],
+      mcpAvailable: false,
+    });
+    assert.ok(prompt.includes('独立思考'));
+    assert.ok(prompt.includes('各自独立'));
+    assert.ok(!prompt.includes('被召唤'));
+    // Should NOT contain the standalone "独立回答。" from independent mode
+    assert.ok(!prompt.includes('当前模式：独立回答。'));
+  });
+
+  test('critique promptTag adds critical analysis text', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      promptTags: ['critique'],
+    });
+    assert.ok(prompt.includes('批判性分析'));
+    assert.ok(prompt.includes('挑战假设'));
+  });
+
+  test('empty promptTags produces no extra text', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      promptTags: [],
+    });
+    assert.ok(!prompt.includes('批判性分析'));
+  });
 });

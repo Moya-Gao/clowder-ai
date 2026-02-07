@@ -18,6 +18,8 @@ import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 import { SessionManager } from './SessionManager.js';
 import { buildSystemPrompt } from './SystemPromptBuilder.js';
+import { parseIntent, stripIntentTags } from './IntentParser.js';
+import type { IntentResult } from './IntentParser.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
@@ -127,6 +129,20 @@ export class AgentRouter {
   }
 
   /**
+   * Resolve targets and intent for a message (public, for pre-route broadcast).
+   * Does NOT have side effects — call route() to actually execute.
+   */
+  async resolveTargetsAndIntent(
+    message: string,
+    threadId?: string,
+  ): Promise<{ targetCats: CatId[]; intent: IntentResult }> {
+    const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
+    const targetCats = await this.resolveTargets(message, resolvedThreadId);
+    const intent = parseIntent(message, targetCats.length);
+    return { targetCats, intent };
+  }
+
+  /**
    * Route message to appropriate agent(s) based on @ mentions and thread participants
    */
   async *route(
@@ -139,6 +155,8 @@ export class AgentRouter {
   ): AsyncIterable<AgentMessage> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
     const targetCats = await this.resolveTargets(message, resolvedThreadId);
+    const intent = parseIntent(message, targetCats.length);
+    const cleanMessage = stripIntentTags(message);
 
     if (this.threadStore) {
       await this.threadStore.updateLastActive(resolvedThreadId);
@@ -147,16 +165,17 @@ export class AgentRouter {
     await this.messageStore.append({
       userId,
       catId: null,
-      content: message,
+      content: message,  // Store original (with tags) for audit
       mentions: targetCats,
       timestamp: Date.now(),
       threadId: resolvedThreadId,
       ...(contentBlocks ? { contentBlocks } : {}),
     });
 
+    // Step 3 will add: if (intent.intent === 'ideate' && targetCats.length > 1) routeParallel
     yield* this.routeSerial(
-      targetCats, message, userId, resolvedThreadId,
-      contentBlocks, uploadDir, signal,
+      targetCats, cleanMessage, userId, resolvedThreadId,
+      contentBlocks, uploadDir, signal, intent.promptTags,
     );
   }
 
@@ -169,6 +188,7 @@ export class AgentRouter {
     contentBlocks?: readonly MessageContent[],
     uploadDir?: string,
     signal?: AbortSignal,
+    promptTags?: readonly string[],
   ): AsyncIterable<AgentMessage> {
     const previousResponses: { catId: CatId; content: string }[] = [];
     const deps = this.getInvocationDeps();
@@ -195,6 +215,7 @@ export class AgentRouter {
         chainTotal: totalCats,
         teammates: targetCats.filter((id) => id !== catId),
         mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
+        ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       });
       if (systemPrompt) {
         prompt = `${systemPrompt}\n\n---\n\n${prompt}`;

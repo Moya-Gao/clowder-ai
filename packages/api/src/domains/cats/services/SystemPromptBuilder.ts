@@ -14,8 +14,8 @@ import type { CatId } from '@cat-cafe/shared';
 export interface InvocationContext {
   /** Which cat is being invoked */
   catId: CatId;
-  /** independent = sole responder, serial = part of a chain */
-  mode: 'independent' | 'serial';
+  /** independent = sole responder, serial = part of a chain, parallel = concurrent ideation */
+  mode: 'independent' | 'serial' | 'parallel';
   /** 1-based position in chain (only for serial mode) */
   chainIndex?: number;
   /** Total cats in chain (only for serial mode) */
@@ -24,6 +24,8 @@ export interface InvocationContext {
   teammates: readonly CatId[];
   /** Whether MCP tools are available for this cat */
   mcpAvailable: boolean;
+  /** Prompt-level tags like 'critique' (from IntentParser) */
+  promptTags?: readonly string[];
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -75,8 +77,15 @@ export function buildSystemPrompt(context: InvocationContext): string {
       `当前模式：你是第 ${context.chainIndex}/${context.chainTotal} 只被召唤的猫，请注意前面猫的回复。`,
       '',
     );
+  } else if (context.mode === 'parallel') {
+    lines.push('当前模式：独立思考。你和队友各自独立回答同一问题，给出你自己的观点。', '');
   } else {
     lines.push('当前模式：独立回答。', '');
+  }
+
+  // Prompt tags
+  if (context.promptTags?.includes('critique')) {
+    lines.push('思维方式：批判性分析。挑战假设，找出漏洞，提出反例。', '');
   }
 
   // MCP tools
