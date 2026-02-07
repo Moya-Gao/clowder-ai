@@ -82,12 +82,12 @@ export function buildSystemPrompt(context: InvocationContext): string {
       .filter(([id]) => id !== context.catId)
       .map(([, cfg]) => cfg.displayName);
     if (callableNames.length > 0) {
-      lines.push('## 协作');
+      lines.push('## 🐾 协作');
       lines.push(
-        `你可以在新行开头写 @队友 邀请他们加入对话: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
+        `你可以 @队友 邀请他们一起思考: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
       );
-      lines.push('用于任何你觉得需要队友的场景 (review, debug, 观点征询, 交接)。');
-      lines.push('每次 @ 只触发一轮，铲屎官的消息优先级最高。');
+      lines.push('不限场景——技术讨论、创意碰撞、观点征询、甚至讲笑话都可以。');
+      lines.push('在新行开头写 @猫名。每次 @ 只触发一轮。铲屎官可以随时插话，大家一起协作。');
       lines.push('');
     }
   }
