@@ -935,8 +935,8 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    // Codex gets original message only (no opus response since it crashed)
-    assert.equal(codexReceivedPrompt, '@opus then @codex');
+    // Codex gets original message (with identity prefix) but no opus response since it crashed
+    assert.ok(codexReceivedPrompt.includes('@opus then @codex'));
   });
 
   test('passes workingDirectory when thread has non-default projectPath', async () => {
@@ -1007,5 +1007,67 @@ describe('AgentRouter', () => {
 
     assert.ok(receivedOptions);
     assert.equal(receivedOptions.workingDirectory, undefined);
+  });
+
+  test('identity injection: opus prompt contains 布偶猫', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let opusReceivedPrompt = '';
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (prompt) {
+        opusReceivedPrompt = prompt;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '@opus hello')) {
+      // consume
+    }
+
+    assert.ok(opusReceivedPrompt.includes('布偶猫'), 'Opus prompt should contain 布偶猫');
+    assert.ok(opusReceivedPrompt.includes('Anthropic'), 'Opus prompt should mention Anthropic');
+    assert.ok(opusReceivedPrompt.includes('hello'), 'Opus prompt should contain original message');
+  });
+
+  test('identity injection: codex prompt in multi-cat chain contains 缅因猫', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let codexReceivedPrompt = '';
+    const mockClaudeService = createMockAgentService('opus', 'opus says hi');
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexReceivedPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'codex says hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '@opus @codex hello')) {
+      // consume
+    }
+
+    assert.ok(codexReceivedPrompt.includes('缅因猫'), 'Codex prompt should contain 缅因猫');
+    assert.ok(codexReceivedPrompt.includes('2/2'), 'Codex prompt should show chain position 2/2');
   });
 });

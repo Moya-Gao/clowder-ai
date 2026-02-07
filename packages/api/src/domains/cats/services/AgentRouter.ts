@@ -18,10 +18,11 @@ import { isUnderAllowedRoot } from '../../../utils/project-path.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 import { SessionManager } from './SessionManager.js';
+import { buildSystemPrompt } from './SystemPromptBuilder.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
 import type { IThreadStore } from './ThreadStore.js';
-import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
+import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from './types.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -178,6 +179,20 @@ export class AgentRouter {
         prompt = `${message}\n\n${contextParts.join('\n')}`;
       }
 
+      // Prepend identity context so the cat knows who it is
+      const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+      const systemPrompt = buildSystemPrompt({
+        catId,
+        mode: totalCats > 1 ? 'serial' : 'independent',
+        chainIndex: index + 1,
+        chainTotal: totalCats,
+        teammates: targetCats.filter((id) => id !== catId),
+        mcpAvailable: catConfig?.mcpSupport ?? false,
+      });
+      if (systemPrompt) {
+        prompt = `${systemPrompt}\n\n---\n\n${prompt}`;
+      }
+
       const { invocationId, callbackToken } = this.registry.create(userId, catId, resolvedThreadId);
       const callbackEnv: Record<string, string> = {
         CAT_CAFE_API_URL: apiUrl,
@@ -186,6 +201,7 @@ export class AgentRouter {
       };
 
       let textContent = '';
+      let firstMetadata: MessageMetadata | undefined;
 
       try {
         let sessionId: string | undefined;
@@ -227,6 +243,10 @@ export class AgentRouter {
             textContent += msg.content;
           }
 
+          if (msg.metadata && !firstMetadata) {
+            firstMetadata = msg.metadata;
+          }
+
           if (msg.type === 'done') {
             yield { ...msg, isFinal: isLastCat };
           } else {
@@ -252,6 +272,7 @@ export class AgentRouter {
           mentions: [],
           timestamp: Date.now(),
           threadId: resolvedThreadId,
+          ...(firstMetadata ? { metadata: firstMetadata } : {}),
         });
       }
     }

@@ -7,6 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { MessageMetadata } from './types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 export { DEFAULT_THREAD_ID };
@@ -24,6 +25,8 @@ export interface StoredMessage {
   content: string;
   /** Rich content blocks (text, images, code). When absent, use content string. */
   contentBlocks?: readonly MessageContent[];
+  /** Provider/model metadata (for cat messages) */
+  metadata?: MessageMetadata;
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
