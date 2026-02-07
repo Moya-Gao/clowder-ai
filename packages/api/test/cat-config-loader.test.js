@@ -55,6 +55,22 @@ describe('cat-config-loader', () => {
       assert.equal(config.breeds[0].id, 'ragdoll');
     });
 
+    it('loads default project cat-config.json when no path/env provided', () => {
+      const saved = process.env.CAT_CONFIG_PATH;
+      delete process.env.CAT_CONFIG_PATH;
+      try {
+        const config = loadCatConfig();
+        assert.equal(config.version, 1);
+        assert.ok(config.breeds.length >= 1);
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_CONFIG_PATH;
+        } else {
+          process.env.CAT_CONFIG_PATH = saved;
+        }
+      }
+    });
+
     it('rejects invalid JSON (missing required field)', () => {
       const bad = validConfig();
       delete bad.breeds[0].roleDescription;

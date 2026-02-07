@@ -329,6 +329,28 @@ describe('routeSerial resilience', () => {
   });
 });
 
+describe('routeParallel resilience', () => {
+  it('yields done even when messageStore.append throws (Redis failure)', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    const deps = createMockDeps({
+      opus: createMockService('opus', 'opus says'),
+      codex: createMockService('codex', 'codex says'),
+    });
+    // Force append failure (simulates Redis outage)
+    deps.messageStore.append = async () => { throw new Error('Redis connection refused'); };
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.equal(doneMsgs.length, 2, 'should still yield done for both cats');
+    assert.ok(doneMsgs.some(m => m.isFinal), 'one done should be isFinal');
+  });
+});
+
 describe('routeSerial per-cat budget', () => {
   it('uses history for context assembly when provided', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');

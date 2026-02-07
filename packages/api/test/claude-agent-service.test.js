@@ -353,7 +353,8 @@ test('passes correct model flag (default and custom)', async () => {
   const args1 = spawnFn1.mock.calls[0].arguments[1];
   const modelIdx1 = args1.indexOf('--model');
   assert.ok(modelIdx1 >= 0);
-  assert.equal(args1[modelIdx1 + 1], 'claude-sonnet-4-5-20250929');
+  // Default should follow cat-config.json (Phase 4.0 config system)
+  assert.equal(args1[modelIdx1 + 1], 'claude-opus-4-6');
 
   // Custom model
   const proc2 = createMockProcess();

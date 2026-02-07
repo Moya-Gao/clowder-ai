@@ -313,15 +313,19 @@ export async function* routeParallel(
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
         const mentions = parseA2AMentions(text, msg.catId as CatId);
-        await deps.messageStore.append({
-          userId,
-          catId: msg.catId as CatId,
-          content: text,
-          mentions,
-          timestamp: Date.now(),
-          threadId,
-          ...(meta ? { metadata: meta } : {}),
-        });
+        try {
+          await deps.messageStore.append({
+            userId,
+            catId: msg.catId as CatId,
+            content: text,
+            mentions,
+            timestamp: Date.now(),
+            threadId,
+            ...(meta ? { metadata: meta } : {}),
+          });
+        } catch (err) {
+          console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
+        }
       }
       yield { ...msg, isFinal: completedCount === targetCats.length };
     } else {

@@ -5,11 +5,25 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
 import type { CatConfig, CatId } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import type { CatBreed, CatCafeConfig, CatVariant } from '@cat-cafe/shared';
+
+/**
+ * Default cat-config.json location (repo root).
+ *
+ * IMPORTANT: API dev scripts run with cwd=`packages/api`, so `process.cwd()` is
+ * not the repo root. Resolve relative to this file instead to keep behavior
+ * stable across different launch directories.
+ */
+const DEFAULT_CAT_CONFIG_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  '../../../..',
+  'cat-config.json',
+);
 
 const cliConfigSchema = z.object({
   command: z.string().min(1),
@@ -60,7 +74,7 @@ const catCafeConfigSchema = z.object({
 export function loadCatConfig(filePath?: string): CatCafeConfig {
   const resolvedPath = filePath
     ?? process.env['CAT_CONFIG_PATH']
-    ?? resolve(process.cwd(), 'cat-config.json');
+    ?? DEFAULT_CAT_CONFIG_PATH;
 
   let raw: string;
   try {
