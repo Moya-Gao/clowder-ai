@@ -41,6 +41,7 @@ export {
 
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
+  ContextBudget,
   CliConfig,
   CatVariant,
   CatBreed,

@@ -17,6 +17,13 @@ const cliConfigSchema = z.object({
   defaultArgs: z.array(z.string()).optional(),
 });
 
+const contextBudgetSchema = z.object({
+  maxPromptChars: z.number().positive(),
+  maxContextChars: z.number().positive(),
+  maxMessages: z.number().positive().int(),
+  maxContentLengthPerMsg: z.number().positive(),
+});
+
 const catVariantSchema = z.object({
   id: z.string().min(1),
   provider: z.enum(['anthropic', 'openai', 'google']),
@@ -25,6 +32,7 @@ const catVariantSchema = z.object({
   cli: cliConfigSchema,
   personality: z.string().optional(),
   strengths: z.array(z.string()).optional(),
+  contextBudget: contextBudgetSchema.optional(),
 });
 
 const catBreedSchema = z.object({

@@ -11,6 +11,21 @@ import type { CatId } from './ids.js';
 import type { CatColor, CatProvider } from './cat.js';
 
 /**
+ * Per-cat context budget configuration.
+ * Controls how much history/context is sent to each cat.
+ */
+export interface ContextBudget {
+  /** Total prompt character limit (including system prompt + context + user message) */
+  readonly maxPromptChars: number;
+  /** Maximum characters for historical context */
+  readonly maxContextChars: number;
+  /** Maximum number of historical messages to include */
+  readonly maxMessages: number;
+  /** Maximum characters per single message (truncation point) */
+  readonly maxContentLengthPerMsg: number;
+}
+
+/**
  * CLI invocation config for a variant
  */
 export interface CliConfig {
@@ -31,6 +46,8 @@ export interface CatVariant {
   readonly cli: CliConfig;
   readonly personality?: string;
   readonly strengths?: readonly string[];
+  /** Per-cat context budget (optional, falls back to defaults) */
+  readonly contextBudget?: ContextBudget;
 }
 
 /**

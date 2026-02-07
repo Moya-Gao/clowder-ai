@@ -23,7 +23,13 @@
             "defaultArgs": ["--output-format", "stream-json"]
           },
           "personality": "温柔但有主见，喜欢深入分析问题，写代码快但注重质量",
-          "strengths": ["architecture", "backend", "mcp"]
+          "strengths": ["architecture", "backend", "mcp"],
+          "contextBudget": {
+            "maxPromptChars": 150000,
+            "maxContextChars": 40000,
+            "maxMessages": 40,
+            "maxContentLengthPerMsg": 3000
+          }
         }
       ]
     },
@@ -49,7 +55,13 @@
             "defaultArgs": ["exec", "--json"]
           },
           "personality": "严谨认真，注重细节，会直言不讳地指出问题",
-          "strengths": ["code-review", "security", "testing"]
+          "strengths": ["code-review", "security", "testing"],
+          "contextBudget": {
+            "maxPromptChars": 80000,
+            "maxContextChars": 20000,
+            "maxMessages": 30,
+            "maxContentLengthPerMsg": 2000
+          }
         }
       ]
     },
@@ -75,7 +87,13 @@
             "defaultArgs": []
           },
           "personality": "活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物",
-          "strengths": ["visual-design", "ui-ux", "creativity"]
+          "strengths": ["visual-design", "ui-ux", "creativity"],
+          "contextBudget": {
+            "maxPromptChars": 150000,
+            "maxContextChars": 40000,
+            "maxMessages": 40,
+            "maxContentLengthPerMsg": 3000
+          }
         }
       ]
     }
