@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.7 完成)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.8 狼人杀 Bug 修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -15,19 +15,19 @@
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 1 | MCP 统一挂载 (Codex/Gemini) | [x] | Demo 发现 | Phase 3.7 `8114d1d` — McpPromptInjector HTTP callback 注入 |
+| 1 | MCP 统一挂载 (Codex/Gemini) | [x] | Demo 发现 | Phase 3.7 `8114d1d` + review fix `6137cc9` — McpPromptInjector HTTP callback 注入 |
 | 2 | Redis ThreadStore | [x] | Phase 3.2 | Phase 3.7 `a8236bc` — RedisThreadStore + factory |
 | 3 | Redis TaskStore + SummaryStore | [x] | Phase 3.5 | Phase 3.7 `1bd0eb3` — RedisTaskStore + RedisSummaryStore + factories |
-| 4 | MCP 工具接入 (文件操作切 MCP Server) | [x] | Phase 2.5 | Phase 3.7 `8114d1d` — 与 #1 合并, prompt 注入方式 |
+| 4 | MCP 工具接入 (文件操作切 MCP Server) | [x] | Phase 2.5 | Phase 3.7 `8114d1d` + review fix `6137cc9` — 与 #1 合并, prompt 注入方式 |
 | 5 | 目录浏览安全 (allowlist/blocklist) | [x] | Phase 3.2 review | Phase 3.7 `59d2d80` — PROJECT_ALLOWED_ROOTS env var |
-| 6 | 多猫调用状态可观测性 | [ ] | 狼人杀测试 | 每只猫独立状态追踪 (pending/streaming/done/error)；超时警告；错误明确传达。详见 `docs/bug-report/werewofl-like-test/2026-02-07-werewolf-demo-bugs.md` Bug 3+4 |
+| 6 | 多猫调用状态可观测性 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` (前端 per-cat status) + `1c3efe4` (CLI timeout 传播) |
 
 ## P2 — 建议做
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
-| 8 | 单猫 @mention 无加载提示 | [ ] | 狼人杀测试 | 非并行模式无 loading 反馈；建议添加"猫猫思考中"占位消息。详见狼人杀 Bug 1 |
+| 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |
 | 9 | 前端图片压缩 | [ ] | Phase 3.2 review | 当前 10MB/张直传 |
 | 10 | 对话级联删除 | [ ] | Phase 3.2 review | DELETE thread 不删消息，依赖 TTL |
 | 11 | cancel_invocation 真正鉴权 | [x] | Phase 3.3b review | Phase 3.7 `0c3d318` — userId 追踪 + 校验 |
@@ -104,5 +104,11 @@
 | cancel_invocation userId 鉴权 | Phase 3.7 | `0c3d318` |
 | AgentRouter 拆分 (379→209行) | Phase 3.7 | `122ff12` |
 | start-dev.sh Redis 回退测试 | Phase 3.7 | `b8d4313` |
+| MCP 端点+鉴权修复 (缅因猫 review P1) | Phase 3.7 R1 | `6137cc9` |
+| MCP prompt 注入 E2E 集成测试 | Phase 3.7 R1 | `6e42cd7` |
+| CLI 超时错误传播 (__cliTimeout) | Phase 3.8 | `1c3efe4` |
+| 上下文 per-message 限制 500→1500 | Phase 3.8 | `a0bfddc` |
+| 多猫状态可观测性 (ParallelStatusBar) | Phase 3.8 | `180bd1a` |
+| 单猫思考指示器 (ThinkingIndicator) | Phase 3.8 | `180bd1a` |
 
 </details>
