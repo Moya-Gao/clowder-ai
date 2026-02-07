@@ -13,8 +13,9 @@ import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
 import type { IMessageStore } from './MessageStore.js';
-import type { AgentMessage, AgentService } from './types.js';
+import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
+import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -30,6 +31,8 @@ export interface RouteOptions {
   signal?: AbortSignal | undefined;
   promptTags?: readonly string[] | undefined;
   contextHistory?: string | undefined;
+  /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
+  maxA2ADepth?: number | undefined;
 }
 
 /** Get the agent service for a given cat ID */
@@ -41,6 +44,13 @@ function getService(services: Record<string, AgentService>, catId: CatId): Agent
 
 /**
  * Serial execution: cats respond one by one, each seeing previous responses.
+ *
+ * A2A support: after each cat completes, its response is checked for @mentions.
+ * If a mention is detected and depth allows, the mentioned cat is appended to the
+ * worklist — extending the chain within the SAME function call. This preserves
+ * previousResponses continuity and correct isFinal semantics (缅因猫 P1-1, P1-2).
+ *
+ * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -52,11 +62,20 @@ export async function* routeSerial(
 ): AsyncIterable<AgentMessage> {
   const { contentBlocks, uploadDir, signal, promptTags, contextHistory } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
-  const totalCats = targetCats.length;
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
 
-  for (const [index, catId] of targetCats.entries()) {
+  // Worklist pattern: starts with targetCats, may grow via A2A mentions
+  const worklist = [...targetCats];
+  let a2aCount = 0;
+  const maxDepth = options.maxA2ADepth ?? MAX_A2A_DEPTH;
+
+  let index = 0;
+  while (index < worklist.length) {
     if (signal?.aborted) break;
+    const catId = worklist[index]!;
+
+    // Only pass images/uploads for the first cat (user's original target)
+    const isOriginalTarget = index < targetCats.length;
 
     let prompt = message;
     if (previousResponses.length > 0) {
@@ -70,12 +89,13 @@ export async function* routeSerial(
     const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
     const systemPrompt = buildSystemPrompt({
       catId,
-      mode: totalCats > 1 ? 'serial' : 'independent',
+      mode: worklist.length > 1 ? 'serial' : 'independent',
       chainIndex: index + 1,
-      chainTotal: totalCats,
-      teammates: targetCats.filter((id) => id !== catId),
+      chainTotal: worklist.length,
+      teammates: worklist.filter((id) => id !== catId),
       mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+      a2aEnabled: a2aCount < maxDepth,
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
@@ -92,17 +112,19 @@ export async function* routeSerial(
 
     let textContent = '';
     let firstMetadata: MessageMetadata | undefined;
+    let doneMsg: AgentMessage | undefined;
 
+    // Always pass isLastCat:false — we set isFinal AFTER A2A detection
     for await (const msg of invokeSingleCat(deps.invocationDeps, {
       catId,
       service: getService(deps.services, catId),
       prompt,
       userId,
       threadId,
-      ...(contentBlocks ? { contentBlocks } : {}),
-      ...(uploadDir ? { uploadDir } : {}),
+      ...(isOriginalTarget && contentBlocks ? { contentBlocks } : {}),
+      ...(isOriginalTarget && uploadDir ? { uploadDir } : {}),
       ...(signal ? { signal } : {}),
-      isLastCat: index === totalCats - 1,
+      isLastCat: false,
     })) {
       if (msg.type === 'text' && msg.content) {
         textContent += msg.content;
@@ -110,21 +132,64 @@ export async function* routeSerial(
       if (msg.metadata && !firstMetadata) {
         firstMetadata = msg.metadata;
       }
-      yield msg;
+      if (msg.type === 'done') {
+        doneMsg = msg; // Buffer — yield after A2A detection
+      } else {
+        yield msg;
+      }
     }
 
     if (textContent) {
       previousResponses.push({ catId, content: textContent });
+
+      // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
+      const a2aMentions = parseA2AMentions(textContent, catId);
+
+      // Store with actual mentions (replaces hardcoded [])
       await deps.messageStore.append({
         userId,
         catId,
         content: textContent,
+        mentions: a2aMentions,
+        timestamp: Date.now(),
+        threadId,
+        ...(firstMetadata ? { metadata: firstMetadata } : {}),
+      });
+
+      // A2A: extend worklist if mention found + depth allows
+      if (a2aMentions.length > 0 && a2aCount < maxDepth && !signal?.aborted) {
+        const nextCat = a2aMentions[0]!;
+        worklist.push(nextCat);
+        a2aCount++;
+
+        // Notify frontend: handoff event
+        const nextConfig = CAT_CONFIGS[nextCat as keyof typeof CAT_CONFIGS];
+        yield {
+          type: 'a2a_handoff' as AgentMessageType,
+          catId,
+          content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? nextCat}`,
+          timestamp: Date.now(),
+        } as AgentMessage;
+      }
+    } else {
+      // No text content — still store empty mentions
+      await deps.messageStore.append({
+        userId,
+        catId,
+        content: '',
         mentions: [],
         timestamp: Date.now(),
         threadId,
         ...(firstMetadata ? { metadata: firstMetadata } : {}),
       });
     }
+
+    // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
+    if (doneMsg) {
+      yield { ...doneMsg, isFinal: index === worklist.length - 1 };
+    }
+
+    index++;
   }
 }
 
@@ -199,11 +264,14 @@ export async function* routeParallel(
       const text = catText.get(msg.catId);
       if (text) {
         const meta = catMeta.get(msg.catId);
+        // A2A only triggers in routeSerial; routeParallel stores mentions
+        // but never chains (MVP safety boundary — see Phase 3.9 design doc)
+        const mentions = parseA2AMentions(text, msg.catId as CatId);
         await deps.messageStore.append({
           userId,
           catId: msg.catId as CatId,
           content: text,
-          mentions: [],
+          mentions,
           timestamp: Date.now(),
           threadId,
           ...(meta ? { metadata: meta } : {}),

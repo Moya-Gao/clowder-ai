@@ -1,6 +1,6 @@
 /**
  * Route Strategies Tests
- * 验证 routeSerial / routeParallel 纯函数的基本行为
+ * 验证 routeSerial / routeParallel 纯函数的基本行为 + A2A worklist
  */
 
 import { describe, it } from 'node:test';
@@ -9,14 +9,27 @@ import assert from 'node:assert/strict';
 // Create a mock agent service that yields text + done
 function createMockService(catId, text = 'hello') {
   return {
-    async *invoke(prompt) {
+    async *invoke(_prompt) {
       yield { type: 'text', catId, content: text, timestamp: Date.now() };
       yield { type: 'done', catId, timestamp: Date.now() };
     },
   };
 }
 
-function createMockDeps(services) {
+// Mock service that captures the prompt it receives
+function createCapturingService(catId, text = 'hello') {
+  const calls = [];
+  return {
+    calls,
+    async *invoke(prompt) {
+      calls.push(prompt);
+      yield { type: 'text', catId, content: text, timestamp: Date.now() };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+function createMockDeps(services, appendCalls) {
   let counter = 0;
   return {
     services,
@@ -33,7 +46,10 @@ function createMockDeps(services) {
       apiUrl: 'http://127.0.0.1:3002',
     },
     messageStore: {
-      append: async () => ({ id: 'msg-1', userId: '', catId: null, content: '', mentions: [], timestamp: 0 }),
+      append: async (msg) => {
+        if (appendCalls) appendCalls.push(msg);
+        return { id: `msg-${counter}`, userId: '', catId: null, content: '', mentions: [], timestamp: 0 };
+      },
       getRecent: () => [],
       getMentionsFor: () => [],
       getBefore: () => [],
@@ -61,7 +77,240 @@ describe('routeSerial', () => {
   });
 });
 
-describe('routeParallel', () => {
+describe('routeSerial A2A worklist', () => {
+  it('extends worklist when cat response contains line-start @mention', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    // opus responds with a line-start mention of codex
+    const deps = createMockDeps({
+      opus: createMockService('opus', '我写好了代码\n@缅因猫 请 review 一下'),
+      codex: createMockService('codex', 'LGTM, 代码没问题'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'write hello world', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    // Should have text from both cats (opus + codex via A2A)
+    const opusText = messages.filter(m => m.type === 'text' && m.catId === 'opus');
+    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    assert.ok(opusText.length > 0, 'opus should produce text');
+    assert.ok(codexText.length > 0, 'codex should be invoked via A2A');
+  });
+
+  it('yields a2a_handoff event when A2A chain triggers', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '请看一下\n@缅因猫 帮忙检查'),
+      codex: createMockService('codex', '已检查完毕'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'check code', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 1, 'should yield exactly one a2a_handoff');
+    assert.equal(handoffs[0].catId, 'opus', 'handoff should be from opus');
+    assert.ok(handoffs[0].content.includes('→'), 'handoff content should show arrow');
+  });
+
+  it('A2A cat receives previousResponses in prompt', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const codexService = createCapturingService('codex', '已审查');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      codex: codexService,
+    });
+
+    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1')) {}
+
+    assert.equal(codexService.calls.length, 1, 'codex should be called once');
+    assert.ok(
+      codexService.calls[0].includes('代码完成'),
+      'codex prompt should include opus response content'
+    );
+  });
+
+  it('isFinal is true only on the last done in the chain', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '好的\n@缅因猫 帮忙'),
+      codex: createMockService('codex', '搞定了'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'help', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.ok(doneMsgs.length >= 2, 'should have done from both cats');
+    // First done (opus) should NOT be isFinal
+    const opusDone = doneMsgs.find(m => m.catId === 'opus');
+    assert.ok(!opusDone.isFinal, 'opus done should not be isFinal');
+    // Last done (codex) should be isFinal
+    const codexDone = doneMsgs.find(m => m.catId === 'codex');
+    assert.ok(codexDone.isFinal, 'codex done (chain end) should be isFinal');
+  });
+
+  it('does not extend worklist beyond maxA2ADepth', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    // opus mentions codex, codex mentions gemini, gemini mentions opus
+    // With maxA2ADepth=1, only first A2A hop should trigger
+    const deps = createMockDeps({
+      opus: createMockService('opus', '看看吧\n@缅因猫 帮忙'),
+      codex: createMockService('codex', '需要设计\n@暹罗猫 帮忙设计'),
+      gemini: createMockService('gemini', '设计好了'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { maxA2ADepth: 1 })) {
+      messages.push(msg);
+    }
+
+    // Only opus + codex should produce text (depth=1 allows 1 hop)
+    const catIds = [...new Set(messages.filter(m => m.type === 'text').map(m => m.catId))];
+    assert.ok(catIds.includes('opus'), 'opus should have text');
+    assert.ok(catIds.includes('codex'), 'codex should be invoked (1st hop)');
+    assert.ok(!catIds.includes('gemini'), 'gemini should NOT be invoked (2nd hop blocked by depth=1)');
+  });
+
+  it('self-mention does not trigger A2A', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '我是布偶猫\n@布偶猫 说完了'),
+      codex: createMockService('codex', 'should not be called'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 0, 'self-mention should not trigger A2A');
+    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    assert.equal(codexText.length, 0, 'codex should not be invoked');
+  });
+
+  it('non-line-start @mention does not trigger A2A', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '之前缅因猫说的 @缅因猫 方案不错，我同意'),
+      codex: createMockService('codex', 'should not be called'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'feedback', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 0, 'mid-line mention should not trigger A2A');
+  });
+
+  it('signal abort stops worklist chain', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const ac = new AbortController();
+    const deps = createMockDeps({
+      opus: {
+        async *invoke() {
+          yield { type: 'text', catId: 'opus', content: '开始\n@缅因猫 帮忙', timestamp: Date.now() };
+          // Abort after opus produces text
+          ac.abort();
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
+      },
+      codex: createMockService('codex', 'should not run'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { signal: ac.signal })) {
+      messages.push(msg);
+    }
+
+    // Codex should not be invoked because signal was aborted
+    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    assert.equal(codexText.length, 0, 'codex should not be invoked after abort');
+  });
+
+  it('stores mentions correctly in messageStore.append', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      opus: createMockService('opus', '写完了\n@缅因猫 帮review'),
+      codex: createMockService('codex', '审查完毕'),
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['opus'], 'code', 'user1', 'thread1')) {}
+
+    // opus's stored message should have mentions: ['codex']
+    const opusAppend = appendCalls.find(c => c.catId === 'opus');
+    assert.ok(opusAppend, 'opus response should be stored');
+    assert.deepEqual(opusAppend.mentions, ['codex'], 'opus mentions should include codex');
+
+    // codex's stored message (no mention in response) → mentions: []
+    const codexAppend = appendCalls.find(c => c.catId === 'codex');
+    assert.ok(codexAppend, 'codex response should be stored');
+    assert.deepEqual(codexAppend.mentions, [], 'codex mentions should be empty');
+  });
+
+  it('supports 2-hop A2A chain: user→A→B→A', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    let opusCallCount = 0;
+    const deps = createMockDeps({
+      opus: {
+        async *invoke() {
+          opusCallCount++;
+          if (opusCallCount === 1) {
+            yield { type: 'text', catId: 'opus', content: '写好了\n@缅因猫 review', timestamp: Date.now() };
+          } else {
+            yield { type: 'text', catId: 'opus', content: '已修复', timestamp: Date.now() };
+          }
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+        },
+      },
+      codex: createMockService('codex', '有bug\n@布偶猫 请修复'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'implement feature', 'user1', 'thread1', { maxA2ADepth: 2 })) {
+      messages.push(msg);
+    }
+
+    // Chain: opus → codex → opus (2 hops)
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 2, 'should have 2 A2A handoffs');
+    assert.equal(opusCallCount, 2, 'opus should be called twice');
+  });
+});
+
+describe('routeParallel A2A safety', () => {
+  it('does not chain A2A even when mentions are detected', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      opus: createMockService('opus', '需要缅因猫帮忙\n@缅因猫 请看'),
+      codex: createMockService('codex', '我来了'),
+    }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'brainstorm', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    // Should not yield any a2a_handoff events
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 0, 'parallel mode should never chain A2A');
+
+    // But mentions should still be stored
+    const opusAppend = appendCalls.find(c => c.catId === 'opus');
+    assert.ok(opusAppend, 'opus response should be stored');
+    assert.deepEqual(opusAppend.mentions, ['codex'], 'mentions should be detected and stored');
+  });
+
   it('executes multiple cats independently and yields interleaved messages', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
     const deps = createMockDeps({

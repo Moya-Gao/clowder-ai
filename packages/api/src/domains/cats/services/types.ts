@@ -23,7 +23,8 @@ export type AgentMessageType =
   | 'tool_use'
   | 'tool_result'
   | 'error'
-  | 'done';
+  | 'done'
+  | 'a2a_handoff';
 
 /**
  * A message yielded from an agent during invocation

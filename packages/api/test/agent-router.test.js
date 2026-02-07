@@ -56,7 +56,7 @@ function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}
 
 // Create mock agent services
 function createMockAgentService(catId, responseText = 'Hello from mock') {
-  const invoke = mock.fn(async function* (prompt, options) {
+  const invoke = mock.fn(async function* (_prompt, options) {
     const sessionId = options?.sessionId ?? `${catId}-session-new`;
     yield {
       type: 'session_init',
@@ -67,7 +67,7 @@ function createMockAgentService(catId, responseText = 'Hello from mock') {
     yield {
       type: 'text',
       catId,
-      content: `${responseText}: ${prompt}`,
+      content: responseText,
       timestamp: Date.now(),
     };
     yield {
