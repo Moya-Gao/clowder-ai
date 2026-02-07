@@ -21,7 +21,8 @@ import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
-import { parseMultipart, sendMessageSchema } from './parse-multipart.js';
+import { parseMultipart } from './parse-multipart.js';
+import { sendMessageSchema } from './messages.schema.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
