@@ -61,7 +61,7 @@ export function useAgentMessages() {
           setStreaming(ref.id, false);
           activeRefs.current.delete(msg.catId);
         }
-        if (msg.isFinal || activeRefs.current.size === 0) {
+        if (msg.isFinal) {
           setLoading(false);
           setIntentMode(null);
         }
@@ -78,8 +78,8 @@ export function useAgentMessages() {
           content: `Error: ${msg.error ?? 'Unknown error'}`,
           timestamp: Date.now(),
         });
-        // If no more active streams, stop loading
-        if (activeRefs.current.size === 0) {
+        // Only stop loading on isFinal; size===0 would false-positive in serial gaps
+        if (msg.isFinal) {
           setLoading(false);
           setIntentMode(null);
         }
