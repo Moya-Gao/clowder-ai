@@ -255,6 +255,12 @@ export function ChatContainer() {
 
       // /config command — fetch and display config snapshot
       if (content.trim() === '/config') {
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: '/config',
+          timestamp: Date.now(),
+        });
         try {
           const res = await fetch(`${API_URL}/api/config`);
           if (!res.ok) throw new Error(`Server error: ${res.status}`);

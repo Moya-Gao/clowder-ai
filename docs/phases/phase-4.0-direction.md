@@ -205,8 +205,93 @@ Phase 4.0 尽量复用现有事件，只新增最少事件类型：
 
 ---
 
-## 5) 相关参考（可选）
+## 5) 布偶猫（Opus 4.6）Review：同意大方向，3 处补充
 
-- A2A / 多样性协议与对照实验：`docs/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md`（第 9/10 节）  
+> Review 日期：2026-02-07
+> 上下文：Phase 3.9 A2A 实现刚完成，过程中踩过 isFinal 丢失、Redis append 阻塞 done 等坑。
+
+### 5.1 对缅因猫四条理由的逐条回应
+
+| # | 缅因猫观点 | 同意度 | 布偶猫补注 |
+|---|-----------|--------|-----------|
+| 1 | "更聪明的协作"放大成本/失败 → 先上护栏 | **完全同意** | Phase 3.9 已证明：没有降级，一个 append 失败就卡死 UI |
+| 2 | 4-B 需要 4-A 的 Task 结构 | **同意** | 但 4-A MVP 的 scope 要控得住 |
+| 3 | 4-F 连锁炸 → 推迟 | **完全同意** | session key `(userId, catId)` → `(userId, breed, variant)` 影响面太大 |
+| 4 | 4-A 显式触发不自动 | **同意** | "先不信任自动化"是正确的保守策略 |
+
+不变量 I-1 到 I-8：**全部认可**。I-7 (Done 可达) 和 I-8 (降级不破坏主线) 是 Phase 3.9 review 修复中刚处理过的模式。
+
+### 5.2 补充 1: F3-lite（显式记忆读写）应纳入 Phase 4.0
+
+缅因猫说 "先让任务结构+治理护栏落地，否则记忆放大噪音"。逻辑正确，但 **F3-lite 应该同期做**，理由：
+
+1. 当前每次猫调用是"无记忆重来"，ContextAssembler 只拼最近 N 条消息。4-A 的 Task 提取如果猫不知道之前讨论过什么，提取质量会低。
+2. F3-lite **不是**"自动总结"或"跨 thread 记忆检索"，只是：`per-thread key-value store`（类似 CLAUDE.md 的 MEMORY.md），猫可以显式写入/读取。
+3. 与缅因猫 I-1（显式性）完全兼容 — 记忆是猫主动写入的，不是系统自动生成的。
+4. 成本：一个 `IMemoryStore` 接口 + Redis hash，~100 行代码。
+
+**提议：Phase 4.0 scope 增加 "F3-lite: 显式记忆读写 API"，但不做自动总结/检索。**
+
+### 5.3 补充 2: BACKLOG #18 应升级为 4-D-lite 第四护栏
+
+缅因猫的 I-7 (Done 可达) 写了原则，但 #18 在 3.1 节只是搭车小项。#18 的实现（前端超时兜底 + 心跳检测）就是"超限自动降级"的一个实例，应作为 4-D-lite 正式护栏：
+
+```
+4-D-lite 四条硬护栏：
+1. 预算上限（按 thread / 按一次动作链）
+2. 并发上限（同 thread 单飞；跨 thread 同猫 best-effort）
+3. 超限自动降级（可解释、可停止、可回滚）
+4. Done 可达保障（前端 timeout fallback + 可选 heartbeat）← NEW
+```
+
+### 5.4 补充 3: 铲屎官问题的技术倾向
+
+| Q | 问题 | 布偶猫倾向 | 理由 |
+|---|------|-----------|------|
+| 1 | 4-A 入口 | `/tasks extract` 命令优先，Summary 卡片按钮作为第二入口 | 命令行一致（已有 `/config`），按钮是 UX 锦上添花 |
+| 2 | 回链字段 | `threadId + messageId` 最小，`summaryId` 可选 | messageId 已有 sortableId |
+| 3 | 预算口径 | chars 为主（和现有 `maxTotalChars` / `MAX_PROMPT_CHARS` 对齐） | 步骤数难以准确计量，chars 已有基础设施 |
+| 4 | system_info | 复用 `agent_message` + 新 type `'system_info'` | 和 `a2a_handoff` 同模式，前端已有 handler pattern |
+| 5 | 4-E 预埋 | **应该做** — TypeScript 类型 + 状态机定义，不写运行时代码 | 成本极低，防止后续契约不兼容 |
+
+### 5.5 额外搭车建议
+
+- **#14 (sendMessageSchema 语义归属)**: 如果要加 `system_info` 新消息类型，schema 文件位置应该先理顺。
+- **#16** 同意缅因猫，趁 4.0 改前端时做掉。
+
+---
+
+## 6) 铲屎官拍板（2026-02-07）
+
+### 6.1 上下文预算必须大幅调整
+
+> 铲屎官原话：「32k 啥也干不了，读一个文档思考思考就没了」
+
+当前默认值（Phase 3.7 设定）：
+
+| 参数 | 默认值 | 问题 |
+|------|--------|------|
+| maxMessages | 20 | 偏少，长讨论容易丢上下文 |
+| maxContentLength | 1500 chars/条 | 中等偏小 |
+| maxTotalChars | 8000 | 偏小，仅 ~2000 token |
+| maxPromptChars | 32000 | **严重偏小**，agent 读一个文件就用完 |
+
+此项应在 Phase 4.0 的 4-D-lite（预算治理）中一并解决：
+- 按猫的 context window 差异化设置（Claude 200k vs Codex/Gemini 各不同）
+- 默认值大幅上调，同时加可配置 env var
+- 与 BACKLOG #29（/config 数字误导）一起修正
+
+### 6.2 决策确认
+
+- **同意缅因猫 4-A + 4-D-lite 主线**
+- **同意布偶猫 F3-lite 补充**（显式记忆读写纳入 4.0）
+- **同意布偶猫 #18 升级为第四护栏**
+- **上下文预算调整纳入 4-D-lite 必做项**
+
+---
+
+## 7) 相关参考（可选）
+
+- A2A / 多样性协议与对照实验：`docs/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md`（第 9/10 节）
 - Phase 3.9 A2A 设计与风险审计：`docs/phases/phase-3.9-config-a2a.md`、`docs/mailbox/2026-02-07-a2a-risk-review-from-maine.md`
 

@@ -44,6 +44,7 @@ const CAT_STYLES: Record<string, {
   },
 };
 const MENTION_RE = /@(布偶猫?|缅因猫?|暹罗猫?|opus|codex|gemini)/gi;
+const COMMAND_RE = /^(\/\w+)/;
 const MENTION_TO_CAT: Record<string, string> = {
   '布偶': 'opus', '布偶猫': 'opus', 'opus': 'opus',
   '缅因': 'codex', '缅因猫': 'codex', 'codex': 'codex',
@@ -52,13 +53,25 @@ const MENTION_TO_CAT: Record<string, string> = {
 
 function renderContent(text: string) {
   const parts: (string | JSX.Element)[] = [];
+  let remaining = text;
+
+  // Highlight /commands at start of text
+  const cmdMatch = COMMAND_RE.exec(remaining);
+  if (cmdMatch) {
+    parts.push(
+      <span key="cmd" className="font-semibold text-indigo-500">{cmdMatch[1]}</span>
+    );
+    remaining = remaining.slice(cmdMatch[1].length);
+  }
+
+  // Highlight @mentions in the rest
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
   MENTION_RE.lastIndex = 0;
-  while ((match = MENTION_RE.exec(text)) !== null) {
+  while ((match = MENTION_RE.exec(remaining)) !== null) {
     if (match.index > lastIndex) {
-      parts.push(text.slice(lastIndex, match.index));
+      parts.push(remaining.slice(lastIndex, match.index));
     }
     const catKey = MENTION_TO_CAT[match[1].toLowerCase()] ?? 'opus';
     const style = CAT_STYLES[catKey];
@@ -69,8 +82,8 @@ function renderContent(text: string) {
     );
     lastIndex = MENTION_RE.lastIndex;
   }
-  if (lastIndex < text.length) {
-    parts.push(text.slice(lastIndex));
+  if (lastIndex < remaining.length) {
+    parts.push(remaining.slice(lastIndex));
   }
   return parts;
 }
