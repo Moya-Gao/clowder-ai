@@ -125,8 +125,133 @@ export function useChatCommands() {
         return true;
       }
 
-      // Future commands: /remember, /recall, /tasks extract
-      // will be added in subsequent steps
+      // /remember <key> <value> — store memory
+      if (trimmed.startsWith('/remember ')) {
+        const rest = trimmed.slice('/remember '.length).trim();
+        const spaceIdx = rest.indexOf(' ');
+        if (spaceIdx <= 0) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: '用法: /remember <key> <value>',
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+        const key = rest.slice(0, spaceIdx);
+        const value = rest.slice(spaceIdx + 1);
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        try {
+          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const res = await fetch(`${API_URL}/api/memory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ threadId, key, value, updatedBy: 'user' }),
+          });
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          addMessage({
+            id: `mem-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: `📝 已记住: ${key}`,
+            timestamp: Date.now(),
+          });
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `记忆保存失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
+      // /recall [key] — read memory
+      if (trimmed.startsWith('/recall')) {
+        const rest = trimmed.slice('/recall'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        try {
+          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const url = rest
+            ? `${API_URL}/api/memory?threadId=${encodeURIComponent(threadId)}&key=${encodeURIComponent(rest)}`
+            : `${API_URL}/api/memory?threadId=${encodeURIComponent(threadId)}`;
+
+          const res = await fetch(url);
+
+          if (rest) {
+            // Single key lookup
+            if (res.status === 404) {
+              addMessage({
+                id: `mem-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `🔍 未找到: ${rest}`,
+                timestamp: Date.now(),
+              });
+            } else if (!res.ok) {
+              throw new Error(`Server error: ${res.status}`);
+            } else {
+              const entry = await res.json();
+              addMessage({
+                id: `mem-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `🔍 ${entry.key}: ${entry.value}`,
+                timestamp: Date.now(),
+              });
+            }
+          } else {
+            // List all
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            const entries = data.entries as Array<{ key: string; value: string }>;
+            if (entries.length === 0) {
+              addMessage({
+                id: `mem-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: '🔍 此对话暂无记忆',
+                timestamp: Date.now(),
+              });
+            } else {
+              const lines = entries.map(e => `  ${e.key}: ${e.value}`).join('\n');
+              addMessage({
+                id: `mem-${Date.now()}`,
+                type: 'system',
+                variant: 'info',
+                content: `🔍 对话记忆 (${entries.length} 条)\n${lines}`,
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `读取记忆失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
+      // Future commands: /tasks extract
+      // will be added in Step 7
 
       return false;
     },

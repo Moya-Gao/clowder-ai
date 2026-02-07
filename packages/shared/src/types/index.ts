@@ -80,3 +80,9 @@ export type {
   ThreadSummary,
   CreateSummaryInput,
 } from './summary.js';
+
+// Memory types (F3-lite 显式记忆)
+export type {
+  MemoryEntry,
+  MemoryInput,
+} from './memory.js';
