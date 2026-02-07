@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -75,6 +75,7 @@ async function main(): Promise<void> {
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
+  await app.register(exportRoutes, { messageStore, threadStore });
 
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';

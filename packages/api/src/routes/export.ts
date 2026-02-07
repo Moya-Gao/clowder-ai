@@ -1,0 +1,98 @@
+/**
+ * Export Routes
+ * GET /api/export/thread/:threadId?format=md - 导出对话记录为 Markdown
+ */
+
+import type { FastifyPluginAsync } from 'fastify';
+import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { Thread } from '../domains/cats/services/ThreadStore.js';
+import type { StoredMessage } from '../domains/cats/services/MessageStore.js';
+import { formatMessage } from '../domains/cats/services/ContextAssembler.js';
+import { CAT_CONFIGS } from '@cat-cafe/shared';
+
+export interface ExportRoutesOptions {
+  messageStore: IMessageStore;
+  threadStore: IThreadStore;
+}
+
+/**
+ * Format a thread as Markdown document.
+ * Reuses formatMessage() from ContextAssembler for consistent [HH:MM 角色名] format.
+ */
+export function formatThreadAsMarkdown(
+  thread: Thread,
+  messages: StoredMessage[],
+): string {
+  const lines: string[] = [];
+
+  // Header
+  const title = thread.title ?? '未命名对话';
+  lines.push(`# 对话记录: ${title}`, '');
+
+  // Meta
+  lines.push(`- **ID**: ${thread.id}`);
+  if (messages.length > 0) {
+    const first = new Date(messages[0]!.timestamp).toLocaleString('zh-CN');
+    const last = new Date(messages[messages.length - 1]!.timestamp).toLocaleString('zh-CN');
+    lines.push(`- **时间**: ${first} ~ ${last}`);
+  }
+  if (thread.participants.length > 0) {
+    const names = thread.participants.map((id) => {
+      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
+      return c?.displayName ?? id;
+    });
+    lines.push(`- **参与者**: ${names.join(', ')}`);
+  }
+  lines.push(`- **消息数**: ${messages.length}`, '', '---', '');
+
+  // Messages — full content (no truncation)
+  for (const msg of messages) {
+    const line = formatMessage(msg);
+    lines.push(line);
+    // Append metadata tag for cat messages
+    if (msg.metadata) {
+      const parts: string[] = [];
+      if (msg.metadata.provider) parts.push(msg.metadata.provider);
+      if (msg.metadata.model) parts.push(msg.metadata.model);
+      if (parts.length > 0) {
+        lines.push(`*[${parts.join('/')}]*`);
+      }
+    }
+  }
+
+  lines.push('', '---', `*导出时间: ${new Date().toLocaleString('zh-CN')}*`);
+  return lines.join('\n');
+}
+
+export const exportRoutes: FastifyPluginAsync<ExportRoutesOptions> =
+  async (app, opts) => {
+  const { messageStore, threadStore } = opts;
+
+  // GET /api/export/thread/:threadId?format=md
+  app.get('/api/export/thread/:threadId', async (request, reply) => {
+    const { threadId } = request.params as { threadId: string };
+    const format = (request.query as { format?: string }).format ?? 'md';
+
+    if (format !== 'md') {
+      reply.status(400);
+      return { error: 'Unsupported format. Use format=md' };
+    }
+
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    const messages = await messageStore.getByThread(threadId, 10000);
+    const md = formatThreadAsMarkdown(thread, messages);
+
+    reply.header('Content-Type', 'text/markdown; charset=utf-8');
+    reply.header(
+      'Content-Disposition',
+      `attachment; filename="thread-${threadId}.md"`,
+    );
+    return md;
+  });
+};
