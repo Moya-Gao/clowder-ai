@@ -17,7 +17,7 @@ Claude Code Agent Teams 的 Team Lead + 共享任务清单 + 并行执行架构�
 
 缅因猫完成了两份文档：
 - `docs/research/2026-02-06-agent-teams-compare.md`（外部调研 + 内部差距分析）
-- `docs/plans/2026-02-06-dual-track-collaboration-design.md`（双轨协作设计）
+- `docs/discussions/2026-02-06-dual-track-collaboration-design.md`（双轨协作设计）
 
 核心提案：新增 Task Flow + Roundtable Flow 双轨，支持三种模式切换（task / roundtable / hybrid），新增 7 个 MCP 工具 + 5 个 API 端点。
 

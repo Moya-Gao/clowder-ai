@@ -213,7 +213,7 @@
 
 ## 参考资源
 
-- 设计文档：`docs/plans/2026-02-04-cat-cafe-design.md`
+- 设计文档：`docs/phases/cat-cafe-design-v2.md`
 - 架构决策：`docs/decisions/001-agent-invocation-approach.md`
 - 研究报告：`research-report/` 目录
 

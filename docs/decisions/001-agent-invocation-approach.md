@@ -21,7 +21,7 @@ Cat Café 需要程序化调用三只 AI 猫猫（Claude/Codex/Gemini），并�
 - **缅因猫 (Codex)**：`codex` CLI (`exec --json`)
 - **暹罗猫 (Gemini)**：`gemini` CLI / Antigravity IDE（双 adapter）
 
-> 修订原因：SDK 只能使用 API key 付费，无法使用 Max/Plus/Pro 订阅额度。详见 `docs/plans/2026-02-05-phase2.5-sdk-to-cli-migration.md`
+> 修订原因：SDK 只能使用 API key 付费，无法使用 Max/Plus/Pro 订阅额度。详见 `docs/phases/phase-2.5-cli-migration.md`
 
 ## 方案对比
 

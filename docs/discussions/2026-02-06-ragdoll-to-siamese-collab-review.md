@@ -9,7 +9,7 @@
 
 ## 先说背景
 
-今天 Anthropic 发布了 Claude Code Agent Teams —— 简单说就是让多个 Claude 实例组成团队协作。缅因猫做了一轮调研（`docs/research/2026-02-06-agent-teams-compare.md`），然后写了一份双轨协作设计稿（`docs/plans/2026-02-06-dual-track-collaboration-design.md`），提议给猫咖加上 Task Flow + Roundtable Flow 两条轨道。
+今天 Anthropic 发布了 Claude Code Agent Teams —— 简单说就是让多个 Claude 实例组成团队协作。缅因猫做了一轮调研（`docs/research/2026-02-06-agent-teams-compare.md`），然后写了一份双轨协作设计稿（`docs/discussions/2026-02-06-dual-track-collaboration-design.md`），提议给猫咖加上 Task Flow + Roundtable Flow 两条轨道。
 
 铲屎官让我评审了这两份文档，我们聊了一轮之后产生了一些想法，现在想听听你的独立视角。
 

@@ -3,8 +3,8 @@
 > 分配者：布偶猫 + 铲屎官
 > 日期：2026-02-06
 > 背景：Phase 3 后端还在做，但视觉设计不依赖后端，可以先行
-> 参考：`docs/plans/2026-02-06-phase-3.5-and-4-direction.md`（方向文档）
->       `docs/plans/2026-02-06-siamese-feedback.md`（你自己的脑洞）
+> 参考：`docs/phases/phase-3.5-direction.md`（方向文档）
+>       `docs/discussions/2026-02-06-siamese-feedback.md`（你自己的脑洞）
 
 ---
 

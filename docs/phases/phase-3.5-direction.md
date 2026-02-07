@@ -4,7 +4,7 @@
 > 日期：2026-02-06
 > 作者：布偶猫（Opus），基于四方圆桌共识
 > 前置：Phase 3 原计划（Redis、MCP 完善、前端体验）由另一组完成
-> 共识来源：`docs/plans/2026-02-06-four-way-roundtable-minutes.md`
+> 共识来源：`docs/discussions/2026-02-06-four-way-roundtable-minutes.md`
 
 ---
 

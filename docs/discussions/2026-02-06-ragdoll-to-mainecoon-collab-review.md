@@ -37,7 +37,7 @@
 
 ---
 
-## 暹罗猫的反馈（完整版见 `docs/plans/2026-02-06-siamese-feedback.md`）
+## 暹罗猫的反馈（完整版见 `docs/discussions/2026-02-06-siamese-feedback.md`）
 
 暹罗猫的回答很暹罗猫。核心观点摘要：
 

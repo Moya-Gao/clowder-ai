@@ -30,7 +30,7 @@ Cat Café 是一个让三只 AI 猫猫能够真正协作的系统：
 docs/VISION.md
 
 # 完整设计文档
-docs/plans/2026-02-04-cat-cafe-design.md
+docs/phases/cat-cafe-design-v2.md
 
 # 你的任务清单
 docs/tasks/codex-tasks.md

@@ -31,7 +31,7 @@ Cat Café 是一个让三只 AI 猫猫能够真正协作的系统：
 docs/VISION.md
 
 # 完整设计文档（研究成果整合版 v2.0）
-docs/plans/2026-02-04-cat-cafe-design.md
+docs/phases/cat-cafe-design-v2.md
 
 # 你的任务清单
 docs/tasks/opus-tasks.md
@@ -53,7 +53,7 @@ docs/decisions/001-agent-invocation-approach.md
 
 **Session 管理**：内存存储（Phase 3 迁移 Redis）。
 
-> 详见：`docs/plans/2026-02-05-phase2.5-sdk-to-cli-migration.md`
+> 详见：`docs/phases/phase-2.5-cli-migration.md`
 
 ### 3. 当前进度
 
@@ -97,10 +97,17 @@ cat-cafe/
 │   ├── api/               # Backend API
 │   └── web/               # Next.js Frontend
 ├── docs/
+│   ├── README.md             # 文档导航
 │   ├── VISION.md
-│   ├── plans/
-│   ├── tasks/
-│   └── decisions/
+│   ├── BACKLOG.md            # 技术债务清单
+│   ├── phases/               # Phase 实施计划
+│   ├── decisions/            # 架构决策记录
+│   ├── discussions/          # 讨论过程
+│   ├── mailbox/              # 猫猫信箱 (review/交接)
+│   ├── tasks/                # 猫猫任务表
+│   ├── research/             # 技术调研
+│   ├── design/               # 视觉设计系统
+│   └── prompts/              # AI 提示词模板
 ├── research-report/       # 三猫研究报告
 ├── CLAUDE.md              # 你在读的这个
 ├── AGENT.md               # 缅因猫的指引
