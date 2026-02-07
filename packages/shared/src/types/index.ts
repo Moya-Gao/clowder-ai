@@ -86,3 +86,11 @@ export type {
   MemoryEntry,
   MemoryInput,
 } from './memory.js';
+
+// Deliberate types (4-E 两轮制 - 类型预埋)
+export type {
+  DeliberatePhase,
+  DeliberateSession,
+  DeliberateTransition,
+  DeliberateEvent,
+} from './deliberate.js';
