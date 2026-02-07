@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.8 狼人杀 Bug 修复)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.9 配置可见性 + A2A)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -51,6 +51,8 @@
 | 24 | Docker 化部署 | [ ] | 铲屎官建议 (~5.x) | Redis + API + Web 打包，Docker MCP 可让猫管理容器；开发阶段脚本够用 |
 | 25 | Gemini/Codex resume 作为补充 context 源 | [ ] | Phase 3.6 决策 2 | prompt prepend 跑稳后，resume 减少 token 开销；Gemini index 问题需等 CLI 支持 UUID |
 | 26 | 导出格式 locale 依赖 | [ ] | Phase 3.6 交接 OQ | `formatThreadAsMarkdown` 用 `toLocaleString('zh-CN')`，非中文环境格式可能不同 |
+| 27 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [ ] | Phase 3.9 | `parseA2AMentions` (行首匹配) 与 `parseMentions` (indexOf) 两套解析，应统一 |
+| 28 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
 
 ## Feature Requests — 新功能需求
 
@@ -58,9 +60,11 @@
 
 | # | 功能 | 优先级 | 来源 | 描述 |
 |---|------|--------|------|------|
-| F1 | 配置可见性 | P2 | 铲屎官洞察 🐬 | 魔法数字问题：截断长度、超时时间等配置不可见。方案：配置页面 / `/config` 命令 / 启动日志 |
-| F2 | Agent-to-Agent 调用 (A2A) | P1 | 铲屎官洞察 🐬 | 猫猫互相 @：布偶写完 → @缅因 review → 缅因 @布偶 反馈。减少铲屎官当"人肉路由器" |
+| F1 | ~~配置可见性~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `6a671ac` — ConfigRegistry + GET /api/config + `/config` chat command |
+| F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | 协作记忆 (Hindsight) | P1 | 上下文工程讨论 | 三猫共享长期记忆：cafe-shared + cafe-{catId}。详见 `docs/discussions/2026-02-07-context-enginnering/` |
+| F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
+| F5 | ideate 模式 A2A follow-up | P3 | Phase 3.9 | 并行模式后 A2A 跟进：多猫独立回答后自动进入串行讨论轮，需要消息队列 |
 
 ## 讨论议题 — 待探索的方向
 
@@ -130,5 +134,8 @@
 | 上下文 per-message 限制 500→1500 | Phase 3.8 | `a0bfddc` |
 | 多猫状态可观测性 (ParallelStatusBar) | Phase 3.8 | `180bd1a` |
 | 单猫思考指示器 (ThinkingIndicator) | Phase 3.8 | `180bd1a` |
+| 配置可见性 (ConfigRegistry + /config) | Phase 3.9 | `6a671ac` |
+| A2A 猫猫互调 (worklist chain) | Phase 3.9 | `7a519b9` |
+| A2A 前端显示 (a2a_handoff info msg) | Phase 3.9 | `e7cc2ff` |
 
 </details>
