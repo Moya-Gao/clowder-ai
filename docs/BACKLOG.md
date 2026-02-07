@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (狼人杀测试 Bug Report)
+> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 3.7 完成)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -15,31 +15,31 @@
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 1 | MCP 统一挂载 (Codex/Gemini) | [~] | Demo 发现 | Phase 3.7 Step 3.3 — HTTP callback prompt 注入 |
-| 2 | Redis ThreadStore | [~] | Phase 3.2 | Phase 3.7 Step 2.1 |
-| 3 | Redis TaskStore + SummaryStore | [~] | Phase 3.5 | Phase 3.7 Step 2.2 |
-| 4 | MCP 工具接入 (文件操作切 MCP Server) | [~] | Phase 2.5 | Phase 3.7 Step 3.3 — 与 #1 合并 |
-| 5 | 目录浏览安全 (allowlist/blocklist) | [~] | Phase 3.2 review | Phase 3.7 Step 1.1 — PROJECT_ALLOWED_ROOTS env |
+| 1 | MCP 统一挂载 (Codex/Gemini) | [x] | Demo 发现 | Phase 3.7 `8114d1d` — McpPromptInjector HTTP callback 注入 |
+| 2 | Redis ThreadStore | [x] | Phase 3.2 | Phase 3.7 `a8236bc` — RedisThreadStore + factory |
+| 3 | Redis TaskStore + SummaryStore | [x] | Phase 3.5 | Phase 3.7 `1bd0eb3` — RedisTaskStore + RedisSummaryStore + factories |
+| 4 | MCP 工具接入 (文件操作切 MCP Server) | [x] | Phase 2.5 | Phase 3.7 `8114d1d` — 与 #1 合并, prompt 注入方式 |
+| 5 | 目录浏览安全 (allowlist/blocklist) | [x] | Phase 3.2 review | Phase 3.7 `59d2d80` — PROJECT_ALLOWED_ROOTS env var |
 | 6 | 多猫调用状态可观测性 | [ ] | 狼人杀测试 | 每只猫独立状态追踪 (pending/streaming/done/error)；超时警告；错误明确传达。详见 `docs/bug-report/werewofl-like-test/2026-02-07-werewolf-demo-bugs.md` Bug 3+4 |
 
 ## P2 — 建议做
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 7 | 上下文预算管理 (token 截断) | [~] | 身份注入讨论 | Phase 3.7 Step 3.2 — maxTotalChars；当前 500 字符/消息导致截断。详见狼人杀 Bug 2 |
+| 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [ ] | 狼人杀测试 | 非并行模式无 loading 反馈；建议添加"猫猫思考中"占位消息。详见狼人杀 Bug 1 |
 | 9 | 前端图片压缩 | [ ] | Phase 3.2 review | 当前 10MB/张直传 |
 | 10 | 对话级联删除 | [ ] | Phase 3.2 review | DELETE thread 不删消息，依赖 TTL |
-| 11 | cancel_invocation 真正鉴权 | [~] | Phase 3.3b review | Phase 3.7 Step 1.2 — userId 追踪 |
+| 11 | cancel_invocation 真正鉴权 | [x] | Phase 3.3b review | Phase 3.7 `0c3d318` — userId 追踪 + 校验 |
 | 12 | 取消后显示"已取消"标记 | [ ] | Phase 3.3b review | 现在只停止 loading，没有视觉提示 |
 | 13 | cats.ts TODO: 从 Redis 获取猫状态 | [ ] | 代码 TODO | `packages/api/src/routes/cats.ts:33` |
 | 14 | sendMessageSchema 语义归属 | [ ] | Phase 3.5 Step 0 review | 当前在 `parse-multipart.ts`，建议迁到 `messages.schema.ts` |
-| 15 | AgentRouter.ts 超 200 行 (379行) | [~] | Phase 3.5 Step 3 | Phase 3.7 Step 3.1 — 提取到 route-strategies.ts |
+| 15 | AgentRouter.ts 超 200 行 (379行) | [x] | Phase 3.5 Step 3 | Phase 3.7 `122ff12` — 379→209行, 提取 route-strategies.ts |
 | 16 | ChatContainer.tsx 超 200 行 (297行) | [ ] | Phase 3.5 final review | 提取 fetchHistory/fetchTasks/handleSend 到自定义 hook |
 | 17 | Invocation 新入口必须传 threadId | [ ] | Phase 3.5 缅因猫 review | 跨线程鉴权依赖正确 threadId；新增入口需保持约束 |
 | 18 | isFinal 丢失防护 | [ ] | Phase 3.5 缅因猫 final review | 前端完全信任后端 isFinal 结束 loading；若后端漏发则 loading 卡死。可加超时兜底或心跳检测 |
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
-| 20 | start-dev.sh Redis 失败分支无自动化测试 | [~] | Phase 3.6 缅因猫 review | Phase 3.7 Step 1.3 — 最小 shell 测试 |
+| 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 
 ## P3 — 可选优化
 
@@ -95,5 +95,14 @@
 | ContextAssembler Error: 误过滤修复 | Phase 3.6 R1 | `7810f3b` |
 | start-dev.sh set -e 安全修复 | Phase 3.6 R1 | `7810f3b` |
 | projectPath 目录存在性校验 | Phase 3.2 review → 3.5 | `validateProjectPath()` |
+| MCP 统一挂载 (Codex/Gemini) | Phase 3.7 | `8114d1d` |
+| Redis ThreadStore | Phase 3.7 | `a8236bc` |
+| Redis TaskStore + SummaryStore | Phase 3.7 | `1bd0eb3` |
+| MCP 工具接入 (prompt 注入) | Phase 3.7 | `8114d1d` |
+| 目录浏览安全 (PROJECT_ALLOWED_ROOTS) | Phase 3.7 | `59d2d80` |
+| 上下文预算管理 (maxTotalChars) | Phase 3.7 | `999a775` |
+| cancel_invocation userId 鉴权 | Phase 3.7 | `0c3d318` |
+| AgentRouter 拆分 (379→209行) | Phase 3.7 | `122ff12` |
+| start-dev.sh Redis 回退测试 | Phase 3.7 | `b8d4313` |
 
 </details>
