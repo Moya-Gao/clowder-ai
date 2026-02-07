@@ -250,8 +250,69 @@ export function useChatCommands() {
         return true;
       }
 
-      // Future commands: /tasks extract
-      // will be added in Step 7
+      // /tasks extract [N] — extract tasks from conversation
+      if (trimmed.startsWith('/tasks extract')) {
+        const rest = trimmed.slice('/tasks extract'.length).trim();
+        const messageCount = rest ? parseInt(rest, 10) : undefined;
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        addMessage({
+          id: `sysinfo-extract-${Date.now()}`,
+          type: 'system',
+          variant: 'info',
+          content: '🔍 正在从对话中提取任务...',
+          timestamp: Date.now(),
+        });
+
+        try {
+          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const res = await fetch(`${API_URL}/api/commands/extract-tasks`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              threadId,
+              userId: 'default-user',
+              ...(messageCount && !isNaN(messageCount) ? { messageCount } : {}),
+            }),
+          });
+
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          const data = await res.json() as { count: number; degraded: boolean; reason?: string };
+
+          if (data.count === 0) {
+            addMessage({
+              id: `extract-result-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: '📝 未找到可提取的任务',
+              timestamp: Date.now(),
+            });
+          } else {
+            const degradeNote = data.degraded ? ` (模式匹配: ${data.reason ?? '未知'})` : '';
+            addMessage({
+              id: `extract-result-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `✅ 已提取 ${data.count} 个任务${degradeNote}`,
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `任务提取失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
 
       return false;
     },

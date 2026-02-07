@@ -9,3 +9,4 @@ export { summariesRoutes } from './summaries.js';
 export { exportRoutes } from './export.js';
 export { configRoutes } from './config.js';
 export { memoryRoutes } from './memory.js';
+export { commandsRoutes } from './commands.js';

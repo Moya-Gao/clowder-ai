@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -15,6 +15,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
+import { ClaudeAgentService } from './domains/cats/services/index.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -80,6 +81,10 @@ async function main(): Promise<void> {
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
   await app.register(memoryRoutes, { memoryStore });
+
+  // Commands route needs opus service for task extraction
+  const opusService = new ClaudeAgentService();
+  await app.register(commandsRoutes, { messageStore, taskStore, socketManager, opusService });
 
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';

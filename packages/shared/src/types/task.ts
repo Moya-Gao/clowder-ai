@@ -17,10 +17,16 @@ export interface TaskItem {
   readonly createdBy: CatId | 'user';
   readonly createdAt: number;
   readonly updatedAt: number;
+  /** Source message ID for traceability (4-A feature) */
+  readonly sourceMessageId?: string;
+  /** Source summary ID for traceability (4-A feature) */
+  readonly sourceSummaryId?: string;
 }
 
 export type CreateTaskInput = Pick<TaskItem, 'threadId' | 'title' | 'why' | 'createdBy'> & {
   ownerCatId?: CatId | null;
+  sourceMessageId?: string;
+  sourceSummaryId?: string;
 };
 
 /** Mutable partial for updates — strips readonly from TaskItem fields */
