@@ -1,9 +1,7 @@
 /**
- * MCP Callback Tools
- * 三猫共享的回传工具 — 让 CLI 子进程中的猫猫能与 Cat Café 后端通信
- *
- * 鉴权方式: 从 process.env 读取 CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN
- * 通信方式: HTTP 调用 API server 的 /api/callbacks/* 端点
+ * MCP Callback Tools — 三猫共享的回传工具
+ * 鉴权: process.env CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN
+ * 通信: HTTP → /api/callbacks/*
  */
 
 import { z } from 'zod';
@@ -96,7 +94,6 @@ async function callbackGet(
 }
 
 // ============ Tool Input Schemas ============
-
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
   replyTo: z
@@ -116,6 +113,19 @@ export const getThreadContextInputSchema = {
     .optional()
     .default(20)
     .describe('Number of recent messages to retrieve (default: 20)'),
+};
+
+export const updateTaskInputSchema = {
+  taskId: z.string().min(1).describe('The ID of the task to update'),
+  status: z
+    .enum(['todo', 'doing', 'blocked', 'done'])
+    .optional()
+    .describe('New task status'),
+  why: z
+    .string()
+    .max(1000)
+    .optional()
+    .describe('Optional note explaining the status change'),
 };
 
 // ============ Tool Handlers ============
@@ -144,6 +154,18 @@ export async function handleGetThreadContext(input: {
   });
 }
 
+export async function handleUpdateTask(input: {
+  taskId: string;
+  status?: string | undefined;
+  why?: string | undefined;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/update-task', {
+    taskId: input.taskId,
+    ...(input.status ? { status: input.status } : {}),
+    ...(input.why ? { why: input.why } : {}),
+  });
+}
+
 // ============ Tool Definitions ============
 
 export const callbackTools = [
@@ -167,5 +189,12 @@ export const callbackTools = [
       'Get recent conversation messages for context. Use this to understand what has been discussed recently.',
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
+  },
+  {
+    name: 'cat_cafe_update_task',
+    description:
+      'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
+    inputSchema: updateTaskInputSchema,
+    handler: handleUpdateTask,
   },
 ] as const;

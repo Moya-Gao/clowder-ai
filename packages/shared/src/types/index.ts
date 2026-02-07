@@ -65,3 +65,11 @@ export {
   createUserMessage,
   createCatMessage,
 } from './message.js';
+
+// Task types (毛线球)
+export type {
+  TaskStatus,
+  TaskItem,
+  CreateTaskInput,
+  UpdateTaskInput,
+} from './task.js';

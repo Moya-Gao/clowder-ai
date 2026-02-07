@@ -38,7 +38,8 @@ const MCP_TOOLS_SECTION = `
 你可以使用以下 Cat Cafe MCP 工具：
 - cat_cafe_post_message: 主动发送消息到对话
 - cat_cafe_get_pending_mentions: 获取待处理的 @提及
-- cat_cafe_get_thread_context: 获取当前对话上下文`;
+- cat_cafe_get_thread_context: 获取当前对话上下文
+- cat_cafe_update_task: 更新自己负责的任务状态`;
 
 /**
  * Build identity system prompt for a cat invocation.

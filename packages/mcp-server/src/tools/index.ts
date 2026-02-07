@@ -20,8 +20,10 @@ export {
   postMessageInputSchema,
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
+  updateTaskInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
+  handleUpdateTask,
   callbackTools,
 } from './callback-tools.js';

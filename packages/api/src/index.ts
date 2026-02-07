@@ -5,12 +5,13 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import { ThreadStore } from './domains/cats/services/ThreadStore.js';
+import { TaskStore } from './domains/cats/services/TaskStore.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
@@ -55,6 +56,7 @@ async function main(): Promise<void> {
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const threadStore = new ThreadStore();
+  const taskStore = new TaskStore();
 
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
@@ -66,8 +68,9 @@ async function main(): Promise<void> {
     invocationTracker,
   });
   await app.register(catsRoutes);
-  await app.register(callbacksRoutes, { registry, messageStore, socketManager });
+  await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });
   await app.register(threadsRoutes, { threadStore });
+  await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(projectsRoutes);
 
   // Serve uploaded files (images)

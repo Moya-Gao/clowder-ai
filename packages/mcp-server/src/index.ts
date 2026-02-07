@@ -17,9 +17,11 @@ import {
   postMessageInputSchema,
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
+  updateTaskInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
+  handleUpdateTask,
 } from './tools/index.js';
 
 /**
@@ -91,6 +93,16 @@ function createServer(): McpServer {
     getThreadContextInputSchema,
     async (args: { limit?: number }) => {
       const result = await handleGetThreadContext(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_update_task',
+    'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
+    updateTaskInputSchema,
+    async (args: { taskId: string; status?: string | undefined; why?: string | undefined }) => {
+      const result = await handleUpdateTask(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

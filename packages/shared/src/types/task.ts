@@ -1,0 +1,32 @@
+/**
+ * Task Types (毛线球)
+ * 猫猫任务系统 — 让每只猫追踪自己负责的事项
+ */
+
+import type { CatId } from './ids.js';
+
+export type TaskStatus = 'todo' | 'doing' | 'blocked' | 'done';
+
+export interface TaskItem {
+  readonly id: string;
+  readonly threadId: string;
+  readonly title: string;
+  readonly ownerCatId: CatId | null;
+  readonly status: TaskStatus;
+  readonly why: string;
+  readonly createdBy: CatId | 'user';
+  readonly createdAt: number;
+  readonly updatedAt: number;
+}
+
+export type CreateTaskInput = Pick<TaskItem, 'threadId' | 'title' | 'why' | 'createdBy'> & {
+  ownerCatId?: CatId | null;
+};
+
+/** Mutable partial for updates — strips readonly from TaskItem fields */
+export type UpdateTaskInput = {
+  title?: string;
+  ownerCatId?: CatId | null;
+  status?: TaskStatus;
+  why?: string;
+};

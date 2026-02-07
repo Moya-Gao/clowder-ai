@@ -12,6 +12,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 /**
@@ -21,6 +22,7 @@ export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  taskStore?: ITaskStore;
 }
 
 const postMessageSchema = z.object({
@@ -39,9 +41,17 @@ const threadContextQuerySchema = authQuerySchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
+const updateTaskSchema = z.object({
+  invocationId: z.string().min(1),
+  callbackToken: z.string().min(1),
+  taskId: z.string().min(1),
+  status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
+  why: z.string().max(1000).optional(),
+});
+
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
-    const { registry, messageStore, socketManager } = opts;
+    const { registry, messageStore, socketManager, taskStore } = opts;
 
     // POST /api/callbacks/post-message
     app.post('/api/callbacks/post-message', async (request, reply) => {
@@ -133,5 +143,56 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           timestamp: m.timestamp,
         })),
       };
+    });
+
+    // POST /api/callbacks/update-task
+    app.post('/api/callbacks/update-task', async (request, reply) => {
+      if (!taskStore) {
+        reply.status(501);
+        return { error: 'Task store not configured' };
+      }
+
+      const parseResult = updateTaskSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parseResult.error.issues };
+      }
+
+      const { invocationId, callbackToken, taskId, status, why } = parseResult.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      // Verify the task exists and the cat owns it
+      const existing = await taskStore.get(taskId);
+      if (!existing) {
+        reply.status(404);
+        return { error: 'Task not found' };
+      }
+
+      if (existing.ownerCatId && existing.ownerCatId !== record.catId) {
+        reply.status(403);
+        return { error: 'Task is owned by another cat' };
+      }
+
+      const updateData: Record<string, unknown> = {};
+      if (status) updateData['status'] = status;
+      if (why) updateData['why'] = why;
+
+      const updated = await taskStore.update(taskId, updateData);
+      if (!updated) {
+        reply.status(500);
+        return { error: 'Failed to update task' };
+      }
+
+      socketManager.broadcastToRoom(
+        `thread:${updated.threadId}`,
+        'task_updated',
+        updated,
+      );
+
+      return { status: 'ok', task: updated };
     });
   };
