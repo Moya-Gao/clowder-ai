@@ -54,6 +54,10 @@ interface ChatState {
   hasMore: boolean;
   intentMode: 'execute' | 'ideate' | null;
 
+  // Per-cat status for loading indicators
+  targetCats: string[];
+  catStatuses: Record<string, 'pending' | 'streaming' | 'done' | 'error'>;
+
   // Thread state
   currentThreadId: string;
   currentProjectPath: string;
@@ -69,6 +73,9 @@ interface ChatState {
   setLoading: (loading: boolean) => void;
   setLoadingHistory: (loading: boolean) => void;
   setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
+  setTargetCats: (cats: string[]) => void;
+  setCatStatus: (catId: string, status: 'pending' | 'streaming' | 'done' | 'error') => void;
+  clearCatStatuses: () => void;
   clearMessages: () => void;
 
   // Thread actions
@@ -85,6 +92,9 @@ export const useChatStore = create<ChatState>((set) => ({
   isLoadingHistory: false,
   hasMore: true,
   intentMode: null,
+
+  targetCats: [],
+  catStatuses: {},
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
@@ -141,6 +151,9 @@ export const useChatStore = create<ChatState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
+  setTargetCats: (cats) => set({ targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) }),
+  setCatStatus: (catId, status) => set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
+  clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
   clearMessages: () =>
     set((state) => {
       // Revoke blob URLs to prevent memory leak (P3 fix)

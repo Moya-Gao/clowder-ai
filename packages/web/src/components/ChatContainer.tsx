@@ -8,7 +8,8 @@ import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { ThreadSidebar } from './ThreadSidebar';
-import { IdeateHeader } from './IdeateHeader';
+import { ParallelStatusBar } from './ParallelStatusBar';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
@@ -27,6 +28,8 @@ export function ChatContainer() {
     setLoading,
     setLoadingHistory,
     setIntentMode,
+    setTargetCats,
+    clearCatStatuses,
     clearMessages,
     updateThreadTitle,
   } = useChatStore();
@@ -144,7 +147,11 @@ export function ChatContainer() {
   const socketCallbacks = useMemo<SocketCallbacks>(() => ({
     onMessage: handleAgentMessage,
     onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
-    onIntentMode: (data) => setIntentMode(data.mode as 'ideate' | 'execute'),
+    onIntentMode: (data) => {
+      setIntentMode(data.mode as 'ideate' | 'execute');
+      const cats = (data as { targetCats?: string[] }).targetCats;
+      if (cats && cats.length > 0) setTargetCats(cats);
+    },
     onTaskCreated: (task) => addTask(task as unknown as TaskItem),
     onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
     onThreadSummary: (summary) => {
@@ -157,7 +164,7 @@ export function ChatContainer() {
         summary: { id: s.id, topic: s.topic, conclusions: s.conclusions, openQuestions: s.openQuestions, createdBy: s.createdBy },
       });
     },
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, addTask, updateTask, addMessage]);
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage]);
 
   const { switchRoom, cancelInvocation } = useSocket(socketCallbacks, currentThreadId);
 
@@ -171,11 +178,12 @@ export function ChatContainer() {
       clearMessages();
       clearTasks();
       setIntentMode(null);
+      clearCatStatuses();
       switchRoom(threadId);
       void fetchHistory(undefined, threadId);
       void fetchTasks(threadId);
     },
-    [resetRefs, clearMessages, clearTasks, setIntentMode, switchRoom, fetchHistory, fetchTasks]
+    [resetRefs, clearMessages, clearTasks, setIntentMode, clearCatStatuses, switchRoom, fetchHistory, fetchTasks]
   );
 
   const handleSend = useCallback(
@@ -261,7 +269,8 @@ export function ChatContainer() {
           </div>
         </header>
 
-        {intentMode === 'ideate' && <IdeateHeader />}
+        {intentMode === 'ideate' && <ParallelStatusBar />}
+        {intentMode === 'execute' && <ThinkingIndicator />}
 
         <main
           ref={scrollContainerRef}

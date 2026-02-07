@@ -28,6 +28,8 @@ export function useAgentMessages() {
     setStreaming,
     setLoading,
     setIntentMode,
+    setCatStatus,
+    clearCatStatuses,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
@@ -37,6 +39,7 @@ export function useAgentMessages() {
     (msg: AgentMsg) => {
       if (msg.type === 'text' && msg.content) {
         const existing = activeRefs.current.get(msg.catId);
+        setCatStatus(msg.catId, 'streaming');
 
         if (existing) {
           // Append to this cat's active message
@@ -56,6 +59,7 @@ export function useAgentMessages() {
           });
         }
       } else if (msg.type === 'done') {
+        setCatStatus(msg.catId, 'done');
         const ref = activeRefs.current.get(msg.catId);
         if (ref) {
           setStreaming(ref.id, false);
@@ -64,8 +68,10 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           setLoading(false);
           setIntentMode(null);
+          clearCatStatuses();
         }
       } else if (msg.type === 'error') {
+        setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
         if (ref) {
           setStreaming(ref.id, false);
@@ -85,7 +91,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, setStreaming, setLoading, setIntentMode]
+    [addMessage, appendToMessage, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses]
   );
 
   const handleStop = useCallback(
@@ -93,13 +99,14 @@ export function useAgentMessages() {
       cancelFn(threadId);
       setLoading(false);
       setIntentMode(null);
+      clearCatStatuses();
       // Stop all active streams
       for (const ref of activeRefs.current.values()) {
         setStreaming(ref.id, false);
       }
       activeRefs.current.clear();
     },
-    [setLoading, setStreaming, setIntentMode]
+    [setLoading, setStreaming, setIntentMode, clearCatStatuses]
   );
 
   const resetRefs = useCallback(() => {

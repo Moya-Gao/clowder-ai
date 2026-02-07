@@ -1,0 +1,36 @@
+'use client';
+
+import { useChatStore } from '@/stores/chatStore';
+
+/**
+ * Single-cat thinking indicator.
+ * Shows a simple banner when only one cat is being invoked (execute mode).
+ */
+
+const CAT_NAMES: Record<string, string> = {
+  opus: '布偶猫',
+  codex: '缅因猫',
+  gemini: '暹罗猫',
+};
+
+export function ThinkingIndicator() {
+  const { targetCats, catStatuses } = useChatStore();
+
+  if (targetCats.length !== 1) return null;
+  const catId = targetCats[0];
+  const status = catStatuses[catId] ?? 'pending';
+  if (status === 'done') return null;
+
+  const name = CAT_NAMES[catId] ?? catId;
+
+  return (
+    <div className="px-5 py-2 border-b border-gray-200 bg-gray-50">
+      <div className="flex items-center gap-2">
+        <span className="text-sm animate-pulse">🐾</span>
+        <span className="text-sm text-gray-500">
+          {name}{status === 'streaming' ? '回复中...' : '思考中...'}
+        </span>
+      </div>
+    </div>
+  );
+}
