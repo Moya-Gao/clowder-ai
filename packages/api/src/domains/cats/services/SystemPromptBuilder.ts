@@ -26,6 +26,8 @@ export interface InvocationContext {
   mcpAvailable: boolean;
   /** Prompt-level tags like 'critique' (from IntentParser) */
   promptTags?: readonly string[];
+  /** Whether A2A collaboration prompt should be injected (only in serial/execute mode) */
+  a2aEnabled?: boolean;
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -71,6 +73,22 @@ export function buildSystemPrompt(context: InvocationContext): string {
     }
   }
   lines.push('铲屎官是真人用户，是你们的老板。', '');
+
+  // A2A collaboration (only in serial/execute mode, not parallel/ideate)
+  if (context.a2aEnabled && context.mode !== 'parallel') {
+    const teammateNames = context.teammates
+      .map((id) => CAT_CONFIGS[id as keyof typeof CAT_CONFIGS]?.displayName)
+      .filter(Boolean);
+    if (teammateNames.length > 0) {
+      lines.push('## 协作');
+      lines.push(
+        `你可以在新行开头写 @队友 邀请他们加入对话: ${teammateNames.map((n) => `@${n}`).join(' / ')}`,
+      );
+      lines.push('用于任何你觉得需要队友的场景 (review, debug, 观点征询, 交接)。');
+      lines.push('每次 @ 只触发一轮，铲屎官的消息优先级最高。');
+      lines.push('');
+    }
+  }
 
   // Mode context
   if (context.mode === 'serial' && context.chainIndex != null && context.chainTotal != null) {

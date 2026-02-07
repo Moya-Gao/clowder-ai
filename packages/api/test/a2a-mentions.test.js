@@ -1,0 +1,87 @@
+/**
+ * A2A Mention Detection + Prompt Injection Tests
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+
+describe('parseA2AMentions', () => {
+  it('detects line-start @mention (Chinese name)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const result = parseA2AMentions('@缅因猫 请 review 这段代码', 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+
+  it('detects line-start @mention with leading whitespace', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const result = parseA2AMentions('  @布偶猫 你觉得呢？', 'codex');
+    assert.deepEqual(result, ['opus']);
+  });
+
+  it('does NOT trigger for non-line-start @mention', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const result = parseA2AMentions('之前布偶猫说的 @布偶猫 方案不错', 'codex');
+    assert.deepEqual(result, []);
+  });
+
+  it('ignores @mention inside fenced code blocks', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const text = '看看这段代码：\n```\n@缅因猫 请review\n```\n没问题';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, []);
+  });
+
+  it('filters self-mention', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const result = parseA2AMentions('@布偶猫 我自己说的', 'opus');
+    assert.deepEqual(result, []);
+  });
+
+  it('returns only first match (single target)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    // Both on separate lines, but only first should be returned
+    const text = '@缅因猫 先review\n@暹罗猫 再看看设计';
+    const result = parseA2AMentions(text, 'opus');
+    assert.equal(result.length, 1);
+    // First match from CAT_CONFIGS iteration order
+    assert.ok(result[0] === 'codex' || result[0] === 'gemini');
+  });
+
+  it('returns empty array for empty text', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    assert.deepEqual(parseA2AMentions('', 'opus'), []);
+  });
+
+  it('matches English mention patterns', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const result = parseA2AMentions('@codex please review', 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+});
+
+describe('SystemPromptBuilder A2A injection', () => {
+  it('includes A2A section when a2aEnabled and serial mode', async () => {
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    const prompt = buildSystemPrompt({
+      catId: 'opus',
+      mode: 'serial',
+      teammates: ['codex', 'gemini'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(prompt.includes('协作'), 'should include 协作 section');
+    assert.ok(prompt.includes('@队友'), 'should include @队友 instruction');
+  });
+
+  it('does NOT include A2A section in parallel mode', async () => {
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    const prompt = buildSystemPrompt({
+      catId: 'opus',
+      mode: 'parallel',
+      teammates: ['codex', 'gemini'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(!prompt.includes('## 协作'), 'should NOT include 协作 section in parallel');
+  });
+});
