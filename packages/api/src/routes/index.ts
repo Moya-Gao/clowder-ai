@@ -7,3 +7,4 @@ export { projectsRoutes } from './projects.js';
 export { tasksRoutes } from './tasks.js';
 export { summariesRoutes } from './summaries.js';
 export { exportRoutes } from './export.js';
+export { configRoutes } from './config.js';
