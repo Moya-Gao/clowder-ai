@@ -66,6 +66,7 @@ interface ChatState {
   setCurrentThread: (threadId: string) => void;
   setCurrentProject: (projectPath: string) => void;
   setLoadingThreads: (loading: boolean) => void;
+  updateThreadTitle: (threadId: string, title: string) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -127,4 +128,10 @@ export const useChatStore = create<ChatState>((set) => ({
   setCurrentThread: (threadId) => set({ currentThreadId: threadId }),
   setCurrentProject: (projectPath) => set({ currentProjectPath: projectPath }),
   setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
+  updateThreadTitle: (threadId, title) =>
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, title } : t
+      ),
+    })),
 }));

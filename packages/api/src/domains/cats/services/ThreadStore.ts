@@ -35,6 +35,7 @@ export interface IThreadStore {
   listByProject(userId: string, projectPath: string): Thread[] | Promise<Thread[]>;
   addParticipants(threadId: string, catIds: CatId[]): void | Promise<void>;
   getParticipants(threadId: string): CatId[] | Promise<CatId[]>;
+  updateTitle(threadId: string, title: string): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -117,6 +118,11 @@ export class ThreadStore implements IThreadStore {
   getParticipants(threadId: string): CatId[] {
     const thread = this.get(threadId);
     return thread?.participants ?? [];
+  }
+
+  updateTitle(threadId: string, title: string): void {
+    const thread = this.get(threadId);
+    if (thread) thread.title = title;
   }
 
   updateLastActive(threadId: string): void {

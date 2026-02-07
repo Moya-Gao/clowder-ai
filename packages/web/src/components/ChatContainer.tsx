@@ -25,6 +25,7 @@ export function ChatContainer() {
     setLoading,
     setLoadingHistory,
     clearMessages,
+    updateThreadTitle,
   } = useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -169,7 +170,14 @@ export function ChatContainer() {
     [addMessage, appendToLastMessage, setStreaming, setLoading]
   );
 
-  const { switchRoom } = useSocket(handleAgentMessage, currentThreadId);
+  const handleThreadUpdated = useCallback(
+    (data: { threadId: string; title: string }) => {
+      updateThreadTitle(data.threadId, data.title);
+    },
+    [updateThreadTitle]
+  );
+
+  const { switchRoom } = useSocket(handleAgentMessage, currentThreadId, handleThreadUpdated);
 
   // Thread switching handler
   const handleThreadSwitch = useCallback(

@@ -101,6 +101,22 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // Default to 'default' thread for lobby (prevents global broadcast)
     const resolvedThreadId = threadId ?? 'default';
 
+    // Auto-title untitled threads on first message
+    if (resolvedThreadId !== 'default' && opts.threadStore) {
+      const thread = await opts.threadStore.get(resolvedThreadId);
+      if (thread && thread.title === null) {
+        const autoTitle = content.length > 30
+          ? content.slice(0, 30) + '...'
+          : content;
+        await opts.threadStore.updateTitle(resolvedThreadId, autoTitle);
+        opts.socketManager.broadcastToRoom(
+          `thread:${resolvedThreadId}`,
+          'thread_updated',
+          { threadId: resolvedThreadId, title: autoTitle },
+        );
+      }
+    }
+
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket

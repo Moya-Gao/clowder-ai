@@ -20,6 +20,7 @@ interface AgentMessage {
 export function useSocket(
   onMessage: (msg: AgentMessage) => void,
   threadId?: string,
+  onThreadUpdated?: (data: { threadId: string; title: string }) => void,
 ) {
   const socketRef = useRef<Socket | null>(null);
   const currentRoomRef = useRef<string | null>(null);
@@ -44,6 +45,10 @@ export function useSocket(
 
     socket.on('agent_message', (msg: AgentMessage) => {
       onMessage(msg);
+    });
+
+    socket.on('thread_updated', (data: { threadId: string; title: string }) => {
+      onThreadUpdated?.(data);
     });
 
     socket.on('disconnect', () => {
