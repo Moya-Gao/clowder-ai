@@ -11,6 +11,15 @@ import type { StoredMessage } from '../domains/cats/services/MessageStore.js';
 import { formatMessage } from '../domains/cats/services/ContextAssembler.js';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 
+/**
+ * Format date consistently across environments (no locale dependency).
+ * Output: YYYY-MM-DD HH:mm
+ */
+function formatDatetime(date: Date): string {
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 export interface ExportRoutesOptions {
   messageStore: IMessageStore;
   threadStore: IThreadStore;
@@ -33,8 +42,8 @@ export function formatThreadAsMarkdown(
   // Meta
   lines.push(`- **ID**: ${thread.id}`);
   if (messages.length > 0) {
-    const first = new Date(messages[0]!.timestamp).toLocaleString('zh-CN');
-    const last = new Date(messages[messages.length - 1]!.timestamp).toLocaleString('zh-CN');
+    const first = formatDatetime(new Date(messages[0]!.timestamp));
+    const last = formatDatetime(new Date(messages[messages.length - 1]!.timestamp));
     lines.push(`- **时间**: ${first} ~ ${last}`);
   }
   if (thread.participants.length > 0) {
@@ -61,7 +70,7 @@ export function formatThreadAsMarkdown(
     }
   }
 
-  lines.push('', '---', `*导出时间: ${new Date().toLocaleString('zh-CN')}*`);
+  lines.push('', '---', `*导出时间: ${formatDatetime(new Date())}*`);
   return lines.join('\n');
 }
 

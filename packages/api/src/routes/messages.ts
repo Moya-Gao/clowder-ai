@@ -2,6 +2,11 @@
  * Messages API Routes
  * POST /api/messages - 发送消息 (JSON or multipart with images)
  * GET /api/messages - 获取历史消息
+ *
+ * IMPORTANT: threadId 约束
+ * POST 请求必须包含 threadId (在 sendMessageSchema 中定义)。
+ * 跨线程鉴权、InvocationTracker、消息存储都依赖正确的 threadId。
+ * 前端应先确保 thread 存在（POST /api/threads）再发消息。
  */
 
 import type { FastifyPluginAsync } from 'fastify';

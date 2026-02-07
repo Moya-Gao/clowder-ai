@@ -10,6 +10,11 @@
  * - ideate intent + 多猫 → 并行独立思考 (routeParallel)
  * - execute intent 或单猫 → 串行执行 (routeSerial)
  * - Session 管理委托给 SessionManager
+ *
+ * IMPORTANT: threadId 约束
+ * 所有调用入口（execute, executeWithContext）必须传入正确的 threadId。
+ * 跨线程鉴权、消息存储、InvocationTracker 都依赖此参数。
+ * 虽然参数可选（兼容测试），但生产代码必须显式传入。
  */
 
 import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
@@ -68,6 +73,11 @@ export class AgentRouter {
   }
 
   /** Parse message for @ mentions and return ordered list of cat IDs */
+  /**
+   * Parse @mentions from user message for routing.
+   * Uses indexOf (anywhere in text) — different from parseA2AMentions which uses line-start matching.
+   * Reason: User intent is clear when they type @猫名 anywhere; cat responses need stricter rules.
+   */
   private parseMentions(message: string): CatId[] {
     const lowerMessage = message.toLowerCase();
     const mentions: ParsedMention[] = [];

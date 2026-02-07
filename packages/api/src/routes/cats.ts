@@ -30,7 +30,9 @@ export const catsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Cat not found' };
     }
 
-    // TODO: Get actual status from Redis
+    // Cat status is currently tracked via WebSocket events (ThinkingIndicator/ParallelStatusBar).
+    // This endpoint returns placeholder data; Redis-backed polling status is a future enhancement.
+    // See: InvocationTracker for per-thread tracking, not per-cat.
     return {
       id: cat.id,
       displayName: cat.displayName,
