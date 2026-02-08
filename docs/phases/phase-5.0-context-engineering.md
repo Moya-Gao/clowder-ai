@@ -76,6 +76,60 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 - MCP Server 基础：`packages/mcp-server/src/tools/file-tools.ts`（文件读取/写入等）。  
 - Hindsight 外部服务（据 `docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`）：铲屎官本地已通过 Docker 部署，可直接调用 Retain/Recall/Reflect API（无需我们在 Cat Café 代码里“自己实现一个记忆系统”）。
 
+### 5.1 Hindsight API 探测结果（2026-02-08）
+
+> 目的：把 “Retain/Recall/Reflect 到底怎么调用、bank 路径是什么” 固化成可执行事实，避免继续靠口口相传。
+
+**服务地址（铲屎官本机）**
+- API Base URL：`http://localhost:8888`
+- Health check：`GET /health` → `{"status":"healthy","database":"connected"}`
+- OpenAPI：`GET /openapi.json`（FastAPI/uvicorn）
+
+**核心路径（与 Phase 5 强相关）**
+- `GET /v1/default/banks`：列出全部 bank（实测：当前已有 5 个 bank；Cat Café 还没建专用 bank）
+  - `routing-shared`（name: `Pangu Router 共享记忆库`）
+  - `dare-framework`
+  - `nf-lite-worktrees`
+  - `IDEA-Enhanced-Context-MCP`
+  - `mission-control-hub`
+- `PUT /v1/default/banks/{bank_id}`：创建/更新 bank（Body: `CreateBankRequest`，可填 `name/background/disposition`；也可只建空 bank）
+- `POST /v1/default/banks/{bank_id}/memories`：Retain（写入）
+  - Body: `{ items: MemoryItem[], async?: boolean=false, document_tags?: string[] }`
+  - `MemoryItem` 最小字段只有 `content`；可选字段：`document_id`、`timestamp`、`tags`、`metadata`…
+  - 重要约束：`metadata` 的 value 类型是 `string`（`Record<string,string>`），不支持嵌套对象
+  - Response: `{ success, bank_id, items_count, async, operation_id?, usage? }`
+- `POST /v1/default/banks/{bank_id}/memories/recall`：Recall（检索）
+  - Body 关键字段：`{ query, budget?: low|mid|high, tags?: string[], tags_match?: any|all|any_strict|all_strict, include?: { entities?, chunks? }, trace?: boolean }`
+  - `tags_match` 语义（来自 OpenAPI）：`any/all` 会 *包含 untagged*，`*_strict` 会 *排除 untagged*
+  - Response: `{ results: RecallResult[], entities?, chunks?, trace? }`
+- `POST /v1/default/banks/{bank_id}/reflect`：Reflect（反思/生成回答）
+  - Body 关键字段：`{ query, budget?: low|mid|high, context?, include?: { facts? }, response_schema?, tags?, tags_match? }`
+  - Response: `{ text, based_on?, structured_output?, usage? }`
+
+**示例 curl（仅用于确认路径与字段）**
+```bash
+# health / banks
+curl -sS http://localhost:8888/health
+curl -sS http://localhost:8888/v1/default/banks
+
+# retain
+curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories \
+  -H 'Content-Type: application/json' \
+  -d '{"items":[{"content":"hello","document_id":"thread:<id>","tags":["project:cat-cafe"]}]}'
+
+# recall
+curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories/recall \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"hello","budget":"mid","tags":["project:cat-cafe"],"tags_match":"all_strict"}'
+```
+
+**实现含义（给 Phase 5 的落地约束）**
+- `scope` 的核心隔离建议优先用 **bank_id**（例如 `cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}`），再用 `tags` 做 thread/sensitivity 等细分过滤。
+- 若需要在 `metadata` 里放 anchors（`commit/file/symbol/...`），必须序列化成字符串（例如 JSON 字符串、或多行文本）。
+
+**本地开发注意事项（Codex App 沙盒）**
+- 在 Codex App 会话里，访问 `localhost` 也可能被当作“网络访问”拦截；需要铲屎官在弹窗里按次授权（见仓库根目录 `AGENT.md` 的“权限与授权”小节）。
+
 ---
 
 ## 6) Phase 5 范围（Scope）
