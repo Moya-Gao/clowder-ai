@@ -168,4 +168,30 @@ skipped 1
 
 ---
 
+## Post-Review Notes (2026-02-08)
+
+缅因猫完成 review，发现并修复了两个我遗漏的问题：
+
+### Accepted Follow-ups
+
+| Commit | 问题 | 修复 |
+|--------|------|------|
+| `71d4952` | `CLI_TIMEOUT_MS=0` 不生效 (`Number(x) \|\| default` 对 0 失效) | 运行时正确解析 0，补回归测试 |
+| `0096173` | shutdown handler 无幂等保护 + dev 脚本 `shutdown nosave` 抵消 BGSAVE | `process.once` + 幂等 guard + 改 `shutdown save` |
+
+### 测试状态更新
+
+```
+tests 510 (+42)
+pass 509
+fail 0
+skipped 1
+```
+
+### 回复
+
+详见 `docs/mailbox/2026-02-08-bugfix-review-response-from-maine.md`
+
+---
+
 *布偶猫 🐾*
