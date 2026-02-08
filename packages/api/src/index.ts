@@ -17,10 +17,13 @@ import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService } from './domains/cats/services/index.js';
 
+import type { RedisClient } from '@cat-cafe/shared/utils';
+
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
 
 let socketManager: SocketManager | null = null;
+let redisClient: RedisClient | null = null;
 
 /**
  * Get the SocketManager instance
@@ -56,6 +59,7 @@ async function main(): Promise<void> {
   const registry = new InvocationRegistry();
   const redisUrl = process.env['REDIS_URL'];
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
+  redisClient = redis ?? null;
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const threadStore = createThreadStore(redis);
@@ -94,6 +98,35 @@ async function main(): Promise<void> {
   const address = await app.listen({ port: PORT, host: HOST });
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
+
+  // Graceful shutdown handler: persist Redis before exit
+  const shutdown = async (signal: string): Promise<void> => {
+    app.log.info(`[api] Received ${signal}, shutting down gracefully...`);
+
+    // Trigger Redis BGSAVE to persist in-memory data before exit
+    if (redisClient) {
+      try {
+        app.log.info('[api] Triggering Redis BGSAVE before shutdown...');
+        await redisClient.bgsave();
+        // Give Redis a moment to start the background save
+        await new Promise((r) => setTimeout(r, 500));
+        app.log.info('[api] Redis BGSAVE triggered');
+      } catch (err) {
+        app.log.error(`[api] Redis BGSAVE failed: ${String(err)}`);
+      }
+    }
+
+    // Close WebSocket connections
+    socketManager?.close();
+
+    // Close Fastify server
+    await app.close();
+    app.log.info('[api] Shutdown complete');
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
 main().catch((err) => {

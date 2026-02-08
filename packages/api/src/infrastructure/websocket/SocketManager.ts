@@ -91,4 +91,11 @@ export class SocketManager {
   getIO(): Server {
     return this.io;
   }
+
+  /**
+   * Close all WebSocket connections (graceful shutdown).
+   */
+  close(): void {
+    this.io.close();
+  }
 }
