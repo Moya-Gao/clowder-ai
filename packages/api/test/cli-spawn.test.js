@@ -161,6 +161,63 @@ test('spawnCli kills process on timeout', async () => {
   assert.equal(proc.kill.mock.calls[0].arguments[0], 'SIGTERM');
 });
 
+test('CLI_TIMEOUT_MS=0 disables timeout (no auto-kill on silence)', async () => {
+  const saved = process.env.CLI_TIMEOUT_MS;
+  process.env.CLI_TIMEOUT_MS = '0';
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+
+    const promise = collect(spawnCli(
+      { command: 'test-cli', args: [] },
+      { spawnFn }
+    ));
+
+    // Wait longer than our typical small timeout values; should NOT auto-kill
+    await new Promise((resolve) => setTimeout(resolve, 120));
+
+    proc.stdout.end();
+    proc._emitter.emit('exit', 0, null);
+
+    await promise;
+
+    assert.equal(proc.kill.mock.callCount(), 0, 'should not kill when timeout is disabled');
+  } finally {
+    if (saved === undefined) {
+      delete process.env.CLI_TIMEOUT_MS;
+    } else {
+      process.env.CLI_TIMEOUT_MS = saved;
+    }
+  }
+});
+
+test('spawnCli resets timeout on stderr activity (CLI alive signal)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli(
+    { command: 'test-cli', args: [], timeoutMs: 50 },
+    { spawnFn }
+  ));
+
+  // Keep the process "alive" with stderr output so it doesn't timeout
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  proc.stderr.write('thinking...\n');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  proc.stderr.write('still working...\n');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+
+  proc.stdout.write('{"type":"ok"}\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+
+  const results = await promise;
+
+  assert.equal(proc.kill.mock.callCount(), 0, 'should not kill while stderr is active');
+  assert.equal(results.length, 1);
+  assert.deepEqual(results[0], { type: 'ok' });
+});
+
 test('spawnCli kills process on abort signal', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

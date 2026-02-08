@@ -86,7 +86,13 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const maxPromptChars = Number(env['MAX_PROMPT_CHARS']) || 32000;
 
   // CLI (from cli-spawn.ts defaults, configurable via CLI_TIMEOUT_MS, 0 = disable)
-  const timeoutMs = Number(env['CLI_TIMEOUT_MS']) || 1_800_000;
+  const rawCliTimeout = env['CLI_TIMEOUT_MS'];
+  const parsedCliTimeout = rawCliTimeout != null && rawCliTimeout.trim() !== ''
+    ? Number(rawCliTimeout)
+    : NaN;
+  const timeoutMs = Number.isFinite(parsedCliTimeout) && parsedCliTimeout >= 0
+    ? parsedCliTimeout
+    : 1_800_000;
   const killGraceMs = 3_000;
 
   // Storage (from Redis/memory store defaults)

@@ -7,8 +7,19 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import type { CliSpawnOptions, ChildProcessLike, SpawnFn } from './cli-types.js';
 import { parseNDJSON, isParseError } from './ndjson-parser.js';
 
-/** Default timeout: 30 minutes (configurable via CLI_TIMEOUT_MS env var, 0 = disable) */
-const DEFAULT_TIMEOUT_MS = Number(process.env['CLI_TIMEOUT_MS']) || 1_800_000;
+/** Fallback timeout: 30 minutes */
+const FALLBACK_TIMEOUT_MS = 1_800_000;
+
+/** Read CLI timeout from env (ms). Supports 0 to disable. */
+function getEnvTimeoutMs(): number | undefined {
+  const raw = process.env['CLI_TIMEOUT_MS'];
+  if (raw === undefined) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed === '') return undefined;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return parsed;
+}
 
 /** Grace period between SIGTERM and SIGKILL */
 export const KILL_GRACE_MS = 3_000;
@@ -35,7 +46,8 @@ export async function* spawnCli(
   deps?: CliSpawnerDeps
 ): AsyncGenerator<unknown, void, undefined> {
   const doSpawn: SpawnFn = deps?.spawnFn ?? defaultSpawn;
-  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  // Default timeout is configurable via CLI_TIMEOUT_MS env var; 0 disables timeout.
+  const timeoutMs = options.timeoutMs ?? getEnvTimeoutMs() ?? FALLBACK_TIMEOUT_MS;
 
   const child = doSpawn(options.command, options.args, {
     cwd: options.cwd,
