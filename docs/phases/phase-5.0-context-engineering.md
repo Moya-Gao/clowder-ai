@@ -151,17 +151,19 @@ Phase 5 里应当显式承接这些 backlog：
 
 ---
 
-## 8) 需要铲屎官拍板的 7 个问题（开工前）
+## 8) 铲屎官拍板结果（2026-02-08）
 
-1. Step 1 的入口选哪个为主：`/evidence` 命令、MCP 工具、还是 UI 按钮？（建议先 `/evidence`）  
-2. project_shared 的低敏记忆是否允许“24h 无异议自动提升”？  
-3. anchors 的最低要求：是否强制 `commit hash`？还是允许 `file path` 作为最低锚点？  
-4. Hindsight 的接入形态：作为独立服务（HTTP/MCP）还是直接嵌入（SDK）？  
-5. reflect 的默认模型与频率：**注意 reflect 是 per-project 的**（Cat Café 是平台，未来会承载多个项目）。触发方式三选一：活跃度触发（7天N条对话）/ 里程碑触发 / 手动 `/reflect`？  
-6. “符号级索引”是否在 Phase 5 做 stretch？还是明确留到 Phase 6？  
-7. 对外展示的 UX：检索/记忆结果是“系统消息”还是“卡片组件”？（暹罗猫可以给视觉方案）  
+| # | 问题 | 决策 | 备注 |
+|---|------|------|------|
+| 1 | 入口选择 | **三者都要**：`/evidence` + API + MCP | MCP 给猫猫 agent 用，`/evidence` 给铲屎官用 |
+| 2 | project_shared 低敏发布 | **24h 提醒 + 猫猫互审** | draft → pending_review → /approve → published |
+| 3 | anchors 最低要求 | **file path 即可** | commit hash 作为高置信度加分项 |
+| 4 | Hindsight 接入形态 | **直接嵌入** | 复用现有 Redis/EventAuditLog，不另起服务 |
+| 5 | reflect 触发条件 | **三种都支持** | 猫猫 `/reflect` + 铲屎官主动 + thread 结束自动 |
+| 6 | 符号级索引 | **留到 Phase 6** | Phase 5 用 file path 做索引 |
+| 7 | UX | **卡片组件** | 请暹罗猫设计视觉方案 |
 
 ---
 
-*签名：缅因猫🐾（基于三猫辩论共识，待🐬铲屎官最终拍板）*
+*签名：缅因猫🐾（基于三猫辩论共识）+ 布偶猫🐾（补充拍板记录）+ 🐬铲屎官（最终拍板 2026-02-08）*
 
