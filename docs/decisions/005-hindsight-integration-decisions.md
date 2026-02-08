@@ -88,8 +88,14 @@ Phase 5 要集成 Hindsight 作为协作记忆系统。在开工前需要拍板 
 └─────────────────────────────────────────────────────────┘
 ```
 
+**MCP 封装约束**:
+- Cat Café 的 MCP 工具**只暴露 `cat-cafe-*` 开头的 bank**
+- 不让猫猫看到其他项目的 bank（如 `routing-shared`, `mission-control-hub` 等）
+- 原因：避免浪费猫猫上下文，聚焦当前项目
+
 **待办**:
 - [ ] 调研 Hindsight 的 memory types (world facts, experience, opinions)，确定如何利用
+- [ ] MCP 封装时过滤 bank 列表（只返回 `cat-cafe-*`）
 
 ---
 
