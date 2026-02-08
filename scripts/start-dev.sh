@@ -139,7 +139,7 @@ cleanup() {
     kill $(jobs -p) 2>/dev/null || true
     # 关闭我们启动的专属 Redis (不影响系统默认 6379)
     if [ "$USE_REDIS" = true ] && redis-cli -p $REDIS_PORT ping &> /dev/null 2>&1; then
-        redis-cli -p $REDIS_PORT shutdown nosave &> /dev/null || true
+        redis-cli -p $REDIS_PORT shutdown save &> /dev/null || true
         echo "  Redis (端口 $REDIS_PORT) 已关闭"
     fi
     wait 2>/dev/null || true

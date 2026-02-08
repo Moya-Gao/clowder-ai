@@ -100,33 +100,52 @@ async function main(): Promise<void> {
   app.log.info(`[ws] WebSocket server ready`);
 
   // Graceful shutdown handler: persist Redis before exit
+  let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
-    app.log.info(`[api] Received ${signal}, shutting down gracefully...`);
-
-    // Trigger Redis BGSAVE to persist in-memory data before exit
-    if (redisClient) {
-      try {
-        app.log.info('[api] Triggering Redis BGSAVE before shutdown...');
-        await redisClient.bgsave();
-        // Give Redis a moment to start the background save
-        await new Promise((r) => setTimeout(r, 500));
-        app.log.info('[api] Redis BGSAVE triggered');
-      } catch (err) {
-        app.log.error(`[api] Redis BGSAVE failed: ${String(err)}`);
-      }
+    if (shuttingDown) {
+      app.log.info(`[api] Received ${signal} while shutdown already in progress`);
+      return;
     }
+    shuttingDown = true;
 
-    // Close WebSocket connections
-    socketManager?.close();
+    let exitCode = 0;
+    try {
+      app.log.info(`[api] Received ${signal}, shutting down gracefully...`);
 
-    // Close Fastify server
-    await app.close();
-    app.log.info('[api] Shutdown complete');
-    process.exit(0);
+      // Trigger Redis BGSAVE to persist in-memory data before exit
+      if (redisClient) {
+        try {
+          app.log.info('[api] Triggering Redis BGSAVE before shutdown...');
+          await redisClient.bgsave();
+          // Give Redis a moment to start the background save
+          await new Promise((r) => setTimeout(r, 500));
+          app.log.info('[api] Redis BGSAVE triggered');
+        } catch (err) {
+          app.log.error(`[api] Redis BGSAVE failed: ${String(err)}`);
+        }
+      }
+
+      // Close WebSocket connections
+      try {
+        socketManager?.close();
+      } catch (err) {
+        exitCode = 1;
+        app.log.error(`[api] SocketManager close failed: ${String(err)}`);
+      }
+
+      // Close Fastify server
+      await app.close();
+      app.log.info('[api] Shutdown complete');
+    } catch (err) {
+      exitCode = 1;
+      app.log.error(`[api] Shutdown failed: ${String(err)}`);
+    } finally {
+      process.exit(exitCode);
+    }
   };
 
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
+  process.once('SIGINT', () => { void shutdown('SIGINT'); });
 }
 
 main().catch((err) => {
