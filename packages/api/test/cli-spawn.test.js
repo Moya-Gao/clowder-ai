@@ -331,7 +331,7 @@ test('spawnCli handles empty stdout', async () => {
 
 // === New tests for 缅因猫 review findings ===
 
-test('spawnCli yields __cliError on non-zero exit code with stderr', async () => {
+test('spawnCli yields __cliError on non-zero exit code (stderr sanitized)', async () => {
   const proc = createMockProcess({ exitOnKill: false });
   const spawnFn = createMockSpawnFn(proc);
 
@@ -351,14 +351,16 @@ test('spawnCli yields __cliError on non-zero exit code with stderr', async () =>
   assert.equal(results.length, 2);
   assert.deepEqual(results[0], { type: 'partial' });
 
-  // Second result should be the CLI error
+  // Second result should be the CLI error with sanitized message
   assert.equal(isCliError(results[1]), true);
   assert.equal(results[1].exitCode, 1);
   assert.equal(results[1].command, 'test-cli');
-  assert.ok(results[1].stderr.includes('something went wrong'));
+  // message is sanitized — no raw stderr exposed (contains exit code, not raw stderr)
+  assert.ok(results[1].message.includes('code: 1'));
+  assert.ok(!results[1].stderr, 'stderr should not be exposed to users');
 });
 
-test('spawnCli yields __cliError when killed by external signal', async () => {
+test('spawnCli yields __cliError when killed by external signal (stderr sanitized)', async () => {
   const proc = createMockProcess({ exitOnKill: false });
   const spawnFn = createMockSpawnFn(proc);
 
@@ -379,7 +381,9 @@ test('spawnCli yields __cliError when killed by external signal', async () => {
   assert.equal(results[0].exitCode, null);
   assert.equal(results[0].signal, 'SIGKILL');
   assert.equal(results[0].command, 'test-cli');
-  assert.ok(results[0].stderr.includes('Killed by OOM'));
+  // message is sanitized — no raw stderr exposed (contains signal info, not raw stderr)
+  assert.ok(results[0].message.includes('SIGKILL'));
+  assert.ok(!results[0].stderr, 'stderr should not be exposed to users');
 });
 
 test('spawnCli yields __cliTimeout (not __cliError) on timeout kill', async () => {
@@ -411,7 +415,7 @@ test('spawnCli yields __cliTimeout (not __cliError) on timeout kill', async () =
 });
 
 test('isCliError type guard works correctly', () => {
-  assert.equal(isCliError({ __cliError: true, exitCode: 1, stderr: 'err', command: 'x' }), true);
+  assert.equal(isCliError({ __cliError: true, exitCode: 1, message: 'CLI 异常退出', command: 'x' }), true);
   assert.equal(isCliError({ __cliError: false }), false);
   assert.equal(isCliError({ type: 'message' }), false);
   assert.equal(isCliError(null), false);
@@ -419,7 +423,7 @@ test('isCliError type guard works correctly', () => {
 });
 
 test('isCliTimeout type guard works correctly', () => {
-  assert.equal(isCliTimeout({ __cliTimeout: true, timeoutMs: 300000, stderr: '', command: 'x' }), true);
+  assert.equal(isCliTimeout({ __cliTimeout: true, timeoutMs: 300000, message: 'CLI 响应超时', command: 'x' }), true);
   assert.equal(isCliTimeout({ __cliTimeout: false }), false);
   assert.equal(isCliTimeout({ __cliError: true }), false);
   assert.equal(isCliTimeout(null), false);

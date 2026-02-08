@@ -15,7 +15,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
-import { ClaudeAgentService } from './domains/cats/services/index.js';
+import { ClaudeAgentService, getEventAuditLog, AuditEventTypes } from './domains/cats/services/index.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -99,6 +99,13 @@ async function main(): Promise<void> {
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
 
+  // Log server startup to audit log (append-only, survives Redis loss)
+  const auditLog = getEventAuditLog();
+  await auditLog.append({
+    type: AuditEventTypes.SERVER_STARTED,
+    data: { address, port: PORT, host: HOST, redis: redisClient ? 'connected' : 'memory' },
+  });
+
   // Graceful shutdown handler: persist Redis before exit
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
@@ -111,6 +118,16 @@ async function main(): Promise<void> {
     let exitCode = 0;
     try {
       app.log.info(`[api] Received ${signal}, shutting down gracefully...`);
+
+      // Log shutdown to audit log FIRST (before any cleanup that might fail)
+      try {
+        await auditLog.append({
+          type: AuditEventTypes.SERVER_SHUTDOWN,
+          data: { signal, graceful: true },
+        });
+      } catch {
+        // Audit log write failed, but continue with shutdown
+      }
 
       // Trigger Redis BGSAVE to persist in-memory data before exit
       if (redisClient) {

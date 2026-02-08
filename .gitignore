@@ -45,6 +45,10 @@ coverage/
 packages/api/uploads/*
 !packages/api/uploads/.gitkeep
 
+# Runtime data (audit logs, etc.)
+data/
+test-audit-logs/
+
 # Temporary files
 tmp/
 temp/

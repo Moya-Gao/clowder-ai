@@ -38,4 +38,6 @@ export { buildSystemPrompt } from './SystemPromptBuilder.js';
 export type { InvocationContext } from './SystemPromptBuilder.js';
 export { parseIntent, stripIntentTags } from './IntentParser.js';
 export type { Intent, IntentResult } from './IntentParser.js';
+export { EventAuditLog, AuditEventTypes, getEventAuditLog } from './EventAuditLog.js';
+export type { AuditEvent, AuditEventInput } from './EventAuditLog.js';
 export * from './types.js';

@@ -230,8 +230,10 @@ test('yields error on CLI non-zero exit', async () => {
   const msgs = await promise;
   const errMsg = msgs.find((m) => m.type === 'error');
   assert.ok(errMsg);
-  assert.ok(errMsg.error.includes('1'));
-  assert.ok(errMsg.error.includes('authentication failed'));
+  // Error message is sanitized — contains exit code but not raw stderr
+  assert.ok(errMsg.error.includes('code: 1'));
+  // Raw stderr should NOT be exposed to users (no more 'authentication failed')
+  assert.ok(!errMsg.error.includes('authentication failed'), 'stderr should be sanitized');
 });
 
 test('does not duplicate error when result/error is followed by non-zero exit', async () => {
@@ -259,7 +261,7 @@ test('does not duplicate error when result/error is followed by non-zero exit', 
   assert.equal(errors[0].error, 'rate limited');
 });
 
-test('includes exit signal in CLI error message when no exit code', async () => {
+test('includes exit signal in CLI error message when no exit code (stderr sanitized)', async () => {
   const proc = createMockProcess();
   proc.kill = mock.fn(() => true);
   const spawnFn = createMockSpawnFn(proc);
@@ -274,8 +276,10 @@ test('includes exit signal in CLI error message when no exit code', async () => 
   const msgs = await promise;
   const errMsg = msgs.find((m) => m.type === 'error');
   assert.ok(errMsg);
-  assert.ok(errMsg.error.includes('signal SIGKILL'));
-  assert.ok(errMsg.error.includes('killed by supervisor'));
+  // Sanitized message includes signal info
+  assert.ok(errMsg.error.includes('SIGKILL'));
+  // Raw stderr should NOT be exposed to users
+  assert.ok(!errMsg.error.includes('killed by supervisor'), 'stderr should be sanitized');
 });
 
 test('yields error on spawn ENOENT', async () => {

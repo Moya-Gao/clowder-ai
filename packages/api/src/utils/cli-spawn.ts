@@ -170,23 +170,31 @@ export async function* spawnCli(
     // Yield error on abnormal exit (only if WE didn't kill it)
     // Covers both non-zero exitCode AND external signal kills
     if (!killed && (exitCode !== 0 || exitSignal !== null)) {
-      const stderrTail = stderrBuffer.trim().slice(-500);
+      // Log stderr for debugging (never expose to users — may contain thinking/traces)
+      if (stderrBuffer.trim()) {
+        console.error(`[cli-spawn] ${options.command} stderr (debug only):\n${stderrBuffer.trim().slice(-1000)}`);
+      }
       yield {
         __cliError: true,
         exitCode,
         signal: exitSignal,
-        stderr: stderrTail,
+        // Sanitized message — no raw stderr exposed to users
+        message: `CLI 异常退出 (code: ${exitCode ?? 'null'}, signal: ${exitSignal ?? 'none'})`,
         command: options.command,
       };
     }
 
     // Yield timeout error (distinct from user cancel which stays silent)
     if (timedOut) {
-      const stderrTail = stderrBuffer.trim().slice(-500);
+      // Log stderr for debugging (never expose to users)
+      if (stderrBuffer.trim()) {
+        console.error(`[cli-spawn] ${options.command} stderr on timeout (debug only):\n${stderrBuffer.trim().slice(-1000)}`);
+      }
       yield {
         __cliTimeout: true,
         timeoutMs,
-        stderr: stderrTail,
+        // Sanitized message — no raw stderr exposed to users
+        message: `CLI 响应超时 (${Math.round(timeoutMs / 1000)}s)`,
         command: options.command,
       };
     }
@@ -203,10 +211,11 @@ export async function* spawnCli(
 
 /**
  * Type guard for CLI error objects (abnormal exit or external signal kill)
+ * Note: `message` is sanitized for user display; raw stderr is logged to console only.
  */
 export function isCliError(
   value: unknown
-): value is { __cliError: true; exitCode: number | null; signal: string | null; stderr: string; command: string } {
+): value is { __cliError: true; exitCode: number | null; signal: string | null; message: string; command: string } {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -217,10 +226,11 @@ export function isCliError(
 
 /**
  * Type guard for CLI timeout objects (process killed due to timeout)
+ * Note: `message` is sanitized for user display; raw stderr is logged to console only.
  */
 export function isCliTimeout(
   value: unknown
-): value is { __cliTimeout: true; timeoutMs: number; stderr: string; command: string } {
+): value is { __cliTimeout: true; timeoutMs: number; message: string; command: string } {
   return (
     typeof value === 'object' &&
     value !== null &&

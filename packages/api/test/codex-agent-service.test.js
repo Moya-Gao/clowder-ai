@@ -212,8 +212,10 @@ test('yields error on CLI non-zero exit', async () => {
   const msgs = await promise;
   const errMsg = msgs.find((m) => m.type === 'error');
   assert.ok(errMsg);
-  assert.ok(errMsg.error.includes('1'));
-  assert.ok(errMsg.error.includes('authentication failed'));
+  // Error message is sanitized — contains exit code but not raw stderr
+  assert.ok(errMsg.error.includes('code: 1'));
+  // Raw stderr should NOT be exposed to users
+  assert.ok(!errMsg.error.includes('authentication failed'), 'stderr should be sanitized');
 });
 
 test('yields error on spawn ENOENT', async () => {
