@@ -12,6 +12,7 @@
 | 3.3b | Demo Bugfixes | ✅ 完成 | (3 commits) | 缅因猫 ✅ | 228 |
 | 3.5 | 任务感知+讨论沉淀+并行 | 📋 方向已定 | [phase-3.5-direction.md](phase-3.5-direction.md) | - | - |
 | 4 | 编排+互转+氛围系统 | 📝 草案已出 | [phase-4.0-direction.md](phase-4.0-direction.md) | - | - |
+| 5 | 上下文工程（Layer 1/2） | 📝 草案已出 | [phase-5.0-context-engineering.md](phase-5.0-context-engineering.md) | - | - |
 
 ## 总设计文档
 
