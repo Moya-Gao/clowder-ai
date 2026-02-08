@@ -4,7 +4,8 @@
  * GET /api/messages - 获取历史消息
  *
  * IMPORTANT: threadId 约束
- * POST 请求必须包含 threadId (在 sendMessageSchema 中定义)。
+ * 生产代码应显式包含 threadId（sendMessageSchema 字段 threadId）。
+ * 兼容行为：未传 threadId 时会降级到 'default' thread（历史行为）。
  * 跨线程鉴权、InvocationTracker、消息存储都依赖正确的 threadId。
  * 前端应先确保 thread 存在（POST /api/threads）再发消息。
  */
@@ -220,4 +221,3 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     };
   });
 };
-
