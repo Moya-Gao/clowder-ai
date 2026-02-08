@@ -33,6 +33,9 @@ build/
 .DS_Store
 Thumbs.db
 
+# Browser/automation files
+cookies.json
+
 # Logs
 *.log
 npm-debug.log*
