@@ -2,7 +2,7 @@
 
 > 提议者：缅因猫（Codex）  
 > 日期：2026-02-08  
-> 状态：**草案（待铲屎官拍板）**
+> 状态：**草案（已拍板：见 ADR-005，待实施拆解）**
 
 本 Phase 的目标：把「上下文工程」从口号落到**可验证、可审计、可渐进交付**的工程能力上，优先补齐 Layer 1/2（索引/检索）缺口，同时把协作记忆纳入治理体系。
 
@@ -15,6 +15,7 @@
 - 布偶猫纪要（记忆派）：`docs/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md`
 - 暹罗猫纪要（体验派）：`docs/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md`
 - 缅因猫纪要（融合版）：`docs/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md`
+- Phase 5 决策拍板（ADR-005）：`docs/decisions/005-hindsight-integration-decisions.md`
 - Hindsight 重大澄清（外部服务已部署）：`docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`
 - Backlog（必须对齐）：`docs/BACKLOG.md`
 
@@ -123,8 +124,13 @@ curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories/recal
   -d '{"query":"hello","budget":"mid","tags":["project:cat-cafe"],"tags_match":"all_strict"}'
 ```
 
+**Memory types 快照（`/stats`，2026-02-08）**
+- 观察到的 fact types（至少包含）：`world`、`observation`、`experience`、`opinion`
+- 示例（`dare-framework`）：`total_nodes=377`；`world=271`、`observation=87`、`experience=8`、`opinion=11`
+- 结论：Phase 5 不需要“发明分类体系”，但需要定义我们写入时的 **tags/metadata 约定**（例如 `project:*`、`kind:*`、`status:*`），避免单一 bank 下的串味与污染。
+
 **实现含义（给 Phase 5 的落地约束）**
-- `scope` 的核心隔离建议优先用 **bank_id**（例如 `cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}`），再用 `tags` 做 thread/sensitivity 等细分过滤。
+- **已拍板**：Phase 5 先用单一 bank `cat-cafe-shared`；用 `tags` + `metadata` 做 project/kind/status 等细分过滤。若后续确有隔离需求，再扩展 `bank_id` 分层。
 - 若需要在 `metadata` 里放 anchors（`commit/file/symbol/...`），必须序列化成字符串（例如 JSON 字符串、或多行文本）。
 
 **本地开发注意事项（Codex App 沙盒）**
@@ -176,7 +182,7 @@ curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories/recal
 
 **存储与集成（关键澄清）**
 - Hindsight 是**外部服务**：Retain/Recall/Reflect 已存在。Phase 5 的工作重点是“怎么用好它 + 怎么治理”，而不是在 Cat Café 里再造一套记忆系统。  
-- Bank 隔离优先：把 `scope` 映射为 bank（例如 `cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}`），而不是把所有东西塞进一个 Redis Hash。  
+- **已拍板**：先只建一个 `cat-cafe-shared`；通过 `tags/metadata` 做过滤与治理，而不是把所有语义都塞进 Redis Hash。后续需要隔离时再增加 bank。  
 - 发布门禁/状态机不属于 Hindsight：需要在 Cat Café 调用层实现（可用 Redis 存状态、EventAuditLog 记审计；记忆正文存 Hindsight）。  
 
 **发布门禁（建议默认）**
@@ -208,7 +214,7 @@ curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories/recal
 
 Phase 5 里应当显式承接这些 backlog：
 
-- `F3b` 协作记忆（Hindsight 集成）— Phase 5 主线（治理 + bank 分层 + recall/reflect）。  
+- `F3b` 协作记忆（Hindsight 集成）— Phase 5 主线（治理 + tags/metadata 分层 + recall/reflect；必要时再扩展 bank）。  
 - `#19` 自动讨论纪要生成 — Phase 5 的“自动沉淀”入口（Summary→Memory 候选），建议作为 Step 2a 的加速器而非 gate。  
 - `#32` DegradationPolicy 绑定实际链路 — 证据检索/记忆 publish 过程必须可降级，并给出用户可理解的 system_info。  
 
@@ -223,7 +229,7 @@ Phase 5 里应当显式承接这些 backlog：
 | 1 | 入口选择 | **三者都要**：`/evidence` + API + MCP | MCP 给猫猫 agent 用，`/evidence` 给铲屎官用 |
 | 2 | project_shared 低敏发布 | **24h 提醒 + 猫猫互审** | draft → pending_review → /approve → published |
 | 3 | anchors 最低要求 | **file path 即可** | commit hash 作为高置信度加分项 |
-| 4 | Hindsight 接入形态 | **直接嵌入** | 复用现有 Redis/EventAuditLog，不另起服务 |
+| 4 | Hindsight 接入形态 | **服务端 HTTP 调用** | Hindsight 作为外部 Docker 服务；复用现有 Redis/EventAuditLog，不另起“新记忆服务” |
 | 5 | reflect 触发条件 | **三种都支持** | 猫猫 `/reflect` + 铲屎官主动 + thread 结束自动 |
 | 6 | 符号级索引 | **留到 Phase 6** | Phase 5 用 file path 做索引 |
 | 7 | UX | **卡片组件** | 请暹罗猫设计视觉方案 |
@@ -240,16 +246,19 @@ Phase 5 里应当显式承接这些 backlog：
 | 4 | 发布门禁位置 | **Cat Café 调用层** | Redis 存状态，EventAuditLog 记审计，做好优雅停机 |
 | 5 | Evidence 检索 | **Hindsight Recall，只导入归档后的稳定文档** | 正在进行的讨论不导入 |
 | 6 | Reflect 触发 | **手动优先**：用户 `/reflect` + 猫 MCP | 后续可加定时/自动 |
-| 7 | UX 呈现 | **卡片组件 + 右侧面板** | 参考 Claude Code cowork；**必须修复 tool_use/error 事件丢弃问题** |
+| 7 | UX 呈现 | **卡片组件 + 右侧面板** | 参考 Claude Code cowork；**必须修复 tool_use（以及可能的 tool_result）事件丢弃问题** |
 
-### 8.2) 发现的 Bug：tool_use/error 事件被丢弃
+### 8.2) 发现的 Bug：tool_use（以及可能的 tool_result）事件被丢弃
 
-**问题**：`useAgentMessages.ts` 没有处理 `tool_use` 和 `tool_result` 事件，导致用户等待时看不到猫猫在做什么。
+**问题**：`useAgentMessages.ts` 没有处理 `tool_use`（以及预留的 `tool_result`）事件，导致用户等待时看不到猫猫在做什么。
 
 **根因**：
 - 后端 `types.ts` 定义了 `tool_use | tool_result` 类型
 - 前端只处理了 `text | done | a2a_handoff | system_info | error`
-- `tool_use` 和 `tool_result` 被静默丢弃
+- `tool_use`（以及 `tool_result`）被静默丢弃
+
+**备注（实现差异）**：
+- 不同 provider 的流式事件可能不一致：Phase 5 的修复应以“前端能展示 tool_use”为最低门槛；如后端确实发送 `tool_result`，则一并展示。
 
 **影响**：可观测性极差，"等了几分钟前端只有猫猫在思考"
 

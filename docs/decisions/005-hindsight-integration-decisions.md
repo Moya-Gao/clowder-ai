@@ -52,6 +52,20 @@ Phase 5 要集成 Hindsight 作为协作记忆系统。在开工前需要拍板 
 - `cat-cafe-shared`: 所有项目知识、决策记录、协作规则（三猫都能读写）
 - 暂不做 `cat-cafe-{catId}` — 避免知识孤岛
 
+### 补充决策：单一 Bank 下的“可过滤”约定 ✅
+
+既然不做个人 bank，那么“避免混在一起”的能力必须由 **tags/metadata 约定**来承担，否则 Recall/Reflect 很容易跨项目/跨阶段串味。
+
+**决策**：写入 `cat-cafe-shared` 的每条 `MemoryItem`（或每个文档的 items）必须满足：
+- 至少 1 个 `project:*` tag（Cat Café 固定为 `project:cat-cafe`）
+- 至少 1 个 `kind:*` tag（例如：`kind:decision` / `kind:phase` / `kind:discussion` / `kind:backlog`）
+- `metadata` 至少包含：
+  - `anchor`：稳定证据锚点（例如 `docs/decisions/005-hindsight-integration-decisions.md` 或 `commit:<sha>`）
+  - `author`：写入者（例如 `ragdoll|maine|siamese|caretaker`）
+  - `status`：`draft|published|archived`
+
+**注意（Hindsight OpenAPI 约束）**：`metadata` 的 value 类型是 `string`（`Record<string,string>`）。如需存 anchors 列表/结构化内容，必须序列化为字符串（例如 JSON 字符串或多行文本）。
+
 **记忆层次**:
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -94,7 +108,7 @@ Phase 5 要集成 Hindsight 作为协作记忆系统。在开工前需要拍板 
 - 原因：避免浪费猫猫上下文，聚焦当前项目
 
 **待办**:
-- [ ] 调研 Hindsight 的 memory types (world facts, experience, opinions)，确定如何利用
+- [ ] 调研/确认 Hindsight 的 memory types（world/observation/experience/opinion…）与我们导入文档的映射策略
 - [ ] MCP 封装时过滤 bank 列表（只返回 `cat-cafe-*`）
 
 ---
@@ -156,6 +170,15 @@ Hindsight Recall (语义检索)
 - Redis 存状态机 (draft → pending_review → published)
 - EventAuditLog 记审计
 - **优雅停机保障**: 复用 Phase 4.0 bug 修复的模式（BGSAVE + process.once + 幂等 guard）
+
+### 补充决策：安全边界与降级策略 ✅
+
+**安全边界**
+- Hindsight 当前为本地开发环境（无认证）。Cat Café 集成时应 **只允许服务端调用** Hindsight（避免浏览器直连 `localhost:8888`，也避免把无认证服务暴露到前端）。
+
+**降级策略**
+- Hindsight 不可用时：检索链路降级为 `docs/` 文件搜索（grep/简单倒排），并在 UI 明确提示“已降级/结果可能不完整”。
+- retain/recall/reflect 失败必须写入 `EventAuditLog`（含 request 关键字段 + bank_id + 错误摘要），保证“真相可追溯”。
 
 ---
 
@@ -258,6 +281,16 @@ Hindsight Recall (语义检索)
 3. **只导入归档后的稳定内容** — 正在进行的讨论不稳定
 4. **记录决策过程的 why** — 选项分析 + 反馈 = 可追溯的决策思考
 5. **可观测性是 UX** — tool_use/error 不能丢弃
+
+---
+
+## 附录：Hindsight memory types 初步探测（`/stats`，2026-02-08）
+
+> 用途：把“memory types 真的存在且有哪些”从猜测变成事实，便于后续映射导入策略。
+
+- 观察到的 fact types（至少包含）：`world`、`observation`、`experience`、`opinion`
+- 示例（`dare-framework`）：`total_nodes=377`；`world=271`、`observation=87`、`experience=8`、`opinion=11`
+- 说明：这只是现有 bank 的快照；`cat-cafe-shared` 的写入策略仍应以 **tags/metadata 约定**为主，避免单一 bank 串味。
 
 ---
 
