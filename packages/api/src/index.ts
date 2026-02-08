@@ -99,12 +99,16 @@ async function main(): Promise<void> {
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
 
-  // Log server startup to audit log (append-only, survives Redis loss)
+  // Log server startup to audit log (best-effort: don't crash if audit dir unwritable)
   const auditLog = getEventAuditLog();
-  await auditLog.append({
-    type: AuditEventTypes.SERVER_STARTED,
-    data: { address, port: PORT, host: HOST, redis: redisClient ? 'connected' : 'memory' },
-  });
+  try {
+    await auditLog.append({
+      type: AuditEventTypes.SERVER_STARTED,
+      data: { address, port: PORT, host: HOST, redis: redisClient ? 'connected' : 'memory' },
+    });
+  } catch (err) {
+    app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
+  }
 
   // Graceful shutdown handler: persist Redis before exit
   let shuttingDown = false;

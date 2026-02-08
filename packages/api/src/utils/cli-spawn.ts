@@ -35,10 +35,15 @@ export interface CliSpawnerDeps {
 /**
  * Spawns a CLI process and yields parsed NDJSON events from stdout.
  *
- * Handles: NDJSON parsing, stderr buffering, timeout with SIGTERM->SIGKILL,
- * AbortSignal, cleanup on generator return, zombie prevention.
+ * Handles: NDJSON parsing, stderr buffering (for debug logging only),
+ * timeout with SIGTERM->SIGKILL, AbortSignal, cleanup on generator return,
+ * zombie prevention.
  *
- * On non-zero exit: yields a final `{ __cliError, exitCode, stderr }` object.
+ * On non-zero exit: yields `{ __cliError, exitCode, signal, message }`.
+ * On timeout: yields `{ __cliTimeout, timeoutMs, message }`.
+ * Note: `message` is sanitized for user display; raw stderr is logged to
+ * console only (never exposed to users).
+ *
  * On spawn error (e.g. ENOENT): throws.
  */
 export async function* spawnCli(
