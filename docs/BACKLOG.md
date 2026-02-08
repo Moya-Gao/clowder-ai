@@ -76,6 +76,7 @@
 | F6 | Thread 名字编辑 | P2 | 功能性试用 | 自定义/编辑 thread 名字，方便未来查找 |
 | F7 | Thread 名字检索 | P3 | 功能性试用 | 从名字 filter/搜索历史对话 |
 | F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 前端显示：工具调用、thinking、耗时、token 消耗等。参考 Claude Code 的 token 计数 + 耗时显示。当前 UX 极差（辩论时铲屎官等得难受）|
+| F9 | tool_use/tool_result 事件显示 | P1 | Phase 5 拍板发现 | **Bug**: `useAgentMessages.ts` 没有处理 `tool_use` 和 `tool_result`，导致用户等待时看不到猫猫在做什么。后端有发，前端丢弃了。见 `docs/decisions/005-hindsight-integration-decisions.md` |
 
 ## 讨论议题 — 待探索的方向
 

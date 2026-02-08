@@ -216,16 +216,45 @@ Phase 5 里应当显式承接这些 backlog：
 
 ---
 
-## 8) 需要铲屎官拍板的 7 个问题（开工前）
+## 8) 铲屎官拍板结果（2026-02-08）
 
-1. Hindsight Docker 的连接参数是否确认？（URL/端口/是否鉴权/环境变量命名）  
-2. Bank 设计怎么定？（`cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}` 是否需要 thread 维度？）  
-3. F3‑lite `/remember` `/recall` 与 Hindsight 的分工是什么？（分层：临时 vs 持久；还是最终迁移到 Hindsight？）  
-4. 发布门禁（24h 提醒 + 互审/签核）放在哪里实现？（Cat Café 调用层 vs Hindsight metadata；状态持久化方案）  
-5. Step 1 的 evidence 检索是否直接复用 Hindsight Recall？若是：哪些内容要批量 Retain（docs/decisions/phases/discussions + git lineage）以及同步策略（手动/定时/增量）？  
-6. Reflect 的触发策略与默认模型是什么？（每日定时 / 讨论结束 / 手动命令；以及 provider 配置）  
-7. UX 以什么方式呈现最合适？（系统消息 vs 卡片；折叠/展开；失败降级提示）  
+| # | 问题 | 决策 | 备注 |
+|---|------|------|------|
+| 1 | 入口选择 | **三者都要**：`/evidence` + API + MCP | MCP 给猫猫 agent 用，`/evidence` 给铲屎官用 |
+| 2 | project_shared 低敏发布 | **24h 提醒 + 猫猫互审** | draft → pending_review → /approve → published |
+| 3 | anchors 最低要求 | **file path 即可** | commit hash 作为高置信度加分项 |
+| 4 | Hindsight 接入形态 | **直接嵌入** | 复用现有 Redis/EventAuditLog，不另起服务 |
+| 5 | reflect 触发条件 | **三种都支持** | 猫猫 `/reflect` + 铲屎官主动 + thread 结束自动 |
+| 6 | 符号级索引 | **留到 Phase 6** | Phase 5 用 file path 做索引 |
+| 7 | UX | **卡片组件** | 请暹罗猫设计视觉方案 |
+
+### 8.1) 铲屎官补充拍板（2026-02-08 第二轮）
+
+详细决策过程见 `docs/decisions/005-hindsight-integration-decisions.md`
+
+| # | 问题 | 决策 | 关键洞察 |
+|---|------|------|---------|
+| 1 | 连接参数 | `HINDSIGHT_URL=http://localhost:8888` | 用环境变量，方便部署 |
+| 2 | Bank 设计 | **单一 `cat-cafe-shared`** | 不做 `cat-cafe-{catId}`，避免知识孤岛；调研 Hindsight memory types |
+| 3 | F3-lite 分工 | **分层：F3-lite 临时，Hindsight 持久** | Thread 对话本身就是 session 记忆，不需要进 Hindsight |
+| 4 | 发布门禁位置 | **Cat Café 调用层** | Redis 存状态，EventAuditLog 记审计，做好优雅停机 |
+| 5 | Evidence 检索 | **Hindsight Recall，只导入归档后的稳定文档** | 正在进行的讨论不导入 |
+| 6 | Reflect 触发 | **手动优先**：用户 `/reflect` + 猫 MCP | 后续可加定时/自动 |
+| 7 | UX 呈现 | **卡片组件 + 右侧面板** | 参考 Claude Code cowork；**必须修复 tool_use/error 事件丢弃问题** |
+
+### 8.2) 发现的 Bug：tool_use/error 事件被丢弃
+
+**问题**：`useAgentMessages.ts` 没有处理 `tool_use` 和 `tool_result` 事件，导致用户等待时看不到猫猫在做什么。
+
+**根因**：
+- 后端 `types.ts` 定义了 `tool_use | tool_result` 类型
+- 前端只处理了 `text | done | a2a_handoff | system_info | error`
+- `tool_use` 和 `tool_result` 被静默丢弃
+
+**影响**：可观测性极差，"等了几分钟前端只有猫猫在思考"
+
+**修复**：登记 BACKLOG，Phase 5 或之前修复
 
 ---
 
-*签名：缅因猫🐾（基于三猫辩论共识，已吸收 2026-02-08 Hindsight 澄清）*
+*签名：缅因猫🐾（基于三猫辩论共识，已吸收 2026-02-08 Hindsight 澄清）+ 布偶猫🐾（补充拍板记录）+ 🐬铲屎官（最终拍板 2026-02-08）*
