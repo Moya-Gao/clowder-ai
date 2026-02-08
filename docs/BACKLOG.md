@@ -44,6 +44,8 @@
 | 31 | /api/memory 与 /api/commands 身份/权限边界 | [ ] | Phase 4.0 缅因猫 review P2-1 | 当前依赖 threadId 不可猜；多用户需统一 userId 来源 |
 | 32 | DegradationPolicy 绑定实际链路 | [ ] | Phase 4.0 缅因猫 review P2-2 | 目前是 framework only；需绑定至少一个 user-facing system_info |
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
+| 34 | cascade delete 语义边界文档 | [ ] | Quick wins 缅因猫 review P2-1 | best-effort 策略需写入 docs/decisions；强语义需后台重试或 tombstone |
+| 35 | thread 删除与 invocation 竞态 | [ ] | Quick wins 缅因猫 review P2-2 | delete thread 是否 cancel invocation？append 前是否检查 thread 存在？ |
 
 ## P3 — 可选优化
 
