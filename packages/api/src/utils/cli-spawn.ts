@@ -7,8 +7,8 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import type { CliSpawnOptions, ChildProcessLike, SpawnFn } from './cli-types.js';
 import { parseNDJSON, isParseError } from './ndjson-parser.js';
 
-/** Default timeout: 5 minutes */
-const DEFAULT_TIMEOUT_MS = 300_000;
+/** Default timeout: 10 minutes (configurable via CLI_TIMEOUT_MS env var) */
+const DEFAULT_TIMEOUT_MS = Number(process.env['CLI_TIMEOUT_MS']) || 600_000;
 
 /** Grace period between SIGTERM and SIGKILL */
 export const KILL_GRACE_MS = 3_000;
