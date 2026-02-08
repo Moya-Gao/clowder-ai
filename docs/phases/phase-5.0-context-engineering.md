@@ -115,9 +115,13 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
   - `anchors[]`: 证据锚点（必须字段；为空则强制低置信）
 
 **发布门禁（建议默认）**
-- `thread_local`: 允许写入即生效（风险低，仅当前 thread）。  
-- `project_shared`: 默认 `draft/quarantine`，需要显式 publish；低敏可以走“draft‑publish + 24h 自动提升”的路径（是否启用由铲屎官拍板）。  
-- `high sensitivity`: 必须“铲屎官签核”或“双猫签核”才能 publish。  
+- `thread_local`: 允许写入即生效（风险低，仅当前 thread）。
+- `project_shared` (低敏)：**24h 提醒 + 猫猫互审模式**（铲屎官 2026-02-08 拍板）：
+  1. 创建时 `status = draft`
+  2. 24h 后 `status = pending_review`（**不是自动提升**，只是提醒需要 review）
+  3. 任意一只猫 `/approve` → `status = published`
+  4. 或者铲屎官 `/approve` → `status = published`
+- `project_shared` (高敏) / `high sensitivity`: 必须"铲屎官签核"或"双猫签核"才能 publish。  
 
 **审计与回滚**
 - publish / rollback / archive 动作写入 `EventAuditLog`（数据里包含 entryId + anchors + 操作者）。  
@@ -153,7 +157,7 @@ Phase 5 里应当显式承接这些 backlog：
 2. project_shared 的低敏记忆是否允许“24h 无异议自动提升”？  
 3. anchors 的最低要求：是否强制 `commit hash`？还是允许 `file path` 作为最低锚点？  
 4. Hindsight 的接入形态：作为独立服务（HTTP/MCP）还是直接嵌入（SDK）？  
-5. reflect 的默认模型与频率：每天 1 次？每次 summary 后？（成本/质量/隐私权衡）  
+5. reflect 的默认模型与频率：**注意 reflect 是 per-project 的**（Cat Café 是平台，未来会承载多个项目）。触发方式三选一：活跃度触发（7天N条对话）/ 里程碑触发 / 手动 `/reflect`？  
 6. “符号级索引”是否在 Phase 5 做 stretch？还是明确留到 Phase 6？  
 7. 对外展示的 UX：检索/记忆结果是“系统消息”还是“卡片组件”？（暹罗猫可以给视觉方案）  
 
