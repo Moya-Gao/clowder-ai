@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>布偶猫 v2 图标预览</title>
+<style>
+  body { background: #FDF8F3; font-family: system-ui; padding: 2rem; }
+  h1 { color: #9B7EBD; }
+  h2 { color: #8D6E63; margin-top: 2rem; }
+  .row { display: flex; gap: 2rem; flex-wrap: wrap; align-items: flex-start; }
+  .card { background: white; padding: 1.5rem; border-radius: 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .card img { width: 96px; height: 96px; }
+  .card p { margin-top: 0.5rem; font-size: 0.9rem; color: #666; }
+  .compare { display: flex; gap: 1rem; align-items: center; }
+  .compare span { font-size: 1.5rem; color: #ccc; }
+  .avatar-card img { width: 200px; height: 200px; }
+  .label { font-size: 0.75rem; color: #999; margin-bottom: 0.25rem; }
+</style>
+</head>
+<body>
+  <h1>布偶猫 v2 图标预览</h1>
+
+  <h2>Task 状态图标对比（v1 暹罗猫 → v2 布偶猫）</h2>
+  <div class="row">
+    <div class="card">
+      <div class="label">v1</div>
+      <img src="/icons/task-todo.svg">
+      <div class="compare"><span>→</span></div>
+      <div class="label">v2</div>
+      <img src="/icons/task-todo-v2.svg">
+      <p>Todo (毛线球)</p>
+    </div>
+    <div class="card">
+      <div class="label">v1</div>
+      <img src="/icons/task-doing.svg">
+      <div class="compare"><span>→</span></div>
+      <div class="label">v2</div>
+      <img src="/icons/task-doing-v2.svg">
+      <p>Doing (散开中)</p>
+    </div>
+    <div class="card">
+      <div class="label">v1</div>
+      <img src="/icons/task-blocked.svg">
+      <div class="compare"><span>→</span></div>
+      <div class="label">v2</div>
+      <img src="/icons/task-blocked-v2.svg">
+      <p>Blocked (猫在箱里)</p>
+    </div>
+    <div class="card">
+      <div class="label">v1</div>
+      <img src="/icons/task-done.svg">
+      <div class="compare"><span>→</span></div>
+      <div class="label">v2</div>
+      <img src="/icons/task-done-v2.svg">
+      <p>Done (满足猫猫)</p>
+    </div>
+  </div>
+
+  <h2>铲屎官头像 - 毛绒海豚</h2>
+  <div class="row">
+    <div class="card avatar-card">
+      <img src="/avatars/owner-dolphin.svg">
+      <p>铲屎官 (Plush Dolphin)</p>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cat Café - Siamese Visuals Preview (v2)</title>
+    <link rel="stylesheet" href="polaroid-card.css">
+    <style>
+        :root {
+            --bg-primary: #FDF8F3;
+            --text-primary: #4A4A4A;
+            --opus-primary: #9B7EBD;
+            --codex-primary: #5B8C5A;
+            --gemini-primary: #5B9BD5;
+            --warning: #FF9F7F;
+            --success: #66BB6A;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 2rem;
+            color: var(--text-primary);
+        }
+
+        h1,
+        h2 {
+            color: var(--text-primary);
+        }
+
+        h1 span {
+            color: var(--gemini-primary);
+        }
+
+        .section {
+            margin-bottom: 3rem;
+            border-bottom: 1px solid #E8E0D8;
+            padding-bottom: 2rem;
+        }
+
+        .icon-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 2rem;
+        }
+
+        .icon-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .icon-box {
+            width: 48px;
+            height: 48px;
+        }
+
+        .icon-box svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        .label {
+            font-size: 0.9rem;
+            color: #888;
+            font-weight: 500;
+        }
+
+        /* Coloring classes */
+        .color-opus {
+            color: var(--opus-primary);
+        }
+
+        .color-codex {
+            color: var(--codex-primary);
+        }
+
+        .color-gemini {
+            color: var(--gemini-primary);
+        }
+
+        .color-warning {
+            color: var(--warning);
+        }
+
+        .color-success {
+            color: var(--success);
+        }
+
+        .color-neutral {
+            color: #8D6E63;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🐱 Cat Café Visual Assets - Phase 3.5 <span>(Refined)</span></h1>
+    <p>Designed by Siamese Cat (Gemini) using <code>frontend-design</code> skill</p>
+
+    <div class="section">
+        <h2>1. Task Icons (Monoline SVG + currentColor)</h2>
+        <div class="icon-grid">
+
+            <!-- Todo -->
+            <div class="icon-card">
+                <div class="icon-box color-neutral">
+                    <!-- Inline SVG for styling -->
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M12 3C14 7 17 10 20.5 10" />
+                        <path d="M12 21C14 17 17 14 20.5 14" />
+                        <path d="M3.5 10C7 10 10 7 12 3" />
+                        <path d="M3.5 14C7 14 10 17 12 21" />
+                        <path d="M10 12C10 14.5 14 14.5 14 12" />
+                    </svg>
+                </div>
+                <div class="label">Todo (Yarn Ball)</div>
+            </div>
+
+            <!-- Doing (Gemini Variant) -->
+            <div class="icon-card">
+                <div class="icon-box color-gemini">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3" />
+                        <path d="M4.1 16.3 7 19" />
+                        <path d="M7 19c1.5 1.5 4 0 5-2 .5-1 0-3-2-3-2 0-3 2-2 4 .5 1 2 2 4 2 2.5 0 5-3 6-7" />
+                        <path d="M15 10c1-2 4-2 5 0" />
+                    </svg>
+                </div>
+                <div class="label">Doing (Gemini)</div>
+            </div>
+
+            <!-- Doing (Opus Variant) -->
+            <div class="icon-card">
+                <div class="icon-box color-opus">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 21a9 9 0 1 0-9-9c0 1.5.4 3 1.1 4.3" />
+                        <path d="M4.1 16.3 7 19" />
+                        <path d="M7 19c1.5 1.5 4 0 5-2 .5-1 0-3-2-3-2 0-3 2-2 4 .5 1 2 2 4 2 2.5 0 5-3 6-7" />
+                        <path d="M15 10c1-2 4-2 5 0" />
+                    </svg>
+                </div>
+                <div class="label">Doing (Opus)</div>
+            </div>
+
+            <!-- Blocked -->
+            <div class="icon-card">
+                <div class="icon-box color-warning">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 10h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V10z" />
+                        <path d="M4 10l-2-3h20l-2 3" />
+                        <path d="M16 22c0 0 1 3 4 2s2-4-2-4" />
+                        <path d="M15 10v-2" />
+                        <path d="M9 10v-2" />
+                        <path d="M20 5l-2 2h2l-2 2" transform="scale(0.8) translate(10, 0)" />
+                    </svg>
+                </div>
+                <div class="label">Blocked (Tail Out)</div>
+            </div>
+
+            <!-- Done -->
+            <div class="icon-card">
+                <div class="icon-box color-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path
+                            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                        <path d="M6 10H3" />
+                        <path d="M6 12H3" />
+                        <path d="M18 10h3" />
+                        <path d="M18 12h3" />
+                        <path d="M12 12v3" />
+                    </svg>
+                </div>
+                <div class="label">Done (Love)</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>2. Style Check (Polaroid)</h2>
+        <div class="polaroid-container">
+            <div class="polaroid-card">
+                <div class="polaroid-image-area">
+                    <div class="polaroid-title">Skill Learned</div>
+                    <ul class="polaroid-list">
+                        <li>Clean SVGs</li>
+                        <li>currentColor support</li>
+                        <li>24x24 viewBox</li>
+                    </ul>
+                </div>
+                <div class="polaroid-footer">By Gemini</div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

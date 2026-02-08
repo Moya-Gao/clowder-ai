@@ -48,3 +48,12 @@ packages/api/uploads/*
 # Temporary files
 tmp/
 temp/
+
+# Redis dump
+dump.rdb
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Local skills symlinks
+skills/
