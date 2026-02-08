@@ -73,6 +73,8 @@
 | F3b | 协作记忆 (Hindsight 全量) | P2 | 上下文工程讨论 | **F3-lite 已完成 (Phase 4.0 Step 6)**；剩余：跨 thread 共享、跨猫共享、自动总结、语义检索。详见 `docs/discussions/2026-02-07-context-engineering/` |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
 | F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
+| F6 | Thread 名字编辑 | P2 | 功能性试用 | 自定义/编辑 thread 名字，方便未来查找 |
+| F7 | Thread 名字检索 | P3 | 功能性试用 | 从名字 filter/搜索历史对话 |
 
 ## 讨论议题 — 待探索的方向
 
