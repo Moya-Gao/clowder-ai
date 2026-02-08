@@ -7,8 +7,8 @@ import { spawn as nodeSpawn } from 'node:child_process';
 import type { CliSpawnOptions, ChildProcessLike, SpawnFn } from './cli-types.js';
 import { parseNDJSON, isParseError } from './ndjson-parser.js';
 
-/** Default timeout: 10 minutes (configurable via CLI_TIMEOUT_MS env var) */
-const DEFAULT_TIMEOUT_MS = Number(process.env['CLI_TIMEOUT_MS']) || 600_000;
+/** Default timeout: 30 minutes (configurable via CLI_TIMEOUT_MS env var, 0 = disable) */
+const DEFAULT_TIMEOUT_MS = Number(process.env['CLI_TIMEOUT_MS']) || 1_800_000;
 
 /** Grace period between SIGTERM and SIGKILL */
 export const KILL_GRACE_MS = 3_000;
@@ -43,11 +43,8 @@ export async function* spawnCli(
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  // Buffer stderr for error reporting
+  // Buffer stderr for error reporting (handler attached after resetTimeout is defined)
   let stderrBuffer = '';
-  child.stderr?.on('data', (chunk: Buffer) => {
-    stderrBuffer += chunk.toString();
-  });
 
   // Track child exit state (P1: prevents PID reuse kills)
   let childExited = false;
@@ -87,11 +84,26 @@ export async function* spawnCli(
   }
 
   // Timeout (distinct from user cancel via AbortSignal)
-  const timeoutTimer = setTimeout(() => {
-    timedOut = true;
-    killChild();
-  }, timeoutMs);
-  timeoutTimer.unref();
+  // Reset on any output — only triggers if CLI goes completely silent
+  // timeoutMs = 0 disables timeout (rely on user cancel)
+  let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+  const resetTimeout = (): void => {
+    if (timeoutMs === 0) return; // Disabled
+    if (timeoutTimer) clearTimeout(timeoutTimer);
+    timeoutTimer = setTimeout(() => {
+      timedOut = true;
+      killChild();
+    }, timeoutMs);
+    timeoutTimer.unref();
+  };
+  if (timeoutMs > 0) resetTimeout(); // Start initial timeout only if enabled
+
+  // Attach stderr handler now that resetTimeout is defined
+  // Reset timeout on stderr activity — CLI is alive (working on tools, thinking, etc.)
+  child.stderr?.on('data', (chunk: Buffer) => {
+    stderrBuffer += chunk.toString();
+    resetTimeout();
+  });
 
   // AbortSignal
   const abortHandler = (): void => killChild();
@@ -127,6 +139,8 @@ export async function* spawnCli(
 
     for await (const event of parseNDJSON(child.stdout)) {
       if (spawnError) throw spawnError;
+      // Reset timeout on any output — CLI is still alive
+      resetTimeout();
       if (isParseError(event)) {
         const parseErr = event as { line: string };
         console.error(`[cli-spawn] JSON parse error from ${options.command}: ${parseErr.line}`);
@@ -165,7 +179,7 @@ export async function* spawnCli(
       };
     }
   } finally {
-    clearTimeout(timeoutTimer);
+    if (timeoutTimer) clearTimeout(timeoutTimer);
     if (escalationTimer !== undefined) clearTimeout(escalationTimer);
     if (options.signal) {
       options.signal.removeEventListener('abort', abortHandler);
