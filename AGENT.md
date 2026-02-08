@@ -207,6 +207,25 @@ pnpm typecheck
 pnpm lint
 ```
 
+## 权限与授权（Codex App / CLI）
+
+在 Codex App 里运行命令/访问网络可能会被沙盒拦截——**包括访问 `localhost`**（例如本地 Hindsight `http://localhost:8888`）。
+
+### 典型症状
+
+- `curl`/HTTP 调用出现：`Operation not permitted` / `Couldn't connect to server`（但宿主机服务其实在跑）
+- 需要读取/写入工作区之外的路径时被拒绝
+
+### 正确做法（缅因猫必须记住）
+
+1. **先按正常方式运行命令**收集错误信息（不要猜）。
+2. 如果错误明显来自沙盒/权限（例如 `Operation not permitted`），**立刻发起授权请求**，让铲屎官在 App 弹窗里点“允许”。
+   - 请求里要写清楚：要做什么、为什么需要、影响范围（例如“仅用于访问本机 `localhost:8888` 健康检查”）。
+   - 如果工具支持，尽量请求“记住规则/前缀规则”，减少反复弹窗。
+3. 若需要配置层面调整，让铲屎官检查 `~/.codex/config.toml` 以及当前项目的信任/权限设置（CLI 和 App 通常共享同一套配置，但实际执行仍以当次会话策略为准）。
+
+> 经验法则：**只要涉及网络（哪怕是 `localhost`）就默认可能需要弹窗授权**；不要因为“配置里写了 network_access=true”就假设一定可用。
+
 ## 当你不确定时
 
 1. 先看设计文档确认预期行为
