@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-07 (Phase 4.0 协作地基 + 缅因猫 Review)
+> 维护者：布偶猫 | 最后更新：2026-02-08 (Hindsight 重大澄清 + 云端大猫 Review 修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -70,7 +70,7 @@
 | F1 | ~~配置可见性~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `6a671ac` — ConfigRegistry + GET /api/config + `/config` chat command |
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | ~~显式记忆 (F3-lite)~~ | [x] | Phase 4.0 计划 | Phase 4.0 Step 6 `25ca123` — /remember /recall 命令 + MemoryStore |
-| F3b | 协作记忆 (Hindsight 全量) | P2 | 上下文工程讨论 | **F3-lite 已完成 (Phase 4.0 Step 6)**；剩余：跨 thread 共享、跨猫共享、自动总结、语义检索。详见 `docs/discussions/2026-02-07-context-enginnering/` + `docs/phases/phase-5.0-context-engineering.md` |
+| F3b | 协作记忆 (Hindsight 集成) | P2 | 上下文工程讨论 | **重大澄清 (2026-02-08)**: Hindsight 是**已存在的外部服务**（Docker），不需要自己开发！铲屎官本地已部署。见 `docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`。剩余工作：1) HTTP 客户端封装 2) Bank 设计 (cat-cafe-shared 等) 3) MCP 工具复用 pangu-doer 版本 |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
 | F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
 | F6 | Thread 名字编辑 | P2 | 功能性试用 | 自定义/编辑 thread 名字，方便未来查找 |

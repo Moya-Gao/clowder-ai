@@ -15,6 +15,7 @@
 - 布偶猫纪要（记忆派）：`docs/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md`
 - 暹罗猫纪要（体验派）：`docs/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md`
 - 缅因猫纪要（融合版）：`docs/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md`
+- Hindsight 重大澄清（外部服务已部署）：`docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`
 - Backlog（必须对齐）：`docs/BACKLOG.md`
 
 ---
@@ -73,6 +74,7 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 - 讨论沉淀与结构化：`docs/discussions/`、`docs/decisions/`、`docs/phases/`（本质是“可检索的协作记忆雏形”）。  
 - 事件审计日志：`EventAuditLog`（`packages/api/src/domains/cats/services/EventAuditLog.ts`）— “即使 Redis 丢了，真相可追溯”。  
 - MCP Server 基础：`packages/mcp-server/src/tools/file-tools.ts`（文件读取/写入等）。  
+- Hindsight 外部服务（据 `docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`）：铲屎官本地已通过 Docker 部署，可直接调用 Retain/Recall/Reflect API（无需我们在 Cat Café 代码里“自己实现一个记忆系统”）。
 
 ---
 
@@ -96,6 +98,10 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 3. `docs/discussions/`（过程与 why）  
 4. `git log`（Context Lineage 的最低配：commit message + touched files）  
 
+**实现备注（建议）**
+- 优先复用 Hindsight：把上述文档按“片段 + anchors 元数据”批量 Retain 到指定 bank，检索时用 Recall 返回 Top‑K 证据片段。  
+- 若 Hindsight 不可用（或未部署），MVP 允许降级为本地全文检索（grep/简单倒排），但输出格式仍必须 evidence‑first。  
+
 **输出格式约束（强制）**
 - 每条结果至少包含：
   - `title`（一句话）
@@ -110,13 +116,18 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 **核心设计**
 - 增加记忆维度：
   - `scope`: `thread_local | project_shared | cat_personal`
-  - `status`: `draft | published | archived`
+  - `status`: `draft | pending_review | published | archived`
   - `sensitivity`: `low | high`（低敏可走更轻门禁）
   - `anchors[]`: 证据锚点（必须字段；为空则强制低置信）
 
+**存储与集成（关键澄清）**
+- Hindsight 是**外部服务**：Retain/Recall/Reflect 已存在。Phase 5 的工作重点是“怎么用好它 + 怎么治理”，而不是在 Cat Café 里再造一套记忆系统。  
+- Bank 隔离优先：把 `scope` 映射为 bank（例如 `cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}`），而不是把所有东西塞进一个 Redis Hash。  
+- 发布门禁/状态机不属于 Hindsight：需要在 Cat Café 调用层实现（可用 Redis 存状态、EventAuditLog 记审计；记忆正文存 Hindsight）。  
+
 **发布门禁（建议默认）**
 - `thread_local`: 允许写入即生效（风险低，仅当前 thread）。
-- `project_shared` (低敏)：**24h 提醒 + 猫猫互审模式**（铲屎官 2026-02-08 拍板）：
+- `project_shared` (低敏)：**24h 提醒 + 猫猫互审模式**（建议）：
   1. 创建时 `status = draft`
   2. 24h 后 `status = pending_review`（**不是自动提升**，只是提醒需要 review）
   3. 任意一只猫 `/approve` → `status = published`
@@ -143,7 +154,7 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 
 Phase 5 里应当显式承接这些 backlog：
 
-- `F3b` 协作记忆（Hindsight 全量）— Phase 5 主线（治理 + bank 分层 + recall/reflect）。  
+- `F3b` 协作记忆（Hindsight 集成）— Phase 5 主线（治理 + bank 分层 + recall/reflect）。  
 - `#19` 自动讨论纪要生成 — Phase 5 的“自动沉淀”入口（Summary→Memory 候选），建议作为 Step 2a 的加速器而非 gate。  
 - `#32` DegradationPolicy 绑定实际链路 — 证据检索/记忆 publish 过程必须可降级，并给出用户可理解的 system_info。  
 
@@ -151,19 +162,16 @@ Phase 5 里应当显式承接这些 backlog：
 
 ---
 
-## 8) 铲屎官拍板结果（2026-02-08）
+## 8) 需要铲屎官拍板的 7 个问题（开工前）
 
-| # | 问题 | 决策 | 备注 |
-|---|------|------|------|
-| 1 | 入口选择 | **三者都要**：`/evidence` + API + MCP | MCP 给猫猫 agent 用，`/evidence` 给铲屎官用 |
-| 2 | project_shared 低敏发布 | **24h 提醒 + 猫猫互审** | draft → pending_review → /approve → published |
-| 3 | anchors 最低要求 | **file path 即可** | commit hash 作为高置信度加分项 |
-| 4 | Hindsight 接入形态 | **直接嵌入** | 复用现有 Redis/EventAuditLog，不另起服务 |
-| 5 | reflect 触发条件 | **三种都支持** | 猫猫 `/reflect` + 铲屎官主动 + thread 结束自动 |
-| 6 | 符号级索引 | **留到 Phase 6** | Phase 5 用 file path 做索引 |
-| 7 | UX | **卡片组件** | 请暹罗猫设计视觉方案 |
+1. Hindsight Docker 的连接参数是否确认？（URL/端口/是否鉴权/环境变量命名）  
+2. Bank 设计怎么定？（`cat-cafe-shared` / `cat-cafe-{catId}` / `cat-cafe-{project}` 是否需要 thread 维度？）  
+3. F3‑lite `/remember` `/recall` 与 Hindsight 的分工是什么？（分层：临时 vs 持久；还是最终迁移到 Hindsight？）  
+4. 发布门禁（24h 提醒 + 互审/签核）放在哪里实现？（Cat Café 调用层 vs Hindsight metadata；状态持久化方案）  
+5. Step 1 的 evidence 检索是否直接复用 Hindsight Recall？若是：哪些内容要批量 Retain（docs/decisions/phases/discussions + git lineage）以及同步策略（手动/定时/增量）？  
+6. Reflect 的触发策略与默认模型是什么？（每日定时 / 讨论结束 / 手动命令；以及 provider 配置）  
+7. UX 以什么方式呈现最合适？（系统消息 vs 卡片；折叠/展开；失败降级提示）  
 
 ---
 
-*签名：缅因猫🐾（基于三猫辩论共识）+ 布偶猫🐾（补充拍板记录）+ 🐬铲屎官（最终拍板 2026-02-08）*
-
+*签名：缅因猫🐾（基于三猫辩论共识，已吸收 2026-02-08 Hindsight 澄清）*
