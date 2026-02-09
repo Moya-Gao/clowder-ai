@@ -74,7 +74,7 @@ interface InvocationRecord {
   targetCats: CatId[];           // 路由目标
   intent: 'execute' | 'ideate';  // 执行意图
   status: InvocationStatus;
-  idempotencyKey?: string;       // 关联的幂等 key
+  idempotencyKey: string;         // 幂等 key（客户端提供或后端自动生成，始终有值）
   error?: string;                // failed 时的错误信息
   createdAt: number;
   updatedAt: number;
@@ -132,14 +132,20 @@ POST /api/messages
 ```
 POST /api/invocations/:id/retry
   → 检查 InvocationRecord 存在
-  → 允许重试条件: status == 'failed'
-                  OR (status == 'queued' && userMessageId == null)
+  → 允许重试条件: status == 'failed' OR status == 'queued'
+  → 拒绝重试: status == 'running' | 'succeeded' | 'canceled'
   → 补偿: 若 userMessageId == null，先补写用户消息并回填
   → 更新 status = 'queued' (若已是 queued 则不变)
-  → 重新执行猫调用
+  → 执行猫调用
 ```
 
-**为什么 `queued && userMessageId == null` 也允许重试**：进程在 ②~④ 之间崩溃时，Record 停留在 `queued` 且消息未写入。如果 retry 只允许 `failed`，这类"半完成"记录会成为无法触发补偿的死角。
+**为什么 `queued` 整体可重试（不细分 `userMessageId`）**：`queued` 的语义是"还没开始运行"。无论 `userMessageId` 是否有值，重试都是安全的——endpoint 内部根据 `userMessageId` 是否为 null 决定是否需要先补写消息。三种 `queued` 崩溃态全部覆盖：
+
+| 崩溃点 | userMessageId | retry 行为 |
+|--------|---------------|-----------|
+| ②~③ 之间 | null | 补写消息 → 回填 → 执行 |
+| ③~④ 之间 | null（消息已写但未回填）| 根据 internalIdempotencyKey 查找消息 → 回填 → 执行 |
+| ⑤~⑥ 之间 | 有值 | 直接执行 |
 
 ### 与现有 InvocationTracker 的关系
 
@@ -214,10 +220,12 @@ const sendMessageSchema = z.object({
 - 不同 thread 中的相同 key 不冲突（理论上不可能，UUID 碰撞概率极低，但语义上正确）
 - 与现有 Redis key pattern（`cat-cafe:msg:thread:{threadId}`）一致
 
-### 向后兼容
+### 向后兼容 + 内部强制保证
 
-- `idempotencyKey` 是可选字段
-- 不传时退化为当前行为（无去重）
+- **对外**：`idempotencyKey` 是可选字段（向后兼容旧客户端）
+- **对内**：服务端在路由层保证每次请求都有幂等键。客户端未传时，**后端自动生成 UUID 作为 `internalIdempotencyKey`** 并写入 InvocationRecord
+- 补偿路径始终可用：无论客户端是否传 key，③→④ 的"根据 key 查找已写消息"路径都能走通
+- 区别：客户端传的 key 防**网络重试**（同一 key 命中去重），后端生成的 key 只防**崩溃补偿**（retry 时用于回填关联）
 
 ### Why
 
