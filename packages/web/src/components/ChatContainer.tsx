@@ -9,6 +9,7 @@ import { useChatHistory } from '@/hooks/useChatHistory';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { RightStatusPanel } from './RightStatusPanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -28,6 +29,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     messages,
     isLoading,
     intentMode,
+    targetCats,
+    catStatuses,
     addMessage,
     setIntentMode,
     setTargetCats,
@@ -35,7 +38,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     setCurrentThread,
     updateThreadTitle,
   } = useChatStore();
-  const { addTask, updateTask, clearTasks } = useTaskStore();
+  const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
@@ -47,6 +50,42 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     hasMore,
   } = useChatHistory(threadId);
   const { handleSend } = useSendMessage();
+
+  const messageSummary = useMemo(() => {
+    let assistant = 0;
+    let system = 0;
+    let evidence = 0;
+    let followup = 0;
+
+    for (const msg of messages) {
+      if (msg.type === 'assistant') assistant += 1;
+      if (msg.type === 'system') {
+        system += 1;
+        if (msg.variant === 'evidence') evidence += 1;
+        if (msg.variant === 'a2a_followup') followup += 1;
+      }
+    }
+
+    return {
+      total: messages.length,
+      assistant,
+      system,
+      evidence,
+      followup,
+    };
+  }, [messages]);
+
+  const taskSummary = useMemo(() => {
+    let done = 0;
+    for (const task of tasks) {
+      if (task.status === 'done') done += 1;
+    }
+
+    return {
+      total: tasks.length,
+      done,
+    };
+  }, [tasks]);
 
   // P2 fix: suppress stale socket messages during thread switch window.
   // Set true synchronously when threadId changes; cleared after room switch completes.
@@ -162,6 +201,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
       </div>
+
+      <RightStatusPanel
+        intentMode={intentMode}
+        targetCats={targetCats}
+        catStatuses={catStatuses}
+        messageSummary={messageSummary}
+        taskSummary={taskSummary}
+      />
     </div>
   );
 }

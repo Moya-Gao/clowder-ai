@@ -81,7 +81,7 @@
 | F5 | ideate 模式 A2A follow-up | [x] | Phase 3.9 | Phase 5.2 — routeParallel 完成后 yield a2a_followup_available system_info + 前端 a2a_followup variant 显示 |
 | F6 | ~~Thread 名字编辑~~ | [x] | 功能性试用 | `81939c1` — PATCH /api/threads/:id 更新标题 + 前端编辑 UI |
 | F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
-| F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 前端显示：工具调用、thinking、耗时、token 消耗等。参考 Claude Code 的 token 计数 + 耗时显示。当前 UX 极差（辩论时铲屎官等得难受）|
+| F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 已有基础可见性：顶部并行状态条 + 右侧状态栏（模式/猫状态/消息任务统计）。待补全：token/耗时等深度指标，才可关闭。 |
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 
 ## 讨论议题 — 待探索的方向
