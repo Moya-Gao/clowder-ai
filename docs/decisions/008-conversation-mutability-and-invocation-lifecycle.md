@@ -70,7 +70,7 @@ interface InvocationRecord {
   id: string;                    // 唯一 ID
   threadId: string;
   userId: string;
-  userMessageId: string;         // 关联的用户消息 ID
+  userMessageId: string | null;   // 关联的用户消息 ID（null = 消息尚未写入，需补偿）
   targetCats: CatId[];           // 路由目标
   intent: 'execute' | 'ideate';  // 执行意图
   status: InvocationStatus;
@@ -95,11 +95,12 @@ POST /api/messages
 **新流程**：
 ```
 POST /api/messages
-  ① 检查 idempotencyKey → 重复则返回 { status: 'duplicate', invocationId }
-  ② 写入用户消息 (messageStore.append) ← 移到同步路径
-  ③ 创建 InvocationRecord { status: 'queued' }
-  ④ reply 202 { invocationId }
-  ⑤ background:
+  ① 幂等检查: SET NX EX 原子占位 → 重复则返回 { status: 'duplicate', invocationId }
+  ② 创建 InvocationRecord { status: 'queued', userMessageId: null }
+  ③ 写入用户消息 (messageStore.append)
+  ④ 回填 InvocationRecord.userMessageId = storedMessage.id
+  ⑤ reply 202 { invocationId }
+  ⑥ background:
       → InvocationRecord.status = 'running'
       → 执行猫调用 (routeSerial/routeParallel)
       → 成功: InvocationRecord.status = 'succeeded', ackCursor()
@@ -107,9 +108,21 @@ POST /api/messages
       → 取消: InvocationRecord.status = 'canceled'
 ```
 
-关键变化：**用户消息在 ② 同步写入，不再在 background async 中**。这意味着：
+**关键设计：先落 InvocationRecord 再写消息**。
+
+这解决"消息已写入但 Record 未创建"的悬空窗口问题。可能的失败场景与补偿：
+
+| 失败点 | 状态 | 补偿 |
+|--------|------|------|
+| ② 之后、③ 之前 | Record 存在 (queued)，无消息 | Record.userMessageId=null 标识未完成，retry 时补写消息 |
+| ③ 之后、④ 之前 | Record 存在，消息存在，但 Record.userMessageId=null | retry 时根据 idempotencyKey 找到消息并回填 |
+| ④ 之后、⑥ 之前 | Record + 消息都完整 | 正常 background 执行 |
+
+`userMessageId: null` 是 InvocationRecord 的"未完成"标记。重试端点检测到此状态时，先补完消息写入再执行猫调用。
+
+关键变化：
 - 用户消息写入和猫调用执行彻底解耦
-- 重试只需重新执行 ⑤，不会重复写入用户消息
+- 重试只需重新执行 ⑥，不会重复写入用户消息
 - cursor 只在 `succeeded` 时推进，`failed`/`canceled` 不推进
 
 ### 重试端点
@@ -163,19 +176,21 @@ Value: invocationId (D1 的 InvocationRecord ID)
 TTL: 300 秒 (5 分钟)
 ```
 
-### 行为
+### 行为（原子语义）
 
 1. 前端每次发送消息时生成 UUID 作为 `idempotencyKey`
-2. 后端在创建 InvocationRecord 之前检查 key
-3. key 存在 → 返回 `{ status: 'duplicate', invocationId }`（不写消息、不创建 Record）
-4. key 不存在 → 正常流程，写入 key + TTL
+2. 后端先生成 `invocationId`，然后用 **`SET cat-cafe:idemp:{...} {invocationId} NX EX 300`** 原子占位
+3. SET 返回 `null`（key 已存在）→ GET 取出已有 `invocationId` → 返回 `{ status: 'duplicate', invocationId }`
+4. SET 返回 `OK`（占位成功）→ 正常流程，继续创建 InvocationRecord
+
+**为什么必须用 `SET NX EX`**：并发下两个请求如果用"先 GET 再 SET"的非原子流程，可能都通过检查导致重复写入。`NX`（not exists）让 Redis 在单条命令内完成竞争仲裁。
 
 ### Schema 变化
 
 ```typescript
 // messages.schema.ts 变更
 const sendMessageSchema = z.object({
-  content: z.string().min(1).max(100000),
+  content: z.string().min(1).max(10000),  // 与现有 messages.schema.ts 一致
   userId: z.string().min(1).max(100).default('default-user'),
   threadId: z.string().min(1).max(100).optional(),
   idempotencyKey: z.string().uuid().optional(),  // 新增
