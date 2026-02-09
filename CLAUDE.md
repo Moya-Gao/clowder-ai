@@ -64,8 +64,10 @@ docs/decisions/001-agent-invocation-approach.md
 - [x] Phase 1: 单猫通信
 - [x] Phase 2: 三猫接入
 - [x] Phase 2.5: SDK → CLI 迁移
-- [ ] **Phase 3: 完整体验** ← 下一阶段
-- [ ] Phase 4: 高级功能
+- [x] Phase 3.x: 完整体验 (3a→3.9, 含 A2A 猫猫互调)
+- [x] Phase 4.0: 协作地基 (per-cat budgets, F3-lite, 降级框架, 460 tests)
+- [x] **Phase 5.0: 上下文工程** (Hindsight 集成, Evidence/Reflect, 治理状态机, 567 tests)
+- [ ] Phase 5.x+: 待规划
 
 ### 4. 已知坑位（重要！）
 
@@ -74,7 +76,7 @@ docs/decisions/001-agent-invocation-approach.md
 | CLI 启动开销 | 每次 spawn ~500ms-2s | 可考虑进程池 |
 | NDJSON 格式变化 | CLI 升级可能改变输出格式 | 版本锁定 + 容错解析 |
 | Antigravity 回传 | MCP callback 可能无响应 | gemini-cli fallback |
-| Session 内存存储 | 重启丢失 | Phase 3 迁移 Redis |
+| Codex 全局配置覆盖 | `~/.codex/AGENTS.md` 优先级极高 | 需调研隔离方案，详见 BACKLOG #36 |
 
 ## 技术栈
 
