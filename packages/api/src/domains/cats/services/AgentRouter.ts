@@ -169,7 +169,9 @@ export class AgentRouter {
   }
 
   /**
-   * Route message to appropriate agent(s) based on @ mentions and thread participants
+   * Route message to appropriate agent(s) based on @ mentions and thread participants.
+   * @deprecated Use routeExecution() instead — route() couples message writing with execution.
+   *             Will be removed after S4 migration is complete.
    */
   async *route(
     userId: string,
@@ -212,6 +214,53 @@ export class AgentRouter {
     } else {
       yield* routeSerial(
         strategyDeps, targetCats, cleanMessage, userId, resolvedThreadId, routeOptions,
+      );
+    }
+  }
+
+  /**
+   * Execute cat invocation without writing the user message (ADR-008 S1).
+   * Message writing is decoupled — the caller writes the message and passes its ID.
+   *
+   * @param userMessageId - ID of the already-stored user message
+   * @param targetCats - pre-resolved target cats (from resolveTargets)
+   * @param intent - pre-parsed intent result
+   */
+  async *routeExecution(
+    userId: string,
+    message: string,
+    threadId: string,
+    userMessageId: string,
+    targetCats: CatId[],
+    intent: IntentResult,
+    options?: {
+      contentBlocks?: readonly MessageContent[];
+      uploadDir?: string;
+      signal?: AbortSignal;
+    },
+  ): AsyncIterable<AgentMessage> {
+    const cleanMessage = stripIntentTags(message);
+
+    if (this.threadStore) {
+      await this.threadStore.updateLastActive(threadId);
+    }
+
+    const strategyDeps = this.getStrategyDeps();
+    const routeOptions = {
+      contentBlocks: options?.contentBlocks,
+      uploadDir: options?.uploadDir,
+      signal: options?.signal,
+      promptTags: intent.promptTags,
+      currentUserMessageId: userMessageId,
+    };
+
+    if (intent.intent === 'ideate' && targetCats.length > 1) {
+      yield* routeParallel(
+        strategyDeps, targetCats, cleanMessage, userId, threadId, routeOptions,
+      );
+    } else {
+      yield* routeSerial(
+        strategyDeps, targetCats, cleanMessage, userId, threadId, routeOptions,
       );
     }
   }

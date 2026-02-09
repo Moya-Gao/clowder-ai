@@ -8,8 +8,12 @@
  * 兼容行为：未传 threadId 时会降级到 'default' thread（历史行为）。
  * 跨线程鉴权、InvocationTracker、消息存储都依赖正确的 threadId。
  * 前端应先确保 thread 存在（POST /api/threads）再发消息。
+ *
+ * ADR-008 S1: 消息写入与猫调用执行解耦。
+ * POST 流程: 原子创建 InvocationRecord → 写入用户消息 → 回填 → reply 202 → background 执行
  */
 
+import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
@@ -24,6 +28,7 @@ import {
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -44,6 +49,7 @@ export interface MessagesRoutesOptions {
   threadStore?: IThreadStore;
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
+  invocationRecordStore?: IInvocationRecordStore;
 }
 
 const getMessagesSchema = z.object({
@@ -84,6 +90,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     let userId: string;
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
+    let idempotencyKey: string | undefined;
 
     if (request.isMultipart()) {
       // Parse multipart: text fields + image files
@@ -100,7 +107,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         reply.status(400);
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
-      ({ content, userId, threadId } = parseResult.data);
+      ({ content, userId, threadId, idempotencyKey } = parseResult.data);
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)
@@ -143,47 +150,147 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       };
     }
 
-    reply.send({ status: 'processing', timestamp: Date.now() });
+    // ADR-008 S1: Pre-resolve targets + intent (needed for InvocationRecord + broadcast)
+    const { targetCats, intent } = await router.resolveTargetsAndIntent(
+      content, resolvedThreadId,
+    );
 
-    // Process in background and broadcast via WebSocket
-    void (async () => {
-      // Heartbeat interval to keep frontend informed during long operations
-      const HEARTBEAT_INTERVAL_MS = 30_000;
-      const heartbeatInterval = setInterval(() => {
-        opts.socketManager.broadcastToRoom(
-          `thread:${resolvedThreadId}`,
-          'heartbeat',
-          { threadId: resolvedThreadId, timestamp: Date.now() },
-        );
-      }, HEARTBEAT_INTERVAL_MS);
+    // Server-generated idempotency key if client didn't provide one
+    const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
-      try {
-        // Pre-resolve intent so frontend can show IdeateHeader immediately
-        const { targetCats, intent } = await router.resolveTargetsAndIntent(
-          content, resolvedThreadId,
-        );
-        opts.socketManager.broadcastToRoom(
-          `thread:${resolvedThreadId}`,
-          'intent_mode',
-          { threadId: resolvedThreadId, mode: intent.intent, targetCats },
-        );
+    // ① Atomic create InvocationRecord (Lua in Redis, sync Map in memory)
+    if (opts.invocationRecordStore) {
+      const createResult = await opts.invocationRecordStore.create({
+        threadId: resolvedThreadId,
+        userId,
+        targetCats,
+        intent: intent.intent,
+        idempotencyKey: resolvedIdempotencyKey,
+      });
 
-        for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir, controller?.signal)) {
-          opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
-        }
-      } catch (err) {
-        console.error('[messages] Background processing error:', err);
-        opts.socketManager.broadcastAgentMessage({
-          type: 'error',
-          catId: createCatId('opus'),
-          error: err instanceof Error ? err.message : 'Unknown error',
-          timestamp: Date.now(),
-        }, resolvedThreadId);
-      } finally {
-        clearInterval(heartbeatInterval);
+      if (createResult.outcome === 'duplicate') {
+        // Deduplicated — return existing invocation ID
         opts.invocationTracker?.complete(resolvedThreadId, controller);
+        reply.status(200);
+        return { status: 'duplicate', invocationId: createResult.invocationId };
       }
-    })();
+
+      // ② Write user message (decoupled from cat execution)
+      const storedUserMessage = await opts.messageStore.append({
+        userId,
+        catId: null,
+        content,
+        mentions: targetCats,
+        timestamp: Date.now(),
+        threadId: resolvedThreadId,
+        ...(contentBlocks ? { contentBlocks } : {}),
+      });
+
+      // ③ Backfill InvocationRecord.userMessageId
+      await opts.invocationRecordStore.update(createResult.invocationId, {
+        userMessageId: storedUserMessage.id,
+      });
+
+      // ④ Reply with invocationId
+      reply.send({
+        status: 'processing',
+        invocationId: createResult.invocationId,
+        timestamp: Date.now(),
+      });
+
+      // ⑤ Background: execute cat invocation via routeExecution
+      void (async () => {
+        const HEARTBEAT_INTERVAL_MS = 30_000;
+        const heartbeatInterval = setInterval(() => {
+          opts.socketManager.broadcastToRoom(
+            `thread:${resolvedThreadId}`,
+            'heartbeat',
+            { threadId: resolvedThreadId, timestamp: Date.now() },
+          );
+        }, HEARTBEAT_INTERVAL_MS);
+
+        try {
+          await opts.invocationRecordStore!.update(createResult.invocationId, {
+            status: 'running',
+          });
+
+          opts.socketManager.broadcastToRoom(
+            `thread:${resolvedThreadId}`,
+            'intent_mode',
+            { threadId: resolvedThreadId, mode: intent.intent, targetCats },
+          );
+
+          for await (const msg of router.routeExecution(
+            userId, content, resolvedThreadId, storedUserMessage.id,
+            targetCats, intent,
+            {
+              ...(contentBlocks ? { contentBlocks } : {}),
+              uploadDir,
+              ...(controller?.signal ? { signal: controller.signal } : {}),
+            },
+          )) {
+            opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+          }
+
+          await opts.invocationRecordStore!.update(createResult.invocationId, {
+            status: 'succeeded',
+          });
+        } catch (err) {
+          console.error('[messages] Background processing error:', err);
+          const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+          await opts.invocationRecordStore!.update(createResult.invocationId, {
+            status: 'failed',
+            error: errorMsg,
+          });
+          opts.socketManager.broadcastAgentMessage({
+            type: 'error',
+            catId: createCatId('opus'),
+            error: errorMsg,
+            timestamp: Date.now(),
+          }, resolvedThreadId);
+        } finally {
+          clearInterval(heartbeatInterval);
+          opts.invocationTracker?.complete(resolvedThreadId, controller);
+        }
+      })();
+    } else {
+      // Fallback: no invocationRecordStore (legacy path, uses route())
+      reply.send({ status: 'processing', timestamp: Date.now() });
+
+      void (async () => {
+        const HEARTBEAT_INTERVAL_MS = 30_000;
+        const heartbeatInterval = setInterval(() => {
+          opts.socketManager.broadcastToRoom(
+            `thread:${resolvedThreadId}`,
+            'heartbeat',
+            { threadId: resolvedThreadId, timestamp: Date.now() },
+          );
+        }, HEARTBEAT_INTERVAL_MS);
+
+        try {
+          opts.socketManager.broadcastToRoom(
+            `thread:${resolvedThreadId}`,
+            'intent_mode',
+            { threadId: resolvedThreadId, mode: intent.intent, targetCats },
+          );
+
+          for await (const msg of router.route(userId, content, resolvedThreadId, contentBlocks, uploadDir, controller?.signal)) {
+            opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+          }
+        } catch (err) {
+          console.error('[messages] Background processing error:', err);
+          opts.socketManager.broadcastAgentMessage({
+            type: 'error',
+            catId: createCatId('opus'),
+            error: err instanceof Error ? err.message : 'Unknown error',
+            timestamp: Date.now(),
+          }, resolvedThreadId);
+        } finally {
+          clearInterval(heartbeatInterval);
+          opts.invocationTracker?.complete(resolvedThreadId, controller);
+        }
+      })();
+    }
   });
 
   // GET /api/messages - 获取历史消息

@@ -15,6 +15,8 @@ export const sendMessageSchema = z.object({
   userId: z.string().min(1).max(100).default('default-user'),
   mentions: z.array(z.enum(['opus', 'codex', 'gemini'])).optional(),
   threadId: z.string().min(1).max(100).optional(),
+  /** Client-provided idempotency key (UUID). Optional — server generates one if absent. */
+  idempotencyKey: z.string().uuid().optional(),
 });
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
