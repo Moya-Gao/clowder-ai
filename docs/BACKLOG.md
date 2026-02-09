@@ -11,7 +11,7 @@
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 38 | **Session 按 Thread 隔离** | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | SessionManager 按 `userId:catId` 存储，跨 thread 复用导致上下文污染。需改为 `userId:catId:threadId` 或禁用跨 thread resume |
+| 38 | **Session 按 Thread 隔离** | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | Session key 从 `userId:catId` 改为 `userId:catId:threadId`，防止跨 thread 上下文污染 |
 
 ## P1 — 必须做
 
@@ -23,7 +23,7 @@
 | 4 | MCP 工具接入 (文件操作切 MCP Server) | [x] | Phase 2.5 | Phase 3.7 `8114d1d` + review fix `6137cc9` — 与 #1 合并, prompt 注入方式 |
 | 5 | 目录浏览安全 (allowlist/blocklist) | [x] | Phase 3.2 review | Phase 3.7 `59d2d80` — PROJECT_ALLOWED_ROOTS env var |
 | 6 | 多猫调用状态可观测性 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` (前端 per-cat status) + `1c3efe4` (CLI timeout 传播) |
-| 37 | **消息级审计日志** | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | EventAuditLog 只有 server 级事件，无法追溯 CLI 调用。需新增: `CAT_INVOKED`, `CAT_RESPONDED` 等，记录 prompt 摘要 + 响应事件流 |
+| 37 | **消息级审计日志** | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | 新增 `CAT_INVOKED`, `CAT_RESPONDED`, `CAT_ERROR`, `A2A_HANDOFF` 事件 + prompt-digest.ts 摘要 |
 
 ## P2 — 建议做
 

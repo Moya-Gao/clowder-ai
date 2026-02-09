@@ -1,6 +1,10 @@
 /**
  * Session Manager
- * 管理 user+cat session ID 的存取。
+ * 管理 user+cat+thread session ID 的存取。
+ *
+ * 注意：Session 按 threadId 隔离（茶话会夺魂 bug fix #38）
+ * - 同一用户与同一猫在不同 thread 有独立的 session
+ * - 避免跨 thread 上下文污染
  *
  * Redis SessionStore 可用时走 Redis，否则降级到内存 Map (LRU)。
  */
@@ -21,16 +25,16 @@ export class SessionManager {
   }
 
   /**
-   * Store session ID for user + cat combination.
+   * Store session ID for user + cat + thread combination.
    * Uses Redis SessionStore when available, falls back to in-memory Map.
    */
-  async store(userId: string, catId: CatId, sessionId: string): Promise<void> {
+  async store(userId: string, catId: CatId, threadId: string, sessionId: string): Promise<void> {
     if (this.sessionStore) {
-      await this.sessionStore.setSessionId(userId, catId, sessionId);
+      await this.sessionStore.setSessionId(userId, catId, threadId, sessionId);
       return;
     }
 
-    const key = `${userId}:${catId}`;
+    const key = `${userId}:${catId}:${threadId}`;
 
     // Delete first so it moves to the end (most recent) on re-insert
     if (this.sessions.has(key)) {
@@ -49,15 +53,15 @@ export class SessionManager {
   }
 
   /**
-   * Get stored session ID for user + cat combination.
+   * Get stored session ID for user + cat + thread combination.
    * Uses Redis SessionStore when available, falls back to in-memory Map.
    */
-  async get(userId: string, catId: CatId): Promise<string | undefined> {
+  async get(userId: string, catId: CatId, threadId: string): Promise<string | undefined> {
     if (this.sessionStore) {
-      const result = await this.sessionStore.getSessionId(userId, catId);
+      const result = await this.sessionStore.getSessionId(userId, catId, threadId);
       return result ?? undefined;
     }
 
-    return this.sessions.get(`${userId}:${catId}`);
+    return this.sessions.get(`${userId}:${catId}:${threadId}`);
   }
 }

@@ -18,6 +18,7 @@ import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
 import { assembleContext } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
+import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -188,6 +189,24 @@ export async function* routeSerial(
         const nextCat = a2aMentions[0]!;
         worklist.push(nextCat);
         a2aCount++;
+
+        // === A2A_HANDOFF 审计 ===
+        try {
+          const auditLog = getEventAuditLog();
+          await auditLog.append({
+            type: AuditEventTypes.A2A_HANDOFF,
+            threadId,
+            data: {
+              fromCat: catId,
+              toCat: nextCat,
+              userId,
+              a2aDepth: a2aCount,
+              maxDepth,
+            },
+          });
+        } catch {
+          console.error('[audit] A2A_HANDOFF write failed');
+        }
 
         // Notify frontend: handoff event
         const nextConfig = CAT_CONFIGS[nextCat as keyof typeof CAT_CONFIGS];

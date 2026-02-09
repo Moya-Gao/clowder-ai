@@ -43,7 +43,9 @@ export function createRedisClient(config?: Partial<RedisConfig>): RedisClient {
 }
 
 export const SessionKeys = {
-  session: (userId: string, catId: string) => `sessions:${userId}:${catId}`,
+  /** Session key now includes threadId for isolation (茶话会夺魂 bug fix #38) */
+  session: (userId: string, catId: string, threadId: string) =>
+    `sessions:${userId}:${catId}:${threadId}`,
   catState: (catId: string) => `state:${catId}`,
   taskQueue: (catId: string) => `tasks:${catId}`,
   messageChannel: () => 'chat:messages',
@@ -52,26 +54,27 @@ export const SessionKeys = {
 export class SessionStore {
   constructor(private redis: RedisClient) {}
 
-  async getSessionId(userId: string, catId: string): Promise<string | null> {
-    return this.redis.get(SessionKeys.session(userId, catId));
+  async getSessionId(userId: string, catId: string, threadId: string): Promise<string | null> {
+    return this.redis.get(SessionKeys.session(userId, catId, threadId));
   }
 
   async setSessionId(
     userId: string,
     catId: string,
+    threadId: string,
     sessionId: string,
     ttlSeconds = 86400
   ): Promise<void> {
     await this.redis.set(
-      SessionKeys.session(userId, catId),
+      SessionKeys.session(userId, catId, threadId),
       sessionId,
       'EX',
       ttlSeconds
     );
   }
 
-  async deleteSession(userId: string, catId: string): Promise<void> {
-    await this.redis.del(SessionKeys.session(userId, catId));
+  async deleteSession(userId: string, catId: string, threadId: string): Promise<void> {
+    await this.redis.del(SessionKeys.session(userId, catId, threadId));
   }
 
   async getCatState(catId: string): Promise<Record<string, unknown> | null> {

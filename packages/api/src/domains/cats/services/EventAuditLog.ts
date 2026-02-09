@@ -185,6 +185,17 @@ export const AuditEventTypes = {
   SERVER_STARTED: 'server_started',
   /** 服务器关闭 */
   SERVER_SHUTDOWN: 'server_shutdown',
+
+  // === 消息级审计 (茶话会夺魂 bug fix #37) ===
+
+  /** 猫被调用 (CLI spawn 前) */
+  CAT_INVOKED: 'cat_invoked',
+  /** 猫响应完成 (done 消息后) */
+  CAT_RESPONDED: 'cat_responded',
+  /** 调用发生错误 */
+  CAT_ERROR: 'cat_error',
+  /** 猫猫互调 handoff */
+  A2A_HANDOFF: 'a2a_handoff',
 } as const;
 
 /** Singleton instance for convenience */
