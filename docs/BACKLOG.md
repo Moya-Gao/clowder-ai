@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-08 (Hindsight 重大澄清 + 云端大猫 Review 修复)
+> 维护者：布偶猫 | 最后更新：2026-02-08 (茶话会夺魂 bug 侦查)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -21,6 +21,7 @@
 | 4 | MCP 工具接入 (文件操作切 MCP Server) | [x] | Phase 2.5 | Phase 3.7 `8114d1d` + review fix `6137cc9` — 与 #1 合并, prompt 注入方式 |
 | 5 | 目录浏览安全 (allowlist/blocklist) | [x] | Phase 3.2 review | Phase 3.7 `59d2d80` — PROJECT_ALLOWED_ROOTS env var |
 | 6 | 多猫调用状态可观测性 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` (前端 per-cat status) + `1c3efe4` (CLI timeout 传播) |
+| 37 | **消息级审计日志** | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | EventAuditLog 只有 server 级事件，无法追溯 CLI 调用。需新增: `CAT_INVOKED`, `CAT_RESPONDED` 等，记录 prompt 摘要 + 响应事件流 |
 
 ## P2 — 建议做
 
@@ -46,6 +47,7 @@
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
 | 34 | cascade delete 语义边界文档 | [ ] | Quick wins 缅因猫 review P2-1 | best-effort 策略需写入 docs/decisions；强语义需后台重试或 tombstone |
 | 35 | thread 删除与 invocation 竞态 | [ ] | Quick wins 缅因猫 review P2-2 | delete thread 是否 cancel invocation？append 前是否检查 thread 存在？ |
+| 36 | CLI 全局配置隔离 | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | Codex CLI `~/.codex/AGENTS.md` 会覆盖会话规则。需调研：1) `--no-global-agents` flag 2) 独立配置目录 `CODEX_CONFIG_DIR` 3) 会话规则优先级声明 |
 
 ## P3 — 可选优化
 
@@ -95,6 +97,7 @@
 | CLI 启动开销 ~500ms-2s | 中 | 可考虑进程池 |
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
 | Antigravity MCP 回传可能无响应 | 中 | gemini-cli fallback |
+| **Codex CLI 全局配置可覆盖会话规则** | 高 | `~/.codex/AGENTS.md` 含 `<EXTREMELY_IMPORTANT>` 优先级极高。详见 [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) |
 
 ## 已完成项（归档）
 
