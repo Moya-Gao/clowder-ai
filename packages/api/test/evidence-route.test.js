@@ -129,6 +129,24 @@ describe('GET /api/evidence/search', () => {
     assert.ok(body.results.length > 0, 'degraded search should find docs');
   });
 
+  it('returns 502 when Hindsight fails with non-availability error', async () => {
+    await setup({
+      recall: async () => {
+        throw new Error('invalid response schema');
+      },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=phase',
+    });
+
+    assert.equal(res.statusCode, 502);
+    const body = res.json();
+    assert.equal(body.error, 'Evidence search unavailable');
+    assert.equal(body.degraded, false);
+  });
+
   it('returns 400 for missing q parameter', async () => {
     await setup();
 

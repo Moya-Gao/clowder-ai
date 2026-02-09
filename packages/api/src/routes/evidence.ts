@@ -10,6 +10,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
+import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
 
 /** Accepted query parameters */
@@ -42,6 +43,28 @@ export interface EvidenceRoutesOptions {
   hindsightClient: IHindsightClient;
   sharedBank: string;
   docsRoot?: string;
+}
+
+function shouldDegradeToDocs(err: unknown): boolean {
+  if (err instanceof HindsightError) {
+    if (err.code === 'CONNECTION_FAILED' || err.code === 'TIMEOUT') return true;
+    if (err.statusCode != null && err.statusCode >= 500) return true;
+    return false;
+  }
+
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('econnrefused') ||
+      msg.includes('etimedout') ||
+      msg.includes('timeout') ||
+      msg.includes('aborted') ||
+      msg.includes('network') ||
+      msg.includes('fetch failed')
+    );
+  }
+
+  return false;
 }
 
 /** Map a file path to a source type */
@@ -138,7 +161,15 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
 
       const results = memories.map(memoryToResult);
       return { results, degraded: false } satisfies EvidenceSearchResponse;
-    } catch {
+    } catch (err) {
+      if (!shouldDegradeToDocs(err)) {
+        reply.status(502);
+        return {
+          error: 'Evidence search unavailable',
+          degraded: false,
+        };
+      }
+
       // Hindsight unavailable — fallback to local docs search
       const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
       const results = await searchDocs(docsRoot, q, limit);

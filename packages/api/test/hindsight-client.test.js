@@ -89,6 +89,18 @@ describe('HindsightClient', () => {
       const result = await client.recall('cat-cafe-shared', 'test');
       assert.deepEqual(result, []);
     });
+
+    it('sets a timeout signal on network calls', async () => {
+      mockFetch.mock.mockImplementation(() =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve({ memories: [] }) }),
+      );
+
+      const client = await getClient();
+      await client.recall('cat-cafe-shared', 'timeout-test');
+
+      const [, opts] = mockFetch.mock.calls[0].arguments;
+      assert.ok(opts.signal, 'fetch should receive AbortSignal timeout');
+    });
   });
 
   describe('retain', () => {
@@ -128,6 +140,17 @@ describe('HindsightClient', () => {
       const body = JSON.parse(mockFetch.mock.calls[0].arguments[1].body);
       assert.equal(body.async, true);
       assert.deepEqual(body.document_tags, ['batch-import']);
+    });
+
+    it('accepts empty response body (204) without throwing', async () => {
+      mockFetch.mock.mockImplementation(() =>
+        Promise.resolve({ ok: true, status: 204 }),
+      );
+
+      const client = await getClient();
+      await assert.doesNotReject(
+        () => client.retain('cat-cafe-shared', [{ content: 'ok' }]),
+      );
     });
   });
 
@@ -184,6 +207,18 @@ describe('HindsightClient', () => {
 
       const body = JSON.parse(mockFetch.mock.calls[0].arguments[1].body);
       assert.equal(body.name, 'cat-cafe-shared');
+    });
+
+    it('sets timeout signal for ensureBank call', async () => {
+      mockFetch.mock.mockImplementation(() =>
+        Promise.resolve({ ok: true }),
+      );
+
+      const client = await getClient();
+      await client.ensureBank('cat-cafe-shared');
+
+      const [, opts] = mockFetch.mock.calls[0].arguments;
+      assert.ok(opts.signal, 'ensureBank should use timeout signal');
     });
   });
 

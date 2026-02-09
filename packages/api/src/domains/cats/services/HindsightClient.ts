@@ -64,6 +64,8 @@ export interface IHindsightClient {
  * Only called from server-side (never from browser).
  */
 export class HindsightClient implements IHindsightClient {
+  private static readonly REQUEST_TIMEOUT_MS = 8000;
+
   constructor(private readonly baseUrl: string) {}
 
   /** Retrieve memories matching a query */
@@ -101,11 +103,22 @@ export class HindsightClient implements IHindsightClient {
     if (background) body['background'] = background;
 
     const url = `${this.baseUrl}/v1/default/banks/${bankId}`;
-    const res = await fetch(url, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(HindsightClient.REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      const msg = (err as Error).message ?? String(err);
+      const lower = msg.toLowerCase();
+      const code = lower.includes('timeout') || lower.includes('aborted')
+        ? 'TIMEOUT'
+        : 'CONNECTION_FAILED';
+      throw new HindsightError(code, `Cannot reach Hindsight at ${this.baseUrl}: ${msg}`);
+    }
 
     if (!res.ok) {
       const text = await res.text().catch(() => '');
@@ -138,16 +151,22 @@ export class HindsightClient implements IHindsightClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(HindsightClient.REQUEST_TIMEOUT_MS),
       });
     } catch (err) {
+      const msg = (err as Error).message ?? String(err);
+      const lower = msg.toLowerCase();
+      const code = lower.includes('timeout') || lower.includes('aborted')
+        ? 'TIMEOUT'
+        : 'CONNECTION_FAILED';
       throw new HindsightError(
-        'CONNECTION_FAILED',
-        `Cannot reach Hindsight at ${this.baseUrl}: ${(err as Error).message}`,
+        code,
+        `Cannot reach Hindsight at ${this.baseUrl}: ${msg}`,
       );
     }
 
     if (!res.ok) {
-      const text = await res.text().catch(() => '');
+      const text = await this.readBodyAsText(res);
       throw new HindsightError(
         'API_ERROR',
         `Hindsight ${path} returned ${res.status}: ${text}`,
@@ -155,7 +174,41 @@ export class HindsightClient implements IHindsightClient {
       );
     }
 
-    return res.json() as Promise<Record<string, unknown>>;
+    if (res.status === 204) return {};
+
+    const text = await this.readBodyAsText(res);
+    if (!text.trim()) return {};
+
+    try {
+      return JSON.parse(text) as Record<string, unknown>;
+    } catch {
+      if (typeof (res as { json?: () => Promise<unknown> }).json === 'function') {
+        return (await (res as { json: () => Promise<Record<string, unknown>> }).json()) ?? {};
+      }
+      throw new HindsightError(
+        'INVALID_RESPONSE',
+        `Hindsight ${path} returned non-JSON response`,
+        res.status,
+      );
+    }
+  }
+
+  private async readBodyAsText(res: Response): Promise<string> {
+    if (typeof (res as { text?: () => Promise<string> }).text === 'function') {
+      return (await (res as { text: () => Promise<string> }).text().catch(() => '')) ?? '';
+    }
+
+    if (typeof (res as { json?: () => Promise<unknown> }).json === 'function') {
+      try {
+        const value = await (res as { json: () => Promise<unknown> }).json();
+        if (typeof value === 'string') return value;
+        return JSON.stringify(value ?? '');
+      } catch {
+        return '';
+      }
+    }
+
+    return '';
   }
 }
 
