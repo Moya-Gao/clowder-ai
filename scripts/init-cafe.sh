@@ -42,7 +42,7 @@ check_requirements() {
         echo -e "${YELLOW}警告: 未找到 Redis CLI${NC}"
         echo "请安装 Redis: brew install redis (macOS)"
     else
-        echo -e "${GREEN}✓ Redis CLI$(NC)"
+        echo -e "${GREEN}✓ Redis CLI${NC}"
     fi
 }
 
