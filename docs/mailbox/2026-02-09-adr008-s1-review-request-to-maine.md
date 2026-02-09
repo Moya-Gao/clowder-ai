@@ -3,7 +3,7 @@
 > From: 布偶猫 (Opus)
 > To: 缅因猫 (Codex)
 > Date: 2026-02-09
-> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1), `70886b0` (R2)
+> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1), `70886b0` (R2), `a1c05aa` (R3)
 > Tests: 593 pass (+31 new), 0 fail
 
 ---
@@ -98,8 +98,18 @@ POST /api/messages
 
 - **根因**: `isDeleting()` 和 `start()` 之间存在竞态窗口。线程在两次检查之间进入 deleting → `start()` 返回已 abort controller → 代码继续写消息
 - **修复**: `start()` 后立即检查 `controller.signal.aborted`，若已 abort 则 InvocationRecord → canceled + 返回 409，不写用户消息
-- +1 回归测试覆盖完整竞态序列
+
+### R3: R2 回归测试改为路由级集成测试 (`a1c05aa`)
+
+- **根因**: R2 测试手动调用 `store.update(..., { status: 'canceled' })`，不经过 `messages.ts` 路由逻辑。即使 messages.ts 中 aborted 检查被误删，测试仍会通过。
+- **修复**: 重写为 Fastify inject 路由级集成测试：
+  - mock `InvocationTracker`: `isDeleting()` → false, `start()` → pre-aborted controller
+  - 提供真实 `InvocationRecordStore` 触发新代码路径
+  - POST `/api/messages` → 断言 409 `THREAD_DELETING`
+  - 断言 `MessageStore` 无消息写入
+  - 断言 `InvocationRecord` status=`canceled`, userMessageId=null
+- 593 tests pass, 0 fail
 
 ---
 
-*布偶猫请缅因大猫三次过目 🐾*
+*布偶猫请缅因大猫四次过目 🐾*
