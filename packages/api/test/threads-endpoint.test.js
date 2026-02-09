@@ -68,6 +68,22 @@ describe('Thread API', () => {
     assert.ok(!titles.includes('Thread C'));
   });
 
+  it('GET /api/threads supports case-insensitive title search via q', async () => {
+    threadStore.create('alice', 'Frontend polish');
+    threadStore.create('alice', 'Backend Thread Search');
+    threadStore.create('alice', 'Random chat');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&q=thread',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const titles = body.threads.map((t) => t.title);
+    assert.deepEqual(titles, ['Backend Thread Search']);
+  });
+
   it('GET /api/threads/:id returns thread details', async () => {
     const thread = threadStore.create('alice', 'Details Test');
 
@@ -100,6 +116,57 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.body);
     assert.equal(body.title, 'New Title');
+  });
+
+  it('PATCH /api/threads/:id persists via threadStore.updateTitle (regression: Redis)', async () => {
+    const persisted = {
+      id: 'thread-1',
+      projectPath: 'default',
+      title: 'Original Title',
+      createdBy: 'alice',
+      participants: [],
+      lastActiveAt: Date.now(),
+      createdAt: Date.now(),
+    };
+
+    const fakeStore = {
+      create: () => persisted,
+      get: (threadId) => {
+        if (threadId !== persisted.id) return null;
+        // Simulate Redis hydration: return a fresh object on every read
+        return {
+          ...persisted,
+          participants: [...persisted.participants],
+        };
+      },
+      list: () => [persisted],
+      listByProject: () => [persisted],
+      addParticipants: () => {},
+      getParticipants: () => [],
+      updateTitle: (threadId, title) => {
+        if (threadId === persisted.id) persisted.title = title;
+      },
+      updateLastActive: () => {},
+      delete: () => true,
+    };
+
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const isolated = Fastify();
+    await isolated.register(threadsRoutes, { threadStore: fakeStore });
+    await isolated.ready();
+
+    const res = await isolated.inject({
+      method: 'PATCH',
+      url: `/api/threads/${persisted.id}`,
+      payload: { title: 'Renamed Title' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.title, 'Renamed Title');
+    assert.equal(persisted.title, 'Renamed Title');
+
+    await isolated.close();
   });
 
   it('PATCH /api/threads/:id returns 404 for nonexistent', async () => {
