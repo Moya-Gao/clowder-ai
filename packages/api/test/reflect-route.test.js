@@ -127,4 +127,16 @@ describe('POST /api/reflect', () => {
 
     assert.equal(res.statusCode, 400);
   });
+
+  it('returns 400 for whitespace-only query', async () => {
+    const app = await setup();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/reflect',
+      payload: { query: '   ' },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
 });

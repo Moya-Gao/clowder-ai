@@ -12,7 +12,7 @@ import { errorResult, successResult } from './file-tools.js';
 const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
 export const reflectInputSchema = {
-  query: z.string().min(1).describe('Question to reflect on using project knowledge'),
+  query: z.string().trim().min(1).describe('Question to reflect on using project knowledge'),
 };
 
 export async function handleReflect(input: {

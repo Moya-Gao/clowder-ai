@@ -11,7 +11,7 @@ import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
 
 const reflectSchema = z.object({
-  query: z.string().min(1),
+  query: z.string().trim().min(1),
 });
 
 export interface ReflectRoutesOptions {
