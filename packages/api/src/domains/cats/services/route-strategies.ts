@@ -190,23 +190,21 @@ export async function* routeSerial(
         worklist.push(nextCat);
         a2aCount++;
 
-        // === A2A_HANDOFF 审计 ===
-        try {
-          const auditLog = getEventAuditLog();
-          await auditLog.append({
-            type: AuditEventTypes.A2A_HANDOFF,
-            threadId,
-            data: {
-              fromCat: catId,
-              toCat: nextCat,
-              userId,
-              a2aDepth: a2aCount,
-              maxDepth,
-            },
-          });
-        } catch {
-          console.error('[audit] A2A_HANDOFF write failed');
-        }
+        // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+        const auditLog = getEventAuditLog();
+        auditLog.append({
+          type: AuditEventTypes.A2A_HANDOFF,
+          threadId,
+          data: {
+            fromCat: catId,
+            toCat: nextCat,
+            userId,
+            a2aDepth: a2aCount,
+            maxDepth,
+          },
+        }).catch((err) => {
+          console.warn('[audit] A2A_HANDOFF write failed', { threadId, fromCat: catId, toCat: nextCat, err });
+        });
 
         // Notify frontend: handoff event
         const nextConfig = CAT_CONFIGS[nextCat as keyof typeof CAT_CONFIGS];

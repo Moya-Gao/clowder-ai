@@ -70,22 +70,21 @@ export async function* invokeSingleCat(
   const promptDigest = createPromptDigest(prompt);
   const startTime = Date.now();
 
-  // === CAT_INVOKED 审计 ===
-  try {
-    await auditLog.append({
-      type: AuditEventTypes.CAT_INVOKED,
-      threadId,
-      data: {
-        catId,
-        userId,
-        invocationId,
-        promptDigest,
-        isLastCat,
-      },
-    });
-  } catch {
-    console.error('[audit] CAT_INVOKED write failed');
-  }
+  // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+  auditLog.append({
+    type: AuditEventTypes.CAT_INVOKED,
+    threadId,
+    data: {
+      catId,
+      userId,
+      invocationId,
+      promptDigest,
+      isLastCat,
+    },
+  }).catch((err) => {
+    // P2-2: 打印完整错误信息 + 上下文
+    console.warn('[audit] CAT_INVOKED write failed', { threadId, invocationId, err });
+  });
 
   try {
     let sessionId: string | undefined;
@@ -125,24 +124,22 @@ export async function* invokeSingleCat(
       }
 
       if (msg.type === 'done') {
-        // === CAT_RESPONDED 审计 ===
+        // === CAT_RESPONDED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
         const durationMs = Date.now() - startTime;
-        try {
-          await auditLog.append({
-            type: AuditEventTypes.CAT_RESPONDED,
-            threadId,
-            data: {
-              catId,
-              userId,
-              invocationId,
-              durationMs,
-              isFinal: isLastCat,
-              metadata: msg.metadata,
-            },
-          });
-        } catch {
-          console.error('[audit] CAT_RESPONDED write failed');
-        }
+        auditLog.append({
+          type: AuditEventTypes.CAT_RESPONDED,
+          threadId,
+          data: {
+            catId,
+            userId,
+            invocationId,
+            durationMs,
+            isFinal: isLastCat,
+            metadata: msg.metadata,
+          },
+        }).catch((err) => {
+          console.warn('[audit] CAT_RESPONDED write failed', { threadId, invocationId, err });
+        });
 
         yield { ...msg, isFinal: isLastCat };
       } else {
@@ -150,23 +147,21 @@ export async function* invokeSingleCat(
       }
     }
   } catch (err) {
-    // === CAT_ERROR 审计 ===
+    // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
-    try {
-      await auditLog.append({
-        type: AuditEventTypes.CAT_ERROR,
-        threadId,
-        data: {
-          catId,
-          userId,
-          invocationId,
-          durationMs,
-          error: err instanceof Error ? err.message : String(err),
-        },
-      });
-    } catch {
-      console.error('[audit] CAT_ERROR write failed');
-    }
+    auditLog.append({
+      type: AuditEventTypes.CAT_ERROR,
+      threadId,
+      data: {
+        catId,
+        userId,
+        invocationId,
+        durationMs,
+        error: err instanceof Error ? err.message : String(err),
+      },
+    }).catch((auditErr) => {
+      console.warn('[audit] CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
+    });
 
     yield {
       type: 'error' as const,
