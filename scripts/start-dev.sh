@@ -84,6 +84,15 @@ clean_cache() {
     fi
 }
 
+# 清理与 pnpm 工作区冲突的 npm lockfile（会触发 Next 错误 patch 逻辑）
+sanitize_lockfiles() {
+    local web_lock="${1:-packages/web/package-lock.json}"
+    if [ -f "$web_lock" ]; then
+        /bin/rm -f "$web_lock"
+        echo -e "${YELLOW}  ⚠ 已移除 $web_lock (pnpm 工作区应使用 pnpm-lock.yaml)${NC}"
+    fi
+}
+
 # 构建 shared + API (tsc)
 build_packages() {
     echo ""
@@ -158,6 +167,7 @@ main() {
 
     # 2. 清理缓存
     clean_cache
+    sanitize_lockfiles
 
     # 3. 构建 shared + API (除非 --quick)
     if [ "$QUICK_MODE" = false ]; then
@@ -183,7 +193,8 @@ main() {
 
     # Frontend (Next.js dev server — PORT env var controls the port)
     echo "  启动 Frontend (端口 $WEB_PORT)..."
-    (cd packages/web && PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
+    # NEXT_IGNORE_INCORRECT_LOCKFILE: avoid npm lockfile auto-patch path in pnpm workspace.
+    (cd packages/web && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
     sleep 3
 
     # 显示存储模式

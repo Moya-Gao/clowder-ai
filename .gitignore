@@ -41,6 +41,9 @@ cookies.json
 npm-debug.log*
 pnpm-debug.log*
 
+# Lockfiles (workspace uses pnpm only)
+packages/**/package-lock.json
+
 # Test coverage
 coverage/
 

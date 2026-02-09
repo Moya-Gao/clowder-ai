@@ -45,5 +45,25 @@ if [ -n "$REDIS_URL" ]; then
 fi
 echo "PASS: --memory mode → REDIS_URL unset"
 
+# Test 3: sanitize_lockfiles should remove provided lockfile path
+tmp_lock="$(mktemp)"
+echo '{"name":"tmp-lock"}' > "$tmp_lock"
+
+if [ ! -f "$tmp_lock" ]; then
+    echo "FAIL: temp lockfile was not created for sanitize test"
+    exit 1
+fi
+
+sanitize_lockfiles "$tmp_lock" 2>/dev/null
+if [ -f "$tmp_lock" ]; then
+    echo "FAIL: sanitize_lockfiles should remove lockfile: $tmp_lock"
+    exit 1
+fi
+echo "PASS: sanitize_lockfiles removes provided lockfile path"
+
+# Test 4: sanitize_lockfiles should be no-op for missing file
+sanitize_lockfiles "$tmp_lock" 2>/dev/null
+echo "PASS: sanitize_lockfiles is safe when file does not exist"
+
 echo ""
 echo "All shell tests passed."
