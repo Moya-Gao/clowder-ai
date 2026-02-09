@@ -8,6 +8,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConfigSnapshot = any;
 
+function isCommandInvocation(input: string, command: string): boolean {
+  if (!input.startsWith(command)) return false;
+  if (input.length === command.length) return true;
+  return /\s/.test(input.charAt(command.length));
+}
+
 /** Format ConfigSnapshot into readable multi-line text for /config display */
 function formatConfigForDisplay(config: ConfigSnapshot): string {
   const lines: string[] = ['⚙️ Cat Cafe 运行配置', ''];
@@ -196,7 +202,7 @@ export function useChatCommands() {
       }
 
       // /recall [key] — read memory
-      if (trimmed.startsWith('/recall')) {
+      if (isCommandInvocation(trimmed, '/recall')) {
         const rest = trimmed.slice('/recall'.length).trim();
 
         addMessage({
@@ -272,7 +278,7 @@ export function useChatCommands() {
       }
 
       // /evidence <query> — search project knowledge
-      if (trimmed.startsWith('/evidence')) {
+      if (isCommandInvocation(trimmed, '/evidence')) {
         const query = trimmed.slice('/evidence'.length).trim();
 
         addMessage({
@@ -330,7 +336,7 @@ export function useChatCommands() {
       }
 
       // /approve <entryId> — approve a pending_review memory entry
-      if (trimmed.startsWith('/approve')) {
+      if (isCommandInvocation(trimmed, '/approve')) {
         const entryId = trimmed.slice('/approve'.length).trim();
 
         addMessage({
@@ -386,7 +392,7 @@ export function useChatCommands() {
       }
 
       // /archive <entryId> — archive a published memory entry
-      if (trimmed.startsWith('/archive')) {
+      if (isCommandInvocation(trimmed, '/archive')) {
         const entryId = trimmed.slice('/archive'.length).trim();
 
         addMessage({

@@ -289,6 +289,32 @@ describe('GET /api/evidence/search', () => {
     assert.equal(body.results[0].confidence, 'high');
   });
 
+  it('downgrades confidence for docs anchors that escape docs root', async () => {
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
+    await setup(
+      {
+        recall: async () => [
+          {
+            content: 'Traversal-like anchor should not be trusted',
+            metadata: { anchor: 'docs/../package.json' },
+            score: 0.95,
+          },
+        ],
+      },
+      docsRoot,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=package',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].confidence, 'low');
+  });
+
   it('respects limit parameter', async () => {
     await setup({
       recall: async (_b, _q, opts) => {

@@ -9,7 +9,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { access, readdir, readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { isAbsolute, join, relative, resolve } from 'node:path';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
 
@@ -152,10 +152,20 @@ async function searchDocs(docsRoot: string, query: string, limit: number): Promi
  * Does not remove results — just reduces trust signal.
  */
 async function validateAnchors(results: EvidenceResult[], docsRoot: string): Promise<EvidenceResult[]> {
+  const docsRootAbs = resolve(docsRoot);
+
   return Promise.all(
     results.map(async (r) => {
       if (!r.anchor.startsWith('docs/')) return r;
-      const filePath = join(docsRoot, r.anchor.slice('docs/'.length));
+      const [anchorPath = ''] = r.anchor.split('#');
+      const relativePath = anchorPath.slice('docs/'.length).replace(/^\/+/, '');
+      const filePath = resolve(docsRootAbs, relativePath);
+      const relativeToDocs = relative(docsRootAbs, filePath);
+
+      if (!relativePath || relativeToDocs.startsWith('..') || isAbsolute(relativeToDocs)) {
+        return { ...r, confidence: 'low' as EvidenceConfidence };
+      }
+
       try {
         await access(filePath);
         return r;

@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-08 (茶话会夺魂 bug 侦查)
+> 维护者：布偶猫 | 最后更新：2026-02-09 (S2 follow-up review 修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -50,6 +50,7 @@
 | 34 | cascade delete 语义边界文档 | [ ] | Quick wins 缅因猫 review P2-1 | best-effort 策略需写入 docs/decisions；强语义需后台重试或 tombstone |
 | 35 | thread 删除与 invocation 竞态 | [ ] | Quick wins 缅因猫 review P2-2 | delete thread 是否 cancel invocation？append 前是否检查 thread 存在？ |
 | 36 | CLI 全局配置隔离 | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | Codex CLI `~/.codex/AGENTS.md` 会覆盖会话规则。需调研：1) `--no-global-agents` flag 2) 独立配置目录 `CODEX_CONFIG_DIR` 3) 会话规则优先级声明 |
+| 39 | useChatCommands 命令解析自动化测试 | [ ] | Phase 5.0-S2 follow-up | 已修 `/approved`/`/archive123` 前缀误匹配；web 包仍缺 hook 级测试基建，需补最小回归用例 |
 
 ## P3 — 可选优化
 
