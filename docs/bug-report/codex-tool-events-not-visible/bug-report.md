@@ -86,7 +86,7 @@ codex exec --json --sandbox workspace-write --full-auto "请执行一个最小�
 
 ### Next Action
 
-- 先以 TDD 方式补失败测试，再做最小实现，最后跑回归测试并提交 commit。
+- 在前端会话里再次触发 Codex 工具调用，确认工具轨迹已正常展示。
 
 ---
 
