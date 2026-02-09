@@ -1,6 +1,6 @@
 'use client';
 
-import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
+import type { ChatMessage as ChatMessageType, MessageContent, ToolEvent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
@@ -70,12 +70,38 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function renderToolEvents(events: ToolEvent[]) {
+  return (
+    <div className="mb-3 rounded-xl border border-black/10 bg-white/65 px-3 py-2">
+      <div className="space-y-1">
+        {events.map((event) => (
+          <div key={event.id} className="font-mono text-[12px] leading-5 text-gray-600">
+            <div className="flex items-start gap-1.5">
+              <span className="mt-0.5">{event.type === 'tool_use' ? '🔧' : '📋'}</span>
+              <div className="min-w-0">
+                <div className="break-all">{event.label}</div>
+                {event.detail && (
+                  <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-all">
+                    {event.detail}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
   const cat = message.catId ? CAT_STYLES[message.catId] : null;
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
+  const hasTextContent = message.content.trim().length > 0;
+  const hasToolEvents = Boolean(message.toolEvents && message.toolEvents.length > 0);
 
   if (isSummary && message.summary) {
     return (
@@ -153,10 +179,15 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
               : 'bg-white border-gray-200 rounded-2xl'
           }`}
         >
+          {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
-          ) : (
+          ) : hasTextContent ? (
             <MarkdownContent content={message.content} className={cat?.font} />
+          ) : !hasToolEvents && message.isStreaming ? (
+            <span className="text-xs text-gray-500">思考中...</span>
+          ) : (
+            null
           )}
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />

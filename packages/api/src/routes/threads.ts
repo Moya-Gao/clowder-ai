@@ -34,10 +34,11 @@ const createThreadSchema = z.object({
 const listThreadsSchema = z.object({
   userId: z.string().min(1).max(100).default('default-user'),
   projectPath: z.string().min(1).max(500).optional(),
+  q: z.string().trim().min(1).max(200).optional(),
 });
 
 const updateThreadSchema = z.object({
-  title: z.string().min(1).max(200),
+  title: z.string().trim().min(1).max(200),
 });
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
@@ -79,11 +80,21 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { threads: [] };
     }
 
-    const { userId, projectPath } = parseResult.data;
+    const { userId, projectPath, q } = parseResult.data;
     const threads = projectPath
       ? await threadStore.listByProject(userId, projectPath)
       : await threadStore.list(userId);
-    return { threads };
+    if (!q) return { threads };
+
+    const needle = q.toLowerCase();
+    const filtered = threads.filter((thread) => {
+      const title = (thread.title ?? '').toLowerCase();
+      const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
+      const project = (thread.projectPath ?? '').toLowerCase();
+      return title.includes(needle) || fallback.includes(needle) || project.includes(needle);
+    });
+
+    return { threads: filtered };
   });
 
   // GET /api/threads/:id - 获取对话详情
@@ -112,9 +123,15 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    // Mutate title (in-memory store uses reference)
-    thread.title = parseResult.data.title;
-    return thread;
+    await threadStore.updateTitle(id, parseResult.data.title);
+
+    const updated = await threadStore.get(id);
+    if (!updated) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    return updated;
   });
 
   // DELETE /api/threads/:id - 删除对话 (with cascade delete)

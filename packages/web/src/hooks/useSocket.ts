@@ -12,6 +12,7 @@ interface AgentMessage {
   content?: string;
   sessionId?: string;
   toolName?: string;
+  toolInput?: Record<string, unknown>;
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string };

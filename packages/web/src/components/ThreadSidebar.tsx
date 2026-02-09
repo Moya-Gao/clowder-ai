@@ -260,10 +260,12 @@ export function ThreadSidebar() {
     setCurrentProject,
     isLoadingThreads,
     setLoadingThreads,
+    updateThreadTitle,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -326,6 +328,24 @@ export function ThreadSidebar() {
     }
   }, [currentThreadId, navigateToThread, loadThreads]);
 
+  const handleRename = useCallback(async (threadId: string, title: string) => {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: nextTitle }),
+      });
+      if (!res.ok) return;
+      const updated = await res.json();
+      updateThreadTitle(threadId, updated.title ?? nextTitle);
+    } catch {
+      // Silently ignore
+    }
+  }, [updateThreadTitle]);
+
   const handleSelect = useCallback(
     (threadId: string) => {
       if (threadId === currentThreadId) return;
@@ -343,8 +363,24 @@ export function ThreadSidebar() {
     });
   }, []);
 
-  const grouped = useMemo(() => groupThreadsByProject(threads), [threads]);
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredThreads = useMemo(() => {
+    if (!normalizedQuery) return threads;
+    return threads.filter((thread) => {
+      const title = (thread.title ?? '').toLowerCase();
+      const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
+      const project = (thread.projectPath ?? '').toLowerCase();
+      return (
+        title.includes(normalizedQuery) ||
+        fallback.includes(normalizedQuery) ||
+        project.includes(normalizedQuery)
+      );
+    });
+  }, [threads, normalizedQuery]);
+
+  const grouped = useMemo(() => groupThreadsByProject(filteredThreads), [filteredThreads]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
+  const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
 
   return (
     <>
@@ -360,19 +396,30 @@ export function ThreadSidebar() {
           </button>
         </div>
 
+        <div className="px-3 py-2 border-b border-owner-light">
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="搜索对话或项目..."
+            className="w-full rounded-lg border border-owner-light px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-owner-primary"
+          />
+        </div>
+
         <div className="flex-1 overflow-y-auto">
           {isLoadingThreads && threads.length === 0 && (
             <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
           )}
 
-          <ThreadItem
-            id="default"
-            title="大厅"
-            participants={[]}
-            lastActiveAt={Date.now()}
-            isActive={currentThreadId === 'default'}
-            onSelect={handleSelect}
-          />
+          {showDefaultThread && (
+            <ThreadItem
+              id="default"
+              title="大厅"
+              participants={[]}
+              lastActiveAt={Date.now()}
+              isActive={currentThreadId === 'default'}
+              onSelect={handleSelect}
+            />
+          )}
 
           {grouped.map(([projectPath, projectThreads]) => (
             <ProjectGroup
@@ -384,8 +431,13 @@ export function ThreadSidebar() {
               onToggle={toggleProject}
               onSelectThread={handleSelect}
               onDeleteThread={handleDelete}
+              onRenameThread={handleRename}
             />
           ))}
+
+          {normalizedQuery.length > 0 && grouped.length === 0 && !showDefaultThread && (
+            <div className="px-3 py-4 text-xs text-gray-400">没有匹配的对话</div>
+          )}
         </div>
 
         <TaskPanel />
@@ -412,6 +464,7 @@ function ProjectGroup({
   onToggle,
   onSelectThread,
   onDeleteThread,
+  onRenameThread,
 }: {
   projectPath: string;
   threads: Thread[];
@@ -420,6 +473,7 @@ function ProjectGroup({
   onToggle: (path: string) => void;
   onSelectThread: (threadId: string) => void;
   onDeleteThread: (threadId: string) => void;
+  onRenameThread: (threadId: string, title: string) => void | Promise<void>;
 }) {
   return (
     <div className="mt-1">
@@ -454,6 +508,7 @@ function ProjectGroup({
             isActive={currentThreadId === t.id}
             onSelect={onSelectThread}
             onDelete={onDeleteThread}
+            onRename={onRenameThread}
             indented
           />
         ))}
@@ -469,6 +524,7 @@ function ThreadItem({
   isActive,
   onSelect,
   onDelete,
+  onRename,
   indented,
 }: {
   id: string;
@@ -478,9 +534,47 @@ function ThreadItem({
   isActive: boolean;
   onSelect: (id: string) => void;
   onDelete?: (id: string) => void;
+  onRename?: (id: string, title: string) => void | Promise<void>;
   indented?: boolean;
 }) {
   const canDelete = id !== 'default' && onDelete;
+  const canRename = id !== 'default' && onRename;
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(title ?? '');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isEditing) setDraftTitle(title ?? '');
+  }, [title, isEditing]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, [isEditing]);
+
+  const submitRename = useCallback(async () => {
+    if (!onRename) return;
+    const next = draftTitle.trim();
+    if (!next) {
+      setDraftTitle(title ?? '');
+      setIsEditing(false);
+      return;
+    }
+    if (next === (title ?? '')) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await onRename(id, next);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [onRename, draftTitle, title, id]);
 
   return (
     <div
@@ -490,10 +584,53 @@ function ThreadItem({
       onClick={() => onSelect(id)}
     >
       <div className="flex items-center justify-between mb-0.5">
-        <span className={`text-sm truncate ${isActive ? 'font-semibold text-cafe-black' : 'text-gray-700'}`}>
-          {title ?? (id === 'default' ? '大厅' : '未命名对话')}
-        </span>
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            value={draftTitle}
+            onChange={(e) => setDraftTitle(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void submitRename();
+              }
+              if (e.key === 'Escape') {
+                e.preventDefault();
+                setDraftTitle(title ?? '');
+                setIsEditing(false);
+              }
+            }}
+            onBlur={() => { void submitRename(); }}
+            disabled={isSaving}
+            maxLength={200}
+            className="text-sm px-1.5 py-0.5 rounded border border-owner-light focus:outline-none focus:border-owner-primary w-full mr-2 disabled:opacity-70"
+          />
+        ) : (
+          <span className={`text-sm truncate ${isActive ? 'font-semibold text-cafe-black' : 'text-gray-700'}`}>
+            {title ?? (id === 'default' ? '大厅' : '未命名对话')}
+          </span>
+        )}
         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          {canRename && !isEditing && (
+            <button
+              onMouseDown={(e) => {
+                // Prevent focus transfer from input to button, avoids blur/click race flicker.
+                e.preventDefault();
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              className="opacity-0 group-hover:opacity-100 p-0.5 rounded hover:bg-owner-bg transition-all"
+              title="重命名对话"
+            >
+              <svg className="w-3 h-3 text-gray-300 hover:text-owner-primary" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M11.013 1.427a1.75 1.75 0 112.474 2.474l-7.2 7.2a2 2 0 01-.84.49l-2.22.634a.75.75 0 01-.926-.926l.634-2.22a2 2 0 01.49-.84l7.588-7.588zm1.414 1.06a.25.25 0 00-.353 0L11.2 3.36l1.44 1.44.874-.874a.25.25 0 000-.353l-1.086-1.086zM11.58 5.86l-1.44-1.44-6.072 6.072a.5.5 0 00-.123.21l-.303 1.06 1.06-.303a.5.5 0 00.21-.123l6.668-6.668z" />
+                <path d="M2.25 13A.75.75 0 013 12.25v-.5a.75.75 0 011.5 0v.5c0 .138.112.25.25.25h8a.75.75 0 010 1.5h-8A1.75 1.75 0 012.25 13z" />
+              </svg>
+            </button>
+          )}
           {id !== 'default' && (
             <button
               onClick={(e) => {
