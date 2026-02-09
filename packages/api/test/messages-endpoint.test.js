@@ -266,3 +266,68 @@ describe('POST /api/messages orphan rejection (#21)', () => {
     await app.close();
   });
 });
+
+describe('POST /api/messages delete-guard protection', () => {
+  it('returns 409 and does not persist message when thread is being deleted', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationTracker } = await import('../dist/domains/cats/services/InvocationTracker.js');
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    const threadId = 'thread-delete-guard';
+    const tracker = new InvocationTracker();
+    const guard = tracker.guardDelete(threadId);
+    assert.ok(guard.acquired, 'test setup: delete guard should be acquired');
+
+    const messageStore = new MessageStore();
+    const threadStore = {
+      async get(id) {
+        if (id !== threadId) return null;
+        return {
+          id: threadId,
+          projectPath: 'default',
+          title: 'Guarded Thread',
+          createdBy: 'alice',
+          participants: [],
+          lastActiveAt: Date.now(),
+          createdAt: Date.now(),
+        };
+      },
+      async updateTitle() {},
+      async updateLastActive() {},
+      async getParticipants() { return []; },
+      async addParticipants() {},
+    };
+
+    const app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore,
+      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      threadStore,
+      invocationTracker: tracker,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      payload: {
+        content: 'should be blocked',
+        userId: 'alice',
+        threadId,
+      },
+    });
+
+    // Wait briefly to ensure background path would have had time to append.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'THREAD_DELETING');
+    assert.equal(messageStore.getByThread(threadId).length, 0);
+
+    guard.release();
+    await app.close();
+  });
+});

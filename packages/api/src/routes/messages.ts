@@ -132,10 +132,20 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
     }
 
+    const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
+    if (controller?.signal.aborted) {
+      // Thread is currently under delete guard; reject immediately and avoid any write.
+      reply.status(409);
+      return {
+        error: '对话正在删除中',
+        detail: '请稍后重试，或新建一个对话继续',
+        code: 'THREAD_DELETING',
+      };
+    }
+
     reply.send({ status: 'processing', timestamp: Date.now() });
 
     // Process in background and broadcast via WebSocket
-    const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
     void (async () => {
       // Heartbeat interval to keep frontend informed during long operations
       const HEARTBEAT_INTERVAL_MS = 30_000;
