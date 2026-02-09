@@ -68,25 +68,58 @@ GET /api/evidence/search?q=hindsight+bank
 
 ## 分工（2026-02-09 铲屎官拍板）
 
-### 布偶猫负责（前端实现）
+### 布偶猫负责（前端实现） — ✅ 已完成 `9cf8bd8`
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
-| `EvidenceCard.tsx` — 单条结果卡片 | 🔄 进行中 | React + Tailwind，参考 SummaryCard 风格 |
-| `EvidencePanel.tsx` — 搜索结果列表 | 🔄 进行中 | 含降级 banner |
-| `/evidence` 命令接入 | 🔄 进行中 | 接入 useChatCommands |
-| sourceType 图标 | 🔄 进行中 | 使用 Lucide 图标库 |
-| confidence 视觉区分 | 🔄 进行中 | 颜色条/badge |
-| 降级状态 banner | 🔄 进行中 | 黄色警告条 |
-| 卡片布局决策 | 🔄 进行中 | 内联在聊天流 |
+| `EvidenceCard.tsx` — 单条结果卡片 | ✅ 完成 | React + Tailwind，紧凑卡片风格 |
+| `EvidencePanel.tsx` — 搜索结果列表 | ✅ 完成 | 含降级 banner + 空状态 |
+| `/evidence` 命令升级 | ✅ 完成 | 从纯文本改为结构化卡片 |
+| sourceType 图标 | ✅ 完成 | 手写 SVG（decision/phase/discussion/commit） |
+| confidence 视觉区分 | ✅ 完成 | 绿(高)/黄(中)/灰(低) badge |
+| 降级状态 banner | ✅ 完成 | 黄色警告条 |
+| 卡片布局 | ✅ 完成 | 内联在聊天流（同 SummaryCard 位置） |
 
 ### 暹罗猫负责（视觉创意）
 
 | 任务 | 状态 | 说明 |
 |------|------|------|
+| Evidence 卡片视觉审查 | ⏳ 待开始 | 布偶猫已完成实现，请检查和设计系统一致性 |
 | 治理状态视觉语言 | ⏳ 待开始 | draft/pending/published/archived 四态视觉表达 |
-| 整体视觉审查 | ⏳ 待布偶完成后 | 检查和设计系统一致性 |
 
 ---
+
+## 暹罗猫视觉审查请求（2026-02-09 布偶猫完成后）
+
+> From: 布偶猫
+> To: 暹罗猫
+> 类型: 视觉审查请求
+
+暹罗猫你好！Evidence 卡片的前端实现我已经做完了，commit `9cf8bd8`。
+
+### 我做了什么
+
+1. **EvidenceCard** (`packages/web/src/components/EvidenceCard.tsx`)
+   - 左侧 sourceType 图标（灰色圆角方块底）
+   - 右上 confidence badge（绿/黄/灰三色）
+   - 中间 title + snippet 紧凑排列
+   - 底部 anchor 路径（灰色 mono 小字）
+
+2. **EvidencePanel** (`packages/web/src/components/EvidencePanel.tsx`)
+   - 灰白色背景容器，内联在聊天流里
+   - 降级时顶部有黄色 banner
+
+3. **SVG 图标** (`packages/web/src/components/icons/EvidenceIcons.tsx`)
+   - 4 个手写 24x24 monoline 图标：文档(决策)、旗帜(阶段)、气泡(讨论)、圆环(提交)
+   - 风格参考了现有的 PawIcon / SendIcon
+
+### 需要你帮忙看的
+
+1. **整体视觉一致性** — 卡片风格和现有的 SummaryCard / system_info 消息是否搭配？
+2. **颜色选择** — confidence 的绿/黄/灰三色是否符合设计系统色调？
+3. **SVG 图标** — 我画的 4 个图标能看吗？需不需要调整？（你是视觉专家！）
+4. **间距/字号** — 紧凑度是否合适，还是需要调整？
+
+你可以直接在 `feat/ui-demo` worktree 里看渲染效果，或者读源码给意见都行。
 
 *布偶猫 🐾*
