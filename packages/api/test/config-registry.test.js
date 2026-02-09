@@ -184,13 +184,53 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.deliberate.status, 'types_only');
   });
 
-  it('snapshot contains all 10 categories (Phase 4.0)', async () => {
+  it('snapshot contains all 12 categories (Phase 5.1)', async () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
-    const categories = ['context', 'perCatBudgets', 'cli', 'storage', 'upload', 'server', 'cats', 'a2a', 'memory', 'governance', 'deliberate'];
+    const categories = ['context', 'perCatBudgets', 'cli', 'storage', 'upload', 'server', 'cats', 'a2a', 'memory', 'governance', 'deliberate', 'hindsight'];
     for (const cat of categories) {
       assert.ok(snapshot[cat], `has ${cat}`);
     }
+  });
+
+  it('has hindsight section with correct defaults', async () => {
+    setEnv('HINDSIGHT_URL', undefined);
+
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.ok(snapshot.hindsight, 'has hindsight section');
+    assert.equal(snapshot.hindsight.enabled, true);
+    assert.equal(snapshot.hindsight.baseUrl, 'http://localhost:8888');
+    assert.equal(snapshot.hindsight.sharedBank, 'cat-cafe-shared');
+  });
+
+  it('hindsight recallDefaults are correct', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    const rd = snapshot.hindsight.recallDefaults;
+    assert.equal(rd.budget, 'mid');
+    assert.equal(rd.tagsMatch, 'all_strict');
+    assert.equal(rd.limit, 5);
+  });
+
+  it('hindsight retainPolicy and reflect are correct', async () => {
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.equal(snapshot.hindsight.retainPolicy.narrativeFactRequired, true);
+    assert.equal(snapshot.hindsight.retainPolicy.minUsefulHorizonDays, 180);
+    assert.equal(snapshot.hindsight.reflect.dispositionMode, 'template_only');
+  });
+
+  it('reads HINDSIGHT_URL from env', async () => {
+    setEnv('HINDSIGHT_URL', 'http://custom-host:9999');
+
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.equal(snapshot.hindsight.baseUrl, 'http://custom-host:9999');
   });
 });

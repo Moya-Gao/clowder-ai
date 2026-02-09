@@ -70,6 +70,24 @@ export interface ConfigSnapshot {
   deliberate: {
     status: 'types_only';
   };
+  /** Hindsight long-term memory integration (Phase 5.1) */
+  hindsight: {
+    enabled: boolean;
+    baseUrl: string;
+    sharedBank: string;
+    recallDefaults: {
+      budget: 'low' | 'mid' | 'high';
+      tagsMatch: 'all_strict' | 'any_strict' | 'all' | 'any';
+      limit: number;
+    };
+    retainPolicy: {
+      narrativeFactRequired: boolean;
+      minUsefulHorizonDays: number;
+    };
+    reflect: {
+      dispositionMode: 'off' | 'template_only';
+    };
+  };
 }
 
 /**
@@ -148,5 +166,22 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       heartbeatIntervalMs: 30_000,
     },
     deliberate: { status: 'types_only' },
+    hindsight: {
+      enabled: true,
+      baseUrl: env['HINDSIGHT_URL'] ?? 'http://localhost:8888',
+      sharedBank: 'cat-cafe-shared',
+      recallDefaults: {
+        budget: 'mid',
+        tagsMatch: 'all_strict',
+        limit: 5,
+      },
+      retainPolicy: {
+        narrativeFactRequired: true,
+        minUsefulHorizonDays: 180,
+      },
+      reflect: {
+        dispositionMode: 'template_only',
+      },
+    },
   };
 }

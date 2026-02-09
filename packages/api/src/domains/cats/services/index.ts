@@ -40,4 +40,6 @@ export { parseIntent, stripIntentTags } from './IntentParser.js';
 export type { Intent, IntentResult } from './IntentParser.js';
 export { EventAuditLog, AuditEventTypes, getEventAuditLog } from './EventAuditLog.js';
 export type { AuditEvent, AuditEventInput } from './EventAuditLog.js';
+export { HindsightClient, HindsightError, createHindsightClient } from './HindsightClient.js';
+export type { IHindsightClient, HindsightMemory, RecallOptions, RetainItem, RetainOptions } from './HindsightClient.js';
 export * from './types.js';

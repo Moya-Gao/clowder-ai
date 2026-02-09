@@ -1,0 +1,153 @@
+/**
+ * Evidence Search Route
+ * GET /api/evidence/search — search project knowledge via Hindsight Recall
+ * Degrades to local docs/ grep when Hindsight is unavailable.
+ *
+ * Phase 5.1: Evidence-first search.
+ */
+
+import type { FastifyPluginAsync } from 'fastify';
+import { z } from 'zod';
+import { readdir, readFile } from 'node:fs/promises';
+import { join, relative } from 'node:path';
+import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
+
+/** Accepted query parameters */
+const searchSchema = z.object({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+  budget: z.enum(['low', 'mid', 'high']).default('mid'),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).default('all_strict'),
+});
+
+export type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
+export type EvidenceConfidence = 'high' | 'mid' | 'low';
+
+export interface EvidenceResult {
+  title: string;
+  anchor: string;
+  snippet: string;
+  confidence: EvidenceConfidence;
+  sourceType: EvidenceSourceType;
+}
+
+export interface EvidenceSearchResponse {
+  results: EvidenceResult[];
+  degraded: boolean;
+  degradeReason?: string;
+}
+
+export interface EvidenceRoutesOptions {
+  hindsightClient: IHindsightClient;
+  sharedBank: string;
+  docsRoot?: string;
+}
+
+/** Map a file path to a source type */
+function classifySource(path: string): EvidenceSourceType {
+  if (path.includes('decisions')) return 'decision';
+  if (path.includes('phases')) return 'phase';
+  if (path.includes('discussions')) return 'discussion';
+  return 'commit';
+}
+
+/** Convert Hindsight memory to EvidenceResult */
+function memoryToResult(mem: HindsightMemory): EvidenceResult {
+  const anchor = mem.metadata?.['anchor'] ?? '';
+  return {
+    title: mem.content.slice(0, 120),
+    anchor,
+    snippet: mem.content.slice(0, 300),
+    confidence: (mem.score ?? 0) > 0.8 ? 'high' : (mem.score ?? 0) > 0.5 ? 'mid' : 'low',
+    sourceType: classifySource(anchor),
+  };
+}
+
+/** Degraded search: grep docs/ for matching files */
+async function searchDocs(docsRoot: string, query: string, limit: number): Promise<EvidenceResult[]> {
+  const results: EvidenceResult[] = [];
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return results;
+
+  const dirs = ['decisions', 'phases', 'discussions'];
+  for (const dir of dirs) {
+    let files: string[];
+    try {
+      files = await readdir(join(docsRoot, dir));
+    } catch {
+      continue;
+    }
+
+    for (const file of files) {
+      if (!file.endsWith('.md')) continue;
+      if (results.length >= limit) break;
+
+      const fullPath = join(docsRoot, dir, file);
+      let content: string;
+      try {
+        content = await readFile(fullPath, 'utf-8');
+      } catch {
+        continue;
+      }
+
+      const lower = content.toLowerCase();
+      const matched = terms.some((t) => lower.includes(t));
+      if (!matched) continue;
+
+      const relPath = `docs/${dir}/${file}`;
+      const firstLine = content.split('\n').find((l) => l.trim().startsWith('#'))?.replace(/^#+\s*/, '') ?? file;
+      const snippet = content.slice(0, 300);
+
+      results.push({
+        title: firstLine,
+        anchor: relPath,
+        snippet,
+        confidence: 'low',
+        sourceType: classifySource(relative('', relPath)),
+      });
+    }
+
+    if (results.length >= limit) break;
+  }
+
+  return results.slice(0, limit);
+}
+
+export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
+  app.get('/api/evidence/search', async (request, reply) => {
+    const parseResult = searchSchema.safeParse(request.query);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid query parameters', details: parseResult.error.issues };
+    }
+
+    const { q, limit, budget, tags, tagsMatch } = parseResult.data;
+    const resolvedTags = tags
+      ? (Array.isArray(tags) ? tags : [tags])
+      : ['project:cat-cafe'];
+
+    // Try Hindsight first
+    try {
+      const memories = await opts.hindsightClient.recall(opts.sharedBank, q, {
+        limit,
+        budget,
+        tags: resolvedTags,
+        tagsMatch,
+      });
+
+      const results = memories.map(memoryToResult);
+      return { results, degraded: false } satisfies EvidenceSearchResponse;
+    } catch {
+      // Hindsight unavailable — fallback to local docs search
+      const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
+      const results = await searchDocs(docsRoot, q, limit);
+
+      return {
+        results,
+        degraded: true,
+        degradeReason: 'hindsight_unavailable_fallback_docs_search',
+      } satisfies EvidenceSearchResponse;
+    }
+  });
+};

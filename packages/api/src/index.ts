@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -15,7 +15,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
-import { ClaudeAgentService, getEventAuditLog, AuditEventTypes } from './domains/cats/services/index.js';
+import { ClaudeAgentService, getEventAuditLog, AuditEventTypes, createHindsightClient } from './domains/cats/services/index.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -85,6 +85,13 @@ async function main(): Promise<void> {
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
   await app.register(memoryRoutes, { memoryStore });
+
+  // Evidence search (Hindsight Recall + docs fallback)
+  const hindsightClient = createHindsightClient();
+  await app.register(evidenceRoutes, {
+    hindsightClient,
+    sharedBank: 'cat-cafe-shared',
+  });
 
   // Commands route needs opus service for task extraction
   const opusService = new ClaudeAgentService();

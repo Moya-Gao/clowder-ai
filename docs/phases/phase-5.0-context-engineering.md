@@ -266,4 +266,17 @@ Phase 5 里应当显式承接这些 backlog：
 
 ---
 
+## 9) Phase 5.1 最小增量锚点
+
+> 以下锚点来自研究报告 `docs/research/agent-memory-research-report.md` + 三猫+铲屎官共识 (2026-02-09)。
+> 参数细节见 `docs/phases/phase-5.1-memory-operation-profiles.md`。
+
+1. **Retain 6 个月价值原则**：只存"6 个月后仍有用"的信息；提取规则走 Hindsight custom instructions。
+2. **Narrative Fact 最低结构**：结论 + 依据 + 时间 + 参与者/实体；碎片化 fact 不合格。
+3. **Recall strict tags**：默认 `tagsMatch=all_strict`、`budget=mid`、`limit=5`；图策略用 `link_expansion`。
+4. **Step 3 治理清单**：记忆爆炸、实体漂移、观点僵化、上下文溢出、隐私泄露 — 每项有缓解措施。
+5. **Disposition 延后**：仅预留 `template_only` 模式，不实现运行时个性化 Reflect。后续 Phase 5 后半或 Phase 6。
+
+---
+
 *签名：缅因猫🐾（基于三猫辩论共识，已吸收 2026-02-08 Hindsight 澄清）+ 布偶猫🐾（补充拍板记录）+ 🐬铲屎官（最终拍板 2026-02-08）*
