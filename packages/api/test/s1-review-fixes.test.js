@@ -225,47 +225,93 @@ describe('Integration: dedup does not trigger tracker abort', () => {
   });
 });
 
-// --- R2: delete-guard race between isDeleting() and start() ---
+// --- R2: delete-guard race — route-level integration test ---
+// Simulates: isDeleting()=false → (race: guard acquired) → start() returns aborted
+// The route MUST detect aborted controller, mark InvocationRecord canceled, return 409
 
-describe('R2: delete-guard race cancels InvocationRecord without writing message', () => {
-  test('start() returning aborted controller should mark record canceled', async () => {
-    const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
-    );
-    const { InvocationTracker } = await import(
-      '../dist/domains/cats/services/InvocationTracker.js'
-    );
+import Fastify from 'fastify';
 
-    const store = new InvocationRecordStore();
-    const tracker = new InvocationTracker();
+describe('R2: delete-guard race via POST /api/messages route', () => {
+  test('returns 409 and cancels InvocationRecord when start() returns aborted controller', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationRecordStore } = await import('../dist/domains/cats/services/InvocationRecordStore.js');
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
 
-    // Step 1: isDeleting() returns false (thread not deleting yet)
-    assert.equal(tracker.isDeleting('thread-1'), false);
+    const threadId = 'thread-race-r2';
+    const messageStore = new MessageStore();
+    const invocationRecordStore = new InvocationRecordStore();
 
-    // Step 2: InvocationRecord created successfully
-    const result = store.create({
-      threadId: 'thread-1',
-      userId: 'user-1',
-      targetCats: ['opus'],
-      intent: 'execute',
-      idempotencyKey: 'race-key',
+    // Mock tracker: isDeleting() → false, start() → pre-aborted controller (simulates race)
+    const raceTracker = {
+      isDeleting: () => false,
+      start: () => {
+        const ctrl = new AbortController();
+        ctrl.abort();
+        return ctrl;
+      },
+      complete: () => {},
+    };
+
+    const threadStore = {
+      async get(id) {
+        if (id !== threadId) return null;
+        return {
+          id: threadId,
+          projectPath: 'default',
+          title: 'Race Thread',
+          createdBy: 'alice',
+          participants: [],
+          lastActiveAt: Date.now(),
+          createdAt: Date.now(),
+        };
+      },
+      async updateTitle() {},
+      async updateLastActive() {},
+      async getParticipants() { return []; },
+      async addParticipants() {},
+    };
+
+    const app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore,
+      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      threadStore,
+      invocationTracker: raceTracker,
+      invocationRecordStore,
     });
-    assert.equal(result.outcome, 'created');
+    await app.ready();
 
-    // Step 3: Between isDeleting() and start(), another request triggers guardDelete
-    const guard = tracker.guardDelete('thread-1');
-    assert.equal(guard.acquired, true);
+    const idempotencyKey = '550e8400-e29b-41d4-a716-446655440099';
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      payload: {
+        content: '@opus hello race test',
+        userId: 'alice',
+        threadId,
+        idempotencyKey,
+      },
+    });
 
-    // Step 4: start() now returns pre-aborted controller
-    const controller = tracker.start('thread-1', 'user-1');
-    assert.equal(controller.signal.aborted, true);
+    // Wait briefly to ensure background path would have had time to append if bug existed
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-    // Step 5: The correct behavior — update record to canceled, do NOT write message
-    store.update(result.invocationId, { status: 'canceled' });
-    const record = store.get(result.invocationId);
+    // Assert: 409 THREAD_DELETING
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'THREAD_DELETING');
+
+    // Assert: no user message was written to MessageStore
+    assert.equal(messageStore.getByThread(threadId).length, 0);
+
+    // Assert: InvocationRecord was created then marked canceled by the route
+    const record = invocationRecordStore.getByIdempotencyKey(threadId, 'alice', idempotencyKey);
+    assert.ok(record, 'InvocationRecord should exist (created before start())');
     assert.equal(record.status, 'canceled');
-    assert.equal(record.userMessageId, null); // No message was written
+    assert.equal(record.userMessageId, null, 'No message should have been written');
 
-    guard.release();
+    await app.close();
   });
 });
