@@ -224,3 +224,48 @@ describe('Integration: dedup does not trigger tracker abort', () => {
     assert.equal(controller.signal.aborted, false);
   });
 });
+
+// --- R2: delete-guard race between isDeleting() and start() ---
+
+describe('R2: delete-guard race cancels InvocationRecord without writing message', () => {
+  test('start() returning aborted controller should mark record canceled', async () => {
+    const { InvocationRecordStore } = await import(
+      '../dist/domains/cats/services/InvocationRecordStore.js'
+    );
+    const { InvocationTracker } = await import(
+      '../dist/domains/cats/services/InvocationTracker.js'
+    );
+
+    const store = new InvocationRecordStore();
+    const tracker = new InvocationTracker();
+
+    // Step 1: isDeleting() returns false (thread not deleting yet)
+    assert.equal(tracker.isDeleting('thread-1'), false);
+
+    // Step 2: InvocationRecord created successfully
+    const result = store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'race-key',
+    });
+    assert.equal(result.outcome, 'created');
+
+    // Step 3: Between isDeleting() and start(), another request triggers guardDelete
+    const guard = tracker.guardDelete('thread-1');
+    assert.equal(guard.acquired, true);
+
+    // Step 4: start() now returns pre-aborted controller
+    const controller = tracker.start('thread-1', 'user-1');
+    assert.equal(controller.signal.aborted, true);
+
+    // Step 5: The correct behavior — update record to canceled, do NOT write message
+    store.update(result.invocationId, { status: 'canceled' });
+    const record = store.get(result.invocationId);
+    assert.equal(record.status, 'canceled');
+    assert.equal(record.userMessageId, null); // No message was written
+
+    guard.release();
+  });
+});

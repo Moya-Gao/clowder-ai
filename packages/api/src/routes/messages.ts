@@ -179,6 +179,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       // Not duplicate → safe to start() (may abort prior invocation for this thread)
       const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
 
+      // Race: thread entered deleting between isDeleting() and start()
+      if (controller?.signal.aborted) {
+        await opts.invocationRecordStore.update(createResult.invocationId, {
+          status: 'canceled',
+        });
+        reply.status(409);
+        return {
+          error: '对话正在删除中',
+          detail: '请稍后重试，或新建一个对话继续',
+          code: 'THREAD_DELETING',
+        };
+      }
+
       // ② Write user message (decoupled from cat execution)
       const storedUserMessage = await opts.messageStore.append({
         userId,
