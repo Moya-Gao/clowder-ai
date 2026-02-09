@@ -19,6 +19,14 @@ export interface ChatMessageMetadata {
   sessionId?: string;
 }
 
+export interface ToolEvent {
+  id: string;
+  type: 'tool_use' | 'tool_result';
+  label: string;
+  detail?: string;
+  timestamp: number;
+}
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary';
@@ -27,6 +35,7 @@ export interface ChatMessage {
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
+  toolEvents?: ToolEvent[];
   metadata?: ChatMessageMetadata;
   timestamp: number;
   isStreaming?: boolean;
@@ -71,6 +80,7 @@ interface ChatState {
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
+  appendToolEvent: (id: string, event: ToolEvent) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setLoadingHistory: (loading: boolean) => void;
@@ -140,6 +150,15 @@ export const useChatStore = create<ChatState>((set) => ({
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === id ? { ...m, content: m.content + content } : m
+      ),
+    })),
+
+  appendToolEvent: (id, event) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id
+          ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] }
+          : m
       ),
     })),
 

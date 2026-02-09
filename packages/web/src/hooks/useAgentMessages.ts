@@ -19,6 +19,20 @@ interface AgentMsg {
   toolInput?: Record<string, unknown>;
 }
 
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}…`;
+}
+
+function safeJsonPreview(value: unknown, maxLength: number): string {
+  try {
+    const raw = JSON.stringify(value);
+    return truncate(raw, maxLength);
+  } catch {
+    return '[unserializable input]';
+  }
+}
+
 /**
  * Hook for handling agent message streaming (parallel-aware).
  * Tracks active streams via Map<catId, ref> for simultaneous multi-cat output.
@@ -32,6 +46,7 @@ export function useAgentMessages() {
   const {
     addMessage,
     appendToMessage,
+    appendToolEvent,
     setStreaming,
     setLoading,
     setIntentMode,
@@ -103,6 +118,63 @@ export function useAgentMessages() {
             isStreaming: true,
           });
         }
+      } else if (msg.type === 'tool_use') {
+        setCatStatus(msg.catId, 'streaming');
+        const existing = activeRefs.current.get(msg.catId);
+        let messageId = existing?.id;
+        if (!messageId) {
+          messageId = `msg-${Date.now()}-${msg.catId}`;
+          activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
+          addMessage({
+            id: messageId,
+            type: 'assistant',
+            catId: msg.catId,
+            content: '',
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            timestamp: Date.now(),
+            isStreaming: true,
+          });
+        }
+
+        const toolName = msg.toolName ?? 'unknown';
+        const detail = msg.toolInput
+          ? safeJsonPreview(msg.toolInput, 200)
+          : undefined;
+        appendToolEvent(messageId, {
+          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'tool_use',
+          label: `${msg.catId} → ${toolName}`,
+          ...(detail ? { detail } : {}),
+          timestamp: Date.now(),
+        });
+      } else if (msg.type === 'tool_result') {
+        setCatStatus(msg.catId, 'streaming');
+        const existing = activeRefs.current.get(msg.catId);
+        let messageId = existing?.id;
+        if (!messageId) {
+          messageId = `msg-${Date.now()}-${msg.catId}`;
+          activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
+          addMessage({
+            id: messageId,
+            type: 'assistant',
+            catId: msg.catId,
+            content: '',
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            timestamp: Date.now(),
+            isStreaming: true,
+          });
+        }
+
+        const detail = msg.content
+          ? truncate(msg.content, 300)
+          : '(no output)';
+        appendToolEvent(messageId, {
+          id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'tool_result',
+          label: `${msg.catId} ← result`,
+          detail,
+          timestamp: Date.now(),
+        });
       } else if (msg.type === 'done') {
         setCatStatus(msg.catId, 'done');
         const ref = activeRefs.current.get(msg.catId);
@@ -133,31 +205,6 @@ export function useAgentMessages() {
           content: msg.content ?? '',
           timestamp: Date.now(),
         });
-      } else if (msg.type === 'tool_use') {
-        // Show tool invocation for observability (BACKLOG F9)
-        const toolName = msg.toolName ?? 'unknown';
-        const inputSummary = msg.toolInput
-          ? JSON.stringify(msg.toolInput).slice(0, 200)
-          : '';
-        addMessage({
-          id: `tool-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
-          type: 'system',
-          variant: 'tool',
-          content: `🔧 ${msg.catId} → ${toolName}${inputSummary ? ` ${inputSummary}` : ''}`,
-          timestamp: Date.now(),
-        });
-      } else if (msg.type === 'tool_result') {
-        // Show tool result summary for observability (BACKLOG F9)
-        const resultText = msg.content
-          ? msg.content.slice(0, 300)
-          : '(no output)';
-        addMessage({
-          id: `toolr-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
-          type: 'system',
-          variant: 'tool',
-          content: `📋 ${msg.catId} ← ${resultText}`,
-          timestamp: Date.now(),
-        });
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
@@ -179,7 +226,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(
