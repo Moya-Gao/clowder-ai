@@ -52,7 +52,7 @@
 | 36 | CLI 全局配置隔离 | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | Codex CLI `~/.codex/AGENTS.md` 会覆盖会话规则。需调研：1) `--no-global-agents` flag 2) 独立配置目录 `CODEX_CONFIG_DIR` 3) 会话规则优先级声明 |
 | 39 | useChatCommands 命令解析自动化测试 | [x] | Phase 5.0-S2 follow-up | Phase 5.2 — vitest + jsdom 基建 + 14 tests for isCommandInvocation |
 | 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
-| 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [ ] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 已在 API 侧做签名级降噪缓解；待上游 `@google/gemini-cli` 发布根修复后回滚临时分支并复测 |
+| 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [ ] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 已在 API 侧做签名级降噪缓解；上游主 issue: `google-gemini/gemini-cli#18621`，已补充脱敏复现证据 `issuecomment-3873258406`；新增线索：旧 CLI + 旧 macOS 未见该问题，需做版本×OS 回归矩阵 |
 
 ## P3 — 可选优化
 
@@ -101,7 +101,7 @@
 |------|--------|----------|
 | CLI 启动开销 ~500ms-2s | 中 | 可考虑进程池 |
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
-| Gemini CLI 0.27.3 仍存在“正文后 candidates undefined”间歇崩溃 | 中 | API 侧仅在“已产出正文 + 命中特征签名”时抑制误导性错误；持续跟踪上游修复 |
+| Gemini CLI 0.27.3 仍存在“正文后 candidates undefined”间歇崩溃 | 中 | API 侧仅在“已产出正文 + 命中特征签名”时抑制误导性错误；上游跟踪见 `google-gemini/gemini-cli#18621` / `issuecomment-3873258406`；需验证是否与 macOS 升级组合触发 |
 | Antigravity MCP 回传可能无响应 | 中 | gemini-cli fallback |
 | **Codex CLI 全局配置可覆盖会话规则** | 高 | `~/.codex/AGENTS.md` 含 `<EXTREMELY_IMPORTANT>` 优先级极高。详见 [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) |
 

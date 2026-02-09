@@ -79,6 +79,8 @@ gemini -p "请只回复 hi" -o stream-json -y
 ### Open Questions
 
 - 是否在系统层加入“Gemini CLI 版本/健康检查”并提示升级（当前先修行为）。
+- 回归窗口是否与 macOS 升级相关（用户反馈：升级前旧版本 CLI 未出现该问题）？需要做 `CLI 版本 × macOS 版本` 复测矩阵。
+- 上游主跟踪为 `google-gemini/gemini-cli#18621`，当前脱敏复现补充见 `issuecomment-3873258406`；后续是否需要单独拆分 `stream-json` 子问题。
 
 ### Next Action
 
