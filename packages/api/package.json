@@ -9,6 +9,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "test": "node --test test/*.test.js",
+    "test:redis": "bash ./scripts/run-isolated-redis-tests.sh",
+    "test:redis:repeat": "bash ./scripts/run-isolated-redis-tests.sh --repeat 2",
     "test:integration": "node --test test/integration/*.test.js",
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"

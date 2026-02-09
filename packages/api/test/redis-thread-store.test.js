@@ -5,6 +5,10 @@
 
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -16,6 +20,8 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
   let connected = false;
 
   before(async () => {
+    assertRedisIsolationOrThrow(REDIS_URL, 'RedisThreadStore');
+
     const storeModule = await import('../dist/domains/cats/services/RedisThreadStore.js');
     RedisThreadStore = storeModule.RedisThreadStore;
     const redisModule = await import('@cat-cafe/shared/utils');
@@ -35,26 +41,14 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
 
   after(async () => {
     if (redis && connected) {
-      const keys = await redis.keys('cat-cafe:thread:*');
-      const userKeys = await redis.keys('cat-cafe:threads:*');
-      const all = [...keys, ...userKeys];
-      if (all.length > 0) {
-        const stripped = all.map(k => k.replace(/^cat-cafe:/, ''));
-        await redis.del(...stripped);
-      }
+      await cleanupPrefixedRedisKeys(redis, ['thread:*', 'threads:*']);
       await redis.quit();
     }
   });
 
   beforeEach(async (t) => {
     if (!connected) return t.skip('Redis not connected');
-    const keys = await redis.keys('cat-cafe:thread:*');
-    const userKeys = await redis.keys('cat-cafe:threads:*');
-    const all = [...keys, ...userKeys];
-    if (all.length > 0) {
-      const stripped = all.map(k => k.replace(/^cat-cafe:/, ''));
-      await redis.del(...stripped);
-    }
+    await cleanupPrefixedRedisKeys(redis, ['thread:*', 'threads:*']);
   });
 
   it('create() stores thread and returns it', async () => {
@@ -154,6 +148,8 @@ describe('ThreadStoreFactory', () => {
   it('returns RedisThreadStore when redis provided', {
     skip: !REDIS_URL ? 'REDIS_URL not set' : false,
   }, async () => {
+    assertRedisIsolationOrThrow(REDIS_URL, 'ThreadStoreFactory');
+
     const { createThreadStore } = await import(
       '../dist/domains/cats/services/ThreadStoreFactory.js'
     );

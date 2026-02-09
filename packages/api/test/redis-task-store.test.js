@@ -6,6 +6,10 @@
 
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -17,6 +21,8 @@ describe('RedisTaskStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
   let connected = false;
 
   before(async () => {
+    assertRedisIsolationOrThrow(REDIS_URL, 'RedisTaskStore');
+
     const storeModule = await import('../dist/domains/cats/services/RedisTaskStore.js');
     RedisTaskStore = storeModule.RedisTaskStore;
     const redisModule = await import('@cat-cafe/shared/utils');
@@ -36,19 +42,14 @@ describe('RedisTaskStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
 
   after(async () => {
     if (redis && connected) {
-      const keys = await redis.keys('cat-cafe:task:*');
-      const threadKeys = await redis.keys('cat-cafe:tasks:*');
-      const all = [...keys, ...threadKeys];
-      if (all.length > 0) {
-        const stripped = all.map(k => k.replace(/^cat-cafe:/, ''));
-        await redis.del(...stripped);
-      }
+      await cleanupPrefixedRedisKeys(redis, ['task:*', 'tasks:*']);
       await redis.quit();
     }
   });
 
   beforeEach(async (t) => {
     if (!connected) return t.skip('Redis not connected');
+    await cleanupPrefixedRedisKeys(redis, ['task:*', 'tasks:*']);
   });
 
   it('create stores task and listByThread returns it', async () => {

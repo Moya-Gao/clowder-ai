@@ -5,6 +5,10 @@
 
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -16,6 +20,8 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
   let connected = false;
 
   before(async () => {
+    assertRedisIsolationOrThrow(REDIS_URL, 'RedisMessageStore');
+
     const storeModule = await import('../dist/domains/cats/services/RedisMessageStore.js');
     RedisMessageStore = storeModule.RedisMessageStore;
     const redisModule = await import('@cat-cafe/shared/utils');
@@ -36,24 +42,14 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
   after(async () => {
     if (redis && connected) {
-      // Clean up test keys
-      const keys = await redis.keys('cat-cafe:msg:*');
-      if (keys.length > 0) {
-        const stripped = keys.map(k => k.replace(/^cat-cafe:/, ''));
-        await redis.del(...stripped);
-      }
+      await cleanupPrefixedRedisKeys(redis, ['msg:*']);
       await redis.quit();
     }
   });
 
   beforeEach(async (t) => {
     if (!connected) return t.skip('Redis not connected');
-    // Clean up before each test
-    const keys = await redis.keys('cat-cafe:msg:*');
-    if (keys.length > 0) {
-      const stripped = keys.map(k => k.replace(/^cat-cafe:/, ''));
-      await redis.del(...stripped);
-    }
+    await cleanupPrefixedRedisKeys(redis, ['msg:*']);
   });
 
   it('append() stores message and returns with id', async () => {

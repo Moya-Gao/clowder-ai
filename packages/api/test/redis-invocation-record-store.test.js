@@ -5,6 +5,10 @@
 
 import { describe, it, before, after, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  assertRedisIsolationOrThrow,
+  cleanupPrefixedRedisKeys,
+} from './helpers/redis-test-helpers.js';
 
 const REDIS_URL = process.env['REDIS_URL'];
 
@@ -16,6 +20,8 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
   let connected = false;
 
   before(async () => {
+    assertRedisIsolationOrThrow(REDIS_URL, 'RedisInvocationRecordStore');
+
     const storeModule = await import('../dist/domains/cats/services/RedisInvocationRecordStore.js');
     RedisInvocationRecordStore = storeModule.RedisInvocationRecordStore;
     const redisModule = await import('@cat-cafe/shared/utils');
@@ -35,26 +41,14 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
 
   after(async () => {
     if (redis && connected) {
-      // Clean up test keys (bare keys — ioredis auto-prefixes)
-      const keys = await redis.keys('invoc:*');
-      const idempKeys = await redis.keys('idemp:*');
-      const allKeys = [...keys, ...idempKeys];
-      if (allKeys.length > 0) {
-        await redis.del(...allKeys);
-      }
+      await cleanupPrefixedRedisKeys(redis, ['invoc:*', 'idemp:*']);
       await redis.quit();
     }
   });
 
   beforeEach(async (t) => {
     if (!connected) return t.skip('Redis not connected');
-    // Clean up before each test (bare keys — ioredis auto-prefixes)
-    const keys = await redis.keys('invoc:*');
-    const idempKeys = await redis.keys('idemp:*');
-    const allKeys = [...keys, ...idempKeys];
-    if (allKeys.length > 0) {
-      await redis.del(...allKeys);
-    }
+    await cleanupPrefixedRedisKeys(redis, ['invoc:*', 'idemp:*']);
   });
 
   it('create() returns created outcome', async () => {

@@ -209,6 +209,16 @@ commit message 需要包含猫猫签名，便于回溯"谁做的、为什么做"
 
 > 没有登记 = 永远不会做。BACKLOG.md 是三只猫共享的记忆。
 
+### 7) Redis 测试必须走隔离入口（布偶猫硬规则）
+
+涉及 Redis 的测试与修复（含 `Redis*Store`、`REDIS_URL`）必须遵守：
+
+1. **统一命令**：只用 `pnpm --filter @cat-cafe/api test:redis`（稳定性复验用 `test:redis:repeat`）。
+2. **禁止直连环境 Redis**：不要手工导出任意 `REDIS_URL` 直接跑；测试脚本会自动起临时 Redis（本机、DB `/15`、禁持久化、自动清理）。
+3. **先红后绿**：Redis bug 修复必须先有会失败的用例，再修复、再验证绿灯。
+4. **提交前检查**：改了 Redis 相关代码，至少附一条 `test:redis` 结果；关键路径改动要附 `test:redis:repeat` 结果。
+5. **记忆同步**：每次踩到新的 Redis 测试坑，写入你的记忆文件（或等价持久记忆），避免重复踩坑。
+
 ## 当你不确定时
 
 1. 先看设计文档
