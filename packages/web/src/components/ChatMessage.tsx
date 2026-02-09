@@ -163,7 +163,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
         </div>
         <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-owner-light bg-owner-primary flex items-center justify-center">
           <img
-            src="/avatars/owner.png"
+            src="/avatars/owner.jpg"
             alt="铲屎官"
             width={32}
             height={32}

@@ -145,8 +145,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     const { id } = request.params as { id: string };
 
     // Protect active invocations from deletion (#35)
-    // Fail-closed: check before AND after async gap to narrow race window
-    if (opts.invocationTracker?.has(id)) {
+    // Atomic: guardDelete checks has() + marks "deleting" in one synchronous tick.
+    // While guard is held, start() returns pre-aborted controller for this thread.
+    const guard = opts.invocationTracker?.guardDelete(id);
+    if (guard && !guard.acquired) {
       reply.status(409);
       return {
         error: '猫猫正在工作中',
@@ -155,40 +157,34 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       };
     }
 
-    const thread = await threadStore.get(id);
+    try {
+      const thread = await threadStore.get(id);
 
-    // Re-check after async gap — invocation may have started during await
-    if (opts.invocationTracker?.has(id)) {
-      reply.status(409);
-      return {
-        error: '猫猫正在工作中',
-        detail: '请等待猫猫完成当前任务后再删除对话',
-        code: 'ACTIVE_INVOCATION',
-      };
-    }
-
-    const deleted = await threadStore.delete(id);
-    if (!deleted) {
-      reply.status(400);
-      return { error: 'Cannot delete this thread' };
-    }
-
-    // Cascade delete associated data (best-effort, don't fail if stores unavailable)
-    const cascadeResults = await Promise.allSettled([
-      messageStore?.deleteByThread(id),
-      taskStore?.deleteByThread(id),
-      memoryStore?.deleteThread(id),
-      thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
-    ]);
-
-    // Log any cascade failures but don't fail the request
-    for (const result of cascadeResults) {
-      if (result.status === 'rejected') {
-        console.warn(`[threads] Cascade delete warning for ${id}:`, result.reason);
+      const deleted = await threadStore.delete(id);
+      if (!deleted) {
+        reply.status(400);
+        return { error: 'Cannot delete this thread' };
       }
-    }
 
-    reply.status(204);
-    return;
+      // Cascade delete associated data (best-effort, don't fail if stores unavailable)
+      const cascadeResults = await Promise.allSettled([
+        messageStore?.deleteByThread(id),
+        taskStore?.deleteByThread(id),
+        memoryStore?.deleteThread(id),
+        thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
+      ]);
+
+      // Log any cascade failures but don't fail the request
+      for (const result of cascadeResults) {
+        if (result.status === 'rejected') {
+          console.warn(`[threads] Cascade delete warning for ${id}:`, result.reason);
+        }
+      }
+
+      reply.status(204);
+      return;
+    } finally {
+      guard?.release();
+    }
   });
 };

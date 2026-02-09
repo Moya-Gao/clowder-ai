@@ -333,7 +333,12 @@ describe('Thread delete invocation protection (#35)', () => {
     const threadStore = new ThreadStore();
     const thread = threadStore.create('alice', 'Active Thread');
 
-    const mockTracker = { has: (id) => id === thread.id };
+    // guardDelete returns acquired:false when thread has active invocation
+    const mockTracker = {
+      guardDelete: (id) => id === thread.id
+        ? { acquired: false, release: () => {} }
+        : { acquired: true, release: () => {} },
+    };
 
     const app = Fastify();
     await app.register(threadsRoutes, { threadStore, invocationTracker: mockTracker });
@@ -360,7 +365,10 @@ describe('Thread delete invocation protection (#35)', () => {
     const threadStore = new ThreadStore();
     const thread = threadStore.create('alice', 'Idle Thread');
 
-    const mockTracker = { has: () => false };
+    let released = false;
+    const mockTracker = {
+      guardDelete: () => ({ acquired: true, release: () => { released = true; } }),
+    };
 
     const app = Fastify();
     await app.register(threadsRoutes, { threadStore, invocationTracker: mockTracker });
@@ -371,8 +379,39 @@ describe('Thread delete invocation protection (#35)', () => {
       url: `/api/threads/${thread.id}`,
     });
     assert.equal(res.statusCode, 204);
+    // Guard must be released after delete
+    assert.ok(released, 'delete guard should be released');
 
     await app.close();
+  });
+
+  it('guardDelete blocks start() during async delete window', async () => {
+    const { InvocationTracker } = await import('../dist/domains/cats/services/InvocationTracker.js');
+
+    const tracker = new InvocationTracker();
+    const threadId = 'race-test-thread';
+
+    // 1. No active invocation — guard should succeed
+    const guard = tracker.guardDelete(threadId);
+    assert.ok(guard.acquired, 'guard should be acquired when no active invocation');
+
+    // 2. While guard is held, start() should return pre-aborted controller
+    const controller = tracker.start(threadId, 'user1');
+    assert.ok(controller.signal.aborted, 'controller should be pre-aborted during delete guard');
+
+    // 3. has() should return false (start didn't register the invocation)
+    assert.ok(!tracker.has(threadId), 'thread should not have active invocation during delete guard');
+
+    // 4. Release guard
+    guard.release();
+
+    // 5. After release, start() should work normally
+    const controller2 = tracker.start(threadId, 'user2');
+    assert.ok(!controller2.signal.aborted, 'controller should not be aborted after guard released');
+    assert.ok(tracker.has(threadId), 'thread should have active invocation after normal start');
+
+    // Cleanup
+    tracker.complete(threadId);
   });
 });
 
