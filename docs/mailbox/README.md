@@ -27,16 +27,29 @@ Type: Code Review 请求 / 任务交接 / 反馈回复
 
 ## 信的生命周期
 
-1. 写信方创建文件
+1. 写信方创建文件到 `docs/mailbox/` 根目录
 2. 收信方阅读并回复（可以在同一文件追加，也可以新建回信）
-3. 事项完成后在文件末尾标记 `## Status: Closed`
-4. 已关闭的信保留归档，不删除
+3. 事项完成后归档到 `archive/YYYY-MM-DD/` 目录
 
-## 当前信箱
+## 目录结构
 
-| 日期 | 主题 | From → To | 状态 |
-|------|------|-----------|------|
-| 2026-02-06 | Phase 3.2 Batch 1 Review | 布偶 → 缅因 | ✅ Closed |
-| 2026-02-06 | Phase 3.2 Batch 2 Review | 布偶 → 缅因 | ✅ Closed |
-| 2026-02-06 | Phase 3.2 Batch 3 Review | 布偶 → 缅因 | ✅ Closed |
-| 2026-02-06 | Phase 3.3b Review | 布偶 → 缅因 | ✅ Closed |
+```
+docs/mailbox/
+├── README.md          ← 你在这里
+├── archive/
+│   ├── 2026-02-06/    (8 封 — Phase 3.2~3.5 review)
+│   ├── 2026-02-07/    (13 封 — Phase 3.6~4.0 review + bugfix + A2A 讨论)
+│   ├── 2026-02-08/    (7 封 — 茶话会 bugfix + cloud review + Hindsight 澄清)
+│   └── 2026-02-09/    (21 封 — Phase 5.0~5.2 review + delete guard 修复)
+└── (新信件直接放根目录，完成后移入 archive/)
+```
+
+## 统计
+
+| 日期 | 封数 | 主要内容 |
+|------|------|----------|
+| 2026-02-06 | 8 | Phase 3.2 batch review x3, 3.3b, 3.5 batch review x4 |
+| 2026-02-07 | 13 | Phase 3.6~3.8 review, Phase 4.0 review, A2A 设计讨论, Quick wins, bugfix |
+| 2026-02-08 | 7 | 茶话会夺魂 bugfix, URL 路由 bugfix, cloud cat review, Hindsight 澄清 |
+| 2026-02-09 | 21 | Phase 5.0 全链路 review, Phase 5.2 BACKLOG 大扫除, delete guard 修复 |
+| **合计** | **49** | |
