@@ -2,6 +2,7 @@
 
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { SummaryCard } from './SummaryCard';
 import { OwnerIcon } from './icons/OwnerIcon';
@@ -15,7 +16,6 @@ const CAT_STYLES: Record<string, {
   label: string;
   radius: string;
   font?: string;
-  mentionColor: string;
 }> = {
   opus: {
     bg: 'bg-opus-bg',
@@ -23,7 +23,6 @@ const CAT_STYLES: Record<string, {
     name: '布偶猫',
     label: '布偶猫（Opus）',
     radius: 'rounded-2xl rounded-bl-sm',
-    mentionColor: 'text-opus-primary',
   },
   codex: {
     bg: 'bg-codex-bg',
@@ -32,7 +31,6 @@ const CAT_STYLES: Record<string, {
     label: '缅因猫（Codex）',
     radius: 'rounded-2xl rounded-br-sm',
     font: 'font-mono',
-    mentionColor: 'text-codex-primary',
   },
   gemini: {
     bg: 'bg-gemini-bg',
@@ -40,68 +38,17 @@ const CAT_STYLES: Record<string, {
     name: '暹罗猫',
     label: '暹罗猫（Gemini）',
     radius: 'rounded-2xl rounded-tr-sm',
-    mentionColor: 'text-gemini-primary',
   },
 };
-const MENTION_RE = /@(布偶猫?|缅因猫?|暹罗猫?|opus|codex|gemini)/gi;
-const COMMAND_RE = /^(\/\w+)/;
-const MENTION_TO_CAT: Record<string, string> = {
-  '布偶': 'opus', '布偶猫': 'opus', 'opus': 'opus',
-  '缅因': 'codex', '缅因猫': 'codex', 'codex': 'codex',
-  '暹罗': 'gemini', '暹罗猫': 'gemini', 'gemini': 'gemini',
-};
-
-function renderContent(text: string) {
-  const parts: (string | JSX.Element)[] = [];
-  let remaining = text;
-
-  // Highlight /commands at start of text
-  const cmdMatch = COMMAND_RE.exec(remaining);
-  if (cmdMatch) {
-    parts.push(
-      <span key="cmd" className="font-semibold text-indigo-500">{cmdMatch[1]}</span>
-    );
-    remaining = remaining.slice(cmdMatch[1].length);
-  }
-
-  // Highlight @mentions in the rest
-  let lastIndex = 0;
-  let match: RegExpExecArray | null;
-
-  MENTION_RE.lastIndex = 0;
-  while ((match = MENTION_RE.exec(remaining)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(remaining.slice(lastIndex, match.index));
-    }
-    const catKey = MENTION_TO_CAT[match[1].toLowerCase()] ?? 'opus';
-    const style = CAT_STYLES[catKey];
-    parts.push(
-      <span key={match.index} className={`font-semibold ${style?.mentionColor ?? 'text-owner-primary'}`}>
-        {match[0]}
-      </span>
-    );
-    lastIndex = MENTION_RE.lastIndex;
-  }
-  if (lastIndex < remaining.length) {
-    parts.push(remaining.slice(lastIndex));
-  }
-  return parts;
-}
-
 function renderContentBlocks(blocks: MessageContent[]) {
   return blocks.map((block, i) => {
     if (block.type === 'text') {
-      return (
-        <div key={i} className="whitespace-pre-wrap text-sm">
-          {renderContent(block.text)}
-        </div>
-      );
+      return <MarkdownContent key={i} content={block.text} />;
     }
     if (block.type === 'image') {
       const src = block.url.startsWith('/uploads/')
         ? `${API_URL}${block.url}`
         : block.url;
-      // Only allow safe schemes for window.open (prevent javascript: XSS)
       const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
       return (
         <img
@@ -168,7 +115,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             {hasBlocks ? (
               renderContentBlocks(message.contentBlocks!)
             ) : (
-              <div className="whitespace-pre-wrap text-sm">{renderContent(message.content)}</div>
+              <MarkdownContent content={message.content} />
             )}
           </div>
         </div>
@@ -201,9 +148,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
           {hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : (
-            <div className={`whitespace-pre-wrap text-sm ${cat?.font ?? ''}`}>
-              {renderContent(message.content)}
-            </div>
+            <MarkdownContent content={message.content} className={cat?.font} />
           )}
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />
