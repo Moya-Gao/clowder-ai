@@ -14,6 +14,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
+import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { validateProjectPath } from '../utils/project-path.js';
 
 export interface ThreadsRoutesOptions {
@@ -26,6 +27,8 @@ export interface ThreadsRoutesOptions {
   memoryStore?: IMemoryStore;
   /** Optional: cascade delete delivery cursors when thread is deleted */
   deliveryCursorStore?: DeliveryCursorStore;
+  /** Optional: protect active invocations from thread deletion (#35) */
+  invocationTracker?: InvocationTracker;
 }
 
 const createThreadSchema = z.object({
@@ -140,6 +143,17 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   // DELETE /api/threads/:id - 删除对话 (with cascade delete)
   app.delete('/api/threads/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+
+    // Protect active invocations from deletion (#35)
+    if (opts.invocationTracker?.has(id)) {
+      reply.status(409);
+      return {
+        error: '猫猫正在工作中',
+        detail: '请等待猫猫完成当前任务后再删除对话',
+        code: 'ACTIVE_INVOCATION',
+      };
+    }
+
     const thread = await threadStore.get(id);
     const deleted = await threadStore.delete(id);
     if (!deleted) {

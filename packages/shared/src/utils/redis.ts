@@ -93,7 +93,7 @@ export class SessionStore {
     catId: string,
     threadId: string,
     messageId: string,
-    ttlSeconds = 86400
+    ttlSeconds = 604800 // 7 days (#40)
   ): Promise<void> {
     await this.redis.set(
       SessionKeys.deliveryCursor(userId, catId, threadId),

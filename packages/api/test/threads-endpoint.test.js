@@ -325,6 +325,57 @@ describe('Thread cascade delete', () => {
   });
 });
 
+describe('Thread delete invocation protection (#35)', () => {
+  it('DELETE returns 409 when thread has active invocation', async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('alice', 'Active Thread');
+
+    const mockTracker = { has: (id) => id === thread.id };
+
+    const app = Fastify();
+    await app.register(threadsRoutes, { threadStore, invocationTracker: mockTracker });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'ACTIVE_INVOCATION');
+
+    // Thread should still exist
+    assert.ok(threadStore.get(thread.id));
+
+    await app.close();
+  });
+
+  it('DELETE succeeds when no active invocation', async () => {
+    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('alice', 'Idle Thread');
+
+    const mockTracker = { has: () => false };
+
+    const app = Fastify();
+    await app.register(threadsRoutes, { threadStore, invocationTracker: mockTracker });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}`,
+    });
+    assert.equal(res.statusCode, 204);
+
+    await app.close();
+  });
+});
+
 describe('GET /api/messages with threadId', () => {
   let app;
   let messageStore;

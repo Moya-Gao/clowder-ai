@@ -233,3 +233,36 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages[0].content, 'alice msg');
   });
 });
+
+describe('POST /api/messages orphan rejection (#21)', () => {
+  it('returns 400 when threadId does not exist', async () => {
+    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    const app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore: new MessageStore(),
+      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      threadStore: new ThreadStore(),
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      payload: {
+        content: 'hello',
+        userId: 'alice',
+        threadId: 'nonexistent-thread',
+      },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'THREAD_NOT_FOUND');
+
+    await app.close();
+  });
+});

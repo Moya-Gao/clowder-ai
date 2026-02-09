@@ -56,7 +56,10 @@ export function useSendMessage() {
             method: 'POST',
             body: formData,
           });
-          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(body?.detail ?? `Server error: ${res.status}`);
+          }
         } else {
           // JSON mode
           const res = await fetch(`${API_URL}/api/messages`, {
@@ -67,7 +70,10 @@ export function useSendMessage() {
               threadId: currentThreadId,
             }),
           });
-          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          if (!res.ok) {
+            const body = await res.json().catch(() => null);
+            throw new Error(body?.detail ?? `Server error: ${res.status}`);
+          }
         }
       } catch (err) {
         setLoading(false);

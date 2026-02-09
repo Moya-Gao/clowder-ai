@@ -111,13 +111,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       const thread = await opts.threadStore.get(resolvedThreadId);
 
       if (!thread) {
-        // Thread doesn't exist — messages will be orphaned!
-        // Frontend should always call POST /api/threads first.
-        // TODO: Add createWithId() to ThreadStore for proper fix.
-        console.warn(
-          `[messages] Thread ${resolvedThreadId} not found. Messages will be orphaned. ` +
-          `Frontend should call POST /api/threads before sending messages.`,
-        );
+        // Thread doesn't exist — reject to prevent orphaned messages (#21)
+        reply.status(400);
+        return {
+          error: '对话不存在',
+          detail: '请先创建对话后再发送消息。如果对话已被删除，请新建一个。',
+          code: 'THREAD_NOT_FOUND',
+        };
       } else if (thread.title === null) {
         // Auto-title existing untitled thread
         const autoTitle = content.length > 30

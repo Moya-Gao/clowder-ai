@@ -86,6 +86,7 @@ async function main(): Promise<void> {
     taskStore,
     memoryStore,
     deliveryCursorStore,
+    invocationTracker,
   });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(summariesRoutes, { summaryStore, socketManager });
