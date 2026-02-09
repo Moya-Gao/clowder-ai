@@ -134,7 +134,22 @@ export const useChatStore = create<ChatState>((set) => ({
       if (state.messages.some((m) => m.id === msg.id)) {
         return state;
       }
-      return { messages: [...state.messages, msg] };
+      const messages = [...state.messages, msg];
+      // Revoke blob URLs on oldest messages to prevent memory leak (#22)
+      const MAX_BLOB_MESSAGES = 200;
+      if (messages.length > MAX_BLOB_MESSAGES) {
+        for (let i = 0; i < messages.length - MAX_BLOB_MESSAGES; i++) {
+          const old = messages[i];
+          if (old.contentBlocks) {
+            for (const block of old.contentBlocks) {
+              if (block.type === 'image' && block.url.startsWith('blob:')) {
+                URL.revokeObjectURL(block.url);
+              }
+            }
+          }
+        }
+      }
+      return { messages };
     }),
 
   prependHistory: (msgs, hasMore) =>
