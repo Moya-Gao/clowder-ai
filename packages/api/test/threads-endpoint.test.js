@@ -178,6 +178,18 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 404);
   });
 
+  it('PATCH /api/threads/:id returns 400 for blank title', async () => {
+    const thread = threadStore.create('alice', 'Title Before');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { title: '   ' },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
   it('DELETE /api/threads/:id removes thread', async () => {
     const thread = threadStore.create('alice', 'To Delete');
 

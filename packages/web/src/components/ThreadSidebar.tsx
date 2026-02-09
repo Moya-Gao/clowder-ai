@@ -367,15 +367,20 @@ export function ThreadSidebar() {
   const filteredThreads = useMemo(() => {
     if (!normalizedQuery) return threads;
     return threads.filter((thread) => {
-      if (thread.id === 'default') return false;
       const title = (thread.title ?? '').toLowerCase();
+      const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
       const project = (thread.projectPath ?? '').toLowerCase();
-      return title.includes(normalizedQuery) || project.includes(normalizedQuery);
+      return (
+        title.includes(normalizedQuery) ||
+        fallback.includes(normalizedQuery) ||
+        project.includes(normalizedQuery)
+      );
     });
   }, [threads, normalizedQuery]);
 
   const grouped = useMemo(() => groupThreadsByProject(filteredThreads), [filteredThreads]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
+  const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
 
   return (
     <>
@@ -405,7 +410,7 @@ export function ThreadSidebar() {
             <div className="text-center py-4 text-xs text-gray-400">加载中...</div>
           )}
 
-          {normalizedQuery.length === 0 && (
+          {showDefaultThread && (
             <ThreadItem
               id="default"
               title="大厅"
@@ -430,7 +435,7 @@ export function ThreadSidebar() {
             />
           ))}
 
-          {normalizedQuery.length > 0 && grouped.length === 0 && (
+          {normalizedQuery.length > 0 && grouped.length === 0 && !showDefaultThread && (
             <div className="px-3 py-4 text-xs text-gray-400">没有匹配的对话</div>
           )}
         </div>
@@ -607,8 +612,12 @@ function ThreadItem({
           </span>
         )}
         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-          {canRename && (
+          {canRename && !isEditing && (
             <button
+              onMouseDown={(e) => {
+                // Prevent focus transfer from input to button, avoids blur/click race flicker.
+                e.preventDefault();
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 setIsEditing(true);
