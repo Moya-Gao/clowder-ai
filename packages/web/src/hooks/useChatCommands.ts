@@ -271,6 +271,85 @@ export function useChatCommands() {
         return true;
       }
 
+      // /evidence <query> — search project knowledge
+      if (trimmed.startsWith('/evidence')) {
+        const query = trimmed.slice('/evidence'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        if (!query) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: '用法: /evidence <搜索关键词>\n例: /evidence hindsight bank 设计',
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+
+        try {
+          const res = await fetch(
+            `${API_URL}/api/evidence/search?q=${encodeURIComponent(query)}`
+          );
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          const data = (await res.json()) as {
+            results: Array<{
+              title: string;
+              anchor: string;
+              snippet: string;
+              confidence: string;
+              sourceType: string;
+            }>;
+            degraded: boolean;
+          };
+
+          if (data.results.length === 0) {
+            addMessage({
+              id: `evidence-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: '🔍 未找到相关证据',
+              timestamp: Date.now(),
+            });
+          } else {
+            const lines: string[] = [];
+            if (data.degraded) {
+              lines.push('⚠️ 已降级到本地搜索，结果可能不完整');
+              lines.push('');
+            }
+            lines.push(`🔍 Evidence 检索结果 (${data.results.length} 条)`);
+            for (const r of data.results) {
+              lines.push('━━━━━━━━━');
+              lines.push(`[${r.confidence}] ${r.title}`);
+              lines.push(`  📎 ${r.anchor}`);
+              const snippet = r.snippet.length > 200 ? r.snippet.slice(0, 200) + '...' : r.snippet;
+              lines.push(`  > ${snippet.replace(/\n/g, ' ')}`);
+            }
+            addMessage({
+              id: `evidence-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: lines.join('\n'),
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `证据检索失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
       // /tasks extract [N] — extract tasks from conversation
       if (trimmed.startsWith('/tasks extract')) {
         const rest = trimmed.slice('/tasks extract'.length).trim();

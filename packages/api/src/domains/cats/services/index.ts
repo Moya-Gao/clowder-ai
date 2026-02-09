@@ -42,4 +42,6 @@ export { EventAuditLog, AuditEventTypes, getEventAuditLog } from './EventAuditLo
 export type { AuditEvent, AuditEventInput } from './EventAuditLog.js';
 export { HindsightClient, HindsightError, createHindsightClient } from './HindsightClient.js';
 export type { IHindsightClient, HindsightMemory, RecallOptions, RetainItem, RetainOptions } from './HindsightClient.js';
+export { MemoryGovernanceStore, GovernanceConflictError, resolveTransition } from './MemoryGovernanceStore.js';
+export type { GovernanceStatus, PublishAction, GovernanceEntry, IMemoryGovernanceStore } from './MemoryGovernanceStore.js';
 export * from './types.js';

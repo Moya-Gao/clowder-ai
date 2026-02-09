@@ -196,6 +196,17 @@ export const AuditEventTypes = {
   CAT_ERROR: 'cat_error',
   /** 猫猫互调 handoff */
   A2A_HANDOFF: 'a2a_handoff',
+
+  // === 记忆治理 (Phase 5.0 Step 2a) ===
+
+  /** 记忆提交审核 (draft → pending_review) */
+  MEMORY_PUBLISH_SUBMITTED: 'memory_publish_submitted',
+  /** 记忆审核通过 (pending_review → published) */
+  MEMORY_PUBLISH_APPROVED: 'memory_publish_approved',
+  /** 记忆归档 (published → archived) */
+  MEMORY_PUBLISH_ARCHIVED: 'memory_publish_archived',
+  /** 记忆回滚 (published → draft) */
+  MEMORY_PUBLISH_ROLLBACK: 'memory_publish_rollback',
 } as const;
 
 /** Singleton instance for convenience */

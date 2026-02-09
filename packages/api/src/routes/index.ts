@@ -11,3 +11,4 @@ export { configRoutes } from './config.js';
 export { memoryRoutes } from './memory.js';
 export { commandsRoutes } from './commands.js';
 export { evidenceRoutes } from './evidence.js';
+export { memoryPublishRoutes } from './memory-publish.js';

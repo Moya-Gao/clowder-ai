@@ -66,4 +66,27 @@ GET /api/evidence/search?q=hindsight+bank
 
 ---
 
+## 分工（2026-02-09 铲屎官拍板）
+
+### 布偶猫负责（前端实现）
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| `EvidenceCard.tsx` — 单条结果卡片 | 🔄 进行中 | React + Tailwind，参考 SummaryCard 风格 |
+| `EvidencePanel.tsx` — 搜索结果列表 | 🔄 进行中 | 含降级 banner |
+| `/evidence` 命令接入 | 🔄 进行中 | 接入 useChatCommands |
+| sourceType 图标 | 🔄 进行中 | 使用 Lucide 图标库 |
+| confidence 视觉区分 | 🔄 进行中 | 颜色条/badge |
+| 降级状态 banner | 🔄 进行中 | 黄色警告条 |
+| 卡片布局决策 | 🔄 进行中 | 内联在聊天流 |
+
+### 暹罗猫负责（视觉创意）
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| 治理状态视觉语言 | ⏳ 待开始 | draft/pending/published/archived 四态视觉表达 |
+| 整体视觉审查 | ⏳ 待布偶完成后 | 检查和设计系统一致性 |
+
+---
+
 *布偶猫 🐾*

@@ -27,3 +27,9 @@ export {
   handleUpdateTask,
   callbackTools,
 } from './callback-tools.js';
+
+export {
+  searchEvidenceInputSchema,
+  handleSearchEvidence,
+  evidenceTools,
+} from './evidence-tools.js';

@@ -22,6 +22,8 @@ import {
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
+  searchEvidenceInputSchema,
+  handleSearchEvidence,
 } from './tools/index.js';
 
 /**
@@ -103,6 +105,17 @@ function createServer(): McpServer {
     updateTaskInputSchema,
     async (args: { taskId: string; status?: string | undefined; why?: string | undefined }) => {
       const result = await handleUpdateTask(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Evidence search tool
+  server.tool(
+    'cat_cafe_search_evidence',
+    'Search project knowledge base for decisions, discussions, phase history, and other evidence. Uses Hindsight Recall with local docs fallback.',
+    searchEvidenceInputSchema,
+    async (args: { query: string; limit?: number | undefined; budget?: string | undefined; tags?: string | undefined }) => {
+      const result = await handleSearchEvidence(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
