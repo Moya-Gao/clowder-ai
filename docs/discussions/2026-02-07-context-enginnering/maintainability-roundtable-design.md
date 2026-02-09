@@ -59,7 +59,7 @@
 **引导问题**：
 
 1. **文档层面**
-   - CLAUDE.md / AGENT.md / GEMINI.md 三份指引有什么价值？
+   - CLAUDE.md / AGENTS.md / GEMINI.md 三份指引有什么价值？
    - docs/decisions/ 架构决策记录的作用？
    - docs/discussions/ 保留讨论过程有什么意义？
 

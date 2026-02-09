@@ -110,7 +110,7 @@ cat-cafe/
 │   └── prompts/              # AI 提示词模板
 ├── research-report/       # 三猫研究报告
 ├── CLAUDE.md              # 你在读的这个
-├── AGENT.md               # 缅因猫的指引
+├── AGENTS.md               # 缅因猫的指引
 └── GEMINI.md              # 暹罗猫的指引
 ```
 

@@ -568,7 +568,7 @@ cat-cafe/
 │   └── start-cafe.sh
 │
 ├── CLAUDE.md
-├── AGENT.md
+├── AGENTS.md
 ├── GEMINI.md
 └── package.json               (pnpm workspace root)
 ```

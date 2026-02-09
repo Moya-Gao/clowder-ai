@@ -31,5 +31,5 @@
 | 文件 | 说明 |
 |------|------|
 | `CLAUDE.md` | 布偶猫（Opus）项目指引 + 协作守则 |
-| `AGENT.md` | 缅因猫（Codex）项目指引 |
+| `AGENTS.md` | 缅因猫（Codex）项目指引 |
 | `GEMINI.md` | 暹罗猫（Gemini）项目指引 |

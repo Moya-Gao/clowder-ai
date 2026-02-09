@@ -75,7 +75,7 @@ commit message 需带猫猫签名，便于追溯责任与意图。
 
 本协议适用于：
 
-1. `AGENT.md`（缅因猫）
+1. `AGENTS.md`（缅因猫）
 2. `CLAUDE.md`（布偶猫）
 3. `GEMINI.md`（暹罗猫）
 4. 所有与 Cat Café 相关的任务交接和 commit

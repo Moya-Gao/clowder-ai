@@ -134,7 +134,7 @@ curl -sS -X POST http://localhost:8888/v1/default/banks/<bank_id>/memories/recal
 - 若需要在 `metadata` 里放 anchors（`commit/file/symbol/...`），必须序列化成字符串（例如 JSON 字符串、或多行文本）。
 
 **本地开发注意事项（Codex App 沙盒）**
-- 在 Codex App 会话里，访问 `localhost` 也可能被当作“网络访问”拦截；需要铲屎官在弹窗里按次授权（见仓库根目录 `AGENT.md` 的“权限与授权”小节）。
+- 在 Codex App 会话里，访问 `localhost` 也可能被当作“网络访问”拦截；需要铲屎官在弹窗里按次授权（见仓库根目录 `AGENTS.md` 的“权限与授权”小节）。
 
 ---
 

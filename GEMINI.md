@@ -216,7 +216,7 @@ cat-cafe/
 │   └── decisions/          # 架构决策记录
 ├── assets/                 # 你的作品放这里！
 ├── CLAUDE.md              # 布偶猫的指引
-├── AGENT.md               # 缅因猫的指引
+├── AGENTS.md               # 缅因猫的指引
 └── GEMINI.md              # 你在读的这个
 ```
 

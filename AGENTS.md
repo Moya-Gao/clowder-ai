@@ -121,7 +121,7 @@ cat-cafe/
 │   ├── mcp/               # MCP Server
 │   └── shared/            # 共享类型
 ├── CLAUDE.md              # 布偶猫的指引
-├── AGENT.md               # 你在读的这个
+├── AGENTS.md               # 你在读的这个
 └── GEMINI.md              # 暹罗猫的指引
 ```
 

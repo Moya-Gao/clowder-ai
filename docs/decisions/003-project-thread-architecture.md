@@ -29,7 +29,7 @@ Codex App 侧栏:
 
 1. **CLI 天然需要目录**: `spawn('claude', ['-p', ...], { cwd: projectDir })` — 三只猫的 CLI 都在一个目录里工作。目录就是项目上下文。
 
-2. **文件系统即记忆**: 目录结构本身就是知识的组织方式 — CLAUDE.md, AGENT.md, GEMINI.md, docs/, src/ 都是项目记忆的一部分。
+2. **文件系统即记忆**: 目录结构本身就是知识的组织方式 — CLAUDE.md, AGENTS.md, GEMINI.md, docs/, src/ 都是项目记忆的一部分。
 
 3. **跨项目天然隔离**: 当猫咖帮铲屎官做别的项目时（非 cat-cafe 本身），`AgentServiceOptions.workingDirectory` 已支持设置不同 cwd。Project = Directory 让这个变得自然。
 
