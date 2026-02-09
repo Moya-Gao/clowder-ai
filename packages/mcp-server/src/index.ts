@@ -24,6 +24,8 @@ import {
   handleUpdateTask,
   searchEvidenceInputSchema,
   handleSearchEvidence,
+  reflectInputSchema,
+  handleReflect,
 } from './tools/index.js';
 
 /**
@@ -116,6 +118,17 @@ function createServer(): McpServer {
     searchEvidenceInputSchema,
     async (args: { query: string; limit?: number | undefined; budget?: string | undefined; tags?: string | undefined }) => {
       const result = await handleSearchEvidence(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Reflect tool (Hindsight LLM reflection)
+  server.tool(
+    'cat_cafe_reflect',
+    'Ask a reflective question about the project. Uses Hindsight LLM reflection to synthesize insights from stored project knowledge.',
+    reflectInputSchema,
+    async (args: { query: string }) => {
+      const result = await handleReflect(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

@@ -447,6 +447,69 @@ export function useChatCommands() {
         return true;
       }
 
+      // /reflect <query> — LLM reflection on project knowledge
+      if (isCommandInvocation(trimmed, '/reflect')) {
+        const query = trimmed.slice('/reflect'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        if (!query) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: '用法: /reflect <问题>\n例: /reflect 为什么我们选择 per-cat budgets？',
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+
+        try {
+          const res = await fetch(`${API_URL}/api/reflect`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ query }),
+          });
+          if (!res.ok) throw new Error(`Server error: ${res.status}`);
+          const data = (await res.json()) as {
+            reflection: string;
+            degraded: boolean;
+            degradeReason?: string;
+          };
+
+          if (data.degraded) {
+            addMessage({
+              id: `reflect-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `⚠️ Hindsight 不可用 (${data.degradeReason ?? '未知'})，无法生成反思`,
+              timestamp: Date.now(),
+            });
+          } else {
+            addMessage({
+              id: `reflect-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `🪞 反思结果\n━━━━━━━━━\n${data.reflection}`,
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `反思请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
       // /tasks extract [N] — extract tasks from conversation
       if (trimmed.startsWith('/tasks extract')) {
         const rest = trimmed.slice('/tasks extract'.length).trim();

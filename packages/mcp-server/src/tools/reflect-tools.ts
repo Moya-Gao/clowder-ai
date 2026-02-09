@@ -1,0 +1,62 @@
+/**
+ * Reflect Tool
+ * MCP 工具: LLM 反思 (Hindsight Reflect)
+ *
+ * Phase 5.0: 猫猫可通过 MCP 调用 /reflect 获取项目知识反思。
+ */
+
+import { z } from 'zod';
+import type { ToolResult } from './file-tools.js';
+import { errorResult, successResult } from './file-tools.js';
+
+const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
+
+export const reflectInputSchema = {
+  query: z.string().min(1).describe('Question to reflect on using project knowledge'),
+};
+
+export async function handleReflect(input: {
+  query: string;
+}): Promise<ToolResult> {
+  const url = `${API_URL}/api/reflect`;
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: input.query }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return errorResult(`Reflect failed (${response.status}): ${text}`);
+    }
+
+    const data = (await response.json()) as {
+      reflection: string;
+      degraded: boolean;
+      degradeReason?: string;
+    };
+
+    if (data.degraded) {
+      return successResult(
+        `[DEGRADED] Hindsight unavailable (${data.degradeReason ?? 'unknown'}). Cannot generate reflection.`
+      );
+    }
+
+    return successResult(data.reflection);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return errorResult(`Reflect request failed: ${message}`);
+  }
+}
+
+export const reflectTools = [
+  {
+    name: 'cat_cafe_reflect',
+    description:
+      'Ask a reflective question about the project. Uses Hindsight LLM reflection to synthesize insights from stored project knowledge.',
+    inputSchema: reflectInputSchema,
+    handler: handleReflect,
+  },
+] as const;

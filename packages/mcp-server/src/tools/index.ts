@@ -33,3 +33,9 @@ export {
   handleSearchEvidence,
   evidenceTools,
 } from './evidence-tools.js';
+
+export {
+  reflectInputSchema,
+  handleReflect,
+  reflectTools,
+} from './reflect-tools.js';

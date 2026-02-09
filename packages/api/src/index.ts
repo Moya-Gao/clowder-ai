@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -89,6 +89,12 @@ async function main(): Promise<void> {
   // Evidence search (Hindsight Recall + docs fallback)
   const hindsightClient = createHindsightClient();
   await app.register(evidenceRoutes, {
+    hindsightClient,
+    sharedBank: 'cat-cafe-shared',
+  });
+
+  // Reflect (Hindsight LLM reflection)
+  await app.register(reflectRoutes, {
     hindsightClient,
     sharedBank: 'cat-cafe-shared',
   });
