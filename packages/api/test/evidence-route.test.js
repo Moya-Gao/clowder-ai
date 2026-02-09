@@ -108,6 +108,24 @@ describe('GET /api/evidence/search', () => {
     assert.equal(capturedOptions.tagsMatch, 'any');
   });
 
+  it('splits comma-separated tags from query into strict tag array', async () => {
+    let capturedOptions;
+    await setup({
+      recall: async (_bank, _query, options) => {
+        capturedOptions = options;
+        return [];
+      },
+    });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=test&tags=project:cat-cafe,kind:decision',
+    });
+
+    assert.deepEqual(capturedOptions.tags, ['project:cat-cafe', 'kind:decision']);
+    assert.equal(capturedOptions.tagsMatch, 'all_strict');
+  });
+
   it('degrades when Hindsight is unavailable', async () => {
     // Use project docs/ as fallback
     const docsRoot = join(__dirname, '..', '..', '..', 'docs');

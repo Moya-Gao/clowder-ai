@@ -14,15 +14,19 @@ function buildApp() {
   const app = Fastify();
   const governanceStore = new MemoryGovernanceStore();
   app.register(memoryPublishRoutes, { governanceStore });
-  return app;
+  return { app, governanceStore };
 }
 
 describe('POST /api/memory/publish', () => {
   /** @type {import('fastify').FastifyInstance} */
   let app;
+  /** @type {MemoryGovernanceStore} */
+  let governanceStore;
 
   beforeEach(async () => {
-    app = buildApp();
+    const built = buildApp();
+    app = built.app;
+    governanceStore = built.governanceStore;
     await app.ready();
   });
 
@@ -141,5 +145,16 @@ describe('POST /api/memory/publish', () => {
       payload: { entryId: 'e1', action: 'nope', actor: 'user' },
     });
     assert.equal(res.statusCode, 400);
+  });
+
+  it('approve on missing entry returns 409 and does not create draft side-effect', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/memory/publish',
+      payload: { entryId: 'ghost-entry', action: 'approve', actor: 'user' },
+    });
+
+    assert.equal(res.statusCode, 409);
+    assert.equal(governanceStore.get('ghost-entry'), null);
   });
 });

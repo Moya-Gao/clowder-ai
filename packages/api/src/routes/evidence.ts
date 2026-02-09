@@ -45,6 +45,16 @@ export interface EvidenceRoutesOptions {
   docsRoot?: string;
 }
 
+function normalizeTags(input: string | string[] | undefined): string[] {
+  const rawValues = input == null ? ['project:cat-cafe'] : (Array.isArray(input) ? input : [input]);
+  const tags = rawValues
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return tags.length > 0 ? tags : ['project:cat-cafe'];
+}
+
 function shouldDegradeToDocs(err: unknown): boolean {
   if (err instanceof HindsightError) {
     if (err.code === 'CONNECTION_FAILED' || err.code === 'TIMEOUT') return true;
@@ -146,9 +156,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     }
 
     const { q, limit, budget, tags, tagsMatch } = parseResult.data;
-    const resolvedTags = tags
-      ? (Array.isArray(tags) ? tags : [tags])
-      : ['project:cat-cafe'];
+    const resolvedTags = normalizeTags(tags);
 
     // Try Hindsight first
     try {

@@ -39,7 +39,15 @@ export async function handleSearchEvidence(input: {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit != null) params.set('limit', String(input.limit));
   if (input.budget) params.set('budget', input.budget);
-  if (input.tags) params.set('tags', input.tags);
+  if (input.tags) {
+    const tags = input.tags
+      .split(',')
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0);
+    for (const tag of tags) {
+      params.append('tags', tag);
+    }
+  }
 
   const url = `${API_URL}/api/evidence/search?${params.toString()}`;
 
