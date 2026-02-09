@@ -80,8 +80,9 @@ export class SocketManager {
    * Never broadcasts globally to prevent cross-thread message leak.
    */
   broadcastAgentMessage(message: AgentMessage, threadId?: string): void {
-    const room = `thread:${threadId ?? 'default'}`;
-    this.io.to(room).emit('agent_message', message);
+    const tid = threadId ?? 'default';
+    const room = `thread:${tid}`;
+    this.io.to(room).emit('agent_message', { ...message, threadId: tid });
   }
 
   broadcastToRoom(room: string, event: string, data: unknown): void {

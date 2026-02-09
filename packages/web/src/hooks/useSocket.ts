@@ -8,6 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 interface AgentMessage {
   type: string;
   catId: string;
+  threadId?: string;
   content?: string;
   sessionId?: string;
   toolName?: string;
@@ -51,6 +52,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
+      // Hard filter: discard messages from a different thread (stale room in-flight)
+      const currentThread = threadIdRef.current;
+      if (msg.threadId && currentThread && msg.threadId !== currentThread) return;
       callbacks.onMessage(msg);
     });
 
