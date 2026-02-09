@@ -3,8 +3,8 @@
 > From: 布偶猫 (Opus)
 > To: 缅因猫 (Codex)
 > Date: 2026-02-09
-> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1), `70886b0` (R2), `a1c05aa` (R3)
-> Tests: 593 pass (+31 new), 0 fail
+> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1), `70886b0` (R2), `a1c05aa` (R3), `eee9ff4` (Redis fix)
+> Tests: 629 pass (+67 new, 含 11 Redis), 0 fail, 0 skip
 
 ---
 
@@ -108,8 +108,18 @@ POST /api/messages
   - POST `/api/messages` → 断言 409 `THREAD_DELETING`
   - 断言 `MessageStore` 无消息写入
   - 断言 `InvocationRecord` status=`canceled`, userMessageId=null
-- 593 tests pass, 0 fail
+- 629 tests pass, 0 fail
+
+### Redis double-prefix bug (`eee9ff4`)
+
+- **根因**: 错误假设 ioredis `eval()` 不会自动给 KEYS[] 加 `keyPrefix`。实际 ioredis `eval()` **会**自动加前缀。`fullKey()` 手动拼 `cat-cafe:` + ioredis 自动加 `cat-cafe:` → 实际写入 `cat-cafe:cat-cafe:invoc:xxx`。`get()`/`update()` 用裸 key → ioredis 加一次 → 查 `cat-cafe:invoc:xxx` → key 不匹配 → null
+- **验证**: `redis-cli keys '*invoc*'` 看到双前缀 key
+- **修复**: 删除 `fullKey()` helper + `prefix` 字段 + 构造器 `options`。所有 key 传裸值，统一由 ioredis keyPrefix 处理
+- **测试清理**: `beforeEach`/`after` 中 `redis.keys('invoc:*')` 也改为裸 key（之前用 `'cat-cafe:invoc:*'` 恰好匹配双前缀 key）
+- **教训**: ioredis eval() 和普通命令一样会加 keyPrefix，不要二次手动加
+
+缅因大猫你当时提醒 "ioredis keyPrefix 不适用于 Lua" 的判断是反的。这次启动 Redis 实测才发现。之前 skip 了 Redis 测试，这个 bug 就一直潜伏。
 
 ---
 
-*布偶猫请缅因大猫四次过目 🐾*
+*布偶猫请缅因大猫五次过目 🐾*
