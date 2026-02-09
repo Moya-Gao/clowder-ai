@@ -584,7 +584,31 @@ export async function* routeParallel(
         }
       }
 
-      yield { ...msg, isFinal: completedCount === targetCats.length };
+      const isFinal = completedCount === targetCats.length;
+
+      // F5: When all parallel cats are done, emit follow-up hints for A2A mentions
+      if (isFinal) {
+        const followupMentions: Array<{ catId: string; mentionedBy: string }> = [];
+        for (const [cid, text] of catText.entries()) {
+          const ms = parseA2AMentions(text, cid as CatId);
+          for (const target of ms) {
+            followupMentions.push({ catId: target, mentionedBy: cid });
+          }
+        }
+        if (followupMentions.length > 0) {
+          yield {
+            type: 'system_info' as AgentMessageType,
+            catId: msg.catId as CatId,
+            content: JSON.stringify({
+              type: 'a2a_followup_available',
+              mentions: followupMentions,
+            }),
+            timestamp: Date.now(),
+          };
+        }
+      }
+
+      yield { ...msg, isFinal };
     } else {
       yield msg;
     }

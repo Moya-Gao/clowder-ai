@@ -197,12 +197,22 @@ export function useAgentMessages() {
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {
-        // System notifications: budget warnings, cancel feedback, etc.
+        // System notifications: budget warnings, cancel feedback, A2A follow-up hints
+        let sysContent = msg.content ?? '';
+        let sysVariant: 'info' | 'a2a_followup' = 'info';
+        try {
+          const parsed = JSON.parse(sysContent);
+          if (parsed?.type === 'a2a_followup_available') {
+            const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
+            sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
+            sysVariant = 'a2a_followup';
+          }
+        } catch { /* not JSON, use raw content */ }
         addMessage({
           id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'system',
-          variant: 'info',
-          content: msg.content ?? '',
+          variant: sysVariant,
+          content: sysContent,
           timestamp: Date.now(),
         });
       } else if (msg.type === 'error') {

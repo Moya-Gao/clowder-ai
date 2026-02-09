@@ -44,8 +44,8 @@ export interface ToolEvent {
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary';
-  /** Visual variant for system messages: 'error' (red), 'info' (blue-gray), 'tool' (gray, compact), 'evidence' (card panel) */
-  variant?: 'error' | 'info' | 'tool' | 'evidence';
+  /** Visual variant for system messages: 'error' (red), 'info' (blue-gray), 'tool' (gray, compact), 'evidence' (card panel), 'a2a_followup' (follow-up button) */
+  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup';
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
