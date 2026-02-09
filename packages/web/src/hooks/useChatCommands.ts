@@ -8,7 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConfigSnapshot = any;
 
-function isCommandInvocation(input: string, command: string): boolean {
+export function isCommandInvocation(input: string, command: string): boolean {
   if (!input.startsWith(command)) return false;
   if (input.length === command.length) return true;
   return /\s/.test(input.charAt(command.length));

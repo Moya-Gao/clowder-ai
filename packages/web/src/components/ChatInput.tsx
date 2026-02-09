@@ -5,6 +5,7 @@ import { SendIcon } from './icons/SendIcon';
 import { LoadingIcon } from './icons/LoadingIcon';
 import { AttachIcon } from './icons/AttachIcon';
 import { ImagePreview } from './ImagePreview';
+import { compressImage } from '@/utils/compressImage';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
@@ -102,14 +103,14 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
     }
   };
 
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newImages = [...images];
-    for (let i = 0; i < files.length && newImages.length < 5; i++) {
-      newImages.push(files[i]);
+    const toAdd: File[] = [];
+    for (let i = 0; i < files.length && images.length + toAdd.length < 5; i++) {
+      toAdd.push(await compressImage(files[i]));
     }
-    setImages(newImages);
+    setImages((prev) => [...prev, ...toAdd].slice(0, 5));
     // Reset so same file can be re-selected
     e.target.value = '';
   }, [images]);
