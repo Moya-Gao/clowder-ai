@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-09 (S2 follow-up review 修复)
+> 维护者：布偶猫 | 最后更新：2026-02-09 (7-Task 全完成 + P2 review 修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -75,11 +75,11 @@
 | F1 | ~~配置可见性~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `6a671ac` — ConfigRegistry + GET /api/config + `/config` chat command |
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | ~~显式记忆 (F3-lite)~~ | [x] | Phase 4.0 计划 | Phase 4.0 Step 6 `25ca123` — /remember /recall 命令 + MemoryStore |
-| F3b | 协作记忆 (Hindsight 集成) | [~] | 上下文工程讨论 | Phase 5.0-S1 完成: HindsightClient.ts + ConfigRegistry hindsight 段 + GET /api/evidence/search (含 docs/ 降级)。剩余: 治理状态机 + 前端命令 + MCP 封装 (待 5.0 整体规划确认后再排) |
+| F3b | 协作记忆 (Hindsight 集成) | [x] | 上下文工程讨论 | Phase 5.0 全完成: HindsightClient + Evidence 路由 + 治理状态机 + /evidence /reflect /approve /archive 前端命令 + MCP evidence/reflect 工具 + anchor 验证。567 tests |
 | F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
 | F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
-| F6 | Thread 名字编辑 | P2 | 功能性试用 | 自定义/编辑 thread 名字，方便未来查找 |
-| F7 | Thread 名字检索 | P3 | 功能性试用 | 从名字 filter/搜索历史对话 |
+| F6 | ~~Thread 名字编辑~~ | [x] | 功能性试用 | `81939c1` — PATCH /api/threads/:id 更新标题 + 前端编辑 UI |
+| F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
 | F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 前端显示：工具调用、thinking、耗时、token 消耗等。参考 Claude Code 的 token 计数 + 耗时显示。当前 UX 极差（辩论时铲屎官等得难受）|
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 
@@ -155,6 +155,10 @@
 | 配置可见性 (ConfigRegistry + /config) | Phase 3.9 | `6a671ac` |
 | A2A 猫猫互调 (worklist chain) | Phase 3.9 | `7a519b9` |
 | A2A 前端显示 (a2a_handoff info msg) | Phase 3.9 | `e7cc2ff` |
+| Thread 名字编辑 (PATCH /api/threads/:id) | `81939c1` merge | - |
+| Thread 名字检索 (GET /api/threads?q=) | `81939c1` merge | - |
+| tool_use/tool_result 事件显示 | 5.0-pre | `08f1284` |
+| 协作记忆 F3b (Hindsight 全链路) | Phase 5.0 | `8aa8f32`→`5ad35bc` |
 | Per-cat 上下文预算 (cat-budgets.ts) | Phase 4.0 Step 1-2 | - |
 | ChatContainer 拆分 (hooks) | Phase 4.0 Step 3 | - |
 | system_info + 取消反馈 | Phase 4.0 Step 4 | `f379b67` |
