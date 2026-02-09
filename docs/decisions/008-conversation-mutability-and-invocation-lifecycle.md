@@ -95,7 +95,8 @@ POST /api/messages
 **新流程**：
 ```
 POST /api/messages
-  ① 幂等检查: SET NX EX 原子占位 → 重复则返回 { status: 'duplicate', invocationId }
+  ① 幂等检查: SET NX EX 原子占位
+     → key 已存在: 验证 Record 存在 → 是: 返回 duplicate / 否: DEL stale key 重走流程
   ② 创建 InvocationRecord { status: 'queued', userMessageId: null }
   ③ 写入用户消息 (messageStore.append)
   ④ 回填 InvocationRecord.userMessageId = storedMessage.id
@@ -114,7 +115,8 @@ POST /api/messages
 
 | 失败点 | 状态 | 补偿 |
 |--------|------|------|
-| ② 之后、③ 之前 | Record 存在 (queued)，无消息 | Record.userMessageId=null 标识未完成，retry 时补写消息 |
+| ① 之后、② 之前 | idempotency key 存在，Record 不存在 | 下次请求检测到 stale key → DEL 并重走流程 |
+| ② 之后、③ 之前 | Record 存在 (queued)，无消息 | Record.userMessageId=null → retry 端点允许 `queued && null` → 补写消息 |
 | ③ 之后、④ 之前 | Record 存在，消息存在，但 Record.userMessageId=null | retry 时根据 idempotencyKey 找到消息并回填 |
 | ④ 之后、⑥ 之前 | Record + 消息都完整 | 正常 background 执行 |
 
@@ -129,10 +131,15 @@ POST /api/messages
 
 ```
 POST /api/invocations/:id/retry
-  → 检查 InvocationRecord 存在且 status == 'failed'
-  → 更新 status = 'queued'
-  → 重新执行猫调用（复用 targetCats/intent/userMessageId）
+  → 检查 InvocationRecord 存在
+  → 允许重试条件: status == 'failed'
+                  OR (status == 'queued' && userMessageId == null)
+  → 补偿: 若 userMessageId == null，先补写用户消息并回填
+  → 更新 status = 'queued' (若已是 queued 则不变)
+  → 重新执行猫调用
 ```
+
+**为什么 `queued && userMessageId == null` 也允许重试**：进程在 ②~④ 之间崩溃时，Record 停留在 `queued` 且消息未写入。如果 retry 只允许 `failed`，这类"半完成"记录会成为无法触发补偿的死角。
 
 ### 与现有 InvocationTracker 的关系
 
@@ -180,10 +187,13 @@ TTL: 300 秒 (5 分钟)
 
 1. 前端每次发送消息时生成 UUID 作为 `idempotencyKey`
 2. 后端先生成 `invocationId`，然后用 **`SET cat-cafe:idemp:{...} {invocationId} NX EX 300`** 原子占位
-3. SET 返回 `null`（key 已存在）→ GET 取出已有 `invocationId` → 返回 `{ status: 'duplicate', invocationId }`
+3. SET 返回 `null`（key 已存在）→ **stale key 检测**（见下方）→ 如果 Record 存在则返回 `{ status: 'duplicate', invocationId }`
 4. SET 返回 `OK`（占位成功）→ 正常流程，继续创建 InvocationRecord
+5. 如果 ② Record 创建失败 → **`DEL` 清理 idempotency key**，向上抛错
 
 **为什么必须用 `SET NX EX`**：并发下两个请求如果用"先 GET 再 SET"的非原子流程，可能都通过检查导致重复写入。`NX`（not exists）让 Redis 在单条命令内完成竞争仲裁。
+
+**Stale key 补偿**：步骤 3 GET 到 `invocationId` 后，必须验证对应的 InvocationRecord 存在。如果 Record 不存在（说明上一次在 SET 之后、Record 创建之前崩溃了），则 **`DEL` 清理 stale key 并重走正常流程**（重新 SET NX）。这防止了"key 指向黑洞直到 TTL 过期"的问题。
 
 ### Schema 变化
 
