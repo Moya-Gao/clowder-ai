@@ -186,6 +186,26 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.ok(!errMsg.error.includes('authentication failed'), 'stderr should be sanitized');
   });
 
+  test('does not emit duplicate errors when result/error is followed by non-zero exit', async () => {
+    const proc = createMockProcess();
+    proc.kill = mock.fn(() => true);
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('fail'));
+
+    // result/error without detailed error text, then process exits non-zero
+    proc.stdout.write(JSON.stringify({ type: 'init', session_id: 's1', model: 'auto' }) + '\n');
+    proc.stdout.write(JSON.stringify({ type: 'result', status: 'error' }) + '\n');
+    proc.stdout.end();
+    proc._emitter.emit('exit', 1, null);
+
+    const msgs = await promise;
+    const errMsgs = msgs.filter((m) => m.type === 'error');
+    assert.equal(errMsgs.length, 1, 'should emit only one error for one failed invocation');
+    assert.match(errMsgs[0].error, /code:\s*1/);
+  });
+
   test('yields error on spawn ENOENT', async () => {
     const proc = createMockProcess();
     proc.kill = mock.fn(() => true);

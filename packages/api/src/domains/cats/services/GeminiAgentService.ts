@@ -104,16 +104,27 @@ function transformGeminiEvent(
 
   // result with non-success status → error
   if (e['type'] === 'result' && e['status'] !== 'success') {
+    const rawError = e['error'];
+    if (typeof rawError !== 'string' || rawError.trim() === '') {
+      // Let cli-exit error provide the detailed message.
+      return null;
+    }
     return {
       type: 'error',
       catId,
-      error: typeof e['error'] === 'string' ? e['error'] : 'Gemini CLI returned an error',
+      error: rawError,
       timestamp: Date.now(),
     };
   }
 
   // Everything else (message/user, tool_result, result/success) → skip
   return null;
+}
+
+function isResultErrorEvent(event: unknown): boolean {
+  if (typeof event !== 'object' || event === null) return false;
+  const e = event as Record<string, unknown>;
+  return e['type'] === 'result' && e['status'] !== 'success';
 }
 
 /**
@@ -164,6 +175,7 @@ export class GeminiAgentService implements AgentService {
     }
 
     try {
+      let sawResultError = false;
       const events = spawnCli(
         {
           command: 'gemini',
@@ -189,6 +201,7 @@ export class GeminiAgentService implements AgentService {
           continue;
         }
         if (isCliError(event)) {
+          if (sawResultError) continue;
           yield {
             type: 'error',
             catId: CAT_ID,
@@ -199,10 +212,14 @@ export class GeminiAgentService implements AgentService {
           continue;
         }
 
+        const fromResultError = isResultErrorEvent(event);
         const result = transformGeminiEvent(event, CAT_ID);
         if (result !== null) {
           if (result.type === 'session_init' && result.sessionId) {
             metadata.sessionId = result.sessionId;
+          }
+          if (fromResultError && result.type === 'error') {
+            sawResultError = true;
           }
           yield { ...result, metadata };
         }

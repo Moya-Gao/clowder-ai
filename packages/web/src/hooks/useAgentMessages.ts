@@ -2,6 +2,7 @@
 
 import { useCallback, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { compactToolResultDetail } from '@/utils/toolPreview';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
@@ -165,9 +166,7 @@ export function useAgentMessages() {
           });
         }
 
-        const detail = msg.content
-          ? truncate(msg.content, 300)
-          : '(no output)';
+        const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
           id: `toolr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_result',
