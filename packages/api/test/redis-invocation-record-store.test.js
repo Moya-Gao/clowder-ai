@@ -35,13 +35,12 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
 
   after(async () => {
     if (redis && connected) {
-      // Clean up test keys
-      const keys = await redis.keys('cat-cafe:invoc:*');
-      const idempKeys = await redis.keys('cat-cafe:idemp:*');
+      // Clean up test keys (bare keys — ioredis auto-prefixes)
+      const keys = await redis.keys('invoc:*');
+      const idempKeys = await redis.keys('idemp:*');
       const allKeys = [...keys, ...idempKeys];
       if (allKeys.length > 0) {
-        const stripped = allKeys.map(k => k.replace(/^cat-cafe:/, ''));
-        await redis.del(...stripped);
+        await redis.del(...allKeys);
       }
       await redis.quit();
     }
@@ -49,13 +48,12 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
 
   beforeEach(async (t) => {
     if (!connected) return t.skip('Redis not connected');
-    // Clean up before each test
-    const keys = await redis.keys('cat-cafe:invoc:*');
-    const idempKeys = await redis.keys('cat-cafe:idemp:*');
+    // Clean up before each test (bare keys — ioredis auto-prefixes)
+    const keys = await redis.keys('invoc:*');
+    const idempKeys = await redis.keys('idemp:*');
     const allKeys = [...keys, ...idempKeys];
     if (allKeys.length > 0) {
-      const stripped = allKeys.map(k => k.replace(/^cat-cafe:/, ''));
-      await redis.del(...stripped);
+      await redis.del(...allKeys);
     }
   });
 

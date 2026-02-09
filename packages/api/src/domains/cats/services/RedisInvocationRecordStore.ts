@@ -4,8 +4,8 @@
  *
  * ADR-008 D1+D2: Lua 脚本原子创建 — 幂等 key 占位 + Record 创建在同一 EVAL 中。
  *
- * IMPORTANT: ioredis keyPrefix auto-prefixes normal commands but NOT Lua KEYS[].
- * We must manually prepend the prefix in Lua key arguments.
+ * IMPORTANT: ioredis keyPrefix auto-prefixes ALL commands including eval() KEYS[].
+ * Do NOT manually prepend the prefix — pass bare keys and let ioredis handle it.
  */
 
 import type { CatId } from '@cat-cafe/shared';
@@ -25,8 +25,8 @@ const IDEMPOTENCY_TTL_SECONDS = 300; // 5 minutes
 
 /**
  * Lua script for atomic idempotency check + record creation.
- * KEYS[1] = full idempotency key (with prefix)
- * KEYS[2] = full invocation record key (with prefix)
+ * KEYS[1] = idempotency key (ioredis auto-prefixes)
+ * KEYS[2] = invocation record key (ioredis auto-prefixes)
  * ARGV[1..7] = id, threadId, userId, targetCats(JSON), intent, idempotencyKey, now
  */
 const CREATE_ATOMIC_LUA = `
@@ -47,16 +47,9 @@ return {'created', ARGV[1]}
 
 export class RedisInvocationRecordStore implements IInvocationRecordStore {
   private readonly redis: RedisClient;
-  private readonly prefix: string;
 
-  constructor(redis: RedisClient, options?: { keyPrefix?: string }) {
+  constructor(redis: RedisClient) {
     this.redis = redis;
-    // ioredis keyPrefix is used for normal commands; we need it for Lua keys too
-    this.prefix = options?.keyPrefix ?? 'cat-cafe:';
-  }
-
-  private fullKey(key: string): string {
-    return `${this.prefix}${key}`;
   }
 
   async create(input: CreateInvocationInput): Promise<CreateResult> {
@@ -64,10 +57,9 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     const id = randomUUID();
     const now = String(Date.now());
 
-    const idempKey = this.fullKey(
-      InvocationKeys.idempotency(input.threadId, input.userId, input.idempotencyKey),
-    );
-    const recordKey = this.fullKey(InvocationKeys.detail(id));
+    // Bare keys — ioredis keyPrefix auto-applies to eval() KEYS[] too
+    const idempKey = InvocationKeys.idempotency(input.threadId, input.userId, input.idempotencyKey);
+    const recordKey = InvocationKeys.detail(id);
 
     const result = await this.redis.eval(
       CREATE_ATOMIC_LUA,
