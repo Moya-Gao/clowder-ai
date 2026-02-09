@@ -54,6 +54,7 @@ function createMockDeps(services, appendCalls) {
       getMentionsFor: () => [],
       getBefore: () => [],
       getByThread: () => [],
+      getByThreadAfter: () => [],
       getByThreadBefore: () => [],
     },
   };
@@ -285,6 +286,56 @@ describe('routeSerial A2A worklist', () => {
     assert.equal(handoffs.length, 2, 'should have 2 A2A handoffs');
     assert.equal(opusCallCount, 2, 'opus should be called twice');
   });
+
+  it('incremental mode: falls back to explicit user message when current message is missing from incremental context', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const captureService = createCapturingService('opus', 'ack');
+
+    const deps = createMockDeps({ opus: captureService });
+    deps.deliveryCursorStore = {
+      getCursor: async () => undefined,
+      ackCursor: async () => {},
+    };
+    deps.messageStore.getByThreadAfter = async () => [
+      {
+        id: '0000000000000001-000001-aaaaaaaa',
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: 'older user message',
+        mentions: [],
+        timestamp: Date.now() - 1000,
+      },
+    ];
+
+    for await (const _ of routeSerial(
+      deps,
+      ['opus'],
+      'CURRENT USER MESSAGE',
+      'user1',
+      'thread1',
+      { currentUserMessageId: 'missing-current-id' },
+    )) {}
+
+    assert.equal(captureService.calls.length, 1, 'opus should be called once');
+    const prompt = captureService.calls[0];
+    assert.ok(prompt.includes('older user message'), 'prompt should include incremental unseen history');
+    assert.ok(prompt.includes('CURRENT USER MESSAGE'), 'prompt must include current user message explicitly when missing from unseen history');
+  });
+
+  it('sanitize should preserve normal markdown separator lines', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      opus: createMockService('opus', '章节A\n---\n章节B'),
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['opus'], 'markdown test', 'user1', 'thread1')) {}
+
+    const saved = appendCalls.find((c) => c.catId === 'opus');
+    assert.ok(saved, 'stored message should exist');
+    assert.equal(saved.content, '章节A\n---\n章节B', 'sanitizer must not remove normal markdown separator lines');
+  });
 });
 
 describe('routeSerial resilience', () => {
@@ -313,6 +364,7 @@ describe('routeSerial resilience', () => {
         getMentionsFor: () => [],
         getBefore: () => [],
         getByThread: () => [],
+        getByThreadAfter: () => [],
         getByThreadBefore: () => [],
       },
     };

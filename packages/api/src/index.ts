@@ -15,7 +15,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
-import { ClaudeAgentService, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore } from './domains/cats/services/index.js';
+import { ClaudeAgentService, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore } from './domains/cats/services/index.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -62,6 +62,7 @@ async function main(): Promise<void> {
   redisClient = redis ?? null;
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
+  const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
   const threadStore = createThreadStore(redis);
   const taskStore = createTaskStore(redis);
   const summaryStore = createSummaryStore(redis);
@@ -72,13 +73,20 @@ async function main(): Promise<void> {
     registry,
     messageStore,
     socketManager,
+    deliveryCursorStore,
     ...(sessionStore ? { sessionStore } : {}),
     threadStore,
     invocationTracker,
   });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });
-  await app.register(threadsRoutes, { threadStore, messageStore, taskStore, memoryStore });
+  await app.register(threadsRoutes, {
+    threadStore,
+    messageStore,
+    taskStore,
+    memoryStore,
+    deliveryCursorStore,
+  });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);

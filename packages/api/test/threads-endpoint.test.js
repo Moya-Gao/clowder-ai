@@ -219,6 +219,7 @@ describe('Thread cascade delete', () => {
   let messageStore;
   let taskStore;
   let memoryStore;
+  let deliveryCursorStore;
 
   beforeEach(async () => {
     const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
@@ -231,9 +232,22 @@ describe('Thread cascade delete', () => {
     messageStore = new MessageStore();
     taskStore = new TaskStore();
     memoryStore = new MemoryStore();
+    deliveryCursorStore = {
+      calls: [],
+      async deleteByThreadForUser(userId, threadId) {
+        this.calls.push({ userId, threadId });
+        return 3;
+      },
+    };
 
     app = Fastify();
-    await app.register(threadsRoutes, { threadStore, messageStore, taskStore, memoryStore });
+    await app.register(threadsRoutes, {
+      threadStore,
+      messageStore,
+      taskStore,
+      memoryStore,
+      deliveryCursorStore,
+    });
     await app.ready();
   });
 
@@ -296,6 +310,18 @@ describe('Thread cascade delete', () => {
     assert.equal(messageStore.getByThread(threadId).length, 0);
     assert.equal(taskStore.listByThread(threadId).length, 0);
     assert.equal(memoryStore.list(threadId).length, 0);
+  });
+
+  it('DELETE /api/threads/:id cascades to delivery cursor cleanup', async () => {
+    const thread = threadStore.create('alice', 'Cursor Cascade');
+    const threadId = thread.id;
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${threadId}`,
+    });
+    assert.equal(res.statusCode, 204);
+    assert.deepEqual(deliveryCursorStore.calls, [{ userId: 'alice', threadId }]);
   });
 });
 

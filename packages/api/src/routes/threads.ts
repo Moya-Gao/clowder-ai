@@ -13,6 +13,7 @@ import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 
 export interface ThreadsRoutesOptions {
@@ -23,6 +24,8 @@ export interface ThreadsRoutesOptions {
   taskStore?: ITaskStore;
   /** Optional: cascade delete memory when thread is deleted */
   memoryStore?: IMemoryStore;
+  /** Optional: cascade delete delivery cursors when thread is deleted */
+  deliveryCursorStore?: DeliveryCursorStore;
 }
 
 const createThreadSchema = z.object({
@@ -43,7 +46,7 @@ const updateThreadSchema = z.object({
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   async (app, opts) => {
-  const { threadStore, messageStore, taskStore, memoryStore } = opts;
+  const { threadStore, messageStore, taskStore, memoryStore, deliveryCursorStore } = opts;
 
   // POST /api/threads - 创建对话
   app.post('/api/threads', async (request, reply) => {
@@ -137,6 +140,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   // DELETE /api/threads/:id - 删除对话 (with cascade delete)
   app.delete('/api/threads/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
+    const thread = await threadStore.get(id);
     const deleted = await threadStore.delete(id);
     if (!deleted) {
       reply.status(400);
@@ -148,6 +152,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       messageStore?.deleteByThread(id),
       taskStore?.deleteByThread(id),
       memoryStore?.deleteThread(id),
+      thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
     ]);
 
     // Log any cascade failures but don't fail the request

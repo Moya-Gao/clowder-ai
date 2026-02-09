@@ -24,6 +24,7 @@ import {
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
@@ -39,6 +40,7 @@ export interface MessagesRoutesOptions {
   messageStore: IMessageStore;
   socketManager: SocketManager;
   sessionStore?: SessionStore;
+  deliveryCursorStore?: DeliveryCursorStore;
   threadStore?: IThreadStore;
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
@@ -71,6 +73,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     geminiService: new GeminiAgentService(),
     registry: opts.registry,
     messageStore: opts.messageStore,
+    ...(opts.deliveryCursorStore ? { deliveryCursorStore: opts.deliveryCursorStore } : {}),
     ...(opts.sessionStore ? { sessionStore: opts.sessionStore } : {}),
     ...(opts.threadStore ? { threadStore: opts.threadStore } : {}),
   });

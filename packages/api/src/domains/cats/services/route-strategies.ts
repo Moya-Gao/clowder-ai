@@ -77,17 +77,32 @@ function detectContextDegradation(
 }
 
 function sanitizeInjectedContent(content: string): string {
-  return content
-    .split('\n')
-    .filter((line) => {
-      const trimmed = line.trim();
-      if (trimmed === '---') return false;
-      if (line.startsWith('[对话历史 - 最近 ')) return false;
-      if (line.startsWith('[对话历史增量 - 未发送过 ')) return false;
-      return true;
-    })
-    .join('\n')
-    .trim();
+  const lines = content.split('\n');
+  const kept: string[] = [];
+  let skippingHistoryEnvelope = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isHistoryHeader = line.startsWith('[对话历史 - 最近 ')
+      || line.startsWith('[对话历史增量 - 未发送过 ');
+
+    if (!skippingHistoryEnvelope && isHistoryHeader) {
+      // Drop known injected history envelopes only.
+      skippingHistoryEnvelope = true;
+      continue;
+    }
+
+    if (skippingHistoryEnvelope) {
+      if (trimmed === '---') {
+        skippingHistoryEnvelope = false;
+      }
+      continue;
+    }
+
+    kept.push(line);
+  }
+
+  return kept.join('\n').trim();
 }
 
 async function fetchAfterCursor(
@@ -96,28 +111,13 @@ async function fetchAfterCursor(
   afterId: string | undefined,
   userId: string,
 ): Promise<StoredMessage[]> {
-  const withAfter = messageStore as IMessageStore & {
-    getByThreadAfter?: (
-      threadId: string,
-      afterId?: string,
-      limit?: number,
-      userId?: string,
-    ) => StoredMessage[] | Promise<StoredMessage[]>;
-  };
-
-  if (typeof withAfter.getByThreadAfter === 'function') {
-    const rows = await withAfter.getByThreadAfter(threadId, afterId, undefined, userId);
-    return rows;
-  }
-
-  const rows = await messageStore.getByThread(threadId, 2000, userId);
-  if (!afterId) return rows;
-  return rows.filter((m) => m.id > afterId);
+  return messageStore.getByThreadAfter(threadId, afterId, undefined, userId);
 }
 
 interface IncrementalContextResult {
   contextText: string;
   boundaryId?: string;
+  includesCurrentUserMessage: boolean;
 }
 
 async function assembleIncrementalContext(
@@ -125,19 +125,23 @@ async function assembleIncrementalContext(
   userId: string,
   threadId: string,
   catId: CatId,
+  currentUserMessageId?: string,
 ): Promise<IncrementalContextResult> {
   if (!deps.deliveryCursorStore) {
-    return { contextText: '' };
+    return { contextText: '', includesCurrentUserMessage: false };
   }
 
   const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
   const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
 
   const relevant = unseen.filter((m) => m.catId === null || m.catId !== catId);
+  const includesCurrentUserMessage = Boolean(
+    currentUserMessageId && relevant.some((m) => m.id === currentUserMessageId),
+  );
   if (relevant.length === 0) {
     return cursor
-      ? { contextText: '', boundaryId: cursor }
-      : { contextText: '' };
+      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage }
+      : { contextText: '', includesCurrentUserMessage };
   }
 
   const lines = relevant.map((m) => {
@@ -153,6 +157,7 @@ async function assembleIncrementalContext(
   return {
     contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n---`,
     boundaryId,
+    includesCurrentUserMessage,
   };
 }
 
@@ -227,10 +232,19 @@ export async function* routeSerial(
 
     let deliveryBoundaryId: string | undefined;
     if (incrementalMode) {
-      const inc = await assembleIncrementalContext(deps, userId, threadId, catId);
+      // Serial incremental mode depends on AgentRouter having appended current user message first.
+      // We still explicitly include `message` when that message is not present in unseen rows.
+      const inc = await assembleIncrementalContext(
+        deps,
+        userId,
+        threadId,
+        catId,
+        currentUserMessageId,
+      );
       deliveryBoundaryId = inc.boundaryId;
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      parts.push(inc.contextText || message);
+      if (inc.contextText) parts.push(inc.contextText);
+      if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
     } else {
       // Per-cat context budget (Phase 4.0): assemble context with cat-specific limits
@@ -441,10 +455,17 @@ export async function* routeParallel(
 
     let prompt: string;
     if (incrementalMode) {
-      const inc = await assembleIncrementalContext(deps, userId, threadId, catId);
+      const inc = await assembleIncrementalContext(
+        deps,
+        userId,
+        threadId,
+        catId,
+        currentUserMessageId,
+      );
       boundaryByCat.set(catId, inc.boundaryId);
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      parts.push(inc.contextText || message);
+      if (inc.contextText) parts.push(inc.contextText);
+      if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
     } else {
       // Per-cat context budget (Phase 4.0)

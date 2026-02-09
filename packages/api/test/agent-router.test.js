@@ -707,6 +707,9 @@ describe('AgentRouter', () => {
       getSessionId: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
       setSessionId: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
       deleteSession: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+      getDeliveryCursor: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+      setDeliveryCursor: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
+      deleteDeliveryCursor: mock.fn(async () => { throw new Error('Redis ETIMEDOUT'); }),
     };
 
     const router = new AgentRouter({

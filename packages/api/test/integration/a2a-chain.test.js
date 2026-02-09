@@ -39,6 +39,7 @@ function createMockMessageStore() {
     getMentionsFor: () => [],
     getBefore: () => [],
     getByThread: () => [],
+    getByThreadAfter: () => [],
     getByThreadBefore: () => [],
   };
 }

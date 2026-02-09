@@ -48,6 +48,7 @@ export interface AgentRouterOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   sessionStore?: SessionStore;
+  deliveryCursorStore?: DeliveryCursorStore;
   threadStore?: IThreadStore;
 }
 
@@ -71,7 +72,7 @@ export class AgentRouter {
     this.registry = options.registry;
     this.messageStore = options.messageStore;
     this.sessionManager = new SessionManager(options.sessionStore);
-    this.deliveryCursorStore = new DeliveryCursorStore(options.sessionStore);
+    this.deliveryCursorStore = options.deliveryCursorStore ?? new DeliveryCursorStore(options.sessionStore);
     this.threadStore = options.threadStore ?? null;
   }
 

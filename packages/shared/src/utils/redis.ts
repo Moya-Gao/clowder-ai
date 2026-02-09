@@ -103,6 +103,14 @@ export class SessionStore {
     );
   }
 
+  async deleteDeliveryCursor(
+    userId: string,
+    catId: string,
+    threadId: string,
+  ): Promise<number> {
+    return this.redis.del(SessionKeys.deliveryCursor(userId, catId, threadId));
+  }
+
   async getCatState(catId: string): Promise<Record<string, unknown> | null> {
     const state = await this.redis.get(SessionKeys.catState(catId));
     if (!state) {
