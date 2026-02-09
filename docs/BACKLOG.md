@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-09 (增量投递去重修复后续项登记)
+> 维护者：布偶猫 | 最后更新：2026-02-09 (Phase 5.2 BACKLOG 大扫除)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -31,7 +31,7 @@
 |---|------|------|------|------|
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |
-| 9 | 前端图片压缩 | [ ] | Phase 3.2 review | 当前 10MB/张直传 |
+| 9 | 前端图片压缩 | [x] | Phase 3.2 review | Phase 5.2 — compressImage.ts Canvas API 压缩 (maxWidth=1920, sweep 0.8→0.3) |
 | 10 | 对话级联删除 | [x] | Phase 3.2 review | `523d9f0` — Promise.allSettled cascade 删除 messages/tasks/memory |
 | 11 | cancel_invocation 真正鉴权 | [x] | Phase 3.3b review | Phase 3.7 `0c3d318` — userId 追踪 + 校验 |
 | 12 | 取消后显示"已取消"标记 | [x] | Phase 3.3b review | Phase 4.0 Step 4 `f379b67` — system_info 事件 + "⏹ 已取消" |
@@ -43,25 +43,25 @@
 | 18 | isFinal 丢失防护 | [x] | Phase 3.5 缅因猫 final review | Phase 4.0 Step 5 `f379b67` — 5 分钟 timeout + 30s heartbeat |
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
-| 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [ ] | 辩论测试发现 | 前端应先 POST /api/threads；需要 ThreadStore.createWithId() 或严格校验 |
+| 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [x] | 辩论测试发现 | Phase 5.2 — 400 拒绝 + code=THREAD_NOT_FOUND，前端解析 detail 显示中文提示 |
 | 31 | /api/memory 与 /api/commands 身份/权限边界 | [ ] | Phase 4.0 缅因猫 review P2-1 | 当前依赖 threadId 不可猜；多用户需统一 userId 来源 |
 | 32 | DegradationPolicy 绑定实际链路 | [x] | Phase 4.0 缅因猫 review P2-2 | 5.0-pre: routeSerial/routeParallel 调用 checkContextBudget → yield system_info |
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
-| 34 | cascade delete 语义边界文档 | [ ] | Quick wins 缅因猫 review P2-1 | best-effort 策略需写入 docs/decisions；强语义需后台重试或 tombstone |
-| 35 | thread 删除与 invocation 竞态 | [ ] | Quick wins 缅因猫 review P2-2 | delete thread 是否 cancel invocation？append 前是否检查 thread 存在？ |
+| 34 | cascade delete 语义边界文档 | [x] | Quick wins 缅因猫 review P2-1 | Phase 5.2 — ADR `docs/decisions/007-cascade-delete-semantics.md` |
+| 35 | thread 删除与 invocation 竞态 | [x] | Quick wins 缅因猫 review P2-2 | Phase 5.2 — 409 ACTIVE_INVOCATION 保护 + InvocationTracker 注入 |
 | 36 | CLI 全局配置隔离 | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | Codex CLI `~/.codex/AGENTS.md` 会覆盖会话规则。需调研：1) `--no-global-agents` flag 2) 独立配置目录 `CODEX_CONFIG_DIR` 3) 会话规则优先级声明 |
-| 39 | useChatCommands 命令解析自动化测试 | [ ] | Phase 5.0-S2 follow-up | 已修 `/approved`/`/archive123` 前缀误匹配；web 包仍缺 hook 级测试基建，需补最小回归用例 |
-| 40 | delivery cursor 生命周期治理 | [ ] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | 已引入 per user+cat+thread 游标；需补 TTL/清理策略与 replay 监控指标，避免长期键累积且便于线上回归预警 |
+| 39 | useChatCommands 命令解析自动化测试 | [x] | Phase 5.0-S2 follow-up | Phase 5.2 — vitest + jsdom 基建 + 14 tests for isCommandInvocation |
+| 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
 
 ## P3 — 可选优化
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 22 | blob URL 同 thread 连发大量图累积 | [ ] | Phase 3.3b review | clearMessages 时已回收，但不切 thread 会累积 |
+| 22 | blob URL 同 thread 连发大量图累积 | [x] | Phase 3.3b review | Phase 5.2 — addMessage 增量 revoke (MAX_BLOB_MESSAGES=200) |
 | 23 | 冷/热状态视觉反馈 (猫头像发光) | [ ] | 暹罗猫提议 | CSS class 切换，低成本；与 P1 #6 可观测性相关 |
 | 24 | Antigravity cancel 无效 (detached 进程) | [ ] | Phase 3.3b review | gemini-cli fallback 可选 |
 | 25 | Docker 化部署 | [ ] | 铲屎官建议 (~5.x) | Redis + API + Web 打包，Docker MCP 可让猫管理容器；开发阶段脚本够用 |
-| 26 | Gemini/Codex resume 作为补充 context 源 | [ ] | Phase 3.6 决策 2 | prompt prepend 跑稳后，resume 减少 token 开销；Gemini index 问题需等 CLI 支持 UUID |
+| 26 | Gemini/Codex resume 作为补充 context 源 | [x] | Phase 3.6 决策 2 | Phase 5.2 调研结论: Codex 已支持 UUID resume ✅; Gemini v0.27.2 仍只支持 index/latest, 无 UUID resume, 现由 ContextAssembler 提供上下文 |
 | 27 | 导出格式 locale 依赖 | [x] | Phase 3.6 交接 OQ | 改用 `formatDatetime()` 固定 YYYY-MM-DD HH:mm 格式 |
 | 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [x] | Phase 3.9 | 已澄清设计意图：用户消息用 indexOf (宽松)，猫回复用行首匹配 (严格防误触) |
 | 29 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
@@ -77,8 +77,8 @@
 | F2 | ~~Agent-to-Agent 调用 (A2A)~~ | [x] | 铲屎官洞察 🐬 | Phase 3.9 `7a519b9` — worklist 链式调用 + parseA2AMentions + a2a_handoff 前端显示 |
 | F3 | ~~显式记忆 (F3-lite)~~ | [x] | Phase 4.0 计划 | Phase 4.0 Step 6 `25ca123` — /remember /recall 命令 + MemoryStore |
 | F3b | 协作记忆 (Hindsight 集成) | [x] | 上下文工程讨论 | Phase 5.0 全完成: HindsightClient + Evidence 路由 + 治理状态机 + /evidence /reflect /approve /archive 前端命令 + MCP evidence/reflect 工具 + anchor 验证。567 tests |
-| F4 | 配置运行时修改 | P3 | Phase 3.9 | PATCH /api/config 热更新部分配置 (如 maxDepth, timeout) 无需重启 |
-| F5 | ideate 模式 A2A follow-up | P2 | Phase 3.9 | 并行模式下猫 @其他猫不会触发 A2A（设计如此），铲屎官反馈这不符合预期。需要：1) 前端提示"并行模式不支持 A2A" 2) 或实现队列机制让并行后能 follow-up |
+| F4 | 配置运行时修改 | [x] | Phase 3.9 | Phase 5.2 — PATCH /api/config + ConfigStore overlay + `/config set` 前端命令。567 tests |
+| F5 | ideate 模式 A2A follow-up | [x] | Phase 3.9 | Phase 5.2 — routeParallel 完成后 yield a2a_followup_available system_info + 前端 a2a_followup variant 显示 |
 | F6 | ~~Thread 名字编辑~~ | [x] | 功能性试用 | `81939c1` — PATCH /api/threads/:id 更新标题 + 前端编辑 UI |
 | F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
 | F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 前端显示：工具调用、thinking、耗时、token 消耗等。参考 Claude Code 的 token 计数 + 耗时显示。当前 UX 极差（辩论时铲屎官等得难受）|
@@ -170,5 +170,15 @@
 | Deliberate 两轮制类型预埋 | Phase 4.0 Step 9 | `552385e` |
 | cat-config.json 默认路径稳定 | Phase 4.0 R1 | `af80d41` |
 | routeParallel append 失败降级 | Phase 4.0 R1 | `af80d41` |
+| #34 cascade delete 语义 ADR | Phase 5.2 | Step 1 |
+| #22 blob URL 增量 revoke | Phase 5.2 | Step 1 |
+| #21 孤儿消息 400 拒绝 | Phase 5.2 | Step 2 |
+| #35 thread 删除 409 保护 | Phase 5.2 | Step 2 |
+| #40 delivery cursor TTL 7d | Phase 5.2 | Step 2 |
+| #9 前端图片压缩 | Phase 5.2 | Step 3 |
+| #39 useChatCommands vitest | Phase 5.2 | Step 3 |
+| F5 A2A follow-up 提示 | Phase 5.2 | Step 4 |
+| F4 配置热更新 PATCH | Phase 5.2 | Step 5 |
+| #26 Gemini resume 调研关闭 | Phase 5.2 | Step 6 |
 
 </details>
