@@ -168,7 +168,7 @@ test('handles multiple agent_message items', async () => {
   assert.equal(textMsgs[1].content, 'Second message');
 });
 
-test('ignores command_execution and file_change items', async () => {
+test('maps command_execution and file_change items into tool events', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
   const service = new CodexAgentService({ spawnFn });
@@ -177,6 +177,10 @@ test('ignores command_execution and file_change items', async () => {
 
   emitCodexEvents(proc, [
     { type: 'thread.started', thread_id: 'thread-tools' },
+    {
+      type: 'item.started',
+      item: { id: 'cmd-1', type: 'command_execution', command: 'ls', status: 'in_progress' },
+    },
     {
       type: 'item.completed',
       item: { id: 'cmd-1', type: 'command_execution', command: 'ls', aggregated_output: '', status: 'completed' },
@@ -193,8 +197,16 @@ test('ignores command_execution and file_change items', async () => {
 
   const msgs = await promise;
   const textMsgs = msgs.filter((m) => m.type === 'text');
+  const toolUseMsgs = msgs.filter((m) => m.type === 'tool_use');
+  const toolResultMsgs = msgs.filter((m) => m.type === 'tool_result');
+
   assert.equal(textMsgs.length, 1);
   assert.equal(textMsgs[0].content, 'Response');
+  assert.equal(toolUseMsgs.length, 2);
+  assert.equal(toolResultMsgs.length, 1);
+  assert.equal(toolUseMsgs[0].toolName, 'command_execution');
+  assert.equal(toolUseMsgs[1].toolName, 'file_change');
+  assert.match(toolResultMsgs[0].content, /command: ls/);
 });
 
 test('yields error on CLI non-zero exit', async () => {
@@ -304,4 +316,52 @@ test('ignores turn.started and turn.completed control events', async () => {
   assert.equal(msgs[1].type, 'text');
   assert.equal(msgs[1].content, 'Hello');
   assert.equal(msgs[2].type, 'done');
+});
+
+test('maps command execution lifecycle into tool_use and tool_result', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('run tool'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-tool-lifecycle' },
+    {
+      type: 'item.started',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        status: 'in_progress',
+      },
+    },
+    {
+      type: 'item.completed',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        aggregated_output: '/Users/lysander/projects/relay-station/cat-cafe\n',
+        exit_code: 0,
+        status: 'completed',
+      },
+    },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'done' },
+    },
+  ]);
+
+  const msgs = await promise;
+  const toolUse = msgs.find((m) => m.type === 'tool_use');
+  const toolResult = msgs.find((m) => m.type === 'tool_result');
+
+  assert.ok(toolUse, 'should emit tool_use for command_execution start');
+  assert.equal(toolUse.toolName, 'command_execution');
+  assert.equal(toolUse.toolInput.command, '/bin/zsh -lc pwd');
+
+  assert.ok(toolResult, 'should emit tool_result for command_execution completion');
+  assert.match(toolResult.content, /\/Users\/lysander\/projects\/relay-station\/cat-cafe/);
+  assert.match(toolResult.content, /exit_code:\s*0/);
 });

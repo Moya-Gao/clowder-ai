@@ -8,8 +8,11 @@
  *
  * NDJSON 事件格式:
  *   thread.started  → session_init (含 thread_id)
+ *   item.started (command_execution) → tool_use
  *   item.completed (agent_message) → text
- *   turn.started / turn.completed / item.started / command_execution / file_change → 跳过
+ *   item.completed (command_execution) → tool_result
+ *   item.completed (file_change) → tool_use
+ *   turn.started / turn.completed / 其余 item 事件 → 跳过
  */
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
@@ -64,14 +67,28 @@ function transformCodexEvent(
     return null;
   }
 
+  // item.started with command_execution → tool_use
+  if (e['type'] === 'item.started') {
+    const item = e['item'] as Record<string, unknown> | undefined;
+    if (item?.['type'] === 'command_execution') {
+      const command = item['command'];
+      if (typeof command === 'string') {
+        return {
+          type: 'tool_use',
+          catId,
+          toolName: 'command_execution',
+          toolInput: { command },
+          timestamp: Date.now(),
+        };
+      }
+    }
+    return null;
+  }
+
   // item.completed with agent_message → text
   if (e['type'] === 'item.completed') {
     const item = e['item'] as Record<string, unknown> | undefined;
-    if (
-      item &&
-      item['type'] === 'agent_message' &&
-      typeof item['text'] === 'string'
-    ) {
+    if (item?.['type'] === 'agent_message' && typeof item['text'] === 'string') {
       return {
         type: 'text',
         catId,
@@ -79,7 +96,47 @@ function transformCodexEvent(
         timestamp: Date.now(),
       };
     }
-    // Non-agent_message items (command_execution, file_change) → skip
+
+    // item.completed with command_execution → tool_result
+    if (item?.['type'] === 'command_execution') {
+      const command = typeof item['command'] === 'string' ? item['command'] : '';
+      const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
+      const exitCode = typeof item['exit_code'] === 'number' ? item['exit_code'] : null;
+      const output = typeof item['aggregated_output'] === 'string'
+        ? item['aggregated_output']
+        : '';
+
+      const sections: string[] = [];
+      if (command) sections.push(`command: ${command}`);
+      sections.push(`status: ${status}`);
+      if (exitCode !== null) sections.push(`exit_code: ${exitCode}`);
+      const trimmedOutput = output.trimEnd();
+      if (trimmedOutput) sections.push(trimmedOutput);
+
+      return {
+        type: 'tool_result',
+        catId,
+        content: sections.join('\n'),
+        timestamp: Date.now(),
+      };
+    }
+
+    // item.completed with file_change → tool_use (for visual trace in UI)
+    if (item?.['type'] === 'file_change') {
+      const changes = Array.isArray(item['changes']) ? item['changes'] : [];
+      const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
+      return {
+        type: 'tool_use',
+        catId,
+        toolName: 'file_change',
+        toolInput: {
+          status,
+          changes: changes.length,
+        },
+        timestamp: Date.now(),
+      };
+    }
+
     return null;
   }
 
