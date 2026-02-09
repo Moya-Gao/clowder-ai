@@ -87,7 +87,11 @@ export function buildSystemPrompt(context: InvocationContext): string {
         `你可以 @队友 邀请他们一起思考: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
       );
       lines.push('不限场景——技术讨论、创意碰撞、观点征询、甚至讲笑话都可以。');
-      lines.push('在新行开头写 @猫名。每次 @ 只触发一轮。铲屎官可以随时插话，大家一起协作。');
+      lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效！）。每次 @ 只触发一轮。');
+      lines.push('✅ 正确：');
+      lines.push('我觉得可以这样做！');
+      lines.push('@布偶猫 你觉得呢？');
+      lines.push('❌ 错误：怎么样，@布偶猫？ ← 行中间，不会触发');
       lines.push('');
     }
   }
