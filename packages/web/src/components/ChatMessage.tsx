@@ -2,6 +2,7 @@
 
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { SummaryCard } from './SummaryCard';
@@ -89,6 +90,10 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   }
 
   if (isSystem) {
+    if (message.variant === 'evidence' && message.evidence) {
+      return <EvidencePanel data={message.evidence} />;
+    }
+
     const isInfo = message.variant === 'info';
     const isTool = message.variant === 'tool';
     return (

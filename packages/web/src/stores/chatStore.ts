@@ -19,11 +19,25 @@ export interface ChatMessageMetadata {
   sessionId?: string;
 }
 
+export interface EvidenceResultData {
+  title: string;
+  anchor: string;
+  snippet: string;
+  confidence: 'high' | 'mid' | 'low';
+  sourceType: 'decision' | 'phase' | 'discussion' | 'commit';
+}
+
+export interface EvidenceData {
+  results: EvidenceResultData[];
+  degraded: boolean;
+  degradeReason?: string;
+}
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary';
-  /** Visual variant for system messages: 'error' (red), 'info' (blue-gray), 'tool' (gray, compact) */
-  variant?: 'error' | 'info' | 'tool';
+  /** Visual variant for system messages: 'error' (red), 'info' (blue-gray), 'tool' (gray, compact), 'evidence' (card panel) */
+  variant?: 'error' | 'info' | 'tool' | 'evidence';
   catId?: string;
   content: string;
   contentBlocks?: MessageContent[];
@@ -37,6 +51,7 @@ export interface ChatMessage {
     openQuestions: string[];
     createdBy: string;
   };
+  evidence?: EvidenceData;
 }
 
 export interface Thread {

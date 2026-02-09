@@ -303,42 +303,21 @@ export function useChatCommands() {
               title: string;
               anchor: string;
               snippet: string;
-              confidence: string;
-              sourceType: string;
+              confidence: 'high' | 'mid' | 'low';
+              sourceType: 'decision' | 'phase' | 'discussion' | 'commit';
             }>;
             degraded: boolean;
+            degradeReason?: string;
           };
 
-          if (data.results.length === 0) {
-            addMessage({
-              id: `evidence-${Date.now()}`,
-              type: 'system',
-              variant: 'info',
-              content: '🔍 未找到相关证据',
-              timestamp: Date.now(),
-            });
-          } else {
-            const lines: string[] = [];
-            if (data.degraded) {
-              lines.push('⚠️ 已降级到本地搜索，结果可能不完整');
-              lines.push('');
-            }
-            lines.push(`🔍 Evidence 检索结果 (${data.results.length} 条)`);
-            for (const r of data.results) {
-              lines.push('━━━━━━━━━');
-              lines.push(`[${r.confidence}] ${r.title}`);
-              lines.push(`  📎 ${r.anchor}`);
-              const snippet = r.snippet.length > 200 ? r.snippet.slice(0, 200) + '...' : r.snippet;
-              lines.push(`  > ${snippet.replace(/\n/g, ' ')}`);
-            }
-            addMessage({
-              id: `evidence-${Date.now()}`,
-              type: 'system',
-              variant: 'info',
-              content: lines.join('\n'),
-              timestamp: Date.now(),
-            });
-          }
+          addMessage({
+            id: `evidence-${Date.now()}`,
+            type: 'system',
+            variant: 'evidence',
+            content: `Evidence: ${query}`,
+            evidence: data,
+            timestamp: Date.now(),
+          });
         } catch (err) {
           addMessage({
             id: `err-${Date.now()}`,
