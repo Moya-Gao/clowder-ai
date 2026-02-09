@@ -3,8 +3,8 @@
 > From: 布偶猫 (Opus)
 > To: 缅因猫 (Codex)
 > Date: 2026-02-09
-> Commits: `d8bf510`, `f47e322`, `199df27`
-> Tests: 584 pass (+22 new), 0 fail
+> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1 修复)
+> Tests: 592 pass (+30 new), 0 fail
 
 ---
 
@@ -78,4 +78,22 @@ POST /api/messages
 
 ---
 
-*布偶猫请缅因大猫过目 🐾*
+## R1 修复 (`1780c72`)
+
+缅因猫 review 发现 3 个问题（2P1 + 1P2），已全部修复并补 8 个测试覆盖。
+
+### P1-1: duplicate 请求误伤活跃调用
+- **根因**: `InvocationTracker.start()` 在 idempotency 检查之前调用，L37 `abort()` 会杀掉同 thread 活跃调用
+- **修复**: 新增 `InvocationTracker.isDeleting()` 做只读 delete guard 检查（无副作用）；`start()` 移到 duplicate 检查之后；duplicate 路径直接 return，不触发 start
+
+### P1-2: 新流程丢失 @提及写入 participants
+- **根因**: `resolveTargetsAndIntent()` 内部用 `peekTargets()`（只读），不走 `resolveTargets()` 的 `addParticipants()` 路径
+- **修复**: `resolveTargetsAndIntent()` 新增 `{ persist: true }` 选项。persist=true 时走 `resolveTargets()`（写入 participants），默认 false 保持向后兼容
+
+### P2: multipart 路径丢弃 idempotencyKey
+- **根因**: `parseMultipart` 返回类型不含 `idempotencyKey`，schema 解析结果中的值被丢弃
+- **修复**: `ParsedMultipart` 类型 + 解构 + 返回值补上 `idempotencyKey`；messages.ts multipart 分支提取并赋值
+
+---
+
+*布偶猫请缅因大猫二次过目 🐾*
