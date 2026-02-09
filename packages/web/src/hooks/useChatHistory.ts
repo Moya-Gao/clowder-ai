@@ -7,42 +7,64 @@ import { useTaskStore } from '@/stores/taskStore';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 const HISTORY_PAGE_SIZE = 50;
 
+function isAbortError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
+}
+
 /**
  * Hook for managing chat history: fetching, pagination, scroll handling.
  * Extracted from ChatContainer to reduce component size.
+ *
+ * @param threadId - The active thread ID (from URL route param).
  */
-export function useChatHistory() {
+export function useChatHistory(threadId: string) {
   const {
     messages,
     isLoadingHistory,
     hasMore,
-    currentThreadId,
     prependHistory,
     setLoadingHistory,
+    clearMessages,
   } = useChatStore();
   const { setTasks } = useTaskStore();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const initialLoadDone = useRef(false);
 
   // Scroll state for prepend handling
   const prevFirstIdRef = useRef<string | null>(null);
   const prevCountRef = useRef(0);
   const scrollSnapshotRef = useRef<number | null>(null);
 
+  // Track loading guard per-thread to prevent double-fetch
+  const loadingRef = useRef(false);
+
+  // P1 fix: AbortController to cancel in-flight requests on thread switch
+  const abortRef = useRef<AbortController | null>(null);
+  // Always-current threadId for stale response checks
+  const threadIdRef = useRef(threadId);
+  threadIdRef.current = threadId;
+
   // Fetch history page from API
   const fetchHistory = useCallback(
-    async (cursor?: string, threadId?: string) => {
-      if (isLoadingHistory) return;
+    async (cursor?: string) => {
+      if (loadingRef.current) return;
+      const controller = abortRef.current;
+      if (!controller) return;
+
+      loadingRef.current = true;
       setLoadingHistory(true);
+      const fetchForThread = threadId; // capture at call time
       try {
-        const tid = threadId ?? currentThreadId;
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
         if (cursor) params.set('before', cursor);
-        params.set('threadId', tid);
-        const res = await fetch(`${API_URL}/api/messages?${params}`);
+        params.set('threadId', fetchForThread);
+        const res = await fetch(`${API_URL}/api/messages?${params}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) return;
+        // Stale check: discard if thread changed during fetch
+        if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
           (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; timestamp: number }) => ({
@@ -56,33 +78,55 @@ export function useChatHistory() {
           } as ChatMessageData)
         );
         prependHistory(historyMsgs, data.hasMore ?? false);
-      } catch {
-        // Silently ignore fetch errors for history
+      } catch (err) {
+        // AbortError is expected during thread switch — ignore silently
+        if (isAbortError(err)) return;
       } finally {
-        setLoadingHistory(false);
+        // Do not let stale/aborted request clear loading state for a newer thread request.
+        if (abortRef.current === controller && threadIdRef.current === fetchForThread) {
+          loadingRef.current = false;
+          setLoadingHistory(false);
+        }
       }
     },
-    [isLoadingHistory, setLoadingHistory, prependHistory, currentThreadId]
+    [setLoadingHistory, prependHistory, threadId]
   );
 
-  const fetchTasks = useCallback(async (threadId?: string) => {
+  const fetchTasks = useCallback(async () => {
+    const fetchForThread = threadId;
+    const controller = abortRef.current;
+    if (!controller) return;
+
     try {
-      const tid = threadId ?? currentThreadId;
-      const res = await fetch(`${API_URL}/api/tasks?threadId=${encodeURIComponent(tid)}`);
+      const res = await fetch(
+        `${API_URL}/api/tasks?threadId=${encodeURIComponent(fetchForThread)}`,
+        { signal: controller.signal },
+      );
       if (!res.ok) return;
+      if (abortRef.current !== controller) return;
+      if (threadIdRef.current !== fetchForThread) return;
       const data = await res.json();
       setTasks(data.tasks ?? []);
-    } catch { /* ignore */ }
-  }, [currentThreadId, setTasks]);
-
-  // Load initial history + tasks on mount
-  useEffect(() => {
-    if (!initialLoadDone.current) {
-      initialLoadDone.current = true;
-      void fetchHistory();
-      void fetchTasks();
+    } catch (err) {
+      if (isAbortError(err)) return;
     }
-  }, [fetchHistory, fetchTasks]);
+  }, [threadId, setTasks]);
+
+  // Load history + tasks when threadId changes (handles initial mount and navigation)
+  useEffect(() => {
+    // Abort any in-flight requests from previous thread
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
+    clearMessages();
+    loadingRef.current = false;
+    void fetchHistory();
+    void fetchTasks();
+
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Snapshot scroll height before history load
   useEffect(() => {
@@ -135,8 +179,6 @@ export function useChatHistory() {
   }, [hasMore, isLoadingHistory, messages, fetchHistory]);
 
   return {
-    fetchHistory,
-    fetchTasks,
     handleScroll,
     scrollContainerRef,
     messagesEndRef,

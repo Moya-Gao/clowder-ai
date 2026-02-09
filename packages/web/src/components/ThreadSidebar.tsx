@@ -1,16 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { TaskPanel } from './TaskPanel';
 import { PawIcon } from './icons/PawIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
-
-interface ThreadSidebarProps {
-  onThreadSwitch: (threadId: string) => void;
-}
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -254,12 +251,12 @@ function FolderIcon({ className }: { className?: string }) {
 
 // ─── Main Sidebar ───
 
-export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
+export function ThreadSidebar() {
+  const router = useRouter();
   const {
     threads,
     currentThreadId,
     setThreads,
-    setCurrentThread,
     setCurrentProject,
     isLoadingThreads,
     setLoadingThreads,
@@ -286,6 +283,10 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     void loadThreads();
   }, [loadThreads]);
 
+  const navigateToThread = useCallback((threadId: string) => {
+    router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
+  }, [router]);
+
   const createInProject = useCallback(async (projectPath?: string) => {
     setIsCreating(true);
     setShowPicker(false);
@@ -300,9 +301,8 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
       });
       if (!res.ok) return;
       const thread: Thread = await res.json();
-      setCurrentThread(thread.id);
       if (projectPath) setCurrentProject(projectPath);
-      onThreadSwitch(thread.id);
+      navigateToThread(thread.id);
       // Reload full list from server (avoids stale closure)
       await loadThreads();
     } catch {
@@ -310,30 +310,28 @@ export function ThreadSidebar({ onThreadSwitch }: ThreadSidebarProps) {
     } finally {
       setIsCreating(false);
     }
-  }, [setCurrentThread, setCurrentProject, onThreadSwitch, loadThreads]);
+  }, [setCurrentProject, navigateToThread, loadThreads]);
 
   const handleDelete = useCallback(async (threadId: string) => {
     try {
       const res = await fetch(`${API_URL}/api/threads/${threadId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) return;
       if (threadId === currentThreadId) {
-        setCurrentThread('default');
-        onThreadSwitch('default');
+        navigateToThread('default');
       }
       // Reload full list from server (avoids stale closure)
       await loadThreads();
     } catch {
       // Silently ignore
     }
-  }, [currentThreadId, setCurrentThread, onThreadSwitch, loadThreads]);
+  }, [currentThreadId, navigateToThread, loadThreads]);
 
   const handleSelect = useCallback(
     (threadId: string) => {
       if (threadId === currentThreadId) return;
-      setCurrentThread(threadId);
-      onThreadSwitch(threadId);
+      navigateToThread(threadId);
     },
-    [currentThreadId, setCurrentThread, onThreadSwitch]
+    [currentThreadId, navigateToThread]
   );
 
   const toggleProject = useCallback((projectPath: string) => {

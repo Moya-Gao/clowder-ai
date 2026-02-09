@@ -105,6 +105,13 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     currentRoomRef.current = newRoom;
   }, []);
 
+  // Automatically switch rooms when threadId changes (URL-driven routing)
+  useEffect(() => {
+    if (threadId) {
+      switchRoom(threadId);
+    }
+  }, [threadId, switchRoom]);
+
   const cancelInvocation = useCallback((tid: string) => {
     socketRef.current?.emit('cancel_invocation', { threadId: tid });
   }, []);

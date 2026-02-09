@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useTaskStore, type TaskItem } from '@/stores/taskStore';
 import { useSocket, type SocketCallbacks } from '@/hooks/useSocket';
@@ -14,22 +14,25 @@ import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { PawIcon } from './icons/PawIcon';
 
+interface ChatContainerProps {
+  threadId: string;
+}
+
 /**
  * Main chat container component.
  * Orchestrates hooks for history, commands, messaging, and socket communication.
- * Refactored in Phase 4.0 to reduce size from ~400 lines to ~150 lines.
+ * threadId is driven by the URL route param (source of truth).
  */
-export function ChatContainer() {
+export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
     messages,
     isLoading,
-    currentThreadId,
     intentMode,
     addMessage,
     setIntentMode,
     setTargetCats,
     clearCatStatuses,
-    clearMessages,
+    setCurrentThread,
     updateThreadTitle,
   } = useChatStore();
   const { addTask, updateTask, clearTasks } = useTaskStore();
@@ -37,19 +40,45 @@ export function ChatContainer() {
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
   const {
-    fetchHistory,
-    fetchTasks,
     handleScroll,
     scrollContainerRef,
     messagesEndRef,
     isLoadingHistory,
     hasMore,
-  } = useChatHistory();
+  } = useChatHistory(threadId);
   const { handleSend } = useSendMessage();
+
+  // P2 fix: suppress stale socket messages during thread switch window.
+  // Set true synchronously when threadId changes; cleared after room switch completes.
+  // Ref is stable across renders, so useMemo closures can read .current at call time.
+  const suppressMessagesRef = useRef(false);
+
+  // Sync URL-driven threadId to store (store is follower, URL is source of truth)
+  const prevThreadRef = useRef(threadId);
+  useEffect(() => {
+    setCurrentThread(threadId);
+    if (prevThreadRef.current !== threadId) {
+      // Suppress socket messages during the switch window
+      suppressMessagesRef.current = true;
+      // Thread changed via navigation — clean up old state
+      resetRefs();
+      clearTasks();
+      setIntentMode(null);
+      clearCatStatuses();
+      prevThreadRef.current = threadId;
+      // Unsuppress after all effects from this render cycle have fired
+      // (including useSocket's room switch effect)
+      const timer = setTimeout(() => { suppressMessagesRef.current = false; }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Socket callbacks
   const socketCallbacks = useMemo<SocketCallbacks>(() => ({
-    onMessage: handleAgentMessage,
+    onMessage: (msg) => {
+      if (suppressMessagesRef.current) return;
+      handleAgentMessage(msg);
+    },
     onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
     onIntentMode: (data) => {
       setIntentMode(data.mode as 'ideate' | 'execute');
@@ -71,30 +100,16 @@ export function ChatContainer() {
     onHeartbeat: () => resetTimeout(),
   }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, resetTimeout]);
 
-  const { switchRoom, cancelInvocation } = useSocket(socketCallbacks, currentThreadId);
+  const { cancelInvocation } = useSocket(socketCallbacks, threadId);
 
   const handleStop = useCallback(() => {
-    stopHandler(cancelInvocation, currentThreadId);
-  }, [stopHandler, cancelInvocation, currentThreadId]);
-
-  const handleThreadSwitch = useCallback(
-    (threadId: string) => {
-      resetRefs();
-      clearMessages();
-      clearTasks();
-      setIntentMode(null);
-      clearCatStatuses();
-      switchRoom(threadId);
-      void fetchHistory(undefined, threadId);
-      void fetchTasks(threadId);
-    },
-    [resetRefs, clearMessages, clearTasks, setIntentMode, clearCatStatuses, switchRoom, fetchHistory, fetchTasks]
-  );
+    stopHandler(cancelInvocation, threadId);
+  }, [stopHandler, cancelInvocation, threadId]);
 
   return (
     <div className="flex h-screen">
       {sidebarOpen && (
-        <ThreadSidebar onThreadSwitch={handleThreadSwitch} />
+        <ThreadSidebar />
       )}
 
       <div className="flex flex-col flex-1 min-w-0">
