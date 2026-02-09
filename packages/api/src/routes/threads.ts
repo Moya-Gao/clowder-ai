@@ -145,6 +145,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     const { id } = request.params as { id: string };
 
     // Protect active invocations from deletion (#35)
+    // Fail-closed: check before AND after async gap to narrow race window
     if (opts.invocationTracker?.has(id)) {
       reply.status(409);
       return {
@@ -155,6 +156,17 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     }
 
     const thread = await threadStore.get(id);
+
+    // Re-check after async gap — invocation may have started during await
+    if (opts.invocationTracker?.has(id)) {
+      reply.status(409);
+      return {
+        error: '猫猫正在工作中',
+        detail: '请等待猫猫完成当前任务后再删除对话',
+        code: 'ACTIVE_INVOCATION',
+      };
+    }
+
     const deleted = await threadStore.delete(id);
     if (!deleted) {
       reply.status(400);

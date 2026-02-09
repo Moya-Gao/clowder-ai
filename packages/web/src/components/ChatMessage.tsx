@@ -6,7 +6,6 @@ import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { SummaryCard } from './SummaryCard';
-import { OwnerIcon } from './icons/OwnerIcon';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -162,8 +161,18 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             )}
           </div>
         </div>
-        <div className="w-8 h-8 rounded-full bg-owner-primary flex items-center justify-center flex-shrink-0 ring-2 ring-owner-light">
-          <OwnerIcon className="w-4 h-4 text-white" />
+        <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-owner-light bg-owner-primary flex items-center justify-center">
+          <img
+            src="/avatars/owner.png"
+            alt="铲屎官"
+            width={32}
+            height={32}
+            className="object-cover w-full h-full"
+            onError={(e) => {
+              // Fallback: hide broken image, show background color
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
         </div>
       </div>
     );

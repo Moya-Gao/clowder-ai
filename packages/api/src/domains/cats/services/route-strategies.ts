@@ -16,7 +16,7 @@ import type { IMessageStore, StoredMessage } from './MessageStore.js';
 import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
-import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
+import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';
 import { assembleContext, formatMessage } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
@@ -195,7 +195,7 @@ export async function* routeSerial(
   // Worklist pattern: starts with targetCats, may grow via A2A mentions
   const worklist = [...targetCats];
   let a2aCount = 0;
-  const maxDepth = options.maxA2ADepth ?? MAX_A2A_DEPTH;
+  const maxDepth = options.maxA2ADepth ?? getMaxA2ADepth();
 
   let index = 0;
   while (index < worklist.length) {

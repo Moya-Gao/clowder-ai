@@ -13,8 +13,10 @@
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 
-/** Max A2A chain depth, configurable via env */
-export const MAX_A2A_DEPTH = Number(process.env['MAX_A2A_DEPTH']) || 2;
+/** Max A2A chain depth, configurable via env (read at call time for hot-reload) */
+export function getMaxA2ADepth(): number {
+  return Number(process.env['MAX_A2A_DEPTH']) || 2;
+}
 
 /**
  * Parse A2A @mentions from cat response text.

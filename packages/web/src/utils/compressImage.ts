@@ -13,6 +13,19 @@ export async function compressImage(
   if (file.type === 'image/gif') return file;
   if (file.size <= maxBytes) return file;
 
+  // Wrap entire compression in try/catch — fallback to original on any failure
+  try {
+    return await _compressImageInner(file, maxWidth, maxBytes);
+  } catch {
+    return file;
+  }
+}
+
+async function _compressImageInner(
+  file: File,
+  maxWidth: number,
+  maxBytes: number,
+): Promise<File> {
   const img = new Image();
   const url = URL.createObjectURL(file);
   try {
