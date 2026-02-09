@@ -35,6 +35,7 @@ import type {
 const CAT_ID = createCatId('gemini');
 
 type GeminiAdapter = 'gemini-cli' | 'antigravity';
+const KNOWN_POST_RESPONSE_CANDIDATES_CRASH = "Cannot read properties of undefined (reading 'candidates')";
 
 /**
  * Options for constructing GeminiAgentService (dependency injection)
@@ -104,15 +105,15 @@ function transformGeminiEvent(
 
   // result with non-success status → error
   if (e['type'] === 'result' && e['status'] !== 'success') {
-    const rawError = e['error'];
-    if (typeof rawError !== 'string' || rawError.trim() === '') {
+    const message = extractGeminiErrorMessage(e['error']);
+    if (!message) {
       // Let cli-exit error provide the detailed message.
       return null;
     }
     return {
       type: 'error',
       catId,
-      error: rawError,
+      error: message,
       timestamp: Date.now(),
     };
   }
@@ -125,6 +126,32 @@ function isResultErrorEvent(event: unknown): boolean {
   if (typeof event !== 'object' || event === null) return false;
   const e = event as Record<string, unknown>;
   return e['type'] === 'result' && e['status'] !== 'success';
+}
+
+function extractGeminiErrorMessage(rawError: unknown): string | null {
+  if (typeof rawError === 'string') {
+    const value = rawError.trim();
+    return value.length > 0 ? value : null;
+  }
+
+  if (typeof rawError === 'object' && rawError !== null) {
+    const message = (rawError as Record<string, unknown>)['message'];
+    if (typeof message === 'string') {
+      const value = message.trim();
+      return value.length > 0 ? value : null;
+    }
+  }
+
+  return null;
+}
+
+function isKnownPostResponseCandidatesCrash(event: unknown): boolean {
+  if (typeof event !== 'object' || event === null) return false;
+  const e = event as Record<string, unknown>;
+  if (e['type'] !== 'result' || e['status'] === 'success') return false;
+
+  const message = extractGeminiErrorMessage(e['error']);
+  return message?.includes(KNOWN_POST_RESPONSE_CANDIDATES_CRASH) ?? false;
 }
 
 /**
@@ -176,6 +203,8 @@ export class GeminiAgentService implements AgentService {
 
     try {
       let sawResultError = false;
+      let sawAssistantText = false;
+      let suppressCliExitError = false;
       const events = spawnCli(
         {
           command: 'gemini',
@@ -201,7 +230,7 @@ export class GeminiAgentService implements AgentService {
           continue;
         }
         if (isCliError(event)) {
-          if (sawResultError) continue;
+          if (sawResultError || suppressCliExitError) continue;
           yield {
             type: 'error',
             catId: CAT_ID,
@@ -212,11 +241,19 @@ export class GeminiAgentService implements AgentService {
           continue;
         }
 
+        if (sawAssistantText && isKnownPostResponseCandidatesCrash(event)) {
+          suppressCliExitError = true;
+          continue;
+        }
+
         const fromResultError = isResultErrorEvent(event);
         const result = transformGeminiEvent(event, CAT_ID);
         if (result !== null) {
           if (result.type === 'session_init' && result.sessionId) {
             metadata.sessionId = result.sessionId;
+          }
+          if (result.type === 'text') {
+            sawAssistantText = true;
           }
           if (fromResultError && result.type === 'error') {
             sawResultError = true;

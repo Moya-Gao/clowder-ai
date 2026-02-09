@@ -287,6 +287,37 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.ok(errMsg);
     assert.equal(errMsg.error, 'Model overloaded');
   });
+
+  test('suppresses known post-response candidates crash after assistant text', async () => {
+    const proc = createMockProcess();
+    proc.kill = mock.fn(() => true);
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('Reply with exactly hi'));
+
+    proc.stdout.write(JSON.stringify({ type: 'init', session_id: 's1', model: 'auto' }) + '\n');
+    proc.stdout.write(JSON.stringify({ type: 'message', role: 'assistant', content: 'hi' }) + '\n');
+    proc.stdout.write(JSON.stringify({
+      type: 'result',
+      status: 'error',
+      error: {
+        type: 'Error',
+        message: "[API Error: Cannot read properties of undefined (reading 'candidates')]",
+      },
+    }) + '\n');
+    proc.stdout.end();
+    proc._emitter.emit('exit', 1, null);
+
+    const msgs = await promise;
+    const errMsgs = msgs.filter((m) => m.type === 'error');
+    const textMsgs = msgs.filter((m) => m.type === 'text');
+
+    assert.equal(textMsgs.length, 1);
+    assert.equal(textMsgs[0].content, 'hi');
+    assert.equal(errMsgs.length, 0, 'known post-response crash should be suppressed');
+    assert.equal(msgs[msgs.length - 1].type, 'done');
+  });
 });
 
 // ===== antigravity adapter tests =====
