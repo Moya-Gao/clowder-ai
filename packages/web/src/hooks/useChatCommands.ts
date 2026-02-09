@@ -122,14 +122,59 @@ export function useChatCommands() {
     async (input: string): Promise<boolean> => {
       const trimmed = input.trim();
 
-      // /config command
-      if (trimmed === '/config') {
+      // /config command — display or hot-update
+      if (isCommandInvocation(trimmed, '/config')) {
+        const configArgs = trimmed.slice('/config'.length).trim();
+
         addMessage({
           id: `user-${Date.now()}`,
           type: 'user',
-          content: '/config',
+          content: trimmed,
           timestamp: Date.now(),
         });
+
+        // /config set <key> <value> — hot-update (F4)
+        if (configArgs.startsWith('set ')) {
+          const parts = configArgs.slice(4).trim().split(/\s+/, 2);
+          if (parts.length < 2) {
+            addMessage({
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: '用法: /config set <key> <value>\n可更新: cli.timeoutMs, a2a.maxDepth',
+              timestamp: Date.now(),
+            });
+            return true;
+          }
+          try {
+            const res = await fetch(`${API_URL}/api/config`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: parts[0], value: parts[1] }),
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => null);
+              throw new Error(body?.error ?? `Server error: ${res.status}`);
+            }
+            const data = await res.json();
+            addMessage({
+              id: `config-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `✅ ${parts[0]} = ${parts[1]}\n\n${formatConfigForDisplay(data.config)}`,
+              timestamp: Date.now(),
+            });
+          } catch (err) {
+            addMessage({
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: `配置更新失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+              timestamp: Date.now(),
+            });
+          }
+          return true;
+        }
+
+        // /config — display current config
         try {
           const res = await fetch(`${API_URL}/api/config`);
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
