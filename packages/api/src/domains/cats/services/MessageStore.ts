@@ -49,6 +49,7 @@ export interface IMessageStore {
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   /** Delete all messages in a thread (cascade delete support) */
   deleteByThread(threadId: string): number | Promise<number>;
@@ -183,6 +184,27 @@ export class MessageStore {
       matches.push(msg);
     }
     return matches.reverse();
+  }
+
+  /**
+   * Get messages in a thread after a specific message ID (exclusive), oldest first.
+   * If afterId is undefined, returns messages from thread start.
+   * If limit is undefined, returns all matches.
+   */
+  getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] {
+    const bounded = Number.isFinite(limit as number) && (limit as number) > 0;
+    const max = bounded ? (limit as number) : Number.MAX_SAFE_INTEGER;
+    const matches: StoredMessage[] = [];
+
+    for (let i = 0; i < this.messages.length && matches.length < max; i++) {
+      const msg = this.messages[i]!;
+      if (msg.threadId !== threadId) continue;
+      if (userId && msg.userId !== userId) continue;
+      if (afterId && msg.id <= afterId) continue;
+      matches.push(msg);
+    }
+
+    return matches;
   }
 
   /**

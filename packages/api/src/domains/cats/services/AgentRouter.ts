@@ -22,6 +22,7 @@ import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 import { SessionManager } from './SessionManager.js';
+import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import { parseIntent, stripIntentTags } from './IntentParser.js';
 import type { IntentResult } from './IntentParser.js';
 import { routeSerial, routeParallel } from './route-strategies.js';
@@ -58,6 +59,7 @@ export class AgentRouter {
   private registry: InvocationRegistry;
   private messageStore: IMessageStore;
   private sessionManager: SessionManager;
+  private deliveryCursorStore: DeliveryCursorStore;
   private threadStore: IThreadStore | null;
 
   constructor(options: AgentRouterOptions) {
@@ -69,6 +71,7 @@ export class AgentRouter {
     this.registry = options.registry;
     this.messageStore = options.messageStore;
     this.sessionManager = new SessionManager(options.sessionStore);
+    this.deliveryCursorStore = new DeliveryCursorStore(options.sessionStore);
     this.threadStore = options.threadStore ?? null;
   }
 
@@ -146,6 +149,7 @@ export class AgentRouter {
         apiUrl: `http://127.0.0.1:${apiPort}`,
       },
       messageStore: this.messageStore,
+      deliveryCursorStore: this.deliveryCursorStore,
     };
   }
 
@@ -183,12 +187,7 @@ export class AgentRouter {
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
 
-    // Fetch thread history BEFORE storing user message (so user message isn't doubled)
-    // Per-cat budget calculation now happens in route-strategies.ts (Phase 4.0)
-    const historyLimit = Number(process.env['CONTEXT_HISTORY_LIMIT']) || 50;
-    const history = await this.messageStore.getByThread(resolvedThreadId, historyLimit);
-
-    await this.messageStore.append({
+    const storedUserMessage = await this.messageStore.append({
       userId,
       catId: null,
       content: message,  // Store original (with tags) for audit
@@ -202,7 +201,7 @@ export class AgentRouter {
     const routeOptions = {
       contentBlocks, uploadDir, signal,
       promptTags: intent.promptTags,
-      history, // Per-cat budget assembly in route-strategies.ts
+      currentUserMessageId: storedUserMessage.id,
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {

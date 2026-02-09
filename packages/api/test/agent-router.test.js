@@ -22,13 +22,45 @@ function createMockRegistry() {
 }
 
 function createMockMessageStore() {
+  const rows = [];
+  let seq = 0;
+
+  const sorted = () => rows.slice().sort((a, b) => a.id.localeCompare(b.id));
   return {
-    append: () => ({ id: 'msg-1', userId: '', catId: null, content: '', mentions: [], timestamp: 0 }),
-    getRecent: () => [],
-    getMentionsFor: () => [],
-    getBefore: () => [],
-    getByThread: () => [],
-    getByThreadBefore: () => [],
+    append: (msg) => {
+      const stored = {
+        ...msg,
+        id: `msg-${String(++seq).padStart(6, '0')}`,
+        threadId: msg.threadId ?? 'default',
+      };
+      rows.push(stored);
+      return stored;
+    },
+    getRecent: (limit = 50) => sorted().slice(-limit),
+    getMentionsFor: (catId, limit = 50) =>
+      sorted().filter((m) => m.mentions?.includes(catId)).slice(-limit),
+    getBefore: (timestamp, limit = 50) =>
+      sorted().filter((m) => m.timestamp < timestamp).slice(-limit),
+    getByThread: (threadId, limit = 50) =>
+      sorted().filter((m) => m.threadId === threadId).slice(-limit),
+    getByThreadAfter: (threadId, afterId, limit) => {
+      const inThread = sorted().filter((m) => m.threadId === threadId);
+      const filtered = afterId ? inThread.filter((m) => m.id > afterId) : inThread;
+      return typeof limit === 'number' ? filtered.slice(0, limit) : filtered;
+    },
+    getByThreadBefore: (threadId, timestamp, limit = 50, beforeId) =>
+      sorted()
+        .filter((m) => m.threadId === threadId)
+        .filter((m) => m.timestamp < timestamp || (m.timestamp === timestamp && (!beforeId || m.id < beforeId)))
+        .slice(-limit),
+    deleteByThread: (threadId) => {
+      const before = rows.length;
+      for (let i = rows.length - 1; i >= 0; i--) {
+        if (rows[i].threadId === threadId) rows.splice(i, 1);
+      }
+      return before - rows.length;
+    },
+    _rows: rows,
   };
 }
 
@@ -1290,13 +1322,23 @@ describe('AgentRouter', () => {
       }),
     };
 
-    const store = {
-      ...createMockMessageStore(),
-      getByThread: () => [
-        { id: 'm1', threadId: 't1', userId: 'u1', catId: null, content: 'earlier question', mentions: [], timestamp: 1000 },
-        { id: 'm2', threadId: 't1', userId: 'u1', catId: 'opus', content: 'earlier answer', mentions: [], timestamp: 2000 },
-      ],
-    };
+    const store = createMockMessageStore();
+    store.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'earlier question',
+      mentions: [],
+      timestamp: 1000,
+      threadId: 'default',
+    });
+    store.append({
+      userId: 'user-1',
+      catId: 'opus',
+      content: 'earlier answer',
+      mentions: [],
+      timestamp: 2000,
+      threadId: 'default',
+    });
 
     const router = new AgentRouter({
       claudeService: mockClaudeService,
@@ -1310,7 +1352,7 @@ describe('AgentRouter', () => {
 
     assert.ok(opusPrompt.includes('对话历史'), 'Prompt should contain context history header');
     assert.ok(opusPrompt.includes('earlier question'), 'Prompt should contain user history');
-    assert.ok(opusPrompt.includes('earlier answer'), 'Prompt should contain cat history');
+    assert.ok(opusPrompt.includes('follow up'), 'Prompt should contain current user message');
   });
 
   test('context history: serial multi-cat — both cats receive history', async () => {
@@ -1335,12 +1377,15 @@ describe('AgentRouter', () => {
       }),
     };
 
-    const store = {
-      ...createMockMessageStore(),
-      getByThread: () => [
-        { id: 'm1', threadId: 't1', userId: 'u1', catId: 'gemini', content: 'gemini said something', mentions: [], timestamp: 1000 },
-      ],
-    };
+    const store = createMockMessageStore();
+    store.append({
+      userId: 'user-1',
+      catId: 'gemini',
+      content: 'gemini said something',
+      mentions: [],
+      timestamp: 1000,
+      threadId: 'default',
+    });
 
     const router = new AgentRouter({
       claudeService: mockClaudeService,
@@ -1378,12 +1423,15 @@ describe('AgentRouter', () => {
       }),
     };
 
-    const store = {
-      ...createMockMessageStore(),
-      getByThread: () => [
-        { id: 'm1', threadId: 't1', userId: 'u1', catId: null, content: 'user said hi', mentions: [], timestamp: 1000 },
-      ],
-    };
+    const store = createMockMessageStore();
+    store.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'user said hi',
+      mentions: [],
+      timestamp: 1000,
+      threadId: 'default',
+    });
 
     const router = new AgentRouter({
       claudeService: mockClaudeService,
@@ -1413,17 +1461,19 @@ describe('AgentRouter', () => {
       }),
     };
 
+    const store = createMockMessageStore();
     const router = new AgentRouter({
       claudeService: mockClaudeService,
       codexService: createMockAgentService('codex'),
       geminiService: createMockAgentService('gemini'),
       registry: createMockRegistry(),
-      messageStore: createMockMessageStore(), // getByThread returns []
+      messageStore: store,
     });
 
     for await (const _ of router.route('user-1', '@opus first message')) {}
 
-    assert.ok(!opusPrompt.includes('对话历史'), 'Empty history should not add context header');
+    assert.ok(opusPrompt.includes('对话历史增量'), 'Incremental mode should include delta header');
+    assert.ok(!opusPrompt.includes('[对话历史 - 最近'), 'Legacy history header should not be used');
     assert.ok(opusPrompt.includes('first message'), 'Prompt should still have the message');
   });
 

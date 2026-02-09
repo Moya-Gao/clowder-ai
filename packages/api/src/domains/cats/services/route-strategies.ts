@@ -13,10 +13,11 @@ import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
 import type { IMessageStore, StoredMessage } from './MessageStore.js';
+import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
-import { assembleContext } from './ContextAssembler.js';
+import { assembleContext, formatMessage } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
@@ -26,6 +27,7 @@ export interface RouteStrategyDeps {
   services: Record<string, AgentService>;
   invocationDeps: InvocationDeps;
   messageStore: IMessageStore;
+  deliveryCursorStore?: DeliveryCursorStore;
 }
 
 /** Common options for both strategies */
@@ -38,6 +40,8 @@ export interface RouteOptions {
   contextHistory?: string | undefined;
   /** Raw thread history for per-cat context assembly */
   history?: StoredMessage[] | undefined;
+  /** Current user message ID (enables exact incremental context delivery path) */
+  currentUserMessageId?: string | undefined;
   /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
   maxA2ADepth?: number | undefined;
 }
@@ -72,6 +76,86 @@ function detectContextDegradation(
   return null;
 }
 
+function sanitizeInjectedContent(content: string): string {
+  return content
+    .split('\n')
+    .filter((line) => {
+      const trimmed = line.trim();
+      if (trimmed === '---') return false;
+      if (line.startsWith('[对话历史 - 最近 ')) return false;
+      if (line.startsWith('[对话历史增量 - 未发送过 ')) return false;
+      return true;
+    })
+    .join('\n')
+    .trim();
+}
+
+async function fetchAfterCursor(
+  messageStore: IMessageStore,
+  threadId: string,
+  afterId: string | undefined,
+  userId: string,
+): Promise<StoredMessage[]> {
+  const withAfter = messageStore as IMessageStore & {
+    getByThreadAfter?: (
+      threadId: string,
+      afterId?: string,
+      limit?: number,
+      userId?: string,
+    ) => StoredMessage[] | Promise<StoredMessage[]>;
+  };
+
+  if (typeof withAfter.getByThreadAfter === 'function') {
+    const rows = await withAfter.getByThreadAfter(threadId, afterId, undefined, userId);
+    return rows;
+  }
+
+  const rows = await messageStore.getByThread(threadId, 2000, userId);
+  if (!afterId) return rows;
+  return rows.filter((m) => m.id > afterId);
+}
+
+interface IncrementalContextResult {
+  contextText: string;
+  boundaryId?: string;
+}
+
+async function assembleIncrementalContext(
+  deps: RouteStrategyDeps,
+  userId: string,
+  threadId: string,
+  catId: CatId,
+): Promise<IncrementalContextResult> {
+  if (!deps.deliveryCursorStore) {
+    return { contextText: '' };
+  }
+
+  const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
+  const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
+
+  const relevant = unseen.filter((m) => m.catId === null || m.catId !== catId);
+  if (relevant.length === 0) {
+    return cursor
+      ? { contextText: '', boundaryId: cursor }
+      : { contextText: '' };
+  }
+
+  const lines = relevant.map((m) => {
+    const cleanContent = sanitizeInjectedContent(m.content);
+    const normalized: StoredMessage = cleanContent === m.content
+      ? m
+      : { ...m, content: cleanContent };
+    const rendered = formatMessage(normalized, { truncate: 2000 });
+    return `[${m.id}] ${rendered}`;
+  });
+
+  const boundaryId = relevant[relevant.length - 1]!.id;
+  return {
+    contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n---`,
+    boundaryId,
+  };
+}
+
 /**
  * Serial execution: cats respond one by one, each seeing previous responses.
  *
@@ -90,9 +174,18 @@ export async function* routeSerial(
   threadId: string,
   options: RouteOptions = {},
 ): AsyncIterable<AgentMessage> {
-  const { contentBlocks, uploadDir, signal, promptTags, contextHistory, history } = options;
+  const {
+    contentBlocks,
+    uploadDir,
+    signal,
+    promptTags,
+    contextHistory,
+    history,
+    currentUserMessageId,
+  } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+  const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   // Worklist pattern: starts with targetCats, may grow via A2A mentions
   const worklist = [...targetCats];
@@ -108,7 +201,7 @@ export async function* routeSerial(
     const isOriginalTarget = index < targetCats.length;
 
     let prompt = message;
-    if (previousResponses.length > 0) {
+    if (!incrementalMode && previousResponses.length > 0) {
       const contextParts = previousResponses.map(
         (r) => `[${r.catId} responded: ${r.content}]`
       );
@@ -132,43 +225,53 @@ export async function* routeSerial(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
-    // Per-cat context budget (Phase 4.0): assemble context with cat-specific limits
-    let catContextHistory = contextHistory; // fallback to legacy pre-assembled
-    if (history && history.length > 0 && !contextHistory) {
-      const catName = catId as 'opus' | 'codex' | 'gemini';
-      const budget = getCatContextBudget(catName);
-      // Reserve space for system prompt (~300), user message, overhead (~1000)
-      const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
-      const { contextText, messageCount } = assembleContext(history, {
-        maxMessages: budget.maxMessages,
-        maxContentLength: budget.maxContentLengthPerMsg,
-        maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
-      });
-      catContextHistory = contextText || undefined;
-
-      // Degradation check: notify user if context was truncated (count budget or char budget)
-      const degradation = detectContextDegradation(history.length, messageCount, budget);
-      if (degradation?.degraded) {
-        yield {
-          type: 'system_info' as AgentMessageType,
-          catId,
-          content: formatDegradationMessage(degradation),
-          timestamp: Date.now(),
-        } as AgentMessage;
-      }
-    }
-
-    if (systemPrompt || mcpInstructions) {
+    let deliveryBoundaryId: string | undefined;
+    if (incrementalMode) {
+      const inc = await assembleIncrementalContext(deps, userId, threadId, catId);
+      deliveryBoundaryId = inc.boundaryId;
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      if (catContextHistory) parts.push(catContextHistory);
-      prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
-    } else if (catContextHistory) {
-      prompt = `${catContextHistory}\n\n---\n\n${prompt}`;
+      parts.push(inc.contextText || message);
+      prompt = parts.join('\n\n---\n\n');
+    } else {
+      // Per-cat context budget (Phase 4.0): assemble context with cat-specific limits
+      let catContextHistory = contextHistory; // fallback to legacy pre-assembled
+      if (history && history.length > 0 && !contextHistory) {
+        const catName = catId as 'opus' | 'codex' | 'gemini';
+        const budget = getCatContextBudget(catName);
+        // Reserve space for system prompt (~300), user message, overhead (~1000)
+        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
+        const { contextText, messageCount } = assembleContext(history, {
+          maxMessages: budget.maxMessages,
+          maxContentLength: budget.maxContentLengthPerMsg,
+          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+        });
+        catContextHistory = contextText || undefined;
+
+        // Degradation check: notify user if context was truncated (count budget or char budget)
+        const degradation = detectContextDegradation(history.length, messageCount, budget);
+        if (degradation?.degraded) {
+          yield {
+            type: 'system_info' as AgentMessageType,
+            catId,
+            content: formatDegradationMessage(degradation),
+            timestamp: Date.now(),
+          } as AgentMessage;
+        }
+      }
+
+      if (systemPrompt || mcpInstructions) {
+        const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+        if (catContextHistory) parts.push(catContextHistory);
+        prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
+      } else if (catContextHistory) {
+        prompt = `${catContextHistory}\n\n---\n\n${prompt}`;
+      }
     }
 
     let textContent = '';
     let firstMetadata: MessageMetadata | undefined;
     let doneMsg: AgentMessage | undefined;
+    let hadError = false;
 
     // Always pass isLastCat:false — we set isFinal AFTER A2A detection
     for await (const msg of invokeSingleCat(deps.invocationDeps, {
@@ -185,6 +288,9 @@ export async function* routeSerial(
       if (msg.type === 'text' && msg.content) {
         textContent += msg.content;
       }
+      if (msg.type === 'error') {
+        hadError = true;
+      }
       if (msg.metadata && !firstMetadata) {
         firstMetadata = msg.metadata;
       }
@@ -198,10 +304,13 @@ export async function* routeSerial(
     let a2aMentions: CatId[] = [];
 
     if (textContent) {
-      previousResponses.push({ catId, content: textContent });
+      const storedContent = sanitizeInjectedContent(textContent);
+      if (!incrementalMode) {
+        previousResponses.push({ catId, content: storedContent });
+      }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
-      a2aMentions = parseA2AMentions(textContent, catId);
+      a2aMentions = parseA2AMentions(storedContent, catId);
 
       // Store with actual mentions — degrade on failure to ensure done reaches frontend
       // (缅因猫 review P1-2: Redis failure must not block done yield)
@@ -209,7 +318,7 @@ export async function* routeSerial(
         await deps.messageStore.append({
           userId,
           catId,
-          content: textContent,
+          content: storedContent,
           mentions: a2aMentions,
           timestamp: Date.now(),
           threadId,
@@ -267,6 +376,19 @@ export async function* routeSerial(
       }
     }
 
+    if (
+      incrementalMode &&
+      !hadError &&
+      deliveryBoundaryId &&
+      deps.deliveryCursorStore
+    ) {
+      try {
+        await deps.deliveryCursorStore.ackCursor(userId, catId, threadId, deliveryBoundaryId);
+      } catch (err) {
+        console.error(`[routeSerial] ackCursor failed for ${catId as string}:`, err);
+      }
+    }
+
     // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
     // MUST always reach here regardless of append success (缅因猫 review P1-2)
     if (doneMsg) {
@@ -288,12 +410,22 @@ export async function* routeParallel(
   threadId: string,
   options: RouteOptions = {},
 ): AsyncIterable<AgentMessage> {
-  const { contentBlocks, uploadDir, signal, promptTags, contextHistory, history } = options;
+  const {
+    contentBlocks,
+    uploadDir,
+    signal,
+    promptTags,
+    contextHistory,
+    history,
+    currentUserMessageId,
+  } = options;
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+  const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   const degradationMsgs: AgentMessage[] = [];
+  const boundaryByCat = new Map<CatId, string | undefined>();
 
-  const streams = targetCats.map((catId) => {
+  const streams = await Promise.all(targetCats.map(async (catId) => {
     const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
     const systemPrompt = buildSystemPrompt({
       catId,
@@ -307,40 +439,48 @@ export async function* routeParallel(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
-    // Per-cat context budget (Phase 4.0)
-    let catContextHistory = contextHistory;
-    if (history && history.length > 0 && !contextHistory) {
-      const catName = catId as 'opus' | 'codex' | 'gemini';
-      const budget = getCatContextBudget(catName);
-      const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
-      const { contextText, messageCount } = assembleContext(history, {
-        maxMessages: budget.maxMessages,
-        maxContentLength: budget.maxContentLengthPerMsg,
-        maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
-      });
-      catContextHistory = contextText || undefined;
-
-      // Degradation check: notify user if context was truncated (count budget or char budget)
-      const degradation = detectContextDegradation(history.length, messageCount, budget);
-      if (degradation?.degraded) {
-        degradationMsgs.push({
-          type: 'system_info' as AgentMessageType,
-          catId,
-          content: formatDegradationMessage(degradation),
-          timestamp: Date.now(),
-        } as AgentMessage);
-      }
-    }
-
     let prompt: string;
-    if (systemPrompt || mcpInstructions) {
+    if (incrementalMode) {
+      const inc = await assembleIncrementalContext(deps, userId, threadId, catId);
+      boundaryByCat.set(catId, inc.boundaryId);
       const parts = [systemPrompt, mcpInstructions].filter(Boolean);
-      if (catContextHistory) parts.push(catContextHistory);
-      prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
-    } else if (catContextHistory) {
-      prompt = `${catContextHistory}\n\n---\n\n${message}`;
+      parts.push(inc.contextText || message);
+      prompt = parts.join('\n\n---\n\n');
     } else {
-      prompt = message;
+      // Per-cat context budget (Phase 4.0)
+      let catContextHistory = contextHistory;
+      if (history && history.length > 0 && !contextHistory) {
+        const catName = catId as 'opus' | 'codex' | 'gemini';
+        const budget = getCatContextBudget(catName);
+        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
+        const { contextText, messageCount } = assembleContext(history, {
+          maxMessages: budget.maxMessages,
+          maxContentLength: budget.maxContentLengthPerMsg,
+          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+        });
+        catContextHistory = contextText || undefined;
+
+        // Degradation check: notify user if context was truncated (count budget or char budget)
+        const degradation = detectContextDegradation(history.length, messageCount, budget);
+        if (degradation?.degraded) {
+          degradationMsgs.push({
+            type: 'system_info' as AgentMessageType,
+            catId,
+            content: formatDegradationMessage(degradation),
+            timestamp: Date.now(),
+          } as AgentMessage);
+        }
+      }
+
+      if (systemPrompt || mcpInstructions) {
+        const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+        if (catContextHistory) parts.push(catContextHistory);
+        prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
+      } else if (catContextHistory) {
+        prompt = `${catContextHistory}\n\n---\n\n${message}`;
+      } else {
+        prompt = message;
+      }
     }
 
     return invokeSingleCat(deps.invocationDeps, {
@@ -354,7 +494,7 @@ export async function* routeParallel(
       ...(signal ? { signal } : {}),
       isLastCat: false,
     });
-  });
+  }));
 
   // Yield degradation notifications before streaming starts (BACKLOG #32)
   for (const dm of degradationMsgs) {
@@ -363,6 +503,7 @@ export async function* routeParallel(
 
   const catText = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();
+  const catHadError = new Set<string>();
   let completedCount = 0;
 
   for await (const msg of mergeStreams(streams, (idx, err) => {
@@ -370,6 +511,9 @@ export async function* routeParallel(
   })) {
     if (msg.type === 'text' && msg.content && msg.catId) {
       catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
+    }
+    if (msg.type === 'error' && msg.catId) {
+      catHadError.add(msg.catId);
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);
@@ -380,14 +524,15 @@ export async function* routeParallel(
       const text = catText.get(msg.catId);
       if (text) {
         const meta = catMeta.get(msg.catId);
+        const storedContent = sanitizeInjectedContent(text);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
-        const mentions = parseA2AMentions(text, msg.catId as CatId);
+        const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
         try {
           await deps.messageStore.append({
             userId,
             catId: msg.catId as CatId,
-            content: text,
+            content: storedContent,
             mentions,
             timestamp: Date.now(),
             threadId,
@@ -397,6 +542,27 @@ export async function* routeParallel(
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
         }
       }
+
+      if (
+        incrementalMode &&
+        !catHadError.has(msg.catId) &&
+        deps.deliveryCursorStore
+      ) {
+        const boundaryId = boundaryByCat.get(msg.catId as CatId);
+        if (boundaryId) {
+          try {
+            await deps.deliveryCursorStore.ackCursor(
+              userId,
+              msg.catId as CatId,
+              threadId,
+              boundaryId,
+            );
+          } catch (err) {
+            console.error(`[routeParallel] ackCursor failed for ${msg.catId}:`, err);
+          }
+        }
+      }
+
       yield { ...msg, isFinal: completedCount === targetCats.length };
     } else {
       yield msg;

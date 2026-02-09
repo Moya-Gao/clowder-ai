@@ -14,6 +14,7 @@ export { InvocationRegistry } from './InvocationRegistry.js';
 export { InvocationTracker } from './InvocationTracker.js';
 export { MessageStore } from './MessageStore.js';
 export type { AppendMessageInput, IMessageStore, StoredMessage } from './MessageStore.js';
+export { DeliveryCursorStore } from './DeliveryCursorStore.js';
 export { RedisMessageStore } from './RedisMessageStore.js';
 export { createMessageStore } from './MessageStoreFactory.js';
 export type { AnyMessageStore } from './MessageStoreFactory.js';

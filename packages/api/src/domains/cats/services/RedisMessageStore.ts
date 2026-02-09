@@ -166,6 +166,52 @@ export class RedisMessageStore {
     return messages.filter((m) => m.userId === userId).slice(-n);
   }
 
+  /**
+   * Get messages in a thread after a cursor ID (exclusive), oldest first.
+   * If afterId is undefined, returns from thread start.
+   * If limit is undefined, returns all matches.
+   */
+  async getByThreadAfter(
+    threadId: string,
+    afterId?: string,
+    limit?: number,
+    userId?: string
+  ): Promise<StoredMessage[]> {
+    const key = MessageKeys.thread(threadId);
+
+    let ids: string[];
+    if (!afterId) {
+      if (limit && limit > 0) {
+        ids = await this.redis.zrange(key, 0, limit - 1);
+      } else {
+        ids = await this.redis.zrange(key, 0, -1);
+      }
+    } else {
+      const afterScore = await this.redis.zscore(key, afterId);
+      if (afterScore === null) {
+        // Cursor message may have expired; fall back to lexicographic ID filtering.
+        ids = await this.redis.zrange(key, 0, -1);
+        ids = ids.filter((id) => id > afterId);
+      } else {
+        // Fetch from cursor score onward, then trim strictly by ID.
+        const allAfterScore = await this.redis.zrangebyscore(key, afterScore, '+inf');
+        ids = allAfterScore.filter((id) => {
+          if (id === afterId) return false;
+          return id > afterId;
+        });
+      }
+      if (limit && limit > 0 && ids.length > limit) {
+        ids = ids.slice(0, limit);
+      }
+    }
+
+    if (ids.length === 0) return [];
+
+    const messages = await this.hydrateMessages(ids);
+    if (!userId) return messages;
+    return messages.filter((m) => m.userId === userId);
+  }
+
   async getByThreadBefore(
     threadId: string,
     timestamp: number,

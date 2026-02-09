@@ -46,6 +46,9 @@ export const SessionKeys = {
   /** Session key now includes threadId for isolation (茶话会夺魂 bug fix #38) */
   session: (userId: string, catId: string, threadId: string) =>
     `sessions:${userId}:${catId}:${threadId}`,
+  /** Per-cat delivery cursor for exact incremental context transport */
+  deliveryCursor: (userId: string, catId: string, threadId: string) =>
+    `delivery-cursor:${userId}:${catId}:${threadId}`,
   catState: (catId: string) => `state:${catId}`,
   taskQueue: (catId: string) => `tasks:${catId}`,
   messageChannel: () => 'chat:messages',
@@ -75,6 +78,29 @@ export class SessionStore {
 
   async deleteSession(userId: string, catId: string, threadId: string): Promise<void> {
     await this.redis.del(SessionKeys.session(userId, catId, threadId));
+  }
+
+  async getDeliveryCursor(
+    userId: string,
+    catId: string,
+    threadId: string
+  ): Promise<string | null> {
+    return this.redis.get(SessionKeys.deliveryCursor(userId, catId, threadId));
+  }
+
+  async setDeliveryCursor(
+    userId: string,
+    catId: string,
+    threadId: string,
+    messageId: string,
+    ttlSeconds = 86400
+  ): Promise<void> {
+    await this.redis.set(
+      SessionKeys.deliveryCursor(userId, catId, threadId),
+      messageId,
+      'EX',
+      ttlSeconds
+    );
   }
 
   async getCatState(catId: string): Promise<Record<string, unknown> | null> {

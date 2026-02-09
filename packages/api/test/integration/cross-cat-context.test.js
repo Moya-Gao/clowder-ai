@@ -104,7 +104,7 @@ describe('Cross-Cat Context (暗号测试)', () => {
       'Gemini should see codex secret in history');
   });
 
-  test('history truncation: only last N messages included', async () => {
+  test('history delivery: includes unseen history without replay markers', async () => {
     const opusService = createCapturingService('opus', 'final reply');
 
     const router = new AgentRouter({
@@ -127,22 +127,14 @@ describe('Cross-Cat Context (暗号测试)', () => {
       });
     }
 
-    // Set env to limit to 10 messages for this test
-    const prev = process.env['CONTEXT_HISTORY_LIMIT'];
-    process.env['CONTEXT_HISTORY_LIMIT'] = '10';
-    try {
-      await collect(router.route('user-1', '@opus summarize', 'thread-3'));
-    } finally {
-      if (prev === undefined) delete process.env['CONTEXT_HISTORY_LIMIT'];
-      else process.env['CONTEXT_HISTORY_LIMIT'] = prev;
-    }
+    await collect(router.route('user-1', '@opus summarize', 'thread-3'));
 
     const prompt = opusService.capturedPrompts[0];
-    // Should contain last messages but not the earliest ones
+    // Incremental mode should include unseen history and avoid old replay envelope marker.
     assert.ok(prompt.includes('history-msg-24'), 'Should include most recent message');
-    assert.ok(prompt.includes('history-msg-15'), 'Should include message in last 10 range');
-    assert.ok(!prompt.includes('history-msg-0'), 'Should NOT include oldest message');
-    assert.ok(prompt.includes('最近 10 条'), 'Header should show truncated count');
+    assert.ok(prompt.includes('history-msg-0'), 'Should include oldest unseen message as well');
+    assert.ok(prompt.includes('对话历史增量'), 'Should use incremental history header');
+    assert.ok(!prompt.includes('[对话历史 - 最近'), 'Should not carry legacy replay header');
   });
 
   test('multi-round visibility: new cat sees full conversation', async () => {

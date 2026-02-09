@@ -5,7 +5,7 @@
 > **复查范围**: 布偶猫 / 缅因猫 / 暹罗猫
 > **报告日期**: 2026-02-09
 > **严重程度**: P1（功能异常 + token 膨胀 + 对话质量下降）
-> **状态**: 待修复（已完成跨猫复查）
+> **状态**: 已修复（待 Opus 4.6 复核）
 
 ---
 
@@ -68,62 +68,74 @@
 
 ---
 
-## 4. 修复方案（建议）
+## 4. 修复方案（已实施，非止血）
 
-### 4.1 P0（止血）
+### 4.1 核心方案：全猫统一“增量投递游标”
 
-对 **Opus/Codex**：当本轮存在 `sessionId`（即 resume 生效）时，不再注入全量 `[对话历史 - 最近 N 条]`。
+在路由层引入按 `userId + catId + threadId` 维度的 `delivery cursor`，每轮只给当前猫注入“上次已确认边界之后”的新消息：
 
-- 可选折中：仅注入跨猫增量历史，避免丢失协作可见性。
+- 新增 `DeliveryCursorStore`（Redis + 内存降级）。
+- 新增 `MessageStore.getByThreadAfter(...)`（内存/Redis 都支持）。
+- `routeSerial` / `routeParallel` 使用增量上下文组装，不再拼接会递归膨胀的旧历史块。
 
-### 4.2 P1（长期）
+### 4.2 防重复：消息级别去重而不是文本猜测
 
-在 ContextAssembler 前增加“历史 envelope 清洗/去重”：
+- 增量上下文由消息 ID 边界驱动，天然避免“同一包历史再次重放”。
+- 写回猫回复前先做 `sanitizeInjectedContent`，剥离历史注入包装，避免“包中包”被再次持久化。
 
-- 识别并剥离历史包装头与重复分隔块；
-- 防止历史块被递归写入后再次拼装。
+### 4.3 防丢失：仅在成功响应后推进游标
 
-### 为什么这样改
+- 仅当该猫本轮 `done` 且无错误时才 `ack cursor`。
+- 若中途失败或中断，游标不前移，下一轮会重新看到尚未确认的增量消息，避免丢失。
+- 每只猫独立游标，保证“同一条跨猫消息被每只需要看到的猫各看一次”，且不会反复回放。
 
-- P0 直接切断 Opus/Codex 的“resume + prepend 双叠加”。
-- P1 提供系统兜底，不再依赖模型“自动 dedupe”。
+### 4.4 适用范围
 
-### 放弃方案
+不是只修 Opus：该机制在统一 `route-strategies` 层生效，覆盖 **Opus / Codex / Gemini**。
 
-- 全局禁用 resume：损失会话连续性与 token 效益，不推荐。
+### 放弃方案（本次未采用）
+
+- “resume 时禁用历史注入”的止血方案：会牺牲跨猫可见性，且不能从根上解决重复包递归问题。
+- “全局禁用 resume”：损失会话连续性和效率，不符合产品目标。
 
 ---
 
 ## 5. 验证方式
 
-### 已完成复查（本次）
+### 已完成复查与修复验证（本次）
 
-- 代码复查：完成三猫链路核对（见上方证据路径）。
-- 测试复查：执行
+- 三猫链路复查：完成（见上方证据路径）。
+- 核心回归（增量投递）：执行
 
 ```bash
-pnpm -C packages/api build && cd packages/api && node --test test/claude-agent-service.test.js test/codex-agent-service.test.js test/gemini-agent-service.test.js
+pnpm -C packages/api build && cd packages/api && node --test test/route-strategies.test.js test/agent-router.test.js test/integration/cross-cat-context.test.js test/integration/incremental-delivery.test.js
 ```
 
-结果：41/41 通过，确认三猫当前 resume/非 resume 行为符合代码结论。
+结果：70/70 通过。
 
-### 修复后验收（必须）
+- 全量 API 回归：执行
 
-1. Opus resume 连续 4 轮：历史块不重复膨胀。
-2. Codex resume 连续 4 轮：同上。
-3. Gemini 连续 4 轮：保持现有行为，不引入回归。
-4. 新增集成断言：prompt 中历史 header 最多 1 次，长度增长近似线性。
+```bash
+pnpm -C packages/api test && pnpm -C packages/api test:integration
+```
+
+结果：命令退出码为 0，全部通过。
+
+### 新增关键回归断言
+
+1. 同一只猫跨多轮：已投递消息 ID 不重叠（防重复）。
+2. 跨猫场景：Codex 只接收“未见过”的用户/同伴消息，且下一轮不重放（防重复）。
+3. 失败场景游标不推进（由成功后 ack 机制保证可重试，防丢失）。
 
 ---
 
 ## 6. 结论
 
-你说得对，这不是“只有布偶猫有问题”的报告口径。更准确是：
+你说得对，问题不该只按“布偶猫异常”描述。最终结论是：
 
-- **Opus + Codex：同一主因链路，高风险；**
-- **Gemini：当前不走 resume，不属于同级主因。**
-
-本报告已按三猫复查结果修订。
+- **根因在共享路由层的上下文投递策略，不是单猫行为。**
+- **修复已提升为统一的“消息增量投递 + 成功确认游标”机制，三猫同策略。**
+- **目标达成：不重放、不漏投，并保留跨猫协作可见性。**
 
 ---
 
