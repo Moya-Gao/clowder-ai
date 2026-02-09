@@ -90,10 +90,13 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   if (isSystem) {
     const isInfo = message.variant === 'info';
+    const isTool = message.variant === 'tool';
     return (
-      <div className="flex justify-center mb-3">
+      <div className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${
-          isInfo
+          isTool
+            ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
+            : isInfo
             ? 'text-blue-700 bg-blue-50'
             : 'text-red-500 bg-red-50 rounded-full'
         }`}>

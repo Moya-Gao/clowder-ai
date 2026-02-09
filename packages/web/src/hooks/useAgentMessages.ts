@@ -13,6 +13,10 @@ interface AgentMsg {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string };
+  /** Tool name (for 'tool_use' events from backend) */
+  toolName?: string;
+  /** Tool input params (for 'tool_use' events from backend) */
+  toolInput?: Record<string, unknown>;
 }
 
 /**
@@ -127,6 +131,31 @@ export function useAgentMessages() {
           type: 'system',
           variant: 'info',
           content: msg.content ?? '',
+          timestamp: Date.now(),
+        });
+      } else if (msg.type === 'tool_use') {
+        // Show tool invocation for observability (BACKLOG F9)
+        const toolName = msg.toolName ?? 'unknown';
+        const inputSummary = msg.toolInput
+          ? JSON.stringify(msg.toolInput).slice(0, 200)
+          : '';
+        addMessage({
+          id: `tool-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'system',
+          variant: 'tool',
+          content: `🔧 ${msg.catId} → ${toolName}${inputSummary ? ` ${inputSummary}` : ''}`,
+          timestamp: Date.now(),
+        });
+      } else if (msg.type === 'tool_result') {
+        // Show tool result summary for observability (BACKLOG F9)
+        const resultText = msg.content
+          ? msg.content.slice(0, 300)
+          : '(no output)';
+        addMessage({
+          id: `toolr-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'system',
+          variant: 'tool',
+          content: `📋 ${msg.catId} ← ${resultText}`,
           timestamp: Date.now(),
         });
       } else if (msg.type === 'error') {

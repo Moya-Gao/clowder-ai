@@ -45,7 +45,7 @@
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [ ] | 辩论测试发现 | 前端应先 POST /api/threads；需要 ThreadStore.createWithId() 或严格校验 |
 | 31 | /api/memory 与 /api/commands 身份/权限边界 | [ ] | Phase 4.0 缅因猫 review P2-1 | 当前依赖 threadId 不可猜；多用户需统一 userId 来源 |
-| 32 | DegradationPolicy 绑定实际链路 | [ ] | Phase 4.0 缅因猫 review P2-2 | 目前是 framework only；需绑定至少一个 user-facing system_info |
+| 32 | DegradationPolicy 绑定实际链路 | [x] | Phase 4.0 缅因猫 review P2-2 | 5.0-pre: routeSerial/routeParallel 调用 checkContextBudget → yield system_info |
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
 | 34 | cascade delete 语义边界文档 | [ ] | Quick wins 缅因猫 review P2-1 | best-effort 策略需写入 docs/decisions；强语义需后台重试或 tombstone |
 | 35 | thread 删除与 invocation 竞态 | [ ] | Quick wins 缅因猫 review P2-2 | delete thread 是否 cancel invocation？append 前是否检查 thread 存在？ |
@@ -80,7 +80,7 @@
 | F6 | Thread 名字编辑 | P2 | 功能性试用 | 自定义/编辑 thread 名字，方便未来查找 |
 | F7 | Thread 名字检索 | P3 | 功能性试用 | 从名字 filter/搜索历史对话 |
 | F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 前端显示：工具调用、thinking、耗时、token 消耗等。参考 Claude Code 的 token 计数 + 耗时显示。当前 UX 极差（辩论时铲屎官等得难受）|
-| F9 | tool_use/tool_result 事件显示 | P1 | Phase 5 拍板发现 | **Bug**: `useAgentMessages.ts` 没有处理 `tool_use` 和 `tool_result`，导致用户等待时看不到猫猫在做什么。后端有发，前端丢弃了。见 `docs/decisions/005-hindsight-integration-decisions.md` |
+| F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 
 ## 讨论议题 — 待探索的方向
 
