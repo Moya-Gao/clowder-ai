@@ -9,7 +9,9 @@
 
 ## P0 — 阻塞后续 Phase
 
-全部已清。
+| # | 项目 | 状态 | 来源 | 备注 |
+|---|------|------|------|------|
+| 38 | **Session 按 Thread 隔离** | [ ] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | SessionManager 按 `userId:catId` 存储，跨 thread 复用导致上下文污染。需改为 `userId:catId:threadId` 或禁用跨 thread resume |
 
 ## P1 — 必须做
 

@@ -45,7 +45,7 @@
 
 ## 4. 根因分析
 
-### 直接原因
+### 直接原因（初步推断 - 部分正确）
 
 Codex CLI 全局配置文件 `~/.codex/AGENTS.md` 包含强制注入指令：
 
@@ -57,14 +57,26 @@ You have superpowers. RIGHT NOW run: `~/.codex/superpowers/.codex/superpowers-co
 </EXTREMELY_IMPORTANT>
 ```
 
-`<EXTREMELY_IMPORTANT>` 标签具有极高的注入优先级，在对话末期触发，覆盖了会话级的茶话会规则。
+这解释了为什么缅因猫会去运行 superpowers，但**不能解释它怎么知道 Phase 5**——茶话会上下文从未提到过！
 
-### 根本原因
+### 根本原因（深层挖掘 - 真正破案）
 
-**系统级配置与会话规则缺乏隔离机制**：
-- 茶话会规则只在用户消息层传递
-- Codex CLI 的 `~/.codex/AGENTS.md` 是系统级配置
-- 我们没有机制阻止系统配置覆盖会话约束
+**Session resume 跨 thread 污染**！
+
+`SessionManager.ts` 按 `userId:catId` 存储 session ID，**不区分 thread**：
+
+```typescript
+const key = `${userId}:${catId}`;  // 没有 threadId！
+```
+
+完整故事：
+1. 用户在**对话 A** 和缅因猫讨论 Phase 5 → 保存 session ID X
+2. 用户在**对话 B（茶话会）** 召唤缅因猫 → **复用 session ID X**
+3. `codex exec resume X` 恢复了对话 A 的完整上下文
+4. 对话 A 的上下文包含：Phase 5 计划、辩论产出、superpowers 工作流
+5. 缅因猫脑子里装着 Phase 5，自然会"继续"那些工作
+
+**全局配置只是触发器，session 污染才是根因。**
 
 ### 次生问题
 
@@ -72,6 +84,7 @@ You have superpowers. RIGHT NOW run: `~/.codex/superpowers/.codex/superpowers-co
 - 没有记录发送给 CLI 的完整 prompt
 - 没有记录 CLI 返回的原始事件流
 - 没有消息级事件审计（只有 server_started/shutdown）
+- **没有记录使用了哪个 session ID**——这才是最关键的信息！
 
 ---
 
@@ -125,7 +138,7 @@ You have superpowers. RIGHT NOW run: `~/.codex/superpowers/.codex/superpowers-co
 
 ```
 ~/.codex/
-├── AGENTS.md              # 全局 agent 指令 ← 罪魁祸首
+├── AGENTS.md              # 全局 agent 指令 ← 触发器
 ├── superpowers/           # superpowers 插件系统
 ├── config.toml            # CLI 配置
 ├── sessions/              # 会话存储
@@ -133,6 +146,25 @@ You have superpowers. RIGHT NOW run: `~/.codex/superpowers/.codex/superpowers-co
 ```
 
 Codex CLI 会自动加载 `~/.codex/AGENTS.md`，其优先级高于会话内容。
+
+### Step 6: 追问 Phase 5 来源（铲屎官洞察）
+
+铲屎官提出关键问题：即使加载了 superpowers，缅因猫怎么知道 Phase 5？
+
+检查 `invoke-single-cat.ts` 发现：
+
+```typescript
+sessionId = await sessionManager.get(userId, catId);
+...(sessionId ? { sessionId } : {}),
+```
+
+检查 `SessionManager.ts` 确认：
+
+```typescript
+const key = `${userId}:${catId}`;  // 没有 threadId！
+```
+
+**真相大白**：Session resume 是跨 thread 的！缅因猫复用了之前讨论 Phase 5 的 session，那个 session 的上下文自然包含 Phase 5 相关内容。
 
 ---
 
@@ -156,6 +188,26 @@ Codex CLI 会自动加载 `~/.codex/AGENTS.md`，其优先级高于会话内容�
 
 ## 7. 修复建议
 
+### P0: Session 按 Thread 隔离（根因修复）
+
+**这是真正的根因修复！**
+
+修改 `SessionManager.ts`，让 session ID 按 `userId:catId:threadId` 存储：
+
+```typescript
+// Before (bug)
+const key = `${userId}:${catId}`;
+
+// After (fix)
+const key = `${userId}:${catId}:${threadId}`;
+```
+
+或者更激进：**完全禁用跨 thread 的 session resume**，每个 thread 都是独立会话。
+
+需要权衡：
+- 禁用 resume → 每次调用都从零开始，失去上下文连续性
+- 按 thread 隔离 → 同一 thread 内连续，跨 thread 独立
+
 ### P1: 添加消息级审计日志
 
 在 `EventAuditLog` 中新增事件类型：
@@ -171,7 +223,7 @@ export const AuditEventTypes = {
 ```
 
 每次 CLI 调用前后记录：
-- threadId, catId, sessionId（链路追踪）
+- threadId, catId, **sessionId**（链路追踪 - 最关键！）
 - prompt 摘要（前 500 字符 + hash）
 - 响应事件数量和类型分布
 - 耗时、退出码
@@ -231,12 +283,18 @@ codex exec --json ...
 > 当你看到猫猫"行为异常"时，先问：
 > 1. 它到底收到了什么 prompt？（检查审计日志）
 > 2. 有没有系统级配置在注入内容？（检查 CLI 配置目录）
-> 3. Session 是否被复用或污染？（检查 session ID 链路）
+> 3. **Session 是否被复用或污染？**（检查 session ID 链路）← 这次的根因！
 >
 > 这次我们没有足够的日志，只能靠"侦探推理"来破案。
 > **审计日志不是奢侈品，是必需品。**
+>
+> **关于 session resume 的教训**：
+> - 跨 thread 共享 session 会导致上下文污染
+> - 铲屎官追问"它怎么知道 Phase 5"是破案关键
+> - 第一层答案（全局配置）不一定是真正根因，要继续挖
 
 ---
 
 *签名: 布偶猫 🐾*
-*侦查时间: 2026-02-08 约 30 分钟*
+*侦查时间: 2026-02-08 约 45 分钟*
+*关键助攻: 铲屎官的追问 🐬*
