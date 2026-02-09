@@ -100,6 +100,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         return { error: parsed.error };
       }
       ({ content, userId, threadId, contentBlocks } = parsed);
+      if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
+        idempotencyKey = parsed.idempotencyKey;
+      }
     } else {
       // JSON mode (backwards compatible)
       const parseResult = sendMessageSchema.safeParse(request.body);
@@ -139,9 +142,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
     }
 
-    const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
-    if (controller?.signal.aborted) {
-      // Thread is currently under delete guard; reject immediately and avoid any write.
+    // Delete guard check (read-only, no side effects — safe before idempotency check)
+    if (opts.invocationTracker?.isDeleting(resolvedThreadId)) {
       reply.status(409);
       return {
         error: '对话正在删除中',
@@ -150,9 +152,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       };
     }
 
-    // ADR-008 S1: Pre-resolve targets + intent (needed for InvocationRecord + broadcast)
+    // ADR-008 S1: Pre-resolve targets + intent, persisting @mentions as participants
     const { targetCats, intent } = await router.resolveTargetsAndIntent(
-      content, resolvedThreadId,
+      content, resolvedThreadId, { persist: true },
     );
 
     // Server-generated idempotency key if client didn't provide one
@@ -169,11 +171,13 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       });
 
       if (createResult.outcome === 'duplicate') {
-        // Deduplicated — return existing invocation ID
-        opts.invocationTracker?.complete(resolvedThreadId, controller);
+        // Deduplicated — no start(), no abort, just return existing ID
         reply.status(200);
         return { status: 'duplicate', invocationId: createResult.invocationId };
       }
+
+      // Not duplicate → safe to start() (may abort prior invocation for this thread)
+      const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
 
       // ② Write user message (decoupled from cat execution)
       const storedUserMessage = await opts.messageStore.append({
@@ -255,6 +259,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       })();
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
+      const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
+      if (controller?.signal.aborted) {
+        reply.status(409);
+        return {
+          error: '对话正在删除中',
+          detail: '请稍后重试，或新建一个对话继续',
+          code: 'THREAD_DELETING',
+        };
+      }
+
       reply.send({ status: 'processing', timestamp: Date.now() });
 
       void (async () => {

@@ -155,15 +155,19 @@ export class AgentRouter {
   }
 
   /**
-   * Read-only peek at targets and intent (for pre-route broadcast).
-   * Does NOT mutate thread participants — safe to call before route().
+   * Resolve targets and intent.
+   * Default: read-only peek (safe to call before route()).
+   * With persist: true, also writes @mentions to thread participants.
    */
   async resolveTargetsAndIntent(
     message: string,
     threadId?: string,
+    options?: { persist?: boolean },
   ): Promise<{ targetCats: CatId[]; intent: IntentResult }> {
     const resolvedThreadId = threadId ?? DEFAULT_THREAD_ID;
-    const targetCats = await this.peekTargets(message, resolvedThreadId);
+    const targetCats = options?.persist
+      ? await this.resolveTargets(message, resolvedThreadId)
+      : await this.peekTargets(message, resolvedThreadId);
     const intent = parseIntent(message, targetCats.length);
     return { targetCats, intent };
   }

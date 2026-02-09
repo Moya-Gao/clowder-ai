@@ -10,7 +10,7 @@ import { saveUploadedImages, ImageUploadError } from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
-  | { content: string; userId: string; threadId?: string; contentBlocks: MessageContent[] }
+  | { content: string; userId: string; threadId?: string; idempotencyKey?: string; contentBlocks: MessageContent[] }
   | { error: string };
 
 /** Parse multipart request into validated message fields + contentBlocks */
@@ -34,7 +34,7 @@ export async function parseMultipart(
     return { error: 'Invalid form fields' };
   }
 
-  const { content, userId, threadId } = parseResult.data;
+  const { content, userId, threadId, idempotencyKey } = parseResult.data;
   const blocks: MessageContent[] = [{ type: 'text', text: content } as TextContent];
 
   if (files.length > 0) {
@@ -51,5 +51,10 @@ export async function parseMultipart(
     }
   }
 
-  return { content, userId, ...(threadId ? { threadId } : {}), contentBlocks: blocks };
+  return {
+    content, userId,
+    ...(threadId ? { threadId } : {}),
+    ...(idempotencyKey ? { idempotencyKey } : {}),
+    contentBlocks: blocks,
+  };
 }

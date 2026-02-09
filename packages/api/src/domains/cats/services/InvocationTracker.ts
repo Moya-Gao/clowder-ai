@@ -86,4 +86,9 @@ export class InvocationTracker {
   has(threadId: string): boolean {
     return this.active.has(threadId);
   }
+
+  /** Whether a thread is currently being deleted (delete guard active). */
+  isDeleting(threadId: string): boolean {
+    return this.deleting.has(threadId);
+  }
 }
