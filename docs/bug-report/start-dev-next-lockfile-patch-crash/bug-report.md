@@ -4,7 +4,7 @@
 > **定位猫猫**: 缅因猫 🐾
 > **报告日期**: 2026-02-09
 > **严重程度**: P1（开发环境启动失败）
-> **状态**: 修复中
+> **状态**: 已修复（待布偶猫复核）
 
 ---
 
@@ -75,18 +75,23 @@
 
 ---
 
-## 5. 验证方式
+## 5. 验证方式（已执行）
 
-计划执行以下验证：
+已执行验证：
 
-1. `bash scripts/test-start-dev.sh`：验证 shell 级回归（含 lockfile 清理测试）。
-2. `scripts/start-dev.sh`：确认 Frontend 启动不再出现 lockfile patch 崩溃。
-3. `git status`：确认仓库不再追踪 `packages/web/package-lock.json`。
+1. `bash scripts/test-start-dev.sh`
+- 结果：通过，新增 `sanitize_lockfiles` 两条断言均通过。
 
-通过标准：
+2. `./scripts/start-dev.sh --quick`
+- 结果：Frontend 启动到 `Ready`，未再出现 `Failed to patch lockfile` 或 `reading 'os'` 异常。
 
-- 启动日志中不出现 `Failed to patch lockfile`。
-- Frontend 能保持 `Ready` 状态。
+3. `git status --short --branch`
+- 结果：工作区 clean，`packages/web/package-lock.json` 已删除并不再追踪。
+
+通过标准达成：
+
+- 启动日志中不再出现 lockfile patch 崩溃。
+- Frontend 可以稳定进入 Ready 状态。
 
 ---
 
