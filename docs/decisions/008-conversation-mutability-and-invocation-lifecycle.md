@@ -95,13 +95,14 @@ POST /api/messages
 **新流程**：
 ```
 POST /api/messages
-  ① 幂等检查: SET NX EX 原子占位
-     → key 已存在: 验证 Record 存在 → 是: 返回 duplicate / 否: DEL stale key 重走流程
-  ② 创建 InvocationRecord { status: 'queued', userMessageId: null }
-  ③ 写入用户消息 (messageStore.append)
-  ④ 回填 InvocationRecord.userMessageId = storedMessage.id
-  ⑤ reply 202 { invocationId }
-  ⑥ background:
+  ① Lua 原子操作: 幂等占位 + InvocationRecord 创建（见 D2 详述）
+     → 已存在: 返回 { status: 'duplicate', invocationId }
+     → 新建成功: 返回 { status: 'created', invocationId }
+     → (此时 Record 已存在，status='queued', userMessageId=null)
+  ② 写入用户消息 (messageStore.append)
+  ③ 回填 InvocationRecord.userMessageId = storedMessage.id
+  ④ reply 202 { invocationId }
+  ⑤ background:
       → InvocationRecord.status = 'running'
       → 执行猫调用 (routeSerial/routeParallel)
       → 成功: InvocationRecord.status = 'succeeded', ackCursor()
@@ -109,18 +110,21 @@ POST /api/messages
       → 取消: InvocationRecord.status = 'canceled'
 ```
 
-**关键设计：先落 InvocationRecord 再写消息**。
+**关键设计：① 是单个 Lua 脚本的原子操作**。
 
-这解决"消息已写入但 Record 未创建"的悬空窗口问题。可能的失败场景与补偿：
+幂等 key 占位和 InvocationRecord 创建在同一个 Redis EVAL 中完成，不存在"key 在但 Record 不在"的窗口。彻底消除 stale key 问题和并发误判。
+
+可能的失败场景与补偿：
 
 | 失败点 | 状态 | 补偿 |
 |--------|------|------|
-| ① 之后、② 之前 | idempotency key 存在，Record 不存在 | 下次请求检测到 stale key → DEL 并重走流程 |
-| ② 之后、③ 之前 | Record 存在 (queued)，无消息 | Record.userMessageId=null → retry 端点允许 `queued && null` → 补写消息 |
-| ③ 之后、④ 之前 | Record 存在，消息存在，但 Record.userMessageId=null | retry 时根据 idempotencyKey 找到消息并回填 |
-| ④ 之后、⑥ 之前 | Record + 消息都完整 | 正常 background 执行 |
+| ① 之后、② 之前 | Record 存在 (queued)，无消息 | retry 端点: 补写消息 → 回填 → 执行 |
+| ② 之后、③ 之前 | Record 存在，消息存在，但 Record.userMessageId=null | retry 端点: 根据 idempotencyKey 查找消息 → 回填 → 执行 |
+| ③ 之后、⑤ 之前 | Record + 消息都完整 | retry 端点: 直接执行 |
 
 `userMessageId: null` 是 InvocationRecord 的"未完成"标记。重试端点检测到此状态时，先补完消息写入再执行猫调用。
+
+**注意**：① 失败（Lua 脚本执行出错）= 什么都没创建，请求直接返回 500。无需补偿——原子性保证要么全部成功要么全部不做。
 
 关键变化：
 - 用户消息写入和猫调用执行彻底解耦
@@ -189,17 +193,35 @@ Value: invocationId (D1 的 InvocationRecord ID)
 TTL: 300 秒 (5 分钟)
 ```
 
-### 行为（原子语义）
+### 行为（Lua 原子语义）
 
 1. 前端每次发送消息时生成 UUID 作为 `idempotencyKey`
-2. 后端先生成 `invocationId`，然后用 **`SET cat-cafe:idemp:{...} {invocationId} NX EX 300`** 原子占位
-3. SET 返回 `null`（key 已存在）→ **stale key 检测**（见下方）→ 如果 Record 存在则返回 `{ status: 'duplicate', invocationId }`
-4. SET 返回 `OK`（占位成功）→ 正常流程，继续创建 InvocationRecord
-5. 如果 ② Record 创建失败 → **`DEL` 清理 idempotency key**，向上抛错
+2. 后端生成 `invocationId`，执行 **单个 Lua 脚本** 完成以下操作：
 
-**为什么必须用 `SET NX EX`**：并发下两个请求如果用"先 GET 再 SET"的非原子流程，可能都通过检查导致重复写入。`NX`（not exists）让 Redis 在单条命令内完成竞争仲裁。
+```lua
+-- KEYS[1] = cat-cafe:idemp:{threadId}:{userId}:{clientKey}
+-- KEYS[2] = cat-cafe:invocation:{invocationId}
+-- ARGV = invocationId, threadId, userId, targetCats, intent, idempotencyKey, now
+local existing = redis.call('GET', KEYS[1])
+if existing then
+  return {'duplicate', existing}
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', 300)
+redis.call('HSET', KEYS[2],
+  'id', ARGV[1], 'threadId', ARGV[2], 'userId', ARGV[3],
+  'targetCats', ARGV[4], 'intent', ARGV[5],
+  'idempotencyKey', ARGV[6], 'status', 'queued',
+  'userMessageId', '', 'createdAt', ARGV[7], 'updatedAt', ARGV[7])
+redis.call('EXPIRE', KEYS[2], 604800)  -- 7 天 TTL
+return {'created', ARGV[1]}
+```
 
-**Stale key 补偿**：步骤 3 GET 到 `invocationId` 后，必须验证对应的 InvocationRecord 存在。如果 Record 不存在（说明上一次在 SET 之后、Record 创建之前崩溃了），则 **`DEL` 清理 stale key 并重走正常流程**（重新 SET NX）。这防止了"key 指向黑洞直到 TTL 过期"的问题。
+3. Lua 返回 `{'duplicate', existingId}` → 返回 `{ status: 'duplicate', invocationId }`
+4. Lua 返回 `{'created', newId}` → 正常流程（Record 已创建，进入 ② 写消息）
+
+**为什么用 Lua 而不是 SET NX + 后续 HSET**：两步操作之间存在并发窗口——"key 在但 Record 还没创建完"会被其他请求误判为 stale key 并 DEL，导致重复创建。Lua 脚本在 Redis 内原子执行，要么 key+Record 同时存在，要么都不存在，消除所有中间态。
+
+**内存 fallback（无 Redis 时）**：在内存实现中，用同步 Map 操作（单线程 Node.js 不存在并发问题），等效于原子语义。
 
 ### Schema 变化
 
