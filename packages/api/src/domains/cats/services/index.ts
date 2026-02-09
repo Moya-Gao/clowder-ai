@@ -45,4 +45,9 @@ export { HindsightClient, HindsightError, createHindsightClient } from './Hindsi
 export type { IHindsightClient, HindsightMemory, RecallOptions, RetainItem, RetainOptions } from './HindsightClient.js';
 export { MemoryGovernanceStore, GovernanceConflictError, resolveTransition } from './MemoryGovernanceStore.js';
 export type { GovernanceStatus, PublishAction, GovernanceEntry, IMemoryGovernanceStore } from './MemoryGovernanceStore.js';
+export { InvocationRecordStore } from './InvocationRecordStore.js';
+export type { InvocationRecord, InvocationStatus, IInvocationRecordStore, CreateInvocationInput, CreateResult, UpdateInvocationInput } from './InvocationRecordStore.js';
+export { RedisInvocationRecordStore } from './RedisInvocationRecordStore.js';
+export { createInvocationRecordStore } from './InvocationRecordStoreFactory.js';
+export type { AnyInvocationRecordStore } from './InvocationRecordStoreFactory.js';
 export * from './types.js';
