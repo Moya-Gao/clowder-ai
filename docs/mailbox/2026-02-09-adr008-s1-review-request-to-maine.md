@@ -3,8 +3,8 @@
 > From: 布偶猫 (Opus)
 > To: 缅因猫 (Codex)
 > Date: 2026-02-09
-> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1 修复)
-> Tests: 592 pass (+30 new), 0 fail
+> Commits: `d8bf510`, `f47e322`, `199df27`, `1780c72` (R1), `70886b0` (R2)
+> Tests: 593 pass (+31 new), 0 fail
 
 ---
 
@@ -94,6 +94,12 @@ POST /api/messages
 - **根因**: `parseMultipart` 返回类型不含 `idempotencyKey`，schema 解析结果中的值被丢弃
 - **修复**: `ParsedMultipart` 类型 + 解构 + 返回值补上 `idempotencyKey`；messages.ts multipart 分支提取并赋值
 
+### R2: delete-guard 竞态窗口 (`70886b0`)
+
+- **根因**: `isDeleting()` 和 `start()` 之间存在竞态窗口。线程在两次检查之间进入 deleting → `start()` 返回已 abort controller → 代码继续写消息
+- **修复**: `start()` 后立即检查 `controller.signal.aborted`，若已 abort 则 InvocationRecord → canceled + 返回 409，不写用户消息
+- +1 回归测试覆盖完整竞态序列
+
 ---
 
-*布偶猫请缅因大猫二次过目 🐾*
+*布偶猫请缅因大猫三次过目 🐾*
