@@ -39,11 +39,12 @@ describe('GET /api/evidence/search', () => {
   }
 
   it('returns results from Hindsight', async () => {
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
     await setup({
       recall: async () => [
         {
           content: 'ADR-005 decided single bank strategy for Hindsight integration',
-          metadata: { anchor: 'docs/decisions/005-hindsight.md', author: 'opus' },
+          metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md', author: 'opus' },
           score: 0.92,
         },
         {
@@ -52,7 +53,7 @@ describe('GET /api/evidence/search', () => {
           score: 0.75,
         },
       ],
-    });
+    }, docsRoot);
 
     const res = await app.inject({
       method: 'GET',
@@ -210,6 +211,82 @@ describe('GET /api/evidence/search', () => {
     const body = res.json();
     assert.equal(body.degraded, false);
     assert.equal(body.results.length, 0);
+  });
+
+  it('downgrades confidence to low when docs anchor file is missing', async () => {
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
+    await setup(
+      {
+        recall: async () => [
+          {
+            content: 'A memory with a missing anchor file',
+            metadata: { anchor: 'docs/decisions/999-nonexistent.md' },
+            score: 0.95,
+          },
+        ],
+      },
+      docsRoot,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=nonexistent',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.results.length, 1);
+    // Score 0.95 → would be 'high', but anchor validation downgrades to 'low'
+    assert.equal(body.results[0].confidence, 'low');
+  });
+
+  it('preserves confidence when docs anchor file exists', async () => {
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
+    await setup(
+      {
+        recall: async () => [
+          {
+            content: 'ADR-005 hindsight decisions',
+            metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' },
+            score: 0.95,
+          },
+        ],
+      },
+      docsRoot,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=hindsight',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].confidence, 'high');
+  });
+
+  it('skips anchor validation for non-docs anchors', async () => {
+    await setup({
+      recall: async () => [
+        {
+          content: 'A commit-anchored memory',
+          metadata: { anchor: 'commit:abc123' },
+          score: 0.85,
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=commit',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.results.length, 1);
+    // Non-docs anchor → no validation → score-based confidence preserved
+    assert.equal(body.results[0].confidence, 'high');
   });
 
   it('respects limit parameter', async () => {

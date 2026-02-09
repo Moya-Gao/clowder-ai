@@ -350,6 +350,118 @@ export function useChatCommands() {
         return true;
       }
 
+      // /approve <entryId> — approve a pending_review memory entry
+      if (trimmed.startsWith('/approve')) {
+        const entryId = trimmed.slice('/approve'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        if (!entryId) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: '用法: /approve <entryId>',
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+
+        try {
+          const res = await fetch(`${API_URL}/api/memory/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entryId, action: 'approve', actor: 'user' }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            addMessage({
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: `审批失败: ${data.error ?? res.status}`,
+              timestamp: Date.now(),
+            });
+          } else {
+            addMessage({
+              id: `publish-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `✅ ${entryId}: ${data.previousStatus} → ${data.currentStatus}`,
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `审批请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
+      // /archive <entryId> — archive a published memory entry
+      if (trimmed.startsWith('/archive')) {
+        const entryId = trimmed.slice('/archive'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        if (!entryId) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            variant: 'info',
+            content: '用法: /archive <entryId>',
+            timestamp: Date.now(),
+          });
+          return true;
+        }
+
+        try {
+          const res = await fetch(`${API_URL}/api/memory/publish`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ entryId, action: 'archive', actor: 'user' }),
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            addMessage({
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: `归档失败: ${data.error ?? res.status}`,
+              timestamp: Date.now(),
+            });
+          } else {
+            addMessage({
+              id: `publish-${Date.now()}`,
+              type: 'system',
+              variant: 'info',
+              content: `📦 ${entryId}: ${data.previousStatus} → ${data.currentStatus}`,
+              timestamp: Date.now(),
+            });
+          }
+        } catch (err) {
+          addMessage({
+            id: `err-${Date.now()}`,
+            type: 'system',
+            content: `归档请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
+            timestamp: Date.now(),
+          });
+        }
+        return true;
+      }
+
       // /tasks extract [N] — extract tasks from conversation
       if (trimmed.startsWith('/tasks extract')) {
         const rest = trimmed.slice('/tasks extract'.length).trim();

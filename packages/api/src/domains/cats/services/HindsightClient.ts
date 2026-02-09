@@ -3,7 +3,7 @@
  * Server-side only. Wraps Hindsight Retain/Recall/Reflect API.
  *
  * ADR-005: Single bank (cat-cafe-shared), tags/metadata filtering.
- * Phase 5.1: Memory Operation Profiles.
+ * Phase 5.0: Memory Operation Profiles.
  */
 
 /** A single memory item returned from Hindsight Recall */

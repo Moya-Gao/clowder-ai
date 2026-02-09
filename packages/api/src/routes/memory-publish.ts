@@ -43,14 +43,11 @@ export const memoryPublishRoutes: FastifyPluginAsync<MemoryPublishRoutesOptions>
       let before = opts.governanceStore.get(entryId);
 
       // Only submit_review can auto-create a draft.
-      // Other actions must not create side effects when entry is missing.
+      // Other actions on missing entries → 404 (not 409).
       if (!before) {
         if (action !== 'submit_review') {
-          throw new GovernanceConflictError(
-            `Entry ${entryId} not found`,
-            'draft',
-            action
-          );
+          reply.status(404);
+          return { error: `Entry ${entryId} not found`, action };
         }
         before = opts.governanceStore.create(entryId, actor);
       }

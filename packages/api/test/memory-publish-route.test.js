@@ -147,14 +147,16 @@ describe('POST /api/memory/publish', () => {
     assert.equal(res.statusCode, 400);
   });
 
-  it('approve on missing entry returns 409 and does not create draft side-effect', async () => {
+  it('approve on missing entry returns 404 and does not create draft side-effect', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/memory/publish',
       payload: { entryId: 'ghost-entry', action: 'approve', actor: 'user' },
     });
 
-    assert.equal(res.statusCode, 409);
+    assert.equal(res.statusCode, 404);
+    const body = JSON.parse(res.payload);
+    assert.ok(body.error.includes('not found'));
     assert.equal(governanceStore.get('ghost-entry'), null);
   });
 });

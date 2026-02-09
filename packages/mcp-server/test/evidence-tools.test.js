@@ -26,6 +26,9 @@ describe('MCP Evidence Tools', () => {
     globalThis.fetch = originalFetch;
   });
 
+  // Note: `await import()` is cached by ESM — API_URL is evaluated once at module load.
+  // Tests share the same CAT_CAFE_API_URL from beforeEach, so this works.
+  // If future tests need different URLs, refactor to a factory or re-export a setter.
   test('handleSearchEvidence expands comma-separated tags into repeated query params', async () => {
     const { handleSearchEvidence } = await import('../dist/tools/evidence-tools.js');
 

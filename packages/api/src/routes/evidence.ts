@@ -3,12 +3,12 @@
  * GET /api/evidence/search — search project knowledge via Hindsight Recall
  * Degrades to local docs/ grep when Hindsight is unavailable.
  *
- * Phase 5.1: Evidence-first search.
+ * Phase 5.0: Evidence-first search.
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { readdir, readFile } from 'node:fs/promises';
+import { access, readdir, readFile } from 'node:fs/promises';
 import { join, relative } from 'node:path';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
@@ -147,6 +147,25 @@ async function searchDocs(docsRoot: string, query: string, limit: number): Promi
   return results.slice(0, limit);
 }
 
+/**
+ * Validate anchors: downgrade confidence to 'low' if a docs/ file is missing.
+ * Does not remove results — just reduces trust signal.
+ */
+async function validateAnchors(results: EvidenceResult[], docsRoot: string): Promise<EvidenceResult[]> {
+  return Promise.all(
+    results.map(async (r) => {
+      if (!r.anchor.startsWith('docs/')) return r;
+      const filePath = join(docsRoot, r.anchor.slice('docs/'.length));
+      try {
+        await access(filePath);
+        return r;
+      } catch {
+        return { ...r, confidence: 'low' as EvidenceConfidence };
+      }
+    })
+  );
+}
+
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
   app.get('/api/evidence/search', async (request, reply) => {
     const parseResult = searchSchema.safeParse(request.query);
@@ -167,7 +186,8 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         tagsMatch,
       });
 
-      const results = memories.map(memoryToResult);
+      const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
+      const results = await validateAnchors(memories.map(memoryToResult), docsRoot);
       return { results, degraded: false } satisfies EvidenceSearchResponse;
     } catch (err) {
       if (!shouldDegradeToDocs(err)) {
@@ -180,7 +200,8 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
 
       // Hindsight unavailable — fallback to local docs search
       const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
-      const results = await searchDocs(docsRoot, q, limit);
+      const rawResults = await searchDocs(docsRoot, q, limit);
+      const results = await validateAnchors(rawResults, docsRoot);
 
       return {
         results,

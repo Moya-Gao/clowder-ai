@@ -70,7 +70,7 @@ export interface ConfigSnapshot {
   deliberate: {
     status: 'types_only';
   };
-  /** Hindsight long-term memory integration (Phase 5.1) */
+  /** Hindsight long-term memory integration (Phase 5.0) */
   hindsight: {
     enabled: boolean;
     baseUrl: string;
