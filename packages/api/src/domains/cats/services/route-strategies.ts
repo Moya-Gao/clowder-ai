@@ -19,6 +19,7 @@ import { parseA2AMentions, MAX_A2A_DEPTH } from './a2a-mentions.js';
 import { assembleContext } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
+import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -46,6 +47,29 @@ function getService(services: Record<string, AgentService>, catId: CatId): Agent
   const service = services[catId];
   if (!service) throw new Error(`Unknown cat ID: ${catId as string}`);
   return service;
+}
+
+function detectContextDegradation(
+  historyCount: number,
+  includedCount: number,
+  budget: ReturnType<typeof getCatContextBudget>,
+): DegradationResult | null {
+  // Existing count-based degradation logic
+  const byCount = checkContextBudget(historyCount, budget);
+  if (byCount.degraded) return byCount;
+
+  // Additional char-budget degradation: history count is within budget, but content still got truncated.
+  const maxCountCandidate = Math.min(historyCount, budget.maxMessages);
+  if (includedCount < maxCountCandidate) {
+    return {
+      degraded: true,
+      strategy: 'truncated',
+      reason: `字符预算限制，历史从 ${maxCountCandidate} 条截断到 ${includedCount} 条`,
+      adjustedMaxMessages: includedCount,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -115,12 +139,23 @@ export async function* routeSerial(
       const budget = getCatContextBudget(catName);
       // Reserve space for system prompt (~300), user message, overhead (~1000)
       const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
-      const { contextText } = assembleContext(history, {
+      const { contextText, messageCount } = assembleContext(history, {
         maxMessages: budget.maxMessages,
         maxContentLength: budget.maxContentLengthPerMsg,
         maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
       });
       catContextHistory = contextText || undefined;
+
+      // Degradation check: notify user if context was truncated (count budget or char budget)
+      const degradation = detectContextDegradation(history.length, messageCount, budget);
+      if (degradation?.degraded) {
+        yield {
+          type: 'system_info' as AgentMessageType,
+          catId,
+          content: formatDegradationMessage(degradation),
+          timestamp: Date.now(),
+        } as AgentMessage;
+      }
     }
 
     if (systemPrompt || mcpInstructions) {
@@ -256,6 +291,8 @@ export async function* routeParallel(
   const { contentBlocks, uploadDir, signal, promptTags, contextHistory, history } = options;
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
 
+  const degradationMsgs: AgentMessage[] = [];
+
   const streams = targetCats.map((catId) => {
     const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
     const systemPrompt = buildSystemPrompt({
@@ -276,12 +313,23 @@ export async function* routeParallel(
       const catName = catId as 'opus' | 'codex' | 'gemini';
       const budget = getCatContextBudget(catName);
       const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
-      const { contextText } = assembleContext(history, {
+      const { contextText, messageCount } = assembleContext(history, {
         maxMessages: budget.maxMessages,
         maxContentLength: budget.maxContentLengthPerMsg,
         maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
       });
       catContextHistory = contextText || undefined;
+
+      // Degradation check: notify user if context was truncated (count budget or char budget)
+      const degradation = detectContextDegradation(history.length, messageCount, budget);
+      if (degradation?.degraded) {
+        degradationMsgs.push({
+          type: 'system_info' as AgentMessageType,
+          catId,
+          content: formatDegradationMessage(degradation),
+          timestamp: Date.now(),
+        } as AgentMessage);
+      }
     }
 
     let prompt: string;
@@ -307,6 +355,11 @@ export async function* routeParallel(
       isLastCat: false,
     });
   });
+
+  // Yield degradation notifications before streaming starts (BACKLOG #32)
+  for (const dm of degradationMsgs) {
+    yield dm;
+  }
 
   const catText = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();

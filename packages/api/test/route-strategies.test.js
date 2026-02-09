@@ -403,6 +403,138 @@ describe('routeParallel per-cat budget', () => {
   });
 });
 
+describe('routeSerial degradation notification', () => {
+  it('yields system_info when history exceeds budget maxMessages', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({ opus: createMockService('opus', 'response') });
+
+    // Generate 50 messages to exceed opus default maxMessages=40
+    const history = Array.from({ length: 50 }, (_, i) => ({
+      id: `m${i}`,
+      threadId: 'thread1',
+      userId: 'user1',
+      catId: i % 2 === 0 ? null : 'opus',
+      content: `message ${i}`,
+      mentions: [],
+      timestamp: Date.now() - (50 - i) * 1000,
+    }));
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { history })) {
+      messages.push(msg);
+    }
+
+    const sysInfos = messages.filter(m => m.type === 'system_info');
+    assert.ok(sysInfos.length > 0, 'should yield degradation system_info');
+    assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
+  });
+
+  it('does not yield system_info when history is within budget', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({ opus: createMockService('opus', 'response') });
+
+    // 5 messages — well within opus maxMessages=40
+    const history = Array.from({ length: 5 }, (_, i) => ({
+      id: `m${i}`,
+      threadId: 'thread1',
+      userId: 'user1',
+      catId: null,
+      content: `message ${i}`,
+      mentions: [],
+      timestamp: Date.now() - (5 - i) * 1000,
+    }));
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { history })) {
+      messages.push(msg);
+    }
+
+    const sysInfos = messages.filter(m => m.type === 'system_info');
+    assert.equal(sysInfos.length, 0, 'should not yield degradation when within budget');
+  });
+
+  it('yields system_info when context is truncated by character budget (not count)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({ opus: createMockService('opus', 'response') });
+
+    // Count is at budget boundary (opus maxMessages=40), but content size should force char truncation.
+    const history = Array.from({ length: 40 }, (_, i) => ({
+      id: `m${i}`,
+      threadId: 'thread1',
+      userId: 'user1',
+      catId: null,
+      content: `message ${i} ` + 'x'.repeat(5000),
+      mentions: [],
+      timestamp: Date.now() - (40 - i) * 1000,
+    }));
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { history })) {
+      messages.push(msg);
+    }
+
+    const sysInfos = messages.filter(m => m.type === 'system_info');
+    assert.ok(sysInfos.length > 0, 'should yield degradation when char budget truncates context');
+    assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
+  });
+});
+
+describe('routeParallel degradation notification', () => {
+  it('yields system_info for each degraded cat', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', 'opus says'),
+      codex: createMockService('codex', 'codex says'),
+    });
+
+    // 50 messages — exceeds both opus (40) and codex (30) limits
+    const history = Array.from({ length: 50 }, (_, i) => ({
+      id: `m${i}`,
+      threadId: 'thread1',
+      userId: 'user1',
+      catId: null,
+      content: `message ${i}`,
+      mentions: [],
+      timestamp: Date.now() - (50 - i) * 1000,
+    }));
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { history })) {
+      messages.push(msg);
+    }
+
+    const sysInfos = messages.filter(m => m.type === 'system_info');
+    assert.ok(sysInfos.length >= 2, 'should yield degradation for both cats');
+  });
+
+  it('yields system_info when context is truncated by character budget in parallel mode', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', 'opus says'),
+      codex: createMockService('codex', 'codex says'),
+    });
+
+    // Count is within both cats' maxMessages (codex=30, opus=40), but content size should trigger char truncation.
+    const history = Array.from({ length: 30 }, (_, i) => ({
+      id: `m${i}`,
+      threadId: 'thread1',
+      userId: 'user1',
+      catId: null,
+      content: `message ${i} ` + 'y'.repeat(5000),
+      mentions: [],
+      timestamp: Date.now() - (30 - i) * 1000,
+    }));
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { history })) {
+      messages.push(msg);
+    }
+
+    const sysInfos = messages.filter(m => m.type === 'system_info');
+    assert.ok(sysInfos.length > 0, 'should yield at least one degradation system_info');
+  });
+});
+
 describe('routeParallel A2A safety', () => {
   it('does not chain A2A even when mentions are detected', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');

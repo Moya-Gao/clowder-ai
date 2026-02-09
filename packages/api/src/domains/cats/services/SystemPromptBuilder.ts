@@ -82,6 +82,7 @@ export function buildSystemPrompt(context: InvocationContext): string {
       .filter(([id]) => id !== context.catId)
       .map(([, cfg]) => cfg.displayName);
     if (callableNames.length > 0) {
+      const exampleTarget = callableNames[0];
       lines.push('## 🐾 协作');
       lines.push(
         `你可以 @队友 邀请他们一起思考: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
@@ -90,8 +91,8 @@ export function buildSystemPrompt(context: InvocationContext): string {
       lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效！）。每次 @ 只触发一轮。');
       lines.push('✅ 正确：');
       lines.push('我觉得可以这样做！');
-      lines.push('@布偶猫 你觉得呢？');
-      lines.push('❌ 错误：怎么样，@布偶猫？ ← 行中间，不会触发');
+      lines.push(`@${exampleTarget} 你觉得呢？`);
+      lines.push(`❌ 错误：怎么样，@${exampleTarget}？ ← 行中间，不会触发`);
       lines.push('');
     }
   }
