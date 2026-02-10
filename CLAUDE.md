@@ -248,6 +248,26 @@ pnpm install
 - Worktree 目录：`/Users/lysander/projects/relay-station/cat-cafe-{feature-name}`
 - **为什么**：避免热重载自杀（编辑后端 .ts → dev server 重启 → 调用链断裂），也让三猫可以同时在不同分支工作
 
+#### 合入前：先收敛 commit，再 fetch + rebase（默认流程）
+
+为减少在 `main` 上处理冲突时的误回退，默认先在功能分支收敛提交历史，再同步主干并完成冲突处理：
+
+```bash
+# 在 feature/worktree 分支执行
+git fetch origin
+
+# 先整理本分支提交（建议保留 1~2 个语义清晰的 commit）
+git rebase -i --autosquash origin/main
+
+# 若有冲突：在当前分支解决后，先跑测试再继续
+git rebase --continue
+```
+
+- **默认要求**：先把 review follow-up 等零碎提交通过 `fixup/squash` 收敛，再进入 `fetch + rebase` 流程
+- **默认要求**：冲突优先在 feature/worktree 分支解决，再进入合入流程
+- **禁止默认做法**：不要在 `main` 上直接通过 merge 处理分支冲突（除非铲屎官明确要求）
+- **例外规则**：若分支已被其他猫基于开发，改写历史前先同步，必要时用 `--force-with-lease`
+
 #### 合入时：冲突处理规则
 
 - **无冲突（clean merge/rebase）**：直接合入，继续清理流程
