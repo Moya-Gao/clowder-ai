@@ -61,10 +61,11 @@
 
 ## 2) 不做什么（Non-Goals）
 
-- 不做细粒度 RBAC（不搞"猫 A 能写文件但不能删"的复杂权限矩阵）
-- 不做持久化权限策略（权限随 invocation 生命周期结束而消失）
-- 不做自动授权策略引擎（不搞"如果是 git commit 就自动批准"的规则）
+- 不做细粒度 RBAC（不搞"猫 A 能写文件但不能删"的复杂权限矩阵）——权限粒度是 action 级别（`git_commit`、`network_*`），不是文件/目录级别
+- 不做条件式自动策略引擎（不搞"工作时间自动批准、深夜拒绝"之类的时间/上下文条件规则）——规则引擎仅做 action+cat+scope 的精确/通配匹配
 - 不修改 Codex/Claude CLI 本身的沙箱机制
+- ~~不做持久化权限策略~~ → **已改为做**：铲屎官决策要求持久化规则（类似 Claude Code allow/deny 记忆），见 §5 Q3
+- ~~不做自动授权~~ → **已改为做**：命中持久化规则时自动放行/拒绝，不弹窗；但规则本身必须由铲屎官显式创建（审批时选 scope），不存在"系统自动推断"的路径
 
 ---
 
@@ -94,6 +95,13 @@ const args = ['exec', '--json', '--sandbox', SANDBOX_MODE, '--add-dir', '.git', 
 **Tradeoff**：
 - 放弃"让铲屎官逐次审批 git 操作"的更安全路径，换取即时可用性
 - 风险可控：`.git` 写入仍受 workspace 隔离保护，不影响系统级安全
+
+**resume 迁移注意**（缅因猫 review 指出）：
+- `--add-dir .git` 仅在 `exec`（新建会话）分支追加，`exec resume` 分支不带此参数
+- Codex 的沙箱参数在 session 创建时锁定，旧 session resume 时沿用原参数
+- 因此**发布后已有的旧 session 仍然没有 `.git` 写入权限**
+- 迁移策略：不做旧 session 迁移（成本不值），在代码注释中说明"旧 session 的 .git 写入受限是预期行为，新建会话即可解决"
+- SessionManager 可考虑在发布时清空 Codex session 缓存（可选，非必须）
 
 ---
 
@@ -125,9 +133,12 @@ interface PermissionRequest {
 响应：
 ```typescript
 interface PermissionResponse {
-  status: 'granted' | 'denied' | 'timeout';
+  status: 'granted' | 'denied' | 'pending';
+  requestId?: string;       // status='pending' 时必返，用于后续查询
   reason?: string;          // 铲屎官的批注
 }
+// 注：没有 'timeout' 状态。HTTP 120s 超时 = 转为 'pending'（持久化到 Redis），
+// 猫猫用 requestId 轮询结果。语义上 pending 是"铲屎官还没来得及看"，不是失败。
 ```
 
 **实现流程**：
@@ -158,9 +169,9 @@ POST /api/authorization/:requestId/respond
   │
   ▼
 Callback Route 返回 { status: 'granted' }
-  │
+  │                  或 { status: 'pending', requestId } (铲屎官不在线)
   ▼
-猫猫继续执行
+猫猫继续执行 / 跳过 / 带 requestId 稍后查询
 ```
 
 **关键设计决策**：
@@ -189,7 +200,8 @@ Callback Route 返回 { status: 'granted' }
 **新文件**：`packages/api/src/domains/cats/services/AuthorizationManager.ts`
 
 ```typescript
-interface PendingRequest {
+// ---- 可持久化层（Redis/内存均可存储） ----
+interface PendingRequestRecord {
   requestId: string;
   invocationId: string;
   catId: CatId;
@@ -198,28 +210,51 @@ interface PendingRequest {
   reason: string;
   context?: string;
   createdAt: number;
-  resolve: (response: PermissionResponse) => void;
+  status: 'waiting' | 'granted' | 'denied';  // 铲屎官离线审批后更新
+  respondedAt?: number;
+  respondReason?: string;
+  respondScope?: 'once' | 'thread' | 'global';
 }
 
+// ---- 运行时内存层（不可序列化） ----
+// inFlightWaiters: Map<requestId, { resolve, reject, timer }>
+// 当 HTTP 长轮询还在挂起时，这里有对应的 waiter。
+// 超时或进程重启后 waiter 消失，但 PendingRequestRecord 仍在 Redis。
+// 铲屎官审批 → 先查 inFlightWaiters:
+//   有 → resolve waiter（猫猫即时收到响应）
+//   无 → 只更新 PendingRequestRecord.status（猫猫下次查询时拿到结果）
+
 class AuthorizationManager {
+  private inFlightWaiters = new Map<string, { resolve, timer }>();
+
   constructor(
     private ruleStore: AuthorizationRuleStore,
+    private pendingStore: PendingRequestStore,  // Redis/内存，存 PendingRequestRecord
     private auditLog: AuthorizationAuditStore,
     private io: SocketIO.Server,
   ) {}
 
   async requestPermission(req: PermissionRequest): Promise<PermissionResponse>
-  // 1. 查 ruleStore 是否有匹配规则 → 命中则直接返回
-  // 2. 未命中 → 创建 pending → emit ws event → 等待 Promise (120s)
-  // 3. 超时 → 持久化 pending 到 Redis → 返回 { status: 'pending', requestId }
-  // 4. 所有结果写 auditLog
+  // 1. 查 ruleStore 是否有匹配规则 → 命中则直接返回 + 写 auditLog
+  // 2. 未命中 → 创建 PendingRequestRecord (status='waiting') → 持久化
+  // 3. emit ws event → 创建 inFlightWaiter → 等待 Promise (120s)
+  // 4a. 铲屎官在线审批 → resolve waiter → 返回 granted/denied
+  // 4b. 超时 → 删除 waiter → 返回 { status: 'pending', requestId }
+  // 5. 所有结果写 auditLog
 
   respond(requestId: string, granted: boolean, scope: Scope, reason?: string): void
-  // resolve pending Promise
-  // 如果 scope != 'once' → 写入 ruleStore 持久化规则
+  // 1. 更新 PendingRequestRecord.status → granted/denied
+  // 2. 如果 scope != 'once' → 写入 ruleStore 持久化规则
+  // 3. 查 inFlightWaiters[requestId]:
+  //    有 → resolve（猫猫 HTTP 立即返回）
+  //    无 → 仅更新 record（猫猫已超时离开，下次查询时拿到结果）
+  // 4. 写 auditLog
 
-  getPending(threadId?: string): PendingRequest[]
-  // 前端查询当前待审批请求（含 Redis 持久化的）
+  getRequestStatus(requestId: string): PendingRequestRecord | null
+  // 猫猫用 requestId 查询结果（异步闭环）
+
+  getPending(threadId?: string): PendingRequestRecord[]
+  // 前端查询当前 status='waiting' 的请求
 
   checkRule(catId: CatId, action: string, threadId: string): 'allow' | 'deny' | null
   // 查规则：global → thread → null
@@ -263,7 +298,7 @@ interface AuthorizationAuditEntry {
   threadId: string;
   action: string;
   reason: string;
-  decision: 'allow' | 'deny' | 'pending' | 'timeout';
+  decision: 'allow' | 'deny' | 'pending';  // 无 'timeout'（超时 = pending）
   scope?: 'once' | 'thread' | 'global';
   decidedBy?: string;          // userId (审批人)
   decidedAt?: number;
@@ -272,7 +307,36 @@ interface AuthorizationAuditEntry {
 }
 ```
 
-#### 2.3 MCP Tool 扩展
+#### 2.3 异步查询 API（pending 闭环）
+
+猫猫收到 `{ status: 'pending', requestId }` 后，可通过以下接口查询结果：
+
+```
+GET /api/callbacks/permission-status/:requestId
+```
+
+请求头：同其他 callback（invocationId + callbackToken 验证）
+
+响应：
+```typescript
+interface PermissionStatusResponse {
+  requestId: string;
+  status: 'waiting' | 'granted' | 'denied';
+  reason?: string;           // 铲屎官批注（granted/denied 时）
+  createdAt: number;
+}
+// status='waiting' → 铲屎官还没审批，猫猫可继续等或跳过
+// status='granted'/'denied' → 最终结果
+```
+
+**curl 模板**（McpPromptInjector 追加）：
+```bash
+curl -s "$CAT_CAFE_API_URL/api/callbacks/permission-status/$REQUEST_ID" \
+  -H "X-Invocation-Id: $CAT_CAFE_INVOCATION_ID" \
+  -H "X-Callback-Token: $CAT_CAFE_CALLBACK_TOKEN"
+```
+
+#### 2.4 MCP Tool 扩展
 
 **`callback-tools.ts` 新增**：
 ```typescript
@@ -302,8 +366,9 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
     "action": "git_commit",
     "reason": "准备提交 bug fix"
   }'
-# 返回: {"status":"granted"} 或 {"status":"denied","reason":"..."}
-# ⚠️ 此请求会等待铲屎官批准，可能需要几秒到几分钟
+# 返回: {"status":"granted"} / {"status":"denied","reason":"..."} / {"status":"pending","requestId":"..."}
+# ⚠️ 此请求最多等 120s。如果铲屎官不在线，返回 pending + requestId。
+# 用 GET $CAT_CAFE_API_URL/api/callbacks/permission-status/$REQUEST_ID 查询结果。
 ```
 
 #### 2.4 WebSocket 事件
@@ -385,10 +450,11 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 ### Stage 2（架构修）
 | 文件 | 变更类型 | 说明 |
 |------|---------|------|
-| `packages/api/src/domains/cats/services/AuthorizationManager.ts` | 新建 | 授权状态机 + 规则匹配 + Promise 管理 |
+| `packages/api/src/domains/cats/services/AuthorizationManager.ts` | 新建 | 授权状态机 + 规则匹配 + inFlightWaiters |
 | `packages/api/src/domains/cats/services/AuthorizationRuleStore.ts` | 新建 | 持久化授权规则（内存 + Redis） |
+| `packages/api/src/domains/cats/services/PendingRequestStore.ts` | 新建 | 持久化待审批队列（内存 + Redis） |
 | `packages/api/src/domains/cats/services/AuthorizationAuditStore.ts` | 新建 | 审计日志持久化 |
-| `packages/api/src/routes/callbacks.ts` | 修改 | 新增 `request-permission` endpoint |
+| `packages/api/src/routes/callbacks.ts` | 修改 | 新增 `request-permission` + `permission-status/:requestId` |
 | `packages/api/src/routes/authorization.ts` | 新建 | 铲屎官响应 + 规则管理 + 审计查询 API |
 | `packages/mcp-server/src/tools/callback-tools.ts` | 修改 | 新增 MCP tool |
 | `packages/api/src/domains/cats/services/McpPromptInjector.ts` | 修改 | 新增 curl 模板 |
@@ -436,17 +502,26 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 - 规则可管理（查看、修改、删除）
 - 规则结构示例：
   ```typescript
+  // AuthorizationRule — 持久化到 Redis 的规则
+  // 注意：scope 只有 'thread' | 'global'，没有 'once'。
+  // 'once' 仅作为铲屎官审批时的响应入参，表示"本次放行但不存规则"。
   interface AuthorizationRule {
     id: string;
     catId: CatId | '*';         // 适用猫猫，'*' = 全部
     action: string;             // 'git_commit', 'network_*' 等，支持通配
-    scope: 'once' | 'thread' | 'global';
+    scope: 'thread' | 'global'; // 'once' 不进入持久化规则
     decision: 'allow' | 'deny';
     threadId?: string;          // scope='thread' 时必填
     createdAt: number;
     createdBy: string;          // userId
     reason?: string;
   }
+
+  // 铲屎官审批时的 scope 入参（包含 'once'）
+  type RespondScope = 'once' | 'thread' | 'global';
+  // 'once' → 仅 resolve 当前 pending request，不创建规则
+  // 'thread' → resolve + 创建 thread 级规则
+  // 'global' → resolve + 创建全局规则
   ```
 
 ### Q4: 三猫权限差异 → ✅ 需要
