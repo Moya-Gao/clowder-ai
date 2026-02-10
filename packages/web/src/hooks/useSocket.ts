@@ -32,6 +32,9 @@ export interface SocketCallbacks {
   onMessageDeleted?: (data: { messageId: string; threadId: string; deletedBy: string }) => void;
   onMessageRestored?: (data: { messageId: string; threadId: string }) => void;
   onThreadBranched?: (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => void;
+  /** Authorization events */
+  onAuthorizationRequest?: (data: { requestId: string; catId: string; threadId: string; action: string; reason: string; context?: string; createdAt: number }) => void;
+  onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -99,6 +102,14 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
     socket.on('thread_branched', (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => {
       callbacks.onThreadBranched?.(data);
+    });
+
+    // Authorization events
+    socket.on('authorization:request', (data: Record<string, unknown>) => {
+      callbacks.onAuthorizationRequest?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0]);
+    });
+    socket.on('authorization:response', (data: Record<string, unknown>) => {
+      callbacks.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
     });
 
     socket.on('disconnect', () => {

@@ -17,6 +17,8 @@ import { ThinkingIndicator } from './ThinkingIndicator';
 import { PawIcon } from './icons/PawIcon';
 import { A2ACollapsible } from './A2ACollapsible';
 import { MessageNavigator } from './MessageNavigator';
+import { AuthorizationCard } from './AuthorizationCard';
+import { useAuthorization } from '@/hooks/useAuthorization';
 
 interface ChatContainerProps {
   threadId: string;
@@ -56,6 +58,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     hasMore,
   } = useChatHistory(threadId);
   const { handleSend } = useSendMessage();
+  const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
 
   const messageSummary = useMemo(() => {
     let assistant = 0;
@@ -146,7 +149,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onMessageDeleted: (data: { messageId: string }) => removeMessage(data.messageId),
     onMessageRestored: () => { /* full reload handled by re-fetching history if needed */ },
     onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout]);
+    onAuthorizationRequest: handleAuthRequest,
+    onAuthorizationResponse: handleAuthResponse,
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse]);
 
   /**
    * Group consecutive A2A messages into collapsible sections.
@@ -271,6 +276,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </main>
           {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
+
+        {authPending.length > 0 && (
+          <div className="border-t border-amber-200 bg-amber-50/40 py-2">
+            {authPending.map((req) => (
+              <AuthorizationCard key={req.requestId} request={req} onRespond={authRespond} />
+            ))}
+          </div>
+        )}
 
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
       </div>
