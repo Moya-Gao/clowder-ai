@@ -22,9 +22,7 @@ export interface CallbackRoutesOptions {
   sharedBank?: string;
 }
 
-const postMessageSchema = z.object({
-  invocationId: z.string().min(1),
-  callbackToken: z.string().min(1),
+const postMessageSchema = callbackAuthSchema.extend({
   content: z.string().min(1).max(50000),
   replyTo: z.string().optional(),
   clientMessageId: z.string().min(1).max(200).optional(),
@@ -34,9 +32,7 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
-const updateTaskSchema = z.object({
-  invocationId: z.string().min(1),
-  callbackToken: z.string().min(1),
+const updateTaskSchema = callbackAuthSchema.extend({
   taskId: z.string().min(1),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
   why: z.string().max(1000).optional(),
