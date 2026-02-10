@@ -6,6 +6,7 @@ import { compactToolResultDetail } from '@/utils/toolPreview';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
+const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI === '1';
 
 interface AgentMsg {
   type: string;
@@ -128,6 +129,27 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'tool_use') {
         setCatStatus(msg.catId, 'streaming');
+        const toolName = msg.toolName ?? 'unknown';
+        const detail = msg.toolInput
+          ? safeJsonPreview(msg.toolInput, 200)
+          : undefined;
+        const isFileChange = toolName === 'file_change';
+        if (isFileChange) {
+          console.info('[agent_message] file_change tool_use received', {
+            catId: msg.catId,
+            activeRefCount: activeRefs.current.size,
+            skipUi: DEBUG_SKIP_FILE_CHANGE_UI,
+            detail: detail ?? null,
+          });
+          if (DEBUG_SKIP_FILE_CHANGE_UI) {
+            console.warn('[agent_message] file_change UI append skipped', {
+              catId: msg.catId,
+              reason: 'NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI=1',
+            });
+            return;
+          }
+        }
+
         const existing = activeRefs.current.get(msg.catId);
         let messageId = existing?.id;
         if (!messageId) {
@@ -144,10 +166,6 @@ export function useAgentMessages() {
           });
         }
 
-        const toolName = msg.toolName ?? 'unknown';
-        const detail = msg.toolInput
-          ? safeJsonPreview(msg.toolInput, 200)
-          : undefined;
         appendToolEvent(messageId, {
           id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           type: 'tool_use',
@@ -155,6 +173,13 @@ export function useAgentMessages() {
           ...(detail ? { detail } : {}),
           timestamp: Date.now(),
         });
+        if (isFileChange) {
+          console.info('[agent_message] file_change tool_use appended', {
+            catId: msg.catId,
+            messageId,
+            activeRefCount: activeRefs.current.size,
+          });
+        }
       } else if (msg.type === 'tool_result') {
         setCatStatus(msg.catId, 'streaming');
         const existing = activeRefs.current.get(msg.catId);

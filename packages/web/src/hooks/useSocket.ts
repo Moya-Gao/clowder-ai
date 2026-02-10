@@ -19,6 +19,18 @@ interface AgentMessage {
   timestamp: number;
 }
 
+interface SocketIoTransportLike {
+  name?: string;
+  ws?: WebSocket;
+}
+
+interface SocketIoEngineLike {
+  transport?: SocketIoTransportLike;
+  on: (event: string, listener: (...args: unknown[]) => void) => void;
+}
+
+type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
+
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
   onThreadUpdated?: (data: { threadId: string; title: string }) => void;
@@ -51,8 +63,34 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       auth: { userId: getUserId() },
     });
 
+    const getTransportName = () => {
+      const engine = socket.io.engine as unknown as SocketIoEngineLike | undefined;
+      return engine?.transport?.name ?? 'unknown';
+    };
+
+    const attachNativeCloseLogger = () => {
+      const engine = socket.io.engine as unknown as SocketIoEngineLike | undefined;
+      const transport = engine?.transport;
+      if (!transport || transport.name !== 'websocket' || !transport.ws) return;
+      const ws = transport.ws as DebugWebSocket;
+      if (ws.__catCafeCloseLoggerAttached) return;
+      ws.__catCafeCloseLoggerAttached = true;
+      ws.addEventListener('close', (event) => {
+        console.warn('[ws] Native close', {
+          code: event.code,
+          reason: event.reason,
+          wasClean: event.wasClean,
+        });
+      });
+    };
+
     socket.on('connect', () => {
-      console.log('[ws] Connected');
+      console.log('[ws] Connected', {
+        socketId: socket.id,
+        transport: getTransportName(),
+        threadId: threadIdRef.current ?? null,
+      });
+      attachNativeCloseLogger();
       const tid = threadIdRef.current;
       if (tid) {
         const room = `thread:${tid}`;
@@ -123,8 +161,36 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onModeChanged?.(data);
     });
 
-    socket.on('disconnect', () => {
-      console.log('[ws] Disconnected');
+    socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {
+      console.error('[ws] connect_error', {
+        message: error.message,
+        name: error.name,
+        transport: getTransportName(),
+        description: error.description ?? null,
+        context: error.context ?? null,
+      });
+    });
+
+    socket.on('disconnect', (...args: unknown[]) => {
+      const [reason, details] = args;
+      console.warn('[ws] Disconnected', {
+        reason: typeof reason === 'string' ? reason : String(reason),
+        transport: getTransportName(),
+        details: details ?? null,
+      });
+    });
+
+    const engine = socket.io.engine as unknown as SocketIoEngineLike | undefined;
+    engine?.on('upgrade', () => {
+      attachNativeCloseLogger();
+      console.log('[ws] Transport upgraded', { transport: getTransportName() });
+    });
+    engine?.on('close', (...args: unknown[]) => {
+      const [reason] = args;
+      console.warn('[ws] Engine close', {
+        reason: typeof reason === 'string' ? reason : String(reason),
+        transport: getTransportName(),
+      });
     });
 
     socketRef.current = socket;
