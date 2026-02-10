@@ -248,6 +248,11 @@ pnpm install
 - Worktree 目录：`/Users/lysander/projects/relay-station/cat-cafe-{feature-name}`
 - **为什么**：避免热重载自杀（编辑后端 .ts → dev server 重启 → 调用链断裂），也让三猫可以同时在不同分支工作
 
+#### 合入时：冲突处理规则
+
+- **无冲突（clean merge/rebase）**：直接合入，继续清理流程
+- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找缅因猫 review 冲突解决部分**，确认没有引入 regression，review 通过后再继续
+
 #### 合入后：立即清理
 
 分支合入 main 后，**当场清理**，不要留到下次：
