@@ -3,7 +3,7 @@
 > 提议者：布偶猫（Opus）
 > 协作：缅因猫（Codex，研究验证）+ 铲屎官（需求驱动）
 > 日期：2026-02-10
-> 状态：**草案（待铲屎官审批）**
+> 状态：**已拍板（铲屎官 2026-02-10 审批 + 缅因猫 2 轮 review 通过）**
 > BACKLOG 关联：#45
 
 ---
@@ -110,6 +110,12 @@ const args = ['exec', '--json', '--sandbox', SANDBOX_MODE, '--add-dir', '.git', 
 **改动范围**：~6 个文件（后端 4 + 前端 2）
 
 **做什么**：在现有 MCP Callback 架构上扩展一个 `request_permission` 通道。
+
+**WHY 扩展 Callback 而不是新建协议**：
+- Cat Café 已有成熟的 callback 基础设施：4 个 tool、token 验证、env 注入、三猫统一入口（Claude 用 MCP tool，Codex/Gemini 用 curl）
+- 新建协议意味着三猫都要适配新的通信方式，且 McpPromptInjector 需要新模板——这和现有 callback 完全同构
+- 授权请求本质就是"猫猫向 API 发一个带凭证的 HTTP 请求"，与 post_message、update_task 完全是同一模式
+- Tradeoff：放弃了"独立授权服务"的解耦性，但换来了零学习成本和零新依赖
 
 #### 2.1 后端：授权请求 Callback
 
@@ -390,6 +396,7 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 'authorization:respond' → {
   requestId: string;
   granted: boolean;
+  scope: 'once' | 'thread' | 'global';  // 铲屎官选择的批准范围
   reason?: string;
 }
 ```
@@ -478,6 +485,8 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 
 **铲屎官原话**："我睡着了怎么办？"
 
+**WHY**：猫猫不只在铲屎官在线时工作。铲屎官可能发完指令就去睡觉/开会/做饭，猫猫执行过程中遇到权限边界时铲屎官不在屏幕前。如果请求丢失，猫猫的工作就白费了——下次铲屎官回来还得重新触发整个调用链。持久化队列让"猫猫先干能干的，权限的事儿铲屎官回来再说"成为可能。
+
 **决策**：120s 同步等待不够。需要支持**异步待审批队列**：
 - 猫猫发起请求后，如果铲屎官不在线，请求进入 pending 队列（持久化到 Redis）
 - 猫猫侧 HTTP 长轮询仍有超时（如 120s），超时后返回 `{ status: 'pending' }`
@@ -486,6 +495,8 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 - **关键**：pending 请求不丢失，铲屎官睡一觉醒来还能看到
 
 ### Q2: 批量授权 → ✅ 要做
+
+**WHY**：三猫同时工作时（或铲屎官离线一段时间后回来），pending 队列可能堆积多条请求。如果铲屎官需要逐条点击审批 10 个 `git_commit` 请求，体验极差且没有额外安全价值——这些请求本质上是同类操作。批量授权 + scope 选择（"始终批准 git_commit"）组合使用，才是真正减少铲屎官负担的路径。
 
 **决策**：支持"全部批准"按钮。当多条请求堆积时，前端提供：
 - 逐条审批（默认）
@@ -527,6 +538,8 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 
 ### Q4: 三猫权限差异 → ✅ 需要
 
+**WHY**：三猫角色不同，信任边界天然不同。布偶猫是主开发，高频 git commit 是日常操作；缅因猫是 reviewer，主要读代码出报告，偶尔才需要 commit；暹罗猫是设计猫，几乎不碰 git。如果权限一刀切，要么布偶猫被频繁打断审批（过严），要么缅因猫拿到不需要的高权限（过松）。按角色差异化默认规则，铲屎官只需处理"异常"请求。
+
 **决策**：三猫默认权限应有差异，通过预设规则实现：
 - 具体差异待设计（可能布偶猫默认可 commit，缅因猫默认需授权等）
 - 不硬编码，通过 `AuthorizationRule` 的 `catId` 字段区分
@@ -534,10 +547,15 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 
 ### Q5: 审计日志 → ✅ 必须持久化
 
+**WHY**：授权是安全关键路径，没有日志 = 出事后无法复盘。具体场景：
+- "缅因猫上次明明能 commit，这次怎么不行了？" → 查日志发现上次是 thread 级规则，换了 thread 就失效了
+- "谁授权暹罗猫删了那个文件？" → 查日志定位到铲屎官在某时某分批准了 `file_delete`
+- 规则引擎的自动放行也需要留痕（`matchedRuleId` 字段），否则"为什么没弹窗就通过了"无法解释
+
 **决策**：所有授权事件必须持久化到 Redis，不随 invocation 结束丢弃：
 - 记录：谁请求、请求什么、何时、铲屎官的决策、决策理由
 - 可查询：按猫、按 thread、按时间范围
-- 用于复盘和审计（"为什么缅因猫上次能 commit 这次不能？"）
+- 用于复盘和审计
 
 ---
 
