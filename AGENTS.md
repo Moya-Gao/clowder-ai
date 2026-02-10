@@ -251,6 +251,48 @@ commit message 需要包含猫猫签名，便于回溯"谁做的、为什么做"
 4. **禁止危险操作默认化**：`FLUSHDB/FLUSHALL`、覆盖恢复必须有显式确认参数（如 `--yes`）。
 5. **完成后双重验证**：至少验证 `dbsize + 关键 key pattern + 抽样正文`，再宣布恢复完成。
 
+### 11) Git Worktree 使用与清理（三猫共同遵守）
+
+Worktree 是三猫并行开发的基础设施，**用完必须清理，否则磁盘会膨胀**（每个 worktree 含独立 node_modules，约 500MB+）。
+
+#### 开发前：创建 worktree
+
+开始任何非 trivial 的功能开发或 review 修复前，**必须拉 worktree 隔离**，不要直接在 main 上改代码：
+
+```bash
+git worktree add ../cat-cafe-{feature-name} -b {branch-name}
+cd ../cat-cafe-{feature-name}
+pnpm install
+```
+
+- 分支命名：`feat/xxx`、`fix/xxx`、`refactor/xxx`
+- Worktree 目录：`/Users/lysander/projects/relay-station/cat-cafe-{feature-name}`
+
+#### 合入后：立即清理
+
+分支合入 main 后，**当场清理**，不要留到下次：
+
+```bash
+git worktree remove ../cat-cafe-{feature-name}
+git branch -d {branch-name}
+git worktree prune
+```
+
+#### Review 时也要检查
+
+缅因猫做 code review 时，如果发现布偶猫或暹罗猫的 worktree 已合入未清理，应在 review 报告中标注提醒。
+
+#### 定期检查
+
+任何猫开始新 session 时，如果看到多个 worktree，应主动检查哪些已合入可清理：
+
+```bash
+git worktree list
+git branch --merged main
+```
+
+> 教训来源：2026-02-10 发现 6 个 worktree 堆积（4 个已合入未清理），浪费 2.1 GB 磁盘。
+
 ## 常用命令
 
 ```bash
