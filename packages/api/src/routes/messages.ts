@@ -224,6 +224,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             { threadId: resolvedThreadId, mode: intent.intent, targetCats },
           );
 
+          // ADR-008 S3: collect cursor boundaries; ack only after succeeded
+          const cursorBoundaries = new Map<string, string>();
+
           for await (const msg of router.routeExecution(
             userId, content, resolvedThreadId, storedUserMessage.id,
             targetCats, intent,
@@ -231,6 +234,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               ...(contentBlocks ? { contentBlocks } : {}),
               uploadDir,
               ...(controller?.signal ? { signal: controller.signal } : {}),
+              cursorBoundaries,
             },
           )) {
             opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
@@ -239,6 +243,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           await opts.invocationRecordStore!.update(createResult.invocationId, {
             status: 'succeeded',
           });
+
+          // ADR-008 S3: cursor advances ONLY after succeeded
+          await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
         } catch (err) {
           console.error('[messages] Background processing error:', err);
           const errorMsg = err instanceof Error ? err.message : 'Unknown error';

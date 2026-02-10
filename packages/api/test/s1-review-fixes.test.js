@@ -281,6 +281,7 @@ describe('R2: delete-guard race via POST /api/messages route', () => {
         };
       },
       async *routeExecution() { /* never reached in this test */ },
+      async ackCollectedCursors() {},
     };
 
     const app = Fastify();

@@ -44,6 +44,9 @@ export interface RouteOptions {
   currentUserMessageId?: string | undefined;
   /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
   maxA2ADepth?: number | undefined;
+  /** ADR-008 S3: When provided, cursor boundaries are collected here instead of acking immediately.
+   *  Caller acks after invocation succeeds. If absent, legacy immediate ack behavior. */
+  cursorBoundaries?: Map<string, string>;
 }
 
 /** Get the agent service for a given cat ID */
@@ -390,16 +393,17 @@ export async function* routeSerial(
       }
     }
 
-    if (
-      incrementalMode &&
-      !hadError &&
-      deliveryBoundaryId &&
-      deps.deliveryCursorStore
-    ) {
-      try {
-        await deps.deliveryCursorStore.ackCursor(userId, catId, threadId, deliveryBoundaryId);
-      } catch (err) {
-        console.error(`[routeSerial] ackCursor failed for ${catId as string}:`, err);
+    if (incrementalMode && !hadError && deliveryBoundaryId) {
+      if (options.cursorBoundaries) {
+        // ADR-008 S3: defer ack — caller acks after invocation succeeds
+        options.cursorBoundaries.set(catId, deliveryBoundaryId);
+      } else if (deps.deliveryCursorStore) {
+        // Legacy: ack immediately (deprecated route() path)
+        try {
+          await deps.deliveryCursorStore.ackCursor(userId, catId, threadId, deliveryBoundaryId);
+        } catch (err) {
+          console.error(`[routeSerial] ackCursor failed for ${catId as string}:`, err);
+        }
       }
     }
 
@@ -564,22 +568,24 @@ export async function* routeParallel(
         }
       }
 
-      if (
-        incrementalMode &&
-        !catHadError.has(msg.catId) &&
-        deps.deliveryCursorStore
-      ) {
+      if (incrementalMode && !catHadError.has(msg.catId)) {
         const boundaryId = boundaryByCat.get(msg.catId as CatId);
         if (boundaryId) {
-          try {
-            await deps.deliveryCursorStore.ackCursor(
-              userId,
-              msg.catId as CatId,
-              threadId,
-              boundaryId,
-            );
-          } catch (err) {
-            console.error(`[routeParallel] ackCursor failed for ${msg.catId}:`, err);
+          if (options.cursorBoundaries) {
+            // ADR-008 S3: defer ack — caller acks after invocation succeeds
+            options.cursorBoundaries.set(msg.catId, boundaryId);
+          } else if (deps.deliveryCursorStore) {
+            // Legacy: ack immediately
+            try {
+              await deps.deliveryCursorStore.ackCursor(
+                userId,
+                msg.catId as CatId,
+                threadId,
+                boundaryId,
+              );
+            } catch (err) {
+              console.error(`[routeParallel] ackCursor failed for ${msg.catId}:`, err);
+            }
           }
         }
       }

@@ -164,6 +164,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
           { threadId: record.threadId, mode: intent.intent, targetCats: record.targetCats },
         );
 
+        // ADR-008 S3: collect cursor boundaries; ack only after succeeded
+        const cursorBoundaries = new Map<string, string>();
+
         for await (const msg of opts.router.routeExecution(
           record.userId,
           storedMessage.content,
@@ -175,12 +178,16 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
             ...(storedMessage.contentBlocks ? { contentBlocks: storedMessage.contentBlocks } : {}),
             uploadDir,
             signal: controller.signal,
+            cursorBoundaries,
           },
         )) {
           opts.socketManager.broadcastAgentMessage(msg, record.threadId);
         }
 
         await opts.invocationRecordStore.update(id, { status: 'succeeded' });
+
+        // ADR-008 S3: cursor advances ONLY after succeeded
+        await opts.router.ackCollectedCursors(record.userId, record.threadId, cursorBoundaries);
       } catch (err) {
         console.error('[invocations] Retry execution error:', err);
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';
