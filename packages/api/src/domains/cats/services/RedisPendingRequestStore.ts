@@ -19,6 +19,33 @@ import { generateSortableId } from './MessageStore.js';
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const DEFAULT_MAX = 1000;
 
+/**
+ * Lua CAS respond: atomically check status='waiting' → update fields + ZREM from waiting set.
+ * KEYS[1] = pending-req:{requestId} hash
+ * KEYS[2] = pending-reqs:waiting sorted set
+ * ARGV[1] = requestId (for ZREM)
+ * ARGV[2..N] = field/value pairs to HSET
+ *
+ * Returns 1 on success, 0 if status is not 'waiting' (already responded or missing).
+ *
+ * IMPORTANT: ioredis keyPrefix auto-prefixes KEYS[].
+ */
+const CAS_RESPOND_LUA = `
+local current = redis.call('HGET', KEYS[1], 'status')
+if current ~= 'waiting' then
+  return 0
+end
+local fields = {}
+for i = 2, #ARGV do
+  fields[#fields + 1] = ARGV[i]
+end
+if #fields > 0 then
+  redis.call('HSET', KEYS[1], unpack(fields))
+end
+redis.call('ZREM', KEYS[2], ARGV[1])
+return 1
+`;
+
 export class RedisPendingRequestStore implements IPendingRequestStore {
   private readonly redis: RedisClient;
   private readonly ttlSeconds: number | null;
@@ -78,30 +105,31 @@ export class RedisPendingRequestStore implements IPendingRequestStore {
     scope: RespondScope,
     reason?: string,
   ): Promise<PendingRequestRecord | null> {
-    const existing = await this.get(requestId);
-    if (!existing || existing.status !== 'waiting') return null;
-
     const now = Date.now();
     const key = PendingReqKeys.detail(requestId);
-    const updateFields: string[] = [
+
+    // Build field/value pairs for atomic HSET inside Lua
+    const pairs: string[] = [
       'status', decision,
       'respondedAt', String(now),
       'respondScope', scope,
     ];
-    if (reason) updateFields.push('respondReason', reason);
+    if (reason) pairs.push('respondReason', reason);
 
-    const pipeline = this.redis.multi();
-    pipeline.hset(key, ...updateFields);
-    pipeline.zrem(PendingReqKeys.WAITING, requestId);
-    await pipeline.exec();
+    // Lua CAS: atomically check status='waiting' → HSET + ZREM
+    const ok = await this.redis.eval(
+      CAS_RESPOND_LUA,
+      2,
+      key,
+      PendingReqKeys.WAITING,
+      requestId,
+      ...pairs,
+    ) as number;
 
-    return {
-      ...existing,
-      status: decision,
-      respondedAt: now,
-      respondScope: scope,
-      ...(reason ? { respondReason: reason } : {}),
-    };
+    if (ok === 0) return null;
+
+    // Re-read full record from Redis to return complete state
+    return this.get(requestId);
   }
 
   async listWaiting(threadId?: string): Promise<PendingRequestRecord[]> {

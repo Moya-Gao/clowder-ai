@@ -296,6 +296,35 @@ describe('RedisPendingRequestStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : 
     assert.equal(fetched.context, 'production environment');
   });
 
+  it('concurrent respond(): only one wins (Lua CAS atomic)', async () => {
+    const record = await store.create({
+      invocationId: 'i-race',
+      catId: 'opus',
+      threadId: 't-race',
+      action: 'deploy',
+      reason: 'concurrent test',
+    });
+
+    // Fire N concurrent responds on the same requestId
+    const N = 20;
+    const results = await Promise.all(
+      Array.from({ length: N }, (_, i) =>
+        store.respond(record.requestId, i % 2 === 0 ? 'granted' : 'denied', 'once', `reason-${i}`),
+      ),
+    );
+
+    const winners = results.filter((r) => r !== null);
+    const losers = results.filter((r) => r === null);
+    assert.equal(winners.length, 1, `Expected exactly 1 winner, got ${winners.length}`);
+    assert.equal(losers.length, N - 1);
+
+    // Final state in Redis must match the single winner
+    const final = await store.get(record.requestId);
+    assert.equal(final.status, winners[0].status);
+    assert.equal(final.respondReason, winners[0].respondReason);
+    assert.notEqual(final.status, 'waiting');
+  });
+
   it('verified get() after respond() reads updated state from Redis', async () => {
     const record = await store.create({
       invocationId: 'i1',
