@@ -30,6 +30,10 @@ export interface StoredMessage {
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
+  /** ADR-008 D3: Soft delete timestamp (present = deleted) */
+  deletedAt?: number;
+  /** ADR-008 D3: Who deleted this message */
+  deletedBy?: string;
 }
 
 /**
@@ -55,6 +59,10 @@ export interface IMessageStore {
   getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   /** Delete all messages in a thread (cascade delete support) */
   deleteByThread(threadId: string): number | Promise<number>;
+  /** ADR-008 D3: Soft delete — set deletedAt/deletedBy. Returns null if not found. */
+  softDelete(id: string, deletedBy: string): StoredMessage | null | Promise<StoredMessage | null>;
+  /** ADR-008 D3: Restore a soft-deleted message. Returns null if not found or not deleted. */
+  restore(id: string): StoredMessage | null | Promise<StoredMessage | null>;
 }
 
 /** Max messages to keep in memory */
@@ -118,17 +126,12 @@ export class MessageStore {
    */
   getRecent(limit?: number, userId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
-
-    if (!userId) {
-      return this.messages.slice(-n);
-    }
-
     const matches: StoredMessage[] = [];
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
-      if (msg.userId === userId) {
-        matches.push(msg);
-      }
+      if (msg.deletedAt) continue;
+      if (userId && msg.userId !== userId) continue;
+      matches.push(msg);
     }
     return matches.reverse();
   }
@@ -144,6 +147,7 @@ export class MessageStore {
     // Walk backwards for efficiency
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
+      if (msg.deletedAt) continue;
       if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
         matches.push(msg);
       }
@@ -166,6 +170,7 @@ export class MessageStore {
     // Walk backwards from most recent, collecting messages before the cursor
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
+      if (msg.deletedAt) continue;
       if (msg.timestamp > timestamp) continue;
       if (msg.timestamp === timestamp) {
         // Same timestamp: use id as tiebreaker (skip if id >= beforeId)
@@ -189,6 +194,7 @@ export class MessageStore {
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
       if (msg.threadId !== threadId) continue;
+      if (msg.deletedAt) continue;
       if (userId && msg.userId !== userId) continue;
       matches.push(msg);
     }
@@ -232,6 +238,7 @@ export class MessageStore {
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
       if (msg.threadId !== threadId) continue;
+      if (msg.deletedAt) continue;
       if (userId && msg.userId !== userId) continue;
       if (msg.timestamp > timestamp) continue;
       if (msg.timestamp === timestamp) {
@@ -249,6 +256,30 @@ export class MessageStore {
     const before = this.messages.length;
     this.messages = this.messages.filter((m) => m.threadId !== threadId);
     return before - this.messages.length;
+  }
+
+  /**
+   * ADR-008 D3: Soft delete — mark a message as deleted without removing it.
+   * Returns the updated message or null if not found.
+   */
+  softDelete(id: string, deletedBy: string): StoredMessage | null {
+    const msg = this.messages.find((m) => m.id === id);
+    if (!msg) return null;
+    msg.deletedAt = Date.now();
+    msg.deletedBy = deletedBy;
+    return msg;
+  }
+
+  /**
+   * ADR-008 D3: Restore a soft-deleted message.
+   * Returns the restored message or null if not found / not deleted.
+   */
+  restore(id: string): StoredMessage | null {
+    const msg = this.messages.find((m) => m.id === id);
+    if (!msg || !msg.deletedAt) return null;
+    delete msg.deletedAt;
+    delete msg.deletedBy;
+    return msg;
   }
 
   /**
