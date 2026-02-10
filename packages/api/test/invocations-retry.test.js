@@ -156,6 +156,71 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     assert.equal(record.status, 'succeeded');
   });
 
+  it('concurrent retry on same invocation should accept only one request', async () => {
+    const invocationRecordStore = new InvocationRecordStore();
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const invocationTracker = new InvocationTracker();
+
+    // Slow router keeps background execution in-flight to expose retry race.
+    const slowRouter = {
+      routeExecution: async function* () {
+        await new Promise((r) => setTimeout(r, 150));
+        yield { type: 'text', catId: 'opus', content: 'slow retry', timestamp: Date.now() };
+      },
+      resolveTargetsAndIntent: async () => ({
+        targetCats: ['opus'],
+        intent: { intent: 'execute', explicit: false, promptTags: [] },
+      }),
+    };
+
+    const storedMsg = messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: '@布偶猫 retry race',
+      mentions: ['opus'],
+      timestamp: Date.now(),
+      threadId: 'thread-race',
+    });
+
+    const createResult = invocationRecordStore.create({
+      threadId: 'thread-race',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'key-race',
+    });
+    invocationRecordStore.update(createResult.invocationId, {
+      userMessageId: storedMsg.id,
+      status: 'failed',
+      error: 'previous failure',
+    });
+
+    const app = Fastify();
+    await app.register(invocationsRoutes, {
+      invocationRecordStore,
+      messageStore,
+      socketManager,
+      router: slowRouter,
+      invocationTracker,
+    });
+    await app.ready();
+
+    const [r1, r2] = await Promise.all([
+      app.inject({ method: 'POST', url: `/api/invocations/${createResult.invocationId}/retry` }),
+      app.inject({ method: 'POST', url: `/api/invocations/${createResult.invocationId}/retry` }),
+    ]);
+
+    const statuses = [r1.statusCode, r2.statusCode].sort((a, b) => a - b);
+    assert.deepEqual(statuses, [202, 409]);
+
+    const conflict = r1.statusCode === 409 ? r1 : r2;
+    const conflictBody = conflict.json();
+    assert.equal(conflictBody.code, 'INVOCATION_NOT_RETRYABLE');
+
+    await app.close();
+  });
+
   it('retry running → 409 NOT_RETRYABLE', async () => {
     const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
 
@@ -276,6 +341,25 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     const record = invocationRecordStore.get(invocationId);
     assert.equal(record.status, 'failed');
     assert.equal(record.error, 'Agent execution failed');
+  });
+
+  it('retry success should clear previous error', async () => {
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 202);
+
+    await new Promise((r) => setTimeout(r, 100));
+
+    const record = invocationRecordStore.get(invocationId);
+    assert.equal(record.status, 'succeeded');
+    assert.equal(record.error ?? '', '');
+
+    await app.close();
   });
 });
 
