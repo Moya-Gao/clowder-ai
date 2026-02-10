@@ -216,6 +216,27 @@ describe('GET /api/callbacks/permission-status', () => {
     assert.equal(res.statusCode, 403);
   });
 
+  test('returns 403 when same cat/thread but different invocation', async () => {
+    const app = await createApp();
+    // Invocation A creates a request
+    const invocA = registry.create('user-1', 'codex', 'thread-1');
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId: invocA.invocationId, callbackToken: invocA.callbackToken, action: 'git_commit', reason: 'fix' },
+    });
+    const { requestId } = JSON.parse(createRes.body);
+
+    // Invocation B (same cat, same thread, different invocation) tries to query
+    const invocB = registry.create('user-1', 'codex', 'thread-1');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/permission-status?invocationId=${invocB.invocationId}&callbackToken=${invocB.callbackToken}&requestId=${requestId}`,
+    });
+
+    assert.equal(res.statusCode, 403, 'same cat+thread but different invocation must be rejected');
+  });
+
   test('returns 404 for nonexistent request', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
