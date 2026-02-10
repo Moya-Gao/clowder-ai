@@ -119,6 +119,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       setIntentMode(null);
       clearCatStatuses();
       setCurrentMode(null);
+      setPendingModeSwitchProposal(null);
       prevThreadRef.current = threadId;
       // Unsuppress after all effects from this render cycle have fired
       // (including useSocket's room switch effect)
@@ -312,7 +313,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           confirmLabel="确认切换"
           cancelLabel="忽略"
           onConfirm={() => {
-            if (pendingModeSwitchProposal) {
+            if (pendingModeSwitchProposal && pendingModeSwitchProposal.threadId === threadId) {
               handleSend(pendingModeSwitchProposal.command);
             }
             setPendingModeSwitchProposal(null);

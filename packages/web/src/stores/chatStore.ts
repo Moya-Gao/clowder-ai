@@ -100,7 +100,7 @@ interface ChatState {
   currentMode: { name: string; config: Record<string, unknown>; startedAt: string; state?: Record<string, unknown> } | null;
 
   // Mode switch confirmation dialog (P2-4: 弹确认对话框)
-  pendingModeSwitchProposal: { proposedMode: string; command: string; proposedBy: string } | null;
+  pendingModeSwitchProposal: { proposedMode: string; command: string; proposedBy: string; threadId: string } | null;
 
   // Thread state
   currentThreadId: string;

@@ -55,6 +55,7 @@ export function useAgentMessages() {
     clearCatStatuses,
     setCatInvocation,
     setPendingModeSwitchProposal,
+    currentThreadId,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
@@ -226,6 +227,7 @@ export function useAgentMessages() {
               proposedMode: parsed.proposedMode,
               command: cmd,
               proposedBy: by,
+              threadId: currentThreadId,
             });
             sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
             sysVariant = 'info';
@@ -276,7 +278,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(
