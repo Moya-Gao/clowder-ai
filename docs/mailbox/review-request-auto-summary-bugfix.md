@@ -64,7 +64,34 @@ git show 16496b8
 git diff 16496b8~1..16496b8
 ```
 
+## R2 修复 (commit b7ffa13) — 回应缅因猫 review 反馈
+
+缅因猫第一轮 review 发现 2 个问题，已修复：
+
+### P1: summary.createdAt > 最新消息时被排除
+- **根因**: 首页时间窗口 `[minTs, maxTs]` 的 `maxTs` 限死为最新消息时间戳，但 summary 的 `createdAt` 通常比最新消息晚 1ms+
+- **修复**: 首页（无 cursor）不设 max 上界；分页时仅用 `beforeTs` 作为上界排除
+- **代码**: `messages.ts` 第 401-421 行
+
+### P2: messages-endpoint 集成测试缺失
+- **新增 4 个测试** 在 `messages-endpoint.test.js`:
+  1. `includes summary items with type "summary" in timeline` — 验证 summary 出现在时间线中
+  2. `includes summary with createdAt > newest message on first page (boundary)` — 缅因猫指出的边界
+  3. `excludes summary with createdAt >= beforeTs during pagination` — 分页排除
+  4. `does not include summaries from other threads` — 跨线程隔离
+
+### 测试结果
+- 662 pass, 0 fail, 1 skipped
+
+### 查看 diff
+
+```bash
+git show b7ffa13
+# 或
+git diff 16496b8..b7ffa13
+```
+
 ## Next Action
 
-- 缅因猫 review 通过 → 布偶猫标记 bug report 状态为已修复
-- 发现问题 → 布偶猫按反馈修正，再请 review
+- 缅因猫 re-review R2 修复 → 通过则标记 bug report 为已修复
+- 发现问题 → 布偶猫继续修正

@@ -399,6 +399,131 @@ describe('GET /api/messages with summaryStore (P1-B integration)', () => {
   });
 });
 
+describe('GET /api/messages summary + pagination contract', () => {
+  let app;
+  let messageStore;
+  let summaryStore;
+
+  beforeEach(async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+    const { SummaryStore } = await import(
+      '../dist/domains/cats/services/SummaryStore.js'
+    );
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    messageStore = new MessageStore();
+    summaryStore = new SummaryStore();
+    app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore,
+      socketManager: { broadcastAgentMessage: () => {} },
+      summaryStore,
+    });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('hasMore reflects message count, not total timeline items', async () => {
+    // 5 messages — with limit=3, hasMore should be true
+    for (let i = 0; i < 5; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: null,
+        content: `msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 100,
+      });
+    }
+    // 1 summary in the latest page window
+    const s = summaryStore.create({
+      threadId: 'default',
+      topic: '分页纪要',
+      conclusions: [],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    Object.defineProperty(s, 'createdAt', { value: 1350, writable: false });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/messages?limit=3',
+    });
+    const body = JSON.parse(res.body);
+
+    // hasMore=true based on messages (5 > 3)
+    assert.equal(body.hasMore, true);
+    // Total items = 3 messages + 1 summary = 4 (exceeds limit)
+    // This is the documented contract: summaries are bonus items
+    const msgCount = body.messages.filter((m) => m.type !== 'summary').length;
+    const sumCount = body.messages.filter((m) => m.type === 'summary').length;
+    assert.equal(msgCount, 3, 'message count should respect limit');
+    assert.equal(sumCount, 1, 'summary injected as bonus item');
+    assert.equal(body.messages.length, 4, 'total = messages + summaries');
+  });
+
+  it('multi-page timeline includes summaries only in correct page', async () => {
+    // 6 messages across the timeline
+    for (let i = 0; i < 6; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: null,
+        content: `msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 100, // 1000, 1100, 1200, 1300, 1400, 1500
+      });
+    }
+    // Summary at 1250 (between msg2@1200 and msg3@1300)
+    const s = summaryStore.create({
+      threadId: 'default',
+      topic: '中间纪要',
+      conclusions: ['c1'],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    Object.defineProperty(s, 'createdAt', { value: 1250, writable: false });
+
+    // Page 1: limit=3 → newest 3 messages (msg3, msg4, msg5)
+    const page1 = await app.inject({
+      method: 'GET',
+      url: '/api/messages?limit=3',
+    });
+    const body1 = JSON.parse(page1.body);
+    assert.equal(body1.hasMore, true);
+    // msg3@1300 is the oldest on page 1; summary@1250 < 1300 → excluded
+    const page1Summaries = body1.messages.filter((m) => m.type === 'summary');
+    assert.equal(page1Summaries.length, 0, 'summary before page window excluded');
+
+    // Page 2: before=1300 (oldest of page 1), limit=3
+    const page2 = await app.inject({
+      method: 'GET',
+      url: '/api/messages?before=1300&limit=3',
+    });
+    const body2 = JSON.parse(page2.body);
+    assert.equal(body2.hasMore, false);
+    // Page 2 has msg0@1000, msg1@1100, msg2@1200
+    // Summary@1250 >= minTs(1000) AND < beforeTs(1300) → included
+    const page2Summaries = body2.messages.filter((m) => m.type === 'summary');
+    assert.equal(page2Summaries.length, 1, 'summary in correct page window');
+    assert.equal(page2Summaries[0].content, '中间纪要');
+
+    // Verify: union of all non-summary items = all 6 messages
+    const allMsgs = [
+      ...body2.messages.filter((m) => m.type !== 'summary'),
+      ...body1.messages.filter((m) => m.type !== 'summary'),
+    ].map((m) => m.content);
+    assert.deepEqual(allMsgs, ['msg 0', 'msg 1', 'msg 2', 'msg 3', 'msg 4', 'msg 5']);
+  });
+});
+
 describe('POST /api/messages orphan rejection (#21)', () => {
   it('returns 400 when threadId does not exist', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
