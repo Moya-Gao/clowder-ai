@@ -5,13 +5,17 @@
  * DELETE /api/memory - Delete memory entry
  */
 
-import type { FastifyPluginAsync } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
 import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
+import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 export interface MemoryRoutesOptions {
   memoryStore: IMemoryStore;
+  /** Optional thread ownership guard (enabled in production wiring). */
+  threadStore?: IThreadStore;
 }
 
 const writeSchema = z.object({
@@ -35,6 +39,24 @@ const deleteSchema = z.object({
 });
 
 export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app, opts) => {
+  async function authorizeThread(
+    threadId: string,
+    userId: string,
+    reply: FastifyReply,
+  ): Promise<boolean> {
+    if (!opts.threadStore || threadId === 'default') return true;
+    const thread = await opts.threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return false;
+    }
+    if (thread.createdBy !== userId) {
+      reply.status(403);
+      return false;
+    }
+    return true;
+  }
+
   // POST /api/memory — write entry
   app.post('/api/memory', async (request, reply) => {
     const parseResult = writeSchema.safeParse(request.body);
@@ -43,7 +65,19 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
     const { threadId, key, value, updatedBy } = parseResult.data;
+    if (!(await authorizeThread(threadId, userId, reply))) {
+      const status = reply.statusCode;
+      if (status === 404) return { error: 'Thread not found' };
+      return { error: 'Access denied' };
+    }
+
     const resolvedUpdatedBy = updatedBy === 'user' ? 'user' as const : createCatId(updatedBy);
     const entry = await opts.memoryStore.set({ threadId, key, value, updatedBy: resolvedUpdatedBy });
 
@@ -59,7 +93,18 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
     const { threadId, key } = parseResult.data;
+    if (!(await authorizeThread(threadId, userId, reply))) {
+      const status = reply.statusCode;
+      if (status === 404) return { error: 'Thread not found' };
+      return { error: 'Access denied' };
+    }
 
     if (key) {
       // Single key lookup
@@ -84,7 +129,19 @@ export const memoryRoutes: FastifyPluginAsync<MemoryRoutesOptions> = async (app,
       return { error: 'Invalid query parameters', details: parseResult.error.issues };
     }
 
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
     const { threadId, key } = parseResult.data;
+    if (!(await authorizeThread(threadId, userId, reply))) {
+      const status = reply.statusCode;
+      if (status === 404) return { error: 'Thread not found' };
+      return { error: 'Access denied' };
+    }
+
     const deleted = await opts.memoryStore.delete(threadId, key);
 
     if (!deleted) {

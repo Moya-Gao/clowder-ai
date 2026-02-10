@@ -24,6 +24,8 @@ export interface InvocationRecord {
   catId: CatId;
   /** Thread this invocation belongs to (for WebSocket room scoping) */
   threadId: string;
+  /** In-invocation idempotency keys for callback post-message de-duplication. */
+  clientMessageIds: Set<string>;
   createdAt: number;
   expiresAt: number;
 }
@@ -33,6 +35,8 @@ const DEFAULT_TTL_MS = 10 * 60 * 1000;
 
 /** Max concurrent invocations before LRU eviction */
 const MAX_INVOCATIONS = 500;
+/** Max remembered callback idempotency keys per invocation */
+const MAX_CLIENT_MESSAGE_IDS = 1000;
 
 /**
  * Registry for managing invocation auth tokens.
@@ -77,6 +81,7 @@ export class InvocationRegistry {
       userId,
       catId,
       threadId,
+      clientMessageIds: new Set<string>(),
       createdAt: now,
       expiresAt: now + this.ttlMs,
     });
@@ -109,6 +114,28 @@ export class InvocationRegistry {
     this.records.set(invocationId, record);
 
     return record;
+  }
+
+  /**
+   * Claim a callback clientMessageId for an invocation.
+   * Returns true if this ID is first-seen, false if duplicate or invocation missing.
+   */
+  claimClientMessageId(invocationId: string, clientMessageId: string): boolean {
+    const record = this.records.get(invocationId);
+    if (!record) return false;
+
+    if (record.clientMessageIds.has(clientMessageId)) {
+      return false;
+    }
+
+    while (record.clientMessageIds.size >= MAX_CLIENT_MESSAGE_IDS) {
+      const oldest = record.clientMessageIds.values().next().value;
+      if (oldest === undefined) break;
+      record.clientMessageIds.delete(oldest);
+    }
+
+    record.clientMessageIds.add(clientMessageId);
+    return true;
   }
 
   /**

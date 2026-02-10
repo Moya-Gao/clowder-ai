@@ -125,4 +125,30 @@ describe('InvocationRegistry', () => {
     assert.notEqual(r1.invocationId, r2.invocationId);
     assert.notEqual(r1.callbackToken, r2.callbackToken);
   });
+
+  test('claimClientMessageId() deduplicates per invocation', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId } = registry.create('user-1', 'opus');
+
+    assert.equal(registry.claimClientMessageId(invocationId, 'msg-1'), true);
+    assert.equal(registry.claimClientMessageId(invocationId, 'msg-1'), false);
+    assert.equal(registry.claimClientMessageId(invocationId, 'msg-2'), true);
+  });
+
+  test('claimClientMessageId() scopes ids to each invocation', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const first = registry.create('user-1', 'opus');
+    const second = registry.create('user-1', 'opus');
+
+    assert.equal(registry.claimClientMessageId(first.invocationId, 'same-id'), true);
+    assert.equal(registry.claimClientMessageId(second.invocationId, 'same-id'), true);
+  });
 });

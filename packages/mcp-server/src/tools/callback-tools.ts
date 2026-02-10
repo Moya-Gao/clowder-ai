@@ -4,6 +4,7 @@
  * 通信: HTTP → /api/callbacks/*
  */
 
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
@@ -29,6 +30,26 @@ function getCallbackConfig(): {
 const NO_CONFIG_ERROR =
   'Cat Café callback not configured. Missing CAT_CAFE_API_URL, CAT_CAFE_INVOCATION_ID, or CAT_CAFE_CALLBACK_TOKEN environment variables.';
 
+const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
+function getRetryDelaysMs(): number[] {
+  const raw = process.env['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS'];
+  if (!raw) return DEFAULT_RETRY_DELAYS_MS;
+  const parsed = raw
+    .split(',')
+    .map((v) => Number.parseInt(v.trim(), 10))
+    .filter((n) => Number.isFinite(n) && n >= 0);
+  return parsed.length > 0 ? parsed : DEFAULT_RETRY_DELAYS_MS;
+}
+
+function shouldRetryStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // ============ HTTP helpers ============
 
 async function callbackPost(
@@ -39,28 +60,46 @@ async function callbackPost(
   if (!config) return errorResult(NO_CONFIG_ERROR);
 
   const url = `${config.apiUrl}${path}`;
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        invocationId: config.invocationId,
-        callbackToken: config.callbackToken,
-        ...body,
-      }),
-    });
+  const payload = JSON.stringify({
+    invocationId: config.invocationId,
+    callbackToken: config.callbackToken,
+    ...body,
+  });
+  const retryDelaysMs = getRetryDelaysMs();
 
-    if (!response.ok) {
+  let lastError: string | null = null;
+
+  for (let attempt = 0; attempt <= retryDelaysMs.length; attempt++) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return successResult(JSON.stringify(data));
+      }
+
       const text = await response.text();
-      return errorResult(`Callback failed (${response.status}): ${text}`);
+      lastError = `Callback failed (${response.status}): ${text}`;
+      const canRetry = shouldRetryStatus(response.status) && attempt < retryDelaysMs.length;
+      if (!canRetry) {
+        return errorResult(lastError);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      lastError = `Callback request failed: ${message}`;
+      if (attempt >= retryDelaysMs.length) {
+        return errorResult(lastError);
+      }
     }
 
-    const data = await response.json();
-    return successResult(JSON.stringify(data));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return errorResult(`Callback request failed: ${message}`);
+    await sleep(retryDelaysMs[attempt]!);
   }
+
+  return errorResult(lastError ?? 'Callback failed after retries');
 }
 
 async function callbackGet(
@@ -100,6 +139,12 @@ export const postMessageInputSchema = {
     .string()
     .optional()
     .describe('Optional message ID to reply to'),
+  clientMessageId: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional idempotency key for at-least-once delivery de-duplication'),
 };
 
 export const getPendingMentionsInputSchema = {};
@@ -133,10 +178,12 @@ export const updateTaskInputSchema = {
 export async function handlePostMessage(input: {
   content: string;
   replyTo?: string | undefined;
+  clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
   return callbackPost('/api/callbacks/post-message', {
     content: input.content,
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+    clientMessageId: input.clientMessageId ?? randomUUID(),
   });
 }
 

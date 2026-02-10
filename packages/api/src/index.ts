@@ -151,7 +151,7 @@ async function main(): Promise<void> {
   await app.register(configRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
-  await app.register(memoryRoutes, { memoryStore });
+  await app.register(memoryRoutes, { memoryStore, threadStore });
 
   // Evidence search (Hindsight Recall + docs fallback)
   const hindsightClient = createHindsightClient();
@@ -172,7 +172,13 @@ async function main(): Promise<void> {
 
   // Commands route needs opus service for task extraction
   const opusService = new ClaudeAgentService();
-  await app.register(commandsRoutes, { messageStore, taskStore, socketManager, opusService });
+  await app.register(commandsRoutes, {
+    messageStore,
+    taskStore,
+    socketManager,
+    opusService,
+    threadStore,
+  });
 
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';

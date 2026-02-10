@@ -18,6 +18,7 @@ describe('MCP Callback Tools', () => {
     process.env['CAT_CAFE_API_URL'] = 'http://127.0.0.1:3002';
     process.env['CAT_CAFE_INVOCATION_ID'] = 'test-invocation';
     process.env['CAT_CAFE_CALLBACK_TOKEN'] = 'test-token';
+    process.env['CAT_CAFE_CALLBACK_RETRY_DELAYS_MS'] = '0,0,0';
 
     // Save original fetch
     originalFetch = globalThis.fetch;
@@ -154,5 +155,38 @@ describe('MCP Callback Tools', () => {
 
     assert.equal(result.isError, true);
     assert.ok(result.content[0].text.includes('401'));
+  });
+
+  test('retries transient post failure and keeps same clientMessageId', async () => {
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let attempts = 0;
+    const observedIds = [];
+    globalThis.fetch = async (_url, options) => {
+      attempts += 1;
+      const body = JSON.parse(options.body);
+      observedIds.push(body.clientMessageId);
+
+      if (attempts === 1) {
+        return {
+          ok: false,
+          status: 503,
+          text: async () => 'Service unavailable',
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handlePostMessage({ content: 'retry me' });
+
+    assert.equal(result.isError, undefined);
+    assert.equal(attempts, 2);
+    assert.ok(observedIds[0], 'clientMessageId should be present');
+    assert.equal(observedIds[0], observedIds[1], 'same id must be reused across retries');
   });
 });
