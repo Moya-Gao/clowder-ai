@@ -180,7 +180,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   return (
     <div className="flex gap-2 mb-4 items-start">
-      {cat && <CatAvatar catId={message.catId!} size={32} />}
+      {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[75%]">
         {cat && (
           <div className="flex items-center gap-2 mb-1">
