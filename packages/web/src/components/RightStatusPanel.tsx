@@ -1,16 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import type { CatInvocationInfo } from '@/stores/chatStore';
-
-const CAT_INFO: Record<string, { name: string; color: string }> = {
-  opus: { name: '布偶猫', color: 'bg-opus-primary' },
-  codex: { name: '缅因猫', color: 'bg-codex-primary' },
-  gemini: { name: '暹罗猫', color: 'bg-gemini-primary' },
-};
-
-type IntentMode = 'execute' | 'ideate' | null;
-type CatStatus = 'pending' | 'streaming' | 'done' | 'error';
+import { apiFetch } from '@/utils/api-client';
+import {
+  CAT_INFO, modeLabel, statusLabel, statusTone, truncateId, formatDuration,
+  type IntentMode, type CatStatus,
+} from './status-helpers';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -31,49 +27,10 @@ export interface RightStatusPanelProps {
   };
 }
 
-function modeLabel(mode: IntentMode): string {
-  if (mode === 'ideate') return '独立观点采样';
-  if (mode === 'execute') return '执行';
-  return '空闲';
-}
-
-function statusLabel(status: CatStatus): string {
-  switch (status) {
-    case 'pending':
-      return '待命';
-    case 'streaming':
-      return '工作中';
-    case 'done':
-      return '完成';
-    case 'error':
-      return '异常';
-    default:
-      return '未知';
-  }
-}
-
-function statusTone(status: CatStatus): string {
-  switch (status) {
-    case 'pending':
-      return 'text-gray-500';
-    case 'streaming':
-      return 'text-green-600';
-    case 'done':
-      return 'text-emerald-700';
-    case 'error':
-      return 'text-red-600';
-    default:
-      return 'text-gray-500';
-  }
-}
-
-function truncateId(id: string, len = 8): string {
-  return id.length > len ? `${id.slice(0, len)}…` : id;
-}
-
-function formatDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
+interface AuditData {
+  logPath: string;
+  eventCount: number;
+  logFiles: string[];
 }
 
 export function RightStatusPanel({
@@ -88,6 +45,23 @@ export function RightStatusPanel({
   const cats = targetCats.length > 0
     ? Array.from(new Set(targetCats))
     : ['opus', 'codex', 'gemini'];
+
+  const [auditData, setAuditData] = useState<AuditData | null>(null);
+
+  const fetchAudit = useCallback(async () => {
+    try {
+      const res = await apiFetch(`/api/audit/thread/${threadId}`);
+      if (!res.ok) return;
+      const data = await res.json() as { logPath: string; logFiles: string[]; events: unknown[] };
+      setAuditData({
+        logPath: data.logPath,
+        eventCount: data.events.length,
+        logFiles: data.logFiles,
+      });
+    } catch { /* silently ignore audit fetch failures */ }
+  }, [threadId]);
+
+  useEffect(() => { fetchAudit(); }, [fetchAudit]);
 
   return (
     <aside className="hidden lg:flex w-72 border-l border-owner-light bg-white/90 px-4 py-4 flex-col gap-4 overflow-y-auto">
@@ -193,6 +167,24 @@ export function RightStatusPanel({
           </div>
         </div>
       </section>
+
+      {auditData && (
+        <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+          <h3 className="text-xs font-semibold text-gray-700 mb-2">审计日志</h3>
+          <div className="text-xs space-y-1.5">
+            <a
+              href={`vscode://file${auditData.logPath}`}
+              className="text-blue-600 hover:text-blue-800 underline block truncate"
+              title={auditData.logPath}
+            >
+              在 VSCode 中打开
+            </a>
+            <div className="text-gray-500">
+              {auditData.eventCount} 条事件 · {auditData.logFiles.length} 个日志文件
+            </div>
+          </div>
+        </section>
+      )}
     </aside>
   );
 }

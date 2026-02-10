@@ -1,0 +1,47 @@
+/**
+ * Shared helper functions for RightStatusPanel and related components.
+ */
+
+export type IntentMode = 'execute' | 'ideate' | null;
+export type CatStatus = 'pending' | 'streaming' | 'done' | 'error';
+
+export const CAT_INFO: Record<string, { name: string; color: string }> = {
+  opus: { name: '布偶猫', color: 'bg-opus-primary' },
+  codex: { name: '缅因猫', color: 'bg-codex-primary' },
+  gemini: { name: '暹罗猫', color: 'bg-gemini-primary' },
+};
+
+export function modeLabel(mode: IntentMode): string {
+  if (mode === 'ideate') return '独立观点采样';
+  if (mode === 'execute') return '执行';
+  return '空闲';
+}
+
+export function statusLabel(status: CatStatus): string {
+  switch (status) {
+    case 'pending': return '待命';
+    case 'streaming': return '工作中';
+    case 'done': return '完成';
+    case 'error': return '异常';
+    default: return '未知';
+  }
+}
+
+export function statusTone(status: CatStatus): string {
+  switch (status) {
+    case 'pending': return 'text-gray-500';
+    case 'streaming': return 'text-green-600';
+    case 'done': return 'text-emerald-700';
+    case 'error': return 'text-red-600';
+    default: return 'text-gray-500';
+  }
+}
+
+export function truncateId(id: string, len = 8): string {
+  return id.length > len ? `${id.slice(0, len)}…` : id;
+}
+
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}

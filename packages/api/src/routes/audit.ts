@@ -3,7 +3,7 @@
  * GET /api/audit/thread/:threadId — 返回指定 thread 的审计事件
  *
  * 安全:
- * - 不暴露服务器绝对路径
+ * - logPath 暴露本地绝对路径 (铲屎官要求 VSCode 跳转, 本地开发工具可接受)
  * - 通过 resolveUserId 解析身份 (header > query fallback)
  * - 校验 userId 与 thread.createdBy 一致 (ownership guard)
  */
@@ -44,7 +44,9 @@ export const auditRoutes: FastifyPluginAsync<AuditRoutesOptions> = async (app, o
 
       const auditLog = getEventAuditLog();
       const events = await auditLog.readByThread(threadId, { days: 7 });
-      return { events };
+      const logPath = auditLog.getLogPath();
+      const logFiles = await auditLog.listFiles();
+      return { events, logPath, logFiles };
     }
   );
 };
