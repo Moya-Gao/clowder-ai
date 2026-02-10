@@ -15,6 +15,16 @@ export interface MessageMetadata {
 }
 
 /**
+ * Correlation fields used by audit pipelines to connect service-level events.
+ */
+export interface AuditContext {
+  invocationId: string;
+  threadId: string;
+  userId: string;
+  catId: CatId;
+}
+
+/**
  * Types of messages that can be yielded from an agent
  */
 export type AgentMessageType =
@@ -69,6 +79,8 @@ export interface AgentServiceOptions {
   uploadDir?: string;
   /** AbortSignal to cancel the invocation */
   signal?: AbortSignal;
+  /** Correlation context for audit logging and raw trace linking */
+  auditContext?: AuditContext;
 }
 
 /**

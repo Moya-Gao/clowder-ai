@@ -108,6 +108,12 @@ export async function* invokeSingleCat(
     const options: AgentServiceOptions = {
       ...(sessionId ? { sessionId } : {}),
       callbackEnv,
+      auditContext: {
+        invocationId,
+        threadId,
+        userId,
+        catId,
+      },
       ...(workingDirectory ? { workingDirectory } : {}),
       ...(params.contentBlocks ? { contentBlocks: params.contentBlocks } : {}),
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),

@@ -1043,6 +1043,41 @@ describe('AgentRouter', () => {
     assert.equal(receivedOptions.workingDirectory, undefined);
   });
 
+  test('passes auditContext with invocation correlation fields', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/AgentRouter.js'
+    );
+
+    let receivedOptions = null;
+    const mockClaudeService = {
+      invoke: mock.fn(async function* (_prompt, options) {
+        receivedOptions = options;
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter({
+      claudeService: mockClaudeService,
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    for await (const _ of router.route('user-1', '@opus hello', 'thread-audit')) {
+      // consume
+    }
+
+    assert.ok(receivedOptions);
+    assert.deepEqual(receivedOptions.auditContext, {
+      invocationId: 'inv-1',
+      threadId: 'thread-audit',
+      userId: 'user-1',
+      catId: 'opus',
+    });
+  });
+
   test('identity injection: opus prompt contains 布偶猫', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/AgentRouter.js'
