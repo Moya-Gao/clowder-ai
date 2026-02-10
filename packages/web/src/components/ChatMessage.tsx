@@ -103,13 +103,15 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   if (isSummary && message.summary) {
     return (
-      <SummaryCard
-        topic={message.summary.topic}
-        conclusions={message.summary.conclusions}
-        openQuestions={message.summary.openQuestions}
-        createdBy={message.summary.createdBy}
-        timestamp={message.timestamp}
-      />
+      <div data-message-id={message.id}>
+        <SummaryCard
+          topic={message.summary.topic}
+          conclusions={message.summary.conclusions}
+          openQuestions={message.summary.openQuestions}
+          createdBy={message.summary.createdBy}
+          timestamp={message.timestamp}
+        />
+      </div>
     );
   }
 
@@ -122,7 +124,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
     return (
-      <div className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
+      <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
         <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${
           isTool
             ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
@@ -146,7 +148,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end gap-2 mb-4 items-start">
+      <div data-message-id={message.id} className="flex justify-end gap-2 mb-4 items-start">
         <div className="max-w-[75%]">
           <div className="flex justify-end items-center gap-2 mb-1">
             <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
@@ -178,7 +180,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   }
 
   return (
-    <div className="flex gap-2 mb-4 items-start">
+    <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
       {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[75%]">
         {cat && (
