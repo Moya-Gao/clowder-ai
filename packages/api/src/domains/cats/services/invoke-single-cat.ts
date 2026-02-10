@@ -86,6 +86,8 @@ export async function* invokeSingleCat(
     console.warn('[audit] CAT_INVOKED write failed', { threadId, invocationId, err });
   });
 
+  let hadStreamError = false;
+
   try {
     let sessionId: string | undefined;
     try {
@@ -120,7 +122,14 @@ export async function* invokeSingleCat(
       ...(signal ? { signal } : {}),
     };
 
+    let lastErrorMessage: string | undefined;
+
     for await (const msg of service.invoke(prompt, options)) {
+      if (msg.type === 'error') {
+        hadStreamError = true;
+        lastErrorMessage = msg.error;
+      }
+
       if (msg.type === 'session_init' && msg.sessionId) {
         try {
           await sessionManager.store(userId, catId, threadId, msg.sessionId);
@@ -142,21 +151,24 @@ export async function* invokeSingleCat(
       }
 
       if (msg.type === 'done') {
-        // === CAT_RESPONDED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
+        // === CAT_RESPONDED / CAT_ERROR 审计 (fire-and-forget) ===
+        // P1 fix: when error was yielded during stream, emit CAT_ERROR instead of CAT_RESPONDED
         const durationMs = Date.now() - startTime;
+        const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.CAT_RESPONDED;
         auditLog.append({
-          type: AuditEventTypes.CAT_RESPONDED,
+          type: auditType,
           threadId,
           data: {
             catId,
             userId,
             invocationId,
             durationMs,
+            ...(hadStreamError ? { error: lastErrorMessage ?? 'unknown stream error' } : {}),
             isFinal: isLastCat,
             metadata: msg.metadata,
           },
         }).catch((err) => {
-          console.warn('[audit] CAT_RESPONDED write failed', { threadId, invocationId, err });
+          console.warn(`[audit] ${auditType} write failed`, { threadId, invocationId, err });
         });
 
         // Push completion metrics for frontend status panel

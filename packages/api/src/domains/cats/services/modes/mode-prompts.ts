@@ -50,6 +50,7 @@ export function buildBrainstormPrompt(
     lines.push('- 回应和讨论已有的观点');
     lines.push('- 指出共识和分歧');
     lines.push('- 提出新的综合思路或挑战现有假设');
+    lines.push('- 如果你需要铲屎官的意见或决策，在回复中写 @铲屎官');
   }
 
   return lines.join('\n');

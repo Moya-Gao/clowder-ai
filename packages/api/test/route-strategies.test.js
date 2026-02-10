@@ -715,3 +715,77 @@ describe('routeParallel A2A safety', () => {
     assert.ok(codexText.length > 0, 'codex should have text');
   });
 });
+
+// ── P1 Bug: CLI error + empty message persistence ──
+
+/** Mock service that yields only error + done (simulates CLI exit code 1 with no text) */
+function createErrorOnlyService(catId) {
+  return {
+    async *invoke() {
+      yield { type: 'error', catId, error: 'CLI 异常退出 (code: 1, signal: none)', timestamp: Date.now() };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+describe('routeSerial: CLI error without text should not persist empty message (P1)', () => {
+  it('does NOT call messageStore.append when cat yields error + done with no text', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      codex: createErrorOnlyService('codex'),
+    }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    // Error should be yielded to frontend
+    const errorMsgs = messages.filter(m => m.type === 'error');
+    assert.ok(errorMsgs.length > 0, 'error message should be yielded to frontend');
+
+    // Empty assistant message should NOT be persisted
+    const catAppends = appendCalls.filter(c => c.catId === 'codex');
+    assert.equal(catAppends.length, 0, 'should NOT persist empty assistant message when hadError && no text');
+
+    // Done should still be yielded
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.ok(doneMsgs.length > 0, 'done should still be yielded');
+  });
+
+  it('still persists message normally when cat yields text + done (no error)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      codex: createMockService('codex', 'normal response'),
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {}
+
+    const catAppends = appendCalls.filter(c => c.catId === 'codex');
+    assert.equal(catAppends.length, 1, 'normal response should be persisted');
+    assert.equal(catAppends[0].content, 'normal response');
+  });
+
+  it('still persists message when cat yields error + text + done (partial response)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      codex: {
+        async *invoke() {
+          yield { type: 'text', catId: 'codex', content: 'partial output before error', timestamp: Date.now() };
+          yield { type: 'error', catId: 'codex', error: 'timeout', timestamp: Date.now() };
+          yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+        },
+      },
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {}
+
+    // Partial text should still be persisted (there was actual content)
+    const catAppends = appendCalls.filter(c => c.catId === 'codex');
+    assert.equal(catAppends.length, 1, 'partial response with text should still be persisted');
+    assert.equal(catAppends[0].content, 'partial output before error');
+  });
+});

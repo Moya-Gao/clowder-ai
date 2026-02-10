@@ -93,17 +93,36 @@ export class ModeOrchestrator {
     }
 
     // Detect cat-initiated mode switch proposals in accumulated full text
+    // P2-4: check switchRequiresApproval config to determine behavior
+    const switchRequiresApproval = (process.env['MODE_SWITCH_REQUIRES_APPROVAL'] ?? 'true') !== 'false';
+
     for (const catId of doneCatIds) {
       const fullText = textByCat.get(catId) ?? '';
       const match = MODE_SWITCH_PATTERN.exec(fullText);
       if (match) {
         const proposedMode = match[1]!;
-        yield {
-          type: 'system_info',
-          catId,
-          content: `${catId} 提议切换到 ${proposedMode} 模式。使用 /mode ${proposedMode} 切换，或忽略此建议。`,
-          timestamp: Date.now(),
-        } as AgentMessage;
+        if (switchRequiresApproval) {
+          // Default: user must approve the switch
+          yield {
+            type: 'system_info',
+            catId,
+            content: `${catId} 提议切换到 ${proposedMode} 模式。使用 /mode ${proposedMode} 切换，或忽略此建议。`,
+            timestamp: Date.now(),
+          } as AgentMessage;
+        } else {
+          // Auto-switch enabled: emit structured proposal for frontend auto-execution
+          yield {
+            type: 'system_info',
+            catId,
+            content: JSON.stringify({
+              type: 'mode_switch_proposal',
+              proposedMode,
+              proposedBy: catId,
+              autoSwitch: true,
+            }),
+            timestamp: Date.now(),
+          } as AgentMessage;
+        }
         break; // Only detect first proposal
       }
     }

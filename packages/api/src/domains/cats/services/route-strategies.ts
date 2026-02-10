@@ -403,8 +403,8 @@ export async function* routeSerial(
           timestamp: Date.now(),
         } as AgentMessage;
       }
-    } else {
-      // No text content — still store empty mentions, degrade on failure
+    } else if (!hadError) {
+      // No text content and no error — store empty message (cat responded with no text)
       try {
         await deps.messageStore.append({
           userId,
@@ -426,6 +426,8 @@ export async function* routeSerial(
         }
       }
     }
+    // hadError && textContent === '' → skip persistence entirely (P1 bug fix)
+    // Error events were already yielded to frontend via the stream.
 
     if (incrementalMode && !hadError && deliveryBoundaryId) {
       if (options.cursorBoundaries) {

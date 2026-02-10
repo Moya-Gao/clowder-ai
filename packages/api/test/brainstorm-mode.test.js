@@ -66,6 +66,24 @@ describe('BrainstormMode', () => {
   });
 });
 
+describe('BrainstormMode per-cat prompt (P2-6)', () => {
+  it('builds different prompts for each participant', async () => {
+    const { buildBrainstormPrompt } = await import('../dist/domains/cats/services/modes/mode-prompts.js');
+    const config = { topic: 'AI 安全', participants: ['opus', 'codex'] };
+    const state = { roundOneComplete: true, currentRound: 2 };
+
+    const promptOpus = buildBrainstormPrompt(config, state, 'opus');
+    const promptCodex = buildBrainstormPrompt(config, state, 'codex');
+
+    // Opus should see Codex as other participant
+    assert.ok(promptOpus.includes('缅因猫'), 'opus prompt should list codex as other');
+    // Codex should see Opus as other participant
+    assert.ok(promptCodex.includes('布偶猫'), 'codex prompt should list opus as other');
+    // They should be different
+    assert.notEqual(promptOpus, promptCodex, 'prompts should differ per cat');
+  });
+});
+
 describe('ModeOrchestrator', () => {
   it('dispatches to registered handler and updates state', async () => {
     const modeStore = new ModeStore();
@@ -337,6 +355,107 @@ describe('ModeOrchestrator', () => {
     const history = modeStore.getModeHistory('thread-autoend');
     assert.ok(history.length > 0);
     assert.ok(history[history.length - 1].endedAt);
+  });
+
+  it('P2-4: mode switch proposal respects switchRequiresApproval=false', async () => {
+    const modeStore = new ModeStore();
+    const orchestrator = new ModeOrchestrator({ modeStore });
+
+    // Set auto-switch enabled
+    const origEnv = process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+    process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = 'false';
+
+    const switchHandler = {
+      async *execute() {
+        yield { type: 'text', catId: 'opus', content: '切换\n@mode:debate', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+      getNextState(_config, state) { return state; },
+      shouldAutoEnd() { return false; },
+    };
+    orchestrator.registerHandler('brainstorm', switchHandler);
+
+    modeStore.startMode(
+      'thread-autoswitch',
+      'brainstorm',
+      { topic: '自动切换测试', participants: ['opus'] },
+      'user-1',
+      createInitialState('brainstorm'),
+    );
+
+    const ctx = {
+      strategyDeps: {},
+      message: 'test',
+      userId: 'user-1',
+      threadId: 'thread-autoswitch',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of orchestrator.execute(ctx)) {
+      messages.push(msg);
+    }
+
+    // Should emit structured auto-switch proposal instead of human-readable text
+    const proposal = messages.find(m => m.type === 'system_info' && m.content.includes('mode_switch_proposal'));
+    assert.ok(proposal, 'should emit structured mode_switch_proposal');
+    const parsed = JSON.parse(proposal.content);
+    assert.equal(parsed.proposedMode, 'debate');
+    assert.equal(parsed.autoSwitch, true);
+
+    // Restore env
+    if (origEnv === undefined) {
+      delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+    } else {
+      process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = origEnv;
+    }
+  });
+
+  it('P2-4: mode switch proposal shows human text when switchRequiresApproval=true (default)', async () => {
+    const modeStore = new ModeStore();
+    const orchestrator = new ModeOrchestrator({ modeStore });
+
+    // Ensure default (true)
+    delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+
+    const switchHandler = {
+      async *execute() {
+        yield { type: 'text', catId: 'opus', content: '切换\n@mode:debate', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+      getNextState(_config, state) { return state; },
+      shouldAutoEnd() { return false; },
+    };
+    orchestrator.registerHandler('brainstorm', switchHandler);
+
+    modeStore.startMode(
+      'thread-manualswitch',
+      'brainstorm',
+      { topic: '手动切换测试', participants: ['opus'] },
+      'user-1',
+      createInitialState('brainstorm'),
+    );
+
+    const ctx = {
+      strategyDeps: {},
+      message: 'test',
+      userId: 'user-1',
+      threadId: 'thread-manualswitch',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of orchestrator.execute(ctx)) {
+      messages.push(msg);
+    }
+
+    // Should emit human-readable suggestion, NOT structured auto-switch
+    const proposal = messages.find(m => m.type === 'system_info');
+    assert.ok(proposal);
+    assert.ok(proposal.content.includes('切换'), 'should contain human-readable switch instruction');
+    assert.ok(!proposal.content.includes('mode_switch_proposal'), 'should NOT be structured auto-switch');
   });
 
   it('debate handler is auto-registered and can dispatch', async () => {
