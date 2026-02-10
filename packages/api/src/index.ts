@@ -64,6 +64,19 @@ async function main(): Promise<void> {
   redisClient = redis ?? null;
 
   // Fail-closed: refuse to start without Redis unless explicitly opted into memory mode.
+  // Also verify Redis is actually reachable (PING), not just configured.
+  if (redis) {
+    try {
+      await redis.ping();
+      app.log.info('[api] Redis PING OK');
+    } catch (err) {
+      await redis.quit().catch(() => {});
+      throw new Error(
+        `[api] Redis PING failed: ${err instanceof Error ? err.message : err}. `
+        + 'Check REDIS_URL or set MEMORY_STORE=1 for memory mode.',
+      );
+    }
+  }
   const storageResult = assertStorageReady(!!redis);
   app.log.info(`[api] Storage mode: ${storageResult.mode}`);
 

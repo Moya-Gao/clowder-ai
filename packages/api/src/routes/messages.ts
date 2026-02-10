@@ -279,19 +279,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
 
             // ADR-008 S3: cursor advances ONLY after succeeded
             await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
-          }
 
-          // Fire-and-forget: auto-summarize if threshold met
-          if (opts.autoSummarizer) {
-            opts.autoSummarizer.maybeSummarize(resolvedThreadId).then((summary) => {
-              if (summary) {
-                opts.socketManager.broadcastToRoom(
-                  `thread:${resolvedThreadId}`,
-                  'thread_summary',
-                  summary,
-                );
-              }
-            }).catch(() => { /* ignore */ });
+            // Fire-and-forget: auto-summarize if threshold met (only on success)
+            if (opts.autoSummarizer) {
+              opts.autoSummarizer.maybeSummarize(resolvedThreadId).then((summary) => {
+                if (summary) {
+                  opts.socketManager.broadcastToRoom(
+                    `thread:${resolvedThreadId}`,
+                    'thread_summary',
+                    summary,
+                  );
+                }
+              }).catch(() => { /* ignore */ });
+            }
           }
         } catch (err) {
           console.error('[messages] Background processing error:', err);
