@@ -45,6 +45,8 @@ export type AppendMessageInput = Omit<StoredMessage, 'id' | 'threadId'> & {
  */
 export interface IMessageStore {
   append(msg: AppendMessageInput): StoredMessage | Promise<StoredMessage>;
+  /** Get a single message by its ID. Returns null if not found. */
+  getById(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
@@ -101,6 +103,13 @@ export class MessageStore {
     }
 
     return stored;
+  }
+
+  /**
+   * Get a single message by its ID. Returns null if not found.
+   */
+  getById(id: string): StoredMessage | null {
+    return this.messages.find((m) => m.id === id) ?? null;
   }
 
   /**

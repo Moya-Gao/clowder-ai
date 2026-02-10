@@ -89,6 +89,25 @@ export class RedisMessageStore {
     return stored;
   }
 
+  async getById(id: string): Promise<StoredMessage | null> {
+    const data = await this.redis.hgetall(MessageKeys.detail(id));
+    if (!data || !data['id']) return null;
+
+    const contentBlocks = safeParseContentBlocks(data['contentBlocks']);
+    const parsedMetadata = safeParseMetadata(data['metadata']);
+    return {
+      id: data['id'],
+      threadId: data['threadId'] || DEFAULT_THREAD_ID,
+      userId: data['userId'] ?? 'unknown',
+      catId: (data['catId'] || null) as CatId | null,
+      content: data['content'] ?? '',
+      ...(contentBlocks ? { contentBlocks } : {}),
+      ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
+      mentions: safeParseMentions(data['mentions']),
+      timestamp: parseInt(data['timestamp'] ?? '0', 10),
+    };
+  }
+
   async getRecent(limit?: number, userId?: string): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = userId ? MessageKeys.user(userId) : MessageKeys.TIMELINE;
