@@ -15,7 +15,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
-import { ClaudeAgentService, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
+import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -69,11 +69,24 @@ async function main(): Promise<void> {
   const memoryStore = createMemoryStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
 
+  // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
+  const router = new AgentRouter({
+    claudeService: new ClaudeAgentService(),
+    codexService: new CodexAgentService(),
+    geminiService: new GeminiAgentService(),
+    registry,
+    messageStore,
+    ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
+    ...(sessionStore ? { sessionStore } : {}),
+    ...(threadStore ? { threadStore } : {}),
+  });
+
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
     messageStore,
     socketManager,
+    router,
     deliveryCursorStore,
     ...(sessionStore ? { sessionStore } : {}),
     threadStore,

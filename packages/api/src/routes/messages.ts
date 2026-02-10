@@ -19,12 +19,7 @@ import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
 import type { MessageContent } from '@cat-cafe/shared';
-import {
-  ClaudeAgentService,
-  CodexAgentService,
-  GeminiAgentService,
-  AgentRouter,
-} from '../domains/cats/services/index.js';
+import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
@@ -44,6 +39,7 @@ export interface MessagesRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
+  router: AgentRouter;
   sessionStore?: SessionStore;
   deliveryCursorStore?: DeliveryCursorStore;
   threadStore?: IThreadStore;
@@ -72,17 +68,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     limits: { fileSize: MAX_FILE_SIZE, files: MAX_FILES },
   });
 
-  // Create agent router with all three services
-  const router = new AgentRouter({
-    claudeService: new ClaudeAgentService(),
-    codexService: new CodexAgentService(),
-    geminiService: new GeminiAgentService(),
-    registry: opts.registry,
-    messageStore: opts.messageStore,
-    ...(opts.deliveryCursorStore ? { deliveryCursorStore: opts.deliveryCursorStore } : {}),
-    ...(opts.sessionStore ? { sessionStore: opts.sessionStore } : {}),
-    ...(opts.threadStore ? { threadStore: opts.threadStore } : {}),
-  });
+  // Shared AgentRouter injected via opts (created in index.ts)
+  const router = opts.router;
 
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
