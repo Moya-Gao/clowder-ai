@@ -147,7 +147,7 @@ export function RightStatusPanel({
 
       {Object.keys(catInvocations).length > 0 && (
         <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-          <h3 className="text-xs font-semibold text-gray-700 mb-2">会话信息</h3>
+          <h3 className="text-xs font-semibold text-gray-700 mb-2">最近调用</h3>
           <div className="space-y-2">
             {cats.map((catId) => {
               const inv = catInvocations[catId];
@@ -158,15 +158,22 @@ export function RightStatusPanel({
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className={`inline-block h-2 w-2 rounded-full ${info.color}`} />
                     <span className="font-medium text-gray-700">{info.name}</span>
-                  </div>
-                  <div className="ml-3.5 text-gray-500 space-y-0.5">
-                    {inv.sessionId && (
-                      <div>Session: <code className="text-gray-600">{truncateId(inv.sessionId)}</code></div>
-                    )}
                     {inv.durationMs != null && (
-                      <div>耗时: <span className="text-gray-600 font-medium">{formatDuration(inv.durationMs)}</span></div>
+                      <span className="text-gray-500 ml-auto">{formatDuration(inv.durationMs)}</span>
+                    )}
+                    {inv.startedAt && !inv.durationMs && (
+                      <span className="text-green-600 ml-auto">进行中…</span>
                     )}
                   </div>
+                  {inv.sessionId && (
+                    <button
+                      className="ml-3.5 text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
+                      title={`点击复制: ${inv.sessionId}`}
+                      onClick={() => navigator.clipboard.writeText(inv.sessionId!)}
+                    >
+                      {truncateId(inv.sessionId, 12)}
+                    </button>
+                  )}
                 </div>
               );
             })}
