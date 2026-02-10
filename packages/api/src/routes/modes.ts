@@ -130,6 +130,16 @@ export const modesRoutes: FastifyPluginAsync<ModesRoutesOptions> = async (app, o
     '/api/threads/:threadId/mode',
     async (request, reply) => {
       const { threadId } = request.params;
+      const userId = resolveUserId(request);
+      const thread = await threadStore.get(threadId);
+      if (!thread) {
+        reply.status(404);
+        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+      }
+      if (thread.createdBy !== userId) {
+        reply.status(403);
+        return { error: '无权查看此对话的模式', code: 'FORBIDDEN' };
+      }
       const mode = await modeStore.getMode(threadId);
       return { mode };
     },
@@ -171,6 +181,16 @@ export const modesRoutes: FastifyPluginAsync<ModesRoutesOptions> = async (app, o
     '/api/threads/:threadId/mode/history',
     async (request, reply) => {
       const { threadId } = request.params;
+      const userId = resolveUserId(request);
+      const thread = await threadStore.get(threadId);
+      if (!thread) {
+        reply.status(404);
+        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+      }
+      if (thread.createdBy !== userId) {
+        reply.status(403);
+        return { error: '无权查看此对话的模式历史', code: 'FORBIDDEN' };
+      }
       const history = await modeStore.getModeHistory(threadId);
       return { history };
     },

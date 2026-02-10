@@ -116,8 +116,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
     });
 
-    // F11: mode lifecycle
+    // F11: mode lifecycle (thread-filtered, same as agent_message)
     socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
+      const currentThread = threadIdRef.current;
+      if (data.threadId && currentThread && data.threadId !== currentThread) return;
       callbacks.onModeChanged?.(data);
     });
 

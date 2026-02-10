@@ -345,6 +345,7 @@ describe('Mode Routes', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/threads/thread-1/mode',
+        headers: AUTH,
       });
 
       assert.equal(res.statusCode, 200);
@@ -370,12 +371,45 @@ describe('Mode Routes', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/threads/thread-1/mode',
+        headers: AUTH,
       });
 
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.body);
       assert.equal(body.mode.record.name, 'brainstorm');
       assert.deepEqual(body.mode.record.config.participants, ['opus', 'gemini']);
+
+      await app.close();
+    });
+
+    it('returns 403 when non-owner reads mode', async () => {
+      const { app } = await buildApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/threads/thread-1/mode',
+        headers: { 'x-cat-cafe-user': 'other-user' },
+      });
+
+      assert.equal(res.statusCode, 403);
+      const body = JSON.parse(res.body);
+      assert.equal(body.code, 'FORBIDDEN');
+
+      await app.close();
+    });
+
+    it('returns 404 for nonexistent thread', async () => {
+      const { app } = await buildApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/threads/nonexistent/mode',
+        headers: AUTH,
+      });
+
+      assert.equal(res.statusCode, 404);
+      const body = JSON.parse(res.body);
+      assert.equal(body.code, 'THREAD_NOT_FOUND');
 
       await app.close();
     });
@@ -503,6 +537,7 @@ describe('Mode Routes', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/threads/thread-1/mode/history',
+        headers: AUTH,
       });
 
       assert.equal(res.statusCode, 200);
@@ -546,6 +581,7 @@ describe('Mode Routes', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/threads/thread-1/mode/history',
+        headers: AUTH,
       });
 
       assert.equal(res.statusCode, 200);
@@ -555,6 +591,38 @@ describe('Mode Routes', () => {
       assert.equal(body.history[0].outcome, '结论A');
       assert.ok(body.history[0].endedAt);
       assert.equal(body.history[1].name, 'debate');
+
+      await app.close();
+    });
+
+    it('returns 403 when non-owner reads history', async () => {
+      const { app } = await buildApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/threads/thread-1/mode/history',
+        headers: { 'x-cat-cafe-user': 'other-user' },
+      });
+
+      assert.equal(res.statusCode, 403);
+      const body = JSON.parse(res.body);
+      assert.equal(body.code, 'FORBIDDEN');
+
+      await app.close();
+    });
+
+    it('returns 404 for nonexistent thread history', async () => {
+      const { app } = await buildApp();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/threads/nonexistent/mode/history',
+        headers: AUTH,
+      });
+
+      assert.equal(res.statusCode, 404);
+      const body = JSON.parse(res.body);
+      assert.equal(body.code, 'THREAD_NOT_FOUND');
 
       await app.close();
     });
