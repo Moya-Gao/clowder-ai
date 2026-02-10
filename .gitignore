@@ -61,6 +61,7 @@ temp/
 
 # Redis dump
 dump.rdb
+dump.rdb.backup*
 
 # TypeScript build info
 *.tsbuildinfo
