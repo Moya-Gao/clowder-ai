@@ -3,18 +3,32 @@
  * GET  /api/invocations/:id       — 查询 InvocationRecord 状态
  * POST /api/invocations/:id/retry — 重试 failed/queued invocation
  *
- * ADR-008 S1: InvocationRecord 查询 + 重试端点
+ * ADR-008 S1: InvocationRecord 查询 + 重试端点桩
+ * ADR-008 S2: retry 端点接通实际执行
  */
 
 import type { FastifyPluginAsync } from 'fastify';
+import { createCatId } from '@cat-cafe/shared';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
+import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
+import type { AgentRouter } from '../domains/cats/services/AgentRouter.js';
+import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { parseIntent } from '../domains/cats/services/IntentParser.js';
 
 export interface InvocationsRoutesOptions {
   invocationRecordStore: IInvocationRecordStore;
+  messageStore: IMessageStore;
+  socketManager: SocketManager;
+  router: AgentRouter;
+  invocationTracker: InvocationTracker;
+  uploadDir?: string;
 }
 
 export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
   async (app, opts) => {
+
+  const uploadDir = opts.uploadDir ?? process.env['UPLOAD_DIR'] ?? './uploads';
 
   // GET /api/invocations/:id — query InvocationRecord state
   app.get<{ Params: { id: string } }>('/api/invocations/:id', async (request, reply) => {
@@ -40,17 +54,18 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
     };
   });
 
-  // POST /api/invocations/:id/retry — retry failed/queued invocation
+  // POST /api/invocations/:id/retry — retry failed/queued invocation (ADR-008 S2)
   app.post<{ Params: { id: string } }>('/api/invocations/:id/retry', async (request, reply) => {
     const { id } = request.params;
     const record = await opts.invocationRecordStore.get(id);
 
+    // ① Not found
     if (!record) {
       reply.status(404);
       return { error: 'Invocation not found', code: 'INVOCATION_NOT_FOUND' };
     }
 
-    // Only failed and queued are retryable
+    // ② Only failed and queued are retryable
     if (record.status !== 'failed' && record.status !== 'queued') {
       reply.status(409);
       return {
@@ -60,13 +75,110 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
       };
     }
 
-    // Reset to queued for re-execution (actual execution will be wired in S2+)
-    await opts.invocationRecordStore.update(id, { status: 'queued' });
+    // ③ Need the original user message to re-execute
+    if (record.userMessageId === null) {
+      reply.status(400);
+      return {
+        error: '原始消息未保存，请重新发送',
+        code: 'USER_MESSAGE_NOT_SAVED',
+      };
+    }
 
-    return {
-      status: 'queued',
+    const storedMessage = await opts.messageStore.getById(record.userMessageId);
+    if (!storedMessage) {
+      reply.status(400);
+      return {
+        error: '原始消息已过期或被删除，请重新发送',
+        code: 'USER_MESSAGE_EXPIRED',
+      };
+    }
+
+    // ④ Rebuild intent from stored content + targetCats
+    const intent = parseIntent(storedMessage.content, record.targetCats.length);
+
+    // ⑤ Delete guard check
+    if (opts.invocationTracker.isDeleting(record.threadId)) {
+      reply.status(409);
+      return {
+        error: '对话正在删除中',
+        detail: '请稍后重试，或新建一个对话继续',
+        code: 'THREAD_DELETING',
+      };
+    }
+
+    // ⑥ Start invocation tracking (may abort prior invocation for this thread)
+    const controller = opts.invocationTracker.start(record.threadId, record.userId);
+    if (controller.signal.aborted) {
+      await opts.invocationRecordStore.update(id, { status: 'canceled' });
+      reply.status(409);
+      return {
+        error: '对话正在删除中',
+        detail: '请稍后重试，或新建一个对话继续',
+        code: 'THREAD_DELETING',
+      };
+    }
+
+    // ⑦ Reply 202 immediately
+    reply.status(202);
+    reply.send({
+      status: 'retrying',
       invocationId: id,
-      message: 'Invocation queued for retry',
-    };
+    });
+
+    // ⑧ Background: running → routeExecution() → succeeded/failed
+    void (async () => {
+      const HEARTBEAT_INTERVAL_MS = 30_000;
+      const heartbeatInterval = setInterval(() => {
+        opts.socketManager.broadcastToRoom(
+          `thread:${record.threadId}`,
+          'heartbeat',
+          { threadId: record.threadId, timestamp: Date.now() },
+        );
+      }, HEARTBEAT_INTERVAL_MS);
+
+      try {
+        await opts.invocationRecordStore.update(id, { status: 'running' });
+
+        opts.socketManager.broadcastToRoom(
+          `thread:${record.threadId}`,
+          'intent_mode',
+          { threadId: record.threadId, mode: intent.intent, targetCats: record.targetCats },
+        );
+
+        for await (const msg of opts.router.routeExecution(
+          record.userId,
+          storedMessage.content,
+          record.threadId,
+          storedMessage.id,
+          record.targetCats,
+          intent,
+          {
+            ...(storedMessage.contentBlocks ? { contentBlocks: storedMessage.contentBlocks } : {}),
+            uploadDir,
+            signal: controller.signal,
+          },
+        )) {
+          opts.socketManager.broadcastAgentMessage(msg, record.threadId);
+        }
+
+        await opts.invocationRecordStore.update(id, { status: 'succeeded' });
+      } catch (err) {
+        console.error('[invocations] Retry execution error:', err);
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+        await opts.invocationRecordStore.update(id, {
+          status: 'failed',
+          error: errorMsg,
+        });
+        opts.socketManager.broadcastAgentMessage({
+          type: 'error',
+          catId: createCatId('opus'),
+          error: errorMsg,
+          timestamp: Date.now(),
+        }, record.threadId);
+      } finally {
+        clearInterval(heartbeatInterval);
+        opts.invocationTracker.complete(record.threadId, controller);
+      }
+    })();
   });
 };

@@ -93,7 +93,13 @@ async function main(): Promise<void> {
     invocationTracker,
     invocationRecordStore,
   });
-  await app.register(invocationsRoutes, { invocationRecordStore });
+  await app.register(invocationsRoutes, {
+    invocationRecordStore,
+    messageStore,
+    socketManager,
+    router,
+    invocationTracker,
+  });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });
   await app.register(threadsRoutes, {
