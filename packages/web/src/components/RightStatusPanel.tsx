@@ -7,6 +7,7 @@ import {
   CAT_INFO, modeLabel, statusLabel, statusTone, truncateId, formatDuration,
   type IntentMode, type CatStatus,
 } from './status-helpers';
+import { CatConfigViewer } from './CatConfigViewer';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -47,6 +48,7 @@ export function RightStatusPanel({
     : ['opus', 'codex', 'gemini'];
 
   const [auditData, setAuditData] = useState<AuditData | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
 
   const fetchAudit = useCallback(async () => {
     try {
@@ -73,7 +75,15 @@ export function RightStatusPanel({
       </div>
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">猫猫状态</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-semibold text-gray-700">猫猫状态</h3>
+          <button
+            onClick={() => setConfigOpen(true)}
+            className="text-[10px] text-blue-500 hover:text-blue-700 transition-colors"
+          >
+            配置
+          </button>
+        </div>
         <div className="space-y-2">
           {cats.map((catId) => {
             const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
@@ -172,19 +182,14 @@ export function RightStatusPanel({
         <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
           <h3 className="text-xs font-semibold text-gray-700 mb-2">审计日志</h3>
           <div className="text-xs space-y-1.5">
-            <a
-              href={`vscode://file${auditData.logPath}`}
-              className="text-blue-600 hover:text-blue-800 underline block truncate"
-              title={auditData.logPath}
-            >
+            <a href={`vscode://file${auditData.logPath}`} className="text-blue-600 hover:text-blue-800 underline block truncate" title={auditData.logPath}>
               在 VSCode 中打开
             </a>
-            <div className="text-gray-500">
-              {auditData.eventCount} 条事件 · {auditData.logFiles.length} 个日志文件
-            </div>
+            <div className="text-gray-500">{auditData.eventCount} 条事件 · {auditData.logFiles.length} 个日志文件</div>
           </div>
         </section>
       )}
+      <CatConfigViewer open={configOpen} onClose={() => setConfigOpen(false)} />
     </aside>
   );
 }
