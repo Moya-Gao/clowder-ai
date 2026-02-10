@@ -16,7 +16,7 @@
 | 5.0-pre | Phase 5 前置清障 | ✅ 完成 | (tool_use 显示 + 降级绑定) | 缅因猫 ✅ | 484 |
 | 5.0-S1 | HindsightClient + Evidence 路由 | ✅ 完成 | (5.0 实施第一批) | 缅因猫 ✅ | 518 |
 | 5.0-S2 | 治理状态机 + /evidence /reflect 全链路 | ✅ 完成 | (5.0 实施第二批) | 缅因猫 ✅ | 567 |
-| 5.2 | BACKLOG 大扫除 | ✅ 完成 | [phase-5.2-backlog-cleanup.md](phase-5.2-backlog-cleanup.md) | 待缅因猫 review | 592 |
+| 5.2 | BACKLOG 大扫除 | ✅ 完成 | [phase-5.2-backlog-cleanup.md](phase-5.2-backlog-cleanup.md) | 缅因猫 ✅ (R1-R3 + delete guard 修复) | 592 |
 
 ## 总设计文档
 
