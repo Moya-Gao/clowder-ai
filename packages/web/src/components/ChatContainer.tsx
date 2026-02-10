@@ -16,6 +16,7 @@ import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { PawIcon } from './icons/PawIcon';
 import { A2ACollapsible } from './A2ACollapsible';
+import { MessageNavigator } from './MessageNavigator';
 
 interface ChatContainerProps {
   threadId: string;
@@ -231,42 +232,45 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         {intentMode === 'ideate' && <ParallelStatusBar />}
         {intentMode === 'execute' && <ThinkingIndicator />}
 
-        <main
-          ref={scrollContainerRef}
-          onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-4"
-        >
-          {isLoadingHistory && (
-            <div className="text-center py-3 text-sm text-gray-400">
-              加载历史消息...
-            </div>
-          )}
-          {!hasMore && messages.length > 0 && (
-            <div className="text-center py-3 text-xs text-gray-300">
-              没有更多消息了
-            </div>
-          )}
-          {messages.length === 0 && !isLoadingHistory ? (
-            <div className="text-center mt-20">
-              <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
-              <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
-              <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
-            </div>
-          ) : (
-            renderItems.map((item) =>
-              item.kind === 'a2a_group' ? (
-                <A2ACollapsible
-                  key={item.groupId}
-                  group={{ groupId: item.groupId, messages: item.messages }}
-                  renderMessage={renderSingleMessage}
-                />
-              ) : (
-                renderSingleMessage(item.msg)
+        <div className="flex-1 relative overflow-hidden">
+          <main
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+            className="h-full overflow-y-auto p-4"
+          >
+            {isLoadingHistory && (
+              <div className="text-center py-3 text-sm text-gray-400">
+                加载历史消息...
+              </div>
+            )}
+            {!hasMore && messages.length > 0 && (
+              <div className="text-center py-3 text-xs text-gray-300">
+                没有更多消息了
+              </div>
+            )}
+            {messages.length === 0 && !isLoadingHistory ? (
+              <div className="text-center mt-20">
+                <PawIcon className="w-12 h-12 text-owner-light mx-auto mb-4" />
+                <p className="text-lg text-gray-500 mb-1">欢迎来到 Cat Cafe!</p>
+                <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
+              </div>
+            ) : (
+              renderItems.map((item) =>
+                item.kind === 'a2a_group' ? (
+                  <A2ACollapsible
+                    key={item.groupId}
+                    group={{ groupId: item.groupId, messages: item.messages }}
+                    renderMessage={renderSingleMessage}
+                  />
+                ) : (
+                  renderSingleMessage(item.msg)
+                )
               )
-            )
-          )}
-          <div ref={messagesEndRef} />
-        </main>
+            )}
+            <div ref={messagesEndRef} />
+          </main>
+          {messages.length > 5 && <MessageNavigator messages={messages} />}
+        </div>
 
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
       </div>
