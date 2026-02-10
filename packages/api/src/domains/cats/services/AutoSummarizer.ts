@@ -23,6 +23,7 @@ export interface AutoSummarizerDeps {
 export class AutoSummarizer {
   private readonly messageStore: IMessageStore;
   private readonly summaryStore: ISummaryStore;
+  private readonly inFlight = new Set<string>();
 
   constructor(deps: AutoSummarizerDeps) {
     this.messageStore = deps.messageStore;
@@ -34,6 +35,9 @@ export class AutoSummarizer {
    * Returns the created summary, or null if no summary was needed.
    */
   async maybeSummarize(threadId: string): Promise<ThreadSummary | null> {
+    // Prevent concurrent summarization for the same thread
+    if (this.inFlight.has(threadId)) return null;
+    this.inFlight.add(threadId);
     try {
       const messages = await this.messageStore.getByThread(threadId, 200);
       if (messages.length < MESSAGE_THRESHOLD) return null;
@@ -55,6 +59,8 @@ export class AutoSummarizer {
     } catch (err) {
       console.warn('[auto-summary] Failed:', err);
       return null;
+    } finally {
+      this.inFlight.delete(threadId);
     }
   }
 

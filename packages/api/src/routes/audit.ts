@@ -1,7 +1,8 @@
 /**
  * Audit Route
- * GET /api/audit/thread/:threadId — 返回指定 thread 的审计事件 + 日志路径
- * GET /api/audit/log-path — 返回当日审计日志绝对路径 (支持 VSCode 跳转)
+ * GET /api/audit/thread/:threadId — 返回指定 thread 的审计事件
+ *
+ * 安全: 不暴露服务器绝对路径。日志文件位置仅限服务端知道。
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -14,17 +15,7 @@ export async function auditRoutes(app: FastifyInstance): Promise<void> {
       const { threadId } = request.params;
       const auditLog = getEventAuditLog();
       const events = await auditLog.readByThread(threadId, { days: 7 });
-      return {
-        events,
-        logPath: auditLog.getLogPath(),
-      };
+      return { events };
     }
   );
-
-  app.get('/api/audit/log-path', async () => {
-    const auditLog = getEventAuditLog();
-    return {
-      logPath: auditLog.getLogPath(),
-    };
-  });
 }

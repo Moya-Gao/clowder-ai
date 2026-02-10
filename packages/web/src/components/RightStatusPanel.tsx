@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import type { CatInvocationInfo } from '@/stores/chatStore';
 
 const CAT_INFO: Record<string, { name: string; color: string }> = {
@@ -89,14 +89,6 @@ export function RightStatusPanel({
     ? Array.from(new Set(targetCats))
     : ['opus', 'codex', 'gemini'];
 
-  const [auditLogPath, setAuditLogPath] = useState<string | null>(null);
-  useEffect(() => {
-    fetch('/api/audit/log-path')
-      .then((r) => r.json())
-      .then((data) => setAuditLogPath((data as { logPath: string }).logPath))
-      .catch(() => { /* ignore */ });
-  }, []);
-
   return (
     <aside className="hidden lg:flex w-72 border-l border-owner-light bg-white/90 px-4 py-4 flex-col gap-4 overflow-y-auto">
       <div>
@@ -183,22 +175,11 @@ export function RightStatusPanel({
       )}
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">审计日志</h3>
-        <div className="text-xs text-gray-500 space-y-1.5">
+        <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
+        <div className="text-xs text-gray-500">
           <div>
             Thread: <code className="text-gray-600">{truncateId(threadId, 12)}</code>
           </div>
-          {auditLogPath && (
-            <div className="break-all">
-              <a
-                href={`vscode://file/${auditLogPath}`}
-                className="text-blue-600 hover:text-blue-800 hover:underline"
-                title={auditLogPath}
-              >
-                在 VSCode 中打开日志
-              </a>
-            </div>
-          )}
         </div>
       </section>
     </aside>
