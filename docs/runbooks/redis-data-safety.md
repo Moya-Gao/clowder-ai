@@ -51,6 +51,16 @@ For personal Redis:
 ./scripts/user-redis.sh restore --source /path/to/dump.rdb
 ```
 
+If only markdown chat exports remain, rebuild messages/threads from docs:
+
+```bash
+# Dry run (统计可恢复条目)
+REDIS_URL=redis://127.0.0.1:6399 pnpm redis:md:restore:dry-run
+
+# Apply (先自动做 pre-apply 快照，再导回)
+REDIS_URL=redis://127.0.0.1:6399 pnpm redis:md:restore:apply
+```
+
 ## 3) Retention settings (for long-term / permanent storage)
 
 Current behavior when using `pnpm start`:

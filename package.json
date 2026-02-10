@@ -15,6 +15,8 @@
     "redis:user:autobackup:status": "./scripts/user-redis-autobackup.sh status",
     "redis:user:autobackup:uninstall": "./scripts/user-redis-autobackup.sh uninstall",
     "redis:dumps:find": "./scripts/find-redis-dumps.sh",
+    "redis:md:restore:dry-run": "node ./scripts/restore-chat-md-to-redis.mjs",
+    "redis:md:restore:apply": "node ./scripts/restore-chat-md-to-redis.mjs --apply --yes",
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
