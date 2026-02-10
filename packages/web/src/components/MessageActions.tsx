@@ -13,7 +13,8 @@ type DialogState =
   | { type: 'soft-delete' }
   | { type: 'hard-delete'; threadTitle: string | null }
   | { type: 'edit'; editedContent: string }
-  | { type: 'branch-confirm'; editedContent: string };
+  | { type: 'branch-confirm'; editedContent: string }
+  | { type: 'branch-direct' };
 
 interface MessageActionsProps {
   message: ChatMessage;
@@ -45,6 +46,8 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const handleEdit = useCallback(() => {
     setDialog({ type: 'edit', editedContent: message.content });
   }, [message.content]);
+
+  const handleBranchDirect = useCallback(() => setDialog({ type: 'branch-direct' }), []);
 
   const confirmSoftDelete = useCallback(async () => {
     setDialog({ type: 'none' });
@@ -98,6 +101,21 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     } catch { /* show error in future */ }
   }, [dialog, message.id, message.content, threadId, router]);
 
+  const confirmBranchDirect = useCallback(async () => {
+    setDialog({ type: 'none' });
+    try {
+      const res = await fetch(`${API_URL}/api/threads/${threadId}/branch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fromMessageId: message.id, userId: 'default-user' }),
+      });
+      if (res.ok) {
+        const { threadId: newThreadId } = await res.json();
+        router.push(`/thread/${newThreadId}`);
+      }
+    } catch { /* show error in future */ }
+  }, [message.id, threadId, router]);
+
   const close = useCallback(() => setDialog({ type: 'none' }), []);
 
   return (
@@ -108,6 +126,9 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         <div className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 flex gap-0.5 transition-opacity bg-white/90 rounded-lg shadow-sm border border-gray-200 px-1 py-0.5">
           <button onClick={handleSoftDelete} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="删除">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+          <button onClick={handleBranchDirect} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-green-600 transition-colors" title="从这里分支">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
           </button>
           {isUser && (
             <button onClick={handleEdit} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-blue-500 transition-colors" title="编辑 (创建分支)">
@@ -176,13 +197,23 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         </div>
       )}
 
-      {/* Branch confirmation */}
+      {/* Branch confirmation (from edit) */}
       <ConfirmDialog
         open={dialog.type === 'branch-confirm'}
         title="创建分支"
         message="编辑将从此消息创建一个新的对话分支。原对话保留不变。是否继续？"
         confirmLabel="创建分支"
         onConfirm={confirmBranch}
+        onCancel={close}
+      />
+
+      {/* Direct branch confirmation (no edit) */}
+      <ConfirmDialog
+        open={dialog.type === 'branch-direct'}
+        title="从这里分支"
+        message="将从此消息创建一个新的对话分支，复制到这条消息为止的所有历史。原对话保留不变。"
+        confirmLabel="创建分支"
+        onConfirm={confirmBranchDirect}
         onCancel={close}
       />
     </div>
