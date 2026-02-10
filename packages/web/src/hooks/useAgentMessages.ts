@@ -58,6 +58,9 @@ export function useAgentMessages() {
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
 
+  /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
+  const a2aGroupRef = useRef<string | null>(null);
+
   /** Timeout ref for done(isFinal) reachability */
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -115,6 +118,7 @@ export function useAgentMessages() {
             catId: msg.catId,
             content: msg.content,
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
             timestamp: Date.now(),
             isStreaming: true,
           });
@@ -186,13 +190,19 @@ export function useAgentMessages() {
           setLoading(false);
           setIntentMode(null);
           clearCatStatuses();
+          a2aGroupRef.current = null;
         }
       } else if (msg.type === 'a2a_handoff') {
+        // Start or continue an A2A group
+        if (!a2aGroupRef.current) {
+          a2aGroupRef.current = `a2a-group-${Date.now()}`;
+        }
         addMessage({
           id: `a2a-${Date.now()}-${msg.catId}`,
           type: 'system',
           variant: 'info',
           content: msg.content ?? '',
+          a2aGroupId: a2aGroupRef.current,
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {

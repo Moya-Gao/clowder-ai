@@ -1,0 +1,54 @@
+import { useState } from 'react';
+import type { ChatMessage } from '@/stores/chatStore';
+
+interface A2AGroup {
+  groupId: string;
+  messages: ChatMessage[];
+}
+
+interface A2ACollapsibleProps {
+  group: A2AGroup;
+  renderMessage: (msg: ChatMessage) => React.ReactNode;
+}
+
+/**
+ * Collapsible container for A2A (agent-to-agent) chain messages.
+ * Shows a summary line when collapsed; expands to show all intermediate messages.
+ */
+export function A2ACollapsible({ group, renderMessage }: A2ACollapsibleProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  const catIds = [...new Set(group.messages.filter((m) => m.catId).map((m) => m.catId!))];
+  const catLabel = catIds.length > 0 ? catIds.join(' ↔ ') : 'agents';
+  const count = group.messages.length;
+
+  return (
+    <div className="my-2">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors px-3 py-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
+        <span
+          className="inline-block transition-transform duration-200"
+          style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+        >
+          ▶
+        </span>
+        <span>
+          {expanded ? '收起内部讨论' : `查看内部讨论`} ({catLabel}, {count} 条)
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="mt-1 ml-3 pl-3 border-l-2 border-purple-400 dark:border-purple-600 space-y-1">
+          {group.messages.map((msg) => (
+            <div key={msg.id} className="opacity-80">
+              {renderMessage(msg)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}

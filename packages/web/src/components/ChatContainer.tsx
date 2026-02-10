@@ -15,6 +15,7 @@ import { ThreadSidebar } from './ThreadSidebar';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { PawIcon } from './icons/PawIcon';
+import { A2ACollapsible } from './A2ACollapsible';
 
 interface ChatContainerProps {
   threadId: string;
@@ -144,6 +145,43 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
   }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout]);
 
+  /**
+   * Group consecutive A2A messages into collapsible sections.
+   * Non-A2A messages are kept as-is, A2A messages are grouped by groupId.
+   */
+  type RenderItem =
+    | { kind: 'message'; msg: ChatMessageData }
+    | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
+
+  const renderItems = useMemo<RenderItem[]>(() => {
+    const items: RenderItem[] = [];
+    let currentGroup: { groupId: string; messages: ChatMessageData[] } | null = null;
+
+    for (const msg of messages) {
+      if (msg.a2aGroupId) {
+        if (currentGroup && currentGroup.groupId === msg.a2aGroupId) {
+          currentGroup.messages.push(msg);
+        } else {
+          if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
+          currentGroup = { groupId: msg.a2aGroupId, messages: [msg] };
+        }
+      } else {
+        if (currentGroup) {
+          items.push({ kind: 'a2a_group', ...currentGroup });
+          currentGroup = null;
+        }
+        items.push({ kind: 'message', msg });
+      }
+    }
+    if (currentGroup) items.push({ kind: 'a2a_group', ...currentGroup });
+    return items;
+  }, [messages]);
+
+  const renderSingleMessage = useCallback(
+    (msg: ChatMessageData) => <ChatMessage key={msg.id} message={msg} />,
+    []
+  );
+
   const { cancelInvocation } = useSocket(socketCallbacks, threadId);
 
   const handleStop = useCallback(() => {
@@ -199,11 +237,19 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <MessageActions key={msg.id} message={msg} threadId={threadId}>
-                <ChatMessage message={msg} />
-              </MessageActions>
-            ))
+            renderItems.map((item) =>
+              item.kind === 'a2a_group' ? (
+                <A2ACollapsible
+                  key={item.groupId}
+                  group={{ groupId: item.groupId, messages: item.messages }}
+                  renderMessage={renderSingleMessage}
+                />
+              ) : (
+                <MessageActions key={item.msg.id} message={item.msg} threadId={threadId}>
+                  <ChatMessage message={item.msg} />
+                </MessageActions>
+              )
+            )
           )}
           <div ref={messagesEndRef} />
         </main>

@@ -61,6 +61,8 @@ export interface ChatMessage {
     createdBy: string;
   };
   evidence?: EvidenceData;
+  /** A2A chain group ID — messages in the same A2A chain share this ID */
+  a2aGroupId?: string;
 }
 
 export interface Thread {
