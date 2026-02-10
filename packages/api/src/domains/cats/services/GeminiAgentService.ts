@@ -317,6 +317,18 @@ export class GeminiAgentService implements AgentService {
       child.on('error', (err: Error) => {
         spawnError = err;
       });
+
+      // Wire AbortSignal to kill the detached process group
+      const pid = child.pid;
+      if (pid && options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          try {
+            process.kill(-pid, 'SIGTERM');
+            console.log(`[gemini] Antigravity process group ${pid} killed via signal`);
+          } catch { /* already exited */ }
+        }, { once: true });
+      }
+
       child.unref();
     } catch (err) {
       yield {
