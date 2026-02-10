@@ -4,7 +4,7 @@
 > **定位猫猫**: 缅因猫 🐾  
 > **报告日期**: 2026-02-10  
 > **严重程度**: P1  
-> **状态**: 待修复（按铲屎官要求先立案，不在本次会话修）
+> **状态**: 待修复（已对齐 main 复核，未被后续合入覆盖）
 
 ---
 
@@ -155,6 +155,23 @@
 - 已按 P1 立案，证据链完整（对话 + 审计 + CLI raw）。
 - 本报告遵循“先立 bug report，再修复”规则。
 - 本次会话不修代码，等待铲屎官下一步指令（直接修复 / 指派 / 合并其他流程优化一起做）。
+
+---
+
+## 9. 与当前 main 对齐复核（2026-02-10 晚）
+
+复核基线：
+- `main` 当前提交：`3444f57`
+- 相关修复提交：`d535667`（dev-loop review R1）
+
+复核结果：
+1. `d535667` 未修改本 bug 的根因文件：
+   - `packages/api/src/domains/cats/services/CodexAgentService.ts`
+   - `packages/api/src/domains/cats/services/route-strategies.ts`
+2. 关键语义仍存在：
+   - `CodexAgentService` 在 `isCliError` 后仍继续到 `done`：`CodexAgentService.ts:163`, `CodexAgentService.ts:212`
+   - `routeSerial` 在 `textContent === ''` 分支仍会写入空 assistant 消息：`route-strategies.ts:406`, `route-strategies.ts:412`
+3. 结论：本 bug report 与当前 `main` 仍匹配，未被后续合入修复或替代。
 
 ---
 
