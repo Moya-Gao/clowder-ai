@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
+import { callbackAuthSchema } from './callback-auth-schema.js';
 
 interface CallbackMemoryRoutesDeps {
   registry: InvocationRegistry;
@@ -10,22 +11,17 @@ interface CallbackMemoryRoutesDeps {
   sharedBank?: string;
 }
 
-const authQuerySchema = z.object({ invocationId: z.string().min(1), callbackToken: z.string().min(1) });
-const searchEvidenceQuerySchema = authQuerySchema.extend({
+const searchEvidenceQuerySchema = callbackAuthSchema.extend({
   q: z.string().min(1),
   limit: z.coerce.number().int().min(1).max(20).default(5),
   budget: z.enum(['low', 'mid', 'high']).default('mid'),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).default('all_strict'),
 });
-const reflectSchema = z.object({
-  invocationId: z.string().min(1),
-  callbackToken: z.string().min(1),
+const reflectSchema = callbackAuthSchema.extend({
   query: z.string().trim().min(1),
 });
-const retainMemorySchema = z.object({
-  invocationId: z.string().min(1),
-  callbackToken: z.string().min(1),
+const retainMemorySchema = callbackAuthSchema.extend({
   content: z.string().trim().min(1).max(50000),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   metadata: z.record(z.string()).optional(),

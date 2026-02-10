@@ -441,6 +441,24 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 501);
   });
 
+  test('POST reflect returns 501 when hindsight client not configured', async () => {
+    hindsightClient = undefined;
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/reflect',
+      payload: {
+        invocationId,
+        callbackToken,
+        query: 'any reflection prompt',
+      },
+    });
+
+    assert.equal(response.statusCode, 501);
+  });
+
   test('POST reflect returns reflection text', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
@@ -541,5 +559,23 @@ describe('Callback Routes', () => {
     });
 
     assert.equal(response.statusCode, 401);
+  });
+
+  test('POST retain-memory returns 501 when hindsight client not configured', async () => {
+    hindsightClient = undefined;
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/retain-memory',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'memory item',
+      },
+    });
+
+    assert.equal(response.statusCode, 501);
   });
 });

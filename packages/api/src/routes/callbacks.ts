@@ -10,6 +10,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 
 export interface CallbackRoutesOptions {
@@ -29,12 +30,7 @@ const postMessageSchema = z.object({
   clientMessageId: z.string().min(1).max(200).optional(),
 });
 
-const authQuerySchema = z.object({
-  invocationId: z.string().min(1),
-  callbackToken: z.string().min(1),
-});
-
-const threadContextQuerySchema = authQuerySchema.extend({
+const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
@@ -93,7 +89,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
     });
 
     app.get('/api/callbacks/pending-mentions', async (request, reply) => {
-      const parsed = authQuerySchema.safeParse(request.query);
+      const parsed = callbackAuthSchema.safeParse(request.query);
       if (!parsed.success) {
         reply.status(400);
         return { error: 'Missing invocationId or callbackToken' };
