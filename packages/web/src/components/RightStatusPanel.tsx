@@ -185,7 +185,11 @@ export function RightStatusPanel({
         <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
         <div className="text-xs text-gray-500">
           <div>
-            Thread: <code className="text-gray-600">{truncateId(threadId, 12)}</code>
+            Thread: <button
+              className="text-gray-600 font-mono hover:text-gray-800 cursor-pointer transition-colors"
+              title={`点击复制: ${threadId}`}
+              onClick={() => navigator.clipboard.writeText(threadId)}
+            >{truncateId(threadId, 12)}</button>
           </div>
         </div>
       </section>
