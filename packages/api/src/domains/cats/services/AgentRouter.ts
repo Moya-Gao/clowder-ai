@@ -26,7 +26,7 @@ import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import { parseIntent, stripIntentTags } from './IntentParser.js';
 import type { IntentResult } from './IntentParser.js';
 import { routeSerial, routeParallel } from './route-strategies.js';
-import type { RouteStrategyDeps } from './route-strategies.js';
+import type { RouteStrategyDeps, PersistenceContext } from './route-strategies.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IMessageStore } from './MessageStore.js';
 import type { IThreadStore } from './ThreadStore.js';
@@ -243,6 +243,8 @@ export class AgentRouter {
       signal?: AbortSignal;
       /** ADR-008 S3: pass a Map to collect cursor boundaries; caller acks after succeeded */
       cursorBoundaries?: Map<string, string>;
+      /** P1-2: pass to track persistence failures across generator boundary */
+      persistenceContext?: PersistenceContext;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -259,6 +261,7 @@ export class AgentRouter {
       promptTags: intent.promptTags,
       currentUserMessageId: userMessageId,
       ...(options?.cursorBoundaries ? { cursorBoundaries: options.cursorBoundaries } : {}),
+      ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {

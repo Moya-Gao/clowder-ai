@@ -24,6 +24,7 @@ import type { InvocationRegistry } from '../domains/cats/services/InvocationRegi
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
+import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -239,6 +240,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
 
           // ADR-008 S3: collect cursor boundaries; ack only after succeeded
           const cursorBoundaries = new Map<string, string>();
+          // P1-2: track persistence failures across generator boundary
+          const persistenceContext: PersistenceContext = { failed: false, errors: [] };
 
           for await (const msg of router.routeExecution(
             userId, content, resolvedThreadId, storedUserMessage.id,
@@ -248,29 +251,47 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               uploadDir,
               ...(controller?.signal ? { signal: controller.signal } : {}),
               cursorBoundaries,
+              persistenceContext,
             },
           )) {
             opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
           }
 
-          await opts.invocationRecordStore!.update(createResult.invocationId, {
-            status: 'succeeded',
-          });
+          // P1-2: mark failed if any message persistence failed
+          if (persistenceContext.failed) {
+            const errorDetail = persistenceContext.errors
+              .map(e => `${e.catId}: ${e.error}`)
+              .join('; ');
+            await opts.invocationRecordStore!.update(createResult.invocationId, {
+              status: 'failed',
+              error: `Message delivered but persistence failed: ${errorDetail}`,
+            });
+            opts.socketManager.broadcastAgentMessage({
+              type: 'error',
+              catId: createCatId('opus'),
+              error: '消息已发送但未能保存，刷新后可能丢失。可点击重试。',
+              timestamp: Date.now(),
+            }, resolvedThreadId);
+          } else {
+            await opts.invocationRecordStore!.update(createResult.invocationId, {
+              status: 'succeeded',
+            });
 
-          // ADR-008 S3: cursor advances ONLY after succeeded
-          await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+            // ADR-008 S3: cursor advances ONLY after succeeded
+            await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
 
-          // Fire-and-forget: auto-summarize if threshold met
-          if (opts.autoSummarizer) {
-            opts.autoSummarizer.maybeSummarize(resolvedThreadId).then((summary) => {
-              if (summary) {
-                opts.socketManager.broadcastToRoom(
-                  `thread:${resolvedThreadId}`,
-                  'thread_summary',
-                  summary,
-                );
-              }
-            }).catch(() => { /* ignore */ });
+            // Fire-and-forget: auto-summarize if threshold met (only on success)
+            if (opts.autoSummarizer) {
+              opts.autoSummarizer.maybeSummarize(resolvedThreadId).then((summary) => {
+                if (summary) {
+                  opts.socketManager.broadcastToRoom(
+                    `thread:${resolvedThreadId}`,
+                    'thread_summary',
+                    summary,
+                  );
+                }
+              }).catch(() => { /* ignore */ });
+            }
           }
         } catch (err) {
           console.error('[messages] Background processing error:', err);

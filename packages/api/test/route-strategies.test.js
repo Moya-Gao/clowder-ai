@@ -403,6 +403,84 @@ describe('routeParallel resilience', () => {
   });
 });
 
+describe('routeSerial persistence context (P1-2)', () => {
+  it('sets persistenceContext.failed when messageStore.append throws', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    const deps = createMockDeps({ opus: createMockService('opus', '结果') });
+    deps.messageStore.append = async () => { throw new Error('Redis connection refused'); };
+
+    const persistenceContext = { failed: false, errors: [] };
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { persistenceContext })) {
+      messages.push(msg);
+    }
+
+    assert.ok(persistenceContext.failed, 'persistenceContext.failed should be true');
+    assert.ok(persistenceContext.errors.length > 0, 'should record error details');
+    assert.equal(persistenceContext.errors[0].catId, 'opus');
+    assert.ok(persistenceContext.errors[0].error.includes('Redis'), 'error should contain original message');
+
+    // done MUST still be yielded despite append failure
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.ok(doneMsgs.length > 0, 'done must still be yielded');
+  });
+
+  it('does not set persistenceContext.failed on successful append', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({ opus: createMockService('opus', 'success') });
+
+    const persistenceContext = { failed: false, errors: [] };
+    for await (const _msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { persistenceContext })) {
+      // consume
+    }
+
+    assert.equal(persistenceContext.failed, false);
+    assert.equal(persistenceContext.errors.length, 0);
+  });
+});
+
+describe('routeParallel persistence context (P1-2)', () => {
+  it('sets persistenceContext.failed when messageStore.append throws', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    const deps = createMockDeps({
+      opus: createMockService('opus', 'opus says'),
+      codex: createMockService('codex', 'codex says'),
+    });
+    deps.messageStore.append = async () => { throw new Error('Redis connection refused'); };
+
+    const persistenceContext = { failed: false, errors: [] };
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { persistenceContext })) {
+      messages.push(msg);
+    }
+
+    assert.ok(persistenceContext.failed, 'persistenceContext.failed should be true');
+    assert.ok(persistenceContext.errors.length >= 2, 'should record errors for both cats');
+
+    // done MUST still be yielded for both
+    const doneMsgs = messages.filter(m => m.type === 'done');
+    assert.equal(doneMsgs.length, 2);
+  });
+
+  it('does not set persistenceContext.failed on successful append', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', 'opus says'),
+      codex: createMockService('codex', 'codex says'),
+    });
+
+    const persistenceContext = { failed: false, errors: [] };
+    for await (const _msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { persistenceContext })) {
+      // consume
+    }
+
+    assert.equal(persistenceContext.failed, false);
+    assert.equal(persistenceContext.errors.length, 0);
+  });
+});
+
 describe('routeSerial per-cat budget', () => {
   it('uses history for context assembly when provided', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');

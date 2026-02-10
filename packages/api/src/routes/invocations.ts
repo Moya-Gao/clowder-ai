@@ -13,6 +13,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/Invocation
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { AgentRouter } from '../domains/cats/services/AgentRouter.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { parseIntent } from '../domains/cats/services/IntentParser.js';
 
@@ -166,6 +167,8 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
 
         // ADR-008 S3: collect cursor boundaries; ack only after succeeded
         const cursorBoundaries = new Map<string, string>();
+        // P1-2: track persistence failures across generator boundary
+        const persistenceContext: PersistenceContext = { failed: false, errors: [] };
 
         for await (const msg of opts.router.routeExecution(
           record.userId,
@@ -179,15 +182,33 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
             uploadDir,
             signal: controller.signal,
             cursorBoundaries,
+            persistenceContext,
           },
         )) {
           opts.socketManager.broadcastAgentMessage(msg, record.threadId);
         }
 
-        await opts.invocationRecordStore.update(id, { status: 'succeeded' });
+        // P1-2: mark failed if any message persistence failed
+        if (persistenceContext.failed) {
+          const errorDetail = persistenceContext.errors
+            .map(e => `${e.catId}: ${e.error}`)
+            .join('; ');
+          await opts.invocationRecordStore.update(id, {
+            status: 'failed',
+            error: `Message delivered but persistence failed: ${errorDetail}`,
+          });
+          opts.socketManager.broadcastAgentMessage({
+            type: 'error',
+            catId: createCatId('opus'),
+            error: '消息已发送但未能保存，刷新后可能丢失。可点击重试。',
+            timestamp: Date.now(),
+          }, record.threadId);
+        } else {
+          await opts.invocationRecordStore.update(id, { status: 'succeeded' });
 
-        // ADR-008 S3: cursor advances ONLY after succeeded
-        await opts.router.ackCollectedCursors(record.userId, record.threadId, cursorBoundaries);
+          // ADR-008 S3: cursor advances ONLY after succeeded
+          await opts.router.ackCollectedCursors(record.userId, record.threadId, cursorBoundaries);
+        }
       } catch (err) {
         console.error('[invocations] Retry execution error:', err);
         const errorMsg = err instanceof Error ? err.message : 'Unknown error';

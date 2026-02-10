@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (Gemini CLI 事故收口)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (P1 fail-closed storage + persist guard)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -24,6 +24,8 @@
 | 5 | 目录浏览安全 (allowlist/blocklist) | [x] | Phase 3.2 review | Phase 3.7 `59d2d80` — PROJECT_ALLOWED_ROOTS env var |
 | 6 | 多猫调用状态可观测性 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` (前端 per-cat status) + `1c3efe4` (CLI timeout 传播) |
 | 37 | **消息级审计日志** | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | 新增 `CAT_INVOKED`, `CAT_RESPONDED`, `CAT_ERROR`, `A2A_HANDOFF` 事件 + prompt-digest.ts 摘要 |
+| 46 | **Fail-closed storage guard** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `assertStorageReady()`: 无 Redis 且无 `MEMORY_STORE=1` → 拒绝启动。`start-dev.sh` Redis 失败 → exit 1 |
+| 47 | **Persist guard (invocation 成功条件)** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `PersistenceContext` 跨 generator 传递持久化失败 → invocation 标 failed (可重试) + 前端通知。cursor ack 仅在 succeeded |
 
 ## P2 — 建议做
 
@@ -57,6 +59,9 @@
 | 44 | **Codex exec 模式不保存 session → 缅因猫无法 resume** | [ ] | 2026-02-10 实测发现 | Cat Cafe 用 `codex exec` 非交互调用缅因猫，Codex 不保存 session 记录。`codex resume <id>` 找不到。#26 结论仅覆盖交互模式。修复方向: 1) 改用 `codex` 交互模式 + `--session-name` 2) 将 Cat Cafe session 映射到 Codex 原生 session 3) 接受现状，靠 Cat Cafe 内部 ContextAssembler 提供上下文 |
 | 45 | **缅因猫动态授权 + git 写入权限** | [ ] | [bug report](./bug-report/dynamic-authorization-and-git-commit-blocked/bug-report.md) | 缅因猫 (Codex) 通过回调被调用时: 1) 无法向铲屎官请求动态授权 2) `.git` 写入被沙盒拒绝无法 commit。阻塞缅因猫独立闭环能力 |
 | 43 | 身份入口统一（header 优先）与 URL 脱敏 | [x] | feat/ux-polish review P2 | `2aa54b6` — `resolveUserId` 扩展到 messages/threads，前端 apiFetch + `X-Cat-Cafe-User` header 取代 URL query |
+| 48 | **MCP callback at-least-once 投递** | [ ] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `callback-tools.ts` 单次 fetch 无重试。需: `clientMessageId` 幂等去重 + 指数退避重试 (3 次, 1s/2s/4s) |
+| 49 | **MCP callback local outbox** | [ ] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 网络不可达时写本地队列，后台重试投递。防止 API 短暂不可用导致消息静默丢失 |
+| 50 | **消息持久化故障演练测试** | [ ] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 集成测试: "发送中重启 API" / "Redis 断连后恢复" 场景，验证消息不丢失或有明确失败信号 |
 
 ## P3 — 可选优化
 
@@ -192,5 +197,7 @@
 | F5 A2A follow-up 提示 | Phase 5.2 | Step 4 |
 | F4 配置热更新 PATCH | Phase 5.2 | Step 5 |
 | #26 Gemini resume 调研关闭 | Phase 5.2 | Step 6 |
+| #46 Fail-closed storage guard | fix/fail-closed-storage | `d24780c` |
+| #47 Persist guard (invocation 成功条件) | fix/fail-closed-storage | `32763cb` |
 
 </details>
