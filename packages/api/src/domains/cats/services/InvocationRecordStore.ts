@@ -54,6 +54,8 @@ export interface UpdateInvocationInput {
   status?: InvocationStatus;
   userMessageId?: string | null;
   error?: string;
+  /** CAS guard: update only if current status matches. Returns null on mismatch. */
+  expectedStatus?: InvocationStatus;
 }
 
 /**
@@ -138,6 +140,11 @@ export class InvocationRecordStore implements IInvocationRecordStore {
   update(id: string, input: UpdateInvocationInput): InvocationRecord | null {
     const record = this.records.get(id);
     if (!record) return null;
+
+    // CAS guard: reject if current status doesn't match expected
+    if (input.expectedStatus !== undefined && record.status !== input.expectedStatus) {
+      return null;
+    }
 
     if (input.status !== undefined) record.status = input.status;
     if (input.userMessageId !== undefined) record.userMessageId = input.userMessageId;

@@ -65,13 +65,16 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
       return { error: 'Invocation not found', code: 'INVOCATION_NOT_FOUND' };
     }
 
+    // Snapshot status before any await yields (in-memory get() returns a live reference)
+    const snapshotStatus = record.status;
+
     // ② Only failed and queued are retryable
-    if (record.status !== 'failed' && record.status !== 'queued') {
+    if (snapshotStatus !== 'failed' && snapshotStatus !== 'queued') {
       reply.status(409);
       return {
-        error: `Cannot retry invocation with status '${record.status}'`,
+        error: `Cannot retry invocation with status '${snapshotStatus}'`,
         code: 'INVOCATION_NOT_RETRYABLE',
-        currentStatus: record.status,
+        currentStatus: snapshotStatus,
       };
     }
 
@@ -118,14 +121,32 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
       };
     }
 
-    // ⑦ Reply 202 immediately
+    // ⑦ Claim retry: CAS transition to running BEFORE reply (prevents concurrent retry)
+    // expectedStatus ensures only one concurrent request wins; loser gets null → 409
+    // Also clears stale error from previous failure (P2 fix)
+    const claimed = await opts.invocationRecordStore.update(id, {
+      status: 'running',
+      error: '',
+      expectedStatus: snapshotStatus,
+    });
+    if (!claimed) {
+      opts.invocationTracker.complete(record.threadId, controller);
+      reply.status(409);
+      return {
+        error: `Cannot retry invocation with status '${snapshotStatus}'`,
+        code: 'INVOCATION_NOT_RETRYABLE',
+        currentStatus: snapshotStatus,
+      };
+    }
+
+    // ⑧ Reply 202 immediately
     reply.status(202);
     reply.send({
       status: 'retrying',
       invocationId: id,
     });
 
-    // ⑧ Background: running → routeExecution() → succeeded/failed
+    // ⑨ Background: routeExecution() → succeeded/failed
     void (async () => {
       const HEARTBEAT_INTERVAL_MS = 30_000;
       const heartbeatInterval = setInterval(() => {
@@ -137,8 +158,6 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
       }, HEARTBEAT_INTERVAL_MS);
 
       try {
-        await opts.invocationRecordStore.update(id, { status: 'running' });
-
         opts.socketManager.broadcastToRoom(
           `thread:${record.threadId}`,
           'intent_mode',

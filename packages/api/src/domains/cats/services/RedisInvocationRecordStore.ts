@@ -90,8 +90,15 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
 
   async update(id: string, input: UpdateInvocationInput): Promise<InvocationRecord | null> {
     const key = InvocationKeys.detail(id);
-    const exists = await this.redis.exists(key);
-    if (!exists) return null;
+
+    // CAS guard: check current status matches expected before applying update
+    if (input.expectedStatus !== undefined) {
+      const current = await this.redis.hget(key, 'status');
+      if (current !== input.expectedStatus) return null;
+    } else {
+      const exists = await this.redis.exists(key);
+      if (!exists) return null;
+    }
 
     const updates: Record<string, string> = {
       updatedAt: String(Date.now()),
