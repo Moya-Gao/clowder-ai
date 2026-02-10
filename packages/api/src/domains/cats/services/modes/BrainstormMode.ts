@@ -45,8 +45,9 @@ export class BrainstormMode implements ModeHandler {
       );
     } else {
       // Round 2+: serial discussion with A2A
-      // P2-7: track cat text to detect @铲屎官 mention
+      // P2-7: track cat text to detect @铲屎官 mention, break between cats
       let mentionedUser = false;
+      let mentionCatId: CatId | undefined;
       for await (const msg of routeSerial(
         ctx.strategyDeps,
         speakingOrder,
@@ -58,16 +59,21 @@ export class BrainstormMode implements ModeHandler {
         if (msg.type === 'text' && msg.content) {
           if (msg.content.includes('@铲屎官') || msg.content.includes('@user')) {
             mentionedUser = true;
+            mentionCatId = msg.catId;
           }
         }
         yield msg;
+        // After a cat finishes, if they mentioned @铲屎官, stop remaining cats
+        if (msg.type === 'done' && mentionedUser) {
+          break;
+        }
       }
 
-      // P2-7: if any cat requested user input, notify frontend
+      // P2-7: if a cat requested user input, notify frontend to wait
       if (mentionedUser) {
         yield {
           type: 'system_info' as const,
-          catId: speakingOrder[0] as CatId,
+          catId: mentionCatId ?? speakingOrder[0] as CatId,
           content: '猫猫请求铲屎官回应。请输入您的想法后继续讨论。',
           timestamp: Date.now(),
         } as AgentMessage;

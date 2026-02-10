@@ -84,6 +84,131 @@ describe('BrainstormMode per-cat prompt (P2-6)', () => {
   });
 });
 
+// ── Mock deps for routeSerial-based tests ──
+
+function createMockDeps(services) {
+  let counter = 0;
+  return {
+    services,
+    invocationDeps: {
+      registry: {
+        create: () => ({ invocationId: `inv-${++counter}`, callbackToken: `tok-${counter}` }),
+        verify: () => null,
+      },
+      sessionManager: {
+        getOrCreate: async () => ({}),
+        resolveWorkingDirectory: () => '/tmp/test',
+      },
+      threadStore: null,
+      apiUrl: 'http://127.0.0.1:3002',
+    },
+    messageStore: {
+      append: async () => ({ id: `msg-${counter}`, userId: '', catId: null, content: '', mentions: [], timestamp: 0 }),
+    },
+  };
+}
+
+describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
+  it('stops serial chain when a cat mentions @铲屎官', async () => {
+    const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
+    const handler = new BrainstormMode();
+
+    const invokedCats = [];
+    function createTrackingService(catId, text) {
+      return {
+        async *invoke() {
+          invokedCats.push(catId);
+          yield { type: 'text', catId, content: text, timestamp: Date.now() };
+          yield { type: 'done', catId, timestamp: Date.now() };
+        },
+      };
+    }
+
+    const deps = createMockDeps({
+      opus: createTrackingService('opus', '我觉得需要铲屎官的意见。@铲屎官 你怎么看？'),
+      codex: createTrackingService('codex', '我同意 opus 的观点'),
+    });
+
+    const config = { topic: '暂停测试', participants: ['opus', 'codex'] };
+    const state = { roundOneComplete: true, currentRound: 2 };
+
+    const ctx = {
+      strategyDeps: deps,
+      message: '继续讨论',
+      userId: 'user-1',
+      threadId: 'thread-pause-test',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of handler.execute(ctx, config, state)) {
+      messages.push(msg);
+    }
+
+    // Cat A (opus) was invoked
+    assert.ok(invokedCats.includes('opus'), 'opus should have been invoked');
+    // Cat B (codex) was NOT invoked — mid-chain break
+    assert.ok(!invokedCats.includes('codex'), 'codex should NOT execute after @铲屎官 break');
+
+    // Opus was invoked, codex was not (mid-chain break)
+    const opusText = messages.filter(m => m.type === 'text' && m.catId === 'opus');
+    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    assert.ok(opusText.length > 0, 'opus text present');
+    assert.equal(codexText.length, 0, 'codex text absent — mid-chain break');
+
+    // Pause notification exists with expected content
+    const pauseMsg = messages.find(m => m.type === 'system_info' && m.content?.includes('铲屎官'));
+    assert.ok(pauseMsg, 'should have pause notification mentioning 铲屎官');
+  });
+
+  it('continues serial chain when no cat mentions @铲屎官', async () => {
+    const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
+    const handler = new BrainstormMode();
+
+    const invokedCats = [];
+    function createTrackingService(catId, text) {
+      return {
+        async *invoke() {
+          invokedCats.push(catId);
+          yield { type: 'text', catId, content: text, timestamp: Date.now() };
+          yield { type: 'done', catId, timestamp: Date.now() };
+        },
+      };
+    }
+
+    const deps = createMockDeps({
+      opus: createTrackingService('opus', '我觉得方案 A 更好'),
+      codex: createTrackingService('codex', '我同意，方案 A 没问题'),
+    });
+
+    const config = { topic: '正常讨论', participants: ['opus', 'codex'] };
+    const state = { roundOneComplete: true, currentRound: 2 };
+
+    const ctx = {
+      strategyDeps: deps,
+      message: '继续讨论',
+      userId: 'user-1',
+      threadId: 'thread-normal-test',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of handler.execute(ctx, config, state)) {
+      messages.push(msg);
+    }
+
+    // Both cats were invoked (no break)
+    assert.ok(invokedCats.includes('opus'), 'opus should have been invoked');
+    assert.ok(invokedCats.includes('codex'), 'codex should have been invoked');
+
+    // No @铲屎官 pause notification (pipeline may emit other system_info)
+    const pauseMsg = messages.find(m => m.type === 'system_info' && m.content?.includes('铲屎官'));
+    assert.equal(pauseMsg, undefined, 'no @铲屎官 pause notification');
+  });
+});
+
 describe('ModeOrchestrator', () => {
   it('dispatches to registered handler and updates state', async () => {
     const modeStore = new ModeStore();
@@ -357,11 +482,10 @@ describe('ModeOrchestrator', () => {
     assert.ok(history[history.length - 1].endedAt);
   });
 
-  it('P2-4: mode switch proposal respects switchRequiresApproval=false', async () => {
+  it('P2-4: auto-switch actually switches mode when switchRequiresApproval=false and config derivable', async () => {
     const modeStore = new ModeStore();
     const orchestrator = new ModeOrchestrator({ modeStore });
 
-    // Set auto-switch enabled
     const origEnv = process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
     process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = 'false';
 
@@ -378,7 +502,7 @@ describe('ModeOrchestrator', () => {
     modeStore.startMode(
       'thread-autoswitch',
       'brainstorm',
-      { topic: '自动切换测试', participants: ['opus'] },
+      { topic: '自动切换测试', participants: ['opus', 'codex'] },
       'user-1',
       createInitialState('brainstorm'),
     );
@@ -397,14 +521,81 @@ describe('ModeOrchestrator', () => {
       messages.push(msg);
     }
 
-    // Should emit structured auto-switch proposal instead of human-readable text
-    const proposal = messages.find(m => m.type === 'system_info' && m.content.includes('mode_switch_proposal'));
-    assert.ok(proposal, 'should emit structured mode_switch_proposal');
-    const parsed = JSON.parse(proposal.content);
-    assert.equal(parsed.proposedMode, 'debate');
-    assert.equal(parsed.autoSwitch, true);
+    // Should emit "已自动切换" confirmation
+    const switchMsg = messages.find(m => m.type === 'system_info' && m.content.includes('已自动切换'));
+    assert.ok(switchMsg, 'should confirm auto-switch');
+    assert.ok(switchMsg.content.includes('debate'), 'should mention debate mode');
 
-    // Restore env
+    // Mode should now be debate (not brainstorm, not null)
+    const mode = modeStore.getMode('thread-autoswitch');
+    assert.ok(mode, 'mode should exist after auto-switch');
+    assert.equal(mode.record.name, 'debate', 'should be debate mode now');
+    assert.equal(mode.record.config.topic, '自动切换测试', 'topic preserved');
+    assert.equal(mode.record.config.catA, 'opus', 'catA derived from participants[0]');
+    assert.equal(mode.record.config.catB, 'codex', 'catB derived from participants[1]');
+
+    // Previous brainstorm should be in history
+    const history = modeStore.getModeHistory('thread-autoswitch');
+    assert.ok(history.some(r => r.name === 'brainstorm' && r.endedAt), 'brainstorm ended in history');
+
+    if (origEnv === undefined) {
+      delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+    } else {
+      process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = origEnv;
+    }
+  });
+
+  it('P2-4: auto-switch falls back to suggestion when config not derivable', async () => {
+    const modeStore = new ModeStore();
+    const orchestrator = new ModeOrchestrator({ modeStore });
+
+    const origEnv = process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+    process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = 'false';
+
+    // brainstorm → dev-loop: can't auto-derive (needs requirement)
+    const switchHandler = {
+      async *execute() {
+        yield { type: 'text', catId: 'opus', content: '适合开发自闭环\n@mode:dev-loop', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+      getNextState(_config, state) { return state; },
+      shouldAutoEnd() { return false; },
+    };
+    orchestrator.registerHandler('brainstorm', switchHandler);
+
+    modeStore.startMode(
+      'thread-noauto',
+      'brainstorm',
+      { topic: '无法自动切换', participants: ['opus', 'codex'] },
+      'user-1',
+      createInitialState('brainstorm'),
+    );
+
+    const ctx = {
+      strategyDeps: {},
+      message: 'test',
+      userId: 'user-1',
+      threadId: 'thread-noauto',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of orchestrator.execute(ctx)) {
+      messages.push(msg);
+    }
+
+    // Should emit fallback suggestion (not auto-switch)
+    const fallback = messages.find(m => m.type === 'system_info' && m.content.includes('无法自动推导'));
+    assert.ok(fallback, 'should emit fallback suggestion');
+    assert.ok(fallback.content.includes('dev-loop'), 'mentions dev-loop');
+    assert.ok(fallback.content.includes('/mode'), 'suggests manual switch');
+
+    // Mode should still be brainstorm (not switched)
+    const mode = modeStore.getMode('thread-noauto');
+    assert.ok(mode, 'mode should still exist');
+    assert.equal(mode.record.name, 'brainstorm', 'still brainstorm — no auto-switch');
+
     if (origEnv === undefined) {
       delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
     } else {

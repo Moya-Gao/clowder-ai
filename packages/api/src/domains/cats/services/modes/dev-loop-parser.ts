@@ -58,13 +58,9 @@ export function parseReviewResult(text: string): ReviewResult {
   let approved = false;
   if (verdictMatch) {
     approved = verdictMatch[1]!.toUpperCase() === 'APPROVED';
-  } else {
-    // Fail-closed: if no VERDICT, only approve when text is empty or trivially short
-    // Non-trivial text without explicit VERDICT → not approved (safer)
-    const hasAnyPItems = p1.length > 0 || p2.length > 0 || p3.length > 0;
-    const isSubstantial = text.trim().length > 20;
-    approved = !isSubstantial && !hasAnyPItems;
   }
+  // No VERDICT → always fail-closed (approved stays false).
+  // Review prompt requires explicit VERDICT; missing it = not approved.
 
   return { approved, p1, p2, p3 };
 }

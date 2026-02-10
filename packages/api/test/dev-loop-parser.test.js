@@ -68,9 +68,9 @@ describe('parseReviewResult', () => {
     assert.equal(result.approved, true);
   });
 
-  it('empty text → approved (no issues found)', () => {
+  it('empty text → not approved (no VERDICT = fail-closed)', () => {
     const result = parseReviewResult('');
-    assert.equal(result.approved, true);
+    assert.equal(result.approved, false);
     assert.equal(result.p1.length, 0);
   });
 
@@ -109,10 +109,16 @@ describe('parseReviewResult', () => {
     assert.equal(result.approved, false);
   });
 
-  it('trivially short text without VERDICT → approved', () => {
+  it('short text without VERDICT → not approved (fail-closed)', () => {
     const text = 'OK';
     const result = parseReviewResult(text);
-    assert.equal(result.approved, true);
+    assert.equal(result.approved, false);
+  });
+
+  it('negative short text without VERDICT → not approved', () => {
+    const text = '需要修复';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false);
   });
 });
 
