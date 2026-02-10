@@ -17,9 +17,9 @@ import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
 import { AuthorizationManager } from './domains/cats/services/AuthorizationManager.js';
-import { AuthorizationRuleStore } from './domains/cats/services/AuthorizationRuleStore.js';
-import { PendingRequestStore } from './domains/cats/services/PendingRequestStore.js';
-import { AuthorizationAuditStore } from './domains/cats/services/AuthorizationAuditStore.js';
+import { createAuthorizationRuleStore } from './domains/cats/services/AuthorizationRuleStoreFactory.js';
+import { createPendingRequestStore } from './domains/cats/services/PendingRequestStoreFactory.js';
+import { createAuthorizationAuditStore } from './domains/cats/services/AuthorizationAuditStoreFactory.js';
 import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
 import { assertStorageReady } from './config/storage-guard.js';
 
@@ -145,15 +145,10 @@ async function main(): Promise<void> {
     sharedBank: sharedHindsightBank,
   });
 
-  // Authorization system — 猫猫动态权限
-  // TODO(BACKLOG #46): 接入 Redis-backed stores (RedisAuthorizationRuleStore 等)
-  // 当前内存实现在进程重启后丢失 pending/rules/audit — 已知限制
-  if (redis) {
-    console.warn('[api] Authorization stores using in-memory fallback — pending requests, rules, and audit log will not survive restart. See BACKLOG #46.');
-  }
-  const authRuleStore = new AuthorizationRuleStore();
-  const authPendingStore = new PendingRequestStore();
-  const authAuditStore = new AuthorizationAuditStore();
+  // Authorization system — 猫猫动态权限 (Redis-backed when available)
+  const authRuleStore = createAuthorizationRuleStore(redis);
+  const authPendingStore = createPendingRequestStore(redis);
+  const authAuditStore = createAuthorizationAuditStore(redis);
   const authManager = new AuthorizationManager({
     ruleStore: authRuleStore,
     pendingStore: authPendingStore,
