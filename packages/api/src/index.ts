@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -22,6 +22,8 @@ import { createPendingRequestStore } from './domains/cats/services/PendingReques
 import { createAuthorizationAuditStore } from './domains/cats/services/AuthorizationAuditStoreFactory.js';
 import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
 import { assertStorageReady } from './config/storage-guard.js';
+import { ModeStore } from './domains/cats/services/ModeStore.js';
+import { ModeOrchestrator } from './domains/cats/services/ModeOrchestrator.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -108,6 +110,8 @@ async function main(): Promise<void> {
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
+  const modeStore = new ModeStore();
+  const modeOrchestrator = new ModeOrchestrator({ modeStore, socketManager });
 
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
@@ -122,6 +126,8 @@ async function main(): Promise<void> {
     invocationRecordStore,
     autoSummarizer,
     summaryStore,
+    modeStore,
+    modeOrchestrator,
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,
@@ -183,6 +189,9 @@ async function main(): Promise<void> {
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
+
+  // Mode system (F11)
+  await app.register(modesRoutes, { modeStore, threadStore, socketManager });
 
   // Evidence search (Hindsight Recall + docs fallback)
   await app.register(evidenceRoutes, {

@@ -31,6 +31,8 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import type { AutoSummarizer } from '../domains/cats/services/AutoSummarizer.js';
 import type { ISummaryStore } from '../domains/cats/services/SummaryStore.js';
+import type { IModeStore } from '../domains/cats/services/ModeStore.js';
+import type { ModeOrchestrator } from '../domains/cats/services/ModeOrchestrator.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -52,6 +54,8 @@ export interface MessagesRoutesOptions {
   invocationRecordStore?: IInvocationRecordStore;
   autoSummarizer?: AutoSummarizer;
   summaryStore?: ISummaryStore;
+  modeStore?: IModeStore;
+  modeOrchestrator?: ModeOrchestrator;
 }
 
 const getMessagesSchema = z.object({
@@ -243,18 +247,39 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           // P1-2: track persistence failures across generator boundary
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
 
-          for await (const msg of router.routeExecution(
-            userId, content, resolvedThreadId, storedUserMessage.id,
-            targetCats, intent,
-            {
-              ...(contentBlocks ? { contentBlocks } : {}),
-              uploadDir,
-              ...(controller?.signal ? { signal: controller.signal } : {}),
-              cursorBoundaries,
-              persistenceContext,
-            },
-          )) {
-            opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+          // F11: active mode → ModeOrchestrator, otherwise → AgentRouter
+          const activeMode = await opts.modeStore?.getMode(resolvedThreadId);
+          if (activeMode && opts.modeOrchestrator) {
+            for await (const msg of opts.modeOrchestrator.execute({
+              strategyDeps: router.getStrategyDeps(),
+              message: content,
+              userId,
+              threadId: resolvedThreadId,
+              userMessageId: storedUserMessage.id,
+              routeOptions: {
+                ...(contentBlocks ? { contentBlocks } : {}),
+                uploadDir,
+                ...(controller?.signal ? { signal: controller.signal } : {}),
+                cursorBoundaries,
+                persistenceContext,
+              },
+            })) {
+              opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+            }
+          } else {
+            for await (const msg of router.routeExecution(
+              userId, content, resolvedThreadId, storedUserMessage.id,
+              targetCats, intent,
+              {
+                ...(contentBlocks ? { contentBlocks } : {}),
+                uploadDir,
+                ...(controller?.signal ? { signal: controller.signal } : {}),
+                cursorBoundaries,
+                persistenceContext,
+              },
+            )) {
+              opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
+            }
           }
 
           // P1-2: mark failed if any message persistence failed

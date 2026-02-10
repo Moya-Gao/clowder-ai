@@ -35,6 +35,8 @@ export interface SocketCallbacks {
   /** Authorization events */
   onAuthorizationRequest?: (data: { requestId: string; catId: string; threadId: string; action: string; reason: string; context?: string; createdAt: number }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
+  /** F11: mode lifecycle events */
+  onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -112,6 +114,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
     socket.on('authorization:response', (data: Record<string, unknown>) => {
       callbacks.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
+    });
+
+    // F11: mode lifecycle
+    socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
+      callbacks.onModeChanged?.(data);
     });
 
     socket.on('disconnect', () => {

@@ -107,3 +107,23 @@ export type {
   DeliberateTransition,
   DeliberateEvent,
 } from './deliberate.js';
+
+// Mode types (F11 模式系统)
+export type {
+  ModeName,
+  BrainstormConfig,
+  DebateConfig,
+  ModeConfig,
+  BrainstormState,
+  DebateState,
+  ModeState,
+  ThreadModeRecord,
+  ThreadMode,
+} from './modes.js';
+
+export {
+  isBrainstormConfig,
+  isDebateConfig,
+  isBrainstormState,
+  isDebateState,
+} from './modes.js';

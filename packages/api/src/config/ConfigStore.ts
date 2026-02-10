@@ -13,6 +13,7 @@ const UPDATABLE_KEYS: Record<string, string> = {
   'cli.codexSandboxMode': 'CAT_CODEX_SANDBOX_MODE',
   'cli.codexApprovalPolicy': 'CAT_CODEX_APPROVAL_POLICY',
   'a2a.maxDepth': 'MAX_A2A_DEPTH',
+  'mode.switchRequiresApproval': 'MODE_SWITCH_REQUIRES_APPROVAL',
 };
 
 class ConfigStoreImpl {

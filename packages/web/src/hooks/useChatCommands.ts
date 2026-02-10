@@ -555,6 +555,114 @@ export function useChatCommands() {
         return true;
       }
 
+      // /mode — start/end/query thread mode (F11)
+      if (isCommandInvocation(trimmed, '/mode')) {
+        const modeArgs = trimmed.slice('/mode'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        // /mode end [outcome] — end current mode
+        if (modeArgs.startsWith('end')) {
+          const outcome = modeArgs.slice('end'.length).trim() || undefined;
+          try {
+            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ outcome }),
+            });
+            if (res.status === 404) {
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式', timestamp: Date.now() });
+            } else if (!res.ok) {
+              throw new Error(`Server error: ${res.status}`);
+            } else {
+              const data = await res.json();
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `模式已结束: ${data.ended.name}${outcome ? ` (${outcome})` : ''}`, timestamp: Date.now() });
+            }
+          } catch (err) {
+            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `模式操作失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+          }
+          return true;
+        }
+
+        // /mode status — query current mode
+        if (modeArgs === 'status' || modeArgs === '') {
+          try {
+            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`);
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            if (data.mode) {
+              const m = data.mode;
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `当前模式: ${m.record.name}\n议题: ${m.record.config.topic}\n状态: 第 ${m.state.currentRound} 轮`, timestamp: Date.now() });
+            } else {
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]', timestamp: Date.now() });
+            }
+          } catch (err) {
+            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `查询模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+          }
+          return true;
+        }
+
+        // /mode brainstorm <topic> @猫A @猫B...
+        // /mode debate <topic> @猫A @猫B [rounds]
+        const modeName = modeArgs.split(/\s+/)[0]?.toLowerCase();
+        if (modeName !== 'brainstorm' && modeName !== 'debate') {
+          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `未知模式: ${modeName}\n可用: brainstorm, debate`, timestamp: Date.now() });
+          return true;
+        }
+
+        const restArgs = modeArgs.slice(modeName.length).trim();
+        // Extract @mentions
+        const mentionPattern = /@(布偶猫?|opus|缅因猫?|codex|暹罗猫?|gemini)/gi;
+        const mentions: string[] = [];
+        let match;
+        while ((match = mentionPattern.exec(restArgs)) !== null) {
+          const name = match[1]!.toLowerCase();
+          if (name.startsWith('布偶') || name === 'opus') mentions.push('opus');
+          else if (name.startsWith('缅因') || name === 'codex') mentions.push('codex');
+          else if (name.startsWith('暹罗') || name === 'gemini') mentions.push('gemini');
+        }
+        const topic = restArgs.replace(mentionPattern, '').replace(/\d+$/, '').trim();
+        const roundsMatch = restArgs.match(/(\d+)\s*$/);
+
+        if (!topic) {
+          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `用法: /mode ${modeName} <议题> @猫A @猫B`, timestamp: Date.now() });
+          return true;
+        }
+
+        try {
+          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const config = modeName === 'brainstorm'
+            ? { topic, participants: mentions.length > 0 ? mentions : ['opus'] }
+            : { topic, catA: mentions[0] ?? 'opus', catB: mentions[1] ?? 'codex', ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}) };
+
+          const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: modeName, config, triggeredBy: getUserId() }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => null);
+            throw new Error(errData?.error ?? `Server error: ${res.status}`);
+          }
+          await res.json(); // consume response
+          const participantDisplay = modeName === 'brainstorm'
+            ? (config as { participants: string[] }).participants.join(', ')
+            : `${(config as { catA: string; catB: string }).catA} vs ${(config as { catA: string; catB: string }).catB}`;
+          addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `${modeName === 'brainstorm' ? '🧠' : '⚔️'} ${modeName} 模式已启动\n议题: ${topic}\n参与: ${participantDisplay}`, timestamp: Date.now() });
+        } catch (err) {
+          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+        }
+        return true;
+      }
+
       // /tasks extract [N] — extract tasks from conversation
       if (trimmed.startsWith('/tasks extract')) {
         const rest = trimmed.slice('/tasks extract'.length).trim();

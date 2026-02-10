@@ -96,6 +96,9 @@ interface ChatState {
   // Per-cat invocation metrics (session IDs, duration)
   catInvocations: Record<string, CatInvocationInfo>;
 
+  // Mode state (F11)
+  currentMode: { name: string; config: Record<string, unknown>; startedAt: string } | null;
+
   // Thread state
   currentThreadId: string;
   currentProjectPath: string;
@@ -119,6 +122,9 @@ interface ChatState {
   setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
   clearMessages: () => void;
 
+  // Mode actions (F11)
+  setCurrentMode: (mode: ChatState['currentMode']) => void;
+
   // Thread actions
   setThreads: (threads: Thread[]) => void;
   setCurrentThread: (threadId: string) => void;
@@ -137,6 +143,8 @@ export const useChatStore = create<ChatState>((set) => ({
   targetCats: [],
   catStatuses: {},
   catInvocations: {},
+
+  currentMode: null,
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
@@ -246,6 +254,8 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       return { messages: [], hasMore: true };
     }),
+
+  setCurrentMode: (mode) => set({ currentMode: mode }),
 
   setThreads: (threads) => set({ threads }),
   setCurrentThread: (threadId) => set({ currentThreadId: threadId }),

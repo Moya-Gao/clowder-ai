@@ -93,6 +93,11 @@ export interface ConfigSnapshot {
   deliberate: {
     status: 'types_only';
   };
+  /** Mode system (F11) */
+  mode: {
+    switchRequiresApproval: boolean;
+    availableModes: string[];
+  };
   /** Hindsight long-term memory integration (Phase 5.0) */
   hindsight: {
     enabled: boolean;
@@ -191,6 +196,10 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       heartbeatIntervalMs: 30_000,
     },
     deliberate: { status: 'types_only' },
+    mode: {
+      switchRequiresApproval: (env['MODE_SWITCH_REQUIRES_APPROVAL'] ?? 'true') !== 'false',
+      availableModes: ['brainstorm', 'debate'],
+    },
     hindsight: {
       enabled: true,
       baseUrl: env['HINDSIGHT_URL'] ?? 'http://localhost:8888',

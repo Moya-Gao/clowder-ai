@@ -56,4 +56,7 @@ export { RedisPendingRequestStore } from './RedisPendingRequestStore.js';
 export { createPendingRequestStore } from './PendingRequestStoreFactory.js';
 export { RedisAuthorizationAuditStore } from './RedisAuthorizationAuditStore.js';
 export { createAuthorizationAuditStore } from './AuthorizationAuditStoreFactory.js';
+export { ModeOrchestrator } from './ModeOrchestrator.js';
+export { ModeStore } from './ModeStore.js';
+export type { IModeStore } from './ModeStore.js';
 export * from './types.js';

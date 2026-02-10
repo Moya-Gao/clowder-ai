@@ -19,6 +19,7 @@ import { A2ACollapsible } from './A2ACollapsible';
 import { MessageNavigator } from './MessageNavigator';
 import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
+import { ModeStatusBar } from './ModeStatusBar';
 
 interface ChatContainerProps {
   threadId: string;
@@ -44,6 +45,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearCatStatuses,
     setCurrentThread,
     updateThreadTitle,
+    setCurrentMode,
   } = useChatStore();
   const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -113,6 +115,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       clearTasks();
       setIntentMode(null);
       clearCatStatuses();
+      setCurrentMode(null);
       prevThreadRef.current = threadId;
       // Unsuppress after all effects from this render cycle have fired
       // (including useSocket's room switch effect)
@@ -151,7 +154,15 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
     onAuthorizationRequest: handleAuthRequest,
     onAuthorizationResponse: handleAuthResponse,
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse]);
+    onModeChanged: (data) => {
+      if (data.action === 'started' && data.mode) {
+        const m = data.mode as { record: { name: string; config: Record<string, unknown>; startedAt: string } };
+        setCurrentMode({ name: m.record.name, config: m.record.config, startedAt: m.record.startedAt });
+      } else {
+        setCurrentMode(null);
+      }
+    },
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode]);
 
   /**
    * Group consecutive A2A messages into collapsible sections.
@@ -234,6 +245,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </button>
         </header>
 
+        <ModeStatusBar />
         {intentMode === 'ideate' && <ParallelStatusBar />}
         {intentMode === 'execute' && <ThinkingIndicator />}
 

@@ -59,6 +59,10 @@ export interface RouteOptions {
   /** P1-2: When provided, persistence failures are recorded here instead of silently swallowed.
    *  Caller checks after generator exhausts to determine invocation status. */
   persistenceContext?: PersistenceContext;
+  /** F11: Mode-specific system prompt section (appended after identity prompt) */
+  modeSystemPrompt?: string | undefined;
+  /** F11: Per-cat mode prompt override (takes precedence over modeSystemPrompt) */
+  modeSystemPromptByCat?: Record<string, string> | undefined;
 }
 
 /** Get the agent service for a given cat ID */
@@ -202,6 +206,8 @@ export async function* routeSerial(
     contextHistory,
     history,
     currentUserMessageId,
+    modeSystemPrompt,
+    modeSystemPromptByCat,
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
@@ -257,7 +263,8 @@ export async function* routeSerial(
         currentUserMessageId,
       );
       deliveryBoundaryId = inc.boundaryId;
-      const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+      const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      const parts = [systemPrompt, catModePrompt, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -288,8 +295,9 @@ export async function* routeSerial(
         }
       }
 
-      if (systemPrompt || mcpInstructions) {
-        const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+      const catModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      if (systemPrompt || catModePromptLegacy || mcpInstructions) {
+        const parts = [systemPrompt, catModePromptLegacy, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
       } else if (catContextHistory) {
@@ -462,6 +470,8 @@ export async function* routeParallel(
     contextHistory,
     history,
     currentUserMessageId,
+    modeSystemPrompt,
+    modeSystemPromptByCat,
   } = options;
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
@@ -493,7 +503,8 @@ export async function* routeParallel(
         currentUserMessageId,
       );
       boundaryByCat.set(catId, inc.boundaryId);
-      const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+      const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      const parts = [systemPrompt, parCatModePrompt, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -523,8 +534,9 @@ export async function* routeParallel(
         }
       }
 
-      if (systemPrompt || mcpInstructions) {
-        const parts = [systemPrompt, mcpInstructions].filter(Boolean);
+      const parCatModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      if (systemPrompt || parCatModePromptLegacy || mcpInstructions) {
+        const parts = [systemPrompt, parCatModePromptLegacy, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
       } else if (catContextHistory) {

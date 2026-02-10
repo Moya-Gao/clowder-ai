@@ -138,8 +138,8 @@ export class AgentRouter {
     return [createCatId('opus')];
   }
 
-  /** Build shared strategy dependencies */
-  private getStrategyDeps(): RouteStrategyDeps {
+  /** Build shared strategy dependencies (public for ModeOrchestrator) */
+  getStrategyDeps(): RouteStrategyDeps {
     const apiPort = process.env['API_SERVER_PORT'] ?? '3002';
     return {
       services: this.services,

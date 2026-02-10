@@ -31,6 +31,8 @@ vi.mock('@/stores/chatStore', () => ({
     clearCatStatuses: vi.fn(),
     setCurrentThread: vi.fn(),
     updateThreadTitle: vi.fn(),
+    setCurrentMode: vi.fn(),
+    currentMode: null,
   }),
 }));
 
