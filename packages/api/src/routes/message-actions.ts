@@ -41,22 +41,38 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
     const { id } = request.params;
     const { userId, mode, confirmTitle } = parseResult.data;
 
+    // Authorization: verify message exists and caller owns it or is thread creator
+    const targetMsg = await opts.messageStore.getById(id);
+    if (!targetMsg) {
+      reply.status(404);
+      return { error: '消息不存在', code: 'MESSAGE_NOT_FOUND' };
+    }
+    if (targetMsg.userId !== userId) {
+      // Not the message author — check if thread creator
+      if (opts.threadStore) {
+        const thread = await opts.threadStore.get(targetMsg.threadId);
+        if (!thread || thread.createdBy !== userId) {
+          reply.status(403);
+          return { error: '无权删除此消息', code: 'UNAUTHORIZED' };
+        }
+      } else {
+        reply.status(403);
+        return { error: '无权删除此消息', code: 'UNAUTHORIZED' };
+      }
+    }
+
     if (mode === 'hard') {
       // Hard delete requires confirmTitle matching the thread title
-      const msg = await opts.messageStore.getById(id);
-      if (!msg) {
-        reply.status(404);
-        return { error: '消息不存在', code: 'MESSAGE_NOT_FOUND' };
-      }
-
       if (!confirmTitle) {
         reply.status(400);
         return { error: '硬删除需要输入对话标题确认', code: 'CONFIRM_TITLE_REQUIRED' };
       }
 
       if (opts.threadStore) {
-        const thread = await opts.threadStore.get(msg.threadId);
-        if (thread && thread.title !== null && thread.title !== confirmTitle) {
+        const thread = await opts.threadStore.get(targetMsg.threadId);
+        // Untitled threads require fixed confirmation phrase
+        const expectedTitle = thread?.title ?? '确认删除';
+        if (confirmTitle !== expectedTitle) {
           reply.status(400);
           return { error: '对话标题不匹配', code: 'CONFIRM_TITLE_MISMATCH' };
         }
@@ -64,8 +80,8 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
 
       const deleted = await opts.messageStore.hardDelete(id, userId);
       if (!deleted) {
-        reply.status(404);
-        return { error: '消息不存在', code: 'MESSAGE_NOT_FOUND' };
+        reply.status(500);
+        return { error: '删除失败', code: 'DELETE_FAILED' };
       }
 
       opts.socketManager.broadcastToRoom(
@@ -113,11 +129,37 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
     }
 
     const { id } = request.params;
+    const { userId } = parseResult.data;
+
+    // Pre-fetch message to check authorization
+    const targetMsg = await opts.messageStore.getById(id);
+    if (!targetMsg) {
+      reply.status(404);
+      return { error: '消息不存在', code: 'MESSAGE_NOT_FOUND' };
+    }
+    if (!targetMsg.deletedAt || targetMsg._tombstone) {
+      reply.status(404);
+      return { error: '消息不存在、未被删除、或已硬删除', code: 'MESSAGE_NOT_RESTORABLE' };
+    }
+
+    // Authorization: only the person who deleted can restore, or thread creator
+    if (targetMsg.deletedBy !== userId) {
+      if (opts.threadStore) {
+        const thread = await opts.threadStore.get(targetMsg.threadId);
+        if (!thread || thread.createdBy !== userId) {
+          reply.status(403);
+          return { error: '无权恢复此消息', code: 'UNAUTHORIZED' };
+        }
+      } else {
+        reply.status(403);
+        return { error: '无权恢复此消息', code: 'UNAUTHORIZED' };
+      }
+    }
 
     const restored = await opts.messageStore.restore(id);
     if (!restored) {
-      reply.status(404);
-      return { error: '消息不存在、未被删除、或已硬删除', code: 'MESSAGE_NOT_RESTORABLE' };
+      reply.status(500);
+      return { error: '恢复失败', code: 'RESTORE_FAILED' };
     }
 
     opts.socketManager.broadcastToRoom(

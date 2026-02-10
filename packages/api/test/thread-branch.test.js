@@ -56,7 +56,7 @@ function createMockThreadStore() {
     getParticipants: (id) => threads[id]?.participants ?? [],
     updateTitle: () => {},
     updateLastActive: () => {},
-    delete: () => true,
+    delete: (id) => { const existed = !!threads[id]; delete threads[id]; return existed; },
     _threads: threads,
     _seedThread(id, data) {
       threads[id] = {
@@ -311,6 +311,57 @@ describe('POST /api/threads/:id/branch (ADR-008 D4 / S7)', () => {
     const branchMsgs = messageStore.getByThread(body.threadId, 100);
     assert.equal(branchMsgs.length, 1);
     assert.equal(branchMsgs[0].content, '你好');
+
+    await app.close();
+  });
+
+  it('rejects branch by non-creator → 403', async () => {
+    const messageStore = new MessageStore();
+    const threadStore = createMockThreadStore();
+    const msgs = seedThread(messageStore, threadStore);
+    const { app } = await setupApp(messageStore, threadStore);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-orig/branch',
+      payload: { fromMessageId: msgs[0].id, userId: 'intruder' },
+    });
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'UNAUTHORIZED');
+
+    await app.close();
+  });
+
+  it('rolls back partial branch on append failure', async () => {
+    const messageStore = new MessageStore();
+    const threadStore = createMockThreadStore();
+    const msgs = seedThread(messageStore, threadStore);
+
+    // Sabotage append to fail on the 3rd call
+    let appendCount = 0;
+    const origAppend = messageStore.append.bind(messageStore);
+    messageStore.append = (data) => {
+      appendCount++;
+      if (appendCount === 3) throw new Error('Simulated append failure');
+      return origAppend(data);
+    };
+
+    const { app } = await setupApp(messageStore, threadStore);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-orig/branch',
+      payload: { fromMessageId: msgs[3].id, userId: 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.json().code, 'BRANCH_FAILED');
+
+    // Verify the partial branch thread was cleaned up
+    const allThreads = threadStore.list();
+    const branchThreads = allThreads.filter(t => t.id !== 'thread-orig');
+    assert.equal(branchThreads.length, 0, 'Branch thread should be cleaned up');
 
     await app.close();
   });

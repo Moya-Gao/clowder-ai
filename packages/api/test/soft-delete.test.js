@@ -448,6 +448,196 @@ describe('DELETE /api/messages/:id mode=hard', () => {
   });
 });
 
+// --- R2 fix: Authorization checks ---
+
+function createMockThreadStore(threads = {}) {
+  return {
+    async get(id) { return threads[id] ?? null; },
+    create() { return null; },
+    list() { return []; },
+    listByProject() { return []; },
+    addParticipants() {},
+    getParticipants() { return []; },
+    updateTitle() {},
+    updateLastActive() {},
+    delete() { return true; },
+  };
+}
+
+describe('Authorization: DELETE /api/messages/:id', () => {
+  it('rejects soft delete by non-owner non-creator → 403', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore); // userId: 'user-1'
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'intruder' },
+    });
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'UNAUTHORIZED');
+    await app.close();
+  });
+
+  it('thread creator can delete another user message', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    // Add a message from a different user
+    const catMsg = messageStore.append({
+      userId: 'cat-opus', catId: 'opus', content: 'cat reply',
+      mentions: [], timestamp: 2000, threadId: 'thread-sd',
+    });
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    // user-1 is thread creator, deleting cat-opus's message
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${catMsg.id}`,
+      payload: { userId: 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json().deletedBy, 'user-1');
+    await app.close();
+  });
+
+  it('rejects hard delete by non-owner → 403', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'intruder', mode: 'hard', confirmTitle: 'T' },
+    });
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'UNAUTHORIZED');
+    await app.close();
+  });
+});
+
+describe('Authorization: PATCH /api/messages/:id/restore', () => {
+  it('rejects restore by non-deleter non-creator → 403', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+    messageStore.softDelete(msgs[0].id, 'user-1');
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/messages/${msgs[0].id}/restore`,
+      payload: { userId: 'intruder' },
+    });
+
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'UNAUTHORIZED');
+    await app.close();
+  });
+
+  it('thread creator can restore message deleted by another', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+    messageStore.softDelete(msgs[0].id, 'someone-else');
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: 'T', createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/messages/${msgs[0].id}/restore`,
+      payload: { userId: 'user-1' }, // thread creator
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.json().content);
+    await app.close();
+  });
+});
+
+describe('Hard delete: untitled thread confirmation', () => {
+  it('rejects hard delete on untitled thread with wrong confirmTitle', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: null, createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'user-1', mode: 'hard', confirmTitle: 'anything' },
+    });
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.json().code, 'CONFIRM_TITLE_MISMATCH');
+    await app.close();
+  });
+
+  it('accepts hard delete on untitled thread with "确认删除"', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+    const threadStore = createMockThreadStore({
+      'thread-sd': { id: 'thread-sd', title: null, createdBy: 'user-1', participants: [] },
+    });
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'user-1', mode: 'hard', confirmTitle: '确认删除' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.json()._tombstone, true);
+    await app.close();
+  });
+});
+
 // --- Edge case: delete + restore round-trip ---
 
 describe('Soft delete round-trip', () => {

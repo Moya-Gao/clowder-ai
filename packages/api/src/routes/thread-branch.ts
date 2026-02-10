@@ -39,11 +39,15 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
 
     const { fromMessageId, editedContent, userId } = parseResult.data;
 
-    // ① Verify source thread exists
+    // ① Verify source thread exists and caller has access
     const sourceThread = await threadStore.get(id);
     if (!sourceThread) {
       reply.status(404);
       return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+    }
+    if (sourceThread.createdBy !== userId) {
+      reply.status(403);
+      return { error: '无权对此对话创建分支', code: 'UNAUTHORIZED' };
     }
 
     // ② Verify fromMessage exists and belongs to this thread
@@ -75,23 +79,35 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
     }
 
     // ⑤ Copy messages to new thread (new IDs, original content preserved)
-    for (let i = 0; i < messagesToCopy.length; i++) {
-      const src = messagesToCopy[i]!;
-      const isLast = i === messagesToCopy.length - 1;
-      const content = (isLast && editedContent !== undefined) ? editedContent : src.content;
+    // Rollback on failure: delete partial branch thread + its messages
+    try {
+      for (let i = 0; i < messagesToCopy.length; i++) {
+        const src = messagesToCopy[i]!;
+        const isLast = i === messagesToCopy.length - 1;
+        const content = (isLast && editedContent !== undefined) ? editedContent : src.content;
 
-      await messageStore.append({
-        userId: src.userId,
-        catId: src.catId,
-        content,
-        // Drop contentBlocks on edited message (text changed)
-        ...(src.contentBlocks && !(isLast && editedContent !== undefined)
-          ? { contentBlocks: src.contentBlocks } : {}),
-        ...(src.metadata ? { metadata: src.metadata } : {}),
-        mentions: [...src.mentions],
-        timestamp: src.timestamp,
-        threadId: newThread.id,
-      });
+        await messageStore.append({
+          userId: src.userId,
+          catId: src.catId,
+          content,
+          // Drop contentBlocks on edited message (text changed)
+          ...(src.contentBlocks && !(isLast && editedContent !== undefined)
+            ? { contentBlocks: src.contentBlocks } : {}),
+          ...(src.metadata ? { metadata: src.metadata } : {}),
+          mentions: [...src.mentions],
+          timestamp: src.timestamp,
+          threadId: newThread.id,
+        });
+      }
+    } catch (err) {
+      // Best-effort cleanup: remove partial branch
+      try {
+        await messageStore.deleteByThread(newThread.id);
+        await threadStore.delete(newThread.id);
+      } catch { /* cleanup failure is non-fatal */ }
+      request.log.error({ err, branchThreadId: newThread.id }, 'Branch copy failed, rolled back');
+      reply.status(500);
+      return { error: '分支创建失败，已回滚', code: 'BRANCH_FAILED' };
     }
 
     // Notify frontend about new branch
