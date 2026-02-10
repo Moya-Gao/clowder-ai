@@ -3,7 +3,7 @@
  * 使用 Codex CLI 子进程调用缅因猫 (Codex)
  *
  * CLI 调用方式:
- *   codex exec --json --sandbox danger-full-access --config approval_policy="on-request" "prompt"
+ *   codex exec --json --sandbox danger-full-access --add-dir .git --config approval_policy="on-request" "prompt"
  *   codex exec resume SESSION_ID --json --config approval_policy="on-request" "prompt"
  *
  * NDJSON 事件格式:
@@ -108,9 +108,12 @@ export class CodexAgentService implements AgentService {
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
+    // --add-dir .git: 允许写入 .git/ 目录（index.lock、objects、refs），解锁 git commit
+    // 注意：旧 session resume 时沿用创建时的沙箱参数，不会带 --add-dir。
+    // 这是预期行为——新建会话即可获得 .git 写入权限。
     const args: string[] = options?.sessionId
       ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, effectivePrompt]
-      : ['exec', '--json', '--sandbox', sandboxMode, ...approvalArgs, effectivePrompt];
+      : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, effectivePrompt];
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
     const auditContext = options?.auditContext;
