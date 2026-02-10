@@ -13,9 +13,11 @@ ACTION="${1:-status}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SYNC_SCRIPT="$SCRIPT_DIR/thread-exports-sync.sh"
+EXPORT_SCRIPT="$SCRIPT_DIR/export-threads-from-redis.mjs"
 
 INTERVAL_MINUTES="${THREAD_EXPORT_SYNC_INTERVAL_MINUTES:-120}"
 LABEL="${THREAD_EXPORT_AUTOSAVE_LABEL:-com.catcafe.thread.exports.sync}"
+EXPORT_REDIS_URL="${THREAD_EXPORT_REDIS_URL:-${REDIS_URL:-redis://127.0.0.1:6399}}"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 PLIST_PATH="$LAUNCH_AGENTS_DIR/$LABEL.plist"
 LOG_DIR="$HOME/.cat-cafe/logs"
@@ -37,8 +39,13 @@ need_cmd() {
 need_tools() {
   need_cmd launchctl
   need_cmd /bin/bash
+  need_cmd node
   if [[ ! -x "$SYNC_SCRIPT" ]]; then
     echo "[thread-autosave] missing script: $SYNC_SCRIPT" >&2
+    exit 1
+  fi
+  if [[ ! -f "$EXPORT_SCRIPT" ]]; then
+    echo "[thread-autosave] missing script: $EXPORT_SCRIPT" >&2
     exit 1
   fi
 }
@@ -69,9 +76,14 @@ write_plist() {
   <key>ProgramArguments</key>
   <array>
     <string>/bin/bash</string>
-    <string>${SYNC_SCRIPT}</string>
-    <string>sync</string>
+    <string>${SCRIPT_DIR}/thread-exports-autosave.sh</string>
+    <string>run</string>
   </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>THREAD_EXPORT_REDIS_URL</key>
+    <string>${EXPORT_REDIS_URL}</string>
+  </dict>
   <key>RunAtLoad</key>
   <true/>
   <key>StartInterval</key>
@@ -112,6 +124,7 @@ status() {
   echo "[thread-autosave] label:    $LABEL"
   echo "[thread-autosave] plist:    $PLIST_PATH"
   echo "[thread-autosave] interval: ${INTERVAL_MINUTES} minutes"
+  echo "[thread-autosave] redis:    ${EXPORT_REDIS_URL}"
   if is_loaded; then
     echo "[thread-autosave] launchd:  loaded"
   else
@@ -126,6 +139,7 @@ case "$ACTION" in
     ;;
   run)
     need_tools
+    node "$EXPORT_SCRIPT" --redis-url "$EXPORT_REDIS_URL"
     "$SYNC_SCRIPT" sync
     ;;
   status)

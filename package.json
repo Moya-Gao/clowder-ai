@@ -19,6 +19,8 @@
     "redis:md:restore:apply": "node ./scripts/restore-chat-md-to-redis.mjs --apply --yes",
     "threads:sync": "./scripts/thread-exports-sync.sh sync",
     "threads:status": "./scripts/thread-exports-sync.sh status",
+    "threads:export:redis": "node ./scripts/export-threads-from-redis.mjs",
+    "threads:export:redis:dry-run": "node ./scripts/export-threads-from-redis.mjs --dry-run",
     "threads:autosave:install": "./scripts/thread-exports-autosave.sh install",
     "threads:autosave:run": "./scripts/thread-exports-autosave.sh run",
     "threads:autosave:status": "./scripts/thread-exports-autosave.sh status",

@@ -105,13 +105,20 @@ Default offsite path:
 Canonical repo location:
 - `docs/discussions/exported-threads/`
 
-Download inbox location (default browser download path):
-- `~/Downloads/`
-- If automation cannot read Downloads (macOS permission), use a custom inbox outside Downloads:
-  - `THREAD_EXPORT_SOURCE_ROOT=~/.cat-cafe/thread-export-inbox pnpm threads:sync`
-  - Then set browser default download directory to `~/.cat-cafe/thread-export-inbox`
+Automatic backend export (no manual download required):
 
-Sync downloaded `thread-thread_*.md` files from Downloads into canonical + offsite storage:
+```bash
+pnpm threads:export:redis
+pnpm threads:export:redis:dry-run
+```
+
+Autosave now runs backend export first, then offsite sync.
+
+Optional: if you manually download `thread-thread_*.md`, sync still supports inbox import.
+Default inbox:
+- `~/Downloads/`
+- If automation cannot read Downloads (macOS permission), use:
+  - `THREAD_EXPORT_SOURCE_ROOT=~/.cat-cafe/thread-export-inbox pnpm threads:sync`
 
 ```bash
 pnpm threads:sync
