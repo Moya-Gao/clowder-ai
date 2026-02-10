@@ -18,16 +18,16 @@ import {
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
-  callbackSearchEvidenceInputSchema,
-  reflectProjectInputSchema,
-  retainMemoryInputSchema,
+  callbackEvidenceSearchInputSchema,
+  callbackReflectInputSchema,
+  callbackRetainMemoryInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
   handleCallbackSearchEvidence,
-  handleReflectProject,
-  handleRetainMemory,
+  handleCallbackReflect,
+  handleCallbackRetainMemory,
   searchEvidenceInputSchema,
   handleSearchEvidence,
   reflectInputSchema,
@@ -121,7 +121,7 @@ function createServer(): McpServer {
   server.tool(
     'cat_cafe_search_evidence_callback',
     'Search project evidence through invocation-scoped callback auth.',
-    callbackSearchEvidenceInputSchema,
+    callbackEvidenceSearchInputSchema,
     async (args: {
       query: string;
       limit?: number | undefined;
@@ -137,9 +137,9 @@ function createServer(): McpServer {
   server.tool(
     'cat_cafe_reflect_callback',
     'Run project reflection through invocation-scoped callback auth.',
-    reflectProjectInputSchema,
+    callbackReflectInputSchema,
     async (args: { query: string }) => {
-      const result = await handleReflectProject(args);
+      const result = await handleCallbackReflect(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
@@ -147,9 +147,9 @@ function createServer(): McpServer {
   server.tool(
     'cat_cafe_retain_memory_callback',
     'Retain durable memory through invocation-scoped callback auth.',
-    retainMemoryInputSchema,
+    callbackRetainMemoryInputSchema,
     async (args: { content: string; tags?: string[] | undefined; metadata?: Record<string, string> | undefined }) => {
-      const result = await handleRetainMemory(args);
+      const result = await handleCallbackRetainMemory(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

@@ -21,8 +21,8 @@ export interface CliSpawnOptions {
   timeoutMs?: number;
   /** AbortSignal to cancel the process externally */
   signal?: AbortSignal;
-  /** Environment variables to merge with process.env */
-  env?: Record<string, string>;
+  /** Environment overrides. `null` means delete inherited var from child env. */
+  env?: Record<string, string | null>;
 }
 
 /**

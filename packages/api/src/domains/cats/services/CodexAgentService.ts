@@ -60,17 +60,18 @@ function getCodexAuthMode(): CodexAuthMode {
   return 'oauth';
 }
 
-function applyAuthMode(env: Record<string, string>): Record<string, string> {
+function applyAuthMode(env: Record<string, string>): Record<string, string | null> {
   if (getCodexAuthMode() !== 'oauth') return env;
 
-  // OAuth-first default: do not leak key-based credentials into Codex child process.
+  // OAuth-first default: explicitly delete key-based credentials from child env.
+  // spawnCli interprets `null` as "remove this key from inherited process.env".
   return {
     ...env,
-    OPENAI_API_KEY: '',
-    OPENAI_BASE_URL: '',
-    OPENAI_API_BASE: '',
-    OPENAI_ORG_ID: '',
-    OPENAI_ORGANIZATION: '',
+    OPENAI_API_KEY: null,
+    OPENAI_BASE_URL: null,
+    OPENAI_API_BASE: null,
+    OPENAI_ORG_ID: null,
+    OPENAI_ORGANIZATION: null,
   };
 }
 

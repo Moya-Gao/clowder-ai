@@ -170,8 +170,8 @@ describe('MCP Callback Tools', () => {
   });
 
   test('handleSearchEvidence calls callback endpoint with encoded query params', async () => {
-    const { handleSearchEvidence } = await import(
-      '../dist/tools/callback-tools.js'
+    const { handleCallbackSearchEvidence } = await import(
+      '../dist/tools/callback-memory-tools.js'
     );
 
     let capturedUrl;
@@ -183,7 +183,7 @@ describe('MCP Callback Tools', () => {
       };
     };
 
-    const result = await handleSearchEvidence({
+    const result = await handleCallbackSearchEvidence({
       query: 'phase 5 bank policy',
       limit: 4,
       budget: 'high',
@@ -199,8 +199,8 @@ describe('MCP Callback Tools', () => {
   });
 
   test('handleReflectProject posts query to callback reflect endpoint', async () => {
-    const { handleReflectProject } = await import(
-      '../dist/tools/callback-tools.js'
+    const { handleCallbackReflect } = await import(
+      '../dist/tools/callback-memory-tools.js'
     );
 
     let capturedUrl, capturedOptions;
@@ -213,7 +213,7 @@ describe('MCP Callback Tools', () => {
       };
     };
 
-    const result = await handleReflectProject({ query: 'How to reduce context drift?' });
+    const result = await handleCallbackReflect({ query: 'How to reduce context drift?' });
 
     assert.equal(result.isError, undefined);
     assert.ok(capturedUrl.includes('/api/callbacks/reflect'));
@@ -224,8 +224,8 @@ describe('MCP Callback Tools', () => {
   });
 
   test('handleRetainMemory posts content/tags/metadata to callback retain endpoint', async () => {
-    const { handleRetainMemory } = await import(
-      '../dist/tools/callback-tools.js'
+    const { handleCallbackRetainMemory } = await import(
+      '../dist/tools/callback-memory-tools.js'
     );
 
     let capturedUrl, capturedOptions;
@@ -238,7 +238,7 @@ describe('MCP Callback Tools', () => {
       };
     };
 
-    const result = await handleRetainMemory({
+    const result = await handleCallbackRetainMemory({
       content: 'Prefer explicit invocation lifecycle state transitions.',
       tags: ['kind:decision', 'author:codex'],
       metadata: {

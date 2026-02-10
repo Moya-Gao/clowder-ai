@@ -49,13 +49,16 @@ describe('Callback Routes', () => {
   async function createApp() {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const app = Fastify();
-    await app.register(callbacksRoutes, {
+    const options = {
       registry,
       messageStore,
       socketManager,
-      hindsightClient,
       sharedBank: 'cat-cafe-shared',
-    });
+    };
+    if (hindsightClient !== undefined) {
+      options.hindsightClient = hindsightClient;
+    }
+    await app.register(callbacksRoutes, options);
     return app;
   }
 
@@ -383,6 +386,61 @@ describe('Callback Routes', () => {
     assert.deepEqual(recallCalls[0].options.tags, ['project:cat-cafe', 'kind:decision']);
   });
 
+  test('GET search-evidence degrades on CONNECTION_FAILED', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const { HindsightError } = await import(
+      '../dist/domains/cats/services/HindsightClient.js'
+    );
+    hindsightClient.recall = async () => {
+      throw new HindsightError('CONNECTION_FAILED', 'cannot connect');
+    };
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, true);
+    assert.deepEqual(body.results, []);
+  });
+
+  test('GET search-evidence degrades on 429 rate limit', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const { HindsightError } = await import(
+      '../dist/domains/cats/services/HindsightClient.js'
+    );
+    hindsightClient.recall = async () => {
+      throw new HindsightError('API_ERROR', 'rate limited', 429);
+    };
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, true);
+    assert.deepEqual(body.results, []);
+  });
+
+  test('GET search-evidence returns 501 when hindsight client not configured', async () => {
+    hindsightClient = undefined;
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    assert.equal(response.statusCode, 501);
+  });
+
   test('POST reflect returns reflection text', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
@@ -408,6 +466,28 @@ describe('Callback Routes', () => {
     assert.equal(reflectCalls.length, 1);
     assert.equal(reflectCalls[0].bankId, 'cat-cafe-shared');
     assert.equal(reflectCalls[0].query, 'What changed in phase 5?');
+  });
+
+  test('POST reflect returns 502 on non-degradable errors', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    hindsightClient.reflect = async () => {
+      throw new Error('invalid reflection template');
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/reflect',
+      payload: {
+        invocationId,
+        callbackToken,
+        query: 'What changed in phase 5?',
+      },
+    });
+
+    assert.equal(response.statusCode, 502);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, false);
   });
 
   test('POST retain-memory writes invocation-scoped memory item', async () => {
@@ -444,5 +524,22 @@ describe('Callback Routes', () => {
     assert.equal(retainCalls[0].items[0].metadata.source, 'callback');
     assert.equal(retainCalls[0].items[0].metadata.catId, 'codex');
     assert.equal(retainCalls[0].items[0].metadata.invocationId, invocationId);
+  });
+
+  test('POST retain-memory returns 401 for invalid callback token', async () => {
+    const app = await createApp();
+    const { invocationId } = registry.create('user-1', 'codex');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/retain-memory',
+      payload: {
+        invocationId,
+        callbackToken: 'invalid-token',
+        content: 'memory',
+      },
+    });
+
+    assert.equal(response.statusCode, 401);
   });
 });

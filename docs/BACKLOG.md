@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11/F13 doing；F16 完成 OAuth + 记忆闭环；缅因猫完成 #31/#42/#45/#48/#49/#50 + 闭环核查 #36/#44；review 跟进修复已收敛)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11/F13 doing；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50 + 闭环核查 #36/#44；review 跟进修复已收敛)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -76,6 +76,8 @@
 | 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [x] | Phase 3.9 | 已澄清设计意图：用户消息用 indexOf (宽松)，猫回复用行首匹配 (严格防误触) |
 | 29 | A2A 悄悄话折叠 UI | [ ] | 暹罗猫建议 | A2A 链中间对话可折叠（"查看内部讨论"），减少信息过载 |
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
+| 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
+| 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
 
 ## Feature Requests — 新功能需求
 

@@ -359,11 +359,8 @@ test('oauth mode (default) does not forward OPENAI_API_KEY to codex child env', 
     await promise;
 
     const spawnOpts = spawnFn.mock.calls[0].arguments[2];
-    assert.notEqual(
-      spawnOpts.env.OPENAI_API_KEY,
-      'sk-test-forwarded-key',
-      'oauth mode should not pass through OPENAI_API_KEY',
-    );
+    assert.equal(spawnOpts.env.OPENAI_API_KEY, undefined);
+    assert.equal(Object.prototype.hasOwnProperty.call(spawnOpts.env, 'OPENAI_API_KEY'), false);
   } finally {
     if (originalApiKey === undefined) delete process.env['OPENAI_API_KEY'];
     else process.env['OPENAI_API_KEY'] = originalApiKey;

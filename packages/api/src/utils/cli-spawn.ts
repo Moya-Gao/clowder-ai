@@ -32,6 +32,19 @@ export interface CliSpawnerDeps {
   spawnFn?: SpawnFn;
 }
 
+function buildChildEnv(overrides?: Record<string, string | null>): NodeJS.ProcessEnv {
+  if (!overrides) return process.env;
+  const merged: NodeJS.ProcessEnv = { ...process.env };
+  for (const [key, value] of Object.entries(overrides)) {
+    if (value === null) {
+      delete merged[key];
+      continue;
+    }
+    merged[key] = value;
+  }
+  return merged;
+}
+
 /**
  * Spawns a CLI process and yields parsed NDJSON events from stdout.
  *
@@ -56,7 +69,7 @@ export async function* spawnCli(
 
   const child = doSpawn(options.command, options.args, {
     cwd: options.cwd,
-    env: options.env ? { ...process.env, ...options.env } : process.env,
+    env: buildChildEnv(options.env),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 

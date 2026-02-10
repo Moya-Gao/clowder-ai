@@ -295,6 +295,34 @@ test('spawnCli passes cwd and env to spawn', async () => {
   assert.equal(spawnCall.arguments[2].env.CUSTOM_VAR, 'value');
 });
 
+test('spawnCli removes inherited env vars when override is null', async () => {
+  const saved = process.env.SPAWN_DELETE_ME;
+  process.env.SPAWN_DELETE_ME = 'secret-value';
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const promise = collect(spawnCli(
+    {
+      command: 'claude',
+      args: ['-p', 'hello'],
+      env: { SPAWN_DELETE_ME: null, KEEP_ME: '1' },
+    },
+    { spawnFn }
+  ));
+
+  proc.stdout.end();
+  proc._emitter.emit('exit', 0, null);
+  await promise;
+
+  const env = spawnFn.mock.calls[0].arguments[2].env;
+  assert.equal(env.SPAWN_DELETE_ME, undefined);
+  assert.equal(Object.prototype.hasOwnProperty.call(env, 'SPAWN_DELETE_ME'), false);
+  assert.equal(env.KEEP_ME, '1');
+
+  if (saved === undefined) delete process.env.SPAWN_DELETE_ME;
+  else process.env.SPAWN_DELETE_ME = saved;
+});
+
 test('spawnCli handles already-aborted signal', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
