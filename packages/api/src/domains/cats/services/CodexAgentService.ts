@@ -16,7 +16,6 @@
  */
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
 import { getCodexIsolatedHome } from '../../../utils/cli-config-isolation.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
@@ -24,8 +23,13 @@ import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
 import { getCatModel } from '../../../config/cat-models.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
-import type { AuditEventInput } from './EventAuditLog.js';
 import { CliRawArchive } from './CliRawArchive.js';
+import { transformCodexEvent } from './codex-event-transform.js';
+import {
+  extractCommandExecutionLifecycle,
+  sanitizeRawEvent,
+} from './codex-audit-hooks.js';
+import type { AuditLogSink, RawArchiveSink } from './codex-audit-hooks.js';
 import type {
   AgentMessage,
   AgentService,
@@ -48,162 +52,6 @@ interface CodexAgentServiceOptions {
   auditLog?: AuditLogSink;
   /** Inject raw archive sink (for testing) */
   rawArchive?: RawArchiveSink;
-}
-
-interface AuditLogSink {
-  append(input: AuditEventInput): Promise<unknown>;
-}
-
-interface RawArchiveSink {
-  append(invocationId: string, payload: unknown): Promise<void>;
-}
-
-interface CommandExecutionLifecycle {
-  phase: 'started' | 'completed';
-  command: string;
-  status?: string;
-  exitCode?: number | null;
-}
-
-/**
- * Transform a raw Codex CLI NDJSON event into an AgentMessage.
- * Returns null to skip events we don't care about.
- */
-function transformCodexEvent(
-  event: unknown,
-  catId: CatId
-): AgentMessage | null {
-  if (typeof event !== 'object' || event === null) return null;
-  const e = event as Record<string, unknown>;
-
-  // thread.started → session_init
-  if (e['type'] === 'thread.started') {
-    const threadId = e['thread_id'];
-    if (typeof threadId === 'string') {
-      return {
-        type: 'session_init',
-        catId,
-        sessionId: threadId,
-        timestamp: Date.now(),
-      };
-    }
-    return null;
-  }
-
-  // item.started with command_execution → tool_use
-  if (e['type'] === 'item.started') {
-    const item = e['item'] as Record<string, unknown> | undefined;
-    if (item?.['type'] === 'command_execution') {
-      const command = item['command'];
-      if (typeof command === 'string') {
-        return {
-          type: 'tool_use',
-          catId,
-          toolName: 'command_execution',
-          toolInput: { command },
-          timestamp: Date.now(),
-        };
-      }
-    }
-    return null;
-  }
-
-  // item.completed with agent_message → text
-  if (e['type'] === 'item.completed') {
-    const item = e['item'] as Record<string, unknown> | undefined;
-    if (item?.['type'] === 'agent_message' && typeof item['text'] === 'string') {
-      return {
-        type: 'text',
-        catId,
-        content: item['text'],
-        timestamp: Date.now(),
-      };
-    }
-
-    // item.completed with command_execution → tool_result
-    if (item?.['type'] === 'command_execution') {
-      const command = typeof item['command'] === 'string' ? item['command'] : '';
-      const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
-      const exitCode = typeof item['exit_code'] === 'number' ? item['exit_code'] : null;
-      const output = typeof item['aggregated_output'] === 'string'
-        ? item['aggregated_output']
-        : '';
-
-      const sections: string[] = [];
-      if (command) sections.push(`command: ${command}`);
-      sections.push(`status: ${status}`);
-      if (exitCode !== null) sections.push(`exit_code: ${exitCode}`);
-      const trimmedOutput = output.trimEnd();
-      if (trimmedOutput) sections.push(trimmedOutput);
-
-      return {
-        type: 'tool_result',
-        catId,
-        content: sections.join('\n'),
-        timestamp: Date.now(),
-      };
-    }
-
-    // item.completed with file_change → tool_use (for visual trace in UI)
-    if (item?.['type'] === 'file_change') {
-      const changes = Array.isArray(item['changes']) ? item['changes'] : [];
-      const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
-      return {
-        type: 'tool_use',
-        catId,
-        toolName: 'file_change',
-        toolInput: {
-          status,
-          changes: changes.length,
-        },
-        timestamp: Date.now(),
-      };
-    }
-
-    return null;
-  }
-
-  // Everything else (turn.started, turn.completed, item.started, etc.) → skip
-  return null;
-}
-
-function extractCommandExecutionLifecycle(event: unknown): CommandExecutionLifecycle | null {
-  if (typeof event !== 'object' || event === null) return null;
-  const e = event as Record<string, unknown>;
-
-  if (e['type'] === 'item.started') {
-    const item = e['item'] as Record<string, unknown> | undefined;
-    if (item?.['type'] === 'command_execution' && typeof item['command'] === 'string') {
-      return {
-        phase: 'started',
-        command: item['command'],
-        ...(typeof item['status'] === 'string' ? { status: item['status'] } : {}),
-      };
-    }
-  }
-
-  if (e['type'] === 'item.completed') {
-    const item = e['item'] as Record<string, unknown> | undefined;
-    if (item?.['type'] === 'command_execution' && typeof item['command'] === 'string') {
-      return {
-        phase: 'completed',
-        command: item['command'],
-        ...(typeof item['status'] === 'string' ? { status: item['status'] } : {}),
-        ...(typeof item['exit_code'] === 'number' ? { exitCode: item['exit_code'] } : {}),
-      };
-    }
-  }
-
-  return null;
-}
-
-function sanitizeRawEvent(event: unknown): unknown {
-  if (typeof event !== 'object' || event === null) return event;
-  const record = event as Record<string, unknown>;
-  if (typeof record['callbackToken'] === 'string') {
-    return { ...record, callbackToken: '[redacted]' };
-  }
-  return event;
 }
 
 /**

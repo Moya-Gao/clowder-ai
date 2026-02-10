@@ -453,3 +453,85 @@ test('archives raw stream events when auditContext is provided', async () => {
   assert.equal(rawArchive.append.mock.calls[0].arguments[0], 'inv-raw-1');
   assert.equal(rawArchive.append.mock.calls[1].arguments[0], 'inv-raw-1');
 });
+
+test('does not write lifecycle audit or raw archive when auditContext is absent', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const auditLog = { append: mock.fn(async () => ({ id: 'evt-1' })) };
+  const rawArchive = { append: mock.fn(async () => {}) };
+  const service = new CodexAgentService({ spawnFn, auditLog, rawArchive });
+
+  const promise = collect(service.invoke('no audit context'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-no-audit' },
+    {
+      type: 'item.started',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        status: 'in_progress',
+      },
+    },
+    {
+      type: 'item.completed',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        aggregated_output: '/tmp\n',
+        exit_code: 0,
+        status: 'completed',
+      },
+    },
+  ]);
+
+  await promise;
+
+  assert.equal(auditLog.append.mock.callCount(), 0);
+  assert.equal(rawArchive.append.mock.callCount(), 0);
+});
+
+test('redacts nested callback tokens before archiving raw events', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const auditLog = { append: mock.fn(async () => ({ id: 'evt-1' })) };
+  const rawArchive = { append: mock.fn(async () => {}) };
+  const service = new CodexAgentService({ spawnFn, auditLog, rawArchive });
+
+  const promise = collect(service.invoke('deep redact', {
+    auditContext: {
+      invocationId: 'inv-redact-1',
+      threadId: 'thread-redact-1',
+      userId: 'user-1',
+      catId: 'codex',
+    },
+  }));
+
+  emitCodexEvents(proc, [
+    {
+      type: 'item.completed',
+      callbackToken: 'root-secret',
+      item: {
+        id: 'msg-1',
+        type: 'agent_message',
+        text: 'hello',
+        callbackEnv: {
+          CAT_CAFE_CALLBACK_TOKEN: 'nested-secret',
+        },
+        nested: {
+          callbackToken: 'deep-secret',
+        },
+      },
+    },
+  ]);
+
+  await promise;
+
+  assert.equal(rawArchive.append.mock.callCount(), 1);
+  const archived = rawArchive.append.mock.calls[0].arguments[1];
+  assert.equal(archived.callbackToken, '[redacted]');
+  assert.equal(archived.item.callbackEnv.CAT_CAFE_CALLBACK_TOKEN, '[redacted]');
+  assert.equal(archived.item.nested.callbackToken, '[redacted]');
+});

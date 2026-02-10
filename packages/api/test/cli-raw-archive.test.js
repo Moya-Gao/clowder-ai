@@ -66,5 +66,37 @@ describe('CliRawArchive', () => {
     assert.equal(a.payload.marker, 'A');
     assert.equal(b.payload.marker, 'B');
   });
-});
 
+  test('rejects invalid invocationId path traversal attempts', async () => {
+    const archive = new CliRawArchive({ archiveDir: TEST_ARCHIVE_DIR });
+
+    await assert.rejects(
+      archive.append('../etc/passwd', { marker: 'x' }),
+      /Invalid invocationId/
+    );
+  });
+
+  test('supports concurrent append calls for same invocation', async () => {
+    const archive = new CliRawArchive({ archiveDir: TEST_ARCHIVE_DIR });
+
+    const events = Array.from({ length: 20 }, (_, index) => ({
+      seq: index + 1,
+      type: 'item.completed',
+    }));
+
+    await Promise.all(events.map((event) => archive.append('inv-concurrent', event)));
+
+    const file = join(TEST_ARCHIVE_DIR, formatToday(), 'inv-concurrent.ndjson');
+    assert.equal(existsSync(file), true);
+
+    const content = await readFile(file, 'utf-8');
+    const lines = content.trim().split('\n').filter(Boolean);
+    assert.equal(lines.length, 20);
+
+    const found = new Set(lines.map((line) => JSON.parse(line).payload.seq));
+    assert.equal(found.size, 20);
+    for (let i = 1; i <= 20; i += 1) {
+      assert.equal(found.has(i), true);
+    }
+  });
+});
