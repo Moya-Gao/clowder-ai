@@ -4,7 +4,7 @@
  * session-level instructions during Cat Cafe invocations.
  */
 
-import { mkdirSync, copyFileSync, existsSync } from 'node:fs';
+import { mkdirSync, copyFileSync, symlinkSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
@@ -33,6 +33,19 @@ export function getCodexIsolatedHome(): string {
     const dst = join(isolatedCodexDir, file);
     if (existsSync(src)) {
       copyFileSync(src, dst);
+    }
+  }
+
+  // Symlink sessions/ so Codex writes session records to the real HOME.
+  // Without this, sessions are lost in /tmp and `codex resume` can't find them.
+  const realSessionsDir = join(realCodexDir, 'sessions');
+  const isolatedSessionsDir = join(isolatedCodexDir, 'sessions');
+  if (existsSync(realSessionsDir) && !existsSync(isolatedSessionsDir)) {
+    try {
+      symlinkSync(realSessionsDir, isolatedSessionsDir);
+    } catch {
+      // Best-effort: if symlink fails (permissions), sessions won't persist
+      // but Cat Cafe can still function via SessionManager's in-memory store
     }
   }
 
