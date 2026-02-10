@@ -53,6 +53,7 @@ export function useAgentMessages() {
     setIntentMode,
     setCatStatus,
     clearCatStatuses,
+    setCatInvocation,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
@@ -206,24 +207,42 @@ export function useAgentMessages() {
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {
-        // System notifications: budget warnings, cancel feedback, A2A follow-up hints
+        // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
         let sysContent = msg.content ?? '';
         let sysVariant: 'info' | 'a2a_followup' = 'info';
+        let consumed = false;
         try {
           const parsed = JSON.parse(sysContent);
           if (parsed?.type === 'a2a_followup_available') {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
+          } else if (parsed?.type === 'invocation_metrics') {
+            // Store metrics silently — don't show as system message
+            if (parsed.kind === 'session_started') {
+              setCatInvocation(msg.catId, {
+                sessionId: parsed.sessionId,
+                invocationId: parsed.invocationId,
+                startedAt: Date.now(),
+              });
+            } else if (parsed.kind === 'invocation_complete') {
+              setCatInvocation(msg.catId, {
+                durationMs: parsed.durationMs,
+                sessionId: parsed.sessionId,
+              });
+            }
+            consumed = true;
           }
         } catch { /* not JSON, use raw content */ }
-        addMessage({
-          id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          type: 'system',
-          variant: sysVariant,
-          content: sysContent,
-          timestamp: Date.now(),
-        });
+        if (!consumed) {
+          addMessage({
+            id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: sysVariant,
+            content: sysContent,
+            timestamp: Date.now(),
+          });
+        }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
@@ -245,7 +264,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(

@@ -16,7 +16,7 @@
  */
 
 import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
@@ -128,6 +128,14 @@ export class EventAuditLog {
     }
 
     return events.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  /**
+   * Get the absolute path to today's audit log file.
+   */
+  getLogPath(): string {
+    const filename = this.getFilename(Date.now());
+    return resolve(this.auditDir, filename);
   }
 
   /**

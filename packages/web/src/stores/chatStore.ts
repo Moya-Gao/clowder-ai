@@ -75,6 +75,13 @@ export interface Thread {
   createdAt: number;
 }
 
+export interface CatInvocationInfo {
+  sessionId?: string;
+  invocationId?: string;
+  durationMs?: number;
+  startedAt?: number;
+}
+
 interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
@@ -85,6 +92,9 @@ interface ChatState {
   // Per-cat status for loading indicators
   targetCats: string[];
   catStatuses: Record<string, 'pending' | 'streaming' | 'done' | 'error'>;
+
+  // Per-cat invocation metrics (session IDs, duration)
+  catInvocations: Record<string, CatInvocationInfo>;
 
   // Thread state
   currentThreadId: string;
@@ -106,6 +116,7 @@ interface ChatState {
   setTargetCats: (cats: string[]) => void;
   setCatStatus: (catId: string, status: 'pending' | 'streaming' | 'done' | 'error') => void;
   clearCatStatuses: () => void;
+  setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
   clearMessages: () => void;
 
   // Thread actions
@@ -125,6 +136,7 @@ export const useChatStore = create<ChatState>((set) => ({
 
   targetCats: [],
   catStatuses: {},
+  catInvocations: {},
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
@@ -213,6 +225,13 @@ export const useChatStore = create<ChatState>((set) => ({
   setTargetCats: (cats) => set({ targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) }),
   setCatStatus: (catId, status) => set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
   clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
+  setCatInvocation: (catId, info) =>
+    set((state) => ({
+      catInvocations: {
+        ...state.catInvocations,
+        [catId]: { ...state.catInvocations[catId], ...info },
+      },
+    })),
   clearMessages: () =>
     set((state) => {
       // Revoke blob URLs to prevent memory leak (P3 fix)

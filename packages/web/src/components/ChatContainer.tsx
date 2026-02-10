@@ -33,6 +33,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     intentMode,
     targetCats,
     catStatuses,
+    catInvocations,
     addMessage,
     removeMessage,
     setIntentMode,
@@ -261,6 +262,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         intentMode={intentMode}
         targetCats={targetCats}
         catStatuses={catStatuses}
+        catInvocations={catInvocations}
+        threadId={threadId}
         messageSummary={messageSummary}
         taskSummary={taskSummary}
       />
