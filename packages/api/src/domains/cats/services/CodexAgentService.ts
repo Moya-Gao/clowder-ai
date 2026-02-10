@@ -18,6 +18,7 @@
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
+import { getCodexIsolatedHome } from '../../../utils/cli-config-isolation.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
@@ -176,6 +177,12 @@ export class CodexAgentService implements AgentService {
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
 
     try {
+      // Isolate from global ~/.codex/AGENTS.md to prevent config pollution
+      const isolatedEnv: Record<string, string> = {
+        HOME: getCodexIsolatedHome(),
+        ...(options?.callbackEnv ?? {}),
+      };
+
       const events = spawnCli(
         {
           command: 'codex',
@@ -183,7 +190,7 @@ export class CodexAgentService implements AgentService {
           ...(options?.workingDirectory
             ? { cwd: options.workingDirectory }
             : {}),
-          ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
+          env: isolatedEnv,
           ...(options?.signal ? { signal: options.signal } : {}),
         },
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined

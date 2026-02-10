@@ -16,6 +16,7 @@ import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { validateProjectPath } from '../utils/project-path.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -32,13 +33,13 @@ export interface ThreadsRoutesOptions {
 }
 
 const createThreadSchema = z.object({
-  userId: z.string().min(1).max(100),
+  /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+  userId: z.string().min(1).max(100).optional(),
   title: z.string().min(1).max(200).optional(),
   projectPath: z.string().min(1).max(500).optional(),
 });
 
 const listThreadsSchema = z.object({
-  userId: z.string().min(1).max(100).default('default-user'),
   projectPath: z.string().min(1).max(500).optional(),
   q: z.string().trim().min(1).max(200).optional(),
 });
@@ -59,7 +60,12 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId, title, projectPath } = parseResult.data;
+    const { userId: legacyUserId, title, projectPath } = parseResult.data;
+    const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
 
     // Validate projectPath is a real directory under allowed roots
     if (projectPath && projectPath !== 'default') {
@@ -86,7 +92,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { threads: [] };
     }
 
-    const { userId, projectPath, q } = parseResult.data;
+    const { projectPath, q } = parseResult.data;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
+    if (!userId) return { threads: [] };
+
     const threads = projectPath
       ? await threadStore.listByProject(userId, projectPath)
       : await threadStore.list(userId);

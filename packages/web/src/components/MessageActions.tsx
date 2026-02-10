@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import type { ChatMessage } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
 import { ConfirmDialog } from './ConfirmDialog';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { apiFetch } from '@/utils/api-client';
+import { getUserId } from '@/utils/userId';
 
 type DialogState =
   | { type: 'none' }
@@ -35,7 +35,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
 
   const handleHardDelete = useCallback(async () => {
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}`, { method: 'GET' });
+      const res = await apiFetch(`/api/threads/${threadId}`, { method: 'GET' });
       const thread = res.ok ? await res.json() : null;
       setDialog({ type: 'hard-delete', threadTitle: thread?.title ?? null });
     } catch {
@@ -52,10 +52,10 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const confirmSoftDelete = useCallback(async () => {
     setDialog({ type: 'none' });
     try {
-      const res = await fetch(`${API_URL}/api/messages/${message.id}`, {
+      const res = await apiFetch(`/api/messages/${message.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'default-user', mode: 'soft' }),
+        body: JSON.stringify({ userId: getUserId(), mode: 'soft' }),
       });
       if (res.ok) removeMessage(message.id);
     } catch { /* socket event will sync if needed */ }
@@ -66,10 +66,10 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     const confirmTitle = dialog.threadTitle ?? '确认删除';
     setDialog({ type: 'none' });
     try {
-      const res = await fetch(`${API_URL}/api/messages/${message.id}`, {
+      const res = await apiFetch(`/api/messages/${message.id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: 'default-user', mode: 'hard', confirmTitle }),
+        body: JSON.stringify({ userId: getUserId(), mode: 'hard', confirmTitle }),
       });
       if (res.ok) removeMessage(message.id);
     } catch { /* socket event will sync if needed */ }
@@ -85,13 +85,13 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     const { editedContent } = dialog;
     setDialog({ type: 'none' });
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}/branch`, {
+      const res = await apiFetch(`/api/threads/${threadId}/branch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromMessageId: message.id,
           editedContent: editedContent !== message.content ? editedContent : undefined,
-          userId: 'default-user',
+          userId: getUserId(),
         }),
       });
       if (res.ok) {
@@ -107,10 +107,10 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     branchingRef.current = true;
     setDialog({ type: 'none' });
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}/branch`, {
+      const res = await apiFetch(`/api/threads/${threadId}/branch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromMessageId: message.id, userId: 'default-user' }),
+        body: JSON.stringify({ fromMessageId: message.id, userId: getUserId() }),
       });
       if (res.ok) {
         const { threadId: newThreadId } = await res.json();

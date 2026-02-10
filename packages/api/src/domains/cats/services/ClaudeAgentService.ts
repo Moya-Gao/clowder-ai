@@ -157,6 +157,8 @@ export class ClaudeAgentService implements AgentService {
       '--model', this.model,
       '--allowedTools', ALLOWED_TOOLS,
       '--permission-mode', PERMISSION_MODE,
+      // Skip global user settings to prevent config pollution across sessions
+      '--setting-sources', 'project,local',
     ];
 
     if (options?.sessionId) {

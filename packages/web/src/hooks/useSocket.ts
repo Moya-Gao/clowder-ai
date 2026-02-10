@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { getUserId } from '@/utils/userId';
+import { API_URL } from '@/utils/api-client';
 
 interface AgentMessage {
   type: string;
@@ -43,7 +43,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   useEffect(() => {
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
-      query: { userId: 'default-user' },
+      auth: { userId: getUserId() },
     });
 
     socket.on('connect', () => {

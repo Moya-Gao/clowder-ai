@@ -6,8 +6,7 @@ import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { SummaryCard } from './SummaryCard';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { API_URL } from '@/utils/api-client';
 
 const CAT_STYLES: Record<string, {
   bg: string;
@@ -180,7 +179,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   return (
     <div className="flex gap-2 mb-4 items-start">
-      {cat && <CatAvatar catId={message.catId!} size={32} />}
+      {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[75%]">
         {cat && (
           <div className="flex items-center gap-2 mb-1">

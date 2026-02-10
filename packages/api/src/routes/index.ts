@@ -16,3 +16,4 @@ export { reflectRoutes } from './reflect.js';
 export { invocationsRoutes } from './invocations.js';
 export { messageActionsRoutes } from './message-actions.js';
 export { threadBranchRoutes } from './thread-branch.js';
+export { auditRoutes } from './audit.js';

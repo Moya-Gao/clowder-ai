@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useTaskStore } from '@/stores/taskStore';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;
 
 function isAbortError(err: unknown): boolean {
@@ -59,7 +58,7 @@ export function useChatHistory(threadId: string) {
         const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
         if (cursor) params.set('before', cursor);
         params.set('threadId', fetchForThread);
-        const res = await fetch(`${API_URL}/api/messages?${params}`, {
+        const res = await apiFetch(`/api/messages?${params}`, {
           signal: controller.signal,
         });
         if (!res.ok) return;
@@ -98,8 +97,8 @@ export function useChatHistory(threadId: string) {
     if (!controller) return;
 
     try {
-      const res = await fetch(
-        `${API_URL}/api/tasks?threadId=${encodeURIComponent(fetchForThread)}`,
+      const res = await apiFetch(
+        `/api/tasks?threadId=${encodeURIComponent(fetchForThread)}`,
         { signal: controller.signal },
       );
       if (!res.ok) return;

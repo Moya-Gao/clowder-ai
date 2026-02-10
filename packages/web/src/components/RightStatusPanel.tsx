@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import type { CatInvocationInfo } from '@/stores/chatStore';
 
 const CAT_INFO: Record<string, { name: string; color: string }> = {
   opus: { name: '布偶猫', color: 'bg-opus-primary' },
@@ -15,6 +16,8 @@ export interface RightStatusPanelProps {
   intentMode: IntentMode;
   targetCats: string[];
   catStatuses: Record<string, CatStatus>;
+  catInvocations: Record<string, CatInvocationInfo>;
+  threadId: string;
   messageSummary: {
     total: number;
     assistant: number;
@@ -64,10 +67,21 @@ function statusTone(status: CatStatus): string {
   }
 }
 
+function truncateId(id: string, len = 8): string {
+  return id.length > len ? `${id.slice(0, len)}…` : id;
+}
+
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
 export function RightStatusPanel({
   intentMode,
   targetCats,
   catStatuses,
+  catInvocations,
+  threadId,
   messageSummary,
   taskSummary,
 }: RightStatusPanelProps) {
@@ -128,6 +142,44 @@ export function RightStatusPanel({
           <div className="text-right font-medium">{taskSummary.total}</div>
           <div>已完成</div>
           <div className="text-right font-medium">{taskSummary.done}</div>
+        </div>
+      </section>
+
+      {Object.keys(catInvocations).length > 0 && (
+        <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+          <h3 className="text-xs font-semibold text-gray-700 mb-2">会话信息</h3>
+          <div className="space-y-2">
+            {cats.map((catId) => {
+              const inv = catInvocations[catId];
+              if (!inv) return null;
+              const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+              return (
+                <div key={catId} className="text-xs">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className={`inline-block h-2 w-2 rounded-full ${info.color}`} />
+                    <span className="font-medium text-gray-700">{info.name}</span>
+                  </div>
+                  <div className="ml-3.5 text-gray-500 space-y-0.5">
+                    {inv.sessionId && (
+                      <div>Session: <code className="text-gray-600">{truncateId(inv.sessionId)}</code></div>
+                    )}
+                    {inv.durationMs != null && (
+                      <div>耗时: <span className="text-gray-600 font-medium">{formatDuration(inv.durationMs)}</span></div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
+        <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
+        <div className="text-xs text-gray-500">
+          <div>
+            Thread: <code className="text-gray-600">{truncateId(threadId, 12)}</code>
+          </div>
         </div>
       </section>
     </aside>

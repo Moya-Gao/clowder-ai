@@ -27,7 +27,13 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      const userId = (socket.handshake.query['userId'] as string) || 'anonymous';
+      const authUserId = typeof socket.handshake.auth?.['userId'] === 'string'
+        ? socket.handshake.auth['userId'].trim()
+        : '';
+      const queryUserId = typeof socket.handshake.query['userId'] === 'string'
+        ? socket.handshake.query['userId'].trim()
+        : '';
+      const userId = authUserId || queryUserId || 'anonymous';
       console.log(`[ws] Client connected: ${socket.id} (user: ${userId})`);
 
       socket.on('disconnect', () => {

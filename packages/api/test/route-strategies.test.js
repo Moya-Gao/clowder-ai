@@ -501,7 +501,7 @@ describe('routeSerial degradation notification', () => {
       messages.push(msg);
     }
 
-    const sysInfos = messages.filter(m => m.type === 'system_info');
+    const sysInfos = messages.filter(m => m.type === 'system_info' && !m.content?.includes('invocation_metrics'));
     assert.equal(sysInfos.length, 0, 'should not yield degradation when within budget');
   });
 

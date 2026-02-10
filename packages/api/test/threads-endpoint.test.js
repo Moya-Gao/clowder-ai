@@ -42,13 +42,13 @@ describe('Thread API', () => {
     assert.deepEqual(body.participants, []);
   });
 
-  it('POST /api/threads returns 400 for missing userId', async () => {
+  it('POST /api/threads returns 401 for missing identity', async () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/threads',
       payload: { title: 'No User' },
     });
-    assert.equal(res.statusCode, 400);
+    assert.equal(res.statusCode, 401);
   });
 
   it('GET /api/threads lists user threads', async () => {

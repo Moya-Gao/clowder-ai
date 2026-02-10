@@ -16,6 +16,8 @@ describe('RightStatusPanel', () => {
         opus: 'streaming',
         codex: 'done',
       },
+      catInvocations: {},
+      threadId: 'test-thread',
       messageSummary: {
         total: 12,
         assistant: 7,
@@ -43,6 +45,8 @@ describe('RightStatusPanel', () => {
       intentMode: null,
       targetCats: [],
       catStatuses: {},
+      catInvocations: {},
+      threadId: 'test-thread',
       messageSummary: {
         total: 0,
         assistant: 0,

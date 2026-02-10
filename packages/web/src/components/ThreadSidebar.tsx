@@ -6,8 +6,7 @@ import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { TaskPanel } from './TaskPanel';
 import { PawIcon } from './icons/PawIcon';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { apiFetch, API_URL } from '@/utils/api-client';
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -82,7 +81,7 @@ function DirectoryPickerModal({
     setError(null);
     try {
       const params = path ? `?path=${encodeURIComponent(path)}` : '';
-      const res = await fetch(`${API_URL}/api/projects/browse${params}`);
+      const res = await apiFetch(`/api/projects/browse${params}`);
       if (!res.ok) {
         const data = await res.json();
         setError(data.error || 'Failed to browse');
@@ -100,7 +99,7 @@ function DirectoryPickerModal({
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/projects/cwd`);
+        const res = await apiFetch(`/api/projects/cwd`);
         if (res.ok) {
           const data = await res.json();
           await browseTo(data.path);
@@ -270,7 +269,7 @@ export function ThreadSidebar() {
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
     try {
-      const res = await fetch(`${API_URL}/api/threads?userId=default-user`);
+      const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
       setThreads(data.threads ?? []);
@@ -293,11 +292,10 @@ export function ThreadSidebar() {
     setIsCreating(true);
     setShowPicker(false);
     try {
-      const res = await fetch(`${API_URL}/api/threads`, {
+      const res = await apiFetch(`/api/threads`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: 'default-user',
           ...(projectPath ? { projectPath } : {}),
         }),
       });
@@ -316,7 +314,7 @@ export function ThreadSidebar() {
 
   const handleDelete = useCallback(async (threadId: string) => {
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}`, { method: 'DELETE' });
+      const res = await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' });
       if (!res.ok && res.status !== 204) return;
       if (threadId === currentThreadId) {
         navigateToThread('default');
@@ -333,7 +331,7 @@ export function ThreadSidebar() {
     if (!nextTitle) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/threads/${threadId}`, {
+      const res = await apiFetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: nextTitle }),

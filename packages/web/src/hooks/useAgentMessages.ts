@@ -53,10 +53,14 @@ export function useAgentMessages() {
     setIntentMode,
     setCatStatus,
     clearCatStatuses,
+    setCatInvocation,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
   const activeRefs = useRef<Map<string, { id: string; catId: string }>>(new Map());
+
+  /** Current A2A group ID — set on a2a_handoff, cleared on done(isFinal) */
+  const a2aGroupRef = useRef<string | null>(null);
 
   /** Timeout ref for done(isFinal) reachability */
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,6 +119,7 @@ export function useAgentMessages() {
             catId: msg.catId,
             content: msg.content,
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
             timestamp: Date.now(),
             isStreaming: true,
           });
@@ -186,34 +191,58 @@ export function useAgentMessages() {
           setLoading(false);
           setIntentMode(null);
           clearCatStatuses();
+          a2aGroupRef.current = null;
         }
       } else if (msg.type === 'a2a_handoff') {
+        // Start or continue an A2A group
+        if (!a2aGroupRef.current) {
+          a2aGroupRef.current = `a2a-group-${Date.now()}`;
+        }
         addMessage({
           id: `a2a-${Date.now()}-${msg.catId}`,
           type: 'system',
           variant: 'info',
           content: msg.content ?? '',
+          a2aGroupId: a2aGroupRef.current,
           timestamp: Date.now(),
         });
       } else if (msg.type === 'system_info') {
-        // System notifications: budget warnings, cancel feedback, A2A follow-up hints
+        // System notifications: budget warnings, cancel feedback, A2A follow-up hints, invocation metrics
         let sysContent = msg.content ?? '';
         let sysVariant: 'info' | 'a2a_followup' = 'info';
+        let consumed = false;
         try {
           const parsed = JSON.parse(sysContent);
           if (parsed?.type === 'a2a_followup_available') {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
+          } else if (parsed?.type === 'invocation_metrics') {
+            // Store metrics silently — don't show as system message
+            if (parsed.kind === 'session_started') {
+              setCatInvocation(msg.catId, {
+                sessionId: parsed.sessionId,
+                invocationId: parsed.invocationId,
+                startedAt: Date.now(),
+              });
+            } else if (parsed.kind === 'invocation_complete') {
+              setCatInvocation(msg.catId, {
+                durationMs: parsed.durationMs,
+                sessionId: parsed.sessionId,
+              });
+            }
+            consumed = true;
           }
         } catch { /* not JSON, use raw content */ }
-        addMessage({
-          id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          type: 'system',
-          variant: sysVariant,
-          content: sysContent,
-          timestamp: Date.now(),
-        });
+        if (!consumed) {
+          addMessage({
+            id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            type: 'system',
+            variant: sysVariant,
+            content: sysContent,
+            timestamp: Date.now(),
+          });
+        }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
         const ref = activeRefs.current.get(msg.catId);
@@ -235,7 +264,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(

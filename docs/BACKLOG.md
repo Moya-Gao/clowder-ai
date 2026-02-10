@@ -44,7 +44,7 @@
 | 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [x] | 辩论测试发现 | Phase 5.2 — 400 拒绝 + code=THREAD_NOT_FOUND，前端解析 detail 显示中文提示 |
-| 31 | /api/memory 与 /api/commands 身份/权限边界 | [ ] | Phase 4.0 缅因猫 review P2-1 | 当前依赖 threadId 不可猜；多用户需统一 userId 来源 |
+| 31 | /api/memory 与 /api/commands 身份/权限边界 | [~] | Phase 4.0 缅因猫 review P2-1 | `2aa54b6` 已完成 messages/threads/socket 身份入口统一；剩余 `/api/memory` 与 `/api/commands` 待迁移到同一 resolver |
 | 32 | DegradationPolicy 绑定实际链路 | [x] | Phase 4.0 缅因猫 review P2-2 | 5.0-pre: routeSerial/routeParallel 调用 checkContextBudget → yield system_info |
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
 | 34 | cascade delete 语义边界文档 | [x] | Quick wins 缅因猫 review P2-1 | Phase 5.2 — ADR `docs/decisions/007-cascade-delete-semantics.md` |
@@ -54,7 +54,7 @@
 | 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
 | 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [x] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 2026-02-09 上游 `google-gemini/gemini-cli#18621` 已关闭（completed），`#18656` 已合并；2026-02-10 本地 `stream-json` 连续 3 次复测无崩溃，关闭该跟踪项 |
 | 42 | Branch 回滚 best-effort 双失败容错 | [ ] | ADR-008 S7 缅因猫 R3 review | `Promise.allSettled` 已覆盖主要路径；底层存储完全不可用时两步清理都会失败，可考虑 background orphan reconciliation |
-| 43 | API 端点 userId 来源信任 | [ ] | ADR-008 S5/S6 缅因猫 R2 review | 所有 mutation 端点依赖 request body 的 userId，无 auth middleware 验证身份真实性。多用户场景需统一鉴权 (JWT/session) |
+| 43 | 身份入口统一（header 优先）与 URL 脱敏 | [x] | feat/ux-polish review P2 | `2aa54b6` — `resolveUserId` 扩展到 messages/threads，前端 apiFetch + `X-Cat-Cafe-User` header 取代 URL query |
 
 ## P3 — 可选优化
 

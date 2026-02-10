@@ -121,6 +121,18 @@ export async function* invokeSingleCat(
         } catch {
           // Redis write failure — session won't persist, but chain continues
         }
+        // Push session info as system_info for frontend status panel
+        yield {
+          type: 'system_info' as const,
+          catId,
+          content: JSON.stringify({
+            type: 'invocation_metrics',
+            kind: 'session_started',
+            sessionId: msg.sessionId,
+            invocationId,
+          }),
+          timestamp: Date.now(),
+        };
       }
 
       if (msg.type === 'done') {
@@ -140,6 +152,20 @@ export async function* invokeSingleCat(
         }).catch((err) => {
           console.warn('[audit] CAT_RESPONDED write failed', { threadId, invocationId, err });
         });
+
+        // Push completion metrics for frontend status panel
+        yield {
+          type: 'system_info' as const,
+          catId,
+          content: JSON.stringify({
+            type: 'invocation_metrics',
+            kind: 'invocation_complete',
+            invocationId,
+            durationMs,
+            sessionId: msg.metadata?.sessionId,
+          }),
+          timestamp: Date.now(),
+        };
 
         yield { ...msg, isFinal: isLastCat };
       } else {

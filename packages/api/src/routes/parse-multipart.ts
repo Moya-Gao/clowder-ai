@@ -10,7 +10,7 @@ import { saveUploadedImages, ImageUploadError } from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
-  | { content: string; userId: string; threadId?: string; idempotencyKey?: string; contentBlocks: MessageContent[] }
+  | { content: string; userId?: string; threadId?: string; idempotencyKey?: string; contentBlocks: MessageContent[] }
   | { error: string };
 
 /** Parse multipart request into validated message fields + contentBlocks */
@@ -52,7 +52,8 @@ export async function parseMultipart(
   }
 
   return {
-    content, userId,
+    content,
+    ...(userId ? { userId } : {}),
     ...(threadId ? { threadId } : {}),
     ...(idempotencyKey ? { idempotencyKey } : {}),
     contentBlocks: blocks,

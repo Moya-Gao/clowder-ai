@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -16,6 +16,7 @@ import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
+import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -81,6 +82,8 @@ async function main(): Promise<void> {
     ...(threadStore ? { threadStore } : {}),
   });
 
+  const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
+
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
@@ -92,6 +95,7 @@ async function main(): Promise<void> {
     threadStore,
     invocationTracker,
     invocationRecordStore,
+    autoSummarizer,
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,
@@ -125,6 +129,7 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
+  await app.register(auditRoutes, { threadStore });
   await app.register(memoryRoutes, { memoryStore });
 
   // Evidence search (Hindsight Recall + docs fallback)
