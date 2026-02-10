@@ -1,15 +1,17 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { scrollToMessage } from '@/utils/scrollToMessage';
+
+/** Maximum dots rendered on the track — prevents clutter in long conversations */
+const MAX_DOTS = 18;
 
 const DOT_COLORS: Record<string, string> = {
   opus: 'bg-opus-primary',
   codex: 'bg-codex-primary',
   gemini: 'bg-gemini-primary',
 };
-
 const SENDER_NAMES: Record<string, string> = {
   opus: '布偶猫',
   codex: '缅因猫',
@@ -29,42 +31,113 @@ function getSenderName(msg: ChatMessageData): string {
 }
 
 function formatTime(ts: number): string {
-  const d = new Date(ts);
-  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function truncateContent(content: string, maxLen: number): string {
-  if (content.length <= maxLen) return content;
-  return content.slice(0, maxLen) + '…';
+  return content.length <= maxLen ? content : content.slice(0, maxLen) + '…';
 }
 
 interface MessageNavigatorProps {
   messages: ChatMessageData[];
+  scrollContainerRef: React.RefObject<HTMLElement | null>;
 }
 
-export function MessageNavigator({ messages }: MessageNavigatorProps) {
+export function MessageNavigator({ messages, scrollContainerRef }: MessageNavigatorProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+  const [viewport, setViewport] = useState({ top: 0, height: 1 });
+  const trackRef = useRef<HTMLDivElement>(null);
 
-  // Only show user + assistant messages as dots
+  // Filter to user + assistant only
   const navItems = useMemo(
-    () => messages
-      .map((msg, originalIdx) => ({ msg, originalIdx }))
-      .filter(({ msg }) => msg.type === 'user' || msg.type === 'assistant'),
+    () => messages.filter((m) => m.type === 'user' || m.type === 'assistant'),
     [messages],
   );
 
-  if (navItems.length < 2) return null;
+  // Sample at fixed intervals when too many messages
+  const sampledItems = useMemo(() => {
+    if (navItems.length <= MAX_DOTS) {
+      return navItems.map((msg, i) => ({ msg, sourceIdx: i }));
+    }
+    const step = (navItems.length - 1) / (MAX_DOTS - 1);
+    return Array.from({ length: MAX_DOTS }, (_, i) => {
+      const idx = Math.round(i * step);
+      return { msg: navItems[idx], sourceIdx: idx };
+    });
+  }, [navItems]);
+
+  // Sync viewport indicator with scroll position
+  const updateViewport = useCallback(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const { scrollTop, scrollHeight, clientHeight } = el;
+    if (scrollHeight <= clientHeight) {
+      setViewport({ top: 0, height: 1 });
+      return;
+    }
+    setViewport({
+      top: scrollTop / scrollHeight,
+      height: clientHeight / scrollHeight,
+    });
+  }, [scrollContainerRef]);
+
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    updateViewport();
+    el.addEventListener('scroll', updateViewport, { passive: true });
+    return () => el.removeEventListener('scroll', updateViewport);
+  }, [scrollContainerRef, updateViewport]);
+
+  // Click on track background → scroll proportionally
+  const handleTrackClick = useCallback(
+    (e: React.MouseEvent<HTMLDivElement>) => {
+      const track = trackRef.current;
+      const container = scrollContainerRef.current;
+      if (!track || !container) return;
+      // Ignore clicks on dots (they handle their own onClick)
+      if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+      const rect = track.getBoundingClientRect();
+      const ratio = (e.clientY - rect.top) / rect.height;
+      container.scrollTo({
+        top: ratio * (container.scrollHeight - container.clientHeight),
+        behavior: 'smooth',
+      });
+    },
+    [scrollContainerRef],
+  );
+
+  if (navItems.length < 3) return null;
 
   return (
-    <div className="absolute right-1 top-2 bottom-2 w-4 z-10">
-      <div className="relative h-full">
-        {navItems.map(({ msg }, idx) => {
-          const top = navItems.length <= 1 ? 50 : (idx / (navItems.length - 1)) * 100;
+    <div className="absolute right-0.5 top-2 bottom-2 w-5 z-10">
+      <div
+        ref={trackRef}
+        className="relative h-full cursor-pointer"
+        onClick={handleTrackClick}
+      >
+        {/* Track rail */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200 -translate-x-1/2" />
+
+        {/* Viewport indicator (scrollbar thumb) */}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 w-2.5 rounded-full bg-gray-300/50 transition-all duration-100 pointer-events-none"
+          style={{
+            top: `${viewport.top * 100}%`,
+            height: `${Math.max(viewport.height * 100, 5)}%`,
+          }}
+        />
+
+        {/* Sampled dots */}
+        {sampledItems.map(({ msg, sourceIdx }, idx) => {
+          const top = sampledItems.length <= 1
+            ? 50
+            : (idx / (sampledItems.length - 1)) * 100;
           const color = getDotColor(msg);
 
           return (
             <button
-              key={msg.id}
+              key={`${msg.id}-${sourceIdx}`}
               className={`absolute w-2 h-2 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-150 hover:scale-[2] ${color}`}
               style={{ top: `${top}%`, left: '50%' }}
               onClick={() => scrollToMessage(msg.id)}
@@ -75,13 +148,14 @@ export function MessageNavigator({ messages }: MessageNavigatorProps) {
           );
         })}
 
-        {hoveredIdx !== null && navItems[hoveredIdx] && (
+        {/* Tooltip */}
+        {hoveredIdx !== null && sampledItems[hoveredIdx] && (
           <NavTooltip
-            message={navItems[hoveredIdx].msg}
+            message={sampledItems[hoveredIdx].msg}
             topPercent={
-              navItems.length <= 1
+              sampledItems.length <= 1
                 ? 50
-                : (hoveredIdx / (navItems.length - 1)) * 100
+                : (hoveredIdx / (sampledItems.length - 1)) * 100
             }
           />
         )}

@@ -269,7 +269,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             )}
             <div ref={messagesEndRef} />
           </main>
-          {messages.length > 5 && <MessageNavigator messages={messages} />}
+          {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
 
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
