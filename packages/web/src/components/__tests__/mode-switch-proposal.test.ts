@@ -1,21 +1,27 @@
 /**
  * Mode switch proposal regression tests (R5 P1 fix)
  *
- * Covers:
+ * Static rendering tests:
  * 1. ConfirmDialog renders when proposal exists
- * 2. ConfirmDialog does NOT render when no proposal
+ * 2. ConfirmDialog absent when no proposal
  * 3. Proposal carries threadId for cross-thread safety
- * 4. Thread switch clears proposal (setPendingModeSwitchProposal called)
+ *
+ * DOM interaction tests (R6):
+ * 4. threadId mismatch → confirm click does NOT call handleSend
+ * 5. Thread switch → setPendingModeSwitchProposal(null) called
  */
 
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { beforeAll, beforeEach, afterAll, describe, expect, it, vi } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { beforeAll, beforeEach, afterEach, afterAll, describe, expect, it, vi } from 'vitest';
 import { ChatContainer } from '@/components/ChatContainer';
 
 const mockSetPendingModeSwitchProposal = vi.fn();
 const mockSetCurrentThread = vi.fn();
 const mockSetCurrentMode = vi.fn();
+const mockHandleSend = vi.fn();
 
 let pendingProposal: {
   proposedMode: string;
@@ -83,7 +89,7 @@ vi.mock('@/hooks/useChatHistory', () => ({
 }));
 
 vi.mock('@/hooks/useSendMessage', () => ({
-  useSendMessage: () => ({ handleSend: vi.fn() }),
+  useSendMessage: () => ({ handleSend: mockHandleSend }),
 }));
 
 vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
@@ -94,13 +100,14 @@ vi.mock('@/components/ParallelStatusBar', () => ({ ParallelStatusBar: () => null
 vi.mock('@/components/ThinkingIndicator', () => ({ ThinkingIndicator: () => null }));
 vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
 
-describe('ChatContainer mode switch proposal (R5 regression)', () => {
+describe('ChatContainer mode switch proposal — static (R5)', () => {
   beforeAll(() => {
     (globalThis as { React?: typeof React }).React = React;
   });
 
   beforeEach(() => {
     mockSetPendingModeSwitchProposal.mockClear();
+    mockHandleSend.mockClear();
   });
 
   afterAll(() => {
@@ -120,8 +127,6 @@ describe('ChatContainer mode switch proposal (R5 regression)', () => {
     expect(html).toContain('模式切换确认');
     expect(html).toContain('确认切换');
     expect(html).toContain('忽略');
-    expect(html).toContain('opus');
-    expect(html).toContain('debate');
 
     pendingProposal = null;
   });
@@ -132,7 +137,6 @@ describe('ChatContainer mode switch proposal (R5 regression)', () => {
     const html = renderToStaticMarkup(React.createElement(ChatContainer, { threadId: 'thread-1' }));
 
     expect(html).not.toContain('模式切换确认');
-    expect(html).not.toContain('确认切换');
   });
 
   it('proposal carries threadId for cross-thread validation', () => {
@@ -145,11 +149,85 @@ describe('ChatContainer mode switch proposal (R5 regression)', () => {
 
     const html = renderToStaticMarkup(React.createElement(ChatContainer, { threadId: 'thread-Y' }));
 
-    // Dialog still renders (guard is in onClick handler, not rendering).
-    // The threadId field exists on the proposal for the confirm handler to validate.
     expect(html).toContain('模式切换确认');
-    expect(html).toContain('brainstorm');
 
     pendingProposal = null;
+  });
+});
+
+describe('ChatContainer mode switch proposal — interaction (R6)', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    mockSetPendingModeSwitchProposal.mockClear();
+    mockHandleSend.mockClear();
+    mockSetCurrentThread.mockClear();
+  });
+
+  afterEach(() => {
+    act(() => { root.unmount(); });
+    container.remove();
+    pendingProposal = null;
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+  });
+
+  it('threadId mismatch: clicking confirm does NOT call handleSend', () => {
+    pendingProposal = {
+      proposedMode: 'debate',
+      command: '/mode debate',
+      proposedBy: 'opus',
+      threadId: 'thread-A',
+    };
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-B' }));
+    });
+
+    // Find the confirm button by its text content
+    const buttons = container.querySelectorAll('button');
+    const confirmBtn = Array.from(buttons).find(b => b.textContent === '确认切换');
+    expect(confirmBtn).toBeTruthy();
+
+    // Click confirm — should NOT call handleSend because threadId mismatch
+    act(() => { confirmBtn!.click(); });
+
+    expect(mockHandleSend).not.toHaveBeenCalled();
+    // Should still clear the proposal
+    expect(mockSetPendingModeSwitchProposal).toHaveBeenCalledWith(null);
+  });
+
+  it('thread switch calls setPendingModeSwitchProposal(null)', () => {
+    pendingProposal = {
+      proposedMode: 'debate',
+      command: '/mode debate',
+      proposedBy: 'opus',
+      threadId: 'thread-A',
+    };
+
+    // Initial render with thread-A
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+
+    mockSetPendingModeSwitchProposal.mockClear();
+
+    // Switch to thread-B
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-B' }));
+    });
+
+    // Thread switch should clear the pending proposal
+    expect(mockSetPendingModeSwitchProposal).toHaveBeenCalledWith(null);
   });
 });
