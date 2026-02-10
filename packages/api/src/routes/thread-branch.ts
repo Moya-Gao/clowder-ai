@@ -71,24 +71,33 @@ function scheduleRollbackReconcile(
   if (retryDelays.length === 0) return;
 
   void (async () => {
-    for (let attempt = 0; attempt < retryDelays.length; attempt++) {
-      const delay = retryDelays[attempt]!;
-      if (delay > 0) {
-        await sleep(delay);
+    try {
+      for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+        const delay = retryDelays[attempt]!;
+        if (delay > 0) {
+          await sleep(delay);
+        }
+        const result = await attemptRollbackCleanup(threadId, messageStore, threadStore);
+        if (rollbackCleanupDone(result)) {
+          log.info({ branchThreadId: threadId, attempt: attempt + 1 }, 'Branch orphan reconciled');
+          return;
+        }
+        log.warn({
+          branchThreadId: threadId,
+          attempt: attempt + 1,
+          messageCleanup: result.messageCleanup.status,
+          threadCleanup: result.threadCleanup.status,
+        }, 'Branch orphan reconcile retry failed');
       }
-      const result = await attemptRollbackCleanup(threadId, messageStore, threadStore);
-      if (rollbackCleanupDone(result)) {
-        log.info({ branchThreadId: threadId, attempt: attempt + 1 }, 'Branch orphan reconciled');
-        return;
+      log.error({ branchThreadId: threadId, retries: retryDelays.length }, 'Branch orphan reconcile exhausted retries');
+    } catch (err) {
+      // Reconcile path is best-effort; never let background logging failures surface as unhandled rejection.
+      try {
+        log.error({ err, branchThreadId: threadId }, 'Branch orphan reconcile crashed');
+      } catch {
+        // Swallow: logger itself can fail (serialization failures, transport errors).
       }
-      log.warn({
-        branchThreadId: threadId,
-        attempt: attempt + 1,
-        messageCleanup: result.messageCleanup.status,
-        threadCleanup: result.threadCleanup.status,
-      }, 'Branch orphan reconcile retry failed');
     }
-    log.error({ branchThreadId: threadId, retries: retryDelays.length }, 'Branch orphan reconcile exhausted retries');
   })();
 }
 

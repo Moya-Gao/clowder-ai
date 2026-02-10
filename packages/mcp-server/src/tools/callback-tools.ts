@@ -35,6 +35,8 @@ const NO_CONFIG_ERROR =
   'Cat Café callback not configured. Missing CAT_CAFE_API_URL, CAT_CAFE_INVOCATION_ID, or CAT_CAFE_CALLBACK_TOKEN environment variables.';
 
 const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
+const DEFAULT_OUTBOX_MAX_FLUSH_BATCH = 20;
+const DEFAULT_OUTBOX_MAX_ATTEMPTS = 10;
 const OUTBOX_FILE_SUFFIX = '.json';
 
 interface CallbackPostFailure {
@@ -66,6 +68,12 @@ function shouldRetryStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
 
+function parseIntEnv(raw: string | undefined): number | null {
+  if (!raw) return null;
+  const parsed = Number.parseInt(raw.trim(), 10);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -81,6 +89,18 @@ function getOutboxDir(): string {
     return fromEnv;
   }
   return join(homedir(), '.cat-cafe', 'callback-outbox');
+}
+
+function getOutboxMaxFlushBatch(): number {
+  const parsed = parseIntEnv(process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH']);
+  if (parsed === null || parsed < 0) return DEFAULT_OUTBOX_MAX_FLUSH_BATCH;
+  return parsed;
+}
+
+function getOutboxMaxAttempts(): number {
+  const parsed = parseIntEnv(process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS']);
+  if (parsed === null || parsed < 0) return DEFAULT_OUTBOX_MAX_ATTEMPTS;
+  return parsed;
 }
 
 async function enqueueOutbox(entry: OutboxEntry): Promise<string | null> {
@@ -123,9 +143,12 @@ async function flushOutbox(): Promise<void> {
   if (!existsSync(dir)) return;
 
   const retryDelaysMs = getRetryDelaysMs();
+  const maxFlushBatch = getOutboxMaxFlushBatch();
+  const maxAttempts = getOutboxMaxAttempts();
   const files = (await readdir(dir))
     .filter((name) => name.endsWith(OUTBOX_FILE_SUFFIX) && !name.endsWith('.processing'))
-    .sort();
+    .sort()
+    .slice(0, maxFlushBatch);
 
   for (const name of files) {
     const originalPath = join(dir, name);
@@ -145,6 +168,11 @@ async function flushOutbox(): Promise<void> {
         await unlink(processingPath);
         continue;
       }
+      if (entry.attempts >= maxAttempts) {
+        // Entry already exceeded retention budget before this flush.
+        await unlink(processingPath);
+        continue;
+      }
 
       const replay = await postWithRetry(
         `${entry.apiUrl}${entry.path}`,
@@ -159,6 +187,11 @@ async function flushOutbox(): Promise<void> {
 
       if (!replay.failure.retryable) {
         // Poison message (4xx, auth, schema) — drop instead of infinite retry.
+        await unlink(processingPath);
+        continue;
+      }
+      if (entry.attempts + 1 >= maxAttempts) {
+        // Retry budget exhausted — drop to prevent unbounded outbox growth.
         await unlink(processingPath);
         continue;
       }

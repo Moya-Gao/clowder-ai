@@ -124,6 +124,7 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.ok(args.includes('--json'), 'resume args must include --json');
   assert.ok(args.includes('--config'), 'resume args must include approval policy override');
   assert.ok(args.includes('approval_policy=\"on-request\"'), 'default approval policy should be on-request');
+  assert.ok(!args.includes('approval_policy=\\\"on-request\\\"'), 'argv should not contain literal backslash escapes');
 });
 
 test('does not include resume when no sessionId', async () => {
@@ -144,6 +145,7 @@ test('does not include resume when no sessionId', async () => {
   assert.ok(args.includes('--sandbox'), 'fresh exec should include sandbox mode');
   assert.ok(args.includes('danger-full-access'), 'default sandbox should allow git writes');
   assert.ok(args.includes('approval_policy=\"on-request\"'), 'fresh exec should set default approval policy');
+  assert.ok(!args.includes('approval_policy=\\\"on-request\\\"'), 'argv should not contain literal backslash escapes');
 });
 
 test('uses env-configured sandbox and approval policy for fresh exec', async () => {

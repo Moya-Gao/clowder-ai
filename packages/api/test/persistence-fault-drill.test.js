@@ -33,6 +33,15 @@ function createMockSocketManager() {
   };
 }
 
+async function waitFor(predicate, timeoutMs = 1500, intervalMs = 20) {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt <= timeoutMs) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
+}
+
 function createFaultDrillRouter(modeRef) {
   const ackCalls = [];
 
@@ -127,7 +136,10 @@ describe('Persistence fault drills', () => {
     assert.equal(body.status, 'processing');
     assert.ok(body.invocationId);
 
-    await new Promise((r) => setTimeout(r, 120));
+    const failedReady = await waitFor(
+      () => invocationRecordStore.get(body.invocationId)?.status === 'failed',
+    );
+    assert.equal(failedReady, true, 'invocation should become failed within wait window');
 
     const record = invocationRecordStore.get(body.invocationId);
     assert.equal(record.status, 'failed');
@@ -159,7 +171,10 @@ describe('Persistence fault drills', () => {
     });
 
     const { invocationId } = createRes.json();
-    await new Promise((r) => setTimeout(r, 120));
+    const firstFailedReady = await waitFor(
+      () => invocationRecordStore.get(invocationId)?.status === 'failed',
+    );
+    assert.equal(firstFailedReady, true, 'initial invocation should fail before retry');
     assert.equal(invocationRecordStore.get(invocationId).status, 'failed');
 
     // Simulate Redis/API recovery before retry.
@@ -171,11 +186,13 @@ describe('Persistence fault drills', () => {
     });
     assert.equal(retryRes.statusCode, 202);
 
-    await new Promise((r) => setTimeout(r, 120));
+    const retrySucceeded = await waitFor(
+      () => invocationRecordStore.get(invocationId)?.status === 'succeeded',
+    );
+    assert.equal(retrySucceeded, true, 'retry should eventually become succeeded');
     assert.equal(invocationRecordStore.get(invocationId).status, 'succeeded');
     assert.equal(router.getAckCalls().length, 1, 'cursor ack should occur after recovered retry');
 
     await app.close();
   });
 });
-

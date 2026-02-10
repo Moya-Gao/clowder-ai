@@ -7,7 +7,7 @@
 
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, rmSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -266,5 +266,102 @@ describe('MCP Callback Tools', () => {
     assert.ok(observedContents.includes('queued-first'));
     assert.ok(observedContents.includes('current-message'));
     assert.equal(readdirSync(outboxDir).length, 0, 'outbox should be drained after successful replay');
+  });
+
+  test('flushes at most configured outbox batch size per post', async () => {
+    process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH'] = '2';
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const seed = (queuedAt, id, content) => {
+      const payload = {
+        id,
+        queuedAt,
+        apiUrl: 'http://127.0.0.1:3002',
+        path: '/api/callbacks/post-message',
+        body: {
+          invocationId: 'test-invocation',
+          callbackToken: 'test-token',
+          content,
+          clientMessageId: id,
+        },
+        attempts: 0,
+        lastError: 'seeded',
+      };
+      writeFileSync(join(outboxDir, `${queuedAt}-${id}.json`), JSON.stringify(payload), 'utf8');
+    };
+
+    seed(1, 'queued-1', 'queued-1');
+    seed(2, 'queued-2', 'queued-2');
+    seed(3, 'queued-3', 'queued-3');
+
+    const posted = [];
+    globalThis.fetch = async (_url, options) => {
+      const body = JSON.parse(options.body);
+      posted.push(body.content);
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handlePostMessage({
+      content: 'current-message',
+      clientMessageId: 'current-001',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(posted.includes('queued-1'));
+    assert.ok(posted.includes('queued-2'));
+    assert.ok(!posted.includes('queued-3'), 'third entry should wait for next flush batch');
+    assert.ok(posted.includes('current-message'));
+    assert.equal(readdirSync(outboxDir).length, 1, 'one queued entry should remain after bounded flush');
+  });
+
+  test('drops retryable outbox entry when attempts reached max threshold', async () => {
+    process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS'] = '2';
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const stale = {
+      id: 'stale-001',
+      queuedAt: 1,
+      apiUrl: 'http://127.0.0.1:3002',
+      path: '/api/callbacks/post-message',
+      body: {
+        invocationId: 'test-invocation',
+        callbackToken: 'test-token',
+        content: 'stale-message',
+        clientMessageId: 'stale-001',
+      },
+      attempts: 2,
+      lastError: 'still failing',
+    };
+    writeFileSync(join(outboxDir, `${stale.queuedAt}-${stale.id}.json`), JSON.stringify(stale), 'utf8');
+
+    globalThis.fetch = async (_url, options) => {
+      const body = JSON.parse(options.body);
+      if (body.content === 'stale-message') {
+        return {
+          ok: false,
+          status: 503,
+          text: async () => 'still unavailable',
+        };
+      }
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handlePostMessage({
+      content: 'current-message',
+      clientMessageId: 'current-002',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.equal(readdirSync(outboxDir).length, 0, 'stale entry should be dropped after max attempts');
   });
 });

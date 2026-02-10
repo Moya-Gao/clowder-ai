@@ -169,7 +169,7 @@ export class CodexAgentService implements AgentService {
 
     const sandboxMode = getCodexSandboxMode();
     const approvalPolicy = getCodexApprovalPolicy();
-    const approvalArgs = ['--config', `approval_policy=\"${approvalPolicy}\"`];
+    const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     const args: string[] = options?.sessionId
