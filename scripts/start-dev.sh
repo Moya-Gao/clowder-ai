@@ -203,6 +203,7 @@ setup_storage() {
     if [ "$USE_REDIS" = false ]; then
         echo -e "${YELLOW}  ⚡ 内存模式 (--memory)，重启丢数据${NC}"
         unset REDIS_URL
+        export MEMORY_STORE=1
         return
     fi
 
@@ -239,13 +240,15 @@ setup_storage() {
             STARTED_REDIS=true
             print_redis_runtime_info
         else
-            echo -e "${RED}  ✗ Redis 启动失败 (回退内存存储)${NC}"
-            unset REDIS_URL
+            echo -e "${RED}  ✗ Redis 启动失败${NC}"
+            echo -e "${RED}    使用 --memory 标志允许内存模式启动${NC}"
+            exit 1
         fi
     else
-        echo -e "${RED}  ✗ Redis 未安装 (回退内存存储)${NC}"
+        echo -e "${RED}  ✗ Redis 未安装${NC}"
         echo -e "${YELLOW}    安装: brew install redis${NC}"
-        unset REDIS_URL
+        echo -e "${RED}    使用 --memory 标志允许内存模式启动${NC}"
+        exit 1
     fi
 }
 

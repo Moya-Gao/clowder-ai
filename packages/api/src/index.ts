@@ -17,6 +17,7 @@ import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
 import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
+import { assertStorageReady } from './config/storage-guard.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -61,6 +62,11 @@ async function main(): Promise<void> {
   const redisUrl = process.env['REDIS_URL'];
   const redis = redisUrl ? createRedisClient({ url: redisUrl }) : undefined;
   redisClient = redis ?? null;
+
+  // Fail-closed: refuse to start without Redis unless explicitly opted into memory mode.
+  const storageResult = assertStorageReady(!!redis);
+  app.log.info(`[api] Storage mode: ${storageResult.mode}`);
+
   const messageStore = createMessageStore(redis);
   const sessionStore = redis ? new SessionStore(redis) : undefined;
   const deliveryCursorStore = new DeliveryCursorStore(sessionStore);
