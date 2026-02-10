@@ -370,7 +370,8 @@ test('writes CLI tool lifecycle audit events when auditContext is provided', asy
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
   const auditLog = { append: mock.fn(async () => ({ id: 'evt-1' })) };
-  const service = new CodexAgentService({ spawnFn, auditLog });
+  const rawArchive = { append: mock.fn(async () => {}) };
+  const service = new CodexAgentService({ spawnFn, auditLog, rawArchive });
 
   const promise = collect(service.invoke('run tool', {
     auditContext: {
@@ -420,4 +421,35 @@ test('writes CLI tool lifecycle audit events when auditContext is provided', asy
   assert.equal(completed.threadId, 'thread-1');
   assert.equal(completed.data.status, 'completed');
   assert.equal(completed.data.exitCode, 0);
+});
+
+test('archives raw stream events when auditContext is provided', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const auditLog = { append: mock.fn(async () => ({ id: 'evt-1' })) };
+  const rawArchive = { append: mock.fn(async () => {}) };
+  const service = new CodexAgentService({ spawnFn, auditLog, rawArchive });
+
+  const promise = collect(service.invoke('raw trace', {
+    auditContext: {
+      invocationId: 'inv-raw-1',
+      threadId: 'thread-raw-1',
+      userId: 'user-1',
+      catId: 'codex',
+    },
+  }));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-raw-1' },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'hello' },
+    },
+  ]);
+
+  await promise;
+
+  assert.equal(rawArchive.append.mock.callCount(), 2);
+  assert.equal(rawArchive.append.mock.calls[0].arguments[0], 'inv-raw-1');
+  assert.equal(rawArchive.append.mock.calls[1].arguments[0], 'inv-raw-1');
 });

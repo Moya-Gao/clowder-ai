@@ -25,6 +25,7 @@ import { extractImagePaths } from './image-paths.js';
 import { getCatModel } from '../../../config/cat-models.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import type { AuditEventInput } from './EventAuditLog.js';
+import { CliRawArchive } from './CliRawArchive.js';
 import type {
   AgentMessage,
   AgentService,
@@ -45,10 +46,16 @@ interface CodexAgentServiceOptions {
   spawnFn?: SpawnFn;
   /** Inject audit log sink (for testing) */
   auditLog?: AuditLogSink;
+  /** Inject raw archive sink (for testing) */
+  rawArchive?: RawArchiveSink;
 }
 
 interface AuditLogSink {
   append(input: AuditEventInput): Promise<unknown>;
+}
+
+interface RawArchiveSink {
+  append(invocationId: string, payload: unknown): Promise<void>;
 }
 
 interface CommandExecutionLifecycle {
@@ -190,6 +197,15 @@ function extractCommandExecutionLifecycle(event: unknown): CommandExecutionLifec
   return null;
 }
 
+function sanitizeRawEvent(event: unknown): unknown {
+  if (typeof event !== 'object' || event === null) return event;
+  const record = event as Record<string, unknown>;
+  if (typeof record['callbackToken'] === 'string') {
+    return { ...record, callbackToken: '[redacted]' };
+  }
+  return event;
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -198,10 +214,12 @@ export class CodexAgentService implements AgentService {
   readonly catId = CAT_ID;
   private readonly spawnFn: SpawnFn | undefined;
   private readonly auditLog: AuditLogSink;
+  private readonly rawArchive: RawArchiveSink;
 
   constructor(options?: CodexAgentServiceOptions) {
     this.spawnFn = options?.spawnFn;
     this.auditLog = options?.auditLog ?? getEventAuditLog();
+    this.rawArchive = options?.rawArchive ?? new CliRawArchive();
   }
 
   async *invoke(
@@ -245,6 +263,16 @@ export class CodexAgentService implements AgentService {
       );
 
       for await (const event of events) {
+        if (auditContext) {
+          this.rawArchive.append(auditContext.invocationId, sanitizeRawEvent(event)).catch((err) => {
+            console.warn('[audit] Codex raw event archive write failed', {
+              threadId: auditContext.threadId,
+              invocationId: auditContext.invocationId,
+              err,
+            });
+          });
+        }
+
         if (isCliTimeout(event)) {
           yield {
             type: 'error',
