@@ -91,21 +91,35 @@ describe('getCodexIsolatedHome', () => {
     assert.ok(stat.isSymbolicLink(), 'stale plain dir should be replaced with symlink');
   });
 
-  it('P2: creates real sessions dir and symlinks even on fresh install', async () => {
-    // This test verifies the fix works even if ~/.codex/sessions doesn't exist yet.
-    // We can't delete the real ~/.codex/sessions (it has user data), so we verify
-    // the symlink points to the real sessions dir and that dir exists after the call.
-    const { getCodexIsolatedHome } = await import('../dist/utils/cli-config-isolation.js');
-    const isolatedHome = getCodexIsolatedHome();
-    const isolatedSessionsDir = join(isolatedHome, '.codex', 'sessions');
+  it('P2: creates real sessions dir and symlinks even on fresh install (fake HOME)', async () => {
+    // Use a temporary HOME to simulate fresh install where ~/.codex/sessions doesn't exist
+    const fakeHome = join(tmpdir(), 'cat-cafe-test-fresh-home-' + Date.now());
+    const fakeCodexDir = join(fakeHome, '.codex');
+    mkdirSync(fakeCodexDir, { recursive: true });
+    // Provide minimal auth so the function doesn't error on copy attempts
+    writeFileSync(join(fakeCodexDir, 'auth.json'), '{}');
 
-    // The fix should ensure sessions symlink exists regardless of initial state
-    assert.ok(existsSync(isolatedSessionsDir), 'sessions should exist in isolated home');
-    const stat = lstatSync(isolatedSessionsDir);
-    assert.ok(stat.isSymbolicLink(), 'sessions should be a symlink');
+    const originalHome = process.env['HOME'];
+    try {
+      process.env['HOME'] = fakeHome;
 
-    // The real sessions dir should also exist (created if needed)
-    const realSessionsDir = join(homedir(), '.codex', 'sessions');
-    assert.ok(existsSync(realSessionsDir), 'real sessions dir should exist');
+      // Reset cache + re-import to pick up new HOME
+      const mod = await import('../dist/utils/cli-config-isolation.js');
+      mod.resetCodexIsolatedHome();
+      const isolatedHome = mod.getCodexIsolatedHome();
+      const isolatedSessionsDir = join(isolatedHome, '.codex', 'sessions');
+
+      // Real sessions dir should have been created by the fix
+      const fakeSessionsDir = join(fakeCodexDir, 'sessions');
+      assert.ok(existsSync(fakeSessionsDir), 'real sessions dir should be created on fresh install');
+
+      // Isolated sessions should be a symlink pointing to the real dir
+      assert.ok(existsSync(isolatedSessionsDir), 'isolated sessions should exist');
+      const stat = lstatSync(isolatedSessionsDir);
+      assert.ok(stat.isSymbolicLink(), 'isolated sessions should be a symlink');
+    } finally {
+      process.env['HOME'] = originalHome;
+      try { rmSync(fakeHome, { recursive: true, force: true }); } catch { /* ok */ }
+    }
   });
 });
