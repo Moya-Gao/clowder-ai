@@ -179,8 +179,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, [messages]);
 
   const renderSingleMessage = useCallback(
-    (msg: ChatMessageData) => <ChatMessage key={msg.id} message={msg} />,
-    []
+    (msg: ChatMessageData) => (
+      <MessageActions key={msg.id} message={msg} threadId={threadId}>
+        <ChatMessage message={msg} />
+      </MessageActions>
+    ),
+    [threadId]
   );
 
   const { cancelInvocation } = useSocket(socketCallbacks, threadId);
@@ -246,9 +250,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
                   renderMessage={renderSingleMessage}
                 />
               ) : (
-                <MessageActions key={item.msg.id} message={item.msg} threadId={threadId}>
-                  <ChatMessage message={item.msg} />
-                </MessageActions>
+                renderSingleMessage(item.msg)
               )
             )
           )}
