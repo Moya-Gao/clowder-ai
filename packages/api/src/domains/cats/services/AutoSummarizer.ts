@@ -6,12 +6,11 @@
  * 避免额外 CLI spawn 成本。
  */
 
-import type { CatId, ThreadSummary } from '@cat-cafe/shared';
-import { createCatId } from '@cat-cafe/shared';
+import type { ThreadSummary } from '@cat-cafe/shared';
 import type { IMessageStore } from './MessageStore.js';
 import type { ISummaryStore } from './SummaryStore.js';
 
-const AUTO_CAT: CatId = createCatId('opus');
+const AUTO_CREATOR = 'system' as const;
 const MESSAGE_THRESHOLD = 20;
 const COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes between auto-summaries
 
@@ -43,15 +42,17 @@ export class AutoSummarizer {
       if (messages.length < MESSAGE_THRESHOLD) return null;
 
       const summaries = await this.summaryStore.listByThread(threadId);
+      let recentMessages = messages;
       if (summaries.length > 0) {
         const latest = summaries[summaries.length - 1]!;
         if (Date.now() - latest.createdAt < COOLDOWN_MS) return null;
         // Only re-summarize if significant new messages since last summary
-        const newMessages = messages.filter((m) => m.timestamp > latest.createdAt);
-        if (newMessages.length < MESSAGE_THRESHOLD) return null;
+        recentMessages = messages.filter((m) => m.timestamp > latest.createdAt);
+        if (recentMessages.length < MESSAGE_THRESHOLD) return null;
       }
 
-      const input = this.extractSummary(messages, threadId);
+      // P2-C fix: extract only from recent (incremental) messages
+      const input = this.extractSummary(recentMessages, threadId);
       if (input) {
         return await this.summaryStore.create(input);
       }
@@ -101,7 +102,7 @@ export class AutoSummarizer {
       topic: `自动纪要: ${topic}`,
       conclusions: conclusions.length > 0 ? conclusions : ['(暂未提取到明确结论)'],
       openQuestions,
-      createdBy: AUTO_CAT,
+      createdBy: AUTO_CREATOR,
     };
   }
 }

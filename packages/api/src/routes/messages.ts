@@ -29,6 +29,7 @@ import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import type { AutoSummarizer } from '../domains/cats/services/AutoSummarizer.js';
+import type { ISummaryStore } from '../domains/cats/services/SummaryStore.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -49,6 +50,7 @@ export interface MessagesRoutesOptions {
   invocationTracker?: InvocationTracker;
   invocationRecordStore?: IInvocationRecordStore;
   autoSummarizer?: AutoSummarizer;
+  summaryStore?: ISummaryStore;
 }
 
 const getMessagesSchema = z.object({
@@ -376,16 +378,50 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     const hasMore = messages.length > limit;
     const page = hasMore ? messages.slice(1) : messages;
 
+    // Map chat messages (union type allows summary items to be pushed later)
+    type TimelineItem = {
+      id: string;
+      type: 'user' | 'assistant' | 'summary';
+      catId: string | null;
+      content: string;
+      timestamp: number;
+      summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string };
+      [key: string]: unknown;
+    };
+    const chatItems: TimelineItem[] = page.map((m) => ({
+      id: m.id,
+      type: (m.catId ? 'assistant' : 'user') as 'user' | 'assistant',
+      catId: m.catId,
+      content: m.content,
+      ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
+      ...(m.metadata ? { metadata: m.metadata } : {}),
+      timestamp: m.timestamp,
+    }));
+
+    // P1-B fix: merge summaries into history timeline
+    if (opts.summaryStore) {
+      const summaries = await opts.summaryStore.listByThread(resolvedThreadId);
+      const timeRange = page.length > 0
+        ? { min: page[0]!.timestamp, max: page[page.length - 1]!.timestamp }
+        : null;
+      for (const s of summaries) {
+        // Only include summaries within the current page's time window
+        if (timeRange && s.createdAt >= timeRange.min && s.createdAt <= timeRange.max) {
+          chatItems.push({
+            id: `summary-${s.id}`,
+            type: 'summary',
+            catId: null,
+            content: s.topic,
+            timestamp: s.createdAt,
+            summary: { id: s.id, topic: s.topic, conclusions: [...s.conclusions], openQuestions: [...s.openQuestions], createdBy: s.createdBy },
+          });
+        }
+      }
+      chatItems.sort((a, b) => a.timestamp - b.timestamp);
+    }
+
     return {
-      messages: page.map((m) => ({
-        id: m.id,
-        type: m.catId ? 'assistant' : 'user',
-        catId: m.catId,
-        content: m.content,
-        ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
-        ...(m.metadata ? { metadata: m.metadata } : {}),
-        timestamp: m.timestamp,
-      })),
+      messages: chatItems,
       hasMore,
     };
   });

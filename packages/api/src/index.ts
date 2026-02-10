@@ -96,6 +96,7 @@ async function main(): Promise<void> {
     invocationTracker,
     invocationRecordStore,
     autoSummarizer,
+    summaryStore,
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,

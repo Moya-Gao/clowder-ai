@@ -11,7 +11,7 @@ interface SummaryCardProps {
 }
 
 const CAT_NAMES: Record<string, string> = {
-  opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫',
+  opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫', system: '系统纪要',
 };
 
 function formatTime(ts: number): string {
@@ -67,7 +67,9 @@ export function SummaryCard({ topic, conclusions, openQuestions, createdBy, time
 
         {/* Footer: creator + time */}
         <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-          {catName ? (
+          {createdBy === 'system' ? (
+            <span className="text-xs">🤖</span>
+          ) : catName ? (
             <CatAvatar catId={createdBy} size={16} />
           ) : (
             <span className="text-xs">👤</span>

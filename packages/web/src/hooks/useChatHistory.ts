@@ -66,13 +66,14 @@ export function useChatHistory(threadId: string) {
         if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; timestamp: number }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string } }) => ({
             id: m.id,
-            type: m.type as 'user' | 'assistant' | 'system',
+            type: m.type as 'user' | 'assistant' | 'system' | 'summary',
             catId: m.catId,
             content: m.content,
             ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
             ...(m.metadata ? { metadata: m.metadata } : {}),
+            ...(m.summary ? { summary: m.summary } : {}),
             timestamp: m.timestamp,
           } as ChatMessageData)
         );

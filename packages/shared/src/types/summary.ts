@@ -12,7 +12,7 @@ export interface ThreadSummary {
   readonly conclusions: readonly string[];
   readonly openQuestions: readonly string[];
   readonly createdAt: number;
-  readonly createdBy: CatId | 'user';
+  readonly createdBy: CatId | 'user' | 'system';
 }
 
 export type CreateSummaryInput = {
@@ -20,5 +20,5 @@ export type CreateSummaryInput = {
   topic: string;
   conclusions: readonly string[];
   openQuestions: readonly string[];
-  createdBy: CatId | 'user';
+  createdBy: CatId | 'user' | 'system';
 };
