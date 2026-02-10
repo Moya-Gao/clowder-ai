@@ -79,9 +79,10 @@ export function RightStatusPanel({
           <h3 className="text-xs font-semibold text-gray-700">猫猫状态</h3>
           <button
             onClick={() => setConfigOpen(true)}
-            className="text-[10px] text-blue-500 hover:text-blue-700 transition-colors"
+            className="text-base text-gray-400 hover:text-blue-600 hover:rotate-45 transition-all duration-200"
+            title="查看猫猫配置 / MCP / Skills"
           >
-            配置
+            &#9881;
           </button>
         </div>
         <div className="space-y-2">
