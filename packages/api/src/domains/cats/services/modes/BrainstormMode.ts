@@ -4,6 +4,9 @@
  * Round 1 (!roundOneComplete): routeParallel — 所有参与猫独立思考
  * Round 2+ (roundOneComplete): routeSerial — 按 speakingOrder 串行讨论 (含 A2A)
  *
+ * @铲屎官 mid-chain break: 猫提到 @铲屎官 后暂停串行链，
+ * 保留 remainingSpeakers 等用户回复后继续当前轮次。
+ *
  * 设计文档：docs/plans/2026-02-10-f11-mode-system-design.md §3
  */
 
@@ -15,6 +18,12 @@ import type { AgentMessage } from '../types.js';
 import { buildBrainstormPrompt, buildModeSwitchInstruction } from './mode-prompts.js';
 
 export class BrainstormMode implements ModeHandler {
+  /**
+   * Per-thread pause tracking: after @铲屎官 break, stores remaining speakers.
+   * Set by execute(), consumed by getNextState() in the same invocation cycle.
+   */
+  private pauseInfo = new Map<string, CatId[]>();
+
   async *execute(
     ctx: ModeExecutionContext,
     config: ModeConfig,
@@ -45,12 +54,19 @@ export class BrainstormMode implements ModeHandler {
       );
     } else {
       // Round 2+: serial discussion with A2A
-      // P2-7: track cat text to detect @铲屎官 mention, break between cats
+      // If resuming from @铲屎官 pause, only route remaining speakers
+      const serialCats = (state.pausedForUser && state.remainingSpeakers?.length)
+        ? state.remainingSpeakers as CatId[]
+        : speakingOrder;
+
+      // Track which cats completed, for computing remaining on break
+      const completedCats = new Set<string>();
       let mentionedUser = false;
       let mentionCatId: CatId | undefined;
+
       for await (const msg of routeSerial(
         ctx.strategyDeps,
-        speakingOrder,
+        serialCats,
         ctx.message,
         ctx.userId,
         ctx.threadId,
@@ -64,16 +80,21 @@ export class BrainstormMode implements ModeHandler {
         }
         yield msg;
         // After a cat finishes, if they mentioned @铲屎官, stop remaining cats
-        if (msg.type === 'done' && mentionedUser) {
-          break;
+        if (msg.type === 'done') {
+          completedCats.add(msg.catId);
+          if (mentionedUser) {
+            const remaining = serialCats.filter(c => !completedCats.has(c));
+            this.pauseInfo.set(ctx.threadId, remaining);
+            break;
+          }
         }
       }
 
-      // P2-7: if a cat requested user input, notify frontend to wait
+      // If a cat requested user input, notify frontend to wait
       if (mentionedUser) {
         yield {
           type: 'system_info' as const,
-          catId: mentionCatId ?? speakingOrder[0] as CatId,
+          catId: mentionCatId ?? serialCats[0] as CatId,
           content: '猫猫请求铲屎官回应。请输入您的想法后继续讨论。',
           timestamp: Date.now(),
         } as AgentMessage;
@@ -81,15 +102,26 @@ export class BrainstormMode implements ModeHandler {
     }
   }
 
-  getNextState(config: ModeConfig, state: ModeState): ModeState {
+  getNextState(config: ModeConfig, state: ModeState, threadId?: string): ModeState {
     if (!isBrainstormState(state)) return state;
 
     if (!state.roundOneComplete) {
-      // After round 1, mark complete and advance
       return { roundOneComplete: true, currentRound: 2 };
     }
 
-    // Subsequent rounds just increment
+    // If @铲屎官 caused a mid-chain break, preserve current round with remaining speakers
+    if (threadId && this.pauseInfo.has(threadId)) {
+      const remaining = this.pauseInfo.get(threadId)!;
+      this.pauseInfo.delete(threadId);
+      return {
+        roundOneComplete: true,
+        currentRound: state.currentRound,
+        pausedForUser: true,
+        remainingSpeakers: remaining,
+      };
+    }
+
+    // Normal completion: advance to next round (clear any previous pause state)
     return { roundOneComplete: true, currentRound: state.currentRound + 1 };
   }
 

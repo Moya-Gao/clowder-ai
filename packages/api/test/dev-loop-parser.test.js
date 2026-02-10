@@ -120,6 +120,27 @@ describe('parseReviewResult', () => {
     const result = parseReviewResult(text);
     assert.equal(result.approved, false);
   });
+
+  it('VERDICT: APPROVED with P1 items → NOT approved (P1 overrides)', () => {
+    const text = '[P1] critical bug\nVERDICT: APPROVED';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false, 'P1 items must override APPROVED verdict');
+    assert.deepEqual(result.p1, ['critical bug']);
+  });
+
+  it('VERDICT: APPROVED with P2 items → NOT approved (P2 overrides)', () => {
+    const text = '[P2] naming issue\nVERDICT: APPROVED';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false, 'P2 items must override APPROVED verdict');
+    assert.deepEqual(result.p2, ['naming issue']);
+  });
+
+  it('VERDICT: APPROVED with only P3 items → approved (P3 does not block)', () => {
+    const text = '[P3] minor style nit\nVERDICT: APPROVED';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, true, 'P3 alone should not block approval');
+    assert.deepEqual(result.p3, ['minor style nit']);
+  });
 });
 
 describe('buildDevLoopSummary', () => {

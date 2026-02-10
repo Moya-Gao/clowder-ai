@@ -162,6 +162,71 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     assert.ok(pauseMsg, 'should have pause notification mentioning 铲屎官');
   });
 
+  it('getNextState preserves round + remainingSpeakers after @铲屎官 break', async () => {
+    const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
+    const handler = new BrainstormMode();
+
+    const invokedCats = [];
+    function createTrackingService(catId, text) {
+      return {
+        async *invoke() {
+          invokedCats.push(catId);
+          yield { type: 'text', catId, content: text, timestamp: Date.now() };
+          yield { type: 'done', catId, timestamp: Date.now() };
+        },
+      };
+    }
+
+    const deps = createMockDeps({
+      opus: createTrackingService('opus', '@铲屎官 请决定方向'),
+      codex: createTrackingService('codex', '等铲屎官'),
+      gemini: createTrackingService('gemini', '我也等'),
+    });
+
+    const config = { topic: '三猫暂停', participants: ['opus', 'codex', 'gemini'] };
+    const state = { roundOneComplete: true, currentRound: 2 };
+    const threadId = 'thread-round-preserve';
+
+    const ctx = {
+      strategyDeps: deps,
+      message: '讨论',
+      userId: 'user-1',
+      threadId,
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    // Execute — opus @铲屎官 → break
+    for await (const _msg of handler.execute(ctx, config, state)) { /* consume */ }
+
+    assert.ok(invokedCats.includes('opus'), 'opus invoked');
+    assert.ok(!invokedCats.includes('codex'), 'codex NOT invoked');
+    assert.ok(!invokedCats.includes('gemini'), 'gemini NOT invoked');
+
+    // getNextState should preserve round 2 with remaining speakers
+    const nextState = handler.getNextState(config, state, threadId);
+    assert.equal(nextState.currentRound, 2, 'round stays at 2 (not incremented)');
+    assert.equal(nextState.pausedForUser, true, 'marked as paused');
+    assert.deepEqual(nextState.remainingSpeakers, ['codex', 'gemini'], 'remaining speakers');
+
+    // --- Resume: user responds, execute with paused state ---
+    invokedCats.length = 0; // reset
+    const ctx2 = { ...ctx, message: '铲屎官说选方案 B', threadId };
+
+    for await (const _msg of handler.execute(ctx2, config, nextState)) { /* consume */ }
+
+    // Now codex + gemini should be invoked, opus should NOT
+    assert.ok(!invokedCats.includes('opus'), 'opus NOT re-invoked on resume');
+    assert.ok(invokedCats.includes('codex'), 'codex invoked on resume');
+    assert.ok(invokedCats.includes('gemini'), 'gemini invoked on resume');
+
+    // After resume completes normally, getNextState should advance to round 3
+    const finalState = handler.getNextState(config, nextState, threadId);
+    assert.equal(finalState.currentRound, 3, 'advances to round 3 after resume');
+    assert.equal(finalState.pausedForUser, undefined, 'pause cleared');
+    assert.equal(finalState.remainingSpeakers, undefined, 'remaining cleared');
+  });
+
   it('continues serial chain when no cat mentions @铲屎官', async () => {
     const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
     const handler = new BrainstormMode();
@@ -346,14 +411,15 @@ describe('ModeOrchestrator', () => {
       messages.push(msg);
     }
 
-    // 2 text + done + system_info (mode switch proposal)
+    // 2 text + done + system_info (structured mode_switch_proposal)
     assert.equal(messages.length, 4);
     assert.equal(messages[0].type, 'text');
     assert.equal(messages[1].type, 'text');
     assert.equal(messages[2].type, 'done');
     assert.equal(messages[3].type, 'system_info');
-    assert.ok(messages[3].content.includes('debate'));
-    assert.ok(messages[3].content.includes('切换'));
+    const parsed = JSON.parse(messages[3].content);
+    assert.equal(parsed.type, 'mode_switch_proposal');
+    assert.equal(parsed.proposedMode, 'debate');
   });
 
   it('does not detect @mode: when text has no pattern', async () => {
@@ -484,7 +550,12 @@ describe('ModeOrchestrator', () => {
 
   it('P2-4: auto-switch actually switches mode when switchRequiresApproval=false and config derivable', async () => {
     const modeStore = new ModeStore();
-    const orchestrator = new ModeOrchestrator({ modeStore });
+    // Track socket broadcasts
+    const broadcasts = [];
+    const mockSocket = {
+      broadcastToRoom: (room, event, data) => broadcasts.push({ room, event, data }),
+    };
+    const orchestrator = new ModeOrchestrator({ modeStore, socketManager: mockSocket });
 
     const origEnv = process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
     process.env['MODE_SWITCH_REQUIRES_APPROVAL'] = 'false';
@@ -537,6 +608,12 @@ describe('ModeOrchestrator', () => {
     // Previous brainstorm should be in history
     const history = modeStore.getModeHistory('thread-autoswitch');
     assert.ok(history.some(r => r.name === 'brainstorm' && r.endedAt), 'brainstorm ended in history');
+
+    // P2-3: broadcast uses action:'started' with full mode object (frontend contract)
+    const startedBroadcast = broadcasts.find(b => b.event === 'mode_changed' && b.data.action === 'started');
+    assert.ok(startedBroadcast, 'should broadcast action:started');
+    assert.ok(startedBroadcast.data.mode, 'should include full mode object');
+    assert.equal(startedBroadcast.data.mode.record.name, 'debate', 'broadcast mode is debate');
 
     if (origEnv === undefined) {
       delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
@@ -603,7 +680,7 @@ describe('ModeOrchestrator', () => {
     }
   });
 
-  it('P2-4: mode switch proposal shows human text when switchRequiresApproval=true (default)', async () => {
+  it('P2-4: switchRequiresApproval=true emits structured mode_switch_proposal', async () => {
     const modeStore = new ModeStore();
     const orchestrator = new ModeOrchestrator({ modeStore });
 
@@ -642,11 +719,19 @@ describe('ModeOrchestrator', () => {
       messages.push(msg);
     }
 
-    // Should emit human-readable suggestion, NOT structured auto-switch
+    // Should emit structured proposal with autoSwitch: false
     const proposal = messages.find(m => m.type === 'system_info');
     assert.ok(proposal);
-    assert.ok(proposal.content.includes('切换'), 'should contain human-readable switch instruction');
-    assert.ok(!proposal.content.includes('mode_switch_proposal'), 'should NOT be structured auto-switch');
+    const parsed = JSON.parse(proposal.content);
+    assert.equal(parsed.type, 'mode_switch_proposal', 'structured proposal type');
+    assert.equal(parsed.proposedMode, 'debate', 'proposed mode is debate');
+    assert.equal(parsed.autoSwitch, false, 'autoSwitch is false (needs confirmation)');
+    assert.equal(parsed.command, '/mode debate', 'includes command hint');
+
+    // Mode should NOT have switched (still brainstorm)
+    const mode = modeStore.getMode('thread-manualswitch');
+    assert.ok(mode, 'mode still active');
+    assert.equal(mode.record.name, 'brainstorm', 'still brainstorm — requires user confirmation');
   });
 
   it('debate handler is auto-registered and can dispatch', async () => {

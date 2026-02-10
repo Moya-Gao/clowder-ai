@@ -59,6 +59,10 @@ export interface BrainstormState {
   roundOneComplete: boolean;
   /** 当前轮次（从 1 开始） */
   currentRound: number;
+  /** 铲屎官暂停：当前轮被中断，等待用户回复 */
+  pausedForUser?: boolean;
+  /** 暂停时尚未发言的猫列表（恢复用） */
+  remainingSpeakers?: CatId[];
 }
 
 /** 辩论运行状态 */

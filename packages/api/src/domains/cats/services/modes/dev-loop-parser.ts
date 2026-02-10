@@ -60,7 +60,10 @@ export function parseReviewResult(text: string): ReviewResult {
     approved = verdictMatch[1]!.toUpperCase() === 'APPROVED';
   }
   // No VERDICT → always fail-closed (approved stays false).
-  // Review prompt requires explicit VERDICT; missing it = not approved.
+  // P1/P2 items override VERDICT: APPROVED — blocking issues can't be skipped.
+  if (p1.length > 0 || p2.length > 0) {
+    approved = false;
+  }
 
   return { approved, p1, p2, p3 };
 }

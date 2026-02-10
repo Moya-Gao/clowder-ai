@@ -132,11 +132,17 @@ export class ModeOrchestrator {
       if (match) {
         const proposedMode = match[1]!;
         if (switchRequiresApproval) {
-          // Default: user must approve the switch
+          // Structured proposal: frontend renders confirmation UI
           yield {
             type: 'system_info',
             catId,
-            content: `${catId} 提议切换到 ${proposedMode} 模式。使用 /mode ${proposedMode} 切换，或忽略此建议。`,
+            content: JSON.stringify({
+              type: 'mode_switch_proposal',
+              proposedMode,
+              proposedBy: catId,
+              autoSwitch: false,
+              command: `/mode ${proposedMode}`,
+            }),
             timestamp: Date.now(),
           } as AgentMessage;
         } else if (VALID_MODE_NAMES.has(proposedMode)) {
@@ -151,10 +157,12 @@ export class ModeOrchestrator {
             await this.modeStore.startMode(
               ctx.threadId, proposedMode as ModeName, newConfig, catId, initialState,
             );
+            // Broadcast with action:'started' + full mode object (frontend contract)
+            const newMode = await this.modeStore.getMode(ctx.threadId);
             this.socketManager?.broadcastToRoom(`thread:${ctx.threadId}`, 'mode_changed', {
               threadId: ctx.threadId,
-              mode: proposedMode,
-              action: 'switched',
+              mode: newMode,
+              action: 'started',
             });
             yield {
               type: 'system_info',
