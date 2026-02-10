@@ -81,18 +81,14 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
     });
   }, [scrollContainerRef]);
 
-  // Track actual DOM element to detect ref.current changes (P3: stale listener fix)
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  // Re-bind on navItems change so ref.current is re-read if container remounts (P3 fix)
   useEffect(() => {
-    setScrollEl(scrollContainerRef.current);
-  });
-
-  useEffect(() => {
-    if (!scrollEl) return;
+    const el = scrollContainerRef.current;
+    if (!el) return;
     updateViewport();
-    scrollEl.addEventListener('scroll', updateViewport, { passive: true });
-    return () => scrollEl.removeEventListener('scroll', updateViewport);
-  }, [scrollEl, updateViewport]);
+    el.addEventListener('scroll', updateViewport, { passive: true });
+    return () => el.removeEventListener('scroll', updateViewport);
+  }, [scrollContainerRef, updateViewport, navItems.length]);
 
   // Click on track background → scroll proportionally
   const handleTrackClick = useCallback(
