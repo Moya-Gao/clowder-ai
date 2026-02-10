@@ -13,7 +13,9 @@ ACTION="${1:-status}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-SOURCE_ROOT="${THREAD_EXPORT_SOURCE_ROOT:-$PROJECT_DIR/docs/discussions}"
+SOURCE_ROOT_PRIMARY="${THREAD_EXPORT_SOURCE_ROOT:-$HOME/Downloads/CatCafeThreadExports}"
+LEGACY_SOURCE_ROOT="${THREAD_EXPORT_LEGACY_SOURCE_ROOT:-$PROJECT_DIR/docs/discussions}"
+INCLUDE_LEGACY="${THREAD_EXPORT_INCLUDE_LEGACY:-1}"
 REPO_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/docs/discussions/exported-threads}"
 
 ICLOUD_ROOT="$HOME/Library/Mobile Documents/com~apple~CloudDocs"
@@ -25,11 +27,18 @@ OFFSITE_ROOT="${THREAD_EXPORT_OFFSITE_DIR:-$DEFAULT_OFFSITE_ROOT}"
 KEEP_SNAPSHOTS="${THREAD_EXPORT_KEEP_SNAPSHOTS:-30}"
 
 ensure_dirs() {
-  mkdir -p "$SOURCE_ROOT" "$REPO_DIR" "$OFFSITE_ROOT/latest" "$OFFSITE_ROOT/snapshots"
+  mkdir -p "$SOURCE_ROOT_PRIMARY" "$REPO_DIR" "$OFFSITE_ROOT/latest" "$OFFSITE_ROOT/snapshots"
 }
 
 list_source_files() {
-  find "$SOURCE_ROOT" -type f -name 'thread-thread_*.md' ! -path "$REPO_DIR/*" | sort
+  {
+    if [[ -d "$SOURCE_ROOT_PRIMARY" ]]; then
+      find "$SOURCE_ROOT_PRIMARY" -type f -name 'thread-thread_*.md'
+    fi
+    if [[ "$INCLUDE_LEGACY" == "1" && -d "$LEGACY_SOURCE_ROOT" ]]; then
+      find "$LEGACY_SOURCE_ROOT" -type f -name 'thread-thread_*.md' ! -path "$REPO_DIR/*"
+    fi
+  } | awk '!seen[$0]++' | sort
 }
 
 list_repo_files() {
@@ -109,7 +118,12 @@ status() {
   repo_count="$(list_repo_files | wc -l | tr -d ' ')"
   latest_count="$(find "$OFFSITE_ROOT/latest" -type f -name 'thread-thread_*.md' | wc -l | tr -d ' ')"
   newest_snapshot="$(find "$OFFSITE_ROOT/snapshots" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1 || true)"
-  echo "[thread-exports] source root: $SOURCE_ROOT"
+  echo "[thread-exports] inbox root:  $SOURCE_ROOT_PRIMARY"
+  if [[ "$INCLUDE_LEGACY" == "1" ]]; then
+    echo "[thread-exports] legacy src:  $LEGACY_SOURCE_ROOT (enabled)"
+  else
+    echo "[thread-exports] legacy src:  disabled"
+  fi
   echo "[thread-exports] repo dir:    $REPO_DIR"
   echo "[thread-exports] offsite:     $OFFSITE_ROOT"
   echo "[thread-exports] source files:$src_count"

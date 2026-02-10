@@ -105,7 +105,10 @@ Default offsite path:
 Canonical repo location:
 - `docs/discussions/exported-threads/`
 
-Sync downloaded `thread-thread_*.md` files into canonical + offsite storage:
+Download inbox location (you drop files here, not in docs):
+- `~/Downloads/CatCafeThreadExports/`
+
+Sync downloaded `thread-thread_*.md` files from inbox into canonical + offsite storage:
 
 ```bash
 pnpm threads:sync
