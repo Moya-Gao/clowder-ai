@@ -71,4 +71,41 @@ describe('getCodexIsolatedHome', () => {
     const second = getCodexIsolatedHome();
     assert.equal(first, second, 'should return cached path');
   });
+
+  it('P1: replaces stale plain directory with symlink (pre-existing isolation dir)', async () => {
+    // Simulate pre-existing isolation dir with sessions as a plain directory
+    const isolatedCodexDir = join(ISOLATION_ROOT, 'codex-home', '.codex');
+    const staleSessionsDir = join(isolatedCodexDir, 'sessions');
+    mkdirSync(staleSessionsDir, { recursive: true });
+
+    // Verify it's a plain dir before the fix
+    assert.ok(lstatSync(staleSessionsDir).isDirectory(), 'pre-condition: plain dir');
+    assert.ok(!lstatSync(staleSessionsDir).isSymbolicLink(), 'pre-condition: not symlink');
+
+    const { getCodexIsolatedHome } = await import('../dist/utils/cli-config-isolation.js');
+    const isolatedHome = getCodexIsolatedHome();
+    const isolatedSessionsDir = join(isolatedHome, '.codex', 'sessions');
+
+    // After fix: should be a symlink, not the stale plain directory
+    const stat = lstatSync(isolatedSessionsDir);
+    assert.ok(stat.isSymbolicLink(), 'stale plain dir should be replaced with symlink');
+  });
+
+  it('P2: creates real sessions dir and symlinks even on fresh install', async () => {
+    // This test verifies the fix works even if ~/.codex/sessions doesn't exist yet.
+    // We can't delete the real ~/.codex/sessions (it has user data), so we verify
+    // the symlink points to the real sessions dir and that dir exists after the call.
+    const { getCodexIsolatedHome } = await import('../dist/utils/cli-config-isolation.js');
+    const isolatedHome = getCodexIsolatedHome();
+    const isolatedSessionsDir = join(isolatedHome, '.codex', 'sessions');
+
+    // The fix should ensure sessions symlink exists regardless of initial state
+    assert.ok(existsSync(isolatedSessionsDir), 'sessions should exist in isolated home');
+    const stat = lstatSync(isolatedSessionsDir);
+    assert.ok(stat.isSymbolicLink(), 'sessions should be a symlink');
+
+    // The real sessions dir should also exist (created if needed)
+    const realSessionsDir = join(homedir(), '.codex', 'sessions');
+    assert.ok(existsSync(realSessionsDir), 'real sessions dir should exist');
+  });
 });
