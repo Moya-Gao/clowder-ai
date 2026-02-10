@@ -73,14 +73,12 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
       : '分支对话';
     const newThread = await threadStore.create(userId, branchTitle, sourceThread.projectPath);
 
-    // Copy participants from source thread
-    if (sourceThread.participants.length > 0) {
-      await threadStore.addParticipants(newThread.id, sourceThread.participants);
-    }
-
-    // ⑤ Copy messages to new thread (new IDs, original content preserved)
-    // Rollback on failure: delete partial branch thread + its messages
+    // ⑤ Copy participants + messages inside guarded block; rollback on any failure
     try {
+      if (sourceThread.participants.length > 0) {
+        await threadStore.addParticipants(newThread.id, sourceThread.participants);
+      }
+
       for (let i = 0; i < messagesToCopy.length; i++) {
         const src = messagesToCopy[i]!;
         const isLast = i === messagesToCopy.length - 1;
@@ -90,7 +88,6 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
           userId: src.userId,
           catId: src.catId,
           content,
-          // Drop contentBlocks on edited message (text changed)
           ...(src.contentBlocks && !(isLast && editedContent !== undefined)
             ? { contentBlocks: src.contentBlocks } : {}),
           ...(src.metadata ? { metadata: src.metadata } : {}),
@@ -100,11 +97,11 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
         });
       }
     } catch (err) {
-      // Best-effort cleanup: remove partial branch
-      try {
-        await messageStore.deleteByThread(newThread.id);
-        await threadStore.delete(newThread.id);
-      } catch { /* cleanup failure is non-fatal */ }
+      // Best-effort cleanup: run independently so one failure doesn't skip the other
+      await Promise.allSettled([
+        messageStore.deleteByThread(newThread.id),
+        threadStore.delete(newThread.id),
+      ]);
       request.log.error({ err, branchThreadId: newThread.id }, 'Branch copy failed, rolled back');
       reply.status(500);
       return { error: '分支创建失败，已回滚', code: 'BRANCH_FAILED' };

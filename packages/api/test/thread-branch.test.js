@@ -333,6 +333,33 @@ describe('POST /api/threads/:id/branch (ADR-008 D4 / S7)', () => {
     await app.close();
   });
 
+  it('rolls back branch when addParticipants fails', async () => {
+    const messageStore = new MessageStore();
+    const threadStore = createMockThreadStore();
+    const msgs = seedThread(messageStore, threadStore);
+
+    // Sabotage addParticipants to throw
+    threadStore.addParticipants = () => { throw new Error('Simulated addParticipants failure'); };
+
+    const { app } = await setupApp(messageStore, threadStore);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-orig/branch',
+      payload: { fromMessageId: msgs[0].id, userId: 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 500);
+    assert.equal(res.json().code, 'BRANCH_FAILED');
+
+    // Verify branch thread was cleaned up
+    const allThreads = threadStore.list();
+    const branchThreads = allThreads.filter(t => t.id !== 'thread-orig');
+    assert.equal(branchThreads.length, 0, 'Branch thread should be cleaned up after addParticipants failure');
+
+    await app.close();
+  });
+
   it('rolls back partial branch on append failure', async () => {
     const messageStore = new MessageStore();
     const threadStore = createMockThreadStore();
