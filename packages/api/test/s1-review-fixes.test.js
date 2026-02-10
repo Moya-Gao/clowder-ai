@@ -272,11 +272,23 @@ describe('R2: delete-guard race via POST /api/messages route', () => {
       async addParticipants() {},
     };
 
+    // Mock AgentRouter: resolveTargetsAndIntent for routing, routeExecution unused here
+    const mockRouter = {
+      async resolveTargetsAndIntent(msg) {
+        return {
+          targetCats: ['opus'],
+          intent: { intent: 'execute', explicit: false, promptTags: [] },
+        };
+      },
+      async *routeExecution() { /* never reached in this test */ },
+    };
+
     const app = Fastify();
     await app.register(messagesRoutes, {
       registry: new InvocationRegistry(),
       messageStore,
       socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      router: mockRouter,
       threadStore,
       invocationTracker: raceTracker,
       invocationRecordStore,

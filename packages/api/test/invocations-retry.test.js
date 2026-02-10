@@ -1,0 +1,304 @@
+/**
+ * Invocations Retry Tests (ADR-008 S2)
+ * POST /api/invocations/:id/retry — 实际执行 retry 全路径
+ */
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import Fastify from 'fastify';
+import { invocationsRoutes } from '../dist/routes/invocations.js';
+import { InvocationRecordStore } from '../dist/domains/cats/services/InvocationRecordStore.js';
+import { MessageStore } from '../dist/domains/cats/services/MessageStore.js';
+import { InvocationTracker } from '../dist/domains/cats/services/InvocationTracker.js';
+
+/** Stub AgentRouter: routeExecution yields one text message then returns */
+function createMockRouter(options = {}) {
+  const { shouldThrow } = options;
+  return {
+    routeExecution: async function* (_userId, _msg, _threadId, _userMsgId, _cats, _intent, _opts) {
+      if (shouldThrow) {
+        throw new Error('Agent execution failed');
+      }
+      yield { type: 'text', catId: 'opus', content: 'retry response', timestamp: Date.now() };
+    },
+    resolveTargetsAndIntent: async () => ({
+      targetCats: ['opus'],
+      intent: { intent: 'execute', explicit: false, promptTags: [] },
+    }),
+  };
+}
+
+/** Stub SocketManager: records broadcasts for assertions */
+function createMockSocketManager() {
+  const messages = [];
+  return {
+    broadcastAgentMessage(msg, threadId) { messages.push({ type: 'agent', msg, threadId }); },
+    broadcastToRoom(room, event, data) { messages.push({ type: 'room', room, event, data }); },
+    getMessages() { return messages; },
+  };
+}
+
+/**
+ * Helper: set up a Fastify app with invocationsRoutes + a 'failed' InvocationRecord
+ * that has a stored user message linked to it.
+ */
+async function setupRetryScenario(routerOverride, trackerOverride) {
+  const invocationRecordStore = new InvocationRecordStore();
+  const messageStore = new MessageStore();
+  const invocationTracker = trackerOverride ?? new InvocationTracker();
+  const socketManager = createMockSocketManager();
+  const router = routerOverride ?? createMockRouter();
+
+  // Pre-populate: store a user message and create a failed invocation record
+  const storedMsg = messageStore.append({
+    userId: 'user-1',
+    catId: null,
+    content: '@布偶猫 hello retry',
+    mentions: ['opus'],
+    timestamp: Date.now(),
+    threadId: 'thread-1',
+  });
+
+  const createResult = invocationRecordStore.create({
+    threadId: 'thread-1',
+    userId: 'user-1',
+    targetCats: ['opus'],
+    intent: 'execute',
+    idempotencyKey: 'key-retry-1',
+  });
+  // Backfill userMessageId + set status to failed
+  invocationRecordStore.update(createResult.invocationId, {
+    userMessageId: storedMsg.id,
+    status: 'failed',
+    error: 'CLI timeout',
+  });
+
+  const app = Fastify();
+  await app.register(invocationsRoutes, {
+    invocationRecordStore,
+    messageStore,
+    socketManager,
+    router,
+    invocationTracker,
+  });
+  await app.ready();
+
+  return { app, invocationRecordStore, messageStore, socketManager, invocationId: createResult.invocationId };
+}
+
+describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
+  it('retry failed → 202 + record transitions running→succeeded', async () => {
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 202);
+    const body = res.json();
+    assert.equal(body.status, 'retrying');
+    assert.equal(body.invocationId, invocationId);
+
+    // Wait for background execution to complete
+    await new Promise((r) => setTimeout(r, 100));
+
+    const record = invocationRecordStore.get(invocationId);
+    assert.equal(record.status, 'succeeded');
+  });
+
+  it('retry queued → 202 + normal execution', async () => {
+    const invocationRecordStore = new InvocationRecordStore();
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const router = createMockRouter();
+    const invocationTracker = new InvocationTracker();
+
+    const storedMsg = messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: '@布偶猫 queued msg',
+      mentions: ['opus'],
+      timestamp: Date.now(),
+      threadId: 'thread-q',
+    });
+
+    const createResult = invocationRecordStore.create({
+      threadId: 'thread-q',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'key-q',
+    });
+    // Backfill userMessageId, status stays 'queued'
+    invocationRecordStore.update(createResult.invocationId, {
+      userMessageId: storedMsg.id,
+    });
+
+    const app = Fastify();
+    await app.register(invocationsRoutes, {
+      invocationRecordStore,
+      messageStore,
+      socketManager,
+      router,
+      invocationTracker,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${createResult.invocationId}/retry`,
+    });
+    assert.equal(res.statusCode, 202);
+
+    await new Promise((r) => setTimeout(r, 100));
+    const record = invocationRecordStore.get(createResult.invocationId);
+    assert.equal(record.status, 'succeeded');
+  });
+
+  it('retry running → 409 NOT_RETRYABLE', async () => {
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
+
+    // Set status to running
+    invocationRecordStore.update(invocationId, { status: 'running' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 409);
+    const body = res.json();
+    assert.equal(body.code, 'INVOCATION_NOT_RETRYABLE');
+    assert.equal(body.currentStatus, 'running');
+  });
+
+  it('retry succeeded → 409 NOT_RETRYABLE', async () => {
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
+
+    invocationRecordStore.update(invocationId, { status: 'succeeded' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 409);
+    const body = res.json();
+    assert.equal(body.code, 'INVOCATION_NOT_RETRYABLE');
+  });
+
+  it('retry with userMessageId=null → 400 USER_MESSAGE_NOT_SAVED', async () => {
+    const invocationRecordStore = new InvocationRecordStore();
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const router = createMockRouter();
+    const invocationTracker = new InvocationTracker();
+
+    // Create record but do NOT backfill userMessageId
+    const createResult = invocationRecordStore.create({
+      threadId: 'thread-null',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'key-null',
+    });
+    // Set to failed without backfilling userMessageId
+    invocationRecordStore.update(createResult.invocationId, { status: 'failed' });
+
+    const app = Fastify();
+    await app.register(invocationsRoutes, {
+      invocationRecordStore,
+      messageStore,
+      socketManager,
+      router,
+      invocationTracker,
+    });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${createResult.invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 400);
+    const body = res.json();
+    assert.equal(body.code, 'USER_MESSAGE_NOT_SAVED');
+  });
+
+  it('retry nonexistent id → 404', async () => {
+    const { app } = await setupRetryScenario();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/invocations/nonexistent-id/retry',
+    });
+
+    assert.equal(res.statusCode, 404);
+    const body = res.json();
+    assert.equal(body.code, 'INVOCATION_NOT_FOUND');
+  });
+
+  it('retry during thread delete → 409 THREAD_DELETING', async () => {
+    const tracker = new InvocationTracker();
+    const { app, invocationId } = await setupRetryScenario(undefined, tracker);
+
+    // Now set thread to deleting
+    const guard = tracker.guardDelete('thread-1');
+    assert.ok(guard.acquired);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 409);
+    const body = res.json();
+    assert.equal(body.code, 'THREAD_DELETING');
+
+    guard.release();
+  });
+
+  it('retry execution failure → record status=failed with error', async () => {
+    const errorRouter = createMockRouter({ shouldThrow: true });
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario(errorRouter);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+
+    assert.equal(res.statusCode, 202);
+
+    // Wait for background execution to fail
+    await new Promise((r) => setTimeout(r, 100));
+
+    const record = invocationRecordStore.get(invocationId);
+    assert.equal(record.status, 'failed');
+    assert.equal(record.error, 'Agent execution failed');
+  });
+});
+
+describe('MessageStore.getById()', () => {
+  it('returns message when found', async () => {
+    const store = new MessageStore();
+    const msg = store.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'test message',
+      mentions: [],
+      timestamp: Date.now(),
+    });
+
+    const found = store.getById(msg.id);
+    assert.ok(found);
+    assert.equal(found.id, msg.id);
+    assert.equal(found.content, 'test message');
+  });
+
+  it('returns null when not found', async () => {
+    const store = new MessageStore();
+    const found = store.getById('nonexistent-id');
+    assert.equal(found, null);
+  });
+});
