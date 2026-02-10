@@ -38,7 +38,7 @@
 
 - 按钮顺序：当前是 删除 → 分支 → 编辑 → 永久删除。这个顺序合理吗？
 - 文件已 222 行，接近 200 行规范上限。如果后续再加功能需要拆分。
-- `confirmBranchDirect` 当前没有 in-flight guard，快速双击可能触发重复分支请求。已知问题，计划后续补 pending 防重入。
+- ~~双击防重入~~ 已修：`branchingRef` ref guard（`43c21b3`）。
 
 ## Next Action
 
