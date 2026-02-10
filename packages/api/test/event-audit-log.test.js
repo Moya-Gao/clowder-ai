@@ -118,4 +118,9 @@ describe('EventAuditLog', () => {
     assert.equal(events[0].type, AuditEventTypes.REVIEW_APPROVED);
     assert.equal(events[0].data.reviewer, 'codex');
   });
+
+  test('includes CLI tool lifecycle event types for F13 audits', () => {
+    assert.equal(AuditEventTypes.CLI_TOOL_STARTED, 'cli_tool_started');
+    assert.equal(AuditEventTypes.CLI_TOOL_COMPLETED, 'cli_tool_completed');
+  });
 });

@@ -365,3 +365,59 @@ test('maps command execution lifecycle into tool_use and tool_result', async () 
   assert.match(toolResult.content, /\/Users\/lysander\/projects\/relay-station\/cat-cafe/);
   assert.match(toolResult.content, /exit_code:\s*0/);
 });
+
+test('writes CLI tool lifecycle audit events when auditContext is provided', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const auditLog = { append: mock.fn(async () => ({ id: 'evt-1' })) };
+  const service = new CodexAgentService({ spawnFn, auditLog });
+
+  const promise = collect(service.invoke('run tool', {
+    auditContext: {
+      invocationId: 'inv-1',
+      threadId: 'thread-1',
+      userId: 'user-1',
+      catId: 'codex',
+    },
+  }));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-1' },
+    {
+      type: 'item.started',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        status: 'in_progress',
+      },
+    },
+    {
+      type: 'item.completed',
+      item: {
+        id: 'cmd-1',
+        type: 'command_execution',
+        command: '/bin/zsh -lc pwd',
+        aggregated_output: '/tmp\n',
+        exit_code: 0,
+        status: 'completed',
+      },
+    },
+  ]);
+
+  await promise;
+
+  assert.equal(auditLog.append.mock.callCount(), 2);
+  const started = auditLog.append.mock.calls[0].arguments[0];
+  const completed = auditLog.append.mock.calls[1].arguments[0];
+
+  assert.equal(started.type, 'cli_tool_started');
+  assert.equal(started.threadId, 'thread-1');
+  assert.equal(started.data.invocationId, 'inv-1');
+  assert.equal(started.data.command, '/bin/zsh -lc pwd');
+
+  assert.equal(completed.type, 'cli_tool_completed');
+  assert.equal(completed.threadId, 'thread-1');
+  assert.equal(completed.data.status, 'completed');
+  assert.equal(completed.data.exitCode, 0);
+});

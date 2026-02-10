@@ -23,6 +23,8 @@ import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
 import { getCatModel } from '../../../config/cat-models.js';
+import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
+import type { AuditEventInput } from './EventAuditLog.js';
 import type {
   AgentMessage,
   AgentService,
@@ -41,6 +43,19 @@ const SANDBOX_MODE = 'workspace-write';
 interface CodexAgentServiceOptions {
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
+  /** Inject audit log sink (for testing) */
+  auditLog?: AuditLogSink;
+}
+
+interface AuditLogSink {
+  append(input: AuditEventInput): Promise<unknown>;
+}
+
+interface CommandExecutionLifecycle {
+  phase: 'started' | 'completed';
+  command: string;
+  status?: string;
+  exitCode?: number | null;
 }
 
 /**
@@ -145,6 +160,36 @@ function transformCodexEvent(
   return null;
 }
 
+function extractCommandExecutionLifecycle(event: unknown): CommandExecutionLifecycle | null {
+  if (typeof event !== 'object' || event === null) return null;
+  const e = event as Record<string, unknown>;
+
+  if (e['type'] === 'item.started') {
+    const item = e['item'] as Record<string, unknown> | undefined;
+    if (item?.['type'] === 'command_execution' && typeof item['command'] === 'string') {
+      return {
+        phase: 'started',
+        command: item['command'],
+        ...(typeof item['status'] === 'string' ? { status: item['status'] } : {}),
+      };
+    }
+  }
+
+  if (e['type'] === 'item.completed') {
+    const item = e['item'] as Record<string, unknown> | undefined;
+    if (item?.['type'] === 'command_execution' && typeof item['command'] === 'string') {
+      return {
+        phase: 'completed',
+        command: item['command'],
+        ...(typeof item['status'] === 'string' ? { status: item['status'] } : {}),
+        ...(typeof item['exit_code'] === 'number' ? { exitCode: item['exit_code'] } : {}),
+      };
+    }
+  }
+
+  return null;
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -152,9 +197,11 @@ function transformCodexEvent(
 export class CodexAgentService implements AgentService {
   readonly catId = CAT_ID;
   private readonly spawnFn: SpawnFn | undefined;
+  private readonly auditLog: AuditLogSink;
 
   constructor(options?: CodexAgentServiceOptions) {
     this.spawnFn = options?.spawnFn;
+    this.auditLog = options?.auditLog ?? getEventAuditLog();
   }
 
   async *invoke(
@@ -175,6 +222,7 @@ export class CodexAgentService implements AgentService {
       : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
+    const auditContext = options?.auditContext;
 
     try {
       // Isolate from global ~/.codex/AGENTS.md to prevent config pollution
@@ -216,6 +264,35 @@ export class CodexAgentService implements AgentService {
             timestamp: Date.now(),
           };
           continue;
+        }
+
+        if (auditContext) {
+          const lifecycle = extractCommandExecutionLifecycle(event);
+          if (lifecycle) {
+            const type = lifecycle.phase === 'started'
+              ? AuditEventTypes.CLI_TOOL_STARTED
+              : AuditEventTypes.CLI_TOOL_COMPLETED;
+
+            this.auditLog.append({
+              type,
+              threadId: auditContext.threadId,
+              data: {
+                invocationId: auditContext.invocationId,
+                userId: auditContext.userId,
+                catId: auditContext.catId,
+                tool: 'command_execution',
+                command: lifecycle.command,
+                ...(lifecycle.status ? { status: lifecycle.status } : {}),
+                ...(lifecycle.exitCode !== undefined ? { exitCode: lifecycle.exitCode } : {}),
+              },
+            }).catch((err) => {
+              console.warn('[audit] Codex CLI tool lifecycle write failed', {
+                threadId: auditContext.threadId,
+                invocationId: auditContext.invocationId,
+                err,
+              });
+            });
+          }
         }
 
         const result = transformCodexEvent(event, CAT_ID);

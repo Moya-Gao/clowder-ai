@@ -204,6 +204,10 @@ export const AuditEventTypes = {
   CAT_ERROR: 'cat_error',
   /** 猫猫互调 handoff */
   A2A_HANDOFF: 'a2a_handoff',
+  /** CLI 工具执行开始（command_execution started） */
+  CLI_TOOL_STARTED: 'cli_tool_started',
+  /** CLI 工具执行完成（command_execution completed） */
+  CLI_TOOL_COMPLETED: 'cli_tool_completed',
 
   // === 记忆治理 (Phase 5.0 Step 2a) ===
 
