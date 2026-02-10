@@ -21,6 +21,12 @@ pnpm redis:user:backup
 pnpm redis:user:stop
 ```
 
+Use personal Redis for app runtime (instead of dev profile):
+
+```bash
+REDIS_PORT=6401 pnpm start --quick
+```
+
 ## 2) Find old dump files (Time Machine / mounted backups)
 
 ```bash
