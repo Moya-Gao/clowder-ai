@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11 doing；F13 已完成；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50/#53 + 闭环核查 #36/#44；新增 P1 #55 记录 brainstorm 空消息/CLI 退出事件并待修)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11 doing；F13 已完成；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50/#53 + 闭环核查 #36/#44；review 跟进修复已收敛)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -26,7 +26,6 @@
 | 37 | **消息级审计日志** | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | 新增 `CAT_INVOKED`, `CAT_RESPONDED`, `CAT_ERROR`, `A2A_HANDOFF` 事件 + prompt-digest.ts 摘要 |
 | 46 | **Fail-closed storage guard** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `assertStorageReady()`: 无 Redis 且无 `MEMORY_STORE=1` → 拒绝启动。`start-dev.sh` Redis 失败 → exit 1 |
 | 47 | **Persist guard (invocation 成功条件)** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `PersistenceContext` 跨 generator 传递持久化失败 → invocation 标 failed (可重试) + 前端通知。cursor ack 仅在 succeeded |
-| 55 | **Brainstorm 第二轮 Codex 空消息 + CLI 异常退出** | [~] | [bug report](./bug-report/brainstorm-mode-codex-cli-exit-empty-message/bug-report.md) | Why: 铲屎官明确要求先按 P1 立案并保留日志证据；风险边界：当前仍可能出现“空消息掩盖异常”。触发条件：下一轮修复窗口立即落地 Red→Green（禁止继续以空消息结案）。 |
 
 ## P2 — 建议做
 
@@ -65,6 +64,8 @@
 | 49 | **MCP callback local outbox** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：`post-message` 失败入本地 outbox（文件队列）+ 后续调用自动回放重试，4xx 毒消息丢弃避免无限重试；review 跟进补充 `CAT_CAFE_CALLBACK_OUTBOX_MAX_FLUSH_BATCH`（批次上限）+ `CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS`（老化清理），commit `595a14f` + `f3b743e` |
 | 50 | **消息持久化故障演练测试** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：新增持久化故障演练集成测试（故障显式失败 + 恢复后 retry 转绿）；review 跟进将固定 sleep 改为 `waitFor` 轮询，降低 CI flaky 风险，commit `69ad9a9` + `f3b743e` |
 | 53 | callback-tools.ts 超 200 行拆分 | [x] | Rebase 冲突复核 follow-up | 2026-02-10 缅因猫完成：将 retry/outbox 逻辑从 `callback-tools.ts` 提取为 `callback-retry.ts` + `callback-outbox.ts`，`callback-tools.ts` 降到 161 行，commit `1ec2811` |
+| 54 | F16 控制面行为接通（Task 3） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：evidence/reflect/callback 路由统一读取运行时配置（recall defaults + reflect disposition），并补齐 RED→GREEN 回归测试闭环。 |
+| 55 | F16 配置变更审计（Task 6） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：`PATCH /api/config` 写入 `config_updated` 审计事件（key/old/new/operator/source/timestamp），`/api/config/runtime-status` 补充 source 元数据。 |
 
 ## P3 — 可选优化
 
@@ -81,10 +82,6 @@
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
 | 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
-| 54 | 前端测试 `act()` 迁移到 `react` 入口 | [ ] | F11 缅因猫 review | 当前 `import { act } from 'react-dom/test-utils'` 已 deprecated（React 18.3+），应统一迁移到 `import { act } from 'react'`，消除 stderr 警告 |
-| 57 | Brainstorm prompt 传错 catId | [x] | F11 dev-loop review P2-6 | 修复: `BrainstormMode` 用 `modeSystemPromptByCat` 为每猫构建独立 prompt (`f2ef945`) |
-| 58 | Brainstorm @铲屎官暂停未实现 | [x] | F11 dev-loop review P2-7 | 修复: round 2+ 累积检测 @铲屎官 + system_info 通知。注: round 完成后检测，非 mid-chain pause (`f2ef945`) |
-| 59 | switchRequiresApproval 配置行为未落地 | [x] | F11 dev-loop review P2-4 | 修复: ModeOrchestrator 读取 config, false 时发结构化 `mode_switch_proposal` (`f2ef945`) |
 
 ## Feature Requests — 新功能需求
 
