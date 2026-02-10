@@ -193,6 +193,8 @@ export const AuditEventTypes = {
   SERVER_STARTED: 'server_started',
   /** 服务器关闭 */
   SERVER_SHUTDOWN: 'server_shutdown',
+  /** 运行时配置被更新 */
+  CONFIG_UPDATED: 'config_updated',
 
   // === 消息级审计 (茶话会夺魂 bug fix #37) ===
 

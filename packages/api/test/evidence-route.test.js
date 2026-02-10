@@ -90,6 +90,40 @@ describe('GET /api/evidence/search', () => {
     assert.equal(capturedOptions.limit, 5);
   });
 
+  it('uses runtime-configured recall defaults when query omits params', async () => {
+    const prevBudget = process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'];
+    const prevTagsMatch = process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'];
+    const prevLimit = process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'];
+    process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'] = 'high';
+    process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'] = 'any';
+    process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'] = '7';
+
+    let capturedOptions;
+    await setup({
+      recall: async (_bank, _query, options) => {
+        capturedOptions = options;
+        return [];
+      },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=test',
+    });
+
+    if (prevBudget === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'] = prevBudget;
+    if (prevTagsMatch === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'] = prevTagsMatch;
+    if (prevLimit === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'] = prevLimit;
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(capturedOptions.budget, 'high');
+    assert.equal(capturedOptions.tagsMatch, 'any');
+    assert.equal(capturedOptions.limit, 7);
+  });
+
   it('passes custom parameters to Hindsight', async () => {
     let capturedOptions;
     await setup({

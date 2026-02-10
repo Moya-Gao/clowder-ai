@@ -100,4 +100,37 @@ describe('SystemTab', () => {
     expect(html).toContain('300s');
     expect(html).toContain('30s');
   });
+
+  it('renders codex-first memory engine routing and runtime controls', () => {
+    const nextConfig = {
+      ...CONFIG,
+      hindsight: {
+        ...CONFIG.hindsight,
+        engine: {
+          reflect: 'codex_oauth',
+          retainExtraction: 'codex_oauth',
+          allowNativeFallback: false,
+        },
+        service: {
+          mode: 'storage_retrieval_only',
+          requireHealthcheck: true,
+          writeTimeoutMs: 8000,
+          recallTimeoutMs: 8000,
+        },
+      },
+      codexExecution: {
+        model: 'gpt-5.3-codex',
+        authMode: 'oauth',
+        passModelArg: true,
+      },
+    } as unknown as ConfigData;
+
+    const html = renderToStaticMarkup(React.createElement(SystemTab, { config: nextConfig }));
+    expect(html).toContain('引擎路由');
+    expect(html).toContain('codex_oauth');
+    expect(html).toContain('allowNativeFallback');
+    expect(html).toContain('storage_retrieval_only');
+    expect(html).toContain('gpt-5.3-codex');
+    expect(html).toContain('oauth');
+  });
 });

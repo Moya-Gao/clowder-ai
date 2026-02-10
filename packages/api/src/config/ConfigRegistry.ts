@@ -7,10 +7,22 @@
  */
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { ContextBudget } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
+import { parseHindsightRuntimeConfig } from './hindsight-runtime-config.js';
+import { parseEnum, parseIntInRange } from './parse-utils.js';
+import type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
+
+export type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
+
+function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
+  if (raw == null) return fallback;
+  const normalized = raw.trim().toLowerCase();
+  if (normalized === 'true') return true;
+  if (normalized === 'false') return false;
+  return fallback;
+}
 
 function formatTtl(raw: string | undefined, defaultSeconds: number): string {
   if (!raw) {
@@ -30,93 +42,6 @@ function formatTtl(raw: string | undefined, defaultSeconds: number): string {
     return `${parsed / 3600} hours`;
   }
   return `${Math.trunc(parsed)} seconds`;
-}
-
-export interface ConfigSnapshot {
-  context: {
-    /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default. */
-    maxMessages: number;
-    /** @deprecated Use perCatBudgets for actual limits. */
-    maxContentLength: number;
-    /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default, overridden per-cat at route time. */
-    maxTotalChars: number;
-    /** @deprecated Use perCatBudgets for actual limits. */
-    maxPromptChars: number;
-    note: string;
-  };
-  /** Per-cat context budgets (Phase 4.0) — the actual limits used at route time */
-  perCatBudgets: Record<string, ContextBudget>;
-  cli: {
-    timeoutMs: number;
-    killGraceMs: number;
-    codexSandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
-    codexApprovalPolicy: 'untrusted' | 'on-failure' | 'on-request' | 'never';
-  };
-  storage: {
-    messageTTL: string;
-    threadTTL: string;
-    taskTTL: string;
-    maxMessages: number;
-    maxThreads: number;
-  };
-  upload: {
-    maxFileSize: string;
-    maxFiles: number;
-  };
-  server: {
-    port: number;
-    host: string;
-    redis: 'connected' | 'memory';
-  };
-  cats: Record<string, {
-    displayName: string;
-    provider: string;
-    model: string;
-    mcpSupport: boolean;
-  }>;
-  a2a: {
-    enabled: boolean;
-    maxDepth: number;
-  };
-  /** Memory store settings (F3-lite) */
-  memory: {
-    enabled: boolean;
-    maxKeysPerThread: number;
-  };
-  /** Governance settings (4-D-lite) */
-  governance: {
-    degradationEnabled: boolean;
-    doneTimeoutMs: number;
-    heartbeatIntervalMs: number;
-  };
-  /** Deliberate mode status (4-E) */
-  deliberate: {
-    status: 'types_only';
-  };
-  /** Mode system (F11) */
-  mode: {
-    switchRequiresApproval: boolean;
-    availableModes: string[];
-    devLoopMaxIterations: number;
-  };
-  /** Hindsight long-term memory integration (Phase 5.0) */
-  hindsight: {
-    enabled: boolean;
-    baseUrl: string;
-    sharedBank: string;
-    recallDefaults: {
-      budget: 'low' | 'mid' | 'high';
-      tagsMatch: 'all_strict' | 'any_strict' | 'all' | 'any';
-      limit: number;
-    };
-    retainPolicy: {
-      narrativeFactRequired: boolean;
-      minUsefulHorizonDays: number;
-    };
-    reflect: {
-      dispositionMode: 'off' | 'template_only';
-    };
-  };
 }
 
 /**
@@ -174,6 +99,15 @@ export function collectConfigSnapshot(): ConfigSnapshot {
 
   // A2A
   const a2aMaxDepth = Number(env['MAX_A2A_DEPTH']) || 2;
+  const defaultCodexModel = getCatModel('codex');
+  const codexExecutionModel = env['CAT_CODEX_EXEC_MODEL']?.trim() || defaultCodexModel;
+  const codexExecutionAuthMode = parseEnum<CodexAuthMode>(
+    env['CODEX_AUTH_MODE'],
+    ['oauth', 'api_key', 'auto'],
+    'oauth',
+  );
+  const codexExecutionPassModelArg = parseBoolean(env['CAT_CODEX_PASS_MODEL_ARG'], true);
+  const hindsightRuntime = parseHindsightRuntimeConfig(env);
 
   return {
     context: {
@@ -197,27 +131,36 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       heartbeatIntervalMs: 30_000,
     },
     deliberate: { status: 'types_only' },
-    mode: {
-      switchRequiresApproval: (env['MODE_SWITCH_REQUIRES_APPROVAL'] ?? 'true') !== 'false',
-      availableModes: ['brainstorm', 'debate', 'dev-loop'],
-      devLoopMaxIterations: Math.min(10, Math.max(1, Number(env['DEV_LOOP_MAX_ITERATIONS']) || 5)),
-    },
     hindsight: {
       enabled: true,
       baseUrl: env['HINDSIGHT_URL'] ?? 'http://localhost:8888',
       sharedBank: 'cat-cafe-shared',
-      recallDefaults: {
-        budget: 'mid',
-        tagsMatch: 'all_strict',
-        limit: 5,
-      },
+      recallDefaults: hindsightRuntime.recallDefaults,
       retainPolicy: {
         narrativeFactRequired: true,
         minUsefulHorizonDays: 180,
       },
-      reflect: {
-        dispositionMode: 'template_only',
+      reflect: hindsightRuntime.reflect,
+      engine: {
+        reflect: parseEnum<HindsightEngine>(env['HINDSIGHT_ENGINE_REFLECT'], ['codex_oauth', 'hindsight_native'], 'codex_oauth'),
+        retainExtraction: parseEnum<HindsightEngine>(
+          env['HINDSIGHT_ENGINE_RETAIN_EXTRACTION'],
+          ['codex_oauth', 'hindsight_native'],
+          'codex_oauth',
+        ),
+        allowNativeFallback: parseBoolean(env['HINDSIGHT_ENGINE_ALLOW_NATIVE_FALLBACK'], false),
       },
+      service: {
+        mode: 'storage_retrieval_only',
+        requireHealthcheck: parseBoolean(env['HINDSIGHT_SERVICE_REQUIRE_HEALTHCHECK'], true),
+        writeTimeoutMs: parseIntInRange(env['HINDSIGHT_SERVICE_WRITE_TIMEOUT_MS'], 8000, 1000, 30000),
+        recallTimeoutMs: parseIntInRange(env['HINDSIGHT_SERVICE_RECALL_TIMEOUT_MS'], 8000, 1000, 30000),
+      },
+    },
+    codexExecution: {
+      model: codexExecutionModel,
+      authMode: codexExecutionAuthMode,
+      passModelArg: codexExecutionPassModelArg,
     },
   };
 }

@@ -1,32 +1,7 @@
 import React, { type ReactNode } from 'react';
+import type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
 
-export interface CatConfig {
-  displayName: string;
-  provider: string;
-  model: string;
-  mcpSupport: boolean;
-}
-
-export interface ContextBudget {
-  maxPromptChars: number;
-  maxContextChars: number;
-  maxMessages: number;
-  maxContentLengthPerMsg: number;
-}
-
-export interface Capabilities {
-  skills: string[];
-  externalMcpServers: string[];
-}
-
-export interface ConfigData {
-  cats: Record<string, CatConfig>;
-  perCatBudgets: Record<string, ContextBudget>;
-  a2a: { enabled: boolean; maxDepth: number };
-  memory: { enabled: boolean; maxKeysPerThread: number };
-  hindsight: { enabled: boolean; baseUrl: string; sharedBank: string };
-  governance: { degradationEnabled: boolean; doneTimeoutMs: number; heartbeatIntervalMs: number };
-}
+export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
 
 const MCP_TOOLS = [
   { name: 'cat_speak', group: '回传' },
@@ -127,8 +102,55 @@ export function SystemTab({ config }: { config: ConfigData }) {
           <KV label="启用" value={config.hindsight.enabled} />
           <KV label="Base URL" value={config.hindsight.baseUrl} />
           <KV label="共享 Bank" value={config.hindsight.sharedBank} />
+          {config.hindsight.recallDefaults ? (
+            <>
+              <KV label="Recall Budget" value={config.hindsight.recallDefaults.budget} />
+              <KV label="Recall TagsMatch" value={config.hindsight.recallDefaults.tagsMatch} />
+              <KV label="Recall Limit" value={config.hindsight.recallDefaults.limit} />
+            </>
+          ) : null}
+          {config.hindsight.retainPolicy ? (
+            <>
+              <KV label="Narrative Fact Required" value={config.hindsight.retainPolicy.narrativeFactRequired} />
+              <KV label="Min Useful Horizon Days" value={config.hindsight.retainPolicy.minUsefulHorizonDays} />
+              {typeof config.hindsight.retainPolicy.anchorRequired === 'boolean' ? (
+                <KV label="Anchor Required" value={config.hindsight.retainPolicy.anchorRequired} />
+              ) : null}
+            </>
+          ) : null}
+          {config.hindsight.reflect ? (
+            <KV label="Reflect Disposition" value={config.hindsight.reflect.dispositionMode} />
+          ) : null}
         </div>
       </Section>
+      {config.hindsight.engine ? (
+        <Section title="引擎路由">
+          <div className="space-y-1.5">
+            <KV label="Reflect Engine" value={config.hindsight.engine.reflect} />
+            <KV label="Retain Extraction Engine" value={config.hindsight.engine.retainExtraction} />
+            <KV label="allowNativeFallback" value={config.hindsight.engine.allowNativeFallback} />
+          </div>
+        </Section>
+      ) : null}
+      {config.hindsight.service ? (
+        <Section title="Hindsight 独立服务">
+          <div className="space-y-1.5">
+            <KV label="服务模式" value={config.hindsight.service.mode} />
+            <KV label="requireHealthcheck" value={config.hindsight.service.requireHealthcheck} />
+            <KV label="写入超时(ms)" value={config.hindsight.service.writeTimeoutMs} />
+            <KV label="检索超时(ms)" value={config.hindsight.service.recallTimeoutMs} />
+          </div>
+        </Section>
+      ) : null}
+      {config.codexExecution ? (
+        <Section title="Codex 推理执行">
+          <div className="space-y-1.5">
+            <KV label="Model" value={config.codexExecution.model} />
+            <KV label="Auth Mode" value={config.codexExecution.authMode} />
+            <KV label="Pass --model Arg" value={config.codexExecution.passModelArg} />
+          </div>
+        </Section>
+      ) : null}
       <Section title="治理 & 降级">
         <div className="space-y-1.5">
           <KV label="降级策略启用" value={config.governance.degradationEnabled} />

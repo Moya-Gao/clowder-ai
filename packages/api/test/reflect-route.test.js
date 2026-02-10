@@ -49,6 +49,28 @@ describe('POST /api/reflect', () => {
     assert.ok(body.reflection.includes('per-cat budgets'));
   });
 
+  it('exposes runtime-configured reflect disposition mode', async () => {
+    const previous = process.env['HINDSIGHT_REFLECT_DISPOSITION_MODE'];
+    process.env['HINDSIGHT_REFLECT_DISPOSITION_MODE'] = 'off';
+
+    const app = await setup({
+      reflect: async () => 'reflection payload',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/reflect',
+      payload: { query: 'test reflect disposition' },
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_REFLECT_DISPOSITION_MODE'];
+    else process.env['HINDSIGHT_REFLECT_DISPOSITION_MODE'] = previous;
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.dispositionMode, 'off');
+  });
+
   it('degrades when Hindsight is unavailable (CONNECTION_FAILED)', async () => {
     const app = await setup({
       reflect: async () => {

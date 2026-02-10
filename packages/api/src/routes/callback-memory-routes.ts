@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
@@ -13,10 +14,10 @@ interface CallbackMemoryRoutesDeps {
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
   q: z.string().min(1),
-  limit: z.coerce.number().int().min(1).max(20).default(5),
-  budget: z.enum(['low', 'mid', 'high']).default('mid'),
+  limit: z.coerce.number().int().min(1).max(20).optional(),
+  budget: z.enum(['low', 'mid', 'high']).optional(),
   tags: z.union([z.string(), z.array(z.string())]).optional(),
-  tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).default('all_strict'),
+  tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).optional(),
 });
 const reflectSchema = callbackAuthSchema.extend({
   query: z.string().trim().min(1),
@@ -89,13 +90,22 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       return { error: 'Invalid query parameters', details: parsed.error.issues };
     }
     const { invocationId, callbackToken, q, limit, budget, tags, tagsMatch } = parsed.data;
+    const recallDefaults = collectConfigSnapshot().hindsight.recallDefaults;
+    const effectiveLimit = limit ?? recallDefaults.limit;
+    const effectiveBudget = budget ?? recallDefaults.budget;
+    const effectiveTagsMatch = tagsMatch ?? recallDefaults.tagsMatch;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
       return { error: 'Invalid or expired callback credentials' };
     }
     try {
-      const memories = await hindsightClient.recall(sharedBank, q, { limit, budget, tags: normalizeTags(tags), tagsMatch });
+      const memories = await hindsightClient.recall(sharedBank, q, {
+        limit: effectiveLimit,
+        budget: effectiveBudget,
+        tags: normalizeTags(tags),
+        tagsMatch: effectiveTagsMatch,
+      });
       return { results: memories.map(memoryToResult), degraded: false };
     } catch (err) {
       if (shouldDegrade(err)) return { results: [], degraded: true, degradeReason: 'hindsight_unavailable' };
@@ -115,6 +125,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
     const { invocationId, callbackToken, query } = parsed.data;
+    const dispositionMode = collectConfigSnapshot().hindsight.reflect.dispositionMode;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
@@ -122,9 +133,11 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     }
     try {
       const reflection = await hindsightClient.reflect(sharedBank, query);
-      return { reflection, degraded: false };
+      return { reflection, degraded: false, dispositionMode };
     } catch (err) {
-      if (shouldDegrade(err)) return { reflection: '', degraded: true, degradeReason: 'hindsight_unavailable' };
+      if (shouldDegrade(err)) {
+        return { reflection: '', degraded: true, degradeReason: 'hindsight_unavailable', dispositionMode };
+      }
       reply.status(502);
       return { error: 'Reflect unavailable', degraded: false };
     }

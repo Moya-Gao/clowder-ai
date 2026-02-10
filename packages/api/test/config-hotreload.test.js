@@ -17,21 +17,37 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     if (app) await app.close();
   });
 
-  async function setup() {
+  async function setup(routeOptions = {}, options = {}) {
     app = Fastify();
-    await app.register(configRoutes);
+    const warnSink = Array.isArray(options.warnSink) ? options.warnSink : null;
+    if (warnSink) {
+      app.addHook('onRequest', (request, _reply, done) => {
+        const originalWarn = request.log.warn.bind(request.log);
+        request.log.warn = (...args) => {
+          warnSink.push(args);
+          return originalWarn(...args);
+        };
+        done();
+      });
+    }
+    await app.register(configRoutes, routeOptions);
     await app.ready();
     return app;
+  }
+
+  async function patchConfig(payload, headers = {}) {
+    return app.inject({
+      method: 'PATCH',
+      url: '/api/config',
+      headers: { 'x-cat-cafe-user': 'config-admin', ...headers },
+      payload,
+    });
   }
 
   it('sets an updatable key and returns updated config', async () => {
     const app = await setup();
 
-    const res = await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { key: 'cli.timeoutMs', value: 60000 },
-    });
+    const res = await patchConfig({ key: 'cli.timeoutMs', value: 60000 });
     assert.equal(res.statusCode, 200);
     const body = res.json();
     assert.ok(body.config);
@@ -41,11 +57,7 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
   it('verifies PATCH value is reflected in GET', async () => {
     const app = await setup();
 
-    await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { key: 'a2a.maxDepth', value: '5' },
-    });
+    await patchConfig({ key: 'a2a.maxDepth', value: '5' });
 
     const res = await app.inject({
       method: 'GET',
@@ -58,16 +70,8 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
   it('supports hot-updating codex sandbox/approval policy keys', async () => {
     const app = await setup();
 
-    await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { key: 'cli.codexSandboxMode', value: 'workspace-write' },
-    });
-    await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { key: 'cli.codexApprovalPolicy', value: 'never' },
-    });
+    await patchConfig({ key: 'cli.codexSandboxMode', value: 'workspace-write' });
+    await patchConfig({ key: 'cli.codexApprovalPolicy', value: 'never' });
 
     const res = await app.inject({
       method: 'GET',
@@ -78,14 +82,167 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     assert.equal(body.config.cli.codexApprovalPolicy, 'never');
   });
 
-  it('rejects non-updatable key with 400', async () => {
+  it('supports hot-updating hindsight engine routing keys', async () => {
+    const app = await setup();
+
+    const patchReflect = await patchConfig({ key: 'hindsight.engine.reflect', value: 'hindsight_native' });
+    assert.equal(patchReflect.statusCode, 200);
+
+    const patchRetain = await patchConfig({ key: 'hindsight.engine.retainExtraction', value: 'hindsight_native' });
+    assert.equal(patchRetain.statusCode, 200);
+
+    const patchFallback = await patchConfig({ key: 'hindsight.engine.allowNativeFallback', value: true });
+    assert.equal(patchFallback.statusCode, 200);
+
+    const res = await app.inject({ method: 'GET', url: '/api/config' });
+    const body = res.json();
+    assert.equal(body.config.hindsight.engine.reflect, 'hindsight_native');
+    assert.equal(body.config.hindsight.engine.retainExtraction, 'hindsight_native');
+    assert.equal(body.config.hindsight.engine.allowNativeFallback, true);
+  });
+
+  it('supports hot-updating hindsight recall defaults and reflect disposition', async () => {
+    const app = await setup();
+
+    const patchBudget = await patchConfig({ key: 'hindsight.recallDefaults.budget', value: 'high' });
+    assert.equal(patchBudget.statusCode, 200);
+
+    const patchTagsMatch = await patchConfig({ key: 'hindsight.recallDefaults.tagsMatch', value: 'any' });
+    assert.equal(patchTagsMatch.statusCode, 200);
+
+    const patchLimit = await patchConfig({ key: 'hindsight.recallDefaults.limit', value: 9 });
+    assert.equal(patchLimit.statusCode, 200);
+
+    const patchDisposition = await patchConfig({ key: 'hindsight.reflect.dispositionMode', value: 'off' });
+    assert.equal(patchDisposition.statusCode, 200);
+
+    const res = await app.inject({ method: 'GET', url: '/api/config' });
+    const body = res.json();
+    assert.equal(body.config.hindsight.recallDefaults.budget, 'high');
+    assert.equal(body.config.hindsight.recallDefaults.tagsMatch, 'any');
+    assert.equal(body.config.hindsight.recallDefaults.limit, 9);
+    assert.equal(body.config.hindsight.reflect.dispositionMode, 'off');
+  });
+
+  it('supports hot-updating codex execution model alignment keys', async () => {
+    const app = await setup();
+
+    const patchModel = await patchConfig({ key: 'codex.execution.model', value: 'gpt-5.3-codex' });
+    assert.equal(patchModel.statusCode, 200);
+
+    const patchPassModelArg = await patchConfig({ key: 'codex.execution.passModelArg', value: false });
+    assert.equal(patchPassModelArg.statusCode, 200);
+
+    const patchAuthMode = await patchConfig({ key: 'codex.execution.authMode', value: 'oauth' });
+    assert.equal(patchAuthMode.statusCode, 200);
+
+    const res = await app.inject({ method: 'GET', url: '/api/config' });
+    const body = res.json();
+    assert.equal(body.config.codexExecution.model, 'gpt-5.3-codex');
+    assert.equal(body.config.codexExecution.passModelArg, false);
+    assert.equal(body.config.codexExecution.authMode, 'oauth');
+  });
+
+  it('rejects invalid hindsight engine values with 400', async () => {
+    const app = await setup();
+
+    const res = await patchConfig({ key: 'hindsight.engine.reflect', value: 'bad_engine' });
+    assert.equal(res.statusCode, 400);
+    const body = res.json();
+    assert.ok(String(body.error).includes('invalid value'));
+  });
+
+  it('exposes runtime-status endpoint for hindsight engine routing', async () => {
+    const app = await setup();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/config/runtime-status?category=hindsight',
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    assert.ok(body.runtimeStatus);
+    assert.equal(body.runtimeStatus.category, 'hindsight');
+    assert.equal(body.runtimeStatus.engine.reflect.configured, 'codex_oauth');
+  });
+
+  it('runtime-status includes config source metadata for routing fields', async () => {
+    const app = await setup();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/config/runtime-status?category=hindsight',
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.engine.reflect.source));
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.engine.retainExtraction.source));
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.recallDefaults.budget.source));
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.recallDefaults.tagsMatch.source));
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.recallDefaults.limit.source));
+    assert.ok(['default', 'env', 'overlay'].includes(body.runtimeStatus.reflect.dispositionMode.source));
+  });
+
+  it('writes config patch audit event with old/new/operator', async () => {
+    const auditCalls = [];
+    const app = await setup({
+      auditLog: {
+        append: async (input) => {
+          auditCalls.push(input);
+          return { id: 'evt-1', timestamp: Date.now(), ...input };
+        },
+      },
+    });
+
+    const res = await patchConfig({ key: 'cli.timeoutMs', value: 60000 }, { 'x-cat-cafe-user': 'user-1' });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(auditCalls.length, 1);
+    assert.equal(auditCalls[0].type, 'config_updated');
+    assert.equal(auditCalls[0].data.key, 'cli.timeoutMs');
+    assert.equal(auditCalls[0].data.operator, 'user-1');
+    assert.equal(auditCalls[0].data.oldValue, 1800000);
+    assert.equal(auditCalls[0].data.newValue, 60000);
+  });
+
+  it('rejects patch without x-cat-cafe-user header', async () => {
     const app = await setup();
 
     const res = await app.inject({
       method: 'PATCH',
       url: '/api/config',
-      payload: { key: 'server.port', value: 9999 },
+      payload: { key: 'cli.timeoutMs', value: 60000 },
     });
+    assert.equal(res.statusCode, 400);
+    const body = res.json();
+    assert.equal(body.error, 'Identity required (X-Cat-Cafe-User header)');
+
+    const configRes = await app.inject({
+      method: 'GET',
+      url: '/api/config',
+    });
+    assert.equal(configRes.statusCode, 200);
+    const configBody = configRes.json();
+    assert.equal(configBody.config.cli.timeoutMs, 1800000);
+  });
+
+  it('logs warn for high-risk key updates', async () => {
+    const warnSink = [];
+    const app = await setup({}, { warnSink });
+
+    const res = await patchConfig({ key: 'hindsight.engine.reflect', value: 'hindsight_native' });
+    assert.equal(res.statusCode, 200);
+    assert.equal(warnSink.length > 0, true);
+    const [firstWarnArg] = warnSink[0];
+    assert.equal(firstWarnArg.key, 'hindsight.engine.reflect');
+  });
+
+  it('rejects non-updatable key with 400', async () => {
+    const app = await setup();
+
+    const res = await patchConfig({ key: 'server.port', value: 9999 });
     assert.equal(res.statusCode, 400);
     const body = res.json();
     assert.ok(body.error.includes('not hot-updatable'));
@@ -94,22 +251,22 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
   it('rejects missing key with 400', async () => {
     const app = await setup();
 
-    const res = await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { value: 123 },
-    });
+    const res = await patchConfig({ value: 123 });
     assert.equal(res.statusCode, 400);
   });
 
   it('rejects missing value with 400', async () => {
     const app = await setup();
 
-    const res = await app.inject({
-      method: 'PATCH',
-      url: '/api/config',
-      payload: { key: 'cli.timeoutMs' },
-    });
+    const res = await patchConfig({ key: 'cli.timeoutMs' });
     assert.equal(res.statusCode, 400);
+  });
+
+  it('keeps updatable keys and snapshot paths in sync', async () => {
+    const keys = Object.keys(configStore.listUpdatable());
+    assert.equal(keys.length > 0, true);
+    for (const key of keys) {
+      assert.ok(configStore.getSnapshotPath(key), `missing snapshot path for ${key}`);
+    }
   });
 });

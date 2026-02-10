@@ -386,6 +386,41 @@ describe('Callback Routes', () => {
     assert.deepEqual(recallCalls[0].options.tags, ['project:cat-cafe', 'kind:decision']);
   });
 
+  test('GET search-evidence uses runtime-configured recall defaults when params omitted', async () => {
+    const prevBudget = process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'];
+    const prevTagsMatch = process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'];
+    const prevLimit = process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'];
+    process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'] = 'low';
+    process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'] = 'any';
+    process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'] = '9';
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const recallCalls = [];
+    hindsightClient.recall = async (bankId, query, options) => {
+      recallCalls.push({ bankId, query, options });
+      return [];
+    };
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    if (prevBudget === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_BUDGET'] = prevBudget;
+    if (prevTagsMatch === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH'] = prevTagsMatch;
+    if (prevLimit === undefined) delete process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'];
+    else process.env['HINDSIGHT_RECALL_DEFAULT_LIMIT'] = prevLimit;
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(recallCalls.length, 1);
+    assert.equal(recallCalls[0].options.budget, 'low');
+    assert.equal(recallCalls[0].options.tagsMatch, 'any');
+    assert.equal(recallCalls[0].options.limit, 9);
+  });
+
   test('GET search-evidence degrades on CONNECTION_FAILED', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');

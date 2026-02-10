@@ -7,6 +7,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
 
@@ -23,6 +24,7 @@ export interface ReflectResponse {
   reflection: string;
   degraded: boolean;
   degradeReason?: string;
+  dispositionMode: 'off' | 'template_only';
 }
 
 export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (app, opts) => {
@@ -34,10 +36,11 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
     }
 
     const { query } = parseResult.data;
+    const dispositionMode = collectConfigSnapshot().hindsight.reflect.dispositionMode;
 
     try {
       const reflection = await opts.hindsightClient.reflect(opts.sharedBank, query);
-      return { reflection, degraded: false } satisfies ReflectResponse;
+      return { reflection, degraded: false, dispositionMode } satisfies ReflectResponse;
     } catch (err) {
       // Degrade gracefully for connectivity issues
       if (err instanceof HindsightError) {
@@ -47,6 +50,7 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
             reflection: '',
             degraded: true,
             degradeReason: 'hindsight_unavailable',
+            dispositionMode,
           } satisfies ReflectResponse;
         }
         if (err.statusCode != null && err.statusCode >= 500) {
@@ -55,6 +59,7 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
             reflection: '',
             degraded: true,
             degradeReason: 'hindsight_server_error',
+            dispositionMode,
           } satisfies ReflectResponse;
         }
       }
@@ -67,6 +72,7 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
             reflection: '',
             degraded: true,
             degradeReason: 'hindsight_unavailable',
+            dispositionMode,
           } satisfies ReflectResponse;
         }
       }
