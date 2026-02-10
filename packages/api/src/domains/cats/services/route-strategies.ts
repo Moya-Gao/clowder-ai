@@ -30,6 +30,15 @@ export interface RouteStrategyDeps {
   deliveryCursorStore?: DeliveryCursorStore;
 }
 
+/** Mutable context for tracking persistence failures across the generator boundary.
+ *  Caller creates the object, passes it in RouteOptions, and checks after generator exhausts. */
+export interface PersistenceContext {
+  /** Set to true by route strategies when any messageStore.append() call fails */
+  failed: boolean;
+  /** Error details for diagnostics */
+  errors: Array<{ catId: string; error: string }>;
+}
+
 /** Common options for both strategies */
 export interface RouteOptions {
   contentBlocks?: readonly MessageContent[] | undefined;
@@ -47,6 +56,9 @@ export interface RouteOptions {
   /** ADR-008 S3: When provided, cursor boundaries are collected here instead of acking immediately.
    *  Caller acks after invocation succeeds. If absent, legacy immediate ack behavior. */
   cursorBoundaries?: Map<string, string>;
+  /** P1-2: When provided, persistence failures are recorded here instead of silently swallowed.
+   *  Caller checks after generator exhausts to determine invocation status. */
+  persistenceContext?: PersistenceContext;
 }
 
 /** Get the agent service for a given cat ID */
@@ -343,6 +355,13 @@ export async function* routeSerial(
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
+        if (options.persistenceContext) {
+          options.persistenceContext.failed = true;
+          options.persistenceContext.errors.push({
+            catId: catId as string,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
 
       // A2A: extend worklist if mention found + depth allows
@@ -390,6 +409,13 @@ export async function* routeSerial(
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
+        if (options.persistenceContext) {
+          options.persistenceContext.failed = true;
+          options.persistenceContext.errors.push({
+            catId: catId as string,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     }
 
@@ -565,6 +591,13 @@ export async function* routeParallel(
           });
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
+          if (options.persistenceContext) {
+            options.persistenceContext.failed = true;
+            options.persistenceContext.errors.push({
+              catId: msg.catId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
         }
       }
 
