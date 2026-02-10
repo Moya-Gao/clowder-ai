@@ -45,6 +45,30 @@ redis.call('EXPIRE', KEYS[2], ${DEFAULT_TTL_SECONDS})
 return {'created', ARGV[1]}
 `;
 
+/**
+ * Lua script for atomic CAS update.
+ * KEYS[1] = invocation record hash key
+ * ARGV[1] = expectedStatus
+ * ARGV[2..N] = field/value pairs to HSET (always includes updatedAt)
+ *
+ * Returns 1 on success, 0 on status mismatch.
+ */
+const CAS_UPDATE_LUA = `
+local current = redis.call('HGET', KEYS[1], 'status')
+if current ~= ARGV[1] then
+  return 0
+end
+local fields = {}
+for i = 2, #ARGV, 2 do
+  fields[#fields + 1] = ARGV[i]
+  fields[#fields + 1] = ARGV[i + 1]
+end
+if #fields > 0 then
+  redis.call('HSET', KEYS[1], unpack(fields))
+end
+return 1
+`;
+
 export class RedisInvocationRecordStore implements IInvocationRecordStore {
   private readonly redis: RedisClient;
 
@@ -91,23 +115,25 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
   async update(id: string, input: UpdateInvocationInput): Promise<InvocationRecord | null> {
     const key = InvocationKeys.detail(id);
 
-    // CAS guard: check current status matches expected before applying update
+    // Build field/value pairs for HSET
+    const pairs: string[] = [];
+    pairs.push('updatedAt', String(Date.now()));
+    if (input.status !== undefined) pairs.push('status', input.status);
+    if (input.userMessageId !== undefined) pairs.push('userMessageId', input.userMessageId ?? '');
+    if (input.error !== undefined) pairs.push('error', input.error);
+
     if (input.expectedStatus !== undefined) {
-      const current = await this.redis.hget(key, 'status');
-      if (current !== input.expectedStatus) return null;
+      // Atomic CAS via Lua: check + update in one EVAL
+      const ok = await this.redis.eval(
+        CAS_UPDATE_LUA, 1, key, input.expectedStatus, ...pairs,
+      ) as number;
+      if (ok === 0) return null;
     } else {
       const exists = await this.redis.exists(key);
       if (!exists) return null;
+      await this.redis.hset(key, ...pairs);
     }
 
-    const updates: Record<string, string> = {
-      updatedAt: String(Date.now()),
-    };
-    if (input.status !== undefined) updates['status'] = input.status;
-    if (input.userMessageId !== undefined) updates['userMessageId'] = input.userMessageId ?? '';
-    if (input.error !== undefined) updates['error'] = input.error;
-
-    await this.redis.hset(key, updates);
     return this.get(id);
   }
 

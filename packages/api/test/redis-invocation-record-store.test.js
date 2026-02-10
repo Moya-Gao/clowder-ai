@@ -196,6 +196,74 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
     assert.equal(found.id, invocationId);
   });
 
+  it('CAS update() succeeds when expectedStatus matches', async () => {
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'cas-ok-key',
+    });
+
+    const result = await store.update(invocationId, {
+      status: 'running',
+      expectedStatus: 'queued',
+    });
+    assert.ok(result);
+    assert.equal(result.status, 'running');
+  });
+
+  it('CAS update() returns null when expectedStatus mismatches', async () => {
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'cas-fail-key',
+    });
+
+    const result = await store.update(invocationId, {
+      status: 'running',
+      expectedStatus: 'failed',   // actual is 'queued'
+    });
+    assert.equal(result, null);
+
+    // Status unchanged
+    const record = await store.get(invocationId);
+    assert.equal(record.status, 'queued');
+  });
+
+  it('concurrent CAS update: only one wins (Lua atomic)', async () => {
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'cas-race-key',
+    });
+
+    // Set to failed first (retry starts from failed)
+    await store.update(invocationId, { status: 'failed', error: 'boom' });
+
+    // Fire N concurrent CAS transitions: failed → running
+    const N = 20;
+    const results = await Promise.all(
+      Array.from({ length: N }, () =>
+        store.update(invocationId, {
+          status: 'running',
+          error: '',
+          expectedStatus: 'failed',
+        }),
+      ),
+    );
+
+    const winners = results.filter((r) => r !== null);
+    const losers = results.filter((r) => r === null);
+    assert.equal(winners.length, 1, `Expected exactly 1 winner, got ${winners.length}`);
+    assert.equal(losers.length, N - 1);
+    assert.equal(winners[0].status, 'running');
+  });
+
   it('getByIdempotencyKey() returns null for wrong scope', async () => {
     await store.create({
       threadId: 'thread-1',
