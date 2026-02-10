@@ -10,6 +10,8 @@ import { clearBudgetCache } from './cat-budgets.js';
 /** Map of logical config key → env var name */
 const UPDATABLE_KEYS: Record<string, string> = {
   'cli.timeoutMs': 'CLI_TIMEOUT_MS',
+  'cli.codexSandboxMode': 'CAT_CODEX_SANDBOX_MODE',
+  'cli.codexApprovalPolicy': 'CAT_CODEX_APPROVAL_POLICY',
   'a2a.maxDepth': 'MAX_A2A_DEPTH',
 };
 

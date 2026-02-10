@@ -3,8 +3,8 @@
  * 使用 Codex CLI 子进程调用缅因猫 (Codex)
  *
  * CLI 调用方式:
- *   codex exec --json --sandbox workspace-write --full-auto "prompt"
- *   codex exec resume SESSION_ID "prompt" --json --sandbox workspace-write --full-auto
+ *   codex exec --json --sandbox danger-full-access --config approval_policy="on-request" "prompt"
+ *   codex exec resume SESSION_ID --json --config approval_policy="on-request" "prompt"
  *
  * NDJSON 事件格式:
  *   thread.started  → session_init (含 thread_id)
@@ -22,6 +22,7 @@ import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
 import { getCatModel } from '../../../config/cat-models.js';
+import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../config/codex-cli.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { CliRawArchive } from './CliRawArchive.js';
 import { transformCodexEvent } from './codex-event-transform.js';
@@ -38,9 +39,6 @@ import type {
 } from './types.js';
 
 const CAT_ID = createCatId('codex');
-
-/** CLI flag for OS-level sandbox (statically scannable) */
-const SANDBOX_MODE = 'workspace-write';
 
 /**
  * Options for constructing CodexAgentService (dependency injection)
@@ -82,10 +80,14 @@ export class CodexAgentService implements AgentService {
       effectivePrompt = `${prompt}\n\n${refs}`;
     }
 
+    const sandboxMode = getCodexSandboxMode();
+    const approvalPolicy = getCodexApprovalPolicy();
+    const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
+
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     const args: string[] = options?.sessionId
-      ? ['exec', 'resume', options.sessionId, effectivePrompt, '--json', '--full-auto']
-      : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', effectivePrompt];
+      ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, effectivePrompt]
+      : ['exec', '--json', '--sandbox', sandboxMode, ...approvalArgs, effectivePrompt];
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
     const auditContext = options?.auditContext;

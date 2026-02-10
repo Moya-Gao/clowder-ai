@@ -55,6 +55,29 @@ describe('PATCH /api/config (F4 hot-reload)', () => {
     assert.equal(body.config.a2a.maxDepth, 5);
   });
 
+  it('supports hot-updating codex sandbox/approval policy keys', async () => {
+    const app = await setup();
+
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/config',
+      payload: { key: 'cli.codexSandboxMode', value: 'workspace-write' },
+    });
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/config',
+      payload: { key: 'cli.codexApprovalPolicy', value: 'never' },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/config',
+    });
+    const body = res.json();
+    assert.equal(body.config.cli.codexSandboxMode, 'workspace-write');
+    assert.equal(body.config.cli.codexApprovalPolicy, 'never');
+  });
+
   it('rejects non-updatable key with 400', async () => {
     const app = await setup();
 

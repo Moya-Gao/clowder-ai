@@ -25,6 +25,7 @@ const postMessageSchema = z.object({
   callbackToken: z.string().min(1),
   content: z.string().min(1).max(50000),
   replyTo: z.string().optional(),
+  clientMessageId: z.string().min(1).max(200).optional(),
 });
 
 const authQuerySchema = z.object({
@@ -56,11 +57,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
 
-      const { invocationId, callbackToken, content, replyTo } = parseResult.data;
+      const { invocationId, callbackToken, content, replyTo, clientMessageId } = parseResult.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
         return { error: 'Invalid or expired callback credentials' };
+      }
+
+      // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
+      if (clientMessageId) {
+        const isFirstSeen = registry.claimClientMessageId(invocationId, clientMessageId);
+        if (!isFirstSeen) {
+          return { status: 'duplicate', replyTo, clientMessageId };
+        }
       }
 
       // Store the message (scoped to the invocation's thread)
@@ -81,7 +90,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         timestamp: Date.now(),
       }, record.threadId);
 
-      return { status: 'ok', replyTo };
+      return { status: 'ok', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
     });
 
     // GET /api/callbacks/pending-mentions

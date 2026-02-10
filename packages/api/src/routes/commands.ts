@@ -9,7 +9,9 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { AgentService } from '../domains/cats/services/types.js';
+import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import { extractTasks, toCreateTaskInputs } from '../domains/cats/services/TaskExtractor.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 export interface CommandsRoutesOptions {
   messageStore: IMessageStore;
@@ -17,11 +19,14 @@ export interface CommandsRoutesOptions {
   socketManager: SocketManager;
   /** Opus service for LLM-powered extraction */
   opusService: AgentService;
+  /** Optional thread ownership guard (enabled in production wiring). */
+  threadStore?: IThreadStore;
 }
 
 const extractTasksSchema = z.object({
   threadId: z.string().min(1).max(100),
-  userId: z.string().min(1).max(100),
+  /** Legacy fallback only; preferred identity source is X-Cat-Cafe-User header. */
+  userId: z.string().min(1).max(100).optional(),
   /** Number of recent messages to analyze (default: 50) */
   messageCount: z.number().int().min(1).max(200).optional(),
 });
@@ -35,7 +40,25 @@ export const commandsRoutes: FastifyPluginAsync<CommandsRoutesOptions> = async (
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { threadId, userId, messageCount } = parseResult.data;
+    const { threadId, userId: legacyUserId, messageCount } = parseResult.data;
+    const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    // Ownership guard: default thread is shared; non-default threads are owner-scoped.
+    if (opts.threadStore && threadId !== 'default') {
+      const thread = await opts.threadStore.get(threadId);
+      if (!thread) {
+        reply.status(404);
+        return { error: 'Thread not found' };
+      }
+      if (thread.createdBy !== userId) {
+        reply.status(403);
+        return { error: 'Access denied' };
+      }
+    }
 
     // Get thread history
     const messages = await opts.messageStore.getByThread(threadId, messageCount ?? 50, userId);

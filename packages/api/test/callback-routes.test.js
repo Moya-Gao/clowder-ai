@@ -134,6 +134,43 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 400);
   });
 
+  test('POST post-message deduplicates by clientMessageId (at-least-once safe)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const first = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'idempotent message',
+        clientMessageId: 'msg-001',
+      },
+    });
+    assert.equal(first.statusCode, 200);
+    assert.equal(JSON.parse(first.body).status, 'ok');
+
+    const second = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'idempotent message',
+        clientMessageId: 'msg-001',
+      },
+    });
+    assert.equal(second.statusCode, 200);
+    assert.equal(JSON.parse(second.body).status, 'duplicate');
+
+    // Only one persisted/broadcast message should exist.
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    assert.equal(recent[0].content, 'idempotent message');
+    assert.equal(socketManager.getMessages().length, 1);
+  });
+
   // ---- GET /api/callbacks/pending-mentions ----
 
   test('GET pending-mentions returns mentions for the cat', async () => {

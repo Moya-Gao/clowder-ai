@@ -8,6 +8,7 @@ import Fastify from 'fastify';
 import { commandsRoutes } from '../dist/routes/commands.js';
 import { MessageStore } from '../dist/domains/cats/services/MessageStore.js';
 import { TaskStore } from '../dist/domains/cats/services/TaskStore.js';
+import { ThreadStore } from '../dist/domains/cats/services/ThreadStore.js';
 
 // Mock opus service
 const mockOpusService = {
@@ -26,17 +27,24 @@ describe('Commands Routes', () => {
   let app;
   let messageStore;
   let taskStore;
+  let threadStore;
+  let ownThreadId;
+  let otherThreadId;
 
   beforeEach(async () => {
     app = Fastify();
     messageStore = new MessageStore();
     taskStore = new TaskStore();
+    threadStore = new ThreadStore();
+    ownThreadId = threadStore.create('test-user', 'Own thread').id;
+    otherThreadId = threadStore.create('other-user', 'Other thread').id;
 
     await app.register(commandsRoutes, {
       messageStore,
       taskStore,
       socketManager: mockSocketManager,
       opusService: mockOpusService,
+      threadStore,
     });
     await app.ready();
   });
@@ -46,15 +54,15 @@ describe('Commands Routes', () => {
     await messageStore.append({
       content: 'TODO: write tests',
       userId: 'test-user',
-      threadId: 'thread-1',
+      threadId: ownThreadId,
     });
 
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
+      headers: { 'x-cat-cafe-user': 'test-user' },
       payload: {
-        threadId: 'thread-1',
-        userId: 'test-user',
+        threadId: ownThreadId,
       },
     });
 
@@ -68,7 +76,8 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
-      payload: { userId: 'test-user' },
+      headers: { 'x-cat-cafe-user': 'test-user' },
+      payload: {},
     });
 
     assert.equal(res.statusCode, 400);
@@ -78,9 +87,9 @@ describe('Commands Routes', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/api/commands/extract-tasks',
+      headers: { 'x-cat-cafe-user': 'test-user' },
       payload: {
-        threadId: 'empty-thread',
-        userId: 'test-user',
+        threadId: ownThreadId,
       },
     });
 
@@ -88,5 +97,58 @@ describe('Commands Routes', () => {
     const body = res.json();
     assert.equal(body.count, 0);
     assert.equal(body.degraded, false);
+  });
+
+  it('uses X-Cat-Cafe-User header over legacy payload userId', async () => {
+    await messageStore.append({
+      content: 'TODO: header identity should win',
+      userId: 'test-user',
+      threadId: ownThreadId,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/commands/extract-tasks',
+      headers: { 'x-cat-cafe-user': 'test-user' },
+      payload: {
+        threadId: ownThreadId,
+        userId: 'legacy-user-should-not-win',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.count, 1);
+  });
+
+  it('returns 401 when identity is missing', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/commands/extract-tasks',
+      payload: {
+        threadId: ownThreadId,
+      },
+    });
+
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('returns 403 when accessing another user thread', async () => {
+    await messageStore.append({
+      content: 'TODO: should not be visible',
+      userId: 'other-user',
+      threadId: otherThreadId,
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/commands/extract-tasks',
+      headers: { 'x-cat-cafe-user': 'test-user' },
+      payload: {
+        threadId: otherThreadId,
+      },
+    });
+
+    assert.equal(res.statusCode, 403);
   });
 });

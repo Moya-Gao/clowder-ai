@@ -10,6 +10,7 @@ import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { ContextBudget } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
 import { getAllCatBudgets } from './cat-budgets.js';
+import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
 
 function formatTtl(raw: string | undefined, defaultSeconds: number): string {
   if (!raw) {
@@ -48,6 +49,8 @@ export interface ConfigSnapshot {
   cli: {
     timeoutMs: number;
     killGraceMs: number;
+    codexSandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
+    codexApprovalPolicy: 'untrusted' | 'on-failure' | 'on-request' | 'never';
   };
   storage: {
     messageTTL: string;
@@ -132,6 +135,8 @@ export function collectConfigSnapshot(): ConfigSnapshot {
     ? parsedCliTimeout
     : 1_800_000;
   const killGraceMs = 3_000;
+  const codexSandboxMode = getCodexSandboxMode(env);
+  const codexApprovalPolicy = getCodexApprovalPolicy(env);
 
   // Storage (from Redis/memory store defaults)
   const messageTTL = formatTtl(env['MESSAGE_TTL_SECONDS'], 7 * 24 * 60 * 60);
@@ -173,7 +178,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       note: 'These are assembleContext defaults; see perCatBudgets for actual per-cat limits',
     },
     perCatBudgets: getAllCatBudgets(),
-    cli: { timeoutMs, killGraceMs },
+    cli: { timeoutMs, killGraceMs, codexSandboxMode, codexApprovalPolicy },
     storage: { messageTTL, threadTTL, taskTTL, maxMessages: maxMessagesStore, maxThreads },
     upload: { maxFileSize, maxFiles },
     server: { port, host, redis },

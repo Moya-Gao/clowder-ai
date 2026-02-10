@@ -46,6 +46,8 @@ describe('ConfigRegistry', () => {
     setEnv('CONTEXT_HISTORY_LIMIT', undefined);
     setEnv('MAX_CONTEXT_MSG_CHARS', undefined);
     setEnv('MAX_PROMPT_CHARS', undefined);
+    setEnv('CAT_CODEX_SANDBOX_MODE', undefined);
+    setEnv('CAT_CODEX_APPROVAL_POLICY', undefined);
 
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
@@ -54,6 +56,19 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.context.maxContentLength, 1500);
     assert.equal(snapshot.context.maxPromptChars, 32000);
     assert.equal(snapshot.context.maxTotalChars, 8000);
+    assert.equal(snapshot.cli.codexSandboxMode, 'danger-full-access');
+    assert.equal(snapshot.cli.codexApprovalPolicy, 'on-request');
+  });
+
+  it('reads codex sandbox/approval env overrides', async () => {
+    setEnv('CAT_CODEX_SANDBOX_MODE', 'workspace-write');
+    setEnv('CAT_CODEX_APPROVAL_POLICY', 'never');
+
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.equal(snapshot.cli.codexSandboxMode, 'workspace-write');
+    assert.equal(snapshot.cli.codexApprovalPolicy, 'never');
   });
 
   it('reads context env overrides', async () => {
