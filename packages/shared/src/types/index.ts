@@ -87,6 +87,19 @@ export type {
   MemoryInput,
 } from './memory.js';
 
+// Authorization types (猫猫授权系统)
+export type {
+  PermissionRequest,
+  PermissionResponse,
+  PermissionStatusResponse,
+  PendingRequestRecord,
+  RespondScope,
+  AuthorizationRule,
+  AuthorizationAuditEntry,
+  AuthorizationRequestEvent,
+  AuthorizationRespondEvent,
+} from './authorization.js';
+
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
   DeliberatePhase,
