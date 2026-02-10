@@ -158,6 +158,8 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   }, []);
 
   const handleModeClick = useCallback(() => {
+    setShowMentions(false);
+    setMentionStart(-1);
     setInput('/mode ');
     setShowModeMenu(true);
     setSelectedIdx(0);

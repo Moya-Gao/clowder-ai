@@ -57,9 +57,25 @@ export function ModeStatusBar() {
           content: `\u6A21\u5F0F\u5DF2\u7ED3\u675F: ${data.ended?.name ?? 'unknown'}`,
           timestamp: Date.now(),
         });
+      } else if (res.status === 404) {
+        setCurrentMode(null);
+      } else {
+        addMessage({
+          id: `mode-end-err-${Date.now()}`,
+          type: 'system',
+          variant: 'error',
+          content: `\u7ED3\u675F\u6A21\u5F0F\u5931\u8D25 (${res.status})`,
+          timestamp: Date.now(),
+        });
       }
     } catch {
-      // Socket event will sync state
+      addMessage({
+        id: `mode-end-err-${Date.now()}`,
+        type: 'system',
+        variant: 'error',
+        content: '\u7ED3\u675F\u6A21\u5F0F\u5931\u8D25\uFF1A\u7F51\u7EDC\u9519\u8BEF',
+        timestamp: Date.now(),
+      });
     } finally {
       setEnding(false);
     }
