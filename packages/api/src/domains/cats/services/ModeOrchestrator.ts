@@ -132,19 +132,29 @@ export class ModeOrchestrator {
       if (match) {
         const proposedMode = match[1]!;
         if (switchRequiresApproval) {
-          // Structured proposal: frontend renders confirmation UI
-          yield {
-            type: 'system_info',
-            catId,
-            content: JSON.stringify({
-              type: 'mode_switch_proposal',
-              proposedMode,
-              proposedBy: catId,
-              autoSwitch: false,
-              command: `/mode ${proposedMode}`,
-            }),
-            timestamp: Date.now(),
-          } as AgentMessage;
+          if (VALID_MODE_NAMES.has(proposedMode)) {
+            // Structured proposal: frontend renders confirmation dialog
+            yield {
+              type: 'system_info',
+              catId,
+              content: JSON.stringify({
+                type: 'mode_switch_proposal',
+                proposedMode,
+                proposedBy: catId,
+                autoSwitch: false,
+                command: `/mode ${proposedMode}`,
+              }),
+              timestamp: Date.now(),
+            } as AgentMessage;
+          } else {
+            // Unknown mode — inform, don't offer confirmation
+            yield {
+              type: 'system_info',
+              catId,
+              content: `${catId} 提议切换到未知模式 "${proposedMode}"。`,
+              timestamp: Date.now(),
+            } as AgentMessage;
+          }
         } else if (VALID_MODE_NAMES.has(proposedMode)) {
           // Auto-switch: try to derive config and switch server-side
           const newConfig = deriveAutoSwitchConfig(mode.record.config, proposedMode);

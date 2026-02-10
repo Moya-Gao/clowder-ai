@@ -227,6 +227,68 @@ describe('BrainstormMode @铲屎官 mid-chain break (P2-7)', () => {
     assert.equal(finalState.remainingSpeakers, undefined, 'remaining cleared');
   });
 
+  it('last cat @铲屎官 does NOT replay the full round on resume (P1-1 R4)', async () => {
+    const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
+    const handler = new BrainstormMode();
+
+    const invokedCats = [];
+    function createTrackingService(catId, text) {
+      return {
+        async *invoke() {
+          invokedCats.push(catId);
+          yield { type: 'text', catId, content: text, timestamp: Date.now() };
+          yield { type: 'done', catId, timestamp: Date.now() };
+        },
+      };
+    }
+
+    const deps = createMockDeps({
+      opus: createTrackingService('opus', '我的观点'),
+      codex: createTrackingService('codex', '我需要铲屎官确认。@铲屎官 你怎么看？'),
+    });
+
+    const config = { topic: '末位暂停', participants: ['opus', 'codex'] };
+    const state = { roundOneComplete: true, currentRound: 2 };
+    const threadId = 'thread-last-cat-pause';
+
+    const ctx = {
+      strategyDeps: deps,
+      message: '讨论',
+      userId: 'user-1',
+      threadId,
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    // Execute — both cats speak, LAST cat (codex) @铲屎官 → break
+    for await (const _msg of handler.execute(ctx, config, state)) { /* consume */ }
+
+    assert.ok(invokedCats.includes('opus'), 'opus invoked');
+    assert.ok(invokedCats.includes('codex'), 'codex invoked (last cat)');
+
+    // getNextState: remaining=[] because all cats spoke → should advance round normally
+    const nextState = handler.getNextState(config, state, threadId);
+    // Should NOT have pausedForUser with empty remainingSpeakers
+    // (that caused the replay bug)
+    assert.equal(nextState.currentRound, 3, 'round advances to 3 (not preserved at 2)');
+    // pausedForUser should NOT be set (no remaining speakers to resume)
+    assert.equal(nextState.pausedForUser, undefined, 'no pause when all cats spoke');
+
+    // --- Simulate user response: new round should start fresh ---
+    invokedCats.length = 0;
+    const ctx2 = { ...ctx, message: '铲屎官说选方案 A', threadId };
+
+    for await (const _msg of handler.execute(ctx2, config, nextState)) { /* consume */ }
+
+    // Both cats should be invoked for round 3 (not replaying round 2)
+    assert.ok(invokedCats.includes('opus'), 'opus invoked in round 3');
+    assert.ok(invokedCats.includes('codex'), 'codex invoked in round 3');
+
+    // Round should advance to 4
+    const finalState = handler.getNextState(config, nextState, threadId);
+    assert.equal(finalState.currentRound, 4, 'round advances to 4 after round 3');
+  });
+
   it('continues serial chain when no cat mentions @铲屎官', async () => {
     const { BrainstormMode } = await import('../dist/domains/cats/services/modes/BrainstormMode.js');
     const handler = new BrainstormMode();
@@ -732,6 +794,60 @@ describe('ModeOrchestrator', () => {
     const mode = modeStore.getMode('thread-manualswitch');
     assert.ok(mode, 'mode still active');
     assert.equal(mode.record.name, 'brainstorm', 'still brainstorm — requires user confirmation');
+  });
+
+  it('P2-3 R4: switchRequiresApproval=true rejects unknown mode names', async () => {
+    const modeStore = new ModeStore();
+    const orchestrator = new ModeOrchestrator({ modeStore });
+
+    // Ensure approval mode is on (default)
+    delete process.env['MODE_SWITCH_REQUIRES_APPROVAL'];
+
+    const switchHandler = {
+      async *execute() {
+        yield { type: 'text', catId: 'opus', content: '切换\n@mode:foo-mode', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+      getNextState(_config, state) { return state; },
+      shouldAutoEnd() { return false; },
+    };
+    orchestrator.registerHandler('brainstorm', switchHandler);
+
+    modeStore.startMode(
+      'thread-unknown-approval',
+      'brainstorm',
+      { topic: '未知模式测试', participants: ['opus'] },
+      'user-1',
+      createInitialState('brainstorm'),
+    );
+
+    const ctx = {
+      strategyDeps: {},
+      message: 'test',
+      userId: 'user-1',
+      threadId: 'thread-unknown-approval',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of orchestrator.execute(ctx)) {
+      messages.push(msg);
+    }
+
+    // Should emit plain text "未知模式" message, NOT a structured mode_switch_proposal
+    const sysInfo = messages.find(m => m.type === 'system_info');
+    assert.ok(sysInfo, 'should have system_info');
+    assert.ok(sysInfo.content.includes('未知模式'), 'mentions unknown mode');
+    assert.ok(sysInfo.content.includes('foo-mode'), 'includes the bad mode name');
+
+    // Should NOT be parseable as mode_switch_proposal
+    let isProposal = false;
+    try {
+      const parsed = JSON.parse(sysInfo.content);
+      if (parsed?.type === 'mode_switch_proposal') isProposal = true;
+    } catch { /* not JSON — correct */ }
+    assert.equal(isProposal, false, 'should NOT emit proposal for unknown mode');
   });
 
   it('debate handler is auto-registered and can dispatch', async () => {

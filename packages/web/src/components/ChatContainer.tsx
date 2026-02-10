@@ -20,6 +20,7 @@ import { MessageNavigator } from './MessageNavigator';
 import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { ModeStatusBar } from './ModeStatusBar';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface ChatContainerProps {
   threadId: string;
@@ -46,6 +47,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     setCurrentThread,
     updateThreadTitle,
     setCurrentMode,
+    pendingModeSwitchProposal,
+    setPendingModeSwitchProposal,
   } = useChatStore();
   const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -298,6 +301,24 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         )}
 
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
+
+        {/* Mode switch confirmation dialog (P2-4: 弹确认对话框) */}
+        <ConfirmDialog
+          open={!!pendingModeSwitchProposal}
+          title="模式切换确认"
+          message={pendingModeSwitchProposal
+            ? `${pendingModeSwitchProposal.proposedBy} 提议切换到 ${pendingModeSwitchProposal.proposedMode} 模式。确认切换？`
+            : ''}
+          confirmLabel="确认切换"
+          cancelLabel="忽略"
+          onConfirm={() => {
+            if (pendingModeSwitchProposal) {
+              handleSend(pendingModeSwitchProposal.command);
+            }
+            setPendingModeSwitchProposal(null);
+          }}
+          onCancel={() => setPendingModeSwitchProposal(null)}
+        />
       </div>
 
       {statusPanelOpen && (

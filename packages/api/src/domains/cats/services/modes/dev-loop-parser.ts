@@ -53,11 +53,12 @@ export function parseReviewResult(text: string): ReviewResult {
     }
   }
 
-  // VERDICT line
-  const verdictMatch = text.match(/VERDICT:\s*(APPROVED|NEEDS_FIX)/i);
+  // VERDICT lines — scan ALL occurrences. If ANY says NEEDS_FIX, fail-closed.
+  const allVerdicts = [...text.matchAll(/VERDICT:\s*(APPROVED|NEEDS_FIX)/gi)];
   let approved = false;
-  if (verdictMatch) {
-    approved = verdictMatch[1]!.toUpperCase() === 'APPROVED';
+  if (allVerdicts.length > 0) {
+    const hasNeedsFix = allVerdicts.some(m => m[1]!.toUpperCase() === 'NEEDS_FIX');
+    approved = !hasNeedsFix;
   }
   // No VERDICT → always fail-closed (approved stays false).
   // P1/P2 items override VERDICT: APPROVED — blocking issues can't be skipped.

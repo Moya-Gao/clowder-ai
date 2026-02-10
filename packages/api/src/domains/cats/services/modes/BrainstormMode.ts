@@ -84,7 +84,12 @@ export class BrainstormMode implements ModeHandler {
           completedCats.add(msg.catId);
           if (mentionedUser) {
             const remaining = serialCats.filter(c => !completedCats.has(c));
-            this.pauseInfo.set(ctx.threadId, remaining);
+            // Only store pauseInfo when there are actual remaining speakers.
+            // Empty remaining = last cat triggered pause → round is complete,
+            // getNextState will do normal increment instead of preserving round.
+            if (remaining.length > 0) {
+              this.pauseInfo.set(ctx.threadId, remaining);
+            }
             break;
           }
         }

@@ -99,6 +99,9 @@ interface ChatState {
   // Mode state (F11)
   currentMode: { name: string; config: Record<string, unknown>; startedAt: string; state?: Record<string, unknown> } | null;
 
+  // Mode switch confirmation dialog (P2-4: 弹确认对话框)
+  pendingModeSwitchProposal: { proposedMode: string; command: string; proposedBy: string } | null;
+
   // Thread state
   currentThreadId: string;
   currentProjectPath: string;
@@ -124,6 +127,7 @@ interface ChatState {
 
   // Mode actions (F11)
   setCurrentMode: (mode: ChatState['currentMode']) => void;
+  setPendingModeSwitchProposal: (proposal: ChatState['pendingModeSwitchProposal']) => void;
 
   // Thread actions
   setThreads: (threads: Thread[]) => void;
@@ -145,6 +149,7 @@ export const useChatStore = create<ChatState>((set) => ({
   catInvocations: {},
 
   currentMode: null,
+  pendingModeSwitchProposal: null,
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
@@ -256,6 +261,7 @@ export const useChatStore = create<ChatState>((set) => ({
     }),
 
   setCurrentMode: (mode) => set({ currentMode: mode }),
+  setPendingModeSwitchProposal: (proposal) => set({ pendingModeSwitchProposal: proposal }),
 
   setThreads: (threads) => set({ threads }),
   setCurrentThread: (threadId) => set({ currentThreadId: threadId }),

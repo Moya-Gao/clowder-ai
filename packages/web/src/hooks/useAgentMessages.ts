@@ -54,6 +54,7 @@ export function useAgentMessages() {
     setCatStatus,
     clearCatStatuses,
     setCatInvocation,
+    setPendingModeSwitchProposal,
   } = useChatStore();
 
   /** Map<catId, { id: messageId, catId }> — one entry per active stream */
@@ -218,10 +219,15 @@ export function useAgentMessages() {
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
           } else if (parsed?.type === 'mode_switch_proposal') {
-            // Mode switch confirmation: show as actionable system message
+            // Mode switch confirmation: trigger ConfirmDialog via store
             const by = parsed.proposedBy ?? '猫猫';
             const cmd = parsed.command ?? `/mode ${parsed.proposedMode}`;
-            sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。输入 ${cmd} 确认切换，或忽略此建议。`;
+            setPendingModeSwitchProposal({
+              proposedMode: parsed.proposedMode,
+              command: cmd,
+              proposedBy: by,
+            });
+            sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
             sysVariant = 'info';
           } else if (parsed?.type === 'invocation_metrics') {
             // Store metrics silently — don't show as system message
@@ -270,7 +276,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(

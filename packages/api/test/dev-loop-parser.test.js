@@ -121,6 +121,37 @@ describe('parseReviewResult', () => {
     assert.equal(result.approved, false);
   });
 
+  it('multi-VERDICT: APPROVED then NEEDS_FIX → NOT approved (R4 P1-2)', () => {
+    const text = [
+      'First pass: everything looks good',
+      'VERDICT: APPROVED',
+      '',
+      'Wait, found more issues:',
+      'VERDICT: NEEDS_FIX',
+    ].join('\n');
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false, 'any NEEDS_FIX should override earlier APPROVED');
+  });
+
+  it('multi-VERDICT: NEEDS_FIX then APPROVED → NOT approved (R4 P1-2)', () => {
+    const text = [
+      'VERDICT: NEEDS_FIX',
+      'Actually after re-review:',
+      'VERDICT: APPROVED',
+    ].join('\n');
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false, 'any NEEDS_FIX anywhere → fail-closed');
+  });
+
+  it('multi-VERDICT: all APPROVED → approved (R4 P1-2)', () => {
+    const text = [
+      'Section 1: VERDICT: APPROVED',
+      'Section 2: VERDICT: APPROVED',
+    ].join('\n');
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, true, 'all APPROVED → approved');
+  });
+
   it('VERDICT: APPROVED with P1 items → NOT approved (P1 overrides)', () => {
     const text = '[P1] critical bug\nVERDICT: APPROVED';
     const result = parseReviewResult(text);
