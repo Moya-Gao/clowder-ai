@@ -81,13 +81,18 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
     });
   }, [scrollContainerRef]);
 
+  // Track actual DOM element to detect ref.current changes (P3: stale listener fix)
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
+    setScrollEl(scrollContainerRef.current);
+  });
+
+  useEffect(() => {
+    if (!scrollEl) return;
     updateViewport();
-    el.addEventListener('scroll', updateViewport, { passive: true });
-    return () => el.removeEventListener('scroll', updateViewport);
-  }, [scrollContainerRef, updateViewport]);
+    scrollEl.addEventListener('scroll', updateViewport, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', updateViewport);
+  }, [scrollEl, updateViewport]);
 
   // Click on track background → scroll proportionally
   const handleTrackClick = useCallback(
@@ -95,8 +100,8 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
       const track = trackRef.current;
       const container = scrollContainerRef.current;
       if (!track || !container) return;
-      // Ignore clicks on dots (they handle their own onClick)
-      if ((e.target as HTMLElement).tagName === 'BUTTON') return;
+      // Ignore clicks on dots — closest() handles future child elements too (P3 fix)
+      if ((e.target as HTMLElement).closest('button')) return;
       const rect = track.getBoundingClientRect();
       const ratio = (e.clientY - rect.top) / rect.height;
       container.scrollTo({
@@ -119,14 +124,17 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
         {/* Track rail */}
         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gray-200 -translate-x-1/2" />
 
-        {/* Viewport indicator (scrollbar thumb) */}
-        <div
-          className="absolute left-1/2 -translate-x-1/2 w-2.5 rounded-full bg-gray-300/50 transition-all duration-100 pointer-events-none"
-          style={{
-            top: `${viewport.top * 100}%`,
-            height: `${Math.max(viewport.height * 100, 5)}%`,
-          }}
-        />
+        {/* Viewport indicator (scrollbar thumb) — P2 fix: clamp to prevent overflow */}
+        {(() => {
+          const thumbH = Math.max(viewport.height * 100, 5);
+          const thumbTop = Math.min(viewport.top * 100, 100 - thumbH);
+          return (
+            <div
+              className="absolute left-1/2 -translate-x-1/2 w-2.5 rounded-full bg-gray-300/50 transition-all duration-100 pointer-events-none"
+              style={{ top: `${thumbTop}%`, height: `${thumbH}%` }}
+            />
+          );
+        })()}
 
         {/* Sampled dots */}
         {sampledItems.map(({ msg, sourceIdx }, idx) => {
