@@ -103,6 +103,7 @@ async function main(): Promise<void> {
   await app.register(messageActionsRoutes, {
     messageStore,
     socketManager,
+    threadStore,
   });
   await app.register(catsRoutes);
   await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });

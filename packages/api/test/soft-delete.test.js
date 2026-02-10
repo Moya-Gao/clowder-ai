@@ -274,7 +274,175 @@ describe('PATCH /api/messages/:id/restore', () => {
     });
 
     assert.equal(res.statusCode, 404);
-    assert.equal(res.json().code, 'MESSAGE_NOT_DELETED');
+    assert.equal(res.json().code, 'MESSAGE_NOT_RESTORABLE');
+
+    await app.close();
+  });
+});
+
+// --- S6: Hard Delete (tombstone) ---
+
+describe('MessageStore.hardDelete()', () => {
+  it('wipes content and sets tombstone', () => {
+    const store = new MessageStore();
+    const msgs = seedMessages(store);
+
+    const result = store.hardDelete(msgs[2].id, 'user-1');
+    assert.ok(result);
+    assert.equal(result.content, '');
+    assert.deepEqual(result.mentions, []);
+    assert.equal(result.contentBlocks, undefined);
+    assert.equal(result.metadata, undefined);
+    assert.ok(result.deletedAt);
+    assert.equal(result.deletedBy, 'user-1');
+    assert.equal(result._tombstone, true);
+  });
+
+  it('returns null for nonexistent id', () => {
+    const store = new MessageStore();
+    const result = store.hardDelete('nonexistent', 'user-1');
+    assert.equal(result, null);
+  });
+
+  it('tombstone is filtered from getByThread', () => {
+    const store = new MessageStore();
+    const msgs = seedMessages(store);
+
+    store.hardDelete(msgs[3].id, 'user-1');
+    const result = store.getByThread('thread-sd');
+    assert.equal(result.length, 4);
+    assert.ok(!result.some(m => m.id === msgs[3].id));
+  });
+
+  it('tombstone is visible in getByThreadAfter (cursor path)', () => {
+    const store = new MessageStore();
+    const msgs = seedMessages(store);
+
+    store.hardDelete(msgs[2].id, 'user-1');
+    const result = store.getByThreadAfter('thread-sd', msgs[0].id);
+    assert.equal(result.length, 4);
+    const tombstone = result.find(m => m.id === msgs[2].id);
+    assert.ok(tombstone);
+    assert.equal(tombstone._tombstone, true);
+  });
+
+  it('restore rejects tombstone', () => {
+    const store = new MessageStore();
+    const msgs = seedMessages(store);
+
+    store.hardDelete(msgs[1].id, 'user-1');
+    const result = store.restore(msgs[1].id);
+    assert.equal(result, null);
+  });
+});
+
+describe('DELETE /api/messages/:id mode=hard', () => {
+  it('hard deletes with valid confirmTitle', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+
+    const threadStore = {
+      async get(id) {
+        if (id === 'thread-sd') return { id, title: 'Test Thread', createdBy: 'user-1', participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
+        return null;
+      },
+    };
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[2].id}`,
+      payload: { userId: 'user-1', mode: 'hard', confirmTitle: 'Test Thread' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body._tombstone, true);
+    assert.ok(body.deletedAt);
+
+    // Verify filtered from read path
+    const remaining = messageStore.getByThread('thread-sd');
+    assert.equal(remaining.length, 4);
+
+    // Verify WebSocket broadcast
+    const events = socketManager.getEvents();
+    assert.ok(events.some(e => e.event === 'message_hard_deleted'));
+
+    await app.close();
+  });
+
+  it('rejects hard delete without confirmTitle', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'user-1', mode: 'hard' },
+    });
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.json().code, 'CONFIRM_TITLE_REQUIRED');
+
+    await app.close();
+  });
+
+  it('rejects hard delete with wrong confirmTitle', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+
+    const threadStore = {
+      async get(id) {
+        if (id === 'thread-sd') return { id, title: 'Real Title', createdBy: 'user-1', participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
+        return null;
+      },
+    };
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager, threadStore });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/messages/${msgs[0].id}`,
+      payload: { userId: 'user-1', mode: 'hard', confirmTitle: 'Wrong Title' },
+    });
+
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.json().code, 'CONFIRM_TITLE_MISMATCH');
+
+    await app.close();
+  });
+
+  it('restore rejects tombstone via API', async () => {
+    const messageStore = new MessageStore();
+    const socketManager = createMockSocketManager();
+    const msgs = seedMessages(messageStore);
+
+    messageStore.hardDelete(msgs[0].id, 'user-1');
+
+    const app = Fastify();
+    await app.register(messageActionsRoutes, { messageStore, socketManager });
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/messages/${msgs[0].id}/restore`,
+      payload: { userId: 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 404);
+    assert.equal(res.json().code, 'MESSAGE_NOT_RESTORABLE');
 
     await app.close();
   });

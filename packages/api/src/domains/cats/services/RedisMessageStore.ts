@@ -121,6 +121,7 @@ export class RedisMessageStore {
       mentions: safeParseMentions(data['mentions']),
       timestamp: parseInt(data['timestamp'] ?? '0', 10),
       ...(deletedAt ? { deletedAt, deletedBy: data['deletedBy'] ?? '' } : {}),
+      ...(data['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
     };
   }
 
@@ -355,11 +356,38 @@ export class RedisMessageStore {
   }
 
   /**
+   * ADR-008 D3: Hard delete — wipe content, keep tombstone skeleton.
+   */
+  async hardDelete(id: string, deletedBy: string): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    const now = Date.now();
+    await this.redis.hset(MessageKeys.detail(id), {
+      content: '',
+      contentBlocks: '',
+      metadata: '',
+      mentions: '[]',
+      deletedAt: String(now),
+      deletedBy,
+      _tombstone: '1',
+    });
+    msg.content = '';
+    msg.mentions = [];
+    delete msg.contentBlocks;
+    delete msg.metadata;
+    msg.deletedAt = now;
+    msg.deletedBy = deletedBy;
+    msg._tombstone = true;
+    return msg;
+  }
+
+  /**
    * ADR-008 D3: Restore a soft-deleted message — remove deletedAt/deletedBy.
+   * Rejects tombstones (hard-deleted messages are irreversible).
    */
   async restore(id: string): Promise<StoredMessage | null> {
     const msg = await this.getById(id);
-    if (!msg || !msg.deletedAt) return null;
+    if (!msg || !msg.deletedAt || msg._tombstone) return null;
     await this.redis.hdel(MessageKeys.detail(id), 'deletedAt', 'deletedBy');
     delete msg.deletedAt;
     delete msg.deletedBy;
@@ -399,6 +427,7 @@ export class RedisMessageStore {
         mentions: safeParseMentions(d['mentions']),
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
         ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),
+        ...(d['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
       });
     }
     return messages;

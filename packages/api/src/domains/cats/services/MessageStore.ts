@@ -34,6 +34,8 @@ export interface StoredMessage {
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */
   deletedBy?: string;
+  /** ADR-008 D3: Hard delete marker — content wiped, skeleton only */
+  _tombstone?: true;
 }
 
 /**
@@ -61,7 +63,9 @@ export interface IMessageStore {
   deleteByThread(threadId: string): number | Promise<number>;
   /** ADR-008 D3: Soft delete — set deletedAt/deletedBy. Returns null if not found. */
   softDelete(id: string, deletedBy: string): StoredMessage | null | Promise<StoredMessage | null>;
-  /** ADR-008 D3: Restore a soft-deleted message. Returns null if not found or not deleted. */
+  /** ADR-008 D3: Hard delete — wipe content, keep tombstone. Returns null if not found. */
+  hardDelete(id: string, deletedBy: string): StoredMessage | null | Promise<StoredMessage | null>;
+  /** ADR-008 D3: Restore a soft-deleted message. Rejects tombstones. Returns null if not found/not deleted. */
   restore(id: string): StoredMessage | null | Promise<StoredMessage | null>;
 }
 
@@ -271,12 +275,29 @@ export class MessageStore {
   }
 
   /**
+   * ADR-008 D3: Hard delete — wipe content, keep tombstone skeleton.
+   * Irreversible: content is permanently lost.
+   */
+  hardDelete(id: string, deletedBy: string): StoredMessage | null {
+    const msg = this.messages.find((m) => m.id === id);
+    if (!msg) return null;
+    msg.content = '';
+    msg.mentions = [];
+    delete msg.contentBlocks;
+    delete msg.metadata;
+    msg.deletedAt = Date.now();
+    msg.deletedBy = deletedBy;
+    msg._tombstone = true;
+    return msg;
+  }
+
+  /**
    * ADR-008 D3: Restore a soft-deleted message.
-   * Returns the restored message or null if not found / not deleted.
+   * Rejects tombstones (hard-deleted) — those are irreversible.
    */
   restore(id: string): StoredMessage | null {
     const msg = this.messages.find((m) => m.id === id);
-    if (!msg || !msg.deletedAt) return null;
+    if (!msg || !msg.deletedAt || msg._tombstone) return null;
     delete msg.deletedAt;
     delete msg.deletedBy;
     return msg;
