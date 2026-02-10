@@ -4,8 +4,7 @@ import { useCallback } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatCommands } from '@/hooks/useChatCommands';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { apiFetch } from '@/utils/api-client';
 
 /**
  * Hook for sending messages (text + optional images).
@@ -52,7 +51,7 @@ export function useSendMessage() {
           for (const img of images) {
             formData.append('images', img);
           }
-          const res = await fetch(`${API_URL}/api/messages`, {
+          const res = await apiFetch('/api/messages', {
             method: 'POST',
             body: formData,
           });
@@ -62,7 +61,7 @@ export function useSendMessage() {
           }
         } else {
           // JSON mode
-          const res = await fetch(`${API_URL}/api/messages`, {
+          const res = await apiFetch('/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

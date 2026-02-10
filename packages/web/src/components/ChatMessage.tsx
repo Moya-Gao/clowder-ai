@@ -6,8 +6,7 @@ import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { SummaryCard } from './SummaryCard';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { API_URL } from '@/utils/api-client';
 
 const CAT_STYLES: Record<string, {
   bg: string;

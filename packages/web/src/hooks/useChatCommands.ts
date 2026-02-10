@@ -3,8 +3,7 @@
 import { useCallback } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { getUserId } from '@/utils/userId';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { apiFetch } from '@/utils/api-client';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ConfigSnapshot = any;
@@ -147,7 +146,7 @@ export function useChatCommands() {
             return true;
           }
           try {
-            const res = await fetch(`${API_URL}/api/config`, {
+            const res = await apiFetch(`/api/config`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ key: parts[0], value: parts[1] }),
@@ -177,7 +176,7 @@ export function useChatCommands() {
 
         // /config — display current config
         try {
-          const res = await fetch(`${API_URL}/api/config`);
+          const res = await apiFetch(`/api/config`);
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
           const data = await res.json();
           addMessage({
@@ -223,7 +222,7 @@ export function useChatCommands() {
 
         try {
           const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
-          const res = await fetch(`${API_URL}/api/memory`, {
+          const res = await apiFetch(`/api/memory`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ threadId, key, value, updatedBy: 'user' }),
@@ -260,11 +259,11 @@ export function useChatCommands() {
 
         try {
           const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
-          const url = rest
-            ? `${API_URL}/api/memory?threadId=${encodeURIComponent(threadId)}&key=${encodeURIComponent(rest)}`
-            : `${API_URL}/api/memory?threadId=${encodeURIComponent(threadId)}`;
+          const path = rest
+            ? `/api/memory?threadId=${encodeURIComponent(threadId)}&key=${encodeURIComponent(rest)}`
+            : `/api/memory?threadId=${encodeURIComponent(threadId)}`;
 
-          const res = await fetch(url);
+          const res = await apiFetch(path);
 
           if (rest) {
             // Single key lookup
@@ -346,8 +345,8 @@ export function useChatCommands() {
         }
 
         try {
-          const res = await fetch(
-            `${API_URL}/api/evidence/search?q=${encodeURIComponent(query)}`
+          const res = await apiFetch(
+            `/api/evidence/search?q=${encodeURIComponent(query)}`
           );
           if (!res.ok) throw new Error(`Server error: ${res.status}`);
           const data = (await res.json()) as {
@@ -404,7 +403,7 @@ export function useChatCommands() {
         }
 
         try {
-          const res = await fetch(`${API_URL}/api/memory/publish`, {
+          const res = await apiFetch(`/api/memory/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ entryId, action: 'approve', actor: 'user' }),
@@ -460,7 +459,7 @@ export function useChatCommands() {
         }
 
         try {
-          const res = await fetch(`${API_URL}/api/memory/publish`, {
+          const res = await apiFetch(`/api/memory/publish`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ entryId, action: 'archive', actor: 'user' }),
@@ -516,7 +515,7 @@ export function useChatCommands() {
         }
 
         try {
-          const res = await fetch(`${API_URL}/api/reflect`, {
+          const res = await apiFetch(`/api/reflect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query }),
@@ -578,7 +577,7 @@ export function useChatCommands() {
 
         try {
           const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
-          const res = await fetch(`${API_URL}/api/commands/extract-tasks`, {
+          const res = await apiFetch(`/api/commands/extract-tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

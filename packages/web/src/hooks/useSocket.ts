@@ -3,8 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getUserId } from '@/utils/userId';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+import { API_URL } from '@/utils/api-client';
 
 interface AgentMessage {
   type: string;

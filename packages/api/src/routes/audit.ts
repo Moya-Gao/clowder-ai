@@ -4,12 +4,14 @@
  *
  * 安全:
  * - 不暴露服务器绝对路径
+ * - 通过 resolveUserId 解析身份 (header > query fallback)
  * - 校验 userId 与 thread.createdBy 一致 (ownership guard)
  */
 
 import type { FastifyPluginAsync } from 'fastify';
 import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 export interface AuditRoutesOptions {
   threadStore: IThreadStore;
@@ -18,18 +20,15 @@ export interface AuditRoutesOptions {
 export const auditRoutes: FastifyPluginAsync<AuditRoutesOptions> = async (app, opts) => {
   const { threadStore } = opts;
 
-  app.get<{
-    Params: { threadId: string };
-    Querystring: { userId?: string };
-  }>(
+  app.get<{ Params: { threadId: string } }>(
     '/api/audit/thread/:threadId',
     async (request, reply) => {
       const { threadId } = request.params;
-      const userId = (request.query.userId ?? '').trim();
+      const userId = resolveUserId(request);
 
       if (!userId) {
-        reply.status(400);
-        return { error: 'userId query parameter is required' };
+        reply.status(401);
+        return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
       }
 
       const thread = await threadStore.get(threadId);
