@@ -46,7 +46,7 @@
 | 19 | 自动讨论纪要生成 | [x] | Phase 3.5 计划 stretch | `16496b8` — AutoSummarizer 已实现 (pattern matching)，createdBy=system，历史回放已修复 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [x] | 辩论测试发现 | Phase 5.2 — 400 拒绝 + code=THREAD_NOT_FOUND，前端解析 detail 显示中文提示 |
-| 31 | /api/memory 与 /api/commands 身份/权限边界 | [x] | Phase 4.0 缅因猫 review P2-1 | 2026-02-10 缅因猫完成：`commands/memory` 接入 `resolveUserId` + thread ownership guard（header 优先、缺失 401、越权 403） |
+| 31 | /api/memory 与 /api/commands 身份/权限边界 | [x] | Phase 4.0 缅因猫 review P2-1 | 2026-02-10 缅因猫完成：`commands/memory` 接入 `resolveUserId` + thread ownership guard（header 优先、缺失 401、越权 403），commit `69ad9a9` |
 | 32 | DegradationPolicy 绑定实际链路 | [x] | Phase 4.0 缅因猫 review P2-2 | 5.0-pre: routeSerial/routeParallel 调用 checkContextBudget → yield system_info |
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
 | 34 | cascade delete 语义边界文档 | [x] | Quick wins 缅因猫 review P2-1 | Phase 5.2 — ADR `docs/decisions/007-cascade-delete-semantics.md` |
@@ -59,9 +59,9 @@
 | 44 | **Codex exec 模式不保存 session → 缅因猫无法 resume** | [x] | 2026-02-10 实测发现 | 已闭环：根因是隔离 HOME 导致 sessions 写入 `/tmp`；`449fe91` + `81fa2bf` + `fb134b6` 通过 `sessions/` symlink 与回归测试修复 |
 | 45 | **缅因猫动态授权 + git 写入权限** | [ ] | [bug report](./bug-report/dynamic-authorization-and-git-commit-blocked/bug-report.md) | 缅因猫 (Codex) 通过回调被调用时: 1) 无法向铲屎官请求动态授权 2) `.git` 写入被沙盒拒绝无法 commit。阻塞缅因猫独立闭环能力 |
 | 43 | 身份入口统一（header 优先）与 URL 脱敏 | [x] | feat/ux-polish review P2 | `2aa54b6` — `resolveUserId` 扩展到 messages/threads，前端 apiFetch + `X-Cat-Cafe-User` header 取代 URL query |
-| 48 | **MCP callback at-least-once 投递** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：`clientMessageId` 幂等去重（API）+ 指数退避重试（MCP，默认 1s/2s/4s，可 env 覆盖） |
+| 48 | **MCP callback at-least-once 投递** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：`clientMessageId` 幂等去重（API）+ 指数退避重试（MCP，默认 1s/2s/4s，可 env 覆盖），commit `69ad9a9` |
 | 49 | **MCP callback local outbox** | [ ] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 网络不可达时写本地队列，后台重试投递。防止 API 短暂不可用导致消息静默丢失 |
-| 50 | **消息持久化故障演练测试** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：新增持久化故障演练集成测试（故障显式失败 + 恢复后 retry 转绿） |
+| 50 | **消息持久化故障演练测试** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | 2026-02-10 缅因猫完成：新增持久化故障演练集成测试（故障显式失败 + 恢复后 retry 转绿），commit `69ad9a9` |
 
 ## P3 — 可选优化
 
