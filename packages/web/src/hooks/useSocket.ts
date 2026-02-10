@@ -28,6 +28,10 @@ export interface SocketCallbacks {
   onThreadSummary?: (summary: Record<string, unknown>) => void;
   /** Called when heartbeat received (resets timeout timer) */
   onHeartbeat?: () => void;
+  /** Message mutation events (ADR-008 S8) */
+  onMessageDeleted?: (data: { messageId: string; threadId: string; deletedBy: string }) => void;
+  onMessageRestored?: (data: { messageId: string; threadId: string }) => void;
+  onThreadBranched?: (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -81,6 +85,20 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     socket.on('heartbeat', () => {
       callbacks.onHeartbeat?.();
+    });
+
+    // Message mutation events (ADR-008 S8)
+    socket.on('message_deleted', (data: { messageId: string; threadId: string; deletedBy: string }) => {
+      callbacks.onMessageDeleted?.(data);
+    });
+    socket.on('message_hard_deleted', (data: { messageId: string; threadId: string; deletedBy: string }) => {
+      callbacks.onMessageDeleted?.(data);
+    });
+    socket.on('message_restored', (data: { messageId: string; threadId: string }) => {
+      callbacks.onMessageRestored?.(data);
+    });
+    socket.on('thread_branched', (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => {
+      callbacks.onThreadBranched?.(data);
     });
 
     socket.on('disconnect', () => {

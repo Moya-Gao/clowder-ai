@@ -53,6 +53,8 @@
 | 39 | useChatCommands 命令解析自动化测试 | [x] | Phase 5.0-S2 follow-up | Phase 5.2 — vitest + jsdom 基建 + 14 tests for isCommandInvocation |
 | 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
 | 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [x] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 2026-02-09 上游 `google-gemini/gemini-cli#18621` 已关闭（completed），`#18656` 已合并；2026-02-10 本地 `stream-json` 连续 3 次复测无崩溃，关闭该跟踪项 |
+| 42 | Branch 回滚 best-effort 双失败容错 | [ ] | ADR-008 S7 缅因猫 R3 review | `Promise.allSettled` 已覆盖主要路径；底层存储完全不可用时两步清理都会失败，可考虑 background orphan reconciliation |
+| 43 | API 端点 userId 来源信任 | [ ] | ADR-008 S5/S6 缅因猫 R2 review | 所有 mutation 端点依赖 request body 的 userId，无 auth middleware 验证身份真实性。多用户场景需统一鉴权 (JWT/session) |
 
 ## P3 — 可选优化
 

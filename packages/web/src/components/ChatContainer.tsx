@@ -9,6 +9,7 @@ import { useChatHistory } from '@/hooks/useChatHistory';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { MessageActions } from './MessageActions';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ParallelStatusBar } from './ParallelStatusBar';
@@ -32,6 +33,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     targetCats,
     catStatuses,
     addMessage,
+    removeMessage,
     setIntentMode,
     setTargetCats,
     clearCatStatuses,
@@ -137,7 +139,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       } as ChatMessageData);
     },
     onHeartbeat: () => resetTimeout(),
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, resetTimeout]);
+    onMessageDeleted: (data: { messageId: string }) => removeMessage(data.messageId),
+    onMessageRestored: () => { /* full reload handled by re-fetching history if needed */ },
+    onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
+  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout]);
 
   const { cancelInvocation } = useSocket(socketCallbacks, threadId);
 
@@ -194,7 +199,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
               <p className="text-sm text-gray-400">输入 @布偶 召唤布偶猫开始聊天</p>
             </div>
           ) : (
-            messages.map((msg) => <ChatMessage key={msg.id} message={msg} />)
+            messages.map((msg) => (
+              <MessageActions key={msg.id} message={msg} threadId={threadId}>
+                <ChatMessage message={msg} />
+              </MessageActions>
+            ))
           )}
           <div ref={messagesEndRef} />
         </main>
