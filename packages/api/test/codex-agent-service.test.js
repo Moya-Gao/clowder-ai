@@ -118,11 +118,12 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.equal(args[0], 'exec');
   assert.equal(args[1], 'resume');
   assert.equal(args[2], 'existing-thread-456');
-  assert.equal(args[3], 'Continue');
+  assert.equal(args.at(-1), 'Continue');
   // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
   assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
   assert.ok(args.includes('--json'), 'resume args must include --json');
-  assert.ok(args.includes('--full-auto'), 'resume args must include --full-auto');
+  assert.ok(args.includes('--config'), 'resume args must include approval policy override');
+  assert.ok(args.includes('approval_policy=\"on-request\"'), 'default approval policy should be on-request');
 });
 
 test('does not include resume when no sessionId', async () => {
@@ -140,6 +141,77 @@ test('does not include resume when no sessionId', async () => {
   assert.equal(args[0], 'exec');
   assert.equal(args[1], '--json');
   assert.ok(!args.includes('resume'));
+  assert.ok(args.includes('--sandbox'), 'fresh exec should include sandbox mode');
+  assert.ok(args.includes('danger-full-access'), 'default sandbox should allow git writes');
+  assert.ok(args.includes('approval_policy=\"on-request\"'), 'fresh exec should set default approval policy');
+});
+
+test('uses env-configured sandbox and approval policy for fresh exec', async () => {
+  const oldSandbox = process.env.CAT_CODEX_SANDBOX_MODE;
+  const oldApproval = process.env.CAT_CODEX_APPROVAL_POLICY;
+  process.env.CAT_CODEX_SANDBOX_MODE = 'read-only';
+  process.env.CAT_CODEX_APPROVAL_POLICY = 'never';
+
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new CodexAgentService({ spawnFn });
+
+    const promise = collect(service.invoke('configurable'));
+    emitCodexEvents(proc, [
+      { type: 'thread.started', thread_id: 'thread-config' },
+    ]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.ok(args.includes('--sandbox'), 'sandbox flag should be present');
+    assert.ok(args.includes('read-only'), 'sandbox should follow CAT_CODEX_SANDBOX_MODE');
+    assert.ok(args.includes('--config'), 'approval policy should be set by config override');
+    assert.ok(args.includes('approval_policy=\"never\"'), 'approval policy should follow env');
+  } finally {
+    if (oldSandbox === undefined) {
+      delete process.env.CAT_CODEX_SANDBOX_MODE;
+    } else {
+      process.env.CAT_CODEX_SANDBOX_MODE = oldSandbox;
+    }
+    if (oldApproval === undefined) {
+      delete process.env.CAT_CODEX_APPROVAL_POLICY;
+    } else {
+      process.env.CAT_CODEX_APPROVAL_POLICY = oldApproval;
+    }
+  }
+});
+
+test('falls back to defaults for invalid sandbox/approval env values', async () => {
+  const oldSandbox = process.env.CAT_CODEX_SANDBOX_MODE;
+  const oldApproval = process.env.CAT_CODEX_APPROVAL_POLICY;
+  process.env.CAT_CODEX_SANDBOX_MODE = 'not-a-mode';
+  process.env.CAT_CODEX_APPROVAL_POLICY = 'not-a-policy';
+
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new CodexAgentService({ spawnFn });
+
+    const promise = collect(service.invoke('fallback'));
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'thread-fallback' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.ok(args.includes('danger-full-access'), 'invalid sandbox should fallback to default');
+    assert.ok(args.includes('approval_policy=\"on-request\"'), 'invalid policy should fallback to default');
+  } finally {
+    if (oldSandbox === undefined) {
+      delete process.env.CAT_CODEX_SANDBOX_MODE;
+    } else {
+      process.env.CAT_CODEX_SANDBOX_MODE = oldSandbox;
+    }
+    if (oldApproval === undefined) {
+      delete process.env.CAT_CODEX_APPROVAL_POLICY;
+    } else {
+      process.env.CAT_CODEX_APPROVAL_POLICY = oldApproval;
+    }
+  }
 });
 
 test('handles multiple agent_message items', async () => {

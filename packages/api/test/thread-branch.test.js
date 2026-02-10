@@ -108,6 +108,15 @@ async function setupApp(messageStore, threadStore) {
   return { app, socketManager };
 }
 
+async function waitFor(predicate, timeoutMs = 500, intervalMs = 10) {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    if (predicate()) return true;
+    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  }
+  return false;
+}
+
 describe('POST /api/threads/:id/branch (ADR-008 D4 / S7)', () => {
   it('creates branch with all messages up to fromMessageId', async () => {
     const messageStore = new MessageStore();
@@ -391,6 +400,65 @@ describe('POST /api/threads/:id/branch (ADR-008 D4 / S7)', () => {
     assert.equal(branchThreads.length, 0, 'Branch thread should be cleaned up');
 
     await app.close();
+  });
+
+  it('reconciles orphan branch in background when rollback cleanup fails once', async () => {
+    process.env.CAT_BRANCH_ROLLBACK_RETRY_DELAYS_MS = '0';
+    try {
+      const messageStore = new MessageStore();
+      const threadStore = createMockThreadStore();
+      const msgs = seedThread(messageStore, threadStore);
+
+      let appendCount = 0;
+      const origAppend = messageStore.append.bind(messageStore);
+      messageStore.append = (data) => {
+        appendCount++;
+        if (appendCount === 2) throw new Error('Simulated append failure');
+        return origAppend(data);
+      };
+
+      let deleteMessagesAttempts = 0;
+      const origDeleteByThread = messageStore.deleteByThread.bind(messageStore);
+      messageStore.deleteByThread = (threadId) => {
+        deleteMessagesAttempts++;
+        if (deleteMessagesAttempts === 1) {
+          throw new Error('Simulated deleteByThread transient failure');
+        }
+        return origDeleteByThread(threadId);
+      };
+
+      let deleteThreadAttempts = 0;
+      const origDeleteThread = threadStore.delete.bind(threadStore);
+      threadStore.delete = (threadId) => {
+        deleteThreadAttempts++;
+        if (deleteThreadAttempts === 1) {
+          throw new Error('Simulated thread delete transient failure');
+        }
+        return origDeleteThread(threadId);
+      };
+
+      const { app } = await setupApp(messageStore, threadStore);
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/threads/thread-orig/branch',
+        payload: { fromMessageId: msgs[3].id, userId: 'user-1' },
+      });
+
+      assert.equal(res.statusCode, 500);
+      assert.equal(res.json().code, 'BRANCH_FAILED');
+
+      const hasOnlySourceThread = () => threadStore.list().every((thread) => thread.id === 'thread-orig');
+      const cleaned = await waitFor(hasOnlySourceThread, 400, 10);
+
+      assert.equal(cleaned, true, 'Background reconciliation should eventually clean orphan branch');
+      assert.ok(deleteMessagesAttempts >= 2, 'deleteByThread should be retried');
+      assert.ok(deleteThreadAttempts >= 2, 'thread delete should be retried');
+
+      await app.close();
+    } finally {
+      delete process.env.CAT_BRANCH_ROLLBACK_RETRY_DELAYS_MS;
+    }
   });
 
   it('uses default title for untitled thread branch', async () => {

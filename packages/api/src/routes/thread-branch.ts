@@ -18,6 +18,80 @@ export interface ThreadBranchRoutesOptions {
   socketManager: SocketManager;
 }
 
+const DEFAULT_ROLLBACK_RETRY_DELAYS_MS = [1000, 3000, 10000];
+
+interface RollbackCleanupResult {
+  messageCleanup: PromiseSettledResult<number>;
+  threadCleanup: PromiseSettledResult<boolean>;
+}
+
+function readRollbackRetryDelays(): number[] {
+  const raw = process.env['CAT_BRANCH_ROLLBACK_RETRY_DELAYS_MS'];
+  if (!raw) return DEFAULT_ROLLBACK_RETRY_DELAYS_MS;
+  const parsed = raw
+    .split(',')
+    .map((part) => Number(part.trim()))
+    .filter((num) => Number.isFinite(num) && num >= 0);
+  return parsed.length > 0 ? parsed : DEFAULT_ROLLBACK_RETRY_DELAYS_MS;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function attemptRollbackCleanup(
+  threadId: string,
+  messageStore: IMessageStore,
+  threadStore: IThreadStore,
+): Promise<RollbackCleanupResult> {
+  const messageCleanupPromise = Promise.resolve().then(
+    () => messageStore.deleteByThread(threadId),
+  );
+  const threadCleanupPromise = Promise.resolve().then(
+    () => threadStore.delete(threadId),
+  );
+  const [messageCleanup, threadCleanup] = await Promise.allSettled([
+    messageCleanupPromise,
+    threadCleanupPromise,
+  ]);
+  return { messageCleanup, threadCleanup };
+}
+
+function rollbackCleanupDone(result: RollbackCleanupResult): boolean {
+  return result.messageCleanup.status === 'fulfilled' && result.threadCleanup.status === 'fulfilled';
+}
+
+function scheduleRollbackReconcile(
+  threadId: string,
+  messageStore: IMessageStore,
+  threadStore: IThreadStore,
+  log: { warn: (obj: unknown, msg?: string) => void; error: (obj: unknown, msg?: string) => void; info: (obj: unknown, msg?: string) => void },
+): void {
+  const retryDelays = readRollbackRetryDelays();
+  if (retryDelays.length === 0) return;
+
+  void (async () => {
+    for (let attempt = 0; attempt < retryDelays.length; attempt++) {
+      const delay = retryDelays[attempt]!;
+      if (delay > 0) {
+        await sleep(delay);
+      }
+      const result = await attemptRollbackCleanup(threadId, messageStore, threadStore);
+      if (rollbackCleanupDone(result)) {
+        log.info({ branchThreadId: threadId, attempt: attempt + 1 }, 'Branch orphan reconciled');
+        return;
+      }
+      log.warn({
+        branchThreadId: threadId,
+        attempt: attempt + 1,
+        messageCleanup: result.messageCleanup.status,
+        threadCleanup: result.threadCleanup.status,
+      }, 'Branch orphan reconcile retry failed');
+    }
+    log.error({ branchThreadId: threadId, retries: retryDelays.length }, 'Branch orphan reconcile exhausted retries');
+  })();
+}
+
 const branchSchema = z.object({
   fromMessageId: z.string().min(1),
   editedContent: z.string().optional(),
@@ -97,12 +171,17 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
         });
       }
     } catch (err) {
-      // Best-effort cleanup: run independently so one failure doesn't skip the other
-      await Promise.allSettled([
-        messageStore.deleteByThread(newThread.id),
-        threadStore.delete(newThread.id),
-      ]);
-      request.log.error({ err, branchThreadId: newThread.id }, 'Branch copy failed, rolled back');
+      // Best-effort cleanup: sync/async failure-safe
+      const cleanup = await attemptRollbackCleanup(newThread.id, messageStore, threadStore);
+      if (!rollbackCleanupDone(cleanup)) {
+        scheduleRollbackReconcile(newThread.id, messageStore, threadStore, request.log);
+      }
+      request.log.error({
+        err,
+        branchThreadId: newThread.id,
+        messageCleanup: cleanup.messageCleanup.status,
+        threadCleanup: cleanup.threadCleanup.status,
+      }, 'Branch copy failed, rolled back');
       reply.status(500);
       return { error: '分支创建失败，已回滚', code: 'BRANCH_FAILED' };
     }
