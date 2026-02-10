@@ -22,18 +22,23 @@ export function CatConfigViewer({ open, onClose }: CatConfigViewerProps) {
   const [tab, setTab] = useState<TabId>('opus');
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [caps, setCaps] = useState<Record<string, Capabilities> | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    const [configRes, capsRes] = await Promise.all([
+    setFetchError(null);
+    const results = await Promise.allSettled([
       apiFetch('/api/config'),
       apiFetch('/api/capabilities'),
     ]);
-    if (configRes.ok) {
-      const d = await configRes.json() as { config: ConfigData };
+    const [configResult, capsResult] = results;
+    if (configResult.status === 'fulfilled' && configResult.value.ok) {
+      const d = await configResult.value.json() as { config: ConfigData };
       setConfig(d.config);
+    } else {
+      setFetchError((prev) => prev ?? '配置加载失败');
     }
-    if (capsRes.ok) {
-      setCaps(await capsRes.json() as Record<string, Capabilities>);
+    if (capsResult.status === 'fulfilled' && capsResult.value.ok) {
+      setCaps(await capsResult.value.json() as Record<string, Capabilities>);
     }
   }, []);
 
@@ -78,7 +83,10 @@ export function CatConfigViewer({ open, onClose }: CatConfigViewerProps) {
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
-          {!config ? (
+          {fetchError && (
+            <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>
+          )}
+          {!config && !fetchError ? (
             <p className="text-sm text-gray-400">加载中...</p>
           ) : catId && cat && budget ? (
             <CatTab cat={cat} budget={budget} caps={catCaps ?? undefined} />

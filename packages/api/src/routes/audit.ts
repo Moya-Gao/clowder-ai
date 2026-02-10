@@ -3,7 +3,8 @@
  * GET /api/audit/thread/:threadId — 返回指定 thread 的审计事件
  *
  * 安全:
- * - logPath 暴露本地绝对路径 (铲屎官要求 VSCode 跳转, 本地开发工具可接受)
+ * - logPath 绝对路径仅在 EXPOSE_LOG_PATH=true 或 NODE_ENV!=production 时返回
+ *   (铲屎官需要 VSCode 跳转; 生产部署应关闭以避免路径泄露)
  * - 通过 resolveUserId 解析身份 (header > query fallback)
  * - 校验 userId 与 thread.createdBy 一致 (ownership guard)
  */
@@ -44,8 +45,14 @@ export const auditRoutes: FastifyPluginAsync<AuditRoutesOptions> = async (app, o
 
       const auditLog = getEventAuditLog();
       const events = await auditLog.readByThread(threadId, { days: 7 });
-      const logPath = auditLog.getLogPath();
       const logFiles = await auditLog.listFiles();
+
+      // logPath 仅在开发环境或显式开关下暴露 (避免生产路径泄露)
+      const env = process.env;
+      const exposePath = env['EXPOSE_LOG_PATH'] === 'true'
+        || env['NODE_ENV'] !== 'production';
+      const logPath = exposePath ? auditLog.getLogPath() : null;
+
       return { events, logPath, logFiles };
     }
   );

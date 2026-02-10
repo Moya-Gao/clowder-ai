@@ -29,7 +29,7 @@ export interface RightStatusPanelProps {
 }
 
 interface AuditData {
-  logPath: string;
+  logPath: string | null;
   eventCount: number;
   logFiles: string[];
 }
@@ -54,7 +54,7 @@ export function RightStatusPanel({
     try {
       const res = await apiFetch(`/api/audit/thread/${threadId}`);
       if (!res.ok) return;
-      const data = await res.json() as { logPath: string; logFiles: string[]; events: unknown[] };
+      const data = await res.json() as { logPath: string | null; logFiles: string[]; events: unknown[] };
       setAuditData({
         logPath: data.logPath,
         eventCount: data.events.length,
@@ -182,9 +182,13 @@ export function RightStatusPanel({
         <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
           <h3 className="text-xs font-semibold text-gray-700 mb-2">审计日志</h3>
           <div className="text-xs space-y-1.5">
-            <a href={`vscode://file${auditData.logPath}`} className="text-blue-600 hover:text-blue-800 underline block truncate" title={auditData.logPath}>
-              在 VSCode 中打开
-            </a>
+            {auditData.logPath ? (
+              <a href={`vscode://file${auditData.logPath}`} className="text-blue-600 hover:text-blue-800 underline block truncate" title={auditData.logPath}>
+                在 VSCode 中打开
+              </a>
+            ) : (
+              <span className="text-gray-400">路径不可用 (生产模式)</span>
+            )}
             <div className="text-gray-500">{auditData.eventCount} 条事件 · {auditData.logFiles.length} 个日志文件</div>
           </div>
         </section>

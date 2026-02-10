@@ -2,20 +2,17 @@
  * Capabilities Route
  * GET /api/capabilities — 发现每只猫的 skills 和外部 MCP 服务器
  *
- * Skills 发现:
- * - Claude: 项目级 .claude/skills/ 目录
- * - Codex: 用户级 ~/.codex/skills/ 目录 (排除 .system/)
- * - Gemini: 无 skills 目录
- *
- * 外部 MCP 发现:
- * - 项目级 .mcp.json → mcpServers keys
- * - Gemini: ~/.gemini/settings.json → mcpServers keys
+ * 安全:
+ * - 需要身份校验 (resolveUserId) — 暴露主机级 skills/MCP 元信息
+ * - Skills 发现: Claude 项目级 .claude/skills/, Codex 用户级 ~/.codex/skills/
+ * - MCP 发现: 项目 .mcp.json, Gemini ~/.gemini/settings.json
  */
 
 import { readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import type { FastifyPluginAsync } from 'fastify';
+import { resolveUserId } from '../utils/request-identity.js';
 
 interface CatCapabilities {
   skills: string[];
@@ -48,7 +45,12 @@ async function readJsonKeys(filePath: string, key: string): Promise<string[]> {
 }
 
 export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/api/capabilities', async () => {
+  app.get('/api/capabilities', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
     // Project root is 2 levels up from packages/api (process.cwd())
     const projectRoot = resolve(process.cwd(), '../..');
     const home = homedir();

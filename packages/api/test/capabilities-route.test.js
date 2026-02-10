@@ -7,7 +7,26 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { capabilitiesRoutes } from '../dist/routes/capabilities.js';
 
+const AUTH_HEADERS = { 'x-cat-cafe-user': 'test-user' };
+
 describe('Capabilities Route', () => {
+  it('returns 401 when no identity header is provided', async () => {
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/capabilities',
+    });
+
+    assert.equal(res.statusCode, 401);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error.includes('Identity required'));
+
+    await app.close();
+  });
+
   it('GET /api/capabilities returns skills and MCP servers per cat', async () => {
     const app = Fastify();
     await app.register(capabilitiesRoutes);
@@ -16,6 +35,7 @@ describe('Capabilities Route', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/capabilities',
+      headers: AUTH_HEADERS,
     });
 
     assert.equal(res.statusCode, 200);
@@ -43,6 +63,7 @@ describe('Capabilities Route', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/capabilities',
+      headers: AUTH_HEADERS,
     });
 
     const body = JSON.parse(res.body);
