@@ -99,3 +99,26 @@ pnpm redis:user:autobackup:run
 Default offsite path:
 - If iCloud exists: `~/Library/Mobile Documents/com~apple~CloudDocs/CatCafeRedisBackups/user`
 - Otherwise: `~/.cat-cafe/redis-offsite-backups/user`
+
+## 5) Thread markdown exports retention (new)
+
+Canonical repo location:
+- `docs/discussions/exported-threads/`
+
+Sync downloaded `thread-thread_*.md` files into canonical + offsite storage:
+
+```bash
+pnpm threads:sync
+pnpm threads:status
+```
+
+Enable periodic autosave (launchd):
+
+```bash
+pnpm threads:autosave:install
+pnpm threads:autosave:status
+```
+
+Default offsite path:
+- If iCloud exists: `~/Library/Mobile Documents/com~apple~CloudDocs/CatCafeThreadExports`
+- Otherwise: `~/.cat-cafe/thread-exports`
