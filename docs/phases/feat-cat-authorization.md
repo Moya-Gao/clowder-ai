@@ -170,16 +170,21 @@ Callback Route 返回 { status: 'granted' }
    - Why：猫猫是 CLI 子进程，用 curl/fetch 发请求等响应最简单；铲屎官在浏览器，WebSocket 实时推送体验好
    - Tradeoff：放弃纯 WebSocket 双向通道（猫猫侧没有持久连接），换取实现简洁性
 
-2. **超时策略**
-   - 默认 120s 超时，返回 `{ status: 'timeout' }`
-   - 猫猫应能优雅处理 timeout（跳过该操作 or 换方案）
+2. **超时与异步队列**
+   - HTTP 长轮询 120s 超时，返回 `{ status: 'pending', requestId }` (非 'timeout')
+   - 猫猫应能优雅处理 pending（跳过该操作 or 换方案 or 下次调用时带 requestId 查询结果）
+   - pending 请求持久化到 Redis，铲屎官上线后仍可审批
+   - 批准后权限立即生效：猫猫下次请求同类操作 → 命中规则 → 自动放行
 
-3. **权限粒度**
-   - 初版用 `action: string` 自由文本，不做枚举限制
-   - 好处：猫猫可以请求任意类型的权限，不用预定义所有可能的操作
-   - 风险：无法做自动化校验，但初版不需要
+3. **权限粒度 + 规则引擎**
+   - `action: string` 支持通配（如 `git_*` 匹配 `git_commit`、`git_push`）
+   - 猫猫请求权限时，先查 `AuthorizationRuleStore` 是否有匹配规则
+   - 命中 allow → 直接返回 granted（不弹窗）
+   - 命中 deny → 直接返回 denied（不弹窗）
+   - 未命中 → 进入审批流程（弹窗 + pending 队列）
+   - 铲屎官审批时可选 scope: "本次" / "本 thread" / "全局始终"
 
-#### 2.2 AuthorizationManager
+#### 2.2 AuthorizationManager + RuleStore
 
 **新文件**：`packages/api/src/domains/cats/services/AuthorizationManager.ts`
 
@@ -197,16 +202,73 @@ interface PendingRequest {
 }
 
 class AuthorizationManager {
-  private pending = new Map<string, PendingRequest>();
+  constructor(
+    private ruleStore: AuthorizationRuleStore,
+    private auditLog: AuthorizationAuditStore,
+    private io: SocketIO.Server,
+  ) {}
 
   async requestPermission(req: PermissionRequest): Promise<PermissionResponse>
-  // 创建 pending → emit ws event → 返回 Promise (timeout 120s)
+  // 1. 查 ruleStore 是否有匹配规则 → 命中则直接返回
+  // 2. 未命中 → 创建 pending → emit ws event → 等待 Promise (120s)
+  // 3. 超时 → 持久化 pending 到 Redis → 返回 { status: 'pending', requestId }
+  // 4. 所有结果写 auditLog
 
-  respond(requestId: string, granted: boolean, reason?: string): void
-  // resolve pending Promise → 猫猫侧 HTTP 响应返回
+  respond(requestId: string, granted: boolean, scope: Scope, reason?: string): void
+  // resolve pending Promise
+  // 如果 scope != 'once' → 写入 ruleStore 持久化规则
 
   getPending(threadId?: string): PendingRequest[]
-  // 前端查询当前待审批请求
+  // 前端查询当前待审批请求（含 Redis 持久化的）
+
+  checkRule(catId: CatId, action: string, threadId: string): 'allow' | 'deny' | null
+  // 查规则：global → thread → null
+}
+```
+
+**新文件**：`packages/api/src/domains/cats/services/AuthorizationRuleStore.ts`
+
+```typescript
+// 持久化授权规则（类似 Claude Code 的 allow/deny 记忆）
+interface AuthorizationRule {
+  id: string;
+  catId: CatId | '*';
+  action: string;              // 支持通配: 'git_*', '*'
+  scope: 'thread' | 'global';  // 'once' 不存规则
+  decision: 'allow' | 'deny';
+  threadId?: string;
+  createdAt: number;
+  createdBy: string;
+  reason?: string;
+}
+
+class AuthorizationRuleStore {
+  // IAuthorizationRuleStore 接口 + 内存实现 + Redis 实现
+  match(catId: CatId, action: string, threadId: string): AuthorizationRule | null
+  add(rule: AuthorizationRule): void
+  remove(ruleId: string): void
+  list(filter?: { catId?, threadId? }): AuthorizationRule[]
+}
+```
+
+**新文件**：`packages/api/src/domains/cats/services/AuthorizationAuditStore.ts`
+
+```typescript
+// 审计日志持久化
+interface AuthorizationAuditEntry {
+  id: string;
+  requestId: string;
+  invocationId: string;
+  catId: CatId;
+  threadId: string;
+  action: string;
+  reason: string;
+  decision: 'allow' | 'deny' | 'pending' | 'timeout';
+  scope?: 'once' | 'thread' | 'global';
+  decidedBy?: string;          // userId (审批人)
+  decidedAt?: number;
+  matchedRuleId?: string;      // 自动匹配的规则 ID
+  createdAt: number;
 }
 ```
 
@@ -279,14 +341,21 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 
 **UI 草案**：
 ```
-┌──────────────────────────────────────┐
-│ 🐱 缅因猫 请求权限                    │
-│                                      │
-│ 操作: git_commit                     │
-│ 原因: 准备提交 session 修复的 bug fix  │
-│                                      │
-│ [✓ 批准]  [✗ 拒绝]                   │
-└──────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│ 🐱 缅因猫 请求权限                        │
+│                                          │
+│ 操作: git_commit                         │
+│ 原因: 准备提交 session 修复的 bug fix      │
+│                                          │
+│ 批准范围: [本次 ▾] / 本 thread / 始终     │
+│                                          │
+│ [✓ 批准]  [✗ 拒绝]                       │
+└──────────────────────────────────────────┘
+
+多条待审批时顶部显示：
+┌──────────────────────────────────────────┐
+│ 3 条待审批请求           [全部批准] [展开] │
+└──────────────────────────────────────────┘
 ```
 
 ---
@@ -316,14 +385,16 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 ### Stage 2（架构修）
 | 文件 | 变更类型 | 说明 |
 |------|---------|------|
-| `packages/api/src/domains/cats/services/AuthorizationManager.ts` | 新建 | 授权状态机 + Promise 管理 |
+| `packages/api/src/domains/cats/services/AuthorizationManager.ts` | 新建 | 授权状态机 + 规则匹配 + Promise 管理 |
+| `packages/api/src/domains/cats/services/AuthorizationRuleStore.ts` | 新建 | 持久化授权规则（内存 + Redis） |
+| `packages/api/src/domains/cats/services/AuthorizationAuditStore.ts` | 新建 | 审计日志持久化 |
 | `packages/api/src/routes/callbacks.ts` | 修改 | 新增 `request-permission` endpoint |
-| `packages/api/src/routes/authorization.ts` | 新建 | 铲屎官响应 endpoint + 查询 API |
+| `packages/api/src/routes/authorization.ts` | 新建 | 铲屎官响应 + 规则管理 + 审计查询 API |
 | `packages/mcp-server/src/tools/callback-tools.ts` | 修改 | 新增 MCP tool |
 | `packages/api/src/domains/cats/services/McpPromptInjector.ts` | 修改 | 新增 curl 模板 |
 | `packages/api/src/websocket.ts` (或对应 socket 文件) | 修改 | 新增授权事件 |
 | `packages/shared/src/types/authorization.ts` | 新建 | 共享类型定义 |
-| `packages/web/src/components/AuthorizationCard.tsx` | 新建 | 授权请求 UI |
+| `packages/web/src/components/AuthorizationCard.tsx` | 新建 | 授权请求 UI（含 scope 选择 + 批量批准） |
 | `packages/web/src/hooks/useAuthorization.ts` | 新建 | 授权状态 hook |
 
 ### Stage 3（体验打磨）
@@ -334,17 +405,63 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 
 ---
 
-## 5) Open Questions（待铲屎官定夺）
+## 5) Open Questions → 铲屎官决策记录（2026-02-10）
 
-1. **授权超时时间**：默认 120s 够吗？铲屎官可能离开电脑。要不要支持"稍后处理"队列？
+### Q1: 授权超时时间 → ✅ 需要持久化待审批队列
 
-2. **批量授权**：如果猫猫在一次调用中多次请求权限（如先 commit 再 push），要不要支持"全部批准"？
+**铲屎官原话**："我睡着了怎么办？"
 
-3. **权限预设**：要不要在 thread 创建时就指定"本次对话猫猫可以自由 commit"？（类似 Claude Code 的 `--dangerously-skip-permissions`）
+**决策**：120s 同步等待不够。需要支持**异步待审批队列**：
+- 猫猫发起请求后，如果铲屎官不在线，请求进入 pending 队列（持久化到 Redis）
+- 猫猫侧 HTTP 长轮询仍有超时（如 120s），超时后返回 `{ status: 'pending' }`
+- 猫猫可选择：跳过该操作继续做别的 / 等下次调用时重试
+- 铲屎官上线后看到待审批队列，批准后权限立即生效（下次猫猫请求同类操作时自动放行）
+- **关键**：pending 请求不丢失，铲屎官睡一觉醒来还能看到
 
-4. **三猫差异**：三只猫的默认权限是否相同？布偶猫（主开发）是否天然比缅因猫（reviewer）有更多权限？
+### Q2: 批量授权 → ✅ 要做
 
-5. **审计日志**：授权记录是否需要持久化到 Redis？还是 invocation 结束就丢弃？
+**决策**：支持"全部批准"按钮。当多条请求堆积时，前端提供：
+- 逐条审批（默认）
+- "全部批准"（一键放行当前所有 pending 请求）
+- 按猫分组批准（批准缅因猫的所有请求）
+
+### Q3: 权限预设 → ✅ 要做 + 持久化记忆
+
+**铲屎官原话**："比如你 Claude Code 可以有'以后这个都这样选'的记录，我们也可以！"
+
+**决策**：实现**权限规则持久化**，类似 Claude Code 的 allow/deny 记忆：
+- 铲屎官批准时可选 "本次批准" / "本 thread 内始终批准" / "全局始终批准"
+- 规则持久化到 Redis（`authorization-rules` store）
+- 猫猫下次请求同类权限时，先查规则：命中则自动放行/拒绝，不再弹窗
+- 规则可管理（查看、修改、删除）
+- 规则结构示例：
+  ```typescript
+  interface AuthorizationRule {
+    id: string;
+    catId: CatId | '*';         // 适用猫猫，'*' = 全部
+    action: string;             // 'git_commit', 'network_*' 等，支持通配
+    scope: 'once' | 'thread' | 'global';
+    decision: 'allow' | 'deny';
+    threadId?: string;          // scope='thread' 时必填
+    createdAt: number;
+    createdBy: string;          // userId
+    reason?: string;
+  }
+  ```
+
+### Q4: 三猫权限差异 → ✅ 需要
+
+**决策**：三猫默认权限应有差异，通过预设规则实现：
+- 具体差异待设计（可能布偶猫默认可 commit，缅因猫默认需授权等）
+- 不硬编码，通过 `AuthorizationRule` 的 `catId` 字段区分
+- 初始规则可由铲屎官在设置页面配置
+
+### Q5: 审计日志 → ✅ 必须持久化
+
+**决策**：所有授权事件必须持久化到 Redis，不随 invocation 结束丢弃：
+- 记录：谁请求、请求什么、何时、铲屎官的决策、决策理由
+- 可查询：按猫、按 thread、按时间范围
+- 用于复盘和审计（"为什么缅因猫上次能 commit 这次不能？"）
 
 ---
 
@@ -353,9 +470,11 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 | 风险 | 影响 | 缓解 |
 |------|------|------|
 | 猫猫 curl 超时 | 120s 挂起可能触发 CLI 本身的超时机制 | 调研 Codex exec 的请求超时配置 |
-| WebSocket 断连 | 铲屎官刷新页面后看不到待审批请求 | 查询 API 补偿 + 重连后推送 pending |
-| 并发请求 | 多只猫同时请求权限，前端堆叠 | 队列化展示，按 threadId 分组 |
+| WebSocket 断连 | 铲屎官刷新页面后看不到待审批请求 | Redis 持久化 pending 队列 + 重连后推送 |
+| 并发请求 | 多只猫同时请求权限，前端堆叠 | 队列化展示 + "全部批准"按钮 |
 | Stage 1 安全 | `.git` 写入解锁后缅因猫理论上可以修改 git history | Codex sandbox 仍限制在 workspace 内，风险可控 |
+| 规则通配过宽 | `action: '*'` 等于全放行 | 前端创建规则时警告"这会放行所有操作" |
+| 铲屎官离线 | 猫猫长时间等不到审批 | pending 状态返回 + 猫猫可跳过或稍后重试 |
 
 ---
 
