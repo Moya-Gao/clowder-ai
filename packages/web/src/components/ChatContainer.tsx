@@ -44,6 +44,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   } = useChatStore();
   const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [statusPanelOpen, setStatusPanelOpen] = useState(true);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
   const {
@@ -211,10 +212,20 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             </svg>
           </button>
           <PawIcon className="w-6 h-6 text-owner-primary" />
-          <div>
+          <div className="flex-1 min-w-0">
             <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
+          <button
+            onClick={() => setStatusPanelOpen((v) => !v)}
+            className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"
+            aria-label={statusPanelOpen ? 'Hide status panel' : 'Show status panel'}
+          >
+            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z" clipRule="evenodd" />
+              {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
+            </svg>
+          </button>
         </header>
 
         {intentMode === 'ideate' && <ParallelStatusBar />}
@@ -260,15 +271,17 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
       </div>
 
-      <RightStatusPanel
-        intentMode={intentMode}
-        targetCats={targetCats}
-        catStatuses={catStatuses}
-        catInvocations={catInvocations}
-        threadId={threadId}
-        messageSummary={messageSummary}
-        taskSummary={taskSummary}
-      />
+      {statusPanelOpen && (
+        <RightStatusPanel
+          intentMode={intentMode}
+          targetCats={targetCats}
+          catStatuses={catStatuses}
+          catInvocations={catInvocations}
+          threadId={threadId}
+          messageSummary={messageSummary}
+          taskSummary={taskSummary}
+        />
+      )}
     </div>
   );
 }
