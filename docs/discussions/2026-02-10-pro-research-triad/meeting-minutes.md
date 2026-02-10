@@ -20,6 +20,7 @@
 - `REF-01` 开放邀请函（先独立思考，再看草稿）：[`docs/mailbox/2026-02-10-pro-research-open-invite-to-opus.md`](../../mailbox/2026-02-10-pro-research-open-invite-to-opus.md)
 - `REF-02` 缅因猫三方向初版研究草稿：[`research-report/2026-02-10-pro-research-directions-by-maine.md`](../../../research-report/2026-02-10-pro-research-directions-by-maine.md)
 - `REF-03` ADR-008 历史复盘基线：[`docs/discussions/2026-02-09-adr-008-review-retrospective.md`](../2026-02-09-adr-008-review-retrospective.md)
+- `REF-04` 本轮定稿后的 GPT Pro 提示词 v1.0：[`docs/discussions/2026-02-10-pro-research-triad/gpt-pro-prompts-v1.md`](./gpt-pro-prompts-v1.md)
 
 ---
 
