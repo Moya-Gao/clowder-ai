@@ -54,10 +54,11 @@ describe('parseReviewResult', () => {
     assert.deepEqual(result.p1, ['Critical bug']);
   });
 
-  it('fallback: no VERDICT and no P1/P2 → approved', () => {
+  it('fail-closed: no VERDICT + substantial text → not approved', () => {
     const text = 'Everything looks fine.\n[P3] Minor style nit';
     const result = parseReviewResult(text);
-    assert.equal(result.approved, true);
+    // Fail-closed: substantial text without explicit VERDICT → not approved
+    assert.equal(result.approved, false);
     assert.deepEqual(result.p3, ['Minor style nit']);
   });
 
@@ -71,6 +72,47 @@ describe('parseReviewResult', () => {
     const result = parseReviewResult('');
     assert.equal(result.approved, true);
     assert.equal(result.p1.length, 0);
+  });
+
+  it('parses markdown list format: - [P1] text', () => {
+    const text = [
+      '- [P1] Missing error handling',
+      '- [P2] Naming inconsistent',
+      '- [P3] Consider docs',
+      '',
+      'VERDICT: NEEDS_FIX',
+    ].join('\n');
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false);
+    assert.deepEqual(result.p1, ['Missing error handling']);
+    assert.deepEqual(result.p2, ['Naming inconsistent']);
+    assert.deepEqual(result.p3, ['Consider docs']);
+  });
+
+  it('parses backtick-wrapped format: `[P1]` text', () => {
+    const text = '`[P1]` Critical bug\nVERDICT: NEEDS_FIX';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false);
+    assert.deepEqual(result.p1, ['Critical bug']);
+  });
+
+  it('parses numbered list format: 1. [P1] text', () => {
+    const text = '1. [P1] Bug A\n2. [P2] Issue B\nVERDICT: NEEDS_FIX';
+    const result = parseReviewResult(text);
+    assert.deepEqual(result.p1, ['Bug A']);
+    assert.deepEqual(result.p2, ['Issue B']);
+  });
+
+  it('fail-closed: long text without VERDICT or P items → not approved', () => {
+    const text = 'The code has serious issues with error handling and needs significant rework.';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, false);
+  });
+
+  it('trivially short text without VERDICT → approved', () => {
+    const text = 'OK';
+    const result = parseReviewResult(text);
+    assert.equal(result.approved, true);
   });
 });
 

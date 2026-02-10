@@ -19,11 +19,20 @@ export interface ReviewResult {
 }
 
 /**
+ * Regex for P-level items. Handles common markdown list formats:
+ *   [P1] text, - [P1] text, * [P1] text, 1. [P1] text
+ * Also handles backtick-wrapped: `[P1]` text
+ */
+const P_ITEM_REGEX = /^(?:[-*]|\d+\.?)?\s*`?\[P([123])\]`?\s*(.+)/;
+
+/**
  * 从 review 猫的文本输出中提取 verdict 和 P 级问题
  *
  * 格式约定：
  * - `VERDICT: APPROVED` 或 `VERDICT: NEEDS_FIX`
  * - `[P1] 描述` / `[P2] 描述` / `[P3] 描述`
+ *
+ * Fail-closed: 无 VERDICT 且无 P 项时，非空文本默认 NOT approved。
  */
 export function parseReviewResult(text: string): ReviewResult {
   const lines = text.split('\n');
@@ -34,22 +43,27 @@ export function parseReviewResult(text: string): ReviewResult {
 
   for (const line of lines) {
     const trimmed = line.trim();
-    const p1Match = trimmed.match(/^\[P1\]\s*(.+)/);
-    if (p1Match?.[1]) { p1.push(p1Match[1].trim()); continue; }
-    const p2Match = trimmed.match(/^\[P2\]\s*(.+)/);
-    if (p2Match?.[1]) { p2.push(p2Match[1].trim()); continue; }
-    const p3Match = trimmed.match(/^\[P3\]\s*(.+)/);
-    if (p3Match?.[1]) { p3.push(p3Match[1].trim()); continue; }
+    const match = trimmed.match(P_ITEM_REGEX);
+    if (match?.[1] && match[2]) {
+      const level = match[1];
+      const desc = match[2].trim();
+      if (level === '1') p1.push(desc);
+      else if (level === '2') p2.push(desc);
+      else p3.push(desc);
+    }
   }
 
-  // VERDICT line — default to NEEDS_FIX if P1/P2 found but no explicit verdict
+  // VERDICT line
   const verdictMatch = text.match(/VERDICT:\s*(APPROVED|NEEDS_FIX)/i);
   let approved = false;
   if (verdictMatch) {
     approved = verdictMatch[1]!.toUpperCase() === 'APPROVED';
   } else {
-    // Fallback: if no P1/P2 issues, treat as approved
-    approved = p1.length === 0 && p2.length === 0;
+    // Fail-closed: if no VERDICT, only approve when text is empty or trivially short
+    // Non-trivial text without explicit VERDICT → not approved (safer)
+    const hasAnyPItems = p1.length > 0 || p2.length > 0 || p3.length > 0;
+    const isSubstantial = text.trim().length > 20;
+    approved = !isSubstantial && !hasAnyPItems;
   }
 
   return { approved, p1, p2, p3 };

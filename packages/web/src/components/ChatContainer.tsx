@@ -156,8 +156,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onAuthorizationResponse: handleAuthResponse,
     onModeChanged: (data) => {
       if (data.action === 'started' && data.mode) {
-        const m = data.mode as { record: { name: string; config: Record<string, unknown>; startedAt: string } };
-        setCurrentMode({ name: m.record.name, config: m.record.config, startedAt: m.record.startedAt });
+        const m = data.mode as { record: { name: string; config: Record<string, unknown>; startedAt: string }; state?: Record<string, unknown> };
+        setCurrentMode({ name: m.record.name, config: m.record.config, startedAt: m.record.startedAt, ...(m.state ? { state: m.state } : {}) });
       } else {
         setCurrentMode(null);
       }

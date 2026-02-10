@@ -256,6 +256,49 @@ describe('ModeOrchestrator', () => {
     assert.equal(messages[1].type, 'done');
   });
 
+  it('detects @mode:dev-loop (hyphenated mode name)', async () => {
+    const modeStore = new ModeStore();
+    const orchestrator = new ModeOrchestrator({ modeStore });
+
+    const switchHandler = {
+      async *execute() {
+        yield { type: 'text', catId: 'opus', content: '这个任务适合开发自闭环\n@mode:dev-loop', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+      getNextState(_config, state) { return state; },
+      shouldAutoEnd() { return false; },
+    };
+    orchestrator.registerHandler('brainstorm', switchHandler);
+
+    modeStore.startMode(
+      'thread-hyphen',
+      'brainstorm',
+      { topic: '连字符测试', participants: ['opus'] },
+      'user-1',
+      createInitialState('brainstorm'),
+    );
+
+    const ctx = {
+      strategyDeps: {},
+      message: 'test',
+      userId: 'user-1',
+      threadId: 'thread-hyphen',
+      userMessageId: 'msg-1',
+      routeOptions: {},
+    };
+
+    const messages = [];
+    for await (const msg of orchestrator.execute(ctx)) {
+      messages.push(msg);
+    }
+
+    // text + done + system_info (mode switch proposal for dev-loop)
+    assert.equal(messages.length, 3);
+    const proposal = messages[2];
+    assert.equal(proposal.type, 'system_info');
+    assert.ok(proposal.content.includes('dev-loop'));
+  });
+
   it('auto-ends debate mode when shouldAutoEnd returns true', async () => {
     const modeStore = new ModeStore();
     const orchestrator = new ModeOrchestrator({ modeStore });

@@ -35,8 +35,9 @@ export interface ModeHandler {
     state: ModeState,
   ): AsyncIterable<AgentMessage>;
 
-  /** Compute next state after execution completes */
-  getNextState(config: ModeConfig, state: ModeState): ModeState;
+  /** Compute next state after execution completes.
+   *  threadId is provided so stateful handlers can look up per-thread execution results. */
+  getNextState(config: ModeConfig, state: ModeState, threadId?: string): ModeState;
 
   /** Whether the mode should auto-end after this state transition */
   shouldAutoEnd(config: ModeConfig, state: ModeState): boolean;

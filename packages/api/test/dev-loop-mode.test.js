@@ -63,6 +63,28 @@ describe('DevLoopMode', () => {
       const next = handler.getNextState(config, state);
       assert.equal(next.phase, 'completed');
     });
+
+    it('thread-safe: concurrent threads get their own results', () => {
+      const handler = new DevLoopMode();
+      const config = { requirement: 'test', leadCat: 'opus', reviewCat: 'codex' };
+      const state = { phase: 'developing', iteration: 0, p3Issues: [] };
+
+      // Simulate two threads storing results via the internal Map
+      handler._resultsByThread.set('thread-A', { iteration: 2, p3Issues: ['A-nit'] });
+      handler._resultsByThread.set('thread-B', { iteration: 5, p3Issues: ['B-nit1', 'B-nit2'] });
+
+      // Each getNextState should get its own thread's result
+      const nextA = handler.getNextState(config, state, 'thread-A');
+      assert.equal(nextA.iteration, 2);
+      assert.deepEqual(nextA.p3Issues, ['A-nit']);
+
+      const nextB = handler.getNextState(config, state, 'thread-B');
+      assert.equal(nextB.iteration, 5);
+      assert.deepEqual(nextB.p3Issues, ['B-nit1', 'B-nit2']);
+
+      // Map should be cleaned up after read
+      assert.equal(handler._resultsByThread.size, 0);
+    });
   });
 
   describe('shouldAutoEnd', () => {

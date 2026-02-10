@@ -25,8 +25,8 @@ const MODE_HANDLERS: Record<ModeName, ModeHandler> = {
   'dev-loop': new DevLoopMode(),
 };
 
-/** Detect @mode:<name> pattern in completed cat responses */
-const MODE_SWITCH_PATTERN = /^@mode:(\w+)/m;
+/** Detect @mode:<name> pattern in completed cat responses ([\w-]+ to support hyphenated names like dev-loop) */
+const MODE_SWITCH_PATTERN = /^@mode:([\w-]+)/m;
 
 export interface ModeOrchestratorOpts {
   modeStore: IModeStore;
@@ -78,8 +78,8 @@ export class ModeOrchestrator {
       yield msg;
     }
 
-    // Update state after execution
-    const nextState = handler.getNextState(mode.record.config, mode.state);
+    // Update state after execution (threadId needed for per-thread result lookup in DevLoopMode)
+    const nextState = handler.getNextState(mode.record.config, mode.state, ctx.threadId);
     await this.modeStore.updateState(ctx.threadId, nextState);
 
     // Auto-end check — if handler signals mode should end, call endMode + broadcast

@@ -82,6 +82,9 @@
 | 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
 | 54 | 前端测试 `act()` 迁移到 `react` 入口 | [ ] | F11 缅因猫 review | 当前 `import { act } from 'react-dom/test-utils'` 已 deprecated（React 18.3+），应统一迁移到 `import { act } from 'react'`，消除 stderr 警告 |
+| 57 | Brainstorm prompt 传错 catId | [ ] | F11 dev-loop review P2-6 | `BrainstormMode.execute()` 可能传 `participants[0]` 给所有猫的 prompt。确认调用点是否正确传了各猫自己的 catId |
+| 58 | Brainstorm @铲屎官暂停未实现 | [ ] | F11 dev-loop review P2-7 | 设计要求第二轮起"@铲屎官则等待用户回复"。当前 a2a-mentions 只识别猫 mention，不识别用户 mention，无暂停语义 |
+| 59 | switchRequiresApproval 配置行为未落地 | [ ] | F11 dev-loop review P2-4 | `mode.switchRequiresApproval` 配置项存在，但 ModeOrchestrator 只发 system_info 提示，无确认/自动切换决策流 |
 
 ## Feature Requests — 新功能需求
 

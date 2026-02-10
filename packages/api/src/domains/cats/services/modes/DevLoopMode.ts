@@ -93,13 +93,15 @@ export class DevLoopMode implements ModeHandler {
     const summary = buildDevLoopSummary(cfg, iteration + 1, allP3);
     yield this.sysInfo(summary);
 
-    // Store p3Issues + iteration on _lastResult for getNextState
-    this._lastResult = { iteration: iteration + 1, p3Issues: allP3 };
+    // Store result keyed by threadId — safe for concurrent threads on singleton handler
+    this._resultsByThread.set(ctx.threadId, { iteration: iteration + 1, p3Issues: allP3 });
   }
 
-  getNextState(_config: ModeConfig, state: ModeState): ModeState {
+  getNextState(_config: ModeConfig, state: ModeState, threadId?: string): ModeState {
     if (!isDevLoopState(state)) return state;
-    const result = this._lastResult ?? { iteration: state.iteration, p3Issues: state.p3Issues };
+    const key = threadId ?? '';
+    const result = this._resultsByThread.get(key) ?? { iteration: state.iteration, p3Issues: state.p3Issues };
+    this._resultsByThread.delete(key); // Clean up after read
     return {
       phase: 'completed' as const,
       iteration: result.iteration,
@@ -114,8 +116,8 @@ export class DevLoopMode implements ModeHandler {
 
   // ── Private helpers ─────────────────────────────────────
 
-  /** Temp storage for passing loop result to getNextState */
-  private _lastResult?: { iteration: number; p3Issues: string[] };
+  /** Per-thread result storage — avoids concurrent corruption on singleton handler */
+  private _resultsByThread = new Map<string, { iteration: number; p3Issues: string[] }>();
 
   private sysInfo(content: string): AgentMessage {
     return {
