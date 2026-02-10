@@ -102,5 +102,24 @@ curl -X POST ${opts.apiUrl}/api/callbacks/retain-memory \\
   }"
 \`\`\`
 
+### 请求权限（执行危险操作前必须调用）
+\`\`\`bash
+curl -X POST ${opts.apiUrl}/api/callbacks/request-permission \\
+  -H "Content-Type: application/json" \\
+  -d "{
+    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
+    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
+    \\"action\\": \\"git_commit\\",
+    \\"reason\\": \\"提交 bug 修复\\"
+  }"
+\`\`\`
+返回 \`{"status":"granted"}\` / \`{"status":"denied"}\` / \`{"status":"pending","requestId":"..."}\`。
+如果返回 pending，用 requestId 轮询查询状态。
+
+### 查询权限审批状态
+\`\`\`bash
+curl "${opts.apiUrl}/api/callbacks/permission-status?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&requestId=请求ID"
+\`\`\`
+
 注意: 只在需要异步协作时使用这些工具。普通回复直接输出即可。`;
 }

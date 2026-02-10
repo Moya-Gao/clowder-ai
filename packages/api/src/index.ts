@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes } from './routes/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -16,6 +16,10 @@ import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
+import { AuthorizationManager } from './domains/cats/services/AuthorizationManager.js';
+import { AuthorizationRuleStore } from './domains/cats/services/AuthorizationRuleStore.js';
+import { PendingRequestStore } from './domains/cats/services/PendingRequestStore.js';
+import { AuthorizationAuditStore } from './domains/cats/services/AuthorizationAuditStore.js';
 import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
 import { assertStorageReady } from './config/storage-guard.js';
 
@@ -139,6 +143,24 @@ async function main(): Promise<void> {
     taskStore,
     hindsightClient,
     sharedBank: sharedHindsightBank,
+  });
+
+  // Authorization system — 猫猫动态权限
+  const authRuleStore = new AuthorizationRuleStore();
+  const authPendingStore = new PendingRequestStore();
+  const authAuditStore = new AuthorizationAuditStore();
+  const authManager = new AuthorizationManager({
+    ruleStore: authRuleStore,
+    pendingStore: authPendingStore,
+    auditStore: authAuditStore,
+    io: socketManager.getIO(),
+  });
+  await app.register(callbackAuthRoutes, { registry, authManager });
+  await app.register(authorizationRoutes, {
+    authManager,
+    ruleStore: authRuleStore,
+    auditStore: authAuditStore,
+    socketManager,
   });
   await app.register(threadsRoutes, {
     threadStore,

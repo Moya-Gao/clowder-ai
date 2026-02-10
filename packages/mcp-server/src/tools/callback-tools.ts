@@ -133,6 +133,50 @@ export async function handleUpdateTask(input: {
   });
 }
 
+export const requestPermissionInputSchema = {
+  action: z
+    .string()
+    .min(1)
+    .describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
+  reason: z
+    .string()
+    .min(1)
+    .describe('Why you need this permission'),
+  context: z
+    .string()
+    .max(5000)
+    .optional()
+    .describe('Optional additional context for the request'),
+};
+
+export const checkPermissionStatusInputSchema = {
+  requestId: z
+    .string()
+    .min(1)
+    .describe('The requestId returned from a previous request_permission call'),
+};
+
+export async function handleRequestPermission(input: {
+  action: string;
+  reason: string;
+  context?: string | undefined;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/request-permission', {
+    action: input.action,
+    reason: input.reason,
+    ...(input.context ? { context: input.context } : {}),
+  });
+}
+
+export async function handleCheckPermissionStatus(input: {
+  requestId: string;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/permission-status', {
+    requestId: input.requestId,
+  });
+}
+
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
@@ -157,5 +201,19 @@ export const callbackTools = [
     description: 'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
     inputSchema: updateTaskInputSchema,
     handler: handleUpdateTask,
+  },
+  {
+    name: 'cat_cafe_request_permission',
+    description:
+      'Request permission from the user before performing a sensitive action (e.g. git_commit, file_delete). Returns granted/denied immediately if a rule exists, or pending with a requestId if the user needs to approve.',
+    inputSchema: requestPermissionInputSchema,
+    handler: handleRequestPermission,
+  },
+  {
+    name: 'cat_cafe_check_permission_status',
+    description:
+      'Check the status of a previously submitted permission request. Use the requestId returned from request_permission.',
+    inputSchema: checkPermissionStatusInputSchema,
+    handler: handleCheckPermissionStatus,
   },
 ] as const;

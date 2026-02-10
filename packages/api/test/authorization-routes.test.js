@@ -1,0 +1,482 @@
+/**
+ * Authorization Routes Tests
+ * 猫猫授权 HTTP 端点 — callback-auth (猫端) + authorization (铲屎官端)
+ *
+ * Uses Fastify injection (no real HTTP server).
+ */
+
+import { test, describe, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import Fastify from 'fastify';
+
+const { InvocationRegistry } = await import(
+  '../dist/domains/cats/services/InvocationRegistry.js'
+);
+const { AuthorizationRuleStore } = await import(
+  '../dist/domains/cats/services/AuthorizationRuleStore.js'
+);
+const { PendingRequestStore } = await import(
+  '../dist/domains/cats/services/PendingRequestStore.js'
+);
+const { AuthorizationAuditStore } = await import(
+  '../dist/domains/cats/services/AuthorizationAuditStore.js'
+);
+const { AuthorizationManager } = await import(
+  '../dist/domains/cats/services/AuthorizationManager.js'
+);
+const { callbackAuthRoutes } = await import('../dist/routes/callback-auth.js');
+const { authorizationRoutes } = await import('../dist/routes/authorization.js');
+
+function createMockSocketManager() {
+  const events = [];
+  return {
+    broadcastToRoom(room, event, data) {
+      events.push({ room, event, data });
+    },
+    getEvents() {
+      return events;
+    },
+  };
+}
+
+// ---- Callback Auth Routes (cat-facing) ----
+
+describe('POST /api/callbacks/request-permission', () => {
+  let registry;
+  let authManager;
+  let ruleStore;
+
+  beforeEach(() => {
+    registry = new InvocationRegistry();
+    ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 50,
+    });
+  });
+
+  async function createApp() {
+    const app = Fastify();
+    await app.register(callbackAuthRoutes, { registry, authManager });
+    return app;
+  }
+
+  test('returns granted when allow rule exists', async () => {
+    const app = await createApp();
+    ruleStore.add({
+      catId: 'codex',
+      action: 'git_commit',
+      scope: 'global',
+      decision: 'allow',
+      createdBy: 'user-1',
+    });
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId, callbackToken, action: 'git_commit', reason: 'fix bug' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'granted');
+  });
+
+  test('returns denied when deny rule exists', async () => {
+    const app = await createApp();
+    ruleStore.add({
+      catId: 'codex',
+      action: 'file_delete',
+      scope: 'global',
+      decision: 'deny',
+      createdBy: 'user-1',
+    });
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId, callbackToken, action: 'file_delete', reason: 'cleanup' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).status, 'denied');
+  });
+
+  test('returns pending when no rule and timeout', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId, callbackToken, action: 'git_push', reason: 'deploy' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'pending');
+    assert.ok(body.requestId);
+  });
+
+  test('rejects invalid credentials', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId: 'bad', callbackToken: 'bad', action: 'x', reason: 'y' },
+    });
+
+    assert.equal(res.statusCode, 401);
+  });
+
+  test('rejects missing fields', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId: 'x', callbackToken: 'y' },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+});
+
+describe('GET /api/callbacks/permission-status', () => {
+  let registry;
+  let authManager;
+
+  beforeEach(() => {
+    registry = new InvocationRegistry();
+    const ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 50,
+    });
+  });
+
+  async function createApp() {
+    const app = Fastify();
+    await app.register(callbackAuthRoutes, { registry, authManager });
+    return app;
+  }
+
+  test('returns status for existing request', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+
+    // Create a pending request first
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId, callbackToken, action: 'git_commit', reason: 'fix' },
+    });
+    const { requestId } = JSON.parse(createRes.body);
+
+    // Query status
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/permission-status?invocationId=${invocationId}&callbackToken=${callbackToken}&requestId=${requestId}`,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(['waiting', 'pending'].includes(body.status));
+    assert.equal(body.action, 'git_commit');
+  });
+
+  test('returns 404 for nonexistent request', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-1');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/permission-status?invocationId=${invocationId}&callbackToken=${callbackToken}&requestId=nonexistent`,
+    });
+
+    assert.equal(res.statusCode, 404);
+  });
+});
+
+// ---- Authorization Routes (铲屎官-facing) ----
+
+describe('POST /api/authorization/respond', () => {
+  let authManager;
+  let ruleStore;
+  let pendingStore;
+  let auditStore;
+  let socketManager;
+
+  beforeEach(() => {
+    ruleStore = new AuthorizationRuleStore();
+    pendingStore = new PendingRequestStore();
+    auditStore = new AuthorizationAuditStore();
+    authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    socketManager = createMockSocketManager();
+  });
+
+  async function createApp() {
+    const app = Fastify();
+    await app.register(authorizationRoutes, {
+      authManager,
+      ruleStore,
+      auditStore,
+      socketManager,
+    });
+    return app;
+  }
+
+  test('responds to pending request', async () => {
+    const app = await createApp();
+
+    // Create pending request directly
+    const record = pendingStore.create({
+      invocationId: 'inv-1',
+      catId: 'codex',
+      threadId: 'thread-1',
+      action: 'git_commit',
+      reason: 'fix',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/respond',
+      headers: { 'x-user-id': 'user-1' },
+      payload: {
+        requestId: record.requestId,
+        granted: true,
+        scope: 'once',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.record.status, 'granted');
+
+    // Should broadcast via Socket.io
+    const events = socketManager.getEvents();
+    assert.equal(events.length, 1);
+    assert.equal(events[0].event, 'authorization:response');
+  });
+
+  test('returns 404 for nonexistent request', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/respond',
+      headers: { 'x-user-id': 'user-1' },
+      payload: { requestId: 'nonexistent', granted: true, scope: 'once' },
+    });
+
+    assert.equal(res.statusCode, 404);
+  });
+
+  test('returns 401 without x-user-id', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/respond',
+      payload: { requestId: 'x', granted: true, scope: 'once' },
+    });
+
+    assert.equal(res.statusCode, 401);
+  });
+});
+
+describe('GET /api/authorization/pending', () => {
+  test('lists waiting requests', async () => {
+    const ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    const authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    const socketManager = createMockSocketManager();
+
+    pendingStore.create({ invocationId: 'i1', catId: 'codex', threadId: 't1', action: 'a1', reason: 'r1' });
+    pendingStore.create({ invocationId: 'i2', catId: 'opus', threadId: 't2', action: 'a2', reason: 'r2' });
+
+    const app = Fastify();
+    await app.register(authorizationRoutes, { authManager, ruleStore, auditStore, socketManager });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/authorization/pending',
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.pending.length, 2);
+  });
+
+  test('filters by threadId', async () => {
+    const ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    const authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    const socketManager = createMockSocketManager();
+
+    pendingStore.create({ invocationId: 'i1', catId: 'codex', threadId: 't1', action: 'a1', reason: 'r1' });
+    pendingStore.create({ invocationId: 'i2', catId: 'opus', threadId: 't2', action: 'a2', reason: 'r2' });
+
+    const app = Fastify();
+    await app.register(authorizationRoutes, { authManager, ruleStore, auditStore, socketManager });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/authorization/pending?threadId=t1',
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).pending.length, 1);
+  });
+});
+
+describe('Authorization Rules API', () => {
+  let app;
+  let ruleStore;
+
+  beforeEach(async () => {
+    ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    const authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    const socketManager = createMockSocketManager();
+
+    app = Fastify();
+    await app.register(authorizationRoutes, { authManager, ruleStore, auditStore, socketManager });
+  });
+
+  test('POST /api/authorization/rules creates a rule', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/rules',
+      headers: { 'x-user-id': 'user-1' },
+      payload: {
+        catId: 'codex',
+        action: 'git_*',
+        scope: 'global',
+        decision: 'allow',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.rule.catId, 'codex');
+    assert.equal(body.rule.action, 'git_*');
+    assert.equal(ruleStore.size, 1);
+  });
+
+  test('GET /api/authorization/rules lists rules', async () => {
+    ruleStore.add({ catId: 'codex', action: 'git_commit', scope: 'global', decision: 'allow', createdBy: 'u1' });
+    ruleStore.add({ catId: 'opus', action: 'file_delete', scope: 'global', decision: 'deny', createdBy: 'u1' });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/authorization/rules',
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).rules.length, 2);
+  });
+
+  test('DELETE /api/authorization/rules/:id removes rule', async () => {
+    const rule = ruleStore.add({
+      catId: 'codex',
+      action: 'git_commit',
+      scope: 'global',
+      decision: 'allow',
+      createdBy: 'u1',
+    });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/authorization/rules/${rule.id}`,
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(ruleStore.size, 0);
+  });
+
+  test('DELETE nonexistent rule returns 404', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/authorization/rules/nonexistent',
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 404);
+  });
+});
+
+describe('GET /api/authorization/audit', () => {
+  test('returns audit entries', async () => {
+    const ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    const authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    const socketManager = createMockSocketManager();
+
+    auditStore.append({
+      requestId: 'r1',
+      invocationId: 'i1',
+      catId: 'codex',
+      threadId: 't1',
+      action: 'git_commit',
+      reason: 'fix',
+      decision: 'allow',
+    });
+
+    const app = Fastify();
+    await app.register(authorizationRoutes, { authManager, ruleStore, auditStore, socketManager });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/authorization/audit',
+      headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.entries.length, 1);
+    assert.equal(body.entries[0].action, 'git_commit');
+  });
+});
