@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChatStore, type Thread } from '@/stores/chatStore';
-import { getUserId } from '@/utils/userId';
 import { CatAvatar } from './CatAvatar';
 import { TaskPanel } from './TaskPanel';
 import { PawIcon } from './icons/PawIcon';
@@ -270,7 +269,7 @@ export function ThreadSidebar() {
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
     try {
-      const res = await apiFetch(`/api/threads?userId=${encodeURIComponent(getUserId())}`);
+      const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
       setThreads(data.threads ?? []);
@@ -297,7 +296,6 @@ export function ThreadSidebar() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: getUserId(),
           ...(projectPath ? { projectPath } : {}),
         }),
       });

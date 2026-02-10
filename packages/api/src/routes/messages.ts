@@ -31,6 +31,7 @@ import type { InvocationTracker } from '../domains/cats/services/InvocationTrack
 import type { AutoSummarizer } from '../domains/cats/services/AutoSummarizer.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
@@ -54,7 +55,6 @@ const getMessagesSchema = z.object({
   limit: z.coerce.number().int().min(1).max(200).default(50),
   /** Cursor: "timestamp:id" or legacy plain timestamp */
   before: z.string().optional(),
-  userId: z.string().min(1).max(100).default('default-user'),
   threadId: z.string().min(1).max(100).optional(),
 });
 
@@ -76,7 +76,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
   // POST /api/messages - 发送消息（WebSocket 广播）
   app.post('/api/messages', async (request, reply) => {
     let content: string;
-    let userId: string;
+    let legacyUserId: string | undefined;
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
     let idempotencyKey: string | undefined;
@@ -88,7 +88,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         reply.status(400);
         return { error: parsed.error };
       }
-      ({ content, userId, threadId, contentBlocks } = parsed);
+      ({ content, userId: legacyUserId, threadId, contentBlocks } = parsed);
       if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
         idempotencyKey = parsed.idempotencyKey;
       }
@@ -99,7 +99,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         reply.status(400);
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
-      ({ content, userId, threadId, idempotencyKey } = parseResult.data);
+      ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
+    }
+
+    const userId = resolveUserId(request, {
+      fallbackUserId: legacyUserId,
+      defaultUserId: 'default-user',
+    });
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
 
     // Default to 'default' thread for lobby (prevents global broadcast)
@@ -335,7 +344,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     if (!parseResult.success) {
       return { messages: [], hasMore: false };
     }
-    const { limit, before, userId, threadId } = parseResult.data;
+    const { limit, before, threadId } = parseResult.data;
+    const userId = resolveUserId(request, { defaultUserId: 'default-user' });
+    if (!userId) {
+      return { messages: [], hasMore: false };
+    }
 
     // Parse composite cursor "timestamp:id" or legacy plain timestamp
     let beforeTs: number | undefined;

@@ -43,7 +43,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   useEffect(() => {
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
-      query: { userId: getUserId() },
+      auth: { userId: getUserId() },
     });
 
     socket.on('connect', () => {
