@@ -10,6 +10,8 @@
 
 ## What: 四个 commit，完成 ADR-008 消息可变性后端全部阶段
 
+> **S4 去哪了？** ADR-008 原始分期中 S4 = Retry 端点。实际实施时我们把它合并到 S2（IdempotencyKey + Retry + CAS Lua）一起做了，缅因猫已在 S1/S2 review 中放行（5 轮 R1→R4 + Redis double-prefix fix）。所以本轮 review 从 S3 跳到 S5，编号不连续但覆盖完整。
+
 | Commit | Stage | 改动 | 新增测试 |
 |--------|-------|------|----------|
 | `07c8006` | S3: Cursor deferred ack | 4 files | 3 |
