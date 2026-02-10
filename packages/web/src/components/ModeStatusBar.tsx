@@ -8,6 +8,7 @@ import { getUserId } from '@/utils/userId';
 const MODE_LABELS: Record<string, { icon: string; label: string }> = {
   brainstorm: { icon: '\u{1F9E0}', label: '\u5934\u8111\u98CE\u66B4' },
   debate: { icon: '\u2694\uFE0F', label: '\u8FA9\u8BBA' },
+  'dev-loop': { icon: '\uD83D\uDD04', label: '\u5F00\u53D1\u81EA\u95ED\u73AF' },
 };
 
 function useElapsed(startedAt: string | undefined): string {
@@ -84,7 +85,13 @@ export function ModeStatusBar() {
   if (!currentMode?.config) return null;
 
   const info = MODE_LABELS[currentMode.name] ?? { icon: '\u{1F504}', label: currentMode.name };
-  const topic = String((currentMode.config as Record<string, unknown>).topic ?? '...');
+  const cfg = currentMode.config as Record<string, unknown>;
+  const topic = currentMode.name === 'dev-loop'
+    ? String(cfg.requirement ?? '...')
+    : String(cfg.topic ?? '...');
+  const devLoopPhase = currentMode.name === 'dev-loop' && currentMode.state
+    ? (currentMode.state as Record<string, unknown>)
+    : null;
 
   return (
     <div className="flex items-center gap-2 px-4 py-1.5 bg-indigo-50 dark:bg-indigo-950 border-b border-indigo-200 dark:border-indigo-800 text-sm text-indigo-700 dark:text-indigo-300">
@@ -92,6 +99,15 @@ export function ModeStatusBar() {
       <span className="font-medium">{info.label}</span>
       <span className="text-indigo-400 dark:text-indigo-500">&middot;</span>
       <span className="truncate flex-1">{topic}</span>
+      {devLoopPhase && (
+        <>
+          <span className="text-indigo-400 dark:text-indigo-500">&middot;</span>
+          <span className="text-xs font-mono whitespace-nowrap">
+            {String(devLoopPhase.phase ?? '')}
+            {typeof devLoopPhase.iteration === 'number' ? ` (\u7B2C ${devLoopPhase.iteration + 1} \u8F6E)` : ''}
+          </span>
+        </>
+      )}
       {elapsed && (
         <>
           <span className="text-indigo-400 dark:text-indigo-500">&middot;</span>

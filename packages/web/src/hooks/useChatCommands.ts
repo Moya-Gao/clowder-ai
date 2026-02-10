@@ -599,9 +599,12 @@ export function useChatCommands() {
             const data = await res.json();
             if (data.mode) {
               const m = data.mode;
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `当前模式: ${m.record.name}\n议题: ${m.record.config.topic}\n状态: 第 ${m.state.currentRound} 轮`, timestamp: Date.now() });
+              const statusText = m.record.name === 'dev-loop'
+                ? `当前模式: dev-loop\n需求: ${m.record.config.requirement}\n阶段: ${m.state.phase} (第 ${(m.state.iteration ?? 0) + 1} 轮)`
+                : `当前模式: ${m.record.name}\n议题: ${m.record.config.topic}\n状态: 第 ${m.state.currentRound} 轮`;
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: statusText, timestamp: Date.now() });
             } else {
-              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]', timestamp: Date.now() });
+              addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]\n       /mode dev-loop @开发猫 @review猫 <需求>', timestamp: Date.now() });
             }
           } catch (err) {
             addMessage({ id: `err-${Date.now()}`, type: 'system', content: `查询模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
@@ -612,8 +615,8 @@ export function useChatCommands() {
         // /mode brainstorm <topic> @猫A @猫B...
         // /mode debate <topic> @猫A @猫B [rounds]
         const modeName = modeArgs.split(/\s+/)[0]?.toLowerCase();
-        if (modeName !== 'brainstorm' && modeName !== 'debate') {
-          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `未知模式: ${modeName}\n可用: brainstorm, debate`, timestamp: Date.now() });
+        if (modeName !== 'brainstorm' && modeName !== 'debate' && modeName !== 'dev-loop') {
+          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `未知模式: ${modeName}\n可用: brainstorm, debate, dev-loop`, timestamp: Date.now() });
           return true;
         }
 
@@ -630,6 +633,37 @@ export function useChatCommands() {
         }
         const topic = restArgs.replace(mentionPattern, '').replace(/\d+$/, '').trim();
         const roundsMatch = restArgs.match(/(\d+)\s*$/);
+
+        if (modeName === 'dev-loop') {
+          // /mode dev-loop @开发猫 @review猫 <需求>
+          const requirement = topic; // remaining text after removing @mentions
+          if (!requirement) {
+            addMessage({ id: `err-${Date.now()}`, type: 'system', content: '用法: /mode dev-loop @开发猫 @review猫 <需求描述>', timestamp: Date.now() });
+            return true;
+          }
+          if (mentions.length < 2) {
+            addMessage({ id: `err-${Date.now()}`, type: 'system', content: '需要指定两只猫: @开发猫 @review猫', timestamp: Date.now() });
+            return true;
+          }
+          try {
+            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const config = { requirement, leadCat: mentions[0], reviewCat: mentions[1] };
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: 'dev-loop', config, triggeredBy: getUserId() }),
+            });
+            if (!res.ok) {
+              const errData = await res.json().catch(() => null);
+              throw new Error(errData?.error ?? `Server error: ${res.status}`);
+            }
+            await res.json();
+            addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `🔄 dev-loop 模式已启动\n需求: ${requirement}\n开发: @${mentions[0]} · Review: @${mentions[1]}`, timestamp: Date.now() });
+          } catch (err) {
+            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+          }
+          return true;
+        }
 
         if (!topic) {
           addMessage({ id: `err-${Date.now()}`, type: 'system', content: `用法: /mode ${modeName} <议题> @猫A @猫B`, timestamp: Date.now() });

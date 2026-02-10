@@ -5,7 +5,13 @@
  * Each builder returns a string that gets appended to the standard identity prompt.
  */
 
-import type { CatId, BrainstormConfig, BrainstormState, DebateConfig, DebateState } from '@cat-cafe/shared';
+import type {
+  CatId,
+  BrainstormConfig, BrainstormState,
+  DebateConfig, DebateState,
+  DevLoopConfig,
+} from '@cat-cafe/shared';
+import type { ReviewResult } from './dev-loop-parser.js';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 
 function catDisplayName(catId: CatId): string {
@@ -74,6 +80,92 @@ export function buildDebatePrompt(
   lines.push('- 回应对手的论点，指出漏洞');
   lines.push('- 引用事实和例子支撑你的观点');
   lines.push('- 保持理性和尊重，不要人身攻击');
+
+  return lines.join('\n');
+}
+
+// ─── Dev-Loop Prompts ──────────────────────────────────
+
+/**
+ * 开发阶段 system prompt
+ * iteration=0 → 首次开发；>0 → 修复
+ */
+export function buildDevLoopDevPrompt(
+  config: DevLoopConfig,
+  iteration: number,
+): string {
+  const lines: string[] = [];
+  lines.push(`## 🔄 开发自闭环模式`);
+  lines.push(`需求：${config.requirement}`);
+  lines.push('');
+
+  if (iteration === 0) {
+    lines.push('**阶段：开发**');
+    lines.push('你是主开发猫。请根据上面的需求进行开发。');
+    lines.push('用户消息中包含具体的需求描述和上下文。');
+  } else {
+    lines.push(`**阶段：修复（第 ${iteration + 1} 轮）**`);
+    lines.push('你是主开发猫。上一轮 review 发现了问题，请修复。');
+    lines.push('用户消息中包含需要修复的内容。');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Review 阶段 system prompt
+ * 用户消息 = 主开发猫的输出
+ */
+export function buildDevLoopReviewPrompt(config: DevLoopConfig): string {
+  const lines: string[] = [];
+  lines.push(`## 🔄 开发自闭环模式 — Review`);
+  lines.push(`需求：${config.requirement}`);
+  lines.push('');
+  lines.push('**阶段：Review**');
+  lines.push('你是 review 猫。请审查主开发猫的输出（在用户消息中）。');
+  lines.push('');
+  lines.push('按以下格式分类发现：');
+  lines.push('- `[P1] 描述` — 必须修复的严重问题');
+  lines.push('- `[P2] 描述` — 必须修复的一般问题');
+  lines.push('- `[P3] 描述` — 建议优化，不阻断合入');
+  lines.push('');
+  lines.push('最后必须以下面一行结尾：');
+  lines.push('- 通过：`VERDICT: APPROVED`');
+  lines.push('- 需要修复：`VERDICT: NEEDS_FIX`');
+
+  return lines.join('\n');
+}
+
+/**
+ * 修复阶段 system prompt
+ * 包含 review 发现的 P1/P2 问题列表
+ */
+export function buildDevLoopFixPrompt(
+  config: DevLoopConfig,
+  result: ReviewResult,
+): string {
+  const lines: string[] = [];
+  lines.push(`## 🔄 开发自闭环模式 — 修复`);
+  lines.push(`需求：${config.requirement}`);
+  lines.push('');
+  lines.push('**阶段：修复**');
+  lines.push('Review 猫发现了以下问题，请修复：');
+  lines.push('');
+
+  for (const issue of result.p1) {
+    lines.push(`[P1] ${issue}`);
+  }
+  for (const issue of result.p2) {
+    lines.push(`[P2] ${issue}`);
+  }
+
+  if (result.p3.length > 0) {
+    lines.push('');
+    lines.push('以下 P3 已记录，无需修复：');
+    for (const issue of result.p3) {
+      lines.push(`[P3] ${issue}`);
+    }
+  }
 
   return lines.join('\n');
 }

@@ -16,11 +16,13 @@ import type { ModeHandler, ModeExecutionContext } from './modes/mode-types.js';
 import type { SocketManager } from '../../../infrastructure/websocket/index.js';
 import { BrainstormMode } from './modes/BrainstormMode.js';
 import { DebateMode } from './modes/DebateMode.js';
+import { DevLoopMode } from './modes/DevLoopMode.js';
 
 /** Registry of mode handlers, extensible for future modes */
 const MODE_HANDLERS: Record<ModeName, ModeHandler> = {
   brainstorm: new BrainstormMode(),
   debate: new DebateMode(),
+  'dev-loop': new DevLoopMode(),
 };
 
 /** Detect @mode:<name> pattern in completed cat responses */

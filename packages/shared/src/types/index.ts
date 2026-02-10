@@ -113,9 +113,11 @@ export type {
   ModeName,
   BrainstormConfig,
   DebateConfig,
+  DevLoopConfig,
   ModeConfig,
   BrainstormState,
   DebateState,
+  DevLoopState,
   ModeState,
   ThreadModeRecord,
   ThreadMode,
@@ -126,4 +128,6 @@ export {
   isDebateConfig,
   isBrainstormState,
   isDebateState,
+  isDevLoopConfig,
+  isDevLoopState,
 } from './modes.js';

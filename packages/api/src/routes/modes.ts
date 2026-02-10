@@ -15,7 +15,7 @@ import type { IModeStore } from '../domains/cats/services/ModeStore.js';
 import { createInitialState } from '../domains/cats/services/ModeStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import type { ModeName, ModeConfig, BrainstormConfig, DebateConfig } from '@cat-cafe/shared';
+import type { ModeName, ModeConfig, BrainstormConfig, DebateConfig, DevLoopConfig } from '@cat-cafe/shared';
 
 export interface ModesRoutesOptions {
   modeStore: IModeStore;
@@ -23,7 +23,7 @@ export interface ModesRoutesOptions {
   socketManager: SocketManager;
 }
 
-const VALID_MODES: readonly ModeName[] = ['brainstorm', 'debate'] as const;
+const VALID_MODES: readonly ModeName[] = ['brainstorm', 'debate', 'dev-loop'] as const;
 
 /** Valid cat IDs derived from CAT_CONFIGS */
 const VALID_CAT_IDS = new Set(Object.keys(CAT_CONFIGS));
@@ -50,8 +50,18 @@ const debateConfigSchema = z.object({
   { message: 'catA and catB must be different cats', path: ['catB'] },
 );
 
+const devLoopConfigSchema = z.object({
+  requirement: z.string().min(1).max(2000),
+  leadCat: catIdString,
+  reviewCat: catIdString,
+  maxIterations: z.number().int().min(1).max(10).optional(),
+}).refine(
+  (data) => data.leadCat !== data.reviewCat,
+  { message: 'leadCat and reviewCat must be different cats', path: ['reviewCat'] },
+);
+
 const startModeSchema = z.object({
-  name: z.enum(['brainstorm', 'debate']),
+  name: z.enum(['brainstorm', 'debate', 'dev-loop']),
   config: z.record(z.unknown()),
 });
 
@@ -102,13 +112,20 @@ export const modesRoutes: FastifyPluginAsync<ModesRoutesOptions> = async (app, o
           return { error: 'Invalid brainstorm config', details: r.error.issues };
         }
         validatedConfig = r.data as BrainstormConfig;
-      } else {
+      } else if (name === 'debate') {
         const r = debateConfigSchema.safeParse(rawConfig);
         if (!r.success) {
           reply.status(400);
           return { error: 'Invalid debate config', details: r.error.issues };
         }
         validatedConfig = r.data as DebateConfig;
+      } else {
+        const r = devLoopConfigSchema.safeParse(rawConfig);
+        if (!r.success) {
+          reply.status(400);
+          return { error: 'Invalid dev-loop config', details: r.error.issues };
+        }
+        validatedConfig = r.data as DevLoopConfig;
       }
 
       const initialState = createInitialState(name);

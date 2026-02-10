@@ -97,6 +97,7 @@ export interface ConfigSnapshot {
   mode: {
     switchRequiresApproval: boolean;
     availableModes: string[];
+    devLoopMaxIterations: number;
   };
   /** Hindsight long-term memory integration (Phase 5.0) */
   hindsight: {
@@ -198,7 +199,8 @@ export function collectConfigSnapshot(): ConfigSnapshot {
     deliberate: { status: 'types_only' },
     mode: {
       switchRequiresApproval: (env['MODE_SWITCH_REQUIRES_APPROVAL'] ?? 'true') !== 'false',
-      availableModes: ['brainstorm', 'debate'],
+      availableModes: ['brainstorm', 'debate', 'dev-loop'],
+      devLoopMaxIterations: Math.min(10, Math.max(1, Number(env['DEV_LOOP_MAX_ITERATIONS']) || 5)),
     },
     hindsight: {
       enabled: true,

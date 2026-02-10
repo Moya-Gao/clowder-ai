@@ -109,5 +109,8 @@ export function createInitialState(name: ModeName): ModeState {
   if (name === 'brainstorm') {
     return { roundOneComplete: false, currentRound: 1 };
   }
+  if (name === 'dev-loop') {
+    return { phase: 'developing' as const, iteration: 0, p3Issues: [] };
+  }
   return { currentRound: 1, nextSpeaker: 'catA' as const };
 }

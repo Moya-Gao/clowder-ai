@@ -668,3 +668,99 @@ describe('ModeStore', () => {
     assert.equal(store.endMode('t1'), null);
   });
 });
+
+// ── Dev-Loop Route Tests ──
+
+describe('POST /mode dev-loop', () => {
+  it('starts a dev-loop mode with valid config', async () => {
+    const { app, socketManager } = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/mode',
+      headers: AUTH,
+      payload: {
+        name: 'dev-loop',
+        config: { requirement: '实现登录功能', leadCat: 'opus', reviewCat: 'codex' },
+      },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.record.name, 'dev-loop');
+    assert.equal(body.record.config.requirement, '实现登录功能');
+    assert.equal(body.state.phase, 'developing');
+    assert.equal(body.state.iteration, 0);
+
+    const events = socketManager.getEvents();
+    assert.ok(events.some(e => e.data.action === 'started'));
+  });
+
+  it('rejects dev-loop with leadCat === reviewCat', async () => {
+    const { app } = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/mode',
+      headers: AUTH,
+      payload: {
+        name: 'dev-loop',
+        config: { requirement: '测试', leadCat: 'opus', reviewCat: 'opus' },
+      },
+    });
+
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error.includes('dev-loop'));
+  });
+
+  it('rejects dev-loop with invalid cat ID', async () => {
+    const { app } = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/mode',
+      headers: AUTH,
+      payload: {
+        name: 'dev-loop',
+        config: { requirement: '测试', leadCat: 'invalid-cat', reviewCat: 'codex' },
+      },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('rejects dev-loop with empty requirement', async () => {
+    const { app } = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/mode',
+      headers: AUTH,
+      payload: {
+        name: 'dev-loop',
+        config: { requirement: '', leadCat: 'opus', reviewCat: 'codex' },
+      },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('accepts dev-loop with optional maxIterations', async () => {
+    const { app } = await buildApp();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/mode',
+      headers: AUTH,
+      payload: {
+        name: 'dev-loop',
+        config: { requirement: '测试', leadCat: 'opus', reviewCat: 'codex', maxIterations: 3 },
+      },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.record.config.maxIterations, 3);
+  });
+});

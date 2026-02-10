@@ -9,8 +9,8 @@ import type { CatId } from './ids.js';
 
 // ─── Mode Names ──────────────────────────────────────────
 
-/** 可用模式名（dev-loop 在 Phase 2 实现） */
-export type ModeName = 'brainstorm' | 'debate';
+/** 可用模式名 */
+export type ModeName = 'brainstorm' | 'debate' | 'dev-loop';
 
 // ─── Mode Configs ────────────────────────────────────────
 
@@ -36,8 +36,20 @@ export interface DebateConfig {
   rounds?: number;
 }
 
+/** 开发自闭环配置 */
+export interface DevLoopConfig {
+  /** 需求描述 */
+  requirement: string;
+  /** 主开发猫 */
+  leadCat: CatId;
+  /** Review 猫 */
+  reviewCat: CatId;
+  /** 最大修复轮次（默认 5） */
+  maxIterations?: number;
+}
+
 /** 模式配置联合类型 */
-export type ModeConfig = BrainstormConfig | DebateConfig;
+export type ModeConfig = BrainstormConfig | DebateConfig | DevLoopConfig;
 
 // ─── Mode State (跨 invocation 持久) ─────────────────────
 
@@ -57,8 +69,18 @@ export interface DebateState {
   nextSpeaker: 'catA' | 'catB';
 }
 
+/** 开发自闭环运行状态 */
+export interface DevLoopState {
+  /** 当前阶段 */
+  phase: 'developing' | 'reviewing' | 'fixing' | 'completed';
+  /** 当前修复迭代（从 0 开始） */
+  iteration: number;
+  /** 累积的 P3 记录 */
+  p3Issues: string[];
+}
+
 /** 模式状态联合类型 */
-export type ModeState = BrainstormState | DebateState;
+export type ModeState = BrainstormState | DebateState | DevLoopState;
 
 // ─── Mode Records (审计 + 流转历史) ──────────────────────
 
@@ -102,4 +124,12 @@ export function isBrainstormState(state: ModeState): state is BrainstormState {
 
 export function isDebateState(state: ModeState): state is DebateState {
   return 'nextSpeaker' in state;
+}
+
+export function isDevLoopConfig(config: ModeConfig): config is DevLoopConfig {
+  return 'leadCat' in config && 'reviewCat' in config;
+}
+
+export function isDevLoopState(state: ModeState): state is DevLoopState {
+  return 'phase' in state;
 }

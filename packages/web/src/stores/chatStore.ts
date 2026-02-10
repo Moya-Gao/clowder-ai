@@ -97,7 +97,7 @@ interface ChatState {
   catInvocations: Record<string, CatInvocationInfo>;
 
   // Mode state (F11)
-  currentMode: { name: string; config: Record<string, unknown>; startedAt: string } | null;
+  currentMode: { name: string; config: Record<string, unknown>; startedAt: string; state?: Record<string, unknown> } | null;
 
   // Thread state
   currentThreadId: string;
