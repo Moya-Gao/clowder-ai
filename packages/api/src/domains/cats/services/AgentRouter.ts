@@ -241,6 +241,8 @@ export class AgentRouter {
       contentBlocks?: readonly MessageContent[];
       uploadDir?: string;
       signal?: AbortSignal;
+      /** ADR-008 S3: pass a Map to collect cursor boundaries; caller acks after succeeded */
+      cursorBoundaries?: Map<string, string>;
     },
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
@@ -256,6 +258,7 @@ export class AgentRouter {
       signal: options?.signal,
       promptTags: intent.promptTags,
       currentUserMessageId: userMessageId,
+      ...(options?.cursorBoundaries ? { cursorBoundaries: options.cursorBoundaries } : {}),
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {
@@ -266,6 +269,24 @@ export class AgentRouter {
       yield* routeSerial(
         strategyDeps, targetCats, cleanMessage, userId, threadId, routeOptions,
       );
+    }
+  }
+
+  /**
+   * ADR-008 S3: Ack all cursor boundaries collected during execution.
+   * Call ONLY after InvocationRecord.status = 'succeeded'.
+   */
+  async ackCollectedCursors(
+    userId: string,
+    threadId: string,
+    boundaries: Map<string, string>,
+  ): Promise<void> {
+    for (const [catId, boundaryId] of boundaries) {
+      try {
+        await this.deliveryCursorStore.ackCursor(userId, catId as CatId, threadId, boundaryId);
+      } catch (err) {
+        console.error(`[ackCollectedCursors] failed for ${catId}:`, err);
+      }
     }
   }
 }

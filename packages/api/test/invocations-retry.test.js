@@ -25,6 +25,7 @@ function createMockRouter(options = {}) {
       targetCats: ['opus'],
       intent: { intent: 'execute', explicit: false, promptTags: [] },
     }),
+    ackCollectedCursors: async () => {},
   };
 }
 
@@ -172,6 +173,7 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
         targetCats: ['opus'],
         intent: { intent: 'execute', explicit: false, promptTags: [] },
       }),
+      ackCollectedCursors: async () => {},
     };
 
     const storedMsg = messageStore.append({

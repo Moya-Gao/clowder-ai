@@ -109,6 +109,7 @@ export class RedisMessageStore {
 
     const contentBlocks = safeParseContentBlocks(data['contentBlocks']);
     const parsedMetadata = safeParseMetadata(data['metadata']);
+    const deletedAt = data['deletedAt'] ? parseInt(data['deletedAt'], 10) : undefined;
     return {
       id: data['id'],
       threadId: data['threadId'] || DEFAULT_THREAD_ID,
@@ -119,6 +120,8 @@ export class RedisMessageStore {
       ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
       mentions: safeParseMentions(data['mentions']),
       timestamp: parseInt(data['timestamp'] ?? '0', 10),
+      ...(deletedAt ? { deletedAt, deletedBy: data['deletedBy'] ?? '' } : {}),
+      ...(data['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
     };
   }
 
@@ -240,7 +243,8 @@ export class RedisMessageStore {
 
     if (ids.length === 0) return [];
 
-    const messages = await this.hydrateMessages(ids);
+    // ADR-008 D3: cursor path must include deleted messages (tombstones)
+    const messages = await this.hydrateMessages(ids, { includeDeleted: true });
     if (!userId) return messages;
     return messages.filter((m) => m.userId === userId);
   }
@@ -335,8 +339,63 @@ export class RedisMessageStore {
     return ids.length;
   }
 
+  /**
+   * ADR-008 D3: Soft delete — set deletedAt/deletedBy on message hash.
+   */
+  async softDelete(id: string, deletedBy: string): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    const now = Date.now();
+    await this.redis.hset(MessageKeys.detail(id), {
+      deletedAt: String(now),
+      deletedBy,
+    });
+    msg.deletedAt = now;
+    msg.deletedBy = deletedBy;
+    return msg;
+  }
+
+  /**
+   * ADR-008 D3: Hard delete — wipe content, keep tombstone skeleton.
+   */
+  async hardDelete(id: string, deletedBy: string): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    const now = Date.now();
+    await this.redis.hset(MessageKeys.detail(id), {
+      content: '',
+      contentBlocks: '',
+      metadata: '',
+      mentions: '[]',
+      deletedAt: String(now),
+      deletedBy,
+      _tombstone: '1',
+    });
+    msg.content = '';
+    msg.mentions = [];
+    delete msg.contentBlocks;
+    delete msg.metadata;
+    msg.deletedAt = now;
+    msg.deletedBy = deletedBy;
+    msg._tombstone = true;
+    return msg;
+  }
+
+  /**
+   * ADR-008 D3: Restore a soft-deleted message — remove deletedAt/deletedBy.
+   * Rejects tombstones (hard-deleted messages are irreversible).
+   */
+  async restore(id: string): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg || !msg.deletedAt || msg._tombstone) return null;
+    await this.redis.hdel(MessageKeys.detail(id), 'deletedAt', 'deletedBy');
+    delete msg.deletedAt;
+    delete msg.deletedBy;
+    return msg;
+  }
+
   /** Hydrate message IDs into full StoredMessage objects */
-  private async hydrateMessages(ids: string[]): Promise<StoredMessage[]> {
+  private async hydrateMessages(ids: string[], options?: { includeDeleted?: boolean }): Promise<StoredMessage[]> {
     const pipeline = this.redis.multi();
     for (const id of ids) {
       pipeline.hgetall(MessageKeys.detail(id));
@@ -350,6 +409,11 @@ export class RedisMessageStore {
       const d = data as Record<string, string>;
       if (!d['id']) continue;
 
+      const deletedAt = d['deletedAt'] ? parseInt(d['deletedAt'], 10) : undefined;
+
+      // ADR-008 D3: skip soft-deleted messages unless includeDeleted
+      if (deletedAt && !options?.includeDeleted) continue;
+
       const contentBlocks = safeParseContentBlocks(d['contentBlocks']);
       const parsedMetadata = safeParseMetadata(d['metadata']);
       messages.push({
@@ -362,6 +426,8 @@ export class RedisMessageStore {
         ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
         mentions: safeParseMentions(d['mentions']),
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
+        ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),
+        ...(d['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
       });
     }
     return messages;

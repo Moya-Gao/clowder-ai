@@ -92,6 +92,7 @@ interface ChatState {
 
   // Message actions
   addMessage: (msg: ChatMessage) => void;
+  removeMessage: (id: string) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
@@ -151,6 +152,11 @@ export const useChatStore = create<ChatState>((set) => ({
       }
       return { messages };
     }),
+
+  removeMessage: (id) =>
+    set((state) => ({
+      messages: state.messages.filter((m) => m.id !== id),
+    })),
 
   prependHistory: (msgs, hasMore) =>
     set((state) => {
