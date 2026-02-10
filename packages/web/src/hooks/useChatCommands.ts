@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { getUserId } from '@/utils/userId';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -582,7 +583,7 @@ export function useChatCommands() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               threadId,
-              userId: 'default-user',
+              userId: getUserId(),
               ...(messageCount && !isNaN(messageCount) ? { messageCount } : {}),
             }),
           });

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
+import { getUserId } from '@/utils/userId';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
 
@@ -43,7 +44,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   useEffect(() => {
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
-      query: { userId: 'default-user' },
+      query: { userId: getUserId() },
     });
 
     socket.on('connect', () => {
