@@ -28,6 +28,7 @@ import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCurso
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import type { AutoSummarizer } from '../domains/cats/services/AutoSummarizer.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 
@@ -46,6 +47,7 @@ export interface MessagesRoutesOptions {
   uploadDir?: string;
   invocationTracker?: InvocationTracker;
   invocationRecordStore?: IInvocationRecordStore;
+  autoSummarizer?: AutoSummarizer;
 }
 
 const getMessagesSchema = z.object({
@@ -246,6 +248,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
 
           // ADR-008 S3: cursor advances ONLY after succeeded
           await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+
+          // Fire-and-forget: auto-summarize if threshold met
+          if (opts.autoSummarizer) {
+            opts.autoSummarizer.maybeSummarize(resolvedThreadId).then((summary) => {
+              if (summary) {
+                opts.socketManager.broadcastToRoom(
+                  `thread:${resolvedThreadId}`,
+                  'thread_summary',
+                  summary,
+                );
+              }
+            }).catch(() => { /* ignore */ });
+          }
         } catch (err) {
           console.error('[messages] Background processing error:', err);
           const errorMsg = err instanceof Error ? err.message : 'Unknown error';
