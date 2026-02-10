@@ -13,7 +13,7 @@ ACTION="${1:-status}"
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd -- "$SCRIPT_DIR/.." && pwd)"
-SOURCE_ROOT_PRIMARY="${THREAD_EXPORT_SOURCE_ROOT:-$HOME/Downloads/CatCafeThreadExports}"
+SOURCE_ROOT_PRIMARY="${THREAD_EXPORT_SOURCE_ROOT:-$HOME/Downloads}"
 LEGACY_SOURCE_ROOT="${THREAD_EXPORT_LEGACY_SOURCE_ROOT:-$PROJECT_DIR/docs/discussions}"
 INCLUDE_LEGACY="${THREAD_EXPORT_INCLUDE_LEGACY:-1}"
 REPO_DIR="${THREAD_EXPORT_REPO_DIR:-$PROJECT_DIR/docs/discussions/exported-threads}"
@@ -33,10 +33,10 @@ ensure_dirs() {
 list_source_files() {
   {
     if [[ -d "$SOURCE_ROOT_PRIMARY" ]]; then
-      find "$SOURCE_ROOT_PRIMARY" -type f -name 'thread-thread_*.md'
+      find "$SOURCE_ROOT_PRIMARY" -maxdepth 1 -type f -name 'thread-thread_*.md' 2>/dev/null || true
     fi
     if [[ "$INCLUDE_LEGACY" == "1" && -d "$LEGACY_SOURCE_ROOT" ]]; then
-      find "$LEGACY_SOURCE_ROOT" -type f -name 'thread-thread_*.md' ! -path "$REPO_DIR/*"
+      find "$LEGACY_SOURCE_ROOT" -type f -name 'thread-thread_*.md' ! -path "$REPO_DIR/*" 2>/dev/null || true
     fi
   } | awk '!seen[$0]++' | sort
 }
@@ -119,6 +119,9 @@ status() {
   latest_count="$(find "$OFFSITE_ROOT/latest" -type f -name 'thread-thread_*.md' | wc -l | tr -d ' ')"
   newest_snapshot="$(find "$OFFSITE_ROOT/snapshots" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1 || true)"
   echo "[thread-exports] inbox root:  $SOURCE_ROOT_PRIMARY"
+  if [[ ! -r "$SOURCE_ROOT_PRIMARY" ]]; then
+    echo "[thread-exports] inbox note: current process has no read permission to inbox path"
+  fi
   if [[ "$INCLUDE_LEGACY" == "1" ]]; then
     echo "[thread-exports] legacy src:  $LEGACY_SOURCE_ROOT (enabled)"
   else
