@@ -53,22 +53,39 @@ For personal Redis:
 
 ## 3) Retention settings (for long-term / permanent storage)
 
-Default behavior:
-- `MESSAGE_TTL_SECONDS` = 7 days (default)
-- `THREAD_TTL_SECONDS` = 30 days (default)
-- `TASK_TTL_SECONDS` = 30 days (default)
-- `SUMMARY_TTL_SECONDS` = 30 days (default)
+Current behavior when using `pnpm start`:
+- `MESSAGE_TTL_SECONDS=0`
+- `THREAD_TTL_SECONDS=0`
+- `TASK_TTL_SECONDS=0`
+- `SUMMARY_TTL_SECONDS=0`
 
-Set TTL to `0` or a negative number to disable expiration:
-
-```bash
-export MESSAGE_TTL_SECONDS=0
-export THREAD_TTL_SECONDS=0
-export TASK_TTL_SECONDS=0
-export SUMMARY_TTL_SECONDS=0
-```
+`0` means persistent (no expiration).
 
 Recommended for durability:
 - Keep `appendonly yes` (already enabled in `start-dev.sh` and `user-redis.sh`)
 - Take periodic backups with `pnpm redis:user:backup`
 - Keep backup files outside the repo and sync them to external storage
+
+## 4) Offsite auto backup (already scripted)
+
+Install user Redis auto backup (launchd, default every 60 minutes):
+
+```bash
+pnpm redis:user:autobackup:install
+```
+
+Check status:
+
+```bash
+pnpm redis:user:autobackup:status
+```
+
+Run once immediately:
+
+```bash
+pnpm redis:user:autobackup:run
+```
+
+Default offsite path:
+- If iCloud exists: `~/Library/Mobile Documents/com~apple~CloudDocs/CatCafeRedisBackups/user`
+- Otherwise: `~/.cat-cafe/redis-offsite-backups/user`

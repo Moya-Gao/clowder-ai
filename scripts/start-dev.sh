@@ -58,6 +58,13 @@ REDIS_PIDFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.pid"
 REDIS_LOGFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.log"
 STARTED_REDIS=false
 
+# 默认永久保留（用户无需手动配置 TTL）
+MESSAGE_TTL_SECONDS=${MESSAGE_TTL_SECONDS:-0}
+THREAD_TTL_SECONDS=${THREAD_TTL_SECONDS:-0}
+TASK_TTL_SECONDS=${TASK_TTL_SECONDS:-0}
+SUMMARY_TTL_SECONDS=${SUMMARY_TTL_SECONDS:-0}
+export MESSAGE_TTL_SECONDS THREAD_TTL_SECONDS TASK_TTL_SECONDS SUMMARY_TTL_SECONDS
+
 # 杀掉占用端口的进程
 kill_port() {
     local port=$1
@@ -283,6 +290,8 @@ main() {
     echo ""
     echo -e "${CYAN}检查依赖...${NC}"
     setup_storage
+    echo "  数据保留 (秒): message=${MESSAGE_TTL_SECONDS} thread=${THREAD_TTL_SECONDS} task=${TASK_TTL_SECONDS} summary=${SUMMARY_TTL_SECONDS}"
+    echo "  注: 0 表示永久保留（不自动过期）"
 
     # 5. 启动服务
     echo ""
