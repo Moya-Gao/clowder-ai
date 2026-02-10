@@ -37,13 +37,39 @@ describe('getCodexIsolatedHome', () => {
       'AGENTS.md should NOT be copied to isolated dir',
     );
 
-    // Auth files should be copied if they exist in real home
+    // Auth file should exist if it exists in real home
     const realCodexDir = join(homedir(), '.codex');
     if (existsSync(join(realCodexDir, 'auth.json'))) {
       assert.ok(
         existsSync(join(isolatedCodexDir, 'auth.json')),
-        'auth.json should be copied',
+        'auth.json should exist in isolated dir',
       );
+    }
+  });
+
+  it('oauth auth.json uses symlink to real HOME for token refresh persistence', async () => {
+    const fakeHome = join(tmpdir(), 'cat-cafe-test-auth-symlink-home-' + Date.now());
+    const fakeCodexDir = join(fakeHome, '.codex');
+    mkdirSync(fakeCodexDir, { recursive: true });
+    writeFileSync(join(fakeCodexDir, 'auth.json'), '{"access_token":"old"}');
+
+    const originalHome = process.env['HOME'];
+    try {
+      process.env['HOME'] = fakeHome;
+
+      const mod = await import('../dist/utils/cli-config-isolation.js');
+      mod.resetCodexIsolatedHome();
+      const isolatedHome = mod.getCodexIsolatedHome();
+      const isolatedAuth = join(isolatedHome, '.codex', 'auth.json');
+
+      assert.ok(existsSync(isolatedAuth), 'isolated auth.json should exist');
+      const stat = lstatSync(isolatedAuth);
+      assert.ok(stat.isSymbolicLink(), 'isolated auth.json should be symlinked to real HOME');
+      const linkedPath = readFileSync(isolatedAuth, 'utf-8');
+      assert.equal(linkedPath, '{"access_token":"old"}');
+    } finally {
+      process.env['HOME'] = originalHome;
+      try { rmSync(fakeHome, { recursive: true, force: true }); } catch { /* ok */ }
     }
   });
 

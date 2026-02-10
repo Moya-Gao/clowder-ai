@@ -380,6 +380,27 @@ export const updateTaskInputSchema = {
     .describe('Optional note explaining the status change'),
 };
 
+export const searchEvidenceInputSchema = {
+  query: z.string().trim().min(1).describe('Evidence query string'),
+  limit: z.number().int().min(1).max(20).optional().describe('Maximum number of results (default: 5)'),
+  budget: z.enum(['low', 'mid', 'high']).optional().describe('Recall budget profile'),
+  tags: z.string().optional().describe('Comma-separated tags (example: project:cat-cafe,kind:decision)'),
+  tagsMatch: z
+    .enum(['any', 'all', 'any_strict', 'all_strict'])
+    .optional()
+    .describe('Tag matching strategy'),
+};
+
+export const reflectProjectInputSchema = {
+  query: z.string().trim().min(1).describe('Reflection question'),
+};
+
+export const retainMemoryInputSchema = {
+  content: z.string().trim().min(1).describe('Memory content to retain'),
+  tags: z.array(z.string().min(1)).optional().describe('Optional memory tags'),
+  metadata: z.record(z.string()).optional().describe('Optional metadata (string values only)'),
+};
+
 // ============ Tool Handlers ============
 
 export async function handlePostMessage(input: {
@@ -420,6 +441,42 @@ export async function handleUpdateTask(input: {
   });
 }
 
+export async function handleSearchEvidence(input: {
+  query: string;
+  limit?: number | undefined;
+  budget?: 'low' | 'mid' | 'high' | undefined;
+  tags?: string | undefined;
+  tagsMatch?: 'any' | 'all' | 'any_strict' | 'all_strict' | undefined;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/search-evidence', {
+    q: input.query,
+    ...(input.limit != null ? { limit: String(input.limit) } : {}),
+    ...(input.budget ? { budget: input.budget } : {}),
+    ...(input.tags ? { tags: input.tags } : {}),
+    ...(input.tagsMatch ? { tagsMatch: input.tagsMatch } : {}),
+  });
+}
+
+export async function handleReflectProject(input: {
+  query: string;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/reflect', {
+    query: input.query,
+  });
+}
+
+export async function handleRetainMemory(input: {
+  content: string;
+  tags?: string[] | undefined;
+  metadata?: Record<string, string> | undefined;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/retain-memory', {
+    content: input.content,
+    ...(input.tags ? { tags: input.tags } : {}),
+    ...(input.metadata ? { metadata: input.metadata } : {}),
+  });
+}
+
 // ============ Tool Definitions ============
 
 export const callbackTools = [
@@ -450,5 +507,26 @@ export const callbackTools = [
       'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
     inputSchema: updateTaskInputSchema,
     handler: handleUpdateTask,
+  },
+  {
+    name: 'cat_cafe_search_evidence_callback',
+    description:
+      'Search project evidence (invocation-scoped callback auth). Uses Cat Cafe callback endpoint and Hindsight recall behind the API.',
+    inputSchema: searchEvidenceInputSchema,
+    handler: handleSearchEvidence,
+  },
+  {
+    name: 'cat_cafe_reflect_callback',
+    description:
+      'Ask a reflection question (invocation-scoped callback auth).',
+    inputSchema: reflectProjectInputSchema,
+    handler: handleReflectProject,
+  },
+  {
+    name: 'cat_cafe_retain_memory_callback',
+    description:
+      'Retain a durable memory item through Cat Cafe callback endpoint.',
+    inputSchema: retainMemoryInputSchema,
+    handler: handleRetainMemory,
   },
 ] as const;

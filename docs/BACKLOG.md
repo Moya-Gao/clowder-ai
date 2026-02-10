@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11/F13 doing；缅因猫完成 #31/#42/#45/#48/#49/#50 + 闭环核查 #36/#44；review 跟进修复已收敛)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11/F13 doing；F16 完成 OAuth + 记忆闭环；缅因猫完成 #31/#42/#45/#48/#49/#50 + 闭环核查 #36/#44；review 跟进修复已收敛)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -99,7 +99,7 @@
 | F13 | 审计日志 v2 | **[~] P0 (#2)** | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 操作审计（追责）+ CLI 原始日志归档（debug）。缅因猫清 Redis 事件催生。认领：缅因猫 doing。开工计划: [`2026-02-10-f13-audit-log-v2.md`](./plans/2026-02-10-f13-audit-log-v2.md) |
 | F14 | 动画优化 | P3 (#6) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | UI 过渡动画 + 流式回复体验，铲屎官确认优先级低 |
 | F15 | Backlog 管理 | P3 (#7) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 功能想法不散落在手机备忘录。本次讨论即 MVP 实践 |
-| F16 | Codex OAuth + 记忆闭环 | P1 (#4) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 缅因猫走 ChatGPT Pro 订阅额度 + Hindsight 对接缅因猫。调研: [`codex-oauth-integration-report.md`](../research-report/codex-oauth-integration-report.md)。待另一只缅因猫认领 |
+| F16 | ~~Codex OAuth + 记忆闭环~~ | [x] | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | Phase F16：Codex 默认走 OAuth（隔离 HOME 下 `auth.json`/`sessions` 与真实 `~/.codex` 打通），并新增 invocation-token 保护的 `search-evidence` / `reflect` / `retain-memory` callback + MCP 对应工具，形成缅因猫记忆闭环。计划见 [`2026-02-10-f16-codex-oauth-memory-loop.md`](./plans/2026-02-10-f16-codex-oauth-memory-loop.md)。 |
 
 ## 讨论议题 — 待探索的方向
 

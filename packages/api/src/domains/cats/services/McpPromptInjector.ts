@@ -73,5 +73,34 @@ curl -X POST ${opts.apiUrl}/api/callbacks/update-task \\
   }"
 \`\`\`
 
+### 检索项目证据（Hindsight Recall）
+\`\`\`bash
+curl "${opts.apiUrl}/api/callbacks/search-evidence?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&q=你的查询&limit=5&budget=mid&tags=project:cat-cafe"
+\`\`\`
+
+### 项目反思（Hindsight Reflect）
+\`\`\`bash
+curl -X POST ${opts.apiUrl}/api/callbacks/reflect \\
+  -H "Content-Type: application/json" \\
+  -d "{
+    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
+    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
+    \\"query\\": \\"你的反思问题\\"
+  }"
+\`\`\`
+
+### 沉淀长期记忆（Hindsight Retain）
+\`\`\`bash
+curl -X POST ${opts.apiUrl}/api/callbacks/retain-memory \\
+  -H "Content-Type: application/json" \\
+  -d "{
+    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
+    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
+    \\"content\\": \\"可长期复用的结论\\",
+    \\"tags\\": [\\"project:cat-cafe\\", \\"source:codex\\"],
+    \\"metadata\\": {\\"anchor\\": \\"docs/decisions/...\\", \\"confidence\\": \\"high\\"}
+  }"
+\`\`\`
+
 注意: 只在需要异步协作时使用这些工具。普通回复直接输出即可。`;
 }

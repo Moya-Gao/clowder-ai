@@ -88,6 +88,8 @@ async function main(): Promise<void> {
   const summaryStore = createSummaryStore(redis);
   const memoryStore = createMemoryStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
+  const sharedHindsightBank = 'cat-cafe-shared';
+  const hindsightClient = createHindsightClient();
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
@@ -130,7 +132,14 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(catsRoutes);
-  await app.register(callbacksRoutes, { registry, messageStore, socketManager, taskStore });
+  await app.register(callbacksRoutes, {
+    registry,
+    messageStore,
+    socketManager,
+    taskStore,
+    hindsightClient,
+    sharedBank: sharedHindsightBank,
+  });
   await app.register(threadsRoutes, {
     threadStore,
     messageStore,
@@ -154,16 +163,15 @@ async function main(): Promise<void> {
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
   // Evidence search (Hindsight Recall + docs fallback)
-  const hindsightClient = createHindsightClient();
   await app.register(evidenceRoutes, {
     hindsightClient,
-    sharedBank: 'cat-cafe-shared',
+    sharedBank: sharedHindsightBank,
   });
 
   // Reflect (Hindsight LLM reflection)
   await app.register(reflectRoutes, {
     hindsightClient,
-    sharedBank: 'cat-cafe-shared',
+    sharedBank: sharedHindsightBank,
   });
 
   // Memory governance (publish workflow)

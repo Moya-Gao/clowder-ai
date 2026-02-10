@@ -343,6 +343,60 @@ test('passes cwd from workingDirectory option', async () => {
   assert.equal(spawnOpts.cwd, '/my/project');
 });
 
+test('oauth mode (default) does not forward OPENAI_API_KEY to codex child env', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const originalApiKey = process.env['OPENAI_API_KEY'];
+  const originalAuthMode = process.env['CODEX_AUTH_MODE'];
+  try {
+    process.env['OPENAI_API_KEY'] = 'sk-test-forwarded-key';
+    delete process.env['CODEX_AUTH_MODE']; // default = oauth
+
+    const promise = collect(service.invoke('oauth test'));
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'oauth-thread' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.notEqual(
+      spawnOpts.env.OPENAI_API_KEY,
+      'sk-test-forwarded-key',
+      'oauth mode should not pass through OPENAI_API_KEY',
+    );
+  } finally {
+    if (originalApiKey === undefined) delete process.env['OPENAI_API_KEY'];
+    else process.env['OPENAI_API_KEY'] = originalApiKey;
+    if (originalAuthMode === undefined) delete process.env['CODEX_AUTH_MODE'];
+    else process.env['CODEX_AUTH_MODE'] = originalAuthMode;
+  }
+});
+
+test('api_key mode keeps OPENAI_API_KEY for codex child env', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const originalApiKey = process.env['OPENAI_API_KEY'];
+  const originalAuthMode = process.env['CODEX_AUTH_MODE'];
+  try {
+    process.env['OPENAI_API_KEY'] = 'sk-test-api-mode';
+    process.env['CODEX_AUTH_MODE'] = 'api_key';
+
+    const promise = collect(service.invoke('api-key test'));
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'api-key-thread' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.equal(spawnOpts.env.OPENAI_API_KEY, 'sk-test-api-mode');
+  } finally {
+    if (originalApiKey === undefined) delete process.env['OPENAI_API_KEY'];
+    else process.env['OPENAI_API_KEY'] = originalApiKey;
+    if (originalAuthMode === undefined) delete process.env['CODEX_AUTH_MODE'];
+    else process.env['CODEX_AUTH_MODE'] = originalAuthMode;
+  }
+});
+
 test('all messages have catId codex', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

@@ -26,6 +26,7 @@ describe('Callback Routes', () => {
   let registry;
   let messageStore;
   let socketManager;
+  let hindsightClient;
 
   beforeEach(async () => {
     const { InvocationRegistry } = await import(
@@ -38,12 +39,23 @@ describe('Callback Routes', () => {
     registry = new InvocationRegistry();
     messageStore = new MessageStore();
     socketManager = createMockSocketManager();
+    hindsightClient = {
+      recall: async () => [],
+      reflect: async () => '',
+      retain: async () => undefined,
+    };
   });
 
   async function createApp() {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const app = Fastify();
-    await app.register(callbacksRoutes, { registry, messageStore, socketManager });
+    await app.register(callbacksRoutes, {
+      registry,
+      messageStore,
+      socketManager,
+      hindsightClient,
+      sharedBank: 'cat-cafe-shared',
+    });
     return app;
   }
 
@@ -334,5 +346,103 @@ describe('Callback Routes', () => {
     });
 
     assert.equal(response.statusCode, 400);
+  });
+
+  // ---- Hindsight memory loop callbacks ----
+
+  test('GET search-evidence returns recall results for invocation thread', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const recallCalls = [];
+    hindsightClient.recall = async (bankId, query, options) => {
+      recallCalls.push({ bankId, query, options });
+      return [
+        {
+          content: 'ADR-005 decided single shared bank',
+          metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md#L46' },
+          score: 0.92,
+        },
+      ];
+    };
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=single%20bank&limit=1&budget=high&tags=project:cat-cafe,kind:decision`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(Array.isArray(body.results), true);
+    assert.equal(body.results.length, 1);
+    assert.equal(body.results[0].anchor, 'docs/decisions/005-hindsight-integration-decisions.md#L46');
+    assert.equal(recallCalls.length, 1);
+    assert.equal(recallCalls[0].bankId, 'cat-cafe-shared');
+    assert.equal(recallCalls[0].query, 'single bank');
+    assert.equal(recallCalls[0].options.limit, 1);
+    assert.equal(recallCalls[0].options.budget, 'high');
+    assert.deepEqual(recallCalls[0].options.tags, ['project:cat-cafe', 'kind:decision']);
+  });
+
+  test('POST reflect returns reflection text', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const reflectCalls = [];
+    hindsightClient.reflect = async (bankId, query) => {
+      reflectCalls.push({ bankId, query });
+      return 'Phase 5 focused on evidence-first governance.';
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/reflect',
+      payload: {
+        invocationId,
+        callbackToken,
+        query: 'What changed in phase 5?',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.reflection, 'Phase 5 focused on evidence-first governance.');
+    assert.equal(reflectCalls.length, 1);
+    assert.equal(reflectCalls[0].bankId, 'cat-cafe-shared');
+    assert.equal(reflectCalls[0].query, 'What changed in phase 5?');
+  });
+
+  test('POST retain-memory writes invocation-scoped memory item', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const retainCalls = [];
+    hindsightClient.retain = async (bankId, items, options) => {
+      retainCalls.push({ bankId, items, options });
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/retain-memory',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'When storage is unavailable, fail-closed and surface explicit errors.',
+        tags: ['kind:decision', 'source:codex'],
+        metadata: {
+          anchor: 'docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md#L1',
+          confidence: 'high',
+        },
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(retainCalls.length, 1);
+    assert.equal(retainCalls[0].bankId, 'cat-cafe-shared');
+    assert.equal(retainCalls[0].items.length, 1);
+    assert.equal(retainCalls[0].items[0].content, 'When storage is unavailable, fail-closed and surface explicit errors.');
+    assert.deepEqual(retainCalls[0].items[0].tags, ['kind:decision', 'source:codex']);
+    assert.equal(retainCalls[0].items[0].metadata.source, 'callback');
+    assert.equal(retainCalls[0].items[0].metadata.catId, 'codex');
+    assert.equal(retainCalls[0].items[0].metadata.invocationId, invocationId);
   });
 });

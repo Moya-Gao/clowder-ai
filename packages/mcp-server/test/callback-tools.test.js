@@ -169,6 +169,92 @@ describe('MCP Callback Tools', () => {
     assert.ok(result.content[0].text.includes('401'));
   });
 
+  test('handleSearchEvidence calls callback endpoint with encoded query params', async () => {
+    const { handleSearchEvidence } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ results: [] }),
+      };
+    };
+
+    const result = await handleSearchEvidence({
+      query: 'phase 5 bank policy',
+      limit: 4,
+      budget: 'high',
+      tags: 'project:cat-cafe,kind:decision',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/search-evidence'));
+    assert.ok(capturedUrl.includes('q=phase+5+bank+policy'));
+    assert.ok(capturedUrl.includes('limit=4'));
+    assert.ok(capturedUrl.includes('budget=high'));
+    assert.ok(capturedUrl.includes('tags=project%3Acat-cafe%2Ckind%3Adecision'));
+  });
+
+  test('handleReflectProject posts query to callback reflect endpoint', async () => {
+    const { handleReflectProject } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl, capturedOptions;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ reflection: 'Use evidence-first routing.' }),
+      };
+    };
+
+    const result = await handleReflectProject({ query: 'How to reduce context drift?' });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/reflect'));
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.query, 'How to reduce context drift?');
+    assert.equal(body.invocationId, 'test-invocation');
+    assert.equal(body.callbackToken, 'test-token');
+  });
+
+  test('handleRetainMemory posts content/tags/metadata to callback retain endpoint', async () => {
+    const { handleRetainMemory } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl, capturedOptions;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handleRetainMemory({
+      content: 'Prefer explicit invocation lifecycle state transitions.',
+      tags: ['kind:decision', 'author:codex'],
+      metadata: {
+        anchor: 'docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md#L1',
+        confidence: 'high',
+      },
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/retain-memory'));
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.content, 'Prefer explicit invocation lifecycle state transitions.');
+    assert.deepEqual(body.tags, ['kind:decision', 'author:codex']);
+    assert.equal(body.metadata.anchor, 'docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md#L1');
+  });
+
   test('retries transient post failure and keeps same clientMessageId', async () => {
     const { handlePostMessage } = await import(
       '../dist/tools/callback-tools.js'

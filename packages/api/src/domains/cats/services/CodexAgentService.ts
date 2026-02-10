@@ -52,6 +52,28 @@ interface CodexAgentServiceOptions {
   rawArchive?: RawArchiveSink;
 }
 
+type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
+
+function getCodexAuthMode(): CodexAuthMode {
+  const raw = process.env['CODEX_AUTH_MODE']?.trim().toLowerCase();
+  if (raw === 'api_key' || raw === 'auto' || raw === 'oauth') return raw;
+  return 'oauth';
+}
+
+function applyAuthMode(env: Record<string, string>): Record<string, string> {
+  if (getCodexAuthMode() !== 'oauth') return env;
+
+  // OAuth-first default: do not leak key-based credentials into Codex child process.
+  return {
+    ...env,
+    OPENAI_API_KEY: '',
+    OPENAI_BASE_URL: '',
+    OPENAI_API_BASE: '',
+    OPENAI_ORG_ID: '',
+    OPENAI_ORGANIZATION: '',
+  };
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -98,6 +120,7 @@ export class CodexAgentService implements AgentService {
         HOME: getCodexIsolatedHome(),
         ...(options?.callbackEnv ?? {}),
       };
+      const codexEnv = applyAuthMode(isolatedEnv);
 
       const events = spawnCli(
         {
@@ -106,7 +129,7 @@ export class CodexAgentService implements AgentService {
           ...(options?.workingDirectory
             ? { cwd: options.workingDirectory }
             : {}),
-          env: isolatedEnv,
+          env: codexEnv,
           ...(options?.signal ? { signal: options.signal } : {}),
         },
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined

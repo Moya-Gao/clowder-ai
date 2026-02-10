@@ -8,6 +8,8 @@ import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
+import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
+import { HindsightError } from '../domains/cats/services/HindsightClient.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 /**
@@ -18,6 +20,8 @@ export interface CallbackRoutesOptions {
   messageStore: IMessageStore;
   socketManager: SocketManager;
   taskStore?: ITaskStore;
+  hindsightClient?: IHindsightClient;
+  sharedBank?: string;
 }
 
 const postMessageSchema = z.object({
@@ -45,9 +49,91 @@ const updateTaskSchema = z.object({
   why: z.string().max(1000).optional(),
 });
 
+const searchEvidenceQuerySchema = authQuerySchema.extend({
+  q: z.string().min(1),
+  limit: z.coerce.number().int().min(1).max(20).default(5),
+  budget: z.enum(['low', 'mid', 'high']).default('mid'),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).default('all_strict'),
+});
+
+const reflectSchema = z.object({
+  invocationId: z.string().min(1),
+  callbackToken: z.string().min(1),
+  query: z.string().trim().min(1),
+});
+
+const retainMemorySchema = z.object({
+  invocationId: z.string().min(1),
+  callbackToken: z.string().min(1),
+  content: z.string().trim().min(1).max(50000),
+  tags: z.union([z.string(), z.array(z.string())]).optional(),
+  metadata: z.record(z.string()).optional(),
+});
+
+function normalizeTags(input: string | string[] | undefined): string[] {
+  const rawValues = input == null ? ['project:cat-cafe'] : (Array.isArray(input) ? input : [input]);
+  const tags = rawValues
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  return tags.length > 0 ? tags : ['project:cat-cafe'];
+}
+
+type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
+type EvidenceConfidence = 'high' | 'mid' | 'low';
+
+function classifySource(path: string): EvidenceSourceType {
+  if (path.includes('decisions')) return 'decision';
+  if (path.includes('phases')) return 'phase';
+  if (path.includes('discussions')) return 'discussion';
+  return 'commit';
+}
+
+function memoryToResult(mem: HindsightMemory): {
+  title: string;
+  anchor: string;
+  snippet: string;
+  confidence: EvidenceConfidence;
+  sourceType: EvidenceSourceType;
+} {
+  const anchor = mem.metadata?.['anchor'] ?? '';
+  return {
+    title: mem.content.slice(0, 120),
+    anchor,
+    snippet: mem.content.slice(0, 300),
+    confidence: (mem.score ?? 0) > 0.8 ? 'high' : (mem.score ?? 0) > 0.5 ? 'mid' : 'low',
+    sourceType: classifySource(anchor),
+  };
+}
+
+function shouldDegrade(err: unknown): boolean {
+  if (err instanceof HindsightError) {
+    if (err.code === 'CONNECTION_FAILED' || err.code === 'TIMEOUT') return true;
+    if (err.statusCode != null && err.statusCode >= 500) return true;
+    return false;
+  }
+
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('econnrefused') ||
+      msg.includes('etimedout') ||
+      msg.includes('timeout') ||
+      msg.includes('aborted') ||
+      msg.includes('network') ||
+      msg.includes('fetch failed')
+    );
+  }
+
+  return false;
+}
+
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
-    const { registry, messageStore, socketManager, taskStore } = opts;
+    const { registry, messageStore, socketManager, taskStore, hindsightClient } = opts;
+    const sharedBank = opts.sharedBank ?? 'cat-cafe-shared';
 
     // POST /api/callbacks/post-message
     app.post('/api/callbacks/post-message', async (request, reply) => {
@@ -203,5 +289,124 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       );
 
       return { status: 'ok', task: updated };
+    });
+
+    // GET /api/callbacks/search-evidence
+    app.get('/api/callbacks/search-evidence', async (request, reply) => {
+      if (!hindsightClient) {
+        reply.status(501);
+        return { error: 'Hindsight client not configured' };
+      }
+
+      const parseResult = searchEvidenceQuerySchema.safeParse(request.query);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid query parameters', details: parseResult.error.issues };
+      }
+
+      const { invocationId, callbackToken, q, limit, budget, tags, tagsMatch } = parseResult.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      const resolvedTags = normalizeTags(tags);
+      try {
+        const memories = await hindsightClient.recall(sharedBank, q, {
+          limit,
+          budget,
+          tags: resolvedTags,
+          tagsMatch,
+        });
+        return { results: memories.map(memoryToResult), degraded: false };
+      } catch (err) {
+        if (shouldDegrade(err)) {
+          return { results: [], degraded: true, degradeReason: 'hindsight_unavailable' };
+        }
+        reply.status(502);
+        return { error: 'Evidence search unavailable', degraded: false };
+      }
+    });
+
+    // POST /api/callbacks/reflect
+    app.post('/api/callbacks/reflect', async (request, reply) => {
+      if (!hindsightClient) {
+        reply.status(501);
+        return { error: 'Hindsight client not configured' };
+      }
+
+      const parseResult = reflectSchema.safeParse(request.body);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parseResult.error.issues };
+      }
+
+      const { invocationId, callbackToken, query } = parseResult.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      try {
+        const reflection = await hindsightClient.reflect(sharedBank, query);
+        return { reflection, degraded: false };
+      } catch (err) {
+        if (shouldDegrade(err)) {
+          return { reflection: '', degraded: true, degradeReason: 'hindsight_unavailable' };
+        }
+        reply.status(502);
+        return { error: 'Reflect unavailable', degraded: false };
+      }
+    });
+
+    // POST /api/callbacks/retain-memory
+    app.post('/api/callbacks/retain-memory', async (request, reply) => {
+      if (!hindsightClient) {
+        reply.status(501);
+        return { error: 'Hindsight client not configured' };
+      }
+
+      const parseResult = retainMemorySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parseResult.error.issues };
+      }
+
+      const { invocationId, callbackToken, content, tags, metadata } = parseResult.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      const mergedMetadata: Record<string, string> = {
+        source: 'callback',
+        invocationId,
+        userId: record.userId,
+        catId: record.catId,
+        threadId: record.threadId,
+        ...(metadata ?? {}),
+      };
+      const resolvedTags = normalizeTags(tags);
+
+      try {
+        await hindsightClient.retain(sharedBank, [
+          {
+            content,
+            tags: resolvedTags,
+            metadata: mergedMetadata,
+            timestamp: Date.now(),
+          },
+        ]);
+        return { status: 'ok' };
+      } catch (err) {
+        if (shouldDegrade(err)) {
+          return { status: 'degraded', degradeReason: 'hindsight_unavailable' };
+        }
+        reply.status(502);
+        return { error: 'Retain unavailable' };
+      }
     });
   };

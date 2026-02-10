@@ -18,10 +18,16 @@ import {
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
+  callbackSearchEvidenceInputSchema,
+  reflectProjectInputSchema,
+  retainMemoryInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
+  handleCallbackSearchEvidence,
+  handleReflectProject,
+  handleRetainMemory,
   searchEvidenceInputSchema,
   handleSearchEvidence,
   reflectInputSchema,
@@ -107,6 +113,43 @@ function createServer(): McpServer {
     updateTaskInputSchema,
     async (args: { taskId: string; status?: string | undefined; why?: string | undefined }) => {
       const result = await handleUpdateTask(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Callback-scoped evidence/reflect/retain tools (invocation token required)
+  server.tool(
+    'cat_cafe_search_evidence_callback',
+    'Search project evidence through invocation-scoped callback auth.',
+    callbackSearchEvidenceInputSchema,
+    async (args: {
+      query: string;
+      limit?: number | undefined;
+      budget?: 'low' | 'mid' | 'high' | undefined;
+      tags?: string | undefined;
+      tagsMatch?: 'any' | 'all' | 'any_strict' | 'all_strict' | undefined;
+    }) => {
+      const result = await handleCallbackSearchEvidence(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_reflect_callback',
+    'Run project reflection through invocation-scoped callback auth.',
+    reflectProjectInputSchema,
+    async (args: { query: string }) => {
+      const result = await handleReflectProject(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_retain_memory_callback',
+    'Retain durable memory through invocation-scoped callback auth.',
+    retainMemoryInputSchema,
+    async (args: { content: string; tags?: string[] | undefined; metadata?: Record<string, string> | undefined }) => {
+      const result = await handleRetainMemory(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

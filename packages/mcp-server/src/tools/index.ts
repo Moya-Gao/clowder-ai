@@ -21,10 +21,16 @@ export {
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
+  searchEvidenceInputSchema as callbackSearchEvidenceInputSchema,
+  reflectProjectInputSchema,
+  retainMemoryInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
+  handleSearchEvidence as handleCallbackSearchEvidence,
+  handleReflectProject,
+  handleRetainMemory,
   callbackTools,
 } from './callback-tools.js';
 

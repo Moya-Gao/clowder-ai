@@ -4,14 +4,14 @@
  * session-level instructions during Cat Cafe invocations.
  */
 
-import { mkdirSync, copyFileSync, symlinkSync, rmSync, existsSync, lstatSync } from 'node:fs';
+import { mkdirSync, copyFileSync, symlinkSync, rmSync, existsSync, lstatSync, readlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir, tmpdir } from 'node:os';
 
 const ISOLATION_ROOT = join(tmpdir(), 'cat-cafe-cli-isolation');
 
-/** Files to copy from ~/.codex/ to the isolated dir (auth only, NOT AGENTS.md) */
-const CODEX_SAFE_FILES = ['auth.json', 'config.toml'];
+/** Files to copy from ~/.codex/ to the isolated dir (NOT AGENTS.md) */
+const CODEX_COPY_FILES = ['config.toml'];
 
 let codexIsolatedHome: string | null = null;
 
@@ -28,11 +28,46 @@ export function getCodexIsolatedHome(): string {
   mkdirSync(isolatedCodexDir, { recursive: true });
 
   const realCodexDir = join(homedir(), '.codex');
-  for (const file of CODEX_SAFE_FILES) {
+  for (const file of CODEX_COPY_FILES) {
     const src = join(realCodexDir, file);
     const dst = join(isolatedCodexDir, file);
     if (existsSync(src)) {
       copyFileSync(src, dst);
+    }
+  }
+
+  // OAuth token refresh must persist to real HOME for long-running sessions.
+  // Keep auth.json as a symlink to ~/.codex/auth.json (fallback to copy if symlink fails).
+  const realAuthFile = join(realCodexDir, 'auth.json');
+  const isolatedAuthFile = join(isolatedCodexDir, 'auth.json');
+  try {
+    if (!existsSync(realCodexDir)) {
+      mkdirSync(realCodexDir, { recursive: true });
+    }
+
+    if (existsSync(isolatedAuthFile)) {
+      const stat = lstatSync(isolatedAuthFile);
+      if (!stat.isSymbolicLink()) {
+        rmSync(isolatedAuthFile, { force: true });
+      } else {
+        const target = readlinkSync(isolatedAuthFile);
+        if (target !== realAuthFile) {
+          rmSync(isolatedAuthFile, { force: true });
+        }
+      }
+    }
+
+    if (!existsSync(isolatedAuthFile)) {
+      symlinkSync(realAuthFile, isolatedAuthFile);
+    }
+  } catch {
+    // Fallback: keep a local auth snapshot if symlink creation is not allowed.
+    if (existsSync(realAuthFile)) {
+      try {
+        copyFileSync(realAuthFile, isolatedAuthFile);
+      } catch {
+        // Best-effort only.
+      }
     }
   }
 
