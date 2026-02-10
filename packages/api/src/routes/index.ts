@@ -18,3 +18,5 @@ export { messageActionsRoutes } from './message-actions.js';
 export { threadBranchRoutes } from './thread-branch.js';
 export { auditRoutes } from './audit.js';
 export { capabilitiesRoutes } from './capabilities.js';
+export { callbackAuthRoutes } from './callback-auth.js';
+export { authorizationRoutes } from './authorization.js';

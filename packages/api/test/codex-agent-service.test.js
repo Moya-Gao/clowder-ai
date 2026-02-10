@@ -216,6 +216,42 @@ test('falls back to defaults for invalid sandbox/approval env values', async () 
   }
 });
 
+test('new session includes --add-dir .git for git write access', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('hello'));
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 't1' },
+  ]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const addDirIdx = args.indexOf('--add-dir');
+  assert.ok(addDirIdx >= 0, 'new session args must include --add-dir');
+  assert.equal(args[addDirIdx + 1], '.git', '--add-dir must be followed by .git');
+  assert.ok(args.includes('--sandbox'), 'new session must still include --sandbox');
+});
+
+test('resume session does NOT include --add-dir (sandbox locked at creation)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('Continue', { sessionId: 'old-session-123' })
+  );
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'old-session-123' },
+  ]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.ok(!args.includes('--add-dir'), 'resume args must not include --add-dir');
+  assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
+});
+
 test('handles multiple agent_message items', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

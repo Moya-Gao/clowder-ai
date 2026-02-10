@@ -50,4 +50,10 @@ export type { InvocationRecord, InvocationStatus, IInvocationRecordStore, Create
 export { RedisInvocationRecordStore } from './RedisInvocationRecordStore.js';
 export { createInvocationRecordStore } from './InvocationRecordStoreFactory.js';
 export type { AnyInvocationRecordStore } from './InvocationRecordStoreFactory.js';
+export { RedisAuthorizationRuleStore } from './RedisAuthorizationRuleStore.js';
+export { createAuthorizationRuleStore } from './AuthorizationRuleStoreFactory.js';
+export { RedisPendingRequestStore } from './RedisPendingRequestStore.js';
+export { createPendingRequestStore } from './PendingRequestStoreFactory.js';
+export { RedisAuthorizationAuditStore } from './RedisAuthorizationAuditStore.js';
+export { createAuthorizationAuditStore } from './AuthorizationAuditStoreFactory.js';
 export * from './types.js';
