@@ -234,6 +234,171 @@ describe('GET /api/messages', () => {
   });
 });
 
+describe('GET /api/messages with summaryStore (P1-B integration)', () => {
+  let app;
+  let messageStore;
+  let summaryStore;
+
+  beforeEach(async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+    const { SummaryStore } = await import(
+      '../dist/domains/cats/services/SummaryStore.js'
+    );
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    messageStore = new MessageStore();
+    summaryStore = new SummaryStore();
+    app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore,
+      socketManager: { broadcastAgentMessage: () => {} },
+      summaryStore,
+    });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  it('includes summary items with type "summary" in timeline', async () => {
+    // Seed messages
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'hello',
+      mentions: [],
+      timestamp: 1000,
+    });
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: 'hi there',
+      mentions: [],
+      timestamp: 2000,
+    });
+
+    // Create a summary between the two messages
+    const s = summaryStore.create({
+      threadId: 'default',
+      topic: '测试纪要',
+      conclusions: ['结论一'],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    // Backdate to fit in message window
+    Object.defineProperty(s, 'createdAt', { value: 1500, writable: false });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 3);
+    // Sorted by timestamp: msg@1000, summary@1500, msg@2000
+    assert.equal(body.messages[0].type, 'user');
+    assert.equal(body.messages[1].type, 'summary');
+    assert.equal(body.messages[1].content, '测试纪要');
+    assert.ok(body.messages[1].summary, 'summary item should have summary field');
+    assert.equal(body.messages[1].summary.createdBy, 'system');
+    assert.deepEqual(body.messages[1].summary.conclusions, ['结论一']);
+    assert.equal(body.messages[2].type, 'assistant');
+  });
+
+  it('includes summary with createdAt > newest message on first page (boundary)', async () => {
+    // Seed messages
+    for (let i = 0; i < 3; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: 'opus',
+        content: `msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 100,
+      });
+    }
+    // Summary AFTER all messages (createdAt = 1300 > newest msg at 1200)
+    const s = summaryStore.create({
+      threadId: 'default',
+      topic: '后置纪要',
+      conclusions: [],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    Object.defineProperty(s, 'createdAt', { value: 1300, writable: false });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+
+    // Should include all 3 messages + 1 summary = 4 items
+    assert.equal(body.messages.length, 4);
+    // Summary should be last (highest timestamp)
+    const last = body.messages[body.messages.length - 1];
+    assert.equal(last.type, 'summary');
+    assert.equal(last.content, '后置纪要');
+  });
+
+  it('excludes summary with createdAt >= beforeTs during pagination', async () => {
+    for (let i = 0; i < 5; i++) {
+      messageStore.append({
+        userId: 'default-user',
+        catId: null,
+        content: `msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 100,
+      });
+    }
+    // Summary at timestamp 1250 (between msg2@1200 and msg3@1300)
+    const s = summaryStore.create({
+      threadId: 'default',
+      topic: '分页纪要',
+      conclusions: [],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    Object.defineProperty(s, 'createdAt', { value: 1250, writable: false });
+
+    // Paginate with before=1250 — summary at 1250 should be EXCLUDED (>= beforeTs)
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/messages?before=1250&limit=50',
+    });
+    const body = JSON.parse(res.body);
+
+    const summaryItems = body.messages.filter((m) => m.type === 'summary');
+    assert.equal(summaryItems.length, 0, 'summary at beforeTs should be excluded');
+  });
+
+  it('does not include summaries from other threads', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'hello',
+      mentions: [],
+      timestamp: 1000,
+    });
+
+    // Summary in a different thread
+    const s = summaryStore.create({
+      threadId: 'other-thread',
+      topic: '其他线程纪要',
+      conclusions: [],
+      openQuestions: [],
+      createdBy: 'system',
+    });
+    Object.defineProperty(s, 'createdAt', { value: 1500, writable: false });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].type, 'user');
+  });
+});
+
 describe('POST /api/messages orphan rejection (#21)', () => {
   it('returns 400 when threadId does not exist', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');

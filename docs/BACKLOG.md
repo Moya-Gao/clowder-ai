@@ -41,7 +41,7 @@
 | 16 | ChatContainer.tsx 超 200 行 (297行) | [x] | Phase 3.5 final review | Phase 4.0 Step 3 — 拆分为 useChatHistory/useChatCommands/useSendMessage hooks |
 | 17 | Invocation 新入口必须传 threadId | [x] | Phase 3.5 缅因猫 review | 已文档化：AgentRouter.ts + messages.ts 头部说明约束 |
 | 18 | isFinal 丢失防护 | [x] | Phase 3.5 缅因猫 final review | Phase 4.0 Step 5 `f379b67` — 5 分钟 timeout + 30s heartbeat |
-| 19 | 自动讨论纪要生成 | [ ] | Phase 3.5 计划 stretch | 当前 summary 仅手动 API 创建，后续可调 opus 自动总结 |
+| 19 | 自动讨论纪要生成 | [x] | Phase 3.5 计划 stretch | `16496b8` — AutoSummarizer 已实现 (pattern matching)，createdBy=system，历史回放已修复 |
 | 20 | start-dev.sh Redis 失败分支无自动化测试 | [x] | Phase 3.6 缅因猫 review | Phase 3.7 `b8d4313` — test-start-dev.sh |
 | 21 | 消息发送到不存在的 threadId 会产生孤儿消息 | [x] | 辩论测试发现 | Phase 5.2 — 400 拒绝 + code=THREAD_NOT_FOUND，前端解析 detail 显示中文提示 |
 | 31 | /api/memory 与 /api/commands 身份/权限边界 | [~] | Phase 4.0 缅因猫 review P2-1 | `2aa54b6` 已完成 messages/threads/socket 身份入口统一；剩余 `/api/memory` 与 `/api/commands` 待迁移到同一 resolver |
@@ -54,6 +54,8 @@
 | 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
 | 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [x] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 2026-02-09 上游 `google-gemini/gemini-cli#18621` 已关闭（completed），`#18656` 已合并；2026-02-10 本地 `stream-json` 连续 3 次复测无崩溃，关闭该跟踪项 |
 | 42 | Branch 回滚 best-effort 双失败容错 | [ ] | ADR-008 S7 缅因猫 R3 review | `Promise.allSettled` 已覆盖主要路径；底层存储完全不可用时两步清理都会失败，可考虑 background orphan reconciliation |
+| 44 | **Codex exec 模式不保存 session → 缅因猫无法 resume** | [ ] | 2026-02-10 实测发现 | Cat Cafe 用 `codex exec` 非交互调用缅因猫，Codex 不保存 session 记录。`codex resume <id>` 找不到。#26 结论仅覆盖交互模式。修复方向: 1) 改用 `codex` 交互模式 + `--session-name` 2) 将 Cat Cafe session 映射到 Codex 原生 session 3) 接受现状，靠 Cat Cafe 内部 ContextAssembler 提供上下文 |
+| 45 | **缅因猫动态授权 + git 写入权限** | [ ] | [bug report](./bug-report/dynamic-authorization-and-git-commit-blocked/bug-report.md) | 缅因猫 (Codex) 通过回调被调用时: 1) 无法向铲屎官请求动态授权 2) `.git` 写入被沙盒拒绝无法 commit。阻塞缅因猫独立闭环能力 |
 | 43 | 身份入口统一（header 优先）与 URL 脱敏 | [x] | feat/ux-polish review P2 | `2aa54b6` — `resolveUserId` 扩展到 messages/threads，前端 apiFetch + `X-Cat-Cafe-User` header 取代 URL query |
 
 ## P3 — 可选优化

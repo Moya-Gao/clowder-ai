@@ -399,23 +399,23 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     }));
 
     // P1-B fix: merge summaries into history timeline
+    // First page (no cursor): include summaries >= oldest message (no max cap,
+    //   so summaries created *after* the newest message are still included).
+    // Pagination (before cursor): include summaries >= oldest message AND < beforeTs.
     if (opts.summaryStore) {
       const summaries = await opts.summaryStore.listByThread(resolvedThreadId);
-      const timeRange = page.length > 0
-        ? { min: page[0]!.timestamp, max: page[page.length - 1]!.timestamp }
-        : null;
+      const minTs = page.length > 0 ? page[0]!.timestamp : null;
       for (const s of summaries) {
-        // Only include summaries within the current page's time window
-        if (timeRange && s.createdAt >= timeRange.min && s.createdAt <= timeRange.max) {
-          chatItems.push({
-            id: `summary-${s.id}`,
-            type: 'summary',
-            catId: null,
-            content: s.topic,
-            timestamp: s.createdAt,
-            summary: { id: s.id, topic: s.topic, conclusions: [...s.conclusions], openQuestions: [...s.openQuestions], createdBy: s.createdBy },
-          });
-        }
+        if (minTs !== null && s.createdAt < minTs) continue;
+        if (beforeTs != null && s.createdAt >= beforeTs) continue;
+        chatItems.push({
+          id: `summary-${s.id}`,
+          type: 'summary',
+          catId: null,
+          content: s.topic,
+          timestamp: s.createdAt,
+          summary: { id: s.id, topic: s.topic, conclusions: [...s.conclusions], openQuestions: [...s.openQuestions], createdBy: s.createdBy },
+        });
       }
       chatItems.sort((a, b) => a.timestamp - b.timestamp);
     }
