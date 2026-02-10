@@ -81,10 +81,17 @@ export const callbackAuthRoutes: FastifyPluginAsync<CallbackAuthRoutesOptions> =
         return { error: 'Permission request not found' };
       }
 
+      // P2 fix: 校验 requestId 归属当前 invocation 的 cat + thread
+      if (status.catId !== record.catId || status.threadId !== record.threadId) {
+        reply.status(403);
+        return { error: 'Permission request belongs to a different invocation' };
+      }
+
       return {
         requestId: status.requestId,
         status: status.status,
         action: status.action,
+        createdAt: status.createdAt,
         ...(status.respondReason ? { reason: status.respondReason } : {}),
         ...(status.respondScope ? { scope: status.respondScope } : {}),
         ...(status.respondedAt ? { respondedAt: status.respondedAt } : {}),

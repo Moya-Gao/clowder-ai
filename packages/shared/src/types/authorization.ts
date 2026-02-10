@@ -27,8 +27,11 @@ export interface PermissionResponse {
 export interface PermissionStatusResponse {
   readonly requestId: string;
   readonly status: 'waiting' | 'granted' | 'denied';
-  readonly reason?: string;
+  readonly action: string;
   readonly createdAt: number;
+  readonly reason?: string;
+  readonly scope?: RespondScope;
+  readonly respondedAt?: number;
 }
 
 // ---- 持久化数据模型 ----

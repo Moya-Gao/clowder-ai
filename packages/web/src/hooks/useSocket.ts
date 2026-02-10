@@ -104,8 +104,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onThreadBranched?.(data);
     });
 
-    // Authorization events
+    // Authorization events (P2 fix: thread 过滤，同 agent_message)
     socket.on('authorization:request', (data: Record<string, unknown>) => {
+      const currentThread = threadIdRef.current;
+      if (data['threadId'] && currentThread && data['threadId'] !== currentThread) return;
       callbacks.onAuthorizationRequest?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0]);
     });
     socket.on('authorization:response', (data: Record<string, unknown>) => {

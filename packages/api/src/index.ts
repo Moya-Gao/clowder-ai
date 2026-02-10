@@ -146,6 +146,11 @@ async function main(): Promise<void> {
   });
 
   // Authorization system — 猫猫动态权限
+  // TODO(BACKLOG #46): 接入 Redis-backed stores (RedisAuthorizationRuleStore 等)
+  // 当前内存实现在进程重启后丢失 pending/rules/audit — 已知限制
+  if (redis) {
+    console.warn('[api] Authorization stores using in-memory fallback — pending requests, rules, and audit log will not survive restart. See BACKLOG #46.');
+  }
   const authRuleStore = new AuthorizationRuleStore();
   const authPendingStore = new PendingRequestStore();
   const authAuditStore = new AuthorizationAuditStore();

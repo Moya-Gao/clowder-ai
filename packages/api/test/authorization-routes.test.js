@@ -192,6 +192,28 @@ describe('GET /api/callbacks/permission-status', () => {
     const body = JSON.parse(res.body);
     assert.ok(['waiting', 'pending'].includes(body.status));
     assert.equal(body.action, 'git_commit');
+    assert.ok(body.createdAt, 'response must include createdAt (P2 契约修复)');
+  });
+
+  test('returns 403 when requestId belongs to different cat/thread', async () => {
+    const app = await createApp();
+    // Cat A creates a request
+    const catA = registry.create('user-1', 'codex', 'thread-1');
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/request-permission',
+      payload: { invocationId: catA.invocationId, callbackToken: catA.callbackToken, action: 'git_commit', reason: 'fix' },
+    });
+    const { requestId } = JSON.parse(createRes.body);
+
+    // Cat B (different cat/thread) tries to query it
+    const catB = registry.create('user-1', 'opus', 'thread-2');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/permission-status?invocationId=${catB.invocationId}&callbackToken=${catB.callbackToken}&requestId=${requestId}`,
+    });
+
+    assert.equal(res.statusCode, 403);
   });
 
   test('returns 404 for nonexistent request', async () => {
