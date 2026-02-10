@@ -254,7 +254,7 @@ async function postWithRetry(
 
 // ============ HTTP helpers ============
 
-async function callbackPost(
+export async function callbackPost(
   path: string,
   body: Record<string, unknown>,
   options?: { enableOutbox?: boolean },
