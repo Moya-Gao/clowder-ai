@@ -129,7 +129,7 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
-  await app.register(auditRoutes);
+  await app.register(auditRoutes, { threadStore });
   await app.register(memoryRoutes, { memoryStore });
 
   // Evidence search (Hindsight Recall + docs fallback)
