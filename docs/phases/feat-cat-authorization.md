@@ -402,7 +402,8 @@ curl -s -X POST $CAT_CAFE_API_URL/api/callbacks/request-permission \
 - 显示：哪只猫、要做什么、为什么
 - 两个按钮：批准 / 拒绝（可附理由）
 - 批准后卡片变为"已批准 ✓"状态
-- 超时后自动消失
+- 120s 内铲屎官未响应 → 实时卡片收起，转入顶部 pending 队列列表（不消失）
+- 铲屎官随时可展开 pending 列表审批（"睡醒还能审"）
 
 **UI 草案**：
 ```
