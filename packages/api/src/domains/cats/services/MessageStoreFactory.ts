@@ -10,11 +10,26 @@ import { RedisMessageStore } from './RedisMessageStore.js';
 
 export type AnyMessageStore = MessageStore | RedisMessageStore;
 
+function resolveMessageTtlSeconds(): number | undefined {
+  const raw = process.env['MESSAGE_TTL_SECONDS'];
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    console.warn(`[MessageStoreFactory] Invalid MESSAGE_TTL_SECONDS='${raw}', using default`);
+    return undefined;
+  }
+  return Math.trunc(parsed);
+}
+
 export function createMessageStore(
   redis?: RedisClient
 ): AnyMessageStore {
   if (redis) {
-    return new RedisMessageStore(redis);
+    const ttlSeconds = resolveMessageTtlSeconds();
+    return new RedisMessageStore(
+      redis,
+      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
+    );
   }
   return new MessageStore();
 }

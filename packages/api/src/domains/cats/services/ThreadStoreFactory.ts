@@ -9,9 +9,24 @@ import { ThreadStore } from './ThreadStore.js';
 import type { IThreadStore } from './ThreadStore.js';
 import { RedisThreadStore } from './RedisThreadStore.js';
 
+function resolveThreadTtlSeconds(): number | undefined {
+  const raw = process.env['THREAD_TTL_SECONDS'];
+  if (!raw) return undefined;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    console.warn(`[ThreadStoreFactory] Invalid THREAD_TTL_SECONDS='${raw}', using default`);
+    return undefined;
+  }
+  return Math.trunc(parsed);
+}
+
 export function createThreadStore(redis?: RedisClient): IThreadStore {
   if (redis) {
-    return new RedisThreadStore(redis);
+    const ttlSeconds = resolveThreadTtlSeconds();
+    return new RedisThreadStore(
+      redis,
+      ttlSeconds !== undefined ? { ttlSeconds } : undefined,
+    );
   }
   return new ThreadStore();
 }

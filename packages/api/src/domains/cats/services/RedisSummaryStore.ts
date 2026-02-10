@@ -19,11 +19,21 @@ const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 
 export class RedisSummaryStore implements ISummaryStore {
   private readonly redis: RedisClient;
-  private readonly ttl: number;
+  /** null means no expiration. */
+  private readonly ttlSeconds: number | null;
 
   constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
     this.redis = redis;
-    this.ttl = options?.ttlSeconds ?? DEFAULT_TTL;
+    const ttl = options?.ttlSeconds;
+    if (ttl === undefined) {
+      this.ttlSeconds = DEFAULT_TTL;
+    } else if (!Number.isFinite(ttl)) {
+      this.ttlSeconds = DEFAULT_TTL;
+    } else if (ttl <= 0) {
+      this.ttlSeconds = null;
+    } else {
+      this.ttlSeconds = Math.floor(ttl);
+    }
   }
 
   async create(input: CreateSummaryInput): Promise<ThreadSummary> {
@@ -41,9 +51,13 @@ export class RedisSummaryStore implements ISummaryStore {
     const key = SummaryKeys.detail(summary.id);
     const pipeline = this.redis.multi();
     pipeline.hset(key, this.serializeSummary(summary));
-    pipeline.expire(key, this.ttl);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(key, this.ttlSeconds);
+    }
     pipeline.zadd(SummaryKeys.thread(summary.threadId), String(now), summary.id);
-    pipeline.expire(SummaryKeys.thread(summary.threadId), this.ttl);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(SummaryKeys.thread(summary.threadId), this.ttlSeconds);
+    }
     await pipeline.exec();
 
     return summary;

@@ -24,11 +24,21 @@ const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 export class RedisMessageStore {
   private readonly redis: RedisClient;
-  private readonly ttl: number;
+  /** null means no expiration/pruning (persistent retention). */
+  private readonly ttlSeconds: number | null;
 
   constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
     this.redis = redis;
-    this.ttl = options?.ttlSeconds ?? DEFAULT_TTL_SECONDS;
+    const ttl = options?.ttlSeconds;
+    if (ttl === undefined) {
+      this.ttlSeconds = DEFAULT_TTL_SECONDS;
+    } else if (!Number.isFinite(ttl)) {
+      this.ttlSeconds = DEFAULT_TTL_SECONDS;
+    } else if (ttl <= 0) {
+      this.ttlSeconds = null;
+    } else {
+      this.ttlSeconds = Math.floor(ttl);
+    }
   }
 
   async append(msg: AppendMessageInput): Promise<StoredMessage> {
@@ -52,7 +62,9 @@ export class RedisMessageStore {
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
     });
-    pipeline.expire(hashKey, this.ttl);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(hashKey, this.ttlSeconds);
+    }
 
     // Add to global timeline
     pipeline.zadd(MessageKeys.TIMELINE, String(score), id);
@@ -68,21 +80,23 @@ export class RedisMessageStore {
       pipeline.zadd(MessageKeys.mentions(catId), String(score), id);
     }
 
-    // Prune expired entries from sorted sets (score < now - TTL).
-    const cutoff = String(Date.now() - this.ttl * 1000);
-    pipeline.zremrangebyscore(MessageKeys.TIMELINE, '-inf', cutoff);
-    pipeline.zremrangebyscore(MessageKeys.user(msg.userId), '-inf', cutoff);
-    pipeline.zremrangebyscore(MessageKeys.thread(threadId), '-inf', cutoff);
-    for (const catId of msg.mentions) {
-      pipeline.zremrangebyscore(MessageKeys.mentions(catId), '-inf', cutoff);
-    }
+    if (this.ttlSeconds !== null) {
+      // Prune expired entries from sorted sets (score < now - TTL).
+      const cutoff = String(Date.now() - this.ttlSeconds * 1000);
+      pipeline.zremrangebyscore(MessageKeys.TIMELINE, '-inf', cutoff);
+      pipeline.zremrangebyscore(MessageKeys.user(msg.userId), '-inf', cutoff);
+      pipeline.zremrangebyscore(MessageKeys.thread(threadId), '-inf', cutoff);
+      for (const catId of msg.mentions) {
+        pipeline.zremrangebyscore(MessageKeys.mentions(catId), '-inf', cutoff);
+      }
 
-    // Set EXPIRE on index zsets so "silent" keys eventually disappear
-    pipeline.expire(MessageKeys.TIMELINE, this.ttl);
-    pipeline.expire(MessageKeys.user(msg.userId), this.ttl);
-    pipeline.expire(MessageKeys.thread(threadId), this.ttl);
-    for (const catId of msg.mentions) {
-      pipeline.expire(MessageKeys.mentions(catId), this.ttl);
+      // Set EXPIRE on index zsets so "silent" keys eventually disappear
+      pipeline.expire(MessageKeys.TIMELINE, this.ttlSeconds);
+      pipeline.expire(MessageKeys.user(msg.userId), this.ttlSeconds);
+      pipeline.expire(MessageKeys.thread(threadId), this.ttlSeconds);
+      for (const catId of msg.mentions) {
+        pipeline.expire(MessageKeys.mentions(catId), this.ttlSeconds);
+      }
     }
 
     await pipeline.exec();

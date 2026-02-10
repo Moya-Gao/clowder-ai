@@ -6,6 +6,12 @@
 #   pnpm start --quick    — 跳过 rebuild
 #   pnpm start --memory   — 使用内存存储 (重启丢数据)
 #   pnpm start --no-redis — 同 --memory
+#
+# Redis 数据目录 (可通过 env 覆盖):
+#   REDIS_PORT=6399
+#   REDIS_PROFILE=dev
+#   REDIS_DATA_DIR=~/.cat-cafe/redis-dev
+#   REDIS_BACKUP_DIR=~/.cat-cafe/redis-backups/dev
 
 set -e
 
@@ -44,6 +50,13 @@ fi
 API_PORT=${API_SERVER_PORT:-3002}
 WEB_PORT=${FRONTEND_PORT:-3001}
 REDIS_PORT=${REDIS_PORT:-6399}
+REDIS_PROFILE=${REDIS_PROFILE:-dev}
+REDIS_DATA_DIR=${REDIS_DATA_DIR:-"$HOME/.cat-cafe/redis-${REDIS_PROFILE}"}
+REDIS_BACKUP_DIR=${REDIS_BACKUP_DIR:-"$HOME/.cat-cafe/redis-backups/${REDIS_PROFILE}"}
+REDIS_DBFILE=${REDIS_DBFILE:-dump.rdb}
+REDIS_PIDFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.pid"
+REDIS_LOGFILE="${REDIS_DATA_DIR}/redis-${REDIS_PORT}.log"
+STARTED_REDIS=false
 
 # 杀掉占用端口的进程
 kill_port() {
@@ -93,6 +106,76 @@ sanitize_lockfiles() {
     fi
 }
 
+ensure_redis_dirs() {
+    mkdir -p "$REDIS_DATA_DIR" "$REDIS_BACKUP_DIR"
+}
+
+prune_redis_backups() {
+    local keep="${1:-20}"
+    local files=()
+    while IFS= read -r f; do
+        files+=("$f")
+    done < <(ls -1t "$REDIS_BACKUP_DIR"/"${REDIS_PROFILE}"-*.rdb 2>/dev/null || true)
+
+    if [ "${#files[@]}" -le "$keep" ]; then
+        return
+    fi
+
+    local i
+    for ((i=keep; i<${#files[@]}; i++)); do
+        /bin/rm -f "${files[$i]}"
+    done
+}
+
+archive_redis_snapshot() {
+    local reason="${1:-manual}"
+    ensure_redis_dirs
+
+    local source=""
+    local dir=""
+    local dbfile=""
+
+    if redis-cli -p "$REDIS_PORT" ping &> /dev/null; then
+        redis-cli -p "$REDIS_PORT" bgsave &> /dev/null || true
+        sleep 0.2
+        dir=$(redis-cli -p "$REDIS_PORT" config get dir 2>/dev/null | sed -n '2p' || true)
+        dbfile=$(redis-cli -p "$REDIS_PORT" config get dbfilename 2>/dev/null | sed -n '2p' || true)
+        if [ -n "$dir" ] && [ -n "$dbfile" ]; then
+            source="$dir/$dbfile"
+        fi
+    fi
+
+    if [ -z "$source" ]; then
+        source="$REDIS_DATA_DIR/$REDIS_DBFILE"
+    fi
+
+    if [ ! -f "$source" ]; then
+        return
+    fi
+
+    local stamp
+    stamp=$(date '+%Y%m%d-%H%M%S')
+    local target="$REDIS_BACKUP_DIR/${REDIS_PROFILE}-${reason}-${stamp}.rdb"
+    cp -p "$source" "$target"
+    echo -e "${GREEN}  ✓ Redis 快照归档: $target${NC}"
+    prune_redis_backups 20
+}
+
+print_redis_runtime_info() {
+    local dir dbfile appendonly dbsize
+    dir=$(redis-cli -p "$REDIS_PORT" config get dir 2>/dev/null | sed -n '2p' || true)
+    dbfile=$(redis-cli -p "$REDIS_PORT" config get dbfilename 2>/dev/null | sed -n '2p' || true)
+    appendonly=$(redis-cli -p "$REDIS_PORT" config get appendonly 2>/dev/null | sed -n '2p' || true)
+    dbsize=$(redis-cli -p "$REDIS_PORT" dbsize 2>/dev/null || echo "?")
+    echo "  Redis 配置:"
+    echo "    - profile:   $REDIS_PROFILE"
+    echo "    - port:      $REDIS_PORT"
+    echo "    - dbsize:    $dbsize"
+    [ -n "$dir" ] && echo "    - dir:       $dir"
+    [ -n "$dbfile" ] && echo "    - dbfilename:$dbfile"
+    [ -n "$appendonly" ] && echo "    - appendonly:$appendonly"
+}
+
 # 构建 shared + API (tsc)
 build_packages() {
     echo ""
@@ -116,20 +199,38 @@ setup_storage() {
         return
     fi
 
+    ensure_redis_dirs
+    archive_redis_snapshot "pre-start"
+
     # 默认: 尝试 Redis 持久化 (专属端口，避免与系统 Redis 冲突)
-    if redis-cli -p $REDIS_PORT ping &> /dev/null; then
+    if redis-cli -p "$REDIS_PORT" ping &> /dev/null; then
         echo -e "${GREEN}  ✓ Redis 已运行 (端口 $REDIS_PORT)${NC}"
         export REDIS_URL="redis://localhost:$REDIS_PORT"
+        print_redis_runtime_info
         return
     fi
 
     echo -e "${YELLOW}  ⚠ Redis 未运行，尝试在端口 $REDIS_PORT 启动...${NC}"
     if command -v redis-server &> /dev/null; then
-        redis-server --port $REDIS_PORT --daemonize yes 2>/dev/null || true
+        redis-server \
+            --port "$REDIS_PORT" \
+            --bind 127.0.0.1 \
+            --dir "$REDIS_DATA_DIR" \
+            --dbfilename "$REDIS_DBFILE" \
+            --save "3600 1 300 100 60 10000" \
+            --appendonly yes \
+            --appendfilename "appendonly.aof" \
+            --appendfsync everysec \
+            --daemonize yes \
+            --pidfile "$REDIS_PIDFILE" \
+            --logfile "$REDIS_LOGFILE" \
+            >/dev/null 2>&1 || true
         sleep 1
-        if redis-cli -p $REDIS_PORT ping &> /dev/null; then
+        if redis-cli -p "$REDIS_PORT" ping &> /dev/null; then
             echo -e "${GREEN}  ✓ Redis 已启动 (端口 $REDIS_PORT)${NC}"
             export REDIS_URL="redis://localhost:$REDIS_PORT"
+            STARTED_REDIS=true
+            print_redis_runtime_info
         else
             echo -e "${RED}  ✗ Redis 启动失败 (回退内存存储)${NC}"
             unset REDIS_URL
@@ -147,8 +248,9 @@ cleanup() {
     echo "正在关闭服务..."
     kill $(jobs -p) 2>/dev/null || true
     # 关闭我们启动的专属 Redis (不影响系统默认 6379)
-    if [ "$USE_REDIS" = true ] && redis-cli -p $REDIS_PORT ping &> /dev/null 2>&1; then
-        redis-cli -p $REDIS_PORT shutdown save &> /dev/null || true
+    if [ "$USE_REDIS" = true ] && [ "$STARTED_REDIS" = true ] && redis-cli -p "$REDIS_PORT" ping &> /dev/null 2>&1; then
+        archive_redis_snapshot "pre-stop"
+        redis-cli -p "$REDIS_PORT" shutdown save &> /dev/null || true
         echo "  Redis (端口 $REDIS_PORT) 已关闭"
     fi
     wait 2>/dev/null || true

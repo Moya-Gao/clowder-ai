@@ -21,11 +21,21 @@ const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 
 export class RedisThreadStore implements IThreadStore {
   private readonly redis: RedisClient;
-  private readonly ttl: number;
+  /** null means no expiration. */
+  private readonly ttlSeconds: number | null;
 
   constructor(redis: RedisClient, options?: { ttlSeconds?: number }) {
     this.redis = redis;
-    this.ttl = options?.ttlSeconds ?? DEFAULT_TTL;
+    const ttl = options?.ttlSeconds;
+    if (ttl === undefined) {
+      this.ttlSeconds = DEFAULT_TTL;
+    } else if (!Number.isFinite(ttl)) {
+      this.ttlSeconds = DEFAULT_TTL;
+    } else if (ttl <= 0) {
+      this.ttlSeconds = null;
+    } else {
+      this.ttlSeconds = Math.floor(ttl);
+    }
   }
 
   async create(userId: string, title?: string, projectPath?: string): Promise<Thread> {
@@ -43,9 +53,13 @@ export class RedisThreadStore implements IThreadStore {
     const key = ThreadKeys.detail(thread.id);
     const pipeline = this.redis.multi();
     pipeline.hset(key, this.serializeThread(thread));
-    pipeline.expire(key, this.ttl);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(key, this.ttlSeconds);
+    }
     pipeline.zadd(ThreadKeys.userList(userId), String(now), thread.id);
-    pipeline.expire(ThreadKeys.userList(userId), this.ttl);
+    if (this.ttlSeconds !== null) {
+      pipeline.expire(ThreadKeys.userList(userId), this.ttlSeconds);
+    }
     await pipeline.exec();
 
     return thread;
@@ -94,7 +108,9 @@ export class RedisThreadStore implements IThreadStore {
     if (catIds.length === 0) return;
     const key = ThreadKeys.participants(threadId);
     await this.redis.sadd(key, ...catIds);
-    await this.redis.expire(key, this.ttl);
+    if (this.ttlSeconds !== null) {
+      await this.redis.expire(key, this.ttlSeconds);
+    }
   }
 
   async getParticipants(threadId: string): Promise<CatId[]> {
@@ -151,7 +167,9 @@ export class RedisThreadStore implements IThreadStore {
 
     const key = ThreadKeys.detail(DEFAULT_THREAD_ID);
     await this.redis.hset(key, this.serializeThread(thread));
-    await this.redis.expire(key, this.ttl);
+    if (this.ttlSeconds !== null) {
+      await this.redis.expire(key, this.ttlSeconds);
+    }
     return thread;
   }
 

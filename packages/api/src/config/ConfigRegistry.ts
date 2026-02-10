@@ -11,6 +11,26 @@ import type { ContextBudget } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 
+function formatTtl(raw: string | undefined, defaultSeconds: number): string {
+  if (!raw) {
+    return `${Math.round(defaultSeconds / 86400)} days`;
+  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    return `${Math.round(defaultSeconds / 86400)} days`;
+  }
+  if (parsed <= 0) {
+    return 'disabled (persistent)';
+  }
+  if (parsed % 86400 === 0) {
+    return `${parsed / 86400} days`;
+  }
+  if (parsed % 3600 === 0) {
+    return `${parsed / 3600} hours`;
+  }
+  return `${Math.trunc(parsed)} seconds`;
+}
+
 export interface ConfigSnapshot {
   context: {
     /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default. */
@@ -114,9 +134,9 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const killGraceMs = 3_000;
 
   // Storage (from Redis/memory store defaults)
-  const messageTTL = '7 days';
-  const threadTTL = '30 days';
-  const taskTTL = '30 days';
+  const messageTTL = formatTtl(env['MESSAGE_TTL_SECONDS'], 7 * 24 * 60 * 60);
+  const threadTTL = formatTtl(env['THREAD_TTL_SECONDS'], 30 * 24 * 60 * 60);
+  const taskTTL = formatTtl(env['TASK_TTL_SECONDS'], 30 * 24 * 60 * 60);
   const maxMessagesStore = 2000;
   const maxThreads = 100;
 

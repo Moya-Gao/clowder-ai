@@ -6,6 +6,11 @@
   "scripts": {
     "init": "./scripts/init-cafe.sh",
     "start": "./scripts/start-dev.sh",
+    "redis:user:start": "./scripts/user-redis.sh start",
+    "redis:user:stop": "./scripts/user-redis.sh stop",
+    "redis:user:status": "./scripts/user-redis.sh status",
+    "redis:user:backup": "./scripts/user-redis.sh backup",
+    "redis:dumps:find": "./scripts/find-redis-dumps.sh",
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
