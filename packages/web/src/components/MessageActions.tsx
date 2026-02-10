@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ChatMessage } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
@@ -101,7 +101,10 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
     } catch { /* show error in future */ }
   }, [dialog, message.id, message.content, threadId, router]);
 
+  const branchingRef = useRef(false);
   const confirmBranchDirect = useCallback(async () => {
+    if (branchingRef.current) return;
+    branchingRef.current = true;
     setDialog({ type: 'none' });
     try {
       const res = await fetch(`${API_URL}/api/threads/${threadId}/branch`, {
@@ -113,7 +116,9 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
         const { threadId: newThreadId } = await res.json();
         router.push(`/thread/${newThreadId}`);
       }
-    } catch { /* show error in future */ }
+    } catch { /* show error in future */ } finally {
+      branchingRef.current = false;
+    }
   }, [message.id, threadId, router]);
 
   const close = useCallback(() => setDialog({ type: 'none' }), []);
