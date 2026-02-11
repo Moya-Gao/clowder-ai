@@ -365,6 +365,11 @@ test('includes reconnect diagnostics in CLI exit error when available', async ()
   proc._emitter.emit('exit', 1, null);
 
   const msgs = await promise;
+  const sysInfos = msgs.filter((m) => m.type === 'system_info');
+  assert.equal(sysInfos.length, 2, 'should stream reconnect status to UI in real time');
+  assert.ok(sysInfos[0].content.includes('Reconnecting... 1/5'));
+  assert.ok(sysInfos[1].content.includes('Reconnecting... 2/5'));
+
   const errMsg = msgs.find((m) => m.type === 'error');
   assert.ok(errMsg);
   assert.ok(errMsg.error.includes('code: 1'));

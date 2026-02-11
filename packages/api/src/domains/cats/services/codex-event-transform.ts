@@ -37,6 +37,19 @@ export function transformCodexEvent(
     };
   }
 
+  if (e['type'] === 'error') {
+    const message = e['message'];
+    if (typeof message !== 'string') return null;
+    const text = message.trim();
+    if (!text.startsWith('Reconnecting...')) return null;
+    return {
+      type: 'system_info',
+      catId,
+      content: text,
+      timestamp: Date.now(),
+    };
+  }
+
   if (e['type'] !== 'item.completed') {
     return null;
   }
