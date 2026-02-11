@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (F11 已完成 6 轮 review 合入；F13 已完成；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50/#53 + 闭环核查 #36/#44；新增 P1 #56 file_change 后前端失联链路排查)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (新增 F17/F18/F19 UX 体验优化三件套；F11 已完成 6 轮 review 合入；F13 已完成；F16 完成 OAuth + 记忆闭环)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -107,6 +107,9 @@
 | F14 | 动画优化 | P3 (#6) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | UI 过渡动画 + 流式回复体验，铲屎官确认优先级低 |
 | F15 | Backlog 管理 | P3 (#7) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 功能想法不散落在手机备忘录。本次讨论即 MVP 实践 |
 | F16 | ~~Codex OAuth + 记忆闭环~~ | [x] | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | Phase F16：Codex 默认走 OAuth（隔离 HOME 下 `auth.json`/`sessions` 与真实 `~/.codex` 打通），并新增 invocation-token 保护的 `search-evidence` / `reflect` / `retain-memory` callback + MCP 对应工具，形成缅因猫记忆闭环。计划见 [`2026-02-10-f16-codex-oauth-memory-loop.md`](./plans/2026-02-10-f16-codex-oauth-memory-loop.md)。 |
+| F17 | 导出对话长图 | P2 (#3) | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | 前端按钮一键导出对话为 PNG 长图，支持全量/range 选择。Chrome headless 方案已验证可行。 |
+| F18 | 工具栏收起+滚动 | P2 (#2) | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | 工具调用栏可收起，收起时滚动显示最新工具调用 + 动态指示。参考 Claude Code/Codex thinking 效果。 |
+| F19 | 动态累积计时器 | P1 (#1) | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | 运行中显示动态累积时间（0.0s → 0.1s → ...），顶部状态栏可见多猫。让铲屎官安心。 |
 
 ## 讨论议题 — 待探索的方向
 
