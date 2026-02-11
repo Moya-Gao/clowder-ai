@@ -6,6 +6,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes } from './routes/index.js';
+import { threadExportRoutes } from './routes/thread-export.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/MessageStoreFactory.js';
@@ -181,6 +182,7 @@ async function main(): Promise<void> {
     messageStore,
     socketManager,
   });
+  await app.register(threadExportRoutes, { threadStore });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
