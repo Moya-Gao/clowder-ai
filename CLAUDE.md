@@ -6,7 +6,7 @@
 ## Cat Café Skills（必须加载）
 
 <EXTREMELY_IMPORTANT>
-你已配置 Cat Café Skills（~/.claude/skills/cat-cafe-skills/）。
+你已配置 Cat Café Skills（~/.claude/skills/）。
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**

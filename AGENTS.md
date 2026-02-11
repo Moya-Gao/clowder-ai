@@ -6,11 +6,11 @@
 ## Cat Café Skills（必须加载）
 
 <EXTREMELY_IMPORTANT>
-你已配置 Cat Café Skills（~/.codex/skills/cat-cafe-skills/）。
+你已配置 Cat Café Skills（~/.codex/skills/）。
 
 **加载方式**：
 ```bash
-cat ~/.codex/skills/cat-cafe-skills/{skill-name}/SKILL.md
+cat ~/.codex/skills/{skill-name}/SKILL.md
 ```
 
 **关键规则**：
