@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react-dom/test-utils';
+import { act } from 'react';
 import { useChatCommands } from '../useChatCommands';
 
 const mocks = vi.hoisted(() => {
@@ -45,15 +45,35 @@ function Harness({ onReady }: HarnessProps) {
 
 beforeAll(() => {
   (globalThis as { React?: typeof React }).React = React;
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 });
 
 afterAll(() => {
   delete (globalThis as { React?: typeof React }).React;
+  delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
 });
 
 describe('useChatCommands /mode kickoff', () => {
   let container: HTMLDivElement;
   let root: Root;
+
+  function getLatestSystemMessageContent(): string | null {
+    const calls = mocks.mockAddMessage.mock.calls as Array<[Record<string, unknown>]>;
+    for (let i = calls.length - 1; i >= 0; i -= 1) {
+      const msg = calls[i][0];
+      if (msg.type === 'system' && typeof msg.content === 'string') return msg.content;
+    }
+    return null;
+  }
+
+  async function setupProcessCommand(): Promise<(input: string) => Promise<boolean>> {
+    let processCommand: ((input: string) => Promise<boolean>) | null = null;
+    await act(async () => {
+      root.render(React.createElement(Harness, { onReady: (fn) => { processCommand = fn; } }));
+    });
+    if (!processCommand) throw new Error('processCommand not initialized');
+    return processCommand;
+  }
 
   beforeEach(() => {
     container = document.createElement('div');
@@ -69,19 +89,14 @@ describe('useChatCommands /mode kickoff', () => {
   });
 
   it('auto-kicks brainstorm after /mode command starts successfully', async () => {
-    let processCommand: ((input: string) => Promise<boolean>) | null = null;
-
-    act(() => {
-      root.render(React.createElement(Harness, { onReady: (fn) => { processCommand = fn; } }));
-    });
-
+    const processCommand = await setupProcessCommand();
     mocks.mockApiFetch
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
       .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: 'processing' }) });
 
     let handled = false;
     await act(async () => {
-      handled = await processCommand!('/mode brainstorm 模式启动回归 @布偶 @缅因');
+      handled = await processCommand('/mode brainstorm 模式启动回归 @布偶 @缅因');
     });
 
     expect(handled).toBe(true);
@@ -98,5 +113,87 @@ describe('useChatCommands /mode kickoff', () => {
         }),
       }),
     );
+  });
+
+  it('auto-kicks debate after /mode debate starts successfully', async () => {
+    const processCommand = await setupProcessCommand();
+    mocks.mockApiFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: 'processing' }) });
+
+    let handled = false;
+    await act(async () => {
+      handled = await processCommand('/mode debate 是否需要合并 @布偶 @缅因 3');
+    });
+
+    expect(handled).toBe(true);
+    expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mocks.mockApiFetch).toHaveBeenNthCalledWith(
+      2,
+      '/api/messages',
+      expect.objectContaining({
+        body: JSON.stringify({
+          content: '是否需要合并',
+          threadId: 'thread-1',
+        }),
+      }),
+    );
+  });
+
+  it('auto-kicks dev-loop after /mode dev-loop starts successfully', async () => {
+    const processCommand = await setupProcessCommand();
+    mocks.mockApiFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ status: 'processing' }) });
+
+    let handled = false;
+    await act(async () => {
+      handled = await processCommand('/mode dev-loop @布偶 @缅因 修复线上崩溃');
+    });
+
+    expect(handled).toBe(true);
+    expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(mocks.mockApiFetch).toHaveBeenNthCalledWith(
+      2,
+      '/api/messages',
+      expect.objectContaining({
+        body: JSON.stringify({
+          content: '修复线上崩溃',
+          threadId: 'thread-1',
+        }),
+      }),
+    );
+  });
+
+  it('reports kickoff error when kickoff request fails', async () => {
+    const processCommand = await setupProcessCommand();
+    mocks.mockApiFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+      .mockRejectedValueOnce(new Error('kickoff network down'));
+
+    await act(async () => {
+      await processCommand('/mode brainstorm kickoff失败路径 @布偶 @缅因');
+    });
+
+    expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(getLatestSystemMessageContent()).toContain('模式已启动，但自动发起失败: kickoff network down');
+  });
+
+  it('reports kickoff error when kickoff response is not ok', async () => {
+    const processCommand = await setupProcessCommand();
+    mocks.mockApiFetch
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 502,
+        json: () => Promise.resolve({ error: 'kickoff bad gateway' }),
+      });
+
+    await act(async () => {
+      await processCommand('/mode debate kickoff非200路径 @布偶 @缅因 2');
+    });
+
+    expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
+    expect(getLatestSystemMessageContent()).toContain('模式已启动，但自动发起失败: kickoff bad gateway');
   });
 });
