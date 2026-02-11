@@ -106,7 +106,7 @@
 ## Git SHA
 
 ```bash
-git log --oneline -7
+git log --oneline -9
 ```
 
 - **Base**: 3a56848 (docs: add F19+F18+F17 UX polish design document)
@@ -114,10 +114,13 @@ git log --oneline -7
 - **F18**: 5315ba8 (feat(web): F18 tool events collapsible panel)
 - **F17**: dfd8534 (feat: F17 export thread as long-form PNG image)
 - **F17 Fix R1**: 41c0ade (fix: route path /chat/ → /thread/)
-- **F17 Fix R2**: d1acc4b (fix: security + build + performance - P1/P2 全修复)
+- **Review request**: bf04986 (docs: prepare review request)
+- **F17 Fix R2**: d1acc4b (fix: security + build + performance - P1/P2)
+- **Review update R2**: b6ec7b8 (docs: P1/P2 fixed)
+- **F17 Fix R3**: c4e6151 (fix: system thread access - default 线程 403 修复)
 
 **Branch**: `feat/f19-f18-f17-ux-polish`
-**Head**: d1acc4b
+**Head**: c4e6151
 
 ---
 
@@ -150,20 +153,26 @@ cd packages/web && pnpm test
 - [x] 再次点击 → 展开显示全部
 - [x] 收起态活动指示正常
 
-**F17 导出长图** ✅ 已修复 (R1 + R2):
+**F17 导出长图** ✅ 已修复 (R1 + R2 + R3):
 - [x] ~~R1: 路径错误 (`/chat/` → `/thread/`)~~ → 已修复 (41c0ade)
 - [x] ~~R2-P1-1: 跨用户数据泄露~~ → 已修复 (d1acc4b)
   - 添加 resolveUserId + ownership 校验 (401/403/404)
   - Puppeteer 设置 X-Cat-Cafe-User header
+  - ✅ 缅因猫验证通过：alice 导出 default-user 线程 → 403
 - [x] ~~R2-P1-2: TypeScript 构建失败~~ → 已修复 (d1acc4b)
   - process.env 访问 / log.error 类型 / DOM 类型声明
-  - `pnpm --filter @cat-cafe/api build` ✅ 通过
+  - ✅ `pnpm --filter @cat-cafe/api build` 通过
 - [x] ~~R2-P2: Browser 未真正复用~~ → 已优化 (d1acc4b)
   - 提升为路由级单例 + SIGTERM/SIGINT cleanup
+  - ✅ 缅因猫验证：第一次 2.88s，第二次 1.09s（复用生效）
+- [x] ~~R3-P1: default 线程 403 误拦截~~ → 已修复 (c4e6151)
+  - 豁免 system 创建的线程（公共访问）
+  - Logic: `createdBy === 'system'` → allow all users
 
 **证据**:
 - 截图: `/tmp/cat_cafe_acceptance_isolated/00-home.png` ~ `05-after-export.png`
-- 跨用户泄露 POC: `/tmp/f17_cross_user_export.png` (缅因猫验证)
+- 跨用户泄露 POC: `/tmp/f17_cross_user_export.png` (缅因猫 R2 验证)
+- Browser 复用: 第一次 2.88s，第二次 1.09s (缅因猫 R2 验证)
 - 自动化结果: `f19.ok=true`, `f18.ok=true`, `f17.ok=false` (R1 修复前)
 
 ---
