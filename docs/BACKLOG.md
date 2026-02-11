@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (Feature 认领更新：F11 doing；F13 已完成；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50/#53 + 闭环核查 #36/#44；新增 P1 #56 file_change 后前端失联链路排查)
+> 维护者：布偶猫 | 最后更新：2026-02-10 (F11 已完成 6 轮 review 合入；F13 已完成；F16 完成 OAuth + 记忆闭环并完成 review fixes + P3 追踪；缅因猫完成 #31/#42/#45/#48/#49/#50/#53 + 闭环核查 #36/#44；新增 P1 #56 file_change 后前端失联链路排查)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -101,7 +101,7 @@
 | F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 已有基础可见性：顶部并行状态条 + 右侧状态栏（模式/猫状态/消息任务统计）。待补全：token/耗时等深度指标，才可关闭。 |
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 | F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) 做多猫版移动端。iOS app / iMessage 对接待决策 |
-| F11 | **模式系统** | **[~] P0 (#1)** | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。元功能：做完后铲屎官不再当传声筒。认领：布偶猫 doing |
+| F11 | **模式系统** | **[x]** | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。6 轮 review 通过，939 tests。[攻防录](../tmp/f11-maine-log.md) |
 | F12 | 功能可发现性 | P1 (#3) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | magic word / MCP skill / 配置统一可视化入口。找不到的功能 = 不存在 |
 | F13 | 审计日志 v2 | [x] | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 已完成：操作审计（追责）+ CLI 原始日志归档（debug）。计划文档: [`2026-02-10-f13-audit-log-v2.md`](./plans/2026-02-10-f13-audit-log-v2.md) |
 | F14 | 动画优化 | P3 (#6) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | UI 过渡动画 + 流式回复体验，铲屎官确认优先级低 |
