@@ -53,7 +53,9 @@ export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> =
         return { error: 'Thread not found' };
       }
 
-      if (thread.createdBy !== userId) {
+      // System-created threads (e.g., 'default') are accessible to all users
+      // User-created threads require ownership match
+      if (thread.createdBy !== 'system' && thread.createdBy !== userId) {
         reply.status(403);
         return { error: 'Access denied' };
       }
