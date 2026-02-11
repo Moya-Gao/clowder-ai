@@ -253,7 +253,7 @@ async *invoke(prompt: string, options?: AgentServiceOptions) {
 
 **研究结果**（详见 `docs/research/2026-02-05-cli-oauth-research.md`）：
 - `antigravity chat --mode agent` 是 IDE 入口，会打开 GUI 窗口，没有 `--json` 输出
-- 但缅因猫提出关键洞察：**不需要读 stdout，让暹罗猫通过 MCP 主动回传结果！**
+- 但铲屎官提出关键洞察：**不需要读 stdout，让暹罗猫通过 MCP 主动回传结果！**
 
 **Adapter A: antigravity-desktop（半自动，本地开发用）**
 
@@ -592,4 +592,4 @@ cat_cafe.get_thread_context({
 
 ---
 
-*布偶猫备注 v3：暹罗猫方案终于定了！缅因猫的 MCP 回传思路是关键突破——不读 stdout，让猫主动发言。而且铲屎官说得对，三只猫都该能用这些 MCP 工具，不然我怎么吐槽缅因猫的代码？*
+*布偶猫备注 v3：暹罗猫方案终于定了！铲屎官的 MCP 回传思路是关键突破——不读 stdout，让猫主动发言。而且铲屎官说得对，三只猫都该能用这些 MCP 工具，不然我怎么吐槽缅因猫的代码？*
