@@ -121,6 +121,14 @@ export function useChatCommands() {
   const processCommand = useCallback(
     async (input: string): Promise<boolean> => {
       const trimmed = input.trim();
+      const sendModeKickoff = async (threadId: string, content: string): Promise<void> => {
+        if (!content.trim()) return;
+        await apiFetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content, threadId }),
+        });
+      };
 
       // /config command — display or hot-update
       if (isCommandInvocation(trimmed, '/config')) {
@@ -659,6 +667,16 @@ export function useChatCommands() {
             }
             await res.json();
             addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `🔄 dev-loop 模式已启动\n需求: ${requirement}\n开发: @${mentions[0]} · Review: @${mentions[1]}`, timestamp: Date.now() });
+            try {
+              await sendModeKickoff(threadId, requirement);
+            } catch (kickoffErr) {
+              addMessage({
+                id: `err-${Date.now()}`,
+                type: 'system',
+                content: `模式已启动，但自动发起失败: ${kickoffErr instanceof Error ? kickoffErr.message : 'Unknown'}`,
+                timestamp: Date.now(),
+              });
+            }
           } catch (err) {
             addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
           }
@@ -691,6 +709,16 @@ export function useChatCommands() {
             ? (config as { participants: string[] }).participants.join(', ')
             : `${(config as { catA: string; catB: string }).catA} vs ${(config as { catA: string; catB: string }).catB}`;
           addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `${modeName === 'brainstorm' ? '🧠' : '⚔️'} ${modeName} 模式已启动\n议题: ${topic}\n参与: ${participantDisplay}`, timestamp: Date.now() });
+          try {
+            await sendModeKickoff(threadId, topic);
+          } catch (kickoffErr) {
+            addMessage({
+              id: `err-${Date.now()}`,
+              type: 'system',
+              content: `模式已启动，但自动发起失败: ${kickoffErr instanceof Error ? kickoffErr.message : 'Unknown'}`,
+              timestamp: Date.now(),
+            });
+          }
         } catch (err) {
           addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
         }
