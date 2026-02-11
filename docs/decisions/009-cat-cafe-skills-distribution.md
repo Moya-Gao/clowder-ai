@@ -61,17 +61,25 @@ cat-cafe/
 # 源目录绝对路径
 SOURCE=/Users/lysander/projects/relay-station/cat-cafe/cat-cafe-skills
 
-# Claude 用户级
+# Claude 用户级（每个 skill 单独 symlink）
 mkdir -p ~/.claude/skills
-ln -s $SOURCE ~/.claude/skills/cat-cafe-skills
+for skill in "$SOURCE"/*/; do
+  ln -sf "$skill" ~/.claude/skills/$(basename "$skill")
+done
 
 # Codex 用户级
-ln -s $SOURCE ~/.codex/skills/cat-cafe-skills
+for skill in "$SOURCE"/*/; do
+  ln -sf "$skill" ~/.codex/skills/$(basename "$skill")
+done
 
 # Gemini 用户级
 mkdir -p ~/.gemini/skills
-ln -s $SOURCE ~/.gemini/skills/cat-cafe-skills
+for skill in "$SOURCE"/*/; do
+  ln -sf "$skill" ~/.gemini/skills/$(basename "$skill")
+done
 ```
+
+**重要**：必须为每个 skill 创建单独的 symlink，不能用目录级 symlink（Claude Code 不会递归扫描子目录）。
 
 ### 3. 为什么选择用户级而非项目级
 
