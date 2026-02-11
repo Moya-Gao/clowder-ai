@@ -79,6 +79,23 @@ Cat invocation：`c188a120-b89d-4e7d-b685-f5d9bc757504`
 - “出现 `file_change`”本身**不是**断链充分条件；
 - 断链更可能与特定运行上下文（例如热更新/重启窗口）相关，而非所有 `file_change` 都必现。
 
+### 3.4 最新对照实验（2026-02-10，thread_mlh985yz8klzmvro）
+
+线程：`thread_mlh985yz8klzmvro`  
+Cat invocation：`d85ad07a-47fb-4c07-bced-b779ad12ff6e`
+
+文件：`packages/api/data/cli-raw-archive/2026-02-10/d85ad07a-47fb-4c07-bced-b779ad12ff6e.ndjson`
+
+- `7` 行：`item.completed`, `type=file_change`, `status=completed`, `changes=1`
+- `8` 行：`agent_message: done`
+- `9` 行：`turn.completed`
+
+同时间窗审计仅见 `cat_responded`，未见 `server_shutdown/server_started`。
+
+补充说明：
+- 同一线程的较早 invocation（`e9480160-1589-4dd4-b6cc-867a04ca04f7`）执行的是 `command_execution` 文件写入，不属于 `file_change` 场景。
+- 因此，复现脚本必须明确“禁止 command_execution，仅允许内置文件编辑”。
+
 ---
 
 ## 4. 根因分析（当前结论）
@@ -88,7 +105,8 @@ Cat invocation：`c188a120-b89d-4e7d-b685-f5d9bc757504`
 1. 原始故障窗口与 `file_change completed` 时间高度重合（raw 证据）。
 2. 原始故障窗口内出现服务端重启（audit 证据）。
 3. 补充复现实验显示 `file_change` 可在无重启场景下正常收尾（`done + turn.completed`）。
-4. 目前前端对该链路缺少关键诊断日志：
+4. 最新对照实验（`thread_mlh985...`）再次验证：`file_change` 可稳定完成且不触发失联。
+5. 目前前端对该链路缺少关键诊断日志：
    - `useSocket` 仅打印 `Disconnected`，没有 `reason/close code`；
    - `useAgentMessages` 未记录 `tool_use(file_change)` 前后状态。
 
@@ -97,7 +115,15 @@ Cat invocation：`c188a120-b89d-4e7d-b685-f5d9bc757504`
 - **更高概率**：后端在特定时段发生重启导致 WS 连接中断，前端表现为失联/超时。
 - **待证伪方向**：前端在处理 `tool_use(file_change)` 时触发状态机异常，导致 UI 侧“看起来断链”。
 
-> 说明：最小复现已验证“并非 file_change 必现”。下一步关键是拿到断链当次 `disconnect reason / close code`。
+> 说明：多个最小复现已验证“并非 file_change 必现”。下一步关键是拿到断链当次 `disconnect reason / close code`，并排除 invocation/thread 事件串线误判。
+
+### 4.3 复现实验判定标准（新增）
+
+一次实验仅在满足以下条件时计入结论：
+1. raw 中出现 `item.completed -> type=file_change`；
+2. 同一 invocation raw 中不出现 `command_execution` 文件写入；
+3. 记录是否存在 `turn.completed`；
+4. 对齐同时间窗审计是否存在 `server_shutdown/server_started`。
 
 ---
 
