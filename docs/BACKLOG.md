@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-10 (新增 F17/F18/F19 UX 体验优化三件套；F11 已完成 6 轮 review 合入；F13 已完成；F16 完成 OAuth + 记忆闭环)
+> 维护者：布偶猫 | 最后更新：2026-02-11 (记录 Opus CLI 流式修复 review 结论；新增 2 条 follow-up 跟踪项)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -83,6 +83,8 @@
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
 | 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
+| 57 | Claude CLI partial flag 版本兼容检查 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 当前修复依赖 `--include-partial-messages`，默认假设 CLI 新版本可用。风险边界：旧版本 CLI 可能不支持该 flag 导致调用失败。触发条件：出现未知参数错误、或计划支持更旧 CLI 环境时，补充版本探测/降级策略。 |
+| 58 | 补充无 message_start 的 delta 场景测试 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 现有逻辑在 `currentMessageId` 为空时仍会输出 text_delta，但缺少显式回归测试。风险边界：后续重构可能误改该容错行为。触发条件：下次触达 `ClaudeAgentService` 流式逻辑时，优先补此测试并转为 [x]。 |
 
 ## Feature Requests — 新功能需求
 
