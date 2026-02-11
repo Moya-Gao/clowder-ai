@@ -54,10 +54,55 @@ interface ClaudeAgentServiceOptions {
  */
 function transformClaudeEvent(
   event: unknown,
-  catId: CatId
+  catId: CatId,
+  streamState: {
+    currentMessageId: string | undefined;
+    partialTextMessageIds: Set<string>;
+  },
 ): AgentMessage | AgentMessage[] | null {
   if (typeof event !== 'object' || event === null) return null;
   const e = event as Record<string, unknown>;
+
+  // stream_event/* (enabled by --include-partial-messages) → incremental text
+  if (e['type'] === 'stream_event') {
+    const streamEvent = e['event'];
+    if (typeof streamEvent !== 'object' || streamEvent === null) return null;
+    const s = streamEvent as Record<string, unknown>;
+
+    if (s['type'] === 'message_start') {
+      const message = s['message'] as Record<string, unknown> | undefined;
+      const messageId = message?.['id'];
+      if (typeof messageId === 'string') {
+        streamState.currentMessageId = messageId;
+      }
+      return null;
+    }
+
+    if (s['type'] === 'message_stop') {
+      streamState.currentMessageId = undefined;
+      return null;
+    }
+
+    if (s['type'] === 'content_block_delta') {
+      const delta = s['delta'];
+      if (typeof delta !== 'object' || delta === null) return null;
+      const d = delta as Record<string, unknown>;
+      if (d['type'] !== 'text_delta' || typeof d['text'] !== 'string' || d['text'].length === 0) {
+        return null;
+      }
+      if (streamState.currentMessageId) {
+        streamState.partialTextMessageIds.add(streamState.currentMessageId);
+      }
+      return {
+        type: 'text',
+        catId,
+        content: d['text'],
+        timestamp: Date.now(),
+      };
+    }
+
+    return null;
+  }
 
   // system/init → session_init
   if (e['type'] === 'system' && e['subtype'] === 'init') {
@@ -76,6 +121,8 @@ function transformClaudeEvent(
   // assistant → text / tool_use (multiple content blocks possible)
   if (e['type'] === 'assistant') {
     const message = e['message'] as Record<string, unknown> | undefined;
+    const messageId = typeof message?.['id'] === 'string' ? message['id'] : undefined;
+    const skipFinalText = Boolean(messageId && streamState.partialTextMessageIds.has(messageId));
     const content = message?.['content'];
     if (!Array.isArray(content)) return null;
 
@@ -85,6 +132,7 @@ function transformClaudeEvent(
       const b = block as Record<string, unknown>;
 
       if (b['type'] === 'text' && typeof b['text'] === 'string') {
+        if (skipFinalText) continue;
         messages.push({
           type: 'text',
           catId,
@@ -100,6 +148,9 @@ function transformClaudeEvent(
           timestamp: Date.now(),
         });
       }
+    }
+    if (messageId && skipFinalText) {
+      streamState.partialTextMessageIds.delete(messageId);
     }
     return messages.length > 0 ? messages : null;
   }
@@ -153,6 +204,7 @@ export class ClaudeAgentService implements AgentService {
     const args: string[] = [
       '-p', prompt,
       '--output-format', 'stream-json',
+      '--include-partial-messages',
       '--verbose',
       '--model', this.model,
       '--allowedTools', ALLOWED_TOOLS,
@@ -184,6 +236,7 @@ export class ClaudeAgentService implements AgentService {
     }
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.opus.provider, model: this.model };
+    const streamState = { partialTextMessageIds: new Set<string>(), currentMessageId: undefined as string | undefined };
 
     try {
       let sawResultError = false;
@@ -222,7 +275,7 @@ export class ClaudeAgentService implements AgentService {
         }
 
         const fromResultError = isResultErrorEvent(event);
-        const result = transformClaudeEvent(event, CAT_ID);
+        const result = transformClaudeEvent(event, CAT_ID, streamState);
         if (result === null) continue;
 
         if (Array.isArray(result)) {

@@ -373,3 +373,63 @@ test('passes correct model flag (default and custom)', async () => {
   const modelIdx2 = args2.indexOf('--model');
   assert.equal(args2[modelIdx2 + 1], 'haiku');
 });
+
+test('passes --include-partial-messages flag for incremental stream-json output', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('stream please'));
+  emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.ok(args.includes('--include-partial-messages'));
+});
+
+test('streams text deltas from stream_event without duplicating final assistant payload', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('delta test'));
+
+  emitClaudeEvents(proc, [
+    { type: 'system', subtype: 'init', session_id: 'sid' },
+    {
+      type: 'stream_event',
+      event: {
+        type: 'message_start',
+        message: { id: 'msg-1' },
+      },
+    },
+    {
+      type: 'stream_event',
+      event: {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: 'Hello ' },
+      },
+    },
+    {
+      type: 'stream_event',
+      event: {
+        type: 'content_block_delta',
+        index: 0,
+        delta: { type: 'text_delta', text: 'world' },
+      },
+    },
+    {
+      type: 'assistant',
+      message: {
+        id: 'msg-1',
+        content: [{ type: 'text', text: 'Hello world' }],
+      },
+    },
+    { type: 'result', subtype: 'success' },
+  ]);
+
+  const msgs = await promise;
+  const texts = msgs.filter((m) => m.type === 'text').map((m) => m.content);
+  assert.deepEqual(texts, ['Hello ', 'world']);
+});
