@@ -96,6 +96,31 @@ Cat invocation：`d85ad07a-47fb-4c07-bced-b779ad12ff6e`
 - 同一线程的较早 invocation（`e9480160-1589-4dd4-b6cc-867a04ca04f7`）执行的是 `command_execution` 文件写入，不属于 `file_change` 场景。
 - 因此，复现脚本必须明确“禁止 command_execution，仅允许内置文件编辑”。
 
+### 3.5 新增失败样本（2026-02-10，thread_mlhelmkxistwobm7）
+
+线程：`thread_mlhelmkxistwobm7`  
+Cat invocation：`550a2361-fbc1-4a70-a97d-5a47f214d687`  
+Session：`019c4a84-c45d-7683-bace-99cc28b25bfe`
+
+CLI raw 归档（绝对路径）：
+`/Users/lysander/projects/relay-station/cat-cafe/packages/api/data/cli-raw-archive/2026-02-10/550a2361-fbc1-4a70-a97d-5a47f214d687.ndjson`
+
+- `44~48` 行：连续 `Reconnecting... 1/5` 到 `5/5`，错误均为  
+  `stream disconnected before completion: error sending request for url (https://chatgpt.com/backend-api/codex/responses)`
+- `49` 行：同错误最终失败（不再重试）
+- `50` 行：`turn.failed`
+- `51` 行：`__cliError`, `exitCode=1`, `signal=null`
+
+审计日志（绝对路径）：
+`/Users/lysander/projects/relay-station/cat-cafe/packages/api/data/audit-logs/audit-2026-02-10.ndjson`
+
+- `13493~13494` 行：最后一次 `cli_tool_completed`（命令执行成功）
+- `13496` 行：`cat_error`, 错误为 `Codex CLI: CLI 异常退出 (code: 1, signal: none)`
+
+补充结论：
+- 该失败样本中未出现 `file_change` 事件；
+- 退出链路由“上游流断开 + 重试耗尽”触发，属于与 `file_change` 不同的故障类型。
+
 ---
 
 ## 4. 根因分析（当前结论）
@@ -106,13 +131,16 @@ Cat invocation：`d85ad07a-47fb-4c07-bced-b779ad12ff6e`
 2. 原始故障窗口内出现服务端重启（audit 证据）。
 3. 补充复现实验显示 `file_change` 可在无重启场景下正常收尾（`done + turn.completed`）。
 4. 最新对照实验（`thread_mlh985...`）再次验证：`file_change` 可稳定完成且不触发失联。
-5. 目前前端对该链路缺少关键诊断日志：
+5. 新失败样本（`thread_mlhelmk...`）显示：`CLI 异常退出 (code:1)` 可在**无 file_change** 条件下发生，且其前置特征是对 `chatgpt.com/backend-api/codex/responses` 的连续断流重试失败。
+6. 该失败样本的 `cat_invoked.promptDigest.length=3273`（审计行 `13462`），未观察到上下文预算耗尽或 prompt 超长迹象。
+7. 目前前端对该链路缺少关键诊断日志：
    - `useSocket` 仅打印 `Disconnected`，没有 `reason/close code`；
    - `useAgentMessages` 未记录 `tool_use(file_change)` 前后状态。
 
 ### 4.2 当前最可信方向
 
 - **更高概率**：后端在特定时段发生重启导致 WS 连接中断，前端表现为失联/超时。
+- **并行故障类型**：Codex 上游流断开（5 次重试后失败）导致 CLI 直接退出，前端看到 `CLI 异常退出 (code:1)`。
 - **待证伪方向**：前端在处理 `tool_use(file_change)` 时触发状态机异常，导致 UI 侧“看起来断链”。
 
 > 说明：多个最小复现已验证“并非 file_change 必现”。下一步关键是拿到断链当次 `disconnect reason / close code`，并排除 invocation/thread 事件串线误判。
@@ -124,6 +152,11 @@ Cat invocation：`d85ad07a-47fb-4c07-bced-b779ad12ff6e`
 2. 同一 invocation raw 中不出现 `command_execution` 文件写入；
 3. 记录是否存在 `turn.completed`；
 4. 对齐同时间窗审计是否存在 `server_shutdown/server_started`。
+
+补充：若实验目标是 `CLI 异常退出 code:1`，需额外记录：
+1. raw 中是否出现 `Reconnecting... 1/5 ~ 5/5`；
+2. 最终是否出现 `turn.failed` + `__cliError`；
+3. 审计中最后一个 `cli_tool_completed` 到 `cat_error` 的时间差。
 
 ---
 
