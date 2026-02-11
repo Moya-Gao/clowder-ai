@@ -21,6 +21,7 @@ import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { ModeStatusBar } from './ModeStatusBar';
 import { ConfirmDialog } from './ConfirmDialog';
+import { ExportImageButton } from './ExportImageButton';
 
 interface ChatContainerProps {
   threadId: string;
@@ -237,6 +238,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
+          <ExportImageButton threadId={threadId} />
           <button
             onClick={() => setStatusPanelOpen((v) => !v)}
             className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"
@@ -258,6 +260,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             ref={scrollContainerRef}
             onScroll={handleScroll}
             className="h-full overflow-y-auto p-4"
+            data-chat-container
           >
             {isLoadingHistory && (
               <div className="text-center py-3 text-sm text-gray-400">

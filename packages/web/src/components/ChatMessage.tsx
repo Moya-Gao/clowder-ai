@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import type { ChatMessage as ChatMessageType, MessageContent, ToolEvent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { EvidencePanel } from './EvidencePanel';
@@ -68,28 +69,82 @@ function formatTime(ts: number): string {
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function renderToolEvents(events: ToolEvent[]) {
+function CollapsedToolView({ events }: { events: ToolEvent[] }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (events.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((i) => (i + 1) % events.length);
+    }, 2000); // 每 2s 滚动一次
+    return () => clearInterval(interval);
+  }, [events.length]);
+
+  const current = events[currentIndex];
+
   return (
-    <div className="mb-3 rounded-xl border border-black/10 bg-white/65 px-3 py-2">
-      <div className="space-y-1">
-        {events.map((event) => (
-          <div key={event.id} className="font-mono text-[12px] leading-5 text-gray-600">
-            <div className="flex items-start gap-1.5">
-              <span className="mt-0.5">{event.type === 'tool_use' ? '🔧' : '📋'}</span>
-              <div className="min-w-0">
-                <div className="break-all">{event.label}</div>
-                {event.detail && (
-                  <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-all">
-                    {event.detail}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
+    <div className="px-3 pb-2 overflow-hidden h-6 relative">
+      <div
+        key={currentIndex}
+        className="font-mono text-xs text-gray-600 truncate absolute inset-0 flex items-center animate-fade-in"
+      >
+        <span className="mr-1.5">{current.type === 'tool_use' ? '🔧' : '📋'}</span>
+        {current.label}
       </div>
     </div>
   );
+}
+
+function ExpandedToolView({ events }: { events: ToolEvent[] }) {
+  return (
+    <div className="px-3 pb-2 space-y-1">
+      {events.map((event) => (
+        <div key={event.id} className="font-mono text-[12px] leading-5 text-gray-600">
+          <div className="flex items-start gap-1.5">
+            <span className="mt-0.5">{event.type === 'tool_use' ? '🔧' : '📋'}</span>
+            <div className="min-w-0">
+              <div className="break-all">{event.label}</div>
+              {event.detail && (
+                <div className="text-[11px] text-gray-500 whitespace-pre-wrap break-all">
+                  {event.detail}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
+  const [collapsed, setCollapsed] = useState(false);
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="mb-3 rounded-xl border border-black/10 bg-white/65">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full px-3 py-2 flex items-center justify-between hover:bg-black/5 transition-colors rounded-t-xl"
+      >
+        <span className="text-xs text-gray-600">
+          {events.length} 个工具调用
+        </span>
+        <span className="text-gray-400 text-xs">{collapsed ? '▼' : '▲'}</span>
+      </button>
+
+      {collapsed ? (
+        <CollapsedToolView events={events} />
+      ) : (
+        <ExpandedToolView events={events} />
+      )}
+    </div>
+  );
+}
+
+function renderToolEvents(events: ToolEvent[]) {
+  return <ToolEventsPanel events={events} />;
 }
 
 export function ChatMessage({ message }: { message: ChatMessageType }) {

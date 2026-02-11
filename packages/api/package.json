@@ -23,11 +23,13 @@
     "@fastify/websocket": "^10.0.0",
     "fastify": "^4.25.0",
     "ioredis": "^5.3.0",
+    "puppeteer": "^24.37.2",
     "socket.io": "^4.7.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "@types/puppeteer": "^7.0.4",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
   }

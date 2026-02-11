@@ -8,6 +8,7 @@ import {
   type IntentMode, type CatStatus,
 } from './status-helpers';
 import { CatConfigViewer } from './CatConfigViewer';
+import { useElapsedTime } from '@/hooks/useElapsedTime';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -32,6 +33,20 @@ interface AuditData {
   logPath: string | null;
   eventCount: number;
   logFiles: string[];
+}
+
+function CatInvocationTime({ invocation }: { invocation: CatInvocationInfo }) {
+  const elapsed = useElapsedTime(invocation.startedAt && !invocation.durationMs ? invocation.startedAt : undefined);
+
+  if (invocation.durationMs != null) {
+    return <span className="text-gray-500 ml-auto">{formatDuration(invocation.durationMs)}</span>;
+  }
+
+  if (invocation.startedAt && elapsed > 0) {
+    return <span className="text-green-600 ml-auto">{formatDuration(elapsed)}</span>;
+  }
+
+  return null;
 }
 
 export function RightStatusPanel({
@@ -147,12 +162,7 @@ export function RightStatusPanel({
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <span className={`inline-block h-2 w-2 rounded-full ${info.color}`} />
                     <span className="font-medium text-gray-700">{info.name}</span>
-                    {inv.durationMs != null && (
-                      <span className="text-gray-500 ml-auto">{formatDuration(inv.durationMs)}</span>
-                    )}
-                    {inv.startedAt && !inv.durationMs && (
-                      <span className="text-green-600 ml-auto">进行中…</span>
-                    )}
+                    <CatInvocationTime invocation={inv} />
                   </div>
                   {inv.sessionId && (
                     <div className="ml-3.5">
