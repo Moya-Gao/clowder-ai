@@ -75,6 +75,37 @@ function applyAuthMode(env: Record<string, string>): Record<string, string | nul
   };
 }
 
+const MAX_RECENT_STREAM_ERRORS = 5;
+const MAX_STREAM_ERROR_LENGTH = 240;
+
+function collectCodexStreamError(
+  event: unknown,
+  recentErrors: string[],
+): void {
+  if (typeof event !== 'object' || event === null) return;
+  const record = event as Record<string, unknown>;
+  if (record['type'] !== 'error') return;
+  const raw = record['message'];
+  if (typeof raw !== 'string') return;
+
+  const msg = raw.trim().slice(0, MAX_STREAM_ERROR_LENGTH);
+  if (!msg) return;
+
+  const last = recentErrors[recentErrors.length - 1];
+  if (last === msg) return;
+
+  recentErrors.push(msg);
+  if (recentErrors.length > MAX_RECENT_STREAM_ERRORS) {
+    recentErrors.shift();
+  }
+}
+
+function withRecentDiagnostics(base: string, recentErrors: string[]): string {
+  if (recentErrors.length === 0) return base;
+  const lines = recentErrors.map((line) => `- ${line}`);
+  return `${base}\n最近流错误:\n${lines.join('\n')}`;
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -117,6 +148,7 @@ export class CodexAgentService implements AgentService {
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
     const auditContext = options?.auditContext;
+    const recentStreamErrors: string[] = [];
 
     try {
       // Isolate from global ~/.codex/AGENTS.md to prevent config pollution
@@ -140,6 +172,8 @@ export class CodexAgentService implements AgentService {
       );
 
       for await (const event of events) {
+        collectCodexStreamError(event, recentStreamErrors);
+
         if (auditContext) {
           this.rawArchive.append(auditContext.invocationId, sanitizeRawEvent(event)).catch((err) => {
             console.warn('[audit] Codex raw event archive write failed', {
@@ -161,10 +195,11 @@ export class CodexAgentService implements AgentService {
           continue;
         }
         if (isCliError(event)) {
+          const base = formatCliExitError('Codex CLI', event);
           yield {
             type: 'error',
             catId: CAT_ID,
-            error: formatCliExitError('Codex CLI', event),
+            error: withRecentDiagnostics(base, recentStreamErrors),
             metadata,
             timestamp: Date.now(),
           };

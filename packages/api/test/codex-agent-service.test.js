@@ -340,6 +340,44 @@ test('yields error on CLI non-zero exit', async () => {
   assert.ok(!errMsg.error.includes('authentication failed'), 'stderr should be sanitized');
 });
 
+test('includes reconnect diagnostics in CLI exit error when available', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('reconnect failure'));
+
+  proc.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'thread-reconnect' }) + '\n');
+  proc.stdout.write(JSON.stringify({
+    type: 'error',
+    message: 'Reconnecting... 1/5 (stream disconnected before completion)',
+  }) + '\n');
+  proc.stdout.write(JSON.stringify({
+    type: 'error',
+    message: 'Reconnecting... 2/5 (stream disconnected before completion)',
+  }) + '\n');
+  proc.stdout.write(JSON.stringify({
+    type: 'error',
+    message: 'stream disconnected before completion',
+  }) + '\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const msgs = await promise;
+  const errMsg = msgs.find((m) => m.type === 'error');
+  assert.ok(errMsg);
+  assert.ok(errMsg.error.includes('code: 1'));
+  assert.ok(
+    errMsg.error.includes('Reconnecting... 1/5'),
+    'error should include reconnect diagnostics'
+  );
+  assert.ok(
+    errMsg.error.includes('Reconnecting... 2/5'),
+    'error should include multiple reconnect attempts'
+  );
+});
+
 test('yields error on spawn ENOENT', async () => {
   const proc = createMockProcess();
   proc.kill = mock.fn(() => true);
