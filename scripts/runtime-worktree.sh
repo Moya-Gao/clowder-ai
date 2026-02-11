@@ -199,7 +199,8 @@ start_runtime_worktree() {
 
   info "starting dev stack from runtime worktree: $RUNTIME_DIR"
   cd "$RUNTIME_DIR"
-  exec ./scripts/start-dev.sh "${START_ARGS[@]}"
+  # Bash 3.2 + set -u: empty-array expansion can throw "unbound variable".
+  exec ./scripts/start-dev.sh ${START_ARGS[@]+"${START_ARGS[@]}"}
 }
 
 COMMAND="${1:-status}"
