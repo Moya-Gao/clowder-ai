@@ -65,4 +65,39 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('暹罗猫');
     expect(html).toContain('空闲');
   });
+
+  it('renders copyable invocation and session ids in recent invocations', () => {
+    const invocationId = 'inv-1234567890abcdef';
+    const sessionId = 'sess-1234567890abcdef';
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['codex'],
+      catStatuses: { codex: 'streaming' },
+      catInvocations: {
+        codex: {
+          invocationId,
+          sessionId,
+          startedAt: Date.now(),
+        },
+      },
+      threadId: 'thread-123',
+      messageSummary: {
+        total: 1,
+        assistant: 1,
+        system: 0,
+        evidence: 0,
+        followup: 0,
+      },
+      taskSummary: {
+        total: 0,
+        done: 0,
+      },
+    });
+
+    expect(html).toContain('最近调用');
+    expect(html).toContain('invocation:');
+    expect(html).toContain('session:');
+    expect(html).toContain(`点击复制: ${invocationId}`);
+    expect(html).toContain(`点击复制: ${sessionId}`);
+  });
 });

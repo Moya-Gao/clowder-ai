@@ -50,6 +50,10 @@ export function RightStatusPanel({
   const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
 
+  const copyText = useCallback((value: string) => {
+    void navigator.clipboard.writeText(value);
+  }, []);
+
   const fetchAudit = useCallback(async () => {
     try {
       const res = await apiFetch(`/api/audit/thread/${threadId}`);
@@ -151,13 +155,28 @@ export function RightStatusPanel({
                     )}
                   </div>
                   {inv.sessionId && (
-                    <button
-                      className="ml-3.5 text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
-                      title={`点击复制: ${inv.sessionId}`}
-                      onClick={() => navigator.clipboard.writeText(inv.sessionId!)}
-                    >
-                      {truncateId(inv.sessionId, 12)}
-                    </button>
+                    <div className="ml-3.5">
+                      <span className="text-[11px] text-gray-500 mr-1">session:</span>
+                      <button
+                        className="text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
+                        title={`点击复制: ${inv.sessionId}`}
+                        onClick={() => copyText(inv.sessionId!)}
+                      >
+                        {truncateId(inv.sessionId, 12)}
+                      </button>
+                    </div>
+                  )}
+                  {inv.invocationId && (
+                    <div className="ml-3.5">
+                      <span className="text-[11px] text-gray-500 mr-1">invocation:</span>
+                      <button
+                        className="text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
+                        title={`点击复制: ${inv.invocationId}`}
+                        onClick={() => copyText(inv.invocationId!)}
+                      >
+                        {truncateId(inv.invocationId, 12)}
+                      </button>
+                    </div>
                   )}
                 </div>
               );
@@ -173,7 +192,7 @@ export function RightStatusPanel({
             Thread: <button
               className="text-gray-600 font-mono hover:text-gray-800 cursor-pointer transition-colors"
               title={`点击复制: ${threadId}`}
-              onClick={() => navigator.clipboard.writeText(threadId)}
+              onClick={() => copyText(threadId)}
             >{truncateId(threadId, 12)}</button>
           </div>
         </div>
