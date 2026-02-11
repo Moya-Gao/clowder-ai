@@ -116,6 +116,7 @@ CLI raw 归档（绝对路径）：
 
 - `13493~13494` 行：最后一次 `cli_tool_completed`（命令执行成功）
 - `13496` 行：`cat_error`, 错误为 `Codex CLI: CLI 异常退出 (code: 1, signal: none)`
+- 同时间窗未观察到新的 `server_shutdown/server_started`（重启并非本次直接触发器）
 
 补充结论：
 - 该失败样本中未出现 `file_change` 事件；
