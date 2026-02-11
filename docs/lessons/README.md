@@ -22,6 +22,12 @@
 
 ## 教程目录
 
+### Part 0: 概念入门
+
+| 课 | 标题 | 状态 | 核心问题 |
+|----|------|------|----------|
+| 00 | [AI Agent 概念演进](./00-concepts-evolution.md) | ✅ 完成 | Function Call → MCP → Skills → Agent 怎么来的？ |
+
 ### Part 1: 选型与架构
 
 | 课 | 标题 | 状态 | 核心问题 |
