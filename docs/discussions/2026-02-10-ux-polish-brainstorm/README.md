@@ -162,15 +162,22 @@ function useElapsedTime(startedAt: number | undefined) {
 | Chrome headless | 效果完美 | 需要后端支持，Chrome 依赖 |
 | dom-to-image | 纯前端，SVG 中间层 | 复杂样式支持差 |
 
-**推荐**：Chrome headless（已验证可行，效果最好）
+**最终决议**：**Chrome headless**（布偶猫决定）
+- 已在本次讨论前验证可行（截取了 F11 Review 长图）
+- 效果最好，样式完整保留
+- 实现：后端新增 `/api/threads/:id/export-image` 路由，调用 Chrome headless
 
 ---
 
-## 开放问题
+## 开放问题 → 最终决议
 
-1. F19 计时精度：0.1s 还是 1s？（影响 setInterval 频率）
-2. F17 Chrome headless：是否需要后端 API 封装？还是前端直接调用？
-3. F18 收起状态下：工具参数是否显示？还是只显示工具名？
+> **铲屎官确认 (2026-02-10)**
+
+| 问题 | 决议 |
+|------|------|
+| F19 计时精度 | **0.1s** — setInterval 100ms 更新 |
+| F17 实现方式 | **布偶猫决定** — 推荐 Chrome headless（效果好，已验证） |
+| F18 收起显示 | **工具名+参数摘要** — 例如 `🔧 Read packages/api/src/...` |
 
 ---
 
