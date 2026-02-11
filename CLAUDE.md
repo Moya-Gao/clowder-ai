@@ -323,6 +323,78 @@ git branch --merged main             # 哪些分支已合入
 
 > 教训来源：2026-02-10 发现 6 个 worktree 堆积（4 个已合入未清理），浪费 2.1 GB 磁盘。用完不清理 = 给铲屎官和其他猫添堵。
 
+### 10) Worktree Redis 隔离（三猫铁律 - 数据安全红线）
+
+**核心原则：铲屎官的 Redis 6399 是圣域，猫猫开发绝对不能碰！**
+
+#### Redis 端口分配（强制）
+
+| Redis | 端口 | 用途 | 谁可以用 | 数据重要性 |
+|-------|------|------|----------|-----------|
+| **用户 Redis** | **6399** | **铲屎官的数据，只读** | 主环境服务 | **🔴 圣域** |
+| **开发 Redis** | **6398** | 猫猫开发测试 | Worktree/测试 | 🟢 可随便折腾 |
+
+#### Worktree 环境强制规则
+
+**任何 worktree 中启动服务，必须使用开发 Redis 6398**：
+
+```bash
+# 在 worktree 根目录创建 .env.local
+cat > .env.local <<EOF
+# Worktree 开发环境：使用开发 Redis 6398（猫猫沙盒）
+REDIS_URL=redis://localhost:6398
+
+# 前端 API 地址（如果测试需要）
+NEXT_PUBLIC_API_URL=http://localhost:3102
+EOF
+
+# 启动服务时显式指定端口
+API_SERVER_PORT=3102 pnpm --filter @cat-cafe/api dev
+# Web 前端使用对应端口
+```
+
+**禁止行为**（违反 = 数据丢失风险）：
+- ❌ Worktree 中不设置 REDIS_URL 就启动服务（会回落到 6399）
+- ❌ Worktree 中显式设置 `REDIS_URL=redis://localhost:6399`
+- ❌ 在 worktree 中运行任何可能写入 6399 的脚本
+
+#### 开发 Redis 启动（首次需要）
+
+```bash
+# 启动开发专用 Redis 6398
+redis-server \
+  --port 6398 \
+  --dir ~/.cat-cafe/redis-dev-sandbox \
+  --dbfilename dump-dev.rdb \
+  --appendonly yes \
+  --daemonize yes
+
+# 验证启动
+redis-cli -p 6398 ping  # 应返回 PONG
+```
+
+#### 验证隔离生效
+
+启动服务前，**必须验证**连接的是开发 Redis：
+
+```bash
+# 检查环境变量
+echo $REDIS_URL  # 必须是 redis://localhost:6398
+
+# 启动后验证
+curl http://localhost:3102/api/threads | jq '.threads | length'
+# 应该是空或测试数据，不是生产数据
+```
+
+#### 紧急情况处理
+
+**如果误连接到 6399 并发现数据异常**：
+1. 🚨 **立即停止所有服务**（Ctrl+C 或 kill 进程）
+2. 📞 **通知铲屎官**（不要隐瞒）
+3. 🔍 **启动数据恢复流程**（见事故报告案例）
+
+> 教训来源：2026-02-10 晚间数据丢失事件。布偶猫在 worktree 工作时，数据从 307 keys 降至 15 keys（95% 丢失）。原因疑似 worktree 代码变化触发主环境热重载，导致服务异常重启并清空数据。虽最终从 RDB 备份完全恢复，但过程惊险。详见：`docs/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
+
 ## 当你不确定时
 
 1. 先看设计文档
