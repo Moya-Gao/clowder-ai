@@ -269,8 +269,43 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
+guard_main_branch_start() {
+    if [ "${CAT_CAFE_ALLOW_MAIN_DEV:-0}" = "1" ]; then
+        return
+    fi
+
+    if ! command -v git >/dev/null 2>&1; then
+        return
+    fi
+
+    local branch repo_root repo_name
+    branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+    repo_name=$(basename "${repo_root:-}")
+
+    if [ -z "$branch" ] || [ -z "$repo_root" ]; then
+        return
+    fi
+
+    if [ "$repo_name" = "cat-cafe" ] && [ "$branch" = "main" ]; then
+        echo ""
+        echo -e "${RED}✗ 检测到当前在 main 分支启动开发服务，已阻止。${NC}"
+        echo "  目的：避免热更新重启中断会话。"
+        echo ""
+        echo "  请改用运行态 worktree："
+        echo "    1) pnpm runtime:init"
+        echo "    2) pnpm runtime:start -- --quick"
+        echo ""
+        echo "  临时绕过（不推荐）："
+        echo "    CAT_CAFE_ALLOW_MAIN_DEV=1 pnpm start"
+        exit 1
+    fi
+}
+
 # 主函数
 main() {
+    guard_main_branch_start
+
     # 1. 杀掉残余进程
     echo ""
     echo -e "${CYAN}检查端口...${NC}"
