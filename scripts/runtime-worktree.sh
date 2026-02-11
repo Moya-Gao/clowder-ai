@@ -189,7 +189,12 @@ start_runtime_worktree() {
   fi
 
   if [ "$SYNC_BEFORE_START" = "true" ]; then
-    sync_runtime_worktree
+    if is_api_running && [ "$FORCE" != "true" ]; then
+      info "API port is active; skip pre-start sync to avoid in-place hot swap."
+      info "Run 'pnpm runtime:sync' after stop if you need latest origin/main."
+    else
+      sync_runtime_worktree
+    fi
   fi
 
   info "starting dev stack from runtime worktree: $RUNTIME_DIR"
