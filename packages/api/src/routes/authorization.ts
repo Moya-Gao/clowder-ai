@@ -1,6 +1,6 @@
 /**
  * Authorization Management Routes — 铲屎官审批 + 规则管理 + 审计查询
- * 安全: x-user-id header (同 messages.ts)
+ * 安全: X-Cat-Cafe-User header（兼容 legacy x-user-id）
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -16,6 +16,23 @@ export interface AuthorizationRoutesOptions {
   ruleStore: IAuthorizationRuleStore;
   auditStore: IAuthorizationAuditStore;
   socketManager: SocketManager;
+}
+
+function resolveAuthorizationUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
+  const fromPrimary = request.headers['x-cat-cafe-user'];
+  if (typeof fromPrimary === 'string' && fromPrimary.trim().length > 0) return fromPrimary.trim();
+  if (Array.isArray(fromPrimary) && typeof fromPrimary[0] === 'string' && fromPrimary[0].trim().length > 0) {
+    return fromPrimary[0].trim();
+  }
+
+  // Legacy compatibility: old clients used x-user-id
+  const fromLegacy = request.headers['x-user-id'];
+  if (typeof fromLegacy === 'string' && fromLegacy.trim().length > 0) return fromLegacy.trim();
+  if (Array.isArray(fromLegacy) && typeof fromLegacy[0] === 'string' && fromLegacy[0].trim().length > 0) {
+    return fromLegacy[0].trim();
+  }
+
+  return null;
 }
 
 const respondSchema = z.object({
@@ -40,10 +57,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // POST /api/authorization/respond — 铲屎官审批
     app.post('/api/authorization/respond', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const parseResult = respondSchema.safeParse(request.body);
@@ -76,10 +93,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // GET /api/authorization/pending — 待审批列表
     app.get('/api/authorization/pending', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const threadId = (request.query as Record<string, string>)['threadId'];
@@ -89,10 +106,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // GET /api/authorization/rules — 规则列表
     app.get('/api/authorization/rules', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const query = request.query as Record<string, string>;
@@ -105,10 +122,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // POST /api/authorization/rules — 手动添加规则
     app.post('/api/authorization/rules', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const parseResult = addRuleSchema.safeParse(request.body);
@@ -133,10 +150,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // DELETE /api/authorization/rules/:id — 删除规则
     app.delete('/api/authorization/rules/:id', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const { id } = request.params as { id: string };
@@ -151,10 +168,10 @@ export const authorizationRoutes: FastifyPluginAsync<AuthorizationRoutesOptions>
 
     // GET /api/authorization/audit — 审计日志
     app.get('/api/authorization/audit', async (request, reply) => {
-      const userId = request.headers['x-user-id'];
-      if (!userId || typeof userId !== 'string') {
+      const userId = resolveAuthorizationUserId(request);
+      if (!userId) {
         reply.status(401);
-        return { error: 'Missing x-user-id header' };
+        return { error: 'Identity required (X-Cat-Cafe-User header)' };
       }
 
       const query = request.query as Record<string, string>;

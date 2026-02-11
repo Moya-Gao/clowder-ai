@@ -317,6 +317,34 @@ describe('POST /api/authorization/respond', () => {
     assert.equal(events[0].event, 'authorization:response');
   });
 
+  test('accepts X-Cat-Cafe-User header (frontend default)', async () => {
+    const app = await createApp();
+
+    const record = pendingStore.create({
+      invocationId: 'inv-frontend',
+      catId: 'codex',
+      threadId: 'thread-frontend',
+      action: 'git_commit',
+      reason: 'frontend approval',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/authorization/respond',
+      headers: { 'x-cat-cafe-user': 'frontend-user' },
+      payload: {
+        requestId: record.requestId,
+        granted: true,
+        scope: 'once',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.record.status, 'granted');
+  });
+
   test('returns 404 for nonexistent request', async () => {
     const app = await createApp();
     const res = await app.inject({
@@ -393,6 +421,33 @@ describe('GET /api/authorization/pending', () => {
       method: 'GET',
       url: '/api/authorization/pending?threadId=t1',
       headers: { 'x-user-id': 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(JSON.parse(res.body).pending.length, 1);
+  });
+
+  test('accepts X-Cat-Cafe-User header for pending list', async () => {
+    const ruleStore = new AuthorizationRuleStore();
+    const pendingStore = new PendingRequestStore();
+    const auditStore = new AuthorizationAuditStore();
+    const authManager = new AuthorizationManager({
+      ruleStore,
+      pendingStore,
+      auditStore,
+      timeoutMs: 5000,
+    });
+    const socketManager = createMockSocketManager();
+
+    pendingStore.create({ invocationId: 'i1', catId: 'codex', threadId: 't1', action: 'a1', reason: 'r1' });
+
+    const app = Fastify();
+    await app.register(authorizationRoutes, { authManager, ruleStore, auditStore, socketManager });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/authorization/pending?threadId=t1',
+      headers: { 'x-cat-cafe-user': 'frontend-user' },
     });
 
     assert.equal(res.statusCode, 200);
