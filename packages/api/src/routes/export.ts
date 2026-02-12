@@ -1,6 +1,6 @@
 /**
  * Export Routes
- * GET /api/export/thread/:threadId?format=md - 导出对话记录为 Markdown
+ * GET /api/export/thread/:threadId?format=md|txt - 导出对话记录
  */
 
 import type { FastifyPluginAsync } from 'fastify';
@@ -74,18 +74,65 @@ export function formatThreadAsMarkdown(
   return lines.join('\n');
 }
 
+/**
+ * Format a thread as plain text (no Markdown syntax).
+ * Same structure as Markdown but without formatting markers.
+ */
+export function formatThreadAsText(
+  thread: Thread,
+  messages: StoredMessage[],
+): string {
+  const lines: string[] = [];
+
+  const title = thread.title ?? '未命名对话';
+  lines.push(`对话记录: ${title}`, '');
+
+  lines.push(`ID: ${thread.id}`);
+  if (messages.length > 0) {
+    const first = formatDatetime(new Date(messages[0]!.timestamp));
+    const last = formatDatetime(new Date(messages[messages.length - 1]!.timestamp));
+    lines.push(`时间: ${first} ~ ${last}`);
+  }
+  if (thread.participants.length > 0) {
+    const names = thread.participants.map((id) => {
+      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
+      return c?.displayName ?? id;
+    });
+    lines.push(`参与者: ${names.join(', ')}`);
+  }
+  lines.push(`消息数: ${messages.length}`, '', '---', '');
+
+  for (const msg of messages) {
+    const line = formatMessage(msg);
+    lines.push(line);
+    if (msg.metadata) {
+      const parts: string[] = [];
+      if (msg.metadata.provider) parts.push(msg.metadata.provider);
+      if (msg.metadata.model) parts.push(msg.metadata.model);
+      if (parts.length > 0) {
+        lines.push(`[${parts.join('/')}]`);
+      }
+    }
+  }
+
+  lines.push('', '---', `导出时间: ${formatDatetime(new Date())}`);
+  return lines.join('\n');
+}
+
+const SUPPORTED_FORMATS = new Set(['md', 'txt']);
+
 export const exportRoutes: FastifyPluginAsync<ExportRoutesOptions> =
   async (app, opts) => {
   const { messageStore, threadStore } = opts;
 
-  // GET /api/export/thread/:threadId?format=md
+  // GET /api/export/thread/:threadId?format=md|txt
   app.get('/api/export/thread/:threadId', async (request, reply) => {
     const { threadId } = request.params as { threadId: string };
     const format = (request.query as { format?: string }).format ?? 'md';
 
-    if (format !== 'md') {
+    if (!SUPPORTED_FORMATS.has(format)) {
       reply.status(400);
-      return { error: 'Unsupported format. Use format=md' };
+      return { error: 'Unsupported format. Use format=md or format=txt' };
     }
 
     const thread = await threadStore.get(threadId);
@@ -95,8 +142,18 @@ export const exportRoutes: FastifyPluginAsync<ExportRoutesOptions> =
     }
 
     const messages = await messageStore.getByThread(threadId, 10000);
-    const md = formatThreadAsMarkdown(thread, messages);
 
+    if (format === 'txt') {
+      const txt = formatThreadAsText(thread, messages);
+      reply.header('Content-Type', 'text/plain; charset=utf-8');
+      reply.header(
+        'Content-Disposition',
+        `attachment; filename="thread-${threadId}.txt"`,
+      );
+      return txt;
+    }
+
+    const md = formatThreadAsMarkdown(thread, messages);
     reply.header('Content-Type', 'text/markdown; charset=utf-8');
     reply.header(
       'Content-Disposition',

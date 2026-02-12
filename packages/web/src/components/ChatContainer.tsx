@@ -21,7 +21,7 @@ import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { ModeStatusBar } from './ModeStatusBar';
 import { ConfirmDialog } from './ConfirmDialog';
-import { ExportImageButton } from './ExportImageButton';
+import { ExportButton } from './ExportButton';
 
 interface ChatContainerProps {
   threadId: string;
@@ -238,7 +238,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
-          <ExportImageButton threadId={threadId} />
+          <ExportButton threadId={threadId} />
           <button
             onClick={() => setStatusPanelOpen((v) => !v)}
             className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"

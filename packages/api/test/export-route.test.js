@@ -1,12 +1,12 @@
 /**
  * Export Route Tests
- * 测试聊天记录导出为 Markdown
+ * 测试聊天记录导出为 Markdown / 纯文本
  */
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { formatThreadAsMarkdown } = await import('../dist/routes/export.js');
+const { formatThreadAsMarkdown, formatThreadAsText } = await import('../dist/routes/export.js');
 
 /** Helper to create a minimal thread object */
 function makeThread(overrides = {}) {
@@ -114,6 +114,71 @@ describe('formatThreadAsMarkdown', () => {
   });
 });
 
+describe('formatThreadAsText', () => {
+  test('formats thread as plain text without Markdown syntax', () => {
+    const thread = makeThread({ title: '纯文本测试', participants: ['opus'] });
+    const messages = [
+      makeMessage({ content: '你好布偶猫', timestamp: new Date('2026-02-07T10:30:00').getTime() }),
+      makeMessage({ catId: 'opus', content: '你好铲屎官！', timestamp: new Date('2026-02-07T10:31:00').getTime(), id: 'msg-2' }),
+    ];
+
+    const txt = formatThreadAsText(thread, messages);
+
+    // Should have title without Markdown heading
+    assert.ok(txt.includes('对话记录: 纯文本测试'));
+    assert.ok(!txt.includes('# '), 'Should not contain Markdown heading markers');
+
+    // Should have meta without bold markers
+    assert.ok(txt.includes('ID: thread-1'));
+    assert.ok(!txt.includes('**'), 'Should not contain Markdown bold markers');
+
+    // Should include message content
+    assert.ok(txt.includes('你好布偶猫'));
+    assert.ok(txt.includes('你好铲屎官！'));
+  });
+
+  test('handles empty messages', () => {
+    const thread = makeThread();
+    const txt = formatThreadAsText(thread, []);
+
+    assert.ok(txt.includes('对话记录: 测试对话'));
+    assert.ok(txt.includes('消息数: 0'));
+    assert.ok(!txt.includes('**'));
+  });
+
+  test('uses 未命名对话 when title is null', () => {
+    const thread = makeThread({ title: null });
+    const txt = formatThreadAsText(thread, []);
+
+    assert.ok(txt.includes('对话记录: 未命名对话'));
+  });
+
+  test('shows metadata tags without italic markers', () => {
+    const thread = makeThread();
+    const messages = [
+      makeMessage({
+        catId: 'opus',
+        content: '有 metadata 的消息',
+        metadata: { provider: 'anthropic', model: 'claude-opus-4-5-20250514' },
+      }),
+    ];
+
+    const txt = formatThreadAsText(thread, messages);
+
+    // Should have metadata without italic markers
+    assert.ok(txt.includes('[anthropic/claude-opus-4-5-20250514]'));
+    assert.ok(!txt.includes('*['), 'Should not wrap metadata in italic markers');
+  });
+
+  test('export timestamp without italic markers', () => {
+    const thread = makeThread();
+    const txt = formatThreadAsText(thread, []);
+
+    assert.ok(txt.includes('导出时间:'));
+    assert.ok(!txt.includes('*导出时间'), 'Should not wrap timestamp in italic markers');
+  });
+});
+
 describe('Export Route (endpoint)', () => {
   // Route-level test using Fastify inject
   async function buildApp(threadStore, messageStore) {
@@ -195,5 +260,42 @@ describe('Export Route (endpoint)', () => {
     assert.equal(res.statusCode, 400);
     const body = JSON.parse(res.body);
     assert.ok(body.error.includes('Unsupported format'));
+  });
+
+  test('GET with format=txt returns 200 with plain text', async () => {
+    const thread = makeThread();
+    const messages = [makeMessage({ content: 'hello txt' })];
+    const app = await buildApp(
+      mockThreadStore({ 'thread-1': thread }),
+      mockMessageStore(messages),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/export/thread/thread-1?format=txt',
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.headers['content-type'].includes('text/plain'));
+    assert.ok(res.headers['content-disposition'].includes('thread-thread-1.txt'));
+    assert.ok(res.body.includes('hello txt'));
+    assert.ok(!res.body.includes('# '), 'txt format should not contain Markdown headings');
+  });
+
+  test('GET default format (no query) returns markdown', async () => {
+    const thread = makeThread();
+    const messages = [makeMessage({ content: 'default format' })];
+    const app = await buildApp(
+      mockThreadStore({ 'thread-1': thread }),
+      mockMessageStore(messages),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/export/thread/thread-1',
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.ok(res.headers['content-type'].includes('text/markdown'));
   });
 });
