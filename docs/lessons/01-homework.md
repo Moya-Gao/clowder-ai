@@ -25,10 +25,34 @@
 在开始之前，确保你已经：
 
 - [ ] 安装了 Node.js (v18+)
-- [ ] 安装了 Claude CLI (`claude --version` 能跑)
+- [ ] 安装了 Claude Code CLI (`claude --version` 能跑)
 - [ ] 已登录 Claude CLI (`claude` 能正常对话)
 
-如果还没安装/登录，可以问 AI："帮我安装并登录 Claude CLI"
+### 安装 Claude Code CLI
+
+官方安装方式（npm 已废弃）：
+
+**macOS / Linux**：
+```bash
+# 推荐方式
+curl -fsSL https://claude.ai/install.sh | bash
+
+# 或用 Homebrew
+brew install --cask claude-code
+```
+
+**Windows**：
+```powershell
+# 推荐方式
+irm https://claude.ai/install.ps1 | iex
+
+# 或用 WinGet
+winget install Anthropic.ClaudeCode
+```
+
+安装后运行 `claude` 进入交互模式，会引导你登录。
+
+> 详见官方文档：https://github.com/anthropics/claude-code
 
 ---
 
