@@ -1084,9 +1084,11 @@ describe('AgentRouter', () => {
     );
 
     let opusReceivedPrompt = '';
+    let opusReceivedOptions;
     const mockClaudeService = {
-      invoke: mock.fn(async function* (prompt) {
+      invoke: mock.fn(async function* (prompt, options) {
         opusReceivedPrompt = prompt;
+        opusReceivedOptions = options;
         yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       }),
@@ -1104,8 +1106,9 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    assert.ok(opusReceivedPrompt.includes('布偶猫'), 'Opus prompt should contain 布偶猫');
-    assert.ok(opusReceivedPrompt.includes('Anthropic'), 'Opus prompt should mention Anthropic');
+    // Static identity (布偶猫, Anthropic) now injected via systemPrompt option
+    assert.ok(opusReceivedOptions?.systemPrompt?.includes('布偶猫'), 'Opus systemPrompt should contain 布偶猫');
+    assert.ok(opusReceivedOptions?.systemPrompt?.includes('Anthropic'), 'Opus systemPrompt should mention Anthropic');
     assert.ok(opusReceivedPrompt.includes('hello'), 'Opus prompt should contain original message');
   });
 
@@ -1115,10 +1118,12 @@ describe('AgentRouter', () => {
     );
 
     let codexReceivedPrompt = '';
+    let codexReceivedOptions;
     const mockClaudeService = createMockAgentService('opus', 'opus says hi');
     const mockCodexService = {
-      invoke: mock.fn(async function* (prompt) {
+      invoke: mock.fn(async function* (prompt, options) {
         codexReceivedPrompt = prompt;
+        codexReceivedOptions = options;
         yield { type: 'text', catId: 'codex', content: 'codex says hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'codex', timestamp: Date.now() };
       }),
@@ -1136,7 +1141,9 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    assert.ok(codexReceivedPrompt.includes('缅因猫'), 'Codex prompt should contain 缅因猫');
+    // Static identity (缅因猫) now injected via systemPrompt option
+    assert.ok(codexReceivedOptions?.systemPrompt?.includes('缅因猫'), 'Codex systemPrompt should contain 缅因猫');
+    // Dynamic chain position still in -p prompt
     assert.ok(codexReceivedPrompt.includes('2/2'), 'Codex prompt should show chain position 2/2');
   });
 

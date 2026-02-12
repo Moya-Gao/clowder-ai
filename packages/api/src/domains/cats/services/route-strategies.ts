@@ -7,7 +7,7 @@
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-import { buildSystemPrompt } from './SystemPromptBuilder.js';
+import { buildStaticIdentity, buildInvocationContext } from './SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInjector.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
@@ -234,9 +234,10 @@ export async function* routeSerial(
       prompt = `${message}\n\n${contextParts.join('\n')}`;
     }
 
-    // Build identity system prompt
+    // Build identity: static goes via systemPrompt option, dynamic goes in -p content
     const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
-    const systemPrompt = buildSystemPrompt({
+    const staticIdentity = buildStaticIdentity(catId);
+    const invocationContext = buildInvocationContext({
       catId,
       mode: worklist.length > 1 ? 'serial' : 'independent',
       chainIndex: index + 1,
@@ -264,7 +265,7 @@ export async function* routeSerial(
       );
       deliveryBoundaryId = inc.boundaryId;
       const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      const parts = [systemPrompt, catModePrompt, mcpInstructions].filter(Boolean);
+      const parts = [invocationContext, catModePrompt, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -296,8 +297,8 @@ export async function* routeSerial(
       }
 
       const catModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (systemPrompt || catModePromptLegacy || mcpInstructions) {
-        const parts = [systemPrompt, catModePromptLegacy, mcpInstructions].filter(Boolean);
+      if (invocationContext || catModePromptLegacy || mcpInstructions) {
+        const parts = [invocationContext, catModePromptLegacy, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
       } else if (catContextHistory) {
@@ -320,6 +321,7 @@ export async function* routeSerial(
       ...(isOriginalTarget && contentBlocks ? { contentBlocks } : {}),
       ...(isOriginalTarget && uploadDir ? { uploadDir } : {}),
       ...(signal ? { signal } : {}),
+      ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,
     })) {
       if (msg.type === 'text' && msg.content) {
@@ -483,7 +485,8 @@ export async function* routeParallel(
 
   const streams = await Promise.all(targetCats.map(async (catId) => {
     const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
-    const systemPrompt = buildSystemPrompt({
+    const staticIdentity = buildStaticIdentity(catId);
+    const invocationContext = buildInvocationContext({
       catId,
       mode: 'parallel',
       teammates: targetCats.filter((id) => id !== catId),
@@ -506,7 +509,7 @@ export async function* routeParallel(
       );
       boundaryByCat.set(catId, inc.boundaryId);
       const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      const parts = [systemPrompt, parCatModePrompt, mcpInstructions].filter(Boolean);
+      const parts = [invocationContext, parCatModePrompt, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -537,8 +540,8 @@ export async function* routeParallel(
       }
 
       const parCatModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (systemPrompt || parCatModePromptLegacy || mcpInstructions) {
-        const parts = [systemPrompt, parCatModePromptLegacy, mcpInstructions].filter(Boolean);
+      if (invocationContext || parCatModePromptLegacy || mcpInstructions) {
+        const parts = [invocationContext, parCatModePromptLegacy, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
       } else if (catContextHistory) {
@@ -557,6 +560,7 @@ export async function* routeParallel(
       ...(contentBlocks ? { contentBlocks } : {}),
       ...(uploadDir ? { uploadDir } : {}),
       ...(signal ? { signal } : {}),
+      ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,
     });
   }));

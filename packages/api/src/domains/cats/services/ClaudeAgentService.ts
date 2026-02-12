@@ -239,6 +239,11 @@ export class ClaudeAgentService implements AgentService {
       '--setting-sources', 'project,local',
     ];
 
+    // Inject static identity via --append-system-prompt (separate from -p content)
+    if (options?.systemPrompt) {
+      args.push('--append-system-prompt', options.systemPrompt);
+    }
+
     if (options?.sessionId) {
       args.push('--resume', options.sessionId);
     }

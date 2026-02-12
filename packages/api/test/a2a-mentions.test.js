@@ -73,7 +73,7 @@ describe('SystemPromptBuilder A2A injection', () => {
     assert.ok(prompt.includes('@队友'), 'should include @队友 instruction');
   });
 
-  it('does NOT include A2A section in parallel mode', async () => {
+  it('parallel mode uses independent thinking context (collaboration guide still present)', async () => {
     const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
     const prompt = buildSystemPrompt({
       catId: 'opus',
@@ -82,7 +82,10 @@ describe('SystemPromptBuilder A2A injection', () => {
       mcpAvailable: false,
       a2aEnabled: true,
     });
-    assert.ok(!prompt.includes('## 协作'), 'should NOT include 协作 section in parallel');
+    // Static collaboration guide is always present (cats should always know how to @)
+    assert.ok(prompt.includes('## 协作'), 'should include static collaboration guide');
+    // Parallel mode should indicate independent thinking
+    assert.ok(prompt.includes('独立思考'), 'should indicate independent thinking in parallel mode');
   });
 
   it('includes A2A section even with empty teammates (single-cat scenario)', async () => {

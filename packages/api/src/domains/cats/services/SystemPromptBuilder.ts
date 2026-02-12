@@ -43,12 +43,36 @@ const MCP_TOOLS_SECTION = `
 - cat_cafe_get_thread_context: 获取当前对话上下文
 - cat_cafe_update_task: 更新自己负责的任务状态`;
 
+/** Per-cat workflow triggers: when to proactively @ other cats */
+const WORKFLOW_TRIGGERS: Record<string, string> = {
+  opus: [
+    '## 工作流（主动 @ 触发点）',
+    '- 完成开发/修复 → @缅因猫 请 review',
+    '- 修完 review 意见 → @缅因猫 确认修复',
+    '- 遇到视觉/体验问题 → @暹罗猫 征询',
+    '- Review 别人代码：每个发现必须有明确立场，禁止说"修不修都行"',
+  ].join('\n'),
+  codex: [
+    '## 工作流（主动 @ 触发点）',
+    '- 完成 review → @布偶猫 通知结果',
+    '- 修完 bug/feature → @布偶猫 请 review',
+    '- Review 布偶猫代码：每个发现必须有明确立场，禁止说"修不修都行"',
+    '- 收到 review 意见：独立判断，认为自己对就 push back，不全盘接受',
+  ].join('\n'),
+  gemini: [
+    '## 工作流（主动 @ 触发点）',
+    '- 完成设计/视觉资产 → @布偶猫 + @缅因猫 请确认',
+    '- 遇到技术实现问题 → @布偶猫 征询',
+  ].join('\n'),
+};
+
 /**
- * Build identity system prompt for a cat invocation.
- * Pure function — same inputs always produce same output.
+ * Build static identity prompt — persistent across invocations.
+ * Includes: identity, personality, rules, A2A format, workflow triggers.
+ * Suitable for --system-prompt / --append-system-prompt injection.
  */
-export function buildSystemPrompt(context: InvocationContext): string {
-  const config = CAT_CONFIGS[context.catId as keyof typeof CAT_CONFIGS];
+export function buildStaticIdentity(catId: CatId): string {
+  const config = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
   if (!config) return '';
 
   const providerLabel = PROVIDER_LABELS[config.provider] ?? config.provider;
@@ -62,6 +86,48 @@ export function buildSystemPrompt(context: InvocationContext): string {
     '',
   );
 
+  // A2A collaboration format (always included — cats should know how to @ even in single-cat mode)
+  const callableNames = Object.entries(CAT_CONFIGS)
+    .filter(([id]) => id !== catId)
+    .map(([, cfg]) => cfg.displayName);
+  if (callableNames.length > 0) {
+    const exampleTarget = callableNames[0];
+    lines.push('## 协作');
+    lines.push(
+      `你可以 @队友: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
+    );
+    lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效）。');
+    lines.push(`✅ 正确：另起一行 @${exampleTarget}`);
+    lines.push(`❌ 错误：怎么样 @${exampleTarget}？ ← 行中间无效`);
+    lines.push('');
+  }
+
+  // Per-cat workflow triggers
+  const triggers = WORKFLOW_TRIGGERS[catId as string];
+  if (triggers) {
+    lines.push(triggers, '');
+  }
+
+  // Rules
+  lines.push('规则：不要冒充其他猫。不要编造自己的型号。不确定时明确说"我不确定"或"我需要查证"，绝不编造信息。用你自己的风格回答。');
+  lines.push('');
+
+  // Identity contract
+  lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');
+
+  return lines.join('\n');
+}
+
+/**
+ * Build dynamic invocation context — changes per call.
+ * Includes: teammates, mode, chain position, MCP tools, prompt tags.
+ */
+export function buildInvocationContext(context: InvocationContext): string {
+  const config = CAT_CONFIGS[context.catId as keyof typeof CAT_CONFIGS];
+  if (!config) return '';
+
+  const lines: string[] = [];
+
   // Teammates — only list cats actually in this invocation
   if (context.teammates.length > 0) {
     lines.push('你的队友：');
@@ -73,29 +139,6 @@ export function buildSystemPrompt(context: InvocationContext): string {
     }
   }
   lines.push('铲屎官是真人用户，是团队的共创伙伴。重要决策时由铲屎官拍板。', '');
-
-  // A2A collaboration (only in serial/execute mode, not parallel/ideate)
-  // Callable cats = ALL cats except self (not just current invocation teammates),
-  // so single-cat scenarios still teach the cat to @ others (缅因猫 review P1-1).
-  if (context.a2aEnabled && context.mode !== 'parallel') {
-    const callableNames = Object.entries(CAT_CONFIGS)
-      .filter(([id]) => id !== context.catId)
-      .map(([, cfg]) => cfg.displayName);
-    if (callableNames.length > 0) {
-      const exampleTarget = callableNames[0];
-      lines.push('## 🐾 协作');
-      lines.push(
-        `你可以 @队友 邀请他们一起思考: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
-      );
-      lines.push('不限场景——技术讨论、创意碰撞、观点征询、甚至讲笑话都可以。');
-      lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效！）。每次 @ 只触发一轮。');
-      lines.push('✅ 正确：');
-      lines.push('我觉得可以这样做！');
-      lines.push(`@${exampleTarget} 你觉得呢？`);
-      lines.push(`❌ 错误：怎么样，@${exampleTarget}？ ← 行中间，不会触发`);
-      lines.push('');
-    }
-  }
 
   // Mode context
   if (context.mode === 'serial' && context.chainIndex != null && context.chainTotal != null) {
@@ -119,12 +162,17 @@ export function buildSystemPrompt(context: InvocationContext): string {
     lines.push(MCP_TOOLS_SECTION.trim(), '');
   }
 
-  // Rules
-  lines.push('规则：不要冒充其他猫。不要编造自己的型号。不确定时明确说"我不确定"或"我需要查证"，绝不编造信息。用你自己的风格回答。');
-  lines.push('');
-
-  // Identity contract — family member, not external consultant
-  lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');
-
   return lines.join('\n');
+}
+
+/**
+ * Build identity system prompt for a cat invocation.
+ * Backward-compatible: returns staticIdentity + invocationContext combined.
+ * Pure function — same inputs always produce same output.
+ */
+export function buildSystemPrompt(context: InvocationContext): string {
+  const staticPart = buildStaticIdentity(context.catId);
+  if (!staticPart) return '';
+  const dynamicPart = buildInvocationContext(context);
+  return dynamicPart ? `${staticPart}\n\n${dynamicPart}` : staticPart;
 }

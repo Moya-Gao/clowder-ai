@@ -34,7 +34,7 @@ export interface InvocationDeps {
 export interface InvocationParams {
   readonly catId: CatId;
   readonly service: AgentService;
-  /** The fully-orchestrated prompt (system prompt + chain context already prepended by caller) */
+  /** The fully-orchestrated prompt (dynamic context + chain context already prepended by caller) */
   readonly prompt: string;
   readonly userId: string;
   readonly threadId: string;
@@ -42,6 +42,8 @@ export interface InvocationParams {
   readonly uploadDir?: string;
   readonly signal?: AbortSignal;
   readonly isLastCat: boolean;
+  /** Static identity prompt — services use CLI-specific injection (e.g. --append-system-prompt) */
+  readonly systemPrompt?: string;
 }
 
 /**
@@ -120,6 +122,7 @@ export async function* invokeSingleCat(
       ...(params.contentBlocks ? { contentBlocks: params.contentBlocks } : {}),
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
+      ...(params.systemPrompt ? { systemPrompt: params.systemPrompt } : {}),
     };
 
     let lastErrorMessage: string | undefined;

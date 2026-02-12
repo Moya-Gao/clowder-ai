@@ -81,6 +81,8 @@ export interface AgentServiceOptions {
   signal?: AbortSignal;
   /** Correlation context for audit logging and raw trace linking */
   auditContext?: AuditContext;
+  /** Static identity prompt (Claude: --append-system-prompt, others: prepend to prompt) */
+  systemPrompt?: string;
 }
 
 /**

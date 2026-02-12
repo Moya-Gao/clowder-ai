@@ -35,7 +35,7 @@ export { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInje
 export type { RouteStrategyDeps, RouteOptions } from './route-strategies.js';
 export { assembleContext, formatMessage } from './ContextAssembler.js';
 export type { AssembledContext, ContextAssemblerOptions } from './ContextAssembler.js';
-export { buildSystemPrompt } from './SystemPromptBuilder.js';
+export { buildStaticIdentity, buildInvocationContext, buildSystemPrompt } from './SystemPromptBuilder.js';
 export type { InvocationContext } from './SystemPromptBuilder.js';
 export { parseIntent, stripIntentTags } from './IntentParser.js';
 export type { Intent, IntentResult } from './IntentParser.js';
