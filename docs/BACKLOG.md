@@ -87,6 +87,8 @@
 | 62 | Whisper 模型选择 small → large-v3-turbo | [ ] | Voice Input M1 open question | Why: E2E 验证用 small，M4 Max 可跑 large-v3-turbo (准确率更高)。触发条件：铲屎官反馈识别精度不够时切换。 |
 | 63 | Whisper 服务集成到 start-dev.sh | [ ] | Voice Input M1 open question | Why: 当前需手动 `./scripts/whisper-server.sh` 启动。触发条件：语音输入成为日常使用功能时集成到一键启动脚本。 |
 | 58 | 补充无 message_start 的 delta 场景测试 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 现有逻辑在 `currentMessageId` 为空时仍会输出 text_delta，但缺少显式回归测试。风险边界：后续重构可能误改该容错行为。触发条件：下次触达 `ClaudeAgentService` 流式逻辑时，优先补此测试并转为 [x]。 |
+| 64 | 删除废弃的 `ExportImageButton.tsx` | [ ] | F17b review P3 | Why: 已被 `ExportButton.tsx` 替换，`ChatContainer` 不再引用。风险边界：双实现共存可能导致混淆。触发条件：F17b 合入 main 后删除。 |
+| 65 | `ChatInputMenus.tsx:23` RefObject 类型错误 | [ ] | F17b review P3 | Why: `useRef<HTMLDivElement | null>` 与 React 18 `LegacyRef<HTMLDivElement>` 不兼容，main 分支同样存在。风险边界：当前分支不可 `next build`（仅类型错误，运行时无影响）。触发条件：下次触达 ChatInputMenus 或升级 @types/react 时修复。 |
 | 59 | ~~ChatInput.tsx 超 200 行~~ | [x] | Voice Input M1 review | `23a5c30` — 302 → 176 行。提取 ChatInputActionButton + ChatInputMenus + chat-input-options。 |
 | 60 | ~~useVoiceInput 测试覆盖不足~~ | [x] | Voice Input M1 review | `8e11f96` + `23a5c30` — 2 → 20 tests (MockMediaRecorder + streaming + 竞态回归)。 |
 | 61 | ~~whisper-api.py 健壮性~~ | [x] | Voice Input M1 开发 | `4343a66` — 25MB 限制/空文件/503/logging/SIGTERM/model load exit(1)。 |
