@@ -335,6 +335,17 @@ main() {
     echo ""
     echo -e "${CYAN}启动服务...${NC}"
 
+    # Whisper ASR Server (语音输入)
+    WHISPER_PORT=${WHISPER_PORT:-9876}
+    if [ -f "scripts/whisper-server.sh" ]; then
+        echo "  启动 Whisper ASR (端口 $WHISPER_PORT)..."
+        WHISPER_PORT=$WHISPER_PORT bash scripts/whisper-server.sh &
+        sleep 2
+        echo -e "${GREEN}  ✓ Whisper ASR 已启动${NC}"
+    else
+        echo -e "${YELLOW}  ⚠ whisper-server.sh 未找到，跳过语音服务${NC}"
+    fi
+
     # API Server
     echo "  启动 API Server (端口 $API_PORT)..."
     (cd packages/api && pnpm run dev) &
@@ -360,6 +371,7 @@ main() {
     echo "服务地址："
     echo "  - Frontend: http://localhost:$WEB_PORT"
     echo "  - API:      http://localhost:$API_PORT"
+    echo "  - Whisper:  http://localhost:$WHISPER_PORT"
     echo -e "  - 存储:     $STORAGE_INFO"
     echo ""
     echo "按 Ctrl+C 停止所有服务"
