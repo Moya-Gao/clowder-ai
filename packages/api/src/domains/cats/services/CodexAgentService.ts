@@ -130,10 +130,11 @@ export class CodexAgentService implements AgentService {
     let effectivePrompt = options?.systemPrompt
       ? `${options.systemPrompt}\n\n${prompt}`
       : prompt;
+    // Codex CLI has no image flag; embed paths in prompt text (best effort)
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
     if (imagePaths.length > 0) {
       const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
-      effectivePrompt = `${prompt}\n\n${refs}`;
+      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
     }
 
     const sandboxMode = getCodexSandboxMode();

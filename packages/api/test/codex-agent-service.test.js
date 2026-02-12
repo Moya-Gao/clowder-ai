@@ -788,3 +788,35 @@ test('redacts nested callback tokens before archiving raw events', async () => {
   assert.equal(archived.item.callbackEnv.CAT_CAFE_CALLBACK_TOKEN, '[redacted]');
   assert.equal(archived.item.nested.callbackToken, '[redacted]');
 });
+
+// --- P1 regression: systemPrompt + image coexistence ---
+
+test('systemPrompt is preserved when contentBlocks contain images', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('describe this image', {
+      systemPrompt: '你是缅因猫，由 OpenAI 提供的 AI 猫猫。',
+      contentBlocks: [{ type: 'image', url: '/uploads/cat.png' }],
+      uploadDir: '/tmp',
+    })
+  );
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'img-thread' },
+  ]);
+  await promise;
+
+  // The prompt passed to CLI must contain BOTH systemPrompt AND image ref
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const promptArg = args.at(-1); // last arg is the prompt
+  assert.ok(
+    promptArg.includes('缅因猫'),
+    `systemPrompt should be preserved in prompt when images present, got: ${promptArg.slice(0, 120)}`
+  );
+  assert.ok(
+    promptArg.includes('[Image attached:'),
+    'image reference should be appended to prompt'
+  );
+});
