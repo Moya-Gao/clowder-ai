@@ -39,7 +39,8 @@ Green（修复后）：
 | `packages/api/test/thread-export-route.test.js` | 补齐 `FRONTEND_URL` 优先级、非法端口 fallback、helper 单测、CORS helper 单测 |
 
 ### Commit（本轮修复）
-- 待提交（当前工作区已通过上述测试）
+- `2aa6805` fix(api): harden frontend url and cors origin resolution [缅因猫🐾]
+- `ce6ebf0` docs(mailbox): request second review for F17 fixes [缅因猫🐾]
 
 ### 五件套
 
