@@ -21,6 +21,13 @@ if [ -d "$VENV_DIR" ]; then
   source "$VENV_DIR/bin/activate"
 fi
 
+# Check ffmpeg is available (mlx-whisper uses it to decode audio)
+if ! command -v ffmpeg &>/dev/null; then
+  echo "ERROR: ffmpeg not found. Run:"
+  echo "  brew install ffmpeg"
+  exit 1
+fi
+
 # Check mlx-whisper is installed
 if ! python3 -c "import mlx_whisper" 2>/dev/null; then
   echo "ERROR: mlx-whisper not installed. Run:"
