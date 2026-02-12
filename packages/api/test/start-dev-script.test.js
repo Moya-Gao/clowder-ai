@@ -1,20 +1,99 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 
-test('start-dev script builds MCP server and exports CAT_CAFE_MCP_SERVER_PATH', () => {
+function runSourceOnlySnippet(scriptPath, snippet) {
+  const result = spawnSync(
+    'bash',
+    ['-lc', `set -e\nsource "${scriptPath}" --source-only >/dev/null 2>&1\ntrap - EXIT INT TERM\n${snippet}`],
+    { encoding: 'utf8' },
+  );
+
+  assert.equal(
+    result.status,
+    0,
+    `snippet failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+  );
+
+  return result.stdout.trim();
+}
+
+test('source-only exposes helper functions for testing seams', () => {
   const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
-  const script = readFileSync(scriptPath, 'utf8');
+  const output = runSourceOnlySnippet(
+    scriptPath,
+    `
+declare -F configure_mcp_server_path >/dev/null
+printf 'ok'
+`,
+  );
 
-  assert.match(
-    script,
-    /\(cd packages\/mcp-server && pnpm run build\)/,
-    'start-dev must build mcp-server so Claude MCP tools are available',
+  assert.equal(output, 'ok');
+});
+
+test('configure_mcp_server_path sets default path when env is unset', () => {
+  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-default-'));
+  const expectedPath = join(tempRoot, 'packages', 'mcp-server', 'dist', 'index.js');
+
+  try {
+    mkdirSync(join(tempRoot, 'packages', 'mcp-server', 'dist'), { recursive: true });
+
+    const output = runSourceOnlySnippet(
+      scriptPath,
+      `
+PROJECT_DIR="${tempRoot}"
+unset CAT_CAFE_MCP_SERVER_PATH
+configure_mcp_server_path >/dev/null
+printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+`,
+    );
+
+    assert.equal(output, expectedPath);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configure_mcp_server_path uses default path when env is empty string', () => {
+  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const tempRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-start-dev-empty-'));
+  const expectedPath = join(tempRoot, 'packages', 'mcp-server', 'dist', 'index.js');
+
+  try {
+    mkdirSync(join(tempRoot, 'packages', 'mcp-server', 'dist'), { recursive: true });
+
+    const output = runSourceOnlySnippet(
+      scriptPath,
+      `
+PROJECT_DIR="${tempRoot}"
+export CAT_CAFE_MCP_SERVER_PATH=""
+configure_mcp_server_path >/dev/null
+printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+`,
+    );
+
+    assert.equal(output, expectedPath);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test('configure_mcp_server_path keeps explicit CAT_CAFE_MCP_SERVER_PATH', () => {
+  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const explicitPath = '/tmp/custom/mcp-server-entry.js';
+
+  const output = runSourceOnlySnippet(
+    scriptPath,
+    `
+export CAT_CAFE_MCP_SERVER_PATH="${explicitPath}"
+configure_mcp_server_path >/dev/null
+printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
+`,
   );
-  assert.match(
-    script,
-    /export CAT_CAFE_MCP_SERVER_PATH=/,
-    'start-dev must export CAT_CAFE_MCP_SERVER_PATH for Claude --mcp-config',
-  );
+
+  assert.equal(output, explicitPath);
 });

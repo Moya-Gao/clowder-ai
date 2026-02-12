@@ -7,7 +7,7 @@ import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -449,6 +449,96 @@ test('resolves default MCP server path from API cwd (../mcp-server/dist/index.js
     const resolved = resolveDefaultClaudeMcpServerPath(apiCwd);
     assert.equal(resolved, join(mcpDistDir, 'index.js'));
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('resolves default MCP server path from repo root (packages/mcp-server/dist/index.js)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-root-'));
+  const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
+
+  try {
+    const resolved = resolveDefaultClaudeMcpServerPath(root);
+    assert.equal(resolved, join(mcpDistDir, 'index.js'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('resolves default MCP server path from deep tooling cwd (../../packages/mcp-server/dist/index.js)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-deep-'));
+  const deepCwd = join(root, 'tools', 'runner');
+  const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
+  mkdirSync(deepCwd, { recursive: true });
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
+
+  try {
+    const resolved = resolveDefaultClaudeMcpServerPath(deepCwd);
+    assert.equal(resolved, join(mcpDistDir, 'index.js'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('returns undefined when no default MCP server candidate exists', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-missing-'));
+  const apiCwd = join(root, 'packages', 'api');
+  mkdirSync(apiCwd, { recursive: true });
+
+  try {
+    const resolved = resolveDefaultClaudeMcpServerPath(apiCwd);
+    assert.equal(resolved, undefined);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-empty-env-'));
+  const apiCwd = join(root, 'packages', 'api');
+  const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
+  mkdirSync(apiCwd, { recursive: true });
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
+
+  const previousCwd = process.cwd();
+  const previousEnv = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+
+  try {
+    process.chdir(apiCwd);
+    process.env['CAT_CAFE_MCP_SERVER_PATH'] = '';
+
+    const service = new ClaudeAgentService({ spawnFn });
+    const promise = collect(service.invoke('hello', {
+      callbackEnv: {
+        CAT_CAFE_API_URL: 'http://localhost:3002',
+        CAT_CAFE_INVOCATION_ID: 'inv-1',
+        CAT_CAFE_CALLBACK_TOKEN: 'token-1',
+      },
+    }));
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const mcpConfigIdx = args.indexOf('--mcp-config');
+    assert.ok(mcpConfigIdx >= 0, '--mcp-config should be present when fallback resolves');
+    const parsed = JSON.parse(args[mcpConfigIdx + 1]);
+    assert.equal(
+      realpathSync(parsed.mcpServers['cat-cafe'].args[0]),
+      realpathSync(join(mcpDistDir, 'index.js')),
+    );
+  } finally {
+    process.chdir(previousCwd);
+    if (previousEnv === undefined) {
+      delete process.env['CAT_CAFE_MCP_SERVER_PATH'];
+    } else {
+      process.env['CAT_CAFE_MCP_SERVER_PATH'] = previousEnv;
+    }
     rmSync(root, { recursive: true, force: true });
   }
 });
