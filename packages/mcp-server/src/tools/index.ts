@@ -21,10 +21,14 @@ export {
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
+  requestPermissionInputSchema,
+  checkPermissionStatusInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
+  handleRequestPermission,
+  handleCheckPermissionStatus,
   callbackTools,
 } from './callback-tools.js';
 

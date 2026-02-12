@@ -18,13 +18,17 @@ import {
   getPendingMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
-  callbackEvidenceSearchInputSchema,
-  callbackReflectInputSchema,
-  callbackRetainMemoryInputSchema,
+  requestPermissionInputSchema,
+  checkPermissionStatusInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleGetThreadContext,
   handleUpdateTask,
+  handleRequestPermission,
+  handleCheckPermissionStatus,
+  callbackEvidenceSearchInputSchema,
+  callbackReflectInputSchema,
+  callbackRetainMemoryInputSchema,
   handleCallbackSearchEvidence,
   handleCallbackReflect,
   handleCallbackRetainMemory,
@@ -37,7 +41,7 @@ import {
 /**
  * 创建并配置 MCP Server
  */
-function createServer(): McpServer {
+export function createServer(): McpServer {
   const server = new McpServer({
     name: 'cat-cafe-mcp',
     version: '0.1.0',
@@ -113,6 +117,27 @@ function createServer(): McpServer {
     updateTaskInputSchema,
     async (args: { taskId: string; status?: string | undefined; why?: string | undefined }) => {
       const result = await handleUpdateTask(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // 权限请求工具 (猫猫向铲屎官发起审批)
+  server.tool(
+    'cat_cafe_request_permission',
+    'Request permission from the user before performing a sensitive action (e.g. git_commit, file_delete). Returns granted/denied immediately if a rule exists, or pending with a requestId if the user needs to approve.',
+    requestPermissionInputSchema,
+    async (args: { action: string; reason: string; context?: string | undefined }) => {
+      const result = await handleRequestPermission(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_check_permission_status',
+    'Check the status of a previously submitted permission request. Use the requestId returned from request_permission.',
+    checkPermissionStatusInputSchema,
+    async (args: { requestId: string }) => {
+      const result = await handleCheckPermissionStatus(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
@@ -200,8 +225,16 @@ async function main(): Promise<void> {
   console.error('[cat-cafe] MCP Server running on stdio');
 }
 
-// 运行主函数
-main().catch((err) => {
-  console.error('[cat-cafe] Fatal error:', err);
-  process.exit(1);
-});
+// 仅作为入口运行时启动 (import 时跳过，避免测试阻塞在 stdio)
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
+
+const isEntryPoint = process.argv[1]
+  && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
+
+if (isEntryPoint) {
+  main().catch((err) => {
+    console.error('[cat-cafe] Fatal error:', err);
+    process.exit(1);
+  });
+}

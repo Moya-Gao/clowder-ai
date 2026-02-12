@@ -405,6 +405,111 @@ describe('MCP Callback Tools', () => {
     assert.equal(readdirSync(outboxDir).length, 1, 'one queued entry should remain after bounded flush');
   });
 
+  test('handleRequestPermission posts action+reason to request-permission endpoint', async () => {
+    const { handleRequestPermission } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl, capturedOptions;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ status: 'granted' }),
+      };
+    };
+
+    const result = await handleRequestPermission({
+      action: 'git_commit',
+      reason: 'Committing bug fix',
+      context: 'Fix for issue #42',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/request-permission'));
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.action, 'git_commit');
+    assert.equal(body.reason, 'Committing bug fix');
+    assert.equal(body.context, 'Fix for issue #42');
+    assert.equal(body.invocationId, 'test-invocation');
+    assert.equal(body.callbackToken, 'test-token');
+    assert.ok(result.content[0].text.includes('granted'));
+  });
+
+  test('handleRequestPermission omits context when not provided', async () => {
+    const { handleRequestPermission } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedOptions;
+    globalThis.fetch = async (_url, options) => {
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ status: 'pending', requestId: 'req-123' }),
+      };
+    };
+
+    const result = await handleRequestPermission({
+      action: 'file_delete',
+      reason: 'Cleaning temp files',
+    });
+
+    assert.equal(result.isError, undefined);
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.action, 'file_delete');
+    assert.equal(body.context, undefined);
+    assert.ok(result.content[0].text.includes('pending'));
+  });
+
+  test('handleCheckPermissionStatus queries permission-status endpoint', async () => {
+    const { handleCheckPermissionStatus } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          requestId: 'req-123',
+          status: 'granted',
+          action: 'git_commit',
+          createdAt: 1234567890,
+        }),
+      };
+    };
+
+    const result = await handleCheckPermissionStatus({ requestId: 'req-123' });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/permission-status'));
+    assert.ok(capturedUrl.includes('requestId=req-123'));
+    assert.ok(capturedUrl.includes('invocationId=test-invocation'));
+    assert.ok(capturedUrl.includes('callbackToken=test-token'));
+    assert.ok(result.content[0].text.includes('granted'));
+  });
+
+  test('handleRequestPermission returns error when env vars missing', async () => {
+    const { handleRequestPermission } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    delete process.env['CAT_CAFE_API_URL'];
+    delete process.env['CAT_CAFE_INVOCATION_ID'];
+    delete process.env['CAT_CAFE_CALLBACK_TOKEN'];
+
+    const result = await handleRequestPermission({
+      action: 'git_commit',
+      reason: 'test',
+    });
+
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes('not configured'));
+  });
+
   test('drops retryable outbox entry when attempts reached max threshold', async () => {
     process.env['CAT_CAFE_CALLBACK_OUTBOX_MAX_ATTEMPTS'] = '2';
     const { handlePostMessage } = await import(
