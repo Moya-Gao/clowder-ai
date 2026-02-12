@@ -84,7 +84,7 @@
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
 | 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
-| 57 | Claude CLI partial flag 版本兼容检查 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 当前修复依赖 `--include-partial-messages`，默认假设 CLI 新版本可用。风险边界：旧版本 CLI 可能不支持该 flag 导致调用失败。触发条件：出现未知参数错误、或计划支持更旧 CLI 环境时，补充版本探测/降级策略。 |
+| 57 | Claude CLI partial flag 版本兼容检查 | [x] | 2026-02-11 Opus review P2 建议 | 关闭：铲屎官 CLI 保持最新 (v2.1.39+)，无需兼容旧版。 |
 | 62 | Whisper 模型选择 small → large-v3-turbo | [x] | Voice Input M1 open question | `fb51e1f` — mlx-whisper 迁移，默认 `mlx-community/whisper-large-v3-turbo`，Metal GPU 加速 |
 | 63 | Whisper 服务集成到 start-dev.sh | [x] | Voice Input M1 open question | `ae99da9` — start-dev.sh 自动启动 Whisper ASR 服务 |
 | 58 | 补充无 message_start 的 delta 场景测试 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 现有逻辑在 `currentMessageId` 为空时仍会输出 text_delta，但缺少显式回归测试。风险边界：后续重构可能误改该容错行为。触发条件：下次触达 `ClaudeAgentService` 流式逻辑时，优先补此测试并转为 [x]。 |
