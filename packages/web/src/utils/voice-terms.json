@@ -43,6 +43,11 @@
   "尤维肯": "uvicorn",
 
   "_comment_tools": "=== 工具 & CLI ===",
+  "cloud cold": "Claude Code",
+  "cloud code": "Claude Code",
+  "QQ面试": "Claude Code",
+  "克劳德code": "Claude Code",
+  "克劳德cold": "Claude Code",
   "work tree": "worktree",
   "re base": "rebase",
   "fast api": "FastAPI",
