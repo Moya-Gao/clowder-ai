@@ -39,13 +39,43 @@ describe('applyTermDictionary', () => {
     expect(applyTermDictionary('')).toBe('');
   });
 
-  it('replaces all dictionary entries correctly', () => {
+  it('replaces all original dictionary entries correctly', () => {
     expect(applyTermDictionary('为的')).toBe('void');
     expect(applyTermDictionary('那的js')).toBe('Node.js');
     expect(applyTermDictionary('组单的')).toBe('Zustand');
     expect(applyTermDictionary('威士伯')).toBe('Whisper');
     expect(applyTermDictionary('work tree')).toBe('worktree');
     expect(applyTermDictionary('re base')).toBe('rebase');
+  });
+
+  it('corrects cat names (proven misrecognitions)', () => {
+    expect(applyTermDictionary('免因猫帮我review')).toBe('缅因猫帮我review');
+    expect(applyTermDictionary('面因猫说')).toBe('缅因猫说');
+    expect(applyTermDictionary('棉因猫')).toBe('缅因猫');
+    expect(applyTermDictionary('绵因猫')).toBe('缅因猫');
+    expect(applyTermDictionary('免疫猫')).toBe('缅因猫');
+    expect(applyTermDictionary('先罗猫')).toBe('暹罗猫');
+    expect(applyTermDictionary('仙罗猫')).toBe('暹罗猫');
+    expect(applyTermDictionary('产屎官')).toBe('铲屎官');
+    expect(applyTermDictionary('铲史官')).toBe('铲屎官');
+  });
+
+  it('corrects AI model and brand names', () => {
+    expect(applyTermDictionary('克劳德很聪明')).toBe('Claude很聪明');
+    expect(applyTermDictionary('科德斯 review')).toBe('Codex review');
+    expect(applyTermDictionary('奥普斯模型')).toBe('Opus模型');
+    expect(applyTermDictionary('杰米尼')).toBe('Gemini');
+    expect(applyTermDictionary('桑奈特')).toBe('Sonnet');
+    expect(applyTermDictionary('海酷')).toBe('Haiku');
+    expect(applyTermDictionary('安索皮克')).toBe('Anthropic');
+  });
+
+  it('corrects framework and tool names', () => {
+    expect(applyTermDictionary('泰尔温样式')).toBe('Tailwind样式');
+    expect(applyTermDictionary('优维康服务')).toBe('uvicorn服务');
+    expect(applyTermDictionary('fast api接口')).toBe('FastAPI接口');
+    expect(applyTermDictionary('web socket连接')).toBe('WebSocket连接');
+    expect(applyTermDictionary('亨德赛特记忆')).toBe('Hindsight记忆');
   });
 });
 
@@ -132,6 +162,12 @@ describe('correctTranscription', () => {
   it('handles realistic voice input', () => {
     const input = '嗯那个帮我看看 icp 的 work tree 配置啊就是 锐的死 连接有问题';
     const expected = '帮我看看 MCP 的 worktree 配置 Redis 连接有问题';
+    expect(correctTranscription(input)).toBe(expected);
+  });
+
+  it('handles realistic voice input with cat names', () => {
+    const input = '嗯让免因猫帮我 review 一下那个克劳德的 web socket 代码';
+    const expected = '让缅因猫帮我 review 一下 Claude的 WebSocket 代码';
     expect(correctTranscription(input)).toBe(expected);
   });
 });
