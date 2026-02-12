@@ -118,7 +118,7 @@ function ExpandedToolView({ events }: { events: ToolEvent[] }) {
 }
 
 function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
 
   if (events.length === 0) return null;
 
