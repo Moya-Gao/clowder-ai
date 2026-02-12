@@ -359,7 +359,7 @@ test('spawnCli handles empty stdout', async () => {
 
 // === New tests for 缅因猫 review findings ===
 
-test('spawnCli yields __cliError on non-zero exit code (stderr sanitized)', async () => {
+test('spawnCli yields __cliError on non-zero exit code >= 2 (stderr sanitized)', async () => {
   const proc = createMockProcess({ exitOnKill: false });
   const spawnFn = createMockSpawnFn(proc);
 
@@ -371,8 +371,8 @@ test('spawnCli yields __cliError on non-zero exit code (stderr sanitized)', asyn
   proc.stdout.write('{"type":"partial"}\n');
   proc.stderr.write('Error: something went wrong\n');
   proc.stdout.end();
-  // Emit non-zero exit
-  proc._emitter.emit('exit', 1, null);
+  // Exit code 2 is always a hard error (not soft-exited)
+  proc._emitter.emit('exit', 2, null);
 
   const results = await promise;
 
@@ -381,11 +381,63 @@ test('spawnCli yields __cliError on non-zero exit code (stderr sanitized)', asyn
 
   // Second result should be the CLI error with sanitized message
   assert.equal(isCliError(results[1]), true);
-  assert.equal(results[1].exitCode, 1);
+  assert.equal(results[1].exitCode, 2);
   assert.equal(results[1].command, 'test-cli');
-  // message is sanitized — no raw stderr exposed (contains exit code, not raw stderr)
-  assert.ok(results[1].message.includes('code: 1'));
+  assert.ok(results[1].message.includes('code: 2'));
   assert.ok(!results[1].stderr, 'stderr should not be exposed to users');
+});
+
+test('spawnCli treats exit code 1 with valid output as soft exit (no error yielded)', async () => {
+  const proc = createMockProcess({ exitOnKill: false });
+  const spawnFn = createMockSpawnFn(proc);
+
+  // Suppress console.warn for this test
+  const originalWarn = console.warn;
+  const warnCalls = [];
+  console.warn = (...args) => warnCalls.push(args.join(' '));
+
+  const promise = collect(spawnCli(
+    { command: 'codex', args: ['exec'] },
+    { spawnFn }
+  ));
+
+  proc.stdout.write('{"type":"review","text":"NEEDS_FIX"}\n');
+  proc.stdout.write('{"type":"done"}\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const results = await promise;
+
+  // Should yield the 2 valid events but NO __cliError
+  assert.equal(results.length, 2);
+  assert.deepEqual(results[0], { type: 'review', text: 'NEEDS_FIX' });
+  assert.deepEqual(results[1], { type: 'done' });
+  assert.ok(!results.some((r) => isCliError(r)), 'soft exit should not yield __cliError');
+
+  // Should log a warning
+  assert.ok(warnCalls.some((w) => w.includes('soft exit')), 'should warn about soft exit');
+
+  console.warn = originalWarn;
+});
+
+test('spawnCli still yields __cliError for exit code 1 with NO output', async () => {
+  const proc = createMockProcess({ exitOnKill: false });
+  const spawnFn = createMockSpawnFn(proc);
+
+  const promise = collect(spawnCli(
+    { command: 'codex', args: ['exec'] },
+    { spawnFn }
+  ));
+
+  // No stdout output at all — exit code 1 with 0 events is a real error
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const results = await promise;
+
+  assert.equal(results.length, 1);
+  assert.equal(isCliError(results[0]), true);
+  assert.equal(results[0].exitCode, 1);
 });
 
 test('spawnCli yields __cliError when killed by external signal (stderr sanitized)', async () => {

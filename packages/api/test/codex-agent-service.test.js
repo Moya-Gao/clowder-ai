@@ -362,7 +362,8 @@ test('includes reconnect diagnostics in CLI exit error when available', async ()
     message: 'stream disconnected before completion',
   }) + '\n');
   proc.stdout.end();
-  proc._emitter.emit('exit', 1, null);
+  // Exit code 2 = real failure (exit code 1 with output is now treated as soft exit)
+  proc._emitter.emit('exit', 2, null);
 
   const msgs = await promise;
   const sysInfos = msgs.filter((m) => m.type === 'system_info');
@@ -372,7 +373,7 @@ test('includes reconnect diagnostics in CLI exit error when available', async ()
 
   const errMsg = msgs.find((m) => m.type === 'error');
   assert.ok(errMsg);
-  assert.ok(errMsg.error.includes('code: 1'));
+  assert.ok(errMsg.error.includes('code: 2'));
   assert.ok(
     errMsg.error.includes('Reconnecting... 1/5'),
     'error should include reconnect diagnostics'

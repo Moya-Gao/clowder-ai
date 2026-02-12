@@ -16,6 +16,41 @@ const CODEX_COPY_FILES = ['config.toml'];
 let codexIsolatedHome: string | null = null;
 
 /**
+ * Verify a symlink actually points to a different location (not self-referential).
+ * Self-referential symlinks cause ELOOP and make the target inaccessible.
+ * Returns true if the symlink is valid, false if self-referential or broken.
+ */
+function verifySymlink(linkPath: string, expectedTarget: string): boolean {
+  try {
+    const actualTarget = readlinkSync(linkPath);
+    if (actualTarget === linkPath) {
+      // Self-referential — symlink points to itself
+      return false;
+    }
+    if (actualTarget !== expectedTarget) {
+      // Points to wrong target
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Create a symlink with post-creation verification.
+ * If the symlink ends up self-referential, removes and recreates it.
+ */
+function createVerifiedSymlink(target: string, linkPath: string): void {
+  symlinkSync(target, linkPath);
+  if (!verifySymlink(linkPath, target)) {
+    console.warn(`[cli-isolation] Self-referential symlink detected: ${linkPath} -> ${readlinkSync(linkPath)}, recreating`);
+    rmSync(linkPath, { force: true, recursive: true });
+    symlinkSync(target, linkPath);
+  }
+}
+
+/**
  * Returns a HOME path where ~/.codex/ contains only auth + config,
  * without AGENTS.md or other user-specific overrides.
  * Creates the directory lazily on first call.
@@ -45,20 +80,24 @@ export function getCodexIsolatedHome(): string {
       mkdirSync(realCodexDir, { recursive: true });
     }
 
-    if (existsSync(isolatedAuthFile)) {
+    // Use lstatSync (not existsSync) because existsSync follows symlinks and returns
+    // false for self-referential/broken symlinks, masking their existence.
+    let authEntryExists = false;
+    try { lstatSync(isolatedAuthFile); authEntryExists = true; } catch { /* ENOENT */ }
+
+    if (authEntryExists) {
       const stat = lstatSync(isolatedAuthFile);
       if (!stat.isSymbolicLink()) {
         rmSync(isolatedAuthFile, { force: true });
-      } else {
-        const target = readlinkSync(isolatedAuthFile);
-        if (target !== realAuthFile) {
-          rmSync(isolatedAuthFile, { force: true });
-        }
+        authEntryExists = false;
+      } else if (!verifySymlink(isolatedAuthFile, realAuthFile)) {
+        rmSync(isolatedAuthFile, { force: true });
+        authEntryExists = false;
       }
     }
 
-    if (!existsSync(isolatedAuthFile)) {
-      symlinkSync(realAuthFile, isolatedAuthFile);
+    if (!authEntryExists) {
+      createVerifiedSymlink(realAuthFile, isolatedAuthFile);
     }
   } catch {
     // Fallback: keep a local auth snapshot if symlink creation is not allowed.
@@ -80,15 +119,26 @@ export function getCodexIsolatedHome(): string {
     if (!existsSync(realSessionsDir)) {
       mkdirSync(realSessionsDir, { recursive: true });
     }
-    // P1: if a stale plain directory exists from a previous run, replace it
-    if (existsSync(isolatedSessionsDir)) {
+    // P1: if a stale entry exists, check if it's a valid symlink to the right target.
+    // Use lstatSync (not existsSync) because existsSync follows symlinks and returns
+    // false for self-referential/broken symlinks, masking their existence.
+    let sessionsEntryExists = false;
+    try { lstatSync(isolatedSessionsDir); sessionsEntryExists = true; } catch { /* ENOENT */ }
+
+    if (sessionsEntryExists) {
       const stat = lstatSync(isolatedSessionsDir);
       if (!stat.isSymbolicLink()) {
+        // Stale plain directory from a previous run
         rmSync(isolatedSessionsDir, { recursive: true, force: true });
+        sessionsEntryExists = false;
+      } else if (!verifySymlink(isolatedSessionsDir, realSessionsDir)) {
+        // Broken or self-referential symlink
+        rmSync(isolatedSessionsDir, { force: true });
+        sessionsEntryExists = false;
       }
     }
-    if (!existsSync(isolatedSessionsDir)) {
-      symlinkSync(realSessionsDir, isolatedSessionsDir);
+    if (!sessionsEntryExists) {
+      createVerifiedSymlink(realSessionsDir, isolatedSessionsDir);
     }
   } catch {
     // Best-effort: if symlink fails (permissions), sessions won't persist

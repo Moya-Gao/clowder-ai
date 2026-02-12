@@ -195,15 +195,16 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const promise = collect(service.invoke('fail'));
 
     // result/error without detailed error text, then process exits non-zero
+    // Use exit code 2 (exit code 1 with output is now treated as soft exit)
     proc.stdout.write(JSON.stringify({ type: 'init', session_id: 's1', model: 'auto' }) + '\n');
     proc.stdout.write(JSON.stringify({ type: 'result', status: 'error' }) + '\n');
     proc.stdout.end();
-    proc._emitter.emit('exit', 1, null);
+    proc._emitter.emit('exit', 2, null);
 
     const msgs = await promise;
     const errMsgs = msgs.filter((m) => m.type === 'error');
     assert.equal(errMsgs.length, 1, 'should emit only one error for one failed invocation');
-    assert.match(errMsgs[0].error, /code:\s*1/);
+    assert.match(errMsgs[0].error, /code:\s*2/);
   });
 
   test('yields error on spawn ENOENT', async () => {
