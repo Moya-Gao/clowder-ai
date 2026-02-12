@@ -171,6 +171,11 @@ export class CodexAgentService implements AgentService {
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined
       );
 
+      // Track substantive output (item.completed with text/tool results).
+      // Used to suppress Codex CLI 0.98+ false exit-code-1 errors:
+      // thread.started alone is NOT substantive (just session init).
+      let sawSubstantiveOutput = false;
+
       for await (const event of events) {
         collectCodexStreamError(event, recentStreamErrors);
 
@@ -195,6 +200,15 @@ export class CodexAgentService implements AgentService {
           continue;
         }
         if (isCliError(event)) {
+          // Codex CLI 0.98+ returns exit code 1 after successful completion.
+          // Suppress the error ONLY if we saw substantive output (item.completed).
+          // thread.started alone is NOT enough — that just means session init.
+          if (event.exitCode === 1 && event.signal === null && sawSubstantiveOutput) {
+            console.warn(
+              `[codex] Codex CLI exited with code 1 after substantive output (suppressing as Codex 0.98+ quirk)`,
+            );
+            continue;
+          }
           const base = formatCliExitError('Codex CLI', event);
           yield {
             type: 'error',
@@ -204,6 +218,14 @@ export class CodexAgentService implements AgentService {
             timestamp: Date.now(),
           };
           continue;
+        }
+
+        // Track substantive events: item.completed produces text/tool_result/tool_use
+        if (typeof event === 'object' && event !== null) {
+          const e = event as Record<string, unknown>;
+          if (e['type'] === 'item.completed') {
+            sawSubstantiveOutput = true;
+          }
         }
 
         if (auditContext) {

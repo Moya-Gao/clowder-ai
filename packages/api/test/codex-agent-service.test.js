@@ -362,7 +362,7 @@ test('includes reconnect diagnostics in CLI exit error when available', async ()
     message: 'stream disconnected before completion',
   }) + '\n');
   proc.stdout.end();
-  // Exit code 2 = real failure (exit code 1 with output is now treated as soft exit)
+  // Exit code 2 = always a real failure (code 1 is suppressed only with substantive output)
   proc._emitter.emit('exit', 2, null);
 
   const msgs = await promise;
@@ -382,6 +382,54 @@ test('includes reconnect diagnostics in CLI exit error when available', async ()
     errMsg.error.includes('Reconnecting... 2/5'),
     'error should include multiple reconnect attempts'
   );
+});
+
+test('suppresses exit code 1 when Codex produced substantive output (item.completed)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const originalWarn = console.warn;
+  const warnCalls = [];
+  console.warn = (...args) => warnCalls.push(args.join(' '));
+
+  const promise = collect(service.invoke('review this'));
+
+  // Codex outputs thread.started + item.completed (agent_message) = substantive output
+  proc.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'tx' }) + '\n');
+  proc.stdout.write(JSON.stringify({
+    type: 'item.completed',
+    item: { type: 'agent_message', text: 'Looks good!' },
+  }) + '\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null); // Codex 0.98+ quirk
+
+  const msgs = await promise;
+  const errors = msgs.filter((m) => m.type === 'error');
+  assert.equal(errors.length, 0, 'exit code 1 with substantive output should be suppressed');
+  assert.ok(msgs.some((m) => m.type === 'text'), 'text message should still be yielded');
+  assert.ok(msgs.some((m) => m.type === 'done'), 'done should still be yielded');
+  assert.ok(warnCalls.some((w) => w.includes('Codex CLI exited with code 1')), 'should warn');
+
+  console.warn = originalWarn;
+});
+
+test('does NOT suppress exit code 1 when only thread.started (no substantive output)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('review this'));
+
+  // Only thread.started — no item.completed → NOT substantive
+  proc.stdout.write(JSON.stringify({ type: 'thread.started', thread_id: 'tx' }) + '\n');
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const msgs = await promise;
+  const errors = msgs.filter((m) => m.type === 'error');
+  assert.equal(errors.length, 1, 'exit code 1 without substantive output should yield error');
+  assert.ok(errors[0].error.includes('code: 1'));
 });
 
 test('yields error on spawn ENOENT', async () => {

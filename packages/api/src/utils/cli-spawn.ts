@@ -53,9 +53,8 @@ function buildChildEnv(overrides?: Record<string, string | null>): NodeJS.Proces
  * zombie prevention.
  *
  * On non-zero exit: yields `{ __cliError, exitCode, signal, message }`.
- *   Exception: exit code 1 with valid stdout output is treated as a
- *   soft exit (warning logged, no error yielded) — some CLIs (e.g.
- *   Codex exec) return 1 after successful completion.
+ *   No exceptions — callers that want to suppress specific exit codes
+ *   should handle `isCliError()` events in their own loop.
  * On timeout: yields `{ __cliTimeout, timeoutMs, message }`.
  * Note: `message` is sanitized for user display; raw stderr is logged to
  * console only (never exposed to users).
@@ -102,7 +101,6 @@ export async function* spawnCli(
   let killed = false;
   let timedOut = false;
   let escalationTimer: ReturnType<typeof setTimeout> | undefined;
-  let yieldedEvents = 0;
 
   function killChild(): void {
     if (killed || childExited) return;
@@ -181,7 +179,6 @@ export async function* spawnCli(
         continue;
       }
       yield event;
-      yieldedEvents++;
     }
 
     // Check for spawn error that arrived during/after iteration
@@ -193,29 +190,18 @@ export async function* spawnCli(
     // Yield error on abnormal exit (only if WE didn't kill it)
     // Covers both non-zero exitCode AND external signal kills
     if (!killed && (exitCode !== 0 || exitSignal !== null)) {
-      // Soft exit: exit code 1 with valid output is treated as a warning.
-      // Some CLIs (e.g. Codex exec 0.98+) return 1 after successful completion.
-      // We log the warning but do NOT yield an error event — the valid output
-      // has already been yielded and should not be discarded by downstream.
-      const isSoftExit = exitCode === 1 && exitSignal === null && yieldedEvents > 0;
-      if (isSoftExit) {
-        console.warn(
-          `[cli-spawn] ${options.command} exited with code 1 after ${yieldedEvents} valid events (treating as soft exit)`,
-        );
-      } else {
-        // Log stderr for debugging (never expose to users — may contain thinking/traces)
-        if (stderrBuffer.trim()) {
-          console.error(`[cli-spawn] ${options.command} stderr (debug only):\n${stderrBuffer.trim().slice(-1000)}`);
-        }
-        yield {
-          __cliError: true,
-          exitCode,
-          signal: exitSignal,
-          // Sanitized message — no raw stderr exposed to users
-          message: `CLI 异常退出 (code: ${exitCode ?? 'null'}, signal: ${exitSignal ?? 'none'})`,
-          command: options.command,
-        };
+      // Log stderr for debugging (never expose to users — may contain thinking/traces)
+      if (stderrBuffer.trim()) {
+        console.error(`[cli-spawn] ${options.command} stderr (debug only):\n${stderrBuffer.trim().slice(-1000)}`);
       }
+      yield {
+        __cliError: true,
+        exitCode,
+        signal: exitSignal,
+        // Sanitized message — no raw stderr exposed to users
+        message: `CLI 异常退出 (code: ${exitCode ?? 'null'}, signal: ${exitSignal ?? 'none'})`,
+        command: options.command,
+      };
     }
 
     // Yield timeout error (distinct from user cancel which stays silent)

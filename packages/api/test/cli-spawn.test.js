@@ -387,57 +387,27 @@ test('spawnCli yields __cliError on non-zero exit code >= 2 (stderr sanitized)',
   assert.ok(!results[1].stderr, 'stderr should not be exposed to users');
 });
 
-test('spawnCli treats exit code 1 with valid output as soft exit (no error yielded)', async () => {
+test('spawnCli yields __cliError for exit code 1 even with valid output (no soft exit in spawnCli)', async () => {
   const proc = createMockProcess({ exitOnKill: false });
   const spawnFn = createMockSpawnFn(proc);
-
-  // Suppress console.warn for this test
-  const originalWarn = console.warn;
-  const warnCalls = [];
-  console.warn = (...args) => warnCalls.push(args.join(' '));
 
   const promise = collect(spawnCli(
     { command: 'codex', args: ['exec'] },
     { spawnFn }
   ));
 
+  // spawnCli always reports non-zero exit as error — soft exit handling
+  // is the caller's responsibility (e.g. CodexAgentService)
   proc.stdout.write('{"type":"review","text":"NEEDS_FIX"}\n');
-  proc.stdout.write('{"type":"done"}\n');
   proc.stdout.end();
   proc._emitter.emit('exit', 1, null);
 
   const results = await promise;
 
-  // Should yield the 2 valid events but NO __cliError
   assert.equal(results.length, 2);
   assert.deepEqual(results[0], { type: 'review', text: 'NEEDS_FIX' });
-  assert.deepEqual(results[1], { type: 'done' });
-  assert.ok(!results.some((r) => isCliError(r)), 'soft exit should not yield __cliError');
-
-  // Should log a warning
-  assert.ok(warnCalls.some((w) => w.includes('soft exit')), 'should warn about soft exit');
-
-  console.warn = originalWarn;
-});
-
-test('spawnCli still yields __cliError for exit code 1 with NO output', async () => {
-  const proc = createMockProcess({ exitOnKill: false });
-  const spawnFn = createMockSpawnFn(proc);
-
-  const promise = collect(spawnCli(
-    { command: 'codex', args: ['exec'] },
-    { spawnFn }
-  ));
-
-  // No stdout output at all — exit code 1 with 0 events is a real error
-  proc.stdout.end();
-  proc._emitter.emit('exit', 1, null);
-
-  const results = await promise;
-
-  assert.equal(results.length, 1);
-  assert.equal(isCliError(results[0]), true);
-  assert.equal(results[0].exitCode, 1);
+  assert.equal(isCliError(results[1]), true);
+  assert.equal(results[1].exitCode, 1);
 });
 
 test('spawnCli yields __cliError when killed by external signal (stderr sanitized)', async () => {

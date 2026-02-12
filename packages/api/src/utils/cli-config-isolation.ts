@@ -39,15 +39,19 @@ function verifySymlink(linkPath: string, expectedTarget: string): boolean {
 
 /**
  * Create a symlink with post-creation verification.
- * If the symlink ends up self-referential, removes and recreates it.
+ * If the symlink ends up self-referential or invalid, removes the bad link
+ * and returns false so the caller can apply its own fallback (copy for files,
+ * mkdir for directories).
  */
-function createVerifiedSymlink(target: string, linkPath: string): void {
+function createVerifiedSymlink(target: string, linkPath: string): boolean {
   symlinkSync(target, linkPath);
-  if (!verifySymlink(linkPath, target)) {
-    console.warn(`[cli-isolation] Self-referential symlink detected: ${linkPath} -> ${readlinkSync(linkPath)}, recreating`);
-    rmSync(linkPath, { force: true, recursive: true });
-    symlinkSync(target, linkPath);
+  if (verifySymlink(linkPath, target)) {
+    return true;
   }
+  // Symlink is bad (self-referential or wrong target). Remove it.
+  console.warn(`[cli-isolation] Bad symlink detected: ${linkPath} -> ${readlinkSync(linkPath)}, removing`);
+  rmSync(linkPath, { force: true, recursive: true });
+  return false;
 }
 
 /**
@@ -97,7 +101,11 @@ export function getCodexIsolatedHome(): string {
     }
 
     if (!authEntryExists) {
-      createVerifiedSymlink(realAuthFile, isolatedAuthFile);
+      const ok = createVerifiedSymlink(realAuthFile, isolatedAuthFile);
+      if (!ok) {
+        // Symlink creation produced a bad link — fall back to copy.
+        try { copyFileSync(realAuthFile, isolatedAuthFile); } catch { /* target may not exist */ }
+      }
     }
   } catch {
     // Fallback: keep a local auth snapshot if symlink creation is not allowed.
@@ -138,7 +146,12 @@ export function getCodexIsolatedHome(): string {
       }
     }
     if (!sessionsEntryExists) {
-      createVerifiedSymlink(realSessionsDir, isolatedSessionsDir);
+      const ok = createVerifiedSymlink(realSessionsDir, isolatedSessionsDir);
+      if (!ok) {
+        // Symlink creation produced a bad link — fall back to plain directory.
+        // Sessions won't persist to real HOME but Codex can still write them locally.
+        mkdirSync(isolatedSessionsDir, { recursive: true });
+      }
     }
   } catch {
     // Best-effort: if symlink fails (permissions), sessions won't persist

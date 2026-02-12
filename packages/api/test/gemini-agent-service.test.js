@@ -195,7 +195,7 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     const promise = collect(service.invoke('fail'));
 
     // result/error without detailed error text, then process exits non-zero
-    // Use exit code 2 (exit code 1 with output is now treated as soft exit)
+    // Any non-zero exit code from spawnCli yields __cliError
     proc.stdout.write(JSON.stringify({ type: 'init', session_id: 's1', model: 'auto' }) + '\n');
     proc.stdout.write(JSON.stringify({ type: 'result', status: 'error' }) + '\n');
     proc.stdout.end();
