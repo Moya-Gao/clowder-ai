@@ -112,6 +112,26 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
     e.target.value = '';
   }, [images]);
 
+  const handlePaste = useCallback(async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith('image/')) {
+        const file = items[i].getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    }
+    if (imageFiles.length === 0) return;
+    e.preventDefault();
+    const toAdd: File[] = [];
+    for (const file of imageFiles) {
+      if (images.length + toAdd.length >= 5) break;
+      toAdd.push(await compressImage(file));
+    }
+    setImages((prev) => [...prev, ...toAdd].slice(0, 5));
+  }, [images]);
+
   const handleRemoveImage = useCallback((index: number) => {
     setImages((prev) => prev.filter((_, i) => i !== index));
   }, []);
@@ -161,7 +181,7 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
           </svg>
         </button>
 
-        <textarea ref={textareaRef} value={input} onChange={handleChange} onKeyDown={handleKeyDown}
+        <textarea ref={textareaRef} value={input} onChange={handleChange} onKeyDown={handleKeyDown} onPaste={handlePaste}
           placeholder={'\u8F93\u5165\u6D88\u606F... (@ \u53EC\u5524\u732B\u732B, /mode \u5207\u6362\u6A21\u5F0F)'}
           className="flex-1 resize-none rounded-xl border border-owner-light bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-owner-primary placeholder:text-gray-400"
           rows={2} disabled={disabled} />
