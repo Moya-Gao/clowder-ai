@@ -18,6 +18,8 @@
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import { existsSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
@@ -46,6 +48,26 @@ interface ClaudeAgentServiceOptions {
   model?: string;
   /** Absolute path to MCP server entry (dist/index.js) for --mcp-config */
   mcpServerPath?: string;
+}
+
+/**
+ * Resolve default MCP server path for monorepo layouts.
+ * Supports API started from:
+ * - repo root (cwd=.../cat-cafe)
+ * - packages/api (cwd=.../cat-cafe/packages/api)
+ * - API dist/src subdirs in some tooling (best-effort fallback)
+ */
+export function resolveDefaultClaudeMcpServerPath(cwd = process.cwd()): string | undefined {
+  const candidates = [
+    resolve(cwd, '../mcp-server/dist/index.js'),
+    resolve(cwd, 'packages/mcp-server/dist/index.js'),
+    resolve(cwd, '../../packages/mcp-server/dist/index.js'),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) return candidate;
+  }
+  return undefined;
 }
 
 /**
@@ -193,8 +215,12 @@ export class ClaudeAgentService implements AgentService {
     this.spawnFn = options?.spawnFn;
     // Priority: constructor option > CAT_OPUS_MODEL env > CLAUDE_MODEL env > default
     this.model = options?.model ?? getCatModel('opus');
-    this.mcpServerPath = options?.mcpServerPath
-      ?? process.env['CAT_CAFE_MCP_SERVER_PATH'];
+    const configuredPath = options?.mcpServerPath ?? process.env['CAT_CAFE_MCP_SERVER_PATH'];
+    if (configuredPath && configuredPath.trim().length > 0) {
+      this.mcpServerPath = isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath);
+    } else {
+      this.mcpServerPath = resolveDefaultClaudeMcpServerPath();
+    }
   }
 
   async *invoke(

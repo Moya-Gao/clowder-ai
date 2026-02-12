@@ -7,8 +7,11 @@ import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-const { ClaudeAgentService } = await import(
+const { ClaudeAgentService, resolveDefaultClaudeMcpServerPath } = await import(
   '../dist/domains/cats/services/ClaudeAgentService.js'
 );
 
@@ -432,4 +435,20 @@ test('streams text deltas from stream_event without duplicating final assistant 
   const msgs = await promise;
   const texts = msgs.filter((m) => m.type === 'text').map((m) => m.content);
   assert.deepEqual(texts, ['Hello ', 'world']);
+});
+
+test('resolves default MCP server path from API cwd (../mcp-server/dist/index.js)', () => {
+  const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-'));
+  const apiCwd = join(root, 'packages', 'api');
+  const mcpDistDir = join(root, 'packages', 'mcp-server', 'dist');
+  mkdirSync(apiCwd, { recursive: true });
+  mkdirSync(mcpDistDir, { recursive: true });
+  writeFileSync(join(mcpDistDir, 'index.js'), 'export {};', 'utf8');
+
+  try {
+    const resolved = resolveDefaultClaudeMcpServerPath(apiCwd);
+    assert.equal(resolved, join(mcpDistDir, 'index.js'));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });

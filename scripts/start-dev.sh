@@ -183,7 +183,7 @@ print_redis_runtime_info() {
     [ -n "$appendonly" ] && echo "    - appendonly:$appendonly"
 }
 
-# 构建 shared + API (tsc)
+# 构建 shared + MCP + API (tsc)
 build_packages() {
     echo ""
     echo -e "${CYAN}构建 shared...${NC}"
@@ -191,9 +191,25 @@ build_packages() {
     echo -e "${GREEN}  ✓ shared 构建完成${NC}"
 
     echo ""
+    echo -e "${CYAN}构建 MCP Server...${NC}"
+    (cd packages/mcp-server && pnpm run build) 2>&1 | tail -3
+    echo -e "${GREEN}  ✓ MCP Server 构建完成${NC}"
+
+    echo ""
     echo -e "${CYAN}构建 API...${NC}"
     (cd packages/api && pnpm run build) 2>&1 | tail -3
     echo -e "${GREEN}  ✓ API 构建完成${NC}"
+}
+
+configure_mcp_server_path() {
+    export CAT_CAFE_MCP_SERVER_PATH="${CAT_CAFE_MCP_SERVER_PATH:-$PROJECT_DIR/packages/mcp-server/dist/index.js}"
+
+    if [ -f "$CAT_CAFE_MCP_SERVER_PATH" ]; then
+        echo -e "${GREEN}  ✓ MCP callback path: $CAT_CAFE_MCP_SERVER_PATH${NC}"
+    else
+        echo -e "${YELLOW}  ⚠ MCP callback path 不存在: $CAT_CAFE_MCP_SERVER_PATH${NC}"
+        echo -e "${YELLOW}    布偶猫将无法使用 cat_cafe_* MCP 工具（含权限申请）${NC}"
+    fi
 }
 
 # 检查/启动 Redis
@@ -328,6 +344,7 @@ main() {
     echo ""
     echo -e "${CYAN}检查依赖...${NC}"
     setup_storage
+    configure_mcp_server_path
     echo "  数据保留 (秒): message=${MESSAGE_TTL_SECONDS} thread=${THREAD_TTL_SECONDS} task=${TASK_TTL_SECONDS} summary=${SUMMARY_TTL_SECONDS}"
     echo "  注: 0 表示永久保留（不自动过期）"
 
