@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
 await import('tsx/esm');
-const { threadExportRoutes } = await import('../src/routes/thread-export.ts');
+const { threadExportRoutes, resolveFrontendBaseUrl } = await import('../src/routes/thread-export.ts');
+const { resolveFrontendCorsOrigins } = await import('../src/config/frontend-origin.ts');
 const { ImageExporter } = await import('../src/services/ImageExporter.ts');
 
 const ORIGINAL_CAPTURE = ImageExporter.prototype.capture;
@@ -105,5 +106,77 @@ describe('POST /api/threads/:threadId/export-image', () => {
     assert.equal(res.statusCode, 200);
     assert.equal(captures.length, 1);
     assert.equal(captures[0].url, 'http://localhost:4101/thread/thread-1');
+  });
+
+  it('uses FRONTEND_URL when present (higher priority than FRONTEND_PORT)', async () => {
+    process.env.FRONTEND_URL = 'https://cat-cafe.example.com';
+    process.env.FRONTEND_PORT = '4999';
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/export-image',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    await app.close();
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(captures.length, 1);
+    assert.equal(captures[0].url, 'https://cat-cafe.example.com/thread/thread-1');
+  });
+
+  it('falls back to localhost:3001 when FRONTEND_PORT is invalid', async () => {
+    delete process.env.FRONTEND_URL;
+    process.env.FRONTEND_PORT = 'not-a-number';
+
+    const app = await buildApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/export-image',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    await app.close();
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(captures.length, 1);
+    assert.equal(captures[0].url, 'http://localhost:3001/thread/thread-1');
+  });
+});
+
+describe('resolveFrontendBaseUrl', () => {
+  it('is exported for direct unit testing', () => {
+    assert.equal(typeof resolveFrontendBaseUrl, 'function');
+  });
+
+  it('warns and falls back when FRONTEND_PORT is invalid', () => {
+    const warnings = [];
+    const logger = {
+      warn(payload, message) {
+        warnings.push({ payload, message });
+      },
+    };
+
+    const baseUrl = resolveFrontendBaseUrl(
+      { FRONTEND_PORT: 'abc' },
+      logger,
+    );
+
+    assert.equal(baseUrl, 'http://localhost:3001');
+    assert.equal(warnings.length, 1);
+    assert.match(String(warnings[0].message), /FRONTEND_PORT/i);
+  });
+});
+
+describe('resolveFrontendCorsOrigins', () => {
+  it('includes FRONTEND_PORT origin when configured', () => {
+    const origins = resolveFrontendCorsOrigins({ FRONTEND_PORT: '4101' });
+    assert.ok(origins.includes('http://localhost:4101'));
+    assert.ok(origins.includes('http://localhost:3000'));
+    assert.ok(origins.includes('http://localhost:3001'));
+  });
+
+  it('includes FRONTEND_URL origin when configured', () => {
+    const origins = resolveFrontendCorsOrigins({ FRONTEND_URL: 'https://cat-cafe.example.com/path' });
+    assert.ok(origins.includes('https://cat-cafe.example.com'));
   });
 });

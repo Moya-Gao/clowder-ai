@@ -6,6 +6,7 @@
 import { Server as HttpServer } from 'node:http';
 import { Server, Socket } from 'socket.io';
 import { createCatId } from '@cat-cafe/shared';
+import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
 import type { InvocationTracker } from '../../domains/cats/services/InvocationTracker.js';
 
@@ -15,9 +16,10 @@ export class SocketManager {
 
   constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
     this.invocationTracker = invocationTracker ?? null;
+    const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
     this.io = new Server(httpServer, {
       cors: {
-        origin: ['http://localhost:3000', 'http://localhost:3001'],
+        origin: corsOrigins,
         credentials: true,
       },
     });

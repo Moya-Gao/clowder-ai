@@ -23,6 +23,7 @@ import { createPendingRequestStore } from './domains/cats/services/PendingReques
 import { createAuthorizationAuditStore } from './domains/cats/services/AuthorizationAuditStoreFactory.js';
 import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
 import { assertStorageReady } from './config/storage-guard.js';
+import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { ModeStore } from './domains/cats/services/ModeStore.js';
 import { ModeOrchestrator } from './domains/cats/services/ModeOrchestrator.js';
 
@@ -50,7 +51,7 @@ async function main(): Promise<void> {
 
   // CORS for frontend
   await app.register(cors, {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: resolveFrontendCorsOrigins(process.env, app.log),
     credentials: true,
   });
 

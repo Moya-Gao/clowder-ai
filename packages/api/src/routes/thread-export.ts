@@ -2,6 +2,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { ImageExporter } from '../services/ImageExporter.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
+
+export { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 
 export interface ThreadExportRoutesOptions {
   threadStore: IThreadStore;
@@ -10,27 +13,8 @@ export interface ThreadExportRoutesOptions {
 // Route-level singleton ImageExporter for browser reuse across requests
 let sharedExporter: ImageExporter | null = null;
 
-function resolveFrontendBaseUrl(env: NodeJS.ProcessEnv): string {
-  const frontendUrl = env['FRONTEND_URL']?.trim();
-  if (frontendUrl) {
-    return frontendUrl;
-  }
-
-  const frontendPort = env['FRONTEND_PORT']?.trim();
-  if (frontendPort) {
-    return `http://localhost:${frontendPort}`;
-  }
-
-  return 'http://localhost:3001';
-}
-
 export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> = async (fastify, opts) => {
   const { threadStore } = opts;
-
-  // Initialize shared exporter
-  if (!sharedExporter) {
-    sharedExporter = new ImageExporter();
-  }
 
   // Cleanup on process exit
   const cleanup = async () => {
@@ -77,16 +61,14 @@ export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> =
       try {
         // Construct frontend URL
         const env = process.env;
-        const frontendUrl = resolveFrontendBaseUrl(env);
+        const frontendUrl = resolveFrontendBaseUrl(env, fastify.log);
         const url = `${frontendUrl}/thread/${threadId}`;
 
         fastify.log.info(`Exporting thread ${threadId} to image from ${url}`);
 
         // Use shared exporter (browser reuse across requests)
-        if (!sharedExporter) {
-          sharedExporter = new ImageExporter();
-        }
-        const imageBuffer = await sharedExporter.capture(url, userId);
+        const exporter = sharedExporter ?? (sharedExporter = new ImageExporter());
+        const imageBuffer = await exporter.capture(url, userId);
 
         reply.type('image/png').send(imageBuffer);
       } catch (error) {
