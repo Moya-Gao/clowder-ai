@@ -16,7 +16,8 @@ interface ChatInputActionButtonProps {
 }
 
 /** Renders the 5-state action button (stop generation / stop recording / transcribing / send / mic)
- *  plus voice recording status overlays (REC badge, error). */
+ *  plus voice recording status overlays (REC badge, error).
+ *  Keyboard shortcut: Cmd+Shift+V toggles recording. */
 export function ChatInputActionButton({
   onTranscript,
   onSend,
@@ -29,6 +30,22 @@ export function ChatInputActionButton({
   useEffect(() => {
     if (voice.transcript) onTranscript(voice.transcript);
   }, [voice.transcript, onTranscript]);
+
+  // Global keyboard shortcut: Cmd+Shift+V (Mac) / Ctrl+Shift+V (Win) toggles voice
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'v' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (voice.state === 'recording') {
+          voice.stopRecording();
+        } else if (voice.state === 'idle' && !disabled) {
+          voice.startRecording();
+        }
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [voice.state, voice.startRecording, voice.stopRecording, disabled]);
 
   return (
     <>
@@ -73,7 +90,8 @@ export function ChatInputActionButton({
         </button>
       ) : (
         <button onClick={voice.startRecording} disabled={disabled}
-          className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Start voice input">
+          className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          aria-label="Start voice input (⌘⇧V)" title="语音输入 (⌘⇧V)">
           <MicIcon className="w-5 h-5" />
         </button>
       )}
