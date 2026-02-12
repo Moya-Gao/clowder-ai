@@ -4,8 +4,11 @@ import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
 import { SendIcon } from './icons/SendIcon';
 import { LoadingIcon } from './icons/LoadingIcon';
 import { AttachIcon } from './icons/AttachIcon';
+import { MicIcon } from './icons/MicIcon';
+import { StopRecordingIcon } from './icons/StopRecordingIcon';
 import { ImagePreview } from './ImagePreview';
 import { compressImage } from '@/utils/compressImage';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
@@ -39,6 +42,18 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const voice = useVoiceInput();
+
+  // When transcript arrives, append to textarea
+  useEffect(() => {
+    if (voice.transcript) {
+      setInput((prev) => {
+        const separator = prev && !prev.endsWith(' ') ? ' ' : '';
+        return prev + separator + voice.transcript;
+      });
+    }
+  }, [voice.transcript]);
 
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
   const activeOptions = activeMenu === 'mention' ? CAT_OPTIONS : MODE_OPTIONS;
@@ -219,6 +234,18 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
         </div>
       )}
 
+      {/* Voice recording status */}
+      {voice.state === 'recording' && (
+        <div className="absolute top-0 right-16 -mt-6 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full animate-pulse">
+          REC {Math.floor(voice.duration / 60)}:{String(voice.duration % 60).padStart(2, '0')}
+        </div>
+      )}
+      {voice.error && (
+        <div className="absolute top-0 left-4 -mt-6 px-3 py-1 bg-red-100 text-red-600 text-xs rounded-lg">
+          {voice.error}
+        </div>
+      )}
+
       <ImagePreview files={images} onRemove={handleRemoveImage} />
 
       <div className="flex gap-2 items-end p-4 pt-2">
@@ -247,10 +274,25 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
           <button onClick={onStop} className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors" aria-label="Stop generation">
             <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="4" width="12" height="12" rx="2" /></svg>
           </button>
-        ) : (
-          <button onClick={handleSend} disabled={disabled || !input.trim()}
+        ) : voice.state === 'recording' ? (
+          <button onClick={voice.stopRecording}
+            className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors animate-pulse"
+            aria-label="Stop recording">
+            <StopRecordingIcon className="w-5 h-5" />
+          </button>
+        ) : voice.state === 'transcribing' ? (
+          <button disabled className="p-3 rounded-xl bg-gray-300 text-white cursor-wait" aria-label="Transcribing">
+            <LoadingIcon className="w-5 h-5" />
+          </button>
+        ) : input.trim() ? (
+          <button onClick={handleSend} disabled={disabled}
             className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Send message">
-            {disabled ? <LoadingIcon className="w-5 h-5" /> : <SendIcon className="w-5 h-5" />}
+            <SendIcon className="w-5 h-5" />
+          </button>
+        ) : (
+          <button onClick={voice.startRecording} disabled={disabled}
+            className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Start voice input">
+            <MicIcon className="w-5 h-5" />
           </button>
         )}
       </div>
