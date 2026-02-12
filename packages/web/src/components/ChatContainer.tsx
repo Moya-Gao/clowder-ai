@@ -52,8 +52,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     setPendingModeSwitchProposal,
   } = useChatStore();
   const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [statusPanelOpen, setStatusPanelOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [statusPanelOpen, setStatusPanelOpen] = useState(false);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
   const {
