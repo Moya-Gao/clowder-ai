@@ -4,7 +4,6 @@
  *
  * CLI 调用方式:
  *   claude -p "..." --output-format stream-json --verbose
- *     --allowedTools Read,Edit,Glob,Grep
  *     --permission-mode acceptEdits
  *     --model <model>
  *     [--resume <sessionId>]
@@ -34,8 +33,6 @@ import type {
 
 const CAT_ID = createCatId('opus');
 
-/** CLI flags for security boundary (statically scannable) */
-const ALLOWED_TOOLS = 'Read,Edit,Glob,Grep';
 const PERMISSION_MODE = 'acceptEdits';
 
 /**
@@ -233,7 +230,6 @@ export class ClaudeAgentService implements AgentService {
       '--include-partial-messages',
       '--verbose',
       '--model', this.model,
-      '--allowedTools', ALLOWED_TOOLS,
       '--permission-mode', PERMISSION_MODE,
       // Skip global user settings to prevent config pollution across sessions
       '--setting-sources', 'project,local',

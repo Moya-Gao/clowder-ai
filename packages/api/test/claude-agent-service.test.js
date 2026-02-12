@@ -437,6 +437,19 @@ test('streams text deltas from stream_event without duplicating final assistant 
   assert.deepEqual(texts, ['Hello ', 'world']);
 });
 
+test('does not pass --allowedTools — all tools available by default', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('hi'));
+  emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.ok(!args.includes('--allowedTools'), 'must NOT pass --allowedTools so all tools are available');
+});
+
 test('resolves default MCP server path from API cwd (../mcp-server/dist/index.js)', () => {
   const root = mkdtempSync(join(tmpdir(), 'cat-cafe-mcp-path-'));
   const apiCwd = join(root, 'packages', 'api');
