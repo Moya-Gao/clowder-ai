@@ -33,7 +33,7 @@ import type {
 
 const CAT_ID = createCatId('opus');
 
-const PERMISSION_MODE = 'acceptEdits';
+const PERMISSION_MODE = 'bypassPermissions';
 
 /**
  * Options for constructing ClaudeAgentService (dependency injection)
