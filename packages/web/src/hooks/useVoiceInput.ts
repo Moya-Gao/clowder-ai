@@ -14,24 +14,56 @@ const INITIAL_PROMPT =
 /** Minimum recording duration (ms) to avoid accidental taps. */
 const MIN_RECORDING_MS = 500;
 
+/** Interval (ms) between intermediate streaming transcriptions. */
+const STREAM_INTERVAL_MS = 3000;
+
 export type VoiceState = 'idle' | 'recording' | 'transcribing';
+
+async function transcribeBlob(blob: Blob): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', blob, 'recording.webm');
+  formData.append('initial_prompt', INITIAL_PROMPT);
+  formData.append('language', 'zh');
+
+  const res = await fetch(`${WHISPER_URL}/v1/audio/transcriptions`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error(`Whisper service error: ${res.status}`);
+
+  const data: { text?: string } = await res.json();
+  return data.text || '';
+}
 
 export function useVoiceInput() {
   const [state, setState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
+  const [partialTranscript, setPartialTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const streamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
+  const versionRef = useRef(0);
+  const streamSeqRef = useRef(0);
+
+  const clearTimers = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    if (streamTimerRef.current) { clearInterval(streamTimerRef.current); streamTimerRef.current = null; }
+  }, []);
 
   const startRecording = useCallback(async () => {
     try {
       setError(null);
       setTranscript('');
+      setPartialTranscript('');
       setDuration(0);
+      versionRef.current++;
+      streamSeqRef.current = 0;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -54,47 +86,31 @@ export function useVoiceInput() {
       });
 
       recorder.addEventListener('stop', async () => {
-        // Release mic immediately
         stream.getTracks().forEach((t) => t.stop());
-
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
+        clearTimers();
 
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
 
-        // Ignore accidental taps shorter than MIN_RECORDING_MS
         if (Date.now() - startTimeRef.current < MIN_RECORDING_MS) {
           setState('idle');
           return;
         }
 
         setState('transcribing');
+        const myVersion = versionRef.current;
 
         try {
-          const formData = new FormData();
-          formData.append('file', blob, 'recording.webm');
-          formData.append('initial_prompt', INITIAL_PROMPT);
-          formData.append('language', 'zh');
-
-          const res = await fetch(`${WHISPER_URL}/v1/audio/transcriptions`, {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!res.ok) throw new Error(`Whisper service error: ${res.status}`);
-
-          const data: { text?: string } = await res.json();
-          const raw = data.text || '';
-          const corrected = correctTranscription(raw);
-          setTranscript(corrected);
+          const raw = await transcribeBlob(blob);
+          if (myVersion === versionRef.current) {
+            setTranscript(correctTranscription(raw));
+            setPartialTranscript('');
+          }
         } catch (err) {
-          setError(
-            err instanceof Error ? err.message : 'Transcription failed',
-          );
+          if (myVersion === versionRef.current) {
+            setError(err instanceof Error ? err.message : 'Transcription failed');
+          }
         } finally {
-          setState('idle');
+          if (myVersion === versionRef.current) setState('idle');
         }
       });
 
@@ -102,27 +118,44 @@ export function useVoiceInput() {
       startTimeRef.current = Date.now();
       setState('recording');
 
+      // Duration timer
       timerRef.current = setInterval(() => {
-        setDuration(
-          Math.floor((Date.now() - startTimeRef.current) / 1000),
-        );
+        setDuration(Math.floor((Date.now() - startTimeRef.current) / 1000));
       }, 1000);
+
+      // Streaming: periodic intermediate transcription
+      const myVersion = versionRef.current;
+      streamTimerRef.current = setInterval(async () => {
+        if (recorder.state !== 'recording') return;
+        try {
+          recorder.requestData();
+          // Small delay to let dataavailable fire
+          await new Promise((r) => setTimeout(r, 50));
+          if (chunksRef.current.length === 0) return;
+          const seq = ++streamSeqRef.current;
+          const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+          const raw = await transcribeBlob(blob);
+          if (myVersion === versionRef.current && seq === streamSeqRef.current && recorder.state === 'recording') {
+            setPartialTranscript(correctTranscription(raw));
+          }
+        } catch {
+          // Streaming errors are non-fatal, final transcription will retry
+        }
+      }, STREAM_INTERVAL_MS);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Microphone access denied',
-      );
+      setError(err instanceof Error ? err.message : 'Microphone access denied');
       setState('idle');
     }
-  }, []);
+  }, [clearTimers]);
 
   const stopRecording = useCallback(() => {
-    if (
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === 'recording'
-    ) {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
   }, []);
 
-  return { state, transcript, error, duration, startRecording, stopRecording };
+  return {
+    state, transcript, partialTranscript, error, duration,
+    startRecording, stopRecording,
+  };
 }

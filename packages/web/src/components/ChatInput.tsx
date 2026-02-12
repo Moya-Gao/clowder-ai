@@ -1,34 +1,18 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
-import { SendIcon } from './icons/SendIcon';
-import { LoadingIcon } from './icons/LoadingIcon';
 import { AttachIcon } from './icons/AttachIcon';
-import { MicIcon } from './icons/MicIcon';
-import { StopRecordingIcon } from './icons/StopRecordingIcon';
 import { ImagePreview } from './ImagePreview';
+import { ChatInputActionButton } from './ChatInputActionButton';
+import { ChatInputMenus } from './ChatInputMenus';
+import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { compressImage } from '@/utils/compressImage';
-import { useVoiceInput } from '@/hooks/useVoiceInput';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
   onStop?: () => void;
   disabled?: boolean;
 }
-
-const CAT_OPTIONS = [
-  { id: 'opus', label: '@\u5E03\u5076\u732B', desc: 'Opus \u00B7 \u67B6\u6784 & \u5F00\u53D1', insert: '@\u5E03\u5076 ', color: 'text-opus-primary' },
-  { id: 'codex', label: '@\u7F05\u56E0\u732B', desc: 'Codex \u00B7 \u5BA1\u67E5 & \u6D4B\u8BD5', insert: '@\u7F05\u56E0 ', color: 'text-codex-primary' },
-  { id: 'gemini', label: '@\u6684\u7F57\u732B', desc: 'Gemini \u00B7 \u8BBE\u8BA1 & \u521B\u610F', insert: '@\u6684\u7F57 ', color: 'text-gemini-primary' },
-];
-
-const MODE_OPTIONS = [
-  { id: 'brainstorm', icon: '\u{1F9E0}', label: '\u5934\u8111\u98CE\u66B4', desc: '/mode brainstorm <\u8BAE\u9898> @\u732B', insert: '/mode brainstorm ' },
-  { id: 'debate', icon: '\u2694\uFE0F', label: '\u8FA9\u8BBA', desc: '/mode debate <\u8BAE\u9898> @A @B', insert: '/mode debate ' },
-  { id: 'dev-loop', icon: '\uD83D\uDD04', label: '\u5F00\u53D1\u81EA\u95ED\u73AF', desc: '/mode dev-loop @\u5F00\u53D1\u732B @review\u732B <\u9700\u6C42>', insert: '/mode dev-loop ' },
-  { id: 'end', icon: '\u23F9', label: '\u7ED3\u675F\u6A21\u5F0F', desc: '/mode end [\u7ED3\u8BBA]', insert: '/mode end ' },
-  { id: 'status', icon: '\u{1F4CB}', label: '\u67E5\u770B\u72B6\u6001', desc: '/mode status', insert: '/mode status' },
-];
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
 
@@ -43,17 +27,12 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const voice = useVoiceInput();
-
-  // When transcript arrives, append to textarea
-  useEffect(() => {
-    if (voice.transcript) {
-      setInput((prev) => {
-        const separator = prev && !prev.endsWith(' ') ? ' ' : '';
-        return prev + separator + voice.transcript;
-      });
-    }
-  }, [voice.transcript]);
+  const handleTranscript = useCallback((text: string) => {
+    setInput((prev) => {
+      const separator = prev && !prev.endsWith(' ') ? ' ' : '';
+      return prev + separator + text;
+    });
+  }, []);
 
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
   const activeOptions = activeMenu === 'mention' ? CAT_OPTIONS : MODE_OPTIONS;
@@ -69,22 +48,25 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
     }
   }, [input, disabled, onSend, images]);
 
-  const insertOption = useCallback((text: string) => {
-    setInput(text);
+  const closeMenus = useCallback(() => {
     setShowMentions(false);
     setShowModeMenu(false);
+  }, []);
+
+  const insertOption = useCallback((text: string) => {
+    setInput(text);
+    closeMenus();
     setMentionStart(-1);
     setTimeout(() => {
       const ta = textareaRef.current;
       if (ta) { ta.focus(); ta.setSelectionRange(text.length, text.length); }
     }, 0);
-  }, []);
+  }, [closeMenus]);
 
-  const insertMention = useCallback((option: typeof CAT_OPTIONS[number]) => {
+  const insertMention = useCallback((option: CatOption) => {
     const before = input.slice(0, mentionStart);
     const after = input.slice(textareaRef.current?.selectionStart ?? mentionStart + 1);
-    const text = before + option.insert + after;
-    setInput(text);
+    setInput(before + option.insert + after);
     setShowMentions(false);
     setMentionStart(-1);
     setTimeout(() => textareaRef.current?.focus(), 0);
@@ -93,69 +75,30 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setInput(val);
-
-    // /mode autocomplete: triggers when input starts with /mode (or partial /m, /mo, /mod)
-    const trimmed = val.trimStart();
-    if (/^\/m(o(d(e( .*)?)?)?)?$/i.test(trimmed) && trimmed.length <= 6) {
-      setShowModeMenu(true);
-      setShowMentions(false);
-      setSelectedIdx(0);
-      return;
+    const trigger = detectMenuTrigger(val, e.target.selectionStart);
+    if (trigger?.type === 'mode') {
+      setShowModeMenu(true); setShowMentions(false); setSelectedIdx(0);
+    } else if (trigger?.type === 'mention') {
+      setShowMentions(true); setShowModeMenu(false); setMentionStart(trigger.start); setSelectedIdx(0);
+    } else {
+      closeMenus();
     }
-    setShowModeMenu(false);
-
-    // @ mention autocomplete
-    const pos = e.target.selectionStart;
-    const textBefore = val.slice(0, pos);
-    const atIdx = textBefore.lastIndexOf('@');
-    if (atIdx >= 0) {
-      const fragment = textBefore.slice(atIdx + 1);
-      const charBefore = atIdx > 0 ? val[atIdx - 1] : ' ';
-      if (/\s/.test(charBefore!) && fragment.length <= 4 && !/\s/.test(fragment)) {
-        setShowMentions(true);
-        setMentionStart(atIdx);
-        setSelectedIdx(0);
-        return;
-      }
-    }
-    setShowMentions(false);
-  }, []);
+  }, [closeMenus]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
-
     if (activeMenu) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIdx((i) => (i + 1) % activeOptions.length);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIdx((i) => (i - 1 + activeOptions.length) % activeOptions.length);
-        return;
-      }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => (i + 1) % activeOptions.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx((i) => (i - 1 + activeOptions.length) % activeOptions.length); return; }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        if (activeMenu === 'mention') {
-          insertMention(CAT_OPTIONS[selectedIdx]);
-        } else {
-          insertOption(MODE_OPTIONS[selectedIdx].insert);
-        }
+        if (activeMenu === 'mention') insertMention(CAT_OPTIONS[selectedIdx]);
+        else insertOption(MODE_OPTIONS[selectedIdx].insert);
         return;
       }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setShowMentions(false);
-        setShowModeMenu(false);
-        return;
-      }
+      if (e.key === 'Escape') { e.preventDefault(); closeMenus(); return; }
     }
-
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -185,79 +128,32 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
     }, 0);
   }, []);
 
-  // Close menu on outside click
   useEffect(() => {
     if (!activeMenu) return;
     const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMentions(false);
-        setShowModeMenu(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) closeMenus();
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [activeMenu]);
+  }, [activeMenu, closeMenus]);
 
   return (
     <div className="border-t border-owner-light bg-owner-bg relative">
-      {/* @ Mention autocomplete menu */}
-      {showMentions && (
-        <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10">
-          {CAT_OPTIONS.map((opt, i) => (
-            <button key={opt.id} className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
-              onMouseEnter={() => setSelectedIdx(i)} onMouseDown={(e) => { e.preventDefault(); insertMention(opt); }}>
-              <img src={`/avatars/${opt.id}.png`} alt={opt.label} className="w-7 h-7 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              <div>
-                <div className={`text-sm font-semibold ${opt.color}`}>{opt.label}</div>
-                <div className="text-xs text-gray-400">{opt.desc}</div>
-              </div>
-            </button>
-          ))}
-          <div className="px-4 py-1.5 text-xs text-gray-300 border-t border-gray-100">{'\u2191\u2193 \u9009\u62E9 \u00B7 Enter \u786E\u8BA4 \u00B7 Esc \u5173\u95ED'}</div>
-        </div>
-      )}
-
-      {/* /mode autocomplete menu */}
-      {showModeMenu && (
-        <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-72 z-10">
-          {MODE_OPTIONS.map((opt, i) => (
-            <button key={opt.id} className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-indigo-50' : 'hover:bg-gray-50'}`}
-              onMouseEnter={() => setSelectedIdx(i)} onMouseDown={(e) => { e.preventDefault(); insertOption(opt.insert); }}>
-              <span className="text-lg w-7 text-center">{opt.icon}</span>
-              <div>
-                <div className="text-sm font-semibold text-gray-700">{opt.label}</div>
-                <div className="text-xs text-gray-400 font-mono">{opt.desc}</div>
-              </div>
-            </button>
-          ))}
-          <div className="px-4 py-1.5 text-xs text-gray-300 border-t border-gray-100">{'\u2191\u2193 \u9009\u62E9 \u00B7 Enter \u786E\u8BA4 \u00B7 Esc \u5173\u95ED'}</div>
-        </div>
-      )}
-
-      {/* Voice recording status */}
-      {voice.state === 'recording' && (
-        <div className="absolute top-0 right-16 -mt-6 px-2 py-0.5 bg-red-500 text-white text-xs rounded-full animate-pulse">
-          REC {Math.floor(voice.duration / 60)}:{String(voice.duration % 60).padStart(2, '0')}
-        </div>
-      )}
-      {voice.error && (
-        <div className="absolute top-0 left-4 -mt-6 px-3 py-1 bg-red-100 text-red-600 text-xs rounded-lg">
-          {voice.error}
-        </div>
-      )}
+      <ChatInputMenus
+        showMentions={showMentions} showModeMenu={showModeMenu} selectedIdx={selectedIdx}
+        onSelectIdx={setSelectedIdx} onInsertMention={insertMention} onInsertOption={insertOption} menuRef={menuRef}
+      />
 
       <ImagePreview files={images} onRemove={handleRemoveImage} />
 
       <div className="flex gap-2 items-end p-4 pt-2">
         <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} multiple className="hidden" onChange={handleFileSelect} />
 
-        {/* Attach button */}
         <button onClick={() => fileInputRef.current?.click()} disabled={disabled || images.length >= 5}
           className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Attach images">
           <AttachIcon className="w-5 h-5" />
         </button>
 
-        {/* Mode button */}
         <button onClick={handleModeClick} disabled={disabled}
           className="p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Mode">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -270,31 +166,10 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
           className="flex-1 resize-none rounded-xl border border-owner-light bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-owner-primary placeholder:text-gray-400"
           rows={2} disabled={disabled} />
 
-        {disabled && onStop ? (
-          <button onClick={onStop} className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors" aria-label="Stop generation">
-            <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="4" width="12" height="12" rx="2" /></svg>
-          </button>
-        ) : voice.state === 'recording' ? (
-          <button onClick={voice.stopRecording}
-            className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors animate-pulse"
-            aria-label="Stop recording">
-            <StopRecordingIcon className="w-5 h-5" />
-          </button>
-        ) : voice.state === 'transcribing' ? (
-          <button disabled className="p-3 rounded-xl bg-gray-300 text-white cursor-wait" aria-label="Transcribing">
-            <LoadingIcon className="w-5 h-5" />
-          </button>
-        ) : input.trim() ? (
-          <button onClick={handleSend} disabled={disabled}
-            className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Send message">
-            <SendIcon className="w-5 h-5" />
-          </button>
-        ) : (
-          <button onClick={voice.startRecording} disabled={disabled}
-            className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Start voice input">
-            <MicIcon className="w-5 h-5" />
-          </button>
-        )}
+        <ChatInputActionButton
+          onTranscript={handleTranscript} onSend={handleSend} onStop={onStop}
+          disabled={disabled} hasText={!!input.trim()}
+        />
       </div>
     </div>
   );

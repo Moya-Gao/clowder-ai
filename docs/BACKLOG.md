@@ -87,9 +87,9 @@
 | 62 | Whisper 模型选择 small → large-v3-turbo | [ ] | Voice Input M1 open question | Why: E2E 验证用 small，M4 Max 可跑 large-v3-turbo (准确率更高)。触发条件：铲屎官反馈识别精度不够时切换。 |
 | 63 | Whisper 服务集成到 start-dev.sh | [ ] | Voice Input M1 open question | Why: 当前需手动 `./scripts/whisper-server.sh` 启动。触发条件：语音输入成为日常使用功能时集成到一键启动脚本。 |
 | 58 | 补充无 message_start 的 delta 场景测试 | [ ] | 2026-02-11 Opus review P2 建议 | Why: 现有逻辑在 `currentMessageId` 为空时仍会输出 text_delta，但缺少显式回归测试。风险边界：后续重构可能误改该容错行为。触发条件：下次触达 `ClaudeAgentService` 流式逻辑时，优先补此测试并转为 [x]。 |
-| 59 | ChatInput.tsx 超 200 行 (302 行) — 提取 VoiceButton 组件 | [ ] | Voice Input M1 review | Why: voice 相关代码 (+45 行) 导致文件超出 200 行规范。触发条件：下次改动 ChatInput 时顺手拆。 |
-| 60 | useVoiceInput 测试覆盖不足 (仅 2 smoke test) | [ ] | Voice Input M1 review | Why: MediaRecorder 在 jsdom 中无法模拟完整流程。触发条件：引入 vitest-browser 或 Playwright component test 时补全录音→转写→纠错全链路测试。 |
-| 61 | whisper-api.py 健壮性 (错误处理/graceful shutdown/日志) | [ ] | Voice Input M1 开发 | Why: 当前是最小可用版本，缺少请求大小限制、并发控制、SIGTERM 优雅关闭。触发条件：准备长期部署或多人使用时强化。 |
+| 59 | ~~ChatInput.tsx 超 200 行~~ | [x] | Voice Input M1 review | `23a5c30` — 302 → 176 行。提取 ChatInputActionButton + ChatInputMenus + chat-input-options。 |
+| 60 | ~~useVoiceInput 测试覆盖不足~~ | [x] | Voice Input M1 review | `8e11f96` + `23a5c30` — 2 → 20 tests (MockMediaRecorder + streaming + 竞态回归)。 |
+| 61 | ~~whisper-api.py 健壮性~~ | [x] | Voice Input M1 开发 | `4343a66` — 25MB 限制/空文件/503/logging/SIGTERM/model load exit(1)。 |
 
 ## Feature Requests — 新功能需求
 
@@ -118,7 +118,7 @@
 | F18 | ~~工具栏收起+滚动~~ | [x] | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | 可收起/展开，收起时 2s 滚动 + fade-in 动画。缅因猫 review 通过。 |
 | F19 | ~~动态累积计时器~~ | [x] | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | useElapsedTime hook (100ms)，顶部 + 右侧面板动态显示。缅因猫 review 通过。 |
 | F20 | **语音输入 M1 MVP** | **[x]** | 铲屎官需求 2026-02-11 | 麦克风录音 → 本地 Whisper ASR → 术语纠错 → 填入 textarea → 手动发送。动态按钮 (🎤/▶/⏹/⏳)。缅因猫 2 轮 review 通过 (P1 安全边界 + P1 启动入口 + P2 stream 泄露)。设计: [`2026-02-11-voice-input-design.md`](./plans/2026-02-11-voice-input-design.md)，commit `965b569` |
-| F20b | 语音输入 M2 — 流式转写 | P2 | Voice Input design | 边说边出字 (streaming transcription)，依赖 Whisper 流式 API。 |
+| F20b | ~~语音输入 M2 — 流式转写~~ | **[x]** | Voice Input design | `1ec0910` + `23a5c30` — requestData() 轮询 + partialTranscript + streamSeqRef 竞态保护。 |
 | F20c | 语音输入 M3 — 系统级集成 | P3 | Voice Input design | macOS 全局热键 + Claude Code 原生支持 + 多语言自动检测。 |
 
 ## 讨论议题 — 待探索的方向
