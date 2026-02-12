@@ -31,10 +31,10 @@ export function ChatInputActionButton({
     if (voice.transcript) onTranscript(voice.transcript);
   }, [voice.transcript, onTranscript]);
 
-  // Global keyboard shortcut: Cmd+Shift+V (Mac) / Ctrl+Shift+V (Win) toggles voice
+  // Global keyboard shortcut: F5 toggles voice recording
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'v' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+      if (e.key === 'F5') {
         e.preventDefault();
         if (voice.state === 'recording') {
           voice.stopRecording();
@@ -91,7 +91,7 @@ export function ChatInputActionButton({
       ) : (
         <button onClick={voice.startRecording} disabled={disabled}
           className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          aria-label="Start voice input (⌘⇧V)" title="语音输入 (⌘⇧V)">
+          aria-label="Start voice input (F5)" title="语音输入 (F5)">
           <MicIcon className="w-5 h-5" />
         </button>
       )}
