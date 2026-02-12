@@ -10,6 +10,20 @@ export interface ThreadExportRoutesOptions {
 // Route-level singleton ImageExporter for browser reuse across requests
 let sharedExporter: ImageExporter | null = null;
 
+function resolveFrontendBaseUrl(env: NodeJS.ProcessEnv): string {
+  const frontendUrl = env['FRONTEND_URL']?.trim();
+  if (frontendUrl) {
+    return frontendUrl;
+  }
+
+  const frontendPort = env['FRONTEND_PORT']?.trim();
+  if (frontendPort) {
+    return `http://localhost:${frontendPort}`;
+  }
+
+  return 'http://localhost:3001';
+}
+
 export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> = async (fastify, opts) => {
   const { threadStore } = opts;
 
@@ -63,7 +77,7 @@ export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> =
       try {
         // Construct frontend URL
         const env = process.env;
-        const frontendUrl = env['FRONTEND_URL'] || 'http://localhost:3000';
+        const frontendUrl = resolveFrontendBaseUrl(env);
         const url = `${frontendUrl}/thread/${threadId}`;
 
         fastify.log.info(`Exporting thread ${threadId} to image from ${url}`);
