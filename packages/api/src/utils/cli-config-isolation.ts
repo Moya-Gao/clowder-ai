@@ -67,6 +67,14 @@ export function getCodexIsolatedHome(): string {
   mkdirSync(isolatedCodexDir, { recursive: true });
 
   const realCodexDir = join(homedir(), '.codex');
+
+  // Short-circuit: if HOME is already pointing at our isolation directory,
+  // all symlink/copy operations would be self-referential. Skip them.
+  if (realCodexDir === isolatedCodexDir) {
+    codexIsolatedHome = isolatedHome;
+    return isolatedHome;
+  }
+
   for (const file of CODEX_COPY_FILES) {
     const src = join(realCodexDir, file);
     const dst = join(isolatedCodexDir, file);
