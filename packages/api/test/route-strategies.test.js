@@ -538,15 +538,15 @@ describe('routeSerial degradation notification', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
-    // Generate 50 messages to exceed opus default maxMessages=40
-    const history = Array.from({ length: 50 }, (_, i) => ({
+    // Generate 250 messages to exceed opus default maxMessages=200
+    const history = Array.from({ length: 250 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
       userId: 'user1',
       catId: i % 2 === 0 ? null : 'opus',
       content: `message ${i}`,
       mentions: [],
-      timestamp: Date.now() - (50 - i) * 1000,
+      timestamp: Date.now() - (250 - i) * 1000,
     }));
 
     const messages = [];
@@ -563,7 +563,7 @@ describe('routeSerial degradation notification', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
-    // 5 messages — well within opus maxMessages=40
+    // 5 messages — well within opus maxMessages=200
     const history = Array.from({ length: 5 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
@@ -587,15 +587,16 @@ describe('routeSerial degradation notification', () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
-    // Count is at budget boundary (opus maxMessages=40), but content size should force char truncation.
-    const history = Array.from({ length: 40 }, (_, i) => ({
+    // Count is within budget boundary (opus maxMessages=200), but content size should force char truncation.
+    // 200 messages × ~1600 chars = ~320k > maxContextChars 300k
+    const history = Array.from({ length: 200 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
       userId: 'user1',
       catId: null,
-      content: `message ${i} ` + 'x'.repeat(5000),
+      content: `message ${i} ` + 'x'.repeat(1600),
       mentions: [],
-      timestamp: Date.now() - (40 - i) * 1000,
+      timestamp: Date.now() - (200 - i) * 1000,
     }));
 
     const messages = [];
@@ -617,15 +618,15 @@ describe('routeParallel degradation notification', () => {
       codex: createMockService('codex', 'codex says'),
     });
 
-    // 50 messages — exceeds both opus (40) and codex (30) limits
-    const history = Array.from({ length: 50 }, (_, i) => ({
+    // 250 messages — exceeds both opus (200) and codex (200) limits
+    const history = Array.from({ length: 250 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
       userId: 'user1',
       catId: null,
       content: `message ${i}`,
       mentions: [],
-      timestamp: Date.now() - (50 - i) * 1000,
+      timestamp: Date.now() - (250 - i) * 1000,
     }));
 
     const messages = [];
@@ -644,15 +645,16 @@ describe('routeParallel degradation notification', () => {
       codex: createMockService('codex', 'codex says'),
     });
 
-    // Count is within both cats' maxMessages (codex=30, opus=40), but content size should trigger char truncation.
-    const history = Array.from({ length: 30 }, (_, i) => ({
+    // Count is within both cats' maxMessages (codex=200, opus=200), but content size should trigger char truncation.
+    // 200 messages × ~2100 chars = ~420k > codex maxContextChars 400k
+    const history = Array.from({ length: 200 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
       userId: 'user1',
       catId: null,
-      content: `message ${i} ` + 'y'.repeat(5000),
+      content: `message ${i} ` + 'y'.repeat(2100),
       mentions: [],
-      timestamp: Date.now() - (30 - i) * 1000,
+      timestamp: Date.now() - (200 - i) * 1000,
     }));
 
     const messages = [];

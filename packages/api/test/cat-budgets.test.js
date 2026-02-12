@@ -29,26 +29,26 @@ describe('getCatContextBudget', () => {
 
   it('opus default budget from cat-config.json', () => {
     const budget = getCatContextBudget('opus');
-    assert.strictEqual(budget.maxPromptChars, 150000);
-    assert.strictEqual(budget.maxContextChars, 40000);
-    assert.strictEqual(budget.maxMessages, 40);
-    assert.strictEqual(budget.maxContentLengthPerMsg, 3000);
+    assert.strictEqual(budget.maxPromptChars, 500000);
+    assert.strictEqual(budget.maxContextChars, 300000);
+    assert.strictEqual(budget.maxMessages, 200);
+    assert.strictEqual(budget.maxContentLengthPerMsg, 10000);
   });
 
   it('codex default budget from cat-config.json', () => {
     const budget = getCatContextBudget('codex');
-    assert.strictEqual(budget.maxPromptChars, 80000);
-    assert.strictEqual(budget.maxContextChars, 20000);
-    assert.strictEqual(budget.maxMessages, 30);
-    assert.strictEqual(budget.maxContentLengthPerMsg, 2000);
+    assert.strictEqual(budget.maxPromptChars, 650000);
+    assert.strictEqual(budget.maxContextChars, 400000);
+    assert.strictEqual(budget.maxMessages, 200);
+    assert.strictEqual(budget.maxContentLengthPerMsg, 10000);
   });
 
   it('gemini default budget from cat-config.json', () => {
     const budget = getCatContextBudget('gemini');
-    assert.strictEqual(budget.maxPromptChars, 150000);
-    assert.strictEqual(budget.maxContextChars, 40000);
-    assert.strictEqual(budget.maxMessages, 40);
-    assert.strictEqual(budget.maxContentLengthPerMsg, 3000);
+    assert.strictEqual(budget.maxPromptChars, 800000);
+    assert.strictEqual(budget.maxContextChars, 500000);
+    assert.strictEqual(budget.maxMessages, 300);
+    assert.strictEqual(budget.maxContentLengthPerMsg, 15000);
   });
 
   it('per-cat env var overrides maxPromptChars', () => {
@@ -57,7 +57,7 @@ describe('getCatContextBudget', () => {
     const budget = getCatContextBudget('opus');
     assert.strictEqual(budget.maxPromptChars, 200000);
     // Other fields remain from JSON
-    assert.strictEqual(budget.maxContextChars, 40000);
+    assert.strictEqual(budget.maxContextChars, 300000);
   });
 
   it('global MAX_PROMPT_CHARS fallback when no per-cat env', () => {

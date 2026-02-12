@@ -22,9 +22,9 @@ const BUDGET_ENV_KEYS = {
 
 /** Hardcoded defaults if cat-config.json missing or incomplete */
 const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
-  opus: { maxPromptChars: 150000, maxContextChars: 40000, maxMessages: 40, maxContentLengthPerMsg: 3000 },
-  codex: { maxPromptChars: 80000, maxContextChars: 20000, maxMessages: 30, maxContentLengthPerMsg: 2000 },
-  gemini: { maxPromptChars: 150000, maxContextChars: 40000, maxMessages: 40, maxContentLengthPerMsg: 3000 },
+  opus: { maxPromptChars: 500000, maxContextChars: 300000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  codex: { maxPromptChars: 650000, maxContextChars: 400000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  gemini: { maxPromptChars: 800000, maxContextChars: 500000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
 };
 
 // Cache from cat-config.json

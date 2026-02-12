@@ -165,10 +165,10 @@ describe('ConfigRegistry', () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
-    // codex has lower budget than opus (80k vs 150k)
+    // codex has higher budget than opus (650k vs 500k, gpt-5.3 has 273k token window)
     assert.ok(
-      snapshot.perCatBudgets.codex.maxPromptChars < snapshot.perCatBudgets.opus.maxPromptChars,
-      'codex should have lower maxPromptChars than opus'
+      snapshot.perCatBudgets.codex.maxPromptChars > snapshot.perCatBudgets.opus.maxPromptChars,
+      'codex should have higher maxPromptChars than opus (larger context window)'
     );
   });
 
