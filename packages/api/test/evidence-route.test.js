@@ -70,7 +70,7 @@ describe('GET /api/evidence/search', () => {
     assert.equal(body.results[1].confidence, 'mid');
   });
 
-  it('passes default tagsMatch=all_strict to Hindsight', async () => {
+  it('passes default tagsMatch=all_strict and origin:git to Hindsight', async () => {
     let capturedOptions;
     await setup({
       recall: async (_bank, _query, options) => {
@@ -85,9 +85,28 @@ describe('GET /api/evidence/search', () => {
     });
 
     assert.equal(capturedOptions.tagsMatch, 'all_strict');
-    assert.deepEqual(capturedOptions.tags, ['project:cat-cafe']);
+    assert.deepEqual(capturedOptions.tags, ['project:cat-cafe', 'origin:git']);
     assert.equal(capturedOptions.budget, 'mid');
     assert.equal(capturedOptions.limit, 5);
+  });
+
+  it('ensures project:cat-cafe is present even when user provides custom tags', async () => {
+    let capturedOptions;
+    await setup({
+      recall: async (_bank, _query, options) => {
+        capturedOptions = options;
+        return [];
+      },
+    });
+
+    await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=test&tags=kind:decision,origin:callback',
+    });
+
+    assert.ok(capturedOptions.tags.includes('project:cat-cafe'), 'project:cat-cafe must always be present');
+    assert.ok(capturedOptions.tags.includes('kind:decision'));
+    assert.ok(capturedOptions.tags.includes('origin:callback'));
   });
 
   it('uses runtime-configured recall defaults when query omits params', async () => {

@@ -15,13 +15,22 @@ export interface EvidenceResult {
 }
 
 export function normalizeTags(input: string | string[] | undefined): string[] {
-  const rawValues = input == null ? ['project:cat-cafe'] : (Array.isArray(input) ? input : [input]);
-  const tags = rawValues
+  const defaults = ['project:cat-cafe', 'origin:git'];
+  if (input == null) return defaults;
+
+  const tags = (Array.isArray(input) ? input : [input])
     .flatMap((value) => value.split(','))
     .map((value) => value.trim())
     .filter((value) => value.length > 0);
 
-  return tags.length > 0 ? tags : ['project:cat-cafe'];
+  if (tags.length === 0) return defaults;
+
+  // project:cat-cafe is always present (P0 governance constraint)
+  if (!tags.includes('project:cat-cafe')) {
+    tags.unshift('project:cat-cafe');
+  }
+
+  return tags;
 }
 
 export function shouldDegradeToDocs(err: unknown): boolean {

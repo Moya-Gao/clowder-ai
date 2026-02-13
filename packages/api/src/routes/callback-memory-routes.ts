@@ -31,10 +31,23 @@ const retainMemorySchema = callbackAuthSchema.extend({
 type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
 type EvidenceConfidence = 'high' | 'mid' | 'low';
 
-function normalizeTags(input: string | string[] | undefined): string[] {
-  const rawValues = input == null ? ['project:cat-cafe'] : (Array.isArray(input) ? input : [input]);
-  const tags = rawValues.flatMap((value) => value.split(',')).map((value) => value.trim()).filter((value) => value.length > 0);
-  return tags.length > 0 ? tags : ['project:cat-cafe'];
+function normalizeTags(input: string | string[] | undefined, defaultOrigin: string): string[] {
+  const defaults = ['project:cat-cafe', defaultOrigin];
+  if (input == null) return defaults;
+
+  const tags = (Array.isArray(input) ? input : [input])
+    .flatMap((value) => value.split(','))
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  if (tags.length === 0) return defaults;
+
+  // project:cat-cafe is always present (P0 governance constraint)
+  if (!tags.includes('project:cat-cafe')) {
+    tags.unshift('project:cat-cafe');
+  }
+
+  return tags;
 }
 
 function classifySource(path: string): EvidenceSourceType {
@@ -103,7 +116,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       const memories = await hindsightClient.recall(sharedBank, q, {
         limit: effectiveLimit,
         budget: effectiveBudget,
-        tags: normalizeTags(tags),
+        tags: normalizeTags(tags, 'origin:git'),
         tagsMatch: effectiveTagsMatch,
       });
       return { results: memories.map(memoryToResult), degraded: false };
@@ -170,7 +183,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     try {
       await hindsightClient.retain(sharedBank, [{
         content,
-        tags: normalizeTags(tags),
+        tags: normalizeTags(tags, 'origin:callback'),
         metadata: mergedMetadata,
         timestamp: Date.now(),
       }]);

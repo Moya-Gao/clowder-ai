@@ -353,6 +353,44 @@ describe('Callback Routes', () => {
 
   // ---- Hindsight memory loop callbacks ----
 
+  test('GET search-evidence defaults to project:cat-cafe + origin:git tags', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const recallCalls = [];
+    hindsightClient.recall = async (bankId, query, options) => {
+      recallCalls.push({ bankId, query, options });
+      return [];
+    };
+
+    await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=test`,
+    });
+
+    assert.equal(recallCalls.length, 1);
+    assert.deepEqual(recallCalls[0].options.tags, ['project:cat-cafe', 'origin:git']);
+    assert.equal(recallCalls[0].options.tagsMatch, 'all_strict');
+  });
+
+  test('GET search-evidence ensures project:cat-cafe when user provides custom tags', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const recallCalls = [];
+    hindsightClient.recall = async (bankId, query, options) => {
+      recallCalls.push({ bankId, query, options });
+      return [];
+    };
+
+    await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=test&tags=kind:decision`,
+    });
+
+    assert.equal(recallCalls.length, 1);
+    assert.ok(recallCalls[0].options.tags.includes('project:cat-cafe'), 'project:cat-cafe must always be present');
+    assert.ok(recallCalls[0].options.tags.includes('kind:decision'));
+  });
+
   test('GET search-evidence returns recall results for invocation thread', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
@@ -573,7 +611,7 @@ describe('Callback Routes', () => {
     assert.equal(retainCalls[0].bankId, 'cat-cafe-shared');
     assert.equal(retainCalls[0].items.length, 1);
     assert.equal(retainCalls[0].items[0].content, 'When storage is unavailable, fail-closed and surface explicit errors.');
-    assert.deepEqual(retainCalls[0].items[0].tags, ['kind:decision', 'source:codex']);
+    assert.deepEqual(retainCalls[0].items[0].tags, ['project:cat-cafe', 'kind:decision', 'source:codex']);
     assert.equal(retainCalls[0].items[0].metadata.source, 'callback');
     assert.equal(retainCalls[0].items[0].metadata.catId, 'codex');
     assert.equal(retainCalls[0].items[0].metadata.invocationId, invocationId);
@@ -594,6 +632,32 @@ describe('Callback Routes', () => {
     });
 
     assert.equal(response.statusCode, 401);
+  });
+
+  test('POST retain-memory without tags defaults to origin:callback, not origin:git (P1 regression)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    const retainCalls = [];
+    hindsightClient.retain = async (bankId, items) => {
+      retainCalls.push({ bankId, items });
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/retain-memory',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'A callback memory without explicit tags',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(retainCalls.length, 1);
+    const tags = retainCalls[0].items[0].tags;
+    assert.ok(tags.includes('project:cat-cafe'), 'must include project:cat-cafe');
+    assert.ok(tags.includes('origin:callback'), 'must include origin:callback for callback memories');
+    assert.ok(!tags.includes('origin:git'), 'must NOT include origin:git for callback memories');
   });
 
   test('POST retain-memory returns 501 when hindsight client not configured', async () => {
