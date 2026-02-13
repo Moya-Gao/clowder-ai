@@ -38,6 +38,28 @@ interface ParsedMention {
   position: number;
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeSpeechMentions(message: string): string {
+  let normalized = message;
+
+  for (const config of Object.values(CAT_CONFIGS)) {
+    for (const pattern of config.mentionPatterns) {
+      const alias = pattern.replace(/^@/, '');
+      const escapedAlias = escapeRegExp(alias);
+      const re = new RegExp(
+        `(^|\\s)(?:at|艾特)\\s*(?:咱的|我的)?\\s*(${escapedAlias})(?=$|\\s|[，。！？、,.:：;；])`,
+        'gi',
+      );
+      normalized = normalized.replace(re, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
+    }
+  }
+
+  return normalized;
+}
+
 /**
  * Options for AgentRouter constructor
  */
@@ -81,9 +103,9 @@ export class AgentRouter {
    * Parse @mentions from user message for routing.
    * Uses indexOf (anywhere in text) — different from parseA2AMentions which uses line-start matching.
    * Reason: User intent is clear when they type @猫名 anywhere; cat responses need stricter rules.
-   */
+  */
   private parseMentions(message: string): CatId[] {
-    const lowerMessage = message.toLowerCase();
+    const lowerMessage = normalizeSpeechMentions(message).toLowerCase();
     const mentions: ParsedMention[] = [];
 
     for (const config of Object.values(CAT_CONFIGS)) {

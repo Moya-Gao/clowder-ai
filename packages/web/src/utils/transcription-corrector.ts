@@ -26,6 +26,36 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+const MENTION_ALIASES = [
+  '布偶猫',
+  '布偶',
+  '宪宪',
+  'opus',
+  'ragdoll',
+  '缅因猫',
+  '缅因',
+  '砚砚',
+  'codex',
+  'maine',
+  '暹罗猫',
+  '暹罗',
+  'gemini',
+  'siamese',
+] as const;
+
+const speechMentionPattern = new RegExp(
+  `(^|\\s)(?:at|艾特)\\s*(?:咱的|我的)?\\s*(${MENTION_ALIASES.map(escapeRegExp).join('|')})(?=$|\\s|[，。！？、,.:：;；])`,
+  'gi',
+);
+
+/**
+ * Normalize voice-recognized mention prefix:
+ * "at 砚砚" / "艾特 宪宪" → "@砚砚" / "@宪宪"
+ */
+export function normalizeSpeechMentions(text: string): string {
+  return text.replace(speechMentionPattern, (_match, prefix: string, alias: string) => `${prefix}@${alias}`);
+}
+
 /**
  * Replace known misrecognized terms with their correct forms.
  * Matching is case-insensitive; unknown terms pass through unchanged.
@@ -80,5 +110,5 @@ export function removeFillers(text: string): string {
  * End-to-end correction: term dictionary → filler removal.
  */
 export function correctTranscription(text: string): string {
-  return removeFillers(applyTermDictionary(text));
+  return removeFillers(normalizeSpeechMentions(applyTermDictionary(text)));
 }

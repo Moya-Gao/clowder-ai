@@ -170,4 +170,10 @@ describe('correctTranscription', () => {
     const expected = '让缅因猫帮我 review 一下 Claude的 WebSocket 代码';
     expect(correctTranscription(input)).toBe(expected);
   });
+
+  it('normalizes speech-style at-mentions for cat nicknames', () => {
+    const input = 'at咱的砚砚 和 at 宪宪 你们出来了';
+    const expected = '@砚砚 和 @宪宪 你们出来了';
+    expect(correctTranscription(input)).toBe(expected);
+  });
 });

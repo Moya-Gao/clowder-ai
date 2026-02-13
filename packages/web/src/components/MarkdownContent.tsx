@@ -5,12 +5,31 @@ import remarkGfm from 'remark-gfm';
 import { Children, type ReactNode } from 'react';
 
 /* ── @mention highlighting ─────────────────────────────────── */
-const MENTION_RE = /@(布偶猫?|缅因猫?|暹罗猫?|opus|codex|gemini)/gi;
 const MENTION_TO_CAT: Record<string, string> = {
-  '布偶': 'opus', '布偶猫': 'opus', opus: 'opus',
-  '缅因': 'codex', '缅因猫': 'codex', codex: 'codex',
-  '暹罗': 'gemini', '暹罗猫': 'gemini', gemini: 'gemini',
+  '布偶': 'opus',
+  '布偶猫': 'opus',
+  '宪宪': 'opus',
+  opus: 'opus',
+  ragdoll: 'opus',
+  '缅因': 'codex',
+  '缅因猫': 'codex',
+  '砚砚': 'codex',
+  codex: 'codex',
+  maine: 'codex',
+  '暹罗': 'gemini',
+  '暹罗猫': 'gemini',
+  gemini: 'gemini',
+  siamese: 'gemini',
 };
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const mentionAliases = Object.keys(MENTION_TO_CAT).sort((a, b) => b.length - a.length);
+const mentionAliasPattern = mentionAliases.map(escapeRegExp).join('|');
+const MENTION_RE = new RegExp(`@(${mentionAliasPattern})(?=$|\\s|[，。！？、,.:：;；])`, 'gi');
+
 const MENTION_COLOR: Record<string, string> = {
   opus: 'text-opus-primary',
   codex: 'text-codex-primary',
