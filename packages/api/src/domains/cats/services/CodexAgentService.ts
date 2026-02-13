@@ -17,7 +17,6 @@
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
-import { getCodexIsolatedHome } from '../../../utils/cli-config-isolation.js';
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
@@ -155,12 +154,10 @@ export class CodexAgentService implements AgentService {
     const recentStreamErrors: string[] = [];
 
     try {
-      // Isolate from global ~/.codex/AGENTS.md to prevent config pollution
-      const isolatedEnv: Record<string, string> = {
-        HOME: getCodexIsolatedHome(),
-        ...(options?.callbackEnv ?? {}),
-      };
-      const codexEnv = applyAuthMode(isolatedEnv);
+      // Use real HOME — project-level AGENTS.md already overrides global ~/.codex/AGENTS.md.
+      // HOME isolation was removed because Codex CLI rebuilds ~/.codex/ on startup,
+      // overwriting pre-copied auth.json/config.toml/sessions (see bug-report/tea-coffee/).
+      const codexEnv = applyAuthMode(options?.callbackEnv ?? {});
 
       const events = spawnCli(
         {
