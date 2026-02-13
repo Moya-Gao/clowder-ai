@@ -86,18 +86,23 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Toolbar — always visible in split mode */}
-      <header className="flex items-center gap-2 border-b border-owner-light bg-owner-bg px-4 py-2 flex-shrink-0">
-        <PawIcon className="w-5 h-5 text-owner-primary" />
-        <span className="text-sm font-bold text-cafe-black">Cat Cafe</span>
-        <span className="text-xs text-gray-400 ml-1">分屏模式</span>
-        <div className="flex-1" />
-        <span className="text-[10px] text-gray-400 hidden sm:inline">⌘\ 切换</span>
+      {/* Toolbar — matches single-mode header style */}
+      <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2 flex-shrink-0">
+        <PawIcon className="w-6 h-6 text-owner-primary" />
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
+          <p className="text-xs text-gray-500">分屏模式</p>
+        </div>
+        <span className="text-[10px] text-gray-400 hidden sm:inline mr-1">⌘\ 切换</span>
         <button
           onClick={handleBackToSingle}
-          className="px-2.5 py-1 text-xs rounded-md bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-gray-600"
+          className="p-1 rounded-lg hover:bg-owner-light transition-colors"
+          aria-label="切换单屏模式"
+          title="返回单屏"
         >
-          返回单屏
+          <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+            <rect x="2" y="2" width="16" height="16" rx="2" />
+          </svg>
         </button>
       </header>
 
