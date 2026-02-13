@@ -176,4 +176,10 @@ describe('correctTranscription', () => {
     const expected = '@砚砚 和 @宪宪 你们出来了';
     expect(correctTranscription(input)).toBe(expected);
   });
+
+  it('normalizes @。 + nickname style mentions', () => {
+    const input = '@。砚砚 先看这个';
+    const expected = '@砚砚 先看这个';
+    expect(correctTranscription(input)).toBe(expected);
+  });
 });

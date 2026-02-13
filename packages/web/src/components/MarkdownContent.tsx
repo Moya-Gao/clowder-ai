@@ -3,28 +3,14 @@
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Children, type ReactNode } from 'react';
+import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
 
 /* ── @mention highlighting ─────────────────────────────────── */
-const MENTION_TO_CAT: Record<string, string> = {
-  '布偶': 'opus',
-  '布偶猫': 'opus',
-  '宪宪': 'opus',
-  opus: 'opus',
-  ragdoll: 'opus',
-  '缅因': 'codex',
-  '缅因猫': 'codex',
-  '砚砚': 'codex',
-  codex: 'codex',
-  maine: 'codex',
-  '暹罗': 'gemini',
-  '暹罗猫': 'gemini',
-  gemini: 'gemini',
-  siamese: 'gemini',
-};
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const MENTION_TO_CAT: Record<string, 'opus' | 'codex' | 'gemini'> = Object.fromEntries(
+  Object.entries(CAT_CONFIGS).flatMap(([catId, config]) =>
+    config.mentionPatterns.map((pattern) => [pattern.replace(/^@/, '').toLowerCase(), catId]),
+  ),
+) as Record<string, 'opus' | 'codex' | 'gemini'>;
 
 const mentionAliases = Object.keys(MENTION_TO_CAT).sort((a, b) => b.length - a.length);
 const mentionAliasPattern = mentionAliases.map(escapeRegExp).join('|');

@@ -9,6 +9,7 @@
  *   3. Whitespace collapse + trim
  */
 
+import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
 import terms from './voice-terms.json';
 
 /* ------------------------------------------------------------------ */
@@ -22,29 +23,16 @@ const termEntries: ReadonlyArray<[RegExp, string]> = Object.entries(
   replacement,
 ]);
 
-function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-const MENTION_ALIASES = [
-  '布偶猫',
-  '布偶',
-  '宪宪',
-  'opus',
-  'ragdoll',
-  '缅因猫',
-  '缅因',
-  '砚砚',
-  'codex',
-  'maine',
-  '暹罗猫',
-  '暹罗',
-  'gemini',
-  'siamese',
-] as const;
+const mentionAliases = Array.from(
+  new Set(
+    Object.values(CAT_CONFIGS).flatMap((config) =>
+      config.mentionPatterns.map((pattern) => pattern.replace(/^@/, '')),
+    ),
+  ),
+).sort((a, b) => b.length - a.length);
 
 const speechMentionPattern = new RegExp(
-  `(^|\\s)(?:at|艾特)\\s*(?:咱的|我的)?\\s*(${MENTION_ALIASES.map(escapeRegExp).join('|')})(?=$|\\s|[，。！？、,.:：;；])`,
+  `(^|\\s)(?:at|艾特|@\\s*[。｡\\.．])\\s*(?:咱的|我的)?\\s*(${mentionAliases.map(escapeRegExp).join('|')})(?=$|\\s|[，。！？、,.:：;；])`,
   'gi',
 );
 

@@ -17,7 +17,7 @@
  * 虽然参数可选（兼容测试），但生产代码必须显式传入。
  */
 
-import { CAT_CONFIGS, createCatId } from '@cat-cafe/shared';
+import { CAT_CONFIGS, createCatId, escapeRegExp } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
@@ -38,26 +38,27 @@ interface ParsedMention {
   position: number;
 }
 
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+const MENTION_ALIASES = Array.from(
+  new Set(
+    Object.values(CAT_CONFIGS).flatMap((config) =>
+      config.mentionPatterns.map((pattern) => pattern.replace(/^@/, '')),
+    ),
+  ),
+).sort((a, b) => b.length - a.length);
+
+const SPEECH_MENTION_RE = new RegExp(
+  [
+    '(^|\\s)',
+    '(?:at|艾特|@\\s*[。｡\\.．])',
+    '\\s*(?:咱的|我的)?\\s*',
+    `(${MENTION_ALIASES.map(escapeRegExp).join('|')})`,
+    '(?=$|\\s|[，。！？、,.:：;；])',
+  ].join(''),
+  'gi',
+);
 
 function normalizeSpeechMentions(message: string): string {
-  let normalized = message;
-
-  for (const config of Object.values(CAT_CONFIGS)) {
-    for (const pattern of config.mentionPatterns) {
-      const alias = pattern.replace(/^@/, '');
-      const escapedAlias = escapeRegExp(alias);
-      const re = new RegExp(
-        `(^|\\s)(?:at|艾特)\\s*(?:咱的|我的)?\\s*(${escapedAlias})(?=$|\\s|[，。！？、,.:：;；])`,
-        'gi',
-      );
-      normalized = normalized.replace(re, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
-    }
-  }
-
-  return normalized;
+  return message.replace(SPEECH_MENTION_RE, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
 }
 
 /**

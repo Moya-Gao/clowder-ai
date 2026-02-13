@@ -12,3 +12,6 @@ export * from './types/index.js';
 
 // Export all schemas
 export * from './schemas/index.js';
+
+// Export shared text helpers
+export * from './text-utils.js';
