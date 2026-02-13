@@ -2,19 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 
 /**
- * Test the keyboard shortcut logic directly (no DOM rendering needed).
- * The hook registers a keydown listener; we simulate the same logic.
+ * Test split-pane shortcut state transitions directly (store-level logic only).
  */
-
-function simulateKeyDown(key: string, meta = true) {
-  const event = new KeyboardEvent('keydown', {
-    key,
-    metaKey: meta,
-    bubbles: true,
-    cancelable: true,
-  });
-  document.dispatchEvent(event);
-}
 
 describe('split-pane keyboard shortcuts (logic)', () => {
   beforeEach(() => {

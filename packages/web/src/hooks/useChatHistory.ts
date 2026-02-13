@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
-import { DEFAULT_THREAD_STATE } from '@/stores/chat-types';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;

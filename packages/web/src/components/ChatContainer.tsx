@@ -214,7 +214,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [threadId]
   );
 
-  const { cancelInvocation, syncRooms, joinRoom } = useSocket(socketCallbacks, threadId);
+  const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
 
   // Keyboard shortcuts for split-pane mode
   useSplitPaneKeys();

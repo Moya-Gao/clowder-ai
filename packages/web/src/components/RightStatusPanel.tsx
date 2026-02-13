@@ -5,7 +5,7 @@ import type { CatInvocationInfo } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import {
-  CAT_INFO, modeLabel, statusLabel, statusTone, truncateId, formatDuration,
+  CAT_INFO, modeLabel, statusLabel, statusTone, truncateId,
   type IntentMode, type CatStatus,
 } from './status-helpers';
 import { CatTokenUsage } from './CatTokenUsage';
