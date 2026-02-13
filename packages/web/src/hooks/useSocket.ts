@@ -4,6 +4,11 @@ import { useEffect, useRef, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { getUserId } from '@/utils/userId';
 import { API_URL } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { useToastStore } from '@/stores/toastStore';
+
+/** Monotonic counter to ensure unique IDs for background thread messages (P2 fix) */
+let bgSeq = 0;
 
 interface AgentMessage {
   type: string;
@@ -38,22 +43,18 @@ export interface SocketCallbacks {
   onTaskCreated?: (task: Record<string, unknown>) => void;
   onTaskUpdated?: (task: Record<string, unknown>) => void;
   onThreadSummary?: (summary: Record<string, unknown>) => void;
-  /** Called when heartbeat received (resets timeout timer) */
   onHeartbeat?: () => void;
-  /** Message mutation events (ADR-008 S8) */
   onMessageDeleted?: (data: { messageId: string; threadId: string; deletedBy: string }) => void;
   onMessageRestored?: (data: { messageId: string; threadId: string }) => void;
   onThreadBranched?: (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => void;
-  /** Authorization events */
   onAuthorizationRequest?: (data: { requestId: string; catId: string; threadId: string; action: string; reason: string; context?: string; createdAt: number }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
-  /** F11: mode lifecycle events */
   onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
-  const currentRoomRef = useRef<string | null>(null);
+  const joinedRoomsRef = useRef<Set<string>>(new Set());
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
@@ -89,21 +90,92 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         socketId: socket.id,
         transport: getTransportName(),
         threadId: threadIdRef.current ?? null,
+        rooms: [...joinedRoomsRef.current],
       });
       attachNativeCloseLogger();
+
+      // Rejoin all tracked rooms on reconnect
+      for (const room of joinedRoomsRef.current) {
+        socket.emit('join_room', room);
+      }
+      // Ensure active thread room is joined
       const tid = threadIdRef.current;
       if (tid) {
         const room = `thread:${tid}`;
-        socket.emit('join_room', room);
-        currentRoomRef.current = room;
+        if (!joinedRoomsRef.current.has(room)) {
+          socket.emit('join_room', room);
+          joinedRoomsRef.current.add(room);
+        }
       }
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
-      // Hard filter: discard messages from a different thread (stale room in-flight)
       const currentThread = threadIdRef.current;
-      if (msg.threadId && currentThread && msg.threadId !== currentThread) return;
-      callbacks.onMessage(msg);
+
+      // Active thread → full processing via onMessage (streaming, tool events, etc.)
+      if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
+        callbacks.onMessage(msg);
+        return;
+      }
+
+      // Background thread → simple message accumulation + status update + toast
+      const store = useChatStore.getState();
+      if (msg.type === 'text' && msg.content) {
+        store.addMessageToThread(msg.threadId, {
+          id: `bg-${msg.timestamp}-${msg.catId}-${bgSeq++}`,
+          type: 'assistant',
+          catId: msg.catId,
+          content: msg.content,
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          timestamp: msg.timestamp,
+        });
+        // Update cat status for background thread
+        store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+        // Toast on final message
+        if (msg.isFinal) {
+          useToastStore.getState().addToast({
+            type: 'success',
+            title: `${msg.catId} 完成`,
+            message: msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : ''),
+            threadId: msg.threadId,
+            duration: 5000,
+          });
+        }
+      } else if (msg.type === 'error') {
+        store.addMessageToThread(msg.threadId, {
+          id: `bg-err-${msg.timestamp}-${msg.catId}-${bgSeq++}`,
+          type: 'system',
+          catId: msg.catId,
+          content: `Error: ${msg.error ?? 'Unknown error'}`,
+          timestamp: msg.timestamp,
+        });
+        store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
+        useToastStore.getState().addToast({
+          type: 'error',
+          title: `${msg.catId} 出错`,
+          message: msg.error ?? 'Unknown error',
+          threadId: msg.threadId,
+          duration: 8000,
+        });
+      } else if (msg.type === 'done') {
+        // Don't overwrite error status with success (backend sends error then done)
+        const currentStatus = store.getThreadState(msg.threadId!).catStatuses[msg.catId];
+        if (currentStatus !== 'error') {
+          store.updateThreadCatStatus(msg.threadId!, msg.catId, 'done');
+          useToastStore.getState().addToast({
+            type: 'success',
+            title: `${msg.catId} 完成`,
+            message: `${msg.catId} 已完成处理`,
+            threadId: msg.threadId!,
+            duration: 5000,
+          });
+        }
+      } else if (msg.type === 'status') {
+        // Update cat status indicator without storing a message
+        const statusMap: Record<string, string> = { streaming: 'streaming', thinking: 'pending', done: 'done' };
+        const mapped = statusMap[msg.content ?? ''] ?? 'streaming';
+        store.updateThreadCatStatus(msg.threadId!, msg.catId, mapped as 'streaming' | 'pending' | 'done');
+      }
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
@@ -130,7 +202,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onHeartbeat?.();
     });
 
-    // Message mutation events (ADR-008 S8)
     socket.on('message_deleted', (data: { messageId: string; threadId: string; deletedBy: string }) => {
       callbacks.onMessageDeleted?.(data);
     });
@@ -144,7 +215,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onThreadBranched?.(data);
     });
 
-    // Authorization events (P2 fix: thread 过滤，同 agent_message)
     socket.on('authorization:request', (data: Record<string, unknown>) => {
       const currentThread = threadIdRef.current;
       if (data['threadId'] && currentThread && data['threadId'] !== currentThread) return;
@@ -154,7 +224,6 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacks.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
     });
 
-    // F11: mode lifecycle (thread-filtered, same as agent_message)
     socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
       const currentThread = threadIdRef.current;
       if (data.threadId && currentThread && data.threadId !== currentThread) return;
@@ -197,35 +266,64 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     return () => {
       socket.disconnect();
+      joinedRoomsRef.current.clear();
     };
   }, [callbacks]);
 
-  const switchRoom = useCallback((newThreadId: string) => {
+  /** Join a single room (additive — does not leave other rooms) */
+  const joinRoom = useCallback((roomThreadId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const room = `thread:${roomThreadId}`;
+    if (joinedRoomsRef.current.has(room)) return;
+    socket.emit('join_room', room);
+    joinedRoomsRef.current.add(room);
+  }, []);
+
+  /** Leave a single room */
+  const leaveRoom = useCallback((roomThreadId: string) => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    const room = `thread:${roomThreadId}`;
+    if (!joinedRoomsRef.current.has(room)) return;
+    socket.emit('leave_room', room);
+    joinedRoomsRef.current.delete(room);
+  }, []);
+
+  /** Sync joined rooms to exactly the given set of thread IDs */
+  const syncRooms = useCallback((threadIds: string[]) => {
     const socket = socketRef.current;
     if (!socket) return;
 
-    const oldRoom = currentRoomRef.current;
-    const newRoom = `thread:${newThreadId}`;
+    const targetRooms = new Set(threadIds.map((id) => `thread:${id}`));
 
-    if (oldRoom === newRoom) return;
-
-    if (oldRoom) {
-      socket.emit('leave_room', oldRoom);
+    // Leave rooms no longer needed
+    for (const room of joinedRoomsRef.current) {
+      if (!targetRooms.has(room)) {
+        socket.emit('leave_room', room);
+        joinedRoomsRef.current.delete(room);
+      }
     }
-    socket.emit('join_room', newRoom);
-    currentRoomRef.current = newRoom;
+
+    // Join new rooms
+    for (const room of targetRooms) {
+      if (!joinedRoomsRef.current.has(room)) {
+        socket.emit('join_room', room);
+        joinedRoomsRef.current.add(room);
+      }
+    }
   }, []);
 
-  // Automatically switch rooms when threadId changes (URL-driven routing)
+  // Automatically ensure active thread room is joined when threadId changes
   useEffect(() => {
     if (threadId) {
-      switchRoom(threadId);
+      joinRoom(threadId);
     }
-  }, [threadId, switchRoom]);
+  }, [threadId, joinRoom]);
 
   const cancelInvocation = useCallback((tid: string) => {
     socketRef.current?.emit('cancel_invocation', { threadId: tid });
   }, []);
 
-  return { socketRef, switchRoom, cancelInvocation };
+  return { socketRef, joinRoom, leaveRoom, syncRooms, cancelInvocation };
 }

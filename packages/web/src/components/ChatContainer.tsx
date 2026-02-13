@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useTaskStore, type TaskItem } from '@/stores/taskStore';
 import { useSocket, type SocketCallbacks } from '@/hooks/useSocket';
@@ -22,6 +23,8 @@ import { useAuthorization } from '@/hooks/useAuthorization';
 import { ModeStatusBar } from './ModeStatusBar';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ExportButton } from './ExportButton';
+import { SplitPaneView } from './SplitPaneView';
+import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 
 interface ChatContainerProps {
   threadId: string;
@@ -44,12 +47,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     removeMessage,
     setIntentMode,
     setTargetCats,
-    clearCatStatuses,
     setCurrentThread,
     updateThreadTitle,
     setCurrentMode,
     pendingModeSwitchProposal,
     setPendingModeSwitchProposal,
+    viewMode,
+    setViewMode,
+    clearUnread,
   } = useChatStore();
   const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -108,25 +113,23 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const suppressMessagesRef = useRef(false);
 
   // Sync URL-driven threadId to store (store is follower, URL is source of truth)
+  // setCurrentThread saves old thread state to map, restores new thread state.
   const prevThreadRef = useRef(threadId);
   useEffect(() => {
-    setCurrentThread(threadId);
     if (prevThreadRef.current !== threadId) {
       // Suppress socket messages during the switch window
       suppressMessagesRef.current = true;
-      // Thread changed via navigation — clean up old state
+      // Thread switch: store saves/restores per-thread state automatically
+      setCurrentThread(threadId);
+      // Clean up non-thread-scoped refs
       resetRefs();
       clearTasks();
-      setIntentMode(null);
-      clearCatStatuses();
-      setCurrentMode(null);
-      setPendingModeSwitchProposal(null);
       prevThreadRef.current = threadId;
-      // Unsuppress after all effects from this render cycle have fired
-      // (including useSocket's room switch effect)
       const timer = setTimeout(() => { suppressMessagesRef.current = false; }, 0);
       return () => clearTimeout(timer);
     }
+    // First mount — sync threadId to store without save/restore
+    setCurrentThread(threadId);
   }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Socket callbacks
@@ -210,12 +213,64 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [threadId]
   );
 
-  const { cancelInvocation } = useSocket(socketCallbacks, threadId);
+  const { cancelInvocation, syncRooms, joinRoom } = useSocket(socketCallbacks, threadId);
+
+  // Keyboard shortcuts for split-pane mode
+  useSplitPaneKeys();
+
+  // Auto-join socket rooms for all split-pane threads
+  const splitPaneThreadIds = useChatStore((s) => s.splitPaneThreadIds);
+  const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
+  const setSplitPaneTarget = useChatStore((s) => s.setSplitPaneTarget);
+
+  // Auto-populate first pane with current thread when entering split mode with empty panes
+  useEffect(() => {
+    if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
+      setSplitPaneThreadIds([threadId]);
+      setSplitPaneTarget(threadId);
+    }
+  }, [viewMode, splitPaneThreadIds.length, threadId, setSplitPaneThreadIds, setSplitPaneTarget]);
+
+  useEffect(() => {
+    if (viewMode === 'split' && splitPaneThreadIds.length > 0) {
+      // Join rooms for all threads in panes + the current active thread
+      const allIds = new Set([...splitPaneThreadIds, threadId]);
+      syncRooms([...allIds]);
+    }
+  }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
+
+  // Clear unread when switching to a thread (the thread becomes active = user sees it)
+  useEffect(() => {
+    clearUnread(threadId);
+  }, [threadId, clearUnread]);
 
   const handleStop = useCallback(() => {
     stopHandler(cancelInvocation, threadId);
   }, [stopHandler, cancelInvocation, threadId]);
 
+  const router = useRouter();
+
+  /** Double-click a split pane → zoom back to single mode on that thread */
+  const handleZoomToThread = useCallback(
+    (tid: string) => {
+      setViewMode('single');
+      router.push(`/thread/${tid}`);
+    },
+    [setViewMode, router]
+  );
+
+  // ── Split-pane mode ──
+  if (viewMode === 'split') {
+    return (
+      <SplitPaneView
+        onSend={handleSend}
+        onStop={handleStop}
+        onZoomToThread={handleZoomToThread}
+      />
+    );
+  }
+
+  // ── Single mode (default) ──
   return (
     <div className="flex h-screen">
       {sidebarOpen && (
@@ -239,6 +294,25 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
           <ExportButton threadId={threadId} />
+          <button
+            onClick={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
+            className="p-1 rounded-lg hover:bg-owner-light transition-colors"
+            aria-label={viewMode === 'single' ? '切换分屏模式' : '切换单屏模式'}
+            title={viewMode === 'single' ? '分屏模式' : '单屏模式'}
+          >
+            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+              {viewMode === 'single' ? (
+                <>
+                  <rect x="2" y="2" width="7" height="7" rx="1" />
+                  <rect x="11" y="2" width="7" height="7" rx="1" />
+                  <rect x="2" y="11" width="7" height="7" rx="1" />
+                  <rect x="11" y="11" width="7" height="7" rx="1" />
+                </>
+              ) : (
+                <rect x="2" y="2" width="16" height="16" rx="2" />
+              )}
+            </svg>
+          </button>
           <button
             onClick={() => setStatusPanelOpen((v) => !v)}
             className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"

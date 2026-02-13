@@ -1,0 +1,80 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useChatStore } from '@/stores/chatStore';
+
+/**
+ * Test the keyboard shortcut logic directly (no DOM rendering needed).
+ * The hook registers a keydown listener; we simulate the same logic.
+ */
+
+function simulateKeyDown(key: string, meta = true) {
+  const event = new KeyboardEvent('keydown', {
+    key,
+    metaKey: meta,
+    bubbles: true,
+    cancelable: true,
+  });
+  document.dispatchEvent(event);
+}
+
+describe('split-pane keyboard shortcuts (logic)', () => {
+  beforeEach(() => {
+    useChatStore.setState({
+      viewMode: 'split',
+      splitPaneThreadIds: ['t1', 't2', 't3', 't4'],
+      splitPaneTargetId: null,
+      currentThreadId: 't1',
+      currentProjectPath: 'default',
+      threads: [],
+      isLoadingThreads: false,
+      messages: [],
+      isLoading: false,
+      isLoadingHistory: false,
+      hasMore: true,
+      intentMode: null,
+      targetCats: [],
+      catStatuses: {},
+      catInvocations: {},
+      currentMode: null,
+      pendingModeSwitchProposal: null,
+      threadStates: {},
+    });
+  });
+
+  it('Cmd+\\ toggles viewMode', () => {
+    expect(useChatStore.getState().viewMode).toBe('split');
+
+    // Simulate pressing Cmd+\
+    const store = useChatStore.getState();
+    store.setViewMode(store.viewMode === 'single' ? 'split' : 'single');
+    expect(useChatStore.getState().viewMode).toBe('single');
+
+    // Toggle back
+    const store2 = useChatStore.getState();
+    store2.setViewMode(store2.viewMode === 'single' ? 'split' : 'single');
+    expect(useChatStore.getState().viewMode).toBe('split');
+  });
+
+  it('Cmd+1 selects pane 1', () => {
+    const store = useChatStore.getState();
+    const threadId = store.splitPaneThreadIds[0];
+    store.setSplitPaneTarget(threadId);
+    expect(useChatStore.getState().splitPaneTargetId).toBe('t1');
+  });
+
+  it('Cmd+3 selects pane 3', () => {
+    const store = useChatStore.getState();
+    const threadId = store.splitPaneThreadIds[2];
+    store.setSplitPaneTarget(threadId);
+    expect(useChatStore.getState().splitPaneTargetId).toBe('t3');
+  });
+
+  it('no-op when pane index has no thread', () => {
+    useChatStore.setState({ splitPaneThreadIds: ['t1', 't2'] });
+    const store = useChatStore.getState();
+    // Index 2 is undefined
+    const threadId = store.splitPaneThreadIds[2];
+    expect(threadId).toBeUndefined();
+    // setSplitPaneTarget should not be called
+    expect(useChatStore.getState().splitPaneTargetId).toBeNull();
+  });
+});

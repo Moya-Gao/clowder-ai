@@ -11,16 +11,17 @@ import { apiFetch } from '@/utils/api-client';
  * Handles both JSON and multipart form data modes.
  */
 export function useSendMessage() {
-  const { addMessage, setLoading, currentThreadId } = useChatStore();
+  const { addMessage, addMessageToThread, setLoading, currentThreadId } = useChatStore();
   const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
 
   const handleSend = useCallback(
-    async (content: string, images?: File[]) => {
+    async (content: string, images?: File[], overrideThreadId?: string) => {
+      const threadId = overrideThreadId ?? currentThreadId;
       resetRefs();
 
-      // Check for commands first
-      const wasCommand = await processCommand(content);
+      // Check for commands first (pass target threadId for thread-scoped commands)
+      const wasCommand = await processCommand(content, threadId);
       if (wasCommand) return;
 
       // Create user message
@@ -39,7 +40,12 @@ export function useSendMessage() {
           })),
         ];
       }
-      addMessage(userMsg);
+      // Write optimistic message to the target thread (not always active thread)
+      if (overrideThreadId && overrideThreadId !== currentThreadId) {
+        addMessageToThread(overrideThreadId, userMsg);
+      } else {
+        addMessage(userMsg);
+      }
       setLoading(true);
 
       try {
@@ -47,7 +53,7 @@ export function useSendMessage() {
           // Multipart mode for images
           const formData = new FormData();
           formData.append('content', content);
-          formData.append('threadId', currentThreadId);
+          formData.append('threadId', threadId);
           for (const img of images) {
             formData.append('images', img);
           }
@@ -66,7 +72,7 @@ export function useSendMessage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               content,
-              threadId: currentThreadId,
+              threadId,
             }),
           });
           if (!res.ok) {
@@ -84,7 +90,7 @@ export function useSendMessage() {
         });
       }
     },
-    [resetRefs, processCommand, addMessage, setLoading, currentThreadId]
+    [resetRefs, processCommand, addMessage, addMessageToThread, setLoading, currentThreadId]
   );
 
   return { handleSend };

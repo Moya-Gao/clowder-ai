@@ -6,7 +6,9 @@ import { useChatStore, type Thread } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { TaskPanel } from './TaskPanel';
 import { PawIcon } from './icons/PawIcon';
+import { ThreadCatStatus } from './ThreadCatStatus';
 import { apiFetch, API_URL } from '@/utils/api-client';
+import type { ThreadState } from '@/stores/chat-types';
 
 function formatRelativeTime(ts: number): string {
   const diff = Date.now() - ts;
@@ -260,6 +262,7 @@ export function ThreadSidebar() {
     isLoadingThreads,
     setLoadingThreads,
     updateThreadTitle,
+    getThreadState,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -416,6 +419,7 @@ export function ThreadSidebar() {
               lastActiveAt={Date.now()}
               isActive={currentThreadId === 'default'}
               onSelect={handleSelect}
+              threadState={getThreadState('default')}
             />
           )}
 
@@ -430,6 +434,7 @@ export function ThreadSidebar() {
               onSelectThread={handleSelect}
               onDeleteThread={handleDelete}
               onRenameThread={handleRename}
+              getThreadState={getThreadState}
             />
           ))}
 
@@ -463,6 +468,7 @@ function ProjectGroup({
   onSelectThread,
   onDeleteThread,
   onRenameThread,
+  getThreadState,
 }: {
   projectPath: string;
   threads: Thread[];
@@ -472,6 +478,7 @@ function ProjectGroup({
   onSelectThread: (threadId: string) => void;
   onDeleteThread: (threadId: string) => void;
   onRenameThread: (threadId: string, title: string) => void | Promise<void>;
+  getThreadState: (threadId: string) => ThreadState;
 }) {
   return (
     <div className="mt-1">
@@ -507,6 +514,7 @@ function ProjectGroup({
             onSelect={onSelectThread}
             onDelete={onDeleteThread}
             onRename={onRenameThread}
+            threadState={getThreadState(t.id)}
             indented
           />
         ))}
@@ -523,6 +531,7 @@ function ThreadItem({
   onSelect,
   onDelete,
   onRename,
+  threadState,
   indented,
 }: {
   id: string;
@@ -533,6 +542,7 @@ function ThreadItem({
   onSelect: (id: string) => void;
   onDelete?: (id: string) => void;
   onRename?: (id: string, title: string) => void | Promise<void>;
+  threadState?: ThreadState;
   indented?: boolean;
 }) {
   const canDelete = id !== 'default' && onDelete;
@@ -610,6 +620,9 @@ function ThreadItem({
           </span>
         )}
         <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+          {threadState && (
+            <ThreadCatStatus threadState={threadState} unreadCount={threadState.unreadCount} />
+          )}
           {canRename && !isEditing && (
             <button
               onMouseDown={(e) => {

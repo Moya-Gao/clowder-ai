@@ -38,9 +38,32 @@ module.exports = {
           '0%': { opacity: '0', transform: 'translateY(4px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'cat-bounce': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
+        'cat-shake': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '20%': { transform: 'translateX(-2px)' },
+          '40%': { transform: 'translateX(2px)' },
+          '60%': { transform: 'translateX(-1px)' },
+          '80%': { transform: 'translateX(1px)' },
+        },
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateX(20px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'toast-out': {
+          '0%': { opacity: '1', transform: 'translateX(0)' },
+          '100%': { opacity: '0', transform: 'translateX(20px)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
+        'cat-bounce': 'cat-bounce 0.8s ease-in-out infinite',
+        'cat-shake': 'cat-shake 0.4s ease-in-out',
+        'toast-in': 'toast-in 0.3s ease-out',
+        'toast-out': 'toast-out 0.3s ease-in forwards',
       },
     },
   },

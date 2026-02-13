@@ -30,27 +30,40 @@ let pendingProposal: {
   threadId: string;
 } | null = null;
 
-vi.mock('@/stores/chatStore', () => ({
-  useChatStore: () => ({
-    messages: [],
-    isLoading: false,
-    intentMode: null,
-    targetCats: [],
-    catStatuses: {},
-    catInvocations: {},
-    addMessage: vi.fn(),
-    removeMessage: vi.fn(),
-    setIntentMode: vi.fn(),
-    setTargetCats: vi.fn(),
-    clearCatStatuses: vi.fn(),
-    setCurrentThread: mockSetCurrentThread,
-    updateThreadTitle: vi.fn(),
-    setCurrentMode: mockSetCurrentMode,
-    currentMode: null,
-    pendingModeSwitchProposal: pendingProposal,
-    setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
-  }),
-}));
+const mockStoreState = () => ({
+  messages: [],
+  isLoading: false,
+  intentMode: null,
+  targetCats: [],
+  catStatuses: {},
+  catInvocations: {},
+  addMessage: vi.fn(),
+  removeMessage: vi.fn(),
+  setIntentMode: vi.fn(),
+  setTargetCats: vi.fn(),
+  clearCatStatuses: vi.fn(),
+  setCurrentThread: mockSetCurrentThread,
+  updateThreadTitle: vi.fn(),
+  setCurrentMode: mockSetCurrentMode,
+  currentMode: null,
+  pendingModeSwitchProposal: pendingProposal,
+  setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
+  viewMode: 'single' as const,
+  setViewMode: vi.fn(),
+  clearUnread: vi.fn(),
+  splitPaneThreadIds: [],
+  setSplitPaneThreadIds: vi.fn(),
+  setSplitPaneTarget: vi.fn(),
+});
+
+vi.mock('@/stores/chatStore', () => {
+  // Support both `useChatStore()` and `useChatStore(selector)` forms
+  const hook = (selector?: (s: ReturnType<typeof mockStoreState>) => unknown) => {
+    const state = mockStoreState();
+    return selector ? selector(state) : state;
+  };
+  return { useChatStore: hook };
+});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -207,7 +220,7 @@ describe('ChatContainer mode switch proposal — interaction (R6)', () => {
     expect(mockSetPendingModeSwitchProposal).toHaveBeenCalledWith(null);
   });
 
-  it('thread switch calls setPendingModeSwitchProposal(null)', () => {
+  it('thread switch calls setCurrentThread which saves/restores per-thread state', () => {
     pendingProposal = {
       proposedMode: 'debate',
       command: '/mode debate',
@@ -220,14 +233,16 @@ describe('ChatContainer mode switch proposal — interaction (R6)', () => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
 
-    mockSetPendingModeSwitchProposal.mockClear();
+    mockSetCurrentThread.mockClear();
 
     // Switch to thread-B
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-B' }));
     });
 
-    // Thread switch should clear the pending proposal
-    expect(mockSetPendingModeSwitchProposal).toHaveBeenCalledWith(null);
+    // Thread switch calls setCurrentThread which handles saving old thread state
+    // (including pendingModeSwitchProposal) and restoring new thread state (null by default).
+    // The explicit setPendingModeSwitchProposal(null) is no longer needed.
+    expect(mockSetCurrentThread).toHaveBeenCalledWith('thread-B');
   });
 });

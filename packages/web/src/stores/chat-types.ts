@@ -1,0 +1,128 @@
+/** Content block types matching backend MessageContent */
+export interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+export interface ImageContent {
+  type: 'image';
+  url: string;
+}
+
+export type MessageContent = TextContent | ImageContent;
+
+export interface ChatMessageMetadata {
+  provider: string;
+  model: string;
+  sessionId?: string;
+}
+
+export interface EvidenceResultData {
+  title: string;
+  anchor: string;
+  snippet: string;
+  confidence: 'high' | 'mid' | 'low';
+  sourceType: 'decision' | 'phase' | 'discussion' | 'commit';
+}
+
+export interface EvidenceData {
+  results: EvidenceResultData[];
+  degraded: boolean;
+  degradeReason?: string;
+}
+
+export interface ToolEvent {
+  id: string;
+  type: 'tool_use' | 'tool_result';
+  label: string;
+  detail?: string;
+  timestamp: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  type: 'user' | 'assistant' | 'system' | 'summary';
+  /** Visual variant for system messages */
+  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup';
+  catId?: string;
+  content: string;
+  contentBlocks?: MessageContent[];
+  toolEvents?: ToolEvent[];
+  metadata?: ChatMessageMetadata;
+  timestamp: number;
+  isStreaming?: boolean;
+  summary?: {
+    id: string;
+    topic: string;
+    conclusions: string[];
+    openQuestions: string[];
+    createdBy: string;
+  };
+  evidence?: EvidenceData;
+  /** A2A chain group ID — messages in the same A2A chain share this ID */
+  a2aGroupId?: string;
+}
+
+export interface Thread {
+  id: string;
+  projectPath: string;
+  title: string | null;
+  createdBy: string;
+  participants: string[];
+  lastActiveAt: number;
+  createdAt: number;
+}
+
+export interface CatInvocationInfo {
+  sessionId?: string;
+  invocationId?: string;
+  durationMs?: number;
+  startedAt?: number;
+}
+
+export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';
+
+export type ModeState = {
+  name: string;
+  config: Record<string, unknown>;
+  startedAt: string;
+  state?: Record<string, unknown>;
+};
+
+export type ModeSwitchProposal = {
+  proposedMode: string;
+  command: string;
+  proposedBy: string;
+  threadId: string;
+};
+
+/** Per-thread state — everything that varies by thread */
+export interface ThreadState {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  isLoadingHistory: boolean;
+  hasMore: boolean;
+  intentMode: 'execute' | 'ideate' | null;
+  targetCats: string[];
+  catStatuses: Record<string, CatStatusType>;
+  catInvocations: Record<string, CatInvocationInfo>;
+  currentMode: ModeState | null;
+  pendingModeSwitchProposal: ModeSwitchProposal | null;
+  unreadCount: number;
+  lastActivity: number;
+}
+
+export const DEFAULT_THREAD_STATE: ThreadState = {
+  messages: [],
+  isLoading: false,
+  isLoadingHistory: false,
+  hasMore: true,
+  intentMode: null,
+  targetCats: [],
+  catStatuses: {},
+  catInvocations: {},
+  currentMode: null,
+  pendingModeSwitchProposal: null,
+  unreadCount: 0,
+  lastActivity: 0,
+};

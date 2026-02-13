@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
+import { DEFAULT_THREAD_STATE } from '@/stores/chat-types';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;
@@ -117,10 +118,18 @@ export function useChatHistory(threadId: string) {
     // Abort any in-flight requests from previous thread
     abortRef.current?.abort();
     abortRef.current = new AbortController();
-
-    clearMessages();
     loadingRef.current = false;
-    void fetchHistory();
+
+    // Check if this thread has cached messages in the threadStates map.
+    // If so, the store's setCurrentThread already restored them — skip API fetch.
+    const cached = useChatStore.getState().threadStates[threadId];
+    const hasCachedMessages = cached && cached.messages.length > 0;
+
+    if (!hasCachedMessages) {
+      clearMessages();
+      void fetchHistory();
+    }
+
     void fetchTasks();
 
     return () => {

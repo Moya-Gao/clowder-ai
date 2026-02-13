@@ -119,8 +119,10 @@ export function useChatCommands() {
   const { addMessage } = useChatStore();
 
   const processCommand = useCallback(
-    async (input: string): Promise<boolean> => {
+    async (input: string, overrideThreadId?: string): Promise<boolean> => {
       const trimmed = input.trim();
+      /** Resolve effective threadId — override (from split-pane) or store default */
+      const getThreadId = () => overrideThreadId ?? useChatStore.getState().currentThreadId;
       const sendModeKickoff = async (threadId: string, content: string): Promise<void> => {
         if (!content.trim()) return;
         try {
@@ -242,7 +244,7 @@ export function useChatCommands() {
         });
 
         try {
-          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const threadId = getThreadId();
           const res = await apiFetch(`/api/memory`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -279,7 +281,7 @@ export function useChatCommands() {
         });
 
         try {
-          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const threadId = getThreadId();
           const path = rest
             ? `/api/memory?threadId=${encodeURIComponent(threadId)}&key=${encodeURIComponent(rest)}`
             : `/api/memory?threadId=${encodeURIComponent(threadId)}`;
@@ -591,7 +593,7 @@ export function useChatCommands() {
         if (modeArgs.startsWith('end')) {
           const outcome = modeArgs.slice('end'.length).trim() || undefined;
           try {
-            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const threadId = getThreadId();
             const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
@@ -614,7 +616,7 @@ export function useChatCommands() {
         // /mode status — query current mode
         if (modeArgs === 'status' || modeArgs === '') {
           try {
-            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const threadId = getThreadId();
             const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`);
             if (!res.ok) throw new Error(`Server error: ${res.status}`);
             const data = await res.json();
@@ -667,7 +669,7 @@ export function useChatCommands() {
             return true;
           }
           try {
-            const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+            const threadId = getThreadId();
             const config = { requirement, leadCat: mentions[0], reviewCat: mentions[1] };
             const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
               method: 'POST',
@@ -693,7 +695,7 @@ export function useChatCommands() {
         }
 
         try {
-          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const threadId = getThreadId();
           const config = modeName === 'brainstorm'
             ? { topic, participants: mentions.length > 0 ? mentions : ['opus'] }
             : { topic, catA: mentions[0] ?? 'opus', catB: mentions[1] ?? 'codex', ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}) };
@@ -741,7 +743,7 @@ export function useChatCommands() {
         });
 
         try {
-          const threadId = (await import('@/stores/chatStore')).useChatStore.getState().currentThreadId;
+          const threadId = getThreadId();
           const res = await apiFetch(`/api/commands/extract-tasks`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

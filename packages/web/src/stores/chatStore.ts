@@ -1,114 +1,99 @@
 import { create } from 'zustand';
+import type {
+  ChatMessage, Thread, CatInvocationInfo, CatStatusType,
+  ModeState, ModeSwitchProposal, ToolEvent, ThreadState,
+} from './chat-types';
+import { DEFAULT_THREAD_STATE } from './chat-types';
 
-/** Content block types matching backend MessageContent */
-export interface TextContent {
-  type: 'text';
-  text: string;
-}
+// Re-export types so existing consumers keep working with `import { ... } from '@/stores/chatStore'`
+export type {
+  TextContent, ImageContent, MessageContent, ChatMessageMetadata,
+  EvidenceResultData, EvidenceData, ToolEvent,
+  ChatMessage, Thread, CatInvocationInfo, CatStatusType,
+  ModeState, ModeSwitchProposal, ThreadState,
+} from './chat-types';
+export { DEFAULT_THREAD_STATE } from './chat-types';
 
-export interface ImageContent {
-  type: 'image';
-  url: string;
-}
+// ── Helpers ──
 
-export type MessageContent = TextContent | ImageContent;
-
-export interface ChatMessageMetadata {
-  provider: string;
-  model: string;
-  sessionId?: string;
-}
-
-export interface EvidenceResultData {
-  title: string;
-  anchor: string;
-  snippet: string;
-  confidence: 'high' | 'mid' | 'low';
-  sourceType: 'decision' | 'phase' | 'discussion' | 'commit';
-}
-
-export interface EvidenceData {
-  results: EvidenceResultData[];
-  degraded: boolean;
-  degradeReason?: string;
-}
-
-export interface ToolEvent {
-  id: string;
-  type: 'tool_use' | 'tool_result';
-  label: string;
-  detail?: string;
-  timestamp: number;
-}
-
-export interface ChatMessage {
-  id: string;
-  type: 'user' | 'assistant' | 'system' | 'summary';
-  /** Visual variant for system messages: 'error' (red), 'info' (blue-gray), 'tool' (gray, compact), 'evidence' (card panel), 'a2a_followup' (follow-up button) */
-  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup';
-  catId?: string;
-  content: string;
-  contentBlocks?: MessageContent[];
-  toolEvents?: ToolEvent[];
-  metadata?: ChatMessageMetadata;
-  timestamp: number;
-  isStreaming?: boolean;
-  summary?: {
-    id: string;
-    topic: string;
-    conclusions: string[];
-    openQuestions: string[];
-    createdBy: string;
+/** Snapshot the flat active-thread fields into a ThreadState object */
+function snapshotActive(s: ChatState): ThreadState {
+  return {
+    messages: s.messages,
+    isLoading: s.isLoading,
+    isLoadingHistory: s.isLoadingHistory,
+    hasMore: s.hasMore,
+    intentMode: s.intentMode,
+    targetCats: s.targetCats,
+    catStatuses: s.catStatuses,
+    catInvocations: s.catInvocations,
+    currentMode: s.currentMode,
+    pendingModeSwitchProposal: s.pendingModeSwitchProposal,
+    unreadCount: 0, // active thread always 0
+    lastActivity: Date.now(),
   };
-  evidence?: EvidenceData;
-  /** A2A chain group ID — messages in the same A2A chain share this ID */
-  a2aGroupId?: string;
 }
 
-export interface Thread {
-  id: string;
-  projectPath: string;
-  title: string | null;
-  createdBy: string;
-  participants: string[];
-  lastActiveAt: number;
-  createdAt: number;
+/** Flatten a ThreadState into partial ChatState fields */
+function flattenThread(ts: ThreadState): Partial<ChatState> {
+  return {
+    messages: ts.messages,
+    isLoading: ts.isLoading,
+    isLoadingHistory: ts.isLoadingHistory,
+    hasMore: ts.hasMore,
+    intentMode: ts.intentMode,
+    targetCats: ts.targetCats,
+    catStatuses: ts.catStatuses,
+    catInvocations: ts.catInvocations,
+    currentMode: ts.currentMode,
+    pendingModeSwitchProposal: ts.pendingModeSwitchProposal,
+  };
 }
 
-export interface CatInvocationInfo {
-  sessionId?: string;
-  invocationId?: string;
-  durationMs?: number;
-  startedAt?: number;
+const MAX_BLOB_MESSAGES = 200;
+
+function revokeBlobUrls(messages: ChatMessage[]) {
+  for (const msg of messages) {
+    if (msg.contentBlocks) {
+      for (const block of msg.contentBlocks) {
+        if (block.type === 'image' && block.url.startsWith('blob:')) {
+          URL.revokeObjectURL(block.url);
+        }
+      }
+    }
+  }
 }
+
+// ── Store interface ──
 
 interface ChatState {
+  // Per-thread state (flat — reflects the active thread for backward compat)
   messages: ChatMessage[];
   isLoading: boolean;
   isLoadingHistory: boolean;
   hasMore: boolean;
   intentMode: 'execute' | 'ideate' | null;
-
-  // Per-cat status for loading indicators
   targetCats: string[];
-  catStatuses: Record<string, 'pending' | 'streaming' | 'done' | 'error'>;
-
-  // Per-cat invocation metrics (session IDs, duration)
+  catStatuses: Record<string, CatStatusType>;
   catInvocations: Record<string, CatInvocationInfo>;
+  currentMode: ModeState | null;
+  pendingModeSwitchProposal: ModeSwitchProposal | null;
 
-  // Mode state (F11)
-  currentMode: { name: string; config: Record<string, unknown>; startedAt: string; state?: Record<string, unknown> } | null;
+  // Multi-thread state map (preserves per-thread state across switches)
+  threadStates: Record<string, ThreadState>;
 
-  // Mode switch confirmation dialog (P2-4: 弹确认对话框)
-  pendingModeSwitchProposal: { proposedMode: string; command: string; proposedBy: string; threadId: string } | null;
+  // Multi-thread UI
+  viewMode: 'single' | 'split';
+  splitPaneThreadIds: string[];
+  splitPaneTargetId: string | null;
 
-  // Thread state
+  // Global state
   currentThreadId: string;
   currentProjectPath: string;
   threads: Thread[];
   isLoadingThreads: boolean;
 
-  // Message actions
+  // ── Active-thread actions (operate on flat state) ──
   addMessage: (msg: ChatMessage) => void;
   removeMessage: (id: string) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
@@ -120,62 +105,61 @@ interface ChatState {
   setLoadingHistory: (loading: boolean) => void;
   setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
   setTargetCats: (cats: string[]) => void;
-  setCatStatus: (catId: string, status: 'pending' | 'streaming' | 'done' | 'error') => void;
+  setCatStatus: (catId: string, status: CatStatusType) => void;
   clearCatStatuses: () => void;
   setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
   clearMessages: () => void;
+  setCurrentMode: (mode: ModeState | null) => void;
+  setPendingModeSwitchProposal: (proposal: ModeSwitchProposal | null) => void;
 
-  // Mode actions (F11)
-  setCurrentMode: (mode: ChatState['currentMode']) => void;
-  setPendingModeSwitchProposal: (proposal: ChatState['pendingModeSwitchProposal']) => void;
-
-  // Thread actions
+  // ── Thread management ──
   setThreads: (threads: Thread[]) => void;
   setCurrentThread: (threadId: string) => void;
   setCurrentProject: (projectPath: string) => void;
   setLoadingThreads: (loading: boolean) => void;
   updateThreadTitle: (threadId: string, title: string) => void;
+
+  // ── Multi-thread actions (new) ──
+  addMessageToThread: (threadId: string, msg: ChatMessage) => void;
+  getThreadState: (threadId: string) => ThreadState;
+  incrementUnread: (threadId: string) => void;
+  clearUnread: (threadId: string) => void;
+  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  setViewMode: (mode: 'single' | 'split') => void;
+  setSplitPaneThreadIds: (ids: string[]) => void;
+  setSplitPaneTarget: (threadId: string | null) => void;
 }
 
-export const useChatStore = create<ChatState>((set) => ({
+export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
   isLoading: false,
   isLoadingHistory: false,
   hasMore: true,
   intentMode: null,
-
   targetCats: [],
   catStatuses: {},
   catInvocations: {},
-
   currentMode: null,
   pendingModeSwitchProposal: null,
+
+  threadStates: {},
+  viewMode: 'single',
+  splitPaneThreadIds: [],
+  splitPaneTargetId: null,
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
   threads: [],
   isLoadingThreads: false,
 
+  // ── Active-thread actions ──
+
   addMessage: (msg) =>
     set((state) => {
-      // Deduplicate by id (history load + realtime socket can overlap)
-      if (state.messages.some((m) => m.id === msg.id)) {
-        return state;
-      }
+      if (state.messages.some((m) => m.id === msg.id)) return state;
       const messages = [...state.messages, msg];
-      // Revoke blob URLs on oldest messages to prevent memory leak (#22)
-      const MAX_BLOB_MESSAGES = 200;
       if (messages.length > MAX_BLOB_MESSAGES) {
-        for (let i = 0; i < messages.length - MAX_BLOB_MESSAGES; i++) {
-          const old = messages[i];
-          if (old.contentBlocks) {
-            for (const block of old.contentBlocks) {
-              if (block.type === 'image' && block.url.startsWith('blob:')) {
-                URL.revokeObjectURL(block.url);
-              }
-            }
-          }
-        }
+        revokeBlobUrls(messages.slice(0, messages.length - MAX_BLOB_MESSAGES));
       }
       return { messages };
     }),
@@ -187,13 +171,9 @@ export const useChatStore = create<ChatState>((set) => ({
 
   prependHistory: (msgs, hasMore) =>
     set((state) => {
-      // Deduplicate: only prepend messages not already in store
       const existingIds = new Set(state.messages.map((m) => m.id));
       const newMsgs = msgs.filter((m) => !existingIds.has(m.id));
-      return {
-        messages: [...newMsgs, ...state.messages],
-        hasMore,
-      };
+      return { messages: [...newMsgs, ...state.messages], hasMore };
     }),
 
   appendToLastMessage: (content) =>
@@ -201,10 +181,7 @@ export const useChatStore = create<ChatState>((set) => ({
       const messages = [...state.messages];
       const last = messages[messages.length - 1];
       if (last && last.type === 'assistant') {
-        messages[messages.length - 1] = {
-          ...last,
-          content: last.content + content,
-        };
+        messages[messages.length - 1] = { ...last, content: last.content + content };
       }
       return { messages };
     }),
@@ -219,9 +196,7 @@ export const useChatStore = create<ChatState>((set) => ({
   appendToolEvent: (id, event) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === id
-          ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] }
-          : m
+        m.id === id ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] } : m
       ),
     })),
 
@@ -235,9 +210,15 @@ export const useChatStore = create<ChatState>((set) => ({
   setLoading: (loading) => set({ isLoading: loading }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
-  setTargetCats: (cats) => set({ targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) }),
-  setCatStatus: (catId, status) => set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
+
+  setTargetCats: (cats) =>
+    set({ targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) }),
+
+  setCatStatus: (catId, status) =>
+    set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
+
   clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
+
   setCatInvocation: (catId, info) =>
     set((state) => ({
       catInvocations: {
@@ -245,32 +226,137 @@ export const useChatStore = create<ChatState>((set) => ({
         [catId]: { ...state.catInvocations[catId], ...info },
       },
     })),
+
   clearMessages: () =>
     set((state) => {
-      // Revoke blob URLs to prevent memory leak (P3 fix)
-      for (const msg of state.messages) {
-        if (msg.contentBlocks) {
-          for (const block of msg.contentBlocks) {
-            if (block.type === 'image' && block.url.startsWith('blob:')) {
-              URL.revokeObjectURL(block.url);
-            }
-          }
-        }
-      }
+      revokeBlobUrls(state.messages);
       return { messages: [], hasMore: true };
     }),
 
   setCurrentMode: (mode) => set({ currentMode: mode }),
   setPendingModeSwitchProposal: (proposal) => set({ pendingModeSwitchProposal: proposal }),
 
+  // ── Thread management ──
+
   setThreads: (threads) => set({ threads }),
-  setCurrentThread: (threadId) => set({ currentThreadId: threadId }),
   setCurrentProject: (projectPath) => set({ currentProjectPath: projectPath }),
   setLoadingThreads: (loading) => set({ isLoadingThreads: loading }),
+
   updateThreadTitle: (threadId, title) =>
     set((state) => ({
-      threads: state.threads.map((t) =>
-        t.id === threadId ? { ...t, title } : t
-      ),
+      threads: state.threads.map((t) => (t.id === threadId ? { ...t, title } : t)),
     })),
+
+  /**
+   * Switch active thread.
+   * Saves current flat state into threadStates map, then restores the target thread's state.
+   * This is the key mechanism that preserves per-thread state across switches.
+   */
+  setCurrentThread: (threadId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) return state;
+
+      // Save current flat state to map
+      const saved = snapshotActive(state);
+      // Load target thread state (or defaults for first visit)
+      const loaded = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+
+      return {
+        currentThreadId: threadId,
+        threadStates: {
+          ...state.threadStates,
+          [state.currentThreadId]: saved,
+        },
+        ...flattenThread(loaded),
+      };
+    }),
+
+  // ── Multi-thread actions ──
+
+  /** Add a message to a specific thread (for background thread socket updates) */
+  addMessageToThread: (threadId, msg) =>
+    set((state) => {
+      // Active thread — delegate to flat state
+      if (threadId === state.currentThreadId) {
+        if (state.messages.some((m) => m.id === msg.id)) return state;
+        const messages = [...state.messages, msg];
+        if (messages.length > MAX_BLOB_MESSAGES) {
+          revokeBlobUrls(messages.slice(0, messages.length - MAX_BLOB_MESSAGES));
+        }
+        return { messages };
+      }
+
+      // Background thread — update map + increment unread
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      if (existing.messages.some((m) => m.id === msg.id)) return state;
+
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: [...existing.messages, msg],
+            unreadCount: existing.unreadCount + 1,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Get a thread's state (active thread returns flat state, others return map) */
+  getThreadState: (threadId) => {
+    const state = get();
+    if (threadId === state.currentThreadId) return snapshotActive(state);
+    return state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+  },
+
+  incrementUnread: (threadId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) return state;
+      const ts = state.threadStates[threadId];
+      if (!ts) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...ts, unreadCount: ts.unreadCount + 1 },
+        },
+      };
+    }),
+
+  clearUnread: (threadId) =>
+    set((state) => {
+      const ts = state.threadStates[threadId];
+      if (!ts || ts.unreadCount === 0) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...ts, unreadCount: 0 },
+        },
+      };
+    }),
+
+  /** Update a specific cat's status in a background thread (for sidebar indicators) */
+  updateThreadCatStatus: (threadId, catId, status) =>
+    set((state) => {
+      // Active thread — update flat catStatuses directly
+      if (threadId === state.currentThreadId) {
+        return { catStatuses: { ...state.catStatuses, [catId]: status } };
+      }
+      // Background thread — update in map
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            catStatuses: { ...existing.catStatuses, [catId]: status },
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  setViewMode: (mode) => set({ viewMode: mode }),
+  setSplitPaneThreadIds: (ids) => set({ splitPaneThreadIds: ids }),
+  setSplitPaneTarget: (threadId) => set({ splitPaneTargetId: threadId }),
 }));
