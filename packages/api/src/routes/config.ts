@@ -12,7 +12,21 @@ import type { ConfigSnapshot } from '../config/config-snapshot.js';
 import { configStore } from '../config/ConfigStore.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
 import os from 'node:os';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { buildEnvSummary, ENV_CATEGORIES } from '../config/env-registry.js';
+
+/** Walk up from CWD to find pnpm-workspace.yaml — the monorepo root. */
+function findMonorepoRoot(): string {
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
+    dir = dirname(dir);
+  }
+  return process.cwd();
+}
+
+const MONOREPO_ROOT = findMonorepoRoot();
 
 const patchSchema = z.object({
   key: z.string().min(1),
@@ -177,7 +191,7 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     categories: ENV_CATEGORIES,
     variables: buildEnvSummary(),
     paths: {
-      projectRoot: process.cwd(),
+      projectRoot: MONOREPO_ROOT,
       homeDir: os.homedir(),
     },
   }));

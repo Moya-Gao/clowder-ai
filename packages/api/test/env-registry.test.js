@@ -4,6 +4,9 @@
 
 import { describe, it, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import Fastify from 'fastify';
 import { ENV_VARS, ENV_CATEGORIES, buildEnvSummary, maskUrlCredentials } from '../dist/config/env-registry.js';
 
 // Save and restore env vars around tests
@@ -123,5 +126,30 @@ describe('buildEnvSummary', () => {
   it('returns same number of entries as ENV_VARS', () => {
     const summary = buildEnvSummary();
     assert.equal(summary.length, ENV_VARS.length);
+  });
+});
+
+describe('GET /api/config/env-summary (route)', () => {
+  it('projectRoot points to monorepo root, not packages/api', async () => {
+    const { configRoutes } = await import('../dist/routes/config.js');
+    const app = Fastify({ logger: false });
+    await configRoutes(app);
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/config/env-summary' });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    const root = body.paths.projectRoot;
+
+    assert.ok(
+      existsSync(resolve(root, 'pnpm-workspace.yaml')),
+      `projectRoot should contain pnpm-workspace.yaml, got: ${root}`,
+    );
+    assert.ok(
+      !root.endsWith('/packages/api'),
+      `projectRoot should not end with /packages/api, got: ${root}`,
+    );
+
+    await app.close();
   });
 });
