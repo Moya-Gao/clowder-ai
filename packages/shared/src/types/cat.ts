@@ -31,6 +31,8 @@ export interface CatConfig {
   readonly id: CatId;
   readonly name: string;
   readonly displayName: string;
+  /** Nickname given by 铲屎官 (e.g. 宪宪, 砚砚). See docs/stories/cat-names.md */
+  readonly nickname?: string;
   readonly avatar: string;
   readonly color: CatColor;
   readonly mentionPatterns: readonly string[];
@@ -60,12 +62,13 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
     id: createCatId('opus'),
     name: 'opus',
     displayName: '布偶猫',
+    nickname: '宪宪',
     avatar: '/avatars/opus.png',
     color: {
       primary: '#9B7EBD',
       secondary: '#E8DFF5',
     },
-    mentionPatterns: ['@opus', '@布偶猫', '@布偶', '@ragdoll'],
+    mentionPatterns: ['@opus', '@布偶猫', '@布偶', '@ragdoll', '@宪宪'],
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-5-20250929',
     mcpSupport: true,
@@ -76,12 +79,13 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
     id: createCatId('codex'),
     name: 'codex',
     displayName: '缅因猫',
+    nickname: '砚砚',
     avatar: '/avatars/codex.png',
     color: {
       primary: '#5B8C5A',
       secondary: '#D4E6D3',
     },
-    mentionPatterns: ['@codex', '@缅因猫', '@缅因', '@maine'],
+    mentionPatterns: ['@codex', '@缅因猫', '@缅因', '@maine', '@砚砚'],
     provider: 'openai',
     defaultModel: 'codex',
     mcpSupport: false,

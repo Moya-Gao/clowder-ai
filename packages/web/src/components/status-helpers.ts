@@ -6,8 +6,8 @@ export type IntentMode = 'execute' | 'ideate' | null;
 export type CatStatus = 'pending' | 'streaming' | 'done' | 'error';
 
 export const CAT_INFO: Record<string, { name: string; color: string }> = {
-  opus: { name: '布偶猫', color: 'bg-opus-primary' },
-  codex: { name: '缅因猫', color: 'bg-codex-primary' },
+  opus: { name: '布偶猫(宪宪)', color: 'bg-opus-primary' },
+  codex: { name: '缅因猫(砚砚)', color: 'bg-codex-primary' },
   gemini: { name: '暹罗猫', color: 'bg-gemini-primary' },
 };
 

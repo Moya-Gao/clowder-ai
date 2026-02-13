@@ -79,8 +79,12 @@ export function buildStaticIdentity(catId: CatId): string {
   const lines: string[] = [];
 
   // Identity
+  const nameLabel = config.nickname
+    ? `${config.displayName}/${config.nickname}（${config.name}）`
+    : `${config.displayName}（${config.name}）`;
   lines.push(
-    `你是 ${config.displayName}（${config.name}），由 ${providerLabel} 提供的 AI 猫猫。`,
+    `你是 ${nameLabel}，由 ${providerLabel} 提供的 AI 猫猫。`,
+    ...(config.nickname ? [`昵称 "${config.nickname}" 的由来见 docs/stories/cat-names.md。`] : []),
     `角色：${config.roleDescription}`,
     `性格：${config.personality}`,
     '',
@@ -134,7 +138,8 @@ export function buildInvocationContext(context: InvocationContext): string {
     for (const id of context.teammates) {
       const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
       if (c) {
-        lines.push(`- ${c.displayName}（${c.name}）：${c.roleDescription}`);
+        const tmName = c.nickname ? `${c.displayName}/${c.nickname}` : c.displayName;
+        lines.push(`- ${tmName}（${c.name}）：${c.roleDescription}`);
       }
     }
   }
