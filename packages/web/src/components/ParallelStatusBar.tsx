@@ -2,7 +2,9 @@
 
 import { useChatStore } from '@/stores/chatStore';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
-import { formatDuration } from './status-helpers';
+import { formatDuration, formatTokenCount, formatCost } from './status-helpers';
+import type { CatInvocationInfo } from '@/stores/chatStore';
+import type { TokenUsage } from '@/stores/chat-types';
 
 /**
  * Per-cat status display for parallel (ideate) mode.
@@ -62,10 +64,37 @@ function CatStatusCard({ catId, status, invocation }: {
   );
 }
 
+/** Aggregate token usage across all cat invocations */
+export function aggregateUsage(invocations: Record<string, CatInvocationInfo>): TokenUsage | null {
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let costUsd = 0;
+  let count = 0;
+
+  for (const inv of Object.values(invocations)) {
+    const u = inv.usage;
+    if (!u) continue;
+    count++;
+    if (u.inputTokens != null) inputTokens += u.inputTokens;
+    if (u.outputTokens != null) outputTokens += u.outputTokens;
+    if (u.totalTokens != null && u.inputTokens == null) inputTokens += u.totalTokens;
+    if (u.costUsd != null) costUsd += u.costUsd;
+  }
+
+  if (count === 0) return null;
+  return {
+    ...(inputTokens > 0 ? { inputTokens } : {}),
+    ...(outputTokens > 0 ? { outputTokens } : {}),
+    ...(costUsd > 0 ? { costUsd } : {}),
+  };
+}
+
 export function ParallelStatusBar() {
   const { targetCats, catStatuses, catInvocations } = useChatStore();
 
   if (targetCats.length === 0) return null;
+
+  const agg = aggregateUsage(catInvocations);
 
   return (
     <div className="px-5 py-2.5 bg-gradient-to-r from-opus-bg via-codex-bg to-gemini-bg border-b border-gray-200">
@@ -80,6 +109,19 @@ export function ParallelStatusBar() {
           />
         ))}
       </div>
+      {agg && (
+        <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500" data-testid="parallel-usage-summary">
+          {agg.inputTokens != null && (
+            <span>In: <span className="font-medium text-gray-600">{formatTokenCount(agg.inputTokens)}</span></span>
+          )}
+          {agg.outputTokens != null && (
+            <span>Out: <span className="font-medium text-gray-600">{formatTokenCount(agg.outputTokens)}</span></span>
+          )}
+          {agg.costUsd != null && (
+            <span>Cost: <span className="font-medium text-amber-600">{formatCost(agg.costUsd)}</span></span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
