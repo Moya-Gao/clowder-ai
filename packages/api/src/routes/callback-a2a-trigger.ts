@@ -55,7 +55,13 @@ export async function triggerA2AInvocation(
   if (createResult.outcome === 'duplicate') return;
 
   const controller = invocationTracker?.start(threadId, userId);
-  if (controller?.signal.aborted) return;
+  if (controller?.signal.aborted) {
+    // P2-1: thread is deleting — mark record as canceled, don't leave it pending
+    await invocationRecordStore.update(createResult.invocationId, {
+      status: 'canceled',
+    });
+    return;
+  }
 
   await invocationRecordStore.update(createResult.invocationId, {
     userMessageId: triggerMessage.id,

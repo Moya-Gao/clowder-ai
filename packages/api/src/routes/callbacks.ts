@@ -15,6 +15,7 @@ import type { IHindsightClient } from '../domains/cats/services/HindsightClient.
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import { parseA2AMentions } from '../domains/cats/services/a2a-mentions.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
@@ -70,18 +71,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         }
       }
 
-      // Resolve @mentions in content (if router is available)
+      // Parse line-start @mentions (A2A rule: only line-start, strip code blocks, single target)
+      // Uses parseA2AMentions instead of resolveTargetsAndIntent to avoid
+      // participants/default-opus fallback triggering on non-@ messages (P1-1)
+      // and inline @mentions triggering invocations (P1-2).
       const senderCatId = createCatId(record.catId);
-      let mentions: CatId[] = [];
-      let targetCats: CatId[] = [];
-      if (router && record.threadId) {
-        const resolved = await router.resolveTargetsAndIntent(
-          content, record.threadId, { persist: true },
-        );
-        // Filter out self-mention (cat can't invoke itself)
-        targetCats = resolved.targetCats.filter((c) => c !== senderCatId);
-        mentions = [...resolved.targetCats];
-      }
+      const targetCats = parseA2AMentions(content, senderCatId);
+      const mentions: CatId[] = [...targetCats];
 
       // Store the message (scoped to the invocation's thread)
       const storedMsg = await messageStore.append({
@@ -105,7 +101,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         await triggerA2AInvocation(
           { router, invocationRecordStore, socketManager,
             ...(invocationTracker ? { invocationTracker } : {}), log: app.log },
-          { targetCats: targetCats as CatId[], content, userId: record.userId,
+          { targetCats, content, userId: record.userId,
             threadId: record.threadId, triggerMessage: storedMsg },
         );
       }
