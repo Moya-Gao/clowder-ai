@@ -22,8 +22,8 @@ function formatConfigForDisplay(config: ConfigSnapshot): string {
   if (config.perCatBudgets) {
     lines.push('🎯 Per-Cat 上下文预算');
     for (const [catId, budget] of Object.entries(config.perCatBudgets)) {
-      const b = budget as { maxPromptChars: number; maxContextChars: number; maxMessages: number; maxContentLengthPerMsg: number };
-      lines.push(`  ${catId}: prompt ${(b.maxPromptChars / 1000).toFixed(0)}k, context ${(b.maxContextChars / 1000).toFixed(0)}k, ${b.maxMessages} msgs, ${b.maxContentLengthPerMsg}/msg`);
+      const b = budget as { maxPromptTokens: number; maxContextTokens: number; maxMessages: number; maxContentLengthPerMsg: number };
+      lines.push(`  ${catId}: prompt ${(b.maxPromptTokens / 1000).toFixed(0)}k, context ${(b.maxContextTokens / 1000).toFixed(0)}k, ${b.maxMessages} msgs, ${b.maxContentLengthPerMsg}/msg`);
     }
     lines.push('');
   }
@@ -34,7 +34,7 @@ function formatConfigForDisplay(config: ConfigSnapshot): string {
     lines.push(`  历史条数: ${config.context.maxMessages}`);
     lines.push(`  每条截断: ${config.context.maxContentLength} 字符`);
     lines.push(`  总上下文: ${config.context.maxTotalChars} 字符`);
-    lines.push(`  总 prompt: ${config.context.maxPromptChars} 字符`);
+    lines.push(`  总 prompt: ${config.context.maxPromptTokens} 字符`);
     if (config.context.note) {
       lines.push(`  注: ${config.context.note}`);
     }

@@ -30,6 +30,7 @@ import type {
   AgentService,
   AgentServiceOptions,
   MessageMetadata,
+  TokenUsage,
 } from './types.js';
 
 const CAT_ID = createCatId('gemini');
@@ -244,6 +245,21 @@ export class GeminiAgentService implements AgentService {
             timestamp: Date.now(),
           };
           continue;
+        }
+
+        // F8: Capture usage from result/success events before transform drops them
+        if (typeof event === 'object' && event !== null) {
+          const raw = event as Record<string, unknown>;
+          if (raw['type'] === 'result' && raw['status'] === 'success') {
+            const stats = raw['stats'] as Record<string, unknown> | undefined;
+            if (stats) {
+              const usage: TokenUsage = {};
+              if (typeof stats['total_tokens'] === 'number') usage.totalTokens = stats['total_tokens'];
+              if (typeof stats['input_tokens'] === 'number') usage.inputTokens = stats['input_tokens'];
+              if (typeof stats['output_tokens'] === 'number') usage.outputTokens = stats['output_tokens'];
+              metadata.usage = usage;
+            }
+          }
         }
 
         if (sawAssistantText && isKnownPostResponseCandidatesCrash(event)) {

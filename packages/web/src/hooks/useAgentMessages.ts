@@ -14,7 +14,7 @@ interface AgentMsg {
   content?: string;
   error?: string;
   isFinal?: boolean;
-  metadata?: { provider: string; model: string; sessionId?: string };
+  metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   /** Tool name (for 'tool_use' events from backend) */
   toolName?: string;
   /** Tool input params (for 'tool_use' events from backend) */
@@ -270,6 +270,12 @@ export function useAgentMessages() {
                 sessionId: parsed.sessionId,
               });
             }
+            consumed = true;
+          } else if (parsed?.type === 'invocation_usage') {
+            // F8: Store token usage silently — don't show as system message
+            setCatInvocation(msg.catId, {
+              usage: parsed.usage,
+            });
             consumed = true;
           }
         } catch { /* not JSON, use raw content */ }

@@ -12,8 +12,8 @@ import {
 } from '../dist/domains/cats/services/DegradationPolicy.js';
 
 const mockBudget = {
-  maxPromptChars: 100000,
-  maxContextChars: 30000,
+  maxPromptTokens: 100000,
+  maxContextTokens: 30000,
   maxMessages: 40,
   maxContentLengthPerMsg: 2000,
 };
@@ -102,6 +102,14 @@ describe('formatDegradationMessage', () => {
       reason: '无法处理',
     });
     assert.ok(result.includes('无法处理'));
+  });
+});
+
+describe('F8: token-based labels', () => {
+  it('checkExtractionBudget reason mentions tokens not chars', () => {
+    const result = checkExtractionBudget(90000, mockBudget);
+    assert.ok(result.reason?.includes('tokens'), `expected "tokens" in reason: ${result.reason}`);
+    assert.ok(!result.reason?.includes('chars'), `should not mention "chars": ${result.reason}`);
   });
 });
 

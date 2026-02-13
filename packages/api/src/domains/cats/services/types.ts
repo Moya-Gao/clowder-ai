@@ -5,6 +5,37 @@
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 
+/** F8: Unified token usage type across all three cats */
+export interface TokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;           // Gemini fallback (doesn't split in/out)
+  cacheReadTokens?: number;       // Claude + Codex
+  cacheCreationTokens?: number;   // Claude only
+  costUsd?: number;               // Claude only
+  durationMs?: number;            // Claude: total duration
+  durationApiMs?: number;         // Claude: pure API duration
+  numTurns?: number;              // Claude: number of turns
+}
+
+/** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */
+export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: TokenUsage): TokenUsage {
+  if (!existing) return { ...incoming };
+  const result = { ...existing };
+  const numericKeys: (keyof TokenUsage)[] = [
+    'inputTokens', 'outputTokens', 'totalTokens',
+    'cacheReadTokens', 'cacheCreationTokens',
+    'costUsd', 'durationMs', 'durationApiMs', 'numTurns',
+  ];
+  for (const key of numericKeys) {
+    const val = incoming[key];
+    if (val != null) {
+      result[key] = ((result[key] as number) ?? 0) + (val as number);
+    }
+  }
+  return result;
+}
+
 /**
  * Metadata about the provider/model behind an agent message
  */
@@ -12,6 +43,7 @@ export interface MessageMetadata {
   provider: string;
   model: string;
   sessionId?: string;
+  usage?: TokenUsage;
 }
 
 /**

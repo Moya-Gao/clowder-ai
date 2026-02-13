@@ -15,10 +15,10 @@ import type { CatColor, CatProvider } from './cat.js';
  * Controls how much history/context is sent to each cat.
  */
 export interface ContextBudget {
-  /** Total prompt character limit (including system prompt + context + user message) */
-  readonly maxPromptChars: number;
-  /** Maximum characters for historical context */
-  readonly maxContextChars: number;
+  /** Total prompt token limit (including system prompt + context + user message) */
+  readonly maxPromptTokens: number;
+  /** Maximum tokens for historical context */
+  readonly maxContextTokens: number;
   /** Maximum number of historical messages to include */
   readonly maxMessages: number;
   /** Maximum characters per single message (truncation point) */

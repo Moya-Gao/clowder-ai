@@ -19,6 +19,7 @@ import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';
 import { assembleContext, formatMessage } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
+import { estimateTokens } from '../../../utils/token-counter.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
 
@@ -87,7 +88,7 @@ function detectContextDegradation(
     return {
       degraded: true,
       strategy: 'truncated',
-      reason: `字符预算限制，历史从 ${maxCountCandidate} 条截断到 ${includedCount} 条`,
+      reason: `Token 预算限制，历史从 ${maxCountCandidate} 条截断到 ${includedCount} 条`,
       adjustedMaxMessages: includedCount,
     };
   }
@@ -275,12 +276,16 @@ export async function* routeSerial(
       if (history && history.length > 0 && !contextHistory) {
         const catName = catId as 'opus' | 'codex' | 'gemini';
         const budget = getCatContextBudget(catName);
-        // Reserve space for system prompt (~300), user message, overhead (~1000)
-        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
+        // F8: token-based budget — estimate non-context tokens, remainder goes to context
+        const systemPartsTokens = estimateTokens(
+          [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+        );
+        const promptTokens = estimateTokens(prompt);
+        const budgetForContext = Math.max(0, budget.maxPromptTokens - systemPartsTokens - promptTokens - 200);
         const { contextText, messageCount } = assembleContext(history, {
           maxMessages: budget.maxMessages,
           maxContentLength: budget.maxContentLengthPerMsg,
-          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+          maxTotalTokens: Math.min(budgetForContext, budget.maxContextTokens),
         });
         catContextHistory = contextText || undefined;
 
@@ -519,11 +524,16 @@ export async function* routeParallel(
       if (history && history.length > 0 && !contextHistory) {
         const catName = catId as 'opus' | 'codex' | 'gemini';
         const budget = getCatContextBudget(catName);
-        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
+        // F8: token-based budget — estimate non-context tokens, remainder goes to context
+        const parSystemTokens = estimateTokens(
+          [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+        );
+        const parPromptTokens = estimateTokens(message);
+        const budgetForContext = Math.max(0, budget.maxPromptTokens - parSystemTokens - parPromptTokens - 200);
         const { contextText, messageCount } = assembleContext(history, {
           maxMessages: budget.maxMessages,
           maxContentLength: budget.maxContentLengthPerMsg,
-          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+          maxTotalTokens: Math.min(budgetForContext, budget.maxContextTokens),
         });
         catContextHistory = contextText || undefined;
 

@@ -583,30 +583,37 @@ describe('routeSerial degradation notification', () => {
     assert.equal(sysInfos.length, 0, 'should not yield degradation when within budget');
   });
 
-  it('yields system_info when context is truncated by character budget (not count)', async () => {
+  it('yields system_info when context is truncated by token budget (not count)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
-    // Count is within budget boundary (opus maxMessages=200), but content size should force char truncation.
-    // 200 messages × ~1600 chars = ~320k > maxContextChars 300k
-    const history = Array.from({ length: 200 }, (_, i) => ({
-      id: `m${i}`,
-      threadId: 'thread1',
-      userId: 'user1',
-      catId: null,
-      content: `message ${i} ` + 'x'.repeat(1600),
-      mentions: [],
-      timestamp: Date.now() - (200 - i) * 1000,
-    }));
+    // Override maxPromptTokens to a small value via env.
+    // budgetForContext = maxPromptTokens - systemTokens - promptTokens - 200
+    // With maxPromptTokens=500, budgetForContext ≈ 90 tokens → truncation.
+    // Count (20) is within maxMessages (200), but total tokens exceed context budget.
+    process.env['CAT_OPUS_MAX_PROMPT_TOKENS'] = '500';
+    try {
+      const history = Array.from({ length: 20 }, (_, i) => ({
+        id: `m${i}`,
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: `message ${i} with some padding text here`,
+        mentions: [],
+        timestamp: Date.now() - (20 - i) * 1000,
+      }));
 
-    const messages = [];
-    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { history })) {
-      messages.push(msg);
+      const messages = [];
+      for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1', { history })) {
+        messages.push(msg);
+      }
+
+      const sysInfos = messages.filter(m => m.type === 'system_info');
+      assert.ok(sysInfos.length > 0, 'should yield degradation when token budget truncates context');
+      assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
+    } finally {
+      delete process.env['CAT_OPUS_MAX_PROMPT_TOKENS'];
     }
-
-    const sysInfos = messages.filter(m => m.type === 'system_info');
-    assert.ok(sysInfos.length > 0, 'should yield degradation when char budget truncates context');
-    assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
   });
 });
 
@@ -646,7 +653,7 @@ describe('routeParallel degradation notification', () => {
     });
 
     // Count is within both cats' maxMessages (codex=200, opus=200), but content size should trigger char truncation.
-    // 200 messages × ~2100 chars = ~420k > codex maxContextChars 400k
+    // 200 messages × ~2100 chars = ~420k > codex maxContextTokens 60k
     const history = Array.from({ length: 200 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',

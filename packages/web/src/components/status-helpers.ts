@@ -45,3 +45,15 @@ export function formatDuration(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
 }
+
+/** F8: Format token count as compact string (e.g. 39270 → "39.3k") */
+export function formatTokenCount(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+/** F8: Format USD cost (e.g. 0.03 → "$0.03") */
+export function formatCost(usd: number): string {
+  return `$${usd.toFixed(usd < 0.01 ? 4 : 2)}`;
+}

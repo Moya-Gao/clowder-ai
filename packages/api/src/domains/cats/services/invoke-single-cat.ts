@@ -188,6 +188,20 @@ export async function* invokeSingleCat(
           timestamp: Date.now(),
         };
 
+        // F8: Push token usage for frontend cost/token display
+        if (msg.metadata?.usage) {
+          yield {
+            type: 'system_info' as const,
+            catId,
+            content: JSON.stringify({
+              type: 'invocation_usage',
+              catId,
+              usage: msg.metadata.usage,
+            }),
+            timestamp: Date.now(),
+          };
+        }
+
         yield { ...msg, isFinal: isLastCat };
       } else {
         yield msg;

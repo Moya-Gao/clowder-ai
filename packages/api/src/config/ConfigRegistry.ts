@@ -55,7 +55,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const maxMessages = Number(env['CONTEXT_HISTORY_LIMIT']) || 20;
   const maxContentLength = Number(env['MAX_CONTEXT_MSG_CHARS']) || 1500;
   const maxTotalChars = 8000;
-  const maxPromptChars = Number(env['MAX_PROMPT_CHARS']) || 32000;
+  const maxPromptTokens = Number(env['MAX_PROMPT_TOKENS']) || 32000;
 
   // CLI (from cli-spawn.ts defaults, configurable via CLI_TIMEOUT_MS, 0 = disable)
   const rawCliTimeout = env['CLI_TIMEOUT_MS'];
@@ -114,7 +114,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
       maxMessages,
       maxContentLength,
       maxTotalChars,
-      maxPromptChars,
+      maxPromptTokens,
       note: 'These are assembleContext defaults; see perCatBudgets for actual per-cat limits',
     },
     perCatBudgets: getAllCatBudgets(),

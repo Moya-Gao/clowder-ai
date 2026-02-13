@@ -30,6 +30,8 @@ export interface InvocationRecord {
   idempotencyKey: string;
   /** Error message when status is 'failed' */
   error?: string;
+  /** F8: Per-cat token usage collected on invocation completion */
+  usageByCat?: Record<string, import('./types.js').TokenUsage>;
   createdAt: number;
   updatedAt: number;
 }
@@ -56,6 +58,8 @@ export interface UpdateInvocationInput {
   error?: string;
   /** CAS guard: update only if current status matches. Returns null on mismatch. */
   expectedStatus?: InvocationStatus;
+  /** F8: Per-cat token usage (key = catId) */
+  usageByCat?: Record<string, import('./types.js').TokenUsage>;
 }
 
 /**
@@ -149,6 +153,7 @@ export class InvocationRecordStore implements IInvocationRecordStore {
     if (input.status !== undefined) record.status = input.status;
     if (input.userMessageId !== undefined) record.userMessageId = input.userMessageId;
     if (input.error !== undefined) record.error = input.error;
+    if (input.usageByCat !== undefined) record.usageByCat = input.usageByCat;
     record.updatedAt = Date.now();
 
     return record;

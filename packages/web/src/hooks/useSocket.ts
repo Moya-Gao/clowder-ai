@@ -20,7 +20,7 @@ interface AgentMessage {
   toolInput?: Record<string, unknown>;
   error?: string;
   isFinal?: boolean;
-  metadata?: { provider: string; model: string; sessionId?: string };
+  metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
   timestamp: number;
 }
 
