@@ -9,7 +9,7 @@ import {
   type IntentMode, type CatStatus,
 } from './status-helpers';
 import { CatTokenUsage } from './CatTokenUsage';
-import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -34,20 +34,6 @@ interface AuditData {
   logPath: string | null;
   eventCount: number;
   logFiles: string[];
-}
-
-function CatInvocationTime({ invocation }: { invocation: CatInvocationInfo }) {
-  const elapsed = useElapsedTime(invocation.startedAt && !invocation.durationMs ? invocation.startedAt : undefined);
-
-  if (invocation.durationMs != null) {
-    return <span className="text-gray-500 ml-auto">{formatDuration(invocation.durationMs)}</span>;
-  }
-
-  if (invocation.startedAt && elapsed > 0) {
-    return <span className="text-green-600 ml-auto">{formatDuration(elapsed)}</span>;
-  }
-
-  return null;
 }
 
 export function RightStatusPanel({
@@ -153,43 +139,30 @@ export function RightStatusPanel({
       {Object.keys(catInvocations).length > 0 && (
         <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
           <h3 className="text-xs font-semibold text-gray-700 mb-2">最近调用</h3>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {cats.map((catId) => {
               const inv = catInvocations[catId];
               if (!inv) return null;
               const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
               return (
                 <div key={catId} className="text-xs">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className={`inline-block h-2 w-2 rounded-full ${info.color}`} />
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={`inline-block h-2.5 w-2.5 rounded-full ${info.color}`} />
                     <span className="font-medium text-gray-700">{info.name}</span>
                     <CatInvocationTime invocation={inv} />
                   </div>
-                  {inv.sessionId && (
+                  {inv.usage && (
                     <div className="ml-3.5">
-                      <span className="text-[11px] text-gray-500 mr-1">session:</span>
-                      <button
-                        className="text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
-                        title={`点击复制: ${inv.sessionId}`}
-                        onClick={() => copyText(inv.sessionId!)}
-                      >
-                        {truncateId(inv.sessionId, 12)}
-                      </button>
+                      <CatTokenUsage catId={catId} usage={inv.usage} />
                     </div>
                   )}
-                  {inv.invocationId && (
-                    <div className="ml-3.5">
-                      <span className="text-[11px] text-gray-500 mr-1">invocation:</span>
-                      <button
-                        className="text-[11px] text-gray-400 font-mono truncate max-w-full text-left hover:text-gray-600 cursor-pointer transition-colors"
-                        title={`点击复制: ${inv.invocationId}`}
-                        onClick={() => copyText(inv.invocationId!)}
-                      >
-                        {truncateId(inv.invocationId, 12)}
-                      </button>
-                    </div>
+                  {(inv.sessionId || inv.invocationId) && (
+                    <CollapsibleIds
+                      sessionId={inv.sessionId}
+                      invocationId={inv.invocationId}
+                      onCopy={copyText}
+                    />
                   )}
-                  {inv.usage && <CatTokenUsage catId={catId} usage={inv.usage} />}
                 </div>
               );
             })}

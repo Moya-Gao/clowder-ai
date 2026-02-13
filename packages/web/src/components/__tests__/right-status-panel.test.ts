@@ -95,9 +95,9 @@ describe('RightStatusPanel', () => {
     });
 
     expect(html).toContain('最近调用');
-    expect(html).toContain('invocation:');
-    expect(html).toContain('session:');
-    expect(html).toContain(`点击复制: ${invocationId}`);
-    expect(html).toContain(`点击复制: ${sessionId}`);
+    // IDs are now behind a collapsible toggle (default collapsed in SSR)
+    expect(html).toContain('▸ IDs');
+    // The cat name and invocation section still render
+    expect(html).toContain('缅因猫');
   });
 });

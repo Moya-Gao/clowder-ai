@@ -57,6 +57,16 @@ module.exports = {
           '0%': { opacity: '1', transform: 'translateX(0)' },
           '100%': { opacity: '0', transform: 'translateX(20px)' },
         },
+        'token-pulse': {
+          '0%': { transform: 'scale(1)', opacity: '1' },
+          '50%': { transform: 'scale(1.05)', opacity: '0.8' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
+        },
+        'cost-glow': {
+          '0%': { opacity: '0', filter: 'brightness(1)' },
+          '50%': { opacity: '1', filter: 'brightness(1.3)' },
+          '100%': { opacity: '1', filter: 'brightness(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
@@ -64,6 +74,8 @@ module.exports = {
         'cat-shake': 'cat-shake 0.4s ease-in-out',
         'toast-in': 'toast-in 0.3s ease-out',
         'toast-out': 'toast-out 0.3s ease-in forwards',
+        'token-pulse': 'token-pulse 0.3s ease-out',
+        'cost-glow': 'cost-glow 0.4s ease-out',
       },
     },
   },
