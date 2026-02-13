@@ -363,7 +363,7 @@
 
 ### LL-018: Session 存储必须按 Thread 隔离，不能只按 userId:catId
 - 状态：draft
-- 更新时间：2026-02-13 (updated: 后续 Phase 3-5 演化)
+- 更新时间：2026-02-13
 
 - 坑：Session 按 `userId:catId` 存储，不区分 thread。导致缅因猫在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），缅因猫在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
 - 根因：Session key 设计缺少 threadId 维度。隐含假设"一只猫同时只在一个 thread 工作"，但多 thread 场景下 session 跨 thread 污染。

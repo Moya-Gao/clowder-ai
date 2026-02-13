@@ -116,7 +116,7 @@ Plan 说「默认会带 `tagsMatch=all_strict` 与 `project:cat-cafe,origin:git`
 - **B**: 在 ConfigRegistry 的 `recallDefaults` 里改 tagsMatch 默认值 → 配置驱动
 - **C**: 在路由层硬编码注入 → 最显式
 
-**要求**：Plan 应明确选 A/B/C（我建议 A+B 组合：`normalizeTags` 默认注入 `origin:git`，ConfigRegistry 默认 `tagsMatch` 改为 `all_strict`），并在测试断言中精确指定检查点。
+**要求**：Plan 应明确选 A/B/C。`tagsMatch` 默认值已是 `all_strict`（`hindsight-runtime-config.ts:23`），所以真正待修点只有 `origin:git` 的默认注入位置。我建议 A：在 `normalizeTags` 里默认注入 `origin:git`（与已有的 `project:cat-cafe` 默认值并列）。测试断言应精确检查 `normalizeTags(undefined)` 返回值包含两个 tag。
 
 ---
 
