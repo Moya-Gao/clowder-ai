@@ -48,4 +48,32 @@ describe('F8: aggregateUsage', () => {
     // no cost
     expect(result!.costUsd).toBeUndefined();
   });
+
+  // P2-1 regression: stale cats should be excluded when filterCatIds is provided
+  it('filters to only targetCats when filterCatIds is provided', () => {
+    const result = aggregateUsage(
+      {
+        opus: { usage: { inputTokens: 30000, outputTokens: 8000, costUsd: 0.15 } },
+        codex: { usage: { inputTokens: 5000, outputTokens: 2000 } },
+        gemini: { usage: { totalTokens: 3000 } },
+      },
+      ['opus', 'codex'],
+    );
+
+    expect(result).not.toBeNull();
+    // Only opus + codex, NOT gemini
+    expect(result!.inputTokens).toBe(35000);
+    expect(result!.outputTokens).toBe(10000);
+    expect(result!.costUsd).toBe(0.15);
+  });
+
+  it('returns null when filterCatIds has no matching usage', () => {
+    const result = aggregateUsage(
+      {
+        opus: { usage: { inputTokens: 30000 } },
+      },
+      ['gemini'],
+    );
+    expect(result).toBeNull();
+  });
 });

@@ -64,14 +64,18 @@ function CatStatusCard({ catId, status, invocation }: {
   );
 }
 
-/** Aggregate token usage across all cat invocations */
-export function aggregateUsage(invocations: Record<string, CatInvocationInfo>): TokenUsage | null {
+/** Aggregate token usage across cat invocations, optionally filtered to specific cats */
+export function aggregateUsage(invocations: Record<string, CatInvocationInfo>, filterCatIds?: string[]): TokenUsage | null {
   let inputTokens = 0;
   let outputTokens = 0;
   let costUsd = 0;
   let count = 0;
 
-  for (const inv of Object.values(invocations)) {
+  const entries = filterCatIds
+    ? filterCatIds.map((id) => invocations[id]).filter(Boolean)
+    : Object.values(invocations);
+
+  for (const inv of entries) {
     const u = inv.usage;
     if (!u) continue;
     count++;
@@ -94,7 +98,7 @@ export function ParallelStatusBar() {
 
   if (targetCats.length === 0) return null;
 
-  const agg = aggregateUsage(catInvocations);
+  const agg = aggregateUsage(catInvocations, targetCats);
 
   return (
     <div className="px-5 py-2.5 bg-gradient-to-r from-opus-bg via-codex-bg to-gemini-bg border-b border-gray-200">

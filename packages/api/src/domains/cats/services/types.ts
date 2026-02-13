@@ -18,6 +18,24 @@ export interface TokenUsage {
   numTurns?: number;              // Claude: number of turns
 }
 
+/** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */
+export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: TokenUsage): TokenUsage {
+  if (!existing) return { ...incoming };
+  const result = { ...existing };
+  const numericKeys: (keyof TokenUsage)[] = [
+    'inputTokens', 'outputTokens', 'totalTokens',
+    'cacheReadTokens', 'cacheCreationTokens',
+    'costUsd', 'durationMs', 'durationApiMs', 'numTurns',
+  ];
+  for (const key of numericKeys) {
+    const val = incoming[key];
+    if (val != null) {
+      result[key] = ((result[key] as number) ?? 0) + (val as number);
+    }
+  }
+  return result;
+}
+
 /**
  * Metadata about the provider/model behind an agent message
  */

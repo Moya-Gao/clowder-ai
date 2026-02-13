@@ -25,7 +25,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
-import type { TokenUsage } from '../domains/cats/services/types.js';
+import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -268,7 +268,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               },
             })) {
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
-                collectedUsage.set(msg.catId, msg.metadata.usage);
+                collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
               opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
             }
@@ -285,7 +285,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               },
             )) {
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
-                collectedUsage.set(msg.catId, msg.metadata.usage);
+                collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
               opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
             }
