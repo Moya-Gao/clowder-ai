@@ -8,6 +8,7 @@ import {
   type IntentMode, type CatStatus,
 } from './status-helpers';
 import { CatConfigViewer } from './CatConfigViewer';
+import { CatTokenUsage } from './CatTokenUsage';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
 
 export interface RightStatusPanelProps {
@@ -188,6 +189,7 @@ export function RightStatusPanel({
                       </button>
                     </div>
                   )}
+                  {inv.usage && <CatTokenUsage catId={catId} usage={inv.usage} />}
                 </div>
               );
             })}
