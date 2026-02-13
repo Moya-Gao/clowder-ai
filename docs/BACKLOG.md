@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-12 (布偶猫权限申请链路修复登记)
+> 维护者：布偶猫 | 最后更新：2026-02-13 (F23 目录防腐化 ADR-009)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -125,6 +125,7 @@
 | F20c | 语音输入 M3 — 系统级集成 | P3 | Voice Input design | macOS 全局热键 + Claude Code 原生支持 + 多语言自动检测。 |
 | F21 | **Signal Hunter 集成** | **P1** | [讨论 2026-02-12](./discussions/2026-02-12-signal-hunter-upgrade/README.md) | 每日自动抓取 AI 技术信源 + 邮件日报 + 和猫猫深度学习。合并 Signal Hunter 到 Cat Café，launchd 定时 + 50+ 信源 + on/off 开关 + Hindsight 洞察存储。计划: [`2026-02-12-signal-hunter-integration.md`](./plans/2026-02-12-signal-hunter-integration.md)，缅因猫调研: [`signal-hunter.md`](./research/signal-hunter.md) |
 | F22 | **Rich Blocks 富消息系统** | **P1** | [SillyTavern 调研](./research/sillytavern-phone-ui-research.md) | 猫猫消息支持富组件（DiffCard / Checklist / MediaGallery / InfoCard）。MCP 工具创建 + 文本 fallback + `extra.rich` 持久化 + prompt 清洁器防上下文腐败。F10 手机端猫猫 + 陪伴系统的地基。调研: [`sillytavern-phone-ui-research.md`](./research/sillytavern-phone-ui-research.md)，计划: [`2026-02-12-rich-blocks-companion-plan.md`](./plans/2026-02-12-rich-blocks-companion-plan.md) |
+| F23 | **目录结构防腐化 + 重构** | **P1** | 铲屎官 2026-02-13 | services/ 70 文件 + docs/ 270 文件腐化。防腐化机制 (lint 双阈值 + 依赖边界 + review 检查 + 例外到期) + 目录就地整理 + docs active/archive 归档。三方 + GPT Pro 对齐完毕。ADR: [`009-directory-hygiene-anti-rot.md`](./decisions/009-directory-hygiene-anti-rot.md) |
 
 ## 讨论议题 — 待探索的方向
 
@@ -137,6 +138,11 @@
 | D3 | 可维护性法则提炼 | 圆桌设计 | Cat Café 做对了什么？如何迁移到其他项目？详见 `docs/discussions/2026-02-07-context-enginnering/maintainability-roundtable-design.md` |
 
 ## 已知限制（非 bug，需意识到）
+
+| 项目 | 严重度 | 缓解方案 |
+|------|--------|----------|
+| **`cache_creation` 计入总输入的语义风险** | 低 | 当前 `extractClaudeUsage` 将 `cache_creation_input_tokens` 计入 `inputTokens` 总量以统一口径（`da75aaf`）。若产品定义改动（如 Anthropic 调整 cache_creation 计费语义），需按同一语义整体调整归一化逻辑。来源：砚砚 2026-02-13 review 残余说明。 |
+
 
 | 项目 | 严重度 | 缓解方案 |
 |------|--------|----------|
