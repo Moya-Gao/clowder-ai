@@ -34,7 +34,7 @@ export function ChatInputActionButton({
   // Global keyboard shortcut: Option+R (Alt+R) toggles voice recording
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.altKey && e.key === 'r') {
+      if (e.altKey && e.code === 'KeyR') {
         e.preventDefault();
         if (voice.state === 'recording') {
           voice.stopRecording();
