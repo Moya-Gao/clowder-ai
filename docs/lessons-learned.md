@@ -363,7 +363,7 @@
 
 ### LL-018: Session 存储必须按 Thread 隔离，不能只按 userId:catId
 - 状态：draft
-- 更新时间：2026-02-13
+- 更新时间：2026-02-13 (updated: 后续 Phase 3-5 演化)
 
 - 坑：Session 按 `userId:catId` 存储，不区分 thread。导致缅因猫在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），缅因猫在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
 - 根因：Session key 设计缺少 threadId 维度。隐含假设"一只猫同时只在一个 thread 工作"，但多 thread 场景下 session 跨 thread 污染。
@@ -372,10 +372,62 @@
 - 防护：BACKLOG #38（已完成）+ 消息级审计日志 BACKLOG #37（已完成）+ bug report 归档。
 - 来源锚点：
   - `docs/bug-report/tea-coffee/bug-report.md`
+  - `docs/bug-report/tea-coffee/timeline.md`（完整 5 阶段演化）
   - BACKLOG #38 Session 按 Thread 隔离
 - 原理：多租户/多上下文系统中，隔离键必须包含所有上下文维度。缺少任何一个维度 = 跨上下文泄漏风险。"够用"的隔离键在规模增长时会变成"不够用"。
 
-- 关联：茶话会夺魂 bug report | BACKLOG #37 消息级审计
+- 关联：茶话会夺魂 bug report | BACKLOG #37 消息级审计 | **LL-019 过度修复** | **LL-020 补丁数量信号** | **LL-021 根因追溯深度**
+- 后续演化：根因修复（本条）后，团队"顺手"修了触发器（CLI HOME 隔离 #36），引发 5 个新问题 + 6 个补丁仍不稳定，最终回退。详见 LL-019、LL-020。
+
+### LL-019: 过度修复反模式——根因修完后不要盲修触发器
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：茶话会夺魂 bug 的根因（Session 跨 thread 污染 #38）已修复，但"顺手"也修了次要触发器（`~/.codex/AGENTS.md` 全局注入 #36）——用替换 HOME 环境变量的方式隔离 CLI 全局配置。结果隔离方案导致：401 认证失败、模型回落、session 丢失、MCP 工具链残缺、project trust 丢失。比原 bug 造成了更多问题。
+- 根因：修完根因后没有重新评估触发器的修复优先级。"既然发现了就一起修了"的惯性思维。实际上根因修复（加 threadId）已经消除了跨 thread 污染的伤害路径，触发器（全局 AGENTS.md）在项目级 `AGENTS.md` 存在的情况下已被覆盖，不再构成实际威胁。
+- 触发条件：修完根因后看到"还有一个相关问题"时的冲动；修复看起来不大（"只是隔离一个文件"）的错觉。
+- 修复：回退 CLI HOME 隔离方案，改用真实 HOME。确认项目级 AGENTS.md 已覆盖全局配置。
+- 防护：根因修复后，触发器修复必须独立评估 ROI（收益 vs 引入新风险）。不确定时先观察，不要"顺手修"。
+- 来源锚点：
+  - `docs/bug-report/tea-coffee/timeline.md` Phase 3-5
+  - BACKLOG #36（6 个补丁链：`2a6c7d4` → `449fe91` → `81fa2bf` → `d930e2e` → `327c0a3` → `61f3675`）
+  - `docs/bug-report/codex-session-isolation-lost/bug-report.md`（隔离副作用 #44）
+- 原理：每个修复都有引入新问题的风险。根因修复已消除伤害路径后，触发器的"理论风险"不足以证明"实际修复成本"。修复的 ROI 必须独立评估，不能因为"顺手"就搭车。
+
+- 关联：LL-018 Session 隔离 | LL-020 补丁数量信号 | LL-021 根因追溯深度 | BACKLOG #36 #44 #51
+
+### LL-020: 补丁数量是方向信号——N > 3 停下来复检方向
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：CLI HOME 隔离方案 (#36) 需要 6 个补丁（sessions 丢失 → symlink → 旧目录残留 → 自引用 symlink → copy fallback → 短路保护）仍然不稳定，最终 Phase 4 发现全面失效（Codex CLI 重建 `.codex/` 覆盖所有 copy/symlink 的文件）。
+- 根因：每个补丁只修当前暴露的症状，没有停下来问"方案根基是否稳定"。补丁叠补丁形成了越来越脆弱的链条。
+- 触发条件：一个功能/修复需要连续 > 3 个 fix commit；每次修完一个副作用又冒出下一个。
+- 修复：在第 3-4 个补丁时停下来做方向复检：这个方案的假设（"替换 HOME 就能隔离一个文件"）是否成立？有没有更精准的替代方案？
+- 防护：团队约定"补丁链告警线"——同一功能的 fix commit > 3 个时，必须暂停并评估方向。
+- 来源锚点：
+  - `docs/bug-report/tea-coffee/timeline.md` Phase 3（6 个 commit 记录）
+  - git log: `2a6c7d4` → `449fe91` → `81fa2bf` → `d930e2e` → `327c0a3` → `61f3675`
+- 原理：系统在通过"补丁爆炸"告诉你方案根基不稳。持续打补丁 = 在错误方向上加速。N > 3 不是"还需要更多补丁"的信号，而是"换方向"的信号。
+
+- 关联：LL-019 过度修复 | BACKLOG #36
+
+### LL-021: AI 倾向停在第一层"看起来合理"的答案，不主动追溯根因
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：茶话会夺魂 bug 调试时，修 bug 的布偶猫（分身 session `thread_mlkxnyg17ftop4v8`）找到了 `~/.codex/AGENTS.md` 全局注入后就停了——"这能解释为什么缅因猫去跑 superpowers"。但铲屎官追问："可它怎么知道 Phase 5 的？AGENTS.md 里又没有 Phase 5。"这一问才逼出了真正的根因——Session 跨 thread 污染。如果铲屎官没追问，我们只会修触发器，留下根因。
+- 根因：AI 模型的推理模式倾向于在找到"看起来说得通"的第一层解释后停止追溯。"看起来合理"≠"因果链完全闭合"。AGENTS.md 能解释 superpowers 行为但解释不了 Phase 5 知识来源——因果链有断点，但模型没有主动识别。
+- 触发条件：找到一个能解释部分症状的原因时；时间压力下想快速修复时；root cause 和 trigger 看起来像同一件事时。
+- 修复：铲屎官持续追问直到因果链完全闭合。每个"解释"都要验证：它能解释所有症状吗？有没有它解释不了的？
+- 防护：bug 根因分析清单增加"因果链闭合检查"——列出所有症状，确认提出的根因能逐一解释每个症状。解释不了的 = 根因不完整，继续挖。
+- 来源锚点：
+  - `docs/bug-report/tea-coffee/bug-report.md` §5 Step 6（铲屎官追问 Phase 5 来源）
+  - 实际修 bug session: `thread_mlkxnyg17ftop4v8`
+  - `docs/bug-report/tea-coffee/timeline.md` Phase 1
+- 原理：根因分析的正确性标准不是"找到一个合理解释"，而是"因果链完全闭合——每个症状都能被根因解释"。第一层答案往往是触发器不是根因。必须持续问 "but why?" 直到没有未解释的症状。
+
+- 关联：LL-018 Session 隔离 | LL-019 过度修复 | LL-014 Bug Report 先行 | `systematic-debugging` skill
 
 ---
 
