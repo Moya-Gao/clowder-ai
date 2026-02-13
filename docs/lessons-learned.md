@@ -86,7 +86,7 @@
 ## 6) 砚砚侧首批条目（AGENTS + Review + Skills）
 
 ### LL-002: Review 问题必须先 Red 再 Green，禁止先改后补测
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：收到 P1/P2 后直接改实现再“补测试”，容易把症状盖住但根因未修。
@@ -104,7 +104,7 @@
   - `cat-cafe-skills/systematic-debugging/SKILL.md`
 
 ### LL-003: Reviewer 必须有立场，Author 必须技术性 push back
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：review 变成礼貌性同意，双方“对方说啥就是啥”，缺乏技术争论。
@@ -122,7 +122,7 @@
   - `cat-cafe-skills/cat-cafe-requesting-review/SKILL.md`
 
 ### LL-004: P1/P2 当轮清零，P3 当场决断，不挂债务
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：把高优先级问题“先记 backlog”导致风险跨轮累积，后续修复成本放大。
@@ -140,7 +140,7 @@
   - `cat-cafe-skills/merge-approval-gate/SKILL.md`
 
 ### LL-005: 修完 review 后必须回给 reviewer 二次确认再合 main
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：作者修完后自行判断“改对了”直接合 main，绕过 reviewer 最终确认。
@@ -158,7 +158,7 @@
   - `docs/mailbox/README.md`
 
 ### LL-006: 没有新鲜验证证据，不得宣称完成
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：未运行最新验证命令就宣称“已修复/已通过”，造成虚假完成与返工。
@@ -176,7 +176,7 @@
   - `cat-cafe-skills/spec-compliance-check/SKILL.md`
 
 ### LL-007: 交接缺 Why 会让接手方无法判断
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：交接只写改动不写 why/取舍/待决项，接手方无法判断风险与下一步。
@@ -194,7 +194,7 @@
   - `docs/mailbox/README.md`
 
 ### LL-008: Worktree 生命周期必须成套执行（建-收敛-合入-清理）
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：只建不清理 worktree，或在 main 上直接处理冲突，导致磁盘膨胀与误回退。
@@ -214,7 +214,7 @@
   - `LL-012`
 
 ### LL-009: 关键前提不确定时，先提问再动作
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：在关键前提不明时硬猜推进，后续修复变成“补丁叠补丁”。
@@ -236,7 +236,7 @@
 ## 7) 宪宪侧首批条目（CLAUDE.md + Bug Report + Skills）
 
 ### LL-010: 删除文件必须用 trash，禁止 /bin/rm
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：shell 提示 "Use trash or /bin/rm" 时选了 `/bin/rm`，绕过安全网不可逆删除了文件。
@@ -252,7 +252,7 @@
 - 关联：CLAUDE.md 铲屎官硬规则
 
 ### LL-011: Worktree 清理的正确顺序——先 push，再 cd 回主仓，最后 remove
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：(1) 在 worktree CWD 里执行 `git worktree remove` 删除自己 → shell 悬空，什么都做不了。(2) 先删 worktree 再想 push → 站在虚空里连记忆都改不了，铲屎官笑着救了我。两次犯同类错误。
@@ -268,7 +268,7 @@
 - 关联：LL-008 | `using-git-worktrees` skill | `finishing-a-development-branch` skill
 
 ### LL-012: 不要 --force 删有猫在工作的 worktree
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：缅因猫正在 worktree 里修 bug，我看到 `git branch --merged main` 就以为已合入，`--force` 强删了他的工地。缅因猫呆在消失的目录里不知所措。
@@ -284,7 +284,7 @@
 - 关联：LL-008 | LL-011 | `using-git-worktrees` skill
 
 ### LL-013: Git commit 前必须检查暂存区
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：`git add myfile && git commit` 但暂存区已有上次 session 或铲屎官留下的文件，导致无关改动混入 commit。
@@ -300,7 +300,7 @@
 - 关联：无对应 skill；通用 git 纪律
 
 ### LL-014: Bug 修复必须先写 Bug Report 再动手
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：收到铲屎官汇报的 URL 路由缺失 bug 后，直接修代码，没写 bug report 也没写 review 信。被铲屎官批评：没有记录 = 无法复盘。
@@ -316,7 +316,7 @@
 - 关联：`systematic-debugging` skill | CLAUDE.md §4
 
 ### LL-015: Worktree 开发必须用独立 Redis 端口（6398），绝不碰 6399
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：在 worktree 工作时未设置 REDIS_URL，服务回落到默认 6399（铲屎官数据），数据从 307 keys 降至 15 keys（95% 丢失）。虽最终从 RDB 备份完全恢复，但过程惊险。
@@ -332,7 +332,7 @@
 - 关联：LL-008 | LL-011 | CLAUDE.md §10 | Redis 数据丢失 incident report
 
 ### LL-016: ioredis keyPrefix 对 eval() 和 keys() 的行为不一致
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：假设 ioredis 的 `keyPrefix` 配置对所有命令行为一致。实际上 `eval()` 的 KEYS[] 参数会自动加前缀，但 `keys()` 搜索不会自动加前缀。
@@ -348,7 +348,7 @@
 - 关联：CLAUDE.md §7 Redis 测试规则 | ADR-008 Lua 原子操作
 
 ### LL-017: CAS 比较必须基于不可变快照，不能用内存活引用
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：内存 InvocationRecordStore 的 `get()` 返回对象活引用。CAS 更新时用 `get()` 获取的值做比较，但在比较前对象已被其他异步操作修改，导致 CAS 永远成功（比较的是已修改后的值）。
@@ -364,7 +364,7 @@
 - 关联：ADR-008 InvocationRecord 状态机
 
 ### LL-018: Session 存储必须按 Thread 隔离，不能只按 userId:catId
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：Session 按 `userId:catId` 存储，不区分 thread。导致缅因猫在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），缅因猫在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
@@ -382,7 +382,7 @@
 - 后续演化：根因修复（本条）后，团队"顺手"修了触发器（CLI HOME 隔离 #36），引发 5 个新问题 + 6 个补丁仍不稳定，最终回退。详见 LL-019、LL-020。
 
 ### LL-019: 过度修复反模式——根因修完后不要盲修触发器
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：茶话会夺魂 bug 的根因（Session 跨 thread 污染 #38）已修复，但"顺手"也修了次要触发器（`~/.codex/AGENTS.md` 全局注入 #36）——用替换 HOME 环境变量的方式隔离 CLI 全局配置。结果隔离方案导致：401 认证失败、模型回落、session 丢失、MCP 工具链残缺、project trust 丢失。比原 bug 造成了更多问题。
@@ -399,7 +399,7 @@
 - 关联：LL-018 Session 隔离 | LL-020 补丁数量信号 | LL-021 根因追溯深度 | BACKLOG #36 #44 #51
 
 ### LL-020: 补丁数量是方向信号——N > 3 停下来复检方向
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：CLI HOME 隔离方案 (#36) 需要 6 个补丁（sessions 丢失 → symlink → 旧目录残留 → 自引用 symlink → copy fallback → 短路保护）仍然不稳定，最终 Phase 4 发现全面失效（Codex CLI 重建 `.codex/` 覆盖所有 copy/symlink 的文件）。
@@ -415,7 +415,7 @@
 - 关联：LL-019 过度修复 | BACKLOG #36
 
 ### LL-021: AI 倾向停在第一层"看起来合理"的答案，不主动追溯根因
-- 状态：draft
+- 状态：validated
 - 更新时间：2026-02-13
 
 - 坑：茶话会夺魂 bug 调试时，修 bug 的布偶猫（分身 session `thread_mlkxnyg17ftop4v8`）找到了 `~/.codex/AGENTS.md` 全局注入后就停了——"这能解释为什么缅因猫去跑 superpowers"。但铲屎官追问："可它怎么知道 Phase 5 的？AGENTS.md 里又没有 Phase 5。"这一问才逼出了真正的根因——Session 跨 thread 污染。如果铲屎官没追问，我们只会修触发器，留下根因。
