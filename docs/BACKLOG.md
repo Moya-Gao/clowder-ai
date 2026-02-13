@@ -108,13 +108,13 @@
 | F5 | ideate 模式 A2A follow-up | [x] | Phase 3.9 | Phase 5.2 — routeParallel 完成后 yield a2a_followup_available system_info + 前端 a2a_followup variant 显示 |
 | F6 | ~~Thread 名字编辑~~ | [x] | 功能性试用 | `81939c1` — PATCH /api/threads/:id 更新标题 + 前端编辑 UI |
 | F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
-| F8 | 猫工作状态实时显示 | P1 | 功能性试用 | 已有基础可见性：顶部并行状态条 + 右侧状态栏（模式/猫状态/消息任务统计）。待补全：token/耗时等深度指标，才可关闭。 |
+| F8 | **Token 预算 + 深度可观测性** | **P0** | [NDJSON 宝藏调研](./research/cli-ndjson-treasure-map.md) | char→token 预算迁移 (js-tiktoken) + 三猫 CLI usage/cost/cache 数据捕获 + 缅因猫 reasoning 展示 + system/init 元信息。计划: [`2026-02-12-f8-token-budget-migration.md`](./plans/2026-02-12-f8-token-budget-migration.md) |
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 | F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) 做多猫版移动端。iOS app / iMessage 对接待决策 |
 | F11 | **模式系统** | **[x]** | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。6 轮 review 通过，939 tests。[攻防录](../tmp/f11-maine-log.md) |
 | F12 | 功能可发现性 | P1 (#3) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | magic word / MCP skill / 配置统一可视化入口。找不到的功能 = 不存在 |
 | F13 | 审计日志 v2 | [x] | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 已完成：操作审计（追责）+ CLI 原始日志归档（debug）。计划文档: [`2026-02-10-f13-audit-log-v2.md`](./plans/2026-02-10-f13-audit-log-v2.md) |
-| F14 | 动画优化 | P3 (#6) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | UI 过渡动画 + 流式回复体验，铲屎官确认优先级低 |
+| F14 | **SVG 猫猫状态动画** | P2 | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 把 ASCII `ᓚᘏᗢ` 升级为三猫参数化 SVG 动画。方案 B（AI 生成 + 结构化 + CSS 动画）已确认。调研报告+执行计划: [`svg-frontend-research.md`](./research/svg-frontend-research.md#7-执行计划2026-02-13-布偶猫--铲屎官讨论确认) |
 | F15 | Backlog 管理 | P3 (#7) | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 功能想法不散落在手机备忘录。本次讨论即 MVP 实践 |
 | F16 | ~~Codex OAuth + 记忆闭环~~ | [x] | [brainstorm 2026-02-10](./discussions/2026-02-10-feature-backlog-brainstorm/README.md) | Phase F16：Codex 默认走 OAuth（隔离 HOME 下 `auth.json`/`sessions` 与真实 `~/.codex` 打通），并新增 invocation-token 保护的 `search-evidence` / `reflect` / `retain-memory` callback + MCP 对应工具，形成缅因猫记忆闭环。计划见 [`2026-02-10-f16-codex-oauth-memory-loop.md`](./plans/2026-02-10-f16-codex-oauth-memory-loop.md)。 |
 | F17 | ~~导出对话长图~~ | [x] | [ux-polish 2026-02-10](./discussions/2026-02-10-ux-polish-brainstorm/README.md) | Chrome headless 导出。缅因猫 3 轮 review 通过（R1 路径 + R2 安全/构建/性能 + R3 system thread）。设计: [`2026-02-10-f19-f18-f17-ux-polish.md`](./plans/2026-02-10-f19-f18-f17-ux-polish.md) |
@@ -123,6 +123,8 @@
 | F20 | **语音输入 M1 MVP** | **[x]** | 铲屎官需求 2026-02-11 | 麦克风录音 → 本地 Whisper ASR → 术语纠错 → 填入 textarea → 手动发送。动态按钮 (🎤/▶/⏹/⏳)。缅因猫 2 轮 review 通过 (P1 安全边界 + P1 启动入口 + P2 stream 泄露)。设计: [`2026-02-11-voice-input-design.md`](./plans/2026-02-11-voice-input-design.md)，commit `965b569` |
 | F20b | ~~语音输入 M2 — 流式转写~~ | **[x]** | Voice Input design | `1ec0910` + `23a5c30` — requestData() 轮询 + partialTranscript + streamSeqRef 竞态保护。 |
 | F20c | 语音输入 M3 — 系统级集成 | P3 | Voice Input design | macOS 全局热键 + Claude Code 原生支持 + 多语言自动检测。 |
+| F21 | **Signal Hunter 集成** | **P1** | [讨论 2026-02-12](./discussions/2026-02-12-signal-hunter-upgrade/README.md) | 每日自动抓取 AI 技术信源 + 邮件日报 + 和猫猫深度学习。合并 Signal Hunter 到 Cat Café，launchd 定时 + 50+ 信源 + on/off 开关 + Hindsight 洞察存储。计划: [`2026-02-12-signal-hunter-integration.md`](./plans/2026-02-12-signal-hunter-integration.md)，缅因猫调研: [`signal-hunter.md`](./research/signal-hunter.md) |
+| F22 | **Rich Blocks 富消息系统** | **P1** | [SillyTavern 调研](./research/sillytavern-phone-ui-research.md) | 猫猫消息支持富组件（DiffCard / Checklist / MediaGallery / InfoCard）。MCP 工具创建 + 文本 fallback + `extra.rich` 持久化 + prompt 清洁器防上下文腐败。F10 手机端猫猫 + 陪伴系统的地基。调研: [`sillytavern-phone-ui-research.md`](./research/sillytavern-phone-ui-research.md)，计划: [`2026-02-12-rich-blocks-companion-plan.md`](./plans/2026-02-12-rich-blocks-companion-plan.md) |
 
 ## 讨论议题 — 待探索的方向
 
