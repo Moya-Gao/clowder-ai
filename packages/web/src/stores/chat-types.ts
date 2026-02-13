@@ -11,10 +11,24 @@ export interface ImageContent {
 
 export type MessageContent = TextContent | ImageContent;
 
+/** F8: Token usage data from CLI invocations */
+export interface TokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cacheReadTokens?: number;
+  cacheCreationTokens?: number;
+  costUsd?: number;
+  durationMs?: number;
+  durationApiMs?: number;
+  numTurns?: number;
+}
+
 export interface ChatMessageMetadata {
   provider: string;
   model: string;
   sessionId?: string;
+  usage?: TokenUsage;
 }
 
 export interface EvidenceResultData {
@@ -78,6 +92,7 @@ export interface CatInvocationInfo {
   invocationId?: string;
   durationMs?: number;
   startedAt?: number;
+  usage?: TokenUsage;
 }
 
 export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';
