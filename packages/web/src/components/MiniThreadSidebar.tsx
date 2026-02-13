@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import type { CatStatusType } from '@/stores/chat-types';
 import { getCatStatusType } from './ThreadCatStatus';
@@ -24,6 +24,12 @@ export function MiniThreadSidebar({ onAssignToPane }: MiniThreadSidebarProps) {
   const assignedSet = new Set(splitPaneThreadIds);
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const dragging = useRef(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  // Unmount safety net: remove any lingering document listeners
+  useEffect(() => {
+    return () => { cleanupRef.current?.(); };
+  }, []);
 
   const available = threads.filter(
     (t) => t.id !== 'default' && !assignedSet.has(t.id)
@@ -46,9 +52,14 @@ export function MiniThreadSidebar({ onAssignToPane }: MiniThreadSidebarProps) {
       dragging.current = false;
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      cleanupRef.current = null;
     };
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
+    cleanupRef.current = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
   }, [width]);
 
   return (
