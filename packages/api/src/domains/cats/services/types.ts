@@ -5,17 +5,20 @@
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 
-/** F8: Unified token usage type across all three cats */
+/** F8: Unified token usage type across all three cats.
+ *  inputTokens = TOTAL input tokens (new + cached). Normalised at extraction
+ *  so that the field has the same semantics regardless of provider.
+ *  cacheReadTokens = subset of inputTokens served from cache. */
 export interface TokenUsage {
-  inputTokens?: number;
+  inputTokens?: number;            // Total input (normalised across providers)
   outputTokens?: number;
-  totalTokens?: number;           // Gemini fallback (doesn't split in/out)
-  cacheReadTokens?: number;       // Claude + Codex
-  cacheCreationTokens?: number;   // Claude only
-  costUsd?: number;               // Claude only
-  durationMs?: number;            // Claude: total duration
-  durationApiMs?: number;         // Claude: pure API duration
-  numTurns?: number;              // Claude: number of turns
+  totalTokens?: number;            // Gemini fallback (doesn't split in/out)
+  cacheReadTokens?: number;        // Subset of inputTokens from cache (Claude + Codex)
+  cacheCreationTokens?: number;    // Subset of inputTokens written to cache (Claude only)
+  costUsd?: number;                // Claude only
+  durationMs?: number;             // Claude: total duration
+  durationApiMs?: number;          // Claude: pure API duration
+  numTurns?: number;               // Claude: number of turns
 }
 
 /** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */

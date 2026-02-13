@@ -30,8 +30,8 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
     expect(html).toContain('↓');
     expect(html).toContain('9.9k');
     expect(html).toContain('↑');
-    // Cache bar present: 33000 / (39270 + 33000) = 46%
-    expect(html).toContain('46%');
+    // Cache bar present: 33000 / 39270 = 84% (inputTokens = total after normalization)
+    expect(html).toContain('84%');
     expect(html).toContain('cache-bar-opus');
     // Cost in amber
     expect(html).toContain('$0.17');
@@ -48,8 +48,8 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
 
     expect(html).toContain('2.0k');
     expect(html).toContain('800');
-    // 1500 / (2000 + 1500) = 43%
-    expect(html).toContain('43%');
+    // 1500 / 2000 = 75% (inputTokens = total after normalization)
+    expect(html).toContain('75%');
     expect(html).toContain('text-codex-dark');
     // No cost field
     expect(html).not.toContain('$');

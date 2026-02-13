@@ -199,14 +199,20 @@ function isResultErrorEvent(event: unknown): boolean {
   return e['type'] === 'result' && e['subtype'] !== 'success';
 }
 
-/** F8: Extract token usage from Claude result/success event */
+/** F8: Extract token usage from Claude result/success event.
+ *  Normalises inputTokens to total input (new + cache_read + cache_creation)
+ *  so that the semantics match Codex/OpenAI where inputTokens = total. */
 function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
   const usage = (e['usage'] ?? {}) as Record<string, unknown>;
   const result: TokenUsage = {};
-  if (typeof usage['input_tokens'] === 'number') result.inputTokens = usage['input_tokens'];
+  const rawInput = typeof usage['input_tokens'] === 'number' ? usage['input_tokens'] : 0;
+  const cacheRead = typeof usage['cache_read_input_tokens'] === 'number' ? usage['cache_read_input_tokens'] : 0;
+  const cacheCreate = typeof usage['cache_creation_input_tokens'] === 'number' ? usage['cache_creation_input_tokens'] : 0;
+  const totalInput = rawInput + cacheRead + cacheCreate;
+  if (totalInput > 0) result.inputTokens = totalInput;
   if (typeof usage['output_tokens'] === 'number') result.outputTokens = usage['output_tokens'];
-  if (typeof usage['cache_read_input_tokens'] === 'number') result.cacheReadTokens = usage['cache_read_input_tokens'];
-  if (typeof usage['cache_creation_input_tokens'] === 'number') result.cacheCreationTokens = usage['cache_creation_input_tokens'];
+  if (cacheRead > 0) result.cacheReadTokens = cacheRead;
+  if (cacheCreate > 0) result.cacheCreationTokens = cacheCreate;
   if (typeof e['total_cost_usd'] === 'number') result.costUsd = e['total_cost_usd'];
   if (typeof e['duration_ms'] === 'number') result.durationMs = e['duration_ms'];
   if (typeof e['duration_api_ms'] === 'number') result.durationApiMs = e['duration_api_ms'];

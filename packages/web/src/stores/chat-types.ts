@@ -11,7 +11,9 @@ export interface ImageContent {
 
 export type MessageContent = TextContent | ImageContent;
 
-/** F8: Token usage data from CLI invocations */
+/** F8: Token usage data from CLI invocations.
+ *  inputTokens = TOTAL input (normalised across providers).
+ *  cacheReadTokens = subset of inputTokens served from cache. */
 export interface TokenUsage {
   inputTokens?: number;
   outputTokens?: number;

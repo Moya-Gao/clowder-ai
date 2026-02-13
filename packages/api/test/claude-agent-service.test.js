@@ -588,3 +588,38 @@ test('F8: result/success extracts usage into done metadata', async () => {
   assert.equal(done.metadata.usage.durationMs, 3000);
   assert.equal(done.metadata.usage.numTurns, 3);
 });
+
+test('F8: normalises inputTokens to include cache tokens (Claude API → total)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('cache test'));
+
+  emitClaudeEvents(proc, [
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: {
+        input_tokens: 4,
+        output_tokens: 263,
+        cache_read_input_tokens: 95000,
+        cache_creation_input_tokens: 0,
+      },
+      total_cost_usd: 0.17,
+      num_turns: 2,
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  // inputTokens = 4 (new) + 95000 (cache read) + 0 (cache create) = 95004
+  assert.equal(done.metadata.usage.inputTokens, 95004);
+  assert.equal(done.metadata.usage.outputTokens, 263);
+  assert.equal(done.metadata.usage.cacheReadTokens, 95000);
+  assert.equal(done.metadata.usage.costUsd, 0.17);
+  assert.equal(done.metadata.usage.numTurns, 2);
+  // cacheCreationTokens should be absent (was 0)
+  assert.equal(done.metadata.usage.cacheCreationTokens, undefined);
+});

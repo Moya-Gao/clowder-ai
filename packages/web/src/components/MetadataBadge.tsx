@@ -9,10 +9,8 @@ interface MetadataBadgeProps {
 }
 
 function cachePercent(input?: number, cacheRead?: number): number | null {
-  if (!cacheRead) return null;
-  const totalInput = (input ?? 0) + cacheRead;
-  if (totalInput === 0) return null;
-  return Math.round((cacheRead / totalInput) * 100);
+  if (!cacheRead || !input) return null;
+  return Math.round((cacheRead / input) * 100);
 }
 
 export function MetadataBadge({ metadata }: MetadataBadgeProps) {
