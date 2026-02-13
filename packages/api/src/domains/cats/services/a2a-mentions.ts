@@ -15,7 +15,7 @@ import type { CatId } from '@cat-cafe/shared';
 
 /** Max A2A chain depth, configurable via env (read at call time for hot-reload) */
 export function getMaxA2ADepth(): number {
-  return Number(process.env['MAX_A2A_DEPTH']) || 2;
+  return Number(process.env['MAX_A2A_DEPTH']) || 15;
 }
 
 /**

@@ -98,7 +98,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   }
 
   // A2A
-  const a2aMaxDepth = Number(env['MAX_A2A_DEPTH']) || 2;
+  const a2aMaxDepth = Number(env['MAX_A2A_DEPTH']) || 15;
   const defaultCodexModel = getCatModel('codex');
   const codexExecutionModel = env['CAT_CODEX_EXEC_MODEL']?.trim() || defaultCodexModel;
   const codexExecutionAuthMode = parseEnum<CodexAuthMode>(

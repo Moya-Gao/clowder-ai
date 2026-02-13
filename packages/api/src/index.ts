@@ -151,6 +151,9 @@ async function main(): Promise<void> {
     taskStore,
     hindsightClient,
     sharedBank: sharedHindsightBank,
+    router,
+    invocationRecordStore,
+    invocationTracker,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)

@@ -5,13 +5,20 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { createCatId } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
+import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
+import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
+import { registerCallbackTaskRoutes } from './callback-task-routes.js';
+import { triggerA2AInvocation } from './callback-a2a-trigger.js';
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
@@ -20,6 +27,10 @@ export interface CallbackRoutesOptions {
   taskStore?: ITaskStore;
   hindsightClient?: IHindsightClient;
   sharedBank?: string;
+  /** For post_message @mention → invocation triggering */
+  router?: AgentRouter;
+  invocationRecordStore?: IInvocationRecordStore;
+  invocationTracker?: InvocationTracker;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -32,15 +43,10 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
-const updateTaskSchema = callbackAuthSchema.extend({
-  taskId: z.string().min(1),
-  status: z.enum(['todo', 'doing', 'blocked', 'done']).optional(),
-  why: z.string().max(1000).optional(),
-});
-
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
-    const { registry, messageStore, socketManager, taskStore } = opts;
+    const { registry, messageStore, socketManager, taskStore, router,
+      invocationRecordStore, invocationTracker } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
       const parsed = postMessageSchema.safeParse(request.body);
@@ -64,12 +70,25 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         }
       }
 
+      // Resolve @mentions in content (if router is available)
+      const senderCatId = createCatId(record.catId);
+      let mentions: CatId[] = [];
+      let targetCats: CatId[] = [];
+      if (router && record.threadId) {
+        const resolved = await router.resolveTargetsAndIntent(
+          content, record.threadId, { persist: true },
+        );
+        // Filter out self-mention (cat can't invoke itself)
+        targetCats = resolved.targetCats.filter((c) => c !== senderCatId);
+        mentions = [...resolved.targetCats];
+      }
+
       // Store the message (scoped to the invocation's thread)
-      await messageStore.append({
+      const storedMsg = await messageStore.append({
         userId: record.userId,
         catId: record.catId,
         content,
-        mentions: [],
+        mentions,
         timestamp: Date.now(),
         threadId: record.threadId,
       });
@@ -80,6 +99,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         content,
         timestamp: Date.now(),
       }, record.threadId);
+
+      // Trigger invocation for @mentioned cats (A2A via post_message)
+      if (targetCats.length > 0 && router && invocationRecordStore && record.threadId) {
+        await triggerA2AInvocation(
+          { router, invocationRecordStore, socketManager,
+            ...(invocationTracker ? { invocationTracker } : {}), log: app.log },
+          { targetCats: targetCats as CatId[], content, userId: record.userId,
+            threadId: record.threadId, triggerMessage: storedMsg },
+        );
+      }
 
       return { status: 'ok', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
     });
@@ -138,52 +167,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       };
     });
 
-    app.post('/api/callbacks/update-task', async (request, reply) => {
-      if (!taskStore) {
-        reply.status(501);
-        return { error: 'Task store not configured' };
-      }
-
-      const parsed = updateTaskSchema.safeParse(request.body);
-      if (!parsed.success) {
-        reply.status(400);
-        return { error: 'Invalid request body', details: parsed.error.issues };
-      }
-
-      const { invocationId, callbackToken, taskId, status, why } = parsed.data;
-      const record = registry.verify(invocationId, callbackToken);
-      if (!record) {
-        reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
-      }
-
-      const existing = await taskStore.get(taskId);
-      if (!existing) {
-        reply.status(404);
-        return { error: 'Task not found' };
-      }
-      if (existing.threadId !== record.threadId) {
-        reply.status(403);
-        return { error: 'Task belongs to a different thread' };
-      }
-      if (existing.ownerCatId && existing.ownerCatId !== record.catId) {
-        reply.status(403);
-        return { error: 'Task is owned by another cat' };
-      }
-
-      const updateData: Record<string, unknown> = {};
-      if (status) updateData['status'] = status;
-      if (why) updateData['why'] = why;
-
-      const updated = await taskStore.update(taskId, updateData);
-      if (!updated) {
-        reply.status(500);
-        return { error: 'Failed to update task' };
-      }
-
-      socketManager.broadcastToRoom(`thread:${updated.threadId}`, 'task_updated', updated);
-      return { status: 'ok', task: updated };
-    });
+    if (taskStore) {
+      registerCallbackTaskRoutes(app, { registry, taskStore, socketManager });
+    }
 
     const memoryDeps: {
       registry: InvocationRegistry;
