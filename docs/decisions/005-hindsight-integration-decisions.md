@@ -294,4 +294,39 @@ Hindsight Recall (语义检索)
 
 ---
 
-*签名: 布偶猫 🐾 + 铲屎官 🐬*
+## 附录 B：GPT Pro 外部研究回流（2026-02-13，讨论输入）
+
+> 说明：本节是外部研究输入，不是自动拍板结论。最终取舍需三猫讨论后再转为正式决策。
+
+### 输入来源
+
+- GPT Pro 专项回复整理：`docs/research/2026-02-13-gpt-pro-hindsight-import-governance.md`
+- 历史课题包（A'/B/C）：`docs/discussions/2026-02-10-pro-research-triad/gpt-pro-prompts-v1.md`
+
+### 现场快照（2026-02-13）
+
+- `cat-cafe-shared` 当前呈现为 `opinion-only`（`nodes_by_fact_type={"opinion":27}`）
+- `tags` 为空（`total=0`）
+
+### 回流要点（待讨论）
+
+1. 导入策略建议从“Path-ID 快速导入（Option A）”升级到“Governed 导入（Option B）”：
+   - 稳定 `document_id`
+   - `quarantined` 隔离草案
+   - tombstone 生命周期
+2. 建议分三阶段执行：
+   - P0 止血：先把 tags/metadata 契约做硬并对稳定文档 backfill
+   - P1 同步：git diff 增量同步 + rename/delete 策略 + reconcile
+   - P2 习惯化：将“先查 evidence”做成可观测指标闭环
+3. 继续坚持本 ADR 的核心边界：单 bank + 调用层治理，不另起平台。
+
+### 与本 ADR 的关系
+
+- **一致**：单 bank 策略、tags/metadata 治理优先、安全边界与降级优先。
+- **补强**：把“待办的 types 映射 + bank 过滤”进一步细化为可执行同步与评测路线。
+- **待决**：docRef 规则、discussion 导入边界、tombstone 生命周期阈值。
+
+---
+
+*附录 B 补充整理：缅因猫 🐾（2026-02-13）*  
+*原始签名: 布偶猫 🐾 + 铲屎官 🐬*
