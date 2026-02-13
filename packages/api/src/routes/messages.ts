@@ -25,6 +25,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
+import type { TokenUsage } from '../domains/cats/services/types.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -246,6 +247,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           const cursorBoundaries = new Map<string, string>();
           // P1-2: track persistence failures across generator boundary
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
+          // F8: collect per-cat token usage from done events
+          const collectedUsage = new Map<string, TokenUsage>();
 
           // F11: active mode → ModeOrchestrator, otherwise → AgentRouter
           const activeMode = await opts.modeStore?.getMode(resolvedThreadId);
@@ -264,6 +267,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 persistenceContext,
               },
             })) {
+              if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
+                collectedUsage.set(msg.catId, msg.metadata.usage);
+              }
               opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
             }
           } else {
@@ -278,6 +284,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 persistenceContext,
               },
             )) {
+              if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
+                collectedUsage.set(msg.catId, msg.metadata.usage);
+              }
               opts.socketManager.broadcastAgentMessage(msg, resolvedThreadId);
             }
           }
@@ -300,6 +309,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           } else {
             await opts.invocationRecordStore!.update(createResult.invocationId, {
               status: 'succeeded',
+              ...(collectedUsage.size > 0 ? {
+                usageByCat: Object.fromEntries(collectedUsage),
+              } : {}),
             });
 
             // ADR-008 S3: cursor advances ONLY after succeeded

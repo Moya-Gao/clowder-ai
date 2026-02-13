@@ -181,6 +181,35 @@ describe('InvocationRecordStore', () => {
     assert.equal(record.error, 'CLI timeout');
   });
 
+  test('F8: update() stores usageByCat and get() returns it', async () => {
+    const { InvocationRecordStore } = await import(
+      '../dist/domains/cats/services/InvocationRecordStore.js'
+    );
+
+    const store = new InvocationRecordStore();
+    const { invocationId } = store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus', 'codex'],
+      intent: 'ideate',
+      idempotencyKey: 'usage-key',
+    });
+
+    const usageByCat = {
+      opus: { inputTokens: 1000, outputTokens: 500, costUsd: 0.03 },
+      codex: { inputTokens: 200, outputTokens: 100 },
+    };
+
+    store.update(invocationId, { status: 'succeeded', usageByCat });
+
+    const record = store.get(invocationId);
+    assert.ok(record);
+    assert.equal(record.status, 'succeeded');
+    assert.deepEqual(record.usageByCat, usageByCat);
+    assert.equal(record.usageByCat.opus.inputTokens, 1000);
+    assert.equal(record.usageByCat.codex.outputTokens, 100);
+  });
+
   test('update() returns null for non-existent id', async () => {
     const { InvocationRecordStore } = await import(
       '../dist/domains/cats/services/InvocationRecordStore.js'

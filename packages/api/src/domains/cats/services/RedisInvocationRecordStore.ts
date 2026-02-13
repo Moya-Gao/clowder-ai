@@ -11,6 +11,7 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { InvocationKeys } from './invocation-keys.js';
+import type { TokenUsage } from './types.js';
 import type {
   InvocationRecord,
   InvocationStatus,
@@ -121,6 +122,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     if (input.status !== undefined) pairs.push('status', input.status);
     if (input.userMessageId !== undefined) pairs.push('userMessageId', input.userMessageId ?? '');
     if (input.error !== undefined) pairs.push('error', input.error);
+    if (input.usageByCat !== undefined) pairs.push('usageByCat', JSON.stringify(input.usageByCat));
 
     if (input.expectedStatus !== undefined) {
       // Atomic CAS via Lua: check + update in one EVAL
@@ -151,6 +153,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
   private hydrateRecord(data: Record<string, string>): InvocationRecord {
     const errorValue = data['error'];
     const hasError = errorValue !== undefined && errorValue !== '';
+    const usageByCat = safeParseObject(data['usageByCat']);
     return {
       id: data['id']!,
       threadId: data['threadId']!,
@@ -161,6 +164,7 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
       status: (data['status'] as InvocationStatus) ?? 'queued',
       idempotencyKey: data['idempotencyKey']!,
       ...(hasError ? { error: errorValue } : {}),
+      ...(usageByCat ? { usageByCat } : {}),
       createdAt: parseInt(data['createdAt']!, 10),
       updatedAt: parseInt(data['updatedAt']!, 10),
     };
@@ -174,5 +178,17 @@ function safeParseArray(value: string | undefined): string[] {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+}
+
+function safeParseObject(value: string | undefined): Record<string, TokenUsage> | null {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, TokenUsage>
+      : null;
+  } catch {
+    return null;
   }
 }
