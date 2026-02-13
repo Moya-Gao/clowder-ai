@@ -14,7 +14,7 @@ export interface DegradationResult {
   reason?: string;
   /** Adjusted options for context assembly */
   adjustedMaxMessages?: number;
-  adjustedMaxTotalChars?: number;
+  adjustedMaxTotalTokens?: number;
 }
 
 /**
@@ -65,13 +65,13 @@ export function checkContextBudget(
  * - 'abort': cannot proceed
  */
 export function checkExtractionBudget(
-  historyChars: number,
+  historyTokens: number,
   budget: ContextBudget,
 ): DegradationResult {
   // Use 80% of maxPromptTokens as threshold for extraction
   const extractionBudget = budget.maxPromptTokens * 0.8;
 
-  if (historyChars <= extractionBudget) {
+  if (historyTokens <= extractionBudget) {
     return {
       degraded: false,
       strategy: 'full',
@@ -79,11 +79,11 @@ export function checkExtractionBudget(
   }
 
   // Too large for LLM — pattern matching only
-  if (historyChars <= budget.maxPromptTokens * 2) {
+  if (historyTokens <= budget.maxPromptTokens * 2) {
     return {
       degraded: true,
       strategy: 'pattern_only',
-      reason: `历史过长 (${(historyChars / 1000).toFixed(0)}k chars)，使用模式匹配`,
+      reason: `历史过长 (${(historyTokens / 1000).toFixed(0)}k tokens)，使用模式匹配`,
     };
   }
 
@@ -91,7 +91,7 @@ export function checkExtractionBudget(
   return {
     degraded: true,
     strategy: 'abort',
-    reason: `历史过长 (${(historyChars / 1000).toFixed(0)}k chars)，无法处理`,
+    reason: `历史过长 (${(historyTokens / 1000).toFixed(0)}k tokens)，无法处理`,
   };
 }
 
