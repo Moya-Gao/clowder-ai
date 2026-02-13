@@ -12,10 +12,23 @@ interface EnvVar {
   currentValue: string | null;
 }
 
+interface DataDirs {
+  auditLogs: string;
+  cliArchive: string;
+  redisDevSandbox: string;
+  uploads: string;
+}
+
+interface EnvPaths {
+  projectRoot: string;
+  homeDir: string;
+  dataDirs: DataDirs;
+}
+
 interface EnvSummaryData {
   categories: Record<string, string>;
   variables: EnvVar[];
-  paths: { projectRoot: string; homeDir: string };
+  paths: EnvPaths;
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -39,28 +52,28 @@ function VscodeLink({ path, label }: { path: string; label: string }) {
   );
 }
 
-function buildConfigFiles(paths: { projectRoot: string; homeDir: string }) {
+function buildConfigFiles(projectRoot: string) {
   return [
-    { name: 'cat-config.json', path: `${paths.projectRoot}/cat-config.json`, desc: '猫猫配置（模型、适配器）' },
-    { name: '.env.local', path: `${paths.projectRoot}/.env.local`, desc: '本地环境变量覆盖' },
-    { name: 'start-dev.sh', path: `${paths.projectRoot}/scripts/start-dev.sh`, desc: '开发启动脚本' },
-    { name: 'CLAUDE.md', path: `${paths.projectRoot}/CLAUDE.md`, desc: '布偶猫项目指引' },
-    { name: 'AGENTS.md', path: `${paths.projectRoot}/AGENTS.md`, desc: '缅因猫项目指引' },
-    { name: 'GEMINI.md', path: `${paths.projectRoot}/GEMINI.md`, desc: '暹罗猫项目指引' },
+    { name: 'cat-config.json', path: `${projectRoot}/cat-config.json`, desc: '猫猫配置（模型、适配器）' },
+    { name: '.env.local', path: `${projectRoot}/.env.local`, desc: '本地环境变量覆盖' },
+    { name: 'start-dev.sh', path: `${projectRoot}/scripts/start-dev.sh`, desc: '开发启动脚本' },
+    { name: 'CLAUDE.md', path: `${projectRoot}/CLAUDE.md`, desc: '布偶猫项目指引' },
+    { name: 'AGENTS.md', path: `${projectRoot}/AGENTS.md`, desc: '缅因猫项目指引' },
+    { name: 'GEMINI.md', path: `${projectRoot}/GEMINI.md`, desc: '暹罗猫项目指引' },
   ];
 }
 
-function buildDataDirs(paths: { projectRoot: string; homeDir: string }) {
+function buildDataDirs(dataDirs: DataDirs) {
   return [
-    { name: '审计日志', path: `${paths.homeDir}/.cat-cafe/audit`, desc: 'EventAuditLog 输出' },
-    { name: 'CLI 归档', path: `${paths.homeDir}/.cat-cafe/cli-archive`, desc: 'CLI 原始输出归档' },
-    { name: 'Redis 开发沙盒', path: `${paths.homeDir}/.cat-cafe/redis-dev-sandbox`, desc: '开发用 Redis 数据' },
-    { name: '上传目录', path: `${paths.projectRoot}/uploads`, desc: '文件上传存储' },
+    { name: '审计日志', path: dataDirs.auditLogs, desc: 'EventAuditLog 输出' },
+    { name: 'CLI 归档', path: dataDirs.cliArchive, desc: 'CLI 原始输出归档' },
+    { name: 'Redis 开发沙盒', path: dataDirs.redisDevSandbox, desc: '开发用 Redis 数据' },
+    { name: '上传目录', path: dataDirs.uploads, desc: '文件上传存储' },
   ];
 }
 
-function ConfigFilesSection({ paths }: { paths: { projectRoot: string; homeDir: string } }) {
-  const files = buildConfigFiles(paths);
+function ConfigFilesSection({ projectRoot }: { projectRoot: string }) {
+  const files = buildConfigFiles(projectRoot);
   return (
     <Section title="配置文件">
       <div className="space-y-2">
@@ -110,8 +123,8 @@ function EnvVarsSection({ categories, variables }: { categories: Record<string, 
   );
 }
 
-function DataDirsSection({ paths }: { paths: { projectRoot: string; homeDir: string } }) {
-  const dirs = buildDataDirs(paths);
+function DataDirsSection({ dataDirs }: { dataDirs: DataDirs }) {
+  const dirs = buildDataDirs(dataDirs);
   return (
     <Section title="数据目录">
       <div className="space-y-2">
@@ -145,9 +158,9 @@ export function HubEnvFilesTab() {
 
   return (
     <>
-      <ConfigFilesSection paths={data.paths} />
+      <ConfigFilesSection projectRoot={data.paths.projectRoot} />
       <EnvVarsSection categories={data.categories} variables={data.variables} />
-      <DataDirsSection paths={data.paths} />
+      <DataDirsSection dataDirs={data.paths.dataDirs} />
     </>
   );
 }

@@ -152,4 +152,26 @@ describe('GET /api/config/env-summary (route)', () => {
 
     await app.close();
   });
+
+  it('dataDirs returns absolute resolved paths from API', async () => {
+    const { configRoutes } = await import('../dist/routes/config.js');
+    const app = Fastify({ logger: false });
+    await configRoutes(app);
+    await app.ready();
+
+    const res = await app.inject({ method: 'GET', url: '/api/config/env-summary' });
+    const body = JSON.parse(res.payload);
+    const { dataDirs } = body.paths;
+
+    assert.ok(dataDirs, 'paths.dataDirs should exist');
+    for (const key of ['auditLogs', 'cliArchive', 'redisDevSandbox', 'uploads']) {
+      assert.ok(dataDirs[key], `dataDirs.${key} should exist`);
+      assert.ok(
+        dataDirs[key].startsWith('/'),
+        `dataDirs.${key} should be absolute, got: ${dataDirs[key]}`,
+      );
+    }
+
+    await app.close();
+  });
 });

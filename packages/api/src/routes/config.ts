@@ -187,12 +187,22 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
     return { config: after };
   });
 
-  app.get('/api/config/env-summary', async () => ({
-    categories: ENV_CATEGORIES,
-    variables: buildEnvSummary(),
-    paths: {
-      projectRoot: MONOREPO_ROOT,
-      homeDir: os.homedir(),
-    },
-  }));
+  app.get('/api/config/env-summary', async () => {
+    const apiCwd = process.cwd();
+    const home = os.homedir();
+    return {
+      categories: ENV_CATEGORIES,
+      variables: buildEnvSummary(),
+      paths: {
+        projectRoot: MONOREPO_ROOT,
+        homeDir: home,
+        dataDirs: {
+          auditLogs: resolve(apiCwd, process.env['AUDIT_LOG_DIR'] ?? './data/audit-logs'),
+          cliArchive: resolve(apiCwd, process.env['CLI_RAW_ARCHIVE_DIR'] ?? './data/cli-raw-archive'),
+          redisDevSandbox: resolve(home, '.cat-cafe/redis-dev-sandbox'),
+          uploads: resolve(apiCwd, process.env['UPLOAD_DIR'] ?? './uploads'),
+        },
+      },
+    };
+  });
 }
