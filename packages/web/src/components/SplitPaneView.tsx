@@ -5,6 +5,7 @@ import { useChatStore, type Thread } from '@/stores/chatStore';
 import { SplitPaneCell, SplitPanePlaceholder } from './SplitPaneCell';
 import { MiniThreadSidebar } from './MiniThreadSidebar';
 import { ChatInput } from './ChatInput';
+import { PawIcon } from './icons/PawIcon';
 
 interface SplitPaneViewProps {
   onSend: (content: string, images?: File[], overrideThreadId?: string) => void;
@@ -48,20 +49,22 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
     [onZoomToThread]
   );
 
-  /** Assign a thread from the mini sidebar to the currently selected (or first empty) pane */
+  /** Assign a thread from the mini sidebar to the next empty pane (or replace selected if full) */
   const handleAssignToPane = useCallback(
     (threadId: string) => {
+      if (splitPaneThreadIds.includes(threadId)) return; // already in a pane
       const next = [...splitPaneThreadIds];
-      // Find the selected pane index or first empty slot
-      const targetIdx = splitPaneTargetId
-        ? paneSlots.indexOf(splitPaneTargetId)
-        : paneSlots.findIndex((s) => s === null);
-      const insertIdx = targetIdx >= 0 ? targetIdx : paneSlots.findIndex((s) => s === null);
-      if (insertIdx < 0) return; // All panes full
-
-      // Replace or fill the slot
-      while (next.length <= insertIdx) next.push('');
-      next[insertIdx] = threadId;
+      const emptyIdx = paneSlots.findIndex((s) => s === null);
+      if (emptyIdx >= 0) {
+        // Fill the first empty slot
+        while (next.length <= emptyIdx) next.push('');
+        next[emptyIdx] = threadId;
+      } else {
+        // All panes full — replace the currently selected pane
+        const selectedIdx = splitPaneTargetId ? paneSlots.indexOf(splitPaneTargetId) : 0;
+        const idx = selectedIdx >= 0 ? selectedIdx : 0;
+        next[idx] = threadId;
+      }
       setSplitPaneThreadIds(next.filter(Boolean));
       setSplitPaneTarget(threadId);
     },
@@ -72,23 +75,41 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
     ? getThreadState(splitPaneTargetId).isLoading
     : false;
 
-  return (
-    <div className="flex h-screen">
-      <MiniThreadSidebar onAssignToPane={handleAssignToPane} />
+  const handleBackToSingle = useCallback(() => {
+    const target = splitPaneTargetId ?? splitPaneThreadIds[0];
+    if (target) {
+      onZoomToThread(target);
+    } else {
+      useChatStore.getState().setViewMode('single');
+    }
+  }, [splitPaneTargetId, splitPaneThreadIds, onZoomToThread]);
 
-      <div className="flex flex-col flex-1 min-w-0">
-        {/* 2x2 grid */}
-        <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2 p-2 min-h-0">
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Toolbar — always visible in split mode */}
+      <header className="flex items-center gap-2 border-b border-owner-light bg-owner-bg px-4 py-2 flex-shrink-0">
+        <PawIcon className="w-5 h-5 text-owner-primary" />
+        <span className="text-sm font-bold text-cafe-black">Cat Cafe</span>
+        <span className="text-xs text-gray-400 ml-1">分屏模式</span>
+        <div className="flex-1" />
+        <span className="text-[10px] text-gray-400 hidden sm:inline">⌘\ 切换</span>
+        <button
+          onClick={handleBackToSingle}
+          className="px-2.5 py-1 text-xs rounded-md bg-white border border-gray-200 hover:bg-gray-50 transition-colors text-gray-600"
+        >
+          返回单屏
+        </button>
+      </header>
+
+      <div className="flex flex-1 min-h-0">
+        <MiniThreadSidebar onAssignToPane={handleAssignToPane} />
+
+        <div className="flex flex-col flex-1 min-w-0">
+          {/* 2x2 grid */}
+          <div className="flex-1 grid grid-cols-2 grid-rows-2 gap-2 p-2 min-h-0">
           {paneSlots.map((tid, i) => {
             if (!tid) {
-              return (
-                <SplitPanePlaceholder
-                  key={`empty-${i}`}
-                  index={i}
-                  isSelected={false}
-                  onSelect={() => {}}
-                />
-              );
+              return <SplitPanePlaceholder key={`empty-${i}`} index={i} />;
             }
             const thread = threadMap.get(tid);
             return (
@@ -119,6 +140,7 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
             onStop={onStop}
             disabled={isTargetLoading || !splitPaneTargetId}
           />
+        </div>
         </div>
       </div>
     </div>

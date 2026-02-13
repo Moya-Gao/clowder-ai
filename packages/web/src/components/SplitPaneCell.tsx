@@ -106,27 +106,12 @@ export function SplitPaneCell({
 }
 
 /** Empty pane placeholder */
-export function SplitPanePlaceholder({
-  index,
-  isSelected,
-  onSelect,
-}: {
-  index: number;
-  isSelected: boolean;
-  onSelect: () => void;
-}) {
+export function SplitPanePlaceholder({ index }: { index: number }) {
   return (
-    <div
-      className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors cursor-pointer ${
-        isSelected
-          ? 'border-owner-primary bg-owner-bg/30'
-          : 'border-gray-200 hover:border-gray-300'
-      }`}
-      onClick={onSelect}
-    >
+    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 transition-colors">
       <span className="text-2xl text-gray-200 mb-1">+</span>
       <span className="text-xs text-gray-400">窗格 {index + 1}</span>
-      <span className="text-[10px] text-gray-300 mt-0.5">点击侧栏拖入 thread</span>
+      <span className="text-[10px] text-gray-300 mt-0.5">点击左侧 thread 分配到此处</span>
     </div>
   );
 }
