@@ -86,7 +86,7 @@
 ## 6) 砚砚侧首批条目（AGENTS + Review + Skills）
 
 ### LL-002: Review 问题必须先 Red 再 Green，禁止先改后补测
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：收到 P1/P2 后直接改实现再“补测试”，容易把症状盖住但根因未修。
@@ -104,7 +104,7 @@
   - `cat-cafe-skills/systematic-debugging/SKILL.md`
 
 ### LL-003: Reviewer 必须有立场，Author 必须技术性 push back
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：review 变成礼貌性同意，双方“对方说啥就是啥”，缺乏技术争论。
@@ -122,7 +122,7 @@
   - `cat-cafe-skills/cat-cafe-requesting-review/SKILL.md`
 
 ### LL-004: P1/P2 当轮清零，P3 当场决断，不挂债务
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：把高优先级问题“先记 backlog”导致风险跨轮累积，后续修复成本放大。
@@ -140,7 +140,7 @@
   - `cat-cafe-skills/merge-approval-gate/SKILL.md`
 
 ### LL-005: 修完 review 后必须回给 reviewer 二次确认再合 main
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：作者修完后自行判断“改对了”直接合 main，绕过 reviewer 最终确认。
@@ -158,7 +158,7 @@
   - `docs/mailbox/README.md`
 
 ### LL-006: 没有新鲜验证证据，不得宣称完成
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：未运行最新验证命令就宣称“已修复/已通过”，造成虚假完成与返工。
@@ -176,7 +176,7 @@
   - `cat-cafe-skills/spec-compliance-check/SKILL.md`
 
 ### LL-007: 交接缺 Why 会让接手方无法判断
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：交接只写改动不写 why/取舍/待决项，接手方无法判断风险与下一步。
@@ -194,7 +194,7 @@
   - `docs/mailbox/README.md`
 
 ### LL-008: Worktree 生命周期必须成套执行（建-收敛-合入-清理）
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：只建不清理 worktree，或在 main 上直接处理冲突，导致磁盘膨胀与误回退。
@@ -210,9 +210,11 @@
 - 关联：
   - `AGENTS.md`
   - `docs/BACKLOG.md`
+  - `LL-011`
+  - `LL-012`
 
 ### LL-009: 关键前提不确定时，先提问再动作
-- 状态：validated
+- 状态：draft
 - 更新时间：2026-02-13
 
 - 坑：在关键前提不明时硬猜推进，后续修复变成“补丁叠补丁”。

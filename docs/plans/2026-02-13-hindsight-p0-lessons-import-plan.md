@@ -14,15 +14,15 @@
 
 **Files:**
 - Create: `packages/api/src/domains/cats/services/hindsight-import/p0-contract.ts`
-- Create: `packages/api/src/domains/cats/services/hindsight-import/p0-contract.test.ts`
+- Create: `packages/api/test/hindsight-import/p0-contract.test.js`
 - Modify: `docs/decisions/005-hindsight-integration-decisions.md`
 
 **Step 1: Write the failing test**
 
-```ts
+```js
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildP0DocumentId, validateP0Tags } from '../dist/domains/cats/services/hindsight-import/p0-contract.js';
+import { buildP0DocumentId, validateP0Tags } from '../../dist/domains/cats/services/hindsight-import/p0-contract.js';
 
 test('buildP0DocumentId derives stable ids for ADR paths', () => {
   assert.equal(buildP0DocumentId('docs/decisions/005-hindsight-integration-decisions.md'), 'adr:005');
@@ -38,7 +38,7 @@ test('validateP0Tags rejects missing required governance tags', () => {
 Run:
 
 ```bash
-pnpm --filter @cat-cafe/api test -- test/domains/cats/services/hindsight-import/p0-contract.test.ts
+pnpm --filter @cat-cafe/api test -- test/hindsight-import/p0-contract.test.js
 ```
 
 Expected: FAIL（模块不存在或断言失败）。
@@ -54,6 +54,10 @@ Expected: FAIL（模块不存在或断言失败）。
   - ADR：`adr:<number>`
   - 其他：`path:<normalizedPath>`（P0 fallback）
 - 必填 tag 前缀：`project:`、`kind:`、`status:`、`author:`、`origin:`、`sourcePath:`、`sourceCommit:`、`anchor:`。
+- `anchor` 派生规则（避免非 ADR 源歧义）：
+  - ADR 文档：`anchor:adr:<number>#<heading-slug>`
+  - `CLAUDE.md` / `AGENTS.md`：`anchor:section:<heading-slug>`
+  - `docs/lessons-learned.md`：`anchor:ll:<id>`（如 `anchor:ll:018`）
 
 **Step 4: Run test to verify it passes**
 
@@ -62,7 +66,7 @@ Run same test command, expect PASS.
 **Step 5: Commit**
 
 ```bash
-git add packages/api/src/domains/cats/services/hindsight-import/p0-contract.ts packages/api/src/domains/cats/services/hindsight-import/p0-contract.test.ts docs/decisions/005-hindsight-integration-decisions.md
+git add packages/api/src/domains/cats/services/hindsight-import/p0-contract.ts packages/api/test/hindsight-import/p0-contract.test.js docs/decisions/005-hindsight-integration-decisions.md
 git commit -m "feat(api): define hindsight p0 import contract and id rules [缅因猫🐾]" -m "Why: 先锁导入契约，避免并行实现阶段出现标签漂移与ID不一致。"
 ```
 
@@ -109,8 +113,11 @@ Expected: FAIL（导入器未实现）。
 **Step 3: Write minimal implementation**
 
 - 基于 Markdown 标题切片（至少保证每个一级/二级标题可独立成为 item）。
+- `docs/lessons-learned.md` 仅导入 `### LL-\d{3}:` 条目；跳过模板/规则/维护段落（§1-4 与维护约定）。
 - 每个 item 写入：`document_id`、`content`、`tags`、`metadata`（string 值）。
+- 从条目正文提取 `来源锚点` 与 `关联` 字段，写入 metadata（至少保留 `sourceAnchors`、`related`）。
 - `sourceCommit` 从 git HEAD 读取。
+- 复用现有 `createHindsightClient()` + `client.retain()`，不要重复封装 HTTP retain 调用。
 - CLI 脚本支持：
   - `--dry-run`
   - `--source <path>`（单文件）
@@ -132,15 +139,18 @@ git commit -m "feat(api): add hindsight p0 doc importer and cli entry [缅因猫
 ### Task 3: 收紧 evidence 默认检索策略（strict + origin:git）
 
 **Files:**
+- Modify: `packages/api/src/routes/evidence-helpers.ts`
 - Modify: `packages/api/src/routes/evidence.ts`
 - Modify: `packages/api/src/routes/callback-memory-routes.ts`
+- Modify: `packages/api/src/config/hindsight-runtime-config.ts`
 - Modify: `packages/api/test/evidence-route.test.js`
 - Modify: `packages/api/test/callback-routes.test.js`
 
 **Step 1: Write the failing test**
 
-- 断言 `/api/evidence/search` 默认会带 `tagsMatch=all_strict` 与 `project:cat-cafe,origin:git`。
-- 断言 callback search-evidence 未传 tags 时仍会注入上述默认过滤。
+- 断言 `/api/evidence/search` 未传 tags 时默认包含 `project:cat-cafe` 与 `origin:git`。
+- 断言 callback search-evidence 未传 tags 时也注入同样默认 tags。
+- 断言默认 `tagsMatch` 由 runtime config 提供且为 `all_strict`（不在路由层硬编码）。
 
 **Step 2: Run test to verify it fails**
 
@@ -153,10 +163,11 @@ pnpm --filter @cat-cafe/api test -- test/callback-routes.test.js
 
 Expected: FAIL（默认过滤尚未收紧）。
 
-**Step 3: Write minimal implementation**
+**Step 3: Write minimal implementation（明确采用 A+B）**
 
-- 设置 evidence 默认 tags：`project:cat-cafe`、`origin:git`。
-- 保持允许用户显式扩展 tags，但不得覆盖掉 `project:cat-cafe`。
+- A：在 `normalizeTags()`（`evidence-helpers.ts` + callback 路由内部同名 helper）注入默认 tags：`project:cat-cafe` 与 `origin:git`。
+- A：保持允许用户显式扩展 tags，但不得移除 `project:cat-cafe`。
+- B：`tagsMatch` 默认值保持由 `hindsight-runtime-config.ts` 管理（`all_strict`），路由层仅读取配置，不硬编码。
 - 在 degraded 场景下保持原有降级消息语义。
 
 **Step 4: Run test to verify it passes**
@@ -166,7 +177,7 @@ Run same tests, expect PASS.
 **Step 5: Commit**
 
 ```bash
-git add packages/api/src/routes/evidence.ts packages/api/src/routes/callback-memory-routes.ts packages/api/test/evidence-route.test.js packages/api/test/callback-routes.test.js
+git add packages/api/src/routes/evidence-helpers.ts packages/api/src/routes/evidence.ts packages/api/src/routes/callback-memory-routes.ts packages/api/src/config/hindsight-runtime-config.ts packages/api/test/evidence-route.test.js packages/api/test/callback-routes.test.js
 git commit -m "feat(api): enforce strict evidence defaults for hindsight recall [缅因猫🐾]" -m "Why: 默认检索必须屏蔽无标签噪音，先保证 evidence 结果可治理可审计。"
 ```
 
@@ -238,6 +249,7 @@ Expected:
 
 **Step 2: Verify acceptance gates**
 
+- 前置条件：完成 lessons 交叉复核，`validated` 条目数达到门槛后再执行本步骤。
 - 导入覆盖：白名单源均有对应 document（抽样验证）。
 - 标签合规：抽样 item 均含必填 tag 前缀。
 - 检索合规：默认 evidence 请求为 strict + git-origin 过滤。
@@ -258,7 +270,7 @@ git commit -m "docs(p0): record hindsight lessons import acceptance and boundari
 
 ## P0 验收门槛（草案）
 
-1. `docs/lessons-learned.md` 已建并包含首批 validated 条目（>= 12）。
+1. `docs/lessons-learned.md` 已建并在交叉复核完成后包含 validated 条目（>= 12）。
 2. Hindsight `cat-cafe-shared` 的 `tags.total > 0`。
 3. 默认 evidence 检索为 `tagsMatch=all_strict`，且含 `project:cat-cafe` + `origin:git`。
 4. 可观测脚本可报告 stats/tags/version 三项状态。
