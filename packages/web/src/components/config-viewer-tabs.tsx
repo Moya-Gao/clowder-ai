@@ -46,8 +46,8 @@ export function CatTab({ cat, budget, caps }: { cat: CatConfig; budget: ContextB
           <KV label="Provider" value={cat.provider} />
           <KV label="Model" value={cat.model} />
           <KV label="MCP 交付" value={cat.mcpSupport ? '原生 (--mcp-config)' : 'HTTP 回调注入'} />
-          <KV label="Prompt 上限" value={`${(budget.maxPromptChars / 1000).toFixed(0)}k chars`} />
-          <KV label="上下文上限" value={`${(budget.maxContextChars / 1000).toFixed(0)}k chars`} />
+          <KV label="Prompt 上限" value={`${(budget.maxPromptTokens / 1000).toFixed(0)}k tokens`} />
+          <KV label="上下文上限" value={`${(budget.maxContextTokens / 1000).toFixed(0)}k tokens`} />
           <KV label="消息数上限" value={budget.maxMessages} />
           <KV label="单消息上限" value={`${(budget.maxContentLengthPerMsg / 1000).toFixed(0)}k chars`} />
         </div>

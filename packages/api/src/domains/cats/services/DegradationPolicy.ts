@@ -68,8 +68,8 @@ export function checkExtractionBudget(
   historyChars: number,
   budget: ContextBudget,
 ): DegradationResult {
-  // Use 80% of maxPromptChars as threshold for extraction
-  const extractionBudget = budget.maxPromptChars * 0.8;
+  // Use 80% of maxPromptTokens as threshold for extraction
+  const extractionBudget = budget.maxPromptTokens * 0.8;
 
   if (historyChars <= extractionBudget) {
     return {
@@ -79,7 +79,7 @@ export function checkExtractionBudget(
   }
 
   // Too large for LLM — pattern matching only
-  if (historyChars <= budget.maxPromptChars * 2) {
+  if (historyChars <= budget.maxPromptTokens * 2) {
     return {
       degraded: true,
       strategy: 'pattern_only',

@@ -12,8 +12,8 @@ import {
 } from '../dist/domains/cats/services/DegradationPolicy.js';
 
 const mockBudget = {
-  maxPromptChars: 100000,
-  maxContextChars: 30000,
+  maxPromptTokens: 100000,
+  maxContextTokens: 30000,
   maxMessages: 40,
   maxContentLengthPerMsg: 2000,
 };

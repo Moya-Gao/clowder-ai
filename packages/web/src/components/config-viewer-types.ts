@@ -6,8 +6,8 @@ export interface CatConfig {
 }
 
 export interface ContextBudget {
-  maxPromptChars: number;
-  maxContextChars: number;
+  maxPromptTokens: number;
+  maxContextTokens: number;
   maxMessages: number;
   maxContentLengthPerMsg: number;
 }

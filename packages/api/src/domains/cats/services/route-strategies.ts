@@ -276,11 +276,11 @@ export async function* routeSerial(
         const catName = catId as 'opus' | 'codex' | 'gemini';
         const budget = getCatContextBudget(catName);
         // Reserve space for system prompt (~300), user message, overhead (~1000)
-        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - prompt.length - 1000);
+        const budgetForContext = Math.max(0, budget.maxPromptTokens - 300 - prompt.length - 1000);
         const { contextText, messageCount } = assembleContext(history, {
           maxMessages: budget.maxMessages,
           maxContentLength: budget.maxContentLengthPerMsg,
-          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+          maxTotalChars: Math.min(budgetForContext, budget.maxContextTokens),
         });
         catContextHistory = contextText || undefined;
 
@@ -519,11 +519,11 @@ export async function* routeParallel(
       if (history && history.length > 0 && !contextHistory) {
         const catName = catId as 'opus' | 'codex' | 'gemini';
         const budget = getCatContextBudget(catName);
-        const budgetForContext = Math.max(0, budget.maxPromptChars - 300 - message.length - 1000);
+        const budgetForContext = Math.max(0, budget.maxPromptTokens - 300 - message.length - 1000);
         const { contextText, messageCount } = assembleContext(history, {
           maxMessages: budget.maxMessages,
           maxContentLength: budget.maxContentLengthPerMsg,
-          maxTotalChars: Math.min(budgetForContext, budget.maxContextChars),
+          maxTotalChars: Math.min(budgetForContext, budget.maxContextTokens),
         });
         catContextHistory = contextText || undefined;
 

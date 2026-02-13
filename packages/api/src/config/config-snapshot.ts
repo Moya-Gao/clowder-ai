@@ -12,7 +12,7 @@ export interface ConfigSnapshot {
     /** @deprecated Use perCatBudgets for actual limits. This is assembleContext default, overridden per-cat at route time. */
     maxTotalChars: number;
     /** @deprecated Use perCatBudgets for actual limits. */
-    maxPromptChars: number;
+    maxPromptTokens: number;
     note: string;
   };
   /** Per-cat context budgets (Phase 4.0) — the actual limits used at route time */

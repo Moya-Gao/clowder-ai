@@ -45,7 +45,7 @@ describe('ConfigRegistry', () => {
   it('uses default values when env vars are missing', async () => {
     setEnv('CONTEXT_HISTORY_LIMIT', undefined);
     setEnv('MAX_CONTEXT_MSG_CHARS', undefined);
-    setEnv('MAX_PROMPT_CHARS', undefined);
+    setEnv('MAX_PROMPT_TOKENS', undefined);
     setEnv('CAT_CODEX_SANDBOX_MODE', undefined);
     setEnv('CAT_CODEX_APPROVAL_POLICY', undefined);
 
@@ -54,7 +54,7 @@ describe('ConfigRegistry', () => {
 
     assert.equal(snapshot.context.maxMessages, 20);
     assert.equal(snapshot.context.maxContentLength, 1500);
-    assert.equal(snapshot.context.maxPromptChars, 32000);
+    assert.equal(snapshot.context.maxPromptTokens, 32000);
     assert.equal(snapshot.context.maxTotalChars, 8000);
     assert.equal(snapshot.cli.codexSandboxMode, 'danger-full-access');
     assert.equal(snapshot.cli.codexApprovalPolicy, 'on-request');
@@ -74,14 +74,14 @@ describe('ConfigRegistry', () => {
   it('reads context env overrides', async () => {
     setEnv('CONTEXT_HISTORY_LIMIT', '50');
     setEnv('MAX_CONTEXT_MSG_CHARS', '3000');
-    setEnv('MAX_PROMPT_CHARS', '64000');
+    setEnv('MAX_PROMPT_TOKENS', '64000');
 
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
     assert.equal(snapshot.context.maxMessages, 50);
     assert.equal(snapshot.context.maxContentLength, 3000);
-    assert.equal(snapshot.context.maxPromptChars, 64000);
+    assert.equal(snapshot.context.maxPromptTokens, 64000);
   });
 
   it('shows redis=memory when REDIS_URL not set', async () => {
@@ -147,8 +147,8 @@ describe('ConfigRegistry', () => {
     const snapshot = collectConfigSnapshot();
 
     const opusBudget = snapshot.perCatBudgets.opus;
-    assert.ok(opusBudget.maxPromptChars > 0, 'opus has maxPromptChars');
-    assert.ok(opusBudget.maxContextChars > 0, 'opus has maxContextChars');
+    assert.ok(opusBudget.maxPromptTokens > 0, 'opus has maxPromptTokens');
+    assert.ok(opusBudget.maxContextTokens > 0, 'opus has maxContextTokens');
     assert.ok(opusBudget.maxMessages > 0, 'opus has maxMessages');
     assert.ok(opusBudget.maxContentLengthPerMsg > 0, 'opus has maxContentLengthPerMsg');
   });
@@ -165,10 +165,10 @@ describe('ConfigRegistry', () => {
     const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
     const snapshot = collectConfigSnapshot();
 
-    // codex has higher budget than opus (650k vs 500k, gpt-5.3 has 273k token window)
+    // gemini has highest token budget (200k), opus (150k) > codex (100k)
     assert.ok(
-      snapshot.perCatBudgets.codex.maxPromptChars > snapshot.perCatBudgets.opus.maxPromptChars,
-      'codex should have higher maxPromptChars than opus (larger context window)'
+      snapshot.perCatBudgets.gemini.maxPromptTokens > snapshot.perCatBudgets.opus.maxPromptTokens,
+      'gemini should have higher maxPromptTokens than opus (largest context window)'
     );
   });
 

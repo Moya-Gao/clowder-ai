@@ -26,8 +26,8 @@
           "personality": "温柔但有主见，喜欢深入分析问题，写代码快但注重质量",
           "strengths": ["architecture", "backend", "mcp"],
           "contextBudget": {
-            "maxPromptChars": 500000,
-            "maxContextChars": 300000,
+            "maxPromptTokens": 150000,
+            "maxContextTokens": 100000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -59,8 +59,8 @@
           "personality": "严谨认真，注重细节，会直言不讳地指出问题",
           "strengths": ["code-review", "security", "testing"],
           "contextBudget": {
-            "maxPromptChars": 650000,
-            "maxContextChars": 400000,
+            "maxPromptTokens": 100000,
+            "maxContextTokens": 60000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -91,8 +91,8 @@
           "personality": "活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物",
           "strengths": ["visual-design", "ui-ux", "creativity"],
           "contextBudget": {
-            "maxPromptChars": 800000,
-            "maxContextChars": 500000,
+            "maxPromptTokens": 200000,
+            "maxContextTokens": 150000,
             "maxMessages": 300,
             "maxContentLengthPerMsg": 15000
           }

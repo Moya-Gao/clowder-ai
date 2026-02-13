@@ -588,7 +588,7 @@ describe('routeSerial degradation notification', () => {
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
     // Count is within budget boundary (opus maxMessages=200), but content size should force char truncation.
-    // 200 messages × ~1600 chars = ~320k > maxContextChars 300k
+    // 200 messages × ~1600 chars = ~320k > maxContextTokens 100k
     const history = Array.from({ length: 200 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',
@@ -646,7 +646,7 @@ describe('routeParallel degradation notification', () => {
     });
 
     // Count is within both cats' maxMessages (codex=200, opus=200), but content size should trigger char truncation.
-    // 200 messages × ~2100 chars = ~420k > codex maxContextChars 400k
+    // 200 messages × ~2100 chars = ~420k > codex maxContextTokens 60k
     const history = Array.from({ length: 200 }, (_, i) => ({
       id: `m${i}`,
       threadId: 'thread1',

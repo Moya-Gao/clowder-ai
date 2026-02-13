@@ -32,8 +32,8 @@ const cliConfigSchema = z.object({
 });
 
 const contextBudgetSchema = z.object({
-  maxPromptChars: z.number().positive(),
-  maxContextChars: z.number().positive(),
+  maxPromptTokens: z.number().positive(),
+  maxContextTokens: z.number().positive(),
   maxMessages: z.number().positive().int(),
   maxContentLengthPerMsg: z.number().positive(),
 });

@@ -11,8 +11,8 @@ const CAT: CatConfig = {
 };
 
 const BUDGET: ContextBudget = {
-  maxPromptChars: 150000,
-  maxContextChars: 200000,
+  maxPromptTokens: 150000,
+  maxContextTokens: 200000,
   maxMessages: 50,
   maxContentLengthPerMsg: 64000,
 };
@@ -36,7 +36,7 @@ describe('CatTab', () => {
     const html = renderToStaticMarkup(React.createElement(CatTab, { cat: CAT, budget: BUDGET }));
     expect(html).toContain('anthropic');
     expect(html).toContain('claude-opus');
-    expect(html).toContain('150k chars');
+    expect(html).toContain('150k tokens');
     expect(html).toContain('原生 (--mcp-config)');
   });
 
