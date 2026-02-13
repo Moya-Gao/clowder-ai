@@ -78,12 +78,12 @@ export function CatCafeHub() {
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={closeHub}>
       <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between px-5 pt-4 pb-3" style={{ flexShrink: 0 }}>
           <h2 className="text-base font-bold">Cat Caf&eacute; Hub</h2>
           <button onClick={closeHub} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
         </div>
 
-        <div className="flex border-b border-gray-200 px-5 overflow-x-auto">
+        <div className="flex border-b border-gray-200 px-5 overflow-x-auto" style={{ flexShrink: 0 }}>
           {TABS.map((t) => (
             <button
               key={t.id}
@@ -97,7 +97,7 @@ export function CatCafeHub() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4" style={{ minHeight: 0 }}>
           {fetchError && (
             <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>
           )}
