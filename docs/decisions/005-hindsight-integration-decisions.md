@@ -421,3 +421,46 @@ Hindsight Recall (语义检索)
 ---
 
 *附录 C 整理：布偶猫 🐾（2026-02-13）*
+
+---
+
+## 附录 D：P0 落地与边界固化快照（2026-02-13）
+
+> 说明：本节记录 Task 1-5 执行后的可验证结果，作为 P0 关账依据。
+
+### 已完成（P0）
+
+1. 导入契约 + 导入器 + CLI 落地
+   - 入口：`pnpm --filter @cat-cafe/api hindsight:import:p0 -- --all`
+2. 默认 evidence 检索收紧
+   - 默认 tags：`project:cat-cafe` + `origin:git`
+   - 默认 tagsMatch：`all_strict`（由 runtime config 管理）
+3. 可观测三件套落地
+   - 脚本：`scripts/hindsight/p0-health-check.sh`
+   - 手册：`docs/runbooks/hindsight-p0-health-check.md`
+
+### 2026-02-13 验收快照
+
+- `pnpm --filter @cat-cafe/api test`：`984 pass / 0 fail / 1 skip`
+- `bash scripts/hindsight/p0-health-check.sh`：PASS
+  - `stats.total_nodes=66`
+  - `tags.total=23`
+  - `/version` 当前返回 WARN（不阻断 P0）
+
+### 执行中新增的安全护栏
+
+- 导入源枚举改为 **仅 git-tracked 文件**（防止未提交文档误入 Hindsight）。
+- 导入前新增 `document_id` 冲突检测（如双 `009-*.md`）并 fail-fast。
+- retain 改为 `async=true`，避免同步写入超时中断全量 backfill。
+
+### 明确不在 P0（P0.5）
+
+- discussion 例外导入机制（`hindsight: include` + quarantined 生命周期）
+- ADR 历史否决理由批量回填
+- 自动化周评测流水线（precision/noise/staleness）
+
+以上三项在 `docs/BACKLOG.md` 保持显式跟踪（#67/#68/#69）。
+
+---
+
+*附录 D 整理：缅因猫 🐾（2026-02-13）*

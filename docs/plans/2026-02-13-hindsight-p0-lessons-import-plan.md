@@ -268,13 +268,13 @@ git commit -m "docs(p0): record hindsight lessons import acceptance and boundari
 
 ---
 
-## P0 验收门槛（草案）
+## P0 验收门槛（执行后状态）
 
-1. `docs/lessons-learned.md` 已建并在交叉复核完成后包含 validated 条目（>= 12）。
-2. Hindsight `cat-cafe-shared` 的 `tags.total > 0`。
-3. 默认 evidence 检索为 `tagsMatch=all_strict`，且含 `project:cat-cafe` + `origin:git`。
-4. 可观测脚本可报告 stats/tags/version 三项状态。
-5. P0/P0.5 边界在计划与 ADR 中均有明确文字。
+1. ✅ `docs/lessons-learned.md` 已建并在交叉复核完成后包含 validated 条目（>= 12）。
+2. ✅ Hindsight `cat-cafe-shared` 的 `tags.total > 0`（2026-02-13 实测 `tags.total=23`）。
+3. ✅ 默认 evidence 检索为 `tagsMatch=all_strict`，且含 `project:cat-cafe` + `origin:git`。
+4. ✅ 可观测脚本可报告 stats/tags/version 三项状态（`version` 缺失按 WARN，不阻断）。
+5. ✅ P0/P0.5 边界在计划与 ADR 中均有明确文字。
 
 ---
 
@@ -283,3 +283,25 @@ git commit -m "docs(p0): record hindsight lessons import acceptance and boundari
 1. discussion 例外导入机制（白名单标记 + quarantined 生命周期）。
 2. ADR 历史“否决理由”全量回填。
 3. 自动化周评测（precision@k/latency/noise/staleness）完整流水线。
+
+---
+
+## 执行快照（2026-02-13）
+
+### Task 4 落地结果
+
+- 新增 `scripts/hindsight/p0-health-check.sh`（`stats/tags/version` 三件套 + `--self-test`）。
+- 新增 `docs/runbooks/hindsight-p0-health-check.md` 运行手册。
+- `docs/lessons-learned.md` 新增 `LL-022`（治理基线必须脚本化）。
+
+### Task 5 验证结果
+
+- `pnpm -r --if-present run build`：⚠️ 未全绿（`packages/web` 存在既有 lint/type 阻塞，见 BACKLOG #70）。
+- `pnpm --filter @cat-cafe/api test`：✅ `984 pass / 0 fail / 1 skip`。
+- `bash scripts/hindsight/p0-health-check.sh`：✅ 通过（`stats.total_nodes=66`，`tags.total=23`，`/version` 返回 WARN）。
+
+### 执行中发现并修复的 P0 导入器风险
+
+- 导入源枚举改为 **只读取 git-tracked 决策文档**，避免未提交文件误入库。
+- 新增 `document_id` 冲突检测（如双 `009-*.md`）并在导入前 fail-fast。
+- retain 改为 `async=true`，避免同步写入超时导致导入中断。
