@@ -145,9 +145,21 @@ export function useChatCommands() {
         }
       };
 
-      // /config command — display or hot-update
+      // /help — open Hub to commands tab (F12)
+      if (trimmed === '/help') {
+        useChatStore.getState().openHub('commands');
+        return true;
+      }
+
+      // /config command — open hub or hot-update
       if (isCommandInvocation(trimmed, '/config')) {
         const configArgs = trimmed.slice('/config'.length).trim();
+
+        // /config (no args) — open Hub to system tab (F12)
+        if (!configArgs) {
+          useChatStore.getState().openHub('system');
+          return true;
+        }
 
         addMessage({
           id: `user-${Date.now()}`,
@@ -197,26 +209,13 @@ export function useChatCommands() {
           return true;
         }
 
-        // /config — display current config
-        try {
-          const res = await apiFetch(`/api/config`);
-          if (!res.ok) throw new Error(`Server error: ${res.status}`);
-          const data = await res.json();
-          addMessage({
-            id: `config-${Date.now()}`,
-            type: 'system',
-            variant: 'info',
-            content: formatConfigForDisplay(data.config),
-            timestamp: Date.now(),
-          });
-        } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `Failed to load config: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
-        }
+        // Other /config subcommands (unknown) — show usage hint
+        addMessage({
+          id: `err-${Date.now()}`,
+          type: 'system',
+          content: `未知 /config 子命令: ${configArgs}\n用法: /config 或 /config set <key> <value>`,
+          timestamp: Date.now(),
+        });
         return true;
       }
 

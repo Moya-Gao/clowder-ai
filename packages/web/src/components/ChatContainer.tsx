@@ -24,6 +24,7 @@ import { ModeStatusBar } from './ModeStatusBar';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ExportButton } from './ExportButton';
 import { SplitPaneView } from './SplitPaneView';
+import { CatCafeHub } from './CatCafeHub';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 
 interface ChatContainerProps {
@@ -262,11 +263,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // ── Split-pane mode ──
   if (viewMode === 'split') {
     return (
-      <SplitPaneView
-        onSend={handleSend}
-        onStop={handleStop}
-        onZoomToThread={handleZoomToThread}
-      />
+      <>
+        <SplitPaneView
+          onSend={handleSend}
+          onStop={handleStop}
+          onZoomToThread={handleZoomToThread}
+        />
+        <CatCafeHub />
+      </>
     );
   }
 
@@ -410,6 +414,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           taskSummary={taskSummary}
         />
       )}
+      <CatCafeHub />
     </div>
   );
 }

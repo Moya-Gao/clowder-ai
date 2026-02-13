@@ -1,28 +1,43 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { CatTab, SystemTab, type ConfigData, type Capabilities } from './config-viewer-tabs';
+import { HubCommandsTab } from './HubCommandsTab';
+import { HubEnvFilesTab } from './HubEnvFilesTab';
 
-interface CatConfigViewerProps {
-  open: boolean;
-  onClose: () => void;
-}
+export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env';
 
-type TabId = 'opus' | 'codex' | 'gemini' | 'system';
-
-const TABS: { id: TabId; label: string }[] = [
+const TABS: { id: HubTabId; label: string }[] = [
   { id: 'opus', label: '布偶猫' },
   { id: 'codex', label: '缅因猫' },
   { id: 'gemini', label: '暹罗猫' },
   { id: 'system', label: '系统配置' },
+  { id: 'commands', label: '命令速查' },
+  { id: 'env', label: '环境 & 文件' },
 ];
 
-export function CatConfigViewer({ open, onClose }: CatConfigViewerProps) {
-  const [tab, setTab] = useState<TabId>('opus');
+/**
+ * Global Hub modal — always mounted at ChatContainer root.
+ * Open/close driven by chatStore.hubState (not props).
+ */
+export function CatCafeHub() {
+  const hubState = useChatStore((s) => s.hubState);
+  const closeHub = useChatStore((s) => s.closeHub);
+
+  const open = hubState?.open ?? false;
+  const requestedTab = (hubState?.tab ?? 'opus') as HubTabId;
+
+  const [tab, setTab] = useState<HubTabId>('opus');
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [caps, setCaps] = useState<Record<string, Capabilities> | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+
+  // Sync tab to store-requested tab when opening
+  useEffect(() => {
+    if (open) setTab(requestedTab);
+  }, [open, requestedTab]);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -48,32 +63,32 @@ export function CatConfigViewer({ open, onClose }: CatConfigViewerProps) {
 
   useEffect(() => {
     if (!open) return;
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') closeHub(); };
     window.addEventListener('keydown', h);
     return () => window.removeEventListener('keydown', h);
-  }, [open, onClose]);
+  }, [open, closeHub]);
 
   if (!open) return null;
 
-  const catId = tab !== 'system' ? tab : null;
+  const catId = (tab === 'opus' || tab === 'codex' || tab === 'gemini') ? tab : null;
   const cat = catId && config?.cats[catId];
   const budget = catId && config?.perCatBudgets[catId];
   const catCaps = catId && caps?.[catId];
 
   return (
-    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={closeHub}>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <h2 className="text-base font-bold">猫猫配置查看器</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
+          <h2 className="text-base font-bold">Cat Caf&eacute; Hub</h2>
+          <button onClick={closeHub} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
         </div>
 
-        <div className="flex border-b border-gray-200 px-5">
+        <div className="flex border-b border-gray-200 px-5 overflow-x-auto">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
-              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                 tab === t.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
               }`}
             >
@@ -86,12 +101,16 @@ export function CatConfigViewer({ open, onClose }: CatConfigViewerProps) {
           {fetchError && (
             <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>
           )}
-          {!config && !fetchError ? (
-            <p className="text-sm text-gray-400">加载中...</p>
-          ) : catId && cat && budget ? (
+          {catId && cat && budget ? (
             <CatTab cat={cat} budget={budget} caps={catCaps ?? undefined} />
           ) : tab === 'system' && config ? (
             <SystemTab config={config} />
+          ) : tab === 'commands' ? (
+            <HubCommandsTab />
+          ) : tab === 'env' ? (
+            <HubEnvFilesTab />
+          ) : !config && !fetchError ? (
+            <p className="text-sm text-gray-400">加载中...</p>
           ) : null}
         </div>
       </div>

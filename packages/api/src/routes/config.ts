@@ -1,7 +1,8 @@
 /**
  * Config Route
- * GET   /api/config — 返回运行时配置快照
- * PATCH /api/config — 热更新可变配置 (F4)
+ * GET   /api/config              — 返回运行时配置快照
+ * PATCH /api/config              — 热更新可变配置 (F4)
+ * GET   /api/config/env-summary  — 返回用户可配的 env 变量及当前值 (F12)
  */
 
 import type { FastifyInstance } from 'fastify';
@@ -10,6 +11,8 @@ import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
 import { configStore } from '../config/ConfigStore.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
+import os from 'node:os';
+import { buildEnvSummary, ENV_CATEGORIES } from '../config/env-registry.js';
 
 const patchSchema = z.object({
   key: z.string().min(1),
@@ -169,4 +172,13 @@ export async function configRoutes(app: FastifyInstance, opts: ConfigRoutesOptio
 
     return { config: after };
   });
+
+  app.get('/api/config/env-summary', async () => ({
+    categories: ENV_CATEGORIES,
+    variables: buildEnvSummary(),
+    paths: {
+      projectRoot: process.cwd(),
+      homeDir: os.homedir(),
+    },
+  }));
 }

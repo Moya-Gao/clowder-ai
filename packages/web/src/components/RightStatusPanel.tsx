@@ -2,12 +2,12 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import type { CatInvocationInfo } from '@/stores/chatStore';
+import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import {
   CAT_INFO, modeLabel, statusLabel, statusTone, truncateId, formatDuration,
   type IntentMode, type CatStatus,
 } from './status-helpers';
-import { CatConfigViewer } from './CatConfigViewer';
 import { CatTokenUsage } from './CatTokenUsage';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
 
@@ -64,7 +64,7 @@ export function RightStatusPanel({
     : ['opus', 'codex', 'gemini'];
 
   const [auditData, setAuditData] = useState<AuditData | null>(null);
-  const [configOpen, setConfigOpen] = useState(false);
+  const openHub = useChatStore((s) => s.openHub);
 
   const copyText = useCallback((value: string) => {
     void navigator.clipboard.writeText(value);
@@ -98,7 +98,7 @@ export function RightStatusPanel({
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xs font-semibold text-gray-700">猫猫状态</h3>
           <button
-            onClick={() => setConfigOpen(true)}
+            onClick={() => openHub('opus')}
             className="text-base text-gray-400 hover:text-blue-600 hover:rotate-45 transition-all duration-200"
             title="查看猫猫配置 / MCP / Skills"
           >
@@ -225,7 +225,6 @@ export function RightStatusPanel({
           </div>
         </section>
       )}
-      <CatConfigViewer open={configOpen} onClose={() => setConfigOpen(false)} />
     </aside>
   );
 }

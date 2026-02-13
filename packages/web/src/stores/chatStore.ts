@@ -128,6 +128,11 @@ interface ChatState {
   setViewMode: (mode: 'single' | 'split') => void;
   setSplitPaneThreadIds: (ids: string[]) => void;
   setSplitPaneTarget: (threadId: string | null) => void;
+
+  // ── Hub modal (F12) ──
+  hubState: { open: boolean; tab: string } | null;
+  openHub: (tab: string) => void;
+  closeHub: () => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -151,6 +156,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentProjectPath: 'default',
   threads: [],
   isLoadingThreads: false,
+
+  hubState: null,
+  openHub: (tab) => set({ hubState: { open: true, tab } }),
+  closeHub: () => set({ hubState: null }),
 
   // ── Active-thread actions ──
 
