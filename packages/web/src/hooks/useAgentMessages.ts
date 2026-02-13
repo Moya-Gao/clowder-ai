@@ -55,6 +55,7 @@ export function useAgentMessages() {
     setCatStatus,
     clearCatStatuses,
     setCatInvocation,
+    setMessageUsage,
     setPendingModeSwitchProposal,
     currentThreadId,
   } = useChatStore();
@@ -276,6 +277,11 @@ export function useAgentMessages() {
             setCatInvocation(msg.catId, {
               usage: parsed.usage,
             });
+            // Also persist usage on the cat's last assistant message (message-scoped)
+            const ref = activeRefs.current.get(msg.catId);
+            if (ref) {
+              setMessageUsage(ref.id, parsed.usage);
+            }
             consumed = true;
           }
         } catch { /* not JSON, use raw content */ }

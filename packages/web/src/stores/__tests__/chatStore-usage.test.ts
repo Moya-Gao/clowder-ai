@@ -60,6 +60,34 @@ describe('F8: chatStore token usage', () => {
     });
   });
 
+  it('setMessageUsage persists usage on a specific message metadata', () => {
+    const store = useChatStore.getState();
+    store.addMessage({
+      id: 'msg-1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'hello',
+      timestamp: 1000,
+      metadata: { provider: 'anthropic', model: 'claude-opus-4-6' },
+    });
+    store.addMessage({
+      id: 'msg-2',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'world',
+      timestamp: 2000,
+      metadata: { provider: 'anthropic', model: 'claude-opus-4-6' },
+    });
+
+    // Set usage on msg-1 only
+    store.setMessageUsage('msg-1', { inputTokens: 1000, outputTokens: 500 });
+
+    const msgs = useChatStore.getState().messages;
+    expect(msgs[0].metadata!.usage).toEqual({ inputTokens: 1000, outputTokens: 500 });
+    // msg-2 should NOT have usage
+    expect(msgs[1].metadata!.usage).toBeUndefined();
+  });
+
   it('stores usage for multiple cats independently', () => {
     const store = useChatStore.getState();
 

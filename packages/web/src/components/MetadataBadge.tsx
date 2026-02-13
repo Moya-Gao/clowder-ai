@@ -2,12 +2,10 @@
 
 import { useState } from 'react';
 import type { ChatMessageMetadata } from '@/stores/chatStore';
-import { useChatStore } from '@/stores/chatStore';
 import { formatTokenCount, formatCost } from './status-helpers';
 
 interface MetadataBadgeProps {
   metadata: ChatMessageMetadata;
-  catId?: string;
 }
 
 function cachePercent(input?: number, cacheRead?: number): number | null {
@@ -17,13 +15,11 @@ function cachePercent(input?: number, cacheRead?: number): number | null {
   return Math.round((cacheRead / totalInput) * 100);
 }
 
-export function MetadataBadge({ metadata, catId }: MetadataBadgeProps) {
+export function MetadataBadge({ metadata }: MetadataBadgeProps) {
   const [expanded, setExpanded] = useState(false);
 
-  // Read usage from catInvocations store (per-invocation aggregate)
-  const usage = useChatStore((s) =>
-    catId ? s.catInvocations[catId]?.usage : undefined
-  );
+  // Read usage from message metadata (message-scoped, not per-cat aggregate)
+  const usage = metadata.usage;
 
   const hasTokens = usage && (usage.inputTokens != null || usage.outputTokens != null || usage.totalTokens != null);
   const cachePct = usage ? cachePercent(usage.inputTokens, usage.cacheReadTokens) : null;

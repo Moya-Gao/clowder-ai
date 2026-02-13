@@ -268,7 +268,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
           )}
         </div>
         {!message.isStreaming && message.metadata && (
-          <MetadataBadge metadata={message.metadata} catId={message.catId} />
+          <MetadataBadge metadata={message.metadata} />
         )}
       </div>
     </div>

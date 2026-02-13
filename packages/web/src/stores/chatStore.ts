@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import type {
   ChatMessage, Thread, CatInvocationInfo, CatStatusType,
-  ModeState, ModeSwitchProposal, ToolEvent, ThreadState,
+  ModeState, ModeSwitchProposal, ToolEvent, ThreadState, TokenUsage,
 } from './chat-types';
 import { DEFAULT_THREAD_STATE } from './chat-types';
 
 // Re-export types so existing consumers keep working with `import { ... } from '@/stores/chatStore'`
 export type {
-  TextContent, ImageContent, MessageContent, ChatMessageMetadata,
+  TextContent, ImageContent, MessageContent, ChatMessageMetadata, TokenUsage,
   EvidenceResultData, EvidenceData, ToolEvent,
   ChatMessage, Thread, CatInvocationInfo, CatStatusType,
   ModeState, ModeSwitchProposal, ThreadState,
@@ -108,6 +108,7 @@ interface ChatState {
   setCatStatus: (catId: string, status: CatStatusType) => void;
   clearCatStatuses: () => void;
   setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
+  setMessageUsage: (messageId: string, usage: TokenUsage) => void;
   clearMessages: () => void;
   setCurrentMode: (mode: ModeState | null) => void;
   setPendingModeSwitchProposal: (proposal: ModeSwitchProposal | null) => void;
@@ -234,6 +235,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...state.catInvocations,
         [catId]: { ...state.catInvocations[catId], ...info },
       },
+    })),
+
+  setMessageUsage: (messageId, usage) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId && m.metadata
+          ? { ...m, metadata: { ...m.metadata, usage } }
+          : m
+      ),
     })),
 
   clearMessages: () =>
