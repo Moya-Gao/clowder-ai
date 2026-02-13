@@ -328,5 +328,96 @@ Hindsight Recall (语义检索)
 
 ---
 
-*附录 B 补充整理：缅因猫 🐾（2026-02-13）*  
+*附录 B 补充整理：缅因猫 🐾（2026-02-13）*
 *原始签名: 布偶猫 🐾 + 铲屎官 🐬*
+
+---
+
+## 附录 C：Hindsight 导入治理五项共识（2026-02-13，已收敛）
+
+> 说明：本节记录布偶猫与缅因猫讨论后达成的五项共识，已获铲屎官确认。附录 B 中的"待决"项在此正式拍板。
+
+### 讨论过程
+
+- 布偶猫独立判断：`docs/mailbox/2026-02-13-hindsight-governance-opus-response.md`
+- 缅因猫独立判断：`docs/mailbox/2026-02-13-hindsight-governance-maine-response-to-opus.md`
+- 收敛确认：`docs/mailbox/2026-02-13-hindsight-governance-convergence.md`
+- 铲屎官挑战（教训沉淀）：`docs/mailbox/2026-02-13-lessons-learned-extraction-invite-to-codex.md`
+
+### 五项共识
+
+#### 共识 1：P0 导入源
+
+**决策**：`docs/decisions/**` + `CLAUDE.md` + `AGENTS.md` + `docs/lessons-learned.md`
+
+- ADR 是最稳定、最结构化的知识载体，归档即导入
+- CLAUDE.md / AGENTS.md 是操作铁律，evidence 查询最常命中
+- lessons-learned.md 集中化教训，防止"知道规则但不知道为什么"
+- Phase/Discussion/Research 延后到 P1
+
+**否决理由**：
+- "只导 ADR" → 缺少"为什么有这条规则"的教训知识（铲屎官挑战暴露）
+- "全量导入 docs/" → 噪音太大，未归档的讨论会污染 evidence
+
+#### 共识 2：document_id 策略
+
+**决策**：可推导稳定 ID + repo 相对路径 fallback
+
+- 有天然编号的用编号：`adr:005`、`phase:5.1`
+- 无编号的用 repo root 相对路径：`CLAUDE.md`、`docs/lessons-learned.md`
+- 不建持久化映射表
+
+**否决理由**：
+- "纯 path 绑定" → 目录重构时 ADR/Phase 的身份会变，需要 delete + reimport（布偶猫原始方案，被砚砚"身份与路径解耦"论据说服后放弃）
+- "docRef 映射系统" → 对 <50 文档的团队过度工程，引入映射表的持久化和同步开销（布偶猫反对，砚砚同意简化）
+
+#### 共识 3：Discussion 导入边界
+
+**决策**：P0 不导入；规范预留 frontmatter `hindsight: include` 例外接口（P0 不实现）
+
+- 讨论是过程不是结论，原文不进 Hindsight 默认搜索空间
+- 讨论中的精华通过"沉淀检查"流入 ADR（否决理由）/ lessons-learned.md（教训）/ CLAUDE.md（规则）
+- 讨论文件在 git 里永远可查，用于审计
+
+**否决理由**：
+- "讨论全量导入" → 信噪比太低，200+ 行讨论文件的"结论"边界模糊（布偶猫论据）
+- "讨论绝对不导入，不留例外" → 可能丢失"尚未 ADR 化但已执行的临时规则"（砚砚论据，折中为预留接口）
+
+#### 共识 4：Tombstone GC
+
+**决策**：90 天保留期，到期物理删除 + 审计日志
+
+- Tombstone 防止旧同步重导入已删内容，90 天绰绰有余（同步频率最多日级）
+- Git history 兜底审计追溯，tombstone 不需要承担永久存档职责
+- 物理删除前写审计日志（document_id、原始 tags、删除原因）
+
+**否决理由**：
+- "永久保留 tombstone" → 膨胀 bank 体积，增加 recall 噪音
+- "立即物理删除" → 旧同步可能重导入已删内容
+
+#### 共识 5："先查 Hindsight" 机制
+
+**决策**：P0 prompt 约束 + 审计观测；P1 根据 evidence_hit_rate 评估 callback 强制
+
+- P0：更新 CLAUDE.md / AGENTS.md，加规则"回答决策类问题前先 Recall"
+- P0：审计日志记录猫猫是否在回答前调了 recall
+- P1 判断标准：2 周后 evidence_hit_rate > 80% → 不需要 callback；< 50% → 升级到 callback
+
+**否决理由**：
+- "P0 就上 callback 强制" → 要改 AgentRouter 响应流程，复杂度高，不适合止血阶段（布偶猫论据）
+- "只靠 prompt，不做审计" → 无法观测执行率，无法判断是否需要升级（砚砚论据，折中为 prompt + 审计）
+
+### 补充决策：教训沉淀机制
+
+在铲屎官挑战下，新增第六项共识：
+
+**决策**：建立 `docs/lessons-learned.md` 作为集中化教训载体，纳入 P0 导入源
+
+- 每条教训 7 槽位：坑/根因/触发条件/修复/防护/来源锚点/原理（可选）
+- 固定 ID（LL-XXX）便于交叉引用
+- 讨论收敛后做"沉淀检查"：否决理由 → ADR，教训 → lessons-learned.md，规则 → CLAUDE.md
+- Skills 动机作为教训来源，但不能单独作为证据（至少再挂一个外部锚点）
+
+---
+
+*附录 C 整理：布偶猫 🐾（2026-02-13）*

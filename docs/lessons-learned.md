@@ -231,7 +231,155 @@
 
 ---
 
-## 7) 维护约定
+## 7) 宪宪侧首批条目（CLAUDE.md + Bug Report + Skills）
+
+### LL-010: 删除文件必须用 trash，禁止 /bin/rm
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：shell 提示 "Use trash or /bin/rm" 时选了 `/bin/rm`，绕过安全网不可逆删除了文件。
+- 根因：把 `/bin/rm` 误认为"更正确"的选择。实际上 shell alias `rm → trash` 就是安全网，绕过它 = 放弃恢复能力。
+- 触发条件：shell 提示二选一时；或脚本中直接调用 rm。
+- 修复：一律使用 `trash` 命令代替任何 rm 操作。
+- 防护：CLAUDE.md 明确禁止 `/bin/rm`；铲屎官 shell 配置 `rm` alias → `trash`。
+- 来源锚点：
+  - CLAUDE.md "删除文件必须用 trash" 段落（auto memory 2026-02-12）
+  - 2026-02-12 实际犯错事件
+- 原理：不可逆操作必须有安全网（垃圾桶 = undo buffer）。绕过安全网的捷径永远比它节省的时间更危险。
+
+- 关联：CLAUDE.md 铲屎官硬规则
+
+### LL-011: Worktree 清理的正确顺序——先 push，再 cd 回主仓，最后 remove
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：(1) 在 worktree CWD 里执行 `git worktree remove` 删除自己 → shell 悬空，什么都做不了。(2) 先删 worktree 再想 push → 站在虚空里连记忆都改不了，铲屎官笑着救了我。两次犯同类错误。
+- 根因：没有意识到"删除当前工作目录"会导致 shell 失去锚点。删了就什么都做不了了。
+- 触发条件：在 worktree 目录内执行清理操作；或在清理前没完成所有需要 worktree 存在的操作。
+- 修复：强制顺序——(1) rebase + 合入 main (2) push origin main (3) cd 回主仓 (4) git worktree remove。
+- 防护：CLAUDE.md §9 铁律 + `using-git-worktrees` / `finishing-a-development-branch` skill 自动引导。
+- 来源锚点：
+  - `CLAUDE.md#L274` §9 Worktree 使用与清理
+  - 2026-02-12 两次犯错（早：CWD 删自己；晚：先删再想 push）
+- 原理：在自己的工作目录里删除自己 = 锯断自己坐着的树枝。任何"销毁当前环境"的操作都必须先切换到安全位置。
+
+- 关联：LL-008 | `using-git-worktrees` skill | `finishing-a-development-branch` skill
+
+### LL-012: 不要 --force 删有猫在工作的 worktree
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：缅因猫正在 worktree 里修 bug，我看到 `git branch --merged main` 就以为已合入，`--force` 强删了他的工地。缅因猫呆在消失的目录里不知所措。
+- 根因：把 `--merged main` 当成"工作完成"的充分条件。实际上 `--merged` 只说明分支起点在 main 历史上，不代表 worktree 内的工作已完成或没人在用。
+- 触发条件：清理 worktree 时看到"包含修改或未跟踪文件"警告但选择 --force。
+- 修复：清理前必须问"这个 worktree 有猫在用吗？"。有修改/未跟踪文件警告 = 绝对禁止 --force。
+- 防护：CLAUDE.md 明确规则 + 清理前先检查 worktree 内 git status。
+- 来源锚点：
+  - CLAUDE.md "Worktree 铁律"（auto memory 2026-02-12）
+  - 2026-02-12 实际犯错：强删 `cat-cafe-opus-permission-request`
+- 原理：单一信号（`--merged`）不足以判断完整状态。状态判断需要多维验证——分支合并状态 ≠ 工作目录状态 ≠ 使用者状态。
+
+- 关联：LL-008 | LL-011 | `using-git-worktrees` skill
+
+### LL-013: Git commit 前必须检查暂存区
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：`git add myfile && git commit` 但暂存区已有上次 session 或铲屎官留下的文件，导致无关改动混入 commit。
+- 根因：`git add` 是追加操作，不是替换操作。暂存区是累积状态，不会因为新 add 而清空之前的内容。
+- 触发条件：连续 session 之间，或铲屎官手动操作后，暂存区有残留文件。
+- 修复：commit 前必须 `git status` 检查暂存区全部内容，确认只有自己的文件。
+- 防护：CLAUDE.md "Git commit 纪律" 明确规则。
+- 来源锚点：
+  - CLAUDE.md "Git commit 纪律"（auto memory）
+  - 实际犯错事件（混入无关改动）
+- 原理：累积状态工具（git staging、Redis pipeline、消息队列等），操作前必须验证当前状态，不能假设初始为空。
+
+- 关联：无对应 skill；通用 git 纪律
+
+### LL-014: Bug 修复必须先写 Bug Report 再动手
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：收到铲屎官汇报的 URL 路由缺失 bug 后，直接修代码，没写 bug report 也没写 review 信。被铲屎官批评：没有记录 = 无法复盘。
+- 根因："修 bug 最重要"的思维惯性，跳过了记录环节。没有意识到记录本身是修复流程的一部分。
+- 触发条件：收到 bug 报告后想快速修复的冲动；bug 看起来简单的时候尤其容易跳过。
+- 修复：CLAUDE.md §4 强制要求先写 bug report（5 项：报告人/复现步骤/根因/修复方案/验证方式），再动手。
+- 防护：CLAUDE.md §4 协作准则 + `systematic-debugging` skill 引导先分析再修复。
+- 来源锚点：
+  - `CLAUDE.md#L203` §4 Bug 修复必须先写 Bug Report
+  - `docs/bug-report/missing-url-routing/bug-report.md`（就是那次没写 report 的 bug）
+- 原理：修复是瞬时的，记录是永久的。没有记录的修复 = 无法复盘、无法学习、无法防止同类错误。
+
+- 关联：`systematic-debugging` skill | CLAUDE.md §4
+
+### LL-015: Worktree 开发必须用独立 Redis 端口（6398），绝不碰 6399
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：在 worktree 工作时未设置 REDIS_URL，服务回落到默认 6399（铲屎官数据），数据从 307 keys 降至 15 keys（95% 丢失）。虽最终从 RDB 备份完全恢复，但过程惊险。
+- 根因：开发环境和生产数据共享同一个 Redis 实例，靠配置（环境变量）隔离。一旦忘设配置，默认值指向生产。
+- 触发条件：worktree 中启动服务但忘记创建 `.env.local` 设置 `REDIS_URL=redis://localhost:6398`。
+- 修复：(1) 强制 worktree 使用 6398 端口 (2) 启动前验证 `echo $REDIS_URL` (3) 启动后验证数据量。
+- 防护：CLAUDE.md §10 三猫铁律 + `.env.local` 模板 + 启动验证步骤。
+- 来源锚点：
+  - `CLAUDE.md#L344` §10 Worktree Redis 隔离
+  - `docs/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
+- 原理：开发环境与生产数据必须物理隔离（不同端口/实例），不能靠配置正确性保证。默认值必须指向安全侧（沙盒），而非危险侧（生产）。
+
+- 关联：LL-008 | LL-011 | CLAUDE.md §10 | Redis 数据丢失 incident report
+
+### LL-016: ioredis keyPrefix 对 eval() 和 keys() 的行为不一致
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：假设 ioredis 的 `keyPrefix` 配置对所有命令行为一致。实际上 `eval()` 的 KEYS[] 参数会自动加前缀，但 `keys()` 搜索不会自动加前缀。
+- 根因：ioredis 内部实现不统一——`eval()` 走了命令封装层（会加 prefix），`keys()` 走了另一条路径。
+- 触发条件：使用 `keyPrefix` 配置的 ioredis 实例调用 `keys()` 搜索或 `eval()` Lua 脚本。
+- 修复：`keys()` 手动拼接 prefix；`eval()` KEYS[] 不需要手动加（会自动加）。
+- 防护：auto memory `redis-pitfalls.md` 记录 + Redis 测试隔离规则（CLAUDE.md §7）确保测试环境能暴露此类问题。
+- 来源锚点：
+  - auto memory `redis-pitfalls.md`
+  - ADR-008 Lua 脚本开发中多次踩坑
+- 原理：同一 SDK 的不同方法对同一配置的处理可能不一致。使用 SDK 的隐式行为（如自动 prefix）前，必须逐方法实测验证，不能假设一致性。
+
+- 关联：CLAUDE.md §7 Redis 测试规则 | ADR-008 Lua 原子操作
+
+### LL-017: CAS 比较必须基于不可变快照，不能用内存活引用
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：内存 InvocationRecordStore 的 `get()` 返回对象活引用。CAS 更新时用 `get()` 获取的值做比较，但在比较前对象已被其他异步操作修改，导致 CAS 永远成功（比较的是已修改后的值）。
+- 根因：JavaScript 对象是引用类型，`get()` 返回的不是快照而是同一个内存地址。CAS 的前提是"读到的旧值在比较时不变"，内存引用破坏了这个前提。
+- 触发条件：内存 store 实现 + 异步并发操作 + CAS（Compare-And-Set）模式。
+- 修复：引入 `snapshotStatus`——在 CAS 操作开始时立即复制当前值，后续比较基于快照而非活引用。
+- 防护：CAS 模式代码审查清单 + ADR-008 S2 的 Redis Lua 原子操作（Redis 侧天然不存在此问题）。
+- 来源锚点：
+  - ADR-008 S2 CAS Lua 开发过程
+  - `packages/api/src/domains/cats/services/InvocationRecordStore.ts` snapshotStatus 实现
+- 原理：CAS 操作的正确性取决于"读取值的不可变性"。在引用语义的语言中（JS/Python/Java），内存引用 ≠ 快照；CAS 比较必须基于值拷贝。
+
+- 关联：ADR-008 InvocationRecord 状态机
+
+### LL-018: Session 存储必须按 Thread 隔离，不能只按 userId:catId
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：Session 按 `userId:catId` 存储，不区分 thread。导致缅因猫在 Thread A 的上下文（Phase 5 任务）泄漏到 Thread B（哲学茶话会），缅因猫在茶话会结尾突然开始执行 Phase 5 文档编写——被称为"夺魂"事件。
+- 根因：Session key 设计缺少 threadId 维度。隐含假设"一只猫同时只在一个 thread 工作"，但多 thread 场景下 session 跨 thread 污染。
+- 触发条件：同一只猫被 @ 到多个 thread，且不同 thread 有不同的上下文/任务。
+- 修复：Session key 改为 `userId:catId:threadId` + 消息级审计日志追踪上下文来源。
+- 防护：BACKLOG #38（已完成）+ 消息级审计日志 BACKLOG #37（已完成）+ bug report 归档。
+- 来源锚点：
+  - `docs/bug-report/tea-coffee/bug-report.md`
+  - BACKLOG #38 Session 按 Thread 隔离
+- 原理：多租户/多上下文系统中，隔离键必须包含所有上下文维度。缺少任何一个维度 = 跨上下文泄漏风险。"够用"的隔离键在规模增长时会变成"不够用"。
+
+- 关联：茶话会夺魂 bug report | BACKLOG #37 消息级审计
+
+---
+
+## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。
 - 新条目默认 `draft`，经交叉复核后改为 `validated`。
