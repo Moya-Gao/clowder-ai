@@ -8,13 +8,16 @@
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { StoredMessage } from './MessageStore.js';
+import { estimateTokens } from '../../../utils/token-counter.js';
 
 export interface ContextAssemblerOptions {
   /** Maximum number of recent messages to include (default: 20) */
   maxMessages?: number;
   /** Maximum characters per message content (default: 1500) */
   maxContentLength?: number;
-  /** Maximum total characters for assembled context (default: 8000) */
+  /** Maximum total tokens for assembled context (default: 2000) */
+  maxTotalTokens?: number;
+  /** @deprecated Use maxTotalTokens instead. Kept for backward compat during migration. */
   maxTotalChars?: number;
 }
 
@@ -23,11 +26,13 @@ export interface AssembledContext {
   contextText: string;
   /** Number of messages included */
   messageCount: number;
+  /** Estimated token count of contextText (F8: for budget tracking) */
+  estimatedTokens: number;
 }
 
 const DEFAULT_MAX_MESSAGES = 20;
 const DEFAULT_MAX_CONTENT_LENGTH = 1500;
-const DEFAULT_MAX_TOTAL_CHARS = 8000;
+const DEFAULT_MAX_TOTAL_TOKENS = 2000;
 
 /**
  * Get display name for a message sender.
@@ -76,10 +81,11 @@ export function assembleContext(
   const maxMessages = options?.maxMessages ?? DEFAULT_MAX_MESSAGES;
   const maxContentLength = options?.maxContentLength
     ?? (Number(process.env['MAX_CONTEXT_MSG_CHARS']) || DEFAULT_MAX_CONTENT_LENGTH);
-  const maxTotalChars = options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_CHARS;
+  // F8: token-based budget (maxTotalTokens preferred, maxTotalChars fallback for compat)
+  const maxTotalTokens = options?.maxTotalTokens ?? options?.maxTotalChars ?? DEFAULT_MAX_TOTAL_TOKENS;
 
   if (messages.length === 0) {
-    return { contextText: '', messageCount: 0 };
+    return { contextText: '', messageCount: 0, estimatedTokens: 0 };
   }
 
   // Take the most recent N messages (messages are already chronological from store)
@@ -87,29 +93,28 @@ export function assembleContext(
     ? messages.slice(-maxMessages)
     : messages;
 
-  // Format all messages, then apply total char budget from most-recent backward
+  // Format all messages, then apply token budget from most-recent backward
   const formatted = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));
 
-  // header + separator overhead
-  const headerTemplate = '[对话历史 - 最近 X 条]';
-  const overhead = headerTemplate.length + 10 + 4; // "\n" + "---"
+  // Estimate overhead for header + separator
+  const overheadTokens = estimateTokens('[对话历史 - 最近 99 条]\n---');
 
-  let totalChars = overhead;
+  let totalTokens = overheadTokens;
   let startIndex = formatted.length; // will walk backward
   for (let i = formatted.length - 1; i >= 0; i--) {
-    const lineLen = formatted[i]!.length + 1; // +1 for newline
-    if (totalChars + lineLen > maxTotalChars) break;
-    totalChars += lineLen;
+    const lineTokens = estimateTokens(formatted[i]! + '\n');
+    if (totalTokens + lineTokens > maxTotalTokens) break;
+    totalTokens += lineTokens;
     startIndex = i;
   }
 
   const included = formatted.slice(startIndex);
   if (included.length === 0) {
-    return { contextText: '', messageCount: 0 };
+    return { contextText: '', messageCount: 0, estimatedTokens: 0 };
   }
 
   const header = `[对话历史 - 最近 ${included.length} 条]`;
   const contextText = `${header}\n${included.join('\n')}\n---`;
 
-  return { contextText, messageCount: included.length };
+  return { contextText, messageCount: included.length, estimatedTokens: totalTokens };
 }

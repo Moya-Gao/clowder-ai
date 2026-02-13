@@ -213,19 +213,19 @@ describe('assembleContext', () => {
     }
   });
 
-  test('maxTotalChars limits context to fit within budget', async () => {
+  test('maxTotalChars (deprecated) still works as token budget via fallback', async () => {
     const { assembleContext } = await import(
       '../dist/domains/cats/services/ContextAssembler.js'
     );
-    // Create 10 messages each ~50 chars formatted (timestamp + sender + content)
+    // Create 10 messages each ~12-15 tokens formatted (timestamp + sender + content)
     const msgs = Array.from({ length: 10 }, (_, i) =>
       mockMsg({ content: `message-content-${i}-padding`, timestamp: i * 1000 })
     );
-    // Budget so small only a few messages fit
-    const result = assembleContext(msgs, { maxTotalChars: 200 });
+    // Tight token budget — only a few messages should fit
+    const result = assembleContext(msgs, { maxTotalChars: 50 });
     assert.ok(result.messageCount < 10, `expected fewer than 10, got ${result.messageCount}`);
     assert.ok(result.messageCount > 0, 'should include at least 1 message');
-    assert.ok(result.contextText.length <= 250, 'total chars should respect budget roughly');
+    assert.ok(result.estimatedTokens <= 60, `tokens should be near budget, got ${result.estimatedTokens}`);
   });
 
   test('maxTotalChars large enough includes all messages', async () => {
@@ -259,5 +259,70 @@ describe('assembleContext', () => {
     const result = assembleContext(msgs, { maxContentLength: 100, maxTotalChars: 300 });
     assert.equal(result.messageCount, 1);
     assert.ok(result.contextText.includes('Z'.repeat(100) + '...'));
+  });
+});
+
+describe('assembleContext — F8 token-based truncation', () => {
+  test('returns estimatedTokens in result', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const msgs = [
+      mockMsg({ content: 'Hello world', timestamp: 1000 }),
+      mockMsg({ content: 'How are you?', timestamp: 2000 }),
+    ];
+    const result = assembleContext(msgs);
+    assert.ok(
+      typeof result.estimatedTokens === 'number',
+      `estimatedTokens should be a number, got ${typeof result.estimatedTokens}`,
+    );
+    assert.ok(result.estimatedTokens > 0, 'estimatedTokens should be positive');
+  });
+
+  test('estimatedTokens=0 when no messages included', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const result = assembleContext([]);
+    assert.equal(result.estimatedTokens, 0);
+  });
+
+  test('maxTotalTokens limits context by token count, not char count', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    // Chinese text: more tokens per char than ASCII
+    // 10 messages of Chinese content (~2 tokens/char in cl100k_base)
+    const chineseMsgs = Array.from({ length: 10 }, (_, i) =>
+      mockMsg({ content: '你好世界测试消息内容填充' + i, timestamp: i * 1000 })
+    );
+    // 10 messages of ASCII content (~0.25 tokens/char)
+    const asciiMsgs = Array.from({ length: 10 }, (_, i) =>
+      mockMsg({ content: 'hello world test message padding' + i, timestamp: i * 1000 })
+    );
+
+    // With a tight token budget, Chinese messages should fit fewer
+    // than ASCII messages of similar char length (because Chinese = more tokens)
+    const chineseResult = assembleContext(chineseMsgs, { maxTotalTokens: 150 });
+    const asciiResult = assembleContext(asciiMsgs, { maxTotalTokens: 150 });
+
+    assert.ok(
+      chineseResult.messageCount < asciiResult.messageCount
+      || chineseResult.estimatedTokens > asciiResult.estimatedTokens * 0.7,
+      `Token-based truncation should differentiate Chinese (${chineseResult.messageCount} msgs, ` +
+      `${chineseResult.estimatedTokens} tokens) from ASCII (${asciiResult.messageCount} msgs, ` +
+      `${asciiResult.estimatedTokens} tokens)`,
+    );
+  });
+
+  test('maxTotalTokens=0 returns empty context', async () => {
+    const { assembleContext } = await import(
+      '../dist/domains/cats/services/ContextAssembler.js'
+    );
+    const msgs = [mockMsg({ content: 'hello' })];
+    const result = assembleContext(msgs, { maxTotalTokens: 0 });
+    assert.equal(result.contextText, '');
+    assert.equal(result.messageCount, 0);
+    assert.equal(result.estimatedTokens, 0);
   });
 });
