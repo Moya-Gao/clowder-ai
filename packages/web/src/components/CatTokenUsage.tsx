@@ -18,8 +18,10 @@ const CAT_TEXT_COLORS: Record<string, string> = {
 };
 
 function cachePercent(usage: TokenUsage): number {
-  if (!usage.inputTokens || !usage.cacheReadTokens) return 0;
-  return Math.round((usage.cacheReadTokens / usage.inputTokens) * 100);
+  if (!usage.cacheReadTokens) return 0;
+  const totalInput = (usage.inputTokens ?? 0) + usage.cacheReadTokens;
+  if (totalInput === 0) return 0;
+  return Math.round((usage.cacheReadTokens / totalInput) * 100);
 }
 
 function AnimatedTokenCount({ value, label }: { value: number; label: string }) {
