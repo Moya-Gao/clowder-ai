@@ -555,3 +555,36 @@ test('falls back to default MCP path when CAT_CAFE_MCP_SERVER_PATH is empty', as
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('F8: result/success extracts usage into done metadata', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('Hello'));
+
+  emitClaudeEvents(proc, [
+    { type: 'system', subtype: 'init', session_id: 'sess-usage' },
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Hi!' }] } },
+    {
+      type: 'result',
+      subtype: 'success',
+      session_id: 'sess-usage',
+      usage: { input_tokens: 1234, output_tokens: 567 },
+      total_cost_usd: 0.05,
+      duration_ms: 3000,
+      duration_api_ms: 2500,
+      num_turns: 3,
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done, 'should have done message');
+  assert.ok(done.metadata?.usage, 'done should have usage in metadata');
+  assert.equal(done.metadata.usage.inputTokens, 1234);
+  assert.equal(done.metadata.usage.outputTokens, 567);
+  assert.equal(done.metadata.usage.costUsd, 0.05);
+  assert.equal(done.metadata.usage.durationMs, 3000);
+  assert.equal(done.metadata.usage.numTurns, 3);
+});

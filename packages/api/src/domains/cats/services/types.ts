@@ -5,6 +5,19 @@
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 
+/** F8: Unified token usage type across all three cats */
+export interface TokenUsage {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;           // Gemini fallback (doesn't split in/out)
+  cacheReadTokens?: number;       // Claude + Codex
+  cacheCreationTokens?: number;   // Claude only
+  costUsd?: number;               // Claude only
+  durationMs?: number;            // Claude: total duration
+  durationApiMs?: number;         // Claude: pure API duration
+  numTurns?: number;              // Claude: number of turns
+}
+
 /**
  * Metadata about the provider/model behind an agent message
  */
@@ -12,6 +25,7 @@ export interface MessageMetadata {
   provider: string;
   model: string;
   sessionId?: string;
+  usage?: TokenUsage;
 }
 
 /**

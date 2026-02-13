@@ -820,3 +820,32 @@ test('systemPrompt is preserved when contentBlocks contain images', async () => 
     'image reference should be appended to prompt'
   );
 });
+
+test('F8: turn.completed usage is captured into done metadata', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('test'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-usage' },
+    { type: 'turn.started' },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'Hello' },
+    },
+    {
+      type: 'turn.completed',
+      usage: { input_tokens: 500, output_tokens: 200, cached_input_tokens: 100 },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done, 'should have done message');
+  assert.ok(done.metadata?.usage, 'done should have usage in metadata');
+  assert.equal(done.metadata.usage.inputTokens, 500);
+  assert.equal(done.metadata.usage.outputTokens, 200);
+  assert.equal(done.metadata.usage.cacheReadTokens, 100);
+});

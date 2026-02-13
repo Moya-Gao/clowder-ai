@@ -36,6 +36,7 @@ import type {
   AgentService,
   AgentServiceOptions,
   MessageMetadata,
+  TokenUsage,
 } from './types.js';
 
 const CAT_ID = createCatId('codex');
@@ -257,6 +258,21 @@ export class CodexAgentService implements AgentService {
                 err,
               });
             });
+          }
+        }
+
+        // F8: Capture usage from turn.completed events (not passed through transform)
+        if (typeof event === 'object' && event !== null) {
+          const raw = event as Record<string, unknown>;
+          if (raw['type'] === 'turn.completed') {
+            const u = raw['usage'] as Record<string, unknown> | undefined;
+            if (u) {
+              const usage: TokenUsage = {};
+              if (typeof u['input_tokens'] === 'number') usage.inputTokens = u['input_tokens'];
+              if (typeof u['output_tokens'] === 'number') usage.outputTokens = u['output_tokens'];
+              if (typeof u['cached_input_tokens'] === 'number') usage.cacheReadTokens = u['cached_input_tokens'];
+              metadata.usage = usage;
+            }
           }
         }
 

@@ -29,6 +29,7 @@ import type {
   AgentService,
   AgentServiceOptions,
   MessageMetadata,
+  TokenUsage,
 } from './types.js';
 
 const CAT_ID = createCatId('opus');
@@ -198,6 +199,21 @@ function isResultErrorEvent(event: unknown): boolean {
   return e['type'] === 'result' && e['subtype'] !== 'success';
 }
 
+/** F8: Extract token usage from Claude result/success event */
+function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
+  const usage = (e['usage'] ?? {}) as Record<string, unknown>;
+  const result: TokenUsage = {};
+  if (typeof usage['input_tokens'] === 'number') result.inputTokens = usage['input_tokens'];
+  if (typeof usage['output_tokens'] === 'number') result.outputTokens = usage['output_tokens'];
+  if (typeof usage['cache_read_input_tokens'] === 'number') result.cacheReadTokens = usage['cache_read_input_tokens'];
+  if (typeof usage['cache_creation_input_tokens'] === 'number') result.cacheCreationTokens = usage['cache_creation_input_tokens'];
+  if (typeof e['total_cost_usd'] === 'number') result.costUsd = e['total_cost_usd'];
+  if (typeof e['duration_ms'] === 'number') result.durationMs = e['duration_ms'];
+  if (typeof e['duration_api_ms'] === 'number') result.durationApiMs = e['duration_api_ms'];
+  if (typeof e['num_turns'] === 'number') result.numTurns = e['num_turns'];
+  return result;
+}
+
 /**
  * Service for invoking Claude via CLI subprocess.
  * Uses Max plan subscription instead of API key.
@@ -299,6 +315,12 @@ export class ClaudeAgentService implements AgentService {
             timestamp: Date.now(),
           };
           continue;
+        }
+
+        // F8: Capture usage from result/success events before transform drops them
+        const rawEvt = event as Record<string, unknown>;
+        if (rawEvt['type'] === 'result' && rawEvt['subtype'] === 'success') {
+          metadata.usage = extractClaudeUsage(rawEvt);
         }
 
         const fromResultError = isResultErrorEvent(event);

@@ -529,3 +529,23 @@ describe('GeminiAgentService (adapter selection)', () => {
     assert.equal(antigravitySpawnFn.mock.calls[0].arguments[0], 'antigravity');
   });
 });
+
+test('F8: result/success stats captured into done metadata', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+  const promise = collect(service.invoke('test'));
+
+  emitGeminiEvents(proc, [
+    { type: 'init', session_id: 's1', model: 'gemini-pro' },
+    { type: 'message', role: 'assistant', content: 'Hello', delta: true },
+    { type: 'result', status: 'success', stats: { total_tokens: 150 } },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done, 'should have done message');
+  assert.ok(done.metadata?.usage, 'done should have usage in metadata');
+  assert.equal(done.metadata.usage.totalTokens, 150);
+});
