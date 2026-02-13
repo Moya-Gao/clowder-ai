@@ -52,7 +52,7 @@
 | 33 | TaskExtractor prompt/解析鲁棒性 | [x] | Phase 4.0 缅因猫 review P2-3 | `8e0ba93` — normalizeSourceIndex 处理 number/string/msg-N 格式 |
 | 34 | cascade delete 语义边界文档 | [x] | Quick wins 缅因猫 review P2-1 | Phase 5.2 — ADR `docs/decisions/007-cascade-delete-semantics.md` |
 | 35 | thread 删除与 invocation 竞态 | [x] | Quick wins 缅因猫 review P2-2 | Phase 5.2 — 409 ACTIVE_INVOCATION 保护 + InvocationTracker 注入 |
-| 36 | CLI 全局配置隔离 | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | 已闭环：`2a6c7d4` 引入隔离 HOME + 不复制 AGENTS，后续 `81fa2bf`/`fb134b6` 完善稳健性（顺带修复 sessions 兼容） |
+| 36 | CLI 全局配置隔离 | [x] | [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) | **已回退**: 隔离 HOME 方案失效 — Codex CLI 初始化覆盖 copy 的 auth/config/sessions，导致 401 + 模型回落 + resume 断裂。已删除 `cli-config-isolation.ts` + 测试，改用真实 HOME（项目级 AGENTS.md 已覆盖全局）。commit `1d8cb59`。详见 [timeline.md](./bug-report/tea-coffee/timeline.md) |
 | 39 | useChatCommands 命令解析自动化测试 | [x] | Phase 5.0-S2 follow-up | Phase 5.2 — vitest + jsdom 基建 + 14 tests for isCommandInvocation |
 | 40 | delivery cursor 生命周期治理 | [x] | [resume 重复发送修复](./bug-report/opus-resume-history-duplication/bug-report.md) | Phase 5.2 — TTL 86400→604800 (7天)，长期键自然过期 |
 | 41 | Gemini CLI 回答后 `candidates` 收尾崩溃跟踪 | [x] | [Gemini post-response crash](./bug-report/gemini-cli-post-response-candidates-crash/bug-report.md) | 2026-02-09 上游 `google-gemini/gemini-cli#18621` 已关闭（completed），`#18656` 已合并；2026-02-10 本地 `stream-json` 连续 3 次复测无崩溃，关闭该跟踪项 |
@@ -82,7 +82,7 @@
 | 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [x] | Phase 3.9 | 已澄清设计意图：用户消息用 indexOf (宽松)，猫回复用行首匹配 (严格防误触) |
 | 29 | A2A 悄悄话折叠 UI | [x] | 暹罗猫建议 | 已实现：`A2ACollapsible` + `ChatContainer` 按 `a2aGroupId` 分组折叠，默认“查看内部讨论”。 |
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
-| 51 | Codex 隔离 HOME 固定路径并发冲突 | [ ] | F16 review P3 | Why: 当前以单实例部署优先，先保证 OAuth 连续性。风险边界：同机并发实例可能互相覆盖隔离目录内容。触发条件：出现多实例/并发 CI 运行时，改为 invocation-scoped 隔离目录 + 文件锁。 |
+| 51 | ~~Codex 隔离 HOME 固定路径并发冲突~~ | [x] | F16 review P3 | 已关闭：隔离 HOME 方案已废弃 (BACKLOG #36 重开 → 删除隔离)，此项自动解决。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
 | 57 | Claude CLI partial flag 版本兼容检查 | [x] | 2026-02-11 Opus review P2 建议 | 关闭：铲屎官 CLI 保持最新 (v2.1.39+)，无需兼容旧版。 |
 | 62 | Whisper 模型选择 small → large-v3-turbo | [x] | Voice Input M1 open question | `fb51e1f` — mlx-whisper 迁移，默认 `mlx-community/whisper-large-v3-turbo`，Metal GPU 加速 |
@@ -149,7 +149,7 @@
 | CLI 启动开销 ~500ms-2s | 中 | 可考虑进程池 |
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
 | Antigravity MCP 回传可能无响应 | 中 | gemini-cli fallback |
-| **Codex CLI 全局配置可覆盖会话规则** | 高 | `~/.codex/AGENTS.md` 含 `<EXTREMELY_IMPORTANT>` 优先级极高。详见 [茶话会夺魂 bug](./bug-report/tea-coffee/bug-report.md) |
+| **Codex CLI 全局配置可覆盖会话规则** | 中 | Session 跨 thread 污染已修 (#38)。全局 `AGENTS.md` 在有项目级 `AGENTS.md` 的项目中不生效。HOME 隔离方案已废弃 (BACKLOG #36)。详见 [timeline.md](./bug-report/tea-coffee/timeline.md) |
 
 ## 已完成项（归档）
 
