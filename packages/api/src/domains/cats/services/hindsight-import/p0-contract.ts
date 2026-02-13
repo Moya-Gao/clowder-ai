@@ -37,6 +37,19 @@ export function buildP0DocumentId(sourcePath: string): string {
   return `path:${normalized}`;
 }
 
+export function assertUniqueP0DocumentIds(sourcePaths: string[]): void {
+  const seen = new Map<string, string>();
+  for (const sourcePath of sourcePaths) {
+    const normalized = normalizeSourcePath(sourcePath);
+    const documentId = buildP0DocumentId(normalized);
+    const existing = seen.get(documentId);
+    if (existing && existing !== normalized) {
+      throw new Error(`duplicate document_id ${documentId}: ${existing} vs ${normalized}`);
+    }
+    seen.set(documentId, normalized);
+  }
+}
+
 export function deriveP0Kind(sourcePath: string): string {
   const normalized = normalizeSourcePath(sourcePath);
   if (normalized.startsWith('docs/decisions/')) return 'decision';

@@ -1,4 +1,4 @@
-import type { RetainItem } from '../HindsightClient.js';
+import type { RetainItem, RetainOptions } from '../HindsightClient.js';
 import {
   P0_LESSONS_PATH,
   P0_PROJECT_TAG,
@@ -102,6 +102,18 @@ function buildLessonsItems(params: {
       }),
     };
   });
+}
+
+export function buildP0DocumentTags(tags: string[] | undefined): string[] {
+  const base = (tags ?? []).filter((tag) => !tag.startsWith('anchor:'));
+  return Array.from(new Set(base));
+}
+
+export function buildP0RetainOptions(tags: string[] | undefined): RetainOptions {
+  return {
+    async: true,
+    document_tags: buildP0DocumentTags(tags),
+  };
 }
 
 export function buildImportItemsFromMarkdown(input: BuildImportItemsInput): RetainItem[] {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   buildImportItemsFromMarkdown,
+  buildP0RetainOptions,
 } from '../dist/domains/cats/services/hindsight-import/p0-importer.js';
 
 test('buildImportItemsFromMarkdown emits ADR retain items with required tags', () => {
@@ -71,4 +72,20 @@ test('buildImportItemsFromMarkdown imports only LL entries from lessons-learned.
   const second = items[1];
   assert.equal(second.metadata?.status, 'validated');
   assert.deepEqual(JSON.parse(second.metadata?.sourceAnchors ?? '[]'), ['docs/c.md#L9']);
+});
+
+test('buildP0RetainOptions enables async retain and strips anchor tags from document_tags', () => {
+  const options = buildP0RetainOptions([
+    'project:cat-cafe',
+    'kind:decision',
+    'anchor:adr:005#foo',
+    'origin:git',
+  ]);
+
+  assert.equal(options.async, true);
+  assert.deepEqual(options.document_tags, [
+    'project:cat-cafe',
+    'kind:decision',
+    'origin:git',
+  ]);
 });

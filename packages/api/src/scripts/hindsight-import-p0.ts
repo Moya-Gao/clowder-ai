@@ -2,7 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHindsightClient } from '../domains/cats/services/HindsightClient.js';
-import { buildImportItemsFromMarkdown, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
+import { buildImportItemsFromMarkdown, buildP0RetainOptions, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
+import { assertUniqueP0DocumentIds } from '../domains/cats/services/hindsight-import/p0-contract.js';
 
 interface CliArgs {
   dryRun: boolean;
@@ -47,11 +48,6 @@ function usage(): void {
   );
 }
 
-function buildDocumentTags(tags: string[] | undefined): string[] {
-  const base = (tags ?? []).filter((tag) => !tag.startsWith('anchor:'));
-  return Array.from(new Set(base));
-}
-
 function detectRepoRoot(startCwd: string): string {
   try {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], {
@@ -73,6 +69,7 @@ async function main(): Promise<void> {
 
   const repoRoot = detectRepoRoot(process.cwd());
   const sourcePaths = await collectP0ImportSources(repoRoot, args.source);
+  assertUniqueP0DocumentIds(sourcePaths);
   const sourceCommit = readGitHeadCommit(repoRoot);
   const client = createHindsightClient();
 
@@ -99,9 +96,7 @@ async function main(): Promise<void> {
       continue;
     }
 
-    await client.retain(args.bank, items, {
-      document_tags: buildDocumentTags(items[0]?.tags),
-    });
+    await client.retain(args.bank, items, buildP0RetainOptions(items[0]?.tags));
     console.log(`[retain] ${sourcePath}: ${items.length} chunks`);
   }
 

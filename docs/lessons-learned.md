@@ -431,6 +431,23 @@
 
 - 关联：LL-018 Session 隔离 | LL-019 过度修复 | LL-014 Bug Report 先行 | `systematic-debugging` skill
 
+### LL-022: 治理基线必须脚本化，不能靠“看一眼 dashboard”
+- 状态：draft
+- 更新时间：2026-02-13
+
+- 坑：P0 已有导入和严格检索策略，但如果不做固定健康检查，`tags=0` 或空库会无声发生，直到检索命中异常才被发现。
+- 根因：把“偶尔人工检查”当作治理手段，缺少可重复、可自动化的最低可观测门禁。
+- 触发条件：多人并行改导入/检索逻辑、环境重置、Hindsight API 字段漂移时。
+- 修复：新增 `scripts/hindsight/p0-health-check.sh`，固定检查 `stats/tags/version` 三件套，并把 `tags.total==0` 与 `stats.total_nodes==0` 设为硬失败。
+- 防护：P0 验收前与后续回归中运行健康脚本；失败即阻断“可用”结论。
+- 来源锚点：
+  - `scripts/hindsight/p0-health-check.sh`
+  - `docs/runbooks/hindsight-p0-health-check.md`
+  - `docs/plans/2026-02-13-hindsight-p0-lessons-import-plan.md#L186`
+- 原理：治理有效性不是“策略存在”，而是“策略被持续验证”。没有自动化检查的治理，等同于没有治理。
+
+- 关联：`docs/decisions/005-hindsight-integration-decisions.md` | `docs/BACKLOG.md` | Task 4 可观测检查
+
 ---
 
 ## 8) 维护约定
