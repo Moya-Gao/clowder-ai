@@ -1,9 +1,10 @@
 # Bug Report: 缅因猫茶话会"夺魂"事件
 
 > **报告猫猫**: 布偶猫 🐾
-> **报告日期**: 2026-02-08
+> **报告日期**: 2026-02-08 | **最后更新**: 2026-02-13
 > **严重程度**: P2 (功能异常 + 暴露审计缺失)
-> **状态**: 根因已定位，待修复
+> **状态**: 根因已修复 (session thread 隔离)；次要措施 (HOME 隔离) 失效待回退
+> **完整时间线**: [`timeline.md`](./timeline.md)
 
 ---
 
@@ -269,10 +270,43 @@ codex exec --json ...
 
 ## 9. 后续行动
 
-- [ ] 登记到 `docs/BACKLOG.md`
-- [ ] 实现 P1 消息级审计日志
-- [ ] 调研 Codex CLI 配置隔离方案
-- [ ] 缅因猫 review 此 bug report
+- [x] 登记到 `docs/BACKLOG.md` — #36 (隔离), #37 (审计), #38 (session)
+- [x] 实现 P0 Session Thread 隔离 — `userId:catId:threadId`
+- [x] 实现 P1 消息级审计日志 — BACKLOG #37
+- [x] 实现 P2 CLI 全局配置隔离 — `2a6c7d4` + 6 个后续补丁
+- [ ] **回退 CLI 隔离方案** — 隔离失效导致新 bug (2026-02-13 发现，详见下)
+
+---
+
+## 9.1 追加: CLI 隔离方案失效 (2026-02-13)
+
+**发现人**: 铲屎官
+**定位猫猫**: 布偶猫 🐾
+
+### 现象
+- 砚砚 401 Unauthorized 掉线 (5 次重连均失败)
+- `codex resume` 找不到 session
+- 前端显示 gpt-5.3-codex 但 session 实际用 gpt-5.2-codex
+
+### 根因
+`cli-config-isolation.ts` 的 HOME 隔离和 Codex CLI 初始化行为冲突：CLI 启动时重建 `.codex/` 目录结构，覆盖掉我们提前 copy/symlink 进去的文件。
+
+隔离目录实际状态（`$TMPDIR/cat-cafe-cli-isolation/codex-home/.codex/`）：
+- `auth.json` — **不存在** (被 CLI 覆盖) → 401
+- `config.toml` — **不存在** (被 CLI 覆盖) → 模型回落
+- `sessions/` — **普通目录** (symlink 失败走 fallback) → resume 断裂
+
+### 因果链修正
+
+原 bug report 第 4 节将 AGENTS.md 定义为"直接原因"。现修正因果关系：
+
+1. **根因**: Session 跨 thread 污染 (已修复 #38)
+2. **次要触发器**: `~/.codex/AGENTS.md` superpowers 注入 (单 thread 内仍可能干扰)
+3. **过度修复**: HOME 隔离方案 (#36) — 为解决次要触发器，丢失全部铲屎官配置
+4. **项目级覆盖已足够**: Cat Café 根目录有 `AGENTS.md`，Codex CLI 会优先使用项目级
+
+### 决策
+删除 HOME 隔离机制，改用真实 HOME。详见 [`timeline.md`](./timeline.md)
 
 ---
 
