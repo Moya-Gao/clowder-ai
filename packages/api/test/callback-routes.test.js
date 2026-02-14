@@ -491,6 +491,34 @@ describe('Callback Routes', () => {
     assert.deepEqual(body.results, []);
   });
 
+  test('GET search-evidence returns disabled degradation when HINDSIGHT_ENABLED=false', async () => {
+    const previous = process.env['HINDSIGHT_ENABLED'];
+    process.env['HINDSIGHT_ENABLED'] = 'false';
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    let recallCalls = 0;
+    hindsightClient.recall = async () => {
+      recallCalls += 1;
+      return [{ content: 'unexpected recall' }];
+    };
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_ENABLED'];
+    else process.env['HINDSIGHT_ENABLED'] = previous;
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'hindsight_disabled');
+    assert.deepEqual(body.results, []);
+    assert.equal(recallCalls, 0);
+  });
+
   test('GET search-evidence degrades on 429 rate limit', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
@@ -627,6 +655,39 @@ describe('Callback Routes', () => {
     assert.equal(body.degraded, false);
   });
 
+  test('POST reflect returns disabled degradation when HINDSIGHT_ENABLED=false', async () => {
+    const previous = process.env['HINDSIGHT_ENABLED'];
+    process.env['HINDSIGHT_ENABLED'] = 'false';
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    let reflectCalls = 0;
+    hindsightClient.reflect = async () => {
+      reflectCalls += 1;
+      return 'unexpected reflection';
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/reflect',
+      payload: {
+        invocationId,
+        callbackToken,
+        query: 'What changed in phase 5?',
+      },
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_ENABLED'];
+    else process.env['HINDSIGHT_ENABLED'] = previous;
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'hindsight_disabled');
+    assert.equal(body.reflection, '');
+    assert.equal(reflectCalls, 0);
+  });
+
   test('POST retain-memory writes invocation-scoped memory item', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
@@ -722,5 +783,36 @@ describe('Callback Routes', () => {
     });
 
     assert.equal(response.statusCode, 501);
+  });
+
+  test('POST retain-memory skips write when HINDSIGHT_ENABLED=false', async () => {
+    const previous = process.env['HINDSIGHT_ENABLED'];
+    process.env['HINDSIGHT_ENABLED'] = 'false';
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    let retainCalls = 0;
+    hindsightClient.retain = async () => {
+      retainCalls += 1;
+    };
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/retain-memory',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'memory item',
+      },
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_ENABLED'];
+    else process.env['HINDSIGHT_ENABLED'] = previous;
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'skipped');
+    assert.equal(body.degradeReason, 'hindsight_disabled');
+    assert.equal(retainCalls, 0);
   });
 });

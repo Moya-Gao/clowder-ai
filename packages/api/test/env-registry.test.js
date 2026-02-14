@@ -66,6 +66,12 @@ describe('env-registry', () => {
     assert.ok(hindsightUrl, 'HINDSIGHT_URL should be in registry');
     assert.equal(hindsightUrl.defaultValue, 'http://localhost:18888');
   });
+
+  it('includes HINDSIGHT_ENABLED toggle', () => {
+    const hindsightEnabled = ENV_VARS.find((v) => v.name === 'HINDSIGHT_ENABLED');
+    assert.ok(hindsightEnabled, 'HINDSIGHT_ENABLED should be in registry');
+    assert.equal(hindsightEnabled.defaultValue, 'true');
+  });
 });
 
 describe('maskUrlCredentials', () => {

@@ -326,6 +326,38 @@ describe('GET /api/evidence/search', () => {
     assert.ok(body.results.length > 0, 'degraded search should find docs');
   });
 
+  it('degrades to docs fallback when HINDSIGHT_ENABLED=false and skips recall', async () => {
+    const previous = process.env['HINDSIGHT_ENABLED'];
+    process.env['HINDSIGHT_ENABLED'] = 'false';
+
+    let recallCalls = 0;
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
+    await setup(
+      {
+        recall: async () => {
+          recallCalls += 1;
+          return [{ content: 'unexpected hindsight result', metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' }, score: 0.95 }];
+        },
+      },
+      docsRoot,
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=phase',
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_ENABLED'];
+    else process.env['HINDSIGHT_ENABLED'] = previous;
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'hindsight_disabled_fallback_docs_search');
+    assert.equal(recallCalls, 0);
+    assert.ok(body.results.length > 0, 'disabled mode should still provide docs fallback');
+  });
+
   it('returns 502 when Hindsight fails with non-availability error', async () => {
     await setup({
       recall: async () => {

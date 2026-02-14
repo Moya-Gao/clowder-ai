@@ -36,7 +36,16 @@ export const reflectRoutes: FastifyPluginAsync<ReflectRoutesOptions> = async (ap
     }
 
     const { query } = parseResult.data;
-    const dispositionMode = collectConfigSnapshot().hindsight.reflect.dispositionMode;
+    const hindsightConfig = collectConfigSnapshot().hindsight;
+    const dispositionMode = hindsightConfig.reflect.dispositionMode;
+    if (!hindsightConfig.enabled) {
+      return {
+        reflection: '',
+        degraded: true,
+        degradeReason: 'hindsight_disabled',
+        dispositionMode,
+      } satisfies ReflectResponse;
+    }
 
     try {
       const reflection = await opts.hindsightClient.reflect(opts.sharedBank, query);

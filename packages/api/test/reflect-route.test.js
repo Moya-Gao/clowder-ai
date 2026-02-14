@@ -110,6 +110,35 @@ describe('POST /api/reflect', () => {
     assert.equal(body.degradeReason, 'hindsight_server_error');
   });
 
+  it('returns disabled degradation when HINDSIGHT_ENABLED=false', async () => {
+    const previous = process.env['HINDSIGHT_ENABLED'];
+    process.env['HINDSIGHT_ENABLED'] = 'false';
+
+    let reflectCalls = 0;
+    const app = await setup({
+      reflect: async () => {
+        reflectCalls += 1;
+        return 'unexpected reflection';
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/reflect',
+      payload: { query: 'test' },
+    });
+
+    if (previous === undefined) delete process.env['HINDSIGHT_ENABLED'];
+    else process.env['HINDSIGHT_ENABLED'] = previous;
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'hindsight_disabled');
+    assert.equal(body.reflection, '');
+    assert.equal(reflectCalls, 0);
+  });
+
   it('returns 502 for non-degradable errors', async () => {
     const app = await setup({
       reflect: async () => {

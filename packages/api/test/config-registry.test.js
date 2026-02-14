@@ -307,4 +307,13 @@ describe('ConfigRegistry', () => {
 
     assert.equal(snapshot.hindsight.baseUrl, 'http://custom-host:9999');
   });
+
+  it('reads HINDSIGHT_ENABLED from env', async () => {
+    setEnv('HINDSIGHT_ENABLED', 'false');
+
+    const { collectConfigSnapshot } = await import('../dist/config/ConfigRegistry.js');
+    const snapshot = collectConfigSnapshot();
+
+    assert.equal(snapshot.hindsight.enabled, false);
+  });
 });

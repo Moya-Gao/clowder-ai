@@ -103,6 +103,16 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       checkedAt: new Date().toISOString(),
       reason: 'head_unavailable' as const,
     }));
+    if (!hindsightConfig.enabled) {
+      const rawResults = await searchDocs(docsRoot, q, effectiveLimit);
+      const results = await validateAnchors(rawResults, docsRoot);
+      return {
+        results,
+        degraded: true,
+        degradeReason: 'hindsight_disabled_fallback_docs_search',
+        freshness,
+      } satisfies EvidenceSearchResponse;
+    }
 
     if (shouldFailClosedForFreshness(freshness, failClosedSettings)) {
       const reimportTrigger = await reimportTriggerProvider(freshness).catch((err) => ({

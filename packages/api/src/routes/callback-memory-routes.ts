@@ -101,6 +101,9 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       checkedAt: new Date().toISOString(),
       reason: 'head_unavailable' as const,
     }));
+    if (!hindsightConfig.enabled) {
+      return { results: [], degraded: true, degradeReason: 'hindsight_disabled', freshness };
+    }
     if (shouldFailClosedForFreshness(freshness, failClosedSettings)) {
       const reimportTrigger = await reimportTriggerProvider(freshness).catch((err) => ({
         status: 'failed' as const,
@@ -141,11 +144,15 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
     const { invocationId, callbackToken, query } = parsed.data;
-    const dispositionMode = collectConfigSnapshot().hindsight.reflect.dispositionMode;
+    const hindsightConfig = collectConfigSnapshot().hindsight;
+    const dispositionMode = hindsightConfig.reflect.dispositionMode;
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
       return { error: 'Invalid or expired callback credentials' };
+    }
+    if (!hindsightConfig.enabled) {
+      return { reflection: '', degraded: true, degradeReason: 'hindsight_disabled', dispositionMode };
     }
     try {
       const reflection = await hindsightClient.reflect(sharedBank, query);
@@ -174,6 +181,9 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     if (!record) {
       reply.status(401);
       return { error: 'Invalid or expired callback credentials' };
+    }
+    if (!collectConfigSnapshot().hindsight.enabled) {
+      return { status: 'skipped', degradeReason: 'hindsight_disabled' };
     }
     const mergedMetadata: Record<string, string> = {
       source: 'callback',
