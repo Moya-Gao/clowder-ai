@@ -30,6 +30,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const isUser = message.type === 'user';
   const isAssistant = message.type === 'assistant';
   const canAct = (isUser || isAssistant) && !message.isStreaming;
+  const toolbarPositionClass = isUser ? 'top-8' : 'top-1';
 
   const handleSoftDelete = useCallback(() => setDialog({ type: 'soft-delete' }), []);
 
@@ -128,7 +129,7 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
       {children}
 
       {canAct && (
-        <div className="opacity-0 group-hover:opacity-100 absolute top-1 right-1 flex gap-0.5 transition-opacity bg-white/90 rounded-lg shadow-sm border border-gray-200 px-1 py-0.5">
+        <div className={`opacity-0 group-hover:opacity-100 absolute ${toolbarPositionClass} right-1 flex gap-0.5 transition-opacity bg-white/90 rounded-lg shadow-sm border border-gray-200 px-1 py-0.5`}>
           <button onClick={handleSoftDelete} className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-red-500 transition-colors" title="删除">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           </button>

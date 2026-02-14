@@ -612,6 +612,76 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(msgs.some(m => m.type === 'error' && String(m.error).includes('upstream timeout')));
   });
 
+  it('transient CLI self-heal: retries once when Claude exits code 1 before any stream output', async () => {
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'opus',
+            error: 'Claude CLI: CLI 异常退出 (code: 1, signal: none)',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'text', catId: 'opus', content: 'retry-ok', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(invokeSingleCat(makeDeps(), {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-transient-retry',
+      threadId: 'thread-transient-retry',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2, 'should retry once for transient code:1 exit');
+    assert.ok(msgs.some((m) => m.type === 'text' && m.content === 'retry-ok'), 'retry result should be streamed');
+    assert.equal(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('CLI 异常退出')),
+      false,
+      'first-attempt transient CLI error should be suppressed when retry succeeds',
+    );
+  });
+
+  it('transient CLI self-heal: does not retry when stream already produced text', async () => {
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield { type: 'text', catId: 'opus', content: 'partial-output', timestamp: Date.now() };
+        yield {
+          type: 'error',
+          catId: 'opus',
+          error: 'Claude CLI: CLI 异常退出 (code: 1, signal: none)',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(invokeSingleCat(makeDeps(), {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-no-transient-retry',
+      threadId: 'thread-no-transient-retry',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1, 'must not retry after partial output to avoid duplication');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('CLI 异常退出')),
+      'error should be preserved when partial output already streamed',
+    );
+  });
+
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];

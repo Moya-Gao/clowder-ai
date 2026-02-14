@@ -25,6 +25,11 @@ function isMissingClaudeSessionError(message: string | undefined): boolean {
   return /No conversation found with session ID/i.test(message);
 }
 
+function isTransientClaudeCliExitCode1(message: string | undefined): boolean {
+  if (!message) return false;
+  return /CLI 异常退出 \(code:\s*1(?:,\s*signal:\s*none)?\)/i.test(message);
+}
+
 /**
  * Shared dependencies for all cat invocations within one AgentRouter
  */
@@ -282,18 +287,22 @@ export async function* invokeSingleCat(
       return outputs;
     };
 
-    // Claude CLI occasionally returns a stale session bootstrap error:
-    // "No conversation found with session ID ...".
-    // Self-heal by clearing stored session and retrying once without --resume.
-    const maxAttempts = sessionId ? 2 : 1;
+    // Self-heal policy (at most one retry total):
+    // 1) stale --resume session: "No conversation found with session ID ..."
+    // 2) transient CLI bootstrap exit: "CLI 异常退出 (code: 1, signal: none)"
+    const maxAttempts = 2;
     let allowSessionRetry = Boolean(sessionId);
+    let allowTransientRetry = true;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const options: AgentServiceOptions = {
         ...(sessionId ? { sessionId } : {}),
         ...baseOptions,
       };
       let suppressedMissingSessionError: AgentMessage | undefined;
+      let suppressedTransientCliError: AgentMessage | undefined;
       let shouldRetryWithoutSession = false;
+      let shouldRetryOnTransientCliExit = false;
+      let attemptHasContentOutput = false;
 
       for await (const msg of service.invoke(prompt, options)) {
         if (
@@ -304,21 +313,42 @@ export async function* invokeSingleCat(
           suppressedMissingSessionError = msg;
           continue;
         }
+        if (
+          allowTransientRetry &&
+          !attemptHasContentOutput &&
+          msg.type === 'error' &&
+          isTransientClaudeCliExitCode1(msg.error)
+        ) {
+          suppressedTransientCliError = msg;
+          continue;
+        }
 
-        if (suppressedMissingSessionError) {
+        if (suppressedMissingSessionError || suppressedTransientCliError) {
           if (msg.type === 'done') {
-            shouldRetryWithoutSession = true;
+            shouldRetryWithoutSession = Boolean(suppressedMissingSessionError);
+            shouldRetryOnTransientCliExit = Boolean(suppressedTransientCliError);
             break;
           }
 
-          for (const out of await processMessage(suppressedMissingSessionError)) {
-            yield out;
+          if (suppressedMissingSessionError) {
+            for (const out of await processMessage(suppressedMissingSessionError)) {
+              yield out;
+            }
+            suppressedMissingSessionError = undefined;
           }
-          suppressedMissingSessionError = undefined;
+          if (suppressedTransientCliError) {
+            for (const out of await processMessage(suppressedTransientCliError)) {
+              yield out;
+            }
+            suppressedTransientCliError = undefined;
+          }
         }
 
         for (const out of await processMessage(msg)) {
           yield out;
+        }
+        if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
+          attemptHasContentOutput = true;
         }
       }
 
@@ -332,9 +362,18 @@ export async function* invokeSingleCat(
         allowSessionRetry = false;
         continue;
       }
+      if (shouldRetryOnTransientCliExit && attempt + 1 < maxAttempts) {
+        allowTransientRetry = false;
+        continue;
+      }
 
       if (suppressedMissingSessionError) {
         for (const out of await processMessage(suppressedMissingSessionError)) {
+          yield out;
+        }
+      }
+      if (suppressedTransientCliError) {
+        for (const out of await processMessage(suppressedTransientCliError)) {
           yield out;
         }
       }
