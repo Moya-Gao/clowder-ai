@@ -20,6 +20,7 @@ vi.mock('@/stores/chatStore', () => ({
       },
     ],
     isLoading: false,
+    hasActiveInvocation: false,
     intentMode: null,
     targetCats: [],
     catStatuses: {},

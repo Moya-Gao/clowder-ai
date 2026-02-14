@@ -14,6 +14,7 @@ describe('chatStore multi-thread state', () => {
       isLoading: false,
       isLoadingHistory: false,
       hasMore: true,
+      hasActiveInvocation: false,
       intentMode: null,
       targetCats: [],
       catStatuses: {},

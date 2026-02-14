@@ -8,6 +8,7 @@ describe('chatStore viewMode + split pane state', () => {
       isLoading: false,
       isLoadingHistory: false,
       hasMore: true,
+      hasActiveInvocation: false,
       intentMode: null,
       targetCats: [],
       catStatuses: {},

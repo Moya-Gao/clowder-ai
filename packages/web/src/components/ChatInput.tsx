@@ -12,11 +12,12 @@ interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
   onStop?: () => void;
   disabled?: boolean;
+  hasActiveInvocation?: boolean;
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
 
-export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
@@ -188,7 +189,7 @@ export function ChatInput({ onSend, onStop, disabled }: ChatInputProps) {
 
         <ChatInputActionButton
           onTranscript={handleTranscript} onSend={handleSend} onStop={onStop}
-          disabled={disabled} hasText={!!input.trim()}
+          disabled={disabled} hasActiveInvocation={hasActiveInvocation} hasText={!!input.trim()}
         />
       </div>
     </div>

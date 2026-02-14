@@ -5,6 +5,7 @@ import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } 
 import { ChatContainer } from '@/components/ChatContainer';
 
 const mockSetLoading = vi.fn();
+const mockSetHasActiveInvocation = vi.fn();
 const mockSetIntentMode = vi.fn();
 const mockSetTargetCats = vi.fn();
 const mockSetCurrentThread = vi.fn();
@@ -20,6 +21,7 @@ let capturedSocketCallbacks:
 const mockStoreState = () => ({
   messages: [],
   isLoading: false,
+  hasActiveInvocation: false,
   intentMode: null,
   targetCats: [],
   catStatuses: {},
@@ -27,6 +29,7 @@ const mockStoreState = () => ({
   addMessage: vi.fn(),
   removeMessage: vi.fn(),
   setLoading: mockSetLoading,
+  setHasActiveInvocation: mockSetHasActiveInvocation,
   setIntentMode: mockSetIntentMode,
   setTargetCats: mockSetTargetCats,
   clearCatStatuses: vi.fn(),
@@ -138,6 +141,7 @@ describe('ChatContainer intent_mode loading lock', () => {
     root = createRoot(container);
     capturedSocketCallbacks = null;
     mockSetLoading.mockClear();
+    mockSetHasActiveInvocation.mockClear();
     mockSetIntentMode.mockClear();
     mockSetTargetCats.mockClear();
     mockSetCurrentThread.mockClear();
@@ -169,6 +173,38 @@ describe('ChatContainer intent_mode loading lock', () => {
     expect(mockSetLoading).toHaveBeenCalledWith(true);
     expect(mockSetIntentMode).toHaveBeenCalledWith('execute');
     expect(mockSetTargetCats).toHaveBeenCalledWith(['codex']);
+  });
+
+  it('sets hasActiveInvocation when current thread receives intent_mode', () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    act(() => {
+      capturedSocketCallbacks?.onIntentMode?.({
+        threadId: 'thread-1',
+        mode: 'execute',
+        targetCats: ['codex'],
+      });
+    });
+
+    expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(true);
+  });
+
+  it('does not set hasActiveInvocation for other threads', () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-main' }));
+    });
+
+    act(() => {
+      capturedSocketCallbacks?.onIntentMode?.({
+        threadId: 'thread-other',
+        mode: 'execute',
+        targetCats: ['opus'],
+      });
+    });
+
+    expect(mockSetHasActiveInvocation).not.toHaveBeenCalled();
   });
 
   it('ignores intent_mode from other threads', () => {

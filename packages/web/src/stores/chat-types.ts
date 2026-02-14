@@ -130,6 +130,8 @@ export interface ThreadState {
   isLoading: boolean;
   isLoadingHistory: boolean;
   hasMore: boolean;
+  /** Whether the thread has an active invocation (broader than isLoading — stays true during A2A chains) */
+  hasActiveInvocation: boolean;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
@@ -145,6 +147,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   isLoading: false,
   isLoadingHistory: false,
   hasMore: true,
+  hasActiveInvocation: false,
   intentMode: null,
   targetCats: [],
   catStatuses: {},

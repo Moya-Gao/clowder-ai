@@ -51,6 +51,7 @@ export function useAgentMessages() {
     appendToolEvent,
     setStreaming,
     setLoading,
+    setHasActiveInvocation,
     setIntentMode,
     setCatStatus,
     clearCatStatuses,
@@ -77,6 +78,7 @@ export function useAgentMessages() {
     timeoutRef.current = setTimeout(() => {
       // Timeout fired — stop loading and show system message
       setLoading(false);
+      setHasActiveInvocation(false);
       setIntentMode(null);
       clearCatStatuses();
       for (const ref of activeRefs.current.values()) {
@@ -91,7 +93,7 @@ export function useAgentMessages() {
         timestamp: Date.now(),
       });
     }, DONE_TIMEOUT_MS);
-  }, [setLoading, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
+  }, [setLoading, setHasActiveInvocation, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
 
   /** Clear the timeout (called on done with isFinal) */
   const clearDoneTimeout = useCallback(() => {
@@ -217,6 +219,7 @@ export function useAgentMessages() {
         if (msg.isFinal) {
           clearDoneTimeout();
           setLoading(false);
+          setHasActiveInvocation(false);
           setIntentMode(null);
           clearCatStatuses();
           a2aGroupRef.current = null;
@@ -317,11 +320,12 @@ export function useAgentMessages() {
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
           setLoading(false);
+          setHasActiveInvocation(false);
           setIntentMode(null);
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setHasActiveInvocation, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout]
   );
 
   const handleStop = useCallback(
@@ -329,6 +333,7 @@ export function useAgentMessages() {
       cancelFn(threadId);
       clearDoneTimeout();
       setLoading(false);
+      setHasActiveInvocation(false);
       setIntentMode(null);
       clearCatStatuses();
       // Stop all active streams
@@ -337,7 +342,7 @@ export function useAgentMessages() {
       }
       activeRefs.current.clear();
     },
-    [setLoading, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout]
+    [setLoading, setHasActiveInvocation, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout]
   );
 
   const resetRefs = useCallback(() => {

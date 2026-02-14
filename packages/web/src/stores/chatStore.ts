@@ -23,6 +23,7 @@ function snapshotActive(s: ChatState): ThreadState {
     isLoading: s.isLoading,
     isLoadingHistory: s.isLoadingHistory,
     hasMore: s.hasMore,
+    hasActiveInvocation: s.hasActiveInvocation,
     intentMode: s.intentMode,
     targetCats: s.targetCats,
     catStatuses: s.catStatuses,
@@ -41,6 +42,7 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
     isLoading: ts.isLoading,
     isLoadingHistory: ts.isLoadingHistory,
     hasMore: ts.hasMore,
+    hasActiveInvocation: ts.hasActiveInvocation,
     intentMode: ts.intentMode,
     targetCats: ts.targetCats,
     catStatuses: ts.catStatuses,
@@ -72,6 +74,8 @@ interface ChatState {
   isLoading: boolean;
   isLoadingHistory: boolean;
   hasMore: boolean;
+  /** Whether the thread has an active invocation (broader than isLoading — stays true during A2A chains) */
+  hasActiveInvocation: boolean;
   intentMode: 'execute' | 'ideate' | null;
   targetCats: string[];
   catStatuses: Record<string, CatStatusType>;
@@ -102,6 +106,7 @@ interface ChatState {
   appendToolEvent: (id: string, event: ToolEvent) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
+  setHasActiveInvocation: (v: boolean) => void;
   setLoadingHistory: (loading: boolean) => void;
   setIntentMode: (mode: 'execute' | 'ideate' | null) => void;
   setTargetCats: (cats: string[]) => void;
@@ -141,6 +146,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   isLoading: false,
   isLoadingHistory: false,
   hasMore: true,
+  hasActiveInvocation: false,
   intentMode: null,
   targetCats: [],
   catStatuses: {},
@@ -218,6 +224,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })),
 
   setLoading: (loading) => set({ isLoading: loading }),
+  setHasActiveInvocation: (v) => set({ hasActiveInvocation: v }),
   setLoadingHistory: (loading) => set({ isLoadingHistory: loading }),
   setIntentMode: (mode) => set({ intentMode: mode }),
 

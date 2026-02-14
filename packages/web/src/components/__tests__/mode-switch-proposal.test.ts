@@ -33,6 +33,7 @@ let pendingProposal: {
 const mockStoreState = () => ({
   messages: [],
   isLoading: false,
+  hasActiveInvocation: false,
   intentMode: null,
   targetCats: [],
   catStatuses: {},

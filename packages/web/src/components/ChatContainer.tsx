@@ -40,6 +40,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
     messages,
     isLoading,
+    hasActiveInvocation,
     intentMode,
     targetCats,
     catStatuses,
@@ -47,6 +48,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     addMessage,
     removeMessage,
     setLoading,
+    setHasActiveInvocation,
     setIntentMode,
     setTargetCats,
     setCurrentThread,
@@ -144,6 +146,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     onIntentMode: (data) => {
       if (data.threadId !== threadId) return;
       setLoading(true);
+      setHasActiveInvocation(true);
       setIntentMode(data.mode as 'ideate' | 'execute');
       const cats = (data as { targetCats?: string[] }).targetCats;
       if (cats && cats.length > 0) setTargetCats(cats);
@@ -174,7 +177,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         setCurrentMode(null);
       }
     },
-  }), [handleAgentMessage, updateThreadTitle, setLoading, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
+  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
 
   /**
    * Group consecutive A2A messages into collapsible sections.
@@ -333,7 +336,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         </header>
 
         <ModeStatusBar />
-        {intentMode === 'ideate' && <ParallelStatusBar />}
+        {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
         {intentMode === 'execute' && <ThinkingIndicator />}
 
         <div className="flex-1 relative overflow-hidden">
@@ -385,7 +388,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </div>
         )}
 
-        <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} />
+        <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} hasActiveInvocation={hasActiveInvocation} />
 
         {/* Mode switch confirmation dialog (P2-4: 弹确认对话框) */}
         <ConfirmDialog

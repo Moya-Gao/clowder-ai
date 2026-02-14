@@ -25,6 +25,7 @@ const mockStoreState = () => ({
     isLoading: false,
     isLoadingHistory: false,
     hasMore: true,
+    hasActiveInvocation: false,
     intentMode: null,
     targetCats: [],
     catStatuses: {},

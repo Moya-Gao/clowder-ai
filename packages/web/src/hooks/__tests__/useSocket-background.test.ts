@@ -93,6 +93,7 @@ describe('background thread socket handling', () => {
       isLoading: false,
       isLoadingHistory: false,
       hasMore: true,
+      hasActiveInvocation: false,
       intentMode: null,
       targetCats: [],
       catStatuses: {},

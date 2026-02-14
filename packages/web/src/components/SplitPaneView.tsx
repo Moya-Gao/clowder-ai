@@ -71,9 +71,9 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
     [splitPaneThreadIds, splitPaneTargetId, paneSlots, setSplitPaneThreadIds, setSplitPaneTarget]
   );
 
-  const isTargetLoading = splitPaneTargetId
-    ? getThreadState(splitPaneTargetId).isLoading
-    : false;
+  const targetThreadState = splitPaneTargetId ? getThreadState(splitPaneTargetId) : null;
+  const isTargetLoading = targetThreadState?.isLoading ?? false;
+  const isTargetActiveInvocation = targetThreadState?.hasActiveInvocation ?? false;
 
   const handleBackToSingle = useCallback(() => {
     const target = splitPaneTargetId ?? splitPaneThreadIds[0];
@@ -144,6 +144,7 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
             onSend={(content: string, images?: File[]) => onSend(content, images, splitPaneTargetId ?? undefined)}
             onStop={onStop}
             disabled={isTargetLoading || !splitPaneTargetId}
+            hasActiveInvocation={isTargetActiveInvocation}
           />
         </div>
         </div>

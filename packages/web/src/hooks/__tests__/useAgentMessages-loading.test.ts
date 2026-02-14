@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
 const mockSetLoading = vi.fn();
+const mockSetHasActiveInvocation = vi.fn();
 const mockSetIntentMode = vi.fn();
 const mockClearCatStatuses = vi.fn();
 
@@ -19,6 +20,7 @@ vi.mock('@/stores/chatStore', () => {
     appendToolEvent: vi.fn(),
     setStreaming: vi.fn(),
     setLoading: mockSetLoading,
+    setHasActiveInvocation: mockSetHasActiveInvocation,
     setIntentMode: mockSetIntentMode,
     setCatStatus: vi.fn(),
     clearCatStatuses: mockClearCatStatuses,
@@ -57,6 +59,7 @@ describe('useAgentMessages loading lifecycle', () => {
     root = createRoot(container);
     captured = undefined;
     mockSetLoading.mockClear();
+    mockSetHasActiveInvocation.mockClear();
     mockSetIntentMode.mockClear();
     mockClearCatStatuses.mockClear();
   });
@@ -83,7 +86,27 @@ describe('useAgentMessages loading lifecycle', () => {
     });
 
     expect(mockSetLoading).toHaveBeenCalledWith(false);
+    expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(false);
     expect(mockSetIntentMode).toHaveBeenCalledWith(null);
     expect(mockClearCatStatuses).toHaveBeenCalled();
+  });
+
+  it('clears hasActiveInvocation on error with isFinal', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
+        catId: 'opus',
+        error: 'something broke',
+        isFinal: true,
+      });
+    });
+
+    expect(mockSetLoading).toHaveBeenCalledWith(false);
+    expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(false);
+    expect(mockSetIntentMode).toHaveBeenCalledWith(null);
   });
 });

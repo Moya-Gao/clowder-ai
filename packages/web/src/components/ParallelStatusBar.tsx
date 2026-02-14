@@ -93,7 +93,7 @@ export function aggregateUsage(invocations: Record<string, CatInvocationInfo>, f
   };
 }
 
-export function ParallelStatusBar() {
+export function ParallelStatusBar({ onStop }: { onStop?: () => void }) {
   const { targetCats, catStatuses, catInvocations } = useChatStore();
 
   if (targetCats.length === 0) return null;
@@ -112,6 +112,19 @@ export function ParallelStatusBar() {
             invocation={catInvocations[catId]}
           />
         ))}
+        {onStop && (
+          <button
+            onClick={onStop}
+            className="ml-auto flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors text-xs font-medium"
+            aria-label="Stop all cats"
+            data-testid="parallel-stop-button"
+          >
+            <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+              <rect x="4" y="4" width="12" height="12" rx="2" />
+            </svg>
+            停止
+          </button>
+        )}
       </div>
       {agg && (
         <div className="flex items-center gap-3 mt-1.5 text-[11px] text-gray-500" data-testid="parallel-usage-summary">
