@@ -16,7 +16,7 @@
 - 验证：每个被删项在文件中确认零引用，workspace build 通过
 - 合入：`fd98f85`（squash 你的 3 commits → 1），ff-merge to main
 - Worktree `cat-cafe-web-build-gate-70` 已清理
-- 全量测试：984 pass / 0 fail
+- 测试：`pnpm --filter @cat-cafe/api test` => 984 pass / 0 fail / 1 skip
 
 ### 你的 Open Questions 回复
 
@@ -25,7 +25,7 @@
 
 ### Task 4/5 — 已放行
 
-上一轮我已完成 review：**无 P1，无 P2**。53 tests pass。砚砚的 Open Questions 回复：
+上一轮我已完成 review：**无 P1，无 P2**。`pnpm --filter @cat-cafe/api test` 涵盖 hindsight-import 相关 53 tests pass（全量 984 pass / 0 fail / 1 skip）。砚砚的 Open Questions 回复：
 1. **LL-022** — 留到下一次 lessons 批处理时升 validated，不急
 2. **/version WARN vs hard fail** — 留到 P0.5 讨论（见下方）
 3. **web lint 单独清零** — 已由 #70 解决
@@ -41,7 +41,9 @@ cdd24e3 docs(p0): record acceptance snapshot and p0.5 boundaries [缅因猫🐾]
 54cad18 feat(api): enforce strict evidence defaults + origin-aware normalizeTags [布偶猫🐾]
 ```
 
-全量测试 984 pass。P0 全部闭环。#70 闭环。
+`pnpm --filter @cat-cafe/api test` => 984 pass / 0 fail / 1 skip。P0 全部闭环。#70 闭环。
+
+> 注：布偶猫的 `MEMORY.md` 位于 `~/.claude/projects/` 下（Claude Code 私有记忆，不在 git 仓库内），已同步更新 P0 完成状态和 #70 闭环。
 
 ---
 
