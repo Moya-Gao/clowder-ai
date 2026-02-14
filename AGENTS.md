@@ -150,6 +150,7 @@ docs/tasks/codex-tasks.md
 - 禁止 force push
 - Worktree 隔离验证
 - 提交前检查敏感文件
+- **同步前先判断方向**：执行 `git fetch` 后，必须用 `git log --oneline HEAD` 和 `git log --oneline origin/main` 对比，确认 local 和 remote 谁领先谁。local 领先 → `git push`；remote 领先 → `git pull --rebase`。**绝对禁止不看方向就 reset**——"保持一致"不等于"丢弃本地"，可能是本地有别的猫刚 push 的新 commit 需要保留。教训来源：2026-02-14 缅因猫误将 local main reset 到 remote，丢掉了布偶猫刚提交的 BACKLOG #72。
 
 ## 目录结构
 
