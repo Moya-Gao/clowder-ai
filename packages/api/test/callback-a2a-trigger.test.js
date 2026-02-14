@@ -124,30 +124,22 @@ describe('triggerA2AInvocation', () => {
     assert.equal(updates.length, 0, 'No updates on duplicate');
   });
 
-  test('skips callback A2A when thread already has active invocation (no preemption)', async () => {
+  test('A2A with active parent does NOT call tracker.start (preserving old test structure)', async () => {
     const { triggerA2AInvocation } = await import(
       '../dist/routes/callback-a2a-trigger.js'
     );
 
-    let createCalled = 0;
+    let startCalled = 0;
     let routeCalled = 0;
-    const updates = [];
-    const broadcasts = [];
 
     const mockInvocationRecordStore = {
-      create() {
-        createCalled++;
-        return { outcome: 'created', invocationId: 'inv-1' };
-      },
-      update(id, data) {
-        updates.push({ id, ...data });
-        return { id, ...data };
-      },
+      create() { return { outcome: 'created', invocationId: 'inv-1' }; },
+      update() {},
     };
 
     const mockInvocationTracker = {
       has() { return true; },
-      start() { throw new Error('start should not be called when thread is busy'); },
+      start() { startCalled++; return new AbortController(); },
       complete() {},
     };
 
@@ -159,7 +151,7 @@ describe('triggerA2AInvocation', () => {
     };
 
     const mockSocketManager = {
-      broadcastAgentMessage(msg, threadId) { broadcasts.push({ msg, threadId }); },
+      broadcastAgentMessage() {},
       broadcastToRoom() {},
     };
 
@@ -183,15 +175,83 @@ describe('triggerA2AInvocation', () => {
       },
     );
 
-    assert.equal(createCalled, 1, 'busy skip should still create InvocationRecord for audit');
-    assert.equal(routeCalled, 0, 'should not execute router route when thread is busy');
-    const canceled = updates.find((u) => u.status === 'canceled');
-    assert.ok(canceled, 'busy skip should mark InvocationRecord canceled');
-    assert.match(String(canceled.error), /busy|skip/i, 'busy skip should include explicit reason');
-    assert.equal(broadcasts.length, 1, 'should emit one system_info message to explain skip');
-    assert.equal(broadcasts[0].threadId, 'busy-thread');
-    assert.equal(broadcasts[0].msg.type, 'system_info');
-    assert.match(String(broadcasts[0].msg.content), /跳过|稍后/);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // With fix: A2A chain proceeds, but tracker.start() is NOT called
+    assert.equal(startCalled, 0, 'tracker.start must not be called when parent is active');
+    assert.equal(routeCalled, 1, 'routeExecution must be called for A2A chain');
+  });
+
+  test('A2A chain proceeds when parent invocation is active (no tracker.start)', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    let startCalled = 0;
+    let routeCalled = 0;
+    const updates = [];
+    const roomEvents = [];
+
+    const mockInvocationRecordStore = {
+      create() {
+        return { outcome: 'created', invocationId: 'inv-child' };
+      },
+      update(id, data) {
+        updates.push({ id, ...data });
+        return { id, ...data };
+      },
+    };
+
+    const mockInvocationTracker = {
+      has() { return true; }, // parent invocation is active
+      start() { startCalled++; return new AbortController(); },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        routeCalled++;
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom(room, event, payload) { roomEvents.push({ room, event, payload }); },
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nplease review this',
+        userId: 'user-1',
+        threadId: 'active-thread',
+        triggerMessage: { id: 'msg-chain', threadId: 'active-thread', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    // Wait for fire-and-forget background task
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // KEY ASSERTIONS:
+    // 1. routeExecution SHOULD be called (A2A chain proceeds)
+    assert.equal(routeCalled, 1, 'A2A chain must proceed even when parent invocation is active');
+    // 2. invocationTracker.start() should NOT be called (don't abort parent)
+    assert.equal(startCalled, 0, 'tracker.start() must not be called to avoid aborting parent invocation');
+    // 3. intent_mode should be broadcast (so frontend shows loading state)
+    assert.ok(roomEvents.some(e => e.event === 'intent_mode'), 'intent_mode must be broadcast for A2A chain');
+    // 4. InvocationRecord should be marked succeeded (not canceled)
+    assert.ok(updates.some(u => u.status === 'succeeded'), 'child invocation must succeed, not be canceled');
   });
 
   test('broadcasts terminal error + done when routeExecution throws (release loading lock)', async () => {

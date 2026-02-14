@@ -54,34 +54,29 @@ export async function triggerA2AInvocation(
 
   if (createResult.outcome === 'duplicate') return;
 
-  // Do not preempt active thread work with callback-triggered A2A.
-  if (invocationTracker?.has(threadId)) {
-    // Keep an auditable trace for skipped trigger.
-    await invocationRecordStore.update(createResult.invocationId, {
-      status: 'canceled',
-      error: 'skipped_busy_active_invocation',
-    });
+  // A2A chains fire DURING a parent invocation (cat callback with @mention).
+  // If parent is active, skip tracker.start() to avoid aborting the parent.
+  // The child runs without its own tracker entry (no individual cancel support,
+  // but the InvocationRecord provides audit trail).
+  const parentActive = invocationTracker?.has(threadId) ?? false;
+  let controller: AbortController | undefined;
+
+  if (!parentActive) {
+    controller = invocationTracker?.start(threadId, userId);
+    if (controller?.signal.aborted) {
+      // P2-1: thread is deleting — mark record as canceled, don't leave it pending
+      invocationTracker?.complete(threadId, controller);
+      await invocationRecordStore.update(createResult.invocationId, {
+        status: 'canceled',
+      });
+      return;
+    }
+  } else {
     log.info({
       threadId,
       invocationId: createResult.invocationId,
       targetCats,
-    }, '[callbacks] skip A2A trigger because thread already has active invocation');
-    socketManager.broadcastAgentMessage({
-      type: 'system_info',
-      catId: statusCatId,
-      content: '当前线程已有进行中的调用，本次 A2A 自动触发已跳过，请稍后重试。',
-      timestamp: Date.now(),
-    }, threadId);
-    return;
-  }
-
-  const controller = invocationTracker?.start(threadId, userId);
-  if (controller?.signal.aborted) {
-    // P2-1: thread is deleting — mark record as canceled, don't leave it pending
-    await invocationRecordStore.update(createResult.invocationId, {
-      status: 'canceled',
-    });
-    return;
+    }, '[callbacks] A2A chain: parent invocation active, running as child (no tracker.start)');
   }
 
   await invocationRecordStore.update(createResult.invocationId, {
@@ -135,7 +130,9 @@ export async function triggerA2AInvocation(
         timestamp: Date.now(),
       }, threadId);
     } finally {
-      invocationTracker?.complete(threadId, controller);
+      if (controller) {
+        invocationTracker?.complete(threadId, controller);
+      }
     }
   })();
 }
