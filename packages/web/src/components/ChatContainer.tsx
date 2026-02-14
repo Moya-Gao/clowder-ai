@@ -72,7 +72,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     isLoadingHistory,
     hasMore,
   } = useChatHistory(threadId);
-  const { handleSend } = useSendMessage();
+  const { handleSend } = useSendMessage(threadId);
   const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
 
   const messageSummary = useMemo(() => {

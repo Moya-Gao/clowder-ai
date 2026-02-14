@@ -10,14 +10,16 @@ import { apiFetch } from '@/utils/api-client';
  * Hook for sending messages (text + optional images).
  * Handles both JSON and multipart form data modes.
  */
-export function useSendMessage() {
-  const { addMessage, addMessageToThread, setLoading, currentThreadId } = useChatStore();
+export function useSendMessage(activeThreadId?: string) {
+  const { addMessage, addMessageToThread, setLoading } = useChatStore();
   const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
 
   const handleSend = useCallback(
     async (content: string, images?: File[], overrideThreadId?: string) => {
-      const threadId = overrideThreadId ?? currentThreadId;
+      // Route threadId is source of truth; store currentThreadId may lag during fast switches.
+      const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
+      const threadId = overrideThreadId ?? activeThread;
       resetRefs();
 
       // Check for commands first (pass target threadId for thread-scoped commands)
@@ -41,8 +43,8 @@ export function useSendMessage() {
         ];
       }
       // Write optimistic message to the target thread (not always active thread)
-      if (overrideThreadId && overrideThreadId !== currentThreadId) {
-        addMessageToThread(overrideThreadId, userMsg);
+      if (threadId !== activeThread) {
+        addMessageToThread(threadId, userMsg);
       } else {
         addMessage(userMsg);
       }
@@ -90,7 +92,7 @@ export function useSendMessage() {
         });
       }
     },
-    [resetRefs, processCommand, addMessage, addMessageToThread, setLoading, currentThreadId]
+    [resetRefs, processCommand, addMessage, addMessageToThread, setLoading, activeThreadId]
   );
 
   return { handleSend };

@@ -1,0 +1,106 @@
+import React, { useEffect, useRef } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { describe, it, expect, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+
+const mockApiFetch = vi.fn();
+const mockAddMessage = vi.fn();
+const mockAddMessageToThread = vi.fn();
+const mockSetLoading = vi.fn();
+const mockResetRefs = vi.fn();
+const mockProcessCommand = vi.fn(async () => false);
+
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: (...args: unknown[]) => mockApiFetch(...args),
+}));
+
+vi.mock('@/hooks/useAgentMessages', () => ({
+  useAgentMessages: () => ({ resetRefs: mockResetRefs }),
+}));
+
+vi.mock('@/hooks/useChatCommands', () => ({
+  useChatCommands: () => ({ processCommand: mockProcessCommand }),
+}));
+
+vi.mock('@/stores/chatStore', () => ({
+  useChatStore: () => ({
+    addMessage: mockAddMessage,
+    addMessageToThread: mockAddMessageToThread,
+    setLoading: mockSetLoading,
+    currentThreadId: 'thread-stale',
+  }),
+}));
+
+import { useSendMessage } from '@/hooks/useSendMessage';
+
+function SendRunner({
+  activeThreadId,
+  onDone,
+}: {
+  activeThreadId: string;
+  onDone: () => void;
+}) {
+  const { handleSend } = useSendMessage(activeThreadId);
+  const called = useRef(false);
+
+  useEffect(() => {
+    if (called.current) return;
+    called.current = true;
+    handleSend('@布偶 @缅因 看图', undefined).then(onDone);
+  }, [handleSend, onDone]);
+
+  return null;
+}
+
+describe('useSendMessage thread source', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  beforeEach(() => {
+    mockApiFetch.mockReset();
+    mockAddMessage.mockReset();
+    mockAddMessageToThread.mockReset();
+    mockSetLoading.mockReset();
+    mockResetRefs.mockReset();
+    mockProcessCommand.mockReset();
+    mockProcessCommand.mockResolvedValue(false);
+    mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('uses route threadId instead of stale store currentThreadId', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          onDone: () => {},
+        }),
+      );
+    });
+
+    expect(mockApiFetch).toHaveBeenCalled();
+    const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
+    expect(payload.threadId).toBe('thread-route');
+    expect(payload.threadId).not.toBe('thread-stale');
+  });
+});
