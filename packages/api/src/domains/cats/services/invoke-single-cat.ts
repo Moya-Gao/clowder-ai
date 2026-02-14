@@ -25,7 +25,7 @@ function isMissingClaudeSessionError(message: string | undefined): boolean {
   return /No conversation found with session ID/i.test(message);
 }
 
-function isTransientClaudeCliExitCode1(message: string | undefined): boolean {
+function isTransientCliExitCode1(message: string | undefined): boolean {
   if (!message) return false;
   return /CLI 异常退出 \(code:\s*1(?:,\s*signal:\s*none)?\)/i.test(message);
 }
@@ -317,7 +317,7 @@ export async function* invokeSingleCat(
           allowTransientRetry &&
           !attemptHasContentOutput &&
           msg.type === 'error' &&
-          isTransientClaudeCliExitCode1(msg.error)
+          isTransientCliExitCode1(msg.error)
         ) {
           suppressedTransientCliError = msg;
           continue;
