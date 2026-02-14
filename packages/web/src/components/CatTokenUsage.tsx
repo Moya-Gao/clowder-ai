@@ -1,14 +1,17 @@
 'use client';
 
 import React from 'react';
-import type { TokenUsage } from '@/stores/chat-types';
+import type { TokenUsage, ContextHealthData } from '@/stores/chat-types';
 import { formatTokenCount, formatCost, formatDuration } from './status-helpers';
 import { useCountUp } from '@/hooks/useCountUp';
 import { TokenCacheBar } from './TokenCacheBar';
+import { ContextHealthBar } from './ContextHealthBar';
 
 export interface CatTokenUsageProps {
   catId: string;
   usage: TokenUsage;
+  /** F24: Context health data */
+  contextHealth?: ContextHealthData;
 }
 
 const CAT_TEXT_COLORS: Record<string, string> = {
@@ -35,7 +38,7 @@ function AnimatedTokenCount({ value, label }: { value: number; label: string }) 
  * F8: Per-cat token usage dashboard card.
  * Dynamic display with count-up animations, cache progress bar, and brand colors.
  */
-export function CatTokenUsage({ catId, usage }: CatTokenUsageProps) {
+export function CatTokenUsage({ catId, usage, contextHealth }: CatTokenUsageProps) {
   const hasDetailed = usage.inputTokens != null || usage.outputTokens != null;
   const hasTotalOnly = !hasDetailed && usage.totalTokens != null;
 
@@ -91,6 +94,11 @@ export function CatTokenUsage({ catId, usage }: CatTokenUsageProps) {
           <span className="text-gray-400">API {formatDuration(usage.durationApiMs)}</span>
         )}
       </div>
+
+      {/* F24: Context health bar */}
+      {contextHealth && (
+        <ContextHealthBar catId={catId} health={contextHealth} />
+      )}
     </div>
   );
 }

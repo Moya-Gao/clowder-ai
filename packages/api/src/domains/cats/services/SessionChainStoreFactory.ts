@@ -1,0 +1,19 @@
+/**
+ * SessionChainStore Factory
+ * F24: Redis available → RedisSessionChainStore, otherwise in-memory.
+ */
+
+import type { RedisClient } from '@cat-cafe/shared/utils';
+import { SessionChainStore } from './SessionChainStore.js';
+import { RedisSessionChainStore } from './RedisSessionChainStore.js';
+
+export type AnySessionChainStore = SessionChainStore | RedisSessionChainStore;
+
+export function createSessionChainStore(
+  redis?: RedisClient,
+): AnySessionChainStore {
+  if (redis) {
+    return new RedisSessionChainStore(redis);
+  }
+  return new SessionChainStore();
+}

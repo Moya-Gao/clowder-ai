@@ -9,14 +9,16 @@
  *         消息存储（由调用方在 yield 后累积并存储）。
  */
 
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CatId, MessageContent, ContextHealth } from '@cat-cafe/shared';
 import { isUnderAllowedRoot } from '../../../utils/project-path.js';
 import type { SessionManager } from './SessionManager.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IThreadStore } from './ThreadStore.js';
+import type { ISessionChainStore } from './SessionChainStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
+import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
 
 /**
  * Shared dependencies for all cat invocations within one AgentRouter
@@ -26,6 +28,8 @@ export interface InvocationDeps {
   readonly sessionManager: SessionManager;
   readonly threadStore: IThreadStore | null;
   readonly apiUrl: string;
+  /** F24: Session chain store for context health tracking */
+  readonly sessionChainStore?: ISessionChainStore;
 }
 
 /**
@@ -139,6 +143,33 @@ export async function* invokeSingleCat(
         } catch {
           // Redis write failure — session won't persist, but chain continues
         }
+
+        // F24: Ensure SessionRecord exists for this session
+        if (deps.sessionChainStore) {
+          try {
+            const existing = await deps.sessionChainStore.getActive(catId, threadId);
+            if (existing) {
+              // Update cliSessionId if it changed (e.g. new CLI session after restart)
+              if (existing.cliSessionId !== msg.sessionId) {
+                await deps.sessionChainStore.update(existing.id, {
+                  cliSessionId: msg.sessionId,
+                  updatedAt: Date.now(),
+                });
+              }
+            } else {
+              // First invocation in this thread — create a new SessionRecord
+              await deps.sessionChainStore.create({
+                cliSessionId: msg.sessionId,
+                threadId,
+                catId,
+                userId,
+              });
+            }
+          } catch {
+            // Best-effort — don't break the invocation chain
+          }
+        }
+
         // Push session info as system_info for frontend status panel
         yield {
           type: 'system_info' as const,
@@ -200,6 +231,38 @@ export async function* invokeSingleCat(
             }),
             timestamp: Date.now(),
           };
+
+          // F24: Compute and emit context health
+          const windowSize = msg.metadata.usage.contextWindowSize
+            ?? getContextWindowFallback(msg.metadata.model ?? '');
+          const usedTokens = msg.metadata.usage.inputTokens ?? 0;
+          if (windowSize && usedTokens > 0) {
+            const health: ContextHealth = {
+              usedTokens,
+              windowTokens: windowSize,
+              fillRatio: Math.min(usedTokens / windowSize, 1.0),
+              source: msg.metadata.usage.contextWindowSize ? 'exact' : 'approx',
+              measuredAt: Date.now(),
+            };
+            // Update SessionRecord (best-effort)
+            if (deps.sessionChainStore) {
+              try {
+                const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                if (activeRecord) {
+                  await deps.sessionChainStore.update(activeRecord.id, {
+                    contextHealth: health,
+                    updatedAt: Date.now(),
+                  });
+                }
+              } catch { /* best-effort */ }
+            }
+            yield {
+              type: 'system_info' as const,
+              catId,
+              content: JSON.stringify({ type: 'context_health', catId, health }),
+              timestamp: Date.now(),
+            };
+          }
         }
 
         yield { ...msg, isFinal: isLastCat };

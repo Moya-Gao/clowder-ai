@@ -21,3 +21,4 @@ export { capabilitiesRoutes } from './capabilities.js';
 export { callbackAuthRoutes } from './callback-auth.js';
 export { authorizationRoutes } from './authorization.js';
 export { modesRoutes } from './modes.js';
+export { sessionChainRoutes } from './session-chain.js';

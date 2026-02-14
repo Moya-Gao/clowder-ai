@@ -131,3 +131,11 @@ export {
   isDevLoopConfig,
   isDevLoopState,
 } from './modes.js';
+
+// Session chain types (F24 Session Chain + Context Health)
+export type {
+  SessionStatus,
+  SessionRecord,
+  ContextHealth,
+  ContextHealthConfig,
+} from './session.js';

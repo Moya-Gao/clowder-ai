@@ -217,6 +217,18 @@ function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
   if (typeof e['duration_ms'] === 'number') result.durationMs = e['duration_ms'];
   if (typeof e['duration_api_ms'] === 'number') result.durationApiMs = e['duration_api_ms'];
   if (typeof e['num_turns'] === 'number') result.numTurns = e['num_turns'];
+
+  // F24: Extract context window capacity from modelUsage
+  const modelUsage = e['model_usage'] as Record<string, Record<string, unknown>> | undefined;
+  if (modelUsage) {
+    for (const data of Object.values(modelUsage)) {
+      if (typeof data['contextWindow'] === 'number') {
+        result.contextWindowSize = data['contextWindow'];
+        break;
+      }
+    }
+  }
+
   return result;
 }
 

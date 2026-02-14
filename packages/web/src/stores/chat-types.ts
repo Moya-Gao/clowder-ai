@@ -89,12 +89,23 @@ export interface Thread {
   createdAt: number;
 }
 
+/** F24: Context health data from backend */
+export interface ContextHealthData {
+  usedTokens: number;
+  windowTokens: number;
+  fillRatio: number;
+  source: 'exact' | 'approx';
+  measuredAt: number;
+}
+
 export interface CatInvocationInfo {
   sessionId?: string;
   invocationId?: string;
   durationMs?: number;
   startedAt?: number;
   usage?: TokenUsage;
+  /** F24: Latest context health snapshot */
+  contextHealth?: ContextHealthData;
 }
 
 export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';

@@ -1,0 +1,47 @@
+/**
+ * SessionChainStoreFactory Tests
+ * F24: Redis available → RedisSessionChainStore, otherwise in-memory.
+ */
+
+import { test, describe } from 'node:test';
+import assert from 'node:assert/strict';
+
+describe('createSessionChainStore', () => {
+  test('returns SessionChainStore when no redis provided', async () => {
+    const { createSessionChainStore } = await import(
+      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+    );
+    const { SessionChainStore } = await import(
+      '../dist/domains/cats/services/SessionChainStore.js'
+    );
+
+    const store = createSessionChainStore();
+    assert.ok(store instanceof SessionChainStore);
+  });
+
+  test('returns RedisSessionChainStore when redis provided', async () => {
+    const { createSessionChainStore } = await import(
+      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+    );
+    const { RedisSessionChainStore } = await import(
+      '../dist/domains/cats/services/RedisSessionChainStore.js'
+    );
+
+    // Minimal mock redis — factory only checks truthiness
+    const mockRedis = { ping: async () => 'PONG' };
+    const store = createSessionChainStore(mockRedis);
+    assert.ok(store instanceof RedisSessionChainStore);
+  });
+
+  test('returns SessionChainStore when redis is undefined', async () => {
+    const { createSessionChainStore } = await import(
+      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+    );
+    const { SessionChainStore } = await import(
+      '../dist/domains/cats/services/SessionChainStore.js'
+    );
+
+    const store = createSessionChainStore(undefined);
+    assert.ok(store instanceof SessionChainStore);
+  });
+});

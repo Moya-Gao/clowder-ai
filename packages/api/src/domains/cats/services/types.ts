@@ -19,6 +19,7 @@ export interface TokenUsage {
   durationMs?: number;             // Claude: total duration
   durationApiMs?: number;          // Claude: pure API duration
   numTurns?: number;               // Claude: number of turns
+  contextWindowSize?: number;      // F24: context window capacity (Claude: exact, others: fallback)
 }
 
 /** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */

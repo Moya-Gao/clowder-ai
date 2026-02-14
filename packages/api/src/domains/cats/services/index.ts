@@ -59,4 +59,9 @@ export { createAuthorizationAuditStore } from './AuthorizationAuditStoreFactory.
 export { ModeOrchestrator } from './ModeOrchestrator.js';
 export { ModeStore } from './ModeStore.js';
 export type { IModeStore } from './ModeStore.js';
+export { SessionChainStore } from './SessionChainStore.js';
+export type { ISessionChainStore, CreateSessionInput, SessionRecordPatch } from './SessionChainStore.js';
+export { RedisSessionChainStore } from './RedisSessionChainStore.js';
+export { createSessionChainStore } from './SessionChainStoreFactory.js';
+export type { AnySessionChainStore } from './SessionChainStoreFactory.js';
 export * from './types.js';

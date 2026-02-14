@@ -153,7 +153,7 @@ export function RightStatusPanel({
                   </div>
                   {inv.usage && (
                     <div className="ml-3.5">
-                      <CatTokenUsage catId={catId} usage={inv.usage} />
+                      <CatTokenUsage catId={catId} usage={inv.usage} contextHealth={inv.contextHealth} />
                     </div>
                   )}
                   {(inv.sessionId || inv.invocationId) && (

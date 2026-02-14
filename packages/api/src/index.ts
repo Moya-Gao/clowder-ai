@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
@@ -16,7 +16,7 @@ import { createTaskStore } from './domains/cats/services/TaskStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
-import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore } from './domains/cats/services/index.js';
+import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore } from './domains/cats/services/index.js';
 import { AuthorizationManager } from './domains/cats/services/AuthorizationManager.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/AuthorizationRuleStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/PendingRequestStoreFactory.js';
@@ -96,6 +96,7 @@ async function main(): Promise<void> {
   const summaryStore = createSummaryStore(redis);
   const memoryStore = createMemoryStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
+  const sessionChainStore = createSessionChainStore(redis);
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();
 
@@ -109,6 +110,7 @@ async function main(): Promise<void> {
     ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
     ...(sessionStore ? { sessionStore } : {}),
     ...(threadStore ? { threadStore } : {}),
+    sessionChainStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -195,6 +197,9 @@ async function main(): Promise<void> {
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
+
+  // Session chain (F24)
+  await app.register(sessionChainRoutes, { sessionChainStore });
 
   // Mode system (F11)
   await app.register(modesRoutes, { modeStore, threadStore, socketManager });

@@ -283,6 +283,12 @@ export function useAgentMessages() {
               setMessageUsage(ref.id, parsed.usage);
             }
             consumed = true;
+          } else if (parsed?.type === 'context_health') {
+            // F24: Store context health silently
+            setCatInvocation(parsed.catId, {
+              contextHealth: parsed.health,
+            });
+            consumed = true;
           }
         } catch { /* not JSON, use raw content */ }
         if (!consumed) {
