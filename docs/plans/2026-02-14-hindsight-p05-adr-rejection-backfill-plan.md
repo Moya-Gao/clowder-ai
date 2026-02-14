@@ -29,7 +29,7 @@
 5. `docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md`
 6. `docs/decisions/009-cat-cafe-skills-distribution.md`
 
-排除项：未被 `git ls-files docs/decisions/*.md` 追踪的草稿 ADR（例如 `009-directory-hygiene-anti-rot.md`）。
+排除项：未被 `git ls-files docs/decisions/*.md` 追踪的草稿 ADR（例如 `010-directory-hygiene-anti-rot.md`）。
 
 ### Why
 

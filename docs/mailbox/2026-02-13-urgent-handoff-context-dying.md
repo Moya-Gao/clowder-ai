@@ -79,7 +79,7 @@ Worktree: /Users/lysander/projects/relay-station/cat-cafe-p0-evidence-defaults (
 ## 未入 git 的文件（不是你的，别动）
 
 ```
-docs/decisions/009-directory-hygiene-anti-rot.md
+docs/decisions/010-directory-hygiene-anti-rot.md
 docs/mailbox/2026-02-13-directory-hygiene-*.md
 docs/research/2026-02-13-gpt-pro-*.md
 ```

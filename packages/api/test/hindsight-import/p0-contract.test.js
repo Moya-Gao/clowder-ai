@@ -44,8 +44,8 @@ test('validateP0Tags rejects tags missing visibility prefix', () => {
 test('assertUniqueP0DocumentIds rejects duplicate ADR ids', () => {
   assert.throws(
     () => assertUniqueP0DocumentIds([
-      'docs/decisions/009-cat-cafe-skills-distribution.md',
-      'docs/decisions/009-directory-hygiene-anti-rot.md',
+      'docs/decisions/009-duplicate-a.md',
+      'docs/decisions/009-duplicate-b.md',
     ]),
     /duplicate document_id adr:009/,
   );
