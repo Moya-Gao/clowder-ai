@@ -6,10 +6,13 @@ import { SplitPaneCell, SplitPanePlaceholder } from './SplitPaneCell';
 import { MiniThreadSidebar } from './MiniThreadSidebar';
 import { ChatInput } from './ChatInput';
 import { PawIcon } from './icons/PawIcon';
+import type { UploadStatus } from '@/hooks/useSendMessage';
 
 interface SplitPaneViewProps {
   onSend: (content: string, images?: File[], overrideThreadId?: string) => void;
   onStop: (overrideThreadId?: string) => void;
+  uploadStatus?: UploadStatus;
+  uploadError?: string | null;
   /** Switch from split to single mode, focusing the given thread */
   onZoomToThread: (threadId: string) => void;
 }
@@ -20,7 +23,13 @@ const PANE_COUNT = 4;
  * Split-pane mode: 2x2 grid of mini chat views + mini sidebar + shared input.
  * The shared input bar sends to the currently selected pane (splitPaneTargetId).
  */
-export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewProps) {
+export function SplitPaneView({
+  onSend,
+  onStop,
+  uploadStatus,
+  uploadError,
+  onZoomToThread,
+}: SplitPaneViewProps) {
   const {
     threads,
     splitPaneThreadIds,
@@ -145,6 +154,8 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
             onStop={() => onStop(splitPaneTargetId ?? undefined)}
             disabled={isTargetLoading || !splitPaneTargetId}
             hasActiveInvocation={isTargetActiveInvocation}
+            uploadStatus={uploadStatus}
+            uploadError={uploadError}
           />
         </div>
         </div>

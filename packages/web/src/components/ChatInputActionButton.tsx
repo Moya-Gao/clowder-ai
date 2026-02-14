@@ -12,6 +12,7 @@ interface ChatInputActionButtonProps {
   onSend: () => void;
   onStop?: () => void;
   disabled?: boolean;
+  sendDisabled?: boolean;
   /** Whether the thread has an active invocation (broader than disabled/isLoading) */
   hasActiveInvocation?: boolean;
   hasText: boolean;
@@ -25,10 +26,12 @@ export function ChatInputActionButton({
   onSend,
   onStop,
   disabled,
+  sendDisabled,
   hasActiveInvocation,
   hasText,
 }: ChatInputActionButtonProps) {
   const voice = useVoiceInput();
+  const isSendDisabled = Boolean(disabled || sendDisabled);
 
   useEffect(() => {
     if (voice.transcript) onTranscript(voice.transcript);
@@ -87,7 +90,7 @@ export function ChatInputActionButton({
           <LoadingIcon className="w-5 h-5" />
         </button>
       ) : hasText ? (
-        <button onClick={onSend} disabled={disabled}
+        <button onClick={onSend} disabled={isSendDisabled}
           className="p-3 rounded-xl bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 disabled:cursor-not-allowed transition-colors" aria-label="Send message">
           <SendIcon className="w-5 h-5" />
         </button>

@@ -7,26 +7,38 @@ import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { compressImage } from '@/utils/compressImage';
+import type { UploadStatus } from '@/hooks/useSendMessage';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
   onStop?: () => void;
   disabled?: boolean;
   hasActiveInvocation?: boolean;
+  uploadStatus?: UploadStatus;
+  uploadError?: string | null;
 }
 
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
 
-export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: ChatInputProps) {
+export function ChatInput({
+  onSend,
+  onStop,
+  disabled,
+  hasActiveInvocation,
+  uploadStatus = 'idle',
+  uploadError = null,
+}: ChatInputProps) {
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
   const [images, setImages] = useState<File[]>([]);
+  const [isPreparingImages, setIsPreparingImages] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sendTemporarilyDisabled = isPreparingImages || uploadStatus === 'uploading';
 
   const handleTranscript = useCallback((text: string) => {
     setInput((prev) => {
@@ -39,6 +51,7 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
   const activeOptions = activeMenu === 'mention' ? CAT_OPTIONS : MODE_OPTIONS;
 
   const handleSend = useCallback(() => {
+    if (sendTemporarilyDisabled) return;
     const trimmed = input.trim();
     if (trimmed && !disabled) {
       onSend(trimmed, images.length > 0 ? images : undefined);
@@ -47,7 +60,7 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
       setShowMentions(false);
       setShowModeMenu(false);
     }
-  }, [input, disabled, onSend, images]);
+  }, [input, disabled, onSend, images, sendTemporarilyDisabled]);
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
@@ -105,11 +118,16 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const toAdd: File[] = [];
-    for (let i = 0; i < files.length && images.length + toAdd.length < 5; i++) {
-      toAdd.push(await compressImage(files[i]));
+    setIsPreparingImages(true);
+    try {
+      const toAdd: File[] = [];
+      for (let i = 0; i < files.length && images.length + toAdd.length < 5; i++) {
+        toAdd.push(await compressImage(files[i]));
+      }
+      setImages((prev) => [...prev, ...toAdd].slice(0, 5));
+    } finally {
+      setIsPreparingImages(false);
     }
-    setImages((prev) => [...prev, ...toAdd].slice(0, 5));
     e.target.value = '';
   }, [images]);
 
@@ -125,12 +143,17 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
     }
     if (imageFiles.length === 0) return;
     e.preventDefault();
-    const toAdd: File[] = [];
-    for (const file of imageFiles) {
-      if (images.length + toAdd.length >= 5) break;
-      toAdd.push(await compressImage(file));
+    setIsPreparingImages(true);
+    try {
+      const toAdd: File[] = [];
+      for (const file of imageFiles) {
+        if (images.length + toAdd.length >= 5) break;
+        toAdd.push(await compressImage(file));
+      }
+      setImages((prev) => [...prev, ...toAdd].slice(0, 5));
+    } finally {
+      setIsPreparingImages(false);
     }
-    setImages((prev) => [...prev, ...toAdd].slice(0, 5));
   }, [images]);
 
   const handleRemoveImage = useCallback((index: number) => {
@@ -165,17 +188,33 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
         onSelectIdx={setSelectedIdx} onInsertMention={insertMention} onInsertOption={insertOption} menuRef={menuRef}
       />
 
+      {isPreparingImages && (
+        <div className="px-4 pt-2 text-xs text-gray-500" role="status">
+          图片处理中，完成后可发送
+        </div>
+      )}
+      {!isPreparingImages && uploadStatus === 'uploading' && (
+        <div className="px-4 pt-2 text-xs text-indigo-500" role="status">
+          图片上传中，请稍候...
+        </div>
+      )}
+      {!isPreparingImages && uploadStatus === 'failed' && uploadError && (
+        <div className="px-4 pt-2 text-xs text-red-500" role="alert">
+          图片发送失败：{uploadError}
+        </div>
+      )}
+
       <ImagePreview files={images} onRemove={handleRemoveImage} />
 
       <div className="flex gap-2 items-end p-4 pt-2">
         <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} multiple className="hidden" onChange={handleFileSelect} />
 
-        <button onClick={() => fileInputRef.current?.click()} disabled={disabled || images.length >= 5}
+        <button onClick={() => fileInputRef.current?.click()} disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
           className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Attach images">
           <AttachIcon className="w-5 h-5" />
         </button>
 
-        <button onClick={handleModeClick} disabled={disabled}
+        <button onClick={handleModeClick} disabled={disabled || sendTemporarilyDisabled}
           className="p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Mode">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
@@ -189,7 +228,10 @@ export function ChatInput({ onSend, onStop, disabled, hasActiveInvocation }: Cha
 
         <ChatInputActionButton
           onTranscript={handleTranscript} onSend={handleSend} onStop={onStop}
-          disabled={disabled} hasActiveInvocation={hasActiveInvocation} hasText={!!input.trim()}
+          disabled={disabled}
+          sendDisabled={sendTemporarilyDisabled}
+          hasActiveInvocation={hasActiveInvocation}
+          hasText={!!input.trim()}
         />
       </div>
     </div>

@@ -72,7 +72,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     isLoadingHistory,
     hasMore,
   } = useChatHistory(threadId);
-  const { handleSend } = useSendMessage(threadId);
+  const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
   const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
 
   const messageSummary = useMemo(() => {
@@ -274,6 +274,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <SplitPaneView
           onSend={handleSend}
           onStop={handleStop}
+          uploadStatus={uploadStatus}
+          uploadError={uploadError}
           onZoomToThread={handleZoomToThread}
         />
         <CatCafeHub />
@@ -389,7 +391,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </div>
         )}
 
-        <ChatInput onSend={handleSend} onStop={handleStop} disabled={isLoading} hasActiveInvocation={hasActiveInvocation} />
+        <ChatInput
+          onSend={handleSend}
+          onStop={handleStop}
+          disabled={isLoading}
+          hasActiveInvocation={hasActiveInvocation}
+          uploadStatus={uploadStatus}
+          uploadError={uploadError}
+        />
 
         {/* Mode switch confirmation dialog (P2-4: 弹确认对话框) */}
         <ConfirmDialog

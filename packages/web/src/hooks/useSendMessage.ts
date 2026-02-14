@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatCommands } from '@/hooks/useChatCommands';
 import { apiFetch } from '@/utils/api-client';
+
+export type UploadStatus = 'idle' | 'uploading' | 'failed';
 
 /**
  * Hook for sending messages (text + optional images).
@@ -14,13 +16,18 @@ export function useSendMessage(activeThreadId?: string) {
   const { addMessage, addMessageToThread, setLoading } = useChatStore();
   const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
+  const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleSend = useCallback(
     async (content: string, images?: File[], overrideThreadId?: string) => {
       // Route threadId is source of truth; store currentThreadId may lag during fast switches.
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
+      const hasImages = Boolean(images && images.length > 0);
       resetRefs();
+      setUploadError(null);
+      setUploadStatus(hasImages ? 'uploading' : 'idle');
 
       // Check for commands first (pass target threadId for thread-scoped commands)
       const wasCommand = await processCommand(content, threadId);
@@ -51,7 +58,7 @@ export function useSendMessage(activeThreadId?: string) {
       setLoading(true);
 
       try {
-        if (images && images.length > 0) {
+        if (hasImages) {
           // Multipart mode for images
           const formData = new FormData();
           formData.append('content', content);
@@ -82,12 +89,21 @@ export function useSendMessage(activeThreadId?: string) {
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
           }
         }
+        setUploadStatus('idle');
+        setUploadError(null);
       } catch (err) {
         setLoading(false);
+        const errorMessage = err instanceof Error ? err.message : 'Unknown';
+        if (hasImages) {
+          setUploadStatus('failed');
+          setUploadError(errorMessage);
+        } else {
+          setUploadStatus('idle');
+        }
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
-          content: `Failed to send message: ${err instanceof Error ? err.message : 'Unknown'}`,
+          content: `Failed to send message: ${errorMessage}`,
           timestamp: Date.now(),
         });
       }
@@ -95,5 +111,5 @@ export function useSendMessage(activeThreadId?: string) {
     [resetRefs, processCommand, addMessage, addMessageToThread, setLoading, activeThreadId]
   );
 
-  return { handleSend };
+  return { handleSend, uploadStatus, uploadError };
 }
