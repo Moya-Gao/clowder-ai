@@ -464,3 +464,52 @@ Hindsight Recall (语义检索)
 ---
 
 *附录 D 整理：缅因猫 🐾（2026-02-13）*
+
+---
+
+## 附录 E：ADR 否决理由回填索引（P0.5 #68）
+
+> 说明：本节记录 #68 的回填范围、验收口径与 commit 锚点，作为后续 review/导入的审计入口。
+
+### 回填范围（git-tracked）
+
+1. `docs/decisions/001-agent-invocation-approach.md`
+2. `docs/decisions/002-collaboration-protocol.md`
+3. `docs/decisions/003-project-thread-architecture.md`
+4. `docs/decisions/007-cascade-delete-semantics.md`
+5. `docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md`
+6. `docs/decisions/009-cat-cafe-skills-distribution.md`
+
+### 验收命令
+
+```bash
+for f in \
+  docs/decisions/001-agent-invocation-approach.md \
+  docs/decisions/002-collaboration-protocol.md \
+  docs/decisions/003-project-thread-architecture.md \
+  docs/decisions/007-cascade-delete-semantics.md \
+  docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md \
+  docs/decisions/009-cat-cafe-skills-distribution.md; do
+  rg -q "^## 否决理由（P0\.5 回填）$" "$f" || { echo "MISSING: $f"; exit 1; }
+done
+```
+
+### commit 锚点（阶段性，squash 前）
+
+- `c0575fc`：锁定 #68 范围与 DoD（计划层）
+- `5abcf3f`：回填 ADR-001/002
+- `47af13f`：回填 ADR-003/007
+- `b035da3`：回填 ADR-008/009
+- `(合入 main commit，见 git log)`：#68 全量 squash 合入（含 ADR-001/002/003/007/008/009 + 附录 E + 验收）
+
+### 2026-02-14 验收结果（Task 6）
+
+- 标准段存在性：PASS（6/6 ADR 命中 `## 否决理由（P0.5 回填）`）
+- 最小密度检查：PASS（ADR-001=3, ADR-002=3, ADR-003=3, ADR-007=3, ADR-008=4, ADR-009=3）
+- 索引存在性：PASS（本附录 `附录 E` 命中）
+
+### 不做边界（#68）
+
+- 不改 importer/runtime/API 代码。
+- 不处理未追踪 ADR 草稿。
+- 不覆盖 #67（discussion 例外导入）与 #69（周评测流水线）范围。

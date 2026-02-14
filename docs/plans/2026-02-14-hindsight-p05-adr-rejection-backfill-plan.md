@@ -20,6 +20,17 @@
   - 主体落盘：各 ADR 文件自身。
   - 汇总落盘：`docs/decisions/005-hindsight-integration-decisions.md` 新增附录（本轮回填索引）。
 
+**目标文件清单（git-tracked）**
+
+1. `docs/decisions/001-agent-invocation-approach.md`
+2. `docs/decisions/002-collaboration-protocol.md`
+3. `docs/decisions/003-project-thread-architecture.md`
+4. `docs/decisions/007-cascade-delete-semantics.md`
+5. `docs/decisions/008-conversation-mutability-and-invocation-lifecycle.md`
+6. `docs/decisions/009-cat-cafe-skills-distribution.md`
+
+排除项：未被 `git ls-files docs/decisions/*.md` 追踪的草稿 ADR（例如 `009-directory-hygiene-anti-rot.md`）。
+
 ### Why
 
 - 当前部分 ADR 有 tradeoff 线索，但检索锚点不统一，Recall 对“为什么不用 X”命中不稳定。
