@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { join } from 'node:path';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import {
   memoryToResult,
   normalizeTags,
@@ -31,19 +32,31 @@ const searchSchema = z.object({
 
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
 
+export interface EvidenceFreshness {
+  status: 'fresh' | 'stale' | 'unknown';
+  checkedAt: string;
+  headCommit?: string;
+  watermarkCommit?: string;
+  reason?: 'commit_match' | 'commit_mismatch' | 'watermark_missing' | 'head_unavailable';
+}
+
 export interface EvidenceSearchResponse {
   results: EvidenceResult[];
   degraded: boolean;
   degradeReason?: string;
+  freshness: EvidenceFreshness;
 }
 
 export interface EvidenceRoutesOptions {
   hindsightClient: IHindsightClient;
   sharedBank: string;
   docsRoot?: string;
+  freshnessProvider?: () => Promise<EvidenceFreshness>;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
+  const freshnessProvider = opts.freshnessProvider ?? (() => getP0Freshness(process.cwd()));
+
   app.get('/api/evidence/search', async (request, reply) => {
     const parseResult = searchSchema.safeParse(request.query);
     if (!parseResult.success) {
@@ -58,6 +71,11 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     const effectiveTagsMatch = tagsMatch ?? recallDefaults.tagsMatch;
     const resolvedTags = normalizeTags(tags);
     const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
+    const freshness = await freshnessProvider().catch(() => ({
+      status: 'unknown' as const,
+      checkedAt: new Date().toISOString(),
+      reason: 'head_unavailable' as const,
+    }));
 
     try {
       const memories = await opts.hindsightClient.recall(opts.sharedBank, q, {
@@ -67,13 +85,14 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         tagsMatch: effectiveTagsMatch,
       });
       const results = await validateAnchors(memories.map(memoryToResult), docsRoot);
-      return { results, degraded: false } satisfies EvidenceSearchResponse;
+      return { results, degraded: false, freshness } satisfies EvidenceSearchResponse;
     } catch (err) {
       if (!shouldDegradeToDocs(err)) {
         reply.status(502);
         return {
           error: 'Evidence search unavailable',
           degraded: false,
+          freshness,
         };
       }
 
@@ -83,6 +102,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
         results,
         degraded: true,
         degradeReason: 'hindsight_unavailable_fallback_docs_search',
+        freshness,
       } satisfies EvidenceSearchResponse;
     }
   });

@@ -72,7 +72,7 @@
 | 68 | ADR 历史否决理由回填（批量） | [ ] | ADR-005 附录 C | 目前仅新增决策按模板写否决理由；P0.5 需要把历史 ADR 的关键 tradeoff/否决理由补齐，提升 why 可检索性。 |
 | 69 | Hindsight 周评测流水线（precision/noise/staleness） | [ ] | P0 Plan Task 5 | 建立自动周评测与阈值告警，避免 recall 质量劣化无感发生。 |
 | 70 | workspace 全量 build 阻塞（packages/web lint/type） | [x] | 2026-02-13 Task 5 验证 | 2026-02-13 缅因猫完成：清理 4 处 `no-unused-vars`（`ChatContainer.tsx`, `RightStatusPanel.tsx`, `useSplitPaneKeys.test.ts`, `useChatHistory.ts`），`pnpm -r --if-present run build` 恢复通过。 |
-| 71 | Hindsight 最新性保障（freshness guard） | [ ] | 2026-02-14 #68/#69 收口讨论 | 固化“合入后导入+健康检查”流程，并规划自动 freshness guard（同步水位线/读时防过期/失败降级）；执行顺序：先闭环 #68，再落地 #71。讨论纪要：`docs/mailbox/2026-02-14-hindsight-freshness-guard-71-discussion-minutes.md` |
+| 71 | Hindsight 最新性保障（freshness guard） | [~] | 2026-02-14 #68/#69 收口讨论 | #71-MVP 已落地：P0 导入写入 sync watermark + `/api/evidence/search` 返回 freshness（fresh/stale/unknown）。#71-full 待做：fail-closed 降级 + 自动 re-import trigger。讨论纪要：`docs/mailbox/2026-02-14-hindsight-freshness-guard-71-discussion-minutes.md` |
 
 ## P3 — 可选优化
 

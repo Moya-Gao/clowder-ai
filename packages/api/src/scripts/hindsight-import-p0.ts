@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { createHindsightClient } from '../domains/cats/services/HindsightClient.js';
 import { buildImportItemsFromMarkdown, buildP0RetainOptions, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { assertUniqueP0DocumentIds } from '../domains/cats/services/hindsight-import/p0-contract.js';
+import { writeP0SyncWatermark } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 
 interface CliArgs {
   dryRun: boolean;
@@ -70,7 +71,10 @@ async function main(): Promise<void> {
   const repoRoot = detectRepoRoot(process.cwd());
   const sourcePaths = await collectP0ImportSources(repoRoot, args.source);
   assertUniqueP0DocumentIds(sourcePaths);
-  const sourceCommit = readGitHeadCommit(repoRoot);
+  const sourceCommit = await readGitHeadCommit(repoRoot);
+  if (!sourceCommit) {
+    throw new Error('failed to resolve git HEAD commit');
+  }
   const client = createHindsightClient();
 
   let totalItems = 0;
@@ -98,6 +102,19 @@ async function main(): Promise<void> {
 
     await client.retain(args.bank, items, buildP0RetainOptions(items[0]?.tags));
     console.log(`[retain] ${sourcePath}: ${items.length} chunks`);
+  }
+
+  if (!args.dryRun && args.all) {
+    const watermarkPath = await writeP0SyncWatermark(repoRoot, {
+      version: 1,
+      bankId: args.bank,
+      sourceCommit,
+      importedAt: new Date().toISOString(),
+      sourceCount: sourcePaths.length,
+      chunkCount: totalItems,
+      sourcePaths,
+    });
+    console.log(`[watermark] ${watermarkPath}`);
   }
 
   console.log(`[done] sources=${sourcePaths.length} chunks=${totalItems} dryRun=${args.dryRun}`);

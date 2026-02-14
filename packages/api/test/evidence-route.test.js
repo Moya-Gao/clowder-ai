@@ -3,7 +3,7 @@
  * Covers: normal return, default tagsMatch, degraded fallback, limit validation.
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { join, dirname } from 'node:path';
@@ -27,16 +27,62 @@ function createMockClient(overrides = {}) {
 describe('GET /api/evidence/search', () => {
   let app;
 
-  async function setup(clientOverrides = {}, docsRoot) {
+  async function setup(clientOverrides = {}, docsRoot, freshnessProvider) {
     app = Fastify();
     const hindsightClient = createMockClient(clientOverrides);
     await app.register(evidenceRoutes, {
       hindsightClient,
       sharedBank: 'cat-cafe-shared',
       ...(docsRoot ? { docsRoot } : {}),
+      ...(freshnessProvider ? { freshnessProvider } : {}),
     });
     await app.ready();
   }
+
+  it('returns freshness=stale when sync watermark commit mismatches HEAD (MVP #71)', async () => {
+    await setup(
+      { recall: async () => [] },
+      undefined,
+      async () => ({
+        status: 'stale',
+        checkedAt: '2026-02-14T12:34:56.000Z',
+        headCommit: 'head1234',
+        watermarkCommit: 'old9999',
+        reason: 'commit_mismatch',
+      }),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=freshness',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.freshness?.status, 'stale');
+    assert.equal(body.freshness?.headCommit, 'head1234');
+    assert.equal(body.freshness?.watermarkCommit, 'old9999');
+  });
+
+  it('falls back to freshness=unknown when freshness provider throws', async () => {
+    await setup(
+      { recall: async () => [] },
+      undefined,
+      async () => {
+        throw new Error('freshness provider failure');
+      },
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=freshness',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.freshness?.status, 'unknown');
+    assert.equal(body.freshness?.reason, 'head_unavailable');
+  });
 
   it('returns results from Hindsight', async () => {
     const docsRoot = join(__dirname, '..', '..', '..', 'docs');

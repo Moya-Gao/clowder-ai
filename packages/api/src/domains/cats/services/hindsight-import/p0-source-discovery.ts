@@ -1,4 +1,5 @@
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   P0_AGENTS_PATH,
   P0_CLAUDE_PATH,
@@ -6,6 +7,8 @@ import {
   isP0AllowedSourcePath,
   normalizeSourcePath,
 } from './p0-contract.js';
+
+const execFileAsync = promisify(execFile);
 
 function listTrackedDecisionDocs(repoRoot: string): string[] {
   const output = execFileSync('git', ['ls-files', 'docs/decisions'], {
@@ -56,9 +59,14 @@ export async function collectP0ImportSources(repoRoot: string, explicitSource?: 
   ];
 }
 
-export function readGitHeadCommit(repoRoot: string): string {
-  return execFileSync('git', ['rev-parse', 'HEAD'], {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }).trim();
+export async function readGitHeadCommit(repoRoot: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    return stdout.trim();
+  } catch {
+    return null;
+  }
 }
