@@ -89,3 +89,51 @@ test('buildP0RetainOptions enables async retain and strips anchor tags from docu
     'origin:git',
   ]);
 });
+
+test('buildImportItemsFromMarkdown imports discussion with hindsight: include using quarantined lifecycle tags', () => {
+  const items = buildImportItemsFromMarkdown({
+    sourcePath: 'docs/discussions/2026-02-14-sample.md',
+    sourceCommit: 'abc1234',
+    author: 'codex',
+    content: [
+      '---',
+      'hindsight: include',
+      '---',
+      '',
+      '# Discussion',
+      '',
+      '## 临时执行规则',
+      '这里是讨论结论。',
+    ].join('\n'),
+  });
+
+  assert.equal(items.length, 1);
+  const first = items[0];
+  assert.ok(first.tags.some((tag) => tag === 'kind:discussion'));
+  assert.ok(first.tags.some((tag) => tag === 'status:draft'));
+  assert.ok(first.tags.some((tag) => tag === 'origin:discussion'));
+  assert.ok(first.tags.some((tag) => tag === 'visibility:quarantined'));
+  assert.equal(first.content.includes('hindsight: include'), false);
+  assert.equal(first.content.startsWith('---'), false);
+});
+
+test('buildImportItemsFromMarkdown rejects discussion source without hindsight: include marker', () => {
+  assert.throws(
+    () => buildImportItemsFromMarkdown({
+      sourcePath: 'docs/discussions/2026-02-14-sample.md',
+      sourceCommit: 'abc1234',
+      author: 'codex',
+      content: [
+        '---',
+        'hindsight: skip',
+        '---',
+        '',
+        '# Discussion',
+        '',
+        '## 临时执行规则',
+        '这里是讨论结论。',
+      ].join('\n'),
+    }),
+    /discussion source must include frontmatter marker hindsight: include/,
+  );
+});

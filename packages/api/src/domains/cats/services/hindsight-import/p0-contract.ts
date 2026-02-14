@@ -1,4 +1,5 @@
 export const P0_ADR_PATH_RE = /^docs\/decisions\/(\d{3})-[^/]+\.md$/;
+export const P0_DISCUSSION_PATH_RE = /^docs\/discussions\/.+\.md$/;
 export const P0_LESSONS_PATH = 'docs/lessons-learned.md';
 export const P0_CLAUDE_PATH = 'CLAUDE.md';
 export const P0_AGENTS_PATH = 'AGENTS.md';
@@ -9,6 +10,7 @@ export const P0_REQUIRED_TAG_PREFIXES = [
   'project:',
   'kind:',
   'status:',
+  'visibility:',
   'author:',
   'origin:',
   'sourcePath:',
@@ -27,7 +29,12 @@ export function normalizeSourcePath(input: string): string {
 export function isP0AllowedSourcePath(sourcePath: string): boolean {
   const normalized = normalizeSourcePath(sourcePath);
   if (normalized === P0_CLAUDE_PATH || normalized === P0_AGENTS_PATH || normalized === P0_LESSONS_PATH) return true;
-  return P0_ADR_PATH_RE.test(normalized);
+  return P0_ADR_PATH_RE.test(normalized) || P0_DISCUSSION_PATH_RE.test(normalized);
+}
+
+export function isP0DiscussionSourcePath(sourcePath: string): boolean {
+  const normalized = normalizeSourcePath(sourcePath);
+  return P0_DISCUSSION_PATH_RE.test(normalized);
 }
 
 export function buildP0DocumentId(sourcePath: string): string {
@@ -53,6 +60,7 @@ export function assertUniqueP0DocumentIds(sourcePaths: string[]): void {
 export function deriveP0Kind(sourcePath: string): string {
   const normalized = normalizeSourcePath(sourcePath);
   if (normalized.startsWith('docs/decisions/')) return 'decision';
+  if (normalized.startsWith('docs/discussions/')) return 'discussion';
   if (normalized === P0_LESSONS_PATH) return 'lesson';
   if (normalized === P0_CLAUDE_PATH || normalized === P0_AGENTS_PATH) return 'guide';
   return 'doc';
@@ -61,6 +69,7 @@ export function deriveP0Kind(sourcePath: string): string {
 export function deriveP0Status(sourcePath: string): string {
   const normalized = normalizeSourcePath(sourcePath);
   if (normalized.startsWith('docs/decisions/')) return 'published';
+  if (normalized.startsWith('docs/discussions/')) return 'draft';
   if (normalized === P0_CLAUDE_PATH || normalized === P0_AGENTS_PATH) return 'published';
   return 'draft';
 }

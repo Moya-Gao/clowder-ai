@@ -12,6 +12,32 @@ export interface LessonsEntry {
   related: string[];
 }
 
+const FRONTMATTER_RE = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/;
+const HINDSIGHT_INCLUDE_RE = /^hindsight:\s*['"]?include['"]?\s*$/im;
+
+function extractFrontmatter(content: string): { frontmatter: string | null; body: string } {
+  const match = content.match(FRONTMATTER_RE);
+  if (!match) {
+    return { frontmatter: null, body: content };
+  }
+
+  return {
+    frontmatter: match[1] ?? null,
+    body: content.slice(match[0].length),
+  };
+}
+
+export function hasHindsightIncludeDirective(content: string): boolean {
+  const { frontmatter } = extractFrontmatter(content);
+  if (!frontmatter) return false;
+  return HINDSIGHT_INCLUDE_RE.test(frontmatter);
+}
+
+export function stripMarkdownFrontmatter(content: string): string {
+  const { body } = extractFrontmatter(content);
+  return body;
+}
+
 function parseStatusFromBlock(block: string): string {
   const match = block.match(/^- 状态：\s*(draft|validated|archived)\b/m);
   return match?.[1] ?? 'draft';

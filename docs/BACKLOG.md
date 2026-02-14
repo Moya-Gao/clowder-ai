@@ -68,7 +68,7 @@
 | 54 | F16 控制面行为接通（Task 3） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：evidence/reflect/callback 路由统一读取运行时配置（recall defaults + reflect disposition），并补齐 RED→GREEN 回归测试闭环。 |
 | 55 | F16 配置变更审计（Task 6） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：`PATCH /api/config` 写入 `config_updated` 审计事件（key/old/new/operator/source/timestamp），`/api/config/runtime-status` 补充 source 元数据。 |
 | 66 | 布偶猫权限申请不弹窗（MCP callback 未挂载） | [x] | 2026-02-12 铲屎官反馈 | 2026-02-12 缅因猫完成：`ClaudeAgentService` 自动解析默认 MCP 路径 + `start-dev.sh` 构建 `mcp-server` 并导出 `CAT_CAFE_MCP_SERVER_PATH`，补充 `claude-agent-service` 与 `start-dev-script` 回归测试。 |
-| 67 | Hindsight discussion 例外导入机制（`hindsight: include`） | [ ] | ADR-005 附录 C + P0.5 边界 | P0 明确不导 discussion；P0.5 需补“白名单例外 + quarantined 生命周期 + 审计”落地方案。 |
+| 67 | Hindsight discussion 例外导入机制（`hindsight: include`） | [~] | ADR-005 附录 C + P0.5 边界 | 已实现白名单导入（frontmatter `hindsight: include`）+ discussion `origin:discussion, visibility:quarantined, status:draft` + CLI 审计事件 `hindsight_discussion_exception_imported`；待宪宪 review 放行后收口。 |
 | 68 | ADR 历史否决理由回填（批量） | [ ] | ADR-005 附录 C | 目前仅新增决策按模板写否决理由；P0.5 需要把历史 ADR 的关键 tradeoff/否决理由补齐，提升 why 可检索性。 |
 | 69 | Hindsight 周评测流水线（precision/noise/staleness） | [ ] | P0 Plan Task 5 | 建立自动周评测与阈值告警，避免 recall 质量劣化无感发生。 |
 | 70 | workspace 全量 build 阻塞（packages/web lint/type） | [x] | 2026-02-13 Task 5 验证 | 2026-02-13 缅因猫完成：清理 4 处 `no-unused-vars`（`ChatContainer.tsx`, `RightStatusPanel.tsx`, `useSplitPaneKeys.test.ts`, `useChatHistory.ts`），`pnpm -r --if-present run build` 恢复通过。 |

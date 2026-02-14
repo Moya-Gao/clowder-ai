@@ -33,6 +33,59 @@ test('collectP0ImportSources includes only git-tracked decision docs', async (t)
   assert.ok(!sources.includes('docs/decisions/999-untracked.md'));
 });
 
+test('collectP0ImportSources includes tracked discussion docs only when frontmatter has hindsight: include', async (t) => {
+  const repoRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-p0-discussion-'));
+  t.after(() => {
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  execFileSync('git', ['init'], { cwd: repoRoot });
+  mkdirSync(join(repoRoot, 'docs', 'decisions'), { recursive: true });
+  mkdirSync(join(repoRoot, 'docs', 'discussions'), { recursive: true });
+  writeFileSync(join(repoRoot, 'CLAUDE.md'), '# CLAUDE\n');
+  writeFileSync(join(repoRoot, 'AGENTS.md'), '# AGENTS\n');
+  writeFileSync(join(repoRoot, 'docs', 'lessons-learned.md'), '# Lessons\n');
+  writeFileSync(join(repoRoot, 'docs', 'decisions', '001-alpha.md'), '# ADR 001\n');
+  writeFileSync(
+    join(repoRoot, 'docs', 'discussions', 'included.md'),
+    ['---', 'hindsight: include', '---', '', '# Included discussion'].join('\n'),
+  );
+  writeFileSync(
+    join(repoRoot, 'docs', 'discussions', 'ignored.md'),
+    ['---', 'hindsight: skip', '---', '', '# Ignored discussion'].join('\n'),
+  );
+
+  execFileSync(
+    'git',
+    ['add', 'CLAUDE.md', 'AGENTS.md', 'docs/lessons-learned.md', 'docs/decisions/001-alpha.md', 'docs/discussions/included.md', 'docs/discussions/ignored.md'],
+    { cwd: repoRoot },
+  );
+
+  const sources = await collectP0ImportSources(repoRoot);
+  assert.ok(sources.includes('docs/discussions/included.md'));
+  assert.ok(!sources.includes('docs/discussions/ignored.md'));
+});
+
+test('collectP0ImportSources explicit discussion source requires hindsight: include marker', async (t) => {
+  const repoRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-p0-discussion-explicit-'));
+  t.after(() => {
+    rmSync(repoRoot, { recursive: true, force: true });
+  });
+
+  execFileSync('git', ['init'], { cwd: repoRoot });
+  mkdirSync(join(repoRoot, 'docs', 'discussions'), { recursive: true });
+  writeFileSync(
+    join(repoRoot, 'docs', 'discussions', 'no-include.md'),
+    ['---', 'hindsight: skip', '---', '', '# Discussion'].join('\n'),
+  );
+  execFileSync('git', ['add', 'docs/discussions/no-include.md'], { cwd: repoRoot });
+
+  await assert.rejects(
+    () => collectP0ImportSources(repoRoot, 'docs/discussions/no-include.md'),
+    /discussion source must include frontmatter marker hindsight: include/,
+  );
+});
+
 test('readGitHeadCommit returns null when repo has no git metadata', async (t) => {
   const repoRoot = mkdtempSync(join(tmpdir(), 'cat-cafe-p0-nogit-'));
   t.after(() => {

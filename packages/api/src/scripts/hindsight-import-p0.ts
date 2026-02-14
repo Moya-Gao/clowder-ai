@@ -5,6 +5,7 @@ import { createHindsightClient } from '../domains/cats/services/HindsightClient.
 import { buildImportItemsFromMarkdown, buildP0RetainOptions, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { assertUniqueP0DocumentIds } from '../domains/cats/services/hindsight-import/p0-contract.js';
 import { writeP0SyncWatermark } from '../domains/cats/services/hindsight-import/p0-watermark.js';
+import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
 
 interface CliArgs {
   dryRun: boolean;
@@ -76,8 +77,11 @@ async function main(): Promise<void> {
     throw new Error('failed to resolve git HEAD commit');
   }
   const client = createHindsightClient();
+  const auditLog = getEventAuditLog();
 
   let totalItems = 0;
+  let discussionChunkCount = 0;
+  const discussionSources: string[] = [];
 
   for (const sourcePath of sourcePaths) {
     const absolutePath = resolve(repoRoot, sourcePath);
@@ -89,6 +93,10 @@ async function main(): Promise<void> {
       author: args.author,
     });
     totalItems += items.length;
+    if (sourcePath.startsWith('docs/discussions/')) {
+      discussionSources.push(sourcePath);
+      discussionChunkCount += items.length;
+    }
 
     if (items.length === 0) {
       console.log(`[skip] ${sourcePath}: no importable chunks`);
@@ -115,6 +123,20 @@ async function main(): Promise<void> {
       sourcePaths,
     });
     console.log(`[watermark] ${watermarkPath}`);
+  }
+
+  if (!args.dryRun && discussionSources.length > 0) {
+    await auditLog.append({
+      type: 'hindsight_discussion_exception_imported',
+      data: {
+        bankId: args.bank,
+        sourceCommit,
+        sourceCount: discussionSources.length,
+        chunkCount: discussionChunkCount,
+        sourcePaths: discussionSources,
+      },
+    });
+    console.log(`[audit] discussion exceptions imported: sources=${discussionSources.length} chunks=${discussionChunkCount}`);
   }
 
   console.log(`[done] sources=${sourcePaths.length} chunks=${totalItems} dryRun=${args.dryRun}`);

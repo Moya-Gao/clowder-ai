@@ -5,12 +5,18 @@ import {
   buildP0Anchor,
   buildP0DocumentId,
   deriveP0Kind,
+  isP0DiscussionSourcePath,
   deriveP0Status,
   isP0AllowedSourcePath,
   normalizeSourcePath,
   validateP0Tags,
 } from './p0-contract.js';
-import { parseLessonsEntries, splitByLevel2Headings } from './p0-markdown-parser.js';
+import {
+  hasHindsightIncludeDirective,
+  parseLessonsEntries,
+  splitByLevel2Headings,
+  stripMarkdownFrontmatter,
+} from './p0-markdown-parser.js';
 
 export interface BuildImportItemsInput {
   sourcePath: string;
@@ -22,6 +28,8 @@ export interface BuildImportItemsInput {
 function buildGovernanceTags(params: {
   kind: string;
   status: string;
+  origin: string;
+  visibility: string;
   author: string;
   sourcePath: string;
   sourceCommit: string;
@@ -31,8 +39,9 @@ function buildGovernanceTags(params: {
     P0_PROJECT_TAG,
     `kind:${params.kind}`,
     `status:${params.status}`,
+    `visibility:${params.visibility}`,
     `author:${params.author}`,
-    'origin:git',
+    `origin:${params.origin}`,
     `sourcePath:${params.sourcePath}`,
     `sourceCommit:${params.sourceCommit}`,
     `anchor:${params.anchor}`,
@@ -44,6 +53,8 @@ function buildGovernanceTags(params: {
 function buildMetadata(params: {
   kind: string;
   status: string;
+  origin: string;
+  visibility: string;
   author: string;
   sourcePath: string;
   sourceCommit: string;
@@ -55,6 +66,8 @@ function buildMetadata(params: {
   return {
     kind: params.kind,
     status: params.status,
+    origin: params.origin,
+    visibility: params.visibility,
     author: params.author,
     sourcePath: params.sourcePath,
     sourceCommit: params.sourceCommit,
@@ -71,6 +84,8 @@ function buildLessonsItems(params: {
   sourceCommit: string;
   content: string;
   author: string;
+  origin: string;
+  visibility: string;
 }): RetainItem[] {
   const entries = parseLessonsEntries(params.content);
   return entries.map((entry) => {
@@ -84,6 +99,8 @@ function buildLessonsItems(params: {
       tags: buildGovernanceTags({
         kind,
         status,
+        origin: params.origin,
+        visibility: params.visibility,
         author: params.author,
         sourcePath: params.sourcePath,
         sourceCommit: params.sourceCommit,
@@ -92,6 +109,8 @@ function buildLessonsItems(params: {
       metadata: buildMetadata({
         kind,
         status,
+        origin: params.origin,
+        visibility: params.visibility,
         author: params.author,
         sourcePath: params.sourcePath,
         sourceCommit: params.sourceCommit,
@@ -127,26 +146,35 @@ export function buildImportItemsFromMarkdown(input: BuildImportItemsInput): Reta
 
   const documentId = buildP0DocumentId(sourcePath);
   const author = input.author.trim() || 'codex';
+  const isDiscussion = isP0DiscussionSourcePath(sourcePath);
+  if (isDiscussion && !hasHindsightIncludeDirective(input.content)) {
+    throw new Error('discussion source must include frontmatter marker hindsight: include');
+  }
+  const normalizedContent = isDiscussion ? stripMarkdownFrontmatter(input.content) : input.content;
+  const origin = isDiscussion ? 'discussion' : 'git';
+  const visibility = isDiscussion ? 'quarantined' : 'default';
 
   if (sourcePath === P0_LESSONS_PATH) {
     return buildLessonsItems({
       documentId,
       sourcePath,
       sourceCommit,
-      content: input.content,
+      content: normalizedContent,
       author,
+      origin,
+      visibility,
     });
   }
 
   const kind = deriveP0Kind(sourcePath);
   const status = deriveP0Status(sourcePath);
-  return splitByLevel2Headings(input.content).map((section) => {
+  return splitByLevel2Headings(normalizedContent).map((section) => {
     const anchor = buildP0Anchor(sourcePath, section.heading);
     return {
       document_id: documentId,
       content: section.content,
-      tags: buildGovernanceTags({ kind, status, author, sourcePath, sourceCommit, anchor }),
-      metadata: buildMetadata({ kind, status, author, sourcePath, sourceCommit, anchor, heading: section.heading }),
+      tags: buildGovernanceTags({ kind, status, origin, visibility, author, sourcePath, sourceCommit, anchor }),
+      metadata: buildMetadata({ kind, status, origin, visibility, author, sourcePath, sourceCommit, anchor, heading: section.heading }),
     };
   });
 }

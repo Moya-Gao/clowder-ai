@@ -1,17 +1,21 @@
 import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import {
   P0_AGENTS_PATH,
   P0_CLAUDE_PATH,
   P0_LESSONS_PATH,
+  isP0DiscussionSourcePath,
   isP0AllowedSourcePath,
   normalizeSourcePath,
 } from './p0-contract.js';
+import { hasHindsightIncludeDirective } from './p0-markdown-parser.js';
 
 const execFileAsync = promisify(execFile);
 
-function listTrackedDecisionDocs(repoRoot: string): string[] {
-  const output = execFileSync('git', ['ls-files', 'docs/decisions'], {
+function listTrackedDocsInDir(repoRoot: string, dir: string): string[] {
+  const output = execFileSync('git', ['ls-files', dir], {
     cwd: repoRoot,
     encoding: 'utf8',
   }).trim();
@@ -37,6 +41,13 @@ function isTrackedSource(repoRoot: string, sourcePath: string): boolean {
   }
 }
 
+async function shouldIncludeDiscussionSource(repoRoot: string, sourcePath: string): Promise<boolean> {
+  if (!isP0DiscussionSourcePath(sourcePath)) return true;
+  const fullPath = resolve(repoRoot, sourcePath);
+  const content = await readFile(fullPath, 'utf8');
+  return hasHindsightIncludeDirective(content);
+}
+
 export async function collectP0ImportSources(repoRoot: string, explicitSource?: string): Promise<string[]> {
   if (explicitSource) {
     const source = normalizeSourcePath(explicitSource);
@@ -46,15 +57,26 @@ export async function collectP0ImportSources(repoRoot: string, explicitSource?: 
     if (!isTrackedSource(repoRoot, source)) {
       throw new Error(`source path is not git-tracked: ${source}`);
     }
+    if (isP0DiscussionSourcePath(source) && !(await shouldIncludeDiscussionSource(repoRoot, source))) {
+      throw new Error('discussion source must include frontmatter marker hindsight: include');
+    }
     return [source];
   }
 
-  const decisions = listTrackedDecisionDocs(repoRoot);
+  const decisions = listTrackedDocsInDir(repoRoot, 'docs/decisions');
+  const discussions = listTrackedDocsInDir(repoRoot, 'docs/discussions');
   const baselineSources = [P0_CLAUDE_PATH, P0_AGENTS_PATH, P0_LESSONS_PATH]
     .filter((source) => isTrackedSource(repoRoot, source));
+  const includedDiscussions: string[] = [];
+  for (const source of discussions) {
+    if (await shouldIncludeDiscussionSource(repoRoot, source)) {
+      includedDiscussions.push(source);
+    }
+  }
 
   return [
     ...decisions,
+    ...includedDiscussions,
     ...baselineSources,
   ];
 }
