@@ -155,6 +155,7 @@
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
 | Antigravity MCP 回传可能无响应 | 中 | gemini-cli fallback |
 | **Codex CLI 全局配置可覆盖会话规则** | 中 | Session 跨 thread 污染已修 (#38)。全局 `AGENTS.md` 在有项目级 `AGENTS.md` 的项目中不生效。HOME 隔离方案已废弃 (BACKLOG #36)。详见 [timeline.md](./bug-report/tea-coffee/timeline.md) |
+| **私有 `MEMORY.md` 不在 Git，无法仓库内审计** | 中 | `~/.claude/projects/` 下的私有记忆仅作个人上下文恢复，不作为团队事实源。所有会影响协作决策的信息必须同步落盘到仓库文档（`docs/mailbox/`、`docs/decisions/`、`docs/plans/`）并附 commit 锚点。 |
 
 ## 已完成项（归档）
 
