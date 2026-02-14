@@ -1,7 +1,7 @@
 export const CAT_OPTIONS = [
   { id: 'opus', label: '@\u5E03\u5076\u732B', desc: 'Opus \u00B7 \u67B6\u6784 & \u5F00\u53D1', insert: '@\u5E03\u5076 ', color: 'text-opus-primary' },
   { id: 'codex', label: '@\u7F05\u56E0\u732B', desc: 'Codex \u00B7 \u5BA1\u67E5 & \u6D4B\u8BD5', insert: '@\u7F05\u56E0 ', color: 'text-codex-primary' },
-  { id: 'gemini', label: '@\u6684\u7F57\u732B', desc: 'Gemini \u00B7 \u8BBE\u8BA1 & \u521B\u610F', insert: '@\u6684\u7F57 ', color: 'text-gemini-primary' },
+  { id: 'gemini', label: '@\u66B9\u7F57\u732B', desc: 'Gemini \u00B7 \u8BBE\u8BA1 & \u521B\u610F', insert: '@\u66B9\u7F57 ', color: 'text-gemini-primary' },
 ] as const;
 
 export const MODE_OPTIONS = [
