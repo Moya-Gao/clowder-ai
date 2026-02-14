@@ -217,7 +217,7 @@ describe('ConfigRegistry', () => {
 
     assert.ok(snapshot.hindsight, 'has hindsight section');
     assert.equal(snapshot.hindsight.enabled, true);
-    assert.equal(snapshot.hindsight.baseUrl, 'http://localhost:8888');
+    assert.equal(snapshot.hindsight.baseUrl, 'http://localhost:18888');
     assert.equal(snapshot.hindsight.sharedBank, 'cat-cafe-shared');
   });
 

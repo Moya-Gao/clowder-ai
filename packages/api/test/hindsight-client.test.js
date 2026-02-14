@@ -28,6 +28,27 @@ describe('HindsightClient', () => {
   }
 
   describe('recall', () => {
+    it('createHindsightClient uses local isolated default base URL', async () => {
+      const savedUrl = process.env.HINDSIGHT_URL;
+      delete process.env.HINDSIGHT_URL;
+      mockFetch.mock.mockImplementation(() =>
+        Promise.resolve({ ok: true, json: () => Promise.resolve({ memories: [] }) }),
+      );
+
+      const { createHindsightClient } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const client = createHindsightClient();
+      await client.recall('cat-cafe-shared', 'default-url-smoke');
+
+      const [url] = mockFetch.mock.calls[0].arguments;
+      assert.equal(url, 'http://localhost:18888/v1/default/banks/cat-cafe-shared/memories/recall');
+
+      if (savedUrl === undefined) {
+        delete process.env.HINDSIGHT_URL;
+      } else {
+        process.env.HINDSIGHT_URL = savedUrl;
+      }
+    });
+
     it('constructs correct URL and body', async () => {
       mockFetch.mock.mockImplementation(() =>
         Promise.resolve({ ok: true, json: () => Promise.resolve({ memories: [] }) }),

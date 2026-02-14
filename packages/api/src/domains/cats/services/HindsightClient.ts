@@ -214,5 +214,5 @@ export class HindsightClient implements IHindsightClient {
 
 /** Factory function matching codebase convention */
 export function createHindsightClient(url?: string): HindsightClient {
-  return new HindsightClient(url ?? process.env['HINDSIGHT_URL'] ?? 'http://localhost:8888');
+  return new HindsightClient(url ?? process.env['HINDSIGHT_URL'] ?? 'http://localhost:18888');
 }

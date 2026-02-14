@@ -29,7 +29,7 @@ bash scripts/hindsight/p0-health-check.sh
 ```
 
 默认配置：
-- `HINDSIGHT_URL=http://localhost:8888`
+- `HINDSIGHT_URL=http://localhost:18888`
 - `HINDSIGHT_SHARED_BANK=cat-cafe-shared`
 - `HINDSIGHT_HEALTH_TIMEOUT_SECONDS=5`
 
@@ -37,7 +37,7 @@ bash scripts/hindsight/p0-health-check.sh
 
 ```bash
 bash scripts/hindsight/p0-health-check.sh \
-  --base-url http://localhost:8888 \
+  --base-url http://localhost:18888 \
   --bank cat-cafe-shared \
   --timeout 5
 ```

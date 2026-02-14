@@ -125,7 +125,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
     deliberate: { status: 'types_only' },
     hindsight: {
       enabled: true,
-      baseUrl: env['HINDSIGHT_URL'] ?? 'http://localhost:8888',
+      baseUrl: env['HINDSIGHT_URL'] ?? 'http://localhost:18888',
       sharedBank: 'cat-cafe-shared',
       recallDefaults: hindsightRuntime.recallDefaults,
       retainPolicy: {

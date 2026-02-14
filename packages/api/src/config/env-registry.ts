@@ -80,7 +80,7 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'MODE_SWITCH_REQUIRES_APPROVAL', defaultValue: 'true', description: '模式切换需要确认', category: 'cli', sensitive: false },
 
   // --- hindsight ---
-  { name: 'HINDSIGHT_URL', defaultValue: 'http://localhost:8888', description: 'Hindsight 服务地址', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_URL', defaultValue: 'http://localhost:18888', description: 'Hindsight 服务地址', category: 'hindsight', sensitive: false },
   { name: 'HINDSIGHT_REFLECT_DISPOSITION_MODE', defaultValue: '(默认)', description: 'Reflect 处置模式', category: 'hindsight', sensitive: false },
   { name: 'HINDSIGHT_RECALL_DEFAULT_BUDGET', defaultValue: 'mid', description: 'Recall 默认预算', category: 'hindsight', sensitive: false },
   { name: 'HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH', defaultValue: 'all', description: 'Recall 标签匹配方式', category: 'hindsight', sensitive: false },

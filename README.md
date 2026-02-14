@@ -12,6 +12,33 @@ pnpm start
 `pnpm start` 现在会自动执行 runtime 流程（init/sync/start），保持“单命令拉起”的体验。  
 首次运行会创建 `../cat-cafe-runtime` 并安装依赖，后续会自动同步再启动。
 
+## 独立 Hindsight 服务（本仓库）
+
+为了避免和其他仓库共用实例导致互相影响，`cat-cafe` 现在使用独立 Hindsight 入口：
+
+- API: `http://localhost:18888`
+- UI: `http://localhost:19999/dashboard`
+
+启动与维护命令：
+
+```bash
+pnpm hindsight:start
+pnpm hindsight:status
+pnpm hindsight:logs
+pnpm hindsight:stop
+pnpm hindsight:config
+```
+
+说明：
+- `docker-compose.hindsight.yml` 内置 `hindsight-volume-init`，会在启动前自动修正数据卷权限，避免 pg0 首启失败。
+- 首次冷启动会下载本地 embedding/reranker 模型，可能需要 1-3 分钟。
+- 启动等待超时可通过 `HINDSIGHT_STARTUP_TIMEOUT_SECONDS` 调整（默认 300 秒）。
+
+配置文件：
+
+- `docker-compose.hindsight.yml`
+- `scripts/hindsight-service.sh`
+
 ## 运行规范（强制）
 
 1. 不在 `main` 分支直接运行 `scripts/start-dev.sh`。

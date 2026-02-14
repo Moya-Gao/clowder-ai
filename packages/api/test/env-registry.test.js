@@ -60,6 +60,12 @@ describe('env-registry', () => {
     assert.ok(redis, 'REDIS_URL should be in registry');
     assert.equal(redis.maskMode, 'url');
   });
+
+  it('HINDSIGHT_URL default points to local isolated instance', () => {
+    const hindsightUrl = ENV_VARS.find((v) => v.name === 'HINDSIGHT_URL');
+    assert.ok(hindsightUrl, 'HINDSIGHT_URL should be in registry');
+    assert.equal(hindsightUrl.defaultValue, 'http://localhost:18888');
+  });
 });
 
 describe('maskUrlCredentials', () => {
