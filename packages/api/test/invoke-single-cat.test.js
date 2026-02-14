@@ -611,4 +611,45 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(sessionDeletes.length, 0, 'non-session errors should not clear session');
     assert.ok(msgs.some(m => m.type === 'error' && String(m.error).includes('upstream timeout')));
   });
+
+  it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
+    let invokeCount = 0;
+    const sessionDeletes = [];
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield {
+          type: 'error',
+          catId: 'opus',
+          error: 'No conversation found with session ID: still-bad',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'stale-sess',
+      store: async () => {},
+      delete: async () => { sessionDeletes.push('deleted'); },
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-still-failing',
+      threadId: 'thread-still-failing',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2, 'should never retry more than once');
+    assert.equal(sessionDeletes.length, 1, 'stale session should be cleared once before retry');
+    assert.ok(
+      msgs.some((m) => m.type === 'error' && String(m.error).includes('No conversation found')),
+      'should surface session error if retry still fails',
+    );
+    assert.ok(msgs.some((m) => m.type === 'done'), 'should still emit done');
+  });
 });

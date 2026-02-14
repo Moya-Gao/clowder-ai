@@ -135,7 +135,9 @@ export async function* invokeSingleCat(
 
     let lastErrorMessage: string | undefined;
 
-    const processAndYield = async function* (msg: AgentMessage): AsyncGenerator<AgentMessage> {
+    const processMessage = async (msg: AgentMessage): Promise<AgentMessage[]> => {
+      const outputs: AgentMessage[] = [];
+
       if (msg.type === 'error') {
         hadStreamError = true;
         lastErrorMessage = msg.error;
@@ -175,7 +177,7 @@ export async function* invokeSingleCat(
         }
 
         // Push session info as system_info for frontend status panel
-        yield {
+        outputs.push({
           type: 'system_info' as const,
           catId,
           content: JSON.stringify({
@@ -185,7 +187,7 @@ export async function* invokeSingleCat(
             invocationId,
           }),
           timestamp: Date.now(),
-        };
+        });
       }
 
       if (msg.type === 'done') {
@@ -210,7 +212,7 @@ export async function* invokeSingleCat(
         });
 
         // Push completion metrics for frontend status panel
-        yield {
+        outputs.push({
           type: 'system_info' as const,
           catId,
           content: JSON.stringify({
@@ -221,11 +223,11 @@ export async function* invokeSingleCat(
             sessionId: msg.metadata?.sessionId,
           }),
           timestamp: Date.now(),
-        };
+        });
 
         // F8: Push token usage for frontend cost/token display
         if (msg.metadata?.usage) {
-          yield {
+          outputs.push({
             type: 'system_info' as const,
             catId,
             content: JSON.stringify({
@@ -234,7 +236,7 @@ export async function* invokeSingleCat(
               usage: msg.metadata.usage,
             }),
             timestamp: Date.now(),
-          };
+          });
 
           // F24: Compute and emit context health
           // Use lastTurnInputTokens (per-API-call) for accurate context fill,
@@ -263,26 +265,29 @@ export async function* invokeSingleCat(
                 }
               } catch { /* best-effort */ }
             }
-            yield {
+            outputs.push({
               type: 'system_info' as const,
               catId,
               content: JSON.stringify({ type: 'context_health', catId, health }),
               timestamp: Date.now(),
-            };
+            });
           }
         }
 
-        yield { ...msg, isFinal: isLastCat };
+        outputs.push({ ...msg, isFinal: isLastCat });
       } else {
-        yield msg;
+        outputs.push(msg);
       }
+
+      return outputs;
     };
 
     // Claude CLI occasionally returns a stale session bootstrap error:
     // "No conversation found with session ID ...".
     // Self-heal by clearing stored session and retrying once without --resume.
+    const maxAttempts = sessionId ? 2 : 1;
     let allowSessionRetry = Boolean(sessionId);
-    while (true) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const options: AgentServiceOptions = {
         ...(sessionId ? { sessionId } : {}),
         ...baseOptions,
@@ -306,18 +311,18 @@ export async function* invokeSingleCat(
             break;
           }
 
-          for await (const out of processAndYield(suppressedMissingSessionError)) {
+          for (const out of await processMessage(suppressedMissingSessionError)) {
             yield out;
           }
           suppressedMissingSessionError = undefined;
         }
 
-        for await (const out of processAndYield(msg)) {
+        for (const out of await processMessage(msg)) {
           yield out;
         }
       }
 
-      if (shouldRetryWithoutSession) {
+      if (shouldRetryWithoutSession && attempt + 1 < maxAttempts) {
         try {
           await sessionManager.delete(userId, catId, threadId);
         } catch {
@@ -329,7 +334,7 @@ export async function* invokeSingleCat(
       }
 
       if (suppressedMissingSessionError) {
-        for await (const out of processAndYield(suppressedMissingSessionError)) {
+        for (const out of await processMessage(suppressedMissingSessionError)) {
           yield out;
         }
       }

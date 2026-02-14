@@ -29,6 +29,7 @@ describe('triggerA2AInvocation', () => {
     abortController.abort();
 
     const mockInvocationTracker = {
+      has() { return false; },
       start() { return abortController; },
       complete() {},
     };
@@ -130,6 +131,7 @@ describe('triggerA2AInvocation', () => {
 
     let createCalled = 0;
     let routeCalled = 0;
+    const updates = [];
     const broadcasts = [];
 
     const mockInvocationRecordStore = {
@@ -137,8 +139,9 @@ describe('triggerA2AInvocation', () => {
         createCalled++;
         return { outcome: 'created', invocationId: 'inv-1' };
       },
-      update() {
-        throw new Error('update should not be called when skipping');
+      update(id, data) {
+        updates.push({ id, ...data });
+        return { id, ...data };
       },
     };
 
@@ -180,11 +183,83 @@ describe('triggerA2AInvocation', () => {
       },
     );
 
-    assert.equal(createCalled, 0, 'should skip creating InvocationRecord when thread is busy');
+    assert.equal(createCalled, 1, 'busy skip should still create InvocationRecord for audit');
     assert.equal(routeCalled, 0, 'should not execute router route when thread is busy');
+    const canceled = updates.find((u) => u.status === 'canceled');
+    assert.ok(canceled, 'busy skip should mark InvocationRecord canceled');
+    assert.match(String(canceled.error), /busy|skip/i, 'busy skip should include explicit reason');
     assert.equal(broadcasts.length, 1, 'should emit one system_info message to explain skip');
     assert.equal(broadcasts[0].threadId, 'busy-thread');
     assert.equal(broadcasts[0].msg.type, 'system_info');
     assert.match(String(broadcasts[0].msg.content), /跳过|稍后/);
+  });
+
+  test('broadcasts terminal error + done when routeExecution throws (release loading lock)', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    const updates = [];
+    const roomEvents = [];
+    const agentBroadcasts = [];
+    const mockInvocationRecordStore = {
+      create() {
+        return { outcome: 'created', invocationId: 'inv-err' };
+      },
+      update(id, data) {
+        updates.push({ id, ...data });
+        return { id, ...data };
+      },
+    };
+
+    const mockInvocationTracker = {
+      has() { return false; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        throw new Error('route failed before done');
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage(msg, threadId) { agentBroadcasts.push({ msg, threadId }); },
+      broadcastToRoom(room, event, payload) { roomEvents.push({ room, event, payload }); },
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nplease review',
+        userId: 'user-1',
+        threadId: 'thread-err',
+        triggerMessage: { id: 'msg-err', threadId: 'thread-err', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    // triggerA2AInvocation is fire-and-forget; wait for background task to flush.
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(roomEvents.length, 1, 'should emit intent_mode once execution starts');
+    assert.equal(roomEvents[0].event, 'intent_mode');
+    assert.equal(agentBroadcasts.some((b) => b.msg.type === 'error'), true, 'should broadcast error on execution failure');
+    assert.equal(
+      agentBroadcasts.some((b) => b.msg.type === 'done' && b.msg.isFinal === true),
+      true,
+      'should broadcast terminal done(isFinal) to release loading lock',
+    );
+    assert.equal(updates.some((u) => u.status === 'failed'), true, 'failed status should be persisted');
   });
 });

@@ -41,18 +41,7 @@ export async function triggerA2AInvocation(
   const { router, invocationRecordStore, socketManager,
     invocationTracker, log } = deps;
   const { targetCats, content, userId, threadId, triggerMessage } = opts;
-
-  // Do not preempt active thread work with callback-triggered A2A.
-  if (invocationTracker?.has?.(threadId)) {
-    socketManager.broadcastAgentMessage({
-      type: 'system_info',
-      catId: targetCats[0] ?? createCatId('opus'),
-      content: '当前线程已有进行中的调用，本次 A2A 自动触发已跳过，请稍后重试。',
-      timestamp: Date.now(),
-    }, threadId);
-    return;
-  }
-
+  const statusCatId = targetCats[0] ?? createCatId('opus');
   const intent = parseIntent(content, targetCats.length);
 
   const createResult = await invocationRecordStore.create({
@@ -64,6 +53,27 @@ export async function triggerA2AInvocation(
   });
 
   if (createResult.outcome === 'duplicate') return;
+
+  // Do not preempt active thread work with callback-triggered A2A.
+  if (invocationTracker?.has(threadId)) {
+    // Keep an auditable trace for skipped trigger.
+    await invocationRecordStore.update(createResult.invocationId, {
+      status: 'canceled',
+      error: 'skipped_busy_active_invocation',
+    });
+    log.info({
+      threadId,
+      invocationId: createResult.invocationId,
+      targetCats,
+    }, '[callbacks] skip A2A trigger because thread already has active invocation');
+    socketManager.broadcastAgentMessage({
+      type: 'system_info',
+      catId: statusCatId,
+      content: '当前线程已有进行中的调用，本次 A2A 自动触发已跳过，请稍后重试。',
+      timestamp: Date.now(),
+    }, threadId);
+    return;
+  }
 
   const controller = invocationTracker?.start(threadId, userId);
   if (controller?.signal.aborted) {
@@ -111,6 +121,19 @@ export async function triggerA2AInvocation(
           ...(err instanceof Error ? { error: err.message } : {}),
         });
       } catch { /* best-effort */ }
+      // Ensure frontend receives terminal state and can clear loading lock.
+      socketManager.broadcastAgentMessage({
+        type: 'error',
+        catId: statusCatId,
+        error: err instanceof Error ? err.message : String(err),
+        timestamp: Date.now(),
+      }, threadId);
+      socketManager.broadcastAgentMessage({
+        type: 'done',
+        catId: statusCatId,
+        isFinal: true,
+        timestamp: Date.now(),
+      }, threadId);
     } finally {
       invocationTracker?.complete(threadId, controller);
     }
