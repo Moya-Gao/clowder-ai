@@ -268,6 +268,9 @@ export class CodexAgentService implements AgentService {
               if (typeof u['input_tokens'] === 'number') usage.inputTokens = u['input_tokens'];
               if (typeof u['output_tokens'] === 'number') usage.outputTokens = u['output_tokens'];
               if (typeof u['cached_input_tokens'] === 'number') usage.cacheReadTokens = u['cached_input_tokens'];
+              // F24-fix: Set lastTurnInputTokens for context health.
+              // For Codex turn.completed, input_tokens should be per-turn context fill.
+              if (typeof u['input_tokens'] === 'number') usage.lastTurnInputTokens = u['input_tokens'];
               metadata.usage = usage;
             }
           }

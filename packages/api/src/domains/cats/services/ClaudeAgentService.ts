@@ -78,6 +78,8 @@ function transformClaudeEvent(
   streamState: {
     currentMessageId: string | undefined;
     partialTextMessageIds: Set<string>;
+    /** F24-fix: Track last message_start's input tokens for context health */
+    lastTurnInputTokens: number | undefined;
   },
 ): AgentMessage | AgentMessage[] | null {
   if (typeof event !== 'object' || event === null) return null;
@@ -94,6 +96,22 @@ function transformClaudeEvent(
       const messageId = message?.['id'];
       if (typeof messageId === 'string') {
         streamState.currentMessageId = messageId;
+      }
+      // F24-fix: Reset per-turn tracker on every message_start to prevent
+      // stale carryover when the final turn's message_start lacks usage.
+      streamState.lastTurnInputTokens = undefined;
+      // Extract per-call input tokens from message_start.usage
+      // Anthropic API: input_tokens = new only, cache_read/create are subsets
+      // Total context fill = input_tokens + cache_read + cache_creation
+      const msgUsage = message?.['usage'] as Record<string, unknown> | undefined;
+      if (msgUsage) {
+        const raw = typeof msgUsage['input_tokens'] === 'number' ? msgUsage['input_tokens'] : 0;
+        const cacheRead = typeof msgUsage['cache_read_input_tokens'] === 'number' ? msgUsage['cache_read_input_tokens'] : 0;
+        const cacheCreate = typeof msgUsage['cache_creation_input_tokens'] === 'number' ? msgUsage['cache_creation_input_tokens'] : 0;
+        const total = raw + cacheRead + cacheCreate;
+        if (total > 0) {
+          streamState.lastTurnInputTokens = total;
+        }
       }
       return null;
     }
@@ -297,7 +315,11 @@ export class ClaudeAgentService implements AgentService {
     }
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.opus.provider, model: this.model };
-    const streamState = { partialTextMessageIds: new Set<string>(), currentMessageId: undefined as string | undefined };
+    const streamState = {
+      partialTextMessageIds: new Set<string>(),
+      currentMessageId: undefined as string | undefined,
+      lastTurnInputTokens: undefined as number | undefined,
+    };
 
     try {
       let sawResultError = false;
@@ -339,6 +361,10 @@ export class ClaudeAgentService implements AgentService {
         const rawEvt = event as Record<string, unknown>;
         if (rawEvt['type'] === 'result' && rawEvt['subtype'] === 'success') {
           metadata.usage = extractClaudeUsage(rawEvt);
+          // F24-fix: Attach per-turn input from last message_start for context health
+          if (streamState.lastTurnInputTokens != null && metadata.usage) {
+            metadata.usage.lastTurnInputTokens = streamState.lastTurnInputTokens;
+          }
         }
 
         const fromResultError = isResultErrorEvent(event);

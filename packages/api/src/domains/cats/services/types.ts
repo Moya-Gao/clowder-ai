@@ -10,7 +10,7 @@ import type { CatId, MessageContent } from '@cat-cafe/shared';
  *  so that the field has the same semantics regardless of provider.
  *  cacheReadTokens = subset of inputTokens served from cache. */
 export interface TokenUsage {
-  inputTokens?: number;            // Total input (normalised across providers)
+  inputTokens?: number;            // Total input (normalised across providers) — AGGREGATED across turns
   outputTokens?: number;
   totalTokens?: number;            // Gemini fallback (doesn't split in/out)
   cacheReadTokens?: number;        // Subset of inputTokens from cache (Claude + Codex)
@@ -20,6 +20,10 @@ export interface TokenUsage {
   durationApiMs?: number;          // Claude: pure API duration
   numTurns?: number;               // Claude: number of turns
   contextWindowSize?: number;      // F24: context window capacity (Claude: exact, others: fallback)
+  /** F24-fix: Last API turn's total input tokens (= actual context fill).
+   *  Unlike inputTokens which is aggregated across all turns, this value
+   *  represents the single most recent API call's input size. */
+  lastTurnInputTokens?: number;
 }
 
 /** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */

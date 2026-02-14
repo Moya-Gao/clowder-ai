@@ -623,3 +623,139 @@ test('F8: normalises inputTokens to include cache tokens (Claude API → total)'
   // cacheCreationTokens should be absent (was 0)
   assert.equal(done.metadata.usage.cacheCreationTokens, undefined);
 });
+
+test('F24-fix: lastTurnInputTokens extracted from last message_start usage', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('multi-turn'));
+
+  emitClaudeEvents(proc, [
+    { type: 'system', subtype: 'init', session_id: 'sid-ctx' },
+    // Turn 1: message_start with usage
+    {
+      type: 'stream_event',
+      event: {
+        type: 'message_start',
+        message: {
+          id: 'msg-1',
+          usage: { input_tokens: 10000, cache_read_input_tokens: 20000, cache_creation_input_tokens: 0 },
+        },
+      },
+    },
+    { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Turn 1' } } },
+    { type: 'stream_event', event: { type: 'message_stop' } },
+    // Turn 2: message_start with larger context (last turn — this is the one we want)
+    {
+      type: 'stream_event',
+      event: {
+        type: 'message_start',
+        message: {
+          id: 'msg-2',
+          usage: { input_tokens: 5000, cache_read_input_tokens: 35000, cache_creation_input_tokens: 4000 },
+        },
+      },
+    },
+    { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Turn 2' } } },
+    { type: 'stream_event', event: { type: 'message_stop' } },
+    // Assistant final + result
+    { type: 'assistant', message: { id: 'msg-2', content: [{ type: 'text', text: 'Turn 2' }] } },
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: {
+        input_tokens: 15000,  // aggregated across turns (raw new tokens)
+        output_tokens: 500,
+        cache_read_input_tokens: 55000,  // aggregated
+        cache_creation_input_tokens: 4000,
+      },
+      num_turns: 2,
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  // lastTurnInputTokens = last message_start: 5000 + 35000 + 4000 = 44000
+  assert.equal(done.metadata.usage.lastTurnInputTokens, 44000,
+    'lastTurnInputTokens should be sum of last message_start usage (raw + cache_read + cache_create)');
+  // inputTokens is still the aggregated value: 15000 + 55000 + 4000 = 74000
+  assert.equal(done.metadata.usage.inputTokens, 74000,
+    'inputTokens should still be the aggregated total');
+});
+
+test('F24-fix: lastTurnInputTokens is undefined when no message_start has usage', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('no-stream'));
+
+  emitClaudeEvents(proc, [
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Hi!' }] } },
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: { input_tokens: 1000, output_tokens: 200 },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  // No stream events → no lastTurnInputTokens
+  assert.equal(done.metadata.usage.lastTurnInputTokens, undefined,
+    'lastTurnInputTokens should be undefined when no message_start has usage');
+  // Aggregated inputTokens still works
+  assert.equal(done.metadata.usage.inputTokens, 1000);
+});
+
+test('F24-fix: lastTurnInputTokens resets when final message_start has no usage (no stale carryover)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('stale-test'));
+
+  emitClaudeEvents(proc, [
+    { type: 'system', subtype: 'init', session_id: 'sid-stale' },
+    // Turn 1: message_start WITH usage (sets lastTurnInputTokens = 3000)
+    {
+      type: 'stream_event',
+      event: {
+        type: 'message_start',
+        message: {
+          id: 'msg-stale-1',
+          usage: { input_tokens: 1000, cache_read_input_tokens: 2000, cache_creation_input_tokens: 0 },
+        },
+      },
+    },
+    { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'T1' } } },
+    { type: 'stream_event', event: { type: 'message_stop' } },
+    // Turn 2: message_start WITHOUT usage (should clear, not carry over 3000)
+    {
+      type: 'stream_event',
+      event: {
+        type: 'message_start',
+        message: { id: 'msg-stale-2' },
+      },
+    },
+    { type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'T2' } } },
+    { type: 'stream_event', event: { type: 'message_stop' } },
+    // Final
+    { type: 'assistant', message: { id: 'msg-stale-2', content: [{ type: 'text', text: 'T2' }] } },
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: { input_tokens: 2000, output_tokens: 300 },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  // The final message_start had no usage → lastTurnInputTokens must be undefined, NOT 3000
+  assert.equal(done.metadata.usage.lastTurnInputTokens, undefined,
+    'lastTurnInputTokens must not carry over from a previous turn when the final turn lacks usage');
+});

@@ -428,4 +428,102 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(active.contextHealth.fillRatio, 0.7);
     assert.equal(active.contextHealth.source, 'exact');
   });
+
+  it('F24-fix: prefers lastTurnInputTokens over aggregated inputTokens for context health', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const sessionChainStore = new SessionChainStore();
+
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'opus', sessionId: 'cli-last-turn', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: 192000,          // aggregated across 5 turns (WRONG for context health)
+              lastTurnInputTokens: 44000,   // last API call's actual input (CORRECT)
+              outputTokens: 5000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = { ...makeDeps(), sessionChainStore };
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-f24-lastturn',
+      isLastCat: true,
+    }));
+
+    const healthInfos = msgs.filter(m => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'context_health';
+      } catch { return false; }
+    });
+
+    assert.equal(healthInfos.length, 1);
+    const payload = JSON.parse(healthInfos[0].content);
+    // Should use lastTurnInputTokens (44000) not aggregated inputTokens (192000)
+    assert.equal(payload.health.usedTokens, 44000,
+      'context health should use lastTurnInputTokens, not aggregated inputTokens');
+    assert.equal(payload.health.windowTokens, 200000);
+    // fillRatio should be 44000/200000 = 0.22, not 192000/200000 = 0.96
+    const expectedRatio = 44000 / 200000;
+    assert.ok(Math.abs(payload.health.fillRatio - expectedRatio) < 0.001,
+      `fillRatio should be ~${expectedRatio} (22%), got ${payload.health.fillRatio}`);
+  });
+
+  it('F24-fix: falls back to inputTokens when lastTurnInputTokens is absent', async () => {
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: 50000,  // no lastTurnInputTokens
+              outputTokens: 2000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = makeDeps();
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-f24-fallback',
+      isLastCat: true,
+    }));
+
+    const healthInfos = msgs.filter(m => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'context_health';
+      } catch { return false; }
+    });
+
+    assert.equal(healthInfos.length, 1);
+    const payload = JSON.parse(healthInfos[0].content);
+    // Falls back to inputTokens since lastTurnInputTokens is absent
+    assert.equal(payload.health.usedTokens, 50000,
+      'should fall back to inputTokens when lastTurnInputTokens is absent');
+  });
 });

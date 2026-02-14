@@ -233,9 +233,12 @@ export async function* invokeSingleCat(
           };
 
           // F24: Compute and emit context health
+          // Use lastTurnInputTokens (per-API-call) for accurate context fill,
+          // falling back to aggregated inputTokens only if per-turn data unavailable.
           const windowSize = msg.metadata.usage.contextWindowSize
             ?? getContextWindowFallback(msg.metadata.model ?? '');
-          const usedTokens = msg.metadata.usage.inputTokens ?? 0;
+          const usedTokens = msg.metadata.usage.lastTurnInputTokens
+            ?? msg.metadata.usage.inputTokens ?? 0;
           if (windowSize && usedTokens > 0) {
             const health: ContextHealth = {
               usedTokens,
