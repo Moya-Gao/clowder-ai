@@ -520,6 +520,15 @@ bash scripts/hindsight/p0-health-check.sh
 - 任一命令失败：不得宣称 #68 闭环完成，修复后重跑。
 - 自动化（CI / freshness guard）不在 #68 内实现，跟踪于 `docs/BACKLOG.md` #71。
 
+### 2026-02-14 收口执行结果（main）
+
+- 导入：`pnpm --filter @cat-cafe/api hindsight:import:p0 -- --all`
+  - 结果：`sources=10 chunks=111 dryRun=false`
+- 健康检查：`bash scripts/hindsight/p0-health-check.sh`
+  - 结果：`PASS stats.total_nodes=112 total_documents=30`
+  - 结果：`PASS tags.total=35`
+  - 结果：`WARN version request failed (http://localhost:8888/version)`（不阻断）
+
 ### 不做边界（#68）
 
 - 不改 importer/runtime/API 代码。
