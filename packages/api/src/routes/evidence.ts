@@ -35,6 +35,8 @@ const searchSchema = z.object({
   tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).optional(),
 });
 
+const EVIDENCE_RECALL_TYPES: Array<'world' | 'experience'> = ['world', 'experience'];
+
 export type { EvidenceConfidence, EvidenceSourceType } from './evidence-helpers.js';
 
 export interface EvidenceFreshness {
@@ -122,6 +124,7 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       const memories = await opts.hindsightClient.recall(opts.sharedBank, q, {
         limit: effectiveLimit,
         budget: effectiveBudget,
+        types: EVIDENCE_RECALL_TYPES,
         tags: resolvedTags,
         tagsMatch: effectiveTagsMatch,
       });

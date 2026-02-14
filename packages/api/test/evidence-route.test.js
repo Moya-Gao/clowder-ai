@@ -210,6 +210,7 @@ describe('GET /api/evidence/search', () => {
 
     assert.equal(capturedOptions.tagsMatch, 'all_strict');
     assert.deepEqual(capturedOptions.tags, ['project:cat-cafe', 'origin:git']);
+    assert.deepEqual(capturedOptions.types, ['world', 'experience']);
     assert.equal(capturedOptions.budget, 'mid');
     assert.equal(capturedOptions.limit, 5);
   });

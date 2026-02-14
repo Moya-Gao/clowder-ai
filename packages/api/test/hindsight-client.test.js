@@ -75,6 +75,7 @@ describe('HindsightClient', () => {
       await client.recall('cat-cafe-shared', 'test', {
         limit: 10,
         budget: 'high',
+        types: ['world', 'experience'],
         tags: ['project:cat-cafe', 'kind:decision'],
         tagsMatch: 'all_strict',
       });
@@ -82,6 +83,7 @@ describe('HindsightClient', () => {
       const body = JSON.parse(mockFetch.mock.calls[0].arguments[1].body);
       assert.equal(body.limit, 10);
       assert.equal(body.budget, 'high');
+      assert.deepEqual(body.types, ['world', 'experience']);
       assert.deepEqual(body.tags, ['project:cat-cafe', 'kind:decision']);
       assert.equal(body.tags_match, 'all_strict');
     });

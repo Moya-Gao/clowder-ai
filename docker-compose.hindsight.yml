@@ -32,6 +32,10 @@ services:
       HINDSIGHT_API_LLM_MAX_CONCURRENT: ${HINDSIGHT_API_LLM_MAX_CONCURRENT:-4}
       HINDSIGHT_API_LLM_TIMEOUT: ${HINDSIGHT_API_LLM_TIMEOUT:-30}
 
+      # Retain extraction quality guard (Pre-#69)
+      HINDSIGHT_API_RETAIN_EXTRACTION_MODE: ${HINDSIGHT_API_RETAIN_EXTRACTION_MODE:-custom}
+      HINDSIGHT_API_RETAIN_CUSTOM_INSTRUCTIONS: ${HINDSIGHT_API_RETAIN_CUSTOM_INSTRUCTIONS:-ONLY extract evidence-backed facts with durable value for engineering decisions, constraints, or incident handling. DO NOT extract heading-only summaries, status slogans, one-line process chatter, or statements without concrete evidence. If a sentence is merely a title, section label, or generic meta statement, skip it. Prefer fewer high-signal facts over many low-signal facts.}
+
       # Local embeddings/reranker defaults
       HINDSIGHT_API_EMBEDDINGS_PROVIDER: ${HINDSIGHT_API_EMBEDDINGS_PROVIDER:-local}
       HINDSIGHT_API_EMBEDDINGS_LOCAL_MODEL: ${HINDSIGHT_API_EMBEDDINGS_LOCAL_MODEL:-BAAI/bge-small-en-v1.5}

@@ -380,6 +380,7 @@ describe('Callback Routes', () => {
     assert.equal(recallCalls.length, 1);
     assert.deepEqual(recallCalls[0].options.tags, ['project:cat-cafe', 'origin:git']);
     assert.equal(recallCalls[0].options.tagsMatch, 'all_strict');
+    assert.deepEqual(recallCalls[0].options.types, ['world', 'experience']);
   });
 
   test('GET search-evidence ensures project:cat-cafe when user provides custom tags', async () => {

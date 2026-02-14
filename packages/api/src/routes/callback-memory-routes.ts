@@ -29,6 +29,8 @@ const searchEvidenceQuerySchema = callbackAuthSchema.extend({
   tags: z.union([z.string(), z.array(z.string())]).optional(),
   tagsMatch: z.enum(['any', 'all', 'any_strict', 'all_strict']).optional(),
 });
+
+const EVIDENCE_RECALL_TYPES: Array<'world' | 'experience'> = ['world', 'experience'];
 const reflectSchema = callbackAuthSchema.extend({
   query: z.string().trim().min(1),
 });
@@ -116,6 +118,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       const memories = await hindsightClient.recall(sharedBank, q, {
         limit: effectiveLimit,
         budget: effectiveBudget,
+        types: EVIDENCE_RECALL_TYPES,
         tags: normalizeTags(tags, 'origin:git'),
         tagsMatch: effectiveTagsMatch,
       });

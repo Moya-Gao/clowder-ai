@@ -19,6 +19,7 @@ export interface HindsightMemory {
 export interface RecallOptions {
   limit?: number;
   budget?: 'low' | 'mid' | 'high';
+  types?: Array<'world' | 'experience' | 'observation'>;
   tags?: string[];
   tagsMatch?: 'all_strict' | 'any_strict' | 'all' | 'any';
 }
@@ -73,6 +74,7 @@ export class HindsightClient implements IHindsightClient {
     const body: Record<string, unknown> = { query };
     if (options?.limit != null) body['limit'] = options.limit;
     if (options?.budget) body['budget'] = options.budget;
+    if (options?.types) body['types'] = options.types;
     if (options?.tags) body['tags'] = options.tags;
     if (options?.tagsMatch) body['tags_match'] = options.tagsMatch;
 
