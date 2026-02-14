@@ -1,0 +1,191 @@
+import React from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
+import { ChatContainer } from '@/components/ChatContainer';
+
+const mockSetLoading = vi.fn();
+const mockSetIntentMode = vi.fn();
+const mockSetTargetCats = vi.fn();
+const mockSetCurrentThread = vi.fn();
+const mockClearUnread = vi.fn();
+
+let capturedSocketCallbacks:
+  | {
+      onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
+      onMessage?: (msg: unknown) => void;
+    }
+  | null = null;
+
+const mockStoreState = () => ({
+  messages: [],
+  isLoading: false,
+  intentMode: null,
+  targetCats: [],
+  catStatuses: {},
+  catInvocations: {},
+  addMessage: vi.fn(),
+  removeMessage: vi.fn(),
+  setLoading: mockSetLoading,
+  setIntentMode: mockSetIntentMode,
+  setTargetCats: mockSetTargetCats,
+  clearCatStatuses: vi.fn(),
+  setCurrentThread: mockSetCurrentThread,
+  updateThreadTitle: vi.fn(),
+  setCurrentMode: vi.fn(),
+  currentMode: null,
+  pendingModeSwitchProposal: null,
+  setPendingModeSwitchProposal: vi.fn(),
+  viewMode: 'single' as const,
+  setViewMode: vi.fn(),
+  clearUnread: mockClearUnread,
+  splitPaneThreadIds: [],
+  setSplitPaneThreadIds: vi.fn(),
+  setSplitPaneTarget: vi.fn(),
+});
+
+vi.mock('@/stores/chatStore', () => {
+  const hook = (selector?: (s: ReturnType<typeof mockStoreState>) => unknown) => {
+    const state = mockStoreState();
+    return selector ? selector(state) : state;
+  };
+  return { useChatStore: hook };
+});
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
+vi.mock('@/stores/taskStore', () => ({
+  useTaskStore: () => ({
+    tasks: [],
+    addTask: vi.fn(),
+    updateTask: vi.fn(),
+    clearTasks: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useSocket', () => ({
+  useSocket: (callbacks: unknown) => {
+    capturedSocketCallbacks = callbacks as {
+      onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
+      onMessage?: (msg: unknown) => void;
+    };
+    return { cancelInvocation: vi.fn(), syncRooms: vi.fn() };
+  },
+}));
+
+vi.mock('@/hooks/useAgentMessages', () => ({
+  useAgentMessages: () => ({
+    handleAgentMessage: vi.fn(),
+    handleStop: vi.fn(),
+    resetRefs: vi.fn(),
+    resetTimeout: vi.fn(),
+  }),
+}));
+
+vi.mock('@/hooks/useChatHistory', () => ({
+  useChatHistory: () => ({
+    handleScroll: vi.fn(),
+    scrollContainerRef: { current: null },
+    messagesEndRef: { current: null },
+    isLoadingHistory: false,
+    hasMore: false,
+  }),
+}));
+
+vi.mock('@/hooks/useSendMessage', () => ({
+  useSendMessage: () => ({ handleSend: vi.fn() }),
+}));
+
+vi.mock('@/hooks/useAuthorization', () => ({
+  useAuthorization: () => ({ pending: [], respond: vi.fn(), handleAuthRequest: vi.fn(), handleAuthResponse: vi.fn() }),
+}));
+
+vi.mock('@/hooks/useSplitPaneKeys', () => ({ useSplitPaneKeys: vi.fn() }));
+
+vi.mock('@/components/ChatMessage', () => ({ ChatMessage: () => null }));
+vi.mock('@/components/ChatInput', () => ({ ChatInput: () => null }));
+vi.mock('@/components/ThreadSidebar', () => ({ ThreadSidebar: () => null }));
+vi.mock('@/components/RightStatusPanel', () => ({ RightStatusPanel: () => null }));
+vi.mock('@/components/ParallelStatusBar', () => ({ ParallelStatusBar: () => null }));
+vi.mock('@/components/ThinkingIndicator', () => ({ ThinkingIndicator: () => null }));
+vi.mock('@/components/A2ACollapsible', () => ({ A2ACollapsible: () => null }));
+vi.mock('@/components/ModeStatusBar', () => ({ ModeStatusBar: () => null }));
+vi.mock('@/components/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
+vi.mock('@/components/ExportButton', () => ({ ExportButton: () => null }));
+vi.mock('@/components/MessageNavigator', () => ({ MessageNavigator: () => null }));
+vi.mock('@/components/MessageActions', () => ({ MessageActions: ({ children }: { children: React.ReactNode }) => children }));
+vi.mock('@/components/CatCafeHub', () => ({ CatCafeHub: () => null }));
+
+describe('ChatContainer intent_mode loading lock', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    capturedSocketCallbacks = null;
+    mockSetLoading.mockClear();
+    mockSetIntentMode.mockClear();
+    mockSetTargetCats.mockClear();
+    mockSetCurrentThread.mockClear();
+    mockClearUnread.mockClear();
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it('locks input when current thread receives intent_mode', () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    expect(capturedSocketCallbacks?.onIntentMode).toBeTruthy();
+
+    act(() => {
+      capturedSocketCallbacks?.onIntentMode?.({
+        threadId: 'thread-1',
+        mode: 'execute',
+        targetCats: ['codex'],
+      });
+    });
+
+    expect(mockSetLoading).toHaveBeenCalledWith(true);
+    expect(mockSetIntentMode).toHaveBeenCalledWith('execute');
+    expect(mockSetTargetCats).toHaveBeenCalledWith(['codex']);
+  });
+
+  it('ignores intent_mode from other threads', () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-main' }));
+    });
+
+    act(() => {
+      capturedSocketCallbacks?.onIntentMode?.({
+        threadId: 'thread-other',
+        mode: 'execute',
+        targetCats: ['opus'],
+      });
+    });
+
+    expect(mockSetLoading).not.toHaveBeenCalled();
+    expect(mockSetIntentMode).not.toHaveBeenCalled();
+    expect(mockSetTargetCats).not.toHaveBeenCalled();
+  });
+});

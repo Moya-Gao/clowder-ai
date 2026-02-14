@@ -20,6 +20,11 @@ import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
 import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
 
+function isMissingClaudeSessionError(message: string | undefined): boolean {
+  if (!message) return false;
+  return /No conversation found with session ID/i.test(message);
+}
+
 /**
  * Shared dependencies for all cat invocations within one AgentRouter
  */
@@ -113,8 +118,7 @@ export async function* invokeSingleCat(
       }
     }
 
-    const options: AgentServiceOptions = {
-      ...(sessionId ? { sessionId } : {}),
+    const baseOptions: AgentServiceOptions = {
       callbackEnv,
       auditContext: {
         invocationId,
@@ -131,7 +135,7 @@ export async function* invokeSingleCat(
 
     let lastErrorMessage: string | undefined;
 
-    for await (const msg of service.invoke(prompt, options)) {
+    const processAndYield = async function* (msg: AgentMessage): AsyncGenerator<AgentMessage> {
       if (msg.type === 'error') {
         hadStreamError = true;
         lastErrorMessage = msg.error;
@@ -272,6 +276,64 @@ export async function* invokeSingleCat(
       } else {
         yield msg;
       }
+    };
+
+    // Claude CLI occasionally returns a stale session bootstrap error:
+    // "No conversation found with session ID ...".
+    // Self-heal by clearing stored session and retrying once without --resume.
+    let allowSessionRetry = Boolean(sessionId);
+    while (true) {
+      const options: AgentServiceOptions = {
+        ...(sessionId ? { sessionId } : {}),
+        ...baseOptions,
+      };
+      let suppressedMissingSessionError: AgentMessage | undefined;
+      let shouldRetryWithoutSession = false;
+
+      for await (const msg of service.invoke(prompt, options)) {
+        if (
+          allowSessionRetry &&
+          msg.type === 'error' &&
+          isMissingClaudeSessionError(msg.error)
+        ) {
+          suppressedMissingSessionError = msg;
+          continue;
+        }
+
+        if (suppressedMissingSessionError) {
+          if (msg.type === 'done') {
+            shouldRetryWithoutSession = true;
+            break;
+          }
+
+          for await (const out of processAndYield(suppressedMissingSessionError)) {
+            yield out;
+          }
+          suppressedMissingSessionError = undefined;
+        }
+
+        for await (const out of processAndYield(msg)) {
+          yield out;
+        }
+      }
+
+      if (shouldRetryWithoutSession) {
+        try {
+          await sessionManager.delete(userId, catId, threadId);
+        } catch {
+          // Redis delete failure — best-effort only
+        }
+        sessionId = undefined;
+        allowSessionRetry = false;
+        continue;
+      }
+
+      if (suppressedMissingSessionError) {
+        for await (const out of processAndYield(suppressedMissingSessionError)) {
+          yield out;
+        }
+      }
+      break;
     }
   } catch (err) {
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===

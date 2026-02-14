@@ -46,6 +46,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     catInvocations,
     addMessage,
     removeMessage,
+    setLoading,
     setIntentMode,
     setTargetCats,
     setCurrentThread,
@@ -141,6 +142,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     },
     onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
     onIntentMode: (data) => {
+      if (data.threadId !== threadId) return;
+      setLoading(true);
       setIntentMode(data.mode as 'ideate' | 'execute');
       const cats = (data as { targetCats?: string[] }).targetCats;
       if (cats && cats.length > 0) setTargetCats(cats);
@@ -171,7 +174,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         setCurrentMode(null);
       }
     },
-  }), [handleAgentMessage, updateThreadTitle, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode]);
+  }), [handleAgentMessage, updateThreadTitle, setLoading, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
 
   /**
    * Group consecutive A2A messages into collapsible sections.

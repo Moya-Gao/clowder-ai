@@ -14,9 +14,12 @@ import Fastify from 'fastify';
 
 function createMockSocketManager() {
   const messages = [];
+  const roomEvents = [];
   return {
     broadcastAgentMessage(msg) { messages.push(msg); },
+    broadcastToRoom(room, event, data) { roomEvents.push({ room, event, data }); },
     getMessages() { return messages; },
+    getRoomEvents() { return roomEvents; },
   };
 }
 

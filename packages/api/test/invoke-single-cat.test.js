@@ -39,6 +39,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
         get: async () => undefined,
         getOrCreate: async () => ({}),
         store: async () => {},
+        delete: async () => {},
         resolveWorkingDirectory: () => '/tmp/test',
       },
       threadStore: null,
@@ -525,5 +526,89 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     // Falls back to inputTokens since lastTurnInputTokens is absent
     assert.equal(payload.health.usedTokens, 50000,
       'should fall back to inputTokens when lastTurnInputTokens is absent');
+  });
+
+  it('session self-heal: retries once without --resume when Claude reports missing conversation', async () => {
+    let invokeCount = 0;
+    const sessionDeletes = [];
+    const sessionStores = [];
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options);
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'opus',
+            error: 'No conversation found with session ID: bad-sess',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'session_init', catId: 'opus', sessionId: 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'recovered', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'bad-sess',
+      store: async (_u, _c, _t, sid) => { sessionStores.push(sid); },
+      delete: async (u, c, t) => { sessionDeletes.push(`${u}:${c}:${t}`); },
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-retry',
+      threadId: 'thread-retry',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2, 'should re-invoke service once after stale session error');
+    assert.equal(optionsSeen[0].sessionId, 'bad-sess', 'first attempt should include stored session');
+    assert.equal(optionsSeen[1].sessionId, undefined, 'retry attempt should drop --resume session');
+    assert.deepEqual(sessionDeletes, ['user-retry:opus:thread-retry'], 'should delete stale session before retry');
+    assert.ok(msgs.some(m => m.type === 'text' && m.content === 'recovered'), 'should recover and stream retry result');
+    assert.ok(msgs.some(m => m.type === 'session_init' && m.sessionId === 'new-sess'), 'should accept new session');
+    assert.equal(msgs.some(m => m.type === 'error' && String(m.error).includes('No conversation found')), false,
+      'stale-session bootstrap error should be suppressed when retry succeeds');
+    assert.ok(sessionStores.includes('new-sess'), 'new session should be stored after recovery');
+  });
+
+  it('session self-heal: does not retry on non-session errors', async () => {
+    let invokeCount = 0;
+    const sessionDeletes = [];
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield { type: 'error', catId: 'opus', error: 'upstream timeout', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'sess-normal',
+      store: async () => {},
+      delete: async () => { sessionDeletes.push('deleted'); },
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-no-retry',
+      threadId: 'thread-no-retry',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1, 'non-session errors should not trigger retry');
+    assert.equal(sessionDeletes.length, 0, 'non-session errors should not clear session');
+    assert.ok(msgs.some(m => m.type === 'error' && String(m.error).includes('upstream timeout')));
   });
 });

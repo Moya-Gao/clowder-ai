@@ -64,4 +64,16 @@ export class SessionManager {
 
     return this.sessions.get(`${userId}:${catId}:${threadId}`);
   }
+
+  /**
+   * Delete stored session for user + cat + thread combination.
+   * Used by self-healing flows when persisted CLI session becomes invalid.
+   */
+  async delete(userId: string, catId: CatId, threadId: string): Promise<void> {
+    if (this.sessionStore) {
+      await this.sessionStore.deleteSession(userId, catId, threadId);
+      return;
+    }
+    this.sessions.delete(`${userId}:${catId}:${threadId}`);
+  }
 }

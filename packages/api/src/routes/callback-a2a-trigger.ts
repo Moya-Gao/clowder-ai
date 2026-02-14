@@ -5,7 +5,7 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
-import type { CatId } from '@cat-cafe/shared';
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { StoredMessage } from '../domains/cats/services/MessageStore.js';
 import { parseIntent } from '../domains/cats/services/IntentParser.js';
@@ -42,6 +42,17 @@ export async function triggerA2AInvocation(
     invocationTracker, log } = deps;
   const { targetCats, content, userId, threadId, triggerMessage } = opts;
 
+  // Do not preempt active thread work with callback-triggered A2A.
+  if (invocationTracker?.has?.(threadId)) {
+    socketManager.broadcastAgentMessage({
+      type: 'system_info',
+      catId: targetCats[0] ?? createCatId('opus'),
+      content: '当前线程已有进行中的调用，本次 A2A 自动触发已跳过，请稍后重试。',
+      timestamp: Date.now(),
+    }, threadId);
+    return;
+  }
+
   const intent = parseIntent(content, targetCats.length);
 
   const createResult = await invocationRecordStore.create({
@@ -73,6 +84,12 @@ export async function triggerA2AInvocation(
       await invocationRecordStore.update(createResult.invocationId, {
         status: 'running',
       });
+
+      socketManager.broadcastToRoom(
+        `thread:${threadId}`,
+        'intent_mode',
+        { threadId, mode: intent.intent, targetCats },
+      );
 
       for await (const msg of router.routeExecution(
         userId, content, threadId, triggerMessage.id,
