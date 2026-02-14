@@ -155,6 +155,48 @@ describe('MessageStore', () => {
     assert.equal(allMentions.length, 2);
   });
 
+  test('getMentionsFor() filters by threadId when provided', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-A', mentions: ['opus'], timestamp: 1, threadId: 'thread-A' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-B', mentions: ['opus'], timestamp: 2, threadId: 'thread-B' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus in thread-A again', mentions: ['opus'], timestamp: 3, threadId: 'thread-A' });
+
+    // With threadId: only thread-A mentions
+    const threadA = store.getMentionsFor('opus', 10, undefined, 'thread-A');
+    assert.equal(threadA.length, 2);
+    assert.equal(threadA[0].content, '@opus in thread-A');
+    assert.equal(threadA[1].content, '@opus in thread-A again');
+
+    // With threadId: only thread-B mentions
+    const threadB = store.getMentionsFor('opus', 10, undefined, 'thread-B');
+    assert.equal(threadB.length, 1);
+    assert.equal(threadB[0].content, '@opus in thread-B');
+
+    // Without threadId: all mentions
+    const all = store.getMentionsFor('opus', 10);
+    assert.equal(all.length, 3);
+  });
+
+  test('getMentionsFor() combines userId and threadId filters', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    store.append({ userId: 'user-1', catId: null, content: '@opus u1-tA', mentions: ['opus'], timestamp: 1, threadId: 'thread-A' });
+    store.append({ userId: 'user-2', catId: null, content: '@opus u2-tA', mentions: ['opus'], timestamp: 2, threadId: 'thread-A' });
+    store.append({ userId: 'user-1', catId: null, content: '@opus u1-tB', mentions: ['opus'], timestamp: 3, threadId: 'thread-B' });
+
+    // userId + threadId: only user-1 in thread-A
+    const filtered = store.getMentionsFor('opus', 10, 'user-1', 'thread-A');
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].content, '@opus u1-tA');
+  });
+
   test('getBefore() returns messages before timestamp', async () => {
     const { MessageStore } = await import(
       '../dist/domains/cats/services/MessageStore.js'

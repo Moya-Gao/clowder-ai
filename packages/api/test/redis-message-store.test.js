@@ -99,6 +99,22 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.equal(opusMentions[1].content, 'hi both');
   });
 
+  it('getMentionsFor() filters by threadId (#75)', async () => {
+    const now = Date.now();
+    await store.append({ userId: 'u', catId: null, content: '@opus in tA', mentions: ['opus'], timestamp: now, threadId: 'thread-A' });
+    await store.append({ userId: 'u', catId: null, content: '@opus in tB', mentions: ['opus'], timestamp: now + 1, threadId: 'thread-B' });
+    await store.append({ userId: 'u', catId: null, content: '@opus in tA again', mentions: ['opus'], timestamp: now + 2, threadId: 'thread-A' });
+
+    const threadA = await store.getMentionsFor('opus', 10, undefined, 'thread-A');
+    assert.equal(threadA.length, 2);
+    assert.equal(threadA[0].content, '@opus in tA');
+    assert.equal(threadA[1].content, '@opus in tA again');
+
+    // Without threadId returns all
+    const all = await store.getMentionsFor('opus', 10);
+    assert.equal(all.length, 3);
+  });
+
   it('getBefore() returns messages before timestamp', async () => {
     const base = Date.now();
     await store.append({ userId: 'u', catId: null, content: 'old', mentions: [], timestamp: base });

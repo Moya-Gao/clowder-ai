@@ -138,13 +138,15 @@ export class RedisMessageStore {
   async getMentionsFor(
     catId: CatId,
     limit?: number,
-    userId?: string
+    userId?: string,
+    threadId?: string
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const mentionKey = MessageKeys.mentions(catId);
+    const needsFilter = !!(userId || threadId);
 
     let ids: string[];
-    if (userId) {
+    if (needsFilter) {
       const CHUNK = 50;
       ids = [];
       let offset = 0;
@@ -153,8 +155,15 @@ export class RedisMessageStore {
         if (chunk.length === 0) break;
         for (const id of chunk) {
           if (ids.length >= n) break;
-          const score = await this.redis.zscore(MessageKeys.user(userId), id);
-          if (score !== null) ids.push(id);
+          if (userId) {
+            const score = await this.redis.zscore(MessageKeys.user(userId), id);
+            if (score === null) continue;
+          }
+          if (threadId) {
+            const score = await this.redis.zscore(MessageKeys.thread(threadId), id);
+            if (score === null) continue;
+          }
+          ids.push(id);
         }
         offset += CHUNK;
       }

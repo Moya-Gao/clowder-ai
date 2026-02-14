@@ -350,6 +350,39 @@ describe('Callback Routes', () => {
     assert.equal(body.mentions[0].message, '@opus from user-1');
   });
 
+  test('GET pending-mentions only returns mentions from the same thread (#75)', async () => {
+    const app = await createApp();
+    // Create invocation scoped to thread-A
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+
+    // @opus in thread-A (should be visible)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: '@opus in thread-A',
+      mentions: ['opus'], timestamp: 1, threadId: 'thread-A',
+    });
+    // @opus in thread-B (should NOT be visible — cross-thread leak)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: '@opus in thread-B',
+      mentions: ['opus'], timestamp: 2, threadId: 'thread-B',
+    });
+    // @opus in thread-A again
+    messageStore.append({
+      userId: 'user-1', catId: null, content: '@opus in thread-A again',
+      mentions: ['opus'], timestamp: 3, threadId: 'thread-A',
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/pending-mentions?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.mentions.length, 2);
+    assert.equal(body.mentions[0].message, '@opus in thread-A');
+    assert.equal(body.mentions[1].message, '@opus in thread-A again');
+  });
+
   test('GET pending-mentions returns 400 without credentials', async () => {
     const app = await createApp();
 

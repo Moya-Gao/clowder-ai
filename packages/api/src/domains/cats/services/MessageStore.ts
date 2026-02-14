@@ -54,7 +54,7 @@ export interface IMessageStore {
   /** Get a single message by its ID. Returns null if not found. */
   getById(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
@@ -143,8 +143,9 @@ export class MessageStore {
   /**
    * Get recent messages that mention a specific cat.
    * When userId is provided, only returns messages from that user's session.
+   * When threadId is provided, only returns messages from that thread.
    */
-  getMentionsFor(catId: CatId, limit?: number, userId?: string): StoredMessage[] {
+  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
@@ -152,6 +153,7 @@ export class MessageStore {
     for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
       const msg = this.messages[i]!;
       if (msg.deletedAt) continue;
+      if (threadId && msg.threadId !== threadId) continue;
       if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
         matches.push(msg);
       }

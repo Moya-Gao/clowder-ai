@@ -130,7 +130,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const mentions = await messageStore.getMentionsFor(record.catId, 20, record.userId);
+      const mentions = await messageStore.getMentionsFor(record.catId, 20, record.userId, record.threadId);
       return {
         mentions: mentions.map((item) => ({
           id: item.id,

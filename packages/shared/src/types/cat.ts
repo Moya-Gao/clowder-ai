@@ -101,7 +101,7 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
       primary: '#5B9BD5',
       secondary: '#D6E9F8',
     },
-    mentionPatterns: ['@gemini', '@暹罗猫', '@暹罗', '@siamese'],
+    mentionPatterns: ['@gemini', '@暹罗猫', '@暹罗', '@siamese', '@暄罗猫', '@暄罗'],
     provider: 'google',
     defaultModel: 'gemini-2.5-pro',
     mcpSupport: false,
