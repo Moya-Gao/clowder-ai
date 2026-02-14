@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-14 (#76 cancel catId 硬编码修复)
+> 维护者：布偶猫 | 最后更新：2026-02-14 (#75 pending-mentions 跨线程泄漏修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -76,7 +76,7 @@
 | 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [ ] | [session-not-found bug](./bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **背景 bug**：A2A callback 抢占 + abort 导致 Claude CLI session 变成空壳（仅 `queue-operation/dequeue`），后端持续 `--resume` 坏 session → `No conversation found with session ID` 死循环。止血修复（`f028a78`+`7d0c203`）已加 session 自愈（检测坏 session → 清除 → 无 resume 重试），但自愈意味着**丢失该 session 的连续上下文**。铲屎官希望有"手动把一个已知好的 CLI session ID 绑定到某只猫的某个 thread"的能力，这样当自愈丢失上下文后，铲屎官可以手动恢复猫猫的记忆延续。**实现方向**：F24 Phase A 的 `SessionChainStore` 已有完整数据模型（`SessionRecord` 含 `cliSessionId`，thread → N sessions per cat），手动绑定 = 调 `create()` 或 `update()` 写入指定 `cliSessionId`。需要：**(1)** `PATCH /api/threads/:threadId/sessions/:catId/bind` API 端点（带审计）；**(2)** 前端入口（Cat Config Viewer / 状态面板内，输入 session ID 一键绑定）。**不应独立于 F24 做**，否则 F24 Phase B+ 推进时要合并两套 session 管理逻辑。**依赖**：F24 Phase A review 通过后实施。 |
 | 73 | **A2A Stop 按钮 UX 改进** | [x] | [2026-02-14 情人节聊天](./mailbox/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三个修复方向均已完成：**(1)** callback A2A 同步前端 loading (`0a1b1da`)；**(2)** `hasActiveInvocation` 状态 + Stop 按钮常驻显示；**(3)** ParallelStatusBar Stop 按钮。缅因猫 R3 放行，commit `2ccc87c`。 |
 | 74 | **Hindsight 临时停用（等 GPT Pro 调研）** | [~] | 2026-02-14 预评测数据质量复盘 | 已新增全局开关 `HINDSIGHT_ENABLED`（commit `8876677`）：关闭后 evidence/reflect/callback retain 不再调用 Hindsight，改为 docs fallback 或 skipped；并已停本地 Hindsight 容器避免 token 消耗。待 GPT Pro 结论后再决定恢复策略与 #69 评测时点。 |
-| 75 | **pending-mentions 跨线程泄漏** | [ ] | [情人节聊天 bug](./bug-report/2026-02-14-pending-mentions-cross-thread-leak/bug-report.md) | `GET /api/callbacks/pending-mentions` 只按 `catId`+`userId` 查询，缺少 `threadId` 过滤，导致猫猫看到其他线程的 @mention。修复方向：给 `getMentionsFor` 增加 `threadId` 可选参数 + API 端点传入 `record.threadId`。 |
+| 75 | **pending-mentions 跨线程泄漏** | [x] | [情人节聊天 bug](./bug-report/2026-02-14-pending-mentions-cross-thread-leak/bug-report.md) | `a822296` — getMentionsFor 增加 threadId 过滤 + 暄罗语音别名 + 4 tests (内存/Redis/API)。暹罗猫 R1 + 缅因猫 R2 放行。 |
 | 76 | **cancel_invocation 反馈 catId 硬编码为 opus** | [x] | [情人节聊天 bug](./bug-report/2026-02-14-cancel-catid-hardcoded-opus/bug-report.md) | `af9bfb7` — InvocationTracker 追踪 catIds + CancelResult + buildCancelMessages 纯函数 + 14 tests。暹罗猫 R1 + 缅因猫 R2 放行。 |
 
 ## P3 — 可选优化
