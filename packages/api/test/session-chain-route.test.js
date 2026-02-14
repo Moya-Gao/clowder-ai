@@ -7,29 +7,90 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
+/** Minimal mock threadStore for auth tests */
+function mockThreadStore(threads = {}) {
+  return {
+    get: async (id) => threads[id] ?? null,
+    list: async () => Object.values(threads),
+    create: async () => {},
+    update: async () => null,
+    delete: async () => false,
+  };
+}
+
 describe('Session Chain Routes', () => {
   let app;
   let SessionChainStore;
   let sessionChainRoutes;
 
-  async function setup() {
+  async function setup(threadStoreOverride) {
     const storeMod = await import('../dist/domains/cats/services/SessionChainStore.js');
     const routeMod = await import('../dist/routes/session-chain.js');
     SessionChainStore = storeMod.SessionChainStore;
     sessionChainRoutes = routeMod.sessionChainRoutes;
 
     const store = new SessionChainStore();
+    const threadStore = threadStoreOverride ?? mockThreadStore({
+      'thread-1': { id: 'thread-1', createdBy: 'user-1' },
+      'unknown-thread': { id: 'unknown-thread', createdBy: 'user-1' },
+    });
     app = Fastify();
-    await app.register(sessionChainRoutes, { sessionChainStore: store });
+    await app.register(sessionChainRoutes, { sessionChainStore: store, threadStore });
     await app.ready();
     return store;
   }
+
+  // --- P1: Auth / identity tests ---
+
+  it('GET /api/threads/:threadId/sessions returns 401 without identity', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/sessions',
+      // no X-Cat-Cafe-User header, no userId query
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('GET /api/sessions/:sessionId returns 401 without identity', async () => {
+    const store = await setup();
+    const record = store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/sessions/${record.id}`,
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('GET /api/threads/:threadId/sessions returns 403 when user is not thread owner', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/thread-1/sessions',
+      headers: { 'x-cat-cafe-user': 'other-user' },
+    });
+    assert.equal(res.statusCode, 403);
+  });
+
+  it('GET /api/sessions/:sessionId returns 403 when user is not thread owner', async () => {
+    const store = await setup();
+    const record = store.create({ cliSessionId: 'cli-1', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/sessions/${record.id}`,
+      headers: { 'x-cat-cafe-user': 'other-user' },
+    });
+    assert.equal(res.statusCode, 403);
+  });
+
+  // --- Normal happy-path tests (with identity) ---
 
   it('GET /api/threads/:threadId/sessions returns empty array for unknown thread', async () => {
     await setup();
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/unknown-thread/sessions',
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -44,6 +105,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions',
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -58,6 +120,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/threads/thread-1/sessions?catId=opus',
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -72,6 +135,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
@@ -85,6 +149,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: '/api/sessions/non-existent-id',
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     assert.equal(res.statusCode, 404);
     const body = JSON.parse(res.payload);
@@ -107,6 +172,7 @@ describe('Session Chain Routes', () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/sessions/${record.id}`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
     });
     const body = JSON.parse(res.payload);
     assert.ok(body.contextHealth);

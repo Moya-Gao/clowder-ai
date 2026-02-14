@@ -199,7 +199,7 @@ async function main(): Promise<void> {
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
   // Session chain (F24)
-  await app.register(sessionChainRoutes, { sessionChainStore });
+  await app.register(sessionChainRoutes, { sessionChainStore, threadStore });
 
   // Mode system (F11)
   await app.register(modesRoutes, { modeStore, threadStore, socketManager });

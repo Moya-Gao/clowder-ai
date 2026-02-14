@@ -85,10 +85,17 @@ export class SessionChainStore implements ISessionChainStore {
     this.activeIndex.set(key, id);
     this.cliIndex.set(input.cliSessionId, id);
 
-    // Trim oldest if over capacity
+    // Trim if over capacity — prefer evicting sealed/non-active records
     if (this.records.size > MAX_RECORDS) {
-      const firstKey = this.records.keys().next().value as string;
-      this.records.delete(firstKey);
+      const evicted = this.evictOne();
+      if (!evicted) {
+        // Roll back: remove the just-created record
+        this.removeRecord(id);
+        throw new Error(
+          `SessionChainStore at capacity (${MAX_RECORDS}): all records are truly active. `
+          + 'Cannot evict without data loss. Seal or remove existing sessions first.',
+        );
+      }
     }
 
     return record;
@@ -160,6 +167,60 @@ export class SessionChainStore implements ISessionChainStore {
     const id = this.cliIndex.get(cliSessionId);
     if (!id) return null;
     return this.records.get(id) ?? null;
+  }
+
+  /**
+   * Evict one record to stay within MAX_RECORDS.
+   * Priority: sealed > non-active > superseded active.
+   * Refuses to evict truly active sessions — returns false.
+   */
+  private evictOne(): boolean {
+    const currentActiveIds = new Set(this.activeIndex.values());
+
+    // First pass: sealed records (safest to evict)
+    let victim: string | null = null;
+    for (const [id, r] of this.records) {
+      if (r.status === 'sealed') { victim = id; break; }
+    }
+    // Second pass: non-active, non-sealed (e.g., sealing)
+    if (!victim) {
+      for (const [id, r] of this.records) {
+        if (r.status !== 'active') { victim = id; break; }
+      }
+    }
+    // Third pass: active records NOT currently in activeIndex (superseded)
+    if (!victim) {
+      for (const id of this.records.keys()) {
+        if (!currentActiveIds.has(id)) { victim = id; break; }
+      }
+    }
+    // Refuse to evict truly active sessions
+    if (!victim) return false;
+
+    this.removeRecord(victim);
+    return true;
+  }
+
+  /** Remove a record and clean up all indexes. */
+  private removeRecord(id: string): void {
+    const record = this.records.get(id);
+    if (!record) return;
+
+    this.cliIndex.delete(record.cliSessionId);
+
+    const key = this.chainKey(record.catId, record.threadId);
+    if (this.activeIndex.get(key) === id) {
+      this.activeIndex.delete(key);
+    }
+
+    const chain = this.chains.get(key);
+    if (chain) {
+      const idx = chain.indexOf(id);
+      if (idx !== -1) chain.splice(idx, 1);
+      if (chain.length === 0) this.chains.delete(key);
+    }
+
+    this.records.delete(id);
   }
 
   /** Current record count (for testing) */

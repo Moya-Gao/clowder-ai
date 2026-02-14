@@ -236,4 +236,69 @@ describe('SessionChainStore', () => {
     store.update(record.id, { messageCount: 5 });
     assert.equal(store.get(record.id).messageCount, 5);
   });
+
+  test('P2 regression: eviction does not break active session lookup', async () => {
+    const store = await createStore();
+    // Create an active session in thread A
+    const active = store.create({
+      cliSessionId: 'cli-active',
+      threadId: 'thread-A',
+      catId: 'opus',
+      userId: 'user-1',
+    });
+
+    // Fill up to MAX_RECORDS with other thread sessions
+    for (let i = 0; i < 1000; i++) {
+      store.create({
+        cliSessionId: `cli-fill-${i}`,
+        threadId: 'thread-fill',
+        catId: 'opus',
+        userId: 'user-1',
+      });
+    }
+
+    // The active session in thread A should still be findable
+    const found = store.getActive('opus', 'thread-A');
+    assert.ok(found, 'active session should survive eviction');
+    assert.equal(found.id, active.id);
+
+    // CLI index should also still work
+    const byCli = store.getByCliSessionId('cli-active');
+    assert.ok(byCli, 'CLI index should survive eviction');
+    assert.equal(byCli.id, active.id);
+  });
+
+  test('P2 regression: create() throws when all records are truly active and at capacity', async () => {
+    const store = await createStore();
+    // Fill with 1000 unique threads — each has exactly 1 truly active session
+    for (let i = 0; i < 1000; i++) {
+      store.create({
+        cliSessionId: `cli-${i}`,
+        threadId: `thread-${i}`,
+        catId: 'opus',
+        userId: 'user-1',
+      });
+    }
+    assert.equal(store.size, 1000);
+
+    // The 1001st create should throw, not silently evict an active session
+    assert.throws(
+      () => store.create({
+        cliSessionId: 'cli-overflow',
+        threadId: 'thread-overflow',
+        catId: 'opus',
+        userId: 'user-1',
+      }),
+      (err) => {
+        assert.ok(err.message.includes('capacity'));
+        return true;
+      },
+    );
+
+    // All 1000 existing active sessions should still be intact
+    for (let i = 0; i < 1000; i++) {
+      const found = store.getActive('opus', `thread-${i}`);
+      assert.ok(found, `thread-${i} active should still exist`);
+    }
+  });
 });
