@@ -5,6 +5,7 @@ import type { HindsightMemory } from '../domains/cats/services/HindsightClient.j
 
 export type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
 export type EvidenceConfidence = 'high' | 'mid' | 'low';
+export type EvidenceStatus = 'draft' | 'pending' | 'published' | 'archived';
 
 export interface EvidenceResult {
   title: string;
@@ -12,6 +13,7 @@ export interface EvidenceResult {
   snippet: string;
   confidence: EvidenceConfidence;
   sourceType: EvidenceSourceType;
+  status?: EvidenceStatus;
 }
 
 export function normalizeTags(input: string | string[] | undefined, defaultOrigin = 'origin:git'): string[] {
@@ -66,12 +68,28 @@ export function classifySource(path: string): EvidenceSourceType {
 /** Convert Hindsight memory to EvidenceResult */
 export function memoryToResult(mem: HindsightMemory): EvidenceResult {
   const anchor = mem.metadata?.['anchor'] ?? '';
+
+  // Extract status from tags if present (e.g. status:draft)
+  let status: EvidenceStatus | undefined;
+  if (mem.tags) {
+    for (const tag of mem.tags) {
+      if (tag.startsWith('status:')) {
+        const value = tag.slice('status:'.length) as EvidenceStatus;
+        if (['draft', 'pending', 'published', 'archived'].includes(value)) {
+          status = value;
+          break;
+        }
+      }
+    }
+  }
+
   return {
     title: mem.content.slice(0, 120),
     anchor,
     snippet: mem.content.slice(0, 300),
     confidence: (mem.score ?? 0) > 0.8 ? 'high' : (mem.score ?? 0) > 0.5 ? 'mid' : 'low',
     sourceType: classifySource(anchor),
+    status,
   };
 }
 

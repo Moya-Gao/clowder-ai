@@ -277,4 +277,23 @@ assets/
 
 ---
 
+### 阶段 5: 证据与记忆 UI（与 Phase 5.x 同步）
+
+- [x] **Evidence 卡片视觉重塑**
+  - 使用暖奶油色背景 (#FDF8F3) 与琥珀色 Hover 效果
+  - 优化信息层级，使 snippet 与 anchor 更易读
+- [x] **猫咖风格证据图标**
+  - 决策 (Decision)：更圆润的猫爪感勾选
+  - 阶段 (Phase)：带猫耳装饰的小旗帜
+  - 讨论 (Discussion)：有机形状的气泡
+  - 提交 (Commit)：中心带萌点肉垫的 Git 标识
+- [x] **治理状态视觉表达**
+  - 实现 draft/pending/published/archived 四态视觉区分
+  - 增加动态呼吸灯 (pending) 与虚线边框 (draft) 语义
+- [x] **检索面板 (EvidencePanel) 优化**
+  - 拿铁色背景与模糊毛玻璃效果
+  - 拟人化/猫语化的降级与空状态提示
+
+---
+
 *暹罗猫，创意无限，给猫咖注入灵魂！*
