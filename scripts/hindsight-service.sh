@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 COMPOSE_FILE="${HINDSIGHT_COMPOSE_FILE:-${ROOT_DIR}/docker-compose.hindsight.yml}"
+COMPOSE_PROJECT="${HINDSIGHT_COMPOSE_PROJECT:-cat-cafe-hindsight-local-instance}"
 SERVICE_NAME="${HINDSIGHT_SERVICE_NAME:-hindsight}"
 API_URL="${HINDSIGHT_URL:-http://localhost:18888}"
 UI_URL="${HINDSIGHT_UI_URL:-http://localhost:19999/dashboard}"
@@ -39,7 +40,7 @@ require_tools() {
 }
 
 compose() {
-  docker compose -f "${COMPOSE_FILE}" "$@"
+  docker compose -p "${COMPOSE_PROJECT}" -f "${COMPOSE_FILE}" "$@"
 }
 
 health_check() {
@@ -73,6 +74,7 @@ main() {
   case "${cmd}" in
     start)
       compose up -d --pull always
+      echo "Compose project: ${COMPOSE_PROJECT}"
       compose ps
       echo "API: ${API_URL}"
       echo "UI : ${UI_URL}"
@@ -86,10 +88,12 @@ main() {
       ;;
     restart)
       compose restart
+      echo "Compose project: ${COMPOSE_PROJECT}"
       compose ps
       wait_for_health || true
       ;;
     status)
+      echo "Compose project: ${COMPOSE_PROJECT}"
       compose ps
       health_check || true
       ;;
