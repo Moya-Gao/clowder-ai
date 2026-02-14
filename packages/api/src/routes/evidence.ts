@@ -11,6 +11,11 @@ import { z } from 'zod';
 import { join } from 'node:path';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
+import {
+  shouldFailClosedForFreshness,
+  triggerP0ReimportIfNeeded,
+} from '../domains/cats/services/hindsight-import/p0-freshness-guard.js';
 import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import {
   memoryToResult,
@@ -40,11 +45,18 @@ export interface EvidenceFreshness {
   reason?: 'commit_match' | 'commit_mismatch' | 'watermark_missing' | 'head_unavailable';
 }
 
+export interface EvidenceReimportTrigger {
+  status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
+  reason?: string;
+  nextAllowedAt?: string;
+}
+
 export interface EvidenceSearchResponse {
   results: EvidenceResult[];
   degraded: boolean;
   degradeReason?: string;
   freshness: EvidenceFreshness;
+  reimportTrigger?: EvidenceReimportTrigger;
 }
 
 export interface EvidenceRoutesOptions {
@@ -52,10 +64,18 @@ export interface EvidenceRoutesOptions {
   sharedBank: string;
   docsRoot?: string;
   freshnessProvider?: () => Promise<EvidenceFreshness>;
+  reimportTriggerProvider?: (freshness: EvidenceFreshness) => Promise<EvidenceReimportTrigger>;
 }
 
 export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (app, opts) => {
+  const repoRoot = process.cwd();
   const freshnessProvider = opts.freshnessProvider ?? (() => getP0Freshness(process.cwd()));
+  const reimportTriggerProvider = opts.reimportTriggerProvider
+    ?? ((freshness: EvidenceFreshness) => triggerP0ReimportIfNeeded({
+      freshness,
+      repoRoot,
+      auditLog: getEventAuditLog(),
+    }));
 
   app.get('/api/evidence/search', async (request, reply) => {
     const parseResult = searchSchema.safeParse(request.query);
@@ -65,10 +85,15 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
     }
 
     const { q, limit, budget, tags, tagsMatch } = parseResult.data;
-    const recallDefaults = collectConfigSnapshot().hindsight.recallDefaults;
+    const hindsightConfig = collectConfigSnapshot().hindsight;
+    const recallDefaults = hindsightConfig.recallDefaults;
     const effectiveLimit = limit ?? recallDefaults.limit;
     const effectiveBudget = budget ?? recallDefaults.budget;
     const effectiveTagsMatch = tagsMatch ?? recallDefaults.tagsMatch;
+    const failClosedSettings = {
+      enabled: hindsightConfig.freshnessGuard.failClosedEnabled,
+      statuses: hindsightConfig.freshnessGuard.failClosedStatuses,
+    };
     const resolvedTags = normalizeTags(tags);
     const docsRoot = opts.docsRoot ?? join(process.cwd(), 'docs');
     const freshness = await freshnessProvider().catch(() => ({
@@ -76,6 +101,22 @@ export const evidenceRoutes: FastifyPluginAsync<EvidenceRoutesOptions> = async (
       checkedAt: new Date().toISOString(),
       reason: 'head_unavailable' as const,
     }));
+
+    if (shouldFailClosedForFreshness(freshness, failClosedSettings)) {
+      const reimportTrigger = await reimportTriggerProvider(freshness).catch((err) => ({
+        status: 'failed' as const,
+        reason: err instanceof Error ? err.message : 'trigger_failed',
+      }));
+      const rawResults = await searchDocs(docsRoot, q, effectiveLimit);
+      const results = await validateAnchors(rawResults, docsRoot);
+      return {
+        results,
+        degraded: true,
+        degradeReason: freshness.status === 'stale' ? 'freshness_stale_fail_closed' : 'freshness_fail_closed',
+        freshness,
+        reimportTrigger,
+      } satisfies EvidenceSearchResponse;
+    }
 
     try {
       const memories = await opts.hindsightClient.recall(opts.sharedBank, q, {

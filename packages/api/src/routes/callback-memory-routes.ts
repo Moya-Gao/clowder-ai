@@ -2,14 +2,24 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
-import type { IHindsightClient, HindsightMemory } from '../domains/cats/services/HindsightClient.js';
+import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
+import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
 import { HindsightError } from '../domains/cats/services/HindsightClient.js';
+import {
+  shouldFailClosedForFreshness,
+  triggerP0ReimportIfNeeded,
+} from '../domains/cats/services/hindsight-import/p0-freshness-guard.js';
+import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
+import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
+import { memoryToResult, normalizeTags, shouldDegradeToDocs } from './evidence-helpers.js';
 
 interface CallbackMemoryRoutesDeps {
   registry: InvocationRegistry;
   hindsightClient?: IHindsightClient;
   sharedBank?: string;
+  freshnessProvider?: () => Promise<P0Freshness>;
+  reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{ status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed'; reason?: string; nextAllowedAt?: string }>;
 }
 
 const searchEvidenceQuerySchema = callbackAuthSchema.extend({
@@ -28,50 +38,10 @@ const retainMemorySchema = callbackAuthSchema.extend({
   metadata: z.record(z.string()).optional(),
 });
 
-type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
-type EvidenceConfidence = 'high' | 'mid' | 'low';
-
-function normalizeTags(input: string | string[] | undefined, defaultOrigin: string): string[] {
-  const defaults = ['project:cat-cafe', defaultOrigin];
-  if (input == null) return defaults;
-
-  const tags = (Array.isArray(input) ? input : [input])
-    .flatMap((value) => value.split(','))
-    .map((value) => value.trim())
-    .filter((value) => value.length > 0);
-
-  if (tags.length === 0) return defaults;
-
-  // project:cat-cafe is always present (P0 governance constraint)
-  if (!tags.includes('project:cat-cafe')) {
-    tags.unshift('project:cat-cafe');
-  }
-
-  return tags;
-}
-
-function classifySource(path: string): EvidenceSourceType {
-  if (path.includes('decisions')) return 'decision';
-  if (path.includes('phases')) return 'phase';
-  if (path.includes('discussions')) return 'discussion';
-  return 'commit';
-}
-
-function memoryToResult(mem: HindsightMemory): { title: string; anchor: string; snippet: string; confidence: EvidenceConfidence; sourceType: EvidenceSourceType } {
-  const anchor = mem.metadata?.['anchor'] ?? '';
-  const score = mem.score ?? 0;
-  return {
-    title: mem.content.slice(0, 120),
-    anchor,
-    snippet: mem.content.slice(0, 300),
-    confidence: score > 0.8 ? 'high' : score > 0.5 ? 'mid' : 'low',
-    sourceType: classifySource(anchor),
-  };
-}
-
 function shouldDegrade(err: unknown): boolean {
+  if (shouldDegradeToDocs(err)) return true;
   if (err instanceof HindsightError) {
-    if (err.code === 'CONNECTION_FAILED' || err.code === 'TIMEOUT' || err.code === 'RATE_LIMITED') return true;
+    if (err.code === 'RATE_LIMITED') return true;
     if (err.statusCode != null && (err.statusCode >= 500 || err.statusCode === 429)) return true;
     return false;
   }
@@ -91,6 +61,13 @@ function shouldDegrade(err: unknown): boolean {
 export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: CallbackMemoryRoutesDeps): Promise<void> {
   const { registry, hindsightClient } = deps;
   const sharedBank = deps.sharedBank ?? 'cat-cafe-shared';
+  const repoRoot = process.cwd();
+  const freshnessProvider = deps.freshnessProvider ?? (() => getP0Freshness(repoRoot));
+  const reimportTriggerProvider = deps.reimportTriggerProvider ?? ((freshness: P0Freshness) => triggerP0ReimportIfNeeded({
+    freshness,
+    repoRoot,
+    auditLog: getEventAuditLog(),
+  }));
 
   app.get('/api/callbacks/search-evidence', async (request, reply) => {
     if (!hindsightClient) {
@@ -103,7 +80,12 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       return { error: 'Invalid query parameters', details: parsed.error.issues };
     }
     const { invocationId, callbackToken, q, limit, budget, tags, tagsMatch } = parsed.data;
-    const recallDefaults = collectConfigSnapshot().hindsight.recallDefaults;
+    const hindsightConfig = collectConfigSnapshot().hindsight;
+    const recallDefaults = hindsightConfig.recallDefaults;
+    const failClosedSettings = {
+      enabled: hindsightConfig.freshnessGuard.failClosedEnabled,
+      statuses: hindsightConfig.freshnessGuard.failClosedStatuses,
+    };
     const effectiveLimit = limit ?? recallDefaults.limit;
     const effectiveBudget = budget ?? recallDefaults.budget;
     const effectiveTagsMatch = tagsMatch ?? recallDefaults.tagsMatch;
@@ -112,6 +94,24 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
       reply.status(401);
       return { error: 'Invalid or expired callback credentials' };
     }
+    const freshness = await freshnessProvider().catch(() => ({
+      status: 'unknown' as const,
+      checkedAt: new Date().toISOString(),
+      reason: 'head_unavailable' as const,
+    }));
+    if (shouldFailClosedForFreshness(freshness, failClosedSettings)) {
+      const reimportTrigger = await reimportTriggerProvider(freshness).catch((err) => ({
+        status: 'failed' as const,
+        reason: err instanceof Error ? err.message : 'trigger_failed',
+      }));
+      return {
+        results: [],
+        degraded: true,
+        degradeReason: freshness.status === 'stale' ? 'freshness_stale_fail_closed' : 'freshness_fail_closed',
+        freshness,
+        reimportTrigger,
+      };
+    }
     try {
       const memories = await hindsightClient.recall(sharedBank, q, {
         limit: effectiveLimit,
@@ -119,11 +119,11 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
         tags: normalizeTags(tags, 'origin:git'),
         tagsMatch: effectiveTagsMatch,
       });
-      return { results: memories.map(memoryToResult), degraded: false };
+      return { results: memories.map(memoryToResult), degraded: false, freshness };
     } catch (err) {
-      if (shouldDegrade(err)) return { results: [], degraded: true, degradeReason: 'hindsight_unavailable' };
+      if (shouldDegrade(err)) return { results: [], degraded: true, degradeReason: 'hindsight_unavailable', freshness };
       reply.status(502);
-      return { error: 'Evidence search unavailable', degraded: false };
+      return { error: 'Evidence search unavailable', degraded: false, freshness };
     }
   });
 

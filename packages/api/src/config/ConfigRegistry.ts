@@ -141,6 +141,7 @@ export function collectConfigSnapshot(): ConfigSnapshot {
         minUsefulHorizonDays: 180,
       },
       reflect: hindsightRuntime.reflect,
+      freshnessGuard: hindsightRuntime.freshnessGuard,
       engine: {
         reflect: parseEnum<HindsightEngine>(env['HINDSIGHT_ENGINE_REFLECT'], ['codex_oauth', 'hindsight_native'], 'codex_oauth'),
         retainExtraction: parseEnum<HindsightEngine>(

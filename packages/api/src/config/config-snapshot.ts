@@ -92,6 +92,13 @@ export interface ConfigSnapshot {
       writeTimeoutMs: number;
       recallTimeoutMs: number;
     };
+    freshnessGuard: {
+      failClosedEnabled: boolean;
+      failClosedStatuses: Array<'fresh' | 'stale' | 'unknown'>;
+      autoReimportEnabled: boolean;
+      autoReimportCooldownMs: number;
+      autoReimportCommand: string;
+    };
   };
   codexExecution: {
     model: string;

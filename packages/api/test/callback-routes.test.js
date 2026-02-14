@@ -27,6 +27,8 @@ describe('Callback Routes', () => {
   let messageStore;
   let socketManager;
   let hindsightClient;
+  let freshnessProvider;
+  let reimportTriggerProvider;
 
   beforeEach(async () => {
     const { InvocationRegistry } = await import(
@@ -44,6 +46,8 @@ describe('Callback Routes', () => {
       reflect: async () => '',
       retain: async () => undefined,
     };
+    freshnessProvider = undefined;
+    reimportTriggerProvider = undefined;
   });
 
   async function createApp() {
@@ -57,6 +61,12 @@ describe('Callback Routes', () => {
     };
     if (hindsightClient !== undefined) {
       options.hindsightClient = hindsightClient;
+    }
+    if (freshnessProvider) {
+      options.freshnessProvider = freshnessProvider;
+    }
+    if (reimportTriggerProvider) {
+      options.reimportTriggerProvider = reimportTriggerProvider;
     }
     await app.register(callbacksRoutes, options);
     return app;
@@ -499,6 +509,41 @@ describe('Callback Routes', () => {
     const body = JSON.parse(response.body);
     assert.equal(body.degraded, true);
     assert.deepEqual(body.results, []);
+  });
+
+  test('GET search-evidence fail-closes on stale freshness before recall', async () => {
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex');
+    let recallCalls = 0;
+    hindsightClient.recall = async () => {
+      recallCalls += 1;
+      return [{ content: 'stale recall', metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' }, score: 0.99 }];
+    };
+    freshnessProvider = async () => ({
+      status: 'stale',
+      checkedAt: '2026-02-14T12:34:56.000Z',
+      headCommit: 'head1234',
+      watermarkCommit: 'old9999',
+      reason: 'commit_mismatch',
+    });
+    reimportTriggerProvider = async () => ({
+      status: 'triggered',
+      reason: 'stale_detected',
+    });
+
+    const staleApp = await createApp();
+    const response = await staleApp.inject({
+      method: 'GET',
+      url: `/api/callbacks/search-evidence?invocationId=${invocationId}&callbackToken=${callbackToken}&q=bank-policy`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'freshness_stale_fail_closed');
+    assert.equal(body.freshness?.status, 'stale');
+    assert.equal(body.reimportTrigger?.status, 'triggered');
+    assert.deepEqual(body.results, []);
+    assert.equal(recallCalls, 0);
   });
 
   test('GET search-evidence returns 501 when hindsight client not configured', async () => {

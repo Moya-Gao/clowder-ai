@@ -251,6 +251,10 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.hindsight.service.requireHealthcheck, true);
     assert.equal(snapshot.hindsight.service.writeTimeoutMs, 8000);
     assert.equal(snapshot.hindsight.service.recallTimeoutMs, 8000);
+    assert.equal(snapshot.hindsight.freshnessGuard.failClosedEnabled, true);
+    assert.deepEqual(snapshot.hindsight.freshnessGuard.failClosedStatuses, ['stale']);
+    assert.equal(snapshot.hindsight.freshnessGuard.autoReimportEnabled, true);
+    assert.equal(snapshot.hindsight.freshnessGuard.autoReimportCooldownMs, 600000);
   });
 
   it('codexExecution defaults are visible for runtime alignment', async () => {
@@ -270,6 +274,10 @@ describe('ConfigRegistry', () => {
     setEnv('HINDSIGHT_ENGINE_REFLECT', 'hindsight_native');
     setEnv('HINDSIGHT_ENGINE_RETAIN_EXTRACTION', 'hindsight_native');
     setEnv('HINDSIGHT_ENGINE_ALLOW_NATIVE_FALLBACK', 'true');
+    setEnv('HINDSIGHT_P0_FAIL_CLOSED_ENABLED', 'false');
+    setEnv('HINDSIGHT_P0_FAIL_CLOSED_STATUSES', 'stale,unknown');
+    setEnv('HINDSIGHT_P0_AUTO_REIMPORT_ENABLED', 'false');
+    setEnv('HINDSIGHT_P0_AUTO_REIMPORT_COOLDOWN_MS', '300000');
     setEnv('CODEX_AUTH_MODE', 'api_key');
     setEnv('CAT_CODEX_PASS_MODEL_ARG', 'false');
 
@@ -283,6 +291,10 @@ describe('ConfigRegistry', () => {
     assert.equal(snapshot.hindsight.engine.reflect, 'hindsight_native');
     assert.equal(snapshot.hindsight.engine.retainExtraction, 'hindsight_native');
     assert.equal(snapshot.hindsight.engine.allowNativeFallback, true);
+    assert.equal(snapshot.hindsight.freshnessGuard.failClosedEnabled, false);
+    assert.deepEqual(snapshot.hindsight.freshnessGuard.failClosedStatuses, ['stale', 'unknown']);
+    assert.equal(snapshot.hindsight.freshnessGuard.autoReimportEnabled, false);
+    assert.equal(snapshot.hindsight.freshnessGuard.autoReimportCooldownMs, 300000);
     assert.equal(snapshot.codexExecution.authMode, 'api_key');
     assert.equal(snapshot.codexExecution.passModelArg, false);
   });

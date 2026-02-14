@@ -15,6 +15,7 @@ import type { IHindsightClient } from '../domains/cats/services/HindsightClient.
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/a2a-mentions.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
@@ -28,6 +29,12 @@ export interface CallbackRoutesOptions {
   taskStore?: ITaskStore;
   hindsightClient?: IHindsightClient;
   sharedBank?: string;
+  freshnessProvider?: () => Promise<P0Freshness>;
+  reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{
+    status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
+    reason?: string;
+    nextAllowedAt?: string;
+  }>;
   /** For post_message @mention → invocation triggering */
   router?: AgentRouter;
   invocationRecordStore?: IInvocationRecordStore;
@@ -171,8 +178,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       registry: InvocationRegistry;
       hindsightClient?: IHindsightClient;
       sharedBank?: string;
+      freshnessProvider?: () => Promise<P0Freshness>;
+      reimportTriggerProvider?: (freshness: P0Freshness) => Promise<{
+        status: 'triggered' | 'cooldown' | 'skipped' | 'disabled' | 'failed';
+        reason?: string;
+        nextAllowedAt?: string;
+      }>;
     } = { registry };
     if (opts.hindsightClient) memoryDeps.hindsightClient = opts.hindsightClient;
     if (opts.sharedBank) memoryDeps.sharedBank = opts.sharedBank;
+    if (opts.freshnessProvider) memoryDeps.freshnessProvider = opts.freshnessProvider;
+    if (opts.reimportTriggerProvider) memoryDeps.reimportTriggerProvider = opts.reimportTriggerProvider;
     await registerCallbackMemoryRoutes(app, memoryDeps);
   };

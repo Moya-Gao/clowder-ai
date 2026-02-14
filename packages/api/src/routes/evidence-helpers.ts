@@ -14,8 +14,8 @@ export interface EvidenceResult {
   sourceType: EvidenceSourceType;
 }
 
-export function normalizeTags(input: string | string[] | undefined): string[] {
-  const defaults = ['project:cat-cafe', 'origin:git'];
+export function normalizeTags(input: string | string[] | undefined, defaultOrigin = 'origin:git'): string[] {
+  const defaults = ['project:cat-cafe', defaultOrigin];
   if (input == null) return defaults;
 
   const tags = (Array.isArray(input) ? input : [input])

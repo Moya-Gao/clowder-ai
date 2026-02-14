@@ -27,7 +27,7 @@ function createMockClient(overrides = {}) {
 describe('GET /api/evidence/search', () => {
   let app;
 
-  async function setup(clientOverrides = {}, docsRoot, freshnessProvider) {
+  async function setup(clientOverrides = {}, docsRoot, freshnessProvider, reimportTriggerProvider) {
     app = Fastify();
     const hindsightClient = createMockClient(clientOverrides);
     await app.register(evidenceRoutes, {
@@ -35,6 +35,7 @@ describe('GET /api/evidence/search', () => {
       sharedBank: 'cat-cafe-shared',
       ...(docsRoot ? { docsRoot } : {}),
       ...(freshnessProvider ? { freshnessProvider } : {}),
+      ...(reimportTriggerProvider ? { reimportTriggerProvider } : {}),
     });
     await app.ready();
   }
@@ -49,6 +50,10 @@ describe('GET /api/evidence/search', () => {
         headCommit: 'head1234',
         watermarkCommit: 'old9999',
         reason: 'commit_mismatch',
+      }),
+      async () => ({
+        status: 'skipped',
+        reason: 'test_stub',
       }),
     );
 
@@ -82,6 +87,79 @@ describe('GET /api/evidence/search', () => {
     const body = res.json();
     assert.equal(body.freshness?.status, 'unknown');
     assert.equal(body.freshness?.reason, 'head_unavailable');
+  });
+
+  it('fail-closes on stale freshness before recall and falls back to docs search', async () => {
+    let recallCalls = 0;
+    const docsRoot = join(__dirname, '..', '..', '..', 'docs');
+    await setup(
+      {
+        recall: async () => {
+          recallCalls += 1;
+          return [{ content: 'stale hindsight result', metadata: { anchor: 'docs/decisions/005-hindsight-integration-decisions.md' }, score: 0.95 }];
+        },
+      },
+      docsRoot,
+      async () => ({
+        status: 'stale',
+        checkedAt: '2026-02-14T12:34:56.000Z',
+        headCommit: 'head1234',
+        watermarkCommit: 'old9999',
+        reason: 'commit_mismatch',
+      }),
+      async () => ({
+        status: 'triggered',
+        reason: 'stale_detected',
+      }),
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=phase',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'freshness_stale_fail_closed');
+    assert.equal(body.reimportTrigger?.status, 'triggered');
+    assert.equal(recallCalls, 0);
+    assert.ok(body.results.length > 0, 'docs fallback should still return results');
+  });
+
+  it('marks stale fail-closed with trigger error when reimport provider throws', async () => {
+    let recallCalls = 0;
+    await setup(
+      {
+        recall: async () => {
+          recallCalls += 1;
+          return [];
+        },
+      },
+      undefined,
+      async () => ({
+        status: 'stale',
+        checkedAt: '2026-02-14T12:34:56.000Z',
+        headCommit: 'head1234',
+        watermarkCommit: 'old9999',
+        reason: 'commit_mismatch',
+      }),
+      async () => {
+        throw new Error('trigger spawn failed');
+      },
+    );
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/evidence/search?q=phase',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.degraded, true);
+    assert.equal(body.degradeReason, 'freshness_stale_fail_closed');
+    assert.equal(body.reimportTrigger?.status, 'failed');
+    assert.equal(recallCalls, 0);
   });
 
   it('returns results from Hindsight', async () => {

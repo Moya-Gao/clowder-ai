@@ -85,6 +85,12 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'HINDSIGHT_RECALL_DEFAULT_BUDGET', defaultValue: 'mid', description: 'Recall 默认预算', category: 'hindsight', sensitive: false },
   { name: 'HINDSIGHT_RECALL_DEFAULT_TAGS_MATCH', defaultValue: 'all', description: 'Recall 标签匹配方式', category: 'hindsight', sensitive: false },
   { name: 'HINDSIGHT_RECALL_DEFAULT_LIMIT', defaultValue: '5', description: 'Recall 默认返回条数', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_FAIL_CLOSED_ENABLED', defaultValue: 'true', description: 'freshness stale 时是否 fail-closed', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_FAIL_CLOSED_STATUSES', defaultValue: 'stale', description: '触发 fail-closed 的 freshness 状态列表', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_AUTO_REIMPORT_ENABLED', defaultValue: 'true', description: 'freshness stale 时是否自动触发 P0 re-import', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_AUTO_REIMPORT_COOLDOWN_MS', defaultValue: '600000', description: '自动 re-import 冷却时间（毫秒）', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_AUTO_REIMPORT_COMMAND', defaultValue: 'pnpm --filter @cat-cafe/api hindsight:import:p0 -- --all', description: '自动 re-import 执行命令', category: 'hindsight', sensitive: false },
+  { name: 'HINDSIGHT_P0_REIMPORT_STATE_PATH', defaultValue: 'data/hindsight/p0-reimport-state.json', description: '自动 re-import 状态文件路径', category: 'hindsight', sensitive: false },
 
   // --- codex ---
   { name: 'CAT_CODEX_SANDBOX_MODE', defaultValue: 'danger-full-access', description: '缅因猫沙箱模式', category: 'codex', sensitive: false },
