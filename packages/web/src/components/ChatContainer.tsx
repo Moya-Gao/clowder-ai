@@ -251,8 +251,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     clearUnread(threadId);
   }, [threadId, clearUnread]);
 
-  const handleStop = useCallback(() => {
-    stopHandler(cancelInvocation, threadId);
+  const handleStop = useCallback((overrideThreadId?: string) => {
+    stopHandler(cancelInvocation, overrideThreadId ?? threadId);
   }, [stopHandler, cancelInvocation, threadId]);
 
   const router = useRouter();

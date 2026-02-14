@@ -9,7 +9,7 @@ import { PawIcon } from './icons/PawIcon';
 
 interface SplitPaneViewProps {
   onSend: (content: string, images?: File[], overrideThreadId?: string) => void;
-  onStop: () => void;
+  onStop: (overrideThreadId?: string) => void;
   /** Switch from split to single mode, focusing the given thread */
   onZoomToThread: (threadId: string) => void;
 }
@@ -142,7 +142,7 @@ export function SplitPaneView({ onSend, onStop, onZoomToThread }: SplitPaneViewP
           </div>
           <ChatInput
             onSend={(content: string, images?: File[]) => onSend(content, images, splitPaneTargetId ?? undefined)}
-            onStop={onStop}
+            onStop={() => onStop(splitPaneTargetId ?? undefined)}
             disabled={isTargetLoading || !splitPaneTargetId}
             hasActiveInvocation={isTargetActiveInvocation}
           />

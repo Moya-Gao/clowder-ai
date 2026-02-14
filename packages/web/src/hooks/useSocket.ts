@@ -131,8 +131,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         });
         // Update cat status for background thread
         store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
-        // Toast on final message
+        // Toast + invocation cleanup on final message
         if (msg.isFinal) {
+          store.clearThreadActiveInvocation(msg.threadId!);
           useToastStore.getState().addToast({
             type: 'success',
             title: `${msg.catId} 完成`,
@@ -150,6 +151,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
           timestamp: msg.timestamp,
         });
         store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
+        if (msg.isFinal) {
+          store.clearThreadActiveInvocation(msg.threadId!);
+        }
         useToastStore.getState().addToast({
           type: 'error',
           title: `${msg.catId} 出错`,
@@ -169,6 +173,9 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
             threadId: msg.threadId!,
             duration: 5000,
           });
+        }
+        if (msg.isFinal) {
+          store.clearThreadActiveInvocation(msg.threadId!);
         }
       } else if (msg.type === 'status') {
         // Update cat status indicator without storing a message

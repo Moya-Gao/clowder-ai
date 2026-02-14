@@ -41,6 +41,7 @@ function simulateBackgroundMessage(msg: {
     });
     store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
     if (msg.isFinal) {
+      store.clearThreadActiveInvocation(msg.threadId);
       useToastStore.getState().addToast({
         type: 'success',
         title: `${msg.catId} 完成`,
@@ -58,6 +59,9 @@ function simulateBackgroundMessage(msg: {
       timestamp: msg.timestamp,
     });
     store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
+    if (msg.isFinal) {
+      store.clearThreadActiveInvocation(msg.threadId);
+    }
     useToastStore.getState().addToast({
       type: 'error',
       title: `${msg.catId} 出错`,
@@ -78,6 +82,9 @@ function simulateBackgroundMessage(msg: {
         threadId: msg.threadId,
         duration: 5000,
       });
+    }
+    if (msg.isFinal) {
+      store.clearThreadActiveInvocation(msg.threadId);
     }
   } else if (msg.type === 'status') {
     const statusMap: Record<string, string> = { streaming: 'streaming', thinking: 'pending', done: 'done' };
@@ -205,6 +212,30 @@ describe('background thread socket handling', () => {
 
       // Should still be just 1 toast (the error), no success toast added
       expect(useToastStore.getState().toasts).toHaveLength(1);
+    });
+  });
+
+  describe('R2-P2: text(isFinal) clears hasActiveInvocation', () => {
+    it('background text with isFinal clears hasActiveInvocation for that thread', () => {
+      // Set up: switch to thread-bg, mark active invocation, switch away
+      useChatStore.getState().setCurrentThread('thread-bg');
+      useChatStore.getState().setHasActiveInvocation(true);
+      // Switch back to thread-active — thread-bg gets snapshotted with hasActiveInvocation=true
+      useChatStore.getState().setCurrentThread('thread-active');
+      expect(useChatStore.getState().threadStates['thread-bg']?.hasActiveInvocation).toBe(true);
+
+      // Simulate background text(isFinal)
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'final answer',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+
+      // hasActiveInvocation should be cleared
+      expect(useChatStore.getState().threadStates['thread-bg']?.hasActiveInvocation).toBe(false);
     });
   });
 

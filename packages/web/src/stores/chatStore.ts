@@ -135,6 +135,9 @@ interface ChatState {
   setSplitPaneThreadIds: (ids: string[]) => void;
   setSplitPaneTarget: (threadId: string | null) => void;
 
+  /** Clear hasActiveInvocation for a specific thread (active or background) */
+  clearThreadActiveInvocation: (threadId: string) => void;
+
   // ── Hub modal (F12) ──
   hubState: { open: boolean; tab: string } | null;
   openHub: (tab: string) => void;
@@ -378,6 +381,24 @@ export const useChatStore = create<ChatState>((set, get) => ({
             catStatuses: { ...existing.catStatuses, [catId]: status },
             lastActivity: Date.now(),
           },
+        },
+      };
+    }),
+
+  /** Clear hasActiveInvocation for a specific thread (active or background) */
+  clearThreadActiveInvocation: (threadId) =>
+    set((state) => {
+      // Active thread — clear flat state
+      if (threadId === state.currentThreadId) {
+        return { hasActiveInvocation: false };
+      }
+      // Background thread — update in threadStates map (no-op if unknown)
+      const ts = state.threadStates[threadId];
+      if (!ts) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...ts, hasActiveInvocation: false },
         },
       };
     }),
