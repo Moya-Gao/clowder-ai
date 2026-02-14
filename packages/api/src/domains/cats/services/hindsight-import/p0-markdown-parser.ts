@@ -3,6 +3,13 @@ export interface MarkdownSection {
   content: string;
 }
 
+export type HeadingAllowlistMatcher = string | RegExp;
+
+export interface SplitByLevel2HeadingsOptions {
+  headingAllowlist?: HeadingAllowlistMatcher[];
+  minChunkContentLength?: number;
+}
+
 export interface LessonsEntry {
   id: string;
   title: string;
@@ -75,7 +82,50 @@ function collectFieldValues(lines: string[], startIndex: number): string[] {
   return Array.from(new Set(values));
 }
 
-export function splitByLevel2Headings(content: string): MarkdownSection[] {
+function normalizeHeadingForMatch(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[，。；：！？（）【】《》、]/g, ' ')
+    .replace(/[`~!@#$%^&*()+={}\[\]|\\:;"'<>,.?/]/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function matchesHeadingAllowlist(heading: string, matcher: HeadingAllowlistMatcher): boolean {
+  if (typeof matcher === 'string') {
+    const normalizedHeading = normalizeHeadingForMatch(heading);
+    const normalizedMatcher = normalizeHeadingForMatch(matcher);
+    if (!normalizedMatcher) return false;
+    return normalizedHeading === normalizedMatcher || normalizedHeading.startsWith(normalizedMatcher);
+  }
+
+  return matcher.test(heading) || matcher.test(normalizeHeadingForMatch(heading));
+}
+
+function shouldIncludeSection(
+  heading: string,
+  sectionBody: string,
+  options?: SplitByLevel2HeadingsOptions,
+): boolean {
+  if (!sectionBody) return false;
+
+  const allowlist = options?.headingAllowlist;
+  if (allowlist && allowlist.length > 0) {
+    const matched = allowlist.some((matcher) => matchesHeadingAllowlist(heading, matcher));
+    if (!matched) return false;
+  }
+
+  if (typeof options?.minChunkContentLength === 'number' && sectionBody.length < options.minChunkContentLength) {
+    return false;
+  }
+
+  return true;
+}
+
+export function splitByLevel2Headings(
+  content: string,
+  options?: SplitByLevel2HeadingsOptions,
+): MarkdownSection[] {
   const lines = content.split(/\r?\n/);
   const sections: MarkdownSection[] = [];
   let currentHeading: string | null = null;
@@ -84,7 +134,7 @@ export function splitByLevel2Headings(content: string): MarkdownSection[] {
   const flush = () => {
     if (!currentHeading) return;
     const sectionBody = currentLines.join('\n').trim();
-    if (sectionBody.length === 0) return;
+    if (!shouldIncludeSection(currentHeading, sectionBody, options)) return;
     sections.push({ heading: currentHeading, content: sectionBody });
   };
 
@@ -103,7 +153,9 @@ export function splitByLevel2Headings(content: string): MarkdownSection[] {
   if (sections.length > 0) return sections;
 
   const fallbackHeading = lines.find((line) => /^#\s+/.test(line))?.replace(/^#\s+/, '').trim() ?? 'document';
-  return [{ heading: fallbackHeading, content: content.trim() }];
+  const fallbackContent = content.trim();
+  if (!shouldIncludeSection(fallbackHeading, fallbackContent, options)) return [];
+  return [{ heading: fallbackHeading, content: fallbackContent }];
 }
 
 export function parseLessonsEntries(content: string): LessonsEntry[] {

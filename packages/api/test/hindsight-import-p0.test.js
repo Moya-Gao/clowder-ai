@@ -16,9 +16,15 @@ test('buildImportItemsFromMarkdown emits ADR retain items with required tags', (
       '',
       '## 问题1：是否启用 Hindsight',
       '结论：启用。',
+      '为了保证决策可追溯，这里补充完整背景、替代方案评估和风险控制说明，确保段落长度超过最小导入阈值。',
+      '我们需要统一配置来源、故障处理策略以及观测指标，否则后续回溯时会缺少关键证据。',
+      '补充说明'.repeat(30),
       '',
       '## 问题2：使用单一 shared bank',
       '结论：使用单一 shared bank。',
+      '这里补充为什么不用多 bank 方案：单一 bank 可以保持检索入口一致，减少调用方拼接标签策略的复杂度。',
+      '同时记录迁移步骤和回滚预案，避免后续治理阶段出现语义分裂。',
+      '补充说明'.repeat(30),
     ].join('\n'),
   });
 
@@ -32,6 +38,42 @@ test('buildImportItemsFromMarkdown emits ADR retain items with required tags', (
   assert.ok(items[0].tags.some((tag) => tag.startsWith('sourceCommit:')));
   assert.ok(items[0].tags.some((tag) => tag.startsWith('anchor:adr:005#')));
   assert.equal(items[0].document_id, 'adr:005');
+});
+
+test('buildImportItemsFromMarkdown keeps only high-signal ADR sections and skips short chunks', () => {
+  const items = buildImportItemsFromMarkdown({
+    sourcePath: 'docs/decisions/011-sample.md',
+    sourceCommit: 'abc1234',
+    author: 'codex',
+    content: [
+      '# ADR-011 Sample',
+      '',
+      '## 背景',
+      '这是一段足够长的背景描述，用于验证白名单过滤和最小长度过滤。',
+      '它包含实现前提、目标和约束，确保内容长度超过 120 字符阈值，应该被导入。',
+      '另外补充历史上下文、约束边界和失败案例，避免由于文本长度不足导致该段被阈值误过滤。',
+      '背景延展'.repeat(30),
+      '',
+      '## 状态',
+      'accepted',
+      '',
+      '## Decision',
+      'This decision section is intentionally long enough to pass the minimum content length threshold.',
+      'It documents the chosen approach and rationale in detail, so it must be imported.',
+      'Decision extension '.repeat(20),
+      '',
+      '## References',
+      '- docs/a.md',
+      '',
+      '## 后果',
+      '短后果。',
+    ].join('\n'),
+  });
+
+  assert.deepEqual(
+    items.map((item) => item.metadata?.heading),
+    ['背景', 'Decision'],
+  );
 });
 
 test('buildImportItemsFromMarkdown imports only LL entries from lessons-learned.md', () => {

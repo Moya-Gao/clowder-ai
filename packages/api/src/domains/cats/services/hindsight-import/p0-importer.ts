@@ -25,6 +25,26 @@ export interface BuildImportItemsInput {
   author: string;
 }
 
+const P0_DECISION_HEADING_ALLOWLIST = [
+  '背景',
+  'context',
+  '问题',
+  '决策',
+  'decision',
+  /^d\d+/i,
+  '权衡',
+  'tradeoff',
+  'trade-off',
+  '取舍',
+  '否决理由',
+  'rejected alternatives',
+  'rejected alternative',
+  '后果',
+  'consequences',
+];
+
+const P0_MIN_CHUNK_CONTENT_LENGTH = 120;
+
 function buildGovernanceTags(params: {
   kind: string;
   status: string;
@@ -168,7 +188,14 @@ export function buildImportItemsFromMarkdown(input: BuildImportItemsInput): Reta
 
   const kind = deriveP0Kind(sourcePath);
   const status = deriveP0Status(sourcePath);
-  return splitByLevel2Headings(normalizedContent).map((section) => {
+  const sections = kind === 'decision'
+    ? splitByLevel2Headings(normalizedContent, {
+      headingAllowlist: P0_DECISION_HEADING_ALLOWLIST,
+      minChunkContentLength: P0_MIN_CHUNK_CONTENT_LENGTH,
+    })
+    : splitByLevel2Headings(normalizedContent);
+
+  return sections.map((section) => {
     const anchor = buildP0Anchor(sourcePath, section.heading);
     return {
       document_id: documentId,
