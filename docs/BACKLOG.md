@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-14 (F24 手动绑定 session + session recovery fix)
+> 维护者：布偶猫 | 最后更新：2026-02-14 (#73 A2A callback 前端状态不一致 + F25 可靠性工程)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -74,6 +74,7 @@
 | 70 | workspace 全量 build 阻塞（packages/web lint/type） | [x] | 2026-02-13 Task 5 验证 | 2026-02-13 缅因猫完成：清理 4 处 `no-unused-vars`（`ChatContainer.tsx`, `RightStatusPanel.tsx`, `useSplitPaneKeys.test.ts`, `useChatHistory.ts`），`pnpm -r --if-present run build` 恢复通过。 |
 | 71 | Hindsight 最新性保障（freshness guard） | [~] | 2026-02-14 #68/#69 收口讨论 | #71-MVP 已落地。#71-full 已实现（stale fail-closed + auto re-import trigger + callback/search 双路由接入 + freshnessGuard runtime config），待交叉 review 放行后收口。讨论纪要：`docs/mailbox/2026-02-14-hindsight-freshness-guard-71-discussion-minutes.md` |
 | 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [ ] | [session-not-found bug](./bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **背景 bug**：A2A callback 抢占 + abort 导致 Claude CLI session 变成空壳（仅 `queue-operation/dequeue`），后端持续 `--resume` 坏 session → `No conversation found with session ID` 死循环。止血修复（`f028a78`+`7d0c203`）已加 session 自愈（检测坏 session → 清除 → 无 resume 重试），但自愈意味着**丢失该 session 的连续上下文**。铲屎官希望有"手动把一个已知好的 CLI session ID 绑定到某只猫的某个 thread"的能力，这样当自愈丢失上下文后，铲屎官可以手动恢复猫猫的记忆延续。**实现方向**：F24 Phase A 的 `SessionChainStore` 已有完整数据模型（`SessionRecord` 含 `cliSessionId`，thread → N sessions per cat），手动绑定 = 调 `create()` 或 `update()` 写入指定 `cliSessionId`。需要：**(1)** `PATCH /api/threads/:threadId/sessions/:catId/bind` API 端点（带审计）；**(2)** 前端入口（Cat Config Viewer / 状态面板内，输入 session ID 一键绑定）。**不应独立于 F24 做**，否则 F24 Phase B+ 推进时要合并两套 session 管理逻辑。**依赖**：F24 Phase A review 通过后实施。 |
+| 73 | **A2A Stop 按钮 UX 改进** | [ ] | [2026-02-14 情人节聊天](./mailbox/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三个修复方向：**(1)** ~~callback A2A 同步前端 loading~~ [x] 已修 (`fix/claude-session-recovery`, commit `0a1b1da`)；**(2)** Stop 按钮改为"有活跃 invocation 就显示"（`hasActiveInvocation` 状态）；**(3)** ParallelStatusBar 增加常驻 Stop 按钮。计划：[`2026-02-14-a2a-stop-button-ux.md`](./plans/2026-02-14-a2a-stop-button-ux.md) |
 
 ## P3 — 可选优化
 
@@ -133,6 +134,7 @@
 | F22 | **Rich Blocks 富消息系统** | **P1** | [SillyTavern 调研](./research/sillytavern-phone-ui-research.md) | 猫猫消息支持富组件（DiffCard / Checklist / MediaGallery / InfoCard）。MCP 工具创建 + 文本 fallback + `extra.rich` 持久化 + prompt 清洁器防上下文腐败。F10 手机端猫猫 + 陪伴系统的地基。调研: [`sillytavern-phone-ui-research.md`](./research/sillytavern-phone-ui-research.md)，计划: [`2026-02-12-rich-blocks-companion-plan.md`](./plans/2026-02-12-rich-blocks-companion-plan.md) |
 | F23 | **目录结构防腐化 + 重构** | **P1** | 铲屎官 2026-02-13 | services/ 70 文件 + docs/ 270 文件腐化。防腐化机制 (lint 双阈值 + 依赖边界 + review 检查 + 例外到期) + 目录就地整理 + docs active/archive 归档。三方 + GPT Pro 对齐完毕。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
 | F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **P1** | 铲屎官 2026-02-13 | 三个子能力：**(1) 中途消息**：铲屎官在猫猫执行工具调用期间可发送消息，猫猫完成当前工具调用后立即收到（类似 CC/Codex app 的中断能力）。**(2) Context 存活监控**：前端展示当前 session context 使用百分比。**(3) 自动交接触发**：不能依赖铲屎官手动提醒（万一铲屎官睡着了），必须**自动化**——通过 hook 或前端自动检测 context 剩余 < 15% 时注入系统消息触发猫猫写交接。完整流程：自动检测阈值 → 注入"写交接"指令 → 猫猫写交接文档 + commit → /compact → 读交接文档 → 满血复活。**实现方向**：近期可用 Claude Code hooks（每次工具调用后检测 usage）；长期走前端 API response usage 监控 + 自动注入。缅因猫侧 Codex 同理需要。 |
+| F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **P2** | [2026-02-14 情人节聊天](./mailbox/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三件事串联的可靠性故事线：**(1) 状态机规格可执行**（优先做）：ADR-008 InvocationStatus 转移表显式化 + `fast-check` property-based tests，自动验证非法迁移被拒绝。布偶猫出草案，缅因猫 review。**(2) 并发故障演练台**：给 CAS/Redis/Lua 加 interleaving fuzz 回放，把"偶现"变"必现"。**(3) PR 证据闸门**：合入前自动产出 Red→Green 证据包（失败用例→修复→回归），与 #70 Build Gate 一脉相承。 |
 
 ## 讨论议题 — 待探索的方向
 
