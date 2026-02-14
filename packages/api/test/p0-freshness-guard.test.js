@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  getDefaultP0FailClosedSettings,
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,
 } from '../dist/domains/cats/services/hindsight-import/p0-freshness-guard.js';
@@ -101,4 +102,16 @@ test('triggerP0ReimportIfNeeded returns disabled when auto trigger is off', asyn
   });
 
   assert.equal(result.status, 'disabled');
+});
+
+test('getDefaultP0FailClosedSettings deduplicates status list from env', () => {
+  const prevStatuses = process.env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'];
+  process.env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'] = 'stale,unknown,stale';
+
+  const settings = getDefaultP0FailClosedSettings(process.env);
+
+  if (prevStatuses === undefined) delete process.env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'];
+  else process.env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'] = prevStatuses;
+
+  assert.deepEqual(settings.statuses, ['stale', 'unknown']);
 });

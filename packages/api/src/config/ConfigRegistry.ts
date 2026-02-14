@@ -11,18 +11,10 @@ import { getCatModel } from './cat-models.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
 import { parseHindsightRuntimeConfig } from './hindsight-runtime-config.js';
-import { parseEnum, parseIntInRange } from './parse-utils.js';
+import { parseBoolean, parseEnum, parseIntInRange } from './parse-utils.js';
 import type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
 
 export type { CodexAuthMode, ConfigSnapshot, HindsightEngine } from './config-snapshot.js';
-
-function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
-  if (raw == null) return fallback;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  return fallback;
-}
 
 function formatTtl(raw: string | undefined, defaultSeconds: number): string {
   if (!raw) {

@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { z } from 'zod';
+import { parseBoolean, parseCsvEnumList, parseIntInRange } from '../../../../config/parse-utils.js';
 import type { P0Freshness } from './p0-watermark.js';
 
 const DEFAULT_REIMPORT_COOLDOWN_MS = 10 * 60 * 1000;
@@ -43,21 +44,6 @@ export interface TriggerP0ReimportInput {
   auditLog?: { append: (event: { type: string; data: Record<string, unknown> }) => Promise<unknown> };
 }
 
-function parsePositiveInt(raw: string | undefined, fallback: number): number {
-  if (!raw) return fallback;
-  const parsed = Number(raw);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return Math.trunc(parsed);
-}
-
-function parseBoolean(raw: string | undefined, fallback: boolean): boolean {
-  if (raw == null) return fallback;
-  const normalized = raw.trim().toLowerCase();
-  if (normalized === 'true') return true;
-  if (normalized === 'false') return false;
-  return fallback;
-}
-
 function defaultRunCommand(command: string, cwd: string): void {
   const child = spawn('bash', ['-lc', command], {
     cwd,
@@ -95,21 +81,22 @@ function isTriggerCandidate(freshness: P0Freshness): boolean {
 }
 
 export function getDefaultP0FailClosedSettings(env: NodeJS.ProcessEnv = process.env): P0FailClosedSettings {
-  const statuses = (env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'] ?? 'stale')
-    .split(',')
-    .map((v) => v.trim())
-    .filter((v): v is P0Freshness['status'] => v === 'fresh' || v === 'stale' || v === 'unknown');
+  const statuses = parseCsvEnumList(
+    env['HINDSIGHT_P0_FAIL_CLOSED_STATUSES'],
+    ['fresh', 'stale', 'unknown'],
+    ['stale'],
+  ) as P0Freshness['status'][];
 
   return {
     enabled: parseBoolean(env['HINDSIGHT_P0_FAIL_CLOSED_ENABLED'], true),
-    statuses: statuses.length > 0 ? statuses : ['stale'],
+    statuses,
   };
 }
 
 export function getDefaultP0ReimportSettings(env: NodeJS.ProcessEnv = process.env): P0ReimportSettings {
   return {
     enabled: parseBoolean(env['HINDSIGHT_P0_AUTO_REIMPORT_ENABLED'], true),
-    cooldownMs: parsePositiveInt(env['HINDSIGHT_P0_AUTO_REIMPORT_COOLDOWN_MS'], DEFAULT_REIMPORT_COOLDOWN_MS),
+    cooldownMs: parseIntInRange(env['HINDSIGHT_P0_AUTO_REIMPORT_COOLDOWN_MS'], DEFAULT_REIMPORT_COOLDOWN_MS, 1000, 86400000),
     command: env['HINDSIGHT_P0_AUTO_REIMPORT_COMMAND']?.trim() || DEFAULT_REIMPORT_COMMAND,
   };
 }
