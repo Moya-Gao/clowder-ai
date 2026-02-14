@@ -89,7 +89,7 @@ export function memoryToResult(mem: HindsightMemory): EvidenceResult {
     snippet: mem.content.slice(0, 300),
     confidence: (mem.score ?? 0) > 0.8 ? 'high' : (mem.score ?? 0) > 0.5 ? 'mid' : 'low',
     sourceType: classifySource(anchor),
-    status,
+    ...(status ? { status } : {}),
   };
 }
 

@@ -55,9 +55,10 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const projectRoot = resolve(process.cwd(), '../..');
     const home = homedir();
 
-    const [claudeSkills, codexSkills, projectMcp, geminiMcp] = await Promise.all([
+    const [claudeSkills, codexSkills, geminiSkills, projectMcp, geminiMcp] = await Promise.all([
       listSubdirs(join(projectRoot, '.claude', 'skills')),
       listSubdirs(join(home, '.codex', 'skills'), ['.system']),
+      listSubdirs(join(home, '.gemini', 'skills')),
       readJsonKeys(join(projectRoot, '.mcp.json'), 'mcpServers'),
       readJsonKeys(join(home, '.gemini', 'settings.json'), 'mcpServers'),
     ]);
@@ -72,7 +73,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         externalMcpServers: [],
       },
       gemini: {
-        skills: [],
+        skills: geminiSkills,
         externalMcpServers: geminiMcp,
       },
     };
