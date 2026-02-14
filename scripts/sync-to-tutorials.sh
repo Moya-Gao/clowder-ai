@@ -53,7 +53,14 @@ for f in "$SOURCE_DIR/docs/lessons/"*.md; do
     fi
 done
 
-# 2. 复制 ADR 决策文档（公开技术决策）
+# 2. 复制教程资源文件（图片等）
+if [ -d "$SOURCE_DIR/docs/lessons/assets" ]; then
+    mkdir -p "$TARGET_DIR/docs/lessons/assets"
+    cp "$SOURCE_DIR/docs/lessons/assets/"* "$TARGET_DIR/docs/lessons/assets/"
+    echo "  ✓ docs/lessons/assets/ ($(ls -1 "$SOURCE_DIR/docs/lessons/assets" | wc -l | tr -d ' ') 个文件)"
+fi
+
+# 3. 复制 ADR 决策文档（公开技术决策）
 mkdir -p "$TARGET_DIR/docs/decisions"
 cp "$SOURCE_DIR/docs/decisions/001-agent-invocation-approach.md" "$TARGET_DIR/docs/decisions/"
 echo "  ✓ docs/decisions/001-agent-invocation-approach.md"
