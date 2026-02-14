@@ -46,7 +46,7 @@
 
 1. ADR-008 已有多处 `Tradeoff`，是否只加顶层索引，不重复细节？
 2. ADR-002 以协议为主，是否将“否决理由”写在执行成本层面而非技术对比层面？
-3. 是否在 #68 完成后立即触发一次 `hindsight:import:p0 -- --all` dry-run 校验锚点可导入性？
+3. #68 合入 `main` 后是否将“导入 + 健康检查”接入 CI 自动化（本轮先手动固定动作，自动化放入 #71）？
 
 ### Next Action
 
@@ -61,6 +61,7 @@
 2. 每个标准段至少含 2 个“备选方案→不选原因”条目，并含“不做边界”一句。
 3. `docs/decisions/005-hindsight-integration-decisions.md` 有本轮 #68 回填索引（文件清单 + commit 锚点占位）。
 4. 验收命令全部通过（见下文）。
+5. #68 合入 `main` 后执行一次 `hindsight:import:p0 -- --all` + `p0-health-check`，并把结果写入 ADR-005 附录 E。
 
 ## 验收命令
 
@@ -90,6 +91,10 @@ done
 
 # 3) ADR-005 汇总索引存在
 rg -n "#68 回填索引|ADR 否决理由回填索引" docs/decisions/005-hindsight-integration-decisions.md
+
+# 4) 合入 main 后固定收口动作（仅当本次合入涉及可导入源）
+pnpm --filter @cat-cafe/api hindsight:import:p0 -- --all
+bash scripts/hindsight/p0-health-check.sh
 ```
 
 ## 不做边界（防范围蔓延）

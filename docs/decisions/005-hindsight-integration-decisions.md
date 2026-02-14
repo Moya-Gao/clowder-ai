@@ -508,6 +508,18 @@ done
 - 最小密度检查：PASS（ADR-001=3, ADR-002=3, ADR-003=3, ADR-007=3, ADR-008=4, ADR-009=3）
 - 索引存在性：PASS（本附录 `附录 E` 命中）
 
+### 合入 `main` 后固定收口动作（#68）
+
+> 触发条件：本次合入包含可导入源变更（ADR / `CLAUDE.md` / `AGENTS.md` / `docs/lessons-learned.md`）。
+
+```bash
+pnpm --filter @cat-cafe/api hindsight:import:p0 -- --all
+bash scripts/hindsight/p0-health-check.sh
+```
+
+- 任一命令失败：不得宣称 #68 闭环完成，修复后重跑。
+- 自动化（CI / freshness guard）不在 #68 内实现，跟踪于 `docs/BACKLOG.md` #71。
+
 ### 不做边界（#68）
 
 - 不改 importer/runtime/API 代码。
