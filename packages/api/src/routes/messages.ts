@@ -183,7 +183,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
 
       // Not duplicate → safe to start() (may abort prior invocation for this thread)
-      const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
+      const controller = opts.invocationTracker?.start(resolvedThreadId, userId, targetCats);
 
       // Race: thread entered deleting between isDeleting() and start()
       if (controller?.signal.aborted) {
@@ -350,7 +350,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       })();
     } else {
       // Fallback: no invocationRecordStore (legacy path, uses route())
-      const controller = opts.invocationTracker?.start(resolvedThreadId, userId);
+      const controller = opts.invocationTracker?.start(resolvedThreadId, userId, targetCats);
       if (controller?.signal.aborted) {
         reply.status(409);
         return {

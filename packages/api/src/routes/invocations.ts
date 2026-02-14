@@ -111,7 +111,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
     }
 
     // ⑥ Start invocation tracking (may abort prior invocation for this thread)
-    const controller = opts.invocationTracker.start(record.threadId, record.userId);
+    const controller = opts.invocationTracker.start(record.threadId, record.userId, record.targetCats);
     if (controller.signal.aborted) {
       await opts.invocationRecordStore.update(id, { status: 'canceled' });
       reply.status(409);

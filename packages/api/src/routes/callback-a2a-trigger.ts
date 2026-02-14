@@ -62,7 +62,7 @@ export async function triggerA2AInvocation(
   let controller: AbortController | undefined;
 
   if (!parentActive) {
-    controller = invocationTracker?.start(threadId, userId);
+    controller = invocationTracker?.start(threadId, userId, targetCats);
     if (controller?.signal.aborted) {
       // P2-1: thread is deleting — mark record as canceled, don't leave it pending
       invocationTracker?.complete(threadId, controller);

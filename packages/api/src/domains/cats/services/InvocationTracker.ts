@@ -9,6 +9,13 @@
 interface ActiveInvocation {
   controller: AbortController;
   userId: string;
+  /** Cat(s) being invoked — used for cancel feedback broadcast */
+  catIds: string[];
+}
+
+export interface CancelResult {
+  cancelled: boolean;
+  catIds: string[];
 }
 
 export interface DeleteGuard {
@@ -27,7 +34,7 @@ export class InvocationTracker {
    * If thread is being deleted, returns a pre-aborted controller so the
    * agent stops immediately via signal.aborted.
    */
-  start(threadId: string, userId: string = 'unknown'): AbortController {
+  start(threadId: string, userId: string = 'unknown', catIds: string[] = []): AbortController {
     if (this.deleting.has(threadId)) {
       const controller = new AbortController();
       controller.abort();
@@ -36,7 +43,7 @@ export class InvocationTracker {
     // Abort any existing invocation for this thread
     this.active.get(threadId)?.controller.abort();
     const controller = new AbortController();
-    this.active.set(threadId, { controller, userId });
+    this.active.set(threadId, { controller, userId, catIds });
     return controller;
   }
 
@@ -57,16 +64,17 @@ export class InvocationTracker {
   }
 
   /**
-   * Cancel an active invocation. Returns true if one was found and aborted.
+   * Cancel an active invocation. Returns cancel result with catIds for broadcast.
    * If requestUserId is provided, only cancels if it matches the invocation owner.
    */
-  cancel(threadId: string, requestUserId?: string): boolean {
+  cancel(threadId: string, requestUserId?: string): CancelResult {
     const inv = this.active.get(threadId);
-    if (!inv) return false;
-    if (requestUserId && inv.userId !== requestUserId) return false;
+    if (!inv) return { cancelled: false, catIds: [] };
+    if (requestUserId && inv.userId !== requestUserId) return { cancelled: false, catIds: [] };
+    const { catIds } = inv;
     inv.controller.abort();
     this.active.delete(threadId);
-    return true;
+    return { cancelled: true, catIds };
   }
 
   /** Get the userId who started the invocation. */

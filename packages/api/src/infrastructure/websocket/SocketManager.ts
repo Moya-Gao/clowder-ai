@@ -8,7 +8,38 @@ import { Server, Socket } from 'socket.io';
 import { createCatId } from '@cat-cafe/shared';
 import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
-import type { InvocationTracker } from '../../domains/cats/services/InvocationTracker.js';
+import type { CancelResult, InvocationTracker } from '../../domains/cats/services/InvocationTracker.js';
+
+/**
+ * Build the sequence of AgentMessages to broadcast after a successful cancel.
+ * Pure function — extracted for testability (avoids duplicating logic in tests).
+ */
+export function buildCancelMessages(result: CancelResult): AgentMessage[] {
+  if (!result.cancelled) return [];
+  const catIds = result.catIds.length > 0 ? result.catIds : ['opus'];
+  const now = Date.now();
+  const messages: AgentMessage[] = [];
+
+  // Single system_info to avoid "cancel chorus"
+  messages.push({
+    type: 'system_info',
+    catId: createCatId(catIds[0]!),
+    content: '⏹ 已取消',
+    timestamp: now,
+  });
+
+  // Per-cat done to ensure each cat's loading state is cleared
+  for (const catId of catIds) {
+    messages.push({
+      type: 'done',
+      catId: createCatId(catId),
+      isFinal: true,
+      timestamp: now,
+    });
+  }
+
+  return messages;
+}
 
 export class SocketManager {
   private io: Server;
@@ -60,23 +91,13 @@ export class SocketManager {
           console.warn(`[ws] ${socket.id} tried to cancel thread ${data.threadId} without being in room`);
           return;
         }
-        const cancelled = this.invocationTracker.cancel(data.threadId, userId);
-        if (cancelled) {
-          console.log(`[ws] Cancelled invocation for thread: ${data.threadId}`);
-          // Send system_info first to show cancel feedback
-          this.broadcastAgentMessage({
-            type: 'system_info',
-            catId: createCatId('opus'),
-            content: '⏹ 已取消',
-            timestamp: Date.now(),
-          }, data.threadId);
-          // Then send done to stop loading
-          this.broadcastAgentMessage({
-            type: 'done',
-            catId: createCatId('opus'),
-            isFinal: true,
-            timestamp: Date.now(),
-          }, data.threadId);
+        const result = this.invocationTracker.cancel(data.threadId, userId);
+        if (result.cancelled) {
+          const catIds = result.catIds.length > 0 ? result.catIds : ['opus'];
+          console.log(`[ws] Cancelled invocation for thread: ${data.threadId} (cats: ${catIds.join(',')})`);
+          for (const msg of buildCancelMessages(result)) {
+            this.broadcastAgentMessage(msg, data.threadId);
+          }
         }
       });
     });
