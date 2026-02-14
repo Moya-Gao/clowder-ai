@@ -116,6 +116,29 @@
   - 是否有文件放错了目录
 - 检查结果记录到当次 commit message 或交接信中
 
+## 重构对现有 Plan 的影响分析
+
+重构会改文件路径，已规划的 plan 里引用的路径会失效。逐个排查结果：
+
+### 重度影响
+
+- **F8 Token Budget Migration**（P0）：引用 10+ 个 services/ 文件（ContextAssembler、route-strategies、DegradationPolicy、三个 AgentService、AgentRouter、InvocationRecordStore 等）。重构后这些路径全部要更新。
+
+### 无影响或轻度影响
+
+- F21 Signal Hunter：新建 `domains/signals/`，不碰 services/
+- F12 Feature Discoverability：只涉及 config/ 和 web/
+- Rich Blocks：轻度引用 MessageStore
+- F16、F17b/F18/F19、Export Button：不涉及 services/
+
+### 执行顺序选项
+
+| 选项 | 做法 | 优点 | 风险 |
+|------|------|------|------|
+| A) 先 F8 再重构 | F8 按现有路径执行，之后统一重构 | F8 不受干扰 | 重构前又多了新文件 |
+| B) 先重构再 F8 | 重构后更新 F8 plan 路径 | 一次到位 | F8 plan 要重写 |
+| C) 合并做 | F8 直接在新目录结构上写 | 最高效 | 改动最大，risk 最高 |
+
 ## 开放问题（需三猫 + 铲屎官讨论）
 
 1. **阈值 15 是否合理？** 缅因猫每天 review，他对"多大算乱"可能有不同感觉
@@ -123,6 +146,8 @@
 3. **重构本身怎么做？** 防腐化机制定好后，具体的目录拆分方案需要单独规划
 4. **测试文件怎么算？** 如果 `.spec.ts` 和源文件放一起，阈值要不要调大？
 5. **现有 70 文件目录怎么办？** 是一次性重构还是渐进式拆分？
+6. **F8 和重构的执行顺序？** F8 是 P0 且重度引用 services/，顺序决策直接影响两边的工作量
+7. **需要"plan 路径同步"机制吗？** 以后目录重构时，是否强制检查所有未完成 plan 的路径引用？
 
 ## 下一步
 

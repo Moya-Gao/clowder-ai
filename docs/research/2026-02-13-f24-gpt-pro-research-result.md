@@ -641,3 +641,366 @@ type HandoffPolicy = {
 ---
 
 如果你愿意，我可以把上面 D 里的接口/类型，直接贴成你们 `packages/api/src/domains/cats/services/` 里可落地的 TypeScript 适配层骨架（包含 Claude JSONL writer、Codex JSON-RPC client、Gemini deferred queue），并且把“注入队列 + ContextHealth 聚合 + 自动交接状态机”拆成几个文件，方便你们直接开工。
+
+----
+
+# research round 2
+
+我把这份「Session 链 + Sub-agent 交接」讨论稿当成设计评审读了一遍，整体方向非常对：把“记忆”从黑箱 compact 里夺回来，变成你们自己掌控的可追溯资产（session transcript + invocation 索引 + 可视化链条）。这条路走通之后，猫就算失忆，Cat Café 也不会失忆 🧠📚
+
+下面我按“能立刻补强这份方案、并减少后续返工”的角度，给一套更落地的补丁建议。
+
+---
+
+## 0) 先给两条需要立刻更新的事实补丁（避免后面讨论跑偏）
+
+### 0.1 Claude Code 的 context/window 其实已经不是“固定 200k”那套了
+
+你们文档里把 Opus 当成 ~200k、Sonnet 当成 1M sub-agent。这里建议改成“模型可配置，window 由 runtime 报告为准”。
+
+* Claude API 的 1M context 是 **beta**，仅 Opus 4.6 / Sonnet 4.5 / Sonnet 4 支持，并需要 beta header；超过 200k input 会触发 **long-context premium（输入 2x、输出 1.5x）**。([Claude开发平台][1])
+* Claude Code 的 model alias 里已经明确存在 `sonnet[1m]`（1M context），并且可在 session 内 `/model` 切换。([Claude Code][2])
+* 同一页还写了：Claude Code 可能在 Opus 达到用量阈值时 **自动 fallback 到 Sonnet**。你们的 SessionChainStore 里必须记录 “本 session / 本 turn 实际使用的 model”。([Claude Code][2])
+
+> 结论：**“session 链”不仅要链 session_id，还要链 model snapshot/alias**，否则“换猫不自知”会变成“换模型不自知”。
+
+---
+
+### 0.2 Codex/GPT 的 context window 不一定是 128k（至少 gpt-5.1-codex 是 400k）
+
+你们表里写 Codex/GPT ~128k。这个在 2026 已经很可能不准了，尤其如果你们未来用 OpenAI 官方的 Codex 模型。
+
+OpenAI 官方模型页写得很明确：**GPT-5.1 Codex = 400,000 context window，max output 128,000**。([OpenAI开发者][3])
+
+> 结论：Codex 的 window 最好不要“硬编码 128k”。
+> 最稳方案：**优先从协议/运行时拿 model_context_window**，拿不到再 fallback 到配置映射表（model name -> window）。
+
+---
+
+## 1) 你们这套“Thread -> 多 Session”我建议再加一个“封存（Seal）”概念
+
+现在的讨论把 session “结束”当作一个动作。实际工程里最好分两步：
+
+1. **Seal Session（封存）**：不再接受新 turn，把 transcript、invocation index、usage 等元数据写齐，生成可查询快照
+2. **Start New Session（续命）**：创建新 session，挂到 chain 上
+
+封存的价值：
+
+* 让“读取旧 transcript”变成读一个 **immutable snapshot**，避免边写边读的竞态
+* 你们可以在 Seal 时刻触发后台 job：生成 digest、抽取文件清单、生成 invocation 表，等等
+
+---
+
+## 2) SessionChainStore 我建议的最小可用数据模型（MVP 但不脆）
+
+你们现在提 `parentSessionId, status, tokenUsage`，我建议加几个字段，否则后续会反复补洞：
+
+```ts
+type SessionStatus = "active" | "sealing" | "sealed" | "error";
+
+type SessionRecord = {
+  id: string;                 // internal session id (uuid)
+  threadId: string;
+  catId: "claude" | "codex" | "gemini";
+
+  parentSessionId?: string;
+  createdAt: string;
+  sealedAt?: string;
+
+  status: SessionStatus;
+  endReason?: "threshold" | "user" | "error" | "manual";
+
+  // provider linkage (debug + resume)
+  providerSessionId?: string; // e.g. Claude system/init session_id
+  providerThreadId?: string;  // e.g. Codex app-server threadId
+
+  // model lineage (超级关键)
+  modelAlias?: string;        // e.g. "opus", "sonnet", "sonnet[1m]"
+  modelName?: string;         // pinned snapshot if available
+
+  // transcript storage pointers
+  transcriptUri: string;      // e.g. file:///.../events.jsonl.zst
+  indexUri?: string;          // e.g. file:///.../invocations.json
+  digestUri?: string;         // e.g. file:///.../digest.md
+
+  // usage & context health (end-of-session authoritative)
+  context: {
+    windowTokens?: number;
+    usedTokens?: number;
+    usedPct?: number;
+    source: "exact" | "approx" | "none";
+    lastUpdatedAt: string;
+  };
+
+  // derived facts (Seal 时刻写入，供 UI/摘要用)
+  stats?: {
+    turns: number;
+    invocations: number;
+    filesTouched: number;
+    autoCompactionSeen?: boolean;
+  };
+};
+```
+
+**为什么 model lineage 要进 store？**
+Claude Code 文档明确提到会自动 fallback model（Opus -> Sonnet）这种行为。你们如果不记录，Session2 再读 Session1，看到的“行为差异”会像灵异事件。([Claude Code][2])
+
+---
+
+## 3) Transcript 存储：别让 Redis 扛大锅，建议“文件落盘 + 元数据索引”
+
+你们开放问题 #1 问 Redis vs FS，我建议：
+
+* **源数据（raw events）**：落盘文件（JSONL，建议压缩 zstd），可选对象存储（S3/MinIO）
+* **索引（可查询）**：数据库（Postgres/SQLite 都行）存：
+
+  * session 元数据（SessionChainStore）
+  * event 的偏移索引（按 uuid/行号 -> byte offset）
+  * invocation 索引（invocationId -> [startOffset, endOffset]）
+  * 可选：FTS（全文索引）或 embedding 索引
+
+Redis 只做：
+
+* active session 的小缓存（最近 N 条 event、当前 usage、注入队列）
+* 绝不做“长期真相仓库”
+
+这样你们：
+
+* UI 展开 Session1 时，可以分页读（offset/limit）
+* Sub-agent 工具也能分页读（避免一次塞爆 token）
+
+---
+
+## 4) MCP 工具设计：我建议把 “读 transcript” 拆成三层视图，不要只做一个 read_all
+
+你们现在的想法是：
+
+* `read_session_transcript(sessionId) -> 完整对话记录`
+
+这在工程上会马上撞墙（token 上限、网络、解析、内存、UI 卡死）。建议改成：
+
+### 4.1 Session 链查询
+
+```ts
+list_session_chain(threadId, catId) -> SessionRecordSummary[]
+```
+
+### 4.2 Transcript 分页读取（按 event）
+
+```ts
+read_session_events({
+  sessionId,
+  cursor?: string,         // e.g. event uuid or byte offset
+  limit?: number,          // e.g. 50 events
+  view?: "raw" | "handoff" | "chat",
+  includeToolResults?: "none" | "summary" | "full",
+}) -> { events: Event[], nextCursor?: string }
+```
+
+* `raw`：完整 NDJSON（调试/审计用）
+* `chat`：只返回 user/assistant 文本（最省 token）
+* `handoff`：用于交接的“黄金视图”
+
+  * tool_use 保留
+  * tool_result 默认只给摘要（或者截断）
+  * 每条都带 `invocationId/toolUseId` 方便后续点查
+
+### 4.3 Invocation 级点查（按 “一次工具/一次 turn”）
+
+```ts
+read_invocation_detail({ invocationId, includeStdout: boolean }) -> InvocationDetail
+```
+
+**你们的“按需拉取”体验，会主要靠 4.2 + 4.3 成立。**
+先拿 `handoff view` 做总览，再点查 invocation。
+
+---
+
+## 5) Sub-agent 交接：我建议“Server 预生成 Digest + Agent 按需加深”双轨并行
+
+你们的核心洞察是对的：别让濒死猫写交接，让满血猫（或便宜长窗模型）回看 transcript。
+
+我建议把它做成两层，既保留“按需拉取”，又避免每次 Session2 都要从零读 200k：
+
+### 5.1 Seal 时刻自动生成 SessionDigest（后台 job）
+
+* 触发点：Session1 `status=sealed`
+* 执行者：你们后端启动一个“总结任务”
+
+  * 可以用 Sonnet 4.5（或 `sonnet[1m]`）([Claude Code][2])
+  * 也可以用更便宜的 Haiku 4.5（$1/$5 MTok）做第一版粗摘要([anthropic.com][4])
+* 输入：`handoff view`（不是 raw view）
+* 输出：`digest.md` + `invocation_table.json` + `files_touched.json`
+
+这样 Session2 启动时：
+
+* 先把 digest 注入到 ContextAssembler
+* 需要细节再调用 MCP 点查
+
+### 5.2 Session2 仍可派 sub-agent “二次加深”
+
+Claude Code 子代理支持：
+
+* 子代理可配置 `model` 字段，支持 `sonnet/opus/haiku/inherit`，并继承 MCP 工具（除非你 deny）。([Claude Code][5])
+
+所以 Session2 可以按需：
+
+* “给我把 Session1 的某段 decision WHY 挖深一点”
+* “把 invocation #37 的工具输出全文拉回来分析”
+
+---
+
+## 6) 你们开放问题逐条给可落地答案
+
+### #1 Session transcript 存储位置？
+
+**建议：文件系统/对象存储做真相，DB 存索引，Redis 只缓存热数据。**
+理由见第 3 节。
+
+---
+
+### #2 200k transcript 用 Sonnet 读一次大概多少钱？
+
+用 Anthropic 官方价算一下（以 Sonnet 4.5 为例）：
+
+* Sonnet 4.5：**$3/MTok input，$15/MTok output**。([anthropic.com][6])
+* 若你启用 1M context，且 **input 超过 200k**，会触发 premium：输入按 2x、输出按 1.5x。([Claude开发平台][1])
+
+**粗算（不触发 premium，200k input + 8k output）：**
+
+* input：0.2M * $3 = **$0.60**
+* output：0.008M * $15 = **$0.12**
+* 合计约 **$0.72/次**
+
+**若稍微超 200k（比如 250k input + 8k output，触发 premium）：**
+
+* input：0.25M * ($3*2) = **$1.50**
+* output：0.008M * ($15*1.5) = **$0.18**
+* 合计约 **$1.68/次**
+
+> 工程建议：交接用 `handoff view` + 分页/分块总结，尽量把单次 input 控在 200k 以下，避免“因为系统提示/包装多几千 token 就突然翻倍”。
+
+顺带一提，如果你们改用 OpenAI 的 GPT-5.1 Codex 做摘要：
+它页面标价是 input $1.25/MTok、output $10/MTok，context 400k。([OpenAI开发者][3])
+同样 200k+8k 大约 $0.25+$0.08=$0.33。是否合适取决于你们对摘要质量/风格的偏好。
+
+---
+
+### #3 Session 切换阈值设多少？
+
+我建议别用固定百分比“一刀切”，用 **动态 turn-budget** 更稳：
+
+* 维护一个 `turnTokenBudget`（比如 8k 或 12k，取你们线上 P95）
+* 当 `remainingTokens < turnTokenBudget + safetyMargin` 时，直接 Seal 并开新 session
+
+原因：你们的监控多半只能在 **turn.completed/result** 后才拿到准确 usage（至少 Claude/Codex 很常见是这样），固定 90% 可能来不及躲开下一轮的 token 波峰。
+
+**默认建议：**
+
+* `warnAtRemainingPct = 0.25`
+* `triggerAtRemainingPct = 0.15`
+* 但实际触发以 `remainingTokens` vs `turnTokenBudget` 为准
+
+---
+
+### #4 前端 session 链 UI 怎么设计？
+
+给一个“工程省力且好用”的布局建议：
+
+1. Thread 顶部加一个 **Session Timeline**（横条或竖轴）
+
+   * 节点显示：Session #、model、tokens usedPct、sealed reason
+2. 点击节点，右侧面板展示：
+
+   * Digest（会议纪要格式）
+   * Files touched 列表（可点开 diff）
+   * Invocation 表（可过滤 tool/status）
+3. Transcript 浏览器：
+
+   * 默认 `chat view`
+   * 勾选 “显示工具调用”切到 `handoff view`
+   * “调试模式”才看 `raw view`
+
+这样普通用户不会被 NDJSON 淹死，调试时又能一键下潜。
+
+---
+
+### #5 Codex 值不值得从 exec 迁移到 app-server？
+
+结论我倾向：**不 block Phase 1-2，但 Phase 3 之前必须定。**
+
+* 如果 F24 的“中途注入”是硬需求，app-server 的 `turn/steer` 基本是唯一正解（exec 天生 one-shot）。
+* 但 session 链、transcript、digest、自动切换，这些都可以在 exec 模式先做起来。
+
+**评估标准（建议写进决策记录）：**
+
+* 是否需要 “turn 进行中注入/打断”
+* 是否需要 “更细的 tokenUsage 持续更新”
+* 你们能否接受“常驻进程”引入的状态机复杂度
+
+---
+
+### #6 Gemini 1M 安全区 & 压缩阈值
+
+你们文档里写“auto-compress 70%”，这里要小心版本差异：
+
+* Gemini CLI 配置文档写：compression threshold 默认 **0.7**，可配 0~1。([google-gemini.github.io][7])
+* 但官方讨论里提到：从某版本开始默认阈值曾被调到 **20%**（更激进，强调质量）。([GitHub][8])
+* Gemini CLI 的 `PreCompress` hook 存在，但它是 **advisory only，不能阻止或修改压缩**。([Gemini CLI][9])
+
+**建议：**
+
+* 不要依赖默认值，启动时强制写死你们要的 threshold（比如 0.6 或 0.7）
+* “安全区”先用保守值，等你们做真实任务压测再调
+
+---
+
+## 7) 我建议你们给这份讨论稿再加一段“统一的交接产物规范（机器可校验）”
+
+现在规范偏“会议纪要文本”。我建议再补一份机器可校验的 JSON 产物，避免摘要写漏：
+
+* `files_touched.json`：[{path, ops: ["write","edit"], invocations:[...]}]
+* `invocations.json`：[{id, tool, status, startedAt, durationMs, summary}]
+* `decisions.json`：[{id, title, why, alternatives, evidenceInvocations:[...]}]
+* `open_items.json`：[{id, description, blockers, nextActions}]
+
+文本 digest 作为“阅读体验”，JSON 作为“系统可靠性”。
+
+---
+
+## 8) 路线图我建议的小调整（减少耦合、并行推进）
+
+你们现在 Phase 4 才做 Claude 中途注入。我的建议：
+
+* **Session 链 + Transcript Store + UI** 是主干（先做，收益最大）
+* **Claude 中途注入**可以并行提前（它对 Session 链几乎没依赖）
+* **Codex app-server**作为“注入能力”的后置决策，不阻塞主干
+
+一个更顺滑的排序：
+
+1. Phase A：SessionChainStore + Transcript 落盘 + UI session 链骨架（哪怕先只显示列表）
+2. Phase B：ContextHealth 统一类型 + 阈值封存（turn 边界触发）
+3. Phase C：Seal 时后台生成 Digest（handoff view 输入）
+4. Phase D：Claude stdin 注入（体验升级）
+5. Phase E：Codex app-server（注入 + 更实时 usage）
+6. Phase F：Gemini hooks + 压缩策略固化（版本差异收敛）
+
+---
+
+如果你愿意，我可以把你这份 markdown 直接“打补丁版”给你一份可 commit 的更新稿：
+
+* 更新 context/window 表（加入 `sonnet[1m]`、Codex 400k 的注释）([Claude Code][2])
+* 把 open questions 的推荐答案写进去
+* 加上 MCP 工具的分页 schema 和 `handoff view` 规范
+
+你们拿去直接进仓库就能继续拉齐三猫和铲屎官的共识 🐾
+
+[1]: https://platform.claude.com/docs/en/build-with-claude/context-windows "Context windows - Claude API Docs"
+[2]: https://code.claude.com/docs/en/model-config "Model configuration - Claude Code Docs"
+[3]: https://developers.openai.com/api/docs/models/gpt-5.1-codex "GPT-5.1 Codex Model | OpenAI API"
+[4]: https://www.anthropic.com/claude/haiku?utm_source=chatgpt.com "Claude Haiku 4.5"
+[5]: https://code.claude.com/docs/en/sub-agents "Create custom subagents - Claude Code Docs"
+[6]: https://www.anthropic.com/claude/sonnet "Claude Sonnet 4.5 \ Anthropic"
+[7]: https://google-gemini.github.io/gemini-cli/docs/get-started/configuration.html "Gemini CLI Configuration | gemini-cli"
+[8]: https://github.com/google-gemini/gemini-cli/discussions/12311?utm_source=chatgpt.com "Increasing capacity and reliability · google-gemini gemini-cli"
+[9]: https://geminicli.com/docs/hooks/reference/ "Hooks reference | Gemini CLI"

@@ -47,6 +47,40 @@
 
 6. **重构策略**：防腐化机制建好后，现有 70 文件怎么拆？一次性大重构还是渐进式？一次性改动大但一步到位，渐进式风险小但持续时间长。
 
+## 重要补充：重构对现有 Plan 的影响
+
+铲屎官特别关心这个——我们有很多 plan 写了具体的文件路径，重构会让那些路径失效。
+
+我查了一遍所有待实施的 plan，结论是：
+
+### 重度影响（必须同步更新 plan）
+
+| Plan | 引用的 services/ 文件 | 影响程度 |
+|------|----------------------|----------|
+| **F8 Token Budget Migration** | ContextAssembler, route-strategies, types, DegradationPolicy, ClaudeAgentService, codex-event-transform, GeminiAgentService, AgentRouter, InvocationRecordStore, RedisInvocationRecordStore (**10+ 文件**) | **高** — P0 优先级，路径全在 services/ |
+
+### 无影响或轻度影响
+
+| Plan | 原因 |
+|------|------|
+| F21 Signal Hunter | 新建 `domains/signals/`，不碰现有 services/ |
+| F12 Feature Discoverability | 只涉及 config/ 和 web/ |
+| Rich Blocks Companion | 只轻度引用 MessageStore（extend extra 字段） |
+| F16 Codex OAuth | 只涉及 utils/ 和 routes/ |
+| F17b/F18/F19 UX Polish | 纯前端 |
+| Export Button Redesign | 前端 + routes/ |
+
+### 问题
+
+7. **F8 是 P0，重构和 F8 的执行顺序怎么安排？** 三种选项：
+   - A) 先做 F8，再重构（F8 不受影响，但重构前又多了新文件）
+   - B) 先重构，再更新 F8 plan 的路径（F8 要重写引用）
+   - C) F8 和重构一起做（改动最大，但一步到位）
+
+   **砚砚你觉得哪个风险最低？** 你比我更了解 F8 plan 的细节（你可能还要 review 它）。
+
+8. **重构后需要建立"plan 路径同步"机制吗？** 以后重构目录时，要不要强制检查所有未完成 plan 里的路径引用？
+
 ---
 
 期待你的看法。不急，想清楚再回。
