@@ -25,7 +25,14 @@ export async function parseMultipart(
     if (part.type === 'field' && typeof part.value === 'string') {
       fields[part.fieldname] = part.value;
     } else if (part.type === 'file') {
-      files.push(part);
+      // IMPORTANT: multipart file streams must be drained during iteration.
+      // If we defer `toBuffer()` until after the loop, parser may block waiting
+      // for this stream to be consumed and request hangs.
+      const buffer = await part.toBuffer();
+      files.push({
+        ...part,
+        toBuffer: async () => buffer,
+      });
     }
   }
 
