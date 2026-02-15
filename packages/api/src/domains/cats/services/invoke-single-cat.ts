@@ -16,6 +16,7 @@ import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IThreadStore } from './ThreadStore.js';
 import type { ISessionChainStore } from './SessionChainStore.js';
 import type { ISessionSealer } from './SessionSealer.js';
+import type { TranscriptWriter, TranscriptSessionInfo } from './TranscriptWriter.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
@@ -44,6 +45,8 @@ export interface InvocationDeps {
   readonly sessionChainStore?: ISessionChainStore;
   /** F24 Phase B: Session sealer for auto-seal when context threshold reached */
   readonly sessionSealer?: ISessionSealer;
+  /** F24 Phase C: Transcript writer for event collection + flush on seal */
+  readonly transcriptWriter?: TranscriptWriter;
 }
 
 /**
@@ -346,6 +349,24 @@ export async function* invokeSingleCat(
         outputs.push({ ...msg, isFinal: isLastCat });
       } else {
         outputs.push(msg);
+      }
+
+      // F24 Phase C: Record event to transcript buffer (best-effort)
+      if (deps.transcriptWriter && deps.sessionChainStore) {
+        try {
+          const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+          if (activeRec) {
+            const sessInfo: TranscriptSessionInfo = {
+              sessionId: activeRec.id,
+              threadId,
+              catId: activeRec.catId,
+              cliSessionId: activeRec.cliSessionId,
+              seq: activeRec.seq,
+            };
+            // Record the raw agent message as a transcript event
+            deps.transcriptWriter.appendEvent(sessInfo, msg as unknown as Record<string, unknown>, invocationId);
+          }
+        } catch { /* best-effort */ }
       }
 
       return outputs;

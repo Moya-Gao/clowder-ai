@@ -1,17 +1,18 @@
 /**
- * SessionSealer — F24 Phase B
+ * SessionSealer — F24 Phase B+C
  * Manages session lifecycle transitions: active → sealing → sealed.
  *
  * Two methods:
  * - requestSeal(): fast path — CAS status change + clear active pointer
- * - finalize(): slow path — transcript + digest + mark sealed (stub until Phase C)
+ * - finalize(): slow path — transcript JSONL flush + digest + mark sealed
  *
  * Invoke pipeline is responsible for detecting thresholds and calling requestSeal().
  * SessionSealer is responsible for the lifecycle state machine.
  */
 
-import type { SessionRecord, SessionStatus, SealResult } from '@cat-cafe/shared';
+import type { SessionStatus, SealResult } from '@cat-cafe/shared';
 import type { ISessionChainStore } from './SessionChainStore.js';
+import type { TranscriptWriter } from './TranscriptWriter.js';
 
 export type SealReason = 'threshold' | 'manual' | 'error';
 
@@ -36,9 +37,13 @@ export interface ISessionSealer {
 /**
  * In-memory SessionSealer implementation.
  * Uses ISessionChainStore for all state mutations.
+ * Optionally uses TranscriptWriter for Phase C transcript flush.
  */
 export class SessionSealer implements ISessionSealer {
-  constructor(private readonly store: ISessionChainStore) {}
+  constructor(
+    private readonly store: ISessionChainStore,
+    private readonly transcriptWriter?: TranscriptWriter,
+  ) {}
 
   async requestSeal(args: {
     sessionId: string;
@@ -83,9 +88,26 @@ export class SessionSealer implements ISessionSealer {
     // Only finalize sessions in sealing state
     if (record.status !== 'sealing') return;
 
-    // Phase B stub: directly transition to sealed
-    // Phase C will add: transcript JSONL flush, index generation, extractive digest
     const now = Date.now();
+
+    // Phase C: Flush transcript + index + extractive digest
+    if (this.transcriptWriter) {
+      try {
+        await this.transcriptWriter.flush(
+          {
+            sessionId: record.id,
+            threadId: record.threadId,
+            catId: record.catId,
+            cliSessionId: record.cliSessionId,
+            seq: record.seq,
+          },
+          { createdAt: record.createdAt, sealedAt: now },
+        );
+      } catch {
+        // best-effort: transcript flush failure doesn't prevent sealing
+      }
+    }
+
     await this.store.update(args.sessionId, {
       status: 'sealed',
       sealedAt: now,
