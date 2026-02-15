@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import type { CatInvocationInfo, ContextHealthData } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
+import { truncateId } from './status-helpers';
 import { ContextHealthBar } from './ContextHealthBar';
+import { TokenCacheBar } from './TokenCacheBar';
 
 /** Minimal session record from API GET /api/threads/:id/sessions */
 interface SessionSummary {
@@ -43,6 +45,29 @@ function sealReasonLabel(reason?: string): string {
   if (reason === 'threshold') return 'threshold';
   if (reason === 'manual') return 'manual';
   return reason;
+}
+
+function SessionIdTag({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1200);
+  };
+  return (
+    <button
+      className="text-[9px] font-mono text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
+      title={`点击复制: ${id}`}
+      onClick={handleCopy}
+    >
+      {copied ? 'copied!' : truncateId(id, 10)}
+    </button>
+  );
+}
+
+function cachePercent(cacheRead?: number, input?: number): number {
+  if (!cacheRead || !input) return 0;
+  return Math.round((cacheRead / input) * 100);
 }
 
 export function SessionChainPanel({ threadId, catInvocations }: SessionChainPanelProps) {
@@ -115,6 +140,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
             measuredAt: session.createdAt,
           } : undefined
         );
+        const cachePct = cachePercent(inv?.usage?.cacheReadTokens, inv?.usage?.inputTokens);
 
         return (
           <div key={session.id} className="mb-2">
@@ -130,6 +156,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                   <span className="text-xs font-semibold text-gray-800">
                     Session #{session.seq + 1}
                   </span>
+                  <SessionIdTag id={session.id} />
                 </div>
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-opus-light text-opus-dark font-medium">
                   {session.catId}
@@ -151,6 +178,12 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                     </span>
                   </div>
                   <ContextHealthBar catId={session.catId} health={health} />
+                </div>
+              )}
+              {cachePct > 0 && (
+                <div className="mt-1">
+                  <div className="text-[10px] text-gray-400 mb-0.5">缓存命中</div>
+                  <TokenCacheBar percent={cachePct} catId={session.catId} />
                 </div>
               )}
             </div>
@@ -182,8 +215,11 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                   }`}>&#128274;</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] font-medium text-gray-700">
-                    Session #{session.seq + 1}
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium text-gray-700">
+                      Session #{session.seq + 1}
+                    </span>
+                    <SessionIdTag id={session.id} />
                   </div>
                   <div className="text-[9px] text-gray-400 truncate">
                     {session.sealedAt ? timeAgo(session.sealedAt) : 'sealing'}

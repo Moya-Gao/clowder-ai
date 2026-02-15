@@ -23,10 +23,19 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
 }));
 
-// Stub ContextHealthBar to avoid pulling in its dependencies
+// Stub ContextHealthBar and TokenCacheBar to avoid pulling in their dependencies
 vi.mock('../ContextHealthBar', () => ({
   ContextHealthBar: (props: { catId: string }) =>
     React.createElement('div', { 'data-testid': `health-bar-${props.catId}` }),
+}));
+
+vi.mock('../TokenCacheBar', () => ({
+  TokenCacheBar: (props: { percent: number; catId: string }) =>
+    React.createElement('div', { 'data-testid': `cache-bar-${props.catId}`, 'data-percent': props.percent }),
+}));
+
+vi.mock('../status-helpers', () => ({
+  truncateId: (id: string, len: number) => id.length > len ? `${id.slice(0, len)}…` : id,
 }));
 
 const origCreateElement = document.createElement.bind(document);
@@ -85,9 +94,9 @@ describe('F24: SessionChainPanel', () => {
     expect(container.textContent).toContain('2 sessions');
   });
 
-  it('renders active session with seq number and cat badge', async () => {
+  it('renders active session with seq number, cat badge, and clickable session ID', async () => {
     mockSessionsResponse([
-      { id: 's1', catId: 'opus', seq: 2, status: 'active', messageCount: 8, createdAt: Date.now() - 5000 },
+      { id: 'ses_abc12345xyz', catId: 'opus', seq: 2, status: 'active', messageCount: 8, createdAt: Date.now() - 5000 },
     ]);
     renderPanel('thread-1');
     await flushFetch();
@@ -95,6 +104,10 @@ describe('F24: SessionChainPanel', () => {
     expect(container.textContent).toContain('opus');
     expect(container.textContent).toContain('Active');
     expect(container.textContent).toContain('8 msgs');
+    // Session ID should be visible (truncated) with copy title
+    const idBtn = container.querySelector('button[title*="ses_abc12345xyz"]');
+    expect(idBtn).not.toBeNull();
+    expect(idBtn!.textContent).toContain('ses_abc123');
   });
 
   it('renders context health percentage for active session', async () => {
@@ -130,16 +143,16 @@ describe('F24: SessionChainPanel', () => {
     expect(container.textContent).not.toContain('33%');
   });
 
-  it('renders sealed sessions with seal reason label', async () => {
+  it('renders sealed sessions with seal reason label and clickable IDs', async () => {
     mockSessionsResponse([
       {
-        id: 's1', catId: 'opus', seq: 0, status: 'sealed', messageCount: 20,
+        id: 'seal_aaa111', catId: 'opus', seq: 0, status: 'sealed', messageCount: 20,
         createdAt: Date.now() - 120000, sealedAt: Date.now() - 60000,
         sealReason: 'claude-code-compact-auto',
         contextHealth: { usedTokens: 140000, windowTokens: 150000, fillRatio: 0.93, source: 'exact' },
       },
       {
-        id: 's2', catId: 'opus', seq: 1, status: 'sealed', messageCount: 15,
+        id: 'seal_bbb222', catId: 'opus', seq: 1, status: 'sealed', messageCount: 15,
         createdAt: Date.now() - 60000, sealedAt: Date.now() - 10000,
         sealReason: 'threshold',
       },
@@ -151,6 +164,9 @@ describe('F24: SessionChainPanel', () => {
     expect(container.textContent).toContain('compact');
     expect(container.textContent).toContain('threshold');
     expect(container.textContent).toContain('Sealed');
+    // Both sealed sessions should have clickable ID buttons
+    expect(container.querySelector('button[title*="seal_aaa111"]')).not.toBeNull();
+    expect(container.querySelector('button[title*="seal_bbb222"]')).not.toBeNull();
   });
 
   it('shows sealing text for sessions with status sealing', async () => {
@@ -226,6 +242,34 @@ describe('F24: SessionChainPanel', () => {
     renderPanel('thread-1');
     await flushFetch();
     expect(container.innerHTML).toContain('text-red-500');
+  });
+
+  it('shows cache bar when invocation has cacheReadTokens', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now() },
+    ]);
+    const invocations: Record<string, CatInvocationInfo> = {
+      opus: {
+        usage: { inputTokens: 100000, outputTokens: 5000, cacheReadTokens: 75000 },
+      },
+    };
+    renderPanel('thread-1', invocations);
+    await flushFetch();
+    expect(container.textContent).toContain('缓存命中');
+  });
+
+  it('hides cache bar when no cacheReadTokens', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now() },
+    ]);
+    const invocations: Record<string, CatInvocationInfo> = {
+      opus: {
+        usage: { inputTokens: 100000, outputTokens: 5000 },
+      },
+    };
+    renderPanel('thread-1', invocations);
+    await flushFetch();
+    expect(container.textContent).not.toContain('缓存命中');
   });
 
   it('calls API with correct thread URL', async () => {
