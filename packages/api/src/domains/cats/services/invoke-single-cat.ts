@@ -15,10 +15,12 @@ import type { SessionManager } from './SessionManager.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IThreadStore } from './ThreadStore.js';
 import type { ISessionChainStore } from './SessionChainStore.js';
+import type { ISessionSealer } from './SessionSealer.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
 import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
+import { shouldSeal, getSealConfig } from '../../../config/seal-thresholds.js';
 
 function isMissingClaudeSessionError(message: string | undefined): boolean {
   if (!message) return false;
@@ -40,6 +42,8 @@ export interface InvocationDeps {
   readonly apiUrl: string;
   /** F24: Session chain store for context health tracking */
   readonly sessionChainStore?: ISessionChainStore;
+  /** F24 Phase B: Session sealer for auto-seal when context threshold reached */
+  readonly sessionSealer?: ISessionSealer;
 }
 
 /**
@@ -288,6 +292,44 @@ export async function* invokeSingleCat(
               content: JSON.stringify({ type: 'context_health', catId, health }),
               timestamp: Date.now(),
             });
+
+            // F24 Phase B: Check seal threshold after context health update
+            if (deps.sessionSealer && deps.sessionChainStore) {
+              try {
+                const catName = catId === 'opus' ? 'opus'
+                  : catId === 'codex' ? 'codex'
+                  : catId === 'gemini' ? 'gemini'
+                  : 'opus';
+                const sealConfig = getSealConfig(catName);
+                if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
+                  const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                  if (activeRecord) {
+                    const sealResult = await deps.sessionSealer.requestSeal({
+                      sessionId: activeRecord.id,
+                      reason: 'threshold',
+                    });
+                    if (sealResult.accepted) {
+                      outputs.push({
+                        type: 'system_info' as const,
+                        catId,
+                        content: JSON.stringify({
+                          type: 'session_seal_requested',
+                          catId,
+                          sessionId: activeRecord.id,
+                          reason: 'threshold',
+                          healthSnapshot: health,
+                        }),
+                        timestamp: Date.now(),
+                      });
+                      // Background finalize (don't block message yield)
+                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
+                        // best-effort: finalize failure doesn't break invocation
+                      });
+                    }
+                  }
+                }
+              } catch { /* best-effort: seal failure doesn't break invocation */ }
+            }
           }
         }
 
