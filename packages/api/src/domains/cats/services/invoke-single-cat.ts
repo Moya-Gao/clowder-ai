@@ -245,11 +245,14 @@ export async function* invokeSingleCat(
 
           // F24: Compute and emit context health
           // Use lastTurnInputTokens (per-API-call) for accurate context fill,
-          // falling back to aggregated inputTokens only if per-turn data unavailable.
+          // then fallback to aggregated inputTokens, and finally totalTokens
+          // for providers (Gemini CLI) that only expose a total count.
           const windowSize = msg.metadata.usage.contextWindowSize
             ?? getContextWindowFallback(msg.metadata.model ?? '');
           const usedTokens = msg.metadata.usage.lastTurnInputTokens
-            ?? msg.metadata.usage.inputTokens ?? 0;
+            ?? msg.metadata.usage.inputTokens
+            ?? msg.metadata.usage.totalTokens
+            ?? 0;
           if (windowSize && usedTokens > 0) {
             const health: ContextHealth = {
               usedTokens,

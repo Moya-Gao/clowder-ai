@@ -236,12 +236,16 @@ function extractClaudeUsage(e: Record<string, unknown>): TokenUsage {
   if (typeof e['duration_api_ms'] === 'number') result.durationApiMs = e['duration_api_ms'];
   if (typeof e['num_turns'] === 'number') result.numTurns = e['num_turns'];
 
-  // F24: Extract context window capacity from modelUsage
-  const modelUsage = e['model_usage'] as Record<string, Record<string, unknown>> | undefined;
+  // F24: Extract context window capacity from modelUsage.
+  // Claude stream-json has emitted both `modelUsage` and `model_usage` in different versions.
+  const modelUsage = (e['modelUsage'] ?? e['model_usage']) as Record<string, Record<string, unknown>> | undefined;
   if (modelUsage) {
     for (const data of Object.values(modelUsage)) {
-      if (typeof data['contextWindow'] === 'number') {
-        result.contextWindowSize = data['contextWindow'];
+      const contextWindow = typeof data['contextWindow'] === 'number'
+        ? data['contextWindow']
+        : (typeof data['context_window'] === 'number' ? data['context_window'] : undefined);
+      if (contextWindow != null) {
+        result.contextWindowSize = contextWindow;
         break;
       }
     }

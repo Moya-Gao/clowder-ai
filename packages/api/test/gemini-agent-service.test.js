@@ -549,3 +549,36 @@ test('F8: result/success stats captured into done metadata', async () => {
   assert.ok(done.metadata?.usage, 'done should have usage in metadata');
   assert.equal(done.metadata.usage.totalTokens, 150);
 });
+
+test('F24: captures richer Gemini stats fields when provided', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+  const promise = collect(service.invoke('stats test'));
+
+  emitGeminiEvents(proc, [
+    { type: 'init', session_id: 's2', model: 'gemini-2.5-pro' },
+    { type: 'message', role: 'assistant', content: 'ok', delta: true },
+    {
+      type: 'result',
+      status: 'success',
+      stats: {
+        total_tokens: 4500,
+        input_tokens: 3000,
+        output_tokens: 700,
+        cached_input_tokens: 1200,
+        context_window: 1000000,
+      },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find((m) => m.type === 'done');
+  assert.ok(done?.metadata?.usage, 'done should have usage metadata');
+  assert.equal(done.metadata.usage.totalTokens, 4500);
+  assert.equal(done.metadata.usage.inputTokens, 3000);
+  assert.equal(done.metadata.usage.outputTokens, 700);
+  assert.equal(done.metadata.usage.cacheReadTokens, 1200);
+  assert.equal(done.metadata.usage.contextWindowSize, 1000000);
+});

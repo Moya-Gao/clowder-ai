@@ -259,6 +259,9 @@ export class GeminiAgentService implements AgentService {
               if (typeof stats['total_tokens'] === 'number') usage.totalTokens = stats['total_tokens'];
               if (typeof stats['input_tokens'] === 'number') usage.inputTokens = stats['input_tokens'];
               if (typeof stats['output_tokens'] === 'number') usage.outputTokens = stats['output_tokens'];
+              if (typeof stats['cached_input_tokens'] === 'number') usage.cacheReadTokens = stats['cached_input_tokens'];
+              if (typeof stats['context_window'] === 'number') usage.contextWindowSize = stats['context_window'];
+              if (typeof stats['contextWindow'] === 'number') usage.contextWindowSize = stats['contextWindow'];
               metadata.usage = usage;
             }
           }

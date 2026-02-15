@@ -528,6 +528,50 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'should fall back to inputTokens when lastTurnInputTokens is absent');
   });
 
+  it('F24: falls back to totalTokens for Gemini when inputTokens are unavailable', async () => {
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'done',
+          catId: 'gemini',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'google',
+            model: 'gemini-2.5-pro',
+            usage: {
+              totalTokens: 4200,
+              // Gemini CLI often only returns total_tokens in stats
+            },
+          },
+        };
+      },
+    };
+
+    const deps = makeDeps();
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-f24-gemini-total',
+      isLastCat: true,
+    }));
+
+    const healthInfos = msgs.filter(m => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'context_health';
+      } catch { return false; }
+    });
+
+    assert.equal(healthInfos.length, 1, 'should emit context_health from totalTokens fallback');
+    const payload = JSON.parse(healthInfos[0].content);
+    assert.equal(payload.catId, 'gemini');
+    assert.equal(payload.health.usedTokens, 4200);
+    assert.equal(payload.health.windowTokens, 1000000);
+    assert.equal(payload.health.source, 'approx');
+  });
+
   it('session self-heal: retries once without --resume when Claude reports missing conversation', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];

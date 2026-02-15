@@ -589,6 +589,36 @@ test('F8: result/success extracts usage into done metadata', async () => {
   assert.equal(done.metadata.usage.numTurns, 3);
 });
 
+test('F24: extracts contextWindowSize from result.modelUsage (camelCase)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('Context window test'));
+
+  emitClaudeEvents(proc, [
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: { input_tokens: 2000, output_tokens: 300 },
+      modelUsage: {
+        'claude-opus-4-6': {
+          contextWindow: 200000,
+        },
+      },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find(m => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  assert.equal(
+    done.metadata.usage.contextWindowSize,
+    200000,
+    'should read contextWindow from modelUsage camelCase payload',
+  );
+});
+
 test('F8: normalises inputTokens to include cache tokens (Claude API → total)', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
