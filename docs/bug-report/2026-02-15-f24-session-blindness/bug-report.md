@@ -50,7 +50,7 @@ T8  铲屎官发现问题，纠正布偶猫
 ### 1.1 复现步骤
 
 **前置条件**：
-- Cat Cafe API 运行中 (localhost:3001)
+- Cat Cafe API 运行中 (localhost:3002，或 API_SERVER_PORT 指定的端口)
 - F24 session chain 已启用 (opus: `features.sessionChain = true`)
 - 布偶猫通过 Claude Code SDK 独立运行（非 API invoke）
 
@@ -178,10 +178,13 @@ TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger')
 
 # 1. 通知 Cat Cafe API 执行 F24 seal（带超时 + 返回码检查）
+API_PORT="${API_SERVER_PORT:-3002}"
+HOOK_TOKEN="${CAT_CAFE_HOOK_TOKEN:-}"
 SEAL_HTTP_CODE=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
-  -X POST "http://localhost:3001/api/sessions/seal" \
+  -X POST "http://localhost:${API_PORT}/api/sessions/seal" \
   -H "Content-Type: application/json" \
-  -d "{\"catId\": \"opus\", \"reason\": \"claude-code-compact-$TRIGGER\"}")
+  -H "X-Cat-Cafe-Hook-Token: ${HOOK_TOKEN}" \
+  -d "{\"cliSessionId\": \"$SESSION_ID\", \"reason\": \"claude-code-compact-$TRIGGER\"}")
 SEAL_OK=$?
 
 if [ "$SEAL_OK" -ne 0 ] || [ "$SEAL_HTTP_CODE" -lt 200 ] || [ "$SEAL_HTTP_CODE" -ge 300 ]; then
@@ -262,7 +265,9 @@ if [ "$AGE" -gt 300 ]; then
 fi
 
 # 从 Cat Cafe API 获取最新的 session digest
-DIGEST=$(curl -sf --max-time 5 "http://localhost:3001/api/sessions/latest-digest?catId=opus")
+DIGEST=$(curl -sf --max-time 5 \
+  -H "X-Cat-Cafe-Hook-Token: ${HOOK_TOKEN}" \
+  "http://localhost:${API_PORT}/api/sessions/latest-digest?cliSessionId=$SESSION_ID")
 
 # 注入关键上下文
 jq -n \
