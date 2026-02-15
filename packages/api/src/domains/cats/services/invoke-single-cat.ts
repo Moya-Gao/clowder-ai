@@ -122,6 +122,26 @@ export async function* invokeSingleCat(
       // Redis read failure — continue without session
     }
 
+    // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
+    // but NO active session, the previous session was sealed. Discard the persisted CLI
+    // sessionId to prevent --resume into a sealed session. This eliminates the race
+    // window between fire-and-forget delete and next get().
+    // Only applies when chain is non-empty (empty chain = fresh thread, keep sessionId).
+    if (sessionId && deps.sessionChainStore) {
+      try {
+        const chain = await deps.sessionChainStore.getChain(catId, threadId);
+        if (chain.length > 0) {
+          const activeRec = chain.find((s) => s.status === 'active');
+          if (!activeRec) {
+            // Chain exists but no active session → previous was sealed; don't resume
+            sessionId = undefined;
+          }
+        }
+      } catch {
+        // Best-effort: if chain store read fails, keep sessionId as-is
+      }
+    }
+
     // Resolve workingDirectory from thread's projectPath
     let workingDirectory: string | undefined;
     if (threadStore) {

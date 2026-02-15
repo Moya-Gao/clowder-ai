@@ -907,6 +907,84 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'second call after seal must NOT resume old session (R7 P1 race fix)');
   });
 
+  it('R8 P1: slow sessionManager.delete cannot cause --resume race (read-side short-circuit)', async () => {
+    // Scenario: seal triggers delete, but delete is slow (200ms).
+    // Second invocation arrives BEFORE delete completes.
+    // sessionManager.get() still returns old sessionId.
+    // BUT: sessionChainStore.getActive() returns null (session is sealing/sealed)
+    // → read-side short-circuit discards sessionId → no --resume.
+    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    const sealer = new SessionSealer(sessionChainStore);
+
+    // sessionManager.delete is intentionally slow — simulates Redis latency
+    let stored = 'old-sess';
+    let deleteStarted = false;
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'session_init', catId: 'opus', sessionId: invokeCount === 1 ? 'old-sess' : 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: invokeCount === 1 ? 182000 : 5000,
+              outputTokens: 1000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore,
+      sessionSealer: sealer,
+      sessionManager: {
+        get: async () => stored,  // ALWAYS returns old value (delete is slow)
+        store: async (_u, _c, _t, sid) => { stored = sid; },
+        delete: async () => {
+          deleteStarted = true;
+          // Simulate very slow Redis delete — 500ms
+          await new Promise(r => setTimeout(r, 500));
+          stored = undefined;
+        },
+      },
+    };
+
+    // First invocation — triggers seal at 91%
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-slow-delete', isLastCat: true,
+    }));
+
+    // Delete has STARTED but NOT completed (it takes 500ms)
+    assert.ok(deleteStarted, 'delete should have been initiated');
+    // sessionManager.get() would still return 'old-sess' here
+
+    // Second invocation — arrives while delete is still pending
+    // Without read-side short-circuit, this would --resume into sealed session
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test2', userId: 'u1',
+      threadId: 'thread-slow-delete', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2);
+    assert.equal(optionsSeen[0].sessionId, 'old-sess', 'first call uses persisted session');
+    assert.equal(optionsSeen[1].sessionId, undefined,
+      'second call must NOT resume despite slow delete — read-side short-circuit (R8 P1)');
+  });
+
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];
