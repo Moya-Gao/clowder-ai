@@ -47,6 +47,40 @@ T7  🔴 布偶猫从压缩摘要恢复
 T8  铲屎官发现问题，纠正布偶猫
 ```
 
+### 1.1 复现步骤
+
+**前置条件**：
+- Cat Cafe API 运行中 (localhost:3001)
+- F24 session chain 已启用 (opus: `features.sessionChain = true`)
+- 布偶猫通过 Claude Code SDK 独立运行（非 API invoke）
+
+**复现步骤**：
+
+1. 在 Claude Code 中开始一个需要多轮对话的任务（如多文件重构）
+2. 持续对话直到 context 占用超过 80%（可通过前端 StatusBar 观察）
+3. 继续对话，触发 Claude Code SDK 自动 context compaction
+4. 观察 F24 是否有任何 seal / 警告 / 状态保存行为
+
+**期望行为**：
+- T5~T6 之间：F24 应在 SDK 压缩前触发 seal，保存 session transcript + digest
+- T6 压缩后：F24 应注入关键上下文（当前任务、待确认 PR、review 状态等）+ 防呆提醒
+- T7 恢复后：猫应知道自己刚经历压缩，高危操作前应主动验证
+
+**实际行为**：
+- F24 完全不知道 SDK 压缩发生了（无 seal、无警告、无状态保存）
+- 猫从有损摘要恢复，丢失细节，做出错误判断
+- 高危操作 (`gh pr merge`) 未被拦截
+
+### 1.2 验证通过标准
+
+修复完成后，以下三项必须全部通过：
+
+| # | 验证项 | 通过标准 | 验证方法 |
+|---|--------|----------|----------|
+| V1 | PreCompact hook 触发 | 手动 `/compact` 时 hook 执行、调用 seal API、写状态文件 | `claude --debug` 查看 hook 输出 + 检查状态文件 |
+| V2 | SessionStart(compact) hook 注入 | compact 后 session 恢复时注入防呆提醒 + 工作状态 | 检查 compact 后 Claude 的 context 中是否有注入内容 |
+| V3 | PreToolUse guard 拦截 | compact 后执行 `gh pr merge` 等高危命令被 deny | `claude --debug` 查看 permissionDecision = deny |
+
 ## 2. 根因分析
 
 ### 直接原因：压缩摘要导致失忆
@@ -118,7 +152,7 @@ Claude Code 官方 hooks 体系提供了**两个关键 hook event**：
   "hooks": {
     "PreCompact": [
       {
-        "matcher": "auto",
+        "matcher": "manual|auto",
         "hooks": [
           {
             "type": "command",
@@ -143,13 +177,21 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger')
 
-# 1. 通知 Cat Cafe API 执行 F24 seal
-curl -s -X POST "http://localhost:3001/api/sessions/seal" \
+# 1. 通知 Cat Cafe API 执行 F24 seal（带超时 + 返回码检查）
+SEAL_HTTP_CODE=$(curl -sf --max-time 5 -o /dev/null -w "%{http_code}" \
+  -X POST "http://localhost:3001/api/sessions/seal" \
   -H "Content-Type: application/json" \
-  -d "{\"catId\": \"opus\", \"reason\": \"claude-code-compact-$TRIGGER\"}"
+  -d "{\"catId\": \"opus\", \"reason\": \"claude-code-compact-$TRIGGER\"}")
+SEAL_OK=$?
 
-# 2. 保存当前工作状态快照
-STATE_FILE="/tmp/cat-cafe-opus-session-state.json"
+if [ "$SEAL_OK" -ne 0 ] || [ "$SEAL_HTTP_CODE" -lt 200 ] || [ "$SEAL_HTTP_CODE" -ge 300 ]; then
+  SEAL_WARNING="⚠️ F24 seal 失败 (HTTP $SEAL_HTTP_CODE)，session 历史可能未保存。"
+else
+  SEAL_WARNING=""
+fi
+
+# 2. 保存当前工作状态快照（按 session_id 隔离）
+STATE_FILE="/tmp/cat-cafe-opus-compact-state-${SESSION_ID}.json"
 jq -n \
   --arg sid "$SESSION_ID" \
   --arg trigger "$TRIGGER" \
@@ -157,10 +199,15 @@ jq -n \
   '{sessionId: $sid, trigger: $trigger, compactedAt: $time}' \
   > "$STATE_FILE"
 
-# 3. 返回系统消息提醒
-jq -n '{
-  systemMessage: "⚠️ Context 即将被压缩。F24 已保存 session 状态。压缩后请注意验证关键上下文是否完整。"
-}'
+# 3. 写 recent-compact 标记文件（供 PreToolUse Guard 判断"刚 compact 过"）
+#    按 session_id 隔离，避免并行实例/跨项目串扰
+MARKER_FILE="/tmp/cat-cafe-opus-recent-compact-${SESSION_ID}.marker"
+echo "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$MARKER_FILE"
+
+# 4. 返回系统消息提醒（含 seal 成败状态）
+SEAL_MSG="${SEAL_WARNING:+$SEAL_WARNING\n}"
+jq -n --arg msg "${SEAL_MSG}⚠️ Context 即将被压缩。F24 已保存 session 状态到 $STATE_FILE。压缩后请注意验证关键上下文是否完整。" \
+  '{systemMessage: $msg}'
 ```
 
 ### 方案 B：SessionStart (compact) Hook — 压缩后恢复关键上下文
@@ -192,25 +239,44 @@ jq -n '{
 # f24-post-compact-bootstrap.sh
 # 在 compact 后 session 恢复时注入上下文
 
-STATE_FILE="/tmp/cat-cafe-opus-session-state.json"
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
+STATE_FILE="/tmp/cat-cafe-opus-compact-state-${SESSION_ID}.json"
 
 if [ ! -f "$STATE_FILE" ]; then
   exit 0
 fi
 
+# TTL 校验：状态文件超过 5 分钟视为过期
+COMPACT_TIME=$(jq -r '.compactedAt' "$STATE_FILE")
+if [ "$(uname)" = "Darwin" ]; then
+  COMPACT_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMPACT_TIME" +%s 2>/dev/null || echo 0)
+else
+  COMPACT_EPOCH=$(date -d "$COMPACT_TIME" +%s 2>/dev/null || echo 0)
+fi
+NOW_EPOCH=$(date +%s)
+AGE=$(( NOW_EPOCH - COMPACT_EPOCH ))
+if [ "$AGE" -gt 300 ]; then
+  rm -f "$STATE_FILE"  # 过期，清理
+  exit 0
+fi
+
 # 从 Cat Cafe API 获取最新的 session digest
-DIGEST=$(curl -s "http://localhost:3001/api/sessions/latest?catId=opus")
+DIGEST=$(curl -sf --max-time 5 "http://localhost:3001/api/sessions/latest-digest?catId=opus")
 
 # 注入关键上下文
 jq -n \
   --arg digest "$DIGEST" \
-  --arg state "$(cat $STATE_FILE)" \
+  --arg state "$(cat "$STATE_FILE")" \
   '{
     hookSpecificOutput: {
       hookEventName: "SessionStart",
       additionalContext: "⚠️ 你刚经历了 context 压缩。以下是压缩前保存的关键状态：\n\n" + $state + "\n\n最近的 session digest：\n" + $digest + "\n\n重要提醒：\n1. 压缩摘要可能丢失细节，关键操作前请验证事实\n2. 不要假设铲屎官同意了任何操作，除非你能在当前 context 中找到明确证据\n3. 合入 PR 等高危操作必须有铲屎官的明确当轮指令"
     }
   }'
+
+# 消费后删除，防止下次 session 脏读
+rm -f "$STATE_FILE"
 ```
 
 ### 方案 C（推荐）：A + B 组合
@@ -219,9 +285,11 @@ jq -n \
 - PreCompact: 压缩前保存状态 + seal session
 - SessionStart(compact): 压缩后恢复状态 + 注入防呆提醒
 
-### 额外加固：Stop Hook 防止高危操作
+### 额外加固：PreToolUse Guard 拦截高危 Bash 命令
 
-还可以添加 Stop hook 检查是否刚经历过 compact，如果是则提醒验证：
+还可以添加 PreToolUse hook 检查是否刚经历过 compact，如果是则拦截高危命令（如 `gh pr merge`）：
+
+> **术语说明**：这里用的是 `PreToolUse` hook event（匹配 `Bash` 工具），不是 `Stop` hook。`PreToolUse` 可以通过 `permissionDecision: "deny"` 阻止工具执行。参考 [Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)。
 
 ```json
 {
@@ -241,7 +309,49 @@ jq -n \
 }
 ```
 
-对 `gh pr merge` 等高危命令，如果检测到刚发生过 compact，可以 deny + 提醒先验证。
+**Guard 判定机制**：PreCompact hook 写入 `/tmp/cat-cafe-opus-recent-compact-{session_id}.marker`（按 `session_id` 隔离，内容为 compact 时间戳）。Guard 脚本从 stdin 提取当前 `session_id`，检查对应标记文件是否存在且未过期（10 分钟 TTL），如果是且命令匹配高危模式（`gh pr merge`、`git push --force` 等），则 `permissionDecision: "deny"`。标记文件不被主动删除，靠 TTL 自然过期（10 分钟后 Guard 不再拦截）。并行 Claude 实例各有独立 `session_id`，互不串扰。
+
+```bash
+#!/bin/bash
+# f24-guard-post-compact.sh
+# 在 compact 后拦截高危 Bash 命令
+
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
+COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command')
+
+# 检查 recent-compact 标记（按 session_id 隔离）
+MARKER_FILE="/tmp/cat-cafe-opus-recent-compact-${SESSION_ID}.marker"
+if [ ! -f "$MARKER_FILE" ]; then
+  exit 0  # 没有标记，放行
+fi
+
+# TTL 校验：标记超过 10 分钟视为过期
+MARKER_TIME=$(cat "$MARKER_FILE")
+if [ "$(uname)" = "Darwin" ]; then
+  MARKER_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$MARKER_TIME" +%s 2>/dev/null || echo 0)
+else
+  MARKER_EPOCH=$(date -d "$MARKER_TIME" +%s 2>/dev/null || echo 0)
+fi
+NOW_EPOCH=$(date +%s)
+AGE=$(( NOW_EPOCH - MARKER_EPOCH ))
+if [ "$AGE" -gt 600 ]; then
+  exit 0  # 标记过期，放行
+fi
+
+# 高危命令模式匹配
+if echo "$COMMAND" | grep -qE 'gh pr merge|git push.*--force|git merge.*main'; then
+  jq -n '{
+    hookSpecificOutput: {
+      hookEventName: "PreToolUse",
+      permissionDecision: "deny",
+      permissionDecisionReason: "⚠️ 刚经历 context 压缩（'$AGE's ago），高危操作被拦截。请先验证当前 context 中的关键信息是否完整，再手动执行。"
+    }
+  }'
+else
+  exit 0  # 非高危命令，放行
+fi
+```
 
 ## 5. 三猫影响范围分析
 
@@ -283,7 +393,7 @@ jq -n \
 | API invoke opus | ✅ fillRatio + seal | - | ✅ |
 | API invoke codex | ✅ fillRatio + seal | - | ✅ |
 | API invoke gemini | ❌ (per-cat 已关) | - | ❌ (有意关闭) |
-| opus 独立 session — 压缩前保存 | ❌ | ✅ PreCompact | ✅ |
+| opus 独立 session — 压缩前保存 | ❌ | ✅ PreCompact | ✅ (seal 依赖 API 可用，失败时降级警告) |
 | opus 独立 session — 压缩后恢复 | ❌ | ✅ SessionStart(compact) | ✅ |
 | opus 独立 session — 高危命令拦截 | ❌ | ✅ PreToolUse guard | ✅ |
 | opus 独立 session — 实时 fillRatio | ❌ | ❌ | ❌ (无 hook) |
@@ -326,7 +436,7 @@ hooks 配置放在项目级 `.claude/settings.json`（可 commit 到 repo，三�
   "hooks": {
     "PreCompact": [
       {
-        "matcher": "auto",
+        "matcher": "manual|auto",
         "hooks": [
           {
             "type": "command",
@@ -365,11 +475,18 @@ hooks 配置放在项目级 `.claude/settings.json`（可 commit 到 repo，三�
 
 ### 需要实现的脚本
 
-| 脚本 | 职责 | 输入 | 输出 |
+> Hook I/O schema 来源：[Claude Code Hooks Reference](https://code.claude.com/docs/en/hooks#hook-input-and-output)
+
+| 脚本 | 职责 | stdin（[通用字段](https://code.claude.com/docs/en/hooks#common-input-fields) + 事件特有） | stdout |
 |------|------|------|------|
-| `f24-pre-compact.sh` | 压缩前 seal + 保存状态 | stdin: `{session_id, transcript_path, trigger}` | stdout: `{systemMessage}` |
-| `f24-post-compact-bootstrap.sh` | 压缩后恢复上下文 | stdin: `{session_id, source:"compact"}` | stdout: `{hookSpecificOutput.additionalContext}` |
-| `f24-guard-post-compact.sh` | 拦截高危 Bash 命令 | stdin: `{tool_input.command}` | stdout: `{hookSpecificOutput.permissionDecision}` |
+| `f24-pre-compact.sh` | 压缩前 seal + 保存状态 | `{session_id, transcript_path, cwd, permission_mode, hook_event_name:"PreCompact", trigger:"auto"\|"manual", custom_instructions}` | `{systemMessage: "..."}` |
+| `f24-post-compact-bootstrap.sh` | 压缩后恢复上下文 | `{session_id, transcript_path, cwd, permission_mode, hook_event_name:"SessionStart", source:"compact", model}` | `{hookSpecificOutput: {hookEventName:"SessionStart", additionalContext:"..."}}` |
+| `f24-guard-post-compact.sh` | 拦截高危 Bash 命令 | `{session_id, ..., hook_event_name:"PreToolUse", tool_name:"Bash", tool_input:{command:"..."}, tool_use_id}` | `{hookSpecificOutput: {hookEventName:"PreToolUse", permissionDecision:"allow"\|"deny"\|"ask", permissionDecisionReason:"..."}}` |
+
+**`permissionDecision` 可选值**（[官方文档](https://code.claude.com/docs/en/hooks#pretooluse-decision-control)）：
+- `"allow"`：跳过权限系统，直接放行
+- `"deny"`：阻止工具调用，reason 显示给 Claude
+- `"ask"`：弹出权限确认对话框让用户决定
 
 ### 需要新增的 API 端点
 
@@ -377,21 +494,31 @@ hooks 配置放在项目级 `.claude/settings.json`（可 commit 到 repo，三�
 |------|------|------|
 | `/api/sessions/seal` | POST | hook 调用，触发 F24 seal |
 | `/api/sessions/latest-digest` | GET | hook 调用，获取最新 session digest |
-| `/api/sessions/compact-state` | POST/GET | 保存/读取 compact 前的工作状态 |
+
+> 注：`compact-state` 端点已移除。状态通过 `/tmp` 文件传递（按 `session_id` 隔离 + TTL 校验 + 消费后删除），避免增加 API 网络调用失败点。
 
 ### 状态文件
 
 compact 前后的工作状态通过临时文件传递（hook 之间无法直接通信）：
 
 ```
-/tmp/cat-cafe-opus-compact-state.json
+/tmp/cat-cafe-opus-compact-state-{session_id}.json  ← 按 session_id 隔离
 ├── sessionId          # compact 前的 session ID
 ├── trigger            # "auto" | "manual"
-├── compactedAt        # ISO timestamp
+├── compactedAt        # ISO timestamp（TTL 校验用，>5min 视为过期）
 ├── pendingPRs         # 待确认的 PR 列表
 ├── reviewStatus       # 当前 review 状态
 └── activeTaskSummary  # 当前正在做什么
 ```
+
+**文件生命周期**：
+
+| 文件 | 写入 | 读取 | 清理 |
+|------|------|------|------|
+| `compact-state-{session_id}.json` | PreCompact | SessionStart(compact) | 消费后 `rm -f` |
+| `recent-compact-{session_id}.marker` | PreCompact | PreToolUse Guard | TTL 自然过期（10min），不主动删除 |
+
+两个文件职责分离：`compact-state` 携带结构化工作状态，只在 SessionStart 时消费一次；`recent-compact.marker` 是轻量级标记，让 Guard 在整个 post-compact 窗口期内拦截高危操作。两者均按 `session_id` 隔离，并行 Claude 实例互不串扰。
 
 ## 8. 教训总结
 
@@ -410,7 +537,7 @@ compact 前后的工作状态通过临时文件传递（hook 之间无法直接�
 | 1 | 实现 `.claude/hooks/f24-pre-compact.sh` | 布偶猫 | P1 |
 | 2 | 实现 `.claude/hooks/f24-post-compact-bootstrap.sh` | 布偶猫 | P1 |
 | 3 | 实现 `.claude/hooks/f24-guard-post-compact.sh` | 布偶猫 | P1 |
-| 4 | 新增 API 端点（seal / latest-digest / compact-state） | 布偶猫 | P1 |
+| 4 | 新增 API 端点（seal / latest-digest） | 布偶猫 | P1 |
 | 5 | 配置 `.claude/settings.json` hooks 注册 | 布偶猫 | P1 |
 | 6 | 修残余风险：配置不可读时 gemini fallback 到 false | 布偶猫 | P2 |
 | 7 | 补做 Cloud review 对 PR #3 修复的二次确认 | 布偶猫 | P2 |
