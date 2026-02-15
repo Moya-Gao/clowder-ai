@@ -25,10 +25,6 @@ export interface RightStatusPanelProps {
     evidence: number;
     followup: number;
   };
-  taskSummary: {
-    total: number;
-    done: number;
-  };
 }
 
 interface AuditData {
@@ -44,7 +40,6 @@ export function RightStatusPanel({
   catInvocations,
   threadId,
   messageSummary,
-  taskSummary,
 }: RightStatusPanelProps) {
   const cats = targetCats.length > 0
     ? Array.from(new Set(targetCats))
@@ -124,16 +119,6 @@ export function RightStatusPanel({
           <div className="text-right font-medium">{messageSummary.evidence}</div>
           <div>Follow-up</div>
           <div className="text-right font-medium">{messageSummary.followup}</div>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-        <h3 className="text-xs font-semibold text-gray-700 mb-2">任务统计</h3>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-          <div>总任务</div>
-          <div className="text-right font-medium">{taskSummary.total}</div>
-          <div>已完成</div>
-          <div className="text-right font-medium">{taskSummary.done}</div>
         </div>
       </section>
 

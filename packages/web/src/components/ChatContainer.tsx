@@ -99,18 +99,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     };
   }, [messages]);
 
-  const taskSummary = useMemo(() => {
-    let done = 0;
-    for (const task of tasks) {
-      if (task.status === 'done') done += 1;
-    }
-
-    return {
-      total: tasks.length,
-      done,
-    };
-  }, [tasks]);
-
   // Sync URL-driven threadId to store (store is follower, URL is source of truth)
   // setCurrentThread saves old thread state to map, restores new thread state.
   const prevThreadRef = useRef(threadId);
@@ -418,7 +406,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           catInvocations={catInvocations}
           threadId={threadId}
           messageSummary={messageSummary}
-          taskSummary={taskSummary}
         />
       )}
       <CatCafeHub />

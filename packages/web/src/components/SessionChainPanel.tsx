@@ -70,6 +70,12 @@ function cachePercent(cacheRead?: number, input?: number): number {
   return Math.round((cacheRead / input) * 100);
 }
 
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}k`;
+  return String(n);
+}
+
 export function SessionChainPanel({ threadId, catInvocations }: SessionChainPanelProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -163,28 +169,25 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                 </span>
               </div>
               <div className="text-[10px] text-gray-400 mb-1.5">
-                Started {timeAgo(session.createdAt)} · {session.messageCount} msgs
+                Started {timeAgo(session.createdAt)}{session.messageCount > 0 ? ` · ${session.messageCount} msgs` : ''}
               </div>
-              {health && (
-                <div>
-                  <div className="flex items-center justify-between mb-0.5">
-                    <span className="text-[10px] text-gray-500">Context Health</span>
-                    <span className={`text-[10px] font-semibold ${
-                      health.fillRatio >= 0.85 ? 'text-red-500' :
-                      health.fillRatio >= 0.70 ? 'text-amber-500' :
-                      'text-gray-500'
-                    }`}>
-                      {health.source === 'approx' ? '~' : ''}{Math.round(health.fillRatio * 100)}%
-                    </span>
-                  </div>
-                  <ContextHealthBar catId={session.catId} health={health} />
+              {/* Token counts + cache from invocation */}
+              {inv?.usage && (inv.usage.inputTokens != null || inv.usage.outputTokens != null) && (
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] font-mono mb-1">
+                  {inv.usage.inputTokens != null && (
+                    <span className="text-gray-600">{fmtTokens(inv.usage.inputTokens)}<span className="text-gray-400 ml-0.5">↓</span></span>
+                  )}
+                  {inv.usage.outputTokens != null && (
+                    <span className="text-gray-500">{fmtTokens(inv.usage.outputTokens)}<span className="text-gray-400 ml-0.5">↑</span></span>
+                  )}
+                  {cachePct > 0 && (
+                    <span className="text-green-600">cached {cachePct}%</span>
+                  )}
                 </div>
               )}
-              {cachePct > 0 && (
-                <div className="mt-1">
-                  <div className="text-[10px] text-gray-400 mb-0.5">缓存命中</div>
-                  <TokenCacheBar percent={cachePct} catId={session.catId} />
-                </div>
+              {/* Context health bar (already shows % internally, no duplicate text) */}
+              {health && (
+                <ContextHealthBar catId={session.catId} health={health} />
               )}
             </div>
           </div>
