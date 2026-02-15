@@ -15,9 +15,9 @@ import { errorResult, successResult } from './file-tools.js';
 
 const API_URL = process.env['CAT_CAFE_API_URL'] ?? 'http://localhost:3002';
 
-/** Resolve userId: explicit param > env var (injected by invoke-single-cat) > default */
-function resolveToolUserId(explicit?: string): string {
-  return explicit ?? process.env['CAT_CAFE_USER_ID'] ?? 'default-user';
+/** Resolve userId: env var (invocation-bound, tamper-proof) > default */
+function resolveToolUserId(): string {
+  return process.env['CAT_CAFE_USER_ID'] ?? 'default-user';
 }
 
 // --- list_session_chain ---
@@ -26,14 +26,12 @@ export const listSessionChainInputSchema = {
   threadId: z.string().min(1).describe('Thread ID'),
   catId: z.string().optional().describe('Filter by cat ID (opus/codex/gemini)'),
   limit: z.number().int().min(1).max(100).optional().describe('Max results'),
-  userId: z.string().optional().describe('User identity for thread ownership (defaults to default-user)'),
 };
 
 export async function handleListSessionChain(input: {
   threadId: string;
   catId?: string | undefined;
   limit?: number | undefined;
-  userId?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams();
   if (input.catId) params.set('catId', input.catId);
@@ -42,7 +40,7 @@ export async function handleListSessionChain(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId(input.userId) },
+      headers: { 'x-cat-cafe-user': resolveToolUserId() },
     });
     if (!res.ok) {
       return errorResult(`Failed to list sessions (${res.status}): ${await res.text()}`);
@@ -66,14 +64,12 @@ export const readSessionEventsInputSchema = {
   sessionId: z.string().min(1).describe('Session ID to read events from'),
   cursor: z.number().int().min(0).optional().describe('Start from event number (0-based)'),
   limit: z.number().int().min(1).max(200).optional().describe('Max events per page (default 50)'),
-  userId: z.string().optional().describe('User identity for thread ownership (defaults to default-user)'),
 };
 
 export async function handleReadSessionEvents(input: {
   sessionId: string;
   cursor?: number | undefined;
   limit?: number | undefined;
-  userId?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams();
   if (input.cursor != null) params.set('cursor', String(input.cursor));
@@ -83,7 +79,7 @@ export async function handleReadSessionEvents(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId(input.userId) },
+      headers: { 'x-cat-cafe-user': resolveToolUserId() },
     });
     if (!res.ok) {
       return errorResult(`Failed to read events (${res.status}): ${await res.text()}`);
@@ -116,18 +112,16 @@ export async function handleReadSessionEvents(input: {
 
 export const readSessionDigestInputSchema = {
   sessionId: z.string().min(1).describe('Session ID to read digest from'),
-  userId: z.string().optional().describe('User identity for thread ownership (defaults to default-user)'),
 };
 
 export async function handleReadSessionDigest(input: {
   sessionId: string;
-  userId?: string | undefined;
 }): Promise<ToolResult> {
   const url = `${API_URL}/api/sessions/${input.sessionId}/digest`;
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId(input.userId) },
+      headers: { 'x-cat-cafe-user': resolveToolUserId() },
     });
     if (!res.ok) {
       if (res.status === 404) {
@@ -150,7 +144,6 @@ export const sessionSearchInputSchema = {
   cats: z.string().optional().describe('Comma-separated cat IDs to filter'),
   limit: z.number().int().min(1).max(50).optional().describe('Max results (default 10)'),
   scope: z.enum(['digests', 'transcripts', 'both']).optional().describe('Search scope (default both)'),
-  userId: z.string().optional().describe('User identity for thread ownership (defaults to default-user)'),
 };
 
 export async function handleSessionSearch(input: {
@@ -159,7 +152,6 @@ export async function handleSessionSearch(input: {
   cats?: string | undefined;
   limit?: number | undefined;
   scope?: string | undefined;
-  userId?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.cats) params.set('cats', input.cats);
@@ -170,7 +162,7 @@ export async function handleSessionSearch(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': resolveToolUserId(input.userId) },
+      headers: { 'x-cat-cafe-user': resolveToolUserId() },
     });
     if (!res.ok) {
       return errorResult(`Search failed (${res.status}): ${await res.text()}`);
