@@ -13,6 +13,7 @@ import { useToastStore } from '@/stores/toastStore';
 import {
   handleBackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
+  cleanupDroppedActiveTerminalBackgroundStream,
   type BackgroundAgentMessage,
 } from '../useSocket-background';
 
@@ -378,7 +379,7 @@ describe('background thread socket handling', () => {
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
     });
 
-    it('suppressed active terminal event must not clear background ref', () => {
+    it('suppressed active terminal event clears stale ref and prevents next invocation merge', () => {
       const now = Date.now();
       const streamKey = 'thread-bg::codex';
 
@@ -390,20 +391,42 @@ describe('background thread socket handling', () => {
         timestamp: now,
       });
       expect(testBgStreamRefs.has(streamKey)).toBe(true);
+      const firstMessageId = testBgStreamRefs.get(streamKey)?.id;
+      expect(firstMessageId).toBeDefined();
 
-      // Simulate active-thread terminal event that was suppressed by ChatContainer (not consumed).
-      clearBackgroundStreamRefForActiveEvent(
+      // Simulate active-thread terminal event dropped by ChatContainer suppression window.
+      cleanupDroppedActiveTerminalBackgroundStream(
         {
           type: 'done',
           catId: 'codex',
           threadId: 'thread-bg',
           timestamp: now + 1,
         },
-        testBgStreamRefs,
-        false
+        {
+          store: useChatStore.getState(),
+          bgStreamRefs: testBgStreamRefs,
+        }
       );
 
-      expect(testBgStreamRefs.has(streamKey)).toBe(true);
+      const stateAfterDrop = useChatStore.getState().getThreadState('thread-bg');
+      const firstMessageAfterDrop = stateAfterDrop.messages.find((m) => m.id === firstMessageId);
+      expect(firstMessageAfterDrop?.isStreaming).toBe(false);
+      expect(testBgStreamRefs.has(streamKey)).toBe(false);
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'new invocation',
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      const first = ts.messages.find((m) => m.id === firstMessageId);
+      const second = ts.messages.find((m) => m.id !== firstMessageId);
+      expect(ts.messages).toHaveLength(2);
+      expect(first?.content).toBe('partial');
+      expect(second?.content).toBe('new invocation');
     });
   });
 });
