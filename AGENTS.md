@@ -94,15 +94,43 @@ docs/tasks/codex-tasks.md
 
 ### 2.1 角色切换自检（缅因猫铁律）
 
+<EXTREMELY_IMPORTANT>
+**当你在写代码或修 bug 时，你是 author，不是 reviewer。此时你必须遵守 `CLAUDE.md` 中的所有开发流程规则。**
+
+CLAUDE.md 是项目的权威开发流程文档。它定义了 worktree 使用、commit 纪律、合入铁律、PR 创建等所有猫（包括你）必须遵守的规则。**不要因为你平时的角色是 reviewer 就跳过这些流程。**
+
+**写代码前必读**：`CLAUDE.md` §9 (Worktree)、§5 (Commit 纪律)、合入铁律
+</EXTREMELY_IMPORTANT>
+
 **当你发现自己在写/修改实现代码（而不是在 review 别人的代码）时，立即自检：**
 
-1. ✅ 我开了 worktree 吗？（AGENTS.md §11: 非 trivial 改动必须 worktree 隔离）
-2. ✅ 我的代码谁来 review？（答案：布偶猫。用 `cat-cafe-requesting-review` skill）
-3. ✅ 我走 merge gate 了吗？（`merge-approval-gate` 适用于**所有猫**，包括你自己）
+1. ✅ 我读了 CLAUDE.md 的开发流程规则吗？（**写代码 = 遵守 CLAUDE.md**，没有例外）
+2. ✅ 我开了 worktree 吗？（CLAUDE.md §9: 任何代码修改必须 worktree 隔离，不管大小）
+3. ✅ 我的代码谁来 review？（答案：布偶猫。用 `cat-cafe-requesting-review` skill）
+4. ✅ 我走 merge gate 了吗？（`merge-approval-gate` 适用于**所有猫**，包括你自己）
+5. ✅ 我拿到 reviewer 放行了才开 PR 吗？（见下方 §2.2）
 
-**禁止**：以"我是 reviewer 所以我的代码不需要被 review"为由跳过流程。reviewer 写的代码和 author 写的代码一样需要被审查。
+**禁止**：
+- 以"我是 reviewer 所以我的代码不需要被 review"为由跳过流程
+- 以"改动很小"为由直接 commit 到 main
+- 以"我确定是对的"为由跳过 peer review
 
 > 教训来源：2026-02-14 缅因猫修 background stream chunk bug 时直接在 main 上 commit 了 5 文件 +244 行，没开 worktree、没请 review、没走 merge gate。根因是 AGENTS.md 原有 review 体系只定义了缅因猫审别人，没有说缅因猫自己也要被审。
+
+### 2.2 PR 创建前置条件（铁律 2026-02-15）
+
+**创建 PR (`gh pr create`) 之前必须满足以下全部条件：**
+
+1. 代码在 worktree 分支完成（不是 main）
+2. 已请求本地 peer review（缅因猫 → 找布偶猫 review）
+3. **布偶猫明确放行**（"放行"/"0 P1 0 P2"/"approved" 等明确表述）
+4. 放行后才能开 PR
+
+**未经 reviewer 放行就开 PR = SOP 违规。**
+
+push 分支到 remote 可以提前做（备份目的），但 PR 是合入请求，必须在 reviewer 放行之后才能创建。
+
+> 教训来源：2026-02-15 缅因猫修 thread switch stream drop bug 时，review fix 还没等布偶猫 R2 放行就 push remote + 开 PR。铲屎官震怒。
 
 ### 3. 审查检查点
 
