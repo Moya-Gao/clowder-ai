@@ -375,6 +375,9 @@ export async function* routeSerial(
       }
       if (msg.type === 'error') {
         hadError = true;
+        if (msg.error) {
+          textContent += (textContent ? '\n\n' : '') + `❌ ${msg.error}`;
+        }
       }
       if (msg.metadata && !firstMetadata) {
         firstMetadata = msg.metadata;
@@ -657,6 +660,10 @@ export async function* routeParallel(
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
+      if (msg.error) {
+        const prev = catText.get(msg.catId) ?? '';
+        catText.set(msg.catId, prev + (prev ? '\n\n' : '') + `❌ ${msg.error}`);
+      }
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);

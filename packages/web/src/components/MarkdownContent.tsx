@@ -2,6 +2,7 @@
 
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { Children, type ReactNode } from 'react';
 import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
 
@@ -112,7 +113,7 @@ export function MarkdownContent({ content, className }: Props) {
   return (
     <div className={`markdown-content text-sm ${className ?? ''}`}>
       {cmdMatch && <span className="font-semibold text-indigo-500">{cmdMatch[1]}</span>}
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>
         {md}
       </ReactMarkdown>
     </div>
