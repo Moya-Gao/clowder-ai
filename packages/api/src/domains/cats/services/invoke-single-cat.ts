@@ -89,6 +89,7 @@ export async function* invokeSingleCat(
     CAT_CAFE_API_URL: apiUrl,
     CAT_CAFE_INVOCATION_ID: invocationId,
     CAT_CAFE_CALLBACK_TOKEN: callbackToken,
+    CAT_CAFE_USER_ID: userId,
   };
 
   const auditLog = getEventAuditLog();
