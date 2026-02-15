@@ -76,27 +76,10 @@ function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): b
 
 export function clearBackgroundStreamRefForActiveEvent(
   msg: ActiveRoutedAgentMessage,
-  bgStreamRefs: Map<string, BackgroundStreamRef>,
-  handled = true
+  bgStreamRefs: Map<string, BackgroundStreamRef>
 ): void {
-  if (!handled) return;
   if (!shouldClearBackgroundRefOnActiveEvent(msg) || !msg.threadId) return;
   bgStreamRefs.delete(`${msg.threadId}::${msg.catId}`);
-}
-
-export function cleanupDroppedActiveTerminalBackgroundStream(
-  msg: ActiveRoutedAgentMessage,
-  options: Pick<HandleBackgroundMessageOptions, 'store' | 'bgStreamRefs'>
-): void {
-  if (!shouldClearBackgroundRefOnActiveEvent(msg) || !msg.threadId) return;
-  const streamKey = `${msg.threadId}::${msg.catId}`;
-  const existing = options.bgStreamRefs.get(streamKey);
-  if (!existing) return;
-
-  // If a terminal active event is intentionally dropped during thread-switch suppression,
-  // close and clear tracked background state to prevent cross-invocation message merges.
-  options.store.setThreadMessageStreaming(msg.threadId, existing.id, false);
-  options.bgStreamRefs.delete(streamKey);
 }
 
 function stopTrackedStream(

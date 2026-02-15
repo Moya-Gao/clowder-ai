@@ -9,7 +9,6 @@ import { useToastStore } from '@/stores/toastStore';
 import {
   handleBackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
-  cleanupDroppedActiveTerminalBackgroundStream,
   type BackgroundAgentMessage,
 } from './useSocket-background';
 
@@ -40,7 +39,7 @@ interface SocketIoEngineLike {
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
 
 export interface SocketCallbacks {
-  onMessage: (msg: AgentMessage) => boolean | void;
+  onMessage: (msg: AgentMessage) => void;
   onThreadUpdated?: (data: { threadId: string; title: string }) => void;
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
   onTaskCreated?: (task: Record<string, unknown>) => void;
@@ -119,14 +118,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
-        const handled = callbacks.onMessage(msg);
-        if (handled === false) {
-          cleanupDroppedActiveTerminalBackgroundStream(msg, {
-            store: useChatStore.getState(),
-            bgStreamRefs: bgStreamRefsRef.current,
-          });
-          return;
-        }
+        callbacks.onMessage(msg);
         clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         return;
       }

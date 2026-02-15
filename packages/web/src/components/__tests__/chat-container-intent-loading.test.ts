@@ -10,11 +10,12 @@ const mockSetIntentMode = vi.fn();
 const mockSetTargetCats = vi.fn();
 const mockSetCurrentThread = vi.fn();
 const mockClearUnread = vi.fn();
+const mockHandleAgentMessage = vi.fn();
 
 let capturedSocketCallbacks:
   | {
       onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
-      onMessage?: (msg: unknown) => void;
+      onMessage?: (msg: unknown) => boolean | void;
     }
   | null = null;
 
@@ -80,7 +81,7 @@ vi.mock('@/hooks/useSocket', () => ({
 
 vi.mock('@/hooks/useAgentMessages', () => ({
   useAgentMessages: () => ({
-    handleAgentMessage: vi.fn(),
+    handleAgentMessage: mockHandleAgentMessage,
     handleStop: vi.fn(),
     resetRefs: vi.fn(),
     resetTimeout: vi.fn(),
@@ -146,6 +147,7 @@ describe('ChatContainer intent_mode loading lock', () => {
     mockSetTargetCats.mockClear();
     mockSetCurrentThread.mockClear();
     mockClearUnread.mockClear();
+    mockHandleAgentMessage.mockClear();
   });
 
   afterEach(() => {
@@ -223,5 +225,27 @@ describe('ChatContainer intent_mode loading lock', () => {
     expect(mockSetLoading).not.toHaveBeenCalled();
     expect(mockSetIntentMode).not.toHaveBeenCalled();
     expect(mockSetTargetCats).not.toHaveBeenCalled();
+  });
+
+  it('does not drop onMessage during thread switch suppression window', () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-1' }));
+    });
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-2' }));
+    });
+
+    expect(capturedSocketCallbacks?.onMessage).toBeTruthy();
+
+    capturedSocketCallbacks?.onMessage?.({
+      type: 'text',
+      catId: 'codex',
+      threadId: 'thread-2',
+      content: 'hello',
+      timestamp: Date.now(),
+    });
+
+    expect(mockHandleAgentMessage).toHaveBeenCalledTimes(1);
   });
 });

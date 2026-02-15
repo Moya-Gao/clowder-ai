@@ -111,26 +111,17 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     };
   }, [tasks]);
 
-  // P2 fix: suppress stale socket messages during thread switch window.
-  // Set true synchronously when threadId changes; cleared after room switch completes.
-  // Ref is stable across renders, so useMemo closures can read .current at call time.
-  const suppressMessagesRef = useRef(false);
-
   // Sync URL-driven threadId to store (store is follower, URL is source of truth)
   // setCurrentThread saves old thread state to map, restores new thread state.
   const prevThreadRef = useRef(threadId);
   useEffect(() => {
     if (prevThreadRef.current !== threadId) {
-      // Suppress socket messages during the switch window
-      suppressMessagesRef.current = true;
       // Thread switch: store saves/restores per-thread state automatically
       setCurrentThread(threadId);
       // Clean up non-thread-scoped refs
       resetRefs();
       clearTasks();
       prevThreadRef.current = threadId;
-      const timer = setTimeout(() => { suppressMessagesRef.current = false; }, 0);
-      return () => clearTimeout(timer);
     }
     // First mount — sync threadId to store without save/restore
     setCurrentThread(threadId);
@@ -139,7 +130,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // Socket callbacks
   const socketCallbacks = useMemo<SocketCallbacks>(() => ({
     onMessage: (msg) => {
-      if (suppressMessagesRef.current) return false;
       handleAgentMessage(msg);
       return true;
     },
