@@ -51,6 +51,16 @@ export interface CatVariant {
 }
 
 /**
+ * Per-cat feature flags.
+ * Controls which subsystems are enabled for each cat.
+ */
+export interface CatFeatures {
+  /** F24: Enable session chain (context health tracking, auto-seal, bootstrap).
+   *  Default: true. Set false for cats with inaccurate token stats (e.g. Gemini). */
+  readonly sessionChain?: boolean;
+}
+
+/**
  * A cat breed — the identity layer (name, avatar, color, role).
  * Each breed has one or more variants (model configs).
  */
@@ -67,6 +77,8 @@ export interface CatBreed {
   readonly roleDescription: string;
   readonly defaultVariantId: string;
   readonly variants: readonly CatVariant[];
+  /** Per-cat feature flags (optional, all features enabled by default) */
+  readonly features?: CatFeatures;
 }
 
 /**

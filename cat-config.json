@@ -76,6 +76,7 @@
       "color": { "primary": "#5B9BD5", "secondary": "#D6E9F8" },
       "mentionPatterns": ["@gemini", "@暹罗猫", "@暹罗", "@siamese", "@暄罗猫", "@暄罗"],
       "roleDescription": "视觉设计师和创意顾问，擅长 UI/UX 设计和视觉表达",
+      "features": { "sessionChain": false },
       "defaultVariantId": "gemini-default",
       "variants": [
         {

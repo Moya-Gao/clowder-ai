@@ -49,6 +49,10 @@ const catVariantSchema = z.object({
   contextBudget: contextBudgetSchema.optional(),
 });
 
+const catFeaturesSchema = z.object({
+  sessionChain: z.boolean().optional(),
+}).optional();
+
 const catBreedSchema = z.object({
   id: z.string().min(1),
   catId: z.enum(['opus', 'codex', 'gemini']),
@@ -60,6 +64,7 @@ const catBreedSchema = z.object({
   roleDescription: z.string().min(1),
   defaultVariantId: z.string().min(1),
   variants: z.array(catVariantSchema).min(1),
+  features: catFeaturesSchema,
 });
 
 const catCafeConfigSchema = z.object({
@@ -150,4 +155,45 @@ export function findBreedByMention(
     }
   }
   return undefined;
+}
+
+// ── F24 Feature Toggle ──────────────────────────────────────────────
+
+let _cachedConfig: CatCafeConfig | null = null;
+let _configLoadFailed = false;
+
+function getCachedConfig(): CatCafeConfig | null {
+  if (_configLoadFailed) return null;
+  if (!_cachedConfig) {
+    try {
+      _cachedConfig = loadCatConfig();
+    } catch (err) {
+      _configLoadFailed = true;
+      console.warn('[cat-config] Failed to load cat-config.json, F24 toggle will default to enabled:', err);
+      return null;
+    }
+  }
+  return _cachedConfig;
+}
+
+/**
+ * Check if F24 session chain is enabled for a cat.
+ * Returns true by default — only false when explicitly disabled in cat-config.json.
+ * Gracefully returns true if config file is unreadable (availability over strictness).
+ *
+ * @param catId - The cat to check (e.g. 'opus', 'codex', 'gemini')
+ * @param config - Optional config override (for testing)
+ */
+export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeConfig): boolean {
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return true; // Config unreadable → default enabled (Cloud P1 fix)
+  const breed = cfg.breeds.find((b) => b.catId === catId);
+  if (!breed) return true; // Unknown cat → default enabled
+  return breed.features?.sessionChain !== false;
+}
+
+/** Reset cached config (for testing) */
+export function _resetCachedConfig(): void {
+  _cachedConfig = null;
+  _configLoadFailed = false;
 }

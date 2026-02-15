@@ -528,19 +528,21 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'should fall back to inputTokens when lastTurnInputTokens is absent');
   });
 
-  it('F24: falls back to totalTokens for Gemini when inputTokens are unavailable', async () => {
+  it('F24: falls back to totalTokens when inputTokens are unavailable (totalTokens-only provider)', async () => {
+    // Use codex (sessionChain enabled) to test totalTokens fallback path.
+    // Previously used gemini, but gemini now has sessionChain=false so context_health is suppressed.
     const service = {
       async *invoke() {
         yield {
           type: 'done',
-          catId: 'gemini',
+          catId: 'codex',
           timestamp: Date.now(),
           metadata: {
-            provider: 'google',
-            model: 'gemini-2.5-pro',
+            provider: 'openai',
+            model: 'gpt-5.3-codex',
             usage: {
               totalTokens: 4200,
-              // Gemini CLI often only returns total_tokens in stats
+              // Simulate a provider that only returns total_tokens
             },
           },
         };
@@ -549,11 +551,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const deps = makeDeps();
     const msgs = await collect(invokeSingleCat(deps, {
-      catId: 'gemini',
+      catId: 'codex',
       service,
       prompt: 'test',
       userId: 'user1',
-      threadId: 'thread-f24-gemini-total',
+      threadId: 'thread-f24-total-fallback',
       isLastCat: true,
     }));
 
@@ -566,22 +568,22 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     assert.equal(healthInfos.length, 1, 'should emit context_health from totalTokens fallback');
     const payload = JSON.parse(healthInfos[0].content);
-    assert.equal(payload.catId, 'gemini');
+    assert.equal(payload.catId, 'codex');
     assert.equal(payload.health.usedTokens, 4200);
-    assert.equal(payload.health.windowTokens, 1000000);
     assert.equal(payload.health.source, 'approx');
   });
 
   it('F24: marks source as approx when usedTokens falls back to totalTokens despite exact window', async () => {
+    // Use codex (sessionChain enabled) to test approx source detection.
     const service = {
       async *invoke() {
         yield {
           type: 'done',
-          catId: 'gemini',
+          catId: 'codex',
           timestamp: Date.now(),
           metadata: {
-            provider: 'google',
-            model: 'gemini-2.5-pro',
+            provider: 'openai',
+            model: 'gpt-5.3-codex',
             usage: {
               totalTokens: 3000,
               contextWindowSize: 1_000_000,
@@ -593,7 +595,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
     const deps = makeDeps();
     const msgs = await collect(invokeSingleCat(deps, {
-      catId: 'gemini',
+      catId: 'codex',
       service,
       prompt: 'test',
       userId: 'user1',
@@ -1077,6 +1079,106 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(invokeCount, 1);
     assert.equal(optionsSeen[0].sessionId, 'cli-new',
       'must use active record cliSessionId (authoritative), not stale sessionManager value');
+  });
+
+  it('F24 toggle: gemini (sessionChain=false) skips SessionRecord creation and seal check', async () => {
+    let sessionRecordCreated = false;
+    let sealChecked = false;
+    let transcriptWritten = false;
+
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'gemini', sessionId: 'gem-sess-1', timestamp: Date.now() };
+        yield { type: 'text', catId: 'gemini', content: 'hello', timestamp: Date.now() };
+        yield {
+          type: 'done', catId: 'gemini', timestamp: Date.now(),
+          metadata: {
+            usage: { totalTokens: 500000, contextWindowSize: 1000000 },
+            model: 'gemini-3-pro',
+          },
+        };
+      },
+    };
+
+    const chainStore = {
+      getChain: async () => [],
+      getActive: async () => null,
+      create: async () => { sessionRecordCreated = true; return { id: 'sr1', seq: 0, status: 'active', catId: 'gemini' }; },
+      update: async () => null,
+    };
+    const sealer = {
+      requestSeal: async () => { sealChecked = true; return { accepted: false }; },
+      finalize: async () => {},
+    };
+    const writer = {
+      appendEvent: () => { transcriptWritten = true; },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: chainStore,
+      sessionSealer: sealer,
+      transcriptWriter: writer,
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-toggle', isLastCat: true,
+    }));
+
+    assert.equal(sessionRecordCreated, false, 'should NOT create SessionRecord when sessionChain disabled');
+    assert.equal(sealChecked, false, 'should NOT check seal when sessionChain disabled');
+    assert.equal(transcriptWritten, false, 'should NOT write transcript when sessionChain disabled');
+
+    // R1 P1: context_health system_info should NOT be emitted when sessionChain is disabled
+    const contextHealthMsgs = msgs.filter(m =>
+      m.type === 'system_info' && m.content && m.content.includes('context_health'),
+    );
+    assert.equal(contextHealthMsgs.length, 0,
+      'should NOT emit context_health system_info when sessionChain disabled');
+
+    // sessionSeq should also not appear in session_started event
+    const sessionStartedMsgs = msgs.filter(m =>
+      m.type === 'system_info' && m.content && m.content.includes('session_started'),
+    );
+    for (const ssm of sessionStartedMsgs) {
+      const parsed = JSON.parse(ssm.content);
+      assert.equal(parsed.sessionSeq, undefined,
+        'session_started should NOT include sessionSeq when sessionChain disabled');
+    }
+  });
+
+  it('F24 toggle: opus (sessionChain=true by default) DOES create SessionRecord', async () => {
+    let sessionRecordCreated = false;
+
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'opus', sessionId: 'opus-sess-1', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const chainStore = {
+      getChain: async () => [],
+      getActive: async () => null,
+      create: async (input) => {
+        sessionRecordCreated = true;
+        return { id: 'sr2', seq: 0, status: 'active', catId: input.catId, cliSessionId: input.cliSessionId };
+      },
+      update: async () => null,
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: chainStore,
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-toggle-on', isLastCat: true,
+    }));
+
+    assert.equal(sessionRecordCreated, true, 'should create SessionRecord when sessionChain enabled');
   });
 
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {

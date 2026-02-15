@@ -22,6 +22,7 @@ import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
 import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
 import { shouldSeal, getSealConfig } from '../../../config/seal-thresholds.js';
+import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
 
 function isMissingClaudeSessionError(message: string | undefined): boolean {
   if (!message) return false;
@@ -131,7 +132,8 @@ export async function* invokeSingleCat(
     // R11 P1-1: When active record exists, its cliSessionId is the authoritative value.
     // sessionManager.get() may return a stale value if session_init updated the record
     // but sessionManager wasn't re-written. Always align to the active record.
-    if (sessionId && deps.sessionChainStore) {
+    const sessionChainActive = isSessionChainEnabled(catId);
+    if (sessionId && deps.sessionChainStore && sessionChainActive) {
       try {
         const chain = await deps.sessionChainStore.getChain(catId, threadId);
         if (chain.length > 0) {
@@ -198,7 +200,7 @@ export async function* invokeSingleCat(
         }
 
         // F24: Ensure SessionRecord exists for this session
-        if (deps.sessionChainStore) {
+        if (deps.sessionChainStore && sessionChainActive) {
           try {
             const existing = await deps.sessionChainStore.getActive(catId, threadId);
             if (existing) {
@@ -226,7 +228,7 @@ export async function* invokeSingleCat(
         // Push session info as system_info for frontend status panel
         // Include sessionSeq if SessionChainStore is available
         let sessionSeq: number | undefined;
-        if (deps.sessionChainStore) {
+        if (deps.sessionChainStore && sessionChainActive) {
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
             sessionSeq = activeRec != null ? activeRec.seq + 1 : undefined;
@@ -294,94 +296,96 @@ export async function* invokeSingleCat(
             timestamp: Date.now(),
           });
 
-          // F24: Compute and emit context health
-          // Use lastTurnInputTokens (per-API-call) for accurate context fill,
-          // then fallback to aggregated inputTokens, and finally totalTokens
-          // for providers (Gemini CLI) that only expose a total count.
-          const windowSize = msg.metadata.usage.contextWindowSize
-            ?? getContextWindowFallback(msg.metadata.model ?? '');
-          const usedFrom = msg.metadata.usage.lastTurnInputTokens != null
-            ? 'last_turn'
-            : (msg.metadata.usage.inputTokens != null
-              ? 'input'
-              : (msg.metadata.usage.totalTokens != null ? 'total' : null));
-          const usedTokens = usedFrom === 'last_turn'
-            ? msg.metadata.usage.lastTurnInputTokens!
-            : (usedFrom === 'input'
-              ? msg.metadata.usage.inputTokens!
-              : (usedFrom === 'total' ? msg.metadata.usage.totalTokens! : 0));
-          if (windowSize && usedTokens > 0) {
-            const source: ContextHealth['source'] = (
-              msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total'
-            ) ? 'exact' : 'approx';
-            const health: ContextHealth = {
-              usedTokens,
-              windowTokens: windowSize,
-              fillRatio: Math.min(usedTokens / windowSize, 1.0),
-              source,
-              measuredAt: Date.now(),
-            };
-            // Update SessionRecord (best-effort)
-            if (deps.sessionChainStore) {
-              try {
-                const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
-                if (activeRecord) {
-                  await deps.sessionChainStore.update(activeRecord.id, {
-                    contextHealth: health,
-                    updatedAt: Date.now(),
-                  });
-                }
-              } catch { /* best-effort */ }
-            }
-            outputs.push({
-              type: 'system_info' as const,
-              catId,
-              content: JSON.stringify({ type: 'context_health', catId, health }),
-              timestamp: Date.now(),
-            });
-
-            // F24 Phase B: Check seal threshold after context health update
-            if (deps.sessionSealer && deps.sessionChainStore) {
-              try {
-                const catName = catId === 'opus' ? 'opus'
-                  : catId === 'codex' ? 'codex'
-                  : catId === 'gemini' ? 'gemini'
-                  : 'opus';
-                const sealConfig = getSealConfig(catName);
-                if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
+          // F24: Compute and emit context health (only when session chain is enabled)
+          if (sessionChainActive) {
+            // Use lastTurnInputTokens (per-API-call) for accurate context fill,
+            // then fallback to aggregated inputTokens, and finally totalTokens
+            // for providers (Gemini CLI) that only expose a total count.
+            const windowSize = msg.metadata.usage.contextWindowSize
+              ?? getContextWindowFallback(msg.metadata.model ?? '');
+            const usedFrom = msg.metadata.usage.lastTurnInputTokens != null
+              ? 'last_turn'
+              : (msg.metadata.usage.inputTokens != null
+                ? 'input'
+                : (msg.metadata.usage.totalTokens != null ? 'total' : null));
+            const usedTokens = usedFrom === 'last_turn'
+              ? msg.metadata.usage.lastTurnInputTokens!
+              : (usedFrom === 'input'
+                ? msg.metadata.usage.inputTokens!
+                : (usedFrom === 'total' ? msg.metadata.usage.totalTokens! : 0));
+            if (windowSize && usedTokens > 0) {
+              const source: ContextHealth['source'] = (
+                msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total'
+              ) ? 'exact' : 'approx';
+              const health: ContextHealth = {
+                usedTokens,
+                windowTokens: windowSize,
+                fillRatio: Math.min(usedTokens / windowSize, 1.0),
+                source,
+                measuredAt: Date.now(),
+              };
+              // Update SessionRecord (best-effort)
+              if (deps.sessionChainStore) {
+                try {
                   const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
                   if (activeRecord) {
-                    const sealResult = await deps.sessionSealer.requestSeal({
-                      sessionId: activeRecord.id,
-                      reason: 'threshold',
+                    await deps.sessionChainStore.update(activeRecord.id, {
+                      contextHealth: health,
+                      updatedAt: Date.now(),
                     });
-                    if (sealResult.accepted) {
-                      // Immediately clear persisted CLI session — requestSeal accepted
-                      // means session is now 'sealing' and must not be --resumed (R7 P1)
-                      sessionManager.delete(userId, catId, threadId).catch(() => {
-                        // best-effort: delete failure doesn't break invocation
+                  }
+                } catch { /* best-effort */ }
+              }
+              outputs.push({
+                type: 'system_info' as const,
+                catId,
+                content: JSON.stringify({ type: 'context_health', catId, health }),
+                timestamp: Date.now(),
+              });
+
+              // F24 Phase B: Check seal threshold after context health update
+              if (deps.sessionSealer && deps.sessionChainStore) {
+                try {
+                  const catName = catId === 'opus' ? 'opus'
+                    : catId === 'codex' ? 'codex'
+                    : catId === 'gemini' ? 'gemini'
+                    : 'opus';
+                  const sealConfig = getSealConfig(catName);
+                  if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
+                    const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                    if (activeRecord) {
+                      const sealResult = await deps.sessionSealer.requestSeal({
+                        sessionId: activeRecord.id,
+                        reason: 'threshold',
                       });
-                      outputs.push({
-                        type: 'system_info' as const,
-                        catId,
-                        content: JSON.stringify({
-                          type: 'session_seal_requested',
+                      if (sealResult.accepted) {
+                        // Immediately clear persisted CLI session — requestSeal accepted
+                        // means session is now 'sealing' and must not be --resumed (R7 P1)
+                        sessionManager.delete(userId, catId, threadId).catch(() => {
+                          // best-effort: delete failure doesn't break invocation
+                        });
+                        outputs.push({
+                          type: 'system_info' as const,
                           catId,
-                          sessionId: activeRecord.id,
-                          sessionSeq: activeRecord.seq + 1,
-                          reason: 'threshold',
-                          healthSnapshot: health,
-                        }),
-                        timestamp: Date.now(),
-                      });
-                      // Background finalize (don't block message yield)
-                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
-                        // best-effort: finalize failure doesn't break invocation
-                      });
+                          content: JSON.stringify({
+                            type: 'session_seal_requested',
+                            catId,
+                            sessionId: activeRecord.id,
+                            sessionSeq: activeRecord.seq + 1,
+                            reason: 'threshold',
+                            healthSnapshot: health,
+                          }),
+                          timestamp: Date.now(),
+                        });
+                        // Background finalize (don't block message yield)
+                        deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
+                          // best-effort: finalize failure doesn't break invocation
+                        });
+                      }
                     }
                   }
-                }
-              } catch { /* best-effort: seal failure doesn't break invocation */ }
+                } catch { /* best-effort: seal failure doesn't break invocation */ }
+              }
             }
           }
         }
@@ -392,7 +396,7 @@ export async function* invokeSingleCat(
       }
 
       // F24 Phase C: Record event to transcript buffer (best-effort)
-      if (deps.transcriptWriter && deps.sessionChainStore) {
+      if (deps.transcriptWriter && deps.sessionChainStore && sessionChainActive) {
         try {
           const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
           if (activeRec) {

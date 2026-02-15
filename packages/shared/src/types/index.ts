@@ -44,6 +44,7 @@ export type {
   ContextBudget,
   CliConfig,
   CatVariant,
+  CatFeatures,
   CatBreed,
   CatCafeConfig,
 } from './cat-breed.js';

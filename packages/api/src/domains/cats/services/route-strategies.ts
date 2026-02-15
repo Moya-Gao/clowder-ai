@@ -24,6 +24,7 @@ import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
 import { hasImageContentBlocks } from '../../../utils/image-content-blocks.js';
 import { buildSessionBootstrap } from './SessionBootstrap.js';
+import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -275,7 +276,7 @@ export async function* routeSerial(
 
     // F24 Phase E: Bootstrap context for Session #2+
     let bootstrapContext = '';
-    if (deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
+    if (isSessionChainEnabled(catId) && deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
       try {
         const bootstrap = await buildSessionBootstrap(
           {
@@ -548,7 +549,7 @@ export async function* routeParallel(
 
     // F24 Phase E: Bootstrap context for Session #2+
     let bootstrapCtx = '';
-    if (deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
+    if (isSessionChainEnabled(catId) && deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
       try {
         const bootstrap = await buildSessionBootstrap(
           {

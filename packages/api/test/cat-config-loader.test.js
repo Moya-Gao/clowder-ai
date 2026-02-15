@@ -4,7 +4,7 @@ import { writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const { loadCatConfig, getDefaultVariant, toFlatConfigs, findBreedByMention } =
+const { loadCatConfig, getDefaultVariant, toFlatConfigs, findBreedByMention, isSessionChainEnabled, _resetCachedConfig } =
   await import('../dist/config/cat-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
@@ -199,6 +199,65 @@ describe('cat-config-loader', () => {
       const config = loadCatConfig(path);
       const result = findBreedByMention(config, '你好世界');
       assert.equal(result, undefined);
+    });
+  });
+
+  describe('isSessionChainEnabled', () => {
+    it('returns true by default (no features field)', () => {
+      const config = loadCatConfig(writeTempConfig(validConfig()));
+      assert.equal(isSessionChainEnabled('opus', config), true);
+    });
+
+    it('returns true when features.sessionChain is true', () => {
+      const cfg = validConfig();
+      cfg.breeds[0].features = { sessionChain: true };
+      const config = loadCatConfig(writeTempConfig(cfg));
+      assert.equal(isSessionChainEnabled('opus', config), true);
+    });
+
+    it('returns false when features.sessionChain is explicitly false', () => {
+      const cfg = validConfig();
+      cfg.breeds[0].features = { sessionChain: false };
+      const config = loadCatConfig(writeTempConfig(cfg));
+      assert.equal(isSessionChainEnabled('opus', config), false);
+    });
+
+    it('returns true for unknown catId (not in config)', () => {
+      const config = loadCatConfig(writeTempConfig(validConfig()));
+      assert.equal(isSessionChainEnabled('unknown-cat', config), true);
+    });
+
+    it('loads project config for gemini (sessionChain: false in cat-config.json)', () => {
+      // Uses the actual project cat-config.json
+      const config = loadCatConfig();
+      assert.equal(isSessionChainEnabled('gemini', config), false);
+      assert.equal(isSessionChainEnabled('opus', config), true);
+      assert.equal(isSessionChainEnabled('codex', config), true);
+    });
+
+    it('accepts features with empty object (all defaults)', () => {
+      const cfg = validConfig();
+      cfg.breeds[0].features = {};
+      const config = loadCatConfig(writeTempConfig(cfg));
+      assert.equal(isSessionChainEnabled('opus', config), true);
+    });
+
+    it('Cloud P1: gracefully returns true when config file is missing (no throw)', () => {
+      const saved = process.env.CAT_CONFIG_PATH;
+      process.env.CAT_CONFIG_PATH = '/tmp/nonexistent-cat-config-12345.json';
+      _resetCachedConfig();
+      try {
+        // Should NOT throw — should fallback to default (true)
+        const result = isSessionChainEnabled('codex');
+        assert.equal(result, true, 'should return true (default) when config is unreadable');
+      } finally {
+        if (saved === undefined) {
+          delete process.env.CAT_CONFIG_PATH;
+        } else {
+          process.env.CAT_CONFIG_PATH = saved;
+        }
+        _resetCachedConfig();
+      }
     });
   });
 });
