@@ -244,6 +244,8 @@ jq -n --arg msg "${SEAL_MSG}⚠️ Context 即将被压缩。F24 已保存 sessi
 
 INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
+API_PORT="${API_SERVER_PORT:-3002}"
+HOOK_TOKEN="${CAT_CAFE_HOOK_TOKEN:-}"
 STATE_FILE="/tmp/cat-cafe-opus-compact-state-${SESSION_ID}.json"
 
 if [ ! -f "$STATE_FILE" ]; then
