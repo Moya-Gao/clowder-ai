@@ -32,6 +32,7 @@ import type { IMessageStore } from './MessageStore.js';
 import type { IThreadStore } from './ThreadStore.js';
 import type { AgentMessage, AgentService } from './types.js';
 import type { ISessionChainStore } from './SessionChainStore.js';
+import type { TranscriptWriter } from './TranscriptWriter.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -76,6 +77,8 @@ export interface AgentRouterOptions {
   threadStore?: IThreadStore;
   /** F24: Session chain store for context health tracking */
   sessionChainStore?: ISessionChainStore;
+  /** F24 Phase C: Transcript writer for event recording */
+  transcriptWriter?: TranscriptWriter;
 }
 
 /**
@@ -89,6 +92,7 @@ export class AgentRouter {
   private deliveryCursorStore: DeliveryCursorStore;
   private threadStore: IThreadStore | null;
   private sessionChainStore: ISessionChainStore | undefined;
+  private transcriptWriter: TranscriptWriter | undefined;
 
   constructor(options: AgentRouterOptions) {
     this.services = {
@@ -102,6 +106,7 @@ export class AgentRouter {
     this.deliveryCursorStore = options.deliveryCursorStore ?? new DeliveryCursorStore(options.sessionStore);
     this.threadStore = options.threadStore ?? null;
     this.sessionChainStore = options.sessionChainStore;
+    this.transcriptWriter = options.transcriptWriter;
   }
 
   /** Parse message for @ mentions and return ordered list of cat IDs */
@@ -177,6 +182,7 @@ export class AgentRouter {
         threadStore: this.threadStore,
         apiUrl: `http://127.0.0.1:${apiPort}`,
         ...(this.sessionChainStore ? { sessionChainStore: this.sessionChainStore } : {}),
+        ...(this.transcriptWriter ? { transcriptWriter: this.transcriptWriter } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

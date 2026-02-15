@@ -53,3 +53,15 @@ export {
   handleReflect,
   reflectTools,
 } from './reflect-tools.js';
+
+export {
+  listSessionChainInputSchema,
+  readSessionEventsInputSchema,
+  readSessionDigestInputSchema,
+  sessionSearchInputSchema,
+  handleListSessionChain,
+  handleReadSessionEvents,
+  handleReadSessionDigest,
+  handleSessionSearch,
+  sessionChainTools,
+} from './session-chain-tools.js';
