@@ -127,6 +127,8 @@ interface ChatState {
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
+  appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
+  setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
@@ -326,6 +328,60 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             messages: [...existing.messages, msg],
             unreadCount: existing.unreadCount + 1,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Append chunk content to a specific message in a specific thread. */
+  appendToThreadMessage: (threadId, messageId, content) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return {
+          messages: state.messages.map((m) =>
+            m.id === messageId ? { ...m, content: m.content + content } : m
+          ),
+        };
+      }
+
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: existing.messages.map((m) =>
+              m.id === messageId ? { ...m, content: m.content + content } : m
+            ),
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Update isStreaming for a specific message in a specific thread. */
+  setThreadMessageStreaming: (threadId, messageId, streaming) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return {
+          messages: state.messages.map((m) =>
+            m.id === messageId ? { ...m, isStreaming: streaming } : m
+          ),
+        };
+      }
+
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: existing.messages.map((m) =>
+              m.id === messageId ? { ...m, isStreaming: streaming } : m
+            ),
             lastActivity: Date.now(),
           },
         },

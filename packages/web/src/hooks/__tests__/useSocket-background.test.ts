@@ -13,6 +13,7 @@ import { useToastStore } from '@/stores/toastStore';
 
 /** Monotonic counter matching useSocket.ts bgSeq */
 let testBgSeq = 0;
+const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();
 
 /**
  * Simulates the background-thread branch of the agent_message handler.
@@ -31,14 +32,30 @@ function simulateBackgroundMessage(msg: {
   const store = useChatStore.getState();
 
   if (msg.type === 'text' && msg.content) {
-    store.addMessageToThread(msg.threadId, {
-      id: `bg-${msg.timestamp}-${msg.catId}-${testBgSeq++}`,
-      type: 'assistant',
-      catId: msg.catId,
-      content: msg.content,
-      ...(msg.metadata ? { metadata: msg.metadata } : {}),
-      timestamp: msg.timestamp,
-    });
+    const streamKey = `${msg.threadId}::${msg.catId}`;
+    const existing = testBgStreamRefs.get(streamKey);
+    let messageId = existing?.id;
+    if (messageId) {
+      store.appendToThreadMessage(msg.threadId, messageId, msg.content);
+    } else {
+      messageId = `bg-${msg.timestamp}-${msg.catId}-${testBgSeq++}`;
+      testBgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+      store.addMessageToThread(msg.threadId, {
+        id: messageId,
+        type: 'assistant',
+        catId: msg.catId,
+        content: msg.content,
+        ...(msg.metadata ? { metadata: msg.metadata } : {}),
+        timestamp: msg.timestamp,
+        isStreaming: !msg.isFinal,
+      });
+    }
+    if (msg.isFinal) {
+      store.setThreadMessageStreaming(msg.threadId, messageId, false);
+      testBgStreamRefs.delete(streamKey);
+    } else {
+      store.setThreadMessageStreaming(msg.threadId, messageId, true);
+    }
     store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
     if (msg.isFinal) {
       store.clearThreadActiveInvocation(msg.threadId);
@@ -51,6 +68,12 @@ function simulateBackgroundMessage(msg: {
       });
     }
   } else if (msg.type === 'error') {
+    const streamKey = `${msg.threadId}::${msg.catId}`;
+    const existing = testBgStreamRefs.get(streamKey);
+    if (existing) {
+      store.setThreadMessageStreaming(msg.threadId, existing.id, false);
+      testBgStreamRefs.delete(streamKey);
+    }
     store.addMessageToThread(msg.threadId, {
       id: `bg-err-${msg.timestamp}-${msg.catId}-${testBgSeq++}`,
       type: 'system',
@@ -70,6 +93,12 @@ function simulateBackgroundMessage(msg: {
       duration: 8000,
     });
   } else if (msg.type === 'done') {
+    const streamKey = `${msg.threadId}::${msg.catId}`;
+    const existing = testBgStreamRefs.get(streamKey);
+    if (existing) {
+      store.setThreadMessageStreaming(msg.threadId, existing.id, false);
+      testBgStreamRefs.delete(streamKey);
+    }
     // P1-2 fix: handle explicit done events from backend
     // P1-3 fix: don't overwrite error status with success
     const currentStatus = store.getThreadState(msg.threadId).catStatuses[msg.catId];
@@ -118,6 +147,7 @@ describe('background thread socket handling', () => {
     });
     useToastStore.setState({ toasts: [] });
     testBgSeq = 0;
+    testBgStreamRefs.clear();
   });
 
   describe('P1-2: done event handling', () => {
@@ -240,7 +270,7 @@ describe('background thread socket handling', () => {
   });
 
   describe('P2: message ID uniqueness', () => {
-    it('multiple chunks in same ms should not collide', () => {
+    it('same timestamp but different cats still create separate messages', () => {
       const now = Date.now();
 
       simulateBackgroundMessage({
@@ -253,17 +283,43 @@ describe('background thread socket handling', () => {
 
       simulateBackgroundMessage({
         type: 'text',
-        catId: 'opus',
+        catId: 'codex',
         threadId: 'thread-bg',
         content: 'chunk 2',
         timestamp: now, // Same ms!
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
-      // Both chunks should be stored (not deduplicated)
+      // Different cats should produce different messages even with same timestamp
       expect(ts.messages).toHaveLength(2);
       expect(ts.messages[0].content).toBe('chunk 1');
       expect(ts.messages[1].content).toBe('chunk 2');
+    });
+  });
+
+  describe('regression: background stream chunk merging', () => {
+    it('merges text chunks from same cat/thread into one assistant message', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: '你',
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: '好',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('你好');
     });
   });
 });
