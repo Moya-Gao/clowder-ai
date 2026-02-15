@@ -16,9 +16,9 @@
       ↓
 ④ Merge Approval Gate（检查放行信号）
       ↓
-⑤ 合入 main + push + 清理 worktree
+⑤ 开 PR + 触发云端 review（异步）
       ↓
-⑥ 开 PR + 云端 review
+⑥ 合入 main + push + 清理 worktree
 ```
 
 ---
@@ -83,49 +83,65 @@
 
 ---
 
-### Step 5: 合入 main + Push + 清理 Worktree
+### Step 5: 开 PR + 触发云端 Review
 
 **触发**: merge-approval-gate 通过后
-**无专属 skill**（步骤内嵌于 merge-approval-gate）
+**Skill**: `requesting-cloud-review`
 
 ```bash
 # 5a. 收敛 commit（squash/fixup review follow-up 零碎提交）
 git fetch origin
 git rebase -i --autosquash origin/main
 
-# 5b. 合入 main
+# 5b. Push feature branch 到 origin（PR 需要远程分支）
+git push origin {branch} --force-with-lease
+
+# 5c. 开 PR（此时 feature 和 main 有 diff，PR 可成立）
+gh pr create --base main --head {branch} --title "..." --body "..."
+
+# 5d. 触发云端 review（异步，不等结果继续 Step 6）
+gh pr comment {PR_NUMBER} --body "@codex review ..."
+```
+
+**冲突处理**: rebase 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
+**云端 review 是异步守护**：不 block Step 6，结果出来后有 P1 则 fix forward
+
+**→ 下一步**: PR 创建后立即进入 Step 6
+
+---
+
+### Step 6: 合入 main + Push + 清理
+
+**触发**: Step 5 完成后（不等云端 review 结果）
+
+```bash
+# 6a. 回到主仓目录
+cd /Users/lysander/projects/relay-station/cat-cafe
+
+# 6b. 合入 main（ff-only 保持 commit hash 一致，PR 会自动关闭）
 git checkout main
 git merge --ff-only {branch}
 
-# 5c. Push（⚠️ 必须在清理 worktree 之前！）
+# 6c. Push main（⚠️ 必须在清理 worktree 之前！）
 git push origin main
 
-# 5d. 回到主仓目录，清理 worktree
-cd /Users/lysander/projects/relay-station/cat-cafe
+# 6d. 清理 worktree + 远程分支
 git worktree remove ../cat-cafe-{feature-name}
 git branch -d {branch-name}
+git push origin --delete {branch}
 git worktree prune
 ```
 
-**冲突处理**: 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
+**PR 自动关闭**: `--ff-only` merge 保持 commit hash 不变，push main 后 GitHub 检测到 PR 的 commits 已在 main 中，PR 自动标记为 merged。
 
-**→ 下一步**: 清理完成 → Step 6
-
----
-
-### Step 6: 开 PR + 云端 Review
-
-**触发**: 合入 main 并 push 后
-**Skill**: `requesting-cloud-review`
-
-- `gh pr create` 开 PR（含五件套 + 测试证据）
-- PR comment 中 `@codex review` 触发云端 Codex
-- 云端 P1/P2 有复现证据 → 修复后重新触发
-- 云端 P1/P2 无复现证据 → 降级 P3，留 comment 说明
+**云端 review 后续**: Cloud Codex 结果出来后：
+- 0 P1/P2 → 无需操作
+- 有 P1/P2（附复现证据）→ 开新分支 fix forward
+- 有 P1/P2（无复现证据）→ 降级 P3，留 comment 说明
 
 ---
 
-## 例外路径：跳过 Step 6（开 PR）
+## 例外路径：跳过 Step 5（开 PR）
 
 以下**三个条件必须全部满足**（缺一不可）：
 
@@ -160,7 +176,7 @@ git worktree prune
 | 发 review 请求给别的猫 | `cat-cafe-requesting-review` | Step 3a |
 | 收到 review 意见要处理 | `cat-cafe-receiving-review` | Step 3b |
 | Reviewer 放行，准备合入 | `merge-approval-gate` | Step 4 |
-| 合入完成，要开 PR | `requesting-cloud-review` | Step 6 |
+| 放行后开 PR + 云端 review | `requesting-cloud-review` | Step 5 |
 | 不确定整体流程 | **先看本文档** | — |
 | 交接/传话给别的猫 | `cross-cat-handoff` | 任意时刻 |
 | 声称"完成了" | `verification-before-completion` | 任意时刻 |

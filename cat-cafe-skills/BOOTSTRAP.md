@@ -38,7 +38,7 @@
 ## 关键规则
 
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **完整开发流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）
+2. **完整开发流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）
 3. **合入 main 前必须经过 reviewer 确认**（见 merge-approval-gate）
 4. **交接必须包含五件套**：What/Why/Tradeoff/Open Questions/Next Action
 5. **Review 修复后必须回给 reviewer 确认**（不能自己判断"改对了"直接合入）

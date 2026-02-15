@@ -10,7 +10,7 @@
 
 ## What
 
-创建统一的 `docs/SOP.md` 作为开发全流程（6 步：worktree → 自检 → review → merge gate → 合入 → PR）的唯一权威来源，并让所有猫指引和 skill 文件引用它，消除散弹式重复。
+创建统一的 `docs/SOP.md` 作为开发全流程（6 步：worktree → 自检 → review → merge gate → PR → 合入）的唯一权威来源，并让所有猫指引和 skill 文件引用它，消除散弹式重复。
 
 改动清单（1 新建 + 11 修改）：
 
@@ -21,7 +21,7 @@
 | `finishing-a-development-branch` | **重点改动** — 加 Cat Cafe 守卫 (Step 2.5 review check + Option 1/2 后续步骤) |
 | `CLAUDE.md` | 去重，rules 2/4/5 合并为"见 SOP.md"摘要 |
 | `AGENTS.md` | rules 5/6 合并简化 + 目录结构加 SOP.md |
-| `GEMINI.md` | **新增 Rule 5**: 合入后开 PR（之前完全缺失！）+ 目录结构加 SOP.md |
+| `GEMINI.md` | **新增 Rule 5**: Gate 通过后先开 PR 再合入（之前完全缺失！）+ 目录结构加 SOP.md |
 | `BOOTSTRAP.md` / `docs/README.md` | 加 SOP.md 条目 |
 
 ## Why

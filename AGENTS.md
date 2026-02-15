@@ -15,7 +15,7 @@ cat ~/.codex/skills/{skill-name}/SKILL.md
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）。以下为摘要，冲突时以 SOP.md 为准
+2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）。以下为摘要，冲突时以 SOP.md 为准
 3. **Review 必须 Red→Green**：先写失败测试，再提修复意见
 4. **P1/P2 不留存**：必须在当前迭代修完
 5. **交接必须包含五件套**（`cross-cat-handoff`）
@@ -96,11 +96,11 @@ docs/tasks/codex-tasks.md
 ### 2.1 角色切换自检（缅因猫铁律）
 
 <EXTREMELY_IMPORTANT>
-**当你在写代码或修 bug 时，你是 author，不是 reviewer。此时你必须遵守 `CLAUDE.md` 中的所有开发流程规则。**
+**当你在写代码或修 bug 时，你是 author，不是 reviewer。此时你必须遵守开发全流程。**
 
-CLAUDE.md 是项目的权威开发流程文档。它定义了 worktree 使用、commit 纪律、合入铁律、PR 创建等所有猫（包括你）必须遵守的规则。**不要因为你平时的角色是 reviewer 就跳过这些流程。**
+`docs/SOP.md` 是项目的权威开发流程文档（6 步：worktree → 自检 → review → merge gate → PR → 合入）。所有猫（包括你）必须遵守。操作细节（worktree 命名、Redis 隔离等）见 `CLAUDE.md` 对应章节。**不要因为你平时的角色是 reviewer 就跳过这些流程。**
 
-**写代码前必读**：`CLAUDE.md` §9 (Worktree)、§5 (Commit 纪律)、合入铁律
+**写代码前必读**：`docs/SOP.md`（完整流程）、`CLAUDE.md` §9 (Worktree)、§5 (Commit 纪律)
 </EXTREMELY_IMPORTANT>
 
 **当你发现自己在写/修改实现代码（而不是在 review 别人的代码）时，立即自检：**
@@ -119,6 +119,8 @@ CLAUDE.md 是项目的权威开发流程文档。它定义了 worktree 使用、
 > 教训来源：2026-02-14 缅因猫修 background stream chunk bug 时直接在 main 上 commit 了 5 文件 +244 行，没开 worktree、没请 review、没走 merge gate。根因是 AGENTS.md 原有 review 体系只定义了缅因猫审别人，没有说缅因猫自己也要被审。
 
 ### 2.2 PR 创建前置条件（铁律 2026-02-15）
+
+> 本规则是 `docs/SOP.md` Step 5 在缅因猫侧的强化版。完整流程见 SOP.md。
 
 **创建 PR (`gh pr create`) 之前必须满足以下全部条件：**
 

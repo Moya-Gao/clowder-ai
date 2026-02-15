@@ -4,7 +4,7 @@ description: Blocks code merge to main without explicit reviewer approval. Use w
 ---
 
 > **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 4 的执行细节。
-> **上一步**: `cat-cafe-receiving-review` (Step 3b) | **下一步**: 合入 + 清理 (Step 5) → `requesting-cloud-review` (Step 6)
+> **上一步**: `cat-cafe-receiving-review` (Step 3b) | **下一步**: `requesting-cloud-review` (Step 5) → 合入 + 清理 (Step 6)
 
 # Merge Approval Gate
 
@@ -125,14 +125,12 @@ P1/P2 状态: 全部已修复并确认
 
 可以执行合入流程。
 
-合入步骤：
-1. git fetch origin && git rebase origin/main
-2. 解决冲突（如有）
-3. git checkout main && git merge --ff-only {branch}
-4. git push origin main
-5. 清理 worktree
-6. 开 PR + 云端 review → 使用 `requesting-cloud-review` skill
-   （例外：铲屎官明确同意跳过的小优化可以不开 PR）
+后续步骤（按 SOP Step 5 → 6 顺序执行）：
+1. 收敛 commit：git rebase -i --autosquash origin/main
+2. 开 PR + 云端 review → 使用 `requesting-cloud-review` skill（SOP Step 5）
+   （例外：铲屎官明确同意跳过时可不开 PR，标准见 SOP.md 例外路径）
+3. 合入 main：git checkout main && git merge --ff-only {branch}
+4. push main + 清理 worktree（SOP Step 6）
 ```
 
 ## 常见错误
@@ -144,35 +142,37 @@ P1/P2 状态: 全部已修复并确认
 | 用历史 review 放行 | 混淆不同工作的 review | 确认是当前工作的 review |
 | 只修 P1 不修 P2 | 觉得 P2 是小问题 | P1 和 P2 都必须修 |
 
-## 合入后必须做
+## Gate 通过后必须做（按顺序）
 
-### Step A: 立即清理 worktree
+### Step A: 开 PR + 触发云端 Review（SOP Step 5，默认必须）
+
+Gate 通过后，**先使用 `requesting-cloud-review` skill** push feature branch、开 PR 并触发云端 Codex review。
+
+**例外规则**：跳过 PR 需同时满足三条件，详见 `docs/SOP.md` "例外路径"。
+
+### Step B: 合入 main + 清理（SOP Step 6）
+
+PR 创建后**立即合入**（不等云端 review 结果）：
 
 ```bash
-# 1. 删除 worktree
+# 1. 合入 main
+git checkout main && git merge --ff-only {branch}
+
+# 2. Push main（⚠️ 必须在清理 worktree 之前！）
+git push origin main
+
+# 3. 清理 worktree + 远程分支
 git worktree remove ../cat-cafe-{feature-name}
-
-# 2. 删除已合入分支
 git branch -d {branch-name}
-
-# 3. 清理悬空引用
+git push origin --delete {branch}
 git worktree prune
 ```
 
-### Step B: 开 PR + 云端 Review（默认必须）
-
-清理完 worktree 后，**必须接着使用 `requesting-cloud-review` skill** 开 PR 并触发云端 Codex review。
-
-**例外规则**：以下情况可以跳过 PR，但**必须铲屎官在当前对话中明确同意**：
-- 纯文档修改（docs、comments、README）
-- 2-3 行的小优化/小修复
-- 铲屎官明确说"不需要提 PR"或"直接合就行"
-
-**判断标准**：如果不确定是否需要开 PR，默认开 PR。宁可多一层守护，不可少一层。
+**PR 自动关闭**: `--ff-only` merge 保持 commit hash 不变，push main 后 PR 自动标记为 merged。
 
 ## 相关规则
 
-- `requesting-cloud-review` — 合入后开 PR + 触发云端 Codex review
+- `requesting-cloud-review` — 开 PR + 触发云端 Codex review（SOP Step 5，在合入前执行）
 - `finishing-a-development-branch` — 开发分支收尾选项
 - CLAUDE.md 第 9 条：Worktree 使用与清理
 - docs/mailbox/：review 信存放位置

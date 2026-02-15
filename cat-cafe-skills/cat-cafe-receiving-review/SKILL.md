@@ -238,7 +238,7 @@ pnpm test:redis: 42 passed, 0 failed
 ## Workflow Position
 
 本 skill 在 SOP 流程中的位置：
-`cat-cafe-requesting-review` (Step 3a) → **本 skill (Step 3b)** → reviewer 放行 → `merge-approval-gate` (Step 4) → 合入 → `requesting-cloud-review` (Step 6)
+`cat-cafe-requesting-review` (Step 3a) → **本 skill (Step 3b)** → reviewer 放行 → `merge-approval-gate` (Step 4) → `requesting-cloud-review` (Step 5) → 合入 (Step 6)
 
 完整流程见 `docs/SOP.md`。
 

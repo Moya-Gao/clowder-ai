@@ -10,10 +10,10 @@
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）。以下为摘要，冲突时以 SOP.md 为准
+2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）。以下为摘要，冲突时以 SOP.md 为准
 3. **合入 main 前必须经缅因猫 review 确认**（`merge-approval-gate`）
 4. **交接必须包含五件套**（`cross-cat-handoff`）
-5. **合入 main 后必须开 PR + 云端 review**（`requesting-cloud-review`）
+5. **Gate 通过后先开 PR + 云端 review，再合入 main**（`requesting-cloud-review` → 合入，详见 SOP Step 5→6）
 6. **任何代码修改都必须开 git worktree**（`using-git-worktrees`）
 
 **核心 Skills**：

@@ -10,7 +10,7 @@
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）。以下为摘要，冲突时以 SOP.md 为准
+2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）。以下为摘要，冲突时以 SOP.md 为准
 3. **交接必须包含五件套**（`cross-cat-handoff`）
 4. **任何猫都不能 review 自己的代码**——布偶猫找缅因猫，缅因猫找布偶猫
 

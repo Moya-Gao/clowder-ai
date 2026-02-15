@@ -3,8 +3,8 @@ name: requesting-cloud-review
 description: Use when creating a PR after local review passes, when merging to main and pushing to remote, or when ready to trigger cloud Codex review. Triggers on "开 PR", "create PR", "gh pr create", "云端 review", "cloud review", "@codex review".
 ---
 
-> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 6 的执行细节。
-> **上一步**: `merge-approval-gate` (Step 4) → 合入 + 清理 (Step 5) | **下一步**: 无（流程完成）
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 5 的执行细节。
+> **上一步**: `merge-approval-gate` (Step 4) | **下一步**: 合入 + 清理 (Step 6，流程完成)
 
 # Requesting Cloud Review (PR + Cloud Codex)
 
@@ -15,8 +15,8 @@ description: Use when creating a PR after local review passes, when merging to m
 ## When to Use
 
 - 本地缅因猫 review 已放行（merge-approval-gate 通过）
-- 代码已合入 main 或准备合入
-- 需要推到 remote 并开 PR 触发云端守护
+- 代码**尚未合入 main**（在 feature branch 上开 PR，合入在 Step 6）
+- 需要 push feature branch 并开 PR 触发云端守护
 
 ## Pre-flight Check
 
@@ -36,10 +36,15 @@ BEFORE 开 PR:
    - 有红 → STOP，先修
 ```
 
-## Step 1: Push to Remote
+## Step 1: 收敛 Commit + Push Feature Branch
 
 ```bash
-git push origin main
+# 收敛 review follow-up 零碎提交
+git fetch origin
+git rebase -i --autosquash origin/main
+
+# Push feature branch（不是 main！PR 需要远程分支有 diff）
+git push origin {branch} --force-with-lease
 ```
 
 ## Step 2: Create PR
@@ -81,7 +86,7 @@ pnpm -r --if-present run build         # 成功
 ---
 
 **本地 Review**: [x] 缅因猫 (砚砚) 已 review 并放行
-**云端 Review**: 合入后 comment `@codex review` 触发云端 Codex 守护
+**云端 Review**: PR 创建后 comment `@codex review` 触发云端 Codex 守护（异步，不 block 合入）
 
 <!-- 猫猫签名: [布偶猫🐾] / [缅因猫🐾] / [暹罗猫🐾] -->
 EOF
@@ -142,8 +147,8 @@ EOF
 
 | 结果 | 动作 |
 |------|------|
-| 0 P1/P2 | 直接 merge PR |
-| 有 P1/P2（附复现证据） | 修复 → push → 重新触发 `@codex review` |
+| 0 P1/P2 | 无需操作（PR 已通过 ff-only merge 自动关闭） |
+| 有 P1/P2（附复现证据） | 开新分支 fix forward → 走 SOP Step 1-6 |
 | 有 P1/P2（无复现证据） | 降级为 P3，可忽略，留 comment 说明 |
 | 误报 | 留 comment 解释为什么是误报 |
 
@@ -158,9 +163,9 @@ EOF
 
 ## Related Skills (Workflow Chain)
 
-- `merge-approval-gate` — **前置 skill**，合入 main 后会自动链到本 skill
+- `merge-approval-gate` — **前置 skill**，Gate 通过后链到本 skill
 - `cat-cafe-requesting-review` — 本地 review 请求
 - `cat-cafe-receiving-review` — 处理 review 反馈
 - `finishing-a-development-branch` — 开发分支收尾选项
 
-> **Workflow**: `cat-cafe-requesting-review` → review cycles → `merge-approval-gate` → 合入 + 清理 → **`requesting-cloud-review`** (本 skill)
+> **Workflow**: `cat-cafe-requesting-review` → review cycles → `merge-approval-gate` → **`requesting-cloud-review`** (本 skill, SOP Step 5) → 合入 + 清理 (SOP Step 6)

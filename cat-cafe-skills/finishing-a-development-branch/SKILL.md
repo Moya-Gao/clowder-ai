@@ -3,8 +3,8 @@ name: finishing-a-development-branch
 description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
 ---
 
-> **SOP 位置**: 本 skill 是开发分支收尾的通用工具。在 Cat Cafe 中，对应 `docs/SOP.md` Step 5 及周边流程。
-> **上一步**: `merge-approval-gate` (Step 4) | **下一步**: `requesting-cloud-review` (Step 6)
+> **SOP 位置**: 本 skill 是开发分支收尾的通用工具。在 Cat Cafe 中，对应 `docs/SOP.md` Step 5-6（PR + 合入）。
+> **上一步**: `merge-approval-gate` (Step 4) | **下一步**: `requesting-cloud-review` (Step 5) → 合入 (Step 6)
 
 # Finishing a Development Branch
 
@@ -59,12 +59,17 @@ BEFORE presenting options:
 1. HAS_REVIEW: 已完成 review 流程？
    - 检查 docs/mailbox/ 是否有当前分支的 review 信 + 放行确认
    - YES → 可以呈现 Option 1 (Merge Locally)
-   - NO → BLOCK Option 1
+   - NO → BLOCK Option 1 AND Option 2
 
 2. 如果 review 未完成:
    "在 Cat Cafe 中，合入 main 前必须经过 peer review。
    请先使用 `cat-cafe-requesting-review` skill 请求 review。
    完整流程见 `docs/SOP.md`。"
+
+3. Option 2 在 Cat Cafe 中的含义:
+   - Cat Cafe 的 PR 不是合入手段，而是云端 review 手段（SOP Step 5）
+   - 如果 review 已放行：重定向到 `requesting-cloud-review` skill
+   - 如果 review 未放行：BLOCK（同 Option 1）
 ```
 
 ### Step 3: Present Options
@@ -109,17 +114,20 @@ git branch -d <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
-**Cat Cafe 后续步骤**（合入 main 后必须执行）：
-1. `git push origin main`（必须在清理 worktree 之前！）
-2. 清理 worktree (Step 5)
-3. 使用 `requesting-cloud-review` skill 开 PR + 云端 review
+**Cat Cafe 注意**：在 Cat Cafe 中，上方通用的 merge 流程被 SOP 替代。按 `docs/SOP.md` Step 5 → 6 顺序执行：
+1. **先开 PR**：使用 `requesting-cloud-review` skill push feature branch + 开 PR + 触发云端 review（SOP Step 5）
    （例外：铲屎官明确同意跳过时可不开 PR，判断标准见 `docs/SOP.md` 例外路径）
+2. **再合入 main**：`git checkout main && git merge --ff-only {branch}`
+3. **push main**（必须在清理 worktree 之前！）：`git push origin main`
+4. **清理 worktree** (Step 5 of this skill)
 
 #### Option 2: Push and Create PR
 
-**Cat Cafe 注意**: 在 Cat Cafe 中，PR 是合入 main **后**的云端 review 手段，不是合入手段。
-如果你还没完成本地 review + merge gate，请先走 `docs/SOP.md` Step 2-5。
-如果你已合入 main 并在执行 SOP Step 6，请直接使用 `requesting-cloud-review` skill。
+**Cat Cafe: BLOCKED** — 在 Cat Cafe 中，Option 2 被重定向：
+- **Review 已放行？** → 请使用 `requesting-cloud-review` skill（SOP Step 5），它有完整的 PR 模板和云端 review 触发流程。不要直接 `gh pr create`。
+- **Review 未放行？** → 请先走 `docs/SOP.md` Step 2-4 完成本地 review。
+
+以下为非 Cat Cafe 项目的通用流程：
 
 ```bash
 # Push branch
@@ -234,5 +242,5 @@ git worktree remove <worktree-path>
 - **merge-approval-gate** - Cat Cafe: must pass before Option 1
 - **requesting-cloud-review** - Cat Cafe: must follow after Option 1
 
-**SOP**: In Cat Cafe, this skill's Option 1 corresponds to `docs/SOP.md` Step 5.
-Full workflow: Step 2 → Step 3 (review) → Step 4 (gate) → **Step 5 (this skill)** → Step 6 (PR)
+**SOP**: In Cat Cafe, this skill's Option 1 corresponds to `docs/SOP.md` Step 6.
+Full workflow: Step 2 → Step 3 (review) → Step 4 (gate) → Step 5 (PR) → **Step 6 (this skill's Option 1)**
