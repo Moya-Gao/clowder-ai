@@ -392,6 +392,8 @@ describe('multipart image target routing', () => {
     assert.equal(res.statusCode, 200);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(routeExecutionCalls.length, 1);
+    // P1 regression guard: targetCats must match router resolution, not be overridden to codex
+    assert.deepEqual(routeExecutionCalls[0].targetCats, ['opus'], 'image message should route to the resolved target cat, not forced to codex');
     assert.equal(routeExecutionCalls[0].uploadDir, uploadDir);
     assert.ok(Array.isArray(routeExecutionCalls[0].contentBlocks), 'routeExecution should receive contentBlocks');
     assert.ok(
