@@ -4,33 +4,47 @@ import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 
+const mockAddMessage = vi.fn();
+const mockAppendToMessage = vi.fn();
+const mockAppendToolEvent = vi.fn();
+const mockSetStreaming = vi.fn();
 const mockSetLoading = vi.fn();
 const mockSetHasActiveInvocation = vi.fn();
 const mockSetIntentMode = vi.fn();
+const mockSetCatStatus = vi.fn();
 const mockClearCatStatuses = vi.fn();
+const mockSetCatInvocation = vi.fn();
+const mockSetMessageUsage = vi.fn();
+const mockSetPendingModeSwitchProposal = vi.fn();
+
+const storeState = {
+  messages: [] as Array<{ id: string; type: string; catId?: string; content: string; isStreaming?: boolean; timestamp: number }>,
+  addMessage: mockAddMessage,
+  appendToMessage: mockAppendToMessage,
+  appendToolEvent: mockAppendToolEvent,
+  setStreaming: mockSetStreaming,
+  setLoading: mockSetLoading,
+  setHasActiveInvocation: mockSetHasActiveInvocation,
+  setIntentMode: mockSetIntentMode,
+  setCatStatus: mockSetCatStatus,
+  clearCatStatuses: mockClearCatStatuses,
+  setCatInvocation: mockSetCatInvocation,
+  setMessageUsage: mockSetMessageUsage,
+  setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
+  currentThreadId: 'thread-1',
+};
 
 let captured:
   | ReturnType<typeof useAgentMessages>
   | undefined;
 
 vi.mock('@/stores/chatStore', () => {
-  const makeState = () => ({
-    addMessage: vi.fn(),
-    appendToMessage: vi.fn(),
-    appendToolEvent: vi.fn(),
-    setStreaming: vi.fn(),
-    setLoading: mockSetLoading,
-    setHasActiveInvocation: mockSetHasActiveInvocation,
-    setIntentMode: mockSetIntentMode,
-    setCatStatus: vi.fn(),
-    clearCatStatuses: mockClearCatStatuses,
-    setCatInvocation: vi.fn(),
-    setMessageUsage: vi.fn(),
-    setPendingModeSwitchProposal: vi.fn(),
-    currentThreadId: 'thread-1',
-  });
+  const useChatStoreMock = Object.assign(
+    () => storeState,
+    { getState: () => storeState }
+  );
   return {
-    useChatStore: () => makeState(),
+    useChatStore: useChatStoreMock,
   };
 });
 
@@ -58,10 +72,19 @@ describe('useAgentMessages loading lifecycle', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     captured = undefined;
+    storeState.messages = [];
+    mockAddMessage.mockClear();
+    mockAppendToMessage.mockClear();
+    mockAppendToolEvent.mockClear();
+    mockSetStreaming.mockClear();
     mockSetLoading.mockClear();
     mockSetHasActiveInvocation.mockClear();
     mockSetIntentMode.mockClear();
+    mockSetCatStatus.mockClear();
     mockClearCatStatuses.mockClear();
+    mockSetCatInvocation.mockClear();
+    mockSetMessageUsage.mockClear();
+    mockSetPendingModeSwitchProposal.mockClear();
   });
 
   afterEach(() => {
@@ -108,5 +131,31 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetLoading).toHaveBeenCalledWith(false);
     expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(false);
     expect(mockSetIntentMode).toHaveBeenCalledWith(null);
+  });
+
+  it('closes existing streaming bubble on done even when activeRefs are empty', () => {
+    storeState.messages = [
+      {
+        id: 'bg-msg-1',
+        type: 'assistant',
+        catId: 'codex',
+        content: 'partial',
+        isStreaming: true,
+        timestamp: Date.now(),
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'done',
+        catId: 'codex',
+      });
+    });
+
+    expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-1', false);
   });
 });
