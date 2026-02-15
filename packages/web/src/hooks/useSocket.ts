@@ -6,7 +6,11 @@ import { getUserId } from '@/utils/userId';
 import { API_URL } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import { handleBackgroundAgentMessage, type BackgroundAgentMessage } from './useSocket-background';
+import {
+  handleBackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  type BackgroundAgentMessage,
+} from './useSocket-background';
 
 interface AgentMessage {
   type: string;
@@ -111,11 +115,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     socket.on('agent_message', (msg: AgentMessage) => {
       const currentThread = threadIdRef.current;
-      const bgStreamKey = msg.threadId ? `${msg.threadId}::${msg.catId}` : null;
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
-        if (bgStreamKey) bgStreamRefsRef.current.delete(bgStreamKey);
+        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         callbacks.onMessage(msg);
         return;
       }

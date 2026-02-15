@@ -46,7 +46,6 @@ function safeJsonPreview(value: unknown, maxLength: number): string {
  */
 export function useAgentMessages() {
   const {
-    messages,
     addMessage,
     appendToMessage,
     appendToolEvent,
@@ -105,14 +104,15 @@ export function useAgentMessages() {
   }, []);
 
   const findStreamingMessageId = useCallback((catId: string): string | null => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i];
+    const currentMessages = useChatStore.getState().messages;
+    for (let i = currentMessages.length - 1; i >= 0; i--) {
+      const msg = currentMessages[i];
       if (msg.type === 'assistant' && msg.catId === catId && msg.isStreaming) {
         return msg.id;
       }
     }
     return null;
-  }, [messages]);
+  }, []);
 
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {

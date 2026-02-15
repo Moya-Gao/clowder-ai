@@ -49,6 +49,13 @@ export interface HandleBackgroundMessageOptions {
   addToast: (toast: BackgroundToastInput) => void;
 }
 
+export type ActiveRoutedAgentMessage = {
+  type: string;
+  catId: string;
+  threadId?: string;
+  isFinal?: boolean;
+};
+
 const STATUS_MAP: Record<string, CatStatusType> = {
   streaming: 'streaming',
   thinking: 'pending',
@@ -57,6 +64,21 @@ const STATUS_MAP: Record<string, CatStatusType> = {
 
 function getStreamKey(msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>): string {
   return `${msg.threadId}::${msg.catId}`;
+}
+
+function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): boolean {
+  if (!msg.threadId) return false;
+  if (msg.type === 'done' || msg.type === 'error') return true;
+  if (msg.type === 'text' && msg.isFinal) return true;
+  return false;
+}
+
+export function clearBackgroundStreamRefForActiveEvent(
+  msg: ActiveRoutedAgentMessage,
+  bgStreamRefs: Map<string, BackgroundStreamRef>
+): void {
+  if (!shouldClearBackgroundRefOnActiveEvent(msg) || !msg.threadId) return;
+  bgStreamRefs.delete(`${msg.threadId}::${msg.catId}`);
 }
 
 function stopTrackedStream(

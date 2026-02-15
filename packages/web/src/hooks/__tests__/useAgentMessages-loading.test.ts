@@ -158,4 +158,30 @@ describe('useAgentMessages loading lifecycle', () => {
 
     expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-1', false);
   });
+
+  it('keeps handleAgentMessage stable when only messages change', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const firstHandler = captured?.handleAgentMessage;
+    expect(firstHandler).toBeTruthy();
+
+    storeState.messages = [
+      {
+        id: 'msg-new',
+        type: 'assistant',
+        catId: 'codex',
+        content: 'delta',
+        isStreaming: true,
+        timestamp: Date.now(),
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    expect(captured?.handleAgentMessage).toBe(firstHandler);
+  });
 });

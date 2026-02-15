@@ -10,7 +10,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-import { handleBackgroundAgentMessage, type BackgroundAgentMessage } from '../useSocket-background';
+import {
+  handleBackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  type BackgroundAgentMessage,
+} from '../useSocket-background';
 
 /** Monotonic counter matching useSocket.ts bgSeq */
 let testBgSeq = 0;
@@ -291,6 +295,44 @@ describe('background thread socket handling', () => {
         threadId: 'thread-bg',
         error: 'oops',
         timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      const merged = ts.messages.find((m) => m.id === messageId);
+      expect(merged?.isStreaming).toBe(false);
+      expect(testBgStreamRefs.has(streamKey)).toBe(false);
+    });
+
+    it('active non-terminal event must not clear background ref needed by later background done', () => {
+      const now = Date.now();
+      const streamKey = 'thread-bg::opus';
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'partial',
+        timestamp: now,
+      });
+
+      const messageId = testBgStreamRefs.get(streamKey)?.id;
+      expect(messageId).toBeDefined();
+
+      // Simulate thread became active and received non-terminal text chunk.
+      clearBackgroundStreamRefForActiveEvent({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'more',
+        timestamp: now + 1,
+      }, testBgStreamRefs);
+
+      // Switch away again; terminal done is now handled by background branch.
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        timestamp: now + 2,
       });
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
