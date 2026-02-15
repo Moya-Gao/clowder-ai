@@ -184,4 +184,31 @@ describe('useAgentMessages loading lifecycle', () => {
 
     expect(captured?.handleAgentMessage).toBe(firstHandler);
   });
+
+  it('closes existing streaming bubble on error even when activeRefs are empty', () => {
+    storeState.messages = [
+      {
+        id: 'bg-msg-err',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'partial',
+        isStreaming: true,
+        timestamp: Date.now(),
+      },
+    ];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'error',
+        catId: 'opus',
+        error: 'failed',
+      });
+    });
+
+    expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-err', false);
+  });
 });

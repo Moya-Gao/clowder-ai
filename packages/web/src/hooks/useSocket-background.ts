@@ -68,7 +68,8 @@ function getStreamKey(msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>): 
 
 function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): boolean {
   if (!msg.threadId) return false;
-  if (msg.type === 'done' || msg.type === 'error') return true;
+  if (msg.type === 'done') return true;
+  if (msg.type === 'error') return msg.isFinal === true;
   if (msg.type === 'text' && msg.isFinal) return true;
   return false;
 }

@@ -340,7 +340,13 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
-        const ref = activeRefs.current.get(msg.catId);
+        let ref = activeRefs.current.get(msg.catId);
+        if (!ref) {
+          const resumedId = findStreamingMessageId(msg.catId);
+          if (resumedId) {
+            ref = { id: resumedId, catId: msg.catId };
+          }
+        }
         if (ref) {
           setStreaming(ref.id, false);
           activeRefs.current.delete(msg.catId);

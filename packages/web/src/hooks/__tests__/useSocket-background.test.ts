@@ -340,5 +340,42 @@ describe('background thread socket handling', () => {
       expect(merged?.isStreaming).toBe(false);
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
     });
+
+    it('active non-final error must not clear background ref before terminal background event', () => {
+      const now = Date.now();
+      const streamKey = 'thread-bg::opus';
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'partial',
+        timestamp: now,
+      });
+
+      const messageId = testBgStreamRefs.get(streamKey)?.id;
+      expect(messageId).toBeDefined();
+
+      clearBackgroundStreamRefForActiveEvent({
+        type: 'error',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        error: 'transient',
+        isFinal: false,
+        timestamp: now + 1,
+      }, testBgStreamRefs);
+
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      const merged = ts.messages.find((m) => m.id === messageId);
+      expect(merged?.isStreaming).toBe(false);
+      expect(testBgStreamRefs.has(streamKey)).toBe(false);
+    });
   });
 });
