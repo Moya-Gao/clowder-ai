@@ -249,6 +249,58 @@ describe('TranscriptWriter', () => {
       assert.ok(digest.errors[0].message.includes('File not found'));
     });
 
+    test('R11 P1-2: extracts from AgentMessage fields (toolName/toolInput/error), not raw NDJSON (RED)', async () => {
+      // In production, appendEvent receives AgentMessage objects (cast to Record<string,unknown>).
+      // AgentMessage uses toolName/toolInput (not name/input) and type:'error'+error (not is_error+content).
+      // The digest extractor must read the correct fields.
+      const { TranscriptWriter } = await loadModules();
+      const writer = new TranscriptWriter({ dataDir: tmpDir });
+
+      // Real AgentMessage shape for tool_use (from ClaudeAgentService)
+      writer.appendEvent(SESSION_INFO, {
+        type: 'tool_use',
+        catId: 'opus',
+        toolName: 'Edit',
+        toolInput: { file_path: '/src/foo.ts' },
+        timestamp: Date.now(),
+      });
+      writer.appendEvent(SESSION_INFO, {
+        type: 'tool_use',
+        catId: 'opus',
+        toolName: 'Write',
+        toolInput: { file_path: '/src/bar.ts' },
+        timestamp: Date.now(),
+      });
+
+      // Real AgentMessage shape for error (type='error' + error field)
+      writer.appendEvent(SESSION_INFO, {
+        type: 'error',
+        catId: 'opus',
+        error: 'File not found: /src/missing.ts',
+        timestamp: Date.now(),
+      });
+
+      const digest = writer.generateExtractiveDigest(SESSION_INFO, {
+        createdAt: 1000,
+        sealedAt: 2000,
+      });
+
+      // Tool names must be extracted from toolName field
+      const allTools = digest.invocations.flatMap(inv => inv.toolNames ?? []);
+      assert.ok(allTools.includes('Edit'), 'digest must extract toolName="Edit" from AgentMessage');
+      assert.ok(allTools.includes('Write'), 'digest must extract toolName="Write" from AgentMessage');
+
+      // File paths must be extracted from toolInput field
+      const paths = digest.filesTouched.map(f => f.path);
+      assert.ok(paths.includes('/src/foo.ts'), 'digest must extract file_path from toolInput');
+      assert.ok(paths.includes('/src/bar.ts'), 'digest must extract file_path from toolInput');
+
+      // Errors must be extracted from type='error' messages
+      assert.ok(digest.errors.length >= 1, 'digest must extract errors from AgentMessage error type');
+      assert.ok(digest.errors[0].message.includes('File not found'),
+        'error message must come from AgentMessage.error field');
+    });
+
     test('writes digest.extractive.json during flush', async () => {
       const { TranscriptWriter } = await loadModules();
       const writer = new TranscriptWriter({ dataDir: tmpDir });

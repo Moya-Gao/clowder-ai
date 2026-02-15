@@ -127,6 +127,10 @@ export async function* invokeSingleCat(
     // sessionId to prevent --resume into a sealed session. This eliminates the race
     // window between fire-and-forget delete and next get().
     // Only applies when chain is non-empty (empty chain = fresh thread, keep sessionId).
+    //
+    // R11 P1-1: When active record exists, its cliSessionId is the authoritative value.
+    // sessionManager.get() may return a stale value if session_init updated the record
+    // but sessionManager wasn't re-written. Always align to the active record.
     if (sessionId && deps.sessionChainStore) {
       try {
         const chain = await deps.sessionChainStore.getChain(catId, threadId);
@@ -135,6 +139,9 @@ export async function* invokeSingleCat(
           if (!activeRec) {
             // Chain exists but no active session → previous was sealed; don't resume
             sessionId = undefined;
+          } else if (activeRec.cliSessionId && activeRec.cliSessionId !== sessionId) {
+            // Active record has a different cliSessionId — use the authoritative value
+            sessionId = activeRec.cliSessionId;
           }
         }
       } catch {

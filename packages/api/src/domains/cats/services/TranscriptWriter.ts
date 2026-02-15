@@ -192,14 +192,17 @@ export class TranscriptWriter {
     for (const entry of buf) {
       const evt = entry.event;
       const evtType = evt['type'];
-      const evtName = evt['name'];
+      // R11 P1-2: Support both AgentMessage fields (toolName/toolInput) and
+      // raw NDJSON fields (name/input). In production, appendEvent receives
+      // AgentMessage objects, which use toolName/toolInput.
+      const evtName = (evt['toolName'] ?? evt['name']) as string | undefined;
 
       // Tool use events
       if (evtType === 'tool_use' && typeof evtName === 'string') {
         toolNames.add(evtName);
 
-        // Extract file paths from tool input
-        const input = evt['input'] as Record<string, unknown> | undefined;
+        // Extract file paths from tool input (AgentMessage: toolInput, raw: input)
+        const input = (evt['toolInput'] ?? evt['input']) as Record<string, unknown> | undefined;
         if (input) {
           const filePath = (input['file_path'] ?? input['path']) as string | undefined;
           if (filePath && typeof filePath === 'string') {
@@ -211,7 +214,8 @@ export class TranscriptWriter {
         }
       }
 
-      // Error events
+      // Error events — AgentMessage uses type='error'+error field;
+      // raw NDJSON uses type='tool_result'+is_error+content
       if (evtType === 'tool_result' && evt['is_error']) {
         const evtContent = evt['content'];
         const message = typeof evtContent === 'string'
@@ -221,6 +225,13 @@ export class TranscriptWriter {
           at: entry.timestamp,
           ...(entry.invocationId !== undefined ? { invocationId: entry.invocationId } : {}),
           message: message.slice(0, 500),
+        });
+      }
+      if (evtType === 'error' && typeof evt['error'] === 'string') {
+        errors.push({
+          at: entry.timestamp,
+          ...(entry.invocationId !== undefined ? { invocationId: entry.invocationId } : {}),
+          message: (evt['error'] as string).slice(0, 500),
         });
       }
     }

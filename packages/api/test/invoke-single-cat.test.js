@@ -1030,6 +1030,55 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'getChain() failure must discard sessionId (fail-closed, R9 P1)');
   });
 
+  it('R11 P1-1: uses active record cliSessionId when it differs from sessionManager (RED)', async () => {
+    // Scenario: sessionManager.get() returns 'cli-old' but the active SessionRecord
+    // has cliSessionId='cli-new' (CLI restarted and session_init updated the record).
+    // The invocation must use 'cli-new' for --resume, not 'cli-old'.
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const activeRecord = {
+      id: 'rec-1', seq: 0, status: 'active',
+      cliSessionId: 'cli-new',
+      catId: 'opus', threadId: 'thread-align', userId: 'u1',
+    };
+
+    const chainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      get: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async () => activeRecord,
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: chainStore,
+      sessionManager: {
+        get: async () => 'cli-old',  // stale value — doesn't match active record
+        store: async () => {},
+        delete: async () => {},
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-align', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1);
+    assert.equal(optionsSeen[0].sessionId, 'cli-new',
+      'must use active record cliSessionId (authoritative), not stale sessionManager value');
+  });
+
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];
