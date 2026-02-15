@@ -138,4 +138,5 @@ export type {
   SessionRecord,
   ContextHealth,
   ContextHealthConfig,
+  SealResult,
 } from './session.js';

@@ -45,8 +45,21 @@ export interface ContextHealth {
 }
 
 export interface ContextHealthConfig {
-  /** Warning threshold (default 0.70) — frontend shows yellow */
+  /** Warning threshold — frontend shows yellow */
   warnThreshold: number;
-  /** Seal threshold (default 0.85) — triggers auto-seal (Phase B) */
+  /** Seal threshold — triggers auto-seal (Phase B) */
   sealThreshold: number;
+  /** Extra budget per turn (tokens) to prevent single-turn overflow */
+  turnBudget?: number;
+  /** Safety margin above turnBudget (tokens) */
+  safetyMargin?: number;
+}
+
+export interface SealResult {
+  /** Whether the seal request was accepted */
+  accepted: boolean;
+  /** Current status after the attempt */
+  status: SessionStatus;
+  /** Session ID that was sealed (if accepted) */
+  sessionId?: string;
 }
