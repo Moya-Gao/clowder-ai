@@ -26,6 +26,10 @@ import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { CliRawArchive } from './CliRawArchive.js';
 import { transformCodexEvent } from './codex-event-transform.js';
 import {
+  createCodexSessionContextSnapshotResolver,
+  type CodexSessionContextSnapshotResolver,
+} from './codex-session-context-snapshot.js';
+import {
   extractCommandExecutionLifecycle,
   sanitizeRawEvent,
 } from './codex-audit-hooks.js';
@@ -50,6 +54,8 @@ interface CodexAgentServiceOptions {
   auditLog?: AuditLogSink;
   /** Inject raw archive sink (for testing) */
   rawArchive?: RawArchiveSink;
+  /** Inject session context resolver (for testing) */
+  contextSnapshotResolver?: CodexSessionContextSnapshotResolver;
 }
 
 type CodexAuthMode = 'oauth' | 'api_key' | 'auto';
@@ -115,11 +121,13 @@ export class CodexAgentService implements AgentService {
   private readonly spawnFn: SpawnFn | undefined;
   private readonly auditLog: AuditLogSink;
   private readonly rawArchive: RawArchiveSink;
+  private readonly contextSnapshotResolver: CodexSessionContextSnapshotResolver;
 
   constructor(options?: CodexAgentServiceOptions) {
     this.spawnFn = options?.spawnFn;
     this.auditLog = options?.auditLog ?? getEventAuditLog();
     this.rawArchive = options?.rawArchive ?? new CliRawArchive();
+    this.contextSnapshotResolver = options?.contextSnapshotResolver ?? createCodexSessionContextSnapshotResolver();
   }
 
   async *invoke(
@@ -268,8 +276,9 @@ export class CodexAgentService implements AgentService {
               if (typeof u['input_tokens'] === 'number') usage.inputTokens = u['input_tokens'];
               if (typeof u['output_tokens'] === 'number') usage.outputTokens = u['output_tokens'];
               if (typeof u['cached_input_tokens'] === 'number') usage.cacheReadTokens = u['cached_input_tokens'];
-              // F24-fix: Set lastTurnInputTokens for context health.
-              // For Codex turn.completed, input_tokens should be per-turn context fill.
+              // F24-fallback: turn.completed is always available from codex exec --json.
+              // Note: Codex session token_count is a more accurate source for context fill;
+              // this value may be overwritten by contextSnapshotResolver when available.
               if (typeof u['input_tokens'] === 'number') usage.lastTurnInputTokens = u['input_tokens'];
               metadata.usage = usage;
             }
@@ -282,6 +291,38 @@ export class CodexAgentService implements AgentService {
             metadata.sessionId = result.sessionId;
           }
           yield { ...result, metadata };
+        }
+      }
+
+      if (metadata.sessionId) {
+        try {
+          const snapshot = await this.contextSnapshotResolver(metadata.sessionId);
+          if (snapshot) {
+            const usage: TokenUsage = metadata.usage ? { ...metadata.usage } : {};
+            usage.contextUsedTokens = snapshot.contextUsedTokens;
+            usage.contextWindowSize = snapshot.contextWindowTokens;
+            usage.lastTurnInputTokens = snapshot.contextUsedTokens;
+
+            if (snapshot.contextResetsAtMs != null) {
+              usage.contextResetsAtMs = snapshot.contextResetsAtMs;
+            }
+            if (usage.inputTokens == null && snapshot.totalInputTokens != null) {
+              usage.inputTokens = snapshot.totalInputTokens;
+            }
+            if (usage.cacheReadTokens == null && snapshot.totalCachedInputTokens != null) {
+              usage.cacheReadTokens = snapshot.totalCachedInputTokens;
+            }
+            if (usage.outputTokens == null && snapshot.totalOutputTokens != null) {
+              usage.outputTokens = snapshot.totalOutputTokens;
+            }
+
+            metadata.usage = usage;
+          }
+        } catch (err) {
+          console.warn('[codex] failed to resolve session context snapshot', {
+            sessionId: metadata.sessionId,
+            err,
+          });
         }
       }
 

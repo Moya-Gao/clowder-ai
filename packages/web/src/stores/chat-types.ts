@@ -24,6 +24,12 @@ export interface TokenUsage {
   durationMs?: number;
   durationApiMs?: number;
   numTurns?: number;
+  /** F24: context window capacity (exact when provided by backend) */
+  contextWindowSize?: number;
+  /** F24: most recent context usage snapshot (Codex session token_count) */
+  contextUsedTokens?: number;
+  /** F24: reset timestamp (epoch ms) for context quota hint */
+  contextResetsAtMs?: number;
 }
 
 export interface ChatMessageMetadata {

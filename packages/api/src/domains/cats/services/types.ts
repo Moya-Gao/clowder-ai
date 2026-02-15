@@ -24,6 +24,10 @@ export interface TokenUsage {
    *  Unlike inputTokens which is aggregated across all turns, this value
    *  represents the single most recent API call's input size. */
   lastTurnInputTokens?: number;
+  /** Codex session token_count: exact current context usage shown by CLI status. */
+  contextUsedTokens?: number;
+  /** Codex session token_count: reset timestamp (epoch ms) for display-only hint. */
+  contextResetsAtMs?: number;
 }
 
 /** F8: Accumulate token usage — adds numeric fields from `incoming` into `existing` */
@@ -39,6 +43,19 @@ export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: Toke
     const val = incoming[key];
     if (val != null) {
       result[key] = ((result[key] as number) ?? 0) + (val as number);
+    }
+  }
+  // Non-aggregating contextual fields should keep the most recent snapshot.
+  const latestKeys: (keyof TokenUsage)[] = [
+    'contextWindowSize',
+    'lastTurnInputTokens',
+    'contextUsedTokens',
+    'contextResetsAtMs',
+  ];
+  for (const key of latestKeys) {
+    const val = incoming[key];
+    if (val != null) {
+      result[key] = val;
     }
   }
   return result;

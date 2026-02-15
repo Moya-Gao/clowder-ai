@@ -34,6 +34,17 @@ function AnimatedTokenCount({ value, label }: { value: number; label: string }) 
   );
 }
 
+function formatContextWindowShort(value: number): string {
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`;
+  return value.toLocaleString();
+}
+
+function formatMonthDay(tsMs: number): string {
+  const date = new Date(tsMs);
+  if (!Number.isFinite(date.getTime())) return '';
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
 /**
  * F8: Per-cat token usage dashboard card.
  * Dynamic display with count-up animations, cache progress bar, and brand colors.
@@ -46,6 +57,20 @@ export function CatTokenUsage({ catId, usage, contextHealth }: CatTokenUsageProp
 
   const textColor = CAT_TEXT_COLORS[catId] ?? 'text-gray-700';
   const cachePct = cachePercent(usage);
+  const hasExactContextSummary =
+    usage.contextUsedTokens != null &&
+    usage.contextWindowSize != null &&
+    usage.contextWindowSize > 0;
+  const contextLeftPct = hasExactContextSummary
+    ? Math.max(0, Math.round((1 - (usage.contextUsedTokens! / usage.contextWindowSize!)) * 100))
+    : null;
+  const contextSummary = hasExactContextSummary
+    ? `Context: ${contextLeftPct}% left (${usage.contextUsedTokens!.toLocaleString()} used / ${formatContextWindowShort(usage.contextWindowSize!)})`
+    : null;
+  const contextResetDay = usage.contextResetsAtMs != null
+    ? formatMonthDay(usage.contextResetsAtMs)
+    : '';
+  const contextResetLabel = contextResetDay ? `(resets ${contextResetDay})` : null;
 
   return (
     <div className="mt-1.5 space-y-1 animate-fade-in" data-testid={`token-usage-${catId}`}>
@@ -97,6 +122,13 @@ export function CatTokenUsage({ catId, usage, contextHealth }: CatTokenUsageProp
           <span className="text-gray-400">API {formatDuration(usage.durationApiMs)}</span>
         )}
       </div>
+
+      {contextSummary && (
+        <div className="text-[10px] text-gray-500 font-mono">
+          {contextSummary}
+          {contextResetLabel && <span className="text-gray-400 ml-1">{contextResetLabel}</span>}
+        </div>
+      )}
 
       {/* F24: Context health bar */}
       {contextHealth && (

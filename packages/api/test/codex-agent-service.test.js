@@ -849,3 +849,39 @@ test('F8: turn.completed usage is captured into done metadata', async () => {
   assert.equal(done.metadata.usage.outputTokens, 200);
   assert.equal(done.metadata.usage.cacheReadTokens, 100);
 });
+
+test('F24: enriches Codex context snapshot from resolver into done metadata', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const contextSnapshotResolver = mock.fn(async () => ({
+    contextUsedTokens: 186_749,
+    contextWindowTokens: 258_400,
+    contextResetsAtMs: Date.UTC(2026, 1, 18, 0, 0, 0),
+  }));
+  const service = new CodexAgentService({ spawnFn, contextSnapshotResolver });
+
+  const promise = collect(service.invoke('test context telemetry'));
+
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-context' },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'Hello' },
+    },
+    {
+      type: 'turn.completed',
+      usage: { input_tokens: 529593, output_tokens: 10298, cached_input_tokens: 405760 },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find((m) => m.type === 'done');
+  assert.ok(done, 'should have done message');
+  assert.ok(done.metadata?.usage, 'done should have usage metadata');
+  assert.equal(contextSnapshotResolver.mock.callCount(), 1, 'resolver should be called once');
+  assert.equal(contextSnapshotResolver.mock.calls[0].arguments[0], 'thread-context');
+  assert.equal(done.metadata.usage.contextUsedTokens, 186_749);
+  assert.equal(done.metadata.usage.contextWindowSize, 258_400);
+  assert.equal(done.metadata.usage.contextResetsAtMs, Date.UTC(2026, 1, 18, 0, 0, 0));
+  assert.equal(done.metadata.usage.lastTurnInputTokens, 186_749);
+});

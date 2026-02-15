@@ -111,4 +111,17 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
     expect(html).toContain('上下文占用');
     expect(html).toContain('context-health-gemini');
   });
+
+  it('shows exact context left summary and reset date when usage provides context telemetry', () => {
+    const html = render('codex', {
+      inputTokens: 529593,
+      outputTokens: 10298,
+      contextUsedTokens: 186749,
+      contextWindowSize: 258400,
+      contextResetsAtMs: new Date(2026, 1, 18, 12, 0, 0).getTime(),
+    } as any);
+
+    expect(html).toContain('Context: 28% left (186,749 used / 258K)');
+    expect(html).toContain('(resets 2月18日)');
+  });
 });
