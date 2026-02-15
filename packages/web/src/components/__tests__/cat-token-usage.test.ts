@@ -119,7 +119,7 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
       contextUsedTokens: 186749,
       contextWindowSize: 258400,
       contextResetsAtMs: new Date(2026, 1, 18, 12, 0, 0).getTime(),
-    } as any);
+    });
 
     expect(html).toContain('Context: 28% left (186,749 used / 258K)');
     expect(html).toContain('(resets 2月18日)');

@@ -4,9 +4,9 @@
  * 从 messages.ts 提取，降低文件复杂度。
  */
 
-import type { Multipart, MultipartFile } from '@fastify/multipart';
+import type { Multipart } from '@fastify/multipart';
 import type { MessageContent, TextContent, ImageContent } from '@cat-cafe/shared';
-import { saveUploadedImages, ImageUploadError } from './image-upload.js';
+import { saveUploadedImages, ImageUploadError, type UploadImageFile } from './image-upload.js';
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
@@ -19,7 +19,7 @@ export async function parseMultipart(
   uploadDir: string,
 ): Promise<ParsedMultipart> {
   const fields: Record<string, string> = {};
-  const files: MultipartFile[] = [];
+  const files: UploadImageFile[] = [];
 
   for await (const part of request.parts()) {
     if (part.type === 'field' && typeof part.value === 'string') {
@@ -30,7 +30,8 @@ export async function parseMultipart(
       // for this stream to be consumed and request hangs.
       const buffer = await part.toBuffer();
       files.push({
-        ...part,
+        filename: part.filename,
+        mimetype: part.mimetype,
         toBuffer: async () => buffer,
       });
     }

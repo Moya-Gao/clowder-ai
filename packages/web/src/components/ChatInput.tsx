@@ -8,6 +8,7 @@ import { ChatInputMenus } from './ChatInputMenus';
 import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { compressImage } from '@/utils/compressImage';
 import type { UploadStatus } from '@/hooks/useSendMessage';
+import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 
 interface ChatInputProps {
   onSend: (content: string, images?: File[]) => void;
@@ -38,7 +39,8 @@ export function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const sendTemporarilyDisabled = isPreparingImages || uploadStatus === 'uploading';
+  const imageLifecycleStatus = deriveImageLifecycleStatus(isPreparingImages, uploadStatus);
+  const sendTemporarilyDisabled = isImageLifecycleBlockingSend(imageLifecycleStatus);
 
   const handleTranscript = useCallback((text: string) => {
     setInput((prev) => {
@@ -188,17 +190,17 @@ export function ChatInput({
         onSelectIdx={setSelectedIdx} onInsertMention={insertMention} onInsertOption={insertOption} menuRef={menuRef}
       />
 
-      {isPreparingImages && (
+      {imageLifecycleStatus === 'preparing' && (
         <div className="px-4 pt-2 text-xs text-gray-500" role="status">
           图片处理中，完成后可发送
         </div>
       )}
-      {!isPreparingImages && uploadStatus === 'uploading' && (
+      {imageLifecycleStatus === 'uploading' && (
         <div className="px-4 pt-2 text-xs text-indigo-500" role="status">
           图片上传中，请稍候...
         </div>
       )}
-      {!isPreparingImages && uploadStatus === 'failed' && uploadError && (
+      {imageLifecycleStatus === 'failed' && uploadError && (
         <div className="px-4 pt-2 text-xs text-red-500" role="alert">
           图片发送失败：{uploadError}
         </div>

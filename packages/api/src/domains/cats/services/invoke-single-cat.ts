@@ -249,16 +249,25 @@ export async function* invokeSingleCat(
           // for providers (Gemini CLI) that only expose a total count.
           const windowSize = msg.metadata.usage.contextWindowSize
             ?? getContextWindowFallback(msg.metadata.model ?? '');
-          const usedTokens = msg.metadata.usage.lastTurnInputTokens
-            ?? msg.metadata.usage.inputTokens
-            ?? msg.metadata.usage.totalTokens
-            ?? 0;
+          const usedFrom = msg.metadata.usage.lastTurnInputTokens != null
+            ? 'last_turn'
+            : (msg.metadata.usage.inputTokens != null
+              ? 'input'
+              : (msg.metadata.usage.totalTokens != null ? 'total' : null));
+          const usedTokens = usedFrom === 'last_turn'
+            ? msg.metadata.usage.lastTurnInputTokens!
+            : (usedFrom === 'input'
+              ? msg.metadata.usage.inputTokens!
+              : (usedFrom === 'total' ? msg.metadata.usage.totalTokens! : 0));
           if (windowSize && usedTokens > 0) {
+            const source: ContextHealth['source'] = (
+              msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total'
+            ) ? 'exact' : 'approx';
             const health: ContextHealth = {
               usedTokens,
               windowTokens: windowSize,
               fillRatio: Math.min(usedTokens / windowSize, 1.0),
-              source: msg.metadata.usage.contextWindowSize ? 'exact' : 'approx',
+              source,
               measuredAt: Date.now(),
             };
             // Update SessionRecord (best-effort)

@@ -15,9 +15,12 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 const DEFAULT_TAIL_BYTES = 256 * 1024;
+const DEFAULT_FILE_CACHE_MAX = 100;
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null ? value as Record<string, unknown> : null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
 }
 
 function asNumber(value: unknown): number | undefined {
@@ -105,6 +108,8 @@ async function readTailUtf8(filePath: string, maxBytes: number): Promise<string>
 interface ResolverOptions {
   sessionsRoot?: string;
   tailBytes?: number;
+  fileCache?: Map<string, string>;
+  maxCacheEntries?: number;
 }
 
 /**
@@ -116,13 +121,27 @@ export function createCodexSessionContextSnapshotResolver(
 ): CodexSessionContextSnapshotResolver {
   const sessionsRoot = options?.sessionsRoot ?? join(process.env['CODEX_HOME'] ?? join(homedir(), '.codex'), 'sessions');
   const tailBytes = options?.tailBytes ?? DEFAULT_TAIL_BYTES;
-  const fileCache = new Map<string, string>();
+  const maxCacheEntries = Math.max(1, options?.maxCacheEntries ?? DEFAULT_FILE_CACHE_MAX);
+  const fileCache = options?.fileCache ?? new Map<string, string>();
+
+  function upsertCache(sessionId: string, filePath: string): void {
+    if (fileCache.has(sessionId)) {
+      fileCache.delete(sessionId);
+    }
+    fileCache.set(sessionId, filePath);
+    while (fileCache.size > maxCacheEntries) {
+      const oldestKey = fileCache.keys().next().value;
+      if (!oldestKey) break;
+      fileCache.delete(oldestKey);
+    }
+  }
 
   async function findSessionFile(sessionId: string): Promise<string | null> {
     const cached = fileCache.get(sessionId);
     if (cached) {
       try {
         await fs.access(cached);
+        upsertCache(sessionId, cached);
         return cached;
       } catch {
         fileCache.delete(sessionId);
@@ -148,7 +167,7 @@ export function createCodexSessionContextSnapshotResolver(
           continue;
         }
         if (entry.isFile() && entry.name.endsWith('.jsonl') && entry.name.includes(sessionId)) {
-          fileCache.set(sessionId, abs);
+          upsertCache(sessionId, abs);
           return abs;
         }
       }

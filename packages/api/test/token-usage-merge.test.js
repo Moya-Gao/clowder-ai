@@ -42,4 +42,25 @@ describe('F8: mergeTokenUsage', () => {
 
     assert.equal(result.totalTokens, 3000);
   });
+
+  it('overwrites latest context snapshot fields instead of accumulating them', () => {
+    const first = {
+      contextWindowSize: 200000,
+      lastTurnInputTokens: 44000,
+      contextUsedTokens: 186749,
+      contextResetsAtMs: 1771482198000,
+    };
+    const second = {
+      contextWindowSize: 258400,
+      lastTurnInputTokens: 51234,
+      contextUsedTokens: 190000,
+      contextResetsAtMs: 1771723048000,
+    };
+    const result = mergeTokenUsage(first, second);
+
+    assert.equal(result.contextWindowSize, 258400);
+    assert.equal(result.lastTurnInputTokens, 51234);
+    assert.equal(result.contextUsedTokens, 190000);
+    assert.equal(result.contextResetsAtMs, 1771723048000);
+  });
 });

@@ -24,6 +24,7 @@ import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js'
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
+import { appendLocalImagePathHints, collectImageAccessDirectories } from './image-cli-bridge.js';
 import { getCatModel } from '../../../config/cat-models.js';
 import type {
   AgentMessage,
@@ -194,13 +195,11 @@ export class GeminiAgentService implements AgentService {
       ? `${options.systemPrompt}\n\n${prompt}`
       : prompt;
 
-    // Gemini CLI -i is prompt-interactive (conflicts with -p), not image input.
-    // Keep headless mode and attach image paths into prompt text as fallback.
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    if (imagePaths.length > 0) {
-      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
-      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
-    }
+    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
+    // Gemini CLI -i is prompt-interactive (conflicts with -p), so we pass path hints
+    // and include image directories for tool access.
+    effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
 
     // Note: gemini CLI --resume accepts index number or "latest", not UUID.
     // e.g. `gemini --resume 5` or `gemini --resume latest`
@@ -208,6 +207,9 @@ export class GeminiAgentService implements AgentService {
     // Multi-session index instability makes this unreliable for programmatic use.
     // Context history is provided via prompt prepend (ContextAssembler) instead.
     const args: string[] = ['-p', effectivePrompt, '-o', 'stream-json', '-y'];
+    for (const dir of imageAccessDirs) {
+      args.push('--include-directories', dir);
+    }
 
     try {
       let sawResultError = false;
@@ -260,8 +262,11 @@ export class GeminiAgentService implements AgentService {
               if (typeof stats['input_tokens'] === 'number') usage.inputTokens = stats['input_tokens'];
               if (typeof stats['output_tokens'] === 'number') usage.outputTokens = stats['output_tokens'];
               if (typeof stats['cached_input_tokens'] === 'number') usage.cacheReadTokens = stats['cached_input_tokens'];
-              if (typeof stats['context_window'] === 'number') usage.contextWindowSize = stats['context_window'];
-              if (typeof stats['contextWindow'] === 'number') usage.contextWindowSize = stats['contextWindow'];
+              const contextWindow = (
+                (typeof stats['context_window'] === 'number' ? stats['context_window'] : undefined)
+                ?? (typeof stats['contextWindow'] === 'number' ? stats['contextWindow'] : undefined)
+              );
+              if (contextWindow != null) usage.contextWindowSize = contextWindow;
               metadata.usage = usage;
             }
           }

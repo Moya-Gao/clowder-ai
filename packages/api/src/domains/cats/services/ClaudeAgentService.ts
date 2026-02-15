@@ -23,6 +23,7 @@ import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js'
 import { formatCliExitError } from '../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
+import { appendLocalImagePathHints, collectImageAccessDirectories } from './image-cli-bridge.js';
 import { getCatModel } from '../../../config/cat-models.js';
 import type {
   AgentMessage,
@@ -281,12 +282,10 @@ export class ClaudeAgentService implements AgentService {
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
     let effectivePrompt = prompt;
-    // Claude CLI v2 no longer supports --images; pass image paths in prompt as compatibility fallback.
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    if (imagePaths.length > 0) {
-      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
-      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
-    }
+    const imageAccessDirs = collectImageAccessDirectories(imagePaths);
+    // Claude CLI print mode has no direct image attach flag; provide path hints and grant dir access.
+    effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
 
     const args: string[] = [
       '-p', effectivePrompt,
@@ -306,6 +305,9 @@ export class ClaudeAgentService implements AgentService {
 
     if (options?.sessionId) {
       args.push('--resume', options.sessionId);
+    }
+    for (const dir of imageAccessDirs) {
+      args.push('--add-dir', dir);
     }
 
     // Add MCP server config when callback env is present

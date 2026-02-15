@@ -23,12 +23,17 @@ vi.mock('@/hooks/useChatCommands', () => ({
 }));
 
 vi.mock('@/stores/chatStore', () => ({
-  useChatStore: () => ({
-    addMessage: mockAddMessage,
-    addMessageToThread: mockAddMessageToThread,
-    setLoading: mockSetLoading,
-    currentThreadId: 'thread-stale',
-  }),
+  useChatStore: Object.assign(
+    () => ({
+      addMessage: mockAddMessage,
+      addMessageToThread: mockAddMessageToThread,
+      setLoading: mockSetLoading,
+      currentThreadId: 'thread-stale',
+    }),
+    {
+      getState: () => ({ currentThreadId: 'thread-stale' }),
+    },
+  ),
 }));
 
 import { useSendMessage } from '@/hooks/useSendMessage';
@@ -37,7 +42,7 @@ function SendRunner({
   activeThreadId,
   onDone,
 }: {
-  activeThreadId: string;
+  activeThreadId?: string;
   onDone: () => void;
 }) {
   const { handleSend } = useSendMessage(activeThreadId);
@@ -102,5 +107,20 @@ describe('useSendMessage thread source', () => {
     const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
     expect(payload.threadId).toBe('thread-route');
     expect(payload.threadId).not.toBe('thread-stale');
+  });
+
+  it('falls back to useChatStore.getState().currentThreadId when route threadId is absent', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: undefined,
+          onDone: () => {},
+        }),
+      );
+    });
+
+    expect(mockApiFetch).toHaveBeenCalled();
+    const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
+    expect(payload.threadId).toBe('thread-stale');
   });
 });

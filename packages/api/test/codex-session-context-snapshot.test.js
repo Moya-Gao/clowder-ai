@@ -90,3 +90,54 @@ test('prefers latest token_count with non-zero rate usage when duplicates exist'
   }
 });
 
+test('caps internal session file cache with LRU eviction', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'codex-sessions-'));
+  const cache = new Map();
+  const dayDir = join(root, '2026', '02', '14');
+  await mkdir(dayDir, { recursive: true });
+
+  const sessionIds = [
+    'sid-1-aaaaaaaaaaaaaaaaaaaa',
+    'sid-2-bbbbbbbbbbbbbbbbbbbb',
+    'sid-3-cccccccccccccccccccc',
+  ];
+
+  for (const sessionId of sessionIds) {
+    const file = join(dayDir, `rollout-2026-02-14T16-25-17-${sessionId}.jsonl`);
+    const row = JSON.stringify({
+      type: 'event_msg',
+      payload: {
+        type: 'token_count',
+        info: {
+          last_token_usage: { input_tokens: 1000 },
+          model_context_window: 258400,
+        },
+        rate_limits: {
+          primary: { used_percent: 1, resets_at: 1771126226 },
+          secondary: { used_percent: 0, resets_at: 1771721543 },
+        },
+      },
+    });
+    await writeFile(file, `${row}\n`, 'utf8');
+  }
+
+  try {
+    const resolveSnapshot = createCodexSessionContextSnapshotResolver({
+      sessionsRoot: root,
+      tailBytes: 16 * 1024,
+      fileCache: cache,
+      maxCacheEntries: 2,
+    });
+
+    await resolveSnapshot(sessionIds[0]);
+    await resolveSnapshot(sessionIds[1]);
+    await resolveSnapshot(sessionIds[2]);
+
+    assert.equal(cache.size, 2, 'cache size should be capped');
+    assert.equal(cache.has(sessionIds[0]), false, 'oldest entry should be evicted');
+    assert.equal(cache.has(sessionIds[1]), true);
+    assert.equal(cache.has(sessionIds[2]), true);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

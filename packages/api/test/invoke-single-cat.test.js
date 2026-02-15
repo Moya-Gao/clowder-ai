@@ -572,6 +572,49 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(payload.health.source, 'approx');
   });
 
+  it('F24: marks source as approx when usedTokens falls back to totalTokens despite exact window', async () => {
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'done',
+          catId: 'gemini',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'google',
+            model: 'gemini-2.5-pro',
+            usage: {
+              totalTokens: 3000,
+              contextWindowSize: 1_000_000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = makeDeps();
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-f24-total-source',
+      isLastCat: true,
+    }));
+
+    const healthInfos = msgs.filter((m) => {
+      if (m.type !== 'system_info') return false;
+      try {
+        return JSON.parse(m.content).type === 'context_health';
+      } catch { return false; }
+    });
+
+    assert.equal(healthInfos.length, 1);
+    const payload = JSON.parse(healthInfos[0].content);
+    assert.equal(payload.health.usedTokens, 3000);
+    assert.equal(payload.health.windowTokens, 1_000_000);
+    assert.equal(payload.health.source, 'approx');
+  });
+
   it('session self-heal: retries once without --resume when Claude reports missing conversation', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];

@@ -138,12 +138,8 @@ export class CodexAgentService implements AgentService {
     let effectivePrompt = options?.systemPrompt
       ? `${options.systemPrompt}\n\n${prompt}`
       : prompt;
-    // Codex CLI has no image flag; embed paths in prompt text (best effort)
     const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    if (imagePaths.length > 0) {
-      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
-      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
-    }
+    const imageArgs = imagePaths.flatMap((path) => ['--image', path]);
 
     const sandboxMode = getCodexSandboxMode();
     const approvalPolicy = getCodexApprovalPolicy();
@@ -154,8 +150,8 @@ export class CodexAgentService implements AgentService {
     // 注意：旧 session resume 时沿用创建时的沙箱参数，不会带 --add-dir。
     // 这是预期行为——新建会话即可获得 .git 写入权限。
     const args: string[] = options?.sessionId
-      ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, effectivePrompt]
-      : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, effectivePrompt];
+      ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, ...imageArgs, effectivePrompt]
+      : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, effectivePrompt];
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
     const auditContext = options?.auditContext;

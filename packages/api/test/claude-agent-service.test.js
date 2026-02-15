@@ -619,6 +619,32 @@ test('F24: extracts contextWindowSize from result.modelUsage (camelCase)', async
   );
 });
 
+test('F24: extracts contextWindowSize from result.model_usage (snake_case)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('snake case test'));
+
+  emitClaudeEvents(proc, [
+    {
+      type: 'result',
+      subtype: 'success',
+      usage: { input_tokens: 1000, output_tokens: 100 },
+      model_usage: {
+        'claude-opus-4-6': {
+          context_window: 200000,
+        },
+      },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find((m) => m.type === 'done');
+  assert.ok(done?.metadata?.usage);
+  assert.equal(done.metadata.usage.contextWindowSize, 200000);
+});
+
 test('F8: normalises inputTokens to include cache tokens (Claude API → total)', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);

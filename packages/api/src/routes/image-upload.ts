@@ -6,7 +6,6 @@
 import { randomUUID } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import type { MultipartFile } from '@fastify/multipart';
 import type { ImageContent } from '@cat-cafe/shared';
 
 const ALLOWED_MIMES = new Set([
@@ -24,12 +23,18 @@ export interface SavedImage {
   content: ImageContent;
 }
 
+export interface UploadImageFile {
+  filename?: string;
+  mimetype: string;
+  toBuffer: () => Promise<Buffer>;
+}
+
 /**
  * Validate and save uploaded image files.
  * Returns saved image metadata for contentBlocks and CLI passthrough.
  */
 export async function saveUploadedImages(
-  files: MultipartFile[],
+  files: UploadImageFile[],
   uploadDir: string,
 ): Promise<SavedImage[]> {
   if (files.length > MAX_FILES) {

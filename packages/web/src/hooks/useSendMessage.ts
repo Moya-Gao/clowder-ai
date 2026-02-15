@@ -22,6 +22,7 @@ export function useSendMessage(activeThreadId?: string) {
   const handleSend = useCallback(
     async (content: string, images?: File[], overrideThreadId?: string) => {
       // Route threadId is source of truth; store currentThreadId may lag during fast switches.
+      // Zustand hook exposes a static `getState()` accessor; this is a vanilla read, not a React hook call.
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
       const hasImages = Boolean(images && images.length > 0);
@@ -58,7 +59,7 @@ export function useSendMessage(activeThreadId?: string) {
       setLoading(true);
 
       try {
-        if (hasImages) {
+        if (images && images.length > 0) {
           // Multipart mode for images
           const formData = new FormData();
           formData.append('content', content);

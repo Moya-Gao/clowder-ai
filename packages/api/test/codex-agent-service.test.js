@@ -791,7 +791,7 @@ test('redacts nested callback tokens before archiving raw events', async () => {
 
 // --- P1 regression: systemPrompt + image coexistence ---
 
-test('systemPrompt is preserved when contentBlocks contain images', async () => {
+test('systemPrompt is preserved and codex --image is used when contentBlocks contain images', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
   const service = new CodexAgentService({ spawnFn });
@@ -808,16 +808,16 @@ test('systemPrompt is preserved when contentBlocks contain images', async () => 
   ]);
   await promise;
 
-  // The prompt passed to CLI must contain BOTH systemPrompt AND image ref
+  // The prompt passed to CLI must preserve systemPrompt.
+  // Images should be passed via native --image flags.
   const args = spawnFn.mock.calls[0].arguments[1];
+  const imageIdx = args.indexOf('--image');
+  assert.ok(imageIdx >= 0, 'codex should receive image via --image');
+  assert.ok(String(args[imageIdx + 1]).includes('cat.png'));
   const promptArg = args.at(-1); // last arg is the prompt
   assert.ok(
     promptArg.includes('缅因猫'),
     `systemPrompt should be preserved in prompt when images present, got: ${promptArg.slice(0, 120)}`
-  );
-  assert.ok(
-    promptArg.includes('[Image attached:'),
-    'image reference should be appended to prompt'
   );
 });
 

@@ -582,3 +582,30 @@ test('F24: captures richer Gemini stats fields when provided', async () => {
   assert.equal(done.metadata.usage.cacheReadTokens, 1200);
   assert.equal(done.metadata.usage.contextWindowSize, 1000000);
 });
+
+test('F24: prefers stats.context_window over stats.contextWindow when both exist', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+  const promise = collect(service.invoke('stats precedence test'));
+
+  emitGeminiEvents(proc, [
+    { type: 'init', session_id: 's3', model: 'gemini-2.5-pro' },
+    { type: 'message', role: 'assistant', content: 'ok', delta: true },
+    {
+      type: 'result',
+      status: 'success',
+      stats: {
+        total_tokens: 1800,
+        context_window: 900000,
+        contextWindow: 1000000,
+      },
+    },
+  ]);
+
+  const msgs = await promise;
+  const done = msgs.find((m) => m.type === 'done');
+  assert.ok(done?.metadata?.usage, 'done should have usage metadata');
+  assert.equal(done.metadata.usage.contextWindowSize, 900000);
+});
