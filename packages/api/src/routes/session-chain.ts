@@ -2,15 +2,23 @@
  * Session Chain Routes
  * F24: API endpoints for session chain + context health data.
  *
- * GET /api/threads/:threadId/sessions       - List sessions (optional catId filter)
- * GET /api/sessions/:sessionId              - Get single session record
+ * GET   /api/threads/:threadId/sessions            - List sessions (optional catId filter)
+ * GET   /api/sessions/:sessionId                   - Get single session record
+ * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
  */
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import type { CatId } from '@cat-cafe/shared';
+import { type CatId, getAllCatIds } from '@cat-cafe/shared';
+import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+
+const VALID_CAT_IDS = new Set<string>(getAllCatIds());
+
+const bindSessionSchema = z.object({
+  cliSessionId: z.string().min(1).max(500),
+});
 
 interface SessionChainRouteOptions extends FastifyPluginOptions {
   sessionChainStore: ISessionChainStore;
@@ -73,5 +81,75 @@ export async function sessionChainRoutes(
     }
 
     return reply.send(session);
+  });
+
+  // PATCH /api/threads/:threadId/sessions/:catId/bind — Manual bind (#72)
+  // Allows 铲屎官 to bind a known-good CLI session ID to a cat's thread session.
+  // If active session exists → update cliSessionId; otherwise → create new session.
+  app.patch<{
+    Params: { threadId: string; catId: string };
+  }>('/api/threads/:threadId/sessions/:catId/bind', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const { threadId, catId } = request.params;
+
+    // Validate catId
+    if (!VALID_CAT_IDS.has(catId)) {
+      reply.status(400);
+      return { error: `Invalid catId: ${catId}. Must be one of: ${[...VALID_CAT_IDS].join(', ')}` };
+    }
+
+    // Validate body
+    const parseResult = bindSessionSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parseResult.error.issues };
+    }
+
+    const { cliSessionId } = parseResult.data;
+
+    // Verify thread exists + ownership
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+    if (thread.createdBy !== userId) {
+      reply.status(403);
+      return { error: 'Access denied' };
+    }
+
+    // Check for active session
+    const active = await sessionChainStore.getActive(catId as CatId, threadId);
+
+    if (active) {
+      // Update existing active session's cliSessionId
+      const updated = await sessionChainStore.update(active.id, {
+        cliSessionId,
+        updatedAt: Date.now(),
+      });
+
+      return reply.send({
+        session: updated,
+        mode: 'updated' as const,
+      });
+    }
+
+    // No active session → create new one
+    const created = await sessionChainStore.create({
+      cliSessionId,
+      threadId,
+      catId: catId as CatId,
+      userId,
+    });
+
+    return reply.send({
+      session: created,
+      mode: 'created' as const,
+    });
   });
 }
