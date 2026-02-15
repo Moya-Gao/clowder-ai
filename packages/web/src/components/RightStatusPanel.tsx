@@ -149,6 +149,20 @@ export function RightStatusPanel({
                   <div className="flex items-center gap-1.5 mb-1">
                     <span className={`inline-block h-2.5 w-2.5 rounded-full ${info.color}`} />
                     <span className="font-medium text-gray-700">{info.name}</span>
+                    {inv.sessionSeq !== undefined && (
+                      <span
+                        className={`text-[10px] px-1 py-0.5 rounded ${
+                          inv.sessionSealed
+                            ? 'bg-amber-100 text-amber-600'
+                            : 'bg-gray-100 text-gray-500'
+                        }`}
+                        title={inv.sessionSealed
+                          ? `会话 #${inv.sessionSeq} 已封存`
+                          : `会话 #${inv.sessionSeq}`}
+                      >
+                        S#{inv.sessionSeq}{inv.sessionSealed ? ' sealed' : ''}
+                      </span>
+                    )}
                     <CatInvocationTime invocation={inv} />
                   </div>
                   {inv.usage && (

@@ -186,6 +186,14 @@ export async function* invokeSingleCat(
         }
 
         // Push session info as system_info for frontend status panel
+        // Include sessionSeq if SessionChainStore is available
+        let sessionSeq: number | undefined;
+        if (deps.sessionChainStore) {
+          try {
+            const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+            sessionSeq = activeRec?.seq;
+          } catch { /* best-effort */ }
+        }
         outputs.push({
           type: 'system_info' as const,
           catId,
@@ -194,6 +202,7 @@ export async function* invokeSingleCat(
             kind: 'session_started',
             sessionId: msg.sessionId,
             invocationId,
+            ...(sessionSeq !== undefined ? { sessionSeq } : {}),
           }),
           timestamp: Date.now(),
         });
@@ -316,6 +325,7 @@ export async function* invokeSingleCat(
                           type: 'session_seal_requested',
                           catId,
                           sessionId: activeRecord.id,
+                          sessionSeq: activeRecord.seq,
                           reason: 'threshold',
                           healthSnapshot: health,
                         }),
