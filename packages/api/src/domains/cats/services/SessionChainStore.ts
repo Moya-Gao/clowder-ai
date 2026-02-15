@@ -18,7 +18,7 @@ export interface CreateSessionInput {
 
 export type SessionRecordPatch = Partial<Pick<
   SessionRecord,
-  'cliSessionId' | 'status' | 'contextHealth' | 'messageCount' | 'sealReason' | 'sealedAt' | 'updatedAt'
+  'cliSessionId' | 'status' | 'contextHealth' | 'lastUsage' | 'messageCount' | 'sealReason' | 'sealedAt' | 'updatedAt'
 >>;
 
 export interface ISessionChainStore {
@@ -155,6 +155,7 @@ export class SessionChainStore implements ISessionChainStore {
       }
     }
     if (patch.contextHealth !== undefined) record.contextHealth = patch.contextHealth;
+    if (patch.lastUsage !== undefined) record.lastUsage = patch.lastUsage;
     if (patch.messageCount !== undefined) record.messageCount = patch.messageCount;
     if (patch.sealReason !== undefined) record.sealReason = patch.sealReason;
     if (patch.sealedAt !== undefined) record.sealedAt = patch.sealedAt;

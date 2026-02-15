@@ -137,6 +137,7 @@ export {
 export type {
   SessionStatus,
   SessionRecord,
+  SessionUsageSnapshot,
   ContextHealth,
   ContextHealthConfig,
   SealResult,

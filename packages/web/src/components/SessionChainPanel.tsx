@@ -5,7 +5,6 @@ import type { CatInvocationInfo, ContextHealthData } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 import { truncateId } from './status-helpers';
 import { ContextHealthBar } from './ContextHealthBar';
-import { TokenCacheBar } from './TokenCacheBar';
 
 /** Minimal session record from API GET /api/threads/:id/sessions */
 interface SessionSummary {
@@ -22,6 +21,12 @@ interface SessionSummary {
     windowTokens: number;
     fillRatio: number;
     source: 'exact' | 'approx';
+  };
+  lastUsage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    cacheReadTokens?: number;
+    costUsd?: number;
   };
 }
 
@@ -146,7 +151,9 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
             measuredAt: session.createdAt,
           } : undefined
         );
-        const cachePct = cachePercent(inv?.usage?.cacheReadTokens, inv?.usage?.inputTokens);
+        // Prefer live invocation usage, fallback to persisted session usage
+        const usage = inv?.usage ?? session.lastUsage;
+        const cachePct = cachePercent(usage?.cacheReadTokens, usage?.inputTokens);
 
         return (
           <div key={session.id} className="mb-2">
@@ -171,14 +178,14 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
               <div className="text-[10px] text-gray-400 mb-1.5">
                 Started {timeAgo(session.createdAt)}{session.messageCount > 0 ? ` · ${session.messageCount} msgs` : ''}
               </div>
-              {/* Token counts + cache from invocation */}
-              {inv?.usage && (inv.usage.inputTokens != null || inv.usage.outputTokens != null) && (
+              {/* Token counts + cache: prefer live invocation, fallback to persisted */}
+              {usage && (usage.inputTokens != null || usage.outputTokens != null) && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] font-mono mb-1">
-                  {inv.usage.inputTokens != null && (
-                    <span className="text-gray-600">{fmtTokens(inv.usage.inputTokens)}<span className="text-gray-400 ml-0.5">↓</span></span>
+                  {usage.inputTokens != null && (
+                    <span className="text-gray-600">{fmtTokens(usage.inputTokens)}<span className="text-gray-400 ml-0.5">↓</span></span>
                   )}
-                  {inv.usage.outputTokens != null && (
-                    <span className="text-gray-500">{fmtTokens(inv.usage.outputTokens)}<span className="text-gray-400 ml-0.5">↑</span></span>
+                  {usage.outputTokens != null && (
+                    <span className="text-gray-500">{fmtTokens(usage.outputTokens)}<span className="text-gray-400 ml-0.5">↑</span></span>
                   )}
                   {cachePct > 0 && (
                     <span className="text-green-600">cached {cachePct}%</span>

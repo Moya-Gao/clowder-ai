@@ -324,13 +324,20 @@ export async function* invokeSingleCat(
                 source,
                 measuredAt: Date.now(),
               };
-              // Update SessionRecord (best-effort)
+              // Update SessionRecord (best-effort): persist health + usage snapshot
               if (deps.sessionChainStore) {
                 try {
                   const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
                   if (activeRecord) {
+                    const u = msg.metadata!.usage!;
                     await deps.sessionChainStore.update(activeRecord.id, {
                       contextHealth: health,
+                      lastUsage: {
+                        ...(u.inputTokens != null ? { inputTokens: u.inputTokens } : {}),
+                        ...(u.outputTokens != null ? { outputTokens: u.outputTokens } : {}),
+                        ...(u.cacheReadTokens != null ? { cacheReadTokens: u.cacheReadTokens } : {}),
+                        ...(u.costUsd != null ? { costUsd: u.costUsd } : {}),
+                      },
                       updatedAt: Date.now(),
                     });
                   }

@@ -12,7 +12,7 @@
  * Pass bare keys only.
  */
 
-import type { CatId, SessionRecord, SessionStatus, ContextHealth } from '@cat-cafe/shared';
+import type { CatId, SessionRecord, SessionStatus, ContextHealth, SessionUsageSnapshot } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { SessionChainKeys } from './session-chain-keys.js';
 import type {
@@ -191,6 +191,9 @@ export class RedisSessionChainStore implements ISessionChainStore {
     if (patch.contextHealth !== undefined) {
       pairs.push('contextHealth', JSON.stringify(patch.contextHealth));
     }
+    if (patch.lastUsage !== undefined) {
+      pairs.push('lastUsage', JSON.stringify(patch.lastUsage));
+    }
     if (patch.messageCount !== undefined) {
       pairs.push('messageCount', String(patch.messageCount));
     }
@@ -213,6 +216,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
 
   private hydrate(data: Record<string, string>): SessionRecord {
     const contextHealth = safeParseJson<ContextHealth>(data['contextHealth']);
+    const lastUsage = safeParseJson<SessionUsageSnapshot>(data['lastUsage']);
     const sealReason = data['sealReason'] as SessionRecord['sealReason'] | undefined;
     const sealedAt = data['sealedAt'] ? parseInt(data['sealedAt'], 10) : undefined;
 
@@ -225,6 +229,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
       seq: parseInt(data['seq']!, 10),
       status: (data['status'] as SessionStatus) ?? 'active',
       ...(contextHealth ? { contextHealth } : {}),
+      ...(lastUsage ? { lastUsage } : {}),
       messageCount: parseInt(data['messageCount'] ?? '0', 10),
       ...(sealReason ? { sealReason } : {}),
       ...(sealedAt ? { sealedAt } : {}),

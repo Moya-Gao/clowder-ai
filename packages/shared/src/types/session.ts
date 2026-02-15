@@ -24,12 +24,22 @@ export interface SessionRecord {
   status: SessionStatus;
   /** Latest context health snapshot after last invocation */
   contextHealth?: ContextHealth;
+  /** Latest token usage snapshot (persisted for frontend display after reload) */
+  lastUsage?: SessionUsageSnapshot;
   messageCount: number;
   /** Seal reason (Phase B) */
   sealReason?: 'threshold' | 'manual' | 'error' | (string & {});
   readonly createdAt: number;
   updatedAt: number;
   sealedAt?: number;
+}
+
+/** Slim usage snapshot persisted per session (subset of full TokenUsage). */
+export interface SessionUsageSnapshot {
+  inputTokens?: number;
+  outputTokens?: number;
+  cacheReadTokens?: number;
+  costUsd?: number;
 }
 
 export interface ContextHealth {

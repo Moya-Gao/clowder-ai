@@ -29,11 +29,6 @@ vi.mock('../ContextHealthBar', () => ({
     React.createElement('div', { 'data-testid': `health-bar-${props.catId}` }),
 }));
 
-vi.mock('../TokenCacheBar', () => ({
-  TokenCacheBar: (props: { percent: number; catId: string }) =>
-    React.createElement('div', { 'data-testid': `cache-bar-${props.catId}`, 'data-percent': props.percent }),
-}));
-
 vi.mock('../status-helpers', () => ({
   truncateId: (id: string, len: number) => id.length > len ? `${id.slice(0, len)}…` : id,
 }));
@@ -270,6 +265,42 @@ describe('F24: SessionChainPanel', () => {
     renderPanel('thread-1', invocations);
     await flushFetch();
     expect(container.textContent).not.toContain('cached');
+  });
+
+  it('shows token counts from session.lastUsage when no live invocation', async () => {
+    mockSessionsResponse([
+      {
+        id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now(),
+        lastUsage: { inputTokens: 120000, outputTokens: 8000, cacheReadTokens: 90000 },
+      },
+    ]);
+    // No catInvocations — simulates page reload with no live data
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.textContent).toContain('120k');
+    expect(container.textContent).toContain('8k');
+    expect(container.textContent).toContain('cached');
+  });
+
+  it('prefers live invocation usage over session.lastUsage', async () => {
+    mockSessionsResponse([
+      {
+        id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 5, createdAt: Date.now(),
+        lastUsage: { inputTokens: 50000, outputTokens: 2000 },
+      },
+    ]);
+    const invocations: Record<string, CatInvocationInfo> = {
+      opus: {
+        usage: { inputTokens: 150000, outputTokens: 10000 },
+      },
+    };
+    renderPanel('thread-1', invocations);
+    await flushFetch();
+    // Should show live data (150k/10k), not persisted (50k/2k)
+    expect(container.textContent).toContain('150k');
+    expect(container.textContent).toContain('10k');
+    // Persisted outputTokens (2k) should NOT appear
+    expect(container.textContent).not.toContain('2k');
   });
 
   it('calls API with correct thread URL', async () => {

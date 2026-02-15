@@ -60,7 +60,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     setViewMode,
     clearUnread,
   } = useChatStore();
-  const { tasks, addTask, updateTask, clearTasks } = useTaskStore();
+  const { addTask, updateTask, clearTasks } = useTaskStore();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
 
