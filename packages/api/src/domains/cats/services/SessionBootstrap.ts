@@ -39,46 +39,47 @@ export async function buildSessionBootstrap(
 ): Promise<BootstrapContext | null> {
   const { sessionChainStore, transcriptReader } = opts;
 
-  // Get current active session
-  const active = await sessionChainStore.getActive(catId, threadId);
-  if (!active || active.seq <= 0) {
-    return null; // First session (seq=0) — no prior context
+  // Get full chain — works regardless of whether active session exists yet
+  const chain = await sessionChainStore.getChain(catId, threadId);
+  const sealedSessions = chain.filter((s) => s.status === 'sealed');
+
+  // No sealed sessions → first session, no prior context to inject
+  if (sealedSessions.length === 0) {
+    return null;
   }
 
-  // Get the full chain to find the previous sealed session
-  const chain = await sessionChainStore.getChain(catId, threadId);
-  const prevSession = chain.find(
-    (s) => s.seq === active.seq - 1 && s.status === 'sealed',
-  );
+  // Find the most recent sealed session (highest seq) — guaranteed to exist after length check
+  const prevSession = sealedSessions[sealedSessions.length - 1]!;
+
+  // Determine current session seq: active session if exists, else chain.length
+  const active = await sessionChainStore.getActive(catId, threadId);
+  const currentSeq = active ? active.seq : chain.length;
+  // Display as 1-based for human readability
+  const displaySeq = currentSeq + 1;
 
   const parts: string[] = [];
 
   // 1. Session Identity
-  const sealedCount = chain.filter((s) => s.status === 'sealed').length;
-  // Display as 1-based for human readability (seq=1 → "Session #2")
-  const displaySeq = active.seq + 1;
   parts.push(
     `[Session Continuity — Session #${displaySeq}]`,
-    `This is session #${displaySeq} of ${chain.length} total sessions for this thread.`,
-    `${sealedCount} previous session(s) are sealed and searchable.`,
+    `This is session #${displaySeq} of ${chain.length + (active ? 0 : 1)} total sessions for this thread.`,
+    `${sealedSessions.length} previous session(s) are sealed and searchable.`,
   );
 
   // 2. Previous Session Digest
   let hasDigest = false;
-  if (prevSession) {
-    try {
-      const digest = await transcriptReader.readDigest(
-        prevSession.id, prevSession.threadId, prevSession.catId,
-      );
-      if (digest) {
-        parts.push('');
-        parts.push('[Previous Session Summary]');
-        parts.push(formatDigest(digest as unknown as ExtractiveDigestV1));
-        hasDigest = true;
-      }
-    } catch {
-      // Digest read failed — still inject identity + tools
+  try {
+    const digest = await transcriptReader.readDigest(
+      prevSession.id, prevSession.threadId, prevSession.catId,
+    );
+    if (digest) {
+      parts.push('');
+      parts.push('[Previous Session Summary]');
+      parts.push(formatDigest(digest as unknown as ExtractiveDigestV1));
+      hasDigest = true;
     }
+  } catch {
+    // Digest read failed — still inject identity + tools
   }
 
   // 3. MCP Tool Recall Instructions (E2)
@@ -102,7 +103,7 @@ export async function buildSessionBootstrap(
 
   return {
     text: parts.join('\n'),
-    sessionSeq: active.seq,
+    sessionSeq: currentSeq,
     hasDigest,
   };
 }

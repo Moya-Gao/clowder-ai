@@ -54,7 +54,8 @@ describe('SessionBootstrap', () => {
       assert.equal(result, null);
     });
 
-    it('returns null when no active session exists', async () => {
+    it('returns bootstrap when no active session but sealed sessions exist (post-seal gap)', async () => {
+      // P1-2 fix: after seal, active pointer is cleared but bootstrap should still work
       const store = createMockSessionChainStore([
         { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
       ]);
@@ -65,7 +66,9 @@ describe('SessionBootstrap', () => {
         'opus',
         'thread-1',
       );
-      assert.equal(result, null);
+      assert.ok(result);
+      assert.ok(result.text.includes('Session #2')); // next session after 1 sealed
+      assert.ok(result.text.includes('1 previous session(s) are sealed'));
     });
 
     it('returns bootstrap with identity for second session (seq=1 → display #2)', async () => {
@@ -238,7 +241,7 @@ describe('SessionBootstrap', () => {
         'thread-1',
       );
 
-      // Should only read sess-1 digest (the one right before the active sess-2)
+      // Should only read sess-1 digest (the most recent sealed session)
       assert.deepEqual(readDigestCalls, ['sess-1']);
     });
   });
