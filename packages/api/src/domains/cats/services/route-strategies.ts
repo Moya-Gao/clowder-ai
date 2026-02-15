@@ -22,7 +22,6 @@ import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../utils/token-counter.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
-import { hasImageContentBlocks } from '../../../utils/image-content-blocks.js';
 import { buildSessionBootstrap } from './SessionBootstrap.js';
 import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
 
@@ -129,17 +128,16 @@ function sanitizeInjectedContent(content: string): string {
 }
 
 /**
- * Image attachments are codex-only in Cat Cafe web flow:
- * user can paste once, then only codex receives the image blocks.
- * Other cats continue to receive the text prompt.
+ * Route content blocks to the target cat.
+ * All cats receive the full content blocks including images —
+ * each AgentService (Claude/Codex/Gemini) handles image paths
+ * via its own CLI bridge (--add-dir / --image / --include-directories).
  */
 function routeContentBlocksForCat(
-  catId: CatId,
+  _catId: CatId,
   contentBlocks: readonly MessageContent[] | undefined,
 ): readonly MessageContent[] | undefined {
-  if (!contentBlocks) return undefined;
-  if (!hasImageContentBlocks(contentBlocks)) return contentBlocks;
-  return catId === 'codex' ? contentBlocks : undefined;
+  return contentBlocks ?? undefined;
 }
 
 async function fetchAfterCursor(

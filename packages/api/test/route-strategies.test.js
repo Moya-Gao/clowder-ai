@@ -494,7 +494,7 @@ describe('routeParallel persistence context (P1-2)', () => {
 });
 
 describe('image contentBlocks routing', () => {
-  it('routeParallel passes image contentBlocks only to codex', async () => {
+  it('routeParallel passes image contentBlocks to all target cats', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
     const opusService = createOptionsCapturingService('opus', 'opus');
     const codexService = createOptionsCapturingService('codex', 'codex');
@@ -512,15 +512,15 @@ describe('image contentBlocks routing', () => {
     }
 
     assert.equal(opusService.calls.length, 1, 'opus should be invoked once');
-    assert.equal(opusService.calls[0].options?.contentBlocks, undefined, 'opus should not receive image contentBlocks');
-    assert.equal(opusService.calls[0].options?.uploadDir, undefined, 'opus should not receive uploadDir when image blocks are withheld');
+    assert.deepEqual(opusService.calls[0].options?.contentBlocks, contentBlocks, 'opus should receive image contentBlocks');
+    assert.equal(opusService.calls[0].options?.uploadDir, '/tmp/uploads', 'opus should receive uploadDir');
 
     assert.equal(codexService.calls.length, 1, 'codex should be invoked once');
     assert.deepEqual(codexService.calls[0].options?.contentBlocks, contentBlocks, 'codex should receive original image contentBlocks');
     assert.equal(codexService.calls[0].options?.uploadDir, '/tmp/uploads', 'codex should receive uploadDir');
   });
 
-  it('routeSerial passes image contentBlocks only to codex among original targets', async () => {
+  it('routeSerial passes image contentBlocks to all target cats', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const opusService = createOptionsCapturingService('opus', 'opus');
     const codexService = createOptionsCapturingService('codex', 'codex');
@@ -538,8 +538,8 @@ describe('image contentBlocks routing', () => {
     }
 
     assert.equal(opusService.calls.length, 1, 'opus should be invoked once');
-    assert.equal(opusService.calls[0].options?.contentBlocks, undefined, 'opus should not receive image contentBlocks');
-    assert.equal(opusService.calls[0].options?.uploadDir, undefined, 'opus should not receive uploadDir when image blocks are withheld');
+    assert.deepEqual(opusService.calls[0].options?.contentBlocks, contentBlocks, 'opus should receive image contentBlocks');
+    assert.equal(opusService.calls[0].options?.uploadDir, '/tmp/uploads', 'opus should receive uploadDir');
 
     assert.equal(codexService.calls.length, 1, 'codex should be invoked once');
     assert.deepEqual(codexService.calls[0].options?.contentBlocks, contentBlocks, 'codex should receive original image contentBlocks');

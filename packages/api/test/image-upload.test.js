@@ -371,7 +371,7 @@ describe('multipart image target routing', () => {
     if (uploadDir) await rm(uploadDir, { recursive: true, force: true });
   });
 
-  it('forces multipart image messages to route to codex target only', async () => {
+  it('routes multipart image messages to the mentioned cat (not forced to codex)', async () => {
     const boundary = '----cat-cafe-test-boundary';
     const payload = Buffer.concat([
       Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="content"\r\n\r\n请看图\r\n`),
@@ -392,19 +392,19 @@ describe('multipart image target routing', () => {
     assert.equal(res.statusCode, 200);
     await new Promise((resolve) => setTimeout(resolve, 20));
     assert.equal(routeExecutionCalls.length, 1);
-    assert.deepEqual(routeExecutionCalls[0].targetCats, ['codex']);
     assert.equal(routeExecutionCalls[0].uploadDir, uploadDir);
     assert.ok(Array.isArray(routeExecutionCalls[0].contentBlocks), 'routeExecution should receive contentBlocks');
     assert.ok(
       routeExecutionCalls[0].contentBlocks.some((b) => b.type === 'image'),
       'routeExecution should receive image content block',
     );
+    // No forced-to-codex notice should be broadcast
     const notice = broadcastedAgentMessages.find((m) => (
       m?.type === 'system_info'
       && typeof m?.content === 'string'
       && m.content.includes('已自动转交缅因猫')
     ));
-    assert.ok(notice, 'should broadcast a visible system notice when image target is forced to codex');
+    assert.equal(notice, undefined, 'should NOT broadcast forced-to-codex notice');
   });
 });
 
