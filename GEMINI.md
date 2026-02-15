@@ -20,8 +20,9 @@
 - `merge-approval-gate` — 准备合入 main 时
 - `brainstorming` — 开始创意工作前
 - `cross-cat-handoff` — 写交接/传话时
-- `cat-cafe-requesting-review` — 请求 review 时
+- `cat-cafe-requesting-review` — 请求本地 review 时
 - `cat-cafe-receiving-review` — 收到 review 反馈时
+- `requesting-cloud-review` — 开 PR + 触发云端 Codex review 时
 - `spec-compliance-check` — 开发完成、准备提 review 时
 - `verification-before-completion` — 声称完成前
 - `systematic-debugging` — 遇到 bug 时
@@ -148,7 +149,7 @@ assets/
 
 ### 代码规范
 
-1. **文件大小**：每个文件 < 200 行
+1. **文件大小**：200 行警告（review 时需解释原因），350 行硬上限（必须拆分）
 2. **类型安全**：禁止使用 `any`
 3. **命名规范**：函数名要自解释
 4. **测试先行**：改了组件逻辑要写测试

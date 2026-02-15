@@ -11,8 +11,9 @@
 | `merge-approval-gate` | 准备合入 main 时 |
 | `spec-compliance-check` | 开发完成、准备提 review 时 |
 | `cross-cat-handoff` | 写交接/传话/review 请求时 |
-| `cat-cafe-requesting-review` | 请求 review 时 |
+| `cat-cafe-requesting-review` | 请求本地 review 时 |
 | `cat-cafe-receiving-review` | 收到 review 反馈时 |
+| `requesting-cloud-review` | 开 PR + 触发云端 Codex review 时 |
 | `feat-discussion` | 讨论新功能需求时 |
 
 ### 开发流程（改进自 Superpowers）

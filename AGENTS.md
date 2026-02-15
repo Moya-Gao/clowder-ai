@@ -22,6 +22,7 @@ cat ~/.codex/skills/{skill-name}/SKILL.md
 **核心 Skills**：
 - `merge-approval-gate` — 检查布偶猫是否可以合入
 - `cat-cafe-receiving-review` — 布偶猫收到你的 review 后的流程
+- `requesting-cloud-review` — 开 PR + 触发云端 Codex review 时
 - `systematic-debugging` — 遇到 bug 时（含 Bug report 5件套）
 - `test-driven-development` — 写测试时
 - `verification-before-completion` — 声称完成前
@@ -407,6 +408,57 @@ pnpm lint
 3. 若需要配置层面调整，让铲屎官检查 `~/.codex/config.toml` 以及当前项目的信任/权限设置（CLI 和 App 通常共享同一套配置，但实际执行仍以当次会话策略为准）。
 
 > 经验法则：**只要涉及网络（哪怕是 `localhost`）就默认可能需要弹窗授权**；不要因为“配置里写了 network_access=true”就假设一定可用。
+
+## Review guidelines
+
+> 此 section 同时供 **本地缅因猫** 和 **云端 Codex PR review** 使用。
+> 云端 Codex 通过 `@codex review` 触发时自动读取本节。
+
+### 严重度定义
+
+| 级别 | 含义 | 处置 |
+|------|------|------|
+| **P0** | 数据丢失 / 安全漏洞 / 服务崩溃 | 必须修，阻塞合入 |
+| **P1** | 逻辑错误 / 测试缺失 / 类型不安全 / 架构违规 | 必须修，阻塞合入 |
+| **P2** | 性能隐患 / 代码重复 / 命名不清 / 文档过时 | 必须修，当轮解决 |
+| **P3** | 代码风格偏好 / 可选优化 | 作者同意就修，不同意就放下，**不记 BACKLOG** |
+
+### 代码质量红线
+
+- **禁止 `any` 类型** — 用 `unknown` + type guard 或具体类型
+- **文件行数双阈值** — 200 行警告（review 时要解释为什么超），350 行硬上限（必须拆分）。跳过空行和注释计数
+- **函数名自解释** — 看名字就知道干什么
+- **可选字段不赋 `undefined`** — 用 spread `...(cond ? { field } : {})`（exactOptionalPropertyTypes）
+- **新增功能必须有测试** — 无测试的功能 = P1
+- **删代码要彻底** — 不留 `_unused` 变量、不留 `// removed` 注释、不留 re-export 兼容 shim
+
+### 安全审查重点
+
+- **注入风险**: 用户输入 / CLI 参数 / callback 数据必须验证，禁止拼接 shell 命令
+- **鉴权检查**: 每个 API 端点必须有 `resolveUserId` 或等效身份校验
+- **Redis 隔离**: 测试不能碰 6399（生产），只用 6398（开发）或测试脚本的临时实例
+- **敏感数据**: 禁止在日志/错误消息中输出 token、密码、完整 session ID
+- **callback 验证**: 所有 callback 路由必须验证 `invocationId` + `callbackToken`
+
+### 架构守护
+
+- **依赖方向**: routes → services → stores，禁止反向 import
+- **禁止循环依赖**: routes 文件不能 import 顶层 index.ts getter
+- **DI 方式**: Fastify plugin opts 注入，不用全局单例
+- **per-cat budget**: 每猫调用前独立计算 context budget
+- **InvocationRecord 状态机**: 状态转移必须走 CAS（Lua 原子操作），禁止直接覆写
+- **消息不可变性**: 写入后的消息只能 soft-delete / hard-delete / branch，不能原地修改内容
+
+### PR 审查 checklist
+
+- [ ] 改动是否和 plan / ADR 一致？
+- [ ] 有没有引入新的 `any` 类型？
+- [ ] 新增/修改的代码是否有对应测试？
+- [ ] 文件是否超过 200 行？
+- [ ] `pnpm -r --if-present run build` 是否通过？
+- [ ] 涉及 Redis 的改动是否在隔离环境测试？
+- [ ] 有没有安全隐患（注入 / 鉴权缺失 / 敏感数据泄露）？
+- [ ] 删除的代码是否清理干净（无残留引用）？
 
 ## 当你不确定时
 
