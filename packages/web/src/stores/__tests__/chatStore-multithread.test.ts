@@ -126,6 +126,34 @@ describe('chatStore multi-thread state', () => {
     });
   });
 
+  describe('appendToThreadMessage', () => {
+    it('appends to active thread message content', () => {
+      useChatStore.getState().addMessage(makeMsg('m1', 'hello'));
+      useChatStore.getState().appendToThreadMessage('thread-a', 'm1', ' world');
+      expect(useChatStore.getState().messages[0].content).toBe('hello world');
+    });
+
+    it('appends to background thread message content', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('m2', 'foo'));
+      useChatStore.getState().appendToThreadMessage('thread-b', 'm2', 'bar');
+      expect(useChatStore.getState().threadStates['thread-b']!.messages[0].content).toBe('foobar');
+    });
+  });
+
+  describe('setThreadMessageStreaming', () => {
+    it('updates streaming flag in active thread', () => {
+      useChatStore.getState().addMessage({ ...makeMsg('m3', 'run'), type: 'assistant' });
+      useChatStore.getState().setThreadMessageStreaming('thread-a', 'm3', true);
+      expect(useChatStore.getState().messages[0].isStreaming).toBe(true);
+    });
+
+    it('updates streaming flag in background thread', () => {
+      useChatStore.getState().addMessageToThread('thread-b', { ...makeMsg('m4', 'run'), type: 'assistant' });
+      useChatStore.getState().setThreadMessageStreaming('thread-b', 'm4', true);
+      expect(useChatStore.getState().threadStates['thread-b']!.messages[0].isStreaming).toBe(true);
+    });
+  });
+
   describe('getThreadState', () => {
     it('returns active thread state from flat fields', () => {
       useChatStore.getState().addMessage(makeMsg('g1'));

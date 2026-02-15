@@ -103,6 +103,17 @@ export function useAgentMessages() {
     }
   }, []);
 
+  const findStreamingMessageId = useCallback((catId: string): string | null => {
+    const currentMessages = useChatStore.getState().messages;
+    for (let i = currentMessages.length - 1; i >= 0; i--) {
+      const msg = currentMessages[i];
+      if (msg.type === 'assistant' && msg.catId === catId && msg.isStreaming) {
+        return msg.id;
+      }
+    }
+    return null;
+  }, []);
+
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
       // Reset timeout on any message (keeps timer alive during streaming)
@@ -116,19 +127,26 @@ export function useAgentMessages() {
           // Append to this cat's active message
           appendToMessage(existing.id, msg.content);
         } else {
-          // New message for this cat
-          const id = `msg-${Date.now()}-${msg.catId}`;
-          activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-          addMessage({
-            id,
-            type: 'assistant',
-            catId: msg.catId,
-            content: msg.content,
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
-            timestamp: Date.now(),
-            isStreaming: true,
-          });
+          const resumedId = findStreamingMessageId(msg.catId);
+          if (resumedId) {
+            // Recover background-stream message after thread switch (activeRefs are reset on switch)
+            activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
+            appendToMessage(resumedId, msg.content);
+          } else {
+            // New message for this cat
+            const id = `msg-${Date.now()}-${msg.catId}`;
+            activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+            addMessage({
+              id,
+              type: 'assistant',
+              catId: msg.catId,
+              content: msg.content,
+              ...(msg.metadata ? { metadata: msg.metadata } : {}),
+              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              timestamp: Date.now(),
+              isStreaming: true,
+            });
+          }
         }
       } else if (msg.type === 'tool_use') {
         setCatStatus(msg.catId, 'streaming');
@@ -211,7 +229,13 @@ export function useAgentMessages() {
         });
       } else if (msg.type === 'done') {
         setCatStatus(msg.catId, 'done');
-        const ref = activeRefs.current.get(msg.catId);
+        let ref = activeRefs.current.get(msg.catId);
+        if (!ref) {
+          const resumedId = findStreamingMessageId(msg.catId);
+          if (resumedId) {
+            ref = { id: resumedId, catId: msg.catId };
+          }
+        }
         if (ref) {
           setStreaming(ref.id, false);
           activeRefs.current.delete(msg.catId);
@@ -316,7 +340,13 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
-        const ref = activeRefs.current.get(msg.catId);
+        let ref = activeRefs.current.get(msg.catId);
+        if (!ref) {
+          const resumedId = findStreamingMessageId(msg.catId);
+          if (resumedId) {
+            ref = { id: resumedId, catId: msg.catId };
+          }
+        }
         if (ref) {
           setStreaming(ref.id, false);
           activeRefs.current.delete(msg.catId);
@@ -336,7 +366,7 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setHasActiveInvocation, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout]
+    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setHasActiveInvocation, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout, findStreamingMessageId]
   );
 
   const handleStop = useCallback(

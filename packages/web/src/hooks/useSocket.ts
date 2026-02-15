@@ -6,9 +6,12 @@ import { getUserId } from '@/utils/userId';
 import { API_URL } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
-
-/** Monotonic counter to ensure unique IDs for background thread messages (P2 fix) */
-let bgSeq = 0;
+import {
+  handleBackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  cleanupDroppedActiveTerminalBackgroundStream,
+  type BackgroundAgentMessage,
+} from './useSocket-background';
 
 interface AgentMessage {
   type: string;
@@ -37,7 +40,7 @@ interface SocketIoEngineLike {
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
 
 export interface SocketCallbacks {
-  onMessage: (msg: AgentMessage) => void;
+  onMessage: (msg: AgentMessage) => boolean | void;
   onThreadUpdated?: (data: { threadId: string; title: string }) => void;
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
   onTaskCreated?: (task: Record<string, unknown>) => void;
@@ -55,6 +58,8 @@ export interface SocketCallbacks {
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const socketRef = useRef<Socket | null>(null);
   const joinedRoomsRef = useRef<Set<string>>(new Set());
+  const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
+  const bgSeqRef = useRef(0);
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
@@ -114,75 +119,25 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
-        callbacks.onMessage(msg);
+        const handled = callbacks.onMessage(msg);
+        if (handled === false) {
+          cleanupDroppedActiveTerminalBackgroundStream(msg, {
+            store: useChatStore.getState(),
+            bgStreamRefs: bgStreamRefsRef.current,
+          });
+          return;
+        }
+        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         return;
       }
 
-      // Background thread → simple message accumulation + status update + toast
-      const store = useChatStore.getState();
-      if (msg.type === 'text' && msg.content) {
-        store.addMessageToThread(msg.threadId, {
-          id: `bg-${msg.timestamp}-${msg.catId}-${bgSeq++}`,
-          type: 'assistant',
-          catId: msg.catId,
-          content: msg.content,
-          ...(msg.metadata ? { metadata: msg.metadata } : {}),
-          timestamp: msg.timestamp,
-        });
-        // Update cat status for background thread
-        store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
-        // Toast + invocation cleanup on final message
-        if (msg.isFinal) {
-          store.clearThreadActiveInvocation(msg.threadId!);
-          useToastStore.getState().addToast({
-            type: 'success',
-            title: `${msg.catId} 完成`,
-            message: msg.content.slice(0, 80) + (msg.content.length > 80 ? '...' : ''),
-            threadId: msg.threadId,
-            duration: 5000,
-          });
-        }
-      } else if (msg.type === 'error') {
-        store.addMessageToThread(msg.threadId, {
-          id: `bg-err-${msg.timestamp}-${msg.catId}-${bgSeq++}`,
-          type: 'system',
-          catId: msg.catId,
-          content: `Error: ${msg.error ?? 'Unknown error'}`,
-          timestamp: msg.timestamp,
-        });
-        store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
-        if (msg.isFinal) {
-          store.clearThreadActiveInvocation(msg.threadId!);
-        }
-        useToastStore.getState().addToast({
-          type: 'error',
-          title: `${msg.catId} 出错`,
-          message: msg.error ?? 'Unknown error',
-          threadId: msg.threadId,
-          duration: 8000,
-        });
-      } else if (msg.type === 'done') {
-        // Don't overwrite error status with success (backend sends error then done)
-        const currentStatus = store.getThreadState(msg.threadId!).catStatuses[msg.catId];
-        if (currentStatus !== 'error') {
-          store.updateThreadCatStatus(msg.threadId!, msg.catId, 'done');
-          useToastStore.getState().addToast({
-            type: 'success',
-            title: `${msg.catId} 完成`,
-            message: `${msg.catId} 已完成处理`,
-            threadId: msg.threadId!,
-            duration: 5000,
-          });
-        }
-        if (msg.isFinal) {
-          store.clearThreadActiveInvocation(msg.threadId!);
-        }
-      } else if (msg.type === 'status') {
-        // Update cat status indicator without storing a message
-        const statusMap: Record<string, string> = { streaming: 'streaming', thinking: 'pending', done: 'done' };
-        const mapped = statusMap[msg.content ?? ''] ?? 'streaming';
-        store.updateThreadCatStatus(msg.threadId!, msg.catId, mapped as 'streaming' | 'pending' | 'done');
-      }
+      // Background thread → delegated handler
+      handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
+        store: useChatStore.getState(),
+        bgStreamRefs: bgStreamRefsRef.current,
+        nextBgSeq: () => bgSeqRef.current++,
+        addToast: (toast) => useToastStore.getState().addToast(toast),
+      });
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
