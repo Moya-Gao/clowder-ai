@@ -9,6 +9,7 @@
 | **严重程度** | P0 — 导致失忆 + 未授权操作 |
 | **影响范围** | 所有通过 Claude Code SDK 独立运行的猫 (当前仅 opus) |
 | **状态** | 分析完成，方案待实施 |
+| **参考文档** | [`docs/research/AI-Coding-Tools-research.md`](../../research/AI-Coding-Tools-research.md) — CLI Hooks 能力调研 |
 
 ## 1. 事件时间线
 
@@ -261,7 +262,7 @@ jq -n \
 
 ### 各家 CLI Hooks 能力对比
 
-基于 `docs/research/AI-Coding-Tools-research.md` 的调研结论：
+基于 [`docs/research/AI-Coding-Tools-research.md`](../../research/AI-Coding-Tools-research.md) 的调研结论：
 
 | CLI | Hooks 成熟度 | 有 PreCompact 等价？ | 备注 |
 |-----|:----------:|:------------------:|------|
