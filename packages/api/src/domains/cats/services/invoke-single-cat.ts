@@ -196,7 +196,7 @@ export async function* invokeSingleCat(
         if (deps.sessionChainStore) {
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
-            sessionSeq = activeRec?.seq;
+            sessionSeq = activeRec != null ? activeRec.seq + 1 : undefined;
           } catch { /* best-effort */ }
         }
         outputs.push({
@@ -330,7 +330,7 @@ export async function* invokeSingleCat(
                           type: 'session_seal_requested',
                           catId,
                           sessionId: activeRecord.id,
-                          sessionSeq: activeRecord.seq,
+                          sessionSeq: activeRecord.seq + 1,
                           reason: 'threshold',
                           healthSnapshot: health,
                         }),

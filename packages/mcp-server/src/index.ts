@@ -214,7 +214,7 @@ export function createServer(): McpServer {
     'cat_cafe_list_session_chain',
     'List session chain for a thread. Shows session IDs, sequence numbers, status, and context health for each cat.',
     listSessionChainInputSchema,
-    async (args: { threadId: string; catId?: string | undefined; limit?: number | undefined }) => {
+    async (args: { threadId: string; catId?: string | undefined; limit?: number | undefined; userId?: string | undefined }) => {
       const result = await handleListSessionChain(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
@@ -224,7 +224,7 @@ export function createServer(): McpServer {
     'cat_cafe_read_session_events',
     'Read events from a sealed session transcript. Supports pagination via cursor. Use to review what happened in a previous session.',
     readSessionEventsInputSchema,
-    async (args: { sessionId: string; cursor?: number | undefined; limit?: number | undefined }) => {
+    async (args: { sessionId: string; cursor?: number | undefined; limit?: number | undefined; userId?: string | undefined }) => {
       const result = await handleReadSessionEvents(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
@@ -234,7 +234,7 @@ export function createServer(): McpServer {
     'cat_cafe_read_session_digest',
     'Read the extractive digest of a sealed session. Contains tool names, files touched, errors, and timing info. Use this first before reading full events.',
     readSessionDigestInputSchema,
-    async (args: { sessionId: string }) => {
+    async (args: { sessionId: string; userId?: string | undefined }) => {
       const result = await handleReadSessionDigest(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
@@ -244,7 +244,7 @@ export function createServer(): McpServer {
     'cat_cafe_session_search',
     'Search across session transcripts and digests. Use to find specific events, decisions, or file changes from previous sessions.',
     sessionSearchInputSchema,
-    async (args: { threadId: string; query: string; cats?: string | undefined; limit?: number | undefined; scope?: string | undefined }) => {
+    async (args: { threadId: string; query: string; cats?: string | undefined; limit?: number | undefined; scope?: string | undefined; userId?: string | undefined }) => {
       const result = await handleSessionSearch(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
