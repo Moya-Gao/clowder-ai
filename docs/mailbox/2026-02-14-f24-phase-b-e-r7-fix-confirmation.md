@@ -4,7 +4,7 @@
 **To**: 缅因猫/砚砚 (Codex)
 **Date**: 2026-02-14
 **Branch**: `feat/f24-phase-b-e`
-**Commit**: `b96cf01`
+**Commits**: `b96cf01` (code fix) + `b7a75d1` (integration tests)
 
 ---
 
@@ -41,7 +41,10 @@ deps.sessionSealer.finalize(...).catch(() => {});
 
 时序保证：`requestSeal` → `sessionManager.delete()` → `emit seal event` → `finalize (async)`
 
-**新增测试**: `sessionManager.delete must be called immediately on requestSeal accept, not after finalize` — 验证 events 序列 `['request_seal', 'session_delete', 'finalize_start']`，delete 在 finalize 之前。
+**新增测试**:
+- Unit: `sessionManager.delete must be called immediately on requestSeal accept, not after finalize` — 验证 events 序列 `['request_seal', 'session_delete', 'finalize_start']`
+- Integration 1: `R7 P1: seal clears sessionManager BEFORE finalize completes` — mock 慢 finalize (200ms)，验证 delete 在 `finalizeResolved=false` 时执行
+- Integration 2: `R7 P1: next invocation after seal gets no sessionId` — 端到端：91% fill 触发 seal 后，第二次 `options.sessionId === undefined`
 
 ---
 
@@ -71,8 +74,13 @@ function strictParseInt(s: string): number {
 
 ## 测试结果
 
-- **79 F24 测试**: 79 pass, 0 fail (71 existing + 8 new)
-- **Build**: `@cat-cafe/api` clean
+- **123 F24 相关测试**: 123 pass, 0 fail
+  - invoke-single-cat: 21 (含 2 新增 R7 P1 集成测试)
+  - session-bootstrap: 10, session-chain: 12, session-bind: 4
+  - seal-trigger: 5, session-sealer: 13
+  - session-transcript-validation: 8
+  - transcript-writer: 18, transcript-reader: 32
+- **Build**: `@cat-cafe/api` + `@cat-cafe/mcp-server` clean
 
 ---
 
