@@ -105,7 +105,7 @@ docs/tasks/codex-tasks.md
 
 **当你发现自己在写/修改实现代码（而不是在 review 别人的代码）时，立即自检：**
 
-1. ✅ 我读了 CLAUDE.md 的开发流程规则吗？（**写代码 = 遵守 CLAUDE.md**，没有例外）
+1. ✅ 我读了 `docs/SOP.md` 完整流程吗？（**写代码 = 先遵守 SOP.md，`CLAUDE.md` 仅作操作细节补充**）
 2. ✅ 我开了 worktree 吗？（CLAUDE.md §9: 任何代码修改必须 worktree 隔离，不管大小）
 3. ✅ 我的代码谁来 review？（答案：布偶猫。用 `cat-cafe-requesting-review` skill）
 4. ✅ 我走 merge gate 了吗？（`merge-approval-gate` 适用于**所有猫**，包括你自己）
