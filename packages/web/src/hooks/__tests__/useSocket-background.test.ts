@@ -377,5 +377,33 @@ describe('background thread socket handling', () => {
       expect(merged?.isStreaming).toBe(false);
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
     });
+
+    it('suppressed active terminal event must not clear background ref', () => {
+      const now = Date.now();
+      const streamKey = 'thread-bg::codex';
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'partial',
+        timestamp: now,
+      });
+      expect(testBgStreamRefs.has(streamKey)).toBe(true);
+
+      // Simulate active-thread terminal event that was suppressed by ChatContainer (not consumed).
+      clearBackgroundStreamRefForActiveEvent(
+        {
+          type: 'done',
+          catId: 'codex',
+          threadId: 'thread-bg',
+          timestamp: now + 1,
+        },
+        testBgStreamRefs,
+        false
+      );
+
+      expect(testBgStreamRefs.has(streamKey)).toBe(true);
+    });
   });
 });

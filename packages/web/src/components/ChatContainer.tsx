@@ -139,8 +139,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // Socket callbacks
   const socketCallbacks = useMemo<SocketCallbacks>(() => ({
     onMessage: (msg) => {
-      if (suppressMessagesRef.current) return;
+      if (suppressMessagesRef.current) return false;
       handleAgentMessage(msg);
+      return true;
     },
     onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
     onIntentMode: (data) => {

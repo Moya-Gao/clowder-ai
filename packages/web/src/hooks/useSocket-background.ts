@@ -76,8 +76,10 @@ function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): b
 
 export function clearBackgroundStreamRefForActiveEvent(
   msg: ActiveRoutedAgentMessage,
-  bgStreamRefs: Map<string, BackgroundStreamRef>
+  bgStreamRefs: Map<string, BackgroundStreamRef>,
+  handled = true
 ): void {
+  if (!handled) return;
   if (!shouldClearBackgroundRefOnActiveEvent(msg) || !msg.threadId) return;
   bgStreamRefs.delete(`${msg.threadId}::${msg.catId}`);
 }

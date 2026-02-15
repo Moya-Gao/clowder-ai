@@ -39,7 +39,7 @@ interface SocketIoEngineLike {
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
 
 export interface SocketCallbacks {
-  onMessage: (msg: AgentMessage) => void;
+  onMessage: (msg: AgentMessage) => boolean | void;
   onThreadUpdated?: (data: { threadId: string; title: string }) => void;
   onIntentMode?: (data: { threadId: string; mode: string; targetCats: string[] }) => void;
   onTaskCreated?: (task: Record<string, unknown>) => void;
@@ -118,8 +118,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
-        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
-        callbacks.onMessage(msg);
+        const handled = callbacks.onMessage(msg);
+        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current, handled !== false);
         return;
       }
 
