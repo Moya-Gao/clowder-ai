@@ -66,6 +66,36 @@ function revokeBlobUrls(messages: ChatMessage[]) {
   }
 }
 
+function updateThreadMessage(
+  state: ChatState,
+  threadId: string,
+  messageId: string,
+  updater: (message: ChatMessage) => ChatMessage
+): ChatState | Partial<ChatState> {
+  if (threadId === state.currentThreadId) {
+    return {
+      messages: state.messages.map((m) =>
+        m.id === messageId ? updater(m) : m
+      ),
+    };
+  }
+
+  const existing = state.threadStates[threadId];
+  if (!existing) return state;
+  return {
+    threadStates: {
+      ...state.threadStates,
+      [threadId]: {
+        ...existing,
+        messages: existing.messages.map((m) =>
+          m.id === messageId ? updater(m) : m
+        ),
+        lastActivity: Date.now(),
+      },
+    },
+  };
+}
+
 // ── Store interface ──
 
 interface ChatState {
@@ -336,57 +366,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   /** Append chunk content to a specific message in a specific thread. */
   appendToThreadMessage: (threadId, messageId, content) =>
-    set((state) => {
-      if (threadId === state.currentThreadId) {
-        return {
-          messages: state.messages.map((m) =>
-            m.id === messageId ? { ...m, content: m.content + content } : m
-          ),
-        };
-      }
-
-      const existing = state.threadStates[threadId];
-      if (!existing) return state;
-      return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...existing,
-            messages: existing.messages.map((m) =>
-              m.id === messageId ? { ...m, content: m.content + content } : m
-            ),
-            lastActivity: Date.now(),
-          },
-        },
-      };
-    }),
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        content: m.content + content,
+      }))
+    ),
 
   /** Update isStreaming for a specific message in a specific thread. */
   setThreadMessageStreaming: (threadId, messageId, streaming) =>
-    set((state) => {
-      if (threadId === state.currentThreadId) {
-        return {
-          messages: state.messages.map((m) =>
-            m.id === messageId ? { ...m, isStreaming: streaming } : m
-          ),
-        };
-      }
-
-      const existing = state.threadStates[threadId];
-      if (!existing) return state;
-      return {
-        threadStates: {
-          ...state.threadStates,
-          [threadId]: {
-            ...existing,
-            messages: existing.messages.map((m) =>
-              m.id === messageId ? { ...m, isStreaming: streaming } : m
-            ),
-            lastActivity: Date.now(),
-          },
-        },
-      };
-    }),
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        isStreaming: streaming,
+      }))
+    ),
 
   /** Get a thread's state (active thread returns flat state, others return map) */
   getThreadState: (threadId) => {
