@@ -985,6 +985,51 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'second call must NOT resume despite slow delete — read-side short-circuit (R8 P1)');
   });
 
+  it('R9 P1: getChain() failure triggers fail-closed — no resume (not fail-open)', async () => {
+    // Scenario: sessionManager.get() returns old sessionId, but
+    // sessionChainStore.getChain() throws (Redis blip). The read-side
+    // guard must be fail-closed: discard sessionId rather than risk
+    // --resume into a sealed session.
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    // sessionChainStore that always throws on getChain
+    const failingChainStore = {
+      getChain() { throw new Error('Redis connection lost'); },
+      getActive() { throw new Error('Redis connection lost'); },
+      get() { return null; },
+      create() { return { id: 'x', seq: 0, status: 'active' }; },
+      update() { return {}; },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: failingChainStore,
+      sessionManager: {
+        get: async () => 'old-sess',  // stale key still present
+        store: async () => {},
+        delete: async () => {},
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-chain-fail', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1);
+    assert.equal(optionsSeen[0].sessionId, undefined,
+      'getChain() failure must discard sessionId (fail-closed, R9 P1)');
+  });
+
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];

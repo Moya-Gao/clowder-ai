@@ -138,7 +138,12 @@ export async function* invokeSingleCat(
           }
         }
       } catch {
-        // Best-effort: if chain store read fails, keep sessionId as-is
+        // R9 P1: Fail-closed — if chain store read fails, discard sessionId.
+        // Rationale: requestSeal accepted = hard seal boundary. When we can't
+        // verify chain state, it's safer to start fresh than risk --resume
+        // into a sealed session. Lost resume is recoverable; sealed-session
+        // corruption is not.
+        sessionId = undefined;
       }
     }
 
