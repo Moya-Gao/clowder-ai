@@ -4,7 +4,7 @@
  *
  * 安全:
  * - 需要身份校验 (resolveUserId) — 暴露主机级 skills/MCP 元信息
- * - Skills 发现: Claude 项目级 .claude/skills/, Codex 用户级 ~/.codex/skills/
+ * - Skills 发现: Claude 项目级 .claude/skills/ + 用户级 ~/.claude/skills/, Codex 用户级 ~/.codex/skills/
  * - MCP 发现: 项目 .mcp.json, Gemini ~/.gemini/settings.json
  */
 
@@ -55,13 +55,17 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     const projectRoot = resolve(process.cwd(), '../..');
     const home = homedir();
 
-    const [claudeSkills, codexSkills, geminiSkills, projectMcp, geminiMcp] = await Promise.all([
+    const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills, projectMcp, geminiMcp] = await Promise.all([
       listSubdirs(join(projectRoot, '.claude', 'skills')),
+      listSubdirs(join(home, '.claude', 'skills')),
       listSubdirs(join(home, '.codex', 'skills'), ['.system']),
       listSubdirs(join(home, '.gemini', 'skills')),
       readJsonKeys(join(projectRoot, '.mcp.json'), 'mcpServers'),
       readJsonKeys(join(home, '.gemini', 'settings.json'), 'mcpServers'),
     ]);
+
+    // Claude skills: merge project-level + user-level, deduplicate
+    const claudeSkills = [...new Set([...claudeProjectSkills, ...claudeUserSkills])];
 
     const result: CapabilitiesResponse = {
       opus: {
