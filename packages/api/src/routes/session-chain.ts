@@ -13,6 +13,7 @@ import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
 
 const VALID_CAT_IDS = new Set<string>(getAllCatIds());
 
@@ -126,30 +127,39 @@ export async function sessionChainRoutes(
     // Check for active session
     const active = await sessionChainStore.getActive(catId as CatId, threadId);
 
+    let session;
+    let mode: 'updated' | 'created';
+
     if (active) {
       // Update existing active session's cliSessionId
       const updated = await sessionChainStore.update(active.id, {
         cliSessionId,
         updatedAt: Date.now(),
       });
-
-      return reply.send({
-        session: updated,
-        mode: 'updated' as const,
+      if (!updated) {
+        reply.status(409);
+        return { error: 'Session was modified concurrently, please retry' };
+      }
+      session = updated;
+      mode = 'updated';
+    } else {
+      // No active session → create new one
+      session = await sessionChainStore.create({
+        cliSessionId,
+        threadId,
+        catId: catId as CatId,
+        userId,
       });
+      mode = 'created';
     }
 
-    // No active session → create new one
-    const created = await sessionChainStore.create({
-      cliSessionId,
+    // Audit trail (best-effort, fire-and-forget)
+    getEventAuditLog().append({
+      type: AuditEventTypes.SESSION_BIND,
       threadId,
-      catId: catId as CatId,
-      userId,
-    });
+      data: { catId, cliSessionId, mode, sessionId: session.id, userId },
+    }).catch(() => { /* best-effort */ });
 
-    return reply.send({
-      session: created,
-      mode: 'created' as const,
-    });
+    return reply.send({ session, mode });
   });
 }

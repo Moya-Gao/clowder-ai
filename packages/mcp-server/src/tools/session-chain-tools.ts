@@ -35,7 +35,7 @@ export async function handleListSessionChain(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': 'system' },
+      headers: { 'x-cat-cafe-user': 'default-user' },
     });
     if (!res.ok) {
       return errorResult(`Failed to list sessions (${res.status}): ${await res.text()}`);
@@ -74,7 +74,7 @@ export async function handleReadSessionEvents(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': 'system' },
+      headers: { 'x-cat-cafe-user': 'default-user' },
     });
     if (!res.ok) {
       return errorResult(`Failed to read events (${res.status}): ${await res.text()}`);
@@ -116,7 +116,7 @@ export async function handleReadSessionDigest(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': 'system' },
+      headers: { 'x-cat-cafe-user': 'default-user' },
     });
     if (!res.ok) {
       if (res.status === 404) {
@@ -157,7 +157,7 @@ export async function handleSessionSearch(input: {
 
   try {
     const res = await fetch(url, {
-      headers: { 'x-cat-cafe-user': 'system' },
+      headers: { 'x-cat-cafe-user': 'default-user' },
     });
     if (!res.ok) {
       return errorResult(`Search failed (${res.status}): ${await res.text()}`);

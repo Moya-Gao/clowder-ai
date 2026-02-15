@@ -28,6 +28,7 @@ import { ModeStore } from './domains/cats/services/ModeStore.js';
 import { ModeOrchestrator } from './domains/cats/services/ModeOrchestrator.js';
 import { TranscriptWriter } from './domains/cats/services/TranscriptWriter.js';
 import { TranscriptReader } from './domains/cats/services/TranscriptReader.js';
+import { SessionSealer } from './domains/cats/services/SessionSealer.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -103,6 +104,7 @@ async function main(): Promise<void> {
   const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
   const transcriptWriter = new TranscriptWriter({ dataDir: transcriptDataDir });
   const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
+  const sessionSealer = new SessionSealer(sessionChainStore, transcriptWriter);
 
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();
@@ -120,6 +122,7 @@ async function main(): Promise<void> {
     sessionChainStore,
     transcriptWriter,
     transcriptReader,
+    sessionSealer,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

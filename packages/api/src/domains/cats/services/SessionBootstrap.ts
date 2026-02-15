@@ -41,8 +41,8 @@ export async function buildSessionBootstrap(
 
   // Get current active session
   const active = await sessionChainStore.getActive(catId, threadId);
-  if (!active || active.seq <= 1) {
-    return null; // Session #1 — no prior context
+  if (!active || active.seq <= 0) {
+    return null; // First session (seq=0) — no prior context
   }
 
   // Get the full chain to find the previous sealed session
@@ -55,9 +55,11 @@ export async function buildSessionBootstrap(
 
   // 1. Session Identity
   const sealedCount = chain.filter((s) => s.status === 'sealed').length;
+  // Display as 1-based for human readability (seq=1 → "Session #2")
+  const displaySeq = active.seq + 1;
   parts.push(
-    `[Session Continuity — Session #${active.seq}]`,
-    `This is session #${active.seq} of ${chain.length} total sessions for this thread.`,
+    `[Session Continuity — Session #${displaySeq}]`,
+    `This is session #${displaySeq} of ${chain.length} total sessions for this thread.`,
     `${sealedCount} previous session(s) are sealed and searchable.`,
   );
 

@@ -1,6 +1,9 @@
 /**
  * SessionBootstrap Tests — F24 Phase E
  * Tests for bootstrap context injection when a cat starts Session #2+.
+ *
+ * IMPORTANT: SessionChainStore uses 0-based seq (first session = seq 0).
+ * Bootstrap displays 1-based for humans (seq 0 → "Session #1", seq 1 → "Session #2").
  */
 
 import { describe, it, beforeEach } from 'node:test';
@@ -37,9 +40,9 @@ function createMockTranscriptReader(digests = {}) {
 describe('SessionBootstrap', () => {
 
   describe('buildSessionBootstrap', () => {
-    it('returns null for Session #1 (no prior context)', async () => {
+    it('returns null for first session (seq=0, no prior context)', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 0 },
       ]);
       const reader = createMockTranscriptReader();
 
@@ -53,7 +56,7 @@ describe('SessionBootstrap', () => {
 
     it('returns null when no active session exists', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
       ]);
       const reader = createMockTranscriptReader();
 
@@ -65,10 +68,10 @@ describe('SessionBootstrap', () => {
       assert.equal(result, null);
     });
 
-    it('returns bootstrap with identity for Session #2', async () => {
+    it('returns bootstrap with identity for second session (seq=1 → display #2)', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
       ]);
       const reader = createMockTranscriptReader();
 
@@ -79,23 +82,23 @@ describe('SessionBootstrap', () => {
       );
 
       assert.ok(result);
-      assert.equal(result.sessionSeq, 2);
-      assert.ok(result.text.includes('Session #2'));
+      assert.equal(result.sessionSeq, 1); // raw 0-based seq
+      assert.ok(result.text.includes('Session #2')); // display is 1-based
       assert.ok(result.text.includes('1 previous session(s) are sealed'));
     });
 
     it('includes previous session digest when available', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
       ]);
       const reader = createMockTranscriptReader({
-        'sess-1': {
+        'sess-0': {
           v: 1,
-          sessionId: 'sess-1',
+          sessionId: 'sess-0',
           threadId: 'thread-1',
           catId: 'opus',
-          seq: 1,
+          seq: 0,
           time: { createdAt: 1000000, sealedAt: 1060000 },
           invocations: [{ toolNames: ['Write', 'Edit'] }],
           filesTouched: [
@@ -122,8 +125,8 @@ describe('SessionBootstrap', () => {
 
     it('includes MCP tool recall instructions', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
       ]);
       const reader = createMockTranscriptReader();
 
@@ -142,8 +145,8 @@ describe('SessionBootstrap', () => {
 
     it('handles digest read failure gracefully (still returns identity + tools)', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
       ]);
       const reader = {
         async readDigest() { throw new Error('disk error'); },
@@ -157,15 +160,15 @@ describe('SessionBootstrap', () => {
 
       assert.ok(result);
       assert.equal(result.hasDigest, false);
-      assert.ok(result.text.includes('Session #2'));
+      assert.ok(result.text.includes('Session #2')); // seq=1 → display #2
       assert.ok(result.text.includes('cat_cafe_session_search')); // tools still present
     });
 
-    it('correctly counts sealed sessions for Session #3+', async () => {
+    it('correctly counts sealed sessions for Session #3+ (seq=2)', async () => {
       const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
         { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 2 },
-        { id: 'sess-3', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 3 },
+        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
       ]);
       const reader = createMockTranscriptReader();
 
@@ -176,24 +179,24 @@ describe('SessionBootstrap', () => {
       );
 
       assert.ok(result);
-      assert.equal(result.sessionSeq, 3);
-      assert.ok(result.text.includes('Session #3'));
+      assert.equal(result.sessionSeq, 2); // raw 0-based
+      assert.ok(result.text.includes('Session #3')); // display 1-based
       assert.ok(result.text.includes('3 total sessions'));
       assert.ok(result.text.includes('2 previous session(s) are sealed'));
     });
 
     it('includes error count when digest has errors', async () => {
       const store = createMockSessionChainStore([
-        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
       ]);
       const reader = createMockTranscriptReader({
-        'sess-1': {
+        'sess-0': {
           v: 1,
-          sessionId: 'sess-1',
+          sessionId: 'sess-0',
           threadId: 'thread-1',
           catId: 'opus',
-          seq: 1,
+          seq: 0,
           time: { createdAt: 1000000, sealedAt: 1300000 },
           invocations: [],
           filesTouched: [],
@@ -218,9 +221,9 @@ describe('SessionBootstrap', () => {
     it('only reads digest from previous seq (seq-1), not older sessions', async () => {
       let readDigestCalls = [];
       const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
         { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 1 },
-        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 2 },
-        { id: 'sess-3', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 3 },
+        { id: 'sess-2', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 2 },
       ]);
       const reader = {
         async readDigest(sessionId) {
@@ -235,8 +238,8 @@ describe('SessionBootstrap', () => {
         'thread-1',
       );
 
-      // Should only read sess-2 digest (the one right before the active sess-3)
-      assert.deepEqual(readDigestCalls, ['sess-2']);
+      // Should only read sess-1 digest (the one right before the active sess-2)
+      assert.deepEqual(readDigestCalls, ['sess-1']);
     });
   });
 });

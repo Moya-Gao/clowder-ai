@@ -34,6 +34,7 @@ import type { AgentMessage, AgentService } from './types.js';
 import type { ISessionChainStore } from './SessionChainStore.js';
 import type { TranscriptWriter } from './TranscriptWriter.js';
 import type { TranscriptReader } from './TranscriptReader.js';
+import type { ISessionSealer } from './SessionSealer.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -82,6 +83,8 @@ export interface AgentRouterOptions {
   transcriptWriter?: TranscriptWriter;
   /** F24 Phase D: Transcript reader for bootstrap injection */
   transcriptReader?: TranscriptReader;
+  /** F24 Phase B: Session sealer for auto-seal */
+  sessionSealer?: ISessionSealer;
 }
 
 /**
@@ -97,6 +100,7 @@ export class AgentRouter {
   private sessionChainStore: ISessionChainStore | undefined;
   private transcriptWriter: TranscriptWriter | undefined;
   private transcriptReader: TranscriptReader | undefined;
+  private sessionSealer: ISessionSealer | undefined;
 
   constructor(options: AgentRouterOptions) {
     this.services = {
@@ -112,6 +116,7 @@ export class AgentRouter {
     this.sessionChainStore = options.sessionChainStore;
     this.transcriptWriter = options.transcriptWriter;
     this.transcriptReader = options.transcriptReader;
+    this.sessionSealer = options.sessionSealer;
   }
 
   /** Parse message for @ mentions and return ordered list of cat IDs */
@@ -189,6 +194,7 @@ export class AgentRouter {
         ...(this.sessionChainStore ? { sessionChainStore: this.sessionChainStore } : {}),
         ...(this.transcriptWriter ? { transcriptWriter: this.transcriptWriter } : {}),
         ...(this.transcriptReader ? { transcriptReader: this.transcriptReader } : {}),
+        ...(this.sessionSealer ? { sessionSealer: this.sessionSealer } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,
