@@ -31,6 +31,7 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
     expect(html).toContain('9.9k');
     expect(html).toContain('↑');
     // Cache bar present: 33000 / 39270 = 84% (inputTokens = total after normalization)
+    expect(html).toContain('缓存命中');
     expect(html).toContain('84%');
     expect(html).toContain('cache-bar-opus');
     // Cost in amber
@@ -90,5 +91,24 @@ describe('F8: CatTokenUsage (dynamic redesign)', () => {
   it('does not show cache bar when cache percent is 0', () => {
     const html = render('opus', { inputTokens: 1000, outputTokens: 500 });
     expect(html).not.toContain('cache-bar');
+  });
+
+  it('shows context bar label when context health is present', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(CatTokenUsage, {
+        catId: 'gemini',
+        usage: { inputTokens: 1200, outputTokens: 300 },
+        contextHealth: {
+          usedTokens: 1200,
+          windowTokens: 1000000,
+          fillRatio: 0.0012,
+          source: 'approx',
+          measuredAt: Date.now(),
+        },
+      })
+    );
+
+    expect(html).toContain('上下文占用');
+    expect(html).toContain('context-health-gemini');
   });
 });

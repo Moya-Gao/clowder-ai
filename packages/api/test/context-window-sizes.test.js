@@ -21,6 +21,7 @@ describe('getContextWindowFallback', () => {
     assert.equal(getContextWindowFallback('claude-sonnet-4-5'), 200_000);
     assert.equal(getContextWindowFallback('gpt-5.3'), 128_000);
     assert.equal(getContextWindowFallback('gemini-2.5-pro'), 1_000_000);
+    assert.equal(getContextWindowFallback('gemini-3-pro'), 1_000_000);
   });
 
   test('returns prefix match for versioned models', async () => {

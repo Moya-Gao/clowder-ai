@@ -77,7 +77,10 @@ export function CatTokenUsage({ catId, usage, contextHealth }: CatTokenUsageProp
 
       {/* Cache bar */}
       {cachePct > 0 && (
-        <TokenCacheBar percent={cachePct} catId={catId} />
+        <div>
+          <div className="text-[10px] text-gray-400 mb-0.5">缓存命中</div>
+          <TokenCacheBar percent={cachePct} catId={catId} />
+        </div>
       )}
 
       {/* Cost + duration row */}
@@ -97,7 +100,10 @@ export function CatTokenUsage({ catId, usage, contextHealth }: CatTokenUsageProp
 
       {/* F24: Context health bar */}
       {contextHealth && (
-        <ContextHealthBar catId={catId} health={contextHealth} />
+        <div>
+          <div className="text-[10px] text-gray-400 mb-0.5">上下文占用</div>
+          <ContextHealthBar catId={catId} health={contextHealth} />
+        </div>
       )}
     </div>
   );

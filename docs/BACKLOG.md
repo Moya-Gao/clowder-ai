@@ -158,6 +158,7 @@
 
 | 项目 | 严重度 | 缓解方案 |
 |------|--------|----------|
+| **Token 输入口径与 CLI 原始 input_tokens 存在差异** | 低 | 当前 UI `inputTokens` 采用“统一口径总输入”（会合并 cache read/create），用于跨 provider 对齐；因此可能与 CLI resume 页面展示的原始 `input_tokens` 不完全一致。已在最近调用卡片补充“缓存命中/上下文占用”标签降低误解。若要 1:1 对齐 CLI 原始口径，后续需新增 raw 字段并并列展示。 |
 | CLI 启动开销 ~500ms-2s | 中 | 可考虑进程池 |
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
 | **Claude/Gemini 图片输入当前为 prompt 路径 fallback（非原生多模态）** | 中 | `claude --images` 与 `gemini -p + -i` 在现版本不兼容，已改为将图片绝对路径附加到 prompt 避免 CLI 启动失败。详见 [bug report](./bug-report/cli-image-flags-mismatch/bug-report.md)。后续若要恢复原生读图，需要改接 provider 支持的正式图片协议并补集成验证。 |
