@@ -15,10 +15,13 @@ import type { SessionManager } from './SessionManager.js';
 import type { InvocationRegistry } from './InvocationRegistry.js';
 import type { IThreadStore } from './ThreadStore.js';
 import type { ISessionChainStore } from './SessionChainStore.js';
+import type { ISessionSealer } from './SessionSealer.js';
+import type { TranscriptWriter, TranscriptSessionInfo } from './TranscriptWriter.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { createPromptDigest } from './prompt-digest.js';
 import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
+import { shouldSeal, getSealConfig } from '../../../config/seal-thresholds.js';
 
 function isMissingClaudeSessionError(message: string | undefined): boolean {
   if (!message) return false;
@@ -40,6 +43,12 @@ export interface InvocationDeps {
   readonly apiUrl: string;
   /** F24: Session chain store for context health tracking */
   readonly sessionChainStore?: ISessionChainStore;
+  /** F24 Phase B: Session sealer for auto-seal when context threshold reached */
+  readonly sessionSealer?: ISessionSealer;
+  /** F24 Phase C: Transcript writer for event collection + flush on seal */
+  readonly transcriptWriter?: TranscriptWriter;
+  /** F24 Phase D: Transcript reader for reading sealed session data */
+  readonly transcriptReader?: import('./TranscriptReader.js').TranscriptReader;
 }
 
 /**
@@ -80,6 +89,7 @@ export async function* invokeSingleCat(
     CAT_CAFE_API_URL: apiUrl,
     CAT_CAFE_INVOCATION_ID: invocationId,
     CAT_CAFE_CALLBACK_TOKEN: callbackToken,
+    CAT_CAFE_USER_ID: userId,
   };
 
   const auditLog = getEventAuditLog();
@@ -110,6 +120,38 @@ export async function* invokeSingleCat(
       sessionId = await sessionManager.get(userId, catId, threadId);
     } catch {
       // Redis read failure — continue without session
+    }
+
+    // R8 P1: Read-side short-circuit — if sessionChainStore has sealed/sealing sessions
+    // but NO active session, the previous session was sealed. Discard the persisted CLI
+    // sessionId to prevent --resume into a sealed session. This eliminates the race
+    // window between fire-and-forget delete and next get().
+    // Only applies when chain is non-empty (empty chain = fresh thread, keep sessionId).
+    //
+    // R11 P1-1: When active record exists, its cliSessionId is the authoritative value.
+    // sessionManager.get() may return a stale value if session_init updated the record
+    // but sessionManager wasn't re-written. Always align to the active record.
+    if (sessionId && deps.sessionChainStore) {
+      try {
+        const chain = await deps.sessionChainStore.getChain(catId, threadId);
+        if (chain.length > 0) {
+          const activeRec = chain.find((s) => s.status === 'active');
+          if (!activeRec) {
+            // Chain exists but no active session → previous was sealed; don't resume
+            sessionId = undefined;
+          } else if (activeRec.cliSessionId && activeRec.cliSessionId !== sessionId) {
+            // Active record has a different cliSessionId — use the authoritative value
+            sessionId = activeRec.cliSessionId;
+          }
+        }
+      } catch {
+        // R9 P1: Fail-closed — if chain store read fails, discard sessionId.
+        // Rationale: requestSeal accepted = hard seal boundary. When we can't
+        // verify chain state, it's safer to start fresh than risk --resume
+        // into a sealed session. Lost resume is recoverable; sealed-session
+        // corruption is not.
+        sessionId = undefined;
+      }
     }
 
     // Resolve workingDirectory from thread's projectPath
@@ -182,6 +224,14 @@ export async function* invokeSingleCat(
         }
 
         // Push session info as system_info for frontend status panel
+        // Include sessionSeq if SessionChainStore is available
+        let sessionSeq: number | undefined;
+        if (deps.sessionChainStore) {
+          try {
+            const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+            sessionSeq = activeRec != null ? activeRec.seq + 1 : undefined;
+          } catch { /* best-effort */ }
+        }
         outputs.push({
           type: 'system_info' as const,
           catId,
@@ -190,6 +240,7 @@ export async function* invokeSingleCat(
             kind: 'session_started',
             sessionId: msg.sessionId,
             invocationId,
+            ...(sessionSeq !== undefined ? { sessionSeq } : {}),
           }),
           timestamp: Date.now(),
         });
@@ -288,12 +339,74 @@ export async function* invokeSingleCat(
               content: JSON.stringify({ type: 'context_health', catId, health }),
               timestamp: Date.now(),
             });
+
+            // F24 Phase B: Check seal threshold after context health update
+            if (deps.sessionSealer && deps.sessionChainStore) {
+              try {
+                const catName = catId === 'opus' ? 'opus'
+                  : catId === 'codex' ? 'codex'
+                  : catId === 'gemini' ? 'gemini'
+                  : 'opus';
+                const sealConfig = getSealConfig(catName);
+                if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
+                  const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                  if (activeRecord) {
+                    const sealResult = await deps.sessionSealer.requestSeal({
+                      sessionId: activeRecord.id,
+                      reason: 'threshold',
+                    });
+                    if (sealResult.accepted) {
+                      // Immediately clear persisted CLI session — requestSeal accepted
+                      // means session is now 'sealing' and must not be --resumed (R7 P1)
+                      sessionManager.delete(userId, catId, threadId).catch(() => {
+                        // best-effort: delete failure doesn't break invocation
+                      });
+                      outputs.push({
+                        type: 'system_info' as const,
+                        catId,
+                        content: JSON.stringify({
+                          type: 'session_seal_requested',
+                          catId,
+                          sessionId: activeRecord.id,
+                          sessionSeq: activeRecord.seq + 1,
+                          reason: 'threshold',
+                          healthSnapshot: health,
+                        }),
+                        timestamp: Date.now(),
+                      });
+                      // Background finalize (don't block message yield)
+                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
+                        // best-effort: finalize failure doesn't break invocation
+                      });
+                    }
+                  }
+                }
+              } catch { /* best-effort: seal failure doesn't break invocation */ }
+            }
           }
         }
 
         outputs.push({ ...msg, isFinal: isLastCat });
       } else {
         outputs.push(msg);
+      }
+
+      // F24 Phase C: Record event to transcript buffer (best-effort)
+      if (deps.transcriptWriter && deps.sessionChainStore) {
+        try {
+          const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
+          if (activeRec) {
+            const sessInfo: TranscriptSessionInfo = {
+              sessionId: activeRec.id,
+              threadId,
+              catId: activeRec.catId,
+              cliSessionId: activeRec.cliSessionId,
+              seq: activeRec.seq,
+            };
+            // Record the raw agent message as a transcript event
+            deps.transcriptWriter.appendEvent(sessInfo, msg as unknown as Record<string, unknown>, invocationId);
+          }
+        } catch { /* best-effort */ }
       }
 
       return outputs;

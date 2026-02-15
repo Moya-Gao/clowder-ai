@@ -769,6 +769,316 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     );
   });
 
+  it('R7 P1: seal clears sessionManager BEFORE finalize completes (no race window)', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    // Create a sealer whose finalize is slow (simulates async flush)
+    let finalizeResolved = false;
+    const realSealer = new SessionSealer(sessionChainStore);
+    const sealer = {
+      async requestSeal(opts) { return realSealer.requestSeal(opts); },
+      async finalize(opts) {
+        // Delay finalize to simulate transcript flush
+        await new Promise(r => setTimeout(r, 200));
+        finalizeResolved = true;
+        return realSealer.finalize(opts);
+      },
+    };
+
+    // Track delete timing relative to finalize
+    const timeline = [];
+    const sessionDeletes = [];
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore,
+      sessionSealer: sealer,
+      sessionManager: {
+        get: async () => 'old-sess',
+        store: async () => {},
+        delete: async (u, c, t) => {
+          timeline.push({ event: 'delete', finalizeResolved });
+          sessionDeletes.push(`${u}:${c}:${t}`);
+        },
+      },
+    };
+
+    // Service that triggers seal: 91% fill → opus threshold (90%)
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'opus', sessionId: 'old-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'answer', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: 182000,
+              outputTokens: 2000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      userId: 'user-seal',
+      threadId: 'thread-seal-race',
+      isLastCat: true,
+    }));
+
+    // sessionManager.delete should have been called BEFORE finalize completed
+    assert.ok(sessionDeletes.length > 0, 'sessionManager.delete must be called on seal');
+    assert.deepEqual(sessionDeletes, ['user-seal:opus:thread-seal-race']);
+    assert.equal(timeline[0].event, 'delete');
+    assert.equal(timeline[0].finalizeResolved, false,
+      'sessionManager.delete must execute BEFORE finalize resolves (no race window)');
+  });
+
+  it('R7 P1: next invocation after seal gets no sessionId (clean start)', async () => {
+    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    const sealer = new SessionSealer(sessionChainStore);
+
+    // After delete, sessionManager.get returns undefined
+    let stored = 'old-sess';
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'session_init', catId: 'opus', sessionId: invokeCount === 1 ? 'old-sess' : 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: invokeCount === 1 ? 182000 : 5000,
+              outputTokens: 1000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore,
+      sessionSealer: sealer,
+      sessionManager: {
+        get: async () => stored,
+        store: async (_u, _c, _t, sid) => { stored = sid; },
+        delete: async () => { stored = undefined; },
+      },
+    };
+
+    // First invocation — triggers seal at 91%
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-seal-clean', isLastCat: true,
+    }));
+
+    // Small delay to let async delete settle
+    await new Promise(r => setTimeout(r, 50));
+
+    // Second invocation — should NOT have sessionId (old one was deleted)
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test2', userId: 'u1',
+      threadId: 'thread-seal-clean', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2);
+    assert.equal(optionsSeen[0].sessionId, 'old-sess', 'first call should use persisted session');
+    assert.equal(optionsSeen[1].sessionId, undefined,
+      'second call after seal must NOT resume old session (R7 P1 race fix)');
+  });
+
+  it('R8 P1: slow sessionManager.delete cannot cause --resume race (read-side short-circuit)', async () => {
+    // Scenario: seal triggers delete, but delete is slow (200ms).
+    // Second invocation arrives BEFORE delete completes.
+    // sessionManager.get() still returns old sessionId.
+    // BUT: sessionChainStore.getActive() returns null (session is sealing/sealed)
+    // → read-side short-circuit discards sessionId → no --resume.
+    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const sessionChainStore = new SessionChainStore();
+    const sealer = new SessionSealer(sessionChainStore);
+
+    // sessionManager.delete is intentionally slow — simulates Redis latency
+    let stored = 'old-sess';
+    let deleteStarted = false;
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'session_init', catId: 'opus', sessionId: invokeCount === 1 ? 'old-sess' : 'new-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              inputTokens: invokeCount === 1 ? 182000 : 5000,
+              outputTokens: 1000,
+              contextWindowSize: 200000,
+            },
+          },
+        };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore,
+      sessionSealer: sealer,
+      sessionManager: {
+        get: async () => stored,  // ALWAYS returns old value (delete is slow)
+        store: async (_u, _c, _t, sid) => { stored = sid; },
+        delete: async () => {
+          deleteStarted = true;
+          // Simulate very slow Redis delete — 500ms
+          await new Promise(r => setTimeout(r, 500));
+          stored = undefined;
+        },
+      },
+    };
+
+    // First invocation — triggers seal at 91%
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-slow-delete', isLastCat: true,
+    }));
+
+    // Delete has STARTED but NOT completed (it takes 500ms)
+    assert.ok(deleteStarted, 'delete should have been initiated');
+    // sessionManager.get() would still return 'old-sess' here
+
+    // Second invocation — arrives while delete is still pending
+    // Without read-side short-circuit, this would --resume into sealed session
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test2', userId: 'u1',
+      threadId: 'thread-slow-delete', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2);
+    assert.equal(optionsSeen[0].sessionId, 'old-sess', 'first call uses persisted session');
+    assert.equal(optionsSeen[1].sessionId, undefined,
+      'second call must NOT resume despite slow delete — read-side short-circuit (R8 P1)');
+  });
+
+  it('R9 P1: getChain() failure triggers fail-closed — no resume (not fail-open)', async () => {
+    // Scenario: sessionManager.get() returns old sessionId, but
+    // sessionChainStore.getChain() throws (Redis blip). The read-side
+    // guard must be fail-closed: discard sessionId rather than risk
+    // --resume into a sealed session.
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    // sessionChainStore that always throws on getChain
+    const failingChainStore = {
+      getChain() { throw new Error('Redis connection lost'); },
+      getActive() { throw new Error('Redis connection lost'); },
+      get() { return null; },
+      create() { return { id: 'x', seq: 0, status: 'active' }; },
+      update() { return {}; },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: failingChainStore,
+      sessionManager: {
+        get: async () => 'old-sess',  // stale key still present
+        store: async () => {},
+        delete: async () => {},
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-chain-fail', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1);
+    assert.equal(optionsSeen[0].sessionId, undefined,
+      'getChain() failure must discard sessionId (fail-closed, R9 P1)');
+  });
+
+  it('R11 P1-1: uses active record cliSessionId when it differs from sessionManager (RED)', async () => {
+    // Scenario: sessionManager.get() returns 'cli-old' but the active SessionRecord
+    // has cliSessionId='cli-new' (CLI restarted and session_init updated the record).
+    // The invocation must use 'cli-new' for --resume, not 'cli-old'.
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'text', catId: 'opus', content: `answer-${invokeCount}`, timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const activeRecord = {
+      id: 'rec-1', seq: 0, status: 'active',
+      cliSessionId: 'cli-new',
+      catId: 'opus', threadId: 'thread-align', userId: 'u1',
+    };
+
+    const chainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      get: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async () => activeRecord,
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: chainStore,
+      sessionManager: {
+        get: async () => 'cli-old',  // stale value — doesn't match active record
+        store: async () => {},
+        delete: async () => {},
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-align', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1);
+    assert.equal(optionsSeen[0].sessionId, 'cli-new',
+      'must use active record cliSessionId (authoritative), not stale sessionManager value');
+  });
+
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];

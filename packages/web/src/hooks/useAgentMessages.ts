@@ -267,6 +267,7 @@ export function useAgentMessages() {
                 sessionId: parsed.sessionId,
                 invocationId: parsed.invocationId,
                 startedAt: Date.now(),
+                ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
               });
             } else if (parsed.kind === 'invocation_complete') {
               setCatInvocation(msg.catId, {
@@ -292,6 +293,16 @@ export function useAgentMessages() {
               contextHealth: parsed.health,
             });
             consumed = true;
+          } else if (parsed?.type === 'session_seal_requested') {
+            // F24 Phase B: Session sealed — update session info + show notification
+            setCatInvocation(parsed.catId, {
+              sessionSeq: parsed.sessionSeq,
+              sessionSealed: true,
+            });
+            const pct = parsed.healthSnapshot?.fillRatio
+              ? Math.round(parsed.healthSnapshot.fillRatio * 100)
+              : '?';
+            sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
           }
         } catch { /* not JSON, use raw content */ }
         if (!consumed) {

@@ -36,6 +36,14 @@ import {
   handleSearchEvidence,
   reflectInputSchema,
   handleReflect,
+  listSessionChainInputSchema,
+  readSessionEventsInputSchema,
+  readSessionDigestInputSchema,
+  sessionSearchInputSchema,
+  handleListSessionChain,
+  handleReadSessionEvents,
+  handleReadSessionDigest,
+  handleSessionSearch,
 } from './tools/index.js';
 
 /**
@@ -197,6 +205,47 @@ export function createServer(): McpServer {
     reflectInputSchema,
     async (args: { query: string }) => {
       const result = await handleReflect(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Session Chain tools (F24 Phase D)
+  server.tool(
+    'cat_cafe_list_session_chain',
+    'List session chain for a thread. Shows session IDs, sequence numbers, status, and context health for each cat.',
+    listSessionChainInputSchema,
+    async (args: { threadId: string; catId?: string | undefined; limit?: number | undefined }) => {
+      const result = await handleListSessionChain(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_read_session_events',
+    'Read events from a sealed session transcript. Supports pagination via cursor. Use to review what happened in a previous session.',
+    readSessionEventsInputSchema,
+    async (args: { sessionId: string; cursor?: number | undefined; limit?: number | undefined }) => {
+      const result = await handleReadSessionEvents(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_read_session_digest',
+    'Read the extractive digest of a sealed session. Contains tool names, files touched, errors, and timing info. Use this first before reading full events.',
+    readSessionDigestInputSchema,
+    async (args: { sessionId: string }) => {
+      const result = await handleReadSessionDigest(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_session_search',
+    'Search across session transcripts and digests. Use to find specific events, decisions, or file changes from previous sessions.',
+    sessionSearchInputSchema,
+    async (args: { threadId: string; query: string; cats?: string | undefined; limit?: number | undefined; scope?: string | undefined }) => {
+      const result = await handleSessionSearch(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

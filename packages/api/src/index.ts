@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/InvocationRegistry.js';
@@ -26,6 +26,9 @@ import { assertStorageReady } from './config/storage-guard.js';
 import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { ModeStore } from './domains/cats/services/ModeStore.js';
 import { ModeOrchestrator } from './domains/cats/services/ModeOrchestrator.js';
+import { TranscriptWriter } from './domains/cats/services/TranscriptWriter.js';
+import { TranscriptReader } from './domains/cats/services/TranscriptReader.js';
+import { SessionSealer } from './domains/cats/services/SessionSealer.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -97,6 +100,12 @@ async function main(): Promise<void> {
   const memoryStore = createMemoryStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
   const sessionChainStore = createSessionChainStore(redis);
+  // F24: Transcript Writer/Reader for session chain
+  const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
+  const transcriptWriter = new TranscriptWriter({ dataDir: transcriptDataDir });
+  const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
+  const sessionSealer = new SessionSealer(sessionChainStore, transcriptWriter);
+
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();
 
@@ -111,6 +120,9 @@ async function main(): Promise<void> {
     ...(sessionStore ? { sessionStore } : {}),
     ...(threadStore ? { threadStore } : {}),
     sessionChainStore,
+    transcriptWriter,
+    transcriptReader,
+    sessionSealer,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -200,6 +212,7 @@ async function main(): Promise<void> {
 
   // Session chain (F24)
   await app.register(sessionChainRoutes, { sessionChainStore, threadStore });
+  await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
 
   // Mode system (F11)
   await app.register(modesRoutes, { modeStore, threadStore, socketManager });

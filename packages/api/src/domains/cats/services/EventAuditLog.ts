@@ -221,6 +221,11 @@ export const AuditEventTypes = {
   MEMORY_PUBLISH_ARCHIVED: 'memory_publish_archived',
   /** 记忆回滚 (published → draft) */
   MEMORY_PUBLISH_ROLLBACK: 'memory_publish_rollback',
+
+  // === Session Chain (F24 Phase B) ===
+
+  /** 手动绑定 CLI session (#72) */
+  SESSION_BIND: 'session_bind',
 } as const;
 
 /** Singleton instance for convenience */

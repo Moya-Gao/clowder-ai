@@ -112,6 +112,10 @@ export interface CatInvocationInfo {
   usage?: TokenUsage;
   /** F24: Latest context health snapshot */
   contextHealth?: ContextHealthData;
+  /** F24 Phase B: Session chain sequence number (0-based) */
+  sessionSeq?: number;
+  /** F24 Phase B: Whether the session was just sealed (triggers UI indicator) */
+  sessionSealed?: boolean;
 }
 
 export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';
