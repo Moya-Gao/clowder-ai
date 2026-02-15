@@ -18,7 +18,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
-import type { MessageContent } from '@cat-cafe/shared';
+import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
@@ -37,6 +37,7 @@ import type { ModeOrchestrator } from '../domains/cats/services/ModeOrchestrator
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { hasImageContentBlocks } from '../utils/image-content-blocks.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
@@ -68,6 +69,28 @@ const getMessagesSchema = z.object({
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
+
+function resolveTargetCatsForMessage(
+  targetCats: readonly CatId[],
+  contentBlocks?: readonly MessageContent[],
+): CatId[] {
+  if (!hasImageContentBlocks(contentBlocks)) return [...targetCats];
+  return [createCatId('codex')];
+}
+
+function buildImageTargetOverrideNotice(
+  resolvedTargetCats: readonly CatId[],
+  effectiveTargetCats: readonly CatId[],
+  contentBlocks?: readonly MessageContent[],
+): string | undefined {
+  const codexCatId = createCatId('codex');
+  if (!hasImageContentBlocks(contentBlocks)) return undefined;
+  if (resolvedTargetCats.includes(codexCatId)) return undefined;
+  if (effectiveTargetCats.length === 1 && effectiveTargetCats[0] === codexCatId) {
+    return '检测到图片附件，已自动转交缅因猫处理。';
+  }
+  return undefined;
+}
 
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
   async (app, opts) => {
@@ -159,8 +182,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     }
 
     // ADR-008 S1: Pre-resolve targets + intent, persisting @mentions as participants
-    const { targetCats, intent } = await router.resolveTargetsAndIntent(
+    const { targetCats: resolvedTargetCats, intent } = await router.resolveTargetsAndIntent(
       content, resolvedThreadId, { persist: true },
+    );
+    const targetCats = resolveTargetCatsForMessage(resolvedTargetCats, contentBlocks);
+    const imageTargetOverrideNotice = buildImageTargetOverrideNotice(
+      resolvedTargetCats,
+      targetCats,
+      contentBlocks,
     );
 
     // Server-generated idempotency key if client didn't provide one
@@ -180,6 +209,15 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         // Deduplicated — no start(), no abort, just return existing ID
         reply.status(200);
         return { status: 'duplicate', invocationId: createResult.invocationId };
+      }
+
+      if (imageTargetOverrideNotice) {
+        opts.socketManager.broadcastAgentMessage({
+          type: 'system_info',
+          catId: createCatId('codex'),
+          content: imageTargetOverrideNotice,
+          timestamp: Date.now(),
+        }, resolvedThreadId);
       }
 
       // Not duplicate → safe to start() (may abort prior invocation for this thread)
@@ -361,6 +399,15 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       }
 
       reply.send({ status: 'processing', timestamp: Date.now() });
+
+      if (imageTargetOverrideNotice) {
+        opts.socketManager.broadcastAgentMessage({
+          type: 'system_info',
+          catId: createCatId('codex'),
+          content: imageTargetOverrideNotice,
+          timestamp: Date.now(),
+        }, resolvedThreadId);
+      }
 
       void (async () => {
         const HEARTBEAT_INTERVAL_MS = 30_000;

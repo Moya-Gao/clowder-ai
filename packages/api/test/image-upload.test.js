@@ -314,6 +314,100 @@ describe('contentBlocks in GET /api/messages', () => {
   });
 });
 
+describe('multipart image target routing', () => {
+  let app;
+  let uploadDir;
+  const routeExecutionCalls = [];
+  const broadcastedAgentMessages = [];
+
+  beforeEach(async () => {
+    uploadDir = await mkdtemp(join(tmpdir(), 'cat-cafe-image-target-'));
+    routeExecutionCalls.length = 0;
+    broadcastedAgentMessages.length = 0;
+
+    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationRecordStore } = await import('../dist/domains/cats/services/InvocationRecordStore.js');
+    const { messagesRoutes } = await import('../dist/routes/messages.js');
+
+    const messageStore = new MessageStore();
+    const mockRouter = {
+      async resolveTargetsAndIntent() {
+        return {
+          targetCats: ['opus'],
+          intent: { intent: 'execute', explicit: false, promptTags: [] },
+        };
+      },
+      async *routeExecution(_userId, _content, _threadId, _userMessageId, targetCats, _intent, routeOptions) {
+        routeExecutionCalls.push({
+          targetCats: [...targetCats],
+          contentBlocks: routeOptions?.contentBlocks,
+          uploadDir: routeOptions?.uploadDir,
+        });
+        yield { type: 'done', catId: targetCats[0], timestamp: Date.now(), isFinal: true };
+      },
+      async ackCollectedCursors() {},
+    };
+
+    app = Fastify();
+    await app.register(messagesRoutes, {
+      registry: new InvocationRegistry(),
+      messageStore,
+      socketManager: {
+        broadcastAgentMessage: (msg) => {
+          broadcastedAgentMessages.push(msg);
+        },
+        broadcastToRoom: () => {},
+      },
+      router: mockRouter,
+      invocationRecordStore: new InvocationRecordStore(),
+      uploadDir,
+    });
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+    if (uploadDir) await rm(uploadDir, { recursive: true, force: true });
+  });
+
+  it('forces multipart image messages to route to codex target only', async () => {
+    const boundary = '----cat-cafe-test-boundary';
+    const payload = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="content"\r\n\r\n请看图\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="images"; filename="clip.png"\r\nContent-Type: image/png\r\n\r\nfake-png-bytes\r\n`),
+      Buffer.from(`--${boundary}--\r\n`),
+    ]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: {
+        'content-type': `multipart/form-data; boundary=${boundary}`,
+        'x-cat-cafe-user': 'alice',
+      },
+      payload,
+    });
+
+    assert.equal(res.statusCode, 200);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(routeExecutionCalls.length, 1);
+    assert.deepEqual(routeExecutionCalls[0].targetCats, ['codex']);
+    assert.equal(routeExecutionCalls[0].uploadDir, uploadDir);
+    assert.ok(Array.isArray(routeExecutionCalls[0].contentBlocks), 'routeExecution should receive contentBlocks');
+    assert.ok(
+      routeExecutionCalls[0].contentBlocks.some((b) => b.type === 'image'),
+      'routeExecution should receive image content block',
+    );
+    const notice = broadcastedAgentMessages.find((m) => (
+      m?.type === 'system_info'
+      && typeof m?.content === 'string'
+      && m.content.includes('已自动转交缅因猫')
+    ));
+    assert.ok(notice, 'should broadcast a visible system notice when image target is forced to codex');
+  });
+});
+
 // --- Test Helpers ---
 
 function createMockFile(filename, mimetype, buffer) {

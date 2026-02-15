@@ -22,6 +22,7 @@ import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../utils/token-counter.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
+import { hasImageContentBlocks } from '../../../utils/image-content-blocks.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -125,6 +126,20 @@ function sanitizeInjectedContent(content: string): string {
   return kept.join('\n').trim();
 }
 
+/**
+ * Image attachments are codex-only in Cat Cafe web flow:
+ * user can paste once, then only codex receives the image blocks.
+ * Other cats continue to receive the text prompt.
+ */
+function routeContentBlocksForCat(
+  catId: CatId,
+  contentBlocks: readonly MessageContent[] | undefined,
+): readonly MessageContent[] | undefined {
+  if (!contentBlocks) return undefined;
+  if (!hasImageContentBlocks(contentBlocks)) return contentBlocks;
+  return catId === 'codex' ? contentBlocks : undefined;
+}
+
 async function fetchAfterCursor(
   messageStore: IMessageStore,
   threadId: string,
@@ -226,6 +241,10 @@ export async function* routeSerial(
 
     // Only pass images/uploads for the first cat (user's original target)
     const isOriginalTarget = index < targetCats.length;
+    const targetContentBlocks = isOriginalTarget
+      ? routeContentBlocksForCat(catId, contentBlocks)
+      : undefined;
+    const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
 
     let prompt = message;
     if (!incrementalMode && previousResponses.length > 0) {
@@ -323,8 +342,8 @@ export async function* routeSerial(
       prompt,
       userId,
       threadId,
-      ...(isOriginalTarget && contentBlocks ? { contentBlocks } : {}),
-      ...(isOriginalTarget && uploadDir ? { uploadDir } : {}),
+      ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
+      ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
       ...(signal ? { signal } : {}),
       ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,
@@ -503,6 +522,9 @@ export async function* routeParallel(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
+    const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
+    const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
+
     let prompt: string;
     if (incrementalMode) {
       const inc = await assembleIncrementalContext(
@@ -567,8 +589,8 @@ export async function* routeParallel(
       prompt,
       userId,
       threadId,
-      ...(contentBlocks ? { contentBlocks } : {}),
-      ...(uploadDir ? { uploadDir } : {}),
+      ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
+      ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
       ...(signal ? { signal } : {}),
       ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,

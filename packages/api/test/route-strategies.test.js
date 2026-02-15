@@ -29,6 +29,18 @@ function createCapturingService(catId, text = 'hello') {
   };
 }
 
+function createOptionsCapturingService(catId, text = 'hello') {
+  const calls = [];
+  return {
+    calls,
+    async *invoke(prompt, options) {
+      calls.push({ prompt, options });
+      yield { type: 'text', catId, content: text, timestamp: Date.now() };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
 function createMockDeps(services, appendCalls) {
   let counter = 0;
   return {
@@ -478,6 +490,60 @@ describe('routeParallel persistence context (P1-2)', () => {
 
     assert.equal(persistenceContext.failed, false);
     assert.equal(persistenceContext.errors.length, 0);
+  });
+});
+
+describe('image contentBlocks routing', () => {
+  it('routeParallel passes image contentBlocks only to codex', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+    const opusService = createOptionsCapturingService('opus', 'opus');
+    const codexService = createOptionsCapturingService('codex', 'codex');
+    const deps = createMockDeps({ opus: opusService, codex: codexService });
+    const contentBlocks = [
+      { type: 'text', text: '看图' },
+      { type: 'image', url: '/uploads/test.png' },
+    ];
+
+    for await (const _msg of routeParallel(deps, ['opus', 'codex'], '看这张图', 'user1', 'thread1', {
+      contentBlocks,
+      uploadDir: '/tmp/uploads',
+    })) {
+      // consume
+    }
+
+    assert.equal(opusService.calls.length, 1, 'opus should be invoked once');
+    assert.equal(opusService.calls[0].options?.contentBlocks, undefined, 'opus should not receive image contentBlocks');
+    assert.equal(opusService.calls[0].options?.uploadDir, undefined, 'opus should not receive uploadDir when image blocks are withheld');
+
+    assert.equal(codexService.calls.length, 1, 'codex should be invoked once');
+    assert.deepEqual(codexService.calls[0].options?.contentBlocks, contentBlocks, 'codex should receive original image contentBlocks');
+    assert.equal(codexService.calls[0].options?.uploadDir, '/tmp/uploads', 'codex should receive uploadDir');
+  });
+
+  it('routeSerial passes image contentBlocks only to codex among original targets', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+    const opusService = createOptionsCapturingService('opus', 'opus');
+    const codexService = createOptionsCapturingService('codex', 'codex');
+    const deps = createMockDeps({ opus: opusService, codex: codexService });
+    const contentBlocks = [
+      { type: 'text', text: '看图' },
+      { type: 'image', url: '/uploads/test.png' },
+    ];
+
+    for await (const _msg of routeSerial(deps, ['opus', 'codex'], '看这张图', 'user1', 'thread1', {
+      contentBlocks,
+      uploadDir: '/tmp/uploads',
+    })) {
+      // consume
+    }
+
+    assert.equal(opusService.calls.length, 1, 'opus should be invoked once');
+    assert.equal(opusService.calls[0].options?.contentBlocks, undefined, 'opus should not receive image contentBlocks');
+    assert.equal(opusService.calls[0].options?.uploadDir, undefined, 'opus should not receive uploadDir when image blocks are withheld');
+
+    assert.equal(codexService.calls.length, 1, 'codex should be invoked once');
+    assert.deepEqual(codexService.calls[0].options?.contentBlocks, contentBlocks, 'codex should receive original image contentBlocks');
+    assert.equal(codexService.calls[0].options?.uploadDir, '/tmp/uploads', 'codex should receive uploadDir');
   });
 });
 
