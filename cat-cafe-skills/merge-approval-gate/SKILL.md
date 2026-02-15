@@ -128,6 +128,8 @@ P1/P2 状态: 全部已修复并确认
 3. git checkout main && git merge --ff-only {branch}
 4. git push origin main
 5. 清理 worktree
+6. 开 PR + 云端 review → 使用 `requesting-cloud-review` skill
+   （例外：铲屎官明确同意跳过的小优化可以不开 PR）
 ```
 
 ## 常见错误
@@ -141,7 +143,7 @@ P1/P2 状态: 全部已修复并确认
 
 ## 合入后必须做
 
-合入 main 后，立即执行清理：
+### Step A: 立即清理 worktree
 
 ```bash
 # 1. 删除 worktree
@@ -154,8 +156,20 @@ git branch -d {branch-name}
 git worktree prune
 ```
 
+### Step B: 开 PR + 云端 Review（默认必须）
+
+清理完 worktree 后，**必须接着使用 `requesting-cloud-review` skill** 开 PR 并触发云端 Codex review。
+
+**例外规则**：以下情况可以跳过 PR，但**必须铲屎官在当前对话中明确同意**：
+- 纯文档修改（docs、comments、README）
+- 2-3 行的小优化/小修复
+- 铲屎官明确说"不需要提 PR"或"直接合就行"
+
+**判断标准**：如果不确定是否需要开 PR，默认开 PR。宁可多一层守护，不可少一层。
+
 ## 相关规则
 
-- CLAUDE.md 第 9 条：合入 main 铁律
-- CLAUDE.md 第 10 条：Worktree 清理
+- `requesting-cloud-review` — 合入后开 PR + 触发云端 Codex review
+- `finishing-a-development-branch` — 开发分支收尾选项
+- CLAUDE.md 第 9 条：Worktree 使用与清理
 - docs/mailbox/：review 信存放位置

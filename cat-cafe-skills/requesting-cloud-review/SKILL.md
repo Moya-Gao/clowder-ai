@@ -153,9 +153,11 @@ EOF
 | 云端发现 P1 就慌 | 云端猫可能误报 | 检查是否有复现证据，无证据则降级 |
 | 把所有 P3 都修了 | 云端猫的 P3 是建议，不是命令 | 只修有道理的，驳回没道理的 |
 
-## Related Skills
+## Related Skills (Workflow Chain)
 
-- `merge-approval-gate` — 开 PR 前必须先通过
+- `merge-approval-gate` — **前置 skill**，合入 main 后会自动链到本 skill
 - `cat-cafe-requesting-review` — 本地 review 请求
 - `cat-cafe-receiving-review` — 处理 review 反馈
-- `finishing-a-development-branch` — 合入完成后的清理
+- `finishing-a-development-branch` — 开发分支收尾选项
+
+> **Workflow**: `cat-cafe-requesting-review` → review cycles → `merge-approval-gate` → 合入 + 清理 → **`requesting-cloud-review`** (本 skill)

@@ -13,6 +13,7 @@
 2. **合入 main 前必须经过 peer review 确认**（`merge-approval-gate`）——布偶猫找缅因猫 review，缅因猫找布偶猫 review，**任何猫都不能 review 自己的代码**
 3. **交接必须包含五件套**（`cross-cat-handoff`）
 4. **Review 修复后必须回给 reviewer 确认**（`cat-cafe-receiving-review`）
+5. **合入 main 后必须开 PR + 云端 review**（`requesting-cloud-review`）——`merge-approval-gate` 通过 → 合入 → 清理 worktree → **接着开 PR 触发云端 Codex review**。例外：铲屎官在当前对话中明确同意跳过的小优化/纯文档改动可以不开 PR
 
 **核心 Skills**：
 - `merge-approval-gate` — 准备合入 main 时

@@ -19,6 +19,7 @@ cat ~/.codex/skills/{skill-name}/SKILL.md
 3. **P1/P2 不留存**：必须在当前迭代修完
 4. **交接必须包含五件套**（`cross-cat-handoff`）
 5. **你写代码也要被 review**：缅因猫写代码时是 author，必须走 worktree + review request + merge gate（`cat-cafe-requesting-review` + `merge-approval-gate`），reviewer 是布偶猫
+6. **合入 main 后必须开 PR + 云端 review**（`requesting-cloud-review`）——`merge-approval-gate` 通过 → 合入 → 清理 worktree → **接着开 PR 触发云端 Codex review**。例外：铲屎官在当前对话中明确同意跳过的小优化/纯文档改动可以不开 PR
 
 **核心 Skills**：
 - `merge-approval-gate` — 检查**任何猫（包括你自己）**是否可以合入 main
