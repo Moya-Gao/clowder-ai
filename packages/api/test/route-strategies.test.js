@@ -804,7 +804,7 @@ function createErrorOnlyService(catId) {
 }
 
 describe('routeSerial: CLI error without text should not persist empty message (P1)', () => {
-  it('does NOT call messageStore.append when cat yields error + done with no text', async () => {
+  it('persists error text when cat yields error + done with no user-visible text', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
     const appendCalls = [];
     const deps = createMockDeps({
@@ -820,9 +820,10 @@ describe('routeSerial: CLI error without text should not persist empty message (
     const errorMsgs = messages.filter(m => m.type === 'error');
     assert.ok(errorMsgs.length > 0, 'error message should be yielded to frontend');
 
-    // Empty assistant message should NOT be persisted
+    // Error text is appended to textContent and persisted (❌ prefix)
     const catAppends = appendCalls.filter(c => c.catId === 'codex');
-    assert.equal(catAppends.length, 0, 'should NOT persist empty assistant message when hadError && no text');
+    assert.equal(catAppends.length, 1, 'error text should be persisted as message content');
+    assert.ok(catAppends[0].content.includes('❌'), 'persisted content should contain error marker');
 
     // Done should still be yielded
     const doneMsgs = messages.filter(m => m.type === 'done');
@@ -858,9 +859,10 @@ describe('routeSerial: CLI error without text should not persist empty message (
 
     for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1')) {}
 
-    // Partial text should still be persisted (there was actual content)
+    // Partial text + error suffix should be persisted
     const catAppends = appendCalls.filter(c => c.catId === 'codex');
     assert.equal(catAppends.length, 1, 'partial response with text should still be persisted');
-    assert.equal(catAppends[0].content, 'partial output before error');
+    assert.ok(catAppends[0].content.startsWith('partial output before error'), 'should start with partial text');
+    assert.ok(catAppends[0].content.includes('❌ timeout'), 'should include error suffix');
   });
 });

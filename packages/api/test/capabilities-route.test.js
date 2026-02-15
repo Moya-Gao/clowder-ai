@@ -76,8 +76,8 @@ describe('Capabilities Route', () => {
       assert.ok(!body.codex.skills.includes('.system'), 'codex skills should exclude .system');
     }
 
-    // Gemini has no skills directory
-    assert.deepEqual(body.gemini.skills, []);
+    // Gemini discovers from ~/.gemini/skills/ (may or may not have entries)
+    assert.ok(Array.isArray(body.gemini.skills), 'gemini skills should be an array');
 
     await app.close();
   });
