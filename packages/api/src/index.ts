@@ -119,6 +119,7 @@ async function main(): Promise<void> {
     ...(threadStore ? { threadStore } : {}),
     sessionChainStore,
     transcriptWriter,
+    transcriptReader,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

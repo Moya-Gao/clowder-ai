@@ -47,6 +47,8 @@ export interface InvocationDeps {
   readonly sessionSealer?: ISessionSealer;
   /** F24 Phase C: Transcript writer for event collection + flush on seal */
   readonly transcriptWriter?: TranscriptWriter;
+  /** F24 Phase D: Transcript reader for reading sealed session data */
+  readonly transcriptReader?: import('./TranscriptReader.js').TranscriptReader;
 }
 
 /**

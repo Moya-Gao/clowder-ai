@@ -23,6 +23,7 @@ import { estimateTokens } from '../../../utils/token-counter.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
 import { hasImageContentBlocks } from '../../../utils/image-content-blocks.js';
+import { buildSessionBootstrap } from './SessionBootstrap.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
@@ -272,6 +273,26 @@ export async function* routeSerial(
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 
+    // F24 Phase E: Bootstrap context for Session #2+
+    let bootstrapContext = '';
+    if (deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
+      try {
+        const bootstrap = await buildSessionBootstrap(
+          {
+            sessionChainStore: deps.invocationDeps.sessionChainStore,
+            transcriptReader: deps.invocationDeps.transcriptReader,
+          },
+          catId,
+          threadId,
+        );
+        if (bootstrap) {
+          bootstrapContext = bootstrap.text;
+        }
+      } catch {
+        // Best-effort: bootstrap failure doesn't block invocation
+      }
+    }
+
     let deliveryBoundaryId: string | undefined;
     if (incrementalMode) {
       // Serial incremental mode depends on AgentRouter having appended current user message first.
@@ -285,7 +306,7 @@ export async function* routeSerial(
       );
       deliveryBoundaryId = inc.boundaryId;
       const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      const parts = [invocationContext, catModePrompt, mcpInstructions].filter(Boolean);
+      const parts = [invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -321,8 +342,8 @@ export async function* routeSerial(
       }
 
       const catModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (invocationContext || catModePromptLegacy || mcpInstructions) {
-        const parts = [invocationContext, catModePromptLegacy, mcpInstructions].filter(Boolean);
+      if (invocationContext || catModePromptLegacy || mcpInstructions || bootstrapContext) {
+        const parts = [invocationContext, catModePromptLegacy, bootstrapContext, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
       } else if (catContextHistory) {
@@ -525,6 +546,26 @@ export async function* routeParallel(
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
     const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
 
+    // F24 Phase E: Bootstrap context for Session #2+
+    let bootstrapCtx = '';
+    if (deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
+      try {
+        const bootstrap = await buildSessionBootstrap(
+          {
+            sessionChainStore: deps.invocationDeps.sessionChainStore,
+            transcriptReader: deps.invocationDeps.transcriptReader,
+          },
+          catId,
+          threadId,
+        );
+        if (bootstrap) {
+          bootstrapCtx = bootstrap.text;
+        }
+      } catch {
+        // Best-effort: bootstrap failure doesn't block invocation
+      }
+    }
+
     let prompt: string;
     if (incrementalMode) {
       const inc = await assembleIncrementalContext(
@@ -536,7 +577,7 @@ export async function* routeParallel(
       );
       boundaryByCat.set(catId, inc.boundaryId);
       const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      const parts = [invocationContext, parCatModePrompt, mcpInstructions].filter(Boolean);
+      const parts = [invocationContext, parCatModePrompt, bootstrapCtx, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       if (!inc.includesCurrentUserMessage) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
@@ -572,8 +613,8 @@ export async function* routeParallel(
       }
 
       const parCatModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (invocationContext || parCatModePromptLegacy || mcpInstructions) {
-        const parts = [invocationContext, parCatModePromptLegacy, mcpInstructions].filter(Boolean);
+      if (invocationContext || parCatModePromptLegacy || mcpInstructions || bootstrapCtx) {
+        const parts = [invocationContext, parCatModePromptLegacy, bootstrapCtx, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
       } else if (catContextHistory) {
