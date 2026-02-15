@@ -26,7 +26,8 @@ fi
 # TTL check: state file older than 5 minutes = expired
 COMPACT_TIME=$(jq -r '.compactedAt' "$STATE_FILE")
 if [ "$(uname)" = "Darwin" ]; then
-  COMPACT_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMPACT_TIME" +%s 2>/dev/null || echo 0)
+  # BSD date doesn't treat 'Z' as UTC — force TZ=UTC for correct parsing
+  COMPACT_EPOCH=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$COMPACT_TIME" +%s 2>/dev/null || echo 0)
 else
   COMPACT_EPOCH=$(date -d "$COMPACT_TIME" +%s 2>/dev/null || echo 0)
 fi

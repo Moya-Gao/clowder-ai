@@ -38,7 +38,7 @@ export function EvidencePanel({ data }: { data: EvidenceData }) {
         {/* Degraded info if present */}
         {data.degraded && (
           <div className="text-[10px] text-[var(--color-owner-dark)] bg-white/40 border border-white/60 rounded-lg px-3 py-2 mb-3 leading-relaxed italic">
-            "哎呀，有些记忆暂时找不到了，正在为您从本地文档中努力搜寻..."
+            {'\u201c'}哎呀，有些记忆暂时找不到了，正在为您从本地文档中努力搜寻...{'\u201d'}
           </div>
         )}
 

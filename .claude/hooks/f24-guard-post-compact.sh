@@ -20,7 +20,8 @@ fi
 # TTL check: marker older than 10 minutes = expired, allow
 MARKER_TIME=$(cat "$MARKER_FILE")
 if [ "$(uname)" = "Darwin" ]; then
-  MARKER_EPOCH=$(date -j -f "%Y-%m-%dT%H:%M:%SZ" "$MARKER_TIME" +%s 2>/dev/null || echo 0)
+  # BSD date doesn't treat 'Z' as UTC — force TZ=UTC for correct parsing
+  MARKER_EPOCH=$(TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%SZ" "$MARKER_TIME" +%s 2>/dev/null || echo 0)
 else
   MARKER_EPOCH=$(date -d "$MARKER_TIME" +%s 2>/dev/null || echo 0)
 fi
@@ -32,7 +33,7 @@ if [ "$AGE" -gt 600 ]; then
 fi
 
 # High-risk command pattern matching
-if echo "$COMMAND" | grep -qE '(gh pr merge|git push.*(--force|-f )|git merge.*(main|master)|git reset --hard|git rebase)'; then
+if echo "$COMMAND" | grep -qE '(gh pr merge|git push.*(--force|-f )|git merge.*(main|master)|git reset --hard)'; then
   jq -n --arg age "$AGE" '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

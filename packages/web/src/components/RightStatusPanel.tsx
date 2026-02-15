@@ -10,6 +10,7 @@ import {
 } from './status-helpers';
 import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
+import { SessionChainPanel } from './SessionChainPanel';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -183,6 +184,8 @@ export function RightStatusPanel({
           </div>
         </section>
       )}
+
+      <SessionChainPanel threadId={threadId} catInvocations={catInvocations} />
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
         <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
