@@ -3,6 +3,9 @@ name: finishing-a-development-branch
 description: Use when implementation is complete, all tests pass, and you need to decide how to integrate the work - guides completion of development work by presenting structured options for merge, PR, or cleanup
 ---
 
+> **SOP 位置**: 本 skill 是开发分支收尾的通用工具。在 Cat Cafe 中，对应 `docs/SOP.md` Step 5 及周边流程。
+> **上一步**: `merge-approval-gate` (Step 4) | **下一步**: `requesting-cloud-review` (Step 6)
+
 # Finishing a Development Branch
 
 ## Overview
@@ -46,6 +49,24 @@ git merge-base HEAD main 2>/dev/null || git merge-base HEAD master 2>/dev/null
 
 Or ask: "This branch split from main - is that correct?"
 
+### Step 2.5: Cat Cafe Workflow Check (Cat Cafe Only)
+
+**如果在 Cat Cafe 项目中**，在呈现选项前必须检查：
+
+```
+BEFORE presenting options:
+
+1. HAS_REVIEW: 已完成 review 流程？
+   - 检查 docs/mailbox/ 是否有当前分支的 review 信 + 放行确认
+   - YES → 可以呈现 Option 1 (Merge Locally)
+   - NO → BLOCK Option 1
+
+2. 如果 review 未完成:
+   "在 Cat Cafe 中，合入 main 前必须经过 peer review。
+   请先使用 `cat-cafe-requesting-review` skill 请求 review。
+   完整流程见 `docs/SOP.md`。"
+```
+
 ### Step 3: Present Options
 
 Present exactly these 4 options:
@@ -67,6 +88,8 @@ Which option?
 
 #### Option 1: Merge Locally
 
+**Cat Cafe 前置条件**: `merge-approval-gate` 已通过（见 Step 2.5）
+
 ```bash
 # Switch to base branch
 git checkout <base-branch>
@@ -86,7 +109,17 @@ git branch -d <feature-branch>
 
 Then: Cleanup worktree (Step 5)
 
+**Cat Cafe 后续步骤**（合入 main 后必须执行）：
+1. `git push origin main`（必须在清理 worktree 之前！）
+2. 清理 worktree (Step 5)
+3. 使用 `requesting-cloud-review` skill 开 PR + 云端 review
+   （例外：铲屎官明确同意跳过时可不开 PR，判断标准见 `docs/SOP.md` 例外路径）
+
 #### Option 2: Push and Create PR
+
+**Cat Cafe 注意**: 在 Cat Cafe 中，PR 是合入 main **后**的云端 review 手段，不是合入手段。
+如果你还没完成本地 review + merge gate，请先走 `docs/SOP.md` Step 2-5。
+如果你已合入 main 并在执行 SOP Step 6，请直接使用 `requesting-cloud-review` skill。
 
 ```bash
 # Push branch
@@ -198,3 +231,8 @@ git worktree remove <worktree-path>
 
 **Pairs with:**
 - **using-git-worktrees** - Cleans up worktree created by that skill
+- **merge-approval-gate** - Cat Cafe: must pass before Option 1
+- **requesting-cloud-review** - Cat Cafe: must follow after Option 1
+
+**SOP**: In Cat Cafe, this skill's Option 1 corresponds to `docs/SOP.md` Step 5.
+Full workflow: Step 2 → Step 3 (review) → Step 4 (gate) → **Step 5 (this skill)** → Step 6 (PR)

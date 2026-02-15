@@ -10,10 +10,11 @@
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **合入 main 前必须经缅因猫 review 确认**（`merge-approval-gate`）
-3. **交接必须包含五件套**（`cross-cat-handoff`）
-4. **Review 修复后必须回给 reviewer 确认**（`cat-cafe-receiving-review`）
-5. **任何代码修改都必须开 git worktree**（`using-git-worktrees`）
+2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）。以下为摘要，冲突时以 SOP.md 为准
+3. **合入 main 前必须经缅因猫 review 确认**（`merge-approval-gate`）
+4. **交接必须包含五件套**（`cross-cat-handoff`）
+5. **合入 main 后必须开 PR + 云端 review**（`requesting-cloud-review`）
+6. **任何代码修改都必须开 git worktree**（`using-git-worktrees`）
 
 **核心 Skills**：
 - `using-git-worktrees` — 开始任何代码修改前（**最重要！不要直接在 main 上改代码！**）
@@ -371,6 +372,7 @@ API_SERVER_PORT=3102 pnpm --filter @cat-cafe/api dev
 ```
 cat-cafe/
 ├── docs/                    # 文档
+│   ├── SOP.md              # 开发全流程 SOP（唯一权威来源）
 │   ├── VISION.md           # 愿景
 │   ├── plans/              # 设计文档
 │   ├── tasks/              # 任务清单

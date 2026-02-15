@@ -15,11 +15,11 @@ cat ~/.codex/skills/{skill-name}/SKILL.md
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **Review 必须 Red→Green**：先写失败测试，再提修复意见
-3. **P1/P2 不留存**：必须在当前迭代修完
-4. **交接必须包含五件套**（`cross-cat-handoff`）
-5. **你写代码也要被 review**：缅因猫写代码时是 author，必须走 worktree + review request + merge gate（`cat-cafe-requesting-review` + `merge-approval-gate`），reviewer 是布偶猫
-6. **合入 main 后必须开 PR + 云端 review**（`requesting-cloud-review`）——`merge-approval-gate` 通过 → 合入 → 清理 worktree → **接着开 PR 触发云端 Codex review**。例外：铲屎官在当前对话中明确同意跳过的小优化/纯文档改动可以不开 PR
+2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → 合入 → PR）。以下为摘要，冲突时以 SOP.md 为准
+3. **Review 必须 Red→Green**：先写失败测试，再提修复意见
+4. **P1/P2 不留存**：必须在当前迭代修完
+5. **交接必须包含五件套**（`cross-cat-handoff`）
+6. **你写代码也要被 review**：完整流程见 `docs/SOP.md`，缅因猫是 author 时 reviewer 是布偶猫
 
 **核心 Skills**：
 - `merge-approval-gate` — 检查**任何猫（包括你自己）**是否可以合入 main
@@ -202,6 +202,7 @@ push 分支到 remote 可以提前做（备份目的），但 PR 是合入请求
 ```
 cat-cafe/
 ├── docs/                    # 文档
+│   ├── SOP.md              # 开发全流程 SOP（唯一权威来源）
 │   ├── VISION.md           # 愿景
 │   ├── plans/              # 设计文档
 │   ├── tasks/              # 任务清单

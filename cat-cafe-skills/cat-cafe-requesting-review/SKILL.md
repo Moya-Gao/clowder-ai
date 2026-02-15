@@ -3,6 +3,9 @@ name: cat-cafe-requesting-review
 description: Cat Café enhanced code review request with mandatory self-check and documentation. Use when requesting review from other cats, before asking for code review, or after completing implementation. Triggers on "请 review", "帮我看看", "request review", "@缅因猫 review".
 ---
 
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 3a 的执行细节。
+> **上一步**: `spec-compliance-check` (Step 2) | **下一步**: `cat-cafe-receiving-review` (Step 3b)
+
 # Cat Café: Requesting Code Review
 
 **Core principle:** Review 请求必须附带自检报告和设计文档链接。让 reviewer 花时间在重点上，不是基础检查上。
@@ -247,9 +250,16 @@ docs/mailbox/
 
 详见 `cat-cafe-receiving-review` skill。
 
+## Workflow Position
+
+本 skill 在 SOP 流程中的位置：
+`spec-compliance-check` (Step 2) → **本 skill (Step 3a)** → `cat-cafe-receiving-review` (Step 3b) → `merge-approval-gate` (Step 4)
+
+完整流程见 `docs/SOP.md`。
+
 ## 相关 Skills
 
-- `spec-compliance-check`: 自检工具
+- `spec-compliance-check`: 自检工具（上一步）
 - `cross-cat-handoff`: 五件套检查
-- `cat-cafe-receiving-review`: 收到 review 后的处理
+- `cat-cafe-receiving-review`: 收到 review 后的处理（下一步）
 - `merge-approval-gate`: 合入前检查

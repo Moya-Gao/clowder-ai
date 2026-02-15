@@ -3,6 +3,9 @@ name: spec-compliance-check
 description: Verifies implementation matches spec/plan before requesting review. Use when completing a phase, finishing implementation, or before requesting code review. Triggers on "开发完了", "实现完成", "准备提 review", "phase 完成", "ready for review".
 ---
 
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 2 的执行细节。
+> **上一步**: 代码开发 (Step 1) | **下一步**: `cat-cafe-requesting-review` (Step 3a)
+
 # Spec Compliance Check
 
 **Core principle:** 开发完对照 spec 自检，不要让 reviewer 发现"按 spec 应该有但没实现"的问题。
@@ -163,8 +166,14 @@ Status: 有遗漏
 请先补完 P1 遗漏项。
 ```
 
+## Workflow Position
+
+本 skill 在 SOP 流程中的位置：
+代码开发 (Step 1) → **本 skill (Step 2)** → `cat-cafe-requesting-review` (Step 3a)
+
 ## 相关文档
 
+- docs/SOP.md：完整开发流程（唯一权威来源）
 - docs/plans/：Phase 计划存放位置
 - docs/phases/：设计文档存放位置
 - CLAUDE.md：协作准则

@@ -3,6 +3,9 @@ name: cat-cafe-receiving-review
 description: Cat Café enhanced review reception with Red-Green verification and no performative agreement. Use when receiving code review feedback, before implementing fixes, or when reviewer provides feedback. Triggers on "review 结果", "review 意见", "缅因猫说", "reviewer 说", "fix these".
 ---
 
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 3b 的执行细节。
+> **上一步**: `cat-cafe-requesting-review` (Step 3a) | **下一步**: `merge-approval-gate` (Step 4)
+
 # Cat Café: Receiving Code Review
 
 **Core principle:** 验证后再实现。技术正确性 > 社交舒适。禁止表演性同意。
@@ -232,9 +235,16 @@ pnpm test:redis: 42 passed, 0 failed
 
 陈述事实然后继续。
 
+## Workflow Position
+
+本 skill 在 SOP 流程中的位置：
+`cat-cafe-requesting-review` (Step 3a) → **本 skill (Step 3b)** → reviewer 放行 → `merge-approval-gate` (Step 4) → 合入 → `requesting-cloud-review` (Step 6)
+
+完整流程见 `docs/SOP.md`。
+
 ## 相关 Skills
 
-- `cat-cafe-requesting-review`: 发起 review 请求
-- `merge-approval-gate`: 合入前检查放行确认
+- `cat-cafe-requesting-review`: 发起 review 请求（上一步）
+- `merge-approval-gate`: 合入前检查放行确认（下一步）
 - `spec-compliance-check`: 开发完自检
 - `cross-cat-handoff`: 交接五件套

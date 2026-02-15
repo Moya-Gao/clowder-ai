@@ -17,6 +17,7 @@
 
 ## 常青文档（docs/ 根目录）
 
+- **[SOP.md](SOP.md)** — 开发全流程 SOP：6 步从 worktree 到 PR 的唯一权威流程
 - **[VISION.md](VISION.md)** — 项目愿景：为什么要做 Cat Cafe
 - **[BACKLOG.md](BACKLOG.md)** — 技术债务清单：P0-P3 分级，三猫共维护
 

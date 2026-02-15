@@ -3,6 +3,9 @@ name: requesting-cloud-review
 description: Use when creating a PR after local review passes, when merging to main and pushing to remote, or when ready to trigger cloud Codex review. Triggers on "开 PR", "create PR", "gh pr create", "云端 review", "cloud review", "@codex review".
 ---
 
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 6 的执行细节。
+> **上一步**: `merge-approval-gate` (Step 4) → 合入 + 清理 (Step 5) | **下一步**: 无（流程完成）
+
 # Requesting Cloud Review (PR + Cloud Codex)
 
 **Core principle:** 本地缅因猫放行后，开 PR 触发云端 Codex 做第二层守护。云端猫是"陌生审查员"，不会因为熟悉而放水。

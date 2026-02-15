@@ -3,6 +3,9 @@ name: merge-approval-gate
 description: Blocks code merge to main without explicit reviewer approval. Use when preparing to merge, rebase into main, or claiming code is ready to ship. Triggers on "合入 main", "merge to main", "准备合入", "可以合了", "ready to merge".
 ---
 
+> **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 4 的执行细节。
+> **上一步**: `cat-cafe-receiving-review` (Step 3b) | **下一步**: 合入 + 清理 (Step 5) → `requesting-cloud-review` (Step 6)
+
 # Merge Approval Gate
 
 **Core principle:** 没有缅因猫明确放行，不能合入 main。修完 review 问题后自己判断"改对了"直接合入 = 流程违规。

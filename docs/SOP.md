@@ -1,0 +1,166 @@
+# Cat Café 开发 SOP (Standard Operating Procedure)
+
+> 三猫开发全流程的**唯一权威文档**。所有猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）和 Skills 引用本文档，不重复定义流程。
+> 冲突时以本文档为准。
+>
+> 更新日期：2026-02-15
+
+## 完整流程（6 步）
+
+```
+① 开 worktree 写代码
+      ↓
+② 自检（spec compliance）
+      ↓
+③ 请求 review → reviewer 审查 → 修复循环 → reviewer 放行
+      ↓
+④ Merge Approval Gate（检查放行信号）
+      ↓
+⑤ 合入 main + push + 清理 worktree
+      ↓
+⑥ 开 PR + 云端 review
+```
+
+---
+
+### Step 1: 在 Worktree 中写代码
+
+**触发**: 开始任何代码修改时（不管多小）
+**Skill**: `using-git-worktrees`
+
+- 所有代码修改必须在 worktree 中进行，禁止直接改 main
+- 命名：`cat-cafe-{feature-name}`，分支：`feat/xxx`、`fix/xxx`、`refactor/xxx`
+- Worktree 中 Redis 必须用 6398（开发），禁止连 6399（生产）
+- 操作细节见各猫指引的 Worktree 章节
+
+**→ 下一步**: 开发完成后进入 Step 2
+
+---
+
+### Step 2: 自检（Spec Compliance）
+
+**触发**: 开发完成，准备提 review 前
+**Skill**: `spec-compliance-check`
+
+- 对照 plan/spec 逐项核对实现
+- 跑全量测试（`pnpm test`；Redis 改动加跑 `test:redis`）
+- 输出合规报告（✅/⚠️/❌）
+
+**→ 下一步**: 合规通过 → Step 3
+
+---
+
+### Step 3: 请求 Review + 修复循环
+
+**触发**: 自检通过后
+**Skills**: `cat-cafe-requesting-review` (3a) → `cat-cafe-receiving-review` (3b)
+
+**3a. 请求 review**
+- 用 skill 写 review 信（含五件套 + 自检报告 + 测试结果）
+- 存档到 `docs/mailbox/`
+- Reviewer 配对见下方"Reviewer 配对表"
+
+**3b. 收到 review 反馈**
+- Red→Green 方式逐个修复 P1/P2
+- 禁止表演性同意；技术分歧用论证 push back
+- **修复后回给 reviewer 确认**（不能自己判断"改对了"直接合入）
+
+**→ 下一步**: Reviewer 明确放行 → Step 4
+
+---
+
+### Step 4: Merge Approval Gate
+
+**触发**: Reviewer 发出放行信号
+**Skill**: `merge-approval-gate`
+
+必须同时满足：
+1. Reviewer 有**明确放行信号**（"放行" / "LGTM" / "通过" / "可以合入"）
+2. **所有 P1/P2** 已修复并经 reviewer 确认
+3. Review 针对**当前分支/当前工作**（不是历史 review）
+
+**→ 下一步**: Gate 通过 → Step 5
+
+---
+
+### Step 5: 合入 main + Push + 清理 Worktree
+
+**触发**: merge-approval-gate 通过后
+**无专属 skill**（步骤内嵌于 merge-approval-gate）
+
+```bash
+# 5a. 收敛 commit（squash/fixup review follow-up 零碎提交）
+git fetch origin
+git rebase -i --autosquash origin/main
+
+# 5b. 合入 main
+git checkout main
+git merge --ff-only {branch}
+
+# 5c. Push（⚠️ 必须在清理 worktree 之前！）
+git push origin main
+
+# 5d. 回到主仓目录，清理 worktree
+cd /Users/lysander/projects/relay-station/cat-cafe
+git worktree remove ../cat-cafe-{feature-name}
+git branch -d {branch-name}
+git worktree prune
+```
+
+**冲突处理**: 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
+
+**→ 下一步**: 清理完成 → Step 6
+
+---
+
+### Step 6: 开 PR + 云端 Review
+
+**触发**: 合入 main 并 push 后
+**Skill**: `requesting-cloud-review`
+
+- `gh pr create` 开 PR（含五件套 + 测试证据）
+- PR comment 中 `@codex review` 触发云端 Codex
+- 云端 P1/P2 有复现证据 → 修复后重新触发
+- 云端 P1/P2 无复现证据 → 降级 P3，留 comment 说明
+
+---
+
+## 例外路径：跳过 Step 6（开 PR）
+
+以下**三个条件必须全部满足**（缺一不可）：
+
+1. **铲屎官在当前对话中明确同意**跳过（不是默认、不是历史授权、不是猫自行判断）
+2. 改动属于以下类别之一：
+   - **纯文档**: 仅修改 `docs/` 目录下文件、`*.md` 文件（含 README/CLAUDE.md/AGENTS.md/GEMINI.md）、或代码注释
+   - **微量代码**: diff 总计 ≤10 行的 bug fix / typo fix / 配置调整
+3. **不涉及**：安全、鉴权、数据存储、API 接口变更
+
+**如果不确定是否需要开 PR → 默认开 PR。宁多一层守护，不少一层。**
+
+---
+
+## Reviewer 配对表
+
+| Author（写代码的猫） | Reviewer（本地 review） | Reviewer（云端） |
+|----------------------|------------------------|-----------------|
+| 布偶猫 (Opus) | 缅因猫 (Codex) | Cloud Codex |
+| 缅因猫 (Codex) | 布偶猫 (Opus) | Cloud Codex |
+| 暹罗猫 (Gemini) | 缅因猫 (Codex) | Cloud Codex |
+
+**铁律**: 任何猫都不能 review 自己的代码。
+
+---
+
+## Skill 速查表
+
+| 我正在... | 用这个 Skill | SOP Step |
+|-----------|-------------|----------|
+| 开始写代码 | `using-git-worktrees` | Step 1 |
+| 写完了，准备提 review | `spec-compliance-check` | Step 2 |
+| 发 review 请求给别的猫 | `cat-cafe-requesting-review` | Step 3a |
+| 收到 review 意见要处理 | `cat-cafe-receiving-review` | Step 3b |
+| Reviewer 放行，准备合入 | `merge-approval-gate` | Step 4 |
+| 合入完成，要开 PR | `requesting-cloud-review` | Step 6 |
+| 不确定整体流程 | **先看本文档** | — |
+| 交接/传话给别的猫 | `cross-cat-handoff` | 任意时刻 |
+| 声称"完成了" | `verification-before-completion` | 任意时刻 |
