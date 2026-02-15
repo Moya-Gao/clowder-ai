@@ -276,8 +276,16 @@ export class ClaudeAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
+    let effectivePrompt = prompt;
+    // Claude CLI v2 no longer supports --images; pass image paths in prompt as compatibility fallback.
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+    if (imagePaths.length > 0) {
+      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
+      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
+    }
+
     const args: string[] = [
-      '-p', prompt,
+      '-p', effectivePrompt,
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--verbose',
@@ -306,12 +314,6 @@ export class ClaudeAgentService implements AgentService {
           },
         },
       }));
-    }
-
-    // Pass image paths via --images flag (needs smoke test to confirm flag name)
-    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    for (const imgPath of imagePaths) {
-      args.push('--images', imgPath);
     }
 
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.opus.provider, model: this.model };

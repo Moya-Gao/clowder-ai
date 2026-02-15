@@ -146,8 +146,8 @@ describe('extractImagePaths', () => {
   });
 });
 
-describe('Claude CLI image flags', () => {
-  it('adds --images flag for each image in contentBlocks', async () => {
+describe('Claude CLI image fallback', () => {
+  it('does not use unsupported --images flag and appends image path into prompt text', async () => {
     const spawnArgs = [];
     const mockSpawnFn = (cmd, args, opts) => {
       spawnArgs.push({ cmd, args: [...args], opts });
@@ -171,8 +171,10 @@ describe('Claude CLI image flags', () => {
     assert.equal(spawnArgs.length, 1);
     const args = spawnArgs[0].args;
     const imgIdx = args.indexOf('--images');
-    assert.ok(imgIdx >= 0, 'should have --images flag');
-    assert.ok(args[imgIdx + 1].endsWith('photo.png'));
+    assert.equal(imgIdx, -1, 'should not pass unsupported --images flag');
+    const prompt = args.find((a) => typeof a === 'string' && a.includes('[Image attached:'));
+    assert.ok(prompt, 'prompt should include image reference');
+    assert.ok(prompt.includes('photo.png'));
   });
 });
 
@@ -206,8 +208,8 @@ describe('Codex CLI image text fallback', () => {
   });
 });
 
-describe('Gemini CLI image flags', () => {
-  it('adds -i flag for each image in contentBlocks', async () => {
+describe('Gemini CLI image fallback', () => {
+  it('does not use -i interactive flag and appends image path into prompt text', async () => {
     const spawnArgs = [];
     const mockSpawnFn = (cmd, args, opts) => {
       spawnArgs.push({ cmd, args: [...args], opts });
@@ -233,8 +235,10 @@ describe('Gemini CLI image flags', () => {
     assert.equal(spawnArgs.length, 1);
     const args = spawnArgs[0].args;
     const imgIdx = args.indexOf('-i');
-    assert.ok(imgIdx >= 0, 'should have -i flag');
-    assert.ok(args[imgIdx + 1].endsWith('cat-photo.jpg'));
+    assert.equal(imgIdx, -1, 'should not pass -i (interactive prompt) for images');
+    const prompt = args.find((a) => typeof a === 'string' && a.includes('[Image attached:'));
+    assert.ok(prompt, 'prompt should include image reference');
+    assert.ok(prompt.includes('cat-photo.jpg'));
   });
 });
 

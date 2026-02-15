@@ -190,9 +190,17 @@ export class GeminiAgentService implements AgentService {
     const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: getCatModel('gemini') };
 
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
-    const effectivePrompt = options?.systemPrompt
+    let effectivePrompt = options?.systemPrompt
       ? `${options.systemPrompt}\n\n${prompt}`
       : prompt;
+
+    // Gemini CLI -i is prompt-interactive (conflicts with -p), not image input.
+    // Keep headless mode and attach image paths into prompt text as fallback.
+    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
+    if (imagePaths.length > 0) {
+      const refs = imagePaths.map((p) => `[Image attached: ${p}]`).join('\n');
+      effectivePrompt = `${effectivePrompt}\n\n${refs}`;
+    }
 
     // Note: gemini CLI --resume accepts index number or "latest", not UUID.
     // e.g. `gemini --resume 5` or `gemini --resume latest`
@@ -200,12 +208,6 @@ export class GeminiAgentService implements AgentService {
     // Multi-session index instability makes this unreliable for programmatic use.
     // Context history is provided via prompt prepend (ContextAssembler) instead.
     const args: string[] = ['-p', effectivePrompt, '-o', 'stream-json', '-y'];
-
-    // Pass image paths via -i flag (gemini CLI v0.27.2+)
-    const imagePaths = extractImagePaths(options?.contentBlocks, options?.uploadDir);
-    for (const imgPath of imagePaths) {
-      args.push('-i', imgPath);
-    }
 
     try {
       let sawResultError = false;
