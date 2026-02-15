@@ -338,7 +338,13 @@ export async function* invokeSingleCat(
                         timestamp: Date.now(),
                       });
                       // Background finalize (don't block message yield)
-                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
+                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).then(() => {
+                        // Seal succeeded — clear persisted CLI session so next invocation
+                        // doesn't --resume into the sealed session (R6 P1-1)
+                        sessionManager.delete(userId, catId, threadId).catch(() => {
+                          // best-effort: delete failure doesn't break invocation
+                        });
+                      }).catch(() => {
                         // best-effort: finalize failure doesn't break invocation
                       });
                     }

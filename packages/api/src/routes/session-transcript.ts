@@ -59,16 +59,16 @@ export async function sessionTranscriptRoutes(
     }
 
     const cursorParam = request.query.cursor;
-    const cursorNum = cursorParam ? parseInt(cursorParam, 10) : undefined;
-    if (cursorNum != null && (Number.isNaN(cursorNum) || cursorNum < 0)) {
+    const cursorNum = cursorParam ? Number(cursorParam) : undefined;
+    if (cursorNum != null && (!Number.isInteger(cursorNum) || cursorNum < 0)) {
       reply.status(400);
       return { error: 'Invalid cursor: must be a non-negative integer' };
     }
     const cursor = cursorNum != null ? { eventNo: cursorNum } : undefined;
 
     const limitParam = request.query.limit;
-    const limitNum = limitParam ? parseInt(limitParam, 10) : undefined;
-    if (limitNum != null && (Number.isNaN(limitNum) || limitNum < 1)) {
+    const limitNum = limitParam ? Number(limitParam) : undefined;
+    if (limitNum != null && (!Number.isInteger(limitNum) || limitNum < 1)) {
       reply.status(400);
       return { error: 'Invalid limit: must be a positive integer' };
     }

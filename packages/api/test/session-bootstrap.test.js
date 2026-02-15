@@ -221,6 +221,34 @@ describe('SessionBootstrap', () => {
       assert.ok(result.text.includes('Build failed'));
     });
 
+    it('uses sealing session as previous when most recent is sealing (R6 P1-2)', async () => {
+      // When sess-1 is sealing (not yet sealed), bootstrap should use sess-1's digest,
+      // not fall back to sess-0's stale digest
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'sealing', seq: 1 },
+      ]);
+      let readDigestCalls = [];
+      const reader = {
+        async readDigest(sessionId) {
+          readDigestCalls.push(sessionId);
+          return null;
+        },
+      };
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      // Should read sess-1 (sealing) digest, not sess-0 (sealed)
+      assert.deepEqual(readDigestCalls, ['sess-1']);
+      // 2 sessions completed (sealed + sealing)
+      assert.ok(result.text.includes('2 previous session(s) are sealed'));
+    });
+
     it('only reads digest from previous seq (seq-1), not older sessions', async () => {
       let readDigestCalls = [];
       const store = createMockSessionChainStore([

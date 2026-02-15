@@ -41,7 +41,9 @@ export async function buildSessionBootstrap(
 
   // Get full chain — works regardless of whether active session exists yet
   const chain = await sessionChainStore.getChain(catId, threadId);
-  const sealedSessions = chain.filter((s) => s.status === 'sealed');
+  // Include both 'sealed' and 'sealing' — a sealing session has passed threshold
+  // and its transcript is being flushed; its digest is available for bootstrap (R6 P1-2)
+  const sealedSessions = chain.filter((s) => s.status === 'sealed' || s.status === 'sealing');
 
   // No sealed sessions → first session, no prior context to inject
   if (sealedSessions.length === 0) {
