@@ -324,6 +324,11 @@ export async function* invokeSingleCat(
                       reason: 'threshold',
                     });
                     if (sealResult.accepted) {
+                      // Immediately clear persisted CLI session — requestSeal accepted
+                      // means session is now 'sealing' and must not be --resumed (R7 P1)
+                      sessionManager.delete(userId, catId, threadId).catch(() => {
+                        // best-effort: delete failure doesn't break invocation
+                      });
                       outputs.push({
                         type: 'system_info' as const,
                         catId,
@@ -338,13 +343,7 @@ export async function* invokeSingleCat(
                         timestamp: Date.now(),
                       });
                       // Background finalize (don't block message yield)
-                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).then(() => {
-                        // Seal succeeded — clear persisted CLI session so next invocation
-                        // doesn't --resume into the sealed session (R6 P1-1)
-                        sessionManager.delete(userId, catId, threadId).catch(() => {
-                          // best-effort: delete failure doesn't break invocation
-                        });
-                      }).catch(() => {
+                      deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
                         // best-effort: finalize failure doesn't break invocation
                       });
                     }

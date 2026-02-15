@@ -20,6 +20,11 @@ interface SessionTranscriptRouteOptions extends FastifyPluginOptions {
   transcriptReader: TranscriptReader;
 }
 
+/** Strict integer parse: only pure decimal digit strings (no whitespace, no partial) */
+function strictParseInt(s: string): number {
+  return /^\d+$/.test(s) ? Number(s) : NaN;
+}
+
 const searchSchema = z.object({
   q: z.string().min(1).max(500),
   cats: z.string().optional(),
@@ -59,16 +64,16 @@ export async function sessionTranscriptRoutes(
     }
 
     const cursorParam = request.query.cursor;
-    const cursorNum = cursorParam ? Number(cursorParam) : undefined;
-    if (cursorNum != null && (!Number.isInteger(cursorNum) || cursorNum < 0)) {
+    const cursorNum = cursorParam ? strictParseInt(cursorParam) : undefined;
+    if (cursorNum != null && (Number.isNaN(cursorNum) || cursorNum < 0)) {
       reply.status(400);
       return { error: 'Invalid cursor: must be a non-negative integer' };
     }
     const cursor = cursorNum != null ? { eventNo: cursorNum } : undefined;
 
     const limitParam = request.query.limit;
-    const limitNum = limitParam ? Number(limitParam) : undefined;
-    if (limitNum != null && (!Number.isInteger(limitNum) || limitNum < 1)) {
+    const limitNum = limitParam ? strictParseInt(limitParam) : undefined;
+    if (limitNum != null && (Number.isNaN(limitNum) || limitNum < 1)) {
       reply.status(400);
       return { error: 'Invalid limit: must be a positive integer' };
     }
