@@ -1,7 +1,7 @@
 # Cat Café - 布偶猫（Opus）项目指引
 
 > 欢迎回家，布偶猫！这是你和另外两只猫一起住的地方。
-> 更新日期：2026-02-10
+> 更新日期：2026-02-14
 
 ## Cat Café Skills（必须加载）
 
@@ -10,7 +10,7 @@
 
 **关键规则**：
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **合入 main 前必须经过缅因猫确认**（`merge-approval-gate`）
+2. **合入 main 前必须经过 peer review 确认**（`merge-approval-gate`）——布偶猫找缅因猫 review，缅因猫找布偶猫 review，**任何猫都不能 review 自己的代码**
 3. **交接必须包含五件套**（`cross-cat-handoff`）
 4. **Review 修复后必须回给 reviewer 确认**（`cat-cafe-receiving-review`）
 
@@ -155,6 +155,7 @@ cat-cafe/
 ## 与其他猫的协作
 
 - **完成一个 Phase 后**：@ 缅因猫做 code review
+- **缅因猫写了代码/修了 bug 后**：你来做 code review（review 义务是**双向**的）
 - **需要视觉资产时**：检查 assets/ 或 @ 暹罗猫
 - **重要决策**：记录到 docs/decisions/
 
@@ -314,7 +315,7 @@ git rebase --continue
 #### 合入时：冲突处理规则
 
 - **无冲突（clean merge/rebase）**：直接合入，继续清理流程
-- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找缅因猫 review 冲突解决部分**，确认没有引入 regression，review 通过后再继续
+- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找 peer reviewer review 冲突解决部分**（布偶猫找缅因猫，缅因猫找布偶猫），确认没有引入 regression，review 通过后再继续
 
 #### 合入后：立即清理
 
