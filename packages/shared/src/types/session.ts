@@ -26,7 +26,7 @@ export interface SessionRecord {
   contextHealth?: ContextHealth;
   messageCount: number;
   /** Seal reason (Phase B) */
-  sealReason?: 'threshold' | 'manual' | 'error';
+  sealReason?: 'threshold' | 'manual' | 'error' | (string & {});
   readonly createdAt: number;
   updatedAt: number;
   sealedAt?: number;

@@ -1,5 +1,42 @@
 {
   "enabledPlugins": {
     "figma@claude-plugins-official": true
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/f24-pre-compact.sh",
+            "statusMessage": "F24: Saving session state..."
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/f24-post-compact-bootstrap.sh",
+            "statusMessage": "F24: Restoring context..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/f24-guard-post-compact.sh"
+          }
+        ]
+      }
+    ]
   }
 }

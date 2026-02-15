@@ -23,3 +23,4 @@ export { authorizationRoutes } from './authorization.js';
 export { modesRoutes } from './modes.js';
 export { sessionChainRoutes } from './session-chain.js';
 export { sessionTranscriptRoutes } from './session-transcript.js';
+export { sessionHooksRoutes } from './session-hooks.js';
