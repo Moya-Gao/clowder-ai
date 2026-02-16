@@ -1,13 +1,14 @@
 /**
- * Unit tests for callback-a2a-trigger.ts
+ * Unit tests for callback-a2a-trigger.ts (F27 rewrite)
  *
- * P2-1 regression: deleting race → InvocationRecord marked canceled
+ * F27: callback A2A now pushes to parent worklist instead of spawning
+ * independent invocations. triggerA2AInvocation is kept as fallback only.
  */
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-describe('triggerA2AInvocation', () => {
+describe('triggerA2AInvocation (fallback path)', () => {
   test('marks InvocationRecord as canceled when thread is deleting (P2-1)', async () => {
     const { triggerA2AInvocation } = await import(
       '../dist/routes/callback-a2a-trigger.js'
@@ -69,7 +70,6 @@ describe('triggerA2AInvocation', () => {
       },
     );
 
-    // Should have update calls: one for canceled status
     const cancelUpdate = updates.find((u) => u.status === 'canceled');
     assert.ok(cancelUpdate, 'InvocationRecord must be marked as canceled on deleting race');
     assert.equal(cancelUpdate.id, 'inv-1');
@@ -122,64 +122,6 @@ describe('triggerA2AInvocation', () => {
     );
 
     assert.equal(updates.length, 0, 'No updates on duplicate');
-  });
-
-  test('A2A with active parent does NOT call tracker.start (preserving old test structure)', async () => {
-    const { triggerA2AInvocation } = await import(
-      '../dist/routes/callback-a2a-trigger.js'
-    );
-
-    let startCalled = 0;
-    let routeCalled = 0;
-
-    const mockInvocationRecordStore = {
-      create() { return { outcome: 'created', invocationId: 'inv-1' }; },
-      update() {},
-    };
-
-    const mockInvocationTracker = {
-      has() { return true; },
-      start() { startCalled++; return new AbortController(); },
-      complete() {},
-    };
-
-    const mockRouter = {
-      async *routeExecution() {
-        routeCalled++;
-        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
-      },
-    };
-
-    const mockSocketManager = {
-      broadcastAgentMessage() {},
-      broadcastToRoom() {},
-    };
-
-    const mockLog = { error() {}, warn() {}, info() {} };
-
-    await triggerA2AInvocation(
-      {
-        router: mockRouter,
-        invocationRecordStore: mockInvocationRecordStore,
-        socketManager: mockSocketManager,
-        invocationTracker: mockInvocationTracker,
-        log: mockLog,
-      },
-      {
-        targetCats: ['codex'],
-        content: '@缅因猫\nreview please',
-        userId: 'user-1',
-        threadId: 'busy-thread',
-        triggerMessage: { id: 'msg-1', threadId: 'busy-thread', userId: 'user-1',
-          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
-      },
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    // With fix: A2A chain proceeds, but tracker.start() is NOT called
-    assert.equal(startCalled, 0, 'tracker.start must not be called when parent is active');
-    assert.equal(routeCalled, 1, 'routeExecution must be called for A2A chain');
   });
 
   test('skips redundant A2A when target cat is already in active parent target set', async () => {
@@ -241,78 +183,6 @@ describe('triggerA2AInvocation', () => {
 
     assert.equal(createCalled, 0, 'redundant A2A should not create InvocationRecord');
     assert.equal(routeCalled, 0, 'redundant A2A should not execute routeExecution');
-  });
-
-  test('A2A chain proceeds when parent invocation is active (no tracker.start)', async () => {
-    const { triggerA2AInvocation } = await import(
-      '../dist/routes/callback-a2a-trigger.js'
-    );
-
-    let startCalled = 0;
-    let routeCalled = 0;
-    const updates = [];
-    const roomEvents = [];
-
-    const mockInvocationRecordStore = {
-      create() {
-        return { outcome: 'created', invocationId: 'inv-child' };
-      },
-      update(id, data) {
-        updates.push({ id, ...data });
-        return { id, ...data };
-      },
-    };
-
-    const mockInvocationTracker = {
-      has() { return true; }, // parent invocation is active
-      start() { startCalled++; return new AbortController(); },
-      complete() {},
-    };
-
-    const mockRouter = {
-      async *routeExecution() {
-        routeCalled++;
-        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
-      },
-    };
-
-    const mockSocketManager = {
-      broadcastAgentMessage() {},
-      broadcastToRoom(room, event, payload) { roomEvents.push({ room, event, payload }); },
-    };
-
-    const mockLog = { error() {}, warn() {}, info() {} };
-
-    await triggerA2AInvocation(
-      {
-        router: mockRouter,
-        invocationRecordStore: mockInvocationRecordStore,
-        socketManager: mockSocketManager,
-        invocationTracker: mockInvocationTracker,
-        log: mockLog,
-      },
-      {
-        targetCats: ['codex'],
-        content: '@缅因猫\nplease review this',
-        userId: 'user-1',
-        threadId: 'active-thread',
-        triggerMessage: { id: 'msg-chain', threadId: 'active-thread', userId: 'user-1',
-          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
-      },
-    );
-
-    // Wait for fire-and-forget background task
-    await new Promise((resolve) => setTimeout(resolve, 20));
-
-    // KEY ASSERTIONS:
-    // 1. routeExecution SHOULD be called (A2A chain proceeds)
-    assert.equal(routeCalled, 1, 'A2A chain must proceed even when parent invocation is active');
-    // 2. invocationTracker.start() should NOT be called (don't abort parent)
-    assert.equal(startCalled, 0, 'tracker.start() must not be called to avoid aborting parent invocation');
-    // 3. intent_mode should be broadcast (so frontend shows loading state)
-    assert.ok(roomEvents.some(e => e.event === 'intent_mode'), 'intent_mode must be broadcast for A2A chain');
-    // 4. InvocationRecord should be marked succeeded (not canceled)
-    assert.ok(updates.some(u => u.status === 'succeeded'), 'child invocation must succeed, not be canceled');
   });
 
   test('broadcasts terminal error + done when routeExecution throws (release loading lock)', async () => {
@@ -382,5 +252,237 @@ describe('triggerA2AInvocation', () => {
       'should broadcast terminal done(isFinal) to release loading lock',
     );
     assert.equal(updates.some((u) => u.status === 'failed'), true, 'failed status should be persisted');
+  });
+});
+
+describe('enqueueA2ATargets (F27 primary path)', () => {
+  test('enqueues targets to parent worklist when worklist exists', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+    const { registerWorklist, unregisterWorklist } = await import(
+      '../dist/domains/cats/services/WorklistRegistry.js'
+    );
+
+    const worklist = ['opus'];
+    registerWorklist('t-enqueue', worklist, 15);
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    try {
+      const result = await enqueueA2ATargets(
+        {
+          router: {},
+          invocationRecordStore: {},
+          socketManager: {},
+          log: mockLog,
+        },
+        {
+          targetCats: ['codex'],
+          content: '@缅因猫\nreview please',
+          userId: 'user-1',
+          threadId: 't-enqueue',
+          triggerMessage: { id: 'msg-1', threadId: 't-enqueue', userId: 'user-1',
+            catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+        },
+      );
+
+      assert.equal(result.fallback, false, 'Should use worklist path, not fallback');
+      assert.deepEqual(result.enqueued, ['codex'], 'codex should be enqueued');
+      assert.deepEqual(worklist, ['opus', 'codex'], 'worklist should grow');
+    } finally {
+      unregisterWorklist('t-enqueue');
+    }
+  });
+
+  test('deduplicates targets already in worklist', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+    const { registerWorklist, unregisterWorklist } = await import(
+      '../dist/domains/cats/services/WorklistRegistry.js'
+    );
+
+    const worklist = ['opus', 'codex'];
+    registerWorklist('t-dedup', worklist, 15);
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    try {
+      const result = await enqueueA2ATargets(
+        {
+          router: {},
+          invocationRecordStore: {},
+          socketManager: {},
+          log: mockLog,
+        },
+        {
+          targetCats: ['codex'],
+          content: '@缅因猫\nagain',
+          userId: 'user-1',
+          threadId: 't-dedup',
+          triggerMessage: { id: 'msg-2', threadId: 't-dedup', userId: 'user-1',
+            catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+        },
+      );
+
+      assert.equal(result.fallback, false);
+      assert.deepEqual(result.enqueued, [], 'codex already in worklist, nothing enqueued');
+      assert.deepEqual(worklist, ['opus', 'codex'], 'worklist unchanged');
+    } finally {
+      unregisterWorklist('t-dedup');
+    }
+  });
+
+  test('respects max depth limit', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+    const { registerWorklist, unregisterWorklist, getWorklist } = await import(
+      '../dist/domains/cats/services/WorklistRegistry.js'
+    );
+
+    const worklist = ['opus'];
+    registerWorklist('t-depth', worklist, 1); // maxDepth=1
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    try {
+      // Push one — should work (a2aCount 0 → 1)
+      const r1 = await enqueueA2ATargets(
+        { router: {}, invocationRecordStore: {}, socketManager: {}, log: mockLog },
+        {
+          targetCats: ['codex'],
+          content: '@缅因猫',
+          userId: 'u1',
+          threadId: 't-depth',
+          triggerMessage: { id: 'm1', threadId: 't-depth', userId: 'u1',
+            catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+        },
+      );
+      assert.deepEqual(r1.enqueued, ['codex']);
+
+      // Push another — should fail (a2aCount=1 >= maxDepth=1)
+      const r2 = await enqueueA2ATargets(
+        { router: {}, invocationRecordStore: {}, socketManager: {}, log: mockLog },
+        {
+          targetCats: ['gemini'],
+          content: '@暹罗猫',
+          userId: 'u1',
+          threadId: 't-depth',
+          triggerMessage: { id: 'm2', threadId: 't-depth', userId: 'u1',
+            catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+        },
+      );
+      assert.deepEqual(r2.enqueued, [], 'depth limit reached');
+      assert.equal(getWorklist('t-depth').a2aCount, 1);
+    } finally {
+      unregisterWorklist('t-depth');
+    }
+  });
+
+  test('R1 P1-2: fallback does not abort active parent invocation', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+
+    let startCalled = 0;
+    let createCalled = 0;
+    const mockInvocationTracker = {
+      has() { return true; },   // Parent is active
+      getCatIds() { return ['opus']; },  // Different from targets
+      start() { startCalled++; return new AbortController(); },
+      complete() {},
+    };
+
+    const mockInvocationRecordStore = {
+      create() { createCalled++; return { outcome: 'created', invocationId: 'inv-x' }; },
+      update() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        throw new Error('must not be called');
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    const result = await enqueueA2ATargets(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 'active-parent-thread',
+        triggerMessage: { id: 'msg-p2', threadId: 'active-parent-thread', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    // Fallback was entered (no worklist), but since parent is active,
+    // it must NOT call tracker.start() which would abort the parent.
+    assert.equal(startCalled, 0, 'tracker.start() must NOT be called when parent is active');
+    assert.equal(createCalled, 0, 'invocationRecord must NOT be created when parent is active');
+    assert.equal(result.fallback, true, 'should indicate fallback path was attempted');
+    assert.deepEqual(result.enqueued, [], 'nothing actually enqueued when parent blocks fallback');
+  });
+
+  test('falls back to standalone invocation when no worklist exists', async () => {
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+
+    const updates = [];
+    const mockInvocationRecordStore = {
+      create() { return { outcome: 'created', invocationId: 'inv-fb' }; },
+      update(id, data) { updates.push({ id, ...data }); },
+    };
+
+    const mockInvocationTracker = {
+      has() { return false; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+
+    let routeCalled = 0;
+    const mockRouter = {
+      async *routeExecution() {
+        routeCalled++;
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    const result = await enqueueA2ATargets(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 'no-worklist-thread',
+        triggerMessage: { id: 'msg-fb', threadId: 'no-worklist-thread', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    // Wait for fire-and-forget background task
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(result.fallback, true, 'should use fallback when no worklist');
+    assert.equal(routeCalled, 1, 'routeExecution called in fallback path');
   });
 });

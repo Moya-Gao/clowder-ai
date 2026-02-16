@@ -111,11 +111,24 @@ export async function handlePostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
-  return callbackPost('/api/callbacks/post-message', {
+  const result = await callbackPost('/api/callbacks/post-message', {
     content: input.content,
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     clientMessageId: input.clientMessageId ?? randomUUID(),
   }, { enableOutbox: true });
+
+  // If callback expired/failed and message contains @mentions,
+  // hint that the agent can mention cats directly in response text.
+  if (result.isError && /[@＠]/.test(input.content)) {
+    const hint = '\n\n💡 Tip: callback token 已过期。如果你想 @其他猫猫，' +
+      '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
+      '（例如另起一行写 @缅因猫），系统会自动检测并触发。';
+    return errorResult(
+      (result.content[0] as { text: string }).text + hint,
+    );
+  }
+
+  return result;
 }
 
 export async function handleGetPendingMentions(_input: Record<string, never>): Promise<ToolResult> {

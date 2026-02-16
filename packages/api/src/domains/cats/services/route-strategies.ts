@@ -17,6 +17,7 @@ import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';
+import { registerWorklist, unregisterWorklist } from './WorklistRegistry.js';
 import { assembleContext, formatMessage } from './ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../utils/token-counter.js';
@@ -230,11 +231,15 @@ export async function* routeSerial(
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   // Worklist pattern: starts with targetCats, may grow via A2A mentions
+  // F27: Register worklist so callback A2A can push targets here
   const worklist = [...targetCats];
-  let a2aCount = 0;
   const maxDepth = options.maxA2ADepth ?? getMaxA2ADepth();
+  const worklistEntry = registerWorklist(threadId, worklist, maxDepth);
 
   let index = 0;
+  // F27: Track how many worklist entries have had a2a_handoff emitted
+  let handoffEmitted = targetCats.length; // Original targets don't get handoff events
+  try {
   while (index < worklist.length) {
     if (signal?.aborted) break;
     const catId = worklist[index]!;
@@ -265,7 +270,7 @@ export async function* routeSerial(
       teammates: worklist.filter((id) => id !== catId),
       mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
-      a2aEnabled: a2aCount < maxDepth,
+      a2aEnabled: worklistEntry.a2aCount < maxDepth,
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
@@ -422,10 +427,25 @@ export async function* routeSerial(
       }
 
       // A2A: extend worklist if mention found + depth allows
-      if (a2aMentions.length > 0 && a2aCount < maxDepth && !signal?.aborted) {
-        const nextCat = a2aMentions[0]!;
-        worklist.push(nextCat);
-        a2aCount++;
+      // F27: dedup only against pending (not-yet-executed) tail — cats that already ran
+      // can be re-enqueued for another round (e.g. A→B→A review ping-pong).
+      if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted) {
+        const pendingTail = worklist.slice(index + 1);
+        for (const nextCat of a2aMentions) {
+          if (worklistEntry.a2aCount >= maxDepth) break;
+          if (pendingTail.includes(nextCat)) continue;
+
+          worklist.push(nextCat);
+          worklistEntry.a2aCount++;
+          pendingTail.push(nextCat); // Keep dedup view in sync
+        }
+      }
+
+      // F27: Emit a2a_handoff for ALL new A2A targets (both response-text and callback-pushed).
+      // We track which targets have already been announced to avoid duplicate handoff events.
+      for (let wi = handoffEmitted; wi < worklist.length; wi++) {
+        const pendingCat = worklist[wi]!;
+        if (wi < targetCats.length) continue; // Skip original targets — not A2A
 
         // === A2A_HANDOFF 审计 (fire-and-forget, 缅因猫 review P2-3) ===
         const auditLog = getEventAuditLog();
@@ -434,24 +454,24 @@ export async function* routeSerial(
           threadId,
           data: {
             fromCat: catId,
-            toCat: nextCat,
+            toCat: pendingCat,
             userId,
-            a2aDepth: a2aCount,
+            a2aDepth: worklistEntry.a2aCount,
             maxDepth,
           },
         }).catch((err) => {
-          console.warn('[audit] A2A_HANDOFF write failed', { threadId, fromCat: catId, toCat: nextCat, err });
+          console.warn('[audit] A2A_HANDOFF write failed', { threadId, fromCat: catId, toCat: pendingCat, err });
         });
 
-        // Notify frontend: handoff event
-        const nextConfig = CAT_CONFIGS[nextCat as keyof typeof CAT_CONFIGS];
+        const nextConfig = CAT_CONFIGS[pendingCat as keyof typeof CAT_CONFIGS];
         yield {
           type: 'a2a_handoff' as AgentMessageType,
           catId,
-          content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? nextCat}`,
+          content: `${catConfig?.displayName ?? catId} → ${nextConfig?.displayName ?? pendingCat}`,
           timestamp: Date.now(),
         } as AgentMessage;
       }
+      handoffEmitted = worklist.length;
     } else if (!hadError) {
       // No text content and no error — store empty message (cat responded with no text)
       try {
@@ -498,7 +518,14 @@ export async function* routeSerial(
       yield { ...doneMsg, isFinal: index === worklist.length - 1 };
     }
 
+    // F27: Advance executedIndex so pushToWorklist knows which cats are done
+    worklistEntry.executedIndex = index + 1;
     index++;
+  }
+  } finally {
+    // F27: Always unregister worklist, even on error/abort.
+    // Pass owner ref so preempting new invocation's worklist is not deleted (缅因猫 R1 P1-1)
+    unregisterWorklist(threadId, worklistEntry);
   }
 }
 

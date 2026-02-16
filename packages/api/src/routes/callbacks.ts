@@ -21,7 +21,7 @@ import { parseA2AMentions } from '../domains/cats/services/a2a-mentions.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
-import { triggerA2AInvocation } from './callback-a2a-trigger.js';
+import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
@@ -77,6 +77,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
+      // Stale callback guard (cloud Codex P1 + 缅因猫 R3): reject callbacks from
+      // preempted invocations. A newer invocation for the same thread+cat supersedes.
+      // Return 200 + stale_ignored to avoid retry storms from the dying CLI process.
+      if (!registry.isLatest(invocationId)) {
+        return { status: 'stale_ignored', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
+      }
+
       // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
       if (clientMessageId) {
         const isFirstSeen = registry.claimClientMessageId(invocationId, clientMessageId);
@@ -110,13 +117,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         timestamp: Date.now(),
       }, record.threadId);
 
-      // Trigger invocation for @mentioned cats (A2A via post_message)
+      // F27: Enqueue @mentioned cats into parent worklist (unified A2A path)
       if (targetCats.length > 0 && router && invocationRecordStore && record.threadId) {
-        await triggerA2AInvocation(
+        await enqueueA2ATargets(
           { router, invocationRecordStore, socketManager,
             ...(invocationTracker ? { invocationTracker } : {}), log: app.log },
           { targetCats, content, userId: record.userId,
-            threadId: record.threadId, triggerMessage: storedMsg },
+            threadId: record.threadId, triggerMessage: storedMsg,
+            callerCatId: senderCatId },
         );
       }
 

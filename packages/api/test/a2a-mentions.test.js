@@ -37,14 +37,14 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, []);
   });
 
-  it('returns only first match (single target)', async () => {
+  it('F27: returns all matches (multi-mention, up to 2)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
-    // Both on separate lines, but only first should be returned
+    // Both on separate lines — F27 returns both
     const text = '@缅因猫 先review\n@暹罗猫 再看看设计';
     const result = parseA2AMentions(text, 'opus');
-    assert.equal(result.length, 1);
-    // First match from CAT_CONFIGS iteration order
-    assert.ok(result[0] === 'codex' || result[0] === 'gemini');
+    assert.equal(result.length, 2);
+    assert.ok(result.includes('codex'));
+    assert.ok(result.includes('gemini'));
   });
 
   it('returns empty array for empty text', async () => {

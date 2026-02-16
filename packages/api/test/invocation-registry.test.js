@@ -151,4 +151,133 @@ describe('InvocationRegistry', () => {
     assert.equal(registry.claimClientMessageId(first.invocationId, 'same-id'), true);
     assert.equal(registry.claimClientMessageId(second.invocationId, 'same-id'), true);
   });
+
+  // --- isLatest() freshness guard (cloud Codex P1 + 缅因猫 R3) ---
+
+  test('isLatest() returns true for the most recent invocation per thread+cat', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId } = registry.create('user-1', 'opus', 'thread-1');
+    assert.equal(registry.isLatest(invocationId), true);
+  });
+
+  test('isLatest() returns false for a superseded invocation (same thread+cat)', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId: oldId } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId: newId } = registry.create('user-1', 'opus', 'thread-1');
+
+    assert.equal(registry.isLatest(oldId), false, 'old invocation should be stale');
+    assert.equal(registry.isLatest(newId), true, 'new invocation should be latest');
+  });
+
+  test('isLatest() tracks different cats independently on same thread', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId: opusId } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId: codexId } = registry.create('user-1', 'codex', 'thread-1');
+
+    assert.equal(registry.isLatest(opusId), true, 'opus should be latest');
+    assert.equal(registry.isLatest(codexId), true, 'codex should be latest');
+
+    // Supersede opus only
+    const { invocationId: opusId2 } = registry.create('user-1', 'opus', 'thread-1');
+    assert.equal(registry.isLatest(opusId), false, 'old opus should be stale');
+    assert.equal(registry.isLatest(opusId2), true, 'new opus should be latest');
+    assert.equal(registry.isLatest(codexId), true, 'codex should be unaffected');
+  });
+
+  test('isLatest() tracks different threads independently for same cat', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const { invocationId: t1Id } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId: t2Id } = registry.create('user-1', 'opus', 'thread-2');
+
+    assert.equal(registry.isLatest(t1Id), true);
+    assert.equal(registry.isLatest(t2Id), true);
+  });
+
+  test('isLatest() returns false for unknown invocationId', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    assert.equal(registry.isLatest('nonexistent-id'), false);
+  });
+
+  // --- latestByThreadCat cleanup (缅因猫 P2) ---
+
+  test('latestByThreadCat cleans up on TTL expiry', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry({ ttlMs: 1 });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-1');
+    assert.equal(registry.isLatest(invocationId), true);
+
+    // Wait for TTL expiry
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    // Trigger TTL cleanup via verify() with correct token (reaches TTL check)
+    const result = registry.verify(invocationId, callbackToken);
+    assert.equal(result, null, 'expired record should fail verify');
+
+    // isLatest should now return false (record gone + pointer cleaned)
+    assert.equal(registry.isLatest(invocationId), false);
+  });
+
+  test('latestByThreadCat cleans up on LRU eviction', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry({ maxRecords: 2 });
+    const { invocationId: firstId } = registry.create('user-1', 'opus', 'thread-1');
+    registry.create('user-2', 'codex', 'thread-2');
+
+    assert.equal(registry.isLatest(firstId), true);
+
+    // Adding a 3rd evicts the oldest (firstId)
+    registry.create('user-3', 'gemini', 'thread-3');
+
+    // firstId should no longer be latest (evicted)
+    assert.equal(registry.isLatest(firstId), false);
+  });
+
+  test('latestByThreadCat cleanup does not remove superseded pointer', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry({ maxRecords: 3 });
+
+    // Create old opus invocation, then new opus invocation (supersedes old)
+    const { invocationId: oldId } = registry.create('user-1', 'opus', 'thread-1');
+    const { invocationId: newId } = registry.create('user-1', 'opus', 'thread-1');
+
+    assert.equal(registry.isLatest(oldId), false);
+    assert.equal(registry.isLatest(newId), true);
+
+    // Fill capacity to evict oldId (it's the oldest)
+    registry.create('user-2', 'codex', 'thread-2');
+    registry.create('user-3', 'gemini', 'thread-3');
+
+    // newId's latest pointer should NOT have been cleaned up by oldId's eviction
+    assert.equal(registry.isLatest(newId), true,
+      'latest pointer must survive when evicted record was already superseded');
+  });
 });

@@ -1,7 +1,15 @@
 /**
- * A2A invocation trigger for MCP callback post_message.
- * When a cat's post_message contains @mentions of other cats,
- * this module creates an InvocationRecord and runs background execution.
+ * A2A invocation trigger for MCP callback post_message (F27 rewrite).
+ *
+ * BEFORE F27: callback detected @mentions → spawned independent routeExecution
+ *   → dual-path bug (double-fire + uncontrollable children + infinite recursion)
+ *
+ * AFTER F27: callback detected @mentions → pushes targets to parent worklist
+ *   → single path, shared AbortController, shared depth limit
+ *
+ * Fallback: if no parent worklist exists (shouldn't happen in practice,
+ * since callbacks only fire during cat execution), creates a standalone
+ * invocation as before.
  */
 
 import type { FastifyBaseLogger } from 'fastify';
@@ -12,6 +20,7 @@ import { parseIntent } from '../domains/cats/services/IntentParser.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import { pushToWorklist, hasWorklist } from '../domains/cats/services/WorklistRegistry.js';
 
 export interface A2ATriggerDeps {
   router: AgentRouter;
@@ -22,11 +31,69 @@ export interface A2ATriggerDeps {
 }
 
 /**
- * Fire-and-forget: create an InvocationRecord for @mentioned cats and
- * run `router.routeExecution()` in the background.
+ * Enqueue @mentioned cats into the parent's worklist (F27 unified path).
  *
- * Messages are persisted inside routeSerial/routeParallel — we only need
- * to broadcast the yielded AgentMessages via socketManager.
+ * Returns the cats that were actually enqueued. If no parent worklist exists,
+ * falls back to standalone invocation (legacy path, should be rare).
+ */
+export async function enqueueA2ATargets(
+  deps: A2ATriggerDeps,
+  opts: {
+    targetCats: CatId[];
+    content: string;
+    userId: string;
+    threadId: string;
+    triggerMessage: StoredMessage;
+    /** The cat that triggered this A2A callback (for worklist caller guard). */
+    callerCatId?: CatId;
+  },
+): Promise<{ enqueued: CatId[]; fallback: boolean }> {
+  const { log } = deps;
+  const { targetCats, threadId, callerCatId } = opts;
+
+  // F27: Try to push to parent worklist first
+  if (hasWorklist(threadId)) {
+    const enqueued = pushToWorklist(threadId, targetCats, callerCatId);
+    if (enqueued.length > 0) {
+      log.info({
+        threadId,
+        enqueued,
+        targetCats,
+      }, '[F27] A2A callback: enqueued targets to parent worklist');
+    } else {
+      log.info({
+        threadId,
+        targetCats,
+      }, '[F27] A2A callback: targets not enqueued (depth limit or already in worklist)');
+    }
+    return { enqueued, fallback: false };
+  }
+
+  // Fallback: no parent worklist (shouldn't normally happen)
+  // Guard: if parent invocation is active (e.g. routeParallel), don't start
+  // a standalone fallback because tracker.start() would abort it. (缅因猫 R1 P1-2)
+  const { invocationTracker } = deps;
+  if (invocationTracker?.has(threadId)) {
+    log.warn({
+      threadId,
+      targetCats,
+    }, '[F27] A2A fallback skipped: no worklist but parent invocation active, refusing to abort');
+    return { enqueued: [], fallback: true };
+  }
+
+  // Create standalone invocation like the old triggerA2AInvocation
+  log.warn({
+    threadId,
+    targetCats,
+  }, '[F27] A2A callback: no parent worklist found, falling back to standalone invocation');
+
+  await triggerA2AInvocation(deps, opts);
+  return { enqueued: targetCats, fallback: true };
+}
+
+/**
+ * Legacy standalone invocation (fallback + backward compat).
+ * Kept for edge cases where callback fires outside a routeSerial context.
  */
 export async function triggerA2AInvocation(
   deps: A2ATriggerDeps,
@@ -44,12 +111,13 @@ export async function triggerA2AInvocation(
   const statusCatId = targetCats[0] ?? createCatId('opus');
   const intent = parseIntent(content, targetCats.length);
 
-  // Redundant A2A short-circuit:
-  // if parent invocation is active and already includes all target cats,
-  // this callback mention is just an in-thread reminder, not a new invocation.
+  // Guard: if parent invocation is active, don't start a standalone fallback.
+  // tracker.start() would abort the running parent (e.g. routeParallel). (缅因猫 R1 P1-2)
   const parentActive = invocationTracker?.has(threadId) ?? false;
   if (parentActive) {
     const activeCats = invocationTracker?.getCatIds?.(threadId) ?? [];
+    // Redundant A2A short-circuit (砚砚 4ee660b defense-in-depth):
+    // if parent already includes all targets, skip entirely.
     if (targetCats.length > 0 && targetCats.every((catId) => activeCats.includes(catId))) {
       log.info({
         threadId,
@@ -59,6 +127,15 @@ export async function triggerA2AInvocation(
       }, '[callbacks] A2A skipped: target already covered by active parent invocation');
       return;
     }
+    // Parent is active but targets differ — cannot safely start standalone
+    // because tracker.start() would abort the parent. Log and bail.
+    log.warn({
+      threadId,
+      targetCats,
+      activeCats,
+      triggerMessageId: triggerMessage.id,
+    }, '[F27] A2A fallback skipped: parent invocation active, refusing to abort it');
+    return;
   }
 
   const createResult = await invocationRecordStore.create({
@@ -71,28 +148,14 @@ export async function triggerA2AInvocation(
 
   if (createResult.outcome === 'duplicate') return;
 
-  // A2A chains fire DURING a parent invocation (cat callback with @mention).
-  // If parent is active, skip tracker.start() to avoid aborting the parent.
-  // The child runs without its own tracker entry (no individual cancel support,
-  // but the InvocationRecord provides audit trail).
-  let controller: AbortController | undefined;
-
-  if (!parentActive) {
-    controller = invocationTracker?.start(threadId, userId, targetCats);
-    if (controller?.signal.aborted) {
-      // P2-1: thread is deleting — mark record as canceled, don't leave it pending
-      invocationTracker?.complete(threadId, controller);
-      await invocationRecordStore.update(createResult.invocationId, {
-        status: 'canceled',
-      });
-      return;
-    }
-  } else {
-    log.info({
-      threadId,
-      invocationId: createResult.invocationId,
-      targetCats,
-    }, '[callbacks] A2A chain: parent invocation active, running as child (no tracker.start)');
+  // Safe: no active parent invocation, so tracker.start() won't abort anything unexpected.
+  const controller = invocationTracker?.start(threadId, userId, targetCats);
+  if (controller?.signal.aborted) {
+    invocationTracker?.complete(threadId, controller);
+    await invocationRecordStore.update(createResult.invocationId, {
+      status: 'canceled',
+    });
+    return;
   }
 
   await invocationRecordStore.update(createResult.invocationId, {
@@ -117,7 +180,6 @@ export async function triggerA2AInvocation(
         targetCats, intent,
         { ...(controller?.signal ? { signal: controller.signal } : {}) },
       )) {
-        // Messages already persisted by routeSerial/routeParallel
         socketManager.broadcastAgentMessage(msg, threadId);
       }
 
@@ -125,14 +187,13 @@ export async function triggerA2AInvocation(
         status: 'succeeded',
       });
     } catch (err) {
-      log.error(`[callbacks] A2A invocation failed: ${String(err)}`);
+      log.error(`[callbacks] Standalone A2A invocation failed: ${String(err)}`);
       try {
         await invocationRecordStore.update(createResult.invocationId, {
           status: 'failed',
           ...(err instanceof Error ? { error: err.message } : {}),
         });
       } catch { /* best-effort */ }
-      // Ensure frontend receives terminal state and can clear loading lock.
       socketManager.broadcastAgentMessage({
         type: 'error',
         catId: statusCatId,

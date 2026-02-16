@@ -44,6 +44,8 @@ const MAX_CLIENT_MESSAGE_IDS = 1000;
  */
 export class InvocationRegistry {
   private records = new Map<string, InvocationRecord>();
+  /** Track the latest invocationId per thread+cat (stale callback guard, cloud Codex P1). */
+  private latestByThreadCat = new Map<string, string>();
   private readonly ttlMs: number;
   private readonly maxRecords: number;
 
@@ -67,6 +69,7 @@ export class InvocationRegistry {
     while (this.records.size >= this.maxRecords) {
       const oldestKey = this.records.keys().next().value;
       if (oldestKey !== undefined) {
+        this.cleanupLatestPointer(oldestKey);
         this.records.delete(oldestKey);
       }
     }
@@ -85,6 +88,9 @@ export class InvocationRegistry {
       createdAt: now,
       expiresAt: now + this.ttlMs,
     });
+
+    // Track latest invocation per thread+cat (stale callback guard)
+    this.latestByThreadCat.set(`${threadId}:${catId as string}`, invocationId);
 
     return { invocationId, callbackToken };
   }
@@ -105,6 +111,7 @@ export class InvocationRegistry {
 
     // Check TTL
     if (Date.now() > record.expiresAt) {
+      this.cleanupLatestPointer(invocationId);
       this.records.delete(invocationId);
       return null;
     }
@@ -114,6 +121,18 @@ export class InvocationRegistry {
     this.records.set(invocationId, record);
 
     return record;
+  }
+
+  /**
+   * Check if an invocationId is the latest for its thread+cat slot.
+   * Stale callbacks from preempted invocations return false.
+   * (Cloud Codex P1 + 缅因猫 R3 suggestion)
+   */
+  isLatest(invocationId: string): boolean {
+    const record = this.records.get(invocationId);
+    if (!record) return false;
+    const key = `${record.threadId}:${record.catId as string}`;
+    return this.latestByThreadCat.get(key) === invocationId;
   }
 
   /**
@@ -139,12 +158,27 @@ export class InvocationRegistry {
   }
 
   /**
-   * Remove expired records
+   * Clean up latestByThreadCat pointer when a record is about to be removed.
+   * Only removes the pointer if it still points to the record being deleted
+   * (a newer invocation may have already superseded it).
+   */
+  private cleanupLatestPointer(invocationId: string): void {
+    const record = this.records.get(invocationId);
+    if (!record) return;
+    const key = `${record.threadId}:${record.catId as string}`;
+    if (this.latestByThreadCat.get(key) === invocationId) {
+      this.latestByThreadCat.delete(key);
+    }
+  }
+
+  /**
+   * Remove expired records (and their latestByThreadCat pointers)
    */
   private cleanup(): void {
     const now = Date.now();
     for (const [key, record] of this.records) {
       if (now > record.expiresAt) {
+        this.cleanupLatestPointer(key);
         this.records.delete(key);
       }
     }

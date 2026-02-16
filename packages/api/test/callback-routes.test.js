@@ -848,4 +848,62 @@ describe('Callback Routes', () => {
     assert.equal(body.degradeReason, 'hindsight_disabled');
     assert.equal(retainCalls, 0);
   });
+
+  // --- Stale callback freshness guard (cloud Codex P1 + 缅因猫 R3) ---
+
+  test('POST post-message returns stale_ignored for superseded invocation', async () => {
+    const app = await createApp();
+
+    // Old invocation for opus on thread-1
+    const old = registry.create('user-1', 'opus', 'thread-1');
+    // New invocation supersedes — same thread+cat
+    registry.create('user-1', 'opus', 'thread-1');
+
+    // Old invocation's callback should be rejected (stale)
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId: old.invocationId,
+        callbackToken: old.callbackToken,
+        content: 'Stale message from old invocation',
+      },
+    });
+
+    assert.equal(response.statusCode, 200, 'should return 200 (not 401) to avoid retry storms');
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'stale_ignored');
+
+    // Message should NOT be stored
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 0, 'stale callback should not store a message');
+  });
+
+  test('POST post-message allows latest invocation after stale is rejected', async () => {
+    const app = await createApp();
+
+    // Old invocation
+    registry.create('user-1', 'opus', 'thread-1');
+    // New invocation supersedes
+    const latest = registry.create('user-1', 'opus', 'thread-1');
+
+    // Latest invocation's callback should succeed
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId: latest.invocationId,
+        callbackToken: latest.callbackToken,
+        content: 'Fresh message from latest invocation',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    assert.equal(recent[0].content, 'Fresh message from latest invocation');
+  });
 });
