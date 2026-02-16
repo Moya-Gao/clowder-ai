@@ -82,6 +82,11 @@ export class InvocationTracker {
     return this.active.get(threadId)?.userId ?? null;
   }
 
+  /** Get target cat IDs of the active invocation for a thread. */
+  getCatIds(threadId: string): string[] {
+    return this.active.get(threadId)?.catIds ?? [];
+  }
+
   /** Mark an invocation as complete (cleanup). Only removes if controller matches. */
   complete(threadId: string, controller?: AbortController): void {
     const inv = this.active.get(threadId);

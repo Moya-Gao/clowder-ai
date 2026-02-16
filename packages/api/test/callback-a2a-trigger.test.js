@@ -182,6 +182,67 @@ describe('triggerA2AInvocation', () => {
     assert.equal(routeCalled, 1, 'routeExecution must be called for A2A chain');
   });
 
+  test('skips redundant A2A when target cat is already in active parent target set', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    let createCalled = 0;
+    let routeCalled = 0;
+
+    const mockInvocationRecordStore = {
+      create() {
+        createCalled++;
+        return { outcome: 'created', invocationId: 'inv-dup' };
+      },
+      update() {},
+    };
+
+    const mockInvocationTracker = {
+      has() { return true; },
+      getCatIds() { return ['opus', 'codex', 'gemini']; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        routeCalled++;
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nalready covered by parent',
+        userId: 'user-1',
+        threadId: 'active-thread',
+        triggerMessage: { id: 'msg-covered', threadId: 'active-thread', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    assert.equal(createCalled, 0, 'redundant A2A should not create InvocationRecord');
+    assert.equal(routeCalled, 0, 'redundant A2A should not execute routeExecution');
+  });
+
   test('A2A chain proceeds when parent invocation is active (no tracker.start)', async () => {
     const { triggerA2AInvocation } = await import(
       '../dist/routes/callback-a2a-trigger.js'

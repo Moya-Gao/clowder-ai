@@ -180,6 +180,33 @@ describe('post_message A2A mention invocation', () => {
     assert.deepEqual(invocationRecordStore.getRecords()[0].targetCats, ['codex']);
   });
 
+  test('post-message skips redundant A2A when target already covered by active parent invocation', async () => {
+    const mockInvocationTracker = {
+      has() { return true; },
+      getCatIds() { return ['opus', 'codex', 'gemini']; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+    const app = await createApp({ invocationTracker: mockInvocationTracker });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', { threadId: 't1' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '同步一下\n@缅因猫\n这条是冗余提醒',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(invocationRecordStore.getRecords().length, 0,
+      'Redundant A2A should not create InvocationRecord');
+    assert.equal(mockRouter.getExecutions().length, 0,
+      'Redundant A2A should not call routeExecution');
+  });
+
   // Self-mention filter: opus @布偶猫 → no invocation (can't invoke self)
   test('post-message self-mention does NOT trigger invocation', async () => {
     const app = await createApp();

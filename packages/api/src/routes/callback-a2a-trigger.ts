@@ -44,6 +44,23 @@ export async function triggerA2AInvocation(
   const statusCatId = targetCats[0] ?? createCatId('opus');
   const intent = parseIntent(content, targetCats.length);
 
+  // Redundant A2A short-circuit:
+  // if parent invocation is active and already includes all target cats,
+  // this callback mention is just an in-thread reminder, not a new invocation.
+  const parentActive = invocationTracker?.has(threadId) ?? false;
+  if (parentActive) {
+    const activeCats = invocationTracker?.getCatIds?.(threadId) ?? [];
+    if (targetCats.length > 0 && targetCats.every((catId) => activeCats.includes(catId))) {
+      log.info({
+        threadId,
+        targetCats,
+        activeCats,
+        triggerMessageId: triggerMessage.id,
+      }, '[callbacks] A2A skipped: target already covered by active parent invocation');
+      return;
+    }
+  }
+
   const createResult = await invocationRecordStore.create({
     threadId,
     userId,
@@ -58,7 +75,6 @@ export async function triggerA2AInvocation(
   // If parent is active, skip tracker.start() to avoid aborting the parent.
   // The child runs without its own tracker entry (no individual cancel support,
   // but the InvocationRecord provides audit trail).
-  const parentActive = invocationTracker?.has(threadId) ?? false;
   let controller: AbortController | undefined;
 
   if (!parentActive) {
