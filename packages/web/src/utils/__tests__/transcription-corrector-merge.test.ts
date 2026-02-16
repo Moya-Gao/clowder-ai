@@ -35,6 +35,15 @@ describe('mergeTermEntries', () => {
     expect(applyTermDictionary('有效', entries)).toBe('有效词');
   });
 
+  it('custom terms override built-in case-insensitively', () => {
+    // Built-in: "icp" → "MCP" (case-insensitive regex)
+    // Custom: "ICP" → "ICP协议" (different case key)
+    // Expected: custom wins because regex is gi
+    const entries = mergeTermEntries([{ from: 'ICP', to: 'ICP协议' }]);
+    expect(applyTermDictionary('用 ICP 协议', entries)).toBe('用 ICP协议 协议');
+    expect(applyTermDictionary('用 icp 协议', entries)).toBe('用 ICP协议 协议');
+  });
+
   it('works end-to-end with correctTranscription', () => {
     const entries = mergeTermEntries([{ from: '测试猫', to: '布偶猫' }]);
     const result = correctTranscription('嗯那个测试猫帮我看看', entries);

@@ -21,13 +21,41 @@ const DEFAULT_SETTINGS: VoiceSettings = {
   language: 'zh',
 };
 
+const VALID_LANGUAGES = new Set<VoiceSettings['language']>(['zh', 'en', '']);
+
+function isValidTerm(item: unknown): item is CustomTerm {
+  return (
+    typeof item === 'object' &&
+    item !== null &&
+    typeof (item as CustomTerm).from === 'string' &&
+    typeof (item as CustomTerm).to === 'string'
+  );
+}
+
+function normalizeSettings(parsed: unknown): VoiceSettings {
+  if (typeof parsed !== 'object' || parsed === null) return DEFAULT_SETTINGS;
+  const obj = parsed as Record<string, unknown>;
+
+  const customTerms = Array.isArray(obj.customTerms)
+    ? obj.customTerms.filter(isValidTerm)
+    : [];
+
+  const customPrompt =
+    typeof obj.customPrompt === 'string' ? obj.customPrompt : null;
+
+  const language = VALID_LANGUAGES.has(obj.language as VoiceSettings['language'])
+    ? (obj.language as VoiceSettings['language'])
+    : 'zh';
+
+  return { customTerms, customPrompt, language };
+}
+
 function loadFromStorage(): VoiceSettings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw) as Partial<VoiceSettings>;
-    return { ...DEFAULT_SETTINGS, ...parsed };
+    return normalizeSettings(JSON.parse(raw));
   } catch {
     return DEFAULT_SETTINGS;
   }
@@ -50,6 +78,7 @@ interface VoiceSettingsState {
   updateTerm: (index: number, from: string, to: string) => void;
   setCustomPrompt: (prompt: string | null) => void;
   setLanguage: (language: VoiceSettings['language']) => void;
+  loadSettings: () => void;
   resetAll: () => void;
 }
 
@@ -98,6 +127,10 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>((set) => ({
       saveToStorage(next);
       return { settings: next };
     }),
+
+  loadSettings: () => {
+    set({ settings: loadFromStorage() });
+  },
 
   resetAll: () => {
     saveToStorage(DEFAULT_SETTINGS);

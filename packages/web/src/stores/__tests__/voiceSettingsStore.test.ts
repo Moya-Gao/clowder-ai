@@ -81,6 +81,43 @@ describe('voiceSettingsStore', () => {
     expect(useVoiceSettingsStore.getState().settings.language).toBe('');
   });
 
+  it('recovers gracefully from corrupted localStorage (customTerms not array)', () => {
+    // Simulate corrupted data: customTerms is a string instead of array
+    mockStorage['cat-cafe-voice-settings'] = JSON.stringify({
+      customTerms: 'not-an-array',
+      customPrompt: 42,
+      language: 'invalid',
+    });
+
+    // loadSettings re-reads from localStorage and normalizes
+    useVoiceSettingsStore.getState().loadSettings();
+    const { settings } = useVoiceSettingsStore.getState();
+
+    expect(Array.isArray(settings.customTerms)).toBe(true);
+    expect(settings.customTerms).toEqual([]);
+    expect(settings.customPrompt).toBeNull();
+    expect(settings.language).toBe('zh');
+  });
+
+  it('filters out malformed term entries from localStorage', () => {
+    mockStorage['cat-cafe-voice-settings'] = JSON.stringify({
+      customTerms: [
+        { from: 'valid', to: 'ok' },
+        { from: 123, to: 'bad-from' },     // from is not string
+        'not-an-object',                     // not an object at all
+        { from: 'also-valid', to: 'fine' },
+      ],
+    });
+
+    useVoiceSettingsStore.getState().loadSettings();
+    const { settings } = useVoiceSettingsStore.getState();
+
+    expect(settings.customTerms).toEqual([
+      { from: 'valid', to: 'ok' },
+      { from: 'also-valid', to: 'fine' },
+    ]);
+  });
+
   it('resets all settings to defaults', () => {
     const store = useVoiceSettingsStore.getState();
     store.addTerm('x', 'X');

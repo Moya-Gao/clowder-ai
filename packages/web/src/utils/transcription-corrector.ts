@@ -31,20 +31,25 @@ const builtInEntries: ReadonlyArray<TermEntry> = buildTermEntries(
   terms as Record<string, string>,
 );
 
-/** Merge built-in terms with user-defined custom terms (custom wins). */
+/**
+ * Merge built-in terms with user-defined custom terms (custom wins).
+ * Keys are normalized to lowercase before merging so that custom "ICP"
+ * correctly overrides built-in "icp" (regex matching is case-insensitive).
+ */
 export function mergeTermEntries(
   customTerms: ReadonlyArray<{ from: string; to: string }>,
 ): TermEntry[] {
   if (customTerms.length === 0) return [...builtInEntries];
-  const customDict: Record<string, string> = {};
-  for (const { from, to } of customTerms) {
-    if (from.trim()) customDict[from] = to;
+  // Build lowercase-keyed dict from built-in terms
+  const merged: Record<string, string> = {};
+  for (const [k, v] of Object.entries(terms as Record<string, string>)) {
+    if (!k.startsWith('_comment')) merged[k.toLowerCase()] = v;
   }
-  // Merge: built-in first, custom overrides (by rebuilding from merged dict)
-  const builtInDict = Object.fromEntries(
-    Object.entries(terms as Record<string, string>).filter(([k]) => !k.startsWith('_comment')),
-  );
-  return buildTermEntries({ ...builtInDict, ...customDict });
+  // Custom terms override using lowercase key
+  for (const { from, to } of customTerms) {
+    if (from.trim()) merged[from.toLowerCase()] = to;
+  }
+  return buildTermEntries(merged);
 }
 
 // Keep backward-compatible module-level entries for existing callers
