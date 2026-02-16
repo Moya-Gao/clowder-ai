@@ -169,6 +169,47 @@ git worktree prune
 
 ---
 
+## 代码质量工具（三猫必读）
+
+开发过程中必须使用以下工具守护代码质量，不是可选的。
+
+### Biome（已配置 `biome.json`）
+
+```bash
+# 检查 lint + 格式（只报告，不修改）
+pnpm check
+
+# 自动修复
+pnpm check:fix
+
+# 对单文件增量检查（推荐在编辑后立刻跑）
+pnpm biome check <file-path>
+```
+
+- **Step 2 自检时**：`pnpm check` 必须跑，确认无 error
+- **开发过程中**：改完文件后对改动文件跑 `pnpm biome check <file>`，及时发现问题
+- **提交前**：至少对暂存文件跑一次 Biome 检查
+
+### TypeScript 类型检查
+
+```bash
+# 全量类型检查（Step 2 必跑）
+pnpm lint
+
+# 共享包改动后必须 rebuild（否则 .d.ts 过期导致下游误报）
+pnpm --filter @cat-cafe/shared build
+```
+
+### LSP 插件（各猫按自己 CLI 工具链配置）
+
+如果你的 CLI 工具支持 LSP / 代码检查插件：
+- **必须启用**，不要嫌麻烦关掉
+- **关注每次编辑后的实时诊断**，发现类型错误当场修，不要攒到最后
+- **重构/移动文件后主动触发诊断**，确认 import 链没断
+- 具体配置见各猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）
+
+---
+
 ## Skill 速查表
 
 | 我正在... | 用这个 Skill | SOP Step |
