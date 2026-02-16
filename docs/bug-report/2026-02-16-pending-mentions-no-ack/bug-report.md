@@ -41,70 +41,101 @@ Session #2（无论是 compact 恢复还是 F24 新 session）调用 `get_pendin
 
 ## 修复方案
 
-### 推荐方案: last-ack 水位线
+> **v2 — 根据缅因猫 R1 review 修订（2026-02-16）**
+> R1 发现：3 个问题（2 P1 + 1 P2），全部接受并修正。
 
-**核心思路**: 每只猫在每个 thread 中维护一个 `lastAckTimestamp`（上次确认已读的时间戳）。`get_pending_mentions` 只返回 `timestamp > lastAckTimestamp` 的 mentions。
+### 推荐方案: messageId 游标 + 显式 ack
+
+**核心思路**: 每只猫在每个 thread 中维护一个 `lastAckMessageId`（上次确认已处理的消息 ID）。`get_pending_mentions` 只返回该 messageId 之后的 mentions。猫猫处理完成后显式调用 `ack_mentions` 推进游标。
+
+**R1 修订要点**:
+- ~~timestamp 水位线~~ → **messageId 游标**（修复 P1-2：同毫秒多条 mention 漏读风险）
+- ~~自动 ack（读即已读）~~ → **显式 ack**（修复 P1-1：get 后崩溃 → 待办不会丢失）
+- ~~新建 MentionAckStore~~ → **复用 DeliveryCursorStore**（修复 P2：避免重复造轮子 + 补 userId 维度）
 
 **具体设计**:
 
-1. **新增 ack 存储**:
-   - 内存: `Map<string, number>` key = `${catId}:${threadId}`
-   - Redis: `cat-cafe:mention-ack:{catId}:{threadId}` → String (timestamp)
+1. **复用 DeliveryCursorStore 存储 ack 游标**:
+   - key: `${userId}:${catId}:${threadId}:mention-ack` → messageId (string)
+   - 复用已有的单调游标语义和 Redis/内存双实现
+   - userId 维度确保多租户安全
 
 2. **修改 `get_pending_mentions`**:
    ```typescript
    // callbacks.ts
-   const lastAck = await mentionAckStore.getLastAck(record.catId, record.threadId);
+   const lastAckId = await deliveryCursorStore.get(
+     `${record.userId}:${record.catId}:${record.threadId}:mention-ack`
+   );
    const mentions = await messageStore.getMentionsFor(
-     record.catId, 20, record.userId, record.threadId, lastAck // 新增 since 参数
+     record.catId, 20, record.userId, record.threadId, lastAckId // 新增 afterMessageId 参数
    );
    ```
 
-3. **新增 `ack_mentions` MCP 工具**（或自动 ack）:
-   - Option A（显式 ack）: 猫猫处理完 mentions 后调用 `ack_mentions` 设置水位线
-   - Option B（自动 ack）: `get_pending_mentions` 被调用时，自动把返回的最新消息时间戳设为 `lastAckTimestamp`
-   - **推荐 Option B** — 减少猫猫认知负担，"读即已读"语义简单
+3. **新增 `ack_mentions` MCP 工具（显式 ack）**:
+   ```typescript
+   // 猫猫处理完 mentions 后调用
+   cat_cafe_ack_mentions({ upToMessageId: "msg_xxx" })
+   // → deliveryCursorStore.set(key, upToMessageId)
+   ```
+   - 猫猫 get mentions → 处理 → ack 到最后一条已处理的 messageId
+   - 如果 get 后崩溃（未 ack）→ 下次 get 还能看到同样的 mentions → **不丢待办**
+   - ack 是幂等的：重复 ack 同一个 messageId 无副作用
 
 4. **F24 session chain 集成**:
-   - Session seal 时，当前 `lastAckTimestamp` 已经记录了处理进度
-   - 新 session 启动后，`get_pending_mentions` 自然只返回 seal 后的新消息
+   - Session seal 时，ack 游标已经记录了处理进度
+   - 新 session 启动后，`get_pending_mentions` 自然只返回 ack 之后的新消息
    - 如果 seal 和新 session 之间没有新 @mention → 返回空 → 新 session 不会误操作
+   - Session #1 和 #2 绑定同一 thread → 共享同一个 ack 游标 → 语义一致
 
 ### 放弃方案
 
 | 方案 | 放弃原因 |
 |------|----------|
+| **自动 ack（读即已读）** | 缅因猫 R1 P1-1：get 后崩溃会导致待办丢失，把"重复处理"问题变成更危险的"漏处理"问题 |
+| **timestamp 水位线** | 缅因猫 R1 P1-2：同毫秒多条 mention 会漏读。消息 ID 本身是可排序游标（timestamp+seq），应直接用 |
+| **新建 MentionAckStore** | 缅因猫 R1 P2：DeliveryCursorStore 已有单调游标语义 + Redis/内存双实现，重复造轮子 |
 | **since_timestamp 参数（调用方控制）** | 调用方（猫猫/MCP client）需要自己记住上次读取时间，但 auto-compact 后 context 丢失了这个信息 |
 | **invocation 级去重** | 每次 invocation 有 `clientMessageIds`，但这只去重 `post_message` 不去重 `get_mentions`；且跨 invocation 无效 |
 | **全部 mentions 不改，靠 session summary** | 依赖 summary 质量，且 summary 可能丢失"哪些已处理"的精确信息 |
 
 ## 影响范围
 
-- `packages/api/src/routes/callbacks.ts` — 新增 since 参数传递
-- `packages/api/src/domains/cats/services/MessageStore.ts` — `getMentionsFor` 新增 `since` 参数
-- `packages/api/src/domains/cats/services/RedisMessageStore.ts` — `ZRANGEBYSCORE` 替代 `ZREVRANGE`
-- `packages/mcp-server/src/tools/callback-tools.ts` — 无需改（透传）
-- 新增: `MentionAckStore` / `RedisMentionAckStore`（存储水位线）
+- `packages/api/src/routes/callbacks.ts` — 新增 afterMessageId 参数传递 + 新增 ack 端点
+- `packages/api/src/domains/cats/services/MessageStore.ts` — `getMentionsFor` 新增 `afterMessageId` 参数
+- `packages/api/src/domains/cats/services/RedisMessageStore.ts` — 利用 sorted set rank 做游标过滤
+- `packages/api/src/domains/cats/services/DeliveryCursorStore.ts` — 复用现有，key 命名约定扩展
+- `packages/mcp-server/src/tools/callback-tools.ts` — 新增 `ack_mentions` 工具注册
+- MCP tool schema — 新增 `cat_cafe_ack_mentions` 定义
 
 ## 验证方式
 
 1. **Red→Green 测试**:
-   - Session #1 调用 `get_pending_mentions` → 收到 N 条 → 自动 ack
+   - Session #1 调用 `get_pending_mentions` → 收到 N 条
+   - Session #1 调用 `ack_mentions({ upToMessageId: lastMsg.id })` → 游标推进
    - Session #2 调用 `get_pending_mentions` → 收到 0 条（无新消息）
    - 新消息到达 → Session #2 调用 `get_pending_mentions` → 只收到新消息
 
-2. **F24 session chain 场景**:
-   - Session #1 seal 时 ack 水位线已设置
+2. **崩溃恢复场景（R1 P1-1 回归）**:
+   - Session #1 调用 `get_pending_mentions` → 收到 N 条 → **不 ack，模拟崩溃**
+   - Session #2 调用 `get_pending_mentions` → 仍然收到同样的 N 条 → **待办不丢失**
+
+3. **同毫秒多条 mention（R1 P1-2 回归）**:
+   - 同一毫秒发送 3 条 @mention → get 返回 3 条
+   - ack 到第 2 条 → 下次 get 只返回第 3 条
+
+4. **F24 session chain 场景**:
+   - Session #1 处理完 mentions + ack → seal
    - 新 session #2 启动，中间有新 @mention → 只看到新的
    - 新 session #2 启动，中间无新 @mention → 返回空
 
-3. **边界情况**:
-   - 同一毫秒的多条 mention → 全部返回（>= 改为 >）
+5. **边界情况**:
    - 首次调用（无 ack 记录）→ 返回所有（向后兼容）
-   - Thread 删除 → ack 记录随 thread 级联清理
+   - Thread 删除 → ack 游标随 thread 级联清理
+   - ack 到不存在的 messageId → 拒绝（400）
 
-## Open Questions
+## Open Questions (已收敛)
 
-1. **自动 ack 的粒度**: Option B "读即已读"会不会导致猫猫还没处理就被 ack 了？（比如 get 了但 session 立刻崩溃）—— 风险低，因为 mentions 的消息本身不会被删除，只是下次不再返回"待处理"列表
-2. **回溯能力**: 是否需要一个 `get_all_mentions`（忽略 ack）给调试/审计用？
-3. **多猫共享 thread**: 每只猫独立 ack，互不影响 — 确认这个语义正确
+1. ~~**自动 ack 的粒度**~~ → 已决定：显式 ack，不自动（R1 P1-1）
+2. **回溯能力**: 是否需要一个 `get_all_mentions`（忽略 ack）给调试/审计用？→ 建议有，低优先级
+3. **多猫共享 thread**: 每只猫独立 ack 游标（key 含 catId），互不影响 ✅
+4. **ack 触发时机**: 猫猫处理完一轮 mentions 后整批 ack（ack 到最后一条），还是逐条？→ 建议整批，减少调用次数
