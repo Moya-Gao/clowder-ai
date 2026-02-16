@@ -6,6 +6,14 @@ import { useVoiceInput } from '../useVoiceInput';
 
 vi.mock('@/utils/transcription-corrector', () => ({
   correctTranscription: (t: string) => `[corrected] ${t}`,
+  mergeTermEntries: () => [],
+}));
+
+vi.mock('@/stores/voiceSettingsStore', () => ({
+  useVoiceSettingsStore: (selector: (s: unknown) => unknown) =>
+    selector({
+      settings: { customTerms: [], customPrompt: null, language: 'zh' },
+    }),
 }));
 
 /* ── Mock infrastructure ── */

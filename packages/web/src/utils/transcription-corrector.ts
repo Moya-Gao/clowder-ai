@@ -12,16 +12,43 @@
 import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
 import terms from './voice-terms.json';
 
+export type TermEntry = readonly [RegExp, string];
+
 /* ------------------------------------------------------------------ */
 /*  1. Term dictionary                                                 */
 /* ------------------------------------------------------------------ */
 
-const termEntries: ReadonlyArray<[RegExp, string]> = Object.entries(
+function buildTermEntries(dict: Record<string, string>): TermEntry[] {
+  return Object.entries(dict)
+    .filter(([k]) => !k.startsWith('_comment'))
+    .map(([pattern, replacement]) => [
+      new RegExp(escapeRegExp(pattern), 'gi'),
+      replacement,
+    ]);
+}
+
+const builtInEntries: ReadonlyArray<TermEntry> = buildTermEntries(
   terms as Record<string, string>,
-).map(([pattern, replacement]) => [
-  new RegExp(escapeRegExp(pattern), 'gi'),
-  replacement,
-]);
+);
+
+/** Merge built-in terms with user-defined custom terms (custom wins). */
+export function mergeTermEntries(
+  customTerms: ReadonlyArray<{ from: string; to: string }>,
+): TermEntry[] {
+  if (customTerms.length === 0) return [...builtInEntries];
+  const customDict: Record<string, string> = {};
+  for (const { from, to } of customTerms) {
+    if (from.trim()) customDict[from] = to;
+  }
+  // Merge: built-in first, custom overrides (by rebuilding from merged dict)
+  const builtInDict = Object.fromEntries(
+    Object.entries(terms as Record<string, string>).filter(([k]) => !k.startsWith('_comment')),
+  );
+  return buildTermEntries({ ...builtInDict, ...customDict });
+}
+
+// Keep backward-compatible module-level entries for existing callers
+const termEntries: ReadonlyArray<TermEntry> = builtInEntries;
 
 const mentionAliases = Array.from(
   new Set(
@@ -47,10 +74,11 @@ export function normalizeSpeechMentions(text: string): string {
 /**
  * Replace known misrecognized terms with their correct forms.
  * Matching is case-insensitive; unknown terms pass through unchanged.
+ * Pass custom entries to override/extend the built-in dictionary.
  */
-export function applyTermDictionary(text: string): string {
+export function applyTermDictionary(text: string, entries?: ReadonlyArray<TermEntry>): string {
   let result = text;
-  for (const [re, replacement] of termEntries) {
+  for (const [re, replacement] of entries ?? termEntries) {
     result = result.replace(re, replacement);
   }
   return result;
@@ -95,8 +123,9 @@ export function removeFillers(text: string): string {
 /* ------------------------------------------------------------------ */
 
 /**
- * End-to-end correction: term dictionary → filler removal.
+ * End-to-end correction: term dictionary → mention normalization → filler removal.
+ * Pass merged entries (from mergeTermEntries) to use custom terms.
  */
-export function correctTranscription(text: string): string {
-  return removeFillers(normalizeSpeechMentions(applyTermDictionary(text)));
+export function correctTranscription(text: string, entries?: ReadonlyArray<TermEntry>): string {
+  return removeFillers(normalizeSpeechMentions(applyTermDictionary(text, entries)));
 }

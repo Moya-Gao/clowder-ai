@@ -6,8 +6,9 @@ import { apiFetch } from '@/utils/api-client';
 import { CatTab, SystemTab, type ConfigData, type Capabilities } from './config-viewer-tabs';
 import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
+import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 
-export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env';
+export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env' | 'voice';
 
 const TABS: { id: HubTabId; label: string }[] = [
   { id: 'opus', label: '布偶猫' },
@@ -16,6 +17,7 @@ const TABS: { id: HubTabId; label: string }[] = [
   { id: 'system', label: '系统配置' },
   { id: 'commands', label: '命令速查' },
   { id: 'env', label: '环境 & 文件' },
+  { id: 'voice', label: '语音设置' },
 ];
 
 /**
@@ -109,6 +111,8 @@ export function CatCafeHub() {
             <HubCommandsTab />
           ) : tab === 'env' ? (
             <HubEnvFilesTab />
+          ) : tab === 'voice' ? (
+            <VoiceSettingsPanel />
           ) : !config && !fetchError ? (
             <p className="text-sm text-gray-400">加载中...</p>
           ) : null}

@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { correctTranscription } from '@/utils/transcription-corrector';
+import { useState, useCallback, useRef, useMemo } from 'react';
+import { correctTranscription, mergeTermEntries, type TermEntry } from '@/utils/transcription-corrector';
+import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
 
 const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL || 'http://localhost:9876';
 
-const INITIAL_PROMPT =
+const DEFAULT_PROMPT =
   '这是 Cat Cafe 猫猫协作项目的对话。宪宪是布偶猫（Claude Opus），砚砚是缅因猫（Codex）。' +
   '铲屎官经常说：帮我看看、开个 worktree、跑一下测试、review 一下、rebase 到 main。' +
   '技术栈：MCP, Redis, Fastify, TypeScript, Whisper, NDJSON, Zustand, WebSocket, ' +
@@ -19,15 +20,26 @@ const STREAM_INTERVAL_MS = 3000;
 
 export type VoiceState = 'idle' | 'recording' | 'transcribing';
 
-async function transcribeBlob(blob: Blob): Promise<string> {
+function buildFormData(
+  blob: Blob,
+  prompt: string,
+  language: string,
+): FormData {
   const formData = new FormData();
   formData.append('file', blob, 'recording.webm');
-  formData.append('initial_prompt', INITIAL_PROMPT);
-  formData.append('language', 'zh');
+  formData.append('initial_prompt', prompt);
+  if (language) formData.append('language', language);
+  return formData;
+}
 
+async function transcribeBlob(
+  blob: Blob,
+  prompt: string,
+  language: string,
+): Promise<string> {
   const res = await fetch(`${WHISPER_URL}/v1/audio/transcriptions`, {
     method: 'POST',
-    body: formData,
+    body: buildFormData(blob, prompt, language),
   });
 
   if (!res.ok) throw new Error(`Whisper service error: ${res.status}`);
@@ -37,6 +49,17 @@ async function transcribeBlob(blob: Blob): Promise<string> {
 }
 
 export function useVoiceInput() {
+  const settings = useVoiceSettingsStore((s) => s.settings);
+
+  const prompt = settings.customPrompt || DEFAULT_PROMPT;
+  const language = settings.language;
+
+  // Rebuild merged term entries when custom terms change
+  const mergedEntries: ReadonlyArray<TermEntry> = useMemo(
+    () => mergeTermEntries(settings.customTerms),
+    [settings.customTerms],
+  );
+
   const [state, setState] = useState<VoiceState>('idle');
   const [transcript, setTranscript] = useState('');
   const [partialTranscript, setPartialTranscript] = useState('');
@@ -50,6 +73,10 @@ export function useVoiceInput() {
   const startTimeRef = useRef<number>(0);
   const versionRef = useRef(0);
   const streamSeqRef = useRef(0);
+  // Snapshot settings at recording start to avoid mid-recording changes
+  const promptRef = useRef(prompt);
+  const languageRef = useRef(language);
+  const entriesRef = useRef(mergedEntries);
 
   const clearTimers = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -64,6 +91,11 @@ export function useVoiceInput() {
       setDuration(0);
       versionRef.current++;
       streamSeqRef.current = 0;
+
+      // Snapshot current settings
+      promptRef.current = prompt;
+      languageRef.current = language;
+      entriesRef.current = mergedEntries;
 
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
@@ -100,9 +132,9 @@ export function useVoiceInput() {
         const myVersion = versionRef.current;
 
         try {
-          const raw = await transcribeBlob(blob);
+          const raw = await transcribeBlob(blob, promptRef.current, languageRef.current);
           if (myVersion === versionRef.current) {
-            setTranscript(correctTranscription(raw));
+            setTranscript(correctTranscription(raw, entriesRef.current));
             setPartialTranscript('');
           }
         } catch (err) {
@@ -134,9 +166,9 @@ export function useVoiceInput() {
           if (chunksRef.current.length === 0) return;
           const seq = ++streamSeqRef.current;
           const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-          const raw = await transcribeBlob(blob);
+          const raw = await transcribeBlob(blob, promptRef.current, languageRef.current);
           if (myVersion === versionRef.current && seq === streamSeqRef.current && recorder.state === 'recording') {
-            setPartialTranscript(correctTranscription(raw));
+            setPartialTranscript(correctTranscription(raw, entriesRef.current));
           }
         } catch {
           // Streaming errors are non-fatal, final transcription will retry
@@ -146,7 +178,7 @@ export function useVoiceInput() {
       setError(err instanceof Error ? err.message : 'Microphone access denied');
       setState('idle');
     }
-  }, [clearTimers]);
+  }, [clearTimers, prompt, language, mergedEntries]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
