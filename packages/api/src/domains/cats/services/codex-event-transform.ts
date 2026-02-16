@@ -2,12 +2,27 @@ import type { CatId } from '@cat-cafe/shared';
 import type { AgentMessage } from './types.js';
 
 /**
+ * Mutable state for tracking Codex multi-turn text separation.
+ * Each `item.completed` with `agent_message` is a complete turn;
+ * without explicit separation, consecutive turns get concatenated
+ * without paragraph breaks (unlike Claude's incremental deltas which
+ * naturally include the model's own whitespace).
+ */
+export interface CodexStreamState {
+  hadPriorTextTurn: boolean;
+}
+
+/**
  * Transform a raw Codex CLI NDJSON event into an AgentMessage.
  * Returns null to skip events we don't care about.
+ *
+ * When `state` is provided, consecutive agent_message text turns are
+ * separated by `\n\n` to preserve paragraph breaks between turns.
  */
 export function transformCodexEvent(
   event: unknown,
-  catId: CatId
+  catId: CatId,
+  state?: CodexStreamState,
 ): AgentMessage | null {
   if (typeof event !== 'object' || event === null) return null;
   const e = event as Record<string, unknown>;
@@ -56,10 +71,12 @@ export function transformCodexEvent(
 
   const item = e['item'] as Record<string, unknown> | undefined;
   if (item?.['type'] === 'agent_message' && typeof item['text'] === 'string') {
+    const prefix = state?.hadPriorTextTurn ? '\n\n' : '';
+    if (state) state.hadPriorTextTurn = true;
     return {
       type: 'text',
       catId,
-      content: item['text'],
+      content: prefix + item['text'],
       timestamp: Date.now(),
     };
   }

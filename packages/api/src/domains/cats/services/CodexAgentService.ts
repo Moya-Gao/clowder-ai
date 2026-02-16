@@ -24,7 +24,7 @@ import { getCatModel } from '../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../config/codex-cli.js';
 import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
 import { CliRawArchive } from './CliRawArchive.js';
-import { transformCodexEvent } from './codex-event-transform.js';
+import { transformCodexEvent, type CodexStreamState } from './codex-event-transform.js';
 import {
   createCodexSessionContextSnapshotResolver,
   type CodexSessionContextSnapshotResolver,
@@ -180,6 +180,7 @@ export class CodexAgentService implements AgentService {
       // Used to suppress Codex CLI 0.98+ false exit-code-1 errors:
       // thread.started alone is NOT substantive (just session init).
       let sawSubstantiveOutput = false;
+      const codexStreamState: CodexStreamState = { hadPriorTextTurn: false };
 
       for await (const event of events) {
         collectCodexStreamError(event, recentStreamErrors);
@@ -281,7 +282,7 @@ export class CodexAgentService implements AgentService {
           }
         }
 
-        const result = transformCodexEvent(event, CAT_ID);
+        const result = transformCodexEvent(event, CAT_ID, codexStreamState);
         if (result !== null) {
           if (result.type === 'session_init' && result.sessionId) {
             metadata.sessionId = result.sessionId;

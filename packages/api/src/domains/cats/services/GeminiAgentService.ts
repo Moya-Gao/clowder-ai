@@ -284,12 +284,21 @@ export class GeminiAgentService implements AgentService {
             metadata.sessionId = result.sessionId;
           }
           if (result.type === 'text') {
+            // Separate consecutive assistant text turns with paragraph break.
+            // Each Gemini message/assistant is a complete turn (unlike Claude's
+            // incremental deltas), so direct concatenation loses inter-turn spacing.
+            if (sawAssistantText && result.content) {
+              yield { ...result, content: '\n\n' + result.content, metadata };
+            } else {
+              yield { ...result, metadata };
+            }
             sawAssistantText = true;
+          } else {
+            if (fromResultError && result.type === 'error') {
+              sawResultError = true;
+            }
+            yield { ...result, metadata };
           }
-          if (fromResultError && result.type === 'error') {
-            sawResultError = true;
-          }
-          yield { ...result, metadata };
         }
       }
 

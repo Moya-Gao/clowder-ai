@@ -319,6 +319,36 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.equal(errMsgs.length, 0, 'known post-response crash should be suppressed');
     assert.equal(msgs[msgs.length - 1].type, 'done');
   });
+
+  test('separates multi-turn assistant text with paragraph breaks (turn newline fix)', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('multi-turn'));
+
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 's-mt', model: 'auto' },
+      { type: 'message', role: 'assistant', content: 'First turn' },
+      { type: 'tool_use', tool_name: 'read_file', tool_id: 't1', parameters: { path: '/tmp/a' } },
+      { type: 'tool_result', tool_id: 't1', status: 'success', output: 'data' },
+      { type: 'message', role: 'assistant', content: 'Second turn' },
+      { type: 'message', role: 'assistant', content: 'Third turn' },
+      { type: 'result', status: 'success', stats: {} },
+    ]);
+
+    const msgs = await promise;
+    const textMsgs = msgs.filter((m) => m.type === 'text');
+
+    assert.equal(textMsgs.length, 3);
+    assert.equal(textMsgs[0].content, 'First turn', 'first turn has no prefix');
+    assert.equal(textMsgs[1].content, '\n\nSecond turn', 'second turn gets paragraph break');
+    assert.equal(textMsgs[2].content, '\n\nThird turn', 'third turn gets paragraph break');
+
+    // Verify concatenation produces proper markdown
+    const combined = textMsgs.map((m) => m.content).join('');
+    assert.equal(combined, 'First turn\n\nSecond turn\n\nThird turn');
+  });
 });
 
 // ===== antigravity adapter tests =====

@@ -275,7 +275,53 @@ test('handles multiple agent_message items', async () => {
   const textMsgs = msgs.filter((m) => m.type === 'text');
   assert.equal(textMsgs.length, 2);
   assert.equal(textMsgs[0].content, 'First message');
-  assert.equal(textMsgs[1].content, 'Second message');
+  // Second turn gets \n\n prefix to preserve paragraph break between turns
+  assert.equal(textMsgs[1].content, '\n\nSecond message');
+});
+
+test('separates multi-turn text with paragraph breaks (turn newline fix)', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('Multi-turn'));
+
+  // Simulate: text → tool use → text → text (3 text turns with tools in between)
+  emitCodexEvents(proc, [
+    { type: 'thread.started', thread_id: 'thread-turns' },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-1', type: 'agent_message', text: 'Checking implementation...' },
+    },
+    {
+      type: 'item.started',
+      item: { id: 'cmd-1', type: 'command_execution', command: 'ls', status: 'in_progress' },
+    },
+    {
+      type: 'item.completed',
+      item: { id: 'cmd-1', type: 'command_execution', command: 'ls', aggregated_output: 'file.ts', status: 'completed' },
+    },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-2', type: 'agent_message', text: 'Running verification...' },
+    },
+    {
+      type: 'item.completed',
+      item: { id: 'msg-3', type: 'agent_message', text: 'All checks passed.' },
+    },
+  ]);
+
+  const msgs = await promise;
+  const textMsgs = msgs.filter((m) => m.type === 'text');
+  assert.equal(textMsgs.length, 3);
+  assert.equal(textMsgs[0].content, 'Checking implementation...');
+  assert.equal(textMsgs[1].content, '\n\nRunning verification...');
+  assert.equal(textMsgs[2].content, '\n\nAll checks passed.');
+
+  // When concatenated (as route-strategies does), should produce readable paragraphs
+  const concatenated = textMsgs.map((m) => m.content).join('');
+  assert.ok(concatenated.includes('Checking implementation...\n\nRunning verification...'));
+  assert.ok(concatenated.includes('Running verification...\n\nAll checks passed.'));
 });
 
 test('maps command_execution and file_change items into tool events', async () => {
