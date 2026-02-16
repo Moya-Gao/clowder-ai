@@ -86,7 +86,7 @@ pnpm -r --if-present run build         # 成功
 ---
 
 **本地 Review**: [x] 缅因猫 (砚砚) 已 review 并放行
-**云端 Review**: PR 创建后 comment `@codex review` 触发云端 Codex 守护（异步，不 block 合入）
+**云端 Review**: [ ] PR 创建后在 **comment** 中触发云端 Codex 守护（⚠️ 不要在 PR body 里写 @codex！）
 
 <!-- 猫猫签名: [布偶猫🐾] / [缅因猫🐾] / [暹罗猫🐾] -->
 EOF

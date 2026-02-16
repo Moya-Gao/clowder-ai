@@ -292,6 +292,8 @@ pnpm install
 - 分支命名：`feat/xxx`、`fix/xxx`、`refactor/xxx`
 - Worktree 目录：`/Users/lysander/projects/relay-station/cat-cafe-{feature-name}`
 - **为什么**：避免热重载自杀（编辑后端 .ts → dev server 重启 → 调用链断裂），也让三猫可以同时在不同分支工作
+- **🔴 禁止在项目内部创建 worktree**：不要用 `.worktrees/` 子目录，必须放在 `relay-station/` 同级
+- **🔴 `cat-cafe-runtime` 是生产运行环境，禁止删除/清理！** 它不是开发 worktree，是铲屎官跑服务的实例
 
 #### 合入前：先收敛 commit，再 fetch + rebase（默认流程）
 
