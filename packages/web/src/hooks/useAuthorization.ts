@@ -1,7 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { apiFetch } from '@/utils/api-client';
+
+const CAT_LABELS: Record<string, string> = {
+  opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫',
+};
 
 export interface AuthPendingRequest {
   requestId: string;
@@ -15,8 +19,47 @@ export interface AuthPendingRequest {
 
 export type RespondScope = 'once' | 'thread' | 'global';
 
+/* ── Desktop notification + tab title flash ─────────────── */
+function notifyAuthRequest(data: AuthPendingRequest) {
+  const cat = CAT_LABELS[data.catId] ?? data.catId;
+
+  // Desktop notification (even when tab is in background)
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    const n = new Notification('🔐 猫猫需要权限', {
+      body: `${cat} 请求: ${data.action}\n${data.reason}`,
+      tag: `auth-${data.requestId}`,
+      requireInteraction: true,
+    });
+    n.onclick = () => { window.focus(); n.close(); };
+  }
+
+  // Tab title flash when page is hidden
+  if (typeof document !== 'undefined' && document.hidden) {
+    const original = document.title;
+    let flash = true;
+    const iv = setInterval(() => {
+      document.title = flash ? `🔐 ${cat} 等你批准!` : original;
+      flash = !flash;
+    }, 1000);
+    const stop = () => { clearInterval(iv); document.title = original; };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) stop();
+    }, { once: true });
+  }
+}
+
 export function useAuthorization(threadId: string) {
   const [pending, setPending] = useState<AuthPendingRequest[]>([]);
+  const permissionRequested = useRef(false);
+
+  // Request notification permission on first mount
+  useEffect(() => {
+    if (permissionRequested.current) return;
+    permissionRequested.current = true;
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      void Notification.requestPermission();
+    }
+  }, []);
 
   const fetchPending = useCallback(async () => {
     try {
@@ -60,6 +103,7 @@ export function useAuthorization(threadId: string) {
   const handleAuthRequest = useCallback((data: AuthPendingRequest) => {
     setPending((prev) => {
       if (prev.some((r) => r.requestId === data.requestId)) return prev;
+      notifyAuthRequest(data);
       return [...prev, data];
     });
   }, []);

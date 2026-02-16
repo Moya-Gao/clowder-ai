@@ -286,6 +286,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
           <ExportButton threadId={threadId} />
+          {authPending.length > 0 && (
+            <span
+              className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
+              title={`${authPending.length} 个授权请求等待处理`}
+            >
+              🔐 {authPending.length}
+            </span>
+          )}
           <button
             onClick={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
             className="p-1 rounded-lg hover:bg-owner-light transition-colors"

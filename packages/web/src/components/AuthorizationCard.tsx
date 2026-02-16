@@ -19,7 +19,7 @@ export function AuthorizationCard({ request, onRespond }: AuthorizationCardProps
   const catLabel = CAT_LABELS[request.catId] ?? request.catId;
 
   return (
-    <div className="border border-amber-200 bg-amber-50/80 rounded-lg p-3 mx-2 mb-2 shadow-sm">
+    <div className="border border-amber-200 bg-amber-50/80 rounded-lg p-3 mx-2 mb-2 shadow-sm animate-pulse-subtle">
       <div className="flex items-start gap-2">
         <span className="text-amber-500 mt-0.5 text-lg">🔐</span>
         <div className="flex-1 min-w-0">
