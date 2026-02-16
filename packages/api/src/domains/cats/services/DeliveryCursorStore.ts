@@ -32,49 +32,70 @@ export class DeliveryCursorStore {
   }
 
   async getCursor(userId: string, catId: CatId, threadId: string): Promise<string | undefined> {
+    const key = cursorKey(userId, catId, threadId);
+    const memValue = this.cursors.get(key);
     if (this.sessionStore) {
       try {
-        const value = await this.sessionStore.getDeliveryCursor(userId, catId, threadId);
-        return value ?? undefined;
+        const redisValue = await this.sessionStore.getDeliveryCursor(userId, catId, threadId);
+        if (redisValue != null) {
+          // Return max(redis, memory) — Redis may hold a stale value if a
+          // prior ack succeeded in-memory but failed to write to Redis
+          return (memValue && memValue > redisValue) ? memValue : redisValue;
+        }
+        // Redis returned null — fall through to return memValue below
       } catch (err) {
         console.warn('[DeliveryCursorStore] getDeliveryCursor failed, fallback to in-memory cursor:', err);
       }
     }
-    return this.cursors.get(cursorKey(userId, catId, threadId));
+    return memValue;
   }
 
   /**
    * Monotonic ack: cursor only moves forward.
+   * Redis path uses atomic compare-and-set (Lua script) to prevent
+   * concurrent regression. In-memory path is safe because Node.js is
+   * single-threaded with no await between read and write.
    */
   async ackCursor(userId: string, catId: CatId, threadId: string, deliveredToId: string): Promise<void> {
-    const current = await this.getCursor(userId, catId, threadId);
-    if (current && deliveredToId <= current) {
-      return;
-    }
+    const key = cursorKey(userId, catId, threadId);
+    // Use max(deliveredToId, in-memory cursor) as effective value.
+    // This prevents Redis-recovery regression: if Redis was down and
+    // in-memory has a higher cursor, we seed Redis with that floor.
+    const memCursor = this.cursors.get(key);
+    const effective = (memCursor && memCursor > deliveredToId) ? memCursor : deliveredToId;
 
     if (this.sessionStore) {
       try {
-        await this.sessionStore.setDeliveryCursor(userId, catId, threadId, deliveredToId);
+        // Atomic CAS in Redis — monotonic check + write in one round-trip
+        const advanced = await this.sessionStore.setDeliveryCursor(userId, catId, threadId, effective);
+        if (advanced) {
+          // CAS accepted — sync in-memory to match Redis
+          this.upsertMap(this.cursors, key, effective);
+        } else {
+          // CAS noop (Redis already has a higher value) — sync in-memory
+          // to Redis's actual value so fallback reads don't regress.
+          // Inner try-catch: if this GET fails, we must NOT fall through
+          // to the outer catch which would write `effective` (a lower value)
+          // into memory. Instead, leave memory unchanged and return.
+          try {
+            const actual = await this.sessionStore.getDeliveryCursor(userId, catId, threadId);
+            if (actual) this.upsertMap(this.cursors, key, actual);
+          } catch {
+            // GET failed after CAS noop — memory stays unchanged (safe)
+          }
+        }
         return;
       } catch (err) {
         console.warn('[DeliveryCursorStore] setDeliveryCursor failed, fallback to in-memory cursor:', err);
       }
     }
 
-    const key = cursorKey(userId, catId, threadId);
-
-    if (this.cursors.has(key)) {
-      this.cursors.delete(key);
+    // In-memory fallback: monotonic check then write (no await gap = safe)
+    const current = this.cursors.get(key);
+    if (current && effective <= current) {
+      return;
     }
-
-    while (this.cursors.size >= MAX_CURSORS) {
-      const oldest = this.cursors.keys().next().value;
-      if (oldest !== undefined) {
-        this.cursors.delete(oldest);
-      }
-    }
-
-    this.cursors.set(key, deliveredToId);
+    this.upsertMap(this.cursors, key, effective);
   }
 
   // ---- Mention Ack Cursor (#77) ----
@@ -84,47 +105,80 @@ export class DeliveryCursorStore {
    * Returns undefined if no ack cursor exists (= all mentions are pending).
    */
   async getMentionAckCursor(userId: string, catId: CatId, threadId: string): Promise<string | undefined> {
+    const key = cursorKey(userId, catId, threadId);
+    const memValue = this.mentionAckCursors.get(key);
     if (this.sessionStore) {
       try {
-        const value = await this.sessionStore.getMentionAckCursor(userId, catId, threadId);
-        return value ?? undefined;
+        const redisValue = await this.sessionStore.getMentionAckCursor(userId, catId, threadId);
+        if (redisValue != null) {
+          // Return max(redis, memory) — same rationale as getCursor
+          return (memValue && memValue > redisValue) ? memValue : redisValue;
+        }
+        // Redis returned null — fall through to return memValue below
       } catch (err) {
         console.warn('[DeliveryCursorStore] getMentionAckCursor failed, fallback to in-memory:', err);
       }
     }
-    return this.mentionAckCursors.get(cursorKey(userId, catId, threadId));
+    return memValue;
   }
 
   /**
    * Acknowledge mentions up to a message ID (monotonic forward only).
-   * If messageId <= current cursor, this is a noop (idempotent).
+   * Redis path uses atomic compare-and-set (Lua script) to prevent
+   * concurrent regression. In-memory path is safe (no await gap).
    */
   async ackMentionCursor(userId: string, catId: CatId, threadId: string, messageId: string): Promise<void> {
-    const current = await this.getMentionAckCursor(userId, catId, threadId);
-    if (current && messageId <= current) {
-      return; // Monotonic: noop for backwards/same ack
-    }
+    const key = cursorKey(userId, catId, threadId);
+    // Use max(messageId, in-memory cursor) as effective value.
+    // Prevents Redis-recovery regression (same as ackCursor).
+    const memCursor = this.mentionAckCursors.get(key);
+    const effective = (memCursor && memCursor > messageId) ? memCursor : messageId;
 
     if (this.sessionStore) {
       try {
-        await this.sessionStore.setMentionAckCursor(userId, catId, threadId, messageId);
+        // Atomic CAS in Redis — monotonic check + write in one round-trip
+        const advanced = await this.sessionStore.setMentionAckCursor(userId, catId, threadId, effective);
+        if (advanced) {
+          // CAS accepted — sync in-memory to match Redis
+          this.upsertMap(this.mentionAckCursors, key, effective);
+        } else {
+          // CAS noop — sync in-memory to Redis's actual value.
+          // Inner try-catch: same rationale as ackCursor above.
+          try {
+            const actual = await this.sessionStore.getMentionAckCursor(userId, catId, threadId);
+            if (actual) this.upsertMap(this.mentionAckCursors, key, actual);
+          } catch {
+            // GET failed after CAS noop — memory stays unchanged (safe)
+          }
+        }
         return;
       } catch (err) {
         console.warn('[DeliveryCursorStore] setMentionAckCursor failed, fallback to in-memory:', err);
       }
     }
 
-    const key = cursorKey(userId, catId, threadId);
-    if (this.mentionAckCursors.has(key)) {
-      this.mentionAckCursors.delete(key);
+    // In-memory fallback: monotonic check then write (no await gap = safe)
+    const current = this.mentionAckCursors.get(key);
+    if (current && effective <= current) {
+      return;
     }
-    while (this.mentionAckCursors.size >= MAX_CURSORS) {
-      const oldest = this.mentionAckCursors.keys().next().value;
+    this.upsertMap(this.mentionAckCursors, key, effective);
+  }
+
+  // ---- Helpers ----
+
+  /** Insert or update a cursor map, enforcing MAX_CURSORS eviction. */
+  private upsertMap(map: Map<string, string>, key: string, value: string): void {
+    if (map.has(key)) {
+      map.delete(key);
+    }
+    while (map.size >= MAX_CURSORS) {
+      const oldest = map.keys().next().value;
       if (oldest !== undefined) {
-        this.mentionAckCursors.delete(oldest);
+        map.delete(oldest);
       }
     }
-    this.mentionAckCursors.set(key, messageId);
+    map.set(key, value);
   }
 
   // ---- Cleanup ----

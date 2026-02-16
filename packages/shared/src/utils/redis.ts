@@ -57,6 +57,21 @@ export const SessionKeys = {
   messageChannel: () => 'chat:messages',
 } as const;
 
+/**
+ * Lua script: atomic compare-and-set for monotonic cursor advancement.
+ * SET key to value only if value > current (lexicographic). Sets TTL on success.
+ * KEYS[1] = cursor key, ARGV[1] = new value, ARGV[2] = TTL seconds.
+ * Returns 1 if set, 0 if noop.
+ */
+const SET_IF_GREATER_LUA = `
+local cur = redis.call('GET', KEYS[1])
+if cur and ARGV[1] <= cur then
+  return 0
+end
+redis.call('SET', KEYS[1], ARGV[1], 'EX', tonumber(ARGV[2]))
+return 1
+`;
+
 export class SessionStore {
   constructor(private redis: RedisClient) {}
 
@@ -91,19 +106,23 @@ export class SessionStore {
     return this.redis.get(SessionKeys.deliveryCursor(userId, catId, threadId));
   }
 
+  /**
+   * Atomically set delivery cursor only if messageId > current value.
+   * Uses Lua script for atomic compare-and-set to prevent concurrent regression.
+   * Returns true if cursor was advanced, false if noop.
+   */
   async setDeliveryCursor(
     userId: string,
     catId: string,
     threadId: string,
     messageId: string,
     ttlSeconds = 604800 // 7 days (#40)
-  ): Promise<void> {
-    await this.redis.set(
-      SessionKeys.deliveryCursor(userId, catId, threadId),
-      messageId,
-      'EX',
-      ttlSeconds
-    );
+  ): Promise<boolean> {
+    const key = SessionKeys.deliveryCursor(userId, catId, threadId);
+    const result = await this.redis.eval(
+      SET_IF_GREATER_LUA, 1, key, messageId, String(ttlSeconds)
+    ) as number;
+    return result === 1;
   }
 
   async deleteDeliveryCursor(
@@ -123,20 +142,23 @@ export class SessionStore {
     return this.redis.get(SessionKeys.mentionAck(userId, catId, threadId));
   }
 
-  /** Set the mention ack cursor (monotonic forward only, enforced by caller) (#77) */
+  /**
+   * Atomically set mention ack cursor only if messageId > current value.
+   * Uses Lua script for atomic compare-and-set to prevent concurrent regression.
+   * Returns true if cursor was advanced, false if noop (already at or past messageId).
+   */
   async setMentionAckCursor(
     userId: string,
     catId: string,
     threadId: string,
     messageId: string,
     ttlSeconds = 604800 // 7 days, same as delivery cursor
-  ): Promise<void> {
-    await this.redis.set(
-      SessionKeys.mentionAck(userId, catId, threadId),
-      messageId,
-      'EX',
-      ttlSeconds
-    );
+  ): Promise<boolean> {
+    const key = SessionKeys.mentionAck(userId, catId, threadId);
+    const result = await this.redis.eval(
+      SET_IF_GREATER_LUA, 1, key, messageId, String(ttlSeconds)
+    ) as number;
+    return result === 1;
   }
 
   /** Delete a mention ack cursor (#77) */

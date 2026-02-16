@@ -35,6 +35,6 @@ pnpm -r --if-present run build         # 结果
 ---
 
 **本地 Review**: [ ] 缅因猫 (砚砚) 已 review 并放行
-**云端 Review**: 合入前 comment `@codex review` 触发云端 Codex 守护
+**云端 Review**: 合入前在 PR comment 中触发云端 Codex 守护（见 `requesting-cloud-review` skill）
 
 <!-- 猫猫签名: [布偶猫🐾] / [缅因猫🐾] / [暹罗猫🐾] -->
