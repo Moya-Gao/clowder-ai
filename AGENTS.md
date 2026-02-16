@@ -82,7 +82,7 @@ docs/VISION.md
 docs/phases/cat-cafe-design-v2.md
 
 # 你的任务清单
-docs/tasks/codex-tasks.md
+docs/BACKLOG.md
 ```
 
 ### 2. 你的核心职责

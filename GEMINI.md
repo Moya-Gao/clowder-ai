@@ -69,12 +69,12 @@ docs/VISION.md
 docs/phases/cat-cafe-design-v2.md
 
 # 你的任务清单
-docs/tasks/gemini-tasks.md
+docs/BACKLOG.md
 ```
 
 ### 2. 你的任务清单
 
-详细任务和进度见 `docs/tasks/gemini-tasks.md`，每次开工前先看一眼！
+详细任务和进度见 `docs/BACKLOG.md`（Feature Request 表格），每次开工前先看一眼！
 
 ## 设计原则
 

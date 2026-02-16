@@ -61,7 +61,7 @@ docs/VISION.md
 docs/phases/cat-cafe-design-v2.md
 
 # 你的任务清单
-docs/tasks/opus-tasks.md
+docs/BACKLOG.md
 
 # 架构决策记录
 docs/decisions/001-agent-invocation-approach.md
@@ -138,7 +138,7 @@ cat-cafe/
 │   ├── research/             # 技术调研
 │   ├── design/               # 视觉设计系统
 │   └── prompts/              # AI 提示词模板
-├── research-report/       # 三猫研究报告
+├── docs/archive/          # 已归档的历史文档
 ├── CLAUDE.md              # 你在读的这个
 ├── AGENTS.md               # 缅因猫的指引
 └── GEMINI.md              # 暹罗猫的指引
@@ -432,7 +432,7 @@ curl http://localhost:3102/api/threads | jq '.threads | length'
 
 1. 先看设计文档
 2. 看看 docs/decisions/ 有没有相关决策
-3. 看看 research-report/ 的研究报告
+3. 看看 docs/research/ 的研究报告
 4. 问铲屎官
 5. @ 缅因猫讨论
 
