@@ -242,4 +242,87 @@ describe('ThreadStore', () => {
     const defaultThreads = store.listByProject('alice', 'default');
     assert.ok(defaultThreads.length >= 1);
   });
+
+  test('updatePin() sets pinned=true and pinnedAt timestamp', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Pinnable');
+
+    assert.equal(thread.pinned, undefined);
+    assert.equal(thread.pinnedAt, undefined);
+
+    store.updatePin(thread.id, true);
+    const updated = store.get(thread.id);
+    assert.equal(updated.pinned, true);
+    assert.ok(updated.pinnedAt > 0);
+  });
+
+  test('updatePin(false) clears pinned and sets pinnedAt to null', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Pinnable');
+
+    store.updatePin(thread.id, true);
+    assert.equal(store.get(thread.id).pinned, true);
+
+    store.updatePin(thread.id, false);
+    const updated = store.get(thread.id);
+    assert.equal(updated.pinned, false);
+    assert.equal(updated.pinnedAt, null);
+  });
+
+  test('updateFavorite() sets favorited=true and favoritedAt timestamp', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Fav');
+
+    store.updateFavorite(thread.id, true);
+    const updated = store.get(thread.id);
+    assert.equal(updated.favorited, true);
+    assert.ok(updated.favoritedAt > 0);
+  });
+
+  test('updateFavorite(false) clears favorited and sets favoritedAt to null', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Fav');
+
+    store.updateFavorite(thread.id, true);
+    store.updateFavorite(thread.id, false);
+    const updated = store.get(thread.id);
+    assert.equal(updated.favorited, false);
+    assert.equal(updated.favoritedAt, null);
+  });
+
+  test('updatePin() does nothing for nonexistent thread', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    // Should not throw
+    store.updatePin('nonexistent', true);
+  });
+
+  test('updateFavorite() does nothing for nonexistent thread', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    // Should not throw
+    store.updateFavorite('nonexistent', true);
+  });
 });

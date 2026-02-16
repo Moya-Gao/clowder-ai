@@ -45,7 +45,11 @@ const listThreadsSchema = z.object({
 });
 
 const updateThreadSchema = z.object({
-  title: z.string().trim().min(1).max(200),
+  title: z.string().trim().min(1).max(200).optional(),
+  pinned: z.boolean().optional(),
+  favorited: z.boolean().optional(),
+}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined, {
+  message: 'At least one field must be provided',
 });
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
@@ -123,7 +127,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     return thread;
   });
 
-  // PATCH /api/threads/:id - 更新标题
+  // PATCH /api/threads/:id - 更新标题/置顶/收藏
   app.patch('/api/threads/:id', async (request, reply) => {
     const { id } = request.params as { id: string };
     const parseResult = updateThreadSchema.safeParse(request.body);
@@ -138,7 +142,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    await threadStore.updateTitle(id, parseResult.data.title);
+    const { title, pinned, favorited } = parseResult.data;
+    if (title !== undefined) await threadStore.updateTitle(id, title);
+    if (pinned !== undefined) await threadStore.updatePin(id, pinned);
+    if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
 
     const updated = await threadStore.get(id);
     if (!updated) {

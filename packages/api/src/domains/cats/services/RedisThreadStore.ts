@@ -122,6 +122,22 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.hset(ThreadKeys.detail(threadId), 'title', title);
   }
 
+  async updatePin(threadId: string, pinned: boolean): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    const pipeline = this.redis.multi();
+    pipeline.hset(key, 'pinned', String(pinned));
+    pipeline.hset(key, 'pinnedAt', pinned ? String(Date.now()) : '0');
+    await pipeline.exec();
+  }
+
+  async updateFavorite(threadId: string, favorited: boolean): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    const pipeline = this.redis.multi();
+    pipeline.hset(key, 'favorited', String(favorited));
+    pipeline.hset(key, 'favoritedAt', favorited ? String(Date.now()) : '0');
+    await pipeline.exec();
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -181,10 +197,16 @@ export class RedisThreadStore implements IThreadStore {
       createdBy: thread.createdBy,
       lastActiveAt: String(thread.lastActiveAt),
       createdAt: String(thread.createdAt),
+      pinned: String(thread.pinned ?? false),
+      pinnedAt: String(thread.pinnedAt ?? 0),
+      favorited: String(thread.favorited ?? false),
+      favoritedAt: String(thread.favoritedAt ?? 0),
     };
   }
 
   private hydrateThread(data: Record<string, string>): Thread {
+    const pinnedAt = parseInt(data['pinnedAt'] ?? '0', 10);
+    const favoritedAt = parseInt(data['favoritedAt'] ?? '0', 10);
     return {
       id: data['id'] ?? '',
       projectPath: data['projectPath'] ?? 'default',
@@ -193,6 +215,10 @@ export class RedisThreadStore implements IThreadStore {
       participants: [],  // Loaded separately from Set
       lastActiveAt: parseInt(data['lastActiveAt'] ?? '0', 10),
       createdAt: parseInt(data['createdAt'] ?? '0', 10),
+      pinned: data['pinned'] === 'true',
+      pinnedAt: pinnedAt || null,
+      favorited: data['favorited'] === 'true',
+      favoritedAt: favoritedAt || null,
     };
   }
 }

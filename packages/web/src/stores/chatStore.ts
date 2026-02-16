@@ -154,6 +154,8 @@ interface ChatState {
   setCurrentProject: (projectPath: string) => void;
   setLoadingThreads: (loading: boolean) => void;
   updateThreadTitle: (threadId: string, title: string) => void;
+  updateThreadPin: (threadId: string, pinned: boolean) => void;
+  updateThreadFavorite: (threadId: string, favorited: boolean) => void;
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
@@ -306,6 +308,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateThreadTitle: (threadId, title) =>
     set((state) => ({
       threads: state.threads.map((t) => (t.id === threadId ? { ...t, title } : t)),
+    })),
+
+  updateThreadPin: (threadId, pinned) =>
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, pinned, pinnedAt: pinned ? Date.now() : null } : t,
+      ),
+    })),
+
+  updateThreadFavorite: (threadId, favorited) =>
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, favorited, favoritedAt: favorited ? Date.now() : null } : t,
+      ),
     })),
 
   /**

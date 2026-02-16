@@ -190,6 +190,89 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 400);
   });
 
+  it('PATCH /api/threads/:id sets pinned=true', async () => {
+    const thread = threadStore.create('alice', 'Pin Test');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { pinned: true },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.pinned, true);
+    assert.ok(body.pinnedAt > 0);
+  });
+
+  it('PATCH /api/threads/:id sets pinned=false', async () => {
+    const thread = threadStore.create('alice', 'Unpin Test');
+    threadStore.updatePin(thread.id, true);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { pinned: false },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.pinned, false);
+    assert.equal(body.pinnedAt, null);
+  });
+
+  it('PATCH /api/threads/:id sets favorited=true', async () => {
+    const thread = threadStore.create('alice', 'Fav Test');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { favorited: true },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.favorited, true);
+    assert.ok(body.favoritedAt > 0);
+  });
+
+  it('PATCH /api/threads/:id sets favorited=false', async () => {
+    const thread = threadStore.create('alice', 'Unfav Test');
+    threadStore.updateFavorite(thread.id, true);
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { favorited: false },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.favorited, false);
+    assert.equal(body.favoritedAt, null);
+  });
+
+  it('PATCH /api/threads/:id can update pin and title together', async () => {
+    const thread = threadStore.create('alice', 'Multi Update');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { title: 'New Title', pinned: true },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.title, 'New Title');
+    assert.equal(body.pinned, true);
+  });
+
+  it('PATCH /api/threads/:id returns 400 for empty body', async () => {
+    const thread = threadStore.create('alice', 'Empty Body');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: {},
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
   it('DELETE /api/threads/:id removes thread', async () => {
     const thread = threadStore.create('alice', 'To Delete');
 

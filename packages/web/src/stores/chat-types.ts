@@ -93,6 +93,10 @@ export interface Thread {
   participants: string[];
   lastActiveAt: number;
   createdAt: number;
+  pinned?: boolean;
+  pinnedAt?: number | null;
+  favorited?: boolean;
+  favoritedAt?: number | null;
 }
 
 /** F24: Context health data from backend */
