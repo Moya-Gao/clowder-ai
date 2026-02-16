@@ -121,11 +121,17 @@ export function useChatHistory(threadId: string) {
 
     // Check if this thread has cached messages in the threadStates map.
     // If so, the store's setCurrentThread already restored them — skip API fetch.
-    const cached = useChatStore.getState().threadStates[threadId];
+    const state = useChatStore.getState();
+    const cached = state.threadStates[threadId];
     const hasCachedMessages = cached && cached.messages.length > 0;
+    const isThreadSynced = state.currentThreadId === threadId;
 
     if (!hasCachedMessages) {
-      clearMessages();
+      // During route thread switches, this effect can run before setCurrentThread.
+      // Clearing too early would wipe the previous thread snapshot in the store.
+      if (isThreadSynced) {
+        clearMessages();
+      }
       void fetchHistory();
     }
 
