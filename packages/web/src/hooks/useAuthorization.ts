@@ -99,13 +99,20 @@ export function useAuthorization(threadId: string) {
     }
   }, []);
 
+  // Track notified request IDs to avoid duplicate notifications
+  const notifiedRef = useRef<Set<string>>(new Set());
+
   // Socket event: new authorization request
   const handleAuthRequest = useCallback((data: AuthPendingRequest) => {
     setPending((prev) => {
       if (prev.some((r) => r.requestId === data.requestId)) return prev;
-      notifyAuthRequest(data);
       return [...prev, data];
     });
+    // Notify outside updater; dedup via ref to handle concurrent-mode replays
+    if (!notifiedRef.current.has(data.requestId)) {
+      notifiedRef.current.add(data.requestId);
+      notifyAuthRequest(data);
+    }
   }, []);
 
   // Socket event: authorization resolved (by another client or tab)

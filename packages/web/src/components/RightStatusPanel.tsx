@@ -98,7 +98,7 @@ function CatInvocationCard({
           <CatTokenUsage catId={catId} usage={inv.usage} contextHealth={inv.contextHealth} />
         </div>
       )}
-      {isActive && inv.taskProgress && (
+      {isActive && inv.taskProgress && inv.taskProgress.tasks.length > 0 && (
         <CatTaskProgress taskProgress={inv.taskProgress} />
       )}
       {(inv.sessionId || inv.invocationId) && (

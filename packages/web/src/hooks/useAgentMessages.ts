@@ -291,6 +291,7 @@ export function useAgentMessages() {
                 sessionId: parsed.sessionId,
                 invocationId: parsed.invocationId,
                 startedAt: Date.now(),
+                taskProgress: { tasks: [], lastUpdate: 0 },
                 ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
               });
             } else if (parsed.kind === 'invocation_complete') {

@@ -63,22 +63,25 @@ function CodeBlock({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <pre
-      ref={preRef}
-      className="relative group bg-gray-900 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto text-xs leading-5 font-mono [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit [&>code]:text-xs"
-    >
+    <div className="relative group my-2">
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
+        className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
       >
         {copied ? '已复制' : '复制'}
       </button>
-      {children}
-    </pre>
+      <pre
+        ref={preRef}
+        className="bg-gray-900 text-gray-100 rounded-lg p-3 overflow-x-auto text-xs leading-5 font-mono [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit [&>code]:text-xs"
+      >
+        {children}
+      </pre>
+    </div>
   );
 }
 
 /* ── File path → VSCode link ──────────────────────────────── */
+const PROJECT_ROOT = process.env.NEXT_PUBLIC_PROJECT_ROOT ?? '';
 const FILE_PATH_RE = /(?:^|\s)`?((?:\/[\w.@-]+)+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
 const REL_PATH_RE = /(?:^|\s)`?((?:packages|src|docs|tests?)\/[\w./@-]+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
 
@@ -102,18 +105,23 @@ function linkifyFilePaths(text: string): ReactNode[] {
     // Strip backticks from display
     const display = path;
     const isAbsolute = path.startsWith('/');
-    const vscodePath = isAbsolute ? path.split(':')[0] : path.split(':')[0];
-    const href = `vscode://file${isAbsolute ? '' : '/'}${vscodePath}${line ? `:${line}` : ''}`;
+    const filePath = path.split(':')[0];
+    const absPath = isAbsolute ? filePath : (PROJECT_ROOT ? `${PROJECT_ROOT}/${filePath}` : null);
+    const href = absPath ? `vscode://file${absPath}${line ? `:${line}` : ''}` : null;
 
     parts.push(
-      <a
-        key={`fp${m.index}`}
-        href={href}
-        className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-[0.85em]"
-        title={`在 VSCode 中打开 ${display}`}
-      >
-        {display}
-      </a>,
+      href ? (
+        <a
+          key={`fp${m.index}`}
+          href={href}
+          className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-[0.85em]"
+          title={`在 VSCode 中打开 ${display}`}
+        >
+          {display}
+        </a>
+      ) : (
+        <span key={`fp${m.index}`} className="text-blue-400 font-mono text-[0.85em]">{display}</span>
+      ),
     );
     lastIdx = m.index + fullMatch.length;
   }
