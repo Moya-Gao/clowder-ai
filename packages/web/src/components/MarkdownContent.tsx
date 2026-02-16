@@ -3,7 +3,7 @@
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { Children, type ReactNode } from 'react';
+import { Children, useCallback, useRef, useState, type ReactNode } from 'react';
 import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
 
 /* ── @mention highlighting ─────────────────────────────────── */
@@ -48,9 +48,93 @@ function withMentions(children: ReactNode): ReactNode {
   );
 }
 
+/* ── Code block with copy button ───────────────────────────── */
+function CodeBlock({ children }: { children: ReactNode }) {
+  const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout>>();
+  const preRef = useRef<HTMLPreElement>(null);
+
+  const handleCopy = useCallback(() => {
+    const text = preRef.current?.textContent ?? '';
+    void navigator.clipboard.writeText(text);
+    setCopied(true);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 1500);
+  }, []);
+
+  return (
+    <pre
+      ref={preRef}
+      className="relative group bg-gray-900 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto text-xs leading-5 font-mono [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit [&>code]:text-xs"
+    >
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[10px] bg-gray-700 text-gray-300 opacity-0 group-hover:opacity-100 hover:bg-gray-600 transition-opacity"
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+      {children}
+    </pre>
+  );
+}
+
+/* ── File path → VSCode link ──────────────────────────────── */
+const FILE_PATH_RE = /(?:^|\s)`?((?:\/[\w.@-]+)+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
+const REL_PATH_RE = /(?:^|\s)`?((?:packages|src|docs|tests?)\/[\w./@-]+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
+
+function linkifyFilePaths(text: string): ReactNode[] {
+  const parts: ReactNode[] = [];
+  let lastIdx = 0;
+  const combined = new RegExp(`${FILE_PATH_RE.source}|${REL_PATH_RE.source}`, 'g');
+  let m: RegExpExecArray | null;
+
+  combined.lastIndex = 0;
+  while ((m = combined.exec(text)) !== null) {
+    const fullMatch = m[0];
+    const leading = fullMatch.match(/^\s/)?.[0] ?? '';
+    const path = m[1] ?? m[3];
+    const line = m[2] ?? m[4];
+    if (!path) continue;
+
+    const start = m.index + leading.length;
+    if (start > lastIdx) parts.push(text.slice(lastIdx, start));
+
+    // Strip backticks from display
+    const display = path;
+    const isAbsolute = path.startsWith('/');
+    const vscodePath = isAbsolute ? path.split(':')[0] : path.split(':')[0];
+    const href = `vscode://file${isAbsolute ? '' : '/'}${vscodePath}${line ? `:${line}` : ''}`;
+
+    parts.push(
+      <a
+        key={`fp${m.index}`}
+        href={href}
+        className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-[0.85em]"
+        title={`在 VSCode 中打开 ${display}`}
+      >
+        {display}
+      </a>,
+    );
+    lastIdx = m.index + fullMatch.length;
+  }
+  if (lastIdx < text.length) parts.push(text.slice(lastIdx));
+  return parts.length > 0 ? parts : [text];
+}
+
+/** Process string children → @mentions + file path links */
+function withMentionsAndLinks(children: ReactNode): ReactNode {
+  return Children.map(children, (child) => {
+    if (typeof child !== 'string') return child;
+    // First pass: file paths → ReactNode[]
+    const linked = linkifyFilePaths(child);
+    // Second pass: highlight @mentions in remaining text nodes
+    return <>{linked.map((node, i) => typeof node === 'string' ? <span key={i}>{highlightMentions(node)}</span> : node)}</>;
+  });
+}
+
 /* ── Markdown component overrides ──────────────────────────── */
 const mdComponents: Components = {
-  p:  ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentions(children)}</p>,
+  p:  ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children)}</p>,
   strong: ({ children }) => <strong className="font-semibold">{withMentions(children)}</strong>,
   em: ({ children }) => <em>{withMentions(children)}</em>,
   del: ({ children }) => <del className="opacity-60">{withMentions(children)}</del>,
@@ -73,12 +157,8 @@ const mdComponents: Components = {
   ),
   hr: () => <hr className="my-3 border-gray-200" />,
 
-  /* Code blocks: pre overrides child code styles via arbitrary variant */
-  pre: ({ children }) => (
-    <pre className="bg-gray-900 text-gray-100 rounded-lg p-3 my-2 overflow-x-auto text-xs leading-5 font-mono [&>code]:bg-transparent [&>code]:p-0 [&>code]:text-inherit [&>code]:text-xs">
-      {children}
-    </pre>
-  ),
+  /* Code blocks with copy button */
+  pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   code: ({ className, children }) => (
     <code className={`${className ?? ''} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`}>
       {children}
