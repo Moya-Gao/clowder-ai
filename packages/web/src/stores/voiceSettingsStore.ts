@@ -107,6 +107,7 @@ export const useVoiceSettingsStore = create<VoiceSettingsState>((set) => ({
 
   updateTerm: (index, from, to) =>
     set((state) => {
+      if (index < 0 || index >= state.settings.customTerms.length) return state;
       const terms = [...state.settings.customTerms];
       terms[index] = { from, to };
       const next = { ...state.settings, customTerms: terms };

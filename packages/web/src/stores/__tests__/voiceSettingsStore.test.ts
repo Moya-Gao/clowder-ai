@@ -118,6 +118,19 @@ describe('voiceSettingsStore', () => {
     ]);
   });
 
+  it('ignores updateTerm with out-of-range index', () => {
+    // Empty store: updateTerm(3) would create sparse array → crash mergeTermEntries
+    useVoiceSettingsStore.getState().updateTerm(3, 'x', 'X');
+    expect(useVoiceSettingsStore.getState().settings.customTerms).toEqual([]);
+
+    // Also test negative index
+    useVoiceSettingsStore.getState().addTerm('a', 'A');
+    useVoiceSettingsStore.getState().updateTerm(-1, 'b', 'B');
+    expect(useVoiceSettingsStore.getState().settings.customTerms).toEqual([
+      { from: 'a', to: 'A' },
+    ]);
+  });
+
   it('resets all settings to defaults', () => {
     const store = useVoiceSettingsStore.getState();
     store.addTerm('x', 'X');
