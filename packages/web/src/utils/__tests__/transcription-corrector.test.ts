@@ -58,6 +58,23 @@ describe('applyTermDictionary', () => {
     expect(applyTermDictionary('仙罗猫')).toBe('暹罗猫');
     expect(applyTermDictionary('产屎官')).toBe('铲屎官');
     expect(applyTermDictionary('铲史官')).toBe('铲屎官');
+    expect(applyTermDictionary('铲是官')).toBe('铲屎官');
+    expect(applyTermDictionary('不偶猫很可爱')).toBe('布偶猫很可爱');
+  });
+
+  it('corrects nickname homophones (砚砚 yàn variants)', () => {
+    expect(applyTermDictionary('艳艳帮我看')).toBe('砚砚帮我看');
+    expect(applyTermDictionary('雁雁出来')).toBe('砚砚出来');
+    expect(applyTermDictionary('燕燕 review')).toBe('砚砚 review');
+    expect(applyTermDictionary('研研在吗')).toBe('砚砚在吗');
+    expect(applyTermDictionary('岩岩')).toBe('砚砚');
+  });
+
+  it('corrects nickname homophones (宪宪 xiàn variants)', () => {
+    expect(applyTermDictionary('现现你看')).toBe('宪宪你看');
+    expect(applyTermDictionary('弦弦')).toBe('宪宪');
+    expect(applyTermDictionary('险险帮忙')).toBe('宪宪帮忙');
+    expect(applyTermDictionary('闲闲')).toBe('宪宪');
   });
 
   it('corrects AI model and brand names', () => {

@@ -6,10 +6,10 @@ import { correctTranscription } from '@/utils/transcription-corrector';
 const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL || 'http://localhost:9876';
 
 const INITIAL_PROMPT =
-  'Cat Cafe 项目对话。常见术语：MCP, Redis, Fastify, Whisper, worktree, ' +
-  'rebase, InvocationRecord, Hindsight, 布偶猫, 缅因猫, 暹罗猫, NDJSON, ' +
-  'Zustand, TypeScript, WebSocket, Codex, Gemini, Claude, API, CLI, ' +
-  'Opus, ADR, Lua, CAS, 宪宪, 砚砚';
+  '这是 Cat Cafe 猫猫协作项目的对话。宪宪是布偶猫（Claude Opus），砚砚是缅因猫（Codex）。' +
+  '铲屎官经常说：帮我看看、开个 worktree、跑一下测试、review 一下、rebase 到 main。' +
+  '技术栈：MCP, Redis, Fastify, TypeScript, Whisper, NDJSON, Zustand, WebSocket, ' +
+  'InvocationRecord, Hindsight, Codex, Gemini, Claude, Opus, Sonnet, Haiku, ADR, Lua, CAS。';
 
 /** Minimum recording duration (ms) to avoid accidental taps. */
 const MIN_RECORDING_MS = 500;
