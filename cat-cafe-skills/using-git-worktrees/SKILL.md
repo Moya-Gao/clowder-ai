@@ -9,7 +9,7 @@ description: Use when starting feature work that needs isolation from current wo
 
 Git worktrees create isolated workspaces sharing the same repository, allowing work on multiple branches simultaneously without switching.
 
-**Core principle:** Systematic directory selection + safety verification = reliable isolation.
+**Core principle:** Project instructions are authoritative + safety verification = reliable isolation.
 
 **Announce at start:** "I'm using the using-git-worktrees skill to set up an isolated workspace."
 
@@ -17,7 +17,22 @@ Git worktrees create isolated workspaces sharing the same repository, allowing w
 
 Follow this priority order:
 
-### 1. Check Existing Directories
+### 1. Check Project Instructions (HIGHEST PRIORITY)
+
+```bash
+# Check project-level instructions for worktree directory preference
+grep -i "worktree" CLAUDE.md AGENTS.md GEMINI.md 2>/dev/null
+```
+
+**If preference specified:** Use it without asking. Project conventions are authoritative and always win.
+
+> **Why first?** A `.worktrees/` directory may exist from a previous incorrect creation.
+> Project instructions represent the team's deliberate choice. Existing directories are
+> just artifacts — they can be stale, wrong, or created by accident.
+
+### 2. Check Existing Directories (fallback)
+
+Only if project instructions say nothing about worktree location:
 
 ```bash
 # Check in priority order
@@ -27,23 +42,16 @@ ls -d worktrees 2>/dev/null      # Alternative
 
 **If found:** Use that directory. If both exist, `.worktrees` wins.
 
-### 2. Check CLAUDE.md
-
-```bash
-grep -i "worktree.*director" CLAUDE.md 2>/dev/null
-```
-
-**If preference specified:** Use it without asking.
-
 ### 3. Ask User
 
-If no directory exists and no CLAUDE.md preference:
+If no project preference and no existing directory:
 
 ```
 No worktree directory found. Where should I create worktrees?
 
 1. .worktrees/ (project-local, hidden)
-2. ~/.config/superpowers/worktrees/<project-name>/ (global location)
+2. ../project-name-{feature}/ (sibling directory)
+3. ~/.config/superpowers/worktrees/<project-name>/ (global location)
 
 Which would you prefer?
 ```
@@ -68,9 +76,18 @@ Per Jesse's rule "Fix broken things immediately":
 
 **Why critical:** Prevents accidentally committing worktree contents to repository.
 
-### For Global Directory (~/.config/superpowers/worktrees)
+### For Sibling or Global Directories
 
 No .gitignore verification needed - outside project entirely.
+
+## Worktree Protection Rules
+
+**Some worktrees are NOT development branches — they are runtime environments.**
+
+Before cleaning up any worktree, check:
+1. Is it named `*-runtime`? → **NEVER delete.** This is a production environment.
+2. Is another cat actively using it? → **Do not delete.**
+3. Is its branch merged into main? → Safe to clean up (unless rule 1 or 2 applies).
 
 ## Creation Steps
 
@@ -83,8 +100,12 @@ project=$(basename "$(git rev-parse --show-toplevel)")
 ### 2. Create Worktree
 
 ```bash
-# Determine full path
+# Determine full path based on selected location
 case $LOCATION in
+  sibling)
+    # Preferred for projects that specify sibling directory convention
+    path="../$project-$FEATURE_NAME"
+    ;;
   .worktrees|worktrees)
     path="$LOCATION/$BRANCH_NAME"
     ;;
@@ -145,15 +166,25 @@ Ready to implement <feature-name>
 
 | Situation | Action |
 |-----------|--------|
-| `.worktrees/` exists | Use it (verify ignored) |
-| `worktrees/` exists | Use it (verify ignored) |
-| Both exist | Use `.worktrees/` |
-| Neither exists | Check CLAUDE.md → Ask user |
+| CLAUDE.md specifies location | Use it (highest priority) |
+| `.worktrees/` exists, no project preference | Use it (verify ignored) |
+| `worktrees/` exists, no project preference | Use it (verify ignored) |
+| Neither exists, no preference | Ask user |
 | Directory not ignored | Add to .gitignore + commit |
 | Tests fail during baseline | Report failures + ask |
-| No package.json/Cargo.toml | Skip dependency install |
+| Worktree named `*-runtime` | **NEVER delete** — production environment |
 
 ## Common Mistakes
+
+### Ignoring project instructions
+
+- **Problem:** `.worktrees/` exists from a past mistake, skill uses it instead of project convention
+- **Fix:** Always check CLAUDE.md/AGENTS.md/GEMINI.md FIRST. Project instructions > existing directories.
+
+### Deleting runtime worktrees
+
+- **Problem:** `*-runtime` worktrees are production environments, not dev branches
+- **Fix:** Never clean up worktrees named `*-runtime`. Ask user if unsure.
 
 ### Skipping ignore verification
 
@@ -163,7 +194,7 @@ Ready to implement <feature-name>
 ### Assuming directory location
 
 - **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow priority: existing > CLAUDE.md > ask
+- **Fix:** Follow priority: project instructions > existing > ask
 
 ### Proceeding with failing tests
 
@@ -180,28 +211,27 @@ Ready to implement <feature-name>
 ```
 You: I'm using the using-git-worktrees skill to set up an isolated workspace.
 
-[Check .worktrees/ - exists]
-[Verify ignored - git check-ignore confirms .worktrees/ is ignored]
-[Create worktree: git worktree add .worktrees/auth -b feature/auth]
-[Run npm install]
-[Run npm test - 47 passing]
+[Check CLAUDE.md - says "worktree add ../cat-cafe-{feature-name}"]
+[Create worktree: git worktree add ../cat-cafe-auth -b feat/auth]
+[Run pnpm install]
+[Run pnpm test - 984 passing]
 
-Worktree ready at /Users/jesse/myproject/.worktrees/auth
-Tests passing (47 tests, 0 failures)
+Worktree ready at /Users/lysander/projects/relay-station/cat-cafe-auth
+Tests passing (984 tests, 0 failures)
 Ready to implement auth feature
 ```
 
 ## Red Flags
 
 **Never:**
-- Create worktree without verifying it's ignored (project-local)
+- Create worktree without checking project instructions first
+- Delete a `*-runtime` worktree
 - Skip baseline test verification
 - Proceed with failing tests without asking
-- Assume directory location when ambiguous
-- Skip CLAUDE.md check
+- Let `.worktrees/` override explicit project conventions
 
 **Always:**
-- Follow directory priority: existing > CLAUDE.md > ask
+- Follow directory priority: project instructions > existing > ask
 - Verify directory is ignored for project-local
 - Auto-detect and run project setup
 - Verify clean test baseline
