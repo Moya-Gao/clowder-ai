@@ -62,6 +62,13 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
+  // Use ref to avoid socket disconnect/reconnect on every callbacks change.
+  // Without this, thread switches cause socketCallbacks to rebuild (useMemo dep on threadId),
+  // which triggers useEffect cleanup → socket disconnect → reconnect. During this gap,
+  // events from the old thread can leak into the new thread's state.
+  const callbacksRef = useRef(callbacks);
+  callbacksRef.current = callbacks;
+
   useEffect(() => {
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
@@ -118,7 +125,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
       if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
-        callbacks.onMessage(msg);
+        callbacksRef.current.onMessage(msg);
         clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         return;
       }
@@ -133,55 +140,58 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('thread_updated', (data: { threadId: string; title: string }) => {
-      callbacks.onThreadUpdated?.(data);
+      callbacksRef.current.onThreadUpdated?.(data);
     });
 
     socket.on('intent_mode', (data: { threadId: string; mode: string; targetCats: string[] }) => {
-      callbacks.onIntentMode?.(data);
+      // Thread guard: prevent cross-thread intent leaking into active thread state
+      const currentThread = threadIdRef.current;
+      if (data.threadId && currentThread && data.threadId !== currentThread) return;
+      callbacksRef.current.onIntentMode?.(data);
     });
 
     socket.on('task_created', (task: Record<string, unknown>) => {
-      callbacks.onTaskCreated?.(task);
+      callbacksRef.current.onTaskCreated?.(task);
     });
 
     socket.on('task_updated', (task: Record<string, unknown>) => {
-      callbacks.onTaskUpdated?.(task);
+      callbacksRef.current.onTaskUpdated?.(task);
     });
 
     socket.on('thread_summary', (summary: Record<string, unknown>) => {
-      callbacks.onThreadSummary?.(summary);
+      callbacksRef.current.onThreadSummary?.(summary);
     });
 
     socket.on('heartbeat', () => {
-      callbacks.onHeartbeat?.();
+      callbacksRef.current.onHeartbeat?.();
     });
 
     socket.on('message_deleted', (data: { messageId: string; threadId: string; deletedBy: string }) => {
-      callbacks.onMessageDeleted?.(data);
+      callbacksRef.current.onMessageDeleted?.(data);
     });
     socket.on('message_hard_deleted', (data: { messageId: string; threadId: string; deletedBy: string }) => {
-      callbacks.onMessageDeleted?.(data);
+      callbacksRef.current.onMessageDeleted?.(data);
     });
     socket.on('message_restored', (data: { messageId: string; threadId: string }) => {
-      callbacks.onMessageRestored?.(data);
+      callbacksRef.current.onMessageRestored?.(data);
     });
     socket.on('thread_branched', (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => {
-      callbacks.onThreadBranched?.(data);
+      callbacksRef.current.onThreadBranched?.(data);
     });
 
     socket.on('authorization:request', (data: Record<string, unknown>) => {
       const currentThread = threadIdRef.current;
       if (data['threadId'] && currentThread && data['threadId'] !== currentThread) return;
-      callbacks.onAuthorizationRequest?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0]);
+      callbacksRef.current.onAuthorizationRequest?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0]);
     });
     socket.on('authorization:response', (data: Record<string, unknown>) => {
-      callbacks.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
+      callbacksRef.current.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
     });
 
     socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
       const currentThread = threadIdRef.current;
       if (data.threadId && currentThread && data.threadId !== currentThread) return;
-      callbacks.onModeChanged?.(data);
+      callbacksRef.current.onModeChanged?.(data);
     });
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {
@@ -222,7 +232,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       socket.disconnect();
       joinedRoomsRef.current.clear();
     };
-  }, [callbacks]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
+  }, []);
 
   /** Join a single room (additive — does not leave other rooms) */
   const joinRoom = useCallback((roomThreadId: string) => {
