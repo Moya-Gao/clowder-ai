@@ -88,6 +88,13 @@ export const postMessageInputSchema = {
 
 export const getPendingMentionsInputSchema = {};
 
+export const ackMentionsInputSchema = {
+  upToMessageId: z
+    .string()
+    .min(1)
+    .describe('The message ID up to which mentions have been processed. Must be within the last fetched pending window.'),
+};
+
 export const getThreadContextInputSchema = {
   limit: z.number().int().min(1).max(200).optional().default(20)
     .describe('Number of recent messages to retrieve (default: 20)'),
@@ -113,6 +120,14 @@ export async function handlePostMessage(input: {
 
 export async function handleGetPendingMentions(_input: Record<string, never>): Promise<ToolResult> {
   return callbackGet('/api/callbacks/pending-mentions');
+}
+
+export async function handleAckMentions(input: {
+  upToMessageId: string;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/ack-mentions', {
+    upToMessageId: input.upToMessageId,
+  });
 }
 
 export async function handleGetThreadContext(input: { limit?: number }): Promise<ToolResult> {
@@ -189,6 +204,12 @@ export const callbackTools = [
     description: 'Get recent messages that @-mention you. Use this to check if anyone is trying to get your attention.',
     inputSchema: getPendingMentionsInputSchema,
     handler: handleGetPendingMentions,
+  },
+  {
+    name: 'cat_cafe_ack_mentions',
+    description: 'Acknowledge that you have processed mentions up to a specific message ID. Call this after processing mentions from get_pending_mentions to avoid seeing them again in future sessions.',
+    inputSchema: ackMentionsInputSchema,
+    handler: handleAckMentions,
   },
   {
     name: 'cat_cafe_get_thread_context',

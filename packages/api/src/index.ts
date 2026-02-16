@@ -168,6 +168,7 @@ async function main(): Promise<void> {
     router,
     invocationRecordStore,
     invocationTracker,
+    deliveryCursorStore,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)

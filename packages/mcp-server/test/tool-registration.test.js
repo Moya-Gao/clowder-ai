@@ -15,9 +15,10 @@ const EXPECTED_TOOLS = [
   'read_file',
   'write_file',
   'list_files',
-  // Callback tools (chat + task)
+  // Callback tools (chat + task + ack)
   'cat_cafe_post_message',
   'cat_cafe_get_pending_mentions',
+  'cat_cafe_ack_mentions',
   'cat_cafe_get_thread_context',
   'cat_cafe_update_task',
   // Permission tools (this is the regression guard)
@@ -30,6 +31,11 @@ const EXPECTED_TOOLS = [
   // Direct evidence/reflect tools
   'cat_cafe_search_evidence',
   'cat_cafe_reflect',
+  // Session chain tools
+  'cat_cafe_list_session_chain',
+  'cat_cafe_read_session_events',
+  'cat_cafe_read_session_digest',
+  'cat_cafe_session_search',
 ];
 
 describe('MCP Server Tool Registration', () => {

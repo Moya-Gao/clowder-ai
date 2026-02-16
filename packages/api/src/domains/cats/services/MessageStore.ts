@@ -54,7 +54,7 @@ export interface IMessageStore {
   /** Get a single message by its ID. Returns null if not found. */
   getById(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string, afterMessageId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
@@ -141,26 +141,26 @@ export class MessageStore {
   }
 
   /**
-   * Get recent messages that mention a specific cat.
-   * When userId is provided, only returns messages from that user's session.
-   * When threadId is provided, only returns messages from that thread.
+   * Get mentions for a specific cat, ascending (oldest first after cursor).
+   * When afterMessageId is provided, only returns mentions with id > afterMessageId.
+   * Returns the oldest N matches (ascending) — R4 P1 contract.
    */
-  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] {
+  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string, afterMessageId?: string): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
-    // Walk backwards for efficiency
-    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+    // Walk forward (ascending) to collect oldest-first after cursor
+    for (let i = 0; i < this.messages.length && matches.length < n; i++) {
       const msg = this.messages[i]!;
       if (msg.deletedAt) continue;
+      if (afterMessageId && msg.id <= afterMessageId) continue;
       if (threadId && msg.threadId !== threadId) continue;
       if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
         matches.push(msg);
       }
     }
 
-    // Reverse so oldest first
-    return matches.reverse();
+    return matches; // Already ascending
   }
 
   /**

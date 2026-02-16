@@ -16,12 +16,14 @@ import {
   handleListFiles,
   postMessageInputSchema,
   getPendingMentionsInputSchema,
+  ackMentionsInputSchema,
   getThreadContextInputSchema,
   updateTaskInputSchema,
   requestPermissionInputSchema,
   checkPermissionStatusInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
+  handleAckMentions,
   handleGetThreadContext,
   handleUpdateTask,
   handleRequestPermission,
@@ -105,6 +107,16 @@ export function createServer(): McpServer {
     getPendingMentionsInputSchema,
     async (_args: Record<string, never>) => {
       const result = await handleGetPendingMentions(_args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_ack_mentions',
+    'Acknowledge that you have processed mentions up to a specific message ID. Call this after processing mentions from get_pending_mentions to avoid seeing them again in future sessions.',
+    ackMentionsInputSchema,
+    async (args: { upToMessageId: string }) => {
+      const result = await handleAckMentions(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

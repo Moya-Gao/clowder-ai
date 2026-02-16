@@ -49,6 +49,9 @@ export const SessionKeys = {
   /** Per-cat delivery cursor for exact incremental context transport */
   deliveryCursor: (userId: string, catId: string, threadId: string) =>
     `delivery-cursor:${userId}:${catId}:${threadId}`,
+  /** Per-cat mention ack cursor — tracks last acknowledged @mention (#77) */
+  mentionAck: (userId: string, catId: string, threadId: string) =>
+    `mention-ack:${userId}:${catId}:${threadId}`,
   catState: (catId: string) => `state:${catId}`,
   taskQueue: (catId: string) => `tasks:${catId}`,
   messageChannel: () => 'chat:messages',
@@ -109,6 +112,40 @@ export class SessionStore {
     threadId: string,
   ): Promise<number> {
     return this.redis.del(SessionKeys.deliveryCursor(userId, catId, threadId));
+  }
+
+  /** Get the last acknowledged mention message ID for a cat in a thread (#77) */
+  async getMentionAckCursor(
+    userId: string,
+    catId: string,
+    threadId: string,
+  ): Promise<string | null> {
+    return this.redis.get(SessionKeys.mentionAck(userId, catId, threadId));
+  }
+
+  /** Set the mention ack cursor (monotonic forward only, enforced by caller) (#77) */
+  async setMentionAckCursor(
+    userId: string,
+    catId: string,
+    threadId: string,
+    messageId: string,
+    ttlSeconds = 604800 // 7 days, same as delivery cursor
+  ): Promise<void> {
+    await this.redis.set(
+      SessionKeys.mentionAck(userId, catId, threadId),
+      messageId,
+      'EX',
+      ttlSeconds
+    );
+  }
+
+  /** Delete a mention ack cursor (#77) */
+  async deleteMentionAckCursor(
+    userId: string,
+    catId: string,
+    threadId: string,
+  ): Promise<number> {
+    return this.redis.del(SessionKeys.mentionAck(userId, catId, threadId));
   }
 
   async getCatState(catId: string): Promise<Record<string, unknown> | null> {

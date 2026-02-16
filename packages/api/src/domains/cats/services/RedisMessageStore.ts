@@ -135,44 +135,68 @@ export class RedisMessageStore {
     return this.hydrateMessages(ids.reverse());
   }
 
+  /**
+   * Get mentions for a cat, ascending (oldest first after cursor).
+   * When afterMessageId is provided, only returns mentions after that ID.
+   * Cursor fallback: if afterMessageId not in sorted set (TTL/delete), falls back to full scan (#77 R2 P2).
+   */
   async getMentionsFor(
     catId: CatId,
     limit?: number,
     userId?: string,
-    threadId?: string
+    threadId?: string,
+    afterMessageId?: string
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const mentionKey = MessageKeys.mentions(catId);
-    const needsFilter = !!(userId || threadId);
 
-    let ids: string[];
-    if (needsFilter) {
-      const CHUNK = 50;
-      ids = [];
-      let offset = 0;
-      while (ids.length < n) {
-        const chunk = await this.redis.zrevrange(mentionKey, offset, offset + CHUNK - 1);
-        if (chunk.length === 0) break;
-        for (const id of chunk) {
-          if (ids.length >= n) break;
-          if (userId) {
-            const score = await this.redis.zscore(MessageKeys.user(userId), id);
-            if (score === null) continue;
-          }
-          if (threadId) {
-            const score = await this.redis.zscore(MessageKeys.thread(threadId), id);
-            if (score === null) continue;
-          }
-          ids.push(id);
-        }
-        offset += CHUNK;
+    // Cursor fallback: verify afterMessageId exists in the sorted set
+    let effectiveAfter = afterMessageId;
+    if (effectiveAfter) {
+      const rank = await this.redis.zrank(mentionKey, effectiveAfter);
+      if (rank === null) {
+        console.warn(`[MentionAck] cursor ${effectiveAfter} not in mention set for ${catId}, falling back to full pending`);
+        effectiveAfter = undefined;
       }
-    } else {
-      ids = await this.redis.zrevrange(mentionKey, 0, n - 1);
+    }
+
+    // Ascending scan: collect oldest N mentions after cursor
+    const CHUNK = 50;
+    const ids: string[] = [];
+    let startIndex = 0;
+
+    if (effectiveAfter) {
+      // Find the rank of afterMessageId and start scanning after it
+      const rank = await this.redis.zrank(mentionKey, effectiveAfter);
+      if (rank !== null) {
+        startIndex = rank + 1; // Start after the cursor
+      }
+    }
+
+    // Scan forward (ascending) in chunks
+    let offset = startIndex;
+    while (ids.length < n) {
+      const chunk = await this.redis.zrange(mentionKey, offset, offset + CHUNK - 1);
+      if (chunk.length === 0) break;
+      for (const id of chunk) {
+        if (ids.length >= n) break;
+        // Extra safety: skip IDs <= afterMessageId (handles edge cases)
+        if (effectiveAfter && id <= effectiveAfter) continue;
+        if (userId) {
+          const score = await this.redis.zscore(MessageKeys.user(userId), id);
+          if (score === null) continue;
+        }
+        if (threadId) {
+          const score = await this.redis.zscore(MessageKeys.thread(threadId), id);
+          if (score === null) continue;
+        }
+        ids.push(id);
+      }
+      offset += CHUNK;
     }
 
     if (ids.length === 0) return [];
-    return this.hydrateMessages(ids.reverse());
+    return this.hydrateMessages(ids); // Already ascending
   }
 
   async getBefore(

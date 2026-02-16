@@ -12,6 +12,7 @@ import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
 import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
@@ -39,6 +40,8 @@ export interface CallbackRoutesOptions {
   router?: AgentRouter;
   invocationRecordStore?: IInvocationRecordStore;
   invocationTracker?: InvocationTracker;
+  /** For mention ack cursor tracking (#77) */
+  deliveryCursorStore?: DeliveryCursorStore;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -51,10 +54,14 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
 });
 
+const ackMentionsSchema = callbackAuthSchema.extend({
+  upToMessageId: z.string().min(1),
+});
+
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
     const { registry, messageStore, socketManager, taskStore, router,
-      invocationRecordStore, invocationTracker } = opts;
+      invocationRecordStore, invocationTracker, deliveryCursorStore } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
       const parsed = postMessageSchema.safeParse(request.body);
@@ -130,7 +137,15 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const mentions = await messageStore.getMentionsFor(record.catId, 20, record.userId, record.threadId);
+      // #77: Use mention ack cursor to filter already-processed mentions
+      const catId = createCatId(record.catId);
+      const lastAckId = deliveryCursorStore
+        ? await deliveryCursorStore.getMentionAckCursor(record.userId, catId, record.threadId)
+        : undefined;
+
+      const mentions = await messageStore.getMentionsFor(
+        record.catId, 20, record.userId, record.threadId, lastAckId
+      );
       return {
         mentions: mentions.map((item) => ({
           id: item.id,
@@ -139,6 +154,76 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           timestamp: item.timestamp,
         })),
       };
+    });
+
+    // #77: POST /api/callbacks/ack-mentions — explicit ack with 4-way validation
+    app.post('/api/callbacks/ack-mentions', async (request, reply) => {
+      const parsed = ackMentionsSchema.safeParse(request.body);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parsed.error.issues };
+      }
+
+      const { invocationId, callbackToken, upToMessageId } = parsed.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      if (!deliveryCursorStore) {
+        reply.status(501);
+        return { error: 'Mention ack not available (no cursor store)' };
+      }
+
+      const catId = createCatId(record.catId);
+
+      // Validation 1: existence
+      const targetMsg = await messageStore.getById(upToMessageId);
+      if (!targetMsg) {
+        reply.status(400);
+        return { error: 'upToMessageId does not exist' };
+      }
+
+      // Validation 2: ownership (userId + threadId + mentions catId)
+      if (targetMsg.userId !== record.userId) {
+        reply.status(400);
+        return { error: 'upToMessageId does not belong to current user session' };
+      }
+      if (targetMsg.threadId !== record.threadId) {
+        reply.status(400);
+        return { error: 'upToMessageId does not belong to current thread' };
+      }
+      if (!targetMsg.mentions.includes(catId)) {
+        reply.status(400);
+        return { error: 'upToMessageId does not mention current cat' };
+      }
+
+      // Validation 3: monotonic (noop if backwards)
+      const currentCursor = await deliveryCursorStore.getMentionAckCursor(
+        record.userId, catId, record.threadId
+      );
+      if (currentCursor && upToMessageId <= currentCursor) {
+        return { status: 'noop', reason: 'already acknowledged' };
+      }
+
+      // Validation 4: window — upToMessageId must be within current pending window
+      const pendingWindow = await messageStore.getMentionsFor(
+        record.catId, 20, record.userId, record.threadId, currentCursor
+      );
+      if (pendingWindow.length > 0) {
+        const windowLastId = pendingWindow[pendingWindow.length - 1]!.id;
+        if (upToMessageId > windowLastId) {
+          reply.status(400);
+          return {
+            error: 'upToMessageId exceeds current pending window, ack only within fetched batch',
+            windowLastId,
+          };
+        }
+      }
+
+      await deliveryCursorStore.ackMentionCursor(record.userId, catId, record.threadId, upToMessageId);
+      return { status: 'ok', ackedUpTo: upToMessageId };
     });
 
     app.get('/api/callbacks/thread-context', async (request, reply) => {

@@ -24,6 +24,8 @@ function cursorKey(userId: string, catId: CatId, threadId: string): string {
 export class DeliveryCursorStore {
   private readonly sessionStore: SessionStore | null;
   private readonly cursors: Map<string, string> = new Map();
+  /** Mention-ack cursors — separate namespace from delivery cursors (#77) */
+  private readonly mentionAckCursors: Map<string, string> = new Map();
 
   constructor(sessionStore?: SessionStore) {
     this.sessionStore = sessionStore ?? null;
@@ -75,8 +77,60 @@ export class DeliveryCursorStore {
     this.cursors.set(key, deliveredToId);
   }
 
+  // ---- Mention Ack Cursor (#77) ----
+
   /**
-   * Cleanup all per-cat delivery cursors for one user's thread.
+   * Get the last acknowledged mention message ID for a cat in a thread.
+   * Returns undefined if no ack cursor exists (= all mentions are pending).
+   */
+  async getMentionAckCursor(userId: string, catId: CatId, threadId: string): Promise<string | undefined> {
+    if (this.sessionStore) {
+      try {
+        const value = await this.sessionStore.getMentionAckCursor(userId, catId, threadId);
+        return value ?? undefined;
+      } catch (err) {
+        console.warn('[DeliveryCursorStore] getMentionAckCursor failed, fallback to in-memory:', err);
+      }
+    }
+    return this.mentionAckCursors.get(cursorKey(userId, catId, threadId));
+  }
+
+  /**
+   * Acknowledge mentions up to a message ID (monotonic forward only).
+   * If messageId <= current cursor, this is a noop (idempotent).
+   */
+  async ackMentionCursor(userId: string, catId: CatId, threadId: string, messageId: string): Promise<void> {
+    const current = await this.getMentionAckCursor(userId, catId, threadId);
+    if (current && messageId <= current) {
+      return; // Monotonic: noop for backwards/same ack
+    }
+
+    if (this.sessionStore) {
+      try {
+        await this.sessionStore.setMentionAckCursor(userId, catId, threadId, messageId);
+        return;
+      } catch (err) {
+        console.warn('[DeliveryCursorStore] setMentionAckCursor failed, fallback to in-memory:', err);
+      }
+    }
+
+    const key = cursorKey(userId, catId, threadId);
+    if (this.mentionAckCursors.has(key)) {
+      this.mentionAckCursors.delete(key);
+    }
+    while (this.mentionAckCursors.size >= MAX_CURSORS) {
+      const oldest = this.mentionAckCursors.keys().next().value;
+      if (oldest !== undefined) {
+        this.mentionAckCursors.delete(oldest);
+      }
+    }
+    this.mentionAckCursors.set(key, messageId);
+  }
+
+  // ---- Cleanup ----
+
+  /**
+   * Cleanup all per-cat delivery + mention-ack cursors for one user's thread.
    * Called during thread cascade delete to avoid stale cursor accumulation.
    */
   async deleteByThreadForUser(userId: string, threadId: string): Promise<number> {
@@ -89,6 +143,11 @@ export class DeliveryCursorStore {
         } catch (err) {
           console.warn('[DeliveryCursorStore] deleteDeliveryCursor failed, continue cleanup in-memory:', err);
         }
+        try {
+          deleted += await this.sessionStore.deleteMentionAckCursor(userId, catId, threadId);
+        } catch (err) {
+          console.warn('[DeliveryCursorStore] deleteMentionAckCursor failed, continue cleanup in-memory:', err);
+        }
       }
     }
 
@@ -97,6 +156,12 @@ export class DeliveryCursorStore {
     for (const key of this.cursors.keys()) {
       if (key.startsWith(prefix) && key.endsWith(suffix)) {
         this.cursors.delete(key);
+        deleted++;
+      }
+    }
+    for (const key of this.mentionAckCursors.keys()) {
+      if (key.startsWith(prefix) && key.endsWith(suffix)) {
+        this.mentionAckCursors.delete(key);
         deleted++;
       }
     }
