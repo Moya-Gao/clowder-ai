@@ -365,6 +365,49 @@ describe('F24: SessionChainPanel', () => {
     expect(container.querySelector('section')).toBeNull();
   });
 
+  it('applies codex green colors to active session border and badge', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'codex', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    // Border should use codex green, not opus purple
+    const card = container.querySelector('.border-codex-primary\\/40');
+    expect(card).not.toBeNull();
+    // Badge should use codex colors
+    const badge = container.querySelector('.bg-codex-light.text-codex-dark');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toContain('codex');
+    // Must NOT have opus purple
+    expect(container.querySelector('.border-opus-primary\\/40')).toBeNull();
+    expect(container.querySelector('.bg-opus-light')).toBeNull();
+  });
+
+  it('applies gemini blue colors to active session border and badge', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'gemini', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    const card = container.querySelector('.border-gemini-primary\\/40');
+    expect(card).not.toBeNull();
+    const badge = container.querySelector('.bg-gemini-light.text-gemini-dark');
+    expect(badge).not.toBeNull();
+  });
+
+  it('applies gray fallback colors for unknown catId', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'unknown-cat', seq: 0, status: 'active', messageCount: 1, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    const card = container.querySelector('.border-gray-300\\/40');
+    expect(card).not.toBeNull();
+    const badge = container.querySelector('.bg-gray-200.text-gray-600');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toContain('unknown-cat');
+  });
+
   it('discards stale response when slow thread-1 fetch resolves after thread-2 (P1 race condition)', async () => {
     // Deferred promises to control resolution order
     let resolveThread1!: (v: unknown) => void;
