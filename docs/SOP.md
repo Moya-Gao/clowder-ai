@@ -3,7 +3,7 @@
 > 三猫开发全流程的**唯一权威文档**。所有猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）和 Skills 引用本文档，不重复定义流程。
 > 冲突时以本文档为准。
 >
-> 更新日期：2026-02-15
+> 更新日期：2026-02-16
 
 ## 完整流程（6 步）
 
@@ -16,7 +16,7 @@
       ↓
 ④ Merge Approval Gate（检查放行信号）
       ↓
-⑤ 开 PR + 触发云端 review（异步）
+⑤ 开 PR + 触发云端 review → 等待通过
       ↓
 ⑥ 合入 main + push + 清理 worktree
 ```
@@ -99,20 +99,27 @@ git push origin {branch} --force-with-lease
 # 5c. 开 PR（此时 feature 和 main 有 diff，PR 可成立）
 gh pr create --base main --head {branch} --title "..." --body "..."
 
-# 5d. 触发云端 review（异步，不等结果继续 Step 6）
+# 5d. 触发云端 review
 gh pr comment {PR_NUMBER} --body "@codex review ..."
+
+# 5e. 等待云端 review 结果（⚠️ 必须等通过才能进 Step 6！）
 ```
 
 **冲突处理**: rebase 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
-**云端 review 是异步守护**：不 block Step 6，结果出来后有 P1 则 fix forward
 
-**→ 下一步**: PR 创建后立即进入 Step 6
+**云端 review 是阻塞守护**：必须等云端 Codex review 通过（0 P1/P2）才能进入 Step 6。处理方式：
+- 0 P1/P2 → 通过，进入 Step 6
+- 有 P1/P2（附复现证据）→ 在 feature branch 上修复 → push → 等待 re-review
+- 有 P1/P2（无复现证据）→ 降级 P3，留 comment 说明，视为通过
+- 误报 → 留 comment 解释，视为通过
+
+**→ 下一步**: 云端 review 通过后进入 Step 6
 
 ---
 
 ### Step 6: 合入 main + Push + 清理
 
-**触发**: Step 5 完成后（不等云端 review 结果）
+**触发**: 云端 review 通过后（0 P1/P2，或 P1/P2 已在 feature branch 上修复）
 
 ```bash
 # 6a. 回到主仓目录
@@ -133,11 +140,6 @@ git worktree prune
 ```
 
 **PR 自动关闭**: `--ff-only` merge 保持 commit hash 不变，push main 后 GitHub 检测到 PR 的 commits 已在 main 中，PR 自动标记为 merged。
-
-**云端 review 后续**: Cloud Codex 结果出来后：
-- 0 P1/P2 → 无需操作
-- 有 P1/P2（附复现证据）→ 开新分支 fix forward
-- 有 P1/P2（无复现证据）→ 降级 P3，留 comment 说明
 
 ---
 

@@ -141,16 +141,18 @@ EOF
 )"
 ```
 
-## Step 4: Handle Cloud Review Results
+## Step 4: 等待云端 Review 通过（⚠️ 阻塞！）
+
+**必须等云端 Codex review 通过后才能进入 SOP Step 6 合入。**
 
 云端 Codex 会在 PR 上留 comment。处理方式：
 
 | 结果 | 动作 |
 |------|------|
-| 0 P1/P2 | 无需操作（PR 已通过 ff-only merge 自动关闭） |
-| 有 P1/P2（附复现证据） | 开新分支 fix forward → 走 SOP Step 1-6 |
-| 有 P1/P2（无复现证据） | 降级为 P3，可忽略，留 comment 说明 |
-| 误报 | 留 comment 解释为什么是误报 |
+| 0 P1/P2 | 通过 → 进入 SOP Step 6 合入 |
+| 有 P1/P2（附复现证据） | 在 feature branch 上修复 → push → 等待 re-review |
+| 有 P1/P2（无复现证据） | 降级为 P3，留 comment 说明 → 视为通过 |
+| 误报 | 留 comment 解释 → 视为通过 |
 
 ## Common Mistakes
 
@@ -158,6 +160,7 @@ EOF
 |------|------|----------|
 | 本地 review 没过就开 PR | 云端 review 不替代本地 review | 先走 merge-approval-gate |
 | 忘记发 `@codex review` comment | PR 开了但没触发云端 review | Step 3 是必要步骤 |
+| **不等云端 review 就合入 main** | **云端守护形同虚设** | **必须等通过才能 Step 6** |
 | 云端发现 P1 就慌 | 云端猫可能误报 | 检查是否有复现证据，无证据则降级 |
 | 把所有 P3 都修了 | 云端猫的 P3 是建议，不是命令 | 只修有道理的，驳回没道理的 |
 

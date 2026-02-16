@@ -150,9 +150,15 @@ Gate 通过后，**先使用 `requesting-cloud-review` skill** push feature bran
 
 **例外规则**：跳过 PR 需同时满足三条件，详见 `docs/SOP.md` "例外路径"。
 
-### Step B: 合入 main + 清理（SOP Step 6）
+### Step B: 等待云端 Review 通过（SOP Step 5e）
 
-PR 创建后**立即合入**（不等云端 review 结果）：
+PR 创建 + 触发云端 review 后，**必须等待云端 review 通过（0 P1/P2）才能合入**。
+- 有 P1/P2（附复现证据）→ 在 feature branch 上修复 → push → 等 re-review
+- 有 P1/P2（无复现证据）→ 降级 P3，留 comment 说明，视为通过
+
+### Step C: 合入 main + 清理（SOP Step 6）
+
+**云端 review 通过后**执行：
 
 ```bash
 # 1. 合入 main
