@@ -317,6 +317,16 @@ export function useAgentMessages() {
               contextHealth: parsed.health,
             });
             consumed = true;
+          } else if (parsed?.type === 'task_progress') {
+            // F26: Store task progress silently
+            const tasks = (parsed.tasks ?? []) as import('../stores/chat-types').TaskProgressItem[];
+            setCatInvocation(parsed.catId ?? msg.catId, {
+              taskProgress: {
+                tasks,
+                lastUpdate: Date.now(),
+              },
+            });
+            consumed = true;
           } else if (parsed?.type === 'session_seal_requested') {
             // F24 Phase B: Session sealed — update session info + show notification
             setCatInvocation(parsed.catId, {

@@ -104,6 +104,22 @@ export interface ContextHealthData {
   measuredAt: number;
 }
 
+/** F26: Individual task item in a cat's execution plan */
+export interface TaskProgressItem {
+  id: string;
+  subject: string;
+  status: 'pending' | 'in_progress' | 'completed';
+  activeForm?: string;
+}
+
+/** F26: Task progress state for a cat's current invocation */
+export interface TaskProgressState {
+  tasks: TaskProgressItem[];
+  lastUpdate: number;
+  /** Codex reasoning fallback (no structured tasks) */
+  reasoningHint?: string;
+}
+
 export interface CatInvocationInfo {
   sessionId?: string;
   invocationId?: string;
@@ -116,6 +132,8 @@ export interface CatInvocationInfo {
   sessionSeq?: number;
   /** F24 Phase B: Whether the session was just sealed (triggers UI indicator) */
   sessionSealed?: boolean;
+  /** F26: Real-time task progress from cat's tool usage */
+  taskProgress?: TaskProgressState;
 }
 
 export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';

@@ -24,6 +24,27 @@ import { getContextWindowFallback } from '../../../config/context-window-sizes.j
 import { shouldSeal, getSealConfig } from '../../../config/seal-thresholds.js';
 import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
 
+/* ── F26: Task tool detection for real-time progress ─────── */
+const TASK_TOOL_NAMES = new Set(['TodoWrite', 'write_todos']);
+
+function extractTaskProgress(
+  toolName: string,
+  toolInput: Record<string, unknown> | undefined,
+): { action: 'snapshot'; tasks: Array<{ id: string; subject: string; status: string; activeForm?: string }> } | null {
+  if (!toolInput || !TASK_TOOL_NAMES.has(toolName)) return null;
+  const todos = toolInput['todos'] as Array<{ content?: string; status?: string; activeForm?: string }> | undefined;
+  if (!Array.isArray(todos)) return null;
+  return {
+    action: 'snapshot',
+    tasks: todos.map((t, i) => ({
+      id: `task-${i}`,
+      subject: (t.content ?? '').slice(0, 120),
+      status: t.status ?? 'pending',
+      ...(t.activeForm ? { activeForm: t.activeForm } : {}),
+    })),
+  };
+}
+
 function isMissingClaudeSessionError(message: string | undefined): boolean {
   if (!message) return false;
   return /No conversation found with session ID/i.test(message);
@@ -400,6 +421,19 @@ export async function* invokeSingleCat(
         outputs.push({ ...msg, isFinal: isLastCat });
       } else {
         outputs.push(msg);
+
+        // F26: Detect task management tools and emit task_progress for frontend
+        if (msg.type === 'tool_use' && msg.toolName) {
+          const progress = extractTaskProgress(msg.toolName, msg.toolInput);
+          if (progress) {
+            outputs.push({
+              type: 'system_info' as const,
+              catId,
+              content: JSON.stringify({ type: 'task_progress', catId, ...progress }),
+              timestamp: Date.now(),
+            });
+          }
+        }
       }
 
       // F24 Phase C: Record event to transcript buffer (best-effort)

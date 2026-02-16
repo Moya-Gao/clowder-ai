@@ -8,7 +8,7 @@ function render(props: RightStatusPanelProps): string {
 }
 
 describe('RightStatusPanel', () => {
-  it('renders status title, mode, cats, and metrics', () => {
+  it('renders status title, mode, and active cats', () => {
     const html = render({
       intentMode: 'execute',
       targetCats: ['opus', 'codex'],
@@ -25,10 +25,6 @@ describe('RightStatusPanel', () => {
         evidence: 2,
         followup: 1,
       },
-      taskSummary: {
-        total: 5,
-        done: 2,
-      },
     });
 
     expect(html).toContain('状态栏');
@@ -37,10 +33,9 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('布偶猫');
     expect(html).toContain('缅因猫');
     expect(html).toContain('12');
-    expect(html).toContain('5');
   });
 
-  it('falls back to three cats when no target cats are provided', () => {
+  it('shows "等待调用" when no target cats', () => {
     const html = render({
       intentMode: null,
       targetCats: [],
@@ -54,19 +49,12 @@ describe('RightStatusPanel', () => {
         evidence: 0,
         followup: 0,
       },
-      taskSummary: {
-        total: 0,
-        done: 0,
-      },
     });
 
-    expect(html).toContain('布偶猫');
-    expect(html).toContain('缅因猫');
-    expect(html).toContain('暹罗猫');
-    expect(html).toContain('空闲');
+    expect(html).toContain('等待调用');
   });
 
-  it('renders copyable invocation and session ids in recent invocations', () => {
+  it('renders copyable invocation and session ids in active cats', () => {
     const invocationId = 'inv-1234567890abcdef';
     const sessionId = 'sess-1234567890abcdef';
     const html = render({
@@ -88,16 +76,71 @@ describe('RightStatusPanel', () => {
         evidence: 0,
         followup: 0,
       },
-      taskSummary: {
-        total: 0,
-        done: 0,
-      },
     });
 
-    expect(html).toContain('最近调用');
+    expect(html).toContain('当前调用');
     // IDs are now behind a collapsible toggle (default collapsed in SSR)
     expect(html).toContain('▸ IDs');
     // The cat name and invocation section still render
     expect(html).toContain('缅因猫');
+  });
+
+  it('shows history cats that are not in current targetCats', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming' },
+      catInvocations: {
+        opus: { startedAt: Date.now() },
+        codex: { startedAt: Date.now() - 60000, durationMs: 5000 },
+      },
+      threadId: 'thread-456',
+      messageSummary: {
+        total: 5,
+        assistant: 3,
+        system: 2,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('当前调用');
+    expect(html).toContain('历史参与');
+    expect(html).toContain('布偶猫');
+  });
+
+  it('renders task progress when available', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming' },
+      catInvocations: {
+        opus: {
+          startedAt: Date.now(),
+          taskProgress: {
+            tasks: [
+              { id: 'task-0', subject: 'Fix auth bug', status: 'completed' },
+              { id: 'task-1', subject: 'Add caching', status: 'in_progress', activeForm: 'Adding caching' },
+              { id: 'task-2', subject: 'Write tests', status: 'pending' },
+            ],
+            lastUpdate: Date.now(),
+          },
+        },
+      },
+      threadId: 'thread-789',
+      messageSummary: {
+        total: 3,
+        assistant: 2,
+        system: 1,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('执行计划');
+    expect(html).toContain('1/3');
+    expect(html).toContain('Fix auth bug');
+    expect(html).toContain('Adding caching');
+    expect(html).toContain('Write tests');
   });
 });
