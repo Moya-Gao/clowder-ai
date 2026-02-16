@@ -81,6 +81,14 @@ function fmtTokens(n: number): string {
   return String(n);
 }
 
+const CAT_SESSION_COLORS: Record<string, { border: string; badgeBg: string; badgeText: string }> = {
+  opus: { border: 'border-opus-primary/40', badgeBg: 'bg-opus-light', badgeText: 'text-opus-dark' },
+  codex: { border: 'border-codex-primary/40', badgeBg: 'bg-codex-light', badgeText: 'text-codex-dark' },
+  gemini: { border: 'border-gemini-primary/40', badgeBg: 'bg-gemini-light', badgeText: 'text-gemini-dark' },
+};
+
+const DEFAULT_SESSION_COLORS = { border: 'border-gray-300/40', badgeBg: 'bg-gray-200', badgeText: 'text-gray-600' };
+
 export function SessionChainPanel({ threadId, catInvocations }: SessionChainPanelProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
@@ -155,6 +163,8 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
         const usage = inv?.usage ?? session.lastUsage;
         const cachePct = cachePercent(usage?.cacheReadTokens, usage?.inputTokens);
 
+        const colors = CAT_SESSION_COLORS[session.catId] ?? DEFAULT_SESSION_COLORS;
+
         return (
           <div key={session.id} className="mb-2">
             <div className="flex items-center gap-1 mb-1">
@@ -163,7 +173,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                 Active
               </span>
             </div>
-            <div className="rounded-md border-[1.5px] border-opus-primary/40 bg-white p-2.5 shadow-sm">
+            <div className={`rounded-md border-[1.5px] ${colors.border} bg-white p-2.5 shadow-sm`}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
                   <span className="text-xs font-semibold text-gray-800">
@@ -171,7 +181,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                   </span>
                   <SessionIdTag id={session.id} />
                 </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-opus-light text-opus-dark font-medium">
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${colors.badgeBg} ${colors.badgeText} font-medium`}>
                   {session.catId}
                 </span>
               </div>
