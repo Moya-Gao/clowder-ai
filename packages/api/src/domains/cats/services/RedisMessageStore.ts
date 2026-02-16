@@ -15,7 +15,7 @@
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from './MessageStore.js';
-import type { AppendMessageInput, StoredMessage } from './MessageStore.js';
+import type { AppendMessageInput, StoredMessage, StoredToolEvent } from './MessageStore.js';
 import type { MessageMetadata } from './types.js';
 import { MessageKeys } from './message-keys.js';
 
@@ -50,7 +50,7 @@ export class RedisMessageStore {
     const hashKey = MessageKeys.detail(id);
     const pipeline = this.redis.multi();
 
-    // Store message hash (including threadId, contentBlocks, metadata)
+    // Store message hash (including threadId, contentBlocks, toolEvents, metadata)
     pipeline.hset(hashKey, {
       id,
       threadId,
@@ -58,6 +58,7 @@ export class RedisMessageStore {
       catId: msg.catId ?? '',
       content: msg.content,
       contentBlocks: msg.contentBlocks ? JSON.stringify(msg.contentBlocks) : '',
+      toolEvents: msg.toolEvents ? JSON.stringify(msg.toolEvents) : '',
       metadata: msg.metadata ? JSON.stringify(msg.metadata) : '',
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
@@ -108,6 +109,7 @@ export class RedisMessageStore {
     if (!data || !data['id']) return null;
 
     const contentBlocks = safeParseContentBlocks(data['contentBlocks']);
+    const toolEvents = safeParseToolEvents(data['toolEvents']);
     const parsedMetadata = safeParseMetadata(data['metadata']);
     const deletedAt = data['deletedAt'] ? parseInt(data['deletedAt'], 10) : undefined;
     return {
@@ -117,6 +119,7 @@ export class RedisMessageStore {
       catId: (data['catId'] || null) as CatId | null,
       content: data['content'] ?? '',
       ...(contentBlocks ? { contentBlocks } : {}),
+      ...(toolEvents ? { toolEvents } : {}),
       ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
       mentions: safeParseMentions(data['mentions']),
       timestamp: parseInt(data['timestamp'] ?? '0', 10),
@@ -398,6 +401,7 @@ export class RedisMessageStore {
     await this.redis.hset(MessageKeys.detail(id), {
       content: '',
       contentBlocks: '',
+      toolEvents: '',
       metadata: '',
       mentions: '[]',
       deletedAt: String(now),
@@ -407,6 +411,7 @@ export class RedisMessageStore {
     msg.content = '';
     msg.mentions = [];
     delete msg.contentBlocks;
+    delete msg.toolEvents;
     delete msg.metadata;
     msg.deletedAt = now;
     msg.deletedBy = deletedBy;
@@ -448,6 +453,7 @@ export class RedisMessageStore {
       if (deletedAt && !options?.includeDeleted) continue;
 
       const contentBlocks = safeParseContentBlocks(d['contentBlocks']);
+      const toolEvents = safeParseToolEvents(d['toolEvents']);
       const parsedMetadata = safeParseMetadata(d['metadata']);
       messages.push({
         id: d['id'],
@@ -456,6 +462,7 @@ export class RedisMessageStore {
         catId: (d['catId'] || null) as CatId | null,
         content: d['content'] ?? '',
         ...(contentBlocks ? { contentBlocks } : {}),
+        ...(toolEvents ? { toolEvents } : {}),
         ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
         mentions: safeParseMentions(d['mentions']),
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
@@ -474,6 +481,16 @@ function safeParseMentions(raw: string | undefined): readonly CatId[] {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+}
+
+function safeParseToolEvents(raw: string | undefined): readonly StoredToolEvent[] | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
   }
 }
 

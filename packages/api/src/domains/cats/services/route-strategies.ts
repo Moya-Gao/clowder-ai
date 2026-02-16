@@ -12,7 +12,7 @@ import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInje
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
-import type { IMessageStore, StoredMessage } from './MessageStore.js';
+import type { IMessageStore, StoredMessage, StoredToolEvent } from './MessageStore.js';
 import { DeliveryCursorStore } from './DeliveryCursorStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
@@ -96,6 +96,46 @@ function detectContextDegradation(
     };
   }
 
+  return null;
+}
+
+/** Truncate a string for tool event detail preview */
+function truncateDetail(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}…`;
+}
+
+/** Build a StoredToolEvent from a streaming AgentMessage */
+function toStoredToolEvent(msg: AgentMessage): StoredToolEvent | null {
+  if (msg.type === 'tool_use') {
+    const toolName = msg.toolName ?? 'unknown';
+    let detail: string | undefined;
+    if (msg.toolInput) {
+      try {
+        detail = truncateDetail(JSON.stringify(msg.toolInput), 200);
+      } catch {
+        detail = '[unserializable]';
+      }
+    }
+    return {
+      id: `tool-${msg.timestamp}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'tool_use',
+      label: `${msg.catId as string} → ${toolName}`,
+      ...(detail ? { detail } : {}),
+      timestamp: msg.timestamp,
+    };
+  }
+  if (msg.type === 'tool_result') {
+    const raw = (msg.content ?? '').trimEnd();
+    const detail = raw.length > 0 ? truncateDetail(raw, 220) : '(no output)';
+    return {
+      id: `toolr-${msg.timestamp}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'tool_result',
+      label: `${msg.catId as string} ← result`,
+      detail,
+      timestamp: msg.timestamp,
+    };
+  }
   return null;
 }
 
@@ -359,6 +399,7 @@ export async function* routeSerial(
     let firstMetadata: MessageMetadata | undefined;
     let doneMsg: AgentMessage | undefined;
     let hadError = false;
+    const collectedToolEvents: StoredToolEvent[] = [];
 
     // Always pass isLastCat:false — we set isFinal AFTER A2A detection
     for await (const msg of invokeSingleCat(deps.invocationDeps, {
@@ -381,6 +422,11 @@ export async function* routeSerial(
         if (msg.error) {
           textContent += (textContent ? '\n\n' : '') + `❌ ${msg.error}`;
         }
+      }
+      // Accumulate tool events for persistence
+      const toolEvt = toStoredToolEvent(msg);
+      if (toolEvt) {
+        collectedToolEvents.push(toolEvt);
       }
       if (msg.metadata && !firstMetadata) {
         firstMetadata = msg.metadata;
@@ -414,6 +460,7 @@ export async function* routeSerial(
           timestamp: Date.now(),
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
+          ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
@@ -483,6 +530,7 @@ export async function* routeSerial(
           timestamp: Date.now(),
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
+          ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
@@ -674,6 +722,7 @@ export async function* routeParallel(
 
   const catText = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();
+  const catToolEvents = new Map<string, StoredToolEvent[]>();
   const catHadError = new Set<string>();
   let completedCount = 0;
 
@@ -690,6 +739,13 @@ export async function* routeParallel(
         catText.set(msg.catId, prev + (prev ? '\n\n' : '') + `❌ ${msg.error}`);
       }
     }
+    // Accumulate tool events per cat
+    const toolEvt = toStoredToolEvent(msg);
+    if (toolEvt && msg.catId) {
+      const arr = catToolEvents.get(msg.catId) ?? [];
+      arr.push(toolEvt);
+      catToolEvents.set(msg.catId, arr);
+    }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);
     }
@@ -700,6 +756,7 @@ export async function* routeParallel(
       if (text) {
         const meta = catMeta.get(msg.catId);
         const storedContent = sanitizeInjectedContent(text);
+        const catTools = catToolEvents.get(msg.catId);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
         const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
@@ -712,6 +769,33 @@ export async function* routeParallel(
             timestamp: Date.now(),
             threadId,
             ...(meta ? { metadata: meta } : {}),
+            ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
+          });
+        } catch (err) {
+          console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
+          if (options.persistenceContext) {
+            options.persistenceContext.failed = true;
+            options.persistenceContext.errors.push({
+              catId: msg.catId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      } else if (!catHadError.has(msg.catId)) {
+        // No text content and no error — store empty message with any tool events
+        // (mirrors routeSerial empty-text branch, ensures tool-only responses are persisted)
+        const meta = catMeta.get(msg.catId);
+        const catTools = catToolEvents.get(msg.catId);
+        try {
+          await deps.messageStore.append({
+            userId,
+            catId: msg.catId as CatId,
+            content: '',
+            mentions: [],
+            timestamp: Date.now(),
+            threadId,
+            ...(meta ? { metadata: meta } : {}),
+            ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
           });
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);

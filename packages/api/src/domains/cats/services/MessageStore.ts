@@ -13,6 +13,18 @@ import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 export { DEFAULT_THREAD_ID };
 
 /**
+ * A tool event recorded during agent invocation (tool_use / tool_result).
+ * Persisted alongside the assistant message so history reload can display them.
+ */
+export interface StoredToolEvent {
+  id: string;
+  type: 'tool_use' | 'tool_result';
+  label: string;
+  detail?: string;
+  timestamp: number;
+}
+
+/**
  * A stored message entry (after append — threadId always present)
  */
 export interface StoredMessage {
@@ -25,6 +37,8 @@ export interface StoredMessage {
   content: string;
   /** Rich content blocks (text, images, code). When absent, use content string. */
   contentBlocks?: readonly MessageContent[];
+  /** Tool events recorded during agent invocation (for history replay). */
+  toolEvents?: readonly StoredToolEvent[];
   /** Provider/model metadata (for cat messages) */
   metadata?: MessageMetadata;
   /** CatIds mentioned in this message */
@@ -286,6 +300,7 @@ export class MessageStore {
     msg.content = '';
     msg.mentions = [];
     delete msg.contentBlocks;
+    delete msg.toolEvents;
     delete msg.metadata;
     msg.deletedAt = Date.now();
     msg.deletedBy = deletedBy;

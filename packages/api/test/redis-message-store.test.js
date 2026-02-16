@@ -140,6 +140,33 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.equal(before[1].content, 'msg4');
   });
 
+  it('hardDelete clears toolEvents from returned object and Redis', async () => {
+    const msg = await store.append({
+      userId: 'u',
+      catId: 'opus',
+      content: 'tool msg',
+      mentions: [],
+      timestamp: Date.now(),
+      toolEvents: [
+        { id: 'te-1', type: 'tool_use', label: 'opus → read', timestamp: Date.now() },
+        { id: 'te-2', type: 'tool_result', label: 'opus ← result', detail: 'ok', timestamp: Date.now() },
+      ],
+    });
+    // Verify toolEvents were stored
+    const before = await store.getById(msg.id);
+    assert.equal(before.toolEvents.length, 2);
+
+    // hardDelete should clear toolEvents
+    const deleted = await store.hardDelete(msg.id, 'admin');
+    assert.ok(deleted);
+    assert.equal(deleted.toolEvents, undefined, 'returned object should not carry toolEvents');
+    assert.equal(deleted._tombstone, true);
+
+    // Re-fetch from Redis to confirm
+    const refetched = await store.getById(msg.id);
+    assert.equal(refetched.toolEvents, undefined, 'Redis should not return toolEvents after hardDelete');
+  });
+
   it('message TTL is set', async () => {
     const msg = await store.append({
       userId: 'u',

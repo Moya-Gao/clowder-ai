@@ -88,6 +88,43 @@ describe('routeSerial', () => {
     assert.ok(doneMsgs.length > 0, 'should have done message');
     assert.equal(textMsgs[0].content, 'serial response');
   });
+
+  it('persists toolEvents when agent yields tool_use and tool_result', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    // Mock service that yields tool_use → tool_result → text → done
+    const toolService = {
+      async *invoke(_prompt) {
+        yield { type: 'tool_use', catId: 'opus', toolName: 'Read', toolInput: { path: '/a.ts' }, timestamp: 1000 };
+        yield { type: 'tool_result', catId: 'opus', content: 'file content here', timestamp: 1001 };
+        yield { type: 'text', catId: 'opus', content: 'I read the file', timestamp: 1002 };
+        yield { type: 'done', catId: 'opus', timestamp: 1003 };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: toolService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'read a.ts', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    // Verify tool events were yielded to frontend
+    const toolUses = messages.filter(m => m.type === 'tool_use');
+    const toolResults = messages.filter(m => m.type === 'tool_result');
+    assert.equal(toolUses.length, 1, 'should yield tool_use');
+    assert.equal(toolResults.length, 1, 'should yield tool_result');
+
+    // Verify toolEvents were persisted via messageStore.append()
+    assert.equal(appendCalls.length, 1, 'should call append once');
+    const stored = appendCalls[0];
+    assert.ok(stored.toolEvents, 'stored message should have toolEvents');
+    assert.equal(stored.toolEvents.length, 2, 'should have 2 tool events');
+    assert.equal(stored.toolEvents[0].type, 'tool_use');
+    assert.ok(stored.toolEvents[0].label.includes('Read'));
+    assert.equal(stored.toolEvents[1].type, 'tool_result');
+  });
 });
 
 describe('routeSerial A2A worklist', () => {
@@ -412,6 +449,69 @@ describe('routeParallel resilience', () => {
     const doneMsgs = messages.filter(m => m.type === 'done');
     assert.equal(doneMsgs.length, 2, 'should still yield done for both cats');
     assert.ok(doneMsgs.some(m => m.isFinal), 'one done should be isFinal');
+  });
+});
+
+describe('routeParallel tool events persistence', () => {
+  it('persists toolEvents per cat when agents yield tool_use events', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    // opus uses a tool, codex doesn't
+    const opusService = {
+      async *invoke(_prompt) {
+        yield { type: 'tool_use', catId: 'opus', toolName: 'Write', toolInput: { path: '/b.ts' }, timestamp: 2000 };
+        yield { type: 'tool_result', catId: 'opus', content: 'written', timestamp: 2001 };
+        yield { type: 'text', catId: 'opus', content: 'wrote it', timestamp: 2002 };
+        yield { type: 'done', catId: 'opus', timestamp: 2003 };
+      },
+    };
+    const codexService = createMockService('codex', 'LGTM');
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: opusService, codex: codexService }, appendCalls);
+
+    for await (const _msg of routeParallel(deps, ['opus', 'codex'], 'review', 'user1', 'thread1')) {}
+
+    // opus message should have toolEvents
+    const opusAppend = appendCalls.find(c => c.catId === 'opus');
+    assert.ok(opusAppend, 'opus message should be appended');
+    assert.ok(opusAppend.toolEvents, 'opus should have toolEvents');
+    assert.equal(opusAppend.toolEvents.length, 2);
+    assert.equal(opusAppend.toolEvents[0].type, 'tool_use');
+    assert.equal(opusAppend.toolEvents[1].type, 'tool_result');
+
+    // codex message should NOT have toolEvents (no tool usage)
+    const codexAppend = appendCalls.find(c => c.catId === 'codex');
+    assert.ok(codexAppend, 'codex message should be appended');
+    assert.ok(!codexAppend.toolEvents, 'codex should not have toolEvents');
+  });
+
+  it('persists tool-only cat (no text) in parallel mode (缅因猫 R2 P1-1)', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/route-strategies.js');
+
+    // opus only yields tool events, NO text
+    const toolOnlyService = {
+      async *invoke(_prompt) {
+        yield { type: 'tool_use', catId: 'opus', toolName: 'Grep', toolInput: { pattern: 'foo' }, timestamp: 3000 };
+        yield { type: 'tool_result', catId: 'opus', content: 'found 3 matches', timestamp: 3001 };
+        yield { type: 'done', catId: 'opus', timestamp: 3002 };
+      },
+    };
+    const codexService = createMockService('codex', 'LGTM');
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: toolOnlyService, codex: codexService }, appendCalls);
+
+    for await (const _msg of routeParallel(deps, ['opus', 'codex'], 'search', 'user1', 'thread1')) {}
+
+    // Even though opus had no text, it should still be persisted with tool events
+    const opusAppend = appendCalls.find(c => c.catId === 'opus');
+    assert.ok(opusAppend, 'tool-only cat should still be persisted');
+    assert.equal(opusAppend.content, '', 'content should be empty');
+    assert.ok(opusAppend.toolEvents, 'should have toolEvents');
+    assert.equal(opusAppend.toolEvents.length, 2);
+    assert.equal(opusAppend.toolEvents[0].type, 'tool_use');
+    assert.equal(opusAppend.toolEvents[1].type, 'tool_result');
   });
 });
 

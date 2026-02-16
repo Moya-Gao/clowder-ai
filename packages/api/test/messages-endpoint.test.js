@@ -208,6 +208,46 @@ describe('GET /api/messages', () => {
     assert.equal(new Set(allIds).size, 4, 'All 4 messages should be unique across pages');
   });
 
+  it('returns toolEvents when message has them (缅因猫 R2 P1-2)', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: 'I read the file',
+      mentions: [],
+      timestamp: 3000,
+      toolEvents: [
+        { id: 'tool-1', type: 'tool_use', label: 'opus → Read', detail: '{"path":"/a.ts"}', timestamp: 3000 },
+        { id: 'toolr-1', type: 'tool_result', label: 'opus ← result', detail: 'file content...', timestamp: 3001 },
+      ],
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages.length, 1);
+
+    const msg = body.messages[0];
+    assert.ok(msg.toolEvents, 'API response should include toolEvents');
+    assert.equal(msg.toolEvents.length, 2);
+    assert.equal(msg.toolEvents[0].type, 'tool_use');
+    assert.equal(msg.toolEvents[0].label, 'opus → Read');
+    assert.equal(msg.toolEvents[1].type, 'tool_result');
+  });
+
+  it('omits toolEvents when message has none', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: 'just text',
+      mentions: [],
+      timestamp: 4000,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].toolEvents, undefined, 'should not include toolEvents when absent');
+  });
+
   it('filters by userId', async () => {
     messageStore.append({
       userId: 'alice',

@@ -322,4 +322,43 @@ describe('MessageStore', () => {
     });
     assert.deepEqual(msg.contentBlocks, blocks);
   });
+
+  test('append() preserves toolEvents', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const toolEvents = [
+      { id: 'tool-1', type: 'tool_use', label: 'opus → Read', detail: '{"path":"/a.ts"}', timestamp: 1000 },
+      { id: 'toolr-1', type: 'tool_result', label: 'opus ← result', detail: 'file content...', timestamp: 1001 },
+    ];
+    const msg = store.append({
+      userId: 'u', catId: 'opus', content: 'done', mentions: [], timestamp: 1,
+      toolEvents,
+    });
+    assert.deepEqual(msg.toolEvents, toolEvents);
+
+    // Verify toolEvents round-trip via getByThread
+    const thread = store.getByThread(msg.threadId);
+    assert.equal(thread.length, 1);
+    assert.deepEqual(thread[0].toolEvents, toolEvents);
+  });
+
+  test('hardDelete() clears toolEvents', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const msg = store.append({
+      userId: 'u', catId: 'opus', content: 'hi', mentions: [], timestamp: 1,
+      toolEvents: [{ id: 't1', type: 'tool_use', label: 'test', timestamp: 1 }],
+    });
+    assert.ok(msg.toolEvents);
+
+    const deleted = store.hardDelete(msg.id, 'admin');
+    assert.ok(deleted);
+    assert.equal(deleted.toolEvents, undefined);
+  });
 });
