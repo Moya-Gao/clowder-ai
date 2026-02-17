@@ -107,14 +107,23 @@ export function ThreadSidebar() {
     }
   }, [updateThreadTitle]);
 
-  /** Reconcile pin state from server for a single thread */
-  const reconcileThread = useCallback(async (threadId: string) => {
+  /** Reconcile pin/fav state from server. Only applies if seq refs haven't moved. */
+  const reconcileThread = useCallback(async (
+    threadId: string,
+    expectedPinSeq: number,
+    expectedFavSeq: number,
+  ) => {
     try {
       const res = await apiFetch(`/api/threads/${threadId}`);
       if (!res.ok) return;
       const t = await res.json();
-      if (t.pinned !== undefined) updateThreadPin(threadId, t.pinned);
-      if (t.favorited !== undefined) updateThreadFavorite(threadId, t.favorited);
+      // Only apply if no newer request has been issued since reconcile was triggered
+      if (t.pinned !== undefined && pinSeqRef.current.get(threadId) === expectedPinSeq) {
+        updateThreadPin(threadId, t.pinned);
+      }
+      if (t.favorited !== undefined && favSeqRef.current.get(threadId) === expectedFavSeq) {
+        updateThreadFavorite(threadId, t.favorited);
+      }
     } catch {
       // best-effort
     }
@@ -123,6 +132,7 @@ export function ThreadSidebar() {
   const handleTogglePin = useCallback(async (threadId: string, pinned: boolean) => {
     const seq = (pinSeqRef.current.get(threadId) ?? 0) + 1;
     pinSeqRef.current.set(threadId, seq);
+    const favSeq = favSeqRef.current.get(threadId) ?? 0;
     try {
       const res = await apiFetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
@@ -131,7 +141,9 @@ export function ThreadSidebar() {
       });
       if (!res.ok) {
         // Request failed — reconcile with server to avoid drift
-        if (pinSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+        if (pinSeqRef.current.get(threadId) === seq) {
+          void reconcileThread(threadId, seq, favSeq);
+        }
         return;
       }
       // Only apply if this is still the latest request for this thread
@@ -139,13 +151,16 @@ export function ThreadSidebar() {
       const updated = await res.json();
       updateThreadPin(threadId, updated.pinned ?? pinned);
     } catch {
-      if (pinSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+      if (pinSeqRef.current.get(threadId) === seq) {
+        void reconcileThread(threadId, seq, favSeq);
+      }
     }
   }, [updateThreadPin, reconcileThread]);
 
   const handleToggleFavorite = useCallback(async (threadId: string, favorited: boolean) => {
     const seq = (favSeqRef.current.get(threadId) ?? 0) + 1;
     favSeqRef.current.set(threadId, seq);
+    const pinSeq = pinSeqRef.current.get(threadId) ?? 0;
     try {
       const res = await apiFetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
@@ -154,7 +169,9 @@ export function ThreadSidebar() {
       });
       if (!res.ok) {
         // Request failed — reconcile with server to avoid drift
-        if (favSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+        if (favSeqRef.current.get(threadId) === seq) {
+          void reconcileThread(threadId, pinSeq, seq);
+        }
         return;
       }
       // Only apply if this is still the latest request for this thread
@@ -162,7 +179,9 @@ export function ThreadSidebar() {
       const updated = await res.json();
       updateThreadFavorite(threadId, updated.favorited ?? favorited);
     } catch {
-      if (favSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+      if (favSeqRef.current.get(threadId) === seq) {
+        void reconcileThread(threadId, pinSeq, seq);
+      }
     }
   }, [updateThreadFavorite, reconcileThread]);
 
