@@ -156,7 +156,7 @@
 |---|------|------|------|
 | D1 | Google A2A 协议为何没成标准？ | 铲屎官洞察 🐬 | Agent 调用 Agent 的方式：API / MCP / 我们的 @机制？各有什么优劣？ |
 | D2 | 上下文工程方向选择 | 四方圆桌 | Layer 1/2 (索引) vs Layer 4 (调度) 的投入优先级 |
-| D3 | 可维护性法则提炼 | 圆桌设计 | Cat Café 做对了什么？如何迁移到其他项目？详见 `docs/archive/2026-02/discussions/2026-02-07-context-enginnering/maintainability-roundtable-design.md` |
+| D3 | 可维护性法则提炼 | 圆桌设计 | Cat Café 做对了什么？如何迁移到其他项目？详见 `docs/archive/2026-02/discussions/2026-02-09-dare-framework/maintainability-roundtable-design.md` |
 
 ## 已知限制（非 bug，需意识到）
 
