@@ -19,7 +19,6 @@
 import { randomUUID } from 'node:crypto';
 import { spawn as nodeSpawn } from 'node:child_process';
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -33,12 +32,15 @@ import type {
   MessageMetadata,
   TokenUsage,
 } from '../../types.js';
+import {
+  transformGeminiEvent,
+  isResultErrorEvent,
+  isKnownPostResponseCandidatesCrash,
+} from './gemini-event-parser.js';
 
 const CAT_ID = createCatId('gemini');
 
 type GeminiAdapter = 'gemini-cli' | 'antigravity';
-const KNOWN_POST_RESPONSE_CANDIDATES_CRASH = "Cannot read properties of undefined (reading 'candidates')";
-
 /**
  * Options for constructing GeminiAgentService (dependency injection)
  */
@@ -49,111 +51,6 @@ interface GeminiAgentServiceOptions {
   antigravitySpawnFn?: typeof nodeSpawn;
   /** Override adapter selection (default: GEMINI_ADAPTER env or 'gemini-cli') */
   adapter?: GeminiAdapter;
-}
-
-/**
- * Transform a raw Gemini CLI NDJSON event into an AgentMessage.
- * Returns null to skip events we don't care about.
- */
-function transformGeminiEvent(
-  event: unknown,
-  catId: CatId
-): AgentMessage | null {
-  if (typeof event !== 'object' || event === null) return null;
-  const e = event as Record<string, unknown>;
-
-  // init → session_init
-  if (e['type'] === 'init') {
-    const sessionId = e['session_id'];
-    if (typeof sessionId === 'string') {
-      return {
-        type: 'session_init',
-        catId,
-        sessionId,
-        timestamp: Date.now(),
-      };
-    }
-    return null;
-  }
-
-  // message with role:"assistant" → text
-  if (e['type'] === 'message' && e['role'] === 'assistant') {
-    const content = e['content'];
-    if (typeof content === 'string') {
-      return {
-        type: 'text',
-        catId,
-        content,
-        timestamp: Date.now(),
-      };
-    }
-    return null;
-  }
-
-  // tool_use → tool_use
-  if (e['type'] === 'tool_use') {
-    const toolName = e['tool_name'];
-    if (typeof toolName === 'string') {
-      return {
-        type: 'tool_use',
-        catId,
-        toolName,
-        toolInput: (e['parameters'] as Record<string, unknown>) ?? {},
-        timestamp: Date.now(),
-      };
-    }
-    return null;
-  }
-
-  // result with non-success status → error
-  if (e['type'] === 'result' && e['status'] !== 'success') {
-    const message = extractGeminiErrorMessage(e['error']);
-    if (!message) {
-      // Let cli-exit error provide the detailed message.
-      return null;
-    }
-    return {
-      type: 'error',
-      catId,
-      error: message,
-      timestamp: Date.now(),
-    };
-  }
-
-  // Everything else (message/user, tool_result, result/success) → skip
-  return null;
-}
-
-function isResultErrorEvent(event: unknown): boolean {
-  if (typeof event !== 'object' || event === null) return false;
-  const e = event as Record<string, unknown>;
-  return e['type'] === 'result' && e['status'] !== 'success';
-}
-
-function extractGeminiErrorMessage(rawError: unknown): string | null {
-  if (typeof rawError === 'string') {
-    const value = rawError.trim();
-    return value.length > 0 ? value : null;
-  }
-
-  if (typeof rawError === 'object' && rawError !== null) {
-    const message = (rawError as Record<string, unknown>)['message'];
-    if (typeof message === 'string') {
-      const value = message.trim();
-      return value.length > 0 ? value : null;
-    }
-  }
-
-  return null;
-}
-
-function isKnownPostResponseCandidatesCrash(event: unknown): boolean {
-  if (typeof event !== 'object' || event === null) return false;
-  const e = event as Record<string, unknown>;
-  if (e['type'] !== 'result' || e['status'] === 'success') return false;
-
-  const message = extractGeminiErrorMessage(e['error']);
-  return message?.includes(KNOWN_POST_RESPONSE_CANDIDATES_CRASH) ?? false;
 }
 
 /**

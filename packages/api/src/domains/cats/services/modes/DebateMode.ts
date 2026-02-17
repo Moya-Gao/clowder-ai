@@ -10,7 +10,7 @@
 
 import type { CatId, ModeConfig, ModeState, DebateConfig, DebateState } from '@cat-cafe/shared';
 import { isDebateConfig, isDebateState, createCatId } from '@cat-cafe/shared';
-import { routeSerial } from '../agents/routing/route-strategies.js';
+import { routeSerial } from '../agents/routing/route-serial.js';
 import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
 import { buildDebatePrompt } from './mode-prompts.js';

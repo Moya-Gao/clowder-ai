@@ -24,7 +24,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
-import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-strategies.js';
+import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';

@@ -12,12 +12,12 @@
  * 消息 TTL 可配置 (默认 7 天)。
  */
 
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
-import type { AppendMessageInput, StoredMessage, StoredToolEvent } from '../ports/MessageStore.js';
-import type { MessageMetadata } from '../../types.js';
+import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
+import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata } from './redis-message-parsers.js';
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -471,52 +471,5 @@ export class RedisMessageStore {
       });
     }
     return messages;
-  }
-}
-
-function safeParseMentions(raw: string | undefined): readonly CatId[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-function safeParseToolEvents(raw: string | undefined): readonly StoredToolEvent[] | undefined {
-  if (!raw) return undefined;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function safeParseContentBlocks(raw: string | undefined): readonly MessageContent[] | undefined {
-  if (!raw) return undefined;
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function safeParseMetadata(raw: string | undefined): MessageMetadata | undefined {
-  if (!raw) return undefined;
-  try {
-    const parsed = JSON.parse(raw);
-    if (
-      typeof parsed === 'object' && parsed !== null &&
-      typeof parsed.provider === 'string' &&
-      typeof parsed.model === 'string'
-    ) {
-      return parsed as MessageMetadata;
-    }
-    return undefined;
-  } catch {
-    return undefined;
   }
 }

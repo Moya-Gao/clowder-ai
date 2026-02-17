@@ -12,7 +12,8 @@
 
 import type { CatId, ModeConfig, ModeState, BrainstormConfig, BrainstormState } from '@cat-cafe/shared';
 import { isBrainstormConfig, isBrainstormState } from '@cat-cafe/shared';
-import { routeSerial, routeParallel } from '../agents/routing/route-strategies.js';
+import { routeSerial } from '../agents/routing/route-serial.js';
+import { routeParallel } from '../agents/routing/route-parallel.js';
 import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
 import { buildBrainstormPrompt, buildModeSwitchInstruction } from './mode-prompts.js';

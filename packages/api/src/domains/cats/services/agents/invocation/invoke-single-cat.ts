@@ -23,37 +23,7 @@ import { createPromptDigest } from '../../context/prompt-digest.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { shouldSeal, getSealConfig } from '../../../../../config/seal-thresholds.js';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
-
-/* ── F26: Task tool detection for real-time progress ─────── */
-const TASK_TOOL_NAMES = new Set(['TodoWrite', 'write_todos']);
-
-function extractTaskProgress(
-  toolName: string,
-  toolInput: Record<string, unknown> | undefined,
-): { action: 'snapshot'; tasks: Array<{ id: string; subject: string; status: string; activeForm?: string }> } | null {
-  if (!toolInput || !TASK_TOOL_NAMES.has(toolName)) return null;
-  const todos = toolInput['todos'] as Array<{ content?: string; status?: string; activeForm?: string }> | undefined;
-  if (!Array.isArray(todos)) return null;
-  return {
-    action: 'snapshot',
-    tasks: todos.map((t, i) => ({
-      id: `task-${i}`,
-      subject: (t.content ?? '').slice(0, 120),
-      status: t.status ?? 'pending',
-      ...(t.activeForm ? { activeForm: t.activeForm } : {}),
-    })),
-  };
-}
-
-function isMissingClaudeSessionError(message: string | undefined): boolean {
-  if (!message) return false;
-  return /No conversation found with session ID/i.test(message);
-}
-
-function isTransientCliExitCode1(message: string | undefined): boolean {
-  if (!message) return false;
-  return /CLI 异常退出 \(code:\s*1(?:,\s*signal:\s*none)?\)/i.test(message);
-}
+import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
 
 /**
  * Shared dependencies for all cat invocations within one AgentRouter

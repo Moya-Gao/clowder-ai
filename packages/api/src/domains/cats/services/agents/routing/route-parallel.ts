@@ -1,0 +1,311 @@
+/**
+ * Parallel Route Strategy
+ * All cats respond independently to the same message.
+ */
+
+import { CAT_CONFIGS } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
+import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
+import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
+import { mergeStreams } from '../invocation/stream-merge.js';
+import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
+import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
+import { parseA2AMentions } from '../routing/a2a-mentions.js';
+import { assembleContext } from '../../context/ContextAssembler.js';
+import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
+import { estimateTokens } from '../../../../../utils/token-counter.js';
+import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
+import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
+import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import {
+  getService,
+  detectContextDegradation,
+  toStoredToolEvent,
+  sanitizeInjectedContent,
+  routeContentBlocksForCat,
+  assembleIncrementalContext,
+} from './route-helpers.js';
+import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
+
+export async function* routeParallel(
+  deps: RouteStrategyDeps,
+  targetCats: CatId[],
+  message: string,
+  userId: string,
+  threadId: string,
+  options: RouteOptions = {},
+): AsyncIterable<AgentMessage> {
+  const {
+    contentBlocks,
+    uploadDir,
+    signal,
+    promptTags,
+    contextHistory,
+    history,
+    currentUserMessageId,
+    modeSystemPrompt,
+    modeSystemPromptByCat,
+  } = options;
+  const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+  const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
+
+  const degradationMsgs: AgentMessage[] = [];
+  const boundaryByCat = new Map<CatId, string | undefined>();
+
+  const streams = await Promise.all(targetCats.map(async (catId) => {
+    const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+    const staticIdentity = buildStaticIdentity(catId);
+    const invocationContext = buildInvocationContext({
+      catId,
+      mode: 'parallel',
+      teammates: targetCats.filter((id) => id !== catId),
+      mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
+      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+    });
+    // Inject MCP HTTP callback instructions for non-Claude cats
+    const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
+      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
+      : '';
+
+    const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
+    const targetUploadDir = targetContentBlocks ? uploadDir : undefined;
+
+    // F24 Phase E: Bootstrap context for Session #2+
+    let bootstrapCtx = '';
+    if (isSessionChainEnabled(catId) && deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
+      try {
+        const bootstrap = await buildSessionBootstrap(
+          {
+            sessionChainStore: deps.invocationDeps.sessionChainStore,
+            transcriptReader: deps.invocationDeps.transcriptReader,
+          },
+          catId,
+          threadId,
+        );
+        if (bootstrap) {
+          bootstrapCtx = bootstrap.text;
+        }
+      } catch {
+        // Best-effort: bootstrap failure doesn't block invocation
+      }
+    }
+
+    let prompt: string;
+    if (incrementalMode) {
+      const inc = await assembleIncrementalContext(
+        deps,
+        userId,
+        threadId,
+        catId,
+        currentUserMessageId,
+      );
+      boundaryByCat.set(catId, inc.boundaryId);
+      const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      const parts = [invocationContext, parCatModePrompt, bootstrapCtx, mcpInstructions].filter(Boolean);
+      if (inc.contextText) parts.push(inc.contextText);
+      if (!inc.includesCurrentUserMessage) parts.push(message);
+      prompt = parts.join('\n\n---\n\n');
+    } else {
+      // Per-cat context budget (Phase 4.0)
+      let catContextHistory = contextHistory;
+      if (history && history.length > 0 && !contextHistory) {
+        const catName = catId as 'opus' | 'codex' | 'gemini';
+        const budget = getCatContextBudget(catName);
+        // F8: token-based budget — estimate non-context tokens, remainder goes to context
+        const parSystemTokens = estimateTokens(
+          [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
+        );
+        const parPromptTokens = estimateTokens(message);
+        const budgetForContext = Math.max(0, budget.maxPromptTokens - parSystemTokens - parPromptTokens - 200);
+        const { contextText, messageCount } = assembleContext(history, {
+          maxMessages: budget.maxMessages,
+          maxContentLength: budget.maxContentLengthPerMsg,
+          maxTotalTokens: Math.min(budgetForContext, budget.maxContextTokens),
+        });
+        catContextHistory = contextText || undefined;
+
+        // Degradation check: notify user if context was truncated (count budget or char budget)
+        const degradation = detectContextDegradation(history.length, messageCount, budget);
+        if (degradation?.degraded) {
+          degradationMsgs.push({
+            type: 'system_info' as AgentMessageType,
+            catId,
+            content: formatDegradationMessage(degradation),
+            timestamp: Date.now(),
+          } as AgentMessage);
+        }
+      }
+
+      const parCatModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
+      if (invocationContext || parCatModePromptLegacy || mcpInstructions || bootstrapCtx) {
+        const parts = [invocationContext, parCatModePromptLegacy, bootstrapCtx, mcpInstructions].filter(Boolean);
+        if (catContextHistory) parts.push(catContextHistory);
+        prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${message}`;
+      } else if (catContextHistory) {
+        prompt = `${catContextHistory}\n\n---\n\n${message}`;
+      } else {
+        prompt = message;
+      }
+    }
+
+    return invokeSingleCat(deps.invocationDeps, {
+      catId,
+      service: getService(deps.services, catId),
+      prompt,
+      userId,
+      threadId,
+      ...(targetContentBlocks ? { contentBlocks: targetContentBlocks } : {}),
+      ...(targetUploadDir ? { uploadDir: targetUploadDir } : {}),
+      ...(signal ? { signal } : {}),
+      ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
+      isLastCat: false,
+    });
+  }));
+
+  // Yield degradation notifications before streaming starts (BACKLOG #32)
+  for (const dm of degradationMsgs) {
+    yield dm;
+  }
+
+  const catText = new Map<string, string>();
+  const catMeta = new Map<string, MessageMetadata>();
+  const catToolEvents = new Map<string, StoredToolEvent[]>();
+  const catHadError = new Set<string>();
+  let completedCount = 0;
+
+  for await (const msg of mergeStreams(streams, (idx, err) => {
+    console.error(`[routeParallel] Stream ${idx} error:`, err);
+  })) {
+    if (msg.type === 'text' && msg.content && msg.catId) {
+      catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
+    }
+    if (msg.type === 'error' && msg.catId) {
+      catHadError.add(msg.catId);
+      if (msg.error) {
+        const prev = catText.get(msg.catId) ?? '';
+        catText.set(msg.catId, prev + (prev ? '\n\n' : '') + `❌ ${msg.error}`);
+      }
+    }
+    // Accumulate tool events per cat
+    const toolEvt = toStoredToolEvent(msg);
+    if (toolEvt && msg.catId) {
+      const arr = catToolEvents.get(msg.catId) ?? [];
+      arr.push(toolEvt);
+      catToolEvents.set(msg.catId, arr);
+    }
+    if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
+      catMeta.set(msg.catId, msg.metadata);
+    }
+
+    if (msg.type === 'done' && msg.catId) {
+      completedCount++;
+      const text = catText.get(msg.catId);
+      if (text) {
+        const meta = catMeta.get(msg.catId);
+        const storedContent = sanitizeInjectedContent(text);
+        const catTools = catToolEvents.get(msg.catId);
+        // A2A only triggers in routeSerial; routeParallel stores mentions
+        // but never chains (MVP safety boundary — see Phase 3.9 design doc)
+        const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
+        try {
+          await deps.messageStore.append({
+            userId,
+            catId: msg.catId as CatId,
+            content: storedContent,
+            mentions,
+            timestamp: Date.now(),
+            threadId,
+            ...(meta ? { metadata: meta } : {}),
+            ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
+          });
+        } catch (err) {
+          console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
+          if (options.persistenceContext) {
+            options.persistenceContext.failed = true;
+            options.persistenceContext.errors.push({
+              catId: msg.catId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      } else if (!catHadError.has(msg.catId)) {
+        // No text content and no error — store empty message with any tool events
+        // (mirrors routeSerial empty-text branch, ensures tool-only responses are persisted)
+        const meta = catMeta.get(msg.catId);
+        const catTools = catToolEvents.get(msg.catId);
+        try {
+          await deps.messageStore.append({
+            userId,
+            catId: msg.catId as CatId,
+            content: '',
+            mentions: [],
+            timestamp: Date.now(),
+            threadId,
+            ...(meta ? { metadata: meta } : {}),
+            ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
+          });
+        } catch (err) {
+          console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
+          if (options.persistenceContext) {
+            options.persistenceContext.failed = true;
+            options.persistenceContext.errors.push({
+              catId: msg.catId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+
+      if (incrementalMode && !catHadError.has(msg.catId)) {
+        const boundaryId = boundaryByCat.get(msg.catId as CatId);
+        if (boundaryId) {
+          if (options.cursorBoundaries) {
+            // ADR-008 S3: defer ack — caller acks after invocation succeeds
+            options.cursorBoundaries.set(msg.catId, boundaryId);
+          } else if (deps.deliveryCursorStore) {
+            // Legacy: ack immediately
+            try {
+              await deps.deliveryCursorStore.ackCursor(
+                userId,
+                msg.catId as CatId,
+                threadId,
+                boundaryId,
+              );
+            } catch (err) {
+              console.error(`[routeParallel] ackCursor failed for ${msg.catId}:`, err);
+            }
+          }
+        }
+      }
+
+      const isFinal = completedCount === targetCats.length;
+
+      // F5: When all parallel cats are done, emit follow-up hints for A2A mentions
+      if (isFinal) {
+        const followupMentions: Array<{ catId: string; mentionedBy: string }> = [];
+        for (const [cid, text] of catText.entries()) {
+          const ms = parseA2AMentions(text, cid as CatId);
+          for (const target of ms) {
+            followupMentions.push({ catId: target, mentionedBy: cid });
+          }
+        }
+        if (followupMentions.length > 0) {
+          yield {
+            type: 'system_info' as AgentMessageType,
+            catId: msg.catId as CatId,
+            content: JSON.stringify({
+              type: 'a2a_followup_available',
+              mentions: followupMentions,
+            }),
+            timestamp: Date.now(),
+          };
+        }
+      }
+
+      yield { ...msg, isFinal };
+    } else {
+      yield msg;
+    }
+  }
+}

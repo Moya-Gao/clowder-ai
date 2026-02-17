@@ -74,7 +74,7 @@ function createMockDeps(services, appendCalls) {
 
 describe('routeSerial', () => {
   it('executes single cat and yields text + done', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'serial response') });
 
     const messages = [];
@@ -90,7 +90,7 @@ describe('routeSerial', () => {
   });
 
   it('persists toolEvents when agent yields tool_use and tool_result', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
 
     // Mock service that yields tool_use → tool_result → text → done
     const toolService = {
@@ -129,7 +129,7 @@ describe('routeSerial', () => {
 
 describe('routeSerial A2A worklist', () => {
   it('extends worklist when cat response contains line-start @mention', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     // opus responds with a line-start mention of codex
     const deps = createMockDeps({
       opus: createMockService('opus', '我写好了代码\n@缅因猫 请 review 一下'),
@@ -149,7 +149,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('yields a2a_handoff event when A2A chain triggers', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '请看一下\n@缅因猫 帮忙检查'),
       codex: createMockService('codex', '已检查完毕'),
@@ -167,7 +167,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('A2A cat receives previousResponses in prompt', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
       opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
@@ -184,7 +184,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('isFinal is true only on the last done in the chain', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '好的\n@缅因猫 帮忙'),
       codex: createMockService('codex', '搞定了'),
@@ -206,7 +206,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('does not extend worklist beyond maxA2ADepth', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     // opus mentions codex, codex mentions gemini, gemini mentions opus
     // With maxA2ADepth=1, only first A2A hop should trigger
     const deps = createMockDeps({
@@ -228,7 +228,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('self-mention does not trigger A2A', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '我是布偶猫\n@布偶猫 说完了'),
       codex: createMockService('codex', 'should not be called'),
@@ -246,7 +246,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('non-line-start @mention does not trigger A2A', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '之前缅因猫说的 @缅因猫 方案不错，我同意'),
       codex: createMockService('codex', 'should not be called'),
@@ -262,7 +262,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('signal abort stops worklist chain', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const ac = new AbortController();
     const deps = createMockDeps({
       opus: {
@@ -287,7 +287,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('stores mentions correctly in messageStore.append', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
     const deps = createMockDeps({
       opus: createMockService('opus', '写完了\n@缅因猫 帮review'),
@@ -308,7 +308,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('supports 2-hop A2A chain: user→A→B→A', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     let opusCallCount = 0;
     const deps = createMockDeps({
       opus: {
@@ -337,7 +337,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('incremental mode: falls back to explicit user message when current message is missing from incremental context', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const captureService = createCapturingService('opus', 'ack');
 
     const deps = createMockDeps({ opus: captureService });
@@ -373,7 +373,7 @@ describe('routeSerial A2A worklist', () => {
   });
 
   it('sanitize should preserve normal markdown separator lines', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
     const deps = createMockDeps({
       opus: createMockService('opus', '章节A\n---\n章节B'),
@@ -389,7 +389,7 @@ describe('routeSerial A2A worklist', () => {
 
 describe('routeSerial resilience', () => {
   it('yields done even when messageStore.append throws (Redis failure)', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
 
     // Create deps with a failing messageStore
     let counter = 0;
@@ -432,7 +432,7 @@ describe('routeSerial resilience', () => {
 
 describe('routeParallel resilience', () => {
   it('yields done even when messageStore.append throws (Redis failure)', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
@@ -454,7 +454,7 @@ describe('routeParallel resilience', () => {
 
 describe('routeParallel tool events persistence', () => {
   it('persists toolEvents per cat when agents yield tool_use events', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     // opus uses a tool, codex doesn't
     const opusService = {
@@ -487,7 +487,7 @@ describe('routeParallel tool events persistence', () => {
   });
 
   it('persists tool-only cat (no text) in parallel mode (缅因猫 R2 P1-1)', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     // opus only yields tool events, NO text
     const toolOnlyService = {
@@ -517,7 +517,7 @@ describe('routeParallel tool events persistence', () => {
 
 describe('routeSerial persistence context (P1-2)', () => {
   it('sets persistenceContext.failed when messageStore.append throws', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
 
     const deps = createMockDeps({ opus: createMockService('opus', '结果') });
     deps.messageStore.append = async () => { throw new Error('Redis connection refused'); };
@@ -539,7 +539,7 @@ describe('routeSerial persistence context (P1-2)', () => {
   });
 
   it('does not set persistenceContext.failed on successful append', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'success') });
 
     const persistenceContext = { failed: false, errors: [] };
@@ -554,7 +554,7 @@ describe('routeSerial persistence context (P1-2)', () => {
 
 describe('routeParallel persistence context (P1-2)', () => {
   it('sets persistenceContext.failed when messageStore.append throws', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
@@ -577,7 +577,7 @@ describe('routeParallel persistence context (P1-2)', () => {
   });
 
   it('does not set persistenceContext.failed on successful append', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
       codex: createMockService('codex', 'codex says'),
@@ -595,7 +595,7 @@ describe('routeParallel persistence context (P1-2)', () => {
 
 describe('image contentBlocks routing', () => {
   it('routeParallel passes image contentBlocks to all target cats', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const opusService = createOptionsCapturingService('opus', 'opus');
     const codexService = createOptionsCapturingService('codex', 'codex');
     const deps = createMockDeps({ opus: opusService, codex: codexService });
@@ -621,7 +621,7 @@ describe('image contentBlocks routing', () => {
   });
 
   it('routeSerial passes image contentBlocks to all target cats', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const opusService = createOptionsCapturingService('opus', 'opus');
     const codexService = createOptionsCapturingService('codex', 'codex');
     const deps = createMockDeps({ opus: opusService, codex: codexService });
@@ -649,7 +649,7 @@ describe('image contentBlocks routing', () => {
 
 describe('routeSerial per-cat budget', () => {
   it('uses history for context assembly when provided', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const captureService = createCapturingService('opus', 'response');
     const deps = createMockDeps({ opus: captureService });
 
@@ -669,7 +669,7 @@ describe('routeSerial per-cat budget', () => {
   });
 
   it('falls back to legacy contextHistory when provided', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const captureService = createCapturingService('opus', 'response');
     const deps = createMockDeps({ opus: captureService });
 
@@ -682,7 +682,7 @@ describe('routeSerial per-cat budget', () => {
 
 describe('routeParallel per-cat budget', () => {
   it('uses history for context assembly when provided', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const opusService = createCapturingService('opus', 'opus says');
     const codexService = createCapturingService('codex', 'codex says');
     const deps = createMockDeps({ opus: opusService, codex: codexService });
@@ -701,7 +701,7 @@ describe('routeParallel per-cat budget', () => {
 
 describe('routeSerial degradation notification', () => {
   it('yields system_info when history exceeds budget maxMessages', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
     // Generate 250 messages to exceed opus default maxMessages=200
@@ -726,7 +726,7 @@ describe('routeSerial degradation notification', () => {
   });
 
   it('does not yield system_info when history is within budget', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
     // 5 messages — well within opus maxMessages=200
@@ -750,7 +750,7 @@ describe('routeSerial degradation notification', () => {
   });
 
   it('yields system_info when context is truncated by token budget (not count)', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({ opus: createMockService('opus', 'response') });
 
     // Override maxPromptTokens to a small value via env.
@@ -785,7 +785,7 @@ describe('routeSerial degradation notification', () => {
 
 describe('routeParallel degradation notification', () => {
   it('yields system_info for each degraded cat', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
       codex: createMockService('codex', 'codex says'),
@@ -812,7 +812,7 @@ describe('routeParallel degradation notification', () => {
   });
 
   it('yields system_info when context is truncated by character budget in parallel mode', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
       codex: createMockService('codex', 'codex says'),
@@ -842,7 +842,7 @@ describe('routeParallel degradation notification', () => {
 
 describe('routeParallel A2A safety', () => {
   it('does not chain A2A even when mentions are detected', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const appendCalls = [];
     const deps = createMockDeps({
       opus: createMockService('opus', '需要缅因猫帮忙\n@缅因猫 请看'),
@@ -865,7 +865,7 @@ describe('routeParallel A2A safety', () => {
   });
 
   it('executes multiple cats independently and yields interleaved messages', async () => {
-    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
     const deps = createMockDeps({
       opus: createMockService('opus', 'opus says'),
       codex: createMockService('codex', 'codex says'),
@@ -905,7 +905,7 @@ function createErrorOnlyService(catId) {
 
 describe('routeSerial: CLI error without text should not persist empty message (P1)', () => {
   it('persists error text when cat yields error + done with no user-visible text', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
     const deps = createMockDeps({
       codex: createErrorOnlyService('codex'),
@@ -931,7 +931,7 @@ describe('routeSerial: CLI error without text should not persist empty message (
   });
 
   it('still persists message normally when cat yields text + done (no error)', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
     const deps = createMockDeps({
       codex: createMockService('codex', 'normal response'),
@@ -945,7 +945,7 @@ describe('routeSerial: CLI error without text should not persist empty message (
   });
 
   it('still persists message when cat yields error + text + done (partial response)', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-strategies.js');
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];
     const deps = createMockDeps({
       codex: {

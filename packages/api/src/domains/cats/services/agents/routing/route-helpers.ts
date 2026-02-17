@@ -1,0 +1,224 @@
+/**
+ * Route Helpers
+ * Shared types, interfaces, and helper functions for route-serial and route-parallel.
+ */
+
+import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores/ports/MessageStore.js';
+import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
+import type { AgentMessage, AgentService } from '../../types.js';
+import { formatMessage } from '../../context/ContextAssembler.js';
+import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
+import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
+import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
+
+/** Dependencies shared across route strategies */
+export interface RouteStrategyDeps {
+  services: Record<string, AgentService>;
+  invocationDeps: InvocationDeps;
+  messageStore: IMessageStore;
+  deliveryCursorStore?: DeliveryCursorStore;
+}
+
+/** Mutable context for tracking persistence failures across the generator boundary.
+ *  Caller creates the object, passes it in RouteOptions, and checks after generator exhausts. */
+export interface PersistenceContext {
+  /** Set to true by route strategies when any messageStore.append() call fails */
+  failed: boolean;
+  /** Error details for diagnostics */
+  errors: Array<{ catId: string; error: string }>;
+}
+
+/** Common options for both strategies */
+export interface RouteOptions {
+  contentBlocks?: readonly MessageContent[] | undefined;
+  uploadDir?: string | undefined;
+  signal?: AbortSignal | undefined;
+  promptTags?: readonly string[] | undefined;
+  /** Pre-assembled context (deprecated: use history for per-cat budget) */
+  contextHistory?: string | undefined;
+  /** Raw thread history for per-cat context assembly */
+  history?: StoredMessage[] | undefined;
+  /** Current user message ID (enables exact incremental context delivery path) */
+  currentUserMessageId?: string | undefined;
+  /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
+  maxA2ADepth?: number | undefined;
+  /** ADR-008 S3: When provided, cursor boundaries are collected here instead of acking immediately.
+   *  Caller acks after invocation succeeds. If absent, legacy immediate ack behavior. */
+  cursorBoundaries?: Map<string, string>;
+  /** P1-2: When provided, persistence failures are recorded here instead of silently swallowed.
+   *  Caller checks after generator exhausts to determine invocation status. */
+  persistenceContext?: PersistenceContext;
+  /** F11: Mode-specific system prompt section (appended after identity prompt) */
+  modeSystemPrompt?: string | undefined;
+  /** F11: Per-cat mode prompt override (takes precedence over modeSystemPrompt) */
+  modeSystemPromptByCat?: Record<string, string> | undefined;
+}
+
+export interface IncrementalContextResult {
+  contextText: string;
+  boundaryId?: string;
+  includesCurrentUserMessage: boolean;
+}
+
+/** Get the agent service for a given cat ID */
+export function getService(services: Record<string, AgentService>, catId: CatId): AgentService {
+  const service = services[catId];
+  if (!service) throw new Error(`Unknown cat ID: ${catId as string}`);
+  return service;
+}
+
+export function detectContextDegradation(
+  historyCount: number,
+  includedCount: number,
+  budget: ReturnType<typeof getCatContextBudget>,
+): DegradationResult | null {
+  // Existing count-based degradation logic
+  const byCount = checkContextBudget(historyCount, budget);
+  if (byCount.degraded) return byCount;
+
+  // Additional char-budget degradation: history count is within budget, but content still got truncated.
+  const maxCountCandidate = Math.min(historyCount, budget.maxMessages);
+  if (includedCount < maxCountCandidate) {
+    return {
+      degraded: true,
+      strategy: 'truncated',
+      reason: `Token 预算限制，历史从 ${maxCountCandidate} 条截断到 ${includedCount} 条`,
+      adjustedMaxMessages: includedCount,
+    };
+  }
+
+  return null;
+}
+
+/** Truncate a string for tool event detail preview */
+export function truncateDetail(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}…`;
+}
+
+/** Build a StoredToolEvent from a streaming AgentMessage */
+export function toStoredToolEvent(msg: AgentMessage): StoredToolEvent | null {
+  if (msg.type === 'tool_use') {
+    const toolName = msg.toolName ?? 'unknown';
+    let detail: string | undefined;
+    if (msg.toolInput) {
+      try {
+        detail = truncateDetail(JSON.stringify(msg.toolInput), 200);
+      } catch {
+        detail = '[unserializable]';
+      }
+    }
+    return {
+      id: `tool-${msg.timestamp}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'tool_use',
+      label: `${msg.catId as string} → ${toolName}`,
+      ...(detail ? { detail } : {}),
+      timestamp: msg.timestamp,
+    };
+  }
+  if (msg.type === 'tool_result') {
+    const raw = (msg.content ?? '').trimEnd();
+    const detail = raw.length > 0 ? truncateDetail(raw, 220) : '(no output)';
+    return {
+      id: `toolr-${msg.timestamp}-${Math.random().toString(36).slice(2, 6)}`,
+      type: 'tool_result',
+      label: `${msg.catId as string} ← result`,
+      detail,
+      timestamp: msg.timestamp,
+    };
+  }
+  return null;
+}
+
+export function sanitizeInjectedContent(content: string): string {
+  const lines = content.split('\n');
+  const kept: string[] = [];
+  let skippingHistoryEnvelope = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isHistoryHeader = line.startsWith('[对话历史 - 最近 ')
+      || line.startsWith('[对话历史增量 - 未发送过 ');
+
+    if (!skippingHistoryEnvelope && isHistoryHeader) {
+      // Drop known injected history envelopes only.
+      skippingHistoryEnvelope = true;
+      continue;
+    }
+
+    if (skippingHistoryEnvelope) {
+      if (trimmed === '---') {
+        skippingHistoryEnvelope = false;
+      }
+      continue;
+    }
+
+    kept.push(line);
+  }
+
+  return kept.join('\n').trim();
+}
+
+/**
+ * Route content blocks to the target cat.
+ * All cats receive the full content blocks including images —
+ * each AgentService (Claude/Codex/Gemini) handles image paths
+ * via its own CLI bridge (--add-dir / --image / --include-directories).
+ */
+export function routeContentBlocksForCat(
+  _catId: CatId,
+  contentBlocks: readonly MessageContent[] | undefined,
+): readonly MessageContent[] | undefined {
+  return contentBlocks ?? undefined;
+}
+
+export async function fetchAfterCursor(
+  messageStore: IMessageStore,
+  threadId: string,
+  afterId: string | undefined,
+  userId: string,
+): Promise<StoredMessage[]> {
+  return messageStore.getByThreadAfter(threadId, afterId, undefined, userId);
+}
+
+export async function assembleIncrementalContext(
+  deps: RouteStrategyDeps,
+  userId: string,
+  threadId: string,
+  catId: CatId,
+  currentUserMessageId?: string,
+): Promise<IncrementalContextResult> {
+  if (!deps.deliveryCursorStore) {
+    return { contextText: '', includesCurrentUserMessage: false };
+  }
+
+  const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
+  const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
+
+  const relevant = unseen.filter((m) => m.catId === null || m.catId !== catId);
+  const includesCurrentUserMessage = Boolean(
+    currentUserMessageId && relevant.some((m) => m.id === currentUserMessageId),
+  );
+  if (relevant.length === 0) {
+    return cursor
+      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage }
+      : { contextText: '', includesCurrentUserMessage };
+  }
+
+  const lines = relevant.map((m) => {
+    const cleanContent = sanitizeInjectedContent(m.content);
+    const normalized: StoredMessage = cleanContent === m.content
+      ? m
+      : { ...m, content: cleanContent };
+    const rendered = formatMessage(normalized, { truncate: 2000 });
+    return `[${m.id}] ${rendered}`;
+  });
+
+  const boundaryId = relevant[relevant.length - 1]!.id;
+  return {
+    contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n---`,
+    boundaryId,
+    includesCurrentUserMessage,
+  };
+}
