@@ -3,7 +3,7 @@
 > 作者：宪宪（架构）+ 砚砚（调研 + v0.2 设计）
 > 日期：2026-02-12
 > 状态：📋 计划完成，待铲屎官确认优先级
-> 调研报告：[sillytavern-phone-ui-research.md](../research/sillytavern-phone-ui-research.md)
+> 调研报告：[sillytavern-phone-ui-research.md](../archive/2026-02/research/sillytavern-phone-ui-research.md)
 
 ---
 
@@ -26,7 +26,7 @@
 这是 [F10 手机端猫猫](../BACKLOG.md) 和陪伴系统的地基。没有富消息，手机上的猫猫只是一个文字聊天框。
 
 ### 灵感来源
-SillyTavern Phone-UI 扩展证明了"结构化输出 → 组件渲染 → 持久化恢复 → 上下文清洁"的管线模式在生产环境可行。详见 [调研报告](../research/sillytavern-phone-ui-research.md)。
+SillyTavern Phone-UI 扩展证明了"结构化输出 → 组件渲染 → 持久化恢复 → 上下文清洁"的管线模式在生产环境可行。详见 [调研报告](../archive/2026-02/research/sillytavern-phone-ui-research.md)。
 
 ---
 

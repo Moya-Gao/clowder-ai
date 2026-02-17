@@ -258,6 +258,32 @@ pnpm check:deps
 
 ---
 
+## 文档归档与查找
+
+已完成的讨论、邮件、调研、计划等文档会移入 `docs/archive/YYYY-MM/` 归档目录。
+
+**归档不等于没用！** 找不到文档时，先查 archive：
+
+```
+docs/archive/2026-02/
+├── discussions/    # 已完成的讨论（圆桌、brainstorm、handoff 等）
+├── mailbox/        # 已完成的 review 信、交接信
+│   └── YYYY-MM-DD/ # 按日期子目录组织
+├── research/       # 已完成的技术调研
+├── plans/          # 已实施完成的计划
+├── bug-report/     # 已关闭的 bug report
+├── phases/         # 已完成的 phase 设计文档
+├── reports/        # 历史报告
+└── tasks/          # 已完成的任务表
+```
+
+**三猫查找规则**：
+1. 查 `docs/` 活跃目录找不到 → 去 `docs/archive/` 找
+2. 新建文档引用旧文档时，用归档后的路径（`docs/archive/2026-02/...`）
+3. ADR (`docs/decisions/`) 和 lessons (`docs/lessons-learned.md`) **永不归档**——它们是常青文档
+
+---
+
 ## Skill 速查表
 
 | 我正在... | 用这个 Skill | SOP Step |

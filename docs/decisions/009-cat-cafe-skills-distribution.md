@@ -133,4 +133,4 @@ ln -s $(pwd)/cat-cafe-skills ~/.gemini/skills/cat-cafe-skills
 ## 相关文档
 
 - [Cat Café Skills 总体计划](../plans/2026-02-10-cat-cafe-skills-master-plan.md)
-- [Superpowers 整合策略](../discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md)
+- [Superpowers 整合策略](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md)

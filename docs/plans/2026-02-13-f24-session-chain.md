@@ -5,7 +5,7 @@
 > 状态: 🔄 Phase A 已实现 (feat/f24-session-chain 待 review)，Phase B~E 待设计
 > 关联:
 > - [BACKLOG F24](../BACKLOG.md) — 原始需求
-> - [GPT Pro 调研 (R1+R2)](../research/2026-02-13-f24-gpt-pro-research-result.md)
+> - [GPT Pro 调研 (R1+R2)](../archive/2026-02/research/2026-02-13-f24-gpt-pro-research-result.md)
 > - [调研提示词](../prompts/2026-02-13-f24-gpt-pro-research-prompt.md)
 > - [铲屎官 Session Chain 讨论](../discussions/2026-02-13-f24-session-chain-handoff/README.md)
 
@@ -444,7 +444,7 @@ pnpm install
 ### 交付物
 
 - **Branch**: `feat/f24-session-chain` (4 commits, base: `5e1ef78`)
-- **Review 信**: `docs/mailbox/2026-02-13-f24-session-chain-review-request.md`
+- **Review 信**: `docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-f24-session-chain-review-request.md`
 - **代码**: 26 个文件, +1762 行
 - **测试**: 64 新增 (22 内存 store + 20 Redis store + 3 factory + 6 route + 7 fallback + 6 集成)
 - **测试结果**: `pnpm test` 1035 pass / `pnpm test:redis` 全部通过 / `pnpm -r build` 3/3 clean
@@ -521,7 +521,7 @@ Phase A 的偏离（sessionChainStore 注入在 invoke 层而非 SessionManager�
 ## 10. 参考资料
 
 - [BACKLOG F24](../BACKLOG.md)
-- [GPT Pro 调研 R1+R2](../research/2026-02-13-f24-gpt-pro-research-result.md)
+- [GPT Pro 调研 R1+R2](../archive/2026-02/research/2026-02-13-f24-gpt-pro-research-result.md)
 - [铲屎官 Session Chain 讨论](../discussions/2026-02-13-f24-session-chain-handoff/README.md)
 - [调研提示词](../prompts/2026-02-13-f24-gpt-pro-research-prompt.md)
 - 现有 Store 模式参考: `InvocationRecordStore.ts` / `RedisInvocationRecordStore.ts`

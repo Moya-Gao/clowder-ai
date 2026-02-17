@@ -10,13 +10,13 @@
 
 ## 0) 参考输入（本 Phase 的“证据锚点”）
 
-- 四层模型原讨论：`docs/discussions/2026-02-07-context-enginnering/intro-discuss-with-claude-app-opus4.5.md`
-- 辩论赛完整记录（备份）：`docs/discussions/2026-02-07-context-enginnering/result/cat_cafee_context_engineering_debate_log.md`
-- 布偶猫纪要（记忆派）：`docs/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md`
-- 暹罗猫纪要（体验派）：`docs/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md`
-- 缅因猫纪要（融合版）：`docs/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md`
+- 四层模型原讨论：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/intro-discuss-with-claude-app-opus4.5.md`
+- 辩论赛完整记录（备份）：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/cat_cafee_context_engineering_debate_log.md`
+- 布偶猫纪要（记忆派）：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md`
+- 暹罗猫纪要（体验派）：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md`
+- 缅因猫纪要（融合版）：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md`
 - Phase 5 决策拍板（ADR-005）：`docs/decisions/005-hindsight-integration-decisions.md`
-- Hindsight 重大澄清（外部服务已部署）：`docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`
+- Hindsight 重大澄清（外部服务已部署）：`docs/archive/2026-02/mailbox/2026-02-08/2026-02-08-hindsight-clarification-to-maine.md`
 - Backlog（必须对齐）：`docs/BACKLOG.md`
 
 ---
@@ -75,7 +75,7 @@ Cat Café 在 Layer 3/4（prompt 组装 + 多猫调度）上已经“能跑且�
 - 讨论沉淀与结构化：`docs/discussions/`、`docs/decisions/`、`docs/phases/`（本质是“可检索的协作记忆雏形”）。  
 - 事件审计日志：`EventAuditLog`（`packages/api/src/domains/cats/services/EventAuditLog.ts`）— “即使 Redis 丢了，真相可追溯”。  
 - MCP Server 基础：`packages/mcp-server/src/tools/file-tools.ts`（文件读取/写入等）。  
-- Hindsight 外部服务（据 `docs/mailbox/2026-02-08-hindsight-clarification-to-maine.md`）：铲屎官本地已通过 Docker 部署，可直接调用 Retain/Recall/Reflect API（无需我们在 Cat Café 代码里“自己实现一个记忆系统”）。
+- Hindsight 外部服务（据 `docs/archive/2026-02/mailbox/2026-02-08/2026-02-08-hindsight-clarification-to-maine.md`）：铲屎官本地已通过 Docker 部署，可直接调用 Retain/Recall/Reflect API（无需我们在 Cat Café 代码里“自己实现一个记忆系统”）。
 
 ### 5.1 Hindsight API 探测结果（2026-02-08）
 
@@ -268,7 +268,7 @@ Phase 5 里应当显式承接这些 backlog：
 
 ## 9) Phase 5.1 最小增量锚点
 
-> 以下锚点来自研究报告 `docs/research/agent-memory-research-report.md` + 三猫+铲屎官共识 (2026-02-09)。
+> 以下锚点来自研究报告 `docs/archive/2026-02/research/agent-memory-research-report.md` + 三猫+铲屎官共识 (2026-02-09)。
 > 参数细节见 `docs/phases/phase-5.1-memory-operation-profiles.md`。
 
 1. **Retain 6 个月价值原则**：只存"6 个月后仍有用"的信息；提取规则走 Hindsight custom instructions。

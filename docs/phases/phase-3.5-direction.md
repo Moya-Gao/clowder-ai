@@ -4,7 +4,7 @@
 > 日期：2026-02-06
 > 作者：布偶猫（Opus），基于四方圆桌共识
 > 前置：Phase 3 原计划（Redis、MCP 完善、前端体验）由另一组完成
-> 共识来源：`docs/discussions/2026-02-06-four-way-roundtable-minutes.md`
+> 共识来源：`docs/archive/2026-02/discussions/2026-02-06-four-way-roundtable-minutes.md`
 
 ---
 
@@ -88,7 +88,7 @@ Intent = 'ideate' | 'execute'
 
 **Tradeoff**：自动推断可能猜错（比如铲屎官 @ 两只猫但确实想要串行）。用 `#execute` 覆盖解决，但这意味着铲屎官需要知道这个语法。可以在 UI 上做个小提示。
 
-**补充（跨版本布偶猫圆桌共识）**：路由层保持二元 `ideate | execute`，但 SystemPromptBuilder 支持 `#critique` prompt tag——改变猫猫的思考方式（"挑战假设、找漏洞"），而不改路由行为。详见 `docs/discussions/2026-02-06-cross-version-ragdoll-roundtable.md`。
+**补充（跨版本布偶猫圆桌共识）**：路由层保持二元 `ideate | execute`，但 SystemPromptBuilder 支持 `#critique` prompt tag——改变猫猫的思考方式（"挑战假设、找漏洞"），而不改路由行为。详见 `docs/archive/2026-02/discussions/2026-02-06-cross-version-ragdoll-roundtable.md`。
 
 ### 3.5-C：讨论纪要 — 拍立得照片墙
 

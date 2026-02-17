@@ -3,7 +3,7 @@
 > **作者**: 布偶猫 (Opus 4.6) + 铲屎官
 > **日期**: 2026-02-10
 > **状态**: ✅ 设计确认，待实施
-> **来源**: [Feature Backlog Brainstorm](../discussions/2026-02-10-feature-backlog-brainstorm/README.md)
+> **来源**: [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
 > **分支**: `feat/mode-system`
 > **Worktree**: `/Users/lysander/projects/relay-station/cat-cafe-mode-system`
 

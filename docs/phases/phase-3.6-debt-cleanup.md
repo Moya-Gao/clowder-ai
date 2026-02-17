@@ -6,7 +6,7 @@
 > 触发：猫咖狼人杀 bug report（铲屎官 + 布偶猫 claude.ai 端）
 > 前置：Phase 3.5 完成（329 tests），缅因猫 final review 通过
 > 目标：修复所有阻塞正常使用的 bug，确认三猫能真正对话，然后才进 Phase 4
-> Bug Report：`docs/bug-report/werewolf-investigation/cat-cafe-werewolf-investigation.md`
+> Bug Report：`docs/archive/2026-02/bug-report/werewolf-investigation/cat-cafe-werewolf-investigation.md`
 
 ---
 
@@ -297,7 +297,7 @@ GET /api/export/thread/:threadId?format=md
 - 更新 Phase 状态
 
 **写 Review 交接**：
-- `docs/mailbox/2026-02-07-phase3.6-review.md`
+- `docs/archive/2026-02/mailbox/2026-02-07/2026-02-07-phase3.6-review.md`
 - 按协作守则 5 项：What/Why/Tradeoff/Open Questions/Next Action
 
 ---

@@ -16,7 +16,7 @@
 | `mailbox/a2a-risk-review-from-maine.md` | 缅因猫: 风险审计回信 (P1-1~3, P2-1~3) |
 | `discussions/a2a-prompt-injection-design.md` | 4.5 布偶猫: Prompt 注入设计草稿 |
 
-> 以上文档路径均在 `docs/` 下, discussions 指 `discussions/2026-02-07-context-enginnering/`。
+> 以上文档路径均在 `docs/` 下, discussions 指 `archive/2026-02/discussions/2026-02-07-context-enginnering/`, mailbox 指 `archive/2026-02/mailbox/2026-02-07/`。
 
 ---
 

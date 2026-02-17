@@ -439,7 +439,7 @@ curl http://localhost:3102/api/threads | jq '.threads | length'
 2. 📞 **通知铲屎官**（不要隐瞒）
 3. 🔍 **启动数据恢复流程**（见事故报告案例）
 
-> 教训来源：2026-02-10 晚间数据丢失事件。布偶猫在 worktree 工作时，数据从 307 keys 降至 15 keys（95% 丢失）。原因疑似 worktree 代码变化触发主环境热重载，导致服务异常重启并清空数据。虽最终从 RDB 备份完全恢复，但过程惊险。详见：`docs/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
+> 教训来源：2026-02-10 晚间数据丢失事件。布偶猫在 worktree 工作时，数据从 307 keys 降至 15 keys（95% 丢失）。原因疑似 worktree 代码变化触发主环境热重载，导致服务异常重启并清空数据。虽最终从 RDB 备份完全恢复，但过程惊险。详见：`docs/archive/2026-02/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
 
 ### 11) 讨论收敛后的沉淀检查（三猫共同遵守）
 

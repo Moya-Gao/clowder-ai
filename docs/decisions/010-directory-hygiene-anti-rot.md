@@ -156,11 +156,11 @@ docs/
 | 文档 | 用途 |
 |------|------|
 | [方案初稿](../plans/2026-02-13-directory-hygiene-anti-rot.md) | 布偶猫初始 ABCD 方案 + 影响分析 |
-| [开放讨论邀请](../mailbox/2026-02-13-directory-hygiene-open-discussion.md) | 给缅因猫的讨论邀请 |
-| [进展更新](../mailbox/2026-02-13-directory-hygiene-update-to-codex.md) | F8/F12 状态更新 + docs 膨胀 |
-| [GPT Pro 综合判断](../mailbox/2026-02-13-directory-hygiene-gpt-pro-synthesis.md) | 三方意见综合 + 5 个确认项 |
-| [GPT Pro 评审 prompt](../research/2026-02-13-gpt-pro-architecture-review-prompt.md) | 发给 GPT Pro 的完整 context |
-| [GPT Pro 评审回复](../research/2026-02-13-gpt-pro-architecture-review.md) | GPT Pro 完整回复 |
+| [开放讨论邀请](../archive/2026-02/mailbox/2026-02-13/2026-02-13-directory-hygiene-open-discussion.md) | 给缅因猫的讨论邀请 |
+| [进展更新](../archive/2026-02/mailbox/2026-02-13/2026-02-13-directory-hygiene-update-to-codex.md) | F8/F12 状态更新 + docs 膨胀 |
+| [GPT Pro 综合判断](../archive/2026-02/mailbox/2026-02-13/2026-02-13-directory-hygiene-gpt-pro-synthesis.md) | 三方意见综合 + 5 个确认项 |
+| [GPT Pro 评审 prompt](../prompts/2026-02-13-gpt-pro-architecture-review-prompt.md) | 发给 GPT Pro 的完整 context |
+| [GPT Pro 评审回复](../archive/2026-02/research/2026-02-13-gpt-pro-architecture-review.md) | GPT Pro 完整回复 |
 
 ## 后果
 

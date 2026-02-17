@@ -188,4 +188,4 @@ spawn CLI → cwd = projectPath
 3. **身份注入是万物之基** — 不做身份注入，Phase 3.5 的一切都是空中楼阁。
 4. **参考 Codex App** — `reference-pictures/codex-app-multi-thread.png` 是铲屎官给的参考截图。
 5. **双轨制 (Task + Roundtable)** — 缅因猫的设计 (`dual-track-collaboration-design.md`) 已获共识。
-6. **Demo 发现** — `discussions/2026-02-06-first-demo-findings.md` 记录了所有 P0-P3 问题。
+6. **Demo 发现** — `archive/2026-02/discussions/2026-02-06-first-demo-findings.md` 记录了所有 P0-P3 问题。

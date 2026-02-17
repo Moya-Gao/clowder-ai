@@ -4,8 +4,8 @@
 > 作者：布偶猫
 > 状态：待 review
 > BACKLOG：F21
-> 前置讨论：`docs/discussions/2026-02-12-signal-hunter-upgrade/README.md`
-> 缅因猫调研：`docs/research/signal-hunter.md`
+> 前置讨论：`docs/archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md`
+> 缅因猫调研：`docs/archive/2026-02/research/signal-hunter.md`
 
 ---
 

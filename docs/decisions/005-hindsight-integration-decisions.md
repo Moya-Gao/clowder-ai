@@ -300,8 +300,8 @@ Hindsight Recall (语义检索)
 
 ### 输入来源
 
-- GPT Pro 专项回复整理：`docs/research/2026-02-13-gpt-pro-hindsight-import-governance.md`
-- 历史课题包（A'/B/C）：`docs/discussions/2026-02-10-pro-research-triad/gpt-pro-prompts-v1.md`
+- GPT Pro 专项回复整理：`docs/archive/2026-02/research/2026-02-13-gpt-pro-hindsight-import-governance.md`
+- 历史课题包（A'/B/C）：`docs/archive/2026-02/discussions/2026-02-10-pro-research-triad/gpt-pro-prompts-v1.md`
 
 ### 现场快照（2026-02-13）
 
@@ -339,10 +339,10 @@ Hindsight Recall (语义检索)
 
 ### 讨论过程
 
-- 布偶猫独立判断：`docs/mailbox/2026-02-13-hindsight-governance-opus-response.md`
-- 缅因猫独立判断：`docs/mailbox/2026-02-13-hindsight-governance-maine-response-to-opus.md`
-- 收敛确认：`docs/mailbox/2026-02-13-hindsight-governance-convergence.md`
-- 铲屎官挑战（教训沉淀）：`docs/mailbox/2026-02-13-lessons-learned-extraction-invite-to-codex.md`
+- 布偶猫独立判断：`docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-hindsight-governance-opus-response.md`
+- 缅因猫独立判断：`docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-hindsight-governance-maine-response-to-opus.md`
+- 收敛确认：`docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-hindsight-governance-convergence.md`
+- 铲屎官挑战（教训沉淀）：`docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-lessons-learned-extraction-invite-to-codex.md`
 
 ### 五项共识
 

@@ -72,13 +72,13 @@
 - 修复：在提炼流程前增加时效性检查清单，并要求至少核对一次 mailbox 更新。
 - 防护：将时效性检查写入提炼标准；未通过检查的条目不得进入 P0 导入集。
 - 来源锚点：
-  - `docs/mailbox/2026-02-13-lessons-learned-kickoff-to-codex.md#L31`
+  - `docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-lessons-learned-kickoff-to-codex.md#L31`
   - `docs/decisions/005-hindsight-integration-decisions.md#L297`
 - 原理（可选）：知识沉淀是“状态同步问题”，不是“文档搬运问题”；任何结论都依赖其最新上下文状态。
 
 - 关联：
-  - `docs/mailbox/2026-02-13-lessons-learned-extraction-invite-to-codex.md`
-  - `docs/mailbox/2026-02-13-lessons-learned-extraction-response-from-codex.md`
+  - `docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-lessons-learned-extraction-invite-to-codex.md`
+  - `docs/archive/2026-02/mailbox/2026-02-13/2026-02-13-lessons-learned-extraction-response-from-codex.md`
   - `docs/decisions/005-hindsight-integration-decisions.md`
 
 ---
@@ -310,7 +310,7 @@
 - 防护：CLAUDE.md §4 协作准则 + `systematic-debugging` skill 引导先分析再修复。
 - 来源锚点：
   - `CLAUDE.md#L203` §4 Bug 修复必须先写 Bug Report
-  - `docs/bug-report/missing-url-routing/bug-report.md`（就是那次没写 report 的 bug）
+  - `docs/archive/2026-02/bug-report/missing-url-routing/bug-report.md`（就是那次没写 report 的 bug）
 - 原理：修复是瞬时的，记录是永久的。没有记录的修复 = 无法复盘、无法学习、无法防止同类错误。
 
 - 关联：`systematic-debugging` skill | CLAUDE.md §4
@@ -326,7 +326,7 @@
 - 防护：CLAUDE.md §10 三猫铁律 + `.env.local` 模板 + 启动验证步骤。
 - 来源锚点：
   - `CLAUDE.md#L344` §10 Worktree Redis 隔离
-  - `docs/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
+  - `docs/archive/2026-02/bug-report/2026-02-10-redis-data-loss-incident/incident-report.md`
 - 原理：开发环境与生产数据必须物理隔离（不同端口/实例），不能靠配置正确性保证。默认值必须指向安全侧（沙盒），而非危险侧（生产）。
 
 - 关联：LL-008 | LL-011 | CLAUDE.md §10 | Redis 数据丢失 incident report
@@ -373,8 +373,8 @@
 - 修复：Session key 改为 `userId:catId:threadId` + 消息级审计日志追踪上下文来源。
 - 防护：BACKLOG #38（已完成）+ 消息级审计日志 BACKLOG #37（已完成）+ bug report 归档。
 - 来源锚点：
-  - `docs/bug-report/tea-coffee/bug-report.md`
-  - `docs/bug-report/tea-coffee/timeline.md`（完整 5 阶段演化）
+  - `docs/archive/2026-02/bug-report/tea-coffee/bug-report.md`
+  - `docs/archive/2026-02/bug-report/tea-coffee/timeline.md`（完整 5 阶段演化）
   - BACKLOG #38 Session 按 Thread 隔离
 - 原理：多租户/多上下文系统中，隔离键必须包含所有上下文维度。缺少任何一个维度 = 跨上下文泄漏风险。"够用"的隔离键在规模增长时会变成"不够用"。
 
@@ -391,9 +391,9 @@
 - 修复：回退 CLI HOME 隔离方案，改用真实 HOME。确认项目级 AGENTS.md 已覆盖全局配置。
 - 防护：根因修复后，触发器修复必须独立评估 ROI（收益 vs 引入新风险）。不确定时先观察，不要"顺手修"。
 - 来源锚点：
-  - `docs/bug-report/tea-coffee/timeline.md` Phase 3-5
+  - `docs/archive/2026-02/bug-report/tea-coffee/timeline.md` Phase 3-5
   - BACKLOG #36（6 个补丁链：`2a6c7d4` → `449fe91` → `81fa2bf` → `d930e2e` → `327c0a3` → `61f3675`）
-  - `docs/bug-report/codex-session-isolation-lost/bug-report.md`（隔离副作用 #44）
+  - `docs/archive/2026-02/bug-report/codex-session-isolation-lost/bug-report.md`（隔离副作用 #44）
 - 原理：每个修复都有引入新问题的风险。根因修复已消除伤害路径后，触发器的"理论风险"不足以证明"实际修复成本"。修复的 ROI 必须独立评估，不能因为"顺手"就搭车。
 
 - 关联：LL-018 Session 隔离 | LL-020 补丁数量信号 | LL-021 根因追溯深度 | BACKLOG #36 #44 #51
@@ -408,7 +408,7 @@
 - 修复：在第 3-4 个补丁时停下来做方向复检：这个方案的假设（"替换 HOME 就能隔离一个文件"）是否成立？有没有更精准的替代方案？
 - 防护：团队约定"补丁链告警线"——同一功能的 fix commit > 3 个时，必须暂停并评估方向。
 - 来源锚点：
-  - `docs/bug-report/tea-coffee/timeline.md` Phase 3（6 个 commit 记录）
+  - `docs/archive/2026-02/bug-report/tea-coffee/timeline.md` Phase 3（6 个 commit 记录）
   - git log: `2a6c7d4` → `449fe91` → `81fa2bf` → `d930e2e` → `327c0a3` → `61f3675`
 - 原理：系统在通过"补丁爆炸"告诉你方案根基不稳。持续打补丁 = 在错误方向上加速。N > 3 不是"还需要更多补丁"的信号，而是"换方向"的信号。
 
@@ -424,9 +424,9 @@
 - 修复：铲屎官持续追问直到因果链完全闭合。每个"解释"都要验证：它能解释所有症状吗？有没有它解释不了的？
 - 防护：bug 根因分析清单增加"因果链闭合检查"——列出所有症状，确认提出的根因能逐一解释每个症状。解释不了的 = 根因不完整，继续挖。
 - 来源锚点：
-  - `docs/bug-report/tea-coffee/bug-report.md` §5 Step 6（铲屎官追问 Phase 5 来源）
+  - `docs/archive/2026-02/bug-report/tea-coffee/bug-report.md` §5 Step 6（铲屎官追问 Phase 5 来源）
   - 实际修 bug session: `thread_mlkxnyg17ftop4v8`
-  - `docs/bug-report/tea-coffee/timeline.md` Phase 1
+  - `docs/archive/2026-02/bug-report/tea-coffee/timeline.md` Phase 1
 - 原理：根因分析的正确性标准不是"找到一个合理解释"，而是"因果链完全闭合——每个症状都能被根因解释"。第一层答案往往是触发器不是根因。必须持续问 "but why?" 直到没有未解释的症状。
 
 - 关联：LL-018 Session 隔离 | LL-019 过度修复 | LL-014 Bug Report 先行 | `systematic-debugging` skill

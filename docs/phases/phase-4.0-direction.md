@@ -292,6 +292,6 @@ Phase 4.0 尽量复用现有事件，只新增最少事件类型：
 
 ## 7) 相关参考（可选）
 
-- A2A / 多样性协议与对照实验：`docs/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md`（第 9/10 节）
-- Phase 3.9 A2A 设计与风险审计：`docs/phases/phase-3.9-config-a2a.md`、`docs/mailbox/2026-02-07-a2a-risk-review-from-maine.md`
+- A2A / 多样性协议与对照实验：`docs/archive/2026-02/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md`（第 9/10 节）
+- Phase 3.9 A2A 设计与风险审计：`docs/phases/phase-3.9-config-a2a.md`、`docs/archive/2026-02/mailbox/2026-02-07/2026-02-07-a2a-risk-review-from-maine.md`
 

@@ -136,7 +136,7 @@ Expected: FAIL。
 ### Task 5: Verification + Commit + Review Request
 
 **Files:**
-- Modify: `docs/mailbox/2026-02-14-h71-full-review-request-to-opus.md` (new)
+- Modify: `docs/archive/2026-02/mailbox/2026-02-14/2026-02-14-h71-full-review-request-to-opus.md` (new)
 
 **Step 1: Full verification**
 ```bash

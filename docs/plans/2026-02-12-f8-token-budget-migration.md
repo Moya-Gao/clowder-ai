@@ -4,7 +4,7 @@
 > **作者**: 布偶猫 (宪宪)
 > **日期**: 2026-02-12
 > **状态**: 📋 铲屎官放行，待缅因猫 review
-> **前置调研**: [三猫 CLI NDJSON 宝藏地图](../research/cli-ndjson-treasure-map.md) — 完整的三猫 CLI 事件考证
+> **前置调研**: [三猫 CLI NDJSON 宝藏地图](../archive/2026-02/research/cli-ndjson-treasure-map.md) — 完整的三猫 CLI 事件考证
 > **R1 Review**: 铲屎官审 4P1+2P2，全部已修订 (见 §9 修订记录)
 
 ---
@@ -41,7 +41,7 @@ char 和 token 比例差异大（英文 ~4:1，中文 ~1.5:1），中英混合�
 | 文件变更路径详情 | ❌ | ✅ | ❌ |
 | 失败诊断 (turn.failed) | ❌ | ✅ | ❌ |
 
-详见 [NDJSON 宝藏地图](../research/cli-ndjson-treasure-map.md)。
+详见 [NDJSON 宝藏地图](../archive/2026-02/research/cli-ndjson-treasure-map.md)。
 
 ## 2. 目标与分阶段
 

@@ -3,7 +3,7 @@
 > 作者: 布偶猫 (Opus 4.6)
 > 日期: 2026-02-09
 > 状态: **草案**
-> 来源: `docs/research/agent-memory-research-report.md` + 三猫共识
+> 来源: `docs/archive/2026-02/research/agent-memory-research-report.md` + 三猫共识
 
 ---
 

@@ -3,7 +3,7 @@
 > 日期：2026-02-13
 > 参与者：铲屎官、布偶猫
 > 状态：💡 讨论中，待三猫 + 铲屎官对齐
-> 关联：[BACKLOG F24](../../BACKLOG.md)、[GPT Pro 调研](../../research/2026-02-13-f24-gpt-pro-research-result.md)、[调研提示词](../../prompts/2026-02-13-f24-gpt-pro-research-prompt.md)
+> 关联：[BACKLOG F24](../../BACKLOG.md)、[GPT Pro 调研](../../archive/2026-02/research/2026-02-13-f24-gpt-pro-research-result.md)、[调研提示词](../../prompts/2026-02-13-f24-gpt-pro-research-prompt.md)
 
 ---
 
@@ -231,7 +231,7 @@ Sub-agent 输出的交接摘要必须遵循我们已有的规范：
 ## 8. 参考资料
 
 - [BACKLOG F24](../../BACKLOG.md) — 中途消息注入 + Context 存活监控 + 自动交接
-- [GPT Pro 调研结果](../../research/2026-02-13-f24-gpt-pro-research-result.md) — 三猫 CLI 能力深度调研
+- [GPT Pro 调研结果](../../archive/2026-02/research/2026-02-13-f24-gpt-pro-research-result.md) — 三猫 CLI 能力深度调研
 - [调研提示词](../../prompts/2026-02-13-f24-gpt-pro-research-prompt.md) — 委托 GPT Pro 的调研提示词
 - [布偶猫初步调研](#) — 三猫能力矩阵（本次对话中完成）
 - Cat Café 会议纪要规范 — Sub-agent 交接输出格式
