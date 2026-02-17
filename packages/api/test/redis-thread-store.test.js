@@ -118,6 +118,40 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(updated.title, 'New Title');
   });
 
+  it('updatePin(true) sets pinned and pinnedAt', async () => {
+    const thread = await store.create('user1', 'Pin Test');
+    await store.updatePin(thread.id, true);
+    const updated = await store.get(thread.id);
+    assert.equal(updated.pinned, true);
+    assert.ok(updated.pinnedAt > 0);
+  });
+
+  it('updatePin(false) clears pinned and sets pinnedAt to null', async () => {
+    const thread = await store.create('user1', 'Unpin Test');
+    await store.updatePin(thread.id, true);
+    await store.updatePin(thread.id, false);
+    const updated = await store.get(thread.id);
+    assert.equal(updated.pinned, false);
+    assert.equal(updated.pinnedAt, null);
+  });
+
+  it('updateFavorite(true) sets favorited and favoritedAt', async () => {
+    const thread = await store.create('user1', 'Fav Test');
+    await store.updateFavorite(thread.id, true);
+    const updated = await store.get(thread.id);
+    assert.equal(updated.favorited, true);
+    assert.ok(updated.favoritedAt > 0);
+  });
+
+  it('updateFavorite(false) clears favorited and sets favoritedAt to null', async () => {
+    const thread = await store.create('user1', 'Unfav Test');
+    await store.updateFavorite(thread.id, true);
+    await store.updateFavorite(thread.id, false);
+    const updated = await store.get(thread.id);
+    assert.equal(updated.favorited, false);
+    assert.equal(updated.favoritedAt, null);
+  });
+
   it('delete() removes thread', async () => {
     const thread = await store.create('user1', 'To Delete');
     const result = await store.delete(thread.id);

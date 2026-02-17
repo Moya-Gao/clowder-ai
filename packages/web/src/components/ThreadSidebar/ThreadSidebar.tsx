@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChatStore, type Thread } from '@/stores/chatStore';
 import { TaskPanel } from '../TaskPanel';
@@ -27,6 +27,10 @@ export function ThreadSidebar() {
   const [showPicker, setShowPicker] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Per-thread request sequence counters to prevent stale response overwrites
+  const pinSeqRef = useRef<Map<string, number>>(new Map());
+  const favSeqRef = useRef<Map<string, number>>(new Map());
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -104,6 +108,8 @@ export function ThreadSidebar() {
   }, [updateThreadTitle]);
 
   const handleTogglePin = useCallback(async (threadId: string, pinned: boolean) => {
+    const seq = (pinSeqRef.current.get(threadId) ?? 0) + 1;
+    pinSeqRef.current.set(threadId, seq);
     try {
       const res = await apiFetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
@@ -111,6 +117,8 @@ export function ThreadSidebar() {
         body: JSON.stringify({ pinned }),
       });
       if (!res.ok) return;
+      // Only apply if this is still the latest request for this thread
+      if (pinSeqRef.current.get(threadId) !== seq) return;
       const updated = await res.json();
       updateThreadPin(threadId, updated.pinned ?? pinned);
     } catch {
@@ -119,6 +127,8 @@ export function ThreadSidebar() {
   }, [updateThreadPin]);
 
   const handleToggleFavorite = useCallback(async (threadId: string, favorited: boolean) => {
+    const seq = (favSeqRef.current.get(threadId) ?? 0) + 1;
+    favSeqRef.current.set(threadId, seq);
     try {
       const res = await apiFetch(`/api/threads/${threadId}`, {
         method: 'PATCH',
@@ -126,6 +136,8 @@ export function ThreadSidebar() {
         body: JSON.stringify({ favorited }),
       });
       if (!res.ok) return;
+      // Only apply if this is still the latest request for this thread
+      if (favSeqRef.current.get(threadId) !== seq) return;
       const updated = await res.json();
       updateThreadFavorite(threadId, updated.favorited ?? favorited);
     } catch {
