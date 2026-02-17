@@ -7,24 +7,24 @@
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-import { buildStaticIdentity, buildInvocationContext } from './context/SystemPromptBuilder.js';
-import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInjector.js';
-import { invokeSingleCat } from './invoke-single-cat.js';
-import type { InvocationDeps } from './invoke-single-cat.js';
-import { mergeStreams } from './stream-merge.js';
-import type { IMessageStore, StoredMessage, StoredToolEvent } from './stores/ports/MessageStore.js';
-import { DeliveryCursorStore } from './stores/ports/DeliveryCursorStore.js';
-import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
-import type { MessageMetadata } from './types.js';
-import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';
-import { registerWorklist, unregisterWorklist } from './WorklistRegistry.js';
-import { assembleContext, formatMessage } from './context/ContextAssembler.js';
-import { getCatContextBudget } from '../../../config/cat-budgets.js';
-import { estimateTokens } from '../../../utils/token-counter.js';
-import { getEventAuditLog, AuditEventTypes } from './orchestration/EventAuditLog.js';
-import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './orchestration/DegradationPolicy.js';
-import { buildSessionBootstrap } from './session/SessionBootstrap.js';
-import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
+import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
+import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
+import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
+import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
+import { mergeStreams } from '../invocation/stream-merge.js';
+import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores/ports/MessageStore.js';
+import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
+import type { AgentMessage, AgentMessageType, AgentService } from '../../types.js';
+import type { MessageMetadata } from '../../types.js';
+import { parseA2AMentions, getMaxA2ADepth } from '../routing/a2a-mentions.js';
+import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
+import { assembleContext, formatMessage } from '../../context/ContextAssembler.js';
+import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
+import { estimateTokens } from '../../../../../utils/token-counter.js';
+import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
+import { checkContextBudget, formatDegradationMessage, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
+import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
+import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {

@@ -17,7 +17,7 @@ describe('WorklistRegistry', () => {
       pushToWorklist,
       hasWorklist,
       getWorklist,
-    } = await import('../dist/domains/cats/services/WorklistRegistry.js');
+    } = await import('../dist/domains/cats/services/agents/routing/WorklistRegistry.js');
 
     const threadId = 'test-lifecycle';
     const worklist = ['opus'];
@@ -59,7 +59,7 @@ describe('WorklistRegistry', () => {
 
   test('push respects maxDepth', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const threadId = 'test-depth';
@@ -80,7 +80,7 @@ describe('WorklistRegistry', () => {
 
   test('R1 P1-1: preempt race — old unregister does not delete new worklist', async () => {
     const { registerWorklist, unregisterWorklist, hasWorklist, pushToWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const threadId = 'test-preempt';
@@ -109,7 +109,7 @@ describe('WorklistRegistry', () => {
 
   test('cloud Codex P1: stale callback caller rejected by callerCatId guard', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist, getWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const threadId = 'test-caller-guard';
@@ -158,7 +158,7 @@ describe('WorklistRegistry', () => {
 
   test('multiple threads are independent', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist, getWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const wl1 = ['opus'];

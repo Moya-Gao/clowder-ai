@@ -8,7 +8,7 @@
 
 import type { CatId, ModeConfig, ModeState } from '@cat-cafe/shared';
 import type { AgentMessage } from '../types.js';
-import type { RouteStrategyDeps, RouteOptions } from '../route-strategies.js';
+import type { RouteStrategyDeps, RouteOptions } from '../agents/routing/route-strategies.js';
 
 /** Context passed to each mode handler invocation */
 export interface ModeExecutionContext {

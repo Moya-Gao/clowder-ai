@@ -115,7 +115,7 @@ function createMockAgentService(catId, responseText = 'Hello from mock') {
 describe('AgentRouter', () => {
   test('routes to opus (default) when no @ mention is present', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus', 'Opus response');
@@ -147,7 +147,7 @@ describe('AgentRouter', () => {
 
   test('routes to opus when @opus is mentioned', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -174,7 +174,7 @@ describe('AgentRouter', () => {
 
   test('routes to opus when Chinese mention @布偶猫 is used', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -201,7 +201,7 @@ describe('AgentRouter', () => {
 
   test('routes to codex when @codex is mentioned', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -229,7 +229,7 @@ describe('AgentRouter', () => {
 
   test('routes to codex when Chinese mention @缅因猫 is used', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -255,7 +255,7 @@ describe('AgentRouter', () => {
 
   test('routes to gemini when @gemini is mentioned', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -283,7 +283,7 @@ describe('AgentRouter', () => {
 
   test('routes to gemini when Chinese mention @暹罗猫 is used', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -309,7 +309,7 @@ describe('AgentRouter', () => {
 
   test('executes multiple cats in order when multiple @ mentions are present (#execute)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus', 'Opus says');
@@ -345,7 +345,7 @@ describe('AgentRouter', () => {
 
   test('multi-cat serial chain includes previous responses in prompt (#execute)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let codexReceivedPrompt = '';
@@ -385,7 +385,7 @@ describe('AgentRouter', () => {
 
   test('stores and uses session IDs per user per cat', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let capturedOptions = null;
@@ -423,7 +423,7 @@ describe('AgentRouter', () => {
 
   test('maintains separate sessions for different users', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const capturedSessions = [];
@@ -466,7 +466,7 @@ describe('AgentRouter', () => {
 
   test('handles all English mention patterns correctly', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const testCases = [
@@ -508,7 +508,7 @@ describe('AgentRouter', () => {
 
   test('handles all Chinese mention patterns correctly', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const testCases = [
@@ -550,7 +550,7 @@ describe('AgentRouter', () => {
 
   test('invokes all three cats for triple mention (parallel, no order guarantee)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus', 'Opus');
@@ -587,7 +587,7 @@ describe('AgentRouter', () => {
 
   test('does not duplicate same cat when mentioned multiple times', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -616,7 +616,7 @@ describe('AgentRouter', () => {
 
   test('case insensitive mention matching', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -640,7 +640,7 @@ describe('AgentRouter', () => {
 
   test('continues chain when first cat throws an error', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     // Opus throws, Codex should still execute
@@ -687,7 +687,7 @@ describe('AgentRouter', () => {
 
   test('session store failure degrades gracefully without crashing route', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let capturedOptions = null;
@@ -739,7 +739,7 @@ describe('AgentRouter', () => {
 
   test('@ mentions update thread participants via threadStore', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const threadStore = createMockThreadStore();
@@ -760,7 +760,7 @@ describe('AgentRouter', () => {
 
   test('no @ mention routes to all thread participants', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -791,7 +791,7 @@ describe('AgentRouter', () => {
 
   test('no @ mention + no participants defaults to opus', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -818,7 +818,7 @@ describe('AgentRouter', () => {
 
   test('@three cats then no-@ routes to all three', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -853,7 +853,7 @@ describe('AgentRouter', () => {
 
   test('route with explicit threadId passes it to messageStore.append', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const appendedMessages = [];
@@ -882,7 +882,7 @@ describe('AgentRouter', () => {
 
   test('no threadStore degrades to default opus routing', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -906,7 +906,7 @@ describe('AgentRouter', () => {
 
   test('new @ mention adds to existing participants', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaudeService = createMockAgentService('opus');
@@ -938,7 +938,7 @@ describe('AgentRouter', () => {
 
   test('error from first cat is not passed as context to second cat', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let codexReceivedPrompt = '';
@@ -975,7 +975,7 @@ describe('AgentRouter', () => {
 
   test('passes workingDirectory when thread has non-default projectPath', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let receivedOptions = null;
@@ -1010,7 +1010,7 @@ describe('AgentRouter', () => {
 
   test('does NOT pass workingDirectory when thread has default projectPath', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let receivedOptions = null;
@@ -1045,7 +1045,7 @@ describe('AgentRouter', () => {
 
   test('passes auditContext with invocation correlation fields', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let receivedOptions = null;
@@ -1080,7 +1080,7 @@ describe('AgentRouter', () => {
 
   test('identity injection: opus prompt contains 布偶猫', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusReceivedPrompt = '';
@@ -1114,7 +1114,7 @@ describe('AgentRouter', () => {
 
   test('identity injection: codex prompt in serial chain contains 缅因猫 (#execute)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let codexReceivedPrompt = '';
@@ -1151,7 +1151,7 @@ describe('AgentRouter', () => {
 
   test('parallel: 2 cats both invoked with mode=parallel (auto ideate)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusPrompt = '';
@@ -1200,7 +1200,7 @@ describe('AgentRouter', () => {
 
   test('parallel: codex does NOT see opus response (independent thinking)', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let codexPrompt = '';
@@ -1231,7 +1231,7 @@ describe('AgentRouter', () => {
 
   test('parallel: isFinal only on last done message', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const router = new AgentRouter({
@@ -1257,7 +1257,7 @@ describe('AgentRouter', () => {
 
   test('parallel: #execute forces serial even with multiple cats', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let codexPrompt = '';
@@ -1291,7 +1291,7 @@ describe('AgentRouter', () => {
 
   test('parallel: all cat responses are stored in messageStore', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const appendedMessages = [];
@@ -1320,7 +1320,7 @@ describe('AgentRouter', () => {
 
   test('parallel: 3 cats all invoked independently', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const mockClaude = createMockAgentService('opus', 'a');
@@ -1355,7 +1355,7 @@ describe('AgentRouter', () => {
 
   test('context history: single cat prompt includes thread history', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusPrompt = '';
@@ -1402,7 +1402,7 @@ describe('AgentRouter', () => {
 
   test('context history: serial multi-cat — both cats receive history', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusPrompt = '';
@@ -1448,7 +1448,7 @@ describe('AgentRouter', () => {
 
   test('context history: parallel multi-cat — both cats receive history', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusPrompt = '';
@@ -1494,7 +1494,7 @@ describe('AgentRouter', () => {
 
   test('context history: empty history — no context header in prompt', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     let opusPrompt = '';
@@ -1524,7 +1524,7 @@ describe('AgentRouter', () => {
 
   test('parallel: resolveTargetsAndIntent returns correct intent', async () => {
     const { AgentRouter } = await import(
-      '../dist/domains/cats/services/AgentRouter.js'
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
 
     const router = new AgentRouter({

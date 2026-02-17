@@ -1,4 +1,4 @@
-import type { AuditEventInput } from './orchestration/EventAuditLog.js';
+import type { AuditEventInput } from '../../orchestration/EventAuditLog.js';
 
 export interface AuditLogSink {
   append(input: AuditEventInput): Promise<unknown>;

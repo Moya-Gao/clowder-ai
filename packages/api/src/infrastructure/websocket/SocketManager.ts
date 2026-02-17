@@ -8,7 +8,7 @@ import { Server, Socket } from 'socket.io';
 import { createCatId } from '@cat-cafe/shared';
 import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
-import type { CancelResult, InvocationTracker } from '../../domains/cats/services/InvocationTracker.js';
+import type { CancelResult, InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 
 /**
  * Build the sequence of AgentMessages to broadcast after a successful cancel.

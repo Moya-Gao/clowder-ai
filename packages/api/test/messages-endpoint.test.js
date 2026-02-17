@@ -15,7 +15,7 @@ describe('GET /api/messages', () => {
       '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
@@ -287,7 +287,7 @@ describe('GET /api/messages with summaryStore (P1-B integration)', () => {
       '../dist/domains/cats/services/stores/ports/SummaryStore.js'
     );
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
@@ -452,7 +452,7 @@ describe('GET /api/messages summary + pagination contract', () => {
       '../dist/domains/cats/services/stores/ports/SummaryStore.js'
     );
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
@@ -567,7 +567,7 @@ describe('GET /api/messages summary + pagination contract', () => {
 describe('POST /api/messages orphan rejection (#21)', () => {
   it('returns 400 when threadId does not exist', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
-    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
@@ -600,8 +600,8 @@ describe('POST /api/messages orphan rejection (#21)', () => {
 describe('POST /api/messages delete-guard protection', () => {
   it('returns 409 and does not persist message when thread is being deleted', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
-    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
-    const { InvocationTracker } = await import('../dist/domains/cats/services/InvocationTracker.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
+    const { InvocationTracker } = await import('../dist/domains/cats/services/agents/invocation/InvocationTracker.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
     const threadId = 'thread-delete-guard';

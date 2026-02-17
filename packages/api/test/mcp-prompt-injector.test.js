@@ -9,28 +9,28 @@ import assert from 'node:assert/strict';
 describe('McpPromptInjector', () => {
   it('needsMcpInjection returns false for opus (native MCP)', async () => {
     const { needsMcpInjection } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     assert.equal(needsMcpInjection('opus'), false);
   });
 
   it('needsMcpInjection returns true for codex', async () => {
     const { needsMcpInjection } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     assert.equal(needsMcpInjection('codex'), true);
   });
 
   it('needsMcpInjection returns true for gemini', async () => {
     const { needsMcpInjection } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     assert.equal(needsMcpInjection('gemini'), true);
   });
 
   it('buildMcpCallbackInstructions uses correct hyphenated endpoints', async () => {
     const { buildMcpCallbackInstructions } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({
       apiUrl: 'http://127.0.0.1:3002',
@@ -50,7 +50,7 @@ describe('McpPromptInjector', () => {
 
   it('buildMcpCallbackInstructions references env var credentials', async () => {
     const { buildMcpCallbackInstructions } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({
       apiUrl: 'http://127.0.0.1:3002',
@@ -71,7 +71,7 @@ describe('McpPromptInjector', () => {
 
   it('buildMcpCallbackInstructions includes correct apiUrl', async () => {
     const { buildMcpCallbackInstructions } = await import(
-      '../dist/domains/cats/services/McpPromptInjector.js'
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({
       apiUrl: 'http://localhost:9999',

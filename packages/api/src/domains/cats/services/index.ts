@@ -3,15 +3,15 @@
  * 导出所有 Agent 服务
  */
 
-export { ClaudeAgentService } from './ClaudeAgentService.js';
-export { CodexAgentService } from './CodexAgentService.js';
-export { GeminiAgentService } from './GeminiAgentService.js';
-export { AgentRouter } from './AgentRouter.js';
-export type { AgentRouterOptions } from './AgentRouter.js';
-export { invokeSingleCat } from './invoke-single-cat.js';
-export type { InvocationDeps, InvocationParams } from './invoke-single-cat.js';
-export { InvocationRegistry } from './InvocationRegistry.js';
-export { InvocationTracker } from './InvocationTracker.js';
+export { ClaudeAgentService } from './agents/providers/ClaudeAgentService.js';
+export { CodexAgentService } from './agents/providers/CodexAgentService.js';
+export { GeminiAgentService } from './agents/providers/GeminiAgentService.js';
+export { AgentRouter } from './agents/routing/AgentRouter.js';
+export type { AgentRouterOptions } from './agents/routing/AgentRouter.js';
+export { invokeSingleCat } from './agents/invocation/invoke-single-cat.js';
+export type { InvocationDeps, InvocationParams } from './agents/invocation/invoke-single-cat.js';
+export { InvocationRegistry } from './agents/invocation/InvocationRegistry.js';
+export { InvocationTracker } from './agents/invocation/InvocationTracker.js';
 export { MessageStore } from './stores/ports/MessageStore.js';
 export type { AppendMessageInput, IMessageStore, StoredMessage } from './stores/ports/MessageStore.js';
 export { DeliveryCursorStore } from './stores/ports/DeliveryCursorStore.js';
@@ -30,9 +30,9 @@ export { SummaryStore } from './stores/ports/SummaryStore.js';
 export type { ISummaryStore } from './stores/ports/SummaryStore.js';
 export { RedisSummaryStore } from './stores/redis/RedisSummaryStore.js';
 export { createSummaryStore } from './stores/factories/SummaryStoreFactory.js';
-export { routeSerial, routeParallel } from './route-strategies.js';
-export { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInjector.js';
-export type { RouteStrategyDeps, RouteOptions } from './route-strategies.js';
+export { routeSerial, routeParallel } from './agents/routing/route-strategies.js';
+export { needsMcpInjection, buildMcpCallbackInstructions } from './agents/invocation/McpPromptInjector.js';
+export type { RouteStrategyDeps, RouteOptions } from './agents/routing/route-strategies.js';
 export { assembleContext, formatMessage } from './context/ContextAssembler.js';
 export type { AssembledContext, ContextAssemblerOptions } from './context/ContextAssembler.js';
 export { buildStaticIdentity, buildInvocationContext, buildSystemPrompt } from './context/SystemPromptBuilder.js';

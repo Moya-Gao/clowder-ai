@@ -12,11 +12,11 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { messagesRoutes } from '../dist/routes/messages.js';
 import { invocationsRoutes } from '../dist/routes/invocations.js';
-import { InvocationRegistry } from '../dist/domains/cats/services/InvocationRegistry.js';
+import { InvocationRegistry } from '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
 import { ThreadStore } from '../dist/domains/cats/services/stores/ports/ThreadStore.js';
 import { InvocationRecordStore } from '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js';
-import { InvocationTracker } from '../dist/domains/cats/services/InvocationTracker.js';
+import { InvocationTracker } from '../dist/domains/cats/services/agents/invocation/InvocationTracker.js';
 
 function createMockSocketManager() {
   const events = [];

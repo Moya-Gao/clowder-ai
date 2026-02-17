@@ -32,7 +32,7 @@ describe('Callback Routes', () => {
 
   beforeEach(async () => {
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { MessageStore } = await import(
       '../dist/domains/cats/services/stores/ports/MessageStore.js'
@@ -123,7 +123,7 @@ describe('Callback Routes', () => {
 
   test('POST post-message returns 401 for expired token', async () => {
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
 
     // Use very short TTL

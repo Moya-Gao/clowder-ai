@@ -5,7 +5,7 @@ const {
   appendLocalImagePathHints,
   buildLocalImagePathHints,
   collectImageAccessDirectories,
-} = await import('../dist/domains/cats/services/image-cli-bridge.js');
+} = await import('../dist/domains/cats/services/agents/providers/image-cli-bridge.js');
 
 test('buildLocalImagePathHints returns empty string for no images', () => {
   assert.equal(buildLocalImagePathHints([]), '');

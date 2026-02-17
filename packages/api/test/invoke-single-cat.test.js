@@ -24,7 +24,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     tempDir = await mkdtemp(join(tmpdir(), 'cat-audit-'));
     process.env['AUDIT_LOG_DIR'] = tempDir;
     // Dynamic import AFTER env is set — singleton will use this dir
-    const mod = await import('../dist/domains/cats/services/invoke-single-cat.js');
+    const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
     invokeSingleCat = mod.invokeSingleCat;
   });
 

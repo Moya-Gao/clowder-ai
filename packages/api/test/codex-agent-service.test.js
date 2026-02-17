@@ -9,7 +9,7 @@ import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
 const { CodexAgentService } = await import(
-  '../dist/domains/cats/services/CodexAgentService.js'
+  '../dist/domains/cats/services/agents/providers/CodexAgentService.js'
 );
 
 /** Helper: collect all items from async iterable */

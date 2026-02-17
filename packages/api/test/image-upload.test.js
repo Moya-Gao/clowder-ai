@@ -106,7 +106,7 @@ describe('saveUploadedImages', () => {
 
 describe('extractImagePaths', () => {
   it('extracts absolute paths from /uploads/ URLs', async () => {
-    const { extractImagePaths } = await import('../dist/domains/cats/services/image-paths.js');
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
 
     const blocks = [
       { type: 'text', text: 'hello' },
@@ -121,12 +121,12 @@ describe('extractImagePaths', () => {
   });
 
   it('returns empty array for undefined contentBlocks', async () => {
-    const { extractImagePaths } = await import('../dist/domains/cats/services/image-paths.js');
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
     assert.deepEqual(extractImagePaths(undefined), []);
   });
 
   it('ignores non-image blocks', async () => {
-    const { extractImagePaths } = await import('../dist/domains/cats/services/image-paths.js');
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
 
     const blocks = [
       { type: 'text', text: 'hello' },
@@ -136,7 +136,7 @@ describe('extractImagePaths', () => {
   });
 
   it('uses custom uploadDir when provided (regression: env vs opts mismatch)', async () => {
-    const { extractImagePaths } = await import('../dist/domains/cats/services/image-paths.js');
+    const { extractImagePaths } = await import('../dist/domains/cats/services/agents/providers/image-paths.js');
     const { resolve } = await import('node:path');
 
     const blocks = [{ type: 'image', url: '/uploads/test.png' }];
@@ -155,7 +155,7 @@ describe('Claude CLI image fallback', () => {
     };
 
     const { ClaudeAgentService } = await import(
-      '../dist/domains/cats/services/ClaudeAgentService.js'
+      '../dist/domains/cats/services/agents/providers/ClaudeAgentService.js'
     );
     const service = new ClaudeAgentService({ spawnFn: mockSpawnFn });
 
@@ -189,7 +189,7 @@ describe('Codex CLI image text fallback', () => {
     };
 
     const { CodexAgentService } = await import(
-      '../dist/domains/cats/services/CodexAgentService.js'
+      '../dist/domains/cats/services/agents/providers/CodexAgentService.js'
     );
     const service = new CodexAgentService({ spawnFn: mockSpawnFn });
 
@@ -218,7 +218,7 @@ describe('Gemini CLI image fallback', () => {
     };
 
     const { GeminiAgentService } = await import(
-      '../dist/domains/cats/services/GeminiAgentService.js'
+      '../dist/domains/cats/services/agents/providers/GeminiAgentService.js'
     );
     const service = new GeminiAgentService({
       adapter: 'gemini-cli',
@@ -254,7 +254,7 @@ describe('contentBlocks in GET /api/messages', () => {
       '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'
@@ -326,7 +326,7 @@ describe('multipart image target routing', () => {
     broadcastedAgentMessages.length = 0;
 
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
-    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
     const { InvocationRecordStore } = await import('../dist/domains/cats/services/stores/ports/InvocationRecordStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 

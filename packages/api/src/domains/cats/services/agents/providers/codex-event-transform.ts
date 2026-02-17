@@ -1,5 +1,5 @@
 import type { CatId } from '@cat-cafe/shared';
-import type { AgentMessage } from './types.js';
+import type { AgentMessage } from '../../types.js';
 
 /**
  * Mutable state for tracking Codex multi-turn text separation.

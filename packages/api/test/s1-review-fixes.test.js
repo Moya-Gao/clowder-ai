@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 describe('P1-1: duplicate request must not abort active invocation', () => {
   test('isDeleting() returns false for normal threads', async () => {
     const { InvocationTracker } = await import(
-      '../dist/domains/cats/services/InvocationTracker.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
     );
     const tracker = new InvocationTracker();
     assert.equal(tracker.isDeleting('thread-1'), false);
@@ -23,7 +23,7 @@ describe('P1-1: duplicate request must not abort active invocation', () => {
 
   test('isDeleting() returns true during delete guard', async () => {
     const { InvocationTracker } = await import(
-      '../dist/domains/cats/services/InvocationTracker.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
     );
     const tracker = new InvocationTracker();
     const guard = tracker.guardDelete('thread-1');
@@ -35,7 +35,7 @@ describe('P1-1: duplicate request must not abort active invocation', () => {
 
   test('start() aborts existing invocation but isDeleting() does not', async () => {
     const { InvocationTracker } = await import(
-      '../dist/domains/cats/services/InvocationTracker.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
     );
     const tracker = new InvocationTracker();
 
@@ -110,7 +110,7 @@ describe('P1-2: resolveTargetsAndIntent persist writes participants', () => {
   }
 
   test('persist: false (default) does NOT write participants', async () => {
-    const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+    const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const threadStore = createMockThreadStore();
     const router = new AgentRouter({
@@ -127,7 +127,7 @@ describe('P1-2: resolveTargetsAndIntent persist writes participants', () => {
   });
 
   test('persist: true writes @mentions to thread participants', async () => {
-    const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+    const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const threadStore = createMockThreadStore();
     const router = new AgentRouter({
@@ -192,7 +192,7 @@ describe('Integration: dedup does not trigger tracker abort', () => {
       '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
     const { InvocationTracker } = await import(
-      '../dist/domains/cats/services/InvocationTracker.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
     );
 
     const store = new InvocationRecordStore();
@@ -234,7 +234,7 @@ import Fastify from 'fastify';
 describe('R2: delete-guard race via POST /api/messages route', () => {
   test('returns 409 and cancels InvocationRecord when start() returns aborted controller', async () => {
     const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
-    const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
+    const { InvocationRegistry } = await import('../dist/domains/cats/services/agents/invocation/InvocationRegistry.js');
     const { InvocationRecordStore } = await import('../dist/domains/cats/services/stores/ports/InvocationRecordStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 

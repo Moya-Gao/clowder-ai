@@ -7,38 +7,38 @@ import assert from 'node:assert/strict';
 
 describe('parseA2AMentions', () => {
   it('detects line-start @mention (Chinese name)', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@缅因猫 请 review 这段代码', 'opus');
     assert.deepEqual(result, ['codex']);
   });
 
   it('detects line-start @mention with leading whitespace', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('  @布偶猫 你觉得呢？', 'codex');
     assert.deepEqual(result, ['opus']);
   });
 
   it('does NOT trigger for non-line-start @mention', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('之前布偶猫说的 @布偶猫 方案不错', 'codex');
     assert.deepEqual(result, []);
   });
 
   it('ignores @mention inside fenced code blocks', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const text = '看看这段代码：\n```\n@缅因猫 请review\n```\n没问题';
     const result = parseA2AMentions(text, 'opus');
     assert.deepEqual(result, []);
   });
 
   it('filters self-mention', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@布偶猫 我自己说的', 'opus');
     assert.deepEqual(result, []);
   });
 
   it('F27: returns all matches (multi-mention, up to 2)', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     // Both on separate lines — F27 returns both
     const text = '@缅因猫 先review\n@暹罗猫 再看看设计';
     const result = parseA2AMentions(text, 'opus');
@@ -48,12 +48,12 @@ describe('parseA2AMentions', () => {
   });
 
   it('returns empty array for empty text', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     assert.deepEqual(parseA2AMentions('', 'opus'), []);
   });
 
   it('matches English mention patterns', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/a2a-mentions.js');
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@codex please review', 'opus');
     assert.deepEqual(result, ['codex']);
   });

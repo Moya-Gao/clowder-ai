@@ -11,9 +11,9 @@ import type { FastifyPluginAsync } from 'fastify';
 import { createCatId } from '@cat-cafe/shared';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
-import type { AgentRouter } from '../domains/cats/services/AgentRouter.js';
-import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
-import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
+import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
+import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-strategies.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 

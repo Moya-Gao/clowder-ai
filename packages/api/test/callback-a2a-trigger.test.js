@@ -259,7 +259,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
   test('enqueues targets to parent worklist when worklist exists', async () => {
     const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
     const { registerWorklist, unregisterWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const worklist = ['opus'];
@@ -296,7 +296,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
   test('deduplicates targets already in worklist', async () => {
     const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
     const { registerWorklist, unregisterWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const worklist = ['opus', 'codex'];
@@ -333,7 +333,7 @@ describe('enqueueA2ATargets (F27 primary path)', () => {
   test('respects max depth limit', async () => {
     const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
     const { registerWorklist, unregisterWorklist, getWorklist } = await import(
-      '../dist/domains/cats/services/WorklistRegistry.js'
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
     );
 
     const worklist = ['opus'];

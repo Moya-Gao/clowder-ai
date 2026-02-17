@@ -19,19 +19,19 @@ import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
-import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
-import { formatCliExitError } from '../../../utils/cli-format.js';
-import type { SpawnFn } from '../../../utils/cli-types.js';
-import { extractImagePaths } from './image-paths.js';
-import { appendLocalImagePathHints, collectImageAccessDirectories } from './image-cli-bridge.js';
-import { getCatModel } from '../../../config/cat-models.js';
+import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
+import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { extractImagePaths } from '../providers/image-paths.js';
+import { appendLocalImagePathHints, collectImageAccessDirectories } from '../providers/image-cli-bridge.js';
+import { getCatModel } from '../../../../../config/cat-models.js';
 import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
   MessageMetadata,
   TokenUsage,
-} from './types.js';
+} from '../../types.js';
 
 const CAT_ID = createCatId('opus');
 

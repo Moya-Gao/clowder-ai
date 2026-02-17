@@ -469,7 +469,7 @@ describe('Thread delete invocation protection (#35)', () => {
   });
 
   it('guardDelete blocks start() during async delete window', async () => {
-    const { InvocationTracker } = await import('../dist/domains/cats/services/InvocationTracker.js');
+    const { InvocationTracker } = await import('../dist/domains/cats/services/agents/invocation/InvocationTracker.js');
 
     const tracker = new InvocationTracker();
     const threadId = 'race-test-thread';
@@ -507,7 +507,7 @@ describe('GET /api/messages with threadId', () => {
       '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
-      '../dist/domains/cats/services/InvocationRegistry.js'
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
     );
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'

@@ -20,21 +20,21 @@
 import { CAT_CONFIGS, createCatId, escapeRegExp } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID } from './stores/ports/ThreadStore.js';
-import { SessionManager } from './session/SessionManager.js';
-import { DeliveryCursorStore } from './stores/ports/DeliveryCursorStore.js';
-import { parseIntent, stripIntentTags } from './context/IntentParser.js';
-import type { IntentResult } from './context/IntentParser.js';
-import { routeSerial, routeParallel } from './route-strategies.js';
-import type { RouteStrategyDeps, PersistenceContext } from './route-strategies.js';
-import type { InvocationRegistry } from './InvocationRegistry.js';
-import type { IMessageStore } from './stores/ports/MessageStore.js';
-import type { IThreadStore } from './stores/ports/ThreadStore.js';
-import type { AgentMessage, AgentService } from './types.js';
-import type { ISessionChainStore } from './stores/ports/SessionChainStore.js';
-import type { TranscriptWriter } from './session/TranscriptWriter.js';
-import type { TranscriptReader } from './session/TranscriptReader.js';
-import type { ISessionSealer } from './session/SessionSealer.js';
+import { DEFAULT_THREAD_ID } from '../../stores/ports/ThreadStore.js';
+import { SessionManager } from '../../session/SessionManager.js';
+import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
+import { parseIntent, stripIntentTags } from '../../context/IntentParser.js';
+import type { IntentResult } from '../../context/IntentParser.js';
+import { routeSerial, routeParallel } from '../routing/route-strategies.js';
+import type { RouteStrategyDeps, PersistenceContext } from '../routing/route-strategies.js';
+import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
+import type { IMessageStore } from '../../stores/ports/MessageStore.js';
+import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
+import type { AgentMessage, AgentService } from '../../types.js';
+import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
+import type { TranscriptWriter } from '../../session/TranscriptWriter.js';
+import type { TranscriptReader } from '../../session/TranscriptReader.js';
+import type { ISessionSealer } from '../../session/SessionSealer.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {

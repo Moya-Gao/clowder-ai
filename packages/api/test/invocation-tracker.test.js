@@ -7,7 +7,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { InvocationTracker } = await import(
-  '../dist/domains/cats/services/InvocationTracker.js'
+  '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
 );
 
 describe('InvocationTracker userId auth', () => {

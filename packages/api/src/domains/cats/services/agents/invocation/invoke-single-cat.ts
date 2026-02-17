@@ -10,19 +10,19 @@
  */
 
 import type { CatId, MessageContent, ContextHealth } from '@cat-cafe/shared';
-import { isUnderAllowedRoot } from '../../../utils/project-path.js';
-import type { SessionManager } from './session/SessionManager.js';
-import type { InvocationRegistry } from './InvocationRegistry.js';
-import type { IThreadStore } from './stores/ports/ThreadStore.js';
-import type { ISessionChainStore } from './stores/ports/SessionChainStore.js';
-import type { ISessionSealer } from './session/SessionSealer.js';
-import type { TranscriptWriter, TranscriptSessionInfo } from './session/TranscriptWriter.js';
-import type { AgentMessage, AgentService, AgentServiceOptions } from './types.js';
-import { getEventAuditLog, AuditEventTypes } from './orchestration/EventAuditLog.js';
-import { createPromptDigest } from './context/prompt-digest.js';
-import { getContextWindowFallback } from '../../../config/context-window-sizes.js';
-import { shouldSeal, getSealConfig } from '../../../config/seal-thresholds.js';
-import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
+import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
+import type { SessionManager } from '../../session/SessionManager.js';
+import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
+import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
+import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
+import type { ISessionSealer } from '../../session/SessionSealer.js';
+import type { TranscriptWriter, TranscriptSessionInfo } from '../../session/TranscriptWriter.js';
+import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
+import { createPromptDigest } from '../../context/prompt-digest.js';
+import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { shouldSeal, getSealConfig } from '../../../../../config/seal-thresholds.js';
+import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 
 /* ── F26: Task tool detection for real-time progress ─────── */
 const TASK_TOOL_NAMES = new Set(['TodoWrite', 'write_todos']);
@@ -70,7 +70,7 @@ export interface InvocationDeps {
   /** F24 Phase C: Transcript writer for event collection + flush on seal */
   readonly transcriptWriter?: TranscriptWriter;
   /** F24 Phase D: Transcript reader for reading sealed session data */
-  readonly transcriptReader?: import('./session/TranscriptReader.js').TranscriptReader;
+  readonly transcriptReader?: import('../../session/TranscriptReader.js').TranscriptReader;
 }
 
 /**

@@ -16,31 +16,31 @@
  */
 
 import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
-import { spawnCli, isCliError, isCliTimeout } from '../../../utils/cli-spawn.js';
-import { formatCliExitError } from '../../../utils/cli-format.js';
-import type { SpawnFn } from '../../../utils/cli-types.js';
-import { extractImagePaths } from './image-paths.js';
-import { getCatModel } from '../../../config/cat-models.js';
-import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../config/codex-cli.js';
-import { getEventAuditLog, AuditEventTypes } from './orchestration/EventAuditLog.js';
-import { CliRawArchive } from './session/CliRawArchive.js';
-import { transformCodexEvent, type CodexStreamState } from './codex-event-transform.js';
+import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
+import { formatCliExitError } from '../../../../../utils/cli-format.js';
+import type { SpawnFn } from '../../../../../utils/cli-types.js';
+import { extractImagePaths } from '../providers/image-paths.js';
+import { getCatModel } from '../../../../../config/cat-models.js';
+import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../../../config/codex-cli.js';
+import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
+import { CliRawArchive } from '../../session/CliRawArchive.js';
+import { transformCodexEvent, type CodexStreamState } from '../providers/codex-event-transform.js';
 import {
   createCodexSessionContextSnapshotResolver,
   type CodexSessionContextSnapshotResolver,
-} from './codex-session-context-snapshot.js';
+} from '../providers/codex-session-context-snapshot.js';
 import {
   extractCommandExecutionLifecycle,
   sanitizeRawEvent,
-} from './codex-audit-hooks.js';
-import type { AuditLogSink, RawArchiveSink } from './codex-audit-hooks.js';
+} from '../providers/codex-audit-hooks.js';
+import type { AuditLogSink, RawArchiveSink } from '../providers/codex-audit-hooks.js';
 import type {
   AgentMessage,
   AgentService,
   AgentServiceOptions,
   MessageMetadata,
   TokenUsage,
-} from './types.js';
+} from '../../types.js';
 
 const CAT_ID = createCatId('codex');
 

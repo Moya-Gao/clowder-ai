@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const { ClaudeAgentService, resolveDefaultClaudeMcpServerPath } = await import(
-  '../dist/domains/cats/services/ClaudeAgentService.js'
+  '../dist/domains/cats/services/agents/providers/ClaudeAgentService.js'
 );
 
 /** Helper: collect all items from async iterable */

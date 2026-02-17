@@ -9,7 +9,7 @@ import Fastify from 'fastify';
 import { invocationsRoutes } from '../dist/routes/invocations.js';
 import { InvocationRecordStore } from '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js';
 import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
-import { InvocationTracker } from '../dist/domains/cats/services/InvocationTracker.js';
+import { InvocationTracker } from '../dist/domains/cats/services/agents/invocation/InvocationTracker.js';
 
 /** Stub AgentRouter: routeExecution yields one text message then returns */
 function createMockRouter(options = {}) {

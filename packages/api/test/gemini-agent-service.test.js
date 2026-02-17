@@ -9,7 +9,7 @@ import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 
 const { GeminiAgentService } = await import(
-  '../dist/domains/cats/services/GeminiAgentService.js'
+  '../dist/domains/cats/services/agents/providers/GeminiAgentService.js'
 );
 
 /** Helper: collect all items from async iterable */

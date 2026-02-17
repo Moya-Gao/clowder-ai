@@ -19,8 +19,8 @@ import type { StoredMessage } from '../domains/cats/services/stores/ports/Messag
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
-import { pushToWorklist, hasWorklist } from '../domains/cats/services/WorklistRegistry.js';
+import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import { pushToWorklist, hasWorklist } from '../domains/cats/services/agents/routing/WorklistRegistry.js';
 
 export interface A2ATriggerDeps {
   router: AgentRouter;

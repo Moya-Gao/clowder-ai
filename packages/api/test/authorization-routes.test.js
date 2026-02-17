@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
 const { InvocationRegistry } = await import(
-  '../dist/domains/cats/services/InvocationRegistry.js'
+  '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
 );
 const { AuthorizationRuleStore } = await import(
   '../dist/domains/cats/services/stores/ports/AuthorizationRuleStore.js'

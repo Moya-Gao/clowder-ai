@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const { createCodexSessionContextSnapshotResolver } = await import(
-  '../dist/domains/cats/services/codex-session-context-snapshot.js'
+  '../dist/domains/cats/services/agents/providers/codex-session-context-snapshot.js'
 );
 
 test('returns null when rollout file for session does not exist', async () => {

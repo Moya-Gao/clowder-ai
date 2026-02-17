@@ -14,7 +14,7 @@ import type { IMessageStore } from '../domains/cats/services/stores/ports/Messag
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
-import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
+import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 

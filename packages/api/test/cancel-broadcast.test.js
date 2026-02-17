@@ -11,7 +11,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { InvocationTracker } = await import(
-  '../dist/domains/cats/services/InvocationTracker.js'
+  '../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
 );
 const { buildCancelMessages } = await import(
   '../dist/infrastructure/websocket/SocketManager.js'

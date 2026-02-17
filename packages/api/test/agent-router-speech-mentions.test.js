@@ -31,7 +31,7 @@ function createNoopMessageStore() {
 }
 
 test('resolveTargetsAndIntent supports speech-style "at + nickname" mentions', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
@@ -45,7 +45,7 @@ test('resolveTargetsAndIntent supports speech-style "at + nickname" mentions', a
 });
 
 test('resolveTargetsAndIntent supports at without spaces', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
@@ -59,7 +59,7 @@ test('resolveTargetsAndIntent supports at without spaces', async () => {
 });
 
 test('resolveTargetsAndIntent supports 艾特 prefix', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
@@ -73,7 +73,7 @@ test('resolveTargetsAndIntent supports 艾特 prefix', async () => {
 });
 
 test('resolveTargetsAndIntent does not false-positive normal words like attack', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
@@ -87,7 +87,7 @@ test('resolveTargetsAndIntent does not false-positive normal words like attack',
 });
 
 test('resolveTargetsAndIntent keeps existing @mentions unchanged', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
@@ -101,7 +101,7 @@ test('resolveTargetsAndIntent keeps existing @mentions unchanged', async () => {
 });
 
 test('resolveTargetsAndIntent supports @。 speech punctuation prefix', async () => {
-  const { AgentRouter } = await import('../dist/domains/cats/services/AgentRouter.js');
+  const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
   const router = new AgentRouter({
     claudeService: createNoopService('opus'),
     codexService: createNoopService('codex'),
