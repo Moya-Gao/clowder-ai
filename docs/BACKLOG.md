@@ -28,6 +28,7 @@
 | 47 | **Persist guard (invocation 成功条件)** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `PersistenceContext` 跨 generator 传递持久化失败 → invocation 标 failed (可重试) + 前端通知。cursor ack 仅在 succeeded |
 | 56 | **file_change 事件后前端失联 / 超时** | [~] | [bug report](./bug-report/file-change-event-frontend-disconnect/bug-report.md) | Why: 证据显示 `file_change completed` 后紧接服务重启与前端失联。风险边界：当前调试会话可能在首次文件编辑后断链。触发条件：完成最小复现（含 ws close reason）并确认前端/后端根因后再关闭。 |
 | 77 | **pending-mentions 无 ack 机制 — 跨 session 重复处理** | [~] | [bug report](./bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `get_pending_mentions` 纯快照查询无已读标记，auto-compact/F24 session 切换后新 session 重复看到旧 mentions。设计方案已通过缅因猫 R7 review（messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验），待实现。 |
+| 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
 
 ## P2 — 建议做
 
