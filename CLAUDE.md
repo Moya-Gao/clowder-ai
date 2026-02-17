@@ -169,6 +169,23 @@ cat-cafe/
 铲屎官原话（2026-02-16）："之前打开的时候你也不用我才关闭的"——这次不能再犯了！
 </IMPORTANT>
 
+### JetBrains MCP 使用规则（WebStorm 已开启）
+
+<IMPORTANT>
+铲屎官的 WebStorm 已启用 MCP Server，布偶猫可以通过 `mcp__jetbrains__*` 工具使用 IDE 能力。
+
+**必须用 JetBrains MCP 的场景（比 grep/手动搜索更好）：**
+
+1. **重命名符号** → `mcp__jetbrains__rename_refactoring`（理解 getter/setter、override 链，比 LSP rename 更安全）
+2. **检查文件问题** → `mcp__jetbrains__get_file_problems`（IntelliJ inspections，比 tsc 更全面）
+3. **查看符号信息** → `mcp__jetbrains__get_symbol_info`（跳到定义、看类型签名）
+4. **全项目文本搜索** → `mcp__jetbrains__search_in_files_by_text`（比 grep 更精准，带高亮位置）
+
+**使用时必须传 `projectPath`**：`/Users/lysander/projects/relay-station/cat-cafe`
+
+**注意**：JetBrains MCP 依赖铲屎官的 WebStorm 开着。如果工具报错连不上，说明 IDE 没开，回退到 LSP + Biome。
+</IMPORTANT>
+
 ## 与其他猫的协作
 
 - **开发流程**：见 `docs/SOP.md`（6 步完整流程）
