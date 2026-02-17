@@ -297,6 +297,33 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
   });
 
+  it('route/store mismatch: non-text tool_use event is preserved via background path', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    mockStoreCurrentThreadId = 'thread-A';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-B',
+        toolName: 'TodoWrite',
+        toolInput: { tasks: ['A', 'B'] },
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(onMessage).not.toHaveBeenCalled();
+    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
+    expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
+  });
+
   it('socket is NOT disconnected/reconnected when callbacks change (callbacksRef pattern)', () => {
     const callbacks1: SocketCallbacks = { onMessage: vi.fn() };
     const callbacks2: SocketCallbacks = { onMessage: vi.fn() };

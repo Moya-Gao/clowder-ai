@@ -1,10 +1,13 @@
 import type { CatStatusType, ThreadState } from '@/stores/chat-types';
+import { compactToolResultDetail } from '@/utils/toolPreview';
 
 export interface BackgroundAgentMessage {
   type: string;
   catId: string;
   threadId: string;
   content?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('@/stores/chat-types').TokenUsage };
@@ -26,15 +29,23 @@ export interface BackgroundToastInput {
 }
 
 export interface BackgroundStoreLike {
-  addMessageToThread: (threadId: string, msg: {
-    id: string;
-    type: 'assistant' | 'system';
-    catId: string;
-    content: string;
-    metadata?: { provider: string; model: string; sessionId?: string; usage?: import('@/stores/chat-types').TokenUsage };
-    timestamp: number;
-    isStreaming?: boolean;
-  }) => void;
+  addMessageToThread: (
+    threadId: string,
+    msg: {
+      id: string;
+      type: 'assistant' | 'system';
+      catId: string;
+      content: string;
+      metadata?: {
+        provider: string;
+        model: string;
+        sessionId?: string;
+        usage?: import('@/stores/chat-types').TokenUsage;
+      };
+      timestamp: number;
+      isStreaming?: boolean;
+    },
+  ) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
@@ -76,7 +87,7 @@ function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): b
 
 export function clearBackgroundStreamRefForActiveEvent(
   msg: ActiveRoutedAgentMessage,
-  bgStreamRefs: Map<string, BackgroundStreamRef>
+  bgStreamRefs: Map<string, BackgroundStreamRef>,
 ): void {
   if (!shouldClearBackgroundRefOnActiveEvent(msg) || !msg.threadId) return;
   bgStreamRefs.delete(`${msg.threadId}::${msg.catId}`);
@@ -85,7 +96,7 @@ export function clearBackgroundStreamRefForActiveEvent(
 function stopTrackedStream(
   streamKey: string,
   msg: BackgroundAgentMessage,
-  options: HandleBackgroundMessageOptions
+  options: HandleBackgroundMessageOptions,
 ): BackgroundStreamRef | undefined {
   const existing = options.bgStreamRefs.get(streamKey);
   if (!existing) return undefined;
@@ -94,9 +105,36 @@ function stopTrackedStream(
   return existing;
 }
 
+function truncate(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength)}...`;
+}
+
+function safeJsonPreview(value: unknown, maxLength: number): string {
+  try {
+    return truncate(JSON.stringify(value), maxLength);
+  } catch {
+    return '[unserializable input]';
+  }
+}
+
+function addBackgroundSystemMessage(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+  content: string,
+): void {
+  options.store.addMessageToThread(msg.threadId, {
+    id: `bg-sys-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
+    type: 'system',
+    catId: msg.catId,
+    content,
+    timestamp: msg.timestamp,
+  });
+}
+
 export function handleBackgroundAgentMessage(
   msg: BackgroundAgentMessage,
-  options: HandleBackgroundMessageOptions
+  options: HandleBackgroundMessageOptions,
 ): void {
   const streamKey = getStreamKey(msg);
   const existing = options.bgStreamRefs.get(streamKey);
@@ -187,5 +225,30 @@ export function handleBackgroundAgentMessage(
   if (msg.type === 'status') {
     const mapped = STATUS_MAP[msg.content ?? ''] ?? 'streaming';
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, mapped);
+    return;
+  }
+
+  if (msg.type === 'tool_use') {
+    const toolName = msg.toolName ?? 'unknown';
+    const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : null;
+    addBackgroundSystemMessage(
+      msg,
+      options,
+      detail ? `🔧 ${msg.catId} → ${toolName}\n${detail}` : `🔧 ${msg.catId} → ${toolName}`,
+    );
+    options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
+    return;
+  }
+
+  if (msg.type === 'tool_result') {
+    const detail = compactToolResultDetail(msg.content ?? '');
+    addBackgroundSystemMessage(msg, options, `🧾 ${msg.catId} ← result\n${detail}`);
+    options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
+    return;
+  }
+
+  if (msg.type === 'system_info' || msg.type === 'a2a_handoff') {
+    if (!msg.content) return;
+    addBackgroundSystemMessage(msg, options, msg.content);
   }
 }

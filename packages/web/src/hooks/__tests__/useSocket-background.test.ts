@@ -7,13 +7,13 @@
  *
  * We extract the expected behavior from useSocket and verify the store actions.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import {
-  handleBackgroundAgentMessage,
-  clearBackgroundStreamRefForActiveEvent,
   type BackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  handleBackgroundAgentMessage,
 } from '../useSocket-background';
 
 /** Monotonic counter matching useSocket.ts bgSeq */
@@ -28,6 +28,8 @@ function simulateBackgroundMessage(msg: {
   catId: string;
   threadId: string;
   content?: string;
+  toolName?: string;
+  toolInput?: Record<string, unknown>;
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string };
@@ -319,13 +321,16 @@ describe('background thread socket handling', () => {
       expect(messageId).toBeDefined();
 
       // Simulate thread became active and received non-terminal text chunk.
-      clearBackgroundStreamRefForActiveEvent({
-        type: 'text',
-        catId: 'opus',
-        threadId: 'thread-bg',
-        content: 'more',
-        timestamp: now + 1,
-      }, testBgStreamRefs);
+      clearBackgroundStreamRefForActiveEvent(
+        {
+          type: 'text',
+          catId: 'opus',
+          threadId: 'thread-bg',
+          content: 'more',
+          timestamp: now + 1,
+        },
+        testBgStreamRefs,
+      );
 
       // Switch away again; terminal done is now handled by background branch.
       simulateBackgroundMessage({
@@ -356,14 +361,17 @@ describe('background thread socket handling', () => {
       const messageId = testBgStreamRefs.get(streamKey)?.id;
       expect(messageId).toBeDefined();
 
-      clearBackgroundStreamRefForActiveEvent({
-        type: 'error',
-        catId: 'opus',
-        threadId: 'thread-bg',
-        error: 'transient',
-        isFinal: false,
-        timestamp: now + 1,
-      }, testBgStreamRefs);
+      clearBackgroundStreamRefForActiveEvent(
+        {
+          type: 'error',
+          catId: 'opus',
+          threadId: 'thread-bg',
+          error: 'transient',
+          isFinal: false,
+          timestamp: now + 1,
+        },
+        testBgStreamRefs,
+      );
 
       simulateBackgroundMessage({
         type: 'done',
@@ -401,7 +409,7 @@ describe('background thread socket handling', () => {
           threadId: 'thread-bg',
           timestamp: now + 1,
         },
-        testBgStreamRefs
+        testBgStreamRefs,
       );
 
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
@@ -420,6 +428,68 @@ describe('background thread socket handling', () => {
       expect(ts.messages).toHaveLength(2);
       expect(first?.content).toBe('partial');
       expect(second?.content).toBe('new invocation');
+    });
+  });
+
+  describe('regression: preserve non-text events in background path', () => {
+    it('preserves tool_use as background system message', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'TodoWrite',
+        toolInput: { tasks: ['A', 'B'] },
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.type).toBe('system');
+      expect(ts.messages[0]?.content).toContain('🔧 opus → TodoWrite');
+      expect(ts.catStatuses['opus']).toBe('streaming');
+    });
+
+    it('preserves tool_result as background system message', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'tool_result',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'line-1\nline-2',
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.type).toBe('system');
+      expect(ts.messages[0]?.content).toContain('🧾 opus ← result');
+      expect(ts.catStatuses['opus']).toBe('streaming');
+    });
+
+    it('preserves system_info and a2a_handoff messages', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'system hint',
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'a2a_handoff',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'handoff info',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0]?.content).toContain('system hint');
+      expect(ts.messages[1]?.content).toContain('handoff info');
     });
   });
 });
