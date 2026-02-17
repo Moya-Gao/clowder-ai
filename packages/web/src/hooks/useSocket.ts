@@ -138,6 +138,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       const isActiveThreadMessage = Boolean(
         msg.threadId && routeThread && storeThread && msg.threadId === routeThread && msg.threadId === storeThread,
       );
+      // If either pointer is temporarily unavailable during thread switch,
+      // route thread-tagged events to background to avoid mutating stale flat state.
 
       // Defensive fallback for malformed legacy payloads (threadId missing).
       if (!msg.threadId) {
