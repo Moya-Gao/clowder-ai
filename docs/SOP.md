@@ -208,6 +208,24 @@ pnpm --filter @cat-cafe/shared build
 - **重构/移动文件后主动触发诊断**，确认 import 链没断
 - 具体配置见各猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）
 
+### JetBrains MCP（三猫共用，铲屎官 WebStorm 已开启）
+
+铲屎官的 WebStorm 已启用 MCP Server（SSE: `http://localhost:64342/sse`）。配置位置：
+- **布偶猫**：项目级 `.mcp.json`（Claude CLI 自动读取）
+- **缅因猫**：`~/.codex/config.toml` → `[mcp_servers.jetbrains]`
+
+**必须用 JetBrains MCP 的场景**（比手动 grep 替换更安全）：
+
+| 场景 | 工具 | 为什么 |
+|------|------|--------|
+| **重命名符号** | `rename_refactoring` | 理解 getter/setter、override 链，跨文件安全重命名 |
+| **检查文件问题** | `get_file_problems` | IntelliJ inspections，比 `tsc --noEmit` 更全面 |
+| **查看符号信息** | `get_symbol_info` | 跳到定义、看类型签名、看文档 |
+| **全项目搜索** | `search_in_files_by_text` | 比 grep 更精准，带高亮匹配位置 |
+
+**注意**：JetBrains MCP 依赖铲屎官的 WebStorm 开着。如果连不上，回退到 LSP + Biome。
+调研报告：`docs/research/2026-02-16_LSP_MCP_report.md`
+
 ---
 
 ## Skill 速查表
