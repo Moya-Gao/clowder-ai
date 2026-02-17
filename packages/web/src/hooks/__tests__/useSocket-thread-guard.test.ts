@@ -8,11 +8,11 @@
  * Red→Green: Before the fix, intent_mode had no threadIdRef guard in useSocket,
  * so events from thread A would leak into thread B's callback after a switch.
  */
-import React from 'react';
+
+import EventEmitter from 'node:events';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { act } from 'react';
-import { beforeAll, afterAll, beforeEach, afterEach, describe, expect, it, vi } from 'vitest';
-import EventEmitter from 'events';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ── Mock socket.io-client ──
 // Create a controllable EventEmitter that acts as a socket.io client.
@@ -35,14 +35,22 @@ vi.mock('socket.io-client', () => ({
 }));
 
 // ── Mock stores ──
+const mockAddMessageToThread = vi.fn();
+const mockAppendToThreadMessage = vi.fn();
+const mockSetThreadMessageStreaming = vi.fn();
+const mockUpdateThreadCatStatus = vi.fn();
+const mockClearThreadActiveInvocation = vi.fn();
+let mockStoreCurrentThreadId = 'thread-B';
+
 vi.mock('@/stores/chatStore', () => {
   const store = {
     getState: () => ({
-      addMessageToThread: vi.fn(),
-      appendToThreadMessage: vi.fn(),
-      setThreadMessageStreaming: vi.fn(),
-      updateThreadCatStatus: vi.fn(),
-      clearThreadActiveInvocation: vi.fn(),
+      currentThreadId: mockStoreCurrentThreadId,
+      addMessageToThread: mockAddMessageToThread,
+      appendToThreadMessage: mockAppendToThreadMessage,
+      setThreadMessageStreaming: mockSetThreadMessageStreaming,
+      updateThreadCatStatus: mockUpdateThreadCatStatus,
+      clearThreadActiveInvocation: mockClearThreadActiveInvocation,
       getThreadState: () => ({
         messages: [],
         isLoading: false,
@@ -80,7 +88,7 @@ vi.mock('@/utils/api-client', () => ({
 }));
 
 // ── Import useSocket after mocks ──
-import { useSocket, type SocketCallbacks } from '../useSocket';
+import { type SocketCallbacks, useSocket } from '../useSocket';
 
 /**
  * Minimal wrapper component to mount the useSocket hook with controlled threadId.
@@ -120,6 +128,12 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    mockStoreCurrentThreadId = 'thread-B';
+    mockAddMessageToThread.mockClear();
+    mockAppendToThreadMessage.mockClear();
+    mockSetThreadMessageStreaming.mockClear();
+    mockUpdateThreadCatStatus.mockClear();
+    mockClearThreadActiveInvocation.mockClear();
     // Clear all socket listeners from previous tests
     mockSocket.removeAllListeners();
   });
@@ -253,6 +267,36 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     expect(onMessage).not.toHaveBeenCalled();
   });
 
+  it('route/store mismatch: message for route thread must go background until store switches', () => {
+    const onMessage = vi.fn();
+    const callbacks: SocketCallbacks = {
+      onMessage,
+    };
+
+    // Route has switched to thread-B, but store still points to old thread-A.
+    mockStoreCurrentThreadId = 'thread-A';
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    // Message belongs to the new route thread (thread-B).
+    act(() => {
+      simulateServerEvent('agent_message', {
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-B',
+        content: 'from thread B during switch window',
+        timestamp: Date.now(),
+      });
+    });
+
+    // Must not mutate old active flat state via onMessage.
+    expect(onMessage).not.toHaveBeenCalled();
+    // Must be routed as background so it lands in thread-B state map.
+    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
+    expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
+  });
+
   it('socket is NOT disconnected/reconnected when callbacks change (callbacksRef pattern)', () => {
     const callbacks1: SocketCallbacks = { onMessage: vi.fn() };
     const callbacks2: SocketCallbacks = { onMessage: vi.fn() };
@@ -277,18 +321,22 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     const onIntentMode2 = vi.fn();
 
     act(() => {
-      root.render(React.createElement(HookWrapper, {
-        callbacks: { onMessage: vi.fn(), onIntentMode: onIntentMode1 },
-        threadId: 'thread-A',
-      }));
+      root.render(
+        React.createElement(HookWrapper, {
+          callbacks: { onMessage: vi.fn(), onIntentMode: onIntentMode1 },
+          threadId: 'thread-A',
+        }),
+      );
     });
 
     // Update callbacks (simulates thread switch causing useMemo rebuild)
     act(() => {
-      root.render(React.createElement(HookWrapper, {
-        callbacks: { onMessage: vi.fn(), onIntentMode: onIntentMode2 },
-        threadId: 'thread-A',
-      }));
+      root.render(
+        React.createElement(HookWrapper, {
+          callbacks: { onMessage: vi.fn(), onIntentMode: onIntentMode2 },
+          threadId: 'thread-A',
+        }),
+      );
     });
 
     // Fire intent_mode — should use the LATEST callback (onIntentMode2)

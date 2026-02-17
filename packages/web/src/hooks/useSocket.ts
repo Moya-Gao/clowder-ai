@@ -1,15 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { getUserId } from '@/utils/userId';
-import { API_URL } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
+import { API_URL } from '@/utils/api-client';
+import { getUserId } from '@/utils/userId';
 import {
-  handleBackgroundAgentMessage,
-  clearBackgroundStreamRefForActiveEvent,
   type BackgroundAgentMessage,
+  clearBackgroundStreamRefForActiveEvent,
+  handleBackgroundAgentMessage,
 } from './useSocket-background';
 
 interface AgentMessage {
@@ -49,7 +49,15 @@ export interface SocketCallbacks {
   onMessageDeleted?: (data: { messageId: string; threadId: string; deletedBy: string }) => void;
   onMessageRestored?: (data: { messageId: string; threadId: string }) => void;
   onThreadBranched?: (data: { sourceThreadId: string; newThreadId: string; fromMessageId: string }) => void;
-  onAuthorizationRequest?: (data: { requestId: string; catId: string; threadId: string; action: string; reason: string; context?: string; createdAt: number }) => void;
+  onAuthorizationRequest?: (data: {
+    requestId: string;
+    catId: string;
+    threadId: string;
+    action: string;
+    reason: string;
+    context?: string;
+    createdAt: number;
+  }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
   onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
 }
@@ -121,10 +129,25 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
-      const currentThread = threadIdRef.current;
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+
+      // Active thread requires BOTH route-level and store-level agreement.
+      // This blocks a switch-window race where route already points to thread-B
+      // but flat store still belongs to thread-A.
+      const isActiveThreadMessage = Boolean(
+        msg.threadId && routeThread && storeThread && msg.threadId === routeThread && msg.threadId === storeThread,
+      );
+
+      // Defensive fallback for malformed legacy payloads (threadId missing).
+      if (!msg.threadId) {
+        callbacksRef.current.onMessage(msg);
+        clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
+        return;
+      }
 
       // Active thread → full processing via onMessage (streaming, tool events, etc.)
-      if (!msg.threadId || !currentThread || msg.threadId === currentThread) {
+      if (isActiveThreadMessage) {
         callbacksRef.current.onMessage(msg);
         clearBackgroundStreamRefForActiveEvent(msg, bgStreamRefsRef.current);
         return;
@@ -181,11 +204,15 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     socket.on('authorization:request', (data: Record<string, unknown>) => {
       const currentThread = threadIdRef.current;
-      if (data['threadId'] && currentThread && data['threadId'] !== currentThread) return;
-      callbacksRef.current.onAuthorizationRequest?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0]);
+      if (data.threadId && currentThread && data.threadId !== currentThread) return;
+      callbacksRef.current.onAuthorizationRequest?.(
+        data as Parameters<NonNullable<SocketCallbacks['onAuthorizationRequest']>>[0],
+      );
     });
     socket.on('authorization:response', (data: Record<string, unknown>) => {
-      callbacksRef.current.onAuthorizationResponse?.(data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0]);
+      callbacksRef.current.onAuthorizationResponse?.(
+        data as Parameters<NonNullable<SocketCallbacks['onAuthorizationResponse']>>[0],
+      );
     });
 
     socket.on('mode_changed', (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => {
@@ -232,7 +259,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       socket.disconnect();
       joinedRoomsRef.current.clear();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
   }, []);
 
   /** Join a single room (additive — does not leave other rooms) */
