@@ -1,11 +1,11 @@
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { createHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import { createHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import { buildImportItemsFromMarkdown, buildP0RetainOptions, collectP0ImportSources, readGitHeadCommit } from '../domains/cats/services/hindsight-import/p0-importer.js';
 import { assertUniqueP0DocumentIds } from '../domains/cats/services/hindsight-import/p0-contract.js';
 import { writeP0SyncWatermark } from '../domains/cats/services/hindsight-import/p0-watermark.js';
-import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
 interface CliArgs {
   dryRun: boolean;

@@ -8,7 +8,7 @@ import type { IMessageStore } from '../domains/cats/services/stores/ports/Messag
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { Thread } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
-import { formatMessage } from '../domains/cats/services/ContextAssembler.js';
+import { formatMessage } from '../domains/cats/services/context/ContextAssembler.js';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 
 /**

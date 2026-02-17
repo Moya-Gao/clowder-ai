@@ -30,10 +30,10 @@ import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
-import type { AutoSummarizer } from '../domains/cats/services/AutoSummarizer.js';
+import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { IModeStore } from '../domains/cats/services/stores/ports/ModeStore.js';
-import type { ModeOrchestrator } from '../domains/cats/services/ModeOrchestrator.js';
+import type { ModeOrchestrator } from '../domains/cats/services/orchestration/ModeOrchestrator.js';
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';

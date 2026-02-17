@@ -24,10 +24,10 @@ describe('TranscriptReader', () => {
 
   async function loadModules() {
     const { TranscriptWriter } = await import(
-      '../dist/domains/cats/services/TranscriptWriter.js'
+      '../dist/domains/cats/services/session/TranscriptWriter.js'
     );
     const { TranscriptReader } = await import(
-      '../dist/domains/cats/services/TranscriptReader.js'
+      '../dist/domains/cats/services/session/TranscriptReader.js'
     );
     return { TranscriptWriter, TranscriptReader };
   }

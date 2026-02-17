@@ -15,7 +15,7 @@ import type { AgentRouter } from '../domains/cats/services/AgentRouter.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import type { PersistenceContext } from '../domains/cats/services/route-strategies.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
-import { parseIntent } from '../domains/cats/services/IntentParser.js';
+import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 
 export interface InvocationsRoutesOptions {
   invocationRecordStore: IInvocationRecordStore;

@@ -10,8 +10,8 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { join } from 'node:path';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
-import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
-import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
+import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,

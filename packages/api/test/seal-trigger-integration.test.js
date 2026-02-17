@@ -22,7 +22,7 @@ describe('Seal trigger integration', () => {
       '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     const { SessionSealer } = await import(
-      '../dist/domains/cats/services/SessionSealer.js'
+      '../dist/domains/cats/services/session/SessionSealer.js'
     );
     const { shouldSeal, getSealConfig } = await import(
       '../dist/config/seal-thresholds.js'

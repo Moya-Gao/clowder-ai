@@ -7,7 +7,7 @@
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-import { buildStaticIdentity, buildInvocationContext } from './SystemPromptBuilder.js';
+import { buildStaticIdentity, buildInvocationContext } from './context/SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInjector.js';
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
@@ -18,12 +18,12 @@ import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from './WorklistRegistry.js';
-import { assembleContext, formatMessage } from './ContextAssembler.js';
+import { assembleContext, formatMessage } from './context/ContextAssembler.js';
 import { getCatContextBudget } from '../../../config/cat-budgets.js';
 import { estimateTokens } from '../../../utils/token-counter.js';
-import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
-import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './DegradationPolicy.js';
-import { buildSessionBootstrap } from './SessionBootstrap.js';
+import { getEventAuditLog, AuditEventTypes } from './orchestration/EventAuditLog.js';
+import { checkContextBudget, formatDegradationMessage, type DegradationResult } from './orchestration/DegradationPolicy.js';
+import { buildSessionBootstrap } from './session/SessionBootstrap.js';
 import { isSessionChainEnabled } from '../../../config/cat-config-loader.js';
 
 /** Dependencies shared across route strategies */

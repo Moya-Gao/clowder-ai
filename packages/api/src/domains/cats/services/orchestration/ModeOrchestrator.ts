@@ -11,14 +11,14 @@
 
 import type { ModeName, ModeConfig } from '@cat-cafe/shared';
 import { isBrainstormConfig, isDebateConfig } from '@cat-cafe/shared';
-import type { IModeStore } from './stores/ports/ModeStore.js';
-import { createInitialState } from './stores/ports/ModeStore.js';
-import type { AgentMessage } from './types.js';
-import type { ModeHandler, ModeExecutionContext } from './modes/mode-types.js';
-import type { SocketManager } from '../../../infrastructure/websocket/index.js';
-import { BrainstormMode } from './modes/BrainstormMode.js';
-import { DebateMode } from './modes/DebateMode.js';
-import { DevLoopMode } from './modes/DevLoopMode.js';
+import type { IModeStore } from '../stores/ports/ModeStore.js';
+import { createInitialState } from '../stores/ports/ModeStore.js';
+import type { AgentMessage } from '../types.js';
+import type { ModeHandler, ModeExecutionContext } from '../modes/mode-types.js';
+import type { SocketManager } from '../../../../infrastructure/websocket/index.js';
+import { BrainstormMode } from '../modes/BrainstormMode.js';
+import { DebateMode } from '../modes/DebateMode.js';
+import { DevLoopMode } from '../modes/DevLoopMode.js';
 
 const VALID_MODE_NAMES: ReadonlySet<string> = new Set<ModeName>(['brainstorm', 'debate', 'dev-loop']);
 

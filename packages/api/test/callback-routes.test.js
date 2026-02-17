@@ -507,7 +507,7 @@ describe('Callback Routes', () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
     const { HindsightError } = await import(
-      '../dist/domains/cats/services/HindsightClient.js'
+      '../dist/domains/cats/services/orchestration/HindsightClient.js'
     );
     hindsightClient.recall = async () => {
       throw new HindsightError('CONNECTION_FAILED', 'cannot connect');
@@ -556,7 +556,7 @@ describe('Callback Routes', () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'codex');
     const { HindsightError } = await import(
-      '../dist/domains/cats/services/HindsightClient.js'
+      '../dist/domains/cats/services/orchestration/HindsightClient.js'
     );
     hindsightClient.recall = async () => {
       throw new HindsightError('API_ERROR', 'rate limited', 429);

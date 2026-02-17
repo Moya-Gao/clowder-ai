@@ -13,7 +13,7 @@ import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
+import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
 const VALID_CAT_IDS = new Set<string>(getAllCatIds());
 

@@ -10,7 +10,7 @@ import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { ConfigSnapshot } from '../config/config-snapshot.js';
 import { configStore } from '../config/ConfigStore.js';
-import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
+import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import os from 'node:os';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';

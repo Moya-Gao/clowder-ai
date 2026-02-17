@@ -23,7 +23,7 @@ describe('HindsightClient', () => {
   });
 
   async function getClient(url = 'http://test:8888') {
-    const { HindsightClient } = await import('../dist/domains/cats/services/HindsightClient.js');
+    const { HindsightClient } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
     return new HindsightClient(url);
   }
 
@@ -35,7 +35,7 @@ describe('HindsightClient', () => {
         Promise.resolve({ ok: true, json: () => Promise.resolve({ memories: [] }) }),
       );
 
-      const { createHindsightClient } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const { createHindsightClient } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
       const client = createHindsightClient();
       await client.recall('cat-cafe-shared', 'default-url-smoke');
 
@@ -275,7 +275,7 @@ describe('HindsightClient', () => {
         }),
       );
 
-      const { HindsightError } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const { HindsightError } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
       const client = await getClient();
 
       await assert.rejects(
@@ -294,7 +294,7 @@ describe('HindsightClient', () => {
         Promise.reject(new Error('ECONNREFUSED')),
       );
 
-      const { HindsightError } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const { HindsightError } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
       const client = await getClient();
 
       await assert.rejects(
@@ -316,7 +316,7 @@ describe('HindsightClient', () => {
         }),
       );
 
-      const { HindsightError } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const { HindsightError } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
       const client = await getClient();
 
       await assert.rejects(
@@ -333,7 +333,7 @@ describe('HindsightClient', () => {
 
   describe('createHindsightClient factory', () => {
     it('uses provided URL', async () => {
-      const { createHindsightClient } = await import('../dist/domains/cats/services/HindsightClient.js');
+      const { createHindsightClient } = await import('../dist/domains/cats/services/orchestration/HindsightClient.js');
       mockFetch.mock.mockImplementation(() =>
         Promise.resolve({ ok: true, json: () => Promise.resolve({ memories: [] }) }),
       );

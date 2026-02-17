@@ -14,7 +14,7 @@ describe('SessionSealer', () => {
       '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     const { SessionSealer } = await import(
-      '../dist/domains/cats/services/SessionSealer.js'
+      '../dist/domains/cats/services/session/SessionSealer.js'
     );
     const store = new SessionChainStore();
     const sealer = new SessionSealer(store);

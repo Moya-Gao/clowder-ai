@@ -10,7 +10,7 @@
  */
 
 import type { CatId } from '@cat-cafe/shared';
-import type { ISessionChainStore } from './stores/ports/SessionChainStore.js';
+import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { TranscriptReader } from './TranscriptReader.js';
 import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
 

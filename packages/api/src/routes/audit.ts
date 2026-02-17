@@ -10,7 +10,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 

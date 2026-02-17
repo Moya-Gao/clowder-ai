@@ -5,8 +5,8 @@
  */
 
 import type { CatId, CreateTaskInput } from '@cat-cafe/shared';
-import type { StoredMessage } from './stores/ports/MessageStore.js';
-import type { AgentService } from './types.js';
+import type { StoredMessage } from '../stores/ports/MessageStore.js';
+import type { AgentService } from '../types.js';
 
 export interface ExtractedTask {
   title: string;

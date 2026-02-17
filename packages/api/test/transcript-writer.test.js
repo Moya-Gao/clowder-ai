@@ -24,7 +24,7 @@ describe('TranscriptWriter', () => {
 
   async function loadModules() {
     const { TranscriptWriter } = await import(
-      '../dist/domains/cats/services/TranscriptWriter.js'
+      '../dist/domains/cats/services/session/TranscriptWriter.js'
     );
     return { TranscriptWriter };
   }

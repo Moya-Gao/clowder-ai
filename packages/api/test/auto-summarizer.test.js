@@ -6,7 +6,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { AutoSummarizer } = await import('../dist/domains/cats/services/AutoSummarizer.js');
+const { AutoSummarizer } = await import('../dist/domains/cats/services/orchestration/AutoSummarizer.js');
 const { SummaryStore } = await import('../dist/domains/cats/services/stores/ports/SummaryStore.js');
 
 /**

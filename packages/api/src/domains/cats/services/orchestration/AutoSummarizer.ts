@@ -7,8 +7,8 @@
  */
 
 import type { ThreadSummary } from '@cat-cafe/shared';
-import type { IMessageStore } from './stores/ports/MessageStore.js';
-import type { ISummaryStore } from './stores/ports/SummaryStore.js';
+import type { IMessageStore } from '../stores/ports/MessageStore.js';
+import type { ISummaryStore } from '../stores/ports/SummaryStore.js';
 
 const AUTO_CREATOR = 'system' as const;
 const MESSAGE_THRESHOLD = 20;

@@ -773,7 +773,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
   it('R7 P1: seal clears sessionManager BEFORE finalize completes (no race window)', async () => {
     const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
-    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     // Create a sealer whose finalize is slow (simulates async flush)
     let finalizeResolved = false;
@@ -846,7 +846,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
 
   it('R7 P1: next invocation after seal gets no sessionId (clean start)', async () => {
     const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
-    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     const sealer = new SessionSealer(sessionChainStore);
 
@@ -916,7 +916,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     // BUT: sessionChainStore.getActive() returns null (session is sealing/sealed)
     // → read-side short-circuit discards sessionId → no --resume.
     const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
-    const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     const sealer = new SessionSealer(sessionChainStore);
 

@@ -23,7 +23,7 @@ function mockMsg(overrides) {
 describe('formatMessage', () => {
   test('formats user message with 铲屎官', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msg = mockMsg({ content: '你好', timestamp: new Date('2026-02-07T14:02:00').getTime() });
     const result = formatMessage(msg);
@@ -34,7 +34,7 @@ describe('formatMessage', () => {
 
   test('formats cat message with display name', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msg = mockMsg({ catId: 'opus', content: '喵', timestamp: new Date('2026-02-07T14:03:00').getTime() });
     const result = formatMessage(msg);
@@ -45,7 +45,7 @@ describe('formatMessage', () => {
 
   test('formats codex cat message', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msg = mockMsg({ catId: 'codex', content: 'review done' });
     const result = formatMessage(msg);
@@ -54,7 +54,7 @@ describe('formatMessage', () => {
 
   test('formats gemini cat message', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msg = mockMsg({ catId: 'gemini', content: 'design ready' });
     const result = formatMessage(msg);
@@ -63,7 +63,7 @@ describe('formatMessage', () => {
 
   test('truncates long content when truncate option set', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const longContent = 'A'.repeat(600);
     const msg = mockMsg({ content: longContent });
@@ -74,7 +74,7 @@ describe('formatMessage', () => {
 
   test('does not truncate when content is within limit', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msg = mockMsg({ content: 'short' });
     const result = formatMessage(msg, { truncate: 100 });
@@ -84,7 +84,7 @@ describe('formatMessage', () => {
 
   test('does not truncate when no truncate option', async () => {
     const { formatMessage } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const longContent = 'B'.repeat(1000);
     const msg = mockMsg({ content: longContent });
@@ -96,7 +96,7 @@ describe('formatMessage', () => {
 describe('assembleContext', () => {
   test('returns empty for no messages', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const result = assembleContext([]);
     assert.equal(result.contextText, '');
@@ -105,7 +105,7 @@ describe('assembleContext', () => {
 
   test('formats single message', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const result = assembleContext([mockMsg({ content: '你好世界' })]);
     assert.ok(result.contextText.includes('[对话历史 - 最近 1 条]'));
@@ -117,7 +117,7 @@ describe('assembleContext', () => {
 
   test('formats mixed user and cat messages', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = [
       mockMsg({ catId: null, content: '@布偶 你好', timestamp: 1000 }),
@@ -133,7 +133,7 @@ describe('assembleContext', () => {
 
   test('truncates to maxMessages', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = Array.from({ length: 25 }, (_, i) =>
       mockMsg({ content: `msg-${i}`, timestamp: i * 1000 })
@@ -148,7 +148,7 @@ describe('assembleContext', () => {
 
   test('truncates long message content', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const longContent = 'X'.repeat(600);
     const msgs = [mockMsg({ content: longContent })];
@@ -159,7 +159,7 @@ describe('assembleContext', () => {
 
   test('includes user messages starting with "Error:" (no false-positive filtering)', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = [
       mockMsg({ catId: null, content: 'Error: Cannot find module "foo"', timestamp: 1000 }),
@@ -175,7 +175,7 @@ describe('assembleContext', () => {
 
   test('uses default maxMessages=20 and maxContentLength=1500', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = Array.from({ length: 25 }, (_, i) =>
       mockMsg({ content: `m${i}`, timestamp: i * 1000 })
@@ -187,7 +187,7 @@ describe('assembleContext', () => {
 
   test('default maxContentLength=1500 does not truncate 600-char messages', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const content = 'A'.repeat(600);
     const msgs = [mockMsg({ content })];
@@ -202,7 +202,7 @@ describe('assembleContext', () => {
     try {
       // Re-import to pick up env var (assembleContext reads env at call time)
       const { assembleContext: ac } = await import(
-        '../dist/domains/cats/services/ContextAssembler.js'
+        '../dist/domains/cats/services/context/ContextAssembler.js'
       );
       const msgs = [mockMsg({ content: 'B'.repeat(300) })];
       const result = ac(msgs);
@@ -215,7 +215,7 @@ describe('assembleContext', () => {
 
   test('maxTotalChars (deprecated) still works as token budget via fallback', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     // Create 10 messages each ~12-15 tokens formatted (timestamp + sender + content)
     const msgs = Array.from({ length: 10 }, (_, i) =>
@@ -230,7 +230,7 @@ describe('assembleContext', () => {
 
   test('maxTotalChars large enough includes all messages', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = Array.from({ length: 5 }, (_, i) =>
       mockMsg({ content: `short${i}`, timestamp: i * 1000 })
@@ -241,7 +241,7 @@ describe('assembleContext', () => {
 
   test('maxTotalChars=0 returns empty context', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = [mockMsg({ content: 'hello' })];
     const result = assembleContext(msgs, { maxTotalChars: 0 });
@@ -251,7 +251,7 @@ describe('assembleContext', () => {
 
   test('maxContentLength truncates before maxTotalChars budget check', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     // One very long message that would be 600 chars raw
     const msgs = [mockMsg({ content: 'Z'.repeat(600) })];
@@ -265,7 +265,7 @@ describe('assembleContext', () => {
 describe('assembleContext — F8 token-based truncation', () => {
   test('returns estimatedTokens in result', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = [
       mockMsg({ content: 'Hello world', timestamp: 1000 }),
@@ -281,7 +281,7 @@ describe('assembleContext — F8 token-based truncation', () => {
 
   test('estimatedTokens=0 when no messages included', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const result = assembleContext([]);
     assert.equal(result.estimatedTokens, 0);
@@ -289,7 +289,7 @@ describe('assembleContext — F8 token-based truncation', () => {
 
   test('maxTotalTokens limits context by token count, not char count', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     // Chinese text: more tokens per char than ASCII
     // 10 messages of Chinese content (~2 tokens/char in cl100k_base)
@@ -317,7 +317,7 @@ describe('assembleContext — F8 token-based truncation', () => {
 
   test('maxTotalTokens=0 returns empty context', async () => {
     const { assembleContext } = await import(
-      '../dist/domains/cats/services/ContextAssembler.js'
+      '../dist/domains/cats/services/context/ContextAssembler.js'
     );
     const msgs = [mockMsg({ content: 'hello' })];
     const result = assembleContext(msgs, { maxTotalTokens: 0 });

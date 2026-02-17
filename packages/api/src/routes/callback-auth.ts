@@ -6,7 +6,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
-import type { AuthorizationManager } from '../domains/cats/services/AuthorizationManager.js';
+import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';
 
 export interface CallbackAuthRoutesOptions {
   registry: InvocationRegistry;

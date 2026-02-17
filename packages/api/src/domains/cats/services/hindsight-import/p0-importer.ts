@@ -1,4 +1,4 @@
-import type { RetainItem, RetainOptions } from '../HindsightClient.js';
+import type { RetainItem, RetainOptions } from '../orchestration/HindsightClient.js';
 import {
   P0_LESSONS_PATH,
   P0_PROJECT_TAG,

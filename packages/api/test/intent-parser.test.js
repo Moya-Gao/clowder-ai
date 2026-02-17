@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { parseIntent, stripIntentTags } = await import(
-  '../dist/domains/cats/services/IntentParser.js'
+  '../dist/domains/cats/services/context/IntentParser.js'
 );
 
 describe('parseIntent', () => {

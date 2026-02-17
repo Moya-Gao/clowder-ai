@@ -1,7 +1,7 @@
 import { access, readdir, readFile } from 'node:fs/promises';
 import { isAbsolute, join, relative, resolve } from 'node:path';
-import { HindsightError } from '../domains/cats/services/HindsightClient.js';
-import type { HindsightMemory } from '../domains/cats/services/HindsightClient.js';
+import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
+import type { HindsightMemory } from '../domains/cats/services/orchestration/HindsightClient.js';
 
 export type EvidenceSourceType = 'decision' | 'phase' | 'discussion' | 'commit';
 export type EvidenceConfidence = 'high' | 'mid' | 'low';

@@ -2,9 +2,9 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { collectConfigSnapshot } from '../config/ConfigRegistry.js';
 import type { InvocationRegistry } from '../domains/cats/services/InvocationRegistry.js';
-import { getEventAuditLog } from '../domains/cats/services/EventAuditLog.js';
-import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
-import { HindsightError } from '../domains/cats/services/HindsightClient.js';
+import { getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
+import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
+import { HindsightError } from '../domains/cats/services/orchestration/HindsightClient.js';
 import {
   shouldFailClosedForFreshness,
   triggerP0ReimportIfNeeded,

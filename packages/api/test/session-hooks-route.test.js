@@ -25,7 +25,7 @@ describe('Session Hooks Routes', () => {
 
   async function setup({ digestMap, hookToken = DEFAULT_HOOK_TOKEN, noToken = false } = {}) {
     const storeMod = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
-    const sealerMod = await import('../dist/domains/cats/services/SessionSealer.js');
+    const sealerMod = await import('../dist/domains/cats/services/session/SessionSealer.js');
     const routeMod = await import('../dist/routes/session-hooks.js');
     SessionChainStore = storeMod.SessionChainStore;
     SessionSealer = sealerMod.SessionSealer;
@@ -147,7 +147,7 @@ describe('Session Hooks Routes', () => {
       // but sessionId is generated internally. So we create, seal, then
       // grab the id to set up a fresh app with the right mock.
       const storeMod = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
-      const sealerMod = await import('../dist/domains/cats/services/SessionSealer.js');
+      const sealerMod = await import('../dist/domains/cats/services/session/SessionSealer.js');
       const routeMod = await import('../dist/routes/session-hooks.js');
 
       const sessionChainStore = new storeMod.SessionChainStore();

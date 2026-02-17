@@ -10,7 +10,7 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { AgentService } from '../domains/cats/services/types.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import { extractTasks, toCreateTaskInputs } from '../domains/cats/services/TaskExtractor.js';
+import { extractTasks, toCreateTaskInputs } from '../domains/cats/services/orchestration/TaskExtractor.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 export interface CommandsRoutesOptions {

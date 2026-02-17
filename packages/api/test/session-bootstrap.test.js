@@ -8,7 +8,7 @@
 
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildSessionBootstrap } from '../dist/domains/cats/services/SessionBootstrap.js';
+import { buildSessionBootstrap } from '../dist/domains/cats/services/session/SessionBootstrap.js';
 
 // --- Mock SessionChainStore ---
 

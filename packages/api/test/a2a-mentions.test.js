@@ -61,7 +61,7 @@ describe('parseA2AMentions', () => {
 
 describe('SystemPromptBuilder A2A injection', () => {
   it('includes A2A section when a2aEnabled and serial mode', async () => {
-    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const prompt = buildSystemPrompt({
       catId: 'opus',
       mode: 'serial',
@@ -74,7 +74,7 @@ describe('SystemPromptBuilder A2A injection', () => {
   });
 
   it('parallel mode uses independent thinking context (collaboration guide still present)', async () => {
-    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     const prompt = buildSystemPrompt({
       catId: 'opus',
       mode: 'parallel',
@@ -89,7 +89,7 @@ describe('SystemPromptBuilder A2A injection', () => {
   });
 
   it('includes A2A section even with empty teammates (single-cat scenario)', async () => {
-    const { buildSystemPrompt } = await import('../dist/domains/cats/services/SystemPromptBuilder.js');
+    const { buildSystemPrompt } = await import('../dist/domains/cats/services/context/SystemPromptBuilder.js');
     // Single-cat: only opus in worklist, teammates = []
     const prompt = buildSystemPrompt({
       catId: 'opus',

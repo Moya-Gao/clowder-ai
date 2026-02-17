@@ -22,7 +22,7 @@ const { AuthorizationAuditStore } = await import(
   '../dist/domains/cats/services/stores/ports/AuthorizationAuditStore.js'
 );
 const { AuthorizationManager } = await import(
-  '../dist/domains/cats/services/AuthorizationManager.js'
+  '../dist/domains/cats/services/auth/AuthorizationManager.js'
 );
 const { callbackAuthRoutes } = await import('../dist/routes/callback-auth.js');
 const { authorizationRoutes } = await import('../dist/routes/authorization.js');

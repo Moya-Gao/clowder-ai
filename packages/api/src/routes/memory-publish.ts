@@ -9,7 +9,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IMemoryGovernanceStore } from '../domains/cats/services/stores/ports/MemoryGovernanceStore.js';
 import { GovernanceConflictError } from '../domains/cats/services/stores/ports/MemoryGovernanceStore.js';
-import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
+import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
 export interface MemoryPublishRoutesOptions {
   governanceStore: IMemoryGovernanceStore;

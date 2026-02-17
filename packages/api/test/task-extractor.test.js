@@ -4,7 +4,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractTasks, toCreateTaskInputs } from '../dist/domains/cats/services/TaskExtractor.js';
+import { extractTasks, toCreateTaskInputs } from '../dist/domains/cats/services/orchestration/TaskExtractor.js';
 
 // Mock AgentService that returns valid JSON
 const mockServiceWithJSON = {

@@ -9,7 +9,7 @@ import {
   checkExtractionBudget,
   formatDegradationMessage,
   isAtBoundary,
-} from '../dist/domains/cats/services/DegradationPolicy.js';
+} from '../dist/domains/cats/services/orchestration/DegradationPolicy.js';
 
 const mockBudget = {
   maxPromptTokens: 100000,

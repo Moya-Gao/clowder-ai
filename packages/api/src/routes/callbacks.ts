@@ -11,7 +11,7 @@ import type { InvocationRegistry } from '../domains/cats/services/InvocationRegi
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
-import type { IHindsightClient } from '../domains/cats/services/HindsightClient.js';
+import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';

@@ -7,7 +7,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { reflectRoutes } from '../dist/routes/reflect.js';
-import { HindsightError } from '../dist/domains/cats/services/HindsightClient.js';
+import { HindsightError } from '../dist/domains/cats/services/orchestration/HindsightClient.js';
 
 function createMockClient(overrides = {}) {
   return {

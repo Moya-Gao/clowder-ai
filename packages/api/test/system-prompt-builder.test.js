@@ -10,7 +10,7 @@ describe('SystemPromptBuilder', () => {
   // Dynamic import after build
   async function getBuilder() {
     const { buildSystemPrompt } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     return buildSystemPrompt;
   }
@@ -271,7 +271,7 @@ describe('SystemPromptBuilder', () => {
 
   test('buildStaticIdentity returns identity for known cat', async () => {
     const { buildStaticIdentity } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     const identity = buildStaticIdentity('opus');
     assert.ok(identity.includes('布偶猫'), 'Should contain display name');
@@ -283,14 +283,14 @@ describe('SystemPromptBuilder', () => {
 
   test('buildStaticIdentity returns empty for unknown cat', async () => {
     const { buildStaticIdentity } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     assert.equal(buildStaticIdentity('unknown-cat'), '');
   });
 
   test('buildStaticIdentity includes workflow triggers', async () => {
     const { buildStaticIdentity } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     const opusId = buildStaticIdentity('opus');
     assert.ok(opusId.includes('工作流'), 'Opus should have workflow triggers');
@@ -303,14 +303,14 @@ describe('SystemPromptBuilder', () => {
 
   test('buildStaticIdentity is deterministic', async () => {
     const { buildStaticIdentity } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     assert.equal(buildStaticIdentity('opus'), buildStaticIdentity('opus'));
   });
 
   test('buildInvocationContext returns teammates when present', async () => {
     const { buildInvocationContext } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     const ctx = buildInvocationContext({
       catId: 'opus',
@@ -327,7 +327,7 @@ describe('SystemPromptBuilder', () => {
 
   test('buildInvocationContext omits teammate listing when empty', async () => {
     const { buildInvocationContext } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     const ctx = buildInvocationContext({
       catId: 'opus',
@@ -341,7 +341,7 @@ describe('SystemPromptBuilder', () => {
 
   test('buildInvocationContext does not contain static identity', async () => {
     const { buildInvocationContext } = await import(
-      '../dist/domains/cats/services/SystemPromptBuilder.js'
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     const ctx = buildInvocationContext({
       catId: 'opus',

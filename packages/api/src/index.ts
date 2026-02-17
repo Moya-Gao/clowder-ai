@@ -17,18 +17,18 @@ import { createSummaryStore } from './domains/cats/services/stores/factories/Sum
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/InvocationTracker.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore } from './domains/cats/services/index.js';
-import { AuthorizationManager } from './domains/cats/services/AuthorizationManager.js';
+import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
 import { createAuthorizationAuditStore } from './domains/cats/services/stores/factories/AuthorizationAuditStoreFactory.js';
-import { AutoSummarizer } from './domains/cats/services/AutoSummarizer.js';
+import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
 import { assertStorageReady } from './config/storage-guard.js';
 import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { ModeStore } from './domains/cats/services/stores/ports/ModeStore.js';
-import { ModeOrchestrator } from './domains/cats/services/ModeOrchestrator.js';
-import { TranscriptWriter } from './domains/cats/services/TranscriptWriter.js';
-import { TranscriptReader } from './domains/cats/services/TranscriptReader.js';
-import { SessionSealer } from './domains/cats/services/SessionSealer.js';
+import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrchestrator.js';
+import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
+import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
+import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 

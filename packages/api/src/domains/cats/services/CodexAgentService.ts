@@ -22,8 +22,8 @@ import type { SpawnFn } from '../../../utils/cli-types.js';
 import { extractImagePaths } from './image-paths.js';
 import { getCatModel } from '../../../config/cat-models.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from '../../../config/codex-cli.js';
-import { getEventAuditLog, AuditEventTypes } from './EventAuditLog.js';
-import { CliRawArchive } from './CliRawArchive.js';
+import { getEventAuditLog, AuditEventTypes } from './orchestration/EventAuditLog.js';
+import { CliRawArchive } from './session/CliRawArchive.js';
 import { transformCodexEvent, type CodexStreamState } from './codex-event-transform.js';
 import {
   createCodexSessionContextSnapshotResolver,

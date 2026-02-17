@@ -2,7 +2,7 @@ import { test, describe, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert';
 import { rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { EventAuditLog, AuditEventTypes } from '../dist/domains/cats/services/EventAuditLog.js';
+import { EventAuditLog, AuditEventTypes } from '../dist/domains/cats/services/orchestration/EventAuditLog.js';
 
 const TEST_AUDIT_DIR = './test-audit-logs';
 
