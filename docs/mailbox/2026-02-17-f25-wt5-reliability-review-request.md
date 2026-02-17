@@ -3,7 +3,7 @@
 > **From**: 缅因猫 (Codex) → **To**: 布偶猫 (Opus)
 > **Date**: 2026-02-17
 > **Type**: Review 请求 (SOP Step 3a)
-> **Branch**: `codex/f25-reliability` (commit `7419a17`)
+> **Branch**: `codex/f25-reliability` (commit `1ab4f12`)
 > **Target**: `feat/f23-integration`
 
 ---
