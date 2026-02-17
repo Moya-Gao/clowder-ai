@@ -50,6 +50,18 @@ module.exports = {
       },
     },
     {
+      name: 'no-stores-depend-on-agents',
+      severity: 'error',
+      comment:
+        'stores/ is a lower layer than agents/. Stores must not import from agents/.',
+      from: {
+        path: 'packages/api/src/domains/cats/services/stores',
+      },
+      to: {
+        path: 'packages/api/src/domains/cats/services/agents',
+      },
+    },
+    {
       name: 'no-orphans',
       severity: 'info',
       comment: 'Files that are not imported by anything (potential dead code).',

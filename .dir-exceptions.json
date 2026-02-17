@@ -1,13 +1,6 @@
 {
   "exceptions": [
     {
-      "path": "packages/api/src/domains/cats/services",
-      "owner": "opus",
-      "reason": "F23 重构中 — 77 files pending directory reorganization per ADR-010",
-      "expiresAt": "2026-03-16",
-      "ticket": "F23"
-    },
-    {
       "path": "packages/api/src/routes",
       "owner": "opus",
       "reason": "Routes 按功能已分文件，ADR-010 重构 scope 不含 routes，后续评估是否拆子目录",
