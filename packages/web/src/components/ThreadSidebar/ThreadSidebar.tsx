@@ -107,6 +107,19 @@ export function ThreadSidebar() {
     }
   }, [updateThreadTitle]);
 
+  /** Reconcile pin state from server for a single thread */
+  const reconcileThread = useCallback(async (threadId: string) => {
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`);
+      if (!res.ok) return;
+      const t = await res.json();
+      if (t.pinned !== undefined) updateThreadPin(threadId, t.pinned);
+      if (t.favorited !== undefined) updateThreadFavorite(threadId, t.favorited);
+    } catch {
+      // best-effort
+    }
+  }, [updateThreadPin, updateThreadFavorite]);
+
   const handleTogglePin = useCallback(async (threadId: string, pinned: boolean) => {
     const seq = (pinSeqRef.current.get(threadId) ?? 0) + 1;
     pinSeqRef.current.set(threadId, seq);
@@ -116,15 +129,19 @@ export function ThreadSidebar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pinned }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        // Request failed — reconcile with server to avoid drift
+        if (pinSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+        return;
+      }
       // Only apply if this is still the latest request for this thread
       if (pinSeqRef.current.get(threadId) !== seq) return;
       const updated = await res.json();
       updateThreadPin(threadId, updated.pinned ?? pinned);
     } catch {
-      // Silently ignore
+      if (pinSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
     }
-  }, [updateThreadPin]);
+  }, [updateThreadPin, reconcileThread]);
 
   const handleToggleFavorite = useCallback(async (threadId: string, favorited: boolean) => {
     const seq = (favSeqRef.current.get(threadId) ?? 0) + 1;
@@ -135,15 +152,19 @@ export function ThreadSidebar() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ favorited }),
       });
-      if (!res.ok) return;
+      if (!res.ok) {
+        // Request failed — reconcile with server to avoid drift
+        if (favSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
+        return;
+      }
       // Only apply if this is still the latest request for this thread
       if (favSeqRef.current.get(threadId) !== seq) return;
       const updated = await res.json();
       updateThreadFavorite(threadId, updated.favorited ?? favorited);
     } catch {
-      // Silently ignore
+      if (favSeqRef.current.get(threadId) === seq) void reconcileThread(threadId);
     }
-  }, [updateThreadFavorite]);
+  }, [updateThreadFavorite, reconcileThread]);
 
   const handleSelect = useCallback(
     (threadId: string) => {
