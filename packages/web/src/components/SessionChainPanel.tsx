@@ -9,6 +9,7 @@ import { ContextHealthBar } from './ContextHealthBar';
 /** Minimal session record from API GET /api/threads/:id/sessions */
 interface SessionSummary {
   id: string;
+  cliSessionId?: string;
   catId: string;
   seq: number;
   status: 'active' | 'sealing' | 'sealed';
@@ -179,7 +180,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                   <span className="text-xs font-semibold text-gray-800">
                     Session #{session.seq + 1}
                   </span>
-                  <SessionIdTag id={session.id} />
+                  <SessionIdTag id={session.cliSessionId ?? session.id} />
                 </div>
                 <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${colors.badgeBg} ${colors.badgeText} font-medium`}>
                   {session.catId}
@@ -239,7 +240,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                     <span className="text-[11px] font-medium text-gray-700">
                       Session #{session.seq + 1}
                     </span>
-                    <SessionIdTag id={session.id} />
+                    <SessionIdTag id={session.cliSessionId ?? session.id} />
                   </div>
                   <div className="text-[9px] text-gray-400 truncate">
                     {session.sealedAt ? timeAgo(session.sealedAt) : 'sealing'}
