@@ -175,6 +175,7 @@ describe('InvocationRecordStore', () => {
       idempotencyKey: 'err-key',
     });
 
+    store.update(invocationId, { status: 'running' });
     store.update(invocationId, { status: 'failed', error: 'CLI timeout' });
     const record = store.get(invocationId);
     assert.equal(record.status, 'failed');
@@ -200,6 +201,7 @@ describe('InvocationRecordStore', () => {
       codex: { inputTokens: 200, outputTokens: 100 },
     };
 
+    store.update(invocationId, { status: 'running' });
     store.update(invocationId, { status: 'succeeded', usageByCat });
 
     const record = store.get(invocationId);

@@ -309,15 +309,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               timestamp: Date.now(),
             }, resolvedThreadId);
           } else {
+            // ADR-008 S3: ack cursors before marking succeeded so that if ack
+            // throws, the catch block sees running→failed (valid transition).
+            await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
+
             await opts.invocationRecordStore!.update(createResult.invocationId, {
               status: 'succeeded',
               ...(collectedUsage.size > 0 ? {
                 usageByCat: Object.fromEntries(collectedUsage),
               } : {}),
             });
-
-            // ADR-008 S3: cursor advances ONLY after succeeded
-            await router.ackCollectedCursors(userId, resolvedThreadId, cursorBoundaries);
 
             // Fire-and-forget: auto-summarize if threshold met (only on success)
             if (opts.autoSummarizer) {

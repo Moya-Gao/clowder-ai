@@ -10,6 +10,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { CatId } from '@cat-cafe/shared';
+import { isValidTransition } from './invocation-state-machine.js';
 
 /** InvocationRecord lifecycle statuses */
 export type InvocationStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'canceled';
@@ -144,6 +145,11 @@ export class InvocationRecordStore implements IInvocationRecordStore {
   update(id: string, input: UpdateInvocationInput): InvocationRecord | null {
     const record = this.records.get(id);
     if (!record) return null;
+
+    // State machine guard: reject illegal transitions (F25)
+    if (input.status !== undefined && !isValidTransition(record.status, input.status)) {
+      return null;
+    }
 
     // CAS guard: reject if current status doesn't match expected
     if (input.expectedStatus !== undefined && record.status !== input.expectedStatus) {

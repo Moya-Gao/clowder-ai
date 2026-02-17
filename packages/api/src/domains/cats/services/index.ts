@@ -48,6 +48,7 @@ export type { GovernanceStatus, PublishAction, GovernanceEntry, IMemoryGovernanc
 export { InvocationRecordStore } from './InvocationRecordStore.js';
 export type { InvocationRecord, InvocationStatus, IInvocationRecordStore, CreateInvocationInput, CreateResult, UpdateInvocationInput } from './InvocationRecordStore.js';
 export { RedisInvocationRecordStore } from './RedisInvocationRecordStore.js';
+export { isValidTransition, getAllowedTransitions, TERMINAL_STATES, ALL_STATUSES } from './invocation-state-machine.js';
 export { createInvocationRecordStore } from './InvocationRecordStoreFactory.js';
 export type { AnyInvocationRecordStore } from './InvocationRecordStoreFactory.js';
 export { RedisAuthorizationRuleStore } from './RedisAuthorizationRuleStore.js';

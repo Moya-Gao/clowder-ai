@@ -67,9 +67,12 @@ async function setupRetryScenario(routerOverride, trackerOverride) {
     intent: 'execute',
     idempotencyKey: 'key-retry-1',
   });
-  // Backfill userMessageId + set status to failed
+  // Backfill userMessageId + transition through proper lifecycle: queued → running → failed
   invocationRecordStore.update(createResult.invocationId, {
     userMessageId: storedMsg.id,
+    status: 'running',
+  });
+  invocationRecordStore.update(createResult.invocationId, {
     status: 'failed',
     error: 'CLI timeout',
   });
@@ -194,6 +197,9 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     });
     invocationRecordStore.update(createResult.invocationId, {
       userMessageId: storedMsg.id,
+      status: 'running',
+    });
+    invocationRecordStore.update(createResult.invocationId, {
       status: 'failed',
       error: 'previous failure',
     });
@@ -243,6 +249,8 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
   it('retry succeeded → 409 NOT_RETRYABLE', async () => {
     const { app, invocationRecordStore, invocationId } = await setupRetryScenario();
 
+    // failed → running → succeeded (proper lifecycle)
+    invocationRecordStore.update(invocationId, { status: 'running' });
     invocationRecordStore.update(invocationId, { status: 'succeeded' });
 
     const res = await app.inject({
@@ -270,7 +278,8 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
       intent: 'execute',
       idempotencyKey: 'key-null',
     });
-    // Set to failed without backfilling userMessageId
+    // Transition through proper lifecycle without backfilling userMessageId
+    invocationRecordStore.update(createResult.invocationId, { status: 'running' });
     invocationRecordStore.update(createResult.invocationId, { status: 'failed' });
 
     const app = Fastify();
@@ -291,6 +300,61 @@ describe('POST /api/invocations/:id/retry (ADR-008 S2)', () => {
     assert.equal(res.statusCode, 400);
     const body = res.json();
     assert.equal(body.code, 'USER_MESSAGE_NOT_SAVED');
+  });
+
+  it('post-success ackCollectedCursors failure → record status=failed (not succeeded)', async () => {
+    // P1 regression: if ackCollectedCursors throws after succeeded write,
+    // the state machine guard blocks succeeded→failed, leaving record as succeeded.
+    const ackFailRouter = {
+      routeExecution: async function* (_u, _m, _t, _mid, _cats, _intent, _opts) {
+        yield { type: 'text', catId: 'opus', content: 'ok', timestamp: Date.now() };
+      },
+      resolveTargetsAndIntent: async () => ({
+        targetCats: ['opus'],
+        intent: { intent: 'execute', explicit: false, promptTags: [] },
+      }),
+      ackCollectedCursors: async () => {
+        throw new Error('ack cursor failure');
+      },
+    };
+
+    const { app, invocationRecordStore, invocationId } = await setupRetryScenario(ackFailRouter);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/invocations/${invocationId}/retry`,
+    });
+    assert.equal(res.statusCode, 202);
+
+    // Wait for background execution
+    await new Promise((r) => setTimeout(r, 150));
+
+    const record = invocationRecordStore.get(invocationId);
+    // Must be 'failed', not 'succeeded' — the ack step threw
+    assert.equal(record.status, 'failed', 'record should be failed when ackCollectedCursors throws');
+    assert.match(record.error, /ack cursor failure/);
+  });
+
+  it('pre-start failure: queued→failed when running update throws', async () => {
+    // P2 regression: if update(status: 'running') throws inside try block,
+    // the catch tries queued→failed which the state machine must allow.
+    const invocationRecordStore = new InvocationRecordStore();
+    const createResult = invocationRecordStore.create({
+      threadId: 'thread-prestart',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'key-prestart',
+    });
+
+    // Directly test: queued→failed should succeed (pre-start failure path)
+    const updated = invocationRecordStore.update(createResult.invocationId, {
+      status: 'failed',
+      error: 'Redis connection refused before execution started',
+    });
+    assert.ok(updated, 'queued→failed should be allowed for pre-start failures');
+    assert.equal(updated.status, 'failed');
+    assert.match(updated.error, /Redis connection refused/);
   });
 
   it('retry nonexistent id → 404', async () => {

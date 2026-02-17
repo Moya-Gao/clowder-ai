@@ -171,6 +171,7 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
       idempotencyKey: 'err-key',
     });
 
+    await store.update(invocationId, { status: 'running' });
     await store.update(invocationId, { status: 'failed', error: 'CLI ENOENT' });
     const record = await store.get(invocationId);
     assert.equal(record.status, 'failed');
@@ -242,7 +243,8 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
       idempotencyKey: 'cas-race-key',
     });
 
-    // Set to failed first (retry starts from failed)
+    // Transition through proper lifecycle: queued → running → failed (retry starts from failed)
+    await store.update(invocationId, { status: 'running' });
     await store.update(invocationId, { status: 'failed', error: 'boom' });
 
     // Fire N concurrent CAS transitions: failed → running

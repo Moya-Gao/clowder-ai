@@ -204,10 +204,11 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
             timestamp: Date.now(),
           }, record.threadId);
         } else {
-          await opts.invocationRecordStore.update(id, { status: 'succeeded' });
-
-          // ADR-008 S3: cursor advances ONLY after succeeded
+          // ADR-008 S3: ack cursors before marking succeeded so that if ack
+          // throws, the catch block sees running→failed (valid transition).
           await opts.router.ackCollectedCursors(record.userId, record.threadId, cursorBoundaries);
+
+          await opts.invocationRecordStore.update(id, { status: 'succeeded' });
         }
       } catch (err) {
         console.error('[invocations] Retry execution error:', err);

@@ -11,6 +11,7 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { InvocationKeys } from './invocation-keys.js';
+import { isValidTransition } from './invocation-state-machine.js';
 import type { TokenUsage } from './types.js';
 import type {
   InvocationRecord,
@@ -123,6 +124,19 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     if (input.userMessageId !== undefined) pairs.push('userMessageId', input.userMessageId ?? '');
     if (input.error !== undefined) pairs.push('error', input.error);
     if (input.usageByCat !== undefined) pairs.push('usageByCat', JSON.stringify(input.usageByCat));
+
+    // State machine guard (F25): reject illegal transitions
+    if (input.status !== undefined) {
+      if (input.expectedStatus !== undefined) {
+        // CAS path: we know the expected current status, validate before Lua call
+        if (!isValidTransition(input.expectedStatus, input.status)) return null;
+      } else {
+        // Non-CAS path: read current status to validate transition
+        const currentStatus = await this.redis.hget(key, 'status');
+        if (!currentStatus) return null;
+        if (!isValidTransition(currentStatus as InvocationStatus, input.status)) return null;
+      }
+    }
 
     if (input.expectedStatus !== undefined) {
       // Atomic CAS via Lua: check + update in one EVAL

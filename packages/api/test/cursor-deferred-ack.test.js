@@ -64,8 +64,12 @@ async function setupScenario(router, status = 'failed') {
     intent: 'execute',
     idempotencyKey: `key-cursor-${Date.now()}`,
   });
+  // Transition through proper lifecycle: queued → running → target status
   invocationRecordStore.update(createResult.invocationId, {
     userMessageId: storedMsg.id,
+    status: 'running',
+  });
+  invocationRecordStore.update(createResult.invocationId, {
     status,
     ...(status === 'failed' ? { error: 'prev error' } : {}),
   });
