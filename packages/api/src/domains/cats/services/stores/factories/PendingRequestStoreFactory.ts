@@ -5,9 +5,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { PendingRequestStore } from './PendingRequestStore.js';
-import type { IPendingRequestStore } from './PendingRequestStore.js';
-import { RedisPendingRequestStore } from './RedisPendingRequestStore.js';
+import { PendingRequestStore } from '../ports/PendingRequestStore.js';
+import type { IPendingRequestStore } from '../ports/PendingRequestStore.js';
+import { RedisPendingRequestStore } from '../redis/RedisPendingRequestStore.js';
 
 export function createPendingRequestStore(redis?: RedisClient): IPendingRequestStore {
   if (redis) {

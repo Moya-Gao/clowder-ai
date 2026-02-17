@@ -15,9 +15,9 @@ import type {
   PendingRequestRecord,
   RespondScope,
 } from '@cat-cafe/shared';
-import type { IAuthorizationRuleStore } from './AuthorizationRuleStore.js';
-import type { IPendingRequestStore } from './PendingRequestStore.js';
-import type { IAuthorizationAuditStore } from './AuthorizationAuditStore.js';
+import type { IAuthorizationRuleStore } from './stores/ports/AuthorizationRuleStore.js';
+import type { IPendingRequestStore } from './stores/ports/PendingRequestStore.js';
+import type { IAuthorizationAuditStore } from './stores/ports/AuthorizationAuditStore.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 

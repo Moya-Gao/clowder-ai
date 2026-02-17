@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 describe('SessionChainStore', () => {
   async function createStore() {
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     return new SessionChainStore();
   }

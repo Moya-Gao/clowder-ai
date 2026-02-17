@@ -7,7 +7,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { memoryPublishRoutes } from '../dist/routes/memory-publish.js';
-import { MemoryGovernanceStore } from '../dist/domains/cats/services/MemoryGovernanceStore.js';
+import { MemoryGovernanceStore } from '../dist/domains/cats/services/stores/ports/MemoryGovernanceStore.js';
 
 /** @returns {import('fastify').FastifyInstance} */
 function buildApp() {

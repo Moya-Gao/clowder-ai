@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 describe('Session manual bind (unit)', () => {
   async function loadModules() {
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     return { SessionChainStore };
   }
@@ -114,10 +114,10 @@ describe('Session manual bind (unit)', () => {
 describe('Session bind API route', () => {
   async function loadModules() {
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const { bindSessionRoute } = await import(
       '../dist/routes/session-chain.js'

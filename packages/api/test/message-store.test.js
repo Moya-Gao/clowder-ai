@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 describe('MessageStore', () => {
   test('append() stores message and returns with id', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -30,7 +30,7 @@ describe('MessageStore', () => {
 
   test('getRecent() returns last N messages', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -54,7 +54,7 @@ describe('MessageStore', () => {
 
   test('getMentionsFor() returns messages mentioning a specific cat', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -92,7 +92,7 @@ describe('MessageStore', () => {
 
   test('truncates when exceeding maxMessages', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore({ maxMessages: 5 });
@@ -115,7 +115,7 @@ describe('MessageStore', () => {
 
   test('getRecent() filters by userId when provided', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -139,7 +139,7 @@ describe('MessageStore', () => {
 
   test('getMentionsFor() filters by userId when provided', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -157,7 +157,7 @@ describe('MessageStore', () => {
 
   test('getMentionsFor() filters by threadId when provided', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -183,7 +183,7 @@ describe('MessageStore', () => {
 
   test('getMentionsFor() combines userId and threadId filters', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -199,7 +199,7 @@ describe('MessageStore', () => {
 
   test('getBefore() returns messages before timestamp', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -215,7 +215,7 @@ describe('MessageStore', () => {
 
   test('getBefore() filters by userId', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -230,7 +230,7 @@ describe('MessageStore', () => {
 
   test('empty store returns empty arrays', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -241,7 +241,7 @@ describe('MessageStore', () => {
 
   test('append() defaults threadId to "default"', async () => {
     const { MessageStore, DEFAULT_THREAD_ID } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -253,7 +253,7 @@ describe('MessageStore', () => {
 
   test('append() preserves explicit threadId', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -266,7 +266,7 @@ describe('MessageStore', () => {
 
   test('getByThread() returns messages for a specific thread', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -291,7 +291,7 @@ describe('MessageStore', () => {
 
   test('getByThreadBefore() paginates within a thread', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -308,7 +308,7 @@ describe('MessageStore', () => {
 
   test('append() preserves contentBlocks', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -325,7 +325,7 @@ describe('MessageStore', () => {
 
   test('append() preserves toolEvents', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();
@@ -347,7 +347,7 @@ describe('MessageStore', () => {
 
   test('hardDelete() clears toolEvents', async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     const store = new MessageStore();

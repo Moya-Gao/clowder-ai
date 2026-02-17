@@ -1,7 +1,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { TaskStore } = await import('../dist/domains/cats/services/TaskStore.js');
+const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
 
 describe('TaskStore', () => {
   /** @type {InstanceType<typeof TaskStore>} */

@@ -11,7 +11,7 @@
  */
 
 import type { SessionStatus, SealResult } from '@cat-cafe/shared';
-import type { ISessionChainStore } from './SessionChainStore.js';
+import type { ISessionChainStore } from './stores/ports/SessionChainStore.js';
 import type { TranscriptWriter } from './TranscriptWriter.js';
 
 export type SealReason = 'threshold' | 'manual' | 'error' | (string & {});

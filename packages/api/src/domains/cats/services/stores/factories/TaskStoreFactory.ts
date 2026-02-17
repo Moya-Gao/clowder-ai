@@ -4,9 +4,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { TaskStore } from './TaskStore.js';
-import type { ITaskStore } from './TaskStore.js';
-import { RedisTaskStore } from './RedisTaskStore.js';
+import { TaskStore } from '../ports/TaskStore.js';
+import type { ITaskStore } from '../ports/TaskStore.js';
+import { RedisTaskStore } from '../redis/RedisTaskStore.js';
 
 function resolveTaskTtlSeconds(): number | undefined {
   const raw = process.env['TASK_TTL_SECONDS'];

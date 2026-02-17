@@ -14,12 +14,12 @@
 
 import type { CatId, SessionRecord, SessionStatus, ContextHealth, SessionUsageSnapshot } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { SessionChainKeys } from './session-chain-keys.js';
+import { SessionChainKeys } from '../redis-keys/session-chain-keys.js';
 import type {
   CreateSessionInput,
   SessionRecordPatch,
   ISessionChainStore,
-} from './SessionChainStore.js';
+} from '../ports/SessionChainStore.js';
 
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 

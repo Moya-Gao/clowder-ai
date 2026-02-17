@@ -1,7 +1,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-const { SummaryStore } = await import('../dist/domains/cats/services/SummaryStore.js');
+const { SummaryStore } = await import('../dist/domains/cats/services/stores/ports/SummaryStore.js');
 
 describe('SummaryStore', () => {
   /** @type {InstanceType<typeof SummaryStore>} */

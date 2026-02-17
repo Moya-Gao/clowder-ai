@@ -30,7 +30,7 @@ describe('RedisSessionChainStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : fa
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisSessionChainStore');
 
-    const storeModule = await import('../dist/domains/cats/services/RedisSessionChainStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisSessionChainStore.js');
     RedisSessionChainStore = storeModule.RedisSessionChainStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;

@@ -11,9 +11,9 @@
 
 import type { CatId, AuthorizationAuditEntry, RespondScope } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { AuthAuditKeys } from './authorization-keys.js';
-import type { CreateAuditInput, IAuthorizationAuditStore } from './AuthorizationAuditStore.js';
-import { generateSortableId } from './MessageStore.js';
+import { AuthAuditKeys } from '../redis-keys/authorization-keys.js';
+import type { CreateAuditInput, IAuthorizationAuditStore } from '../ports/AuthorizationAuditStore.js';
+import { generateSortableId } from '../ports/MessageStore.js';
 
 const DEFAULT_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 days
 const DEFAULT_MAX = 5000;

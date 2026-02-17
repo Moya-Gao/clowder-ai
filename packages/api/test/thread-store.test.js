@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 describe('ThreadStore', () => {
   test('create() returns a thread with generated id', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -24,7 +24,7 @@ describe('ThreadStore', () => {
 
   test('get() returns null for nonexistent thread', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -33,7 +33,7 @@ describe('ThreadStore', () => {
 
   test('get() auto-creates default thread', async () => {
     const { ThreadStore, DEFAULT_THREAD_ID } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -47,7 +47,7 @@ describe('ThreadStore', () => {
 
   test('list() returns user threads + default, sorted by lastActiveAt desc', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -69,7 +69,7 @@ describe('ThreadStore', () => {
 
   test('addParticipants() adds unique cats', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -85,7 +85,7 @@ describe('ThreadStore', () => {
 
   test('getParticipants() returns empty array for nonexistent thread', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -94,7 +94,7 @@ describe('ThreadStore', () => {
 
   test('updateLastActive() refreshes timestamp and LRU position', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -111,7 +111,7 @@ describe('ThreadStore', () => {
 
   test('delete() removes thread, but not default', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -131,7 +131,7 @@ describe('ThreadStore', () => {
 
   test('LRU eviction when exceeding maxThreads', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore({ maxThreads: 3 });
@@ -151,7 +151,7 @@ describe('ThreadStore', () => {
 
   test('LRU eviction skips default thread and evicts next oldest (regression)', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore({ maxThreads: 3 });
@@ -181,7 +181,7 @@ describe('ThreadStore', () => {
 
   test('create() with no title sets null', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -191,7 +191,7 @@ describe('ThreadStore', () => {
 
   test('create() defaults projectPath to "default"', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -201,7 +201,7 @@ describe('ThreadStore', () => {
 
   test('create() with explicit projectPath sets it', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -211,7 +211,7 @@ describe('ThreadStore', () => {
 
   test('get() auto-created default thread has projectPath "default"', async () => {
     const { ThreadStore, DEFAULT_THREAD_ID } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -221,7 +221,7 @@ describe('ThreadStore', () => {
 
   test('listByProject() returns only threads in that project', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -245,7 +245,7 @@ describe('ThreadStore', () => {
 
   test('updatePin() sets pinned=true and pinnedAt timestamp', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -262,7 +262,7 @@ describe('ThreadStore', () => {
 
   test('updatePin(false) clears pinned and sets pinnedAt to null', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -279,7 +279,7 @@ describe('ThreadStore', () => {
 
   test('updateFavorite() sets favorited=true and favoritedAt timestamp', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -293,7 +293,7 @@ describe('ThreadStore', () => {
 
   test('updateFavorite(false) clears favorited and sets favoritedAt to null', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -308,7 +308,7 @@ describe('ThreadStore', () => {
 
   test('updatePin() does nothing for nonexistent thread', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();
@@ -318,7 +318,7 @@ describe('ThreadStore', () => {
 
   test('updateFavorite() does nothing for nonexistent thread', async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
 
     const store = new ThreadStore();

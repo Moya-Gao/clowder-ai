@@ -5,9 +5,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { AuthorizationAuditStore } from './AuthorizationAuditStore.js';
-import type { IAuthorizationAuditStore } from './AuthorizationAuditStore.js';
-import { RedisAuthorizationAuditStore } from './RedisAuthorizationAuditStore.js';
+import { AuthorizationAuditStore } from '../ports/AuthorizationAuditStore.js';
+import type { IAuthorizationAuditStore } from '../ports/AuthorizationAuditStore.js';
+import { RedisAuthorizationAuditStore } from '../redis/RedisAuthorizationAuditStore.js';
 
 export function createAuthorizationAuditStore(redis?: RedisClient): IAuthorizationAuditStore {
   if (redis) {

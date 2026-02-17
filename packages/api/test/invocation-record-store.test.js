@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 describe('InvocationRecordStore', () => {
   test('create() returns created outcome with invocationId', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -28,7 +28,7 @@ describe('InvocationRecordStore', () => {
 
   test('create() record has correct initial state', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -55,7 +55,7 @@ describe('InvocationRecordStore', () => {
 
   test('idempotency dedup returns duplicate on same key', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -82,7 +82,7 @@ describe('InvocationRecordStore', () => {
 
   test('different threadId with same key does not dedup', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -109,7 +109,7 @@ describe('InvocationRecordStore', () => {
 
   test('get() returns null for non-existent id', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -118,7 +118,7 @@ describe('InvocationRecordStore', () => {
 
   test('update() changes status and updatedAt', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -143,7 +143,7 @@ describe('InvocationRecordStore', () => {
 
   test('update() backfills userMessageId', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -163,7 +163,7 @@ describe('InvocationRecordStore', () => {
 
   test('update() sets error on failed status', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -184,7 +184,7 @@ describe('InvocationRecordStore', () => {
 
   test('F8: update() stores usageByCat and get() returns it', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -214,7 +214,7 @@ describe('InvocationRecordStore', () => {
 
   test('update() returns null for non-existent id', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -223,7 +223,7 @@ describe('InvocationRecordStore', () => {
 
   test('getByIdempotencyKey() finds record by composite key', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -242,7 +242,7 @@ describe('InvocationRecordStore', () => {
 
   test('getByIdempotencyKey() returns null for wrong scope', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore();
@@ -260,7 +260,7 @@ describe('InvocationRecordStore', () => {
 
   test('bounded capacity evicts oldest records', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
 
     const store = new InvocationRecordStore({ maxRecords: 3 });

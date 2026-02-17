@@ -11,9 +11,9 @@
 
 import type { ThreadSummary, CreateSummaryInput } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { generateSortableId } from './MessageStore.js';
-import type { ISummaryStore } from './SummaryStore.js';
-import { SummaryKeys } from './summary-keys.js';
+import { generateSortableId } from '../ports/MessageStore.js';
+import type { ISummaryStore } from '../ports/SummaryStore.js';
+import { SummaryKeys } from '../redis-keys/summary-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 

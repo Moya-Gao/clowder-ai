@@ -7,7 +7,7 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { AutoSummarizer } = await import('../dist/domains/cats/services/AutoSummarizer.js');
-const { SummaryStore } = await import('../dist/domains/cats/services/SummaryStore.js');
+const { SummaryStore } = await import('../dist/domains/cats/services/stores/ports/SummaryStore.js');
 
 /**
  * Minimal in-memory message store stub for testing.

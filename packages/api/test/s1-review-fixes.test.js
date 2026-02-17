@@ -189,7 +189,7 @@ describe('P2: parseMultipart extracts idempotencyKey', () => {
 describe('Integration: dedup does not trigger tracker abort', () => {
   test('duplicate create does not require tracker.start()', async () => {
     const { InvocationRecordStore } = await import(
-      '../dist/domains/cats/services/InvocationRecordStore.js'
+      '../dist/domains/cats/services/stores/ports/InvocationRecordStore.js'
     );
     const { InvocationTracker } = await import(
       '../dist/domains/cats/services/InvocationTracker.js'
@@ -233,9 +233,9 @@ import Fastify from 'fastify';
 
 describe('R2: delete-guard race via POST /api/messages route', () => {
   test('returns 409 and cancels InvocationRecord when start() returns aborted controller', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
-    const { InvocationRecordStore } = await import('../dist/domains/cats/services/InvocationRecordStore.js');
+    const { InvocationRecordStore } = await import('../dist/domains/cats/services/stores/ports/InvocationRecordStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
     const threadId = 'thread-race-r2';

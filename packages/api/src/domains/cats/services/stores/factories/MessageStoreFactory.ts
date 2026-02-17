@@ -5,8 +5,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { MessageStore } from './MessageStore.js';
-import { RedisMessageStore } from './RedisMessageStore.js';
+import { MessageStore } from '../ports/MessageStore.js';
+import { RedisMessageStore } from '../redis/RedisMessageStore.js';
 
 export type AnyMessageStore = MessageStore | RedisMessageStore;
 

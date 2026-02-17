@@ -4,7 +4,7 @@
 
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { MemoryStore, MAX_KEYS_PER_THREAD } from '../dist/domains/cats/services/MemoryStore.js';
+import { MemoryStore, MAX_KEYS_PER_THREAD } from '../dist/domains/cats/services/stores/ports/MemoryStore.js';
 
 describe('MemoryStore', () => {
   let store;

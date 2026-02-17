@@ -5,9 +5,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { ThreadStore } from './ThreadStore.js';
-import type { IThreadStore } from './ThreadStore.js';
-import { RedisThreadStore } from './RedisThreadStore.js';
+import { ThreadStore } from '../ports/ThreadStore.js';
+import type { IThreadStore } from '../ports/ThreadStore.js';
+import { RedisThreadStore } from '../redis/RedisThreadStore.js';
 
 function resolveThreadTtlSeconds(): number | undefined {
   const raw = process.env['THREAD_TTL_SECONDS'];

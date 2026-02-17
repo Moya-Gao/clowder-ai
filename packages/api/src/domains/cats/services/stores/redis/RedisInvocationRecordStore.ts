@@ -10,9 +10,9 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { InvocationKeys } from './invocation-keys.js';
-import { isValidTransition } from './invocation-state-machine.js';
-import type { TokenUsage } from './types.js';
+import { InvocationKeys } from '../redis-keys/invocation-keys.js';
+import { isValidTransition } from '../ports/invocation-state-machine.js';
+import type { TokenUsage } from '../../types.js';
 import type {
   InvocationRecord,
   InvocationStatus,
@@ -20,7 +20,7 @@ import type {
   CreateResult,
   UpdateInvocationInput,
   IInvocationRecordStore,
-} from './InvocationRecordStore.js';
+} from '../ports/InvocationRecordStore.js';
 
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const IDEMPOTENCY_TTL_SECONDS = 300; // 5 minutes

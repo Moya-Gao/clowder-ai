@@ -6,8 +6,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { AuthorizationManager } from '../domains/cats/services/AuthorizationManager.js';
-import type { IAuthorizationRuleStore } from '../domains/cats/services/AuthorizationRuleStore.js';
-import type { IAuthorizationAuditStore } from '../domains/cats/services/AuthorizationAuditStore.js';
+import type { IAuthorizationRuleStore } from '../domains/cats/services/stores/ports/AuthorizationRuleStore.js';
+import type { IAuthorizationAuditStore } from '../domains/cats/services/stores/ports/AuthorizationAuditStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { CatId } from '@cat-cafe/shared';
 

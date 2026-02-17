@@ -23,7 +23,7 @@ describe('RedisSummaryStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisSummaryStore');
 
-    const storeModule = await import('../dist/domains/cats/services/RedisSummaryStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisSummaryStore.js');
     RedisSummaryStore = storeModule.RedisSummaryStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
@@ -113,9 +113,9 @@ describe('RedisSummaryStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
 
 describe('SummaryStoreFactory', () => {
   it('returns SummaryStore when no redis, RedisSummaryStore when redis', async () => {
-    const { createSummaryStore } = await import('../dist/domains/cats/services/SummaryStoreFactory.js');
-    const { SummaryStore } = await import('../dist/domains/cats/services/SummaryStore.js');
-    const { RedisSummaryStore } = await import('../dist/domains/cats/services/RedisSummaryStore.js');
+    const { createSummaryStore } = await import('../dist/domains/cats/services/stores/factories/SummaryStoreFactory.js');
+    const { SummaryStore } = await import('../dist/domains/cats/services/stores/ports/SummaryStore.js');
+    const { RedisSummaryStore } = await import('../dist/domains/cats/services/stores/redis/RedisSummaryStore.js');
 
     const memoryStore = createSummaryStore();
     assert.ok(memoryStore instanceof SummaryStore, 'no redis → SummaryStore');

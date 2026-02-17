@@ -24,7 +24,7 @@ describe('Session Chain Routes', () => {
   let sessionChainRoutes;
 
   async function setup(threadStoreOverride) {
-    const storeMod = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const storeMod = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const routeMod = await import('../dist/routes/session-chain.js');
     SessionChainStore = storeMod.SessionChainStore;
     sessionChainRoutes = routeMod.sessionChainRoutes;

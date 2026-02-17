@@ -4,8 +4,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { SessionChainStore } from './SessionChainStore.js';
-import { RedisSessionChainStore } from './RedisSessionChainStore.js';
+import { SessionChainStore } from '../ports/SessionChainStore.js';
+import { RedisSessionChainStore } from '../redis/RedisSessionChainStore.js';
 
 export type AnySessionChainStore = SessionChainStore | RedisSessionChainStore;
 

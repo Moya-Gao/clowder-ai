@@ -10,8 +10,8 @@
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { type CatId, getAllCatIds } from '@cat-cafe/shared';
 import { z } from 'zod';
-import type { ISessionChainStore } from '../domains/cats/services/SessionChainStore.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/EventAuditLog.js';
 

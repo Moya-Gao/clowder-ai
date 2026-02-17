@@ -4,9 +4,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { SummaryStore } from './SummaryStore.js';
-import type { ISummaryStore } from './SummaryStore.js';
-import { RedisSummaryStore } from './RedisSummaryStore.js';
+import { SummaryStore } from '../ports/SummaryStore.js';
+import type { ISummaryStore } from '../ports/SummaryStore.js';
+import { RedisSummaryStore } from '../redis/RedisSummaryStore.js';
 
 function resolveSummaryTtlSeconds(): number | undefined {
   const raw = process.env['SUMMARY_TTL_SECONDS'];

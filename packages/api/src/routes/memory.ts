@@ -8,8 +8,8 @@
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { createCatId } from '@cat-cafe/shared';
-import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 export interface MemoryRoutesOptions {

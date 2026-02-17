@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { ImageExporter } from '../services/ImageExporter.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { resolveFrontendBaseUrl } from '../config/frontend-origin.js';
 

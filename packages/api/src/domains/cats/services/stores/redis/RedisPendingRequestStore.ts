@@ -12,9 +12,9 @@
 
 import type { CatId, PendingRequestRecord, RespondScope } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { PendingReqKeys } from './authorization-keys.js';
-import type { CreatePendingInput, IPendingRequestStore } from './PendingRequestStore.js';
-import { generateSortableId } from './MessageStore.js';
+import { PendingReqKeys } from '../redis-keys/authorization-keys.js';
+import type { CreatePendingInput, IPendingRequestStore } from '../ports/PendingRequestStore.js';
+import { generateSortableId } from '../ports/MessageStore.js';
 
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 const DEFAULT_MAX = 1000;

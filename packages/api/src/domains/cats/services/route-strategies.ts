@@ -12,8 +12,8 @@ import { needsMcpInjection, buildMcpCallbackInstructions } from './McpPromptInje
 import { invokeSingleCat } from './invoke-single-cat.js';
 import type { InvocationDeps } from './invoke-single-cat.js';
 import { mergeStreams } from './stream-merge.js';
-import type { IMessageStore, StoredMessage, StoredToolEvent } from './MessageStore.js';
-import { DeliveryCursorStore } from './DeliveryCursorStore.js';
+import type { IMessageStore, StoredMessage, StoredToolEvent } from './stores/ports/MessageStore.js';
+import { DeliveryCursorStore } from './stores/ports/DeliveryCursorStore.js';
 import type { AgentMessage, AgentMessageType, AgentService } from './types.js';
 import type { MessageMetadata } from './types.js';
 import { parseA2AMentions, getMaxA2ADepth } from './a2a-mentions.js';

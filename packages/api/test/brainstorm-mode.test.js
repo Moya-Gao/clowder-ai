@@ -8,7 +8,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/ModeStore.js';
+import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { BrainstormMode } from '../dist/domains/cats/services/modes/BrainstormMode.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/ModeOrchestrator.js';
 

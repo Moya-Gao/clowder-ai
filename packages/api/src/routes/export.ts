@@ -4,10 +4,10 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
-import type { Thread } from '../domains/cats/services/ThreadStore.js';
-import type { StoredMessage } from '../domains/cats/services/MessageStore.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { Thread } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { formatMessage } from '../domains/cats/services/ContextAssembler.js';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
 

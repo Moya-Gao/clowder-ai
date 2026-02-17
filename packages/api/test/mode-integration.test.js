@@ -7,7 +7,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/ModeStore.js';
+import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/ModeOrchestrator.js';
 
 describe('Mode Integration (dispatch logic)', () => {

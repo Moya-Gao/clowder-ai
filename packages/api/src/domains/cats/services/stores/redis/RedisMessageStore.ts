@@ -14,10 +14,10 @@
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID, generateSortableId } from './MessageStore.js';
-import type { AppendMessageInput, StoredMessage, StoredToolEvent } from './MessageStore.js';
-import type { MessageMetadata } from './types.js';
-import { MessageKeys } from './message-keys.js';
+import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
+import type { AppendMessageInput, StoredMessage, StoredToolEvent } from '../ports/MessageStore.js';
+import type { MessageMetadata } from '../../types.js';
+import { MessageKeys } from '../redis-keys/message-keys.js';
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days

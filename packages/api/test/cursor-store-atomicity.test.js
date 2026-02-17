@@ -13,13 +13,13 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 
-/** @type {typeof import('../dist/domains/cats/services/DeliveryCursorStore.js').DeliveryCursorStore} */
+/** @type {typeof import('../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js').DeliveryCursorStore} */
 let DeliveryCursorStoreClass;
 
 describe('DeliveryCursorStore atomicity & fallback', () => {
   beforeEach(async () => {
     const mod = await import(
-      '../dist/domains/cats/services/DeliveryCursorStore.js'
+      '../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js'
     );
     DeliveryCursorStoreClass = mod.DeliveryCursorStore;
   });

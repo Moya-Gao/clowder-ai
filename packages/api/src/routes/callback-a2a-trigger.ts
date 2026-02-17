@@ -15,9 +15,9 @@
 import type { FastifyBaseLogger } from 'fastify';
 import { createCatId, type CatId } from '@cat-cafe/shared';
 import type { AgentRouter } from '../domains/cats/services/index.js';
-import type { StoredMessage } from '../domains/cats/services/MessageStore.js';
+import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { parseIntent } from '../domains/cats/services/IntentParser.js';
-import type { IInvocationRecordStore } from '../domains/cats/services/InvocationRecordStore.js';
+import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { pushToWorklist, hasWorklist } from '../domains/cats/services/WorklistRegistry.js';

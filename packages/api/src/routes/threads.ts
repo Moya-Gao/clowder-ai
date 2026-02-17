@@ -9,11 +9,11 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
-import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
-import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
-import type { IMemoryStore } from '../domains/cats/services/MemoryStore.js';
-import type { DeliveryCursorStore } from '../domains/cats/services/DeliveryCursorStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
+import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { InvocationTracker } from '../domains/cats/services/InvocationTracker.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';

@@ -13,11 +13,11 @@ import fc from 'fast-check';
 const FC_PARAMS = { numRuns: 500, seed: 20260217 };
 
 describe('invocation-state-machine', () => {
-  /** @type {typeof import('../dist/domains/cats/services/invocation-state-machine.js')} */
+  /** @type {typeof import('../dist/domains/cats/services/stores/ports/invocation-state-machine.js')} */
   let mod;
 
   test('module loads', async () => {
-    mod = await import('../dist/domains/cats/services/invocation-state-machine.js');
+    mod = await import('../dist/domains/cats/services/stores/ports/invocation-state-machine.js');
     assert.ok(mod.isValidTransition);
     assert.ok(mod.getAllowedTransitions);
     assert.ok(mod.TERMINAL_STATES);

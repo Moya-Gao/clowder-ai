@@ -5,9 +5,9 @@
 
 import type { Redis } from 'ioredis';
 import type { MemoryEntry, MemoryInput } from '@cat-cafe/shared';
-import type { IMemoryStore } from './MemoryStore.js';
-import { MAX_KEYS_PER_THREAD } from './MemoryStore.js';
-import { memoryKey, MEMORY_TTL_SECONDS } from './memory-keys.js';
+import type { IMemoryStore } from '../ports/MemoryStore.js';
+import { MAX_KEYS_PER_THREAD } from '../ports/MemoryStore.js';
+import { memoryKey, MEMORY_TTL_SECONDS } from '../redis-keys/memory-keys.js';
 
 /**
  * Redis implementation of IMemoryStore.

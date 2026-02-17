@@ -11,9 +11,9 @@
 
 import type { CatId, AuthorizationRule } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { AuthRuleKeys } from './authorization-keys.js';
-import type { IAuthorizationRuleStore } from './AuthorizationRuleStore.js';
-import { generateSortableId } from './MessageStore.js';
+import { AuthRuleKeys } from '../redis-keys/authorization-keys.js';
+import type { IAuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
+import { generateSortableId } from '../ports/MessageStore.js';
 
 /** Simple glob-style match: 'git_*' matches 'git_commit' */
 function matchAction(pattern: string, action: string): boolean {

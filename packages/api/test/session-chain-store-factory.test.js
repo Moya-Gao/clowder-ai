@@ -9,10 +9,10 @@ import assert from 'node:assert/strict';
 describe('createSessionChainStore', () => {
   test('returns SessionChainStore when no redis provided', async () => {
     const { createSessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+      '../dist/domains/cats/services/stores/factories/SessionChainStoreFactory.js'
     );
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
 
     const store = createSessionChainStore();
@@ -21,10 +21,10 @@ describe('createSessionChainStore', () => {
 
   test('returns RedisSessionChainStore when redis provided', async () => {
     const { createSessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+      '../dist/domains/cats/services/stores/factories/SessionChainStoreFactory.js'
     );
     const { RedisSessionChainStore } = await import(
-      '../dist/domains/cats/services/RedisSessionChainStore.js'
+      '../dist/domains/cats/services/stores/redis/RedisSessionChainStore.js'
     );
 
     // Minimal mock redis — factory only checks truthiness
@@ -35,10 +35,10 @@ describe('createSessionChainStore', () => {
 
   test('returns SessionChainStore when redis is undefined', async () => {
     const { createSessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStoreFactory.js'
+      '../dist/domains/cats/services/stores/factories/SessionChainStoreFactory.js'
     );
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
 
     const store = createSessionChainStore(undefined);

@@ -9,8 +9,8 @@
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
-import type { ISessionChainStore } from '../domains/cats/services/SessionChainStore.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { TranscriptReader } from '../domains/cats/services/TranscriptReader.js';
 import { resolveUserId } from '../utils/request-identity.js';
 

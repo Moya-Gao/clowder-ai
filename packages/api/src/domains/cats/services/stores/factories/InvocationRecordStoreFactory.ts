@@ -5,8 +5,8 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { InvocationRecordStore } from './InvocationRecordStore.js';
-import { RedisInvocationRecordStore } from './RedisInvocationRecordStore.js';
+import { InvocationRecordStore } from '../ports/InvocationRecordStore.js';
+import { RedisInvocationRecordStore } from '../redis/RedisInvocationRecordStore.js';
 
 export type AnyInvocationRecordStore = InvocationRecordStore | RedisInvocationRecordStore;
 

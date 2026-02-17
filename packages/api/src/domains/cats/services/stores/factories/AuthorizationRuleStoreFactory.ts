@@ -5,9 +5,9 @@
  */
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { AuthorizationRuleStore } from './AuthorizationRuleStore.js';
-import type { IAuthorizationRuleStore } from './AuthorizationRuleStore.js';
-import { RedisAuthorizationRuleStore } from './RedisAuthorizationRuleStore.js';
+import { AuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
+import type { IAuthorizationRuleStore } from '../ports/AuthorizationRuleStore.js';
+import { RedisAuthorizationRuleStore } from '../redis/RedisAuthorizationRuleStore.js';
 
 export function createAuthorizationRuleStore(redis?: RedisClient): IAuthorizationRuleStore {
   if (redis) {

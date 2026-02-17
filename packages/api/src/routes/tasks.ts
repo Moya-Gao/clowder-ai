@@ -11,7 +11,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { CatId, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
-import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
+import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface TasksRoutesOptions {

@@ -7,7 +7,7 @@
  */
 
 import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { StoredMessage } from './MessageStore.js';
+import type { StoredMessage } from './stores/ports/MessageStore.js';
 import { estimateTokens } from '../../../utils/token-counter.js';
 
 export interface ContextAssemblerOptions {

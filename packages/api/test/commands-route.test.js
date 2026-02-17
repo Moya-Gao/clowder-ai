@@ -6,9 +6,9 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 import { commandsRoutes } from '../dist/routes/commands.js';
-import { MessageStore } from '../dist/domains/cats/services/MessageStore.js';
-import { TaskStore } from '../dist/domains/cats/services/TaskStore.js';
-import { ThreadStore } from '../dist/domains/cats/services/ThreadStore.js';
+import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
+import { TaskStore } from '../dist/domains/cats/services/stores/ports/TaskStore.js';
+import { ThreadStore } from '../dist/domains/cats/services/stores/ports/ThreadStore.js';
 
 // Mock opus service
 const mockOpusService = {

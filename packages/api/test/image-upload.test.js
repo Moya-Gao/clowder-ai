@@ -251,13 +251,13 @@ describe('contentBlocks in GET /api/messages', () => {
 
   beforeEach(async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
     );
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
@@ -325,9 +325,9 @@ describe('multipart image target routing', () => {
     routeExecutionCalls.length = 0;
     broadcastedAgentMessages.length = 0;
 
-    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
-    const { InvocationRecordStore } = await import('../dist/domains/cats/services/InvocationRecordStore.js');
+    const { InvocationRecordStore } = await import('../dist/domains/cats/services/stores/ports/InvocationRecordStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
     const messageStore = new MessageStore();

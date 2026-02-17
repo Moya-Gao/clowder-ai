@@ -3,9 +3,9 @@
  */
 
 import type { Redis } from 'ioredis';
-import type { IMemoryStore } from './MemoryStore.js';
-import { MemoryStore } from './MemoryStore.js';
-import { RedisMemoryStore } from './RedisMemoryStore.js';
+import type { IMemoryStore } from '../ports/MemoryStore.js';
+import { MemoryStore } from '../ports/MemoryStore.js';
+import { RedisMemoryStore } from '../redis/RedisMemoryStore.js';
 
 /**
  * Create a memory store instance.

@@ -11,9 +11,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { IModeStore } from '../domains/cats/services/ModeStore.js';
-import { createInitialState } from '../domains/cats/services/ModeStore.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IModeStore } from '../domains/cats/services/stores/ports/ModeStore.js';
+import { createInitialState } from '../domains/cats/services/stores/ports/ModeStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { ModeName, ModeConfig, BrainstormConfig, DebateConfig, DevLoopConfig } from '@cat-cafe/shared';
 

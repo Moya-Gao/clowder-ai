@@ -7,13 +7,13 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
 const { AuthorizationRuleStore } = await import(
-  '../dist/domains/cats/services/AuthorizationRuleStore.js'
+  '../dist/domains/cats/services/stores/ports/AuthorizationRuleStore.js'
 );
 const { PendingRequestStore } = await import(
-  '../dist/domains/cats/services/PendingRequestStore.js'
+  '../dist/domains/cats/services/stores/ports/PendingRequestStore.js'
 );
 const { AuthorizationAuditStore } = await import(
-  '../dist/domains/cats/services/AuthorizationAuditStore.js'
+  '../dist/domains/cats/services/stores/ports/AuthorizationAuditStore.js'
 );
 const { AuthorizationManager } = await import(
   '../dist/domains/cats/services/AuthorizationManager.js'

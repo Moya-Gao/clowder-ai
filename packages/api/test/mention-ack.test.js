@@ -34,10 +34,10 @@ describe('Mention Ack (#77)', () => {
       '../dist/domains/cats/services/InvocationRegistry.js'
     );
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { DeliveryCursorStore } = await import(
-      '../dist/domains/cats/services/DeliveryCursorStore.js'
+      '../dist/domains/cats/services/stores/ports/DeliveryCursorStore.js'
     );
 
     registry = new InvocationRegistry();

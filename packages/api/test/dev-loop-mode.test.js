@@ -12,7 +12,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { DevLoopMode } from '../dist/domains/cats/services/modes/DevLoopMode.js';
-import { ModeStore, createInitialState } from '../dist/domains/cats/services/ModeStore.js';
+import { ModeStore, createInitialState } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { ModeOrchestrator } from '../dist/domains/cats/services/ModeOrchestrator.js';
 
 // ── Helpers ──

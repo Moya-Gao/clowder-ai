@@ -10,7 +10,7 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { ModeStore } from '../dist/domains/cats/services/ModeStore.js';
+import { ModeStore } from '../dist/domains/cats/services/stores/ports/ModeStore.js';
 import { modesRoutes } from '../dist/routes/modes.js';
 
 /** Auth header helper — thread-1 is createdBy 'user-1' */

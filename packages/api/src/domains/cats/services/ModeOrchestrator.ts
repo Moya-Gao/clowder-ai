@@ -11,8 +11,8 @@
 
 import type { ModeName, ModeConfig } from '@cat-cafe/shared';
 import { isBrainstormConfig, isDebateConfig } from '@cat-cafe/shared';
-import type { IModeStore } from './ModeStore.js';
-import { createInitialState } from './ModeStore.js';
+import type { IModeStore } from './stores/ports/ModeStore.js';
+import { createInitialState } from './stores/ports/ModeStore.js';
 import type { AgentMessage } from './types.js';
 import type { ModeHandler, ModeExecutionContext } from './modes/mode-types.js';
 import type { SocketManager } from '../../../infrastructure/websocket/index.js';

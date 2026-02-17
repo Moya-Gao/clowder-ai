@@ -11,7 +11,7 @@
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
-import type { ISessionChainStore } from '../domains/cats/services/SessionChainStore.js';
+import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { ISessionSealer } from '../domains/cats/services/SessionSealer.js';
 import type { TranscriptReader } from '../domains/cats/services/TranscriptReader.js';
 

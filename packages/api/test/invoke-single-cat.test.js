@@ -185,7 +185,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: creates SessionRecord on session_init when sessionChainStore provided', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     const service = {
@@ -215,7 +215,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: updates cliSessionId when session_init arrives for existing active record', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     // Pre-create an active session with old cliSessionId
@@ -249,7 +249,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: yields context_health system_info when done has usage with contextWindowSize', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     const service = {
@@ -301,7 +301,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: uses fallback window size for models without contextWindowSize', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     const service = {
@@ -366,7 +366,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       },
     };
 
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const deps = { ...makeDeps(), sessionChainStore: new SessionChainStore() };
     const msgs = await collect(invokeSingleCat(deps, {
       catId: 'opus',
@@ -388,7 +388,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: updates SessionRecord contextHealth on done', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     const service = {
@@ -431,7 +431,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24-fix: prefers lastTurnInputTokens over aggregated inputTokens for context health', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const sessionChainStore = new SessionChainStore();
 
     const service = {
@@ -772,7 +772,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('R7 P1: seal clears sessionManager BEFORE finalize completes (no race window)', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     // Create a sealer whose finalize is slow (simulates async flush)
@@ -845,7 +845,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('R7 P1: next invocation after seal gets no sessionId (clean start)', async () => {
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     const sealer = new SessionSealer(sessionChainStore);
@@ -915,7 +915,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     // sessionManager.get() still returns old sessionId.
     // BUT: sessionChainStore.getActive() returns null (session is sealing/sealed)
     // → read-side short-circuit discards sessionId → no --resume.
-    const { SessionChainStore } = await import('../dist/domains/cats/services/SessionChainStore.js');
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
     const { SessionSealer } = await import('../dist/domains/cats/services/SessionSealer.js');
     const sessionChainStore = new SessionChainStore();
     const sealer = new SessionSealer(sessionChainStore);

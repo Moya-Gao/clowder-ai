@@ -35,7 +35,7 @@ describe('Callback Routes', () => {
       '../dist/domains/cats/services/InvocationRegistry.js'
     );
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
 
     registry = new InvocationRegistry();

@@ -5,11 +5,11 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IMessageStore } from '../domains/cats/services/MessageStore.js';
-import type { ITaskStore } from '../domains/cats/services/TaskStore.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { AgentService } from '../domains/cats/services/types.js';
-import type { IThreadStore } from '../domains/cats/services/ThreadStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { extractTasks, toCreateTaskInputs } from '../domains/cats/services/TaskExtractor.js';
 import { resolveUserId } from '../utils/request-identity.js';
 

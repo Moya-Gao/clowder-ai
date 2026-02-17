@@ -22,7 +22,7 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisThreadStore');
 
-    const storeModule = await import('../dist/domains/cats/services/RedisThreadStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisThreadStore.js');
     RedisThreadStore = storeModule.RedisThreadStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
@@ -170,10 +170,10 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
 describe('ThreadStoreFactory', () => {
   it('returns ThreadStore when no redis', async () => {
     const { createThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStoreFactory.js'
+      '../dist/domains/cats/services/stores/factories/ThreadStoreFactory.js'
     );
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const store = createThreadStore();
     assert.ok(store instanceof ThreadStore);
@@ -185,10 +185,10 @@ describe('ThreadStoreFactory', () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'ThreadStoreFactory');
 
     const { createThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStoreFactory.js'
+      '../dist/domains/cats/services/stores/factories/ThreadStoreFactory.js'
     );
     const { RedisThreadStore } = await import(
-      '../dist/domains/cats/services/RedisThreadStore.js'
+      '../dist/domains/cats/services/stores/redis/RedisThreadStore.js'
     );
     const { createRedisClient } = await import('@cat-cafe/shared/utils');
     const redis = createRedisClient({ url: REDIS_URL });

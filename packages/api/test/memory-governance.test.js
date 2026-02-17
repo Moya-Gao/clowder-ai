@@ -9,7 +9,7 @@ import {
   MemoryGovernanceStore,
   GovernanceConflictError,
   resolveTransition,
-} from '../dist/domains/cats/services/MemoryGovernanceStore.js';
+} from '../dist/domains/cats/services/stores/ports/MemoryGovernanceStore.js';
 
 describe('resolveTransition (pure function)', () => {
   it('draft → submit_review = pending_review', () => {
@@ -51,7 +51,7 @@ describe('resolveTransition (pure function)', () => {
 });
 
 describe('MemoryGovernanceStore', () => {
-  /** @type {import('../src/domains/cats/services/MemoryGovernanceStore.js').MemoryGovernanceStore} */
+  /** @type {import('../src/domains/cats/services/stores/ports/MemoryGovernanceStore.js').MemoryGovernanceStore} */
   let store;
 
   beforeEach(() => {

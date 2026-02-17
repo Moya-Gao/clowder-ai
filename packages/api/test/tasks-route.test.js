@@ -25,7 +25,7 @@ describe('Tasks Routes', () => {
 
   beforeEach(async () => {
     const { TaskStore } = await import(
-      '../dist/domains/cats/services/TaskStore.js'
+      '../dist/domains/cats/services/stores/ports/TaskStore.js'
     );
     taskStore = new TaskStore();
     socketManager = createMockSocketManager();

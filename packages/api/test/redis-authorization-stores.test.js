@@ -22,7 +22,7 @@ describe('RedisAuthorizationRuleStore', { skip: !REDIS_URL ? 'REDIS_URL not set'
 
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisAuthorizationRuleStore');
-    const storeModule = await import('../dist/domains/cats/services/RedisAuthorizationRuleStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisAuthorizationRuleStore.js');
     RedisAuthorizationRuleStore = storeModule.RedisAuthorizationRuleStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
@@ -163,7 +163,7 @@ describe('RedisPendingRequestStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : 
 
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisPendingRequestStore');
-    const storeModule = await import('../dist/domains/cats/services/RedisPendingRequestStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisPendingRequestStore.js');
     RedisPendingRequestStore = storeModule.RedisPendingRequestStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
@@ -353,7 +353,7 @@ describe('RedisAuthorizationAuditStore', { skip: !REDIS_URL ? 'REDIS_URL not set
 
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisAuthorizationAuditStore');
-    const storeModule = await import('../dist/domains/cats/services/RedisAuthorizationAuditStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisAuthorizationAuditStore.js');
     RedisAuthorizationAuditStore = storeModule.RedisAuthorizationAuditStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;

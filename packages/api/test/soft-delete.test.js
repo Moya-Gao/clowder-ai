@@ -8,7 +8,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { MessageStore } from '../dist/domains/cats/services/MessageStore.js';
+import { MessageStore } from '../dist/domains/cats/services/stores/ports/MessageStore.js';
 import { messageActionsRoutes } from '../dist/routes/message-actions.js';
 
 function createMockSocketManager() {

@@ -14,7 +14,7 @@ describe('Thread API', () => {
 
   beforeEach(async () => {
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const { threadsRoutes } = await import('../dist/routes/threads.js');
 
@@ -305,10 +305,10 @@ describe('Thread cascade delete', () => {
   let deliveryCursorStore;
 
   beforeEach(async () => {
-    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
-    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
-    const { TaskStore } = await import('../dist/domains/cats/services/TaskStore.js');
-    const { MemoryStore } = await import('../dist/domains/cats/services/MemoryStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
+    const { MemoryStore } = await import('../dist/domains/cats/services/stores/ports/MemoryStore.js');
     const { threadsRoutes } = await import('../dist/routes/threads.js');
 
     threadStore = new ThreadStore();
@@ -410,7 +410,7 @@ describe('Thread cascade delete', () => {
 
 describe('Thread delete invocation protection (#35)', () => {
   it('DELETE returns 409 when thread has active invocation', async () => {
-    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { threadsRoutes } = await import('../dist/routes/threads.js');
 
     const threadStore = new ThreadStore();
@@ -442,7 +442,7 @@ describe('Thread delete invocation protection (#35)', () => {
   });
 
   it('DELETE succeeds when no active invocation', async () => {
-    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { threadsRoutes } = await import('../dist/routes/threads.js');
 
     const threadStore = new ThreadStore();
@@ -504,13 +504,13 @@ describe('GET /api/messages with threadId', () => {
 
   beforeEach(async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
     );
     const { ThreadStore } = await import(
-      '../dist/domains/cats/services/ThreadStore.js'
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 

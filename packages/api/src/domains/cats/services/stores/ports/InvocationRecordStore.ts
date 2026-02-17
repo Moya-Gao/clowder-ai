@@ -32,7 +32,7 @@ export interface InvocationRecord {
   /** Error message when status is 'failed' */
   error?: string;
   /** F8: Per-cat token usage collected on invocation completion */
-  usageByCat?: Record<string, import('./types.js').TokenUsage>;
+  usageByCat?: Record<string, import('../../types.js').TokenUsage>;
   createdAt: number;
   updatedAt: number;
 }
@@ -60,7 +60,7 @@ export interface UpdateInvocationInput {
   /** CAS guard: update only if current status matches. Returns null on mismatch. */
   expectedStatus?: InvocationStatus;
   /** F8: Per-cat token usage (key = catId) */
-  usageByCat?: Record<string, import('./types.js').TokenUsage>;
+  usageByCat?: Record<string, import('../../types.js').TokenUsage>;
 }
 
 /**

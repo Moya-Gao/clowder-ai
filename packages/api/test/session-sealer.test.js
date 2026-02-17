@@ -11,7 +11,7 @@ import assert from 'node:assert/strict';
 describe('SessionSealer', () => {
   async function createFixtures() {
     const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/SessionChainStore.js'
+      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
     );
     const { SessionSealer } = await import(
       '../dist/domains/cats/services/SessionSealer.js'

@@ -25,7 +25,7 @@ describe('Summaries Routes', () => {
 
   beforeEach(async () => {
     const { SummaryStore } = await import(
-      '../dist/domains/cats/services/SummaryStore.js'
+      '../dist/domains/cats/services/stores/ports/SummaryStore.js'
     );
     summaryStore = new SummaryStore();
     socketManager = createMockSocketManager();

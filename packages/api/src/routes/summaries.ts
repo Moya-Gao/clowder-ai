@@ -10,7 +10,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { CatId, CreateSummaryInput } from '@cat-cafe/shared';
-import type { ISummaryStore } from '../domains/cats/services/SummaryStore.js';
+import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface SummariesRoutesOptions {

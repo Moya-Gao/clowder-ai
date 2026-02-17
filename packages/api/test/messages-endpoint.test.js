@@ -12,7 +12,7 @@ describe('GET /api/messages', () => {
 
   beforeEach(async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
@@ -281,10 +281,10 @@ describe('GET /api/messages with summaryStore (P1-B integration)', () => {
 
   beforeEach(async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { SummaryStore } = await import(
-      '../dist/domains/cats/services/SummaryStore.js'
+      '../dist/domains/cats/services/stores/ports/SummaryStore.js'
     );
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
@@ -446,10 +446,10 @@ describe('GET /api/messages summary + pagination contract', () => {
 
   beforeEach(async () => {
     const { MessageStore } = await import(
-      '../dist/domains/cats/services/MessageStore.js'
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
     const { SummaryStore } = await import(
-      '../dist/domains/cats/services/SummaryStore.js'
+      '../dist/domains/cats/services/stores/ports/SummaryStore.js'
     );
     const { InvocationRegistry } = await import(
       '../dist/domains/cats/services/InvocationRegistry.js'
@@ -566,9 +566,9 @@ describe('GET /api/messages summary + pagination contract', () => {
 
 describe('POST /api/messages orphan rejection (#21)', () => {
   it('returns 400 when threadId does not exist', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
-    const { ThreadStore } = await import('../dist/domains/cats/services/ThreadStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');
 
     const app = Fastify();
@@ -599,7 +599,7 @@ describe('POST /api/messages orphan rejection (#21)', () => {
 
 describe('POST /api/messages delete-guard protection', () => {
   it('returns 409 and does not persist message when thread is being deleted', async () => {
-    const { MessageStore } = await import('../dist/domains/cats/services/MessageStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
     const { InvocationRegistry } = await import('../dist/domains/cats/services/InvocationRegistry.js');
     const { InvocationTracker } = await import('../dist/domains/cats/services/InvocationTracker.js');
     const { messagesRoutes } = await import('../dist/routes/messages.js');

@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
-import type { MessageMetadata } from './types.js';
+import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
 export { DEFAULT_THREAD_ID };

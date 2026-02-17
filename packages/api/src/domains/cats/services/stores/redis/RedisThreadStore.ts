@@ -13,9 +13,9 @@
 import { generateThreadId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID } from './ThreadStore.js';
-import type { Thread, IThreadStore } from './ThreadStore.js';
-import { ThreadKeys } from './thread-keys.js';
+import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
+import type { Thread, IThreadStore } from '../ports/ThreadStore.js';
+import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 

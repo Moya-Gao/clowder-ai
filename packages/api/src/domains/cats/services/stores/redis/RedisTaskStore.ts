@@ -12,9 +12,9 @@
 import type { TaskItem, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { generateSortableId } from './MessageStore.js';
-import type { ITaskStore } from './TaskStore.js';
-import { TaskKeys } from './task-keys.js';
+import { generateSortableId } from '../ports/MessageStore.js';
+import type { ITaskStore } from '../ports/TaskStore.js';
+import { TaskKeys } from '../redis-keys/task-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 

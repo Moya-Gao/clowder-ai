@@ -23,7 +23,7 @@ describe('RedisTaskStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
   before(async () => {
     assertRedisIsolationOrThrow(REDIS_URL, 'RedisTaskStore');
 
-    const storeModule = await import('../dist/domains/cats/services/RedisTaskStore.js');
+    const storeModule = await import('../dist/domains/cats/services/stores/redis/RedisTaskStore.js');
     RedisTaskStore = storeModule.RedisTaskStore;
     const redisModule = await import('@cat-cafe/shared/utils');
     createRedisClient = redisModule.createRedisClient;
@@ -129,9 +129,9 @@ describe('RedisTaskStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }, (
 
 describe('TaskStoreFactory', () => {
   it('returns TaskStore when no redis, RedisTaskStore when redis', async () => {
-    const { createTaskStore } = await import('../dist/domains/cats/services/TaskStoreFactory.js');
-    const { TaskStore } = await import('../dist/domains/cats/services/TaskStore.js');
-    const { RedisTaskStore } = await import('../dist/domains/cats/services/RedisTaskStore.js');
+    const { createTaskStore } = await import('../dist/domains/cats/services/stores/factories/TaskStoreFactory.js');
+    const { TaskStore } = await import('../dist/domains/cats/services/stores/ports/TaskStore.js');
+    const { RedisTaskStore } = await import('../dist/domains/cats/services/stores/redis/RedisTaskStore.js');
 
     const memoryStore = createTaskStore();
     assert.ok(memoryStore instanceof TaskStore, 'no redis → TaskStore');
