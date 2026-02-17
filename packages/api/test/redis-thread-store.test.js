@@ -98,6 +98,16 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(participants.length, 2);
   });
 
+  it('addParticipants() does not recreate participants for deleted thread (delete race)', async () => {
+    const thread = await store.create('user1', 'Deleted Chat');
+    const deleted = await store.delete(thread.id);
+    assert.equal(deleted, true);
+
+    await store.addParticipants(thread.id, ['opus']);
+    const participants = await store.getParticipants(thread.id);
+    assert.deepEqual(participants, []);
+  });
+
   it('list() returns user threads sorted by lastActiveAt', async () => {
     const t1 = await store.create('user1', 'First');
     // Small delay for ordering

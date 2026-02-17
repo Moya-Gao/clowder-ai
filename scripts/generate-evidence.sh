@@ -86,6 +86,10 @@ total_pass="$((node_pass + vitest_pass))"
 total_fail="$((node_fail + vitest_fail))"
 pass_rate="$(awk -v p="$total_pass" -v t="$total_tests" 'BEGIN { if (t == 0) { printf "0.00%%" } else { printf "%.2f%%", (p * 100) / t } }')"
 
+if [[ $total_tests -eq 0 && $test_exit -eq 0 ]]; then
+  echo "[generate-evidence] WARNING: parsed 0 tests while test exit code is 0; verify parser patterns" >&2
+fi
+
 timestamp_utc="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 branch="$(git rev-parse --abbrev-ref HEAD)"
 commit_sha="$(git rev-parse --short HEAD)"

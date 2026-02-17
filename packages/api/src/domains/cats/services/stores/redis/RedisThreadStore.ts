@@ -32,6 +32,19 @@ redis.call('HSET', KEYS[1], unpack(ARGV))
 return 1
 `;
 
+/**
+ * Atomic participants guard:
+ * only applies SADD when the thread detail hash has canonical `id`.
+ * Prevents delete/addParticipants race from recreating orphan participant sets.
+ */
+const SADD_IF_DETAIL_HAS_ID_LUA = `
+if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
+  return 0
+end
+redis.call('SADD', KEYS[2], unpack(ARGV))
+return 1
+`;
+
 export class RedisThreadStore implements IThreadStore {
   private readonly redis: RedisClient;
   /** null means no expiration. */
@@ -119,10 +132,18 @@ export class RedisThreadStore implements IThreadStore {
 
   async addParticipants(threadId: string, catIds: CatId[]): Promise<void> {
     if (catIds.length === 0) return;
-    const key = ThreadKeys.participants(threadId);
-    await this.redis.sadd(key, ...catIds);
+    const detailKey = ThreadKeys.detail(threadId);
+    const participantsKey = ThreadKeys.participants(threadId);
+    const updated = await this.redis.eval(
+      SADD_IF_DETAIL_HAS_ID_LUA,
+      2,
+      detailKey,
+      participantsKey,
+      ...catIds,
+    ) as number;
+    if (updated === 0) return;
     if (this.ttlSeconds !== null) {
-      await this.redis.expire(key, this.ttlSeconds);
+      await this.redis.expire(participantsKey, this.ttlSeconds);
     }
   }
 
