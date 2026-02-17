@@ -226,6 +226,36 @@ pnpm --filter @cat-cafe/shared build
 **注意**：JetBrains MCP 依赖铲屎官的 WebStorm 开着。如果连不上，回退到 LSP + Biome。
 调研报告：`docs/research/2026-02-16_LSP_MCP_report.md`
 
+### 目录结构卫生（ADR-010）
+
+目录膨胀是代码库腐化的早期信号。三猫必须遵守以下规则：
+
+**双阈值检测**（对 `packages/api/src/` 下每个目录）：
+
+| 阈值 | .ts 文件数 | 含义 |
+|------|-----------|------|
+| **warn** | 15 | 必须在 commit message 写"为什么不拆" |
+| **error** | 25 | 必须拆分，除非走例外机制 |
+
+计数排除 `index.ts` 和 `*.d.ts`。
+
+```bash
+# 检查目录大小
+pnpm check:dir-size
+
+# 检查依赖关系（循环依赖 + 边界违规）
+pnpm check:deps
+```
+
+**例外机制**：确需超阈值的目录登记到 `.dir-exceptions.json`，必须包含 `owner` + `expiresAt`（禁止永久豁免）。
+
+**AI 结构保洁员规则**（三猫新增文件时必须遵守）：
+1. 检查目标目录是否已超 warn 阈值
+2. 若超阈值，在 commit message 说明理由或拆分
+3. 新建子目录必须满足理由白名单：职责不同 / 依赖方向不同 / 生命周期不同
+
+详见：`docs/decisions/010-directory-hygiene-anti-rot.md`
+
 ---
 
 ## Skill 速查表

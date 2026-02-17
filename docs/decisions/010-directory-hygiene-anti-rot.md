@@ -43,8 +43,10 @@
 
 #### E. 依赖边界 lint
 
-- 先上 **eslint-plugin-boundaries**（开发时即时反馈）
-- **dependency-cruiser** 作为 CI 终检 + 依赖图快照（第二优先）
+- ~~先上 eslint-plugin-boundaries~~ → **改用 dependency-cruiser 统一处理**（2026-02-17 决策变更）
+  - 原因：项目已迁移到 Biome（替代 ESLint），仅为 boundaries 插件引入 ESLint 生态得不偿失
+  - dependency-cruiser 独立工作（不依赖 ESLint），同时覆盖循环依赖检测 + 跨目录边界检查 + 依赖图可视化
+  - 配置：`.dependency-cruiser.cjs`，命令：`pnpm check:deps`
 
 #### F. 例外机制
 

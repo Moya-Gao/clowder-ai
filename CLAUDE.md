@@ -153,6 +153,7 @@ cat-cafe/
 5. **文档同步**：改了架构就更新设计文档
 6. **架构清理**：架构调整后，移除废弃依赖和死代码，确保代码库与当前架构一致
 7. **代码质量工具**：Biome + LSP + 类型检查，通用规则见 `docs/SOP.md`「代码质量工具」章节
+8. **目录卫生**：warn=15 / error=25 .ts 文件每目录，`pnpm check:dir-size` + `pnpm check:deps`，通用规则见 `docs/SOP.md`「目录结构卫生」章节
 
 ### 布偶猫 LSP 使用规则（Claude Code 特有）
 
