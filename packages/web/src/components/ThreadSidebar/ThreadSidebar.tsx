@@ -8,6 +8,7 @@ import { apiFetch } from '@/utils/api-client';
 import { ThreadItem } from './ThreadItem';
 import { DirectoryPickerModal } from './DirectoryPickerModal';
 import { getProjectPaths, sortAndGroupThreads } from './thread-utils';
+import { createToggleWithReconcile } from './toggle-with-reconcile';
 
 export function ThreadSidebar() {
   const router = useRouter();
@@ -19,8 +20,6 @@ export function ThreadSidebar() {
     isLoadingThreads,
     setLoadingThreads,
     updateThreadTitle,
-    updateThreadPin,
-    updateThreadFavorite,
     getThreadState,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
@@ -28,9 +27,35 @@ export function ThreadSidebar() {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Per-thread request sequence counters to prevent stale response overwrites
-  const pinSeqRef = useRef<Map<string, number>>(new Map());
-  const favSeqRef = useRef<Map<string, number>>(new Map());
+  // Shared seq maps — created once, cross-referenced between pin/fav toggle instances
+  const pinSeqMap = useRef(new Map<string, number>());
+  const favSeqMap = useRef(new Map<string, number>());
+
+  // Stable toggle-with-reconcile instances (lazy-init in ref, survive re-renders)
+  const pinToggle = useRef<ReturnType<typeof createToggleWithReconcile>>();
+  const favToggle = useRef<ReturnType<typeof createToggleWithReconcile>>();
+  if (!pinToggle.current) {
+    pinToggle.current = createToggleWithReconcile({
+      fetch: apiFetch,
+      onUpdate: (id, val) => useChatStore.getState().updateThreadPin(id, val),
+      field: 'pinned',
+      seqMap: pinSeqMap.current,
+      siblingSeqMap: favSeqMap.current,
+      onUpdateSibling: (id, val) => useChatStore.getState().updateThreadFavorite(id, val),
+      siblingField: 'favorited',
+    });
+  }
+  if (!favToggle.current) {
+    favToggle.current = createToggleWithReconcile({
+      fetch: apiFetch,
+      onUpdate: (id, val) => useChatStore.getState().updateThreadFavorite(id, val),
+      field: 'favorited',
+      seqMap: favSeqMap.current,
+      siblingSeqMap: pinSeqMap.current,
+      onUpdateSibling: (id, val) => useChatStore.getState().updateThreadPin(id, val),
+      siblingField: 'pinned',
+    });
+  }
 
   const loadThreads = useCallback(async () => {
     setLoadingThreads(true);
@@ -107,83 +132,15 @@ export function ThreadSidebar() {
     }
   }, [updateThreadTitle]);
 
-  /** Reconcile pin/fav state from server. Only applies if seq refs haven't moved. */
-  const reconcileThread = useCallback(async (
-    threadId: string,
-    expectedPinSeq: number,
-    expectedFavSeq: number,
-  ) => {
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}`);
-      if (!res.ok) return;
-      const t = await res.json();
-      // Only apply if no newer request has been issued since reconcile was triggered
-      if (t.pinned !== undefined && pinSeqRef.current.get(threadId) === expectedPinSeq) {
-        updateThreadPin(threadId, t.pinned);
-      }
-      if (t.favorited !== undefined && favSeqRef.current.get(threadId) === expectedFavSeq) {
-        updateThreadFavorite(threadId, t.favorited);
-      }
-    } catch {
-      // best-effort
-    }
-  }, [updateThreadPin, updateThreadFavorite]);
+  const handleTogglePin = useCallback(
+    (threadId: string, pinned: boolean) => void pinToggle.current!.toggle(threadId, pinned),
+    [],
+  );
 
-  const handleTogglePin = useCallback(async (threadId: string, pinned: boolean) => {
-    const seq = (pinSeqRef.current.get(threadId) ?? 0) + 1;
-    pinSeqRef.current.set(threadId, seq);
-    const favSeq = favSeqRef.current.get(threadId) ?? 0;
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pinned }),
-      });
-      if (!res.ok) {
-        // Request failed — reconcile with server to avoid drift
-        if (pinSeqRef.current.get(threadId) === seq) {
-          void reconcileThread(threadId, seq, favSeq);
-        }
-        return;
-      }
-      // Only apply if this is still the latest request for this thread
-      if (pinSeqRef.current.get(threadId) !== seq) return;
-      const updated = await res.json();
-      updateThreadPin(threadId, updated.pinned ?? pinned);
-    } catch {
-      if (pinSeqRef.current.get(threadId) === seq) {
-        void reconcileThread(threadId, seq, favSeq);
-      }
-    }
-  }, [updateThreadPin, reconcileThread]);
-
-  const handleToggleFavorite = useCallback(async (threadId: string, favorited: boolean) => {
-    const seq = (favSeqRef.current.get(threadId) ?? 0) + 1;
-    favSeqRef.current.set(threadId, seq);
-    const pinSeq = pinSeqRef.current.get(threadId) ?? 0;
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ favorited }),
-      });
-      if (!res.ok) {
-        // Request failed — reconcile with server to avoid drift
-        if (favSeqRef.current.get(threadId) === seq) {
-          void reconcileThread(threadId, pinSeq, seq);
-        }
-        return;
-      }
-      // Only apply if this is still the latest request for this thread
-      if (favSeqRef.current.get(threadId) !== seq) return;
-      const updated = await res.json();
-      updateThreadFavorite(threadId, updated.favorited ?? favorited);
-    } catch {
-      if (favSeqRef.current.get(threadId) === seq) {
-        void reconcileThread(threadId, pinSeq, seq);
-      }
-    }
-  }, [updateThreadFavorite, reconcileThread]);
+  const handleToggleFavorite = useCallback(
+    (threadId: string, favorited: boolean) => void favToggle.current!.toggle(threadId, favorited),
+    [],
+  );
 
   const handleSelect = useCallback(
     (threadId: string) => {
