@@ -134,6 +134,12 @@ export class RedisThreadStore implements IThreadStore {
     if (catIds.length === 0) return;
     const detailKey = ThreadKeys.detail(threadId);
     const participantsKey = ThreadKeys.participants(threadId);
+    if (threadId === DEFAULT_THREAD_ID) {
+      const hasDefaultDetail = await this.redis.hexists(detailKey, 'id');
+      if (hasDefaultDetail === 0) {
+        await this.createDefaultThread();
+      }
+    }
     const updated = await this.redis.eval(
       SADD_IF_DETAIL_HAS_ID_LUA,
       2,

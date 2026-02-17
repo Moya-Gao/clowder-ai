@@ -98,6 +98,14 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(participants.length, 2);
   });
 
+  it('addParticipants() persists default thread participants even before default detail exists', async () => {
+    await store.addParticipants('default', ['opus', 'codex']);
+    const participants = await store.getParticipants('default');
+    assert.ok(participants.includes('opus'));
+    assert.ok(participants.includes('codex'));
+    assert.equal(participants.length, 2);
+  });
+
   it('addParticipants() does not recreate participants for deleted thread (delete race)', async () => {
     const thread = await store.create('user1', 'Deleted Chat');
     const deleted = await store.delete(thread.id);
