@@ -19,6 +19,19 @@ import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
 
+/**
+ * Atomic hash update guard:
+ * only applies HSET when the thread hash has a canonical `id` field.
+ * Prevents late updates from recreating orphan hashes after delete races.
+ */
+const HSET_IF_HAS_ID_LUA = `
+if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
+  return 0
+end
+redis.call('HSET', KEYS[1], unpack(ARGV))
+return 1
+`;
+
 export class RedisThreadStore implements IThreadStore {
   private readonly redis: RedisClient;
   /** null means no expiration. */
@@ -119,29 +132,47 @@ export class RedisThreadStore implements IThreadStore {
   }
 
   async updateTitle(threadId: string, title: string): Promise<void> {
-    await this.redis.hset(ThreadKeys.detail(threadId), 'title', title);
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'title', title);
   }
 
   async updatePin(threadId: string, pinned: boolean): Promise<void> {
     const key = ThreadKeys.detail(threadId);
-    const pipeline = this.redis.multi();
-    pipeline.hset(key, 'pinned', String(pinned));
-    pipeline.hset(key, 'pinnedAt', pinned ? String(Date.now()) : '0');
-    await pipeline.exec();
+    await this.redis.eval(
+      HSET_IF_HAS_ID_LUA,
+      1,
+      key,
+      'pinned',
+      String(pinned),
+      'pinnedAt',
+      pinned ? String(Date.now()) : '0',
+    );
   }
 
   async updateFavorite(threadId: string, favorited: boolean): Promise<void> {
     const key = ThreadKeys.detail(threadId);
-    const pipeline = this.redis.multi();
-    pipeline.hset(key, 'favorited', String(favorited));
-    pipeline.hset(key, 'favoritedAt', favorited ? String(Date.now()) : '0');
-    await pipeline.exec();
+    await this.redis.eval(
+      HSET_IF_HAS_ID_LUA,
+      1,
+      key,
+      'favorited',
+      String(favorited),
+      'favoritedAt',
+      favorited ? String(Date.now()) : '0',
+    );
   }
 
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
-    await this.redis.hset(key, 'lastActiveAt', now);
+    const updated = await this.redis.eval(
+      HSET_IF_HAS_ID_LUA,
+      1,
+      key,
+      'lastActiveAt',
+      now,
+    ) as number;
+    if (updated === 0) return;
 
     // Update score in all user lists that contain this thread
     const createdBy = await this.redis.hget(key, 'createdBy');
