@@ -105,6 +105,7 @@
 | 59 | ~~ChatInput.tsx 超 200 行~~ | [x] | Voice Input M1 review | `23a5c30` — 302 → 176 行。提取 ChatInputActionButton + ChatInputMenus + chat-input-options。 |
 | 60 | ~~useVoiceInput 测试覆盖不足~~ | [x] | Voice Input M1 review | `8e11f96` + `23a5c30` — 2 → 20 tests (MockMediaRecorder + streaming + 竞态回归)。 |
 | 61 | ~~whisper-api.py 健壮性~~ | [x] | Voice Input M1 开发 | `4343a66` — 25MB 限制/空文件/503/logging/SIGTERM/model load exit(1)。 |
+| 79 | archive 内部互引旧路径未更新 | [ ] | WT-4 docs archive R2 | `docs/archive/2026-02/` 内历史文档互相引用仍用归档前路径（如 `docs/discussions/...`）。60+ 处，不影响活跃文档。触发条件：如需给 archive 生成静态站点或可点击链接时再批量修。 |
 
 ## Feature Requests — 新功能需求
 
