@@ -889,6 +889,32 @@ test('fresh exec with --image inserts "--" before prompt to avoid varargs swallo
   assert.equal(args[promptIdx - 1], '--', 'prompt must be preceded by "--" separator');
 });
 
+test('resume exec with --image inserts "--" before prompt', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('resume image argument handling', {
+      sessionId: 'existing-thread-456',
+      contentBlocks: [{ type: 'image', url: '/uploads/cat.png' }],
+      uploadDir: '/tmp',
+    })
+  );
+  emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'existing-thread-456' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  assert.equal(args[0], 'exec');
+  assert.equal(args[1], 'resume');
+  assert.equal(args[2], 'existing-thread-456');
+  const imageIdx = args.indexOf('--image');
+  assert.ok(imageIdx >= 0, 'resume path should receive --image');
+  const promptIdx = args.findIndex((a) => a === 'resume image argument handling');
+  assert.ok(promptIdx >= 0, 'prompt should be present');
+  assert.equal(args[promptIdx - 1], '--', 'resume prompt must be preceded by "--" separator');
+});
+
 test('F8: turn.completed usage is captured into done metadata', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
