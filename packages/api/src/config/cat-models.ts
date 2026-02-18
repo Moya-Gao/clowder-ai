@@ -10,7 +10,7 @@
  * 或直接修改项目根目录的 cat-config.json
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
 
 const MODEL_ENV_KEYS = {
@@ -44,10 +44,10 @@ function loadModelsFromJson(): Record<string, string> {
  * 获取猫的实际模型
  * 优先级: 环境变量 > cat-config.json > CAT_CONFIGS 硬编码
  */
-export function getCatModel(catName: 'opus' | 'codex' | 'gemini'): string {
+export function getCatModel(catName: string): string {
   // 1. 环境变量最高优先
-  const envKey = MODEL_ENV_KEYS[catName];
-  const envValue = process.env[envKey] as string | undefined;
+  const envKey = MODEL_ENV_KEYS[catName as keyof typeof MODEL_ENV_KEYS];
+  const envValue = envKey ? (process.env[envKey] as string | undefined) : undefined;
   if (envValue && envValue.trim()) {
     return envValue.trim();
   }
@@ -59,16 +59,31 @@ export function getCatModel(catName: 'opus' | 'codex' | 'gemini'): string {
   }
 
   // 3. 硬编码默认值
-  return CAT_CONFIGS[catName].defaultModel;
+  const config = CAT_CONFIGS[catName];
+  if (config) {
+    return config.defaultModel;
+  }
+
+  // 4. F32-a: catRegistry fallback for dynamically registered cats
+  const entry = catRegistry.tryGet(catName);
+  if (entry) {
+    return entry.config.defaultModel;
+  }
+
+  throw new Error(`No model configured for cat "${catName}"`);
 }
 
 /**
  * 获取所有猫的模型配置 (用于 ConfigRegistry)
  */
 export function getAllCatModels(): Record<string, string> {
-  return {
-    opus: getCatModel('opus'),
-    codex: getCatModel('codex'),
-    gemini: getCatModel('gemini'),
-  };
+  const result: Record<string, string> = {};
+  // F32-a: iterate catRegistry (dynamic) with CAT_CONFIGS fallback
+  const allIds = catRegistry.getAllIds().length > 0
+    ? catRegistry.getAllIds().map(String)
+    : Object.keys(CAT_CONFIGS);
+  for (const catName of allIds) {
+    result[catName] = getCatModel(catName);
+  }
+  return result;
 }

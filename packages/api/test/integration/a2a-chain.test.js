@@ -7,6 +7,7 @@
 
 import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 // Mock service that yields specific text
 function createMockService(catId, text) {
@@ -54,13 +55,13 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     const mockGemini = createMockService('gemini', 'unused');
     const messageStore = createMockMessageStore();
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: mockOpus,
       codexService: mockCodex,
       geminiService: mockGemini,
       registry: createMockRegistry(),
       messageStore,
-    });
+    }));
 
     const messages = [];
     for await (const msg of router.route('user-1', '@opus 写个 hello world')) {
@@ -118,13 +119,13 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     process.env['MAX_A2A_DEPTH'] = '2';
 
     try {
-      const router = new AgentRouter({
+      const router = new AgentRouter(await migrateRouterOpts({
         claudeService: mockOpus,
         codexService: mockCodex,
         geminiService: mockGemini,
         registry: createMockRegistry(),
         messageStore,
-      });
+      }));
 
       const messages = [];
       for await (const msg of router.route('user-1', '@opus implement feature')) {
@@ -156,13 +157,13 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     const mockCodex = createMockService('codex', 'should not be called');
     const mockGemini = createMockService('gemini', 'should not be called');
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: mockOpus,
       codexService: mockCodex,
       geminiService: mockGemini,
       registry: createMockRegistry(),
       messageStore: createMockMessageStore(),
-    });
+    }));
 
     const messages = [];
     for await (const msg of router.route('user-1', '@opus 分析一下')) {

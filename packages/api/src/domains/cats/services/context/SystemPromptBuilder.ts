@@ -5,8 +5,8 @@
  * 纯函数，无副作用。读取 CAT_CONFIGS 生成身份上下文。
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
+import type { CatId, CatConfig } from '@cat-cafe/shared';
 
 /**
  * Context for a single cat invocation
@@ -28,6 +28,19 @@ export interface InvocationContext {
   promptTags?: readonly string[];
   /** Whether A2A collaboration prompt should be injected (only in serial/execute mode) */
   a2aEnabled?: boolean;
+}
+
+/** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
+function getAllConfigs(): Record<string, CatConfig> {
+  const registryConfigs = catRegistry.getAllConfigs();
+  return Object.keys(registryConfigs).length > 0 ? registryConfigs : CAT_CONFIGS;
+}
+
+/** Get a single cat config by ID */
+function getConfig(catId: string): CatConfig | undefined {
+  const entry = catRegistry.tryGet(catId);
+  if (entry) return entry.config;
+  return CAT_CONFIGS[catId];
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -72,7 +85,7 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
  * Suitable for --system-prompt / --append-system-prompt injection.
  */
 export function buildStaticIdentity(catId: CatId): string {
-  const config = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+  const config = getConfig(catId as string);
   if (!config) return '';
 
   const providerLabel = PROVIDER_LABELS[config.provider] ?? config.provider;
@@ -91,7 +104,7 @@ export function buildStaticIdentity(catId: CatId): string {
   );
 
   // A2A collaboration format (always included — cats should know how to @ even in single-cat mode)
-  const callableNames = Object.entries(CAT_CONFIGS)
+  const callableNames = Object.entries(getAllConfigs())
     .filter(([id]) => id !== catId)
     .map(([, cfg]) => cfg.displayName);
   if (callableNames.length > 0) {
@@ -127,7 +140,7 @@ export function buildStaticIdentity(catId: CatId): string {
  * Includes: teammates, mode, chain position, MCP tools, prompt tags.
  */
 export function buildInvocationContext(context: InvocationContext): string {
-  const config = CAT_CONFIGS[context.catId as keyof typeof CAT_CONFIGS];
+  const config = getConfig(context.catId as string);
   if (!config) return '';
 
   const lines: string[] = [];
@@ -136,7 +149,7 @@ export function buildInvocationContext(context: InvocationContext): string {
   if (context.teammates.length > 0) {
     lines.push('你的队友：');
     for (const id of context.teammates) {
-      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
+      const c = getConfig(id as string);
       if (c) {
         const tmName = c.nickname ? `${c.displayName}/${c.nickname}` : c.displayName;
         lines.push(`- ${tmName}（${c.name}）：${c.roleDescription}`);

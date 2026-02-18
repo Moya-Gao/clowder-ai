@@ -10,6 +10,7 @@
  * - No active session → create new session with given cliSessionId
  */
 
+import './helpers/setup-cat-registry.js';
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 

@@ -17,7 +17,7 @@
  * 虽然参数可选（兼容测试），但生产代码必须显式传入。
  */
 
-import { CAT_CONFIGS, createCatId, escapeRegExp } from '@cat-cafe/shared';
+import { createCatId, catRegistry, escapeRegExp } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../../stores/ports/ThreadStore.js';
@@ -36,6 +36,7 @@ import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js
 import type { TranscriptWriter } from '../../session/TranscriptWriter.js';
 import type { TranscriptReader } from '../../session/TranscriptReader.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
+import type { AgentRegistry } from '../registry/AgentRegistry.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -43,36 +44,38 @@ interface ParsedMention {
   position: number;
 }
 
-const MENTION_ALIASES = Array.from(
-  new Set(
-    Object.values(CAT_CONFIGS).flatMap((config) =>
-      config.mentionPatterns.map((pattern) => pattern.replace(/^@/, '')),
+/**
+ * Build mention aliases and speech regex from the current cat configs.
+ * Must be called after catRegistry is populated (not at module load time).
+ */
+function buildMentionData(configs: Record<string, import('@cat-cafe/shared').CatConfig>) {
+  const mentionAliases = Array.from(
+    new Set(
+      Object.values(configs).flatMap((config) =>
+        config.mentionPatterns.map((pattern) => pattern.replace(/^@/, '')),
+      ),
     ),
-  ),
-).sort((a, b) => b.length - a.length);
+  ).sort((a, b) => b.length - a.length);
 
-const SPEECH_MENTION_RE = new RegExp(
-  [
-    '(^|\\s)',
-    '(?:at|艾特|@\\s*[。｡\\.．])',
-    '\\s*(?:咱的|我的)?\\s*',
-    `(${MENTION_ALIASES.map(escapeRegExp).join('|')})`,
-    '(?=$|\\s|[，。！？、,.:：;；])',
-  ].join(''),
-  'gi',
-);
+  const speechMentionRe = new RegExp(
+    [
+      '(^|\\s)',
+      '(?:at|艾特|@\\s*[。｡\\.．])',
+      '\\s*(?:咱的|我的)?\\s*',
+      `(${mentionAliases.map(escapeRegExp).join('|')})`,
+      '(?=$|\\s|[，。！？、,.:：;；])',
+    ].join(''),
+    'gi',
+  );
 
-function normalizeSpeechMentions(message: string): string {
-  return message.replace(SPEECH_MENTION_RE, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
+  return { mentionAliases, speechMentionRe };
 }
 
 /**
  * Options for AgentRouter constructor
  */
 export interface AgentRouterOptions {
-  claudeService: AgentService;
-  codexService: AgentService;
-  geminiService: AgentService;
+  agentRegistry: AgentRegistry;
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   sessionStore?: SessionStore;
@@ -102,13 +105,20 @@ export class AgentRouter {
   private transcriptWriter: TranscriptWriter | undefined;
   private transcriptReader: TranscriptReader | undefined;
   private sessionSealer: ISessionSealer | undefined;
+  private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
-    this.services = {
-      opus: options.claudeService,
-      codex: options.codexService,
-      gemini: options.geminiService,
-    };
+    // Build services map from AgentRegistry (dynamic, not hardcoded)
+    this.services = {};
+    for (const [catId, service] of options.agentRegistry.getAllEntries()) {
+      this.services[catId] = service;
+    }
+
+    // Build mention aliases at constructor time (catRegistry is populated by now)
+    const allConfigs = catRegistry.getAllConfigs();
+    const { speechMentionRe } = buildMentionData(allConfigs);
+    this.speechMentionRe = speechMentionRe;
+
     this.registry = options.registry;
     this.messageStore = options.messageStore;
     this.sessionManager = new SessionManager(options.sessionStore);
@@ -120,6 +130,11 @@ export class AgentRouter {
     this.sessionSealer = options.sessionSealer;
   }
 
+  /** Normalize speech patterns like "at 布偶" → "@布偶" */
+  private normalizeSpeechMentions(message: string): string {
+    return message.replace(this.speechMentionRe, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
+  }
+
   /** Parse message for @ mentions and return ordered list of cat IDs */
   /**
    * Parse @mentions from user message for routing.
@@ -127,10 +142,11 @@ export class AgentRouter {
    * Reason: User intent is clear when they type @猫名 anywhere; cat responses need stricter rules.
   */
   private parseMentions(message: string): CatId[] {
-    const lowerMessage = normalizeSpeechMentions(message).toLowerCase();
+    const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
     const mentions: ParsedMention[] = [];
 
-    for (const config of Object.values(CAT_CONFIGS)) {
+    const allConfigs = catRegistry.getAllConfigs();
+    for (const config of Object.values(allConfigs)) {
       let earliestPosition = -1;
       for (const pattern of config.mentionPatterns) {
         const position = lowerMessage.indexOf(pattern.toLowerCase());

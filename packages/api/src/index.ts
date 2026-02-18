@@ -16,7 +16,11 @@ import { createTaskStore } from './domains/cats/services/stores/factories/TaskSt
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
+import { catRegistry } from '@cat-cafe/shared';
+import { loadCatConfig, toFlatConfigs } from './config/cat-config-loader.js';
+import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore } from './domains/cats/services/index.js';
+import type { AgentService } from './domains/cats/services/types.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
 import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
@@ -113,11 +117,47 @@ async function main(): Promise<void> {
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();
 
+  // ── F32-a: Populate CatRegistry from cat-config.json ──────────────
+  // Must happen BEFORE AgentRouter construction (parseMentions reads catRegistry)
+  try {
+    const catConfig = loadCatConfig();
+    const flatConfigs = toFlatConfigs(catConfig);
+    for (const [id, config] of Object.entries(flatConfigs)) {
+      catRegistry.register(id, config);
+    }
+    app.log.info(`[api] CatRegistry initialized: ${catRegistry.getAllIds().join(', ')}`);
+  } catch (err) {
+    app.log.warn(`[api] Failed to load cat-config.json, falling back to built-in CAT_CONFIGS: ${String(err)}`);
+    // Fallback: register from static CAT_CONFIGS
+    const { CAT_CONFIGS } = await import('@cat-cafe/shared');
+    for (const [id, config] of Object.entries(CAT_CONFIGS)) {
+      if (!catRegistry.has(id)) catRegistry.register(id, config);
+    }
+  }
+
+  // ── F32-a: AgentRegistry (catId → AgentService) ─────────────────
+  // Provider-based factory: each provider maps to a shared AgentService instance.
+  // Dynamic cats registered in catRegistry automatically get a service via their provider.
+  const providerServices: Record<string, AgentService> = {
+    anthropic: new ClaudeAgentService(),
+    openai: new CodexAgentService(),
+    google: new GeminiAgentService(),
+  };
+  const agentRegistry = new AgentRegistry();
+  for (const id of catRegistry.getAllIds()) {
+    const entry = catRegistry.tryGet(id as string);
+    const provider = entry?.config.provider ?? 'unknown';
+    const service = providerServices[provider];
+    if (service) {
+      agentRegistry.register(id as string, service);
+    } else {
+      app.log.warn(`[api] No AgentService for cat "${id as string}" (provider="${provider}"). It will not be routable.`);
+    }
+  }
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
-    claudeService: new ClaudeAgentService(),
-    codexService: new CodexAgentService(),
-    geminiService: new GeminiAgentService(),
+    agentRegistry,
     registry,
     messageStore,
     ...(deliveryCursorStore ? { deliveryCursorStore } : {}),

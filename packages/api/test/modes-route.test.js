@@ -7,6 +7,7 @@
  * GET    /api/threads/:threadId/mode/history — mode history
  */
 
+import './helpers/setup-cat-registry.js';
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

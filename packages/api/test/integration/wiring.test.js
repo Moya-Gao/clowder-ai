@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import Fastify from 'fastify';
+import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 // --- Imports (from dist) ---
 
@@ -169,13 +170,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -198,13 +199,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', '@codex hello'));
 
@@ -225,13 +226,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', '@gemini hello'));
 
@@ -254,13 +255,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', '@opus @codex hello'));
 
@@ -284,13 +285,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -314,13 +315,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', 'hello world'));
 
@@ -342,13 +343,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', 'hello'));
 
@@ -373,13 +374,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     // First call
     await collect(router.route('user-1', 'first'));
@@ -408,13 +409,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     await collect(router.route('user-1', '#execute @opus @codex hello'));
 
@@ -439,13 +440,13 @@ describe('AgentRouter + Services wiring', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     const msgs = await collect(router.route('user-1', '#execute @opus @codex hello'));
 
@@ -491,13 +492,13 @@ describe('MCP callback end-to-end flow', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     // 1. route() creates invocation and passes callbackEnv to spawn
     await collect(router.route('user-1', 'hello'));
@@ -545,13 +546,13 @@ describe('MCP callback end-to-end flow', () => {
       geminiEvents('g-1', 'hi')
     );
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn: claudeSpawn }),
       codexService: new CodexAgentService({ spawnFn: codexSpawn }),
       geminiService: new GeminiAgentService({ spawnFn: geminiSpawn, adapter: 'gemini-cli' }),
       registry,
       messageStore,
-    });
+    }));
 
     // 1. route('@opus help') stores user message with opus mention
     await collect(router.route('user-1', '@opus help'));

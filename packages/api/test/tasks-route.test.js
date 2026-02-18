@@ -3,6 +3,7 @@
  * Uses lightweight Fastify injection (no real HTTP server).
  */
 
+import './helpers/setup-cat-registry.js';
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

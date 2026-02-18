@@ -12,6 +12,7 @@
  */
 
 import type { ContextBudget } from '@cat-cafe/shared';
+import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
 
 const BUDGET_ENV_KEYS = {
@@ -25,6 +26,14 @@ const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
   opus: { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
   codex: { maxPromptTokens: 100000, maxContextTokens: 60000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
   gemini: { maxPromptTokens: 200000, maxContextTokens: 150000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
+};
+
+/** F32-a: Conservative fallback for unknown/dynamic cats — use smallest built-in budget */
+const GLOBAL_FALLBACK_BUDGET: ContextBudget = {
+  maxPromptTokens: 100000,
+  maxContextTokens: 60000,
+  maxMessages: 200,
+  maxContentLengthPerMsg: 10000,
 };
 
 // Cache from cat-config.json
@@ -54,13 +63,15 @@ function loadBudgetsFromJson(): Record<string, ContextBudget> {
  * Get context budget for a cat.
  * Priority: env var override (maxPromptTokens only) > cat-config.json > hardcoded defaults
  */
-export function getCatContextBudget(catName: 'opus' | 'codex' | 'gemini'): ContextBudget {
-  // 1. Get base budget from JSON or default (guaranteed to exist in DEFAULT_BUDGETS)
+export function getCatContextBudget(catName: string): ContextBudget {
+  // 1. Get base budget from JSON or default
   const jsonBudgets = loadBudgetsFromJson();
-  const baseBudget: ContextBudget = jsonBudgets[catName] ?? DEFAULT_BUDGETS[catName]!;
+  const baseBudget: ContextBudget = jsonBudgets[catName]
+    ?? DEFAULT_BUDGETS[catName]
+    ?? GLOBAL_FALLBACK_BUDGET; // F32-a: conservative fallback for dynamic cats
 
   // 2. Check for per-cat env var override
-  const perCatEnvKey = BUDGET_ENV_KEYS[catName];
+  const perCatEnvKey = BUDGET_ENV_KEYS[catName as keyof typeof BUDGET_ENV_KEYS];
   const perCatEnvValue = process.env[perCatEnvKey];
   if (perCatEnvValue && perCatEnvValue.trim()) {
     const parsed = parseInt(perCatEnvValue.trim(), 10);
@@ -95,11 +106,15 @@ export function getCatContextBudget(catName: 'opus' | 'codex' | 'gemini'): Conte
  * Get all cat budgets (for ConfigRegistry display)
  */
 export function getAllCatBudgets(): Record<string, ContextBudget> {
-  return {
-    opus: getCatContextBudget('opus'),
-    codex: getCatContextBudget('codex'),
-    gemini: getCatContextBudget('gemini'),
-  };
+  const result: Record<string, ContextBudget> = {};
+  // F32-a: iterate catRegistry (includes dynamic cats), fallback to DEFAULT_BUDGETS keys
+  const allIds = catRegistry.getAllIds().length > 0
+    ? catRegistry.getAllIds().map(String)
+    : Object.keys(DEFAULT_BUDGETS);
+  for (const catName of allIds) {
+    result[catName] = getCatContextBudget(catName);
+  }
+  return result;
 }
 
 /**

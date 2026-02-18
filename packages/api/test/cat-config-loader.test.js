@@ -1,3 +1,4 @@
+import './helpers/setup-cat-registry.js';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
@@ -112,11 +113,13 @@ describe('cat-config-loader', () => {
       assert.throws(() => loadCatConfig(path), /Invalid cat config/);
     });
 
-    it('rejects invalid catId (not opus/codex/gemini)', () => {
-      const bad = validConfig();
-      bad.breeds[0].catId = 'foobar';
-      const path = writeTempConfig(bad);
-      assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+    it('accepts arbitrary catId (F32-a: any non-empty string is valid)', () => {
+      // F32-a: catId is no longer restricted to opus/codex/gemini
+      const custom = validConfig();
+      custom.breeds[0].catId = 'foobar';
+      const path = writeTempConfig(custom);
+      const config = loadCatConfig(path);
+      assert.equal(config.breeds[0].catId, 'foobar');
     });
   });
 

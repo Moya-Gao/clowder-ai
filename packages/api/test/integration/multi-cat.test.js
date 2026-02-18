@@ -17,6 +17,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync } from 'node:child_process';
+import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 // Check if integration tests should run
 const shouldRunIntegrationTests =
@@ -71,13 +72,13 @@ async function createRealRouter() {
     '../../dist/domains/cats/services/MessageStore.js'
   );
 
-  return new AgentRouter({
+  return new AgentRouter(await migrateRouterOpts({
     claudeService: new ClaudeAgentService(),
     codexService: new CodexAgentService(),
     geminiService: new GeminiAgentService(),
     registry: new InvocationRegistry(),
     messageStore: new MessageStore(),
-  });
+  }));
 }
 
 describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, () => {

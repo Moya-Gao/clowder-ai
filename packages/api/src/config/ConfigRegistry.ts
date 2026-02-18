@@ -6,7 +6,7 @@
  * 安全：Redis URL 不暴露，只显示连接状态。
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import { getCatModel } from './cat-models.js';
 import { getAllCatBudgets } from './cat-budgets.js';
 import { getCodexApprovalPolicy, getCodexSandboxMode } from './codex-cli.js';
@@ -77,14 +77,16 @@ export function collectConfigSnapshot(): ConfigSnapshot {
   const host = env['API_SERVER_HOST'] ?? '127.0.0.1';
   const redis: 'connected' | 'memory' = env['REDIS_URL'] ? 'connected' : 'memory';
 
-  // Cats (with env override support)
+  // Cats (with env override support) — prefer registry, fallback to CAT_CONFIGS
   const cats: ConfigSnapshot['cats'] = {};
-  for (const [id, config] of Object.entries(CAT_CONFIGS)) {
-    const catName = id as 'opus' | 'codex' | 'gemini';
+  const allConfigs = catRegistry.getAllIds().length > 0
+    ? catRegistry.getAllConfigs()
+    : CAT_CONFIGS;
+  for (const [id, config] of Object.entries(allConfigs)) {
     cats[id] = {
       displayName: config.displayName,
       provider: config.provider,
-      model: getCatModel(catName),
+      model: getCatModel(id),
       mcpSupport: config.mcpSupport,
     };
   }

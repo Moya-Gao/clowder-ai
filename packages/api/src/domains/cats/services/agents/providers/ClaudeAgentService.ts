@@ -135,7 +135,7 @@ export class ClaudeAgentService implements AgentService {
       }));
     }
 
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS.opus.provider, model: this.model };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS['opus']!.provider, model: this.model };
     const streamState = {
       partialTextMessageIds: new Set<string>(),
       currentMessageId: undefined as string | undefined,

@@ -10,7 +10,7 @@
  * 5. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 
 /** Max A2A chain depth, configurable via env (read at call time for hot-reload) */
@@ -34,7 +34,12 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
   // 2. Line-start matching across all cats
   const found: CatId[] = [];
 
-  for (const [id, config] of Object.entries(CAT_CONFIGS)) {
+  // F32-a: prefer catRegistry, fallback to static CAT_CONFIGS
+  const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0
+    ? catRegistry.getAllConfigs()
+    : CAT_CONFIGS;
+
+  for (const [id, config] of Object.entries(allConfigs)) {
     if (id === currentCatId) continue; // 3. Filter self
     if (found.length >= MAX_A2A_MENTION_TARGETS) break; // 4. Safety limit
 

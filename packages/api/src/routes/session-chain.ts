@@ -8,14 +8,12 @@
  */
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
-import { type CatId, getAllCatIds } from '@cat-cafe/shared';
+import { type CatId, catRegistry } from '@cat-cafe/shared';
 import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
-
-const VALID_CAT_IDS = new Set<string>(getAllCatIds());
 
 const bindSessionSchema = z.object({
   cliSessionId: z.string().min(1).max(500),
@@ -98,10 +96,10 @@ export async function sessionChainRoutes(
 
     const { threadId, catId } = request.params;
 
-    // Validate catId
-    if (!VALID_CAT_IDS.has(catId)) {
+    // Validate catId against runtime registry
+    if (!catRegistry.has(catId)) {
       reply.status(400);
-      return { error: `Invalid catId: ${catId}. Must be one of: ${[...VALID_CAT_IDS].join(', ')}` };
+      return { error: `Invalid catId: ${catId}. Must be one of: ${catRegistry.getAllIds().join(', ')}` };
     }
 
     // Validate body

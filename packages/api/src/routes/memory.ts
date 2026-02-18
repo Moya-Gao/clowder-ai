@@ -7,7 +7,7 @@
 
 import type { FastifyPluginAsync, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, catIdSchema } from '@cat-cafe/shared';
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -23,7 +23,7 @@ const writeSchema = z.object({
   key: z.string().min(1).max(100),
   value: z.string().min(1).max(10000),
   updatedBy: z.union([
-    z.enum(['opus', 'codex', 'gemini']),
+    catIdSchema(),
     z.literal('user'),
   ]),
 });

@@ -2,6 +2,7 @@
  * Memory API route tests
  */
 
+import './helpers/setup-cat-registry.js';
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

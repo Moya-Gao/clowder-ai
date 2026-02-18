@@ -15,6 +15,7 @@ import { PassThrough } from 'node:stream';
 import { EventEmitter } from 'node:events';
 import { mkdirSync, rmSync } from 'node:fs';
 import Fastify from 'fastify';
+import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 const { AgentRouter } = await import(
   '../../dist/domains/cats/services/AgentRouter.js'
@@ -180,14 +181,14 @@ describe('Participant tracking: @mentions add cats to thread', () => {
     const messageStore = new MessageStore();
     const registry = new InvocationRegistry();
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: new ClaudeAgentService({ spawnFn }),
       codexService: { invoke: async function* () {} },
       geminiService: { invoke: async function* () {} },
       registry,
       messageStore,
       threadStore,
-    });
+    }));
 
     // Create thread first (addParticipants requires existing thread)
     const thread = threadStore.create('alice', 'Test Thread');
@@ -329,14 +330,14 @@ describe('AgentRouter passes workingDirectory from thread.projectPath', () => {
       },
     };
 
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: mockClaudeService,
       codexService: { invoke: async function* () {} },
       geminiService: { invoke: async function* () {} },
       registry,
       messageStore,
       threadStore,
-    });
+    }));
 
     await collect(router.route('alice', '@opus hello', thread.id));
 

@@ -9,6 +9,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { CatId, CreateSummaryInput } from '@cat-cafe/shared';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -18,14 +19,12 @@ export interface SummariesRoutesOptions {
   socketManager: SocketManager;
 }
 
-const VALID_CREATORS = ['opus', 'codex', 'gemini', 'user'] as const;
-
 const createSchema = z.object({
   threadId: z.string().min(1),
   topic: z.string().min(1).max(200),
   conclusions: z.array(z.string().min(1)).min(1).max(20),
   openQuestions: z.array(z.string().min(1)).max(20).default([]),
-  createdBy: z.enum(VALID_CREATORS),
+  createdBy: z.union([catIdSchema(), z.literal('user')]),
 });
 
 export const summariesRoutes: FastifyPluginAsync<SummariesRoutesOptions> =

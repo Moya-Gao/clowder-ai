@@ -3,8 +3,8 @@
  * All cats respond independently to the same message.
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
+import type { CatId, CatConfig } from '@cat-cafe/shared';
 import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
@@ -55,7 +55,7 @@ export async function* routeParallel(
   const boundaryByCat = new Map<CatId, string | undefined>();
 
   const streams = await Promise.all(targetCats.map(async (catId) => {
-    const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const staticIdentity = buildStaticIdentity(catId);
     const invocationContext = buildInvocationContext({
       catId,
@@ -112,8 +112,7 @@ export async function* routeParallel(
       // Per-cat context budget (Phase 4.0)
       let catContextHistory = contextHistory;
       if (history && history.length > 0 && !contextHistory) {
-        const catName = catId as 'opus' | 'codex' | 'gemini';
-        const budget = getCatContextBudget(catName);
+        const budget = getCatContextBudget(catId as string);
         // F8: token-based budget — estimate non-context tokens, remainder goes to context
         const parSystemTokens = estimateTokens(
           [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),

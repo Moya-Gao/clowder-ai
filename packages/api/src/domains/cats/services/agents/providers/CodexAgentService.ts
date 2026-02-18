@@ -155,7 +155,7 @@ export class CodexAgentService implements AgentService {
       ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, ...imageArgs, ...promptArgs]
       : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, ...promptArgs];
 
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS.codex.provider, model: getCatModel('codex') };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS['codex']!.provider, model: getCatModel('codex') };
     const auditContext = options?.auditContext;
     const recentStreamErrors: string[] = [];
 

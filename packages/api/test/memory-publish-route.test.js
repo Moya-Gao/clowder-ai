@@ -3,6 +3,7 @@
  * Phase 5.0 Step 2a: POST /api/memory/publish
  */
 
+import './helpers/setup-cat-registry.js';
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';

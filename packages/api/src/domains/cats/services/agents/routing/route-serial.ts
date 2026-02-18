@@ -10,8 +10,8 @@
  * A2A only triggers here in routeSerial; routeParallel never chains (MVP safety boundary).
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
+import type { CatId, CatConfig } from '@cat-cafe/shared';
 import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
@@ -90,7 +90,7 @@ export async function* routeSerial(
     }
 
     // Build identity: static goes via systemPrompt option, dynamic goes in -p content
-    const catConfig = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
+    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const staticIdentity = buildStaticIdentity(catId);
     const invocationContext = buildInvocationContext({
       catId,
@@ -149,8 +149,7 @@ export async function* routeSerial(
       // Per-cat context budget (Phase 4.0): assemble context with cat-specific limits
       let catContextHistory = contextHistory; // fallback to legacy pre-assembled
       if (history && history.length > 0 && !contextHistory) {
-        const catName = catId as 'opus' | 'codex' | 'gemini';
-        const budget = getCatContextBudget(catName);
+        const budget = getCatContextBudget(catId as string);
         // F8: token-based budget — estimate non-context tokens, remainder goes to context
         const systemPartsTokens = estimateTokens(
           [staticIdentity, invocationContext, mcpInstructions].filter(Boolean).join('\n'),
@@ -305,7 +304,7 @@ export async function* routeSerial(
           console.warn('[audit] A2A_HANDOFF write failed', { threadId, fromCat: catId, toCat: pendingCat, err });
         });
 
-        const nextConfig = CAT_CONFIGS[pendingCat as keyof typeof CAT_CONFIGS];
+        const nextConfig: CatConfig | undefined = catRegistry.tryGet(pendingCat as string)?.config ?? CAT_CONFIGS[pendingCat as string];
         yield {
           type: 'a2a_handoff' as AgentMessageType,
           catId,

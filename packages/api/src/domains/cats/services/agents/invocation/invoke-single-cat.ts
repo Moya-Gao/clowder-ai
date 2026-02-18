@@ -344,11 +344,8 @@ export async function* invokeSingleCat(
               // F24 Phase B: Check seal threshold after context health update
               if (deps.sessionSealer && deps.sessionChainStore) {
                 try {
-                  const catName = catId === 'opus' ? 'opus'
-                    : catId === 'codex' ? 'codex'
-                    : catId === 'gemini' ? 'gemini'
-                    : 'opus';
-                  const sealConfig = getSealConfig(catName);
+                  // F32-a: pass catId directly — getSealConfig handles provider-based fallback
+                  const sealConfig = getSealConfig(catId as string);
                   if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
                     const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
                     if (activeRecord) {

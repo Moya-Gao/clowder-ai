@@ -6,7 +6,7 @@
  * formatMessage() 也被 export route 复用 (聊天记录导出)。
  */
 
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 
@@ -40,8 +40,9 @@ const DEFAULT_MAX_TOTAL_TOKENS = 2000;
  */
 function getSenderName(catId: string | null): string {
   if (catId === null) return '铲屎官';
-  const config = CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS];
-  return config?.displayName ?? catId;
+  const entry = catRegistry.tryGet(catId);
+  if (entry) return entry.config.displayName;
+  return CAT_CONFIGS[catId]?.displayName ?? catId;
 }
 
 /** Format timestamp as HH:MM */

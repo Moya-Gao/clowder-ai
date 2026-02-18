@@ -113,14 +113,14 @@ describe('P1-2: resolveTargetsAndIntent persist writes participants', () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const threadStore = createMockThreadStore();
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: createMockService(),
       codexService: createMockService(),
       geminiService: createMockService(),
       registry: createMockRegistry(),
       messageStore: createMockMessageStore(),
       threadStore,
-    });
+    }));
 
     await router.resolveTargetsAndIntent('@codex 你好', 'thread-1');
     assert.deepEqual(threadStore._participants['thread-1'] ?? [], []);
@@ -130,14 +130,14 @@ describe('P1-2: resolveTargetsAndIntent persist writes participants', () => {
     const { AgentRouter } = await import('../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     const threadStore = createMockThreadStore();
-    const router = new AgentRouter({
+    const router = new AgentRouter(await migrateRouterOpts({
       claudeService: createMockService(),
       codexService: createMockService(),
       geminiService: createMockService(),
       registry: createMockRegistry(),
       messageStore: createMockMessageStore(),
       threadStore,
-    });
+    }));
 
     const { targetCats } = await router.resolveTargetsAndIntent(
       '@codex 你好', 'thread-1', { persist: true },
@@ -230,6 +230,7 @@ describe('Integration: dedup does not trigger tracker abort', () => {
 // The route MUST detect aborted controller, mark InvocationRecord canceled, return 409
 
 import Fastify from 'fastify';
+import { migrateRouterOpts } from './helpers/agent-registry-helpers.js';
 
 describe('R2: delete-guard race via POST /api/messages route', () => {
   test('returns 409 and cancels InvocationRecord when start() returns aborted controller', async () => {

@@ -4,9 +4,18 @@
  */
 
 import { z } from 'zod';
+import { catIdSchema } from '../registry/cat-id-schema.js';
 
 /**
  * Message sender schema - discriminated union
+ *
+ * Note: catId uses z.string().refine() (via catIdSchema) instead of z.enum()
+ * because route modules are imported before the registry is populated.
+ * z.string().refine() defers validation to request time.
+ *
+ * Consequence: discriminatedUnion requires z.literal or z.enum for the
+ * discriminator. Since we're inside a discriminated union on 'type',
+ * catId validation happens at the field level, not the discriminator.
  */
 export const MessageSenderSchema = z.discriminatedUnion('type', [
   z.object({
@@ -15,7 +24,7 @@ export const MessageSenderSchema = z.discriminatedUnion('type', [
   }),
   z.object({
     type: z.literal('cat'),
-    catId: z.enum(['opus', 'codex', 'gemini']),
+    catId: catIdSchema(),
   }),
 ]);
 
@@ -107,7 +116,7 @@ export const MessageSchema = z.object({
 export const SendMessageRequestSchema = z.object({
   threadId: z.string().min(1),
   content: z.array(MessageContentSchema).min(1),
-  targetCatId: z.enum(['opus', 'codex', 'gemini']).optional(),
+  targetCatId: catIdSchema().optional(),
 });
 
 /**

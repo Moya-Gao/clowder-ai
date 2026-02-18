@@ -10,14 +10,10 @@ type Brand<T, B> = T & { readonly [brand]: B };
 
 // Branded ID types
 export type MessageId = Brand<string, 'MessageId'>;
-export type CatId = Brand<'opus' | 'codex' | 'gemini', 'CatId'>;
+export type CatId = Brand<string, 'CatId'>;
 export type ThreadId = Brand<string, 'ThreadId'>;
 export type SessionId = Brand<string, 'SessionId'>;
 export type UserId = Brand<string, 'UserId'>;
-
-// Valid cat identifiers
-const VALID_CAT_IDS = ['opus', 'codex', 'gemini'] as const;
-type ValidCatId = (typeof VALID_CAT_IDS)[number];
 
 /**
  * Generate a random ID with optional prefix
@@ -43,14 +39,13 @@ export function generateMessageId(): MessageId {
 }
 
 /**
- * Create a CatId from a string with validation
- * @throws Error if the id is not a valid cat identifier
+ * Create a CatId from a string (lightweight syntax check only).
+ * Does NOT validate against a registry — use assertKnownCatId() for that.
+ * @throws Error if id is empty or not a string
  */
 export function createCatId(id: string): CatId {
-  if (!VALID_CAT_IDS.includes(id as ValidCatId)) {
-    throw new Error(
-      `Invalid cat ID: "${id}". Must be one of: ${VALID_CAT_IDS.join(', ')}`
-    );
+  if (!id || typeof id !== 'string') {
+    throw new Error('Invalid cat ID: must be non-empty string');
   }
   return id as CatId;
 }

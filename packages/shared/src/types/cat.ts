@@ -55,9 +55,12 @@ export interface CatState {
 }
 
 /**
- * Configuration for all three cats
+ * Default configurations for built-in cats.
+ * At runtime, catRegistry is the authoritative source (populated at startup).
+ * This constant is retained as fallback for code that hasn't migrated yet
+ * and for frontend (which doesn't use the registry).
  */
-export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
+export const CAT_CONFIGS: Record<string, CatConfig> = {
   opus: {
     id: createCatId('opus'),
     name: 'opus',
@@ -111,7 +114,9 @@ export const CAT_CONFIGS: Record<'opus' | 'codex' | 'gemini', CatConfig> = {
 } as const;
 
 /**
- * Find a cat by mention pattern in text
+ * Find a cat by mention pattern in text.
+ * Reads from CAT_CONFIGS (static fallback, frontend-safe).
+ * API-side code should use catRegistry directly for dynamic lookups.
  * @param text - The text to search for mentions
  * @returns The CatConfig if found, undefined otherwise
  */
@@ -130,7 +135,8 @@ export function findCatByMention(text: string): CatConfig | undefined {
 }
 
 /**
- * Get all cat IDs
+ * Get all cat IDs from static defaults.
+ * API-side code should use catRegistry.getAllIds() instead.
  */
 export function getAllCatIds(): readonly CatId[] {
   return Object.values(CAT_CONFIGS).map((config) => config.id);

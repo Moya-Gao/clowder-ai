@@ -24,6 +24,9 @@ export {
   createUserId,
 } from './ids.js';
 
+// NOTE: CatRegistry, catRegistry, assertKnownCatId, catIdSchema
+// are exported from ../registry/index.js (via the shared package root)
+
 // Cat types
 export type {
   CatProvider,

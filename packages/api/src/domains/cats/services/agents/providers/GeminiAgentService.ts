@@ -85,7 +85,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: getCatModel('gemini') };
+    const metadata: MessageMetadata = { provider: CAT_CONFIGS['gemini']!.provider, model: getCatModel('gemini') };
 
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
     let effectivePrompt = options?.systemPrompt
@@ -217,7 +217,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS.gemini.provider, model: `${getCatModel('gemini')} (antigravity)` };
+    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS['gemini']!.provider, model: `${getCatModel('gemini')} (antigravity)` };
 
     if (!options?.callbackEnv) {
       yield {

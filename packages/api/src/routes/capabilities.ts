@@ -12,6 +12,7 @@ import { readdir, readFile } from 'fs/promises';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import type { FastifyPluginAsync } from 'fastify';
+import { catRegistry } from '@cat-cafe/shared';
 import { resolveUserId } from '../utils/request-identity.js';
 
 interface CatCapabilities {
@@ -67,20 +68,19 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // Claude skills: merge project-level + user-level, deduplicate
     const claudeSkills = [...new Set([...claudeProjectSkills, ...claudeUserSkills])];
 
-    const result: CapabilitiesResponse = {
-      opus: {
-        skills: claudeSkills,
-        externalMcpServers: projectMcp,
-      },
-      codex: {
-        skills: codexSkills,
-        externalMcpServers: [],
-      },
-      gemini: {
-        skills: geminiSkills,
-        externalMcpServers: geminiMcp,
-      },
+    // F32-a: provider-based capability mapping for built-in + dynamic cats
+    const providerCapabilities: Record<string, CatCapabilities> = {
+      anthropic: { skills: claudeSkills, externalMcpServers: projectMcp },
+      openai: { skills: codexSkills, externalMcpServers: [] },
+      google: { skills: geminiSkills, externalMcpServers: geminiMcp },
     };
+
+    const result: CapabilitiesResponse = {};
+    for (const id of catRegistry.getAllIds()) {
+      const entry = catRegistry.tryGet(id as string);
+      const provider = entry?.config.provider ?? 'unknown';
+      result[id as string] = providerCapabilities[provider] ?? { skills: [], externalMcpServers: [] };
+    }
 
     return result;
   });

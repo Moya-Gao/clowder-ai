@@ -7,6 +7,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { IMemoryGovernanceStore } from '../domains/cats/services/stores/ports/MemoryGovernanceStore.js';
 import { GovernanceConflictError } from '../domains/cats/services/stores/ports/MemoryGovernanceStore.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
@@ -18,7 +19,7 @@ export interface MemoryPublishRoutesOptions {
 const publishSchema = z.object({
   entryId: z.string().min(1),
   action: z.enum(['submit_review', 'approve', 'archive', 'rollback']),
-  actor: z.enum(['user', 'opus', 'codex', 'gemini']),
+  actor: z.union([z.literal('user'), catIdSchema()]),
 });
 
 /** Map publish action → audit event type */

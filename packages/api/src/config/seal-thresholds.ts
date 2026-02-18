@@ -11,11 +11,11 @@
  * We set seal thresholds ~5% below each cat's compact point.
  */
 
+import { catRegistry } from '@cat-cafe/shared';
 import type { ContextHealthConfig } from '@cat-cafe/shared';
 
-type CatName = 'opus' | 'codex' | 'gemini';
-
-const DEFAULT_SEAL_CONFIGS: Record<CatName, ContextHealthConfig> = {
+/** Per-cat overrides (built-in cats have specific tuning) */
+const SEAL_OVERRIDES: Record<string, ContextHealthConfig> = {
   opus: {
     warnThreshold: 0.80,
     sealThreshold: 0.90,
@@ -36,12 +36,38 @@ const DEFAULT_SEAL_CONFIGS: Record<CatName, ContextHealthConfig> = {
   },
 };
 
+/** Provider-based defaults for cats without explicit overrides */
+const DEFAULT_SEAL_BY_PROVIDER: Record<string, ContextHealthConfig> = {
+  anthropic: { warnThreshold: 0.80, sealThreshold: 0.90, turnBudget: 12_000, safetyMargin: 4_000 },
+  openai: { warnThreshold: 0.75, sealThreshold: 0.85, turnBudget: 12_000, safetyMargin: 4_000 },
+  google: { warnThreshold: 0.55, sealThreshold: 0.65, turnBudget: 12_000, safetyMargin: 4_000 },
+};
+
+const GLOBAL_DEFAULT: ContextHealthConfig = {
+  warnThreshold: 0.75,
+  sealThreshold: 0.85,
+  turnBudget: 12_000,
+  safetyMargin: 4_000,
+};
+
 /**
  * Get seal threshold config for a cat.
- * Returns per-cat defaults. All values configurable via future cat-config.json extension.
+ * Lookup: catId override → provider default → global default.
  */
-export function getSealConfig(catName: CatName): ContextHealthConfig {
-  return DEFAULT_SEAL_CONFIGS[catName] ?? DEFAULT_SEAL_CONFIGS.opus;
+export function getSealConfig(catName: string): ContextHealthConfig {
+  // 1. Exact catId override
+  const override = SEAL_OVERRIDES[catName];
+  if (override) return override;
+
+  // 2. Provider-based default
+  const entry = catRegistry.tryGet(catName);
+  if (entry) {
+    const providerDefault = DEFAULT_SEAL_BY_PROVIDER[entry.config.provider];
+    if (providerDefault) return providerDefault;
+  }
+
+  // 3. Global fallback
+  return GLOBAL_DEFAULT;
 }
 
 /**

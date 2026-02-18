@@ -7,6 +7,7 @@
  * - Per-cat done messages to clear each cat's loading state
  */
 
+import './helpers/setup-cat-registry.js';
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -70,8 +71,11 @@ describe('buildCancelMessages (production function)', () => {
     assert.equal(messages.length, 0);
   });
 
-  test('cancelled with unknown catId throws', () => {
-    const result = { cancelled: true, catIds: ['invalid-cat'] };
-    assert.throws(() => buildCancelMessages(result), /Invalid cat ID/);
+  test('cancelled with unknown catId still produces messages (F32-a: any string is valid catId)', () => {
+    // F32-a: createCatId accepts any non-empty string, so unknown catId no longer throws
+    const result = { cancelled: true, catIds: ['unknown-cat'] };
+    const messages = buildCancelMessages(result);
+    assert.equal(messages.length, 2); // system + done
+    assert.equal(messages[0].catId, 'unknown-cat');
   });
 });

@@ -10,6 +10,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { CatId, CreateTaskInput, UpdateTaskInput } from '@cat-cafe/shared';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -20,19 +21,21 @@ export interface TasksRoutesOptions {
 }
 
 const VALID_STATUSES = ['todo', 'doing', 'blocked', 'done'] as const;
-const VALID_CREATORS = ['opus', 'codex', 'gemini', 'user'] as const;
+
+/** createdBy accepts any registered catId OR 'user' */
+const createdBySchema = z.union([catIdSchema(), z.literal('user')]);
 
 const createSchema = z.object({
   threadId: z.string().min(1),
   title: z.string().min(1).max(200),
   why: z.string().max(1000).default(''),
-  createdBy: z.enum(VALID_CREATORS),
-  ownerCatId: z.enum(['opus', 'codex', 'gemini']).nullable().optional(),
+  createdBy: createdBySchema,
+  ownerCatId: catIdSchema().nullable().optional(),
 });
 
 const updateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
-  ownerCatId: z.enum(['opus', 'codex', 'gemini']).nullable().optional(),
+  ownerCatId: catIdSchema().nullable().optional(),
   status: z.enum(VALID_STATUSES).optional(),
   why: z.string().max(1000).optional(),
 }).refine((data) => Object.keys(data).length > 0, {

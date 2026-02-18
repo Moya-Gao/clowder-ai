@@ -10,7 +10,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { IModeStore } from '../domains/cats/services/stores/ports/ModeStore.js';
 import { createInitialState } from '../domains/cats/services/stores/ports/ModeStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
@@ -25,14 +25,8 @@ export interface ModesRoutesOptions {
 
 const VALID_MODES: readonly ModeName[] = ['brainstorm', 'debate', 'dev-loop'] as const;
 
-/** Valid cat IDs derived from CAT_CONFIGS */
-const VALID_CAT_IDS = new Set(Object.keys(CAT_CONFIGS));
-
-/** Zod refinement: string must be a valid cat ID */
-const catIdString = z.string().min(1).refine(
-  (val) => VALID_CAT_IDS.has(val),
-  { message: 'Invalid cat ID. Valid IDs: opus, codex, gemini' },
-);
+/** Zod refinement: string must be a registered cat ID (deferred to request time) */
+const catIdString = catIdSchema();
 
 const brainstormConfigSchema = z.object({
   topic: z.string().min(1).max(500),

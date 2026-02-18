@@ -12,10 +12,12 @@ import type {
   DevLoopConfig,
 } from '@cat-cafe/shared';
 import type { ReviewResult } from './dev-loop-parser.js';
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 
 function catDisplayName(catId: CatId): string {
-  return CAT_CONFIGS[catId as keyof typeof CAT_CONFIGS]?.displayName ?? (catId as string);
+  const entry = catRegistry.tryGet(catId as string);
+  if (entry) return entry.config.displayName;
+  return CAT_CONFIGS[catId as string]?.displayName ?? (catId as string);
 }
 
 /** Build brainstorm-specific prompt section */

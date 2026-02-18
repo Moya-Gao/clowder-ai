@@ -9,7 +9,7 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import type { Thread } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { formatMessage } from '../domains/cats/services/context/ContextAssembler.js';
-import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 
 /**
  * Format date consistently across environments (no locale dependency).
@@ -48,8 +48,8 @@ export function formatThreadAsMarkdown(
   }
   if (thread.participants.length > 0) {
     const names = thread.participants.map((id) => {
-      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
-      return c?.displayName ?? id;
+      const entry = catRegistry.tryGet(id);
+      return entry?.config.displayName ?? CAT_CONFIGS[id]?.displayName ?? id;
     });
     lines.push(`- **参与者**: ${names.join(', ')}`);
   }
@@ -95,8 +95,8 @@ export function formatThreadAsText(
   }
   if (thread.participants.length > 0) {
     const names = thread.participants.map((id) => {
-      const c = CAT_CONFIGS[id as keyof typeof CAT_CONFIGS];
-      return c?.displayName ?? id;
+      const entry = catRegistry.tryGet(id);
+      return entry?.config.displayName ?? CAT_CONFIGS[id]?.displayName ?? id;
     });
     lines.push(`参与者: ${names.join(', ')}`);
   }
