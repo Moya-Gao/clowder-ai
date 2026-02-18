@@ -70,6 +70,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const joinedRoomsRef = useRef<Set<string>>(new Set());
   const bgStreamRefsRef = useRef<Map<string, { id: string; threadId: string; catId: string }>>(new Map());
   const bgSeqRef = useRef(0);
+  const userIdRef = useRef(getUserId());
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
 
@@ -81,11 +82,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   callbacksRef.current = callbacks;
 
   const persistJoinedRooms = useCallback(() => {
-    saveJoinedRoomsToSession(joinedRoomsRef.current);
+    saveJoinedRoomsToSession(userIdRef.current, joinedRoomsRef.current);
   }, []);
 
   useEffect(() => {
-    joinedRoomsRef.current = loadJoinedRoomsFromSession();
+    userIdRef.current = getUserId();
+    joinedRoomsRef.current = loadJoinedRoomsFromSession(userIdRef.current);
     if (threadIdRef.current) {
       joinedRoomsRef.current.add(`thread:${threadIdRef.current}`);
     }
@@ -93,7 +95,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
 
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
-      auth: { userId: getUserId() },
+      auth: { userId: userIdRef.current },
     });
 
     const getTransportName = () => {

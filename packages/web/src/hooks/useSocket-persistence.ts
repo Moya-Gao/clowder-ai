@@ -1,12 +1,15 @@
-const JOINED_ROOMS_STORAGE_KEY = 'cat-cafe:ws:joined-rooms:v1';
+function getJoinedRoomsStorageKey(userId: string): string {
+  const normalizedUserId = userId.trim() || 'anonymous';
+  return `cat-cafe:ws:joined-rooms:v1:${normalizedUserId}`;
+}
 
 function isThreadRoom(room: unknown): room is string {
   return typeof room === 'string' && room.startsWith('thread:');
 }
 
-export function loadJoinedRoomsFromSession(): Set<string> {
+export function loadJoinedRoomsFromSession(userId: string): Set<string> {
   if (typeof window === 'undefined') return new Set();
-  const raw = window.sessionStorage.getItem(JOINED_ROOMS_STORAGE_KEY);
+  const raw = window.sessionStorage.getItem(getJoinedRoomsStorageKey(userId));
   if (!raw) return new Set();
 
   try {
@@ -15,12 +18,12 @@ export function loadJoinedRoomsFromSession(): Set<string> {
     return new Set(parsed.filter(isThreadRoom));
   } catch (error) {
     console.warn('[ws] Failed to parse persisted rooms, resetting cache', { error });
-    window.sessionStorage.removeItem(JOINED_ROOMS_STORAGE_KEY);
+    window.sessionStorage.removeItem(getJoinedRoomsStorageKey(userId));
     return new Set();
   }
 }
 
-export function saveJoinedRoomsToSession(rooms: Set<string>): void {
+export function saveJoinedRoomsToSession(userId: string, rooms: Set<string>): void {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(JOINED_ROOMS_STORAGE_KEY, JSON.stringify([...rooms]));
+  window.sessionStorage.setItem(getJoinedRoomsStorageKey(userId), JSON.stringify([...rooms]));
 }
