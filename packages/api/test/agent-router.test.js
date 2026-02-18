@@ -88,6 +88,37 @@ function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}
   };
 }
 
+function createDebugThinkingThreadStore() {
+  return {
+    create: (userId, title, projectPath) => ({
+      id: 'thread_mock',
+      projectPath: projectPath ?? 'default',
+      title: title ?? null,
+      createdBy: userId,
+      participants: [],
+      thinkingMode: 'debug',
+      lastActiveAt: Date.now(),
+      createdAt: Date.now(),
+    }),
+    get: (threadId) => ({
+      id: threadId,
+      projectPath: 'default',
+      title: null,
+      createdBy: 'system',
+      participants: [],
+      thinkingMode: 'debug',
+      lastActiveAt: Date.now(),
+      createdAt: Date.now(),
+    }),
+    list: () => [],
+    listByProject: () => [],
+    addParticipants: () => {},
+    getParticipants: () => [],
+    updateLastActive: () => {},
+    delete: () => true,
+  };
+}
+
 // Create mock agent services
 function createMockAgentService(catId, responseText = 'Hello from mock') {
   const invoke = mock.fn(async function* (_prompt, options) {
@@ -382,6 +413,44 @@ describe('AgentRouter', () => {
     assert.ok(
       !codexReceivedPrompt.includes('Opus response'),
       'Codex prompt should NOT include Opus stream response in play mode'
+    );
+  });
+
+  test('multi-cat serial chain includes previous stream responses in debug mode (#execute)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    let codexReceivedPrompt = '';
+    const mockClaudeService = createMockAgentService('opus', 'Opus response');
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexReceivedPrompt = prompt;
+        yield { type: 'session_init', catId: 'codex', sessionId: 'codex-123', timestamp: Date.now() };
+        yield { type: 'text', catId: 'codex', content: 'Codex reviewed', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore: createDebugThinkingThreadStore(),
+    }));
+
+    for await (const _ of router.route(
+      'user-1',
+      '#execute @opus write code, then @codex review it'
+    )) {
+      // consume
+    }
+
+    assert.ok(
+      codexReceivedPrompt.includes('Opus response'),
+      'Codex prompt should include Opus stream response in debug mode'
     );
   });
 
@@ -1289,6 +1358,40 @@ describe('AgentRouter', () => {
       '#execute should keep stream isolation in play mode');
     assert.ok(codexPrompt.includes('被召唤'),
       '#execute should use serial mode text');
+  });
+
+  test('parallel: #execute in debug mode includes previous stream responses', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    let codexPrompt = '';
+    const mockClaudeService = createMockAgentService('opus', 'Serial opus');
+    const mockCodexService = {
+      invoke: mock.fn(async function* (prompt) {
+        codexPrompt = prompt;
+        yield { type: 'text', catId: 'codex', content: 'Serial codex', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      }),
+    };
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore: createDebugThinkingThreadStore(),
+    }));
+
+    for await (const _ of router.route('user-1', '#execute @opus @codex do this')) {
+      // consume
+    }
+
+    assert.ok(codexPrompt.includes('Serial opus'),
+      '#execute in debug mode should include previous stream response');
+    assert.ok(codexPrompt.includes('被召唤'),
+      '#execute in debug mode should keep serial mode text');
   });
 
   test('parallel: all cat responses are stored in messageStore', async () => {
