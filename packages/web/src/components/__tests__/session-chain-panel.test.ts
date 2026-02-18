@@ -454,4 +454,116 @@ describe('F24: SessionChainPanel', () => {
     expect(container.textContent).toContain('Session #6');
     expect(container.textContent).not.toContain('Session #1');
   });
+
+  describe('bind UI', () => {
+    it('renders bind button for active sessions', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expect(container.textContent).toContain('bind...');
+    });
+
+    it('does not render bind button for sealed sessions', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'sealed', messageCount: 10, createdAt: Date.now(), sealedAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expect(container.textContent).not.toContain('bind...');
+    });
+
+    it('shows input after clicking bind button', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      const bindBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent === 'bind...');
+      expect(bindBtn).not.toBeUndefined();
+
+      act(() => { bindBtn!.click(); });
+
+      const input = container.querySelector('input[placeholder="CLI session ID"]');
+      expect(input).not.toBeNull();
+    });
+
+    it('calls PATCH bind API on submit and re-fetches sessions', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      // Click bind button to open input
+      const bindBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent === 'bind...');
+      act(() => { bindBtn!.click(); });
+
+      // Type session ID
+      const input = container.querySelector('input[placeholder="CLI session ID"]') as HTMLInputElement;
+      act(() => {
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype, 'value')!.set!;
+        nativeInputValueSetter.call(input, 'ses_test_123');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      // Mock successful bind response
+      mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+
+      // Click bind submit button
+      const submitBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent === 'bind');
+      act(() => { submitBtn!.click(); });
+
+      await flushFetch();
+
+      // Verify PATCH was called with correct URL and body
+      const patchCall = mockApiFetch.mock.calls.find(
+        (call: unknown[]) => typeof call[0] === 'string' && (call[0] as string).includes('/bind'),
+      );
+      expect(patchCall).toBeDefined();
+      expect(patchCall![0]).toBe('/api/threads/thread-1/sessions/opus/bind');
+      expect(patchCall![1]).toMatchObject({
+        method: 'PATCH',
+        body: JSON.stringify({ cliSessionId: 'ses_test_123' }),
+      });
+    });
+
+    it('shows error status on failed bind', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      // Open bind input
+      const bindBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent === 'bind...');
+      act(() => { bindBtn!.click(); });
+
+      // Type value
+      const input = container.querySelector('input[placeholder="CLI session ID"]') as HTMLInputElement;
+      act(() => {
+        const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+        setter.call(input, 'bad_session');
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+
+      // Mock failed bind
+      mockApiFetch.mockResolvedValue({ ok: false, status: 404 });
+
+      const submitBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent === 'bind');
+      act(() => { submitBtn!.click(); });
+
+      await flushFetch();
+
+      expect(container.textContent).toContain('err');
+    });
+  });
 });

@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-17 (布偶猫+缅因猫交叉审计 BACKLOG 进度)
+> 维护者：布偶猫 | 最后更新：2026-02-18 (F24 中途消息注入 + #72 bind UI 完成)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -76,7 +76,7 @@
 | 69 | Hindsight 周评测流水线（precision/noise/staleness） | [ ] | P0 Plan Task 5 | 建立自动周评测与阈值告警，避免 recall 质量劣化无感发生。 |
 | 70 | workspace 全量 build 阻塞（packages/web lint/type） | [x] | 2026-02-13 Task 5 验证 | 2026-02-13 缅因猫完成：清理 4 处 `no-unused-vars`（`ChatContainer.tsx`, `RightStatusPanel.tsx`, `useSplitPaneKeys.test.ts`, `useChatHistory.ts`），`pnpm -r --if-present run build` 恢复通过。 |
 | 71 | Hindsight 最新性保障（freshness guard） | [x] | 2026-02-14 #68/#69 收口讨论 | `f90a1c4` + `eec372b` — full freshness fail-closed guard + dedupe parsers。已合入 main。 |
-| 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [~] | [session-not-found bug](./archive/2026-02/bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **API 已完成** `5d158ae` — `PATCH /api/threads/:threadId/sessions/:catId/bind` 端点（带审计）。**前端未完成** — `SessionChainPanel.tsx` 尚无 bind 入口 UI，铲屎官需手动调 API。 |
+| 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [x] | [session-not-found bug](./archive/2026-02/bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **API** `5d158ae` — `PATCH /api/threads/:threadId/sessions/:catId/bind` 端点（带审计）。**前端** `4e85883` — `SessionChainPanel` bind 输入框 UI。 |
 | 73 | **A2A Stop 按钮 UX 改进** | [x] | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三个修复方向均已完成：**(1)** callback A2A 同步前端 loading (`0a1b1da`)；**(2)** `hasActiveInvocation` 状态 + Stop 按钮常驻显示；**(3)** ParallelStatusBar Stop 按钮。缅因猫 R3 放行，commit `2ccc87c`。 |
 | 74 | **Hindsight 临时停用（等 GPT Pro 调研）** | [~] | 2026-02-14 预评测数据质量复盘 | 已新增全局开关 `HINDSIGHT_ENABLED`（commit `8876677`）：关闭后 evidence/reflect/callback retain 不再调用 Hindsight，改为 docs fallback 或 skipped；并已停本地 Hindsight 容器避免 token 消耗。待 GPT Pro 结论后再决定恢复策略与 #69 评测时点。 |
 | 75 | **pending-mentions 跨线程泄漏** | [x] | [情人节聊天 bug](./archive/2026-02/bug-report/2026-02-14-pending-mentions-cross-thread-leak/bug-report.md) | `a822296` — getMentionsFor 增加 threadId 过滤 + 暄罗语音别名 + 4 tests (内存/Redis/API)。暹罗猫 R1 + 缅因猫 R2 放行。 |
@@ -93,7 +93,7 @@
 | 26 | Gemini/Codex resume 作为补充 context 源 | [x] | Phase 3.6 决策 2 | Phase 5.2 调研结论: Codex 已支持 UUID resume ✅; Gemini v0.27.2 仍只支持 index/latest, 无 UUID resume, 现由 ContextAssembler 提供上下文 |
 | 27 | 导出格式 locale 依赖 | [x] | Phase 3.6 交接 OQ | 改用 `formatDatetime()` 固定 YYYY-MM-DD HH:mm 格式 |
 | 28 | A2A mention 与 AgentRouter.parseMentions 逻辑重复 | [x] | Phase 3.9 | 已澄清设计意图：用户消息用 indexOf (宽松)，猫回复用行首匹配 (严格防误触) |
-| 29 | A2A 悄悄话折叠 UI | [x] | 暹罗猫建议 | 已实现：`A2ACollapsible` + `ChatContainer` 按 `a2aGroupId` 分组折叠，默认“查看内部讨论”。 |
+| 29 | A2A 悄悄话折叠 UI | [x] | 暹罗猫建议 | 已实现：`A2ACollapsible` + `ChatContainer` 按 `a2aGroupId` 分组折叠，默认"查看内部讨论"。 |
 | 30 | /config context 数字误导 | [x] | Phase 3.9 缅因猫 review P2 | Phase 4.0 Step 2 — perCatBudgets 显示实际值，context 段标注 deprecated |
 | 51 | ~~Codex 隔离 HOME 固定路径并发冲突~~ | [x] | F16 review P3 | 已关闭：隔离 HOME 方案已废弃 (BACKLOG #36 重开 → 删除隔离)，此项自动解决。 |
 | 52 | callbackToken 出现在 query string | [ ] | F16 review P3 | Why: 与现有 callback GET 鉴权方式保持兼容。风险边界：token 可能出现在 access log / proxy cache。触发条件：引入网关或外部代理前，迁移到 header 鉴权或改为 POST。 |
@@ -141,7 +141,7 @@
 | F21 | **Signal Hunter 集成** | **P1** | [讨论 2026-02-12](./archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md) | 每日自动抓取 AI 技术信源 + 邮件日报 + 和猫猫深度学习。合并 Signal Hunter 到 Cat Café，launchd 定时 + 50+ 信源 + on/off 开关 + Hindsight 洞察存储。计划: [`2026-02-12-signal-hunter-integration.md`](./plans/2026-02-12-signal-hunter-integration.md)，缅因猫调研: [`signal-hunter.md`](./archive/2026-02/research/signal-hunter.md) |
 | F22 | **Rich Blocks 富消息系统** | **P1** | [SillyTavern 调研](./archive/2026-02/research/sillytavern-phone-ui-research.md) | 猫猫消息支持富组件（DiffCard / Checklist / MediaGallery / InfoCard）。MCP 工具创建 + 文本 fallback + `extra.rich` 持久化 + prompt 清洁器防上下文腐败。F10 手机端猫猫 + 陪伴系统的地基。调研: [`sillytavern-phone-ui-research.md`](./archive/2026-02/research/sillytavern-phone-ui-research.md)，计划: [`2026-02-12-rich-blocks-companion-plan.md`](./plans/2026-02-12-rich-blocks-companion-plan.md) |
 | F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
-| F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[~]** | 铲屎官 2026-02-13 | 三个子能力中 2/3 已完成：**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar 前端展示 context 使用百分比。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入 + session bootstrap。**未完成：(1) 中途消息注入** [ ]：铲屎官在猫猫执行期间可发送消息。当前前端 `ChatInputActionButton` 在 `hasActiveInvocation` 时切为 Stop 按钮，无法继续发消息。 |
+| F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[x]** | 铲屎官 2026-02-13 | 三个子能力全部完成：**(1) 中途消息注入** [x]：`4e85883` ChatInputActionButton 改为 hasActiveInvocation 时同时展示 Stop + Send 按钮。**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入。 |
 | F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |
 | F31 | **PR 双层 Review 流程（本地猫 + 云端猫）** | **[x]** | 2026-02-14 铲屎官提议 | ✅ 已完成：本地猫 review（`cat-cafe-requesting-review`/`cat-cafe-receiving-review` skill）+ 云端 Codex review（`requesting-cloud-review` skill）+ SOP.md Step 5 阻塞规则。双层 Review 流程已在 PR #6/#8 中实践，SOP 已修正云端 review 为阻塞守护（非异步）。 |
 | F30 | **消息代码块复制按钮 + 文件路径可跳转** | **[x]** | 2026-02-14 铲屎官提议 | ✅ `9ffd972` + R1 fix `70e8321`, PR #6. CodeBlock 复制按钮 + linkifyFilePaths vscode:// 链接. |
@@ -169,7 +169,7 @@
 
 | 项目 | 严重度 | 缓解方案 |
 |------|--------|----------|
-| **Token 输入口径与 CLI 原始 input_tokens 存在差异** | 低 | 当前 UI `inputTokens` 采用“统一口径总输入”（会合并 cache read/create），用于跨 provider 对齐；因此可能与 CLI resume 页面展示的原始 `input_tokens` 不完全一致。已在最近调用卡片补充“缓存命中/上下文占用”标签降低误解。若要 1:1 对齐 CLI 原始口径，后续需新增 raw 字段并并列展示。 |
+| **Token 输入口径与 CLI 原始 input_tokens 存在差异** | 低 | 当前 UI `inputTokens` 采用"统一口径总输入"（会合并 cache read/create），用于跨 provider 对齐；因此可能与 CLI resume 页面展示的原始 `input_tokens` 不完全一致。已在最近调用卡片补充"缓存命中/上下文占用"标签降低误解。若要 1:1 对齐 CLI 原始口径，后续需新增 raw 字段并并列展示。 |
 | CLI 启动开销 ~500ms-2s | 中 | 可考虑进程池 |
 | NDJSON 格式可能随 CLI 升级变化 | 中 | 版本锁定 + 容错解析 |
 | **Claude/Gemini 图片输入当前为 prompt 路径 fallback（非原生多模态）** | 中 | `claude --images` 与 `gemini -p + -i` 在现版本不兼容，已改为将图片绝对路径附加到 prompt 避免 CLI 启动失败。详见 [bug report](./bug-report/cli-image-flags-mismatch/bug-report.md)。后续若要恢复原生读图，需要改接 provider 支持的正式图片协议并补集成验证。 |
@@ -264,5 +264,7 @@
 | F23 目录防腐化 + 重构 | PR #21 | `d366ad5` |
 | F25 可靠性工程 | PR #21 | `d366ad5` |
 | F27 A2A 路径统一 | 2026-02-17 审计确认 | `ae873cd` |
+| #72 F24 手动绑定 Session 前端 UI | feat/f24-mid-inject-and-bind-ui | `4e85883` |
+| F24 中途消息注入 (最后一个子能力) | feat/f24-mid-inject-and-bind-ui | `4e85883` |
 
 </details>

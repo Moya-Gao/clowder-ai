@@ -74,8 +74,15 @@ export function ChatInputActionButton({
         </div>
       )}
 
-      {/* 5-state action button */}
-      {(disabled || hasActiveInvocation) && onStop ? (
+      {/* Stop button: always visible during active invocation (alongside send/mic) */}
+      {hasActiveInvocation && !disabled && onStop && (
+        <button onClick={() => onStop()} className="p-2 rounded-lg bg-red-500/80 text-white hover:bg-red-600 transition-colors" aria-label="Stop generation">
+          <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="4" width="12" height="12" rx="2" /></svg>
+        </button>
+      )}
+
+      {/* Primary action button: stop (loading) / stop-rec / transcribing / send / mic */}
+      {disabled && onStop ? (
         <button onClick={() => onStop()} className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors" aria-label="Stop generation">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="4" width="12" height="12" rx="2" /></svg>
         </button>

@@ -53,6 +53,58 @@ function sealReasonLabel(reason?: string): string {
   return reason;
 }
 
+function BindSessionInput({ threadId, catId, onBound }: { threadId: string; catId: string; onBound: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
+
+  const handleBind = async () => {
+    const trimmed = value.trim();
+    if (!trimmed || status === 'saving') return;
+    setStatus('saving');
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/sessions/${catId}/bind`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cliSessionId: trimmed }),
+      });
+      if (!res.ok) { setStatus('error'); return; }
+      setStatus('ok');
+      setValue('');
+      setTimeout(() => { setOpen(false); setStatus('idle'); onBound(); }, 800);
+    } catch {
+      setStatus('error');
+    }
+  };
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-[9px] text-gray-400 hover:text-gray-600 transition-colors">
+        bind...
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-1">
+      <input
+        value={value} onChange={e => setValue(e.target.value)}
+        onKeyDown={e => { if (e.key === 'Enter') void handleBind(); if (e.key === 'Escape') { setOpen(false); setStatus('idle'); } }}
+        placeholder="CLI session ID"
+        className="flex-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-owner-primary"
+        autoFocus
+      />
+      <button onClick={() => void handleBind()} disabled={status === 'saving' || !value.trim()}
+        className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-40 transition-colors">
+        {status === 'saving' ? '...' : status === 'ok' ? 'ok' : status === 'error' ? 'err' : 'bind'}
+      </button>
+      <button onClick={() => { setOpen(false); setStatus('idle'); }} className="text-[9px] text-gray-400 hover:text-gray-600">
+        ✕
+      </button>
+    </div>
+  );
+}
+
 function SessionIdTag({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = () => {
@@ -93,6 +145,7 @@ const DEFAULT_SESSION_COLORS = { border: 'border-gray-300/40', badgeBg: 'bg-gray
 export function SessionChainPanel({ threadId, catInvocations }: SessionChainPanelProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Re-fetch when any cat's sessionSealed changes
   const sealSignal = Object.values(catInvocations)
@@ -115,7 +168,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
       .catch(() => { if (!cancelled) setSessions([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [threadId, sealSignal]);
+  }, [threadId, sealSignal, refreshKey]);
 
   if (sessions.length === 0 && !loading) return null;
 
@@ -207,6 +260,8 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
               {health && (
                 <ContextHealthBar catId={session.catId} health={health} />
               )}
+              {/* Bind CLI session ID */}
+              <BindSessionInput threadId={threadId} catId={session.catId} onBound={() => setRefreshKey(k => k + 1)} />
             </div>
           </div>
         );
