@@ -87,7 +87,7 @@ export function useAgentMessages() {
             store.setThreadMessageStreaming(timeoutThreadId, message.id, false);
           }
         }
-        store.clearThreadActiveInvocation(timeoutThreadId);
+        store.resetThreadInvocationState(timeoutThreadId);
         store.addMessageToThread(timeoutThreadId, {
           id: `sysinfo-timeout-${Date.now()}`,
           type: 'system',

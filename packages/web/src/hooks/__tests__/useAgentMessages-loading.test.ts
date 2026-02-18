@@ -17,6 +17,7 @@ const mockSetMessageUsage = vi.fn();
 const mockSetPendingModeSwitchProposal = vi.fn();
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
+const mockResetThreadInvocationState = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockGetThreadState = vi.fn(() => ({ messages: [] }));
 
@@ -43,6 +44,7 @@ const storeState = {
   setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+  resetThreadInvocationState: mockResetThreadInvocationState,
   setThreadMessageStreaming: mockSetThreadMessageStreaming,
   getThreadState: mockGetThreadState,
   currentThreadId: 'thread-1',
@@ -96,6 +98,7 @@ describe('useAgentMessages loading lifecycle', () => {
     mockSetPendingModeSwitchProposal.mockClear();
     mockAddMessageToThread.mockClear();
     mockClearThreadActiveInvocation.mockClear();
+    mockResetThreadInvocationState.mockClear();
     mockSetThreadMessageStreaming.mockClear();
     mockGetThreadState.mockClear();
     mockGetThreadState.mockImplementation(() => ({ messages: [] }));
@@ -235,6 +238,7 @@ describe('useAgentMessages loading lifecycle', () => {
           content: '⏱ Response timed out. The operation may still be running in the background.',
         }),
       );
+      expect(mockResetThreadInvocationState).toHaveBeenCalledWith('thread-1');
     } finally {
       vi.useRealTimers();
     }

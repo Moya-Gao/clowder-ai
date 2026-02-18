@@ -1,16 +1,34 @@
 import { create } from 'zustand';
 import type {
-  ChatMessage, Thread, CatInvocationInfo, CatStatusType,
-  ModeState, ModeSwitchProposal, ToolEvent, ThreadState, TokenUsage,
+  CatInvocationInfo,
+  CatStatusType,
+  ChatMessage,
+  ModeState,
+  ModeSwitchProposal,
+  Thread,
+  ThreadState,
+  TokenUsage,
+  ToolEvent,
 } from './chat-types';
 import { DEFAULT_THREAD_STATE } from './chat-types';
 
 // Re-export types so existing consumers keep working with `import { ... } from '@/stores/chatStore'`
 export type {
-  TextContent, ImageContent, MessageContent, ChatMessageMetadata, TokenUsage,
-  EvidenceResultData, EvidenceData, ToolEvent,
-  ChatMessage, Thread, CatInvocationInfo, CatStatusType,
-  ModeState, ModeSwitchProposal, ThreadState,
+  CatInvocationInfo,
+  CatStatusType,
+  ChatMessage,
+  ChatMessageMetadata,
+  EvidenceData,
+  EvidenceResultData,
+  ImageContent,
+  MessageContent,
+  ModeState,
+  ModeSwitchProposal,
+  TextContent,
+  Thread,
+  ThreadState,
+  TokenUsage,
+  ToolEvent,
 } from './chat-types';
 export { DEFAULT_THREAD_STATE } from './chat-types';
 
@@ -70,13 +88,11 @@ function updateThreadMessage(
   state: ChatState,
   threadId: string,
   messageId: string,
-  updater: (message: ChatMessage) => ChatMessage
+  updater: (message: ChatMessage) => ChatMessage,
 ): ChatState | Partial<ChatState> {
   if (threadId === state.currentThreadId) {
     return {
-      messages: state.messages.map((m) =>
-        m.id === messageId ? updater(m) : m
-      ),
+      messages: state.messages.map((m) => (m.id === messageId ? updater(m) : m)),
     };
   }
 
@@ -87,9 +103,7 @@ function updateThreadMessage(
       ...state.threadStates,
       [threadId]: {
         ...existing,
-        messages: existing.messages.map((m) =>
-          m.id === messageId ? updater(m) : m
-        ),
+        messages: existing.messages.map((m) => (m.id === messageId ? updater(m) : m)),
         lastActivity: Date.now(),
       },
     },
@@ -171,6 +185,8 @@ interface ChatState {
 
   /** Clear hasActiveInvocation for a specific thread (active or background) */
   clearThreadActiveInvocation: (threadId: string) => void;
+  /** Clear invocation-scoped UI state for a specific thread (active or background) */
+  resetThreadInvocationState: (threadId: string) => void;
 
   // ── Hub modal (F12) ──
   hubState: { open: boolean; tab: string } | null;
@@ -241,23 +257,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   appendToMessage: (id, content) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, content: m.content + content } : m
-      ),
+      messages: state.messages.map((m) => (m.id === id ? { ...m, content: m.content + content } : m)),
     })),
 
   appendToolEvent: (id, event) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] } : m
-      ),
+      messages: state.messages.map((m) => (m.id === id ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] } : m)),
     })),
 
   setStreaming: (id, streaming) =>
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, isStreaming: streaming } : m
-      ),
+      messages: state.messages.map((m) => (m.id === id ? { ...m, isStreaming: streaming } : m)),
     })),
 
   setLoading: (loading) => set({ isLoading: loading }),
@@ -268,8 +278,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setTargetCats: (cats) =>
     set({ targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) }),
 
-  setCatStatus: (catId, status) =>
-    set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
+  setCatStatus: (catId, status) => set((state) => ({ catStatuses: { ...state.catStatuses, [catId]: status } })),
 
   clearCatStatuses: () => set({ targetCats: [], catStatuses: {} }),
 
@@ -284,9 +293,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   setMessageUsage: (messageId, usage) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === messageId && m.metadata
-          ? { ...m, metadata: { ...m.metadata, usage } }
-          : m
+        m.id === messageId && m.metadata ? { ...m, metadata: { ...m.metadata, usage } } : m,
       ),
     })),
 
@@ -386,7 +393,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateThreadMessage(state, threadId, messageId, (m) => ({
         ...m,
         content: m.content + content,
-      }))
+      })),
     ),
 
   /** Update isStreaming for a specific message in a specific thread. */
@@ -395,7 +402,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateThreadMessage(state, threadId, messageId, (m) => ({
         ...m,
         isStreaming: streaming,
-      }))
+      })),
     ),
 
   /** Get a thread's state (active thread returns flat state, others return map) */
@@ -465,6 +472,37 @@ export const useChatStore = create<ChatState>((set, get) => ({
         threadStates: {
           ...state.threadStates,
           [threadId]: { ...ts, hasActiveInvocation: false },
+        },
+      };
+    }),
+
+  /** Clear invocation-scoped UI state for a specific thread (active or background) */
+  resetThreadInvocationState: (threadId) =>
+    set((state) => {
+      const resetPatch = {
+        isLoading: false,
+        hasActiveInvocation: false,
+        intentMode: null,
+        targetCats: [] as string[],
+        catStatuses: {} as Record<string, CatStatusType>,
+      };
+
+      // Active thread — clear flat state
+      if (threadId === state.currentThreadId) {
+        return resetPatch;
+      }
+
+      // Background thread — update in threadStates map (no-op if unknown)
+      const ts = state.threadStates[threadId];
+      if (!ts) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...ts,
+            ...resetPatch,
+            lastActivity: Date.now(),
+          },
         },
       };
     }),

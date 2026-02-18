@@ -5,7 +5,7 @@
  * its hasActiveInvocation should be cleared in the threadStates map.
  * Otherwise, switching back to that thread would show stale "active" state.
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { useChatStore } from '../chatStore';
 
 describe('chatStore background thread invocation lifecycle (P2 regression)', () => {
@@ -65,5 +65,26 @@ describe('chatStore background thread invocation lifecycle (P2 regression)', () 
     useChatStore.getState().clearThreadActiveInvocation('thread-unknown');
     // Should not create a new entry in threadStates for unknown thread
     expect(useChatStore.getState().threadStates['thread-unknown']).toBeUndefined();
+  });
+
+  it('resetThreadInvocationState clears loading/intent/status for background thread before switching back', () => {
+    const store = useChatStore.getState();
+
+    // Start invocation on thread-a, then switch away.
+    store.setLoading(true);
+    store.setHasActiveInvocation(true);
+    store.setIntentMode('execute');
+    store.setCatStatus('codex', 'streaming');
+    store.setCurrentThread('thread-b');
+
+    // Background timeout path should reset invocation-scoped UI state.
+    store.resetThreadInvocationState('thread-a');
+
+    // Switch back — loading/intent/status should all be reset.
+    store.setCurrentThread('thread-a');
+    expect(useChatStore.getState().isLoading).toBe(false);
+    expect(useChatStore.getState().hasActiveInvocation).toBe(false);
+    expect(useChatStore.getState().intentMode).toBeNull();
+    expect(useChatStore.getState().catStatuses).toEqual({});
   });
 });
