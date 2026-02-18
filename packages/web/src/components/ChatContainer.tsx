@@ -142,7 +142,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         summary: { id: s.id, topic: s.topic, conclusions: s.conclusions, openQuestions: s.openQuestions, createdBy: s.createdBy },
       } as ChatMessageData);
     },
-    onHeartbeat: () => resetTimeout(),
+    onHeartbeat: (data) => {
+      if (data.threadId === threadId) resetTimeout();
+    },
     onMessageDeleted: (data: { messageId: string }) => removeMessage(data.messageId),
     onMessageRestored: () => { /* full reload handled by re-fetching history if needed */ },
     onThreadBranched: () => { /* branch navigation handled by the action initiator */ },

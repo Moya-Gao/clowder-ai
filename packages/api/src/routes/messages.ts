@@ -344,6 +344,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             type: 'error',
             catId: createCatId('opus'),
             error: errorMsg,
+            isFinal: true,
             timestamp: Date.now(),
           }, resolvedThreadId);
         } finally {
@@ -391,6 +392,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             type: 'error',
             catId: createCatId('opus'),
             error: err instanceof Error ? err.message : 'Unknown error',
+            isFinal: true,
             timestamp: Date.now(),
           }, resolvedThreadId);
         } finally {

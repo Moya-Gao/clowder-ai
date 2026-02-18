@@ -424,9 +424,11 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
     const msgs = await collect(service.invoke('test'));
 
-    assert.equal(msgs.length, 1);
+    // error + done (done ensures frontend clears loading state)
+    assert.equal(msgs.length, 2);
     assert.equal(msgs[0].type, 'error');
     assert.ok(msgs[0].error.includes('callbackEnv'));
+    assert.equal(msgs[1].type, 'done');
     // Should not have spawned anything
     assert.equal(antigravitySpawnFn.mock.callCount(), 0);
   });
@@ -456,12 +458,12 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
 
-    // Should yield session_init then error — no text or done
+    // Should yield session_init, then error, then done (done guarantees frontend clears loading)
     assert.equal(msgs[0].type, 'session_init');
     const errMsg = msgs.find((m) => m.type === 'error');
     assert.ok(errMsg, 'should yield error for async ENOENT');
     assert.ok(errMsg.error.includes('ENOENT'));
-    assert.ok(!msgs.some((m) => m.type === 'done'), 'should not yield done after error');
+    assert.ok(msgs.some((m) => m.type === 'done'), 'should yield done after error so frontend stops loading');
   });
 
   test('handles synchronous spawn failure gracefully', async () => {
@@ -482,11 +484,12 @@ describe('GeminiAgentService (antigravity adapter)', () => {
 
     const msgs = await collect(service.invoke('test', { callbackEnv }));
 
-    // Should have session_init then error (no text or done after error)
+    // Should have session_init, then error, then done (done guarantees frontend clears loading)
     assert.equal(msgs[0].type, 'session_init');
     const errMsg = msgs.find((m) => m.type === 'error');
     assert.ok(errMsg);
     assert.ok(errMsg.error.includes('ENOENT'));
+    assert.ok(msgs.some((m) => m.type === 'done'), 'should yield done after error so frontend stops loading');
   });
 
   test('all messages have catId gemini', async () => {

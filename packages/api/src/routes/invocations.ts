@@ -221,6 +221,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
           type: 'error',
           catId: createCatId('opus'),
           error: errorMsg,
+          isFinal: true,
           timestamp: Date.now(),
         }, record.threadId);
       } finally {

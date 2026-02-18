@@ -255,6 +255,33 @@ export async function* routeParallel(
             });
           }
         }
+      } else {
+        // hadError but toolEvents exist — persist tool record so refresh shows what was attempted
+        const catTools = catToolEvents.get(msg.catId);
+        if (catTools && catTools.length > 0) {
+          const meta = catMeta.get(msg.catId);
+          try {
+            await deps.messageStore.append({
+              userId,
+              catId: msg.catId as CatId,
+              content: '',
+              mentions: [],
+              timestamp: Date.now(),
+              threadId,
+              ...(meta ? { metadata: meta } : {}),
+              toolEvents: catTools,
+            });
+          } catch (err) {
+            console.error(`[routeParallel] messageStore.append (error+tools) failed for ${msg.catId}, degrading:`, err);
+            if (options.persistenceContext) {
+              options.persistenceContext.failed = true;
+              options.persistenceContext.errors.push({
+                catId: msg.catId,
+                error: err instanceof Error ? err.message : String(err),
+              });
+            }
+          }
+        }
       }
 
       if (incrementalMode && !catHadError.has(msg.catId)) {

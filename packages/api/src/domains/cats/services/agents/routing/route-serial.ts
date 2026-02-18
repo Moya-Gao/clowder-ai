@@ -331,8 +331,32 @@ export async function* routeSerial(
           });
         }
       }
+    } else if (collectedToolEvents.length > 0) {
+      // hadError && textContent === '' but toolEvents exist — persist tool record so
+      // refreshing the page still shows what the cat attempted before the error.
+      try {
+        await deps.messageStore.append({
+          userId,
+          catId,
+          content: '',
+          mentions: [],
+          timestamp: Date.now(),
+          threadId,
+          ...(firstMetadata ? { metadata: firstMetadata } : {}),
+          toolEvents: collectedToolEvents,
+        });
+      } catch (err) {
+        console.error(`[routeSerial] messageStore.append (error+tools) failed for ${catId as string}, degrading:`, err);
+        if (options.persistenceContext) {
+          options.persistenceContext.failed = true;
+          options.persistenceContext.errors.push({
+            catId: catId as string,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     }
-    // hadError && textContent === '' → skip persistence entirely (P1 bug fix)
+    // hadError && textContent === '' && no toolEvents → skip persistence
     // Error events were already yielded to frontend via the stream.
 
     if (incrementalMode && !hadError && deliveryBoundaryId) {

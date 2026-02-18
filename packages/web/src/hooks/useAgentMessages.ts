@@ -371,9 +371,16 @@ export function useAgentMessages() {
         });
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps
         if (msg.isFinal) {
+          clearDoneTimeout(); // prevent 5-min timer from firing timeout text after error
           setLoading(false);
           setHasActiveInvocation(false);
           setIntentMode(null);
+          // Clear ALL remaining streaming refs — global catch uses catId='opus' which may
+          // not match the cat that was actually running (e.g. codex/gemini)
+          for (const ref of activeRefs.current.values()) {
+            setStreaming(ref.id, false);
+          }
+          activeRefs.current.clear();
         }
       }
     },

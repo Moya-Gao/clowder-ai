@@ -220,6 +220,8 @@ export class ClaudeAgentService implements AgentService {
         metadata,
         timestamp: Date.now(),
       };
+      // Guarantee done after error so invoke-single-cat can set isFinal correctly
+      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
     }
   }
 }

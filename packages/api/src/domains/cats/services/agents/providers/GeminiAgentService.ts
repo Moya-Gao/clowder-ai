@@ -208,6 +208,8 @@ export class GeminiAgentService implements AgentService {
         metadata,
         timestamp: Date.now(),
       };
+      // Guarantee done after error so invoke-single-cat can set isFinal correctly
+      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
     }
   }
 
@@ -225,6 +227,7 @@ export class GeminiAgentService implements AgentService {
         metadata: agMetadata,
         timestamp: Date.now(),
       };
+      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
@@ -275,6 +278,7 @@ export class GeminiAgentService implements AgentService {
         metadata: agMetadata,
         timestamp: Date.now(),
       };
+      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
@@ -289,6 +293,7 @@ export class GeminiAgentService implements AgentService {
         metadata: agMetadata,
         timestamp: Date.now(),
       };
+      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
