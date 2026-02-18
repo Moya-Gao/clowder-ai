@@ -176,6 +176,8 @@ interface ChatState {
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
+  setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
+  setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
@@ -412,6 +414,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
         ...m,
         toolEvents: [...(m.toolEvents ?? []), event],
       })),
+    ),
+
+  /** Set/merge cat invocation info for a specific thread (active or background). */
+  setThreadCatInvocation: (threadId, catId, info) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return {
+          catInvocations: {
+            ...state.catInvocations,
+            [catId]: { ...state.catInvocations[catId], ...info },
+          },
+        };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            catInvocations: {
+              ...existing.catInvocations,
+              [catId]: { ...existing.catInvocations[catId], ...info },
+            },
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Set usage on a specific message in a specific thread (active or background). */
+  setThreadMessageUsage: (threadId, messageId, usage) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) =>
+        m.metadata ? { ...m, metadata: { ...m.metadata, usage } } : m,
+      ),
     ),
 
   /** Update isStreaming for a specific message in a specific thread. */

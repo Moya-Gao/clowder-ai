@@ -38,6 +38,8 @@ vi.mock('socket.io-client', () => ({
 const mockAddMessageToThread = vi.fn();
 const mockAppendToThreadMessage = vi.fn();
 const mockAppendToolEventToThread = vi.fn();
+const mockSetThreadCatInvocation = vi.fn();
+const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
@@ -50,6 +52,8 @@ vi.mock('@/stores/chatStore', () => {
       addMessageToThread: mockAddMessageToThread,
       appendToThreadMessage: mockAppendToThreadMessage,
       appendToolEventToThread: mockAppendToolEventToThread,
+      setThreadCatInvocation: mockSetThreadCatInvocation,
+      setThreadMessageUsage: mockSetThreadMessageUsage,
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
@@ -137,6 +141,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockAddMessageToThread.mockClear();
     mockAppendToThreadMessage.mockClear();
     mockAppendToolEventToThread.mockClear();
+    mockSetThreadCatInvocation.mockClear();
+    mockSetThreadMessageUsage.mockClear();
     mockSetThreadMessageStreaming.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();

@@ -60,6 +60,16 @@ export interface BackgroundStoreLike {
       timestamp: number;
     },
   ) => void;
+  setThreadCatInvocation: (
+    threadId: string,
+    catId: string,
+    info: Partial<import('@/stores/chat-types').CatInvocationInfo>,
+  ) => void;
+  setThreadMessageUsage: (
+    threadId: string,
+    messageId: string,
+    usage: import('@/stores/chat-types').TokenUsage,
+  ) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
@@ -143,6 +153,19 @@ function addBackgroundSystemMessage(
     content,
     timestamp: msg.timestamp,
   });
+}
+
+function findLastAssistantMessageId(
+  threadId: string,
+  catId: string,
+  options: HandleBackgroundMessageOptions,
+): string | undefined {
+  const messages = options.store.getThreadState(threadId).messages;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg?.type === 'assistant' && msg.catId === catId) return msg.id;
+  }
+  return undefined;
 }
 
 export function handleBackgroundAgentMessage(
@@ -324,6 +347,83 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'system_info' || msg.type === 'a2a_handoff') {
     if (!msg.content) return;
-    addBackgroundSystemMessage(msg, options, msg.content);
+    if (msg.type === 'a2a_handoff') {
+      addBackgroundSystemMessage(msg, options, msg.content);
+      return;
+    }
+
+    // Keep behavior aligned with active-thread system_info parsing:
+    // invocation metrics/usage/context health are consumed into state silently.
+    let sysContent = msg.content;
+    let consumed = false;
+    try {
+      const parsed = JSON.parse(msg.content);
+      if (parsed?.type === 'invocation_metrics') {
+        if (parsed.kind === 'session_started') {
+          options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
+            sessionId: parsed.sessionId,
+            invocationId: parsed.invocationId,
+            startedAt: Date.now(),
+            taskProgress: { tasks: [], lastUpdate: 0 },
+            ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
+          });
+        } else if (parsed.kind === 'invocation_complete') {
+          options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
+            durationMs: parsed.durationMs,
+            sessionId: parsed.sessionId,
+          });
+        }
+        consumed = true;
+      } else if (parsed?.type === 'invocation_usage') {
+        options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
+          usage: parsed.usage,
+        });
+        const candidateMessageId =
+          existing?.id ?? findLastAssistantMessageId(msg.threadId, msg.catId, options);
+        if (candidateMessageId) {
+          options.store.setThreadMessageUsage(msg.threadId, candidateMessageId, parsed.usage);
+        }
+        consumed = true;
+      } else if (parsed?.type === 'context_health') {
+        if (parsed.catId) {
+          options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
+            contextHealth: parsed.health,
+          });
+          consumed = true;
+        }
+      } else if (parsed?.type === 'task_progress') {
+        const targetCatId = parsed.catId ?? msg.catId;
+        const tasks = (parsed.tasks ?? []) as import('@/stores/chat-types').TaskProgressItem[];
+        options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+          taskProgress: {
+            tasks,
+            lastUpdate: Date.now(),
+          },
+        });
+        consumed = true;
+      } else if (parsed?.type === 'session_seal_requested') {
+        if (parsed.catId) {
+          options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
+            sessionSeq: parsed.sessionSeq,
+            sessionSealed: true,
+          });
+          const pct = parsed.healthSnapshot?.fillRatio ? Math.round(parsed.healthSnapshot.fillRatio * 100) : '?';
+          sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
+        }
+      } else if (parsed?.type === 'a2a_followup_available') {
+        const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
+        if (Array.isArray(mentions) && mentions.length > 0) {
+          sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
+        }
+      } else if (parsed?.type === 'mode_switch_proposal') {
+        const by = parsed.proposedBy ?? '猫猫';
+        sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
+      }
+    } catch {
+      // Not JSON; keep original content as user-facing system info.
+    }
+    if (!consumed) {
+      addBackgroundSystemMessage(msg, options, sysContent);
+    }
   }
 }

@@ -524,5 +524,91 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.content).toContain('system hint');
       expect(ts.messages[1]?.content).toContain('handoff info');
     });
+
+    it('consumes invocation_usage system_info into thread invocation + message metadata (no raw JSON message)', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'thinking',
+        metadata: { provider: 'anthropic', model: 'claude-opus-4-6' },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_usage',
+          catId: 'opus',
+          usage: { inputTokens: 160123, outputTokens: 1589, cacheReadTokens: 114738, costUsd: 0.57 },
+        }),
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.type).toBe('assistant');
+      expect(ts.messages[0]?.metadata?.usage).toMatchObject({
+        inputTokens: 160123,
+        outputTokens: 1589,
+        cacheReadTokens: 114738,
+        costUsd: 0.57,
+      });
+      expect(ts.catInvocations['opus']?.usage).toMatchObject({
+        inputTokens: 160123,
+        outputTokens: 1589,
+        cacheReadTokens: 114738,
+        costUsd: 0.57,
+      });
+    });
+
+    it('consumes invocation_metrics/context_health system_info silently', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_metrics',
+          kind: 'session_started',
+          sessionId: 'sess-1',
+          invocationId: 'inv-1',
+          sessionSeq: 3,
+        }),
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'context_health',
+          catId: 'opus',
+          health: {
+            usedTokens: 59342,
+            windowTokens: 200000,
+            fillRatio: 0.29671,
+            source: 'exact',
+            measuredAt: now,
+          },
+        }),
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(0);
+      expect(ts.catInvocations['opus']?.sessionId).toBe('sess-1');
+      expect(ts.catInvocations['opus']?.invocationId).toBe('inv-1');
+      expect(ts.catInvocations['opus']?.sessionSeq).toBe(3);
+      expect(ts.catInvocations['opus']?.contextHealth).toMatchObject({
+        usedTokens: 59342,
+        windowTokens: 200000,
+      });
+    });
   });
 });
