@@ -163,6 +163,7 @@ async function main(): Promise<void> {
     messageStore,
     socketManager,
     taskStore,
+    threadStore,
     hindsightClient,
     sharedBank: sharedHindsightBank,
     router,

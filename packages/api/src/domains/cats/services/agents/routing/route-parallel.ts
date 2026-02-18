@@ -47,6 +47,7 @@ export async function* routeParallel(
     modeSystemPrompt,
     modeSystemPromptByCat,
   } = options;
+  const thinkingMode = options.thinkingMode ?? 'play';
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
@@ -99,6 +100,7 @@ export async function* routeParallel(
         threadId,
         catId,
         currentUserMessageId,
+        thinkingMode,
       );
       boundaryByCat.set(catId, inc.boundaryId);
       const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
@@ -214,6 +216,7 @@ export async function* routeParallel(
             catId: msg.catId as CatId,
             content: storedContent,
             mentions,
+            origin: 'stream',
             timestamp: Date.now(),
             threadId,
             ...(meta ? { metadata: meta } : {}),
@@ -240,6 +243,7 @@ export async function* routeParallel(
             catId: msg.catId as CatId,
             content: '',
             mentions: [],
+            origin: 'stream',
             timestamp: Date.now(),
             threadId,
             ...(meta ? { metadata: meta } : {}),
@@ -266,6 +270,7 @@ export async function* routeParallel(
               catId: msg.catId as CatId,
               content: '',
               mentions: [],
+              origin: 'stream',
               timestamp: Date.now(),
               threadId,
               ...(meta ? { metadata: meta } : {}),

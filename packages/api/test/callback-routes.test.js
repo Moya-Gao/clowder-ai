@@ -29,6 +29,7 @@ describe('Callback Routes', () => {
   let hindsightClient;
   let freshnessProvider;
   let reimportTriggerProvider;
+  let threadStore;
 
   beforeEach(async () => {
     const { InvocationRegistry } = await import(
@@ -37,9 +38,13 @@ describe('Callback Routes', () => {
     const { MessageStore } = await import(
       '../dist/domains/cats/services/stores/ports/MessageStore.js'
     );
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
 
     registry = new InvocationRegistry();
     messageStore = new MessageStore();
+    threadStore = new ThreadStore();
     socketManager = createMockSocketManager();
     hindsightClient = {
       recall: async () => [],
@@ -57,6 +62,7 @@ describe('Callback Routes', () => {
       registry,
       messageStore,
       socketManager,
+      threadStore,
       sharedBank: 'cat-cafe-shared',
     };
     if (hindsightClient !== undefined) {
@@ -905,5 +911,175 @@ describe('Callback Routes', () => {
     const recent = messageStore.getRecent(10);
     assert.equal(recent.length, 1);
     assert.equal(recent[0].content, 'Fresh message from latest invocation');
+  });
+
+  // ---- Play mode pagination backfill (砚砚 R5 regression) ----
+
+  test('GET thread-context play mode returns full limit even when stream messages dominate', async () => {
+    // Regression (砚砚 R5+R6): play mode filters other cats' origin:'stream'.
+    // Real failure timing: visible messages are OLDER, hidden stream is NEWER.
+    // Pagination must wade through all hidden stream to reach visible messages.
+    const thread = threadStore.create('user-1', 'Play backfill test');
+    const actualThreadId = thread.id;
+    threadStore.updateThinkingMode(actualThreadId, 'play');
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', actualThreadId);
+
+    // 10 visible messages first (OLDER timestamps: 1000-1018)
+    for (let i = 0; i < 5; i++) {
+      messageStore.append({
+        userId: 'user-1',
+        catId: null,
+        content: `user msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i * 2,
+        threadId: actualThreadId,
+      });
+      messageStore.append({
+        userId: 'user-1',
+        catId: 'codex',
+        content: `codex callback ${i}`,
+        mentions: [],
+        origin: 'callback',
+        timestamp: 1001 + i * 2,
+        threadId: actualThreadId,
+      });
+    }
+
+    // 500 hidden stream messages from codex (NEWER timestamps: 2000-2499)
+    // These bury the visible messages — pagination must go through all 500.
+    for (let i = 0; i < 500; i++) {
+      messageStore.append({
+        userId: 'user-1',
+        catId: 'codex',
+        content: `codex stream ${i}`,
+        mentions: [],
+        origin: 'stream',
+        timestamp: 2000 + i,
+        threadId: actualThreadId,
+      });
+    }
+
+    // Request limit=10 — all 10 visible messages are buried under 500 hidden
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=10`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 10, 'play mode must return full requestedLimit visible messages');
+
+    // All returned messages should be visible (no codex stream)
+    for (const msg of body.messages) {
+      assert.ok(
+        !msg.content.startsWith('codex stream'),
+        `should not contain codex stream messages, got: ${msg.content}`
+      );
+    }
+
+    // Verify ordering: oldest visible first
+    assert.equal(body.messages[0].content, 'user msg 0');
+    assert.equal(body.messages[9].content, 'codex callback 4');
+  });
+
+  // ---- Legacy thread backward compatibility (cloud P1 regression) ----
+
+  test('GET thread-context play mode shows legacy untagged cat messages', async () => {
+    // Regression: origin field was added later. Legacy threads have no origin
+    // on cat messages. Play mode must NOT hide these — they are historical
+    // callback speech, not stream thinking.
+    const thread = threadStore.create('user-1', 'Legacy compat test');
+    const tid = thread.id;
+    threadStore.updateThinkingMode(tid, 'play');
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', tid);
+
+    // 3 legacy messages from codex (no origin — pre-feature data)
+    for (let i = 0; i < 3; i++) {
+      messageStore.append({
+        userId: 'user-1',
+        catId: 'codex',
+        content: `legacy codex msg ${i}`,
+        mentions: [],
+        timestamp: 1000 + i,
+        threadId: tid,
+      });
+    }
+    // 2 user messages
+    for (let i = 0; i < 2; i++) {
+      messageStore.append({
+        userId: 'user-1',
+        catId: null,
+        content: `user msg ${i}`,
+        mentions: [],
+        timestamp: 2000 + i,
+        threadId: tid,
+      });
+    }
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=10`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    // All 5 messages should be visible (3 legacy codex + 2 user)
+    assert.equal(body.messages.length, 5, 'legacy untagged cat messages must be visible in play mode');
+    assert.equal(body.messages[0].content, 'legacy codex msg 0');
+    assert.equal(body.messages[4].content, 'user msg 1');
+  });
+
+  test('GET thread-context play mode hides tagged stream but shows legacy in same thread', async () => {
+    // Mixed thread: some legacy untagged + some new tagged stream.
+    // Legacy visible, tagged stream hidden.
+    const thread = threadStore.create('user-1', 'Mixed legacy test');
+    const tid = thread.id;
+    threadStore.updateThinkingMode(tid, 'play');
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', tid);
+
+    // 2 legacy untagged from codex (visible)
+    messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'legacy reply',
+      mentions: [], timestamp: 1000, threadId: tid,
+    });
+    messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'legacy reply 2',
+      mentions: [], timestamp: 1001, threadId: tid,
+    });
+    // 1 tagged stream from codex (hidden)
+    messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'thinking output',
+      mentions: [], origin: 'stream', timestamp: 2000, threadId: tid,
+    });
+    // 1 tagged callback from codex (visible)
+    messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'callback speech',
+      mentions: [], origin: 'callback', timestamp: 3000, threadId: tid,
+    });
+    // 1 user message (visible)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'user question',
+      mentions: [], timestamp: 4000, threadId: tid,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=10`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    // 4 visible: 2 legacy + 1 callback + 1 user. Stream hidden.
+    assert.equal(body.messages.length, 4, 'tagged stream hidden, legacy + callback + user visible');
+    const contents = body.messages.map(m => m.content);
+    assert.ok(!contents.includes('thinking output'), 'stream must be hidden');
+    assert.ok(contents.includes('legacy reply'), 'legacy must be visible');
+    assert.ok(contents.includes('callback speech'), 'callback must be visible');
   });
 });

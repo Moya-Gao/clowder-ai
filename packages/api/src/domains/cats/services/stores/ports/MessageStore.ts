@@ -44,6 +44,8 @@ export interface StoredMessage {
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  origin?: 'stream' | 'callback';
   /** ADR-008 D3: Soft delete timestamp (present = deleted) */
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */

@@ -62,6 +62,7 @@ export class RedisMessageStore {
       metadata: msg.metadata ? JSON.stringify(msg.metadata) : '',
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
+      ...(msg.origin ? { origin: msg.origin } : {}),
     });
     if (this.ttlSeconds !== null) {
       pipeline.expire(hashKey, this.ttlSeconds);
@@ -468,6 +469,7 @@ export class RedisMessageStore {
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
         ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),
         ...(d['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
+        ...(d['origin'] === 'stream' || d['origin'] === 'callback' ? { origin: d['origin'] as 'stream' | 'callback' } : {}),
       });
     }
     return messages;

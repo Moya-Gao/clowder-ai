@@ -6,6 +6,7 @@ export interface BackgroundAgentMessage {
   catId: string;
   threadId: string;
   content?: string;
+  origin?: 'stream' | 'callback';
   toolName?: string;
   toolInput?: Record<string, unknown>;
   error?: string;
@@ -44,6 +45,7 @@ export interface BackgroundStoreLike {
       };
       timestamp: number;
       isStreaming?: boolean;
+      origin?: 'stream' | 'callback';
     },
   ) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
@@ -140,33 +142,57 @@ export function handleBackgroundAgentMessage(
   const existing = options.bgStreamRefs.get(streamKey);
 
   if (msg.type === 'text' && msg.content) {
-    let messageId = existing?.id;
-    if (messageId) {
-      options.store.appendToThreadMessage(msg.threadId, messageId, msg.content);
-    } else {
-      messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-      options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+    // Track the final message ID for toast preview (must capture before deleting bgStreamRefs)
+    let finalMsgId: string | undefined;
+
+    if (msg.origin === 'callback') {
+      // MCP callback message: always a separate bubble (never merge into stream)
+      const cbId = `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
       options.store.addMessageToThread(msg.threadId, {
-        id: messageId,
+        id: cbId,
         type: 'assistant',
         catId: msg.catId,
         content: msg.content,
         ...(msg.metadata ? { metadata: msg.metadata } : {}),
         timestamp: msg.timestamp,
-        isStreaming: !msg.isFinal,
+        origin: 'callback',
       });
-    }
-
-    if (msg.isFinal) {
-      options.store.setThreadMessageStreaming(msg.threadId, messageId, false);
-      options.bgStreamRefs.delete(streamKey);
+      finalMsgId = cbId;
     } else {
-      options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
+      // CLI stream text (thinking): merge into existing stream bubble
+      let messageId = existing?.id;
+      if (messageId) {
+        options.store.appendToThreadMessage(msg.threadId, messageId, msg.content);
+      } else {
+        messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+        options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+        options.store.addMessageToThread(msg.threadId, {
+          id: messageId,
+          type: 'assistant',
+          catId: msg.catId,
+          content: msg.content,
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          timestamp: msg.timestamp,
+          isStreaming: !msg.isFinal,
+          origin: 'stream',
+        });
+      }
+
+      finalMsgId = messageId;
+
+      if (msg.isFinal) {
+        options.store.setThreadMessageStreaming(msg.threadId, messageId, false);
+        options.bgStreamRefs.delete(streamKey);
+      } else {
+        options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
+      }
     }
 
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
     if (msg.isFinal) {
-      const finalMessage = options.store.getThreadState(msg.threadId).messages.find((m) => m.id === messageId);
+      const finalMessage = finalMsgId
+        ? options.store.getThreadState(msg.threadId).messages.find((m) => m.id === finalMsgId)
+        : undefined;
       const preview = finalMessage?.content ?? msg.content;
       options.store.clearThreadActiveInvocation(msg.threadId);
       options.addToast({

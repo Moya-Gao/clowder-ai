@@ -189,6 +189,11 @@ export class RedisThreadStore implements IThreadStore {
     );
   }
 
+  async updateThinkingMode(threadId: string, mode: 'debug' | 'play'): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'thinkingMode', mode);
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -259,6 +264,7 @@ export class RedisThreadStore implements IThreadStore {
       pinnedAt: String(thread.pinnedAt ?? 0),
       favorited: String(thread.favorited ?? false),
       favoritedAt: String(thread.favoritedAt ?? 0),
+      thinkingMode: thread.thinkingMode ?? 'play',
     };
   }
 
@@ -277,6 +283,7 @@ export class RedisThreadStore implements IThreadStore {
       pinnedAt: pinnedAt || null,
       favorited: data['favorited'] === 'true',
       favoritedAt: favoritedAt || null,
+      thinkingMode: (data['thinkingMode'] === 'debug' ? 'debug' : 'play') as 'debug' | 'play',
     };
   }
 }

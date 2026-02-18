@@ -23,6 +23,8 @@ interface AgentMessage {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: import('../stores/chat-types').TokenUsage };
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  origin?: 'stream' | 'callback';
   timestamp: number;
 }
 

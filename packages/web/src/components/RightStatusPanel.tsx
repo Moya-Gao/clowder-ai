@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CatInvocationInfo } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
@@ -104,6 +104,50 @@ function CatInvocationCard({
       {(inv.sessionId || inv.invocationId) && (
         <CollapsibleIds sessionId={inv.sessionId} invocationId={inv.invocationId} onCopy={onCopy} />
       )}
+    </div>
+  );
+}
+
+/** Toggle between play/debug thinking visibility mode for the thread */
+function ThinkingModeToggle({ threadId }: { threadId: string }) {
+  const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
+  const updateLocal = useChatStore((s) => s.updateThreadThinkingMode);
+  const mode = thread?.thinkingMode ?? 'play';
+  const isDebug = mode === 'debug';
+  const pendingRef = useRef(false);
+
+  const toggle = useCallback(async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    const next = isDebug ? 'play' : 'debug';
+    updateLocal(threadId, next);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thinkingMode: next }),
+      });
+      if (!res.ok) {
+        updateLocal(threadId, mode);
+      }
+    } catch {
+      // Revert on network failure
+      updateLocal(threadId, mode);
+    } finally {
+      pendingRef.current = false;
+    }
+  }, [threadId, isDebug, mode, updateLocal]);
+
+  return (
+    <div className="flex items-center justify-between">
+      <span>心里话: <span className="font-medium">{isDebug ? '🔍 调试' : '🎭 游戏'}</span></span>
+      <button
+        onClick={toggle}
+        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        title={isDebug ? '切换到游戏模式（猫猫互相看不到心里话）' : '切换到调试模式（猫猫互相分享心里话）'}
+      >
+        {isDebug ? '切换游戏' : '切换调试'}
+      </button>
     </div>
   );
 }
@@ -255,7 +299,7 @@ export function RightStatusPanel({
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
         <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
-        <div className="text-xs text-gray-500">
+        <div className="text-xs text-gray-500 space-y-2">
           <div>
             Thread: <button
               className="text-gray-600 font-mono hover:text-gray-800 cursor-pointer transition-colors"
@@ -263,6 +307,7 @@ export function RightStatusPanel({
               onClick={() => copyText(threadId)}
             >{truncateId(threadId, 12)}</button>
           </div>
+          <ThinkingModeToggle threadId={threadId} />
         </div>
       </section>
 

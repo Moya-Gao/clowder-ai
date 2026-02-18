@@ -27,6 +27,8 @@ export interface Thread {
   pinnedAt?: number | null;
   favorited?: boolean;
   favoritedAt?: number | null;
+  /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking. Default: play */
+  thinkingMode?: 'debug' | 'play';
 }
 
 /**
@@ -42,6 +44,7 @@ export interface IThreadStore {
   updateTitle(threadId: string, title: string): void | Promise<void>;
   updatePin(threadId: string, pinned: boolean): void | Promise<void>;
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
+  updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -145,6 +148,11 @@ export class ThreadStore implements IThreadStore {
       thread.favorited = favorited;
       thread.favoritedAt = favorited ? Date.now() : null;
     }
+  }
+
+  updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void {
+    const thread = this.get(threadId);
+    if (thread) thread.thinkingMode = mode;
   }
 
   updateLastActive(threadId: string): void {

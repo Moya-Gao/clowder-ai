@@ -486,4 +486,60 @@ describe('POST /api/threads/:id/branch (ADR-008 D4 / S7)', () => {
 
     await app.close();
   });
+
+  it('preserves origin field when copying messages to branch (play-mode isolation)', async () => {
+    // Regression (砚砚 R10): branch copy dropped origin, making stream messages
+    // appear as legacy untagged in the new thread — bypassing play-mode isolation.
+    const messageStore = new MessageStore();
+    const threadStore = createMockThreadStore();
+
+    threadStore._seedThread('thread-origin-test', {
+      title: 'Origin test',
+      createdBy: 'user-1',
+      participants: ['opus', 'codex'],
+    });
+
+    // User message (no origin)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'Hello',
+      mentions: ['opus'], timestamp: 1000, threadId: 'thread-origin-test',
+    });
+    // Opus stream message (origin: 'stream' — should be hidden in play mode)
+    messageStore.append({
+      userId: 'user-1', catId: 'opus', content: 'thinking...',
+      mentions: [], origin: 'stream', timestamp: 1001, threadId: 'thread-origin-test',
+    });
+    // Codex callback message (origin: 'callback' — should be visible)
+    const m3 = messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'result',
+      mentions: [], origin: 'callback', timestamp: 1002, threadId: 'thread-origin-test',
+    });
+
+    const { app } = await setupApp(messageStore, threadStore);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-origin-test/branch',
+      payload: { fromMessageId: m3.id, userId: 'user-1' },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const newThreadId = res.json().threadId;
+
+    // Check copied messages in the new thread
+    const copied = messageStore.getByThread(newThreadId);
+    assert.equal(copied.length, 3, 'all 3 messages should be copied');
+
+    // Verify origin is preserved
+    const copiedStream = copied.find(m => m.content === 'thinking...');
+    assert.equal(copiedStream.origin, 'stream', 'stream origin must be preserved in branch');
+
+    const copiedCallback = copied.find(m => m.content === 'result');
+    assert.equal(copiedCallback.origin, 'callback', 'callback origin must be preserved in branch');
+
+    const copiedUser = copied.find(m => m.content === 'Hello');
+    assert.equal(copiedUser.origin, undefined, 'user message has no origin');
+
+    await app.close();
+  });
 });

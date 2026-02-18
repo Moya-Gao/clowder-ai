@@ -174,6 +174,7 @@ export const threadBranchRoutes: FastifyPluginAsync<ThreadBranchRoutesOptions> =
           ...(src.contentBlocks && !(isLast && editedContent !== undefined)
             ? { contentBlocks: src.contentBlocks } : {}),
           ...(src.metadata ? { metadata: src.metadata } : {}),
+          ...(src.origin ? { origin: src.origin } : {}),
           mentions: [...src.mentions],
           timestamp: src.timestamp,
           threadId: newThread.id,

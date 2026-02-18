@@ -9,6 +9,7 @@ import { createCatId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
@@ -28,6 +29,8 @@ export interface CallbackRoutesOptions {
   messageStore: IMessageStore;
   socketManager: SocketManager;
   taskStore?: ITaskStore;
+  /** For thinking mode filtering in thread-context */
+  threadStore?: IThreadStore;
   hindsightClient?: IHindsightClient;
   sharedBank?: string;
   freshnessProvider?: () => Promise<P0Freshness>;
@@ -60,7 +63,7 @@ const ackMentionsSchema = callbackAuthSchema.extend({
 
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
-    const { registry, messageStore, socketManager, taskStore, router,
+    const { registry, messageStore, socketManager, taskStore, threadStore, router,
       invocationRecordStore, invocationTracker, deliveryCursorStore } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
@@ -106,6 +109,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         catId: record.catId,
         content,
         mentions,
+        origin: 'callback',
         timestamp: Date.now(),
         threadId: record.threadId,
       });
@@ -114,6 +118,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         type: 'text',
         catId: record.catId,
         content,
+        origin: 'callback',
         timestamp: Date.now(),
       }, record.threadId);
 
@@ -248,12 +253,60 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid or expired callback credentials' };
       }
 
-      const messages = record.threadId
-        ? await messageStore.getByThread(record.threadId, limit ?? 20, record.userId)
-        : await messageStore.getRecent(limit ?? 20, record.userId);
+      const requestedLimit = limit ?? 20;
+      let needsPlayFilter = false;
+      if (record.threadId && threadStore) {
+        const thread = await threadStore.get(record.threadId);
+        needsPlayFilter = !!thread && (thread.thinkingMode ?? 'play') === 'play';
+      }
+
+      let filtered: Awaited<ReturnType<typeof messageStore.getByThread>>;
+
+      if (!needsPlayFilter) {
+        // Normal mode: just fetch with limit
+        filtered = record.threadId
+          ? await messageStore.getByThread(record.threadId, requestedLimit, record.userId)
+          : await messageStore.getRecent(requestedLimit, record.userId);
+      } else {
+        // Play mode: paginate backwards collecting visible messages until we have enough
+        // or data is exhausted. No fixed page cap — correctness over latency.
+        const visible: Awaited<ReturnType<typeof messageStore.getByThread>> = [];
+        const pageSize = Math.max(requestedLimit * 2, 50); // fetch in chunks, min 50
+        let cursorTimestamp = Number.MAX_SAFE_INTEGER;
+        let cursorId: string | undefined;
+
+        while (visible.length < requestedLimit) {
+          const batch = record.threadId
+            ? await messageStore.getByThreadBefore(record.threadId, cursorTimestamp, pageSize, cursorId, record.userId)
+            : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
+
+          if (batch.length === 0) break; // no more messages
+
+          for (const item of batch) {
+            // Visible in play mode: user messages, own cat's messages,
+            // or other cats' messages that are NOT explicitly stream.
+            // Legacy messages (no origin) are treated as visible for backward
+            // compatibility — all new writes are tagged, so untagged = legacy callback.
+            const isOtherCat = item.catId && item.catId !== record.catId;
+            if (!isOtherCat || item.origin !== 'stream') {
+              visible.push(item);
+            }
+          }
+
+          // Move cursor to oldest message in batch (batch is ascending, first is oldest)
+          const oldest = batch[0]!;
+          cursorTimestamp = oldest.timestamp;
+          cursorId = oldest.id;
+        }
+
+        // visible is accumulated in reverse-chronological page order but each page is ascending.
+        // Re-sort ascending and take newest requestedLimit.
+        visible.sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
+        filtered = visible.slice(-requestedLimit);
+      }
 
       return {
-        messages: messages.map((item) => ({
+        messages: filtered.map((item) => ({
           id: item.id,
           userId: item.userId,
           catId: item.catId,

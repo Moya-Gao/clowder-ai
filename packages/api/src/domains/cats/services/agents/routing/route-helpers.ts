@@ -53,6 +53,8 @@ export interface RouteOptions {
   modeSystemPrompt?: string | undefined;
   /** F11: Per-cat mode prompt override (takes precedence over modeSystemPrompt) */
   modeSystemPromptByCat?: Record<string, string> | undefined;
+  /** Thinking visibility: play = cats don't see each other's thinking, debug = cats share thinking. Default: play */
+  thinkingMode?: 'debug' | 'play' | undefined;
 }
 
 export interface IncrementalContextResult {
@@ -188,6 +190,7 @@ export async function assembleIncrementalContext(
   threadId: string,
   catId: CatId,
   currentUserMessageId?: string,
+  thinkingMode?: 'debug' | 'play',
 ): Promise<IncrementalContextResult> {
   if (!deps.deliveryCursorStore) {
     return { contextText: '', includesCurrentUserMessage: false };
@@ -196,7 +199,15 @@ export async function assembleIncrementalContext(
   const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
   const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
 
-  const relevant = unseen.filter((m) => m.catId === null || m.catId !== catId);
+  const relevant = unseen.filter((m) => {
+    // Exclude own messages (only include user messages and other cats' messages)
+    if (m.catId !== null && m.catId === catId) return false;
+    // In play mode, hide other cats' stream (thinking) messages.
+    // Legacy messages (no origin) are visible for backward compatibility —
+    // all new writes are tagged, so untagged = legacy callback data.
+    if ((thinkingMode ?? 'play') === 'play' && m.catId !== null && m.origin === 'stream') return false;
+    return true;
+  });
   const includesCurrentUserMessage = Boolean(
     currentUserMessageId && relevant.some((m) => m.id === currentUserMessageId),
   );

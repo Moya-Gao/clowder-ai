@@ -83,6 +83,8 @@ export interface ChatMessage {
   evidence?: EvidenceData;
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  origin?: 'stream' | 'callback';
 }
 
 export interface Thread {
@@ -97,6 +99,8 @@ export interface Thread {
   pinnedAt?: number | null;
   favorited?: boolean;
   favoritedAt?: number | null;
+  /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking */
+  thinkingMode?: 'debug' | 'play';
 }
 
 /** F24: Context health data from backend */

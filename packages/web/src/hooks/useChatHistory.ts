@@ -66,7 +66,7 @@ export function useChatHistory(threadId: string) {
         if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string } }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string } }) => ({
             id: m.id,
             type: m.type as 'user' | 'assistant' | 'system' | 'summary',
             catId: m.catId,
@@ -74,6 +74,7 @@ export function useChatHistory(threadId: string) {
             ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
             ...(m.toolEvents ? { toolEvents: m.toolEvents as import('../stores/chat-types').ToolEvent[] } : {}),
             ...(m.metadata ? { metadata: m.metadata } : {}),
+            ...(m.origin ? { origin: m.origin } : {}),
             ...(m.summary ? { summary: m.summary } : {}),
             timestamp: m.timestamp,
           } as ChatMessageData)

@@ -147,6 +147,33 @@ function renderToolEvents(events: ToolEvent[]) {
   return <ToolEventsPanel events={events} />;
 }
 
+/** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
+function ThinkingContent({ content, className }: { content: string; className?: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const previewLength = 60;
+  const preview = content.length > previewLength
+    ? `${content.slice(0, previewLength)}…`
+    : content;
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors mb-1"
+      >
+        <span className="text-[10px]" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▶</span>
+        <span>💭 心里话</span>
+        {!expanded && <span className="text-gray-400 truncate max-w-[200px]">{preview}</span>}
+      </button>
+      {expanded && (
+        <div className="border-l-2 border-gray-300 pl-3 opacity-80">
+          <MarkdownContent content={content} className={className} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ChatMessage({ message }: { message: ChatMessageType }) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
@@ -254,7 +281,9 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
           }`}
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
-          {hasBlocks ? (
+          {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
+            <ThinkingContent content={message.content} className={cat?.font} />
+          ) : hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : hasTextContent ? (
             <MarkdownContent content={message.content} className={cat?.font} />

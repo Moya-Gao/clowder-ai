@@ -238,7 +238,13 @@ export class AgentRouter {
     const intent = parseIntent(message, targetCats.length);
     const cleanMessage = stripIntentTags(message);
 
+    // Fetch thread for thinkingMode + update lastActive
+    let legacyThinkingMode: 'debug' | 'play' = 'play';
     if (this.threadStore) {
+      const thread = await this.threadStore.get(resolvedThreadId);
+      if (thread) {
+        legacyThinkingMode = thread.thinkingMode ?? 'play';
+      }
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
 
@@ -257,6 +263,7 @@ export class AgentRouter {
       contentBlocks, uploadDir, signal,
       promptTags: intent.promptTags,
       currentUserMessageId: storedUserMessage.id,
+      thinkingMode: legacyThinkingMode,
     };
 
     if (intent.intent === 'ideate' && targetCats.length > 1) {
@@ -297,7 +304,13 @@ export class AgentRouter {
   ): AsyncIterable<AgentMessage> {
     const cleanMessage = stripIntentTags(message);
 
+    // Fetch thread for thinkingMode + update lastActive
+    let thinkingMode: 'debug' | 'play' = 'play';
     if (this.threadStore) {
+      const thread = await this.threadStore.get(threadId);
+      if (thread) {
+        thinkingMode = thread.thinkingMode ?? 'play';
+      }
       await this.threadStore.updateLastActive(threadId);
     }
 
@@ -308,6 +321,7 @@ export class AgentRouter {
       signal: options?.signal,
       promptTags: intent.promptTags,
       currentUserMessageId: userMessageId,
+      thinkingMode,
       ...(options?.cursorBoundaries ? { cursorBoundaries: options.cursorBoundaries } : {}),
       ...(options?.persistenceContext ? { persistenceContext: options.persistenceContext } : {}),
     };

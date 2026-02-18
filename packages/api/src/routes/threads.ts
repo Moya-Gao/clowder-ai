@@ -48,7 +48,8 @@ const updateThreadSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   pinned: z.boolean().optional(),
   favorited: z.boolean().optional(),
-}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined, {
+  thinkingMode: z.enum(['debug', 'play']).optional(),
+}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined, {
   message: 'At least one field must be provided',
 });
 
@@ -142,10 +143,11 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited } = parseResult.data;
+    const { title, pinned, favorited, thinkingMode } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
+    if (thinkingMode !== undefined) await threadStore.updateThinkingMode(id, thinkingMode);
 
     const updated = await threadStore.get(id);
     if (!updated) {

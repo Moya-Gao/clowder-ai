@@ -56,6 +56,7 @@ export async function* routeSerial(
     modeSystemPromptByCat,
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
+  const thinkingMode = options.thinkingMode ?? 'play';
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
@@ -136,6 +137,7 @@ export async function* routeSerial(
         threadId,
         catId,
         currentUserMessageId,
+        thinkingMode,
       );
       deliveryBoundaryId = inc.boundaryId;
       const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
@@ -223,7 +225,8 @@ export async function* routeSerial(
       if (msg.type === 'done') {
         doneMsg = msg; // Buffer — yield after A2A detection
       } else {
-        yield msg;
+        // Tag CLI stdout text with origin: 'stream' (thinking/internal)
+        yield msg.type === 'text' ? { ...msg, origin: 'stream' as const } : msg;
       }
     }
 
@@ -231,7 +234,9 @@ export async function* routeSerial(
 
     if (textContent) {
       const storedContent = sanitizeInjectedContent(textContent);
-      if (!incrementalMode) {
+      // In play mode, CLI stream output (thinking) is hidden from other cats.
+      // Only share previousResponses in debug mode where cats see each other's thinking.
+      if (!incrementalMode && thinkingMode === 'debug') {
         previousResponses.push({ catId, content: storedContent });
       }
 
@@ -246,6 +251,7 @@ export async function* routeSerial(
           catId,
           content: storedContent,
           mentions: a2aMentions,
+          origin: 'stream',
           timestamp: Date.now(),
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
@@ -316,6 +322,7 @@ export async function* routeSerial(
           catId,
           content: '',
           mentions: [],
+          origin: 'stream',
           timestamp: Date.now(),
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
@@ -340,6 +347,7 @@ export async function* routeSerial(
           catId,
           content: '',
           mentions: [],
+          origin: 'stream',
           timestamp: Date.now(),
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),

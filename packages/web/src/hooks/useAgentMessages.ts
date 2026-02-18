@@ -6,6 +6,8 @@ import { compactToolResultDetail } from '@/utils/toolPreview';
 
 /** Timeout for done(isFinal) - 5 minutes */
 const DONE_TIMEOUT_MS = 5 * 60 * 1000;
+/** Monotonic counter for collision-safe callback bubble IDs */
+let cbSeq = 0;
 const DEBUG_SKIP_FILE_CHANGE_UI = process.env.NEXT_PUBLIC_DEBUG_SKIP_FILE_CHANGE_UI === '1';
 
 interface AgentMsg {
@@ -19,6 +21,8 @@ interface AgentMsg {
   toolName?: string;
   /** Tool input params (for 'tool_use' events from backend) */
   toolInput?: Record<string, unknown>;
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  origin?: 'stream' | 'callback';
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -142,32 +146,48 @@ export function useAgentMessages() {
       resetTimeout();
 
       if (msg.type === 'text' && msg.content) {
-        const existing = activeRefs.current.get(msg.catId);
         setCatStatus(msg.catId, 'streaming');
 
-        if (existing) {
-          // Append to this cat's active message
-          appendToMessage(existing.id, msg.content);
+        if (msg.origin === 'callback') {
+          // MCP callback message: always a separate bubble (never merge into stream)
+          const id = `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
+          addMessage({
+            id,
+            type: 'assistant',
+            catId: msg.catId,
+            content: msg.content,
+            origin: 'callback',
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+            timestamp: Date.now(),
+          });
         } else {
-          const resumedId = findStreamingMessageId(msg.catId);
-          if (resumedId) {
-            // Recover background-stream message after thread switch (activeRefs are reset on switch)
-            activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
-            appendToMessage(resumedId, msg.content);
+          // CLI stream message (thinking): append to active stream bubble
+          const existing = activeRefs.current.get(msg.catId);
+          if (existing) {
+            appendToMessage(existing.id, msg.content);
           } else {
-            // New message for this cat
-            const id = `msg-${Date.now()}-${msg.catId}`;
-            activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-            addMessage({
-              id,
-              type: 'assistant',
-              catId: msg.catId,
-              content: msg.content,
-              ...(msg.metadata ? { metadata: msg.metadata } : {}),
-              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
-              timestamp: Date.now(),
-              isStreaming: true,
-            });
+            const resumedId = findStreamingMessageId(msg.catId);
+            if (resumedId) {
+              // Recover background-stream message after thread switch (activeRefs are reset on switch)
+              activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
+              appendToMessage(resumedId, msg.content);
+            } else {
+              // New stream message for this cat
+              const id = `msg-${Date.now()}-${msg.catId}`;
+              activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+              addMessage({
+                id,
+                type: 'assistant',
+                catId: msg.catId,
+                content: msg.content,
+                origin: 'stream',
+                ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+                timestamp: Date.now(),
+                isStreaming: true,
+              });
+            }
           }
         }
       } else if (msg.type === 'tool_use') {

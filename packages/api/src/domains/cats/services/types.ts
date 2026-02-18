@@ -116,6 +116,8 @@ export interface AgentMessage {
   isFinal?: boolean;
   /** Provider/model metadata (set by agent services) */
   metadata?: MessageMetadata;
+  /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
+  origin?: 'stream' | 'callback';
   /** When this message was created */
   timestamp: number;
 }

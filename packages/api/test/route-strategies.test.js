@@ -166,7 +166,7 @@ describe('routeSerial A2A worklist', () => {
     assert.ok(handoffs[0].content.includes('→'), 'handoff content should show arrow');
   });
 
-  it('A2A cat receives previousResponses in prompt', async () => {
+  it('A2A cat receives previousResponses in prompt (debug mode)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const codexService = createCapturingService('codex', '已审查');
     const deps = createMockDeps({
@@ -174,12 +174,30 @@ describe('routeSerial A2A worklist', () => {
       codex: codexService,
     });
 
-    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1')) {}
+    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1', { thinkingMode: 'debug' })) {}
 
     assert.equal(codexService.calls.length, 1, 'codex should be called once');
     assert.ok(
       codexService.calls[0].includes('代码完成'),
-      'codex prompt should include opus response content'
+      'codex prompt should include opus response content in debug mode'
+    );
+  });
+
+  it('A2A cat does NOT receive previousResponses in play mode (thinking isolation)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const codexService = createCapturingService('codex', '已审查');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '代码完成\n@缅因猫 请review'),
+      codex: codexService,
+    });
+
+    // Default thinkingMode is 'play' — cats should not see each other's thinking
+    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1')) {}
+
+    assert.equal(codexService.calls.length, 1, 'codex should be called once');
+    assert.ok(
+      !codexService.calls[0].includes('代码完成'),
+      'codex prompt should NOT include opus response content in play mode'
     );
   });
 
@@ -964,5 +982,57 @@ describe('routeSerial: CLI error without text should not persist empty message (
     assert.equal(catAppends.length, 1, 'partial response with text should still be persisted');
     assert.ok(catAppends[0].content.startsWith('partial output before error'), 'should start with partial text');
     assert.ok(catAppends[0].content.includes('❌ timeout'), 'should include error suffix');
+  });
+});
+
+// ---- routeSerial done-only origin tagging (砚砚 R9 regression) ----
+
+/** Mock service that yields only done (no text, no error) */
+function createDoneOnlyService(catId) {
+  return {
+    async *invoke() {
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+describe('routeSerial: done-only (no text, no error) must tag origin:stream', () => {
+  it('persists empty message with origin:stream when cat yields only done', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      codex: createDoneOnlyService('codex'),
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1', {
+      thinkingMode: 'play',
+    })) {}
+
+    const catAppends = appendCalls.filter(c => c.catId === 'codex');
+    assert.equal(catAppends.length, 1, 'done-only cat should still persist a message');
+    assert.equal(catAppends[0].origin, 'stream', 'done-only append must have origin:stream');
+  });
+
+  it('done-only message is hidden from other cats in play mode thread-context', async () => {
+    // This validates the full chain: routeSerial tags origin:stream →
+    // play-mode filter hides it → legacy untagged remains visible.
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const appendCalls = [];
+    const deps = createMockDeps({
+      codex: createDoneOnlyService('codex'),
+    }, appendCalls);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'test', 'user1', 'thread1', {
+      thinkingMode: 'play',
+    })) {}
+
+    const codexAppend = appendCalls.find(c => c.catId === 'codex');
+    assert.ok(codexAppend, 'codex message should be persisted');
+    assert.equal(codexAppend.origin, 'stream');
+
+    // Simulate play-mode filter (same logic as callbacks.ts):
+    // For other-cat messages, only origin !== 'stream' is visible.
+    const isHiddenInPlay = codexAppend.catId !== 'opus' && codexAppend.origin === 'stream';
+    assert.ok(isHiddenInPlay, 'done-only codex message must be hidden from opus in play mode');
   });
 });

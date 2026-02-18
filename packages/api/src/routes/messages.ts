@@ -459,6 +459,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
       ...(m.toolEvents ? { toolEvents: m.toolEvents } : {}),
       ...(m.metadata ? { metadata: m.metadata } : {}),
+      ...(m.origin ? { origin: m.origin } : {}),
       timestamp: m.timestamp,
     }));
 
