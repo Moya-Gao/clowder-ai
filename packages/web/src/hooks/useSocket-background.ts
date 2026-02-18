@@ -88,7 +88,12 @@ function ensureBackgroundAssistantMessage(
   existing: BackgroundStreamRef | undefined,
   options: HandleBackgroundMessageOptions,
 ): string {
-  if (existing?.id) return existing.id;
+  if (existing?.id) {
+    if (msg.metadata) {
+      options.store.setThreadMessageMetadata(msg.threadId, existing.id, msg.metadata);
+    }
+    return existing.id;
+  }
 
   const messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
   options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
@@ -97,6 +102,7 @@ function ensureBackgroundAssistantMessage(
     type: 'assistant',
     catId: msg.catId,
     content: '',
+    ...(msg.metadata ? { metadata: msg.metadata } : {}),
     timestamp: msg.timestamp,
     isStreaming: true,
     origin: 'stream',
@@ -133,6 +139,9 @@ export function handleBackgroundAgentMessage(
       let messageId = existing?.id;
       if (messageId) {
         options.store.appendToThreadMessage(msg.threadId, messageId, msg.content);
+        if (msg.metadata) {
+          options.store.setThreadMessageMetadata(msg.threadId, messageId, msg.metadata);
+        }
       } else {
         messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
         options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });

@@ -2,6 +2,7 @@ import type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
+  ChatMessageMetadata,
   ThreadState,
   TokenUsage,
   ToolEvent,
@@ -40,6 +41,7 @@ export interface BackgroundStoreLike {
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
+  setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;

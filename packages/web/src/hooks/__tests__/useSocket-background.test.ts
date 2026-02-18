@@ -565,6 +565,53 @@ describe('background thread socket handling', () => {
       });
     });
 
+    it('binds metadata+usage when tool event arrives before first text chunk', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'TodoWrite',
+        toolInput: { tasks: ['A'] },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'hello',
+        metadata: { provider: 'anthropic', model: 'claude-opus-4-6', sessionId: 'sess-tool-first' },
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_usage',
+          catId: 'opus',
+          usage: { inputTokens: 321, outputTokens: 12, cacheReadTokens: 300 },
+        }),
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.metadata).toMatchObject({
+        provider: 'anthropic',
+        model: 'claude-opus-4-6',
+        sessionId: 'sess-tool-first',
+      });
+      expect(ts.messages[0]?.metadata?.usage).toMatchObject({
+        inputTokens: 321,
+        outputTokens: 12,
+        cacheReadTokens: 300,
+      });
+    });
+
     it('consumes invocation_metrics/context_health system_info silently', () => {
       const now = Date.now();
 

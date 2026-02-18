@@ -3,6 +3,7 @@ import type {
   CatInvocationInfo,
   CatStatusType,
   ChatMessage,
+  ChatMessageMetadata,
   ModeState,
   ModeSwitchProposal,
   Thread,
@@ -177,6 +178,7 @@ interface ChatState {
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
+  setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   getThreadState: (threadId: string) => ThreadState;
@@ -440,6 +442,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
     }),
+
+  /** Set/merge metadata on a specific message in a specific thread (active or background). */
+  setThreadMessageMetadata: (threadId, messageId, metadata) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        metadata: m.metadata ? { ...m.metadata, ...metadata } : metadata,
+      })),
+    ),
 
   /** Set usage on a specific message in a specific thread (active or background). */
   setThreadMessageUsage: (threadId, messageId, usage) =>

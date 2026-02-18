@@ -39,6 +39,7 @@ const mockAddMessageToThread = vi.fn();
 const mockAppendToThreadMessage = vi.fn();
 const mockAppendToolEventToThread = vi.fn();
 const mockSetThreadCatInvocation = vi.fn();
+const mockSetThreadMessageMetadata = vi.fn();
 const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
@@ -53,6 +54,7 @@ vi.mock('@/stores/chatStore', () => {
       appendToThreadMessage: mockAppendToThreadMessage,
       appendToolEventToThread: mockAppendToolEventToThread,
       setThreadCatInvocation: mockSetThreadCatInvocation,
+      setThreadMessageMetadata: mockSetThreadMessageMetadata,
       setThreadMessageUsage: mockSetThreadMessageUsage,
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
@@ -142,6 +144,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockAppendToThreadMessage.mockClear();
     mockAppendToolEventToThread.mockClear();
     mockSetThreadCatInvocation.mockClear();
+    mockSetThreadMessageMetadata.mockClear();
     mockSetThreadMessageUsage.mockClear();
     mockSetThreadMessageStreaming.mockClear();
     mockUpdateThreadCatStatus.mockClear();
