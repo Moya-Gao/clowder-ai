@@ -6,13 +6,12 @@ import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
 import {
   type BackgroundAgentMessage,
   clearBackgroundStreamRefForActiveEvent,
   handleBackgroundAgentMessage,
 } from './useSocket-background';
-
-const JOINED_ROOMS_STORAGE_KEY = 'cat-cafe:ws:joined-rooms:v1';
 
 interface AgentMessage {
   type: string;
@@ -41,31 +40,6 @@ interface SocketIoEngineLike {
 }
 
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
-
-function isThreadRoom(room: unknown): room is string {
-  return typeof room === 'string' && room.startsWith('thread:');
-}
-
-function loadJoinedRoomsFromSession(): Set<string> {
-  if (typeof window === 'undefined') return new Set();
-  const raw = window.sessionStorage.getItem(JOINED_ROOMS_STORAGE_KEY);
-  if (!raw) return new Set();
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter(isThreadRoom));
-  } catch (error) {
-    console.warn('[ws] Failed to parse persisted rooms, resetting cache', { error });
-    window.sessionStorage.removeItem(JOINED_ROOMS_STORAGE_KEY);
-    return new Set();
-  }
-}
-
-function saveJoinedRoomsToSession(rooms: Set<string>): void {
-  if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(JOINED_ROOMS_STORAGE_KEY, JSON.stringify([...rooms]));
-}
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
