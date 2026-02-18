@@ -432,7 +432,7 @@ describe('background thread socket handling', () => {
   });
 
   describe('regression: preserve non-text events in background path', () => {
-    it('preserves tool_use as background system message', () => {
+    it('preserves tool_use as collapsed tool event on assistant message', () => {
       const now = Date.now();
       simulateBackgroundMessage({
         type: 'tool_use',
@@ -445,12 +445,15 @@ describe('background thread socket handling', () => {
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
       expect(ts.messages).toHaveLength(1);
-      expect(ts.messages[0]?.type).toBe('system');
-      expect(ts.messages[0]?.content).toContain('🔧 opus → TodoWrite');
+      expect(ts.messages[0]?.type).toBe('assistant');
+      expect(ts.messages[0]?.content).toBe('');
+      expect(ts.messages[0]?.toolEvents).toHaveLength(1);
+      expect(ts.messages[0]?.toolEvents?.[0]?.type).toBe('tool_use');
+      expect(ts.messages[0]?.toolEvents?.[0]?.label).toContain('opus → TodoWrite');
       expect(ts.catStatuses['opus']).toBe('streaming');
     });
 
-    it('preserves tool_result as background system message', () => {
+    it('preserves tool_result as collapsed tool event on assistant message', () => {
       const now = Date.now();
       simulateBackgroundMessage({
         type: 'tool_result',
@@ -462,9 +465,39 @@ describe('background thread socket handling', () => {
 
       const ts = useChatStore.getState().getThreadState('thread-bg');
       expect(ts.messages).toHaveLength(1);
-      expect(ts.messages[0]?.type).toBe('system');
-      expect(ts.messages[0]?.content).toContain('🧾 opus ← result');
+      expect(ts.messages[0]?.type).toBe('assistant');
+      expect(ts.messages[0]?.content).toBe('');
+      expect(ts.messages[0]?.toolEvents).toHaveLength(1);
+      expect(ts.messages[0]?.toolEvents?.[0]?.type).toBe('tool_result');
+      expect(ts.messages[0]?.toolEvents?.[0]?.label).toContain('opus ← result');
       expect(ts.catStatuses['opus']).toBe('streaming');
+    });
+
+    it('tool_use + tool_result merge into one assistant message with two tool events', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'TodoWrite',
+        toolInput: { tasks: ['A', 'B'] },
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'tool_result',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'ok',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.type).toBe('assistant');
+      expect(ts.messages[0]?.toolEvents).toHaveLength(2);
+      expect(ts.messages[0]?.toolEvents?.[0]?.type).toBe('tool_use');
+      expect(ts.messages[0]?.toolEvents?.[1]?.type).toBe('tool_result');
     });
 
     it('preserves system_info and a2a_handoff messages', () => {

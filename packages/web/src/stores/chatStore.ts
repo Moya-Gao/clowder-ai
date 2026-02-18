@@ -175,6 +175,7 @@ interface ChatState {
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
+  appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
@@ -401,6 +402,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateThreadMessage(state, threadId, messageId, (m) => ({
         ...m,
         content: m.content + content,
+      })),
+    ),
+
+  /** Append tool event to a specific assistant message in a specific thread. */
+  appendToolEventToThread: (threadId, messageId, event) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        toolEvents: [...(m.toolEvents ?? []), event],
       })),
     ),
 

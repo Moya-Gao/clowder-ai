@@ -37,6 +37,7 @@ vi.mock('socket.io-client', () => ({
 // ── Mock stores ──
 const mockAddMessageToThread = vi.fn();
 const mockAppendToThreadMessage = vi.fn();
+const mockAppendToolEventToThread = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
@@ -48,6 +49,7 @@ vi.mock('@/stores/chatStore', () => {
       currentThreadId: mockStoreCurrentThreadId,
       addMessageToThread: mockAddMessageToThread,
       appendToThreadMessage: mockAppendToThreadMessage,
+      appendToolEventToThread: mockAppendToolEventToThread,
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
@@ -134,6 +136,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockStoreCurrentThreadId = 'thread-B';
     mockAddMessageToThread.mockClear();
     mockAppendToThreadMessage.mockClear();
+    mockAppendToolEventToThread.mockClear();
     mockSetThreadMessageStreaming.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
@@ -325,6 +328,9 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     expect(onMessage).not.toHaveBeenCalled();
     expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
     expect(mockAddMessageToThread.mock.calls[0]?.[0]).toBe('thread-B');
+    expect(mockAddMessageToThread.mock.calls[0]?.[1]).toMatchObject({ type: 'assistant', catId: 'opus' });
+    expect(mockAppendToolEventToThread).toHaveBeenCalledTimes(1);
+    expect(mockAppendToolEventToThread.mock.calls[0]?.[0]).toBe('thread-B');
   });
 
   it('socket is NOT disconnected/reconnected when callbacks change (callbacksRef pattern)', () => {

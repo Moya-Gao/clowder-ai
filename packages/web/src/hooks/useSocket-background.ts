@@ -49,6 +49,17 @@ export interface BackgroundStoreLike {
     },
   ) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
+  appendToolEventToThread: (
+    threadId: string,
+    messageId: string,
+    event: {
+      id: string;
+      type: 'tool_use' | 'tool_result';
+      label: string;
+      detail?: string;
+      timestamp: number;
+    },
+  ) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
@@ -256,19 +267,57 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'tool_use') {
     const toolName = msg.toolName ?? 'unknown';
-    const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : null;
-    addBackgroundSystemMessage(
-      msg,
-      options,
-      detail ? `🔧 ${msg.catId} → ${toolName}\n${detail}` : `🔧 ${msg.catId} → ${toolName}`,
-    );
+    const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
+    let messageId = existing?.id;
+    if (!messageId) {
+      messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+      options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+      options.store.addMessageToThread(msg.threadId, {
+        id: messageId,
+        type: 'assistant',
+        catId: msg.catId,
+        content: '',
+        timestamp: msg.timestamp,
+        isStreaming: true,
+        origin: 'stream',
+      });
+    }
+    options.store.appendToolEventToThread(msg.threadId, messageId, {
+      id: `bg-tool-use-${msg.timestamp}-${options.nextBgSeq()}`,
+      type: 'tool_use',
+      label: `${msg.catId} → ${toolName}`,
+      ...(detail ? { detail } : {}),
+      timestamp: msg.timestamp,
+    });
+    options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
     return;
   }
 
   if (msg.type === 'tool_result') {
     const detail = compactToolResultDetail(msg.content ?? '');
-    addBackgroundSystemMessage(msg, options, `🧾 ${msg.catId} ← result\n${detail}`);
+    let messageId = existing?.id;
+    if (!messageId) {
+      messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+      options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+      options.store.addMessageToThread(msg.threadId, {
+        id: messageId,
+        type: 'assistant',
+        catId: msg.catId,
+        content: '',
+        timestamp: msg.timestamp,
+        isStreaming: true,
+        origin: 'stream',
+      });
+    }
+    options.store.appendToolEventToThread(msg.threadId, messageId, {
+      id: `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
+      type: 'tool_result',
+      label: `${msg.catId} ← result`,
+      detail,
+      timestamp: msg.timestamp,
+    });
+    options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'streaming');
     return;
   }
