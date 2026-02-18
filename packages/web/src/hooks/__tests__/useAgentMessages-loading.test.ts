@@ -1,5 +1,4 @@
-import React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
@@ -16,9 +15,20 @@ const mockClearCatStatuses = vi.fn();
 const mockSetCatInvocation = vi.fn();
 const mockSetMessageUsage = vi.fn();
 const mockSetPendingModeSwitchProposal = vi.fn();
+const mockAddMessageToThread = vi.fn();
+const mockClearThreadActiveInvocation = vi.fn();
+const mockSetThreadMessageStreaming = vi.fn();
+const mockGetThreadState = vi.fn(() => ({ messages: [] }));
 
 const storeState = {
-  messages: [] as Array<{ id: string; type: string; catId?: string; content: string; isStreaming?: boolean; timestamp: number }>,
+  messages: [] as Array<{
+    id: string;
+    type: string;
+    catId?: string;
+    content: string;
+    isStreaming?: boolean;
+    timestamp: number;
+  }>,
   addMessage: mockAddMessage,
   appendToMessage: mockAppendToMessage,
   appendToolEvent: mockAppendToolEvent,
@@ -31,18 +41,17 @@ const storeState = {
   setCatInvocation: mockSetCatInvocation,
   setMessageUsage: mockSetMessageUsage,
   setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
+  addMessageToThread: mockAddMessageToThread,
+  clearThreadActiveInvocation: mockClearThreadActiveInvocation,
+  setThreadMessageStreaming: mockSetThreadMessageStreaming,
+  getThreadState: mockGetThreadState,
   currentThreadId: 'thread-1',
 };
 
-let captured:
-  | ReturnType<typeof useAgentMessages>
-  | undefined;
+let captured: ReturnType<typeof useAgentMessages> | undefined;
 
 vi.mock('@/stores/chatStore', () => {
-  const useChatStoreMock = Object.assign(
-    () => storeState,
-    { getState: () => storeState }
-  );
+  const useChatStoreMock = Object.assign(() => storeState, { getState: () => storeState });
   return {
     useChatStore: useChatStoreMock,
   };
@@ -85,6 +94,12 @@ describe('useAgentMessages loading lifecycle', () => {
     mockSetCatInvocation.mockClear();
     mockSetMessageUsage.mockClear();
     mockSetPendingModeSwitchProposal.mockClear();
+    mockAddMessageToThread.mockClear();
+    mockClearThreadActiveInvocation.mockClear();
+    mockSetThreadMessageStreaming.mockClear();
+    mockGetThreadState.mockClear();
+    mockGetThreadState.mockImplementation(() => ({ messages: [] }));
+    storeState.currentThreadId = 'thread-1';
   });
 
   afterEach(() => {
@@ -183,6 +198,46 @@ describe('useAgentMessages loading lifecycle', () => {
     });
 
     expect(captured?.handleAgentMessage).toBe(firstHandler);
+  });
+
+  it('routes timeout to original thread after switching active thread', () => {
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        root.render(React.createElement(Harness));
+      });
+
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'text',
+          catId: 'codex',
+          content: 'partial',
+        });
+      });
+
+      // Simulate user switching from thread-1 to thread-2 while old invocation is still active.
+      storeState.currentThreadId = 'thread-2';
+
+      act(() => {
+        vi.advanceTimersByTime(5 * 60 * 1000);
+      });
+
+      expect(mockAddMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: '⏱ Response timed out. The operation may still be running in the background.',
+        }),
+      );
+      expect(mockAddMessageToThread).toHaveBeenCalledWith(
+        'thread-1',
+        expect.objectContaining({
+          type: 'system',
+          variant: 'info',
+          content: '⏱ Response timed out. The operation may still be running in the background.',
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('closes existing streaming bubble on error even when activeRefs are empty', () => {

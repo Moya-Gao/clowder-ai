@@ -75,7 +75,29 @@ export function useAgentMessages() {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    const timeoutThreadId = useChatStore.getState().currentThreadId;
     timeoutRef.current = setTimeout(() => {
+      const store = useChatStore.getState();
+      const isActiveThreadTimeout = store.currentThreadId === timeoutThreadId;
+
+      if (!isActiveThreadTimeout) {
+        const threadState = store.getThreadState(timeoutThreadId);
+        for (const message of threadState.messages) {
+          if (message.type === 'assistant' && message.isStreaming) {
+            store.setThreadMessageStreaming(timeoutThreadId, message.id, false);
+          }
+        }
+        store.clearThreadActiveInvocation(timeoutThreadId);
+        store.addMessageToThread(timeoutThreadId, {
+          id: `sysinfo-timeout-${Date.now()}`,
+          type: 'system',
+          variant: 'info',
+          content: '⏱ Response timed out. The operation may still be running in the background.',
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
       // Timeout fired — stop loading and show system message
       setLoading(false);
       setHasActiveInvocation(false);
@@ -151,9 +173,7 @@ export function useAgentMessages() {
       } else if (msg.type === 'tool_use') {
         setCatStatus(msg.catId, 'streaming');
         const toolName = msg.toolName ?? 'unknown';
-        const detail = msg.toolInput
-          ? safeJsonPreview(msg.toolInput, 200)
-          : undefined;
+        const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
         const isFileChange = toolName === 'file_change';
         if (isFileChange) {
           console.info('[agent_message] file_change tool_use received', {
@@ -334,12 +354,12 @@ export function useAgentMessages() {
               sessionSeq: parsed.sessionSeq,
               sessionSealed: true,
             });
-            const pct = parsed.healthSnapshot?.fillRatio
-              ? Math.round(parsed.healthSnapshot.fillRatio * 100)
-              : '?';
+            const pct = parsed.healthSnapshot?.fillRatio ? Math.round(parsed.healthSnapshot.fillRatio * 100) : '?';
             sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
           }
-        } catch { /* not JSON, use raw content */ }
+        } catch {
+          /* not JSON, use raw content */
+        }
         if (!consumed) {
           addMessage({
             id: `sysinfo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -384,7 +404,24 @@ export function useAgentMessages() {
         }
       }
     },
-    [addMessage, appendToMessage, appendToolEvent, setStreaming, setLoading, setHasActiveInvocation, setIntentMode, setCatStatus, clearCatStatuses, setCatInvocation, setPendingModeSwitchProposal, currentThreadId, resetTimeout, clearDoneTimeout, findStreamingMessageId]
+    [
+      addMessage,
+      appendToMessage,
+      appendToolEvent,
+      setStreaming,
+      setLoading,
+      setHasActiveInvocation,
+      setIntentMode,
+      setCatStatus,
+      clearCatStatuses,
+      setCatInvocation,
+      setPendingModeSwitchProposal,
+      currentThreadId,
+      resetTimeout,
+      clearDoneTimeout,
+      findStreamingMessageId,
+      setMessageUsage,
+    ],
   );
 
   const handleStop = useCallback(
@@ -401,7 +438,7 @@ export function useAgentMessages() {
       }
       activeRefs.current.clear();
     },
-    [setLoading, setHasActiveInvocation, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout]
+    [setLoading, setHasActiveInvocation, setStreaming, setIntentMode, clearCatStatuses, clearDoneTimeout],
   );
 
   const resetRefs = useCallback(() => {
