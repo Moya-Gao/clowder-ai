@@ -1,90 +1,21 @@
-import type { CatStatusType, ThreadState } from '@/stores/chat-types';
+import type { CatStatusType } from '@/stores/chat-types';
 import { compactToolResultDetail } from '@/utils/toolPreview';
+import type {
+  ActiveRoutedAgentMessage,
+  BackgroundAgentMessage,
+  BackgroundStreamRef,
+  HandleBackgroundMessageOptions,
+} from './useSocket-background.types';
+import { consumeBackgroundSystemInfo } from './useSocket-background-system-info';
 
-export interface BackgroundAgentMessage {
-  type: string;
-  catId: string;
-  threadId: string;
-  content?: string;
-  origin?: 'stream' | 'callback';
-  toolName?: string;
-  toolInput?: Record<string, unknown>;
-  error?: string;
-  isFinal?: boolean;
-  metadata?: { provider: string; model: string; sessionId?: string; usage?: import('@/stores/chat-types').TokenUsage };
-  timestamp: number;
-}
-
-export interface BackgroundStreamRef {
-  id: string;
-  threadId: string;
-  catId: string;
-}
-
-export interface BackgroundToastInput {
-  type: 'success' | 'error';
-  title: string;
-  message: string;
-  threadId: string;
-  duration: number;
-}
-
-export interface BackgroundStoreLike {
-  addMessageToThread: (
-    threadId: string,
-    msg: {
-      id: string;
-      type: 'assistant' | 'system';
-      catId: string;
-      content: string;
-      metadata?: {
-        provider: string;
-        model: string;
-        sessionId?: string;
-        usage?: import('@/stores/chat-types').TokenUsage;
-      };
-      timestamp: number;
-      isStreaming?: boolean;
-      origin?: 'stream' | 'callback';
-    },
-  ) => void;
-  appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
-  appendToolEventToThread: (
-    threadId: string,
-    messageId: string,
-    event: {
-      id: string;
-      type: 'tool_use' | 'tool_result';
-      label: string;
-      detail?: string;
-      timestamp: number;
-    },
-  ) => void;
-  setThreadCatInvocation: (
-    threadId: string,
-    catId: string,
-    info: Partial<import('@/stores/chat-types').CatInvocationInfo>,
-  ) => void;
-  setThreadMessageUsage: (threadId: string, messageId: string, usage: import('@/stores/chat-types').TokenUsage) => void;
-  setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
-  updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
-  clearThreadActiveInvocation: (threadId: string) => void;
-  getThreadState: (threadId: string) => ThreadState;
-}
-
-export interface HandleBackgroundMessageOptions {
-  store: BackgroundStoreLike;
-  bgStreamRefs: Map<string, BackgroundStreamRef>;
-  nextBgSeq: () => number;
-  addToast: (toast: BackgroundToastInput) => void;
-}
-
-export type ActiveRoutedAgentMessage = {
-  type: string;
-  catId: string;
-  threadId?: string;
-  isFinal?: boolean;
-};
+export type {
+  ActiveRoutedAgentMessage,
+  BackgroundAgentMessage,
+  BackgroundStoreLike,
+  BackgroundStreamRef,
+  BackgroundToastInput,
+  HandleBackgroundMessageOptions,
+} from './useSocket-background.types';
 
 const STATUS_MAP: Record<string, CatStatusType> = {
   streaming: 'streaming',
@@ -151,17 +82,26 @@ function addBackgroundSystemMessage(
   });
 }
 
-function findLastAssistantMessageId(
-  threadId: string,
-  catId: string,
+function ensureBackgroundAssistantMessage(
+  msg: BackgroundAgentMessage,
+  streamKey: string,
+  existing: BackgroundStreamRef | undefined,
   options: HandleBackgroundMessageOptions,
-): string | undefined {
-  const messages = options.store.getThreadState(threadId).messages;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg?.type === 'assistant' && msg.catId === catId) return msg.id;
-  }
-  return undefined;
+): string {
+  if (existing?.id) return existing.id;
+
+  const messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+  options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
+  options.store.addMessageToThread(msg.threadId, {
+    id: messageId,
+    type: 'assistant',
+    catId: msg.catId,
+    content: '',
+    timestamp: msg.timestamp,
+    isStreaming: true,
+    origin: 'stream',
+  });
+  return messageId;
 }
 
 export function handleBackgroundAgentMessage(
@@ -287,20 +227,7 @@ export function handleBackgroundAgentMessage(
   if (msg.type === 'tool_use') {
     const toolName = msg.toolName ?? 'unknown';
     const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
-    let messageId = existing?.id;
-    if (!messageId) {
-      messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-      options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
-      options.store.addMessageToThread(msg.threadId, {
-        id: messageId,
-        type: 'assistant',
-        catId: msg.catId,
-        content: '',
-        timestamp: msg.timestamp,
-        isStreaming: true,
-        origin: 'stream',
-      });
-    }
+    const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
       id: `bg-tool-use-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_use',
@@ -315,20 +242,7 @@ export function handleBackgroundAgentMessage(
 
   if (msg.type === 'tool_result') {
     const detail = compactToolResultDetail(msg.content ?? '');
-    let messageId = existing?.id;
-    if (!messageId) {
-      messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
-      options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
-      options.store.addMessageToThread(msg.threadId, {
-        id: messageId,
-        type: 'assistant',
-        catId: msg.catId,
-        content: '',
-        timestamp: msg.timestamp,
-        isStreaming: true,
-        origin: 'stream',
-      });
-    }
+    const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {
       id: `bg-tool-result-${msg.timestamp}-${options.nextBgSeq()}`,
       type: 'tool_result',
@@ -348,77 +262,9 @@ export function handleBackgroundAgentMessage(
       return;
     }
 
-    // Keep behavior aligned with active-thread system_info parsing:
-    // invocation metrics/usage/context health are consumed into state silently.
-    let sysContent = msg.content;
-    let consumed = false;
-    try {
-      const parsed = JSON.parse(msg.content);
-      if (parsed?.type === 'invocation_metrics') {
-        if (parsed.kind === 'session_started') {
-          options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
-            sessionId: parsed.sessionId,
-            invocationId: parsed.invocationId,
-            startedAt: Date.now(),
-            taskProgress: { tasks: [], lastUpdate: 0 },
-            ...(parsed.sessionSeq !== undefined ? { sessionSeq: parsed.sessionSeq, sessionSealed: false } : {}),
-          });
-        } else if (parsed.kind === 'invocation_complete') {
-          options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
-            durationMs: parsed.durationMs,
-            sessionId: parsed.sessionId,
-          });
-        }
-        consumed = true;
-      } else if (parsed?.type === 'invocation_usage') {
-        options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
-          usage: parsed.usage,
-        });
-        const candidateMessageId = existing?.id ?? findLastAssistantMessageId(msg.threadId, msg.catId, options);
-        if (candidateMessageId) {
-          options.store.setThreadMessageUsage(msg.threadId, candidateMessageId, parsed.usage);
-        }
-        consumed = true;
-      } else if (parsed?.type === 'context_health') {
-        if (parsed.catId) {
-          options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
-            contextHealth: parsed.health,
-          });
-          consumed = true;
-        }
-      } else if (parsed?.type === 'task_progress') {
-        const targetCatId = parsed.catId ?? msg.catId;
-        const tasks = (parsed.tasks ?? []) as import('@/stores/chat-types').TaskProgressItem[];
-        options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
-          taskProgress: {
-            tasks,
-            lastUpdate: Date.now(),
-          },
-        });
-        consumed = true;
-      } else if (parsed?.type === 'session_seal_requested') {
-        if (parsed.catId) {
-          options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
-            sessionSeq: parsed.sessionSeq,
-            sessionSealed: true,
-          });
-          const pct = parsed.healthSnapshot?.fillRatio ? Math.round(parsed.healthSnapshot.fillRatio * 100) : '?';
-          sysContent = `${parsed.catId} 的会话 #${parsed.sessionSeq} 已封存（上下文 ${pct}%），下次调用将自动创建新会话`;
-        }
-      } else if (parsed?.type === 'a2a_followup_available') {
-        const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
-        if (Array.isArray(mentions) && mentions.length > 0) {
-          sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
-        }
-      } else if (parsed?.type === 'mode_switch_proposal') {
-        const by = parsed.proposedBy ?? '猫猫';
-        sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
-      }
-    } catch {
-      // Not JSON; keep original content as user-facing system info.
-    }
-    if (!consumed) {
-      addBackgroundSystemMessage(msg, options, sysContent);
+    const result = consumeBackgroundSystemInfo(msg, existing, options);
+    if (!result.consumed) {
+      addBackgroundSystemMessage(msg, options, result.content);
     }
   }
 }

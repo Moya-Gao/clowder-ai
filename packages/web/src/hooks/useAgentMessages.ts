@@ -354,10 +354,13 @@ export function useAgentMessages() {
             consumed = true;
           } else if (parsed?.type === 'context_health') {
             // F24: Store context health silently
-            setCatInvocation(parsed.catId, {
-              contextHealth: parsed.health,
-            });
-            consumed = true;
+            const targetCatId = parsed.catId ?? msg.catId;
+            if (targetCatId) {
+              setCatInvocation(targetCatId, {
+                contextHealth: parsed.health,
+              });
+              consumed = true;
+            }
           } else if (parsed?.type === 'task_progress') {
             // F26: Store task progress silently
             const tasks = (parsed.tasks ?? []) as import('../stores/chat-types').TaskProgressItem[];

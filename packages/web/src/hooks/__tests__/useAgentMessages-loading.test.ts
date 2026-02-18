@@ -270,4 +270,37 @@ describe('useAgentMessages loading lifecycle', () => {
 
     expect(mockSetStreaming).toHaveBeenCalledWith('bg-msg-err', false);
   });
+
+  it('system_info context_health without parsed catId falls back to msg.catId', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const payload = JSON.stringify({
+      type: 'context_health',
+      health: {
+        usedTokens: 10,
+        windowTokens: 200000,
+        fillRatio: 0.00005,
+        source: 'exact',
+        measuredAt: Date.now(),
+      },
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: payload,
+      });
+    });
+
+    expect(mockSetCatInvocation).toHaveBeenCalledWith(
+      'opus',
+      expect.objectContaining({
+        contextHealth: expect.objectContaining({ usedTokens: 10, windowTokens: 200000 }),
+      }),
+    );
+    expect(mockSetCatInvocation).not.toHaveBeenCalledWith(undefined, expect.anything());
+  });
 });
