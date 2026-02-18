@@ -35,6 +35,7 @@
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
 | 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。 |
+| 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [ ] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | QQ 邮箱 IMAP 轮询检测 GitHub review 邮件 → 解析 PR title `[猫名🐾]` 路由 → 自动 invoke 被 review 的猫 → 猫自主处理 P1/P2 → 推前端通知等铲屎官最终确认合入。依赖：`imapflow`，`IMAP_USER/IMAP_PASS` 环境变量（QQ 邮箱授权码）。|
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |
 | 9 | 前端图片压缩 | [x] | Phase 3.2 review | Phase 5.2 — compressImage.ts Canvas API 压缩 (maxWidth=1920, sweep 0.8→0.3) |
