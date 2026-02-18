@@ -111,9 +111,14 @@ cat > "$TARGET_DIR/README.md" << 'README_EOF'
 - **第五课**：[MCP 回传 — 让猫猫主动说话](./docs/lessons/05-mcp-callback.md) — 被动响应不够，猫怎么主动发言？
   - [课后作业](./docs/lessons/05-homework.md)：搭建最小 MCP 回传系统
 
+### Part 3: 生产化
+
+- **第六课**：[消失的 28 秒 — 当 AI 闯了生产事故](./docs/lessons/06-vanished-28-seconds.md) — 两次数据丢失 + 取证恢复 + 三层防线
+  - [课后作业](./docs/lessons/06-homework.md)：数据丢失演练 + 防腐门
+
 ### 即将推出
 
-- 第六课：隔离的代价 — 从内存到 Redis 到 307→15 keys
+- 第七课：上下文工程 — 150k token 怎么用？
 - ...更多
 
 ## 适合谁
