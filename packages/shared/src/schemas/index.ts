@@ -3,17 +3,33 @@
  * 导出所有 Zod schemas
  */
 
+export type { SendMessageRequest } from './message.schema.js';
 export {
-  MessageSenderSchema,
-  TextContentSchema,
-  ImageContentSchema,
   CodeContentSchema,
+  ImageContentSchema,
+  MessageContentSchema,
+  MessageSchema,
+  MessageSenderSchema,
+  MessageStatusSchema,
+  SendMessageRequestSchema,
+  TextContentSchema,
   ToolCallContentSchema,
   ToolResultContentSchema,
-  MessageContentSchema,
-  MessageStatusSchema,
-  MessageSchema,
-  SendMessageRequestSchema,
 } from './message.schema.js';
-
-export type { SendMessageRequest } from './message.schema.js';
+export type {
+  SignalArticleInput,
+  SignalSourceInput,
+} from './signals.schema.js';
+export {
+  SignalArticleSchema,
+  SignalArticleStatusSchema,
+  SignalCategorySchema,
+  SignalFetchMethodSchema,
+  SignalKeywordFilterSchema,
+  SignalScheduleFrequencySchema,
+  SignalSourceConfigSchema,
+  SignalSourceFetchConfigSchema,
+  SignalSourceScheduleSchema,
+  SignalSourceSchema,
+  SignalTierSchema,
+} from './signals.schema.js';

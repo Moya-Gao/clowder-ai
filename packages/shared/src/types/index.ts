@@ -3,139 +3,110 @@
  * 导出所有类型定义
  */
 
-// ID types
+// Authorization types (猫猫授权系统)
 export type {
-  MessageId,
-  CatId,
-  ThreadId,
-  SessionId,
-  UserId,
-} from './ids.js';
-
-export {
-  generateId,
-  createMessageId,
-  generateMessageId,
-  createCatId,
-  createThreadId,
-  generateThreadId,
-  createSessionId,
-  generateSessionId,
-  createUserId,
-} from './ids.js';
-
-// NOTE: CatRegistry, catRegistry, assertKnownCatId, catIdSchema
-// are exported from ../registry/index.js (via the shared package root)
-
+  AuthorizationAuditEntry,
+  AuthorizationRequestEvent,
+  AuthorizationRespondEvent,
+  AuthorizationRule,
+  PendingRequestRecord,
+  PermissionRequest,
+  PermissionResponse,
+  PermissionStatusResponse,
+  RespondScope,
+} from './authorization.js';
 // Cat types
 export type {
-  CatProvider,
-  CatStatus,
   CatColor,
   CatConfig,
+  CatProvider,
   CatState,
+  CatStatus,
 } from './cat.js';
-
 export {
   CAT_CONFIGS,
   findCatByMention,
   getAllCatIds,
 } from './cat.js';
-
 // Cat breed/variant types (Breed+Variant two-layer schema)
 export type {
-  ContextBudget,
-  CliConfig,
-  CatVariant,
-  CatFeatures,
   CatBreed,
   CatCafeConfig,
+  CatFeatures,
+  CatVariant,
+  CliConfig,
+  ContextBudget,
 } from './cat-breed.js';
-
-// Message types
+// Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
-  MessageSender,
-  TextContent,
-  ImageContent,
-  CodeContent,
-  ToolCallContent,
-  ToolResultContent,
-  MessageContent,
-  MessageStatus,
-  Message,
-  AgentStreamMessage,
-} from './message.js';
-
+  DeliberateEvent,
+  DeliberatePhase,
+  DeliberateSession,
+  DeliberateTransition,
+} from './deliberate.js';
+// ID types
+export type {
+  CatId,
+  MessageId,
+  SessionId,
+  ThreadId,
+  UserId,
+} from './ids.js';
 export {
-  createUserMessage,
-  createCatMessage,
-} from './message.js';
-
-// Task types (毛线球)
-export type {
-  TaskStatus,
-  TaskItem,
-  CreateTaskInput,
-  UpdateTaskInput,
-} from './task.js';
-
-// Summary types (拍立得照片墙)
-export type {
-  ThreadSummary,
-  CreateSummaryInput,
-} from './summary.js';
-
+  createCatId,
+  createMessageId,
+  createSessionId,
+  createThreadId,
+  createUserId,
+  generateId,
+  generateMessageId,
+  generateSessionId,
+  generateThreadId,
+} from './ids.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,
   MemoryInput,
 } from './memory.js';
-
-// Authorization types (猫猫授权系统)
+// Message types
 export type {
-  PermissionRequest,
-  PermissionResponse,
-  PermissionStatusResponse,
-  PendingRequestRecord,
-  RespondScope,
-  AuthorizationRule,
-  AuthorizationAuditEntry,
-  AuthorizationRequestEvent,
-  AuthorizationRespondEvent,
-} from './authorization.js';
-
-// Deliberate types (4-E 两轮制 - 类型预埋)
-export type {
-  DeliberatePhase,
-  DeliberateSession,
-  DeliberateTransition,
-  DeliberateEvent,
-} from './deliberate.js';
-
+  AgentStreamMessage,
+  CodeContent,
+  ImageContent,
+  Message,
+  MessageContent,
+  MessageSender,
+  MessageStatus,
+  TextContent,
+  ToolCallContent,
+  ToolResultContent,
+} from './message.js';
+export {
+  createCatMessage,
+  createUserMessage,
+} from './message.js';
 // Mode types (F11 模式系统)
 export type {
-  ModeName,
   BrainstormConfig,
-  DebateConfig,
-  DevLoopConfig,
-  ModeConfig,
   BrainstormState,
+  DebateConfig,
   DebateState,
+  DevLoopConfig,
   DevLoopState,
+  ModeConfig,
+  ModeName,
   ModeState,
-  ThreadModeRecord,
   ThreadMode,
+  ThreadModeRecord,
 } from './modes.js';
-
 export {
   isBrainstormConfig,
-  isDebateConfig,
   isBrainstormState,
+  isDebateConfig,
   isDebateState,
   isDevLoopConfig,
   isDevLoopState,
 } from './modes.js';
-
 // Rich block types (F22 Rich Blocks 富消息系统)
 export type {
   RichBlockKind,
@@ -147,13 +118,38 @@ export type {
   RichBlock,
   RichMessageExtra,
 } from './rich.js';
-
 // Session chain types (F24 Session Chain + Context Health)
 export type {
-  SessionStatus,
-  SessionRecord,
-  SessionUsageSnapshot,
   ContextHealth,
   ContextHealthConfig,
   SealResult,
+  SessionRecord,
+  SessionStatus,
+  SessionUsageSnapshot,
 } from './session.js';
+// Signals types (F21 Signal Hunter)
+export type {
+  SignalArticle,
+  SignalArticleStatus,
+  SignalCategory,
+  SignalFetchMethod,
+  SignalKeywordFilter,
+  SignalScheduleFrequency,
+  SignalSource,
+  SignalSourceConfig,
+  SignalSourceFetchConfig,
+  SignalSourceSchedule,
+  SignalTier,
+} from './signals.js';
+// Summary types (拍立得照片墙)
+export type {
+  CreateSummaryInput,
+  ThreadSummary,
+} from './summary.js';
+// Task types (毛线球)
+export type {
+  CreateTaskInput,
+  TaskItem,
+  TaskStatus,
+  UpdateTaskInput,
+} from './task.js';
