@@ -12,6 +12,8 @@ import {
   handleBackgroundAgentMessage,
 } from './useSocket-background';
 
+const JOINED_ROOMS_STORAGE_KEY = 'cat-cafe:ws:joined-rooms:v1';
+
 interface AgentMessage {
   type: string;
   catId: string;
@@ -39,6 +41,31 @@ interface SocketIoEngineLike {
 }
 
 type DebugWebSocket = WebSocket & { __catCafeCloseLoggerAttached?: boolean };
+
+function isThreadRoom(room: unknown): room is string {
+  return typeof room === 'string' && room.startsWith('thread:');
+}
+
+function loadJoinedRoomsFromSession(): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  const raw = window.sessionStorage.getItem(JOINED_ROOMS_STORAGE_KEY);
+  if (!raw) return new Set();
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter(isThreadRoom));
+  } catch (error) {
+    console.warn('[ws] Failed to parse persisted rooms, resetting cache', { error });
+    window.sessionStorage.removeItem(JOINED_ROOMS_STORAGE_KEY);
+    return new Set();
+  }
+}
+
+function saveJoinedRoomsToSession(rooms: Set<string>): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(JOINED_ROOMS_STORAGE_KEY, JSON.stringify([...rooms]));
+}
 
 export interface SocketCallbacks {
   onMessage: (msg: AgentMessage) => void;
@@ -79,7 +106,17 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
   const callbacksRef = useRef(callbacks);
   callbacksRef.current = callbacks;
 
+  const persistJoinedRooms = useCallback(() => {
+    saveJoinedRoomsToSession(joinedRoomsRef.current);
+  }, []);
+
   useEffect(() => {
+    joinedRoomsRef.current = loadJoinedRoomsFromSession();
+    if (threadIdRef.current) {
+      joinedRoomsRef.current.add(`thread:${threadIdRef.current}`);
+    }
+    persistJoinedRooms();
+
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
       auth: { userId: getUserId() },
@@ -116,8 +153,10 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       attachNativeCloseLogger();
 
       // Rejoin all tracked rooms on reconnect
+      const rejoinedRooms: string[] = [];
       for (const room of joinedRoomsRef.current) {
         socket.emit('join_room', room);
+        rejoinedRooms.push(room);
       }
       // Ensure active thread room is joined
       const tid = threadIdRef.current;
@@ -126,8 +165,14 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         if (!joinedRoomsRef.current.has(room)) {
           socket.emit('join_room', room);
           joinedRoomsRef.current.add(room);
+          rejoinedRooms.push(room);
         }
       }
+      persistJoinedRooms();
+      console.log('[ws] Rejoined rooms', {
+        count: rejoinedRooms.length,
+        rooms: rejoinedRooms,
+      });
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
@@ -264,7 +309,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       joinedRoomsRef.current.clear();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks accessed via callbacksRef
-  }, []);
+  }, [persistJoinedRooms]);
 
   /** Join a single room (additive — does not leave other rooms) */
   const joinRoom = useCallback((roomThreadId: string) => {
@@ -274,7 +319,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     if (joinedRoomsRef.current.has(room)) return;
     socket.emit('join_room', room);
     joinedRoomsRef.current.add(room);
-  }, []);
+    persistJoinedRooms();
+  }, [persistJoinedRooms]);
 
   /** Leave a single room */
   const leaveRoom = useCallback((roomThreadId: string) => {
@@ -284,7 +330,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     if (!joinedRoomsRef.current.has(room)) return;
     socket.emit('leave_room', room);
     joinedRoomsRef.current.delete(room);
-  }, []);
+    persistJoinedRooms();
+  }, [persistJoinedRooms]);
 
   /** Sync joined rooms to exactly the given set of thread IDs */
   const syncRooms = useCallback((threadIds: string[]) => {
@@ -308,7 +355,8 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         joinedRoomsRef.current.add(room);
       }
     }
-  }, []);
+    persistJoinedRooms();
+  }, [persistJoinedRooms]);
 
   // Automatically ensure active thread room is joined when threadId changes
   useEffect(() => {
