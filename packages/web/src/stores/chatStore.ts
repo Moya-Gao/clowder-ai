@@ -337,9 +337,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   updateThreadThinkingMode: (threadId, mode) =>
     set((state) => ({
-      threads: state.threads.map((t) =>
-        t.id === threadId ? { ...t, thinkingMode: mode } : t,
-      ),
+      threads: state.threads.map((t) => (t.id === threadId ? { ...t, thinkingMode: mode } : t)),
     })),
 
   /**

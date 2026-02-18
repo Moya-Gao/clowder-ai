@@ -65,11 +65,7 @@ export interface BackgroundStoreLike {
     catId: string,
     info: Partial<import('@/stores/chat-types').CatInvocationInfo>,
   ) => void;
-  setThreadMessageUsage: (
-    threadId: string,
-    messageId: string,
-    usage: import('@/stores/chat-types').TokenUsage,
-  ) => void;
+  setThreadMessageUsage: (threadId: string, messageId: string, usage: import('@/stores/chat-types').TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
@@ -378,8 +374,7 @@ export function handleBackgroundAgentMessage(
         options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
           usage: parsed.usage,
         });
-        const candidateMessageId =
-          existing?.id ?? findLastAssistantMessageId(msg.threadId, msg.catId, options);
+        const candidateMessageId = existing?.id ?? findLastAssistantMessageId(msg.threadId, msg.catId, options);
         if (candidateMessageId) {
           options.store.setThreadMessageUsage(msg.threadId, candidateMessageId, parsed.usage);
         }

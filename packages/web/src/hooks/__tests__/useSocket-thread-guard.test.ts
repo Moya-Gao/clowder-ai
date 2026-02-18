@@ -413,22 +413,14 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       simulateServerEvent('connect', undefined);
     });
 
-    const joinedRooms = emitMock.mock.calls
-      .filter(([event]) => event === 'join_room')
-      .map(([, room]) => room);
+    const joinedRooms = emitMock.mock.calls.filter(([event]) => event === 'join_room').map(([, room]) => room);
 
     expect(new Set(joinedRooms)).toEqual(new Set(['thread:thread-A', 'thread:thread-B']));
   });
 
   it('does not restore rooms persisted by another user id', () => {
-    window.sessionStorage.setItem(
-      'cat-cafe:ws:joined-rooms:v1:alice',
-      JSON.stringify(['thread:alice-secret']),
-    );
-    window.sessionStorage.setItem(
-      'cat-cafe:ws:joined-rooms:v1:bob',
-      JSON.stringify(['thread:bob-work']),
-    );
+    window.sessionStorage.setItem('cat-cafe:ws:joined-rooms:v1:alice', JSON.stringify(['thread:alice-secret']));
+    window.sessionStorage.setItem('cat-cafe:ws:joined-rooms:v1:bob', JSON.stringify(['thread:bob-work']));
     mockUserId = 'bob';
 
     const callbacks: SocketCallbacks = { onMessage: vi.fn() };
@@ -444,9 +436,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       simulateServerEvent('connect', undefined);
     });
 
-    const joinedRooms = emitMock.mock.calls
-      .filter(([event]) => event === 'join_room')
-      .map(([, room]) => room);
+    const joinedRooms = emitMock.mock.calls.filter(([event]) => event === 'join_room').map(([, room]) => room);
 
     expect(new Set(joinedRooms)).toEqual(new Set(['thread:bob-work', 'thread:thread-B']));
   });
