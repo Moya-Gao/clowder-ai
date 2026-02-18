@@ -867,6 +867,28 @@ test('systemPrompt is preserved and codex --image is used when contentBlocks con
   );
 });
 
+test('fresh exec with --image inserts "--" before prompt to avoid varargs swallowing prompt', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn });
+
+  const promise = collect(
+    service.invoke('please describe this image path handling', {
+      contentBlocks: [{ type: 'image', url: '/uploads/cat.png' }],
+      uploadDir: '/tmp',
+    })
+  );
+  emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 'img-thread-arg-sep' }]);
+  await promise;
+
+  const args = spawnFn.mock.calls[0].arguments[1];
+  const imageIdx = args.indexOf('--image');
+  assert.ok(imageIdx >= 0, 'codex should receive --image');
+  const promptIdx = args.findIndex((a) => a === 'please describe this image path handling');
+  assert.ok(promptIdx >= 0, 'prompt should be present');
+  assert.equal(args[promptIdx - 1], '--', 'prompt must be preceded by "--" separator');
+});
+
 test('F8: turn.completed usage is captured into done metadata', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
