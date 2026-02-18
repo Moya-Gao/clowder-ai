@@ -62,7 +62,7 @@ export class EventAuditLog {
 
     await appendFile(filepath, line, 'utf-8');
 
-    console.log(`[audit] Event logged: ${event.type} (${event.id})`);
+    console.log(`[audit] ${new Date(event.timestamp).toISOString()} Event logged: ${event.type} (${event.id})`);
     return event;
   }
 

@@ -50,7 +50,11 @@ export function getSocketManager(): SocketManager {
 }
 
 async function main(): Promise<void> {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: {
+      timestamp: () => `,"time":"${new Date().toISOString()}"`,
+    },
+  });
 
   // CORS for frontend
   await app.register(cors, {
