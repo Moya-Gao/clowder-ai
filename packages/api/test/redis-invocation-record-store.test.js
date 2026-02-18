@@ -266,6 +266,69 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
     assert.equal(winners[0].status, 'running');
   });
 
+  it('non-CAS update rejects illegal transition atomically', async () => {
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'guard-no-cas',
+    });
+
+    // queued → running → succeeded (terminal)
+    await store.update(invocationId, { status: 'running' });
+    await store.update(invocationId, { status: 'succeeded' });
+
+    // succeeded → failed is illegal, must be rejected
+    const result = await store.update(invocationId, { status: 'failed', error: 'should not happen' });
+    assert.equal(result, null);
+
+    const record = await store.get(invocationId);
+    assert.equal(record.status, 'succeeded');
+    assert.equal(record.error, undefined);
+  });
+
+  it('concurrent non-CAS updates cannot regress terminal state (race regression)', async () => {
+    // Reproduces the P1 bug: concurrent non-CAS writes could bypass state machine.
+    // Before fix: hget(status) → validate → hset was non-atomic, allowing
+    // a stale read to overwrite a newer terminal status.
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'race-no-cas',
+    });
+
+    // Get to running state
+    await store.update(invocationId, { status: 'running' });
+
+    // Fire concurrent: one tries succeeded, another tries failed
+    // Both are legal from running, but only one should win.
+    // The loser's transition should be rejected (not silently applied).
+    const [r1, r2] = await Promise.all([
+      store.update(invocationId, { status: 'succeeded' }),
+      store.update(invocationId, { status: 'failed', error: 'late failure' }),
+    ]);
+
+    const record = await store.get(invocationId);
+
+    if (r1 !== null) {
+      // succeeded won — failed must have been rejected (succeeded is terminal)
+      assert.equal(record.status, 'succeeded');
+      assert.equal(record.error, undefined);
+    } else {
+      // failed won — succeeded must have been rejected (failed is not terminal, but
+      // the point is: final state must be consistent with one atomic transition)
+      assert.equal(record.status, 'failed');
+      assert.ok(r2 !== null);
+    }
+
+    // Key invariant: exactly one winner
+    const winners = [r1, r2].filter((r) => r !== null);
+    assert.equal(winners.length, 1, 'Exactly one concurrent update should succeed');
+  });
+
   it('getByIdempotencyKey() returns null for wrong scope', async () => {
     await store.create({
       threadId: 'thread-1',

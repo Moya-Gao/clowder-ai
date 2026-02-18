@@ -11,7 +11,6 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { InvocationKeys } from '../redis-keys/invocation-keys.js';
-import { isValidTransition } from '../ports/invocation-state-machine.js';
 import type { TokenUsage } from '../../types.js';
 import type {
   InvocationRecord,
@@ -48,20 +47,52 @@ return {'created', ARGV[1]}
 `;
 
 /**
- * Lua script for atomic CAS update.
- * KEYS[1] = invocation record hash key
- * ARGV[1] = expectedStatus
- * ARGV[2..N] = field/value pairs to HSET (always includes updatedAt)
+ * Lua script for atomic status update with state machine guard.
+ * Handles both CAS (expectedStatus provided) and non-CAS paths atomically.
  *
- * Returns 1 on success, 0 on status mismatch.
+ * KEYS[1] = invocation record hash key
+ * ARGV[1] = expectedStatus ("" if non-CAS)
+ * ARGV[2] = newStatus ("" if no status change)
+ * ARGV[3..N] = field/value pairs to HSET (always includes updatedAt)
+ *
+ * Returns:
+ *   1  = success
+ *   0  = CAS mismatch (expectedStatus didn't match current)
+ *  -1  = illegal state transition
+ *  -2  = record not found
  */
-const CAS_UPDATE_LUA = `
+const ATOMIC_UPDATE_LUA = `
 local current = redis.call('HGET', KEYS[1], 'status')
-if current ~= ARGV[1] then
+if not current then
+  return -2
+end
+
+local expected = ARGV[1]
+local newStatus = ARGV[2]
+
+-- CAS check: if expectedStatus provided, current must match
+if expected ~= '' and current ~= expected then
   return 0
 end
+
+-- State machine guard: validate transition if status is changing
+if newStatus ~= '' and newStatus ~= current then
+  local transitions = {
+    queued   = {running=1, failed=1, canceled=1},
+    running  = {succeeded=1, failed=1, canceled=1},
+    failed   = {running=1, canceled=1},
+    succeeded = {},
+    canceled  = {}
+  }
+  local allowed = transitions[current]
+  if not allowed or not allowed[newStatus] then
+    return -1
+  end
+end
+
+-- Apply field/value pairs
 local fields = {}
-for i = 2, #ARGV, 2 do
+for i = 3, #ARGV, 2 do
   fields[#fields + 1] = ARGV[i]
   fields[#fields + 1] = ARGV[i + 1]
 end
@@ -125,30 +156,19 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     if (input.error !== undefined) pairs.push('error', input.error);
     if (input.usageByCat !== undefined) pairs.push('usageByCat', JSON.stringify(input.usageByCat));
 
-    // State machine guard (F25): reject illegal transitions
-    if (input.status !== undefined) {
-      if (input.expectedStatus !== undefined) {
-        // CAS path: we know the expected current status, validate before Lua call
-        if (!isValidTransition(input.expectedStatus, input.status)) return null;
-      } else {
-        // Non-CAS path: read current status to validate transition
-        const currentStatus = await this.redis.hget(key, 'status');
-        if (!currentStatus) return null;
-        if (!isValidTransition(currentStatus as InvocationStatus, input.status)) return null;
-      }
-    }
+    // All updates go through ATOMIC_UPDATE_LUA for consistent guard behavior.
+    // The Lua script handles CAS check + state machine validation atomically.
+    const result = await this.redis.eval(
+      ATOMIC_UPDATE_LUA,
+      1,
+      key,
+      input.expectedStatus ?? '',
+      input.status ?? '',
+      ...pairs,
+    ) as number;
 
-    if (input.expectedStatus !== undefined) {
-      // Atomic CAS via Lua: check + update in one EVAL
-      const ok = await this.redis.eval(
-        CAS_UPDATE_LUA, 1, key, input.expectedStatus, ...pairs,
-      ) as number;
-      if (ok === 0) return null;
-    } else {
-      const exists = await this.redis.exists(key);
-      if (!exists) return null;
-      await this.redis.hset(key, ...pairs);
-    }
+    // -2 = not found, 0 = CAS mismatch, -1 = illegal transition
+    if (result !== 1) return null;
 
     return this.get(id);
   }
