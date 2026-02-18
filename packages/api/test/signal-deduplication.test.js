@@ -1,9 +1,8 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
-const { createSignalArticleId, normalizeArticleUrl, DeduplicationService } = await import(
-  '../dist/domains/signals/services/deduplication.js'
-);
+const { createSignalArticleId, createSignalArticleIdFromNormalized, normalizeArticleUrl, DeduplicationService } =
+  await import('../dist/domains/signals/services/deduplication.js');
 
 describe('signal deduplication', () => {
   it('normalizes tracking query params and trailing slash', () => {
@@ -30,6 +29,7 @@ describe('signal deduplication', () => {
     assert.equal(first.isNew, true);
     assert.equal(second.isNew, false);
     assert.equal(first.articleId, second.articleId);
+    assert.equal(first.articleId, createSignalArticleIdFromNormalized(first.normalizedUrl));
   });
 
   it('keeps semantically different query params', () => {

@@ -46,6 +46,10 @@ export function normalizeArticleUrl(inputUrl: string): string {
 
 export function createSignalArticleId(inputUrl: string): string {
   const normalizedUrl = normalizeArticleUrl(inputUrl);
+  return createSignalArticleIdFromNormalized(normalizedUrl);
+}
+
+export function createSignalArticleIdFromNormalized(normalizedUrl: string): string {
   const digest = createHash('sha256').update(normalizedUrl).digest('hex').slice(0, SIGNAL_ID_HEX_LENGTH);
   return `${SIGNAL_ID_PREFIX}${digest}`;
 }
@@ -77,7 +81,7 @@ export class DeduplicationService {
     }
 
     return {
-      articleId: createSignalArticleId(normalizedUrl),
+      articleId: createSignalArticleIdFromNormalized(normalizedUrl),
       normalizedUrl,
       isNew,
     };
