@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-16 (pending-mentions ack bug report 通过 R7 review)
+> 维护者：布偶猫 | 最后更新：2026-02-17 (布偶猫+缅因猫交叉审计 BACKLOG 进度)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -27,7 +27,7 @@
 | 46 | **Fail-closed storage guard** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `assertStorageReady()`: 无 Redis 且无 `MEMORY_STORE=1` → 拒绝启动。`start-dev.sh` Redis 失败 → exit 1 |
 | 47 | **Persist guard (invocation 成功条件)** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `PersistenceContext` 跨 generator 传递持久化失败 → invocation 标 failed (可重试) + 前端通知。cursor ack 仅在 succeeded |
 | 56 | **file_change 事件后前端失联 / 超时** | [~] | [bug report](./bug-report/file-change-event-frontend-disconnect/bug-report.md) | Why: 证据显示 `file_change completed` 后紧接服务重启与前端失联。风险边界：当前调试会话可能在首次文件编辑后断链。触发条件：完成最小复现（含 ws close reason）并确认前端/后端根因后再关闭。 |
-| 77 | **pending-mentions 无 ack 机制 — 跨 session 重复处理** | [~] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `get_pending_mentions` 纯快照查询无已读标记，auto-compact/F24 session 切换后新 session 重复看到旧 mentions。设计方案已通过缅因猫 R7 review（messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验），待实现。 |
+| 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
 | 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
 
 ## P2 — 建议做
@@ -71,12 +71,12 @@
 | 54 | F16 控制面行为接通（Task 3） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：evidence/reflect/callback 路由统一读取运行时配置（recall defaults + reflect disposition），并补齐 RED→GREEN 回归测试闭环。 |
 | 55 | F16 配置变更审计（Task 6） | [x] | F16 Hindsight Config review | 2026-02-10 缅因猫完成：`PATCH /api/config` 写入 `config_updated` 审计事件（key/old/new/operator/source/timestamp），`/api/config/runtime-status` 补充 source 元数据。 |
 | 66 | 布偶猫权限申请不弹窗（MCP callback 未挂载） | [x] | 2026-02-12 铲屎官反馈 | 2026-02-12 缅因猫完成：`ClaudeAgentService` 自动解析默认 MCP 路径 + `start-dev.sh` 构建 `mcp-server` 并导出 `CAT_CAFE_MCP_SERVER_PATH`，补充 `claude-agent-service` 与 `start-dev-script` 回归测试。 |
-| 67 | Hindsight discussion 例外导入机制（`hindsight: include`） | [~] | ADR-005 附录 C + P0.5 边界 | 已实现白名单导入（frontmatter `hindsight: include`）+ discussion `origin:discussion, visibility:quarantined, status:draft` + CLI 审计事件 `hindsight_discussion_exception_imported`；待宪宪 review 放行后收口。 |
-| 68 | ADR 历史否决理由回填（批量） | [ ] | ADR-005 附录 C | 目前仅新增决策按模板写否决理由；P0.5 需要把历史 ADR 的关键 tradeoff/否决理由补齐，提升 why 可检索性。 |
+| 67 | Hindsight discussion 例外导入机制（`hindsight: include`） | [x] | ADR-005 附录 C + P0.5 边界 | `fe47e85` + `5794e07` — 白名单导入 + review P2 follow-ups。已合入 main。 |
+| 68 | ADR 历史否决理由回填（批量） | [x] | ADR-005 附录 C | `83dc22d` — 6 历史 ADR 否决理由回填。已合入 main。 |
 | 69 | Hindsight 周评测流水线（precision/noise/staleness） | [ ] | P0 Plan Task 5 | 建立自动周评测与阈值告警，避免 recall 质量劣化无感发生。 |
 | 70 | workspace 全量 build 阻塞（packages/web lint/type） | [x] | 2026-02-13 Task 5 验证 | 2026-02-13 缅因猫完成：清理 4 处 `no-unused-vars`（`ChatContainer.tsx`, `RightStatusPanel.tsx`, `useSplitPaneKeys.test.ts`, `useChatHistory.ts`），`pnpm -r --if-present run build` 恢复通过。 |
-| 71 | Hindsight 最新性保障（freshness guard） | [~] | 2026-02-14 #68/#69 收口讨论 | #71-MVP 已落地。#71-full 已实现（stale fail-closed + auto re-import trigger + callback/search 双路由接入 + freshnessGuard runtime config），待交叉 review 放行后收口。讨论纪要：`docs/archive/2026-02/mailbox/2026-02-14/2026-02-14-hindsight-freshness-guard-71-discussion-minutes.md` |
-| 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [ ] | [session-not-found bug](./archive/2026-02/bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **背景 bug**：A2A callback 抢占 + abort 导致 Claude CLI session 变成空壳（仅 `queue-operation/dequeue`），后端持续 `--resume` 坏 session → `No conversation found with session ID` 死循环。止血修复（`f028a78`+`7d0c203`）已加 session 自愈（检测坏 session → 清除 → 无 resume 重试），但自愈意味着**丢失该 session 的连续上下文**。铲屎官希望有"手动把一个已知好的 CLI session ID 绑定到某只猫的某个 thread"的能力，这样当自愈丢失上下文后，铲屎官可以手动恢复猫猫的记忆延续。**实现方向**：F24 Phase A 的 `SessionChainStore` 已有完整数据模型（`SessionRecord` 含 `cliSessionId`，thread → N sessions per cat），手动绑定 = 调 `create()` 或 `update()` 写入指定 `cliSessionId`。需要：**(1)** `PATCH /api/threads/:threadId/sessions/:catId/bind` API 端点（带审计）；**(2)** 前端入口（Cat Config Viewer / 状态面板内，输入 session ID 一键绑定）。**不应独立于 F24 做**，否则 F24 Phase B+ 推进时要合并两套 session 管理逻辑。**依赖**：F24 Phase A review 通过后实施。 |
+| 71 | Hindsight 最新性保障（freshness guard） | [x] | 2026-02-14 #68/#69 收口讨论 | `f90a1c4` + `eec372b` — full freshness fail-closed guard + dedupe parsers。已合入 main。 |
+| 72 | **F24: 手动绑定 Session + 前端入口（铲屎官兜底能力）** | [~] | [session-not-found bug](./archive/2026-02/bug-report/2026-02-14-claude-session-not-found-after-a2a-abort/bug-report.md) | **API 已完成** `5d158ae` — `PATCH /api/threads/:threadId/sessions/:catId/bind` 端点（带审计）。**前端未完成** — `SessionChainPanel.tsx` 尚无 bind 入口 UI，铲屎官需手动调 API。 |
 | 73 | **A2A Stop 按钮 UX 改进** | [x] | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三个修复方向均已完成：**(1)** callback A2A 同步前端 loading (`0a1b1da`)；**(2)** `hasActiveInvocation` 状态 + Stop 按钮常驻显示；**(3)** ParallelStatusBar Stop 按钮。缅因猫 R3 放行，commit `2ccc87c`。 |
 | 74 | **Hindsight 临时停用（等 GPT Pro 调研）** | [~] | 2026-02-14 预评测数据质量复盘 | 已新增全局开关 `HINDSIGHT_ENABLED`（commit `8876677`）：关闭后 evidence/reflect/callback retain 不再调用 Hindsight，改为 docs fallback 或 skipped；并已停本地 Hindsight 容器避免 token 消耗。待 GPT Pro 结论后再决定恢复策略与 #69 评测时点。 |
 | 75 | **pending-mentions 跨线程泄漏** | [x] | [情人节聊天 bug](./archive/2026-02/bug-report/2026-02-14-pending-mentions-cross-thread-leak/bug-report.md) | `a822296` — getMentionsFor 增加 threadId 过滤 + 暄罗语音别名 + 4 tests (内存/Redis/API)。暹罗猫 R1 + 缅因猫 R2 放行。 |
@@ -126,7 +126,7 @@
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
 | F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) 做多猫版移动端。iOS app / iMessage 对接待决策 |
 | F11 | **模式系统** | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。6 轮 review 通过，939 tests。[攻防录](../tmp/f11-maine-log.md) |
-| F12 | 功能可发现性 | P1 (#3) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | magic word / MCP skill / 配置统一可视化入口。找不到的功能 = 不存在 |
+| F12 | 功能可发现性 | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | `43f88ca` + `7b03236` — Cat Café Hub modal（功能注册表 + 环境摘要 + /hub 命令）。已合入 main。 |
 | F13 | 审计日志 v2 | [x] | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 已完成：操作审计（追责）+ CLI 原始日志归档（debug）。计划文档: [`2026-02-10-f13-audit-log-v2.md`](./archive/2026-02/plans/2026-02-10-f13-audit-log-v2.md) |
 | F14 | **SVG 猫猫状态动画** | P2 | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 把 ASCII `ᓚᘏᗢ` 升级为三猫参数化 SVG 动画。方案 B（AI 生成 + 结构化 + CSS 动画）已确认。调研报告+执行计划: [`svg-frontend-research.md`](./archive/2026-02/research/svg-frontend-research.md#7-执行计划2026-02-13-布偶猫--铲屎官讨论确认) |
 | F15 | Backlog 管理 | P3 (#7) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 功能想法不散落在手机备忘录。本次讨论即 MVP 实践 |
@@ -136,18 +136,18 @@
 | F19 | ~~动态累积计时器~~ | [x] | [ux-polish 2026-02-10](./archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md) | useElapsedTime hook (100ms)，顶部 + 右侧面板动态显示。缅因猫 review 通过。 |
 | F20 | **语音输入 M1 MVP** | **[x]** | 铲屎官需求 2026-02-11 | 麦克风录音 → 本地 Whisper ASR → 术语纠错 → 填入 textarea → 手动发送。动态按钮 (🎤/▶/⏹/⏳)。缅因猫 2 轮 review 通过 (P1 安全边界 + P1 启动入口 + P2 stream 泄露)。设计: [`2026-02-11-voice-input-design.md`](./archive/2026-02/plans/2026-02-11-voice-input-design.md)，commit `965b569` |
 | F20b | ~~语音输入 M2 — 流式转写~~ | **[x]** | Voice Input design | `1ec0910` + `23a5c30` — requestData() 轮询 + partialTranscript + streamSeqRef 竞态保护。 |
-| F20c | **cat-cafe-whisper 系统级语音输入** | **P2** | Voice Input design + 铲屎官 2026-02-15 | macOS 全局热键（⌥Space）+ 录音 + Whisper 转写 + 术语纠正 + 打字到任意 app。Python MVP → Swift 长期。计划: [`2026-02-15-voice-accuracy-and-system-whisper.md`](./plans/2026-02-15-voice-accuracy-and-system-whisper.md) Phase C |
+| F20c | **cat-cafe-whisper 系统级语音输入** | **[x]** | Voice Input design + 铲屎官 2026-02-15 | 已独立实现为 relay-station 平级项目（非 cat-cafe 子包）。macOS 全局热键（⌥Space）+ Whisper 转写 + 术语纠正 + 打字到任意 app。 |
 | F20d | ~~语音术语自助配置 UI~~ | **[x]** | 铲屎官 2026-02-15 | CatCafeHub "语音设置" tab：可编辑术语纠正表 + initial_prompt 编辑 + 语言选择。内置词典 + localStorage 用户自定义合并。计划: [`2026-02-15-voice-accuracy-and-system-whisper.md`](./plans/2026-02-15-voice-accuracy-and-system-whisper.md) Phase B |
 | F21 | **Signal Hunter 集成** | **P1** | [讨论 2026-02-12](./archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md) | 每日自动抓取 AI 技术信源 + 邮件日报 + 和猫猫深度学习。合并 Signal Hunter 到 Cat Café，launchd 定时 + 50+ 信源 + on/off 开关 + Hindsight 洞察存储。计划: [`2026-02-12-signal-hunter-integration.md`](./plans/2026-02-12-signal-hunter-integration.md)，缅因猫调研: [`signal-hunter.md`](./archive/2026-02/research/signal-hunter.md) |
 | F22 | **Rich Blocks 富消息系统** | **P1** | [SillyTavern 调研](./archive/2026-02/research/sillytavern-phone-ui-research.md) | 猫猫消息支持富组件（DiffCard / Checklist / MediaGallery / InfoCard）。MCP 工具创建 + 文本 fallback + `extra.rich` 持久化 + prompt 清洁器防上下文腐败。F10 手机端猫猫 + 陪伴系统的地基。调研: [`sillytavern-phone-ui-research.md`](./archive/2026-02/research/sillytavern-phone-ui-research.md)，计划: [`2026-02-12-rich-blocks-companion-plan.md`](./plans/2026-02-12-rich-blocks-companion-plan.md) |
-| F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **P1** | 铲屎官 2026-02-13 | services/ 70 文件 + docs/ 270 文件腐化。**两大支柱**：**(A) 防腐化 + 重构**：lint 双阈值 (200 warn / 350 hard) + 依赖边界 + review 检查 + 例外到期 + 目录就地整理 + docs active/archive 归档。**(B) 代码检查工具链引入**：① ESLint 配置（`max-lines` 双阈值 + `no-explicit-any` + `no-unused-vars`）；② ESLint 官方 MCP (`@eslint/mcp`) 配置到 `.mcp.json`，三猫写代码时可直接调 lint 检查；③ typescript-lsp 插件启用（已安装但 disabled）+ 三猫上岗培训 LSP 工具使用；④ JetBrains MCP proxy 调研，用于重构时的 rename symbol / extract method 等 IDE 能力。三方 + GPT Pro 对齐完毕。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
-| F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **P1** | 铲屎官 2026-02-13 | 三个子能力：**(1) 中途消息**：铲屎官在猫猫执行工具调用期间可发送消息，猫猫完成当前工具调用后立即收到（类似 CC/Codex app 的中断能力）。**(2) Context 存活监控**：前端展示当前 session context 使用百分比。**(3) 自动交接触发**：不能依赖铲屎官手动提醒（万一铲屎官睡着了），必须**自动化**——通过 hook 或前端自动检测 context 剩余 < 15% 时注入系统消息触发猫猫写交接。完整流程：自动检测阈值 → 注入"写交接"指令 → 猫猫写交接文档 + commit → /compact → 读交接文档 → 满血复活。**实现方向**：近期可用 Claude Code hooks（每次工具调用后检测 usage）；长期走前端 API response usage 监控 + 自动注入。缅因猫侧 Codex 同理需要。 |
-| F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **P2** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | 三件事串联的可靠性故事线：**(1) 状态机规格可执行**（优先做）：ADR-008 InvocationStatus 转移表显式化 + `fast-check` property-based tests，自动验证非法迁移被拒绝。布偶猫出草案，缅因猫 review。**(2) 并发故障演练台**：给 CAS/Redis/Lua 加 interleaving fuzz 回放，把"偶现"变"必现"。**(3) PR 证据闸门**：合入前自动产出 Red→Green 证据包（失败用例→修复→回归），与 #70 Build Gate 一脉相承。 |
+| F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
+| F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[~]** | 铲屎官 2026-02-13 | 三个子能力中 2/3 已完成：**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar 前端展示 context 使用百分比。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入 + session bootstrap。**未完成：(1) 中途消息注入** [ ]：铲屎官在猫猫执行期间可发送消息。当前前端 `ChatInputActionButton` 在 `hasActiveInvocation` 时切为 Stop 按钮，无法继续发消息。 |
+| F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |
 | F31 | **PR 双层 Review 流程（本地猫 + 云端猫）** | **[x]** | 2026-02-14 铲屎官提议 | ✅ 已完成：本地猫 review（`cat-cafe-requesting-review`/`cat-cafe-receiving-review` skill）+ 云端 Codex review（`requesting-cloud-review` skill）+ SOP.md Step 5 阻塞规则。双层 Review 流程已在 PR #6/#8 中实践，SOP 已修正云端 review 为阻塞守护（非异步）。 |
 | F30 | **消息代码块复制按钮 + 文件路径可跳转** | **[x]** | 2026-02-14 铲屎官提议 | ✅ `9ffd972` + R1 fix `70e8321`, PR #6. CodeBlock 复制按钮 + linkifyFilePaths vscode:// 链接. |
 | ~~F29~~ | ~~**删除右面板"任务统计"死区 + TaskExtractor 清理**~~ | ~~**P2**~~ | ✅ `e532ab4` + `9ebb93f` | 右面板"任务统计"永远是 0——TaskExtractor 从对话文本提取 `- [ ]` / `TODO:` 标记，但猫猫实际用 CLI 工具 (TaskCreate/write_todos) 管理任务，两套系统不搭。删除：RightStatusPanel 的任务统计 section + taskSummary prop + ChatContainer taskSummary 计算。TaskExtractor 后端逻辑（TaskStore/fetchTasks）暂保留给 sidebar 毛线球用；前端右面板的任务展示由 **F26 的实时 task 进度**取代（放在每只猫的调用卡片里）。 |
 | F28 | **授权请求跨渠道通知** | **[x]** | 2026-02-14 铲屎官提议 | ✅ `b98230f` + R1 fix `70e8321`, PR #6. Desktop Notification + Tab flash + header badge + pulse animation. 计划: [`2026-02-14-f28-authorization-cross-channel-notification.md`](./plans/2026-02-14-f28-authorization-cross-channel-notification.md) |
-| F27 | **A2A 路径统一 — 两条路合一 + 全链可取消 + 多 mention** | **P0** | 2026-02-14 铲屎官亲历 | **已复现 P0**: 2026-02-14 晚 thread `thread_mln54grb12u8v28h` 中两猫无限乒乓，铲屎官被迫强制重启。**三个缺陷叠加**：(A) 同一 @mention 被 Path A (worklist) + Path B (callback) 双重开火；(B) Path B 无深度限制导致无限递归；(C) callback child 不注册 tracker 不可取消。**修复方案**：callback 不再自己执行猫调用，改为追加到父 worklist（统一成一条路径 + 共享 AbortController）。`parseA2AMentions` 返回 `string[]` 支持多目标（上限 2）。**F24 合入后立刻开工**。Bug report: [`2026-02-14-a2a-feedback-loop`](./archive/2026-02/bug-report/2026-02-14-a2a-feedback-loop/bug-report.md)，计划: [`2026-02-14-a2a-path-unification.md`](./archive/2026-02/plans/2026-02-14-a2a-path-unification.md) |
+| F27 | **A2A 路径统一 — 两条路合一 + 全链可取消 + 多 mention** | **[x]** | 2026-02-14 铲屎官亲历 | `ae873cd` — callback enqueue to worklist，统一单路径 + 共享 AbortController + 多目标 mention。已合入 main。Bug report: [`2026-02-14-a2a-feedback-loop`](./archive/2026-02/bug-report/2026-02-14-a2a-feedback-loop/bug-report.md) |
 | F26 | **UI Dashboard Upgrade — 右面板重构 + 实时计划进度** | **[x]** | 2026-02-14 铲屎官提议 | ✅ `f59740f` + R1 fix `70e8321`, PR #6. RightStatusPanel active/history 分区 + CatTaskProgress checklist + invoke-single-cat task 提取. 计划: [`2026-02-14-ui-dashboard-upgrade.md`](./archive/2026-02/plans/2026-02-14-ui-dashboard-upgrade.md) |
 
 ## 讨论议题 — 待探索的方向
@@ -256,5 +256,13 @@
 | #26 Gemini resume 调研关闭 | Phase 5.2 | Step 6 |
 | #46 Fail-closed storage guard | fix/fail-closed-storage | `d24780c` |
 | #47 Persist guard (invocation 成功条件) | fix/fail-closed-storage | `32763cb` |
+| #77 pending-mentions ack 机制 | 2026-02-17 审计确认 | `0ef1cdd` |
+| #67 Hindsight discussion 例外导入 | 2026-02-17 审计确认 | `fe47e85` + `5794e07` |
+| #68 ADR 否决理由回填 | 2026-02-17 审计确认 | `83dc22d` |
+| #71 Hindsight freshness guard | 2026-02-17 审计确认 | `f90a1c4` + `eec372b` |
+| F12 Cat Café Hub 功能可发现性 | 2026-02-17 审计确认 | `43f88ca` + `7b03236` |
+| F23 目录防腐化 + 重构 | PR #21 | `d366ad5` |
+| F25 可靠性工程 | PR #21 | `d366ad5` |
+| F27 A2A 路径统一 | 2026-02-17 审计确认 | `ae873cd` |
 
 </details>
