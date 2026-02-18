@@ -345,7 +345,7 @@ describe('AgentRouter', () => {
     assert.equal(textMessages[1].catId, 'codex');
   });
 
-  test('multi-cat serial chain includes previous responses in prompt (#execute)', async () => {
+  test('multi-cat serial chain hides previous stream responses in play mode (#execute)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -378,10 +378,10 @@ describe('AgentRouter', () => {
       messages.push(msg);
     }
 
-    // Codex should receive the original message plus opus's response
+    // In play mode, stream thinking is isolated between cats.
     assert.ok(
-      codexReceivedPrompt.includes('Opus response'),
-      'Codex prompt should include Opus response'
+      !codexReceivedPrompt.includes('Opus response'),
+      'Codex prompt should NOT include Opus stream response in play mode'
     );
   });
 
@@ -1257,7 +1257,7 @@ describe('AgentRouter', () => {
     assert.ok(doneMessages[doneMessages.length - 1].isFinal, 'Last done should be isFinal');
   });
 
-  test('parallel: #execute forces serial even with multiple cats', async () => {
+  test('parallel: #execute forces serial mode metadata even with multiple cats', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -1284,9 +1284,9 @@ describe('AgentRouter', () => {
       // consume
     }
 
-    // Serial mode: codex should see opus's response
-    assert.ok(codexPrompt.includes('Serial opus'),
-      '#execute should force serial chain (codex sees opus response)');
+    // Play mode: codex should NOT see opus stream response.
+    assert.ok(!codexPrompt.includes('Serial opus'),
+      '#execute should keep stream isolation in play mode');
     assert.ok(codexPrompt.includes('被召唤'),
       '#execute should use serial mode text');
   });
