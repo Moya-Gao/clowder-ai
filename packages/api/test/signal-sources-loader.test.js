@@ -1,7 +1,8 @@
-import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, existsSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 const modulePath = '../dist/domains/signals/config/sources-loader.js';
 
@@ -58,7 +59,11 @@ describe('signal sources loader', () => {
     const paths = resolveSignalPaths();
     await ensureSignalWorkspace(paths);
 
-    writeFileSync(paths.sourcesFile, `version: 1\nsources:\n  - id: openai-rss\n    name: OpenAI RSS\n    url: https://openai.com/news/rss.xml\n    tier: 1\n    category: official\n    enabled: true\n    fetch:\n      method: rss\n    schedule:\n      frequency: daily\n`, 'utf-8');
+    writeFileSync(
+      paths.sourcesFile,
+      `version: 1\nsources:\n  - id: openai-rss\n    name: OpenAI RSS\n    url: https://openai.com/news/rss.xml\n    tier: 1\n    category: official\n    enabled: true\n    fetch:\n      method: rss\n    schedule:\n      frequency: daily\n`,
+      'utf-8',
+    );
 
     const config = await loadSignalSources(paths);
 
@@ -73,7 +78,11 @@ describe('signal sources loader', () => {
     const paths = resolveSignalPaths();
     await ensureSignalWorkspace(paths);
 
-    writeFileSync(paths.sourcesFile, `version: 1\nsources:\n  - id: invalid\n    name: Invalid\n    url: https://example.com/feed\n    tier: 9\n    category: official\n    enabled: true\n    fetch:\n      method: rss\n    schedule:\n      frequency: daily\n`, 'utf-8');
+    writeFileSync(
+      paths.sourcesFile,
+      `version: 1\nsources:\n  - id: invalid\n    name: Invalid\n    url: https://example.com/feed\n    tier: 9\n    category: official\n    enabled: true\n    fetch:\n      method: rss\n    schedule:\n      frequency: daily\n`,
+      'utf-8',
+    );
 
     await assert.rejects(async () => {
       await loadSignalSources(paths);
@@ -88,5 +97,16 @@ describe('signal sources loader', () => {
 
     assert.equal(paths.rootDir, custom);
     assert.equal(paths.sourcesFile, join(custom, 'config', 'sources.yaml'));
+  });
+
+  it('falls back to default root when SIGNALS_ROOT_DIR is empty', async () => {
+    const { resolveSignalPaths } = await import(modulePath);
+
+    process.env['SIGNALS_ROOT_DIR'] = '';
+
+    const paths = resolveSignalPaths();
+    const expectedRoot = join(homedir(), '.cat-cafe', 'signals');
+
+    assert.equal(paths.rootDir, expectedRoot);
   });
 });

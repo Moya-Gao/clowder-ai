@@ -12,8 +12,15 @@ export interface SignalPaths {
 
 const DEFAULT_SIGNAL_ROOT_DIR = join(homedir(), '.cat-cafe', 'signals');
 
+function normalizeRootDir(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
 export function resolveSignalPaths(rootOverride?: string): SignalPaths {
-  const rootDir = resolve(rootOverride ?? process.env['SIGNALS_ROOT_DIR'] ?? DEFAULT_SIGNAL_ROOT_DIR);
+  const rootDir = resolve(
+    normalizeRootDir(rootOverride) ?? normalizeRootDir(process.env['SIGNALS_ROOT_DIR']) ?? DEFAULT_SIGNAL_ROOT_DIR,
+  );
 
   const configDir = join(rootDir, 'config');
 

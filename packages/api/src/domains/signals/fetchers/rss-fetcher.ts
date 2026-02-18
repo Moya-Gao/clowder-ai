@@ -25,7 +25,9 @@ function nowIso(): string {
 }
 
 function toRawArticle(item: RssItem): RawArticle | null {
-  const url = item.link?.trim() ?? item.guid?.trim();
+  const normalizedLink = item.link?.trim();
+  const normalizedGuid = item.guid?.trim();
+  const url = normalizedLink || normalizedGuid;
   const title = item.title?.trim();
   if (!url || !title) return null;
 

@@ -1,5 +1,5 @@
-import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 
 const { RssFetcher } = await import('../dist/domains/signals/fetchers/rss-fetcher.js');
 
@@ -54,6 +54,27 @@ describe('RssFetcher', () => {
     assert.equal(result.articles[0].url, 'https://openai.com/index/gpt-6');
     assert.equal(result.metadata.source, 'openai-news-rss');
     assert.equal(typeof result.metadata.duration, 'number');
+  });
+
+  it('falls back to guid when link is blank after trim', async () => {
+    const fetcher = new RssFetcher({
+      parseURL: async () => ({
+        items: [
+          {
+            title: 'Model card update',
+            link: '   ',
+            guid: 'https://openai.com/index/model-card',
+            pubDate: '2026-02-18T08:00:00.000Z',
+          },
+        ],
+      }),
+    });
+
+    const result = await fetcher.fetch(createSource());
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.articles.length, 1);
+    assert.equal(result.articles[0].url, 'https://openai.com/index/model-card');
   });
 
   it('fetch returns structured error when parser throws', async () => {
