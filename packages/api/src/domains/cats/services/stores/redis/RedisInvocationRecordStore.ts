@@ -75,8 +75,10 @@ if expected ~= '' and current ~= expected then
   return 0
 end
 
--- State machine guard: validate transition if status is changing
-if newStatus ~= '' and newStatus ~= current then
+-- State machine guard: validate transition when newStatus is provided.
+-- Self-transitions (newStatus == current) are rejected for terminal states
+-- because succeeded/canceled have empty allow-sets, matching isValidTransition().
+if newStatus ~= '' then
   local transitions = {
     queued   = {running=1, failed=1, canceled=1},
     running  = {succeeded=1, failed=1, canceled=1},

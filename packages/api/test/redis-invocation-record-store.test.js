@@ -288,6 +288,29 @@ describe('RedisInvocationRecordStore', { skip: !REDIS_URL ? 'REDIS_URL not set' 
     assert.equal(record.error, undefined);
   });
 
+  it('same-status update on terminal state is rejected (cloud P1)', async () => {
+    // Reproduces cloud Codex P1: succeeded→succeeded bypassed state machine
+    // because Lua only checked transitions when newStatus ~= current.
+    const { invocationId } = await store.create({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      targetCats: ['opus'],
+      intent: 'execute',
+      idempotencyKey: 'self-transition',
+    });
+
+    await store.update(invocationId, { status: 'running' });
+    await store.update(invocationId, { status: 'succeeded' });
+
+    // succeeded → succeeded should be rejected (terminal, no self-transitions)
+    const result = await store.update(invocationId, { status: 'succeeded', error: 'late error' });
+    assert.equal(result, null);
+
+    const record = await store.get(invocationId);
+    assert.equal(record.status, 'succeeded');
+    assert.equal(record.error, undefined);
+  });
+
   it('concurrent non-CAS updates cannot regress terminal state (race regression)', async () => {
     // Reproduces the P1 bug: concurrent non-CAS writes could bypass state machine.
     // Before fix: hget(status) → validate → hset was non-atomic, allowing
