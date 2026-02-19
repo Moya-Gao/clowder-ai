@@ -35,8 +35,9 @@ F21 前三阶段已完成（S1/S2/S3）。本轮实现 S4，目标是让 signals
 | `docs/BACKLOG.md` | 修改 | F21 进展更新到 S4 完成 |
 
 ### Git SHA
-- Base: `269c7d4`
-- Head: `400879b`
+- Base: `db4d6d2`
+- Head (feature): `9f035c2`
+- Head (mailbox): `3744146`
 
 ### 测试状态
 
