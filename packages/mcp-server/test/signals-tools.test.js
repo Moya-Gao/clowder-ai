@@ -101,6 +101,47 @@ describe('MCP Signal Tools', () => {
     assert.match(result.content[0].text, /Full article content/);
   });
 
+  test('handleSignalSearch forwards status filter to API query', async () => {
+    const { handleSignalSearch } = await import('../dist/tools/signals-tools.js');
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({
+          total: 1,
+          items: [
+            {
+              id: 'signal_2',
+              title: 'Claude 5 evals',
+              source: 'anthropic-news',
+              tier: 1,
+              fetchedAt: '2026-02-19T09:00:00.000Z',
+            },
+          ],
+        }),
+      };
+    };
+
+    const result = await handleSignalSearch({
+      query: 'claude',
+      status: 'read',
+      source: 'anthropic-news',
+      tier: 1,
+      limit: 10,
+    });
+
+    assert.equal(result.isError, undefined);
+    const parsed = new URL(String(capturedUrl));
+    assert.equal(parsed.pathname, '/api/signals/search');
+    assert.equal(parsed.searchParams.get('q'), 'claude');
+    assert.equal(parsed.searchParams.get('status'), 'read');
+    assert.equal(parsed.searchParams.get('source'), 'anthropic-news');
+    assert.equal(parsed.searchParams.get('tier'), '1');
+    assert.equal(parsed.searchParams.get('limit'), '10');
+  });
+
   test('handleSignalSummarize reads article then PATCHes summary', async () => {
     const { handleSignalSummarize } = await import('../dist/tools/signals-tools.js');
 

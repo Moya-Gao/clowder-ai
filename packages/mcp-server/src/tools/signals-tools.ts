@@ -83,6 +83,7 @@ export const signalGetArticleInputSchema = {
 export const signalSearchInputSchema = {
   query: z.string().min(1).max(500).describe('Search query string'),
   limit: z.number().int().min(1).max(100).optional().describe('Max search results (default: 20)'),
+  status: z.enum(['inbox', 'read', 'starred', 'archived']).optional().describe('Filter by signal article status'),
   source: z.string().min(1).max(200).optional().describe('Filter by source id'),
   tier: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4)]).optional().describe('Filter by signal tier'),
   dateFrom: z.string().optional().describe('ISO date/time lower bound for fetchedAt'),
@@ -151,6 +152,7 @@ export async function handleSignalGetArticle(input: {
 export async function handleSignalSearch(input: {
   query: string;
   limit?: number | undefined;
+  status?: 'inbox' | 'read' | 'starred' | 'archived' | undefined;
   source?: string | undefined;
   tier?: 1 | 2 | 3 | 4 | undefined;
   dateFrom?: string | undefined;
@@ -158,6 +160,7 @@ export async function handleSignalSearch(input: {
 }): Promise<ToolResult> {
   const params = new URLSearchParams({ q: input.query });
   if (input.limit !== undefined) params.set('limit', String(input.limit));
+  if (input.status) params.set('status', input.status);
   if (input.source) params.set('source', input.source);
   if (input.tier !== undefined) params.set('tier', String(input.tier));
   if (input.dateFrom) params.set('dateFrom', input.dateFrom);
