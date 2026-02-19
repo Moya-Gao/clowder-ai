@@ -291,6 +291,47 @@ describe('signals routes', () => {
     assert.equal(updated.enabled, false);
   });
 
+  it('PATCH /api/signals/sources/:id preserves both updates under concurrent toggles', async () => {
+    const headers = {
+      ...AUTH_HEADERS,
+      'content-type': 'application/json',
+    };
+
+    const [firstRes, secondRes] = await Promise.all([
+      app.inject({
+        method: 'PATCH',
+        url: '/api/signals/sources/anthropic-news',
+        headers,
+        payload: { enabled: false },
+      }),
+      app.inject({
+        method: 'PATCH',
+        url: '/api/signals/sources/openai-news-rss',
+        headers,
+        payload: { enabled: false },
+      }),
+    ]);
+
+    assert.equal(firstRes.statusCode, 200);
+    assert.equal(secondRes.statusCode, 200);
+
+    const listAfter = await app.inject({
+      method: 'GET',
+      url: '/api/signals/sources',
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(listAfter.statusCode, 200);
+
+    const afterBody = listAfter.json();
+    const anthropic = afterBody.sources.find((source) => source.id === 'anthropic-news');
+    const openai = afterBody.sources.find((source) => source.id === 'openai-news-rss');
+
+    assert.ok(anthropic);
+    assert.ok(openai);
+    assert.equal(anthropic.enabled, false);
+    assert.equal(openai.enabled, false);
+  });
+
   it('GET /api/signals/stats returns today/week/unread counters', async () => {
     const res = await app.inject({
       method: 'GET',

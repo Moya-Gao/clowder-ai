@@ -40,6 +40,21 @@ const updateSourceBodySchema = z.object({
   enabled: z.boolean(),
 });
 
+class SerialTaskQueue {
+  private tail: Promise<void> = Promise.resolve();
+
+  async run<T>(task: () => Promise<T>): Promise<T> {
+    const next = this.tail.then(task, task);
+    this.tail = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
+  }
+}
+
+const signalSourcesUpdateQueue = new SerialTaskQueue();
+
 function requireIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
   const userId = resolveUserId(request);
   if (!userId) {
@@ -196,33 +211,43 @@ export const signalsRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Invalid request body', details: parsed.error.issues };
     }
 
-    const config = await loadSignalSources(paths);
-    const target = config.sources.find((source) => source.id === params.id);
+    const updated = await signalSourcesUpdateQueue.run(async () => {
+      const config = await loadSignalSources(paths);
+      const target = config.sources.find((source) => source.id === params.id);
+      if (!target) {
+        return null;
+      }
 
-    if (!target) {
+      const updatedSources = config.sources.map((source) =>
+        source.id === params.id
+          ? {
+              ...source,
+              enabled: parsed.data.enabled,
+            }
+          : source,
+      );
+
+      await saveSignalSources(
+        {
+          ...config,
+          sources: updatedSources,
+        },
+        paths,
+      );
+
+      return {
+        ...target,
+        enabled: parsed.data.enabled,
+      };
+    });
+
+    if (!updated) {
       reply.status(404);
       return { error: `Source not found: ${params.id}` };
     }
 
-    const updatedSources = config.sources.map((source) =>
-      source.id === params.id
-        ? {
-            ...source,
-            enabled: parsed.data.enabled,
-          }
-        : source,
-    );
-
-    await saveSignalSources({
-      ...config,
-      sources: updatedSources,
-    }, paths);
-
     return {
-      source: {
-        ...target,
-        enabled: parsed.data.enabled,
-      },
+      source: updated,
     };
   });
 

@@ -73,6 +73,26 @@ describe('toFetchSignalsExitCode', () => {
     assert.equal(code, 1);
   });
 
+  it('returns non-zero when notifications contain error status', () => {
+    const code = toFetchSignalsExitCode({
+      dryRun: false,
+      fetchedAt: '2026-02-19T08:00:00.000Z',
+      processedSources: 1,
+      skippedSources: 0,
+      fetchedArticles: 2,
+      newArticles: 2,
+      storedArticles: 2,
+      duplicateArticles: 0,
+      errors: [],
+      notifications: {
+        email: { status: 'error', error: 'smtp auth failed' },
+        inApp: { status: 'sent' },
+      },
+    });
+
+    assert.equal(code, 1);
+  });
+
   it('returns zero when scheduler summary has no errors', () => {
     const code = toFetchSignalsExitCode({
       dryRun: false,

@@ -66,6 +66,10 @@ export function parseFetchSignalsArgs(argv: readonly string[]): FetchSignalsCliA
 }
 
 export function formatFetchSignalsSummary(summary: SignalFetchSchedulerSummary): string {
+  const notificationErrors = summary.notifications
+    ? Number(summary.notifications.email.status === 'error') + Number(summary.notifications.inApp.status === 'error')
+    : 0;
+
   return [
     `[signals] fetch completed`,
     `dryRun=${summary.dryRun}`,
@@ -76,11 +80,14 @@ export function formatFetchSignalsSummary(summary: SignalFetchSchedulerSummary):
     `stored=${summary.storedArticles}`,
     `duplicates=${summary.duplicateArticles}`,
     `errors=${summary.errors.length}`,
+    `notificationErrors=${notificationErrors}`,
   ].join(' ');
 }
 
 export function toFetchSignalsExitCode(summary: SignalFetchSchedulerSummary): number {
-  return summary.errors.length > 0 ? 1 : 0;
+  const hasNotificationError =
+    summary.notifications?.email.status === 'error' || summary.notifications?.inApp.status === 'error';
+  return summary.errors.length > 0 || hasNotificationError ? 1 : 0;
 }
 
 function usage(): string {
@@ -118,6 +125,14 @@ export async function runFetchSignalsCli(
       for (const error of summary.errors) {
         io.error(`[signals] ${error.code} source=${error.sourceId} message=${error.message}`);
       }
+    }
+
+    if (summary.notifications?.email.status === 'error') {
+      io.error(`[signals] EMAIL_NOTIFY_FAILED message=${summary.notifications.email.error ?? 'unknown error'}`);
+    }
+
+    if (summary.notifications?.inApp.status === 'error') {
+      io.error(`[signals] IN_APP_NOTIFY_FAILED message=${summary.notifications.inApp.error ?? 'unknown error'}`);
     }
 
     return toFetchSignalsExitCode(summary);
