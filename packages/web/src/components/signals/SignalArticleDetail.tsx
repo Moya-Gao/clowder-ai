@@ -1,12 +1,14 @@
-import React from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import type { SignalArticleStatus } from '@cat-cafe/shared';
 import type { SignalArticleDetail } from '@/utils/signals-api';
 import { SignalTierBadge } from './SignalTierBadge';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 interface SignalArticleDetailProps {
   readonly article: SignalArticleDetail | null;
   readonly isLoading: boolean;
   readonly onStatusChange: (articleId: string, status: SignalArticleStatus) => Promise<void>;
+  readonly onTagsChange: (articleId: string, tags: readonly string[]) => Promise<void>;
 }
 
 function formatDate(input: string): string {
@@ -23,7 +25,44 @@ function formatDate(input: string): string {
   });
 }
 
-export function SignalArticleDetail({ article, isLoading, onStatusChange }: SignalArticleDetailProps) {
+export function SignalArticleDetail({ article, isLoading, onStatusChange, onTagsChange }: SignalArticleDetailProps) {
+  const [pendingTag, setPendingTag] = useState('');
+  const pendingTagInputRef = useRef<HTMLInputElement>(null);
+  const normalizedPendingTag = pendingTag.trim();
+
+  const discussedLink = useMemo(() => {
+    if (!article) {
+      return '/thread/default';
+    }
+    const query = new URLSearchParams({
+      signal: article.id,
+      source: article.source,
+    });
+    return `/thread/default?${query.toString()}`;
+  }, [article]);
+
+  const addPendingTag = useCallback(async () => {
+    if (!article) {
+      return;
+    }
+    const candidateTag = normalizedPendingTag.length > 0
+      ? normalizedPendingTag
+      : pendingTagInputRef.current?.value.trim() ?? '';
+    if (candidateTag.length === 0) {
+      return;
+    }
+    const hasExisting = article.tags.some((tag) => tag.toLowerCase() === candidateTag.toLowerCase());
+    if (hasExisting) {
+      setPendingTag('');
+      return;
+    }
+    await onTagsChange(article.id, [...article.tags, candidateTag]);
+    setPendingTag('');
+    if (pendingTagInputRef.current) {
+      pendingTagInputRef.current.value = '';
+    }
+  }, [article, normalizedPendingTag, onTagsChange]);
+
   if (isLoading) {
     return (
       <aside className="rounded-xl border border-gray-200 bg-white p-6 text-sm text-gray-500 shadow-sm">
@@ -50,7 +89,22 @@ export function SignalArticleDetail({ article, isLoading, onStatusChange }: Sign
       <p className="mt-1 text-xs text-gray-500">
         {article.source} · {formatDate(article.fetchedAt)}
       </p>
-      <p className="mt-2 break-all text-xs text-gray-500">{article.url}</p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <a
+          href={article.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-md border border-owner-light px-3 py-1.5 text-xs text-owner-dark hover:bg-owner-bg"
+        >
+          打开原文 ↗
+        </a>
+        <a
+          href={discussedLink}
+          className="rounded-md border border-opus-light px-3 py-1.5 text-xs text-opus-dark hover:bg-opus-bg"
+        >
+          在对话中讨论
+        </a>
+      </div>
       {article.summary && (
         <section className="mt-4 rounded-lg border border-owner-light bg-owner-bg p-3">
           <h3 className="text-xs font-semibold text-owner-dark">AI 摘要</h3>
@@ -59,9 +113,48 @@ export function SignalArticleDetail({ article, isLoading, onStatusChange }: Sign
       )}
       <section className="mt-4">
         <h3 className="text-xs font-semibold text-gray-600">正文</h3>
-        <p className="mt-1 max-h-[300px] overflow-y-auto whitespace-pre-wrap text-sm text-cafe-black">
-          {article.content || '（无正文）'}
-        </p>
+        <div className="mt-1 max-h-[300px] overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-cafe-black">
+          <MarkdownContent content={article.content || '（无正文）'} />
+        </div>
+      </section>
+      <section className="mt-4">
+        <h3 className="text-xs font-semibold text-gray-600">标签</h3>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {article.tags.length === 0 ? (
+            <span className="text-xs text-gray-500">暂无标签</span>
+          ) : (
+            article.tags.map((tag) => (
+              <span
+                key={tag}
+                className="rounded-full border border-codex-light bg-codex-bg px-2 py-0.5 text-xs text-codex-dark"
+              >
+                {tag}
+              </span>
+            ))
+          )}
+        </div>
+        <div className="mt-2 flex gap-2">
+          <input
+            ref={pendingTagInputRef}
+            value={pendingTag}
+            onChange={(event) => setPendingTag(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                void addPendingTag();
+              }
+            }}
+            placeholder="添加标签"
+            className="flex-1 rounded-md border border-gray-200 px-2 py-1.5 text-xs"
+          />
+          <button
+            type="button"
+            onClick={() => void addPendingTag()}
+            className="rounded-md border border-codex-light px-2.5 py-1.5 text-xs text-codex-dark hover:bg-codex-bg"
+          >
+            添加标签
+          </button>
+        </div>
       </section>
       <div className="mt-4 flex flex-wrap gap-2">
         <button

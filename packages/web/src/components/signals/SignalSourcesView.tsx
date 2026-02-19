@@ -109,7 +109,24 @@ export function SignalSourcesView() {
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-cafe-black">{source.name}</p>
-                        <p className="break-all text-xs text-gray-500">{source.url}</p>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-xs text-blue-600 hover:underline"
+                          >
+                            {source.url}
+                          </a>
+                          <a
+                            href={source.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded-md border border-opus-light px-2 py-0.5 text-[11px] text-opus-dark hover:bg-opus-bg"
+                          >
+                            访问 ↗
+                          </a>
+                        </div>
                         <p className="mt-1 text-xs text-gray-500">
                           {source.fetch.method} · {source.schedule.frequency}
                         </p>

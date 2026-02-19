@@ -1,0 +1,98 @@
+import React from 'react';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SignalArticleStatus } from '@cat-cafe/shared';
+import { SignalArticleDetail } from '@/components/signals/SignalArticleDetail';
+
+describe('SignalArticleDetail', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  it('renders original link + discuss entry + markdown + tag editing', async () => {
+    const onStatusChange = vi.fn<(
+      articleId: string,
+      status: SignalArticleStatus,
+    ) => Promise<void>>().mockResolvedValue(undefined);
+    const onTagsChange = vi.fn<(articleId: string, tags: readonly string[]) => Promise<void>>().mockResolvedValue(undefined);
+
+    await act(async () => {
+      root.render(
+        React.createElement(SignalArticleDetail, {
+          isLoading: false,
+          article: {
+            id: 'article-1',
+            title: 'Test Article',
+            url: 'https://example.com/article',
+            source: 'test-source',
+            tier: 1,
+            publishedAt: '2026-02-19T08:00:00.000Z',
+            fetchedAt: '2026-02-19T08:01:00.000Z',
+            status: 'inbox',
+            tags: ['existing'],
+            filePath: '/tmp/article-1.md',
+            content: '**重点内容**',
+          },
+          onStatusChange,
+          onTagsChange,
+        }),
+      );
+    });
+
+    const originalLink = container.querySelector('a[href="https://example.com/article"]');
+    expect(originalLink).not.toBeNull();
+    expect(originalLink?.textContent ?? '').toContain('打开原文');
+
+    const discussLink = container.querySelector('a[href^="/thread/default?signal="]');
+    expect(discussLink).not.toBeNull();
+    expect(discussLink?.textContent ?? '').toContain('在对话中讨论');
+
+    const strongText = container.querySelector('strong');
+    expect(strongText?.textContent).toContain('重点内容');
+
+    const tagBadge = Array.from(container.querySelectorAll('span')).find((item) => item.textContent?.includes('existing'));
+    expect(tagBadge).toBeTruthy();
+
+    const tagInput = container.querySelector('input[placeholder="添加标签"]') as HTMLInputElement | null;
+    expect(tagInput).not.toBeNull();
+    if (!tagInput) {
+      return;
+    }
+    tagInput.value = 'new-tag';
+    tagInput.dispatchEvent(new Event('input', { bubbles: true }));
+    tagInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const addButton = Array.from(container.querySelectorAll('button')).find((item) => item.textContent?.includes('添加标签'));
+    expect(addButton).not.toBeNull();
+    if (!addButton) {
+      return;
+    }
+
+    await act(async () => {
+      addButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(onTagsChange).toHaveBeenCalledWith('article-1', ['existing', 'new-tag']);
+  });
+});

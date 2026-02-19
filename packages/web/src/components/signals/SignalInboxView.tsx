@@ -105,6 +105,17 @@ export function SignalInboxView() {
     }
   }, []);
 
+  const handleTagsChange = useCallback(async (articleId: string, tags: readonly string[]) => {
+    setError(null);
+    try {
+      const updated = await updateSignalArticle(articleId, { tags });
+      setItems((current) => current.map((item) => (item.id === articleId ? updated : item)));
+      setSelectedArticle((current) => (current && current.id === articleId ? updated : current));
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : '更新标签失败');
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-owner-bg via-cafe-white to-cafe-white">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
@@ -187,6 +198,7 @@ export function SignalInboxView() {
             article={selectedArticle}
             isLoading={detailLoading}
             onStatusChange={handleStatusChange}
+            onTagsChange={handleTagsChange}
           />
         </section>
       </main>
