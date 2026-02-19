@@ -9,6 +9,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 const EXPECTED_TOOLS = [
   // File tools
@@ -83,5 +84,15 @@ describe('MCP Server Tool Registration', () => {
 
     const checkTool = server._registeredTools['cat_cafe_check_permission_status'];
     assert.ok(checkTool, 'check_permission_status tool should exist');
+  });
+
+  test('src/index.ts stays under 350 lines (hard limit)', () => {
+    const sourcePath = new URL('../src/index.ts', import.meta.url);
+    const source = readFileSync(sourcePath, 'utf-8');
+    const lineCount = source.split('\n').length;
+    assert.ok(
+      lineCount <= 350,
+      `mcp-server/src/index.ts exceeds 350 lines: ${lineCount}`,
+    );
   });
 });
