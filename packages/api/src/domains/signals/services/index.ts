@@ -11,3 +11,19 @@ export {
   DeduplicationService,
   normalizeArticleUrl,
 } from './deduplication.js';
+export type {
+  DailyDigestMessage,
+  EmailSendResult,
+  EmailTransporter,
+  EmailTransporterFactory,
+  SignalEmailServiceOptions,
+} from './email-service.js';
+export { SignalEmailService } from './email-service.js';
+export type {
+  InAppNotificationResult,
+  InAppNotificationSink,
+  InAppPublishEvent,
+  PublishDailyDigestInput,
+  SignalInAppNotificationServiceOptions,
+} from './in-app-notification.js';
+export { SignalInAppNotificationService } from './in-app-notification.js';
