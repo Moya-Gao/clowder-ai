@@ -110,6 +110,17 @@ describe('migrate-signals script args', () => {
 });
 
 describe('runMigrateSignalsCli', () => {
+  it('fails fast when --from is missing', async () => {
+    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const { io, logs, errors } = createIo();
+
+    const code = await runMigrateSignalsCli(['--to', targetRoot, '--dry-run'], io);
+
+    assert.equal(code, 1);
+    assert.match(errors.join('\n'), /--from is required/);
+    assert.equal(logs.some((line) => line.includes('migration completed')), false);
+  });
+
   it('dry-run does not write target signals workspace', async () => {
     const legacyRoot = await createLegacyFixture();
     const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));

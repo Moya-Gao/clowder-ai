@@ -62,6 +62,14 @@ async function readArticleDetailsSafely(records: readonly InboxRecord[]): Promis
   return settled.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
 }
 
+async function readArticleDetailOrNull(record: InboxRecord): Promise<ParsedArticleDocument | null> {
+  try {
+    return await readArticleDocument(record);
+  } catch {
+    return null;
+  }
+}
+
 export class SignalArticleQueryService {
   private readonly paths: SignalPaths;
 
@@ -91,7 +99,10 @@ export class SignalArticleQueryService {
       return null;
     }
 
-    const detail = await readArticleDocument(matched);
+    const detail = await readArticleDetailOrNull(matched);
+    if (!detail) {
+      return null;
+    }
     return {
       ...detail.article,
       content: detail.content,
@@ -111,7 +122,10 @@ export class SignalArticleQueryService {
       return null;
     }
 
-    const detail = await readArticleDocument(matched);
+    const detail = await readArticleDetailOrNull(matched);
+    if (!detail) {
+      return null;
+    }
     return {
       ...detail.article,
       content: detail.content,
@@ -161,7 +175,10 @@ export class SignalArticleQueryService {
       return null;
     }
 
-    const detail = await readArticleDocument(matched);
+    const detail = await readArticleDetailOrNull(matched);
+    if (!detail) {
+      return null;
+    }
     const { summary: _previousSummary, ...articleWithoutSummary } = detail.article;
     const nextSummary =
       input.summary === undefined

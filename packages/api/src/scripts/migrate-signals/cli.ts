@@ -14,13 +14,11 @@ import {
 } from './source-migration.js';
 import { slugify } from './shared.js';
 
-const DEFAULT_LEGACY_ROOT = '/Users/lysander/projects/relay-station/signal-hunter';
-
 const USAGE = [
   'Usage: pnpm --filter @cat-cafe/api run migrate-signals -- [options]',
   '',
   'Options:',
-  '  --from <path>       legacy Signal Hunter root (default: /Users/lysander/projects/relay-station/signal-hunter)',
+  '  --from <path>       legacy Signal Hunter root (required)',
   '  --to <path>         target signals root (default: SIGNALS_ROOT_DIR or ~/.cat-cafe/signals)',
   '  --dry-run           parse + plan only, do not write files',
   '  --redis-url <url>   optional Redis URL for index write-through',
@@ -153,7 +151,14 @@ export async function runMigrateSignalsCli(
     return 0;
   }
 
-  const legacyRoot = resolve(args.fromDir ?? DEFAULT_LEGACY_ROOT);
+  if (!args.fromDir) {
+    io.error('--from is required');
+    io.error('');
+    io.error(toUsage());
+    return 1;
+  }
+
+  const legacyRoot = resolve(args.fromDir);
   const paths = resolveSignalPaths(args.toDir);
   const legacySourcesFile = join(legacyRoot, 'config', 'sources.yaml');
   const legacyLibraryDir = join(legacyRoot, 'library');

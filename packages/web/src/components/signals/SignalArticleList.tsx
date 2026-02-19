@@ -49,9 +49,17 @@ export function SignalArticleList({
         const selected = selectedArticleId === article.id;
         return (
           <li key={article.id}>
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(article)}
+              onKeyDown={(event) => {
+                if (event.target !== event.currentTarget) return;
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelect(article);
+                }
+              }}
               className={[
                 'w-full rounded-xl border bg-white p-4 text-left shadow-sm transition-colors',
                 selected ? 'border-owner-primary ring-1 ring-owner-primary/40' : 'border-gray-200 hover:border-owner-light',
@@ -93,7 +101,7 @@ export function SignalArticleList({
                   </button>
                 </div>
               </div>
-            </button>
+            </div>
           </li>
         );
       })}

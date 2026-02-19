@@ -347,4 +347,35 @@ describe('signals routes', () => {
     assert.ok(statsBody.todayCount >= 1);
     assert.ok(statsBody.weekCount >= 2);
   });
+
+  it('returns 404 (not 500) for detail/by-url/update when article file is missing', async () => {
+    unlinkSync(secondArticle.filePath);
+
+    const byIdRes = await app.inject({
+      method: 'GET',
+      url: `/api/signals/articles/${encodeURIComponent(secondArticle.id)}`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(byIdRes.statusCode, 404);
+
+    const byUrlRes = await app.inject({
+      method: 'GET',
+      url: `/api/signals/articles/by-url?url=${encodeURIComponent(secondArticle.url)}`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(byUrlRes.statusCode, 404);
+
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/signals/articles/${encodeURIComponent(secondArticle.id)}`,
+      headers: {
+        ...AUTH_HEADERS,
+        'content-type': 'application/json',
+      },
+      payload: {
+        status: 'read',
+      },
+    });
+    assert.equal(patchRes.statusCode, 404);
+  });
 });
