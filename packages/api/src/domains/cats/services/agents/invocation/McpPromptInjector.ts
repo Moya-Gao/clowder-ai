@@ -144,8 +144,41 @@ curl -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
 {"v":1,"blocks":[{"id":"b1","kind":"card","v":1,"title":"标题","tone":"info"}]}
 \\\`\\\`\\\`
 
-### 何时使用富消息块
-当回复中包含结构化信息（review 结论、代码变更建议、待办清单、截图展示）时使用。普通对话不需要。
+### 富消息块使用规则（B 风格：平衡）
+
+**核心原则**：结构化信息默认用富块，普通对话不用。先写 1-2 句自然语言摘要，再发富块。
+
+**何时使用**（默认触发）：
+- **card** (tone: info/success/warning/danger)
+  - review 结论（P1/P2 列表 + 放行/阻塞决策）
+  - 任务/阶段状态报告（当前进度、关键指标）
+  - 决策摘要（What/Why/Tradeoff）
+  - 游戏状态面板（角色信息、回合状态）
+- **diff**
+  - 代码修改建议（具体的补丁片段）
+  - 重构前后对比
+- **checklist**
+  - 待办事项 / 下一步行动
+  - review 要点清单
+  - 验证步骤 / 测试计划
+- **media_gallery**
+  - 截图、设计稿展示
+  - 多图对比
+
+**何时不用**（保持纯文本）：
+- 日常聊天、闲聊、打招呼
+- 简短回答（一两句话能说清的）
+- 提问和讨论（除非需要结构化选项）
+- 不确定用哪种 → 不用
+
+**字段要求**：
+- 每个 block 必须有唯一 \`id\`（如 "b1"/"b2"）和 \`v: 1\`
+- card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
+- diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
+- checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
+- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
+
+**优先使用 HTTP 回调**创建富块（更可靠）。当 HTTP 不可用时，用 cc_rich 文本备选。
 
 注意: 只在需要异步协作时使用这些工具。普通回复直接输出即可。`;
 }

@@ -57,14 +57,39 @@ const MCP_TOOLS_SECTION = `
 - cat_cafe_update_task: 更新自己负责的任务状态
 - cat_cafe_create_rich_block: 创建富消息块（卡片/diff/检查表/图库），用于展示结构化信息
 
-### 富消息块使用指引
-当回复中包含以下类型的结构化信息时，用 cat_cafe_create_rich_block 创建富消息块，让前端以更好的 UI 呈现：
-- **card**: 要点卡片 — review 结论、决策摘要、状态报告（支持 tone: info/success/warning/danger）
-- **diff**: 代码变更 — 展示具体代码修改建议
-- **checklist**: 检查清单 — 待办事项、review 要点、验证步骤
-- **media_gallery**: 图片集 — 截图、设计稿等视觉内容
+### 富消息块使用规则（B 风格：平衡）
 
-普通对话不需要用富消息块。只在信息有明确结构时使用。`;
+**核心原则**：结构化信息默认用富块，普通对话不用。先写 1-2 句自然语言摘要，再发富块。
+
+**何时使用**（默认触发）：
+- **card** (tone: info/success/warning/danger)
+  - review 结论（P1/P2 列表 + 放行/阻塞决策）
+  - 任务/阶段状态报告（当前进度、关键指标）
+  - 决策摘要（What/Why/Tradeoff）
+  - 游戏状态面板（角色信息、回合状态）
+- **diff**
+  - 代码修改建议（具体的补丁片段）
+  - 重构前后对比
+- **checklist**
+  - 待办事项 / 下一步行动
+  - review 要点清单
+  - 验证步骤 / 测试计划
+- **media_gallery**
+  - 截图、设计稿展示
+  - 多图对比
+
+**何时不用**（保持纯文本）：
+- 日常聊天、闲聊、打招呼
+- 简短回答（一两句话能说清的）
+- 提问和讨论（除非需要结构化选项）
+- 不确定用哪种 → 不用
+
+**字段要求**：
+- 每个 block 必须有唯一 \`id\`（如 "b1"/"b2"）和 \`v: 1\`
+- card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
+- diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
+- checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
+- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选`;
 
 /** Per-cat workflow triggers: when to proactively @ other cats */
 const WORKFLOW_TRIGGERS: Record<string, string> = {
