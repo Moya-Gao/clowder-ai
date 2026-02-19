@@ -90,6 +90,24 @@ function parseApiPayload(payload: unknown, fallbackPublishedAt: string): readonl
     .filter((item): item is RawArticle => item !== null);
 }
 
+function extractErrorDetail(payload: unknown): string | undefined {
+  const record = asRecord(payload);
+  if (!record) return undefined;
+  return pickString(record, ['message', 'error', 'detail', 'reason']);
+}
+
+async function toHttpErrorMessage(response: JsonResponseLike): Promise<string> {
+  const baseMessage = `HTTP ${response.status} ${response.statusText}`;
+
+  try {
+    const payload = await response.json();
+    const detail = extractErrorDetail(payload);
+    return detail ? `${baseMessage}: ${detail}` : baseMessage;
+  } catch {
+    return baseMessage;
+  }
+}
+
 export class ApiFetcher implements Fetcher {
   private readonly fetchImpl: FetchLike;
 
@@ -129,7 +147,7 @@ export class ApiFetcher implements Fetcher {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        throw new Error(await toHttpErrorMessage(response));
       }
 
       const payload = await response.json();

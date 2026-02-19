@@ -106,6 +106,25 @@ describe('ApiFetcher', () => {
     assert.match(result.errors[0].message, /network timeout/);
   });
 
+  it('fetch includes non-2xx response body message in error payload', async () => {
+    const fetcher = new ApiFetcher(async () => ({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      async json() {
+        return { message: 'API rate limit exceeded' };
+      },
+    }));
+
+    const result = await fetcher.fetch(createSource());
+
+    assert.equal(result.articles.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].code, 'API_FETCH_FAILED');
+    assert.match(result.errors[0].message, /HTTP 403 Forbidden/);
+    assert.match(result.errors[0].message, /API rate limit exceeded/);
+  });
+
   it('fetch rejects non-api source with clear error payload', async () => {
     const fetcher = new ApiFetcher(async () => createJsonResponse([]));
 
