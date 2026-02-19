@@ -1,0 +1,236 @@
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
+import { SignalArticleStatusSchema, type SignalTier } from '@cat-cafe/shared';
+import { z } from 'zod';
+import { loadSignalSources, resolveSignalPaths, saveSignalSources } from '../domains/signals/config/sources-loader.js';
+import { SignalArticleQueryService } from '../domains/signals/services/article-query-service.js';
+import { resolveUserId } from '../utils/request-identity.js';
+
+const listInboxQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  source: z.string().min(1).max(200).optional(),
+  tier: z.enum(['1', '2', '3', '4']).optional(),
+});
+
+const articleByUrlQuerySchema = z.object({
+  url: z.string().url(),
+});
+
+const searchQuerySchema = z.object({
+  q: z.string().min(1).max(500),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  source: z.string().min(1).max(200).optional(),
+  tier: z.enum(['1', '2', '3', '4']).optional(),
+  dateFrom: z.string().optional(),
+  dateTo: z.string().optional(),
+});
+
+const updateArticleBodySchema = z
+  .object({
+    status: SignalArticleStatusSchema.optional(),
+    tags: z.array(z.string().min(1).max(80)).max(32).optional(),
+    summary: z.string().max(4000).optional(),
+  })
+  .refine(
+    (value) => value.status !== undefined || value.tags !== undefined || value.summary !== undefined,
+    'At least one field is required',
+  );
+
+const updateSourceBodySchema = z.object({
+  enabled: z.boolean(),
+});
+
+function requireIdentity(request: FastifyRequest, reply: FastifyReply): string | null {
+  const userId = resolveUserId(request);
+  if (!userId) {
+    reply.status(401);
+    return null;
+  }
+  return userId;
+}
+
+function toSignalTier(value: string | undefined): SignalTier | undefined {
+  if (!value) {
+    return undefined;
+  }
+  return Number(value) as SignalTier;
+}
+
+export const signalsRoutes: FastifyPluginAsync = async (app) => {
+  const paths = resolveSignalPaths();
+  const articleQuery = new SignalArticleQueryService({ paths });
+
+  app.get('/api/signals/inbox', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const parsed = listInboxQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid query', details: parsed.error.issues };
+    }
+
+    const items = await articleQuery.listInbox({
+      date: parsed.data.date,
+      limit: parsed.data.limit,
+      source: parsed.data.source,
+      tier: toSignalTier(parsed.data.tier),
+    });
+
+    return { items };
+  });
+
+  app.get('/api/signals/articles/:id', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const params = request.params as { id?: string };
+    if (!params.id || params.id.trim().length === 0) {
+      reply.status(400);
+      return { error: 'Article id is required' };
+    }
+
+    const article = await articleQuery.getArticleById(params.id);
+    if (!article) {
+      reply.status(404);
+      return { error: `Article not found: ${params.id}` };
+    }
+
+    return { article };
+  });
+
+  app.get('/api/signals/articles/by-url', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const parsed = articleByUrlQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid query', details: parsed.error.issues };
+    }
+
+    const article = await articleQuery.getArticleByUrl(parsed.data.url);
+    if (!article) {
+      reply.status(404);
+      return { error: `Article not found for url: ${parsed.data.url}` };
+    }
+
+    return { article };
+  });
+
+  app.get('/api/signals/search', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const parsed = searchQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid query', details: parsed.error.issues };
+    }
+
+    const result = await articleQuery.search({
+      query: parsed.data.q,
+      limit: parsed.data.limit,
+      source: parsed.data.source,
+      tier: toSignalTier(parsed.data.tier),
+      dateFrom: parsed.data.dateFrom,
+      dateTo: parsed.data.dateTo,
+    });
+
+    return result;
+  });
+
+  app.patch('/api/signals/articles/:id', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const params = request.params as { id?: string };
+    if (!params.id || params.id.trim().length === 0) {
+      reply.status(400);
+      return { error: 'Article id is required' };
+    }
+
+    const parsed = updateArticleBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const article = await articleQuery.updateArticle(params.id, parsed.data);
+    if (!article) {
+      reply.status(404);
+      return { error: `Article not found: ${params.id}` };
+    }
+
+    return { article };
+  });
+
+  app.get('/api/signals/sources', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const config = await loadSignalSources(paths);
+    return { sources: config.sources };
+  });
+
+  app.patch('/api/signals/sources/:id', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const params = request.params as { id?: string };
+    if (!params.id || params.id.trim().length === 0) {
+      reply.status(400);
+      return { error: 'Source id is required' };
+    }
+
+    const parsed = updateSourceBodySchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const config = await loadSignalSources(paths);
+    const target = config.sources.find((source) => source.id === params.id);
+
+    if (!target) {
+      reply.status(404);
+      return { error: `Source not found: ${params.id}` };
+    }
+
+    const updatedSources = config.sources.map((source) =>
+      source.id === params.id
+        ? {
+            ...source,
+            enabled: parsed.data.enabled,
+          }
+        : source,
+    );
+
+    await saveSignalSources({
+      ...config,
+      sources: updatedSources,
+    }, paths);
+
+    return {
+      source: {
+        ...target,
+        enabled: parsed.data.enabled,
+      },
+    };
+  });
+
+  app.get('/api/signals/stats', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    return articleQuery.getStats();
+  });
+};

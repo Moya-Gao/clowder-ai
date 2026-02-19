@@ -53,5 +53,14 @@ export async function loadSignalSources(paths: SignalPaths = resolveSignalPaths(
   return parseAndValidateSources(yamlText);
 }
 
+export async function saveSignalSources(
+  config: SignalSourceConfig,
+  paths: SignalPaths = resolveSignalPaths(),
+): Promise<void> {
+  await ensureSignalWorkspace(paths);
+  const validated = SignalSourceConfigSchema.parse(config) as SignalSourceConfig;
+  await writeFile(paths.sourcesFile, toYaml(validated), 'utf-8');
+}
+
 export { resolveSignalPaths };
 export type { SignalPaths };

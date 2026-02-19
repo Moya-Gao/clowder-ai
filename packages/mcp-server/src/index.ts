@@ -46,6 +46,16 @@ import {
   handleReadSessionEvents,
   handleReadSessionDigest,
   handleSessionSearch,
+  signalListInboxInputSchema,
+  signalGetArticleInputSchema,
+  signalSearchInputSchema,
+  signalMarkReadInputSchema,
+  signalSummarizeInputSchema,
+  handleSignalListInbox,
+  handleSignalGetArticle,
+  handleSignalSearch,
+  handleSignalMarkRead,
+  handleSignalSummarize,
 } from './tools/index.js';
 
 /**
@@ -217,6 +227,64 @@ export function createServer(): McpServer {
     reflectInputSchema,
     async (args: { query: string }) => {
       const result = await handleReflect(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Signal Hunter tools (F21 S5)
+  server.tool(
+    'signal_list_inbox',
+    'List recent signal articles from inbox. Supports optional limit, tier, and source filters.',
+    signalListInboxInputSchema,
+    async (args: { limit?: number | undefined; tier?: 1 | 2 | 3 | 4 | undefined; source?: string | undefined }) => {
+      const result = await handleSignalListInbox(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'signal_get_article',
+    'Get full signal article detail by id or URL.',
+    signalGetArticleInputSchema,
+    async (args: { id?: string | undefined; url?: string | undefined }) => {
+      const result = await handleSignalGetArticle(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'signal_search',
+    'Search signal articles by keyword with optional filters.',
+    signalSearchInputSchema,
+    async (args: {
+      query: string;
+      limit?: number | undefined;
+      source?: string | undefined;
+      tier?: 1 | 2 | 3 | 4 | undefined;
+      dateFrom?: string | undefined;
+      dateTo?: string | undefined;
+    }) => {
+      const result = await handleSignalSearch(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'signal_mark_read',
+    'Mark a signal article as read.',
+    signalMarkReadInputSchema,
+    async (args: { id: string }) => {
+      const result = await handleSignalMarkRead(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'signal_summarize',
+    'Generate a concise summary for a signal article and persist it to article frontmatter.',
+    signalSummarizeInputSchema,
+    async (args: { id: string; maxLength?: number | undefined }) => {
+      const result = await handleSignalSummarize(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

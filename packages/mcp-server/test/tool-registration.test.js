@@ -31,6 +31,12 @@ const EXPECTED_TOOLS = [
   // Direct evidence/reflect tools
   'cat_cafe_search_evidence',
   'cat_cafe_reflect',
+  // Signal Hunter tools (F21 S5)
+  'signal_list_inbox',
+  'signal_get_article',
+  'signal_search',
+  'signal_mark_read',
+  'signal_summarize',
   // Session chain tools
   'cat_cafe_list_session_chain',
   'cat_cafe_read_session_events',

@@ -67,3 +67,17 @@ export {
   handleSessionSearch,
   sessionChainTools,
 } from './session-chain-tools.js';
+
+export {
+  signalListInboxInputSchema,
+  signalGetArticleInputSchema,
+  signalSearchInputSchema,
+  signalMarkReadInputSchema,
+  signalSummarizeInputSchema,
+  handleSignalListInbox,
+  handleSignalGetArticle,
+  handleSignalSearch,
+  handleSignalMarkRead,
+  handleSignalSummarize,
+  signalsTools,
+} from './signals-tools.js';

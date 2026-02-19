@@ -10,6 +10,7 @@ export { exportRoutes } from './export.js';
 export { configRoutes } from './config.js';
 export { memoryRoutes } from './memory.js';
 export { commandsRoutes } from './commands.js';
+export { signalsRoutes } from './signals.js';
 export { evidenceRoutes } from './evidence.js';
 export { memoryPublishRoutes } from './memory-publish.js';
 export { reflectRoutes } from './reflect.js';

@@ -29,10 +29,11 @@ describe('command-registry', () => {
     }
   });
 
-  it('includes /help and /config', () => {
+  it('includes /help, /config, and /signals', () => {
     const names = COMMANDS.map((c) => c.name);
     expect(names).toContain('/help');
     expect(names).toContain('/config');
+    expect(names).toContain('/signals');
   });
 });
 
