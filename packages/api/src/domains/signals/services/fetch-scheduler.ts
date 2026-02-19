@@ -1,6 +1,6 @@
-import { appendFile, readdir, readFile } from 'node:fs/promises';
+import { appendFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { SignalArticle, SignalSource, SignalSourceConfig } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSourceConfig } from '@cat-cafe/shared';
 import type { SignalNotificationConfig } from '../config/notifications-loader.js';
 import { loadSignalNotifications } from '../config/notifications-loader.js';
 import type { SignalPaths } from '../config/signal-paths.js';
@@ -8,27 +8,18 @@ import { resolveSignalPaths } from '../config/signal-paths.js';
 import { loadSignalSources } from '../config/sources-loader.js';
 import { ApiFetcher } from '../fetchers/api-fetcher.js';
 import { RssFetcher } from '../fetchers/rss-fetcher.js';
-import type { FetchError, FetchErrorCode, Fetcher, FetchResult } from '../fetchers/types.js';
+import type { FetchError, Fetcher } from '../fetchers/types.js';
 import { WebpageFetcher } from '../fetchers/webpage-fetcher.js';
 import { renderDailyDigestEmail } from '../templates/daily-digest.js';
-import type { StoreArticleInput } from './article-store.js';
 import { ArticleStoreService } from './article-store.js';
 import { DeduplicationService } from './deduplication.js';
 import type { EmailSendResult } from './email-service.js';
 import { SignalEmailService } from './email-service.js';
 import type { InAppNotificationResult, InAppNotificationSink, PublishDailyDigestInput } from './in-app-notification.js';
 import { SignalInAppNotificationService } from './in-app-notification.js';
-
-interface DeduplicationLike {
-  checkAndMark(url: string): {
-    readonly articleId: string;
-    readonly isNew: boolean;
-  };
-}
-
-interface ArticleStoreLike {
-  store(input: StoreArticleInput): Promise<SignalArticle>;
-}
+import { loadKnownUrlsFromInbox } from './inbox-url-loader.js';
+import type { ArticleStoreLike, DeduplicationLike } from './source-processor.js';
+import { processSources, selectSources } from './source-processor.js';
 
 interface EmailServiceLike {
   sendDailyDigest(message: { subject: string; html: string; text: string }): Promise<EmailSendResult>;
@@ -36,13 +27,6 @@ interface EmailServiceLike {
 
 interface InAppServiceLike {
   publishDailyDigest(input: PublishDailyDigestInput): Promise<InAppNotificationResult>;
-}
-
-interface SourceProcessingResult {
-  readonly errors: readonly FetchError[];
-  readonly fetchedArticles: number;
-  readonly duplicateArticles: number;
-  readonly storedArticles: readonly SignalArticle[];
 }
 
 interface SchedulerServices {
@@ -85,32 +69,6 @@ export interface SignalFetchSchedulerOptions {
     | undefined;
 }
 
-function createFetchError(code: FetchErrorCode, sourceId: string, message: string): FetchError {
-  return {
-    code,
-    sourceId,
-    message,
-  };
-}
-
-function toFailureCode(method: 'rss' | 'api' | 'webpage'): FetchErrorCode {
-  if (method === 'rss') return 'RSS_FETCH_FAILED';
-  if (method === 'api') return 'API_FETCH_FAILED';
-  return 'WEBPAGE_FETCH_FAILED';
-}
-
-function selectSources(config: SignalSourceConfig, sourceId: string | undefined): readonly SignalSource[] {
-  if (!sourceId) {
-    return config.sources.filter((source) => source.enabled && source.schedule.frequency !== 'manual');
-  }
-
-  const matched = config.sources.find((source) => source.id === sourceId);
-  if (!matched) {
-    throw new Error(`source "${sourceId}" not found in sources config`);
-  }
-  return [matched];
-}
-
 function createDefaultInAppSink(paths: SignalPaths): InAppNotificationSink {
   const logPath = join(paths.logsDir, 'signals-in-app.log');
 
@@ -130,76 +88,6 @@ function createDefaultFetchers(): readonly Fetcher[] {
   return [new RssFetcher(), new ApiFetcher(), new WebpageFetcher()];
 }
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return null;
-  }
-  return value as Record<string, unknown>;
-}
-
-function asInboxUrlRecord(value: unknown): { readonly url: string } | null {
-  const record = asRecord(value);
-  if (!record) return null;
-
-  const maybeUrl = (record as { url?: unknown }).url;
-  if (typeof maybeUrl !== 'string') return null;
-
-  return { url: maybeUrl };
-}
-
-async function listInboxFiles(paths: SignalPaths): Promise<readonly string[]> {
-  try {
-    const files = await readdir(paths.inboxDir);
-    return files.filter((file) => file.endsWith('.json'));
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
-}
-
-function parseInboxUrls(payload: unknown): readonly string[] {
-  if (!Array.isArray(payload)) {
-    return [];
-  }
-
-  const urls: string[] = [];
-  for (const item of payload) {
-    const record = asInboxUrlRecord(item);
-    if (!record) continue;
-    const url = record.url.trim();
-    if (url.length > 0) {
-      urls.push(url);
-    }
-  }
-  return urls;
-}
-
-async function loadUrlsFromInboxFile(inboxFilePath: string): Promise<readonly string[]> {
-  try {
-    const raw = await readFile(inboxFilePath, 'utf-8');
-    const payload = JSON.parse(raw) as unknown;
-    return parseInboxUrls(payload);
-  } catch {
-    return [];
-  }
-}
-
-async function loadKnownUrlsFromInbox(paths: SignalPaths): Promise<readonly string[]> {
-  const files = await listInboxFiles(paths);
-  const knownUrls = new Set<string>();
-
-  for (const file of files) {
-    const urls = await loadUrlsFromInboxFile(join(paths.inboxDir, file));
-    for (const url of urls) {
-      knownUrls.add(url);
-    }
-  }
-
-  return Array.from(knownUrls);
-}
-
 function resolveSchedulerServices(
   options: SignalFetchSchedulerOptions,
   initialKnownUrls: readonly string[],
@@ -213,137 +101,6 @@ function resolveSchedulerServices(
   return {
     deduplication,
     articleStore,
-  };
-}
-
-async function fetchSourceResult(source: SignalSource, fetcher: Fetcher): Promise<FetchResult | FetchError> {
-  try {
-    return await fetcher.fetch(source);
-  } catch (error) {
-    return createFetchError(
-      toFailureCode(source.fetch.method),
-      source.id,
-      error instanceof Error ? error.message : String(error),
-    );
-  }
-}
-
-async function storeFetchedArticles(params: {
-  source: SignalSource;
-  result: FetchResult;
-  dryRun: boolean;
-  deduplication: DeduplicationLike;
-  articleStore: ArticleStoreLike;
-}): Promise<Pick<SourceProcessingResult, 'duplicateArticles' | 'storedArticles'>> {
-  const storedArticles: SignalArticle[] = [];
-  let duplicateArticles = 0;
-
-  for (const rawArticle of params.result.articles) {
-    const dedup = params.deduplication.checkAndMark(rawArticle.url);
-    if (!dedup.isNew) {
-      duplicateArticles += 1;
-      continue;
-    }
-
-    if (params.dryRun) continue;
-
-    const stored = await params.articleStore.store({
-      source: params.source,
-      article: rawArticle,
-      articleId: dedup.articleId,
-      fetchedAt: params.result.metadata.fetchedAt,
-    });
-    storedArticles.push(stored);
-  }
-
-  return {
-    duplicateArticles,
-    storedArticles,
-  };
-}
-
-async function processSource(params: {
-  source: SignalSource;
-  fetchers: readonly Fetcher[];
-  dryRun: boolean;
-  deduplication: DeduplicationLike;
-  articleStore: ArticleStoreLike;
-}): Promise<SourceProcessingResult> {
-  const fetcher = params.fetchers.find((candidate) => candidate.canHandle(params.source));
-  if (!fetcher) {
-    return {
-      errors: [
-        createFetchError('UNSUPPORTED_SOURCE', params.source.id, `no fetcher supports source "${params.source.id}"`),
-      ],
-      fetchedArticles: 0,
-      duplicateArticles: 0,
-      storedArticles: [],
-    };
-  }
-
-  const fetched = await fetchSourceResult(params.source, fetcher);
-  if ('code' in fetched) {
-    return {
-      errors: [fetched],
-      fetchedArticles: 0,
-      duplicateArticles: 0,
-      storedArticles: [],
-    };
-  }
-
-  const stored = await storeFetchedArticles({
-    source: params.source,
-    result: fetched,
-    dryRun: params.dryRun,
-    deduplication: params.deduplication,
-    articleStore: params.articleStore,
-  });
-
-  return {
-    errors: fetched.errors,
-    fetchedArticles: fetched.articles.length,
-    duplicateArticles: stored.duplicateArticles,
-    storedArticles: stored.storedArticles,
-  };
-}
-
-async function processSources(params: {
-  sources: readonly SignalSource[];
-  fetchers: readonly Fetcher[];
-  dryRun: boolean;
-  deduplication: DeduplicationLike;
-  articleStore: ArticleStoreLike;
-}): Promise<{
-  readonly errors: readonly FetchError[];
-  readonly fetchedArticles: number;
-  readonly duplicateArticles: number;
-  readonly storedArticles: readonly SignalArticle[];
-}> {
-  const errors: FetchError[] = [];
-  const storedArticles: SignalArticle[] = [];
-  let fetchedArticles = 0;
-  let duplicateArticles = 0;
-
-  for (const source of params.sources) {
-    const sourceResult = await processSource({
-      source,
-      fetchers: params.fetchers,
-      dryRun: params.dryRun,
-      deduplication: params.deduplication,
-      articleStore: params.articleStore,
-    });
-
-    errors.push(...sourceResult.errors);
-    fetchedArticles += sourceResult.fetchedArticles;
-    duplicateArticles += sourceResult.duplicateArticles;
-    storedArticles.push(...sourceResult.storedArticles);
-  }
-
-  return {
-    errors,
-    fetchedArticles,
-    duplicateArticles,
-    storedArticles,
   };
 }
 
