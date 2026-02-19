@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 const { processSources, selectSources } = await import('../dist/domains/signals/services/source-processor.js');
+const { DeduplicationService } = await import('../dist/domains/signals/services/deduplication.js');
 
 function createSource(overrides = {}) {
   return {
@@ -59,6 +60,54 @@ function createStoredArticle(input) {
 }
 
 describe('signal source processor', () => {
+  it('does not leak dedup state when first store attempt for a URL fails', async () => {
+    const source = createSource();
+    const storeCalls = [];
+
+    const result = await processSources({
+      sources: [source],
+      fetchers: [
+        {
+          canHandle() {
+            return true;
+          },
+          async fetch() {
+            return createFetchResult(source.id, [
+              createRawArticle({
+                url: 'https://example.com/retry',
+                title: 'First attempt',
+              }),
+              createRawArticle({
+                url: 'https://example.com/retry',
+                title: 'Second attempt survives',
+              }),
+            ]);
+          },
+        },
+      ],
+      dryRun: false,
+      deduplication: new DeduplicationService(),
+      articleStore: {
+        async store(input) {
+          storeCalls.push(input.article.url);
+          if (storeCalls.length === 1) {
+            throw new Error('first write fails');
+          }
+          return createStoredArticle(input);
+        },
+      },
+    });
+
+    assert.deepEqual(storeCalls, ['https://example.com/retry', 'https://example.com/retry']);
+    assert.equal(result.fetchedArticles, 2);
+    assert.equal(result.duplicateArticles, 0);
+    assert.equal(result.storedArticles.length, 1);
+    assert.equal(result.storedArticles[0].title, 'Second attempt survives');
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].code, 'RSS_FETCH_FAILED');
+    assert.match(result.errors[0].message, /first write fails/);
+  });
+
   it('continues processing remaining articles when one store write fails', async () => {
     const source = createSource();
     const storeCalls = [];

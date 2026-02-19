@@ -86,4 +86,8 @@ export class DeduplicationService {
       isNew,
     };
   }
+
+  unmark(url: string): void {
+    this.seenNormalizedUrls.delete(normalizeArticleUrl(url));
+  }
 }

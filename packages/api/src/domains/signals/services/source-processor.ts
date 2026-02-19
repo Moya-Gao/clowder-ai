@@ -7,6 +7,7 @@ export interface DeduplicationLike {
     readonly articleId: string;
     readonly isNew: boolean;
   };
+  unmark?(url: string): void;
 }
 
 export interface ArticleStoreLike {
@@ -145,6 +146,8 @@ async function storeFetchedArticles(params: {
       });
       storedArticles.push(stored);
     } catch (error) {
+      // Roll back this run's dedup mark so a later copy of the same URL can still be stored.
+      params.deduplication.unmark?.(rawArticle.url);
       errors.push(
         createFetchError(
           toFailureCode(params.source.fetch.method),

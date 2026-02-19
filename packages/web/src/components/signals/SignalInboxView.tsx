@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import type { SignalArticle, SignalArticleStatus } from '@cat-cafe/shared';
+import type { SignalArticle, SignalArticleStatus, SignalTier } from '@cat-cafe/shared';
 import {
   fetchSignalArticle,
   fetchSignalStats,
@@ -26,6 +26,13 @@ const initialFilters: SignalArticleFilters = {
 
 function uniqueSources(items: readonly SignalArticle[]): readonly string[] {
   return Array.from(new Set(items.map((item) => item.source))).sort();
+}
+
+function toSignalTier(value: string | undefined): SignalTier | undefined {
+  if (!value || value === 'all') return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 4) return undefined;
+  return parsed as SignalTier;
 }
 
 export function SignalInboxView() {
@@ -67,9 +74,20 @@ export function SignalInboxView() {
       await refreshInbox();
       return;
     }
+    const formData = new FormData(event.currentTarget);
+    const selectedSource = formData.get('source');
+    const selectedTier = formData.get('tier');
+
     setLoading(true);
     try {
-      const result = await searchSignals(query, { limit: 80 });
+      const result = await searchSignals(query, {
+        limit: 80,
+        source:
+          typeof selectedSource === 'string' && selectedSource !== 'all'
+            ? selectedSource
+            : undefined,
+        tier: typeof selectedTier === 'string' ? toSignalTier(selectedTier) : undefined,
+      });
       setItems(result.items);
       setSelectedArticleId(null);
       setSelectedArticle(null);
@@ -151,6 +169,7 @@ export function SignalInboxView() {
             <select
               value={filters.tier}
               onChange={(event) => setFilters((current) => ({ ...current, tier: event.target.value as SignalArticleFilters['tier'] }))}
+              name="tier"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <option value="all">Tier: 全部</option>
@@ -162,6 +181,7 @@ export function SignalInboxView() {
             <select
               value={filters.source}
               onChange={(event) => setFilters((current) => ({ ...current, source: event.target.value }))}
+              name="source"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <option value="all">来源: 全部</option>
