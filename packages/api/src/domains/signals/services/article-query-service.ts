@@ -4,13 +4,14 @@ import type { SignalPaths } from '../config/signal-paths.js';
 import { resolveSignalPaths } from '../config/signal-paths.js';
 import {
   readArticleDocument,
+  type ParsedArticleDocument,
   toUpdatedFrontmatter,
   type SignalArticleDetail,
   writeArticleDocument,
 } from './article-document.js';
 import { computeSignalArticleStats, type SignalArticleStats } from './article-stats.js';
 import { normalizeArticleUrl } from './deduplication.js';
-import { readInboxRecords } from './inbox-records.js';
+import { readInboxRecords, type InboxRecord } from './inbox-records.js';
 
 export type { SignalArticleDetail } from './article-document.js';
 
@@ -56,6 +57,11 @@ function toDateBound(value: string | undefined, fallback: number): number {
   return Number.isNaN(parsed) ? fallback : parsed;
 }
 
+async function readArticleDetailsSafely(records: readonly InboxRecord[]): Promise<readonly ParsedArticleDocument[]> {
+  const settled = await Promise.allSettled(records.map((record) => readArticleDocument(record)));
+  return settled.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
+}
+
 export class SignalArticleQueryService {
   private readonly paths: SignalPaths;
 
@@ -66,7 +72,7 @@ export class SignalArticleQueryService {
   async listInbox(options: ListInboxOptions = {}): Promise<readonly SignalArticle[]> {
     const date = options.date?.trim() || new Date().toISOString().slice(0, 10);
     const records = await readInboxRecords(this.paths, date);
-    const details = await Promise.all(records.map((record) => readArticleDocument(record)));
+    const details = await readArticleDetailsSafely(records);
 
     const filtered = details
       .map((detail) => detail.article)
@@ -122,7 +128,7 @@ export class SignalArticleQueryService {
     }
 
     const records = await readInboxRecords(this.paths, undefined);
-    const details = await Promise.all(records.map((record) => readArticleDocument(record)));
+    const details = await readArticleDetailsSafely(records);
 
     const matched = details
       .filter((detail) => (options.source ? detail.article.source === options.source : true))
@@ -182,7 +188,7 @@ export class SignalArticleQueryService {
 
   async getStats(now: Date = new Date()): Promise<SignalArticleStats> {
     const records = await readInboxRecords(this.paths, undefined);
-    const details = await Promise.all(records.map((record) => readArticleDocument(record)));
+    const details = await readArticleDetailsSafely(records);
     return computeSignalArticleStats(
       details.map((detail) => detail.article),
       now,

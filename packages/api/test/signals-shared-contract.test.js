@@ -65,4 +65,25 @@ describe('shared signals contract', () => {
       shared.SignalSourceSchema.parse(invalidSource);
     });
   });
+
+  it('rejects unsafe source ids with path traversal characters', () => {
+    const invalidIds = ['../outside', '..', '/tmp/evil', 'signals/news', 'news\\archive'];
+
+    for (const id of invalidIds) {
+      const invalidSource = {
+        id,
+        name: 'Bad Source',
+        url: 'https://example.com/feed',
+        tier: 1,
+        category: 'official',
+        enabled: true,
+        fetch: { method: 'rss' },
+        schedule: { frequency: 'daily' },
+      };
+
+      assert.throws(() => {
+        shared.SignalSourceSchema.parse(invalidSource);
+      });
+    }
+  });
 });

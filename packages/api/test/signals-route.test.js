@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
 import Fastify from 'fastify';
@@ -310,5 +310,41 @@ describe('signals routes', () => {
 
     // keep oldArticle referenced so fixture intent is explicit
     assert.equal(typeof oldArticle.id, 'string');
+  });
+
+  it('skips malformed article files instead of failing inbox/search/stats', async () => {
+    unlinkSync(secondArticle.filePath);
+
+    const inboxRes = await app.inject({
+      method: 'GET',
+      url: `/api/signals/inbox?date=${encodeURIComponent(today)}&limit=10`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(inboxRes.statusCode, 200);
+    const inboxBody = inboxRes.json();
+    const inboxIds = inboxBody.items.map((item) => item.id);
+    assert.ok(inboxIds.includes(firstArticle.id));
+    assert.ok(!inboxIds.includes(secondArticle.id));
+
+    const searchRes = await app.inject({
+      method: 'GET',
+      url: '/api/signals/search?q=claude',
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(searchRes.statusCode, 200);
+    const searchBody = searchRes.json();
+    const searchIds = searchBody.items.map((item) => item.id);
+    assert.ok(searchIds.includes(firstArticle.id));
+    assert.ok(!searchIds.includes(secondArticle.id));
+
+    const statsRes = await app.inject({
+      method: 'GET',
+      url: '/api/signals/stats',
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(statsRes.statusCode, 200);
+    const statsBody = statsRes.json();
+    assert.ok(statsBody.todayCount >= 1);
+    assert.ok(statsBody.weekCount >= 2);
   });
 });
