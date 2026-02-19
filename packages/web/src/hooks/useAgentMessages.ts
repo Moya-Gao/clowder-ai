@@ -474,6 +474,7 @@ export function useAgentMessages() {
   const handleStop = useCallback(
     (cancelFn: (threadId: string) => void, threadId: string) => {
       cancelFn(threadId);
+      clearDoneTimeout();
       const store = useChatStore.getState();
       const isActiveThreadStop = threadId === store.currentThreadId;
 
@@ -488,7 +489,6 @@ export function useAgentMessages() {
         return;
       }
 
-      clearDoneTimeout();
       setLoading(false);
       setHasActiveInvocation(false);
       setIntentMode(null);

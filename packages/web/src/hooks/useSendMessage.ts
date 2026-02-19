@@ -106,13 +106,10 @@ export function useSendMessage(activeThreadId?: string) {
         setUploadStatus('idle');
         setUploadError(null);
       } catch (err) {
-        if (threadId !== activeThread) {
-          setThreadLoading(threadId, false);
-          setThreadHasActiveInvocation(threadId, false);
-        } else {
-          setLoading(false);
-          setHasActiveInvocation(false);
-        }
+        // Always clear invocation flags via thread-scoped setters to avoid
+        // writing into whichever thread happens to be active at rejection time.
+        setThreadLoading(threadId, false);
+        setThreadHasActiveInvocation(threadId, false);
         const errorMessage = err instanceof Error ? err.message : 'Unknown';
         if (hasImages) {
           setUploadStatus('failed');

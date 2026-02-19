@@ -12,6 +12,7 @@ const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
 const mockResetRefs = vi.fn();
 const mockProcessCommand = vi.fn(async () => false);
+let storeCurrentThreadId = 'thread-stale';
 
 vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mockApiFetch(...args),
@@ -34,10 +35,10 @@ vi.mock('@/stores/chatStore', () => ({
       setHasActiveInvocation: mockSetHasActiveInvocation,
       setThreadLoading: mockSetThreadLoading,
       setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
-      currentThreadId: 'thread-stale',
+      currentThreadId: storeCurrentThreadId,
     }),
     {
-      getState: () => ({ currentThreadId: 'thread-stale' }),
+      getState: () => ({ currentThreadId: storeCurrentThreadId }),
     },
   ),
 }));
@@ -91,6 +92,7 @@ describe('useSendMessage thread source', () => {
     mockProcessCommand.mockReset();
     mockProcessCommand.mockResolvedValue(false);
     mockApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) });
+    storeCurrentThreadId = 'thread-stale';
 
     container = document.createElement('div');
     document.body.appendChild(container);
@@ -179,5 +181,39 @@ describe('useSendMessage thread source', () => {
       variant: 'error',
       content: expect.stringContaining('target thread send failed'),
     });
+  });
+
+  it('clears invocation state for source thread when send fails after thread switch', async () => {
+    let rejectFetch: ((err: Error) => void) | null = null;
+    mockApiFetch.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectFetch = reject;
+        }),
+    );
+
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-A',
+          overrideThreadId: undefined,
+          onDone: () => {},
+        }),
+      );
+    });
+
+    // Simulate user switching to another thread before the request rejects.
+    storeCurrentThreadId = 'thread-B';
+
+    await act(async () => {
+      rejectFetch?.(new Error('network down'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockSetThreadLoading).toHaveBeenCalledWith('thread-A', false);
+    expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-A', false);
+    expect(mockSetLoading).not.toHaveBeenCalledWith(false);
+    expect(mockSetHasActiveInvocation).not.toHaveBeenCalledWith(false);
   });
 });

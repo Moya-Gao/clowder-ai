@@ -300,6 +300,45 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetStreaming).not.toHaveBeenCalled();
   });
 
+  it('stopping a background thread clears its pending timeout guard', () => {
+    vi.useFakeTimers();
+    try {
+      const cancelInvocation = vi.fn();
+
+      act(() => {
+        root.render(React.createElement(Harness));
+      });
+
+      // Arm timeout for thread-1.
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'text',
+          catId: 'codex',
+          content: 'partial',
+        });
+      });
+
+      // Switch active thread, then stop the old thread from split-pane context.
+      storeState.currentThreadId = 'thread-2';
+      act(() => {
+        captured?.handleStop(cancelInvocation, 'thread-1');
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(5 * 60 * 1000);
+      });
+
+      expect(mockAddMessageToThread).not.toHaveBeenCalledWith(
+        'thread-1',
+        expect.objectContaining({
+          content: '⏱ Response timed out. The operation may still be running in the background.',
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('closes existing streaming bubble on error even when activeRefs are empty', () => {
     storeState.messages = [
       {
