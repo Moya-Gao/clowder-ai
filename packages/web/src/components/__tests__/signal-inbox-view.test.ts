@@ -102,7 +102,7 @@ describe('SignalInboxView', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
-  it('forwards active source/tier filters to server-side search', async () => {
+  it('forwards active status/source/tier filters to server-side search', async () => {
     await act(async () => {
       root.render(React.createElement(SignalInboxView));
     });
@@ -115,16 +115,18 @@ describe('SignalInboxView', () => {
 
     const queryInput = container.querySelector('input[placeholder="搜索标题、来源、标签..."]');
     const selects = container.querySelectorAll('select');
+    let statusSelect = selects.item(0) as HTMLSelectElement | null;
     let tierSelect = selects.item(1) as HTMLSelectElement | null;
     let sourceSelect = selects.item(2) as HTMLSelectElement | null;
     let form = container.querySelector('form');
 
     expect(queryInput).not.toBeNull();
     expect(form).not.toBeNull();
+    expect(statusSelect).not.toBeNull();
     expect(tierSelect).not.toBeNull();
     expect(sourceSelect).not.toBeNull();
 
-    if (!queryInput || !form || !tierSelect || !sourceSelect) {
+    if (!queryInput || !form || !statusSelect || !tierSelect || !sourceSelect) {
       return;
     }
 
@@ -138,17 +140,21 @@ describe('SignalInboxView', () => {
     });
 
     const refreshedSelects = container.querySelectorAll('select');
+    statusSelect = refreshedSelects.item(0) as HTMLSelectElement | null;
     tierSelect = refreshedSelects.item(1) as HTMLSelectElement | null;
     sourceSelect = refreshedSelects.item(2) as HTMLSelectElement | null;
     form = container.querySelector('form');
+    expect(statusSelect).not.toBeNull();
     expect(tierSelect).not.toBeNull();
     expect(sourceSelect).not.toBeNull();
     expect(form).not.toBeNull();
-    if (!tierSelect || !sourceSelect || !form) {
+    if (!statusSelect || !tierSelect || !sourceSelect || !form) {
       return;
     }
 
     await act(async () => {
+      statusSelect.value = 'read';
+      statusSelect.dispatchEvent(new Event('change', { bubbles: true }));
       tierSelect.value = '1';
       tierSelect.dispatchEvent(new Event('change', { bubbles: true }));
       sourceSelect.value = 'anthropic-news';
@@ -156,6 +162,7 @@ describe('SignalInboxView', () => {
       await Promise.resolve();
     });
 
+    expect(statusSelect.value).toBe('read');
     expect(tierSelect.value).toBe('1');
     expect(sourceSelect.value).toBe('anthropic-news');
 
@@ -166,6 +173,7 @@ describe('SignalInboxView', () => {
 
     expect(mocks.searchSignals).toHaveBeenCalledWith('claude', {
       limit: 80,
+      status: 'read',
       source: 'anthropic-news',
       tier: 1,
     });

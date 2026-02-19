@@ -15,6 +15,7 @@ export interface SignalArticleStats {
 
 export interface SignalsSearchOptions {
   readonly limit?: number | undefined;
+  readonly status?: SignalArticleStatus | undefined;
   readonly source?: string | undefined;
   readonly tier?: SignalTier | undefined;
   readonly dateFrom?: string | undefined;
@@ -94,6 +95,7 @@ export async function searchSignals(
     withQuery('/api/signals/search', {
       q: query,
       limit: options.limit ?? 20,
+      status: options.status,
       source: options.source,
       tier: options.tier,
       dateFrom: options.dateFrom,

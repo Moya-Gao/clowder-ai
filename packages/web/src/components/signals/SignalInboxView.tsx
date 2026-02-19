@@ -35,6 +35,19 @@ function toSignalTier(value: string | undefined): SignalTier | undefined {
   return parsed as SignalTier;
 }
 
+function toSignalStatus(value: FormDataEntryValue | null): SignalArticleStatus | undefined {
+  if (typeof value !== 'string') return undefined;
+  switch (value) {
+    case 'inbox':
+    case 'read':
+    case 'starred':
+    case 'archived':
+      return value;
+    default:
+      return undefined;
+  }
+}
+
 export function SignalInboxView() {
   const [items, setItems] = useState<readonly SignalArticle[]>([]);
   const [stats, setStats] = useState<SignalArticleStats | null>(null);
@@ -75,6 +88,7 @@ export function SignalInboxView() {
       return;
     }
     const formData = new FormData(event.currentTarget);
+    const selectedStatus = formData.get('status');
     const selectedSource = formData.get('source');
     const selectedTier = formData.get('tier');
 
@@ -82,6 +96,7 @@ export function SignalInboxView() {
     try {
       const result = await searchSignals(query, {
         limit: 80,
+        status: toSignalStatus(selectedStatus),
         source:
           typeof selectedSource === 'string' && selectedSource !== 'all'
             ? selectedSource
@@ -158,6 +173,7 @@ export function SignalInboxView() {
             <select
               value={filters.status}
               onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as SignalArticleFilters['status'] }))}
+              name="status"
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
             >
               <option value="all">状态: 全部</option>

@@ -19,6 +19,7 @@ const articleByUrlQuerySchema = z.object({
 const searchQuerySchema = z.object({
   q: z.string().min(1).max(500),
   limit: z.coerce.number().int().min(1).max(100).optional(),
+  status: SignalArticleStatusSchema.optional(),
   source: z.string().min(1).max(200).optional(),
   tier: z.enum(['1', '2', '3', '4']).optional(),
   dateFrom: z.string().optional(),
@@ -150,6 +151,7 @@ export const signalsRoutes: FastifyPluginAsync = async (app) => {
     const result = await articleQuery.search({
       query: parsed.data.q,
       limit: parsed.data.limit,
+      status: parsed.data.status,
       source: parsed.data.source,
       tier: toSignalTier(parsed.data.tier),
       dateFrom: parsed.data.dateFrom,

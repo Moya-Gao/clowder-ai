@@ -64,6 +64,7 @@ describe('signals-api', () => {
 
     await searchSignals('claude 5', {
       limit: 10,
+      status: 'read',
       source: 'anthropic-news',
       tier: 1,
       dateFrom: '2026-02-01',
@@ -71,7 +72,7 @@ describe('signals-api', () => {
     });
 
     expect(mocks.apiFetch).toHaveBeenCalledWith(
-      '/api/signals/search?q=claude+5&limit=10&source=anthropic-news&tier=1&dateFrom=2026-02-01&dateTo=2026-02-28',
+      '/api/signals/search?q=claude+5&limit=10&status=read&source=anthropic-news&tier=1&dateFrom=2026-02-01&dateTo=2026-02-28',
     );
   });
 

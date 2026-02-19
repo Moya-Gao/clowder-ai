@@ -25,6 +25,7 @@ export interface ListInboxOptions {
 export interface SearchSignalArticlesOptions {
   readonly query: string;
   readonly limit?: number | undefined;
+  readonly status?: SignalArticleStatus | undefined;
   readonly source?: string | undefined;
   readonly tier?: SignalTier | undefined;
   readonly dateFrom?: string | undefined;
@@ -43,18 +44,31 @@ function withinDateRange(targetIso: string, from: string | undefined, to: string
     return false;
   }
 
-  const fromValue = toDateBound(from, Number.NEGATIVE_INFINITY);
-  const toValue = toDateBound(to, Number.POSITIVE_INFINITY);
+  const fromValue = toDateBound(from, Number.NEGATIVE_INFINITY, 'start');
+  const toValue = toDateBound(to, Number.POSITIVE_INFINITY, 'end');
 
   return target >= fromValue && target <= toValue;
 }
 
-function toDateBound(value: string | undefined, fallback: number): number {
+const ISO_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+function toDateBound(value: string | undefined, fallback: number, mode: 'start' | 'end'): number {
   if (!value) {
     return fallback;
   }
-  const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? fallback : parsed;
+  const input = value.trim();
+  if (input.length === 0) {
+    return fallback;
+  }
+  const parsed = Date.parse(input);
+  if (Number.isNaN(parsed)) {
+    return fallback;
+  }
+  if (mode === 'end' && ISO_DAY_PATTERN.test(input)) {
+    return parsed + DAY_IN_MS - 1;
+  }
+  return parsed;
 }
 
 async function readArticleDetailsSafely(records: readonly InboxRecord[]): Promise<readonly ParsedArticleDocument[]> {
@@ -145,6 +159,7 @@ export class SignalArticleQueryService {
     const details = await readArticleDetailsSafely(records);
 
     const matched = details
+      .filter((detail) => (options.status ? detail.article.status === options.status : true))
       .filter((detail) => (options.source ? detail.article.source === options.source : true))
       .filter((detail) => (options.tier ? detail.article.tier === options.tier : true))
       .filter((detail) => withinDateRange(detail.article.fetchedAt, options.dateFrom, options.dateTo))

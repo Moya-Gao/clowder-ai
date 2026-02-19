@@ -198,6 +198,48 @@ describe('signals routes', () => {
     assert.ok(ids.includes(secondArticle.id));
   });
 
+  it('GET /api/signals/search filters by status when requested', async () => {
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/signals/articles/${encodeURIComponent(secondArticle.id)}`,
+      headers: {
+        ...AUTH_HEADERS,
+        'content-type': 'application/json',
+      },
+      payload: {
+        status: 'read',
+      },
+    });
+    assert.equal(patchRes.statusCode, 200);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/signals/search?q=claude&status=read',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.total, 1);
+    assert.equal(body.items[0].id, secondArticle.id);
+    assert.equal(body.items[0].status, 'read');
+  });
+
+  it('GET /api/signals/search keeps dateTo day inclusive', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/signals/search?q=claude&dateTo=${encodeURIComponent(today)}`,
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.total, 2);
+    const ids = body.items.map((item) => item.id);
+    assert.ok(ids.includes(firstArticle.id));
+    assert.ok(ids.includes(secondArticle.id));
+  });
+
   it('PATCH /api/signals/articles/:id updates status/tags/summary', async () => {
     const patchRes = await app.inject({
       method: 'PATCH',
