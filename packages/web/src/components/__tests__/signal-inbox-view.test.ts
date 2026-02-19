@@ -178,4 +178,62 @@ describe('SignalInboxView', () => {
       tier: 1,
     });
   });
+
+  it('does not re-filter server search results on inbox page', async () => {
+    await act(async () => {
+      root.render(React.createElement(SignalInboxView));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const contentOnlyMatchedArticle = createArticle({
+      id: 'signal_2',
+      title: 'General weekly update',
+      url: 'https://example.com/general-update',
+      tags: [],
+      summary: undefined,
+    });
+    mocks.searchSignals.mockResolvedValueOnce({
+      total: 1,
+      items: [contentOnlyMatchedArticle],
+    });
+
+    const queryInput = container.querySelector('input[placeholder="搜索标题、来源、标签..."]');
+    let form = container.querySelector('form');
+    expect(queryInput).not.toBeNull();
+    expect(form).not.toBeNull();
+    if (!queryInput || !form) {
+      return;
+    }
+
+    await act(async () => {
+      setNativeValue(queryInput as HTMLInputElement, 'content-only-hit');
+      queryInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    form = container.querySelector('form');
+    expect(form).not.toBeNull();
+    if (!form) {
+      return;
+    }
+
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mocks.searchSignals).toHaveBeenCalledWith('content-only-hit', {
+      limit: 80,
+      source: undefined,
+      status: undefined,
+      tier: undefined,
+    });
+    expect(container.textContent).toContain('共 1 篇');
+  });
 });

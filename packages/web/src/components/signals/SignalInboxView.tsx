@@ -50,6 +50,7 @@ function toSignalStatus(value: FormDataEntryValue | null): SignalArticleStatus |
 
 export function SignalInboxView() {
   const [items, setItems] = useState<readonly SignalArticle[]>([]);
+  const [showServerSearchResults, setShowServerSearchResults] = useState(false);
   const [stats, setStats] = useState<SignalArticleStats | null>(null);
   const [selectedArticleId, setSelectedArticleId] = useState<string | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<SignalArticleDetail | null>(null);
@@ -64,6 +65,7 @@ export function SignalInboxView() {
     try {
       const [inboxItems, statsData] = await Promise.all([fetchSignalsInbox({ limit: 80 }), fetchSignalStats()]);
       setItems(inboxItems);
+      setShowServerSearchResults(false);
       setStats(statsData);
     } catch (fetchError) {
       setError(fetchError instanceof Error ? fetchError.message : '加载失败');
@@ -76,7 +78,10 @@ export function SignalInboxView() {
     void refreshInbox();
   }, [refreshInbox]);
 
-  const filteredItems = useMemo(() => filterSignalArticles(items, filters), [items, filters]);
+  const filteredItems = useMemo(
+    () => (showServerSearchResults ? items : filterSignalArticles(items, filters)),
+    [showServerSearchResults, items, filters],
+  );
   const sources = useMemo(() => uniqueSources(items), [items]);
 
   const handleSearchSubmit = useCallback(async (event: React.FormEvent<HTMLFormElement>) => {
@@ -104,6 +109,7 @@ export function SignalInboxView() {
         tier: typeof selectedTier === 'string' ? toSignalTier(selectedTier) : undefined,
       });
       setItems(result.items);
+      setShowServerSearchResults(true);
       setSelectedArticleId(null);
       setSelectedArticle(null);
     } catch (searchError) {
