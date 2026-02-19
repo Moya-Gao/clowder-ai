@@ -1,0 +1,118 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+const { ApiFetcher } = await import('../dist/domains/signals/fetchers/api-fetcher.js');
+
+function createSource(overrides = {}) {
+  return {
+    id: 'github-releases',
+    name: 'GitHub Releases',
+    url: 'https://api.github.com/repos/openai/openai-python/releases',
+    tier: 1,
+    category: 'official',
+    enabled: true,
+    fetch: {
+      method: 'api',
+      timeoutMs: 5000,
+      headers: {
+        Accept: 'application/json',
+      },
+    },
+    schedule: {
+      frequency: 'daily',
+    },
+    ...overrides,
+  };
+}
+
+function createJsonResponse(payload) {
+  return {
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    async json() {
+      return payload;
+    },
+  };
+}
+
+describe('ApiFetcher', () => {
+  it('canHandle returns true only for api sources', () => {
+    const fetcher = new ApiFetcher(async () => createJsonResponse([]));
+
+    assert.equal(fetcher.canHandle(createSource()), true);
+    assert.equal(fetcher.canHandle(createSource({ fetch: { method: 'rss' } })), false);
+  });
+
+  it('fetch maps GitHub-style release payload', async () => {
+    const fetcher = new ApiFetcher(async () =>
+      createJsonResponse([
+        {
+          name: 'v1.0.0',
+          html_url: 'https://github.com/openai/openai-python/releases/tag/v1.0.0',
+          published_at: '2026-02-18T09:00:00.000Z',
+          body: 'Major release',
+        },
+      ]),
+    );
+
+    const result = await fetcher.fetch(createSource());
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.articles.length, 1);
+    assert.equal(result.articles[0].title, 'v1.0.0');
+    assert.equal(result.articles[0].url, 'https://github.com/openai/openai-python/releases/tag/v1.0.0');
+    assert.equal(result.metadata.source, 'github-releases');
+  });
+
+  it('fetch maps Algolia-style hits payload', async () => {
+    const fetcher = new ApiFetcher(async () =>
+      createJsonResponse({
+        hits: [
+          {
+            title: 'Agentic workflows in production',
+            url: 'https://example.com/agentic-workflows',
+            created_at: '2026-02-18T10:00:00.000Z',
+            story_text: 'Post body',
+          },
+        ],
+      }),
+    );
+
+    const result = await fetcher.fetch(
+      createSource({
+        id: 'hn-algolia',
+        name: 'HN Algolia',
+        url: 'https://hn.algolia.com/api/v1/search?query=agent',
+      }),
+    );
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.articles.length, 1);
+    assert.equal(result.articles[0].title, 'Agentic workflows in production');
+    assert.equal(result.articles[0].url, 'https://example.com/agentic-workflows');
+  });
+
+  it('fetch returns structured error when downstream fetch throws', async () => {
+    const fetcher = new ApiFetcher(async () => {
+      throw new Error('network timeout');
+    });
+
+    const result = await fetcher.fetch(createSource());
+
+    assert.equal(result.articles.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].code, 'API_FETCH_FAILED');
+    assert.match(result.errors[0].message, /network timeout/);
+  });
+
+  it('fetch rejects non-api source with clear error payload', async () => {
+    const fetcher = new ApiFetcher(async () => createJsonResponse([]));
+
+    const result = await fetcher.fetch(createSource({ fetch: { method: 'rss' } }));
+
+    assert.equal(result.articles.length, 0);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].code, 'UNSUPPORTED_SOURCE');
+  });
+});

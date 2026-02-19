@@ -8,7 +8,7 @@ export interface RawArticle {
   readonly content?: string | undefined;
 }
 
-export type FetchErrorCode = 'UNSUPPORTED_SOURCE' | 'RSS_FETCH_FAILED';
+export type FetchErrorCode = 'UNSUPPORTED_SOURCE' | 'RSS_FETCH_FAILED' | 'API_FETCH_FAILED' | 'WEBPAGE_FETCH_FAILED';
 
 export interface FetchError {
   readonly code: FetchErrorCode;
