@@ -20,6 +20,10 @@ export interface LegacyArticle {
   readonly content: string;
 }
 
+export interface ParseLegacyArticlesOptions {
+  readonly onSkipMalformed?: ((input: { readonly filePath: string; readonly reason: string }) => void) | undefined;
+}
+
 function normalizeStatus(value: string | undefined): SignalArticleStatus {
   const normalized = (value ?? '').toLowerCase();
   if (normalized === 'read') return 'read';
@@ -76,43 +80,50 @@ async function collectMarkdownFiles(root: string): Promise<string[]> {
   return files;
 }
 
-export async function parseLegacyArticles(libraryDir: string): Promise<LegacyArticle[]> {
+export async function parseLegacyArticles(libraryDir: string, options: ParseLegacyArticlesOptions = {}): Promise<LegacyArticle[]> {
   const files = await collectMarkdownFiles(libraryDir);
   const fallbackNow = new Date().toISOString();
   const articles: LegacyArticle[] = [];
 
   for (const filePath of files) {
-    const folderName = basename(resolve(filePath, '..'));
-    const raw = await readFile(filePath, 'utf-8');
-    const { frontmatter, content } = splitFrontmatter(raw);
+    try {
+      const folderName = basename(resolve(filePath, '..'));
+      const raw = await readFile(filePath, 'utf-8');
+      const { frontmatter, content } = splitFrontmatter(raw);
 
-    const url = pickString(frontmatter, ['url', 'link']);
-    if (!url) continue;
+      const url = pickString(frontmatter, ['url', 'link']);
+      if (!url) continue;
 
-    const title = pickString(frontmatter, ['title']) ?? basename(filePath, '.md');
-    const publishedAt = normalizeDate(
-      pickString(frontmatter, ['publishedAt', 'published', 'date']),
-      normalizeDate(extractDatePrefixFromFilename(filePath), fallbackNow),
-    );
-    const fetchedAt = normalizeDate(pickString(frontmatter, ['fetchedAt', 'captured']), publishedAt);
-    const tierNumber = pickNumber(frontmatter, 'tier');
-    const tagsValue = frontmatter['tags'];
+      const title = pickString(frontmatter, ['title']) ?? basename(filePath, '.md');
+      const publishedAt = normalizeDate(
+        pickString(frontmatter, ['publishedAt', 'published', 'date']),
+        normalizeDate(extractDatePrefixFromFilename(filePath), fallbackNow),
+      );
+      const fetchedAt = normalizeDate(pickString(frontmatter, ['fetchedAt', 'captured']), publishedAt);
+      const tierNumber = pickNumber(frontmatter, 'tier');
+      const tagsValue = frontmatter['tags'];
 
-    articles.push({
-      filePath,
-      folderName,
-      id: pickString(frontmatter, ['id']),
-      title,
-      url,
-      sourceLabel: pickString(frontmatter, ['source']),
-      ...(tierNumber && tierNumber >= 1 && tierNumber <= 4 ? { tier: tierNumber as SignalTier } : {}),
-      publishedAt,
-      fetchedAt,
-      status: normalizeStatus(pickString(frontmatter, ['status'])),
-      tags: Array.isArray(tagsValue) ? tagsValue.filter((v) => typeof v === 'string').map((v) => v.trim()) : [],
-      summary: pickString(frontmatter, ['summary']),
-      content,
-    });
+      articles.push({
+        filePath,
+        folderName,
+        id: pickString(frontmatter, ['id']),
+        title,
+        url,
+        sourceLabel: pickString(frontmatter, ['source']),
+        ...(tierNumber && tierNumber >= 1 && tierNumber <= 4 ? { tier: tierNumber as SignalTier } : {}),
+        publishedAt,
+        fetchedAt,
+        status: normalizeStatus(pickString(frontmatter, ['status'])),
+        tags: Array.isArray(tagsValue) ? tagsValue.filter((v) => typeof v === 'string').map((v) => v.trim()) : [],
+        summary: pickString(frontmatter, ['summary']),
+        content,
+      });
+    } catch (error) {
+      options.onSkipMalformed?.({
+        filePath,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return articles;

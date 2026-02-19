@@ -181,7 +181,13 @@ export async function runMigrateSignalsCli(
     await assertLegacyRootDir(legacyRoot);
     const baseConfig = await readTargetSourceConfig(paths.sourcesFile);
     const legacySourceMigration = await parseLegacySources(legacySourcesFile);
-    const legacyArticles = await parseLegacyArticles(legacyLibraryDir);
+    let parserSkippedArticles = 0;
+    const legacyArticles = await parseLegacyArticles(legacyLibraryDir, {
+      onSkipMalformed: ({ filePath, reason }) => {
+        parserSkippedArticles += 1;
+        io.log(`[signals] skipped malformed legacy article file=${filePath} reason=${reason}`);
+      },
+    });
 
     let { config: mergedConfig, idRemap } = mergeSources(baseConfig, legacySourceMigration.sources);
     const aliasToId = buildAliasToSourceId(mergedConfig);
@@ -191,7 +197,7 @@ export async function runMigrateSignalsCli(
     }
 
     let fallbackSources = 0;
-    let skippedArticles = 0;
+    let skippedArticles = parserSkippedArticles;
     let migratedArticles = 0;
 
     const redis = args.redisUrl ? new Redis(args.redisUrl) : undefined;
