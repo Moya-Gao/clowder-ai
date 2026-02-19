@@ -204,22 +204,18 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
     const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
     const isError = message.variant === 'error' || isLegacyError;
-    const isInfo = message.variant === 'info' || (!message.variant && !isLegacyError);
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
+    const toneClass = isTool
+      ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
+      : isFollowup
+      ? 'text-purple-700 bg-purple-50 border border-purple-200'
+      : isError
+      ? 'text-red-500 bg-red-50 rounded-full'
+      : 'text-blue-700 bg-blue-50';
     return (
       <div data-message-id={message.id} className={`flex justify-center ${isTool ? 'mb-1' : 'mb-3'}`}>
-        <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${
-          isTool
-            ? 'text-gray-400 bg-gray-50/50 font-mono text-xs py-1'
-            : isFollowup
-            ? 'text-purple-700 bg-purple-50 border border-purple-200'
-            : isInfo
-            ? 'text-blue-700 bg-blue-50'
-            : isError
-            ? 'text-red-500 bg-red-50 rounded-full'
-            : 'text-blue-700 bg-blue-50'
-        }`}>
+        <div className={`text-sm px-4 py-2 rounded-lg whitespace-pre-wrap text-left max-w-[85%] ${toneClass}`}>
           {isFollowup && <span className="mr-1">🔗</span>}
           {message.content}
           {isFollowup && (

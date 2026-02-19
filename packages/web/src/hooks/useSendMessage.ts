@@ -104,6 +104,7 @@ export function useSendMessage(activeThreadId?: string) {
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
+          variant: 'error',
           content: `Failed to send message: ${errorMessage}`,
           timestamp: Date.now(),
         });

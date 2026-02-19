@@ -58,10 +58,15 @@ describe('useChatCommands /mode kickoff', () => {
   let root: Root;
 
   function getLatestSystemMessageContent(): string | null {
+    const msg = getLatestSystemMessage();
+    return typeof msg?.content === 'string' ? msg.content : null;
+  }
+
+  function getLatestSystemMessage(): Record<string, unknown> | null {
     const calls = mocks.mockAddMessage.mock.calls as Array<[Record<string, unknown>]>;
     for (let i = calls.length - 1; i >= 0; i -= 1) {
       const msg = calls[i][0];
-      if (msg.type === 'system' && typeof msg.content === 'string') return msg.content;
+      if (msg.type === 'system') return msg;
     }
     return null;
   }
@@ -177,6 +182,11 @@ describe('useChatCommands /mode kickoff', () => {
 
     expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
     expect(getLatestSystemMessageContent()).toContain('模式已启动，但自动发起失败: kickoff network down');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
   });
 
   it('reports kickoff error when kickoff response is not ok', async () => {
@@ -195,5 +205,30 @@ describe('useChatCommands /mode kickoff', () => {
 
     expect(mocks.mockApiFetch).toHaveBeenCalledTimes(2);
     expect(getLatestSystemMessageContent()).toContain('模式已启动，但自动发起失败: kickoff bad gateway');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
+
+  it('marks /config set failure as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+    mocks.mockApiFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: () => Promise.resolve({ error: 'bad config' }),
+    });
+
+    await act(async () => {
+      await processCommand('/config set cli.timeoutMs 12345');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('配置更新失败: bad config');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
   });
 });

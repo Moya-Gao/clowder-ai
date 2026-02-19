@@ -149,5 +149,12 @@ describe('useSendMessage upload status', () => {
     const last = snapshots[snapshots.length - 1];
     expect(last.status).toBe('failed');
     expect(last.error).toContain('上传超时');
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'error',
+        content: expect.stringContaining('Failed to send message: 上传超时'),
+      }),
+    );
   });
 });

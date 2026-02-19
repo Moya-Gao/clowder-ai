@@ -123,6 +123,15 @@ export function useChatCommands() {
       const trimmed = input.trim();
       /** Resolve effective threadId — override (from split-pane) or store default */
       const getThreadId = () => overrideThreadId ?? useChatStore.getState().currentThreadId;
+      const addSystemError = (content: string) => {
+        addMessage({
+          id: `err-${Date.now()}`,
+          type: 'system',
+          variant: 'error',
+          content,
+          timestamp: Date.now(),
+        });
+      };
       const sendModeKickoff = async (threadId: string, content: string): Promise<void> => {
         if (!content.trim()) return;
         try {
@@ -136,12 +145,7 @@ export function useChatCommands() {
             throw new Error(body?.detail ?? body?.error ?? `Server error: ${res.status}`);
           }
         } catch (kickoffErr) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `模式已启动，但自动发起失败: ${kickoffErr instanceof Error ? kickoffErr.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`模式已启动，但自动发起失败: ${kickoffErr instanceof Error ? kickoffErr.message : 'Unknown'}`);
         }
       };
 
@@ -199,12 +203,7 @@ export function useChatCommands() {
               timestamp: Date.now(),
             });
           } catch (err) {
-            addMessage({
-              id: `err-${Date.now()}`,
-              type: 'system',
-              content: `配置更新失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-              timestamp: Date.now(),
-            });
+            addSystemError(`配置更新失败: ${err instanceof Error ? err.message : 'Unknown'}`);
           }
           return true;
         }
@@ -258,12 +257,7 @@ export function useChatCommands() {
             timestamp: Date.now(),
           });
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `记忆保存失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`记忆保存失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -334,12 +328,7 @@ export function useChatCommands() {
             }
           }
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `读取记忆失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`读取记忆失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -392,12 +381,7 @@ export function useChatCommands() {
             timestamp: Date.now(),
           });
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `证据检索失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`证据检索失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -432,12 +416,7 @@ export function useChatCommands() {
           });
           const data = await res.json();
           if (!res.ok) {
-            addMessage({
-              id: `err-${Date.now()}`,
-              type: 'system',
-              content: `审批失败: ${data.error ?? res.status}`,
-              timestamp: Date.now(),
-            });
+            addSystemError(`审批失败: ${data.error ?? res.status}`);
           } else {
             addMessage({
               id: `publish-${Date.now()}`,
@@ -448,12 +427,7 @@ export function useChatCommands() {
             });
           }
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `审批请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`审批请求失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -488,12 +462,7 @@ export function useChatCommands() {
           });
           const data = await res.json();
           if (!res.ok) {
-            addMessage({
-              id: `err-${Date.now()}`,
-              type: 'system',
-              content: `归档失败: ${data.error ?? res.status}`,
-              timestamp: Date.now(),
-            });
+            addSystemError(`归档失败: ${data.error ?? res.status}`);
           } else {
             addMessage({
               id: `publish-${Date.now()}`,
@@ -504,12 +473,7 @@ export function useChatCommands() {
             });
           }
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `归档请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`归档请求失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -567,12 +531,7 @@ export function useChatCommands() {
             });
           }
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `反思请求失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`反思请求失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -607,7 +566,7 @@ export function useChatCommands() {
               addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `模式已结束: ${data.ended.name}${outcome ? ` (${outcome})` : ''}`, timestamp: Date.now() });
             }
           } catch (err) {
-            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `模式操作失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+            addSystemError(`模式操作失败: ${err instanceof Error ? err.message : 'Unknown'}`);
           }
           return true;
         }
@@ -629,7 +588,7 @@ export function useChatCommands() {
               addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃模式\n可用: /mode brainstorm <议题> @猫A @猫B\n       /mode debate <议题> @猫A @猫B [轮数]\n       /mode dev-loop @开发猫 @review猫 <需求>', timestamp: Date.now() });
             }
           } catch (err) {
-            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `查询模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+            addSystemError(`查询模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
           }
           return true;
         }
@@ -683,7 +642,7 @@ export function useChatCommands() {
             addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `🔄 dev-loop 模式已启动\n需求: ${requirement}\n开发: @${mentions[0]} · Review: @${mentions[1]}`, timestamp: Date.now() });
             await sendModeKickoff(threadId, requirement);
           } catch (err) {
-            addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+            addSystemError(`启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
           }
           return true;
         }
@@ -716,7 +675,7 @@ export function useChatCommands() {
           addMessage({ id: `mode-${Date.now()}`, type: 'system', variant: 'info', content: `${modeName === 'brainstorm' ? '🧠' : '⚔️'} ${modeName} 模式已启动\n议题: ${topic}\n参与: ${participantDisplay}`, timestamp: Date.now() });
           await sendModeKickoff(threadId, topic);
         } catch (err) {
-          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+          addSystemError(`启动模式失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
@@ -775,12 +734,7 @@ export function useChatCommands() {
             });
           }
         } catch (err) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: `任务提取失败: ${err instanceof Error ? err.message : 'Unknown'}`,
-            timestamp: Date.now(),
-          });
+          addSystemError(`任务提取失败: ${err instanceof Error ? err.message : 'Unknown'}`);
         }
         return true;
       }
