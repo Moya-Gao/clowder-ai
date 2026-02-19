@@ -190,6 +190,8 @@ interface ChatState {
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
+  setThreadLoading: (threadId: string, loading: boolean) => void;
+  setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
@@ -488,6 +490,44 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isStreaming: streaming,
       })),
     ),
+
+  /** Update isLoading for a specific thread (active or background). */
+  setThreadLoading: (threadId, loading) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { isLoading: loading };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            isLoading: loading,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Update hasActiveInvocation for a specific thread (active or background). */
+  setThreadHasActiveInvocation: (threadId, active) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { hasActiveInvocation: active };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            hasActiveInvocation: active,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
 
   /** Get a thread's state (active thread returns flat state, others return map) */
   getThreadState: (threadId) => {

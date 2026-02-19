@@ -7,6 +7,9 @@ const mockApiFetch = vi.fn();
 const mockAddMessage = vi.fn();
 const mockAddMessageToThread = vi.fn();
 const mockSetLoading = vi.fn();
+const mockSetHasActiveInvocation = vi.fn();
+const mockSetThreadLoading = vi.fn();
+const mockSetThreadHasActiveInvocation = vi.fn();
 const mockResetRefs = vi.fn();
 const mockProcessCommand = vi.fn(async () => false);
 
@@ -28,6 +31,9 @@ vi.mock('@/stores/chatStore', () => ({
       addMessage: mockAddMessage,
       addMessageToThread: mockAddMessageToThread,
       setLoading: mockSetLoading,
+      setHasActiveInvocation: mockSetHasActiveInvocation,
+      setThreadLoading: mockSetThreadLoading,
+      setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
       currentThreadId: 'thread-stale',
     }),
     {
@@ -40,9 +46,11 @@ import { useSendMessage } from '@/hooks/useSendMessage';
 
 function SendRunner({
   activeThreadId,
+  overrideThreadId,
   onDone,
 }: {
   activeThreadId?: string;
+  overrideThreadId?: string;
   onDone: () => void;
 }) {
   const { handleSend } = useSendMessage(activeThreadId);
@@ -51,8 +59,8 @@ function SendRunner({
   useEffect(() => {
     if (called.current) return;
     called.current = true;
-    handleSend('@布偶 @缅因 看图', undefined).then(onDone);
-  }, [handleSend, onDone]);
+    handleSend('@布偶 @缅因 看图', undefined, overrideThreadId).then(onDone);
+  }, [handleSend, onDone, overrideThreadId]);
 
   return null;
 }
@@ -76,6 +84,9 @@ describe('useSendMessage thread source', () => {
     mockAddMessage.mockReset();
     mockAddMessageToThread.mockReset();
     mockSetLoading.mockReset();
+    mockSetHasActiveInvocation.mockReset();
+    mockSetThreadLoading.mockReset();
+    mockSetThreadHasActiveInvocation.mockReset();
     mockResetRefs.mockReset();
     mockProcessCommand.mockReset();
     mockProcessCommand.mockResolvedValue(false);
@@ -98,6 +109,7 @@ describe('useSendMessage thread source', () => {
       root.render(
         React.createElement(SendRunner, {
           activeThreadId: 'thread-route',
+          overrideThreadId: undefined,
           onDone: () => {},
         }),
       );
@@ -114,6 +126,7 @@ describe('useSendMessage thread source', () => {
       root.render(
         React.createElement(SendRunner, {
           activeThreadId: undefined,
+          overrideThreadId: undefined,
           onDone: () => {},
         }),
       );
@@ -122,5 +135,21 @@ describe('useSendMessage thread source', () => {
     expect(mockApiFetch).toHaveBeenCalled();
     const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
     expect(payload.threadId).toBe('thread-stale');
+  });
+
+  it('sets loading/active flags on override target thread in split-pane send', async () => {
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: 'thread-target',
+          onDone: () => {},
+        }),
+      );
+    });
+
+    expect(mockSetThreadLoading).toHaveBeenCalledWith('thread-target', true);
+    expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-target', true);
+    expect(mockSetLoading).not.toHaveBeenCalled();
   });
 });

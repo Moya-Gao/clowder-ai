@@ -82,7 +82,7 @@ export function ChatInputActionButton({
       )}
 
       {/* Primary action button: stop (loading) / stop-rec / transcribing / send / mic */}
-      {disabled && onStop ? (
+      {disabled && onStop && hasActiveInvocation ? (
         <button onClick={() => onStop()} className="p-3 rounded-xl bg-red-500 text-white hover:bg-red-600 transition-colors" aria-label="Stop generation">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="4" width="12" height="12" rx="2" /></svg>
         </button>

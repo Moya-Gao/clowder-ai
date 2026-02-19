@@ -44,6 +44,8 @@ export interface BackgroundStoreLike {
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
+  setThreadLoading: (threadId: string, loading: boolean) => void;
+  setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
   getThreadState: (threadId: string) => ThreadState;

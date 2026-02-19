@@ -112,6 +112,22 @@ function ensureBackgroundAssistantMessage(
   return messageId;
 }
 
+function markThreadInvocationActive(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): void {
+  options.store.setThreadLoading(msg.threadId, true);
+  options.store.setThreadHasActiveInvocation(msg.threadId, true);
+}
+
+function markThreadInvocationComplete(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): void {
+  options.store.setThreadLoading(msg.threadId, false);
+  options.store.clearThreadActiveInvocation(msg.threadId);
+}
+
 export function handleBackgroundAgentMessage(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
@@ -120,6 +136,7 @@ export function handleBackgroundAgentMessage(
   const existing = options.bgStreamRefs.get(streamKey);
 
   if (msg.type === 'text' && msg.content) {
+    markThreadInvocationActive(msg, options);
     // Track the final message ID for toast preview (must capture before deleting bgStreamRefs)
     let finalMsgId: string | undefined;
 
@@ -175,7 +192,7 @@ export function handleBackgroundAgentMessage(
         ? options.store.getThreadState(msg.threadId).messages.find((m) => m.id === finalMsgId)
         : undefined;
       const preview = finalMessage?.content ?? msg.content;
-      options.store.clearThreadActiveInvocation(msg.threadId);
+      markThreadInvocationComplete(msg, options);
       options.addToast({
         type: 'success',
         title: `${msg.catId} 完成`,
@@ -188,6 +205,7 @@ export function handleBackgroundAgentMessage(
   }
 
   if (msg.type === 'error') {
+    markThreadInvocationActive(msg, options);
     stopTrackedStream(streamKey, msg, options);
     options.store.addMessageToThread(msg.threadId, {
       id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
@@ -199,7 +217,7 @@ export function handleBackgroundAgentMessage(
     });
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
     if (msg.isFinal) {
-      options.store.clearThreadActiveInvocation(msg.threadId);
+      markThreadInvocationComplete(msg, options);
     }
     options.addToast({
       type: 'error',
@@ -225,7 +243,7 @@ export function handleBackgroundAgentMessage(
       });
     }
     if (msg.isFinal) {
-      options.store.clearThreadActiveInvocation(msg.threadId);
+      markThreadInvocationComplete(msg, options);
     }
     return;
   }
@@ -237,6 +255,7 @@ export function handleBackgroundAgentMessage(
   }
 
   if (msg.type === 'tool_use') {
+    markThreadInvocationActive(msg, options);
     const toolName = msg.toolName ?? 'unknown';
     const detail = msg.toolInput ? safeJsonPreview(msg.toolInput, 200) : undefined;
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
@@ -253,6 +272,7 @@ export function handleBackgroundAgentMessage(
   }
 
   if (msg.type === 'tool_result') {
+    markThreadInvocationActive(msg, options);
     const detail = compactToolResultDetail(msg.content ?? '');
     const messageId = ensureBackgroundAssistantMessage(msg, streamKey, existing, options);
     options.store.appendToolEventToThread(msg.threadId, messageId, {

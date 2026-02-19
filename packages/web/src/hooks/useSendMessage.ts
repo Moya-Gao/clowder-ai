@@ -13,7 +13,14 @@ export type UploadStatus = 'idle' | 'uploading' | 'failed';
  * Handles both JSON and multipart form data modes.
  */
 export function useSendMessage(activeThreadId?: string) {
-  const { addMessage, addMessageToThread, setLoading } = useChatStore();
+  const {
+    addMessage,
+    addMessageToThread,
+    setLoading,
+    setHasActiveInvocation,
+    setThreadLoading,
+    setThreadHasActiveInvocation,
+  } = useChatStore();
   const { resetRefs } = useAgentMessages();
   const { processCommand } = useChatCommands();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
@@ -56,7 +63,13 @@ export function useSendMessage(activeThreadId?: string) {
       } else {
         addMessage(userMsg);
       }
-      setLoading(true);
+      if (threadId !== activeThread) {
+        setThreadLoading(threadId, true);
+        setThreadHasActiveInvocation(threadId, true);
+      } else {
+        setLoading(true);
+        setHasActiveInvocation(true);
+      }
 
       try {
         if (images && images.length > 0) {
@@ -93,7 +106,13 @@ export function useSendMessage(activeThreadId?: string) {
         setUploadStatus('idle');
         setUploadError(null);
       } catch (err) {
-        setLoading(false);
+        if (threadId !== activeThread) {
+          setThreadLoading(threadId, false);
+          setThreadHasActiveInvocation(threadId, false);
+        } else {
+          setLoading(false);
+          setHasActiveInvocation(false);
+        }
         const errorMessage = err instanceof Error ? err.message : 'Unknown';
         if (hasImages) {
           setUploadStatus('failed');
@@ -110,7 +129,17 @@ export function useSendMessage(activeThreadId?: string) {
         });
       }
     },
-    [resetRefs, processCommand, addMessage, addMessageToThread, setLoading, activeThreadId]
+    [
+      resetRefs,
+      processCommand,
+      addMessage,
+      addMessageToThread,
+      setLoading,
+      setHasActiveInvocation,
+      setThreadLoading,
+      setThreadHasActiveInvocation,
+      activeThreadId,
+    ]
   );
 
   return { handleSend, uploadStatus, uploadError };

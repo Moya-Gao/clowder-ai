@@ -42,6 +42,8 @@ const mockSetThreadCatInvocation = vi.fn();
 const mockSetThreadMessageMetadata = vi.fn();
 const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
+const mockSetThreadLoading = vi.fn();
+const mockSetThreadHasActiveInvocation = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 let mockStoreCurrentThreadId = 'thread-B';
@@ -57,6 +59,8 @@ vi.mock('@/stores/chatStore', () => {
       setThreadMessageMetadata: mockSetThreadMessageMetadata,
       setThreadMessageUsage: mockSetThreadMessageUsage,
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
+      setThreadLoading: mockSetThreadLoading,
+      setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
       getThreadState: () => ({
@@ -147,6 +151,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadMessageMetadata.mockClear();
     mockSetThreadMessageUsage.mockClear();
     mockSetThreadMessageStreaming.mockClear();
+    mockSetThreadLoading.mockClear();
+    mockSetThreadHasActiveInvocation.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
     // Clear all socket listeners from previous tests

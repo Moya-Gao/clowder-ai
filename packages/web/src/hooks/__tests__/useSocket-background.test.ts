@@ -167,13 +167,29 @@ describe('background thread socket handling', () => {
   });
 
   describe('R2-P2: text(isFinal) clears hasActiveInvocation', () => {
+    it('non-final background stream marks thread as loading and active', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'still running',
+        timestamp: Date.now(),
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.isLoading).toBe(true);
+      expect(ts.hasActiveInvocation).toBe(true);
+    });
+
     it('background text with isFinal clears hasActiveInvocation for that thread', () => {
       // Set up: switch to thread-bg, mark active invocation, switch away
       useChatStore.getState().setCurrentThread('thread-bg');
       useChatStore.getState().setHasActiveInvocation(true);
+      useChatStore.getState().setLoading(true);
       // Switch back to thread-active — thread-bg gets snapshotted with hasActiveInvocation=true
       useChatStore.getState().setCurrentThread('thread-active');
       expect(useChatStore.getState().threadStates['thread-bg']?.hasActiveInvocation).toBe(true);
+      expect(useChatStore.getState().threadStates['thread-bg']?.isLoading).toBe(true);
 
       // Simulate background text(isFinal)
       simulateBackgroundMessage({
@@ -187,6 +203,7 @@ describe('background thread socket handling', () => {
 
       // hasActiveInvocation should be cleared
       expect(useChatStore.getState().threadStates['thread-bg']?.hasActiveInvocation).toBe(false);
+      expect(useChatStore.getState().threadStates['thread-bg']?.isLoading).toBe(false);
     });
   });
 

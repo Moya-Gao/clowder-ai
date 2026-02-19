@@ -7,6 +7,9 @@ const mockApiFetch = vi.fn();
 const mockAddMessage = vi.fn();
 const mockAddMessageToThread = vi.fn();
 const mockSetLoading = vi.fn();
+const mockSetHasActiveInvocation = vi.fn();
+const mockSetThreadLoading = vi.fn();
+const mockSetThreadHasActiveInvocation = vi.fn();
 const mockResetRefs = vi.fn();
 const mockProcessCommand = vi.fn(async () => false);
 
@@ -28,6 +31,9 @@ vi.mock('@/stores/chatStore', () => ({
       addMessage: mockAddMessage,
       addMessageToThread: mockAddMessageToThread,
       setLoading: mockSetLoading,
+      setHasActiveInvocation: mockSetHasActiveInvocation,
+      setThreadLoading: mockSetThreadLoading,
+      setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
       currentThreadId: 'thread-stale',
     }),
     {
@@ -98,6 +104,9 @@ describe('useSendMessage upload status', () => {
     mockAddMessage.mockReset();
     mockAddMessageToThread.mockReset();
     mockSetLoading.mockReset();
+    mockSetHasActiveInvocation.mockReset();
+    mockSetThreadLoading.mockReset();
+    mockSetThreadHasActiveInvocation.mockReset();
     mockResetRefs.mockReset();
     mockProcessCommand.mockReset();
     mockProcessCommand.mockResolvedValue(false);
