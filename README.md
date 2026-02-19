@@ -125,3 +125,25 @@ CAT_CAFE_ALLOW_MAIN_DEV=1 pnpm start
 ```bash
 pnpm start:direct
 ```
+
+## Signal Hunter 迁移（F21 S6）
+
+从旧仓库 `signal-hunter` 迁移文章与信源配置到 `~/.cat-cafe/signals`：
+
+```bash
+pnpm --filter @cat-cafe/api run build
+pnpm --filter @cat-cafe/api run migrate-signals -- --from /Users/lysander/projects/relay-station/signal-hunter
+```
+
+常用参数：
+
+```bash
+# 只做解析与统计，不落盘
+pnpm --filter @cat-cafe/api run migrate-signals -- --from /path/to/signal-hunter --dry-run
+
+# 指定目标 signals 根目录
+pnpm --filter @cat-cafe/api run migrate-signals -- --from /path/to/signal-hunter --to /tmp/cat-cafe-signals
+
+# 迁移时同步写 Redis 索引（可选）
+pnpm --filter @cat-cafe/api run migrate-signals -- --from /path/to/signal-hunter --redis-url redis://127.0.0.1:6398/15
+```
