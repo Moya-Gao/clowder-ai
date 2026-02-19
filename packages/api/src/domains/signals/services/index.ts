@@ -19,6 +19,8 @@ export type {
   SignalEmailServiceOptions,
 } from './email-service.js';
 export { SignalEmailService } from './email-service.js';
+export type { SignalFetchSchedulerOptions, SignalFetchSchedulerSummary } from './fetch-scheduler.js';
+export { runSignalFetchScheduler } from './fetch-scheduler.js';
 export type {
   InAppNotificationResult,
   InAppNotificationSink,
