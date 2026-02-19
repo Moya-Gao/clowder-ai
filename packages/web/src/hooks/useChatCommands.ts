@@ -597,7 +597,7 @@ export function useChatCommands() {
         // /mode debate <topic> @猫A @猫B [rounds]
         const modeName = modeArgs.split(/\s+/)[0]?.toLowerCase();
         if (modeName !== 'brainstorm' && modeName !== 'debate' && modeName !== 'dev-loop') {
-          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `未知模式: ${modeName}\n可用: brainstorm, debate, dev-loop`, timestamp: Date.now() });
+          addSystemError(`未知模式: ${modeName}\n可用: brainstorm, debate, dev-loop`);
           return true;
         }
 
@@ -619,11 +619,11 @@ export function useChatCommands() {
           // /mode dev-loop @开发猫 @review猫 <需求>
           const requirement = topic; // remaining text after removing @mentions
           if (!requirement) {
-            addMessage({ id: `err-${Date.now()}`, type: 'system', content: '用法: /mode dev-loop @开发猫 @review猫 <需求描述>', timestamp: Date.now() });
+            addSystemError('用法: /mode dev-loop @开发猫 @review猫 <需求描述>');
             return true;
           }
           if (mentions.length < 2) {
-            addMessage({ id: `err-${Date.now()}`, type: 'system', content: '需要指定两只猫: @开发猫 @review猫', timestamp: Date.now() });
+            addSystemError('需要指定两只猫: @开发猫 @review猫');
             return true;
           }
           try {
@@ -648,7 +648,7 @@ export function useChatCommands() {
         }
 
         if (!topic) {
-          addMessage({ id: `err-${Date.now()}`, type: 'system', content: `用法: /mode ${modeName} <议题> @猫A @猫B`, timestamp: Date.now() });
+          addSystemError(`用法: /mode ${modeName} <议题> @猫A @猫B`);
           return true;
         }
 

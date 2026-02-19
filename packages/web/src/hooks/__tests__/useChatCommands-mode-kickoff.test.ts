@@ -231,4 +231,34 @@ describe('useChatCommands /mode kickoff', () => {
       }),
     );
   });
+
+  it('marks /mode unknown-mode validation message as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+
+    await act(async () => {
+      await processCommand('/mode foo');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('未知模式: foo');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
+
+  it('marks /mode dev-loop missing-args validation message as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+
+    await act(async () => {
+      await processCommand('/mode dev-loop');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('用法: /mode dev-loop @开发猫 @review猫 <需求描述>');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
 });
