@@ -4,7 +4,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-const { mergeSources, parseLegacySources } = await import('../dist/scripts/migrate-signals/source-migration.js');
+const { mergeSources, parseLegacySources, readTargetSourceConfig } = await import(
+  '../dist/scripts/migrate-signals/source-migration.js'
+);
 
 function createSource(id, url) {
   return {
@@ -76,5 +78,35 @@ describe('parseLegacySources', () => {
     assert.equal(result.aliasToId.has('ai-news'), false);
     assert.equal(result.aliasToId.has('ai-news-feed-one'), true);
     assert.equal(result.aliasToId.has('ai-news-feed-two'), true);
+  });
+});
+
+describe('readTargetSourceConfig', () => {
+  it('throws when existing target sources.yaml is invalid', async () => {
+    const targetRoot = await mkdtemp(join(tmpdir(), 'target-sources-'));
+    const targetSourcesFile = join(targetRoot, 'sources.yaml');
+
+    await writeFile(
+      targetSourcesFile,
+      [
+        'version: 1',
+        'sources:',
+        '  - id: invalid-source',
+        '    name: Invalid Source',
+        '    url: https://example.com/feed',
+        '    tier: 9',
+        '    category: official',
+        '    enabled: true',
+        '    fetch:',
+        '      method: rss',
+        '    schedule:',
+        '      frequency: daily',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    await assert.rejects(async () => {
+      await readTargetSourceConfig(targetSourcesFile);
+    }, /invalid signal sources config/i);
   });
 });

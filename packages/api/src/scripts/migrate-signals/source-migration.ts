@@ -55,10 +55,17 @@ function loadBaseConfig(rawText: string | null): SignalSourceConfig {
     return DEFAULT_SIGNAL_SOURCES;
   }
 
-  const parsed = parseYaml(rawText);
+  let parsed: unknown;
+  try {
+    parsed = parseYaml(rawText);
+  } catch (error) {
+    throw new Error(`Invalid signal sources config: ${(error as Error).message}`);
+  }
+
   const result = SignalSourceConfigSchema.safeParse(parsed);
   if (!result.success) {
-    return DEFAULT_SIGNAL_SOURCES;
+    const detail = result.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`).join('; ');
+    throw new Error(`Invalid signal sources config: ${detail}`);
   }
 
   return result.data as SignalSourceConfig;

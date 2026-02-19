@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { Redis } from 'ioredis';
 import type { SignalSourceConfig } from '@cat-cafe/shared';
@@ -131,6 +132,19 @@ function tryResolveSourceId(aliasToId: ReadonlyMap<string, string>, sourceLabel:
   return undefined;
 }
 
+async function assertLegacyRootDir(legacyRoot: string): Promise<void> {
+  let stats;
+  try {
+    stats = await stat(legacyRoot);
+  } catch {
+    throw new Error(`legacy root not found: ${legacyRoot}`);
+  }
+
+  if (!stats.isDirectory()) {
+    throw new Error(`legacy root is not a directory: ${legacyRoot}`);
+  }
+}
+
 export async function runMigrateSignalsCli(
   argv: readonly string[] = process.argv.slice(2),
   io: MigrateSignalsCliIo = console,
@@ -164,6 +178,7 @@ export async function runMigrateSignalsCli(
   const legacyLibraryDir = join(legacyRoot, 'library');
 
   try {
+    await assertLegacyRootDir(legacyRoot);
     const baseConfig = await readTargetSourceConfig(paths.sourcesFile);
     const legacySourceMigration = await parseLegacySources(legacySourcesFile);
     const legacyArticles = await parseLegacyArticles(legacyLibraryDir);

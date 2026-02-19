@@ -121,6 +121,18 @@ describe('runMigrateSignalsCli', () => {
     assert.equal(logs.some((line) => line.includes('migration completed')), false);
   });
 
+  it('fails fast when --from path does not exist', async () => {
+    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const missingLegacyRoot = join(targetRoot, 'missing-legacy-root');
+    const { io, logs, errors } = createIo();
+
+    const code = await runMigrateSignalsCli(['--from', missingLegacyRoot, '--to', targetRoot], io);
+
+    assert.equal(code, 1);
+    assert.match(errors.join('\n'), /legacy root not found/i);
+    assert.equal(logs.some((line) => line.includes('migration completed')), false);
+  });
+
   it('dry-run does not write target signals workspace', async () => {
     const legacyRoot = await createLegacyFixture();
     const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
