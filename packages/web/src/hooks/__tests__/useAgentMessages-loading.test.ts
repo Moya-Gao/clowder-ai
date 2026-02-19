@@ -251,6 +251,55 @@ describe('useAgentMessages loading lifecycle', () => {
     }
   });
 
+  it('stopping a background thread does not clear active thread invocation state', () => {
+    const cancelInvocation = vi.fn();
+    mockGetThreadState.mockImplementation((tid?: string) => {
+      if (tid === 'thread-2') {
+        return {
+          messages: [
+            {
+              id: 'bg-stream-1',
+              type: 'assistant',
+              catId: 'opus',
+              content: 'running',
+              isStreaming: true,
+              timestamp: Date.now(),
+            },
+          ],
+        };
+      }
+      return { messages: [] };
+    });
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    // Seed activeRefs with an active-thread stream.
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'codex',
+        content: 'active stream chunk',
+      });
+    });
+
+    act(() => {
+      captured?.handleStop(cancelInvocation, 'thread-2');
+    });
+
+    expect(cancelInvocation).toHaveBeenCalledWith('thread-2');
+    expect(mockResetThreadInvocationState).toHaveBeenCalledWith('thread-2');
+    expect(mockSetThreadMessageStreaming).toHaveBeenCalledWith('thread-2', 'bg-stream-1', false);
+
+    // Active thread state must remain untouched.
+    expect(mockSetLoading).not.toHaveBeenCalledWith(false);
+    expect(mockSetHasActiveInvocation).not.toHaveBeenCalledWith(false);
+    expect(mockSetIntentMode).not.toHaveBeenCalledWith(null);
+    expect(mockClearCatStatuses).not.toHaveBeenCalled();
+    expect(mockSetStreaming).not.toHaveBeenCalled();
+  });
+
   it('closes existing streaming bubble on error even when activeRefs are empty', () => {
     storeState.messages = [
       {

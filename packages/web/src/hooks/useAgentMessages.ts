@@ -474,6 +474,20 @@ export function useAgentMessages() {
   const handleStop = useCallback(
     (cancelFn: (threadId: string) => void, threadId: string) => {
       cancelFn(threadId);
+      const store = useChatStore.getState();
+      const isActiveThreadStop = threadId === store.currentThreadId;
+
+      if (!isActiveThreadStop) {
+        const threadState = store.getThreadState(threadId);
+        for (const message of threadState.messages) {
+          if (message.type === 'assistant' && message.isStreaming) {
+            store.setThreadMessageStreaming(threadId, message.id, false);
+          }
+        }
+        store.resetThreadInvocationState(threadId);
+        return;
+      }
+
       clearDoneTimeout();
       setLoading(false);
       setHasActiveInvocation(false);
