@@ -41,6 +41,17 @@ function splitFrontmatter(rawMarkdown: string): { readonly frontmatter: Record<s
   };
 }
 
+function extractDatePrefixFromFilename(filePath: string): string | undefined {
+  const name = basename(filePath, '.md');
+  const hyphenated = name.match(/^(\d{4}-\d{2}-\d{2})(?:$|[-_])/);
+  if (hyphenated) return hyphenated[1];
+
+  const compact = name.match(/^(\d{8})(?:$|[-_])/);
+  if (compact) return compact[1];
+
+  return undefined;
+}
+
 async function collectMarkdownFiles(root: string): Promise<string[]> {
   if (!(await exists(root))) return [];
 
@@ -81,7 +92,7 @@ export async function parseLegacyArticles(libraryDir: string): Promise<LegacyArt
     const title = pickString(frontmatter, ['title']) ?? basename(filePath, '.md');
     const publishedAt = normalizeDate(
       pickString(frontmatter, ['publishedAt', 'published', 'date']),
-      normalizeDate(basename(filePath).slice(0, 8), fallbackNow),
+      normalizeDate(extractDatePrefixFromFilename(filePath), fallbackNow),
     );
     const fetchedAt = normalizeDate(pickString(frontmatter, ['fetchedAt', 'captured']), publishedAt);
     const tierNumber = pickNumber(frontmatter, 'tier');

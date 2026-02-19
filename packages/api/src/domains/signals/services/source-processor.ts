@@ -25,7 +25,7 @@ function isSourceScheduledForAutomaticRun(source: SignalSource, now: Date): bool
 
   const frequency = source.schedule.frequency;
   if (frequency === 'manual') return false;
-  if (frequency === 'weekly') return now.getUTCDay() === 1;
+  if (frequency === 'weekly') return now.getDay() === 1;
   return true;
 }
 

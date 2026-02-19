@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { processSources } = await import('../dist/domains/signals/services/source-processor.js');
+const { processSources, selectSources } = await import('../dist/domains/signals/services/source-processor.js');
 
 function createSource(overrides = {}) {
   return {
@@ -178,5 +178,27 @@ describe('signal source processor', () => {
     assert.equal(result.storedArticles.length, 1);
     assert.equal(result.storedArticles[0].url, 'https://example.com/keep');
     assert.equal(result.errors.length, 0);
+  });
+
+  it('uses local weekday semantics when selecting weekly sources', () => {
+    const config = {
+      version: 1,
+      sources: [
+        createSource({ id: 'daily-source', schedule: { frequency: 'daily' } }),
+        createSource({ id: 'weekly-source', schedule: { frequency: 'weekly' } }),
+        createSource({ id: 'manual-source', schedule: { frequency: 'manual' } }),
+      ],
+    };
+
+    const localMondayUtcSunday = new Date('2026-02-16T00:30:00.000Z');
+    localMondayUtcSunday.getUTCDay = () => 0;
+    localMondayUtcSunday.getDay = () => 1;
+
+    const selected = selectSources(config, undefined, localMondayUtcSunday);
+
+    assert.deepEqual(
+      selected.map((source) => source.id),
+      ['daily-source', 'weekly-source'],
+    );
   });
 });
