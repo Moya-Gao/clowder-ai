@@ -21,6 +21,7 @@ import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-w
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import type { RichBlock } from '@cat-cafe/shared';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
+import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
@@ -171,9 +172,12 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         ? await deliveryCursorStore.getMentionAckCursor(record.userId, catId, record.threadId)
         : undefined;
 
-      const mentions = await messageStore.getMentionsFor(
+      const rawMentions = await messageStore.getMentionsFor(
         record.catId, 20, record.userId, record.threadId, lastAckId
       );
+      // F35: Filter out whispers not intended for this cat
+      const mentionViewer = { type: 'cat' as const, catId };
+      const mentions = rawMentions.filter((m) => canViewMessage(m, mentionViewer));
       return {
         mentions: mentions.map((item) => ({
           id: item.id,
@@ -277,11 +281,37 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
 
       let filtered: Awaited<ReturnType<typeof messageStore.getByThread>>;
 
+      // F35: Viewer for whisper filtering
+      const viewer = { type: 'cat' as const, catId: createCatId(record.catId) };
+
       if (!needsPlayFilter) {
-        // Normal mode: just fetch with limit
-        filtered = record.threadId
-          ? await messageStore.getByThread(record.threadId, requestedLimit, record.userId)
-          : await messageStore.getRecent(requestedLimit, record.userId);
+        // Normal mode: paginate backwards collecting visible messages until we
+        // have enough or data is exhausted. This ensures whisper filtering
+        // doesn't silently shrink the result set.
+        const visible: Awaited<ReturnType<typeof messageStore.getByThread>> = [];
+        const pageSize = Math.max(requestedLimit * 2, 50);
+        let cursorTimestamp = Number.MAX_SAFE_INTEGER;
+        let cursorId: string | undefined;
+
+        while (visible.length < requestedLimit) {
+          const batch = record.threadId
+            ? await messageStore.getByThreadBefore(record.threadId, cursorTimestamp, pageSize, cursorId, record.userId)
+            : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
+
+          if (batch.length === 0) break;
+
+          for (const item of batch) {
+            if (!canViewMessage(item, viewer)) continue;
+            visible.push(item);
+          }
+
+          const oldest = batch[0]!;
+          cursorTimestamp = oldest.timestamp;
+          cursorId = oldest.id;
+        }
+
+        visible.sort((a, b) => a.timestamp - b.timestamp || a.id.localeCompare(b.id));
+        filtered = visible.slice(-requestedLimit);
       } else {
         // Play mode: paginate backwards collecting visible messages until we have enough
         // or data is exhausted. No fixed page cap — correctness over latency.
@@ -298,6 +328,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           if (batch.length === 0) break; // no more messages
 
           for (const item of batch) {
+            // F35: Skip whispers not intended for this cat
+            if (!canViewMessage(item, viewer)) continue;
             // Visible in play mode: user messages, own cat's messages,
             // or other cats' messages that are NOT explicitly stream.
             // Legacy messages (no origin) are treated as visible for backward

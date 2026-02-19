@@ -6,10 +6,10 @@ import { SplitPaneCell, SplitPanePlaceholder } from './SplitPaneCell';
 import { MiniThreadSidebar } from './MiniThreadSidebar';
 import { ChatInput } from './ChatInput';
 import { PawIcon } from './icons/PawIcon';
-import type { UploadStatus } from '@/hooks/useSendMessage';
+import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 
 interface SplitPaneViewProps {
-  onSend: (content: string, images?: File[], overrideThreadId?: string) => void;
+  onSend: (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions) => void;
   onStop: (overrideThreadId?: string) => void;
   uploadStatus?: UploadStatus;
   uploadError?: string | null;
@@ -150,7 +150,7 @@ export function SplitPaneView({
             </span>
           </div>
           <ChatInput
-            onSend={(content: string, images?: File[]) => onSend(content, images, splitPaneTargetId ?? undefined)}
+            onSend={(content, images, whisper) => onSend(content, images, splitPaneTargetId ?? undefined, whisper)}
             onStop={() => onStop(splitPaneTargetId ?? undefined)}
             disabled={isTargetLoading || !splitPaneTargetId}
             hasActiveInvocation={isTargetActiveInvocation}

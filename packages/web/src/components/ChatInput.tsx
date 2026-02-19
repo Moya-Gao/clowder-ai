@@ -7,11 +7,11 @@ import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { compressImage } from '@/utils/compressImage';
-import type { UploadStatus } from '@/hooks/useSendMessage';
+import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 
 interface ChatInputProps {
-  onSend: (content: string, images?: File[]) => void;
+  onSend: (content: string, images?: File[], whisper?: WhisperOptions) => void;
   onStop?: () => void;
   disabled?: boolean;
   hasActiveInvocation?: boolean;
@@ -36,6 +36,8 @@ export function ChatInput({
   const [mentionStart, setMentionStart] = useState(-1);
   const [images, setImages] = useState<File[]>([]);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
+  const [whisperMode, setWhisperMode] = useState(false);
+  const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -54,15 +56,21 @@ export function ChatInput({
 
   const handleSend = useCallback(() => {
     if (sendTemporarilyDisabled) return;
+    // Block send if whisper mode is on but no recipients selected
+    if (whisperMode && whisperTargets.size === 0) return;
     const trimmed = input.trim();
     if (trimmed && !disabled) {
-      onSend(trimmed, images.length > 0 ? images : undefined);
+      const whisper = whisperMode && whisperTargets.size > 0
+        ? { visibility: 'whisper' as const, whisperTo: [...whisperTargets] }
+        : undefined;
+      onSend(trimmed, images.length > 0 ? images : undefined, whisper);
       setInput('');
       setImages([]);
       setShowMentions(false);
       setShowModeMenu(false);
+      // Keep whisper mode on for consecutive whispers (user can toggle off manually)
     }
-  }, [input, disabled, onSend, images, sendTemporarilyDisabled]);
+  }, [input, disabled, onSend, images, sendTemporarilyDisabled, whisperMode, whisperTargets]);
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
@@ -162,6 +170,25 @@ export function ChatInput({
     setImages((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const toggleWhisperTarget = useCallback((catId: string) => {
+    setWhisperTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(catId)) next.delete(catId);
+      else next.add(catId);
+      return next;
+    });
+  }, []);
+
+  const handleWhisperToggle = useCallback(() => {
+    setWhisperMode((prev) => {
+      if (!prev) {
+        // Entering whisper mode — auto-select all cats
+        setWhisperTargets(new Set(CAT_OPTIONS.map((c) => c.id)));
+      }
+      return !prev;
+    });
+  }, []);
+
   const handleModeClick = useCallback(() => {
     setShowMentions(false);
     setMentionStart(-1);
@@ -206,6 +233,28 @@ export function ChatInput({
         </div>
       )}
 
+      {whisperMode && (
+        <div className="px-4 pt-2 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
+          {CAT_OPTIONS.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => toggleWhisperTarget(cat.id)}
+              className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                whisperTargets.has(cat.id)
+                  ? `${cat.color} border-current bg-amber-50 font-medium`
+                  : 'text-gray-400 border-gray-200 hover:border-gray-400'
+              }`}
+            >
+              {cat.label.replace('@', '')}
+            </button>
+          ))}
+          {whisperTargets.size === 0 && (
+            <span className="text-xs text-red-400">请至少选一只猫猫</span>
+          )}
+        </div>
+      )}
+
       <ImagePreview files={images} onRemove={handleRemoveImage} />
 
       <div className="flex gap-2 items-end p-4 pt-2">
@@ -216,6 +265,17 @@ export function ChatInput({
           <AttachIcon className="w-5 h-5" />
         </button>
 
+        <button onClick={handleWhisperToggle} disabled={disabled || sendTemporarilyDisabled}
+          className={`p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+            whisperMode
+              ? 'text-amber-500 bg-amber-50 ring-1 ring-amber-300'
+              : 'text-gray-400 hover:text-amber-500 hover:bg-white'
+          }`} aria-label="Whisper mode" title="悄悄话模式">
+          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+          </svg>
+        </button>
+
         <button onClick={handleModeClick} disabled={disabled || sendTemporarilyDisabled}
           className="p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Mode">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
@@ -224,8 +284,12 @@ export function ChatInput({
         </button>
 
         <textarea ref={textareaRef} value={input} onChange={handleChange} onKeyDown={handleKeyDown} onPaste={handlePaste}
-          placeholder={'\u8F93\u5165\u6D88\u606F... (@ \u53EC\u5524\u732B\u732B, /mode \u5207\u6362\u6A21\u5F0F)'}
-          className="flex-1 resize-none rounded-xl border border-owner-light bg-white p-3 text-sm focus:outline-none focus:ring-2 focus:ring-owner-primary placeholder:text-gray-400"
+          placeholder={whisperMode ? '\u60C4\u60C4\u8BDD...' : '\u8F93\u5165\u6D88\u606F... (@ \u53EC\u5524\u732B\u732B, /mode \u5207\u6362\u6A21\u5F0F)'}
+          className={`flex-1 resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
+            whisperMode
+              ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
+              : 'border-owner-light bg-white focus:ring-owner-primary'
+          }`}
           rows={2} disabled={disabled} />
 
         <ChatInputActionButton

@@ -8,6 +8,7 @@ import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores
 import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
+import { canViewMessage } from '../../stores/visibility.js';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
@@ -220,7 +221,10 @@ export async function assembleIncrementalContext(
   const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
   const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
 
+  const viewer = { type: 'cat' as const, catId };
   const relevant = unseen.filter((m) => {
+    // F35: Exclude whispers not intended for this cat
+    if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
     if (m.catId !== null && m.catId === catId) return false;
     // In play mode, hide other cats' stream (thinking) messages.

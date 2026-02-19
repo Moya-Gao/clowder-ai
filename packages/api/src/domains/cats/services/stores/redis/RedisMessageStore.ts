@@ -64,6 +64,8 @@ export class RedisMessageStore {
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
       ...(msg.origin ? { origin: msg.origin } : {}),
+      ...(msg.visibility ? { visibility: msg.visibility } : {}),
+      ...(msg.whisperTo ? { whisperTo: JSON.stringify(msg.whisperTo) } : {}),
     });
     if (this.ttlSeconds !== null) {
       pipeline.expire(hashKey, this.ttlSeconds);
@@ -129,6 +131,10 @@ export class RedisMessageStore {
       timestamp: parseInt(data['timestamp'] ?? '0', 10),
       ...(deletedAt ? { deletedAt, deletedBy: data['deletedBy'] ?? '' } : {}),
       ...(data['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
+      ...(data['origin'] === 'stream' || data['origin'] === 'callback' ? { origin: data['origin'] as 'stream' | 'callback' } : {}),
+      ...(data['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
+      ...(data['whisperTo'] ? { whisperTo: safeParseMentions(data['whisperTo']) } : {}),
+      ...(data['revealedAt'] ? { revealedAt: parseInt(data['revealedAt'], 10) } : {}),
     };
   }
 
@@ -438,6 +444,27 @@ export class RedisMessageStore {
     return msg;
   }
 
+  /**
+   * F35: Reveal all unrevealed whispers in a thread. Returns count of revealed messages.
+   */
+  async revealWhispers(threadId: string, userId: string): Promise<number> {
+    const key = MessageKeys.thread(threadId);
+    const ids = await this.redis.zrange(key, 0, -1);
+    if (ids.length === 0) return 0;
+
+    const now = String(Date.now());
+    let count = 0;
+    for (const id of ids) {
+      const fields = await this.redis.hmget(MessageKeys.detail(id), 'visibility', 'revealedAt', 'userId');
+      if (fields[0] !== 'whisper') continue;
+      if (fields[1]) continue; // already revealed
+      if (fields[2] !== userId) continue; // only reveal caller's whispers
+      await this.redis.hset(MessageKeys.detail(id), 'revealedAt', now);
+      count++;
+    }
+    return count;
+  }
+
   /** Hydrate message IDs into full StoredMessage objects */
   private async hydrateMessages(ids: string[], options?: { includeDeleted?: boolean }): Promise<StoredMessage[]> {
     const pipeline = this.redis.multi();
@@ -477,6 +504,9 @@ export class RedisMessageStore {
         ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),
         ...(d['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
         ...(d['origin'] === 'stream' || d['origin'] === 'callback' ? { origin: d['origin'] as 'stream' | 'callback' } : {}),
+        ...(d['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
+        ...(d['whisperTo'] ? { whisperTo: safeParseMentions(d['whisperTo']) } : {}),
+        ...(d['revealedAt'] ? { revealedAt: parseInt(d['revealedAt'], 10) } : {}),
       });
     }
     return messages;

@@ -119,6 +119,12 @@ export interface ChatMessage {
   a2aGroupId?: string;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** F35: Message visibility. undefined/public = visible to all */
+  visibility?: 'public' | 'whisper';
+  /** F35: Whisper recipients (cat IDs). Only meaningful when visibility='whisper' */
+  whisperTo?: string[];
+  /** F35: Timestamp when whisper was revealed (made public) */
+  revealedAt?: number;
 }
 
 export interface Thread {

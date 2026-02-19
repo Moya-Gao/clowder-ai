@@ -66,7 +66,7 @@ export function useChatHistory(threadId: string) {
         if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; extra?: { rich?: { v: number; blocks: unknown[] } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string } }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; extra?: { rich?: { v: number; blocks: unknown[] } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number }) => ({
             id: m.id,
             type: m.type as 'user' | 'assistant' | 'system' | 'summary',
             catId: m.catId,
@@ -77,6 +77,9 @@ export function useChatHistory(threadId: string) {
             ...(m.origin ? { origin: m.origin } : {}),
             ...(m.extra?.rich ? { extra: { rich: m.extra.rich } } : {}),
             ...(m.summary ? { summary: m.summary } : {}),
+            ...(m.visibility ? { visibility: m.visibility } : {}),
+            ...(m.whisperTo ? { whisperTo: m.whisperTo } : {}),
+            ...(m.revealedAt ? { revealedAt: m.revealedAt } : {}),
             timestamp: m.timestamp,
           } as ChatMessageData)
         );

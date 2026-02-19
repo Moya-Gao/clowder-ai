@@ -89,6 +89,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     let threadId: string | undefined;
     let contentBlocks: MessageContent[] | undefined;
     let idempotencyKey: string | undefined;
+    // F35: Whisper fields
+    let whisperVisibility: 'whisper' | undefined;
+    let whisperRecipients: readonly CatId[] | undefined;
 
     if (request.isMultipart()) {
       // Parse multipart: text fields + image files
@@ -101,6 +104,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       if ('idempotencyKey' in parsed && parsed.idempotencyKey) {
         idempotencyKey = parsed.idempotencyKey;
       }
+      // F35: Extract whisper fields from multipart
+      if (parsed.visibility === 'whisper' && parsed.whisperTo) {
+        whisperVisibility = 'whisper';
+        whisperRecipients = parsed.whisperTo as CatId[];
+      }
     } else {
       // JSON mode (backwards compatible)
       const parseResult = sendMessageSchema.safeParse(request.body);
@@ -109,6 +117,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
       ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
+      // F35: Extract whisper fields from parsed body
+      if (parseResult.data.visibility === 'whisper') {
+        whisperVisibility = 'whisper';
+        whisperRecipients = parseResult.data.whisperTo as CatId[] | undefined;
+      }
     }
 
     const userId = resolveUserId(request, {
@@ -163,7 +176,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     const { targetCats: resolvedTargetCats, intent } = await router.resolveTargetsAndIntent(
       content, resolvedThreadId, { persist: true },
     );
-    const targetCats = [...resolvedTargetCats];
+    // F35: When sending a whisper, override routing targets to only whisperTo recipients.
+    // This prevents non-recipient cats from being invoked and seeing whisper content.
+    const targetCats = (whisperVisibility === 'whisper' && whisperRecipients?.length)
+      ? [...new Set(whisperRecipients)]
+      : [...resolvedTargetCats];
 
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
@@ -209,6 +226,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         timestamp: Date.now(),
         threadId: resolvedThreadId,
         ...(contentBlocks ? { contentBlocks } : {}),
+        ...(whisperVisibility && whisperRecipients ? { visibility: whisperVisibility, whisperTo: whisperRecipients } : {}),
       });
 
       // ③ Backfill InvocationRecord.userMessageId
@@ -253,7 +271,11 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           const collectedUsage = new Map<string, TokenUsage>();
 
           // F11: active mode → ModeOrchestrator, otherwise → AgentRouter
-          const activeMode = await opts.modeStore?.getMode(resolvedThreadId);
+          // F35: Whisper messages bypass mode orchestrator — mode uses its own
+          // participants which would leak whisper content to non-recipients.
+          const activeMode = whisperVisibility !== 'whisper'
+            ? await opts.modeStore?.getMode(resolvedThreadId)
+            : undefined;
           if (activeMode && opts.modeOrchestrator) {
             for await (const msg of opts.modeOrchestrator.execute({
               strategyDeps: router.getStrategyDeps(),
@@ -461,6 +483,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       ...(m.metadata ? { metadata: m.metadata } : {}),
       ...(m.origin ? { origin: m.origin } : {}),
       ...(m.extra?.rich ? { extra: { rich: m.extra.rich } } : {}),
+      ...(m.visibility ? { visibility: m.visibility } : {}),
+      ...(m.whisperTo ? { whisperTo: m.whisperTo } : {}),
+      ...(m.revealedAt ? { revealedAt: m.revealedAt } : {}),
       timestamp: m.timestamp,
     }));
 

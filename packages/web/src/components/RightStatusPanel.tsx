@@ -152,6 +152,72 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
   );
 }
 
+/** F35: Reveal all whispers in the thread (game-end reveal) */
+function RevealWhispersButton({ threadId }: { threadId: string }) {
+  const [status, setStatus] = useState<'idle' | 'pending' | 'done'>('idle');
+  const [revealedCount, setRevealedCount] = useState<number | null>(null);
+
+  // Reset state when switching threads
+  useEffect(() => {
+    setStatus('idle');
+    setRevealedCount(null);
+  }, [threadId]);
+
+  const handleReveal = useCallback(async () => {
+    if (status === 'pending') return;
+    setStatus('pending');
+    // Capture cutoff before PATCH so whispers arriving mid-flight aren't falsely marked
+    const revealCutoff = Date.now();
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/reveal`, {
+        method: 'PATCH',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const count = data.revealed ?? 0;
+        setRevealedCount(count);
+        setStatus('done');
+        // Update local chat store so whisper bubbles re-render as revealed
+        if (count > 0) {
+          useChatStore.setState((state) => ({
+            messages: state.messages.map((m) =>
+              m.visibility === 'whisper' && !m.revealedAt && (m.timestamp ?? 0) <= revealCutoff
+                ? { ...m, revealedAt: revealCutoff }
+                : m,
+            ),
+          }));
+        }
+        // Reset to idle after a delay so new whispers can be revealed later
+        setTimeout(() => setStatus('idle'), 3000);
+      } else {
+        setStatus('idle');
+      }
+    } catch {
+      setStatus('idle');
+    }
+  }, [threadId, status]);
+
+  return (
+    <div className="flex items-center justify-between">
+      <span>悄悄话:</span>
+      {status === 'done' ? (
+        <span className="text-[11px] text-green-600">
+          已揭秘 {revealedCount} 条
+        </span>
+      ) : (
+        <button
+          onClick={handleReveal}
+          disabled={status === 'pending'}
+          className="text-[11px] px-2 py-0.5 rounded-full border border-amber-300 text-amber-600 hover:border-amber-400 hover:bg-amber-50 transition-colors disabled:opacity-50"
+          title="揭晓本线程所有悄悄话"
+        >
+          {status === 'pending' ? '揭秘中...' : '揭秘全部'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function RightStatusPanel({
   intentMode,
   targetCats,
@@ -308,6 +374,7 @@ export function RightStatusPanel({
             >{truncateId(threadId, 12)}</button>
           </div>
           <ThinkingModeToggle threadId={threadId} />
+          <RevealWhispersButton threadId={threadId} />
         </div>
       </section>
 

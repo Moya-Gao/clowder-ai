@@ -48,6 +48,12 @@ export interface StoredMessage {
   timestamp: number;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** F35: Message visibility. Default 'public' (undefined = public for backward compat) */
+  visibility?: 'public' | 'whisper';
+  /** F35: Whisper recipients. Only meaningful when visibility='whisper' */
+  whisperTo?: readonly CatId[];
+  /** F35: Timestamp when a whisper was revealed (made public). Present = revealed */
+  revealedAt?: number;
   /** ADR-008 D3: Soft delete timestamp (present = deleted) */
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */
@@ -85,6 +91,8 @@ export interface IMessageStore {
   hardDelete(id: string, deletedBy: string): StoredMessage | null | Promise<StoredMessage | null>;
   /** ADR-008 D3: Restore a soft-deleted message. Rejects tombstones. Returns null if not found/not deleted. */
   restore(id: string): StoredMessage | null | Promise<StoredMessage | null>;
+  /** F35: Reveal whispers in a thread sent by userId (set revealedAt). Returns count revealed. */
+  revealWhispers(threadId: string, userId: string): number | Promise<number>;
 }
 
 /** Max messages to keep in memory */
@@ -323,6 +331,23 @@ export class MessageStore {
     delete msg.deletedAt;
     delete msg.deletedBy;
     return msg;
+  }
+
+  /**
+   * F35: Reveal all unrevealed whispers in a thread. Returns count of revealed messages.
+   */
+  revealWhispers(threadId: string, userId: string): number {
+    const now = Date.now();
+    let count = 0;
+    for (const msg of this.messages) {
+      if (msg.threadId !== threadId) continue;
+      if (msg.userId !== userId) continue;
+      if (msg.visibility === 'whisper' && !msg.revealedAt) {
+        msg.revealedAt = now;
+        count++;
+      }
+    }
+    return count;
   }
 
   /**

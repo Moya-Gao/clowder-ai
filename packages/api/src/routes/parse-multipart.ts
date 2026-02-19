@@ -10,7 +10,7 @@ import { saveUploadedImages, ImageUploadError, type UploadImageFile } from './im
 import { sendMessageSchema } from './messages.schema.js';
 
 export type ParsedMultipart =
-  | { content: string; userId?: string; threadId?: string; idempotencyKey?: string; contentBlocks: MessageContent[] }
+  | { content: string; userId?: string; threadId?: string; idempotencyKey?: string; contentBlocks: MessageContent[]; visibility?: string; whisperTo?: string[] }
   | { error: string };
 
 /** Parse multipart request into validated message fields + contentBlocks */
@@ -18,12 +18,21 @@ export async function parseMultipart(
   request: { parts: () => AsyncIterableIterator<Multipart> },
   uploadDir: string,
 ): Promise<ParsedMultipart> {
-  const fields: Record<string, string> = {};
+  // F35: Use string | string[] to support multi-value fields like whisperTo
+  const fields: Record<string, string | string[]> = {};
   const files: UploadImageFile[] = [];
 
   for await (const part of request.parts()) {
     if (part.type === 'field' && typeof part.value === 'string') {
-      fields[part.fieldname] = part.value;
+      const existing = fields[part.fieldname];
+      if (existing !== undefined) {
+        // Multi-value field (e.g. whisperTo): collect into array
+        fields[part.fieldname] = Array.isArray(existing)
+          ? [...existing, part.value]
+          : [existing, part.value];
+      } else {
+        fields[part.fieldname] = part.value;
+      }
     } else if (part.type === 'file') {
       // IMPORTANT: multipart file streams must be drained during iteration.
       // If we defer `toBuffer()` until after the loop, parser may block waiting
@@ -35,6 +44,11 @@ export async function parseMultipart(
         toBuffer: async () => buffer,
       });
     }
+  }
+
+  // F35: Normalize whisperTo — single value becomes array for Zod validation
+  if (fields['whisperTo'] !== undefined && !Array.isArray(fields['whisperTo'])) {
+    fields['whisperTo'] = [fields['whisperTo']];
   }
 
   const parseResult = sendMessageSchema.safeParse(fields);
@@ -64,6 +78,8 @@ export async function parseMultipart(
     ...(userId ? { userId } : {}),
     ...(threadId ? { threadId } : {}),
     ...(idempotencyKey ? { idempotencyKey } : {}),
+    ...(parseResult.data.visibility ? { visibility: parseResult.data.visibility } : {}),
+    ...(parseResult.data.whisperTo ? { whisperTo: parseResult.data.whisperTo as string[] } : {}),
     contentBlocks: blocks,
   };
 }

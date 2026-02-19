@@ -183,6 +183,8 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
   const hasToolEvents = Boolean(message.toolEvents && message.toolEvents.length > 0);
+  const isWhisper = message.visibility === 'whisper';
+  const isRevealed = isWhisper && !!message.revealedAt;
 
   if (isSummary && message.summary) {
     return (
@@ -234,10 +236,19 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
       <div data-message-id={message.id} className="flex justify-end gap-2 mb-4 items-start">
         <div className="max-w-[75%]">
           <div className="flex justify-end items-center gap-2 mb-1">
+            {isWhisper && (
+              <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
+                {isRevealed ? '已揭秘' : `悄悄话 → ${message.whisperTo?.join(', ') ?? ''}`}
+              </span>
+            )}
             <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
             <span className="text-xs font-semibold text-owner-dark">铲屎官</span>
           </div>
-          <div className="bg-owner-light text-owner-dark rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5">
+          <div className={`rounded-2xl rounded-br-sm px-4 py-3 transition-transform hover:-translate-y-0.5 ${
+            isWhisper && !isRevealed
+              ? 'bg-amber-50 text-amber-900 border border-dashed border-amber-300'
+              : 'bg-owner-light text-owner-dark'
+          }`}>
             {hasBlocks ? (
               renderContentBlocks(message.contentBlocks!)
             ) : (
@@ -272,6 +283,11 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
               {cat.label}
             </span>
             <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+            {isWhisper && (
+              <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
+                {isRevealed ? '已揭秘' : '悄悄话'}
+              </span>
+            )}
           </div>
         )}
         <div

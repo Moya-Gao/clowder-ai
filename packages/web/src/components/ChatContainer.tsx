@@ -381,7 +381,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         )}
 
         <ChatInput
-          onSend={handleSend}
+          onSend={(content, images, whisper) => handleSend(content, images, undefined, whisper)}
           onStop={handleStop}
           disabled={isLoading}
           hasActiveInvocation={hasActiveInvocation}

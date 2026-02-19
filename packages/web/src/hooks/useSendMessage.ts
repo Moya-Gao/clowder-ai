@@ -8,8 +8,14 @@ import { apiFetch } from '@/utils/api-client';
 
 export type UploadStatus = 'idle' | 'uploading' | 'failed';
 
+/** F35: Whisper options for private messages */
+export interface WhisperOptions {
+  visibility: 'whisper';
+  whisperTo: string[];
+}
+
 /**
- * Hook for sending messages (text + optional images).
+ * Hook for sending messages (text + optional images + optional whisper).
  * Handles both JSON and multipart form data modes.
  */
 export function useSendMessage(activeThreadId?: string) {
@@ -27,7 +33,7 @@ export function useSendMessage(activeThreadId?: string) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleSend = useCallback(
-    async (content: string, images?: File[], overrideThreadId?: string) => {
+    async (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions) => {
       // Route threadId is source of truth; store currentThreadId may lag during fast switches.
       // Zustand hook exposes a static `getState()` accessor; this is a vanilla read, not a React hook call.
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
@@ -47,6 +53,7 @@ export function useSendMessage(activeThreadId?: string) {
         type: 'user',
         content,
         timestamp: Date.now(),
+        ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
       };
       if (images && images.length > 0) {
         userMsg.contentBlocks = [
@@ -77,6 +84,12 @@ export function useSendMessage(activeThreadId?: string) {
           const formData = new FormData();
           formData.append('content', content);
           formData.append('threadId', threadId);
+          if (whisper) {
+            formData.append('visibility', whisper.visibility);
+            for (const catId of whisper.whisperTo) {
+              formData.append('whisperTo', catId);
+            }
+          }
           for (const img of images) {
             formData.append('images', img);
           }
@@ -96,6 +109,7 @@ export function useSendMessage(activeThreadId?: string) {
             body: JSON.stringify({
               content,
               threadId,
+              ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
             }),
           });
           if (!res.ok) {

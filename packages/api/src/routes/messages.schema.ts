@@ -19,6 +19,13 @@ export const sendMessageSchema = z.object({
   threadId: z.string().min(1).max(100).optional(),
   /** Client-provided idempotency key (UUID). Optional — server generates one if absent. */
   idempotencyKey: z.string().uuid().optional(),
-});
+  /** F35: Message visibility. Default 'public'. 'whisper' requires whisperTo. */
+  visibility: z.enum(['public', 'whisper']).optional(),
+  /** F35: Whisper recipients. Required when visibility='whisper'. */
+  whisperTo: z.array(catIdSchema()).optional(),
+}).refine(
+  (data) => data.visibility !== 'whisper' || (data.whisperTo && data.whisperTo.length > 0),
+  { message: 'whisperTo must be non-empty when visibility is whisper', path: ['whisperTo'] },
+);
 
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;

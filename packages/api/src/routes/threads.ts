@@ -205,4 +205,34 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       guard?.release();
     }
   });
+
+  // F35: PATCH /api/threads/:id/reveal — reveal all whispers in a thread
+  app.patch<{ Params: { id: string } }>('/api/threads/:id/reveal', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { id } = request.params;
+    const thread = await threadStore.get(id);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    // Default thread is system-owned; allow any authenticated user to reveal.
+    if (thread.createdBy !== userId && thread.createdBy !== 'system') {
+      reply.status(403);
+      return { error: 'Only the thread owner can reveal whispers' };
+    }
+
+    if (!messageStore) {
+      reply.status(501);
+      return { error: 'Message store not available' };
+    }
+
+    const revealed = await messageStore.revealWhispers(id, userId);
+    return { revealed };
+  });
 };
