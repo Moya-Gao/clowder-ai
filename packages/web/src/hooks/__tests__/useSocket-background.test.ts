@@ -699,5 +699,33 @@ describe('background thread socket handling', () => {
         windowTokens: 200000,
       });
     });
+
+    it('consumes context_health without catId via message catId fallback', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'context_health',
+          health: {
+            usedTokens: 8123,
+            windowTokens: 200000,
+            fillRatio: 0.0406,
+            source: 'exact',
+            measuredAt: now,
+          },
+        }),
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(0);
+      expect(ts.catInvocations['opus']?.contextHealth).toMatchObject({
+        usedTokens: 8123,
+        windowTokens: 200000,
+      });
+    });
   });
 });

@@ -45,12 +45,11 @@ export function consumeBackgroundSystemInfo(
       }
       consumed = true;
     } else if (parsed?.type === 'context_health') {
-      if (parsed.catId) {
-        options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
-          contextHealth: parsed.health,
-        });
-        consumed = true;
-      }
+      const targetCatId = parsed.catId ?? msg.catId;
+      options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+        contextHealth: parsed.health,
+      });
+      consumed = true;
     } else if (parsed?.type === 'task_progress') {
       const targetCatId = parsed.catId ?? msg.catId;
       const tasks = (parsed.tasks ?? []) as TaskProgressItem[];
