@@ -20,6 +20,15 @@ export interface SourceProcessingResult {
   readonly storedArticles: readonly SignalArticle[];
 }
 
+function isSourceScheduledForAutomaticRun(source: SignalSource, now: Date): boolean {
+  if (!source.enabled) return false;
+
+  const frequency = source.schedule.frequency;
+  if (frequency === 'manual') return false;
+  if (frequency === 'weekly') return now.getUTCDay() === 1;
+  return true;
+}
+
 function createFetchError(code: FetchErrorCode, sourceId: string, message: string): FetchError {
   return {
     code,
@@ -78,9 +87,13 @@ function filterArticlesByKeywordFilter(
   return articles.filter((article) => shouldKeepArticleByKeywordFilter(source, article));
 }
 
-export function selectSources(config: SignalSourceConfig, sourceId: string | undefined): readonly SignalSource[] {
+export function selectSources(
+  config: SignalSourceConfig,
+  sourceId: string | undefined,
+  now: Date = new Date(),
+): readonly SignalSource[] {
   if (!sourceId) {
-    return config.sources.filter((source) => source.enabled && source.schedule.frequency !== 'manual');
+    return config.sources.filter((source) => isSourceScheduledForAutomaticRun(source, now));
   }
 
   const matched = config.sources.find((source) => source.id === sourceId);

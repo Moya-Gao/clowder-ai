@@ -310,4 +310,45 @@ describe('runSignalFetchScheduler', () => {
       /source "missing-source" not found/,
     );
   });
+
+  it('respects source schedule frequency for automatic source selection', async () => {
+    const fetchCalls = [];
+
+    const summary = await runSignalFetchScheduler({
+      loadSources: async () => ({
+        version: 1,
+        sources: [
+          createSource({ id: 'daily-source', schedule: { frequency: 'daily' } }),
+          createSource({ id: 'hourly-source', schedule: { frequency: 'hourly' } }),
+          createSource({ id: 'weekly-source', schedule: { frequency: 'weekly' } }),
+          createSource({ id: 'manual-source', schedule: { frequency: 'manual' } }),
+        ],
+      }),
+      loadNotifications: async () => createNotificationsConfig(),
+      fetchers: [
+        {
+          canHandle() {
+            return true;
+          },
+          async fetch(source) {
+            fetchCalls.push(source.id);
+            return {
+              articles: [],
+              errors: [],
+              metadata: {
+                fetchedAt: '2026-02-17T03:00:00.000Z',
+                duration: 5,
+                source: source.id,
+              },
+            };
+          },
+        },
+      ],
+      now: () => new Date('2026-02-17T08:00:00.000Z'),
+    });
+
+    assert.deepEqual(fetchCalls, ['daily-source', 'hourly-source']);
+    assert.equal(summary.processedSources, 2);
+    assert.equal(summary.skippedSources, 2);
+  });
 });

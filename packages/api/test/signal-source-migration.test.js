@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it } from 'node:test';
 
-const { mergeSources } = await import('../dist/scripts/migrate-signals/source-migration.js');
+const { mergeSources, parseLegacySources } = await import('../dist/scripts/migrate-signals/source-migration.js');
 
 function createSource(id, url) {
   return {
@@ -39,5 +42,39 @@ describe('mergeSources', () => {
 
     assert.equal(result.config.sources.length, 1);
     assert.equal(result.idRemap.get('incoming'), 'existing');
+  });
+});
+
+describe('parseLegacySources', () => {
+  it('does not bind source-level aliases to the last feed when legacy source has multiple feeds', async () => {
+    const tempDir = await mkdtemp(join(tmpdir(), 'legacy-sources-'));
+    const legacySourcesFile = join(tempDir, 'sources.yaml');
+
+    await writeFile(
+      legacySourcesFile,
+      [
+        'tier_1:',
+        '  ai-news:',
+        '    name: "AI News"',
+        '    type: "official"',
+        '    feeds:',
+        '      - name: "feed-one"',
+        '        url: "https://example.com/feed-one.xml"',
+        '        type: "rss"',
+        '        check_frequency: "daily"',
+        '      - name: "feed-two"',
+        '        url: "https://example.com/feed-two.xml"',
+        '        type: "rss"',
+        '        check_frequency: "daily"',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const result = await parseLegacySources(legacySourcesFile);
+
+    assert.equal(result.sources.length, 2);
+    assert.equal(result.aliasToId.has('ai-news'), false);
+    assert.equal(result.aliasToId.has('ai-news-feed-one'), true);
+    assert.equal(result.aliasToId.has('ai-news-feed-two'), true);
   });
 });

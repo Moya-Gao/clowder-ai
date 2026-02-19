@@ -135,8 +135,16 @@ export async function parseLegacySources(legacySourcesFile: string): Promise<Leg
           },
         });
 
-        aliasToId.set(slugify(legacySourceId), sourceId);
-        aliasToId.set(slugify(baseName), sourceId);
+        aliasToId.set(slugify(sourceId), sourceId);
+
+        if (hasSingleFeed) {
+          aliasToId.set(slugify(legacySourceId), sourceId);
+          aliasToId.set(slugify(baseName), sourceId);
+          return;
+        }
+
+        aliasToId.set(slugify(`${legacySourceId}-${feedName}`), sourceId);
+        aliasToId.set(slugify(`${baseName}-${feedName}`), sourceId);
       });
     }
   }

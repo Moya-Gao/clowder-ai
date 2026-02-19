@@ -138,7 +138,8 @@ export async function runSignalFetchScheduler(
   options: SignalFetchSchedulerOptions = {},
 ): Promise<SignalFetchSchedulerSummary> {
   const now = options.now ?? (() => new Date());
-  const fetchedAt = now().toISOString();
+  const schedulerNow = now();
+  const fetchedAt = schedulerNow.toISOString();
   const paths = options.paths ?? resolveSignalPaths();
   const dryRun = options.dryRun ?? false;
   const loadSources = options.loadSources ?? ((currentPaths) => loadSignalSources(currentPaths));
@@ -146,7 +147,7 @@ export async function runSignalFetchScheduler(
   const fetchers = options.fetchers ?? createDefaultFetchers();
 
   const sourceConfig = await loadSources(paths);
-  const selectedSources = selectSources(sourceConfig, options.sourceId);
+  const selectedSources = selectSources(sourceConfig, options.sourceId, schedulerNow);
   const initialKnownUrls = await (options.loadKnownUrls ?? loadKnownUrlsFromInbox)(paths);
   const services = resolveSchedulerServices(options, initialKnownUrls, paths);
   const sourceResults = await processSources({
