@@ -141,7 +141,10 @@ export function handleBackgroundAgentMessage(
   const existing = options.bgStreamRefs.get(streamKey);
 
   if (msg.type === 'text' && msg.content) {
-    markThreadInvocationActive(msg, options);
+    const isCallbackText = msg.origin === 'callback';
+    if (!isCallbackText) {
+      markThreadInvocationActive(msg, options);
+    }
     // Track the final message ID for toast preview (must capture before deleting bgStreamRefs)
     let finalMsgId: string | undefined;
 
@@ -191,7 +194,9 @@ export function handleBackgroundAgentMessage(
       }
     }
 
-    options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+    if (!isCallbackText || msg.isFinal) {
+      options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+    }
     if (msg.isFinal) {
       const finalMessage = finalMsgId
         ? options.store.getThreadState(msg.threadId).messages.find((m) => m.id === finalMsgId)

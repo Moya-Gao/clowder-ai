@@ -205,6 +205,21 @@ describe('background thread socket handling', () => {
       expect(useChatStore.getState().threadStates['thread-bg']?.hasActiveInvocation).toBe(false);
       expect(useChatStore.getState().threadStates['thread-bg']?.isLoading).toBe(false);
     });
+
+    it('callback-origin text does not mark background thread invocation active by itself', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'callback note',
+        origin: 'callback',
+        timestamp: Date.now(),
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.isLoading).toBe(false);
+      expect(ts.hasActiveInvocation).toBe(false);
+    });
   });
 
   describe('P2: message ID uniqueness', () => {

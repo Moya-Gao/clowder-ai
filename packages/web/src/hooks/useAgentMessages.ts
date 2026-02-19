@@ -74,6 +74,8 @@ export function useAgentMessages() {
 
   /** Timeout ref for done(isFinal) reachability */
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Which thread the current timeout guard belongs to */
+  const timeoutThreadRef = useRef<string | null>(null);
 
   /** Start or reset the done timeout */
   const resetTimeout = useCallback(() => {
@@ -81,7 +83,10 @@ export function useAgentMessages() {
       clearTimeout(timeoutRef.current);
     }
     const timeoutThreadId = useChatStore.getState().currentThreadId;
+    timeoutThreadRef.current = timeoutThreadId;
     timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      timeoutThreadRef.current = null;
       const store = useChatStore.getState();
       const isActiveThreadTimeout = store.currentThreadId === timeoutThreadId;
 
@@ -123,10 +128,14 @@ export function useAgentMessages() {
   }, [setLoading, setHasActiveInvocation, setIntentMode, clearCatStatuses, setStreaming, addMessage]);
 
   /** Clear the timeout (called on done with isFinal) */
-  const clearDoneTimeout = useCallback(() => {
+  const clearDoneTimeout = useCallback((threadId?: string) => {
+    if (threadId && timeoutThreadRef.current && timeoutThreadRef.current !== threadId) {
+      return;
+    }
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
+      timeoutThreadRef.current = null;
     }
   }, []);
 
@@ -474,11 +483,11 @@ export function useAgentMessages() {
   const handleStop = useCallback(
     (cancelFn: (threadId: string) => void, threadId: string) => {
       cancelFn(threadId);
-      clearDoneTimeout();
       const store = useChatStore.getState();
       const isActiveThreadStop = threadId === store.currentThreadId;
 
       if (!isActiveThreadStop) {
+        clearDoneTimeout(threadId);
         const threadState = store.getThreadState(threadId);
         for (const message of threadState.messages) {
           if (message.type === 'assistant' && message.isStreaming) {
@@ -489,6 +498,7 @@ export function useAgentMessages() {
         return;
       }
 
+      clearDoneTimeout(threadId);
       setLoading(false);
       setHasActiveInvocation(false);
       setIntentMode(null);
