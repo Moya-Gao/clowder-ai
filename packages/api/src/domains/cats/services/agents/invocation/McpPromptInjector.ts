@@ -37,19 +37,23 @@ export function needsMcpInjection(catId: CatId | string): boolean {
 export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
   return `## 可用工具 (HTTP 回调)
 
-你可以通过 HTTP 请求使用以下工具来与团队协作。
+⚠️ **重要：你的 CLI/终端输出只有铲屎官能看到，其他猫看不到！**
+要和其他猫说话，**必须执行下面的 curl 命令**。不要在输出中 @ 其他猫——那是心里话，不是群消息！
+
 凭证已通过环境变量提供: \`$CAT_CAFE_INVOCATION_ID\` 和 \`$CAT_CAFE_CALLBACK_TOKEN\`。
 
-### 发送消息给团队
+### 发送消息给团队（最常用！）
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/post-message \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"content\\": \\"你的消息\\"
-  }"
+MSG='你的消息'
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/post-message \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    --arg c "$MSG" \\
+    '{invocationId:$i,callbackToken:$t,content:$c}')"
 \`\`\`
+用 \`jq\` 构建 JSON 可避免引号转义错误。**不要手动拼 JSON 字符串！**
 
 ### 获取对话上下文
 \`\`\`bash
@@ -63,14 +67,13 @@ curl "${opts.apiUrl}/api/callbacks/pending-mentions?invocationId=$CAT_CAFE_INVOC
 
 ### 更新任务状态
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/update-task \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"taskId\\": \\"任务ID\\",
-    \\"status\\": \\"doing\\"
-  }"
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/update-task \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    --arg tid "任务ID" --arg s "doing" \\
+    '{invocationId:$i,callbackToken:$t,taskId:$tid,status:$s}')"
 \`\`\`
 
 ### 检索项目证据（Hindsight Recall）
@@ -80,38 +83,35 @@ curl "${opts.apiUrl}/api/callbacks/search-evidence?invocationId=$CAT_CAFE_INVOCA
 
 ### 项目反思（Hindsight Reflect）
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/reflect \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"query\\": \\"你的反思问题\\"
-  }"
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/reflect \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    --arg q "你的反思问题" \\
+    '{invocationId:$i,callbackToken:$t,query:$q}')"
 \`\`\`
 
 ### 沉淀长期记忆（Hindsight Retain）
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/retain-memory \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"content\\": \\"可长期复用的结论\\",
-    \\"tags\\": [\\"project:cat-cafe\\", \\"source:codex\\"],
-    \\"metadata\\": {\\"anchor\\": \\"docs/decisions/...\\", \\"confidence\\": \\"high\\"}
-  }"
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/retain-memory \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    --arg c "可长期复用的结论" \\
+    '{invocationId:$i,callbackToken:$t,content:$c,tags:["project:cat-cafe"],metadata:{confidence:"high"}}')"
 \`\`\`
 
 ### 请求权限（执行危险操作前必须调用）
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/request-permission \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"action\\": \\"git_commit\\",
-    \\"reason\\": \\"提交 bug 修复\\"
-  }"
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/request-permission \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    --arg a "git_commit" --arg r "提交 bug 修复" \\
+    '{invocationId:$i,callbackToken:$t,action:$a,reason:$r}')"
 \`\`\`
 返回 \`{"status":"granted"}\` / \`{"status":"denied"}\` / \`{"status":"pending","requestId":"..."}\`。
 如果返回 pending，用 requestId 轮询查询状态。
@@ -123,20 +123,12 @@ curl "${opts.apiUrl}/api/callbacks/permission-status?invocationId=$CAT_CAFE_INVO
 
 ### 创建富消息块
 \`\`\`bash
-curl -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
-  -H "Content-Type: application/json" \\
-  -d "{
-    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
-    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
-    \\"block\\": {
-      \\"id\\": \\"唯一ID\\",
-      \\"kind\\": \\"card\\",
-      \\"v\\": 1,
-      \\"title\\": \\"标题\\",
-      \\"bodyMarkdown\\": \\"内容\\",
-      \\"tone\\": \\"info\\"
-    }
-  }"
+curl -sS -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
+  -H 'Content-Type: application/json' \\
+  -d "$(jq -nc \\
+    --arg i "$CAT_CAFE_INVOCATION_ID" \\
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
+    '{invocationId:$i,callbackToken:$t,block:{id:"b1",kind:"card",v:1,title:"标题",bodyMarkdown:"内容",tone:"info"}}')"
 \`\`\`
 支持的 kind: card（卡片）、diff（代码变更）、checklist（检查清单）、media_gallery（图片集）。
 当 HTTP 回调不可用时，可在回复中嵌入文本格式的富消息块作为备选：
