@@ -170,6 +170,32 @@ describe('signals routes', () => {
     assert.equal(body.items[0].id, secondArticle.id);
   });
 
+  it('GET /api/signals/search matches query against article tags', async () => {
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/signals/articles/${encodeURIComponent(secondArticle.id)}`,
+      headers: {
+        ...AUTH_HEADERS,
+        'content-type': 'application/json',
+      },
+      payload: {
+        tags: ['nightly-triage'],
+      },
+    });
+    assert.equal(patchRes.statusCode, 200);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/signals/search?q=nightly-triage',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.total, 1);
+    assert.equal(body.items[0].id, secondArticle.id);
+  });
+
   it('GET /api/signals/articles/by-url matches normalized url variants', async () => {
     const withTrailingSlash = `${secondArticle.url}/`;
     const res = await app.inject({

@@ -169,6 +169,7 @@ export class SignalArticleQueryService {
           detail.article.url,
           detail.article.source,
           detail.article.summary ?? '',
+          ...detail.article.tags,
           detail.content,
         ].map((value) => value.toLowerCase());
         return haystacks.some((value) => value.includes(query));
