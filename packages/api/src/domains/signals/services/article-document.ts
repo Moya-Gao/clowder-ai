@@ -113,8 +113,9 @@ export function toUpdatedFrontmatter(
   previousFrontmatter: Record<string, unknown>,
   article: SignalArticle,
 ): Record<string, unknown> {
+  const { summary: _previousSummary, ...frontmatterWithoutSummary } = previousFrontmatter;
   return {
-    ...previousFrontmatter,
+    ...frontmatterWithoutSummary,
     id: article.id,
     title: article.title,
     url: article.url,

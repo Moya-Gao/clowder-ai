@@ -199,6 +199,31 @@ describe('signals routes', () => {
     const fetched = getRes.json();
     assert.equal(fetched.article.status, 'read');
     assert.deepEqual(fetched.article.tags, ['priority', 'ml']);
+
+    const clearSummaryRes = await app.inject({
+      method: 'PATCH',
+      url: `/api/signals/articles/${encodeURIComponent(firstArticle.id)}`,
+      headers: {
+        ...AUTH_HEADERS,
+        'content-type': 'application/json',
+      },
+      payload: {
+        summary: '',
+      },
+    });
+
+    assert.equal(clearSummaryRes.statusCode, 200);
+    const cleared = clearSummaryRes.json();
+    assert.equal(cleared.article.summary, undefined);
+
+    const getAfterClearRes = await app.inject({
+      method: 'GET',
+      url: `/api/signals/articles/${encodeURIComponent(firstArticle.id)}`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(getAfterClearRes.statusCode, 200);
+    const afterClear = getAfterClearRes.json();
+    assert.equal(afterClear.article.summary, undefined);
   });
 
   it('GET/PATCH /api/signals/sources lists and toggles source enabled', async () => {

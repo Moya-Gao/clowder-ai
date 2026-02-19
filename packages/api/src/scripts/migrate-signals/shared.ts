@@ -63,7 +63,7 @@ export function normalizeUrl(value: string): string {
   try {
     const parsed = new URL(value);
     const pathname = parsed.pathname.replace(/\/$/, '') || '/';
-    return `${parsed.protocol}//${parsed.host}${pathname}`;
+    return `${parsed.protocol}//${parsed.host}${pathname}${parsed.search}`;
   } catch {
     return value.trim();
   }

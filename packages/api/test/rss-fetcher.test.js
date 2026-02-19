@@ -77,6 +77,26 @@ describe('RssFetcher', () => {
     assert.equal(result.articles[0].url, 'https://openai.com/index/model-card');
   });
 
+  it('drops item when fallback guid is not a valid URL', async () => {
+    const fetcher = new RssFetcher({
+      parseURL: async () => ({
+        items: [
+          {
+            title: 'Opaque guid item',
+            link: '   ',
+            guid: 'tag:example.com,2026:news-42',
+            pubDate: '2026-02-18T08:00:00.000Z',
+          },
+        ],
+      }),
+    });
+
+    const result = await fetcher.fetch(createSource());
+
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.articles.length, 0);
+  });
+
   it('fetch returns structured error when parser throws', async () => {
     const fetcher = new RssFetcher({
       parseURL: async () => {

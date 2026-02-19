@@ -24,10 +24,22 @@ function nowIso(): string {
   return new Date().toISOString();
 }
 
+function isSupportedHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 function toRawArticle(item: RssItem): RawArticle | null {
   const normalizedLink = item.link?.trim();
   const normalizedGuid = item.guid?.trim();
-  const url = normalizedLink || normalizedGuid;
+  const url = [normalizedLink, normalizedGuid].find((candidate) => {
+    if (!candidate) return false;
+    return isSupportedHttpUrl(candidate);
+  });
   const title = item.title?.trim();
   if (!url || !title) return null;
 
