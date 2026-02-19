@@ -31,7 +31,11 @@ read_schedule_from_notifications() {
     return 0
   fi
 
-  sed -nE 's/^[[:space:]]*daily_digest:[[:space:]]*"?([0-9]{2}:[0-9]{2})"?$/\1/p' "$NOTIFICATIONS_FILE" | head -n 1
+  sed -nE \
+    -e "s/^[[:space:]]*daily_digest:[[:space:]]*\"([0-9]{2}:[0-9]{2})\"[[:space:]]*(#.*)?$/\\1/p" \
+    -e "s/^[[:space:]]*daily_digest:[[:space:]]*'([0-9]{2}:[0-9]{2})'[[:space:]]*(#.*)?$/\\1/p" \
+    -e "s/^[[:space:]]*daily_digest:[[:space:]]*([0-9]{2}:[0-9]{2})[[:space:]]*(#.*)?$/\\1/p" \
+    "$NOTIFICATIONS_FILE" | head -n 1
 }
 
 resolve_schedule() {
