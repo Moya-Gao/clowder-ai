@@ -152,4 +152,32 @@ describe('useSendMessage thread source', () => {
     expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-target', true);
     expect(mockSetLoading).not.toHaveBeenCalled();
   });
+
+  it('routes send error message to override target thread in split-pane mode', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ detail: 'target thread send failed' }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: 'thread-target',
+          onDone: () => {},
+        }),
+      );
+    });
+
+    const systemCall = mockAddMessageToThread.mock.calls.find(([, msg]) =>
+      typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'system',
+    );
+    expect(systemCall?.[0]).toBe('thread-target');
+    expect(systemCall?.[1]).toMatchObject({
+      type: 'system',
+      variant: 'error',
+      content: expect.stringContaining('target thread send failed'),
+    });
+  });
 });

@@ -116,8 +116,13 @@ function markThreadInvocationActive(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
 ): void {
-  options.store.setThreadLoading(msg.threadId, true);
-  options.store.setThreadHasActiveInvocation(msg.threadId, true);
+  const threadState = options.store.getThreadState(msg.threadId);
+  if (!threadState.isLoading) {
+    options.store.setThreadLoading(msg.threadId, true);
+  }
+  if (!threadState.hasActiveInvocation) {
+    options.store.setThreadHasActiveInvocation(msg.threadId, true);
+  }
 }
 
 function markThreadInvocationComplete(
@@ -125,7 +130,7 @@ function markThreadInvocationComplete(
   options: HandleBackgroundMessageOptions,
 ): void {
   options.store.setThreadLoading(msg.threadId, false);
-  options.store.clearThreadActiveInvocation(msg.threadId);
+  options.store.setThreadHasActiveInvocation(msg.threadId, false);
 }
 
 export function handleBackgroundAgentMessage(

@@ -120,13 +120,18 @@ export function useSendMessage(activeThreadId?: string) {
         } else {
           setUploadStatus('idle');
         }
-        addMessage({
+        const errorMessagePayload: ChatMessageData = {
           id: `err-${Date.now()}`,
           type: 'system',
           variant: 'error',
           content: `Failed to send message: ${errorMessage}`,
           timestamp: Date.now(),
-        });
+        };
+        if (threadId !== activeThread) {
+          addMessageToThread(threadId, errorMessagePayload);
+        } else {
+          addMessage(errorMessagePayload);
+        }
       }
     },
     [
