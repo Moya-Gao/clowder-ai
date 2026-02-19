@@ -34,6 +34,50 @@ function toFailureCode(method: 'rss' | 'api' | 'webpage'): FetchErrorCode {
   return 'WEBPAGE_FETCH_FAILED';
 }
 
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.length > 0) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function normalizeKeywords(keywords: readonly string[] | undefined): readonly string[] {
+  if (!keywords) return [];
+  return keywords.map((keyword) => keyword.trim().toLowerCase()).filter((keyword) => keyword.length > 0);
+}
+
+function buildKeywordHaystack(article: FetchResult['articles'][number]): string {
+  return [article.title, article.summary, article.content, article.url]
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .join('\n')
+    .toLowerCase();
+}
+
+function shouldKeepArticleByKeywordFilter(source: SignalSource, article: FetchResult['articles'][number]): boolean {
+  const includeKeywords = normalizeKeywords(source.filters?.keywords?.include);
+  const excludeKeywords = normalizeKeywords(source.filters?.keywords?.exclude);
+  if (includeKeywords.length === 0 && excludeKeywords.length === 0) {
+    return true;
+  }
+
+  const haystack = buildKeywordHaystack(article);
+  if (includeKeywords.length > 0 && !includeKeywords.some((keyword) => haystack.includes(keyword))) {
+    return false;
+  }
+  if (excludeKeywords.length > 0 && excludeKeywords.some((keyword) => haystack.includes(keyword))) {
+    return false;
+  }
+
+  return true;
+}
+
+function filterArticlesByKeywordFilter(
+  source: SignalSource,
+  articles: readonly FetchResult['articles'][number][],
+): readonly FetchResult['articles'][number][] {
+  return articles.filter((article) => shouldKeepArticleByKeywordFilter(source, article));
+}
+
 export function selectSources(config: SignalSourceConfig, sourceId: string | undefined): readonly SignalSource[] {
   if (!sourceId) {
     return config.sources.filter((source) => source.enabled && source.schedule.frequency !== 'manual');
@@ -60,15 +104,17 @@ async function fetchSourceResult(source: SignalSource, fetcher: Fetcher): Promis
 
 async function storeFetchedArticles(params: {
   source: SignalSource;
-  result: FetchResult;
+  articles: readonly FetchResult['articles'][number][];
+  fetchedAt: string;
   dryRun: boolean;
   deduplication: DeduplicationLike;
   articleStore: ArticleStoreLike;
-}): Promise<Pick<SourceProcessingResult, 'duplicateArticles' | 'storedArticles'>> {
+}): Promise<Pick<SourceProcessingResult, 'errors' | 'duplicateArticles' | 'storedArticles'>> {
+  const errors: FetchError[] = [];
   const storedArticles: SignalArticle[] = [];
   let duplicateArticles = 0;
 
-  for (const rawArticle of params.result.articles) {
+  for (const rawArticle of params.articles) {
     const dedup = params.deduplication.checkAndMark(rawArticle.url);
     if (!dedup.isNew) {
       duplicateArticles += 1;
@@ -77,16 +123,27 @@ async function storeFetchedArticles(params: {
 
     if (params.dryRun) continue;
 
-    const stored = await params.articleStore.store({
-      source: params.source,
-      article: rawArticle,
-      articleId: dedup.articleId,
-      fetchedAt: params.result.metadata.fetchedAt,
-    });
-    storedArticles.push(stored);
+    try {
+      const stored = await params.articleStore.store({
+        source: params.source,
+        article: rawArticle,
+        articleId: dedup.articleId,
+        fetchedAt: params.fetchedAt,
+      });
+      storedArticles.push(stored);
+    } catch (error) {
+      errors.push(
+        createFetchError(
+          toFailureCode(params.source.fetch.method),
+          params.source.id,
+          `failed to store article "${rawArticle.url}": ${toErrorMessage(error)}`,
+        ),
+      );
+    }
   }
 
   return {
+    errors,
     duplicateArticles,
     storedArticles,
   };
@@ -121,17 +178,19 @@ async function processSource(params: {
     };
   }
 
+  const filteredArticles = filterArticlesByKeywordFilter(params.source, fetched.articles);
   const stored = await storeFetchedArticles({
     source: params.source,
-    result: fetched,
+    articles: filteredArticles,
+    fetchedAt: fetched.metadata.fetchedAt,
     dryRun: params.dryRun,
     deduplication: params.deduplication,
     articleStore: params.articleStore,
   });
 
   return {
-    errors: fetched.errors,
-    fetchedArticles: fetched.articles.length,
+    errors: [...fetched.errors, ...stored.errors],
+    fetchedArticles: filteredArticles.length,
     duplicateArticles: stored.duplicateArticles,
     storedArticles: stored.storedArticles,
   };

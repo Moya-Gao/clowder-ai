@@ -1,0 +1,182 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+
+const { processSources } = await import('../dist/domains/signals/services/source-processor.js');
+
+function createSource(overrides = {}) {
+  return {
+    id: 'source-rss',
+    name: 'Source RSS',
+    url: 'https://example.com/rss.xml',
+    tier: 1,
+    category: 'official',
+    enabled: true,
+    fetch: {
+      method: 'rss',
+    },
+    schedule: {
+      frequency: 'daily',
+    },
+    ...overrides,
+  };
+}
+
+function createRawArticle(overrides = {}) {
+  return {
+    url: 'https://example.com/post',
+    title: 'Agent progress',
+    publishedAt: '2026-02-19T01:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function createFetchResult(sourceId, articles) {
+  return {
+    articles,
+    errors: [],
+    metadata: {
+      fetchedAt: '2026-02-19T03:00:00.000Z',
+      duration: 10,
+      source: sourceId,
+    },
+  };
+}
+
+function createStoredArticle(input) {
+  return {
+    id: input.articleId,
+    url: input.article.url,
+    title: input.article.title,
+    source: input.source.id,
+    tier: input.source.tier,
+    publishedAt: input.article.publishedAt,
+    fetchedAt: input.fetchedAt,
+    status: 'inbox',
+    tags: [],
+    filePath: `/tmp/${input.articleId}.md`,
+    ...(input.article.summary ? { summary: input.article.summary } : {}),
+  };
+}
+
+describe('signal source processor', () => {
+  it('continues processing remaining articles when one store write fails', async () => {
+    const source = createSource();
+    const storeCalls = [];
+
+    const result = await processSources({
+      sources: [source],
+      fetchers: [
+        {
+          canHandle() {
+            return true;
+          },
+          async fetch() {
+            return createFetchResult(source.id, [
+              createRawArticle({
+                url: 'https://example.com/a',
+                title: 'Article A',
+              }),
+              createRawArticle({
+                url: 'https://example.com/b',
+                title: 'Article B',
+              }),
+            ]);
+          },
+        },
+      ],
+      dryRun: false,
+      deduplication: {
+        checkAndMark(url) {
+          return {
+            articleId: `signal_${url.endsWith('/a') ? 'a' : 'b'}`,
+            isNew: true,
+          };
+        },
+      },
+      articleStore: {
+        async store(input) {
+          storeCalls.push(input.article.url);
+          if (input.article.url.endsWith('/a')) {
+            throw new Error('disk full');
+          }
+          return createStoredArticle(input);
+        },
+      },
+    });
+
+    assert.deepEqual(storeCalls, ['https://example.com/a', 'https://example.com/b']);
+    assert.equal(result.fetchedArticles, 2);
+    assert.equal(result.storedArticles.length, 1);
+    assert.equal(result.storedArticles[0].url, 'https://example.com/b');
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.errors[0].code, 'RSS_FETCH_FAILED');
+    assert.equal(result.errors[0].sourceId, source.id);
+    assert.match(result.errors[0].message, /disk full/);
+  });
+
+  it('applies include and exclude keyword filters before deduplication and store', async () => {
+    const source = createSource({
+      filters: {
+        keywords: {
+          include: ['agent', 'llm'],
+          exclude: ['survey only'],
+        },
+      },
+    });
+
+    const dedupCalls = [];
+    const storeCalls = [];
+
+    const result = await processSources({
+      sources: [source],
+      fetchers: [
+        {
+          canHandle() {
+            return true;
+          },
+          async fetch() {
+            return createFetchResult(source.id, [
+              createRawArticle({
+                url: 'https://example.com/keep',
+                title: 'Agent runtime update',
+              }),
+              createRawArticle({
+                url: 'https://example.com/skip-no-include',
+                title: 'Browser release notes',
+                summary: 'No AI topics here',
+              }),
+              createRawArticle({
+                url: 'https://example.com/skip-exclude',
+                title: 'LLM survey only roundup',
+              }),
+            ]);
+          },
+        },
+      ],
+      dryRun: false,
+      deduplication: {
+        checkAndMark(url) {
+          dedupCalls.push(url);
+          return {
+            articleId: `signal_${dedupCalls.length}`,
+            isNew: true,
+          };
+        },
+      },
+      articleStore: {
+        async store(input) {
+          storeCalls.push(input.article.url);
+          return createStoredArticle(input);
+        },
+      },
+    });
+
+    assert.deepEqual(dedupCalls, ['https://example.com/keep']);
+    assert.deepEqual(storeCalls, ['https://example.com/keep']);
+    assert.equal(result.fetchedArticles, 1);
+    assert.equal(result.duplicateArticles, 0);
+    assert.equal(result.storedArticles.length, 1);
+    assert.equal(result.storedArticles[0].url, 'https://example.com/keep');
+    assert.equal(result.errors.length, 0);
+  });
+});
