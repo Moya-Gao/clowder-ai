@@ -10,19 +10,6 @@ interface SystemInfoConsumeResult {
   content: string;
 }
 
-function findLastAssistantMessageId(
-  threadId: string,
-  catId: string,
-  options: HandleBackgroundMessageOptions,
-): string | undefined {
-  const messages = options.store.getThreadState(threadId).messages;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
-    if (message?.type === 'assistant' && message.catId === catId) return message.id;
-  }
-  return undefined;
-}
-
 export function consumeBackgroundSystemInfo(
   msg: BackgroundAgentMessage,
   existingRef: BackgroundStreamRef | undefined,
@@ -53,9 +40,8 @@ export function consumeBackgroundSystemInfo(
       options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
         usage: parsed.usage,
       });
-      const candidateMessageId = existingRef?.id ?? findLastAssistantMessageId(msg.threadId, msg.catId, options);
-      if (candidateMessageId) {
-        options.store.setThreadMessageUsage(msg.threadId, candidateMessageId, parsed.usage);
+      if (existingRef?.id) {
+        options.store.setThreadMessageUsage(msg.threadId, existingRef.id, parsed.usage);
       }
       consumed = true;
     } else if (parsed?.type === 'context_health') {

@@ -612,6 +612,48 @@ describe('background thread socket handling', () => {
       });
     });
 
+    it('does not backfill invocation_usage onto stale historical assistant message', () => {
+      const now = Date.now();
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'hist-msg-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'old answer',
+        metadata: {
+          provider: 'anthropic',
+          model: 'claude-opus-4-6',
+          usage: { inputTokens: 111, outputTokens: 22 },
+        },
+        timestamp: now - 1000,
+      });
+
+      // New invocation emits usage-only system_info without any active background message ref.
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'invocation_usage',
+          catId: 'opus',
+          usage: { inputTokens: 999, outputTokens: 1 },
+        }),
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      // Historical message usage should remain unchanged (no stale backfill).
+      expect(ts.messages[0]?.metadata?.usage).toMatchObject({
+        inputTokens: 111,
+        outputTokens: 22,
+      });
+      // Invocation-level usage still updates.
+      expect(ts.catInvocations['opus']?.usage).toMatchObject({
+        inputTokens: 999,
+        outputTokens: 1,
+      });
+    });
+
     it('consumes invocation_metrics/context_health system_info silently', () => {
       const now = Date.now();
 
