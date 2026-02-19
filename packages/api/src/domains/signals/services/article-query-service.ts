@@ -9,6 +9,7 @@ import {
   writeArticleDocument,
 } from './article-document.js';
 import { computeSignalArticleStats, type SignalArticleStats } from './article-stats.js';
+import { normalizeArticleUrl } from './deduplication.js';
 import { readInboxRecords } from './inbox-records.js';
 
 export type { SignalArticleDetail } from './article-document.js';
@@ -41,10 +42,18 @@ function withinDateRange(targetIso: string, from: string | undefined, to: string
     return false;
   }
 
-  const fromValue = from ? Date.parse(from) : Number.NEGATIVE_INFINITY;
-  const toValue = to ? Date.parse(to) : Number.POSITIVE_INFINITY;
+  const fromValue = toDateBound(from, Number.NEGATIVE_INFINITY);
+  const toValue = toDateBound(to, Number.POSITIVE_INFINITY);
 
   return target >= fromValue && target <= toValue;
+}
+
+function toDateBound(value: string | undefined, fallback: number): number {
+  if (!value) {
+    return fallback;
+  }
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? fallback : parsed;
 }
 
 export class SignalArticleQueryService {
@@ -84,13 +93,14 @@ export class SignalArticleQueryService {
   }
 
   async getArticleByUrl(url: string): Promise<SignalArticleDetail | null> {
-    const normalized = url.trim();
-    if (normalized.length === 0) {
+    const input = url.trim();
+    if (input.length === 0) {
       return null;
     }
 
+    const normalized = normalizeArticleUrl(input);
     const records = await readInboxRecords(this.paths, undefined);
-    const matched = records.find((record) => record.url === normalized);
+    const matched = records.find((record) => normalizeArticleUrl(record.url) === normalized);
     if (!matched) {
       return null;
     }

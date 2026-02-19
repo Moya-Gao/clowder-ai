@@ -79,6 +79,10 @@ export function formatFetchSignalsSummary(summary: SignalFetchSchedulerSummary):
   ].join(' ');
 }
 
+export function toFetchSignalsExitCode(summary: SignalFetchSchedulerSummary): number {
+  return summary.errors.length > 0 ? 1 : 0;
+}
+
 function usage(): string {
   return USAGE_LINES.join('\n');
 }
@@ -116,7 +120,7 @@ export async function runFetchSignalsCli(
       }
     }
 
-    return 0;
+    return toFetchSignalsExitCode(summary);
   } catch (error) {
     io.error(`[signals] fetch failed: ${error instanceof Error ? error.message : String(error)}`);
     return 1;

@@ -170,6 +170,34 @@ describe('signals routes', () => {
     assert.equal(body.items[0].id, secondArticle.id);
   });
 
+  it('GET /api/signals/articles/by-url matches normalized url variants', async () => {
+    const withTrailingSlash = `${secondArticle.url}/`;
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/signals/articles/by-url?url=${encodeURIComponent(withTrailingSlash)}`,
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.article.id, secondArticle.id);
+  });
+
+  it('GET /api/signals/search ignores invalid dateFrom instead of filtering everything', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/signals/search?q=claude&dateFrom=not-a-date',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.total, 2);
+    const ids = body.items.map((item) => item.id);
+    assert.ok(ids.includes(firstArticle.id));
+    assert.ok(ids.includes(secondArticle.id));
+  });
+
   it('PATCH /api/signals/articles/:id updates status/tags/summary', async () => {
     const patchRes = await app.inject({
       method: 'PATCH',

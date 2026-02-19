@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-const { parseFetchSignalsArgs, formatFetchSignalsSummary } = await import('../dist/scripts/fetch-signals.js');
+const { parseFetchSignalsArgs, formatFetchSignalsSummary, toFetchSignalsExitCode } = await import('../dist/scripts/fetch-signals.js');
 
 describe('fetch-signals script args', () => {
   it('parses --dry-run and --source flags', () => {
@@ -53,5 +53,39 @@ describe('formatFetchSignalsSummary', () => {
     assert.match(line, /processed=3/);
     assert.match(line, /new=7/);
     assert.match(line, /errors=1/);
+  });
+});
+
+describe('toFetchSignalsExitCode', () => {
+  it('returns non-zero when scheduler summary contains source errors', () => {
+    const code = toFetchSignalsExitCode({
+      dryRun: false,
+      fetchedAt: '2026-02-19T08:00:00.000Z',
+      processedSources: 1,
+      skippedSources: 0,
+      fetchedArticles: 0,
+      newArticles: 0,
+      storedArticles: 0,
+      duplicateArticles: 0,
+      errors: [{ code: 'RSS_FETCH_FAILED', sourceId: 'anthropic-news', message: 'timeout' }],
+    });
+
+    assert.equal(code, 1);
+  });
+
+  it('returns zero when scheduler summary has no errors', () => {
+    const code = toFetchSignalsExitCode({
+      dryRun: false,
+      fetchedAt: '2026-02-19T08:00:00.000Z',
+      processedSources: 1,
+      skippedSources: 0,
+      fetchedArticles: 2,
+      newArticles: 2,
+      storedArticles: 2,
+      duplicateArticles: 0,
+      errors: [],
+    });
+
+    assert.equal(code, 0);
   });
 });

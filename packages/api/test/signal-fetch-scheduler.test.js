@@ -241,6 +241,62 @@ describe('runSignalFetchScheduler', () => {
     assert.equal(summary.notifications, undefined);
   });
 
+  it('skips digest notifications when source fetch contains errors', async () => {
+    let emailCalled = false;
+    let inAppCalled = false;
+
+    const summary = await runSignalFetchScheduler({
+      loadSources: async () => ({
+        version: 1,
+        sources: [createSource()],
+      }),
+      loadNotifications: async () => createNotificationsConfig(),
+      fetchers: [
+        {
+          canHandle() {
+            return true;
+          },
+          async fetch(source) {
+            return {
+              articles: [],
+              errors: [
+                {
+                  code: 'RSS_FETCH_FAILED',
+                  sourceId: source.id,
+                  message: 'timeout',
+                },
+              ],
+              metadata: {
+                fetchedAt: '2026-02-19T03:00:00.000Z',
+                duration: 8,
+                source: source.id,
+              },
+            };
+          },
+        },
+      ],
+      createEmailService: () => ({
+        async sendDailyDigest() {
+          emailCalled = true;
+          return { status: 'sent' };
+        },
+      }),
+      createInAppService: () => ({
+        async publishDailyDigest() {
+          inAppCalled = true;
+          return { status: 'sent' };
+        },
+      }),
+      now: () => new Date('2026-02-19T08:00:00.000Z'),
+    });
+
+    assert.equal(summary.errors.length, 1);
+    assert.equal(summary.errors[0].sourceId, 'source-rss');
+    assert.equal(summary.notifications, undefined);
+    assert.equal(emailCalled, false);
+    assert.equal(inAppCalled, false);
+  });
+
   it('throws when source filter does not exist', async () => {
     await assert.rejects(
       () =>

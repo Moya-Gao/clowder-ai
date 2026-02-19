@@ -176,6 +176,10 @@ export async function runSignalFetchScheduler(
     };
   }
 
+  if (sourceResults.errors.length > 0) {
+    return summaryBase;
+  }
+
   const notifications = await sendDigestNotifications({
     options,
     paths,
