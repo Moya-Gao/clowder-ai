@@ -176,12 +176,7 @@ export function useChatCommands() {
         if (configArgs.startsWith('set ')) {
           const parts = configArgs.slice(4).trim().split(/\s+/, 2);
           if (parts.length < 2) {
-            addMessage({
-              id: `err-${Date.now()}`,
-              type: 'system',
-              content: '用法: /config set <key> <value>\n可更新: cli.timeoutMs, a2a.maxDepth',
-              timestamp: Date.now(),
-            });
+            addSystemError('用法: /config set <key> <value>\n可更新: cli.timeoutMs, a2a.maxDepth');
             return true;
           }
           try {
@@ -212,6 +207,7 @@ export function useChatCommands() {
         addMessage({
           id: `err-${Date.now()}`,
           type: 'system',
+          variant: 'error',
           content: `未知 /config 子命令: ${configArgs}\n用法: /config 或 /config set <key> <value>`,
           timestamp: Date.now(),
         });
@@ -223,12 +219,7 @@ export function useChatCommands() {
         const rest = trimmed.slice('/remember '.length).trim();
         const spaceIdx = rest.indexOf(' ');
         if (spaceIdx <= 0) {
-          addMessage({
-            id: `err-${Date.now()}`,
-            type: 'system',
-            content: '用法: /remember <key> <value>',
-            timestamp: Date.now(),
-          });
+          addSystemError('用法: /remember <key> <value>');
           return true;
         }
         const key = rest.slice(0, spaceIdx);

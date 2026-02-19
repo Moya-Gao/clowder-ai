@@ -261,4 +261,49 @@ describe('useChatCommands /mode kickoff', () => {
       }),
     );
   });
+
+  it('marks /config set usage error as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+
+    await act(async () => {
+      await processCommand('/config set onlyKey');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('用法: /config set <key> <value>');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
+
+  it('marks /config unknown subcommand as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+
+    await act(async () => {
+      await processCommand('/config foo');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('未知 /config 子命令: foo');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
+
+  it('marks /remember usage error as error variant', async () => {
+    const processCommand = await setupProcessCommand();
+
+    await act(async () => {
+      await processCommand('/remember onlyKey');
+    });
+
+    expect(getLatestSystemMessageContent()).toContain('用法: /remember <key> <value>');
+    expect(getLatestSystemMessage()).toEqual(
+      expect.objectContaining({
+        variant: 'error',
+      }),
+    );
+  });
 });
