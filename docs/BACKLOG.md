@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-19 (P2 #82 onIntentMode 竞态登记)
+> 维护者：布偶猫 | 最后更新：2026-02-19 (P2 #82 onIntentMode 竞态登记 + F35 Whisper 消息可见性登记)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -145,6 +145,7 @@
 | F33 | **上下文压缩前自动交接（布偶猫系统性问题）** | **P1** | 2026-02-18 PR #29 事故反思 | 布偶猫（Claude Code）的上下文压缩由 CLI 自动触发，时机不可控，压缩后丢失：commit 签名规矩、worktree 纪律、PR 回复规范等。缅因猫（Codex）能在 context 85% 时主动交接，布偶猫从未成功交接过。**根因**：Claude Code 的压缩先于我们的交接逻辑触发。**需要**：(1) 在 context 使用率 ~85% 时触发 pre-compression handoff（而非等 CLI 自动压缩）；(2) handoff 内容必须包含当前 worktree 状态、未完成任务、签名规范等关键上下文；(3) 或探索 MEMORY.md 自动写入关键 session state 的方案。**事故影响**：布偶猫在 `cat-cafe` 公共 worktree 上切分支导致其他猫 commit 混入 feature 分支，commit 丢签名，PR 回复漏 @。 |
 | F22 | **Rich Blocks 富消息系统** | **[x]** | [SillyTavern 调研](./archive/2026-02/research/sillytavern-phone-ui-research.md) | `bd8ae63` PR #34 — 全栈实现：4 种 block kind (card/diff/checklist/media_gallery) + 双路由 (MCP callback + cc_rich text) + RichBlockBuffer (invocationId 绑定 + dedup + post-completion 拒绝) + Zod discriminatedUnion 入口验证 + isValidRichBlock 全字段类型守卫 + 前端 5 组件 + 50 tests。7 轮 cloud review + 砚砚本地 R1-R7。 |
 | F34 | **Voice Block 语音消息** | **P2** | 2026-02-18 铲屎官+三猫讨论 | 新增 `audio` rich block kind，支持猫猫发送/接收语音消息。F10 手机端 + F22 Rich Blocks 的自然延伸。依赖：前端 audio 播放组件 + 后端 audio block 类型定义 + 语音合成（TTS）或录音上传链路。先用 `card + 音频链接` 过渡，下一阶段单独设计 block kind。 |
+| F35 | **Whisper 消息可见性（悄悄话）** | **P1** | 2026-02-19 独立思考测试 → 三方共识 | 铲屎官可私密给指定猫发消息（whisper），其他猫通过 thread-context / pending-mentions 看不到。支持游戏场景（狼人杀/谁是卧底/Spyfall 等）。消息级 `visibility: 'public' \| 'whisper'` + `whisperTo: CatId[]` + 线程级揭秘（reveal）。设计: [`2026-02-19-f35-whisper-message-visibility.md`](./plans/2026-02-19-f35-whisper-message-visibility.md) |
 | F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
 | F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[x]** | 铲屎官 2026-02-13 | 三个子能力全部完成：**(1) 中途消息注入** [x]：`4e85883` ChatInputActionButton 改为 hasActiveInvocation 时同时展示 Stop + Send 按钮。**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入。 |
 | F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |

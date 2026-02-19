@@ -69,6 +69,10 @@ ${DIGEST_SECTION}
 2. Do NOT assume the user approved any operation unless you find explicit evidence in the CURRENT context.
 3. High-risk operations (gh pr merge, git push --force, etc.) require explicit user instruction in THIS conversation turn.
 4. When in doubt, ASK the user before proceeding.
+5. RE-READ CLAUDE.md rules NOW. Compression degrades your adherence to project rules. Key reminders:
+   - Every commit MUST carry your cat signature [布偶猫🐾]
+   - Every code change MUST have its tests run before commit
+   - All work in this session is YOUR work — own it, sign it, test it.
 CTXEOF
 )
 

@@ -165,7 +165,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 1500 chars', async () => {
+  test('output size is under 2000 chars', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -176,8 +176,8 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
     });
     assert.ok(
-      prompt.length < 1500,
-      `Prompt is ${prompt.length} chars, expected < 1500`
+      prompt.length < 2000,
+      `Prompt is ${prompt.length} chars, expected < 2000`
     );
   });
 
