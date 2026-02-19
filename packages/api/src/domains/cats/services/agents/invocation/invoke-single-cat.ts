@@ -77,6 +77,17 @@ export async function* invokeSingleCat(
   const { catId, service, prompt, userId, threadId, isLastCat, signal } = params;
 
   const { invocationId, callbackToken } = registry.create(userId, catId, threadId);
+
+  // F22 R2 P1-1: Expose invocationId to caller (route-serial/parallel) so they can
+  // use it for RichBlockBuffer.consume() instead of getLatestId() which is wrong
+  // under preemption — old invocation A would steal new invocation B's blocks.
+  yield {
+    type: 'system_info' as const,
+    catId,
+    content: JSON.stringify({ type: 'invocation_created', invocationId }),
+    timestamp: Date.now(),
+  };
+
   const callbackEnv: Record<string, string> = {
     CAT_CAFE_API_URL: apiUrl,
     CAT_CAFE_INVOCATION_ID: invocationId,

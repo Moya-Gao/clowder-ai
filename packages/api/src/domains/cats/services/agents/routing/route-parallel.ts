@@ -27,6 +27,8 @@ import {
   assembleIncrementalContext,
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
+import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
+import { extractRichFromText } from './rich-block-extract.js';
 
 export async function* routeParallel(
   deps: RouteStrategyDeps,
@@ -173,11 +175,24 @@ export async function* routeParallel(
   const catMeta = new Map<string, MessageMetadata>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   const catHadError = new Set<string>();
+  // F22 R2 P1-1: Capture own invocationId per cat from stream
+  const catInvocationId = new Map<string, string>();
   let completedCount = 0;
 
   for await (const msg of mergeStreams(streams, (idx, err) => {
     console.error(`[routeParallel] Stream ${idx} error:`, err);
   })) {
+    // F22 R2 P1-1: Capture invocationId from the initial system_info per cat
+    // R3 P2: Swallow this internal message — don't forward to frontend
+    if (msg.type === 'system_info' && msg.content && msg.catId && !catInvocationId.has(msg.catId)) {
+      try {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.type === 'invocation_created') {
+          catInvocationId.set(msg.catId, parsed.invocationId);
+          continue;
+        }
+      } catch { /* ignore parse errors */ }
+    }
     if (msg.type === 'text' && msg.content && msg.catId) {
       catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
     }
@@ -201,10 +216,17 @@ export async function* routeParallel(
 
     if (msg.type === 'done' && msg.catId) {
       completedCount++;
+      // F22: Consume MCP-buffered rich blocks BEFORE text/empty branch —
+      // blocks must be persisted even when the cat emits no text (cloud Codex P1).
+      const ownInvId = catInvocationId.get(msg.catId);
+      const bufferedBlocks = getRichBlockBuffer().consume(threadId, msg.catId, ownInvId);
       const text = catText.get(msg.catId);
       if (text) {
         const meta = catMeta.get(msg.catId);
-        const storedContent = sanitizeInjectedContent(text);
+        const sanitized = sanitizeInjectedContent(text);
+        // F22: Extract cc_rich blocks from text + merge with buffered
+        const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
+        const allRichBlocks = [...bufferedBlocks, ...textBlocks];
         const catTools = catToolEvents.get(msg.catId);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
@@ -220,6 +242,7 @@ export async function* routeParallel(
             threadId,
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
+            ...(allRichBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: allRichBlocks } } } : {}),
           });
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
@@ -233,7 +256,7 @@ export async function* routeParallel(
         }
       } else if (!catHadError.has(msg.catId)) {
         // No text content and no error — store empty message with any tool events
-        // (mirrors routeSerial empty-text branch, ensures tool-only responses are persisted)
+        // F22: still attach any MCP-buffered rich blocks (cloud Codex P1: block-only responses)
         const meta = catMeta.get(msg.catId);
         const catTools = catToolEvents.get(msg.catId);
         try {
@@ -247,6 +270,7 @@ export async function* routeParallel(
             threadId,
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
+            ...(bufferedBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: bufferedBlocks } } } : {}),
           });
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);

@@ -161,6 +161,33 @@ export async function handleUpdateTask(input: {
   });
 }
 
+/** F22: Create a rich block (card, diff, checklist, media gallery) in the current message */
+export const createRichBlockInputSchema = {
+  block: z
+    .string()
+    .min(1)
+    .describe('JSON string of the rich block object. Must include id, kind, v:1, and kind-specific fields.'),
+};
+
+export async function handleCreateRichBlock(input: {
+  block: string;
+}): Promise<ToolResult> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(input.block);
+  } catch {
+    return errorResult('Invalid JSON in block parameter');
+  }
+
+  if (!parsed || typeof parsed !== 'object' || !('id' in parsed) || !('kind' in parsed)) {
+    return errorResult('Block must include id and kind fields');
+  }
+
+  return callbackPost('/api/callbacks/create-rich-block', {
+    block: parsed,
+  }, { enableOutbox: true });
+}
+
 export const requestPermissionInputSchema = {
   action: z
     .string()
@@ -235,6 +262,14 @@ export const callbackTools = [
     description: 'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
     inputSchema: updateTaskInputSchema,
     handler: handleUpdateTask,
+  },
+  {
+    name: 'cat_cafe_create_rich_block',
+    description:
+      'Create a rich block (card, diff, checklist, or media gallery) attached to the current message. ' +
+      'The block will be rendered as an interactive component below the message text.',
+    inputSchema: createRichBlockInputSchema,
+    handler: handleCreateRichBlock,
   },
   {
     name: 'cat_cafe_request_permission',

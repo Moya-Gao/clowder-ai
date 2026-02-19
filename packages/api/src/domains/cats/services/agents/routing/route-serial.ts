@@ -35,6 +35,8 @@ import {
   assembleIncrementalContext,
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
+import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
+import { extractRichFromText } from './rich-block-extract.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -190,6 +192,8 @@ export async function* routeSerial(
     let doneMsg: AgentMessage | undefined;
     let hadError = false;
     const collectedToolEvents: StoredToolEvent[] = [];
+    // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
+    let ownInvocationId: string | undefined;
 
     // Always pass isLastCat:false — we set isFinal AFTER A2A detection
     for await (const msg of invokeSingleCat(deps.invocationDeps, {
@@ -204,6 +208,17 @@ export async function* routeSerial(
       ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,
     })) {
+      // F22 R2 P1-1: Capture invocationId from the initial system_info
+      // R3 P2: Swallow this internal message — don't forward to frontend
+      if (msg.type === 'system_info' && msg.content && !ownInvocationId) {
+        try {
+          const parsed = JSON.parse(msg.content);
+          if (parsed.type === 'invocation_created') {
+            ownInvocationId = parsed.invocationId;
+            continue;
+          }
+        } catch { /* ignore parse errors */ }
+      }
       if (msg.type === 'text' && msg.content) {
         textContent += msg.content;
       }
@@ -231,8 +246,17 @@ export async function* routeSerial(
 
     let a2aMentions: CatId[] = [];
 
+    // F22: Consume MCP-buffered rich blocks BEFORE the text/empty branch —
+    // blocks must be persisted even when the cat emits no text (cloud Codex P1).
+    const bufferedBlocks = getRichBlockBuffer().consume(threadId, catId as string, ownInvocationId);
+
     if (textContent) {
-      const storedContent = sanitizeInjectedContent(textContent);
+      const sanitized = sanitizeInjectedContent(textContent);
+
+      // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
+      const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
+      const allRichBlocks = [...bufferedBlocks, ...textBlocks];
+
       // In play mode, CLI stream output (thinking) is hidden from other cats.
       // Only share previousResponses in debug mode where cats see each other's thinking.
       if (!incrementalMode && thinkingMode === 'debug') {
@@ -255,6 +279,7 @@ export async function* routeSerial(
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+          ...(allRichBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: allRichBlocks } } } : {}),
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
@@ -315,6 +340,7 @@ export async function* routeSerial(
       handoffEmitted = worklist.length;
     } else if (!hadError) {
       // No text content and no error — store empty message (cat responded with no text)
+      // F22: still attach any MCP-buffered rich blocks (cloud Codex P1: block-only responses)
       try {
         await deps.messageStore.append({
           userId,
@@ -326,6 +352,7 @@ export async function* routeSerial(
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+          ...(bufferedBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: bufferedBlocks } } } : {}),
         });
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);

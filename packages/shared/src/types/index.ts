@@ -136,6 +136,18 @@ export {
   isDevLoopState,
 } from './modes.js';
 
+// Rich block types (F22 Rich Blocks 富消息系统)
+export type {
+  RichBlockKind,
+  RichBlockBase,
+  RichCardBlock,
+  RichDiffBlock,
+  RichChecklistBlock,
+  RichMediaGalleryBlock,
+  RichBlock,
+  RichMessageExtra,
+} from './rich.js';
+
 // Session chain types (F24 Session Chain + Context Health)
 export type {
   SessionStatus,

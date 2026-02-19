@@ -61,6 +61,38 @@ export interface ToolEvent {
   timestamp: number;
 }
 
+/** F22: Rich block types for frontend rendering */
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery';
+
+export interface RichCardBlock {
+  id: string; kind: 'card'; v: 1;
+  title: string;
+  bodyMarkdown?: string;
+  tone?: 'info' | 'success' | 'warning' | 'danger';
+  fields?: Array<{ label: string; value: string }>;
+}
+
+export interface RichDiffBlock {
+  id: string; kind: 'diff'; v: 1;
+  filePath: string;
+  diff: string;
+  languageHint?: string;
+}
+
+export interface RichChecklistBlock {
+  id: string; kind: 'checklist'; v: 1;
+  title?: string;
+  items: Array<{ id: string; text: string; checked?: boolean }>;
+}
+
+export interface RichMediaGalleryBlock {
+  id: string; kind: 'media_gallery'; v: 1;
+  title?: string;
+  items: Array<{ url: string; alt?: string; caption?: string }>;
+}
+
+export type RichBlock = RichCardBlock | RichDiffBlock | RichChecklistBlock | RichMediaGalleryBlock;
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary';
@@ -81,6 +113,8 @@ export interface ChatMessage {
     createdBy: string;
   };
   evidence?: EvidenceData;
+  /** F22: Rich blocks (card, diff, checklist, media gallery) */
+  extra?: { rich?: { v: 1; blocks: RichBlock[] } };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */

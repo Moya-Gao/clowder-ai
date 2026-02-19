@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CatId, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
 import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
@@ -41,6 +41,8 @@ export interface StoredMessage {
   toolEvents?: readonly StoredToolEvent[];
   /** Provider/model metadata (for cat messages) */
   metadata?: MessageMetadata;
+  /** F22: Extensible extra data (rich blocks, future: reactions, deviceMeta) */
+  extra?: { rich?: RichMessageExtra };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
@@ -304,6 +306,7 @@ export class MessageStore {
     delete msg.contentBlocks;
     delete msg.toolEvents;
     delete msg.metadata;
+    delete msg.extra;
     msg.deletedAt = Date.now();
     msg.deletedBy = deletedBy;
     msg._tombstone = true;

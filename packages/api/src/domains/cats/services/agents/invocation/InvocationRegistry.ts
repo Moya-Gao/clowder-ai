@@ -135,6 +135,11 @@ export class InvocationRegistry {
     return this.latestByThreadCat.get(key) === invocationId;
   }
 
+  /** Get the latest invocationId for a given thread+cat slot, if any. */
+  getLatestId(threadId: string, catId: string): string | undefined {
+    return this.latestByThreadCat.get(`${threadId}:${catId}`);
+  }
+
   /**
    * Claim a callback clientMessageId for an invocation.
    * Returns true if this ID is first-seen, false if duplicate or invocation missing.

@@ -6,6 +6,7 @@ import { CatAvatar } from './CatAvatar';
 import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
+import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
 import { API_URL } from '@/utils/api-client';
 
@@ -291,6 +292,9 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             <span className="text-xs text-gray-500">思考中...</span>
           ) : (
             null
+          )}
+          {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
+            <RichBlocks blocks={message.extra.rich.blocks} />
           )}
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />

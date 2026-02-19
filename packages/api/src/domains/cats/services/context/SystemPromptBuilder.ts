@@ -54,7 +54,17 @@ const MCP_TOOLS_SECTION = `
 - cat_cafe_post_message: 主动发送消息到对话
 - cat_cafe_get_pending_mentions: 获取待处理的 @提及
 - cat_cafe_get_thread_context: 获取当前对话上下文
-- cat_cafe_update_task: 更新自己负责的任务状态`;
+- cat_cafe_update_task: 更新自己负责的任务状态
+- cat_cafe_create_rich_block: 创建富消息块（卡片/diff/检查表/图库），用于展示结构化信息
+
+### 富消息块使用指引
+当回复中包含以下类型的结构化信息时，用 cat_cafe_create_rich_block 创建富消息块，让前端以更好的 UI 呈现：
+- **card**: 要点卡片 — review 结论、决策摘要、状态报告（支持 tone: info/success/warning/danger）
+- **diff**: 代码变更 — 展示具体代码修改建议
+- **checklist**: 检查清单 — 待办事项、review 要点、验证步骤
+- **media_gallery**: 图片集 — 截图、设计稿等视觉内容
+
+普通对话不需要用富消息块。只在信息有明确结构时使用。`;
 
 /** Per-cat workflow triggers: when to proactively @ other cats */
 const WORKFLOW_TRIGGERS: Record<string, string> = {

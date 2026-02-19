@@ -121,5 +121,31 @@ curl -X POST ${opts.apiUrl}/api/callbacks/request-permission \\
 curl "${opts.apiUrl}/api/callbacks/permission-status?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&requestId=请求ID"
 \`\`\`
 
+### 创建富消息块
+\`\`\`bash
+curl -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
+  -H "Content-Type: application/json" \\
+  -d "{
+    \\"invocationId\\": \\"$CAT_CAFE_INVOCATION_ID\\",
+    \\"callbackToken\\": \\"$CAT_CAFE_CALLBACK_TOKEN\\",
+    \\"block\\": {
+      \\"id\\": \\"唯一ID\\",
+      \\"kind\\": \\"card\\",
+      \\"v\\": 1,
+      \\"title\\": \\"标题\\",
+      \\"bodyMarkdown\\": \\"内容\\",
+      \\"tone\\": \\"info\\"
+    }
+  }"
+\`\`\`
+支持的 kind: card（卡片）、diff（代码变更）、checklist（检查清单）、media_gallery（图片集）。
+当 HTTP 回调不可用时，可在回复中嵌入文本格式的富消息块作为备选：
+\\\`\\\`\\\`cc_rich
+{"v":1,"blocks":[{"id":"b1","kind":"card","v":1,"title":"标题","tone":"info"}]}
+\\\`\\\`\\\`
+
+### 何时使用富消息块
+当回复中包含结构化信息（review 结论、代码变更建议、待办清单、截图展示）时使用。普通对话不需要。
+
 注意: 只在需要异步协作时使用这些工具。普通回复直接输出即可。`;
 }

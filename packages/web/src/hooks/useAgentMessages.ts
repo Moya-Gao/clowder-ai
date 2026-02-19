@@ -53,6 +53,7 @@ export function useAgentMessages() {
     addMessage,
     appendToMessage,
     appendToolEvent,
+    appendRichBlock,
     setStreaming,
     setLoading,
     setHasActiveInvocation,
@@ -371,6 +372,27 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
+          } else if (parsed?.type === 'rich_block') {
+            // F22: Append rich block to current cat's active message
+            let ref = activeRefs.current.get(msg.catId);
+            if (!ref) {
+              // Callback-first: rich block arrived before text/tool_use — create message ref
+              const id = `msg-${Date.now()}-${msg.catId}`;
+              activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+              addMessage({
+                id,
+                type: 'assistant',
+                catId: msg.catId,
+                content: '',
+                timestamp: Date.now(),
+                isStreaming: true,
+              });
+              ref = activeRefs.current.get(msg.catId)!;
+            }
+            if (parsed.block) {
+              appendRichBlock(ref.id, parsed.block);
+            }
+            consumed = true;
           } else if (parsed?.type === 'session_seal_requested') {
             // F24 Phase B: Session sealed — update session info + show notification
             setCatInvocation(parsed.catId, {
@@ -432,6 +454,7 @@ export function useAgentMessages() {
       addMessage,
       appendToMessage,
       appendToolEvent,
+      appendRichBlock,
       setStreaming,
       setLoading,
       setHasActiveInvocation,

@@ -3,7 +3,7 @@
  * Shared types, interfaces, and helper functions for route-serial and route-parallel.
  */
 
-import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CatId, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
 import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
 import type { AgentMessage, AgentService } from '../../types.js';
@@ -175,6 +175,27 @@ export function routeContentBlocksForCat(
   return contentBlocks ?? undefined;
 }
 
+/**
+ * F22: Summarize rich blocks for context injection.
+ * Replaces verbose rich block JSON with compact digests so cats know
+ * what was previously rendered without wasting tokens.
+ */
+function digestRichBlock(b: RichBlock): string {
+  switch (b.kind) {
+    case 'card':       return `[卡片: ${b.title ?? '无标题'}]`;
+    case 'diff':       return `[代码 diff: ${b.filePath ?? '未知文件'}]`;
+    case 'checklist':  return `[清单: ${b.title ?? `${Array.isArray(b.items) ? b.items.length : 0} 项`}]`;
+    case 'media_gallery': return `[图片: ${Array.isArray(b.items) ? b.items.length : 0} 张]`;
+    default:           return `[富块: ${(b as RichBlockBase).kind}]`;
+  }
+}
+
+export function digestRichBlocks(msg: StoredMessage): string {
+  if (!msg.extra?.rich?.blocks?.length) return msg.content;
+  const digests = msg.extra.rich.blocks.map(digestRichBlock);
+  return msg.content + '\n' + digests.join(' ');
+}
+
 export async function fetchAfterCursor(
   messageStore: IMessageStore,
   threadId: string,
@@ -218,7 +239,9 @@ export async function assembleIncrementalContext(
   }
 
   const lines = relevant.map((m) => {
-    const cleanContent = sanitizeInjectedContent(m.content);
+    // F22: Digest rich blocks into compact summaries for context
+    const contentWithDigest = digestRichBlocks(m);
+    const cleanContent = sanitizeInjectedContent(contentWithDigest);
     const normalized: StoredMessage = cleanContent === m.content
       ? m
       : { ...m, content: cleanContent };

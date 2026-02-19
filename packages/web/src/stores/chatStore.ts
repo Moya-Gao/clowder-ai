@@ -6,6 +6,7 @@ import type {
   ChatMessageMetadata,
   ModeState,
   ModeSwitchProposal,
+  RichBlock,
   Thread,
   ThreadState,
   TokenUsage,
@@ -25,6 +26,12 @@ export type {
   MessageContent,
   ModeState,
   ModeSwitchProposal,
+  RichBlock,
+  RichBlockKind,
+  RichCardBlock,
+  RichChecklistBlock,
+  RichDiffBlock,
+  RichMediaGalleryBlock,
   TextContent,
   Thread,
   ThreadState,
@@ -149,6 +156,8 @@ interface ChatState {
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
   appendToolEvent: (id: string, event: ToolEvent) => void;
+  /** F22: Append a rich block to a message */
+  appendRichBlock: (id: string, block: RichBlock) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setHasActiveInvocation: (v: boolean) => void;
@@ -269,6 +278,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
   appendToolEvent: (id, event) =>
     set((state) => ({
       messages: state.messages.map((m) => (m.id === id ? { ...m, toolEvents: [...(m.toolEvents ?? []), event] } : m)),
+    })),
+
+  appendRichBlock: (id, block) =>
+    set((state) => ({
+      messages: state.messages.map((m) => {
+        if (m.id !== id) return m;
+        const rich = m.extra?.rich ?? { v: 1 as const, blocks: [] };
+        // Defensive dedup by block.id (server already deduplicates, this is a safety net)
+        if (rich.blocks.some((b: { id: string }) => b.id === block.id)) return m;
+        return { ...m, extra: { ...m.extra, rich: { ...rich, blocks: [...rich.blocks, block] } } };
+      }),
     })),
 
   setStreaming: (id, streaming) =>

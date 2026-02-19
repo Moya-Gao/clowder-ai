@@ -17,7 +17,7 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
-import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata } from './redis-message-parsers.js';
+import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata, safeParseExtra } from './redis-message-parsers.js';
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -60,6 +60,7 @@ export class RedisMessageStore {
       contentBlocks: msg.contentBlocks ? JSON.stringify(msg.contentBlocks) : '',
       toolEvents: msg.toolEvents ? JSON.stringify(msg.toolEvents) : '',
       metadata: msg.metadata ? JSON.stringify(msg.metadata) : '',
+      extra: msg.extra ? JSON.stringify(msg.extra) : '',
       mentions: JSON.stringify(msg.mentions),
       timestamp: String(msg.timestamp),
       ...(msg.origin ? { origin: msg.origin } : {}),
@@ -112,6 +113,7 @@ export class RedisMessageStore {
     const contentBlocks = safeParseContentBlocks(data['contentBlocks']);
     const toolEvents = safeParseToolEvents(data['toolEvents']);
     const parsedMetadata = safeParseMetadata(data['metadata']);
+    const parsedExtra = safeParseExtra(data['extra']);
     const deletedAt = data['deletedAt'] ? parseInt(data['deletedAt'], 10) : undefined;
     return {
       id: data['id'],
@@ -122,6 +124,7 @@ export class RedisMessageStore {
       ...(contentBlocks ? { contentBlocks } : {}),
       ...(toolEvents ? { toolEvents } : {}),
       ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
+      ...(parsedExtra ? { extra: parsedExtra } : {}),
       mentions: safeParseMentions(data['mentions']),
       timestamp: parseInt(data['timestamp'] ?? '0', 10),
       ...(deletedAt ? { deletedAt, deletedBy: data['deletedBy'] ?? '' } : {}),
@@ -404,6 +407,7 @@ export class RedisMessageStore {
       contentBlocks: '',
       toolEvents: '',
       metadata: '',
+      extra: '',
       mentions: '[]',
       deletedAt: String(now),
       deletedBy,
@@ -414,6 +418,7 @@ export class RedisMessageStore {
     delete msg.contentBlocks;
     delete msg.toolEvents;
     delete msg.metadata;
+    delete msg.extra;
     msg.deletedAt = now;
     msg.deletedBy = deletedBy;
     msg._tombstone = true;
@@ -456,6 +461,7 @@ export class RedisMessageStore {
       const contentBlocks = safeParseContentBlocks(d['contentBlocks']);
       const toolEvents = safeParseToolEvents(d['toolEvents']);
       const parsedMetadata = safeParseMetadata(d['metadata']);
+      const parsedExtra = safeParseExtra(d['extra']);
       messages.push({
         id: d['id'],
         threadId: d['threadId'] || DEFAULT_THREAD_ID,
@@ -465,6 +471,7 @@ export class RedisMessageStore {
         ...(contentBlocks ? { contentBlocks } : {}),
         ...(toolEvents ? { toolEvents } : {}),
         ...(parsedMetadata ? { metadata: parsedMetadata } : {}),
+        ...(parsedExtra ? { extra: parsedExtra } : {}),
         mentions: safeParseMentions(d['mentions']),
         timestamp: parseInt(d['timestamp'] ?? '0', 10),
         ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),

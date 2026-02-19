@@ -19,6 +19,8 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
+import type { RichBlock } from '@cat-cafe/shared';
+import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
@@ -59,6 +61,19 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
 
 const ackMentionsSchema = callbackAuthSchema.extend({
   upToMessageId: z.string().min(1),
+});
+
+/** F22: Rich block creation schema — validates shape + kind-specific fields (cloud Codex P1) */
+const richChecklistItemSchema = z.object({ id: z.string(), text: z.string(), checked: z.boolean().optional() });
+const richMediaItemSchema = z.object({ url: z.string(), alt: z.string().optional(), caption: z.string().optional() });
+const richBlockSchema = z.discriminatedUnion('kind', [
+  z.object({ id: z.string().min(1), kind: z.literal('card'), v: z.literal(1), title: z.string(), bodyMarkdown: z.string().optional(), tone: z.enum(['info', 'success', 'warning', 'danger']).optional(), fields: z.array(z.object({ label: z.string(), value: z.string() })).optional() }),
+  z.object({ id: z.string().min(1), kind: z.literal('diff'), v: z.literal(1), filePath: z.string(), diff: z.string(), languageHint: z.string().optional() }),
+  z.object({ id: z.string().min(1), kind: z.literal('checklist'), v: z.literal(1), title: z.string().optional(), items: z.array(richChecklistItemSchema).min(1) }),
+  z.object({ id: z.string().min(1), kind: z.literal('media_gallery'), v: z.literal(1), title: z.string().optional(), items: z.array(richMediaItemSchema).min(1) }),
+]);
+const createRichBlockSchema = callbackAuthSchema.extend({
+  block: richBlockSchema,
 });
 
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
@@ -314,6 +329,41 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           timestamp: item.timestamp,
         })),
       };
+    });
+
+    // F22: Rich block creation via MCP callback
+    app.post('/api/callbacks/create-rich-block', async (request, reply) => {
+      const parsed = createRichBlockSchema.safeParse(request.body);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parsed.error.issues };
+      }
+
+      const { invocationId, callbackToken, block } = parsed.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return { error: 'Invalid or expired callback credentials' };
+      }
+
+      if (!registry.isLatest(invocationId)) {
+        return { status: 'stale_ignored' };
+      }
+
+      // Buffer the block — consumed at append time in route-serial/route-parallel
+      const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, block as unknown as RichBlock, invocationId);
+
+      // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
+      if (isNew) {
+        socketManager.broadcastAgentMessage({
+          type: 'system_info' as const,
+          catId: record.catId,
+          content: JSON.stringify({ type: 'rich_block', block }),
+          timestamp: Date.now(),
+        }, record.threadId);
+      }
+
+      return { status: 'ok' };
     });
 
     if (taskStore) {
