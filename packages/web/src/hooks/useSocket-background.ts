@@ -192,6 +192,7 @@ export function handleBackgroundAgentMessage(
     options.store.addMessageToThread(msg.threadId, {
       id: `bg-err-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
       type: 'system',
+      variant: 'error',
       catId: msg.catId,
       content: `Error: ${msg.error ?? 'Unknown error'}`,
       timestamp: msg.timestamp,

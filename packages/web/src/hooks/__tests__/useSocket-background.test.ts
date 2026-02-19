@@ -302,6 +302,8 @@ describe('background thread socket handling', () => {
       const ts = useChatStore.getState().getThreadState('thread-bg');
       const merged = ts.messages.find((m) => m.id === messageId);
       expect(merged?.isStreaming).toBe(false);
+      const errorMsg = ts.messages.find((m) => m.type === 'system' && m.content.includes('Error: oops'));
+      expect(errorMsg?.variant).toBe('error');
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
     });
 

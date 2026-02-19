@@ -149,6 +149,13 @@ describe('useAgentMessages loading lifecycle', () => {
     expect(mockSetLoading).toHaveBeenCalledWith(false);
     expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(false);
     expect(mockSetIntentMode).toHaveBeenCalledWith(null);
+    expect(mockAddMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'system',
+        variant: 'error',
+        content: 'Error: something broke',
+      }),
+    );
   });
 
   it('closes existing streaming bubble on done even when activeRefs are empty', () => {

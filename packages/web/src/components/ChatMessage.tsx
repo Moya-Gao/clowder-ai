@@ -202,7 +202,9 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
       return <EvidencePanel data={message.evidence} />;
     }
 
-    const isInfo = message.variant === 'info';
+    const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
+    const isError = message.variant === 'error' || isLegacyError;
+    const isInfo = message.variant === 'info' || (!message.variant && !isLegacyError);
     const isTool = message.variant === 'tool';
     const isFollowup = message.variant === 'a2a_followup';
     return (
@@ -214,7 +216,9 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             ? 'text-purple-700 bg-purple-50 border border-purple-200'
             : isInfo
             ? 'text-blue-700 bg-blue-50'
-            : 'text-red-500 bg-red-50 rounded-full'
+            : isError
+            ? 'text-red-500 bg-red-50 rounded-full'
+            : 'text-blue-700 bg-blue-50'
         }`}>
           {isFollowup && <span className="mr-1">🔗</span>}
           {message.content}

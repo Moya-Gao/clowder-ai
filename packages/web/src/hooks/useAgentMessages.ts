@@ -408,6 +408,7 @@ export function useAgentMessages() {
         addMessage({
           id: `err-${Date.now()}-${msg.catId}`,
           type: 'system',
+          variant: 'error',
           catId: msg.catId,
           content: `Error: ${msg.error ?? 'Unknown error'}`,
           timestamp: Date.now(),
