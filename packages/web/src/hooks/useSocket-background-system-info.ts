@@ -8,6 +8,7 @@ import type {
 interface SystemInfoConsumeResult {
   consumed: boolean;
   content: string;
+  variant: 'info' | 'a2a_followup';
 }
 
 export function consumeBackgroundSystemInfo(
@@ -16,6 +17,7 @@ export function consumeBackgroundSystemInfo(
   options: HandleBackgroundMessageOptions,
 ): SystemInfoConsumeResult {
   let sysContent = msg.content ?? '';
+  let sysVariant: 'info' | 'a2a_followup' = 'info';
   let consumed = false;
 
   try {
@@ -73,6 +75,7 @@ export function consumeBackgroundSystemInfo(
       const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
       if (Array.isArray(mentions) && mentions.length > 0) {
         sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
+        sysVariant = 'a2a_followup';
       }
     } else if (parsed?.type === 'mode_switch_proposal') {
       const by = parsed.proposedBy ?? '猫猫';
@@ -82,5 +85,5 @@ export function consumeBackgroundSystemInfo(
     // Not JSON; keep original content as user-facing system info.
   }
 
-  return { consumed, content: sysContent };
+  return { consumed, content: sysContent, variant: sysVariant };
 }

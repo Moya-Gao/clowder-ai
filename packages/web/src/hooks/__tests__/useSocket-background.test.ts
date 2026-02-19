@@ -500,7 +500,7 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.toolEvents?.[1]?.type).toBe('tool_result');
     });
 
-    it('preserves system_info and a2a_handoff messages', () => {
+    it('preserves system_info and a2a_handoff messages with info variant', () => {
       const now = Date.now();
 
       simulateBackgroundMessage({
@@ -523,6 +523,55 @@ describe('background thread socket handling', () => {
       expect(ts.messages).toHaveLength(2);
       expect(ts.messages[0]?.content).toContain('system hint');
       expect(ts.messages[1]?.content).toContain('handoff info');
+      expect(ts.messages[0]?.variant).toBe('info');
+      expect(ts.messages[1]?.variant).toBe('info');
+    });
+
+    it('applies correct variant for parsed visible system_info events', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'mode_switch_proposal',
+          proposedBy: '缅因猫',
+          proposedMode: 'execute',
+        }),
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'session_seal_requested',
+          catId: 'opus',
+          sessionSeq: 3,
+          healthSnapshot: { fillRatio: 0.42 },
+        }),
+        timestamp: now + 1,
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'a2a_followup_available',
+          mentions: [{ catId: 'opus', mentionedBy: '缅因猫' }],
+        }),
+        timestamp: now + 2,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(3);
+      expect(ts.messages[0]?.variant).toBe('info');
+      expect(ts.messages[1]?.variant).toBe('info');
+      expect(ts.messages[2]?.variant).toBe('a2a_followup');
+      expect(ts.messages[2]?.content).toContain('缅因猫 @了 opus');
     });
 
     it('consumes invocation_usage system_info into thread invocation + message metadata (no raw JSON message)', () => {

@@ -72,10 +72,12 @@ function addBackgroundSystemMessage(
   msg: BackgroundAgentMessage,
   options: HandleBackgroundMessageOptions,
   content: string,
+  variant: 'info' | 'a2a_followup' = 'info',
 ): void {
   options.store.addMessageToThread(msg.threadId, {
     id: `bg-sys-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`,
     type: 'system',
+    variant,
     catId: msg.catId,
     content,
     timestamp: msg.timestamp,
@@ -273,7 +275,7 @@ export function handleBackgroundAgentMessage(
 
     const result = consumeBackgroundSystemInfo(msg, existing, options);
     if (!result.consumed) {
-      addBackgroundSystemMessage(msg, options, result.content);
+      addBackgroundSystemMessage(msg, options, result.content, result.variant);
     }
   }
 }
