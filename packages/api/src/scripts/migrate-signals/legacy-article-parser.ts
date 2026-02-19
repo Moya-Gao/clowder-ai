@@ -34,8 +34,12 @@ function normalizeStatus(value: string | undefined): SignalArticleStatus {
 
 function splitFrontmatter(rawMarkdown: string): { readonly frontmatter: Record<string, unknown>; readonly content: string } {
   const normalized = rawMarkdown.replace(/\r\n/g, '\n');
-  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+  const hasFrontmatterOpening = normalized.startsWith('---\n');
+  const match = normalized.match(/^---\n([\s\S]*?)\n---(?:\n|$)/);
   if (!match) {
+    if (hasFrontmatterOpening) {
+      throw new Error('unterminated frontmatter');
+    }
     return { frontmatter: {}, content: normalized.trim() };
   }
 

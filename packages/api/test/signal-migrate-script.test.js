@@ -195,4 +195,28 @@ describe('runMigrateSignalsCli', () => {
     assert.match(logs.join('\n'), /migratedArticles=1/);
     assert.match(logs.join('\n'), /skippedArticles=1/);
   });
+
+  it('flags unterminated frontmatter file as malformed and continues migration', async () => {
+    const legacyRoot = await createLegacyFixture();
+    const targetRoot = await mkdtemp(join(tmpdir(), 'cat-cafe-signals-'));
+    const { io, logs, errors } = createIo();
+
+    await writeFile(
+      join(legacyRoot, 'library', 'anthropic', '20260124-unterminated-frontmatter.md'),
+      [
+        '---',
+        'title: "Broken legacy article"',
+        'url: "https://example.com/broken-legacy"',
+        'tags: [broken',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const code = await runMigrateSignalsCli(['--from', legacyRoot, '--to', targetRoot], io);
+
+    assert.equal(code, 0);
+    assert.equal(errors.length, 0);
+    assert.match(logs.join('\n'), /migratedArticles=1/);
+    assert.match(logs.join('\n'), /skippedArticles=1/);
+  });
 });

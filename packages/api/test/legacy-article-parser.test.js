@@ -76,4 +76,45 @@ describe('legacy article parser', () => {
     assert.equal(skipped.length, 1);
     assert.match(skipped[0].filePath, /2026-01-24-malformed\.md$/);
   });
+
+  it('flags unterminated frontmatter as malformed input', async () => {
+    const libraryDir = await mkdtemp(join(tmpdir(), 'legacy-article-parser-'));
+    const sourceDir = join(libraryDir, 'anthropic');
+    await mkdir(sourceDir, { recursive: true });
+
+    await writeFile(
+      join(sourceDir, '2026-01-23-valid.md'),
+      [
+        '---',
+        'title: "Valid article"',
+        'url: "https://example.com/valid"',
+        '---',
+        '',
+        'ok',
+        '',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    await writeFile(
+      join(sourceDir, '2026-01-24-unterminated.md'),
+      [
+        '---',
+        'title: "Unterminated article"',
+        'url: "https://example.com/unterminated"',
+        'tags: [broken',
+      ].join('\n'),
+      'utf-8',
+    );
+
+    const skipped = [];
+    const articles = await parseLegacyArticles(libraryDir, {
+      onSkipMalformed: (input) => skipped.push({ filePath: input.filePath, reason: input.reason }),
+    });
+
+    assert.equal(articles.length, 1);
+    assert.equal(articles[0].url, 'https://example.com/valid');
+    assert.equal(skipped.length, 1);
+    assert.match(skipped[0].filePath, /2026-01-24-unterminated\.md$/);
+  });
 });
