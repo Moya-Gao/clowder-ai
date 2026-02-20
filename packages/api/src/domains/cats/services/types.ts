@@ -118,6 +118,8 @@ export interface AgentMessage {
   metadata?: MessageMetadata;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
+  messageId?: string;
   /** When this message was created */
   timestamp: number;
 }

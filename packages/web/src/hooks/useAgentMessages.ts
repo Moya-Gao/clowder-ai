@@ -23,6 +23,8 @@ interface AgentMsg {
   toolInput?: Record<string, unknown>;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
+  /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
+  messageId?: string;
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -160,7 +162,8 @@ export function useAgentMessages() {
 
         if (msg.origin === 'callback') {
           // MCP callback message: always a separate bubble (never merge into stream)
-          const id = `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
+          // Use backend messageId when available for rich_block correlation (#83 P2)
+          const id = msg.messageId ?? `msg-${Date.now()}-${msg.catId}-cb-${++cbSeq}`;
           addMessage({
             id,
             type: 'assistant',
@@ -382,24 +385,36 @@ export function useAgentMessages() {
             });
             consumed = true;
           } else if (parsed?.type === 'rich_block') {
-            // F22: Append rich block to current cat's active message
-            let ref = activeRefs.current.get(msg.catId);
-            if (!ref) {
-              // Callback-first: rich block arrived before text/tool_use — create message ref
-              const id = `msg-${Date.now()}-${msg.catId}`;
-              activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-              addMessage({
-                id,
-                type: 'assistant',
-                catId: msg.catId,
-                content: '',
-                timestamp: Date.now(),
-                isStreaming: true,
-              });
-              ref = activeRefs.current.get(msg.catId)!;
+            // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
+            let targetId: string | undefined;
+
+            // P2 fix: use messageId from callback post-message path for precise correlation
+            if (parsed.messageId) {
+              const found = useChatStore.getState().messages.find((m) => m.id === parsed.messageId);
+              if (found) targetId = found.id;
             }
+
+            if (!targetId) {
+              // Fallback: activeRefs (streaming context / Route A)
+              let ref = activeRefs.current.get(msg.catId);
+              if (!ref) {
+                const id = `msg-${Date.now()}-${msg.catId}`;
+                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+                addMessage({
+                  id,
+                  type: 'assistant',
+                  catId: msg.catId,
+                  content: '',
+                  timestamp: Date.now(),
+                  isStreaming: true,
+                });
+                ref = activeRefs.current.get(msg.catId)!;
+              }
+              targetId = ref.id;
+            }
+
             if (parsed.block) {
-              appendRichBlock(ref.id, parsed.block);
+              appendRichBlock(targetId, parsed.block);
             }
             consumed = true;
           } else if (parsed?.type === 'session_seal_requested') {

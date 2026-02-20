@@ -913,6 +913,95 @@ describe('Callback Routes', () => {
     assert.equal(recent[0].content, 'Fresh message from latest invocation');
   });
 
+  // ---- #83: Rich block extraction in post-message ----
+
+  test('POST post-message extracts cc_rich blocks and stores them in extra.rich', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-rb');
+
+    const richPayload = JSON.stringify({
+      v: 1,
+      blocks: [
+        { id: 'card-1', kind: 'card', v: 1, title: 'Test Card', tone: 'info' },
+      ],
+    });
+    const content = `Here is a card:\n\`\`\`cc_rich\n${richPayload}\n\`\`\`\nDone!`;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: { invocationId, callbackToken, content },
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(JSON.parse(response.body).status, 'ok');
+
+    // Stored message should have clean text (cc_rich stripped) + rich blocks
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    assert.equal(recent[0].content, 'Here is a card:\n\nDone!');
+    assert.ok(recent[0].extra?.rich, 'extra.rich should be present');
+    assert.equal(recent[0].extra.rich.v, 1);
+    assert.equal(recent[0].extra.rich.blocks.length, 1);
+    assert.equal(recent[0].extra.rich.blocks[0].kind, 'card');
+    assert.equal(recent[0].extra.rich.blocks[0].title, 'Test Card');
+  });
+
+  test('POST post-message broadcasts rich_block SSE events for extracted blocks', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-rb2');
+
+    const richPayload = JSON.stringify({
+      v: 1,
+      blocks: [
+        { id: 'diff-1', kind: 'diff', v: 1, filePath: 'src/foo.ts', diff: '- old\n+ new' },
+      ],
+    });
+    const content = `Check this:\n\`\`\`cc_rich\n${richPayload}\n\`\`\``;
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: { invocationId, callbackToken, content },
+    });
+
+    // Should have 2 broadcasts: 1 text + 1 rich_block system_info
+    const msgs = socketManager.getMessages();
+    const textMsg = msgs.find((m) => m.type === 'text');
+    assert.ok(textMsg, 'text broadcast should exist');
+    assert.equal(textMsg.content, 'Check this:');
+    // P2: text broadcast must include messageId for rich_block correlation
+    assert.ok(textMsg.messageId, 'text broadcast should include messageId');
+    assert.equal(typeof textMsg.messageId, 'string');
+
+    const richMsg = msgs.find((m) => m.type === 'system_info');
+    assert.ok(richMsg, 'rich_block system_info broadcast should exist');
+    const parsed = JSON.parse(richMsg.content);
+    assert.equal(parsed.type, 'rich_block');
+    assert.equal(parsed.block.kind, 'diff');
+    assert.equal(parsed.block.filePath, 'src/foo.ts');
+    // P2 cloud-review: rich_block SSE events must include messageId for frontend correlation
+    assert.ok(parsed.messageId, 'rich_block event should include messageId');
+    assert.equal(typeof parsed.messageId, 'string');
+  });
+
+  test('POST post-message without cc_rich blocks stores content as-is (no extra.rich)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-rb3');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: { invocationId, callbackToken, content: 'Plain message, no blocks' },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const recent = messageStore.getRecent(10);
+    assert.equal(recent.length, 1);
+    assert.equal(recent[0].content, 'Plain message, no blocks');
+    assert.equal(recent[0].extra, undefined);
+  });
+
   // ---- Play mode pagination backfill (砚砚 R5 regression) ----
 
   test('GET thread-context play mode returns full limit even when stream messages dominate', async () => {

@@ -29,7 +29,7 @@
 | 56 | **file_change 事件后前端失联 / 超时** | [~] | [bug report](./bug-report/file-change-event-frontend-disconnect/bug-report.md) | Why: 证据显示 `file_change completed` 后紧接服务重启与前端失联。风险边界：当前调试会话可能在首次文件编辑后断链。触发条件：完成最小复现（含 ws close reason）并确认前端/后端根因后再关闭。 |
 | 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
 | 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
-| 83 | **`post-message` 回调路径不支持 Rich Blocks** | [ ] | 2026-02-20 布偶猫排查 | F22 的 `extractRichFromText` 只在猫调用路径（`route-serial.ts:251`）执行，`callbacks.ts:post-message` handler 直接存原始文本 + SSE 广播原始文本，不做 `cc_rich` 提取。导致：猫猫通过 `post_message`（回复提及、主动发言、A2A 等场景）发送的富块显示为原始 JSON。修复：在 `post-message` handler 的 `messageStore.append` 前加 `extractRichFromText`，将提取的 blocks 存入 `extra.rich`，SSE 广播 `rich_block` 事件。 |
+| 83 | **`post-message` 回调路径不支持 Rich Blocks** | [~] | 2026-02-20 布偶猫排查 | `6cf30d3` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。待 review 合入后标 [x]。 |
 
 ## P2 — 建议做
 
@@ -38,7 +38,7 @@
 | 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。 |
 | 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [ ] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | QQ 邮箱 IMAP 轮询检测 GitHub review 邮件 → 解析 PR title `[猫名🐾]` 路由 → 自动 invoke 被 review 的猫 → 猫自主处理 P1/P2 → 推前端通知等铲屎官最终确认合入。依赖：`imapflow`，`IMAP_USER/IMAP_PASS` 环境变量（QQ 邮箱授权码）。|
 | 82 | **`onIntentMode` flat setter 线程切换竞态** | [ ] | split-pane invocation state R1 deep review P2 | `ChatContainer.tsx` L125-131 的 `onIntentMode` 回调使用 flat setter（`setLoading(true)` / `setHasActiveInvocation(true)`），在 thread 切换的 render→effect 窗口期（`threadIdRef` 已更新但 `setCurrentThread` 未触发），`intent_mode` 事件可能写入错误线程的 flat state。窗口极窄（毫秒级），复现概率低但理论路径存在。修复方向：将 `intent_mode` 事件路由改为 thread-scoped handler，或在 store 层增加 threadId 校验再写入。 |
-| 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [ ] | 2026-02-20 布偶猫排查 | F22 Route A（`create_rich_block` MCP callback）依赖 `invocationId` + `callbackToken` 鉴权，两者绑定 invocation 生命周期。在 `post_message` 交互场景（无活跃 invocation）或 token 过期后，`create_rich_block` 返回 401。Root cause：callback token 设计为 invocation-scoped，非 session-scoped。修复方向：引入 session-scoped token 或 long-lived API key，让猫猫在非 invocation 上下文也能创建富块。比 #83 复杂，#83 修复后 Route B（cc_rich 文本内嵌）可作 fallback。 |
+| 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [~] | 2026-02-20 布偶猫排查 | `40d1f2d` — `handleCreateRichBlock` 加 Route A→B 降级链：Route A (direct callback) 失败 → Route B (post_message + cc_rich text) → 两路皆败返回 cc_rich hint。5 new tests。Token 生命周期根因未改（需 session-scoped token），但降级保证可用性。待 review 合入后标 [x]。 |
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |
 | 9 | 前端图片压缩 | [x] | Phase 3.2 review | Phase 5.2 — compressImage.ts Canvas API 压缩 (maxWidth=1920, sweep 0.8→0.3) |

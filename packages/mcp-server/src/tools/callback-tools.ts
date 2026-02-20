@@ -169,6 +169,11 @@ export const createRichBlockInputSchema = {
     .describe('JSON string of the rich block object. Must include id, kind, v:1, and kind-specific fields.'),
 };
 
+/**
+ * #84: Route A → Route B fallback for rich block creation.
+ * Tries direct callback first; on failure, falls back to post_message with cc_rich text
+ * (which is extracted server-side after #83 fix).
+ */
 export async function handleCreateRichBlock(input: {
   block: string;
 }): Promise<ToolResult> {
@@ -183,9 +188,32 @@ export async function handleCreateRichBlock(input: {
     return errorResult('Block must include id and kind fields');
   }
 
-  return callbackPost('/api/callbacks/create-rich-block', {
+  // Route A: direct rich block callback (buffers for invocation response)
+  const result = await callbackPost('/api/callbacks/create-rich-block', {
     block: parsed,
   }, { enableOutbox: true });
+  if (!result.isError) return result;
+
+  // P1 cloud-review: only fallback to Route B for auth/config failures.
+  // Validation errors (400/422) must surface directly, not be silently swallowed.
+  const errorText = result.content[0]?.type === 'text' ? result.content[0].text : '';
+  const isAuthOrConfigFailure = /\(40[13]\)/.test(errorText) || /not configured/i.test(errorText);
+  if (!isAuthOrConfigFailure) return result;
+
+  // Route A auth/config failed — try Route B: cc_rich text via post_message (#83 extracts it server-side)
+  const ccRichText = `\`\`\`cc_rich\n${JSON.stringify({ v: 1, blocks: [parsed] })}\n\`\`\``;
+  const fallback = await handlePostMessage({
+    content: ccRichText,
+    clientMessageId: randomUUID(),
+  });
+  if (!fallback.isError) {
+    return successResult(JSON.stringify({ status: 'ok', route: 'B_fallback' }));
+  }
+
+  // Both routes failed — return error with embeddable cc_rich hint
+  return errorResult(
+    `Rich block creation failed (callback token expired or missing). As a workaround, include this in your message text:\n\n${ccRichText}`,
+  );
 }
 
 export const requestPermissionInputSchema = {

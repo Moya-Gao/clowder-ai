@@ -555,4 +555,115 @@ describe('MCP Callback Tools', () => {
     assert.equal(result.isError, undefined);
     assert.equal(readdirSync(outboxDir).length, 0, 'stale entry should be dropped after max attempts');
   });
+
+  // ---- #84: create_rich_block Route A → Route B fallback ----
+
+  test('handleCreateRichBlock succeeds via Route A when callback works', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url, _options) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const block = JSON.stringify({ id: 'c1', kind: 'card', v: 1, title: 'Test' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/create-rich-block'));
+  });
+
+  test('handleCreateRichBlock falls back to Route B (post_message + cc_rich) when Route A fails', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const capturedUrls = [];
+    globalThis.fetch = async (url, _options) => {
+      capturedUrls.push(url);
+      if (url.includes('create-rich-block')) {
+        // Route A fails
+        return { ok: false, status: 401, text: async () => 'Expired' };
+      }
+      // Route B (post-message) succeeds
+      return { ok: true, json: async () => ({ status: 'ok' }) };
+    };
+
+    const block = JSON.stringify({ id: 'd1', kind: 'diff', v: 1, filePath: 'x.ts', diff: '-a\n+b' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, undefined);
+    const text = result.content[0].text;
+    assert.ok(text.includes('B_fallback'), 'should indicate Route B fallback was used');
+    // Verify both endpoints were tried
+    assert.ok(capturedUrls.some((u) => u.includes('create-rich-block')), 'Route A attempted');
+    assert.ok(capturedUrls.some((u) => u.includes('post-message')), 'Route B fallback attempted');
+  });
+
+  test('handleCreateRichBlock returns error with cc_rich hint when both routes fail', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 401,
+      text: async () => 'Expired token',
+    });
+
+    const block = JSON.stringify({ id: 'c2', kind: 'card', v: 1, title: 'Hint Test' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, true);
+    const text = result.content[0].text;
+    assert.ok(text.includes('cc_rich'), 'error should contain cc_rich hint text');
+    assert.ok(text.includes('Hint Test'), 'error should contain the block content');
+  });
+
+  test('handleCreateRichBlock does NOT fallback on validation error (400)', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const capturedUrls = [];
+    globalThis.fetch = async (url, _options) => {
+      capturedUrls.push(url);
+      // Route A returns 400 validation error
+      return { ok: false, status: 400, text: async () => 'Missing required card fields' };
+    };
+
+    const block = JSON.stringify({ id: 'v1', kind: 'card', v: 1, title: 'Test' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes('400'), 'should surface the 400 error');
+    // Should NOT have attempted post-message (Route B)
+    assert.ok(!capturedUrls.some((u) => u.includes('post-message')), 'should NOT fallback to Route B for validation errors');
+  });
+
+  test('handleCreateRichBlock rejects invalid JSON', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const result = await handleCreateRichBlock({ block: 'not json {' });
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes('Invalid JSON'));
+  });
+
+  test('handleCreateRichBlock rejects block without id or kind', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const result = await handleCreateRichBlock({ block: '{"v": 1}' });
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes('id and kind'));
+  });
 });

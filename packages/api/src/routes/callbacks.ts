@@ -20,6 +20,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import type { RichBlock } from '@cat-cafe/shared';
+import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
@@ -111,39 +112,55 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         }
       }
 
+      // #83: Extract cc_rich blocks from post_message content (Route B for callback path)
+      const { cleanText: storedContent, blocks: richBlocks } = extractRichFromText(content);
+
       // Parse line-start @mentions (A2A rule: only line-start, strip code blocks, single target)
       // Uses parseA2AMentions instead of resolveTargetsAndIntent to avoid
       // participants/default-opus fallback triggering on non-@ messages (P1-1)
       // and inline @mentions triggering invocations (P1-2).
       const senderCatId = createCatId(record.catId);
-      const targetCats = parseA2AMentions(content, senderCatId);
+      const targetCats = parseA2AMentions(storedContent, senderCatId);
       const mentions: CatId[] = [...targetCats];
 
       // Store the message (scoped to the invocation's thread)
       const storedMsg = await messageStore.append({
         userId: record.userId,
         catId: record.catId,
-        content,
+        content: storedContent,
         mentions,
         origin: 'callback',
         timestamp: Date.now(),
         threadId: record.threadId,
+        ...(richBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: richBlocks } } } : {}),
       });
 
       socketManager.broadcastAgentMessage({
         type: 'text',
         catId: record.catId,
-        content,
+        content: storedContent,
         origin: 'callback',
+        messageId: storedMsg.id,
         timestamp: Date.now(),
       }, record.threadId);
+
+      // #83: Broadcast each extracted rich block as SSE event for live rendering
+      // P2 cloud-review: include messageId for frontend correlation
+      for (const block of richBlocks) {
+        socketManager.broadcastAgentMessage({
+          type: 'system_info' as const,
+          catId: record.catId,
+          content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
+          timestamp: Date.now(),
+        }, record.threadId);
+      }
 
       // F27: Enqueue @mentioned cats into parent worklist (unified A2A path)
       if (targetCats.length > 0 && router && invocationRecordStore && record.threadId) {
         await enqueueA2ATargets(
           { router, invocationRecordStore, socketManager,
             ...(invocationTracker ? { invocationTracker } : {}), log: app.log },
-          { targetCats, content, userId: record.userId,
+          { targetCats, content: storedContent, userId: record.userId,
             threadId: record.threadId, triggerMessage: storedMsg,
             callerCatId: senderCatId },
         );
