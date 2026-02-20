@@ -150,7 +150,9 @@ function renderToolEvents(events: ToolEvent[]) {
 
 /** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
 function ThinkingContent({ content, className }: { content: string; className?: string }) {
-  const [expanded, setExpanded] = useState(false);
+  // In export mode (?export=true), default to expanded so screenshots show full content
+  const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
+  const [expanded, setExpanded] = useState(isExport);
   const previewLength = 60;
   const preview = content.length > previewLength
     ? `${content.slice(0, previewLength)}…`

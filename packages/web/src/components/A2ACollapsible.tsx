@@ -16,7 +16,9 @@ interface A2ACollapsibleProps {
  * Shows a summary line when collapsed; expands to show all intermediate messages.
  */
 export function A2ACollapsible({ group, renderMessage }: A2ACollapsibleProps) {
-  const [expanded, setExpanded] = useState(false);
+  // In export mode (?export=true), default to expanded so screenshots show full A2A conversations
+  const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
+  const [expanded, setExpanded] = useState(isExport);
 
   const catIds = [...new Set(group.messages.filter((m) => m.catId).map((m) => m.catId!))];
   const catLabel = catIds.length > 0 ? catIds.join(' ↔ ') : 'agents';

@@ -37,8 +37,12 @@ export class ImageExporter {
       // Set initial viewport
       await page.setViewport({ width: 1280, height: 720 });
 
+      // Append export=true so the frontend expands collapsible content (e.g. ThinkingContent)
+      const exportUrl = new URL(url);
+      exportUrl.searchParams.set('export', 'true');
+
       // Navigate to target page, wait for network idle
-      await page.goto(url, {
+      await page.goto(exportUrl.toString(), {
         waitUntil: 'networkidle2',
         timeout: 30000,
       });
