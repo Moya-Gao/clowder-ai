@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
 import { useTaskStore, type TaskItem } from '@/stores/taskStore';
 import { useSocket, type SocketCallbacks } from '@/hooks/useSocket';
@@ -288,6 +289,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
           </div>
           <ExportButton threadId={threadId} />
+          <Link
+            href="/signals"
+            className="p-1 rounded-lg hover:bg-owner-light transition-colors"
+            title="Signal Inbox"
+            aria-label="Signal Inbox"
+          >
+            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 011.414-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 011.415-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+            </svg>
+          </Link>
           {authPending.length > 0 && (
             <span
               className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
