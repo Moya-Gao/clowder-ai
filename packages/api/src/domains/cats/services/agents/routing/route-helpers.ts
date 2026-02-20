@@ -62,6 +62,10 @@ export interface IncrementalContextResult {
   contextText: string;
   boundaryId?: string;
   includesCurrentUserMessage: boolean;
+  /** True when the current user message exists in unseen but was filtered out
+   *  (e.g. whisper not intended for this cat). Callers must NOT inject the raw
+   *  message text as fallback when this is true — doing so would leak whisper content. */
+  currentMessageFilteredOut: boolean;
 }
 
 /** Get the agent service for a given cat ID */
@@ -215,7 +219,7 @@ export async function assembleIncrementalContext(
   thinkingMode?: 'debug' | 'play',
 ): Promise<IncrementalContextResult> {
   if (!deps.deliveryCursorStore) {
-    return { contextText: '', includesCurrentUserMessage: false };
+    return { contextText: '', includesCurrentUserMessage: false, currentMessageFilteredOut: false };
   }
 
   const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
@@ -236,10 +240,17 @@ export async function assembleIncrementalContext(
   const includesCurrentUserMessage = Boolean(
     currentUserMessageId && relevant.some((m) => m.id === currentUserMessageId),
   );
+  // F35 fix: detect when the current message was present but filtered out by visibility
+  // (e.g. whisper not intended for this cat). Must NOT fallback-inject in that case.
+  const currentMessageFilteredOut = Boolean(
+    currentUserMessageId
+      && !includesCurrentUserMessage
+      && unseen.some((m) => m.id === currentUserMessageId),
+  );
   if (relevant.length === 0) {
     return cursor
-      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage }
-      : { contextText: '', includesCurrentUserMessage };
+      ? { contextText: '', boundaryId: cursor, includesCurrentUserMessage, currentMessageFilteredOut }
+      : { contextText: '', includesCurrentUserMessage, currentMessageFilteredOut };
   }
 
   const lines = relevant.map((m) => {
@@ -258,5 +269,6 @@ export async function assembleIncrementalContext(
     contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n---`,
     boundaryId,
     includesCurrentUserMessage,
+    currentMessageFilteredOut,
   };
 }

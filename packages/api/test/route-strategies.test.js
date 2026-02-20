@@ -390,6 +390,48 @@ describe('routeSerial A2A worklist', () => {
     assert.ok(prompt.includes('CURRENT USER MESSAGE'), 'prompt must include current user message explicitly when missing from unseen history');
   });
 
+  it('incremental mode: does NOT inject whisper content for non-recipient cat (F35 privacy fix)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const codexService = createCapturingService('codex', 'ack');
+
+    const deps = createMockDeps({ codex: codexService });
+    deps.deliveryCursorStore = {
+      getCursor: async () => undefined,
+      ackCursor: async () => {},
+    };
+    // The unseen list contains a whisper message intended only for opus.
+    // When codex is the target cat, this message should be filtered out AND
+    // the raw message text must NOT be injected as fallback.
+    const whisperMsgId = '0000000000000001-000001-whisper01';
+    deps.messageStore.getByThreadAfter = async () => [
+      {
+        id: whisperMsgId,
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: 'SECRET: 图灵是狼人',
+        mentions: ['opus'],
+        timestamp: Date.now(),
+        visibility: 'whisper',
+        whisperTo: ['opus'],
+      },
+    ];
+
+    for await (const _ of routeSerial(
+      deps,
+      ['codex'],
+      'SECRET: 图灵是狼人',
+      'user1',
+      'thread1',
+      { currentUserMessageId: whisperMsgId },
+    )) {}
+
+    assert.equal(codexService.calls.length, 1, 'codex should be called once');
+    const prompt = codexService.calls[0];
+    assert.ok(!prompt.includes('图灵'), 'whisper content must NOT appear in non-recipient prompt');
+    assert.ok(!prompt.includes('SECRET'), 'whisper content must NOT leak via fallback injection');
+  });
+
   it('sanitize should preserve normal markdown separator lines', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const appendCalls = [];

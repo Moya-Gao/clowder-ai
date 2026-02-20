@@ -108,7 +108,9 @@ export async function* routeParallel(
       const parCatModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
       const parts = [invocationContext, parCatModePrompt, bootstrapCtx, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
-      if (!inc.includesCurrentUserMessage) parts.push(message);
+      // F35 fix: only inject raw message when it was genuinely absent from unseen rows.
+      // If it was present but filtered out (e.g. whisper), injecting would leak private content.
+      if (!inc.includesCurrentUserMessage && !inc.currentMessageFilteredOut) parts.push(message);
       prompt = parts.join('\n\n---\n\n');
     } else {
       // Per-cat context budget (Phase 4.0)
