@@ -512,6 +512,47 @@ describe('routeParallel resilience', () => {
   });
 });
 
+describe('routeParallel whisper privacy (F35)', () => {
+  it('does NOT inject whisper content for non-recipient cat in parallel mode', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+    const codexService = createCapturingService('codex', 'ack');
+
+    const deps = createMockDeps({ codex: codexService });
+    deps.deliveryCursorStore = {
+      getCursor: async () => undefined,
+      ackCursor: async () => {},
+    };
+    const whisperMsgId = '0000000000000001-000001-whisper02';
+    deps.messageStore.getByThreadAfter = async () => [
+      {
+        id: whisperMsgId,
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: 'SECRET: 图灵是狼人',
+        mentions: ['opus'],
+        timestamp: Date.now(),
+        visibility: 'whisper',
+        whisperTo: ['opus'],
+      },
+    ];
+
+    for await (const _ of routeParallel(
+      deps,
+      ['codex'],
+      'SECRET: 图灵是狼人',
+      'user1',
+      'thread1',
+      { currentUserMessageId: whisperMsgId },
+    )) {}
+
+    assert.equal(codexService.calls.length, 1, 'codex should be called once');
+    const prompt = codexService.calls[0];
+    assert.ok(!prompt.includes('图灵'), 'whisper content must NOT appear in non-recipient prompt (parallel)');
+    assert.ok(!prompt.includes('SECRET'), 'whisper content must NOT leak via parallel fallback injection');
+  });
+});
+
 describe('routeParallel tool events persistence', () => {
   it('persists toolEvents per cat when agents yield tool_use events', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
