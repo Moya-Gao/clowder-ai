@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SignalSource } from '@cat-cafe/shared';
-import { fetchSignalSources, updateSignalSource } from '@/utils/signals-api';
+import { fetchSignalSources, triggerSourceFetch, updateSignalSource } from '@/utils/signals-api';
 import { groupSignalSourcesByTierAndCategory } from '@/utils/signals-view';
 import { SignalNav } from './SignalNav';
 import { SignalTierBadge } from './SignalTierBadge';
@@ -11,6 +11,8 @@ export function SignalSourcesView() {
   const [sources, setSources] = useState<readonly SignalSource[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [fetchingIds, setFetchingIds] = useState<ReadonlySet<string>>(new Set());
+  const [fetchResult, setFetchResult] = useState<{ sourceId: string; message: string; ok: boolean } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reloadSources = useCallback(async () => {
@@ -45,6 +47,33 @@ export function SignalSourcesView() {
       setError(updateError instanceof Error ? updateError.message : '更新信源失败');
     } finally {
       setUpdatingId(null);
+    }
+  }, []);
+
+  const doFetch = useCallback(async (sourceId: string) => {
+    setError(null);
+    setFetchResult(null);
+    setFetchingIds((prev) => new Set([...prev, sourceId]));
+    try {
+      const result = await triggerSourceFetch(sourceId);
+      const { summary } = result;
+      const hasErrors = summary.errors.length > 0;
+      const msg = hasErrors
+        ? `Fetch 失败: ${summary.errors[0]?.message ?? 'unknown error'}`
+        : `抓取 ${summary.fetchedArticles} 篇，新增 ${summary.newArticles} 篇，去重 ${summary.duplicateArticles} 篇`;
+      setFetchResult({ sourceId, message: msg, ok: !hasErrors });
+    } catch (fetchError) {
+      setFetchResult({
+        sourceId,
+        message: fetchError instanceof Error ? fetchError.message : '抓取请求失败',
+        ok: false,
+      });
+    } finally {
+      setFetchingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(sourceId);
+        return next;
+      });
     }
   }, []);
 
@@ -93,6 +122,16 @@ export function SignalSourcesView() {
         </section>
 
         {error && <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">请求失败: {error}</div>}
+        {fetchResult && (
+          <div
+            className={[
+              'rounded-lg border px-3 py-2 text-sm',
+              fetchResult.ok ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700',
+            ].join(' ')}
+          >
+            <span className="font-semibold">{fetchResult.sourceId}</span>: {fetchResult.message}
+          </div>
+        )}
         {loading && <p className="text-sm text-gray-500">加载中...</p>}
 
         <section className="space-y-4">
@@ -131,19 +170,29 @@ export function SignalSourcesView() {
                           {source.fetch.method} · {source.schedule.frequency}
                         </p>
                       </div>
-                      <button
-                        type="button"
-                        disabled={updatingId === source.id}
-                        onClick={() => void setEnabled(source.id, !source.enabled)}
-                        className={[
-                          'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
-                          source.enabled
-                            ? 'border-codex-light bg-codex-bg text-codex-dark'
-                            : 'border-gray-300 bg-gray-100 text-gray-600',
-                        ].join(' ')}
-                      >
-                        {updatingId === source.id ? '更新中...' : source.enabled ? 'ON' : 'OFF'}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={fetchingIds.has(source.id)}
+                          onClick={() => void doFetch(source.id)}
+                          className="rounded-full border border-opus-light px-3 py-1 text-xs font-semibold text-opus-dark transition-colors hover:bg-opus-bg disabled:opacity-50"
+                        >
+                          {fetchingIds.has(source.id) ? '抓取中...' : 'Fetch'}
+                        </button>
+                        <button
+                          type="button"
+                          disabled={updatingId === source.id}
+                          onClick={() => void setEnabled(source.id, !source.enabled)}
+                          className={[
+                            'rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
+                            source.enabled
+                              ? 'border-codex-light bg-codex-bg text-codex-dark'
+                              : 'border-gray-300 bg-gray-100 text-gray-600',
+                          ].join(' ')}
+                        >
+                          {updatingId === source.id ? '更新中...' : source.enabled ? 'ON' : 'OFF'}
+                        </button>
+                      </div>
                     </div>
                   </li>
                 ))}

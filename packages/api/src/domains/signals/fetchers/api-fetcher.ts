@@ -108,6 +108,25 @@ async function toHttpErrorMessage(response: JsonResponseLike): Promise<string> {
   }
 }
 
+function isGitHubApiUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' && parsed.hostname === 'api.github.com';
+  } catch {
+    return false;
+  }
+}
+
+function resolveHeaders(source: SignalSource): Record<string, string> | undefined {
+  const base = source.fetch.headers ?? {};
+  if (!isGitHubApiUrl(source.url)) return source.fetch.headers;
+
+  const pat = process.env['GITHUB_MCP_PAT'];
+  if (!pat) return source.fetch.headers;
+
+  return { ...base, Authorization: `Bearer ${pat}` };
+}
+
 export class ApiFetcher implements Fetcher {
   private readonly fetchImpl: FetchLike;
 
@@ -143,7 +162,7 @@ export class ApiFetcher implements Fetcher {
 
     try {
       const response = await this.fetchImpl(source.url, {
-        headers: source.fetch.headers,
+        headers: resolveHeaders(source),
         signal: controller.signal,
       });
       if (!response.ok) {

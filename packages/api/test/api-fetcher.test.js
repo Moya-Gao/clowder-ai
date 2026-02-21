@@ -125,6 +125,97 @@ describe('ApiFetcher', () => {
     assert.match(result.errors[0].message, /API rate limit exceeded/);
   });
 
+  it('injects GITHUB_MCP_PAT as Authorization header for api.github.com URLs', async () => {
+    const originalPat = process.env.GITHUB_MCP_PAT;
+    process.env.GITHUB_MCP_PAT = 'ghp_test_token_123';
+    try {
+      let capturedHeaders;
+      const fetcher = new ApiFetcher(async (_url, options) => {
+        capturedHeaders = options?.headers;
+        return createJsonResponse([]);
+      });
+
+      await fetcher.fetch(createSource());
+
+      assert.ok(capturedHeaders, 'headers must be passed to fetch');
+      assert.equal(capturedHeaders.Authorization, 'Bearer ghp_test_token_123');
+      assert.equal(capturedHeaders.Accept, 'application/json');
+    } finally {
+      if (originalPat === undefined) {
+        delete process.env.GITHUB_MCP_PAT;
+      } else {
+        process.env.GITHUB_MCP_PAT = originalPat;
+      }
+    }
+  });
+
+  it('does NOT inject PAT for lookalike GitHub URLs (hostname spoofing)', async () => {
+    const originalPat = process.env.GITHUB_MCP_PAT;
+    process.env.GITHUB_MCP_PAT = 'ghp_test_token_123';
+    try {
+      const spoofUrls = [
+        'https://api.github.com.evil.tld/repos',
+        'https://api.github.com@evil.tld/repos',
+        'https://fake-api.github.com/repos',
+        'http://api.github.com/repos',  // plaintext HTTP — PAT must not leak
+      ];
+      for (const spoofUrl of spoofUrls) {
+        let capturedHeaders;
+        const fetcher = new ApiFetcher(async (_url, options) => {
+          capturedHeaders = options?.headers;
+          return createJsonResponse([]);
+        });
+
+        await fetcher.fetch(
+          createSource({
+            url: spoofUrl,
+            fetch: { method: 'api', headers: { Accept: 'application/json' } },
+          }),
+        );
+
+        assert.equal(
+          capturedHeaders?.Authorization,
+          undefined,
+          `PAT must not leak to spoofed URL: ${spoofUrl}`,
+        );
+      }
+    } finally {
+      if (originalPat === undefined) {
+        delete process.env.GITHUB_MCP_PAT;
+      } else {
+        process.env.GITHUB_MCP_PAT = originalPat;
+      }
+    }
+  });
+
+  it('does NOT inject PAT for non-GitHub API URLs', async () => {
+    const originalPat = process.env.GITHUB_MCP_PAT;
+    process.env.GITHUB_MCP_PAT = 'ghp_test_token_123';
+    try {
+      let capturedHeaders;
+      const fetcher = new ApiFetcher(async (_url, options) => {
+        capturedHeaders = options?.headers;
+        return createJsonResponse([]);
+      });
+
+      await fetcher.fetch(
+        createSource({
+          url: 'https://hn.algolia.com/api/v1/search?query=agent',
+          fetch: { method: 'api', headers: { Accept: 'application/json' } },
+        }),
+      );
+
+      assert.ok(capturedHeaders);
+      assert.equal(capturedHeaders.Authorization, undefined, 'non-GitHub URLs should not get PAT');
+    } finally {
+      if (originalPat === undefined) {
+        delete process.env.GITHUB_MCP_PAT;
+      } else {
+        process.env.GITHUB_MCP_PAT = originalPat;
+      }
+    }
+  });
+
   it('fetch rejects non-api source with clear error payload', async () => {
     const fetcher = new ApiFetcher(async () => createJsonResponse([]));
 

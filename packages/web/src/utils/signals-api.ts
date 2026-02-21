@@ -142,6 +142,24 @@ export async function updateSignalSource(sourceId: string, enabled: boolean): Pr
   return data.source;
 }
 
+export interface FetchSourceResult {
+  readonly summary: {
+    readonly fetchedArticles: number;
+    readonly newArticles: number;
+    readonly storedArticles: number;
+    readonly duplicateArticles: number;
+    readonly errors: readonly { readonly source: string; readonly message: string }[];
+  };
+}
+
+export async function triggerSourceFetch(sourceId: string): Promise<FetchSourceResult> {
+  const response = await apiFetch(`/api/signals/sources/${encodeURIComponent(sourceId)}/fetch`, {
+    method: 'POST',
+  });
+  await requireOk(response);
+  return (await response.json()) as FetchSourceResult;
+}
+
 export async function fetchSignalStats(): Promise<SignalArticleStats> {
   const response = await apiFetch('/api/signals/stats');
   await requireOk(response);

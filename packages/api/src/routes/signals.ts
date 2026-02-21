@@ -3,6 +3,7 @@ import { SignalArticleStatusSchema, type SignalTier } from '@cat-cafe/shared';
 import { z } from 'zod';
 import { loadSignalSources, resolveSignalPaths, saveSignalSources } from '../domains/signals/config/sources-loader.js';
 import { SignalArticleQueryService } from '../domains/signals/services/article-query-service.js';
+import { runSignalFetchScheduler } from '../domains/signals/services/fetch-scheduler.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 const listInboxQuerySchema = z.object({
@@ -251,6 +252,42 @@ export const signalsRoutes: FastifyPluginAsync = async (app) => {
     return {
       source: updated,
     };
+  });
+
+  app.post('/api/signals/sources/:id/fetch', async (request, reply) => {
+    if (!requireIdentity(request, reply)) {
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const params = request.params as { id?: string };
+    if (!params.id || params.id.trim().length === 0) {
+      reply.status(400);
+      return { error: 'Source id is required' };
+    }
+
+    const config = await loadSignalSources(paths);
+    const source = config.sources.find((s) => s.id === params.id);
+    if (!source) {
+      reply.status(404);
+      return { error: `Source not found: ${params.id}` };
+    }
+
+    const noopEmail = () => ({ sendDailyDigest: async () => ({ status: 'skipped' as const }) });
+    const noopInApp = () => ({ publishDailyDigest: async () => ({ status: 'skipped' as const }) });
+
+    const summary = await runSignalFetchScheduler({
+      sourceId: params.id,
+      paths,
+      createEmailService: noopEmail,
+      createInAppService: noopInApp,
+    });
+
+    if (summary.errors.length > 0 && summary.storedArticles === 0) {
+      reply.status(502);
+      return { error: 'Fetch failed', summary };
+    }
+
+    return { summary };
   });
 
   app.get('/api/signals/stats', async (request, reply) => {
