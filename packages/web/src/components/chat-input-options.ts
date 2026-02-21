@@ -10,7 +10,7 @@ export interface CatOption {
 }
 
 /** Build @mention autocomplete options from dynamic cat data.
- *  Filters out cats with no mentionPatterns (not routable by backend). */
+ *  Filters out cats with no mentionPatterns (not routable via @mention). */
 export function buildCatOptions(cats: CatData[]): CatOption[] {
   return cats
     .filter((cat) => cat.mentionPatterns.length > 0)
@@ -22,6 +22,19 @@ export function buildCatOptions(cats: CatData[]): CatOption[] {
       color: cat.color.primary,
       avatar: cat.avatar,
     }));
+}
+
+/** Build whisper target options from dynamic cat data.
+ *  Includes ALL cats — whisper routing accepts any catId regardless of mentionPatterns. */
+export function buildWhisperOptions(cats: CatData[]): CatOption[] {
+  return cats.map((cat) => ({
+    id: cat.id,
+    label: `@${cat.displayName}`,
+    desc: cat.roleDescription,
+    insert: cat.mentionPatterns.length > 0 ? `@${cat.mentionPatterns[0].replace(/^@/, '')} ` : '',
+    color: cat.color.primary,
+    avatar: cat.avatar,
+  }));
 }
 
 export const MODE_OPTIONS = [

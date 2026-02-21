@@ -5,7 +5,7 @@ import { AttachIcon } from './icons/AttachIcon';
 import { ImagePreview } from './ImagePreview';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import { buildCatOptions, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
+import { buildCatOptions, buildWhisperOptions, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { MobileInputToolbar } from './MobileInputToolbar';
 import { useCatData } from '@/hooks/useCatData';
 import { compressImage } from '@/utils/compressImage';
@@ -33,6 +33,7 @@ export function ChatInput({
 }: ChatInputProps) {
   const { cats } = useCatData();
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
+  const whisperOptions = useMemo(() => buildWhisperOptions(cats), [cats]);
 
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
@@ -199,25 +200,25 @@ export function ChatInput({
     setSelectedIdx((i) => Math.min(i, Math.max(0, catOptions.length - 1)));
   }, [catOptions, showMentions]);
 
-  // Reconcile whisperTargets when catOptions change (e.g. after API fetch replaces fallback)
+  // Reconcile whisperTargets when whisperOptions change (e.g. after API fetch replaces fallback)
   useEffect(() => {
     if (!whisperMode) return;
-    const validIds = new Set(catOptions.map((c) => c.id));
+    const validIds = new Set(whisperOptions.map((c) => c.id));
     setWhisperTargets((prev) => {
       const filtered = new Set([...prev].filter((id) => validIds.has(id)));
       return filtered.size === prev.size ? prev : filtered;
     });
-  }, [catOptions, whisperMode]);
+  }, [whisperOptions, whisperMode]);
 
   const handleWhisperToggle = useCallback(() => {
     setWhisperMode((prev) => {
       if (!prev) {
-        // Entering whisper mode — auto-select all cats
-        setWhisperTargets(new Set(catOptions.map((c) => c.id)));
+        // Entering whisper mode — auto-select all cats (including those without mentionPatterns)
+        setWhisperTargets(new Set(whisperOptions.map((c) => c.id)));
       }
       return !prev;
     });
-  }, [catOptions]);
+  }, [whisperOptions]);
 
   const handleModeClick = useCallback(() => {
     setShowMentions(false);
@@ -279,7 +280,7 @@ export function ChatInput({
       {whisperMode && (
         <div className="px-4 pt-2 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
-          {catOptions.map((cat) => (
+          {whisperOptions.map((cat) => (
             <button
               key={cat.id}
               onClick={() => toggleWhisperTarget(cat.id)}
