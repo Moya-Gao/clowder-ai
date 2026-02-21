@@ -63,3 +63,32 @@ export interface RichMessageExtra {
   v: 1;
   blocks: RichBlock[];
 }
+
+// ── Normalization (#85 format tolerance) ────────────────────
+
+const VALID_KINDS: readonly string[] = ['card', 'diff', 'checklist', 'media_gallery'];
+
+/**
+ * #85: Normalize a raw rich block object (mutating).
+ * - `type → kind` alias: if object has `type` but not `kind`, and `type` is a valid kind → rename
+ * - Auto-fill `v: 1`: if object has `kind` but no `v` field → add `v: 1`
+ */
+export function normalizeRichBlock(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const obj = raw as Record<string, unknown>;
+
+  // type → kind alias
+  if ('type' in obj && !('kind' in obj)) {
+    if (VALID_KINDS.includes(obj['type'] as string)) {
+      obj['kind'] = obj['type'];
+      delete obj['type'];
+    }
+  }
+
+  // Auto-fill v: 1
+  if (!('v' in obj) && 'kind' in obj) {
+    obj['v'] = 1;
+  }
+
+  return obj;
+}

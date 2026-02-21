@@ -5,6 +5,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
+import { normalizeRichBlock } from '@cat-cafe/shared';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
 import { sendCallbackRequest } from './callback-outbox.js';
@@ -183,6 +184,9 @@ export async function handleCreateRichBlock(input: {
   } catch {
     return errorResult('Invalid JSON in block parameter');
   }
+
+  // #85 M2c: normalize before validation (type→kind, auto v:1)
+  parsed = normalizeRichBlock(parsed);
 
   if (!parsed || typeof parsed !== 'object' || !('id' in parsed) || !('kind' in parsed)) {
     return errorResult('Block must include id and kind fields');

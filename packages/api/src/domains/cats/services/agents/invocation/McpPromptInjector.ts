@@ -130,6 +130,7 @@ curl -sS -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
     --arg t "$CAT_CAFE_CALLBACK_TOKEN" \\
     '{invocationId:$i,callbackToken:$t,block:{id:"b1",kind:"card",v:1,title:"标题",bodyMarkdown:"内容",tone:"info"}}')"
 \`\`\`
+⚠️ 字段名是 "kind"（不是 "type"！），必须有 "v": 1。
 支持的 kind: card（卡片）、diff（代码变更）、checklist（检查清单）、media_gallery（图片集）。
 当 HTTP 回调不可用时，可在回复中嵌入文本格式的富消息块作为备选：
 \\\`\\\`\\\`cc_rich
@@ -163,8 +164,8 @@ curl -sS -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
 - 提问和讨论（除非需要结构化选项）
 - 不确定用哪种 → 不用
 
-**字段要求**：
-- 每个 block 必须有唯一 \`id\`（如 "b1"/"b2"）和 \`v: 1\`
+**字段要求**（⚠️ 注意 kind 不是 type！）：
+- 每个 block 必须有 \`"kind"\`（不是 \`"type"\`！）和 \`"v": 1\`，以及唯一 \`id\`
 - card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
 - diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
 - checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选

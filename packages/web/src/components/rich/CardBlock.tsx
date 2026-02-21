@@ -1,6 +1,7 @@
 'use client';
 
 import type { RichCardBlock } from '@/stores/chat-types';
+import { MarkdownContent } from '@/components/MarkdownContent';
 
 const TONE_STYLES: Record<string, string> = {
   info: 'border-l-blue-400 bg-blue-50 dark:bg-blue-950/30',
@@ -16,8 +17,8 @@ export function CardBlock({ block }: { block: RichCardBlock }) {
     <div className={`border-l-4 rounded-r-lg p-3 ${toneStyle}`}>
       <div className="font-medium text-sm">{block.title}</div>
       {block.bodyMarkdown && (
-        <div className="mt-1 text-xs text-gray-600 dark:text-gray-300 whitespace-pre-wrap">
-          {block.bodyMarkdown}
+        <div className="mt-1 text-xs text-gray-600 dark:text-gray-300 [&_.markdown-content]:text-xs [&_p]:mb-1 [&_p:last-child]:mb-0">
+          <MarkdownContent content={block.bodyMarkdown} className="!text-xs" disableCommandPrefix />
         </div>
       )}
       {block.fields && block.fields.length > 0 && (

@@ -20,6 +20,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import type { RichBlock } from '@cat-cafe/shared';
+import { normalizeRichBlock } from '@cat-cafe/shared';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
 import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
@@ -382,7 +383,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
 
     // F22: Rich block creation via MCP callback
     app.post('/api/callbacks/create-rich-block', async (request, reply) => {
-      const parsed = createRichBlockSchema.safeParse(request.body);
+      // #85 M2b: normalize block before Zod parse (type→kind, auto v:1)
+      const rawBody = request.body as Record<string, unknown>;
+      if (rawBody && typeof rawBody === 'object' && rawBody['block']) {
+        normalizeRichBlock(rawBody['block']);
+      }
+
+      const parsed = createRichBlockSchema.safeParse(rawBody);
       if (!parsed.success) {
         reply.status(400);
         return { error: 'Invalid request body', details: parsed.error.issues };

@@ -192,10 +192,12 @@ const mdComponents: Components = {
 interface Props {
   content: string;
   className?: string;
+  /** Skip slash-command prefix detection (e.g. for rich block bodyMarkdown) */
+  disableCommandPrefix?: boolean;
 }
 
-export function MarkdownContent({ content, className }: Props) {
-  const cmdMatch = /^(\/\w+)/.exec(content);
+export function MarkdownContent({ content, className, disableCommandPrefix }: Props) {
+  const cmdMatch = disableCommandPrefix ? null : /^(\/\w+)/.exec(content);
   const md = cmdMatch ? content.slice(cmdMatch[1].length) : content;
 
   return (

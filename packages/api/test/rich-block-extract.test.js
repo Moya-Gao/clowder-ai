@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractRichFromText, isValidRichBlock } from '../dist/domains/cats/services/agents/routing/rich-block-extract.js';
+import { extractRichFromText, isValidRichBlock, normalizeRichBlock, isRichBlockCandidate } from '../dist/domains/cats/services/agents/routing/rich-block-extract.js';
 
 describe('extractRichFromText', () => {
   it('returns original text when no cc_rich blocks', () => {
@@ -173,5 +173,105 @@ describe('isValidRichBlock', () => {
   it('rejects checklist item with non-boolean checked', () => {
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'OK', checked: 'yes' }] }), false);
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'OK', checked: true }] }), true);
+  });
+});
+
+// #85 T1-T4: normalizeRichBlock
+describe('normalizeRichBlock', () => {
+  it('T1: maps type → kind for valid kinds', () => {
+    const obj = { id: 'b1', type: 'card', v: 1, title: 'Hi' };
+    const result = normalizeRichBlock(obj);
+    assert.equal(result.kind, 'card');
+    assert.equal(result.type, undefined);
+  });
+
+  it('T2: auto-fills v: 1 when missing', () => {
+    const obj = { id: 'b1', kind: 'card', title: 'Hi' };
+    const result = normalizeRichBlock(obj);
+    assert.equal(result.v, 1);
+  });
+
+  it('T3: does not convert non-rich objects', () => {
+    // Object with type that is NOT a valid kind
+    const obj = { id: 'x', type: 'button', label: 'Click' };
+    const result = normalizeRichBlock(obj);
+    assert.equal(result.type, 'button');
+    assert.equal(result.kind, undefined);
+  });
+
+  it('T3b: passes through primitives unchanged', () => {
+    assert.equal(normalizeRichBlock(null), null);
+    assert.equal(normalizeRichBlock('hello'), 'hello');
+    assert.equal(normalizeRichBlock(42), 42);
+  });
+
+  it('T4: does not overwrite existing kind', () => {
+    const obj = { id: 'b1', kind: 'diff', type: 'card', v: 1, filePath: 'a.ts', diff: '+x' };
+    const result = normalizeRichBlock(obj);
+    assert.equal(result.kind, 'diff');
+    // type is preserved when kind already exists
+    assert.equal(result.type, 'card');
+  });
+
+  it('combines type→kind + auto v for full normalization', () => {
+    const obj = { id: 'b1', type: 'checklist', items: [{ id: 'i1', text: 'Task' }] };
+    const result = normalizeRichBlock(obj);
+    assert.equal(result.kind, 'checklist');
+    assert.equal(result.v, 1);
+    assert.equal(result.type, undefined);
+  });
+});
+
+// #85 T5-T6: bare JSON array strong-match extraction
+describe('extractRichFromText bare JSON tolerance', () => {
+  it('T5: extracts bare JSON array with valid rich blocks', () => {
+    const input = JSON.stringify([
+      { id: 'b1', type: 'card', title: 'Summary', bodyMarkdown: '**bold**' },
+    ]);
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 1);
+    assert.equal(result.blocks[0].kind, 'card');
+    assert.equal(result.blocks[0].v, 1);
+    assert.equal(result.cleanText, '');
+  });
+
+  it('T6a: does not extract bare JSON when elements lack id+kind/type', () => {
+    const input = JSON.stringify([{ name: 'foo', value: 42 }]);
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 0);
+    assert.equal(result.cleanText, input);
+  });
+
+  it('T6b: does not extract bare JSON embedded in normal text', () => {
+    const input = `Here is some JSON: [{"id":"b1","type":"card","title":"X"}] and more text`;
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 0);
+    assert.ok(result.cleanText.includes('Here is some JSON'));
+  });
+
+  it('T6c: mixed array (some valid, some not) keeps original text (cloud P1)', () => {
+    // Array where first element is a valid card, second has unknown type "event"
+    const input = JSON.stringify([
+      { id: 'b1', type: 'card', title: 'ok' },
+      { id: 'x', type: 'event', payload: 1 },
+    ]);
+    const result = extractRichFromText(input);
+    // Must NOT extract partial blocks — keep original text intact
+    assert.equal(result.blocks.length, 0);
+    assert.equal(result.cleanText, input);
+  });
+
+  it('T5b: bare JSON with normalize applies type→kind and auto v', () => {
+    const input = JSON.stringify([
+      { id: 'b1', type: 'diff', filePath: 'a.ts', diff: '+x' },
+      { id: 'b2', type: 'card', title: 'Test' },
+    ]);
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 2);
+    assert.equal(result.blocks[0].kind, 'diff');
+    assert.equal(result.blocks[1].kind, 'card');
+    // Both should have v: 1 auto-filled
+    assert.equal(result.blocks[0].v, 1);
+    assert.equal(result.blocks[1].v, 1);
   });
 });

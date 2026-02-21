@@ -118,6 +118,7 @@ export type {
   RichBlock,
   RichMessageExtra,
 } from './rich.js';
+export { normalizeRichBlock } from './rich.js';
 // Session chain types (F24 Session Chain + Context Health)
 export type {
   ContextHealth,

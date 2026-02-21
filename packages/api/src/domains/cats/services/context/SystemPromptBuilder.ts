@@ -84,8 +84,8 @@ const MCP_TOOLS_SECTION = `
 - 提问和讨论（除非需要结构化选项）
 - 不确定用哪种 → 不用
 
-**字段要求**：
-- 每个 block 必须有唯一 \`id\`（如 "b1"/"b2"）和 \`v: 1\`
+**字段要求**（⚠️ 注意 kind 不是 type！）：
+- 每个 block 必须有 \`"kind"\`（不是 \`"type"\`！）和 \`"v": 1\`，以及唯一 \`id\`
 - card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
 - diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
 - checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选

@@ -666,4 +666,26 @@ describe('MCP Callback Tools', () => {
     assert.equal(result.isError, true);
     assert.ok(result.content[0].text.includes('id and kind'));
   });
+
+  test('#85 M2c: handleCreateRichBlock normalizes type→kind before validation', async () => {
+    const { handleCreateRichBlock } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedBody;
+    globalThis.fetch = async (url, options) => {
+      capturedBody = JSON.parse(options.body);
+      return { ok: true, json: async () => ({ status: 'ok' }) };
+    };
+
+    // Uses "type" instead of "kind", no "v" — should be normalized
+    const block = JSON.stringify({ id: 'b1', type: 'card', title: 'Test' });
+    const result = await handleCreateRichBlock({ block });
+
+    assert.equal(result.isError, undefined);
+    // Verify the block sent to Route A was normalized
+    assert.equal(capturedBody.block.kind, 'card');
+    assert.equal(capturedBody.block.type, undefined);
+    assert.equal(capturedBody.block.v, 1);
+  });
 });

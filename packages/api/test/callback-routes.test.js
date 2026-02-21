@@ -1002,6 +1002,35 @@ describe('Callback Routes', () => {
     assert.equal(recent[0].extra, undefined);
   });
 
+  // ---- #85 T7: Route A create-rich-block normalizes type→kind ----
+
+  test('POST create-rich-block normalizes type→kind and auto-fills v:1', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-norm');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/create-rich-block',
+      payload: {
+        invocationId,
+        callbackToken,
+        // Intentionally uses "type" instead of "kind", missing v
+        block: { id: 'b1', type: 'card', title: 'Normalized', bodyMarkdown: '**bold**' },
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+
+    // Verify the broadcast block was normalized
+    const msgs = socketManager.getMessages();
+    assert.equal(msgs.length, 1);
+    const parsed = JSON.parse(msgs[0].content);
+    assert.equal(parsed.block.kind, 'card');
+    assert.equal(parsed.block.type, undefined);
+  });
+
   // ---- Play mode pagination backfill (砚砚 R5 regression) ----
 
   test('GET thread-context play mode returns full limit even when stream messages dominate', async () => {
