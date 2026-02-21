@@ -197,4 +197,38 @@ describe('F32-b: parseMentions (longest-match-first)', () => {
     // opus should come first (earliest mention), codex second
     assert.deepEqual(targetCats.map(String), ['opus', 'codex']);
   });
+
+  it('bracket delimiters count as token boundary (cloud P2 regression)', async () => {
+    const router = await createVariantRouter();
+    // (@codex) — parenthesis after mention should be a valid boundary
+    const r1 = await router.resolveTargetsAndIntent('(@codex)', 'test-thread');
+    assert.deepEqual(r1.targetCats.map(String), ['codex']);
+
+    // [@布偶猫] — square bracket
+    const r2 = await router.resolveTargetsAndIntent('[@布偶猫]', 'test-thread');
+    assert.deepEqual(r2.targetCats.map(String), ['opus']);
+
+    // <@opus> — angle bracket
+    const r3 = await router.resolveTargetsAndIntent('<@opus>', 'test-thread');
+    assert.deepEqual(r3.targetCats.map(String), ['opus']);
+  });
+
+  it('CJK fullwidth brackets count as token boundary (R3 P1 regression)', async () => {
+    const router = await createVariantRouter();
+    // （@codex） — fullwidth parenthesis
+    const r1 = await router.resolveTargetsAndIntent('（@codex）', 'test-thread');
+    assert.deepEqual(r1.targetCats.map(String), ['codex']);
+
+    // 【@缅因猫】 — fullwidth square bracket
+    const r2 = await router.resolveTargetsAndIntent('【@缅因猫】', 'test-thread');
+    assert.deepEqual(r2.targetCats.map(String), ['codex']);
+
+    // 《@opus》 — fullwidth angle bracket
+    const r3 = await router.resolveTargetsAndIntent('《@opus》', 'test-thread');
+    assert.deepEqual(r3.targetCats.map(String), ['opus']);
+
+    // 「@布偶猫」 — corner bracket (common in Japanese/traditional Chinese)
+    const r4 = await router.resolveTargetsAndIntent('「@布偶猫」', 'test-thread');
+    assert.deepEqual(r4.targetCats.map(String), ['opus']);
+  });
 });

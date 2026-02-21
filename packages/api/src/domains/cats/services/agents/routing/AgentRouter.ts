@@ -175,7 +175,9 @@ export class AgentRouter {
 
         // Token boundary: char after pattern must be whitespace/punctuation/EOF
         const charAfter = lowerMessage[end];
-        const isEndBoundary = !charAfter || /[\s,.:;!?，。！？、：；]/.test(charAfter);
+        const isEndBoundary =
+          !charAfter ||
+          /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/.test(charAfter);
 
         // Not in an already-consumed interval
         const isConsumed = consumed.some(([s, e]) => pos >= s && pos < e);
