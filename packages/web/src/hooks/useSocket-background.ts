@@ -84,6 +84,28 @@ function addBackgroundSystemMessage(
   });
 }
 
+/**
+ * Recover an existing streaming assistant message from the thread state.
+ * This handles the active→background transition: when the user switches threads,
+ * activeRefs are cleared but the streaming message still exists in the store.
+ * Instead of creating a duplicate bubble, we adopt the existing one into bgStreamRefs.
+ */
+function recoverStreamingMessage(
+  msg: BackgroundAgentMessage,
+  streamKey: string,
+  options: HandleBackgroundMessageOptions,
+): string | undefined {
+  const threadMessages = options.store.getThreadState(msg.threadId).messages;
+  for (let i = threadMessages.length - 1; i >= 0; i--) {
+    const m = threadMessages[i];
+    if (m.type === 'assistant' && m.catId === msg.catId && m.isStreaming) {
+      options.bgStreamRefs.set(streamKey, { id: m.id, threadId: msg.threadId, catId: msg.catId });
+      return m.id;
+    }
+  }
+  return undefined;
+}
+
 function ensureBackgroundAssistantMessage(
   msg: BackgroundAgentMessage,
   streamKey: string,
@@ -95,6 +117,15 @@ function ensureBackgroundAssistantMessage(
       options.store.setThreadMessageMetadata(msg.threadId, existing.id, msg.metadata);
     }
     return existing.id;
+  }
+
+  // Active→background transition recovery: find existing streaming bubble
+  const recoveredId = recoverStreamingMessage(msg, streamKey, options);
+  if (recoveredId) {
+    if (msg.metadata) {
+      options.store.setThreadMessageMetadata(msg.threadId, recoveredId, msg.metadata);
+    }
+    return recoveredId;
   }
 
   const messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
@@ -164,6 +195,10 @@ export function handleBackgroundAgentMessage(
     } else {
       // CLI stream text (thinking): merge into existing stream bubble
       let messageId = existing?.id;
+      // Active→background transition recovery: find existing streaming bubble
+      if (!messageId) {
+        messageId = recoverStreamingMessage(msg, streamKey, options);
+      }
       if (messageId) {
         options.store.appendToThreadMessage(msg.threadId, messageId, msg.content);
         if (msg.metadata) {

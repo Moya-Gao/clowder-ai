@@ -442,15 +442,18 @@ describe('background thread socket handling', () => {
       expect(firstMessageId).toBeDefined();
 
       // Simulate active-thread terminal event consumed by active path.
+      // In production, the active handler's done processing also sets isStreaming=false
+      // (via findStreamingMessageId → setStreaming(ref.id, false)).
       clearBackgroundStreamRefForActiveEvent(
         {
           type: 'done',
           catId: 'codex',
           threadId: 'thread-bg',
-          timestamp: now + 1,
         },
         testBgStreamRefs,
       );
+      // Simulate what the active handler does: mark the message as no longer streaming
+      useChatStore.getState().setThreadMessageStreaming('thread-bg', firstMessageId!, false);
 
       expect(testBgStreamRefs.has(streamKey)).toBe(false);
 
@@ -815,6 +818,211 @@ describe('background thread socket handling', () => {
         usedTokens: 8123,
         windowTokens: 200000,
       });
+    });
+  });
+
+  describe('active→background transition: bubble recovery', () => {
+    it('text(stream) after thread switch recovers existing streaming bubble instead of creating new one', () => {
+      const now = Date.now();
+      // Simulate: active phase created a streaming bubble, then user switched away
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'active-bubble-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'thinking...',
+        timestamp: now,
+        isStreaming: true,
+        origin: 'stream',
+      });
+
+      // First background text event should recover the existing bubble
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' more thoughts',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].id).toBe('active-bubble-1');
+      expect(ts.messages[0].content).toBe('thinking... more thoughts');
+      // bgStreamRef should now be set for future events
+      expect(testBgStreamRefs.get('thread-bg::opus')?.id).toBe('active-bubble-1');
+    });
+
+    it('tool_use after thread switch recovers existing streaming bubble', () => {
+      const now = Date.now();
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'active-bubble-2',
+        type: 'assistant',
+        catId: 'opus',
+        content: '',
+        timestamp: now,
+        isStreaming: true,
+        origin: 'stream',
+      });
+
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'Read',
+        toolInput: { path: '/foo.ts' },
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].id).toBe('active-bubble-2');
+      expect(ts.messages[0].toolEvents).toHaveLength(1);
+      expect(ts.messages[0].toolEvents?.[0].type).toBe('tool_use');
+      expect(testBgStreamRefs.get('thread-bg::opus')?.id).toBe('active-bubble-2');
+    });
+
+    it('tool_result after thread switch recovers existing streaming bubble', () => {
+      const now = Date.now();
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'active-bubble-3',
+        type: 'assistant',
+        catId: 'opus',
+        content: '',
+        timestamp: now,
+        isStreaming: true,
+        origin: 'stream',
+      });
+
+      simulateBackgroundMessage({
+        type: 'tool_result',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'file contents here',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].id).toBe('active-bubble-3');
+      expect(ts.messages[0].toolEvents).toHaveLength(1);
+      expect(ts.messages[0].toolEvents?.[0].type).toBe('tool_result');
+    });
+
+    it('full sequence: active bubble → switch → bg tool events → text(isFinal) all in one bubble', () => {
+      const now = Date.now();
+      // Active phase left a streaming bubble
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'active-bubble-full',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'let me check...',
+        timestamp: now,
+        isStreaming: true,
+        origin: 'stream',
+      });
+
+      // Background: tool_use
+      simulateBackgroundMessage({
+        type: 'tool_use',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        toolName: 'Read',
+        toolInput: { path: '/foo.ts' },
+        timestamp: now + 1,
+      });
+
+      // Background: tool_result
+      simulateBackgroundMessage({
+        type: 'tool_result',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'file contents',
+        timestamp: now + 2,
+      });
+
+      // Background: more thinking text
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' I see the issue.',
+        timestamp: now + 3,
+      });
+
+      // Background: text(isFinal)
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' Fixed!',
+        isFinal: true,
+        timestamp: now + 4,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      // All events should be in the single recovered bubble
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].id).toBe('active-bubble-full');
+      expect(ts.messages[0].content).toBe('let me check... I see the issue. Fixed!');
+      expect(ts.messages[0].toolEvents).toHaveLength(2);
+      expect(ts.messages[0].isStreaming).toBe(false);
+      // bgStreamRef should be cleared after isFinal
+      expect(testBgStreamRefs.has('thread-bg::opus')).toBe(false);
+    });
+
+    it('no streaming bubble → creates new one as before (no false recovery)', () => {
+      const now = Date.now();
+      // Add a non-streaming historical message — should NOT be recovered
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'old-msg',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'old answer',
+        timestamp: now - 1000,
+        isStreaming: false,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'new invocation',
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0].id).toBe('old-msg');
+      expect(ts.messages[1].content).toBe('new invocation');
+      expect(ts.messages[1].id).not.toBe('old-msg');
+    });
+
+    it('different cat streaming bubble is not recovered by wrong cat', () => {
+      const now = Date.now();
+      // Codex has a streaming bubble
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'codex-bubble',
+        type: 'assistant',
+        catId: 'codex',
+        content: 'codex thinking',
+        timestamp: now,
+        isStreaming: true,
+      });
+
+      // Opus event should NOT recover codex's bubble
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'opus thinking',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(2);
+      expect(ts.messages[0].id).toBe('codex-bubble');
+      expect(ts.messages[0].content).toBe('codex thinking');
+      expect(ts.messages[1].catId).toBe('opus');
     });
   });
 
