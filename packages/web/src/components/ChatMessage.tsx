@@ -327,7 +327,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
                 {isRevealed ? '已揭秘' : '悄悄话'}
               </span>
             )}
-            {hasTextContent && message.origin !== 'stream' && !message.isStreaming && (
+            {hasTextContent && !message.isStreaming && (
               <TtsPlayButton
                 messageId={message.id}
                 text={message.content}
