@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useVoiceSettingsStore, type CustomTerm } from '@/stores/voiceSettingsStore';
 import builtInTerms from '@/utils/voice-terms.json';
 
@@ -19,12 +19,25 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const toRef = useRef<HTMLInputElement>(null);
 
   const handleAdd = () => {
     if (!from.trim() || !to.trim()) return;
     onAdd(from.trim(), to.trim());
     setFrom('');
     setTo('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleAdd();
+  };
+
+  const handleFromKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing && from.trim() && !to.trim()) {
+      toRef.current?.focus();
+    } else {
+      handleKeyDown(e);
+    }
   };
 
   return (
@@ -35,16 +48,17 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
         onChange={(e) => setFrom(e.target.value)}
         placeholder="误识别词"
         className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
-        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        onKeyDown={handleFromKeyDown}
       />
       <span className="text-gray-400 text-xs">&rarr;</span>
       <input
+        ref={toRef}
         type="text"
         value={to}
         onChange={(e) => setTo(e.target.value)}
         placeholder="正确词"
         className="flex-1 text-xs border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-blue-400"
-        onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+        onKeyDown={handleKeyDown}
       />
       <button
         onClick={handleAdd}
@@ -60,30 +74,103 @@ function AddTermRow({ onAdd }: { onAdd: (from: string, to: string) => void }) {
 function CustomTermRow({
   term,
   index,
+  onUpdate,
   onRemove,
 }: {
   term: CustomTerm;
   index: number;
+  onUpdate: (index: number, from: string, to: string) => void;
   onRemove: (index: number) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [editFrom, setEditFrom] = useState(term.from);
+  const [editTo, setEditTo] = useState(term.to);
+
+  const startEdit = () => {
+    setEditFrom(term.from);
+    setEditTo(term.to);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    if (!editFrom.trim() || !editTo.trim()) return;
+    onUpdate(index, editFrom.trim(), editTo.trim());
+    setEditing(false);
+  };
+
+  const cancelEdit = () => setEditing(false);
+
+  const handleEditKeyDown = (e: React.KeyboardEvent) => {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === 'Enter') saveEdit();
+    if (e.key === 'Escape') cancelEdit();
+  };
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-2 text-xs">
+        <input
+          type="text"
+          value={editFrom}
+          onChange={(e) => setEditFrom(e.target.value)}
+          onKeyDown={handleEditKeyDown}
+          className="flex-1 border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-blue-500"
+          autoFocus
+        />
+        <span className="text-gray-400">&rarr;</span>
+        <input
+          type="text"
+          value={editTo}
+          onChange={(e) => setEditTo(e.target.value)}
+          onKeyDown={handleEditKeyDown}
+          className="flex-1 border border-blue-300 rounded px-1.5 py-0.5 focus:outline-none focus:border-blue-500"
+        />
+        <button
+          onClick={saveEdit}
+          disabled={!editFrom.trim() || !editTo.trim()}
+          className="text-blue-500 hover:text-blue-700 disabled:opacity-40"
+          title="保存"
+        >
+          &#10003;
+        </button>
+        <button
+          onClick={cancelEdit}
+          className="text-gray-400 hover:text-gray-600"
+          title="取消"
+        >
+          &#10005;
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2 text-xs group">
+    <div className="flex items-center gap-2 text-xs">
       <code className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{term.from}</code>
       <span className="text-gray-400">&rarr;</span>
       <code className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded">{term.to}</code>
-      <button
-        onClick={() => onRemove(index)}
-        className="ml-auto text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        title="删除"
-      >
-        &times;
-      </button>
+      <div className="ml-auto flex items-center gap-1">
+        <button
+          onClick={startEdit}
+          className="text-gray-400 hover:text-blue-500 transition-colors"
+          title="编辑"
+        >
+          &#9998;
+        </button>
+        <button
+          onClick={() => onRemove(index)}
+          className="text-gray-400 hover:text-red-500 transition-colors"
+          title="删除"
+        >
+          &times;
+        </button>
+      </div>
     </div>
   );
 }
 
 export function VoiceSettingsPanel() {
-  const { settings, addTerm, removeTerm, setLanguage, setCustomPrompt, resetAll } =
+  const { settings, addTerm, updateTerm, removeTerm, setLanguage, setCustomPrompt, resetAll } =
     useVoiceSettingsStore();
   const [showBuiltIn, setShowBuiltIn] = useState(false);
 
@@ -97,7 +184,7 @@ export function VoiceSettingsPanel() {
         {settings.customTerms.length > 0 ? (
           <div className="space-y-1.5 mb-1">
             {settings.customTerms.map((term, i) => (
-              <CustomTermRow key={`${term.from}-${i}`} term={term} index={i} onRemove={removeTerm} />
+              <CustomTermRow key={`${term.from}-${i}`} term={term} index={i} onUpdate={updateTerm} onRemove={removeTerm} />
             ))}
           </div>
         ) : (
