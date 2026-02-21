@@ -198,6 +198,8 @@ export function handleBackgroundAgentMessage(
       options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
     }
     if (msg.isFinal) {
+      // #80 fix-C: Clear timeout guard for text(isFinal) path
+      options.clearDoneTimeout?.(msg.threadId);
       const finalMessage = finalMsgId
         ? options.store.getThreadState(msg.threadId).messages.find((m) => m.id === finalMsgId)
         : undefined;
@@ -227,6 +229,8 @@ export function handleBackgroundAgentMessage(
     });
     options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'error');
     if (msg.isFinal) {
+      // #80 fix-C: Clear timeout guard for error(isFinal) path
+      options.clearDoneTimeout?.(msg.threadId);
       markThreadInvocationComplete(msg, options);
     }
     options.addToast({
@@ -253,6 +257,8 @@ export function handleBackgroundAgentMessage(
       });
     }
     if (msg.isFinal) {
+      // #80 fix-C: Clear timeout guard so it doesn't fire a false "timed out" message
+      options.clearDoneTimeout?.(msg.threadId);
       markThreadInvocationComplete(msg, options);
     }
     return;

@@ -495,7 +495,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // #80: Merge active streaming drafts (first page only — no before cursor)
     if (!before && opts.draftStore) {
       const drafts = await opts.draftStore.getByThread(userId, resolvedThreadId);
+      // #80 fix-B diagnostic: trace draft merge for F5 recovery verification
       if (drafts.length > 0) {
+        request.log.info({ threadId: resolvedThreadId, draftCount: drafts.length, draftIds: drafts.map(d => d.invocationId) }, '#80 draft merge: found active drafts');
         // P1-2 dedup: filter out drafts whose invocationId matches a formal message.
         // Build invocationId set from current page first (fast path).
         const formalInvocationIds = new Set(
@@ -518,6 +520,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         }
         // P2: stable sort by updatedAt for parallel multi-cat drafts
         activeDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
+        if (activeDrafts.length > 0) {
+          request.log.info({ threadId: resolvedThreadId, mergedCount: activeDrafts.length, cats: activeDrafts.map(d => d.catId) }, '#80 draft merge: merging drafts into response');
+        }
         for (const d of activeDrafts) {
           chatItems.push({
             id: `draft-${d.invocationId}`,

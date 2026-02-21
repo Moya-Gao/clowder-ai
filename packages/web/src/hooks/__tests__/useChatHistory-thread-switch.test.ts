@@ -88,4 +88,39 @@ describe('useChatHistory thread switch ordering', () => {
     expect(state.currentThreadId).toBe('thread-a');
     expect(state.messages).toHaveLength(0);
   });
+
+  it('#80 fix-A: thread with cached messages AND activeInvocation still triggers fetchHistory', () => {
+    // Set up: thread-b has cached messages + activeInvocation (streaming in background)
+    useChatStore.setState({
+      currentThreadId: 'thread-b',
+      threadStates: {
+        'thread-b': {
+          messages: [{ id: 'b1', type: 'assistant', catId: 'opus', content: 'cached', timestamp: Date.now() }],
+          isLoading: true,
+          isLoadingHistory: false,
+          hasMore: true,
+          hasActiveInvocation: true,
+          intentMode: 'execute',
+          targetCats: ['opus'],
+          catStatuses: { opus: 'streaming' },
+          catInvocations: {},
+          currentMode: null,
+          pendingModeSwitchProposal: null,
+          unreadCount: 0,
+          lastActivity: Date.now(),
+        },
+      },
+    });
+
+    // Mount with thread-b — should fetch despite having cached messages
+    act(() => {
+      root.render(React.createElement(HookHost, { threadId: 'thread-b' }));
+    });
+
+    // apiFetch should have been called (fetchHistory triggered)
+    expect(apiFetchMock).toHaveBeenCalled();
+    const calls = apiFetchMock.mock.calls;
+    const historyCall = calls.find(([url]) => typeof url === 'string' && url.includes('/api/messages'));
+    expect(historyCall).toBeDefined();
+  });
 });

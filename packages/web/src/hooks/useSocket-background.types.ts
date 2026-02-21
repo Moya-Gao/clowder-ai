@@ -56,6 +56,8 @@ export interface HandleBackgroundMessageOptions {
   bgStreamRefs: Map<string, BackgroundStreamRef>;
   nextBgSeq: () => number;
   addToast: (toast: BackgroundToastInput) => void;
+  /** #80 fix-C: Clear the done-timeout guard when a background thread completes */
+  clearDoneTimeout?: (threadId?: string) => void;
 }
 
 export type ActiveRoutedAgentMessage = {

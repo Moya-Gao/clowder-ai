@@ -20,6 +20,9 @@ import {
 let testBgSeq = 0;
 const testBgStreamRefs = new Map<string, { id: string; threadId: string; catId: string }>();
 
+/** #80 fix-C: Track clearDoneTimeout calls */
+let clearDoneTimeoutCalls: Array<string | undefined> = [];
+
 /**
  * Runs the extracted background-thread branch handler with real stores.
  */
@@ -33,6 +36,7 @@ function simulateBackgroundMessage(msg: {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string };
+  origin?: 'stream' | 'callback';
   timestamp: number;
 }) {
   handleBackgroundAgentMessage(msg as BackgroundAgentMessage, {
@@ -40,6 +44,7 @@ function simulateBackgroundMessage(msg: {
     bgStreamRefs: testBgStreamRefs,
     nextBgSeq: () => testBgSeq++,
     addToast: (toast) => useToastStore.getState().addToast(toast),
+    clearDoneTimeout: (threadId) => { clearDoneTimeoutCalls.push(threadId); },
   });
 }
 
@@ -69,6 +74,7 @@ describe('background thread socket handling', () => {
     useToastStore.setState({ toasts: [] });
     testBgSeq = 0;
     testBgStreamRefs.clear();
+    clearDoneTimeoutCalls = [];
   });
 
   describe('P1-2: done event handling', () => {
@@ -809,6 +815,69 @@ describe('background thread socket handling', () => {
         usedTokens: 8123,
         windowTokens: 200000,
       });
+    });
+  });
+
+  describe('#80 fix-C: background done(isFinal) clears timeout guard', () => {
+    it('done(isFinal) calls clearDoneTimeout with threadId', () => {
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+
+      expect(clearDoneTimeoutCalls).toEqual(['thread-bg']);
+    });
+
+    it('done(non-final) does NOT call clearDoneTimeout', () => {
+      simulateBackgroundMessage({
+        type: 'done',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        timestamp: Date.now(),
+      });
+
+      expect(clearDoneTimeoutCalls).toEqual([]);
+    });
+
+    it('text(isFinal) calls clearDoneTimeout with threadId', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'final answer',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+
+      expect(clearDoneTimeoutCalls).toEqual(['thread-bg']);
+    });
+
+    it('error(isFinal) calls clearDoneTimeout with threadId', () => {
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        error: 'something broke',
+        isFinal: true,
+        timestamp: Date.now(),
+      });
+
+      expect(clearDoneTimeoutCalls).toEqual(['thread-bg']);
+    });
+
+    it('error(non-final) does NOT call clearDoneTimeout', () => {
+      simulateBackgroundMessage({
+        type: 'error',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        error: 'partial error',
+        timestamp: Date.now(),
+      });
+
+      expect(clearDoneTimeoutCalls).toEqual([]);
     });
   });
 });

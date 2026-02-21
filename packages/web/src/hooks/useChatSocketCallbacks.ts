@@ -7,6 +7,7 @@ interface ExternalDeps {
   threadId: string;
   handleAgentMessage: SocketCallbacks['onMessage'];
   resetTimeout: () => void;
+  clearDoneTimeout: (threadId?: string) => void;
   handleAuthRequest: NonNullable<SocketCallbacks['onAuthorizationRequest']>;
   handleAuthResponse: NonNullable<SocketCallbacks['onAuthorizationResponse']>;
 }
@@ -19,6 +20,7 @@ export function useChatSocketCallbacks({
   threadId,
   handleAgentMessage,
   resetTimeout,
+  clearDoneTimeout,
   handleAuthRequest,
   handleAuthResponse,
 }: ExternalDeps): SocketCallbacks {
@@ -35,6 +37,7 @@ export function useChatSocketCallbacks({
   const { addTask, updateTask } = useTaskStore();
 
   return useMemo<SocketCallbacks>(() => ({
+    clearDoneTimeout,
     onMessage: (msg) => {
       handleAgentMessage(msg);
       return true;
@@ -76,5 +79,5 @@ export function useChatSocketCallbacks({
         setCurrentMode(null);
       }
     },
-  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
+  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, clearDoneTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
 }

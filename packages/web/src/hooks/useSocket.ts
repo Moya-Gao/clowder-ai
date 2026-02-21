@@ -63,6 +63,8 @@ export interface SocketCallbacks {
   }) => void;
   onAuthorizationResponse?: (data: { requestId: string; status: string; scope?: string; reason?: string }) => void;
   onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
+  /** #80 fix-C: Clear the done-timeout guard (called when background thread completes) */
+  clearDoneTimeout?: (threadId?: string) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -184,6 +186,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         bgStreamRefs: bgStreamRefsRef.current,
         nextBgSeq: () => bgSeqRef.current++,
         addToast: (toast) => useToastStore.getState().addToast(toast),
+        clearDoneTimeout: callbacksRef.current.clearDoneTimeout,
       });
     });
 

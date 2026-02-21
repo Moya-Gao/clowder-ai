@@ -45,8 +45,9 @@ export function useChatHistory(threadId: string) {
   threadIdRef.current = threadId;
 
   // Fetch history page from API
+  // When replace=true, clears existing messages before setting (used for force-refresh).
   const fetchHistory = useCallback(
-    async (cursor?: string) => {
+    async (cursor?: string, options?: { replace?: boolean }) => {
       if (loadingRef.current) return;
       const controller = abortRef.current;
       if (!controller) return;
@@ -85,6 +86,12 @@ export function useChatHistory(threadId: string) {
             timestamp: m.timestamp,
           } as ChatMessageData)
         );
+        if (options?.replace) {
+          // #80 fix-A P1: Replace mode — clear stale cache before setting fresh data.
+          // By the time this async callback runs, setCurrentThread has already executed,
+          // so clearMessages targets the correct thread.
+          clearMessages();
+        }
         prependHistory(historyMsgs, data.hasMore ?? false);
       } catch (err) {
         // AbortError is expected during thread switch — ignore silently
@@ -97,7 +104,7 @@ export function useChatHistory(threadId: string) {
         }
       }
     },
-    [setLoadingHistory, prependHistory, threadId]
+    [setLoadingHistory, prependHistory, clearMessages, threadId]
   );
 
   const fetchTasks = useCallback(async () => {
@@ -134,6 +141,11 @@ export function useChatHistory(threadId: string) {
     const hasCachedMessages = cached && cached.messages.length > 0;
     const isThreadSynced = state.currentThreadId === threadId;
 
+    // #80 fix-A: If the thread has an active invocation, force-refresh from API
+    // so that DraftStore drafts are merged into the response. Without this,
+    // switching away and back shows stale cached messages (no streaming draft).
+    const hasActiveInvocation = cached?.hasActiveInvocation === true;
+
     if (!hasCachedMessages) {
       // During route thread switches, this effect can run before setCurrentThread.
       // Clearing too early would wipe the previous thread snapshot in the store.
@@ -141,6 +153,11 @@ export function useChatHistory(threadId: string) {
         clearMessages();
       }
       void fetchHistory();
+    } else if (hasActiveInvocation) {
+      // #80 fix-A P1: Force-refresh with replace mode — the async response handler
+      // will clear stale cache after setCurrentThread has run, then set fresh data
+      // including DraftStore drafts in correct timestamp order.
+      void fetchHistory(undefined, { replace: true });
     }
 
     void fetchTasks();

@@ -52,7 +52,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, []);
 
-  const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
+  const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout, clearDoneTimeout } = useAgentMessages();
   const {
     handleScroll,
     scrollContainerRef,
@@ -96,6 +96,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     threadId,
     handleAgentMessage,
     resetTimeout,
+    clearDoneTimeout,
     handleAuthRequest,
     handleAuthResponse,
   });
