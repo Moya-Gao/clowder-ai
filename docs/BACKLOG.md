@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-20 (P1 #83 + P2 #84: F22 Rich Blocks post-message 路径断裂)
+> 维护者：布偶猫 | 最后更新：2026-02-20 (BACKLOG 审计：#83/#84/F35 标 [x] + 流程修复)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -29,16 +29,17 @@
 | 56 | **file_change 事件后前端失联 / 超时** | [~] | [bug report](./bug-report/file-change-event-frontend-disconnect/bug-report.md) | Why: 证据显示 `file_change completed` 后紧接服务重启与前端失联。风险边界：当前调试会话可能在首次文件编辑后断链。触发条件：完成最小复现（含 ws close reason）并确认前端/后端根因后再关闭。 |
 | 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
 | 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
-| 83 | **`post-message` 回调路径不支持 Rich Blocks** | [~] | 2026-02-20 布偶猫排查 | `6cf30d3` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。待 review 合入后标 [x]。 |
+| 83 | **`post-message` 回调路径不支持 Rich Blocks** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。已合入 main。 |
+| 85 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [~] | 2026-02-20 铲屎官实测 + 砚砚 review | 三件事：(1) CardBlock.tsx `bodyMarkdown` 不渲染 Markdown（用纯文本输出，应改用 MarkdownContent）；(2) `type→kind` alias + 自动补 `v:1` + 裸 JSON 强匹配容错（需统一 `normalizeRichPayload`，三入口共用：Route A callback + Route B extractor + MCP tool preflight）；(3) SystemPromptBuilder + McpPromptInjector 补 `kind` 非 `type` 反例。计划：[`2026-02-20-f22-rich-blocks-format-tolerance.md`](./plans/2026-02-20-f22-rich-blocks-format-tolerance.md) |
 
 ## P2 — 建议做
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。 |
+| 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。**计划在 F10 Phase A 中一并处理。** |
 | 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [ ] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | QQ 邮箱 IMAP 轮询检测 GitHub review 邮件 → 解析 PR title `[猫名🐾]` 路由 → 自动 invoke 被 review 的猫 → 猫自主处理 P1/P2 → 推前端通知等铲屎官最终确认合入。依赖：`imapflow`，`IMAP_USER/IMAP_PASS` 环境变量（QQ 邮箱授权码）。|
 | 82 | **`onIntentMode` flat setter 线程切换竞态** | [ ] | split-pane invocation state R1 deep review P2 | `ChatContainer.tsx` L125-131 的 `onIntentMode` 回调使用 flat setter（`setLoading(true)` / `setHasActiveInvocation(true)`），在 thread 切换的 render→effect 窗口期（`threadIdRef` 已更新但 `setCurrentThread` 未触发），`intent_mode` 事件可能写入错误线程的 flat state。窗口极窄（毫秒级），复现概率低但理论路径存在。修复方向：将 `intent_mode` 事件路由改为 thread-scoped handler，或在 store 层增加 threadId 校验再写入。 |
-| 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [~] | 2026-02-20 布偶猫排查 | `40d1f2d` — `handleCreateRichBlock` 加 Route A→B 降级链：Route A (direct callback) 失败 → Route B (post_message + cc_rich text) → 两路皆败返回 cc_rich hint。5 new tests。Token 生命周期根因未改（需 session-scoped token），但降级保证可用性。待 review 合入后标 [x]。 |
+| 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `handleCreateRichBlock` 加 Route A→B 降级链：Route A (direct callback) 失败 → Route B (post_message + cc_rich text) → 两路皆败返回 cc_rich hint。5 new tests。Token 生命周期根因未改（需 session-scoped token），但降级保证可用性。已合入 main。 |
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |
 | 9 | 前端图片压缩 | [x] | Phase 3.2 review | Phase 5.2 — compressImage.ts Canvas API 压缩 (maxWidth=1920, sweep 0.8→0.3) |
@@ -128,7 +129,7 @@
 | F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
 | F8 | ~~Token 预算 + 深度可观测性~~ | **[x]** | [NDJSON 宝藏调研](./archive/2026-02/research/cli-ndjson-treasure-map.md) | 全部完成：char→token 迁移 (js-tiktoken, 16 files) + 三猫 CLI usage/cost/cache 捕获 + 前端 RightStatusPanel per-cat token 显示 + ParallelStatusBar 聚合 + inputTokens 归一化 (`da75aaf`) + review fix (`e8d1dbd`)。commits: `66a59e4`→`6f25a2b`→`e8d1dbd` |
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
-| F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) 做多猫版移动端。iOS app / iMessage 对接待决策 |
+| F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | **路线图**：[`2026-02-20-mobile-cat-roadmap.md`](./plans/2026-02-20-mobile-cat-roadmap.md)。决策：PWA 先行（两猫独立思考共识 + 铲屎官确认）。Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）。关联：F20/F22/F34。参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) |
 | F11 | **模式系统** | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。6 轮 review 通过，939 tests。[攻防录](../tmp/f11-maine-log.md) |
 | F12 | 功能可发现性 | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | `43f88ca` + `7b03236` — Cat Café Hub modal（功能注册表 + 环境摘要 + /hub 命令）。已合入 main。 |
 | F13 | 审计日志 v2 | [x] | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 已完成：操作审计（追责）+ CLI 原始日志归档（debug）。计划文档: [`2026-02-10-f13-audit-log-v2.md`](./archive/2026-02/plans/2026-02-10-f13-audit-log-v2.md) |
@@ -147,7 +148,7 @@
 | F33 | **上下文压缩前自动交接（布偶猫系统性问题）** | **P1** | 2026-02-18 PR #29 事故反思 | 布偶猫（Claude Code）的上下文压缩由 CLI 自动触发，时机不可控，压缩后丢失：commit 签名规矩、worktree 纪律、PR 回复规范等。缅因猫（Codex）能在 context 85% 时主动交接，布偶猫从未成功交接过。**根因**：Claude Code 的压缩先于我们的交接逻辑触发。**需要**：(1) 在 context 使用率 ~85% 时触发 pre-compression handoff（而非等 CLI 自动压缩）；(2) handoff 内容必须包含当前 worktree 状态、未完成任务、签名规范等关键上下文；(3) 或探索 MEMORY.md 自动写入关键 session state 的方案。**事故影响**：布偶猫在 `cat-cafe` 公共 worktree 上切分支导致其他猫 commit 混入 feature 分支，commit 丢签名，PR 回复漏 @。 |
 | F22 | **Rich Blocks 富消息系统** | **[x]** | [SillyTavern 调研](./archive/2026-02/research/sillytavern-phone-ui-research.md) | `bd8ae63` PR #34 — 全栈实现：4 种 block kind (card/diff/checklist/media_gallery) + 双路由 (MCP callback + cc_rich text) + RichBlockBuffer (invocationId 绑定 + dedup + post-completion 拒绝) + Zod discriminatedUnion 入口验证 + isValidRichBlock 全字段类型守卫 + 前端 5 组件 + 50 tests。7 轮 cloud review + 砚砚本地 R1-R7。 |
 | F34 | **Voice Block 语音消息** | **P2** | 2026-02-18 铲屎官+三猫讨论 | 新增 `audio` rich block kind，支持猫猫发送/接收语音消息。F10 手机端 + F22 Rich Blocks 的自然延伸。依赖：前端 audio 播放组件 + 后端 audio block 类型定义 + 语音合成（TTS）或录音上传链路。先用 `card + 音频链接` 过渡，下一阶段单独设计 block kind。 |
-| F35 | **Whisper 消息可见性（悄悄话）** | **P1** | 2026-02-19 独立思考测试 → 三方共识 | 铲屎官可私密给指定猫发消息（whisper），其他猫通过 thread-context / pending-mentions 看不到。支持游戏场景（狼人杀/谁是卧底/Spyfall 等）。消息级 `visibility: 'public' \| 'whisper'` + `whisperTo: CatId[]` + 线程级揭秘（reveal）。设计: [`2026-02-19-f35-whisper-message-visibility.md`](./plans/2026-02-19-f35-whisper-message-visibility.md) |
+| F35 | **Whisper 消息可见性（悄悄话）** | **[x]** | 2026-02-19 独立思考测试 → 三方共识 | `8223a60` + `d12d3f1` + `7b7194e` — 消息级 `visibility: 'public' \| 'whisper'` + `whisperTo: CatId[]` + 线程级揭秘（reveal）+ whisper 内容防泄漏（incremental fallback injection）+ 并行 whisper 隐私回归测试。已合入 main。设计: [`2026-02-19-f35-whisper-message-visibility.md`](./plans/2026-02-19-f35-whisper-message-visibility.md) |
 | F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
 | F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[x]** | 铲屎官 2026-02-13 | 三个子能力全部完成：**(1) 中途消息注入** [x]：`4e85883` ChatInputActionButton 改为 hasActiveInvocation 时同时展示 Stop + Send 按钮。**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入。 |
 | F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |
@@ -274,5 +275,8 @@
 | F27 A2A 路径统一 | 2026-02-17 审计确认 | `ae873cd` |
 | #72 F24 手动绑定 Session 前端 UI | feat/f24-mid-inject-and-bind-ui | `4e85883` |
 | F24 中途消息注入 (最后一个子能力) | feat/f24-mid-inject-and-bind-ui | `4e85883` |
+| #83 Rich Blocks post-message 路径 | 2026-02-20 审计确认 | `c466213` |
+| #84 create_rich_block 降级链 | 2026-02-20 审计确认 | `c466213` |
+| F35 Whisper 消息可见性（悄悄话） | 2026-02-20 审计确认 | `8223a60` + `d12d3f1` + `7b7194e` |
 
 </details>
