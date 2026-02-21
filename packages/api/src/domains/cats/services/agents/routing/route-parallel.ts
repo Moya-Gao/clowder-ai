@@ -181,6 +181,14 @@ export async function* routeParallel(
   const catInvocationId = new Map<string, string>();
   let completedCount = 0;
 
+  // #80: Per-cat draft flush state
+  const catFlushTime = new Map<string, number>();
+  const catFlushLen = new Map<string, number>();
+  const catFlushToolLen = new Map<string, number>();
+  const FLUSH_INTERVAL_MS = 2000;
+  const FLUSH_CHAR_DELTA = 2000;
+  const noop = () => {};
+
   for await (const msg of mergeStreams(streams, (idx, err) => {
     console.error(`[routeParallel] Stream ${idx} error:`, err);
   })) {
@@ -191,6 +199,8 @@ export async function* routeParallel(
         const parsed = JSON.parse(msg.content);
         if (parsed.type === 'invocation_created') {
           catInvocationId.set(msg.catId, parsed.invocationId);
+          // #80 fix: seed flush baseline so interval triggers after FLUSH_INTERVAL_MS
+          catFlushTime.set(msg.catId, Date.now());
           continue;
         }
       } catch { /* ignore parse errors */ }
@@ -214,6 +224,52 @@ export async function* routeParallel(
     }
     if (msg.metadata && msg.catId && !catMeta.has(msg.catId)) {
       catMeta.set(msg.catId, msg.metadata);
+    }
+
+    // #80: Draft flush — fire-and-forget periodic persistence per cat
+    if (deps.draftStore && msg.catId && catInvocationId.has(msg.catId)) {
+      const invId = catInvocationId.get(msg.catId)!;
+      const now = Date.now();
+      const lastFlush = catFlushTime.get(msg.catId) ?? now;
+      const lastLen = catFlushLen.get(msg.catId) ?? 0;
+      const curText = catText.get(msg.catId) ?? '';
+      const charDelta = curText.length - lastLen;
+
+      const lastToolLen = catFlushToolLen.get(msg.catId) ?? 0;
+      const curTools = catToolEvents.get(msg.catId);
+      const curToolLen = curTools?.length ?? 0;
+
+      const neverFlushedCat = lastLen === 0 && lastToolLen === 0;
+      if (msg.type === 'text' && charDelta > 0 && (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)) {
+        deps.draftStore.upsert({
+          userId, threadId, invocationId: invId, catId: msg.catId as CatId,
+          content: curText,
+          ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
+          updatedAt: now,
+        })?.catch?.(noop);
+        catFlushTime.set(msg.catId, now);
+        catFlushLen.set(msg.catId, curText.length);
+        catFlushToolLen.set(msg.catId, curToolLen);
+      } else if ((msg.type === 'tool_use' || msg.type === 'tool_result') &&
+        // Cloud R7 P1: bypass interval for the very first flush — tool-first invocations
+        // must create a draft immediately, not wait 2s for the interval gate.
+        (neverFlushedCat || now - lastFlush >= FLUSH_INTERVAL_MS)) {
+        // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
+        // tool-first invocations (no text yet) must still create a draft record.
+        if (curText.length > lastLen || curToolLen > lastToolLen) {
+          deps.draftStore.upsert({
+            userId, threadId, invocationId: invId, catId: msg.catId as CatId,
+            content: curText,
+            ...(curTools && curToolLen > 0 ? { toolEvents: curTools } : {}),
+            updatedAt: now,
+          })?.catch?.(noop);
+          catFlushLen.set(msg.catId, curText.length);
+          catFlushToolLen.set(msg.catId, curToolLen);
+        } else {
+          deps.draftStore.touch(userId, threadId, invId)?.catch?.(noop);
+        }
+        catFlushTime.set(msg.catId, now);
+      }
     }
 
     if (msg.type === 'done' && msg.catId) {
@@ -244,8 +300,15 @@ export async function* routeParallel(
             threadId,
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
-            ...(allRichBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: allRichBlocks } } } : {}),
+            extra: {
+              ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
+              ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
+            },
           });
+          // #80: Clean up draft only after successful append
+          if (deps.draftStore && ownInvId) {
+            deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
+          }
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
           if (options.persistenceContext) {
@@ -272,8 +335,15 @@ export async function* routeParallel(
             threadId,
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
-            ...(bufferedBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: bufferedBlocks } } } : {}),
+            extra: {
+              ...(bufferedBlocks.length > 0 ? { rich: { v: 1 as const, blocks: bufferedBlocks } } : {}),
+              ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
+            },
           });
+          // #80: Clean up draft only after successful append
+          if (deps.draftStore && ownInvId) {
+            deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
+          }
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
           if (options.persistenceContext) {
@@ -300,7 +370,12 @@ export async function* routeParallel(
               threadId,
               ...(meta ? { metadata: meta } : {}),
               toolEvents: catTools,
+              ...(ownInvId ? { extra: { stream: { invocationId: ownInvId } } } : {}),
             });
+            // #80: Clean up draft only after successful append
+            if (deps.draftStore && ownInvId) {
+              deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
+            }
           } catch (err) {
             console.error(`[routeParallel] messageStore.append (error+tools) failed for ${msg.catId}, degrading:`, err);
             if (options.persistenceContext) {

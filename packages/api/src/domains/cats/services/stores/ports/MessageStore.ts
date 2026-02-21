@@ -41,8 +41,8 @@ export interface StoredMessage {
   toolEvents?: readonly StoredToolEvent[];
   /** Provider/model metadata (for cat messages) */
   metadata?: MessageMetadata;
-  /** F22: Extensible extra data (rich blocks, future: reactions, deviceMeta) */
-  extra?: { rich?: RichMessageExtra };
+  /** F22: Extensible extra data (rich blocks, stream metadata, future: reactions) */
+  extra?: { rich?: RichMessageExtra; stream?: { invocationId: string } };
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;

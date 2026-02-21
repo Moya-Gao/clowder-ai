@@ -32,6 +32,7 @@ import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
+import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
 import type { IModeStore } from '../domains/cats/services/stores/ports/ModeStore.js';
 import type { ModeOrchestrator } from '../domains/cats/services/orchestration/ModeOrchestrator.js';
 import { parseMultipart } from './parse-multipart.js';
@@ -57,6 +58,8 @@ export interface MessagesRoutesOptions {
   summaryStore?: ISummaryStore;
   modeStore?: IModeStore;
   modeOrchestrator?: ModeOrchestrator;
+  /** #80: Streaming draft store for F5 recovery */
+  draftStore?: IDraftStore;
 }
 
 const getMessagesSchema = z.object({
@@ -488,6 +491,46 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       ...(m.revealedAt ? { revealedAt: m.revealedAt } : {}),
       timestamp: m.timestamp,
     }));
+
+    // #80: Merge active streaming drafts (first page only — no before cursor)
+    if (!before && opts.draftStore) {
+      const drafts = await opts.draftStore.getByThread(userId, resolvedThreadId);
+      if (drafts.length > 0) {
+        // P1-2 dedup: filter out drafts whose invocationId matches a formal message.
+        // Build invocationId set from current page first (fast path).
+        const formalInvocationIds = new Set(
+          page
+            .map(m => m.extra?.stream?.invocationId)
+            .filter((id): id is string => !!id)
+        );
+        let activeDrafts = drafts.filter(d => !formalInvocationIds.has(d.invocationId));
+        // Cloud R4 P2: if drafts survive page-level dedup, widen the check to cover
+        // formal messages pushed off the first page (race window: TTL > page depth).
+        // Cloud R5 P2: wider window must always exceed page limit (limit max=200 → worst case 800).
+        if (activeDrafts.length > 0 && page.length >= limit) {
+          const widerLimit = Math.max(200, limit * 4);
+          const wider = await opts.messageStore.getByThread(resolvedThreadId, widerLimit, userId);
+          for (const m of wider) {
+            const invId = m.extra?.stream?.invocationId;
+            if (invId) formalInvocationIds.add(invId);
+          }
+          activeDrafts = activeDrafts.filter(d => !formalInvocationIds.has(d.invocationId));
+        }
+        // P2: stable sort by updatedAt for parallel multi-cat drafts
+        activeDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
+        for (const d of activeDrafts) {
+          chatItems.push({
+            id: `draft-${d.invocationId}`,
+            type: 'assistant',
+            catId: d.catId as string | null,
+            content: d.content,
+            timestamp: d.updatedAt,
+            isDraft: true,
+            ...(d.toolEvents ? { toolEvents: d.toolEvents } : {}),
+          });
+        }
+      }
+    }
 
     // P1-B fix: merge summaries into history timeline
     // First page (no cursor): include summaries >= oldest message (no max cap,

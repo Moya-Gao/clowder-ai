@@ -31,6 +31,7 @@ import { routeParallel } from '../routing/route-parallel.js';
 import type { RouteStrategyDeps, PersistenceContext } from '../routing/route-helpers.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../../stores/ports/MessageStore.js';
+import type { IDraftStore } from '../../stores/ports/DraftStore.js';
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
@@ -90,6 +91,8 @@ export interface AgentRouterOptions {
   transcriptReader?: TranscriptReader;
   /** F24 Phase B: Session sealer for auto-seal */
   sessionSealer?: ISessionSealer;
+  /** #80: Streaming draft persistence store */
+  draftStore?: IDraftStore;
 }
 
 /**
@@ -106,6 +109,7 @@ export class AgentRouter {
   private transcriptWriter: TranscriptWriter | undefined;
   private transcriptReader: TranscriptReader | undefined;
   private sessionSealer: ISessionSealer | undefined;
+  private draftStore: IDraftStore | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -129,6 +133,7 @@ export class AgentRouter {
     this.transcriptWriter = options.transcriptWriter;
     this.transcriptReader = options.transcriptReader;
     this.sessionSealer = options.sessionSealer;
+    this.draftStore = options.draftStore;
   }
 
   /** Normalize speech patterns like "at 布偶" → "@布偶" */
@@ -257,6 +262,7 @@ export class AgentRouter {
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,
+      ...(this.draftStore ? { draftStore: this.draftStore } : {}),
     };
   }
 

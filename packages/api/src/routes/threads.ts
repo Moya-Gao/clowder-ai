@@ -15,6 +15,7 @@ import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -30,6 +31,8 @@ export interface ThreadsRoutesOptions {
   deliveryCursorStore?: DeliveryCursorStore;
   /** Optional: protect active invocations from thread deletion (#35) */
   invocationTracker?: InvocationTracker;
+  /** #80: cascade delete streaming drafts */
+  draftStore?: IDraftStore;
 }
 
 const createThreadSchema = z.object({
@@ -190,6 +193,8 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
         taskStore?.deleteByThread(id),
         memoryStore?.deleteThread(id),
         thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
+        // #80: Clean up any streaming drafts for this thread
+        thread && opts.draftStore ? opts.draftStore.deleteByThread(thread.createdBy, id) : undefined,
       ]);
 
       // Log any cascade failures but don't fail the request

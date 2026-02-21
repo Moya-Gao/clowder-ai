@@ -38,20 +38,31 @@ export function safeParseContentBlocks(raw: string | undefined): readonly Messag
   }
 }
 
-/** F22: Parse extra field (contains rich blocks and future extensible data) */
-export function safeParseExtra(raw: string | undefined): { rich?: RichMessageExtra } | undefined {
+/** F22: Parse extra field (contains rich blocks + stream metadata) */
+export function safeParseExtra(
+  raw: string | undefined,
+): { rich?: RichMessageExtra; stream?: { invocationId: string } } | undefined {
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw);
-    if (typeof parsed === 'object' && parsed !== null) {
-      // Validate rich sub-field shape
-      if (parsed.rich && typeof parsed.rich === 'object' && parsed.rich.v === 1 && Array.isArray(parsed.rich.blocks)) {
-        return { rich: parsed.rich as RichMessageExtra };
-      }
-      // extra exists but no valid rich — still return the shell
-      return undefined;
+    if (typeof parsed !== 'object' || parsed === null) return undefined;
+
+    const result: { rich?: RichMessageExtra; stream?: { invocationId: string } } = {};
+    let hasField = false;
+
+    // Validate rich sub-field shape
+    if (parsed.rich && typeof parsed.rich === 'object' && parsed.rich.v === 1 && Array.isArray(parsed.rich.blocks)) {
+      result.rich = parsed.rich as RichMessageExtra;
+      hasField = true;
     }
-    return undefined;
+
+    // Validate stream sub-field shape (#80: draft dedup key)
+    if (parsed.stream && typeof parsed.stream === 'object' && typeof parsed.stream.invocationId === 'string') {
+      result.stream = { invocationId: parsed.stream.invocationId };
+      hasField = true;
+    }
+
+    return hasField ? result : undefined;
   } catch {
     return undefined;
   }

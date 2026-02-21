@@ -6,6 +6,7 @@
 import type { CatId, MessageContent, RichBlock, RichBlockBase } from '@cat-cafe/shared';
 import type { IMessageStore, StoredMessage, StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
+import type { IDraftStore } from '../../stores/ports/DraftStore.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import { formatMessage } from '../../context/ContextAssembler.js';
 import { canViewMessage } from '../../stores/visibility.js';
@@ -19,6 +20,8 @@ export interface RouteStrategyDeps {
   invocationDeps: InvocationDeps;
   messageStore: IMessageStore;
   deliveryCursorStore?: DeliveryCursorStore;
+  /** #80: Streaming draft persistence store */
+  draftStore?: IDraftStore;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.

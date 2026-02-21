@@ -19,7 +19,7 @@ import { InvocationTracker } from './domains/cats/services/agents/invocation/Inv
 import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
-import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore } from './domains/cats/services/index.js';
+import { ClaudeAgentService, CodexAgentService, GeminiAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore, createDraftStore } from './domains/cats/services/index.js';
 import type { AgentService } from './domains/cats/services/types.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
@@ -107,6 +107,7 @@ async function main(): Promise<void> {
   const summaryStore = createSummaryStore(redis);
   const memoryStore = createMemoryStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
+  const draftStore = createDraftStore(redis);
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain
   const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
@@ -175,6 +176,7 @@ async function main(): Promise<void> {
     transcriptWriter,
     transcriptReader,
     sessionSealer,
+    draftStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -194,6 +196,7 @@ async function main(): Promise<void> {
     invocationRecordStore,
     autoSummarizer,
     summaryStore,
+    draftStore,
     modeStore,
     modeOrchestrator,
   });
@@ -248,6 +251,7 @@ async function main(): Promise<void> {
     memoryStore,
     deliveryCursorStore,
     invocationTracker,
+    draftStore,
   });
   await app.register(threadBranchRoutes, {
     threadStore,

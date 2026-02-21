@@ -197,6 +197,14 @@ export async function* routeSerial(
     // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
     let ownInvocationId: string | undefined;
 
+    // #80: Draft flush state — periodic persistence for F5 recovery
+    let lastFlushTime = Date.now();
+    let lastFlushLen = 0;
+    let lastFlushToolLen = 0;
+    const FLUSH_INTERVAL_MS = 2000;
+    const FLUSH_CHAR_DELTA = 2000;
+    const noop = () => {};
+
     // Always pass isLastCat:false — we set isFinal AFTER A2A detection
     for await (const msg of invokeSingleCat(deps.invocationDeps, {
       catId,
@@ -224,16 +232,55 @@ export async function* routeSerial(
       if (msg.type === 'text' && msg.content) {
         textContent += msg.content;
       }
+      // Accumulate tool events for persistence (before draft flush so current event is available)
+      const toolEvt = toStoredToolEvent(msg);
+      if (toolEvt) {
+        collectedToolEvents.push(toolEvt);
+      }
+
+      // #80: Draft flush — fire-and-forget periodic persistence for F5 recovery
+      if (deps.draftStore && ownInvocationId) {
+        const now = Date.now();
+        const charDelta = textContent.length - lastFlushLen;
+        const neverFlushed = lastFlushLen === 0 && lastFlushToolLen === 0;
+        if (msg.type === 'text' && charDelta > 0 && (neverFlushed || now - lastFlushTime >= FLUSH_INTERVAL_MS || charDelta >= FLUSH_CHAR_DELTA)) {
+          deps.draftStore.upsert({
+            userId, threadId, invocationId: ownInvocationId, catId,
+            content: textContent,
+            ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+            updatedAt: now,
+          })?.catch?.(noop);
+          lastFlushTime = now;
+          lastFlushLen = textContent.length;
+          lastFlushToolLen = collectedToolEvents.length;
+        } else if ((msg.type === 'tool_use' || msg.type === 'tool_result') &&
+          // Cloud R7 P1: bypass interval for the very first flush — tool-first invocations
+          // must create a draft immediately, not wait 2s for the interval gate.
+          (neverFlushed || now - lastFlushTime >= FLUSH_INTERVAL_MS)) {
+          // Heartbeat for non-text events: keep draft alive during long tool calls.
+          // Cloud R6 P1: upsert when there's unsaved text OR new tool events —
+          // tool-first invocations (no text yet) must still create a draft record.
+          if (textContent.length > lastFlushLen || collectedToolEvents.length > lastFlushToolLen) {
+            deps.draftStore.upsert({
+              userId, threadId, invocationId: ownInvocationId, catId,
+              content: textContent,
+              ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
+              updatedAt: now,
+            })?.catch?.(noop);
+            lastFlushLen = textContent.length;
+            lastFlushToolLen = collectedToolEvents.length;
+          } else {
+            deps.draftStore.touch(userId, threadId, ownInvocationId)?.catch?.(noop);
+          }
+          lastFlushTime = now;
+        }
+      }
+
       if (msg.type === 'error') {
         hadError = true;
         if (msg.error) {
           textContent += (textContent ? '\n\n' : '') + `❌ ${msg.error}`;
         }
-      }
-      // Accumulate tool events for persistence
-      const toolEvt = toStoredToolEvent(msg);
-      if (toolEvt) {
-        collectedToolEvents.push(toolEvt);
       }
       if (msg.metadata && !firstMetadata) {
         firstMetadata = msg.metadata;
@@ -281,8 +328,15 @@ export async function* routeSerial(
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-          ...(allRichBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: allRichBlocks } } } : {}),
+          extra: {
+            ...(allRichBlocks.length > 0 ? { rich: { v: 1 as const, blocks: allRichBlocks } } : {}),
+            ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
+          },
         });
+        // #80: Clean up draft only after successful append (guard: keep draft if append fails)
+        if (deps.draftStore && ownInvocationId) {
+          deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
+        }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
         if (options.persistenceContext) {
@@ -354,8 +408,15 @@ export async function* routeSerial(
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
-          ...(bufferedBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: bufferedBlocks } } } : {}),
+          extra: {
+            ...(bufferedBlocks.length > 0 ? { rich: { v: 1 as const, blocks: bufferedBlocks } } : {}),
+            ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
+          },
         });
+        // #80: Clean up draft only after successful append
+        if (deps.draftStore && ownInvocationId) {
+          deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
+        }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
         if (options.persistenceContext) {
@@ -380,7 +441,12 @@ export async function* routeSerial(
           threadId,
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           toolEvents: collectedToolEvents,
+          ...(ownInvocationId ? { extra: { stream: { invocationId: ownInvocationId } } } : {}),
         });
+        // #80: Clean up draft only after successful append
+        if (deps.draftStore && ownInvocationId) {
+          deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
+        }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append (error+tools) failed for ${catId as string}, degrading:`, err);
         if (options.persistenceContext) {
@@ -390,6 +456,11 @@ export async function* routeSerial(
             error: err instanceof Error ? err.message : String(err),
           });
         }
+      }
+    } else {
+      // hadError && textContent === '' && no toolEvents → clean up draft only
+      if (deps.draftStore && ownInvocationId) {
+        deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
       }
     }
     // hadError && textContent === '' && no toolEvents → skip persistence

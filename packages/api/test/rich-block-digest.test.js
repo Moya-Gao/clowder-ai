@@ -147,4 +147,35 @@ describe('safeParseExtra', () => {
     const raw = JSON.stringify({ rich: { v: 1, blocks: 'not-array' } });
     assert.equal(safeParseExtra(raw), undefined);
   });
+
+  // #80: stream.invocationId support
+  it('parses stream-only extra', () => {
+    const raw = JSON.stringify({ stream: { invocationId: 'inv-1' } });
+    const result = safeParseExtra(raw);
+    assert.ok(result, 'stream-only should not return undefined');
+    assert.equal(result.stream?.invocationId, 'inv-1');
+    assert.equal(result.rich, undefined);
+  });
+
+  it('parses rich + stream together', () => {
+    const raw = JSON.stringify({
+      rich: { v: 1, blocks: [{ id: 'b1', kind: 'card' }] },
+      stream: { invocationId: 'inv-2' },
+    });
+    const result = safeParseExtra(raw);
+    assert.ok(result);
+    assert.ok(result.rich, 'rich should be preserved');
+    assert.equal(result.rich.blocks.length, 1);
+    assert.equal(result.stream?.invocationId, 'inv-2');
+  });
+
+  it('ignores stream with invalid shape (no invocationId)', () => {
+    const raw = JSON.stringify({ stream: { foo: 'bar' } });
+    assert.equal(safeParseExtra(raw), undefined);
+  });
+
+  it('ignores stream with non-string invocationId', () => {
+    const raw = JSON.stringify({ stream: { invocationId: 123 } });
+    assert.equal(safeParseExtra(raw), undefined);
+  });
 });
