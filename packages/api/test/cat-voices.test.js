@@ -1,0 +1,102 @@
+/**
+ * F34: cat-voices.ts tests
+ * Per-cat TTS voice configuration — mirrors cat-budgets.test.js pattern
+ */
+
+import { describe, it, beforeEach, afterEach } from 'node:test';
+import assert from 'node:assert';
+import { getCatVoice, getAllCatVoices, clearVoiceCache } from '../dist/config/cat-voices.js';
+
+describe('getCatVoice', () => {
+  beforeEach(() => {
+    clearVoiceCache();
+    delete process.env.CAT_OPUS_TTS_VOICE;
+    delete process.env.CAT_CODEX_TTS_VOICE;
+    delete process.env.CAT_GEMINI_TTS_VOICE;
+  });
+
+  afterEach(() => {
+    delete process.env.CAT_OPUS_TTS_VOICE;
+    delete process.env.CAT_CODEX_TTS_VOICE;
+    delete process.env.CAT_GEMINI_TTS_VOICE;
+    clearVoiceCache();
+  });
+
+  it('returns opus default voice', () => {
+    const voice = getCatVoice('opus');
+    assert.strictEqual(voice.voice, 'zm_yunjian');
+    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.speed, 0.95);
+  });
+
+  it('returns codex default voice', () => {
+    const voice = getCatVoice('codex');
+    assert.strictEqual(voice.voice, 'zm_yunxi');
+    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.speed, 1.0);
+  });
+
+  it('returns gemini default voice', () => {
+    const voice = getCatVoice('gemini');
+    assert.strictEqual(voice.voice, 'zm_yunyang');
+    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.speed, 1.05);
+  });
+
+  it('per-cat env var overrides voice ID', () => {
+    process.env.CAT_OPUS_TTS_VOICE = 'custom_voice_id';
+    clearVoiceCache();
+    const voice = getCatVoice('opus');
+    assert.strictEqual(voice.voice, 'custom_voice_id');
+    // langCode and speed remain from default
+    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.speed, 0.95);
+  });
+
+  it('env var with whitespace is trimmed', () => {
+    process.env.CAT_CODEX_TTS_VOICE = '  trimmed_voice  ';
+    clearVoiceCache();
+    const voice = getCatVoice('codex');
+    assert.strictEqual(voice.voice, 'trimmed_voice');
+  });
+
+  it('empty env var is ignored', () => {
+    process.env.CAT_OPUS_TTS_VOICE = '';
+    clearVoiceCache();
+    const voice = getCatVoice('opus');
+    assert.strictEqual(voice.voice, 'zm_yunjian');
+  });
+
+  it('unknown cat falls back to global default', () => {
+    const voice = getCatVoice('unknown-cat');
+    assert.strictEqual(voice.voice, 'zm_yunjian');
+    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.speed, 1.0);
+  });
+
+  it('all voice configs have required fields', () => {
+    const cats = ['opus', 'codex', 'gemini'];
+    for (const cat of cats) {
+      const voice = getCatVoice(cat);
+      assert.ok(voice.voice, `${cat} has voice`);
+      assert.ok(voice.langCode, `${cat} has langCode`);
+      assert.ok(typeof voice.speed === 'number', `${cat} speed is number`);
+    }
+  });
+});
+
+describe('getAllCatVoices', () => {
+  beforeEach(() => {
+    clearVoiceCache();
+    delete process.env.CAT_OPUS_TTS_VOICE;
+    delete process.env.CAT_CODEX_TTS_VOICE;
+    delete process.env.CAT_GEMINI_TTS_VOICE;
+  });
+
+  it('returns voices for all three cats', () => {
+    const voices = getAllCatVoices();
+    assert.ok(voices.opus, 'has opus');
+    assert.ok(voices.codex, 'has codex');
+    assert.ok(voices.gemini, 'has gemini');
+  });
+});

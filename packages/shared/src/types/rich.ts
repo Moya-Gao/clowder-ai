@@ -7,7 +7,7 @@
 
 // ── Block Kinds ─────────────────────────────────────────────
 
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery';
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio';
 
 // ── Base ────────────────────────────────────────────────────
 
@@ -49,13 +49,23 @@ export interface RichMediaGalleryBlock extends RichBlockBase {
   items: Array<{ url: string; alt?: string; caption?: string }>;
 }
 
+/** F34: Audio block for TTS playback or audio content */
+export interface RichAudioBlock extends RichBlockBase {
+  kind: 'audio';
+  url: string;
+  title?: string;
+  durationSec?: number;
+  mimeType?: string;
+}
+
 // ── Union ───────────────────────────────────────────────────
 
 export type RichBlock =
   | RichCardBlock
   | RichDiffBlock
   | RichChecklistBlock
-  | RichMediaGalleryBlock;
+  | RichMediaGalleryBlock
+  | RichAudioBlock;
 
 // ── Container (stored in StoredMessage.extra.rich) ──────────
 
@@ -66,7 +76,7 @@ export interface RichMessageExtra {
 
 // ── Normalization (#85 format tolerance) ────────────────────
 
-const VALID_KINDS: readonly string[] = ['card', 'diff', 'checklist', 'media_gallery'];
+const VALID_KINDS: readonly string[] = ['card', 'diff', 'checklist', 'media_gallery', 'audio'];
 
 /**
  * #85: Normalize a raw rich block object (mutating).

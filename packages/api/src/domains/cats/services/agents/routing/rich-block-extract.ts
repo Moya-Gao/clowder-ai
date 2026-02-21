@@ -79,6 +79,13 @@ export function isValidRichBlock(b: unknown): b is RichBlock {
         },
       );
     }
+    case 'audio': {
+      if (typeof obj['url'] !== 'string') return false;
+      if ('title' in obj && typeof obj['title'] !== 'string') return false;
+      if ('durationSec' in obj && typeof obj['durationSec'] !== 'number') return false;
+      if ('mimeType' in obj && typeof obj['mimeType'] !== 'string') return false;
+      return true;
+    }
     default:
       return false;
   }

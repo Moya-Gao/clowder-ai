@@ -5,8 +5,11 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
+import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
+import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
+import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
@@ -312,6 +315,14 @@ async function main(): Promise<void> {
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';
   await app.register(uploadsRoutes, { uploadDir });
+
+  // F34: TTS Provider (mlx-audio → Python TTS server)
+  const ttsRegistry = new TtsRegistry();
+  const ttsUrl = process.env['TTS_URL'] ?? 'http://localhost:9877';
+  ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
+  const ttsCacheDir = process.env['TTS_CACHE_DIR'] ?? './data/tts-cache';
+  await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
+  startTtsCacheCleaner(ttsCacheDir);
 
   // Start listening
   const address = await app.listen({ port: PORT, host: HOST });

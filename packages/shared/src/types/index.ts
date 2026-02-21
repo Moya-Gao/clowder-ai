@@ -115,6 +115,7 @@ export type {
   RichDiffBlock,
   RichChecklistBlock,
   RichMediaGalleryBlock,
+  RichAudioBlock,
   RichBlock,
   RichMessageExtra,
 } from './rich.js';
@@ -154,3 +155,10 @@ export type {
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
+// TTS types (F34 TTS Provider)
+export type {
+  ITtsProvider,
+  TtsSynthesizeRequest,
+  TtsSynthesizeResult,
+  VoiceConfig,
+} from './tts.js';

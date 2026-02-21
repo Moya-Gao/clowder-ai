@@ -62,7 +62,7 @@ export interface ToolEvent {
 }
 
 /** F22: Rich block types for frontend rendering */
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery';
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio';
 
 export interface RichCardBlock {
   id: string; kind: 'card'; v: 1;
@@ -91,7 +91,16 @@ export interface RichMediaGalleryBlock {
   items: Array<{ url: string; alt?: string; caption?: string }>;
 }
 
-export type RichBlock = RichCardBlock | RichDiffBlock | RichChecklistBlock | RichMediaGalleryBlock;
+/** F34: Audio block for TTS playback */
+export interface RichAudioBlock {
+  id: string; kind: 'audio'; v: 1;
+  url: string;
+  title?: string;
+  durationSec?: number;
+  mimeType?: string;
+}
+
+export type RichBlock = RichCardBlock | RichDiffBlock | RichChecklistBlock | RichMediaGalleryBlock | RichAudioBlock;
 
 export interface ChatMessage {
   id: string;

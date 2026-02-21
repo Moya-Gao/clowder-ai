@@ -26,6 +26,7 @@ export type {
   MessageContent,
   ModeState,
   ModeSwitchProposal,
+  RichAudioBlock,
   RichBlock,
   RichBlockKind,
   RichCardBlock,

@@ -9,6 +9,7 @@
 
 import type { CatId } from './ids.js';
 import type { CatColor, CatProvider } from './cat.js';
+import type { VoiceConfig } from './tts.js';
 
 /**
  * Per-cat context budget configuration.
@@ -58,6 +59,8 @@ export interface CatVariant {
   readonly strengths?: readonly string[];
   /** Per-cat context budget (optional, falls back to defaults) */
   readonly contextBudget?: ContextBudget;
+  /** F34: Per-cat TTS voice (optional, falls back to defaults in cat-voices.ts) */
+  readonly voiceConfig?: VoiceConfig;
 }
 
 /**

@@ -8,6 +8,7 @@ import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
+import { useTts, type TtsState } from '@/hooks/useTts';
 import { API_URL } from '@/utils/api-client';
 
 const CAT_STYLES: Record<string, {
@@ -177,7 +178,43 @@ function ThinkingContent({ content, className }: { content: string; className?: 
   );
 }
 
+/** F34: Tiny TTS play button for cat messages */
+function TtsPlayButton({ messageId, text, catId, ttsState, activeMessageId, onSynthesize }: {
+  messageId: string; text: string; catId: string;
+  ttsState: TtsState; activeMessageId: string | null;
+  onSynthesize: (messageId: string, text: string, catId?: string) => void;
+}) {
+  const isActive = activeMessageId === messageId;
+  const isLoading = isActive && ttsState === 'loading';
+  const isPlaying = isActive && ttsState === 'playing';
+
+  return (
+    <button
+      onClick={() => onSynthesize(messageId, text, catId)}
+      disabled={isLoading}
+      className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 p-0.5 rounded hover:bg-black/5 text-gray-400 hover:text-gray-600"
+      title={isPlaying ? '停止' : '播放语音'}
+    >
+      {isLoading ? (
+        <svg width="12" height="12" viewBox="0 0 12 12" className="animate-spin">
+          <circle cx="6" cy="6" r="5" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="20 10" />
+        </svg>
+      ) : isPlaying ? (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <rect x="2" y="1" width="3" height="10" rx="0.5" />
+          <rect x="7" y="1" width="3" height="10" rx="0.5" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+          <path d="M2.5 1L10.5 6L2.5 11V1Z" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export function ChatMessage({ message }: { message: ChatMessageType }) {
+  const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -276,7 +313,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   }
 
   return (
-    <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
+    <div data-message-id={message.id} className="group flex gap-2 mb-4 items-start">
       {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
         {cat && (
@@ -289,6 +326,16 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
               <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
                 {isRevealed ? '已揭秘' : '悄悄话'}
               </span>
+            )}
+            {hasTextContent && message.origin !== 'stream' && !message.isStreaming && (
+              <TtsPlayButton
+                messageId={message.id}
+                text={message.content}
+                catId={message.catId!}
+                ttsState={ttsState}
+                activeMessageId={activeMessageId}
+                onSynthesize={ttsSynthesize}
+              />
             )}
           </div>
         )}

@@ -174,6 +174,19 @@ describe('isValidRichBlock', () => {
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'OK', checked: 'yes' }] }), false);
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'OK', checked: true }] }), true);
   });
+
+  it('validates audio blocks (F34)', () => {
+    // Valid minimal audio block
+    assert.equal(isValidRichBlock({ id: 'a1', kind: 'audio', v: 1, url: '/api/tts/audio/abc123.wav' }), true);
+    // Valid audio block with all optional fields
+    assert.equal(isValidRichBlock({ id: 'a2', kind: 'audio', v: 1, url: '/api/tts/audio/abc123.wav', title: 'Speech', durationSec: 3.5, mimeType: 'audio/wav' }), true);
+    // Missing url
+    assert.equal(isValidRichBlock({ id: 'a3', kind: 'audio', v: 1 }), false);
+    // Invalid optional field types
+    assert.equal(isValidRichBlock({ id: 'a4', kind: 'audio', v: 1, url: '/x', title: 42 }), false);
+    assert.equal(isValidRichBlock({ id: 'a5', kind: 'audio', v: 1, url: '/x', durationSec: 'bad' }), false);
+    assert.equal(isValidRichBlock({ id: 'a6', kind: 'audio', v: 1, url: '/x', mimeType: 123 }), false);
+  });
 });
 
 // #85 T1-T4: normalizeRichBlock

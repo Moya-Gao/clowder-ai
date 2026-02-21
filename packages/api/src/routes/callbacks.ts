@@ -74,6 +74,7 @@ const richBlockSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().min(1), kind: z.literal('diff'), v: z.literal(1), filePath: z.string(), diff: z.string(), languageHint: z.string().optional() }),
   z.object({ id: z.string().min(1), kind: z.literal('checklist'), v: z.literal(1), title: z.string().optional(), items: z.array(richChecklistItemSchema).min(1) }),
   z.object({ id: z.string().min(1), kind: z.literal('media_gallery'), v: z.literal(1), title: z.string().optional(), items: z.array(richMediaItemSchema).min(1) }),
+  z.object({ id: z.string().min(1), kind: z.literal('audio'), v: z.literal(1), url: z.string().min(1), title: z.string().optional(), durationSec: z.number().optional(), mimeType: z.string().optional() }),
 ]);
 const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,

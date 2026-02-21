@@ -1,9 +1,10 @@
 'use client';
 
 import type { RichBlock } from '@/stores/chat-types';
+import { AudioBlock } from './AudioBlock';
 import { CardBlock } from './CardBlock';
-import { DiffBlock } from './DiffBlock';
 import { ChecklistBlock } from './ChecklistBlock';
+import { DiffBlock } from './DiffBlock';
 import { MediaGalleryBlock } from './MediaGalleryBlock';
 
 function RichBlockRenderer({ block }: { block: RichBlock }) {
@@ -16,6 +17,8 @@ function RichBlockRenderer({ block }: { block: RichBlock }) {
       return <ChecklistBlock block={block} />;
     case 'media_gallery':
       return <MediaGalleryBlock block={block} />;
+    case 'audio':
+      return <AudioBlock block={block} />;
     default:
       return (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-400">
