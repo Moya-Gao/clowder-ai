@@ -10,22 +10,19 @@ export interface ThreadExportRoutesOptions {
   threadStore: IThreadStore;
 }
 
-// Route-level singleton ImageExporter for browser reuse across requests
-let sharedExporter: ImageExporter | null = null;
-
 export const threadExportRoutes: FastifyPluginAsync<ThreadExportRoutesOptions> = async (fastify, opts) => {
   const { threadStore } = opts;
 
-  // Cleanup on process exit
-  const cleanup = async () => {
+  // Plugin-scoped singleton ImageExporter for browser reuse across requests
+  let sharedExporter: ImageExporter | null = null;
+
+  // Cleanup Puppeteer browser via Fastify lifecycle (awaited by app.close())
+  fastify.addHook('onClose', async () => {
     if (sharedExporter) {
       await sharedExporter.close();
       sharedExporter = null;
     }
-  };
-
-  process.once('SIGTERM', cleanup);
-  process.once('SIGINT', cleanup);
+  });
 
   fastify.post<{ Params: { threadId: string } }>(
     '/api/threads/:threadId/export-image',

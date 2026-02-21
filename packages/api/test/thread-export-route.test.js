@@ -125,6 +125,30 @@ describe('POST /api/threads/:threadId/export-image', () => {
     assert.equal(captures[0].url, 'https://cat-cafe.example.com/thread/thread-1');
   });
 
+  it('closes ImageExporter browser when app.close() fires (BACKLOG #86)', async () => {
+    delete process.env.FRONTEND_URL;
+    delete process.env.FRONTEND_PORT;
+
+    let closeCalled = false;
+    ImageExporter.prototype.close = async () => { closeCalled = true; };
+
+    const app = await buildApp();
+
+    // Trigger a capture so sharedExporter is instantiated
+    await app.inject({
+      method: 'POST',
+      url: '/api/threads/thread-1/export-image',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+
+    assert.equal(closeCalled, false, 'close() should not be called yet');
+
+    // app.close() triggers Fastify onClose hooks
+    await app.close();
+
+    assert.equal(closeCalled, true, 'close() must be called during app.close()');
+  });
+
   it('falls back to localhost:3001 when FRONTEND_PORT is invalid', async () => {
     delete process.env.FRONTEND_URL;
     process.env.FRONTEND_PORT = 'not-a-number';
