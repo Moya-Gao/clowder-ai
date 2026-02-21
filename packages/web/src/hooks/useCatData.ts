@@ -127,3 +127,9 @@ export function useCatData() {
 export function getCachedCats(): CatData[] {
   return _cached ?? buildFallbackCats();
 }
+
+/** Reset module-level cache (for testing) */
+export function _resetCatDataCache(): void {
+  _cached = null;
+  _fetchPromise = null;
+}
