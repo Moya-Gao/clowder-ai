@@ -30,7 +30,7 @@
 | 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
 | 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
 | 83 | **`post-message` 回调路径不支持 Rich Blocks** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。已合入 main。 |
-| 85 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [~] | 2026-02-20 铲屎官实测 + 砚砚 review | 三件事：(1) CardBlock.tsx `bodyMarkdown` 不渲染 Markdown（用纯文本输出，应改用 MarkdownContent）；(2) `type→kind` alias + 自动补 `v:1` + 裸 JSON 强匹配容错（需统一 `normalizeRichPayload`，三入口共用：Route A callback + Route B extractor + MCP tool preflight）；(3) SystemPromptBuilder + McpPromptInjector 补 `kind` 非 `type` 反例。计划：[`2026-02-20-f22-rich-blocks-format-tolerance.md`](./plans/2026-02-20-f22-rich-blocks-format-tolerance.md) |
+| 85 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [x] | 2026-02-20 铲屎官实测 + 砚砚 review | `ecc199b` — (1) CardBlock `bodyMarkdown` 改用 MarkdownContent + `disableCommandPrefix`；(2) `normalizeRichBlock` 在 `@cat-cafe/shared`，三入口共用（Route A/B/MCP tool）：`type→kind` alias + 自动 `v:1`；(3) 裸 JSON 数组全量验证（云端 P1 修复：部分匹配不提取）；(4) 提示词补 `kind≠type` 警告。105 tests pass。PR #40 已合入。 |
 
 ## P2 — 建议做
 
