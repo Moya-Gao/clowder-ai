@@ -192,10 +192,30 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('intent_mode', (data: { threadId: string; mode: string; targetCats: string[] }) => {
-      // Thread guard: prevent cross-thread intent leaking into active thread state
-      const currentThread = threadIdRef.current;
-      if (data.threadId && currentThread && data.threadId !== currentThread) return;
-      callbacksRef.current.onIntentMode?.(data);
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+
+      // Dual-pointer guard: both route and store must agree for active-thread processing.
+      // Mirrors agent_message pattern — blocks switch-window race where route already
+      // points to thread-B but flat store still belongs to thread-A.
+      const isActiveThread = Boolean(
+        data.threadId && routeThread && storeThread &&
+        data.threadId === routeThread && data.threadId === storeThread,
+      );
+
+      if (isActiveThread) {
+        callbacksRef.current.onIntentMode?.(data);
+        return;
+      }
+
+      // Background thread (split-pane) or switch-window: write directly to thread-scoped state
+      if (data.threadId) {
+        const store = useChatStore.getState();
+        store.setThreadLoading(data.threadId, true);
+        store.setThreadHasActiveInvocation(data.threadId, true);
+        store.setThreadIntentMode(data.threadId, data.mode as 'execute' | 'ideate');
+        store.setThreadTargetCats(data.threadId, data.targetCats ?? []);
+      }
     });
 
     socket.on('task_created', (task: Record<string, unknown>) => {

@@ -41,12 +41,12 @@ export function useChatSocketCallbacks({
     },
     onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
     onIntentMode: (data) => {
-      if (data.threadId !== threadId) return;
+      // Socket layer (useSocket) already applies dual-pointer guard + background routing.
+      // This callback only fires for the truly active thread.
       setLoading(true);
       setHasActiveInvocation(true);
       setIntentMode(data.mode as 'ideate' | 'execute');
-      const cats = (data as { targetCats?: string[] }).targetCats;
-      if (cats && cats.length > 0) setTargetCats(cats);
+      setTargetCats((data as { targetCats?: string[] }).targetCats ?? []);
     },
     onTaskCreated: (task) => addTask(task as unknown as TaskItem),
     onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),

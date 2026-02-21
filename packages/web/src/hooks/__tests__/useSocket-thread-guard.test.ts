@@ -44,6 +44,8 @@ const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
+const mockSetThreadIntentMode = vi.fn();
+const mockSetThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
 let mockStoreCurrentThreadId = 'thread-B';
@@ -61,6 +63,8 @@ vi.mock('@/stores/chatStore', () => {
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       setThreadLoading: mockSetThreadLoading,
       setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
+      setThreadIntentMode: mockSetThreadIntentMode,
+      setThreadTargetCats: mockSetThreadTargetCats,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
       getThreadState: () => ({
@@ -153,6 +157,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadMessageStreaming.mockClear();
     mockSetThreadLoading.mockClear();
     mockSetThreadHasActiveInvocation.mockClear();
+    mockSetThreadIntentMode.mockClear();
+    mockSetThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
     // Clear all socket listeners from previous tests
@@ -167,6 +173,8 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
   });
 
   it('intent_mode from active thread is forwarded to callback', () => {
+    // Dual-pointer guard: both route and store must agree
+    mockStoreCurrentThreadId = 'thread-A';
     const onIntentMode = vi.fn();
     const callbacks: SocketCallbacks = {
       onMessage: vi.fn(),
@@ -193,7 +201,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     });
   });
 
-  it('intent_mode from OTHER thread is BLOCKED at socket layer (prevents duplicate cat)', () => {
+  it('intent_mode from OTHER thread routes to background path, not callback', () => {
     const onIntentMode = vi.fn();
     const callbacks: SocketCallbacks = {
       onMessage: vi.fn(),
@@ -214,28 +222,36 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       });
     });
 
-    // MUST NOT be forwarded — this is the core regression guard
+    // MUST NOT be forwarded to callback — this is the core regression guard
     expect(onIntentMode).not.toHaveBeenCalled();
+
+    // Background path: thread-scoped state is updated for the non-active thread
+    expect(mockSetThreadLoading).toHaveBeenCalledWith('thread-A', true);
+    expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-A', true);
+    expect(mockSetThreadIntentMode).toHaveBeenCalledWith('thread-A', 'execute');
+    expect(mockSetThreadTargetCats).toHaveBeenCalledWith('thread-A', ['opus']);
   });
 
-  it('intent_mode for switched-away thread is blocked after thread change', () => {
+  it('intent_mode for switched-away thread routes to background after thread change', () => {
     const onIntentMode = vi.fn();
     const callbacks: SocketCallbacks = {
       onMessage: vi.fn(),
       onIntentMode,
     };
 
-    // Start on thread-A
+    // Start on thread-A (both route and store agree)
+    mockStoreCurrentThreadId = 'thread-A';
     act(() => {
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-A' }));
     });
 
-    // Switch to thread-B (simulates user clicking another thread)
+    // Switch to thread-B (simulates user clicking another thread — store follows route)
+    mockStoreCurrentThreadId = 'thread-B';
     act(() => {
       root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
     });
 
-    // Now thread-A's late intent_mode arrives — must be blocked
+    // Now thread-A's late intent_mode arrives — must NOT forward to callback
     act(() => {
       simulateServerEvent('intent_mode', {
         threadId: 'thread-A',
@@ -245,8 +261,10 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     });
 
     expect(onIntentMode).not.toHaveBeenCalled();
+    // But thread-A's state is updated via background path
+    expect(mockSetThreadIntentMode).toHaveBeenCalledWith('thread-A', 'execute');
 
-    // But thread-B's intent_mode should still work
+    // thread-B's intent_mode should still forward to callback
     act(() => {
       simulateServerEvent('intent_mode', {
         threadId: 'thread-B',
@@ -368,6 +386,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
   });
 
   it('updated callbacks are used after re-render (ref stays fresh)', () => {
+    mockStoreCurrentThreadId = 'thread-A';
     const onIntentMode1 = vi.fn();
     const onIntentMode2 = vi.fn();
 

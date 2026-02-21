@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-20 (BACKLOG 审计：#83/#84/F35 标 [x] + 流程修复)
+> 维护者：布偶猫 | 最后更新：2026-02-20 (#78/#82 bug fix 标 [x])
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -28,7 +28,7 @@
 | 47 | **Persist guard (invocation 成功条件)** | [x] | [消息丢失 bug](./bug-report/message-log-missing-after-auto-compact/bug-report.md) | `PersistenceContext` 跨 generator 传递持久化失败 → invocation 标 failed (可重试) + 前端通知。cursor ack 仅在 succeeded |
 | 56 | **file_change 事件后前端失联 / 超时** | [~] | [bug report](./bug-report/file-change-event-frontend-disconnect/bug-report.md) | Why: 证据显示 `file_change completed` 后紧接服务重启与前端失联。风险边界：当前调试会话可能在首次文件编辑后断链。触发条件：完成最小复现（含 ws close reason）并确认前端/后端根因后再关闭。 |
 | 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
-| 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
+| 78 | **MCP `get_thread_context` 不返回历史图片** | [x] | 铲屎官 2026-02-16 实测 | `b69fcc2` — `callbacks.ts` thread-context response map 漏传 `contentBlocks`，加回即可。存储层已正确保存图片附件，仅 API response 序列化时遗漏。回归测试已补。 |
 | 83 | **`post-message` 回调路径不支持 Rich Blocks** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。已合入 main。 |
 | 85 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [x] | 2026-02-20 铲屎官实测 + 砚砚 review | `ecc199b` — (1) CardBlock `bodyMarkdown` 改用 MarkdownContent + `disableCommandPrefix`；(2) `normalizeRichBlock` 在 `@cat-cafe/shared`，三入口共用（Route A/B/MCP tool）：`type→kind` alias + 自动 `v:1`；(3) 裸 JSON 数组全量验证（云端 P1 修复：部分匹配不提取）；(4) 提示词补 `kind≠type` 警告。105 tests pass。PR #40 已合入。 |
 
@@ -38,7 +38,7 @@
 |---|------|------|------|------|
 | 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。**计划在 F10 Phase A 中一并处理。** |
 | 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [ ] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | QQ 邮箱 IMAP 轮询检测 GitHub review 邮件 → 解析 PR title `[猫名🐾]` 路由 → 自动 invoke 被 review 的猫 → 猫自主处理 P1/P2 → 推前端通知等铲屎官最终确认合入。依赖：`imapflow`，`IMAP_USER/IMAP_PASS` 环境变量（QQ 邮箱授权码）。|
-| 82 | **`onIntentMode` flat setter 线程切换竞态** | [ ] | split-pane invocation state R1 deep review P2 | `ChatContainer.tsx` L125-131 的 `onIntentMode` 回调使用 flat setter（`setLoading(true)` / `setHasActiveInvocation(true)`），在 thread 切换的 render→effect 窗口期（`threadIdRef` 已更新但 `setCurrentThread` 未触发），`intent_mode` 事件可能写入错误线程的 flat state。窗口极窄（毫秒级），复现概率低但理论路径存在。修复方向：将 `intent_mode` 事件路由改为 thread-scoped handler，或在 store 层增加 threadId 校验再写入。 |
+| 82 | **`onIntentMode` flat setter 线程切换竞态** | [x] | split-pane invocation state R1 deep review P2 | `9cfba72` — `useSocket.ts` intent_mode handler 升级为双指针 guard（route + store 必须一致），非活跃线程走 thread-scoped background path（新增 `setThreadIntentMode` / `setThreadTargetCats`）。ChatContainer 移除冗余 closure guard。模式与 agent_message 一致。 |
 | 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `handleCreateRichBlock` 加 Route A→B 降级链：Route A (direct callback) 失败 → Route B (post_message + cc_rich text) → 两路皆败返回 cc_rich hint。5 new tests。Token 生命周期根因未改（需 session-scoped token），但降级保证可用性。已合入 main。 |
 | 7 | 上下文预算管理 (token 截断) | [x] | 身份注入讨论 | Phase 3.7 `999a775` — maxTotalChars + MAX_PROMPT_CHARS env |
 | 8 | 单猫 @mention 无加载提示 | [x] | 狼人杀测试 | Phase 3.8 `180bd1a` — ThinkingIndicator 组件 |

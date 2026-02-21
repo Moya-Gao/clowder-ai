@@ -192,6 +192,8 @@ interface ChatState {
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
+  setThreadIntentMode: (threadId: string, mode: 'execute' | 'ideate' | null) => void;
+  setThreadTargetCats: (threadId: string, cats: string[]) => void;
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
@@ -523,6 +525,46 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [threadId]: {
             ...existing,
             hasActiveInvocation: active,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Update intentMode for a specific thread (active or background).
+   *  Also resets catStatuses — new intent mode = new invocation = fresh statuses. */
+  setThreadIntentMode: (threadId, mode) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { intentMode: mode, catStatuses: {} };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            intentMode: mode,
+            catStatuses: {},
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  /** Update targetCats for a specific thread (active or background). */
+  setThreadTargetCats: (threadId, cats) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { targetCats: cats };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            targetCats: cats,
             lastActivity: Date.now(),
           },
         },

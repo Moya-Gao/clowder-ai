@@ -193,38 +193,28 @@ describe('ChatContainer intent_mode loading lock', () => {
     expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(true);
   });
 
-  it('does not set hasActiveInvocation for other threads', () => {
+  // Cross-thread guard has moved to useSocket (dual-pointer guard).
+  // ChatContainer's onIntentMode callback only fires for the truly active thread.
+  // These tests verify that the callback unconditionally processes whatever it receives
+  // (since useSocket guarantees correctness).
+  it('processes intent_mode unconditionally (guard is in useSocket, not here)', () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-main' }));
     });
 
     act(() => {
       capturedSocketCallbacks?.onIntentMode?.({
-        threadId: 'thread-other',
-        mode: 'execute',
-        targetCats: ['opus'],
+        threadId: 'thread-main',
+        mode: 'ideate',
+        targetCats: [],
       });
     });
 
-    expect(mockSetHasActiveInvocation).not.toHaveBeenCalled();
-  });
-
-  it('ignores intent_mode from other threads', () => {
-    act(() => {
-      root.render(React.createElement(ChatContainer, { threadId: 'thread-main' }));
-    });
-
-    act(() => {
-      capturedSocketCallbacks?.onIntentMode?.({
-        threadId: 'thread-other',
-        mode: 'execute',
-        targetCats: ['opus'],
-      });
-    });
-
-    expect(mockSetLoading).not.toHaveBeenCalled();
-    expect(mockSetIntentMode).not.toHaveBeenCalled();
-    expect(mockSetTargetCats).not.toHaveBeenCalled();
+    // Even with empty targetCats, setTargetCats is called to clear any previous value
+    expect(mockSetLoading).toHaveBeenCalledWith(true);
+    expect(mockSetHasActiveInvocation).toHaveBeenCalledWith(true);
+    expect(mockSetIntentMode).toHaveBeenCalledWith('ideate');
+    expect(mockSetTargetCats).toHaveBeenCalledWith([]);
   });
 
   it('does not drop onMessage during thread switch suppression window', () => {
