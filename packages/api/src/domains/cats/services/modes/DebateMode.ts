@@ -9,7 +9,8 @@
  */
 
 import type { CatId, ModeConfig, ModeState, DebateConfig, DebateState } from '@cat-cafe/shared';
-import { isDebateConfig, isDebateState, createCatId } from '@cat-cafe/shared';
+import { isDebateConfig, isDebateState } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../../../../config/cat-config-loader.js';
 import { routeSerial } from '../agents/routing/route-serial.js';
 import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
@@ -32,7 +33,7 @@ export class DebateMode implements ModeHandler {
     if (state.currentRound > maxRounds) {
       yield {
         type: 'system_info',
-        catId: createCatId('opus'),
+        catId: getDefaultCatId(),
         content: `辩论已结束（${maxRounds} 轮完成）。议题：${config.topic}`,
         timestamp: Date.now(),
       };

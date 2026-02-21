@@ -9,6 +9,8 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
+import { catIdSchema } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
@@ -40,6 +42,8 @@ const createThreadSchema = z.object({
   userId: z.string().min(1).max(100).optional(),
   title: z.string().min(1).max(200).optional(),
   projectPath: z.string().min(1).max(500).optional(),
+  /** F32-b Phase 2: Thread-level cat preference (validated against catRegistry) */
+  preferredCats: z.array(catIdSchema()).max(10).optional(),
 });
 
 const listThreadsSchema = z.object({
@@ -52,7 +56,9 @@ const updateThreadSchema = z.object({
   pinned: z.boolean().optional(),
   favorited: z.boolean().optional(),
   thinkingMode: z.enum(['debug', 'play']).optional(),
-}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined, {
+  /** F32-b Phase 2: Update thread-level cat preference. Empty array clears. */
+  preferredCats: z.array(catIdSchema()).max(10).optional(),
+}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.preferredCats !== undefined, {
   message: 'At least one field must be provided',
 });
 
@@ -68,7 +74,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId: legacyUserId, title, projectPath } = parseResult.data;
+    const { userId: legacyUserId, title, projectPath, preferredCats } = parseResult.data;
     const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
     if (!userId) {
       reply.status(401);
@@ -76,19 +82,24 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     }
 
     // Validate projectPath is a real directory under allowed roots
+    let thread;
     if (projectPath && projectPath !== 'default') {
       const validated = await validateProjectPath(projectPath);
       if (!validated) {
         reply.status(400);
         return { error: 'Invalid projectPath: must be an existing directory under home' };
       }
-      // Use canonicalized path (symlinks resolved)
-      const thread = await threadStore.create(userId, title, validated);
-      reply.status(201);
-      return thread;
+      thread = await threadStore.create(userId, title, validated);
+    } else {
+      thread = await threadStore.create(userId, title, projectPath);
     }
 
-    const thread = await threadStore.create(userId, title, projectPath);
+    // F32-b Phase 2: Set preferred cats if provided at creation time
+    if (preferredCats && preferredCats.length > 0) {
+      await threadStore.updatePreferredCats(thread.id, preferredCats as CatId[]);
+      thread = await threadStore.get(thread.id) ?? thread;
+    }
+
     reply.status(201);
     return thread;
   });
@@ -146,11 +157,12 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode } = parseResult.data;
+    const { title, pinned, favorited, thinkingMode, preferredCats } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
     if (thinkingMode !== undefined) await threadStore.updateThinkingMode(id, thinkingMode);
+    if (preferredCats !== undefined) await threadStore.updatePreferredCats(id, preferredCats as CatId[]);
 
     const updated = await threadStore.get(id);
     if (!updated) {

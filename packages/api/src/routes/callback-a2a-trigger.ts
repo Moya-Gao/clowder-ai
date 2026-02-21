@@ -13,7 +13,8 @@
  */
 
 import type { FastifyBaseLogger } from 'fastify';
-import { createCatId, type CatId } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
@@ -108,7 +109,7 @@ export async function triggerA2AInvocation(
   const { router, invocationRecordStore, socketManager,
     invocationTracker, log } = deps;
   const { targetCats, content, userId, threadId, triggerMessage } = opts;
-  const statusCatId = targetCats[0] ?? createCatId('opus');
+  const statusCatId = targetCats[0] ?? getDefaultCatId();
   const intent = parseIntent(content, targetCats.length);
 
   // Guard: if parent invocation is active, don't start a standalone fallback.

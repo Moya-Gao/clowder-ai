@@ -8,7 +8,7 @@
  */
 
 import type { FastifyPluginAsync } from 'fastify';
-import { createCatId } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
@@ -199,7 +199,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
           });
           opts.socketManager.broadcastAgentMessage({
             type: 'error',
-            catId: createCatId('opus'),
+            catId: getDefaultCatId(),
             error: '消息已发送但未能保存，刷新后可能丢失。可点击重试。',
             timestamp: Date.now(),
           }, record.threadId);
@@ -219,7 +219,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
         });
         opts.socketManager.broadcastAgentMessage({
           type: 'error',
-          catId: createCatId('opus'),
+          catId: getDefaultCatId(),
           error: errorMsg,
           isFinal: true,
           timestamp: Date.now(),

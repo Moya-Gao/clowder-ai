@@ -17,8 +17,8 @@ import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import multipart from '@fastify/multipart';
 import { z } from 'zod';
-import { createCatId } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -329,7 +329,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             });
             opts.socketManager.broadcastAgentMessage({
               type: 'error',
-              catId: createCatId('opus'),
+              catId: getDefaultCatId(),
               error: '消息已发送但未能保存，刷新后可能丢失。可点击重试。',
               timestamp: Date.now(),
             }, resolvedThreadId);
@@ -367,7 +367,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           });
           opts.socketManager.broadcastAgentMessage({
             type: 'error',
-            catId: createCatId('opus'),
+            catId: getDefaultCatId(),
             error: errorMsg,
             isFinal: true,
             timestamp: Date.now(),
@@ -415,7 +415,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           console.error('[messages] Background processing error:', err);
           opts.socketManager.broadcastAgentMessage({
             type: 'error',
-            catId: createCatId('opus'),
+            catId: getDefaultCatId(),
             error: err instanceof Error ? err.message : 'Unknown error',
             isFinal: true,
             timestamp: Date.now(),

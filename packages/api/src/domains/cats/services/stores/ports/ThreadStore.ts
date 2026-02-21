@@ -29,6 +29,8 @@ export interface Thread {
   favoritedAt?: number | null;
   /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking. Default: play */
   thinkingMode?: 'debug' | 'play';
+  /** F32-b Phase 2: Thread-level cat preference. When set, messages without @mention route to these cats instead of participants/default. */
+  preferredCats?: CatId[];
 }
 
 /**
@@ -45,6 +47,7 @@ export interface IThreadStore {
   updatePin(threadId: string, pinned: boolean): void | Promise<void>;
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
+  updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -153,6 +156,18 @@ export class ThreadStore implements IThreadStore {
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void {
     const thread = this.get(threadId);
     if (thread) thread.thinkingMode = mode;
+  }
+
+  updatePreferredCats(threadId: string, catIds: CatId[]): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    // R5 fix: dedupe at write time to prevent duplicate invocations
+    const unique = [...new Set(catIds)];
+    if (unique.length > 0) {
+      thread.preferredCats = unique;
+    } else {
+      delete thread.preferredCats;
+    }
   }
 
   updateLastActive(threadId: string): void {

@@ -194,6 +194,25 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'thinkingMode', mode);
   }
 
+  async updatePreferredCats(threadId: string, catIds: CatId[]): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    // R5 fix: dedupe at write time to prevent duplicate invocations
+    const unique = [...new Set(catIds)];
+    // Store as JSON array string; empty array → remove field
+    if (unique.length > 0) {
+      await this.redis.eval(
+        HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'preferredCats',
+        JSON.stringify(unique),
+      );
+    } else {
+      // Remove the field entirely (clear preference)
+      await this.redis.hdel(key, 'preferredCats');
+    }
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -253,7 +272,7 @@ export class RedisThreadStore implements IThreadStore {
   }
 
   private serializeThread(thread: Thread): Record<string, string> {
-    return {
+    const result: Record<string, string> = {
       id: thread.id,
       projectPath: thread.projectPath,
       title: thread.title ?? '',
@@ -266,12 +285,16 @@ export class RedisThreadStore implements IThreadStore {
       favoritedAt: String(thread.favoritedAt ?? 0),
       thinkingMode: thread.thinkingMode ?? 'play',
     };
+    if (thread.preferredCats && thread.preferredCats.length > 0) {
+      result['preferredCats'] = JSON.stringify(thread.preferredCats);
+    }
+    return result;
   }
 
   private hydrateThread(data: Record<string, string>): Thread {
     const pinnedAt = parseInt(data['pinnedAt'] ?? '0', 10);
     const favoritedAt = parseInt(data['favoritedAt'] ?? '0', 10);
-    return {
+    const result: Thread = {
       id: data['id'] ?? '',
       projectPath: data['projectPath'] ?? 'default',
       title: data['title'] || null,
@@ -285,5 +308,15 @@ export class RedisThreadStore implements IThreadStore {
       favoritedAt: favoritedAt || null,
       thinkingMode: (data['thinkingMode'] === 'debug' ? 'debug' : 'play') as 'debug' | 'play',
     };
+    if (data['preferredCats']) {
+      try {
+        const parsed = JSON.parse(data['preferredCats']);
+        // Cloud P1: guard against valid-but-non-array JSON (e.g. '{}', '"str"')
+        if (Array.isArray(parsed)) {
+          result.preferredCats = parsed as CatId[];
+        }
+      } catch { /* ignore malformed JSON — treat as no preference */ }
+    }
+    return result;
   }
 }

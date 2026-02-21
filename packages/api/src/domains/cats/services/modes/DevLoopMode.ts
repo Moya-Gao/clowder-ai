@@ -8,7 +8,8 @@
  */
 
 import type { CatId, ModeConfig, ModeState, DevLoopConfig, DevLoopState } from '@cat-cafe/shared';
-import { isDevLoopConfig, isDevLoopState, createCatId } from '@cat-cafe/shared';
+import { isDevLoopConfig, isDevLoopState } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../../../../config/cat-config-loader.js';
 import { routeSerial } from '../agents/routing/route-serial.js';
 import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
@@ -122,7 +123,7 @@ export class DevLoopMode implements ModeHandler {
   private sysInfo(content: string): AgentMessage {
     return {
       type: 'system_info',
-      catId: createCatId('opus'),
+      catId: getDefaultCatId(),
       content,
       timestamp: Date.now(),
     };

@@ -210,8 +210,8 @@ export class AgentRouter {
   }
 
   /**
-   * Read-only target resolution: mentions → participants → default cat.
-   * F32-b: Default cat from config (not hardcoded opus).
+   * Read-only target resolution: mentions → preferredCats → participants → default cat.
+   * F32-b Phase 2: Thread-level preferredCats inserted between mentions and participants.
    * Does NOT mutate thread participants.
    */
   private async peekTargets(message: string, threadId: string): Promise<CatId[]> {
@@ -219,6 +219,15 @@ export class AgentRouter {
     if (mentionedCats.length > 0) return mentionedCats;
 
     if (this.threadStore) {
+      // F32-b Phase 2: Thread preferred cats
+      // R5: Object.hasOwn + dedupe; Cloud P1: Array.isArray guard for corrupted data
+      const thread = await this.threadStore.get(threadId);
+      const rawPref = Array.isArray(thread?.preferredCats) ? thread.preferredCats : [];
+      const validPreferred = [...new Set(
+        rawPref.filter((id) => Object.hasOwn(this.services, id as string)),
+      )];
+      if (validPreferred.length > 0) return validPreferred;
+
       const participants = await this.threadStore.getParticipants(threadId);
       if (participants.length > 0) return participants;
     }
@@ -238,6 +247,15 @@ export class AgentRouter {
     }
 
     if (this.threadStore) {
+      // F32-b Phase 2: Thread preferred cats
+      // R5: Object.hasOwn + dedupe; Cloud P1: Array.isArray guard for corrupted data
+      const thread = await this.threadStore.get(threadId);
+      const rawPref = Array.isArray(thread?.preferredCats) ? thread.preferredCats : [];
+      const validPreferred = [...new Set(
+        rawPref.filter((id) => Object.hasOwn(this.services, id as string)),
+      )];
+      if (validPreferred.length > 0) return validPreferred;
+
       const participants = await this.threadStore.getParticipants(threadId);
       if (participants.length > 0) return participants;
     }
