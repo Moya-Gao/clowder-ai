@@ -376,6 +376,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           userId: item.userId,
           catId: item.catId,
           content: item.content,
+          ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
           timestamp: item.timestamp,
         })),
       };

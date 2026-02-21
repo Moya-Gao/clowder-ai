@@ -332,6 +332,46 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[0].content, 'User 1 msg');
   });
 
+  test('GET thread-context includes contentBlocks (image attachments)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'Check this screenshot',
+      contentBlocks: [
+        { type: 'text', text: 'Check this screenshot' },
+        { type: 'image', url: '/uploads/1234567890-abc.png' },
+      ],
+      mentions: [],
+      timestamp: 1,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'opus',
+      content: 'I see the image',
+      mentions: [],
+      timestamp: 2,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 2);
+    // Message with image should include contentBlocks
+    assert.ok(body.messages[0].contentBlocks, 'contentBlocks should be present');
+    assert.equal(body.messages[0].contentBlocks.length, 2);
+    assert.equal(body.messages[0].contentBlocks[1].type, 'image');
+    assert.equal(body.messages[0].contentBlocks[1].url, '/uploads/1234567890-abc.png');
+    // Message without contentBlocks should not have the field
+    assert.equal(body.messages[1].contentBlocks, undefined);
+  });
+
   test('GET pending-mentions only returns mentions from the same user', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');
