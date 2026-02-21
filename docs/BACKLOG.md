@@ -30,6 +30,7 @@
 | 77 | **pending-mentions ack 机制** | [x] | [bug report](./archive/2026-02/bug-report/2026-02-16-pending-mentions-no-ack/bug-report.md) | `0ef1cdd` — messageId 游标 + 显式 ack + 4-way 验证 + 窗口硬校验。已合入 main。 |
 | 78 | **MCP `get_thread_context` 不返回历史图片** | [ ] | 铲屎官 2026-02-16 实测 | `cat_cafe_get_thread_context` 返回的历史消息不包含图片附件（仅文字），导致猫猫无法回看之前发过的图片。实时收到的消息可以带图片（通过 local image path），但历史回放丢失。需要：消息存储层保留图片引用 + MCP 响应中包含 `attachments` 或 `imageUrl` 字段。 |
 | 83 | **`post-message` 回调路径不支持 Rich Blocks** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。已合入 main。 |
+| 85 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [~] | 2026-02-20 铲屎官实测 + 砚砚 review | 三件事：(1) CardBlock.tsx `bodyMarkdown` 不渲染 Markdown（用纯文本输出，应改用 MarkdownContent）；(2) `type→kind` alias + 自动补 `v:1` + 裸 JSON 强匹配容错（需统一 `normalizeRichPayload`，三入口共用：Route A callback + Route B extractor + MCP tool preflight）；(3) SystemPromptBuilder + McpPromptInjector 补 `kind` 非 `type` 反例。计划：[`2026-02-20-f22-rich-blocks-format-tolerance.md`](./plans/2026-02-20-f22-rich-blocks-format-tolerance.md) |
 
 ## P2 — 建议做
 
@@ -128,7 +129,7 @@
 | F7 | ~~Thread 名字检索~~ | [x] | 功能性试用 | `81939c1` — GET /api/threads?q= 大小写不敏感搜索 |
 | F8 | ~~Token 预算 + 深度可观测性~~ | **[x]** | [NDJSON 宝藏调研](./archive/2026-02/research/cli-ndjson-treasure-map.md) | 全部完成：char→token 迁移 (js-tiktoken, 16 files) + 三猫 CLI usage/cost/cache 捕获 + 前端 RightStatusPanel per-cat token 显示 + ParallelStatusBar 聚合 + inputTokens 归一化 (`da75aaf`) + review fix (`e8d1dbd`)。commits: `66a59e4`→`6f25a2b`→`e8d1dbd` |
 | F9 | tool_use/tool_result 事件显示 | [x] | Phase 5 拍板发现 | 5.0-pre: useAgentMessages 新增 tool_use/tool_result handler + ChatMessage 'tool' variant |
-| F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) 做多猫版移动端。iOS app / iMessage 对接待决策 |
+| F10 | 手机端猫猫 | P1 (#5) | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | **路线图**：[`2026-02-20-mobile-cat-roadmap.md`](./plans/2026-02-20-mobile-cat-roadmap.md)。决策：PWA 先行（两猫独立思考共识 + 铲屎官确认）。Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）。关联：F20/F22/F34。参考 [Happy](https://happy.engineering/) + [OpenClaw](https://openclaw.ai/) |
 | F11 | **模式系统** | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 开发自闭环 / 头脑风暴 / 辩论三种模式 + 可扩展。6 轮 review 通过，939 tests。[攻防录](../tmp/f11-maine-log.md) |
 | F12 | 功能可发现性 | **[x]** | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | `43f88ca` + `7b03236` — Cat Café Hub modal（功能注册表 + 环境摘要 + /hub 命令）。已合入 main。 |
 | F13 | 审计日志 v2 | [x] | [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 已完成：操作审计（追责）+ CLI 原始日志归档（debug）。计划文档: [`2026-02-10-f13-audit-log-v2.md`](./archive/2026-02/plans/2026-02-10-f13-audit-log-v2.md) |
