@@ -55,7 +55,16 @@ export function mergeTermEntries(
 // Keep backward-compatible module-level entries for existing callers
 const termEntries: ReadonlyArray<TermEntry> = builtInEntries;
 
-const mentionAliases = Array.from(
+// ── Refreshable speech mention aliases ──────────────────
+function buildSpeechMentionPattern(aliases: string[]): RegExp {
+  if (aliases.length === 0) return /(?!)/g; // never-match fallback
+  return new RegExp(
+    `(^|\\s)(?:at|艾特|@\\s*[。｡\\.．])\\s*(?:咱的|我的)?\\s*(${aliases.map(escapeRegExp).join('|')})(?=$|\\s|[,.:;!?()\\[\\]{}<>，。！？、：；（）【】《》「」『』〈〉])`,
+    'gi',
+  );
+}
+
+const staticAliases = Array.from(
   new Set(
     Object.values(CAT_CONFIGS).flatMap((config) =>
       config.mentionPatterns.map((pattern) => pattern.replace(/^@/, '')),
@@ -63,17 +72,26 @@ const mentionAliases = Array.from(
   ),
 ).sort((a, b) => b.length - a.length);
 
-const speechMentionPattern = new RegExp(
-  `(^|\\s)(?:at|艾特|@\\s*[。｡\\.．])\\s*(?:咱的|我的)?\\s*(${mentionAliases.map(escapeRegExp).join('|')})(?=$|\\s|[，。！？、,.:：;；])`,
-  'gi',
-);
+let _speechMentionPattern = buildSpeechMentionPattern(staticAliases);
+
+/** Refresh speech mention aliases from dynamic cat data (called by useCatData) */
+export function refreshSpeechAliases(cats: Array<{ mentionPatterns: string[] }>): void {
+  const aliases = Array.from(
+    new Set(
+      cats.flatMap((cat) =>
+        cat.mentionPatterns.map((p) => p.replace(/^@/, '')),
+      ),
+    ),
+  ).sort((a, b) => b.length - a.length);
+  _speechMentionPattern = buildSpeechMentionPattern(aliases);
+}
 
 /**
  * Normalize voice-recognized mention prefix:
  * "at 砚砚" / "艾特 宪宪" → "@砚砚" / "@宪宪"
  */
 export function normalizeSpeechMentions(text: string): string {
-  return text.replace(speechMentionPattern, (_match, prefix: string, alias: string) => `${prefix}@${alias}`);
+  return text.replace(_speechMentionPattern, (_match, prefix: string, alias: string) => `${prefix}@${alias}`);
 }
 
 /**

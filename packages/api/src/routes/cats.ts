@@ -14,8 +14,15 @@ export const catsRoutes: FastifyPluginAsync = async (app) => {
       cats: Object.values(catRegistry.getAllConfigs()).map((cat) => ({
         id: cat.id,
         displayName: cat.displayName,
+        nickname: cat.nickname,
         color: cat.color,
         mentionPatterns: cat.mentionPatterns,
+        breedId: cat.breedId,
+        provider: cat.provider,
+        defaultModel: cat.defaultModel,
+        avatar: cat.avatar,
+        roleDescription: cat.roleDescription,
+        personality: cat.personality,
       })),
     };
   });

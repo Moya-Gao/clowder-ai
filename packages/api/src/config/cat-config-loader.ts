@@ -67,6 +67,7 @@ const catBreedSchema = z.object({
   catId: z.string().min(1),
   name: z.string().min(1),
   displayName: z.string().min(1),
+  nickname: z.string().optional(),
   avatar: z.string().min(1),
   color: z.object({ primary: z.string(), secondary: z.string() }),
   mentionPatterns: z.array(mentionPatternSchema).min(1),
@@ -153,6 +154,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         id: createCatId(catId),
         name: catId,
         displayName: variant.displayName ?? breed.displayName,
+        ...(breed.nickname != null ? { nickname: breed.nickname } : {}),
         avatar: breed.avatar,            // shared breed-level
         color: breed.color,              // shared breed-level
         mentionPatterns: variant.mentionPatterns

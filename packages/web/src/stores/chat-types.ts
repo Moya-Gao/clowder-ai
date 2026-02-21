@@ -150,6 +150,8 @@ export interface Thread {
   favoritedAt?: number | null;
   /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking */
   thinkingMode?: 'debug' | 'play';
+  /** F32-b: Thread-level default cat preference */
+  preferredCats?: string[];
 }
 
 /** F24: Context health data from backend */

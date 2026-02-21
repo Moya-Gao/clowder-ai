@@ -3,8 +3,9 @@
 import { useMemo } from 'react';
 import type { RightStatusPanelProps } from './RightStatusPanel';
 import {
-  CAT_INFO, modeLabel, statusLabel, statusTone, truncateId,
+  modeLabel, statusLabel, statusTone, truncateId,
 } from './status-helpers';
+import { useCatData } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 
 interface MobileStatusSheetProps extends RightStatusPanelProps {
@@ -26,6 +27,8 @@ export function MobileStatusSheet({
   threadId,
   messageSummary,
 }: MobileStatusSheetProps) {
+  const { getCatById } = useCatData();
+
   const activeCats = useMemo(() => {
     return targetCats.length > 0 ? Array.from(new Set(targetCats)) : [];
   }, [targetCats]);
@@ -80,15 +83,16 @@ export function MobileStatusSheet({
             {activeCats.length > 0 ? (
               <div className="space-y-2">
                 {activeCats.map((catId) => {
-                  const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+                  const cat = getCatById(catId);
+                  const dotColor = cat?.color.primary ?? '#9CA3AF';
                   const status = catStatuses[catId] ?? 'pending';
                   const inv = catInvocations[catId];
                   return (
                     <div key={catId}>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className={`inline-block h-2.5 w-2.5 rounded-full ${info.color}`} />
-                          <span className="text-xs text-gray-700">{info.name}</span>
+                          <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                          <span className="text-xs text-gray-700">{cat?.displayName ?? catId}</span>
                         </div>
                         <span className={`text-xs font-medium ${statusTone(status)}`}>
                           {statusLabel(status)}
@@ -106,11 +110,11 @@ export function MobileStatusSheet({
             ) : allParticipants.length > 0 ? (
               <div className="space-y-1.5">
                 {allParticipants.map((catId) => {
-                  const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+                  const cat = getCatById(catId);
                   return (
                     <div key={catId} className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className={`inline-block h-2 w-2 rounded-full ${info.color} opacity-60`} />
-                      {info.name}
+                      <span className="inline-block h-2 w-2 rounded-full opacity-60" style={{ backgroundColor: cat?.color.primary ?? '#9CA3AF' }} />
+                      {cat?.displayName ?? catId}
                     </div>
                   );
                 })}

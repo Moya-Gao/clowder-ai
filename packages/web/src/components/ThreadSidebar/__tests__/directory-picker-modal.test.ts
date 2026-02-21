@@ -147,7 +147,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(cwdBtn).toBeTruthy();
     act(() => { cwdBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH);
+    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH, undefined);
   });
 
   it('calls onSelect with existing project path when existing project is clicked', async () => {
@@ -164,7 +164,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(projectBtn).toBeTruthy();
     act(() => { projectBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(existingPath);
+    expect(fns.onSelect).toHaveBeenCalledWith(existingPath, undefined);
   });
 
   it('does not show cwd in quick picks when it already exists in existingProjects', async () => {
@@ -190,7 +190,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(lobbyBtn).toBeTruthy();
     act(() => { lobbyBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(undefined, undefined);
   });
 
   // ── Browse expand / collapse ───────────────────────────────
@@ -279,7 +279,47 @@ describe('DirectoryPickerModal', () => {
     )!;
     expect(selectBtn).toBeTruthy();
     act(() => { selectBtn.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH);
+    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH, undefined);
+  });
+
+  // ── Cat selection with preferredCats ──────────────────────
+
+  it('passes selected cats as preferredCats when quick pick is clicked', async () => {
+    setupCwdSuccess();
+    const fns = render();
+    await flush();
+    // CatSelector shows static fallback cats. Click a cat chip (布偶猫)
+    const catChip = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('布偶猫'),
+    );
+    expect(catChip).toBeTruthy();
+    act(() => { catChip!.click(); });
+    // Now click the recommended project quick pick
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('推荐'),
+    );
+    act(() => { cwdBtn!.click(); });
+    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH, ['opus']);
+  });
+
+  it('passes multiple selected cats as preferredCats', async () => {
+    setupCwdSuccess();
+    const fns = render();
+    await flush();
+    // Select two cats
+    const chips = Array.from(container.querySelectorAll('button'));
+    const opusChip = chips.find((b) => b.textContent?.includes('布偶猫'));
+    const codexChip = chips.find((b) => b.textContent?.includes('缅因猫'));
+    expect(opusChip).toBeTruthy();
+    expect(codexChip).toBeTruthy();
+    act(() => { opusChip!.click(); });
+    act(() => { codexChip!.click(); });
+    // Click lobby
+    const lobbyBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('大厅'),
+    );
+    act(() => { lobbyBtn!.click(); });
+    expect(fns.onSelect).toHaveBeenCalledWith(undefined, ['opus', 'codex']);
   });
 
   // ── Escape key / backdrop ──────────────────────────────────

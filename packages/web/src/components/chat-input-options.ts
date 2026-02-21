@@ -1,8 +1,28 @@
-export const CAT_OPTIONS = [
-  { id: 'opus', label: '@\u5E03\u5076\u732B', desc: 'Opus \u00B7 \u67B6\u6784 & \u5F00\u53D1', insert: '@\u5E03\u5076 ', color: 'text-opus-primary' },
-  { id: 'codex', label: '@\u7F05\u56E0\u732B', desc: 'Codex \u00B7 \u5BA1\u67E5 & \u6D4B\u8BD5', insert: '@\u7F05\u56E0 ', color: 'text-codex-primary' },
-  { id: 'gemini', label: '@\u66B9\u7F57\u732B', desc: 'Gemini \u00B7 \u8BBE\u8BA1 & \u521B\u610F', insert: '@\u66B9\u7F57 ', color: 'text-gemini-primary' },
-] as const;
+import type { CatData } from '@/hooks/useCatData';
+
+export interface CatOption {
+  id: string;
+  label: string;
+  desc: string;
+  insert: string;
+  color: string; // hex color (for inline style)
+  avatar: string;
+}
+
+/** Build @mention autocomplete options from dynamic cat data.
+ *  Filters out cats with no mentionPatterns (not routable by backend). */
+export function buildCatOptions(cats: CatData[]): CatOption[] {
+  return cats
+    .filter((cat) => cat.mentionPatterns.length > 0)
+    .map((cat) => ({
+      id: cat.id,
+      label: `@${cat.displayName}`,
+      desc: cat.roleDescription,
+      insert: `@${cat.mentionPatterns[0].replace(/^@/, '')} `,
+      color: cat.color.primary,
+      avatar: cat.avatar,
+    }));
+}
 
 export const MODE_OPTIONS = [
   { id: 'brainstorm', icon: '\u{1F9E0}', label: '\u5934\u8111\u98CE\u66B4', desc: '/mode brainstorm <\u8BAE\u9898> @\u732B', insert: '/mode brainstorm ' },
@@ -12,7 +32,6 @@ export const MODE_OPTIONS = [
   { id: 'status', icon: '\u{1F4CB}', label: '\u67E5\u770B\u72B6\u6001', desc: '/mode status', insert: '/mode status' },
 ] as const;
 
-export type CatOption = typeof CAT_OPTIONS[number];
 export type ModeOption = typeof MODE_OPTIONS[number];
 
 /** Pure detection — returns menu trigger type from current input, or null. */

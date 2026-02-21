@@ -107,7 +107,7 @@ describe('SplitPaneView input routing (P1-1)', () => {
 
     act(() => { (btn as HTMLElement).click(); });
 
-    // SplitPaneView wraps onSend: (content) => onSend(content, undefined, splitPaneTargetId)
-    expect(mockOnSend).toHaveBeenCalledWith('test message', undefined, 'thread-2');
+    // SplitPaneView wraps onSend: (content, images, whisper) => onSend(content, images, splitPaneTargetId, whisper)
+    expect(mockOnSend).toHaveBeenCalledWith('test message', undefined, 'thread-2', undefined);
   });
 });

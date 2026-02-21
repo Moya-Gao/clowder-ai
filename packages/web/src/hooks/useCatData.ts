@@ -1,0 +1,129 @@
+'use client';
+
+/**
+ * F32-b Phase 3: Central hook for dynamic cat data from /api/cats.
+ * Fetches once per session, caches module-level. All consumers share same data.
+ * Falls back to static CAT_CONFIGS from @cat-cafe/shared during initial load.
+ */
+
+import { useEffect, useMemo, useState } from 'react';
+import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { apiFetch } from '@/utils/api-client';
+import { refreshMentionData } from '@/lib/mention-highlight';
+import { refreshSpeechAliases } from '@/utils/transcription-corrector';
+
+export interface CatData {
+  id: string;
+  displayName: string;
+  nickname?: string;
+  color: { primary: string; secondary: string };
+  mentionPatterns: string[];
+  breedId?: string;
+  provider: string;
+  defaultModel: string;
+  avatar: string;
+  roleDescription: string;
+  personality: string;
+}
+
+// ── Module-level cache ──────────────────────────────────
+let _cached: CatData[] | null = null;
+let _fetchPromise: Promise<FetchResult> | null = null;
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 10_000;
+
+function buildFallbackCats(): CatData[] {
+  return Object.values(CAT_CONFIGS).map((c) => ({
+    id: c.id as string,
+    displayName: c.displayName,
+    nickname: c.nickname,
+    color: { primary: c.color.primary, secondary: c.color.secondary },
+    mentionPatterns: [...c.mentionPatterns],
+    breedId: undefined,
+    provider: c.provider,
+    defaultModel: c.defaultModel,
+    avatar: c.avatar,
+    roleDescription: c.roleDescription,
+    personality: c.personality,
+  }));
+}
+
+interface FetchResult { cats: CatData[]; fromApi: boolean }
+
+async function fetchCats(): Promise<FetchResult> {
+  try {
+    const res = await apiFetch('/api/cats');
+    if (!res.ok) return { cats: buildFallbackCats(), fromApi: false };
+    const data = await res.json();
+    const cats = Array.isArray(data?.cats) ? (data.cats as CatData[]) : null;
+    return cats ? { cats, fromApi: true } : { cats: buildFallbackCats(), fromApi: false };
+  } catch {
+    return { cats: buildFallbackCats(), fromApi: false };
+  }
+}
+
+// ── Hook ────────────────────────────────────────────────
+
+export function useCatData() {
+  const [cats, setCats] = useState<CatData[]>(() => _cached ?? buildFallbackCats());
+  const [isLoading, setIsLoading] = useState(!_cached);
+  const [retryCount, setRetryCount] = useState(0);
+
+  useEffect(() => {
+    if (_cached) {
+      setCats(_cached);
+      setIsLoading(false);
+      return;
+    }
+    if (!_fetchPromise) {
+      _fetchPromise = fetchCats();
+    }
+    let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    _fetchPromise.then(({ cats: result, fromApi }) => {
+      if (fromApi) {
+        _cached = result;
+      } else {
+        _fetchPromise = null;
+        // Schedule retry for already-mounted hooks (max 3 attempts, 10s apart)
+        if (retryCount < MAX_RETRIES) {
+          retryTimer = setTimeout(() => {
+            if (!cancelled) setRetryCount((c) => c + 1);
+          }, RETRY_DELAY_MS);
+        }
+      }
+      refreshMentionData(result);
+      refreshSpeechAliases(result);
+      if (!cancelled) {
+        setCats(result);
+        setIsLoading(false);
+      }
+    });
+    return () => { cancelled = true; clearTimeout(retryTimer); };
+  }, [retryCount]);
+
+  const getCatById = useMemo(() => {
+    const map = new Map(cats.map((c) => [c.id, c]));
+    return (id: string) => map.get(id);
+  }, [cats]);
+
+  const getCatsByBreed = useMemo(() => {
+    return () => {
+      const groups = new Map<string, CatData[]>();
+      for (const cat of cats) {
+        const key = cat.breedId ?? cat.id;
+        const arr = groups.get(key) ?? [];
+        arr.push(cat);
+        groups.set(key, arr);
+      }
+      return groups;
+    };
+  }, [cats]);
+
+  return { cats, isLoading, getCatById, getCatsByBreed };
+}
+
+/** Get cached cats synchronously (for non-hook contexts). Returns fallback if not loaded. */
+export function getCachedCats(): CatData[] {
+  return _cached ?? buildFallbackCats();
+}

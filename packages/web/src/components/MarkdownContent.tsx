@@ -4,38 +4,28 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Children, useCallback, useRef, useState, type ReactNode } from 'react';
-import { CAT_CONFIGS, escapeRegExp } from '@cat-cafe/shared';
+import { getMentionRe, getMentionToCat, getMentionColor } from '@/lib/mention-highlight';
 
 /* ── @mention highlighting ─────────────────────────────────── */
-const MENTION_TO_CAT: Record<string, 'opus' | 'codex' | 'gemini'> = Object.fromEntries(
-  Object.entries(CAT_CONFIGS).flatMap(([catId, config]) =>
-    config.mentionPatterns.map((pattern) => [pattern.replace(/^@/, '').toLowerCase(), catId]),
-  ),
-) as Record<string, 'opus' | 'codex' | 'gemini'>;
-
-const mentionAliases = Object.keys(MENTION_TO_CAT).sort((a, b) => b.length - a.length);
-const mentionAliasPattern = mentionAliases.map(escapeRegExp).join('|');
-const MENTION_RE = new RegExp(`@(${mentionAliasPattern})(?=$|\\s|[，。！？、,.:：;；])`, 'gi');
-
-const MENTION_COLOR: Record<string, string> = {
-  opus: 'text-opus-primary',
-  codex: 'text-codex-primary',
-  gemini: 'text-gemini-primary',
-};
 
 function highlightMentions(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
   let lastIdx = 0;
   let m: RegExpExecArray | null;
 
-  MENTION_RE.lastIndex = 0;
-  while ((m = MENTION_RE.exec(text)) !== null) {
+  const re = getMentionRe();
+  const toCat = getMentionToCat();
+  const colorMap = getMentionColor();
+
+  re.lastIndex = 0;
+  while ((m = re.exec(text)) !== null) {
     if (m.index > lastIdx) parts.push(text.slice(lastIdx, m.index));
-    const cat = MENTION_TO_CAT[m[1].toLowerCase()] ?? 'opus';
+    const catId = toCat[m[1].toLowerCase()] ?? 'opus';
+    const catColor = colorMap[catId] ?? '#9B7EBD';
     parts.push(
-      <span key={`m${m.index}`} className={`font-semibold ${MENTION_COLOR[cat]}`}>{m[0]}</span>,
+      <span key={`m${m.index}`} className="font-semibold" style={{ color: catColor }}>{m[0]}</span>,
     );
-    lastIdx = MENTION_RE.lastIndex;
+    lastIdx = re.lastIndex;
   }
   if (lastIdx < text.length) parts.push(text.slice(lastIdx));
   return parts;

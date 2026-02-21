@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo, KeyboardEvent } from 'react';
 import { AttachIcon } from './icons/AttachIcon';
 import { ImagePreview } from './ImagePreview';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
-import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
+import { buildCatOptions, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
 import { MobileInputToolbar } from './MobileInputToolbar';
+import { useCatData } from '@/hooks/useCatData';
 import { compressImage } from '@/utils/compressImage';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
@@ -30,6 +31,9 @@ export function ChatInput({
   uploadStatus = 'idle',
   uploadError = null,
 }: ChatInputProps) {
+  const { cats } = useCatData();
+  const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
+
   const [input, setInput] = useState('');
   const [showMentions, setShowMentions] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
@@ -54,7 +58,7 @@ export function ChatInput({
   }, []);
 
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
-  const activeOptions = activeMenu === 'mention' ? CAT_OPTIONS : MODE_OPTIONS;
+  const activeOptions = activeMenu === 'mention' ? catOptions : MODE_OPTIONS;
 
   const handleSend = useCallback(() => {
     if (sendTemporarilyDisabled) return;
@@ -114,12 +118,18 @@ export function ChatInput({
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
     if (activeMenu) {
+      if (activeOptions.length === 0) { closeMenus(); return; }
       if (e.key === 'ArrowDown') { e.preventDefault(); setSelectedIdx((i) => (i + 1) % activeOptions.length); return; }
       if (e.key === 'ArrowUp') { e.preventDefault(); setSelectedIdx((i) => (i - 1 + activeOptions.length) % activeOptions.length); return; }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        if (activeMenu === 'mention') insertMention(CAT_OPTIONS[selectedIdx]);
-        else insertOption(MODE_OPTIONS[selectedIdx].insert);
+        if (activeMenu === 'mention') {
+          const opt = catOptions[selectedIdx];
+          if (!opt) { closeMenus(); return; }
+          insertMention(opt);
+        } else {
+          insertOption(MODE_OPTIONS[selectedIdx].insert);
+        }
         return;
       }
       if (e.key === 'Escape') { e.preventDefault(); closeMenus(); return; }
@@ -181,15 +191,33 @@ export function ChatInput({
     });
   }, []);
 
+  // Clamp selectedIdx when catOptions shrink — only when mention menu is active.
+  // selectedIdx is shared by mention/mode menus; clamping to catOptions.length
+  // when mode menu is open would corrupt mode selection.
+  useEffect(() => {
+    if (!showMentions) return;
+    setSelectedIdx((i) => Math.min(i, Math.max(0, catOptions.length - 1)));
+  }, [catOptions, showMentions]);
+
+  // Reconcile whisperTargets when catOptions change (e.g. after API fetch replaces fallback)
+  useEffect(() => {
+    if (!whisperMode) return;
+    const validIds = new Set(catOptions.map((c) => c.id));
+    setWhisperTargets((prev) => {
+      const filtered = new Set([...prev].filter((id) => validIds.has(id)));
+      return filtered.size === prev.size ? prev : filtered;
+    });
+  }, [catOptions, whisperMode]);
+
   const handleWhisperToggle = useCallback(() => {
     setWhisperMode((prev) => {
       if (!prev) {
         // Entering whisper mode — auto-select all cats
-        setWhisperTargets(new Set(CAT_OPTIONS.map((c) => c.id)));
+        setWhisperTargets(new Set(catOptions.map((c) => c.id)));
       }
       return !prev;
     });
-  }, []);
+  }, [catOptions]);
 
   const handleModeClick = useCallback(() => {
     setShowMentions(false);
@@ -227,6 +255,7 @@ export function ChatInput({
   return (
     <div className="border-t border-owner-light bg-owner-bg relative safe-area-bottom">
       <ChatInputMenus
+        catOptions={catOptions}
         showMentions={showMentions} showModeMenu={showModeMenu} selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx} onInsertMention={insertMention} onInsertOption={insertOption} menuRef={menuRef}
       />
@@ -250,15 +279,16 @@ export function ChatInput({
       {whisperMode && (
         <div className="px-4 pt-2 flex items-center gap-2 flex-wrap">
           <span className="text-xs text-amber-600 font-medium">悄悄话发给:</span>
-          {CAT_OPTIONS.map((cat) => (
+          {catOptions.map((cat) => (
             <button
               key={cat.id}
               onClick={() => toggleWhisperTarget(cat.id)}
               className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
                 whisperTargets.has(cat.id)
-                  ? `${cat.color} border-current bg-amber-50 font-medium`
+                  ? 'border-current bg-amber-50 font-medium'
                   : 'text-gray-400 border-gray-200 hover:border-gray-400'
               }`}
+              style={whisperTargets.has(cat.id) ? { color: cat.color } : undefined}
             >
               {cat.label.replace('@', '')}
             </button>

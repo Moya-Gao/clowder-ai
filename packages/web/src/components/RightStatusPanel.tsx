@@ -5,9 +5,10 @@ import type { CatInvocationInfo } from '@/stores/chatStore';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import {
-  CAT_INFO, modeLabel, statusLabel, statusTone, truncateId,
+  modeLabel, statusLabel, statusTone, truncateId,
   type IntentMode, type CatStatus,
 } from './status-helpers';
+import { useCatData } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 import { SessionChainPanel } from './SessionChainPanel';
@@ -75,12 +76,17 @@ function CatInvocationCard({
   onCopy: (v: string) => void;
   isActive: boolean;
 }) {
-  const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+  const { getCatById } = useCatData();
+  const cat = getCatById(catId);
+  const dotColor = cat?.color.primary ?? '#9CA3AF';
   return (
     <div className="text-xs">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${info.color} ${isActive ? 'animate-pulse' : ''}`} />
-        <span className="font-medium text-gray-700">{info.name}</span>
+        <span
+          className={`inline-block h-2.5 w-2.5 rounded-full ${isActive ? 'animate-pulse' : ''}`}
+          style={{ backgroundColor: dotColor }}
+        />
+        <span className="font-medium text-gray-700">{cat?.displayName ?? catId}</span>
         {inv.sessionSeq !== undefined && (
           <span
             className={`text-[10px] px-1 py-0.5 rounded ${
@@ -239,6 +245,7 @@ export function RightStatusPanel({
     return { activeCats: active, historyCats: history };
   }, [targetCats, catInvocations]);
 
+  const { getCatById } = useCatData();
   const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const openHub = useChatStore((s) => s.openHub);
@@ -288,15 +295,16 @@ export function RightStatusPanel({
         {activeCats.length > 0 ? (
           <div className="space-y-3">
             {activeCats.map((catId) => {
-              const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+              const cat = getCatById(catId);
+              const dotColor = cat?.color.primary ?? '#9CA3AF';
               const status = catStatuses[catId] ?? 'pending';
               const inv = catInvocations[catId];
               return (
                 <div key={catId}>
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      <span className={`inline-block h-2.5 w-2.5 rounded-full ${info.color}`} />
-                      <span className="text-xs text-gray-700">{info.name}</span>
+                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
+                      <span className="text-xs text-gray-700">{cat?.displayName ?? catId}</span>
                     </div>
                     <span className={`text-xs font-medium ${statusTone(status)}`}>
                       {statusLabel(status)}
@@ -329,11 +337,11 @@ export function RightStatusPanel({
               {historyCats.map((catId) => {
                 const inv = catInvocations[catId];
                 if (!inv) {
-                  const info = CAT_INFO[catId] ?? { name: catId, color: 'bg-gray-400' };
+                  const cat = getCatById(catId);
                   return (
                     <div key={catId} className="flex items-center gap-2 text-xs text-gray-400">
-                      <span className={`inline-block h-2 w-2 rounded-full ${info.color} opacity-50`} />
-                      {info.name}
+                      <span className="inline-block h-2 w-2 rounded-full opacity-50" style={{ backgroundColor: cat?.color.primary ?? '#9CA3AF' }} />
+                      {cat?.displayName ?? catId}
                     </div>
                   );
                 }

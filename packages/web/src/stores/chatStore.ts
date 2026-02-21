@@ -182,6 +182,7 @@ interface ChatState {
   updateThreadPin: (threadId: string, pinned: boolean) => void;
   updateThreadFavorite: (threadId: string, favorited: boolean) => void;
   updateThreadThinkingMode: (threadId: string, mode: 'debug' | 'play') => void;
+  updateThreadPreferredCats: (threadId: string, preferredCats: string[]) => void;
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
@@ -365,6 +366,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
   updateThreadThinkingMode: (threadId, mode) =>
     set((state) => ({
       threads: state.threads.map((t) => (t.id === threadId ? { ...t, thinkingMode: mode } : t)),
+    })),
+
+  updateThreadPreferredCats: (threadId, preferredCats) =>
+    set((state) => ({
+      threads: state.threads.map((t) =>
+        t.id === threadId ? { ...t, preferredCats: preferredCats.length > 0 ? preferredCats : undefined } : t,
+      ),
     })),
 
   /**

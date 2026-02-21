@@ -26,8 +26,11 @@ describe('MarkdownContent alias source', () => {
       };
     });
 
+    // Must also re-import mention-highlight (which reads CAT_CONFIGS at module init)
+    await import('@/lib/mention-highlight');
     const { MarkdownContent } = await import('@/components/MarkdownContent');
     const html = renderToStaticMarkup(React.createElement(MarkdownContent, { content: '@测试布偶别名 你先看下' }));
-    expect(html).toContain('text-opus-primary');
+    // Dynamic colors now use inline style with hex values (not Tailwind classes)
+    expect(html).toContain('color:#9B7EBD');
   });
 });

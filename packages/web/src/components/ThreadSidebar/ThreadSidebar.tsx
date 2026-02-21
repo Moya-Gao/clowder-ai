@@ -84,7 +84,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
     router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
   }, [router]);
 
-  const createInProject = useCallback(async (projectPath?: string) => {
+  const createInProject = useCallback(async (projectPath?: string, preferredCats?: string[]) => {
     setIsCreating(true);
     setShowPicker(false);
     try {
@@ -93,6 +93,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(projectPath ? { projectPath } : {}),
+          ...(preferredCats?.length ? { preferredCats } : {}),
         }),
       });
       if (!res.ok) return;
@@ -150,6 +151,16 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
     (threadId: string, favorited: boolean) => void favToggle.current!.toggle(threadId, favorited),
     [],
   );
+
+  const handleUpdatePreferredCats = useCallback(async (threadId: string, cats: string[]) => {
+    const res = await apiFetch(`/api/threads/${threadId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ preferredCats: cats }),
+    });
+    if (!res.ok) throw new Error('保存失败');
+    useChatStore.getState().updateThreadPreferredCats(threadId, cats);
+  }, []);
 
   const handleSelect = useCallback(
     (threadId: string) => {
@@ -258,10 +269,12 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
                     onRename={handleRename}
                     onTogglePin={handleTogglePin}
                     onToggleFavorite={handleToggleFavorite}
+                    onUpdatePreferredCats={handleUpdatePreferredCats}
                     isPinned={t.pinned}
                     isFavorited={t.favorited}
                     threadState={getThreadState(t.id)}
                     indented={group.type === 'project'}
+                    preferredCats={t.preferredCats}
                   />
                 ))}
               </SectionGroup>

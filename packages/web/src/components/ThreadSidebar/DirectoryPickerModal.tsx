@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { projectDisplayName } from './thread-utils';
+import { CatSelector } from './CatSelector';
 
 interface DirEntry {
   name: string;
@@ -21,7 +22,7 @@ export function DirectoryPickerModal({
   onCancel,
 }: {
   existingProjects: string[];
-  onSelect: (projectPath: string | undefined) => void;
+  onSelect: (projectPath: string | undefined, preferredCats?: string[]) => void;
   onCancel: () => void;
 }) {
   const [browseData, setBrowseData] = useState<BrowseResult | null>(null);
@@ -29,7 +30,12 @@ export function DirectoryPickerModal({
   const [error, setError] = useState<string | null>(null);
   const [cwdPath, setCwdPath] = useState<string | null>(null);
   const [browseExpanded, setBrowseExpanded] = useState(false);
+  const [selectedCats, setSelectedCats] = useState<string[]>([]);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const selectWithCats = useCallback((projectPath: string | undefined) => {
+    onSelect(projectPath, selectedCats.length > 0 ? selectedCats : undefined);
+  }, [onSelect, selectedCats]);
 
   const browseTo = useCallback(async (path?: string) => {
     setIsLoading(true);
@@ -94,7 +100,7 @@ export function DirectoryPickerModal({
         className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] mx-4 max-h-[80vh] flex flex-col overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-cafe-black">选择项目目录</h2>
+          <h2 className="text-base font-semibold text-cafe-black">新建对话</h2>
           <button
             onClick={onCancel}
             className="text-gray-400 hover:text-gray-600 transition-colors p-1"
@@ -105,12 +111,18 @@ export function DirectoryPickerModal({
           </button>
         </div>
 
+        {/* ── Cat selector ── */}
+        <div className="px-5 py-3 border-b border-gray-100">
+          <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
+        </div>
+
         {/* ── Quick picks: one-tap project selection ── */}
         <div className="px-5 py-3 border-b border-gray-100 space-y-1">
+          <div className="text-xs text-gray-500 font-medium mb-1.5">选择项目目录</div>
           {/* Server cwd as recommended project (always present) */}
           {cwdPath && !existingProjects.includes(cwdPath) && (
             <button
-              onClick={() => onSelect(cwdPath)}
+              onClick={() => selectWithCats(cwdPath)}
               className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
               title={cwdPath}
             >
@@ -126,7 +138,7 @@ export function DirectoryPickerModal({
           {existingProjects.map((path) => (
             <button
               key={path}
-              onClick={() => onSelect(path)}
+              onClick={() => selectWithCats(path)}
               className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
               title={path}
             >
@@ -139,7 +151,7 @@ export function DirectoryPickerModal({
           ))}
 
           <button
-            onClick={() => onSelect(undefined)}
+            onClick={() => selectWithCats(undefined)}
             className="w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
           >
             <span className="text-base">🏠</span>
@@ -166,7 +178,7 @@ export function DirectoryPickerModal({
                   <FolderIcon className="text-gray-400 flex-shrink-0" />
                   <span className="truncate" title={browseData.current}>{browseData.current}</span>
                   <button
-                    onClick={() => onSelect(browseData.current)}
+                    onClick={() => selectWithCats(browseData.current)}
                     className="ml-auto flex-shrink-0 px-2.5 py-1 rounded-md bg-owner-primary text-white text-xs hover:bg-owner-dark transition-colors"
                   >
                     选择此目录

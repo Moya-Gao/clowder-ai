@@ -2,21 +2,11 @@
 
 import { useChatStore } from '@/stores/chatStore';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
+import { useCatData } from '@/hooks/useCatData';
+import { hexToRgba } from '@/lib/color-utils';
 import { formatDuration, formatTokenCount, formatCost } from './status-helpers';
 import type { CatInvocationInfo } from '@/stores/chatStore';
 import type { TokenUsage } from '@/stores/chat-types';
-
-/**
- * Per-cat status display for parallel (ideate) mode.
- * Shows each target cat with a status indicator:
- *   pending → gray pulse, streaming → colored pulse + dynamic timer, done → check + duration, error → cross
- */
-
-const CAT_INFO: Record<string, { name: string; bg: string; text: string }> = {
-  opus: { name: '布偶猫', bg: 'bg-opus-bg', text: 'text-opus-primary' },
-  codex: { name: '缅因猫', bg: 'bg-codex-bg', text: 'text-codex-primary' },
-  gemini: { name: '暹罗猫', bg: 'bg-gemini-bg', text: 'text-gemini-primary' },
-};
 
 function StatusDot({ status }: { status: string }) {
   switch (status) {
@@ -38,7 +28,8 @@ function CatStatusCard({ catId, status, invocation }: {
   status: string;
   invocation?: { startedAt?: number; durationMs?: number };
 }) {
-  const info = CAT_INFO[catId];
+  const { getCatById } = useCatData();
+  const cat = getCatById(catId);
   const elapsed = useElapsedTime(status === 'streaming' ? invocation?.startedAt : undefined);
 
   const timeDisplay = (() => {
@@ -51,11 +42,16 @@ function CatStatusCard({ catId, status, invocation }: {
     return null;
   })();
 
+  const bgColor = cat ? hexToRgba(cat.color.primary, 0.12) : undefined;
+
   return (
-    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full ${info?.bg ?? 'bg-gray-100'}`}>
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+      style={{ backgroundColor: bgColor ?? '#f3f4f6' }}
+    >
       <StatusDot status={status} />
-      <span className={`text-xs font-medium ${info?.text ?? 'text-gray-600'}`}>
-        {info?.name ?? catId}
+      <span className="text-xs font-medium" style={{ color: cat?.color.primary ?? '#4b5563' }}>
+        {cat?.displayName ?? catId}
       </span>
       {timeDisplay && (
         <span className="text-xs text-gray-500 ml-0.5">{timeDisplay}</span>

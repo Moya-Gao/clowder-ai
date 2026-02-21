@@ -1,9 +1,10 @@
 'use client';
 
 import { type RefObject } from 'react';
-import { CAT_OPTIONS, MODE_OPTIONS, type CatOption } from './chat-input-options';
+import { MODE_OPTIONS, type CatOption } from './chat-input-options';
 
 interface ChatInputMenusProps {
+  catOptions: CatOption[];
   showMentions: boolean;
   showModeMenu: boolean;
   selectedIdx: number;
@@ -14,19 +15,19 @@ interface ChatInputMenusProps {
 }
 
 export function ChatInputMenus({
-  showMentions, showModeMenu, selectedIdx,
+  catOptions, showMentions, showModeMenu, selectedIdx,
   onSelectIdx, onInsertMention, onInsertOption, menuRef,
 }: ChatInputMenusProps) {
   return (
     <>
       {showMentions && (
         <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10">
-          {CAT_OPTIONS.map((opt, i) => (
+          {catOptions.map((opt, i) => (
             <button key={opt.id} className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
               onMouseEnter={() => onSelectIdx(i)} onMouseDown={(e) => { e.preventDefault(); onInsertMention(opt); }}>
-              <img src={`/avatars/${opt.id}.png`} alt={opt.label} className="w-7 h-7 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              <img src={opt.avatar} alt={opt.label} className="w-7 h-7 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div>
-                <div className={`text-sm font-semibold ${opt.color}`}>{opt.label}</div>
+                <div className="text-sm font-semibold" style={{ color: opt.color }}>{opt.label}</div>
                 <div className="text-xs text-gray-400">{opt.desc}</div>
               </div>
             </button>

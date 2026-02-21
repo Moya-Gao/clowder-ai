@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CatAvatar } from '../CatAvatar';
 import { PawIcon } from '../icons/PawIcon';
 import { ThreadCatStatus } from '../ThreadCatStatus';
+import { ThreadCatSettings } from './ThreadCatSettings';
+import { useCatData } from '@/hooks/useCatData';
 import { API_URL } from '@/utils/api-client';
 import type { ThreadState } from '@/stores/chat-types';
 import { formatRelativeTime } from './thread-utils';
@@ -17,10 +19,12 @@ export interface ThreadItemProps {
   onRename?: (id: string, title: string) => void | Promise<void>;
   onTogglePin?: (id: string, pinned: boolean) => void | Promise<void>;
   onToggleFavorite?: (id: string, favorited: boolean) => void | Promise<void>;
+  onUpdatePreferredCats?: (id: string, cats: string[]) => void | Promise<void>;
   isPinned?: boolean;
   isFavorited?: boolean;
   threadState?: ThreadState;
   indented?: boolean;
+  preferredCats?: string[];
 }
 
 export function ThreadItem({
@@ -34,11 +38,14 @@ export function ThreadItem({
   onRename,
   onTogglePin,
   onToggleFavorite,
+  onUpdatePreferredCats,
   isPinned,
   isFavorited,
   threadState,
   indented,
+  preferredCats,
 }: ThreadItemProps) {
+  const { getCatById } = useCatData();
   const canDelete = id !== 'default' && onDelete;
   const canRename = id !== 'default' && onRename;
   const canPin = id !== 'default' && onTogglePin;
@@ -154,6 +161,14 @@ export function ThreadItem({
               <StarIcon filled={isFavorited} />
             </button>
           )}
+          {/* Cat settings button */}
+          {id !== 'default' && onUpdatePreferredCats && !isEditing && (
+            <ThreadCatSettings
+              threadId={id}
+              currentCats={preferredCats ?? []}
+              onSave={onUpdatePreferredCats}
+            />
+          )}
           {/* Rename button */}
           {canRename && !isEditing && (
             <button
@@ -217,6 +232,18 @@ export function ThreadItem({
               <span className="text-[10px] text-gray-300">还没有猫猫加入</span>
             </>
           ) : null}
+          {preferredCats && preferredCats.length > 0 && (
+            <div className="flex items-center gap-0.5 ml-1" title={`默认: ${preferredCats.map((id) => getCatById(id)?.displayName ?? id).join(', ')}`}>
+              <span className="text-[9px] text-gray-400">🎯</span>
+              {preferredCats.map((catId) => (
+                <span
+                  key={catId}
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: getCatById(catId)?.color.primary ?? '#9CA3AF' }}
+                />
+              ))}
+            </div>
+          )}
           {threadState && (
             <ThreadCatStatus threadState={threadState} unreadCount={threadState.unreadCount} />
           )}
