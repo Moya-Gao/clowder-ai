@@ -5,7 +5,7 @@ import { writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const { loadCatConfig, getDefaultVariant, toFlatConfigs, findBreedByMention, isSessionChainEnabled, _resetCachedConfig } =
+const { loadCatConfig, getDefaultVariant, toFlatConfigs, toAllCatConfigs, findBreedByMention, isSessionChainEnabled, getDefaultCatId, buildCatIdToBreedIndex, _resetCachedConfig } =
   await import('../dist/config/cat-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
@@ -262,5 +262,226 @@ describe('cat-config-loader', () => {
         _resetCachedConfig();
       }
     });
+  });
+});
+
+// ── F32-b Multi-Variant Tests ──────────────────────────────────────────
+
+/** Config with multiple variants per breed */
+function multiVariantConfig() {
+  return {
+    version: 1,
+    breeds: [
+      {
+        id: 'ragdoll',
+        catId: 'opus',
+        name: '布偶猫',
+        displayName: '布偶猫',
+        avatar: '/avatars/opus.png',
+        color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
+        mentionPatterns: ['@opus', '@布偶猫', '@布偶'],
+        roleDescription: '主架构师',
+        defaultVariantId: 'opus-default',
+        variants: [
+          {
+            id: 'opus-default',
+            provider: 'anthropic',
+            defaultModel: 'claude-opus-4-6',
+            mcpSupport: true,
+            cli: { command: 'claude', outputFormat: 'stream-json' },
+            personality: '温柔',
+          },
+          {
+            id: 'opus-45',
+            catId: 'opus-45',
+            displayName: '布偶猫 4.5',
+            mentionPatterns: ['@opus-45', '@布偶猫4.5'],
+            provider: 'anthropic',
+            defaultModel: 'claude-sonnet-4-5-20250929',
+            mcpSupport: true,
+            cli: { command: 'claude', outputFormat: 'stream-json' },
+            personality: '快速高效',
+          },
+        ],
+      },
+      {
+        id: 'siamese',
+        catId: 'gemini',
+        name: '暹罗猫',
+        displayName: '暹罗猫',
+        avatar: '/avatars/gemini.png',
+        color: { primary: '#D4A574', secondary: '#F5E6D3' },
+        mentionPatterns: ['@gemini', '@暹罗猫'],
+        roleDescription: '视觉设计',
+        defaultVariantId: 'gemini-default',
+        features: { sessionChain: false },
+        variants: [
+          {
+            id: 'gemini-default',
+            provider: 'google',
+            defaultModel: 'gemini-2.5-pro',
+            mcpSupport: false,
+            cli: { command: 'gemini', outputFormat: 'stream-json' },
+            personality: '创意',
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe('F32-b: toAllCatConfigs (multi-variant)', () => {
+  it('expands all variants as independent cats', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.ok(all['opus'], 'default variant registered as opus');
+    assert.ok(all['opus-45'], 'non-default variant registered as opus-45');
+    assert.ok(all['gemini'], 'second breed registered');
+    assert.equal(Object.keys(all).length, 3);
+  });
+
+  it('default variant inherits breed mentionPatterns', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all['opus'].mentionPatterns, ['@opus', '@布偶猫', '@布偶']);
+  });
+
+  it('non-default variant uses its own mentionPatterns (not breed)', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5']);
+  });
+
+  it('non-default variant with no mentionPatterns gets empty array', () => {
+    const cfg = multiVariantConfig();
+    // Add a variant without mentionPatterns and without catId override
+    cfg.breeds[0].variants.push({
+      id: 'opus-haiku',
+      catId: 'opus-haiku',
+      provider: 'anthropic',
+      defaultModel: 'claude-haiku-4-5-20251001',
+      mcpSupport: false,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+      personality: '简洁',
+    });
+    const config = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all['opus-haiku'].mentionPatterns, []);
+  });
+
+  it('variant overrides displayName', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus'].displayName, '布偶猫');
+    assert.equal(all['opus-45'].displayName, '布偶猫 4.5');
+  });
+
+  it('all variants share breed-level avatar and color', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus'].avatar, all['opus-45'].avatar);
+    assert.deepEqual(all['opus'].color, all['opus-45'].color);
+  });
+
+  it('sets breedId on all variants', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus'].breedId, 'ragdoll');
+    assert.equal(all['opus-45'].breedId, 'ragdoll');
+    assert.equal(all['gemini'].breedId, 'siamese');
+  });
+
+  it('throws on duplicate catId', () => {
+    const cfg = multiVariantConfig();
+    // Make second variant use same catId as default (no catId override → inherits breed)
+    delete cfg.breeds[0].variants[1].catId;
+    assert.throws(
+      () => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))),
+      /Duplicate catId "opus"/,
+    );
+  });
+
+  it('toFlatConfigs is an alias for toAllCatConfigs', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    const flat = toFlatConfigs(config);
+    assert.deepEqual(all, flat);
+  });
+});
+
+describe('F32-b: buildCatIdToBreedIndex', () => {
+  it('maps variant catIds to parent breed', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const index = buildCatIdToBreedIndex(config);
+    assert.equal(index.get('opus').id, 'ragdoll');
+    assert.equal(index.get('opus-45').id, 'ragdoll');
+    assert.equal(index.get('gemini').id, 'siamese');
+  });
+});
+
+describe('F32-b: isSessionChainEnabled (variant resolution)', () => {
+  it('variant catId resolves to parent breed features', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    // opus-45 belongs to ragdoll → no features.sessionChain → true
+    assert.equal(isSessionChainEnabled('opus-45', config), true);
+    // gemini belongs to siamese → sessionChain: false
+    assert.equal(isSessionChainEnabled('gemini', config), false);
+  });
+});
+
+describe('F32-b: getDefaultCatId', () => {
+  it('returns first breed default variant catId', () => {
+    const saved = process.env.CAT_CONFIG_PATH;
+    const path = writeTempConfig(multiVariantConfig());
+    process.env.CAT_CONFIG_PATH = path;
+    _resetCachedConfig();
+    try {
+      const id = getDefaultCatId();
+      assert.equal(id, 'opus');
+    } finally {
+      if (saved === undefined) {
+        delete process.env.CAT_CONFIG_PATH;
+      } else {
+        process.env.CAT_CONFIG_PATH = saved;
+      }
+      _resetCachedConfig();
+    }
+  });
+
+  it('returns variant catId when default variant has catId override', () => {
+    const cfg = multiVariantConfig();
+    // Make opus-45 the default and give it a custom catId
+    cfg.breeds[0].defaultVariantId = 'opus-45';
+    const saved = process.env.CAT_CONFIG_PATH;
+    const path = writeTempConfig(cfg);
+    process.env.CAT_CONFIG_PATH = path;
+    _resetCachedConfig();
+    try {
+      const id = getDefaultCatId();
+      assert.equal(id, 'opus-45');
+    } finally {
+      if (saved === undefined) {
+        delete process.env.CAT_CONFIG_PATH;
+      } else {
+        process.env.CAT_CONFIG_PATH = saved;
+      }
+      _resetCachedConfig();
+    }
+  });
+});
+
+describe('F32-b: mentionPattern validation', () => {
+  it('rejects breed mentionPatterns without @ prefix', () => {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].mentionPatterns = ['opus', '@布偶猫'];
+    const path = writeTempConfig(cfg);
+    assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+  });
+
+  it('rejects variant mentionPatterns without @ prefix', () => {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].variants[1].mentionPatterns = ['opus-45'];
+    const path = writeTempConfig(cfg);
+    assert.throws(() => loadCatConfig(path), /Invalid cat config/);
   });
 });

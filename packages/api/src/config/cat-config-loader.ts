@@ -38,8 +38,17 @@ const contextBudgetSchema = z.object({
   maxContentLengthPerMsg: z.number().positive(),
 });
 
+/** F32-b: mentionPatterns must start with @ */
+const mentionPatternSchema = z.string().min(2).regex(
+  /^@/,
+  'mentionPattern must start with @',
+);
+
 const catVariantSchema = z.object({
   id: z.string().min(1),
+  catId: z.string().min(1).optional(),                        // F32-b: variant-level catId
+  displayName: z.string().min(1).optional(),                  // F32-b: variant-level displayName
+  mentionPatterns: z.array(mentionPatternSchema).optional(),  // F32-b: variant-level mentions
   provider: z.enum(['anthropic', 'openai', 'google']),
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
@@ -60,7 +69,7 @@ const catBreedSchema = z.object({
   displayName: z.string().min(1),
   avatar: z.string().min(1),
   color: z.object({ primary: z.string(), secondary: z.string() }),
-  mentionPatterns: z.array(z.string().min(1)).min(1),
+  mentionPatterns: z.array(mentionPatternSchema).min(1),
   roleDescription: z.string().min(1),
   defaultVariantId: z.string().min(1),
   variants: z.array(catVariantSchema).min(1),
@@ -119,38 +128,74 @@ export function getDefaultVariant(breed: CatBreed): CatVariant {
   return found;
 }
 
-/** Convert CatCafeConfig → flat CatConfig Record (backward compat) */
-export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
+/**
+ * F32-b: Register ALL variants as independent cats.
+ * Each variant becomes a CatConfig entry keyed by its catId.
+ * Default variant inherits breed-level mentionPatterns; others must specify their own.
+ * @throws Error on duplicate catId (fail-fast at startup)
+ */
+export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
   const result: Record<string, CatConfig> = {};
   for (const breed of config.breeds) {
-    const variant = getDefaultVariant(breed);
-    result[breed.catId] = {
-      id: createCatId(breed.catId),
-      name: breed.catId,
-      displayName: breed.displayName,
-      avatar: breed.avatar,
-      color: breed.color,
-      mentionPatterns: breed.mentionPatterns,
-      provider: variant.provider,
-      defaultModel: variant.defaultModel,
-      mcpSupport: variant.mcpSupport,
-      roleDescription: breed.roleDescription,
-      personality: variant.personality ?? '',
-    };
+    for (const variant of breed.variants) {
+      const isDefault = variant.id === breed.defaultVariantId;
+      const catId = variant.catId ?? breed.catId;
+
+      // F32-b R3: catId uniqueness — duplicate is a hard error (startup failure)
+      if (result[catId]) {
+        throw new Error(
+          `Duplicate catId "${catId}": variant "${variant.id}" in breed "${breed.id}" `
+          + `conflicts with already registered cat. Each variant must have a unique catId.`,
+        );
+      }
+
+      result[catId] = {
+        id: createCatId(catId),
+        name: catId,
+        displayName: variant.displayName ?? breed.displayName,
+        avatar: breed.avatar,            // shared breed-level
+        color: breed.color,              // shared breed-level
+        mentionPatterns: variant.mentionPatterns
+          ?? (isDefault ? breed.mentionPatterns : []),
+        provider: variant.provider,
+        defaultModel: variant.defaultModel,
+        mcpSupport: variant.mcpSupport,
+        roleDescription: breed.roleDescription,
+        personality: variant.personality ?? '',
+        breedId: breed.id,
+      };
+    }
   }
   return result;
 }
 
-/** Find a breed by checking mention patterns against text */
+/** Backward-compat alias — now registers all variants, not just defaults */
+export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
+  return toAllCatConfigs(config);
+}
+
+/** Find a breed by checking mention patterns against text (checks variant-level patterns too) */
 export function findBreedByMention(
   config: CatCafeConfig,
   text: string,
 ): { breed: CatBreed; catId: CatId } | undefined {
   const lower = text.toLowerCase();
   for (const breed of config.breeds) {
+    // Check breed-level patterns
     for (const pattern of breed.mentionPatterns) {
       if (lower.includes(pattern.toLowerCase())) {
         return { breed, catId: createCatId(breed.catId) };
+      }
+    }
+    // F32-b: Check variant-level patterns
+    for (const variant of breed.variants) {
+      if (variant.mentionPatterns) {
+        for (const pattern of variant.mentionPatterns) {
+          if (lower.includes(pattern.toLowerCase())) {
+            const catId = variant.catId ?? breed.catId;
+            return { breed, catId: createCatId(catId) };
+          }
+        }
       }
     }
   }
@@ -176,24 +221,86 @@ function getCachedConfig(): CatCafeConfig | null {
   return _cachedConfig;
 }
 
+// ── F32-b: catId → breed index (for variant-aware feature lookups) ────
+
+/**
+ * Build an index mapping every catId (including variant-level) to its parent breed.
+ * Used by isSessionChainEnabled() to correctly resolve features for variants.
+ */
+export function buildCatIdToBreedIndex(config: CatCafeConfig): Map<string, CatBreed> {
+  const index = new Map<string, CatBreed>();
+  for (const breed of config.breeds) {
+    for (const variant of breed.variants) {
+      const catId = variant.catId ?? breed.catId;
+      index.set(catId, breed);
+    }
+  }
+  return index;
+}
+
+// Cache bound to config reference — rebuilt if different config is passed (e.g. tests)
+let _catIdToBreed: Map<string, CatBreed> | null = null;
+let _catIdToBreedSource: CatCafeConfig | null = null;
+
 /**
  * Check if F24 session chain is enabled for a cat.
  * Returns true by default — only false when explicitly disabled in cat-config.json.
  * Gracefully returns true if config file is unreadable (availability over strictness).
  *
- * @param catId - The cat to check (e.g. 'opus', 'codex', 'gemini')
+ * F32-b: Now resolves variant catIds to their parent breed via index.
+ * Design constraint: Cat Cafe config is loaded once at startup, no hot-reload.
+ *
+ * @param catId - The cat to check (e.g. 'opus', 'codex', 'opus-45')
  * @param config - Optional config override (for testing)
  */
 export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeConfig): boolean {
   const cfg = config ?? getCachedConfig();
   if (!cfg) return true; // Config unreadable → default enabled (Cloud P1 fix)
-  const breed = cfg.breeds.find((b) => b.catId === catId);
+
+  // Rebuild index if config reference changed (test injection)
+  if (!_catIdToBreed || _catIdToBreedSource !== cfg) {
+    _catIdToBreed = buildCatIdToBreedIndex(cfg);
+    _catIdToBreedSource = cfg;
+  }
+
+  const breed = _catIdToBreed.get(catId as string);
   if (!breed) return true; // Unknown cat → default enabled
   return breed.features?.sessionChain !== false;
+}
+
+// ── F32-b: Default cat resolution ─────────────────────────────────────
+
+let _defaultCatId: CatId | null = null;
+
+/**
+ * Get the default cat ID (= breeds[0].defaultVariantId's resolved catId).
+ * Used as ultimate fallback in AgentRouter when no mentions/participants/preferredCats.
+ *
+ * F32-b R4: Explicit derivation from defaultVariantId — NOT registry order dependent.
+ */
+export function getDefaultCatId(): CatId {
+  if (_defaultCatId) return _defaultCatId;
+
+  const config = getCachedConfig();
+  const firstBreed = config?.breeds[0];
+  if (firstBreed) {
+    const defaultVariant = firstBreed.variants.find(
+      (v) => v.id === firstBreed.defaultVariantId,
+    );
+    // variant has independent catId → use it; otherwise inherit breed's
+    _defaultCatId = createCatId(defaultVariant?.catId ?? firstBreed.catId);
+    return _defaultCatId;
+  }
+
+  // Ultimate fallback (should not trigger — config always has at least 1 breed)
+  return createCatId('opus');
 }
 
 /** Reset cached config (for testing) */
 export function _resetCachedConfig(): void {
   _cachedConfig = null;
   _configLoadFailed = false;
+  _catIdToBreed = null;
+  _catIdToBreedSource = null;
+  _defaultCatId = null;
 }

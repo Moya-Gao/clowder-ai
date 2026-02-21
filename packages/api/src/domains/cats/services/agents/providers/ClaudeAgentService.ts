@@ -15,7 +15,7 @@
  *   result/success → 跳过 (done 在循环后 yield)
  */
 
-import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
@@ -32,17 +32,18 @@ import type {
 } from '../../types.js';
 import { transformClaudeEvent, isResultErrorEvent, extractClaudeUsage } from './claude-ndjson-parser.js';
 
-const CAT_ID = createCatId('opus');
-
 const PERMISSION_MODE = 'bypassPermissions';
 
 /**
  * Options for constructing ClaudeAgentService (dependency injection)
+ * F32-b: catId is now a constructor parameter (defaults to 'opus' for backward compat)
  */
 interface ClaudeAgentServiceOptions {
+  /** F32-b: catId for this instance (default: 'opus') */
+  catId?: CatId;
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
-  /** Model override (default: CLAUDE_MODEL env or 'claude-sonnet-4-5-20250929') */
+  /** Model override (default: resolved via getCatModel) */
   model?: string;
   /** Absolute path to MCP server entry (dist/index.js) for --mcp-config */
   mcpServerPath?: string;
@@ -73,15 +74,16 @@ export function resolveDefaultClaudeMcpServerPath(cwd = process.cwd()): string |
  * Uses Max plan subscription instead of API key.
  */
 export class ClaudeAgentService implements AgentService {
-  readonly catId = CAT_ID;
+  readonly catId: CatId;
   private readonly spawnFn: SpawnFn | undefined;
   private readonly model: string;
   private readonly mcpServerPath: string | undefined;
 
   constructor(options?: ClaudeAgentServiceOptions) {
+    this.catId = options?.catId ?? createCatId('opus');
     this.spawnFn = options?.spawnFn;
-    // Priority: constructor option > CAT_OPUS_MODEL env > CLAUDE_MODEL env > default
-    this.model = options?.model ?? getCatModel('opus');
+    // F32-b: model from options > env (getCatModel) > default
+    this.model = options?.model ?? getCatModel(this.catId as string);
     const configuredPath = options?.mcpServerPath ?? process.env['CAT_CAFE_MCP_SERVER_PATH'];
     if (configuredPath && configuredPath.trim().length > 0) {
       this.mcpServerPath = isAbsolute(configuredPath) ? configuredPath : resolve(process.cwd(), configuredPath);
@@ -135,7 +137,7 @@ export class ClaudeAgentService implements AgentService {
       }));
     }
 
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS['opus']!.provider, model: this.model };
+    const metadata: MessageMetadata = { provider: 'anthropic', model: this.model };
     const streamState = {
       partialTextMessageIds: new Set<string>(),
       currentMessageId: undefined as string | undefined,
@@ -159,7 +161,7 @@ export class ClaudeAgentService implements AgentService {
         if (isCliTimeout(event)) {
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: `布偶猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
             metadata,
             timestamp: Date.now(),
@@ -170,7 +172,7 @@ export class ClaudeAgentService implements AgentService {
           if (sawResultError) continue;
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: formatCliExitError('Claude CLI', event),
             metadata,
             timestamp: Date.now(),
@@ -189,7 +191,7 @@ export class ClaudeAgentService implements AgentService {
         }
 
         const fromResultError = isResultErrorEvent(event);
-        const result = transformClaudeEvent(event, CAT_ID, streamState);
+        const result = transformClaudeEvent(event, this.catId, streamState);
         if (result === null) continue;
 
         if (Array.isArray(result)) {
@@ -211,17 +213,17 @@ export class ClaudeAgentService implements AgentService {
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: err instanceof Error ? err.message : String(err),
         metadata,
         timestamp: Date.now(),
       };
       // Guarantee done after error so invoke-single-cat can set isFinal correctly
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     }
   }
 }

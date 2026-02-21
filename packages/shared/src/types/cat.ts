@@ -41,6 +41,8 @@ export interface CatConfig {
   readonly mcpSupport: boolean;
   readonly roleDescription: string;
   readonly personality: string;
+  /** F32-b: Which breed this cat belongs to (for frontend grouping) */
+  readonly breedId?: string;
 }
 
 /**

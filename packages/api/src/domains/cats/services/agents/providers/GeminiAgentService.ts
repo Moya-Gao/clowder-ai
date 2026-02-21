@@ -18,7 +18,7 @@
 
 import { randomUUID } from 'node:crypto';
 import { spawn as nodeSpawn } from 'node:child_process';
-import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -38,13 +38,16 @@ import {
   isKnownPostResponseCandidatesCrash,
 } from './gemini-event-parser.js';
 
-const CAT_ID = createCatId('gemini');
-
 type GeminiAdapter = 'gemini-cli' | 'antigravity';
 /**
  * Options for constructing GeminiAgentService (dependency injection)
+ * F32-b: catId and model are constructor parameters
  */
 interface GeminiAgentServiceOptions {
+  /** F32-b: catId for this instance (default: 'gemini') */
+  catId?: CatId;
+  /** F32-b: model override (default: resolved via getCatModel) */
+  model?: string;
   /** Inject spawn for gemini-cli adapter (via spawnCli) */
   spawnFn?: SpawnFn;
   /** Inject spawn for antigravity adapter (direct child_process.spawn) */
@@ -58,11 +61,14 @@ interface GeminiAgentServiceOptions {
  * Uses Google AI Pro/Ultra subscription instead of API key.
  */
 export class GeminiAgentService implements AgentService {
-  readonly catId = CAT_ID;
+  readonly catId: CatId;
   private readonly spawnFn: SpawnFn | undefined;
+  private readonly model: string;
   private readonly antigravitySpawnFn: typeof nodeSpawn;
   private readonly adapter: GeminiAdapter;
   constructor(options?: GeminiAgentServiceOptions) {
+    this.catId = options?.catId ?? createCatId('gemini');
+    this.model = options?.model ?? getCatModel(this.catId as string);
     this.spawnFn = options?.spawnFn;
     this.antigravitySpawnFn = options?.antigravitySpawnFn ?? nodeSpawn;
     this.adapter = options?.adapter
@@ -85,7 +91,7 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS['gemini']!.provider, model: getCatModel('gemini') };
+    const metadata: MessageMetadata = { provider: 'google', model: this.model };
 
     // Gemini CLI has no system prompt flag; prepend identity to prompt text
     let effectivePrompt = options?.systemPrompt
@@ -129,7 +135,7 @@ export class GeminiAgentService implements AgentService {
         if (isCliTimeout(event)) {
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: `暹罗猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
             metadata,
             timestamp: Date.now(),
@@ -140,7 +146,7 @@ export class GeminiAgentService implements AgentService {
           if (sawResultError || suppressCliExitError) continue;
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: formatCliExitError('Gemini CLI', event),
             metadata,
             timestamp: Date.now(),
@@ -175,7 +181,7 @@ export class GeminiAgentService implements AgentService {
         }
 
         const fromResultError = isResultErrorEvent(event);
-        const result = transformGeminiEvent(event, CAT_ID);
+        const result = transformGeminiEvent(event, this.catId);
         if (result !== null) {
           if (result.type === 'session_init' && result.sessionId) {
             metadata.sessionId = result.sessionId;
@@ -199,17 +205,17 @@ export class GeminiAgentService implements AgentService {
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: err instanceof Error ? err.message : String(err),
         metadata,
         timestamp: Date.now(),
       };
       // Guarantee done after error so invoke-single-cat can set isFinal correctly
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     }
   }
 
@@ -217,17 +223,17 @@ export class GeminiAgentService implements AgentService {
     prompt: string,
     options?: AgentServiceOptions
   ): AsyncIterable<AgentMessage> {
-    const agMetadata: MessageMetadata = { provider: CAT_CONFIGS['gemini']!.provider, model: `${getCatModel('gemini')} (antigravity)` };
+    const agMetadata: MessageMetadata = { provider: 'google', model: `${this.model} (antigravity)` };
 
     if (!options?.callbackEnv) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: 'antigravity adapter requires callbackEnv for MCP callback',
         metadata: agMetadata,
         timestamp: Date.now(),
       };
-      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
@@ -235,7 +241,7 @@ export class GeminiAgentService implements AgentService {
     agMetadata.sessionId = sessionId;
     yield {
       type: 'session_init',
-      catId: CAT_ID,
+      catId: this.catId,
       sessionId,
       metadata: agMetadata,
       timestamp: Date.now(),
@@ -273,12 +279,12 @@ export class GeminiAgentService implements AgentService {
     } catch (err) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: `Failed to launch Antigravity: ${err instanceof Error ? err.message : String(err)}`,
         metadata: agMetadata,
         timestamp: Date.now(),
       };
-      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
@@ -288,24 +294,24 @@ export class GeminiAgentService implements AgentService {
     if (spawnError) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: `Failed to launch Antigravity: ${(spawnError as Error).message}`,
         metadata: agMetadata,
         timestamp: Date.now(),
       };
-      yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata: agMetadata, timestamp: Date.now() };
       return;
     }
 
     yield {
       type: 'text',
-      catId: CAT_ID,
+      catId: this.catId,
       content:
         '暹罗猫已在 Antigravity 中开始工作，结果将通过 MCP 回传到对话中。',
       metadata: agMetadata,
       timestamp: Date.now(),
     };
 
-    yield { type: 'done', catId: CAT_ID, metadata: agMetadata, timestamp: Date.now() };
+    yield { type: 'done', catId: this.catId, metadata: agMetadata, timestamp: Date.now() };
   }
 }

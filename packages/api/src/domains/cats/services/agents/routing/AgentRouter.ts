@@ -17,8 +17,9 @@
  * 虽然参数可选（兼容测试），但生产代码必须显式传入。
  */
 
-import { createCatId, catRegistry, escapeRegExp } from '@cat-cafe/shared';
+import { catRegistry, escapeRegExp } from '@cat-cafe/shared';
 import type { CatId, MessageContent } from '@cat-cafe/shared';
+import { getDefaultCatId } from '../../../../../config/cat-config-loader.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../../stores/ports/ThreadStore.js';
 import { SessionManager } from '../../session/SessionManager.js';
@@ -135,36 +136,75 @@ export class AgentRouter {
     return message.replace(this.speechMentionRe, (_match, prefix: string, mention: string) => `${prefix}@${mention}`);
   }
 
-  /** Parse message for @ mentions and return ordered list of cat IDs */
   /**
-   * Parse @mentions from user message for routing.
-   * Uses indexOf (anywhere in text) — different from parseA2AMentions which uses line-start matching.
-   * Reason: User intent is clear when they type @猫名 anywhere; cat responses need stricter rules.
-  */
+   * F32-b: Parse @mentions with longest-match-first + token boundary.
+   * Prevents `@opus-45` from also matching `@opus` via consumed interval exclusion.
+   *
+   * Algorithm:
+   * 1. Collect ALL patterns from ALL cats, sort by length descending (longest first)
+   * 2. For each pattern, find all occurrences in the message
+   * 3. Check token boundary (char after pattern must be whitespace/punctuation/EOF)
+   * 4. Check consumed intervals (skip if already matched by a longer pattern)
+   * 5. Deduplicate by catId, preserve first-occurrence ordering
+   */
   private parseMentions(message: string): CatId[] {
     const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
-    const mentions: ParsedMention[] = [];
 
+    // 1. Collect all mentionPatterns → catId, sorted by length descending
+    const allPatterns: Array<{ pattern: string; catId: CatId }> = [];
     const allConfigs = catRegistry.getAllConfigs();
     for (const config of Object.values(allConfigs)) {
-      let earliestPosition = -1;
       for (const pattern of config.mentionPatterns) {
-        const position = lowerMessage.indexOf(pattern.toLowerCase());
-        if (position !== -1 && (earliestPosition === -1 || position < earliestPosition)) {
-          earliestPosition = position;
-        }
+        allPatterns.push({ pattern: pattern.toLowerCase(), catId: config.id });
       }
-      if (earliestPosition !== -1) {
-        mentions.push({ catId: config.id, position: earliestPosition });
+    }
+    allPatterns.sort((a, b) => b.pattern.length - a.pattern.length); // longest first
+
+    // 2-4. Match with consumed intervals
+    const consumed: Array<[number, number]> = []; // [start, end)
+    const mentions: ParsedMention[] = [];
+    const seenCats = new Set<string>();
+
+    for (const { pattern, catId } of allPatterns) {
+      let searchFrom = 0;
+      while (searchFrom < lowerMessage.length) {
+        const pos = lowerMessage.indexOf(pattern, searchFrom);
+        if (pos === -1) break;
+
+        const end = pos + pattern.length;
+
+        // Token boundary: char after pattern must be whitespace/punctuation/EOF
+        const charAfter = lowerMessage[end];
+        const isEndBoundary = !charAfter || /[\s,.:;!?，。！？、：；]/.test(charAfter);
+
+        // Not in an already-consumed interval
+        const isConsumed = consumed.some(([s, e]) => pos >= s && pos < e);
+
+        if (isEndBoundary && !isConsumed) {
+          consumed.push([pos, end]);
+          if (!seenCats.has(catId as string)) {
+            seenCats.add(catId as string);
+            mentions.push({ catId, position: pos });
+          } else {
+            // Shortest alias may appear earlier; update to earliest position
+            const existing = mentions.find((m) => m.catId === catId);
+            if (existing && pos < existing.position) {
+              existing.position = pos;
+            }
+          }
+        }
+        searchFrom = pos + 1;
       }
     }
 
+    // 5. Return ordered by first occurrence
     mentions.sort((a, b) => a.position - b.position);
     return mentions.map((m) => m.catId);
   }
 
   /**
-   * Read-only target resolution: mentions → participants → default opus.
+   * Read-only target resolution: mentions → participants → default cat.
+   * F32-b: Default cat from config (not hardcoded opus).
    * Does NOT mutate thread participants.
    */
   private async peekTargets(message: string, threadId: string): Promise<CatId[]> {
@@ -176,7 +216,7 @@ export class AgentRouter {
       if (participants.length > 0) return participants;
     }
 
-    return [createCatId('opus')];
+    return [getDefaultCatId()];
   }
 
   /** Resolve target cats and persist new mentions as thread participants */
@@ -195,7 +235,7 @@ export class AgentRouter {
       if (participants.length > 0) return participants;
     }
 
-    return [createCatId('opus')];
+    return [getDefaultCatId()];
   }
 
   /** Build shared strategy dependencies (public for ModeOrchestrator) */

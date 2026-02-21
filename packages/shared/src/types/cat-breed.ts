@@ -37,9 +37,19 @@ export interface CliConfig {
 /**
  * A specific model/config variant within a breed.
  * e.g. ragdoll breed → opus-4.6 variant, opus-4.5 variant
+ *
+ * F32-b: Variants can override catId, displayName, and mentionPatterns
+ * to register as independent cats within the same breed.
  */
 export interface CatVariant {
   readonly id: string;              // 'opus-4.6', 'codex-default'
+  /** Override breed-level catId to register as an independent cat (F32-b) */
+  readonly catId?: string;
+  /** Override breed-level displayName (F32-b) */
+  readonly displayName?: string;
+  /** Independent mention patterns for this variant (F32-b).
+   *  Default variant inherits breed mentionPatterns; non-default variants get none unless specified. */
+  readonly mentionPatterns?: readonly string[];
   readonly provider: CatProvider;
   readonly defaultModel: string;
   readonly mcpSupport: boolean;

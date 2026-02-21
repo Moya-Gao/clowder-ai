@@ -15,7 +15,7 @@
  *   turn.started / turn.completed / 其余 item 事件 → 跳过
  */
 
-import { createCatId, CAT_CONFIGS } from '@cat-cafe/shared';
+import { createCatId, type CatId } from '@cat-cafe/shared';
 import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -42,12 +42,15 @@ import type {
   TokenUsage,
 } from '../../types.js';
 
-const CAT_ID = createCatId('codex');
-
 /**
  * Options for constructing CodexAgentService (dependency injection)
+ * F32-b: catId and model are constructor parameters
  */
 interface CodexAgentServiceOptions {
+  /** F32-b: catId for this instance (default: 'codex') */
+  catId?: CatId;
+  /** F32-b: model override (default: resolved via getCatModel) */
+  model?: string;
   /** Inject a custom spawn function (for testing) */
   spawnFn?: SpawnFn;
   /** Inject audit log sink (for testing) */
@@ -117,14 +120,17 @@ function withRecentDiagnostics(base: string, recentErrors: string[]): string {
  * Uses ChatGPT Plus/Pro subscription instead of API key.
  */
 export class CodexAgentService implements AgentService {
-  readonly catId = CAT_ID;
+  readonly catId: CatId;
   private readonly spawnFn: SpawnFn | undefined;
+  private readonly model: string;
   private readonly auditLog: AuditLogSink;
   private readonly rawArchive: RawArchiveSink;
   private readonly contextSnapshotResolver: CodexSessionContextSnapshotResolver;
 
   constructor(options?: CodexAgentServiceOptions) {
+    this.catId = options?.catId ?? createCatId('codex');
     this.spawnFn = options?.spawnFn;
+    this.model = options?.model ?? getCatModel(this.catId as string);
     this.auditLog = options?.auditLog ?? getEventAuditLog();
     this.rawArchive = options?.rawArchive ?? new CliRawArchive();
     this.contextSnapshotResolver = options?.contextSnapshotResolver ?? createCodexSessionContextSnapshotResolver();
@@ -155,7 +161,7 @@ export class CodexAgentService implements AgentService {
       ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, ...imageArgs, ...promptArgs]
       : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, ...promptArgs];
 
-    const metadata: MessageMetadata = { provider: CAT_CONFIGS['codex']!.provider, model: getCatModel('codex') };
+    const metadata: MessageMetadata = { provider: 'openai', model: this.model };
     const auditContext = options?.auditContext;
     const recentStreamErrors: string[] = [];
 
@@ -200,7 +206,7 @@ export class CodexAgentService implements AgentService {
         if (isCliTimeout(event)) {
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: `缅因猫 CLI 响应超时 (${Math.round(event.timeoutMs / 1000)}s)`,
             metadata,
             timestamp: Date.now(),
@@ -220,7 +226,7 @@ export class CodexAgentService implements AgentService {
           const base = formatCliExitError('Codex CLI', event);
           yield {
             type: 'error',
-            catId: CAT_ID,
+            catId: this.catId,
             error: withRecentDiagnostics(base, recentStreamErrors),
             metadata,
             timestamp: Date.now(),
@@ -284,7 +290,7 @@ export class CodexAgentService implements AgentService {
           }
         }
 
-        const result = transformCodexEvent(event, CAT_ID, codexStreamState);
+        const result = transformCodexEvent(event, this.catId, codexStreamState);
         if (result !== null) {
           if (result.type === 'session_init' && result.sessionId) {
             metadata.sessionId = result.sessionId;
@@ -325,17 +331,17 @@ export class CodexAgentService implements AgentService {
         }
       }
 
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     } catch (err) {
       yield {
         type: 'error',
-        catId: CAT_ID,
+        catId: this.catId,
         error: err instanceof Error ? err.message : String(err),
         metadata,
         timestamp: Date.now(),
       };
       // Guarantee done after error so invoke-single-cat can set isFinal correctly
-      yield { type: 'done', catId: CAT_ID, metadata, timestamp: Date.now() };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
     }
   }
 }

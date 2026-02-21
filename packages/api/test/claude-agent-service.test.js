@@ -360,10 +360,11 @@ test('passes correct model flag (default and custom)', async () => {
   const args1 = spawnFn1.mock.calls[0].arguments[1];
   const modelIdx1 = args1.indexOf('--model');
   assert.ok(modelIdx1 >= 0);
-  // Default should follow cat-config.json (Phase 4.0 config system)
-  assert.equal(args1[modelIdx1 + 1], 'claude-opus-4-6');
+  // F32-b: getCatModel('opus') resolves via catRegistry > CAT_CONFIGS fallback.
+  // In test context catRegistry is empty, so this is CAT_CONFIGS['opus'].defaultModel.
+  assert.equal(args1[modelIdx1 + 1], 'claude-sonnet-4-5-20250929');
 
-  // Custom model
+  // Custom model (explicit constructor param)
   const proc2 = createMockProcess();
   const spawnFn2 = createMockSpawnFn(proc2);
   const service2 = new ClaudeAgentService({ spawnFn: spawnFn2, model: 'haiku' });
@@ -375,6 +376,32 @@ test('passes correct model flag (default and custom)', async () => {
   const args2 = spawnFn2.mock.calls[0].arguments[1];
   const modelIdx2 = args2.indexOf('--model');
   assert.equal(args2[modelIdx2 + 1], 'haiku');
+});
+
+test('F32-b P1 regression: env var CAT_*_MODEL overrides default when model not passed', async () => {
+  // Simulate index.ts pattern: pass catId but NOT model → constructor resolves via getCatModel()
+  // getCatModel() should respect env var > catRegistry > CAT_CONFIGS fallback
+  const saved = process.env.CAT_OPUS_MODEL;
+  process.env.CAT_OPUS_MODEL = 'env-override-model';
+  try {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    // NOTE: explicit catId, no `model` param — matches the fixed index.ts pattern
+    const service = new ClaudeAgentService({ catId: 'opus', spawnFn });
+
+    const p = collect(service.invoke('hi'));
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await p;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const modelIdx = args.indexOf('--model');
+    assert.ok(modelIdx >= 0, '--model flag should be present');
+    assert.equal(args[modelIdx + 1], 'env-override-model',
+      'CAT_OPUS_MODEL env var should take priority over config default');
+  } finally {
+    if (saved === undefined) delete process.env.CAT_OPUS_MODEL;
+    else process.env.CAT_OPUS_MODEL = saved;
+  }
 });
 
 test('passes --include-partial-messages flag for incremental stream-json output', async () => {
