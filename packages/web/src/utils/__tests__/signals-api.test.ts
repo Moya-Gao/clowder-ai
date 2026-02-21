@@ -4,6 +4,7 @@ import {
   fetchSignalSources,
   fetchSignalsInbox,
   searchSignals,
+  triggerSourceFetch,
   updateSignalSource,
 } from '../signals-api';
 
@@ -102,6 +103,50 @@ describe('signals-api', () => {
       body: JSON.stringify({ enabled: false }),
     });
     expect(updated.enabled).toBe(false);
+  });
+
+  it('triggerSourceFetch sends POST and returns summary', async () => {
+    const summary = {
+      fetchedArticles: 5,
+      newArticles: 3,
+      storedArticles: 3,
+      duplicateArticles: 2,
+      errors: [],
+    };
+    mocks.apiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ summary }),
+    });
+
+    const result = await triggerSourceFetch('anthropic-news');
+
+    expect(mocks.apiFetch).toHaveBeenCalledWith('/api/signals/sources/anthropic-news/fetch', {
+      method: 'POST',
+    });
+    expect(result.summary).toEqual(summary);
+  });
+
+  it('triggerSourceFetch encodes special characters in sourceId', async () => {
+    mocks.apiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: () => Promise.resolve({ summary: { fetchedArticles: 0, newArticles: 0, storedArticles: 0, duplicateArticles: 0, errors: [] } }),
+    });
+
+    await triggerSourceFetch('source/with spaces');
+
+    expect(mocks.apiFetch).toHaveBeenCalledWith('/api/signals/sources/source%2Fwith%20spaces/fetch', {
+      method: 'POST',
+    });
+  });
+
+  it('triggerSourceFetch throws on server error', async () => {
+    mocks.apiFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      json: () => Promise.resolve({ error: 'Fetch failed' }),
+    });
+
+    await expect(triggerSourceFetch('bad-source')).rejects.toThrow('Fetch failed');
   });
 
   it('fetchSignalsInbox throws API message when request fails', async () => {

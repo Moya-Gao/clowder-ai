@@ -457,6 +457,43 @@ describe('signals routes', () => {
     assert.ok(statsBody.weekCount >= 2);
   });
 
+  it('POST /api/signals/sources/:id/fetch returns 401 without identity', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/signals/sources/anthropic-news/fetch',
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('POST /api/signals/sources/:id/fetch returns 404 for nonexistent source', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/signals/sources/does-not-exist/fetch',
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 404);
+    assert.match(res.json().error, /not found/i);
+  });
+
+  it('POST /api/signals/sources/:id/fetch returns summary shape for valid source', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/signals/sources/anthropic-news/fetch',
+      headers: AUTH_HEADERS,
+    });
+
+    // Fetch may succeed (200) or fail with network error (502),
+    // but the response must always include a summary object.
+    assert.ok([200, 502].includes(res.statusCode), `unexpected status: ${res.statusCode}`);
+    const body = res.json();
+    assert.ok(body.summary, 'response must include summary');
+    assert.equal(typeof body.summary.fetchedArticles, 'number');
+    assert.equal(typeof body.summary.newArticles, 'number');
+    assert.equal(typeof body.summary.storedArticles, 'number');
+    assert.equal(typeof body.summary.duplicateArticles, 'number');
+    assert.ok(Array.isArray(body.summary.errors));
+  });
+
   it('returns 404 (not 500) for detail/by-url/update when article file is missing', async () => {
     unlinkSync(secondArticle.filePath);
 
