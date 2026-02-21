@@ -71,7 +71,7 @@ async def synthesize(req: SpeechRequest):
         raise HTTPException(503, detail="Model not loaded yet")
 
     try:
-        from mlx_audio.tts import generate as tts_generate
+        from mlx_audio.tts.generate import generate_audio as tts_generate
     except ImportError:
         raise HTTPException(500, detail="mlx_audio.tts not available")
 
@@ -82,7 +82,7 @@ async def synthesize(req: SpeechRequest):
             await asyncio.to_thread(
                 tts_generate,
                 text=req.input,
-                model_id_or_path=model_path,
+                model=model_path,
                 voice=req.voice,
                 lang_code=req.lang_code,
                 speed=req.speed,
@@ -155,16 +155,17 @@ def main():
     log.info("Loading model (first run downloads from HuggingFace)...")
 
     try:
-        from mlx_audio.tts import generate as tts_generate
+        from mlx_audio.tts.generate import generate_audio as tts_generate
 
         # Warmup: run a tiny synthesis to force model download + compile
+        # Use Chinese voice (no espeak dependency needed)
         warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-warmup-"))
         try:
             tts_generate(
-                text="hello",
-                model_id_or_path=model_path,
-                voice="af_heart",
-                lang_code="en-us",
+                text="你好",
+                model=model_path,
+                voice="zm_yunjian",
+                lang_code="z",
                 output_path=str(warmup_dir),
             )
         except Exception:

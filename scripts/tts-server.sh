@@ -26,7 +26,7 @@ if ! python3 -c "import mlx_audio" 2>/dev/null; then
   echo "ERROR: mlx-audio not installed. Run:"
   echo "  python3 -m venv $VENV_DIR"
   echo "  source $VENV_DIR/bin/activate"
-  echo "  pip install mlx-audio 'misaki[zh]' fastapi uvicorn"
+  echo "  pip install mlx-audio 'misaki[zh]' fastapi uvicorn 'httpx[socks]' num2words spacy phonemizer"
   exit 1
 fi
 
