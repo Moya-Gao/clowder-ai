@@ -227,6 +227,15 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     });
 
     socket.on('thread_summary', (summary: Record<string, unknown>) => {
+      const routeThread = threadIdRef.current;
+      const storeThread = useChatStore.getState().currentThreadId;
+      // Dual-pointer guard: both route and store must agree on the active thread.
+      // Blocks switch-window race where route already points to thread-B
+      // but flat store still belongs to thread-A (same pattern as agent_message).
+      const isActiveThread = Boolean(
+        summary.threadId && routeThread && storeThread && summary.threadId === routeThread && summary.threadId === storeThread,
+      );
+      if (!isActiveThread) return;
       callbacksRef.current.onThreadSummary?.(summary);
     });
 
