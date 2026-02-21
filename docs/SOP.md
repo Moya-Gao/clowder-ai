@@ -78,7 +78,6 @@
 1. Reviewer 有**明确放行信号**（"放行" / "LGTM" / "通过" / "可以合入"）
 2. **所有 P1/P2** 已修复并经 reviewer 确认
 3. Review 针对**当前分支/当前工作**（不是历史 review）
-4. **BACKLOG 涉及条目已更新**：本次工作关联的 BACKLOG 条目（bug fix / feature / 债务）已在 feature branch 上标 `[x]` + commit hash，纳入同一轮 review
 
 **→ 下一步**: Gate 通过 → Step 5
 
@@ -141,14 +140,6 @@ git worktree prune
 ```
 
 **PR 自动关闭**: `--ff-only` merge 保持 commit hash 不变，push main 后 GitHub 检测到 PR 的 commits 已在 main 中，PR 自动标记为 merged。
-
-```bash
-# 6e. 兜底检查：BACKLOG 更新是否在 feature branch 阶段完成？
-# 正常情况下 BACKLOG 更新应在 Step 4（merge gate）前完成并纳入 review。
-# 如果遗漏了：≤5 行改动可直接在 main 补提，>5 行需开 follow-up worktree。
-```
-
-**为什么需要兜底**：2026-02-20 审计发现 3 个已合入条目（#83/#84/F35）未标 [x]，根因是流程里没有 BACKLOG 更新步骤。现已在 Step 4 加入前置检查，6e 作为最后防线。
 
 ---
 

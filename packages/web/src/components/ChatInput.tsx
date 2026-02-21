@@ -6,6 +6,7 @@ import { ImagePreview } from './ImagePreview';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import { CAT_OPTIONS, MODE_OPTIONS, detectMenuTrigger, type CatOption } from './chat-input-options';
+import { MobileInputToolbar } from './MobileInputToolbar';
 import { compressImage } from '@/utils/compressImage';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
@@ -38,6 +39,7 @@ export function ChatInput({
   const [isPreparingImages, setIsPreparingImages] = useState(false);
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
+  const [mobileToolbar, setMobileToolbar] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -201,6 +203,18 @@ export function ChatInput({
     }, 0);
   }, []);
 
+  // Auto-resize textarea based on content
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    const isMobile = typeof window.matchMedia === 'function'
+      ? window.matchMedia('(max-width: 767px)').matches
+      : false;
+    const maxH = isMobile ? 120 : 200; // ~5 lines mobile, ~8 lines desktop
+    ta.style.height = `${Math.min(ta.scrollHeight, maxH)}px`;
+  }, [input]);
+
   useEffect(() => {
     if (!activeMenu) return;
     const handler = (e: MouseEvent) => {
@@ -211,7 +225,7 @@ export function ChatInput({
   }, [activeMenu, closeMenus]);
 
   return (
-    <div className="border-t border-owner-light bg-owner-bg relative">
+    <div className="border-t border-owner-light bg-owner-bg relative safe-area-bottom">
       <ChatInputMenus
         showMentions={showMentions} showModeMenu={showModeMenu} selectedIdx={selectedIdx}
         onSelectIdx={setSelectedIdx} onInsertMention={insertMention} onInsertOption={insertOption} menuRef={menuRef}
@@ -257,16 +271,43 @@ export function ChatInput({
 
       <ImagePreview files={images} onRemove={handleRemoveImage} />
 
-      <div className="flex gap-2 items-end p-4 pt-2">
-        <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} multiple className="hidden" onChange={handleFileSelect} />
+      <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} multiple className="hidden" onChange={handleFileSelect} />
 
+      {/* Mobile expanded toolbar (above input row) */}
+      {mobileToolbar && (
+        <MobileInputToolbar
+          onAttach={() => fileInputRef.current?.click()}
+          onWhisperToggle={handleWhisperToggle}
+          onModeClick={handleModeClick}
+          onClose={() => setMobileToolbar(false)}
+          disabled={disabled}
+          sendDisabled={sendTemporarilyDisabled}
+          maxImages={images.length >= 5}
+          whisperMode={whisperMode}
+        />
+      )}
+
+      <div className="flex gap-2 items-end p-4 pt-2">
+        {/* Mobile: + toggle button */}
+        <button onClick={() => setMobileToolbar((v) => !v)}
+          className={`p-3 rounded-xl transition-all md:hidden ${
+            mobileToolbar
+              ? 'text-owner-primary bg-owner-light rotate-45'
+              : 'text-gray-400 hover:text-owner-primary hover:bg-white'
+          }`} aria-label="展开工具栏">
+          <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+          </svg>
+        </button>
+
+        {/* Desktop: tool buttons always visible */}
         <button onClick={() => fileInputRef.current?.click()} disabled={disabled || sendTemporarilyDisabled || images.length >= 5}
-          className="p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Attach images">
+          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-owner-primary hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Attach images">
           <AttachIcon className="w-5 h-5" />
         </button>
 
         <button onClick={handleWhisperToggle} disabled={disabled || sendTemporarilyDisabled}
-          className={`p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
+          className={`hidden md:block p-3 rounded-xl transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
             whisperMode
               ? 'text-amber-500 bg-amber-50 ring-1 ring-amber-300'
               : 'text-gray-400 hover:text-amber-500 hover:bg-white'
@@ -277,7 +318,7 @@ export function ChatInput({
         </button>
 
         <button onClick={handleModeClick} disabled={disabled || sendTemporarilyDisabled}
-          className="p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Mode">
+          className="hidden md:block p-3 rounded-xl text-gray-400 hover:text-indigo-500 hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" aria-label="Mode">
           <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
             <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM14 11a1 1 0 011 1v1h1a1 1 0 110 2h-1v1a1 1 0 11-2 0v-1h-1a1 1 0 110-2h1v-1a1 1 0 011-1z" />
           </svg>
@@ -290,7 +331,7 @@ export function ChatInput({
               ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
               : 'border-owner-light bg-white focus:ring-owner-primary'
           }`}
-          rows={2} disabled={disabled} />
+          rows={1} disabled={disabled} />
 
         <ChatInputActionButton
           onTranscript={handleTranscript} onSend={handleSend} onStop={onStop}

@@ -56,7 +56,7 @@ function renderContentBlocks(blocks: MessageContent[]) {
           key={i}
           src={src}
           alt="attached image"
-          className="max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+          className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
           onClick={() => isSafeUrl && window.open(src, '_blank', 'noopener')}
         />
       );
@@ -278,7 +278,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   return (
     <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
       {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
-      <div className="max-w-[75%]">
+      <div className="max-w-[85%] md:max-w-[75%]">
         {cat && (
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>

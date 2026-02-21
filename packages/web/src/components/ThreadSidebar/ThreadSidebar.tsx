@@ -10,7 +10,12 @@ import { DirectoryPickerModal } from './DirectoryPickerModal';
 import { getProjectPaths, sortAndGroupThreads } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 
-export function ThreadSidebar() {
+interface ThreadSidebarProps {
+  /** Called to close the sidebar drawer on mobile */
+  onClose?: () => void;
+}
+
+export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
   const router = useRouter();
   const {
     threads,
@@ -94,13 +99,17 @@ export function ThreadSidebar() {
       const thread: Thread = await res.json();
       if (projectPath) setCurrentProject(projectPath);
       navigateToThread(thread.id);
+      // Auto-close sidebar on mobile after creating a new conversation
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        onClose?.();
+      }
       await loadThreads();
     } catch {
       // Silently ignore
     } finally {
       setIsCreating(false);
     }
-  }, [setCurrentProject, navigateToThread, loadThreads]);
+  }, [setCurrentProject, navigateToThread, loadThreads, onClose]);
 
   const handleDelete = useCallback(async (threadId: string) => {
     try {
@@ -146,8 +155,12 @@ export function ThreadSidebar() {
     (threadId: string) => {
       if (threadId === currentThreadId) return;
       navigateToThread(threadId);
+      // Auto-close sidebar on mobile after selecting a thread
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        onClose?.();
+      }
     },
-    [currentThreadId, navigateToThread]
+    [currentThreadId, navigateToThread, onClose]
   );
 
   const toggleGroup = useCallback((key: string) => {

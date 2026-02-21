@@ -27,6 +27,8 @@ export function DirectoryPickerModal({
   const [browseData, setBrowseData] = useState<BrowseResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [browseExpanded, setBrowseExpanded] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const browseTo = useCallback(async (path?: string) => {
@@ -54,6 +56,7 @@ export function DirectoryPickerModal({
         const res = await apiFetch(`/api/projects/cwd`);
         if (res.ok) {
           const data = await res.json();
+          setCwdPath(data.path);
           await browseTo(data.path);
         } else {
           await browseTo();
@@ -88,7 +91,7 @@ export function DirectoryPickerModal({
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-xl shadow-2xl w-[480px] max-h-[70vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] mx-4 max-h-[80vh] flex flex-col overflow-hidden"
       >
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-base font-semibold text-cafe-black">选择项目目录</h2>
@@ -102,81 +105,116 @@ export function DirectoryPickerModal({
           </button>
         </div>
 
+        {/* ── Quick picks: one-tap project selection ── */}
         <div className="px-5 py-3 border-b border-gray-100 space-y-1">
-          <button
-            onClick={() => onSelect(undefined)}
-            className="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
-          >
-            <span className="text-base">🏠</span>
-            <span>大厅 (无项目)</span>
-          </button>
+          {/* Server cwd as recommended project (always present) */}
+          {cwdPath && !existingProjects.includes(cwdPath) && (
+            <button
+              onClick={() => onSelect(cwdPath)}
+              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
+              title={cwdPath}
+            >
+              <FolderIcon className="text-owner-primary" />
+              <div className="min-w-0 flex-1">
+                <span className="font-medium block truncate">{projectDisplayName(cwdPath)}</span>
+                <span className="text-[10px] text-gray-400 block truncate">{cwdPath}</span>
+              </div>
+              <span className="text-[10px] text-owner-primary flex-shrink-0">推荐</span>
+            </button>
+          )}
+
           {existingProjects.map((path) => (
             <button
               key={path}
               onClick={() => onSelect(path)}
-              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
               title={path}
             >
               <FolderIcon className="text-owner-primary" />
-              <span className="truncate font-medium">{projectDisplayName(path)}</span>
-              <span className="text-[10px] text-gray-300 ml-auto truncate max-w-[180px]">{path}</span>
+              <div className="min-w-0 flex-1">
+                <span className="font-medium block truncate">{projectDisplayName(path)}</span>
+                <span className="text-[10px] text-gray-400 block truncate">{path}</span>
+              </div>
             </button>
           ))}
+
+          <button
+            onClick={() => onSelect(undefined)}
+            className="w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span className="text-base">🏠</span>
+            <span>大厅 (无项目)</span>
+          </button>
         </div>
 
+        {/* ── Directory browser: collapsed on mobile by default ── */}
         <div className="flex-1 overflow-y-auto">
-          {browseData && (
-            <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500">
-              <FolderIcon className="text-gray-400 flex-shrink-0" />
-              <span className="truncate" title={browseData.current}>{browseData.current}</span>
-              <button
-                onClick={() => onSelect(browseData.current)}
-                className="ml-auto flex-shrink-0 px-2.5 py-1 rounded-md bg-owner-primary text-white text-xs hover:bg-owner-dark transition-colors"
-              >
-                选择此目录
-              </button>
-            </div>
-          )}
+          <button
+            onClick={() => setBrowseExpanded((v) => !v)}
+            className="w-full px-5 py-2.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors"
+          >
+            <span>浏览其他目录</span>
+            <svg className={`w-3.5 h-3.5 transition-transform ${browseExpanded ? 'rotate-180' : ''}`} viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
 
-          {isLoading && (
-            <div className="text-center py-8 text-sm text-gray-400">加载中...</div>
-          )}
-          {error && (
-            <div className="text-center py-8 text-sm text-red-400">{error}</div>
-          )}
-
-          {browseData && !isLoading && (
-            <div className="py-1">
-              {browseData.parent && (
-                <button
-                  onClick={() => browseTo(browseData.parent!)}
-                  className="w-full text-left px-5 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
-                  </svg>
-                  <span>.. 上级目录</span>
-                </button>
+          {browseExpanded && (
+            <>
+              {browseData && (
+                <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500">
+                  <FolderIcon className="text-gray-400 flex-shrink-0" />
+                  <span className="truncate" title={browseData.current}>{browseData.current}</span>
+                  <button
+                    onClick={() => onSelect(browseData.current)}
+                    className="ml-auto flex-shrink-0 px-2.5 py-1 rounded-md bg-owner-primary text-white text-xs hover:bg-owner-dark transition-colors"
+                  >
+                    选择此目录
+                  </button>
+                </div>
               )}
 
-              {browseData.entries.length === 0 && (
-                <div className="text-center py-6 text-xs text-gray-300">无子目录</div>
+              {isLoading && (
+                <div className="text-center py-8 text-sm text-gray-400">加载中...</div>
+              )}
+              {error && (
+                <div className="text-center py-8 text-sm text-red-400">{error}</div>
               )}
 
-              {browseData.entries.map((entry) => (
-                <button
-                  key={entry.path}
-                  onClick={() => browseTo(entry.path)}
-                  className="w-full text-left px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 group"
-                >
-                  <FolderIcon className="text-gray-400 group-hover:text-owner-primary" />
-                  <span className="truncate">{entry.name}</span>
-                  <svg className="w-3 h-3 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 12 12" fill="currentColor">
-                    <path d="M4 2l4 4-4 4V2z" />
-                  </svg>
-                </button>
-              ))}
-            </div>
+              {browseData && !isLoading && (
+                <div className="py-1">
+                  {browseData.parent && (
+                    <button
+                      onClick={() => browseTo(browseData.parent!)}
+                      className="w-full text-left px-5 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                      </svg>
+                      <span>.. 上级目录</span>
+                    </button>
+                  )}
+
+                  {browseData.entries.length === 0 && (
+                    <div className="text-center py-6 text-xs text-gray-300">无子目录</div>
+                  )}
+
+                  {browseData.entries.map((entry) => (
+                    <button
+                      key={entry.path}
+                      onClick={() => browseTo(entry.path)}
+                      className="w-full text-left px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 group"
+                    >
+                      <FolderIcon className="text-gray-400 group-hover:text-owner-primary" />
+                      <span className="truncate">{entry.name}</span>
+                      <svg className="w-3 h-3 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 12 12" fill="currentColor">
+                        <path d="M4 2l4 4-4 4V2z" />
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

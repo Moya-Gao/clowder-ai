@@ -94,7 +94,7 @@ export function SplitPaneView({
   }, [splitPaneTargetId, splitPaneThreadIds, onZoomToThread]);
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen h-dvh">
       {/* Toolbar — matches single-mode header style */}
       <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2 flex-shrink-0">
         <PawIcon className="w-6 h-6 text-owner-primary" />

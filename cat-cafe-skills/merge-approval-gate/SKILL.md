@@ -44,18 +44,6 @@ description: Blocks code merge to main without explicit reviewer approval. Use w
 
 确认 review 是针对当前分支/当前工作的，不是历史遗留的 review 信。
 
-### 4. BACKLOG 涉及条目已更新
-
-本次工作关联的 BACKLOG 条目（bug fix / feature / 技术债务），必须**在 feature branch 上**更新 `docs/BACKLOG.md`：
-
-- 将对应条目标记 `[x]`，附合入的关键 commit hash
-- 将已完成条目复制到底部「已完成项（归档）」section
-- 作为同一轮 commit/review 的一部分提交
-
-若本次工作无关联 BACKLOG 条目，显式标注 `N/A`（避免"忘了检查"和"检查过没有"歧义）。
-
-**为什么不在 merge 后补提**：在 main 上直接补 BACKLOG 更新会与 SOP 的例外路径规则冲突（跳过 PR 需显式授权或 ≤5 行极微改动）。在 feature branch 完成则自然纳入 review 流程，零灰区。
-
 ## 检查流程
 
 ```
@@ -67,7 +55,6 @@ BEFORE 准备合入 main:
    - 有明确放行语句？
    - 所有 P1/P2 已标记修复？
    - Reviewer 确认修复正确？
-   - BACKLOG 涉及条目已在 feature branch 上更新？
 4. DECIDE:
    - 全部通过 → 可以合入
    - 任一不通过 → BLOCK

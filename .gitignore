@@ -6,6 +6,13 @@ dist/
 build/
 .next/
 
+# PWA generated service worker files
+packages/web/public/sw.js
+packages/web/public/sw.js.map
+packages/web/public/workbox-*.js
+packages/web/public/workbox-*.js.map
+packages/web/public/swe-worker-*.js
+
 # Environment files
 .env
 .env.local

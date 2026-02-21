@@ -55,6 +55,13 @@ body {
   background: var(--bg-app);
 }
 
+/* === Mobile PWA: safe-area insets for notched devices === */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }

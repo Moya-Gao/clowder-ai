@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
-import { useTaskStore, type TaskItem } from '@/stores/taskStore';
-import { useSocket, type SocketCallbacks } from '@/hooks/useSocket';
+import { useTaskStore } from '@/stores/taskStore';
+import { useSocket } from '@/hooks/useSocket';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatHistory } from '@/hooks/useChatHistory';
 import { useSendMessage } from '@/hooks/useSendMessage';
+import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { ChatContainerHeader } from './ChatContainerHeader';
 import { MessageActions } from './MessageActions';
 import { RightStatusPanel } from './RightStatusPanel';
 import { ThreadSidebar } from './ThreadSidebar';
@@ -23,47 +24,33 @@ import { AuthorizationCard } from './AuthorizationCard';
 import { useAuthorization } from '@/hooks/useAuthorization';
 import { ModeStatusBar } from './ModeStatusBar';
 import { ConfirmDialog } from './ConfirmDialog';
-import { ExportButton } from './ExportButton';
 import { SplitPaneView } from './SplitPaneView';
 import { CatCafeHub } from './CatCafeHub';
+import { MobileStatusSheet } from './MobileStatusSheet';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 
 interface ChatContainerProps {
   threadId: string;
 }
 
-/**
- * Main chat container component.
- * Orchestrates hooks for history, commands, messaging, and socket communication.
- * threadId is driven by the URL route param (source of truth).
- */
 export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
-    messages,
-    isLoading,
-    hasActiveInvocation,
-    intentMode,
-    targetCats,
-    catStatuses,
-    catInvocations,
-    addMessage,
-    removeMessage,
-    setLoading,
-    setHasActiveInvocation,
-    setIntentMode,
-    setTargetCats,
-    setCurrentThread,
-    updateThreadTitle,
-    setCurrentMode,
-    pendingModeSwitchProposal,
-    setPendingModeSwitchProposal,
-    viewMode,
-    setViewMode,
-    clearUnread,
+    messages, isLoading, hasActiveInvocation, intentMode, targetCats,
+    catStatuses, catInvocations, setCurrentThread,
+    pendingModeSwitchProposal, setPendingModeSwitchProposal,
+    viewMode, setViewMode, clearUnread,
   } = useChatStore();
-  const { addTask, updateTask, clearTasks } = useTaskStore();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { clearTasks } = useTaskStore();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
+  const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
+
+  // Desktop: auto-open sidebar on mount (mobile stays closed)
+  useEffect(() => {
+    if (typeof window.matchMedia === 'function' && window.matchMedia('(min-width: 768px)').matches) {
+      setSidebarOpen(true);
+    }
+  }, []);
 
   const { handleAgentMessage, handleStop: stopHandler, resetRefs, resetTimeout } = useAgentMessages();
   const {
@@ -77,27 +64,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
 
   const messageSummary = useMemo(() => {
-    let assistant = 0;
-    let system = 0;
-    let evidence = 0;
-    let followup = 0;
-
+    const c = { total: messages.length, assistant: 0, system: 0, evidence: 0, followup: 0 };
     for (const msg of messages) {
-      if (msg.type === 'assistant') assistant += 1;
+      if (msg.type === 'assistant') c.assistant++;
       if (msg.type === 'system') {
-        system += 1;
-        if (msg.variant === 'evidence') evidence += 1;
-        if (msg.variant === 'a2a_followup') followup += 1;
+        c.system++;
+        if (msg.variant === 'evidence') c.evidence++;
+        if (msg.variant === 'a2a_followup') c.followup++;
       }
     }
-
-    return {
-      total: messages.length,
-      assistant,
-      system,
-      evidence,
-      followup,
-    };
+    return c;
   }, [messages]);
 
   // Sync URL-driven threadId to store (store is follower, URL is source of truth)
@@ -116,55 +92,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     setCurrentThread(threadId);
   }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Socket callbacks
-  const socketCallbacks = useMemo<SocketCallbacks>(() => ({
-    onMessage: (msg) => {
-      handleAgentMessage(msg);
-      return true;
-    },
-    onThreadUpdated: (data) => updateThreadTitle(data.threadId, data.title),
-    onIntentMode: (data) => {
-      if (data.threadId !== threadId) return;
-      setLoading(true);
-      setHasActiveInvocation(true);
-      setIntentMode(data.mode as 'ideate' | 'execute');
-      const cats = (data as { targetCats?: string[] }).targetCats;
-      if (cats && cats.length > 0) setTargetCats(cats);
-    },
-    onTaskCreated: (task) => addTask(task as unknown as TaskItem),
-    onTaskUpdated: (task) => updateTask(task as unknown as TaskItem),
-    onThreadSummary: (summary) => {
-      const s = summary as { id: string; threadId: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string; createdAt: number };
-      addMessage({
-        id: `summary-${s.id}`,
-        type: 'summary',
-        content: s.topic,
-        timestamp: s.createdAt,
-        summary: { id: s.id, topic: s.topic, conclusions: s.conclusions, openQuestions: s.openQuestions, createdBy: s.createdBy },
-      } as ChatMessageData);
-    },
-    onHeartbeat: (data) => {
-      if (data.threadId === threadId) resetTimeout();
-    },
-    onMessageDeleted: (data: { messageId: string }) => removeMessage(data.messageId),
-    onMessageRestored: () => { /* full reload handled by re-fetching history if needed */ },
-    onThreadBranched: () => { /* branch navigation handled by the action initiator */ },
-    onAuthorizationRequest: handleAuthRequest,
-    onAuthorizationResponse: handleAuthResponse,
-    onModeChanged: (data) => {
-      if (data.action === 'started' && data.mode) {
-        const m = data.mode as { record: { name: string; config: Record<string, unknown>; startedAt: string }; state?: Record<string, unknown> };
-        setCurrentMode({ name: m.record.name, config: m.record.config, startedAt: m.record.startedAt, ...(m.state ? { state: m.state } : {}) });
-      } else {
-        setCurrentMode(null);
-      }
-    },
-  }), [handleAgentMessage, updateThreadTitle, setLoading, setHasActiveInvocation, setIntentMode, setTargetCats, addTask, updateTask, addMessage, removeMessage, resetTimeout, handleAuthRequest, handleAuthResponse, setCurrentMode, threadId]);
+  const socketCallbacks = useChatSocketCallbacks({
+    threadId,
+    handleAgentMessage,
+    resetTimeout,
+    handleAuthRequest,
+    handleAuthResponse,
+  });
 
-  /**
-   * Group consecutive A2A messages into collapsible sections.
-   * Non-A2A messages are kept as-is, A2A messages are grouped by groupId.
-   */
   type RenderItem =
     | { kind: 'message'; msg: ChatMessageData }
     | { kind: 'a2a_group'; groupId: string; messages: ChatMessageData[] };
@@ -204,15 +139,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
 
-  // Keyboard shortcuts for split-pane mode
   useSplitPaneKeys();
-
-  // Auto-join socket rooms for all split-pane threads
   const splitPaneThreadIds = useChatStore((s) => s.splitPaneThreadIds);
   const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
   const setSplitPaneTarget = useChatStore((s) => s.setSplitPaneTarget);
 
-  // Auto-populate first pane with current thread when entering split mode with empty panes
   useEffect(() => {
     if (viewMode === 'split' && splitPaneThreadIds.length === 0 && threadId !== 'default') {
       setSplitPaneThreadIds([threadId]);
@@ -228,10 +159,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     }
   }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
-  // Clear unread when switching to a thread (the thread becomes active = user sees it)
-  useEffect(() => {
-    clearUnread(threadId);
-  }, [threadId, clearUnread]);
+  useEffect(() => { clearUnread(threadId); }, [threadId, clearUnread]);
 
   const handleStop = useCallback((overrideThreadId?: unknown) => {
     const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;
@@ -240,7 +168,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   const router = useRouter();
 
-  /** Double-click a split pane → zoom back to single mode on that thread */
   const handleZoomToThread = useCallback(
     (tid: string) => {
       setViewMode('single');
@@ -249,7 +176,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     [setViewMode, router]
   );
 
-  // ── Split-pane mode ──
   if (viewMode === 'split') {
     return (
       <>
@@ -265,78 +191,34 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     );
   }
 
-  // ── Single mode (default) ──
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen h-dvh">
       {sidebarOpen && (
-        <ThreadSidebar />
+        <>
+          {/* Backdrop — mobile only */}
+          <div
+            className="fixed inset-0 bg-black/30 z-20 md:hidden"
+            onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-y-0 left-0 z-30 md:static md:z-auto">
+            <ThreadSidebar onClose={() => setSidebarOpen(false)} />
+          </div>
+        </>
       )}
 
       <div className="flex flex-col flex-1 min-w-0">
-        <header className="border-b border-owner-light px-5 py-3 bg-owner-bg flex items-center gap-2">
-          <button
-            onClick={() => setSidebarOpen((v) => !v)}
-            className="p-1 rounded-lg hover:bg-owner-light transition-colors mr-1"
-            aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
-          >
-            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-            </svg>
-          </button>
-          <PawIcon className="w-6 h-6 text-owner-primary" />
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
-            <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
-          </div>
-          <ExportButton threadId={threadId} />
-          <Link
-            href="/signals"
-            className="p-1 rounded-lg hover:bg-owner-light transition-colors"
-            title="Signal Inbox"
-            aria-label="Signal Inbox"
-          >
-            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 011.414-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 011.415-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
-            </svg>
-          </Link>
-          {authPending.length > 0 && (
-            <span
-              className="inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold animate-pulse-subtle"
-              title={`${authPending.length} 个授权请求等待处理`}
-            >
-              🔐 {authPending.length}
-            </span>
-          )}
-          <button
-            onClick={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
-            className="p-1 rounded-lg hover:bg-owner-light transition-colors"
-            aria-label={viewMode === 'single' ? '切换分屏模式' : '切换单屏模式'}
-            title={viewMode === 'single' ? '分屏模式' : '单屏模式'}
-          >
-            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-              {viewMode === 'single' ? (
-                <>
-                  <rect x="2" y="2" width="7" height="7" rx="1" />
-                  <rect x="11" y="2" width="7" height="7" rx="1" />
-                  <rect x="2" y="11" width="7" height="7" rx="1" />
-                  <rect x="11" y="11" width="7" height="7" rx="1" />
-                </>
-              ) : (
-                <rect x="2" y="2" width="16" height="16" rx="2" />
-              )}
-            </svg>
-          </button>
-          <button
-            onClick={() => setStatusPanelOpen((v) => !v)}
-            className="p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block"
-            aria-label={statusPanelOpen ? 'Hide status panel' : 'Show status panel'}
-          >
-            <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z" clipRule="evenodd" />
-              {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
-            </svg>
-          </button>
-        </header>
+        <ChatContainerHeader
+          sidebarOpen={sidebarOpen}
+          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          threadId={threadId}
+          authPendingCount={authPending.length}
+          viewMode={viewMode}
+          onToggleViewMode={() => setViewMode(viewMode === 'single' ? 'split' : 'single')}
+          onOpenMobileStatus={() => setMobileStatusOpen(true)}
+          statusPanelOpen={statusPanelOpen}
+          onToggleStatusPanel={() => setStatusPanelOpen((v) => !v)}
+        />
 
         <ModeStatusBar />
         {intentMode === 'ideate' && <ParallelStatusBar onStop={handleStop} />}
@@ -429,6 +311,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           messageSummary={messageSummary}
         />
       )}
+      <MobileStatusSheet
+        open={mobileStatusOpen}
+        onClose={() => setMobileStatusOpen(false)}
+        intentMode={intentMode}
+        targetCats={targetCats}
+        catStatuses={catStatuses}
+        catInvocations={catInvocations}
+        threadId={threadId}
+        messageSummary={messageSummary}
+      />
       <CatCafeHub />
     </div>
   );
