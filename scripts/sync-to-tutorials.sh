@@ -116,9 +116,15 @@ cat > "$TARGET_DIR/README.md" << 'README_EOF'
 - **第六课**：[消失的 28 秒 — 当 AI 闯了生产事故](./docs/lessons/06-vanished-28-seconds.md) — 两次数据丢失 + 取证恢复 + 三层防线
   - [课后作业](./docs/lessons/06-homework.md)：数据丢失演练 + 防腐门
 
+### Part 4: 进阶话题
+
+- **第七课**：[从猫咖到猫猫平台 — 当 AI 不只是工具](./docs/lessons/07-from-cafe-to-platform.md) — SillyTavern 取经 + Rich Blocks + 手机猫猫 + 悄悄话
+  - [课后作业](./docs/lessons/07-homework.md)：最小 Rich Blocks 管线
+
 ### 即将推出
 
-- 第七课：上下文工程 — 150k token 怎么用？
+- 第八课：Session 管理 — 跨 thread 污染怎么来的？
+- 第九课：上下文工程 — 150k token 怎么用？
 - ...更多
 
 ## 适合谁
