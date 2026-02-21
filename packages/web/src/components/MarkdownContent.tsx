@@ -201,7 +201,7 @@ export function MarkdownContent({ content, className, disableCommandPrefix }: Pr
   const md = cmdMatch ? content.slice(cmdMatch[1].length) : content;
 
   return (
-    <div className={`markdown-content text-sm ${className ?? ''}`}>
+    <div className={`markdown-content text-sm break-words ${className ?? ''}`}>
       {cmdMatch && <span className="font-semibold text-indigo-500">{cmdMatch[1]}</span>}
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>
         {md}

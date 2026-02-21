@@ -278,7 +278,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
   return (
     <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
       {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
-      <div className="max-w-[85%] md:max-w-[75%]">
+      <div className="max-w-[85%] md:max-w-[75%] min-w-0">
         {cat && (
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
@@ -293,7 +293,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
           </div>
         )}
         <div
-          className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 ${
+          className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
             cat
               ? `${cat.bg} ${cat.border} ${cat.radius} ${cat.font ?? ''}`
               : 'bg-white border-gray-200 rounded-2xl'

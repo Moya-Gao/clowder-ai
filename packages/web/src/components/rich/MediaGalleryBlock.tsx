@@ -9,7 +9,7 @@ export function MediaGalleryBlock({ block }: { block: RichMediaGalleryBlock }) {
       {block.title && (
         <div className="font-medium text-sm mb-2">{block.title}</div>
       )}
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {items.map((item, i) => (
           <figure key={i} className="space-y-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}

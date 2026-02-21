@@ -22,11 +22,11 @@ export function CardBlock({ block }: { block: RichCardBlock }) {
         </div>
       )}
       {block.fields && block.fields.length > 0 && (
-        <div className="mt-2 grid grid-cols-2 gap-1">
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-1">
           {block.fields.map((f, i) => (
             <div key={i} className="text-xs">
               <span className="text-gray-500">{f.label}:</span>{' '}
-              <span className="font-mono">{f.value}</span>
+              <span className="font-mono break-all">{f.value}</span>
             </div>
           ))}
         </div>
