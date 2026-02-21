@@ -41,6 +41,21 @@ function parseAndValidateSources(yamlText: string): SignalSourceConfig {
   return result.data as SignalSourceConfig;
 }
 
+/** Append-only merge: new defaults are added, but existing sources keep their
+ *  persisted state (enabled/disabled, custom fields). Defaults whose fields
+ *  changed (e.g. URL update) will NOT overwrite the persisted copy. */
+function mergeWithDefaults(existing: SignalSourceConfig): SignalSourceConfig {
+  const existingIds = new Set(existing.sources.map((s) => s.id));
+  const newSources = DEFAULT_SIGNAL_SOURCES.sources.filter((s) => !existingIds.has(s.id));
+
+  if (newSources.length === 0) return existing;
+
+  return {
+    ...existing,
+    sources: [...existing.sources, ...newSources],
+  };
+}
+
 export async function loadSignalSources(paths: SignalPaths = resolveSignalPaths()): Promise<SignalSourceConfig> {
   await ensureSignalWorkspace(paths);
 
@@ -50,7 +65,14 @@ export async function loadSignalSources(paths: SignalPaths = resolveSignalPaths(
     return DEFAULT_SIGNAL_SOURCES;
   }
 
-  return parseAndValidateSources(yamlText);
+  const persisted = parseAndValidateSources(yamlText);
+  const merged = mergeWithDefaults(persisted);
+
+  if (merged !== persisted) {
+    await writeFile(paths.sourcesFile, toYaml(merged), 'utf-8');
+  }
+
+  return merged;
 }
 
 export async function saveSignalSources(

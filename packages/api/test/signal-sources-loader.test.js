@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, it } from 'node:test';
@@ -67,8 +67,8 @@ describe('signal sources loader', () => {
 
     const config = await loadSignalSources(paths);
 
-    assert.equal(config.sources.length, 1);
-    assert.equal(config.sources[0].id, 'openai-rss');
+    assert.ok(config.sources.length > 1, 'should merge defaults into persisted YAML');
+    assert.equal(config.sources[0].id, 'openai-rss', 'persisted source comes first');
     assert.equal(config.sources[0].fetch.method, 'rss');
   });
 
@@ -108,5 +108,84 @@ describe('signal sources loader', () => {
     const expectedRoot = join(homedir(), '.cat-cafe', 'signals');
 
     assert.equal(paths.rootDir, expectedRoot);
+  });
+
+  it('appends new default sources missing from persisted YAML', async () => {
+    const { ensureSignalWorkspace, resolveSignalPaths, loadSignalSources } = await import(modulePath);
+    const { DEFAULT_SIGNAL_SOURCES } = await import('../dist/domains/signals/config/default-sources.js');
+
+    const paths = resolveSignalPaths();
+    await ensureSignalWorkspace(paths);
+
+    // Write a YAML with only 1 source (simulating an old config)
+    writeFileSync(
+      paths.sourcesFile,
+      `version: 1\nsources:\n  - id: anthropic-news\n    name: Anthropic Newsroom\n    url: https://www.anthropic.com/news\n    tier: 1\n    category: official\n    enabled: true\n    fetch:\n      method: webpage\n      selector: "article"\n    schedule:\n      frequency: daily\n`,
+      'utf-8',
+    );
+
+    const config = await loadSignalSources(paths);
+
+    // Should have the persisted source + all missing defaults
+    assert.equal(config.sources.length, DEFAULT_SIGNAL_SOURCES.sources.length);
+    assert.equal(config.sources[0].id, 'anthropic-news', 'persisted sources come first');
+  });
+
+  it('preserves user-modified enabled=false for existing sources', async () => {
+    const { ensureSignalWorkspace, resolveSignalPaths, loadSignalSources } = await import(modulePath);
+    const { DEFAULT_SIGNAL_SOURCES } = await import('../dist/domains/signals/config/default-sources.js');
+
+    const paths = resolveSignalPaths();
+    await ensureSignalWorkspace(paths);
+
+    const firstDefault = DEFAULT_SIGNAL_SOURCES.sources[0];
+
+    // Write YAML with existing source disabled by user
+    writeFileSync(
+      paths.sourcesFile,
+      `version: 1\nsources:\n  - id: ${firstDefault.id}\n    name: ${firstDefault.name}\n    url: ${firstDefault.url}\n    tier: ${firstDefault.tier}\n    category: ${firstDefault.category}\n    enabled: false\n    fetch:\n      method: ${firstDefault.fetch.method}\n    schedule:\n      frequency: ${firstDefault.schedule.frequency}\n`,
+      'utf-8',
+    );
+
+    const config = await loadSignalSources(paths);
+
+    const found = config.sources.find((s) => s.id === firstDefault.id);
+    assert.equal(found.enabled, false, 'user disabled state must be preserved');
+  });
+
+  it('persists merged config to disk', async () => {
+    const { ensureSignalWorkspace, resolveSignalPaths, loadSignalSources } = await import(modulePath);
+    const { DEFAULT_SIGNAL_SOURCES } = await import('../dist/domains/signals/config/default-sources.js');
+
+    const paths = resolveSignalPaths();
+    await ensureSignalWorkspace(paths);
+
+    // Write YAML with only 1 source
+    writeFileSync(
+      paths.sourcesFile,
+      `version: 1\nsources:\n  - id: anthropic-news\n    name: Anthropic Newsroom\n    url: https://www.anthropic.com/news\n    tier: 1\n    category: official\n    enabled: true\n    fetch:\n      method: webpage\n      selector: "article"\n    schedule:\n      frequency: daily\n`,
+      'utf-8',
+    );
+
+    await loadSignalSources(paths);
+
+    // Read the file back to confirm it was updated
+    const updatedYaml = readFileSync(paths.sourcesFile, 'utf-8');
+    assert.ok(updatedYaml.includes(DEFAULT_SIGNAL_SOURCES.sources.at(-1).id), 'last default source should be in file');
+  });
+
+  it('does not rewrite YAML when all defaults are already present', async () => {
+    const { ensureSignalWorkspace, resolveSignalPaths, loadSignalSources } = await import(modulePath);
+
+    const paths = resolveSignalPaths();
+    await ensureSignalWorkspace(paths);
+
+    // ensureSignalWorkspace already wrote all defaults; note file mtime
+    const before = readFileSync(paths.sourcesFile, 'utf-8');
+
+    await loadSignalSources(paths);
+
+    const after = readFileSync(paths.sourcesFile, 'utf-8');
+    assert.equal(before, after, 'YAML should not be rewritten when no new sources');
   });
 });

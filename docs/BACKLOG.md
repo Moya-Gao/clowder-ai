@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-21 (#86 ImageExporter 进程泄漏)
+> 维护者：布偶猫 | 最后更新：2026-02-21 (#87 sources-loader test 强化)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -113,6 +113,7 @@
 | 60 | ~~useVoiceInput 测试覆盖不足~~ | [x] | Voice Input M1 review | `8e11f96` + `23a5c30` — 2 → 20 tests (MockMediaRecorder + streaming + 竞态回归)。 |
 | 61 | ~~whisper-api.py 健壮性~~ | [x] | Voice Input M1 开发 | `4343a66` — 25MB 限制/空文件/503/logging/SIGTERM/model load exit(1)。 |
 | 79 | archive 内部互引旧路径未更新 | [ ] | WT-4 docs archive R2 | `docs/archive/2026-02/` 内历史文档互相引用仍用归档前路径（如 `docs/discussions/...`）。60+ 处，不影响活跃文档。触发条件：如需给 archive 生成静态站点或可点击链接时再批量修。 |
+| 87 | sources-loader "does not rewrite" 测试强化 mtime/spy | [ ] | source-sync 缅因猫 R1 P3-1 | 当前 `signal-sources-loader.test.js` 的"no rewrite"断言仅比较文件内容；无法区分"未写盘"和"写盘但内容相同"。可用 `fs.statSync().mtimeMs` 或 write spy 强化。触发条件：下次改 sources-loader 写盘逻辑时一并补。 |
 
 ## Feature Requests — 新功能需求
 
