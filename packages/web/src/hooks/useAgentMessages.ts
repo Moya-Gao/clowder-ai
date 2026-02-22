@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { compactToolResultDetail } from '@/utils/toolPreview';
 
@@ -140,6 +140,17 @@ export function useAgentMessages() {
       timeoutThreadRef.current = null;
     }
   }, []);
+
+  useEffect(
+    () => () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+      timeoutThreadRef.current = null;
+    },
+    [],
+  );
 
   const findStreamingMessageId = useCallback((catId: string): string | null => {
     const currentMessages = useChatStore.getState().messages;

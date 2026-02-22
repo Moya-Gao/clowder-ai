@@ -386,6 +386,49 @@ describe('useAgentMessages loading lifecycle', () => {
     }
   });
 
+  it('cleans timeout guard on unmount to prevent stale timeout side effects', () => {
+    vi.useFakeTimers();
+    try {
+      act(() => {
+        root.render(React.createElement(Harness));
+      });
+
+      // Arm the done-timeout guard.
+      act(() => {
+        captured?.handleAgentMessage({
+          type: 'text',
+          catId: 'codex',
+          content: 'partial',
+        });
+      });
+
+      // Unmount hook instance (e.g. HMR / remount path).
+      act(() => {
+        root.render(null);
+      });
+
+      mockAddMessage.mockClear();
+      mockAddMessageToThread.mockClear();
+      mockSetLoading.mockClear();
+      mockSetHasActiveInvocation.mockClear();
+      mockSetIntentMode.mockClear();
+      mockClearCatStatuses.mockClear();
+
+      act(() => {
+        vi.advanceTimersByTime(5 * 60 * 1000);
+      });
+
+      expect(mockAddMessage).not.toHaveBeenCalled();
+      expect(mockAddMessageToThread).not.toHaveBeenCalled();
+      expect(mockSetLoading).not.toHaveBeenCalled();
+      expect(mockSetHasActiveInvocation).not.toHaveBeenCalled();
+      expect(mockSetIntentMode).not.toHaveBeenCalled();
+      expect(mockClearCatStatuses).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('closes existing streaming bubble on error even when activeRefs are empty', () => {
     storeState.messages = [
       {
