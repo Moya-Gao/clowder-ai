@@ -48,6 +48,7 @@ import {
   handleSessionSearch,
   signalsTools,
 } from './tools/index.js';
+import { createRichBlockInputSchema, handleCreateRichBlock } from './tools/callback-tools.js';
 
 /**
  * 创建并配置 MCP Server
@@ -138,6 +139,16 @@ export function createServer(): McpServer {
     updateTaskInputSchema,
     async (args: { taskId: string; status?: string | undefined; why?: string | undefined }) => {
       const result = await handleUpdateTask(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_create_rich_block',
+    'Create a rich block (card, diff, checklist, or media gallery) attached to the current message. The block will be rendered as an interactive component below the message text.',
+    createRichBlockInputSchema,
+    async (args: { block: string }) => {
+      const result = await handleCreateRichBlock(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

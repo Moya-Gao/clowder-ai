@@ -22,6 +22,7 @@ const EXPECTED_TOOLS = [
   'cat_cafe_ack_mentions',
   'cat_cafe_get_thread_context',
   'cat_cafe_update_task',
+  'cat_cafe_create_rich_block',
   // Permission tools (this is the regression guard)
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
