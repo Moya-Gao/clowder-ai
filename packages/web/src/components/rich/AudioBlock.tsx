@@ -148,7 +148,7 @@ export function AudioBlock({ block, catId }: { block: RichAudioBlock; catId?: st
         </button>
 
         {/* Voice text transcript */}
-        <div className="text-[11px] text-gray-400 dark:text-gray-500 pl-1 max-w-[220px] truncate">
+        <div className="text-[11px] text-gray-400 dark:text-gray-500 pl-1 max-w-[420px] whitespace-pre-wrap break-words leading-relaxed">
           {block.text}
         </div>
 

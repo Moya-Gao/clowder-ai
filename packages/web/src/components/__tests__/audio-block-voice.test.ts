@@ -1,7 +1,16 @@
 /**
  * F34-b: AudioBlock voice message mode tests
  */
+import React from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, it, expect } from 'vitest';
+import { AudioBlock } from '@/components/rich/AudioBlock';
+
+Object.assign(globalThis as Record<string, unknown>, { React });
+
+function render(block: Parameters<typeof AudioBlock>[0]['block']): string {
+  return renderToStaticMarkup(React.createElement(AudioBlock, { block, catId: 'codex' }));
+}
 
 // We test the data-driven logic, not React rendering (no jsdom needed)
 describe('AudioBlock voice message detection', () => {
@@ -37,5 +46,20 @@ describe('AudioBlock voice message detection', () => {
     expect(formatDuration(15)).toBe('15"');
     expect(formatDuration(60)).toBe('1:00');
     expect(formatDuration(95)).toBe('1:35');
+  });
+
+  it('voice transcript text wraps instead of truncating (regression)', () => {
+    const html = render({
+      id: 'v-wrap',
+      kind: 'audio',
+      v: 1,
+      url: '/api/tts/audio/abc.wav',
+      text: '喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵喵',
+    });
+
+    // Long transcript should wrap and keep full content visible.
+    expect(html).toContain('break-words');
+    expect(html).toContain('whitespace-pre-wrap');
+    expect(html).not.toContain(' truncate');
   });
 });
