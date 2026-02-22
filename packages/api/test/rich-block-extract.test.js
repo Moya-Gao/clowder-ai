@@ -187,6 +187,28 @@ describe('isValidRichBlock', () => {
     assert.equal(isValidRichBlock({ id: 'a5', kind: 'audio', v: 1, url: '/x', durationSec: 'bad' }), false);
     assert.equal(isValidRichBlock({ id: 'a6', kind: 'audio', v: 1, url: '/x', mimeType: 123 }), false);
   });
+
+  // F34-b: voice messages have `text` but no `url` — backend synthesizes url
+  it('F34-b: audio block with text but no url is valid (pending synthesis)', () => {
+    assert.equal(isValidRichBlock({ id: 'a7', kind: 'audio', v: 1, text: 'Spoken content' }), true);
+  });
+
+  it('F34-b: audio block with neither text nor url is invalid', () => {
+    assert.equal(isValidRichBlock({ id: 'a8', kind: 'audio', v: 1 }), false);
+  });
+
+  it('F34-b: audio block with whitespace-only text is invalid (R11 regression)', () => {
+    assert.equal(isValidRichBlock({ id: 'a10', kind: 'audio', v: 1, text: '   ' }), false);
+    assert.equal(isValidRichBlock({ id: 'a11', kind: 'audio', v: 1, text: '\t\n' }), false);
+  });
+
+  it('F34-b: audio block with whitespace-only url is invalid (R11 regression)', () => {
+    assert.equal(isValidRichBlock({ id: 'a12', kind: 'audio', v: 1, url: '   ' }), false);
+  });
+
+  it('F34-b: audio block with both text and url is valid', () => {
+    assert.equal(isValidRichBlock({ id: 'a9', kind: 'audio', v: 1, url: '/api/tts/audio/x.wav', text: 'Hello' }), true);
+  });
 });
 
 // #85 T1-T4: normalizeRichBlock
@@ -286,5 +308,48 @@ describe('extractRichFromText bare JSON tolerance', () => {
     // Both should have v: 1 auto-filled
     assert.equal(result.blocks[0].v, 1);
     assert.equal(result.blocks[1].v, 1);
+  });
+});
+
+// F34-b: audio blocks with `text` but no `url` in cc_rich fenced blocks
+describe('extractRichFromText F34-b audio voice messages', () => {
+  it('extracts text-only audio block from cc_rich fenced block', () => {
+    const input = `\`\`\`cc_rich
+{"v":1,"blocks":[{"id":"a1","kind":"audio","v":1,"text":"Hello, I am the cat"}]}
+\`\`\``;
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 1);
+    const block = result.blocks[0];
+    assert.equal(block.kind, 'audio');
+    assert.equal(block.id, 'a1');
+    assert.equal(block.text, 'Hello, I am the cat');
+    assert.equal(block.url, undefined, 'no url present — pending synthesis');
+  });
+
+  it('rejects audio block with neither text nor url inside cc_rich', () => {
+    const input = `\`\`\`cc_rich
+{"v":1,"blocks":[{"id":"a2","kind":"audio","v":1}]}
+\`\`\``;
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 0, 'block with no text or url must be rejected');
+  });
+
+  it('rejects audio block with whitespace-only text in cc_rich (R11 regression)', () => {
+    const input = `\`\`\`cc_rich
+{"v":1,"blocks":[{"id":"a4","kind":"audio","v":1,"text":"   "}]}
+\`\`\``;
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 0, 'whitespace-only text must be rejected');
+  });
+
+  it('extracts audio block that has both text and url', () => {
+    const input = `\`\`\`cc_rich
+{"v":1,"blocks":[{"id":"a3","kind":"audio","v":1,"url":"/api/tts/audio/x.wav","text":"Transcript"}]}
+\`\`\``;
+    const result = extractRichFromText(input);
+    assert.equal(result.blocks.length, 1);
+    assert.equal(result.blocks[0].kind, 'audio');
+    assert.equal(result.blocks[0].url, '/api/tts/audio/x.wav');
+    assert.equal(result.blocks[0].text, 'Transcript');
   });
 });

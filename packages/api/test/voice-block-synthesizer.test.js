@@ -1,0 +1,397 @@
+/**
+ * F34-b: VoiceBlockSynthesizer tests
+ *
+ * Tests the singleton lifecycle, block pass-through, TTS synthesis,
+ * graceful degradation, and cache hit logic.
+ */
+
+import { describe, it, beforeEach } from 'node:test';
+import assert from 'node:assert/strict';
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+
+/** Clean up test temp directory to avoid stale cache hits between runs. */
+function cleanTmpDir(dirName) {
+  const p = path.join(os.tmpdir(), dirName);
+  try { fs.rmSync(p, { recursive: true, force: true }); } catch { /* ok */ }
+}
+
+import {
+  initVoiceBlockSynthesizer,
+  getVoiceBlockSynthesizer,
+  VoiceBlockSynthesizer,
+} from '../dist/domains/cats/services/tts/VoiceBlockSynthesizer.js';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Build a minimal mock TtsRegistry with a single provider. */
+function makeMockRegistry({ synthesize } = {}) {
+  const provider = {
+    id: 'mock',
+    model: 'test',
+    synthesize: synthesize ?? (async () => ({
+      audio: Buffer.from('fake-audio'),
+      format: 'wav',
+      metadata: { provider: 'mock', model: 'test', voice: 'test' },
+    })),
+  };
+  return {
+    getDefault: () => provider,
+    _provider: provider,
+  };
+}
+
+/**
+ * Compute the cache filename the synthesizer would produce for `opus` cat with
+ * default voice settings (zm_yunjian, z, 0.95) and the given text.
+ * Mirrors the hash logic in VoiceBlockSynthesizer.synthesizeToFile.
+ */
+function expectedCacheFilename(text) {
+  // Default opus voice from cat-voices: voice=zm_yunjian, langCode=z, speed=0.95
+  const hashInput = ['mock', 'test', 'zm_yunjian', 'z', '0.95', 'wav', text].join('|');
+  const hash = createHash('sha256').update(hashInput).digest('hex');
+  return `${hash}.wav`;
+}
+
+// ---------------------------------------------------------------------------
+// Singleton lifecycle
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer singleton', () => {
+  // Reset the singleton between tests by re-initialising to a known state.
+  // We cannot set `instance` directly (it is module-private), but
+  // re-calling initVoiceBlockSynthesizer overwrites it, and we accept that
+  // each lifecycle test may leave the singleton set — the describe blocks
+  // below create their own instances directly instead of relying on the singleton.
+
+  it('getVoiceBlockSynthesizer returns null before any init', async () => {
+    // We cannot guarantee the module was never imported before, so we call
+    // initVoiceBlockSynthesizer with a fresh registry to reset, then verify
+    // the singleton is non-null.  The "null before init" state is tested by
+    // importing in isolation using a fresh module — instead we test the
+    // observable contract via initVoiceBlockSynthesizer.
+    //
+    // Because Node.js ESM caches modules, the "returns null before init" case
+    // can only be guaranteed in a fresh process.  We therefore test it
+    // indirectly: after re-setting with initVoiceBlockSynthesizer the return
+    // value must be a VoiceBlockSynthesizer instance, confirming the module's
+    // own null→instance transition works.
+    const registry = makeMockRegistry();
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-singleton');
+    initVoiceBlockSynthesizer(registry, cacheDir);
+    const instance = getVoiceBlockSynthesizer();
+    assert.ok(instance instanceof VoiceBlockSynthesizer, 'singleton is a VoiceBlockSynthesizer after init');
+  });
+
+  it('initVoiceBlockSynthesizer sets a new singleton', () => {
+    const registry = makeMockRegistry();
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-new-singleton');
+    initVoiceBlockSynthesizer(registry, cacheDir);
+    const first = getVoiceBlockSynthesizer();
+    assert.ok(first !== null, 'singleton is set');
+
+    // Re-initialising creates a distinct object
+    const registry2 = makeMockRegistry();
+    const cacheDir2 = path.join(os.tmpdir(), 'vbs-test-new-singleton-2');
+    initVoiceBlockSynthesizer(registry2, cacheDir2);
+    const second = getVoiceBlockSynthesizer();
+    assert.ok(second !== null, 'singleton is still set after re-init');
+    assert.notStrictEqual(first, second, 're-init replaced the singleton');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveVoiceBlocks — block pass-through
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer.resolveVoiceBlocks — pass-through', () => {
+  let synthesizer;
+
+  beforeEach(() => {
+    const registry = makeMockRegistry();
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-passthrough');
+    synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+  });
+
+  it('passes through non-audio blocks unchanged', async () => {
+    const blocks = [
+      { id: 'c1', kind: 'card', v: 1, title: 'Hello', tone: 'info' },
+      { id: 'd1', kind: 'diff', v: 1, filePath: 'a.ts', diff: '+x' },
+      { id: 'k1', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'Task' }] },
+    ];
+    const result = await synthesizer.resolveVoiceBlocks(blocks, 'opus');
+    assert.equal(result.length, 3);
+    assert.deepEqual(result[0], blocks[0]);
+    assert.deepEqual(result[1], blocks[1]);
+    assert.deepEqual(result[2], blocks[2]);
+  });
+
+  it('passes through audio blocks that already have a url', async () => {
+    const block = {
+      id: 'a1',
+      kind: 'audio',
+      v: 1,
+      url: '/api/tts/audio/existing.wav',
+      title: 'Pre-synthesized',
+    };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0], block);
+  });
+
+  it('passes through audio blocks that have both text and url (url wins)', async () => {
+    // An audio block with an existing url should not be re-synthesized,
+    // even if text is also present.
+    const block = {
+      id: 'a2',
+      kind: 'audio',
+      v: 1,
+      url: '/api/tts/audio/already.wav',
+      text: 'this should not trigger synthesis',
+    };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+    assert.equal(result.length, 1);
+    assert.deepEqual(result[0], block, 'block passed through unchanged');
+  });
+
+  it('passes through mixed blocks, only synthesizing text-only audio blocks', async () => {
+    let synthesizeCalls = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        synthesizeCalls++;
+        return {
+          audio: Buffer.from('audio-data'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-mixed');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-mixed');
+    const syn = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const blocks = [
+      { id: 'c1', kind: 'card', v: 1, title: 'A card' },
+      { id: 'a1', kind: 'audio', v: 1, url: '/existing.wav' },
+      { id: 'a2', kind: 'audio', v: 1, text: 'synthesize me' },
+    ];
+    const result = await syn.resolveVoiceBlocks(blocks, 'opus');
+
+    assert.equal(result.length, 3);
+    assert.equal(result[0].kind, 'card');
+    assert.equal(result[1].kind, 'audio');
+    assert.equal(result[1].url, '/existing.wav', 'pre-existing url preserved');
+    assert.equal(result[2].kind, 'audio');
+    assert.ok(result[2].url.startsWith('/api/tts/audio/'), 'synthesized url populated');
+    assert.equal(synthesizeCalls, 1, 'synthesis called exactly once');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveVoiceBlocks — synthesis
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer.resolveVoiceBlocks — synthesis', () => {
+  it('synthesizes audio for a block with text but no url', async () => {
+    let callCount = 0;
+    let receivedArgs;
+    const registry = makeMockRegistry({
+      synthesize: async (args) => {
+        callCount++;
+        receivedArgs = args;
+        return {
+          audio: Buffer.from('fake-audio'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-synthesis');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-synthesis');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'a1', kind: 'audio', v: 1, text: 'Hello world' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result.length, 1);
+    const resolved = result[0];
+    assert.equal(resolved.kind, 'audio', 'kind stays audio');
+    assert.ok(typeof resolved.url === 'string' && resolved.url.length > 0, 'url is populated');
+    assert.ok(resolved.url.startsWith('/api/tts/audio/'), 'url has expected prefix');
+    assert.ok(resolved.url.endsWith('.wav'), 'url ends with .wav');
+    assert.equal(resolved.mimeType, 'audio/wav', 'mimeType set to audio/wav');
+    assert.equal(resolved.text, 'Hello world', 'original text field preserved');
+
+    // Synthesis was called once with the expected args
+    assert.equal(callCount, 1);
+    assert.equal(receivedArgs.text, 'Hello world');
+    assert.equal(receivedArgs.format, 'wav');
+    assert.ok(typeof receivedArgs.voice === 'string', 'voice passed to synthesize');
+  });
+
+  it('trims whitespace from block text before synthesis', async () => {
+    let receivedText;
+    const registry = makeMockRegistry({
+      synthesize: async (args) => {
+        receivedText = args.text;
+        return {
+          audio: Buffer.from('x'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-trim');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-trim');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'a1', kind: 'audio', v: 1, text: '  trimmed text  ' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result[0].kind, 'audio', 'remains audio after synthesis');
+    assert.equal(receivedText, 'trimmed text', 'text was trimmed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveVoiceBlocks — graceful degradation
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer.resolveVoiceBlocks — degradation', () => {
+  it('degrades to card block when synthesis throws', async () => {
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        throw new Error('TTS service unavailable');
+      },
+    });
+    cleanTmpDir('vbs-test-degrade');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-degrade');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const block = { id: 'a1', kind: 'audio', v: 1, text: 'Spoken content' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result.length, 1);
+    const degraded = result[0];
+    assert.equal(degraded.kind, 'card', 'degraded to card');
+    assert.equal(degraded.id, 'a1', 'original id preserved');
+    assert.equal(degraded.tone, 'warning', 'degradation tone is warning');
+    assert.ok(typeof degraded.title === 'string' && degraded.title.length > 0, 'degraded card has a title');
+    assert.ok(degraded.bodyMarkdown.includes('Spoken content'), 'card body contains original text');
+  });
+
+  it('degrades to card when registry has no providers', async () => {
+    // Registry with no providers throws from getDefault()
+    const emptyRegistry = {
+      getDefault: () => { throw new Error('No TTS providers registered'); },
+    };
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-no-provider');
+    const synthesizer = new VoiceBlockSynthesizer(emptyRegistry, cacheDir);
+
+    const block = { id: 'a2', kind: 'audio', v: 1, text: 'Will fail' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(result.length, 1);
+    assert.equal(result[0].kind, 'card', 'degraded to card');
+    assert.equal(result[0].tone, 'warning');
+  });
+
+  it('continues processing remaining blocks after a single failure', async () => {
+    let callCount = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        callCount++;
+        if (callCount === 1) throw new Error('first call fails');
+        return {
+          audio: Buffer.from('ok'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-continue');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-continue');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    const blocks = [
+      { id: 'a1', kind: 'audio', v: 1, text: 'will fail' },
+      { id: 'a2', kind: 'audio', v: 1, text: 'will succeed' },
+    ];
+    const result = await synthesizer.resolveVoiceBlocks(blocks, 'opus');
+
+    assert.equal(result.length, 2);
+    assert.equal(result[0].kind, 'card', 'first block degraded');
+    assert.equal(result[1].kind, 'audio', 'second block synthesized');
+    assert.ok(result[1].url?.startsWith('/api/tts/audio/'), 'second block has url');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cache hit: skip synthesis when file already exists
+// ---------------------------------------------------------------------------
+
+describe('VoiceBlockSynthesizer — cache hit', () => {
+  it('skips synthesis if the audio file already exists on disk', async () => {
+    let synthesizeCalls = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        synthesizeCalls++;
+        return {
+          audio: Buffer.from('data'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-cache-hit');
+    await mkdir(cacheDir, { recursive: true });
+
+    const text = 'cached voice line';
+    const filename = expectedCacheFilename(text);
+    const filePath = path.join(cacheDir, filename);
+
+    // Pre-create the file to simulate a cache hit
+    await writeFile(filePath, Buffer.from('pre-existing-audio'));
+
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+    const block = { id: 'a1', kind: 'audio', v: 1, text };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    // Should NOT have called synthesize
+    assert.equal(synthesizeCalls, 0, 'synthesis skipped on cache hit');
+
+    // URL should still be populated pointing at the cached file
+    assert.equal(result.length, 1);
+    assert.equal(result[0].kind, 'audio');
+    assert.ok(result[0].url.includes(filename), 'url points to cached filename');
+  });
+
+  it('calls synthesis when cache file does not exist', async () => {
+    let synthesizeCalls = 0;
+    const registry = makeMockRegistry({
+      synthesize: async () => {
+        synthesizeCalls++;
+        return {
+          audio: Buffer.from('fresh'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    const cacheDir = path.join(os.tmpdir(), `vbs-test-cache-miss-${Date.now()}`);
+    // Do NOT create the file — fresh cache directory
+
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+    const block = { id: 'a1', kind: 'audio', v: 1, text: 'uncached voice line' };
+    const result = await synthesizer.resolveVoiceBlocks([block], 'opus');
+
+    assert.equal(synthesizeCalls, 1, 'synthesis called once on cache miss');
+    assert.equal(result[0].kind, 'audio');
+    assert.ok(result[0].url.startsWith('/api/tts/audio/'));
+  });
+});

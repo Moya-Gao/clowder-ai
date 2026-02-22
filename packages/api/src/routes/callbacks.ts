@@ -23,6 +23,7 @@ import type { RichBlock } from '@cat-cafe/shared';
 import { normalizeRichBlock } from '@cat-cafe/shared';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
 import { getRichBlockBuffer } from '../domains/cats/services/agents/invocation/RichBlockBuffer.js';
+import { getVoiceBlockSynthesizer } from '../domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
@@ -74,7 +75,7 @@ const richBlockSchema = z.discriminatedUnion('kind', [
   z.object({ id: z.string().min(1), kind: z.literal('diff'), v: z.literal(1), filePath: z.string(), diff: z.string(), languageHint: z.string().optional() }),
   z.object({ id: z.string().min(1), kind: z.literal('checklist'), v: z.literal(1), title: z.string().optional(), items: z.array(richChecklistItemSchema).min(1) }),
   z.object({ id: z.string().min(1), kind: z.literal('media_gallery'), v: z.literal(1), title: z.string().optional(), items: z.array(richMediaItemSchema).min(1) }),
-  z.object({ id: z.string().min(1), kind: z.literal('audio'), v: z.literal(1), url: z.string().min(1), title: z.string().optional(), durationSec: z.number().optional(), mimeType: z.string().optional() }),
+  z.object({ id: z.string().min(1), kind: z.literal('audio'), v: z.literal(1), url: z.string().optional().default(''), text: z.string().optional(), title: z.string().optional(), durationSec: z.number().optional(), mimeType: z.string().optional() }),
 ]);
 const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,
@@ -115,7 +116,18 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }
 
       // #83: Extract cc_rich blocks from post_message content (Route B for callback path)
-      const { cleanText: storedContent, blocks: richBlocks } = extractRichFromText(content);
+      const { cleanText: storedContent, blocks: extractedBlocks } = extractRichFromText(content);
+
+      // F34-b: Resolve voice blocks (audio with text, no url) before storing
+      const synthesizer = getVoiceBlockSynthesizer();
+      let richBlocks = extractedBlocks;
+      if (synthesizer && extractedBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+        try {
+          richBlocks = await synthesizer.resolveVoiceBlocks(extractedBlocks, record.catId as string);
+        } catch (err) {
+          app.log.error({ err }, '[callbacks/post-message] Voice block synthesis failed');
+        }
+      }
 
       // Parse line-start @mentions (A2A rule: only line-start, strip code blocks, single target)
       // Uses parseA2AMentions instead of resolveTargetsAndIntent to avoid
@@ -398,6 +410,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }
 
       const { invocationId, callbackToken, block } = parsed.data;
+
+      // F34-b P2: audio blocks must have at least url or text (R10: trim whitespace)
+      if (block.kind === 'audio' && !block.url?.trim() && !block.text?.trim()) {
+        reply.status(400);
+        return { error: 'audio block requires url or text' };
+      }
+
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
@@ -408,15 +427,26 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { status: 'stale_ignored' };
       }
 
+      // F34-b: Resolve voice blocks (audio with text, no url) before buffering
+      let resolvedBlock: RichBlock = block as unknown as RichBlock;
+      const synthesizer = getVoiceBlockSynthesizer();
+      if (synthesizer && block.kind === 'audio' && 'text' in block) {
+        const resolved = await synthesizer.resolveVoiceBlocks(
+          [block as unknown as RichBlock],
+          record.catId as string,
+        );
+        if (resolved.length > 0) resolvedBlock = resolved[0]!;
+      }
+
       // Buffer the block — consumed at append time in route-serial/route-parallel
-      const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, block as unknown as RichBlock, invocationId);
+      const isNew = getRichBlockBuffer().add(record.threadId, record.catId as string, resolvedBlock, invocationId);
 
       // Only broadcast new blocks (dedup retries at server to prevent frontend duplicates)
       if (isNew) {
         socketManager.broadcastAgentMessage({
           type: 'system_info' as const,
           catId: record.catId,
-          content: JSON.stringify({ type: 'rich_block', block }),
+          content: JSON.stringify({ type: 'rich_block', block: resolvedBlock }),
           timestamp: Date.now(),
         }, record.threadId);
       }

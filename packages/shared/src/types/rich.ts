@@ -49,10 +49,14 @@ export interface RichMediaGalleryBlock extends RichBlockBase {
   items: Array<{ url: string; alt?: string; caption?: string }>;
 }
 
-/** F34: Audio block for TTS playback or audio content */
+/** F34: Audio block for TTS playback or audio content.
+ *  F34-b: When `text` is set, this is a voice message — backend auto-synthesizes
+ *  and fills `url` before storage. */
 export interface RichAudioBlock extends RichBlockBase {
   kind: 'audio';
   url: string;
+  /** F34-b: Voice message text (what the cat "said"). Present = voice message style. */
+  text?: string;
   title?: string;
   durationSec?: number;
   mimeType?: string;

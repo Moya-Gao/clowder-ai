@@ -4,17 +4,28 @@ import { useState, useRef, useEffect } from 'react';
 import type { RichAudioBlock } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
 
-export function AudioBlock({ block }: { block: RichAudioBlock }) {
+/** CSS variable-based cat colors for voice message bars */
+const CAT_VOICE_COLORS: Record<string, { bg: string; bar: string }> = {
+  opus:   { bg: 'bg-[var(--color-opus-bg)]',   bar: 'bg-[var(--color-opus-primary)]' },
+  codex:  { bg: 'bg-[var(--color-codex-bg)]',  bar: 'bg-[var(--color-codex-primary)]' },
+  gemini: { bg: 'bg-[var(--color-gemini-bg)]', bar: 'bg-[var(--color-gemini-primary)]' },
+};
+const DEFAULT_VOICE_COLORS = { bg: 'bg-gray-100 dark:bg-gray-800', bar: 'bg-gray-400' };
+
+export function AudioBlock({ block, catId }: { block: RichAudioBlock; catId?: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const blobUrlRef = useRef<string | null>(null);
   const [playing, setPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(block.durationSec ?? 0);
   const [blobSrc, setBlobSrc] = useState<string | null>(null);
+
+  const isVoiceMessage = !!block.text;
 
   // Fetch audio via apiFetch (carries auth header) → blob URL
   useEffect(() => {
-    if (!block.url.startsWith('/api/')) {
-      setBlobSrc(block.url);
+    if (!block.url || !block.url.startsWith('/api/')) {
+      if (block.url) setBlobSrc(block.url);
       return;
     }
     let cancelled = false;
@@ -47,16 +58,23 @@ export function AudioBlock({ block }: { block: RichAudioBlock }) {
     const onTimeUpdate = () => {
       if (audio.duration > 0) setProgress(audio.currentTime / audio.duration);
     };
+    const onLoadedMetadata = () => {
+      if (audio.duration > 0 && audio.duration < Infinity) {
+        setAudioDuration(audio.duration);
+      }
+    };
 
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
     audio.addEventListener('ended', onEnded);
     audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
     return () => {
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
       audio.removeEventListener('ended', onEnded);
       audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
     };
   }, [blobSrc]);
 
@@ -66,13 +84,80 @@ export function AudioBlock({ block }: { block: RichAudioBlock }) {
     if (playing) { audio.pause(); } else { audio.play(); }
   };
 
-  const formatDuration = (sec?: number) => {
-    if (!sec || sec <= 0) return '';
+  const formatDuration = (sec: number) => {
+    if (sec <= 0) return '';
+    if (sec < 60) return `${Math.round(sec)}"`;
     const m = Math.floor(sec / 60);
     const s = Math.round(sec % 60);
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Voice message mode — WeChat-style voice bar
+  if (isVoiceMessage) {
+    const colors = (catId ? CAT_VOICE_COLORS[catId] : undefined) ?? DEFAULT_VOICE_COLORS;
+    // Bar width scales with duration: min 80px, max 200px
+    const barWidth = audioDuration > 0
+      ? Math.min(200, Math.max(80, 80 + audioDuration * 12))
+      : 120;
+
+    return (
+      <div className="space-y-0.5">
+        <button
+          onClick={toggle}
+          className={`flex items-center gap-2 rounded-2xl px-3 py-1.5 transition-colors cursor-pointer ${colors.bg} hover:opacity-80`}
+          style={{ width: `${barWidth}px` }}
+          aria-label={playing ? '暂停语音' : '播放语音'}
+        >
+          {/* Speaker / sound wave icon */}
+          <span className="flex-shrink-0">
+            {playing ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-70">
+                <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" className="animate-pulse" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-50">
+                <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+              </svg>
+            )}
+          </span>
+
+          {/* Progress dots / bar */}
+          <div className="flex-1 flex items-center gap-[3px]">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className={`rounded-full transition-all duration-150 ${
+                  playing && progress > i / 6
+                    ? `h-3 ${colors.bar}`
+                    : `h-1.5 ${colors.bar} opacity-30`
+                }`}
+                style={{ width: '3px' }}
+              />
+            ))}
+          </div>
+
+          {/* Duration */}
+          {audioDuration > 0 && (
+            <span className="text-[11px] text-gray-500 dark:text-gray-400 flex-shrink-0 tabular-nums">
+              {formatDuration(audioDuration)}
+            </span>
+          )}
+        </button>
+
+        {/* Voice text transcript */}
+        <div className="text-[11px] text-gray-400 dark:text-gray-500 pl-1 max-w-[220px] truncate">
+          {block.text}
+        </div>
+
+        {blobSrc && <audio ref={audioRef} src={blobSrc} preload="metadata" />}
+      </div>
+    );
+  }
+
+  // Generic audio block mode (existing style)
   return (
     <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-3 py-2">
       <button
@@ -104,9 +189,9 @@ export function AudioBlock({ block }: { block: RichAudioBlock }) {
         </div>
       </div>
 
-      {block.durationSec != null && block.durationSec > 0 && (
+      {audioDuration > 0 && (
         <span className="text-[10px] text-gray-400 flex-shrink-0 tabular-nums">
-          {formatDuration(block.durationSec)}
+          {formatDuration(audioDuration)}
         </span>
       )}
 

@@ -77,10 +77,13 @@ const MCP_TOOLS_SECTION = `
 - **media_gallery**
   - 截图、设计稿展示
   - 多图对比
+- **audio**（语音消息 — 你"说出来"的话）
+  - 打招呼、表达情感、庆祝、鼓励
+  - 只填 \`text\`，系统会自动合成语音
+  - 不要每条消息都发语音，只在你觉得"说出来比打字更好"时用
 
 **何时不用**（保持纯文本）：
-- 日常聊天、闲聊、打招呼
-- 简短回答（一两句话能说清的）
+- 技术讨论、长篇回复
 - 提问和讨论（除非需要结构化选项）
 - 不确定用哪种 → 不用
 
@@ -89,7 +92,8 @@ const MCP_TOOLS_SECTION = `
 - card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
 - diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
 - checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
-- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选`;
+- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
+- audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）`;
 
 /** Per-cat workflow triggers: when to proactively @ other cats */
 const WORKFLOW_TRIGGERS: Record<string, string> = {

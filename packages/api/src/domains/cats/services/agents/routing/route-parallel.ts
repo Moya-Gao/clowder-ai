@@ -29,6 +29,7 @@ import {
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
+import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 
 export async function* routeParallel(
   deps: RouteStrategyDeps,
@@ -284,7 +285,16 @@ export async function* routeParallel(
         const sanitized = sanitizeInjectedContent(text);
         // F22: Extract cc_rich blocks from text + merge with buffered
         const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
-        const allRichBlocks = [...bufferedBlocks, ...textBlocks];
+        let allRichBlocks = [...bufferedBlocks, ...textBlocks];
+        // F34-b: synthesize text-only audio blocks (voice messages)
+        const voiceSynth = getVoiceBlockSynthesizer();
+        if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+          try {
+            allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, msg.catId as string);
+          } catch (err) {
+            console.error(`[routeParallel] Voice block synthesis failed for ${msg.catId as string}:`, err);
+          }
+        }
         const catTools = catToolEvents.get(msg.catId);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)

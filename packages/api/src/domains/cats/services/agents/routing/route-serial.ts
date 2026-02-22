@@ -37,6 +37,7 @@ import {
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
+import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -304,7 +305,18 @@ export async function* routeSerial(
 
       // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
       const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
-      const allRichBlocks = [...bufferedBlocks, ...textBlocks];
+      let allRichBlocks = [...bufferedBlocks, ...textBlocks];
+
+      // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
+      // Route A blocks were already resolved in the callback handler.
+      const voiceSynth = getVoiceBlockSynthesizer();
+      if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
+        try {
+          allRichBlocks = await voiceSynth.resolveVoiceBlocks(allRichBlocks, catId as string);
+        } catch (err) {
+          console.error(`[routeSerial] Voice block synthesis failed for ${catId as string}:`, err);
+        }
+      }
 
       // In play mode, CLI stream output (thinking) is hidden from other cats.
       // Only share previousResponses in debug mode where cats see each other's thinking.

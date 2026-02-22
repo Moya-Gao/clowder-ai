@@ -7,7 +7,7 @@ import { ChecklistBlock } from './ChecklistBlock';
 import { DiffBlock } from './DiffBlock';
 import { MediaGalleryBlock } from './MediaGalleryBlock';
 
-function RichBlockRenderer({ block }: { block: RichBlock }) {
+function RichBlockRenderer({ block, catId }: { block: RichBlock; catId?: string }) {
   switch (block.kind) {
     case 'card':
       return <CardBlock block={block} />;
@@ -18,7 +18,7 @@ function RichBlockRenderer({ block }: { block: RichBlock }) {
     case 'media_gallery':
       return <MediaGalleryBlock block={block} />;
     case 'audio':
-      return <AudioBlock block={block} />;
+      return <AudioBlock block={block} catId={catId} />;
     default:
       return (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-400">
@@ -28,12 +28,12 @@ function RichBlockRenderer({ block }: { block: RichBlock }) {
   }
 }
 
-export function RichBlocks({ blocks }: { blocks: RichBlock[] }) {
+export function RichBlocks({ blocks, catId }: { blocks: RichBlock[]; catId?: string }) {
   if (blocks.length === 0) return null;
   return (
     <div className="mt-2 space-y-2">
       {blocks.map((block) => (
-        <RichBlockRenderer key={block.id} block={block} />
+        <RichBlockRenderer key={block.id} block={block} catId={catId} />
       ))}
     </div>
   );

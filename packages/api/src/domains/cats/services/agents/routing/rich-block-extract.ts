@@ -80,7 +80,11 @@ export function isValidRichBlock(b: unknown): b is RichBlock {
       );
     }
     case 'audio': {
-      if (typeof obj['url'] !== 'string') return false;
+      // F34-b: voice messages have `text` without `url` (backend synthesizes url).
+      // Accept if either `url` (audio playback) or `text` (voice message) is present.
+      const hasUrl = typeof obj['url'] === 'string' && (obj['url'] as string).trim().length > 0;
+      const hasText = typeof obj['text'] === 'string' && (obj['text'] as string).trim().length > 0;
+      if (!hasUrl && !hasText) return false;
       if ('title' in obj && typeof obj['title'] !== 'string') return false;
       if ('durationSec' in obj && typeof obj['durationSec'] !== 'number') return false;
       if ('mimeType' in obj && typeof obj['mimeType'] !== 'string') return false;

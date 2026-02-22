@@ -359,7 +359,7 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
             null
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
-            <RichBlocks blocks={message.extra.rich.blocks} />
+            <RichBlocks blocks={message.extra.rich.blocks} catId={message.catId} />
           )}
           {message.isStreaming && (
             <span className="inline-block w-1.5 h-4 bg-current animate-pulse ml-0.5 rounded-full opacity-50" />

@@ -10,6 +10,7 @@ import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
+import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
@@ -322,6 +323,7 @@ async function main(): Promise<void> {
   ttsRegistry.register(new MlxAudioTtsProvider({ baseUrl: ttsUrl }));
   const ttsCacheDir = process.env['TTS_CACHE_DIR'] ?? './data/tts-cache';
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
+  initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   startTtsCacheCleaner(ttsCacheDir);
 
   // Start listening

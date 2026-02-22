@@ -91,10 +91,13 @@ export interface RichMediaGalleryBlock {
   items: Array<{ url: string; alt?: string; caption?: string }>;
 }
 
-/** F34: Audio block for TTS playback */
+/** F34: Audio block for TTS playback.
+ *  F34-b: `text` = voice message (cat "spoke" it). */
 export interface RichAudioBlock {
   id: string; kind: 'audio'; v: 1;
   url: string;
+  /** F34-b: Voice message text. Present = voice message style. */
+  text?: string;
   title?: string;
   durationSec?: number;
   mimeType?: string;
