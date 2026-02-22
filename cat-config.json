@@ -41,7 +41,7 @@
           "provider": "anthropic",
           "defaultModel": "claude-sonnet-4-6",
           "mcpSupport": true,
-          "avatar": "/avatars/opus.png",
+          "avatar": "/avatars/sonnet.png",
           "color": { "primary": "#B39DDB", "secondary": "#EDE7F6" },
           "cli": {
             "command": "claude",
@@ -66,7 +66,7 @@
           "provider": "anthropic",
           "defaultModel": "claude-opus-4-5-20251101",
           "mcpSupport": true,
-          "avatar": "/avatars/opus.png",
+          "avatar": "/avatars/opus-45.png",
           "color": { "primary": "#7E57C2", "secondary": "#E1D5F0" },
           "cli": {
             "command": "claude",
@@ -124,7 +124,7 @@
           "provider": "openai",
           "defaultModel": "gpt-5.2",
           "mcpSupport": false,
-          "avatar": "/avatars/codex.png",
+          "avatar": "/avatars/gpt52.png",
           "color": { "primary": "#66BB6A", "secondary": "#C8E6C9" },
           "cli": {
             "command": "codex",
@@ -182,7 +182,7 @@
           "provider": "google",
           "defaultModel": "gemini-2.5-pro",
           "mcpSupport": false,
-          "avatar": "/avatars/gemini.png",
+          "avatar": "/avatars/gemini25.png",
           "color": { "primary": "#42A5F5", "secondary": "#BBDEFB" },
           "cli": {
             "command": "gemini",
