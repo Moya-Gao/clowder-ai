@@ -91,7 +91,7 @@
 | A3 viewport 适配 | `100dvh` + CSS 变量 | **[x]** | `f2c802d` — globals.css `100dvh` + `e22c666` h-screen fallback |
 | A4 Rich Blocks 手机优化 | 卡片紧凑、代码块横向滚动、图片自适应 | **[x]** | `a45c5f4` — CardBlock/DiffBlock/MediaGallery overflow fixes |
 | A5 手机端语音输入 | 浏览器 MediaRecorder → 回传 Mac Whisper 服务 | **[ ]** | 待做（需 Tailscale/内网环境） |
-| A6 Tailscale 隧道 | 外网通过 Tailscale 访问家里的 Cat Cafe | **[ ]** | 待做（运维配置） |
+| A6 Tailscale 隧道 | 外网通过 Tailscale 访问家里的 Cat Cafe | **[x]** | 铲屎官 2026-02-21 手动配通（运维层面，非代码改动） |
 
 **里程碑** ✅：铲屎官已在 iPhone 上和猫猫聊天、看到 Rich Blocks。
 - PR #38 (`8c6d4f3`) — 主实现 + 6 个手机端测试
