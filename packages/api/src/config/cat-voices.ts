@@ -13,6 +13,7 @@
 import type { VoiceConfig } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
+import { resolveBreedId } from './breed-resolver.js';
 
 const VOICE_ENV_KEYS = {
   opus: 'CAT_OPUS_TTS_VOICE',
@@ -20,11 +21,11 @@ const VOICE_ENV_KEYS = {
   gemini: 'CAT_GEMINI_TTS_VOICE',
 } as const;
 
-/** Hardcoded defaults — placeholder voices, to be tuned after listening tests */
+/** Hardcoded defaults — keyed by breedId so all variants share the same voice */
 const DEFAULT_VOICES: Record<string, VoiceConfig> = {
-  opus:   { voice: 'zm_yunjian',  langCode: 'z', speed: 0.95 },  // 温柔少年
-  codex:  { voice: 'zm_yunxi',    langCode: 'z', speed: 1.0 },   // 清朗书生
-  gemini: { voice: 'zm_yunyang',  langCode: 'z', speed: 1.05 },  // 活泼明快
+  ragdoll:      { voice: 'zm_yunjian',  langCode: 'z', speed: 0.95 },  // 温柔少年
+  'maine-coon': { voice: 'zm_yunxi',    langCode: 'z', speed: 1.0 },   // 清朗书生
+  siamese:      { voice: 'zm_yunyang',  langCode: 'z', speed: 1.05 },  // 活泼明快
 };
 
 /** Conservative fallback for unknown/dynamic cats */
@@ -58,12 +59,14 @@ function loadVoicesFromJson(): Record<string, VoiceConfig> {
 
 /**
  * Get TTS voice config for a cat.
- * Priority: env var override (voice only) > cat-config.json > hardcoded defaults
+ * Priority: env var override (voice only) > cat-config.json > hardcoded defaults (by breedId)
  */
 export function getCatVoice(catName: string): VoiceConfig {
-  // 1. Get base voice from JSON or default
+  // 1. Get base voice from JSON or default (resolve breedId for DEFAULT_VOICES)
   const jsonVoices = loadVoicesFromJson();
+  const breedId = resolveBreedId(catName);
   const baseVoice: VoiceConfig = jsonVoices[catName]
+    ?? (breedId ? DEFAULT_VOICES[breedId] : undefined)
     ?? DEFAULT_VOICES[catName]
     ?? GLOBAL_FALLBACK_VOICE;
 
@@ -87,7 +90,7 @@ export function getAllCatVoices(): Record<string, VoiceConfig> {
   const result: Record<string, VoiceConfig> = {};
   const allIds = catRegistry.getAllIds().length > 0
     ? catRegistry.getAllIds().map(String)
-    : Object.keys(DEFAULT_VOICES);
+    : ['opus', 'codex', 'gemini'];
   for (const catName of allIds) {
     result[catName] = getCatVoice(catName);
   }

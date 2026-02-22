@@ -23,6 +23,9 @@ export const catsRoutes: FastifyPluginAsync = async (app) => {
         avatar: cat.avatar,
         roleDescription: cat.roleDescription,
         personality: cat.personality,
+        variantLabel: cat.variantLabel ?? undefined,
+        isDefaultVariant: cat.isDefaultVariant ?? undefined,
+        breedDisplayName: cat.breedDisplayName ?? undefined,
       })),
     };
   });

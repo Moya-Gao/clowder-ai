@@ -2,10 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { apiFetch } from '@/utils/api-client';
-
-const CAT_LABELS: Record<string, string> = {
-  opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫',
-};
+import { useCatData } from '@/hooks/useCatData';
 
 export interface AuthPendingRequest {
   requestId: string;
@@ -20,8 +17,8 @@ export interface AuthPendingRequest {
 export type RespondScope = 'once' | 'thread' | 'global';
 
 /* ── Desktop notification + tab title flash ─────────────── */
-function notifyAuthRequest(data: AuthPendingRequest) {
-  const cat = CAT_LABELS[data.catId] ?? data.catId;
+function notifyAuthRequest(data: AuthPendingRequest, catLabel: string) {
+  const cat = catLabel;
 
   // Desktop notification (even when tab is in background)
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -50,6 +47,7 @@ function notifyAuthRequest(data: AuthPendingRequest) {
 
 export function useAuthorization(threadId: string) {
   const [pending, setPending] = useState<AuthPendingRequest[]>([]);
+  const { getCatById } = useCatData();
   const permissionRequested = useRef(false);
 
   // Request notification permission on first mount
@@ -111,9 +109,10 @@ export function useAuthorization(threadId: string) {
     // Notify outside updater; dedup via ref to handle concurrent-mode replays
     if (!notifiedRef.current.has(data.requestId)) {
       notifiedRef.current.add(data.requestId);
-      notifyAuthRequest(data);
+      const label = getCatById(data.catId)?.displayName ?? data.catId;
+      notifyAuthRequest(data, label);
     }
-  }, []);
+  }, [getCatById]);
 
   // Socket event: authorization resolved (by another client or tab)
   const handleAuthResponse = useCallback((data: { requestId: string }) => {

@@ -68,7 +68,7 @@ export async function* routeParallel(
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
-    const mcpInstructions = needsMcpInjection(catId) && deps.invocationDeps.apiUrl
+    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
       ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
       : '';
 

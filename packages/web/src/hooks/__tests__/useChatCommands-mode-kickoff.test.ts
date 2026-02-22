@@ -29,6 +29,18 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: (...args: unknown[]) => mocks.mockApiFetch(...args),
 }));
 
+vi.mock('@/hooks/useCatData', () => ({
+  useCatData: () => ({
+    cats: [
+      { id: 'opus', displayName: '布偶猫', mentionPatterns: ['@opus', '@布偶猫', '@布偶'] },
+      { id: 'codex', displayName: '缅因猫', mentionPatterns: ['@codex', '@缅因猫', '@缅因'] },
+      { id: 'gemini', displayName: '暹罗猫', mentionPatterns: ['@gemini', '@暹罗猫', '@暹罗'] },
+    ],
+    getCatById: () => undefined,
+    getCatsByBreed: () => new Map(),
+  }),
+}));
+
 interface HarnessProps {
   onReady: (fn: (input: string) => Promise<boolean>) => void;
 }

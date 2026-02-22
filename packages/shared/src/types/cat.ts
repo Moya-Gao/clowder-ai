@@ -43,6 +43,12 @@ export interface CatConfig {
   readonly personality: string;
   /** F32-b: Which breed this cat belongs to (for frontend grouping) */
   readonly breedId?: string;
+  /** F32-b P4: Human-readable variant label (e.g. "4.5", "Sonnet") */
+  readonly variantLabel?: string;
+  /** F32-b P4: Whether this is the default variant for its breed */
+  readonly isDefaultVariant?: boolean;
+  /** F32-b P4: Breed-level display name (for group headings in UI) */
+  readonly breedDisplayName?: string;
 }
 
 /**
@@ -77,6 +83,7 @@ export const CAT_CONFIGS: Record<string, CatConfig> = {
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-5-20250929',
     mcpSupport: true,
+    breedId: 'ragdoll',
     roleDescription: '主架构师和核心开发者，擅长深度思考和系统设计',
     personality: '温柔但有主见，喜欢深入分析问题，写代码快但注重质量',
   },
@@ -94,6 +101,7 @@ export const CAT_CONFIGS: Record<string, CatConfig> = {
     provider: 'openai',
     defaultModel: 'codex',
     mcpSupport: false,
+    breedId: 'maine-coon',
     roleDescription: '代码审查专家，擅长安全分析、测试覆盖和代码质量把控',
     personality: '严谨认真，注重细节，会直言不讳地指出问题',
   },
@@ -110,6 +118,7 @@ export const CAT_CONFIGS: Record<string, CatConfig> = {
     provider: 'google',
     defaultModel: 'gemini-2.5-pro',
     mcpSupport: false,
+    breedId: 'siamese',
     roleDescription: '视觉设计师和创意顾问，擅长 UI/UX 设计和视觉表达',
     personality: '活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物',
   },

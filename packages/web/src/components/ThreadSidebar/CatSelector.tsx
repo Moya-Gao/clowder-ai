@@ -1,6 +1,6 @@
 'use client';
 
-import { useCatData } from '@/hooks/useCatData';
+import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { hexToRgba } from '@/lib/color-utils';
 
 interface CatSelectorProps {
@@ -13,7 +13,7 @@ interface CatSelectorProps {
  * Used in thread creation (DirectoryPickerModal) and thread settings.
  */
 export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProps) {
-  const { getCatsByBreed, getCatById } = useCatData();
+  const { getCatsByBreed } = useCatData();
   const groups = getCatsByBreed();
 
   const toggleCat = (catId: string) => {
@@ -38,11 +38,11 @@ export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProp
     <div className="space-y-2">
       <div className="text-xs text-gray-500 font-medium">默认猫猫 (可选)</div>
       {[...groups.entries()].map(([breedId, cats]) => {
-        const breed = getCatById(cats[0].id);
+        const breedName = cats[0].breedDisplayName ?? cats[0].displayName;
         return (
           <div key={breedId}>
             <div className="text-[10px] text-gray-400 mb-1">
-              {breed?.displayName}家族 · {providerLabel(cats[0].provider)}
+              {breedName}家族 · {providerLabel(cats[0].provider)}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {cats.map((cat) => {
@@ -67,8 +67,8 @@ export function CatSelector({ selectedCats, onSelectionChange }: CatSelectorProp
                       className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: cat.color.primary }}
                     />
-                    {cat.displayName}
-                    {cat.nickname ? `(${cat.nickname})` : ''}
+                    {formatCatName(cat)}
+                    {!cat.variantLabel && cat.nickname ? `(${cat.nickname})` : ''}
                   </button>
                 );
               })}

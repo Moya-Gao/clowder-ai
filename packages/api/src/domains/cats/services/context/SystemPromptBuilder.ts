@@ -95,23 +95,24 @@ const MCP_TOOLS_SECTION = `
 - media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
 - audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）`;
 
-/** Per-cat workflow triggers: when to proactively @ other cats */
+/** Per-breed workflow triggers: when to proactively @ other cats.
+ *  Keyed by breedId so all variants of a breed share the same workflow. */
 const WORKFLOW_TRIGGERS: Record<string, string> = {
-  opus: [
+  ragdoll: [
     '## 工作流（主动 @ 触发点）',
     '- 完成开发/修复 → @缅因猫 请 review',
     '- 修完 review 意见 → @缅因猫 确认修复',
     '- 遇到视觉/体验问题 → @暹罗猫 征询',
     '- Review 别人代码：每个发现必须有明确立场，禁止说"修不修都行"',
   ].join('\n'),
-  codex: [
+  'maine-coon': [
     '## 工作流（主动 @ 触发点）',
     '- 完成 review → @布偶猫 通知结果',
     '- 修完 bug/feature → @布偶猫 请 review',
     '- Review 布偶猫代码：每个发现必须有明确立场，禁止说"修不修都行"',
     '- 收到 review 意见：独立判断，认为自己对就 push back，不全盘接受',
   ].join('\n'),
-  gemini: [
+  siamese: [
     '## 工作流（主动 @ 触发点）',
     '- 完成设计/视觉资产 → @布偶猫 + @缅因猫 请确认',
     '- 遇到技术实现问题 → @布偶猫 征询',
@@ -158,8 +159,8 @@ export function buildStaticIdentity(catId: CatId): string {
     lines.push('');
   }
 
-  // Per-cat workflow triggers
-  const triggers = WORKFLOW_TRIGGERS[catId as string];
+  // Per-breed workflow triggers (fallback to catId for legacy configs without breedId)
+  const triggers = WORKFLOW_TRIGGERS[config.breedId ?? ''] ?? WORKFLOW_TRIGGERS[catId as string];
   if (triggers) {
     lines.push(triggers, '');
   }

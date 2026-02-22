@@ -7,25 +7,18 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 describe('McpPromptInjector', () => {
-  it('needsMcpInjection returns false for opus (native MCP)', async () => {
+  it('needsMcpInjection returns false when mcpSupport is true', async () => {
     const { needsMcpInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    assert.equal(needsMcpInjection('opus'), false);
+    assert.equal(needsMcpInjection(true), false);
   });
 
-  it('needsMcpInjection returns true for codex', async () => {
+  it('needsMcpInjection returns true when mcpSupport is false', async () => {
     const { needsMcpInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
-    assert.equal(needsMcpInjection('codex'), true);
-  });
-
-  it('needsMcpInjection returns true for gemini', async () => {
-    const { needsMcpInjection } = await import(
-      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
-    );
-    assert.equal(needsMcpInjection('gemini'), true);
+    assert.equal(needsMcpInjection(false), true);
   });
 
   it('buildMcpCallbackInstructions uses correct hyphenated endpoints', async () => {

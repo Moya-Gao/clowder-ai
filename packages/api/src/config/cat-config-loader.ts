@@ -44,10 +44,13 @@ const mentionPatternSchema = z.string().min(2).regex(
   'mentionPattern must start with @',
 );
 
+const colorSchema = z.object({ primary: z.string(), secondary: z.string() });
+
 const catVariantSchema = z.object({
   id: z.string().min(1),
   catId: z.string().min(1).optional(),                        // F32-b: variant-level catId
   displayName: z.string().min(1).optional(),                  // F32-b: variant-level displayName
+  variantLabel: z.string().min(1).optional(),                 // F32-b P4: disambiguation label
   mentionPatterns: z.array(mentionPatternSchema).optional(),  // F32-b: variant-level mentions
   provider: z.enum(['anthropic', 'openai', 'google']),
   defaultModel: z.string().min(1),
@@ -55,6 +58,8 @@ const catVariantSchema = z.object({
   cli: cliConfigSchema,
   personality: z.string().optional(),
   strengths: z.array(z.string()).optional(),
+  avatar: z.string().min(1).optional(),                       // F32-b P4c: override breed avatar
+  color: colorSchema.optional(),                              // F32-b P4c: override breed color
   contextBudget: contextBudgetSchema.optional(),
 });
 
@@ -69,7 +74,7 @@ const catBreedSchema = z.object({
   displayName: z.string().min(1),
   nickname: z.string().optional(),
   avatar: z.string().min(1),
-  color: z.object({ primary: z.string(), secondary: z.string() }),
+  color: colorSchema,
   mentionPatterns: z.array(mentionPatternSchema).min(1),
   roleDescription: z.string().min(1),
   defaultVariantId: z.string().min(1),
@@ -138,6 +143,9 @@ export function getDefaultVariant(breed: CatBreed): CatVariant {
 export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
   const result: Record<string, CatConfig> = {};
   for (const breed of config.breeds) {
+    // F32-b P4c: resolve default variant personality for non-default fallback
+    const defaultVariant = breed.variants.find((v) => v.id === breed.defaultVariantId);
+
     for (const variant of breed.variants) {
       const isDefault = variant.id === breed.defaultVariantId;
       const catId = variant.catId ?? breed.catId;
@@ -155,16 +163,19 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         name: catId,
         displayName: variant.displayName ?? breed.displayName,
         ...(breed.nickname != null ? { nickname: breed.nickname } : {}),
-        avatar: breed.avatar,            // shared breed-level
-        color: breed.color,              // shared breed-level
+        avatar: variant.avatar ?? breed.avatar,    // F32-b P4c: variant can override
+        color: variant.color ?? breed.color,        // F32-b P4c: variant can override
         mentionPatterns: variant.mentionPatterns
           ?? (isDefault ? breed.mentionPatterns : []),
         provider: variant.provider,
         defaultModel: variant.defaultModel,
         mcpSupport: variant.mcpSupport,
         roleDescription: breed.roleDescription,
-        personality: variant.personality ?? '',
+        personality: variant.personality ?? defaultVariant?.personality ?? '',
         breedId: breed.id,
+        breedDisplayName: breed.displayName,
+        ...(variant.variantLabel != null ? { variantLabel: variant.variantLabel } : {}),
+        isDefaultVariant: isDefault,
       };
     }
   }
@@ -176,29 +187,39 @@ export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> 
   return toAllCatConfigs(config);
 }
 
-/** Find a breed by checking mention patterns against text (checks variant-level patterns too) */
+/**
+ * Find a breed by checking mention patterns against text.
+ * F32-b P4c: Uses longest-match-first to avoid prefix collisions
+ * (e.g. `@布偶sonnet` must match Sonnet variant, not breed-level `@布偶`).
+ */
 export function findBreedByMention(
   config: CatCafeConfig,
   text: string,
 ): { breed: CatBreed; catId: CatId } | undefined {
   const lower = text.toLowerCase();
+
+  // Collect all patterns with their resolution targets
+  const entries: { pattern: string; breed: CatBreed; catId: string }[] = [];
   for (const breed of config.breeds) {
-    // Check breed-level patterns
     for (const pattern of breed.mentionPatterns) {
-      if (lower.includes(pattern.toLowerCase())) {
-        return { breed, catId: createCatId(breed.catId) };
-      }
+      entries.push({ pattern: pattern.toLowerCase(), breed, catId: breed.catId });
     }
-    // F32-b: Check variant-level patterns
     for (const variant of breed.variants) {
       if (variant.mentionPatterns) {
+        const catId = variant.catId ?? breed.catId;
         for (const pattern of variant.mentionPatterns) {
-          if (lower.includes(pattern.toLowerCase())) {
-            const catId = variant.catId ?? breed.catId;
-            return { breed, catId: createCatId(catId) };
-          }
+          entries.push({ pattern: pattern.toLowerCase(), breed, catId });
         }
       }
+    }
+  }
+
+  // Sort longest-first to prevent prefix collisions
+  entries.sort((a, b) => b.pattern.length - a.pattern.length);
+
+  for (const entry of entries) {
+    if (lower.includes(entry.pattern)) {
+      return { breed: entry.breed, catId: createCatId(entry.catId) };
     }
   }
   return undefined;

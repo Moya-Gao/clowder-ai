@@ -24,6 +24,12 @@ export interface CatData {
   avatar: string;
   roleDescription: string;
   personality: string;
+  /** F32-b P4: Human-readable variant label (e.g. "4.5", "Sonnet") */
+  variantLabel?: string;
+  /** F32-b P4: Whether this is the default variant for its breed */
+  isDefaultVariant?: boolean;
+  /** F32-b P4: Breed-level display name (e.g. "布偶猫"), for group headings */
+  breedDisplayName?: string;
 }
 
 // ── Module-level cache ──────────────────────────────────
@@ -121,6 +127,11 @@ export function useCatData() {
   }, [cats]);
 
   return { cats, isLoading, getCatById, getCatsByBreed };
+}
+
+/** Format cat name with optional variant label for multi-variant disambiguation */
+export function formatCatName(cat: { displayName: string; variantLabel?: string }): string {
+  return cat.variantLabel ? `${cat.displayName}（${cat.variantLabel}）` : cat.displayName;
 }
 
 /** Get cached cats synchronously (for non-hook contexts). Returns fallback if not loaded. */

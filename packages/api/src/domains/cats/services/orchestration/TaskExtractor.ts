@@ -4,9 +4,15 @@
  * Part of 4-A feature for Phase 4.0.
  */
 
-import type { CatId, CreateTaskInput } from '@cat-cafe/shared';
+import { catRegistry, type CatId, type CreateTaskInput } from '@cat-cafe/shared';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import type { AgentService } from '../types.js';
+
+/** Get all valid catIds dynamically from the registry */
+function getValidCatIds(): readonly string[] {
+  const ids = catRegistry.getAllIds();
+  return ids.length > 0 ? ids : ['opus', 'codex', 'gemini']; // fallback for tests
+}
 
 export interface ExtractedTask {
   title: string;
@@ -87,7 +93,7 @@ function parseExtractedTasks(response: string, messages: StoredMessage[]): Extra
           why: item.why.slice(0, 500),
         };
         // Validate ownerCatId is a known cat
-        if (typeof item.ownerCatId === 'string' && ['opus', 'codex', 'gemini'].includes(item.ownerCatId)) {
+        if (typeof item.ownerCatId === 'string' && getValidCatIds().includes(item.ownerCatId)) {
           task.ownerCatId = item.ownerCatId as CatId;
         }
         // Normalize and validate sourceIndex
@@ -139,7 +145,7 @@ function buildExtractionPrompt(contextText: string): string {
 For each task, provide:
 - title: A concise, actionable title (max 100 chars)
 - why: Brief explanation of why this task is needed (max 200 chars)
-- ownerCatId: If someone is clearly assigned, use "opus", "codex", or "gemini". Otherwise null.
+- ownerCatId: If someone is clearly assigned, use one of: ${getValidCatIds().map(id => `"${id}"`).join(', ')}. Otherwise null.
 - sourceIndex: The message index (msg-N) that originated this task
 
 Return a JSON array. Example:

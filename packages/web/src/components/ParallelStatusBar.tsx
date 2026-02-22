@@ -2,7 +2,7 @@
 
 import { useChatStore } from '@/stores/chatStore';
 import { useElapsedTime } from '@/hooks/useElapsedTime';
-import { useCatData } from '@/hooks/useCatData';
+import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { hexToRgba } from '@/lib/color-utils';
 import { formatDuration, formatTokenCount, formatCost } from './status-helpers';
 import type { CatInvocationInfo } from '@/stores/chatStore';
@@ -51,7 +51,7 @@ function CatStatusCard({ catId, status, invocation }: {
     >
       <StatusDot status={status} />
       <span className="text-xs font-medium" style={{ color: cat?.color.primary ?? '#4b5563' }}>
-        {cat?.displayName ?? catId}
+        {cat ? formatCatName(cat) : catId}
       </span>
       {timeDisplay && (
         <span className="text-xs text-gray-500 ml-0.5">{timeDisplay}</span>

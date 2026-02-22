@@ -14,6 +14,7 @@
 import type { ContextBudget } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
+import { resolveBreedId } from './breed-resolver.js';
 
 const BUDGET_ENV_KEYS = {
   opus: 'CAT_OPUS_MAX_PROMPT_TOKENS',
@@ -21,11 +22,11 @@ const BUDGET_ENV_KEYS = {
   gemini: 'CAT_GEMINI_MAX_PROMPT_TOKENS',
 } as const;
 
-/** Hardcoded defaults if cat-config.json missing or incomplete */
+/** Hardcoded defaults — keyed by breedId so all variants share the same budget */
 const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
-  opus: { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
-  codex: { maxPromptTokens: 100000, maxContextTokens: 60000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
-  gemini: { maxPromptTokens: 200000, maxContextTokens: 150000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
+  ragdoll:      { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  'maine-coon': { maxPromptTokens: 100000, maxContextTokens: 60000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  siamese:      { maxPromptTokens: 200000, maxContextTokens: 150000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
 };
 
 /** F32-a: Conservative fallback for unknown/dynamic cats — use smallest built-in budget */
@@ -64,9 +65,11 @@ function loadBudgetsFromJson(): Record<string, ContextBudget> {
  * Priority: env var override (maxPromptTokens only) > cat-config.json > hardcoded defaults
  */
 export function getCatContextBudget(catName: string): ContextBudget {
-  // 1. Get base budget from JSON or default
+  // 1. Get base budget from JSON or default (resolve breedId for DEFAULT_BUDGETS)
   const jsonBudgets = loadBudgetsFromJson();
+  const breedId = resolveBreedId(catName);
   const baseBudget: ContextBudget = jsonBudgets[catName]
+    ?? (breedId ? DEFAULT_BUDGETS[breedId] : undefined)
     ?? DEFAULT_BUDGETS[catName]
     ?? GLOBAL_FALLBACK_BUDGET; // F32-a: conservative fallback for dynamic cats
 
@@ -110,7 +113,7 @@ export function getAllCatBudgets(): Record<string, ContextBudget> {
   // F32-a: iterate catRegistry (includes dynamic cats), fallback to DEFAULT_BUDGETS keys
   const allIds = catRegistry.getAllIds().length > 0
     ? catRegistry.getAllIds().map(String)
-    : Object.keys(DEFAULT_BUDGETS);
+    : ['opus', 'codex', 'gemini'];
   for (const catName of allIds) {
     result[catName] = getCatContextBudget(catName);
   }

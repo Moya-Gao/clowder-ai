@@ -9,39 +9,17 @@ import { MetadataBadge } from './MetadataBadge';
 import { RichBlocks } from './rich/RichBlocks';
 import { SummaryCard } from './SummaryCard';
 import { useTts, type TtsState } from '@/hooks/useTts';
+import type { CatData } from '@/hooks/useCatData';
+import { hexToRgba } from '@/lib/color-utils';
 import { API_URL } from '@/utils/api-client';
 
-const CAT_STYLES: Record<string, {
-  bg: string;
-  border: string;
-  name: string;
-  label: string;
-  radius: string;
-  font?: string;
-}> = {
-  opus: {
-    bg: 'bg-opus-bg',
-    border: 'border-opus-light',
-    name: '布偶猫',
-    label: '布偶猫（Opus）',
-    radius: 'rounded-2xl rounded-bl-sm',
-  },
-  codex: {
-    bg: 'bg-codex-bg',
-    border: 'border-codex-light',
-    name: '缅因猫',
-    label: '缅因猫（Codex）',
-    radius: 'rounded-2xl rounded-br-sm',
-    font: 'font-mono',
-  },
-  gemini: {
-    bg: 'bg-gemini-bg',
-    border: 'border-gemini-light',
-    name: '暹罗猫',
-    label: '暹罗猫（Gemini）',
-    radius: 'rounded-2xl rounded-tr-sm',
-  },
+/** Breed-level aesthetics — only changes when a new BREED is added */
+const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
+  ragdoll: { radius: 'rounded-2xl rounded-bl-sm' },
+  'maine-coon': { radius: 'rounded-2xl rounded-br-sm', font: 'font-mono' },
+  siamese: { radius: 'rounded-2xl rounded-tr-sm' },
 };
+const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
 function renderContentBlocks(blocks: MessageContent[]) {
   return blocks.map((block, i) => {
     if (block.type === 'text') {
@@ -213,12 +191,33 @@ function TtsPlayButton({ messageId, text, catId, ttsState, activeMessageId, onSy
   );
 }
 
-export function ChatMessage({ message }: { message: ChatMessageType }) {
+interface ChatMessageProps {
+  message: ChatMessageType;
+  getCatById: (id: string) => CatData | undefined;
+}
+
+export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
-  const cat = message.catId ? CAT_STYLES[message.catId] : null;
+
+  // Dynamic cat data lookup — works for any catId in cat-config.json
+  const catData = message.catId ? getCatById(message.catId) : undefined;
+  const catStyle = catData ? (() => {
+    const breed = BREED_STYLES[catData.breedId ?? ''] ?? DEFAULT_BREED_STYLE;
+    const idLabel = catData.id.charAt(0).toUpperCase() + catData.id.slice(1);
+    const label = catData.variantLabel
+      ? `${catData.displayName}（${catData.variantLabel}）`
+      : `${catData.displayName}（${idLabel}）`;
+    return {
+      label,
+      radius: breed.radius,
+      font: breed.font,
+      bgColor: catData.color.secondary,
+      borderColor: hexToRgba(catData.color.primary, 0.3),
+    };
+  })() : null;
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   const hasTextContent = message.content.trim().length > 0;
   const hasToolEvents = Boolean(message.toolEvents && message.toolEvents.length > 0);
@@ -314,12 +313,12 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
 
   return (
     <div data-message-id={message.id} className="group flex gap-2 mb-4 items-start">
-      {cat && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
+      {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
-        {cat && (
+        {catStyle && (
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
-              {cat.label}
+              {catStyle.label}
             </span>
             <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
             {isWhisper && (
@@ -341,18 +340,22 @@ export function ChatMessage({ message }: { message: ChatMessageType }) {
         )}
         <div
           className={`border px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden ${
-            cat
-              ? `${cat.bg} ${cat.border} ${cat.radius} ${cat.font ?? ''}`
+            catStyle
+              ? `${catStyle.radius} ${catStyle.font ?? ''}`
               : 'bg-white border-gray-200 rounded-2xl'
           }`}
+          style={catStyle ? {
+            backgroundColor: catStyle.bgColor,
+            borderColor: catStyle.borderColor,
+          } : undefined}
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
-            <ThinkingContent content={message.content} className={cat?.font} />
+            <ThinkingContent content={message.content} className={catStyle?.font} />
           ) : hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : hasTextContent ? (
-            <MarkdownContent content={message.content} className={cat?.font} />
+            <MarkdownContent content={message.content} className={catStyle?.font} />
           ) : !hasToolEvents && message.isStreaming ? (
             <span className="text-xs text-gray-500">思考中...</span>
           ) : (

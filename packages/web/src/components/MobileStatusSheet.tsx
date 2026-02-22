@@ -5,7 +5,7 @@ import type { RightStatusPanelProps } from './RightStatusPanel';
 import {
   modeLabel, statusLabel, statusTone, truncateId,
 } from './status-helpers';
-import { useCatData } from '@/hooks/useCatData';
+import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 
 interface MobileStatusSheetProps extends RightStatusPanelProps {
@@ -92,7 +92,7 @@ export function MobileStatusSheet({
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
-                          <span className="text-xs text-gray-700">{cat?.displayName ?? catId}</span>
+                          <span className="text-xs text-gray-700">{cat ? formatCatName(cat) : catId}</span>
                         </div>
                         <span className={`text-xs font-medium ${statusTone(status)}`}>
                           {statusLabel(status)}
@@ -114,7 +114,7 @@ export function MobileStatusSheet({
                   return (
                     <div key={catId} className="flex items-center gap-2 text-xs text-gray-500">
                       <span className="inline-block h-2 w-2 rounded-full opacity-60" style={{ backgroundColor: cat?.color.primary ?? '#9CA3AF' }} />
-                      {cat?.displayName ?? catId}
+                      {cat ? formatCatName(cat) : catId}
                     </div>
                   );
                 })}

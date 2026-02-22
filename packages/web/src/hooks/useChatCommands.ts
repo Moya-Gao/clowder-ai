@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useChatStore } from '@/stores/chatStore';
+import { useCatData } from '@/hooks/useCatData';
 import { getUserId } from '@/utils/userId';
 import { apiFetch } from '@/utils/api-client';
 
@@ -117,6 +118,27 @@ function formatConfigForDisplay(config: ConfigSnapshot): string {
  */
 export function useChatCommands() {
   const { addMessage } = useChatStore();
+  const { cats } = useCatData();
+
+  // Build dynamic mention pattern → catId resolver from cat data
+  const mentionResolver = useMemo(() => {
+    const patternToCatId = new Map<string, string>();
+    for (const cat of cats) {
+      for (const pattern of cat.mentionPatterns) {
+        // Strip leading @ for matching
+        const text = pattern.startsWith('@') ? pattern.slice(1) : pattern;
+        patternToCatId.set(text.toLowerCase(), cat.id);
+      }
+      // Also match by catId directly
+      patternToCatId.set(cat.id.toLowerCase(), cat.id);
+    }
+    // Build regex from all patterns
+    const allPatterns = [...patternToCatId.keys()].sort((a, b) => b.length - a.length); // longest first
+    const regex = allPatterns.length > 0
+      ? new RegExp(`@(${allPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
+      : /@(opus|codex|gemini)/gi; // fallback
+    return { regex, resolve: (name: string) => patternToCatId.get(name.toLowerCase()) };
+  }, [cats]);
 
   const processCommand = useCallback(
     async (input: string, overrideThreadId?: string): Promise<boolean> => {
@@ -800,17 +822,15 @@ export function useChatCommands() {
         }
 
         const restArgs = modeArgs.slice(modeName.length).trim();
-        // Extract @mentions
-        const mentionPattern = /@(布偶猫?|opus|缅因猫?|codex|暹罗猫?|gemini)/gi;
+        // Extract @mentions dynamically from cat data
         const mentions: string[] = [];
         let match;
-        while ((match = mentionPattern.exec(restArgs)) !== null) {
-          const name = match[1]!.toLowerCase();
-          if (name.startsWith('布偶') || name === 'opus') mentions.push('opus');
-          else if (name.startsWith('缅因') || name === 'codex') mentions.push('codex');
-          else if (name.startsWith('暹罗') || name === 'gemini') mentions.push('gemini');
+        const dynamicPattern = new RegExp(mentionResolver.regex.source, mentionResolver.regex.flags);
+        while ((match = dynamicPattern.exec(restArgs)) !== null) {
+          const catId = mentionResolver.resolve(match[1]!);
+          if (catId && !mentions.includes(catId)) mentions.push(catId);
         }
-        const topic = restArgs.replace(mentionPattern, '').replace(/\d+$/, '').trim();
+        const topic = restArgs.replace(dynamicPattern, '').replace(/\d+$/, '').trim();
         const roundsMatch = restArgs.match(/(\d+)\s*$/);
 
         if (modeName === 'dev-loop') {
@@ -853,8 +873,8 @@ export function useChatCommands() {
         try {
           const threadId = getThreadId();
           const config = modeName === 'brainstorm'
-            ? { topic, participants: mentions.length > 0 ? mentions : ['opus'] }
-            : { topic, catA: mentions[0] ?? 'opus', catB: mentions[1] ?? 'codex', ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}) };
+            ? { topic, participants: mentions.length > 0 ? mentions : [cats[0]?.id ?? 'opus'] }
+            : { topic, catA: mentions[0] ?? cats[0]?.id ?? 'opus', catB: mentions[1] ?? cats[1]?.id ?? 'codex', ...(roundsMatch ? { rounds: parseInt(roundsMatch[1]!, 10) } : {}) };
 
           const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/mode`, {
             method: 'POST',
@@ -939,7 +959,7 @@ export function useChatCommands() {
 
       return false;
     },
-    [addMessage]
+    [addMessage, mentionResolver, cats]
   );
 
   return { processCommand };

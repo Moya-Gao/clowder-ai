@@ -8,18 +8,17 @@
  * 风险: Codex/Gemini 的沙箱可能阻止 curl 出站调用，但注入本身无害。
  */
 
-import type { CatId } from '@cat-cafe/shared';
-
 export interface McpCallbackOptions {
   apiUrl: string;
 }
 
 /**
  * Check if a cat needs MCP prompt injection (no native MCP support).
- * Claude (opus) has native MCP via --mcp-config; others need HTTP callback injection.
+ * Cats with mcpSupport=true (e.g. Claude variants) use --mcp-config natively;
+ * all others need HTTP callback injection.
  */
-export function needsMcpInjection(catId: CatId | string): boolean {
-  return catId !== 'opus';
+export function needsMcpInjection(mcpSupport: boolean): boolean {
+  return !mcpSupport;
 }
 
 /**

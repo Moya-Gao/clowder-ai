@@ -48,6 +48,8 @@ export interface CatVariant {
   readonly catId?: string;
   /** Override breed-level displayName (F32-b) */
   readonly displayName?: string;
+  /** F32-b P4: Human-readable label for disambiguation (e.g. "4.5", "Sonnet") */
+  readonly variantLabel?: string;
   /** Independent mention patterns for this variant (F32-b).
    *  Default variant inherits breed mentionPatterns; non-default variants get none unless specified. */
   readonly mentionPatterns?: readonly string[];
@@ -57,6 +59,10 @@ export interface CatVariant {
   readonly cli: CliConfig;
   readonly personality?: string;
   readonly strengths?: readonly string[];
+  /** F32-b P4c: Override breed-level avatar for this variant */
+  readonly avatar?: string;
+  /** F32-b P4c: Override breed-level color for this variant */
+  readonly color?: CatColor;
   /** Per-cat context budget (optional, falls back to defaults) */
   readonly contextBudget?: ContextBudget;
   /** F34: Per-cat TTS voice (optional, falls back to defaults in cat-voices.ts) */

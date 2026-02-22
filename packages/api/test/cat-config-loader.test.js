@@ -203,6 +203,31 @@ describe('cat-config-loader', () => {
       const result = findBreedByMention(config, '你好世界');
       assert.equal(result, undefined);
     });
+
+    it('longest-match-first: variant pattern wins over breed prefix (R28 regression)', () => {
+      // @布偶45 must match opus-45 variant, not breed-level @布偶
+      const cfg = multiVariantConfig();
+      cfg.breeds[0].variants[1].mentionPatterns = ['@opus-45', '@布偶45'];
+      cfg.breeds[0].mentionPatterns = ['@opus', '@布偶猫', '@布偶'];
+      const config2 = loadCatConfig(writeTempConfig(cfg));
+      const result = findBreedByMention(config2, '@布偶45 帮忙');
+      assert.ok(result);
+      assert.equal(String(result.catId), 'opus-45');
+    });
+
+    it('longest-match-first: project config @布偶sonnet resolves to sonnet', () => {
+      const config = loadCatConfig();
+      const result = findBreedByMention(config, '@布偶sonnet 帮忙');
+      assert.ok(result);
+      assert.equal(String(result.catId), 'sonnet');
+    });
+
+    it('breed-level short pattern still works when no prefix collision', () => {
+      const config = loadCatConfig();
+      const result = findBreedByMention(config, '@布偶 帮忙');
+      assert.ok(result);
+      assert.equal(String(result.catId), 'opus');
+    });
   });
 
   describe('isSessionChainEnabled', () => {
@@ -376,9 +401,10 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.equal(all['opus-45'].displayName, '布偶猫 4.5');
   });
 
-  it('all variants share breed-level avatar and color', () => {
+  it('variants without avatar/color inherit breed-level values', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);
+    // opus-45 has no avatar/color override → inherits breed
     assert.equal(all['opus'].avatar, all['opus-45'].avatar);
     assert.deepEqual(all['opus'].color, all['opus-45'].color);
   });
@@ -483,5 +509,108 @@ describe('F32-b: mentionPattern validation', () => {
     cfg.breeds[0].variants[1].mentionPatterns = ['opus-45'];
     const path = writeTempConfig(cfg);
     assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+  });
+});
+
+// ── F32-b P4c: Per-Variant Avatar/Color Override + Personality Fallback ──
+
+describe('F32-b P4c: variant-level avatar/color override', () => {
+  /** Config with variant that overrides avatar and color */
+  function variantOverrideConfig() {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].variants[1].avatar = '/avatars/opus-45.png';
+    cfg.breeds[0].variants[1].color = { primary: '#B39DDB', secondary: '#EDE7F6' };
+    return cfg;
+  }
+
+  it('variant with avatar/color override uses its own values', () => {
+    const config = loadCatConfig(writeTempConfig(variantOverrideConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus-45'].avatar, '/avatars/opus-45.png');
+    assert.deepEqual(all['opus-45'].color, { primary: '#B39DDB', secondary: '#EDE7F6' });
+  });
+
+  it('default variant still uses breed-level avatar/color', () => {
+    const config = loadCatConfig(writeTempConfig(variantOverrideConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus'].avatar, '/avatars/opus.png');
+    assert.deepEqual(all['opus'].color, { primary: '#9B7EBD', secondary: '#E8DFF5' });
+  });
+
+  it('variant without override inherits breed values (unchanged behavior)', () => {
+    const cfg = multiVariantConfig();
+    // opus-45 has no avatar/color in base multiVariantConfig
+    const config = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus-45'].avatar, '/avatars/opus.png');
+    assert.deepEqual(all['opus-45'].color, { primary: '#9B7EBD', secondary: '#E8DFF5' });
+  });
+});
+
+describe('F32-b P4c: personality fallback to default variant', () => {
+  it('non-default variant without personality inherits default variant personality', () => {
+    const cfg = multiVariantConfig();
+    // Remove personality from opus-45 to test fallback
+    delete cfg.breeds[0].variants[1].personality;
+    const config = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(config);
+    // Should fall back to default variant personality '温柔'
+    assert.equal(all['opus-45'].personality, '温柔');
+  });
+
+  it('non-default variant with explicit personality keeps its own', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus-45'].personality, '快速高效');
+  });
+
+  it('default variant personality is used as-is', () => {
+    const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
+    const all = toAllCatConfigs(config);
+    assert.equal(all['opus'].personality, '温柔');
+  });
+});
+
+describe('F32-b P4c: Sonnet variant in project config', () => {
+  it('project cat-config.json loads with Sonnet variant', () => {
+    const config = loadCatConfig();
+    const ragdoll = config.breeds.find(b => b.id === 'ragdoll');
+    assert.ok(ragdoll, 'ragdoll breed exists');
+    const sonnetVariant = ragdoll.variants.find(v => v.id === 'opus-sonnet');
+    assert.ok(sonnetVariant, 'opus-sonnet variant exists');
+    assert.equal(sonnetVariant.catId, 'sonnet');
+    assert.equal(sonnetVariant.variantLabel, 'Sonnet');
+    assert.equal(sonnetVariant.provider, 'anthropic');
+    assert.equal(sonnetVariant.defaultModel, 'claude-sonnet-4-6');
+  });
+
+  it('Sonnet expands to independent cat with correct overrides', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    const sonnet = all['sonnet'];
+    assert.ok(sonnet, 'sonnet cat config exists');
+    assert.equal(sonnet.breedId, 'ragdoll');
+    assert.equal(sonnet.displayName, '布偶猫');
+    assert.equal(sonnet.variantLabel, 'Sonnet');
+    assert.equal(sonnet.isDefaultVariant, false);
+    assert.deepEqual(sonnet.color, { primary: '#B39DDB', secondary: '#EDE7F6' });
+    assert.deepEqual(sonnet.mentionPatterns, ['@sonnet', '@布偶sonnet']);
+  });
+
+  it('Sonnet does not share avatar/color with default opus', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    // Sonnet has its own color
+    assert.notDeepEqual(all['sonnet'].color, all['opus'].color);
+  });
+
+  it('total cat count is 4 (opus + sonnet + codex + gemini)', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    assert.equal(Object.keys(all).length, 4);
+    assert.ok(all['opus']);
+    assert.ok(all['sonnet']);
+    assert.ok(all['codex']);
+    assert.ok(all['gemini']);
   });
 });

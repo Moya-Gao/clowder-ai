@@ -31,6 +31,31 @@
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
+        },
+        {
+          "id": "opus-sonnet",
+          "catId": "sonnet",
+          "variantLabel": "Sonnet",
+          "displayName": "布偶猫",
+          "mentionPatterns": ["@sonnet", "@布偶sonnet"],
+          "provider": "anthropic",
+          "defaultModel": "claude-sonnet-4-6",
+          "mcpSupport": true,
+          "avatar": "/avatars/opus.png",
+          "color": { "primary": "#B39DDB", "secondary": "#EDE7F6" },
+          "cli": {
+            "command": "claude",
+            "outputFormat": "stream-json",
+            "defaultArgs": ["--output-format", "stream-json", "--model", "claude-sonnet-4-6"]
+          },
+          "personality": "快速灵活，适合日常对话和轻量任务",
+          "strengths": ["chat", "quick-tasks"],
+          "contextBudget": {
+            "maxPromptTokens": 150000,
+            "maxContextTokens": 100000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
         }
       ]
     },

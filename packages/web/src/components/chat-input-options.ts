@@ -11,12 +11,19 @@ export interface CatOption {
 
 /** Build @mention autocomplete options from dynamic cat data.
  *  Filters out cats with no mentionPatterns (not routable via @mention). */
+/** Format display label with optional variant disambiguation */
+function formatCatLabel(cat: CatData): string {
+  return cat.variantLabel
+    ? `@${cat.displayName} (${cat.variantLabel})`
+    : `@${cat.displayName}`;
+}
+
 export function buildCatOptions(cats: CatData[]): CatOption[] {
   return cats
     .filter((cat) => cat.mentionPatterns.length > 0)
     .map((cat) => ({
       id: cat.id,
-      label: `@${cat.displayName}`,
+      label: formatCatLabel(cat),
       desc: cat.roleDescription,
       insert: `@${cat.mentionPatterns[0].replace(/^@/, '')} `,
       color: cat.color.primary,
@@ -29,7 +36,7 @@ export function buildCatOptions(cats: CatData[]): CatOption[] {
 export function buildWhisperOptions(cats: CatData[]): CatOption[] {
   return cats.map((cat) => ({
     id: cat.id,
-    label: `@${cat.displayName}`,
+    label: formatCatLabel(cat),
     desc: cat.roleDescription,
     insert: cat.mentionPatterns.length > 0 ? `@${cat.mentionPatterns[0].replace(/^@/, '')} ` : '',
     color: cat.color.primary,

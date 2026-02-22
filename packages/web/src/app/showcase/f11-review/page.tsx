@@ -1,6 +1,7 @@
 'use client';
 
 import { ChatMessage } from '@/components/ChatMessage';
+import { useCatData } from '@/hooks/useCatData';
 import type { ChatMessage as ChatMessageType } from '@/stores/chatStore';
 
 // F11 Mode System Review 攻防录 - 6轮 Review 的完整对话
@@ -368,6 +369,7 @@ Tests: 939 (880 backend + 59 frontend), 0 fail`,
 ];
 
 export default function F11ReviewShowcase() {
+  const { getCatById } = useCatData();
   return (
     <div className="min-h-screen bg-gradient-to-b from-orange-50 to-white">
       {/* Header */}
@@ -407,7 +409,7 @@ export default function F11ReviewShowcase() {
       {/* Messages */}
       <div className="max-w-3xl mx-auto px-6 py-6">
         {showcaseMessages.map((msg) => (
-          <ChatMessage key={msg.id} message={msg} />
+          <ChatMessage key={msg.id} message={msg} getCatById={getCatById} />
         ))}
       </div>
 

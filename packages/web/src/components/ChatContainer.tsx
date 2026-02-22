@@ -10,6 +10,7 @@ import { useChatHistory } from '@/hooks/useChatHistory';
 import { useSendMessage } from '@/hooks/useSendMessage';
 import { useChatSocketCallbacks } from '@/hooks/useChatSocketCallbacks';
 import { ChatMessage } from './ChatMessage';
+import { useCatData } from '@/hooks/useCatData';
 import { ChatInput } from './ChatInput';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { MessageActions } from './MessageActions';
@@ -41,6 +42,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     viewMode, setViewMode, clearUnread,
   } = useChatStore();
   const { clearTasks } = useTaskStore();
+  const { getCatById } = useCatData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
@@ -132,10 +134,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
-        <ChatMessage message={msg} />
+        <ChatMessage message={msg} getCatById={getCatById} />
       </MessageActions>
     ),
-    [threadId]
+    [threadId, getCatById]
   );
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);

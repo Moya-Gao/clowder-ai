@@ -8,7 +8,7 @@ import {
   modeLabel, statusLabel, statusTone, truncateId,
   type IntentMode, type CatStatus,
 } from './status-helpers';
-import { useCatData } from '@/hooks/useCatData';
+import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 import { SessionChainPanel } from './SessionChainPanel';
@@ -86,7 +86,7 @@ function CatInvocationCard({
           className={`inline-block h-2.5 w-2.5 rounded-full ${isActive ? 'animate-pulse' : ''}`}
           style={{ backgroundColor: dotColor }}
         />
-        <span className="font-medium text-gray-700">{cat?.displayName ?? catId}</span>
+        <span className="font-medium text-gray-700">{cat ? formatCatName(cat) : catId}</span>
         {inv.sessionSeq !== undefined && (
           <span
             className={`text-[10px] px-1 py-0.5 rounded ${
@@ -304,7 +304,7 @@ export function RightStatusPanel({
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dotColor }} />
-                      <span className="text-xs text-gray-700">{cat?.displayName ?? catId}</span>
+                      <span className="text-xs text-gray-700">{cat ? formatCatName(cat) : catId}</span>
                     </div>
                     <span className={`text-xs font-medium ${statusTone(status)}`}>
                       {statusLabel(status)}
@@ -341,7 +341,7 @@ export function RightStatusPanel({
                   return (
                     <div key={catId} className="flex items-center gap-2 text-xs text-gray-400">
                       <span className="inline-block h-2 w-2 rounded-full opacity-50" style={{ backgroundColor: cat?.color.primary ?? '#9CA3AF' }} />
-                      {cat?.displayName ?? catId}
+                      {cat ? formatCatName(cat) : catId}
                     </div>
                   );
                 }

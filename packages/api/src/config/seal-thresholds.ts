@@ -13,22 +13,23 @@
 
 import { catRegistry } from '@cat-cafe/shared';
 import type { ContextHealthConfig } from '@cat-cafe/shared';
+import { resolveBreedId } from './breed-resolver.js';
 
-/** Per-cat overrides (built-in cats have specific tuning) */
+/** Per-breed overrides — keyed by breedId so all variants share the same thresholds */
 const SEAL_OVERRIDES: Record<string, ContextHealthConfig> = {
-  opus: {
+  ragdoll: {
     warnThreshold: 0.80,
     sealThreshold: 0.90,
     turnBudget: 12_000,
     safetyMargin: 4_000,
   },
-  codex: {
+  'maine-coon': {
     warnThreshold: 0.75,
     sealThreshold: 0.85,
     turnBudget: 12_000,
     safetyMargin: 4_000,
   },
-  gemini: {
+  siamese: {
     warnThreshold: 0.55,
     sealThreshold: 0.65,
     turnBudget: 12_000,
@@ -55,8 +56,10 @@ const GLOBAL_DEFAULT: ContextHealthConfig = {
  * Lookup: catId override → provider default → global default.
  */
 export function getSealConfig(catName: string): ContextHealthConfig {
-  // 1. Exact catId override
-  const override = SEAL_OVERRIDES[catName];
+  // 1. Resolve breedId for override lookup (resolveBreedId falls back to static CAT_CONFIGS)
+  const breedId = resolveBreedId(catName);
+  const override = (breedId ? SEAL_OVERRIDES[breedId] : undefined)
+    ?? SEAL_OVERRIDES[catName];
   if (override) return override;
 
   // 2. Provider-based default
