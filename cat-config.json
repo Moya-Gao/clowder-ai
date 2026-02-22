@@ -120,7 +120,7 @@
           "catId": "gpt52",
           "variantLabel": "GPT-5.2",
           "displayName": "缅因猫",
-          "mentionPatterns": ["@gpt52", "@gpt-52", "@缅因gpt52"],
+          "mentionPatterns": ["@gpt52", "@gpt-52", "@gpt5.2", "@gpt-5.2", "@缅因gpt52"],
           "provider": "openai",
           "defaultModel": "gpt-5.2",
           "mcpSupport": false,

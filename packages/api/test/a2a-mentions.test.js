@@ -4,6 +4,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { catRegistry } from '@cat-cafe/shared';
 
 describe('parseA2AMentions', () => {
   it('detects line-start @mention (Chinese name)', async () => {
@@ -56,6 +57,28 @@ describe('parseA2AMentions', () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@codex please review', 'opus');
     assert.deepEqual(result, ['codex']);
+  });
+
+  it('matches gpt52 variant alias @gpt5.2 from runtime cat-config', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const result = parseA2AMentions('@gpt5.2 帮忙看下', 'codex');
+      assert.deepEqual(result, ['gpt52']);
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
   });
 });
 

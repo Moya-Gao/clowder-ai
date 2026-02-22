@@ -617,3 +617,14 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all['gemini25']);
   });
 });
+
+describe('GPT-5.2 variant mention aliases in project config', () => {
+  it('includes @gpt5.2 and @gpt-5.2 for gpt52 variant', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    const gpt52 = all['gpt52'];
+    assert.ok(gpt52, 'gpt52 cat config exists');
+    assert.ok(gpt52.mentionPatterns.includes('@gpt5.2'));
+    assert.ok(gpt52.mentionPatterns.includes('@gpt-5.2'));
+  });
+});
