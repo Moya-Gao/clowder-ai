@@ -77,3 +77,6 @@ dump.rdb.backup*
 skills/
 docs/bug-report/werewolf-investigation/poster-screenshot.png
 .worktrees/
+
+# Raw avatar source images (large, pre-sliced originals)
+assets/avatars/raw/
