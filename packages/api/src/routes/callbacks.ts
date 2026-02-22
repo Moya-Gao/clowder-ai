@@ -29,6 +29,7 @@ import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { enqueueA2ATargets } from './callback-a2a-trigger.js';
+import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
@@ -97,7 +98,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       // Stale callback guard (cloud Codex P1 + 缅因猫 R3): reject callbacks from
@@ -194,7 +195,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       // #77: Use mention ack cursor to filter already-processed mentions
@@ -231,7 +232,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       if (!deliveryCursorStore) {
@@ -300,20 +301,24 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       const requestedLimit = limit ?? 20;
       let needsPlayFilter = false;
       if (record.threadId && threadStore) {
         const thread = await threadStore.get(record.threadId);
-        needsPlayFilter = !!thread && (thread.thinkingMode ?? 'play') === 'play';
+        needsPlayFilter = !!thread && (thread.thinkingMode ?? 'debug') === 'play';
       }
 
       let filtered: Awaited<ReturnType<typeof messageStore.getByThread>>;
 
-      // F35: Viewer for whisper filtering
-      const viewer = { type: 'cat' as const, catId: createCatId(record.catId) };
+      // F35: Viewer for whisper filtering.
+      // Debug mode: cats see everything (like 铲屎官) — full transparency for debugging.
+      // Play mode: cats only see whispers addressed to them — game privacy.
+      const viewer = needsPlayFilter
+        ? { type: 'cat' as const, catId: createCatId(record.catId) }
+        : { type: 'user' as const };
 
       if (!needsPlayFilter) {
         // Normal mode: paginate backwards collecting visible messages until we
@@ -420,7 +425,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       if (!registry.isLatest(invocationId)) {

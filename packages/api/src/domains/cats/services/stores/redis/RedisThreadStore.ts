@@ -283,7 +283,7 @@ export class RedisThreadStore implements IThreadStore {
       pinnedAt: String(thread.pinnedAt ?? 0),
       favorited: String(thread.favorited ?? false),
       favoritedAt: String(thread.favoritedAt ?? 0),
-      thinkingMode: thread.thinkingMode ?? 'play',
+      thinkingMode: thread.thinkingMode ?? 'debug',
     };
     if (thread.preferredCats && thread.preferredCats.length > 0) {
       result['preferredCats'] = JSON.stringify(thread.preferredCats);

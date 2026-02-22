@@ -325,7 +325,7 @@ export class AgentRouter {
     if (this.threadStore) {
       const thread = await this.threadStore.get(resolvedThreadId);
       if (thread) {
-        legacyThinkingMode = thread.thinkingMode ?? 'play';
+        legacyThinkingMode = thread.thinkingMode ?? 'debug';
       }
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
@@ -391,7 +391,7 @@ export class AgentRouter {
     if (this.threadStore) {
       const thread = await this.threadStore.get(threadId);
       if (thread) {
-        thinkingMode = thread.thinkingMode ?? 'play';
+        thinkingMode = thread.thinkingMode ?? 'debug';
       }
       await this.threadStore.updateLastActive(threadId);
     }

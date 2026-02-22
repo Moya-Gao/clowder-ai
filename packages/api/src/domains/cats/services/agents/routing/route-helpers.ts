@@ -228,16 +228,19 @@ export async function assembleIncrementalContext(
   const cursor = await deps.deliveryCursorStore.getCursor(userId, catId, threadId);
   const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
 
-  const viewer = { type: 'cat' as const, catId };
+  // Debug mode: cats see all whispers (full transparency). Play mode: cats only see their own whispers.
+  const viewer = (thinkingMode ?? 'debug') === 'play'
+    ? { type: 'cat' as const, catId }
+    : { type: 'user' as const };
   const relevant = unseen.filter((m) => {
-    // F35: Exclude whispers not intended for this cat
+    // F35: Exclude whispers not intended for this cat (play mode only)
     if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
     if (m.catId !== null && m.catId === catId) return false;
     // In play mode, hide other cats' stream (thinking) messages.
     // Legacy messages (no origin) are visible for backward compatibility —
     // all new writes are tagged, so untagged = legacy callback data.
-    if ((thinkingMode ?? 'play') === 'play' && m.catId !== null && m.origin === 'stream') return false;
+    if ((thinkingMode ?? 'debug') === 'play' && m.catId !== null && m.origin === 'stream') return false;
     return true;
   });
   const includesCurrentUserMessage = Boolean(

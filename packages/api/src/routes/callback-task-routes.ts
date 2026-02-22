@@ -8,6 +8,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
+import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
 const updateTaskSchema = callbackAuthSchema.extend({
   taskId: z.string().min(1),
@@ -32,7 +33,7 @@ export function registerCallbackTaskRoutes(
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
-      return { error: 'Invalid or expired callback credentials' };
+      return EXPIRED_CREDENTIALS_ERROR;
     }
 
     const existing = await taskStore.get(taskId);

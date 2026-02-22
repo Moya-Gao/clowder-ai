@@ -34,14 +34,21 @@ export function needsMcpInjection(mcpSupport: boolean): boolean {
  * - POST /api/callbacks/update-task     (auth in body)
  */
 export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
-  return `## 可用工具 (HTTP 回调)
+  return `## 协作方式
 
-⚠️ **重要：你的 CLI/终端输出只有铲屎官能看到，其他猫看不到！**
-要和其他猫说话，**必须执行下面的 curl 命令**。不要在输出中 @ 其他猫——那是心里话，不是群消息！
+### @队友（最常用！推荐方式）
+想 @其他猫？**直接在你的回复文本里另起一行、行首写 \`@猫名\`**。
+系统会自动检测并触发 A2A 协作，免费、永不过期。
+✅ 正确：回复末尾另起一行写 \`@缅因猫 请帮我 review\`
+❌ 错误：用 curl 调 post-message 只是为了 @ 队友（token 会过期！）
+
+### HTTP 回调工具（异步/高级场景）
+以下 curl 命令用于**任务中途主动汇报进度、创建富消息块、更新任务状态、请求权限**等需要 MCP 语义的场景。
+⚠️ 凭证有生命周期限制（约 10 分钟），简单 @队友请用上面的文本方式。
 
 凭证已通过环境变量提供: \`$CAT_CAFE_INVOCATION_ID\` 和 \`$CAT_CAFE_CALLBACK_TOKEN\`。
 
-### 发送消息给团队（最常用！）
+### 发送异步消息（任务中途汇报进度时用）
 \`\`\`bash
 MSG='你的消息'
 curl -sS -X POST ${opts.apiUrl}/api/callbacks/post-message \\

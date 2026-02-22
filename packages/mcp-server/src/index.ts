@@ -94,7 +94,7 @@ export function createServer(): McpServer {
   // 注册 MCP 回传工具 (三猫共享)
   server.tool(
     'cat_cafe_post_message',
-    'Post a message to the Cat Café chat. Use this to share results, respond to other cats, or communicate with the user.',
+    'Post a proactive async message to the Cat Café chat mid-task (e.g. progress updates, sharing results). To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires.',
     postMessageInputSchema,
     async (args: { content: string; replyTo?: string | undefined }) => {
       const result = await handlePostMessage(args);

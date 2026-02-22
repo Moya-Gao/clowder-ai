@@ -7,6 +7,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { AuthorizationManager } from '../domains/cats/services/auth/AuthorizationManager.js';
+import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 
 export interface CallbackAuthRoutesOptions {
   registry: InvocationRegistry;
@@ -43,7 +44,7 @@ export const callbackAuthRoutes: FastifyPluginAsync<CallbackAuthRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       const response = await authManager.requestPermission(
@@ -72,7 +73,7 @@ export const callbackAuthRoutes: FastifyPluginAsync<CallbackAuthRoutesOptions> =
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
-        return { error: 'Invalid or expired callback credentials' };
+        return EXPIRED_CREDENTIALS_ERROR;
       }
 
       const status = await authManager.getRequestStatus(requestId);

@@ -12,6 +12,7 @@ import {
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { getP0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
+import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { memoryToResult, normalizeTags, shouldDegradeToDocs } from './evidence-helpers.js';
 
 interface CallbackMemoryRoutesDeps {
@@ -94,7 +95,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
-      return { error: 'Invalid or expired callback credentials' };
+      return EXPIRED_CREDENTIALS_ERROR;
     }
     const freshness = await freshnessProvider().catch(() => ({
       status: 'unknown' as const,
@@ -149,7 +150,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
-      return { error: 'Invalid or expired callback credentials' };
+      return EXPIRED_CREDENTIALS_ERROR;
     }
     if (!hindsightConfig.enabled) {
       return { reflection: '', degraded: true, degradeReason: 'hindsight_disabled', dispositionMode };
@@ -180,7 +181,7 @@ export async function registerCallbackMemoryRoutes(app: FastifyInstance, deps: C
     const record = registry.verify(invocationId, callbackToken);
     if (!record) {
       reply.status(401);
-      return { error: 'Invalid or expired callback credentials' };
+      return EXPIRED_CREDENTIALS_ERROR;
     }
     if (!collectConfigSnapshot().hindsight.enabled) {
       return { status: 'skipped', degradeReason: 'hindsight_disabled' };

@@ -191,8 +191,8 @@ describe('routeSerial A2A worklist', () => {
       codex: codexService,
     });
 
-    // Default thinkingMode is 'play' — cats should not see each other's thinking
-    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1')) {}
+    // Explicitly set play mode — cats should not see each other's thinking (default is now debug)
+    for await (const _ of routeSerial(deps, ['opus'], 'write code', 'user1', 'thread1', { thinkingMode: 'play' })) {}
 
     assert.equal(codexService.calls.length, 1, 'codex should be called once');
     assert.ok(
@@ -423,7 +423,7 @@ describe('routeSerial A2A worklist', () => {
       'SECRET: 图灵是狼人',
       'user1',
       'thread1',
-      { currentUserMessageId: whisperMsgId },
+      { currentUserMessageId: whisperMsgId, thinkingMode: 'play' },
     )) {}
 
     assert.equal(codexService.calls.length, 1, 'codex should be called once');
@@ -543,7 +543,7 @@ describe('routeParallel whisper privacy (F35)', () => {
       'SECRET: 图灵是狼人',
       'user1',
       'thread1',
-      { currentUserMessageId: whisperMsgId },
+      { currentUserMessageId: whisperMsgId, thinkingMode: 'play' },
     )) {}
 
     assert.equal(codexService.calls.length, 1, 'codex should be called once');

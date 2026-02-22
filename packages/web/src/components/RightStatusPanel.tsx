@@ -118,7 +118,7 @@ function CatInvocationCard({
 function ThinkingModeToggle({ threadId }: { threadId: string }) {
   const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
   const updateLocal = useChatStore((s) => s.updateThreadThinkingMode);
-  const mode = thread?.thinkingMode ?? 'play';
+  const mode = thread?.thinkingMode ?? 'debug';
   const isDebug = mode === 'debug';
   const pendingRef = useRef(false);
 

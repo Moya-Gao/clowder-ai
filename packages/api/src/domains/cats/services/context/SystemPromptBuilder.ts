@@ -50,8 +50,11 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const MCP_TOOLS_SECTION = `
+⚠️ **@队友的正确方式**：直接在回复文本里另起一行、行首写 \`@猫名\`（免费、永不过期）。
+下面的 MCP 工具用于**异步中途汇报**等高级场景，token 有生命周期限制。
+
 你可以使用以下 Cat Cafe MCP 工具：
-- cat_cafe_post_message: 主动发送消息到对话
+- cat_cafe_post_message: 任务中途主动发送异步消息（简单 @队友请用回复文本行首 @猫名）
 - cat_cafe_get_pending_mentions: 获取待处理的 @提及
 - cat_cafe_get_thread_context: 获取当前对话上下文
 - cat_cafe_update_task: 更新自己负责的任务状态

@@ -267,7 +267,7 @@ export async function handleCheckPermissionStatus(input: {
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
-    description: 'Post a message to the Cat Café chat. Use this to share results, respond to other cats, or communicate with the user.',
+    description: 'Post a proactive async message to the Cat Café chat mid-task (e.g. progress updates, sharing results). To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires.',
     inputSchema: postMessageInputSchema,
     handler: handlePostMessage,
   },

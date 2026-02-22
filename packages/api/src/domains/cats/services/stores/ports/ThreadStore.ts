@@ -27,7 +27,7 @@ export interface Thread {
   pinnedAt?: number | null;
   favorited?: boolean;
   favoritedAt?: number | null;
-  /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking. Default: play */
+  /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking. Default: debug */
   thinkingMode?: 'debug' | 'play';
   /** F32-b Phase 2: Thread-level cat preference. When set, messages without @mention route to these cats instead of participants/default. */
   preferredCats?: CatId[];
