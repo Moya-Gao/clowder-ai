@@ -150,6 +150,8 @@ export function SplitPaneView({
             </span>
           </div>
           <ChatInput
+            key={splitPaneTargetId ?? 'no-target'}
+            threadId={splitPaneTargetId ?? undefined}
             onSend={(content, images, whisper) => onSend(content, images, splitPaneTargetId ?? undefined, whisper)}
             onStop={() => onStop(splitPaneTargetId ?? undefined)}
             disabled={isTargetLoading || !splitPaneTargetId}

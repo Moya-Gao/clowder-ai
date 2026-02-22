@@ -12,7 +12,12 @@ import { compressImage } from '@/utils/compressImage';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 
+/** Module-level draft storage — survives component unmount/remount across thread switches */
+export const threadDrafts = new Map<string, string>();
+
 interface ChatInputProps {
+  /** Thread ID for draft persistence — drafts are saved per-thread */
+  threadId?: string;
   onSend: (content: string, images?: File[], whisper?: WhisperOptions) => void;
   onStop?: () => void;
   disabled?: boolean;
@@ -24,6 +29,7 @@ interface ChatInputProps {
 const ACCEPTED_TYPES = 'image/png,image/jpeg,image/gif,image/webp';
 
 export function ChatInput({
+  threadId,
   onSend,
   onStop,
   disabled,
@@ -35,7 +41,7 @@ export function ChatInput({
   const catOptions = useMemo(() => buildCatOptions(cats), [cats]);
   const whisperOptions = useMemo(() => buildWhisperOptions(cats), [cats]);
 
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => (threadId ? threadDrafts.get(threadId) ?? '' : ''));
   const [showMentions, setShowMentions] = useState(false);
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
@@ -231,6 +237,13 @@ export function ChatInput({
       if (ta) { ta.focus(); ta.setSelectionRange(6, 6); }
     }, 0);
   }, []);
+
+  // Sync input text to module-level draft map (covers all sources: typing, voice, mentions)
+  useEffect(() => {
+    if (!threadId) return;
+    if (input) threadDrafts.set(threadId, input);
+    else threadDrafts.delete(threadId);
+  }, [input, threadId]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
