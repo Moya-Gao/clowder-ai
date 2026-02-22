@@ -56,6 +56,7 @@ export const callbackAuthRoutes: FastifyPluginAsync<CallbackAuthRoutesOptions> =
           reason,
           ...(context ? { context } : {}),
         },
+        record.userId,
       );
 
       return response;

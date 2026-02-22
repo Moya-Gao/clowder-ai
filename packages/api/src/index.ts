@@ -5,9 +5,11 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
+import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
+import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
@@ -325,6 +327,26 @@ async function main(): Promise<void> {
   await app.register(ttsRoutes, { ttsRegistry, cacheDir: ttsCacheDir });
   initVoiceBlockSynthesizer(ttsRegistry, ttsCacheDir);
   startTtsCacheCleaner(ttsCacheDir);
+
+  // C1+C2: Web Push Notifications (optional — requires VAPID keys)
+  const vapidPublicKey = process.env['VAPID_PUBLIC_KEY'] ?? '';
+  const vapidPrivateKey = process.env['VAPID_PRIVATE_KEY'] ?? '';
+  const vapidSubject = process.env['VAPID_SUBJECT'] ?? 'mailto:cat-cafe@localhost';
+  const pushSubscriptionStore = createPushSubscriptionStore(redis);
+  const pushService = vapidPublicKey && vapidPrivateKey
+    ? initPushNotificationService({
+        subscriptionStore: pushSubscriptionStore,
+        vapidPublicKey,
+        vapidPrivateKey,
+        vapidSubject,
+      })
+    : null;
+  if (pushService) {
+    app.log.info('[api] Web Push enabled (VAPID configured)');
+  } else {
+    app.log.info('[api] Web Push disabled (VAPID keys not set)');
+  }
+  await app.register(pushRoutes, { pushSubscriptionStore, pushService, vapidPublicKey });
 
   // Start listening
   const address = await app.listen({ port: PORT, host: HOST });

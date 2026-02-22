@@ -114,6 +114,7 @@
 | 61 | ~~whisper-api.py 健壮性~~ | [x] | Voice Input M1 开发 | `4343a66` — 25MB 限制/空文件/503/logging/SIGTERM/model load exit(1)。 |
 | 79 | archive 内部互引旧路径未更新 | [ ] | WT-4 docs archive R2 | `docs/archive/2026-02/` 内历史文档互相引用仍用归档前路径（如 `docs/discussions/...`）。60+ 处，不影响活跃文档。触发条件：如需给 archive 生成静态站点或可点击链接时再批量修。 |
 | 87 | sources-loader "does not rewrite" 测试强化 mtime/spy | [ ] | source-sync 缅因猫 R1 P3-1 | 当前 `signal-sources-loader.test.js` 的"no rewrite"断言仅比较文件内容；无法区分"未写盘"和"写盘但内容相同"。可用 `fs.statSync().mtimeMs` 或 write spy 强化。触发条件：下次改 sources-loader 写盘逻辑时一并补。 |
+| 88 | Redis PushSubscriptionStore upsert TOCTOU race | [ ] | C1+C2 云端 Codex review P3 | `hget(previousUserId)` 在 `MULTI` 外面，并发同一 endpoint 的 owner 变更有理论竞态。实际场景需同一设备两个用户同时订阅，概率极低。修复需 Lua 脚本原子化。触发条件：引入多用户并发订阅场景时。 |
 
 ## Feature Requests — 新功能需求
 

@@ -32,6 +32,7 @@
     "puppeteer": "^24.37.2",
     "rss-parser": "^3.13.0",
     "socket.io": "^4.7.0",
+    "web-push": "^3.6.7",
     "yaml": "^2.8.1",
     "zod": "^3.22.0"
   },
@@ -39,6 +40,7 @@
     "@types/node": "^20.11.0",
     "@types/nodemailer": "^6.4.17",
     "@types/puppeteer": "^7.0.4",
+    "@types/web-push": "^3.6.4",
     "fast-check": "^4.5.3",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"

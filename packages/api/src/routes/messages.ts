@@ -38,6 +38,7 @@ import type { ModeOrchestrator } from '../domains/cats/services/orchestration/Mo
 import { parseMultipart } from './parse-multipart.js';
 import { sendMessageSchema } from './messages.schema.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getPushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 
 /**
  * Dependencies injected via Fastify plugin options.
@@ -333,6 +334,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               error: '消息已发送但未能保存，刷新后可能丢失。可点击重试。',
               timestamp: Date.now(),
             }, resolvedThreadId);
+
+            const pushSvcErr = getPushNotificationService();
+            if (pushSvcErr) {
+              pushSvcErr.notifyUser(userId, {
+                title: '猫猫消息保存失败',
+                body: '消息已发送但未能保存，请检查',
+                tag: `cat-error-${resolvedThreadId}`,
+                data: { threadId: resolvedThreadId, url: `/?thread=${resolvedThreadId}` },
+              }).catch(() => {});
+            }
           } else {
             // ADR-008 S3: ack cursors before marking succeeded so that if ack
             // throws, the catch block sees running→failed (valid transition).
@@ -344,6 +355,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 usageByCat: Object.fromEntries(collectedUsage),
               } : {}),
             });
+
+            // Push notification: cat(s) finished responding
+            const pushSvc = getPushNotificationService();
+            if (pushSvc) {
+              const catNames = targetCats.join(', ');
+              pushSvc.notifyUser(userId, {
+                title: `${catNames} 回复了`,
+                body: content.slice(0, 80),
+                icon: targetCats.length === 1 ? `/avatars/${targetCats[0]}.png` : '/icons/icon-192x192.png',
+                tag: `cat-reply-${resolvedThreadId}`,
+                data: { threadId: resolvedThreadId, url: `/?thread=${resolvedThreadId}` },
+              }).catch(() => { /* best-effort */ });
+            }
 
             // Fire-and-forget: auto-summarize if threshold met (only on success)
             if (opts.autoSummarizer) {
@@ -372,6 +396,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             isFinal: true,
             timestamp: Date.now(),
           }, resolvedThreadId);
+
+          const pushSvcCatch = getPushNotificationService();
+          if (pushSvcCatch) {
+            pushSvcCatch.notifyUser(userId, {
+              title: '猫猫出错了',
+              body: errorMsg.slice(0, 100),
+              tag: `cat-error-${resolvedThreadId}`,
+              data: { threadId: resolvedThreadId, url: `/?thread=${resolvedThreadId}` },
+            }).catch(() => {});
+          }
         } finally {
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.complete(resolvedThreadId, controller);

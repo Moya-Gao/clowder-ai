@@ -18,6 +18,7 @@ import type {
 import type { IAuthorizationRuleStore } from '../stores/ports/AuthorizationRuleStore.js';
 import type { IPendingRequestStore } from '../stores/ports/PendingRequestStore.js';
 import type { IAuthorizationAuditStore } from '../stores/ports/AuthorizationAuditStore.js';
+import { getPushNotificationService } from '../push/PushNotificationService.js';
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 
@@ -59,7 +60,8 @@ export class AuthorizationManager {
   async requestPermission(
     catId: CatId,
     threadId: string,
-    req: Pick<PermissionRequest, 'invocationId' | 'action' | 'reason' | 'context'>
+    req: Pick<PermissionRequest, 'invocationId' | 'action' | 'reason' | 'context'>,
+    userId?: string,
   ): Promise<PermissionResponse> {
     // Step 1: 查规则
     const rule = await this.ruleStore.match(catId, req.action, threadId);
@@ -98,6 +100,17 @@ export class AuthorizationManager {
         reason: req.reason,
         ...(req.context ? { context: req.context } : {}),
       });
+    }
+
+    // Web Push: 即使不在 Cat Cafe 页面也能收到权限请求
+    const pushSvc = getPushNotificationService();
+    if (pushSvc && userId) {
+      pushSvc.notifyUser(userId, {
+        title: `🔐 ${catId} 需要权限`,
+        body: `${req.action}: ${req.reason}`.slice(0, 120),
+        tag: `auth-${record.requestId}`,
+        data: { threadId, url: `/?thread=${threadId}` },
+      }).catch(() => { /* best-effort */ });
     }
 
     // Step 3: 等待铲屎官审批

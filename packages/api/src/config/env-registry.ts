@@ -16,7 +16,8 @@ export type EnvCategory =
   | 'hindsight'
   | 'codex'
   | 'gemini'
-  | 'frontend';
+  | 'frontend'
+  | 'push';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -42,6 +43,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   codex: '缅因猫 (Codex)',
   gemini: '暹罗猫 (Gemini)',
   frontend: '前端',
+  push: '推送通知',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -105,6 +107,11 @@ export const ENV_VARS: EnvDefinition[] = [
   // --- frontend ---
   { name: 'NEXT_PUBLIC_API_URL', defaultValue: 'http://localhost:3002', description: '前端连接的 API 地址', category: 'frontend', sensitive: false },
   { name: 'NEXT_PUBLIC_WHISPER_URL', defaultValue: 'http://localhost:9876', description: 'Whisper ASR 服务地址', category: 'frontend', sensitive: false },
+
+  // --- push ---
+  { name: 'VAPID_PUBLIC_KEY', defaultValue: '(未设置 → 推送不可用)', description: 'VAPID 公钥 (Web Push)', category: 'push', sensitive: false },
+  { name: 'VAPID_PRIVATE_KEY', defaultValue: '(未设置)', description: 'VAPID 私钥 (Web Push)', category: 'push', sensitive: true },
+  { name: 'VAPID_SUBJECT', defaultValue: 'mailto:cat-cafe@localhost', description: 'VAPID 联系方式 (mailto: 或 URL)', category: 'push', sensitive: false },
 ];
 
 /** Mask credentials in a URL while preserving host/port/db for debugging. */
