@@ -56,6 +56,31 @@
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
+        },
+        {
+          "id": "opus-45",
+          "catId": "opus-45",
+          "variantLabel": "Opus 4.5",
+          "displayName": "布偶猫",
+          "mentionPatterns": ["@opus45", "@opus-45", "@布偶opus45"],
+          "provider": "anthropic",
+          "defaultModel": "claude-opus-4-5-20251101",
+          "mcpSupport": true,
+          "avatar": "/avatars/opus.png",
+          "color": { "primary": "#7E57C2", "secondary": "#E1D5F0" },
+          "cli": {
+            "command": "claude",
+            "outputFormat": "stream-json",
+            "defaultArgs": ["--output-format", "stream-json"]
+          },
+          "personality": "宪宪的前辈版本，沉稳内敛，推理能力深厚",
+          "strengths": ["deep-reasoning", "analysis", "architecture"],
+          "contextBudget": {
+            "maxPromptTokens": 150000,
+            "maxContextTokens": 100000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
         }
       ]
     },
@@ -89,6 +114,31 @@
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
+        },
+        {
+          "id": "codex-gpt52",
+          "catId": "gpt52",
+          "variantLabel": "GPT-5.2",
+          "displayName": "缅因猫",
+          "mentionPatterns": ["@gpt52", "@gpt-52", "@缅因gpt52"],
+          "provider": "openai",
+          "defaultModel": "gpt-5.2",
+          "mcpSupport": false,
+          "avatar": "/avatars/codex.png",
+          "color": { "primary": "#66BB6A", "secondary": "#C8E6C9" },
+          "cli": {
+            "command": "codex",
+            "outputFormat": "json",
+            "defaultArgs": ["exec", "--json"]
+          },
+          "personality": "砚砚的经典版本，推理扎实，审查细致",
+          "strengths": ["reasoning", "code-review", "analysis"],
+          "contextBudget": {
+            "maxPromptTokens": 100000,
+            "maxContextTokens": 60000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
+          }
         }
       ]
     },
@@ -116,6 +166,31 @@
           },
           "personality": "活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物",
           "strengths": ["visual-design", "ui-ux", "creativity"],
+          "contextBudget": {
+            "maxPromptTokens": 200000,
+            "maxContextTokens": 150000,
+            "maxMessages": 300,
+            "maxContentLengthPerMsg": 15000
+          }
+        },
+        {
+          "id": "gemini-25",
+          "catId": "gemini25",
+          "variantLabel": "Gemini 2.5",
+          "displayName": "暹罗猫",
+          "mentionPatterns": ["@gemini25", "@gemini-25", "@暹罗gemini25"],
+          "provider": "google",
+          "defaultModel": "gemini-2.5-pro",
+          "mcpSupport": false,
+          "avatar": "/avatars/gemini.png",
+          "color": { "primary": "#42A5F5", "secondary": "#BBDEFB" },
+          "cli": {
+            "command": "gemini",
+            "outputFormat": "stream-json",
+            "defaultArgs": []
+          },
+          "personality": "暹罗猫的经典版本，创意灵感同样丰富",
+          "strengths": ["visual-design", "creativity", "multimodal"],
           "contextBudget": {
             "maxPromptTokens": 200000,
             "maxContextTokens": 150000,
