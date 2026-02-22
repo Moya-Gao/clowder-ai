@@ -200,9 +200,19 @@ export function handleBackgroundAgentMessage(
         messageId = recoverStreamingMessage(msg, streamKey, options);
       }
       if (messageId) {
-        options.store.appendToThreadMessage(msg.threadId, messageId, msg.content);
-        if (msg.metadata) {
-          options.store.setThreadMessageMetadata(msg.threadId, messageId, msg.metadata);
+        // HOT PATH: batch content + metadata + streaming + catStatus into ONE set()
+        // to prevent React update-depth overflow during high-frequency streaming.
+        options.store.batchStreamChunkUpdate({
+          threadId: msg.threadId,
+          messageId,
+          catId: msg.catId,
+          content: msg.content,
+          metadata: msg.metadata,
+          streaming: !msg.isFinal,
+          catStatus: msg.isFinal ? 'done' : 'streaming',
+        });
+        if (msg.isFinal) {
+          options.bgStreamRefs.delete(streamKey);
         }
       } else {
         messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
@@ -217,20 +227,19 @@ export function handleBackgroundAgentMessage(
           isStreaming: !msg.isFinal,
           origin: 'stream',
         });
+        // Cat status for new message (not batched — fires once per stream start)
+        options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+        if (msg.isFinal) {
+          options.bgStreamRefs.delete(streamKey);
+        }
       }
 
       finalMsgId = messageId;
-
-      if (msg.isFinal) {
-        options.store.setThreadMessageStreaming(msg.threadId, messageId, false);
-        options.bgStreamRefs.delete(streamKey);
-      } else {
-        options.store.setThreadMessageStreaming(msg.threadId, messageId, true);
-      }
     }
 
-    if (!isCallbackText || msg.isFinal) {
-      options.store.updateThreadCatStatus(msg.threadId, msg.catId, msg.isFinal ? 'done' : 'streaming');
+    // Callback-only: update cat status on isFinal (non-callback handled by batch/new-message above)
+    if (isCallbackText && msg.isFinal) {
+      options.store.updateThreadCatStatus(msg.threadId, msg.catId, 'done');
     }
     if (msg.isFinal) {
       // #80 fix-C: Clear timeout guard for text(isFinal) path

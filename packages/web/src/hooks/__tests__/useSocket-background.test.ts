@@ -1088,4 +1088,82 @@ describe('background thread socket handling', () => {
       expect(clearDoneTimeoutCalls).toEqual([]);
     });
   });
+
+  describe('update-storm prevention: batchStreamChunkUpdate', () => {
+    it('batch merges content + metadata + streaming + catStatus in one update', () => {
+      const now = Date.now();
+      // First chunk creates the message
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'first',
+        metadata: { provider: 'anthropic', model: 'claude-opus-4-6' },
+        timestamp: now,
+      });
+
+      // Second chunk uses batchStreamChunkUpdate (existing message path)
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' second',
+        metadata: { provider: 'anthropic', model: 'claude-opus-4-6' },
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0].content).toBe('first second');
+      expect(ts.messages[0].isStreaming).toBe(true);
+      expect(ts.messages[0].metadata?.provider).toBe('anthropic');
+      expect(ts.catStatuses['opus']).toBe('streaming');
+    });
+
+    it('batch handles high-frequency chunks without state corruption', () => {
+      const now = Date.now();
+      // Simulate 50 rapid chunks (the kind that triggers React update depth)
+      for (let i = 0; i < 50; i++) {
+        simulateBackgroundMessage({
+          type: 'text',
+          catId: 'opus',
+          threadId: 'thread-bg',
+          content: `c${i}`,
+          timestamp: now + i,
+        });
+      }
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      // All 50 chunks should be merged
+      const expected = Array.from({ length: 50 }, (_, i) => `c${i}`).join('');
+      expect(ts.messages[0].content).toBe(expected);
+      expect(ts.messages[0].isStreaming).toBe(true);
+      expect(ts.catStatuses['opus']).toBe('streaming');
+    });
+
+    it('batch final chunk sets streaming=false and catStatus=done', () => {
+      const now = Date.now();
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'start',
+        timestamp: now,
+      });
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: ' end',
+        isFinal: true,
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages[0].content).toBe('start end');
+      expect(ts.messages[0].isStreaming).toBe(false);
+      expect(ts.catStatuses['opus']).toBe('done');
+    });
+  });
 });

@@ -47,6 +47,16 @@ export interface BackgroundStoreLike {
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  /** Batch content-append + metadata + streaming + catStatus into one set(). */
+  batchStreamChunkUpdate: (params: {
+    threadId: string;
+    messageId: string;
+    catId: string;
+    content: string;
+    metadata?: ChatMessageMetadata;
+    streaming: boolean;
+    catStatus: CatStatusType;
+  }) => void;
   clearThreadActiveInvocation: (threadId: string) => void;
   getThreadState: (threadId: string) => ThreadState;
 }

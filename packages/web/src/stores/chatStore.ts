@@ -200,6 +200,17 @@ interface ChatState {
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
+  /** Batch content-append + metadata + streaming + catStatus into a single set() to prevent
+   *  React update-depth overflow during high-frequency background streaming. */
+  batchStreamChunkUpdate: (params: {
+    threadId: string;
+    messageId: string;
+    catId: string;
+    content: string;
+    metadata?: ChatMessageMetadata;
+    streaming: boolean;
+    catStatus: CatStatusType;
+  }) => void;
   setViewMode: (mode: 'single' | 'split') => void;
   setSplitPaneThreadIds: (ids: string[]) => void;
   setSplitPaneTarget: (threadId: string | null) => void;
@@ -627,6 +638,40 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [threadId]: {
             ...existing,
             catStatuses: { ...existing.catStatuses, [catId]: status },
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  batchStreamChunkUpdate: ({ threadId, messageId, catId, content, metadata, streaming, catStatus }) =>
+    set((state) => {
+      const applyMessageUpdate = (m: ChatMessage): ChatMessage => {
+        if (m.id !== messageId) return m;
+        return {
+          ...m,
+          content: m.content + content,
+          ...(metadata ? { metadata: m.metadata ? { ...m.metadata, ...metadata } : metadata } : {}),
+          isStreaming: streaming,
+        };
+      };
+
+      if (threadId === state.currentThreadId) {
+        return {
+          messages: state.messages.map(applyMessageUpdate),
+          catStatuses: { ...state.catStatuses, [catId]: catStatus },
+        };
+      }
+
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: existing.messages.map(applyMessageUpdate),
+            catStatuses: { ...existing.catStatuses, [catId]: catStatus },
             lastActivity: Date.now(),
           },
         },
