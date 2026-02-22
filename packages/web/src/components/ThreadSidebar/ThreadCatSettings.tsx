@@ -18,6 +18,7 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
   const [selectedCats, setSelectedCats] = useState<string[]>(currentCats);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Sync when prop changes (e.g. server-side update)
@@ -53,9 +54,23 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
 
   const hasChanged = JSON.stringify([...selectedCats].sort()) !== JSON.stringify([...currentCats].sort());
 
+  /** Fixed position so popover escapes sidebar overflow-y-auto clipping */
+  const getPopoverStyle = (): React.CSSProperties => {
+    if (!buttonRef.current) return {};
+    const rect = buttonRef.current.getBoundingClientRect();
+    const width = 256; // 16rem
+    return {
+      position: 'fixed',
+      top: rect.bottom + 4,
+      left: Math.max(8, rect.right - width),
+      width,
+    };
+  };
+
   return (
-    <div className="relative" ref={popoverRef}>
+    <div ref={popoverRef}>
       <button
+        ref={buttonRef}
         onClick={(e) => {
           e.stopPropagation();
           setIsOpen(!isOpen);
@@ -73,7 +88,8 @@ export function ThreadCatSettings({ threadId, currentCats, onSave }: ThreadCatSe
       </button>
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50"
+          style={getPopoverStyle()}
+          className="bg-white rounded-lg shadow-lg border border-gray-200 p-3 z-50"
           onClick={(e) => e.stopPropagation()}
         >
           <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
