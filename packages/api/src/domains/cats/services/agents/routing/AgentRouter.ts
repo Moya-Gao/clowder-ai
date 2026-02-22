@@ -321,7 +321,7 @@ export class AgentRouter {
     const cleanMessage = stripIntentTags(message);
 
     // Fetch thread for thinkingMode + update lastActive
-    let legacyThinkingMode: 'debug' | 'play' = 'play';
+    let legacyThinkingMode: 'debug' | 'play' = 'debug';
     if (this.threadStore) {
       const thread = await this.threadStore.get(resolvedThreadId);
       if (thread) {
@@ -387,7 +387,7 @@ export class AgentRouter {
     const cleanMessage = stripIntentTags(message);
 
     // Fetch thread for thinkingMode + update lastActive
-    let thinkingMode: 'debug' | 'play' = 'play';
+    let thinkingMode: 'debug' | 'play' = 'debug';
     if (this.threadStore) {
       const thread = await this.threadStore.get(threadId);
       if (thread) {
