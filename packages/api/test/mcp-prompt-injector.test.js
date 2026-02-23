@@ -72,4 +72,16 @@ describe('McpPromptInjector', () => {
 
     assert.ok(instructions.includes('http://localhost:9999'), 'should include custom apiUrl');
   });
+
+  it('buildMcpCallbackInstructions recommends unique handles in multi-variant scenarios', async () => {
+    const { buildMcpCallbackInstructions } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const instructions = buildMcpCallbackInstructions({
+      apiUrl: 'http://127.0.0.1:3002',
+    });
+
+    assert.ok(instructions.includes('唯一句柄'), 'should warn about duplicate-name ambiguity');
+    assert.ok(instructions.includes('@gpt52'), 'should provide a disambiguated mention example');
+  });
 });

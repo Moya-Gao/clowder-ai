@@ -5,6 +5,7 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { catRegistry } from '@cat-cafe/shared';
 
 describe('SystemPromptBuilder', () => {
   // Dynamic import after build
@@ -306,6 +307,37 @@ describe('SystemPromptBuilder', () => {
       '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
     assert.equal(buildStaticIdentity('opus'), buildStaticIdentity('opus'));
+  });
+
+  test('buildStaticIdentity disambiguates duplicate display names in runtime multi-variant config', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const identity = buildStaticIdentity('opus');
+      const mentionLine = identity.split('\n').find((line) => line.startsWith('你可以 @队友: '));
+      assert.ok(mentionLine, 'should include teammate @mention line');
+
+      const maineCount = (mentionLine.match(/@缅因猫/g) ?? []).length;
+      assert.equal(maineCount, 1, 'default maine mention should appear only once');
+      assert.ok(mentionLine.includes('@gpt52'), 'should expose non-default variant handle');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
   });
 
   test('buildInvocationContext returns teammates when present', async () => {

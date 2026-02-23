@@ -43,6 +43,63 @@ function getConfig(catId: string): CatConfig | undefined {
   return CAT_CONFIGS[catId];
 }
 
+interface CallableCatEntry {
+  readonly id: string;
+  readonly config: CatConfig;
+}
+
+interface CallableMentionsResult {
+  readonly mentions: string[];
+  readonly hasDuplicateDisplayNames: boolean;
+}
+
+function pickVariantMention(id: string, config: CatConfig): string {
+  const expected = `@${id}`.toLowerCase();
+  const byId = config.mentionPatterns.find((p) => p.toLowerCase() === expected);
+  if (byId) return byId;
+  if (config.mentionPatterns.length > 0) {
+    return [...config.mentionPatterns].sort((a, b) => a.length - b.length)[0]!;
+  }
+  return `@${id}`;
+}
+
+function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
+  const entries: CallableCatEntry[] = Object.entries(getAllConfigs())
+    .filter(([id]) => id !== currentCatId)
+    .map(([id, config]) => ({ id, config }));
+
+  if (entries.length === 0) {
+    return { mentions: [], hasDuplicateDisplayNames: false };
+  }
+
+  const byDisplayName = new Map<string, CallableCatEntry[]>();
+  for (const entry of entries) {
+    const group = byDisplayName.get(entry.config.displayName);
+    if (group) {
+      group.push(entry);
+    } else {
+      byDisplayName.set(entry.config.displayName, [entry]);
+    }
+  }
+
+  const hasDuplicateDisplayNames = Array.from(byDisplayName.values()).some((group) => group.length > 1);
+  const mentions: string[] = [];
+  const seen = new Set<string>();
+
+  for (const entry of entries) {
+    const group = byDisplayName.get(entry.config.displayName) ?? [];
+    const mention = group.length <= 1 || entry.config.isDefaultVariant
+      ? `@${entry.config.displayName}`
+      : pickVariantMention(entry.id, entry.config);
+    if (!seen.has(mention)) {
+      seen.add(mention);
+      mentions.push(mention);
+    }
+  }
+
+  return { mentions, hasDuplicateDisplayNames };
+}
+
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
@@ -147,18 +204,17 @@ export function buildStaticIdentity(catId: CatId): string {
   );
 
   // A2A collaboration format (always included — cats should know how to @ even in single-cat mode)
-  const callableNames = Object.entries(getAllConfigs())
-    .filter(([id]) => id !== catId)
-    .map(([, cfg]) => cfg.displayName);
-  if (callableNames.length > 0) {
-    const exampleTarget = callableNames[0];
+  const { mentions: callableMentions, hasDuplicateDisplayNames } = buildCallableMentions(catId);
+  if (callableMentions.length > 0) {
+    const exampleTarget = callableMentions[0]!;
     lines.push('## 协作');
-    lines.push(
-      `你可以 @队友: ${callableNames.map((n) => `@${n}`).join(' / ')}`,
-    );
+    lines.push(`你可以 @队友: ${callableMentions.join(' / ')}`);
+    if (hasDuplicateDisplayNames) {
+      lines.push('同名队友并存时，请优先使用唯一句柄（如 @gpt52）避免歧义。');
+    }
     lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效）。');
-    lines.push(`✅ 正确：另起一行 @${exampleTarget}`);
-    lines.push(`❌ 错误：怎么样 @${exampleTarget}？ ← 行中间无效`);
+    lines.push(`✅ 正确：另起一行 ${exampleTarget}`);
+    lines.push(`❌ 错误：怎么样 ${exampleTarget}？ ← 行中间无效`);
     lines.push('');
   }
 
