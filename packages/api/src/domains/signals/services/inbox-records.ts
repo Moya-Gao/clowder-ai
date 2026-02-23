@@ -12,6 +12,10 @@ export interface InboxRecord {
   readonly filePath: string;
 }
 
+export interface ReadInboxRecordsOptions {
+  readonly maxRecords?: number | undefined;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return null;
@@ -37,6 +41,14 @@ function normalizeDateString(value: string | undefined): string | undefined {
     return undefined;
   }
   return normalized;
+}
+
+function normalizeMaxRecords(value: number | undefined): number | undefined {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return undefined;
+  }
+  const normalized = Math.floor(value);
+  return normalized > 0 ? normalized : undefined;
 }
 
 async function readSingleInboxFile(filePath: string): Promise<readonly InboxRecord[]> {
@@ -81,10 +93,16 @@ async function readSingleInboxFile(filePath: string): Promise<readonly InboxReco
   }
 }
 
-export async function readInboxRecords(paths: SignalPaths, date: string | undefined): Promise<readonly InboxRecord[]> {
+export async function readInboxRecords(
+  paths: SignalPaths,
+  date: string | undefined,
+  options: ReadInboxRecordsOptions = {},
+): Promise<readonly InboxRecord[]> {
   const explicitDate = normalizeDateString(date);
+  const maxRecords = normalizeMaxRecords(options.maxRecords);
   if (explicitDate) {
-    return readSingleInboxFile(join(paths.inboxDir, `${explicitDate}.json`));
+    const records = await readSingleInboxFile(join(paths.inboxDir, `${explicitDate}.json`));
+    return maxRecords === undefined ? records : records.slice(0, maxRecords);
   }
 
   let inboxFiles: readonly string[] = [];
@@ -99,8 +117,20 @@ export async function readInboxRecords(paths: SignalPaths, date: string | undefi
 
   const allRecords: InboxRecord[] = [];
   for (const inboxFile of inboxFiles) {
+    if (maxRecords !== undefined && allRecords.length >= maxRecords) {
+      break;
+    }
     const records = await readSingleInboxFile(join(paths.inboxDir, inboxFile));
-    allRecords.push(...records);
+    if (maxRecords === undefined) {
+      allRecords.push(...records);
+      continue;
+    }
+
+    const remaining = maxRecords - allRecords.length;
+    if (remaining <= 0) {
+      break;
+    }
+    allRecords.push(...records.slice(0, remaining));
   }
 
   return allRecords;

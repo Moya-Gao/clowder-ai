@@ -3,7 +3,7 @@ import { SignalArticleSchema } from '@cat-cafe/shared';
 import type { SignalPaths } from '../config/signal-paths.js';
 import { resolveSignalPaths } from '../config/signal-paths.js';
 import {
-  readArticleDocument,
+  readArticleDocument as readArticleDocumentFromStore,
   type ParsedArticleDocument,
   toUpdatedFrontmatter,
   type SignalArticleDetail,
@@ -11,7 +11,7 @@ import {
 } from './article-document.js';
 import { computeSignalArticleStats, type SignalArticleStats } from './article-stats.js';
 import { normalizeArticleUrl } from './deduplication.js';
-import { readInboxRecords, type InboxRecord } from './inbox-records.js';
+import { readInboxRecords as readInboxRecordsFromStore, type InboxRecord } from './inbox-records.js';
 
 export type { SignalArticleDetail } from './article-document.js';
 
@@ -52,6 +52,9 @@ function withinDateRange(targetIso: string, from: string | undefined, to: string
 
 const ISO_DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_INBOX_LIMIT = 20;
+const INBOX_RECORD_SCAN_MULTIPLIER = 20;
+const MIN_INBOX_RECORD_SCAN_BUDGET = 200;
 
 function toDateBound(value: string | undefined, fallback: number, mode: 'start' | 'end'): number {
   if (!value) {
@@ -71,49 +74,126 @@ function toDateBound(value: string | undefined, fallback: number, mode: 'start' 
   return parsed;
 }
 
-async function readArticleDetailsSafely(records: readonly InboxRecord[]): Promise<readonly ParsedArticleDocument[]> {
-  const settled = await Promise.allSettled(records.map((record) => readArticleDocument(record)));
+async function readArticleDetailsSafely(
+  records: readonly InboxRecord[],
+  readArticleDocumentFn: typeof readArticleDocumentFromStore,
+): Promise<readonly ParsedArticleDocument[]> {
+  const settled = await Promise.allSettled(records.map((record) => readArticleDocumentFn(record)));
   return settled.flatMap((result) => (result.status === 'fulfilled' ? [result.value] : []));
 }
 
-async function readArticleDetailOrNull(record: InboxRecord): Promise<ParsedArticleDocument | null> {
+async function readArticleDetailOrNull(
+  record: InboxRecord,
+  readArticleDocumentFn: typeof readArticleDocumentFromStore,
+): Promise<ParsedArticleDocument | null> {
   try {
-    return await readArticleDocument(record);
+    return await readArticleDocumentFn(record);
   } catch {
     return null;
   }
 }
 
+function normalizeInboxLimit(value: number | undefined): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return DEFAULT_INBOX_LIMIT;
+  }
+
+  const normalized = Math.floor(value);
+  return normalized > 0 ? normalized : DEFAULT_INBOX_LIMIT;
+}
+
+async function selectInboxArticles(
+  records: readonly InboxRecord[],
+  options: ListInboxOptions,
+  limit: number,
+  readArticleDocumentFn: typeof readArticleDocumentFromStore,
+): Promise<readonly SignalArticle[]> {
+  const sortedRecords = [...records].sort((left, right) => Date.parse(right.fetchedAt) - Date.parse(left.fetchedAt));
+  const selected: SignalArticle[] = [];
+
+  for (const record of sortedRecords) {
+    if (options.source && record.source !== options.source) {
+      continue;
+    }
+    if (options.tier && record.tier !== options.tier) {
+      continue;
+    }
+
+    const detail = await readArticleDetailOrNull(record, readArticleDocumentFn);
+    if (!detail) {
+      continue;
+    }
+
+    const article = detail.article;
+    if (article.status !== 'inbox') {
+      continue;
+    }
+    if (options.source && article.source !== options.source) {
+      continue;
+    }
+    if (options.tier && article.tier !== options.tier) {
+      continue;
+    }
+
+    selected.push(article);
+    if (selected.length >= limit) {
+      break;
+    }
+  }
+
+  return selected.sort((left, right) => Date.parse(right.fetchedAt) - Date.parse(left.fetchedAt));
+}
+
+interface SignalArticleQueryDeps {
+  readonly readInboxRecords: typeof readInboxRecordsFromStore;
+  readonly readArticleDocument: typeof readArticleDocumentFromStore;
+}
+
 export class SignalArticleQueryService {
   private readonly paths: SignalPaths;
+  private readonly deps: SignalArticleQueryDeps;
 
-  constructor(options?: { paths?: SignalPaths | undefined }) {
+  constructor(options?: { paths?: SignalPaths | undefined; deps?: Partial<SignalArticleQueryDeps> | undefined }) {
     this.paths = options?.paths ?? resolveSignalPaths();
+    this.deps = {
+      readInboxRecords: options?.deps?.readInboxRecords ?? readInboxRecordsFromStore,
+      readArticleDocument: options?.deps?.readArticleDocument ?? readArticleDocumentFromStore,
+    };
   }
 
   async listInbox(options: ListInboxOptions = {}): Promise<readonly SignalArticle[]> {
+    const limit = normalizeInboxLimit(options.limit);
     const dateInput = options.date?.trim();
-    const records = await readInboxRecords(this.paths, dateInput && dateInput.length > 0 ? dateInput : undefined);
-    const details = await readArticleDetailsSafely(records);
+    const date = dateInput && dateInput.length > 0 ? dateInput : undefined;
+    if (date) {
+      const records = await this.deps.readInboxRecords(this.paths, date);
+      return selectInboxArticles(records, options, limit, this.deps.readArticleDocument);
+    }
 
-    const filtered = details
-      .map((detail) => detail.article)
-      .filter((article) => article.status === 'inbox')
-      .filter((article) => (options.source ? article.source === options.source : true))
-      .filter((article) => (options.tier ? article.tier === options.tier : true))
-      .sort((left, right) => Date.parse(right.fetchedAt) - Date.parse(left.fetchedAt));
+    const scanBudget = Math.max(limit * INBOX_RECORD_SCAN_MULTIPLIER, MIN_INBOX_RECORD_SCAN_BUDGET);
+    const probeLimit = scanBudget + 1;
+    const sampledRecords = await this.deps.readInboxRecords(this.paths, undefined, { maxRecords: probeLimit });
+    const hasMoreHistory = sampledRecords.length > scanBudget;
+    const initialRecords = hasMoreHistory ? sampledRecords.slice(0, scanBudget) : sampledRecords;
 
-    return filtered.slice(0, options.limit ?? 20);
+    let selected = await selectInboxArticles(initialRecords, options, limit, this.deps.readArticleDocument);
+    if (selected.length >= limit || !hasMoreHistory) {
+      return selected;
+    }
+
+    const allRecords = await this.deps.readInboxRecords(this.paths, undefined);
+    selected = await selectInboxArticles(allRecords, options, limit, this.deps.readArticleDocument);
+    return selected;
   }
 
   async getArticleById(id: string): Promise<SignalArticleDetail | null> {
-    const records = await readInboxRecords(this.paths, undefined);
+    const records = await this.deps.readInboxRecords(this.paths, undefined);
     const matched = records.find((record) => record.id === id);
     if (!matched) {
       return null;
     }
 
-    const detail = await readArticleDetailOrNull(matched);
+    const detail = await readArticleDetailOrNull(matched, this.deps.readArticleDocument);
     if (!detail) {
       return null;
     }
@@ -130,13 +210,13 @@ export class SignalArticleQueryService {
     }
 
     const normalized = normalizeArticleUrl(input);
-    const records = await readInboxRecords(this.paths, undefined);
+    const records = await this.deps.readInboxRecords(this.paths, undefined);
     const matched = records.find((record) => normalizeArticleUrl(record.url) === normalized);
     if (!matched) {
       return null;
     }
 
-    const detail = await readArticleDetailOrNull(matched);
+    const detail = await readArticleDetailOrNull(matched, this.deps.readArticleDocument);
     if (!detail) {
       return null;
     }
@@ -155,8 +235,8 @@ export class SignalArticleQueryService {
       };
     }
 
-    const records = await readInboxRecords(this.paths, undefined);
-    const details = await readArticleDetailsSafely(records);
+    const records = await this.deps.readInboxRecords(this.paths, undefined);
+    const details = await readArticleDetailsSafely(records, this.deps.readArticleDocument);
 
     const matched = details
       .filter((detail) => (options.status ? detail.article.status === options.status : true))
@@ -185,13 +265,13 @@ export class SignalArticleQueryService {
   }
 
   async updateArticle(id: string, input: UpdateSignalArticleInput): Promise<SignalArticleDetail | null> {
-    const records = await readInboxRecords(this.paths, undefined);
+    const records = await this.deps.readInboxRecords(this.paths, undefined);
     const matched = records.find((record) => record.id === id);
     if (!matched) {
       return null;
     }
 
-    const detail = await readArticleDetailOrNull(matched);
+    const detail = await readArticleDetailOrNull(matched, this.deps.readArticleDocument);
     if (!detail) {
       return null;
     }
@@ -220,8 +300,8 @@ export class SignalArticleQueryService {
   }
 
   async getStats(now: Date = new Date()): Promise<SignalArticleStats> {
-    const records = await readInboxRecords(this.paths, undefined);
-    const details = await readArticleDetailsSafely(records);
+    const records = await this.deps.readInboxRecords(this.paths, undefined);
+    const details = await readArticleDetailsSafely(records, this.deps.readArticleDocument);
     return computeSignalArticleStats(
       details.map((detail) => detail.article),
       now,
