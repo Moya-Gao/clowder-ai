@@ -219,6 +219,7 @@ export function buildStaticIdentity(catId: CatId): string {
     lines.push('## 协作');
     lines.push(`你可以 @队友: ${callableMentions.join(' / ')}`);
     if (hasDuplicateDisplayNames) {
+      lines.push('同族多分身时：默认 `@显示名`，其它用 `@catId`。');
       lines.push(`同名队友并存时，请优先使用唯一句柄（如 ${uniqueHandleExample ?? '@catId'}）避免歧义。`);
     }
     lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效）。');

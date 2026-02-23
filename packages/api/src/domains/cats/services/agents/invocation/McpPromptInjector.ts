@@ -39,6 +39,7 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
 ### @队友（最常用！推荐方式）
 想 @其他猫？**直接在你的回复文本里另起一行、行首写 \`@猫名\`**。
 系统会自动检测并触发 A2A 协作，免费、永不过期。
+同族多分身时：默认 \`@显示名\`，其它用 \`@catId\`。
 同名队友并存时，请使用**唯一句柄**（如 \`@catId\`）避免歧义。
 ✅ 正确：回复末尾另起一行写 \`@catId 请帮我 review\`
 ❌ 错误：用 curl 调 post-message 只是为了 @ 队友（token 会过期！）

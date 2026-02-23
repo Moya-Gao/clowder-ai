@@ -332,6 +332,7 @@ describe('SystemPromptBuilder', () => {
       const maineCount = (mentionLine.match(/@缅因猫/g) ?? []).length;
       assert.equal(maineCount, 1, 'default maine mention should appear only once');
       assert.ok(mentionLine.includes('@gpt52'), 'should expose non-default variant handle');
+      assert.ok(identity.includes('同族多分身时'), 'should explicitly teach same-breed multi-variant rule');
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {

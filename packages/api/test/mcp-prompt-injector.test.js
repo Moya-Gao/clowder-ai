@@ -82,6 +82,7 @@ describe('McpPromptInjector', () => {
     });
 
     assert.ok(instructions.includes('唯一句柄'), 'should warn about duplicate-name ambiguity');
+    assert.ok(instructions.includes('同族多分身时'), 'should teach same-breed multi-variant rule');
     assert.ok(instructions.includes('@catId'), 'should provide neutral unique-handle example');
     assert.ok(!instructions.includes('@gpt52'), 'should not hard-code gpt52');
   });
