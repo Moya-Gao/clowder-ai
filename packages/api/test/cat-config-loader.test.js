@@ -117,6 +117,7 @@ describe('cat-config-loader', () => {
       // F32-a: catId is no longer restricted to opus/codex/gemini
       const custom = validConfig();
       custom.breeds[0].catId = 'foobar';
+      custom.breeds[0].mentionPatterns = ['@foobar', '@布偶猫'];
       const path = writeTempConfig(custom);
       const config = loadCatConfig(path);
       assert.equal(config.breeds[0].catId, 'foobar');
@@ -438,6 +439,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     const cfg = multiVariantConfig();
     // Make second variant use same catId as default (no catId override → inherits breed)
     delete cfg.breeds[0].variants[1].catId;
+    cfg.breeds[0].variants[1].mentionPatterns = ['@opus', '@布偶猫4.5'];
     assert.throws(
       () => toAllCatConfigs(loadCatConfig(writeTempConfig(cfg))),
       /Duplicate catId "opus"/,
@@ -526,6 +528,20 @@ describe('F32-b: mentionPattern validation', () => {
     cfg.breeds[0].variants[1].mentionPatterns = ['opus-45'];
     const path = writeTempConfig(cfg);
     assert.throws(() => loadCatConfig(path), /Invalid cat config/);
+  });
+
+  it('rejects breed mentionPatterns missing @catId handle', () => {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].mentionPatterns = ['@布偶猫', '@布偶'];
+    const path = writeTempConfig(cfg);
+    assert.throws(() => loadCatConfig(path), /must include @opus/);
+  });
+
+  it('rejects variant mentionPatterns missing @catId handle', () => {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].variants[1].mentionPatterns = ['@布偶猫4.5'];
+    const path = writeTempConfig(cfg);
+    assert.throws(() => loadCatConfig(path), /must include @opus-45/);
   });
 });
 

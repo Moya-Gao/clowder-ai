@@ -121,7 +121,7 @@ BACKLOG 也写了 "/config 命令最快"。
 |------|------|------|
 | `parseMentions()` | `AgentRouter.ts:72` (私有) | 检测 @mention pattern |
 | `findCatByMention()` | `shared/types/cat.ts` (导出) | 文本中找猫 |
-| `mentionPatterns` | `CAT_CONFIGS[*].mentionPatterns` | @opus/@布偶/@ragdoll 等 |
+| `mentionPatterns` | `CAT_CONFIGS[*].mentionPatterns` | @opus/@布偶/@ragdoll 等（约束：必须包含可路由唯一句柄 `@catId`） |
 | `StoredMessage.mentions` | `MessageStore.ts:31` | 已有字段, 当前猫消息=`[]` |
 | `addParticipants()` | `ThreadStore.ts` | 动态添加线程参与者 |
 | `routeSerial()` | `route-strategies.ts` | 串行多猫, 含身份注入/MCP/上下文 |

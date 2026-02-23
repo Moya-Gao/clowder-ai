@@ -121,6 +121,31 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
     }
   }
 
+  // Validate that configured mentionPatterns always include the canonical @catId handle.
+  //
+  // Why: system prompts may instruct users to disambiguate by using @catId. If a config
+  // supplies a custom mentionPatterns list but omits @catId, routing instructions can
+  // drift from the actually-routable handles.
+  for (const breed of result.data.breeds) {
+    const requiredBreedHandle = `@${breed.catId}`;
+    if (!breed.mentionPatterns.includes(requiredBreedHandle)) {
+      throw new Error(
+        `Breed "${breed.id}": mentionPatterns must include ${requiredBreedHandle}`,
+      );
+    }
+
+    for (const variant of breed.variants) {
+      if (!variant.mentionPatterns || variant.mentionPatterns.length === 0) continue;
+      const catId = variant.catId ?? breed.catId;
+      const requiredVariantHandle = `@${catId}`;
+      if (!variant.mentionPatterns.includes(requiredVariantHandle)) {
+        throw new Error(
+          `Breed "${breed.id}" variant "${variant.id}": mentionPatterns must include ${requiredVariantHandle}`,
+        );
+      }
+    }
+  }
+
   // Zod output has mutable arrays + plain string catId;
   // CatCafeConfig has readonly arrays + branded CatId.
   // The shapes match at runtime after validation.
