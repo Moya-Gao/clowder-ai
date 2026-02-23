@@ -8,7 +8,13 @@
 
 import { getUserId } from './userId';
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002';
+function resolveApiUrl(): string {
+  if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
+  if (typeof window === 'undefined') return 'http://localhost:3002';
+  // 使用当前页面的 hostname，适配 Tailscale / 局域网等任意网络
+  return `${window.location.protocol}//${window.location.hostname}:3002`;
+}
+export const API_URL = resolveApiUrl();
 
 /**
  * Fetch wrapper that injects identity header.
