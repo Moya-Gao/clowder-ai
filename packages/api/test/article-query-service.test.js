@@ -69,4 +69,32 @@ describe('SignalArticleQueryService', () => {
     assert.equal(items[0].id, 'newest');
     assert.deepEqual(readCalls, ['newest']);
   });
+
+  it('listInbox keeps newest probe record when sampled inbox history overflows', async () => {
+    const baseTime = Date.parse('2026-02-23T00:00:00.000Z');
+    const records = Array.from({ length: 201 }, (_unused, index) => createRecord(`id-${index}`, new Date(baseTime + (index * 60_000)).toISOString()));
+    const readCalls = [];
+
+    const service = new SignalArticleQueryService({
+      paths: TEST_PATHS,
+      deps: {
+        readInboxRecords: async (_paths, _date, options) => {
+          if (options && typeof options.maxRecords === 'number') {
+            assert.equal(options.maxRecords, 201);
+          }
+          return records;
+        },
+        readArticleDocument: async (record) => {
+          readCalls.push(record.id);
+          return createParsedDocument(record);
+        },
+      },
+    });
+
+    const items = await service.listInbox({ limit: 1 });
+
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, 'id-200');
+    assert.deepEqual(readCalls, ['id-200']);
+  });
 });

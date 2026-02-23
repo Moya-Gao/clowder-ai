@@ -174,7 +174,11 @@ export class SignalArticleQueryService {
     const probeLimit = scanBudget + 1;
     const sampledRecords = await this.deps.readInboxRecords(this.paths, undefined, { maxRecords: probeLimit });
     const hasMoreHistory = sampledRecords.length > scanBudget;
-    const initialRecords = hasMoreHistory ? sampledRecords.slice(0, scanBudget) : sampledRecords;
+    const initialRecords = hasMoreHistory
+      ? [...sampledRecords]
+        .sort((left, right) => Date.parse(right.fetchedAt) - Date.parse(left.fetchedAt))
+        .slice(0, scanBudget)
+      : sampledRecords;
 
     let selected = await selectInboxArticles(initialRecords, options, limit, this.deps.readArticleDocument);
     if (selected.length >= limit || !hasMoreHistory) {
