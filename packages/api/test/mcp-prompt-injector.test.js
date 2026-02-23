@@ -79,11 +79,13 @@ describe('McpPromptInjector', () => {
     );
     const instructions = buildMcpCallbackInstructions({
       apiUrl: 'http://127.0.0.1:3002',
+      exampleHandle: '@codex',
     });
 
     assert.ok(instructions.includes('唯一句柄'), 'should warn about duplicate-name ambiguity');
     assert.ok(instructions.includes('同族多分身时'), 'should teach same-breed multi-variant rule');
-    assert.ok(instructions.includes('@catId'), 'should provide neutral unique-handle example');
+    assert.ok(!instructions.includes('@catId'), 'should not use non-routable literal @catId example');
+    assert.ok(instructions.includes('@codex'), 'should provide a routable handle example');
     assert.ok(!instructions.includes('@gpt52'), 'should not hard-code gpt52');
   });
 });

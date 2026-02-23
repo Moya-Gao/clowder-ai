@@ -107,7 +107,7 @@ export async function* routeSerial(
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl })
+      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl, exampleHandle: `@${catId as string}` })
       : '';
 
     // F24 Phase E: Bootstrap context for Session #2+
