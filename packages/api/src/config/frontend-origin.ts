@@ -9,6 +9,12 @@ export interface WarnLoggerLike {
 const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3001';
 const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3001'];
 
+/**
+ * Match origins from private networks (RFC 1918 + Tailscale CGNAT 100.64/10 + loopback).
+ * Safe to auto-accept: these IPs never appear on the public internet.
+ */
+const PRIVATE_NETWORK_ORIGIN = /^https?:\/\/(10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d+\.\d+|127\.\d+\.\d+\.\d+)(:\d+)?$/;
+
 function normalizeConfiguredUrl(rawUrl: string): string | null {
   try {
     const parsed = new URL(rawUrl);
@@ -81,7 +87,7 @@ export function resolveFrontendBaseUrl(
 export function resolveFrontendCorsOrigins(
   env: NodeJS.ProcessEnv,
   logger?: WarnLoggerLike,
-): string[] {
+): (string | RegExp)[] {
   const origins = new Set<string>(DEFAULT_CORS_ORIGINS);
 
   const rawFrontendUrl = env['FRONTEND_URL']?.trim();
@@ -108,5 +114,8 @@ export function resolveFrontendCorsOrigins(
     );
   }
 
-  return [...origins];
+  const result: (string | RegExp)[] = [...origins];
+  // Auto-accept private/Tailscale networks (safe for home/dev environments)
+  result.push(PRIVATE_NETWORK_ORIGIN);
+  return result;
 }
