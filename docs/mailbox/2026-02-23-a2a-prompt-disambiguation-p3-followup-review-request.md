@@ -29,7 +29,7 @@
 
 ## Git SHA
 - Base: `f0f55db`
-- Head: `本分支最新提交（本次 follow-up）`
+- Head: `8307c38`
 - Branch: `fix/a2a-prompt-disambiguation`
 
 ## 测试状态
