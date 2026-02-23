@@ -7,6 +7,10 @@ const CAT_BG_COLORS: Record<string, string> = {
   opus: 'var(--color-opus-primary)',
   codex: 'var(--color-codex-primary)',
   gemini: 'var(--color-gemini-primary)',
+  // Variant-specific shades (same family, different tones)
+  gpt52: '#66BB6A',
+  'opus-45': '#7E57C2',
+  sonnet: '#B39DDB',
 };
 
 const WARN_COLOR = '#f59e0b';  // amber-500

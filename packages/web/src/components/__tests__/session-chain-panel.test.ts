@@ -395,6 +395,33 @@ describe('F24: SessionChainPanel', () => {
     expect(badge).not.toBeNull();
   });
 
+  it('applies maine-coon variant green shades for gpt52', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'gpt52', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.innerHTML).toContain('border-[#66BB6A66]');
+    expect(container.innerHTML).toContain('bg-[#C8E6C9]');
+    expect(container.innerHTML).toContain('text-[#2E7D32]');
+    expect(container.querySelector('.bg-gray-200.text-gray-600')).toBeNull();
+  });
+
+  it('applies ragdoll variant purple shades for opus-45 and sonnet', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'opus-45', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },
+      { id: 's2', catId: 'sonnet', seq: 1, status: 'active', messageCount: 2, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    expect(container.innerHTML).toContain('border-[#7E57C266]');
+    expect(container.innerHTML).toContain('bg-[#E1D5F0]');
+    expect(container.innerHTML).toContain('text-[#5E35B1]');
+    expect(container.innerHTML).toContain('border-[#B39DDB66]');
+    expect(container.innerHTML).toContain('bg-[#EDE7F6]');
+    expect(container.innerHTML).toContain('text-[#6A1B9A]');
+  });
+
   it('applies gray fallback colors for unknown catId', async () => {
     mockSessionsResponse([
       { id: 's1', catId: 'unknown-cat', seq: 0, status: 'active', messageCount: 1, createdAt: Date.now() },

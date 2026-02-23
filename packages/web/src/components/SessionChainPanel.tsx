@@ -138,6 +138,11 @@ const CAT_SESSION_COLORS: Record<string, { border: string; badgeBg: string; badg
   opus: { border: 'border-opus-primary/40', badgeBg: 'bg-opus-light', badgeText: 'text-opus-dark' },
   codex: { border: 'border-codex-primary/40', badgeBg: 'bg-codex-light', badgeText: 'text-codex-dark' },
   gemini: { border: 'border-gemini-primary/40', badgeBg: 'bg-gemini-light', badgeText: 'text-gemini-dark' },
+  // Maine-coon variants: green family, different shades
+  gpt52: { border: 'border-[#66BB6A66]', badgeBg: 'bg-[#C8E6C9]', badgeText: 'text-[#2E7D32]' },
+  // Ragdoll variants: purple family, different shades
+  'opus-45': { border: 'border-[#7E57C266]', badgeBg: 'bg-[#E1D5F0]', badgeText: 'text-[#5E35B1]' },
+  sonnet: { border: 'border-[#B39DDB66]', badgeBg: 'bg-[#EDE7F6]', badgeText: 'text-[#6A1B9A]' },
 };
 
 const DEFAULT_SESSION_COLORS = { border: 'border-gray-300/40', badgeBg: 'bg-gray-200', badgeText: 'text-gray-600' };
