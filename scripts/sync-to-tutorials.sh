@@ -53,11 +53,16 @@ for f in "$SOURCE_DIR/docs/lessons/"*.md; do
     fi
 done
 
-# 2. 复制教程资源文件（图片等）
+# 2. 复制教程资源文件（只复制图片，不复制视频）
+# 视频已托管在 GitHub CDN (Issue attachments)，不需要提交到 git
 if [ -d "$SOURCE_DIR/docs/lessons/assets" ]; then
     mkdir -p "$TARGET_DIR/docs/lessons/assets"
-    cp "$SOURCE_DIR/docs/lessons/assets/"* "$TARGET_DIR/docs/lessons/assets/"
-    echo "  ✓ docs/lessons/assets/ ($(ls -1 "$SOURCE_DIR/docs/lessons/assets" | wc -l | tr -d ' ') 个文件)"
+    # 只复制图片文件，排除 .mp4 和 .gitignore
+    for f in "$SOURCE_DIR/docs/lessons/assets/"*.{png,jpg,jpeg,gif,webp}; do
+        [ -f "$f" ] && cp "$f" "$TARGET_DIR/docs/lessons/assets/"
+    done
+    img_count=$(ls -1 "$TARGET_DIR/docs/lessons/assets" 2>/dev/null | wc -l | tr -d ' ')
+    echo "  ✓ docs/lessons/assets/ ($img_count 个图片文件)"
 fi
 
 # 3. 复制 ADR 决策文档（公开技术决策）
