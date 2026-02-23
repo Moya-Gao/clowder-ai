@@ -377,7 +377,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.deepEqual(all['opus-45'].mentionPatterns, ['@opus-45', '@布偶猫4.5']);
   });
 
-  it('non-default variant with no mentionPatterns gets empty array', () => {
+  it('non-default variant with no mentionPatterns gets @catId fallback pattern', () => {
     const cfg = multiVariantConfig();
     // Add a variant without mentionPatterns and without catId override
     cfg.breeds[0].variants.push({
@@ -391,7 +391,7 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     });
     const config = loadCatConfig(writeTempConfig(cfg));
     const all = toAllCatConfigs(config);
-    assert.deepEqual(all['opus-haiku'].mentionPatterns, []);
+    assert.deepEqual(all['opus-haiku'].mentionPatterns, ['@opus-haiku']);
   });
 
   it('variant overrides displayName', () => {

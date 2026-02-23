@@ -51,7 +51,7 @@ export interface CatVariant {
   /** F32-b P4: Human-readable label for disambiguation (e.g. "4.5", "Sonnet") */
   readonly variantLabel?: string;
   /** Independent mention patterns for this variant (F32-b).
-   *  Default variant inherits breed mentionPatterns; non-default variants get none unless specified. */
+   *  Default variant inherits breed mentionPatterns; non-default variants fallback to @catId when unspecified. */
   readonly mentionPatterns?: readonly string[];
   readonly provider: CatProvider;
   readonly defaultModel: string;

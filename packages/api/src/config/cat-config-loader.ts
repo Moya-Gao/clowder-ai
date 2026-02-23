@@ -137,7 +137,7 @@ export function getDefaultVariant(breed: CatBreed): CatVariant {
 /**
  * F32-b: Register ALL variants as independent cats.
  * Each variant becomes a CatConfig entry keyed by its catId.
- * Default variant inherits breed-level mentionPatterns; others must specify their own.
+ * Default variant inherits breed-level mentionPatterns; others default to @catId when unspecified.
  * @throws Error on duplicate catId (fail-fast at startup)
  */
 export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
@@ -166,7 +166,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         avatar: variant.avatar ?? breed.avatar,    // F32-b P4c: variant can override
         color: variant.color ?? breed.color,        // F32-b P4c: variant can override
         mentionPatterns: variant.mentionPatterns
-          ?? (isDefault ? breed.mentionPatterns : []),
+          ?? (isDefault ? breed.mentionPatterns : [`@${catId}`]),
         provider: variant.provider,
         defaultModel: variant.defaultModel,
         mcpSupport: variant.mcpSupport,

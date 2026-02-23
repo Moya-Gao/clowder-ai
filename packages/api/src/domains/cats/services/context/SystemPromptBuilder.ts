@@ -51,6 +51,7 @@ interface CallableCatEntry {
 interface CallableMentionsResult {
   readonly mentions: string[];
   readonly hasDuplicateDisplayNames: boolean;
+  readonly uniqueHandleExample: string | null;
 }
 
 function pickVariantMention(id: string, config: CatConfig): string {
@@ -69,7 +70,7 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
     .map(([id, config]) => ({ id, config }));
 
   if (entries.length === 0) {
-    return { mentions: [], hasDuplicateDisplayNames: false };
+    return { mentions: [], hasDuplicateDisplayNames: false, uniqueHandleExample: null };
   }
 
   const byDisplayName = new Map<string, CallableCatEntry[]>();
@@ -85,19 +86,23 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
   const hasDuplicateDisplayNames = Array.from(byDisplayName.values()).some((group) => group.length > 1);
   const mentions: string[] = [];
   const seen = new Set<string>();
+  let uniqueHandleExample: string | null = null;
 
   for (const entry of entries) {
     const group = byDisplayName.get(entry.config.displayName) ?? [];
     const mention = group.length <= 1 || entry.config.isDefaultVariant
       ? `@${entry.config.displayName}`
       : pickVariantMention(entry.id, entry.config);
+    if (group.length > 1 && !entry.config.isDefaultVariant && uniqueHandleExample == null) {
+      uniqueHandleExample = mention;
+    }
     if (!seen.has(mention)) {
       seen.add(mention);
       mentions.push(mention);
     }
   }
 
-  return { mentions, hasDuplicateDisplayNames };
+  return { mentions, hasDuplicateDisplayNames, uniqueHandleExample };
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -204,13 +209,17 @@ export function buildStaticIdentity(catId: CatId): string {
   );
 
   // A2A collaboration format (always included — cats should know how to @ even in single-cat mode)
-  const { mentions: callableMentions, hasDuplicateDisplayNames } = buildCallableMentions(catId);
+  const {
+    mentions: callableMentions,
+    hasDuplicateDisplayNames,
+    uniqueHandleExample,
+  } = buildCallableMentions(catId);
   if (callableMentions.length > 0) {
     const exampleTarget = callableMentions[0]!;
     lines.push('## 协作');
     lines.push(`你可以 @队友: ${callableMentions.join(' / ')}`);
     if (hasDuplicateDisplayNames) {
-      lines.push('同名队友并存时，请优先使用唯一句柄（如 @gpt52）避免歧义。');
+      lines.push(`同名队友并存时，请优先使用唯一句柄（如 ${uniqueHandleExample ?? '@catId'}）避免歧义。`);
     }
     lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效）。');
     lines.push(`✅ 正确：另起一行 ${exampleTarget}`);

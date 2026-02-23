@@ -340,6 +340,33 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
+  test('buildStaticIdentity duplicate-name hint should not suggest self handle', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const identity = buildStaticIdentity('gpt52');
+      assert.ok(identity.includes('唯一句柄'), 'should include duplicate-name hint');
+      assert.ok(!identity.includes('如 @gpt52'), 'hint example must not point to self handle');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
   test('buildInvocationContext returns teammates when present', async () => {
     const { buildInvocationContext } = await import(
       '../dist/domains/cats/services/context/SystemPromptBuilder.js'
