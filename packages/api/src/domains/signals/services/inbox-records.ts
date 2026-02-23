@@ -51,6 +51,13 @@ function normalizeMaxRecords(value: number | undefined): number | undefined {
   return normalized > 0 ? normalized : undefined;
 }
 
+function takeLatestRecords(records: readonly InboxRecord[], maxRecords: number | undefined): readonly InboxRecord[] {
+  if (maxRecords === undefined || records.length <= maxRecords) {
+    return records;
+  }
+  return records.slice(-maxRecords);
+}
+
 async function readSingleInboxFile(filePath: string): Promise<readonly InboxRecord[]> {
   try {
     const raw = await readFile(filePath, 'utf-8');
@@ -102,7 +109,7 @@ export async function readInboxRecords(
   const maxRecords = normalizeMaxRecords(options.maxRecords);
   if (explicitDate) {
     const records = await readSingleInboxFile(join(paths.inboxDir, `${explicitDate}.json`));
-    return maxRecords === undefined ? records : records.slice(0, maxRecords);
+    return takeLatestRecords(records, maxRecords);
   }
 
   let inboxFiles: readonly string[] = [];
@@ -130,7 +137,7 @@ export async function readInboxRecords(
     if (remaining <= 0) {
       break;
     }
-    allRecords.push(...records.slice(0, remaining));
+    allRecords.push(...takeLatestRecords(records, remaining));
   }
 
   return allRecords;
