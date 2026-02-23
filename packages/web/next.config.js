@@ -3,6 +3,8 @@ const withPWA = require('@ducanh2912/next-pwa').default;
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // 允许 Tailscale 网段设备访问 dev server 的 /_next/* 资源
+  allowedDevOrigins: ['100.0.0.0/8'],
 };
 
 module.exports = withPWA({
