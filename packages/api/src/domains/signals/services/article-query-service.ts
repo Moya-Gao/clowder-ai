@@ -92,8 +92,8 @@ export class SignalArticleQueryService {
   }
 
   async listInbox(options: ListInboxOptions = {}): Promise<readonly SignalArticle[]> {
-    const date = options.date?.trim() || new Date().toISOString().slice(0, 10);
-    const records = await readInboxRecords(this.paths, date);
+    const dateInput = options.date?.trim();
+    const records = await readInboxRecords(this.paths, dateInput && dateInput.length > 0 ? dateInput : undefined);
     const details = await readArticleDetailsSafely(records);
 
     const filtered = details

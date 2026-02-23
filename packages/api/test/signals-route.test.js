@@ -144,6 +144,23 @@ describe('signals routes', () => {
     assert.ok(body.items.every((item) => item.source === 'anthropic-news'));
   });
 
+  it('GET /api/signals/inbox without date includes unread items from previous days', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/signals/inbox?limit=10',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(Array.isArray(body.items), true);
+    assert.equal(body.items.length, 3);
+    const ids = body.items.map((item) => item.id);
+    assert.ok(ids.includes(firstArticle.id));
+    assert.ok(ids.includes(secondArticle.id));
+    assert.ok(ids.includes(oldArticle.id));
+  });
+
   it('GET /api/signals/articles/:id returns article detail with content', async () => {
     const res = await app.inject({
       method: 'GET',
