@@ -95,19 +95,24 @@ export async function* routeSerial(
     // Build identity: static goes via systemPrompt option, dynamic goes in -p content
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const staticIdentity = buildStaticIdentity(catId);
+    const teammates = worklist.filter((id) => id !== catId);
     const invocationContext = buildInvocationContext({
       catId,
       mode: worklist.length > 1 ? 'serial' : 'independent',
       chainIndex: index + 1,
       chainTotal: worklist.length,
-      teammates: worklist.filter((id) => id !== catId),
+      teammates,
       mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
     const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl, exampleHandle: `@${catId as string}` })
+      ? buildMcpCallbackInstructions({
+        apiUrl: deps.invocationDeps.apiUrl,
+        currentCatId: catId as string,
+        teammates: teammates.map((id) => id as string),
+      })
       : '';
 
     // F24 Phase E: Bootstrap context for Session #2+

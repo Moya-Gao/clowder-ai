@@ -22,6 +22,9 @@ export function getMaxA2ADepth(): number {
 /** Max number of distinct cats a single message can @mention (F27 safety limit) */
 const MAX_A2A_MENTION_TARGETS = 2;
 const TOKEN_BOUNDARY_RE = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
+// If the next char looks like part of a handle token, treat it as NOT a boundary.
+// This avoids prefix-matching `@opus-45` as `@opus`, while still allowing `@opus请看`.
+const HANDLE_CONTINUATION_RE = /[a-z0-9_.-]/;
 
 interface MentionPatternEntry {
   readonly catId: CatId;
@@ -69,7 +72,7 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
     for (const entry of entries) {
       if (!normalized.startsWith(entry.pattern)) continue;
       const charAfter = normalized[entry.pattern.length];
-      const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter);
+      const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
       if (!isBoundary) continue;
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);

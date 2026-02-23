@@ -57,20 +57,25 @@ export async function* routeParallel(
   const degradationMsgs: AgentMessage[] = [];
   const boundaryByCat = new Map<CatId, string | undefined>();
 
-  const streams = await Promise.all(targetCats.map(async (catId) => {
-    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
-    const staticIdentity = buildStaticIdentity(catId);
-    const invocationContext = buildInvocationContext({
-      catId,
-      mode: 'parallel',
-      teammates: targetCats.filter((id) => id !== catId),
-      mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
-      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
-    });
-    // Inject MCP HTTP callback instructions for non-Claude cats
-    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({ apiUrl: deps.invocationDeps.apiUrl, exampleHandle: `@${catId as string}` })
-      : '';
+	  const streams = await Promise.all(targetCats.map(async (catId) => {
+	    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
+	    const staticIdentity = buildStaticIdentity(catId);
+	    const teammates = targetCats.filter((id) => id !== catId);
+	    const invocationContext = buildInvocationContext({
+	      catId,
+	      mode: 'parallel',
+	      teammates,
+	      mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
+	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+	    });
+	    // Inject MCP HTTP callback instructions for non-Claude cats
+	    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
+	      ? buildMcpCallbackInstructions({
+	        apiUrl: deps.invocationDeps.apiUrl,
+	        currentCatId: catId as string,
+	        teammates: teammates.map((id) => id as string),
+	      })
+	      : '';
 
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
     const targetUploadDir = targetContentBlocks ? uploadDir : undefined;

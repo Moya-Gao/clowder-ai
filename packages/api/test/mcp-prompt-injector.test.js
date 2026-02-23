@@ -88,4 +88,18 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('@codex'), 'should provide a routable handle example');
     assert.ok(!instructions.includes('@gpt52'), 'should not hard-code gpt52');
   });
+
+  it('buildMcpCallbackInstructions uses teammate handle (not self) in @mention examples', async () => {
+    const { buildMcpCallbackInstructions } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const instructions = buildMcpCallbackInstructions({
+      apiUrl: 'http://127.0.0.1:3002',
+      currentCatId: 'opus',
+      teammates: ['codex'],
+    });
+
+    assert.ok(instructions.includes('@codex'), 'should use teammate handle as example');
+    assert.ok(!instructions.includes('@opus 请帮我 review'), 'should avoid self-mention example');
+  });
 });

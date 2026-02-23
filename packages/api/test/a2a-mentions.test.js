@@ -13,6 +13,12 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, ['codex']);
   });
 
+  it('accepts line-start @mention without a separating space (Chinese handle)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = parseA2AMentions('@缅因猫请 review 这段代码', 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+
   it('detects line-start @mention with leading whitespace', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('  @布偶猫 你觉得呢？', 'codex');
@@ -56,6 +62,12 @@ describe('parseA2AMentions', () => {
   it('matches English mention patterns', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@codex please review', 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+
+  it('accepts line-start @mention without a separating space (English handle + CJK)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = parseA2AMentions('@codex请看', 'opus');
     assert.deepEqual(result, ['codex']);
   });
 

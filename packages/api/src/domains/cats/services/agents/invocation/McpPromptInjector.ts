@@ -15,6 +15,16 @@ export interface McpCallbackOptions {
    * Must be routable (e.g. `@codex`, `@opus-45`), not a placeholder like `@catId`.
    */
   exampleHandle?: string;
+  /**
+   * Current cat id for choosing a non-self @mention example.
+   * When present with teammates, we will prefer a teammate handle in examples.
+   */
+  currentCatId?: string;
+  /**
+   * Teammate cat ids that are safe to demonstrate in @mention examples.
+   * Should NOT include the current cat id; if it does, it will be ignored.
+   */
+  teammates?: readonly string[];
 }
 
 /**
@@ -39,7 +49,11 @@ export function needsMcpInjection(mcpSupport: boolean): boolean {
  * - POST /api/callbacks/update-task     (auth in body)
  */
 export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
-  const exampleHandle = opts.exampleHandle ?? '@opus';
+  const exampleHandle = opts.exampleHandle
+    ?? (() => {
+      const teammate = opts.teammates?.find((id) => id && id !== opts.currentCatId);
+      return teammate ? `@${teammate}` : '@opus';
+    })();
   return `## 协作方式
 
 ### @队友（最常用！推荐方式）
