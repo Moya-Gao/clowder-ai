@@ -229,7 +229,7 @@ export async function assembleIncrementalContext(
   const unseen = await fetchAfterCursor(deps.messageStore, threadId, cursor, userId);
 
   // Debug mode: cats see all whispers (full transparency). Play mode: cats only see their own whispers.
-  const viewer = (thinkingMode ?? 'debug') === 'play'
+  const viewer = (thinkingMode ?? 'play') === 'play'
     ? { type: 'cat' as const, catId }
     : { type: 'user' as const };
   const relevant = unseen.filter((m) => {
@@ -240,7 +240,7 @@ export async function assembleIncrementalContext(
     // In play mode, hide other cats' stream (thinking) messages.
     // Legacy messages (no origin) are visible for backward compatibility —
     // all new writes are tagged, so untagged = legacy callback data.
-    if ((thinkingMode ?? 'debug') === 'play' && m.catId !== null && m.origin === 'stream') return false;
+    if ((thinkingMode ?? 'play') === 'play' && m.catId !== null && m.origin === 'stream') return false;
     return true;
   });
   const includesCurrentUserMessage = Boolean(

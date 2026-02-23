@@ -59,7 +59,7 @@ export async function* routeSerial(
     modeSystemPromptByCat,
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
-  const thinkingMode = options.thinkingMode ?? 'debug';
+  const thinkingMode = options.thinkingMode ?? 'play';
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 

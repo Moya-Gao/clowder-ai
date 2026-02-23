@@ -50,7 +50,7 @@ export async function* routeParallel(
     modeSystemPrompt,
     modeSystemPromptByCat,
   } = options;
-  const thinkingMode = options.thinkingMode ?? 'debug';
+  const thinkingMode = options.thinkingMode ?? 'play';
   const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 

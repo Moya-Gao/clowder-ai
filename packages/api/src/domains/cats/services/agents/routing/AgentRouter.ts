@@ -321,11 +321,12 @@ export class AgentRouter {
     const cleanMessage = stripIntentTags(message);
 
     // Fetch thread for thinkingMode + update lastActive
-    let legacyThinkingMode: 'debug' | 'play' = 'debug';
+    // Default to play mode when no threadStore is available: stream thinking stays isolated.
+    let legacyThinkingMode: 'debug' | 'play' = 'play';
     if (this.threadStore) {
       const thread = await this.threadStore.get(resolvedThreadId);
       if (thread) {
-        legacyThinkingMode = thread.thinkingMode ?? 'debug';
+        legacyThinkingMode = thread.thinkingMode ?? 'play';
       }
       await this.threadStore.updateLastActive(resolvedThreadId);
     }
@@ -387,11 +388,12 @@ export class AgentRouter {
     const cleanMessage = stripIntentTags(message);
 
     // Fetch thread for thinkingMode + update lastActive
-    let thinkingMode: 'debug' | 'play' = 'debug';
+    // Default to play mode when no threadStore is available: stream thinking stays isolated.
+    let thinkingMode: 'debug' | 'play' = 'play';
     if (this.threadStore) {
       const thread = await this.threadStore.get(threadId);
       if (thread) {
-        thinkingMode = thread.thinkingMode ?? 'debug';
+        thinkingMode = thread.thinkingMode ?? 'play';
       }
       await this.threadStore.updateLastActive(threadId);
     }
