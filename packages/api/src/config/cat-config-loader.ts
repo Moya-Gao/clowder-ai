@@ -149,6 +149,10 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
     for (const variant of breed.variants) {
       const isDefault = variant.id === breed.defaultVariantId;
       const catId = variant.catId ?? breed.catId;
+      const fallbackMentionPatterns = isDefault ? breed.mentionPatterns : [`@${catId}`];
+      const mentionPatterns = variant.mentionPatterns && variant.mentionPatterns.length > 0
+        ? variant.mentionPatterns
+        : fallbackMentionPatterns;
 
       // F32-b R3: catId uniqueness — duplicate is a hard error (startup failure)
       if (result[catId]) {
@@ -165,8 +169,7 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         ...(breed.nickname != null ? { nickname: breed.nickname } : {}),
         avatar: variant.avatar ?? breed.avatar,    // F32-b P4c: variant can override
         color: variant.color ?? breed.color,        // F32-b P4c: variant can override
-        mentionPatterns: variant.mentionPatterns
-          ?? (isDefault ? breed.mentionPatterns : [`@${catId}`]),
+        mentionPatterns,
         provider: variant.provider,
         defaultModel: variant.defaultModel,
         mcpSupport: variant.mcpSupport,

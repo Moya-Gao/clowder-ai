@@ -394,6 +394,23 @@ describe('F32-b: toAllCatConfigs (multi-variant)', () => {
     assert.deepEqual(all['opus-haiku'].mentionPatterns, ['@opus-haiku']);
   });
 
+  it('non-default variant with explicit empty mentionPatterns still gets @catId fallback', () => {
+    const cfg = multiVariantConfig();
+    cfg.breeds[0].variants.push({
+      id: 'opus-haiku-empty',
+      catId: 'opus-haiku-empty',
+      mentionPatterns: [],
+      provider: 'anthropic',
+      defaultModel: 'claude-haiku-4-5-20251001',
+      mcpSupport: false,
+      cli: { command: 'claude', outputFormat: 'stream-json' },
+      personality: '简洁',
+    });
+    const config = loadCatConfig(writeTempConfig(cfg));
+    const all = toAllCatConfigs(config);
+    assert.deepEqual(all['opus-haiku-empty'].mentionPatterns, ['@opus-haiku-empty']);
+  });
+
   it('variant overrides displayName', () => {
     const config = loadCatConfig(writeTempConfig(multiVariantConfig()));
     const all = toAllCatConfigs(config);

@@ -4,10 +4,11 @@
  *
  * 规则 (缅因猫 P1-3 + F27 multi-mention):
  * 1. 剥离围栏代码块 (```...```) 后再解析
- * 2. 行首匹配 (^\s*@猫名, 多行模式)
- * 3. 过滤自调用
- * 4. F27: 返回所有匹配的猫 (上限 MAX_A2A_MENTION_TARGETS)
- * 5. 只在猫回复完整结束后解析 (由调用方保证)
+ * 2. 仅匹配行首 mention（可带前导空白）
+ * 3. 长匹配优先 + token boundary，避免 `@opus-45` 误命中 `@opus`
+ * 4. 过滤自调用
+ * 5. F27: 返回所有匹配的猫 (上限 MAX_A2A_MENTION_TARGETS)
+ * 6. 只在猫回复完整结束后解析 (由调用方保证)
  */
 
 import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
@@ -20,6 +21,12 @@ export function getMaxA2ADepth(): number {
 
 /** Max number of distinct cats a single message can @mention (F27 safety limit) */
 const MAX_A2A_MENTION_TARGETS = 2;
+const TOKEN_BOUNDARY_RE = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
+
+interface MentionPatternEntry {
+  readonly catId: CatId;
+  readonly pattern: string;
+}
 
 /**
  * Parse A2A @mentions from cat response text.
@@ -31,27 +38,44 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
   // 1. Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
 
-  // 2. Line-start matching across all cats
-  const found: CatId[] = [];
-
   // F32-a: prefer catRegistry, fallback to static CAT_CONFIGS
   const allConfigs = Object.keys(catRegistry.getAllConfigs()).length > 0
     ? catRegistry.getAllConfigs()
     : CAT_CONFIGS;
 
+  // 2. Build patterns and sort longest-first to avoid prefix collisions
+  const entries: MentionPatternEntry[] = [];
   for (const [id, config] of Object.entries(allConfigs)) {
-    if (id === currentCatId) continue; // 3. Filter self
-    if (found.length >= MAX_A2A_MENTION_TARGETS) break; // 4. Safety limit
-
+    if (id === currentCatId) continue; // 4. Filter self
     for (const pattern of config.mentionPatterns) {
-      // mentionPatterns already include @ prefix (e.g. '@opus', '@布偶猫')
-      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      if (new RegExp(`^\\s*${escaped}`, 'mi').test(stripped)) {
-        if (!found.includes(id as CatId)) {
-          found.push(id as CatId);
-        }
-        break; // One match per cat is enough
+      entries.push({ catId: id as CatId, pattern: pattern.toLowerCase() });
+    }
+  }
+  entries.sort((a, b) => b.pattern.length - a.pattern.length);
+
+  // 3. Line-start matching with token boundary (one winning pattern per line)
+  const found: CatId[] = [];
+  const seen = new Set<string>();
+  const lines = stripped.split(/\r?\n/);
+  for (const rawLine of lines) {
+    if (found.length >= MAX_A2A_MENTION_TARGETS) break; // 5. Safety limit
+
+    const leadingWs = rawLine.match(/^\s*/)?.[0].length ?? 0;
+    const normalized = rawLine.slice(leadingWs).toLowerCase();
+    if (!normalized.startsWith('@')) {
+      continue;
+    }
+
+    for (const entry of entries) {
+      if (!normalized.startsWith(entry.pattern)) continue;
+      const charAfter = normalized[entry.pattern.length];
+      const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter);
+      if (!isBoundary) continue;
+      if (!seen.has(entry.catId)) {
+        seen.add(entry.catId);
+        found.push(entry.catId);
       }
+      break; // longest-match-first: lock one winner for this line
     }
   }
 
