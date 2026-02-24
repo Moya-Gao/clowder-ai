@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-24 (F-BLOAT token optimization)
+> 维护者：布偶猫 | 最后更新：2026-02-23 (#92 Skills Lifecycle Hardening)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -122,6 +122,7 @@
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
+| 92 | **Skills Lifecycle Hardening（发布流程补全）** | [~] | [设计文档](./plans/2026-02-23-skills-lifecycle-hardening.md) | (M1) 挂载 `using-rich-blocks` 三猫 symlink；(M2) `writing-skills` 补 Cat Café 发布 Checklist；(M3) `check:skills` 双向校验（源目录 ↔ BOOTSTRAP.md）。Skills 是协作灵魂，发布流程不完整会导致 skill 写了但猫猫看不到。 |
 | 91 | **ContextAssembler 截断丢失消息结尾关键信息** | [ ] | [bug report](./bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md) | **两个截断站点**：(1) 增量路径 `route-helpers.ts:269` 硬编码 `truncate: 2000`，绕过 cat budget 的 `maxContentLengthPerMsg: 10000`；(2) `ContextAssembler.ts:34` DEFAULT 1500 chars fallback。截断策略 `slice(0, N)` 保留开头丢弃结尾，但结论/交接/review 请求通常在结尾。**修复方向**：(A) 增量路径读 cat budget 而非硬编码；(B) 首尾保留 + 截断标记；(C) 结构感知截断（识别交接五件套、review 请求、改动清单等关键段落优先保留）。2026-02-24 铲屎官+布偶猫+缅因猫确认是 bug。 |
 
 ## Feature Requests — 新功能需求
