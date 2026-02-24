@@ -64,7 +64,7 @@ PR #63 (F-BLOAT token optimization) 为了"渐进式披露"创建了：
 ## 不做的事
 
 - 不删除 `using-rich-blocks/SKILL.md`（已有，保留）
-- 不改 `callback-docs-routes.ts`（endpoint 保留作 fallback）
+- ~~不改 `callback-docs-routes.ts`~~ → R1 review 修正：endpoint 改为直接读取 `SKILL.md` 文件内容返回，避免"fallback 指向 skill → skill 不可用 → fallback 失效"的循环依赖
 - 不改 MCP tool `cat_cafe_get_rich_block_rules`（保留作 fallback）
 
 ## 验证标准

@@ -69,9 +69,9 @@ export async function* routeParallel(
 	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
 	    });
 	    // Inject MCP HTTP callback instructions for non-Claude cats
-	    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
+	    // Skills-as-SOT: single minimal form — full docs in using-mcp-callbacks skill
+	    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false)
 	      ? buildMcpCallbackInstructions({
-	        apiUrl: deps.invocationDeps.apiUrl,
 	        currentCatId: catId as string,
 	        teammates: teammates.map((id) => id as string),
 	      })

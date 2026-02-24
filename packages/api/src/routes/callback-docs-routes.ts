@@ -1,37 +1,56 @@
 /**
  * Callback Documentation Routes
- * F-BLOAT: On-demand progressive disclosure endpoints for MCP callback API
- * reference and rich block usage rules.
+ * On-demand fallback endpoints for MCP callback API reference and rich block
+ * usage rules. Primary source of truth is in cat-cafe-skills/ (Skills system).
  *
  * These endpoints are unauthenticated — they serve static documentation
- * that is safe to expose. Cats call these on their first turn to get
- * full API docs, instead of receiving them injected into every prompt.
+ * that is safe to expose. Kept as fallback for when skills are not readable.
  */
 
+import { readFile } from 'node:fs/promises';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { FastifyPluginAsync } from 'fastify';
 import { RICH_BLOCK_RULES } from '../domains/cats/services/context/rich-block-rules.js';
-import { buildMcpCallbackInstructions } from '../domains/cats/services/agents/invocation/McpPromptInjector.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+/** Strip YAML frontmatter (between --- delimiters) from markdown content. */
+function stripFrontmatter(content: string): string {
+  const match = content.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n/);
+  return match ? content.slice(match[0].length).trimStart() : content;
+}
 
 /**
- * Register documentation endpoints for progressive disclosure.
+ * Resolve path to a skill file relative to project root.
+ * Works from both packages/api/src and packages/api/dist.
+ */
+function skillPath(skillName: string): string {
+  // From packages/api/src/routes/ → go up 4 levels to project root
+  return resolve(__dirname, '..', '..', '..', '..', 'cat-cafe-skills', skillName, 'SKILL.md');
+}
+
+/**
+ * Register documentation endpoints (fallback for Skills system).
  * No auth required — these return static reference text.
  */
 export const registerCallbackDocsRoutes: FastifyPluginAsync = async (app) => {
-  // Rich block usage rules (progressive disclosure for both Claude MCP and Codex/Gemini HTTP)
+  // Rich block usage rules
   app.get('/api/callbacks/rich-block-rules', async (_request, reply) => {
     reply.header('cache-control', 'public, max-age=3600');
     return { rules: RICH_BLOCK_RULES };
   });
 
-  // Full MCP callback API reference (progressive disclosure for Codex/Gemini)
-  app.get('/api/callbacks/instructions', async (request, reply) => {
-    const apiUrl = process.env['CAT_CAFE_API_URL']
-      ?? `${request.protocol}://${request.headers.host ?? 'localhost:3002'}`;
-    const instructions = buildMcpCallbackInstructions({
-      apiUrl,
-      exampleHandle: '@opus',
-    });
-    reply.header('cache-control', 'public, max-age=3600');
-    return { instructions };
+  // MCP callback instructions — reads skill file directly (true SOT fallback)
+  app.get('/api/callbacks/instructions', async (_request, reply) => {
+    try {
+      const raw = await readFile(skillPath('using-mcp-callbacks'), 'utf-8');
+      const instructions = stripFrontmatter(raw);
+      reply.header('cache-control', 'public, max-age=3600');
+      return { instructions };
+    } catch {
+      reply.code(503);
+      return { error: 'Skill file not readable. Ensure cat-cafe-skills/using-mcp-callbacks/SKILL.md exists.' };
+    }
   });
 };

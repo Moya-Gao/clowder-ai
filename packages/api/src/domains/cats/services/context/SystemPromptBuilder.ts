@@ -113,8 +113,8 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 /**
- * F-BLOAT: MCP tools section condensed — full rich block rules moved to
- * rich-block-rules.ts and served on-demand via MCP tool / HTTP endpoint.
+ * Skills-as-source-of-truth: MCP tools section is minimal.
+ * Full specs live in cat-cafe-skills/ (using-rich-blocks, using-mcp-callbacks).
  */
 const MCP_TOOLS_SECTION = `
 ⚠️ **@队友的正确方式**：直接在回复文本里另起一行、行首写 \`@猫名\`（免费、永不过期）。
@@ -126,10 +126,10 @@ const MCP_TOOLS_SECTION = `
 - cat_cafe_get_thread_context: 获取当前对话上下文
 - cat_cafe_update_task: 更新自己负责的任务状态
 - cat_cafe_create_rich_block: 创建富消息块（card/diff/checklist/media_gallery/audio）
-- cat_cafe_get_rich_block_rules: 获取富消息块完整使用规范（首次使用前调用）
+- cat_cafe_get_rich_block_rules: 获取富消息块完整使用规范（skill 不可用时的 fallback）
 
 ${RICH_BLOCK_SHORT}
-无 MCP 的猫也可通过 GET /api/callbacks/rich-block-rules 获取同等规范。`;
+首次使用富消息块前，加载 \`using-rich-blocks\` skill 查阅完整规范。`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

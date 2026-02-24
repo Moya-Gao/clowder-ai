@@ -1,8 +1,8 @@
 /**
  * MCP Prompt Injection E2E Integration Test
- * 验证: 注入的 curl 指令模板 + 真实凭证 → 回调端点成功响应
+ * 验证: 注入的 skill 引用 + 真实凭证 → 回调端点成功响应
  *
- * 模拟场景: Codex/Gemini 收到注入的 HTTP callback 指令后，
+ * 模拟场景: Codex/Gemini 通过 using-mcp-callbacks skill 获取 curl 模板后，
  * 用 invokeSingleCat 设置的 env vars 构造请求 → 全部 200/正确数据。
  */
 
@@ -11,16 +11,16 @@ import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
 const { InvocationRegistry } = await import(
-  '../../dist/domains/cats/services/InvocationRegistry.js'
+  '../../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
 );
 const { MessageStore } = await import(
-  '../../dist/domains/cats/services/MessageStore.js'
+  '../../dist/domains/cats/services/stores/ports/MessageStore.js'
 );
 const { TaskStore } = await import(
-  '../../dist/domains/cats/services/TaskStore.js'
+  '../../dist/domains/cats/services/stores/ports/TaskStore.js'
 );
 const { buildMcpCallbackInstructions, needsMcpInjection } = await import(
-  '../../dist/domains/cats/services/McpPromptInjector.js'
+  '../../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
 );
 const { callbacksRoutes } = await import('../../dist/routes/callbacks.js');
 
@@ -56,13 +56,11 @@ describe('MCP Prompt Injection E2E', () => {
     // 1. Verify cat without native MCP needs injection
     assert.equal(needsMcpInjection(false), true);
 
-    // 2. Build instructions (same as route-strategies does)
-    const instructions = buildMcpCallbackInstructions({
-      apiUrl: 'http://127.0.0.1:3002',
-    });
+    // 2. Build instructions (same as route-serial does)
+    const instructions = buildMcpCallbackInstructions({});
 
-    // 3. Verify the instructions reference the correct endpoint
-    assert.ok(instructions.includes('/api/callbacks/post-message'));
+    // 3. Verify the instructions reference the tool name (skill-based, no inline URLs)
+    assert.ok(instructions.includes('post-message'));
 
     // 4. Create real credentials (same as invokeSingleCat does)
     const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-e2e');
@@ -101,11 +99,9 @@ describe('MCP Prompt Injection E2E', () => {
 
     const { invocationId, callbackToken } = registry.create('user-1', 'gemini', 'thread-e2e');
 
-    // Verify instructions reference correct endpoint
-    const instructions = buildMcpCallbackInstructions({
-      apiUrl: 'http://127.0.0.1:3002',
-    });
-    assert.ok(instructions.includes('/api/callbacks/thread-context'));
+    // Verify instructions reference the tool name (skill-based)
+    const instructions = buildMcpCallbackInstructions({});
+    assert.ok(instructions.includes('thread-context'));
 
     // Simulate Gemini calling GET thread-context with query params
     const response = await app.inject({
@@ -122,10 +118,8 @@ describe('MCP Prompt Injection E2E', () => {
   test('injected pending-mentions endpoint succeeds with real credentials', async () => {
     const { invocationId, callbackToken } = registry.create('user-1', 'codex', 'thread-e2e');
 
-    const instructions = buildMcpCallbackInstructions({
-      apiUrl: 'http://127.0.0.1:3002',
-    });
-    assert.ok(instructions.includes('/api/callbacks/pending-mentions'));
+    const instructions = buildMcpCallbackInstructions({});
+    assert.ok(instructions.includes('pending-mentions'));
 
     const response = await app.inject({
       method: 'GET',
@@ -149,10 +143,8 @@ describe('MCP Prompt Injection E2E', () => {
       ownerCatId: 'gemini',
     });
 
-    const instructions = buildMcpCallbackInstructions({
-      apiUrl: 'http://127.0.0.1:3002',
-    });
-    assert.ok(instructions.includes('/api/callbacks/update-task'));
+    const instructions = buildMcpCallbackInstructions({});
+    assert.ok(instructions.includes('update-task'));
 
     const response = await app.inject({
       method: 'POST',

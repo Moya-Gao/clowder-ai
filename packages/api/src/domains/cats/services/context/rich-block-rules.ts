@@ -5,11 +5,12 @@
  * McpPromptInjector.buildMcpCallbackInstructions to avoid duplicating
  * ~950 chars in every single invocation prompt.
  *
- * Full rules are served on-demand via:
- *   - MCP tool: cat_cafe_get_rich_block_rules (Claude subprocess)
- *   - HTTP endpoint: GET /api/callbacks/rich-block-rules (Codex/Gemini)
+ * Full rules available via (in priority order):
+ *   1. Skill: cat-cafe-skills/using-rich-blocks/SKILL.md (primary SOT)
+ *   2. MCP tool: cat_cafe_get_rich_block_rules (fallback for Claude)
+ *   3. HTTP endpoint: GET /api/callbacks/rich-block-rules (fallback for Codex/Gemini)
  *
- * System prompts now contain only a short reference.
+ * System prompts contain only a short reference.
  */
 
 export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平衡）
@@ -54,10 +55,9 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
 
 /**
  * Condensed rich block reference for injection into system prompts.
- * Full rules available via cat_cafe_get_rich_block_rules MCP tool or
- * GET /api/callbacks/rich-block-rules HTTP endpoint.
+ * Full rules: load `using-rich-blocks` skill (primary).
+ * Fallback: MCP tool `cat_cafe_get_rich_block_rules` or HTTP endpoint.
  */
 export const RICH_BLOCK_SHORT = `富消息块：结构化信息用富块，普通对话不用。先写 1-2 句摘要再发。
 ⚠️ 字段名是 "kind"（不是 "type"！），必须有 "v": 1 和唯一 id。
-支持: card / diff / checklist / media_gallery / audio。
-首次使用前调用 cat_cafe_get_rich_block_rules 查阅完整规范。`;
+支持: card / diff / checklist / media_gallery / audio。`;
