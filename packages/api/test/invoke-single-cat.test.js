@@ -669,6 +669,57 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(sessionStores.includes('new-sess'), 'new session should be stored after recovery');
   });
 
+  it('F-BLOAT cloud P1: self-heal retry re-injects systemPrompt when session drops', async () => {
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'opus',
+            error: 'No conversation found with session ID: stale-sess',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'session_init', catId: 'opus', sessionId: 'fresh-sess', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'recovered', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'stale-sess',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      systemPrompt: 'You are a helpful cat',
+      userId: 'u1',
+      threadId: 'thread-selfheal-prompt',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2, 'should retry once');
+    // First attempt: resume → systemPrompt skipped (canSkipOnResume + isResume)
+    assert.equal(optionsSeen[0].sessionId, 'stale-sess', 'first attempt is resume');
+    assert.equal(optionsSeen[0].systemPrompt, undefined,
+      'first attempt (resume) skips systemPrompt');
+    // Second attempt: session dropped → fresh start → systemPrompt MUST be present
+    assert.equal(optionsSeen[1].sessionId, undefined, 'retry drops session');
+    assert.equal(optionsSeen[1].systemPrompt, 'You are a helpful cat',
+      'F-BLOAT cloud P1: self-heal retry must re-inject systemPrompt');
+  });
+
   it('session self-heal: does not retry on non-session errors', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];
@@ -1179,6 +1230,169 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }));
 
     assert.equal(sessionRecordCreated, true, 'should create SessionRecord when sessionChain enabled');
+  });
+
+  // --- F-BLOAT: Resume skips systemPrompt injection ---
+
+  it('F-BLOAT: skips systemPrompt on resume (sessionId present)', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'existing-sess',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      systemPrompt: 'You are a cat',
+      userId: 'u1',
+      threadId: 'thread-bloat-resume',
+      isLastCat: true,
+    }));
+
+    assert.equal(optionsSeen[0].sessionId, 'existing-sess', 'should resume');
+    assert.equal(optionsSeen[0].systemPrompt, undefined,
+      'F-BLOAT: systemPrompt should NOT be passed on resume');
+  });
+
+  it('F-BLOAT: injects systemPrompt on new session (no sessionId)', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => undefined,
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus',
+      service,
+      prompt: 'test',
+      systemPrompt: 'You are a cat',
+      userId: 'u1',
+      threadId: 'thread-bloat-new',
+      isLastCat: true,
+    }));
+
+    assert.equal(optionsSeen[0].sessionId, undefined, 'no resume for new session');
+    assert.equal(optionsSeen[0].systemPrompt, 'You are a cat',
+      'F-BLOAT: systemPrompt should be passed on new session');
+  });
+
+  it('F-BLOAT P1: Gemini (sessionChain=false) always injects systemPrompt even on resume', async () => {
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        yield { type: 'text', catId: 'gemini', content: 'hi', timestamp: Date.now() };
+        yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'gemini-sess-123',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      systemPrompt: 'You are a Siamese cat',
+      userId: 'u1',
+      threadId: 'thread-bloat-gemini',
+      isLastCat: true,
+    }));
+
+    // Even though sessionId exists (resume), Gemini has sessionChain=false
+    // so systemPrompt must ALWAYS be injected (R1 P1 fix)
+    assert.equal(optionsSeen[0].systemPrompt, 'You are a Siamese cat',
+      'F-BLOAT P1: Gemini must always get systemPrompt (sessionChain=false)');
+  });
+
+  it('F-BLOAT: compression detection flags re-injection when tokens drop >60%', async () => {
+    // Reset compression detection state
+    const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
+    mod._resetCompressionDetection();
+
+    const optionsSeen = [];
+    let callNum = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        callNum++;
+        yield { type: 'session_init', catId: 'codex', sessionId: 'sess-compress', timestamp: Date.now() };
+        yield { type: 'text', catId: 'codex', content: `answer-${callNum}`, timestamp: Date.now() };
+        yield {
+          type: 'done', catId: 'codex', timestamp: Date.now(),
+          metadata: {
+            provider: 'openai', model: 'gpt-5.3-codex',
+            usage: {
+              inputTokens: callNum === 1 ? 60000 : 15000,
+              outputTokens: 1000,
+              contextWindowSize: 128000,
+            },
+          },
+        };
+      },
+    };
+
+    let stored = 'sess-compress';
+    const deps = {
+      ...makeDeps(),
+      sessionManager: {
+        get: async () => stored,
+        store: async (_u, _c, _t, sid) => { stored = sid; },
+        delete: async () => { stored = undefined; },
+      },
+    };
+
+    // Turn 1: 60k tokens — establishes baseline
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex', service, prompt: 'test1', systemPrompt: 'Identity prompt',
+      userId: 'u1', threadId: 'thread-compress', isLastCat: true,
+    }));
+
+    // Turn 2: 15k tokens (75% drop) — should flag re-injection for NEXT turn
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex', service, prompt: 'test2', systemPrompt: 'Identity prompt',
+      userId: 'u1', threadId: 'thread-compress', isLastCat: true,
+    }));
+
+    // Turn 3: should have forceReinjection=true → systemPrompt injected despite resume
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex', service, prompt: 'test3', systemPrompt: 'Identity prompt',
+      userId: 'u1', threadId: 'thread-compress', isLastCat: true,
+    }));
+
+    // Turn 1: new session → systemPrompt injected
+    // Turn 2: resume → systemPrompt skipped (compression detected AFTER this turn)
+    // Turn 3: resume + forceReinjection → systemPrompt re-injected
+    assert.equal(optionsSeen[2].systemPrompt, 'Identity prompt',
+      'F-BLOAT: systemPrompt should be re-injected after compression detection');
+
+    mod._resetCompressionDetection();
   });
 
   it('session self-heal: retries at most once and surfaces error when retry still fails', async () => {

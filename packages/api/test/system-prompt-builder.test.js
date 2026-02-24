@@ -166,7 +166,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 2000 chars', async () => {
+  test('output size is under 1400 chars (F-BLOAT: tightened from 2000)', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -175,10 +175,11 @@ describe('SystemPromptBuilder', () => {
       chainTotal: 3,
       teammates: ['codex', 'gemini'],
       mcpAvailable: true,
+      promptTags: ['critique'],
     });
     assert.ok(
-      prompt.length < 2000,
-      `Prompt is ${prompt.length} chars, expected < 2000`
+      prompt.length < 1400,
+      `Prompt is ${prompt.length} chars, expected < 1400`
     );
   });
 

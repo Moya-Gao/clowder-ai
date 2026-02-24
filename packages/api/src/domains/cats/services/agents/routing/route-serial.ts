@@ -13,7 +13,7 @@
 import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, CatConfig } from '@cat-cafe/shared';
 import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
-import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
+import { needsMcpInjection, buildMcpCallbackInstructions, buildMcpCallbackInstructionsShort } from '../invocation/McpPromptInjector.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
@@ -95,7 +95,7 @@ export async function* routeSerial(
     // Build identity: static goes via systemPrompt option, dynamic goes in -p content
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const staticIdentity = buildStaticIdentity(catId);
-    const teammates = worklist.filter((id) => id !== catId);
+    const teammates = [...new Set(worklist.filter((id) => id !== catId))];
     const invocationContext = buildInvocationContext({
       catId,
       mode: worklist.length > 1 ? 'serial' : 'independent',
@@ -107,13 +107,23 @@ export async function* routeSerial(
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
     });
     // Inject MCP HTTP callback instructions for non-Claude cats
-    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl
-      ? buildMcpCallbackInstructions({
+    // F-BLOAT: Use short form on resume (existing session), full form on new session
+    let mcpInstructions = '';
+    if (needsMcpInjection(catConfig?.mcpSupport ?? false) && deps.invocationDeps.apiUrl) {
+      const mcpOpts = {
         apiUrl: deps.invocationDeps.apiUrl,
         currentCatId: catId as string,
         teammates: teammates.map((id) => id as string),
-      })
-      : '';
+      };
+      let isNewSession = true;
+      try {
+        const existingSessionId = await deps.invocationDeps.sessionManager.get(userId, catId, threadId);
+        isNewSession = !existingSessionId;
+      } catch { /* Redis failure → assume new session → full form (safe default) */ }
+      mcpInstructions = isNewSession
+        ? buildMcpCallbackInstructions(mcpOpts)
+        : buildMcpCallbackInstructionsShort(mcpOpts);
+    }
 
     // F24 Phase E: Bootstrap context for Session #2+
     let bootstrapContext = '';

@@ -7,6 +7,7 @@
 
 import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, CatConfig } from '@cat-cafe/shared';
+import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
 
 /**
  * Context for a single cat invocation
@@ -111,6 +112,10 @@ const PROVIDER_LABELS: Record<string, string> = {
   google: 'Google',
 };
 
+/**
+ * F-BLOAT: MCP tools section condensed — full rich block rules moved to
+ * rich-block-rules.ts and served on-demand via MCP tool / HTTP endpoint.
+ */
 const MCP_TOOLS_SECTION = `
 ⚠️ **@队友的正确方式**：直接在回复文本里另起一行、行首写 \`@猫名\`（免费、永不过期）。
 下面的 MCP 工具用于**异步中途汇报**等高级场景，token 有生命周期限制。
@@ -120,45 +125,11 @@ const MCP_TOOLS_SECTION = `
 - cat_cafe_get_pending_mentions: 获取待处理的 @提及
 - cat_cafe_get_thread_context: 获取当前对话上下文
 - cat_cafe_update_task: 更新自己负责的任务状态
-- cat_cafe_create_rich_block: 创建富消息块（卡片/diff/检查表/图库），用于展示结构化信息
+- cat_cafe_create_rich_block: 创建富消息块（card/diff/checklist/media_gallery/audio）
+- cat_cafe_get_rich_block_rules: 获取富消息块完整使用规范（首次使用前调用）
 
-### 富消息块使用规则（B 风格：平衡）
-
-**核心原则**：结构化信息默认用富块，普通对话不用。先写 1-2 句自然语言摘要，再发富块。
-
-**何时使用**（默认触发）：
-- **card** (tone: info/success/warning/danger)
-  - review 结论（P1/P2 列表 + 放行/阻塞决策）
-  - 任务/阶段状态报告（当前进度、关键指标）
-  - 决策摘要（What/Why/Tradeoff）
-  - 游戏状态面板（角色信息、回合状态）
-- **diff**
-  - 代码修改建议（具体的补丁片段）
-  - 重构前后对比
-- **checklist**
-  - 待办事项 / 下一步行动
-  - review 要点清单
-  - 验证步骤 / 测试计划
-- **media_gallery**
-  - 截图、设计稿展示
-  - 多图对比
-- **audio**（语音消息 — 你"说出来"的话）
-  - 打招呼、表达情感、庆祝、鼓励
-  - 只填 \`text\`，系统会自动合成语音
-  - 不要每条消息都发语音，只在你觉得"说出来比打字更好"时用
-
-**何时不用**（保持纯文本）：
-- 技术讨论、长篇回复
-- 提问和讨论（除非需要结构化选项）
-- 不确定用哪种 → 不用
-
-**字段要求**（⚠️ 注意 kind 不是 type！）：
-- 每个 block 必须有 \`"kind"\`（不是 \`"type"\`！）和 \`"v": 1\`，以及唯一 \`id\`
-- card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
-- diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
-- checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
-- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
-- audio: \`text\` 必填（你想说的话，简短口语化，1-2 句）`;
+${RICH_BLOCK_SHORT}
+无 MCP 的猫也可通过 GET /api/callbacks/rich-block-rules 获取同等规范。`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

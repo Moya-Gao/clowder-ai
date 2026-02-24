@@ -81,3 +81,9 @@ export {
   handleSignalSummarize,
   signalsTools,
 } from './signals-tools.js';
+
+export {
+  richBlockRulesInputSchema,
+  handleGetRichBlockRules,
+  richBlockRulesTools,
+} from './rich-block-rules-tool.js';

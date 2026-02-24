@@ -26,6 +26,24 @@ import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.j
 import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
 
 /**
+ * F-BLOAT: Context compression detection for non-Claude providers (Codex/Gemini).
+ *
+ * Track last known context fill per cat:thread. When usedTokens drops >60%
+ * between turns, mark for systemPrompt re-injection on the next invocation.
+ * This handles the edge case where auto-compact fires before our seal threshold.
+ *
+ * Note: module-level state — lost on server restart (acceptable, seal handles 95% of cases).
+ */
+const _prevContextFill = new Map<string, number>();
+const _needsReinjection = new Set<string>();
+
+/** @internal Exposed for testing */
+export function _resetCompressionDetection(): void {
+  _prevContextFill.clear();
+  _needsReinjection.clear();
+}
+
+/**
  * Shared dependencies for all cat invocations within one AgentRouter
  */
 export interface InvocationDeps {
@@ -169,6 +187,19 @@ export async function* invokeSingleCat(
       }
     }
 
+    // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats
+    // that support persistent sessions (sessionChain=true):
+    //   Claude: --append-system-prompt writes to session's system prompt slot (survives compression)
+    //   Codex:  systemPrompt prepended at session creation (in session history)
+    // Cats with sessionChain=false (e.g. Gemini) always need systemPrompt because they
+    // have no reliable resume — each turn is effectively a new session.
+    // Exception: compression detected → force re-inject (see _needsReinjection)
+    const isResume = !!sessionId;
+    const canSkipOnResume = isSessionChainEnabled(catId);
+    const compressionKey = `${userId}:${catId as string}:${threadId}`;
+    const forceReinjection = _needsReinjection.delete(compressionKey);
+    const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
+
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
       auditContext: {
@@ -181,7 +212,7 @@ export async function* invokeSingleCat(
       ...(params.contentBlocks ? { contentBlocks: params.contentBlocks } : {}),
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
-      ...(params.systemPrompt ? { systemPrompt: params.systemPrompt } : {}),
+      ...(injectSystemPrompt && params.systemPrompt ? { systemPrompt: params.systemPrompt } : {}),
     };
 
     let lastErrorMessage: string | undefined;
@@ -345,6 +376,15 @@ export async function* invokeSingleCat(
                   }
                 } catch { /* best-effort */ }
               }
+              // F-BLOAT: Detect context compression for re-injection on next turn.
+              // When usedTokens drops >60% from previous known value, the CLI
+              // auto-compacted its context. Flag for systemPrompt re-injection.
+              const cKey = `${userId}:${catId as string}:${threadId}`;
+              const prevFill = _prevContextFill.get(cKey);
+              _prevContextFill.set(cKey, usedTokens);
+              if (prevFill && usedTokens < prevFill * 0.4) {
+                _needsReinjection.add(cKey);
+              }
               outputs.push({
                 type: 'system_info' as const,
                 catId,
@@ -507,6 +547,12 @@ export async function* invokeSingleCat(
           // Redis delete failure — best-effort only
         }
         sessionId = undefined;
+        // F-BLOAT P1: self-heal drops session → retry is now a fresh session.
+        // Must re-inject systemPrompt since baseOptions may have omitted it
+        // when the original attempt was a resume (injectSystemPrompt=false).
+        if (params.systemPrompt && !baseOptions.systemPrompt) {
+          baseOptions.systemPrompt = params.systemPrompt;
+        }
         allowSessionRetry = false;
         continue;
       }

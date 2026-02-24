@@ -3,9 +3,11 @@
  * 给没有原生 MCP 支持的猫 (Codex/Gemini) 注入 HTTP callback 指令。
  * Claude 通过 --mcp-config 原生支持 MCP，不需要注入。
  *
- * 注入后，猫可以通过 curl 调用 post-message / thread-context / pending-mentions / update-task。
- * 凭证来自环境变量 CAT_CAFE_INVOCATION_ID + CAT_CAFE_CALLBACK_TOKEN (由 invokeSingleCat 设置)。
- * 风险: Codex/Gemini 的沙箱可能阻止 curl 出站调用，但注入本身无害。
+ * F-BLOAT: Split into full (first turn) and short (resume) forms.
+ * - Full: complete curl examples for all endpoints (~3100 chars)
+ * - Short: @teammate rules + tool list + credential refs (~400 chars)
+ *
+ * Full API reference also served on-demand via GET /api/callbacks/instructions
  */
 
 export interface McpCallbackOptions {
@@ -36,24 +38,44 @@ export function needsMcpInjection(mcpSupport: boolean): boolean {
   return !mcpSupport;
 }
 
-/**
- * Generate MCP callback instructions for cats without native MCP support.
- *
- * Credentials reference env vars ($CAT_CAFE_INVOCATION_ID, $CAT_CAFE_CALLBACK_TOKEN)
- * which are set by invokeSingleCat when spawning the CLI subprocess.
- *
- * Endpoint paths match the actual routes in callbacks.ts:
- * - POST /api/callbacks/post-message    (auth in body)
- * - GET  /api/callbacks/thread-context  (auth in query)
- * - GET  /api/callbacks/pending-mentions (auth in query)
- * - POST /api/callbacks/update-task     (auth in body)
- */
-export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
-  const exampleHandle = opts.exampleHandle
+function resolveExampleHandle(opts: McpCallbackOptions): string {
+  return opts.exampleHandle
     ?? (() => {
       const teammate = opts.teammates?.find((id) => id && id !== opts.currentCatId);
       return teammate ? `@${teammate}` : '@opus';
     })();
+}
+
+/**
+ * F-BLOAT: Short-form MCP callback instructions for resume turns.
+ * Only @teammate rules + tool list + credential reference.
+ * Full API docs available via GET /api/callbacks/instructions.
+ */
+export function buildMcpCallbackInstructionsShort(opts: McpCallbackOptions): string {
+  const exampleHandle = resolveExampleHandle(opts);
+  return `## 协作方式
+
+### @队友（最常用！推荐方式）
+想 @其他猫？**直接在你的回复文本里另起一行、行首写 \`@猫名\`**。
+系统会自动检测并触发 A2A 协作，免费、永不过期。
+同族多分身时用**唯一句柄**（例如 \`${exampleHandle}\`）避免歧义。
+✅ 正确：回复末尾另起一行写 \`${exampleHandle} 请帮我 review\`
+❌ 错误：用 curl 调 post-message 只是为了 @ 队友（token 会过期！）
+
+### HTTP 回调工具（异步场景）
+凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`（环境变量）
+可用工具: post-message / thread-context / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
+完整 API 文档: \`curl ${opts.apiUrl}/api/callbacks/instructions\`
+
+注意: 只在需要异步协作时使用。普通回复直接输出即可。`;
+}
+
+/**
+ * Full-form MCP callback instructions (first turn of session).
+ * Includes complete curl examples for all endpoints.
+ */
+export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
+  const exampleHandle = resolveExampleHandle(opts);
   return `## 协作方式
 
 ### @队友（最常用！推荐方式）
@@ -159,47 +181,9 @@ curl -sS -X POST ${opts.apiUrl}/api/callbacks/create-rich-block \\
     '{invocationId:$i,callbackToken:$t,block:{id:"b1",kind:"card",v:1,title:"标题",bodyMarkdown:"内容",tone:"info"}}')"
 \`\`\`
 ⚠️ 字段名是 "kind"（不是 "type"！），必须有 "v": 1。
-支持的 kind: card（卡片）、diff（代码变更）、checklist（检查清单）、media_gallery（图片集）。
-当 HTTP 回调不可用时，可在回复中嵌入文本格式的富消息块作为备选：
-\\\`\\\`\\\`cc_rich
-{"v":1,"blocks":[{"id":"b1","kind":"card","v":1,"title":"标题","tone":"info"}]}
-\\\`\\\`\\\`
-
-### 富消息块使用规则（B 风格：平衡）
-
-**核心原则**：结构化信息默认用富块，普通对话不用。先写 1-2 句自然语言摘要，再发富块。
-
-**何时使用**（默认触发）：
-- **card** (tone: info/success/warning/danger)
-  - review 结论（P1/P2 列表 + 放行/阻塞决策）
-  - 任务/阶段状态报告（当前进度、关键指标）
-  - 决策摘要（What/Why/Tradeoff）
-  - 游戏状态面板（角色信息、回合状态）
-- **diff**
-  - 代码修改建议（具体的补丁片段）
-  - 重构前后对比
-- **checklist**
-  - 待办事项 / 下一步行动
-  - review 要点清单
-  - 验证步骤 / 测试计划
-- **media_gallery**
-  - 截图、设计稿展示
-  - 多图对比
-
-**何时不用**（保持纯文本）：
-- 日常聊天、闲聊、打招呼
-- 简短回答（一两句话能说清的）
-- 提问和讨论（除非需要结构化选项）
-- 不确定用哪种 → 不用
-
-**字段要求**（⚠️ 注意 kind 不是 type！）：
-- 每个 block 必须有 \`"kind"\`（不是 \`"type"\`！）和 \`"v": 1\`，以及唯一 \`id\`
-- card: \`title\` 必填，\`bodyMarkdown\`/\`tone\`/\`fields\` 可选
-- diff: \`filePath\` + \`diff\` 必填，\`languageHint\` 可选
-- checklist: \`items\` 必填（每项需 \`id\` + \`text\`），\`title\` 可选
-- media_gallery: \`items\` 必填（每项需 \`url\`），\`title\`/\`alt\`/\`caption\` 可选
-
-**优先使用 HTTP 回调**创建富块（更可靠）。当 HTTP 不可用时，用 cc_rich 文本备选。
+支持: card / diff / checklist / media_gallery / audio。
+富消息块完整规范: \`curl ${opts.apiUrl}/api/callbacks/rich-block-rules\`
+当 HTTP 回调不可用时，可在回复中嵌入 cc_rich 文本备选。
 
 注意: 只在需要异步协作时使用这些工具。普通回复直接输出即可。`;
 }

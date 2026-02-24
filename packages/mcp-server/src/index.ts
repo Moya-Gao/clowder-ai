@@ -47,6 +47,8 @@ import {
   handleReadSessionDigest,
   handleSessionSearch,
   signalsTools,
+  handleGetRichBlockRules,
+  richBlockRulesInputSchema,
 } from './tools/index.js';
 import { createRichBlockInputSchema, handleCreateRichBlock } from './tools/callback-tools.js';
 
@@ -285,6 +287,17 @@ export function createServer(): McpServer {
     sessionSearchInputSchema,
     async (args: { threadId: string; query: string; cats?: string | undefined; limit?: number | undefined; scope?: string | undefined }) => {
       const result = await handleSessionSearch(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // Rich block rules tool (F-BLOAT progressive disclosure)
+  server.tool(
+    'cat_cafe_get_rich_block_rules',
+    'Get the full rich block usage rules (card/diff/checklist/media_gallery/audio). Call this before creating your first rich block in a session.',
+    richBlockRulesInputSchema,
+    async (_args: Record<string, never>) => {
+      const result = await handleGetRichBlockRules();
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
