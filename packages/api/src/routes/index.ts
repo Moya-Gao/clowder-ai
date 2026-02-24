@@ -27,3 +27,4 @@ export { sessionTranscriptRoutes } from './session-transcript.js';
 export { sessionHooksRoutes } from './session-hooks.js';
 export { ttsRoutes } from './tts.js';
 export { pushRoutes } from './push.js';
+export { registerCallbackDocsRoutes } from './callback-docs-routes.js';

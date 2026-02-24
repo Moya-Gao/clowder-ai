@@ -102,4 +102,53 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('@codex'), 'should use teammate handle as example');
     assert.ok(!instructions.includes('@opus 请帮我 review'), 'should avoid self-mention example');
   });
+
+  // --- F-BLOAT: Short-form tests ---
+
+  it('buildMcpCallbackInstructionsShort is significantly shorter than full form', async () => {
+    const { buildMcpCallbackInstructions, buildMcpCallbackInstructionsShort } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const opts = { apiUrl: 'http://127.0.0.1:3002' };
+    const full = buildMcpCallbackInstructions(opts);
+    const short = buildMcpCallbackInstructionsShort(opts);
+
+    assert.ok(short.length < full.length * 0.4, `Short (${short.length}) should be <40% of full (${full.length})`);
+  });
+
+  it('buildMcpCallbackInstructionsShort contains @teammate rules and credential reference', async () => {
+    const { buildMcpCallbackInstructionsShort } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const short = buildMcpCallbackInstructionsShort({
+      apiUrl: 'http://127.0.0.1:3002',
+      currentCatId: 'opus',
+      teammates: ['codex'],
+    });
+
+    assert.ok(short.includes('@队友'), 'should include @teammate section');
+    assert.ok(short.includes('$CAT_CAFE_INVOCATION_ID'), 'should reference credential env var');
+    assert.ok(short.includes('/api/callbacks/instructions'), 'should reference full API docs endpoint');
+  });
+
+  it('buildMcpCallbackInstructionsShort does NOT contain curl examples', async () => {
+    const { buildMcpCallbackInstructionsShort } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const short = buildMcpCallbackInstructionsShort({ apiUrl: 'http://127.0.0.1:3002' });
+
+    assert.ok(!short.includes('curl -sS'), 'short form should not contain curl examples');
+    assert.ok(!short.includes('```bash'), 'short form should not contain bash code blocks');
+  });
+
+  it('buildMcpCallbackInstructions references rich-block-rules endpoint (progressive disclosure)', async () => {
+    const { buildMcpCallbackInstructions } = await import(
+      '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
+    );
+    const full = buildMcpCallbackInstructions({ apiUrl: 'http://127.0.0.1:3002' });
+
+    assert.ok(full.includes('/api/callbacks/rich-block-rules'), 'full form should reference rich-block-rules endpoint');
+    // Should NOT contain the full rich block rules inline anymore
+    assert.ok(!full.includes('何时使用（默认触发）'), 'should not inline full rich block rules');
+  });
 });
