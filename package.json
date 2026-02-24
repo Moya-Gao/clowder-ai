@@ -48,6 +48,7 @@
     "test:api:redis:repeat": "pnpm --filter @cat-cafe/api run test:redis:repeat",
     "check:dir-size": "bash scripts/check-dir-size.sh",
     "check:deps": "depcruise packages/api/src packages/shared/src --config .dependency-cruiser.cjs",
+    "check:skills": "bash scripts/check-skills-mount.sh",
     "clean": "pnpm -r run clean && rm -rf node_modules"
   },
   "devDependencies": {

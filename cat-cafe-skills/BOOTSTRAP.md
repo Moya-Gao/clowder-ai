@@ -28,6 +28,11 @@
 | `finishing-a-development-branch` | 功能完成准备合入时 |
 | `verification-before-completion` | 声称完成前 |
 
+### 研究与调研
+| Skill | 触发场景 |
+|-------|----------|
+| `deep-research-pipeline` | 需要深度调研（多源 Deep Research + GPT Pro review + Coder 合成） |
+
 ### 协作工具
 | Skill | 触发场景 |
 |-------|----------|
@@ -49,6 +54,18 @@
 - **Claude**: Skills 自动触发（已在 ~/.claude/skills/ 配置）
 - **Codex**: 手动加载 `cat ~/.codex/skills/cat-cafe-skills/{skill-name}/SKILL.md`
 - **Gemini**: Skills 自动触发（已在 ~/.gemini/skills/ 配置）
+
+## 挂载检查（Skills 看板）
+
+运行 `pnpm check:skills` 可检查所有 Cat Café skills 是否正确挂载到三只猫。
+
+输出示例：检查每个 skill 在 `~/.claude/skills/`、`~/.codex/skills/`、`~/.gemini/skills/` 是否存在正确的 symlink。
+
+**新增 skill 时必须**：
+1. 在 `cat-cafe-skills/{skill-name}/` 创建 SKILL.md
+2. 为三只猫分别创建 symlink（`ln -s .../cat-cafe-skills/{skill-name} ~/.{claude,codex,gemini}/skills/{skill-name}`）
+3. 在本文件对应分类下注册
+4. 运行 `pnpm check:skills` 验证
 
 ## 来源
 
