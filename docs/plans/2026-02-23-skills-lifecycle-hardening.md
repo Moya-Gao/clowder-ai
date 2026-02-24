@@ -124,8 +124,9 @@ old-removed-skill       ⚠ phantom entry (in BOOTSTRAP.md but no source)
 | 风险 | 缓解 |
 |------|------|
 | `writing-skills` 变更后未经 TDD 验证 | 追加的是发布流程（checklist），不是行为规则，不需要 pressure test |
-| BOOTSTRAP.md 解析脆弱 | 用简单 grep 匹配反引号包裹的 skill name，足够健壮 |
-| check:skills 误报 | 幽灵条目/遗漏条目都只是 warning，不是 error |
+| BOOTSTRAP.md 解析脆弱 | 用简单 grep 匹配反引号包裹的 skill name + `\|\| true` 防空匹配退出 |
+| check:skills 在 worktree 误报 | 用 `git worktree list` 推导主仓 canonical path，不用脚本位置 |
+| 注册检查误阻断 | 注册不一致仅 warning（exit 0），挂载异常才 blocking（exit 1） |
 
 ## 验证方式
 

@@ -40,6 +40,12 @@
 | `subagent-driven-development` | 需要子任务驱动开发时 |
 | `writing-skills` | 写新 skill 时 |
 
+### 参考规范
+| Skill | 触发场景 |
+|-------|----------|
+| `using-rich-blocks` | 首次创建富消息块（card/diff/checklist/media_gallery/audio）前 |
+| `using-mcp-callbacks` | 非 Claude 猫（Codex/Gemini）需要使用 HTTP callback 协作工具时 |
+
 ## 关键规则
 
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
@@ -52,7 +58,7 @@
 ## 使用方式
 
 - **Claude**: Skills 自动触发（已在 ~/.claude/skills/ 配置）
-- **Codex**: 手动加载 `cat ~/.codex/skills/cat-cafe-skills/{skill-name}/SKILL.md`
+- **Codex**: 手动加载 `cat ~/.codex/skills/{skill-name}/SKILL.md`
 - **Gemini**: Skills 自动触发（已在 ~/.gemini/skills/ 配置）
 
 ## 挂载检查（Skills 看板）

@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
 # check-skills-mount.sh — Cat Café Skills 挂载看板
 # 检查 cat-cafe-skills/ 下所有 skill 是否正确 symlink 到三猫的 skills 目录
+# 并校验 BOOTSTRAP.md 注册一致性
 # 用法: pnpm check:skills
 
 set -euo pipefail
 
-SKILLS_SRC="$(cd "$(dirname "$0")/../cat-cafe-skills" && pwd)"
+# Resolve canonical SKILLS_SRC via git main worktree (not script location).
+# This ensures correct symlink comparison even when run from a worktree.
+MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
+SKILLS_SRC="$MAIN_REPO/cat-cafe-skills"
+BOOTSTRAP="$SKILLS_SRC/BOOTSTRAP.md"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 CODEX_SKILLS="$HOME/.codex/skills"
 GEMINI_SKILLS="$HOME/.gemini/skills"
@@ -18,19 +23,23 @@ NC='\033[0m'
 
 total=0
 missing=0
+reg_warnings=0
+
+# ─── Part 1: Symlink Mount Check ───
 
 printf "\n${BOLD}Cat Café Skills 挂载看板${NC}\n"
 printf "源目录: %s\n\n" "$SKILLS_SRC"
 printf "%-35s  %-8s  %-8s  %-8s\n" "Skill" "Claude" "Codex" "Gemini"
 printf "%-35s  %-8s  %-8s  %-8s\n" "-----------------------------------" "--------" "--------" "--------"
 
+# Collect all source skill names
+source_skills=()
 for skill_dir in "$SKILLS_SRC"/*/; do
   [ -d "$skill_dir" ] || continue
   skill_name="$(basename "$skill_dir")"
-
-  # Skip non-skill directories (no SKILL.md)
   [ -f "$skill_dir/SKILL.md" ] || continue
 
+  source_skills+=("$skill_name")
   total=$((total + 1))
   row=""
 
@@ -59,15 +68,77 @@ for skill_dir in "$SKILLS_SRC"/*/; do
   printf "%-35s %b\n" "$skill_name" "$row"
 done
 
-printf "\n${BOLD}合计${NC}: %d skills, " "$total"
+printf "\n${BOLD}挂载合计${NC}: %d skills, " "$total"
 if [ "$missing" -eq 0 ]; then
-  printf "${GREEN}全部正确挂载${NC}\n\n"
+  printf "${GREEN}全部正确挂载${NC}\n"
+else
+  printf "${RED}%d 处缺失/异常${NC}\n" "$missing"
+fi
+
+# ─── Part 2: BOOTSTRAP.md Registration Check (advisory, not blocking) ───
+
+printf "\n${BOLD}注册检查（BOOTSTRAP.md ↔ 源目录）${NC}\n\n"
+
+# Extract skill names from BOOTSTRAP.md backtick-quoted entries in table rows
+# Pattern: | `skill-name` | ... |
+# grep may match nothing — use || true to prevent set -e exit
+bootstrap_skills=()
+if [ -f "$BOOTSTRAP" ]; then
+  while IFS= read -r line; do
+    bootstrap_skills+=("$line")
+  done < <(grep -oE '\| `[a-z][-a-z0-9]*` \|' "$BOOTSTRAP" | sed 's/| `//;s/` |//' || true)
+fi
+
+# Check A: source dir → BOOTSTRAP.md
+for skill in "${source_skills[@]}"; do
+  found=false
+  for bs in "${bootstrap_skills[@]}"; do
+    if [ "$skill" = "$bs" ]; then
+      found=true
+      break
+    fi
+  done
+  if ! $found; then
+    printf "  %-35s ${YELLOW}⚠ not registered in BOOTSTRAP.md${NC}\n" "$skill"
+    reg_warnings=$((reg_warnings + 1))
+  fi
+done
+
+# Check B: BOOTSTRAP.md → source dir
+for bs in "${bootstrap_skills[@]}"; do
+  if [ ! -f "$SKILLS_SRC/$bs/SKILL.md" ]; then
+    printf "  %-35s ${YELLOW}⚠ phantom entry (in BOOTSTRAP.md but no source)${NC}\n" "$bs"
+    reg_warnings=$((reg_warnings + 1))
+  fi
+done
+
+if [ "$reg_warnings" -eq 0 ]; then
+  printf "  ${GREEN}全部一致${NC}\n"
+fi
+
+# ─── Summary ───
+# Exit code: only mount failures are blocking; registration warnings are advisory.
+
+printf "\n${BOLD}总结${NC}: %d skills, " "$total"
+if [ "$missing" -eq 0 ] && [ "$reg_warnings" -eq 0 ]; then
+  printf "${GREEN}全部正确（挂载 + 注册）${NC}\n\n"
   exit 0
 else
-  printf "${RED}%d 处缺失/异常${NC}\n\n" "$missing"
-  printf "修复命令示例:\n"
-  printf "  ln -s %s/{skill-name} ~/.claude/skills/{skill-name}\n" "$SKILLS_SRC"
-  printf "  ln -s %s/{skill-name} ~/.codex/skills/{skill-name}\n" "$SKILLS_SRC"
-  printf "  ln -s %s/{skill-name} ~/.gemini/skills/{skill-name}\n\n" "$SKILLS_SRC"
-  exit 1
+  [ "$missing" -gt 0 ] && printf "${RED}%d 挂载异常${NC} " "$missing"
+  [ "$reg_warnings" -gt 0 ] && printf "${YELLOW}%d 注册警告${NC} " "$reg_warnings"
+  printf "\n\n"
+  if [ "$missing" -gt 0 ]; then
+    printf "修复挂载:\n"
+    printf "  ln -s %s/{skill-name} ~/.claude/skills/{skill-name}\n" "$SKILLS_SRC"
+    printf "  ln -s %s/{skill-name} ~/.codex/skills/{skill-name}\n" "$SKILLS_SRC"
+    printf "  ln -s %s/{skill-name} ~/.gemini/skills/{skill-name}\n\n" "$SKILLS_SRC"
+  fi
+  if [ "$reg_warnings" -gt 0 ]; then
+    printf "修复注册: 编辑 cat-cafe-skills/BOOTSTRAP.md 添加/移除对应条目\n\n"
+  fi
+  # Only mount failures are blocking
+  if [ "$missing" -gt 0 ]; then
+    exit 1
+  fi
+  exit 0
 fi

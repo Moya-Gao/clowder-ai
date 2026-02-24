@@ -632,6 +632,33 @@ Deploying untested skills = deploying untested code. It's a violation of quality
 - [ ] Commit skill to git and push to your fork (if configured)
 - [ ] Consider contributing back via PR (if broadly useful)
 
+## Cat Café Skill Publishing (Required for shared skills)
+
+Shared skills live in `cat-cafe-skills/` and must be discoverable by all three cats.
+**Skip this only for personal-only skills that don't go into the shared directory.**
+
+**Publishing Checklist (after Skill Creation Checklist passes):**
+
+1. **Source**: Place `SKILL.md` (+ supporting files) in `cat-cafe-skills/{skill-name}/`
+2. **Symlink three cats**:
+   ```bash
+   SKILLS_SRC=/path/to/cat-cafe/cat-cafe-skills
+   ln -s $SKILLS_SRC/{skill-name} ~/.claude/skills/{skill-name}
+   ln -s $SKILLS_SRC/{skill-name} ~/.codex/skills/{skill-name}
+   ln -s $SKILLS_SRC/{skill-name} ~/.gemini/skills/{skill-name}
+   ```
+3. **Register**: Add entry to `cat-cafe-skills/BOOTSTRAP.md` under the matching category
+4. **Verify**: `pnpm check:skills` — must show all green + 0 registration warnings
+5. **Commit**: Include `cat-cafe-skills/{skill-name}/` in your commit
+
+**Forgetting any step = skill is invisible to some or all cats.**
+
+| Common Mistake | Consequence |
+|----------------|-------------|
+| Wrote SKILL.md but no symlinks | Cats cannot discover the skill at session start |
+| Symlinked but didn't register in BOOTSTRAP.md | Skill loads but isn't in the master catalog; `check:skills` warns |
+| Registered but no source directory | Phantom entry; `check:skills` warns |
+
 ## Discovery Workflow
 
 How future Claude finds your skill:
