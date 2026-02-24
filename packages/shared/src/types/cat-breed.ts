@@ -7,8 +7,8 @@
  * Phase 4-F: 支持多 Variant（多版本猫召唤）
  */
 
-import type { CatId } from './ids.js';
 import type { CatColor, CatProvider } from './cat.js';
+import type { CatId } from './ids.js';
 import type { VoiceConfig } from './tts.js';
 
 /**
@@ -30,8 +30,8 @@ export interface ContextBudget {
  * CLI invocation config for a variant
  */
 export interface CliConfig {
-  readonly command: string;         // 'claude' | 'codex' | 'gemini'
-  readonly outputFormat: string;    // 'stream-json' | 'json'
+  readonly command: string; // 'claude' | 'codex' | 'gemini'
+  readonly outputFormat: string; // 'stream-json' | 'json'
   readonly defaultArgs?: readonly string[];
 }
 
@@ -43,7 +43,7 @@ export interface CliConfig {
  * to register as independent cats within the same breed.
  */
 export interface CatVariant {
-  readonly id: string;              // 'opus-4.6', 'codex-default'
+  readonly id: string; // 'opus-4.6', 'codex-default'
   /** Override breed-level catId to register as an independent cat (F32-b) */
   readonly catId?: string;
   /** Override breed-level displayName (F32-b) */
@@ -77,6 +77,18 @@ export interface CatFeatures {
   /** F24: Enable session chain (context health tracking, auto-seal, bootstrap).
    *  Default: true. Set false for cats with inaccurate token stats (e.g. Gemini). */
   readonly sessionChain?: boolean;
+  /** F33 Phase 2: Per-breed session strategy override from cat-config.json.
+   *  Partial config — merged with provider/global defaults at runtime.
+   *  Matches SessionStrategyConfig shape (all fields except strategy are optional). */
+  readonly sessionStrategy?: {
+    readonly strategy: 'handoff' | 'compress' | 'hybrid';
+    readonly thresholds?: { readonly warn: number; readonly action: number };
+    readonly handoff?: { readonly preSealMemoryDump: boolean; readonly bootstrapDepth: 'extractive' | 'generative' };
+    readonly hybrid?: { readonly maxCompressions: number };
+    readonly compress?: { readonly maxCompressions?: number; readonly trackPostCompression: boolean };
+    readonly turnBudget?: number;
+    readonly safetyMargin?: number;
+  };
 }
 
 /**
@@ -84,9 +96,9 @@ export interface CatFeatures {
  * Each breed has one or more variants (model configs).
  */
 export interface CatBreed {
-  readonly id: string;              // 'ragdoll', 'maine-coon', 'siamese'
+  readonly id: string; // 'ragdoll', 'maine-coon', 'siamese'
   readonly catId: CatId;
-  readonly name: string;            // '布偶猫'
+  readonly name: string; // '布偶猫'
   readonly displayName: string;
   /** Nickname given by 铲屎官. See docs/stories/cat-names.md */
   readonly nickname?: string;

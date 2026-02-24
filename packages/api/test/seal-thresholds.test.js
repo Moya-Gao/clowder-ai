@@ -3,20 +3,21 @@
  * F24 Phase B: Per-cat seal threshold configuration.
  */
 
-import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 describe('seal-thresholds', () => {
   async function loadModule() {
-    return import('../dist/config/seal-thresholds.js');
+    // F33 Phase 2: seal-thresholds.ts merged into session-strategy.ts
+    return import('../dist/config/session-strategy.js');
   }
 
   describe('getSealConfig()', () => {
     test('opus: warnThreshold=0.80, sealThreshold=0.90', async () => {
       const { getSealConfig } = await loadModule();
       const config = getSealConfig('opus');
-      assert.equal(config.warnThreshold, 0.80);
-      assert.equal(config.sealThreshold, 0.90);
+      assert.equal(config.warnThreshold, 0.8);
+      assert.equal(config.sealThreshold, 0.9);
       assert.equal(config.turnBudget, 12_000);
       assert.equal(config.safetyMargin, 4_000);
     });
@@ -46,14 +47,14 @@ describe('seal-thresholds', () => {
     test('returns true when fillRatio == sealThreshold (boundary)', async () => {
       const { shouldSeal, getSealConfig } = await loadModule();
       const config = getSealConfig('opus');
-      assert.equal(shouldSeal(0.90, 200_000, 180_000, config), true);
+      assert.equal(shouldSeal(0.9, 200_000, 180_000, config), true);
     });
 
     test('returns false when fillRatio below threshold and enough remaining', async () => {
       const { shouldSeal, getSealConfig } = await loadModule();
       const config = getSealConfig('opus');
       // 80% = 160k used, 40k remaining > 16k (turnBudget + safetyMargin)
-      assert.equal(shouldSeal(0.80, 200_000, 160_000, config), false);
+      assert.equal(shouldSeal(0.8, 200_000, 160_000, config), false);
     });
 
     test('returns true when remaining < turnBudget + safetyMargin', async () => {
@@ -83,7 +84,7 @@ describe('seal-thresholds', () => {
       const config = getSealConfig('gemini');
       // 1M window, 65% = 650k
       assert.equal(shouldSeal(0.65, 1_000_000, 650_000, config), true);
-      assert.equal(shouldSeal(0.60, 1_000_000, 600_000, config), false);
+      assert.equal(shouldSeal(0.6, 1_000_000, 600_000, config), false);
     });
   });
 });

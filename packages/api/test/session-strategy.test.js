@@ -3,8 +3,8 @@
  * Unit tests for the pure strategy decision function.
  */
 
-import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 async function loadModule() {
   return import('../dist/config/session-strategy.js');
@@ -32,7 +32,7 @@ describe('session-strategy', () => {
         const { shouldTakeAction } = await loadModule();
         const strategy = makeStrategy();
         // 200k window, 185k used → 15k remaining < 16k (12k+4k)
-        const action = shouldTakeAction(0.80, 200_000, 185_000, 0, strategy);
+        const action = shouldTakeAction(0.8, 200_000, 185_000, 0, strategy);
         assert.equal(action.type, 'seal');
         assert.equal(action.reason, 'budget_exhausted');
       });
@@ -40,7 +40,7 @@ describe('session-strategy', () => {
       test('seals even for compress strategy when budget exhausted', async () => {
         const { shouldTakeAction } = await loadModule();
         const strategy = makeStrategy({ strategy: 'compress' });
-        const action = shouldTakeAction(0.80, 200_000, 185_000, 0, strategy);
+        const action = shouldTakeAction(0.8, 200_000, 185_000, 0, strategy);
         assert.equal(action.type, 'seal');
         assert.equal(action.reason, 'budget_exhausted');
       });
@@ -51,7 +51,7 @@ describe('session-strategy', () => {
           strategy: 'hybrid',
           hybrid: { maxCompressions: 3 },
         });
-        const action = shouldTakeAction(0.80, 200_000, 185_000, 0, strategy);
+        const action = shouldTakeAction(0.8, 200_000, 185_000, 0, strategy);
         assert.equal(action.type, 'seal');
         assert.equal(action.reason, 'budget_exhausted');
       });
@@ -63,14 +63,14 @@ describe('session-strategy', () => {
       test('returns none when fillRatio below warn', async () => {
         const { shouldTakeAction } = await loadModule();
         const strategy = makeStrategy();
-        const action = shouldTakeAction(0.50, 200_000, 100_000, 0, strategy);
+        const action = shouldTakeAction(0.5, 200_000, 100_000, 0, strategy);
         assert.equal(action.type, 'none');
       });
 
       test('returns warn when fillRatio at warn but below action', async () => {
         const { shouldTakeAction } = await loadModule();
         const strategy = makeStrategy();
-        const action = shouldTakeAction(0.80, 200_000, 160_000, 0, strategy);
+        const action = shouldTakeAction(0.8, 200_000, 160_000, 0, strategy);
         assert.equal(action.type, 'warn');
       });
 
@@ -211,7 +211,7 @@ describe('session-strategy', () => {
         const { shouldTakeAction } = await loadModule();
         const strategy = makeStrategy();
         // 200k - 184k = 16k = exactly 12k+4k → NOT exhausted (need strictly less)
-        const action = shouldTakeAction(0.80, 200_000, 184_000, 0, strategy);
+        const action = shouldTakeAction(0.8, 200_000, 184_000, 0, strategy);
         assert.equal(action.type, 'warn');
       });
 
@@ -232,8 +232,8 @@ describe('session-strategy', () => {
       const { getSessionStrategy } = await loadModule();
       const config = getSessionStrategy('opus');
       assert.equal(config.strategy, 'handoff');
-      assert.equal(config.thresholds.warn, 0.80);
-      assert.equal(config.thresholds.action, 0.90);
+      assert.equal(config.thresholds.warn, 0.8);
+      assert.equal(config.thresholds.action, 0.9);
     });
 
     test('returns openai defaults for codex', async () => {
@@ -320,4 +320,6 @@ describe('session-strategy', () => {
       assert.equal(merged.strategy, base.strategy);
     });
   });
+
+  // Phase 2 tests (backward compat + config override) → session-strategy-phase2.test.js
 });

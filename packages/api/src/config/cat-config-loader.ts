@@ -7,10 +7,9 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { z } from 'zod';
-import type { CatConfig, CatId } from '@cat-cafe/shared';
+import type { CatBreed, CatCafeConfig, CatConfig, CatFeatures, CatId, CatVariant } from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
-import type { CatBreed, CatCafeConfig, CatVariant } from '@cat-cafe/shared';
+import { z } from 'zod';
 
 /**
  * Default cat-config.json location (repo root).
@@ -19,11 +18,7 @@ import type { CatBreed, CatCafeConfig, CatVariant } from '@cat-cafe/shared';
  * not the repo root. Resolve relative to this file instead to keep behavior
  * stable across different launch directories.
  */
-const DEFAULT_CAT_CONFIG_PATH = resolve(
-  dirname(fileURLToPath(import.meta.url)),
-  '../../../..',
-  'cat-config.json',
-);
+const DEFAULT_CAT_CONFIG_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..', 'cat-config.json');
 
 const cliConfigSchema = z.object({
   command: z.string().min(1),
@@ -39,33 +34,66 @@ const contextBudgetSchema = z.object({
 });
 
 /** F32-b: mentionPatterns must start with @ */
-const mentionPatternSchema = z.string().min(2).regex(
-  /^@/,
-  'mentionPattern must start with @',
-);
+const mentionPatternSchema = z.string().min(2).regex(/^@/, 'mentionPattern must start with @');
 
 const colorSchema = z.object({ primary: z.string(), secondary: z.string() });
 
 const catVariantSchema = z.object({
   id: z.string().min(1),
-  catId: z.string().min(1).optional(),                        // F32-b: variant-level catId
-  displayName: z.string().min(1).optional(),                  // F32-b: variant-level displayName
-  variantLabel: z.string().min(1).optional(),                 // F32-b P4: disambiguation label
-  mentionPatterns: z.array(mentionPatternSchema).optional(),  // F32-b: variant-level mentions
+  catId: z.string().min(1).optional(), // F32-b: variant-level catId
+  displayName: z.string().min(1).optional(), // F32-b: variant-level displayName
+  variantLabel: z.string().min(1).optional(), // F32-b P4: disambiguation label
+  mentionPatterns: z.array(mentionPatternSchema).optional(), // F32-b: variant-level mentions
   provider: z.enum(['anthropic', 'openai', 'google']),
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
   cli: cliConfigSchema,
   personality: z.string().optional(),
   strengths: z.array(z.string()).optional(),
-  avatar: z.string().min(1).optional(),                       // F32-b P4c: override breed avatar
-  color: colorSchema.optional(),                              // F32-b P4c: override breed color
+  avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
+  color: colorSchema.optional(), // F32-b P4c: override breed color
   contextBudget: contextBudgetSchema.optional(),
 });
 
-const catFeaturesSchema = z.object({
-  sessionChain: z.boolean().optional(),
-}).optional();
+/** F33 Phase 2: session strategy config (matches SessionStrategyConfig from shared) */
+const sessionStrategySchema = z
+  .object({
+    strategy: z.enum(['handoff', 'compress', 'hybrid']),
+    thresholds: z
+      .object({
+        warn: z.number().min(0).max(1),
+        action: z.number().min(0).max(1),
+      })
+      .refine((t) => t.warn < t.action, { message: 'thresholds.warn must be less than thresholds.action' })
+      .optional(),
+    handoff: z
+      .object({
+        preSealMemoryDump: z.boolean(),
+        bootstrapDepth: z.enum(['extractive', 'generative']),
+      })
+      .optional(),
+    compress: z
+      .object({
+        maxCompressions: z.number().int().positive().optional(),
+        trackPostCompression: z.boolean(),
+      })
+      .optional(),
+    hybrid: z
+      .object({
+        maxCompressions: z.number().int().positive(),
+      })
+      .optional(),
+    turnBudget: z.number().int().positive().optional(),
+    safetyMargin: z.number().int().positive().optional(),
+  })
+  .optional();
+
+const catFeaturesSchema = z
+  .object({
+    sessionChain: z.boolean().optional(),
+    sessionStrategy: sessionStrategySchema,
+  })
+  .optional();
 
 const catBreedSchema = z.object({
   id: z.string().min(1),
@@ -92,9 +120,7 @@ const catCafeConfigSchema = z.object({
  * @param filePath - Explicit path or auto-resolved from env/project root
  */
 export function loadCatConfig(filePath?: string): CatCafeConfig {
-  const resolvedPath = filePath
-    ?? process.env['CAT_CONFIG_PATH']
-    ?? DEFAULT_CAT_CONFIG_PATH;
+  const resolvedPath = filePath ?? process.env['CAT_CONFIG_PATH'] ?? DEFAULT_CAT_CONFIG_PATH;
 
   let raw: string;
   try {
@@ -115,9 +141,7 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
   for (const breed of result.data.breeds) {
     const found = breed.variants.find((v) => v.id === breed.defaultVariantId);
     if (!found) {
-      throw new Error(
-        `Breed "${breed.id}": defaultVariantId "${breed.defaultVariantId}" not found in variants`,
-      );
+      throw new Error(`Breed "${breed.id}": defaultVariantId "${breed.defaultVariantId}" not found in variants`);
     }
   }
 
@@ -129,9 +153,7 @@ export function loadCatConfig(filePath?: string): CatCafeConfig {
   for (const breed of result.data.breeds) {
     const requiredBreedHandle = `@${breed.catId}`;
     if (!breed.mentionPatterns.includes(requiredBreedHandle)) {
-      throw new Error(
-        `Breed "${breed.id}": mentionPatterns must include ${requiredBreedHandle}`,
-      );
+      throw new Error(`Breed "${breed.id}": mentionPatterns must include ${requiredBreedHandle}`);
     }
 
     for (const variant of breed.variants) {
@@ -175,15 +197,16 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
       const isDefault = variant.id === breed.defaultVariantId;
       const catId = variant.catId ?? breed.catId;
       const fallbackMentionPatterns = isDefault ? breed.mentionPatterns : [`@${catId}`];
-      const mentionPatterns = variant.mentionPatterns && variant.mentionPatterns.length > 0
-        ? variant.mentionPatterns
-        : fallbackMentionPatterns;
+      const mentionPatterns =
+        variant.mentionPatterns && variant.mentionPatterns.length > 0
+          ? variant.mentionPatterns
+          : fallbackMentionPatterns;
 
       // F32-b R3: catId uniqueness — duplicate is a hard error (startup failure)
       if (result[catId]) {
         throw new Error(
-          `Duplicate catId "${catId}": variant "${variant.id}" in breed "${breed.id}" `
-          + `conflicts with already registered cat. Each variant must have a unique catId.`,
+          `Duplicate catId "${catId}": variant "${variant.id}" in breed "${breed.id}" ` +
+            `conflicts with already registered cat. Each variant must have a unique catId.`,
         );
       }
 
@@ -192,8 +215,8 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         name: catId,
         displayName: variant.displayName ?? breed.displayName,
         ...(breed.nickname != null ? { nickname: breed.nickname } : {}),
-        avatar: variant.avatar ?? breed.avatar,    // F32-b P4c: variant can override
-        color: variant.color ?? breed.color,        // F32-b P4c: variant can override
+        avatar: variant.avatar ?? breed.avatar, // F32-b P4c: variant can override
+        color: variant.color ?? breed.color, // F32-b P4c: variant can override
         mentionPatterns,
         provider: variant.provider,
         defaultModel: variant.defaultModel,
@@ -220,10 +243,7 @@ export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> 
  * F32-b P4c: Uses longest-match-first to avoid prefix collisions
  * (e.g. `@布偶sonnet` must match Sonnet variant, not breed-level `@布偶`).
  */
-export function findBreedByMention(
-  config: CatCafeConfig,
-  text: string,
-): { breed: CatBreed; catId: CatId } | undefined {
+export function findBreedByMention(config: CatCafeConfig, text: string): { breed: CatBreed; catId: CatId } | undefined {
   const lower = text.toLowerCase();
 
   // Collect all patterns with their resolution targets
@@ -319,6 +339,30 @@ export function isSessionChainEnabled(catId: CatId | string, config?: CatCafeCon
   return breed.features?.sessionChain !== false;
 }
 
+// ── F33 Phase 2: Session Strategy from config ─────────────────────────
+
+/**
+ * Get session strategy config from cat-config.json for a cat.
+ * Returns undefined if not configured (caller falls back to code defaults).
+ *
+ * F33 Phase 2: Same lookup pattern as isSessionChainEnabled — catId → breed → features.
+ */
+export function getConfigSessionStrategy(catId: string, config?: CatCafeConfig): CatFeatures['sessionStrategy'] | undefined {
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return undefined;
+
+  if (!_catIdToBreed || _catIdToBreedSource !== cfg) {
+    _catIdToBreed = buildCatIdToBreedIndex(cfg);
+    _catIdToBreedSource = cfg;
+  }
+
+  const breed = _catIdToBreed.get(catId);
+  if (!breed) return undefined;
+
+  // features.sessionStrategy is Zod-validated at load time
+  return breed.features?.sessionStrategy;
+}
+
 // ── F32-b: Default cat resolution ─────────────────────────────────────
 
 let _defaultCatId: CatId | null = null;
@@ -335,9 +379,7 @@ export function getDefaultCatId(): CatId {
   const config = getCachedConfig();
   const firstBreed = config?.breeds[0];
   if (firstBreed) {
-    const defaultVariant = firstBreed.variants.find(
-      (v) => v.id === firstBreed.defaultVariantId,
-    );
+    const defaultVariant = firstBreed.variants.find((v) => v.id === firstBreed.defaultVariantId);
     // variant has independent catId → use it; otherwise inherit breed's
     _defaultCatId = createCatId(defaultVariant?.catId ?? firstBreed.catId);
     return _defaultCatId;

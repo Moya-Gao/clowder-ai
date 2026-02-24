@@ -7,12 +7,13 @@
  *   - hybrid: allow N compressions, then seal (hook-capable providers only)
  *
  * Lookup order: breedId override → provider default → global default
- * (same pattern as seal-thresholds.ts, which Phase 2 will merge into this file)
+ * Phase 2: seal-thresholds.ts merged into this file; cat-config.json integration added.
  */
 
-import type { SessionStrategyConfig, StrategyAction } from '@cat-cafe/shared';
+import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { resolveBreedId } from './breed-resolver.js';
+import { getConfigSessionStrategy } from './cat-config-loader.js';
 
 // ── Default Configurations ──
 
@@ -77,22 +78,29 @@ export function _clearTestStrategyOverrides(): void {
 /**
  * Get session strategy config for a cat.
  *
- * Lookup order (same as getSealConfig in seal-thresholds.ts):
- * 1. breedId override → 2. provider default → 3. global default
- *
- * Phase 1: code-only overrides via STRATEGY_BY_BREED.
- * Phase 2: cat-config.json features.sessionStrategy will be consulted first.
+ * Lookup order:
+ * 1. Test override (testing only)
+ * 2. cat-config.json features.sessionStrategy (Phase 2: config-driven)
+ * 3. STRATEGY_BY_BREED code override
+ * 4. Provider default → global default
  */
 export function getSessionStrategy(catName: string): SessionStrategyConfig {
   // Test-only override (highest priority)
   const testOverride = _testOverrides.get(catName);
   if (testOverride) return testOverride;
 
-  // 1. breedId override
+  const base = getBaseStrategy(catName);
+
+  // Phase 2: cat-config.json features.sessionStrategy (takes priority over code overrides)
+  const configOverride = getConfigSessionStrategy(catName);
+  if (configOverride) {
+    const merged = mergeStrategyConfig(base, configOverride);
+    return validateProviderCapability(merged, catName);
+  }
+
+  // Code-level breedId override
   const breedId = resolveBreedId(catName);
   const breedOverride = (breedId ? STRATEGY_BY_BREED[breedId] : undefined) ?? STRATEGY_BY_BREED[catName];
-
-  const base = getBaseStrategy(catName);
 
   if (breedOverride) {
     const merged = mergeStrategyConfig(base, breedOverride);
@@ -115,15 +123,9 @@ export function mergeStrategyConfig(
     ...base,
     ...override,
     thresholds: { ...base.thresholds, ...override.thresholds },
-    ...(override.handoff || base.handoff
-      ? { handoff: { ...base.handoff, ...override.handoff } }
-      : {}),
-    ...(override.compress || base.compress
-      ? { compress: { ...base.compress, ...override.compress } }
-      : {}),
-    ...(override.hybrid || base.hybrid
-      ? { hybrid: { ...base.hybrid, ...override.hybrid } }
-      : {}),
+    ...(override.handoff || base.handoff ? { handoff: { ...base.handoff, ...override.handoff } } : {}),
+    ...(override.compress || base.compress ? { compress: { ...base.compress, ...override.compress } } : {}),
+    ...(override.hybrid || base.hybrid ? { hybrid: { ...base.hybrid, ...override.hybrid } } : {}),
   } as SessionStrategyConfig;
 }
 
@@ -207,4 +209,42 @@ export function shouldTakeAction(
       return { type: 'allow_compress' };
     }
   }
+}
+
+// ── Backward Compatibility (merged from seal-thresholds.ts in Phase 2) ──
+
+/**
+ * Get seal threshold config for a cat.
+ * Thin adapter: converts SessionStrategyConfig → ContextHealthConfig format.
+ *
+ * @deprecated Prefer getSessionStrategy() + shouldTakeAction() for new code.
+ * Kept for existing tests and consumers during migration.
+ */
+export function getSealConfig(catName: string): ContextHealthConfig {
+  const strategy = getSessionStrategy(catName);
+  return {
+    warnThreshold: strategy.thresholds.warn,
+    sealThreshold: strategy.thresholds.action,
+    turnBudget: strategy.turnBudget ?? 12_000,
+    safetyMargin: strategy.safetyMargin ?? 4_000,
+  };
+}
+
+/**
+ * Pure function: should this session be sealed?
+ *
+ * @deprecated Prefer shouldTakeAction() which supports compress/hybrid strategies.
+ * Kept for existing tests during migration.
+ */
+export function shouldSeal(
+  fillRatio: number,
+  windowTokens: number,
+  usedTokens: number,
+  config: ContextHealthConfig,
+): boolean {
+  if (fillRatio >= config.sealThreshold) return true;
+  const turnBudget = config.turnBudget ?? 12_000;
+  const safetyMargin = config.safetyMargin ?? 4_000;
+  const remaining = windowTokens - usedTokens;
+  return remaining < turnBudget + safetyMargin;
 }

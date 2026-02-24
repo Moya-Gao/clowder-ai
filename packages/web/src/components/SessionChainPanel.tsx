@@ -19,6 +19,7 @@ interface SessionSummary {
   sealReason?: string;
   createdAt: number;
   sealedAt?: number;
+  compressionCount?: number;
   contextHealth?: {
     usedTokens: number;
     windowTokens: number;
@@ -51,6 +52,8 @@ function sealReasonLabel(reason?: string): string {
   if (!reason) return '';
   if (reason.includes('compact')) return 'compact';
   if (reason === 'threshold') return 'threshold';
+  if (reason === 'budget_exhausted') return 'budget';
+  if (reason === 'max_compressions') return 'max compress';
   if (reason === 'manual') return 'manual';
   return reason;
 }
@@ -186,6 +189,9 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
               <div className="text-[10px] text-gray-400 mb-1.5">
                 Started {timeAgo(session.createdAt)}
                 {session.messageCount > 0 ? ` · ${session.messageCount} msgs` : ''}
+                {(session.compressionCount ?? 0) > 0 && (
+                  <span className="text-amber-500"> · {session.compressionCount} compress</span>
+                )}
               </div>
               {/* Token counts + cache: prefer live invocation, fallback to persisted */}
               {usage && (usage.inputTokens != null || usage.outputTokens != null) && (
@@ -255,6 +261,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                     {session.contextHealth ? ` · ${Math.round(session.contextHealth.fillRatio * 100)}%` : ''}
                     {' · '}
                     {session.messageCount} msgs
+                    {(session.compressionCount ?? 0) > 0 && ` · ${session.compressionCount} compress`}
                     {session.sealReason ? ` · ${sealReasonLabel(session.sealReason)}` : ''}
                   </div>
                 </div>

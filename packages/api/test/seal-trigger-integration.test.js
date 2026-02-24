@@ -13,20 +13,15 @@
  * not by running the full generator (which requires mocking AgentService).
  */
 
-import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
+import { describe, test } from 'node:test';
 
 describe('Seal trigger integration', () => {
   async function loadModules() {
-    const { SessionChainStore } = await import(
-      '../dist/domains/cats/services/stores/ports/SessionChainStore.js'
-    );
-    const { SessionSealer } = await import(
-      '../dist/domains/cats/services/session/SessionSealer.js'
-    );
-    const { shouldSeal, getSealConfig } = await import(
-      '../dist/config/seal-thresholds.js'
-    );
+    const { SessionChainStore } = await import('../dist/domains/cats/services/stores/ports/SessionChainStore.js');
+    const { SessionSealer } = await import('../dist/domains/cats/services/session/SessionSealer.js');
+    // F33 Phase 2: seal-thresholds.ts merged into session-strategy.ts
+    const { shouldSeal, getSealConfig } = await import('../dist/config/session-strategy.js');
     return { SessionChainStore, SessionSealer, shouldSeal, getSealConfig };
   }
 
@@ -51,7 +46,7 @@ describe('Seal trigger integration', () => {
       const health = {
         usedTokens: 180_000,
         windowTokens: 200_000,
-        fillRatio: 0.90,
+        fillRatio: 0.9,
         source: 'exact',
         measuredAt: Date.now(),
       };
