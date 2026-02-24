@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
@@ -41,6 +41,7 @@ import { TranscriptReader } from './domains/cats/services/session/TranscriptRead
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
 import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter } from './infrastructure/email/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
+import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -286,6 +287,17 @@ async function main(): Promise<void> {
     transcriptReader,
     ...(hookToken ? { hookToken } : {}),
   });
+
+  // F33 Phase 3: Session strategy config (runtime overrides via Redis)
+  if (redis) {
+    try {
+      await initRuntimeOverrides(redis);
+      app.log.info('[api] Session strategy runtime overrides hydrated from Redis');
+    } catch (err) {
+      app.log.warn(`[api] Session strategy hydration failed (best-effort, continuing with empty cache): ${String(err)}`);
+    }
+  }
+  await app.register(sessionStrategyConfigRoutes);
 
   // Mode system (F11)
   await app.register(modesRoutes, { modeStore, threadStore, socketManager });
