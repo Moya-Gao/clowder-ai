@@ -54,6 +54,21 @@ function formatTime(timestamp: number): string {
 }
 
 /**
+ * Truncate content preserving both head and tail.
+ * Head gets 40% of budget, tail gets 60% (conclusions/requests live at the end).
+ * Marker includes dropped char count so the cat knows how much was lost.
+ */
+function truncateHeadTail(content: string, limit: number): string {
+  const dropped = content.length - limit;
+  const marker = `\n\n[...truncated ${dropped} chars...]\n\n`;
+  const available = limit - marker.length;
+  if (available <= 0) return content.slice(0, limit);
+  const headSize = Math.floor(available * 0.4);
+  const tailSize = available - headSize;
+  return content.slice(0, headSize) + marker + content.slice(-tailSize);
+}
+
+/**
  * Format a single message for display.
  * Shared by context assembly (with truncation) and export (without truncation).
  *
@@ -67,7 +82,7 @@ export function formatMessage(
   const sender = getSenderName(msg.catId);
   let content = msg.content;
   if (options?.truncate && content.length > options.truncate) {
-    content = content.slice(0, options.truncate) + '...';
+    content = truncateHeadTail(content, options.truncate);
   }
   return `[${time} ${sender}] ${content}`;
 }

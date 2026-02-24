@@ -61,15 +61,19 @@ describe('formatMessage', () => {
     assert.ok(result.includes('暹罗猫'));
   });
 
-  test('truncates long content when truncate option set', async () => {
+  test('truncates long content with head+tail preservation', async () => {
     const { formatMessage } = await import(
       '../dist/domains/cats/services/context/ContextAssembler.js'
     );
-    const longContent = 'A'.repeat(600);
+    const longContent = 'A'.repeat(300) + 'CONCLUSION_HERE';
     const msg = mockMsg({ content: longContent });
     const result = formatMessage(msg, { truncate: 100 });
-    assert.ok(result.includes('A'.repeat(100) + '...'));
-    assert.ok(!result.includes('A'.repeat(101)));
+    // Should contain truncation marker with char count
+    assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result), 'should have truncation marker with char count');
+    // Should preserve the tail (conclusion)
+    assert.ok(result.includes('CONCLUSION_HERE'), 'should preserve tail with conclusion');
+    // Total content length should be approximately the truncate limit
+    assert.ok(result.length <= 200, 'formatted output should be bounded');
   });
 
   test('does not truncate when content is within limit', async () => {
@@ -146,15 +150,15 @@ describe('assembleContext', () => {
     assert.ok(!result.contextText.includes('msg-19'));
   });
 
-  test('truncates long message content', async () => {
+  test('truncates long message content with head+tail', async () => {
     const { assembleContext } = await import(
       '../dist/domains/cats/services/context/ContextAssembler.js'
     );
-    const longContent = 'X'.repeat(600);
+    const longContent = 'X'.repeat(500) + 'TAIL_DATA';
     const msgs = [mockMsg({ content: longContent })];
     const result = assembleContext(msgs, { maxContentLength: 100 });
-    assert.ok(result.contextText.includes('X'.repeat(100) + '...'));
-    assert.ok(!result.contextText.includes('X'.repeat(101)));
+    assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result.contextText), 'should have truncation marker with char count');
+    assert.ok(result.contextText.includes('TAIL_DATA'), 'should preserve tail');
   });
 
   test('includes user messages starting with "Error:" (no false-positive filtering)', async () => {
@@ -206,8 +210,8 @@ describe('assembleContext', () => {
       );
       const msgs = [mockMsg({ content: 'B'.repeat(300) })];
       const result = ac(msgs);
-      // 300 chars > 200 env limit, should be truncated
-      assert.ok(result.contextText.includes('B'.repeat(200) + '...'), 'should truncate at env limit');
+      // 300 chars > 200 env limit, should be truncated with marker
+      assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result.contextText), 'should truncate at env limit');
     } finally {
       delete process.env['MAX_CONTEXT_MSG_CHARS'];
     }
@@ -258,7 +262,53 @@ describe('assembleContext', () => {
     // maxContentLength=100 truncates to ~100 chars, then maxTotalChars budget allows it
     const result = assembleContext(msgs, { maxContentLength: 100, maxTotalChars: 300 });
     assert.equal(result.messageCount, 1);
-    assert.ok(result.contextText.includes('Z'.repeat(100) + '...'));
+    assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result.contextText), 'should truncate with marker');
+  });
+});
+
+describe('formatMessage — head+tail truncation (#91 regression)', () => {
+  test('preserves conclusion at end of long message', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    // Simulate: long work log + conclusion at end (the exact bug scenario)
+    const workLog = 'Phase 1 completed. Phase 2 in progress. '.repeat(50);
+    const conclusion = '\n\n## Review 请求\n请确认修复是否正确，确认后将执行合入。\n@缅因猫';
+    const msg = mockMsg({ content: workLog + conclusion });
+    const result = formatMessage(msg, { truncate: 1500 });
+
+    assert.ok(/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result), 'should have truncation marker with char count');
+    assert.ok(result.includes('@缅因猫'), 'should preserve @mention at end');
+    assert.ok(result.includes('Review 请求'), 'should preserve review request');
+    assert.ok(result.includes('Phase 1'), 'should preserve beginning context');
+  });
+
+  test('head gets 40%, tail gets 60% of budget', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const head = 'H'.repeat(500);
+    const tail = 'T'.repeat(500);
+    const msg = mockMsg({ content: head + tail });
+    const result = formatMessage(msg, { truncate: 200 });
+
+    // marker is '\n\n[...truncated N chars...]\n\n' (dynamic), available = 200 - marker.length
+    // head = 40% of 180 = 72, tail = 60% of 180 = 108
+    const headContent = result.match(/H+/)?.[0] ?? '';
+    const tailContent = result.match(/T+/)?.[0] ?? '';
+    assert.ok(headContent.length > 0, 'should have head content');
+    assert.ok(tailContent.length > 0, 'should have tail content');
+    assert.ok(tailContent.length > headContent.length, 'tail should be larger than head');
+  });
+
+  test('does not truncate when content is within limit', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({ content: 'short message' });
+    const result = formatMessage(msg, { truncate: 1500 });
+    assert.ok(!/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result), 'should not truncate short messages');
+    assert.ok(result.includes('short message'));
   });
 });
 

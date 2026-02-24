@@ -8,13 +8,13 @@ import assert from 'node:assert/strict';
 import { migrateRouterOpts } from '../helpers/agent-registry-helpers.js';
 
 const { AgentRouter } = await import(
-  '../../dist/domains/cats/services/AgentRouter.js'
+  '../../dist/domains/cats/services/agents/routing/AgentRouter.js'
 );
 const { MessageStore } = await import(
-  '../../dist/domains/cats/services/MessageStore.js'
+  '../../dist/domains/cats/services/stores/ports/MessageStore.js'
 );
 const { InvocationRegistry } = await import(
-  '../../dist/domains/cats/services/InvocationRegistry.js'
+  '../../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
 );
 
 async function collect(iterable) {
@@ -45,6 +45,10 @@ function extractDeliveredIds(prompt) {
   }
   return ids;
 }
+
+const { getCatContextBudget } = await import(
+  '../../dist/config/cat-budgets.js'
+);
 
 describe('Incremental Delivery', () => {
   let messageStore;
@@ -101,15 +105,49 @@ describe('Incremental Delivery', () => {
     const codexPrompt1 = codex.capturedPrompts[0] ?? '';
     const codexPrompt2 = codex.capturedPrompts[1] ?? '';
 
-    // First codex invocation should include previous thread facts (alpha + opus reply + beta)
+    // First codex invocation should include previous user messages + current
+    // Note: opus-reply-1 is origin:'stream', hidden in play mode (cats don't see each other's thinking)
     assert.ok(codexPrompt1.includes('alpha'), 'codex first prompt should include prior user message alpha');
-    assert.ok(codexPrompt1.includes('opus-reply-1'), 'codex first prompt should include opus peer reply');
     assert.ok(codexPrompt1.includes('beta'), 'codex first prompt should include current user message beta');
 
-    // Second codex invocation should not replay alpha/beta/opus-reply-1 again
+    // Second codex invocation should not replay alpha/beta again
     assert.ok(!codexPrompt2.includes('alpha'), 'codex second prompt must not replay already delivered alpha');
     assert.ok(!codexPrompt2.includes('beta'), 'codex second prompt must not replay already delivered beta');
-    assert.ok(!codexPrompt2.includes('opus-reply-1'), 'codex second prompt must not replay already delivered peer reply');
     assert.ok(codexPrompt2.includes('gamma'), 'codex second prompt should include new user message gamma');
+  });
+
+  test('#91 regression: message between 2000~budget chars must NOT be truncated in incremental path', async () => {
+    const budget = getCatContextBudget('codex').maxContentLengthPerMsg;
+    // Construct a user message longer than old hardcoded 2000 but within budget
+    const msgLength = Math.min(budget - 500, 5000);
+    assert.ok(msgLength > 2000, `test requires msgLength > 2000, got ${msgLength}`);
+    const longUserMsg = '@opus ' + 'X'.repeat(msgLength - 30) + '_TAIL_MARKER_91';
+
+    const codex = createCapturingService('codex', 'codex-reply');
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createCapturingService('opus', 'opus-reply'),
+      codexService: codex,
+      geminiService: createCapturingService('gemini', 'gemini-reply'),
+      registry,
+      messageStore,
+    }));
+
+    // Round 1: long user message goes to opus (codex hasn't seen it yet)
+    await collect(router.route('u3', longUserMsg, 'thread-inc-91'));
+    // Round 2: codex is invoked — should see long user message via incremental context
+    await collect(router.route('u3', '@codex review this', 'thread-inc-91'));
+
+    const codexPrompt = codex.capturedPrompts[0] ?? '';
+    // The tail marker must survive — old `truncate: 2000` would chop it
+    assert.ok(
+      codexPrompt.includes('_TAIL_MARKER_91'),
+      'codex prompt must preserve tail of long user message (>2000 chars, within budget)',
+    );
+    // Must NOT contain truncation marker for within-budget messages
+    assert.ok(
+      !/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(codexPrompt),
+      'within-budget message must not be truncated in incremental path',
+    );
   });
 });

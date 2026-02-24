@@ -259,6 +259,7 @@ export async function assembleIncrementalContext(
       : { contextText: '', includesCurrentUserMessage, currentMessageFilteredOut };
   }
 
+  const truncateLimit = getCatContextBudget(catId as string).maxContentLengthPerMsg;
   const lines = relevant.map((m) => {
     // F22: Digest rich blocks into compact summaries for context
     const contentWithDigest = digestRichBlocks(m);
@@ -266,7 +267,7 @@ export async function assembleIncrementalContext(
     const normalized: StoredMessage = cleanContent === m.content
       ? m
       : { ...m, content: cleanContent };
-    const rendered = formatMessage(normalized, { truncate: 2000 });
+    const rendered = formatMessage(normalized, { truncate: truncateLimit });
     return `[${m.id}] ${rendered}`;
   });
 
