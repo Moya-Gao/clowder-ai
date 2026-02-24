@@ -29,6 +29,27 @@ vi.mock('../ContextHealthBar', () => ({
     React.createElement('div', { 'data-testid': `health-bar-${props.catId}` }),
 }));
 
+// F33: Stub useCatData for BindNewSessionSection
+vi.mock('@/hooks/useCatData', () => ({
+  useCatData: () => ({
+    cats: [
+      { id: 'opus', displayName: '布偶猫', color: { primary: '#7C3AED', secondary: '#EDE9FE' } },
+      { id: 'codex', displayName: '缅因猫', color: { primary: '#059669', secondary: '#D1FAE5' } },
+    ],
+    isLoading: false,
+    getCatById: (id: string) => {
+      const map: Record<string, unknown> = {
+        opus: { id: 'opus', displayName: '布偶猫' },
+        codex: { id: 'codex', displayName: '缅因猫' },
+      };
+      return map[id];
+    },
+    getCatsByBreed: () => new Map(),
+  }),
+  formatCatName: (cat: { displayName: string; variantLabel?: string }) =>
+    cat.variantLabel ? `${cat.displayName}(${cat.variantLabel})` : cat.displayName,
+}));
+
 vi.mock('../status-helpers', () => ({
   truncateId: (id: string, len: number) => id.length > len ? `${id.slice(0, len)}…` : id,
 }));
@@ -72,11 +93,15 @@ function mockSessionsResponse(sessions: unknown[]) {
 }
 
 describe('F24: SessionChainPanel', () => {
-  it('renders nothing when API returns empty sessions', async () => {
+  it('renders panel with bind section even when API returns empty sessions (F33)', async () => {
     mockSessionsResponse([]);
     renderPanel('thread-1');
     await flushFetch();
-    expect(container.querySelector('section')).toBeNull();
+    // Panel should render (F33: always visible for external session binding)
+    expect(container.querySelector('section')).not.toBeNull();
+    // No session cards, but bind section available
+    expect(container.textContent).toContain('0 sessions');
+    expect(container.textContent).toContain('绑定外部 Session');
   });
 
   it('renders session count in header', async () => {
@@ -314,8 +339,9 @@ describe('F24: SessionChainPanel', () => {
     mockApiFetch.mockResolvedValue({ ok: false, status: 500 });
     renderPanel('thread-1');
     await flushFetch();
-    // Should not crash, renders nothing
-    expect(container.querySelector('section')).toBeNull();
+    // Should not crash; panel still renders (F33: bind section always present)
+    expect(container.textContent).toContain('0 sessions');
+    expect(container.textContent).not.toContain('Session #');
   });
 
   it('renders singular "session" for count of 1', async () => {
@@ -344,7 +370,8 @@ describe('F24: SessionChainPanel', () => {
 
     // Old thread-1 data must be gone
     expect(container.textContent).not.toContain('Session #1');
-    expect(container.querySelector('section')).toBeNull();
+    // Panel still renders (F33: bind section), but no session cards
+    expect(container.textContent).toContain('0 sessions');
   });
 
   it('clears stale sessions on thread switch when fetch throws', async () => {
@@ -362,7 +389,8 @@ describe('F24: SessionChainPanel', () => {
 
     // Old thread-A data must be gone
     expect(container.textContent).not.toContain('Session #1');
-    expect(container.querySelector('section')).toBeNull();
+    // Panel still renders (F33: bind section), but no session cards
+    expect(container.textContent).toContain('0 sessions');
   });
 
   it('applies codex green colors to active session border and badge', async () => {
@@ -480,6 +508,58 @@ describe('F24: SessionChainPanel', () => {
     // Stale thread-1 data must NOT overwrite thread-2
     expect(container.textContent).toContain('Session #6');
     expect(container.textContent).not.toContain('Session #1');
+  });
+
+  describe('F33: bind new external session', () => {
+    it('hides bind UI for default thread (system-owned, bind returns 403)', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('default');
+      await flushFetch();
+      // Neither the per-session "bind..." nor the "绑定外部 Session" should appear
+      expect(container.textContent).not.toContain('bind...');
+      expect(container.textContent).not.toContain('绑定外部 Session');
+    });
+
+    it('shows bind-new-session button even when no sessions exist', async () => {
+      mockSessionsResponse([]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expect(container.textContent).toContain('绑定外部 Session');
+    });
+
+    it('shows bind-new-session button alongside active sessions', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+      expect(container.textContent).toContain('Session #1');
+      expect(container.textContent).toContain('绑定外部 Session');
+    });
+
+    it('filters out cats that already have active sessions from dropdown', async () => {
+      mockSessionsResponse([
+        { id: 's1', catId: 'opus', seq: 0, status: 'active', messageCount: 3, createdAt: Date.now() },
+      ]);
+      renderPanel('thread-1');
+      await flushFetch();
+
+      // Click to expand bind section
+      const bindBtn = Array.from(container.querySelectorAll('button'))
+        .find(btn => btn.textContent?.includes('绑定外部 Session'));
+      expect(bindBtn).not.toBeUndefined();
+      act(() => { bindBtn!.click(); });
+
+      // Should show codex (no active session) but not opus (has active session)
+      const select = container.querySelector('select');
+      expect(select).not.toBeNull();
+      const options = Array.from(select!.querySelectorAll('option'));
+      const optionTexts = options.map(o => o.textContent);
+      expect(optionTexts.some(t => t?.includes('缅因猫'))).toBe(true);
+      expect(optionTexts.some(t => t?.includes('布偶猫'))).toBe(false);
+    });
   });
 
   describe('bind UI', () => {

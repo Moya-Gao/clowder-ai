@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useChatStore, type Thread } from '@/stores/chatStore';
-import { TaskPanel } from '../TaskPanel';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { TaskPanel } from '../TaskPanel';
+import { DirectoryPickerModal, type SessionBinding } from './DirectoryPickerModal';
+import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
-import { DirectoryPickerModal } from './DirectoryPickerModal';
 import { getProjectPaths, sortAndGroupThreads } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 
@@ -31,6 +32,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
   const [showPicker, setShowPicker] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
+  const [bindWarning, setBindWarning] = useState<string | null>(null);
 
   // Shared seq maps — created once, cross-referenced between pin/fav toggle instances
   const pinSeqMap = useRef(new Map<string, number>());
@@ -80,75 +82,106 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
     void loadThreads();
   }, [loadThreads]);
 
-  const navigateToThread = useCallback((threadId: string) => {
-    router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
-  }, [router]);
+  const navigateToThread = useCallback(
+    (threadId: string) => {
+      router.push(threadId === 'default' ? '/' : `/thread/${threadId}`);
+    },
+    [router],
+  );
 
-  const createInProject = useCallback(async (projectPath?: string, preferredCats?: string[]) => {
-    setIsCreating(true);
-    setShowPicker(false);
-    try {
-      const res = await apiFetch(`/api/threads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(projectPath ? { projectPath } : {}),
-          ...(preferredCats?.length ? { preferredCats } : {}),
-        }),
-      });
-      if (!res.ok) return;
-      const thread: Thread = await res.json();
-      if (projectPath) setCurrentProject(projectPath);
-      navigateToThread(thread.id);
-      // Auto-close sidebar on mobile after creating a new conversation
-      if (typeof window !== 'undefined' && window.innerWidth < 768) {
-        onClose?.();
+  const createInProject = useCallback(
+    async (projectPath?: string, preferredCats?: string[], sessionBindings?: SessionBinding[]) => {
+      setIsCreating(true);
+      setShowPicker(false);
+      try {
+        const res = await apiFetch(`/api/threads`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(projectPath ? { projectPath } : {}),
+            ...(preferredCats?.length ? { preferredCats } : {}),
+          }),
+        });
+        if (!res.ok) return;
+        const thread: Thread = await res.json();
+
+        // F33: Bind external sessions after thread creation (best-effort, parallel)
+        if (sessionBindings?.length) {
+          const results = await Promise.allSettled(
+            sessionBindings.map(({ catId, cliSessionId }) =>
+              apiFetch(`/api/threads/${thread.id}/sessions/${catId}/bind`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cliSessionId }),
+              }),
+            ),
+          );
+          const failed = results.filter((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.ok));
+          if (failed.length > 0) {
+            setBindWarning(`Session 绑定部分失败（${failed.length}/${results.length}），可在 Session 面板重试`);
+            setTimeout(() => setBindWarning(null), 6000);
+          }
+        }
+
+        if (projectPath) setCurrentProject(projectPath);
+        navigateToThread(thread.id);
+        // Auto-close sidebar on mobile after creating a new conversation
+        if (typeof window !== 'undefined' && window.innerWidth < 768) {
+          onClose?.();
+        }
+        await loadThreads();
+      } catch {
+        // Silently ignore
+      } finally {
+        setIsCreating(false);
       }
-      await loadThreads();
-    } catch {
-      // Silently ignore
-    } finally {
-      setIsCreating(false);
-    }
-  }, [setCurrentProject, navigateToThread, loadThreads, onClose]);
+    },
+    [setCurrentProject, navigateToThread, loadThreads, onClose],
+  );
 
-  const handleDelete = useCallback(async (threadId: string) => {
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 204) return;
-      if (threadId === currentThreadId) {
-        navigateToThread('default');
+  const handleDelete = useCallback(
+    async (threadId: string) => {
+      try {
+        const res = await apiFetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 204) return;
+        if (threadId === currentThreadId) {
+          navigateToThread('default');
+        }
+        await loadThreads();
+      } catch {
+        // Silently ignore
       }
-      await loadThreads();
-    } catch {
-      // Silently ignore
-    }
-  }, [currentThreadId, navigateToThread, loadThreads]);
+    },
+    [currentThreadId, navigateToThread, loadThreads],
+  );
 
-  const handleRename = useCallback(async (threadId: string, title: string) => {
-    const nextTitle = title.trim();
-    if (!nextTitle) return;
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: nextTitle }),
-      });
-      if (!res.ok) return;
-      const updated = await res.json();
-      updateThreadTitle(threadId, updated.title ?? nextTitle);
-    } catch {
-      // Silently ignore
-    }
-  }, [updateThreadTitle]);
+  const handleRename = useCallback(
+    async (threadId: string, title: string) => {
+      const nextTitle = title.trim();
+      if (!nextTitle) return;
+      try {
+        const res = await apiFetch(`/api/threads/${threadId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        if (!res.ok) return;
+        const updated = await res.json();
+        updateThreadTitle(threadId, updated.title ?? nextTitle);
+      } catch {
+        // Silently ignore
+      }
+    },
+    [updateThreadTitle],
+  );
 
   const handleTogglePin = useCallback(
-    (threadId: string, pinned: boolean) => void pinToggle.current!.toggle(threadId, pinned),
+    (threadId: string, pinned: boolean) => void pinToggle.current?.toggle(threadId, pinned),
     [],
   );
 
   const handleToggleFavorite = useCallback(
-    (threadId: string, favorited: boolean) => void favToggle.current!.toggle(threadId, favorited),
+    (threadId: string, favorited: boolean) => void favToggle.current?.toggle(threadId, favorited),
     [],
   );
 
@@ -171,7 +204,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
         onClose?.();
       }
     },
-    [currentThreadId, navigateToThread, onClose]
+    [currentThreadId, navigateToThread, onClose],
   );
 
   const toggleGroup = useCallback((key: string) => {
@@ -190,11 +223,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
       const title = (thread.title ?? '').toLowerCase();
       const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
       const project = (thread.projectPath ?? '').toLowerCase();
-      return (
-        title.includes(normalizedQuery) ||
-        fallback.includes(normalizedQuery) ||
-        project.includes(normalizedQuery)
-      );
+      return title.includes(normalizedQuery) || fallback.includes(normalizedQuery) || project.includes(normalizedQuery);
     });
   }, [threads, normalizedQuery]);
 
@@ -208,6 +237,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
         <div className="p-3 border-b border-owner-light flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <button
+            type="button"
             onClick={() => setShowPicker(true)}
             disabled={isCreating}
             className="text-xs px-2 py-1 rounded-lg bg-owner-primary text-white hover:bg-owner-dark disabled:opacity-40 transition-colors"
@@ -215,6 +245,12 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
             {isCreating ? '...' : '+ 新对话'}
           </button>
         </div>
+
+        {bindWarning && (
+          <div className="px-3 py-1.5 bg-yellow-50 border-b border-yellow-200 text-[10px] text-yellow-700">
+            {bindWarning}
+          </div>
+        )}
 
         <div className="px-3 py-2 border-b border-owner-light">
           <input
@@ -297,60 +333,5 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
         />
       )}
     </>
-  );
-}
-
-// ─── Section Group (replaces ProjectGroup) ───
-
-function SectionGroup({
-  label,
-  icon,
-  count,
-  isCollapsed,
-  onToggle,
-  projectPath,
-  children,
-}: {
-  label: string;
-  icon?: 'pin' | 'star';
-  count: number;
-  isCollapsed: boolean;
-  onToggle: () => void;
-  projectPath?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mt-1">
-      <button
-        onClick={onToggle}
-        className="w-full text-left px-3 py-1.5 flex items-center gap-1.5 hover:bg-gray-50 transition-colors"
-        title={projectPath && projectPath !== 'default' ? projectPath : undefined}
-      >
-        <svg
-          className={`w-3 h-3 text-gray-400 transition-transform flex-shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
-          viewBox="0 0 12 12"
-          fill="currentColor"
-        >
-          <path d="M4 2l4 4-4 4V2z" />
-        </svg>
-        {icon === 'pin' && (
-          <svg className="w-3 h-3 text-owner-primary flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M4.456 2.013a.75.75 0 011.06-.034l6.5 6a.75.75 0 01-.034 1.06l-1.99 1.838.637 3.22a.75.75 0 01-1.196.693L6.5 12.526l-2.933 2.264a.75.75 0 01-1.196-.693l.637-3.22-1.99-1.838a.75.75 0 01-.034-1.06l5.472-5.966z" />
-          </svg>
-        )}
-        {icon === 'star' && (
-          <svg className="w-3 h-3 text-yellow-500 flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-            <path d="M8 1.5l2.09 4.26 4.71.68-3.41 3.32.8 4.69L8 12.26l-4.19 2.19.8-4.69L1.2 6.44l4.71-.68L8 1.5z" />
-          </svg>
-        )}
-        <span className="text-xs font-medium text-gray-500 truncate">
-          {label}
-        </span>
-        <span className="text-[10px] text-gray-300 flex-shrink-0 ml-auto">
-          {count}
-        </span>
-      </button>
-      {!isCollapsed && children}
-    </div>
   );
 }

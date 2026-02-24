@@ -1,10 +1,12 @@
 'use client';
 
+// biome-ignore lint/correctness/noUnusedImports: React needed for JSX in vitest environment
 import React, { useEffect, useState } from 'react';
 import type { CatInvocationInfo, ContextHealthData } from '@/stores/chat-types';
 import { apiFetch } from '@/utils/api-client';
-import { truncateId } from './status-helpers';
+import { BindNewSessionSection } from './BindNewSessionSection';
 import { ContextHealthBar } from './ContextHealthBar';
+import { BindSessionInput, SessionIdTag } from './SessionChainInputs';
 
 /** Minimal session record from API GET /api/threads/:id/sessions */
 interface SessionSummary {
@@ -53,76 +55,6 @@ function sealReasonLabel(reason?: string): string {
   return reason;
 }
 
-function BindSessionInput({ threadId, catId, onBound }: { threadId: string; catId: string; onBound: () => void }) {
-  const [open, setOpen] = useState(false);
-  const [value, setValue] = useState('');
-  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle');
-
-  const handleBind = async () => {
-    const trimmed = value.trim();
-    if (!trimmed || status === 'saving') return;
-    setStatus('saving');
-    try {
-      const res = await apiFetch(`/api/threads/${threadId}/sessions/${catId}/bind`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cliSessionId: trimmed }),
-      });
-      if (!res.ok) { setStatus('error'); return; }
-      setStatus('ok');
-      setValue('');
-      setTimeout(() => { setOpen(false); setStatus('idle'); onBound(); }, 800);
-    } catch {
-      setStatus('error');
-    }
-  };
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="text-[9px] text-gray-400 hover:text-gray-600 transition-colors">
-        bind...
-      </button>
-    );
-  }
-
-  return (
-    <div className="flex items-center gap-1 mt-1">
-      <input
-        value={value} onChange={e => setValue(e.target.value)}
-        onKeyDown={e => { if (e.key === 'Enter') void handleBind(); if (e.key === 'Escape') { setOpen(false); setStatus('idle'); } }}
-        placeholder="CLI session ID"
-        className="flex-1 text-[10px] font-mono px-1.5 py-0.5 rounded border border-gray-200 bg-gray-50 focus:outline-none focus:ring-1 focus:ring-owner-primary"
-        autoFocus
-      />
-      <button onClick={() => void handleBind()} disabled={status === 'saving' || !value.trim()}
-        className="text-[9px] px-1.5 py-0.5 rounded bg-gray-200 hover:bg-gray-300 disabled:opacity-40 transition-colors">
-        {status === 'saving' ? '...' : status === 'ok' ? 'ok' : status === 'error' ? 'err' : 'bind'}
-      </button>
-      <button onClick={() => { setOpen(false); setStatus('idle'); }} className="text-[9px] text-gray-400 hover:text-gray-600">
-        ✕
-      </button>
-    </div>
-  );
-}
-
-function SessionIdTag({ id }: { id: string }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = () => {
-    void navigator.clipboard.writeText(id);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
-  return (
-    <button
-      className="text-[9px] font-mono text-gray-400 hover:text-gray-600 cursor-pointer transition-colors"
-      title={`点击复制: ${id}`}
-      onClick={handleCopy}
-    >
-      {copied ? 'copied!' : truncateId(id, 10)}
-    </button>
-  );
-}
-
 function cachePercent(cacheRead?: number, input?: number): number {
   if (!cacheRead || !input) return 0;
   return Math.round((cacheRead / input) * 100);
@@ -154,11 +86,12 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
 
   // Re-fetch when any cat's sessionSealed changes
   const sealSignal = Object.values(catInvocations)
-    .map(inv => `${inv.sessionSeq ?? ''}:${inv.sessionSealed ?? ''}`)
+    .map((inv) => `${inv.sessionSeq ?? ''}:${inv.sessionSealed ?? ''}`)
     .join(',');
 
   // Fetch sessions with stale-response guard: if threadId or sealSignal
   // changes before the response arrives, discard the stale result.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sealSignal+refreshKey intentionally trigger re-fetch
   useEffect(() => {
     let cancelled = false;
     setSessions([]);
@@ -166,24 +99,32 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
     apiFetch(`/api/threads/${threadId}/sessions`)
       .then(async (res) => {
         if (cancelled) return;
-        if (!res.ok) { setSessions([]); return; }
-        const data = await res.json() as { sessions: SessionSummary[] };
+        if (!res.ok) {
+          setSessions([]);
+          return;
+        }
+        const data = (await res.json()) as { sessions: SessionSummary[] };
         if (!cancelled) setSessions(data.sessions);
       })
-      .catch(() => { if (!cancelled) setSessions([]); })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .catch(() => {
+        if (!cancelled) setSessions([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [threadId, sealSignal, refreshKey]);
 
-  if (sessions.length === 0 && !loading) return null;
-
-  const activeSessions = sessions.filter(s => s.status === 'active');
+  const activeSessions = sessions.filter((s) => s.status === 'active');
+  const activeCatIds = new Set(activeSessions.map((s) => s.catId));
   const sealedSessions = sessions
-    .filter(s => s.status === 'sealed' || s.status === 'sealing')
+    .filter((s) => s.status === 'sealed' || s.status === 'sealing')
     .sort((a, b) => (b.sealedAt ?? b.createdAt) - (a.sealedAt ?? a.createdAt));
 
   // Check if any cat recently had a compact (from hooks)
-  const hasRecentCompact = Object.values(catInvocations).some(inv => inv.sessionSealed);
+  const hasRecentCompact = Object.values(catInvocations).some((inv) => inv.sessionSealed);
 
   return (
     <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
@@ -199,9 +140,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
         <div className="mb-2 px-2 py-1.5 rounded bg-amber-50 border border-amber-200">
           <div className="flex items-center gap-1.5">
             <span className="text-amber-600 text-xs">&#9888;</span>
-            <span className="text-[10px] font-medium text-amber-700">
-              Post-compact safety active
-            </span>
+            <span className="text-[10px] font-medium text-amber-700">Post-compact safety active</span>
           </div>
           <p className="text-[9px] text-amber-600 mt-0.5 ml-4">
             High-risk ops may be blocked after context compression
@@ -210,14 +149,16 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
       )}
 
       {/* Active sessions */}
-      {activeSessions.map(session => {
+      {activeSessions.map((session) => {
         const inv = catInvocations[session.catId];
-        const health: ContextHealthData | undefined = inv?.contextHealth ?? (
-          session.contextHealth ? {
-            ...session.contextHealth,
-            measuredAt: session.createdAt,
-          } : undefined
-        );
+        const health: ContextHealthData | undefined =
+          inv?.contextHealth ??
+          (session.contextHealth
+            ? {
+                ...session.contextHealth,
+                measuredAt: session.createdAt,
+              }
+            : undefined);
         // Prefer live invocation usage, fallback to persisted session usage
         const usage = inv?.usage ?? session.lastUsage;
         const cachePct = cachePercent(usage?.cacheReadTokens, usage?.inputTokens);
@@ -228,45 +169,52 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
           <div key={session.id} className="mb-2">
             <div className="flex items-center gap-1 mb-1">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
-              <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">
-                Active
-              </span>
+              <span className="text-[9px] font-bold text-green-600 uppercase tracking-wider">Active</span>
             </div>
             <div className={`rounded-md border-[1.5px] ${colors.border} bg-white p-2.5 shadow-sm`}>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-semibold text-gray-800">
-                    Session #{session.seq + 1}
-                  </span>
+                  <span className="text-xs font-semibold text-gray-800">Session #{session.seq + 1}</span>
                   <SessionIdTag id={session.cliSessionId ?? session.id} />
                 </div>
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${colors.badgeBg} ${colors.badgeText} font-medium`}>
+                <span
+                  className={`text-[9px] px-1.5 py-0.5 rounded-full ${colors.badgeBg} ${colors.badgeText} font-medium`}
+                >
                   {session.catId}
                 </span>
               </div>
               <div className="text-[10px] text-gray-400 mb-1.5">
-                Started {timeAgo(session.createdAt)}{session.messageCount > 0 ? ` · ${session.messageCount} msgs` : ''}
+                Started {timeAgo(session.createdAt)}
+                {session.messageCount > 0 ? ` · ${session.messageCount} msgs` : ''}
               </div>
               {/* Token counts + cache: prefer live invocation, fallback to persisted */}
               {usage && (usage.inputTokens != null || usage.outputTokens != null) && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[10px] font-mono mb-1">
                   {usage.inputTokens != null && (
-                    <span className="text-gray-600">{fmtTokens(usage.inputTokens)}<span className="text-gray-400 ml-0.5">↓</span></span>
+                    <span className="text-gray-600">
+                      {fmtTokens(usage.inputTokens)}
+                      <span className="text-gray-400 ml-0.5">↓</span>
+                    </span>
                   )}
                   {usage.outputTokens != null && (
-                    <span className="text-gray-500">{fmtTokens(usage.outputTokens)}<span className="text-gray-400 ml-0.5">↑</span></span>
+                    <span className="text-gray-500">
+                      {fmtTokens(usage.outputTokens)}
+                      <span className="text-gray-400 ml-0.5">↑</span>
+                    </span>
                   )}
-                  {cachePct > 0 && (
-                    <span className="text-green-600">cached {cachePct}%</span>
-                  )}
+                  {cachePct > 0 && <span className="text-green-600">cached {cachePct}%</span>}
                 </div>
               )}
               {/* Context health bar (already shows % internally, no duplicate text) */}
-              {health && (
-                <ContextHealthBar catId={session.catId} health={health} />
+              {health && <ContextHealthBar catId={session.catId} health={health} />}
+              {/* Bind CLI session ID (skip default thread — system-owned, bind returns 403) */}
+              {threadId !== 'default' && (
+                <BindSessionInput
+                  threadId={threadId}
+                  catId={session.catId}
+                  onBound={() => setRefreshKey((k) => k + 1)}
+                />
               )}
-              {/* Bind CLI session ID */}
-              <BindSessionInput threadId={threadId} catId={session.catId} onBound={() => setRefreshKey(k => k + 1)} />
             </div>
           </div>
         );
@@ -276,36 +224,37 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
       {sealedSessions.length > 0 && (
         <div className="mt-1">
           <div className="flex items-center gap-1 mb-1">
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
-              Sealed
-            </span>
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Sealed</span>
           </div>
           <div className="space-y-1">
-            {sealedSessions.map(session => (
+            {sealedSessions.map((session) => (
               <div
                 key={session.id}
                 className="flex items-center gap-2 rounded border border-gray-200 bg-white px-2.5 py-1.5"
               >
-                <div className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
-                  session.sealReason?.includes('compact')
-                    ? 'bg-amber-100' : 'bg-gray-100'
-                }`}>
-                  <span className={`text-[10px] ${
-                    session.sealReason?.includes('compact')
-                      ? 'text-amber-500' : 'text-gray-400'
-                  }`}>&#128274;</span>
+                <div
+                  className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center ${
+                    session.sealReason?.includes('compact') ? 'bg-amber-100' : 'bg-gray-100'
+                  }`}
+                >
+                  <span
+                    className={`text-[10px] ${
+                      session.sealReason?.includes('compact') ? 'text-amber-500' : 'text-gray-400'
+                    }`}
+                  >
+                    &#128274;
+                  </span>
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-medium text-gray-700">
-                      Session #{session.seq + 1}
-                    </span>
+                    <span className="text-[11px] font-medium text-gray-700">Session #{session.seq + 1}</span>
                     <SessionIdTag id={session.cliSessionId ?? session.id} />
                   </div>
                   <div className="text-[9px] text-gray-400 truncate">
                     {session.sealedAt ? timeAgo(session.sealedAt) : 'sealing'}
                     {session.contextHealth ? ` · ${Math.round(session.contextHealth.fillRatio * 100)}%` : ''}
-                    {' · '}{session.messageCount} msgs
+                    {' · '}
+                    {session.messageCount} msgs
                     {session.sealReason ? ` · ${sealReasonLabel(session.sealReason)}` : ''}
                   </div>
                 </div>
@@ -313,6 +262,15 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
             ))}
           </div>
         </div>
+      )}
+
+      {/* F33: Bind new external session (skip default thread — system-owned, bind returns 403) */}
+      {threadId !== 'default' && (
+        <BindNewSessionSection
+          threadId={threadId}
+          activeCatIds={activeCatIds}
+          onBound={() => setRefreshKey((k) => k + 1)}
+        />
       )}
 
       {loading && sessions.length === 0 && (
