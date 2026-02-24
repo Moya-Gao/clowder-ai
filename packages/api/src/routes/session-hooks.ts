@@ -11,9 +11,10 @@
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
-import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
+import { getSessionStrategy } from '../config/session-strategy.js';
 import type { ISessionSealer } from '../domains/cats/services/session/SessionSealer.js';
 import type { TranscriptReader } from '../domains/cats/services/session/TranscriptReader.js';
+import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 
 const sealSchema = z.object({
   cliSessionId: z.string().min(1).max(500),
@@ -28,10 +29,7 @@ interface SessionHooksRouteOptions extends FastifyPluginOptions {
   hookToken?: string;
 }
 
-export async function sessionHooksRoutes(
-  app: FastifyInstance,
-  opts: SessionHooksRouteOptions,
-): Promise<void> {
+export async function sessionHooksRoutes(app: FastifyInstance, opts: SessionHooksRouteOptions): Promise<void> {
   const { sessionChainStore, sessionSealer, transcriptReader, hookToken } = opts;
 
   // Hook authentication guard — fail-closed: always requires valid token
@@ -75,10 +73,51 @@ export async function sessionHooksRoutes(
       };
     }
 
-    // Fast path: CAS active → sealing
+    // F33: Strategy-aware seal decision
+    const strategy = getSessionStrategy(record.catId as string);
+
+    if (strategy.strategy === 'compress') {
+      // compress strategy: never seal from hook, just record the compression event
+      // Atomic increment avoids race when concurrent hook calls overlap (P1 fix)
+      const newCount = await sessionChainStore.incrementCompressionCount(record.id);
+      if (newCount == null) {
+        reply.status(409);
+        return { error: 'Session disappeared during compression increment (race)', sessionId: record.id };
+      }
+      return reply.send({
+        action: 'compress_allowed',
+        sessionId: record.id,
+        compressionCount: newCount,
+        strategy: 'compress',
+      });
+    }
+
+    if (strategy.strategy === 'hybrid') {
+      const max = strategy.hybrid?.maxCompressions ?? 2;
+      // Atomic increment-then-check: avoids TOCTOU race on concurrent hook calls (P1 fix)
+      const newCount = await sessionChainStore.incrementCompressionCount(record.id);
+      if (newCount == null) {
+        reply.status(409);
+        return { error: 'Session disappeared during compression increment (race)', sessionId: record.id };
+      }
+      if (newCount <= max) {
+        return reply.send({
+          action: 'compress_allowed',
+          sessionId: record.id,
+          compressionCount: newCount,
+          maxCompressions: max,
+          strategy: 'hybrid',
+        });
+      }
+      // At or over max → seal with max_compressions reason (not the hook's reason)
+    }
+
+    // Determine seal reason: hybrid over max → 'max_compressions', otherwise use hook reason
+    const sealReason = strategy.strategy === 'hybrid' ? 'max_compressions' : reason;
+
     const sealResult = await sessionSealer.requestSeal({
       sessionId: record.id,
-      reason,
+      reason: sealReason,
     });
 
     if (!sealResult.accepted) {
@@ -124,7 +163,7 @@ export async function sessionHooksRoutes(
     // Get the full chain for this cat+thread, find the latest sealed session
     const chain = await sessionChainStore.getChain(record.catId, record.threadId);
     const sealedSessions = chain
-      .filter(s => s.status === 'sealed' && s.sealedAt != null)
+      .filter((s) => s.status === 'sealed' && s.sealedAt != null)
       .sort((a, b) => (b.sealedAt ?? 0) - (a.sealedAt ?? 0));
 
     if (sealedSessions.length === 0) {
@@ -135,9 +174,7 @@ export async function sessionHooksRoutes(
     const latest = sealedSessions[0]!;
 
     // Read extractive digest
-    const digest = await transcriptReader.readDigest(
-      latest.id, latest.threadId, latest.catId,
-    );
+    const digest = await transcriptReader.readDigest(latest.id, latest.threadId, latest.catId);
     if (!digest) {
       reply.status(404);
       return { error: 'Digest not found for latest sealed session' };

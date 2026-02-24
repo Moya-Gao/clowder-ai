@@ -12,14 +12,10 @@
  * Pass bare keys only.
  */
 
-import type { CatId, SessionRecord, SessionStatus, ContextHealth, SessionUsageSnapshot } from '@cat-cafe/shared';
+import type { CatId, ContextHealth, SessionRecord, SessionStatus, SessionUsageSnapshot } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
+import type { CreateSessionInput, ISessionChainStore, SessionRecordPatch } from '../ports/SessionChainStore.js';
 import { SessionChainKeys } from '../redis-keys/session-chain-keys.js';
-import type {
-  CreateSessionInput,
-  SessionRecordPatch,
-  ISessionChainStore,
-} from '../ports/SessionChainStore.js';
 
 const DEFAULT_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 
@@ -46,6 +42,20 @@ redis.call('SET', KEYS[4], ARGV[1], 'EX', ${DEFAULT_TTL_SECONDS})
 return seq
 `;
 
+/**
+ * Lua: atomic increment compressionCount with active-status CAS guard.
+ * KEYS[1] = detail key, ARGV[1] = updatedAt timestamp.
+ * Returns: -1 if key doesn't exist, -2 if status != 'active',
+ *          otherwise the new compressionCount.
+ */
+const INCR_COMPRESSION_LUA = `
+if redis.call('EXISTS', KEYS[1]) == 0 then return -1 end
+if redis.call('HGET', KEYS[1], 'status') ~= 'active' then return -2 end
+local newCount = redis.call('HINCRBY', KEYS[1], 'compressionCount', 1)
+redis.call('HSET', KEYS[1], 'updatedAt', ARGV[1])
+return newCount
+`;
+
 export class RedisSessionChainStore implements ISessionChainStore {
   private readonly redis: RedisClient;
 
@@ -63,11 +73,20 @@ export class RedisSessionChainStore implements ISessionChainStore {
     const detailKey = SessionChainKeys.detail(id);
     const cliKey = SessionChainKeys.byCli(input.cliSessionId);
 
-    const seq = await this.redis.eval(
-      CREATE_LUA, 4,
-      activeKey, chainKey, detailKey, cliKey,
-      id, input.cliSessionId, input.threadId, input.catId, input.userId, now,
-    ) as number;
+    const seq = (await this.redis.eval(
+      CREATE_LUA,
+      4,
+      activeKey,
+      chainKey,
+      detailKey,
+      cliKey,
+      id,
+      input.cliSessionId,
+      input.threadId,
+      input.catId,
+      input.userId,
+      now,
+    )) as number;
 
     return {
       id,
@@ -98,9 +117,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
   }
 
   async getChain(catId: CatId, threadId: string): Promise<SessionRecord[]> {
-    const ids = await this.redis.zrange(
-      SessionChainKeys.chain(catId, threadId), 0, -1,
-    );
+    const ids = await this.redis.zrange(SessionChainKeys.chain(catId, threadId), 0, -1);
     if (!ids.length) return [];
 
     const pipeline = this.redis.pipeline();
@@ -165,10 +182,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
       // Update CLI index: delete old, set new
       const oldCliId = await this.redis.hget(detailKey, 'cliSessionId');
       if (oldCliId) await this.redis.del(SessionChainKeys.byCli(oldCliId));
-      await this.redis.set(
-        SessionChainKeys.byCli(patch.cliSessionId),
-        id, 'EX', DEFAULT_TTL_SECONDS,
-      );
+      await this.redis.set(SessionChainKeys.byCli(patch.cliSessionId), id, 'EX', DEFAULT_TTL_SECONDS);
       pairs.push('cliSessionId', patch.cliSessionId);
     }
 
@@ -203,6 +217,9 @@ export class RedisSessionChainStore implements ISessionChainStore {
     if (patch.sealedAt !== undefined) {
       pairs.push('sealedAt', String(patch.sealedAt));
     }
+    if (patch.compressionCount !== undefined) {
+      pairs.push('compressionCount', String(patch.compressionCount));
+    }
 
     await this.redis.hset(detailKey, ...pairs);
     return this.get(id);
@@ -214,11 +231,26 @@ export class RedisSessionChainStore implements ISessionChainStore {
     return this.get(id);
   }
 
+  async incrementCompressionCount(id: string): Promise<number | null> {
+    const detailKey = SessionChainKeys.detail(id);
+    // Lua: atomic exists-check + increment in one round-trip.
+    // Returns -1 if key doesn't exist, otherwise the new compressionCount.
+    const result = await this.redis.eval(
+      INCR_COMPRESSION_LUA,
+      1,
+      detailKey,
+      String(Date.now()),
+    );
+    const code = result as number;
+    return code < 0 ? null : code;
+  }
+
   private hydrate(data: Record<string, string>): SessionRecord {
     const contextHealth = safeParseJson<ContextHealth>(data['contextHealth']);
     const lastUsage = safeParseJson<SessionUsageSnapshot>(data['lastUsage']);
     const sealReason = data['sealReason'] as SessionRecord['sealReason'] | undefined;
     const sealedAt = data['sealedAt'] ? parseInt(data['sealedAt'], 10) : undefined;
+    const compressionCount = data['compressionCount'] ? parseInt(data['compressionCount'], 10) : undefined;
 
     return {
       id: data['id']!,
@@ -233,6 +265,7 @@ export class RedisSessionChainStore implements ISessionChainStore {
       messageCount: parseInt(data['messageCount'] ?? '0', 10),
       ...(sealReason ? { sealReason } : {}),
       ...(sealedAt ? { sealedAt } : {}),
+      ...(compressionCount !== undefined ? { compressionCount } : {}),
       createdAt: parseInt(data['createdAt']!, 10),
       updatedAt: parseInt(data['updatedAt']!, 10),
     };

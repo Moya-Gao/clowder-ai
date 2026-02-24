@@ -29,6 +29,8 @@ export interface SessionRecord {
   messageCount: number;
   /** Seal reason (Phase B) */
   sealReason?: 'threshold' | 'manual' | 'error' | (string & {});
+  /** F33: Number of CLI compressions in this session (hybrid strategy) */
+  compressionCount?: number;
   readonly createdAt: number;
   updatedAt: number;
   sealedAt?: number;
@@ -73,3 +75,55 @@ export interface SealResult {
   /** Session ID that was sealed (if accepted) */
   sessionId?: string;
 }
+
+// ── F33: Session Strategy Configurability ──
+
+/** Session lifecycle strategy type */
+export type SessionStrategy = 'handoff' | 'compress' | 'hybrid';
+
+/** Per-cat session lifecycle strategy configuration */
+export interface SessionStrategyConfig {
+  /** Strategy type */
+  strategy: SessionStrategy;
+  /** Context health thresholds */
+  thresholds: {
+    /** Frontend warning (yellow) fillRatio */
+    warn: number;
+    /** Trigger strategy action fillRatio */
+    action: number;
+  };
+  /** handoff strategy parameters */
+  handoff?: {
+    /** Attempt MEMORY.md dump before seal */
+    preSealMemoryDump: boolean;
+    /** Bootstrap injection depth */
+    bootstrapDepth: 'extractive' | 'generative';
+  };
+  /** compress strategy parameters */
+  compress?: {
+    /** Max compressions (unlimited for compress; effective for hybrid) */
+    maxCompressions?: number;
+    /** Track context_health after compression */
+    trackPostCompression: boolean;
+  };
+  /** hybrid-specific parameters (Phase 1: hook-capable providers only) */
+  hybrid?: {
+    /** Switch to handoff after N compressions */
+    maxCompressions: number;
+  };
+  /** Per-turn token budget */
+  turnBudget?: number;
+  /** Safety margin above turnBudget */
+  safetyMargin?: number;
+}
+
+/** Seal reason for strategy-driven actions */
+export type SealReason = 'threshold' | 'budget_exhausted' | 'max_compressions' | 'manual' | 'error' | (string & {});
+
+/** Strategy action returned by shouldTakeAction() */
+export type StrategyAction =
+  | { type: 'none' }
+  | { type: 'warn' }
+  | { type: 'seal'; reason: SealReason }
+  | { type: 'allow_compress' }
+  | { type: 'seal_after_compress'; reason: SealReason };

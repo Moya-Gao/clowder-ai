@@ -109,14 +109,14 @@ export {
 } from './modes.js';
 // Rich block types (F22 Rich Blocks 富消息系统)
 export type {
-  RichBlockKind,
-  RichBlockBase,
-  RichCardBlock,
-  RichDiffBlock,
-  RichChecklistBlock,
-  RichMediaGalleryBlock,
   RichAudioBlock,
   RichBlock,
+  RichBlockBase,
+  RichBlockKind,
+  RichCardBlock,
+  RichChecklistBlock,
+  RichDiffBlock,
+  RichMediaGalleryBlock,
   RichMessageExtra,
 } from './rich.js';
 export { normalizeRichBlock } from './rich.js';
@@ -124,10 +124,14 @@ export { normalizeRichBlock } from './rich.js';
 export type {
   ContextHealth,
   ContextHealthConfig,
+  SealReason,
   SealResult,
   SessionRecord,
   SessionStatus,
+  SessionStrategy,
+  SessionStrategyConfig,
   SessionUsageSnapshot,
+  StrategyAction,
 } from './session.js';
 // Signals types (F21 Signal Hunter)
 export type {
