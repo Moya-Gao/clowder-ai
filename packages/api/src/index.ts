@@ -39,6 +39,8 @@ import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrch
 import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
 import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
+import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter } from './infrastructure/email/index.js';
+import { prTrackingRoutes } from './routes/pr-tracking.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -351,6 +353,20 @@ async function main(): Promise<void> {
   // F-BLOAT: Progressive disclosure docs endpoints (no auth, static content)
   await app.register(registerCallbackDocsRoutes);
 
+  // GitHub Review Watcher stores + routes (BACKLOG #81)
+  // Must register routes BEFORE app.listen()
+  const prTrackingStore = new MemoryPrTrackingStore();
+  const processedEmailStore = new MemoryProcessedEmailStore();
+  const reviewRouter = new ReviewRouter({
+    prTrackingStore,
+    processedEmailStore,
+    threadStore,
+    messageStore,
+    log: app.log,
+    defaultUserId: 'default-user',
+  });
+  await app.register(prTrackingRoutes, { prTrackingStore });
+
   // Start listening
   const address = await app.listen({ port: PORT, host: HOST });
   app.log.info(`[api] Server running on ${address}`);
@@ -366,6 +382,12 @@ async function main(): Promise<void> {
   } catch (err) {
     app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
   }
+
+  // Start email watcher AFTER listen (non-blocking, best-effort)
+  await startGithubReviewWatcher({
+    log: app.log,
+    reviewRouter,
+  });
 
   // Graceful shutdown handler: persist Redis before exit
   let shuttingDown = false;
@@ -401,6 +423,13 @@ async function main(): Promise<void> {
         } catch (err) {
           app.log.error(`[api] Redis BGSAVE failed: ${String(err)}`);
         }
+      }
+
+      // Stop GitHub review watcher
+      try {
+        await stopGithubReviewWatcher();
+      } catch (err) {
+        app.log.error(`[api] GithubReviewWatcher stop failed: ${String(err)}`);
       }
 
       // Close WebSocket connections

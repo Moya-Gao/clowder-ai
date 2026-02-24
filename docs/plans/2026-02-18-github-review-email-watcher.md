@@ -1,8 +1,8 @@
 # GitHub Review Email Watcher 设计方案
 
-> 记录日期：2026-02-18
-> 状态：待实现（BACKLOG #81）
-> 来源：铲屎官 + 布偶猫对话
+> 记录日期：2026-02-18（初版）/ 2026-02-24（更新：砚砚 R1/R2 + 实现）
+> 状态：Phase 1+2 已实现，待 review
+> 来源：铲屎官 + 布偶猫对话 + 砚砚 review
 
 ---
 
@@ -32,17 +32,53 @@ GitHub review 完成时会自动发邮件通知到铲屎官的 QQ 邮箱（@qq.c
 ```
 Cloud Codex review PR
   → GitHub 发邮件到铲屎官 QQ 邮箱
-  → Cat Cafe EmailWatcher IMAP 轮询（每 2~3 分钟）
-  → 检测到 GitHub review 邮件
-  → 从邮件 subject 解析 PR 号
-  → gh pr view {PR#} --json title,reviews 拉 review 详情
-  → 从 PR title 中解析 [猫名🐾] 标签，确定被 review 的猫
-  → 自动 invoke 对应猫，附上 review 内容
-  → 猫自主处理 P1/P2（改代码、跑测试、push）
-  → 猫完成后发系统消息："处理完了，ready to merge，等你确认 🐾"
-  → 铲屎官早上起来看到通知，说"合入"
-  → 猫执行 Step 6（merge + push + 清理）
+  → Cat Cafe GithubReviewWatcher IMAP 轮询（默认 2 min）
+  → 检测到 GitHub review 邮件（from: notifications@github.com）
+  → GithubReviewMailParser 解析 subject → PR 号/repo/review 类型/cat 标签
+  → ReviewRouter 3 层路由（下文详述）
+  → 系统消息发到对应 thread，@mention 对应猫
+  → 猫自主处理 review 意见
+  → 猫完成后发系统消息通知铲屎官确认合入
 ```
+
+---
+
+## 3 层路由策略（砚砚 R1/R2 设计）
+
+### Layer 1: PrTrackingStore Registry（主路径）
+
+猫猫提 PR 时通过 `POST /api/pr-tracking` 注册 `{ repoFullName, prNumber, catId, threadId }`。
+邮件到达时先查注册表：`repo+pr → catId+threadId`。
+
+**优点**：精确路由到猫的原始对话 thread，上下文连续。
+
+### Layer 2: PR Title Fallback
+
+如果注册表无命中，从 PR title 解析 `[猫名🐾]` 标签。
+匹配到猫后，路由到该猫的 **Review Inbox thread**（懒创建，per-cat 单例缓存）。
+
+**适用场景**：PR 未注册（手动开的 PR、旧 PR 等）但 title 含猫名标签。
+
+### Layer 3: Triage（兜底）
+
+注册表无命中 + title 无猫名标签 → 路由到 **铲屎官 Triage thread**。
+铲屎官手动指派或补注册。
+
+### 路由结果类型
+
+```typescript
+type RouteResult =
+  | { kind: 'routed'; threadId: string; catId: string; source: 'registry' | 'fallback' }
+  | { kind: 'triage'; threadId: string; reason: string }
+  | { kind: 'skipped'; reason: string };  // dedup 命中
+```
+
+---
+
+## 去重（Dedup）
+
+1. **IMAP UID 级**：每封邮件只处理一次（`ProcessedEmailStore.isProcessed(uid)`）
+2. **PR 级时间窗口**：同一 PR 在 5 分钟内只触发一次（防同一 review 的多封通知）
 
 ---
 
@@ -50,74 +86,72 @@ Cloud Codex review PR
 
 ### 1. 猫猫识别：PR title 必须带 `[猫名🐾]` 标签
 
-PR 创建时 title 必须包含作者猫标签，EmailWatcher 凭此路由通知。
+PR 创建时 title 必须包含作者猫标签，作为 Layer 2 fallback 的路由依据。
 
-| 标签 | 对应猫 |
-|------|--------|
-| `[布偶猫🐾]` | 布偶猫（Opus/宪宪） |
-| `[缅因猫🐾]` | 缅因猫（Codex/砚砚） |
-| `[暹罗猫🐾]` | 暹罗猫（Gemini） |
-
-**PR title 示例**：`[布偶猫🐾] feat(audit): add UTC timestamps`
-
-`requesting-cloud-review` skill 和 PR template 均需更新，强制要求此格式。
+| 标签 | 对应猫 | catId |
+|------|--------|-------|
+| `[布偶猫🐾]` | 布偶猫（Opus/宪宪） | `opus` |
+| `[缅因猫🐾]` | 缅因猫（Codex/砚砚） | `codex` |
+| `[暹罗猫🐾]` | 暹罗猫（Gemini） | `gemini` |
 
 ### 2. 自动唤醒，人工合入
 
-- **猫猫自主处理**：review 处理（fix P1/P2、跑测试、push）完全自动化
-- **人工最终确认**：merge to main 必须铲屎官明确说"合入"才执行
-- 理由：合入是不可逆操作，铲屎官早上起来"最终验收"天然合理
+- **猫猫自主处理**：review 处理完全自动化
+- **人工最终确认**：merge to main 必须铲屎官明确说"合入"
 
-### 3. IMAP 配置
+### 3. PR Tracking API
+
+| Method | Path | 用途 |
+|--------|------|------|
+| `POST /api/pr-tracking` | 注册 PR 跟踪 | `{ repoFullName, prNumber, catId, threadId }` |
+| `GET /api/pr-tracking` | 列出所有跟踪 | 调试/管理 |
+| `DELETE /api/pr-tracking/:repo/:pr` | 移除跟踪 | PR 合入后清理 |
+
+安全：`userId` 从 `x-cat-cafe-user` header 读取，不从 body 传入。
+
+### 4. IMAP 配置
 
 ```env
-IMAP_USER=铲屎官QQ号@qq.com
-IMAP_PASS=QQ邮箱授权码（非登录密码，在邮箱设置→账户→IMAP服务生成）
-IMAP_HOST=imap.qq.com
-IMAP_PORT=993
+GITHUB_REVIEW_IMAP_USER=铲屎官QQ号@qq.com
+GITHUB_REVIEW_IMAP_PASS=QQ邮箱授权码
+GITHUB_REVIEW_IMAP_HOST=imap.qq.com
+GITHUB_REVIEW_IMAP_PORT=993
+GITHUB_REVIEW_POLL_INTERVAL_MS=30000
 ```
 
-QQ 邮箱授权码获取步骤：
-1. mail.qq.com → 设置 → 账户
-2. 开启 IMAP/SMTP 服务
-3. 生成授权码（手机短信验证）
-
 ---
 
-## 技术实现要点
+## 实现文件
 
-### 新增文件
+### Phase 1: IMAP 基础设施
+- `infrastructure/email/GithubReviewMailParser.ts` — Subject 解析 + cat 标签提取
+- `infrastructure/email/GithubReviewWatcher.ts` — IMAP 轮询服务
+- `infrastructure/email/github-review-bootstrap.ts` — 生命周期管理
+- `config/env-registry.ts` — 5 个环境变量注册
 
-- `packages/api/src/infrastructure/email/EmailWatcher.ts` — IMAP 轮询服务
-- `packages/api/src/infrastructure/email/GithubMailParser.ts` — GitHub 邮件解析
+### Phase 2: 路由 + 跟踪
+- `infrastructure/email/PrTrackingStore.ts` — PR 跟踪注册表（Memory impl）
+- `infrastructure/email/ProcessedEmailStore.ts` — 邮件去重层（Memory impl）
+- `infrastructure/email/ReviewRouter.ts` — 3 层路由核心逻辑
+- `routes/pr-tracking.ts` — PR tracking REST API
+- `infrastructure/email/index.ts` — barrel exports
+
+### 测试
+- `test/github-review-mail-parser.test.js` — 19 tests（解析）
+- `test/pr-tracking-store.test.js` — 7 tests（注册表 CRUD）
+- `test/processed-email-store.test.js` — 8 tests（去重）
+- `test/review-router.test.js` — 12 tests（3 层路由 + 消息内容）
+- **Total: 46 new tests, all pass**
 
 ### 依赖
-
-- `imapflow` — Node.js IMAP 客户端（轻量，支持 IDLE）
-
-### PR Template 更新
-
-`.github/pull_request_template.md` title 说明加入 `[猫名🐾]` 要求。
-
-### Skill 更新
-
-`requesting-cloud-review` skill 加入 title 格式校验提示。
+- `imapflow` — Node.js IMAP 客户端
 
 ---
 
-## 待确认
+## 待做（Phase 3+）
 
-- [ ] 铲屎官提供 QQ 邮箱授权码（实现完后配置到 `.env`）
-- [ ] IMAP poll 间隔：2 分钟 or 3 分钟？（默认 2 分钟）
-- [ ] review 邮件 subject 格式确认（需实测一封 GitHub review 邮件的原始格式）
-
----
-
-## 实现范围（开始前确认）
-
-1. `imapflow` 接入 + IMAP 轮询后台服务
-2. GitHub review 邮件解析（subject → PR 号 + review 类型）
-3. PR title `[猫名🐾]` 解析 → cat routing
-4. 自动 invoke 对应猫（复用现有 invoke 机制）
-5. 猫完成后推前端通知（WebSocket）
-6. PR template + `requesting-cloud-review` skill 更新（强制 title 格式）
+- [ ] 猫猫自动 invoke（目前只发 system message + @mention，需接 invoke 机制）
+- [ ] Redis impl for PrTrackingStore + ProcessedEmailStore（重启持久化）
+- [ ] `requesting-cloud-review` skill 自动调 `POST /api/pr-tracking`
+- [ ] 前端通知（WebSocket push "砚砚 review 完了 🐾"）
+- [ ] IMAP IDLE 替代轮询（更实时，但 QQ 邮箱 IDLE 支持待验证）

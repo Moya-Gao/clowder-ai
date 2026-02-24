@@ -38,7 +38,7 @@
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
 | 80 | **流式草稿持久化（Streaming Draft Persistence）** | [ ] | [2026-02-17 超时复盘](./plans/2026-02-17-timeout-and-message-persistence.md) | 当前消息只在猫猫完成后持久化；streaming 阶段刷新页面消息消失。需在 streaming 阶段增量写入草稿消息，完成后合并/替换。难点：写入时机、草稿合并语义、TTL/清理、Redis 写入频率。Phase A 止血已合入 `8057aac`，Phase B 待设计实现。**计划在 F10 Phase A 中一并处理。** |
-| 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [ ] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | QQ 邮箱 IMAP 轮询检测 GitHub review 邮件 → 解析 PR title `[猫名🐾]` 路由 → 自动 invoke 被 review 的猫 → 猫自主处理 P1/P2 → 推前端通知等铲屎官最终确认合入。依赖：`imapflow`，`IMAP_USER/IMAP_PASS` 环境变量（QQ 邮箱授权码）。|
+| 81 | **GitHub Review Email Watcher（自动唤醒猫猫处理 review）** | [x] | [2026-02-18 设计方案](./plans/2026-02-18-github-review-email-watcher.md) | Phase 1+2 已实现 `385f3ab`：IMAP 轮询 + 3 层路由（registry → fallback → triage）+ PR tracking API + 46 tests。砚砚 R1→R2 review 通过。Phase 3（auto-invoke, Redis impl, skill 集成）待后续。|
 | 82 | **`onIntentMode` flat setter 线程切换竞态** | [x] | split-pane invocation state R1 deep review P2 | `9cfba72` — `useSocket.ts` intent_mode handler 升级为双指针 guard（route + store 必须一致），非活跃线程走 thread-scoped background path（新增 `setThreadIntentMode` / `setThreadTargetCats`）。ChatContainer 移除冗余 closure guard。模式与 agent_message 一致。 |
 | 84 | **`create_rich_block` MCP 工具在非 invocation 场景不可用** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `handleCreateRichBlock` 加 Route A→B 降级链：Route A (direct callback) 失败 → Route B (post_message + cc_rich text) → 两路皆败返回 cc_rich hint。5 new tests。Token 生命周期根因未改（需 session-scoped token），但降级保证可用性。已合入 main。 |
 | 86 | **ImageExporter Puppeteer 进程泄漏** | [x] | 2026-02-21 铲屎官排查耗电 | `44b4530` — `thread-export.ts` 的 `process.once('SIGTERM/SIGINT')` 替换为 `fastify.addHook('onClose', ...)`，让 Puppeteer 清理跟随 Fastify 生命周期（`app.close()` 会 await 完成后再 `process.exit()`）。`sharedExporter` 从 module-level 移入 plugin scope。新增 cleanup 守护测试。 |
@@ -291,5 +291,6 @@
 | #83 Rich Blocks post-message 路径 | 2026-02-20 审计确认 | `c466213` |
 | #84 create_rich_block 降级链 | 2026-02-20 审计确认 | `c466213` |
 | F35 Whisper 消息可见性（悄悄话） | 2026-02-20 审计确认 | `8223a60` + `d12d3f1` + `7b7194e` |
+| #81 GitHub Review Email Watcher (Phase 1+2) | 2026-02-24 砚砚 R2 放行 | `385f3ab` |
 
 </details>

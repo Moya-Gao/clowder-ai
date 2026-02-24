@@ -17,7 +17,8 @@ export type EnvCategory =
   | 'codex'
   | 'gemini'
   | 'frontend'
-  | 'push';
+  | 'push'
+  | 'github_review';
 
 export interface EnvDefinition {
   /** The env var name, e.g. 'REDIS_URL' */
@@ -44,6 +45,7 @@ export const ENV_CATEGORIES: Record<EnvCategory, string> = {
   gemini: '暹罗猫 (Gemini)',
   frontend: '前端',
   push: '推送通知',
+  github_review: 'GitHub Review 监控',
 };
 
 export const ENV_VARS: EnvDefinition[] = [
@@ -112,6 +114,13 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'VAPID_PUBLIC_KEY', defaultValue: '(未设置 → 推送不可用)', description: 'VAPID 公钥 (Web Push)', category: 'push', sensitive: false },
   { name: 'VAPID_PRIVATE_KEY', defaultValue: '(未设置)', description: 'VAPID 私钥 (Web Push)', category: 'push', sensitive: true },
   { name: 'VAPID_SUBJECT', defaultValue: 'mailto:cat-cafe@localhost', description: 'VAPID 联系方式 (mailto: 或 URL)', category: 'push', sensitive: false },
+
+  // --- github_review (BACKLOG #81) ---
+  { name: 'GITHUB_REVIEW_IMAP_USER', defaultValue: '(未设置 → 监控不启用)', description: 'QQ 邮箱地址 (xxx@qq.com)', category: 'github_review', sensitive: false },
+  { name: 'GITHUB_REVIEW_IMAP_PASS', defaultValue: '(未设置)', description: 'QQ 邮箱授权码 (非登录密码)', category: 'github_review', sensitive: true },
+  { name: 'GITHUB_REVIEW_IMAP_HOST', defaultValue: 'imap.qq.com', description: 'IMAP 服务器地址', category: 'github_review', sensitive: false },
+  { name: 'GITHUB_REVIEW_IMAP_PORT', defaultValue: '993', description: 'IMAP 端口 (SSL)', category: 'github_review', sensitive: false },
+  { name: 'GITHUB_REVIEW_POLL_INTERVAL_MS', defaultValue: '120000', description: '邮件轮询间隔 (毫秒)', category: 'github_review', sensitive: false },
 ];
 
 /** Mask credentials in a URL while preserving host/port/db for debugging. */
