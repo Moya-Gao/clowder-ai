@@ -1132,6 +1132,56 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'must use active record cliSessionId (authoritative), not stale sessionManager value');
   });
 
+  it('F33-fix: uses chain-bound cliSessionId even when sessionManager returns undefined', async () => {
+    // Scenario: Frontend PATCH bind writes cliSessionId to SessionChainStore,
+    // but sessionManager has no entry (bind doesn't write sessionManager).
+    // invoke-single-cat must still read the chain and resume with bound ID.
+    const optionsSeen = [];
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push({ ...options });
+        invokeCount++;
+        yield { type: 'session_init', catId: 'opus', sessionId: 'bound-cli-session', timestamp: Date.now() };
+        yield { type: 'text', catId: 'opus', content: 'resumed ok', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const boundRecord = {
+      id: 'rec-bind', seq: 0, status: 'active',
+      cliSessionId: 'bound-cli-session',
+      catId: 'opus', threadId: 'thread-f33-bind', userId: 'u1',
+    };
+
+    const chainStore = {
+      getChain: async () => [boundRecord],
+      getActive: async () => boundRecord,
+      get: async () => boundRecord,
+      create: async () => boundRecord,
+      update: async () => boundRecord,
+    };
+
+    const deps = {
+      ...makeDeps(),
+      sessionChainStore: chainStore,
+      sessionManager: {
+        get: async () => undefined,  // bind does NOT write sessionManager
+        store: async () => {},
+        delete: async () => {},
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'opus', service, prompt: 'test', userId: 'u1',
+      threadId: 'thread-f33-bind', isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1);
+    assert.equal(optionsSeen[0].sessionId, 'bound-cli-session',
+      'must use chain-bound cliSessionId even when sessionManager returns undefined');
+  });
+
   it('F24 toggle: gemini (sessionChain=false) skips SessionRecord creation and seal check', async () => {
     let sessionRecordCreated = false;
     let sealChecked = false;

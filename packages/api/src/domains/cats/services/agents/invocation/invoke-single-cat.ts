@@ -152,8 +152,12 @@ export async function* invokeSingleCat(
     // R11 P1-1: When active record exists, its cliSessionId is the authoritative value.
     // sessionManager.get() may return a stale value if session_init updated the record
     // but sessionManager wasn't re-written. Always align to the active record.
+    //
+    // F33-fix: Always check chain even when sessionManager returns nothing.
+    // The PATCH bind endpoint writes to sessionChainStore but not sessionManager,
+    // so a freshly-bound session would be missed if we gate on sessionId being truthy.
     const sessionChainActive = isSessionChainEnabled(catId);
-    if (sessionId && deps.sessionChainStore && sessionChainActive) {
+    if (deps.sessionChainStore && sessionChainActive) {
       try {
         const chain = await deps.sessionChainStore.getChain(catId, threadId);
         if (chain.length > 0) {
@@ -161,8 +165,8 @@ export async function* invokeSingleCat(
           if (!activeRec) {
             // Chain exists but no active session → previous was sealed; don't resume
             sessionId = undefined;
-          } else if (activeRec.cliSessionId && activeRec.cliSessionId !== sessionId) {
-            // Active record has a different cliSessionId — use the authoritative value
+          } else if (activeRec.cliSessionId) {
+            // Active record's cliSessionId is authoritative (includes F33 manual bind)
             sessionId = activeRec.cliSessionId;
           }
         }
