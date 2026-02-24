@@ -240,6 +240,190 @@ describe('Session Hooks Routes', () => {
     });
   });
 
+  // --- F33: Strategy-aware seal behavior ---
+
+  describe('F33: Strategy-aware seal (POST /api/sessions/seal)', () => {
+    let _setTestStrategyOverride;
+    let _clearTestStrategyOverrides;
+
+    async function loadStrategyHelpers() {
+      const mod = await import('../dist/config/session-strategy.js');
+      _setTestStrategyOverride = mod._setTestStrategyOverride;
+      _clearTestStrategyOverrides = mod._clearTestStrategyOverrides;
+    }
+
+    it('compress strategy: returns compress_allowed and increments compressionCount', async () => {
+      await loadStrategyHelpers();
+      _setTestStrategyOverride('opus', {
+        strategy: 'compress',
+        thresholds: { warn: 0.75, action: 0.85 },
+        turnBudget: 12_000,
+        safetyMargin: 4_000,
+      });
+
+      try {
+        const { app, sessionChainStore } = await setup();
+        const record = sessionChainStore.create({
+          cliSessionId: 'cli-compress',
+          threadId: 'thread-1',
+          catId: 'opus',
+          userId: 'user-1',
+        });
+
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/sessions/seal',
+          headers: authHeaders(),
+          payload: { cliSessionId: 'cli-compress', reason: 'claude-code-compact-auto' },
+        });
+
+        assert.equal(res.statusCode, 200);
+        const body = JSON.parse(res.payload);
+        assert.equal(body.action, 'compress_allowed');
+        assert.equal(body.compressionCount, 1);
+        assert.equal(body.strategy, 'compress');
+
+        // Verify store was updated
+        const updated = sessionChainStore.get(record.id);
+        assert.equal(updated.compressionCount, 1);
+        assert.equal(updated.status, 'active', 'session should remain active');
+      } finally {
+        _clearTestStrategyOverrides();
+      }
+    });
+
+    it('hybrid strategy: allows compression when under maxCompressions', async () => {
+      await loadStrategyHelpers();
+      _setTestStrategyOverride('opus', {
+        strategy: 'hybrid',
+        thresholds: { warn: 0.80, action: 0.90 },
+        hybrid: { maxCompressions: 2 },
+        turnBudget: 12_000,
+        safetyMargin: 4_000,
+      });
+
+      try {
+        const { app, sessionChainStore } = await setup();
+        sessionChainStore.create({
+          cliSessionId: 'cli-hybrid',
+          threadId: 'thread-1',
+          catId: 'opus',
+          userId: 'user-1',
+        });
+
+        // First compression: should allow
+        const res1 = await app.inject({
+          method: 'POST',
+          url: '/api/sessions/seal',
+          headers: authHeaders(),
+          payload: { cliSessionId: 'cli-hybrid', reason: 'claude-code-compact-auto' },
+        });
+
+        assert.equal(res1.statusCode, 200);
+        const body1 = JSON.parse(res1.payload);
+        assert.equal(body1.action, 'compress_allowed');
+        assert.equal(body1.compressionCount, 1);
+        assert.equal(body1.maxCompressions, 2);
+        assert.equal(body1.strategy, 'hybrid');
+      } finally {
+        _clearTestStrategyOverrides();
+      }
+    });
+
+    it('hybrid strategy: seals when compressionCount reaches maxCompressions', async () => {
+      await loadStrategyHelpers();
+      _setTestStrategyOverride('opus', {
+        strategy: 'hybrid',
+        thresholds: { warn: 0.80, action: 0.90 },
+        hybrid: { maxCompressions: 1 },
+        turnBudget: 12_000,
+        safetyMargin: 4_000,
+      });
+
+      try {
+        const { app, sessionChainStore } = await setup();
+        const record = sessionChainStore.create({
+          cliSessionId: 'cli-hybrid-seal',
+          threadId: 'thread-1',
+          catId: 'opus',
+          userId: 'user-1',
+        });
+        // Pre-set compressionCount to maxCompressions
+        sessionChainStore.update(record.id, { compressionCount: 1 });
+
+        const res = await app.inject({
+          method: 'POST',
+          url: '/api/sessions/seal',
+          headers: authHeaders(),
+          payload: { cliSessionId: 'cli-hybrid-seal', reason: 'claude-code-compact-auto' },
+        });
+
+        assert.equal(res.statusCode, 200);
+        const body = JSON.parse(res.payload);
+        assert.equal(body.status, 'sealing', 'should seal when at max compressions');
+      } finally {
+        _clearTestStrategyOverrides();
+      }
+    });
+
+    it('hybrid strategy: seal reason is max_compressions (not hook reason)', async () => {
+      await loadStrategyHelpers();
+      _setTestStrategyOverride('opus', {
+        strategy: 'hybrid',
+        thresholds: { warn: 0.80, action: 0.90 },
+        hybrid: { maxCompressions: 1 },
+        turnBudget: 12_000,
+        safetyMargin: 4_000,
+      });
+
+      try {
+        const { app, sessionChainStore } = await setup();
+        const record = sessionChainStore.create({
+          cliSessionId: 'cli-hybrid-reason',
+          threadId: 'thread-1',
+          catId: 'opus',
+          userId: 'user-1',
+        });
+        sessionChainStore.update(record.id, { compressionCount: 1 });
+
+        await app.inject({
+          method: 'POST',
+          url: '/api/sessions/seal',
+          headers: authHeaders(),
+          payload: { cliSessionId: 'cli-hybrid-reason', reason: 'claude-code-compact-auto' },
+        });
+
+        // Check that the session's sealReason is max_compressions, not the hook reason
+        const sealed = sessionChainStore.get(record.id);
+        assert.equal(sealed.sealReason, 'max_compressions');
+      } finally {
+        _clearTestStrategyOverrides();
+      }
+    });
+
+    it('handoff strategy (default): seals normally', async () => {
+      // No override → uses default handoff
+      const { app, sessionChainStore } = await setup();
+      sessionChainStore.create({
+        cliSessionId: 'cli-handoff',
+        threadId: 'thread-1',
+        catId: 'opus',
+        userId: 'user-1',
+      });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/sessions/seal',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-handoff', reason: 'test-seal' },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.status, 'sealing');
+    });
+  });
+
   // --- Hook Token Authentication ---
 
   describe('Hook token authentication', () => {

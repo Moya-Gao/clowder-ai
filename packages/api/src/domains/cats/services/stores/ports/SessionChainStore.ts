@@ -7,7 +7,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, SessionRecord, ContextHealth } from '@cat-cafe/shared';
+import type { CatId, SessionRecord } from '@cat-cafe/shared';
 
 export interface CreateSessionInput {
   cliSessionId: string;
@@ -16,10 +16,20 @@ export interface CreateSessionInput {
   userId: string;
 }
 
-export type SessionRecordPatch = Partial<Pick<
-  SessionRecord,
-  'cliSessionId' | 'status' | 'contextHealth' | 'lastUsage' | 'messageCount' | 'sealReason' | 'sealedAt' | 'updatedAt'
->>;
+export type SessionRecordPatch = Partial<
+  Pick<
+    SessionRecord,
+    | 'cliSessionId'
+    | 'status'
+    | 'contextHealth'
+    | 'lastUsage'
+    | 'messageCount'
+    | 'sealReason'
+    | 'sealedAt'
+    | 'updatedAt'
+    | 'compressionCount'
+  >
+>;
 
 export interface ISessionChainStore {
   /** Create SessionRecord (seq auto-increments, status=active) */
@@ -36,6 +46,8 @@ export interface ISessionChainStore {
   update(id: string, patch: SessionRecordPatch): SessionRecord | null | Promise<SessionRecord | null>;
   /** Look up by CLI session ID */
   getByCliSessionId(cliSessionId: string): SessionRecord | null | Promise<SessionRecord | null>;
+  /** Atomically increment compressionCount and return the new value. Returns null if session not found. */
+  incrementCompressionCount(id: string): number | null | Promise<number | null>;
 }
 
 const MAX_RECORDS = 1000;
@@ -92,8 +104,8 @@ export class SessionChainStore implements ISessionChainStore {
         // Roll back: remove the just-created record
         this.removeRecord(id);
         throw new Error(
-          `SessionChainStore at capacity (${MAX_RECORDS}): all records are truly active. `
-          + 'Cannot evict without data loss. Seal or remove existing sessions first.',
+          `SessionChainStore at capacity (${MAX_RECORDS}): all records are truly active. ` +
+            'Cannot evict without data loss. Seal or remove existing sessions first.',
         );
       }
     }
@@ -159,6 +171,7 @@ export class SessionChainStore implements ISessionChainStore {
     if (patch.messageCount !== undefined) record.messageCount = patch.messageCount;
     if (patch.sealReason !== undefined) record.sealReason = patch.sealReason;
     if (patch.sealedAt !== undefined) record.sealedAt = patch.sealedAt;
+    if (patch.compressionCount !== undefined) record.compressionCount = patch.compressionCount;
     record.updatedAt = patch.updatedAt ?? Date.now();
 
     return record;
@@ -168,6 +181,15 @@ export class SessionChainStore implements ISessionChainStore {
     const id = this.cliIndex.get(cliSessionId);
     if (!id) return null;
     return this.records.get(id) ?? null;
+  }
+
+  incrementCompressionCount(id: string): number | null {
+    const record = this.records.get(id);
+    if (!record) return null;
+    if (record.status !== 'active') return null;
+    record.compressionCount = (record.compressionCount ?? 0) + 1;
+    record.updatedAt = Date.now();
+    return record.compressionCount;
   }
 
   /**
@@ -181,18 +203,27 @@ export class SessionChainStore implements ISessionChainStore {
     // First pass: sealed records (safest to evict)
     let victim: string | null = null;
     for (const [id, r] of this.records) {
-      if (r.status === 'sealed') { victim = id; break; }
+      if (r.status === 'sealed') {
+        victim = id;
+        break;
+      }
     }
     // Second pass: non-active, non-sealed (e.g., sealing)
     if (!victim) {
       for (const [id, r] of this.records) {
-        if (r.status !== 'active') { victim = id; break; }
+        if (r.status !== 'active') {
+          victim = id;
+          break;
+        }
       }
     }
     // Third pass: active records NOT currently in activeIndex (superseded)
     if (!victim) {
       for (const id of this.records.keys()) {
-        if (!currentActiveIds.has(id)) { victim = id; break; }
+        if (!currentActiveIds.has(id)) {
+          victim = id;
+          break;
+        }
       }
     }
     // Refuse to evict truly active sessions

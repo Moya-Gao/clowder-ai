@@ -9,20 +9,20 @@
  *         消息存储（由调用方在 yield 后累积并存储）。
  */
 
-import type { CatId, MessageContent, ContextHealth } from '@cat-cafe/shared';
-import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
-import type { SessionManager } from '../../session/SessionManager.js';
-import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
-import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
-import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
-import type { ISessionSealer } from '../../session/SessionSealer.js';
-import type { TranscriptWriter, TranscriptSessionInfo } from '../../session/TranscriptWriter.js';
-import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
-import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
-import { createPromptDigest } from '../../context/prompt-digest.js';
-import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
-import { shouldSeal, getSealConfig } from '../../../../../config/seal-thresholds.js';
+import type { CatId, ContextHealth, MessageContent } from '@cat-cafe/shared';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
+import { createPromptDigest } from '../../context/prompt-digest.js';
+import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
+import type { SessionManager } from '../../session/SessionManager.js';
+import type { ISessionSealer } from '../../session/SessionSealer.js';
+import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/TranscriptWriter.js';
+import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
+import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
+import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
 
 /**
@@ -87,10 +87,7 @@ export interface InvocationParams {
  * - Accumulating text/metadata from yielded messages
  * - Storing the final response in messageStore
  */
-export async function* invokeSingleCat(
-  deps: InvocationDeps,
-  params: InvocationParams,
-): AsyncIterable<AgentMessage> {
+export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationParams): AsyncIterable<AgentMessage> {
   const { registry, sessionManager, threadStore, apiUrl } = deps;
   const { catId, service, prompt, userId, threadId, isLastCat, signal } = params;
 
@@ -118,20 +115,22 @@ export async function* invokeSingleCat(
   const startTime = Date.now();
 
   // === CAT_INVOKED 审计 (fire-and-forget, 缅因猫 review P2-3) ===
-  auditLog.append({
-    type: AuditEventTypes.CAT_INVOKED,
-    threadId,
-    data: {
-      catId,
-      userId,
-      invocationId,
-      promptDigest,
-      isLastCat,
-    },
-  }).catch((err) => {
-    // P2-2: 打印完整错误信息 + 上下文
-    console.warn('[audit] CAT_INVOKED write failed', { threadId, invocationId, err });
-  });
+  auditLog
+    .append({
+      type: AuditEventTypes.CAT_INVOKED,
+      threadId,
+      data: {
+        catId,
+        userId,
+        invocationId,
+        promptDigest,
+        isLastCat,
+      },
+    })
+    .catch((err) => {
+      // P2-2: 打印完整错误信息 + 上下文
+      console.warn('[audit] CAT_INVOKED write failed', { threadId, invocationId, err });
+    });
 
   let hadStreamError = false;
 
@@ -269,7 +268,9 @@ export async function* invokeSingleCat(
           try {
             const activeRec = await deps.sessionChainStore.getActive(catId, threadId);
             sessionSeq = activeRec != null ? activeRec.seq + 1 : undefined;
-          } catch { /* best-effort */ }
+          } catch {
+            /* best-effort */
+          }
         }
         outputs.push({
           type: 'system_info' as const,
@@ -290,21 +291,23 @@ export async function* invokeSingleCat(
         // P1 fix: when error was yielded during stream, emit CAT_ERROR instead of CAT_RESPONDED
         const durationMs = Date.now() - startTime;
         const auditType = hadStreamError ? AuditEventTypes.CAT_ERROR : AuditEventTypes.CAT_RESPONDED;
-        auditLog.append({
-          type: auditType,
-          threadId,
-          data: {
-            catId,
-            userId,
-            invocationId,
-            durationMs,
-            ...(hadStreamError ? { error: lastErrorMessage ?? 'unknown stream error' } : {}),
-            isFinal: isLastCat,
-            metadata: msg.metadata,
-          },
-        }).catch((err) => {
-          console.warn(`[audit] ${auditType} write failed`, { threadId, invocationId, err });
-        });
+        auditLog
+          .append({
+            type: auditType,
+            threadId,
+            data: {
+              catId,
+              userId,
+              invocationId,
+              durationMs,
+              ...(hadStreamError ? { error: lastErrorMessage ?? 'unknown stream error' } : {}),
+              isFinal: isLastCat,
+              metadata: msg.metadata,
+            },
+          })
+          .catch((err) => {
+            console.warn(`[audit] ${auditType} write failed`, { threadId, invocationId, err });
+          });
 
         // Push completion metrics for frontend status panel
         outputs.push({
@@ -338,22 +341,27 @@ export async function* invokeSingleCat(
             // Use lastTurnInputTokens (per-API-call) for accurate context fill,
             // then fallback to aggregated inputTokens, and finally totalTokens
             // for providers (Gemini CLI) that only expose a total count.
-            const windowSize = msg.metadata.usage.contextWindowSize
-              ?? getContextWindowFallback(msg.metadata.model ?? '');
-            const usedFrom = msg.metadata.usage.lastTurnInputTokens != null
-              ? 'last_turn'
-              : (msg.metadata.usage.inputTokens != null
-                ? 'input'
-                : (msg.metadata.usage.totalTokens != null ? 'total' : null));
-            const usedTokens = usedFrom === 'last_turn'
-              ? msg.metadata.usage.lastTurnInputTokens!
-              : (usedFrom === 'input'
-                ? msg.metadata.usage.inputTokens!
-                : (usedFrom === 'total' ? msg.metadata.usage.totalTokens! : 0));
+            const windowSize =
+              msg.metadata.usage.contextWindowSize ?? getContextWindowFallback(msg.metadata.model ?? '');
+            const usedFrom =
+              msg.metadata.usage.lastTurnInputTokens != null
+                ? 'last_turn'
+                : msg.metadata.usage.inputTokens != null
+                  ? 'input'
+                  : msg.metadata.usage.totalTokens != null
+                    ? 'total'
+                    : null;
+            const usedTokens =
+              usedFrom === 'last_turn'
+                ? msg.metadata.usage.lastTurnInputTokens!
+                : usedFrom === 'input'
+                  ? msg.metadata.usage.inputTokens!
+                  : usedFrom === 'total'
+                    ? msg.metadata.usage.totalTokens!
+                    : 0;
             if (windowSize && usedTokens > 0) {
-              const source: ContextHealth['source'] = (
-                msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total'
-              ) ? 'exact' : 'approx';
+              const source: ContextHealth['source'] =
+                msg.metadata.usage.contextWindowSize != null && usedFrom !== 'total' ? 'exact' : 'approx';
               const health: ContextHealth = {
                 usedTokens,
                 windowTokens: windowSize,
@@ -378,7 +386,9 @@ export async function* invokeSingleCat(
                       updatedAt: Date.now(),
                     });
                   }
-                } catch { /* best-effort */ }
+                } catch {
+                  /* best-effort */
+                }
               }
               // F-BLOAT: Detect context compression for re-injection on next turn.
               // When usedTokens drops >60% from previous known value, the CLI
@@ -396,45 +406,71 @@ export async function* invokeSingleCat(
                 timestamp: Date.now(),
               });
 
-              // F24 Phase B: Check seal threshold after context health update
+              // F33: Strategy-driven seal decision (replaces F24 Phase B shouldSeal)
               if (deps.sessionSealer && deps.sessionChainStore) {
                 try {
-                  // F32-a: pass catId directly — getSealConfig handles provider-based fallback
-                  const sealConfig = getSealConfig(catId as string);
-                  if (shouldSeal(health.fillRatio, health.windowTokens, health.usedTokens, sealConfig)) {
-                    const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
-                    if (activeRecord) {
-                      const sealResult = await deps.sessionSealer.requestSeal({
-                        sessionId: activeRecord.id,
-                        reason: 'threshold',
-                      });
-                      if (sealResult.accepted) {
-                        // Immediately clear persisted CLI session — requestSeal accepted
-                        // means session is now 'sealing' and must not be --resumed (R7 P1)
-                        sessionManager.delete(userId, catId, threadId).catch(() => {
-                          // best-effort: delete failure doesn't break invocation
+                  const strategy = getSessionStrategy(catId as string);
+                  const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                  const action = shouldTakeAction(
+                    health.fillRatio,
+                    health.windowTokens,
+                    health.usedTokens,
+                    activeRecord?.compressionCount ?? 0,
+                    strategy,
+                  );
+
+                  switch (action.type) {
+                    case 'none':
+                      break;
+                    case 'warn':
+                      // warn is already emitted via context_health system_info above
+                      break;
+                    case 'seal':
+                    case 'seal_after_compress': {
+                      if (activeRecord) {
+                        const sealResult = await deps.sessionSealer.requestSeal({
+                          sessionId: activeRecord.id,
+                          reason: action.reason,
                         });
-                        outputs.push({
-                          type: 'system_info' as const,
-                          catId,
-                          content: JSON.stringify({
-                            type: 'session_seal_requested',
+                        if (sealResult.accepted) {
+                          sessionManager.delete(userId, catId, threadId).catch(() => {});
+                          outputs.push({
+                            type: 'system_info' as const,
                             catId,
-                            sessionId: activeRecord.id,
-                            sessionSeq: activeRecord.seq + 1,
-                            reason: 'threshold',
-                            healthSnapshot: health,
-                          }),
-                          timestamp: Date.now(),
-                        });
-                        // Background finalize (don't block message yield)
-                        deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {
-                          // best-effort: finalize failure doesn't break invocation
-                        });
+                            content: JSON.stringify({
+                              type: 'session_seal_requested',
+                              catId,
+                              sessionId: activeRecord.id,
+                              sessionSeq: activeRecord.seq + 1,
+                              reason: action.reason,
+                              healthSnapshot: health,
+                            }),
+                            timestamp: Date.now(),
+                          });
+                          deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+                        }
                       }
+                      break;
                     }
+                    case 'allow_compress':
+                      // Don't seal — let CLI compress. Log for observability.
+                      outputs.push({
+                        type: 'system_info' as const,
+                        catId,
+                        content: JSON.stringify({
+                          type: 'strategy_allow_compress',
+                          catId,
+                          strategy: strategy.strategy,
+                          compressionCount: activeRecord?.compressionCount ?? 0,
+                          healthSnapshot: health,
+                        }),
+                        timestamp: Date.now(),
+                      });
+                      break;
                   }
-                } catch { /* best-effort: seal failure doesn't break invocation */ }
+                } catch {
+                  /* best-effort: strategy failure doesn't break invocation */
+                }
               }
             }
           }
@@ -473,7 +509,9 @@ export async function* invokeSingleCat(
             // Record the raw agent message as a transcript event
             deps.transcriptWriter.appendEvent(sessInfo, msg as unknown as Record<string, unknown>, invocationId);
           }
-        } catch { /* best-effort */ }
+        } catch {
+          /* best-effort */
+        }
       }
 
       return outputs;
@@ -497,11 +535,7 @@ export async function* invokeSingleCat(
       let attemptHasContentOutput = false;
 
       for await (const msg of service.invoke(prompt, options)) {
-        if (
-          allowSessionRetry &&
-          msg.type === 'error' &&
-          isMissingClaudeSessionError(msg.error)
-        ) {
+        if (allowSessionRetry && msg.type === 'error' && isMissingClaudeSessionError(msg.error)) {
           suppressedMissingSessionError = msg;
           continue;
         }
@@ -580,19 +614,21 @@ export async function* invokeSingleCat(
   } catch (err) {
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===
     const durationMs = Date.now() - startTime;
-    auditLog.append({
-      type: AuditEventTypes.CAT_ERROR,
-      threadId,
-      data: {
-        catId,
-        userId,
-        invocationId,
-        durationMs,
-        error: err instanceof Error ? err.message : String(err),
-      },
-    }).catch((auditErr) => {
-      console.warn('[audit] CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
-    });
+    auditLog
+      .append({
+        type: AuditEventTypes.CAT_ERROR,
+        threadId,
+        data: {
+          catId,
+          userId,
+          invocationId,
+          durationMs,
+          error: err instanceof Error ? err.message : String(err),
+        },
+      })
+      .catch((auditErr) => {
+        console.warn('[audit] CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
+      });
 
     yield {
       type: 'error' as const,
