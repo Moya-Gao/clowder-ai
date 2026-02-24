@@ -122,7 +122,7 @@
 
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
-| 92 | **Skills Lifecycle Hardening（发布流程补全）** | [~] | [设计文档](./plans/2026-02-23-skills-lifecycle-hardening.md) | (M1) 挂载 `using-rich-blocks` 三猫 symlink；(M2) `writing-skills` 补 Cat Café 发布 Checklist；(M3) `check:skills` 双向校验（源目录 ↔ BOOTSTRAP.md）。Skills 是协作灵魂，发布流程不完整会导致 skill 写了但猫猫看不到。 |
+| 92 | **Skills Lifecycle Hardening（发布流程补全）** | [x] | [设计文档](./plans/2026-02-23-skills-lifecycle-hardening.md) | PR #68 (`c5ce356`)。(M1) 挂载 `using-rich-blocks` + `using-mcp-callbacks` 三猫 symlink；(M2) `writing-skills` 补 Cat Café 发布 Checklist；(M3) `check:skills` 双向校验（源目录 ↔ BOOTSTRAP.md）+ worktree-aware 路径解析。21/21 全绿。 |
 | 91 | **ContextAssembler 截断丢失消息结尾关键信息** | [x] | [bug report](./bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md) | 修复：(A) `formatMessage()` 改为 head(40%)+tail(60%) 保留 + `[...truncated N chars...]` 标记；(B) `route-helpers.ts` 增量路径改用 `getCatContextBudget(catId).maxContentLengthPerMsg` 替代硬编码 2000。 |
 
 ## Feature Requests — 新功能需求
