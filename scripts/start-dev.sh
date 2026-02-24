@@ -1,11 +1,18 @@
 #!/bin/bash
 
-# Cat Cafe 开发服务器启动脚本
+# Cat Cafe 启动脚本
 # 用法:
-#   pnpm start            — 正常启动 (Redis 持久化 + rebuild)
-#   pnpm start --quick    — 跳过 rebuild
-#   pnpm start --memory   — 使用内存存储 (重启丢数据)
-#   pnpm start --no-redis — 同 --memory
+#   pnpm start              — 开发模式 (next dev + Redis 持久化)
+#   pnpm start --quick      — 跳过 rebuild
+#   pnpm start --memory     — 使用内存存储 (重启丢数据)
+#   pnpm start --no-redis   — 同 --memory
+#   pnpm start --prod-web   — 前端 production build (PWA + Tailscale 友好)
+#
+# --prod-web 模式 (runtime-worktree.sh 自动传入):
+#   - next build + next start（非 next dev）
+#   - PWA / Service Worker 启用
+#   - Tailscale / 局域网手机访问正常
+#   - --quick 时复用上次的 .next 产物
 #
 # Redis 数据目录 (可通过 env 覆盖):
 #   REDIS_PORT=6399
@@ -19,8 +26,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-echo "🐱 Cat Café 开发服务器"
-echo "====================="
+echo "🐱 Cat Café 启动"
+echo "================"
 
 # 颜色定义
 RED='\033[0;31m'
@@ -32,10 +39,12 @@ NC='\033[0m' # No Color
 # 解析参数
 QUICK_MODE=false
 USE_REDIS=true
+PROD_WEB=false
 for arg in "$@"; do
     case $arg in
         --quick|-q) QUICK_MODE=true ;;
         --memory|--no-redis) USE_REDIS=false ;;
+        --prod-web) PROD_WEB=true ;;
     esac
 done
 
@@ -87,7 +96,14 @@ kill_port() {
 }
 
 # 清理缓存
+# --prod-web + --quick: 保留 .next production 产物以便秒启动
 clean_cache() {
+    if [ "$PROD_WEB" = true ] && [ "$QUICK_MODE" = true ]; then
+        echo ""
+        echo -e "${YELLOW}保留 .next 产物 (--prod-web --quick)${NC}"
+        return
+    fi
+
     echo ""
     echo -e "${CYAN}清理缓存...${NC}"
 
@@ -183,7 +199,7 @@ print_redis_runtime_info() {
     [ -n "$appendonly" ] && echo "    - appendonly:$appendonly"
 }
 
-# 构建 shared + MCP + API (tsc)
+# 构建 shared + MCP + API (tsc)；--prod-web 时额外构建 Frontend
 build_packages() {
     echo ""
     echo -e "${CYAN}构建 shared...${NC}"
@@ -199,6 +215,13 @@ build_packages() {
     echo -e "${CYAN}构建 API...${NC}"
     (cd packages/api && pnpm run build) 2>&1 | tail -3
     echo -e "${GREEN}  ✓ API 构建完成${NC}"
+
+    if [ "$PROD_WEB" = true ]; then
+        echo ""
+        echo -e "${CYAN}构建 Frontend (production)...${NC}"
+        (cd packages/web && pnpm run build) 2>&1 | tail -10
+        echo -e "${GREEN}  ✓ Frontend 构建完成 (PWA 已启用)${NC}"
+    fi
 }
 
 configure_mcp_server_path() {
@@ -368,10 +391,22 @@ main() {
     (cd packages/api && pnpm run dev) &
     sleep 2
 
-    # Frontend (Next.js dev server — PORT env var controls the port)
-    echo "  启动 Frontend (端口 $WEB_PORT)..."
-    # NEXT_IGNORE_INCORRECT_LOCKFILE: avoid npm lockfile auto-patch path in pnpm workspace.
-    (cd packages/web && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
+    # Frontend
+    if [ "$PROD_WEB" = true ]; then
+        # Production: next start (PWA + Tailscale 友好)
+        echo "  启动 Frontend (端口 $WEB_PORT, production)..."
+        if [ -d "packages/web/.next" ]; then
+            (cd packages/web && PORT=$WEB_PORT pnpm exec next start -p $WEB_PORT -H 0.0.0.0) &
+        else
+            echo -e "${RED}  ✗ .next 目录不存在，无法以 production 模式启动${NC}"
+            echo -e "${RED}    请先不带 --quick 运行以执行 next build${NC}"
+            exit 1
+        fi
+    else
+        # Development: next dev (热重载)
+        echo "  启动 Frontend (端口 $WEB_PORT, dev)..."
+        (cd packages/web && NEXT_IGNORE_INCORRECT_LOCKFILE=1 PORT=$WEB_PORT pnpm exec next dev -p $WEB_PORT) &
+    fi
     sleep 3
 
     # 显示存储模式
@@ -379,6 +414,13 @@ main() {
         STORAGE_INFO="${GREEN}Redis 持久化${NC} ($REDIS_URL)"
     else
         STORAGE_INFO="${YELLOW}内存模式${NC} (重启丢数据)"
+    fi
+
+    # 前端模式状态
+    if [ "$PROD_WEB" = true ]; then
+        PWA_INFO="${GREEN}production (PWA 已启用)${NC}"
+    else
+        PWA_INFO="${YELLOW}development (热重载, PWA 不可用)${NC}"
     fi
 
     echo ""
@@ -389,6 +431,7 @@ main() {
     echo "  - Frontend: http://localhost:$WEB_PORT"
     echo "  - API:      http://localhost:$API_PORT"
     echo "  - Whisper:  http://localhost:$WHISPER_PORT"
+    echo -e "  - 前端模式: $PWA_INFO"
     echo -e "  - 存储:     $STORAGE_INFO"
     echo ""
     echo "按 Ctrl+C 停止所有服务"

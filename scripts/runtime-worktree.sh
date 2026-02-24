@@ -197,10 +197,11 @@ start_runtime_worktree() {
     fi
   fi
 
-  info "starting dev stack from runtime worktree: $RUNTIME_DIR"
+  info "starting production stack from runtime worktree: $RUNTIME_DIR"
   cd "$RUNTIME_DIR"
+  # Runtime = production: auto-inject --prod-web for PWA + Tailscale support.
   # Bash 3.2 + set -u: empty-array expansion can throw "unbound variable".
-  exec ./scripts/start-dev.sh ${START_ARGS[@]+"${START_ARGS[@]}"}
+  exec ./scripts/start-dev.sh --prod-web ${START_ARGS[@]+"${START_ARGS[@]}"}
 }
 
 COMMAND="${1:-status}"
