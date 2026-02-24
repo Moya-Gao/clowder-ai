@@ -118,6 +118,12 @@
 | 88 | Redis PushSubscriptionStore upsert TOCTOU race | [ ] | C1+C2 云端 Codex review P3 | `hget(previousUserId)` 在 `MULTI` 外面，并发同一 endpoint 的 owner 变更有理论竞态。实际场景需同一设备两个用户同时订阅，概率极低。修复需 Lua 脚本原子化。触发条件：引入多用户并发订阅场景时。 |
 | 90 | Codex 压缩检测 1 轮空窗（启发式盲区） | [ ] | [压缩检测讨论](./discussions/2026-02-24-compression-detection-cross-provider/README.md) | 当前检测是反应式：Codex 压缩发生在本轮，re-injection 在下一轮才生效，中间有 1 轮身份空窗。升级方向：持久化 prevFill / preflight context snapshot / 等 Codex CLI 支持独立 system prompt slot。实际影响有限，观察到事故再升级。 |
 
+## P1 — 必须做（新增）
+
+| # | 项目 | 状态 | 来源 | 备注 |
+|---|------|------|------|------|
+| 91 | **ContextAssembler 截断丢失消息结尾关键信息** | [ ] | [bug report](./bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md) | **两个截断站点**：(1) 增量路径 `route-helpers.ts:269` 硬编码 `truncate: 2000`，绕过 cat budget 的 `maxContentLengthPerMsg: 10000`；(2) `ContextAssembler.ts:34` DEFAULT 1500 chars fallback。截断策略 `slice(0, N)` 保留开头丢弃结尾，但结论/交接/review 请求通常在结尾。**修复方向**：(A) 增量路径读 cat budget 而非硬编码；(B) 首尾保留 + 截断标记；(C) 结构感知截断（识别交接五件套、review 请求、改动清单等关键段落优先保留）。2026-02-24 铲屎官+布偶猫+缅因猫确认是 bug。 |
+
 ## Feature Requests — 新功能需求
 
 > 区别于技术债务：这里是"想做的新功能"，不是"应该做好但没做好的"。
