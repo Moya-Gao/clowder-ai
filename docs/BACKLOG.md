@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-22 (F36 Logo 一笔画动画)
+> 维护者：布偶猫 | 最后更新：2026-02-24 (F-BLOAT token optimization)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -12,6 +12,7 @@
 | # | 项目 | 状态 | 来源 | 备注 |
 |---|------|------|------|------|
 | 38 | **Session 按 Thread 隔离** | [x] | [茶话会夺魂 bug](./archive/2026-02/bug-report/tea-coffee/bug-report.md) | Session key 从 `userId:catId` 改为 `userId:catId:threadId`，防止跨 thread 上下文污染 |
+| 89 | **System Prompt / 协作说明重复注入导致 token 膨胀** | [x] | [bug report](./bug-report/2026-02-23-system-prompt-context-bloat/bug-report.md) | PR #63 `bca8b7e` — resume-aware injection + MCP short/full split + rich block 渐进式披露 + teammates 去重 + compression detection。~73% token 节省。 |
 
 ## P1 — 必须做
 
@@ -115,6 +116,7 @@
 | 79 | archive 内部互引旧路径未更新 | [ ] | WT-4 docs archive R2 | `docs/archive/2026-02/` 内历史文档互相引用仍用归档前路径（如 `docs/discussions/...`）。60+ 处，不影响活跃文档。触发条件：如需给 archive 生成静态站点或可点击链接时再批量修。 |
 | 87 | sources-loader "does not rewrite" 测试强化 mtime/spy | [ ] | source-sync 缅因猫 R1 P3-1 | 当前 `signal-sources-loader.test.js` 的"no rewrite"断言仅比较文件内容；无法区分"未写盘"和"写盘但内容相同"。可用 `fs.statSync().mtimeMs` 或 write spy 强化。触发条件：下次改 sources-loader 写盘逻辑时一并补。 |
 | 88 | Redis PushSubscriptionStore upsert TOCTOU race | [ ] | C1+C2 云端 Codex review P3 | `hget(previousUserId)` 在 `MULTI` 外面，并发同一 endpoint 的 owner 变更有理论竞态。实际场景需同一设备两个用户同时订阅，概率极低。修复需 Lua 脚本原子化。触发条件：引入多用户并发订阅场景时。 |
+| 90 | Codex 压缩检测 1 轮空窗（启发式盲区） | [ ] | [压缩检测讨论](./discussions/2026-02-24-compression-detection-cross-provider/README.md) | 当前检测是反应式：Codex 压缩发生在本轮，re-injection 在下一轮才生效，中间有 1 轮身份空窗。升级方向：持久化 prevFill / preflight context snapshot / 等 Codex CLI 支持独立 system prompt slot。实际影响有限，观察到事故再升级。 |
 
 ## Feature Requests — 新功能需求
 
