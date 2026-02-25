@@ -19,6 +19,7 @@
 | F-Swarm-6 | 跨 Thread 上下文传递 | P2 | 待讨论（4.6 补充，部分已有） |
 | F-Ground-1 | McpPromptInjector 可靠性 + 回传协议加固 | P0 | 待讨论（合并原 F-Ground-1+2） |
 | F-Ground-2 | 猫猫日报 / 主动触发 | P3 | 待讨论（4.6 补充） |
+| F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 待实现 |
 
 ---
 
@@ -344,12 +345,143 @@ GPT Pro 的 schema 建议只作为参考——实际设计必须基于我们自�
 
 ---
 
+## F-Ground-3：队友名册动态注入（SystemPromptBuilder 增强）
+
+### 背景
+
+2026-02-25 铲屎官打开 Claude Code 和 Codex 的 session 发现：
+1. 第一轮注入的提示词里，"你的队友"只提到了砚砚和暹罗——但实际注册在案的猫远不止 3 只（含 variants: opus, opus-45, sonnet, codex, gpt52, gemini, gemini25 = 7 只）
+2. 提示词没告诉猫如何 mention 同族的其他猫（opus 不知道可以 @opus45）
+3. 猫不知道"找谁干什么"——没有队友能力说明
+
+直接后果：4.6 @ opus 4.5 时写了 `@布偶猫4.5`（不存在的 mention），路由失败。
+
+### 问题定位
+
+`SystemPromptBuilder.ts` 有三层注入，各有缺失：
+
+| 注入层 | 位置 | 当前行为 | 缺失 |
+|-------|------|---------|------|
+| **callable mentions** | `buildStaticIdentity()` L68-107 | ✅ 动态，从 `catRegistry` 读所有猫 | 只列了 @handle，没有能力说明 |
+| **teammates 描述** | `buildInvocationContext()` L229-239 | ⚠️ 只列 worklist 里的猫 | 铲屎官单独 @ 一只猫时，teammates 为空，猫不知道还有谁 |
+| **workflow triggers** | `WORKFLOW_TRIGGERS` L136-156 | ❌ 硬编码 breed 级别 | 写死 `@缅因猫 请 review`，不知道 variants |
+
+### 设计方案：方案 A（cat-config.json 扩展）
+
+**核心思路**：在 cat-config.json 的每只猫（含 variant）上新增 `strengths` 和 `caution` 字段，由铲屎官维护。SystemPromptBuilder 从 config 动态生成"队友名册"section。
+
+**cat-config.json 扩展示例**：
+
+```jsonc
+{
+  "catId": "opus",
+  "strengths": "架构设计、写代码一把好手",
+  "caution": "额度消耗大，把贵用在刀刃上"
+}
+{
+  "catId": "opus-45",
+  "strengths": "架构设计、创意写作最优秀",
+  "caution": "写代码不如 4.6"
+}
+{
+  "catId": "codex",
+  "strengths": "Review、找 bug、coding 落地",
+  "caution": null
+}
+{
+  "catId": "gpt52",
+  "strengths": "架构思考、Review",
+  "caution": "思考太慢"
+}
+{
+  "catId": "gemini",
+  "strengths": "审美、前端设计风格、打破常规",
+  "caution": "🔴 禁止写代码！幻觉多，不遵守 SOP"
+}
+```
+
+> 铲屎官原话（2026-02-25）："opus 4.6 写代码一把好手，架构设计优秀。opus 4.5 写代码没 4.6 强，但架构设计一样优秀以及最优秀的是他的创意写作。gpt 5.2 和 codex 5.3 都是工程猫，5.2 比 5.3 更像架构师，5.2 思考太慢。coding 找 bug review 什么的还是 5.3 合适。gemini 审美前端风格设计打破常规合适，禁止 gemini 3 pro 写代码。"
+
+**SystemPromptBuilder 改动**：
+
+在 `buildStaticIdentity()` 的 `## 协作` section 后面，插入动态生成的队友名册：
+
+```
+## 队友名册
+
+| 猫猫 | @mention | 擅长 | 注意 |
+|------|---------|------|------|
+| 布偶猫/宪宪 | @布偶猫 | 架构设计、写代码一把好手 | 额度消耗大 |
+| 布偶猫 opus-45 | @opus45 | 架构设计、创意写作最优秀 | 写代码不如 4.6 |
+| 缅因猫/砚砚 | @codex | Review、找 bug、coding 落地 | — |
+| 缅因猫 gpt52 | @gpt52 | 架构思考、Review | 思考太慢 |
+| 暹罗猫 | @gemini | 审美、前端设计风格 | 🔴 禁止写代码 |
+```
+
+（排除自身，动态渲染）
+
+### 为什么选方案 A 而非方案 B（硬编码）
+
+| | 方案 A: cat-config 字段 | 方案 B: 硬编码名册 |
+|---|---|---|
+| 加新 variant | 改 config 即可 | 改代码 |
+| 铲屎官调整描述 | 改 config 即可 | 改代码 |
+| 与 F32 一致性 | ✅ 一个 config 管所有 | ❌ config 和代码两处维护 |
+| 实现成本 | schema 扩展 + 渲染逻辑 | 字典硬编码 |
+
+方案 A 和 F32 Agent Plugin Architecture 方向一致——cat-config.json 是猫猫能力的唯一配置源。
+
+### 范围
+
+1. **cat-config.json schema 扩展**：新增 `strengths: string` 和 `caution: string | null` 字段
+2. **SystemPromptBuilder 渲染**：`buildStaticIdentity()` 新增"队友名册"section，从 `getAllConfigs()` 动态生成
+3. **WORKFLOW_TRIGGERS 改造**（可选）：从硬编码 breed 名改为动态 breed displayName
+4. **size guard 测试更新**：新增内容会增加 prompt 长度，需要更新 `system-prompt-builder.test.js` 的 size guard 阈值
+
+### 非目标
+
+- 不改变 `buildInvocationContext()` 的 teammates 逻辑（那个只列 worklist 猫是正确的——告诉猫"这轮谁在"）
+- 不做队友推荐算法（猫自己看名册选即可）
+
+### 验收标准
+
+- 每只猫的 static identity prompt 里有完整的队友名册（含 variants）
+- 名册从 cat-config.json 动态生成（加新 variant → 重启后自动出现在名册里）
+- 名册包含 @mention handle + 擅长 + 注意事项
+- 猫能正确 @ 同族的其他 variant（如 opus @ opus45）
+
+### 实现注意事项
+
+1. **prompt size guard**：改 SystemPromptBuilder 任何内容后必须跑 `node --test test/system-prompt-builder.test.js`（铲屎官铁律，踩过 5 次！）
+2. **shared 包改后 rebuild**：如果 schema 改动涉及 `@cat-cafe/shared`，必须 `pnpm --filter @cat-cafe/shared build`
+3. **catFeaturesSchema**：`strengths` 和 `caution` 可以加到 `catFeaturesSchema`（Zod），与 F33 的 `sessionStrategy` 同层
+4. **token 成本**：7 只猫 × ~30 字/猫 ≈ 210 字，在可接受范围内
+
+### 风险
+
+- Prompt 膨胀：需要确认加完后不超 size guard
+- gemini 的"禁止写代码"可能需要更强的约束（不只是 caution 字段，可能需要 GEMINI.md 配合）
+
+### 铲屎官原始反馈（2026-02-25）
+
+> 关于队友，只提到了砚砚和暹罗；但是其实我们现在注册在案的有多少只？这个有多少队友可能是需要动态注入，得让我们的后端那个代码去搜 cat-config？
+>
+> 关于 mention，我们的提示词里也没告诉你们可以如何 mention 其他同族的猫？至少可以在第一轮的时候告诉你们，或者就是告诉你们可以从哪里查看到队友名单。
+
+### 关联
+
+- **F32 Agent Plugin Architecture**：cat-config.json 是猫猫配置的唯一源，本 feat 扩展其 schema
+- **F-Swarm-4 决策权矩阵**：队友名册的"擅长/注意"帮助猫做出正确的协作选择
+- **曾经的 gemini 事故**：gemini 3 pro 写代码搞疯了布偶猫和缅因猫，铲屎官当场要求 GEMINI.md 写上禁止写代码——caution 字段可以系统化这类约束
+
+---
+
 ## 优先级说明
 
 | 优先级 | 含义 | Feat | 理由 |
 |--------|------|------|------|
 | P0 | 零代码/地基 | F-Swarm-4, F-Ground-1 | 决策矩阵写文档即可；MCP 可靠性是异构协作的根基 |
-| P1 | 已验证需求 | F-Swarm-2, F-Swarm-5 | Mode 反思迫切需要；Brainstorm 收敛今天验证了需求 |
+| P1 | 已验证需求 | F-Swarm-2, F-Swarm-5, F-Ground-3 | Mode 反思迫切需要；Brainstorm 收敛今天验证了需求；队友名册今天被铲屎官发现缺失 |
 | P2 | 可用但不急 | F-Swarm-1, F-Swarm-6 | Pipeline 手动已可用；跨 thread 能力已存在 |
 | P3 | 前提不全 | F-Swarm-3, F-Ground-2 | 缺常驻线程架构；需要 cron 基础设施 |
 
