@@ -55,8 +55,9 @@ const catVariantSchema = z.object({
   contextBudget: contextBudgetSchema.optional(),
 });
 
-/** F33 Phase 2: session strategy config (matches SessionStrategyConfig from shared) */
-const sessionStrategySchema = z
+/** F33 Phase 2: session strategy config (matches SessionStrategyConfig from shared).
+ *  Exported for reuse by Phase 3 API route validation. */
+export const sessionStrategySchema = z
   .object({
     strategy: z.enum(['handoff', 'compress', 'hybrid']),
     thresholds: z

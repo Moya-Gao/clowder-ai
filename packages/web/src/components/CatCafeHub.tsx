@@ -8,8 +8,9 @@ import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 import { PushSettingsPanel } from './PushSettingsPanel';
+import { HubStrategyTab } from './HubStrategyTab';
 
-export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env' | 'voice' | 'notify';
+export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env' | 'voice' | 'notify' | 'strategy';
 
 const TABS: { id: HubTabId; label: string }[] = [
   { id: 'opus', label: '布偶猫' },
@@ -20,6 +21,7 @@ const TABS: { id: HubTabId; label: string }[] = [
   { id: 'env', label: '环境 & 文件' },
   { id: 'voice', label: '语音设置' },
   { id: 'notify', label: '通知' },
+  { id: 'strategy', label: 'Session 策略' },
 ];
 
 /**
@@ -117,6 +119,8 @@ export function CatCafeHub() {
             <VoiceSettingsPanel />
           ) : tab === 'notify' ? (
             <PushSettingsPanel />
+          ) : tab === 'strategy' ? (
+            <HubStrategyTab />
           ) : !config && !fetchError ? (
             <p className="text-sm text-gray-400">加载中...</p>
           ) : null}

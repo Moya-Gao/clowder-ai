@@ -6,14 +6,18 @@
  *   - compress: let CLI compress, don't intervene
  *   - hybrid: allow N compressions, then seal (hook-capable providers only)
  *
- * Lookup order: breedId override → provider default → global default
+ * Lookup order (Phase 3):
+ *   test override → runtime override (Redis, per-variant) → cat-config.json (breed) → STRATEGY_BY_BREED → provider default → global default
+ *
  * Phase 2: seal-thresholds.ts merged into this file; cat-config.json integration added.
+ * Phase 3: Runtime override via Redis + settings UI.
  */
 
 import type { ContextHealthConfig, SessionStrategyConfig, StrategyAction } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import { resolveBreedId } from './breed-resolver.js';
 import { getConfigSessionStrategy } from './cat-config-loader.js';
+import { getRuntimeOverride } from './session-strategy-overrides.js';
 
 // ── Default Configurations ──
 
@@ -75,39 +79,86 @@ export function _clearTestStrategyOverrides(): void {
 
 // ── Lookup ──
 
+/** Source of the effective strategy config — tells the UI where the value came from. */
+export type StrategySource =
+  | 'runtime_override'
+  | 'config_file'
+  | 'breed_code'
+  | 'provider_default'
+  | 'global_default';
+
 /**
  * Get session strategy config for a cat.
  *
- * Lookup order:
+ * Lookup order (Phase 3):
  * 1. Test override (testing only)
- * 2. cat-config.json features.sessionStrategy (Phase 2: config-driven)
- * 3. STRATEGY_BY_BREED code override
- * 4. Provider default → global default
+ * 2. Runtime override (Redis, per-variant) — Phase 3 UI writes here
+ * 3. cat-config.json features.sessionStrategy (Phase 2: config-driven, breed level)
+ * 4. STRATEGY_BY_BREED code override
+ * 5. Provider default → global default
  */
 export function getSessionStrategy(catName: string): SessionStrategyConfig {
+  return getSessionStrategyWithSource(catName).effective;
+}
+
+/**
+ * Get session strategy + its source. Used by the settings UI API to show
+ * where the effective config comes from.
+ */
+export function getSessionStrategyWithSource(catName: string): {
+  effective: SessionStrategyConfig;
+  source: StrategySource;
+} {
   // Test-only override (highest priority)
   const testOverride = _testOverrides.get(catName);
-  if (testOverride) return testOverride;
+  if (testOverride) return { effective: testOverride, source: 'runtime_override' };
 
+  // Resolve the full fallback chain first (config-file → breed → provider → global)
+  const fallback = resolveFallbackStrategy(catName);
+
+  // Phase 3: Runtime override layers ON TOP of the resolved fallback,
+  // so partial runtime overrides preserve lower-layer values.
+  const runtimeOverride = getRuntimeOverride(catName);
+  if (runtimeOverride) {
+    const merged = mergeStrategyConfig(fallback.effective, runtimeOverride);
+    return { effective: validateProviderCapability(merged, catName), source: 'runtime_override' };
+  }
+
+  return {
+    effective: validateProviderCapability(fallback.effective, catName),
+    source: fallback.source,
+  };
+}
+
+/**
+ * Resolve the non-runtime fallback chain:
+ *   config-file → breed code → provider default → global default
+ */
+function resolveFallbackStrategy(catName: string): {
+  effective: SessionStrategyConfig;
+  source: StrategySource;
+} {
   const base = getBaseStrategy(catName);
 
-  // Phase 2: cat-config.json features.sessionStrategy (takes priority over code overrides)
+  // Phase 2: cat-config.json features.sessionStrategy (breed level)
   const configOverride = getConfigSessionStrategy(catName);
   if (configOverride) {
-    const merged = mergeStrategyConfig(base, configOverride);
-    return validateProviderCapability(merged, catName);
+    return { effective: mergeStrategyConfig(base, configOverride), source: 'config_file' };
   }
 
   // Code-level breedId override
   const breedId = resolveBreedId(catName);
   const breedOverride = (breedId ? STRATEGY_BY_BREED[breedId] : undefined) ?? STRATEGY_BY_BREED[catName];
-
   if (breedOverride) {
-    const merged = mergeStrategyConfig(base, breedOverride);
-    return validateProviderCapability(merged, catName);
+    return { effective: mergeStrategyConfig(base, breedOverride), source: 'breed_code' };
   }
 
-  return base;
+  // Provider default or global default
+  const provider = catRegistry.tryGet(catName)?.config.provider ?? CAT_CONFIGS[catName]?.provider;
+  if (provider && DEFAULT_STRATEGY_BY_PROVIDER[provider]) {
+    return { effective: base, source: 'provider_default' };
+  }
+  return { effective: base, source: 'global_default' };
 }
 
 /**
