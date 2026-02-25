@@ -63,6 +63,10 @@ type WatcherEventMap = {
   disconnected: [];
 };
 
+/** Max reconnect delay (capped exponential backoff). */
+const MAX_RECONNECT_DELAY_MS = 5 * 60 * 1000; // 5 minutes
+const BASE_RECONNECT_DELAY_MS = 2_000; // 2 seconds
+
 export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
   private readonly config: GithubReviewWatcherConfig;
   private readonly log: WatcherLogger;
@@ -71,6 +75,8 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
   private lastSeenUid: number = 0;
   private running = false;
   private reviewHandler: ReviewEventHandler | null = null;
+  private reconnectAttempts = 0;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(config: GithubReviewWatcherConfig, log?: WatcherLogger) {
     super();
@@ -121,26 +127,24 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
     this.running = false;
     this.log.info('[GithubReviewWatcher] Stopping...');
 
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
     if (this.pollTimer) {
       clearInterval(this.pollTimer);
       this.pollTimer = null;
     }
 
-    if (this.client) {
-      try {
-        await this.client.logout();
-      } catch {
-        // Ignore logout errors
-      }
-      this.client = null;
-    }
+    await this.destroyClient();
 
     this.emit('disconnected');
     this.log.info('[GithubReviewWatcher] Stopped');
   }
 
   private async connect(): Promise<void> {
-    this.client = new ImapFlow({
+    const client = new ImapFlow({
       host: this.config.host,
       port: this.config.port,
       secure: true,
@@ -151,9 +155,84 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
       logger: false, // Disable verbose logging
     });
 
-    await this.client.connect();
+    // CRITICAL: attach error handler BEFORE connect() to prevent
+    // unhandled 'error' events from crashing the process.
+    client.on('error', (err: Error) => {
+      this.log.error(`[GithubReviewWatcher] IMAP connection error: ${err.message}`);
+      this.handleConnectionLoss();
+    });
+
+    client.on('close', () => {
+      this.log.warn('[GithubReviewWatcher] IMAP connection closed');
+      this.handleConnectionLoss();
+    });
+
+    await client.connect();
+    this.client = client;
+    this.reconnectAttempts = 0; // Reset on successful connect
     this.emit('connected');
     this.log.info('[GithubReviewWatcher] Connected to IMAP server');
+  }
+
+  /** Safely tear down the current IMAP client. */
+  private async destroyClient(): Promise<void> {
+    if (!this.client) return;
+    const client = this.client;
+    this.client = null;
+    try {
+      await client.logout();
+    } catch {
+      // Ignore — connection may already be dead
+    }
+  }
+
+  /**
+   * Handle unexpected connection loss: stop polling, schedule reconnect.
+   * Idempotent — multiple error/close events won't stack reconnects.
+   */
+  private handleConnectionLoss(): void {
+    if (!this.running) return; // We're shutting down, don't reconnect
+
+    // Prevent stale client from being used in poll()
+    this.client = null;
+
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
+
+    this.emit('disconnected');
+    this.scheduleReconnect();
+  }
+
+  /** Schedule a reconnect with exponential backoff. */
+  private scheduleReconnect(): void {
+    if (!this.running || this.reconnectTimer) return; // Already scheduled or stopping
+
+    const delay = Math.min(
+      BASE_RECONNECT_DELAY_MS * 2 ** this.reconnectAttempts,
+      MAX_RECONNECT_DELAY_MS,
+    );
+    this.reconnectAttempts++;
+
+    this.log.info(
+      `[GithubReviewWatcher] Reconnecting in ${(delay / 1000).toFixed(0)}s (attempt ${this.reconnectAttempts})...`,
+    );
+
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null;
+      if (!this.running) return;
+
+      try {
+        await this.destroyClient(); // Clean up any zombie client
+        await this.connect();
+        this.startPolling();
+        this.log.info('[GithubReviewWatcher] Reconnected successfully');
+      } catch (error) {
+        this.log.error(`[GithubReviewWatcher] Reconnect failed: ${String(error)}`);
+        this.scheduleReconnect(); // Try again with increased backoff
+      }
+    }, delay);
   }
 
   private async initializeLastSeenUid(): Promise<void> {
@@ -173,23 +252,37 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
   }
 
   private startPolling(): void {
+    if (this.pollTimer) return; // Prevent duplicate intervals
     this.pollTimer = setInterval(() => {
       this.poll().catch((error) => {
         this.log.error(`[GithubReviewWatcher] Poll error: ${String(error)}`);
-        this.emit('error', error instanceof Error ? error : new Error(String(error)));
+        if (isConnectionError(error)) {
+          this.handleConnectionLoss();
+        }
       });
     }, this.config.pollIntervalMs);
 
     // Also poll immediately
     this.poll().catch((error) => {
       this.log.error(`[GithubReviewWatcher] Initial poll error: ${String(error)}`);
+      if (isConnectionError(error)) {
+        this.handleConnectionLoss();
+      }
     });
   }
 
   private async poll(): Promise<void> {
     if (!this.client || !this.running) return;
 
-    const lock = await this.client.getMailboxLock('INBOX');
+    let lock;
+    try {
+      lock = await this.client.getMailboxLock('INBOX');
+    } catch (error) {
+      // Connection may have died between the null check and getMailboxLock
+      this.log.error(`[GithubReviewWatcher] Failed to acquire mailbox lock: ${String(error)}`);
+      throw error; // Let startPolling's catch handler decide (reconnect or not)
+    }
+
     try {
       // Collect all fetched UIDs in order, tagged as review or skip.
       // We process them sequentially — cursor only advances for UIDs
@@ -270,6 +363,20 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
       lock.release();
     }
   }
+}
+
+/** Network/connection errors that should trigger a reconnect (not a crash). */
+function isConnectionError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const code = (error as NodeJS.ErrnoException).code;
+  const connectionCodes = new Set([
+    'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'EPIPE',
+    'EHOSTUNREACH', 'ENETUNREACH', 'EAI_AGAIN',
+  ]);
+  if (code && connectionCodes.has(code)) return true;
+  // ImapFlow sometimes wraps errors without preserving code
+  const msg = error.message.toLowerCase();
+  return msg.includes('timeout') || msg.includes('connection') || msg.includes('socket');
 }
 
 /**
