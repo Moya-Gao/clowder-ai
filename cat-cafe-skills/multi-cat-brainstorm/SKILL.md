@@ -27,7 +27,7 @@ description: Use when铲屎官 wants multiple cats to independently think about 
     ↓
 Phase 1: 独立思考（并行，禁止互看）
     ↓
-Phase 2: 串行讨论（可选，铲屎官决定是否需要）
+Phase 2: 串行讨论（条件触发，见下方判断标准）
     ↓
 Phase 3: 铲屎官选扇入者
     ↓
@@ -54,6 +54,18 @@ Phase 6: 铲屎官反馈 + 最终确认
 **实现方式**：
 - Cat Café 中用 `routeParallel()`（BrainstormMode Round 1 已支持）
 - 或铲屎官分别 @ 各猫，强调"先独立思考"
+
+## Phase 2: 串行讨论（条件触发）
+
+Phase 1 结束后，判断是否需要串行讨论：
+
+| 情况 | Phase 2？ |
+|------|----------|
+| Phase 1 各方观点基本一致 | **跳过**，直接进 Phase 3 |
+| 存在明显分歧需要互相回应 | **需要**，限制 2-3 轮 |
+| 铲屎官说"够了" | **跳过** |
+
+Phase 2 使用 `routeSerial()`，每只猫看到前面猫的回答后补充/反驳。
 
 ## Phase 3: 扇入者选择
 
@@ -103,7 +115,7 @@ Cat Café 的 `BrainstormMode` 提供了 Phase 1（routeParallel）和 Phase 2�
 | Phase 1 让猫猫看到彼此的回答 | 严格用 routeParallel 或分别 @ 并强调独立思考 |
 | 扇入时抹平分歧、只保留共识 | 分歧是最有价值的信号——保留并标注理由 |
 | 跳过 Phase 5 审阅直接定稿 | 综合可能误读某只猫的观点，必须让原作者确认 |
-| 所有讨论都开 swarm | Swarm 有成本（多猫 token），简单问题直接讨论 |
+| 所有讨论都开 swarm | Swarm 的 token 成本是单猫的 N 倍（N=参与猫数）。实现细节、bug 定位不值得开 swarm；架构选型、流程设计才值得 |
 | 忘记 discussion-convergence 收尾 | 讨论完不收敛 = 结论散落在对话里 |
 
 ## 实际案例
@@ -111,6 +123,6 @@ Cat Café 的 `BrainstormMode` 提供了 Phase 1（routeParallel）和 Phase 2�
 2026-02-24 Agent Swarm 协同模式讨论：
 - 4 猫独立思考 multi-agent 协同方式借鉴
 - 铲屎官选 opus 4.5 做扇入综合
-- 产出：[会议纪要](../../docs/discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) + [Feat 拆解](../../docs/discussions/agent-swarm-feats.md)
+- 产出：[会议纪要](docs/discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) + [Feat 拆解](docs/discussions/agent-swarm-feats.md)（从项目根查看）
 - opus 4.6 审阅补充 3 个新 feat + 优先级重排
 - 铲屎官反馈后更新文档

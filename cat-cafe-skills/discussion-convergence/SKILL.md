@@ -21,6 +21,17 @@ description: Use when a multi-party discussion (brainstorm, review debate, archi
 **When NOT to use:**
 - 纯 1:1 feat 采访（用 `feat-discussion` skill）
 - 代码 review follow-up（用 `cat-cafe-receiving-review` skill）
+- 纯技术问答，结论在 thread 里就够了（没有产出新决策/规则/否决理由）
+- 铲屎官说"不用记了"
+
+**判断标准**：这次讨论有没有产出以下任何一项？
+
+| 产出类型 | 需要本 skill？ |
+|---------|--------------|
+| 新决策、新规则、否决理由 | **是** |
+| 可执行的 feat 或 action items | **是** |
+| 只是技术问答，结论在 thread 里够了 | **否** |
+| 铲屎官说"不用记了" | **否** |
 
 ## 收敛三件套（必须执行）
 
@@ -45,6 +56,20 @@ description: Use when a multi-party discussion (brainstorm, review debate, archi
 **检查**：这次讨论有没有产生"以后必须这样做"的新规则？有 → 更新指引。
 
 **不是每次讨论都会产出三项——但每次都必须过清单，确认"没有遗漏"而非"懒得检查"。**
+
+### 收敛检查（强制回答格式）
+
+每次收敛时，在 commit message 或文档末尾附上：
+
+```markdown
+## 收敛检查
+
+1. 否决理由 → ADR？[有 → 已补到 ADR-0xx / 没有]
+2. 踩坑教训 → lessons-learned？[有 → 已追加 / 没有]
+3. 操作规则 → 指引文件？[有 → 已更新 CLAUDE.md §xx / 没有]
+```
+
+每项必须显式回答"有"或"没有"——不允许跳过。
 
 ## 追溯链建立
 
@@ -106,6 +131,8 @@ BACKLOG.md F{N}（入口）
 | Feat 拆解 | `docs/discussions/{topic}-feats.md` |
 | 开放讨论记录 | `docs/discussions/YYYY-MM-DD-{topic}/README.md` |
 | 调研证据 | `docs/research/YYYY-MM-DD-{topic}/` |
+
+**命名规范**：`{topic}` 用小写连字符，如 `agent-swarm`、`voice-input`、`session-strategy`。
 
 ## Commit
 
