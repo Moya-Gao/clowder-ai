@@ -235,26 +235,36 @@ gpt52 提出的"哪些决策猫猫自治，哪些必须铲屎官拍板"。
 
 > 我们现在的 MCP 有个获取 thread 的信息，可能是有 bug 但是！这个 bug 现在成为 feature 了，他是可以比如我在 thread B 能获取 thread A 的全部上下文的！
 
-### 现状分析
+### 现状分析（2026-02-25 代码核实后更正）
 
-MCP 工具 `get_thread_context` 已经能够跨 thread 获取上下文——这个能力已经存在，只是没有被有意识地产品化。
+~~MCP 工具 `get_thread_context` 已经能够跨 thread 获取上下文。~~
 
-### 范围（调整后）
+**实际情况：跨 thread 上下文读取目前不存在。** 代码核实发现：
 
-这不再是"从零做跨 thread 上下文"，而是：
-- 确认 `get_thread_context` 跨 thread 读取是 feature 而非 bug（加测试保护）
+1. **MCP 侧**：`getThreadContextInputSchema` 只有 `limit` 参数，无 `threadId`（`additionalProperties: false`）
+2. **后端侧**：`threadContextQuerySchema` = `callbackAuthSchema + limit`，从未有过 `threadId` 参数（查了完整 git 历史）
+3. **Thread 作用域来源**：后端从 `record.threadId`（invocation record）取当前 thread，不接受外部传入
+
+**铲屎官之前能跨 thread 读消息的可能原因**：早期某些 invocation record 的 `threadId` 为空时，后端有个 fallback 分支（`messageStore.getBefore` 不带 threadId = 读所有 thread），后来 invocation record 都带了 threadId，这个"bug feature"就消失了。
+
+### 范围（重新定义——这是从零实现，不是产品化现有能力）
+
+- **MCP 侧**：`getThreadContextInputSchema` 新增可选 `threadId` 参数
+- **后端侧**：`threadContextQuerySchema` 新增可选 `threadId`，优先使用传入值，fallback 到 `record.threadId`
 - 增加 thread 间的显式引用机制——猫在 Thread C 可以声明"参考 Thread A 的结论"
 - 产出的 feat 拆解文档里增加"源 thread"元数据，形成追溯链
 
 ### 验收标准
 
-- `get_thread_context` 跨 thread 读取有回归测试保护
+- `get_thread_context` 支持可选 `threadId` 参数，能读取其他 thread 的消息
+- 不传 `threadId` 时行为不变（读当前 thread）
+- 有回归测试保护
 - 猫能在当前 thread 引用另一个 thread 的上下文
 - 引用关系可追溯
 
-### 4.6 补充意见
+### 4.6 补充意见（更正后）
 
-优先级 P2——能力已存在，主要是加测试保护 + 形成规范。不需要大量代码。
+优先级调整为 **P2**——需要改 MCP schema + 后端路由，但改动量不大（两处加一个可选参数）。不过既然是新功能而非产品化，需要考虑安全边界（猫是否能读任意 thread？还是只能读同 userId 的 thread？）。
 
 ---
 
@@ -482,7 +492,7 @@ GPT Pro 的 schema 建议只作为参考——实际设计必须基于我们自�
 |--------|------|------|------|
 | P0 | 零代码/地基 | F-Swarm-4, F-Ground-1 | 决策矩阵写文档即可；MCP 可靠性是异构协作的根基 |
 | P1 | 已验证需求 | F-Swarm-2, F-Swarm-5, F-Ground-3 | Mode 反思迫切需要；Brainstorm 收敛今天验证了需求；队友名册今天被铲屎官发现缺失 |
-| P2 | 可用但不急 | F-Swarm-1, F-Swarm-6 | Pipeline 手动已可用；跨 thread 能力已存在 |
+| P2 | 可用但不急 | F-Swarm-1, F-Swarm-6 | Pipeline 手动已可用；跨 thread 需新增 MCP 参数（非已有能力） |
 | P3 | 前提不全 | F-Swarm-3, F-Ground-2 | 缺常驻线程架构；需要 cron 基础设施 |
 
 ---
