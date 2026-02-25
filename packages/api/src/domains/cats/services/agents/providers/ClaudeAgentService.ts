@@ -111,6 +111,8 @@ export class ClaudeAgentService implements AgentService {
       '--permission-mode', PERMISSION_MODE,
       // Skip global user settings to prevent config pollution across sessions
       '--setting-sources', 'project,local',
+      // Enable Chrome MCP integration (built-in, requires Chrome + extension running)
+      '--chrome',
     ];
 
     // Inject static identity via --append-system-prompt (separate from -p content)
