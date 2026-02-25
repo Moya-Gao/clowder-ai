@@ -5,6 +5,9 @@ import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chat
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;
+// In export mode (?export=true), load all messages in one request for screenshot capture.
+// Normal browsing still uses 50-per-page pagination.
+const EXPORT_LIMIT = 10000;
 
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
@@ -56,7 +59,10 @@ export function useChatHistory(threadId: string) {
       setLoadingHistory(true);
       const fetchForThread = threadId; // capture at call time
       try {
-        const params = new URLSearchParams({ limit: String(HISTORY_PAGE_SIZE) });
+        const isExport = typeof window !== 'undefined' &&
+          new URLSearchParams(window.location.search).get('export') === 'true';
+        const limit = isExport ? EXPORT_LIMIT : HISTORY_PAGE_SIZE;
+        const params = new URLSearchParams({ limit: String(limit) });
         if (cursor) params.set('before', cursor);
         params.set('threadId', fetchForThread);
         const res = await apiFetch(`/api/messages?${params}`, {

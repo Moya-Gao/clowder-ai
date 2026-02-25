@@ -64,7 +64,7 @@ export interface MessagesRoutesOptions {
 }
 
 const getMessagesSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(200).default(50),
+  limit: z.coerce.number().int().min(1).max(10000).default(50),
   /** Cursor: "timestamp:id" or legacy plain timestamp */
   before: z.string().optional(),
   threadId: z.string().min(1).max(100).optional(),
