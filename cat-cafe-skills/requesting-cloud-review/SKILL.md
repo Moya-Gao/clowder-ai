@@ -93,6 +93,37 @@ EOF
 )"
 ```
 
+## Step 2.5: Register PR for Email Review Watcher
+
+PR 创建后，**立刻**注册到 Email Watcher（BACKLOG #81），让 review 邮件自动路由到当前 thread：
+
+```bash
+# 从 gh pr create 输出提取 PR 号
+PR_NUMBER=$(gh pr view --json number -q '.number')
+
+# 注册 PR 追踪（Layer 1 精确路由）
+# - CAT_CAFE_API_URL: MCP 环境变量，默认 http://localhost:3002
+# - catId: 你自己的 ID（opus / codex / gemini）
+# - threadId: 你当前工作的 thread ID（从对话上下文获取）
+curl -s "${CAT_CAFE_API_URL:-http://localhost:3002}/api/pr-tracking" \
+  -H "Content-Type: application/json" \
+  -H "X-Cat-Cafe-User: $(whoami)" \
+  -d "{
+    \"repoFullName\": \"zts212653/cat-cafe\",
+    \"prNumber\": ${PR_NUMBER},
+    \"catId\": \"{your_cat_id}\",
+    \"threadId\": \"{current_thread_id}\"
+  }"
+```
+
+**为什么必须注册**：同时可能有多个同种猫在提 PR（例如 10 个布偶猫实例），仅靠 PR title 里的 `[布偶猫🐾]` 无法区分是哪个实例的哪个 thread。Layer 1 注册才能精确路由。
+
+**如何获取 threadId**：
+- 你在 Cat Cafe 对话中被 @，对话上下文里就有 threadId
+- 也可以用 MCP 工具 `cat_cafe_get_thread_context` 获取
+
+**注册失败怎么办**：不阻塞 PR 流程。注册失败时 Layer 2（PR title 猫名标签）和 Layer 3（Triage）仍然兜底。
+
 ## Step 3: Trigger Cloud Review
 
 PR 创建后，**立刻**在 PR 上发一条 comment 触发云端 Codex：
@@ -159,6 +190,7 @@ EOF
 | 错误 | 问题 | 正确做法 |
 |------|------|----------|
 | 本地 review 没过就开 PR | 云端 review 不替代本地 review | 先走 merge-approval-gate |
+| 忘记注册 PR 到 Email Watcher | 同种猫多实例时 review 邮件无法精确路由 | Step 2.5 注册 PR tracking |
 | 忘记发 `@codex review` comment | PR 开了但没触发云端 review | Step 3 是必要步骤 |
 | **不等云端 review 就合入 main** | **云端守护形同虚设** | **必须等通过才能 Step 6** |
 | 云端发现 P1 就慌 | 云端猫可能误报 | 检查是否有复现证据，无证据则降级 |
