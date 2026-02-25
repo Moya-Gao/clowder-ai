@@ -9,14 +9,16 @@ import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { HubStrategyTab } from './HubStrategyTab';
+import { HubSkillsTab } from './HubSkillsTab';
 
-export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'commands' | 'env' | 'voice' | 'notify' | 'strategy';
+export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'skills' | 'commands' | 'env' | 'voice' | 'notify' | 'strategy';
 
 const TABS: { id: HubTabId; label: string }[] = [
   { id: 'opus', label: '布偶猫' },
   { id: 'codex', label: '缅因猫' },
   { id: 'gemini', label: '暹罗猫' },
   { id: 'system', label: '系统配置' },
+  { id: 'skills', label: 'Skills 看板' },
   { id: 'commands', label: '命令速查' },
   { id: 'env', label: '环境 & 文件' },
   { id: 'voice', label: '语音设置' },
@@ -111,6 +113,8 @@ export function CatCafeHub() {
             <CatTab cat={cat} budget={budget} caps={catCaps ?? undefined} />
           ) : tab === 'system' && config ? (
             <SystemTab config={config} />
+          ) : tab === 'skills' ? (
+            <HubSkillsTab />
           ) : tab === 'commands' ? (
             <HubCommandsTab />
           ) : tab === 'env' ? (

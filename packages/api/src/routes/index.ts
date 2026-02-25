@@ -29,3 +29,4 @@ export { ttsRoutes } from './tts.js';
 export { pushRoutes } from './push.js';
 export { registerCallbackDocsRoutes } from './callback-docs-routes.js';
 export { sessionStrategyConfigRoutes } from './session-strategy-config.js';
+export { skillsRoutes } from './skills.js';
