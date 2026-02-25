@@ -50,6 +50,34 @@ export class ImageExporter {
       // Wait for chat container to load
       await page.waitForSelector('[data-chat-container]', { timeout: 10000 });
 
+      // Load ALL paginated messages before capture.
+      // The frontend loads messages in pages of 50 (HISTORY_PAGE_SIZE).
+      // Scrolling the chat container to top triggers the next page load.
+      // We repeat until scrollHeight stabilizes (no more messages to load).
+      let prevScrollHeight = 0;
+      let stableRounds = 0;
+      for (let i = 0; i < 100; i++) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const scrollHeight = await page.evaluate(() => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const container = (globalThis as any).document.querySelector('[data-chat-container]');
+          if (!container) return 0;
+          container.scrollTop = 0; // triggers onScroll → fetchHistory when scrollTop < 80
+          return container.scrollHeight as number;
+        });
+
+        // Wait for the pagination API response to arrive and render
+        await page.waitForNetworkIdle({ idleTime: 500, timeout: 3000 }).catch(() => {});
+
+        if (scrollHeight === prevScrollHeight) {
+          stableRounds++;
+          if (stableRounds >= 2) break; // 2 consecutive rounds with no change → done
+        } else {
+          stableRounds = 0;
+        }
+        prevScrollHeight = scrollHeight;
+      }
+
       // Precisely remove height/overflow constraints on the chat container
       // and its direct ancestor chain only. Previous approach used global CSS
       // injection (.overflow-hidden { overflow: visible }) which broke sidebar
