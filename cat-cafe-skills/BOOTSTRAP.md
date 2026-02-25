@@ -15,6 +15,8 @@
 | `cat-cafe-receiving-review` | 收到 review 反馈时 |
 | `requesting-cloud-review` | 开 PR + 触发云端 Codex review 时 |
 | `feat-discussion` | 讨论新功能需求时 |
+| `multi-cat-brainstorm` | 多猫独立思考 + 收敛（方向性问题、多视角决策） |
+| `discussion-convergence` | 多方讨论结束后的收敛沉淀（追溯链 + 三件套检查） |
 
 ### 开发流程（改进自 Superpowers）
 | Skill | 触发场景 |
