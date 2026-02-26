@@ -7,6 +7,7 @@ import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
 import type { CatId, CatConfig } from '@cat-cafe/shared';
 import { buildStaticIdentity, buildInvocationContext } from '../../context/SystemPromptBuilder.js';
 import { needsMcpInjection, buildMcpCallbackInstructions } from '../invocation/McpPromptInjector.js';
+import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentService.js';
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
 import { mergeStreams } from '../invocation/stream-merge.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
@@ -51,7 +52,8 @@ export async function* routeParallel(
     modeSystemPromptByCat,
   } = options;
   const thinkingMode = options.thinkingMode ?? 'play';
-  const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'];
+  // P2-3 fix: also consider default MCP server path (ClaudeAgentService has fallback resolution)
+  const mcpServerPath = process.env['CAT_CAFE_MCP_SERVER_PATH'] || resolveDefaultClaudeMcpServerPath();
   const incrementalMode = Boolean(currentUserMessageId && deps.deliveryCursorStore);
 
   const degradationMsgs: AgentMessage[] = [];

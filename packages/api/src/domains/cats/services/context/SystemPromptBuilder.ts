@@ -284,7 +284,8 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
 
 /**
  * Build dynamic invocation context — changes per call.
- * Includes: teammates, mode, chain position, MCP tools, prompt tags.
+ * Includes: teammates, mode, chain position, prompt tags.
+ * (MCP tools and 铲屎官 reference moved to buildStaticIdentity for session-level injection.)
  */
 export function buildInvocationContext(context: InvocationContext): string {
   const config = getConfig(context.catId as string);

@@ -25,12 +25,13 @@ const BUDGET_ENV_KEYS = {
 /**
  * Hardcoded defaults — keyed by breedId so all variants share the same budget.
  *
- * ⚠️ ADVISORY in incremental mode: when sessionChain=true (Claude/Codex),
- * context delivery uses the incremental (cursor-based) path which only enforces
- * maxContentLengthPerMsg per message — NOT the total maxPromptTokens budget.
- * In this mode, context window management is delegated to the CLI itself
- * (e.g. Claude Code's internal compact). The full budget enforcement only
- * applies in legacy (full-history) mode and for cats without sessionChain (Gemini).
+ * ⚠️ ADVISORY in incremental mode: when incremental delivery is enabled
+ * (requires both `currentUserMessageId` AND `deliveryCursorStore` — see
+ * route-serial.ts / route-parallel.ts), context delivery uses the cursor-based
+ * path which only enforces maxContentLengthPerMsg per message — NOT the total
+ * maxPromptTokens budget. In this mode, context window management is delegated
+ * to the CLI itself (e.g. Claude Code's internal compact). The full budget
+ * enforcement only applies in the legacy (full-history) delivery path.
  */
 const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
   ragdoll:      { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
