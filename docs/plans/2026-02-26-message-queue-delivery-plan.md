@@ -841,13 +841,20 @@ trigger(threadId, catId, userId, message, messageId) {
 
   if (hasActive) {
     // 有猫在跑 → 入队，不打断
+    // 注意：Connector 场景消息已写入 MessageStore，messageId 已知
+    // enqueue 时 messageId 仍为 null（Task 1 签名），入队后立即 backfill
     const result = this.opts.queue.enqueue({
-      threadId, userId, content: message, messageId,
+      threadId, userId, content: message,
       source: 'connector', targetCats: [catId], intent: 'execute',
     });
-    // 广播 queue_updated
-    this.opts.socketManager.broadcastToRoom(`thread:${threadId}`, 'queue_updated', {
-      threadId, queue: this.opts.queue.list(threadId), action: result.outcome,
+    if (result.outcome === 'enqueued' && result.entry) {
+      this.opts.queue.backfillMessageId(threadId, userId, result.entry.id, messageId);
+    } else if (result.outcome === 'merged' && result.entry) {
+      this.opts.queue.appendMergedMessageId(threadId, userId, result.entry.id, messageId);
+    }
+    // 定向广播 queue_updated（scopeKey 隔离，不泄露给其他用户）
+    this.opts.socketManager.emitToUser(userId, 'queue_updated', {
+      threadId, queue: this.opts.queue.list(threadId, userId), action: result.outcome,
     });
     this.opts.log.info({ threadId, catId, outcome: result.outcome },
       '[ConnectorInvokeTrigger] Queued (active invocation running)');
