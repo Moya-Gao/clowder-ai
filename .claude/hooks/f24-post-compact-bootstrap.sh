@@ -73,6 +73,12 @@ ${DIGEST_SECTION}
    - Every commit MUST carry your cat signature [布偶猫🐾]
    - Every code change MUST have its tests run before commit
    - All work in this session is YOUR work — own it, sign it, test it.
+6. SUBAGENT MODEL = SAVE MONEY. Task tool MUST specify model parameter:
+   - model: "haiku" — grep, find files, simple code search, format checks
+   - model: "sonnet" — medium research, code inventory, multi-file analysis
+   - model: "opus" — ONLY for deep reasoning (architecture, complex debug)
+   - NOT specifying model = inherits Opus = WASTES 铲屎官's quota!
+7. LOAD SKILLS before SOP steps. Each SOP step has a corresponding skill — load it via /skill-name or Skill tool, don't work from memory.
 CTXEOF
 )
 
