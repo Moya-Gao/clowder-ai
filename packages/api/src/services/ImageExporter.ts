@@ -96,34 +96,26 @@ export class ImageExporter {
       });
       console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
 
-      // Scroll chat container to top so screenshot starts from the first message
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const container = (globalThis as any).document.querySelector('[data-chat-container]');
-        if (container) container.scrollTop = 0;
+      // Inject CSS to convert the scroll-based layout into a flow layout for fullPage capture.
+      // Layout chain: h-screen h-dvh > flex-1 overflow-hidden > h-full overflow-y-auto
+      // All three layers must be unset so content flows naturally for Puppeteer's fullPage.
+      await page.addStyleTag({
+        content: `
+          /* Remove viewport height constraint from outermost container */
+          .h-screen, .h-dvh { height: auto !important; }
+          /* Remove overflow clip from chat area wrapper */
+          .overflow-hidden { overflow: visible !important; }
+          /* Convert chat container from scroll to flow */
+          [data-chat-container] {
+            height: auto !important;
+            overflow: visible !important;
+          }
+          /* Hide sidebar and input bar in export */
+          [data-sidebar], [data-chat-input] { display: none !important; }
+        `,
       });
 
-      // Get the chat container's full content height (scrollHeight includes overflow)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const scrollHeight = await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const container = (globalThis as any).document.querySelector('[data-chat-container]');
-        return (container?.scrollHeight as number) ?? 720;
-      });
-
-      // Set viewport tall enough so h-screen expands and chat container can
-      // show all content without overflow. The flex layout deducts header (~48px)
-      // and input bar (~64px) from h-screen to size the chat container, so we
-      // add a generous buffer to ensure all content fits.
-      const LAYOUT_BUFFER = 200;
-      const targetHeight = Math.min(scrollHeight + LAYOUT_BUFFER, 16384);
-
-      console.log('[ImageExporter] scrollHeight=%d targetHeight=%d', scrollHeight, targetHeight);
-
-      await page.setViewport({ width: 1280, height: targetHeight });
-
-      // Wait for layout to stabilize after viewport resize
+      // Wait for layout reflow after CSS injection
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.evaluate(() =>
         new Promise<void>(resolve =>
@@ -135,8 +127,15 @@ export class ImageExporter {
         )
       );
 
-      // Capture viewport-sized screenshot (no fullPage to avoid stitching artifacts)
-      const screenshot = await page.screenshot({ type: 'png' });
+      // Log final document height (no 16384 cap — fullPage captures in tiles)
+      const docHeight = await page.evaluate(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => (globalThis as any).document.documentElement.scrollHeight as number,
+      );
+      console.log('[ImageExporter] docHeight=%d (fullPage, no cap)', docHeight);
+
+      // fullPage: true captures the entire document by tiling — no GPU texture limit
+      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
 
       console.log('[ImageExporter] captured %d bytes', screenshot.length);
 
