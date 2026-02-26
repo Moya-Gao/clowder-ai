@@ -64,6 +64,73 @@ docs/
 └── (plans/discussions/...)  # 冷层，被 frontmatter 挂接
 ```
 
+### BACKLOG 新结构设计（布偶猫 2026-02-26）
+
+**当前问题**：
+1. Feature (F1-F39) 和 Tech Debt (#1-#103) 混编在一个文件
+2. 有两个"P1 — 必须做"段落（第 17 行和第 127 行）
+3. done 的项目仍占据大量篇幅（折叠也很长）
+4. 编号不规范（F21++ / F20b / #52）
+
+**新结构**：
+
+#### `docs/BACKLOG.md`（热层 - 活跃 Feature 索引）
+
+```markdown
+# Cat Cafe Feature Roadmap
+
+> 维护者：三猫 | 最后更新：YYYY-MM-DD
+>
+> **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
+> 详细信息见 `docs/features/Fxxx.md`。
+
+| ID | 名称 | Status | Owner | Link |
+|----|------|--------|-------|------|
+| F010 | 手机端猫猫 | in-progress | 布偶猫 | [F010](features/F010-mobile-cat.md) |
+| F032 | Agent Plugin Architecture | review | 布偶猫 | [F032](features/F032-agent-plugin.md) |
+| F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
+| F039 | 消息排队投递 | spec | 布偶猫 | [F039](features/F039-message-queue.md) |
+| F040 | BACKLOG 整理 | in-progress | 布偶猫 | [F040](features/F040-backlog-reorganization.md) |
+```
+
+> **超级简洁！** 只有 ~10 行活跃项，不是 200+ 行历史。
+
+#### `docs/TECH-DEBT.md`（技术债务独立文件）
+
+```markdown
+# Cat Cafe 技术债务
+
+> 维护者：三猫 | 最后更新：YYYY-MM-DD
+>
+> **规则**：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成
+> 完成后不删除，保留追溯。
+
+## TD-P0 — 阻塞后续 Phase
+
+| ID | 项目 | 状态 | 来源 | 备注 |
+|----|------|------|------|------|
+| TD038 | Session 按 Thread 隔离 | [x] | ... | ... |
+
+## TD-P1 — 必须做
+...
+
+## TD-P2 — 建议做
+...
+
+## TD-P3 — 可选优化
+...
+```
+
+**迁移映射**：
+- `#1` → `TD001`
+- `#103` → `TD103`
+- `F1` → `F001`
+- `F39` → `F039`
+- `F21++` → `F021` (演进关系用 `Evolved from` 字段)
+- `F20b` → `F020` (variant 用 Phase 或 聚合文件内区分)
+
+**迁移执行**：由缅因猫批量执行（见 Progress 章节任务分工）。
+
 ### Frontmatter Contract（三猫收敛 2026-02-26）
 
 **所有 docs/ 下的 .md 文件**都应该有 YAML frontmatter：
@@ -163,14 +230,61 @@ created: 2026-02-26           # 创建日期
 
 > 不需要 6 个月归档——features/ 里都是轻量 md 文件，grep 够快。
 
-### Skill 设计（采纳 4.6 建议：kickoff 而非 completion）
+### Skill 设计：`feat-kickoff`（布偶猫 2026-02-26）
 
-`feat-kickoff` skill，在**创建 feat 时**触发（不是完成时！）：
-1. 创建 `docs/features/FXX-name.md` 聚合文件
-2. 在 BACKLOG.md 添加索引行
-3. 开发过程中持续更新聚合文件
+**YAML Frontmatter**：
+```yaml
+---
+name: feat-kickoff
+description: "创建新 Feature 时使用。触发词：新功能、new feat、开个 feature、F0xx"
+---
+```
 
-> 4.6 的观点：如果只在完成时才补聚合文件，信息已经散落了。应该一开始就建。
+**触发条件**（任一）：
+- 铲屎官说"开个新功能"、"new feature"、"做个 Fxxx"
+- 讨论收敛后确认要做一个新 Feature
+- brainstorming 结束后决定立项
+
+**详细步骤**：
+
+1. **确定 Feature ID**
+   - 查看 `docs/BACKLOG.md` 最后一个 ID
+   - 新 ID = 最大 ID + 1（三位数：F040 → F041）
+   - 命名：`Fxxx-kebab-case-name.md`
+
+2. **创建聚合文件**
+   - 路径：`docs/features/Fxxx-name.md`
+   - 使用上方 feat 聚合文件模板
+   - 填写：Status=idea/spec, Owner, Created, Why, What
+
+3. **更新 BACKLOG 索引**
+   - 在 `docs/BACKLOG.md` 添加一行
+   - 格式：`| Fxxx | 名称 | spec | Owner | [link](features/Fxxx.md) |`
+
+4. **创建相关文档时加 frontmatter**
+   - 每个 plan/discussion 文件顶部加：
+   ```yaml
+   ---
+   feature_ids: [Fxxx]
+   topics: [相关标签]
+   doc_kind: plan|discussion|research
+   created: YYYY-MM-DD
+   ---
+   ```
+
+5. **开发过程中持续更新**
+   - 有新的 plan/discussion → 更新聚合文件 Links
+   - 状态变化 → 更新聚合文件 Status + Timeline
+   - Review 通过 → 更新 Review Gate 表格
+
+**检查清单**：
+- [ ] `docs/features/Fxxx.md` 已创建
+- [ ] `docs/BACKLOG.md` 已添加索引行
+- [ ] 新文档都有 frontmatter
+
+> **4.6 的观点**：如果只在完成时才补聚合文件，信息已经散落了。应该一开始就建。
+
+**Skill 实现**：待创建 `cat-cafe-skills/feat-kickoff/SKILL.md`（由缅因猫或布偶猫实现）。
 
 ---
 
@@ -195,8 +309,8 @@ created: 2026-02-26           # 创建日期
   - `stage` 不下沉到普通文档
   - 编号 `F001` / `TD001`（三位固定宽度）
   - 机器索引 `index.json`（脚本生成）
-- [ ] 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **布偶猫**
-- [ ] 设计 feat-kickoff skill — **布偶猫**
+- [x] 2026-02-26: 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **布偶猫** ✅
+- [x] 2026-02-26: 设计 feat-kickoff skill — **布偶猫** ✅
 - [ ] 写 frontmatter 迁移脚本 — **缅因猫**
 - [ ] 历史文档补 frontmatter（全量，含归档）— **缅因猫**（token 充裕 + 细致）
 - [ ] 验收 frontmatter 补录结果 — **Sonnet/Haiku**
