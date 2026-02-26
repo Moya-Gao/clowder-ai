@@ -96,45 +96,22 @@ export class ImageExporter {
       });
       console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
 
-      // Convert scroll-based layout to flow layout via targeted DOM manipulation.
-      // Only modify [data-chat-container] and its direct ancestor chain — NOT all
-      // .overflow-hidden elements globally (which caused layout duplication).
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const doc = (globalThis as any).document;
-        const container = doc.querySelector('[data-chat-container]');
-        if (!container) return;
+      // Strategy: expand viewport height so h-screen grows large enough for ALL
+      // messages to fit inside the chat container without scrolling. No DOM
+      // manipulation needed — the flex layout naturally distributes height.
+      // When viewport > content, overflow-y-auto has nothing to scroll.
+      const scrollHeight = diag.scrollHeight;
+      // Add buffer for header (~48px) + input bar (~64px) + padding
+      const targetHeight = scrollHeight + 200;
+      console.log(
+        '[ImageExporter] scrollHeight=%d targetHeight=%d (no cap)',
+        scrollHeight,
+        targetHeight,
+      );
 
-        // Layer 1: [data-chat-container] — remove scroll, expand to content
-        container.style.height = 'auto';
-        container.style.overflow = 'visible';
-        container.style.maxHeight = 'none';
+      await page.setViewport({ width: 1280, height: targetHeight });
 
-        // Layer 2: parent div.flex-1.overflow-hidden — remove clip
-        const chatWrapper = container.parentElement;
-        if (chatWrapper) {
-          chatWrapper.style.height = 'auto';
-          chatWrapper.style.overflow = 'visible';
-          chatWrapper.style.flex = 'none';
-        }
-
-        // Layer 3: grandparent div.flex.flex-col.flex-1 — let it grow
-        const mainCol = chatWrapper?.parentElement;
-        if (mainCol) {
-          mainCol.style.height = 'auto';
-          mainCol.style.flex = 'none';
-        }
-
-        // Layer 4: outermost div.h-screen.h-dvh — remove viewport lock
-        const root = mainCol?.parentElement;
-        if (root) {
-          root.style.height = 'auto';
-          root.style.minHeight = 'auto';
-        }
-      });
-
-      // Wait for layout reflow after DOM style changes
+      // Wait for layout to stabilize after viewport resize
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.evaluate(() =>
         new Promise<void>(resolve =>
@@ -146,21 +123,9 @@ export class ImageExporter {
         )
       );
 
-      // Log the expanded element height after DOM manipulation
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const elHeight = await page.evaluate(() => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const c = (globalThis as any).document.querySelector('[data-chat-container]');
-        return c ? Math.round(c.getBoundingClientRect().height) : 0;
-      });
-      console.log('[ImageExporter] element height=%d (after flow conversion)', elHeight);
-
-      // Use element screenshot instead of fullPage — avoids Puppeteer's scroll-based
-      // tiling which duplicates content in complex flex layouts. Element screenshot
-      // captures the element's bounding rect directly, no 16384 cap, no tiling.
-      const el = await page.$('[data-chat-container]');
-      if (!el) throw new Error('Chat container not found for screenshot');
-      const screenshot = await el.screenshot({ type: 'png' });
+      // Viewport-only screenshot — no fullPage (which causes tiling duplication),
+      // no element screenshot (also tiles internally), no DOM manipulation (breaks flex).
+      const screenshot = await page.screenshot({ type: 'png' });
 
       console.log('[ImageExporter] captured %d bytes', screenshot.length);
 
