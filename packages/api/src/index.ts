@@ -39,7 +39,7 @@ import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrch
 import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
 import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
-import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter } from './infrastructure/email/index.js';
+import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter, ConnectorInvokeTrigger } from './infrastructure/email/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
 
@@ -396,10 +396,20 @@ async function main(): Promise<void> {
     app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
   }
 
+  // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
+  const invokeTrigger = new ConnectorInvokeTrigger({
+    router,
+    socketManager,
+    invocationRecordStore,
+    invocationTracker,
+    log: app.log,
+  });
+
   // Start email watcher AFTER listen (non-blocking, best-effort)
   await startGithubReviewWatcher({
     log: app.log,
     reviewRouter,
+    invokeTrigger,
   });
 
   // Graceful shutdown handler: persist Redis before exit

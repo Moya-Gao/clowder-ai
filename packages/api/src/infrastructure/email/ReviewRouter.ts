@@ -19,7 +19,7 @@ import type { IThreadStore, Thread } from '../../domains/cats/services/stores/po
 import type { IMessageStore } from '../../domains/cats/services/stores/ports/MessageStore.js';
 
 export type RouteResult =
-  | { kind: 'routed'; threadId: string; catId: string; source: 'registry' | 'fallback' }
+  | { kind: 'routed'; threadId: string; catId: string; userId: string; source: 'registry' | 'fallback'; messageId: string; content: string }
   | { kind: 'triage'; threadId: string; reason: string }
   | { kind: 'skipped'; reason: string };
 
@@ -101,14 +101,17 @@ export class ReviewRouter {
         `[ReviewRouter] Registry hit: PR ${event.repository}#${event.prNumber} → cat=${tracking.catId} thread=${tracking.threadId}`,
       );
 
-      await this.postReviewMessage(tracking.threadId, tracking.catId, tracking.userId, event);
+      const posted = await this.postReviewMessage(tracking.threadId, tracking.catId, tracking.userId, event);
       await processedEmailStore.markProcessed(event.emailUid);
 
       return {
         kind: 'routed',
         threadId: tracking.threadId,
         catId: tracking.catId,
+        userId: tracking.userId,
         source: 'registry',
+        messageId: posted.messageId,
+        content: posted.content,
       };
     }
 
@@ -122,14 +125,17 @@ export class ReviewRouter {
         `[ReviewRouter] Fallback: PR ${event.repository}#${event.prNumber} → cat=${catId} inbox=${inboxThreadId}`,
       );
 
-      await this.postReviewMessage(inboxThreadId, catId, userId, event);
+      const posted = await this.postReviewMessage(inboxThreadId, catId, userId, event);
       await processedEmailStore.markProcessed(event.emailUid);
 
       return {
         kind: 'routed',
         threadId: inboxThreadId,
         catId,
+        userId,
         source: 'fallback',
+        messageId: posted.messageId,
+        content: posted.content,
       };
     }
 
@@ -155,7 +161,7 @@ export class ReviewRouter {
     catId: string,
     userId: string,
     event: GithubReviewEvent,
-  ): Promise<void> {
+  ): Promise<{ messageId: string; content: string }> {
     const { messageStore } = this.opts;
     const reviewTypeLabel = formatReviewType(event.reviewType);
 
@@ -179,7 +185,7 @@ export class ReviewRouter {
       url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
     };
 
-    await messageStore.append({
+    const stored = await messageStore.append({
       threadId,
       userId,
       catId: null,
@@ -188,6 +194,8 @@ export class ReviewRouter {
       mentions: [catId as CatId],
       timestamp: Date.now(),
     });
+
+    return { messageId: stored.id, content };
   }
 
   private async postTriageMessage(threadId: string, event: GithubReviewEvent): Promise<void> {

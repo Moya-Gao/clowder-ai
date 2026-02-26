@@ -39,3 +39,8 @@ export {
   type ReviewRouterOptions,
   type RouteResult,
 } from './ReviewRouter.js';
+
+export {
+  ConnectorInvokeTrigger,
+  type ConnectorInvokeTriggerOptions,
+} from './ConnectorInvokeTrigger.js';

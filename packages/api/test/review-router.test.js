@@ -473,6 +473,44 @@ describe('ReviewRouter', () => {
     });
   });
 
+  // ── F97 Phase 3b: RouteResult includes messageId + content + userId ──
+
+  describe('RouteResult fields (F97 Phase 3b)', () => {
+    it('registry route returns messageId from stored message', async () => {
+      const router = createRouter();
+      prTrackingStore.register({
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 42,
+        catId: 'opus',
+        threadId: 'thread-abc',
+        userId: 'user-1',
+      });
+
+      const result = await router.route(makeEvent());
+
+      assert.strictEqual(result.kind, 'routed');
+      if (result.kind === 'routed') {
+        assert.ok(result.messageId, 'should have messageId');
+        assert.ok(result.messageId.startsWith('msg-'), `messageId should be from store: ${result.messageId}`);
+        assert.ok(result.content.includes('GitHub Review 通知'));
+        assert.strictEqual(result.userId, 'user-1');
+      }
+    });
+
+    it('fallback route returns messageId and defaultUserId', async () => {
+      const router = createRouter({ defaultUserId: 'default-user' });
+
+      const result = await router.route(makeEvent());
+
+      assert.strictEqual(result.kind, 'routed');
+      if (result.kind === 'routed') {
+        assert.ok(result.messageId);
+        assert.ok(result.content.includes('GitHub Review 通知'));
+        assert.strictEqual(result.userId, 'default-user');
+      }
+    });
+  });
+
   // ── F97: ConnectorSource field ─────────────────────────────────────
 
   describe('ConnectorSource (F97)', () => {

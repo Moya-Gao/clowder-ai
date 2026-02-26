@@ -1,19 +1,24 @@
 /**
  * GitHub Review Watcher Bootstrap
  * Starts the email watcher if configured, wires up ReviewRouter for routing.
+ * Phase 3b: After routing, triggers cat invocation for automatic review handling.
  *
- * BACKLOG #81
+ * BACKLOG #81, #97
  */
 
+import type { CatId } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { GithubReviewWatcher, loadWatcherConfigFromEnv } from './GithubReviewWatcher.js';
 import type { ReviewRouter } from './ReviewRouter.js';
+import type { ConnectorInvokeTrigger } from './ConnectorInvokeTrigger.js';
 
 let watcher: GithubReviewWatcher | null = null;
 
 export interface GithubReviewBootstrapOptions {
   readonly log: FastifyBaseLogger;
   readonly reviewRouter?: ReviewRouter;
+  /** Phase 3b: trigger cat invocation after successful routing */
+  readonly invokeTrigger?: ConnectorInvokeTrigger;
 }
 
 /**
@@ -34,9 +39,24 @@ export async function startGithubReviewWatcher(options: GithubReviewBootstrapOpt
   // until routing succeeds (Cloud Codex P1-3: no notification loss on failure)
   if (options.reviewRouter) {
     const router = options.reviewRouter;
+    const trigger = options.invokeTrigger;
     watcher.onReviewAck(async (event) => {
       const result = await router.route(event);
       options.log.info(`[GithubReviewWatcher] Route result: ${result.kind}`);
+
+      // Phase 3b: auto-invoke cat after successful routing
+      if (result.kind === 'routed' && trigger) {
+        trigger.trigger(
+          result.threadId,
+          result.catId as CatId,
+          result.userId,
+          result.content,
+          result.messageId,
+        );
+        options.log.info(
+          `[GithubReviewWatcher] Triggered ${result.catId} invocation in thread ${result.threadId}`,
+        );
+      }
     });
   }
 
