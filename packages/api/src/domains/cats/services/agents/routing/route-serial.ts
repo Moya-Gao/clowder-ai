@@ -152,8 +152,7 @@ export async function* routeSerial(
       );
       deliveryBoundaryId = inc.boundaryId;
       const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      // staticIdentity in -p: --append-system-prompt proved unreliable (cats didn't receive content)
-      const parts = [staticIdentity, invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
+      const parts = [invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       // F35 fix: only inject raw message when it was genuinely absent from unseen rows.
       // If it was present but filtered out (e.g. whisper), injecting would leak private content.
@@ -190,8 +189,8 @@ export async function* routeSerial(
       }
 
       const catModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (staticIdentity || invocationContext || catModePromptLegacy || mcpInstructions || bootstrapContext) {
-        const parts = [staticIdentity, invocationContext, catModePromptLegacy, bootstrapContext, mcpInstructions].filter(Boolean);
+      if (invocationContext || catModePromptLegacy || mcpInstructions || bootstrapContext) {
+        const parts = [invocationContext, catModePromptLegacy, bootstrapContext, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
       } else if (catContextHistory) {

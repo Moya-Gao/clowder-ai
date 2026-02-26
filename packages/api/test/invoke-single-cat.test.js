@@ -1285,9 +1285,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   // --- F-BLOAT: Resume skips systemPrompt injection ---
 
   it('F-BLOAT: skips systemPrompt on resume (sessionId present)', async () => {
+    const promptsSeen = [];
     const optionsSeen = [];
     const service = {
-      async *invoke(_prompt, options) {
+      async *invoke(prompt, options) {
+        promptsSeen.push(prompt);
         optionsSeen.push({ ...options });
         yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
@@ -1312,15 +1314,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }));
 
     assert.equal(optionsSeen[0].sessionId, 'existing-sess', 'should resume');
-    assert.equal(optionsSeen[0].systemPrompt, undefined,
-      'F-BLOAT: systemPrompt should NOT be passed on resume');
+    assert.ok(!promptsSeen[0].includes('You are a cat'),
+      'F-BLOAT: systemPrompt should NOT be prepended on resume');
   });
 
   it('F-BLOAT: injects systemPrompt on new session (no sessionId)', async () => {
-    const optionsSeen = [];
+    const promptsSeen = [];
     const service = {
-      async *invoke(_prompt, options) {
-        optionsSeen.push({ ...options });
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
         yield { type: 'text', catId: 'opus', content: 'hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'opus', timestamp: Date.now() };
       },
@@ -1343,16 +1345,17 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       isLastCat: true,
     }));
 
-    assert.equal(optionsSeen[0].sessionId, undefined, 'no resume for new session');
-    assert.equal(optionsSeen[0].systemPrompt, 'You are a cat',
-      'F-BLOAT: systemPrompt should be passed on new session');
+    assert.ok(promptsSeen[0].includes('You are a cat'),
+      'F-BLOAT: systemPrompt should be prepended to prompt on new session');
+    assert.ok(promptsSeen[0].includes('test'),
+      'F-BLOAT: original prompt should still be present');
   });
 
   it('F-BLOAT P1: Gemini (sessionChain=false) always injects systemPrompt even on resume', async () => {
-    const optionsSeen = [];
+    const promptsSeen = [];
     const service = {
-      async *invoke(_prompt, options) {
-        optionsSeen.push({ ...options });
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
         yield { type: 'text', catId: 'gemini', content: 'hi', timestamp: Date.now() };
         yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
       },
@@ -1376,8 +1379,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     }));
 
     // Even though sessionId exists (resume), Gemini has sessionChain=false
-    // so systemPrompt must ALWAYS be injected (R1 P1 fix)
-    assert.equal(optionsSeen[0].systemPrompt, 'You are a Siamese cat',
+    // so systemPrompt must ALWAYS be prepended (R1 P1 fix)
+    assert.ok(promptsSeen[0].includes('You are a Siamese cat'),
       'F-BLOAT P1: Gemini must always get systemPrompt (sessionChain=false)');
   });
 
@@ -1386,11 +1389,11 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     const mod = await import('../dist/domains/cats/services/agents/invocation/invoke-single-cat.js');
     mod._resetCompressionDetection();
 
-    const optionsSeen = [];
+    const promptsSeen = [];
     let callNum = 0;
     const service = {
-      async *invoke(_prompt, options) {
-        optionsSeen.push({ ...options });
+      async *invoke(prompt, _options) {
+        promptsSeen.push(prompt);
         callNum++;
         yield { type: 'session_init', catId: 'codex', sessionId: 'sess-compress', timestamp: Date.now() };
         yield { type: 'text', catId: 'codex', content: `answer-${callNum}`, timestamp: Date.now() };
@@ -1436,10 +1439,14 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       userId: 'u1', threadId: 'thread-compress', isLastCat: true,
     }));
 
-    // Turn 1: new session → systemPrompt injected
+    // Turn 1: resume (sessionId='sess-compress') → systemPrompt skipped
     // Turn 2: resume → systemPrompt skipped (compression detected AFTER this turn)
-    // Turn 3: resume + forceReinjection → systemPrompt re-injected
-    assert.equal(optionsSeen[2].systemPrompt, 'Identity prompt',
+    // Turn 3: resume + forceReinjection → systemPrompt re-prepended
+    assert.ok(!promptsSeen[0].includes('Identity prompt'),
+      'Turn 1 (resume): systemPrompt should NOT be prepended');
+    assert.ok(!promptsSeen[1].includes('Identity prompt'),
+      'Turn 2 (resume): systemPrompt should NOT be prepended');
+    assert.ok(promptsSeen[2].includes('Identity prompt'),
       'F-BLOAT: systemPrompt should be re-injected after compression detection');
 
     mod._resetCompressionDetection();

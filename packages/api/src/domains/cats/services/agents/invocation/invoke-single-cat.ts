@@ -75,7 +75,7 @@ export interface InvocationParams {
   readonly uploadDir?: string;
   readonly signal?: AbortSignal;
   readonly isLastCat: boolean;
-  /** Static identity prompt — services use CLI-specific injection (e.g. --append-system-prompt) */
+  /** Static identity prompt — prepended to prompt on new sessions (gated by F-BLOAT logic) */
   readonly systemPrompt?: string;
 }
 
@@ -191,17 +191,24 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     }
 
     // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats
-    // that support persistent sessions (sessionChain=true):
-    //   Claude: --append-system-prompt writes to session's system prompt slot (survives compression)
-    //   Codex:  systemPrompt prepended at session creation (in session history)
-    // Cats with sessionChain=false (e.g. Gemini) always need systemPrompt because they
-    // have no reliable resume — each turn is effectively a new session.
+    // that support persistent sessions (sessionChain=true).
+    // Cats with sessionChain=false (e.g. Gemini) always need it — each turn is effectively new.
     // Exception: compression detected → force re-inject (see _needsReinjection)
+    //
+    // Injection method: prepend to prompt string (universal, all CLIs).
+    // --append-system-prompt proved unreliable (cats didn't receive content).
+    // Codex/Gemini AgentServices also prepend if options.systemPrompt is set,
+    // so we intentionally do NOT pass systemPrompt in options to avoid double injection.
     const isResume = !!sessionId;
     const canSkipOnResume = isSessionChainEnabled(catId);
     const compressionKey = `${userId}:${catId as string}:${threadId}`;
     const forceReinjection = _needsReinjection.delete(compressionKey);
     const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
+
+    // Prepend staticIdentity to prompt when injection is needed
+    const effectivePrompt = (injectSystemPrompt && params.systemPrompt)
+      ? `${params.systemPrompt}\n\n---\n\n${prompt}`
+      : prompt;
 
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
@@ -215,7 +222,6 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(params.contentBlocks ? { contentBlocks: params.contentBlocks } : {}),
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
-      ...(injectSystemPrompt && params.systemPrompt ? { systemPrompt: params.systemPrompt } : {}),
     };
 
     let lastErrorMessage: string | undefined;
@@ -534,7 +540,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       let shouldRetryOnTransientCliExit = false;
       let attemptHasContentOutput = false;
 
-      for await (const msg of service.invoke(prompt, options)) {
+      for await (const msg of service.invoke(effectivePrompt, options)) {
         if (allowSessionRetry && msg.type === 'error' && isMissingClaudeSessionError(msg.error)) {
           suppressedMissingSessionError = msg;
           continue;
