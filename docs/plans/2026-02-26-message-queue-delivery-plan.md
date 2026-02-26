@@ -52,6 +52,7 @@
 3. **合并发生在 enqueue 时**：如果队尾是同源未消费消息，追加文本而非新建条目。
 4. **Cancel 后队列暂停**：铲屎官通过 QueuePanel 管理（继续/撤回/清空）。
 5. **Force 模式 = 现有行为**：abort 旧 + 立即执行新，不经过队列。
+6. **队列作用域 = `threadId + userId`**（R5 P1 fix）：InvocationQueue 按 `scopeKey = ${threadId}:${userId}` 存储，天然用户隔离。Default thread (`createdBy='system'`) 下每个用户各自独立队列，互不可见/可删。系统级自动出队（invocation 完成后）通过 `peekOldestAcrossUsers(threadId)` 跨用户 FIFO 选最早的条目执行。
 
 ---
 
@@ -103,38 +104,59 @@ export interface EnqueueResult {
 const MAX_QUEUE_DEPTH = 5;
 
 export class InvocationQueue {
+  /** 按 scopeKey = `${threadId}:${userId}` 存储，天然用户隔离（R5 P1 fix） */
   private queues = new Map<string, QueueEntry[]>();
+
+  private scopeKey(threadId: string, userId: string): string {
+    return `${threadId}:${userId}`;
+  }
 
   /** 预留队列位 — 同步操作，messageId 为 null，后续 backfillMessageId 回填。
    *  容量检查在此完成：返回 full 时调用方不应写 MessageStore。 */
   enqueue(entry: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId'>): EnqueueResult
+  // 注：entry 里已有 threadId + userId，内部用 scopeKey(entry.threadId, entry.userId)
 
   /** 回填 messageId — 仅用于 outcome='enqueued' 的新条目（messageId 从 null → 实际值） */
-  backfillMessageId(threadId: string, entryId: string, messageId: string): void
+  backfillMessageId(threadId: string, userId: string, entryId: string, messageId: string): void
 
   /** 追加 mergedMessageId — 仅用于 outcome='merged'（不覆盖首条 messageId） */
-  appendMergedMessageId(threadId: string, entryId: string, messageId: string): void
+  appendMergedMessageId(threadId: string, userId: string, entryId: string, messageId: string): void
 
-  dequeue(threadId: string): QueueEntry | null
-  peek(threadId: string): QueueEntry | null
-  remove(threadId: string, entryId: string): QueueEntry | null
-  list(threadId: string): QueueEntry[]
+  dequeue(threadId: string, userId: string): QueueEntry | null
+  peek(threadId: string, userId: string): QueueEntry | null
+  remove(threadId: string, userId: string, entryId: string): QueueEntry | null
+  list(threadId: string, userId: string): QueueEntry[]
 
   /** 只统计 status==='queued' 的条目（processing 不占容量） */
-  size(threadId: string): number
+  size(threadId: string, userId: string): number
 
-  clear(threadId: string): QueueEntry[]    // 返回被清除的条目（用于批量撤回）
+  clear(threadId: string, userId: string): QueueEntry[]    // 返回被清除的条目（用于批量撤回）
 
-  /** 将队首 queued 条目原地改为 processing（不从数组移除，前端仍可见） */
-  markProcessing(threadId: string): QueueEntry | null
+  /** 将该用户队首 queued 条目原地改为 processing（不从数组移除，前端仍可见） */
+  markProcessing(threadId: string, userId: string): QueueEntry | null
 
-  /** 移除 status=processing 的条目（invocation 完成后调用） */
-  removeProcessed(threadId: string): QueueEntry | null
+  /** 移除该用户 status=processing 的条目（invocation 完成后调用） */
+  removeProcessed(threadId: string, userId: string): QueueEntry | null
+
+  // ── 跨用户方法（仅供 QueueProcessor 系统级调用） ──
+
+  /** 遍历所有 `${threadId}:*` scopeKey，返回 createdAt 最早的 status='queued' 条目 */
+  peekOldestAcrossUsers(threadId: string): QueueEntry | null
+
+  /** 同上 + 原地标记为 processing */
+  markProcessingAcrossUsers(threadId: string): QueueEntry | null
+
+  /** 同上 + 移除 processing 条目 */
+  removeProcessedAcrossUsers(threadId: string): QueueEntry | null
+
+  /** 检查 threadId 下是否有任何用户的排队条目 */
+  hasQueuedForThread(threadId: string): boolean
 }
 ```
 
 **合并规则（enqueue 时执行）:**
-- 队列尾部条目必须**全部匹配**才合并：`source` + `userId` + `targetCats`（排序后深比较）+ `intent`，且 `status === 'queued'`
+- 队列按 `scopeKey(threadId, userId)` 存储，所以 `userId` 天然匹配
+- 队列尾部条目必须**全部匹配**才合并：`source` + `targetCats`（排序后深比较）+ `intent`，且 `status === 'queued'`
 - → 将新消息文本追加到尾部条目的 `content`（`\n` 分隔）
 - → 返回 `{ outcome: 'merged', entry: updatedEntry }`
 - **不合并的例子**: `@opus 你好` + `@codex 帮忙看看` — targetCats 不同，各自独立入队
@@ -258,24 +280,30 @@ export class QueueProcessor {
   private processingThreads = new Set<string>();
 
   /**
-   * 在 invocation 完成后调用。
-   * - succeeded → 自动出队下一条 + 执行
-   * - canceled/failed → 暂停，广播 queue_paused
+   * 在 invocation 完成后调用（系统级入口）。
+   * - succeeded → 跨用户 FIFO 自动出队（markProcessingAcrossUsers）+ 执行
+   * - canceled/failed → 暂停，广播 queue_paused 给相关用户
    */
   onInvocationComplete(threadId: string, status: 'succeeded' | 'failed' | 'canceled'): void
 
   /**
-   * 铲屎官手动触发：处理队列下一条。
+   * 铲屎官手动触发：处理**自己**队列的下一条（用户级入口）。
    * 用于 cancel 后铲屎官决定"继续处理"。
+   * 注意：只处理该 userId 的队列，不会触发别人的消息。
    */
-  processNext(threadId: string): Promise<{ started: boolean; entry?: QueueEntry }>
+  processNext(threadId: string, userId: string): Promise<{ started: boolean; entry?: QueueEntry }>
 
   /**
-   * 内部方法：获取 mutex → markProcessing → executeEntry。
-   * onInvocationComplete(succeeded) 和 processNext() 都调用此方法。
-   * 如果 mutex 已被持有 → 返回 false（不双启动）。
+   * 系统级内部方法：获取 mutex → markProcessingAcrossUsers → executeEntry。
+   * 从所有用户队列中选 createdAt 最早的 queued 条目。
    */
-  private tryExecuteNext(threadId: string): Promise<{ started: boolean; entry?: QueueEntry }>
+  private tryExecuteNextAcrossUsers(threadId: string): Promise<{ started: boolean; entry?: QueueEntry }>
+
+  /**
+   * 用户级内部方法：获取 mutex → markProcessing(threadId, userId) → executeEntry。
+   * 只选该用户队列的队首。
+   */
+  private tryExecuteNextForUser(threadId: string, userId: string): Promise<{ started: boolean; entry?: QueueEntry }>
 
   /**
    * 执行一个队列条目（内部方法）。
@@ -286,11 +314,11 @@ export class QueueProcessor {
 ```
 
 **关键行为:**
-- `onInvocationComplete('succeeded')` → `tryExecuteNext(threadId)` → 获取 mutex → `queue.markProcessing` → `executeEntry` → 广播 `queue_updated`
-- `onInvocationComplete('canceled')` → 广播 `queue_paused` + `queue_updated`（铲屎官看到暂停状态）
+- `onInvocationComplete('succeeded')` → `tryExecuteNextAcrossUsers(threadId)` → 获取 mutex → `queue.markProcessingAcrossUsers` → `executeEntry` → 定向广播 `queue_updated` 给该条目的 userId
+- `onInvocationComplete('canceled')` → 定向广播 `queue_paused` 给有排队条目的用户（铲屎官看到暂停状态）
 - `onInvocationComplete('failed')` → 同 canceled，暂停等铲屎官决定
-- `processNext()` → `tryExecuteNext(threadId)` → 同样获取 mutex，如果已被持有则返回 `{ started: false }`
-- **并发安全**: `tryExecuteNext` 通过 `processingThreads` Set 串行化，保证同一 thread 不会同时启动两个出队执行
+- `processNext(threadId, userId)` → `tryExecuteNextForUser(threadId, userId)` → 获取 mutex，只处理该用户的队首
+- **并发安全**: `tryExecuteNext*` 通过 `processingThreads` Set 串行化，保证同一 thread 不会同时启动两个出队执行
 
 **markProcessing 语义（P2-2 fix）:**
 - `markProcessing` 将队首 `status='queued'` 条目**原地改为** `status='processing'`，**不从数组移除**
@@ -303,7 +331,7 @@ export class QueueProcessor {
 2. `invocationTracker.start(threadId, userId, targetCats)`
 3. `invocationRecordStore.update(id, { userMessageId: entry.messageId })`
 4. Background: heartbeat + running + routeExecution + ack cursors + succeeded/failed
-5. Finally: `invocationTracker.complete()` → `queue.removeProcessed(threadId)` → `processingThreads.delete(threadId)` → `onInvocationComplete()`
+5. Finally: `invocationTracker.complete()` → `queue.removeProcessedAcrossUsers(threadId)` → `processingThreads.delete(threadId)` → `onInvocationComplete()`
 
 **Step 1: 写失败测试（6-8 个）**
 
@@ -372,7 +400,7 @@ if (mode === 'queue' && hasActive) {
   // 队列满 → 429，不写 MessageStore，无幽灵消息
   if (enqueueResult.outcome === 'full') {
     reply.status(429);
-    return { error: '消息队列已满', code: 'QUEUE_FULL', queueSize: opts.invocationQueue.size(resolvedThreadId) };
+    return { error: '消息队列已满', code: 'QUEUE_FULL', queueSize: opts.invocationQueue.size(resolvedThreadId, userId) };
   }
 
   // ② 写入用户消息（消息前端可见）
@@ -383,24 +411,24 @@ if (mode === 'queue' && hasActive) {
     // ③ 回填/追加 messageId — 区分 enqueued 和 merged 路径
     if (enqueueResult.outcome === 'enqueued') {
       // 新条目：backfill messageId（null → 实际值）
-      opts.invocationQueue.backfillMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+      opts.invocationQueue.backfillMessageId(resolvedThreadId, userId, enqueueResult.entry!.id, userMessage.id);
     } else {
       // merged：追加到 mergedMessageIds（不覆盖首条 messageId）
-      opts.invocationQueue.appendMergedMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+      opts.invocationQueue.appendMergedMessageId(resolvedThreadId, userId, enqueueResult.entry!.id, userMessage.id);
     }
   } catch (err) {
     // 写消息失败 → 回滚队列条目（enqueued 时移除；merged 时回退文本需更复杂处理，暂简单移除）
     if (enqueueResult.outcome === 'enqueued') {
-      opts.invocationQueue.remove(resolvedThreadId, enqueueResult.entry!.id);
+      opts.invocationQueue.remove(resolvedThreadId, userId, enqueueResult.entry!.id);
     }
     // merged 失败：文本已追加但消息未写入 — 可接受的不一致（下次 dequeue 时内容完整但少一条 mergedMessageId）
     throw err;
   }
 
-  // 广播队列更新
-  opts.socketManager.broadcastToRoom(`thread:${resolvedThreadId}`, 'queue_updated', {
+  // 定向广播队列更新（只发给该用户，不泄露给其他用户）
+  opts.socketManager.emitToUser(userId, 'queue_updated', {
     threadId: resolvedThreadId,
-    queue: opts.invocationQueue.list(resolvedThreadId),
+    queue: opts.invocationQueue.list(resolvedThreadId, userId),
     action: enqueueResult.outcome, // 'enqueued' | 'merged'
   });
 
@@ -490,37 +518,35 @@ async function guardThreadOwnership(request, reply, threadStore, threadId) {
 }
 ```
 
-**用户隔离策略（R4 P1 fix）:**
+**用户隔离策略（R5 P1 fix — scopeKey 方案）:**
 
-InvocationQueue 内部保持 per-thread FIFO（保证跨用户时间顺序），**API 路由层按 `userId` 过滤**：
-- `GET /queue`、`DELETE /queue/:entryId`、`DELETE /queue`：只看到/操作 `entry.userId === 当前用户` 的条目
-- `POST /queue/next`：系统级 FIFO 出队（不按用户过滤），因为 invocation 完成后的自动出队也不分用户
-- 非 default thread 已有 ownership check（单 owner），userId 过滤是冗余但一致的保护层
-- Default thread (`createdBy='system'`) 靠 userId 过滤实现跨用户隔离
+队列按 `scopeKey = ${threadId}:${userId}` 存储，**存储层天然隔离**，API/WS 无需额外 filter：
+- 所有 API 端点在 `guardThreadOwnership` 拿到 `userId` 后，直接用 `(threadId, userId)` 参数调用 InvocationQueue — 物理上只能操作自己的队列
+- `processNext` 也是用户级（只处理自己的队列），系统级跨用户出队仅在 `onInvocationComplete` 内部自动触发
+- WebSocket 用 `emitToUser(userId, ...)` 定向发送，不经过 room 广播
 
 **GET /api/threads/:threadId/queue:**
-- 鉴权 → 返回 `{ queue: list(threadId).filter(e => e.userId === userId), paused: boolean }`
-- 用户只能看到自己的队列条目（default thread 跨用户隔离）
-- `paused` = 上次 invocation 是 canceled/failed 且队列非空
+- 鉴权 → 返回 `{ queue: list(threadId, userId), paused: boolean }`
+- scopeKey 天然隔离，用户只看到自己的队列
+- `paused` = 上次 invocation 是 canceled/failed 且 `hasQueuedForThread(threadId)`
 
 **DELETE /api/threads/:threadId/queue/:entryId:**
-- 鉴权 → 校验 `entry.userId === userId`，不匹配 → 403（不能删别人的条目）
+- 鉴权 → `remove(threadId, userId, entryId)` — scopeKey 天然隔离（别人的 entryId 在自己队列里找不到 → 404）
 - 如果 `entry.status === 'processing'` → 拒绝（409: 已在处理中）
 - 从队列移除；可选：删除对应的 MessageStore 消息（`?deleteMessage=true`）
-- 广播 `queue_updated`
+- `emitToUser(userId, 'queue_updated', ...)`
 
 **POST /api/threads/:threadId/queue/next:**
-- 鉴权 → 调用 `queueProcessor.processNext(threadId)`
-- FIFO 出队，不按 userId 过滤（系统级操作，与 onInvocationComplete 自动出队一致）
+- 鉴权 → 调用 `queueProcessor.processNext(threadId, userId)` — **用户级**，只处理自己的下一条
 - 返回 `{ started: boolean, entry?: QueueEntry }`
-- 如果队列空 → 200 `{ started: false }`
+- 如果自己的队列空 → 200 `{ started: false }`
 
 **DELETE /api/threads/:threadId/queue:**
-- 鉴权 → 只清空当前用户的条目：`list(threadId).filter(e => e.userId === userId).forEach(e => remove(...))`
-- 返回被清除的条目列表（仅当前用户的）
-- 广播 `queue_updated`
+- 鉴权 → `clear(threadId, userId)` — scopeKey 天然隔离，只清空自己的
+- 返回被清除的条目列表
+- `emitToUser(userId, 'queue_updated', ...)`
 
-**测试（13 个）:**
+**测试（14 个）:**
 
 ```javascript
 describe('Queue Management API', () => {
@@ -533,18 +559,22 @@ describe('Queue Management API', () => {
     // Setup: threadStore.get returns { id: 'default', createdBy: 'system', ... }
     // Assert: 不返回 403，正常执行
   });
-  // User isolation (R4 P1 fix)
-  it('GET /queue only returns entries belonging to requesting user', async () => {
+  // User isolation via scopeKey (R5 P1 fix)
+  it('GET /queue returns only requesting user entries (scopeKey isolation)', async () => {
     // Setup: default thread, userA 和 userB 各入队 1 条
     // Assert: userA GET → 只看到自己的; userB GET → 只看到自己的
   });
-  it('DELETE /queue/:entryId rejects deleting another user entry (403)', async () => {
+  it('DELETE /queue/:entryId returns 404 for another user entry (scopeKey isolation)', async () => {
     // Setup: default thread, userA 入队 1 条
-    // Assert: userB DELETE → 403
+    // Assert: userB DELETE 该 entryId → 404（在 userB 的 scopeKey 下找不到）
   });
-  it('DELETE /queue clears only requesting user entries', async () => {
+  it('DELETE /queue clears only requesting user entries (scopeKey isolation)', async () => {
     // Setup: default thread, userA 2 条 + userB 1 条
     // Assert: userA DELETE /queue → 返回 2 条, userB 的条目不受影响
+  });
+  it('POST /queue/next only processes requesting user queue', async () => {
+    // Setup: default thread, userA 和 userB 各入队 1 条
+    // Assert: userA POST /next → 只处理 userA 的队首, userB 不受影响
   });
   // Functional
   it('GET /queue returns entries and paused state', async () => { /* ... */ });
@@ -602,31 +632,36 @@ git commit -m "feat(#100): 接线 — complete() 回调触发队列出队 [布�
 
 ---
 
-### Task 6: WebSocket 事件 — queue_updated / queue_paused
+### Task 6: WebSocket 事件 — queue_updated / queue_paused（定向发送）
 
 **Files:**
-- Modify: `packages/api/src/infrastructure/websocket/SocketManager.ts` — 可选：添加 helper
-- 无需修改 SocketManager 核心，`broadcastToRoom` 已足够
+- Modify: `packages/api/src/infrastructure/websocket/SocketManager.ts` — 新增 `emitToUser(userId, event, payload)` helper
+- 需要维护 `userId → Set<socketId>` 映射（socket connect 时注册，disconnect 时移除）
+
+**emitToUser 实现要点:**
+- Socket 连接时通过 handshake auth / query 拿到 userId → `userSockets.get(userId).add(socket.id)`
+- `emitToUser(userId, event, payload)` → 遍历该 userId 的所有 socket 发送
+- 这样同一用户多 tab 都能收到，但不会泄露给其他用户
 
 **事件格式:**
 
 ```typescript
-// queue_updated — 队列变化时广播
+// queue_updated — 定向发给该条目的 userId
 {
   threadId: string;
-  queue: QueueEntry[];       // 完整快照
+  queue: QueueEntry[];       // 该用户的完整快照（不含其他用户的条目）
   action: 'enqueued' | 'merged' | 'removed' | 'cleared' | 'processing';
 }
 
-// queue_paused — cancel/fail 后广播
+// queue_paused — 定向发给有排队条目的用户
 {
   threadId: string;
   reason: 'canceled' | 'failed';
-  queue: QueueEntry[];       // 剩余队列
+  queue: QueueEntry[];       // 该用户的剩余队列
 }
 ```
 
-这些事件已在 Task 2-4 中通过 `socketManager.broadcastToRoom()` 发出，本 Task 只需确认格式一致，并在前端 useSocket.ts 中注册监听（Phase B）。
+这些事件在 Task 2-4 中通过 `socketManager.emitToUser()` 发出（不再用 `broadcastToRoom`），本 Task 实现 `emitToUser` helper，并在前端 useSocket.ts 中注册监听（Phase B）。
 
 **Commit:**
 
@@ -936,3 +971,4 @@ export interface QueueEntry {
 | 前端 queue state 与后端不同步 | 显示错误 | 每次 `queue_updated` 发送完整快照（非增量） |
 | ~~幽灵消息（消息可见但不在队列）~~ | ~~已修复~~ | 先入队预留位，再写 MessageStore；写失败则回滚队列 |
 | ~~自动出队与 processNext 双启动~~ | ~~已修复~~ | QueueProcessor per-thread mutex (`processingThreads` Set) |
+| ~~default thread 跨用户队列泄露~~ | ~~已修复~~ | scopeKey = `threadId:userId`，存储层天然隔离；WS 用 `emitToUser` 定向发送 |
