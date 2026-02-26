@@ -48,7 +48,7 @@
 ### 关键设计决策
 
 1. **InvocationQueue 是纯内存的**（和 InvocationTracker 一致）。Phase 3c 再考虑 Redis 持久化。
-2. **消息在 enqueue 时就写入 MessageStore**，前端立刻可见（标注"排队中"）。
+2. **先入队（预留位），再写 MessageStore**。队列是容量守门人，messageId 异步回填。写消息失败则回滚队列条目，不会产生"幽灵消息"。
 3. **合并发生在 enqueue 时**：如果队尾是同源未消费消息，追加文本而非新建条目。
 4. **Cancel 后队列暂停**：铲屎官通过 QueuePanel 管理（继续/撤回/清空）。
 5. **Force 模式 = 现有行为**：abort 旧 + 立即执行新，不经过队列。
@@ -85,7 +85,7 @@ export interface QueueEntry {
   threadId: string;
   userId: string;
   content: string;                // 消息文本（合并后的）
-  messageId: string;              // 已写入 MessageStore 的消息 ID
+  messageId: string | null;       // 异步回填：enqueue 时为 null，写入 MessageStore 后 backfill
   mergedMessageIds: string[];     // 合并进来的其他消息 ID（用于撤回时级联删除）
   source: 'user' | 'connector';
   targetCats: string[];
@@ -105,22 +105,36 @@ const MAX_QUEUE_DEPTH = 5;
 export class InvocationQueue {
   private queues = new Map<string, QueueEntry[]>();
 
-  enqueue(entry: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds'>): EnqueueResult
+  /** 预留队列位 — 同步操作，messageId 为 null，后续 backfillMessageId 回填。
+   *  容量检查在此完成：返回 full 时调用方不应写 MessageStore。 */
+  enqueue(entry: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId'>): EnqueueResult
+
+  /** 回填 messageId（MessageStore 写入成功后调用） */
+  backfillMessageId(threadId: string, entryId: string, messageId: string): void
+
   dequeue(threadId: string): QueueEntry | null
   peek(threadId: string): QueueEntry | null
   remove(threadId: string, entryId: string): QueueEntry | null
   list(threadId: string): QueueEntry[]
+
+  /** 只统计 status==='queued' 的条目（processing 不占容量） */
   size(threadId: string): number
+
   clear(threadId: string): QueueEntry[]    // 返回被清除的条目（用于批量撤回）
-  markProcessing(threadId: string): QueueEntry | null  // dequeue + set status='processing'
+
+  /** 将队首 queued 条目原地改为 processing（不从数组移除，前端仍可见） */
+  markProcessing(threadId: string): QueueEntry | null
+
+  /** 移除 status=processing 的条目（invocation 完成后调用） */
+  removeProcessed(threadId: string): QueueEntry | null
 }
 ```
 
 **合并规则（enqueue 时执行）:**
-- 如果队列尾部条目的 `source` 和 `userId` 与新消息相同，且 `status === 'queued'`
+- 队列尾部条目必须**全部匹配**才合并：`source` + `userId` + `targetCats`（排序后深比较）+ `intent`，且 `status === 'queued'`
 - → 将新消息文本追加到尾部条目的 `content`（`\n` 分隔）
-- → 将新消息的 `messageId` 加入 `mergedMessageIds`
 - → 返回 `{ outcome: 'merged', entry: updatedEntry }`
+- **不合并的例子**: `@opus 你好` + `@codex 帮忙看看` — targetCats 不同，各自独立入队
 
 **Step 1: 写失败测试（8-10 个）**
 
@@ -141,20 +155,34 @@ describe('InvocationQueue', () => {
   it('remove returns null for non-existent entry', () => { /* ... */ });
   it('list returns shallow copy (not live reference)', () => { /* ... */ });
   it('enqueue returns full when at MAX_QUEUE_DEPTH', () => { /* ... */ });
-  it('merges same-source consecutive entries', () => {
+  it('merges same-source same-target consecutive entries', () => {
     const r1 = queue.enqueue({ threadId: 't1', userId: 'u1', content: '猫猫',
-      messageId: 'm1', source: 'user', targetCats: ['opus'], intent: 'execute' });
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
     assert.equal(r1.outcome, 'enqueued');
 
     const r2 = queue.enqueue({ threadId: 't1', userId: 'u1', content: '你好',
-      messageId: 'm2', source: 'user', targetCats: ['opus'], intent: 'execute' });
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
     assert.equal(r2.outcome, 'merged');
     assert.equal(r2.entry.content, '猫猫\n你好');
-    assert.deepEqual(r2.entry.mergedMessageIds, ['m2']);
     assert.equal(queue.size('t1'), 1);
   });
   it('does NOT merge different-source entries', () => { /* ... */ });
+  it('does NOT merge different-targetCats entries', () => {
+    queue.enqueue({ threadId: 't1', userId: 'u1', content: '@opus 你好',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    const r2 = queue.enqueue({ threadId: 't1', userId: 'u1', content: '@codex 帮忙看看',
+      source: 'user', targetCats: ['codex'], intent: 'execute' });
+    assert.equal(r2.outcome, 'enqueued'); // NOT merged
+    assert.equal(queue.size('t1'), 2);
+  });
   it('does NOT merge if tail is processing', () => { /* ... */ });
+  it('backfillMessageId updates entry', () => {
+    const r = queue.enqueue({ threadId: 't1', userId: 'u1', content: 'hi',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    assert.equal(r.entry.messageId, null);
+    queue.backfillMessageId('t1', r.entry.id, 'msg-123');
+    assert.equal(queue.list('t1')[0].messageId, 'msg-123');
+  });
   it('clear returns all removed entries', () => { /* ... */ });
   it('markProcessing returns entry with status=processing', () => { /* ... */ });
   it('cross-thread isolation', () => { /* ... */ });
@@ -211,6 +239,9 @@ export interface QueueProcessorDeps {
 }
 
 export class QueueProcessor {
+  /** Per-thread mutex — 防止 onInvocationComplete 和 processNext 并发双启动 */
+  private processingThreads = new Set<string>();
+
   /**
    * 在 invocation 完成后调用。
    * - succeeded → 自动出队下一条 + 执行
@@ -225,6 +256,13 @@ export class QueueProcessor {
   processNext(threadId: string): Promise<{ started: boolean; entry?: QueueEntry }>
 
   /**
+   * 内部方法：获取 mutex → markProcessing → executeEntry。
+   * onInvocationComplete(succeeded) 和 processNext() 都调用此方法。
+   * 如果 mutex 已被持有 → 返回 false（不双启动）。
+   */
+  private tryExecuteNext(threadId: string): Promise<{ started: boolean; entry?: QueueEntry }>
+
+  /**
    * 执行一个队列条目（内部方法）。
    * 创建 InvocationRecord → tracker.start() → background routeExecution
    */
@@ -233,17 +271,24 @@ export class QueueProcessor {
 ```
 
 **关键行为:**
-- `onInvocationComplete('succeeded')` → `queue.markProcessing(threadId)` → `executeEntry(entry)` → 广播 `queue_updated`
+- `onInvocationComplete('succeeded')` → `tryExecuteNext(threadId)` → 获取 mutex → `queue.markProcessing` → `executeEntry` → 广播 `queue_updated`
 - `onInvocationComplete('canceled')` → 广播 `queue_paused` + `queue_updated`（铲屎官看到暂停状态）
 - `onInvocationComplete('failed')` → 同 canceled，暂停等铲屎官决定
-- `processNext()` → 手动触发出队，用于 cancel/fail 后铲屎官选择"继续"
+- `processNext()` → `tryExecuteNext(threadId)` → 同样获取 mutex，如果已被持有则返回 `{ started: false }`
+- **并发安全**: `tryExecuteNext` 通过 `processingThreads` Set 串行化，保证同一 thread 不会同时启动两个出队执行
+
+**markProcessing 语义（P2-2 fix）:**
+- `markProcessing` 将队首 `status='queued'` 条目**原地改为** `status='processing'`，**不从数组移除**
+- `list()` 返回所有条目（含 processing），前端可展示"正在处理"状态
+- `size()` 只统计 `status==='queued'`（processing 不占容量位）
+- Invocation 完成后，`removeProcessed(threadId)` 移除 `status='processing'` 的条目
 
 **executeEntry 流程** 与 `POST /api/messages` 的 background 部分几乎一致：
 1. `invocationRecordStore.create({ ..., idempotencyKey: 'queue-' + entry.id })`
 2. `invocationTracker.start(threadId, userId, targetCats)`
 3. `invocationRecordStore.update(id, { userMessageId: entry.messageId })`
 4. Background: heartbeat + running + routeExecution + ack cursors + succeeded/failed
-5. Finally: `invocationTracker.complete()` → 递归触发 `onInvocationComplete()`
+5. Finally: `invocationTracker.complete()` → `queue.removeProcessed(threadId)` → `processingThreads.delete(threadId)` → `onInvocationComplete()`
 
 **Step 1: 写失败测试（6-8 个）**
 
@@ -256,6 +301,7 @@ describe('QueueProcessor', () => {
   it('failed → pauses queue, broadcasts queue_paused', () => { /* ... */ });
   it('processNext → starts next entry when paused', async () => { /* ... */ });
   it('processNext → returns started=false when queue empty', async () => { /* ... */ });
+  it('concurrent tryExecuteNext on same thread → only one starts (mutex)', async () => { /* ... */ });
   it('executeEntry creates InvocationRecord with queue idempotency key', async () => { /* ... */ });
   it('executeEntry failure → marks record failed + broadcasts error', async () => { /* ... */ });
 });
@@ -298,25 +344,33 @@ const mode = body.deliveryMode
   ?? (hasActive ? 'queue' : 'immediate');
 
 if (mode === 'queue' && hasActive) {
-  // 写入用户消息（消息立刻可见）
-  const userMessage = await opts.messageStore.append(resolvedThreadId, {
-    role: 'user', content: cleanContent, userId, /* ... */
-  });
-
-  // 入队（可能合并）
+  // ① 先入队预留位（同步，容量守门人）— 此时 messageId 为 null
   const enqueueResult = opts.invocationQueue.enqueue({
     threadId: resolvedThreadId,
     userId,
     content: cleanContent,
-    messageId: userMessage.id,
     source: 'user',
     targetCats,
     intent: intent.intent,
   });
 
+  // 队列满 → 429，不写 MessageStore，无幽灵消息
   if (enqueueResult.outcome === 'full') {
     reply.status(429);
     return { error: '消息队列已满', code: 'QUEUE_FULL', queueSize: opts.invocationQueue.size(resolvedThreadId) };
+  }
+
+  // ② 写入用户消息（消息前端可见）
+  try {
+    const userMessage = await opts.messageStore.append(resolvedThreadId, {
+      role: 'user', content: cleanContent, userId, /* ... */
+    });
+    // ③ 回填 messageId
+    opts.invocationQueue.backfillMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+  } catch (err) {
+    // 写消息失败 → 回滚队列条目，不留幽灵
+    opts.invocationQueue.remove(resolvedThreadId, enqueueResult.entry!.id);
+    throw err;
   }
 
   // 广播队列更新
@@ -357,7 +411,8 @@ if (mode === 'force' && hasActive) {
 describe('POST /api/messages deliveryMode', () => {
   it('queue mode → writes message + enqueues + returns 202 queued', async () => { /* ... */ });
   it('queue mode → merges same-user consecutive messages', async () => { /* ... */ });
-  it('queue mode → returns 429 when queue full', async () => { /* ... */ });
+  it('queue mode → returns 429 when queue full (no ghost message written)', async () => { /* ... */ });
+  it('queue mode → messageStore failure rolls back queue entry', async () => { /* ... */ });
   it('force mode → cancels active invocation then executes', async () => { /* ... */ });
   it('immediate mode when no active → normal execution', async () => { /* ... */ });
   it('default mode with active invocation → falls back to queue', async () => { /* ... */ });
@@ -390,23 +445,43 @@ POST   /api/threads/:threadId/queue/next     → 手动触发处理下一条
 DELETE /api/threads/:threadId/queue           → 清空队列
 ```
 
+**鉴权（所有端点强制执行，硬性步骤）:**
+
+每个端点的第一步必须是：
+1. `resolveUserId(request)` → 401 if missing
+2. `threadStore.get(threadId)` → 404 if not found
+3. Thread ownership check: `thread.userId === userId` → 403 if mismatch
+
+```typescript
+// 提取为复用 helper
+async function guardThreadOwnership(request, reply, threadStore, threadId) {
+  const userId = resolveUserId(request);
+  if (!userId) { reply.status(401); return null; }
+  const thread = await threadStore.get(threadId);
+  if (!thread) { reply.status(404); return null; }
+  // ownership check — 和 DELETE /api/threads 保持一致
+  if (thread.userId && thread.userId !== userId) { reply.status(403); return null; }
+  return { userId, thread };
+}
+```
+
 **GET /api/threads/:threadId/queue:**
-- 返回 `{ queue: QueueEntry[], paused: boolean }`
+- 鉴权 → 返回 `{ queue: QueueEntry[], paused: boolean }`
 - `paused` = 上次 invocation 是 canceled/failed 且队列非空
 
 **DELETE /api/threads/:threadId/queue/:entryId:**
-- 从队列移除
+- 鉴权 → 从队列移除
 - 如果 `entry.status === 'processing'` → 拒绝（409: 已在处理中）
 - 可选：删除对应的 MessageStore 消息（`?deleteMessage=true`）
 - 广播 `queue_updated`
 
 **POST /api/threads/:threadId/queue/next:**
-- 调用 `queueProcessor.processNext(threadId)`
+- 鉴权 → 调用 `queueProcessor.processNext(threadId)`
 - 返回 `{ started: boolean, entry?: QueueEntry }`
 - 如果队列空 → 200 `{ started: false }`
 
 **DELETE /api/threads/:threadId/queue:**
-- 清空整个队列
+- 鉴权 → 清空整个队列
 - 返回被清除的条目列表
 - 广播 `queue_updated`
 
@@ -414,6 +489,11 @@ DELETE /api/threads/:threadId/queue           → 清空队列
 
 ```javascript
 describe('Queue Management API', () => {
+  // Auth (P1-2 fix)
+  it('returns 401 when userId header missing', async () => { /* ... */ });
+  it('returns 404 when thread not found', async () => { /* ... */ });
+  it('returns 403 when userId does not match thread owner', async () => { /* ... */ });
+  // Functional
   it('GET /queue returns entries and paused state', async () => { /* ... */ });
   it('DELETE /queue/:entryId removes entry and broadcasts', async () => { /* ... */ });
   it('DELETE /queue/:entryId rejects processing entry (409)', async () => { /* ... */ });
@@ -772,7 +852,7 @@ export interface QueueEntry {
   threadId: string;
   userId: string;
   content: string;
-  messageId: string;
+  messageId: string | null;       // null until backfilled after MessageStore write
   mergedMessageIds: string[];
   source: 'user' | 'connector';
   targetCats: string[];
@@ -801,3 +881,5 @@ export interface QueueEntry {
 | 链式自动出队死循环 | 连续失败不断触发 onInvocationComplete | failed/canceled 时暂停队列，不自动出队 |
 | 队列满时 connector 消息被拒 | review 邮件的 invoke 被丢弃 | 429 返回后 connector 可记录日志；消息本身已在 thread 中 |
 | 前端 queue state 与后端不同步 | 显示错误 | 每次 `queue_updated` 发送完整快照（非增量） |
+| ~~幽灵消息（消息可见但不在队列）~~ | ~~已修复~~ | 先入队预留位，再写 MessageStore；写失败则回滚队列 |
+| ~~自动出队与 processNext 双启动~~ | ~~已修复~~ | QueueProcessor per-thread mutex (`processingThreads` Set) |
