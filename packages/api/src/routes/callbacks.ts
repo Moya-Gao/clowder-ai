@@ -62,6 +62,7 @@ const postMessageSchema = callbackAuthSchema.extend({
 
 const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
+  threadId: z.string().min(1).optional(), // F-Swarm-6: optional cross-thread read
 });
 
 const ackMentionsSchema = callbackAuthSchema.extend({
@@ -297,17 +298,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Missing invocationId or callbackToken' };
       }
 
-      const { invocationId, callbackToken, limit } = parsed.data;
+      const { invocationId, callbackToken, limit, threadId: overrideThreadId } = parsed.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
         return EXPIRED_CREDENTIALS_ERROR;
       }
 
+      // F-Swarm-6: allow reading a different thread's context
+      const effectiveThreadId = overrideThreadId ?? record.threadId;
+
       const requestedLimit = limit ?? 20;
       let needsPlayFilter = false;
-      if (record.threadId && threadStore) {
-        const thread = await threadStore.get(record.threadId);
+      if (effectiveThreadId && threadStore) {
+        const thread = await threadStore.get(effectiveThreadId);
         needsPlayFilter = !!thread && (thread.thinkingMode ?? 'debug') === 'play';
       }
 
@@ -330,8 +334,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         let cursorId: string | undefined;
 
         while (visible.length < requestedLimit) {
-          const batch = record.threadId
-            ? await messageStore.getByThreadBefore(record.threadId, cursorTimestamp, pageSize, cursorId, record.userId)
+          const batch = effectiveThreadId
+            ? await messageStore.getByThreadBefore(effectiveThreadId, cursorTimestamp, pageSize, cursorId, record.userId)
             : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
 
           if (batch.length === 0) break;
@@ -357,8 +361,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         let cursorId: string | undefined;
 
         while (visible.length < requestedLimit) {
-          const batch = record.threadId
-            ? await messageStore.getByThreadBefore(record.threadId, cursorTimestamp, pageSize, cursorId, record.userId)
+          const batch = effectiveThreadId
+            ? await messageStore.getByThreadBefore(effectiveThreadId, cursorTimestamp, pageSize, cursorId, record.userId)
             : await messageStore.getBefore(cursorTimestamp, pageSize, record.userId, cursorId);
 
           if (batch.length === 0) break; // no more messages

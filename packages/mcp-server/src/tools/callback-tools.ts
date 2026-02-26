@@ -99,6 +99,8 @@ export const ackMentionsInputSchema = {
 export const getThreadContextInputSchema = {
   limit: z.number().int().min(1).max(200).optional().default(20)
     .describe('Number of recent messages to retrieve (default: 20)'),
+  threadId: z.string().min(1).optional()
+    .describe('Optional: read messages from a different thread. Omit to read the current thread.'),
 };
 
 export const updateTaskInputSchema = {
@@ -144,9 +146,10 @@ export async function handleAckMentions(input: {
   });
 }
 
-export async function handleGetThreadContext(input: { limit?: number }): Promise<ToolResult> {
+export async function handleGetThreadContext(input: { limit?: number; threadId?: string }): Promise<ToolResult> {
   return callbackGet('/api/callbacks/thread-context', {
     ...(input.limit ? { limit: String(input.limit) } : {}),
+    ...(input.threadId ? { threadId: input.threadId } : {}),
   });
 }
 
@@ -285,7 +288,7 @@ export const callbackTools = [
   },
   {
     name: 'cat_cafe_get_thread_context',
-    description: 'Get recent conversation messages for context. Use this to understand what has been discussed recently.',
+    description: 'Get recent conversation messages for context. Use this to understand what has been discussed recently. Pass threadId to read a different thread (cross-thread context).',
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
   },

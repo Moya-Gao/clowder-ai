@@ -372,6 +372,90 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[1].contentBlocks, undefined);
   });
 
+  // ---- F-Swarm-6: Cross-thread context read ----
+
+  test('GET thread-context with threadId reads a different thread', async () => {
+    const app = await createApp();
+    // Invocation scoped to thread-A
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+
+    // Messages in thread-A (own thread)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'thread-A msg',
+      mentions: [], timestamp: 1, threadId: 'thread-A',
+    });
+    // Messages in thread-B (cross-thread target)
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'thread-B msg 1',
+      mentions: [], timestamp: 2, threadId: 'thread-B',
+    });
+    messageStore.append({
+      userId: 'user-1', catId: 'codex', content: 'thread-B msg 2',
+      mentions: [], timestamp: 3, threadId: 'thread-B',
+    });
+
+    // Query thread-B from an invocation in thread-A
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&threadId=thread-B`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 2);
+    assert.equal(body.messages[0].content, 'thread-B msg 1');
+    assert.equal(body.messages[1].content, 'thread-B msg 2');
+  });
+
+  test('GET thread-context without threadId reads own thread (default)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'thread-A msg',
+      mentions: [], timestamp: 1, threadId: 'thread-A',
+    });
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'thread-B msg',
+      mentions: [], timestamp: 2, threadId: 'thread-B',
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].content, 'thread-A msg');
+  });
+
+  test('GET thread-context cross-thread respects limit', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-A');
+
+    // 5 messages in thread-B
+    for (let i = 0; i < 5; i++) {
+      messageStore.append({
+        userId: 'user-1', catId: null, content: `thread-B msg ${i}`,
+        mentions: [], timestamp: i + 1, threadId: 'thread-B',
+      });
+    }
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&threadId=thread-B&limit=2`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 2);
+    // Should return the 2 most recent
+    assert.equal(body.messages[0].content, 'thread-B msg 3');
+    assert.equal(body.messages[1].content, 'thread-B msg 4');
+  });
+
   test('GET pending-mentions only returns mentions from the same user', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');

@@ -13,7 +13,7 @@
 |------|------|--------|----------|------|
 | F-Swarm-4 | 决策权矩阵落盘 | P0 | 🥇 1 | ✅ 已完成 |
 | F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 🥈 2 | ✅ 已完成 |
-| F-Swarm-6 | 跨 Thread 上下文搜索与传递 | P1 | 🥉 3 | 待采访（从零实现） |
+| F-Swarm-6 | 跨 Thread 上下文搜索与传递 | P1 | 🥉 3 | ✅ 已完成（`45ed9e5`） |
 | F-Ground-1 | McpPromptInjector 可靠性 + 回传协议加固 | P0 | 4 | 待采访（先排查 token 过期根因） |
 | F-Swarm-2 | 工作流阶段感知 + Mode 系统反思 | P1 | 5 | 待讨论（需深度 1:1） |
 | F-Swarm-5 | Brainstorm 收敛 → 结构化产出 | P1 | 6 | 待讨论（依赖 F-Swarm-2 结论） |
@@ -239,13 +239,20 @@ gpt52 提出的"哪些决策猫猫自治，哪些必须铲屎官拍板"。
 
 ~~MCP 工具 `get_thread_context` 已经能够跨 thread 获取上下文。~~
 
-**实际情况：跨 thread 上下文读取目前不存在。** 代码核实发现：
+~~**实际情况：跨 thread 上下文读取目前不存在。**~~
+
+**已实现（`45ed9e5`）**：MCP `get_thread_context` 新增可选 `threadId` 参数，后端用 `effectiveThreadId = overrideThreadId ?? record.threadId` 读取指定 thread。不传时行为不变。3 个回归测试覆盖。安全边界：`messageStore.getByThreadBefore()` 已有 `userId` 参数过滤，单用户系统无跨用户风险。
+
+**追溯链（后续迭代）**：Spec 中"引用关系可追溯"和"源 thread 元数据"属于 UI/应用层，本次只交付核心 MCP + 后端参数能力。
+
+<details><summary>历史：代码核实发现的原始问题</summary>
 
 1. **MCP 侧**：`getThreadContextInputSchema` 只有 `limit` 参数，无 `threadId`（`additionalProperties: false`）
 2. **后端侧**：`threadContextQuerySchema` = `callbackAuthSchema + limit`，从未有过 `threadId` 参数（查了完整 git 历史）
 3. **Thread 作用域来源**：后端从 `record.threadId`（invocation record）取当前 thread，不接受外部传入
 
 **铲屎官之前能跨 thread 读消息的可能原因**：早期某些 invocation record 的 `threadId` 为空时，后端有个 fallback 分支（`messageStore.getBefore` 不带 threadId = 读所有 thread），后来 invocation record 都带了 threadId，这个"bug feature"就消失了。
+</details>
 
 ### 范围（重新定义——这是从零实现，不是产品化现有能力）
 
