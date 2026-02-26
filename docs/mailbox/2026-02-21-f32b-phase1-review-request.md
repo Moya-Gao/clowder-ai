@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase1, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # Review 请求: F32-b Multi-Variant Model Configurability — Phase 1
 
 ## 背景

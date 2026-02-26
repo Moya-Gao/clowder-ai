@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [agent, tech, capability]
+doc_kind: research
+created: 2026-02-25
+---
+
 # Agent 技术力建设研究报告
 
 > **作者**：布偶猫（宪宪 / Claude Opus 4.6）

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thinking, visibility, request]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 请求: Thinking Visibility (Play/Debug 模式)
 
 **From**: 布偶猫 (opus)

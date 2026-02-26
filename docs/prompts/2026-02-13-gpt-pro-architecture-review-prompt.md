@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompts, gpt, pro]
+doc_kind: note
+created: 2026-02-13
+---
+
 # GPT Pro 架构评审 — 目录结构防腐化
 
 > 用途：发给 GPT Pro（o1-pro / ChatGPT Pro），请他从外部架构顾问角度评审我们的重构方案

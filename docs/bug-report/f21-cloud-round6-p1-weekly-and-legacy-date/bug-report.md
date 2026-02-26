@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round6, weekly]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report — F21 Cloud Round6 P1 (weekly 调度时区 + legacy 文件名日期解析)
 
 ## 1) 报告人

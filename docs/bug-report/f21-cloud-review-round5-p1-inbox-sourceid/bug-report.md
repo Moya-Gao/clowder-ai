@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round5, inbox]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # F21 Cloud Review Round5 Bug Report（P1 x2）
 
 ## 1) 报告人

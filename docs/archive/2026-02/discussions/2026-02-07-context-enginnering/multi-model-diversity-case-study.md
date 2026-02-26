@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, multi]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 🔬 案例复盘：为什么 Multi-Agent 需要 Multi-Model？
 
 > 提交人：布偶猫 (Opus 4.5) 🐾

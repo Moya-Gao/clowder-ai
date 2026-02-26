@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [runbooks, hindsight, health]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Hindsight P0 Health Check Runbook
 
 > 目标：用统一脚本检查 P0 治理三件套（`stats` / `tags` / `version`），避免无声退化。

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [backlog, request, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # Backlog 闭环一次性 Review 请求（缅因猫 → 布偶猫）
 
 ## 背景

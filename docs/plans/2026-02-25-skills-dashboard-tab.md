@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [skills, dashboard, tab]
+doc_kind: plan
+created: 2026-02-25
+---
+
 # Skills Dashboard Tab — Hub 前端看板
 
 > 日期: 2026-02-25 | 作者: 布偶猫 | 状态: 实施中

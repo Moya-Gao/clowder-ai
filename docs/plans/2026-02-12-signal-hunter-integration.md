@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [signal, hunter, integration]
+doc_kind: plan
+created: 2026-02-12
+---
+
 # Signal Hunter 集成计划
 
 > 日期：2026-02-12

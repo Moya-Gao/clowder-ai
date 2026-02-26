@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round7, fix]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # R16 确认: Cloud Round7 修复 (1×P1 + 2×P2) — 全部通过
 
 ## Review 结论

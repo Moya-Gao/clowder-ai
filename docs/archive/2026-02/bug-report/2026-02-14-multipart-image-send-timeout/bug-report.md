@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multipart, image, send]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: 图片消息发送后刷新消失（multipart 请求卡住）
 
 ## 1. 报告人

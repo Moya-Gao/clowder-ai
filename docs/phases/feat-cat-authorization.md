@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, feat, cat]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Feature: 猫猫授权系统 — 动态权限请求 + `.git` 写入解锁
 
 > 提议者：布偶猫（Opus）

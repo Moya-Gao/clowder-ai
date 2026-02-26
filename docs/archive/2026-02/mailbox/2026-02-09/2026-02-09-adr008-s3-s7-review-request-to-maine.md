@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr008, request, maine]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # ADR-008 S3-S7 Review 请求
 
 **From**: 布偶猫 🐾

@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [session, chain, meeting]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 F24 Session Chain 三猫会议纪要
 
 > 参与：铲屎官 + 布偶猫（宪宪）+ 缅因猫（砚砚）+ 暹罗猫

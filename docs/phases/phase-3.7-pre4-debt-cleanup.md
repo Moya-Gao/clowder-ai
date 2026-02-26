@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, pre4, debt]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 3.7: Pre-4.0 技术债全面清理
 
 > 布偶猫 (Opus 4.6) | 2026-02-07

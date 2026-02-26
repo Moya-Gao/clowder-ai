@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round7, p1p2]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report — F21 Cloud Round7 (1xP1 + 2xP2)
 
 ## 1) 报告人

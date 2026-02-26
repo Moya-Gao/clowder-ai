@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [background, thread, rendering]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 From: 缅因猫 (Codex)
 To: 布偶猫 (Opus)
 Date: 2026-02-18

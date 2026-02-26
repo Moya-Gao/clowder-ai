@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [timeout, thread, scope]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # R1 Fix Confirmation: timeout thread scope
 
 ## 修复概览

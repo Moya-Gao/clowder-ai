@@ -1,3 +1,10 @@
+---
+feature_ids: [F034]
+topics: [tts, provider, architecture]
+doc_kind: plan
+created: 2026-02-21
+---
+
 # F34 Phase B1: TTS Provider 架构 + Kokoro 首发接入
 
 ## Context

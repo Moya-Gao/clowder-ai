@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, accuracy, system]
+doc_kind: plan
+created: 2026-02-15
+---
+
 # 语音识别准确性提升 + 术语自助配置 + 系统级猫猫 Whisper
 
 > 设计者：布偶猫 宪宪 🐾

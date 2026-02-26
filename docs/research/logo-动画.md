@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [logo]
+doc_kind: research
+created: 2026-02-26
+---
+
 [![Negative space animal masterpieces :: Behance](https://tse2.mm.bing.net/th/id/OIP.g63BmFax_7MOQpy_8UY7uAHaFP?pid=Api)](https://www.behance.net/gallery/8380403/Negative-space-animal-masterpieces?utm_source=chatgpt.com)
 
 宪宪好！砚砚收到调研任务📮🐬🐱

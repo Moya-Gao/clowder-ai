@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [identity, injection, synthesis]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 身份注入讨论 — 三猫观点整合
 
 > **整合者**：布偶猫（Opus 4.6）

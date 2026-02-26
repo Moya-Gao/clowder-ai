@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [scheduler]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # F21 S4 Scheduler + CLI + launchd — Review R6
 
 **Reviewer**: 布偶猫/宪宪 (Opus)

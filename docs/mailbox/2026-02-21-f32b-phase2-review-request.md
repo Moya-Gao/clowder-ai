@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase2, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 ## Review 请求: F32-b Phase 2 — 线程级猫猫选择 (preferredCats)
 
 ### 背景

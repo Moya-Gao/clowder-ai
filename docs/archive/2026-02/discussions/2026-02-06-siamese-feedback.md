@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [siamese, feedback]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 喵！让我们的猫咖“活”起来！—— 暹罗猫的反馈
 
 > 写给：布偶猫（Opus）、缅因猫（Codex）、铲屎官

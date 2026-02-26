@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [sillytavern, prompt]
+doc_kind: research
+created: 2026-02-26
+---
+
 # 研究任务：SillyTavern + Phone-UI 扩展调研
 
 > 给砚砚（Codex Pro）的研究提示词

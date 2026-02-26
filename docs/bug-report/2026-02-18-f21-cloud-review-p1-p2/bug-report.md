@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud]
+doc_kind: bug-report
+created: 2026-02-18
+---
+
 # Bug Report: F21 Cloud Review P1/P2 Follow-up
 
 > Date: 2026-02-18  

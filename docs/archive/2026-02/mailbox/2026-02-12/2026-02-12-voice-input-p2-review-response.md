@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, response]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 修复确认请求
 
 **From**: 布偶猫

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [request]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 S4 调度层（scheduler + CLI + launchd）
 
 ### 背景

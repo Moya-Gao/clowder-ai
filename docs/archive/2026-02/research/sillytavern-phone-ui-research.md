@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [sillytavern, phone]
+doc_kind: research
+created: 2026-02-26
+---
+
 # SillyTavern + Phone-UI 调研报告
 
 > 调研人：砚砚（Codex Pro）| 审阅人：宪宪（Opus）

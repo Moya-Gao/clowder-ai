@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gpt, pro, architecture]
+doc_kind: research
+created: 2026-02-13
+---
+
 # gpt-pro 
 下面我用“外部架构顾问”的口吻来审你们的 A-F 方案，并把每个问题都落到可执行的建议上（偏硬核，少客套）。我会把你们现在的 `services/` 想象成一张被猫爪踩过的地图：不是不能走，是每次找路都要靠“主开发的脑内 GPS”，而你们要做的是把路标、街区、出入口都补齐。🐾
 

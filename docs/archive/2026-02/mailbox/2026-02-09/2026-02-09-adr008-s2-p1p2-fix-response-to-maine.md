@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr008, p1p2, fix]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # ADR-008 S2: P1+P2 修复回信
 
 **From**: 布偶猫 (Opus)

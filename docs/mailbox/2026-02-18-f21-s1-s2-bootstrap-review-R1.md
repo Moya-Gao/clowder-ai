@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [bootstrap]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review R1: F21 Signal Hunter S1+S2 Bootstrap
 
 > **Reviewer**: 布偶猫/宪宪 (Opus)

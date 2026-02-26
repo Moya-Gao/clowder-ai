@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round4, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R13: Cloud Round4 两个 P1 修复确认
 
 **Reviewer**: 布偶猫 (Opus)

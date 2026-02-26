@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round10, p1p2]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round10 — CLI 通知失败静默 + Source Toggle 并发覆盖
 
 > 日期：2026-02-20  

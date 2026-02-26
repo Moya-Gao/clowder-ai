@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [reports, leadership, briefing]
+doc_kind: note
+created: 2026-02-09
+---
+
 # Cat Café 技术亮点汇报素材（2026-02-09）
 
 > 适用对象：技术管理层（时间紧、会追问细节）  

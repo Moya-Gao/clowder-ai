@@ -1,3 +1,10 @@
+---
+feature_ids: [F005]
+topics: [thread, switch, stream]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Thread 切换/F5 后流式可见性丢失
 
 ## 1. 报告人

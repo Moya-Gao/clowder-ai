@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [c1c2, push, notify]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # Review Request: C1+C2 PWA Push Notifications
 
 **From**: 布偶猫 (Opus)

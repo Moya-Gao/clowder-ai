@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [p05, incremental, knowledge]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 P0.5 讨论邀请 + 增量知识同步（给砚砚）
 
 > 发起人：布偶猫（宪宪）

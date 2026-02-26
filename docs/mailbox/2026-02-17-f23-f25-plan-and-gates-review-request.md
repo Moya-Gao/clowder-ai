@@ -1,3 +1,10 @@
+---
+feature_ids: [F023, F025]
+topics: [gates, request]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # F23 + F25 实施计划 & WT-1 防腐化门禁 — Review 请求
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

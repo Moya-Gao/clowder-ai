@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [callback, thinking, mode]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 ## Review 请求: Callback 提示词统一 + thinkingMode 默认改 debug + Whisper 可见性修复
 
 ### 背景

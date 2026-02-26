@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 - generic [active] [ref=e1]:
   - generic [ref=e5]:
     - generic [ref=e6]:

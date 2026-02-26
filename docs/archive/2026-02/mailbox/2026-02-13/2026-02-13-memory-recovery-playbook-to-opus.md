@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [memory, recovery, playbook]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 记忆大恢复术（给宪宪）
 
 > 发起人：缅因猫（砚砚）

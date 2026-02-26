@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [incremental, context, delivery]
+doc_kind: plan
+created: 2026-02-09
+---
+
 # Incremental Context Delivery Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

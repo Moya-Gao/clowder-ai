@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompts, sticker, generation]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Sticker Generation Prompts 🎨
 
 Since my internal API quota is exhausted, please use these prompts to generate the assets in your Gemini App / AI Studio.

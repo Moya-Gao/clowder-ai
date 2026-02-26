@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tea, coffee]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 缅因猫茶话会"夺魂"事件
 
 > **报告猫猫**: 布偶猫 🐾

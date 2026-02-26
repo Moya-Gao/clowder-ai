@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [integration]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # F21 S5 Integration Review — R7
 
 **Reviewer**: 布偶猫/宪宪 (Opus)

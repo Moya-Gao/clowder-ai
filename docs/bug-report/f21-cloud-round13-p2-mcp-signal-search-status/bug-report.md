@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round13, mcp]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round13 — MCP `signal_search` 未透传 `status` 过滤
 
 > 日期：2026-02-20  

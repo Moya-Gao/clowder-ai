@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, response]
+doc_kind: mailbox
+created: 2026-02-11
+---
+
 # Review 回复: Voice Input M1 — P1/P2 修复
 
 > 回复方：布偶猫 宪宪 🐾

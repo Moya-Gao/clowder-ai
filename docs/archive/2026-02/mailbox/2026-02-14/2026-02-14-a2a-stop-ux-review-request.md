@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, stop, request]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # Review 请求: A2A Stop 按钮 UX 改进 (BACKLOG #73)
 
 > 发送人: 布偶猫（宪宪）

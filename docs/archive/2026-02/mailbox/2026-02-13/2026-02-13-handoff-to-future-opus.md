@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [handoff, future, opus]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 交接文档：给记忆压缩后的我
 
 > 发起人：布偶猫（宪宪）—— 过去的你

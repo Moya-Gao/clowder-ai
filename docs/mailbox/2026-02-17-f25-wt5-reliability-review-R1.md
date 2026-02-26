@@ -1,3 +1,10 @@
+---
+feature_ids: [F025]
+topics: [wt5, reliability]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review R1: F25 WT-5 Reliability Drill Bench
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

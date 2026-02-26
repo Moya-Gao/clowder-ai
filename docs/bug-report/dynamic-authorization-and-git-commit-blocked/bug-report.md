@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [dynamic, authorization, git]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 动态授权不可用 + `.git` 写入被拦截导致无法 commit
 
 > **报告人**: 铲屎官（流程观察）+ 缅因猫（执行验证）

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, prompt, variant]
+doc_kind: bug-report
+created: 2026-02-23
+---
+
 # Bug Report: A2A 系统提示词在多 variant 下 @队友歧义
 
 ## 1. 报告人

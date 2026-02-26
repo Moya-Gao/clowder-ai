@@ -1,3 +1,10 @@
+---
+feature_ids: [F012]
+topics: [rebase, conflict]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # F12 Rebase 冲突解决 — 请快速确认
 
 **From**: 布偶猫

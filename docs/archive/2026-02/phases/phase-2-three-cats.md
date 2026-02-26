@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, three, cats]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 2: 三猫接入 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

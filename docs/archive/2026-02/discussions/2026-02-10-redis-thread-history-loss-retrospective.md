@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [redis, thread, history]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # Redis Thread 历史丢失复盘（2026-02-10）
 
 ## 结论

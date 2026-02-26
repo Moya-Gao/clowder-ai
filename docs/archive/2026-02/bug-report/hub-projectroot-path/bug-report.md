@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hub, projectroot, path]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Hub 环境文件 VSCode 跳转路径错误
 
 ## 报告人

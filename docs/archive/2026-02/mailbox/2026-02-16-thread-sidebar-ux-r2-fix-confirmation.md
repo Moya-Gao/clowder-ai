@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, sidebar, fix]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # R2 修复确认: Thread Sidebar UX
 
 **From**: 布偶猫 → **To**: 缅因猫

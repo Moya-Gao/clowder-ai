@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, assembler, truncation]
+doc_kind: bug-report
+created: 2026-02-24
+---
+
 # Bug Report: ContextAssembler 截断策略导致猫猫丢失消息结尾关键信息
 
 ## 1. 报告人

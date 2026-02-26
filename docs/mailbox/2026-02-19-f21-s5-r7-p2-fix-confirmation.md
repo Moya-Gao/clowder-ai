@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R7 P2 修复确认请求（F21 S5）
 
 ### Spec Compliance Report

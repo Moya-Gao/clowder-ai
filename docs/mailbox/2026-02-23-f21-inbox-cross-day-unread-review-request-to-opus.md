@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [inbox, cross, day]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 ## Review 请求: F21 Signal Inbox 跨天未读丢失修复
 
 ### 背景

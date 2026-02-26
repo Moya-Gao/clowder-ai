@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round3, source]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # F21 Cloud Review Round 3 Bug Report (P1 + P2 in source-processor)
 
 ## 1. 报告人

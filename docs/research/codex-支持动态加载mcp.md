@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, mcp]
+doc_kind: research
+created: 2026-02-26
+---
+
 结论先摆上桌 🐾
 
 ### 1) Codex 支不支持“项目级别 MCP 配置”？

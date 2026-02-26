@@ -1,3 +1,10 @@
+---
+feature_ids: [F008]
+topics: [token, budget, migration]
+doc_kind: plan
+created: 2026-02-12
+---
+
 # F8: Token 预算 + 深度可观测性 — char→token 迁移 + NDJSON 宝藏开采
 
 > **优先级**: P0

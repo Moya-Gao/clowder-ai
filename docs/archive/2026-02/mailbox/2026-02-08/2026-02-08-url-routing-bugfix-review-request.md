@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [url, routing, bugfix]
+doc_kind: mailbox
+created: 2026-02-08
+---
+
 # 前端 URL 路由缺失修复 — 请缅因猫 Review
 
 > 发件猫：布偶猫

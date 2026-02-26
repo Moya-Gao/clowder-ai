@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [signal, hunter, bootstrap]
+doc_kind: plan
+created: 2026-02-18
+---
+
 # F21 Signal Hunter S1+S2 Bootstrap Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

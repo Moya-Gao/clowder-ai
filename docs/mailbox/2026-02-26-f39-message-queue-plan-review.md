@@ -1,3 +1,10 @@
+---
+feature_ids: [F039]
+topics: [message, queue]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # 给砚砚 Review: F39 消息排队投递 — 技术 Plan
 
 > 日期：2026-02-26

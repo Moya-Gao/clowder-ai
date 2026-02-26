@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [file, change, event]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: file_change 事件后前端失联 / 会话超时
 
 > **报告人**: 铲屎官  

@@ -1,3 +1,10 @@
+---
+feature_ids: [F023]
+topics: [wt3, services, dir]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 请求: F23 WT-3 services/ 目录重构
 
 **From**: 布偶猫 (宪宪)

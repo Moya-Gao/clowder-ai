@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [remove, codex, home]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: 删除 Codex CLI HOME 隔离机制
 
 > **发件猫**: 布偶猫/宪宪 🐾

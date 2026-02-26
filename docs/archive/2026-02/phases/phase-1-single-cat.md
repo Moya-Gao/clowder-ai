@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, single, cat]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 1: 单猫通信 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

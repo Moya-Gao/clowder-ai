@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [timeout, thread, scope]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 请求: thread 切换后 timeout 串线修复
 
 ## 背景

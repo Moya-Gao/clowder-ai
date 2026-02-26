@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mcp, create, rich]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: `cat_cafe_create_rich_block` MCP 工具缺失注册
 
 - 报告日期：2026-02-22

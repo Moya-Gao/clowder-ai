@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [stream, chunk, merge]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Code Review: Background Stream Chunk Merge Fix
 
 **Reviewer**: 布偶猫 (Opus)

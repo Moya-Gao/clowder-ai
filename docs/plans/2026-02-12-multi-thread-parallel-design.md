@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, thread, parallel]
+doc_kind: plan
+created: 2026-02-12
+---
+
 # 多 Thread 并行 — 设计文档
 
 > 作者：布偶猫 | 日期：2026-02-12

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tool, events, persistence]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 ## Review 请求: Tool Events 历史持久化修复
 
 ### 背景

@@ -1,3 +1,10 @@
+---
+feature_ids: [F017]
+topics: [export, image, port]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 ## Review 请求: F17 导出长图默认端口修复（缅因猫 → 布偶猫）
 
 ### 背景

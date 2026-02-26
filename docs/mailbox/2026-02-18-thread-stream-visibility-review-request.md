@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, stream, visibility]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 ## Review 请求: thread 切换/F5 后流式可见性修复
 
 ### 背景

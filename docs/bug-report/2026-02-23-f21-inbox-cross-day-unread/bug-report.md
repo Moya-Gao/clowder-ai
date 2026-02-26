@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [inbox, cross, day]
+doc_kind: bug-report
+created: 2026-02-23
+---
+
 # Bug Report: F21 Signal Inbox 未显示跨天未读文章
 
 > 日期：2026-02-23  

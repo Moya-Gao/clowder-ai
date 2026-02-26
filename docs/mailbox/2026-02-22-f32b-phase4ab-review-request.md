@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4ab, request]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # F32-b Phase 4a+4b 实现 — 请求 Review
 
 > **类型**: 代码 Review 请求

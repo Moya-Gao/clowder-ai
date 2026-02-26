@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [frontend, strict, r12]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R12 修正版: F21 S7 前端 UI 严格对照 Review
 
 **Reviewer**: 布偶猫 (Opus)

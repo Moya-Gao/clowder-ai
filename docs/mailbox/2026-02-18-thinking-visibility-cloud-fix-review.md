@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thinking, visibility, cloud]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review Request: Cloud Review Fix (Thinking Visibility)
 
 **From**: 布偶猫

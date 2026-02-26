@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, hygiene, implementation]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # Hindsight Hygiene Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

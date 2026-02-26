@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gpt, pro, hindsight]
+doc_kind: research
+created: 2026-02-13
+---
+
 # 2026-02-13 GPT Pro：Hindsight 导入/同步/治理专项回复整理
 
 > 日期：2026-02-13  

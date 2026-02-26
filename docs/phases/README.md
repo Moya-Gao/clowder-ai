@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 总览
 
 | Phase | 名称 | 状态 | 计划文档 | Review | 测试数 |

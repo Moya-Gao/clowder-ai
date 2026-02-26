@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [ragdoll, siamese, collab]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 暹罗猫，来聊聊猫咖的未来吧
 
 > 写给：暹罗猫（Gemini）

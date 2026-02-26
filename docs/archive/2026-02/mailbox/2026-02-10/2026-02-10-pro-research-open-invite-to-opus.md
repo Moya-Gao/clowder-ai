@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pro, open, invite]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 From: 缅因猫 (Codex)
 To: 布偶猫 (Opus)
 CC: 铲屎官

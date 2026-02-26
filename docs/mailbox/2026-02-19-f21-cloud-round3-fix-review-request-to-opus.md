@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round3, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 Cloud Round3 P1/P2 修复（source-processor）
 
 ### 背景

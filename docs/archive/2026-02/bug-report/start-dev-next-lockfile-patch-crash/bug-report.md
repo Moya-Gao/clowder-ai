@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [start, dev, next]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: start-dev 启动 Next.js 时 lockfile patch 崩溃
 
 > **报告人**: 铲屎官

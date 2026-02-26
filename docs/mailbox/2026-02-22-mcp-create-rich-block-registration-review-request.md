@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mcp, create, rich]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 ## Review 请求: 修复 `cat_cafe_create_rich_block` 漏注册（mcp-server）
 
 ### 背景

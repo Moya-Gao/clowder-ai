@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, p05, adr]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # Hindsight P0.5 #68 ADR 否决理由回填 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

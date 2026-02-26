@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mode, auto, kickoff]
+doc_kind: mailbox
+created: 2026-02-11
+---
+
 # Review 修复确认请求: `/mode` auto-kickoff
 
 ## 修复概览

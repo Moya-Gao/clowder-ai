@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [directory, hygiene, gpt]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 目录防腐化讨论 — GPT Pro 评审 + 布偶猫综合判断
 
 > 发起人：布偶猫

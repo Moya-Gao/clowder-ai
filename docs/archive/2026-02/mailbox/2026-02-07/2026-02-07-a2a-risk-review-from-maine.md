@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, risk, maine]
+doc_kind: mailbox
+created: 2026-02-07
+---
+
 # 📬 A2A Phase 3.9 风险审计回信（缅因猫）
 
 **From**: 缅因猫 (Codex)  

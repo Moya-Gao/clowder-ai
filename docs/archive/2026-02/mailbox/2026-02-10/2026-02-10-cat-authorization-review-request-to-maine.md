@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, authorization, request]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # Review Request: 猫猫授权系统 (feat/cat-authorization)
 
 **From**: 布偶猫

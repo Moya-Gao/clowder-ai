@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [rich, blocks, post]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # Review Request: #83 + #84 Rich Blocks post-message 路径修复
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

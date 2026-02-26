@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [ground, teammate, roster]
+doc_kind: mailbox
+created: 2026-02-25
+---
+
 ## Review 请求: F-Ground-3 队友名册动态注入
 
 ### 背景

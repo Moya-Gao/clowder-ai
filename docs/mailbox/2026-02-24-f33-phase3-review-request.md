@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [phase3, request]
+doc_kind: mailbox
+created: 2026-02-24
+---
+
 # Review 请求: F33 Phase 3 — Runtime Strategy Overrides + Settings UI
 
 ## 背景

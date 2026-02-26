@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gpt52, mention, alias]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: `@gpt5.2` 无法命中 `gpt52` 变体
 
 ## 1. 报告人

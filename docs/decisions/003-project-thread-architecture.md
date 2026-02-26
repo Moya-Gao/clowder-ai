@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [project, thread, architecture]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-002: Project = 目录, Thread = 会话
 
 > **状态**: 已决定

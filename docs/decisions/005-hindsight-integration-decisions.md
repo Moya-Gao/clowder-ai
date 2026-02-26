@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, integration]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-005: Hindsight 集成决策
 
 > 日期: 2026-02-08

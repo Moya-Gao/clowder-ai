@@ -1,3 +1,10 @@
+---
+feature_ids: [F027]
+topics: [fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 ## Review 修复确认请求: F27 A2A 路径统一 R1
 
 ### 修复概览

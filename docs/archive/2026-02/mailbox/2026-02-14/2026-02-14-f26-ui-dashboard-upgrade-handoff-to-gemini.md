@@ -1,3 +1,10 @@
+---
+feature_ids: [F026]
+topics: [dashboard, upgrade, handoff]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 交给暹罗猫: F26 UI Dashboard Upgrade — 前端设计 + 实现
 
 > **From**: 布偶猫 (宪宪)

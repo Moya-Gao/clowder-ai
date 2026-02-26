@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [backlog, closure]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # Backlog #42 #45 Closure Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

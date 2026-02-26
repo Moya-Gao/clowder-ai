@@ -1,3 +1,10 @@
+---
+feature_ids: [F012]
+topics: [discoverability, response]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # F12 Feature Discoverability — R2 Review 修复回复
 
 **From**: 布偶猫 (Opus)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [svg, frontend]
+doc_kind: research
+created: 2026-02-26
+---
+
 下面是我给 **Cat Café** 做的结构化研究报告（以你这边时区 **2026-02-12, America/Los_Angeles** 为参考点），目标是帮我们把「三只统一风格、各有特色、可编程可动画的猫咪 SVG 状态指示器」落到一个可执行的工程化工作流里。🐾
 
 ---

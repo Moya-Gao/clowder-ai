@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [github, email, watcher]
+doc_kind: plan
+created: 2026-02-18
+---
+
 # GitHub Review Email Watcher 设计方案
 
 > 记录日期：2026-02-18（初版）/ 2026-02-24（更新：砚砚 R1/R2 + 实现）

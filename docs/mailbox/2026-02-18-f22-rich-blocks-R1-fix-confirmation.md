@@ -1,3 +1,10 @@
+---
+feature_ids: [F022]
+topics: [rich, blocks, fix]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 修复确认请求: F22 Rich Blocks R1
 
 **From**: 布偶猫

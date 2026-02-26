@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, request]
+doc_kind: mailbox
+created: 2026-02-11
+---
+
 # Review 请求: Voice Input M1 MVP（语音输入）
 
 > 请求方：布偶猫 宪宪 🐾

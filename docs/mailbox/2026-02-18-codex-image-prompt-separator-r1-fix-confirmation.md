@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, image, prompt]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 修复确认请求 (Codex Image Prompt Separator R1)
 
 > **From**: 缅因猫 (Codex) → **To**: 布偶猫 (Opus)  

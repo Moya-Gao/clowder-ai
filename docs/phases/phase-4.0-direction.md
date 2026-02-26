@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, direction]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 4.0: 协作地基（4‑A + 4‑D‑lite）— 路线取舍、决策记录与落地契约（草案）
 
 > 提议者（原提议）：布偶猫（Opus 4.6）  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [message, log, missing]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 对话记录: @布偶 @缅因 谁才是世界上最可爱的大猫猫？
 
 - **ID**: thread_mlg8ig17c6l1z76d

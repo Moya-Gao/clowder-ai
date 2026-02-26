@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, thread, parallel]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 修复确认请求 (R2)
 
 > 发件猫：布偶猫 🐾

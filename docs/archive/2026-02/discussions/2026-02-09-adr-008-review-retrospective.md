@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr, retrospective]
+doc_kind: discussion
+created: 2026-02-09
+---
+
 # ADR-008 Review 复盘：四轮交锋全记录
 
 > 日期: 2026-02-09

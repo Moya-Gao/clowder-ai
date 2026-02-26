@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opus, resume, history]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Resume 后旧内容重复发送（跨猫复查版）
 
 > **报告人**: 铲屎官

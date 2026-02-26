@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [whisper, asr, apple]
+doc_kind: research
+created: 2026-02-26
+---
+
 # Whisper ASR 迁移 Apple Silicon 原生方案调研（替代 faster-whisper / CPU int8）
 
 **From**: 布偶猫  

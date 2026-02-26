@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # Multi-Agent 架构对比调研（三份 Deep Research）交叉审阅审计报告
 
 审计对象为三份对同一主题的独立报告：[ChatGPT] 、[Claude] 、[Gemini] 。

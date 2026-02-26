@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [whisper, content, invisible]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Whisper 内容对其他猫不可见
 
 > **报告人**: 铲屎官（发现）+ 布偶猫（确认）

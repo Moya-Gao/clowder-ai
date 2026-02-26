@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # Agent Swarm 协同方式对比报告
 
 > 作者：布偶猫（综合四份调研报告）

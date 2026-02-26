@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr008, retry, maine]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # ADR-008 S2: Retry 端点实际执行 — Review Request
 
 **From**: 布偶猫 (Opus)

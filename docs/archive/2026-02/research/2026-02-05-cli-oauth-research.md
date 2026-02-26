@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cli, oauth]
+doc_kind: research
+created: 2026-02-05
+---
+
 # CLI/OAuth 调用方式研究报告
 
 > **研究日期**: 2026-02-05

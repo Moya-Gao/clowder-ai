@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [signal, hunter, upgrade]
+doc_kind: discussion
+created: 2026-02-12
+---
+
 # Signal Hunter 升级讨论
 
 > 日期：2026-02-12

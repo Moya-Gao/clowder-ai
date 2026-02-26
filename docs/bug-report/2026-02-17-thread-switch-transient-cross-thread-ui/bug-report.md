@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, transient]
+doc_kind: bug-report
+created: 2026-02-17
+---
+
 # Bug Report: Thread 切换瞬间 UI 串线（刷新后恢复）
 
 > 日期：2026-02-17  

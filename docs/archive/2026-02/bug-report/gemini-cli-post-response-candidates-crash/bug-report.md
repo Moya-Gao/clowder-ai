@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gemini, cli, post]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Gemini CLI 回答后收尾崩溃（`candidates` undefined）
 
 > **报告人**: 铲屎官  

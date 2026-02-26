@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # 对话李笛：异构多智能体 - 研究摘录与对照笔记
 
 - 采集日期：2026-02-26

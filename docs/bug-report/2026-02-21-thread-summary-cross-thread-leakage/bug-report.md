@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, summary, cross]
+doc_kind: bug-report
+created: 2026-02-21
+---
+
 # Bug Report: thread_summary 跨线程泄漏
 
 ## 报告人

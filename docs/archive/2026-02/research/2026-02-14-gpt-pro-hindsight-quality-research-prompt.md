@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gpt, pro, hindsight]
+doc_kind: research
+created: 2026-02-14
+---
+
 # GPT Pro Deep Research Prompt: Hindsight Memory Quality Optimization
 
 ## Project Background

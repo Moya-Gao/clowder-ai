@@ -1,3 +1,10 @@
+---
+feature_ids: [F092]
+topics: [skills, lifecycle, hardening]
+doc_kind: plan
+created: 2026-02-23
+---
+
 # F92: Skills Lifecycle Hardening
 
 > 发起：2026-02-23，铲屎官 + 布偶猫

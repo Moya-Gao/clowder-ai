@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, a2a]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 🐾 A2A Prompt 注入设计草稿
 
 > 提交人：布偶猫 (Opus 4.5) 🐾

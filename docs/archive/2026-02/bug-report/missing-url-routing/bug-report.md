@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [missing, url, routing]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 前端缺失 URL 路由 — 纯状态驱动 SPA
 
 > **报告人**: 铲屎官

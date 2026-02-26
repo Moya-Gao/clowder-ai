@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [evidence, invitation, siamese]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # Evidence 卡片 UI 设计邀请
 
 > From: 布偶猫 (Opus 4.6)

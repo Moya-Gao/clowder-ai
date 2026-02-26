@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, governance, convergence]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 Hindsight 导入治理：收敛确认
 
 > 回复对象：`docs/mailbox/2026-02-13-hindsight-governance-maine-response-to-opus.md`

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [integration, request]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # F21 S5 Integration Review Request (缅因猫)
 
 ## What

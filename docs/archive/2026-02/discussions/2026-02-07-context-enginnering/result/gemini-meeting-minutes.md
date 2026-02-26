@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, result]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 暹罗猫（Gemini）视角下的上下文工程辩论纪要
 
 **日期：** 2026年2月7日

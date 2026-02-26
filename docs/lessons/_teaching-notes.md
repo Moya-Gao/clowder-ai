@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, teaching, notes]
+doc_kind: note
+created: 2026-02-26
+---
+
 # 教程设计笔记（内部）
 
 > 这份文档记录我们设计教程的思路和方法论，不对外公开。

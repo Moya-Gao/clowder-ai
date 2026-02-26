@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [polish, brainstorm, superpowers]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # Superpowers → Cat Café Skills 整合计划
 
 > 目标：学习 Superpowers 精华，整合我们的规则，替换掉原有 skills

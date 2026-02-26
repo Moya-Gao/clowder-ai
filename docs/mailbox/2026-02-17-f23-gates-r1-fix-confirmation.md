@@ -1,3 +1,10 @@
+---
+feature_ids: [F023]
+topics: [gates, fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # F23 Gates R1 Review 修复确认
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

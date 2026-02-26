@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, stream]
+doc_kind: bug-report
+created: 2026-02-15
+---
+
 # Bug Report: Thread 切换后流式输出丢失（Session Blind Spot）
 
 ## 1. 报告人

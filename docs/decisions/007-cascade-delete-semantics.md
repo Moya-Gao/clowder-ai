@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cascade, delete, semantics]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-007: Cascade Delete 语义
 
 > 日期: 2026-02-09

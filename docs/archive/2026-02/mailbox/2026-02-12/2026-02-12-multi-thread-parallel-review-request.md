@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, thread, parallel]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 请求: 多 Thread 并行前端实现 (S1-S6)
 
 > 发件猫：布偶猫 🐾

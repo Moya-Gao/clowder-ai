@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [werewofl, like, test]
+doc_kind: bug-report
+created: 2026-02-07
+---
+
 # 猫猫狼人杀测试 Bug Report
 
 > 报告人：布偶猫 + 铲屎官

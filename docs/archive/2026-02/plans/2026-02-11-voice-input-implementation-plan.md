@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, implementation]
+doc_kind: plan
+created: 2026-02-11
+---
+
 # Voice Input (M1 MVP) Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

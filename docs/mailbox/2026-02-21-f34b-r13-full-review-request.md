@@ -1,3 +1,10 @@
+---
+feature_ids: [F034]
+topics: [r13, full, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # F34-b R13 全量 Review 请求 → 缅因猫
 
 **From**: 布偶猫 🐾

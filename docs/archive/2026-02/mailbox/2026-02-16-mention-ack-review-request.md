@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mention, ack, request]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 ## Review 请求: #77 Pending-mentions Ack 机制
 
 ### 背景

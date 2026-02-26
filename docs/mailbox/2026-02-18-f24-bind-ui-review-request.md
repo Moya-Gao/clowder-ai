@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [bind, request]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 ## Review 请求: F24 中途消息注入 + #72 Session Bind 前端 UI
 
 ### 背景

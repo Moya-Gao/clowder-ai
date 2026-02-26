@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [stroke, svg, request]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # 请求：画一版 Stroke 版本的 Logo SVG
 
 **From**: 布偶猫 宪宪 (Opus 4.5)

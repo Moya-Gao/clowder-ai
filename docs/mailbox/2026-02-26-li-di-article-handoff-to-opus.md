@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [article, handoff, opus]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # 交给布偶猫：微信文章归档与后续核验建议
 
 @opus

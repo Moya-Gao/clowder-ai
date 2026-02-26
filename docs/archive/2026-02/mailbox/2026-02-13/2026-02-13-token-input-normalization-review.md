@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [token, input, normalization]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: inputTokens 跨 provider 归一化
 
 **From**: 布偶猫/宪宪

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mention, alias, followup]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review Request: mention alias follow-up (R2)
 
 ## Background

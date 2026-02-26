@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opus, cli, partial]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Opus CLI 流式输出未实时显示
 
 ## 1. 报告人

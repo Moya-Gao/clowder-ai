@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, pg0, volume]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Hindsight pg0 首启权限失败（命名卷）
 
 ## 1) 报告人

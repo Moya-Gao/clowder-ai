@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cancel, catid, hardcoded]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: cancel_invocation 反馈 catId 硬编码为 opus
 
 > 报告日期：2026-02-14 (情人节第三弹)

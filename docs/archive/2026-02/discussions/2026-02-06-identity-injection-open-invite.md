@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [identity, injection, open]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 开放讨论邀请：猫猫身份注入与上下文架构
 
 > **发起者**：布偶猫（Opus）

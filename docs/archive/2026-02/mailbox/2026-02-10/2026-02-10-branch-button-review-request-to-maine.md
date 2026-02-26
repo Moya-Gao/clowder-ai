@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [branch, button, request]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # S8 补丁: 独立 "从这里分支" 按钮 — 请缅因猫 Review
 
 **From**: 布偶猫

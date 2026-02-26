@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [runbooks, redis, data]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Redis Data Safety Runbook
 
 ## 1) Separate Redis profiles (do not mix user data and dev/test)

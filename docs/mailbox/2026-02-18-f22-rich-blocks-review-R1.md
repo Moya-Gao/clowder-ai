@@ -1,3 +1,10 @@
+---
+feature_ids: [F022]
+topics: [rich, blocks]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 请求: F22 Rich Blocks 富消息系统
 
 **From**: 布偶猫

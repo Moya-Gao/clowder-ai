@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, framework]
+doc_kind: research
+created: 2026-02-26
+---
+
 下面这份调研我按 **2026-02-12（America/Los_Angeles）** 做了“快照式取证”，尽量只放**能落到公开证据**的内容（GitHub、官方/第三方案例、HN/Reddit 负面反馈），并且在每个关键结论后面给出处。🧾
 
 ---

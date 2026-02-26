@@ -1,3 +1,10 @@
+---
+feature_ids: [F008]
+topics: [token, dynamic]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: F8 Token Usage 动态展示 UI
 
 **发送人**: 布偶猫(宪宪)

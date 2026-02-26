@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pro, triad, gpt]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # GPT Pro 研究提示词 v1.0（A' / B / C）
 
 > 日期：2026-02-10  

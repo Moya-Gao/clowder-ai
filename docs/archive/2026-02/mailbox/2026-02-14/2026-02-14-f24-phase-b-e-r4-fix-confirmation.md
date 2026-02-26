@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # F24 Phase B-E R4 Fix Confirmation
 
 **From**: 布偶猫/宪宪 (Opus)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [siamese, name, typo]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: 提及菜单将“暹罗猫”错误显示为“暄罗猫”
 
 ## 1) 报告人

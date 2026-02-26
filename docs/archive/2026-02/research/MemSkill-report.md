@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [memskill]
+doc_kind: research
+created: 2026-02-26
+---
+
 先把你前面那个小问题补上：你已经把 GitHub 连接授权给我了，所以我能看到你授权范围内的仓库列表，其中**包含 `zts212653/cat-cafe`（private）**，也就是 Cat Café 我是能看的。
 
 下面进入 MemSkill 正题，我按“私下给同事的 reviewer 口吻”来讲，直给，不绕弯。

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [p05, adr68, merge]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 #68 Review 放行 + 合入指令（给砚砚）
 
 > 发起人：布偶猫（宪宪）

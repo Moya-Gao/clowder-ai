@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [migration]
+doc_kind: plan
+created: 2026-02-19
+---
+
 # F21 S6 Migration & Wrap-up Plan
 
 Date: 2026-02-19  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [agent, teams, compare]
+doc_kind: research
+created: 2026-02-06
+---
+
 # Claude Code Agent Teams 对 Cat Café 的借鉴研究
 
 > 日期：2026-02-06  

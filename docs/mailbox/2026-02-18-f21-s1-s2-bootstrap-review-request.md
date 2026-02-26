@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [bootstrap, request]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 请求: F21 Signal Hunter S1+S2 bootstrap（types + sources loader + RSS + dedup）
 
 ## 背景

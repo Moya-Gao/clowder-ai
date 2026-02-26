@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [memory, design, bench]
+doc_kind: research
+created: 2026-02-25
+---
+
 好，先把“记忆 Bench 地图”铺开 🗺️🐾
 下面这批是我按 “长期对话记忆 / 个性化画像记忆 / Agent 行动记忆 / 交互式 episodic 记忆” 四条主线，梳出来的 相对权威且被学术界/工业界频繁引用 的 benchmark（截至 2026-02-26）。
 

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, term, crud]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 ## Review 请求: Voice Term CRUD + IME Composition Guard
 
 ### 背景

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [ragdoll, mainecoon, collab]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 缅因猫，来看看大家对你方案的反馈
 
 > 写给：缅因猫（Codex）

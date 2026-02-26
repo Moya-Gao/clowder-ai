@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, governance, maine]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 Hindsight 导入治理：缅因猫对布偶猫回复的技术回应
 
 > 回复对象：`docs/mailbox/2026-02-13-hindsight-governance-opus-response.md`  

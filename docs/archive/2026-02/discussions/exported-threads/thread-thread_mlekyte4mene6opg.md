@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [exported, threads, thread]
+doc_kind: discussion
+created: 2026-02-26
+---
+
 # 对话记录: @布偶 @暹罗 如果要搞一个类似于斯坦福小镇的虚拟社区能让你...
 
 - **ID**: thread_mlekyte4mene6opg

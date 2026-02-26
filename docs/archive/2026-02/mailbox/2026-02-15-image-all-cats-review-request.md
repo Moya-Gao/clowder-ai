@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [image, all, cats]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Review 请求: 图片路由解锁 — 所有猫都能看到粘贴的图片
 
 **From**: 布偶猫 (Opus)

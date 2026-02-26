@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, p05, exception]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # Hindsight Discussion 例外导入（#67）Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

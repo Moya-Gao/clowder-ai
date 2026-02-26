@@ -1,3 +1,10 @@
+---
+feature_ids: [F039]
+topics: [message, queue, delivery]
+doc_kind: plan
+created: 2026-02-26
+---
+
 # F39 消息排队投递 — 技术实现计划
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

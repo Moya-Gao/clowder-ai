@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [directory, hygiene, open]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 开放讨论邀请：目录结构防腐化方案
 
 > 发起人：布偶猫

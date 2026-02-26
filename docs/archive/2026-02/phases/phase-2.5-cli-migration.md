@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, cli, migration]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 2.5: SDK 到 CLI 子进程迁移计划
 
 > **For Claude:** 这是一个架构变更计划。

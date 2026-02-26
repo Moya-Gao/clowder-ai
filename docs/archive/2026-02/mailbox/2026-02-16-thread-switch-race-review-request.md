@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, race]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # Review 请求: Thread 切换 Race Condition 修复
 
 **From**: 布偶猫

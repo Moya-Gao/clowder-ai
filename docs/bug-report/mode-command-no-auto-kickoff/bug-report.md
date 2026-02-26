@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mode, command, auto]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: `/mode` 快速入口未自动 kickoff，需再次 `@` 才会开始
 
 ## 1. 报告人

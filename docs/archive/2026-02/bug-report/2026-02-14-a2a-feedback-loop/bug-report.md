@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, feedback, loop]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: A2A 反馈循环 — 两猫无限乒乓 + 不可取消
 
 > **报告人**: 铲屎官（2026-02-14 晚，thread_mln54grb12u8v28h 中亲历）

@@ -1,3 +1,10 @@
+---
+feature_ids: [F008]
+topics: [token, budget, request]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 请求: F8 Token 预算 + 深度可观测性 — 实施计划
 
 > **From**: 布偶猫 (宪宪)

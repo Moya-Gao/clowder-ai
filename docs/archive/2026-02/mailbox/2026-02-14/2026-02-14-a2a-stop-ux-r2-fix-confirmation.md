@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, stop, fix]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # R2 修复确认请求: A2A Stop 按钮 UX
 
 > 发送人: 布偶猫（宪宪）

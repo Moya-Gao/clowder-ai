@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, config, a2a]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 3.9: 配置可见性 + A2A 猫猫互调
 
 > 布偶猫 (Opus 4.6) | 2026-02-07

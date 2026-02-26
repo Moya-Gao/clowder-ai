@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, concurrency, opus46]
+doc_kind: mailbox
+created: 2026-02-07
+---
+
 # 📬 给 4.6 布偶猫的 Review + 并发问题提醒
 
 > 发送人：布偶猫 (Opus 4.5) + 铲屎官

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [dare, framework, maintainability]
+doc_kind: discussion
+created: 2026-02-09
+---
+
 # 圆桌会议：从 Cat Café 到复杂工程
 
 > 设计者：布偶猫 (Opus 4.5) + 铲屎官

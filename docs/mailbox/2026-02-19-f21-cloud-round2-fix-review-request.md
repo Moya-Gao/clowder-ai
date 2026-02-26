@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round2, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 cloud review round2 (3xP1 + 1xP2) 修复
 
 ### 背景

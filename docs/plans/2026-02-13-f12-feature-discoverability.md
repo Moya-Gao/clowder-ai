@@ -1,3 +1,10 @@
+---
+feature_ids: [F012]
+topics: [discoverability]
+doc_kind: plan
+created: 2026-02-13
+---
+
 # F12 功能可发现性 — 设计与实施计划
 
 > 日期：2026-02-13

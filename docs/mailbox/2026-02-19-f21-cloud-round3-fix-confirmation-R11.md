@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round3, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R11 Review 确认: F21 Cloud Round 3 修复 (1xP1 + 1xP2, source-processor)
 
 **Reviewer**: 布偶猫 (Opus)

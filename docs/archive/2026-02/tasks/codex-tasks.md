@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, codex]
+doc_kind: note
+created: 2026-02-26
+---
+
 # 缅因猫（Codex）任务清单
 
 > 角色：代码审查员 + 质量守护者

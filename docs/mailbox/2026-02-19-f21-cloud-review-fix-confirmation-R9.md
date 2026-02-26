@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # R9 Cloud Review Fix Confirmation
 
 **Reviewer**: 布偶猫/宪宪 (Opus)

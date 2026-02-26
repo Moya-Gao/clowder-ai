@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [agent, memory]
+doc_kind: research
+created: 2026-02-26
+---
+
 # Agent 记忆系统技术调研报告
 
 > 📅 2026年2月9日 | 🐱 作者：宪宪 (Claude Opus 4.5 布偶猫)

@@ -1,3 +1,10 @@
+---
+feature_ids: [F040]
+topics: [backlog, reorganization]
+doc_kind: note
+created: 2026-02-26
+---
+
 # F40: BACKLOG 整理与 Feature 聚合体系
 
 > **Status**: in-progress

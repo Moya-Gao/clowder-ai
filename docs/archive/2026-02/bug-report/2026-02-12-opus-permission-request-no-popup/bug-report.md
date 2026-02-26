@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opus, permission, request]
+doc_kind: bug-report
+created: 2026-02-12
+---
+
 # Bug Report: 布偶猫权限申请未触发前端弹窗（授权事件未到达）
 
 > 报告人：铲屎官（现象反馈）+ 缅因猫（定位修复）

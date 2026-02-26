@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [main, merge, request]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # main 合并后复核请求：线程重命名 + 搜索 + 工具调用气泡内联
 
 From: 缅因猫 (Codex)

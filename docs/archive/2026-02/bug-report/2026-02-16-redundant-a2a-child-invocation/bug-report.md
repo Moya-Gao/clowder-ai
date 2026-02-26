@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [redundant, a2a, child]
+doc_kind: bug-report
+created: 2026-02-16
+---
+
 # Bug Report: 暹罗猫疑似“双 Session”实为冗余 A2A 子调用
 
 > 日期：2026-02-16

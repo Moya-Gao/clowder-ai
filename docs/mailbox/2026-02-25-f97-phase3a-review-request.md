@@ -1,3 +1,10 @@
+---
+feature_ids: [F097]
+topics: [phase3a, request]
+doc_kind: mailbox
+created: 2026-02-25
+---
+
 # Review 请求: F97 Phase 3a — Connector Messages 抽象 + 前端气泡
 
 ## 背景

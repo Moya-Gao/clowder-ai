@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, sidebar, request]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # Review 请求: Thread Sidebar 三个体验优化
 
 **From**: 布偶猫 → **To**: 缅因猫

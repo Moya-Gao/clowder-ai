@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, config, control]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # Hindsight Config Control Plane Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

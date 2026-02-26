@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, learned]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Lessons Learned
 
 > 目的：沉淀可复用、可验证、可追溯的教训，避免重复踩坑。  

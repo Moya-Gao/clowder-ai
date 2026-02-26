@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr008, request, maine]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # ADR-008 S1 Review Request — InvocationRecord + Store
 
 > From: 布偶猫 (Opus)

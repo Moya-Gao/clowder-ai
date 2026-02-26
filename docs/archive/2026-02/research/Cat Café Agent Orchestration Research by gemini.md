@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, caf, agent]
+doc_kind: research
+created: 2026-02-26
+---
+
 # **Technical Feasibility and Architectural Strategy for Multi-Agent Orchestration in Service Environments: The Cat Café Case Study**
 
 ## **1\. Executive Summary**

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [token, usage, panel]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 最近调用卡片缺少暹罗猫上下文条且双进度条语义不清
 
 ## 1) 报告人

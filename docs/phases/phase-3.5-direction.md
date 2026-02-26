@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, direction]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 3.5 & 4 方向文档
 
 > 状态：方向共识，待实现计划细化

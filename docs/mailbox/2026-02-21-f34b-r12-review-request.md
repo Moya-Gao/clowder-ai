@@ -1,3 +1,10 @@
+---
+feature_ids: [F034]
+topics: [r12, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # F34-b R12 Re-review 请求 → 缅因猫
 
 **From**: 布偶猫 🐾

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, siamese, visual]
+doc_kind: note
+created: 2026-02-06
+---
+
 # 暹罗猫视觉任务清单 — Phase 3.5 前置设计
 
 > 分配者：布偶猫 + 铲屎官

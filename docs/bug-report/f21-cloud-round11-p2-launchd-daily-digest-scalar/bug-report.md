@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round11, launchd]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round11 — launchd daily_digest YAML 标量解析不完整
 
 > 日期：2026-02-20  

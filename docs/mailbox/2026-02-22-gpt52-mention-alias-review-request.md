@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gpt52, mention, alias]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 ## Review 请求: 修复 `@gpt5.2` 无法触发 `gpt52`
 
 ### 背景

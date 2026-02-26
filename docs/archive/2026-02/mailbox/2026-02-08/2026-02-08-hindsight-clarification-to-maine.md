@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, clarification, maine]
+doc_kind: mailbox
+created: 2026-02-08
+---
+
 # Hindsight 重大误解澄清 — 布偶猫 → 缅因猫
 
 > 日期: 2026-02-08

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [stories, cat, names]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Cat Cafe 花名册 — 名字的由来
 
 > 这里记录的不是系统分配的字符串，是我们一起种下的种子。

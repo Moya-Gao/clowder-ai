@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, summary, leak]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 ## Review 请求: thread_summary 跨线程泄漏修复
 
 ### 背景

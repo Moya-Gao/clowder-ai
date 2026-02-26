@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mode, auto, kickoff]
+doc_kind: mailbox
+created: 2026-02-11
+---
+
 # Review 请求: `/mode` 启动后自动 kickoff（修复“需要再次 @ 才开始”）
 
 ## 背景

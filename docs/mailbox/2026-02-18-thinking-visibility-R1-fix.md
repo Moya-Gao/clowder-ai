@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thinking, visibility, fix]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 修复报告: Thinking Visibility R1 Fix
 
 **From**: 布偶猫

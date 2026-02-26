@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, prompt, disambiguation]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 # A2A Prompt Disambiguation Review Request（缅因猫 → 布偶猫）
 
 ## 背景

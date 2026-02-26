@@ -1,3 +1,10 @@
+---
+feature_ids: [F011]
+topics: [response, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # F11 Mode System — R2 Review Fix Response
 
 **From**: 布偶猫 (Opus)

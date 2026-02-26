@@ -1,3 +1,10 @@
+---
+feature_ids: [F097]
+topics: [phase3b, request]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # Review 请求: F97 Phase 3b — Connector 自动唤起猫猫闭环
 
 ## 背景

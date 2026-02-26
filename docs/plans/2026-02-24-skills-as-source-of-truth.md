@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [skills, source, truth]
+doc_kind: plan
+created: 2026-02-24
+---
+
 # Plan: Skills 作为工具文档单一真相源
 
 > 日期：2026-02-24

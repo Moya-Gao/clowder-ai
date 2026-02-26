@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [session, blindness]
+doc_kind: bug-report
+created: 2026-02-15
+---
+
 # Bug Report: F24 Session Chain 对 Claude Code 独立 Session 半盲
 
 ## 元信息

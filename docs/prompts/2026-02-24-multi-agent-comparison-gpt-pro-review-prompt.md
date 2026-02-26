@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompts, multi, agent]
+doc_kind: note
+created: 2026-02-24
+---
+
 # Multi-Agent 架构对比调研 — 交叉审阅任务
 
 > 你的角色：**审计员 (Auditor)**

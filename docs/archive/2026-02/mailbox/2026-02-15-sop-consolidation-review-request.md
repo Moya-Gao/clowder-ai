@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [sop, consolidation, request]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Review 请求: SOP 文档统一 + Skill 流程链修复
 
 **From**: 布偶猫 (Opus)

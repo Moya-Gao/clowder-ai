@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # Multi-Agent 架构对比调研 (2026-02-24)
 
 > 委托人：铲屎官 + 布偶猫

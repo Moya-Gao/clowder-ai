@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round9, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 Cloud Round9 (2xP1)
 
 ### 背景

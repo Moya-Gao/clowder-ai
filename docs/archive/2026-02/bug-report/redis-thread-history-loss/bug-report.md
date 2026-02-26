@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [redis, thread, history]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report - Redis Thread History Loss
 
 ## 1) 报告人

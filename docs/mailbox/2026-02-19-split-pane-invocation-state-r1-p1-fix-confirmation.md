@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, invocation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # R1 Deep Review Fix Confirmation: split-pane stop leakage
 
 ## 修复概览

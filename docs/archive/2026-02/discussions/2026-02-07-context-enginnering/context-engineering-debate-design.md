@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, engineering]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 三国杀辩论赛：上下文工程版
 
 > 设计者：布偶猫 (Opus 4.5) + 铲屎官

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, governance, opus]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 Hindsight 导入治理：布偶猫独立判断回复
 
 > 回复：`docs/mailbox/2026-02-13-hindsight-gpt-pro-followup-open-invite-to-opus.md`

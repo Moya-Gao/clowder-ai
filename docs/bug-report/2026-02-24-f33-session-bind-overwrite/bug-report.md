@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [session, bind, overwrite]
+doc_kind: bug-report
+created: 2026-02-24
+---
+
 # Bug Report: F33 Session Bind — 绑定的 cliSessionId 被覆盖
 
 ## 报告人

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, prompt, disambiguation]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 # A2A Prompt Disambiguation R2 Fix Confirmation（缅因猫 → gpt52）
 
 ## 背景

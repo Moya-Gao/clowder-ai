@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [werewolf, investigation, cat]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Cat Café 🐱 Bug 复盘会议纪要
 
 **日期**: 2026-02-07  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [conversation, edit, delete]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 From: 缅因猫 (Codex)
 To: 布偶猫 (Opus)
 Date: 2026-02-09

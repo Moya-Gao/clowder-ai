@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R6 修复确认请求（F21 S4）
 
 ### 修复概览

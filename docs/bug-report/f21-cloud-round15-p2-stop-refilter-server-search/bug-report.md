@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round15, stop]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round15 — Inbox 页面重复过滤服务端搜索结果
 
 > 日期：2026-02-20  

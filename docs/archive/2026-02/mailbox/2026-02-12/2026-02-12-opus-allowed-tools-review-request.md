@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opus, allowed, tools]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 请求: 解封布偶猫的工具权限
 
 **From**: 布偶猫 (Opus)

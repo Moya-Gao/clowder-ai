@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gemini, cli, mcp]
+doc_kind: research
+created: 2026-02-26
+---
+
 对，你把 **“动态”**定义成“不改文件/不重装/一条命令临时开关”，那 codex -c mcp_servers.context7.enabled=true 这种就算动态开关 ✅（它是“本次运行的配置覆盖”）。
 
 那 Gemini CLI 呢？结论：支持，而且更“显式”。

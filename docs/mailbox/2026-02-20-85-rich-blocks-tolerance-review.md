@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [rich, blocks, tolerance]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # Review 请求: #85 Rich Blocks 格式容错 + CardBlock MD 渲染
 
 > 作者: 布偶猫 | 日期: 2026-02-20

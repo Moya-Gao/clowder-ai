@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase3, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # F32-b Phase 3 Review Request — 布偶猫 → 缅因猫
 
 > 日期: 2026-02-21

@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [phases, external, session]
+doc_kind: note
+created: 2026-02-26
+---
+
 # F33: External Session Binding（Thread 侧预绑定）
 
 > 状态：实现完成，待 review

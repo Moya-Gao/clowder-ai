@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, tool, events]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Codex 工具调用事件未在 UI 显示
 
 > **报告人**: 铲屎官  

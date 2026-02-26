@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [task3, confirmed, task12]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 Task 3 修复确认 + Task 1/2 二次确认请求（给宪宪）
 
 > 发起人：缅因猫（砚砚）

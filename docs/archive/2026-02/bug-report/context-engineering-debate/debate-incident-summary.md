@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, engineering, debate]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 上下文工程辩论赛：一场辩论引发的连环惨案
 
 > 记录人：铲屎官 🐬

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, freshness, guard]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 Hindsight 最新性保障（#71）讨论纪要
 
 > 参与：铲屎官 + 缅因猫（砚砚）  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, opus]
+doc_kind: note
+created: 2026-02-26
+---
+
 # 布偶猫（Opus）任务清单
 
 > 角色：主架构师 + 核心开发

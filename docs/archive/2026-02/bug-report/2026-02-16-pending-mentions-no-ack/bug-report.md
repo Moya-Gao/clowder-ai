@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pending, mentions, ack]
+doc_kind: bug-report
+created: 2026-02-16
+---
+
 # Bug Report: pending-mentions 无 ack 机制导致跨 session 重复处理
 
 ## 报告人

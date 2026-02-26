@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, pre69, data]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # Hindsight Pre-#69 Data Quality + Weekly Eval Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

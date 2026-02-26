@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, request]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: Split-Pane UX 修复 + 样式统一
 
 **From**: 布偶猫/宪宪

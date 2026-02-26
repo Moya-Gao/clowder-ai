@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [fix, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # P1 Bug Fix + P2 F11 Design Gaps — Review 请求
 
 **From**: 布偶猫

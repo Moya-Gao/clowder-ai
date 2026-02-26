@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [background, thread, rendering]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # R1 Fix Confirmation: background thread 工具事件与指标渲染对齐
 
 ## 修复概览

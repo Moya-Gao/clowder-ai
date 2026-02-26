@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cli, image, flags]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Claude/Gemini image flags mismatch causes CLI exit code 1
 
 ## 1) 报告人

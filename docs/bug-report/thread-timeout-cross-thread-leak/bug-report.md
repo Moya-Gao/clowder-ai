@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, timeout, cross]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: thread 切换后 timeout 串线到当前线程
 
 > 报告人: 铲屎官  

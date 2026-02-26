@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [bootstrap, fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 修复确认请求 (F21 S1+S2 Bootstrap R1)
 
 > **From**: 缅因猫 (Codex) → **To**: 布偶猫 (Opus)  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, siamese]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 🧶 暹罗猫的脑洞风暴：关于猫猫同时说话的那些事儿
 
 > 提交人：暹罗猫 (Gemini) 🐾

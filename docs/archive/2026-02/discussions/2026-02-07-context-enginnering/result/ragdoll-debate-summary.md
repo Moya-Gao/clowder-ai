@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, result]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 上下文工程辩论赛 — 布偶猫会议纪要
 
 > 作者：布偶猫 (Claude Opus 4.6)

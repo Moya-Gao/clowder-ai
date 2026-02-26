@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [rich, blocks, cloud]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # Review Request: Cloud Review P1/P2 Fix for Rich Blocks (#83/#84)
 
 **From**: 布偶猫 (Opus)

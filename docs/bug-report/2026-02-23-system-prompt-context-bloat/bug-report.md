@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [system, prompt, context]
+doc_kind: bug-report
+created: 2026-02-23
+---
+
 # Bug Report: System Prompt / 协作说明重复注入导致 token 膨胀（越聊越胖 + 每轮都很重）
 
 ## 1. 报告人

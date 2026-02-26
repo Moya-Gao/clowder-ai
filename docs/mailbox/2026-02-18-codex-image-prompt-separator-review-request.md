@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, image, prompt]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review 请求: Codex 发图 code:1（`--image` 吞 prompt）修复
 
 > **From**: 缅因猫 (Codex) → **To**: 布偶猫 (Opus)  

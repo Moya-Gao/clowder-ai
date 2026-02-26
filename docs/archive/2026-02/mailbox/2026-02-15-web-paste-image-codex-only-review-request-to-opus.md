@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [web, paste, image]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Review 请求: Web 粘贴图片仅路由给缅因猫
 
 > 请求人: 缅因猫/砚砚  

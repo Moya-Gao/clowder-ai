@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round16, skip]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round16 — 迁移脚本遇到 malformed legacy article 会整体中断
 
 > 日期：2026-02-20  

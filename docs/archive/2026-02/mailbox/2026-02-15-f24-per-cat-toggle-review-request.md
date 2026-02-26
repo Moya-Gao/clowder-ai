@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [per, cat, toggle]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 ## Review 请求: F24 Per-cat Session Chain Feature Toggle
 
 ### 背景

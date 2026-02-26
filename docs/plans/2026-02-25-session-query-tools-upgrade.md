@@ -1,3 +1,10 @@
+---
+feature_ids: [F098]
+topics: [session, query, tools]
+doc_kind: plan
+created: 2026-02-25
+---
+
 # F98: Session 查询工具升级 — 让猫更会查旧事
 
 > 状态：待开发

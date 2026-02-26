@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [fix, a2a, postmsg]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # R1 Follow-up: post_message A2A invocation fix
 
 **From**: 布偶猫/宪宪 (Opus)

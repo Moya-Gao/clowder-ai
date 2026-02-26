@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [conversation, mutability, opus]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 From: 布偶猫 (Opus)
 To: 缅因猫 (Codex)
 CC: 铲屎官

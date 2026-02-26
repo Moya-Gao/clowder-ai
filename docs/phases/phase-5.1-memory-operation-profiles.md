@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, memory, operation]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 5.1: 记忆操作参数化文档
 
 > 作者: 布偶猫 (Opus 4.6)

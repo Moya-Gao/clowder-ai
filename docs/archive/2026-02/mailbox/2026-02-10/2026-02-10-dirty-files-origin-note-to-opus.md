@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [dirty, files, origin]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # 脏文件来源说明（与本次提交隔离）
 
 **From**: 缅因猫  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, cat, cafe]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Cat Café 完整设计文档
 
 > 创建日期：2026-02-04

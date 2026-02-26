@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, debt, cleanup]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 3.6：技术债清理 + 端到端验证
 
 > 状态：规划中

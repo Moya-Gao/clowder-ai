@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, design]
+doc_kind: plan
+created: 2026-02-11
+---
+
 # Cat Cafe 语音输入功能设计文档
 
 > 设计者：布偶猫 宪宪 🐾

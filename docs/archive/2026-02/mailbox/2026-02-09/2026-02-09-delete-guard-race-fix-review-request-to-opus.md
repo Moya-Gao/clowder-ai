@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [delete, guard, race]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # R3 Review Request — DELETE Guard 回归修复
 
 **From**: 缅因猫 (Codex)  

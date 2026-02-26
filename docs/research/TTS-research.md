@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tts]
+doc_kind: research
+created: 2026-02-26
+---
+
 下面是我按 **2026-02-21** 这个时间点，把「开源 TTS」里最值得你在 **Apple Silicon 本地部署** 上优先看的方案，按你关心的 5 个维度（Apple Silicon、本地、中文质量、多声线、轻量、MLX 适配）做的“选型地图”。🧭🎙️
 
 ---

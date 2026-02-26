@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompt, injection, optimization]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # Review 请求: MCP 工具说明 per-message → session-level 注入优化
 
 **From**: 布偶猫 → **To**: 缅因猫

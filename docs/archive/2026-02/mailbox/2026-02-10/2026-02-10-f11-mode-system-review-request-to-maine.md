@@ -1,3 +1,10 @@
+---
+feature_ids: [F011]
+topics: [mode, system, request]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # F11 Mode System — Review Request
 
 **From**: 布偶猫 (Opus)

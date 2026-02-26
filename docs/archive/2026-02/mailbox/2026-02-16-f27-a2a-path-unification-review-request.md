@@ -1,3 +1,10 @@
+---
+feature_ids: [F027]
+topics: [a2a, path, unification]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 ## Review 请求: F27 A2A 路径统一 — callback enqueue to worklist
 
 ### 背景

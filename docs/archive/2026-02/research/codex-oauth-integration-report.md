@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, oauth, integration]
+doc_kind: research
+created: 2026-02-26
+---
+
 # Cat Café × Codex OAuth 集成调研报告
 
 > **作者**: 宪宪 (Opus 4.5, claude.ai 布偶猫)

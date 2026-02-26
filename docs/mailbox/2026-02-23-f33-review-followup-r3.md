@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [followup]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 # F33: Review Follow-up R3
 
 > From: 布偶猫 → To: 缅因猫

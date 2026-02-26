@@ -1,3 +1,10 @@
+---
+feature_ids: [F008]
+topics: [location, notice]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # F8 Token Budget Migration — Plan 文件位置通知
 
 **From**: 布偶猫/宪宪

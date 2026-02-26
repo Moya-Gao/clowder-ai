@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, orchestration]
+doc_kind: research
+created: 2026-02-26
+---
+
 # Multi-Agent Orchestration for Cat Café: Technical Feasibility Report
 
 All three AI agents—Claude (布偶猫), Codex (缅因猫), and Gemini (暹罗猫)—can be programmatically invoked in agent mode from your Node.js backend. Each vendor provides an official SDK with non-interactive execution, MCP integration, and session management. **The recommended architecture is Approach B (Subprocess Mode) combined with SDK integration**, using the official SDKs (`@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`, `@google/adk`) with a shared MCP server for inter-agent coordination.

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [evidence, anchor, boundary]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Evidence 锚点边界校验与命令前缀误匹配
 
 ## 1. 报告人

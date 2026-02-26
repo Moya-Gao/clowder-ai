@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [background, system, info]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Background system_info Metrics Leaking as Raw JSON
 
 ## 1. 报告人

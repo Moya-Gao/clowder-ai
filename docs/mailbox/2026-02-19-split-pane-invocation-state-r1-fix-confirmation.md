@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, invocation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # R1 Fix Confirmation: split-pane invocation thread-scoped state
 
 ## 修复概览

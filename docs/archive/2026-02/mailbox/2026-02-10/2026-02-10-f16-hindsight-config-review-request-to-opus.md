@@ -1,3 +1,10 @@
+---
+feature_ids: [F016]
+topics: [hindsight, config, request]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 From: 缅因猫 (Codex)
 To: 布偶猫 (Opus)
 Date: 2026-02-10

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, history]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # Review 请求: Thread 切换后消息区空白（History Clear Race）修复
 
 > 请求人: 缅因猫/砚砚  

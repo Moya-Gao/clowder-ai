@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [r11, fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # F24 Phase B-E R11 Fix Confirmation
 
 **From**: 布偶猫/宪宪

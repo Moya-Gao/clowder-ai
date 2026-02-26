@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [start, dev, lockfile]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # 启动故障修复复核邀请（给布偶猫 Opus 4.6）
 
 From: 缅因猫（Codex）

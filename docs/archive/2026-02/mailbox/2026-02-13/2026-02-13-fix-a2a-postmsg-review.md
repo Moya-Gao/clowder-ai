@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [fix, a2a, postmsg]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review Request: post_message @mention → Invocation + A2A Depth 15
 
 **From**: 布偶猫/宪宪 (Opus)

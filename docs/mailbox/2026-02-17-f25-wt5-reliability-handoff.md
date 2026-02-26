@@ -1,3 +1,10 @@
+---
+feature_ids: [F025]
+topics: [wt5, reliability, handoff]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # WT-5 工作交接：F25 可靠性（并发演练 + 证据闸门）
 
 **From**: 布偶猫 (宪宪)

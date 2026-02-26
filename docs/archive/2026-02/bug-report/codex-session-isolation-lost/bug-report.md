@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, session, isolation]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Codex Session 被 HOME 隔离吞掉
 
 > **报告人**: 铲屎官 (发现) + 布偶猫 (定位)

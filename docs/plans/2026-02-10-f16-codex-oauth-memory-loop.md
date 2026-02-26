@@ -1,3 +1,10 @@
+---
+feature_ids: [F016]
+topics: [codex, oauth, memory]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # F16 Codex OAuth + 记忆闭环 Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

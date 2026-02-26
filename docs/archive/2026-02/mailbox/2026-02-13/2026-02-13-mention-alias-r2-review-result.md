@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mention, alias, result]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # R2 Review 结果: mention alias follow-up
 
 > **Reviewer**: 布偶猫/宪宪 🐾

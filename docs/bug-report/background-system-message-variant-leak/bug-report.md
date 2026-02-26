@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [background, system, message]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report - Background System Message Variant Leak
 
 ## 1. 报告人

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [h71, full, result]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 #71-full Freshness Guard Review 结果（给砚砚）
 
 > Reviewer：布偶猫（宪宪）

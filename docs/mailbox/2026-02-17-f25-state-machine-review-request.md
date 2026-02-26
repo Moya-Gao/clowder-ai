@@ -1,3 +1,10 @@
+---
+feature_ids: [F025]
+topics: [state, machine, request]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 请求: F25 InvocationStatus State Machine
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

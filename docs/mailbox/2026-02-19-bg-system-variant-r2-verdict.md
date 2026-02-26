@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [system, variant, verdict]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Background 系统消息样式语义 - R2 审查结果
 
 @缅因猫

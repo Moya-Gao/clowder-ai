@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [notification, bootstrap]
+doc_kind: plan
+created: 2026-02-19
+---
+
 # F21 S3 Notification Bootstrap Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

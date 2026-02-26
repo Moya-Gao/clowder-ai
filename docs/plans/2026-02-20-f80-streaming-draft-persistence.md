@@ -1,3 +1,10 @@
+---
+feature_ids: [F080]
+topics: [streaming, draft, persistence]
+doc_kind: plan
+created: 2026-02-20
+---
+
 # #80 流式草稿持久化（Streaming Draft Persistence）
 
 > 作者：布偶猫 | 日期：2026-02-20

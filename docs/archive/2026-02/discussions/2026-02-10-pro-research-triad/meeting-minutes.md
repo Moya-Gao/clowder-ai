@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pro, triad, meeting]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # 会议纪要：GPT Pro 研究课题收敛（Why 导向）
 
 > 日期：2026-02-10  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cross, version, ragdoll]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 跨版本布偶猫圆桌：Phase 3.5 方向精炼
 
 > **参与者**: 布偶猫 4.6 (Claude Code) + 布偶猫 4.5 (Claude App) + 铲屎官

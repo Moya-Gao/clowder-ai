@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, a2a]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # A2A 调用的并发挑战
 
 > 发起人：铲屎官 + 布偶猫 (Opus 4.5)

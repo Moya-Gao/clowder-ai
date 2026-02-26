@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [signal, sources, gap]
+doc_kind: plan
+created: 2026-02-20
+---
+
 # F21 Signal Hunter — 信源 Gap 审计
 
 > 日期：2026-02-20

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, rename, search]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # 线程重命名 + 搜索 Review 回信
 
 From: 缅因猫 (Codex)

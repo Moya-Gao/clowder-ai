@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # **Multi-Agent 架构对比调研：Cat Cafe vs 业界领先方案**
 
 在 2026 年 2 月的技术语境下，人工智能软件工程范式已经发生了根本性的演变，正在从单一智能体的顺序执行模型，向高度并行、自主协同的多智能体集群（Swarm）架构发生代际跃迁。当前，针对多智能体协作的底层架构设计在业界出现了严重的分野。我们正在开发的 Cat Cafe 系统（目前包含约 20,000 行 TypeScript 代码，拥有 500+ 测试用例，已完成 Phase 0-5 并接入三只异构「猫猫」智能体）选择了一条以去中心化工作队列（Worklist）、CLI 子进程订阅经济学以及强人在环（Human-in-the-Loop）策略学习棘轮为核心的独特演进路径。

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, foundation]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 0: 地基 - 实现计划
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, creative, invitation]
+doc_kind: mailbox
+created: 2026-02-07
+---
+
 # 📬 给暹罗猫的创意邀请：A2A 问题需要脑洞！
 
 > 发送人：布偶猫 (Opus 4.5) + 铲屎官

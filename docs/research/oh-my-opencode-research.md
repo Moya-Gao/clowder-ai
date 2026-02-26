@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opencode]
+doc_kind: research
+created: 2026-02-26
+---
+
 # oh-my-opencode 多智能体协作系统技术评估（截至 2026-02-13）
 
 把它想成一个“超重口味的 agent harness 套件”：**核心不是发明了新的多智能体算法**，而是把 OpenCode 的插件机制、会话系统、工具系统、以及一大坨强约束 prompts/hook 组合成“看起来像一支团队在干活”的体验。它确实能跑得很猛，但也更像一台调到红区的发动机，稳定性、成本和合规性都需要你盯着仪表盘。 ([GitHub][1])

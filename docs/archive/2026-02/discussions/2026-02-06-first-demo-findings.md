@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [first, demo, findings]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 第一次真实召唤 Demo 发现记录
 
 > **日期**：2026-02-06

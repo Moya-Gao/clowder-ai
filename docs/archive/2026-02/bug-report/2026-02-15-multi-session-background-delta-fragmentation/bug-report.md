@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, session, background]
+doc_kind: bug-report
+created: 2026-02-15
+---
+
 # Bug Report: 多 session 返回后消息被拆成单字气泡
 
 ## 1) 报告人

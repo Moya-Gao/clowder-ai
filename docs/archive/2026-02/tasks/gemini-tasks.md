@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, gemini]
+doc_kind: note
+created: 2026-02-26
+---
+
 # 暹罗猫（Gemini）任务清单
 
 > 角色：视觉设计师 + 创意担当

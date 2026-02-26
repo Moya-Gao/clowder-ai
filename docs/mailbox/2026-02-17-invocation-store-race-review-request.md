@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [invocation, store, race]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 ## Review 请求: RedisInvocationRecordStore 非 CAS 并发竞态修复
 
 ### 背景

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [authorization, header, mismatch]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 授权卡“同意/拒绝”点击无效并堆积 pending 请求
 
 > **报告人**: 铲屎官  

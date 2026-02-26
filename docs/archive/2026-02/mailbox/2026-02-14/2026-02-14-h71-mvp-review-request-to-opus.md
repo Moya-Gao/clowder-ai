@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [h71, mvp, request]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 #71-MVP Freshness Guard Review 请求（给宪宪）
 
 > 发起人：缅因猫（砚砚）

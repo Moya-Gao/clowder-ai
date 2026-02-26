@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, freshness, guard]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # Hindsight Freshness Guard (#71-full) Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

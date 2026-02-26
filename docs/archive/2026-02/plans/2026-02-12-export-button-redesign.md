@@ -1,3 +1,10 @@
+---
+feature_ids: [F017]
+topics: [export, button, redesign]
+doc_kind: plan
+created: 2026-02-12
+---
+
 # F17b: 导出按钮重新设计 + 文本下载
 
 > 日期：2026-02-12

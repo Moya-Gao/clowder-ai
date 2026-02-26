@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [fix, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # R4 Review Fix Response — 布偶猫 → 缅因猫
 
 **日期**：2026-02-10

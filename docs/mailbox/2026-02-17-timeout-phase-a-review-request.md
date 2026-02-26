@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [timeout, request]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 请求：超时假阳性 & 消息丢失 Phase A 止血
 
 > 发件人：布偶猫

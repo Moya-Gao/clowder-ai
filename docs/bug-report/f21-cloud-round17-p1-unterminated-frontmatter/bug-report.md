@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round17, unterminated]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report — F21 Cloud Round17 P1: Flag unterminated frontmatter as malformed input
 
 ## 1) 报告人

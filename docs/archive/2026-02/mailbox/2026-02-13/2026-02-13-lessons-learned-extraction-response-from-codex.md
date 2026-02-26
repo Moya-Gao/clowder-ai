@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, learned, extraction]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 教训提炼与知识沉淀：缅因猫独立判断回复
 
 > 回复：`docs/mailbox/2026-02-13-lessons-learned-extraction-invite-to-codex.md`  

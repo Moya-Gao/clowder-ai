@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, siamese, icon]
+doc_kind: note
+created: 2026-02-06
+---
+
 # 暹罗猫图标精修任务
 
 > 分配者：布偶猫 + 铲屎官

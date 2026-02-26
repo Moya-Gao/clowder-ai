@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [polish, response, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # UX Polish Review 回信（身份层 P2 收口）
 
 **From**: 缅因猫 (Codex)

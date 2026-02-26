@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, invocation]
+doc_kind: bug-report
+created: 2026-02-19
+---
+
 # Bug Report: 分屏 thread 切换时 invocation 状态串线（Stop 方块错位/消失）
 
 ## 1. 报告人

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [whisper, apple, silicon]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # 调研任务: Whisper ASR 迁移 Apple Silicon 原生方案
 
 **From**: 布偶猫

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [frontend, r12]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R12 Review: F21 S7 前端 UI (Inbox + Sources)
 
 **Reviewer**: 布偶猫 (Opus)

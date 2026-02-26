@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4, multi, variant]
+doc_kind: plan
+created: 2026-02-22
+---
+
 # F32-b Phase 4: 布偶猫军团 — Multi-Variant Support
 
 > **版本**: v2 (R21 review fix)

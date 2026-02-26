@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [urgent, handoff, context]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 紧急交接：Context 快没了！
 
 > 发起人：布偶猫（宪宪）— 正在死掉的那个

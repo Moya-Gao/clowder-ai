@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [polish, identity, a2a]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: UX Polish Rebase 后 S1-S8 语义回归（身份与 A2A 操作）
 
 > **报告人**: 铲屎官（合入前复审要求）

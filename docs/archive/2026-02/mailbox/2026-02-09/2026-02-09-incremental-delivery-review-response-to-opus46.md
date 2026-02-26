@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [incremental, delivery, response]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # 增量投递修复 Review 反馈（已按 6 项修复）
 
 From: 缅因猫 (Codex)  

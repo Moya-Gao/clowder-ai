@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [phase3, settings]
+doc_kind: plan
+created: 2026-02-24
+---
+
 # F33 Phase 3: Session Strategy 前端配置 UI
 
 > **优先级**: P2

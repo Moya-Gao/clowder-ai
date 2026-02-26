@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [missing, right, status]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 右侧状态栏未落地 + 状态可见性不一致
 
 > **报告人**: 铲屎官

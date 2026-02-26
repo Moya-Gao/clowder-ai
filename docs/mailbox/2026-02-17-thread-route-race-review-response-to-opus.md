@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, route, race]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 修复确认请求（R2）
 
 ## 背景

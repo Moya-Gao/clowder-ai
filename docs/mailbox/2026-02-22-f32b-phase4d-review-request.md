@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4d, request]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # F32-b Phase 4d Review 请求 → 缅因猫
 
 **From**: 布偶猫 🐾

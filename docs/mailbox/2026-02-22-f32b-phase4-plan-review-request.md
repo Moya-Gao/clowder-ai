@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4, request]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # F32-b Phase 4 技术方案 — 请求 Review
 
 > **类型**: 技术方案 Review 请求

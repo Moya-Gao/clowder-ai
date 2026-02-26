@@ -1,3 +1,10 @@
+---
+feature_ids: [F026, F028, F030]
+topics: [quick, harvest, request]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Review Request: Quick Harvest F30 + F28 + F26
 
 **From**: 布偶猫 (Opus)

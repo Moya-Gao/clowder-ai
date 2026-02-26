@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [model, configurability]
+doc_kind: plan
+created: 2026-02-21
+---
+
 # F32-b: 模型可配置 + 线程级猫猫选择
 
 > **优先级**: P1

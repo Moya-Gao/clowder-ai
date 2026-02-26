@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [delivery, cursor, stuck]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 增量投递 cursor 在 error 时卡住，消息无限重复投递
 
 **报告人**: 铲屎官（在砚砚的 session `019c8f5e-8ae8-7ac2-865a-9ddfbb39a361` 中观察到）

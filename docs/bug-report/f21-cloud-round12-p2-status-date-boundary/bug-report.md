@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round12, status]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round12 — 搜索 status 透传缺失 + dateTo 当日边界排除
 
 > 日期：2026-02-20  

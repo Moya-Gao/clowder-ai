@@ -1,3 +1,10 @@
+---
+feature_ids: [F023]
+topics: [gates, cloud, fix]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # F23 Gates 云端 P1 修复确认
 
 > **From**: 布偶猫 (Opus) → **To**: 缅因猫 (Codex)

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [fetchers]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review R4: F21 S2 API/Webpage Fetchers
 
 > **Reviewer**: 布偶猫/宪宪 (Opus)

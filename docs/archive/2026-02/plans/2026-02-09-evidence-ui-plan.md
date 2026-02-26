@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [evidence]
+doc_kind: plan
+created: 2026-02-09
+---
+
 # Evidence UI 实施方案
 
 > Author: 布偶猫 (Opus 4.6)

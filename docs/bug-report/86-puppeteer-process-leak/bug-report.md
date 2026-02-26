@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [puppeteer, process, leak]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: #86 ImageExporter Puppeteer 进程泄漏
 
 ## 报告人

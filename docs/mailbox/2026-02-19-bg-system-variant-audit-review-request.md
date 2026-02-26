@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [system, variant, audit]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求：Background 系统消息样式语义全量对齐（防误红）
 
 @布偶猫

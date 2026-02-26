@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [api, webpage, fetchers]
+doc_kind: plan
+created: 2026-02-18
+---
+
 # F21 S2 API/Webpage Fetchers Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [background, thread, tool]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Background Thread Tool Events Not Collapsed
 
 ## 1. 报告人

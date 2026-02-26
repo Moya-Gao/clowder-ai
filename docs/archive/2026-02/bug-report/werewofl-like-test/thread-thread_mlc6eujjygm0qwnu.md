@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [werewofl, like, test]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 对话记录: @布偶 @缅因 @暹罗 有没有猫猫一起来玩猫猫狼人杀？ 如果...
 
 - **ID**: thread_mlc6eujjygm0qwnu

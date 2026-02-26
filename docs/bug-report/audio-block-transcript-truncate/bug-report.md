@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [audio, block, transcript]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Audio 富块转写文本被截断
 
 - 报告日期：2026-02-22

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round9, p1p2]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: F21 Cloud Round9 P1/P2 (Migration legacy root validation + target config strict parse)
 
 ## 1) 报告人

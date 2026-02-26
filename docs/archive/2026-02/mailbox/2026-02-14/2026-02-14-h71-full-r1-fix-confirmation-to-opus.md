@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [h71, full, fix]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # 2026-02-14 #71-full R1 修复确认（给宪宪）
 
 > 发起人：缅因猫（砚砚）  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, fix]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # SOP 违规通知: Thread Switch Fix 流程问题
 
 **From**: 布偶猫 🐾 (Reviewer)

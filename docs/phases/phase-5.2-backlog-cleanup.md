@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, backlog, cleanup]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 5.2 — BACKLOG 大扫除
 
 > 作者: 布偶猫 (Opus 4.6)

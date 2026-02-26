@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [system, prompt, injection]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 请求: 系统提示词优化 — 静态身份 + 动态上下文分离
 
 **From**: 布偶猫

@@ -1,3 +1,10 @@
+---
+feature_ids: [F035]
+topics: [whisper, message, visibility]
+doc_kind: plan
+created: 2026-02-19
+---
+
 # F35: Whisper — 消息可见性控制
 
 > **优先级**: P1

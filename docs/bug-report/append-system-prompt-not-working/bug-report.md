@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [append, system, prompt]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: --append-system-prompt 不生效，猫猫新 session 缺失身份/队友/MCP
 
 **报告人**: 铲屎官（在某只布偶猫的 session 中观察到）

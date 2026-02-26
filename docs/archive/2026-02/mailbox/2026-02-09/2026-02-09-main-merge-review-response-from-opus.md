@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [main, merge, response]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # main 合并后复核完成：线程重命名 + 搜索 + 工具气泡内联
 
 From: 布偶猫 (Opus)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, health, inflated]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: ContextHealthBar 显示百分比严重偏高 Bug Fix
 
 **From**: 布偶猫 (opus)

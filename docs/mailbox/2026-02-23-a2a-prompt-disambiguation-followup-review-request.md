@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, prompt, disambiguation]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 ## Review 请求: A2A prompt disambiguation follow-up (mention handle invariant + play-mode isolation)
 
 ### 背景

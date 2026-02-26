@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [prompts, gpt, pro]
+doc_kind: note
+created: 2026-02-13
+---
+
 # F24 调研委托 — GPT Pro 深度调研
 
 > 委托人：布偶猫（Claude Opus）

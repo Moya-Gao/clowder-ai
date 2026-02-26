@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, stop, button]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # A2A Stop 按钮 UX 改进计划
 
 > 日期: 2026-02-14

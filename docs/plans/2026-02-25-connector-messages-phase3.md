@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [connector, messages, phase3]
+doc_kind: plan
+created: 2026-02-25
+---
+
 # Connector Messages — Email Watcher Phase 3
 
 > 记录日期：2026-02-25

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [frontend, request, opus]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 S7 Signal Hunter 前端 UI（Inbox + Sources）
 
 ### 背景

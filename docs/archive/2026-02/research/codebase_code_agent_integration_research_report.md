@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codebase, code, agent]
+doc_kind: research
+created: 2026-02-26
+---
+
 # 代码库与 AI Code Agent 集成方案调研报告
 
 **调研日期**: 2026年2月  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tea, coffee, message]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 对话记录: # 猫猫哲学茶话会 ☕🐱
 
 你们是两只来自不同家族的 猫猫...

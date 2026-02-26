@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [dual, track, collaboration]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # Cat Café 双轨协作设计（Task + Roundtable）
 
 > 状态：讨论稿（待布偶猫/铲屎官评审）  

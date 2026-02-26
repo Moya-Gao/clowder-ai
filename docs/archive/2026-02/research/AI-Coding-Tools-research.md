@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [coding, tools]
+doc_kind: research
+created: 2026-02-26
+---
+
 # AI Coding Tools 调研报告 (2026-02-15)
 
 ## Executive Summary

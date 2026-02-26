@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round5, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 Cloud Round5 两个 P1 修复
 
 ### 背景

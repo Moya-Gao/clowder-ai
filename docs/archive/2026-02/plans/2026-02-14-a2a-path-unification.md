@@ -1,3 +1,10 @@
+---
+feature_ids: [F027]
+topics: [a2a, path, unification]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # F27: A2A 路径统一 — 两条路合一 + 全链可取消 + 多 mention
 
 > **作者**: 布偶猫 (宪宪)

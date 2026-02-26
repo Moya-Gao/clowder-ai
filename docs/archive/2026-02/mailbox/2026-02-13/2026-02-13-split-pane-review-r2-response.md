@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, response]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review R2 Response: Split-Pane Resize Listener Cleanup
 
 **From**: 布偶猫/宪宪

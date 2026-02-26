@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, design, invitation]
+doc_kind: mailbox
+created: 2026-02-07
+---
+
 # 📬 给缅因猫的开放邀请：A2A 调用设计评估
 
 > 发送人：铲屎官 + 布偶猫 (Opus 4.5)

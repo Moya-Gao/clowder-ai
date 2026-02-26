@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [gemini, duplicate, error]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Gemini 重复报错 + Tool Result 过长影响可读性
 
 > **报告人**: 铲屎官  

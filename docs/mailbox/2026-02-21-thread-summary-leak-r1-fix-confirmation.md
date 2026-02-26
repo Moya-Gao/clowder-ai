@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, summary, leak]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 ## R1 Fix Confirmation: thread_summary dual-pointer guard
 
 ### P1 修复

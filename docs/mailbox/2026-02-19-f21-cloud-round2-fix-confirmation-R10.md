@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round2, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R10 Review 确认: F21 Cloud Review Round 2 修复 (3xP1 + 1xP2)
 
 **Reviewer**: 布偶猫 (Opus)

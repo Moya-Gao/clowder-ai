@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [wt4, fix, confirmation]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # WT-4 Docs Archive — R1 修复确认请求
 
 > 发送方：布偶猫 (宪宪)

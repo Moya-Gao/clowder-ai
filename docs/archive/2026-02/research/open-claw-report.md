@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [open, claw]
+doc_kind: research
+created: 2026-02-26
+---
+
 OpenClaw 技术调研报告
 
 背景

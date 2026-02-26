@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [incremental, delivery, fix]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # 增量投递去重防丢修复 Review 请求
 
 From: 缅因猫 (Codex)  

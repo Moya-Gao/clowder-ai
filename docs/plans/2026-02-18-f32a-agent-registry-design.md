@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [agent, registry, design]
+doc_kind: plan
+created: 2026-02-18
+---
+
 # F32-a: CatId 松绑 + AgentRegistry — 设计文档
 
 > **优先级**: P1

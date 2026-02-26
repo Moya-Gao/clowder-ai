@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [gpt, pro, result]
+doc_kind: research
+created: 2026-02-13
+---
+
 ## A. Claude CLI stream-json 深入调研
 
 > 本节结论以 Anthropic 官方 Claude Code / Agent SDK 文档 + GitHub Issues 为主；均为 2025-2026 期间材料。

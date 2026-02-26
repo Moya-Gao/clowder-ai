@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, exec, image]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Codex `exec --image` 吞掉 prompt 导致 CLI code 1
 
 ## 1) 报告人

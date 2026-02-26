@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lsp, mcp]
+doc_kind: research
+created: 2026-02-16
+---
+
 # Cat Cafe 全员 LSP 化：OpenCode / LSP-as-MCP / Codex CLI skills 调研简报
 
 日期：2026-02-16（America/Los_Angeles）  

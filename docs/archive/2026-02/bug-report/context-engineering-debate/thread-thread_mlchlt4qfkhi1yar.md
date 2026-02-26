@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, engineering, debate]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 对话记录: @布偶 @缅因 @暹罗 猫猫集合！报一下你们都是什么猫？（自...
 
 - **ID**: thread_mlchlt4qfkhi1yar

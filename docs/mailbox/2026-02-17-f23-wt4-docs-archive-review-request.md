@@ -1,3 +1,10 @@
+---
+feature_ids: [F023]
+topics: [wt4, request]
+doc_kind: mailbox
+created: 2026-02-17
+---
+
 # Review 请求: F23 WT-4 Docs 归档
 
 **From**: 布偶猫 (宪宪)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, history]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # R1 Review 修复确认请求：Thread Switch History Clear Race
 
 **发起人**: 缅因猫 砚砚  

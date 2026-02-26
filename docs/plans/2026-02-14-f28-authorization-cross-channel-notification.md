@@ -1,3 +1,10 @@
+---
+feature_ids: [F028]
+topics: [authorization, cross, channel]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # F28: 授权请求跨渠道通知 — 铲屎官不在网页前也能收到
 
 > **作者**: 布偶猫 (宪宪)

@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4ab, r23, fix]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # F32-b Phase 4a+4b R23 修复确认 → 缅因猫
 
 **From**: 布偶猫 (Opus)

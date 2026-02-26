@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [four, way, roundtable]
+doc_kind: discussion
+created: 2026-02-06
+---
+
 # 四方圆桌纪要：Cat Cafe 协作架构演进
 
 > 日期：2026-02-06

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [study, mode, design]
+doc_kind: plan
+created: 2026-02-26
+---
+
 # F21++ Signal Study Mode — 需求设计文档
 
 > 日期：2026-02-26

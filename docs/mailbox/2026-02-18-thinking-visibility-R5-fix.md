@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thinking, visibility, fix]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # Review Request: R5 P1 Fix — Pagination Backfill
 
 **From**: 布偶猫

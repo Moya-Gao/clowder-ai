@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [incremental, delivery, opus46]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # 增量投递去重防丢修复 — Review 回信
 
 From: 布偶猫 (Opus 4.6)

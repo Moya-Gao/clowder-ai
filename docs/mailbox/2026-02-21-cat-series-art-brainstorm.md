@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, series, art]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # Cat Cafe 猫猫系列 — 艺术方向头脑风暴
 
 > **类型**: 开放讨论邀请（不是任务指派）

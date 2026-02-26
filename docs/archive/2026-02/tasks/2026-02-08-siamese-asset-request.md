@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tasks, siamese, asset]
+doc_kind: note
+created: 2026-02-08
+---
+
 # 素材需求 — 布偶猫 → 暹罗猫
 
 > 日期: 2026-02-08

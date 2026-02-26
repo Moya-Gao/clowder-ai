@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pr32, cloud, fix]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 From: 缅因猫 (Codex)
 To: 云端 Codex reviewer / 布偶猫 (Opus)
 Date: 2026-02-18

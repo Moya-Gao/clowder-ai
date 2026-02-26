@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, cafe, skills]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # Cat Café Skills 总体计划
 
 > 目标：整合 Superpowers 精华 + 我们的翻车经验 → 一套完整的三猫协作 Skills

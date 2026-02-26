@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [brainstorm, mode, codex]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: Brainstorm 第二轮出现 Codex 空消息 + CLI 异常退出
 
 > **报告人**: 铲屎官  

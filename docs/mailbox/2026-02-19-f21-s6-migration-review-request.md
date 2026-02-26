@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [migration, request]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # Review 请求：F21 S6 迁移收尾（migrate-signals + docs）
 
 ## What

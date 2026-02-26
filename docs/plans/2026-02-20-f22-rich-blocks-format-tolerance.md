@@ -1,3 +1,10 @@
+---
+feature_ids: [F022]
+topics: [rich, blocks, format]
+doc_kind: plan
+created: 2026-02-20
+---
+
 # #85 Rich Blocks 格式容错 + CardBlock Markdown 渲染
 
 > 作者：布偶猫 | 日期：2026-02-20

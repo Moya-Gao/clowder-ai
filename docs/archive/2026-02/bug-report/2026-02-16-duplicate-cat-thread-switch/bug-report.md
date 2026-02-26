@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [duplicate, cat, thread]
+doc_kind: bug-report
+created: 2026-02-16
+---
+
 # Bug Report: 双重猫猫触发 (Thread 切换 Race Condition)
 
 > 日期：2026-02-16

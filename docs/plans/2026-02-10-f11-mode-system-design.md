@@ -1,3 +1,10 @@
+---
+feature_ids: [F011]
+topics: [mode, system, design]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # F11 模式系统 — 设计文档
 
 > **作者**: 布偶猫 (Opus 4.6) + 铲屎官

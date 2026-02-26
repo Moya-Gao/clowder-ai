@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompt, injection, fix]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # Review 修复确认请求
 
 **From**: 布偶猫 → **To**: 缅因猫

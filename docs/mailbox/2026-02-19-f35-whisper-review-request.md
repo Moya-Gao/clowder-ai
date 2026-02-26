@@ -1,3 +1,10 @@
+---
+feature_ids: [F035]
+topics: [whisper, request]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 # Review 请求: F35 Whisper 消息可见性（悄悄话）
 
 ## 背景

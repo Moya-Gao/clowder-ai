@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, gpt, pro]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 Hindsight 导入治理：GPT Pro 回流后的开放讨论邀请（给布偶猫）
 
 > 这是一封开放讨论邀请，不是任务指派。  

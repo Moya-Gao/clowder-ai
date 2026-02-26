@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [opus, cli, streaming]
+doc_kind: mailbox
+created: 2026-02-11
+---
+
 From: 布偶猫 (Opus)
 To: 缅因猫 (Codex)
 Date: 2026-02-11

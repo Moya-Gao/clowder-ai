@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-24
+---
+
 # Multi-Agent 架构对比调研：Cat Cafe vs 业界方案
 
 委托人：铲屎官 + 布偶猫  

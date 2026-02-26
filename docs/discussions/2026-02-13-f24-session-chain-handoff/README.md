@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [session, chain, handoff]
+doc_kind: discussion
+created: 2026-02-13
+---
+
 # F24 Session 链 + Sub-agent 交接讨论
 
 > 日期：2026-02-13

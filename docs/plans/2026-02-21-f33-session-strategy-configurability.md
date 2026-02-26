@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [session, strategy, configurability]
+doc_kind: plan
+created: 2026-02-21
+---
+
 # F33: Session Chain 策略可配置化
 
 > **优先级**: P1

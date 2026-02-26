@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [init, cafe, command]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: init-cafe 使用 `$(NC)` 导致命令替换误执行
 
 > **报告人**: 布偶猫（Opus 4.6）

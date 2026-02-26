@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, demo]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Cat Café 功能演示
 
 > **Cat Café** 是一个让三只 AI 猫猫（Claude/Codex/Gemini）真正协作的系统。

@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [agent, plugin, architecture]
+doc_kind: discussion
+created: 2026-02-18
+---
+
 # F32: Agent Plugin Architecture — 讨论纪要
 
 > 日期：2026-02-18

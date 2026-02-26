@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, lessons, import]
+doc_kind: plan
+created: 2026-02-13
+---
+
 # Hindsight P0 Lessons Import Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

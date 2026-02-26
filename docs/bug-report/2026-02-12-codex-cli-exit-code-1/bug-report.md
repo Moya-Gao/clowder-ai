@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, cli, exit]
+doc_kind: bug-report
+created: 2026-02-12
+---
+
 # Bug Report: Codex CLI Exit Code 1 (False Alarm)
 
 > 日期：2026-02-12

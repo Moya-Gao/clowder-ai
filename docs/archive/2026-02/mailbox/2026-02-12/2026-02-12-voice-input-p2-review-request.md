@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, input, request]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review 请求: Voice Input P2 — 拆分 + 测试 + 健壮性 + 流式转写
 
 **From**: 布偶猫

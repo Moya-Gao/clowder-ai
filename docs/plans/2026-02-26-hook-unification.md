@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hook, unification]
+doc_kind: plan
+created: 2026-02-26
+---
+
 # Hook 归一化 — 跨项目 hook 注入机制
 
 > BACKLOG #99 | 2026-02-26 | 状态：待设计

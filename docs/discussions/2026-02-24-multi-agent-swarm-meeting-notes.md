@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, swarm]
+doc_kind: discussion
+created: 2026-02-24
+---
+
 # Multi-Agent 协同模式讨论会议纪要
 
 **Thread ID**: `thread_mm1cpvpw0ndntsfc`

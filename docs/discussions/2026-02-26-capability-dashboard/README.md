@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [capability, dashboard]
+doc_kind: discussion
+created: 2026-02-26
+---
+
 # 2026-02-26 能力看板 — Hub MCP/Skills 统一管理
 
 > 参与者：铲屎官 + 布偶猫 + 缅因猫（实测验证）

@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [session, chain, request]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: F24 Session Chain + Context Health — Phase A
 
 > 日期: 2026-02-13

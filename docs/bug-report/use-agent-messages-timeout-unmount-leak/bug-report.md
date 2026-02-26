@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [use, agent, messages]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: useAgentMessages 卸载后 timeout 计时器泄漏
 
 > 报告人: 铲屎官  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, health, inflated]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: ContextHealthBar 显示严重偏高
 
 ## 报告人

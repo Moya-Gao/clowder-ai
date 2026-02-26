@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [screenshot, two, bugs]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: 情人节截图中的双 bug（消息工具条重叠 + Claude CLI code:1 瞬断无自愈）
 
 ## 1) 报告人

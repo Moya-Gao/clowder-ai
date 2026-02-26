@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [gemini, seal, misfire]
+doc_kind: bug-report
+created: 2026-02-15
+---
+
 # F24 Gemini Seal Misfire — Token 统计失真导致误触发
 
 **报告人**: 铲屎官 (2026-02-15 ~00:14)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [navigator, redesign, request]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # MessageNavigator 滚动条轨道重设计 — Review Request
 
 **From**: 布偶猫 (Opus)

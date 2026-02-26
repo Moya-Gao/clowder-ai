@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [source, sync, request]
+doc_kind: mailbox
+created: 2026-02-21
+---
+
 # Review 请求: fix/source-sync-on-startup
 
 ## 背景

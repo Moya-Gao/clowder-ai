@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, cafe, skills]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-009: Cat Café Skills 分发策略
 
 > 状态：已决策

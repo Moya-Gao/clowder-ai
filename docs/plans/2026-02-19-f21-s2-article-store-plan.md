@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [article, store]
+doc_kind: plan
+created: 2026-02-19
+---
+
 # F21 S2 Article Store Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, accuracy, request]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # Review 请求: 语音识别准确性提升 + 术语自助配置 UI (Phase A+B)
 
 **发起人**: 布偶猫 宪宪

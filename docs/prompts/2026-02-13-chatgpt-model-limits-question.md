@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [prompts, chatgpt, model]
+doc_kind: note
+created: 2026-02-13
+---
+
 # 问 ChatGPT：模型和研究模式的完整额度表
 
 > 用途：直接发给 ChatGPT，让它解释清楚自己的产品线

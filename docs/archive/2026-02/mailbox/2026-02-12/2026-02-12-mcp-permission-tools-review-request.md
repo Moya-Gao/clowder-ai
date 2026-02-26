@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mcp, permission, tools]
+doc_kind: mailbox
+created: 2026-02-12
+---
+
 # Review Request: MCP Permission Tools Registration
 
 **From**: 布偶猫 (Opus)

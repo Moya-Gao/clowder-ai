@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [directory, hygiene, anti]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-010: 目录结构防腐化机制
 
 > 日期：2026-02-13

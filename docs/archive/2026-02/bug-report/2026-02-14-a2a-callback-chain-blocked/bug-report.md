@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, callback, chain]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: A2A Callback 链式调用被错误阻断
 
 > 报告人: 铲屎官 (thread_mlmcl97gv87xk5uk 实测)

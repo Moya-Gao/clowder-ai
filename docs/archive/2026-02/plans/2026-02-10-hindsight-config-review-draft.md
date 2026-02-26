@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [hindsight, config, draft]
+doc_kind: plan
+created: 2026-02-10
+---
+
 # Hindsight 长期记忆配置评审稿（v0.2）
 
 > 日期：2026-02-10  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [a2a, chain, fix]
+doc_kind: mailbox
+created: 2026-02-14
+---
+
 # Review 请求: A2A Callback 链式调用被错误阻断 (Bug Fix)
 
 > 请求人: 布偶猫/宪宪

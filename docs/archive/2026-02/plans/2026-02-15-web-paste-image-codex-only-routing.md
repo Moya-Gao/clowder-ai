@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [web, paste, image]
+doc_kind: plan
+created: 2026-02-15
+---
+
 # Plan: Web Paste Image Codex-Only Routing
 
 > Date: 2026-02-15  

@@ -1,3 +1,10 @@
+---
+feature_ids: [F022]
+topics: [rich, blocks, companion]
+doc_kind: plan
+created: 2026-02-12
+---
+
 # F22: Rich Blocks 富消息系统
 
 > 作者：宪宪（架构）+ 砚砚（调研 + v0.2 设计）

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [adr008, redis, cas]
+doc_kind: mailbox
+created: 2026-02-09
+---
+
 # ADR-008 S2: Redis CAS Lua 原子修复回信
 
 **From**: 布偶猫 (Opus)

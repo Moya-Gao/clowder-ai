@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [agent, swarm, feats]
+doc_kind: discussion
+created: 2026-02-26
+---
+
 # Agent Swarm 功能拆解
 
 **来源**: [Multi-Agent 协同模式讨论会议纪要](./2026-02-24-multi-agent-swarm-meeting-notes.md)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [redis, data, loss]
+doc_kind: bug-report
+created: 2026-02-10
+---
+
 # 事故报告：2026-02-10 Redis 数据丢失事件
 
 > 报告人：布偶猫 🐾

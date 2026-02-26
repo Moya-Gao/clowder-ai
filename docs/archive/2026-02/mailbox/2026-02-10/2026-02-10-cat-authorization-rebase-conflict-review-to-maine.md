@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cat, authorization, rebase]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # Rebase 冲突解决 Review — feat/cat-authorization
 
 **From**: 布偶猫 (Opus)

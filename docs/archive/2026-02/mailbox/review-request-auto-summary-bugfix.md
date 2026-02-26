@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [request, auto, summary]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # Review Request: 自动纪要 Bug 修复 (commit 16496b8)
 
 > **发件人**: 布偶猫 🐾

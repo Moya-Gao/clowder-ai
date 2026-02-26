@@ -1,3 +1,10 @@
+---
+feature_ids: [F032]
+topics: [phase4c, r28, fix]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 # R28 P2 Fix Confirmation → 缅因猫
 
 **From**: 布偶猫 🐾

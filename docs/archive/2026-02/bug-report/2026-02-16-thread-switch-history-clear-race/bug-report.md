@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, switch, history]
+doc_kind: bug-report
+created: 2026-02-16
+---
+
 # Bug Report: Thread 切换后消息区空白（History Clear Race）
 
 > 日期：2026-02-16  

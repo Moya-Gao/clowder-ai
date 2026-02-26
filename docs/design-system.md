@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [design, system]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Cat Café Design System 🐾
 
 > **Version**: 1.0.0

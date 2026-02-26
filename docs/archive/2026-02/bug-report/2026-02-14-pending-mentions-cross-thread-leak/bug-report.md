@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pending, mentions, cross]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: pending-mentions 跨线程泄漏
 
 > 报告日期：2026-02-14 (情人节特别发现)

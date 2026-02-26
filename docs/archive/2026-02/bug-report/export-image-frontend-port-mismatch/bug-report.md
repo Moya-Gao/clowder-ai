@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [export, image, frontend]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 导出长图默认前端端口错误（3000/3001 不一致）
 
 > 报告人：铲屎官（在前端点击“导出长图”）

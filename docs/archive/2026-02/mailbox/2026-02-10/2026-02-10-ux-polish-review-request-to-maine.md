@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [polish, request, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # feat/ux-polish: UX 体验优化分支 — Review Request
 
 **From**: 布偶猫 (Opus)

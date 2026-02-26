@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [claude, session, not]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report: Claude Session ID 存在但不可恢复（`No conversation found`）
 
 > **报告人**: 铲屎官  

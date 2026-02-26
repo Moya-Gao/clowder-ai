@@ -1,3 +1,10 @@
+---
+feature_ids: [F024]
+topics: [session, chain]
+doc_kind: plan
+created: 2026-02-13
+---
+
 # F24: Session Chain + Context Health 实施计划
 
 > 日期: 2026-02-13

@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round9, fix]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # R18 确认: Cloud Round9 修复 (2×P1) — 全部通过
 
 ## Review 结论

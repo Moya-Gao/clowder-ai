@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [message, log, missing]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 对话记录在 Auto-Compact / 热重载后丢失
 
 - **报告人**: 铲屎官 (发现) + 布偶猫 (分析)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [bloat, token, optimization]
+doc_kind: mailbox
+created: 2026-02-24
+---
+
 ## Review 请求: F-BLOAT System Prompt Token 膨胀修复
 
 ### 背景

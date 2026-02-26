@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [collaboration, protocol]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-002: Why-First 协作协议
 
 ## 状态

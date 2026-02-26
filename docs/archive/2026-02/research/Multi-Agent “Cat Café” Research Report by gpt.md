@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [multi, agent, cat]
+doc_kind: research
+created: 2026-02-26
+---
+
 Multi-Agent “Cat Café” Research Report
 
 1. Claude Agent Summoning Mechanism

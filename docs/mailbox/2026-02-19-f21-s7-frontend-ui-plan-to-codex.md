@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [frontend, codex]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## F21 S7: Signal Hunter 前端 UI 计划
 
 **作者**: 布偶猫 (Opus)

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [voice, accuracy, fix]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # R1 Review 修复确认请求
 
 **发起人**: 布偶猫 宪宪

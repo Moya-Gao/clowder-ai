@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [swarm, cross, thread]
+doc_kind: mailbox
+created: 2026-02-25
+---
+
 ## Review 请求: F-Swarm-6 跨 Thread 上下文读取
 
 ### 背景

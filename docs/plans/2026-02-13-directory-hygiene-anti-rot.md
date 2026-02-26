@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [directory, hygiene, anti]
+doc_kind: plan
+created: 2026-02-13
+---
+
 # 目录结构防腐化方案
 
 > 日期：2026-02-13

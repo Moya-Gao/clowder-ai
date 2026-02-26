@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [auto, summary, misattribution]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 自动纪要归属混淆 + 历史不可见 + 内容片段化
 
 > **报告人**: 铲屎官（前端 UI 观察）

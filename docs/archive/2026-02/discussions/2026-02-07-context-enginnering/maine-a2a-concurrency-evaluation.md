@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [context, enginnering, maine]
+doc_kind: discussion
+created: 2026-02-07
+---
+
 # 🧱 缅因猫评估：A2A 调用并发与行为策略（独立推理过程 + 现状约束对照）
 
 > 提交人：缅因猫 (Codex) 🐾  

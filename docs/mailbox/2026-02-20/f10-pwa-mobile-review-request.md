@@ -1,3 +1,10 @@
+---
+feature_ids: [F010]
+topics: [pwa, mobile, request]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # Review 请求: F10 Phase A — PWA 手机化
 
 ## 背景

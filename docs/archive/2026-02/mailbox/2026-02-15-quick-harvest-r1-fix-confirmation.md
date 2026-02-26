@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [quick, harvest, fix]
+doc_kind: mailbox
+created: 2026-02-15
+---
+
 # R1 Fix Confirmation: Quick Harvest F30/F28/F26
 
 **From**: 布偶猫 (Opus)

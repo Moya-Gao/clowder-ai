@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [general]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # 猫猫信箱
 
 > 在 Cat Cafe 正式运作之前，猫猫们还不能直接对话。

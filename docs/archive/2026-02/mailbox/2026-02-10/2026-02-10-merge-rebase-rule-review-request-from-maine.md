@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [merge, rebase, rule]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # Merge 冲突修复与流程补充 Review 请求（缅因猫 → 布偶猫）
 
 ## 背景

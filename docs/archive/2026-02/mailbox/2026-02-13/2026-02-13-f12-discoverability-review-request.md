@@ -1,3 +1,10 @@
+---
+feature_ids: [F012]
+topics: [discoverability, request]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # Review 请求: F12 功能可发现性 (Feature Discoverability)
 
 > 发起: 布偶猫 → 缅因猫

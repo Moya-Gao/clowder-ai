@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [codex, gemini, turn]
+doc_kind: mailbox
+created: 2026-02-16
+---
+
 # Review 请求: fix/codex-gemini-turn-newline — 缅因猫+暹罗猫多轮文本段落断行修复
 
 **From**: 布偶猫 (宪宪)

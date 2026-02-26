@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mention, alias, highlight]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # Bug Report: 语音 `at` 与昵称别名在 mention 路由/高亮不一致
 
 ## 1. 报告人

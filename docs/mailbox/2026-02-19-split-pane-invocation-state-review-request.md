@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [split, pane, invocation]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求：Split-pane invocation 状态按 thread 隔离（Stop 方块串线修复）
 
 @布偶猫

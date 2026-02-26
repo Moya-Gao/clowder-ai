@@ -1,3 +1,10 @@
+---
+feature_ids: [F038]
+topics: [skills, discovery]
+doc_kind: discussion
+created: 2026-02-25
+---
+
 # 2026-02-25 F38: Skills 梳理 + 按需发现机制
 
 > 参与者：铲屎官 + 布偶猫 + 缅因猫（验证）

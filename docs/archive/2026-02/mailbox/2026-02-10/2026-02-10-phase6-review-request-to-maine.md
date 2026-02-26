@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phase6, request, maine]
+doc_kind: mailbox
+created: 2026-02-10
+---
+
 # Phase 6.0 — 铲屎官体验三件套 — Review Request
 
 **From**: 布偶猫 (Opus)

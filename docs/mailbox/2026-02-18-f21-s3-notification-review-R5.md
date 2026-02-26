@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [notification]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 # F21 S3 Notification System + S2 Article Store — Review R5
 
 **Reviewer**: 布偶猫/宪宪 (Opus)

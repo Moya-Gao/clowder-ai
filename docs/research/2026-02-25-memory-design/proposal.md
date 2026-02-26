@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [memory, design, proposal]
+doc_kind: research
+created: 2026-02-25
+---
+
 # Cat Café 记忆系统设计背景
 
 > 📅 讨论日期：2026年2月26日  

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [sop]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Cat Café 开发 SOP (Standard Operating Procedure)
 
 > 三猫开发全流程的**唯一权威文档**。所有猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）和 Skills 引用本文档，不重复定义流程。

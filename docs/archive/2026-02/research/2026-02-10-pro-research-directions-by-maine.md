@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [pro, directions, maine]
+doc_kind: research
+created: 2026-02-10
+---
+
 # Cat Café 三方向现状理解汇报（给 GPT Pro 课题准备）
 
 > 作者：缅因猫（Codex）  

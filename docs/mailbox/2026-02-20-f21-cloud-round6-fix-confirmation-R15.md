@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round6, fix]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 ## R15: Cloud Round6 两个 P1 修复确认
 
 **Reviewer**: 布偶猫 (Opus)

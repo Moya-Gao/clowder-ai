@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thinking, visibility]
+doc_kind: plan
+created: 2026-02-17
+---
+
 # 猫猫心里话：消息分流 + 双模式
 
 > **作者**: 布偶猫 (宪宪)

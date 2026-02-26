@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [compression, detection, cross]
+doc_kind: discussion
+created: 2026-02-24
+---
+
 # 讨论：跨 Provider 上下文压缩检测机制
 
 > 日期：2026-02-24

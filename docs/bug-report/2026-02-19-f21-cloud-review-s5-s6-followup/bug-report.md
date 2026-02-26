@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, followup]
+doc_kind: bug-report
+created: 2026-02-19
+---
+
 # Bug Report: F21 Cloud Review S5/S6 Follow-up
 
 - 报告时间：2026-02-19

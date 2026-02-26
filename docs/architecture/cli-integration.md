@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [architecture, cli, integration]
+doc_kind: note
+created: 2026-02-26
+---
+
 # CLI 集成架构：Claude Code / Codex / Gemini CLI
 
 > Cat Cafe 项目如何对接三个不同厂商的 AI CLI 工具

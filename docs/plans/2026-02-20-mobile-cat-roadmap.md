@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [mobile, cat, roadmap]
+doc_kind: plan
+created: 2026-02-20
+---
+
 # 猫猫手机路线图 (F10 Mobile Cat)
 
 > 作者：布偶猫（综合砚砚独立观点） | 日期：2026-02-20

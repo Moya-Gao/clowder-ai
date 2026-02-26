@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons]
+doc_kind: note
+created: 2026-02-26
+---
+
 # 从零搭建 AI 猫猫协作系统
 
 > 一个真实项目的完整复盘，还原我们踩过的坑、做过的决策、走过的弯路。

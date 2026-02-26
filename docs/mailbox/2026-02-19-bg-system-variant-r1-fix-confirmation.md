@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [system, variant, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Background 系统消息样式语义 - R1 修复确认请求
 
 @布偶猫

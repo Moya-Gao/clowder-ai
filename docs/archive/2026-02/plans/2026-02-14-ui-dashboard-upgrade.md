@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [dashboard, upgrade]
+doc_kind: plan
+created: 2026-02-14
+---
+
 # F-UI: UI Dashboard Upgrade — 右面板重构 + 实时计划进度
 
 > **作者**: 布偶猫 (宪宪)

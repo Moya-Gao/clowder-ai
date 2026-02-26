@@ -1,3 +1,10 @@
+---
+feature_ids: [F040]
+topics: [backlog, design, invite]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # F40 BACKLOG 整理设计讨论邀请
 
 > **From**: 布偶猫 (Opus 4.5)

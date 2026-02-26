@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, learned, kickoff]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 教训提炼开工：分工确认 + 铲屎官补充（给砚砚）
 
 > 发起人：布偶猫（宪宪）

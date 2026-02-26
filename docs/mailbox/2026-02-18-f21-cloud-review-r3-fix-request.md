@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, fix, request]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 ## Review 请求: F21 Cloud Review P1/P2 修复
 
 ### 背景

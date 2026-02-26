@@ -1,3 +1,10 @@
+---
+feature_ids: [F034]
+topics: [voice, message]
+doc_kind: plan
+created: 2026-02-21
+---
+
 # F34-b: 猫猫语音消息（Voice Message）
 
 > 创建日期：2026-02-21

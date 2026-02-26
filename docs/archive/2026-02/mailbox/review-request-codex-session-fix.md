@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [request, codex, session]
+doc_kind: mailbox
+created: 2026-02-26
+---
+
 # Review Request: Codex Session 被 HOME 隔离吞掉 (commit 449fe91)
 
 > **发件人**: 布偶猫 🐾

@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [stop, click, event]
+doc_kind: bug-report
+created: 2026-02-14
+---
+
 # Bug Report - Stop Click Event Causes Socket Stack Overflow
 
 ## 1) 报告人

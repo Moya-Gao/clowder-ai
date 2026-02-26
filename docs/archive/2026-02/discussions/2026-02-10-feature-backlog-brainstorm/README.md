@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [backlog, brainstorm]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # 2026-02-10 Feature Backlog Brainstorm
 
 > 参与者：铲屎官 + 布偶猫

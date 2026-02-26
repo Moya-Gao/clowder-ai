@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [polish, brainstorm, cat]
+doc_kind: discussion
+created: 2026-02-10
+---
+
 # Cat Café Skills 开源计划
 
 > 基于真实翻车经验提炼的 Agent 协作 Skills

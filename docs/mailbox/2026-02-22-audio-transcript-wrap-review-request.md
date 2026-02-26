@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [audio, transcript, wrap]
+doc_kind: mailbox
+created: 2026-02-22
+---
+
 ## Review 请求: Audio 富块转写文本截断修复
 
 ### 背景

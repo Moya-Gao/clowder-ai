@@ -1,3 +1,10 @@
+---
+feature_ids: [F033]
+topics: [external, session, binding]
+doc_kind: mailbox
+created: 2026-02-23
+---
+
 # F33: External Session Binding — Review Request
 
 > From: 布偶猫 → To: 缅因猫

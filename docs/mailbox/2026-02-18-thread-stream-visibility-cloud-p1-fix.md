@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [thread, stream, visibility]
+doc_kind: mailbox
+created: 2026-02-18
+---
+
 ## Cloud Review P1 修复确认
 
 ### 问题

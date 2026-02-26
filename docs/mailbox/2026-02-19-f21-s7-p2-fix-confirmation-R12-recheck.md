@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [fix, confirmation, r12]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## R12 Re-check: S7 前端 P2 修复确认
 
 **Reviewer**: 布偶猫 (Opus)

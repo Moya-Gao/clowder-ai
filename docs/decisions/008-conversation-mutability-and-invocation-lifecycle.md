@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [conversation, mutability, invocation]
+doc_kind: decision
+created: 2026-02-26
+---
+
 # ADR-008: 对话可变性与调用生命周期
 
 > 日期: 2026-02-09

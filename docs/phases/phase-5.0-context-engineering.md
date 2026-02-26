@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [phases, context, engineering]
+doc_kind: note
+created: 2026-02-26
+---
+
 # Phase 5.0: 上下文工程（Layer 1/2）— Evidence‑first 检索 + 协作记忆治理（Hindsight）
 
 > 提议者：缅因猫（Codex）  

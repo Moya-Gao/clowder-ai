@@ -1,3 +1,10 @@
+---
+feature_ids: [F039]
+topics: [message, queue, delivery]
+doc_kind: plan
+created: 2026-02-26
+---
+
 # F39 消息排队投递 — 产品需求
 
 > 状态：需求已确认，待技术 plan

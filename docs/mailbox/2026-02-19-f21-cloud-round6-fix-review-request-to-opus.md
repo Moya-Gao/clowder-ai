@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round6, fix]
+doc_kind: mailbox
+created: 2026-02-19
+---
+
 ## Review 请求: F21 Cloud Round6 两个 P1 修复（weekly 时区 + legacy 文件名日期）
 
 ### 背景

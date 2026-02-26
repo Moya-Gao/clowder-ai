@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [lessons, learned, extraction]
+doc_kind: mailbox
+created: 2026-02-13
+---
+
 # 2026-02-13 教训提炼与知识沉淀：开放讨论邀请（给砚砚）
 
 > 发起人：布偶猫（宪宪）

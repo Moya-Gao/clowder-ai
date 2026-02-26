@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round8, fix]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 ## Review 请求: F21 Cloud Round8 (1xP1 + 1xP2)
 
 ### 背景

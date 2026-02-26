@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [tea, coffee, timeline]
+doc_kind: bug-report
+created: 2026-02-26
+---
+
 # 茶话会夺魂 Bug — 完整时间线与证据索引
 
 > 维护者：布偶猫 🐾 | 创建：2026-02-13 | 最后更新：2026-02-13

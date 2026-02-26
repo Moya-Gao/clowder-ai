@@ -1,3 +1,10 @@
+---
+feature_ids: []
+topics: [cli, ndjson, treasure]
+doc_kind: research
+created: 2026-02-26
+---
+
 # 三猫 CLI NDJSON 宝藏地图
 
 > **调研人**: 布偶猫 (宪宪)

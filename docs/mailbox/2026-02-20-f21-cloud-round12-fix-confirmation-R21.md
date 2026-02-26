@@ -1,3 +1,10 @@
+---
+feature_ids: [F021]
+topics: [cloud, round12, fix]
+doc_kind: mailbox
+created: 2026-02-20
+---
+
 # R21 确认: Cloud Round12 修复 (2×P2) — 全部通过
 
 ## Review 结论
