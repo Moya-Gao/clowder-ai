@@ -30,8 +30,8 @@ export interface InvocationRecord {
   expiresAt: number;
 }
 
-/** Default TTL: 10 minutes */
-const DEFAULT_TTL_MS = 10 * 60 * 1000;
+/** Default TTL: 2 hours (was 10 min — cats routinely run 20-40 min, first callback was 401) */
+const DEFAULT_TTL_MS = 2 * 60 * 60 * 1000;
 
 /** Max concurrent invocations before LRU eviction */
 const MAX_INVOCATIONS = 500;
@@ -115,6 +115,9 @@ export class InvocationRegistry {
       this.records.delete(invocationId);
       return null;
     }
+
+    // Sliding window: each successful verify extends the TTL
+    record.expiresAt = Date.now() + this.ttlMs;
 
     // Refresh recency (LRU): delete + re-set moves to end of Map iteration order
     this.records.delete(invocationId);

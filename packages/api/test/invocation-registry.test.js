@@ -280,4 +280,63 @@ describe('InvocationRegistry', () => {
     assert.equal(registry.isLatest(newId), true,
       'latest pointer must survive when evicted record was already superseded');
   });
+
+  // --- Sliding window TTL renewal (F-Ground-1 pre: TTL 止血) ---
+
+  test('verify() extends expiresAt (sliding window)', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+    );
+
+    // 50ms TTL — short enough to test, long enough to not flake
+    const registry = new InvocationRegistry({ ttlMs: 50 });
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    // Wait 30ms (past 60% of TTL), then verify to renew
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const record = registry.verify(invocationId, callbackToken);
+    assert.ok(record !== null, 'should still be valid at 30ms');
+
+    // Wait another 30ms (60ms total from create, but only 30ms since renewal)
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const record2 = registry.verify(invocationId, callbackToken);
+    assert.ok(record2 !== null, 'sliding window should have extended TTL');
+  });
+
+  test('first callback after long delay succeeds with 2h TTL', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+    );
+
+    // Simulate: cat runs for 30 min before first callback
+    // We can't wait 30 min, so use default TTL and verify it's 2h
+    const registry = new InvocationRegistry();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    // Verify the record's expiresAt is ~2h from now (not 10 min)
+    const record = registry.verify(invocationId, callbackToken);
+    assert.ok(record !== null);
+    const remainingMs = record.expiresAt - Date.now();
+    // Should be close to 2h (allow 5s tolerance for test execution)
+    assert.ok(remainingMs > 2 * 60 * 60 * 1000 - 5000,
+      `TTL should be ~2h, got ${Math.round(remainingMs / 1000)}s`);
+  });
+
+  test('stale invocation still rejected despite sliding window', async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+    );
+
+    const registry = new InvocationRegistry();
+    const old = registry.create('user-1', 'opus', 'thread-1');
+    // Supersede with a new invocation
+    registry.create('user-1', 'opus', 'thread-1');
+
+    // Old invocation can still verify() (token is valid)...
+    const record = registry.verify(old.invocationId, old.callbackToken);
+    assert.ok(record !== null, 'old token still valid');
+    // ...but isLatest() correctly rejects it
+    assert.equal(registry.isLatest(old.invocationId), false,
+      'stale invocation must be rejected by isLatest even if verify succeeds');
+  });
 });
