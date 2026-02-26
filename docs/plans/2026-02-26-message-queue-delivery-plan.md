@@ -122,6 +122,10 @@ export class InvocationQueue {
   /** 追加 mergedMessageId — 仅用于 outcome='merged'（不覆盖首条 messageId） */
   appendMergedMessageId(threadId: string, userId: string, entryId: string, messageId: string): void
 
+  /** 回滚 merge — 恢复 enqueue 前的 content 快照（messageStore 写入失败时调用）
+   *  内部实现: enqueue merge 时保存 preMergeContent，rollback 时恢复 */
+  rollbackMerge(threadId: string, userId: string, entryId: string): void
+
   dequeue(threadId: string, userId: string): QueueEntry | null
   peek(threadId: string, userId: string): QueueEntry | null
   remove(threadId: string, userId: string, entryId: string): QueueEntry | null
@@ -131,6 +135,11 @@ export class InvocationQueue {
   size(threadId: string, userId: string): number
 
   clear(threadId: string, userId: string): QueueEntry[]    // 返回被清除的条目（用于批量撤回）
+
+  /** 在用户队列内交换相邻位置（up=向队首移动，down=向队尾移动）
+   *  产品需求来源: 铲屎官 Q1 — "重新编排队列顺序"
+   *  约束: status='processing' 的条目不可移动 */
+  move(threadId: string, userId: string, entryId: string, direction: 'up' | 'down'): boolean
 
   /** 将该用户队首 queued 条目原地改为 processing（不从数组移除，前端仍可见） */
   markProcessing(threadId: string, userId: string): QueueEntry | null
@@ -158,6 +167,7 @@ export class InvocationQueue {
 - 队列按 `scopeKey(threadId, userId)` 存储，所以 `userId` 天然匹配
 - 队列尾部条目必须**全部匹配**才合并：`source` + `targetCats`（排序后深比较）+ `intent`，且 `status === 'queued'`
 - → 将新消息文本追加到尾部条目的 `content`（`\n` 分隔）
+- → 合并前保存 `preMergeContent = entry.content` 用于 rollback（messageStore 写失败时恢复）
 - → 返回 `{ outcome: 'merged', entry: updatedEntry }`
 - **不合并的例子**: `@opus 你好` + `@codex 帮忙看看` — targetCats 不同，各自独立入队
 
@@ -219,6 +229,16 @@ describe('InvocationQueue', () => {
     const entry = queue.list('t1')[0];
     assert.equal(entry.messageId, 'msg-1');  // NOT overwritten
     assert.deepEqual(entry.mergedMessageIds, ['msg-2']);
+  });
+  it('rollbackMerge restores pre-merge content', () => {
+    queue.enqueue({ threadId: 't1', userId: 'u1', content: '猫猫',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    const r2 = queue.enqueue({ threadId: 't1', userId: 'u1', content: '你好',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    assert.equal(r2.outcome, 'merged');
+    assert.equal(r2.entry.content, '猫猫\n你好');
+    queue.rollbackMerge('t1', 'u1', r2.entry.id);
+    assert.equal(queue.list('t1', 'u1')[0].content, '猫猫'); // restored
   });
   it('clear returns all removed entries', () => { /* ... */ });
   it('markProcessing returns entry with status=processing', () => { /* ... */ });
@@ -399,6 +419,12 @@ if (mode === 'queue' && hasActive) {
 
   // 队列满 → 429，不写 MessageStore，无幽灵消息
   if (enqueueResult.outcome === 'full') {
+    // 通知前端弹管理面板（产品需求 Q3: "提醒+管理"）
+    opts.socketManager.emitToUser(userId, 'queue_full_warning', {
+      threadId: resolvedThreadId, source: 'user',
+      queueSize: opts.invocationQueue.size(resolvedThreadId, userId),
+      queue: opts.invocationQueue.list(resolvedThreadId, userId),
+    });
     reply.status(429);
     return { error: '消息队列已满', code: 'QUEUE_FULL', queueSize: opts.invocationQueue.size(resolvedThreadId, userId) };
   }
@@ -417,11 +443,13 @@ if (mode === 'queue' && hasActive) {
       opts.invocationQueue.appendMergedMessageId(resolvedThreadId, userId, enqueueResult.entry!.id, userMessage.id);
     }
   } catch (err) {
-    // 写消息失败 → 回滚队列条目（enqueued 时移除；merged 时回退文本需更复杂处理，暂简单移除）
+    // 写消息失败 → 回滚队列条目，不留幽灵数据
     if (enqueueResult.outcome === 'enqueued') {
       opts.invocationQueue.remove(resolvedThreadId, userId, enqueueResult.entry!.id);
+    } else {
+      // merged 失败 → rollbackMerge 恢复 content 快照（enqueue 时已保存 preMergeContent）
+      opts.invocationQueue.rollbackMerge(resolvedThreadId, userId, enqueueResult.entry!.id);
     }
-    // merged 失败：文本已追加但消息未写入 — 可接受的不一致（下次 dequeue 时内容完整但少一条 mergedMessageId）
     throw err;
   }
 
@@ -491,10 +519,11 @@ git commit -m "feat(F39): POST /api/messages deliveryMode 队列分流 [布偶�
 **API 端点:**
 
 ```
-GET    /api/threads/:threadId/queue          → 列出队列条目
-DELETE /api/threads/:threadId/queue/:entryId  → 撤回条目（从队列移除 + 可选删除消息）
-POST   /api/threads/:threadId/queue/next     → 手动触发处理下一条
-DELETE /api/threads/:threadId/queue           → 清空队列
+GET    /api/threads/:threadId/queue                → 列出队列条目
+DELETE /api/threads/:threadId/queue/:entryId        → 撤回条目（从队列移除 + 可选删除消息）
+POST   /api/threads/:threadId/queue/next           → 手动触发处理下一条
+PATCH  /api/threads/:threadId/queue/:entryId/move  → 重排序（上移/下移）
+DELETE /api/threads/:threadId/queue                 → 清空队列
 ```
 
 **鉴权（所有端点强制执行，硬性步骤）:**
@@ -541,12 +570,20 @@ async function guardThreadOwnership(request, reply, threadStore, threadId) {
 - 返回 `{ started: boolean, entry?: QueueEntry }`
 - 如果自己的队列空 → 200 `{ started: false }`
 
+**PATCH /api/threads/:threadId/queue/:entryId/move:**
+- 鉴权 → body: `{ direction: 'up' | 'down' }`
+- `entry.status === 'processing'` → 拒绝（409: 正在处理中的条目不可移动）
+- 调用 `queue.move(threadId, userId, entryId, direction)` — 在数组中交换相邻位置
+- 已在队首且 direction='up' → 200 no-op（幂等）；已在队尾且 direction='down' → 200 no-op
+- `emitToUser(userId, 'queue_updated', { ..., action: 'reordered' })`
+- **产品需求来源**: 铲屎官 Q1 — "重新编排队列顺序"
+
 **DELETE /api/threads/:threadId/queue:**
 - 鉴权 → `clear(threadId, userId)` — scopeKey 天然隔离，只清空自己的
 - 返回被清除的条目列表
 - `emitToUser(userId, 'queue_updated', ...)`
 
-**测试（14 个）:**
+**测试（17 个）:**
 
 ```javascript
 describe('Queue Management API', () => {
@@ -583,6 +620,10 @@ describe('Queue Management API', () => {
   it('POST /queue/next triggers next entry processing', async () => { /* ... */ });
   it('POST /queue/next returns started=false when empty', async () => { /* ... */ });
   it('DELETE /queue clears all entries for user', async () => { /* ... */ });
+  // Reorder (F1 cloud review fix — 产品需求 Q1)
+  it('PATCH /queue/:entryId/move up swaps with previous entry', async () => { /* ... */ });
+  it('PATCH /queue/:entryId/move down swaps with next entry', async () => { /* ... */ });
+  it('PATCH /queue/:entryId/move rejects processing entry (409)', async () => { /* ... */ });
 });
 ```
 
@@ -650,7 +691,7 @@ git commit -m "feat(F39): 接线 — complete() 回调触发队列出队 [布偶
 {
   threadId: string;
   queue: QueueEntry[];       // 该用户的完整快照（不含其他用户的条目）
-  action: 'enqueued' | 'merged' | 'removed' | 'cleared' | 'processing';
+  action: 'enqueued' | 'merged' | 'removed' | 'cleared' | 'processing' | 'reordered';
 }
 
 // queue_paused — 定向发给有排队条目的用户
@@ -658,6 +699,15 @@ git commit -m "feat(F39): 接线 — complete() 回调触发队列出队 [布偶
   threadId: string;
   reason: 'canceled' | 'failed';
   queue: QueueEntry[];       // 该用户的剩余队列
+}
+
+// queue_full_warning — 队列满时通知用户管理队列（产品需求 Q3: "提醒+管理"）
+// 触发场景: 用户消息 429 返回时 + connector 消息被拒时
+{
+  threadId: string;
+  source: 'user' | 'connector';   // 谁的消息被拒了
+  queueSize: number;               // 当前队列深度
+  queue: QueueEntry[];             // 当前队列快照（供前端弹管理面板）
 }
 ```
 
@@ -688,11 +738,14 @@ interface ThreadState {
   queue: QueueEntry[];
   queuePaused: boolean;
   queuePauseReason?: 'canceled' | 'failed';
+  queueFull: boolean;
+  queueFullSource?: 'user' | 'connector';
 }
 
 // actions
 setQueue(threadId: string, queue: QueueEntry[]): void
 setQueuePaused(threadId: string, paused: boolean, reason?: string): void
+setQueueFull(threadId: string, source: 'user' | 'connector'): void
 ```
 
 **useSocket.ts 新增监听:**
@@ -704,6 +757,11 @@ socket.on('queue_updated', (data) => {
 socket.on('queue_paused', (data) => {
   chatStore.setQueue(data.threadId, data.queue);
   chatStore.setQueuePaused(data.threadId, true, data.reason);
+});
+socket.on('queue_full_warning', (data) => {
+  chatStore.setQueue(data.threadId, data.queue);
+  chatStore.setQueueFull(data.threadId, data.source);
+  // → 前端弹 toast/展开 QueuePanel，让铲屎官管理队列
 });
 ```
 
@@ -760,10 +818,10 @@ git commit -m "feat(F39): ChatInput 猫在跑时启用输入 + 排队/强制发�
 ┌─────────────────────────────────────────┐
 │ 📋 消息队列 (2 条排队中)                 │
 │                                         │
-│ 1. 🧑 铲屎官: "猫猫你好"    [撤回]      │
+│ 1. 🧑 铲屎官: "猫猫你好"    [↓] [撤回]   │
 │    排队中 · 12:34                       │
 │                                         │
-│ 2. 🔗 Connector: "Review #79..."  [撤回] │
+│ 2. 🔗 Connector: "Review #79..."  [↑] [撤回] │
 │    排队中 · 12:35                       │
 │                                         │
 │ ── 队列已暂停（当前调用已取消）──        │
@@ -773,6 +831,7 @@ git commit -m "feat(F39): ChatInput 猫在跑时启用输入 + 排队/强制发�
 
 **功能:**
 - 显示队列条目（来源 icon + 内容预览 + 状态 + 时间）
+- 每条有「↑↓」重排序按钮 → `PATCH /api/threads/:threadId/queue/:entryId/move`（队首隐藏↑，队尾隐藏↓，processing 条目不显示）
 - 每条有「撤回」按钮 → `DELETE /api/threads/:threadId/queue/:entryId`
 - 暂停状态下显示「继续处理下一条」→ `POST /api/threads/:threadId/queue/next`
 - 暂停状态下显示「清空队列」→ `DELETE /api/threads/:threadId/queue`
@@ -848,10 +907,16 @@ trigger(threadId, catId, userId, message, messageId) {
       source: 'connector', targetCats: [catId], intent: 'execute',
     });
 
-    // full → 队列满，不发 queue_updated（事件契约不含 'full'），仅记日志
+    // full → 队列满，不发 queue_updated（事件契约不含 'full'）
+    // 但必须通知前端让铲屎官管理队列（产品需求 Q3: "提醒+管理"）
     if (result.outcome === 'full') {
+      this.opts.socketManager.emitToUser(userId, 'queue_full_warning', {
+        threadId, source: 'connector',
+        queueSize: this.opts.queue.size(threadId, userId),
+        queue: this.opts.queue.list(threadId, userId),
+      });
       this.opts.log.warn({ threadId, catId, userId },
-        '[ConnectorInvokeTrigger] Queue full, connector message not enqueued (message already in MessageStore)');
+        '[ConnectorInvokeTrigger] Queue full, connector message not enqueued (message already in MessageStore, user notified)');
       return;
     }
 
@@ -882,9 +947,10 @@ trigger(threadId, catId, userId, message, messageId) {
 ```javascript
 it('queues when active invocation exists (does not abort)', async () => { /* ... */ });
 it('executes directly when no active invocation', async () => { /* ... */ });
-it('logs warning and does not emit queue_updated when queue is full', async () => {
+it('emits queue_full_warning (not queue_updated) when queue is full', async () => {
   // Setup: queue at MAX_QUEUE_DEPTH, active invocation running
-  // Assert: enqueue returns full, no emitToUser called, log.warn called
+  // Assert: enqueue returns full, emitToUser('queue_full_warning') called with source='connector',
+  //         no 'queue_updated' emitted, log.warn called
 });
 ```
 
@@ -976,9 +1042,8 @@ export interface QueueEntry {
 ## 不在本 Feature 范围的
 
 - **Redis 持久化队列**：#97 Phase 3c 范围，本 Feature 只做内存队列
-- **队列条目重排序**：V2 考虑，V1 只支持 FIFO + 撤回
 - **多线程队列联动**：每个 thread 队列独立
-- **前端队列拖拽排序**：V2 考虑
+- **前端队列拖拽排序**：V1 用 ↑↓ 按钮，拖拽排序 V2 考虑
 
 ---
 
@@ -988,8 +1053,8 @@ export interface QueueEntry {
 |------|------|------|
 | 内存队列丢失（进程重启） | 队列中的消息丢失 invoke 机会 | 消息已写入 MessageStore，用户可手动 @ 猫。Phase 3c 做 Redis 持久化 |
 | 链式自动出队死循环 | 连续失败不断触发 onInvocationComplete | failed/canceled 时暂停队列，不自动出队 |
-| 队列满时 connector 消息被拒 | review 邮件的 invoke 被丢弃 | 429 返回后 connector 可记录日志；消息本身已在 thread 中 |
+| 队列满时 connector 消息被拒 | review 邮件的 invoke 被丢弃 | `queue_full_warning` 事件通知前端弹管理面板；消息本身已在 thread 中；铲屎官清理队列后可手动 @ 猫处理 |
 | 前端 queue state 与后端不同步 | 显示错误 | 每次 `queue_updated` 发送完整快照（非增量） |
-| ~~幽灵消息（消息可见但不在队列）~~ | ~~已修复~~ | 先入队预留位，再写 MessageStore；写失败则回滚队列 |
+| ~~幽灵消息（消息可见但不在队列）~~ | ~~已修复~~ | 先入队预留位，再写 MessageStore；写失败则回滚队列（含 merged rollback） |
 | ~~自动出队与 processNext 双启动~~ | ~~已修复~~ | QueueProcessor per-thread mutex (`processingThreads` Set) |
 | ~~default thread 跨用户队列泄露~~ | ~~已修复~~ | scopeKey = `threadId:userId`，存储层天然隔离；WS 用 `emitToUser` 定向发送 |
