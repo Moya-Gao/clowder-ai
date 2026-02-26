@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-25 (F38 Skills 梳理 + 按需发现)
+> 维护者：布偶猫 | 最后更新：2026-02-26 (F39 消息排队投递)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -42,7 +42,6 @@
 | 97 | **Connector Messages — 外部信息源抽象 + 自动唤起** | [~] | [2026-02-25 Phase 3 设计](./plans/2026-02-25-connector-messages-phase3.md) | Phase 3a `e13cd1d`：ConnectorSource 类型 + registry + 前端气泡 + 15 tests。Phase 3b `c641b12`+`f6cab42`：ConnectorInvokeTrigger 自动唤起猫猫 + RouteResult 扩展 + 13 tests。砚砚 R1→R2 放行 + 云端 Codex P1→降级 P3（reject 不能实现重试，需 durable queue）。**待做**: 3c Redis 持久化 + connector invoke durable retry queue。|
 | 98 | **Session 查询工具升级 — 让猫更会查旧事** | [x] | [08 课件 gap 分析](./plans/2026-02-25-session-query-tools-upgrade.md) | 3 功能 gap 全部补齐：view 模式 (chat/handoff/raw) + read_invocation_detail + search invocationId 指针。27 tests (10+17)。砚砚 R1→R2 放行 + 云端 R1→R2 通过。性能债延后。|
 | 99 | **Hook 归一化 — 跨项目 hook 注入机制** | [ ] | 2026-02-26 铲屎官提出 | 现状：F24 hooks 写死在 `cat-cafe/.claude/settings.json`（project 级），猫猫打开其他项目时无 F24 hook。需要一个机制让猫猫咖啡的 hooks 能跟随猫猫到任何项目。详见 `docs/plans/2026-02-26-hook-unification.md`。|
-| 100 | **消息排队投递 — 用户操作三模式** | [ ] | 2026-02-26 铲屎官口述 | 猫在跑时支持排队发送/强制发送/取消三模式。InvocationQueue per-thread FIFO + 同源合并 + 前端 QueuePanel + cancel 后暂停管理。优先级在 #97 3c 之前（队列是 3c 的基础设施）。[需求](./plans/2026-02-26-message-queue-delivery.md) · [技术 plan](./plans/2026-02-26-message-queue-delivery-plan.md)。|
 | 101 | **能力看板 — Hub MCP/Skills 统一管理 + 配置编排 + MCP 归一** | [ ] | [2026-02-26 讨论](./discussions/2026-02-26-capability-dashboard/README.md) | Hub 硬编码假 MCP 列表 → 动态能力看板。猫 tab 精简（只留模型&预算）+ 统一能力看板（MCP+Skills 归一、tag 过滤、全局+每猫开关）。`.cat-cafe/capabilities.json` 唯一真相源 + 配置编排器生成三猫 CLI 配置。三猫 MCP 归一（HTTP callback → 原生 MCP，callback 降为 fallback）+ 提示词归一。13 条验收标准。|
 | 102 | **SessionBootstrap 同步 F98 — 启动包引导路径补全** | [ ] | [砚砚 F98 对照验收](./discussions/2026-02-26-capability-dashboard/README.md) | `SessionBootstrap.ts:93-101` 还在引导 `search → digest → events`，缺少 `read_invocation_detail` 和 `view=handoff` 的推荐路径。小改动。|
 | 103 | **课件契约文档同步 — read_invocation_detail 参数差异** | [ ] | [砚砚 F98 对照验收](./discussions/2026-02-26-capability-dashboard/README.md) | 课件 `08-session-management.md:247` 写 `read_invocation_detail(invocationId)` 单参数，实现是 `sessionId + invocationId` 双参数。非功能缺失，实现更严谨，但文档需同步。|
@@ -172,6 +171,7 @@
 | F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
 | F37 | **Agent Swarm 协同模式** | **[~] P1** | [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) | 四猫 + 铲屎官讨论 multi-agent 协同方式借鉴。8 个 feat 拆解（4.5 初版 + 4.6 补充 + 铲屎官反馈）。**追溯链**：[Feat 拆解（入口）](./discussions/agent-swarm-feats.md) → [会议纪要](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) → [调研报告](./research/2026-02-24-multi-agent-comparison/)。核心共识：Swarm 是阶段性工具（Research+Brainstorm），决策权漏斗模式，Mode 系统需从机械模板转向柔性引导。 |
 | F38 | **Skills 梳理 + 按需发现机制** | **P3** | [skills 调研 2026-02-25](./discussions/2026-02-25-f38-skills-discovery/README.md) | **当前**：方向 A（分类标记），skill bug 已修（项目级 `.claude/skills/` symlinks `5257e1c`）。**未来**：方向 B（类 ToolSearch 延迟加载，BM25/regex，触发条件 skills 50+）。ToolSearch 不用向量数据库，用 BM25 词频排序。铲屎官决策：simple is better, build when you need。 |
+| F39 | **消息排队投递 — 用户操作三模式** | **P1** | 2026-02-26 铲屎官口述 | 猫在跑时支持排队发送/强制发送/取消三模式。InvocationQueue per-thread FIFO + scopeKey 用户隔离 + 同源合并 + 前端 QueuePanel + cancel 后暂停管理。砚砚 R1→R8 放行。优先级在 #97 3c 之前（队列是 3c 的基础设施）。[需求](./plans/2026-02-26-message-queue-delivery.md) · [技术 plan](./plans/2026-02-26-message-queue-delivery-plan.md)。 |
 | F21++ | **Signal Study Mode（深度学习伴侣）** | **P1** | [feat 采访 2026-02-26](./plans/2026-02-26-f21-study-mode-design.md) | F21 从 RSS 阅读器升级为学习伴侣：双入口触发 Study + 文章上下文自动注入 + 深度笔记归档 + 播客生成（复用 F34 TTS）+ 多猫研究（复用 F-Swarm-1）+ Signal Hunter 迁移。10 个需求 (R1-R10)，11 轮 feat 采访确认。设计: [`2026-02-26-f21-study-mode-design.md`](./plans/2026-02-26-f21-study-mode-design.md) |
 | F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[x]** | 铲屎官 2026-02-13 | 三个子能力全部完成：**(1) 中途消息注入** [x]：`4e85883` ChatInputActionButton 改为 hasActiveInvocation 时同时展示 Stop + Send 按钮。**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入。 |
 | F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |

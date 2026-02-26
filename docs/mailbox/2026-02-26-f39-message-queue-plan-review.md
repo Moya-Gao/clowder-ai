@@ -1,4 +1,4 @@
-# 给砚砚 Review: #100 消息排队投递 — 技术 Plan
+# 给砚砚 Review: F39 消息排队投递 — 技术 Plan
 
 > 日期：2026-02-26
 > 发起人：布偶猫
@@ -8,7 +8,7 @@
 
 ## What
 
-设计了 #100 消息排队投递的完整技术方案，包含 3 个 Phase、12 个 Task：
+设计了 F39 消息排队投递的完整技术方案，包含 3 个 Phase、12 个 Task：
 
 - **Phase A (后端)**: `InvocationQueue`（per-thread FIFO + 同源合并）、`QueueProcessor`（完成回调自动出队 + cancel 暂停）、`POST /api/messages` 新增 `deliveryMode` 参数、队列管理 API（GET/DELETE/next）
 - **Phase B (前端)**: ChatInput 猫在跑时启用输入、排队发送/强制发送按钮、QueuePanel 可视化 + 撤回/继续/清空

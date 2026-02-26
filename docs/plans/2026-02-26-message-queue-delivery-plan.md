@@ -1,4 +1,4 @@
-# #100 消息排队投递 — 技术实现计划
+# F39 消息排队投递 — 技术实现计划
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
@@ -249,7 +249,7 @@ cd packages/api && node --test test/invocation-queue.test.js
 ```bash
 git add packages/api/src/domains/cats/services/agents/invocation/InvocationQueue.ts \
        packages/api/test/invocation-queue.test.js
-git commit -m "feat(#100): InvocationQueue 数据结构 + 合并 + 基础操作 [布偶猫🐾]"
+git commit -m "feat(F39): InvocationQueue 数据结构 + 合并 + 基础操作 [布偶猫🐾]"
 ```
 
 ---
@@ -355,7 +355,7 @@ describe('QueueProcessor', () => {
 **Step 5: Commit**
 
 ```bash
-git commit -m "feat(#100): QueueProcessor — 完成回调自动出队 + 暂停管理 [布偶猫🐾]"
+git commit -m "feat(F39): QueueProcessor — 完成回调自动出队 + 暂停管理 [布偶猫🐾]"
 ```
 
 ---
@@ -476,7 +476,7 @@ describe('POST /api/messages deliveryMode', () => {
 **Step 5: Commit**
 
 ```bash
-git commit -m "feat(#100): POST /api/messages deliveryMode 队列分流 [布偶猫🐾]"
+git commit -m "feat(F39): POST /api/messages deliveryMode 队列分流 [布偶猫🐾]"
 ```
 
 ---
@@ -591,7 +591,7 @@ describe('Queue Management API', () => {
 **Step 5: Commit**
 
 ```bash
-git commit -m "feat(#100): 队列管理 API — GET/DELETE/next [布偶猫🐾]"
+git commit -m "feat(F39): 队列管理 API — GET/DELETE/next [布偶猫🐾]"
 ```
 
 ---
@@ -627,7 +627,7 @@ opts.queueProcessor?.onInvocationComplete(resolvedThreadId, finalStatus);
 **Step 5: Commit**
 
 ```bash
-git commit -m "feat(#100): 接线 — complete() 回调触发队列出队 [布偶猫🐾]"
+git commit -m "feat(F39): 接线 — complete() 回调触发队列出队 [布偶猫🐾]"
 ```
 
 ---
@@ -666,7 +666,7 @@ git commit -m "feat(#100): 接线 — complete() 回调触发队列出队 [布�
 **Commit:**
 
 ```bash
-git commit -m "docs(#100): WebSocket queue 事件格式定义 [布偶猫🐾]"
+git commit -m "docs(F39): WebSocket queue 事件格式定义 [布偶猫🐾]"
 ```
 
 ---
@@ -710,7 +710,7 @@ socket.on('queue_paused', (data) => {
 **Commit:**
 
 ```bash
-git commit -m "feat(#100): 前端 queue state + WebSocket 监听 [布偶猫🐾]"
+git commit -m "feat(F39): 前端 queue state + WebSocket 监听 [布偶猫🐾]"
 ```
 
 ---
@@ -743,7 +743,7 @@ git commit -m "feat(#100): 前端 queue state + WebSocket 监听 [布偶猫🐾]
 **Commit:**
 
 ```bash
-git commit -m "feat(#100): ChatInput 猫在跑时启用输入 + 排队/强制发送按钮 [布偶猫🐾]"
+git commit -m "feat(F39): ChatInput 猫在跑时启用输入 + 排队/强制发送按钮 [布偶猫🐾]"
 ```
 
 ---
@@ -781,7 +781,7 @@ git commit -m "feat(#100): ChatInput 猫在跑时启用输入 + 排队/强制发
 **Commit:**
 
 ```bash
-git commit -m "feat(#100): QueuePanel — 队列可视化 + 撤回/继续/清空 [布偶猫🐾]"
+git commit -m "feat(F39): QueuePanel — 队列可视化 + 撤回/继续/清空 [布偶猫🐾]"
 ```
 
 ---
@@ -819,7 +819,7 @@ async function handleSend(content: string, mode?: 'queue' | 'force') {
 **Commit:**
 
 ```bash
-git commit -m "feat(#100): useSendMessage 接入 deliveryMode [布偶猫🐾]"
+git commit -m "feat(F39): useSendMessage 接入 deliveryMode [布偶猫🐾]"
 ```
 
 ---
@@ -891,7 +891,7 @@ it('logs warning and does not emit queue_updated when queue is full', async () =
 **Commit:**
 
 ```bash
-git commit -m "feat(#100): ConnectorInvokeTrigger 改为队列模式 — 不打断猫猫 [布偶猫🐾]"
+git commit -m "feat(F39): ConnectorInvokeTrigger 改为队列模式 — 不打断猫猫 [布偶猫🐾]"
 ```
 
 ---
@@ -946,7 +946,7 @@ cd packages/web && pnpm run build
 **Commit:**
 
 ```bash
-git commit -m "test(#100): 队列集成测试 — 4 个 E2E 场景 [布偶猫🐾]"
+git commit -m "test(F39): 队列集成测试 — 4 个 E2E 场景 [布偶猫🐾]"
 ```
 
 ---
