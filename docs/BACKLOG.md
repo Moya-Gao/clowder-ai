@@ -1,6 +1,6 @@
 # Cat Cafe 技术债务 & 待办事项
 
-> 维护者：布偶猫 | 最后更新：2026-02-24 (F37 Agent Swarm 协同模式)
+> 维护者：布偶猫 | 最后更新：2026-02-25 (F38 Skills 梳理 + 按需发现)
 >
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -164,6 +164,7 @@
 | F36 | **Logo 一笔画动画（Stroke Drawing Animation）** | **P3** | 2026-02-22 视频 Logo 讨论 | 视频 Logo 用 `stroke-dashoffset` 做真正的"笔尖游走"线条生长效果。**当前阻塞**：(1) AI（Pencil MCP）画出来像"发芽土豆+球星飞船"🥔🚀，完全不能用；(2) `autotrace -centerline` 输出太杂乱（~13 段分离路径 + 内部交叉线）。**需要**：人工 Inkscape 手动描摹干净 stroke 路径，或等 AI 绘画能力提升。**当前替代方案**：clip-path reveal 动画（circle/wipe/bottom-up），见 `assets/icons/logo-animation-demo.html`。 |
 | F23 | **目录结构防腐化 + 重构 + 代码检查工具链** | **[x]** | 铲屎官 2026-02-13 | PR #21 (`d366ad5`) — 5 WT 全部合入 main。87 files → 7 子目录 + ~690 imports 迁移 + 5 大文件拆分。防腐化门禁 `pnpm check:dir-size` + `pnpm check:deps`。Biome v2.4 + LSP + JetBrains MCP 全部启用。routes 目录有 `.dir-exceptions.json` 例外到 2026-04-01。ADR: [`010-directory-hygiene-anti-rot.md`](./decisions/010-directory-hygiene-anti-rot.md) |
 | F37 | **Agent Swarm 协同模式** | **[~] P1** | [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) | 四猫 + 铲屎官讨论 multi-agent 协同方式借鉴。8 个 feat 拆解（4.5 初版 + 4.6 补充 + 铲屎官反馈）。**追溯链**：[Feat 拆解（入口）](./discussions/agent-swarm-feats.md) → [会议纪要](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md) → [调研报告](./research/2026-02-24-multi-agent-comparison/)。核心共识：Swarm 是阶段性工具（Research+Brainstorm），决策权漏斗模式，Mode 系统需从机械模板转向柔性引导。 |
+| F38 | **Skills 梳理 + 按需发现机制** | **P3** | 2026-02-25 skill bug 调查 | 现有 24 skills 全量注入 context（~4.5k chars descriptions），可优化为：(1) 按需加载（`disable-model-invocation: true` 标记低频 skills）；(2) `skill-index` 入口 skill 做分类目录（类似 ToolSearch）；(3) 合并功能重叠 skills（executing-plans+subagent+dispatching → 1个，worktrees+finishing-branch → 1个）。触发条件：skills 数量 >30 或 context 膨胀时。 |
 | F21++ | **Signal Study Mode（深度学习伴侣）** | **P1** | [feat 采访 2026-02-26](./plans/2026-02-26-f21-study-mode-design.md) | F21 从 RSS 阅读器升级为学习伴侣：双入口触发 Study + 文章上下文自动注入 + 深度笔记归档 + 播客生成（复用 F34 TTS）+ 多猫研究（复用 F-Swarm-1）+ Signal Hunter 迁移。10 个需求 (R1-R10)，11 轮 feat 采访确认。设计: [`2026-02-26-f21-study-mode-design.md`](./plans/2026-02-26-f21-study-mode-design.md) |
 | F24 | **中途消息注入 + Context 存活监控 + 自动交接** | **[x]** | 铲屎官 2026-02-13 | 三个子能力全部完成：**(1) 中途消息注入** [x]：`4e85883` ChatInputActionButton 改为 hasActiveInvocation 时同时展示 Stop + Send 按钮。**(2) Context 存活监控** [x]：`fcf949d` SessionChainPanel + ContextHealthBar。**(3) 自动交接触发** [x]：`3772cd9` SessionSealer + per-cat seal thresholds + hook 注入。 |
 | F25 | **可靠性工程（状态机规格 + 并发演练 + 证据闸门）** | **[x]** | [2026-02-14 情人节聊天](./archive/2026-02/mailbox/2026-02-14/2026-02-14-valentines-day-cat-chat-meeting-minutes.md) | PR #21 (`d366ad5`) — 三件事全部完成：(1) `4ab5b47` 状态机规格 + fast-check property tests；(2) `7340176` 并发演练 + evidence gate；(3) 竞态守护。1327 tests 全绿。 |
