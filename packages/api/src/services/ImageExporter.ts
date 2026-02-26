@@ -38,6 +38,7 @@ export class ImageExporter {
       await page.setViewport({ width: 1280, height: 720 });
 
       // Append export=true so the frontend expands collapsible content (e.g. ThinkingContent)
+      // AND triggers one-shot full message loading (EXPORT_LIMIT=10000 in useChatHistory)
       const exportUrl = new URL(url);
       exportUrl.searchParams.set('export', 'true');
 
@@ -50,73 +51,44 @@ export class ImageExporter {
       // Wait for chat container to load
       await page.waitForSelector('[data-chat-container]', { timeout: 10000 });
 
-      // Load ALL paginated messages before capture.
-      // The frontend loads messages in pages of 50 (HISTORY_PAGE_SIZE).
-      // Scrolling the chat container to top triggers the next page load.
-      // We repeat until scrollHeight stabilizes (no more messages to load).
-      let prevScrollHeight = 0;
-      let stableRounds = 0;
-      for (let i = 0; i < 100; i++) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scrollHeight = await page.evaluate(() => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const container = (globalThis as any).document.querySelector('[data-chat-container]');
-          if (!container) return 0;
-          container.scrollTop = 0; // triggers onScroll → fetchHistory when scrollTop < 80
-          return container.scrollHeight as number;
-        });
-
-        // Wait for the pagination API response to arrive and render
-        await page.waitForNetworkIdle({ idleTime: 500, timeout: 3000 }).catch(() => {});
-
-        if (scrollHeight === prevScrollHeight) {
-          stableRounds++;
-          if (stableRounds >= 2) break; // 2 consecutive rounds with no change → done
-        } else {
-          stableRounds = 0;
-        }
-        prevScrollHeight = scrollHeight;
-      }
-
-      // Precisely remove height/overflow constraints on the chat container
-      // and its direct ancestor chain only. Previous approach used global CSS
-      // injection (.overflow-hidden { overflow: visible }) which broke sidebar
-      // and panel layouts, inflating document.scrollHeight and causing Chrome's
-      // 16384px GPU texture limit to silently truncate the capture.
+      // Diagnostic: log what the page actually loaded
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dims = await page.evaluate(() => {
+      const diag = await page.evaluate(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const g = globalThis as any;
         const container = g.document.querySelector('[data-chat-container]');
-        if (!container) return { top: 0, height: 720 };
+        const msgEls = container?.querySelectorAll('[data-message-id]') ?? [];
+        return {
+          url: g.window?.location?.href,
+          search: g.window?.location?.search,
+          messageCount: msgEls.length,
+          scrollHeight: container?.scrollHeight ?? 0,
+          clientHeight: container?.clientHeight ?? 0,
+        };
+      });
+      console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
 
-        // Remove chat container's h-full + overflow-y:auto
-        container.style.setProperty('height', 'auto', 'important');
-        container.style.setProperty('overflow', 'visible', 'important');
-
-        // Remove direct parent's overflow-hidden (the flex-1 wrapper)
-        const parent = container.parentElement;
-        if (parent) {
-          parent.style.setProperty('overflow', 'visible', 'important');
-          parent.style.setProperty('height', 'auto', 'important');
-        }
-
-        // Walk up to find the h-screen/h-dvh ancestor and remove height constraint
-        let el = parent?.parentElement;
-        while (el && el !== g.document.documentElement) {
-          if (el.classList?.contains('h-screen') || el.classList?.contains('h-dvh')) {
-            el.style.setProperty('height', 'auto', 'important');
-            break;
-          }
-          el = el.parentElement;
-        }
-
-        // Force synchronous layout recalc and return dimensions
-        const rect = container.getBoundingClientRect();
-        return { top: Math.ceil(rect.top), height: Math.ceil(rect.height) };
+      // Get the chat container's full content height (scrollHeight includes overflow)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const scrollHeight = await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const container = (globalThis as any).document.querySelector('[data-chat-container]');
+        return (container?.scrollHeight as number) ?? 720;
       });
 
-      // Double-rAF for layout stabilization
+      // Set viewport tall enough so h-screen expands and chat container can
+      // show all content without overflow. The flex layout deducts header (~48px)
+      // and input bar (~64px) from h-screen to size the chat container, so we
+      // add a generous buffer to ensure all content fits.
+      const LAYOUT_BUFFER = 200;
+      const targetHeight = Math.min(scrollHeight + LAYOUT_BUFFER, 16384);
+
+      console.log('[ImageExporter] scrollHeight=%d targetHeight=%d', scrollHeight, targetHeight);
+
+      await page.setViewport({ width: 1280, height: targetHeight });
+
+      // Wait for layout to stabilize after viewport resize
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.evaluate(() =>
         new Promise<void>(resolve =>
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,29 +99,10 @@ export class ImageExporter {
         )
       );
 
-      // Total height = header offset + chat content height.
-      // Cap at 16384px — Chrome's max GPU texture dimension on most systems.
-      // Beyond this, Page.captureScreenshot silently truncates the image.
-      const totalHeight = dims.top + dims.height;
-      const cappedHeight = Math.min(totalHeight, 16384);
-
-      await page.setViewport({ width: 1280, height: cappedHeight });
-
-      // Final layout stabilization after viewport resize
-      await page.evaluate(() =>
-        new Promise<void>(resolve =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (globalThis as any).requestAnimationFrame(() =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (globalThis as any).requestAnimationFrame(() => resolve())
-          )
-        )
-      );
-
-      // Capture viewport-sized screenshot (no fullPage — avoids Puppeteer
-      // internally re-measuring/re-sizing the viewport which creates
-      // layout feedback loops with h-screen based layouts)
+      // Capture viewport-sized screenshot (no fullPage to avoid stitching artifacts)
       const screenshot = await page.screenshot({ type: 'png' });
+
+      console.log('[ImageExporter] captured %d bytes', screenshot.length);
 
       await page.close();
 
