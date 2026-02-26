@@ -96,26 +96,45 @@ export class ImageExporter {
       });
       console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
 
-      // Inject CSS to convert the scroll-based layout into a flow layout for fullPage capture.
-      // Layout chain: h-screen h-dvh > flex-1 overflow-hidden > h-full overflow-y-auto
-      // All three layers must be unset so content flows naturally for Puppeteer's fullPage.
-      await page.addStyleTag({
-        content: `
-          /* Remove viewport height constraint from outermost container */
-          .h-screen, .h-dvh { height: auto !important; }
-          /* Remove overflow clip from chat area wrapper */
-          .overflow-hidden { overflow: visible !important; }
-          /* Convert chat container from scroll to flow */
-          [data-chat-container] {
-            height: auto !important;
-            overflow: visible !important;
-          }
-          /* Hide sidebar and input bar in export */
-          [data-sidebar], [data-chat-input] { display: none !important; }
-        `,
+      // Convert scroll-based layout to flow layout via targeted DOM manipulation.
+      // Only modify [data-chat-container] and its direct ancestor chain — NOT all
+      // .overflow-hidden elements globally (which caused layout duplication).
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const doc = (globalThis as any).document;
+        const container = doc.querySelector('[data-chat-container]');
+        if (!container) return;
+
+        // Layer 1: [data-chat-container] — remove scroll, expand to content
+        container.style.height = 'auto';
+        container.style.overflow = 'visible';
+        container.style.maxHeight = 'none';
+
+        // Layer 2: parent div.flex-1.overflow-hidden — remove clip
+        const chatWrapper = container.parentElement;
+        if (chatWrapper) {
+          chatWrapper.style.height = 'auto';
+          chatWrapper.style.overflow = 'visible';
+          chatWrapper.style.flex = 'none';
+        }
+
+        // Layer 3: grandparent div.flex.flex-col.flex-1 — let it grow
+        const mainCol = chatWrapper?.parentElement;
+        if (mainCol) {
+          mainCol.style.height = 'auto';
+          mainCol.style.flex = 'none';
+        }
+
+        // Layer 4: outermost div.h-screen.h-dvh — remove viewport lock
+        const root = mainCol?.parentElement;
+        if (root) {
+          root.style.height = 'auto';
+          root.style.minHeight = 'auto';
+        }
       });
 
-      // Wait for layout reflow after CSS injection
+      // Wait for layout reflow after DOM style changes
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await page.evaluate(() =>
         new Promise<void>(resolve =>
