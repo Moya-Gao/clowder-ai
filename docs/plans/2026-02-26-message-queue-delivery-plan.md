@@ -847,6 +847,15 @@ trigger(threadId, catId, userId, message, messageId) {
       threadId, userId, content: message,
       source: 'connector', targetCats: [catId], intent: 'execute',
     });
+
+    // full → 队列满，不发 queue_updated（事件契约不含 'full'），仅记日志
+    if (result.outcome === 'full') {
+      this.opts.log.warn({ threadId, catId, userId },
+        '[ConnectorInvokeTrigger] Queue full, connector message not enqueued (message already in MessageStore)');
+      return;
+    }
+
+    // enqueued / merged → backfill messageId + 广播
     if (result.outcome === 'enqueued' && result.entry) {
       this.opts.queue.backfillMessageId(threadId, userId, result.entry.id, messageId);
     } else if (result.outcome === 'merged' && result.entry) {
@@ -854,7 +863,8 @@ trigger(threadId, catId, userId, message, messageId) {
     }
     // 定向广播 queue_updated（scopeKey 隔离，不泄露给其他用户）
     this.opts.socketManager.emitToUser(userId, 'queue_updated', {
-      threadId, queue: this.opts.queue.list(threadId, userId), action: result.outcome,
+      threadId, queue: this.opts.queue.list(threadId, userId),
+      action: result.outcome, // 'enqueued' | 'merged' — 不含 'full'，契约安全
     });
     this.opts.log.info({ threadId, catId, outcome: result.outcome },
       '[ConnectorInvokeTrigger] Queued (active invocation running)');
@@ -872,6 +882,10 @@ trigger(threadId, catId, userId, message, messageId) {
 ```javascript
 it('queues when active invocation exists (does not abort)', async () => { /* ... */ });
 it('executes directly when no active invocation', async () => { /* ... */ });
+it('logs warning and does not emit queue_updated when queue is full', async () => {
+  // Setup: queue at MAX_QUEUE_DEPTH, active invocation running
+  // Assert: enqueue returns full, no emitToUser called, log.warn called
+});
 ```
 
 **Commit:**
