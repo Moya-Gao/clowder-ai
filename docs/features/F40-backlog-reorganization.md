@@ -77,6 +77,9 @@ docs/
 - **PR**: #XX
 - **Commit**: abc1234
 
+## Key Decisions（关键决策）
+为什么这样设计？放弃了什么？（压缩后不用读冷层就能理解设计意图）
+
 ## Dependencies
 - **Blocked by**: FXX
 - **Blocks**: FXX
@@ -88,20 +91,23 @@ docs/
 - ...
 ```
 
-### 归档规则
+### 归档规则（简化版，采纳 4.6 建议）
 
 | 状态 | 存放位置 | 触发时机 |
 |------|----------|----------|
 | in-progress | BACKLOG.md 有一行 + features/FXX.md | 开发中 |
-| done（近期） | 从 BACKLOG 移除，features/FXX.md 保留 | 合入 main 时 |
-| done（6月+） | features/FXX.md → archive/features/ | 季度清理 |
+| done | 从 BACKLOG 移除，features/FXX.md **永久保留** | 合入 main 时 |
 
-### Skill 设计
+> 不需要 6 个月归档——features/ 里都是轻量 md 文件，grep 够快。
 
-`feat-completion` skill，在猫完成 feat 时触发：
-1. 提示猫填写聚合文件的关键字段
-2. 自动更新 BACKLOG 状态
-3. 记录递进关系（evolved from / blocks）
+### Skill 设计（采纳 4.6 建议：kickoff 而非 completion）
+
+`feat-kickoff` skill，在**创建 feat 时**触发（不是完成时！）：
+1. 创建 `docs/features/FXX-name.md` 聚合文件
+2. 在 BACKLOG.md 添加索引行
+3. 开发过程中持续更新聚合文件
+
+> 4.6 的观点：如果只在完成时才补聚合文件，信息已经散落了。应该一开始就建。
 
 ---
 
@@ -120,9 +126,9 @@ docs/
 - [x] 2026-02-26: 问题诊断完成
 - [x] 2026-02-26: 探索现有 feat 关系图（haiku）
 - [x] 2026-02-26: 创建本文件（第一个示范）
-- [ ] 设计 feat 聚合模板（草稿 ↑，待讨论确认）
-- [ ] 设计 BACKLOG 新结构
-- [ ] 设计 feat-completion skill
+- [x] 2026-02-26: 与 Opus 4.6 讨论，纳入三点改进（Key Decisions 字段、取消 6 月归档、kickoff 而非 completion）
+- [ ] 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）
+- [ ] 设计 feat-kickoff skill
 - [ ] 用 F21 验证模板
 - [ ] 用 F32 验证"分阶段交付"记录
 - [ ] 批量整理现有 feat
@@ -131,9 +137,9 @@ docs/
 
 ## Open Questions
 
-1. **递进关系怎么记**：在聚合文件里（Dependencies 字段）够吗？还是需要单独的 graph.md？
-2. **编号规范**：F101 实际是 Tech Debt 还是 Feature？需要重新编号吗？
-3. **历史 feat 要不要补**：全部补还是只补活跃的？
+1. ~~**递进关系怎么记**~~ → **已解决**：用 Dependencies 字段的 `Evolved from` 够了。需要全局图就跑脚本从所有 feat 文件提取生成，不手动维护 graph.md（4.6 建议）
+2. **编号规范**：F = Feature，# = Tech Debt，不再混用。已有的 F101 等如果实际是 debt 需要重新编号
+3. **历史 feat 要不要补**：渐进式——新 feat 必须建，历史 feat 按需补
 
 ---
 
