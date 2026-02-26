@@ -148,10 +148,19 @@ GITHUB_REVIEW_POLL_INTERVAL_MS=30000
 
 ---
 
-## 待做（Phase 3+）
+## 待做（Phase 3+）→ 已升级为 Connector Messages 抽象
 
-- [ ] 猫猫自动 invoke（目前只发 system message + @mention，需接 invoke 机制）
-- [ ] Redis impl for PrTrackingStore + ProcessedEmailStore（重启持久化）
-- [ ] `requesting-cloud-review` skill 自动调 `POST /api/pr-tracking`
-- [ ] 前端通知（WebSocket push "砚砚 review 完了 🐾"）
-- [ ] IMAP IDLE 替代轮询（更实时，但 QQ 邮箱 IDLE 支持待验证）
+Phase 3 已从 Email Watcher 局部升级为**通用 Connector Messages 抽象**（BACKLOG #97）。
+GitHub Review 是第一个 connector，将来 iMessage/Slack 等共享同一框架。
+
+**详见**：[`docs/plans/2026-02-25-connector-messages-phase3.md`](./2026-02-25-connector-messages-phase3.md)
+
+已完成：
+- [x] `requesting-cloud-review` skill 自动调 `POST /api/pr-tracking`（Step 2.5, `454fe72`）
+
+待做（在 #97 中追踪）：
+- [ ] ConnectorSource 类型 + connectorRegistry（Phase 3a）
+- [ ] 前端 connector 气泡（Phase 3a）
+- [ ] 自动唤起猫 invoke（Phase 3b）
+- [ ] Redis impl for PrTrackingStore + ProcessedEmailStore（Phase 3c）
+- [ ] IMAP IDLE 替代轮询（可选优化，待验证 QQ 邮箱支持）
