@@ -94,10 +94,10 @@ export async function* routeSerial(
       prompt = `${message}\n\n${contextParts.join('\n')}`;
     }
 
-    // Build identity: static goes via systemPrompt option, dynamic goes in -p content
+    // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
-    // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (survives compression).
+    // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
     // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
     const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
     const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
@@ -152,7 +152,8 @@ export async function* routeSerial(
       );
       deliveryBoundaryId = inc.boundaryId;
       const catModePrompt = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      const parts = [invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
+      // staticIdentity in -p: --append-system-prompt proved unreliable (cats didn't receive content)
+      const parts = [staticIdentity, invocationContext, catModePrompt, bootstrapContext, mcpInstructions].filter(Boolean);
       if (inc.contextText) parts.push(inc.contextText);
       // F35 fix: only inject raw message when it was genuinely absent from unseen rows.
       // If it was present but filtered out (e.g. whisper), injecting would leak private content.
@@ -189,8 +190,8 @@ export async function* routeSerial(
       }
 
       const catModePromptLegacy = modeSystemPromptByCat?.[catId as string] ?? modeSystemPrompt;
-      if (invocationContext || catModePromptLegacy || mcpInstructions || bootstrapContext) {
-        const parts = [invocationContext, catModePromptLegacy, bootstrapContext, mcpInstructions].filter(Boolean);
+      if (staticIdentity || invocationContext || catModePromptLegacy || mcpInstructions || bootstrapContext) {
+        const parts = [staticIdentity, invocationContext, catModePromptLegacy, bootstrapContext, mcpInstructions].filter(Boolean);
         if (catContextHistory) parts.push(catContextHistory);
         prompt = `${parts.join('\n\n---\n\n')}\n\n---\n\n${prompt}`;
       } else if (catContextHistory) {
