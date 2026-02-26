@@ -51,21 +51,9 @@ export class ImageExporter {
         timeout: 30000,
       });
 
-      // Wait for chat container to load
-      await page.waitForSelector('[data-chat-container]', { timeout: 10000 });
-
       // Wait for messages to actually render (networkidle2 doesn't wait for React).
-      // Poll until at least one [data-message-id] element appears or timeout after 15s.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await page.waitForFunction(
-        () => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const container = (globalThis as any).document.querySelector('[data-chat-container]');
-          const msgs = container?.querySelectorAll('[data-message-id]') ?? [];
-          return msgs.length > 0;
-        },
-        { timeout: 15000 },
-      );
+      // Export mode doesn't render [data-chat-container], so just wait for any message.
+      await page.waitForSelector('[data-message-id]', { timeout: 15000 });
 
       // Give React one more render cycle to settle after messages mount
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -84,48 +72,24 @@ export class ImageExporter {
       const diag = await page.evaluate(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const g = globalThis as any;
-        const container = g.document.querySelector('[data-chat-container]');
-        const msgEls = container?.querySelectorAll('[data-message-id]') ?? [];
+        const msgEls = g.document.querySelectorAll('[data-message-id]') ?? [];
         return {
           url: g.window?.location?.href,
           search: g.window?.location?.search,
           messageCount: msgEls.length,
-          scrollHeight: container?.scrollHeight ?? 0,
-          clientHeight: container?.clientHeight ?? 0,
+          docHeight: g.document.documentElement.scrollHeight,
         };
       });
       console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
 
-      // Strategy: expand viewport height so h-screen grows large enough for ALL
-      // messages to fit inside the chat container without scrolling. No DOM
-      // manipulation needed — the flex layout naturally distributes height.
-      // When viewport > content, overflow-y-auto has nothing to scroll.
-      const scrollHeight = diag.scrollHeight;
-      // Add buffer for header (~48px) + input bar (~64px) + padding
-      const targetHeight = scrollHeight + 200;
-      console.log(
-        '[ImageExporter] scrollHeight=%d targetHeight=%d (no cap)',
-        scrollHeight,
-        targetHeight,
-      );
+      // Frontend export mode (?export=true) renders a print-friendly layout:
+      // - No h-screen (uses min-h-screen)
+      // - No overflow-y-auto (natural flow)
+      // - No sidebar, header, or input bar
+      // Just use fullPage screenshot — the page is already in flow layout.
+      console.log('[ImageExporter] docHeight=%d (fullPage)', diag.docHeight);
 
-      await page.setViewport({ width: 1280, height: targetHeight });
-
-      // Wait for layout to stabilize after viewport resize
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await page.evaluate(() =>
-        new Promise<void>(resolve =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (globalThis as any).requestAnimationFrame(() =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (globalThis as any).requestAnimationFrame(() => resolve())
-          )
-        )
-      );
-
-      // Viewport-only screenshot — no fullPage (which causes tiling duplication),
-      // no element screenshot (also tiles internally), no DOM manipulation (breaks flex).
-      const screenshot = await page.screenshot({ type: 'png' });
+      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
 
       console.log('[ImageExporter] captured %d bytes', screenshot.length);
 

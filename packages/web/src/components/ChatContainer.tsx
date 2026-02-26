@@ -41,6 +41,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     pendingModeSwitchProposal, setPendingModeSwitchProposal,
     viewMode, setViewMode, clearUnread,
   } = useChatStore();
+
+  // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
+  const isExport = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('export') === 'true';
   const { clearTasks } = useTaskStore();
   const { getCatById } = useCatData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -191,6 +195,27 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
         <CatCafeHub />
       </>
+    );
+  }
+
+  // Export mode: print-friendly layout — no sidebars, no scroll containers
+  if (isExport) {
+    return (
+      <div className="min-h-screen bg-white">
+        <div className="max-w-4xl mx-auto p-4">
+          {renderItems.map((item) =>
+            item.kind === 'a2a_group' ? (
+              <A2ACollapsible
+                key={item.groupId}
+                group={{ groupId: item.groupId, messages: item.messages }}
+                renderMessage={renderSingleMessage}
+              />
+            ) : (
+              renderSingleMessage(item.msg)
+            )
+          )}
+        </div>
+      </div>
     );
   }
 
