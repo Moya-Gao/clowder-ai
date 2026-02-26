@@ -146,15 +146,21 @@ export class ImageExporter {
         )
       );
 
-      // Log final document height (no 16384 cap — fullPage captures in tiles)
-      const docHeight = await page.evaluate(
+      // Log the expanded element height after DOM manipulation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const elHeight = await page.evaluate(() => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        () => (globalThis as any).document.documentElement.scrollHeight as number,
-      );
-      console.log('[ImageExporter] docHeight=%d (fullPage, no cap)', docHeight);
+        const c = (globalThis as any).document.querySelector('[data-chat-container]');
+        return c ? Math.round(c.getBoundingClientRect().height) : 0;
+      });
+      console.log('[ImageExporter] element height=%d (after flow conversion)', elHeight);
 
-      // fullPage: true captures the entire document by tiling — no GPU texture limit
-      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
+      // Use element screenshot instead of fullPage — avoids Puppeteer's scroll-based
+      // tiling which duplicates content in complex flex layouts. Element screenshot
+      // captures the element's bounding rect directly, no 16384 cap, no tiling.
+      const el = await page.$('[data-chat-container]');
+      if (!el) throw new Error('Chat container not found for screenshot');
+      const screenshot = await el.screenshot({ type: 'png' });
 
       console.log('[ImageExporter] captured %d bytes', screenshot.length);
 
