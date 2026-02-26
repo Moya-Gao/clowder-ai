@@ -490,31 +490,41 @@ async function guardThreadOwnership(request, reply, threadStore, threadId) {
 }
 ```
 
+**用户隔离策略（R4 P1 fix）:**
+
+InvocationQueue 内部保持 per-thread FIFO（保证跨用户时间顺序），**API 路由层按 `userId` 过滤**：
+- `GET /queue`、`DELETE /queue/:entryId`、`DELETE /queue`：只看到/操作 `entry.userId === 当前用户` 的条目
+- `POST /queue/next`：系统级 FIFO 出队（不按用户过滤），因为 invocation 完成后的自动出队也不分用户
+- 非 default thread 已有 ownership check（单 owner），userId 过滤是冗余但一致的保护层
+- Default thread (`createdBy='system'`) 靠 userId 过滤实现跨用户隔离
+
 **GET /api/threads/:threadId/queue:**
-- 鉴权 → 返回 `{ queue: QueueEntry[], paused: boolean }`
+- 鉴权 → 返回 `{ queue: list(threadId).filter(e => e.userId === userId), paused: boolean }`
+- 用户只能看到自己的队列条目（default thread 跨用户隔离）
 - `paused` = 上次 invocation 是 canceled/failed 且队列非空
 
 **DELETE /api/threads/:threadId/queue/:entryId:**
-- 鉴权 → 从队列移除
+- 鉴权 → 校验 `entry.userId === userId`，不匹配 → 403（不能删别人的条目）
 - 如果 `entry.status === 'processing'` → 拒绝（409: 已在处理中）
-- 可选：删除对应的 MessageStore 消息（`?deleteMessage=true`）
+- 从队列移除；可选：删除对应的 MessageStore 消息（`?deleteMessage=true`）
 - 广播 `queue_updated`
 
 **POST /api/threads/:threadId/queue/next:**
 - 鉴权 → 调用 `queueProcessor.processNext(threadId)`
+- FIFO 出队，不按 userId 过滤（系统级操作，与 onInvocationComplete 自动出队一致）
 - 返回 `{ started: boolean, entry?: QueueEntry }`
 - 如果队列空 → 200 `{ started: false }`
 
 **DELETE /api/threads/:threadId/queue:**
-- 鉴权 → 清空整个队列
-- 返回被清除的条目列表
+- 鉴权 → 只清空当前用户的条目：`list(threadId).filter(e => e.userId === userId).forEach(e => remove(...))`
+- 返回被清除的条目列表（仅当前用户的）
 - 广播 `queue_updated`
 
-**测试（6 个）:**
+**测试（13 个）:**
 
 ```javascript
 describe('Queue Management API', () => {
-  // Auth (P1-2 fix)
+  // Auth
   it('returns 401 when userId header missing', async () => { /* ... */ });
   it('returns 404 when thread not found', async () => { /* ... */ });
   it('returns 403 when userId does not match thread owner', async () => { /* ... */ });
@@ -523,13 +533,26 @@ describe('Queue Management API', () => {
     // Setup: threadStore.get returns { id: 'default', createdBy: 'system', ... }
     // Assert: 不返回 403，正常执行
   });
+  // User isolation (R4 P1 fix)
+  it('GET /queue only returns entries belonging to requesting user', async () => {
+    // Setup: default thread, userA 和 userB 各入队 1 条
+    // Assert: userA GET → 只看到自己的; userB GET → 只看到自己的
+  });
+  it('DELETE /queue/:entryId rejects deleting another user entry (403)', async () => {
+    // Setup: default thread, userA 入队 1 条
+    // Assert: userB DELETE → 403
+  });
+  it('DELETE /queue clears only requesting user entries', async () => {
+    // Setup: default thread, userA 2 条 + userB 1 条
+    // Assert: userA DELETE /queue → 返回 2 条, userB 的条目不受影响
+  });
   // Functional
   it('GET /queue returns entries and paused state', async () => { /* ... */ });
   it('DELETE /queue/:entryId removes entry and broadcasts', async () => { /* ... */ });
   it('DELETE /queue/:entryId rejects processing entry (409)', async () => { /* ... */ });
   it('POST /queue/next triggers next entry processing', async () => { /* ... */ });
   it('POST /queue/next returns started=false when empty', async () => { /* ... */ });
-  it('DELETE /queue clears all entries', async () => { /* ... */ });
+  it('DELETE /queue clears all entries for user', async () => { /* ... */ });
 });
 ```
 
