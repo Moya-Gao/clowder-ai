@@ -490,6 +490,111 @@ describe('routeSerial resilience', () => {
   });
 });
 
+describe('routeSerial cursor ack on error', () => {
+  it('acks delivery cursor even when cat yields error (prevents infinite re-delivery)', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    // Mock service that yields text THEN error THEN done
+    const errorService = {
+      async *invoke() {
+        yield { type: 'text', catId: 'opus', content: 'partial', timestamp: Date.now() };
+        yield { type: 'error', catId: 'opus', error: 'token limit', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({ opus: errorService });
+    deps.deliveryCursorStore = {
+      getCursor: async () => undefined,
+      ackCursor: async () => {},
+    };
+    deps.messageStore.getByThreadAfter = async () => [
+      {
+        id: '0000000000000001-000001-aaaaaaaa',
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: 'user message',
+        mentions: [],
+        timestamp: Date.now(),
+      },
+    ];
+
+    const cursorBoundaries = new Map();
+    for await (const _ of routeSerial(
+      deps,
+      ['opus'],
+      'test',
+      'user1',
+      'thread1',
+      { currentUserMessageId: '0000000000000001-000001-aaaaaaaa', cursorBoundaries },
+    )) {}
+
+    assert.ok(
+      cursorBoundaries.has('opus'),
+      'cursor boundary must be set for opus even when hadError=true',
+    );
+    assert.equal(
+      cursorBoundaries.get('opus'),
+      '0000000000000001-000001-aaaaaaaa',
+      'boundary should match the last unseen message ID',
+    );
+  });
+});
+
+describe('routeParallel cursor ack on error', () => {
+  it('acks delivery cursor even when cat yields error (prevents infinite re-delivery)', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    // Mock service that yields error + done
+    const errorService = {
+      async *invoke() {
+        yield { type: 'error', catId: 'opus', error: 'API failure', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = createMockDeps({
+      opus: errorService,
+      codex: createMockService('codex', 'codex ok'),
+    });
+    deps.deliveryCursorStore = {
+      getCursor: async () => undefined,
+      ackCursor: async () => {},
+    };
+    deps.messageStore.getByThreadAfter = async () => [
+      {
+        id: '0000000000000002-000001-bbbbbbbb',
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: 'user message',
+        mentions: [],
+        timestamp: Date.now(),
+      },
+    ];
+
+    const cursorBoundaries = new Map();
+    for await (const _ of routeParallel(
+      deps,
+      ['opus', 'codex'],
+      'test',
+      'user1',
+      'thread1',
+      { currentUserMessageId: '0000000000000002-000001-bbbbbbbb', cursorBoundaries },
+    )) {}
+
+    assert.ok(
+      cursorBoundaries.has('opus'),
+      'cursor boundary must be set for opus even when it errored',
+    );
+    assert.ok(
+      cursorBoundaries.has('codex'),
+      'cursor boundary must be set for codex (no error)',
+    );
+  });
+});
+
 describe('routeParallel resilience', () => {
   it('yields done even when messageStore.append throws (Redis failure)', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');

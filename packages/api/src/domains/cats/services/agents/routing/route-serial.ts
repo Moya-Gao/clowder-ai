@@ -486,7 +486,10 @@ export async function* routeSerial(
     // hadError && textContent === '' && no toolEvents → skip persistence
     // Error events were already yielded to frontend via the stream.
 
-    if (incrementalMode && !hadError && deliveryBoundaryId) {
+    // Ack cursor regardless of hadError: messages were assembled into the prompt
+    // and delivered to the cat. Not acking causes infinite re-delivery on subsequent
+    // rounds (bug: "砚砚每次都疯狂回之前的消息").
+    if (incrementalMode && deliveryBoundaryId) {
       if (options.cursorBoundaries) {
         // ADR-008 S3: defer ack — caller acks after invocation succeeds
         options.cursorBoundaries.set(catId, deliveryBoundaryId);

@@ -407,7 +407,9 @@ export async function* routeParallel(
         }
       }
 
-      if (incrementalMode && !catHadError.has(msg.catId)) {
+      // Ack cursor regardless of error: messages were assembled into the prompt
+      // and delivered to the cat. Not acking causes infinite re-delivery.
+      if (incrementalMode) {
         const boundaryId = boundaryByCat.get(msg.catId as CatId);
         if (boundaryId) {
           if (options.cursorBoundaries) {
