@@ -59,23 +59,24 @@ export async function* routeParallel(
 
 	  const streams = await Promise.all(targetCats.map(async (catId) => {
 	    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
-	    const staticIdentity = buildStaticIdentity(catId);
 	    const teammates = targetCats.filter((id) => id !== catId);
-	    const invocationContext = buildInvocationContext({
-	      catId,
-	      mode: 'parallel',
-	      teammates,
-	      mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
-	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
-	    });
-	    // Inject MCP HTTP callback instructions for non-Claude cats
-	    // Skills-as-SOT: single minimal form — full docs in using-mcp-callbacks skill
+	    // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (survives compression).
+	    // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
+	    const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
+	    const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
 	    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false)
 	      ? buildMcpCallbackInstructions({
 	        currentCatId: catId as string,
 	        teammates: teammates.map((id) => id as string),
 	      })
 	      : '';
+	    const invocationContext = buildInvocationContext({
+	      catId,
+	      mode: 'parallel',
+	      teammates,
+	      mcpAvailable,
+	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+	    });
 
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);
     const targetUploadDir = targetContentBlocks ? uploadDir : undefined;

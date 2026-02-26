@@ -525,7 +525,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('独立回答'), 'Should indicate independent mode');
   });
 
-  test('buildInvocationContext does not contain static identity', async () => {
+  test('buildInvocationContext does not contain static identity or MCP tools', async () => {
     const { buildInvocationContext } = await import(
       '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
@@ -539,7 +539,46 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('布偶猫'), 'Should not contain display name (that is in static identity)');
     assert.ok(!ctx.includes('Anthropic'), 'Should not contain provider');
     assert.ok(!ctx.includes('## 协作'), 'Should not contain collaboration guide');
-    // But MCP tools should be present
-    assert.ok(ctx.includes('cat_cafe_post_message'), 'Should contain MCP tools');
+    // MCP tools moved to static identity (session-level, not per-message)
+    assert.ok(!ctx.includes('cat_cafe_post_message'), 'MCP tools should be in static identity, not invocation context');
+    // 铲屎官 reference also moved to static identity
+    assert.ok(!ctx.includes('铲屎官是真人用户'), '铲屎官 reference should be in static identity');
+  });
+
+  test('buildStaticIdentity includes MCP tools when mcpAvailable', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const identity = buildStaticIdentity('opus', { mcpAvailable: true });
+    assert.ok(identity.includes('cat_cafe_post_message'), 'Should contain MCP tools when mcpAvailable');
+    assert.ok(identity.includes('cat_cafe_get_thread_context'), 'Should contain thread context tool');
+  });
+
+  test('buildStaticIdentity omits MCP tools when mcpAvailable is false', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const identity = buildStaticIdentity('opus');
+    assert.ok(!identity.includes('cat_cafe_post_message'), 'Should not contain MCP tools without mcpAvailable');
+  });
+
+  test('buildStaticIdentity does NOT include mcpCallbackInstructions (non-Claude stays per-message)', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    // Non-Claude cats use per-message injection for HTTP callback instructions
+    // because their systemPrompt lives in session history and may be lost on compression.
+    // Only Claude's MCP_TOOLS_SECTION goes in staticIdentity (survives compression via --append-system-prompt).
+    const identity = buildStaticIdentity('codex');
+    assert.ok(!identity.includes('cat_cafe_post_message'), 'Codex should not have MCP tools in static identity');
+    assert.ok(!identity.includes('HTTP 回调'), 'Codex should not have callback instructions in static identity');
+  });
+
+  test('buildStaticIdentity includes 铲屎官 reference', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const identity = buildStaticIdentity('opus');
+    assert.ok(identity.includes('铲屎官'), 'Should contain 铲屎官 reference in static identity');
   });
 });

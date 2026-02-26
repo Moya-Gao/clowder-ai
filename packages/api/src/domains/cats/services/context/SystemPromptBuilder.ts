@@ -187,11 +187,30 @@ function buildTeammateRoster(currentCatId: CatId): string | null {
 }
 
 /**
+ * Options for building the static identity prompt.
+ * MCP section is included here (not in invocationContext) because it's
+ * session-level — injected once on new session, skipped on --resume.
+ */
+export interface StaticIdentityOptions {
+  /**
+   * Whether native MCP tools are available (Claude with --mcp-config).
+   * When true, MCP_TOOLS_SECTION is included in static identity because
+   * Claude's --append-system-prompt survives context compression.
+   *
+   * Non-Claude cats (Codex/Gemini) use HTTP callback instructions which
+   * must stay in per-message prompt because their systemPrompt is in
+   * session history and MAY be lost on compression.
+   */
+  mcpAvailable?: boolean;
+}
+
+/**
  * Build static identity prompt — persistent across invocations.
- * Includes: identity, personality, rules, A2A format, workflow triggers.
+ * Includes: identity, personality, rules, A2A format, workflow triggers,
+ * 铲屎官 reference, and MCP tool documentation (session-level).
  * Suitable for --system-prompt / --append-system-prompt injection.
  */
-export function buildStaticIdentity(catId: CatId): string {
+export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOptions): string {
   const config = getConfig(catId as string);
   if (!config) return '';
 
@@ -247,8 +266,18 @@ export function buildStaticIdentity(catId: CatId): string {
   lines.push('规则：不要冒充其他猫。不要编造自己的型号。不确定时明确说"我不确定"或"我需要查证"，绝不编造信息。用你自己的风格回答。');
   lines.push('');
 
+  // 铲屎官 reference (session-level, not per-message)
+  lines.push('铲屎官是真人用户，是团队的共创伙伴。重要决策时由铲屎官拍板。', '');
+
   // Identity contract
   lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');
+
+  // MCP tools documentation — ONLY for Claude (--append-system-prompt survives compression).
+  // Non-Claude cats (Codex/Gemini) inject HTTP callback instructions per-message
+  // because their systemPrompt lives in session history and may be lost on compression.
+  if (options?.mcpAvailable) {
+    lines.push('', MCP_TOOLS_SECTION.trim());
+  }
 
   return lines.join('\n');
 }
@@ -274,8 +303,6 @@ export function buildInvocationContext(context: InvocationContext): string {
       }
     }
   }
-  lines.push('铲屎官是真人用户，是团队的共创伙伴。重要决策时由铲屎官拍板。', '');
-
   // Mode context
   if (context.mode === 'serial' && context.chainIndex != null && context.chainTotal != null) {
     lines.push(
@@ -293,10 +320,7 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push('思维方式：批判性分析。挑战假设，找出漏洞，提出反例。', '');
   }
 
-  // MCP tools
-  if (context.mcpAvailable) {
-    lines.push(MCP_TOOLS_SECTION.trim(), '');
-  }
+  // MCP tools: moved to buildStaticIdentity() for session-level injection (not per-message)
 
   return lines.join('\n');
 }
@@ -307,7 +331,9 @@ export function buildInvocationContext(context: InvocationContext): string {
  * Pure function — same inputs always produce same output.
  */
 export function buildSystemPrompt(context: InvocationContext): string {
-  const staticPart = buildStaticIdentity(context.catId);
+  const staticPart = buildStaticIdentity(context.catId, {
+    mcpAvailable: context.mcpAvailable,
+  });
   if (!staticPart) return '';
   const dynamicPart = buildInvocationContext(context);
   return dynamicPart ? `${staticPart}\n\n${dynamicPart}` : staticPart;

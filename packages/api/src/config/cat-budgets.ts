@@ -22,7 +22,16 @@ const BUDGET_ENV_KEYS = {
   gemini: 'CAT_GEMINI_MAX_PROMPT_TOKENS',
 } as const;
 
-/** Hardcoded defaults — keyed by breedId so all variants share the same budget */
+/**
+ * Hardcoded defaults — keyed by breedId so all variants share the same budget.
+ *
+ * ⚠️ ADVISORY in incremental mode: when sessionChain=true (Claude/Codex),
+ * context delivery uses the incremental (cursor-based) path which only enforces
+ * maxContentLengthPerMsg per message — NOT the total maxPromptTokens budget.
+ * In this mode, context window management is delegated to the CLI itself
+ * (e.g. Claude Code's internal compact). The full budget enforcement only
+ * applies in legacy (full-history) mode and for cats without sessionChain (Gemini).
+ */
 const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
   ragdoll:      { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
   'maine-coon': { maxPromptTokens: 100000, maxContextTokens: 60000, maxMessages: 200, maxContentLengthPerMsg: 10000 },

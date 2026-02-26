@@ -94,26 +94,27 @@ export async function* routeSerial(
 
     // Build identity: static goes via systemPrompt option, dynamic goes in -p content
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
-    const staticIdentity = buildStaticIdentity(catId);
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
-    const invocationContext = buildInvocationContext({
-      catId,
-      mode: worklist.length > 1 ? 'serial' : 'independent',
-      chainIndex: index + 1,
-      chainTotal: worklist.length,
-      teammates,
-      mcpAvailable: (catConfig?.mcpSupport ?? false) && !!mcpServerPath,
-      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
-      a2aEnabled: worklistEntry.a2aCount < maxDepth,
-    });
-    // Inject MCP HTTP callback instructions for non-Claude cats
-    // Skills-as-SOT: single minimal form — full docs in using-mcp-callbacks skill
+    // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (survives compression).
+    // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
+    const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
+    const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
     const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false)
       ? buildMcpCallbackInstructions({
         currentCatId: catId as string,
         teammates: teammates.map((id) => id as string),
       })
       : '';
+    const invocationContext = buildInvocationContext({
+      catId,
+      mode: worklist.length > 1 ? 'serial' : 'independent',
+      chainIndex: index + 1,
+      chainTotal: worklist.length,
+      teammates,
+      mcpAvailable,
+      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+      a2aEnabled: worklistEntry.a2aCount < maxDepth,
+    });
 
     // F24 Phase E: Bootstrap context for Session #2+
     let bootstrapContext = '';
