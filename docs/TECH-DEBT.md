@@ -6,11 +6,8 @@ created: 2026-02-26
 ---
 
 # Cat Cafe 技术债务
-> 维护者：三猫 | 最后更新：2026-02-26 (F40 拆分)
+> 维护者：三猫 | 最后更新：2026-02-26 (F40 拆分 + R1 结构修复)
 > 来源：由原 `docs/BACKLOG.md` 债务段拆分。
-
-> 维护者：布偶猫 | 最后更新：2026-02-26 (F39 消息排队投递)
->
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
 
@@ -41,6 +38,8 @@ created: 2026-02-26
 | TD078 | **MCP `get_thread_context` 不返回历史图片** | [x] | 铲屎官 2026-02-16 实测 | `b69fcc2` — `callbacks.ts` thread-context response map 漏传 `contentBlocks`，加回即可。存储层已正确保存图片附件，仅 API response 序列化时遗漏。回归测试已补。 |
 | TD083 | **`post-message` 回调路径不支持 Rich Blocks** | [x] | 2026-02-20 布偶猫排查 | `c466213` — `callbacks.ts:post-message` handler 加 `extractRichFromText`，存 cleanText + `extra.rich.blocks`，SSE 广播 `rich_block` 事件。3 new tests。已合入 main。 |
 | TD085 | **Rich Blocks 格式容错 + CardBlock Markdown 渲染** | [x] | 2026-02-20 铲屎官实测 + 砚砚 review | `ecc199b` — (1) CardBlock `bodyMarkdown` 改用 MarkdownContent + `disableCommandPrefix`；(2) `normalizeRichBlock` 在 `@cat-cafe/shared`，三入口共用（Route A/B/MCP tool）：`type→kind` alias + 自动 `v:1`；(3) 裸 JSON 数组全量验证（云端 P1 修复：部分匹配不提取）；(4) 提示词补 `kind≠type` 警告。105 tests pass。PR #40 已合入。 |
+| TD091 | **ContextAssembler 截断丢失消息结尾关键信息** | [x] | [bug report](./bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md) | 修复：(A) `formatMessage()` 改为 head(40%)+tail(60%) 保留 + `[...truncated N chars...]` 标记；(B) `route-helpers.ts` 增量路径改用 `getCatContextBudget(catId).maxContentLengthPerMsg` 替代硬编码 2000。 |
+| TD092 | **Skills Lifecycle Hardening（发布流程补全）** | [x] | [设计文档](./plans/2026-02-23-skills-lifecycle-hardening.md) | PR #68 (`c5ce356`)。(M1) 挂载 `using-rich-blocks` + `using-mcp-callbacks` 三猫 symlink；(M2) `writing-skills` 补 Cat Café 发布 Checklist；(M3) `check:skills` 双向校验（源目录 ↔ BOOTSTRAP.md）+ worktree-aware 路径解析。21/21 全绿。 |
 
 ## P2 — 建议做
 
@@ -132,10 +131,3 @@ created: 2026-02-26
 | TD087 | sources-loader "does not rewrite" 测试强化 mtime/spy | [ ] | source-sync 缅因猫 R1 P3-1 | 当前 `signal-sources-loader.test.js` 的"no rewrite"断言仅比较文件内容；无法区分"未写盘"和"写盘但内容相同"。可用 `fs.statSync().mtimeMs` 或 write spy 强化。触发条件：下次改 sources-loader 写盘逻辑时一并补。 |
 | TD088 | Redis PushSubscriptionStore upsert TOCTOU race | [ ] | C1+C2 云端 Codex review P3 | `hget(previousUserId)` 在 `MULTI` 外面，并发同一 endpoint 的 owner 变更有理论竞态。实际场景需同一设备两个用户同时订阅，概率极低。修复需 Lua 脚本原子化。触发条件：引入多用户并发订阅场景时。 |
 | TD090 | Codex 压缩检测 1 轮空窗（启发式盲区） | [ ] | [压缩检测讨论](./discussions/2026-02-24-compression-detection-cross-provider/README.md) | 当前检测是反应式：Codex 压缩发生在本轮，re-injection 在下一轮才生效，中间有 1 轮身份空窗。升级方向：持久化 prevFill / preflight context snapshot / 等 Codex CLI 支持独立 system prompt slot。实际影响有限，观察到事故再升级。 |
-
-## P1 — 必须做（新增）
-
-| ID | 项目 | 状态 | 来源 | 备注 |
-|---|------|------|------|------|
-| TD092 | **Skills Lifecycle Hardening（发布流程补全）** | [x] | [设计文档](./plans/2026-02-23-skills-lifecycle-hardening.md) | PR #68 (`c5ce356`)。(M1) 挂载 `using-rich-blocks` + `using-mcp-callbacks` 三猫 symlink；(M2) `writing-skills` 补 Cat Café 发布 Checklist；(M3) `check:skills` 双向校验（源目录 ↔ BOOTSTRAP.md）+ worktree-aware 路径解析。21/21 全绿。 |
-| TD091 | **ContextAssembler 截断丢失消息结尾关键信息** | [x] | [bug report](./bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md) | 修复：(A) `formatMessage()` 改为 head(40%)+tail(60%) 保留 + `[...truncated N chars...]` 标记；(B) `route-helpers.ts` 增量路径改用 `getCatContextBudget(catId).maxContentLengthPerMsg` 替代硬编码 2000。 |
