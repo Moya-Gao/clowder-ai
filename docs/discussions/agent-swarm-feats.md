@@ -12,7 +12,7 @@
 | Feat | 名称 | 优先级 | 实施顺序 | 状态 |
 |------|------|--------|----------|------|
 | F-Swarm-4 | 决策权矩阵落盘 | P0 | 🥇 1 | ✅ 已完成 |
-| F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 🥈 2 | 待采访 |
+| F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 🥈 2 | ✅ 已完成 |
 | F-Swarm-6 | 跨 Thread 上下文搜索与传递 | P1 | 🥉 3 | 待采访（从零实现） |
 | F-Ground-1 | McpPromptInjector 可靠性 + 回传协议加固 | P0 | 4 | 待采访（先排查 token 过期根因） |
 | F-Swarm-2 | 工作流阶段感知 + Mode 系统反思 | P1 | 5 | 待讨论（需深度 1:1） |
@@ -378,34 +378,41 @@ GPT Pro 的 schema 建议只作为参考——实际设计必须基于我们自�
 
 ### 设计方案：方案 A（cat-config.json 扩展）
 
-**核心思路**：在 cat-config.json 的每只猫（含 variant）上新增 `strengths` 和 `caution` 字段，由铲屎官维护。SystemPromptBuilder 从 config 动态生成"队友名册"section。
+**核心思路**：在 cat-config.json 的每只猫（含 variant）上新增 `teamStrengths` 和 `caution` 字段，由铲屎官维护。SystemPromptBuilder 从 config 动态生成"队友名册"section。
+
+> **字段命名说明**：用 `teamStrengths` 而非 `strengths`，因为 variant 已有 `strengths: string[]`（技能标签数组，如 `["architecture", "backend"]`），同名会导致类型冲突。
 
 **cat-config.json 扩展示例**：
 
 ```jsonc
 {
   "catId": "opus",
-  "strengths": "架构设计、写代码一把好手",
+  "teamStrengths": "架构设计、写代码一把好手",
   "caution": "额度消耗大，把贵用在刀刃上"
 }
 {
   "catId": "opus-45",
-  "strengths": "架构设计、创意写作最优秀",
+  "teamStrengths": "架构设计、创意写作最优秀",
   "caution": "写代码不如 4.6"
 }
 {
+  "catId": "sonnet",
+  "teamStrengths": "快速灵活，适合日常对话和轻量任务",
+  "caution": null   // null = 显式关闭 breed 级别的 caution（不继承 Opus 的"额度消耗大"）
+}
+{
   "catId": "codex",
-  "strengths": "Review、找 bug、coding 落地",
-  "caution": null
+  "teamStrengths": "Review、找 bug、coding 落地"
+  // caution 省略 = 无特别注意事项
 }
 {
   "catId": "gpt52",
-  "strengths": "架构思考、Review",
+  "teamStrengths": "架构思考、Review",
   "caution": "思考太慢"
 }
 {
   "catId": "gemini",
-  "strengths": "审美、前端设计风格、打破常规",
+  "teamStrengths": "审美、前端设计风格、打破常规",
   "caution": "🔴 禁止写代码！幻觉多，不遵守 SOP"
 }
 ```
@@ -443,7 +450,7 @@ GPT Pro 的 schema 建议只作为参考——实际设计必须基于我们自�
 
 ### 范围
 
-1. **cat-config.json schema 扩展**：新增 `strengths: string` 和 `caution: string | null` 字段
+1. **cat-config.json schema 扩展**：新增 `teamStrengths: string` 和 `caution: string | null` 字段（`null` = 显式关闭 breed 继承）
 2. **SystemPromptBuilder 渲染**：`buildStaticIdentity()` 新增"队友名册"section，从 `getAllConfigs()` 动态生成
 3. **WORKFLOW_TRIGGERS 改造**（可选）：从硬编码 breed 名改为动态 breed displayName
 4. **size guard 测试更新**：新增内容会增加 prompt 长度，需要更新 `system-prompt-builder.test.js` 的 size guard 阈值

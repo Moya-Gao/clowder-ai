@@ -49,6 +49,10 @@ export interface CatConfig {
   readonly isDefaultVariant?: boolean;
   /** F32-b P4: Breed-level display name (for group headings in UI) */
   readonly breedDisplayName?: string;
+  /** F-Ground-3: Human-readable strengths for teammate roster */
+  readonly teamStrengths?: string;
+  /** F-Ground-3: Caution note for teammate roster. null = explicitly no warning (overrides breed). */
+  readonly caution?: string | null;
 }
 
 /**

@@ -156,6 +156,37 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
 };
 
 /**
+ * F-Ground-3: Build teammate roster table.
+ * Lists all other cats with @mention, strengths, and caution.
+ * Excludes the current cat. Returns null if no teammates.
+ */
+function buildTeammateRoster(currentCatId: CatId): string | null {
+  const allConfigs = getAllConfigs();
+  const entries = Object.entries(allConfigs).filter(([id]) => id !== currentCatId);
+  if (entries.length === 0) return null;
+
+  const rows: string[] = [];
+  for (const [id, config] of entries) {
+    const label = config.variantLabel
+      ? `${config.displayName} ${config.variantLabel}`
+      : config.nickname
+        ? `${config.displayName}/${config.nickname}`
+        : config.displayName;
+    const mention = pickVariantMention(id, config);
+    const strengths = config.teamStrengths ?? config.roleDescription;
+    const caution = config.caution ?? '—';
+    rows.push(`| ${label} | ${mention} | ${strengths} | ${caution} |`);
+  }
+
+  return [
+    '## 队友名册',
+    '| 猫猫 | @mention | 擅长 | 注意 |',
+    '|------|---------|------|------|',
+    ...rows,
+  ].join('\n');
+}
+
+/**
  * Build static identity prompt — persistent across invocations.
  * Includes: identity, personality, rules, A2A format, workflow triggers.
  * Suitable for --system-prompt / --append-system-prompt injection.
@@ -198,6 +229,12 @@ export function buildStaticIdentity(catId: CatId): string {
     lines.push(`✅ 正确：另起一行 ${exampleTarget}`);
     lines.push(`❌ 错误：怎么样 ${exampleTarget}？ ← 行中间无效`);
     lines.push('');
+  }
+
+  // F-Ground-3: Teammate roster — who to @ and what they're good at
+  const rosterLines = buildTeammateRoster(catId);
+  if (rosterLines) {
+    lines.push(rosterLines, '');
   }
 
   // Per-breed workflow triggers (fallback to catId for legacy configs without breedId)

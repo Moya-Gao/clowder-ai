@@ -651,6 +651,49 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
   });
 });
 
+// --- F-Ground-3 R1 fix: caution null semantics ---
+
+describe('F-Ground-3: caution null semantics', () => {
+  it('accepts caution: null at breed level (spec says string | null)', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].caution = null;
+    const path = writeTempConfig(cfg);
+    // Should NOT throw — null means "explicitly no caution"
+    const loaded = loadCatConfig(path);
+    assert.equal(loaded.breeds[0].caution, null);
+  });
+
+  it('accepts caution: null at variant level', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].caution = 'breed warning';
+    cfg.breeds[0].variants[0].caution = null;
+    const path = writeTempConfig(cfg);
+    const loaded = loadCatConfig(path);
+    assert.equal(loaded.breeds[0].variants[0].caution, null);
+  });
+
+  it('variant caution: null overrides breed caution (does not inherit)', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].caution = 'breed warning';
+    cfg.breeds[0].variants[0].caution = null;
+    const path = writeTempConfig(cfg);
+    const loaded = loadCatConfig(path);
+    const all = toAllCatConfigs(loaded);
+    // null means "explicitly no caution" — should NOT fallback to breed's caution
+    assert.equal(all['opus'].caution, null, 'variant null should override breed caution');
+  });
+
+  it('variant caution: undefined inherits breed caution', () => {
+    const cfg = validConfig();
+    cfg.breeds[0].caution = 'breed warning';
+    // variant.caution not set → undefined → should inherit
+    const path = writeTempConfig(cfg);
+    const loaded = loadCatConfig(path);
+    const all = toAllCatConfigs(loaded);
+    assert.equal(all['opus'].caution, 'breed warning');
+  });
+});
+
 describe('GPT-5.2 variant mention aliases in project config', () => {
   it('includes @gpt5.2 and @gpt-5.2 for gpt52 variant', () => {
     const config = loadCatConfig();

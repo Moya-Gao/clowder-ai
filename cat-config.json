@@ -11,6 +11,8 @@
       "color": { "primary": "#9B7EBD", "secondary": "#E8DFF5" },
       "mentionPatterns": ["@opus", "@布偶猫", "@布偶", "@ragdoll", "@宪宪"],
       "roleDescription": "主架构师和核心开发者，擅长深度思考和系统设计",
+      "teamStrengths": "架构设计、写代码一把好手",
+      "caution": "额度消耗大，把贵用在刀刃上",
       "defaultVariantId": "opus-default",
       "variants": [
         {
@@ -50,6 +52,8 @@
           },
           "personality": "快速灵活，适合日常对话和轻量任务",
           "strengths": ["chat", "quick-tasks"],
+          "teamStrengths": "快速灵活，适合日常对话和轻量任务",
+          "caution": null,
           "contextBudget": {
             "maxPromptTokens": 150000,
             "maxContextTokens": 100000,
@@ -75,6 +79,8 @@
           },
           "personality": "宪宪的前辈版本，沉稳内敛，推理能力深厚",
           "strengths": ["deep-reasoning", "analysis", "architecture"],
+          "teamStrengths": "架构设计、创意写作最优秀",
+          "caution": "写代码不如 4.6",
           "contextBudget": {
             "maxPromptTokens": 150000,
             "maxContextTokens": 100000,
@@ -94,6 +100,7 @@
       "color": { "primary": "#5B8C5A", "secondary": "#D4E6D3" },
       "mentionPatterns": ["@codex", "@缅因猫", "@缅因", "@maine", "@砚砚"],
       "roleDescription": "代码审查专家，擅长安全分析、测试覆盖和代码质量把控",
+      "teamStrengths": "Review、找 bug、coding 落地",
       "defaultVariantId": "codex-default",
       "variants": [
         {
@@ -133,6 +140,8 @@
           },
           "personality": "砚砚的经典版本，推理扎实，审查细致",
           "strengths": ["reasoning", "code-review", "analysis"],
+          "teamStrengths": "架构思考、Review",
+          "caution": "思考太慢",
           "contextBudget": {
             "maxPromptTokens": 100000,
             "maxContextTokens": 60000,
@@ -151,6 +160,8 @@
       "color": { "primary": "#5B9BD5", "secondary": "#D6E9F8" },
       "mentionPatterns": ["@gemini", "@暹罗猫", "@暹罗", "@siamese", "@暄罗猫", "@暄罗"],
       "roleDescription": "视觉设计师和创意顾问，擅长 UI/UX 设计和视觉表达",
+      "teamStrengths": "审美、前端设计风格、打破常规",
+      "caution": "禁止写代码！幻觉多，不遵守 SOP",
       "features": { "sessionChain": false },
       "defaultVariantId": "gemini-default",
       "variants": [

@@ -166,7 +166,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 1400 chars (F-BLOAT: tightened from 2000)', async () => {
+  test('output size is under 2000 chars (F-Ground-3: raised from 1400 for teammate roster)', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -178,8 +178,8 @@ describe('SystemPromptBuilder', () => {
       promptTags: ['critique'],
     });
     assert.ok(
-      prompt.length < 1400,
-      `Prompt is ${prompt.length} chars, expected < 1400`
+      prompt.length < 2000,
+      `Prompt is ${prompt.length} chars, expected < 2000`
     );
   });
 
@@ -361,6 +361,131 @@ describe('SystemPromptBuilder', () => {
       const identity = buildStaticIdentity('gpt52');
       assert.ok(identity.includes('唯一句柄'), 'should include duplicate-name hint');
       assert.ok(!identity.includes('如 @gpt52'), 'hint example must not point to self handle');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  // --- F-Ground-3: Teammate roster tests ---
+
+  test('buildStaticIdentity includes teammate roster with strengths', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const identity = buildStaticIdentity('opus');
+    assert.ok(identity.includes('## 队友名册'), 'Should have roster section');
+    assert.ok(identity.includes('擅长'), 'Should have strengths column header');
+    assert.ok(identity.includes('@缅因猫') || identity.includes('@codex'), 'Should list codex mention');
+    assert.ok(identity.includes('@暹罗猫') || identity.includes('@gemini'), 'Should list gemini mention');
+  });
+
+  test('buildStaticIdentity roster excludes self', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const opusRoster = buildStaticIdentity('opus');
+    // Self (opus) should not appear in the roster table rows
+    // The roster rows start after the header, each begins with "|"
+    const rosterSection = opusRoster.split('## 队友名册')[1];
+    assert.ok(rosterSection, 'Roster section should exist');
+    assert.ok(!rosterSection.includes('| 布偶猫/宪宪'), 'Opus default should not list itself');
+  });
+
+  test('buildStaticIdentity roster uses teamStrengths from config', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const identity = buildStaticIdentity('opus');
+      // gpt52 has teamStrengths="架构思考、Review" and caution="思考太慢"
+      assert.ok(identity.includes('架构思考'), 'Should include gpt52 teamStrengths');
+      assert.ok(identity.includes('思考太慢'), 'Should include gpt52 caution');
+      // gemini has caution about no coding
+      assert.ok(identity.includes('禁止写代码'), 'Should include gemini caution');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('buildStaticIdentity roster: Sonnet does not inherit Opus cost caution (R1 null override)', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const identity = buildStaticIdentity('codex');
+      const rosterSection = identity.split('## 队友名册')[1];
+      assert.ok(rosterSection, 'Roster section should exist');
+      // Find the Sonnet row
+      const sonnetRow = rosterSection.split('\n').find((line) => line.includes('Sonnet'));
+      assert.ok(sonnetRow, 'Should have a Sonnet row');
+      // Sonnet has caution: null in config → should show "—", NOT "额度消耗大"
+      assert.ok(!sonnetRow.includes('额度消耗大'), 'Sonnet should not inherit Opus cost caution');
+      assert.ok(sonnetRow.includes('—'), 'Sonnet caution should be "—"');
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
+  });
+
+  test('buildStaticIdentity roster size with full runtime config is under 2000', async () => {
+    const { buildSystemPrompt } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const prompt = buildSystemPrompt({
+        catId: 'opus',
+        mode: 'serial',
+        chainIndex: 1,
+        chainTotal: 3,
+        teammates: ['codex', 'gemini'],
+        mcpAvailable: true,
+        promptTags: ['critique'],
+      });
+      assert.ok(
+        prompt.length < 2000,
+        `Full runtime prompt is ${prompt.length} chars, expected < 2000`
+      );
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {

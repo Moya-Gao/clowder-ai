@@ -53,6 +53,8 @@ const catVariantSchema = z.object({
   avatar: z.string().min(1).optional(), // F32-b P4c: override breed avatar
   color: colorSchema.optional(), // F32-b P4c: override breed color
   contextBudget: contextBudgetSchema.optional(),
+  teamStrengths: z.string().optional(), // F-Ground-3: human-readable strengths
+  caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
 });
 
 /** F33 Phase 2: session strategy config (matches SessionStrategyConfig from shared).
@@ -109,6 +111,8 @@ const catBreedSchema = z.object({
   defaultVariantId: z.string().min(1),
   variants: z.array(catVariantSchema).min(1),
   features: catFeaturesSchema,
+  teamStrengths: z.string().optional(), // F-Ground-3: breed-level default
+  caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
 });
 
 const catCafeConfigSchema = z.object({
@@ -211,6 +215,11 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         );
       }
 
+      const teamStrengths = variant.teamStrengths ?? breed.teamStrengths;
+      // R1 fix: null = "explicitly no caution" (don't inherit breed).
+      // undefined (omitted) = inherit from breed. ?? treats null as nullish, so use !== undefined.
+      const caution = variant.caution !== undefined ? variant.caution : breed.caution;
+
       result[catId] = {
         id: createCatId(catId),
         name: catId,
@@ -228,6 +237,9 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
         breedDisplayName: breed.displayName,
         ...(variant.variantLabel != null ? { variantLabel: variant.variantLabel } : {}),
         isDefaultVariant: isDefault,
+        ...(teamStrengths != null ? { teamStrengths } : {}),
+        // R1 fix: preserve null (explicit no-caution) in CatConfig; only omit if undefined
+        ...(caution !== undefined ? { caution } : {}),
       };
     }
   }

@@ -67,6 +67,10 @@ export interface CatVariant {
   readonly contextBudget?: ContextBudget;
   /** F34: Per-cat TTS voice (optional, falls back to defaults in cat-voices.ts) */
   readonly voiceConfig?: VoiceConfig;
+  /** F-Ground-3: Human-readable strengths for teammate roster (overrides breed-level) */
+  readonly teamStrengths?: string;
+  /** F-Ground-3: Caution note. null = explicitly no caution (overrides breed). */
+  readonly caution?: string | null;
 }
 
 /**
@@ -110,6 +114,10 @@ export interface CatBreed {
   readonly variants: readonly CatVariant[];
   /** Per-cat feature flags (optional, all features enabled by default) */
   readonly features?: CatFeatures;
+  /** F-Ground-3: Human-readable strengths for teammate roster (breed default) */
+  readonly teamStrengths?: string;
+  /** F-Ground-3: Caution note. null = explicitly no caution (overrides breed). */
+  readonly caution?: string | null;
 }
 
 /**
