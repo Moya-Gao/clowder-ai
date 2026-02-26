@@ -474,7 +474,7 @@ DELETE /api/threads/:threadId/queue           → 清空队列
 每个端点的第一步必须是：
 1. `resolveUserId(request)` → 401 if missing
 2. `threadStore.get(threadId)` → 404 if not found
-3. Thread ownership check: `thread.createdBy === userId` → 403 if mismatch（默认 thread 的 `createdBy` 可能为空，跳过校验）
+3. Thread ownership check: `thread.createdBy !== 'system' && thread.createdBy !== userId` → 403 if mismatch（默认 thread 的 `createdBy` 为 `'system'`，视为公共 thread，允许访问）
 
 ```typescript
 // 提取为复用 helper
@@ -483,9 +483,9 @@ async function guardThreadOwnership(request, reply, threadStore, threadId) {
   if (!userId) { reply.status(401); return null; }
   const thread = await threadStore.get(threadId);
   if (!thread) { reply.status(404); return null; }
-  // ownership check — Thread 模型用 createdBy（和 DELETE /api/threads 保持一致）
-  // 注意：默认 thread (id='default') 的 createdBy 可能为空，此时跳过校验
-  if (thread.createdBy && thread.createdBy !== userId) { reply.status(403); return null; }
+  // ownership check — Thread 模型用 createdBy（和 DELETE /api/threads、thread-export.ts 保持一致）
+  // 默认 thread (id='default') 的 createdBy='system'，视为公共 thread，任何人可操作
+  if (thread.createdBy !== 'system' && thread.createdBy !== userId) { reply.status(403); return null; }
   return { userId, thread };
 }
 ```
@@ -518,6 +518,11 @@ describe('Queue Management API', () => {
   it('returns 401 when userId header missing', async () => { /* ... */ });
   it('returns 404 when thread not found', async () => { /* ... */ });
   it('returns 403 when userId does not match thread owner', async () => { /* ... */ });
+  it('allows access when createdBy is system (default thread)', async () => {
+    // 默认 thread 的 createdBy='system'，任何已认证用户都可操作队列
+    // Setup: threadStore.get returns { id: 'default', createdBy: 'system', ... }
+    // Assert: 不返回 403，正常执行
+  });
   // Functional
   it('GET /queue returns entries and paused state', async () => { /* ... */ });
   it('DELETE /queue/:entryId removes entry and broadcasts', async () => { /* ... */ });
