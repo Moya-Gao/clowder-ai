@@ -1,110 +1,153 @@
 import puppeteer, { type Browser } from 'puppeteer';
+import sharp from 'sharp';
+
+/** Chunk height for scroll-and-stitch. 4000px is well under Chrome's ~16384 GPU limit. */
+const CHUNK_HEIGHT = 4000;
+const VIEWPORT_WIDTH = 1280;
 
 /**
  * ImageExporter service for capturing screenshots of web pages using Chrome headless.
- * Reuses browser instance for better performance.
+ * Uses scroll-and-stitch with Sharp to handle pages of any height without
+ * hitting Chrome's GPU texture limit (~16384px) which causes content duplication.
  */
 export class ImageExporter {
   private browser: Browser | null = null;
 
   /**
    * Capture a screenshot of the given URL.
-   * @param url - The URL to capture
-   * @param userId - User ID for authentication (sets X-Cat-Cafe-User header)
-   * @returns PNG image buffer
+   * For pages taller than CHUNK_HEIGHT, scrolls through the page in chunks
+   * and stitches them together using Sharp.
    */
   async capture(url: string, userId: string): Promise<Buffer> {
     try {
-      // Launch browser if not already running
       if (!this.browser) {
         this.browser = await puppeteer.launch({
           headless: true,
           args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage', // Avoid running out of memory
+            '--disable-dev-shm-usage',
           ],
         });
       }
 
       const page = await this.browser.newPage();
 
-      // Set user identity header for authentication
-      await page.setExtraHTTPHeaders({
-        'X-Cat-Cafe-User': userId,
-      });
+      await page.setExtraHTTPHeaders({ 'X-Cat-Cafe-User': userId });
+      await page.setViewport({ width: VIEWPORT_WIDTH, height: CHUNK_HEIGHT });
 
-      // Set initial viewport
-      await page.setViewport({ width: 1280, height: 720 });
-
-      // Append export=true so the frontend expands collapsible content (e.g. ThinkingContent)
-      // AND triggers one-shot full message loading (EXPORT_LIMIT=10000 in useChatHistory)
       const exportUrl = new URL(url);
       exportUrl.searchParams.set('export', 'true');
-      // Pass userId as URL param so the frontend's getUserId() resolves the correct
-      // identity instead of falling back to 'default-user' (headless Chrome has no localStorage)
       exportUrl.searchParams.set('userId', userId);
 
-      // Navigate to target page, wait for network idle
       await page.goto(exportUrl.toString(), {
         waitUntil: 'networkidle2',
         timeout: 30000,
       });
 
-      // Wait for messages to actually render (networkidle2 doesn't wait for React).
-      // Export mode doesn't render [data-chat-container], so just wait for any message.
+      // Wait for messages to render (export mode uses flow layout, no data-chat-container)
       await page.waitForSelector('[data-message-id]', { timeout: 15000 });
 
-      // Give React one more render cycle to settle after messages mount
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await page.evaluate(() =>
-        new Promise<void>(resolve =>
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (globalThis as any).requestAnimationFrame(() =>
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (globalThis as any).requestAnimationFrame(() => resolve())
-          )
-        )
+      // Let React settle
+      await this.waitForPaint(page);
+
+      const pageHeight = await page.evaluate(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => (globalThis as any).document.documentElement.scrollHeight as number,
+      );
+      const messageCount = await page.evaluate(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        () => ((globalThis as any).document.querySelectorAll('[data-message-id]') ?? []).length,
+      );
+      console.log(
+        '[ImageExporter] pageHeight=%d messageCount=%d chunks=%d',
+        pageHeight,
+        messageCount,
+        Math.ceil(pageHeight / CHUNK_HEIGHT),
       );
 
-      // Diagnostic: log what the page actually loaded
+      // Short page: single viewport screenshot (no stitching needed)
+      if (pageHeight <= CHUNK_HEIGHT) {
+        await page.setViewport({ width: VIEWPORT_WIDTH, height: pageHeight });
+        await this.waitForPaint(page);
+        const screenshot = await page.screenshot({ type: 'png' });
+        console.log('[ImageExporter] captured %d bytes (single)', screenshot.length);
+        await page.close();
+        return screenshot as Buffer;
+      }
+
+      // Tall page: scroll-and-stitch to avoid Chrome's tiling duplication bug
+      const chunks: { buffer: Buffer; top: number; height: number }[] = [];
+
+      // Scroll to top first
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const diag = await page.evaluate(() => {
+      await page.evaluate(() => (globalThis as any).window.scrollTo(0, 0));
+      await this.waitForPaint(page);
+
+      for (let y = 0; y < pageHeight; y += CHUNK_HEIGHT) {
+        const chunkH = Math.min(CHUNK_HEIGHT, pageHeight - y);
+
+        // Scroll to this chunk's position
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const g = globalThis as any;
-        const msgEls = g.document.querySelectorAll('[data-message-id]') ?? [];
-        return {
-          url: g.window?.location?.href,
-          search: g.window?.location?.search,
-          messageCount: msgEls.length,
-          docHeight: g.document.documentElement.scrollHeight,
-        };
-      });
-      console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
+        await page.evaluate((scrollY: number) => {
+          (globalThis as any).window.scrollTo(0, scrollY);
+        }, y);
+        await this.waitForPaint(page);
 
-      // Frontend export mode (?export=true) renders a print-friendly layout:
-      // - No h-screen (uses min-h-screen)
-      // - No overflow-y-auto (natural flow)
-      // - No sidebar, header, or input bar
-      // Just use fullPage screenshot — the page is already in flow layout.
-      console.log('[ImageExporter] docHeight=%d (fullPage)', diag.docHeight);
+        // For the last chunk, resize viewport to exact remaining height
+        if (chunkH < CHUNK_HEIGHT) {
+          await page.setViewport({ width: VIEWPORT_WIDTH, height: chunkH });
+          await this.waitForPaint(page);
+        }
 
-      const screenshot = await page.screenshot({ type: 'png', fullPage: true });
+        const chunk = await page.screenshot({ type: 'png' }) as Buffer;
+        chunks.push({ buffer: chunk, top: y, height: chunkH });
+      }
 
-      console.log('[ImageExporter] captured %d bytes', screenshot.length);
+      console.log('[ImageExporter] captured %d chunks, stitching...', chunks.length);
 
+      // Stitch chunks vertically using Sharp
+      const stitched = await sharp({
+        create: {
+          width: VIEWPORT_WIDTH,
+          height: pageHeight,
+          channels: 4,
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        },
+      })
+        .composite(
+          chunks.map((c) => ({
+            input: c.buffer,
+            top: c.top,
+            left: 0,
+          })),
+        )
+        .png()
+        .toBuffer();
+
+      console.log('[ImageExporter] stitched %d bytes', stitched.length);
       await page.close();
-
-      return screenshot as Buffer;
+      return stitched;
     } catch (error) {
-      throw new Error(`Screenshot capture failed: ${error instanceof Error ? error.message : String(error)}`);
+      throw new Error(
+        `Screenshot capture failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 
-  /**
-   * Close the browser instance.
-   * Call this when the exporter is no longer needed.
-   */
+  /** Wait for two animation frames (one paint cycle). */
+  private async waitForPaint(page: puppeteer.Page): Promise<void> {
+    await page.evaluate(() =>
+      new Promise<void>((resolve) =>
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (globalThis as any).requestAnimationFrame(() =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (globalThis as any).requestAnimationFrame(() => resolve()),
+        ),
+      ),
+    );
+  }
+
   async close() {
     if (this.browser) {
       await this.browser.close();
