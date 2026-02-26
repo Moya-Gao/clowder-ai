@@ -109,8 +109,11 @@ export class InvocationQueue {
    *  容量检查在此完成：返回 full 时调用方不应写 MessageStore。 */
   enqueue(entry: Omit<QueueEntry, 'id' | 'status' | 'createdAt' | 'mergedMessageIds' | 'messageId'>): EnqueueResult
 
-  /** 回填 messageId（MessageStore 写入成功后调用） */
+  /** 回填 messageId — 仅用于 outcome='enqueued' 的新条目（messageId 从 null → 实际值） */
   backfillMessageId(threadId: string, entryId: string, messageId: string): void
+
+  /** 追加 mergedMessageId — 仅用于 outcome='merged'（不覆盖首条 messageId） */
+  appendMergedMessageId(threadId: string, entryId: string, messageId: string): void
 
   dequeue(threadId: string): QueueEntry | null
   peek(threadId: string): QueueEntry | null
@@ -176,12 +179,24 @@ describe('InvocationQueue', () => {
     assert.equal(queue.size('t1'), 2);
   });
   it('does NOT merge if tail is processing', () => { /* ... */ });
-  it('backfillMessageId updates entry', () => {
+  it('backfillMessageId sets messageId on new entry (null → value)', () => {
     const r = queue.enqueue({ threadId: 't1', userId: 'u1', content: 'hi',
       source: 'user', targetCats: ['opus'], intent: 'execute' });
     assert.equal(r.entry.messageId, null);
     queue.backfillMessageId('t1', r.entry.id, 'msg-123');
     assert.equal(queue.list('t1')[0].messageId, 'msg-123');
+  });
+  it('appendMergedMessageId adds to mergedMessageIds (does NOT overwrite messageId)', () => {
+    const r1 = queue.enqueue({ threadId: 't1', userId: 'u1', content: 'hi',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    queue.backfillMessageId('t1', r1.entry.id, 'msg-1');
+    const r2 = queue.enqueue({ threadId: 't1', userId: 'u1', content: 'hello',
+      source: 'user', targetCats: ['opus'], intent: 'execute' });
+    assert.equal(r2.outcome, 'merged');
+    queue.appendMergedMessageId('t1', r2.entry.id, 'msg-2');
+    const entry = queue.list('t1')[0];
+    assert.equal(entry.messageId, 'msg-1');  // NOT overwritten
+    assert.deepEqual(entry.mergedMessageIds, ['msg-2']);
   });
   it('clear returns all removed entries', () => { /* ... */ });
   it('markProcessing returns entry with status=processing', () => { /* ... */ });
@@ -365,11 +380,20 @@ if (mode === 'queue' && hasActive) {
     const userMessage = await opts.messageStore.append(resolvedThreadId, {
       role: 'user', content: cleanContent, userId, /* ... */
     });
-    // ③ 回填 messageId
-    opts.invocationQueue.backfillMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+    // ③ 回填/追加 messageId — 区分 enqueued 和 merged 路径
+    if (enqueueResult.outcome === 'enqueued') {
+      // 新条目：backfill messageId（null → 实际值）
+      opts.invocationQueue.backfillMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+    } else {
+      // merged：追加到 mergedMessageIds（不覆盖首条 messageId）
+      opts.invocationQueue.appendMergedMessageId(resolvedThreadId, enqueueResult.entry!.id, userMessage.id);
+    }
   } catch (err) {
-    // 写消息失败 → 回滚队列条目，不留幽灵
-    opts.invocationQueue.remove(resolvedThreadId, enqueueResult.entry!.id);
+    // 写消息失败 → 回滚队列条目（enqueued 时移除；merged 时回退文本需更复杂处理，暂简单移除）
+    if (enqueueResult.outcome === 'enqueued') {
+      opts.invocationQueue.remove(resolvedThreadId, enqueueResult.entry!.id);
+    }
+    // merged 失败：文本已追加但消息未写入 — 可接受的不一致（下次 dequeue 时内容完整但少一条 mergedMessageId）
     throw err;
   }
 
@@ -450,7 +474,7 @@ DELETE /api/threads/:threadId/queue           → 清空队列
 每个端点的第一步必须是：
 1. `resolveUserId(request)` → 401 if missing
 2. `threadStore.get(threadId)` → 404 if not found
-3. Thread ownership check: `thread.userId === userId` → 403 if mismatch
+3. Thread ownership check: `thread.createdBy === userId` → 403 if mismatch（默认 thread 的 `createdBy` 可能为空，跳过校验）
 
 ```typescript
 // 提取为复用 helper
@@ -459,8 +483,9 @@ async function guardThreadOwnership(request, reply, threadStore, threadId) {
   if (!userId) { reply.status(401); return null; }
   const thread = await threadStore.get(threadId);
   if (!thread) { reply.status(404); return null; }
-  // ownership check — 和 DELETE /api/threads 保持一致
-  if (thread.userId && thread.userId !== userId) { reply.status(403); return null; }
+  // ownership check — Thread 模型用 createdBy（和 DELETE /api/threads 保持一致）
+  // 注意：默认 thread (id='default') 的 createdBy 可能为空，此时跳过校验
+  if (thread.createdBy && thread.createdBy !== userId) { reply.status(403); return null; }
   return { userId, thread };
 }
 ```
