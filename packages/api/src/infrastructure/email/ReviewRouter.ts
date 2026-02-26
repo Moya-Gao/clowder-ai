@@ -10,7 +10,7 @@
  * BACKLOG #81
  */
 
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IPrTrackingStore } from './PrTrackingStore.js';
 import type { IProcessedEmailStore } from './ProcessedEmailStore.js';
@@ -172,11 +172,19 @@ export class ReviewRouter {
       .filter(Boolean)
       .join('\n');
 
+    const source: ConnectorSource = {
+      connector: 'github-review',
+      label: 'GitHub Review',
+      icon: '🔔',
+      url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
+    };
+
     await messageStore.append({
       threadId,
       userId,
       catId: null,
       content,
+      source,
       mentions: [catId as CatId],
       timestamp: Date.now(),
     });
@@ -200,11 +208,19 @@ export class ReviewRouter {
       .filter(Boolean)
       .join('\n');
 
+    const source: ConnectorSource = {
+      connector: 'github-review',
+      label: 'GitHub Review',
+      icon: '⚠️',
+      url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
+    };
+
     await messageStore.append({
       threadId,
       userId,
       catId: null,
       content,
+      source,
       mentions: [],
       timestamp: Date.now(),
     });

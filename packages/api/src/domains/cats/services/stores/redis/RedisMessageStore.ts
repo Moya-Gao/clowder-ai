@@ -17,7 +17,7 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
-import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata, safeParseExtra } from './redis-message-parsers.js';
+import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata, safeParseExtra, safeParseConnectorSource } from './redis-message-parsers.js';
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -66,6 +66,7 @@ export class RedisMessageStore {
       ...(msg.origin ? { origin: msg.origin } : {}),
       ...(msg.visibility ? { visibility: msg.visibility } : {}),
       ...(msg.whisperTo ? { whisperTo: JSON.stringify(msg.whisperTo) } : {}),
+      ...(msg.source ? { source: JSON.stringify(msg.source) } : {}),
     });
     if (this.ttlSeconds !== null) {
       pipeline.expire(hashKey, this.ttlSeconds);
@@ -116,6 +117,7 @@ export class RedisMessageStore {
     const toolEvents = safeParseToolEvents(data['toolEvents']);
     const parsedMetadata = safeParseMetadata(data['metadata']);
     const parsedExtra = safeParseExtra(data['extra']);
+    const parsedSource = safeParseConnectorSource(data['source']);
     const deletedAt = data['deletedAt'] ? parseInt(data['deletedAt'], 10) : undefined;
     return {
       id: data['id'],
@@ -135,6 +137,7 @@ export class RedisMessageStore {
       ...(data['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
       ...(data['whisperTo'] ? { whisperTo: safeParseMentions(data['whisperTo']) } : {}),
       ...(data['revealedAt'] ? { revealedAt: parseInt(data['revealedAt'], 10) } : {}),
+      ...(parsedSource ? { source: parsedSource } : {}),
     };
   }
 
@@ -489,6 +492,7 @@ export class RedisMessageStore {
       const toolEvents = safeParseToolEvents(d['toolEvents']);
       const parsedMetadata = safeParseMetadata(d['metadata']);
       const parsedExtra = safeParseExtra(d['extra']);
+      const parsedSource = safeParseConnectorSource(d['source']);
       messages.push({
         id: d['id'],
         threadId: d['threadId'] || DEFAULT_THREAD_ID,
@@ -507,6 +511,7 @@ export class RedisMessageStore {
         ...(d['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
         ...(d['whisperTo'] ? { whisperTo: safeParseMentions(d['whisperTo']) } : {}),
         ...(d['revealedAt'] ? { revealedAt: parseInt(d['revealedAt'], 10) } : {}),
+        ...(parsedSource ? { source: parsedSource } : {}),
       });
     }
     return messages;

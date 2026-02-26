@@ -15,6 +15,15 @@ export type {
   PermissionStatusResponse,
   RespondScope,
 } from './authorization.js';
+// Connector types (F97 外部信息源抽象)
+export type {
+  ConnectorDefinition,
+  ConnectorSource,
+} from './connector.js';
+export {
+  getAllConnectorDefinitions,
+  getConnectorDefinition,
+} from './connector.js';
 // Cat types
 export type {
   CatColor,

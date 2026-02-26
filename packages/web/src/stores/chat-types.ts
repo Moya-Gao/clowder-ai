@@ -105,13 +105,23 @@ export interface RichAudioBlock {
 
 export type RichBlock = RichCardBlock | RichDiffBlock | RichChecklistBlock | RichMediaGalleryBlock | RichAudioBlock;
 
+/** F97: External connector source info (only when type='connector') */
+export interface ConnectorSourceData {
+  connector: string;
+  label: string;
+  icon: string;
+  url?: string;
+}
+
 export interface ChatMessage {
   id: string;
-  type: 'user' | 'assistant' | 'system' | 'summary';
+  type: 'user' | 'assistant' | 'system' | 'summary' | 'connector';
   /** Visual variant for system messages */
   variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup';
   catId?: string;
   content: string;
+  /** F97: External connector source. Present when type='connector' */
+  source?: ConnectorSourceData;
   contentBlocks?: MessageContent[];
   toolEvents?: ToolEvent[];
   metadata?: ChatMessageMetadata;

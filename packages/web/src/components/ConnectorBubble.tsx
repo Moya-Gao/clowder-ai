@@ -1,0 +1,85 @@
+'use client';
+
+import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
+import { MarkdownContent } from './MarkdownContent';
+import { API_URL } from '@/utils/api-client';
+
+function formatTime(ts: number): string {
+  const d = new Date(ts);
+  return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderContentBlocks(blocks: MessageContent[]) {
+  return blocks.map((block, i) => {
+    if (block.type === 'text') {
+      return <MarkdownContent key={i} content={block.text} />;
+    }
+    if (block.type === 'image') {
+      const src = block.url.startsWith('/uploads/')
+        ? `${API_URL}${block.url}`
+        : block.url;
+      const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
+      return (
+        <img
+          key={i}
+          src={src}
+          alt="attached image"
+          className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+          onClick={() => isSafeUrl && window.open(src, '_blank', 'noopener')}
+        />
+      );
+    }
+    return null;
+  });
+}
+
+interface ConnectorBubbleProps {
+  message: ChatMessageType;
+}
+
+/**
+ * F97: Connector message bubble for external information sources (GitHub Review, etc.)
+ * Left-aligned, blue-gray theme, distinct from cat/user/system messages.
+ */
+export function ConnectorBubble({ message }: ConnectorBubbleProps) {
+  const source = message.source;
+  if (!source) return null;
+
+  const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
+  // P3 fix (砚砚 R1): protocol whitelist — only render safe URLs as clickable links
+  const rawUrl = source.url;
+  const srcUrl = rawUrl && /^https?:\/\//.test(rawUrl) ? rawUrl : undefined;
+
+  return (
+    <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
+      {/* Connector icon avatar */}
+      <div className="w-8 h-8 rounded-full flex-shrink-0 bg-blue-100 ring-2 ring-blue-200 flex items-center justify-center text-base">
+        {source.icon}
+      </div>
+      <div className="max-w-[85%] md:max-w-[75%] min-w-0">
+        <div className="flex items-center gap-2 mb-1">
+          {srcUrl ? (
+            <a
+              href={srcUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+            >
+              {source.label}
+            </a>
+          ) : (
+            <span className="text-xs font-semibold text-blue-700">{source.label}</span>
+          )}
+          <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+        </div>
+        <div className="border border-blue-200 bg-blue-50 rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden">
+          {hasBlocks ? (
+            renderContentBlocks(message.contentBlocks!)
+          ) : (
+            <MarkdownContent content={message.content} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

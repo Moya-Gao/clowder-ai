@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { ChatMessage as ChatMessageType, MessageContent, ToolEvent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
+import { ConnectorBubble } from './ConnectorBubble';
 import { EvidencePanel } from './EvidencePanel';
 import { MarkdownContent } from './MarkdownContent';
 import { MetadataBadge } from './MetadataBadge';
@@ -201,6 +202,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
+  const isConnector = message.type === 'connector';
 
   // Dynamic cat data lookup — works for any catId in cat-config.json
   const catData = message.catId ? getCatById(message.catId) : undefined;
@@ -267,6 +269,10 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         </div>
       </div>
     );
+  }
+
+  if (isConnector && message.source) {
+    return <ConnectorBubble message={message} />;
   }
 
   if (isUser) {

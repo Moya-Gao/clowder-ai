@@ -79,7 +79,7 @@ export function formatMessage(
   options?: { truncate?: number },
 ): string {
   const time = formatTime(msg.timestamp);
-  const sender = getSenderName(msg.catId);
+  const sender = msg.source ? msg.source.label : getSenderName(msg.catId);
   let content = msg.content;
   if (options?.truncate && content.length > options.truncate) {
     content = truncateHeadTail(content, options.truncate);

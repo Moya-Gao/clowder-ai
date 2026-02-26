@@ -6,7 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { CatId, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
 import type { MessageMetadata } from '../../types.js';
 // Single source of truth: ThreadStore.ts owns DEFAULT_THREAD_ID
 import { DEFAULT_THREAD_ID } from './ThreadStore.js';
@@ -54,6 +54,8 @@ export interface StoredMessage {
   whisperTo?: readonly CatId[];
   /** F35: Timestamp when a whisper was revealed (made public). Present = revealed */
   revealedAt?: number;
+  /** F97: External connector source. Present = connector message (not user/cat) */
+  source?: ConnectorSource;
   /** ADR-008 D3: Soft delete timestamp (present = deleted) */
   deletedAt?: number;
   /** ADR-008 D3: Who deleted this message */

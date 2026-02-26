@@ -272,6 +272,76 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages.length, 1);
     assert.equal(body.messages[0].content, 'alice msg');
   });
+
+  // ── F97: Connector message type mapping ──────────────────────────
+
+  it('maps message with source field to type=connector', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'GitHub Review 通知',
+      mentions: ['opus'],
+      timestamp: 9000,
+      source: {
+        connector: 'github-review',
+        label: 'GitHub Review',
+        icon: '🔔',
+        url: 'https://github.com/org/repo/pull/42',
+      },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages.length, 1);
+
+    const msg = body.messages[0];
+    assert.equal(msg.type, 'connector');
+    assert.ok(msg.source, 'should include source in API response');
+    assert.equal(msg.source.connector, 'github-review');
+    assert.equal(msg.source.label, 'GitHub Review');
+    assert.equal(msg.source.icon, '🔔');
+    assert.equal(msg.source.url, 'https://github.com/org/repo/pull/42');
+  });
+
+  it('strips source.meta from API response (cloud Codex R1 P1)', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'review notification',
+      mentions: ['opus'],
+      timestamp: 9002,
+      source: {
+        connector: 'github-review',
+        label: 'GitHub Review',
+        icon: '🔔',
+        url: 'https://github.com/org/repo/pull/42',
+        meta: { token: 'secret', webhookPayload: { foo: 'bar' } },
+      },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    const msg = body.messages[0];
+    assert.equal(msg.type, 'connector');
+    assert.equal(msg.source.connector, 'github-review');
+    assert.equal(msg.source.url, 'https://github.com/org/repo/pull/42');
+    assert.equal(msg.source.meta, undefined, 'meta must be stripped from API response');
+  });
+
+  it('message without source and without catId is type=user', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: null,
+      content: 'normal user message',
+      mentions: [],
+      timestamp: 9001,
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages[0].type, 'user');
+    assert.equal(body.messages[0].source, undefined);
+  });
 });
 
 describe('GET /api/messages with summaryStore (P1-B integration)', () => {

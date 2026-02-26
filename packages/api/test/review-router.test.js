@@ -30,15 +30,15 @@ function mockThreadStore() {
   };
 }
 
-/** @returns {{ store: import('../dist/domains/cats/services/stores/ports/MessageStore.js').IMessageStore, messages: Array<{threadId: string, userId: string, content: string, mentions: string[]}> }} */
+/** @returns {{ store: import('../dist/domains/cats/services/stores/ports/MessageStore.js').IMessageStore, messages: Array<{threadId: string, userId: string, content: string, mentions: string[], source?: object}> }} */
 function mockMessageStore() {
-  /** @type {Array<{threadId: string, userId: string, content: string, mentions: string[]}>} */
+  /** @type {Array<{threadId: string, userId: string, content: string, mentions: string[], source?: object}>} */
   const messages = [];
   let counter = 0;
   const store = /** @type {any} */ ({
     append(msg) {
       counter++;
-      messages.push({ threadId: msg.threadId, userId: msg.userId, content: msg.content, mentions: msg.mentions ?? [] });
+      messages.push({ threadId: msg.threadId, userId: msg.userId, content: msg.content, mentions: msg.mentions ?? [], source: msg.source });
       return { id: `msg-${counter}`, ...msg };
     },
   });
@@ -470,6 +470,53 @@ describe('ReviewRouter', () => {
 
       // Only one message should be posted
       assert.strictEqual(messageMock.messages.length, 1);
+    });
+  });
+
+  // ── F97: ConnectorSource field ─────────────────────────────────────
+
+  describe('ConnectorSource (F97)', () => {
+    it('routed message includes ConnectorSource with github-review connector', async () => {
+      const router = createRouter();
+
+      prTrackingStore.register({
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 42,
+        catId: 'opus',
+        threadId: 'thread-abc',
+        userId: 'user-1',
+      });
+
+      await router.route(makeEvent());
+
+      const msg = messageMock.messages[0];
+      assert.ok(msg.source, 'message should have source field');
+      assert.strictEqual(msg.source.connector, 'github-review');
+      assert.strictEqual(msg.source.label, 'GitHub Review');
+      assert.strictEqual(msg.source.icon, '🔔');
+      assert.strictEqual(msg.source.url, 'https://github.com/zts212653/cat-cafe/pull/42');
+    });
+
+    it('fallback message includes ConnectorSource with correct PR URL', async () => {
+      const router = createRouter();
+
+      await router.route(makeEvent({ prNumber: 99, repository: 'org/repo' }));
+
+      const msg = messageMock.messages[0];
+      assert.ok(msg.source, 'fallback message should have source field');
+      assert.strictEqual(msg.source.connector, 'github-review');
+      assert.strictEqual(msg.source.url, 'https://github.com/org/repo/pull/99');
+    });
+
+    it('triage message includes ConnectorSource with warning icon', async () => {
+      const router = createRouter();
+
+      await router.route(makeEvent({ catTag: undefined, catId: undefined }));
+
+      const msg = messageMock.messages[0];
+      assert.ok(msg.source, 'triage message should have source field');
+      assert.strictEqual(msg.source.connector, 'github-review');
+      assert.strictEqual(msg.source.icon, '⚠️');
     });
   });
 });

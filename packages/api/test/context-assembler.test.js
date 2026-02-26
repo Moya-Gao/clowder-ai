@@ -375,4 +375,24 @@ describe('assembleContext — F8 token-based truncation', () => {
     assert.equal(result.messageCount, 0);
     assert.equal(result.estimatedTokens, 0);
   });
+
+  test('F97: connector message uses source.label as sender name', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: null,
+      content: 'GitHub Review 通知',
+      timestamp: new Date('2026-02-25T10:00:00').getTime(),
+      source: {
+        connector: 'github-review',
+        label: 'GitHub Review',
+        icon: '🔔',
+      },
+    });
+    const result = formatMessage(msg);
+    assert.ok(result.includes('GitHub Review'), 'should use source.label instead of 铲屎官');
+    assert.ok(!result.includes('铲屎官'), 'should NOT show 铲屎官 for connector messages');
+    assert.ok(result.includes('GitHub Review 通知'));
+  });
 });

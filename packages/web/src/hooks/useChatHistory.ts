@@ -73,9 +73,9 @@ export function useChatHistory(threadId: string) {
         if (threadIdRef.current !== fetchForThread) return;
         const data = await res.json();
         const historyMsgs = (data.messages ?? []).map(
-          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; extra?: { rich?: { v: number; blocks: unknown[] } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number; isDraft?: boolean }) => ({
+          (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; extra?: { rich?: { v: number; blocks: unknown[] } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number; isDraft?: boolean; source?: { connector: string; label: string; icon: string; url?: string } }) => ({
             id: m.id,
-            type: m.type as 'user' | 'assistant' | 'system' | 'summary',
+            type: m.type as 'user' | 'assistant' | 'system' | 'summary' | 'connector',
             catId: m.catId,
             content: m.content,
             ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),
@@ -87,6 +87,7 @@ export function useChatHistory(threadId: string) {
             ...(m.visibility ? { visibility: m.visibility } : {}),
             ...(m.whisperTo ? { whisperTo: m.whisperTo } : {}),
             ...(m.revealedAt ? { revealedAt: m.revealedAt } : {}),
+            ...(m.source ? { source: m.source } : {}),
             // #80: Restore streaming indicator for draft messages recovered from Redis
             ...(m.isDraft ? { isStreaming: true } : {}),
             timestamp: m.timestamp,

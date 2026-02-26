@@ -4,7 +4,7 @@
  * F23: 拆分以减少 RedisMessageStore.ts 行数
  */
 
-import type { CatId, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
+import type { CatId, ConnectorSource, MessageContent, RichMessageExtra } from '@cat-cafe/shared';
 import type { StoredToolEvent } from '../ports/MessageStore.js';
 import type { MessageMetadata } from '../../types.js';
 
@@ -63,6 +63,25 @@ export function safeParseExtra(
     }
 
     return hasField ? result : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** F97: Parse connector source field */
+export function safeParseConnectorSource(raw: string | undefined): ConnectorSource | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed === 'object' && parsed !== null &&
+      typeof parsed.connector === 'string' &&
+      typeof parsed.label === 'string' &&
+      typeof parsed.icon === 'string'
+    ) {
+      return parsed as ConnectorSource;
+    }
+    return undefined;
   } catch {
     return undefined;
   }
