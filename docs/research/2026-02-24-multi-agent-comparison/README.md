@@ -21,6 +21,14 @@
 | `opus-websearch-synthesis.md` | 布偶猫 WebSearch 初步综合 | - | Pipeline 前置调研 |
 | `gpt-pro-review.md` | GPT-5.2 Pro 交叉审阅 | - | Step 3: 事实分歧 + 弱证据 + 盲区 + 偏见 + 合并建议 |
 | `agent-swarm-comparison.md` | 布偶猫综合 | - | 四大系统 Agent Swarm 协同方式对比 |
+| `2026-02-26-li-di-interview-notes.md` | 外部文章研究摘录 | - | 微信访谈关键信号 + 待核验断言 + 我们方案映射 |
+| `source-2026-02-26-wechat-article.snapshot.md` | 浏览器抓取快照 | - | 从网页可访问树导出的原始快照（供内部复核） |
+
+## 外部参考归档
+
+- 文章链接：<https://mp.weixin.qq.com/s/2vYcLyuMmVfnkRgSEXk0Wg>
+- 标题：`对话李笛：异构多智能体，让 AI 学会真正的「群体思考」`
+- 归档方式：保留源链接 + 浏览器抓取快照 + 内部研究摘录（避免直接转载全文）
 
 ## 研究 Prompt
 
