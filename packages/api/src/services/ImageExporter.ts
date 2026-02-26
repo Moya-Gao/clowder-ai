@@ -41,6 +41,9 @@ export class ImageExporter {
       // AND triggers one-shot full message loading (EXPORT_LIMIT=10000 in useChatHistory)
       const exportUrl = new URL(url);
       exportUrl.searchParams.set('export', 'true');
+      // Pass userId as URL param so the frontend's getUserId() resolves the correct
+      // identity instead of falling back to 'default-user' (headless Chrome has no localStorage)
+      exportUrl.searchParams.set('userId', userId);
 
       // Navigate to target page, wait for network idle
       await page.goto(exportUrl.toString(), {
@@ -50,6 +53,31 @@ export class ImageExporter {
 
       // Wait for chat container to load
       await page.waitForSelector('[data-chat-container]', { timeout: 10000 });
+
+      // Wait for messages to actually render (networkidle2 doesn't wait for React).
+      // Poll until at least one [data-message-id] element appears or timeout after 15s.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.waitForFunction(
+        () => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const container = (globalThis as any).document.querySelector('[data-chat-container]');
+          const msgs = container?.querySelectorAll('[data-message-id]') ?? [];
+          return msgs.length > 0;
+        },
+        { timeout: 15000 },
+      );
+
+      // Give React one more render cycle to settle after messages mount
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.evaluate(() =>
+        new Promise<void>(resolve =>
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (globalThis as any).requestAnimationFrame(() =>
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (globalThis as any).requestAnimationFrame(() => resolve())
+          )
+        )
+      );
 
       // Diagnostic: log what the page actually loaded
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +95,14 @@ export class ImageExporter {
         };
       });
       console.log('[ImageExporter] diagnostics:', JSON.stringify(diag));
+
+      // Scroll chat container to top so screenshot starts from the first message
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await page.evaluate(() => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const container = (globalThis as any).document.querySelector('[data-chat-container]');
+        if (container) container.scrollTop = 0;
+      });
 
       // Get the chat container's full content height (scrollHeight includes overflow)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
