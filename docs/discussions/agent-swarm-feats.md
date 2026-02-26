@@ -9,17 +9,17 @@
 
 ## 概览
 
-| Feat | 名称 | 优先级 | 状态 |
-|------|------|--------|------|
-| F-Swarm-1 | Research Swarm 产品化 | P2 | 待讨论 |
-| F-Swarm-2 | 工作流阶段感知 + Mode 系统反思 | P1 | 待讨论 |
-| F-Swarm-3 | Backlog 领取 + 自动开新 Thread | P3 | 待讨论（前提不存在） |
-| F-Swarm-4 | 决策权矩阵落盘 | P0 | 待讨论 |
-| F-Swarm-5 | Brainstorm 收敛 → 结构化产出 | P1 | 待讨论（4.6 补充） |
-| F-Swarm-6 | 跨 Thread 上下文传递 | P2 | 待讨论（4.6 补充，部分已有） |
-| F-Ground-1 | McpPromptInjector 可靠性 + 回传协议加固 | P0 | 待讨论（合并原 F-Ground-1+2） |
-| F-Ground-2 | 猫猫日报 / 主动触发 | P3 | 待讨论（4.6 补充） |
-| F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 待实现 |
+| Feat | 名称 | 优先级 | 实施顺序 | 状态 |
+|------|------|--------|----------|------|
+| F-Swarm-4 | 决策权矩阵落盘 | P0 | 🥇 1 | 待采访 |
+| F-Ground-3 | 队友名册动态注入（SystemPromptBuilder 增强） | P1 | 🥈 2 | 待采访 |
+| F-Swarm-6 | 跨 Thread 上下文搜索与传递 | P1 | 🥉 3 | 待采访（从零实现） |
+| F-Ground-1 | McpPromptInjector 可靠性 + 回传协议加固 | P0 | 4 | 待采访（先排查 token 过期根因） |
+| F-Swarm-2 | 工作流阶段感知 + Mode 系统反思 | P1 | 5 | 待讨论（需深度 1:1） |
+| F-Swarm-5 | Brainstorm 收敛 → 结构化产出 | P1 | 6 | 待讨论（依赖 F-Swarm-2 结论） |
+| F-Swarm-1 | Research Swarm 产品化 | P2 | 7 | 待讨论（手动可用） |
+| F-Ground-2 | 猫猫日报 / 主动触发 | P3 | 8 | 待讨论（需 cron 基础设施） |
+| F-Swarm-3 | Backlog 领取 + 自动开新 Thread | P3 | 9 | 待讨论（前提不存在） |
 
 ---
 
@@ -225,7 +225,7 @@ gpt52 提出的"哪些决策猫猫自治，哪些必须铲屎官拍板"。
 
 ---
 
-## F-Swarm-6：跨 Thread 上下文传递（4.6 补充）
+## F-Swarm-6：跨 Thread 上下文搜索与传递（4.6 补充）
 
 ### 背景
 
@@ -264,7 +264,7 @@ gpt52 提出的"哪些决策猫猫自治，哪些必须铲屎官拍板"。
 
 ### 4.6 补充意见（更正后）
 
-优先级调整为 **P2**——需要改 MCP schema + 后端路由，但改动量不大（两处加一个可选参数）。不过既然是新功能而非产品化，需要考虑安全边界（猫是否能读任意 thread？还是只能读同 userId 的 thread？）。
+优先级调整为 **P1**（原 P2，2026-02-25 铲屎官确认跨 thread 搜索 MCP 未实现后升级）——需要改 MCP schema + 后端路由，但改动量不大（两处加一个可选参数）。需要考虑安全边界（猫是否能读任意 thread？还是只能读同 userId 的 thread？）。
 
 ---
 
@@ -486,14 +486,35 @@ GPT Pro 的 schema 建议只作为参考——实际设计必须基于我们自�
 
 ---
 
-## 优先级说明
+## 优先级说明（2026-02-25 更新）
 
 | 优先级 | 含义 | Feat | 理由 |
 |--------|------|------|------|
 | P0 | 零代码/地基 | F-Swarm-4, F-Ground-1 | 决策矩阵写文档即可；MCP 可靠性是异构协作的根基 |
-| P1 | 已验证需求 | F-Swarm-2, F-Swarm-5, F-Ground-3 | Mode 反思迫切需要；Brainstorm 收敛今天验证了需求；队友名册今天被铲屎官发现缺失 |
-| P2 | 可用但不急 | F-Swarm-1, F-Swarm-6 | Pipeline 手动已可用；跨 thread 需新增 MCP 参数（非已有能力） |
+| P1 | 已验证需求 | F-Swarm-2, F-Swarm-5, F-Swarm-6, F-Ground-3 | Mode 反思迫切；Brainstorm 收敛已验证；跨 thread 搜索确认未实现（铲屎官 2026-02-25）；队友名册缺失 |
+| P2 | 可用但不急 | F-Swarm-1 | Pipeline 手动已可用 |
 | P3 | 前提不全 | F-Swarm-3, F-Ground-2 | 缺常驻线程架构；需要 cron 基础设施 |
+
+### 实施顺序（铲屎官 2026-02-25 确认）
+
+按实施顺序分为 4 个梯队：
+
+**第一梯队（快速见效，1-2 thread）**：
+1. **F-Swarm-4** — 纯文档零代码，写完直接进三只猫指引文件
+2. **F-Ground-3** — 改动小（cat-config 加字段 + SystemPromptBuilder 渲染），解决猫不知道找谁/怎么 @ 的当下痛点
+
+**第二梯队（近期痛点，各需 1 thread）**：
+3. **F-Swarm-6** — 从 P2 升 P1。跨 thread 搜索/上下文传递确认未实现，改动量不大但需讨论安全边界
+4. **F-Ground-1** — P0 地基但范围大。建议先做子集：排查 callback token 过期根因
+
+**第三梯队（需深度讨论）**：
+5. **F-Swarm-2** — "Mode 重写还是渐进改造"需 1:1 讨论
+6. **F-Swarm-5** — 已有 `discussion-convergence`/`multi-cat-brainstorm` skill 部分覆盖，是否需系统化取决于 F-Swarm-2 结论
+
+**第四梯队（不急/前提不全）**：
+7. **F-Swarm-1** — 手动 pipeline 已跑通
+8. **F-Ground-2** — 需 cron 基础设施
+9. **F-Swarm-3** — 前提（常驻线程）不存在
 
 ---
 
@@ -516,6 +537,38 @@ BACKLOG.md F37 (入口)
 
 ---
 
-## 下一步
+## 新 Thread 启动引导（给铲屎官用）
 
-每个 feat 需要进入 1:1 讨论模式，逐个确认范围、验收标准、实现方案。讨论记录 link 回本文档。
+在新 Thread 里开始某个 feat 的采访/实现时，只需发送以下模板消息。猫猫顺着入口文档就能自己摸到所有上下文。
+
+### 模板
+
+```
+读一下这个文档：docs/discussions/agent-swarm-feats.md
+
+找到 {F-编号} 的详细描述，理解背景、范围、验收标准。
+如果需要更多上下文，文档底部有追溯链——会议纪要、调研报告都在里面。
+
+然后我们开始 feat 采访：
+1. 你先说说你对这个 feat 的理解
+2. 有什么不清楚的地方提问
+3. 然后给出你的实现方案
+```
+
+### 示例
+
+**开 F-Swarm-4（决策权矩阵）thread**：
+> 读一下 `docs/discussions/agent-swarm-feats.md`，找到 F-Swarm-4。这是纯文档任务——把决策权矩阵写进 CLAUDE.md / AGENTS.md / GEMINI.md。先看看文档里铲屎官的反馈，然后给我出个草稿。
+
+**开 F-Ground-3（队友名册注入）thread**：
+> 读一下 `docs/discussions/agent-swarm-feats.md`，找到 F-Ground-3。里面有完整的问题定位（SystemPromptBuilder 三层注入的缺失）、方案设计（cat-config.json 扩展）、铲屎官的原始反馈和每只猫的能力描述。按照方案 A 实现。
+
+**开 F-Swarm-6（跨 thread 搜索）thread**：
+> 读一下 `docs/discussions/agent-swarm-feats.md`，找到 F-Swarm-6。注意：这个是从零实现，不是产品化现有能力。文档里有代码核实的现状分析。先讨论安全边界，再动手。
+
+### 关键点
+
+- **入口只有一个**：`docs/discussions/agent-swarm-feats.md`（本文档）
+- **追溯链完整**：本文档 → 会议纪要 → 调研报告，猫自己能顺着找
+- **每个 feat 的详细描述都自包含**：背景、范围、验收标准、铲屎官反馈、4.6 分析都在一起
+- **实现完成后**：在本文档概览表里把状态从"待采访"改为"已完成"，附 commit hash
