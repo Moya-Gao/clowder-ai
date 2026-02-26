@@ -1,10 +1,11 @@
 /**
- * Session Transcript Routes — F24 Phase D
+ * Session Transcript Routes — F24 Phase D + F98
  * API endpoints for reading sealed session transcripts.
  *
- * GET  /api/sessions/:sessionId/events      — Paginated events
- * GET  /api/sessions/:sessionId/digest       — Extractive digest
- * GET  /api/threads/:threadId/sessions/search — Full-text search
+ * GET  /api/sessions/:sessionId/events                    — Paginated events (view=raw|chat|handoff)
+ * GET  /api/sessions/:sessionId/digest                    — Extractive digest
+ * GET  /api/sessions/:sessionId/invocations/:invocationId — Events for one invocation
+ * GET  /api/threads/:threadId/sessions/search              — Full-text search
  */
 
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
@@ -12,7 +13,10 @@ import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { TranscriptReader } from '../domains/cats/services/session/TranscriptReader.js';
+import { formatEventsChat, formatEventsHandoff } from '../domains/cats/services/session/TranscriptFormatter.js';
 import { resolveUserId } from '../utils/request-identity.js';
+
+const VALID_VIEWS = new Set(['raw', 'chat', 'handoff']);
 
 interface SessionTranscriptRouteOptions extends FastifyPluginOptions {
   sessionChainStore: ISessionChainStore;
@@ -39,10 +43,10 @@ export async function sessionTranscriptRoutes(
 ): Promise<void> {
   const { sessionChainStore, threadStore, transcriptReader } = opts;
 
-  // GET /api/sessions/:sessionId/events — Paginated event read
+  // GET /api/sessions/:sessionId/events — Paginated event read (F98: view modes)
   app.get<{
     Params: { sessionId: string };
-    Querystring: { cursor?: string; limit?: string };
+    Querystring: { cursor?: string; limit?: string; view?: string };
   }>('/api/sessions/:sessionId/events', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
@@ -56,11 +60,16 @@ export async function sessionTranscriptRoutes(
       return reply.status(404).send({ error: 'Session not found' });
     }
 
-    // Verify thread ownership
     const thread = await threadStore.get(session.threadId);
     if (!thread || thread.createdBy !== userId) {
       reply.status(403);
       return { error: 'Access denied' };
+    }
+
+    const view = (request.query.view ?? 'raw') as string;
+    if (!VALID_VIEWS.has(view)) {
+      reply.status(400);
+      return { error: `Invalid view: must be one of raw, chat, handoff` };
     }
 
     const cursorParam = request.query.cursor;
@@ -82,6 +91,21 @@ export async function sessionTranscriptRoutes(
     const result = await transcriptReader.readEvents(
       sessionId, session.threadId, session.catId, cursor, limit,
     );
+
+    if (view === 'chat') {
+      return reply.send({
+        messages: formatEventsChat(result.events),
+        nextCursor: result.nextCursor,
+        total: result.total,
+      });
+    }
+    if (view === 'handoff') {
+      return reply.send({
+        invocations: formatEventsHandoff(result.events),
+        nextCursor: result.nextCursor,
+        total: result.total,
+      });
+    }
 
     return reply.send(result);
   });
@@ -116,6 +140,38 @@ export async function sessionTranscriptRoutes(
     }
 
     return reply.send(digest);
+  });
+
+  // GET /api/sessions/:sessionId/invocations/:invocationId — F98 Gap 2
+  app.get<{
+    Params: { sessionId: string; invocationId: string };
+  }>('/api/sessions/:sessionId/invocations/:invocationId', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { sessionId, invocationId } = request.params;
+    const session = await sessionChainStore.get(sessionId);
+    if (!session) {
+      return reply.status(404).send({ error: 'Session not found' });
+    }
+
+    const thread = await threadStore.get(session.threadId);
+    if (!thread || thread.createdBy !== userId) {
+      reply.status(403);
+      return { error: 'Access denied' };
+    }
+
+    const events = await transcriptReader.readInvocationEvents(
+      sessionId, session.threadId, session.catId, invocationId,
+    );
+    if (!events) {
+      return reply.status(404).send({ error: 'Invocation not found' });
+    }
+
+    return reply.send({ invocationId, events, total: events.length });
   });
 
   // GET /api/threads/:threadId/sessions/search — Full-text search

@@ -60,10 +60,12 @@ export {
   listSessionChainInputSchema,
   readSessionEventsInputSchema,
   readSessionDigestInputSchema,
+  readInvocationDetailInputSchema,
   sessionSearchInputSchema,
   handleListSessionChain,
   handleReadSessionEvents,
   handleReadSessionDigest,
+  handleReadInvocationDetail,
   handleSessionSearch,
   sessionChainTools,
 } from './session-chain-tools.js';

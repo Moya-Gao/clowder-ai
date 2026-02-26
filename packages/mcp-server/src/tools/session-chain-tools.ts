@@ -1,11 +1,12 @@
 /**
- * Session Chain MCP Tools — F24 Phase D
+ * Session Chain MCP Tools — F24 Phase D + F98
  * Tools for cats to read sealed session transcripts.
  *
  * Tools:
  * - list_session_chain: List sessions for a thread
- * - read_session_events: Paginated event read from sealed session
+ * - read_session_events: Paginated event read (view=raw|chat|handoff)
  * - read_session_digest: Read extractive digest
+ * - read_invocation_detail: Read all events for a specific invocation
  * - session_search: Full-text search across transcripts/digests
  */
 
@@ -64,16 +65,21 @@ export const readSessionEventsInputSchema = {
   sessionId: z.string().min(1).describe('Session ID to read events from'),
   cursor: z.number().int().min(0).optional().describe('Start from event number (0-based)'),
   limit: z.number().int().min(1).max(200).optional().describe('Max events per page (default 50)'),
+  view: z.enum(['raw', 'chat', 'handoff']).optional().describe(
+    'View mode: raw (default, full JSONL events), chat (role/content pairs), handoff (per-invocation summaries)',
+  ),
 };
 
 export async function handleReadSessionEvents(input: {
   sessionId: string;
   cursor?: number | undefined;
   limit?: number | undefined;
+  view?: string | undefined;
 }): Promise<ToolResult> {
   const params = new URLSearchParams();
   if (input.cursor != null) params.set('cursor', String(input.cursor));
   if (input.limit != null) params.set('limit', String(input.limit));
+  if (input.view) params.set('view', input.view);
 
   const url = `${API_URL}/api/sessions/${input.sessionId}/events?${params.toString()}`;
 
@@ -84,24 +90,66 @@ export async function handleReadSessionEvents(input: {
     if (!res.ok) {
       return errorResult(`Failed to read events (${res.status}): ${await res.text()}`);
     }
+
+    const view = input.view ?? 'raw';
+
+    if (view === 'chat') {
+      const data = await res.json() as {
+        messages: Array<{ role: string; content: string; timestamp: number; invocationId?: string }>;
+        nextCursor?: { eventNo: number };
+        total: number;
+      };
+      const lines: string[] = [];
+      lines.push(`Total events: ${data.total}, messages: ${data.messages.length}`);
+      if (data.nextCursor) lines.push(`Next cursor: ${data.nextCursor.eventNo}`);
+      lines.push('');
+      for (const msg of data.messages) {
+        lines.push(`[${msg.role}] ${msg.content.slice(0, 300)}`);
+      }
+      return successResult(lines.join('\n'));
+    }
+
+    if (view === 'handoff') {
+      const data = await res.json() as {
+        invocations: Array<{
+          invocationId: string; eventCount: number;
+          toolCalls: string[]; errors: number; durationMs: number;
+          keyMessages: string[];
+        }>;
+        nextCursor?: { eventNo: number };
+        total: number;
+      };
+      const lines: string[] = [];
+      lines.push(`Total events: ${data.total}, invocations: ${data.invocations.length}`);
+      if (data.nextCursor) lines.push(`Next cursor: ${data.nextCursor.eventNo}`);
+      lines.push('');
+      for (const inv of data.invocations) {
+        const dur = inv.durationMs > 0 ? ` (${Math.round(inv.durationMs / 1000)}s)` : '';
+        lines.push(`--- Invocation ${inv.invocationId}${dur} ---`);
+        lines.push(`  Events: ${inv.eventCount}, Errors: ${inv.errors}`);
+        if (inv.toolCalls.length > 0) lines.push(`  Tools: ${inv.toolCalls.join(', ')}`);
+        for (const msg of inv.keyMessages) {
+          lines.push(`  > ${msg}`);
+        }
+        lines.push('');
+      }
+      return successResult(lines.join('\n'));
+    }
+
+    // raw view (default)
     const data = await res.json() as {
       events: Array<{ eventNo: number; event: { type?: string } }>;
       nextCursor?: { eventNo: number };
       total: number;
     };
-
     const lines: string[] = [];
     lines.push(`Total events: ${data.total}, returned: ${data.events.length}`);
-    if (data.nextCursor) {
-      lines.push(`Next cursor: ${data.nextCursor.eventNo}`);
-    }
+    if (data.nextCursor) lines.push(`Next cursor: ${data.nextCursor.eventNo}`);
     lines.push('');
-
     for (const evt of data.events) {
       const evtType = evt.event?.type ?? 'unknown';
       lines.push(`[${evt.eventNo}] ${evtType}: ${JSON.stringify(evt.event).slice(0, 300)}`);
     }
-
     return successResult(lines.join('\n'));
   } catch (err) {
     return errorResult(`Read events failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -133,6 +181,48 @@ export async function handleReadSessionDigest(input: {
     return successResult(JSON.stringify(data, null, 2));
   } catch (err) {
     return errorResult(`Read digest failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+// --- read_invocation_detail (F98 Gap 2) ---
+
+export const readInvocationDetailInputSchema = {
+  sessionId: z.string().min(1).describe('Session ID containing the invocation'),
+  invocationId: z.string().min(1).describe('Invocation ID to read events for'),
+};
+
+export async function handleReadInvocationDetail(input: {
+  sessionId: string;
+  invocationId: string;
+}): Promise<ToolResult> {
+  const url = `${API_URL}/api/sessions/${input.sessionId}/invocations/${input.invocationId}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { 'x-cat-cafe-user': resolveToolUserId() },
+    });
+    if (!res.ok) {
+      if (res.status === 404) {
+        return successResult('Invocation not found in this session.');
+      }
+      return errorResult(`Failed to read invocation (${res.status}): ${await res.text()}`);
+    }
+    const data = await res.json() as {
+      invocationId: string;
+      events: Array<{ eventNo: number; event: Record<string, unknown> }>;
+      total: number;
+    };
+
+    const lines: string[] = [];
+    lines.push(`Invocation ${data.invocationId}: ${data.total} event(s)`);
+    lines.push('');
+    for (const evt of data.events) {
+      const evtType = (evt.event['type'] as string) ?? 'unknown';
+      lines.push(`[${evt.eventNo}] ${evtType}: ${JSON.stringify(evt.event).slice(0, 300)}`);
+    }
+    return successResult(lines.join('\n'));
+  } catch (err) {
+    return errorResult(`Read invocation failed: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
@@ -173,7 +263,7 @@ export async function handleSessionSearch(input: {
         sessionId: string;
         kind: string;
         snippet: string;
-        pointer: { eventNo?: number };
+        pointer: { eventNo?: number; invocationId?: string };
       }>;
     };
 
@@ -189,6 +279,9 @@ export async function handleSessionSearch(input: {
       lines.push(`[${hit.kind}] session=${hit.sessionId} score=${hit.score}`);
       if (hit.pointer.eventNo != null) {
         lines.push(`  eventNo: ${hit.pointer.eventNo}`);
+      }
+      if (hit.pointer.invocationId) {
+        lines.push(`  invocationId: ${hit.pointer.invocationId} (use read_invocation_detail to inspect)`);
       }
       lines.push(`  > ${hit.snippet.slice(0, 200).replace(/\n/g, ' ')}`);
       lines.push('');
@@ -211,7 +304,7 @@ export const sessionChainTools = [
   },
   {
     name: 'cat_cafe_read_session_events',
-    description: 'Read events from a sealed session transcript. Supports pagination via cursor. Use to review what happened in a previous session.',
+    description: 'Read events from a sealed session transcript. Supports view modes: raw (default, full events), chat (role/content pairs), handoff (per-invocation summaries). Pagination via cursor.',
     inputSchema: readSessionEventsInputSchema,
     handler: handleReadSessionEvents,
   },
@@ -222,8 +315,14 @@ export const sessionChainTools = [
     handler: handleReadSessionDigest,
   },
   {
+    name: 'cat_cafe_read_invocation_detail',
+    description: 'Read all events for a specific invocation within a sealed session. Use after session_search returns an invocationId to inspect what happened in that invocation.',
+    inputSchema: readInvocationDetailInputSchema,
+    handler: handleReadInvocationDetail,
+  },
+  {
     name: 'cat_cafe_session_search',
-    description: 'Search across session transcripts and digests. Use to find specific events, decisions, or file changes from previous sessions.',
+    description: 'Search across session transcripts and digests. Returns invocationId pointers — use read_invocation_detail to drill into specific invocations.',
     inputSchema: sessionSearchInputSchema,
     handler: handleSessionSearch,
   },

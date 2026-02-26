@@ -46,6 +46,7 @@ export interface SearchHit {
   snippet: string;
   pointer: {
     eventNo?: number;
+    invocationId?: string;
   };
 }
 
@@ -221,7 +222,10 @@ export class TranscriptReader {
                     sessionId,
                     kind: 'event',
                     snippet: this.extractSnippet(line, query),
-                    pointer: { eventNo: evt.eventNo },
+                    pointer: {
+                      eventNo: evt.eventNo,
+                      ...(evt.invocationId ? { invocationId: evt.invocationId } : {}),
+                    },
                   });
                 } catch { /* skip */ }
               }
@@ -232,6 +236,44 @@ export class TranscriptReader {
     }
 
     return hits.slice(0, limit);
+  }
+
+  /**
+   * Read all events belonging to a specific invocation from a session transcript.
+   * F98 Gap 2: supports read_invocation_detail MCP tool.
+   */
+  async readInvocationEvents(
+    sessionId: string,
+    threadId: string,
+    catId: string,
+    invocationId: string,
+  ): Promise<TranscriptEvent[] | null> {
+    const sessionDir = this.sessionDir(threadId, catId, sessionId);
+    const jsonlPath = join(sessionDir, 'events.jsonl');
+
+    try {
+      await stat(jsonlPath);
+    } catch {
+      return null;
+    }
+
+    const events: TranscriptEvent[] = [];
+    const rl = createInterface({
+      input: createReadStream(jsonlPath, 'utf-8'),
+      crlfDelay: Infinity,
+    });
+
+    for await (const line of rl) {
+      if (line.trim().length === 0) continue;
+      try {
+        const evt = JSON.parse(line) as TranscriptEvent;
+        if (evt.invocationId === invocationId) {
+          events.push(evt);
+        }
+      } catch { /* skip malformed */ }
+    }
+
+    return events.length > 0 ? events : null;
   }
 
   /** Check if a session has a transcript on disk. */
