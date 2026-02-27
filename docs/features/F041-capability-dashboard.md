@@ -40,24 +40,24 @@ created: 2026-02-26
 
 ### 功能验收
 
-- [ ] Hub 能力看板 tab 显示所有实际注册的 MCP 工具 + Skills，无硬编码假数据
-- [ ] 可按类型（MCP/Skill）、来源（Cat Cafe/外部）、猫猫过滤
-- [ ] 全局开关：关掉某能力后，三猫下次 spawn 均不加载
-- [ ] 每猫覆盖：全局开启的能力，可对单只猫关闭
-- [ ] 猫 tab 精简：不再展示 Skills/MCP 列表，只保留模型&预算
+- [x] Hub 能力看板 tab 显示所有实际注册的 MCP 工具 + Skills，无硬编码假数据
+- [x] 可按类型（MCP/Skill）、来源（Cat Cafe/外部）、猫猫过滤
+- [x] 全局开关：关掉某能力后，三猫下次 spawn 均不加载（MCP: CLI 配置级; Skills: capabilities.json 级，CLI 运行时见 Known Limitations）
+- [x] 每猫覆盖：全局开启的能力，可对单只猫关闭（同 provider 限制见 Known Limitations）
+- [x] 猫 tab 精简：不再展示 Skills/MCP 列表，只保留模型&预算
 
 ### 架构验收
 
-- [ ] `.cat-cafe/capabilities.json` 存在且作为唯一真相源
-- [ ] 配置编排器能正确生成 `.mcp.json`、`.codex/config.toml`、`.gemini/settings.json`
-- [ ] Cat Cafe 自有工具对三猫均通过原生 MCP 协议提供
-- [ ] McpPromptInjector 不再给走原生 MCP 的猫注入 HTTP callback 指令
-- [ ] 热加载验证：翻开关 → 下次 spawn → 能力变化生效
+- [x] `.cat-cafe/capabilities.json` 存在且作为唯一真相源
+- [x] 配置编排器能正确生成 `.mcp.json`、`.codex/config.toml`、`.gemini/settings.json`
+- [x] Cat Cafe 自有工具对三猫均通过原生 MCP 协议提供
+- [x] McpPromptInjector 不再给走原生 MCP 的猫注入 HTTP callback 指令
+- [x] 热加载验证：翻开关 → 下次 spawn → 能力变化生效（e2e 测试覆盖）
 
 ### 边界验收
 
-- [ ] 多项目隔离：不同项目可有不同能力配置
-- [ ] 降级路径：MCP 加载失败时，HTTP callback 作为 fallback 可用
+- [x] 多项目隔离：不同项目可有不同能力配置
+- [x] 降级路径：MCP 加载失败时，HTTP callback 作为 fallback 可用
 
 ---
 
@@ -230,6 +230,16 @@ startup_timeout_sec = 30
 
 **来源**：云端 Codex review PR #83，布偶猫 push back 后铲屎官裁决降级为 P3 known limitation。
 
+### Skills 运行时强制执行受限于 CLI（2026-02-27）
+
+**现象**：Skills 的全局/per-cat 开关状态正确保存在 `capabilities.json`，UI 可 toggle。但 CLI（claude/codex/gemini）从各自 skills 目录自动加载 skills，我们的代码不控制加载过程（不传 `--skills` 等 flags）。
+
+**影响**：disabled skill 在 capabilities.json 中标记为 `enabled: false`，但 CLI 仍会自动加载（如果 symlink 存在）。MCP 工具不受此限制（通过 CLI 配置文件直接控制）。
+
+**后续方案**：
+- 修改 agent invocation 传递 `--disable` flags
+- 或通过 symlink 管理（创建/删除）实现运行时控制
+
 ---
 
 ## Risk / Blast Radius
@@ -276,7 +286,14 @@ startup_timeout_sec = 30
 
 ## Test Evidence
 
-（待开发）
+| 测试文件 | 测试数 | 覆盖 |
+|----------|--------|------|
+| `mcp-config-adapters.test.js` | 27 | 读写 3 CLI 格式, merge-by-name 保留用户配置 |
+| `capability-orchestrator.test.js` | 20 | safePath, bootstrap, round-trip, per-cat resolve |
+| `capabilities-route.test.js` | 9 | PATCH global/cat/skill toggle, override cleanup, Fastify 路由 |
+| `f041-integration.test.js` | 14 | Config round-trip, hot-reload (disable→remove, enable→restore), injection 互斥, discovery 一致性, per-cat override |
+
+**总计**: 70 tests / 0 fail
 
 ---
 
@@ -289,6 +306,11 @@ startup_timeout_sec = 30
 - 2026-02-27: 布偶猫+缅因猫技术讨论，达成 API/迁移/提示词共识
 - 2026-02-27: 铲屎官认可执行顺序
 - 2026-02-27: 砚砚确认执行顺序 + 提供 Codex/Gemini 配置格式 + Gemini bug 结论
+- 2026-02-27: 布偶猫实现（6 步: adapters → orchestrator → API+UI → mcpSupport flip → prompt fallback → red-green tests）
+- 2026-02-27: 砚砚本地 review R1-R2（2 P1 + 2 P2 → 全部修复 → 放行）
+- 2026-02-27: 云端 Codex review R1-R2（P1-1 修复 + P1-2 铲屎官裁决降级 P3）
+- 2026-02-27: PR #83 合入 main（`61308a6`）
+- 2026-02-27: Gap fixes（猫猫过滤 + Skills toggle + 热加载 e2e + 文档完善）
 
 ---
 
