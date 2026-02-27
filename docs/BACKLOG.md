@@ -25,3 +25,4 @@ created: 2026-02-26
 | F039 | 消息排队投递 — 用户操作三模式 | in-progress | 三猫 | [F039](features/F039-message-queue-delivery.md) |
 | F041 | 能力看板 — Hub MCP/Skills 统一管理 | spec | 布偶猫 | [F041](features/F041-capability-dashboard.md) |
 | F042 | 提示词工程审计与优化 | in-progress | 布偶猫 | [F042](features/F042-prompt-engineering-audit.md) |
+| F043 | MCP 归一化 — 多 Server 拆分 + 原生 MCP 优先 | spec | 三猫 | [F043](features/F043-mcp-unification.md) |
