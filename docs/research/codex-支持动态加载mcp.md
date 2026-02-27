@@ -1,5 +1,5 @@
 ---
-feature_ids: [F016]
+feature_ids: [F016, F041]
 topics: [codex, mcp]
 doc_kind: research
 created: 2026-02-26

@@ -8,6 +8,7 @@ created: 2026-02-26
 # F041: 能力看板 — Hub MCP/Skills 统一管理
 
 > **Status**: done
+> **Completed**: 2026-02-27
 > **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Priority**: P1（铲屎官明确需求，影响日常管理体验）
@@ -252,11 +253,13 @@ startup_timeout_sec = 30
 
 ## Dependencies
 
+- **Evolved from**: F038 (Skills 梳理 + 按需发现机制 — F041 将 skills 发现扩展为统一能力看板)
 - **Related**: TD102 (SessionBootstrap 同步 F98)
 - **Related**: TD103 (课件契约文档同步)
 - **Related**: TD104 (transport 字段 YAGNI)
 - **Related**: F042 (提示词工程审计 — F041 的 MCP 归一会影响提示词变更范围)
 - **Related**: F032 (Agent Plugin Architecture — catRegistry 可复用)
+- **Evolves into**: F042 (提示词工程审计), F043 (MCP 归一化)
 
 ---
 
@@ -275,12 +278,18 @@ startup_timeout_sec = 30
 
 ## Review Gate
 
-| 轮次 | Reviewer | 结果 | 日期 |
-|------|----------|------|------|
-| R1 | 砚砚/Codex (本地) | 2 P1 + 2 P2 + 1 P3 → 全部修复/push back | 2026-02-27 |
-| R2 | 砚砚/Codex (本地) | 放行 (0 P1/P2) + 2 non-blocking P3 → 修复 | 2026-02-27 |
-| Cloud R1 | Codex (云端) | P1-1 修复 (bootstrap CLI configs) + P1-2 push back (same-provider) | 2026-02-27 |
-| Cloud R2 | Codex (云端) | 同一 P1-2 重提 → 铲屎官裁决降级 P3 | 2026-02-27 |
+| 轮次 | Reviewer | 结果 | 日期 | PR |
+|------|----------|------|------|-----|
+| R1 | 砚砚/Codex (本地) | 2 P1 + 2 P2 + 1 P3 → 全部修复/push back | 2026-02-27 | #83 |
+| R2 | 砚砚/Codex (本地) | 放行 (0 P1/P2) + 2 non-blocking P3 → 修复 | 2026-02-27 | #83 |
+| Cloud R1 | Codex (云端) | P1-1 修复 (bootstrap CLI configs) + P1-2 push back (same-provider) | 2026-02-27 | #83 |
+| Cloud R2 | Codex (云端) | 同一 P1-2 重提 → 铲屎官裁决降级 P3 | 2026-02-27 | #83 |
+| Gap R1 | 砚砚/Codex (本地) | 放行 (0 P1/P2), 1 P3 (skills hint) → 修复 | 2026-02-27 | #85 |
+| Gap R2 | 砚砚/Codex (本地) | P1 React key + P2 toggling state → 修复 → 放行 | 2026-02-27 | #85 |
+| Cloud R1-R2 | Codex (云端) | P1 ID collision + P2 coexistence → 修复 | 2026-02-27 | #85 |
+| Cloud R3-R5 | Codex (云端) | P2×4: cat filter 语义 + sparse cats + 无效 toggle | 2026-02-27 | #85 |
+| Cloud R6-R9 | Codex (云端) | P2+P1: stale prune + scan failure guard + ENOENT/size | 2026-02-27 | #85 |
+| Cloud R10 | Codex (云端) | **通过** ("Breezy!") — 0 P1/0 P2 | 2026-02-27 | #85 |
 
 ---
 
@@ -290,10 +299,10 @@ startup_timeout_sec = 30
 |----------|--------|------|
 | `mcp-config-adapters.test.js` | 27 | 读写 3 CLI 格式, merge-by-name 保留用户配置 |
 | `capability-orchestrator.test.js` | 20 | safePath, bootstrap, round-trip, per-cat resolve |
-| `capabilities-route.test.js` | 9 | PATCH global/cat/skill toggle, override cleanup, Fastify 路由 |
+| `capabilities-route.test.js` | 15 | PATCH global/cat/skill toggle, override cleanup, same-name coexistence, compound PATCH, sparse cats, stale prune, scan failure guard, Fastify 路由 |
 | `f041-integration.test.js` | 14 | Config round-trip, hot-reload (disable→remove, enable→restore), injection 互斥, discovery 一致性, per-cat override |
 
-**总计**: 70 tests / 0 fail
+**总计**: 76 tests / 0 fail
 
 ---
 
@@ -310,7 +319,11 @@ startup_timeout_sec = 30
 - 2026-02-27: 砚砚本地 review R1-R2（2 P1 + 2 P2 → 全部修复 → 放行）
 - 2026-02-27: 云端 Codex review R1-R2（P1-1 修复 + P1-2 铲屎官裁决降级 P3）
 - 2026-02-27: PR #83 合入 main（`61308a6`）
-- 2026-02-27: Gap fixes（猫猫过滤 + Skills toggle + 热加载 e2e + 文档完善）
+- 2026-02-27: Gap fixes（猫猫过滤 + Skills toggle + compound ID + 热加载 e2e）
+- 2026-02-27: 砚砚本地全量 review R1-R2 → 放行
+- 2026-02-27: 云端 Codex review R1-R10（系统性修复: sparse cats, prune guard, ENOENT 区分）→ R10 通过
+- 2026-02-27: PR #85 合入 main（`a36bcb4`）
+- 2026-02-27: Feature completed, PR #83 + #85 merged
 
 ---
 

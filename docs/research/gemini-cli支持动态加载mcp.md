@@ -1,5 +1,5 @@
 ---
-feature_ids: [F016]
+feature_ids: [F016, F041]
 topics: [gemini, cli, mcp]
 doc_kind: research
 created: 2026-02-26
