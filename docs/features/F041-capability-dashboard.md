@@ -1,6 +1,6 @@
 ---
 feature_ids: [F041]
-topics: [capability, dashboard, mcp, skills]
+topics: [capability, dashboard]
 doc_kind: note
 created: 2026-02-26
 ---

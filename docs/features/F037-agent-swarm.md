@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F037: Agent Swarm 协同模式
 
 > **Status**: in-progress
@@ -12,25 +13,22 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F37**: 四猫 + 铲屎官讨论 multi-agent 协同方式借鉴。8 个 feat 拆解（4.5 初版 + 4.6 补充 + 铲屎官反馈）。追溯链：Feat 拆解（入口） → 会议纪要 → 调研报告。核心共识：Swarm 是阶段性工具（Research+Brainstorm），决策权漏斗模式，Mode 系统需从机械模板转向柔性引导。
 
 ## Links
-- [A2A 三猫综合分析](../archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-three-cats-synthesis.md)
-- [Multi-Model 多样性案例复盘](../archive/2026-02/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md)
-- [上下文工程辩论赛设计](../archive/2026-02/discussions/2026-02-07-context-enginnering/context-engineering-debate-design.md)
-- [Multi-Agent Framework 调研](../archive/2026-02/research/multi-agent-framework.md)
-- [Multi-Agent Orchestration Report (Claude)](../archive/2026-02/research/Multi-Agent Orchestration for Cat Café: Technical Feasibility Report claude.md)
-- [Multi-Agent Research Report (GPT)](../archive/2026-02/research/Multi-Agent “Cat Café” Research Report by gpt.md)
-- [Cat Café Agent Orchestration (Gemini)](../archive/2026-02/research/Cat Café Agent Orchestration Research by gemini.md)
+- [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
+- [Feat 拆解（入口）](./discussions/agent-swarm-feats.md)
+- [会议纪要](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
+- [调研报告](./research/2026-02-24-multi-agent-comparison/)
 
 ## Key Decisions
-- 待补充。
+- 历史记录未单列关键决策
 
 ## Dependencies
-- **Evolved from**: 待补充
+- 无显式依赖声明
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。

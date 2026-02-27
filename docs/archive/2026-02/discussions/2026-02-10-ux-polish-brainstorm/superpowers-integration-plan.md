@@ -1,5 +1,5 @@
 ---
-feature_ids: [F038]
+feature_ids: []
 topics: [polish, brainstorm, superpowers]
 doc_kind: discussion
 created: 2026-02-10

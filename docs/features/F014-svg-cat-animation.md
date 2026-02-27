@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F014: SVG 猫猫状态动画
 
 > **Status**: in-progress
@@ -12,20 +13,20 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F14**: 把 ASCII ᓚᘏᗢ 升级为三猫参数化 SVG 动画。方案 B（AI 生成 + 结构化 + CSS 动画）已确认。调研报告+执行计划: svg-frontend-research.md
 
 ## Links
-- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
-- [SVG 前端调研](../archive/2026-02/research/svg-frontend-research.md)
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
+- [`svg-frontend-research.md`](./archive/2026-02/research/svg-frontend-research.md#7-执行计划2026-02-13-布偶猫--铲屎官讨论确认)
 
 ## Key Decisions
-- 待补充。
+- 历史记录未单列关键决策
 
 ## Dependencies
-- **Evolved from**: 待补充
+- 无显式依赖声明
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。

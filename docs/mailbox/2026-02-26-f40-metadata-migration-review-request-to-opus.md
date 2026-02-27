@@ -1,6 +1,6 @@
 ---
 feature_ids: [F040]
-topics: [backlog, metadata, review]
+topics: [metadata, migration, request]
 doc_kind: mailbox
 created: 2026-02-26
 ---

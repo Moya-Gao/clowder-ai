@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F010: 手机端猫猫
 
 > **Status**: in-progress
@@ -12,23 +13,27 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F10**: 路线图：2026-02-20-mobile-cat-roadmap.md。决策：PWA 先行（两猫独立思考共识 + 铲屎官确认）。Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）。关联：F20/F22/F34。参考 Happy + OpenClaw
 
 ## Links
-- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
-- [SillyTavern + Phone-UI 调研](../archive/2026-02/research/sillytavern-phone-ui-research.md)
-- [SillyTavern 扩展调研任务](../archive/2026-02/research/sillytavern-research-prompt.md)
-- [OpenClaw 技术调研](../archive/2026-02/research/open-claw-report.md)
-- [F10 PWA Mobile Review Request](../mailbox/2026-02-20/f10-pwa-mobile-review-request.md)
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
+- [`2026-02-20-mobile-cat-roadmap.md`](./plans/2026-02-20-mobile-cat-roadmap.md)
+- [Happy](https://happy.engineering/)
+- [OpenClaw](https://openclaw.ai/)
+- [https://happy.engineering/](https://happy.engineering/)
+- [https://openclaw.ai/](https://openclaw.ai/)
 
 ## Key Decisions
-- 待补充。
+- Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）
 
 ## Dependencies
-- **Evolved from**: 待补充
+- F20/F22/F34
+- F020
+- F022
+- F034
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。

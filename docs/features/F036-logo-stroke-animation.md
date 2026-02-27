@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F036: Logo 一笔画动画（Stroke Drawing Animation）
 
 > **Status**: in-progress
@@ -12,19 +13,19 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- 2026-02-22 视频 Logo 讨论
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F36**: 视频 Logo 用 stroke-dashoffset 做真正的"笔尖游走"线条生长效果。当前阻塞：(1) AI（Pencil MCP）画出来像"发芽土豆+球星飞船"🥔🚀，完全不能用；(2) autotrace -centerline 输出太杂乱（~13 段分离路径 + 内部交叉线）。需要：人工 Inkscape 手动描摹干净 stroke 路径，或等 AI 绘画能力提升。当前替代方案：clip-path reveal 动画（circle/wipe/bottom-up），见 assets/icons/logo-animation-demo.html。
 
 ## Links
-- 待补充。
+- 历史来源：旧 BACKLOG 归档条目（be27a44^:docs/BACKLOG.md）
 
 ## Key Decisions
-- 待补充。
+- 历史记录未单列关键决策
 
 ## Dependencies
-- **Evolved from**: 待补充
+- 无显式依赖声明
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。

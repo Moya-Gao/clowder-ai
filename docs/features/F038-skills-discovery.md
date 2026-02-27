@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F038: Skills 梳理 + 按需发现机制
 
 > **Status**: in-progress
@@ -12,23 +13,20 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- [skills 调研 2026-02-25](./discussions/2026-02-25-f38-skills-discovery/README.md)
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F38**: 当前：方向 A（分类标记），skill bug 已修（项目级 .claude/skills/ symlinks 5257e1c）。未来：方向 B（类 ToolSearch 延迟加载，BM25/regex，触发条件 skills 50+）。ToolSearch 不用向量数据库，用 BM25 词频排序。铲屎官决策：simple is better, build when you need。
 
 ## Links
-- [F38 讨论记录](../discussions/2026-02-25-f38-skills-discovery/README.md)
-- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
-- [UX Polish Brainstorm](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md)
-- [Cat Café Skills 开源计划](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/cat-cafe-skills-open-source-plan.md)
-- [Superpowers 整合计划](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md)
+- [skills 调研 2026-02-25](./discussions/2026-02-25-f38-skills-discovery/README.md)
 
 ## Key Decisions
-- 待补充。
+- simple is better, build when you need
 
 ## Dependencies
-- **Evolved from**: 待补充
+- F038
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。
+- 关联 commit：`5257e1c`.

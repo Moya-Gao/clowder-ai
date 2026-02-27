@@ -1,5 +1,5 @@
 ---
-feature_ids: [F014]
+feature_ids: []
 topics: [svg, frontend]
 doc_kind: research
 created: 2026-02-26

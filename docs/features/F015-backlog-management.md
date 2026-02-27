@@ -5,6 +5,7 @@ doc_kind: note
 created: 2026-02-26
 ---
 
+
 # F015: Backlog 管理
 
 > **Status**: in-progress
@@ -12,20 +13,19 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- 待补充（F40 自动迁移生成）。
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
 
 ## What
-- 待补充（请补完整体目标、范围与验收标准）。
+- **F15**: 功能想法不散落在手机备忘录。本次讨论即 MVP 实践
 
 ## Links
-- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
-- [F040: BACKLOG 整理与 Feature 聚合体系](F40-backlog-reorganization.md)
+- [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
 
 ## Key Decisions
-- 待补充。
+- 历史记录未单列关键决策
 
 ## Dependencies
-- **Evolved from**: 待补充
+- 无显式依赖声明
 
 ## Timeline
-- 2026-02-26: 由 F40 迁移脚本自动初始化
+- 从历史 BACKLOG 归档恢复（`be27a44^`）。

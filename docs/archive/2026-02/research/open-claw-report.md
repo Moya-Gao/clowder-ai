@@ -1,5 +1,5 @@
 ---
-feature_ids: [F010, F039]
+feature_ids: []
 topics: [open, claw]
 doc_kind: research
 created: 2026-02-26
