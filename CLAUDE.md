@@ -315,7 +315,7 @@ commit message 需要包含猫猫签名，便于回溯"谁做的、为什么做"
 | 缅因猫 Codex | `[砚砚/Codex🐾]` |
 | 缅因猫 GPT-5.2 | `[砚砚/GPT-52🐾]` |
 | 缅因猫 Spark | `[Spark🐾]` (待取昵称) |
-| 暹罗猫 | `[暹罗猫🐾]` (待取昵称) |
+| 暹罗猫 | `[烁烁🐾]` |
 
 - 示例：`feat(api): add mcp callback registry [宪宪/Opus-45🐾]`
 - 在 commit body 里补一行 `Why:`，说明关键决策理由
