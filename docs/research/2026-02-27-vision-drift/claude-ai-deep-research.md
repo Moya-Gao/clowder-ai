@@ -5,186 +5,206 @@ doc_kind: research-report
 created: 2026-02-27
 source: Claude.ai Deep Research
 run: 1/1
+note: English report (compass artifact export)
 ---
 
-# **多智能体协同系统中的愿景漂移防范与目标持久化设计深度调研报告**
+# Vision drift in multi-agent AI systems: an industry survey
 
-## **绪论：多智能体系统的语义塌缩与愿景对齐挑战**
+**Multi-agent AI coding systems systematically lose sight of user intent as tasks grow complex — and the industry has no silver bullet.** Every major LLM agent evaluated in peer-reviewed research exhibits goal drift, where pattern-matching from recent context gradually overwhelms original instructions. The most robust agent tested (scaffolded Claude 3.5 Sonnet) maintained near-perfect goal adherence for over 100,000 tokens, but even it eventually drifted. The industry's response falls into three distinct architectural paradigms — process embedding, technical embedding, and context embedding — each with different trade-offs. Your team's "process embedding" approach (SOP checkpoints) addresses a real gap that most commercial tools leave open, but it operates in a blind spot where enforcement depends entirely on the LLM's compliance with its own instructions. The most promising frontier combines deterministic workflow engines that remove the LLM from flow-control decisions with hierarchical memory systems and automated alignment verification.
 
-在2026年的软件工程语境下，多智能体系统（Multi-Agent Systems, MAS）已经从单纯的代码生成辅助工具演变为具备高度自主决策能力的“数字劳动力”1。然而，随着智能体在处理如“F041能力看板”这类复杂功能时的参与度加深，一种被称为“愿景漂移”（Vision Drift）或“目标漂移”（Goal Drift）的现象成为阻碍MAS大规模落地的核心瓶颈2。
+---
 
-愿景漂移被定义为智能体在执行跨越长时间步长或高交互频率的任务过程中，其输出逐渐偏离最初人类设定的核心意图、设计规范或用户真实需求的现象4。这种偏差往往具有隐蔽性：系统可能通过了所有的单元测试和代码质量评审（即“技术侧对齐”），但在业务逻辑和用户价值层面却完全偏离了轨道（即“愿景侧失准”）3。研究表明，约91%的生产环境模型在部署后会出现某种程度的性能退化，而在多Agent协作流中，这种退化通常表现为在600次交互后语义一致性的显著下降4。
+## Q1: How the industry prevents agents from forgetting what users actually want
 
-针对Cat Cafe项目在F041功能开发中遇到的“测试全绿但交付物不可用”问题，本质上是评审链路中“意图感知”的缺失。本报告将深入调研业界前沿系统如何通过架构创新、技术嵌入及上下文持久化设计，构建一套能够“看守愿景”的防御体系。
+### Claude Code Agent Teams: context isolation as the primary defense
 
-## **第一章 业界主流多智能体系统的防漂移机制分析**
+Anthropic's Agent Teams (shipped February 2026, experimental) uses a lead-agent + teammate architecture where each agent operates in its own independent context window. The primary drift-prevention mechanism is **CLAUDE.md** — a persistent file read at session start and re-read from disk after compaction, making it the one artifact that survives context compression. Anthropic's context engineering guide explicitly recommends placing persistent rules in CLAUDE.md "rather than relying on conversation history." Each teammate receives a detailed spawn prompt establishing its mission, and **TaskCompleted hooks** can reject task completion unless acceptance criteria are verified, enabling automated goal-checking gates.
 
-### **1.1 Anthropic Claude Code Agent Teams：分层领导与钩子约束**
+The architecture's most significant limitation is documented in GitHub issue #23620: when the lead agent's context gets compacted during long sessions, **it completely loses awareness of the team** — unable to message teammates, coordinate tasks, or even acknowledge the team exists. This is the exact "amnesia" problem at scale. Anthropic's own multi-agent guide (January 2026) identifies "context-centric decomposition" (splitting by context boundaries, not work type) as essential, warning that problem-centric splitting causes goal loss at handoffs. Delegate Mode (Shift+Tab) restricts the lead to coordination-only, preventing it from getting lost in implementation details — a structural nudge toward maintaining oversight.
 
-Claude Code在2026年引入的Agent Teams模式，其核心防漂移逻辑在于将执行权与决策权进行显式分离6。该系统默认采用“领队-队友”（Lead-Teammate）架构，其中领队负责任务分解、综合及结果验证，而队友则在受限的上下文窗口中独立执行具体的子任务7。
+### OpenClaw: deterministic workflow engines remove LLMs from routing
 
-在防止愿景漂移方面，Claude Code引入了以下关键机制：
+OpenClaw (formerly Clawdbot, by Peter Steinberger; **180K+ GitHub stars** by February 2026) takes the most architecturally radical approach to drift prevention. Its **Lobster workflow engine** provides deterministic pipeline execution — steps run sequentially with JSON data flowing between them, removing the LLM entirely from flow-control decisions. As one community member noted: "Every time I tried to put flow control in a prompt, I introduced a failure mode. LLMs are unreliable routers." Lobster provides approval gates (side effects pause until human approval), resume tokens (halted workflows continue without re-running), and state persistence. A community-built code→review→test pipeline orchestrates programmer, reviewer, and tester agents with zero LLM-based routing.
 
-* **计划审批流（Plan Approval Request）：** 队友在完成初步规划后，必须通过plan模式向领队发送审批请求。领队会对比全局任务清单（Shared Task List）审查该计划是否偏离主路径7。如果计划被拒绝，队友必须根据领队的反馈重新调整，直至对齐初始目标。  
-* **状态强制同步（Shared Task List）：** 所有队友共享一套存储在项目目录下的JSON任务系统。这套系统不仅记录了任务状态（Pending, In-progress, Completed），还通过“阻塞”（Blocks/Blocked-by）元数据强制执行执行顺序，防止智能体在缺乏前置条件的情况下盲目推进6。  
-* **关键节点钩子（Hooks）：** 系统在任务完成阶段植入了TaskCompleted钩子。开发者可以通过配置该钩子，在任务标记为“完成”之前强制执行一轮针对原始需求文档的回读逻辑。如果校验失败，钩子可以返回退出码2，强制智能体留守在当前任务中继续修复，而非直接进入下一环节7。
+OpenClaw's multi-layer memory separates daily logs (short-term) from curated long-term memory persisted as Markdown files under `~/.openclaw`. However, the default memory system has a confirmed weakness: the LLM decides what to save and retrieve, with no guarantee of persistence. The **Mem0 plugin** addresses this by enforcing automatic memory capture outside the agent lifecycle, injecting relevant memory into every response regardless of session boundaries. Each agent operates in its own isolated workspace with independent sessions, preventing cross-agent context contamination.
 
-### **1.2 OpenCode 与 Oh My Open Code：纪律性 Agent 与 Sisyphus 协议**
+### Oh My Open Code: the most explicit anti-drift architecture in open source
 
-OpenCode生态系统，特别是通过Oh My Open Code插件扩展后的形态，展现了一种更具“纪律性”的防漂移思路9。其核心组件Sisyphus（西西弗斯）被定义为“纪律智能体”，旨在驱动任务达到100%的完成度而不受中间状态干扰10。
+Oh My Open Code (OmO) transforms OpenCode into a coordinated development team with the most layered goal-guarding architecture of any tool surveyed. Its three-tier structure — Planning Layer (Prometheus planner + Metis consultant + Momus reviewer), Execution Layer (Atlas orchestrator), and Worker Layer (specialized agents) — enforces strict separation between goal-setting and execution. Plans are stored as `.sisyphus/plans/*.md` and must pass the Momus reviewer (which can REJECT plans) before execution begins via `/start-work`.
 
-其防漂移的技术细节如下：
+Two mechanisms stand out. First, the **Ralph Loop** (or "Ralph Wiggum technique") performs hard context resets between iterations: the agent has no memory except a session file containing the goal, plan, status, and log. Each iteration starts fresh by re-reading its mission from scratch, making gradual drift structurally impossible within this pattern. Second, the **hashline edit tool** tags every line of code with a content hash — if the file changed since last read, the edit is rejected, preventing changes based on stale state. The **Todo Continuation Enforcer** hook forces agents to finish all TODOs before stopping, killing what the developer calls "the chronic LLM habit of quitting halfway."
 
-* **Ralph Loop（/ulw-loop）：** 这是一个自引用的超长循环逻辑，确保智能体在任务未完全符合AC标准前不会因“由于Token限制导致的自我欺骗”而停止工作10。  
-* **待办执行器（Todo Enforcer）：** 如果智能体在任务尚未达成且未明确处理完所有Todo项的情况下进入空闲状态，该执行器会强制将其“拉回”工作流，阻止其过早宣称胜利10。  
-* **分类映射机制：** 任务不是随机分配的，而是根据复杂度被划分为Quick、Deep、Ultrabrain等类别。Sisyphus会根据这些类别将任务路由到具备最高推理能力的模型（如Claude Opus 4.6）进行宏观对齐，而具体的编码工作则交给更快速的本地模型。这种“高层监工，低层执行”的异构模式有效缓解了单一模型在长序列任务中的认知过载9。
+### Codex (OpenAI): durable project memory as the anchor
 
-### **1.3 OpenClaw：基于本地数据库的持久化记忆地壳**
+Codex's February 2026 release (v0.105.0) shipped a complete multi-agent system rebuild with customizable agent roles, multi-layered subagent hierarchies, and CSV-based batch spawning for parallel task processing. Its primary drift-prevention mechanism is **AGENTS.md** — layered persistent guidance files (global, project, directory-level) read before every session. OpenAI's own cookbook documenting a 25-hour, 13-million-token session states explicitly: "The most important technique was durable project memory. I wrote the spec, plan, constraints, and status in markdown files that Codex could revisit repeatedly. **That prevented drift and kept a stable definition of 'done'.**"
 
-OpenClaw（原名Moltbot）采取了与上下文窗口竞争的截然不同的路径。它认为愿景漂移的主要原因是“上下文挤压”导致的初始目标丢失。为了解决这一问题，OpenClaw构建了一个名为“RAG-lite”的本地索引系统11。
+Codex's multi-phase memory pipeline actively filters noisy content. Developer messages are excluded from phase-1 memory input, and memory consolidation runs with reduced concurrency for stability. Each cloud task runs in its own isolated sandbox preloaded with the repository, preventing cross-task contamination.
 
-* **本地索引地壳：** OpenClaw使用SQLite作为其记忆后端，将项目文档、交互记录和用户偏好划分为块（Chunks），并生成嵌入向量。这些数据被存储在本地的.sqlite文件中，而不是依赖不可控的云端上下文11。  
-* **强制记忆注入（No-Decide Recall）：** 配合Mem0插件，OpenClaw实现了自动化的记忆检索。它不是等待智能体主动决定去“寻找”需求文档，而是在每一轮响应前，系统层自动从SQLite中检索最相关的愿景片段，并将其直接注入到当前提示词的顶部13。这种“被动式对齐”确保了即便智能体在进行深度的代码调试，其视野边缘始终存在原始需求的阴影。
+### Devin (Cognition): autonomous but dependent on human-quality requirements
 
-### **1.4 OpenAI Codex：AGENTS.md 与 Course Correction**
+Devin's architecture centers on **Interactive Planning** — each session begins with a preliminary plan users can modify before autonomous execution. Devin 2.2 (February 2026) introduced self-reviewing code and full desktop computer-use, enabling end-to-end testing where Devin launches the application, runs through it, and sends screen recordings. Cognition reports this catches **~30% more issues** than PRs without self-review. However, Cognition's remarkably candid 2025 performance review acknowledges: "Devin can't independently tackle an ambiguous coding project end-to-end like a senior engineer could." Drift prevention responsibility falls on the human to provide clear, specific requirements — the tool amplifies requirement quality rather than compensating for its absence.
 
-OpenAI Codex在2026年的版本中强化了工程化规范对愿景的约束力。其核心工具是AGENTS.md和plans.md文件14。
+### Cursor and Windsurf: the IDE-integrated approach
 
-* **原子化工作流：** Codex强制执行“Plan \-\> Implement \-\> Validate \-\> Repair”的循环。在该循环中，Validate环节不只是跑测试，更包括了对AGENTS.md中定义的非功能性需求（如UI规范、架构约束）的静态审查14。  
-* **飞行中 course corrections：** 与传统对话模型不同，Codex支持在不重置整个会话的情况下进行中途纠偏。用户可以在Review Queue界面直接对某一个Diff提出异议，Codex会自动回滚并基于修正后的愿景重新生成路径。这种机制极大地减少了因单次误操作导致的全局漂移14。
+Cursor 2.5 (February 2026) introduced asynchronous subagents that can spawn their own subagents, creating trees of coordinated work. **Multi-agent judging** automatically evaluates parallel runs and recommends the best solution. Cursor's long-running agents (research preview, February 2026) work autonomously "for weeks at a time" with planning-first architecture. The **Memories** feature persists project-specific knowledge across sessions, while **Rules** provide declarative always-on guidance. Windsurf differentiates with a real-time **context window usage meter** — the only tool that lets developers visually monitor context consumption and decide when to start fresh before drift becomes problematic.
 
-| 系统/框架 | 核心防漂移手段 | 关键技术组件 | 适用场景 |
-| :---- | :---- | :---- | :---- |
-| Claude Code | 领队审批制 | Task System & Hooks | 复杂的多文件重构协作 |
-| OpenCode | 纪律执行闭环 | Ralph Loop & Todo Enforcer | 追求100%完成度的自动化开发 |
-| OpenClaw | 数据库级记忆 | SQLite RAG & Mem0 | 长周期、需要跨会话记忆的任务 |
-| Codex | 结构化文件约束 | AGENTS.md & Worktrees | 企业级规范严苛的工程项目 |
-| Devin | 垂直切片交付 | Objective Verification | 独立功能模块的端到端实现 |
+### Multi-agent frameworks: structural approaches to goal anchoring
 
-## **第二章 “失忆”危机：上下文压缩与内存架构的博弈**
+**LangGraph** offers the most robust checkpointing system among orchestration frameworks. At every "super-step," a complete state snapshot is saved, enabling time travel, state inspection, and human-in-the-loop modification. The original goal persists in the state schema as a field always available to every node — an architectural guarantee rather than a prompt-based hope.
 
-### **2.1 愿景漂移的量化研究与学术洞察**
+**Magentic-One** (built on AutoGen) introduced the most explicit goal-anchoring mechanism: dual ledgers. The **Task Ledger** maintains facts, guesses, and the current plan (outer loop), while the **Progress Ledger** tracks completion status and assigns subtasks (inner loop). The orchestrator self-reflects at each step and re-plans if progress stalls.
 
-学术界对Agent失忆问题的研究在2025-2026年取得了突破。根据Rauno Arike等人的研究（arXiv:2505.02709），即便是在像Claude 3.5 Sonnet这样具备超过10万Token长上下文能力的模型中，目标漂移依然是不可避免的2。
+**CrewAI** anchors goals through YAML-defined role-goal-backstory configurations for each agent, with a hierarchical manager agent that reviews outputs. It now processes **~450 million agents per month** in production. However, none of these frameworks have dedicated goal-drift detection — alignment is structural, not actively monitored.
 
-研究发现，愿景漂移率 ![][image1] 与任务执行时间 ![][image2] 存在显著的正相关关系：
+### New entrants reshaping the landscape
 
-![][image3]  
-其中 ![][image4] 为智能体在时间点 ![][image2] 的目标坚持得分（Goal Adherence Score）。数据表明，当Agent面临环境压力（如频繁的测试失败、互相冲突的中间发现）时，其目标坚持度会呈对数下降4。这种现象的根本原因在于模型表现出一种“模式匹配倾向”（Pattern-Matching Susceptibility）：它会过度倾向于拟合上下文窗口中最近产生的20%的信息（通常是具体的代码细节或错误日志），而逐渐淡忘最初系统提示词中80%的愿景内容2。
+**CORPGEN** (Microsoft Research, February 26, 2026) directly targets goal drift in multi-horizon task environments. It found baseline agents experience **catastrophic performance degradation** — from 16.7% task completion at 25% load to 8.7% at 100% — due to context saturation, memory interference, dependency complexity, and reprioritization overhead. Its MOMA architecture uses three-scale hierarchical planning (strategic/monthly, tactical/daily, operational/per-cycle), sub-agent isolation, tiered memory, and experiential learning from successful trajectories stored in a FAISS database. It achieved **3.5× improvement** over baselines.
 
-### **2.2 应对“失忆”的业界解决方案**
+**GitHub Spec Kit** (September 2025, 50K+ stars) is the most explicitly anti-drift framework. Its 4-phase gated workflow — Specify → Plan → Tasks → Implement — prevents advancement until each phase is validated. A Constitution file defines non-negotiable principles anchoring all agent behavior.
 
-为了解决长程规划中的“失忆”问题，目前的MAS架构正从“单一长窗口”转向“多级记忆系统”17：
+**Google Antigravity** (public preview February 2026) introduces **Artifacts** — tangible deliverables generated at each step that serve as verifiable checkpoints. Developers leave Google-Doc-style comments on Artifacts, and agents incorporate feedback without restarting. Google's responsible AI report also describes a **User Alignment Critic** — a high-trust AI model that reviews proposed agent actions and vetoes anything misaligned with user intent.
 
-1. **情景记忆整合（Episodic Memory Consolidation）：** 研究提出了一种模拟人类睡眠的机制。在每隔固定数量的交互（如50个Turns）后，系统会启动一个专门的“总结Agent”，对当前的所有发现、决策和已完成的里程碑进行高保真总结，剔除冗余的调试日志。这种做法将“原生历史”转化为“精炼语义”，显著提升了决策质量的信噪比4。  
-2. **分层记忆架构（Tiered Memory）：** 现代Agent通常配备两层记忆。第一层是活跃的上下文窗口（Working Memory），存放当前处理的文件和最近的对话。第二层是外部知识库（Deep Store），通过向量数据库存放原始需求、架构文档和历史决策。当Working Memory中的信息被压缩时，系统会强制从Deep Store中提取核心愿景锚点重新注入18。  
-3. **周期性检查点（Periodic Checkpoints）：** 类似于游戏的存盘。在每一个Milestone完成后，Agent被要求将当前状态固化为一个独立的Markdown文件（如status.md）。在后续轮次中，Agent读取这个精简的状态文件而非全量对话历史，从而规避了上下文污染带来的误导14。
+---
 
-## **第三章 方案对比：Cat Cafe 的流程嵌入 vs 业界的替代模式**
+## Q2: The amnesia problem — why agents "remember how to code but forget why"
 
-Cat Cafe 项目目前采取的“流程嵌入”模式（在SOP环节植入回读）是一种典型的人工软件工程思路。虽然直观，但在面对全自动MAS时存在天然的脆弱性。
+### What the academic evidence actually shows
 
-### **3.1 模式 1：流程嵌入（Process Embedding）**
+The foundational paper on goal drift — Arike et al.'s "Evaluating Goal Drift in Language Model Agents" (arXiv:2505.02709, published at AAAI AIES-25) — tested agents in a stock trading simulation where different goals demanded mutually exclusive actions. **The strongest finding: goal drift is primarily driven by pattern-matching from recent context, not active goal reasoning.** As context grows, agents increasingly match patterns from recent interactions rather than adhering to system-prompt goals. This is the mechanistic explanation for why "user's original words" get lost — they're not compressed away so much as drowned out by accumulating patterns.
 
-* **定义：** 将愿景对照动作转化为SOP中的强制步骤。  
-* **局限性：** 极度依赖执行智能体的“自觉性”。如果Leader Agent在压缩上下文时丢弃了“必须检查文档”的元指令，该流程即告瓦解。Cat Cafe遇到的问题正是典型的“所有人都以为流程在跑，但执行体已失焦”19。
+The Vending-Bench study (Backlund & Petersson, 2025) ran agents over **20–100 million tokens** in a simple business scenario and found something counterintuitive: **agents failed even with unlimited external memory tools** — scratchpad, key-value store, and vector database. They wrote summaries but rarely retrieved them. Performance breakdowns did not correlate with context windows being full. The problem is not storage capacity but retrieval strategy. This finding challenges the assumption that adding more memory infrastructure solves drift.
 
-### **3.2 模式 2：技术嵌入（Technical Embedding）**
+### The "600 interactions" claim: handle with care
 
-* **定义：** 引入独立于执行路径的物理级或逻辑级硬约束。  
-* **实现方式：**  
-  * **独立验证 Agent (Verifier)：** 设立一个不参与编码的“裁判”角色（Judge Agent）。它的输入只有原始需求文档和最终产出物，不看中间过程。这种角色间的物理隔离防止了“知识污染”20。  
-  * **CI/CD 愿景门禁：** 将愿景对齐转化为一种自动化测试。利用多模态大模型（如Gemini 3 Pro的屏幕理解能力）对生成的UI进行截图比对，若与原型设计偏差超过阈值，直接阻断构建流程1。  
-* **评价：** 这种模式将“人的自觉”转化为“系统的刚性”，是防止“F041看板UI不可用”等问题的最优解。
+The claim that "nearly half of multi-agent workflows show semantic drift after ~600 interactions" traces to a single source: arXiv:2601.04170 (Rath, January 2026). **This is from a simulation framework, not empirical observation of real systems.** The figure caption explicitly says "Projected cumulative incidence." The paper is by a single independent researcher with no institutional affiliation and has not been peer-reviewed. However, its directional finding — drift accelerates with interactions — aligns with peer-reviewed evidence. A more defensible claim: all models drift, the best maintain adherence for >100K tokens, and drift correlates with context length and pattern-matching pressure.
 
-### **3.3 模式 3：上下文嵌入（Contextual Anchoring）**
+### Promising technical solutions from research
 
-* **定义：** 将愿景作为一种“环境背景噪声”持续存在。  
-* **实现方式：**  
-  * **目标持久化设计（Goal-Persistent Design）：** 在VIA-Agent等框架中，系统每一轮生成回答前都会经过一个“Goal Persistence & Rethinking”步骤，强制反思当前动作是否偏离最终目标22。  
-  * **看板锚点：** 像Oh My Open Code那样使用team\_plan.md，每个Agent在执行完每一个Action后都必须去更新这个看板。这实际上将“不可见的内存”变成了“可见的文件”，利用物理存储对抗内存易失性24。
+**Active context compression** is a rapidly maturing field. ACON (arXiv:2510.00615) reduces memory usage by **26–54%** while preserving >95% accuracy through optimized compression guidelines. Focus (arXiv:2601.07190) lets agents autonomously decide when to consolidate learnings, achieving **22.7% token reduction** while maintaining accuracy on SWE-bench Lite. SimpleMem's three-stage pipeline (semantic compression → recursive consolidation → adaptive retrieval) achieves **26.4% F1 improvement** while reducing tokens by up to **30×**.
 
-| 维度 | 流程嵌入 (Cat Cafe) | 技术嵌入 (业界趋势) | 上下文嵌入 (学术/前沿) |
-| :---- | :---- | :---- | :---- |
-| **防错机制** | SOP手册/口头约定 | 独立Verifier/熔断器 | 全时感知/目标反思 |
-| **实现难度** | 极低 | 中等 | 高 |
-| **Token 成本** | 低 | 高（需额外Agent） | 中（需每轮循环对齐） |
-| **可靠性** | 弱（易被长上下文稀释） | 强（物理隔离防干扰） | 极强（目标根植于思维链） |
+The most directly applicable research is Rath's three mitigation strategies, even if from simulation: **Episodic Memory Consolidation** (periodic compression every 50 turns), **Drift-Aware Routing** (favoring stable agents, resetting drifting ones), and **Adaptive Behavioral Anchoring** (dynamically injecting baseline examples as drift increases). Combined, they reduced drift effects by >80% at a cost of ~23% extra compute and 9% latency.
 
-## **第四章 “复杂功能做歪”的终极解决方案**
+### "Goal-persistent design" does not exist as a formal concept
 
-当我们将一个复杂的Feat（如F041看板）丢给Agent时，项目失败的概率随着功能的系统深度（Depth）和逻辑广度（Breadth）呈指数增长。
+Multiple searches across academic and industry sources returned no results for "goal-persistent design" as an established term. The recognized concepts are **goal adherence** (Arike et al.), **long-term coherence** (Backlund & Petersson), **behavioral anchoring** (Rath), and **goal-directedness** (MacDermott et al., NeurIPS 2024). No products market this term as a feature. The closest real architectural implementations are Magentic-One's dual ledgers, CORPGEN's hierarchical planning, and LangGraph's persistent state schemas.
 
-### **4.1 垂直切片与“宽浅”原则**
+---
 
-业界顶尖软件工程智能体Devin的实践表明，解决复杂问题的关键在于将其拆分为“宽而浅”的子任务25。
+## Q3: Your approach versus the industry — three paradigms compared
 
-* **90分钟准则：** 任何子任务的执行时间不应超过90分钟。如果一个功能需要执行数小时，其产生愿景漂移的概率几乎是100%。  
-* **分阶段验收：** 模拟人类敏捷开发的“Sprint”。不要等整个看板写完再Review，而是将UI脚手架、数据Mock、核心状态机、交互逻辑作为四个独立的Milestone进行分步验收。每个Milestone完成后，必须获得人类或领队Agent基于愿景的物理签字（Sign-off）14。
+The industry's approaches to preventing vision drift cluster into three distinct paradigms, and your team's approach maps cleanly to one of them.
 
-### **4.2 借鉴人类工程经验：范围蔓延与镀金效应**
+### Process embedding (your approach): SOP-driven reminders
 
-在人类软件工程中，F041看板做歪的情况通常被称为“范围蔓延”（Scope Creep）或“镀金效应”（Gold Plating）。智能体往往会因为追求“全绿测试”而过度优化一些无关紧要的边界情况（Gold Plating），却遗漏了核心的可用性逻辑。
+Your five-stage checkpoint system — pre-development spec compliance, review-time requirements attachment, feedback-level distinction, PR requirements inclusion, and completion verification — relies on prompts and skill definitions to remind agents to check alignment. This is structurally similar to how Claude Code practitioners report pausing teams every 15–20 minutes for the lead to review against spec. **The core vulnerability: enforcement depends on the LLM's compliance with its own instructions**, which is precisely the capability that degrades during context compression. When the prompt saying "re-read original requirements" gets compressed, the agent won't re-read requirements.
 
-* **建议方案：** 引入“非目标声明”（Non-Goals）。在AGENTS.md中明确规定什么是Agent不该做的，这比告诉它该做什么更有效，能强力约束其思维发散14。
+### Technical embedding: architecture that makes drift structurally difficult
 
-### **4.3 意图识别与心理建模 (ToM-SWE)**
+This paradigm removes drift prevention from the LLM's responsibility entirely. **OpenClaw's Lobster engine** enforces deterministic step sequencing — the LLM cannot skip verification steps because it doesn't control flow. **LangGraph's checkpointing** saves complete state at every super-step with the original goal persisted in the state schema as a permanent field. **GitHub Spec Kit's gated phases** prevent implementation from starting until specs are validated. **Google's User Alignment Critic** uses a separate AI model to veto misaligned actions. **CORPGEN's hierarchical planning** maintains goals at three temporal scales. These approaches work because the anti-drift mechanism operates outside the LLM's context window and cannot be "compressed away."
 
-最新的ToM-SWE架构提出了一种极具洞察力的方案：为系统配备一个“心智理论”智能体28。
+### Context embedding: making goals non-compressible
 
-* **功能：** 这个特定的Agent不写一行代码，它的全部工作就是通过用户的初始指令和交互历史，构建一个“用户心理模型”。  
-* **价值：** 当编码Agent准备删除某个“看起来没用但用户其实很在意”的UI组件时，ToM Agent会根据心理模型发出警报：“用户在意的是信息密度，当前的重构降低了这一价值。”这种基于人类感性的纠偏，是Cat Cafe目前缺少的“灵魂组件”30。
+Claude Code's CLAUDE.md and Codex's AGENTS.md are the leading examples — persistent files re-read from disk after compaction, placing goals in a position that survives compression. Oh My Open Code's Ralph Loop goes further: hard context resets where the only surviving context is the goal/plan file. The trade-off is context budget: system-prompt-level content consumes tokens every inference call. For a 200K-token window with 2K tokens of requirements, this costs ~1% of capacity per call — manageable for most use cases but compounding in multi-agent scenarios where each agent carries the overhead independently.
 
-## **结论与行动建议：Cat Cafe 的升级之路**
+### Comparison table
 
-针对Cat Cafe当前遇到的“F041交付灾难”，基于本次调研，我们提出以下改进建议：
+| Dimension | Process embedding (your approach) | Technical embedding (Lobster, LangGraph, Spec Kit) | Context embedding (CLAUDE.md, AGENTS.md, Ralph Loop) |
+|---|---|---|---|
+| **Mechanism** | SOP checkpoints via prompt/skill reminders | Architecture enforces alignment outside LLM context | Goals placed in non-compressible positions |
+| **Robustness under compression** | Low — reminders themselves get compressed | High — mechanism is external to context window | Medium — survives compaction but consumes token budget |
+| **Implementation cost** | Low — prompt/SOP changes only | High — requires workflow engine or framework migration | Low-Medium — file conventions + compaction configuration |
+| **Failure mode** | Agent ignores checkpoint after compaction | Overly rigid workflows reject valid creative solutions | Goals are read but not deeply "understood" after many iterations |
+| **Applicable scenarios** | Any existing workflow; good for teams starting out | Complex, long-running, multi-agent pipelines | All scenarios; especially effective for single-agent long sessions |
+| **Drift detection** | None (relies on human review at PR stage) | Structural (can't drift past gates) or active (User Alignment Critic) | None (relies on re-reading, not verifying) |
+| **Real-world examples** | Your team's SOP; community practitioner patterns | OpenClaw Lobster, LangGraph checkpoints, GitHub Spec Kit, CORPGEN | Claude Code CLAUDE.md, Codex AGENTS.md, OmO Ralph Loop |
 
-1. **从“流程检查”升级为“角色隔离检查”：** 不仅是在SOP中加步骤，而是要部署一个名为“愿景看守猫”的独立Agent（推荐使用Gemini 3 Pro或Claude Opus 4.6），它唯一的输入是原始需求和执行结果。通过“信息不对称”强制进行交叉验证20。  
-2. **实施“目标持久化”技术嵌入：** 采用OpenClaw的模式，将原始AC标准和用户偏好写入本地SQLite或VISION.md。配置系统的Pre-turn Hook，在每轮Agent决策前强制将这些准则通过RAG方式注入其上下文的最顶层，对抗“失忆”13。  
-3. **细化验收颗粒度：** 禁止将“F041看板”作为一个整体任务。必须拆解为包含UI样稿比对、核心数据流验证、操作响应逻辑在内的多个“垂直切片”，执行“一步一验收”的纪律，杜绝“全绿测试后的成品崩溃”25。  
-4. \*\* ASI (智能体稳定性指数) 监控：\*\* 建立监控仪表盘，跟踪Agent在长时间任务中的语义对齐得分。一旦得分低于0.8，立即触发物理干预，进行上下文重置和目标重对齐4。
+---
 
-通过将愿景管理从“人为规训”转变为“架构内生的硬约束”，多Agent系统才能在复杂的现实业务中，真正交付符合人类期望的产出，而不是一堆“逻辑正确但毫无用处”的代码堆砌。
+## Q4: Why complex features go off-track and what actually works
 
-#### **引用的著作**
+### The fundamental mechanism: pattern-matching overwhelms goal-following
 
-1. The AI Revolution in 2026: Top Trends Every Developer Should Know \- DEV Community, 访问时间为 二月 27, 2026， [https://dev.to/jpeggdev/the-ai-revolution-in-2026-top-trends-every-developer-should-know-18eb](https://dev.to/jpeggdev/the-ai-revolution-in-2026-top-trends-every-developer-should-know-18eb)  
-2. Technical Report: Evaluating Goal Drift in Language Model Agents \- arXiv, 访问时间为 二月 27, 2026， [https://arxiv.org/html/2505.02709v1](https://arxiv.org/html/2505.02709v1)  
-3. Evaluating Goal Drift in Language Model Agents | Proceedings of the AAAI/ACM Conference on AI, Ethics, and Society, 访问时间为 二月 27, 2026， [https://ojs.aaai.org/index.php/AIES/article/view/36541](https://ojs.aaai.org/index.php/AIES/article/view/36541)  
-4. Agent Drift in AI Systems \- Emergent Mind, 访问时间为 二月 27, 2026， [https://www.emergentmind.com/topics/agent-drift](https://www.emergentmind.com/topics/agent-drift)  
-5. Understanding AI Agent Reliability: Best Practices for Preventing Drift in Production Systems, 访问时间为 二月 27, 2026， [https://www.getmaxim.ai/articles/understanding-ai-agent-reliability-best-practices-for-preventing-drift-in-production-systems/](https://www.getmaxim.ai/articles/understanding-ai-agent-reliability-best-practices-for-preventing-drift-in-production-systems/)  
-6. Claude Code Agent Teams: The End of Solo AI Coding? | by Poojan ..., 访问时间为 二月 27, 2026， [https://pub.towardsai.net/claude-code-agent-teams-the-end-of-solo-ai-coding-45da2cab6153](https://pub.towardsai.net/claude-code-agent-teams-the-end-of-solo-ai-coding-45da2cab6153)  
-7. Orchestrate teams of Claude Code sessions \- Claude Code Docs, 访问时间为 二月 27, 2026， [https://code.claude.com/docs/en/agent-teams](https://code.claude.com/docs/en/agent-teams)  
-8. Claude Code Agent Teams: The Complete Guide 2026, 访问时间为 二月 27, 2026， [https://claudefa.st/blog/guide/agents/agent-teams](https://claudefa.st/blog/guide/agents/agent-teams)  
-9. oh-my-opencode has been a gamechanger : r/ClaudeCode \- Reddit, 访问时间为 二月 27, 2026， [https://www.reddit.com/r/ClaudeCode/comments/1pp2tyw/ohmyopencode\_has\_been\_a\_gamechanger/](https://www.reddit.com/r/ClaudeCode/comments/1pp2tyw/ohmyopencode_has_been_a_gamechanger/)  
-10. \[Question\]: Can Oh My OpenCode use local small language models ..., 访问时间为 二月 27, 2026， [https://github.com/code-yeongyu/oh-my-opencode/issues/585](https://github.com/code-yeongyu/oh-my-opencode/issues/585)  
-11. Local-First RAG: Using SQLite for AI Agent Memory with OpenClaw \- TiDB, 访问时间为 二月 27, 2026， [https://www.pingcap.com/blog/local-first-rag-using-sqlite-ai-agent-memory-openclaw/](https://www.pingcap.com/blog/local-first-rag-using-sqlite-ai-agent-memory-openclaw/)  
-12. OpenClaw (formerly Moltbot, Clawdbot) May Signal the Next AI Security Crisis \- Palo Alto Networks Blog, 访问时间为 二月 27, 2026， [https://www.paloaltonetworks.com/blog/network-security/why-moltbot-may-signal-ai-crisis/](https://www.paloaltonetworks.com/blog/network-security/why-moltbot-may-signal-ai-crisis/)  
-13. Add Memory to OpenClaw AI Agents(Step-by-Step) \- Mem0, 访问时间为 二月 27, 2026， [https://mem0.ai/blog/add-persistent-memory-openclaw](https://mem0.ai/blog/add-persistent-memory-openclaw)  
-14. Long horizon tasks with Codex \- OpenAI for developers, 访问时间为 二月 27, 2026， [https://developers.openai.com/cookbook/examples/codex/long\_horizon\_tasks/](https://developers.openai.com/cookbook/examples/codex/long_horizon_tasks/)  
-15. The Only Codex AI Guide You'll Ever Need in 2026: 7 Brutal Truths That'll Change How You Code Forever \- Visions \- All in Corporate Web Hosting Solution Providers, 访问时间为 二月 27, 2026， [https://vision.pk/codex-ai-guide/](https://vision.pk/codex-ai-guide/)  
-16. Codex App First Impressions (2026): Polished Parallel Agents, but Not a Full IDE Yet, 访问时间为 二月 27, 2026， [https://www.verdent.ai/guides/codex-app-first-impressions-2026](https://www.verdent.ai/guides/codex-app-first-impressions-2026)  
-17. 2601.04170v1 | PDF | System | Simulation \- Scribd, 访问时间为 二月 27, 2026， [https://www.scribd.com/document/977856534/2601-04170v1](https://www.scribd.com/document/977856534/2601-04170v1)  
-18. How Claude Code Agents Actually Talk to Each Other (It's Weirder Than You Think), 访问时间为 二月 27, 2026， [https://medium.com/@skytoinds/how-claude-code-agents-actually-talk-to-each-other-its-weirder-than-you-think-c070b38c28e0](https://medium.com/@skytoinds/how-claude-code-agents-actually-talk-to-each-other-its-weirder-than-you-think-c070b38c28e0)  
-19. One Codebase, Three Runtimes: How GSD Targets Claude Code, OpenCode, and Gemini CLI | by Rick Hightower | Feb, 2026 | Medium, 访问时间为 二月 27, 2026， [https://medium.com/@richardhightower/one-codebase-three-runtimes-how-gsd-targets-claude-code-opencode-and-gemini-cli-29c98cfe96c6](https://medium.com/@richardhightower/one-codebase-three-runtimes-how-gsd-targets-claude-code-opencode-and-gemini-cli-29c98cfe96c6)  
-20. VisionAgent: An Agentic Approach for Complex Visual Reasoning \- LandingAI, 访问时间为 二月 27, 2026， [https://landing.ai/blog/visionagent-an-agentic-approach-for-complex-visual-reasoning](https://landing.ai/blog/visionagent-an-agentic-approach-for-complex-visual-reasoning)  
-21. How to Build Vision AI Agents \- Roboflow Blog, 访问时间为 二月 27, 2026， [https://blog.roboflow.com/vision-agents/](https://blog.roboflow.com/vision-agents/)  
-22. Reducing Cognitive Load and Task Drift in Real-Time Multimodal Assistive Agents for the Visually Impai \- arXiv, 访问时间为 二月 27, 2026， [https://arxiv.org/pdf/2511.00945](https://arxiv.org/pdf/2511.00945)  
-23. "Less is More": Reducing Cognitive Load and Task Drift in Real-Time Multimodal Assistive Agents for the Visually Impaired \- ResearchGate, 访问时间为 二月 27, 2026， [https://www.researchgate.net/publication/397231968\_Less\_is\_More\_Reducing\_Cognitive\_Load\_and\_Task\_Drift\_in\_Real-Time\_Multimodal\_Assistive\_Agents\_for\_the\_Visually\_Impaired](https://www.researchgate.net/publication/397231968_Less_is_More_Reducing_Cognitive_Load_and_Task_Drift_in_Real-Time_Multimodal_Assistive_Agents_for_the_Visually_Impaired)  
-24. Made a skill for the new Agent Teams feature (announced yesterday) \- coordinates multiple Claude instances with shared planning files : r/ClaudeAI \- Reddit, 访问时间为 二月 27, 2026， [https://www.reddit.com/r/ClaudeAI/comments/1qxjmzn/made\_a\_skill\_for\_the\_new\_agent\_teams\_feature/](https://www.reddit.com/r/ClaudeAI/comments/1qxjmzn/made_a_skill_for_the_new_agent_teams_feature/)  
-25. Best Practices \- Devin Docs, 访问时间为 二月 27, 2026， [https://docs.devin.ai/use-cases/best-practices](https://docs.devin.ai/use-cases/best-practices)  
-26. Devin Docs: Introducing Devin, 访问时间为 二月 27, 2026， [https://docs.devin.ai/](https://docs.devin.ai/)  
-27. Best Practices for Working with Devin AI \- Document Driven Development, 访问时间为 二月 27, 2026， [https://docdd.ai/articles/devin-best-practices](https://docdd.ai/articles/devin-best-practices)  
-28. TOM-SWE: User Mental Modeling For Software Engineering Agents | OpenReview, 访问时间为 二月 27, 2026， [https://openreview.net/forum?id=A4koL4Zqam](https://openreview.net/forum?id=A4koL4Zqam)  
-29. TOM-SWE: User Mental Modeling For Software Engineering ... \- arXiv, 访问时间为 二月 27, 2026， [https://arxiv.org/pdf/2510.21903](https://arxiv.org/pdf/2510.21903)  
-30. ToM-SWE: User Mental Modeling for Software Engineering Agents \- arXiv, 访问时间为 二月 27, 2026， [https://arxiv.org/html/2510.21903v1](https://arxiv.org/html/2510.21903v1)  
-31. Xingyao Wang's research works \- ResearchGate, 访问时间为 二月 27, 2026， [https://www.researchgate.net/scientific-contributions/Xingyao-Wang-2201933238](https://www.researchgate.net/scientific-contributions/Xingyao-Wang-2201933238)  
-32. Software Development With Devin: Setup And First Pull Request (Part 1\) \- DataCamp, 访问时间为 二月 27, 2026， [https://www.datacamp.com/tutorial/devin-ai](https://www.datacamp.com/tutorial/devin-ai)
+Arike et al.'s peer-reviewed research identifies the core cause: as context accumulates, LLMs increasingly match patterns from recent interactions rather than adhering to original instructions. Complex features generate more context (discussions, code, reviews, iterations), creating more patterns that compete with the original goal signal. This is not a bug in any specific tool — it's a property of transformer attention. The practical implication is that **any mitigation must either reduce accumulated context, strengthen the goal signal, or remove the LLM from goal-critical decisions**.
 
-[image1]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB8AAAAYCAYAAAACqyaBAAABpklEQVR4Xu2VvytGURzGv5FSikRRyI8MBqUoC7JYKAaljP4CSlEMNiUbGRiRLCgpmQwmJUkZjMpiwCYGv75P59zXuc97zr2v913fTz29536ec2/n/nxFivyfLhYBJlkkMaX50ZxrxuJVhm7NKcsAbZpblj4mNON2/CxmEUyZ5pNlCmuaLZbMhmaAJfGl6WFpaRD/gkHIZ2iX5EkVktwfSrjflRwuP3a+YWm505yxdMC+rywtVRJeWIZjMZOGuJCwH9aMiOl37LguNsOAvpIl6BdT4hXCr2+VPlermdVsiukxRnCLGPQLLFskfuDo7F1KPc4l6X5HoN/2yRVnu8+6ese1WhcCHV7PJN41l67olOyDNnpcs8e5oJthSbxprl2xLtkHnfc44HMgOoESLgjMOXLFnJUuj5p9coDnRRxIvLtwxi6Ys+iT5XZcY7d9wA+yVK7kb59eMU++D8ypZonL9SSmfKHO5UFzwtKChwn7r3JhSfs6poKzyvcAuBp4HQviW9PBMgfyXXSMJs0HyxSWNMss82VUs8cyAL7x9ywLxfcH42OaRZFfC65lXW2iO04AAAAASUVORK5CYII=>
+### Staged acceptance: the industry's most common defense
 
-[image2]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAcAAAAYCAYAAAA20uedAAAAcklEQVR4XmNgGOTgGxCfQheEgf9AXIAuCAL6DBBJJmRBGyD2AuLdUElfKB8MioC4BCrxFsoHYRQAksxFFwQBXQaIJCO6BAisYYBIYgUgiXfogjAAkgQ5CgaOILHBkipQ9k9kCRDoYYAo+AHELGhywwEAAMS4F/hUVNxNAAAAAElFTkSuQmCC>
+GitHub Spec Kit's 4-phase gated workflow (Specify → Plan → Tasks → Implement) is the most explicit implementation, but the principle appears everywhere: Oh My Open Code's Prometheus→Momus→Atlas pipeline, Devin's Interactive Planning, Cursor's Plan Mode, and CORPGEN's three-scale planning hierarchy. The pattern is consistent: **break the feature into phases where alignment is verified before proceeding**. Each gate is an opportunity to catch drift before it compounds. The key insight from Spec Kit's practitioners is that specifications should be treated as "executable artifacts" — not throwaway documents that precede coding but living references that constrain it.
 
-[image3]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAmwAAAAvCAYAAABexpbOAAADkklEQVR4Xu3dS8h1UxgH8MUAX5TLRMhAyaeEASXfyIiJYmigTChkIFKUmaSYMJFbktuIyMQlAyQmSkphQIlyK7fI/bIee2/2ed61zzlf3nPewf796und+7/OOXu/a/S09z7rlAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAMCcHKj1c617a52YxsIHOWh4q9aZOZyJP3IwcnStT3PY8E4OAAAGJ9W6q9b+Wn/V+n1xuNxR69aUTYn374UvcrBFt5Tu/96XB3rrzsk9te7PIQBAOKXW1znsXVzr+xz2phqRu3OwIQ/UurPWa2X6XLbhl9IdP+YqiyyusGWnl/Y5/5oDAIBBq3kIkZ+Tw96y92zTc2X7xxxcXeuC0h3/5sWhf0yd17OlPXZR6T4PAGCHF2q9m8PSbirCGWV6LPKjcrhBe9mwxXGP6/8+kcbC1HlF/lUOe2/mAAAgmodL+r8vN8ayG0v3nFuM3VC623tjcVvvxZRt0l41bONjxvZno/0Qt2vzeV1TuvmL/LbSzV+W3wMAzNwrtQ7vt6NRyM1C3h9E/nQOe+/X+jiHI2fVeqxRj9Z6pNbDtR6q9WD/+lX2qmEbP7PWmrtXG9lgKg/LxgCAmTm1LDYHcWUsNwutxuuQ0r0uGq+W58vOz9mkdRu2c9eo1pImLc+k/VbDFnO3bP6mLBsDAGYmGoMPR/uxltiPo/3wbdoPT5XlTcUbZefSIJu0bsO2W26qdUXKWg1brEs3NX/X53Akfw4AMGPRGMT6a+P9C0f7Q5ZF9k2/HQ/cnz8aC/Es10cpG7uqdEthrKpYyHcd227Y/sxBaTdsjzeyENmh/fZL44Fe6z0AwExdW/67Eha36Z4cjQ1azUNkV/bbb48HejF+aQ436PXSPs/ddkTpjnNyHijdNz7zOZzWyMKQHVu6z8xa7wEAZuzy0jUIU1ezxleDBpf1+VRjMZXvtutqfV66n336pN/+aeEVuyd+situb35X67daJ4zGfijdwsNx1TEa4PNGY625GOYvPwcXjizdL0sAAKzty1q353CFvLzFnMX8HYz7cgAAsI64GhS3TNcRD9Sz6L0cTDistK/IAQCsdExZ71bj8aW9jMXcRcN2dg4b4lu6+fYzAMBBWXWV7UAO+Nf+HCT7cgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADwP/0N+bfI/j3ULOoAAAAASUVORK5CYII=>
+### Counter-intuitive finding: more structure can mean less drift
 
-[image4]: <data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACUAAAAYCAYAAAB9ejRwAAAByElEQVR4Xu2VzStFURTFt8+UIqWEEZIJhoyNRP4A/4EZZcaAASaMDIgy8JGJkL/BSMnARJShmCDJVyH2at+XY3XOue89XxO/WnXeWufcs++7+54r8s/fUKsqZNNDPxv50K06YpOoVJ2xGaBRdchmrrwlipGWM7OqRTazZV3SizpVDbOZUC/htSE/CvrjVtKLimVbEs7XJI/HeKkqlnhRc6o7Nh2w7prNBPRh6Lpe2lQbyfhFwovhT7Kp9Kh6xfLVZFzzaYaBvILNEG4RePNiRTWTVy3WYwtiOcZQuTspAfkImz4mVH3O7x2xxdiMgY9H7CPWTxmQr7Dp44l+z4gt7iIfxDZFhr6M8ajaY5M5FnvjXD2IbTDozMuQVtQQm8S96oBNlzrxV90utsESB2J+EZtKq1iW9tnBnG02XUJ3XSqW7XMg5jexqWzK5+vtOmMXzBllE5SpLsQekw80OBY/cyDmj7MpdgOZojrE3kQfmFPF5rzqRnUlVhQfhK/ykaO/cGZ1OvlykvtAE2PTaQ4ScESEns6X+MqF8e/h2PgRzlUDbGZBvjeTFSWS+wZjqik2v5sG1QmbAfANxHn4K7SoCtj04DuE/8mZd40KdSvo0ofUAAAAAElFTkSuQmCC>
+The evidence suggests that **more complex orchestration reduces drift compared to simpler approaches**, contradicting the intuition that complexity breeds failure. SWE-agent's minimalist 100-line scaffold (which delegates everything to the LLM) achieves strong benchmark scores on curated tasks but offers zero drift prevention for novel work. Meanwhile, CORPGEN's elaborate hierarchical planning with tiered memory and experiential learning achieved 3.5× improvement over baselines. The explanation: complex orchestration externalizes goal-tracking from the LLM's volatile context to persistent, structured, deterministic systems. The complexity is in the scaffold, not the prompt — and scaffold complexity is reliable where prompt complexity is not.
+
+### Lessons from human software engineering that transfer directly
+
+Three classical software engineering failure modes map directly to agent drift. **Scope creep** (requirements expanding during development) parallels how agents add unrequested features when they lose track of original scope — Oh My Open Code's Todo Continuation Enforcer and hashline edit tool directly address this. **Gold plating** (developers adding unnecessary polish) maps to agents over-engineering solutions because their optimization target shifts from "meet requirements" to "write elegant code" — Devin's acknowledgment that it needs explicit acceptance criteria rather than open-ended goals confirms this. **Requirements volatility** (changing requirements causing rework) parallels how compaction produces a "changed" version of requirements that agents treat as authoritative — CLAUDE.md and AGENTS.md address this by maintaining requirements outside the compaction cycle.
+
+The most transferable human practice is **Definition of Done (DoD)** — explicit, measurable completion criteria defined before work begins. Every successful anti-drift mechanism studied effectively implements this: Spec Kit's gated specifications, CORPGEN's strategic objectives, OmO's plan files reviewed by Momus, and your team's own spec-compliance-check. The difference is whether the DoD is enforced by process (your approach), architecture (Spec Kit's gates), or persistent context (CLAUDE.md).
+
+---
+
+## Blind spots in your current approach
+
+Your five-stage checkpoint system has four significant vulnerabilities that industry approaches can address.
+
+**Blind spot 1: Checkpoints are themselves subject to compression.** Your checkpoints live in prompts and skill definitions — exactly the content that gets compressed during long sessions. When an agent's context fills up and compaction fires, the instruction "re-read original requirements" may be summarized into something weaker or dropped entirely. Claude Code's GitHub issue #23620 documents the lead agent losing all team awareness after compaction. **Fix: Migrate critical checkpoints to CLAUDE.md/AGENTS.md** (context embedding) or implement them as external hooks that fire regardless of context state (technical embedding).
+
+**Blind spot 2: No automated drift detection.** Your approach checks alignment at defined stages (pre-development, review, PR, completion) but has no mechanism to detect drift between stages. An agent could drift significantly during implementation and only be caught at PR time — after substantial wasted effort. **Fix: Implement CORPGEN-style adaptive summarization** that flags when recent actions diverge from stated objectives, or use LangGraph-style checkpoints that preserve state for inspection at any point.
+
+**Blind spot 3: Process assumes single-pass linearity.** Your checkpoints map to a linear workflow (pre-dev → review → feedback → PR → completion), but real development is iterative. Agents may cycle through code-test-fix loops dozens of times between checkpoints, and drift compounds with each cycle. **Fix: Add intra-stage checkpoints** — Oh My Open Code's Todo Continuation Enforcer fires at every task boundary, not just at milestone stages. Consider periodic re-anchoring (every N interactions or every compaction event).
+
+**Blind spot 4: Vision-level feedback has no enforcement mechanism.** Your approach distinguishes code-level from vision-level feedback, but there's no mechanism ensuring vision-level feedback actually changes the agent's trajectory. An agent can acknowledge "vision feedback" and continue on its current path. **Fix: Implement Google-style User Alignment Critic** — a separate verification step (potentially using a different model) that compares deliverables against original requirements before any PR can merge.
+
+---
+
+## Practices you can borrow
+
+### Directly usable (adopt this week)
+
+- **CLAUDE.md / AGENTS.md goal anchoring**: Write your original requirements and acceptance criteria into CLAUDE.md (for Claude Code) or AGENTS.md (for Codex). These survive compaction and are re-read automatically. This is the single highest-impact change with near-zero implementation cost.
+- **TaskCompleted hooks**: Configure Claude Code's TaskCompleted hook to run acceptance criteria verification before any task can close. This transforms your "completion checkpoint" from a process reminder into an architectural gate.
+- **Ralph Loop pattern for complex features**: For high-risk features, implement hard context resets between iterations where the agent restarts with only a session file containing the goal, plan, and status. This eliminates accumulated drift at a cost of losing in-progress reasoning.
+- **Context window monitoring**: If using Windsurf, use the context window meter to trigger fresh sessions before context exhaustion. For other tools, implement periodic compaction with focus directives (Claude Code's `/compact focus on [original requirements]`).
+
+### Needs adaptation (implement over 1–2 sprints)
+
+- **Spec Kit's gated phases**: Adopt the Specify → Plan → Tasks → Implement workflow with explicit gates. Adapt to your team's SOP by mapping your existing checkpoints to phase boundaries and adding a "spec validation" gate before implementation begins.
+- **Deterministic workflow orchestration**: If using OpenClaw, adopt Lobster for multi-agent pipelines. Otherwise, implement LangGraph-style state management where the original goal persists in the graph state schema. This requires refactoring your orchestration layer but provides architectural drift guarantees.
+- **Dual-model verification**: Use a separate model instance to compare deliverables against original requirements at PR time. Feed both the original spec and the PR diff to a fresh model context (no accumulated session history) and ask it to identify misalignments. This approximates Google's User Alignment Critic at lower cost.
+- **Episodic memory consolidation**: Implement periodic context consolidation (every 50 interactions or at natural break points) where the agent writes a structured summary of goals, progress, and decisions to a persistent file, then the context is reset with this summary as the starting point.
+
+---
+
+## What we know versus what we suspect
+
+### Confirmed facts
+- All LLM agents exhibit goal drift; pattern-matching from recent context is the primary mechanism (Arike et al., AIES-25, peer-reviewed)
+- CLAUDE.md survives compaction in Claude Code (Anthropic documentation)
+- Claude Code's lead agent loses team awareness after compaction (GitHub #23620)
+- Agents fail even with unlimited external memory — the problem is retrieval strategy, not storage (Vending-Bench, empirical)
+- CORPGEN achieved 3.5× improvement over baselines using hierarchical planning + tiered memory (Microsoft Research, February 2026)
+- Active context compression can reduce tokens 22–54% while maintaining >95% accuracy (ACON, October 2025)
+
+### Unverified or speculative
+- "Nearly half of multi-agent workflows show semantic drift after ~600 interactions" — **from simulation, not empirical data**; single unreviewed preprint (Rath, 2026)
+- Combined mitigation strategies reducing drift by >80% — same source, same caveats
+- Cursor's claim of agents running autonomously "for weeks" — company-published, not independently verified
+- Devin's "~30% more issues caught" with self-review — Cognition's own claim, methodology not published
+- "Goal-persistent design" as a concept — does not exist as an established term in any literature searched
+
+---
+
+## Recommended directions and their risks
+
+**Direction 1: Implement layered defense (process + context + technical embedding).** Combine your existing SOP checkpoints with CLAUDE.md-based goal anchoring and at least one architectural gate (TaskCompleted hook or gated workflow). Risk: increased overhead and token cost (~23% per Rath's simulation). Mitigation: apply full layering only to complex features flagged as high-drift-risk.
+
+**Direction 2: Adopt spec-driven development for complex features.** Use GitHub Spec Kit or a similar gated workflow where specifications are validated before implementation begins. Risk: perceived slowdown, potential "waterfall regression" criticism. Mitigation: apply only to features above a complexity threshold; simpler features use streamlined flow.
+
+**Direction 3: Build drift detection into your pipeline.** Implement automated comparison between deliverables and original requirements using a fresh model context at each checkpoint. Risk: false positives disrupting flow; additional API costs. Mitigation: start with PR-time-only verification, expand to mid-implementation checks as calibration improves.
+
+**Direction 4: Invest in deterministic orchestration for multi-agent workflows.** Move flow-control decisions out of LLM prompts and into deterministic engines (Lobster, LangGraph, or custom). Risk: reduced agent autonomy for creative problem-solving; implementation complexity. Mitigation: use deterministic orchestration for workflow routing while preserving LLM autonomy within individual task execution.
+
+**Direction 5: Watch CORPGEN and Google's User Alignment Critic.** These represent the research frontier — hierarchical multi-scale planning and automated alignment verification. Both are too new for production adoption (CORPGEN was published one day ago), but their architectural patterns are implementable today using existing tools. Risk: premature adoption of unproven approaches. Mitigation: implement the patterns (hierarchical planning, separate verification model) rather than the specific frameworks.
+
+## Conclusion
+
+The vision drift problem your team experienced with F041 is not a process failure — it is a fundamental property of how transformer attention interacts with growing context. The industry's most effective defenses work by **externalizing goal-tracking from the LLM's volatile context to persistent, structured systems**: files that survive compaction, workflow engines that enforce gates, and state schemas that carry goals as permanent fields. Your process-embedding approach is a valid first layer but operates in the same medium (prompts) that is subject to the very compression it tries to guard against. The highest-impact next step is combining your existing checkpoints with context embedding (CLAUDE.md/AGENTS.md) and at least one technical gate (TaskCompleted hook or spec-driven gating). The research frontier — CORPGEN's hierarchical planning, Google's User Alignment Critic, and active context compression — suggests that within 12 months, drift detection and prevention will shift from manual practice to automated infrastructure. Position your team to adopt these capabilities by building the architectural foundations (persistent goal files, external state management, deterministic orchestration) now.
