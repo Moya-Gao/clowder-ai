@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F041]
 topics: [capability, dashboard]
 doc_kind: discussion
 created: 2026-02-26

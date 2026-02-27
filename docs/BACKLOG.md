@@ -25,3 +25,4 @@ created: 2026-02-26
 | F038 | Skills 梳理 + 按需发现机制 | in-progress | 三猫 | [F038](features/F038-skills-discovery.md) |
 | F039 | 消息排队投递 — 用户操作三模式 | in-progress | 三猫 | [F039](features/F039-message-queue-delivery.md) |
 | F040 | BACKLOG 整理与 Feature 聚合体系 | in-progress | 布偶猫 | [F040](features/F40-backlog-reorganization.md) |
+| F041 | 能力看板 — Hub MCP/Skills 统一管理 | spec | 布偶猫 | [F041](features/F041-capability-dashboard.md) |
