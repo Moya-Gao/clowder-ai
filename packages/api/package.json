@@ -33,6 +33,7 @@
     "puppeteer": "^24.37.2",
     "rss-parser": "^3.13.0",
     "sharp": "^0.34.5",
+    "smol-toml": "^1.6.0",
     "socket.io": "^4.7.0",
     "web-push": "^3.6.7",
     "yaml": "^2.8.1",
