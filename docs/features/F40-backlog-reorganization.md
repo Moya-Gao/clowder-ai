@@ -396,16 +396,16 @@ F014 → F015 → F036
 - [x] 扩展 frontmatter contract 加入 `debt_ids` 字段 — **布偶猫**（commit `3fb8aa9`）
 - [x] 更新 SOP.md "完成后真相源同步" 章节 — **布偶猫**（commit `3fb8aa9`）
 
-### Phase 3: Skill 实现（进行中）
+### Phase 3: Skill 实现（2026-02-27，已完成）
 
 - [x] 创建 `feat-kickoff` skill — **布偶猫**（`cat-cafe-skills/feat-kickoff/SKILL.md`）
-- [ ] 创建 `feat-completion` skill — **待做**
+- [x] 创建 `feat-completion` skill — **布偶猫**（`cat-cafe-skills/feat-completion/SKILL.md`，commit `d55d3b6`）
 
-### Phase 4: 沉淀同步（待做）
+### Phase 4: 沉淀同步（2026-02-27，已完成）
 
-- [ ] 写 ADR: Metadata Contract（记录为何拒绝 `stage` 下沉）
-- [ ] 更新 lessons-learned.md（"状态字段多点写入会复发蜘蛛网"）
-- [ ] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff 触发）
+- [x] 写 ADR: Metadata Contract — **布偶猫**（`docs/decisions/011-metadata-contract.md`，commit `14a8b53`）
+- [x] 更新 lessons-learned.md（LL-024: 状态字段多点写入会复发蜘蛛网）— **布偶猫**
+- [x] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff/completion 触发）— **布偶猫**
 
 ### Phase 5: 验收与优化（待做）
 
@@ -441,16 +441,16 @@ F014 → F015 → F036
 | SOP 更新 | "完成后真相源同步" 章节 | 布偶猫 |
 | 维护脚本 | `scripts/tech-debt-maintain.mjs` | 缅因猫 |
 
-### 未完成 Gap
+### 未完成 Gap（2026-02-27 更新）
 
-| Gap | 原因 | 优先级 | 负责猫 |
-|-----|------|--------|--------|
-| `feat-completion` skill | 设计时决定先做 kickoff，completion 延后 | P1 | 布偶猫 |
-| ADR: Metadata Contract | 讨论收敛但沉淀未写 | P2 | 布偶猫 |
-| lessons-learned 更新 | 同上 | P2 | 布偶猫 |
-| 三猫指引同步 | CLAUDE.md/AGENTS.md/GEMINI.md 未同步 F40 规则 | P2 | 布偶猫 |
-| `index.json` 机器索引 | 脚本未写 | P3 | 可选 |
-| Feature 演化图 ADR | 演化关系在哪里记录、怎么维护 | P3 | 可选 |
+| Gap | 原因 | 优先级 | 状态 |
+|-----|------|--------|------|
+| ~~`feat-completion` skill~~ | ~~设计时决定先做 kickoff，completion 延后~~ | ~~P1~~ | ✅ 已完成 `d55d3b6` |
+| ~~ADR: Metadata Contract~~ | ~~讨论收敛但沉淀未写~~ | ~~P2~~ | ✅ 已完成 `14a8b53` |
+| ~~lessons-learned 更新~~ | ~~同上~~ | ~~P2~~ | ✅ 已完成 LL-024 |
+| ~~三猫指引同步~~ | ~~CLAUDE.md/AGENTS.md/GEMINI.md 未同步 F40 规则~~ | ~~P2~~ | ✅ 已完成 `14a8b53` |
+| `index.json` 机器索引 | 脚本未写 | P3 | 可延后 |
+| Feature 演化图 ADR | 演化关系在哪里记录、怎么维护 | P3 | 可延后（已在 F40 文档中记录） |
 
 ### `feat-completion` skill 设计草案
 
@@ -532,14 +532,14 @@ F014 → F015 → F036
 
 ---
 
-## 收敛后沉淀检查清单（更新）
+## 收敛后沉淀检查清单（2026-02-27 完成）
 
 | 沉淀类型 | 内容 | 状态 |
 |----------|------|------|
-| **ADR** | ADR-011: Metadata Contract | 待写 → Step 2 |
-| **lessons-learned** | "状态字段多点写入会复发蜘蛛网" | 待补 → Step 3 |
-| **指引文件** | CLAUDE.md/AGENTS.md/GEMINI.md 同步 frontmatter + skill 规则 | 待同步 → Step 4 |
-| **Skill** | `feat-completion` skill | 待创建 → Step 1 |
+| **ADR** | ADR-011: Metadata Contract | ✅ `14a8b53` |
+| **lessons-learned** | LL-024: 状态字段多点写入会复发蜘蛛网 | ✅ `14a8b53` |
+| **指引文件** | CLAUDE.md/AGENTS.md/GEMINI.md 同步 frontmatter + skill 规则 | ✅ `14a8b53` |
+| **Skill** | `feat-completion` skill | ✅ `d55d3b6` |
 
 ---
 
