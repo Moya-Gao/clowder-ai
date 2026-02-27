@@ -222,7 +222,7 @@
           "provider": "openai",
           "defaultModel": "gpt-5.3-codex-spark",
           "mcpSupport": false,
-          "avatar": "/avatars/sliced-finial/codex_iquid.png",
+          "avatar": "/avatars/sliced-finial/codex_box.png",
           "color": { "primary": "#81C784", "secondary": "#C8E6C9" },
           "cli": {
             "command": "codex",
