@@ -108,6 +108,9 @@ describe('useChatHistory thread switch ordering', () => {
           pendingModeSwitchProposal: null,
           unreadCount: 0,
           lastActivity: Date.now(),
+          queue: [],
+          queuePaused: false,
+          queueFull: false,
         },
       },
     });

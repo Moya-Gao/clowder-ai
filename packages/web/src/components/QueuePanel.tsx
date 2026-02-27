@@ -1,0 +1,183 @@
+'use client';
+
+import { useCallback } from 'react';
+import { useChatStore, type QueueEntry } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
+
+interface QueuePanelProps {
+  threadId: string;
+}
+
+/**
+ * F39: Queue management panel — displayed between messages and ChatInput
+ * when there are queued messages. Shows queue entries with reorder/withdraw
+ * controls, plus continue/clear actions when paused.
+ */
+export function QueuePanel({ threadId }: QueuePanelProps) {
+  const queue = useChatStore((s) => s.queue) ?? [];
+  const queuePaused = useChatStore((s) => s.queuePaused) ?? false;
+  const queuePauseReason = useChatStore((s) => s.queuePauseReason);
+
+  const handleRemove = useCallback(async (entryId: string) => {
+    await apiFetch(`/api/threads/${threadId}/queue/${entryId}`, { method: 'DELETE' });
+  }, [threadId]);
+
+  const handleMove = useCallback(async (entryId: string, direction: 'up' | 'down') => {
+    await apiFetch(`/api/threads/${threadId}/queue/${entryId}/move`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction }),
+    });
+  }, [threadId]);
+
+  const handleContinue = useCallback(async () => {
+    await apiFetch(`/api/threads/${threadId}/queue/next`, { method: 'POST' });
+  }, [threadId]);
+
+  const handleClear = useCallback(async () => {
+    await apiFetch(`/api/threads/${threadId}/queue`, { method: 'DELETE' });
+  }, [threadId]);
+
+  // Don't render when queue is empty
+  if (queue.length === 0) return null;
+
+  // Filter out "processing" entries — user only sees queued ones
+  const visibleEntries = queue.filter((e) => e.status === 'queued');
+  if (visibleEntries.length === 0 && !queuePaused) return null;
+
+  const pauseLabel = queuePauseReason === 'canceled' ? '当前调用已取消' : '当前调用失败';
+
+  return (
+    <div className={`border-t mx-4 mb-1 rounded-xl overflow-hidden ${
+      queuePaused ? 'border-amber-200 bg-amber-50/50' : 'border-[#9B7EBD]/20 bg-[#9B7EBD]/5'
+    }`}>
+      {/* Header */}
+      <div className={`flex items-center justify-between px-3 py-2 ${
+        queuePaused ? 'bg-amber-100/60' : 'bg-[#9B7EBD]/10'
+      }`}>
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" />
+          </svg>
+          <span className="text-xs font-medium text-gray-600">
+            {queuePaused ? '队列已暂停' : '排队中'}
+          </span>
+          <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+            queuePaused
+              ? 'bg-amber-200 text-amber-700'
+              : 'bg-[#9B7EBD]/20 text-[#9B7EBD]'
+          }`}>
+            {visibleEntries.length}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {queuePaused && (
+            <button onClick={handleContinue}
+              className="text-xs px-2 py-1 rounded-md bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+            >
+              继续
+            </button>
+          )}
+          <button onClick={handleClear}
+            className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+          >
+            清空
+          </button>
+        </div>
+      </div>
+
+      {/* Pause reason */}
+      {queuePaused && (
+        <div className="px-3 py-1.5 text-xs text-amber-600 border-b border-amber-200/60">
+          {pauseLabel}
+        </div>
+      )}
+
+      {/* Queue entries */}
+      <div className="max-h-40 overflow-y-auto">
+        {visibleEntries.map((entry, idx) => (
+          <QueueEntryRow
+            key={entry.id}
+            entry={entry}
+            index={idx}
+            isFirst={idx === 0}
+            isLast={idx === visibleEntries.length - 1}
+            isPaused={queuePaused}
+            onRemove={handleRemove}
+            onMove={handleMove}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Single queue entry row with reorder/remove controls */
+function QueueEntryRow({
+  entry,
+  index,
+  isFirst,
+  isLast,
+  isPaused,
+  onRemove,
+  onMove,
+}: {
+  entry: QueueEntry;
+  index: number;
+  isFirst: boolean;
+  isLast: boolean;
+  isPaused: boolean;
+  onRemove: (id: string) => void;
+  onMove: (id: string, direction: 'up' | 'down') => void;
+}) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 border-b last:border-b-0 ${
+      isPaused ? 'border-amber-100' : 'border-[#9B7EBD]/10'
+    }`}>
+      {/* Number */}
+      <span className="text-xs text-gray-400 w-5 text-center shrink-0">{index + 1}</span>
+
+      {/* Content preview */}
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-gray-700 truncate">{entry.content}</p>
+        <div className="flex items-center gap-1 mt-0.5">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#9B7EBD]" />
+          <span className="text-xs text-gray-400">
+            {entry.source === 'connector' ? 'Connector' : '铲屎官'}
+          </span>
+        </div>
+      </div>
+
+      {/* Reorder buttons */}
+      <div className="flex flex-col gap-0.5 shrink-0">
+        {!isFirst && (
+          <button onClick={() => onMove(entry.id, 'up')}
+            className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Move up">
+            <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+        {!isLast && (
+          <button onClick={() => onMove(entry.id, 'down')}
+            className="p-0.5 text-gray-400 hover:text-gray-600 transition-colors"
+            aria-label="Move down">
+            <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Remove button */}
+      <button onClick={() => onRemove(entry.id)}
+        className="p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
+        aria-label="撤回">
+        <svg className="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+      </button>
+    </div>
+  );
+}

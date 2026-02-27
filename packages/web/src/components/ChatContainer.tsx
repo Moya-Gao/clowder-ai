@@ -28,6 +28,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { SplitPaneView } from './SplitPaneView';
 import { CatCafeHub } from './CatCafeHub';
 import { MobileStatusSheet } from './MobileStatusSheet';
+import { QueuePanel } from './QueuePanel';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 
 interface ChatContainerProps {
@@ -36,7 +37,7 @@ interface ChatContainerProps {
 
 export function ChatContainer({ threadId }: ChatContainerProps) {
   const {
-    messages, isLoading, hasActiveInvocation, intentMode, targetCats,
+    messages, hasActiveInvocation, intentMode, targetCats,
     catStatuses, catInvocations, setCurrentThread,
     pendingModeSwitchProposal, setPendingModeSwitchProposal,
     viewMode, setViewMode, clearUnread,
@@ -301,12 +302,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           </div>
         )}
 
+        <QueuePanel threadId={threadId} />
+
         <ChatInput
           key={threadId}
           threadId={threadId}
-          onSend={(content, images, whisper) => handleSend(content, images, undefined, whisper)}
+          onSend={(content, images, whisper, deliveryMode) => handleSend(content, images, undefined, whisper, deliveryMode)}
           onStop={handleStop}
-          disabled={isLoading}
+          disabled={false}
           hasActiveInvocation={hasActiveInvocation}
           uploadStatus={uploadStatus}
           uploadError={uploadError}

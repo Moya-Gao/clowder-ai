@@ -34,6 +34,8 @@ vi.mock('@/stores/chatStore', () => ({
     updateThreadTitle: vi.fn(),
     setCurrentMode: vi.fn(),
     currentMode: null,
+    queue: [],
+    queuePaused: false,
   }),
 }));
 
@@ -91,6 +93,10 @@ vi.mock('@/components/RightStatusPanel', () => ({
 
 vi.mock('@/components/ParallelStatusBar', () => ({
   ParallelStatusBar: () => null,
+}));
+
+vi.mock('@/components/QueuePanel', () => ({
+  QueuePanel: () => null,
 }));
 
 vi.mock('@/components/ThinkingIndicator', () => ({

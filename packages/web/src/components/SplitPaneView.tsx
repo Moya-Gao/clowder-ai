@@ -7,9 +7,10 @@ import { MiniThreadSidebar } from './MiniThreadSidebar';
 import { ChatInput } from './ChatInput';
 import { PawIcon } from './icons/PawIcon';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
+import type { DeliveryMode } from '@/stores/chat-types';
 
 interface SplitPaneViewProps {
-  onSend: (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions) => void;
+  onSend: (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => void;
   onStop: (overrideThreadId?: string) => void;
   uploadStatus?: UploadStatus;
   uploadError?: string | null;
@@ -81,7 +82,6 @@ export function SplitPaneView({
   );
 
   const targetThreadState = splitPaneTargetId ? getThreadState(splitPaneTargetId) : null;
-  const isTargetLoading = targetThreadState?.isLoading ?? false;
   const isTargetActiveInvocation = targetThreadState?.hasActiveInvocation ?? false;
 
   const handleBackToSingle = useCallback(() => {
@@ -152,9 +152,9 @@ export function SplitPaneView({
           <ChatInput
             key={splitPaneTargetId ?? 'no-target'}
             threadId={splitPaneTargetId ?? undefined}
-            onSend={(content, images, whisper) => onSend(content, images, splitPaneTargetId ?? undefined, whisper)}
+            onSend={(content, images, whisper, deliveryMode) => onSend(content, images, splitPaneTargetId ?? undefined, whisper, deliveryMode)}
             onStop={() => onStop(splitPaneTargetId ?? undefined)}
-            disabled={isTargetLoading || !splitPaneTargetId}
+            disabled={!splitPaneTargetId}
             hasActiveInvocation={isTargetActiveInvocation}
             uploadStatus={uploadStatus}
             uploadError={uploadError}

@@ -140,7 +140,7 @@ describe('ChatInput draft persistence', () => {
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
       );
     });
-    expect(onSend).toHaveBeenCalledWith('will be sent', undefined, undefined);
+    expect(onSend).toHaveBeenCalledWith('will be sent', undefined, undefined, undefined);
 
     // Unmount and remount — draft should be gone
     act(() => root.unmount());

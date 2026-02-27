@@ -6,6 +6,7 @@ import type {
   ChatMessageMetadata,
   ModeState,
   ModeSwitchProposal,
+  QueueEntry,
   RichBlock,
   Thread,
   ThreadState,
@@ -26,6 +27,7 @@ export type {
   MessageContent,
   ModeState,
   ModeSwitchProposal,
+  QueueEntry,
   RichAudioBlock,
   RichBlock,
   RichBlockKind,
@@ -59,6 +61,11 @@ function snapshotActive(s: ChatState): ThreadState {
     pendingModeSwitchProposal: s.pendingModeSwitchProposal,
     unreadCount: 0, // active thread always 0
     lastActivity: Date.now(),
+    queue: s.queue,
+    queuePaused: s.queuePaused,
+    queuePauseReason: s.queuePauseReason,
+    queueFull: s.queueFull,
+    queueFullSource: s.queueFullSource,
   };
 }
 
@@ -76,6 +83,11 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
     catInvocations: ts.catInvocations,
     currentMode: ts.currentMode,
     pendingModeSwitchProposal: ts.pendingModeSwitchProposal,
+    queue: ts.queue,
+    queuePaused: ts.queuePaused,
+    queuePauseReason: ts.queuePauseReason,
+    queueFull: ts.queueFull,
+    queueFullSource: ts.queueFullSource,
   };
 }
 
@@ -135,6 +147,16 @@ interface ChatState {
   catInvocations: Record<string, CatInvocationInfo>;
   currentMode: ModeState | null;
   pendingModeSwitchProposal: ModeSwitchProposal | null;
+  /** F39: Message queue entries */
+  queue: QueueEntry[];
+  /** F39: Whether the queue is paused */
+  queuePaused: boolean;
+  /** F39: Pause reason */
+  queuePauseReason?: 'canceled' | 'failed';
+  /** F39: Queue full flag */
+  queueFull: boolean;
+  /** F39: Who triggered the full warning */
+  queueFullSource?: 'user' | 'connector';
 
   // Multi-thread state map (preserves per-thread state across switches)
   threadStates: Record<string, ThreadState>;
@@ -220,6 +242,11 @@ interface ChatState {
   /** Clear invocation-scoped UI state for a specific thread (active or background) */
   resetThreadInvocationState: (threadId: string) => void;
 
+  // ── F39: Queue actions ──
+  setQueue: (threadId: string, queue: QueueEntry[]) => void;
+  setQueuePaused: (threadId: string, paused: boolean, reason?: 'canceled' | 'failed') => void;
+  setQueueFull: (threadId: string, source: 'user' | 'connector') => void;
+
   // ── Hub modal (F12) ──
   hubState: { open: boolean; tab: string } | null;
   openHub: (tab: string) => void;
@@ -238,6 +265,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
   catInvocations: {},
   currentMode: null,
   pendingModeSwitchProposal: null,
+  queue: [],
+  queuePaused: false,
+  queueFull: false,
 
   threadStates: {},
   viewMode: 'single',
@@ -248,6 +278,72 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentProjectPath: 'default',
   threads: [],
   isLoadingThreads: false,
+
+  // ── F39: Queue actions ──
+
+  setQueue: (threadId, queue) =>
+    set((state) => {
+      const wasFull = threadId === state.currentThreadId ? state.queueFull : state.threadStates[threadId]?.queueFull;
+      const isShrinking = wasFull && queue.length < 5; // MAX_QUEUE_DEPTH=5, clear full flag when below
+      if (threadId === state.currentThreadId) {
+        return {
+          queue,
+          queuePaused: queue.length === 0 ? false : state.queuePaused,
+          ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
+        };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            queue,
+            queuePaused: queue.length === 0 ? false : existing.queuePaused,
+            ...(isShrinking ? { queueFull: false, queueFullSource: undefined } : {}),
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  setQueuePaused: (threadId, paused, reason) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { queuePaused: paused, queuePauseReason: paused ? reason : undefined };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            queuePaused: paused,
+            queuePauseReason: paused ? reason : undefined,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  setQueueFull: (threadId, source) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        return { queueFull: true, queueFullSource: source };
+      }
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            queueFull: true,
+            queueFullSource: source,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
 
   hubState: null,
   openHub: (tab) => set({ hubState: { open: true, tab } }),

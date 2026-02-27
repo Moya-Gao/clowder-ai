@@ -210,6 +210,24 @@ export interface CatInvocationInfo {
 
 export type CatStatusType = 'pending' | 'streaming' | 'done' | 'error';
 
+/** F39: Queue entry from backend InvocationQueue */
+export interface QueueEntry {
+  id: string;
+  threadId: string;
+  userId: string;
+  content: string;
+  messageId: string | null;
+  mergedMessageIds: string[];
+  source: 'user' | 'connector';
+  targetCats: string[];
+  intent: string;
+  status: 'queued' | 'processing';
+  createdAt: number;
+}
+
+/** F39: Message delivery mode — undefined = smart default, 'queue' = enqueue, 'force' = cancel + execute */
+export type DeliveryMode = 'queue' | 'force' | undefined;
+
 export type ModeState = {
   name: string;
   config: Record<string, unknown>;
@@ -240,6 +258,16 @@ export interface ThreadState {
   pendingModeSwitchProposal: ModeSwitchProposal | null;
   unreadCount: number;
   lastActivity: number;
+  /** F39: Message queue entries for this thread */
+  queue: QueueEntry[];
+  /** F39: Whether the queue is paused (e.g. after cancel/failure) */
+  queuePaused: boolean;
+  /** F39: Why the queue is paused */
+  queuePauseReason?: 'canceled' | 'failed';
+  /** F39: Whether the queue is full (MAX_QUEUE_DEPTH reached) */
+  queueFull: boolean;
+  /** F39: Who triggered the full warning */
+  queueFullSource?: 'user' | 'connector';
 }
 
 export const DEFAULT_THREAD_STATE: ThreadState = {
@@ -256,4 +284,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   pendingModeSwitchProposal: null,
   unreadCount: 0,
   lastActivity: 0,
+  queue: [],
+  queuePaused: false,
+  queueFull: false,
 };

@@ -43,6 +43,9 @@ function makeThreadState(messages: ChatMessage[]): ThreadState {
     pendingModeSwitchProposal: null,
     unreadCount: 0,
     lastActivity: 0,
+    queue: [],
+    queuePaused: false,
+    queueFull: false,
   };
 }
 

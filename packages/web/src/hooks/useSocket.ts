@@ -65,6 +65,10 @@ export interface SocketCallbacks {
   onModeChanged?: (data: { threadId: string; mode: unknown; action: 'started' | 'ended' }) => void;
   /** #80 fix-C: Clear the done-timeout guard (called when background thread completes) */
   clearDoneTimeout?: (threadId?: string) => void;
+  /** F39: Queue updated */
+  onQueueUpdated?: (data: { threadId: string; queue: import('../stores/chat-types').QueueEntry[]; action: string }) => void;
+  /** F39: Queue paused */
+  onQueuePaused?: (data: { threadId: string; reason: 'canceled' | 'failed'; queue: import('../stores/chat-types').QueueEntry[] }) => void;
 }
 
 export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
@@ -276,6 +280,33 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       const currentThread = threadIdRef.current;
       if (data.threadId && currentThread && data.threadId !== currentThread) return;
       callbacksRef.current.onModeChanged?.(data);
+    });
+
+    // F39: Queue events — always write via store (no dual-pointer guard needed, queue is thread-scoped)
+    socket.on('queue_updated', (data: { threadId: string; queue: unknown[]; action: string }) => {
+      const store = useChatStore.getState();
+      store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
+      // P1 fix: 'processing' means continue/auto-dequeue resumed the queue — clear paused state
+      if (data.action === 'processing' || data.action === 'cleared') {
+        store.setQueuePaused(data.threadId, false);
+      }
+    });
+    socket.on('queue_paused', (data: { threadId: string; reason: 'canceled' | 'failed'; queue: unknown[] }) => {
+      const store = useChatStore.getState();
+      store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
+      store.setQueuePaused(data.threadId, true, data.reason);
+    });
+    socket.on('queue_full_warning', (data: { threadId: string; source: 'user' | 'connector'; queue: unknown[] }) => {
+      const store = useChatStore.getState();
+      store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
+      store.setQueueFull(data.threadId, data.source);
+      useToastStore.getState().addToast({
+        type: 'info',
+        title: '队列已满',
+        message: '消息队列已达上限，请管理队列后再发送',
+        threadId: data.threadId,
+        duration: 5000,
+      });
     });
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {

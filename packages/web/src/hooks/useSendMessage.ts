@@ -5,6 +5,7 @@ import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chat
 import { useAgentMessages } from '@/hooks/useAgentMessages';
 import { useChatCommands } from '@/hooks/useChatCommands';
 import { apiFetch } from '@/utils/api-client';
+import type { DeliveryMode } from '@/stores/chat-types';
 
 export type UploadStatus = 'idle' | 'uploading' | 'failed';
 
@@ -33,17 +34,17 @@ export function useSendMessage(activeThreadId?: string) {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const handleSend = useCallback(
-    async (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions) => {
-      // Route threadId is source of truth; store currentThreadId may lag during fast switches.
-      // Zustand hook exposes a static `getState()` accessor; this is a vanilla read, not a React hook call.
+    async (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => {
       const activeThread = activeThreadId ?? useChatStore.getState().currentThreadId;
       const threadId = overrideThreadId ?? activeThread;
       const hasImages = Boolean(images && images.length > 0);
-      resetRefs();
+      const isQueueSend = deliveryMode === 'queue';
+
+      // Queue sends don't reset refs — cat is still streaming
+      if (!isQueueSend) resetRefs();
       setUploadError(null);
       setUploadStatus(hasImages ? 'uploading' : 'idle');
 
-      // Check for commands first (pass target threadId for thread-scoped commands)
       const wasCommand = await processCommand(content, threadId);
       if (wasCommand) return;
 
@@ -64,26 +65,33 @@ export function useSendMessage(activeThreadId?: string) {
           })),
         ];
       }
-      // Write optimistic message to the target thread (not always active thread)
+      // Write optimistic message to the target thread
       if (threadId !== activeThread) {
         addMessageToThread(threadId, userMsg);
       } else {
         addMessage(userMsg);
       }
-      if (threadId !== activeThread) {
-        setThreadLoading(threadId, true);
-        setThreadHasActiveInvocation(threadId, true);
-      } else {
-        setLoading(true);
-        setHasActiveInvocation(true);
+
+      // F39: Queue sends don't flip loading/invocation flags — cat is already running,
+      // and queue_updated WS event will surface the entry in QueuePanel.
+      if (!isQueueSend) {
+        if (threadId !== activeThread) {
+          setThreadLoading(threadId, true);
+          setThreadHasActiveInvocation(threadId, true);
+        } else {
+          setLoading(true);
+          setHasActiveInvocation(true);
+        }
       }
 
       try {
+        const deliveryModePayload = deliveryMode ? { deliveryMode } : {};
+
         if (images && images.length > 0) {
-          // Multipart mode for images
           const formData = new FormData();
           formData.append('content', content);
           formData.append('threadId', threadId);
+          if (deliveryMode) formData.append('deliveryMode', deliveryMode);
           if (whisper) {
             formData.append('visibility', whisper.visibility);
             for (const catId of whisper.whisperTo) {
@@ -102,7 +110,6 @@ export function useSendMessage(activeThreadId?: string) {
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
           }
         } else {
-          // JSON mode
           const res = await apiFetch('/api/messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -110,6 +117,7 @@ export function useSendMessage(activeThreadId?: string) {
               content,
               threadId,
               ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
+              ...deliveryModePayload,
             }),
           });
           if (!res.ok) {
@@ -120,10 +128,15 @@ export function useSendMessage(activeThreadId?: string) {
         setUploadStatus('idle');
         setUploadError(null);
       } catch (err) {
-        // Always clear invocation flags via thread-scoped setters to avoid
-        // writing into whichever thread happens to be active at rejection time.
-        setThreadLoading(threadId, false);
-        setThreadHasActiveInvocation(threadId, false);
+        // F39: Only clear invocation flags for normal (non-queue, non-force) sends.
+        // Queue sends never set them. Force sends target a thread where a cat is
+        // already running — if the force request fails (network/server error), the
+        // original invocation is still active; clearing flags would hide stop/queue UI.
+        const shouldClearFlags = !isQueueSend && deliveryMode !== 'force';
+        if (shouldClearFlags) {
+          setThreadLoading(threadId, false);
+          setThreadHasActiveInvocation(threadId, false);
+        }
         const errorMessage = err instanceof Error ? err.message : 'Unknown';
         if (hasImages) {
           setUploadStatus('failed');

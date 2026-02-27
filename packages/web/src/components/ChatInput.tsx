@@ -10,6 +10,7 @@ import { MobileInputToolbar } from './MobileInputToolbar';
 import { useCatData } from '@/hooks/useCatData';
 import { compressImage } from '@/utils/compressImage';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
+import type { DeliveryMode } from '@/stores/chat-types';
 import { deriveImageLifecycleStatus, isImageLifecycleBlockingSend } from './chat-input-upload-state';
 
 /** Module-level draft storage — survives component unmount/remount across thread switches */
@@ -18,7 +19,7 @@ export const threadDrafts = new Map<string, string>();
 interface ChatInputProps {
   /** Thread ID for draft persistence — drafts are saved per-thread */
   threadId?: string;
-  onSend: (content: string, images?: File[], whisper?: WhisperOptions) => void;
+  onSend: (content: string, images?: File[], whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => void;
   onStop?: () => void;
   disabled?: boolean;
   hasActiveInvocation?: boolean;
@@ -67,23 +68,25 @@ export function ChatInput({
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
   const activeOptions = activeMenu === 'mention' ? catOptions : MODE_OPTIONS;
 
-  const handleSend = useCallback(() => {
+  const doSend = useCallback((deliveryMode?: DeliveryMode) => {
     if (sendTemporarilyDisabled) return;
-    // Block send if whisper mode is on but no recipients selected
     if (whisperMode && whisperTargets.size === 0) return;
     const trimmed = input.trim();
     if (trimmed && !disabled) {
       const whisper = whisperMode && whisperTargets.size > 0
         ? { visibility: 'whisper' as const, whisperTo: [...whisperTargets] }
         : undefined;
-      onSend(trimmed, images.length > 0 ? images : undefined, whisper);
+      onSend(trimmed, images.length > 0 ? images : undefined, whisper, deliveryMode);
       setInput('');
       setImages([]);
       setShowMentions(false);
       setShowModeMenu(false);
-      // Keep whisper mode on for consecutive whispers (user can toggle off manually)
     }
   }, [input, disabled, onSend, images, sendTemporarilyDisabled, whisperMode, whisperTargets]);
+
+  const handleSend = useCallback(() => doSend(undefined), [doSend]);
+  const handleQueueSend = useCallback(() => doSend('queue'), [doSend]);
+  const handleForceSend = useCallback(() => doSend('force'), [doSend]);
 
   const closeMenus = useCallback(() => {
     setShowMentions(false);
@@ -141,7 +144,12 @@ export function ChatInput({
       }
       if (e.key === 'Escape') { e.preventDefault(); closeMenus(); return; }
     }
-    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      // F39: Enter while cat running → queue send; normal otherwise
+      if (hasActiveInvocation) handleQueueSend();
+      else handleSend();
+    }
   };
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -268,6 +276,15 @@ export function ChatInput({
 
   return (
     <div className="border-t border-owner-light bg-owner-bg relative safe-area-bottom">
+      {/* F39: Queue status bar — visible when cat is running */}
+      {hasActiveInvocation && (
+        <div className="px-4 pt-2 flex items-center gap-2">
+          <span className="inline-block w-2 h-2 rounded-full bg-[#9B7EBD] animate-pulse" />
+          <span className="text-xs text-[#9B7EBD] font-medium">猫猫正在回复中...</span>
+          <span className="text-xs text-gray-400">继续输入，消息会排队</span>
+        </div>
+      )}
+
       <ChatInputMenus
         catOptions={catOptions}
         showMentions={showMentions} showModeMenu={showModeMenu} selectedIdx={selectedIdx}
@@ -369,7 +386,11 @@ export function ChatInput({
         </button>
 
         <textarea ref={textareaRef} value={input} onChange={handleChange} onKeyDown={handleKeyDown} onPaste={handlePaste}
-          placeholder={whisperMode ? '\u60C4\u60C4\u8BDD...' : '\u8F93\u5165\u6D88\u606F... (@ \u53EC\u5524\u732B\u732B, /mode \u5207\u6362\u6A21\u5F0F)'}
+          placeholder={
+            whisperMode ? '悄悄话...'
+            : hasActiveInvocation ? '继续输入，消息会排队...'
+            : '输入消息... (@ 召唤猫猫, /mode 切换模式)'
+          }
           className={`flex-1 resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
             whisperMode
               ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
@@ -379,6 +400,8 @@ export function ChatInput({
 
         <ChatInputActionButton
           onTranscript={handleTranscript} onSend={handleSend} onStop={onStop}
+          onQueueSend={handleQueueSend}
+          onForceSend={handleForceSend}
           disabled={disabled}
           sendDisabled={sendTemporarilyDisabled}
           hasActiveInvocation={hasActiveInvocation}
