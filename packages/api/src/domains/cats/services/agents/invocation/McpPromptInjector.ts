@@ -28,12 +28,16 @@ export interface McpCallbackOptions {
 }
 
 /**
- * Check if a cat needs MCP prompt injection (no native MCP support).
- * Cats with mcpSupport=true (e.g. Claude variants) use --mcp-config natively;
- * all others need HTTP callback injection.
+ * Check if a cat needs MCP prompt injection (HTTP callback fallback).
+ *
+ * F041: Now checks if MCP is *actually available* (config + server path exist),
+ * not just the mcpSupport config flag. HTTP callback injection acts as
+ * fallback when native MCP is unavailable for any reason.
+ *
+ * @param mcpAvailable - true when native MCP is configured AND server path exists
  */
-export function needsMcpInjection(mcpSupport: boolean): boolean {
-  return !mcpSupport;
+export function needsMcpInjection(mcpAvailable: boolean): boolean {
+  return !mcpAvailable;
 }
 
 function resolveExampleHandle(opts: McpCallbackOptions): string {

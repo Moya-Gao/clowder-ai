@@ -101,7 +101,8 @@ export async function* routeSerial(
     // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
     const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
     const staticIdentity = buildStaticIdentity(catId, { mcpAvailable });
-    const mcpInstructions = needsMcpInjection(catConfig?.mcpSupport ?? false)
+    // F041: inject HTTP callback only when MCP is NOT actually available (fallback)
+    const mcpInstructions = needsMcpInjection(mcpAvailable)
       ? buildMcpCallbackInstructions({
         currentCatId: catId as string,
         teammates: teammates.map((id) => id as string),

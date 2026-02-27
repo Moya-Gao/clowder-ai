@@ -3,6 +3,15 @@
  * 导出所有类型定义
  */
 
+// Capability types (F041 统一能力模型)
+export type {
+  CapabilitiesConfig,
+  CapabilityBoardItem,
+  CapabilityEntry,
+  CapabilityPatchRequest,
+  CatCapabilityOverride,
+  McpServerDescriptor,
+} from './capability.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
