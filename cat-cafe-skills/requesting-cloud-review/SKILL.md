@@ -61,6 +61,12 @@ gh pr create --title "{简短标题}" --body "$(cat <<'EOF'
 
 {为什么做这个改动、约束和目标}
 
+## Original Requirements（🔴 必填）
+
+- Discussion/Interview: `docs/discussions/{date}-{topic}/README.md`
+- 铲屎官核心痛点：{铲屎官原话，如"我都不知道你们三只猫到底挂了什么！"}
+- **请 Reviewer 对照原始需求判断：交付物是否解决了铲屎官的问题？**
+
 ## Plan / ADR
 
 - Plan: `docs/plans/YYYY-MM-DD-xxx.md`
@@ -160,8 +166,8 @@ gh pr comment {PR_NUMBER} --body "$(cat <<'EOF'
 - 消息写入后不可原地修改
 
 **PR checklist**：
+- [ ] 交付物解决了 PR body 里的"铲屎官核心痛点"（愿景对照）
 - [ ] 改动与 plan/ADR 一致
-- [ ] 无新增 `any`
 - [ ] 新代码有测试
 - [ ] 文件未超 200 行（超了有理由）
 - [ ] build 通过
@@ -189,6 +195,7 @@ EOF
 
 | 错误 | 问题 | 正确做法 |
 |------|------|----------|
+| **PR body 没附原始需求文档** | **云端 reviewer 无法验证愿景** | **必须填 Original Requirements 段** |
 | 本地 review 没过就开 PR | 云端 review 不替代本地 review | 先走 merge-approval-gate |
 | 忘记注册 PR 到 Email Watcher | 同种猫多实例时 review 邮件无法精确路由 | Step 2.5 注册 PR tracking |
 | 忘记发 `@codex review` comment | PR 开了但没触发云端 review | Step 3 是必要步骤 |
