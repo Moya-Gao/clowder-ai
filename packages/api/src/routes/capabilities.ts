@@ -96,6 +96,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     let config = await readCapabilitiesConfig(projectRoot);
     if (!config) {
       config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot));
+      // Cloud P1-1: bootstrap must also generate CLI configs, otherwise
+      // first invocations with mcpSupport=true have no native MCP configs
+      await generateCliConfigs(config, getCliConfigPaths(projectRoot));
     }
 
     // 2. Discover skills (filesystem scan — separate from MCP)

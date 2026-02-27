@@ -121,6 +121,51 @@ describe('F041 Config Round-Trip', () => {
 });
 
 // ════════════════════════════════════════════════════
+// 1b. Cloud P1-1: Bootstrap must generate CLI configs
+// ════════════════════════════════════════════════════
+
+describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
+  /** @type {string} */ let dir;
+
+  beforeEach(async () => { dir = await makeTmpDir('bootstrap-cli'); });
+  afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+  it('bootstrapCapabilities + generateCliConfigs produces CLI config files', async () => {
+    // Simulate first-run: no capabilities.json exists
+    const discoveryPaths = {
+      claudeConfig: join(dir, '.mcp.json'),
+      codexConfig: join(dir, '.codex', 'config.toml'),
+      geminiConfig: join(dir, '.gemini', 'settings.json'),
+    };
+    const cliPaths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+    };
+
+    // Bootstrap creates capabilities.json
+    const config = await bootstrapCapabilities(dir, discoveryPaths);
+    assert.ok(config, 'Bootstrap should return config');
+
+    // CLI configs should be generated after bootstrap
+    await generateCliConfigs(config, cliPaths);
+
+    // Verify CLI configs exist and contain cat-cafe
+    const claudeServers = await readClaudeMcpConfig(cliPaths.anthropic);
+    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe'),
+      'Claude CLI config should have cat-cafe after bootstrap');
+
+    const codexServers = await readCodexMcpConfig(cliPaths.openai);
+    assert.ok(codexServers.find((s) => s.name === 'cat-cafe'),
+      'Codex CLI config should have cat-cafe after bootstrap');
+
+    const geminiServers = await readGeminiMcpConfig(cliPaths.google);
+    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe'),
+      'Gemini CLI config should have cat-cafe after bootstrap');
+  });
+});
+
+// ════════════════════════════════════════════════════
 // 2. Injection 互斥 (Mutual Exclusion)
 // ════════════════════════════════════════════════════
 

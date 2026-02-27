@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # F041: 能力看板 — Hub MCP/Skills 统一管理
 
-> **Status**: spec
+> **Status**: done
 > **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Priority**: P1（铲屎官明确需求，影响日常管理体验）
@@ -217,6 +217,21 @@ startup_timeout_sec = 30
 
 ---
 
+## Known Limitations
+
+### Same-provider per-cat override 不可强制执行（P3 降级 — 铲屎官裁决 2026-02-27）
+
+**现象**：同一 provider 下多只猫（如 codex/gpt52/spark 共享 `.codex/config.toml`）的 per-cat disable 无法在 CLI 配置层面执行。`capabilities.json` 正确保存了 per-cat override，但 `collectServersPerProvider` 生成 CLI 配置时采用 union 策略（any-enabled-wins），disabled 状态被合并丢失。
+
+**为什么不是 bug**：
+- CLI 配置文件是 per-provider 共享的，不是 per-cat 独立的
+- Union 策略是最安全默认——反过来做（any-disabled-wins）会让 sibling cat 被误关
+- 修复需要 per-invocation 临时配置生成或运行时 MCP 过滤，超出 F041 范围
+
+**来源**：云端 Codex review PR #83，布偶猫 push back 后铲屎官裁决降级为 P3 known limitation。
+
+---
+
 ## Risk / Blast Radius
 
 - **影响范围**：McpPromptInjector、SystemPromptBuilder、三猫 system prompt 模板、Hub 前端、`/api/capabilities` 路由、cat-config.json
@@ -252,7 +267,10 @@ startup_timeout_sec = 30
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| — | — | — | — |
+| R1 | 砚砚/Codex (本地) | 2 P1 + 2 P2 + 1 P3 → 全部修复/push back | 2026-02-27 |
+| R2 | 砚砚/Codex (本地) | 放行 (0 P1/P2) + 2 non-blocking P3 → 修复 | 2026-02-27 |
+| Cloud R1 | Codex (云端) | P1-1 修复 (bootstrap CLI configs) + P1-2 push back (same-provider) | 2026-02-27 |
+| Cloud R2 | Codex (云端) | 同一 P1-2 重提 → 铲屎官裁决降级 P3 | 2026-02-27 |
 
 ---
 
