@@ -16,6 +16,7 @@
 | `requesting-cloud-review` | 开 PR + 触发云端 Codex review 时 |
 | `feat-discussion` | 讨论新功能需求时 |
 | `feat-kickoff` | 新 Feature 立项时（讨论收敛后决定要做） |
+| `feat-completion` | Feature 完成时（真相源同步、演化关系记录） |
 | `multi-cat-brainstorm` | 多猫独立思考 + 收敛（方向性问题、多视角决策） |
 | `discussion-convergence` | 多方讨论结束后的收敛沉淀（追溯链 + 三件套检查） |
 
