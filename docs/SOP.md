@@ -130,24 +130,24 @@ gh pr comment {PR_NUMBER} --body "@codex review ..."
 **触发**: 云端 review 通过后（0 P1/P2，或 P1/P2 已在 feature branch 上修复）
 
 ```bash
-# 6a. 回到主仓目录
+# 6a. 通过 GitHub 合入（PR 正确标记为 "Merged" ✅）
+gh pr merge {PR_NUMBER} --rebase --delete-branch
+
+# 6b. 更新本地 main（⚠️ 必须在清理 worktree 之前！）
 cd /Users/lysander/projects/relay-station/cat-cafe
-
-# 6b. 合入 main（ff-only 保持 commit hash 一致，PR 会自动关闭）
 git checkout main
-git merge --ff-only {branch}
+git pull origin main
 
-# 6c. Push main（⚠️ 必须在清理 worktree 之前！）
-git push origin main
-
-# 6d. 清理 worktree + 远程分支
+# 6c. 清理 worktree + 本地分支
 git worktree remove ../cat-cafe-{feature-name}
 git branch -d {branch-name}
-git push origin --delete {branch}
 git worktree prune
 ```
 
-**PR 自动关闭**: `--ff-only` merge 保持 commit hash 不变，push main 后 GitHub 检测到 PR 的 commits 已在 main 中，PR 自动标记为 merged。
+**为什么用 `gh pr merge` 而不是本地 merge**：
+- 本地 `git merge --ff-only` + push 会导致 PR 在 GitHub 上显示为 "Closed" 而非 "Merged"（rebase 改变了 commit hash，GitHub 无法匹配）
+- `gh pr merge --rebase` 通过 GitHub 的合入机制，PR 正确显示为 "Merged"
+- `--delete-branch` 自动删除远程分支，省去 `git push origin --delete`
 
 ```bash
 # 6e. 兜底检查：BACKLOG 更新是否在 feature branch 阶段完成？
