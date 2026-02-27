@@ -1,26 +1,34 @@
 /**
- * Capabilities Route
- * GET /api/capabilities — 发现每只猫的 skills 和外部 MCP 服务器
+ * Capabilities Route — F041 统一能力看板 API
+ *
+ * GET  /api/capabilities — 返回看板聚合视图 (CapabilityBoardItem[])
+ * PATCH /api/capabilities — 开关单个能力 (global or per-cat override)
  *
  * 安全:
- * - 需要身份校验 (resolveUserId) — 暴露主机级 skills/MCP 元信息
- * - Skills 发现: Claude 项目级 .claude/skills/ + 用户级 ~/.claude/skills/, Codex 用户级 ~/.codex/skills/
- * - MCP 发现: 项目 .mcp.json, Gemini ~/.gemini/settings.json
+ * - 需要身份校验 (resolveUserId)
+ * - Skills 发现: Claude .claude/skills/, Codex ~/.codex/skills/, Gemini ~/.gemini/skills/
+ * - MCP 发现: 从 .cat-cafe/capabilities.json 读取（唯一真相源）
  */
 
-import { readdir, readFile } from 'fs/promises';
+import { readdir } from 'fs/promises';
 import { join, resolve } from 'path';
 import { homedir } from 'os';
 import type { FastifyPluginAsync } from 'fastify';
 import { catRegistry } from '@cat-cafe/shared';
+import type {
+  CapabilityBoardItem,
+  CapabilityPatchRequest,
+} from '@cat-cafe/shared';
 import { resolveUserId } from '../utils/request-identity.js';
+import {
+  readCapabilitiesConfig,
+  writeCapabilitiesConfig,
+  bootstrapCapabilities,
+  resolveServersForCat,
+  generateCliConfigs,
+} from '../config/capabilities/capability-orchestrator.js';
 
-interface CatCapabilities {
-  skills: string[];
-  externalMcpServers: string[];
-}
-
-type CapabilitiesResponse = Record<string, CatCapabilities>;
+// ────────── Helpers ──────────
 
 async function listSubdirs(dir: string, exclude?: string[]): Promise<string[]> {
   try {
@@ -33,55 +41,166 @@ async function listSubdirs(dir: string, exclude?: string[]): Promise<string[]> {
   }
 }
 
-async function readJsonKeys(filePath: string, key: string): Promise<string[]> {
-  try {
-    const raw = await readFile(filePath, 'utf-8');
-    const data = JSON.parse(raw) as Record<string, unknown>;
-    const section = data[key];
-    if (section && typeof section === 'object') return Object.keys(section);
-    return [];
-  } catch {
-    return [];
-  }
+function getProjectRoot(): string {
+  return resolve(process.cwd(), '../..');
 }
 
+function getDiscoveryPaths(projectRoot: string) {
+  const home = homedir();
+  return {
+    claudeConfig: join(projectRoot, '.mcp.json'),
+    codexConfig: join(home, '.codex', 'config.toml'),
+    geminiConfig: join(home, '.gemini', 'settings.json'),
+  };
+}
+
+function getCliConfigPaths(projectRoot: string) {
+  const home = homedir();
+  return {
+    anthropic: join(projectRoot, '.mcp.json'),
+    openai: join(home, '.codex', 'config.toml'),
+    google: join(home, '.gemini', 'settings.json'),
+  };
+}
+
+// ────────── Route Plugin ──────────
+
 export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
+  // ── GET /api/capabilities ──
   app.get('/api/capabilities', async (request, reply) => {
     const userId = resolveUserId(request);
     if (!userId) {
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
-    // Project root is 2 levels up from packages/api (process.cwd())
-    const projectRoot = resolve(process.cwd(), '../..');
+
+    const projectRoot = getProjectRoot();
     const home = homedir();
 
-    const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills, projectMcp, geminiMcp] = await Promise.all([
+    // 1. Load or bootstrap capabilities.json
+    let config = await readCapabilitiesConfig(projectRoot);
+    if (!config) {
+      config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot));
+    }
+
+    // 2. Discover skills (filesystem scan — separate from MCP)
+    const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills] = await Promise.all([
       listSubdirs(join(projectRoot, '.claude', 'skills')),
       listSubdirs(join(home, '.claude', 'skills')),
       listSubdirs(join(home, '.codex', 'skills'), ['.system']),
       listSubdirs(join(home, '.gemini', 'skills')),
-      readJsonKeys(join(projectRoot, '.mcp.json'), 'mcpServers'),
-      readJsonKeys(join(home, '.gemini', 'settings.json'), 'mcpServers'),
     ]);
 
-    // Claude skills: merge project-level + user-level, deduplicate
-    const claudeSkills = [...new Set([...claudeProjectSkills, ...claudeUserSkills])];
-
-    // F32-a: provider-based capability mapping for built-in + dynamic cats
-    const providerCapabilities: Record<string, CatCapabilities> = {
-      anthropic: { skills: claudeSkills, externalMcpServers: projectMcp },
-      openai: { skills: codexSkills, externalMcpServers: [] },
-      google: { skills: geminiSkills, externalMcpServers: geminiMcp },
+    const providerSkills: Record<string, string[]> = {
+      anthropic: [...new Set([...claudeProjectSkills, ...claudeUserSkills])],
+      openai: codexSkills,
+      google: geminiSkills,
     };
 
-    const result: CapabilitiesResponse = {};
-    for (const id of catRegistry.getAllIds()) {
-      const entry = catRegistry.tryGet(id as string);
-      const provider = entry?.config.provider ?? 'unknown';
-      result[id as string] = providerCapabilities[provider] ?? { skills: [], externalMcpServers: [] };
+    // 3. Build board items from capabilities.json
+    const catIds = catRegistry.getAllIds().map((id) => id as string);
+    const items: CapabilityBoardItem[] = [];
+
+    // MCP capabilities from capabilities.json
+    for (const cap of config.capabilities) {
+      if (cap.type !== 'mcp') continue;
+      const cats: Record<string, boolean> = {};
+      for (const catId of catIds) {
+        const servers = resolveServersForCat(config, catId);
+        const server = servers.find((s) => s.name === cap.id);
+        cats[catId] = server?.enabled ?? false;
+      }
+      items.push({
+        id: cap.id,
+        type: 'mcp',
+        source: cap.source,
+        enabled: cap.enabled,
+        cats,
+      });
     }
 
-    return result;
+    // Skill capabilities (discovered from filesystem)
+    const allSkillNames = new Set<string>();
+    for (const skills of Object.values(providerSkills)) {
+      for (const s of skills) allSkillNames.add(s);
+    }
+
+    for (const skillName of allSkillNames) {
+      const cats: Record<string, boolean> = {};
+      for (const catId of catIds) {
+        const entry = catRegistry.tryGet(catId);
+        const provider = entry?.config.provider ?? 'unknown';
+        cats[catId] = (providerSkills[provider] ?? []).includes(skillName);
+      }
+      items.push({
+        id: skillName,
+        type: 'skill',
+        source: 'external',
+        enabled: true,
+        cats,
+      });
+    }
+
+    return items;
+  });
+
+  // ── PATCH /api/capabilities ──
+  app.patch('/api/capabilities', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const body = request.body as CapabilityPatchRequest | undefined;
+    if (!body || !body.capabilityId || !body.scope || typeof body.enabled !== 'boolean') {
+      reply.status(400);
+      return { error: 'Required: capabilityId, scope (global|cat), enabled (boolean)' };
+    }
+
+    if (body.scope === 'cat' && !body.catId) {
+      reply.status(400);
+      return { error: 'catId required when scope is "cat"' };
+    }
+
+    const projectRoot = getProjectRoot();
+
+    let config = await readCapabilitiesConfig(projectRoot);
+    if (!config) {
+      reply.status(404);
+      return { error: 'capabilities.json not found. Run GET first to bootstrap.' };
+    }
+
+    const capIndex = config.capabilities.findIndex((c) => c.id === body.capabilityId);
+    if (capIndex === -1) {
+      reply.status(404);
+      return { error: `Capability "${body.capabilityId}" not found` };
+    }
+
+    const cap = config.capabilities[capIndex]!;
+
+    if (body.scope === 'global') {
+      cap.enabled = body.enabled;
+    } else {
+      // Per-cat override
+      if (!cap.overrides) cap.overrides = [];
+      const existing = cap.overrides.find((o) => o.catId === body.catId!);
+      if (existing) {
+        existing.enabled = body.enabled;
+      } else {
+        cap.overrides.push({ catId: body.catId!, enabled: body.enabled });
+      }
+      // Clean up: remove override if it matches global (no-op override)
+      if (body.enabled === cap.enabled) {
+        cap.overrides = cap.overrides.filter((o) => o.catId !== body.catId!);
+        if (cap.overrides.length === 0) delete cap.overrides;
+      }
+    }
+
+    // Persist and regenerate CLI configs
+    await writeCapabilitiesConfig(projectRoot, config);
+    await generateCliConfigs(config, getCliConfigPaths(projectRoot));
+
+    return { ok: true, capability: cap };
   });
 };

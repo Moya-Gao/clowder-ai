@@ -1,7 +1,7 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { CatTab, SystemTab, type ConfigData, type CatConfig, type ContextBudget, type Capabilities } from '@/components/config-viewer-tabs';
+import { CatTab, SystemTab, type ConfigData, type CatConfig, type ContextBudget } from '@/components/config-viewer-tabs';
 
 const CAT: CatConfig = {
   displayName: '布偶猫',
@@ -15,11 +15,6 @@ const BUDGET: ContextBudget = {
   maxContextTokens: 200000,
   maxMessages: 50,
   maxContentLengthPerMsg: 64000,
-};
-
-const CAPS: Capabilities = {
-  skills: ['pencil-renderer', 'pencil-to-code'],
-  externalMcpServers: ['api-supermemory-ai'],
 };
 
 const CONFIG: ConfigData = {
@@ -40,32 +35,7 @@ describe('CatTab', () => {
     expect(html).toContain('原生 (--mcp-config)');
   });
 
-  it('renders skills when available', () => {
-    const html = renderToStaticMarkup(React.createElement(CatTab, { cat: CAT, budget: BUDGET, caps: CAPS }));
-    expect(html).toContain('pencil-renderer');
-    expect(html).toContain('pencil-to-code');
-  });
-
-  it('shows empty message when no skills', () => {
-    const html = renderToStaticMarkup(React.createElement(CatTab, {
-      cat: CAT,
-      budget: BUDGET,
-      caps: { skills: [], externalMcpServers: [] },
-    }));
-    expect(html).toContain('未发现 skills');
-  });
-
-  it('renders MCP tools', () => {
-    const html = renderToStaticMarkup(React.createElement(CatTab, { cat: CAT, budget: BUDGET, caps: CAPS }));
-    expect(html).toContain('cat_speak');
-    expect(html).toContain('get_context');
-    expect(html).toContain('evidence');
-  });
-
-  it('renders external MCP servers', () => {
-    const html = renderToStaticMarkup(React.createElement(CatTab, { cat: CAT, budget: BUDGET, caps: CAPS }));
-    expect(html).toContain('api-supermemory-ai');
-  });
+  // F041: Skills/MCP display moved to dedicated 能力看板 tab
 
   it('shows HTTP callback for non-MCP cats', () => {
     const codexCat = { ...CAT, mcpSupport: false };

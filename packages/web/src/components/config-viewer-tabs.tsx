@@ -1,19 +1,7 @@
 import React, { type ReactNode } from 'react';
-import type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
+import type { CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
 
 export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
-
-const MCP_TOOLS = [
-  { name: 'cat_speak', group: '回传' },
-  { name: 'get_context', group: '回传' },
-  { name: 'get_thread_messages', group: '回传' },
-  { name: 'read_file', group: '文件' },
-  { name: 'write_file', group: '文件' },
-  { name: 'search_code', group: '文件' },
-  { name: 'remember', group: '知识' },
-  { name: 'recall', group: '知识' },
-  { name: 'evidence', group: '知识' },
-];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -34,51 +22,20 @@ function KV({ label, value }: { label: string; value: string | number | boolean 
   );
 }
 
-function Badge({ text, color }: { text: string; color: string }) {
-  return <span className={`inline-block text-[11px] px-2 py-0.5 rounded-full mr-1.5 mb-1 ${color}`}>{text}</span>;
-}
-
-export function CatTab({ cat, budget, caps }: { cat: CatConfig; budget: ContextBudget; caps?: Capabilities }) {
+// F041: CatTab simplified — capabilities now in dedicated "能力看板" tab
+export function CatTab({ cat, budget }: { cat: CatConfig; budget: ContextBudget }) {
   return (
-    <>
-      <Section title="模型 & 预算">
-        <div className="space-y-1.5">
-          <KV label="Provider" value={cat.provider} />
-          <KV label="Model" value={cat.model} />
-          <KV label="MCP 交付" value={cat.mcpSupport ? '原生 (--mcp-config)' : 'HTTP 回调注入'} />
-          <KV label="Prompt 上限" value={`${(budget.maxPromptTokens / 1000).toFixed(0)}k tokens`} />
-          <KV label="上下文上限" value={`${(budget.maxContextTokens / 1000).toFixed(0)}k tokens`} />
-          <KV label="消息数上限" value={budget.maxMessages} />
-          <KV label="单消息上限" value={`${(budget.maxContentLengthPerMsg / 1000).toFixed(0)}k chars`} />
-        </div>
-      </Section>
-      <Section title="Skills">
-        {caps && caps.skills.length > 0 ? (
-          <div className="flex flex-wrap">{caps.skills.map((s) => <Badge key={s} text={s} color="bg-blue-100 text-blue-700" />)}</div>
-        ) : (
-          <p className="text-xs text-gray-400">未发现 skills</p>
-        )}
-        <p className="text-[10px] text-gray-400 mt-2">Skills 从 ~/.{'{cli}'}/skills/ 和项目 .claude/skills/ 发现</p>
-      </Section>
-      <Section title="MCP 工具">
-        <div className="space-y-1">
-          {MCP_TOOLS.map((t) => (
-            <div key={t.name} className="flex items-center gap-2 text-xs">
-              <Badge text={t.group} color="bg-gray-200 text-gray-600" />
-              <span className="font-mono text-gray-700">{t.name}</span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2">
-          <p className="text-[11px] text-gray-500 font-medium mb-1">外部 MCP 服务器</p>
-          {caps && caps.externalMcpServers.length > 0 ? (
-            <div className="flex flex-wrap">{caps.externalMcpServers.map((s) => <Badge key={s} text={s} color="bg-purple-100 text-purple-700" />)}</div>
-          ) : (
-            <p className="text-xs text-gray-400">无外部 MCP</p>
-          )}
-        </div>
-      </Section>
-    </>
+    <Section title="模型 & 预算">
+      <div className="space-y-1.5">
+        <KV label="Provider" value={cat.provider} />
+        <KV label="Model" value={cat.model} />
+        <KV label="MCP 交付" value={cat.mcpSupport ? '原生 (--mcp-config)' : 'HTTP 回调注入'} />
+        <KV label="Prompt 上限" value={`${(budget.maxPromptTokens / 1000).toFixed(0)}k tokens`} />
+        <KV label="上下文上限" value={`${(budget.maxContextTokens / 1000).toFixed(0)}k tokens`} />
+        <KV label="消息数上限" value={budget.maxMessages} />
+        <KV label="单消息上限" value={`${(budget.maxContentLengthPerMsg / 1000).toFixed(0)}k chars`} />
+      </div>
+    </Section>
   );
 }
 

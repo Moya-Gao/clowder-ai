@@ -282,7 +282,7 @@ describe('F32-a Mock Agent Integration', () => {
   // ── Capabilities route ──────────────────────────────────
 
   describe('/api/capabilities includes mock-cat', () => {
-    test('GET /api/capabilities returns mock-cat with empty capabilities (unknown provider)', async () => {
+    test('GET /api/capabilities returns board items with mock-cat in cats map', async () => {
       const Fastify = (await import('fastify')).default;
       const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
 
@@ -296,10 +296,14 @@ describe('F32-a Mock Agent Integration', () => {
       });
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.body);
-      assert.ok('mock-cat' in body, 'mock-cat should be in capabilities response');
-      // mock-cat has provider='mock' which has no capability mapping → empty arrays
-      assert.deepStrictEqual(body['mock-cat'].skills, []);
-      assert.deepStrictEqual(body['mock-cat'].externalMcpServers, []);
+      // F041: response is now CapabilityBoardItem[] (array, not per-cat object)
+      assert.ok(Array.isArray(body), 'response should be an array of board items');
+      // Each MCP item's cats map should include mock-cat with a boolean
+      for (const item of body) {
+        if (item.type === 'mcp') {
+          assert.ok('mock-cat' in item.cats, 'MCP items should include mock-cat in cats map');
+        }
+      }
     });
   });
 
