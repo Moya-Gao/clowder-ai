@@ -1,5 +1,6 @@
 ---
-feature_ids: [F017]
+feature_ids: []
+debt_ids: [TD086]
 topics: [puppeteer, process, leak]
 doc_kind: bug-report
 created: 2026-02-26

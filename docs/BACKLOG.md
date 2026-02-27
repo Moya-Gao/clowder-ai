@@ -17,7 +17,6 @@ created: 2026-02-26
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
 | F015 | Backlog 管理 | in-progress | 三猫 | [F015](features/F015-backlog-management.md) |
-| F021 | Signal Study Mode（深度学习伴侣） | in-progress | 三猫 | [F021](features/F021-signal-study-mode.md) |
 | F032 | Agent Plugin Architecture（CatId 松绑 + AgentRegistry） | in-progress | 三猫 | [F032](features/F032-agent-plugin-architecture.md) |
 | F033 | Session Chain 策略可配置化 | in-progress | 三猫 | [F033](features/F033-session-strategy-configurability.md) |
 | F036 | Logo 一笔画动画（Stroke Drawing Animation） | in-progress | 三猫 | [F036](features/F036-logo-stroke-animation.md) |

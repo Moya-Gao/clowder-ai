@@ -1,5 +1,6 @@
 ---
-feature_ids: [F028]
+feature_ids: []
+debt_ids: [TD045]
 topics: [dynamic, authorization, git]
 doc_kind: bug-report
 created: 2026-02-26
@@ -123,4 +124,3 @@ Next Action：
 1. `touch .git/index.lock` 成功，且可清理锁文件。
 2. `git commit --allow-empty -m "test"` 成功，log 可见新提交。
 3. 触发一次受限操作时，Agent 能发起动态授权请求并在批准后继续执行。
-

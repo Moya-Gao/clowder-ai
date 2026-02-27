@@ -1,5 +1,6 @@
 ---
-feature_ids: [F025]
+feature_ids: []
+debt_ids: [TD056]
 topics: [file, change, event]
 doc_kind: bug-report
 created: 2026-02-26

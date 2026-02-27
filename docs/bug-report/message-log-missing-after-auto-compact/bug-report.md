@@ -1,5 +1,6 @@
 ---
-feature_ids: [F025]
+feature_ids: []
+debt_ids: [TD046, TD047, TD048, TD049, TD050]
 topics: [message, log, missing]
 doc_kind: bug-report
 created: 2026-02-26
