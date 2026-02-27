@@ -275,9 +275,28 @@ grep/search 要过滤无权限消息，否则私密内容可能被搜索命中
 
 ---
 
+## 收敛检查（2026-02-27）
+
+1. **否决理由 → ADR？** 没有（决策已在本文档"五猫讨论纪要"完整记录，不需要单独全局 ADR）
+2. **踩坑教训 → lessons-learned？** 没有（opus 4.6 提出的是预见风险，非踩过的坑）
+3. **操作规则 → 指引文件？** 没有（决策是 feature-level，非全局操作规则）
+
+---
+
+## 追溯链
+
+```
+BACKLOG.md F044（入口）
+  └→ docs/features/F044-channel-activity-system.md（本文档：spec + 讨论纪要）
+      └→ thread_mm4uyww7va6y8k15（原始讨论 Thread）
+```
+
+---
+
 ## Links
 
 - **讨论 Thread**: [thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)
 - **关联 Feature**: [F033 Session Chain](F033-session-strategy-configurability.md), [F037 Agent Swarm](F037-agent-swarm.md)
 - 发起讨论：2026-02-27 铲屎官 @opus45
 - 五猫参与：codex, sonnet, opus(4.6), opus-45
+- 收敛：2026-02-27 opus-45
