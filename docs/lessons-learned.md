@@ -486,6 +486,40 @@ created: 2026-02-26
 
 - 关联：ADR-011 | F040 | `feat-kickoff` skill | `feat-completion` skill
 
+### LL-025: 协作规则不能写死个体名，必须引用角色
+- 状态：draft
+- 更新时间：2026-02-27
+
+- 坑：SOP、CLAUDE.md、AGENTS.md、skill 文件里写死"布偶猫找缅因猫 review"、"缅因猫放行才能合入"。当同一物种有多个分身（Opus 4.5/4.6/Sonnet）时，规则指向不明；AGENTS.md 甚至出现"缅因猫文件里写找缅因猫 review"的自我矛盾。
+- 根因：早期 1 Family = 1 Individual = 1 Role，写死个体名等于写死角色。多分身 + 新猫接入打破了这个等式。
+- 触发条件：新猫/新分身加入时，或同一物种多个分身同时在线时。
+- 修复：规则写"具有 peer-reviewer 角色的跨 family 猫"，不写"缅因猫"。Roster (cat-config.json) 是唯一事实源，规则引用角色而非个体。
+- 防护：F042 Phase B 文档去硬编码 + review 时检查是否有新增的个体名硬编码。
+- 来源锚点：
+  - `docs/features/F042-prompt-engineering-audit.md` §1.1
+  - `docs/discussions/2026-02-27-f042-prompt-convergence.md`
+  - 2026-02-27 四猫 + 铲屎官讨论
+- 原理：协作规则的持久性取决于它引用的是稳定抽象（角色）还是不稳定实例（个体）。引用个体 = 每次团队变化都要改规则。
+
+- 关联：F042 | F032 | cat-config.json roster
+
+### LL-026: 身份信息是硬约束常量，不是可推断上下文
+- 状态：draft
+- 更新时间：2026-02-27
+
+- 坑：缅因猫在 Context compact 后自称"宪宪"（布偶猫的昵称），把自己当成了布偶猫。A2A @ 能力也随对话推进退化，猫猫不再主动 @ 队友协作。
+- 根因：身份信息（"你是谁"）和 A2A 协议（"怎么 @ 队友"）被当成普通上下文，compact 时可能被压缩掉或改写。模型从最近上下文推断身份时，容易被最近的说话人风格锚定。
+- 触发条件：长对话 → Context compact → 身份段被压缩 → 模型从残留上下文推断错误身份。
+- 修复：每次 system prompt 注入（含 compact 后）都必须包含不可省略的身份声明 + A2A 格式规则。
+- 防护：F042 Phase A 验证注入缺口 + Phase C 优化注入频率。
+- 来源锚点：
+  - `docs/features/F042-prompt-engineering-audit.md` §1.2, §1.3
+  - `docs/discussions/2026-02-27-f042-prompt-convergence.md`（砚砚自省分析）
+  - 2026-02-27 铲屎官运行时观察
+- 原理：多 Agent 系统中，身份是最基础的约束——它决定了模型的行为边界、权限和协作关系。把身份当成可推断项，就相当于每次 compact 后给模型一个"你可以变成任何人"的自由度。
+
+- 关联：F042 | LL-025 | SystemPromptBuilder
+
 ---
 
 ## 8) 维护约定
