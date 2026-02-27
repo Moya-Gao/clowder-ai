@@ -212,7 +212,7 @@ startup_timeout_sec = 30
 1. ~~执行顺序~~ → 已确认：砚砚同意"先铺路后点灯"
 2. ~~Codex `.codex/config.toml` 格式~~ → 已确认：见共识 §6
 3. ~~Gemini `.gemini/settings.json` 格式~~ → 已确认：见共识 §6
-4. **fallback 触发检测机制** — 实施时细化（怎么知道 MCP 加载失败？启动报错？工具列表为空？）
+4. ~~fallback 触发检测~~ → 铲屎官定调：不重要，大概率是 MCP 调不通。实施时用最简检测（spawn 失败/工具列表为空 → 降级注入 callback）
 5. ~~Gemini CLI enable/disable bug~~ → 已确认：无可复现 bug 证据，采用稳妥策略（见共识 §7）
 
 ---
@@ -243,7 +243,7 @@ startup_timeout_sec = 30
 2. ~~Codex/Gemini 配置格式~~ → 已确认（见技术共识 §6）
 3. ~~Skills 发现~~ → 已共识：扩展现有端点
 4. ~~迁移节奏~~ → 已共识：一步到位 + fallback
-5. **fallback 触发检测机制** — 实施时细化（检测方式待定）
+5. ~~fallback 触发检测~~ → 铲屎官定调：不重要，实施时最简检测即可
 6. ~~Gemini CLI enable/disable~~ → 已确认无可复现 bug，采用稳妥策略（见技术共识 §7）
 
 ---
