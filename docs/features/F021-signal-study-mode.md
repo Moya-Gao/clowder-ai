@@ -8,7 +8,7 @@ created: 2026-02-26
 
 # F021: Signal Hunter 集成
 
-> **Status**: done
+> **Status**: in-progress
 > **Owner**: 三猫
 > **Created**: 2026-02-26
 

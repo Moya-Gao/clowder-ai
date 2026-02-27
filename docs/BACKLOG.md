@@ -15,6 +15,7 @@ created: 2026-02-26
 | ID | 名称 | Status | Owner | Link |
 |----|------|--------|-------|------|
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
+| F021 | Signal Hunter 集成 | in-progress | 三猫 | [F021](features/F021-signal-study-mode.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
 | F015 | Backlog 管理 | in-progress | 三猫 | [F015](features/F015-backlog-management.md) |
 | F032 | Agent Plugin Architecture（CatId 松绑 + AgentRegistry） | in-progress | 三猫 | [F032](features/F032-agent-plugin-architecture.md) |
