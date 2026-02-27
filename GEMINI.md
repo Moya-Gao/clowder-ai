@@ -127,6 +127,18 @@ assets/
 3. **命名规范**：函数名要自解释
 4. **测试先行**：改了组件逻辑要写测试
 5. **文档同步**：改了架构就更新设计文档
+6. **文档元数据**：`docs/` 下的 `.md` 文件必须有 YAML frontmatter（`feature_ids` + `debt_ids` + `topics` + `doc_kind` + `created`），详见 ADR-011
+
+### Feature 生命周期 Skill
+
+创建或完成 Feature 时，**必须触发对应 Skill**：
+
+| 时机 | Skill | 触发词 |
+|------|-------|--------|
+| 立项 | `feat-kickoff` | "开个新功能"、"new feature"、"F0xx"、"立项" |
+| 完成 | `feat-completion` | "feature 完成"、"F0xx done"、"验收通过" |
+
+详见 F040 设计文档和 ADR-011。
 
 ### 常用命令
 

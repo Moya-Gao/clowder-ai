@@ -182,6 +182,7 @@ push 分支到 remote 可以提前做（备份目的），但 PR 是合入请求
 - [ ] 路径操作防穿越
 - [ ] 并发场景考虑
 - [ ] 无循环依赖（`pnpm check:deps`）
+- [ ] `docs/` 下的 `.md` 文件有 YAML frontmatter（`feature_ids` + `debt_ids` + `topics` + `doc_kind` + `created`），详见 ADR-011
 
 ## 安全审计重点
 
@@ -200,6 +201,20 @@ push 分支到 remote 可以提前做（备份目的），但 PR 是合入请求
 - Worktree 隔离验证
 - 提交前检查敏感文件
 - **同步前先判断方向**：执行 `git fetch` 后，必须用 `git log --oneline HEAD` 和 `git log --oneline origin/main` 对比，确认 local 和 remote 谁领先谁。local 领先 → `git push`；remote 领先 → `git pull --rebase`。**绝对禁止不看方向就 reset**——"保持一致"不等于"丢弃本地"，可能是本地有别的猫刚 push 的新 commit 需要保留。教训来源：2026-02-14 缅因猫误将 local main reset 到 remote，丢掉了布偶猫刚提交的 BACKLOG #72。
+
+### Feature 生命周期 Skill
+
+创建或完成 Feature 时，**必须触发对应 Skill**：
+
+| 时机 | Skill | 触发词 |
+|------|-------|--------|
+| 立项 | `feat-kickoff` | "开个新功能"、"new feature"、"F0xx"、"立项" |
+| 完成 | `feat-completion` | "feature 完成"、"F0xx done"、"验收通过" |
+
+**为什么**：
+- `feat-kickoff` 一开始就建立追溯链入口，避免信息散落
+- `feat-completion` 确保真相源同步、演化关系记录完整
+- 详见 F040 设计文档和 ADR-011
 
 ## 目录结构
 

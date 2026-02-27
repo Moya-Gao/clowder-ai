@@ -469,6 +469,23 @@ created: 2026-02-26
 
 - 关联：`docs/decisions/005-hindsight-integration-decisions.md` | `docs/BACKLOG.md` | Task 4 可观测检查
 
+### LL-024: 状态字段多点写入会复发蜘蛛网
+- 状态：validated
+- 更新时间：2026-02-27
+
+- 坑：设计文档元数据契约时，最初方案让每个文档都有 `stage: idea|spec|in-progress|review|done` 字段。如果 661 个文件都有 `stage`，Feature 状态变化就要到处改——这正是 F40 想解决的"蜘蛛网"问题的 2.0 版本。
+- 根因：把"关联数据"和"状态数据"混为一谈。`feature_ids` 是静态关联（文档属于哪个 Feature），而 `stage` 是动态状态（Feature 当前进度）。动态状态不应该散布到所有关联文档。
+- 触发条件：设计元数据 schema 时，想把所有"有用信息"都放进 frontmatter；没有区分静态属性和动态状态。
+- 修复：`stage` 只保留在 `docs/features/Fxxx.md` 聚合文件的 Status 字段，不放入普通文档 frontmatter。聚合文件是 Feature 状态的唯一真相源。
+- 防护：ADR-011 明确记录此决策 + `feat-kickoff` / `feat-completion` skill 不在普通文档生成 `stage` 字段。
+- 来源锚点：
+  - `docs/decisions/011-metadata-contract.md` §D
+  - `docs/features/F40-backlog-reorganization.md` Frontmatter Contract 章节
+  - 2026-02-26 三猫讨论（4.6 提出此问题）
+- 原理：单点真相源原则——任何状态信息都应该只有一个权威来源。多点写入 = 同步负担 + 不一致风险。静态关联可以多点存（因为不变），动态状态必须单点存。
+
+- 关联：ADR-011 | F040 | `feat-kickoff` skill | `feat-completion` skill
+
 ---
 
 ## 8) 维护约定

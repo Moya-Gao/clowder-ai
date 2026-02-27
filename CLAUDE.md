@@ -154,6 +154,21 @@ cat-cafe/
 6. **架构清理**：架构调整后，移除废弃依赖和死代码，确保代码库与当前架构一致
 7. **代码质量工具**：Biome + LSP + 类型检查，通用规则见 `docs/SOP.md`「代码质量工具」章节
 8. **目录卫生**：warn=15 / error=25 .ts 文件每目录，`pnpm check:dir-size` + `pnpm check:deps`，通用规则见 `docs/SOP.md`「目录结构卫生」章节
+9. **文档元数据**：`docs/` 下的 `.md` 文件必须有 YAML frontmatter（`feature_ids` + `debt_ids` + `topics` + `doc_kind` + `created`），详见 ADR-011
+
+### Feature 生命周期 Skill（三猫必读）
+
+创建或完成 Feature 时，**必须触发对应 Skill**：
+
+| 时机 | Skill | 触发词 |
+|------|-------|--------|
+| 立项 | `feat-kickoff` | "开个新功能"、"new feature"、"F0xx"、"立项" |
+| 完成 | `feat-completion` | "feature 完成"、"F0xx done"、"验收通过" |
+
+**为什么**：
+- `feat-kickoff` 一开始就建立追溯链入口，避免信息散落
+- `feat-completion` 确保真相源同步、演化关系记录完整
+- 不用 Skill 直接操作 = 容易漏步骤
 
 ### 布偶猫 LSP 使用规则（Claude Code 特有）
 
