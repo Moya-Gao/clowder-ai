@@ -32,7 +32,49 @@ description: "Feature 完成时使用。触发词：feature 完成、F0xx done�
 - 只是一轮 review 通过 → 更新 Review Gate 即可
 - 临时暂停 → 保持 Status=in-progress，加说明
 
-## 完成流程（6 步）
+## 完成流程（7 步）
+
+### Step 0: 愿景对照（Vision Alignment Review）🔴 新增
+
+**这是 F041 教训后加的步骤——AC 全打勾 ≠ 铲屎官满意。**
+
+在检查 AC 之前，**必须先回到原点**：
+
+#### 0a. 读原始需求文档
+
+```bash
+# 找到 feature 的所有关联文档
+grep -r "Fxxx" docs/ --include="*.md" -l
+
+# 必须读的：
+# 1. 聚合文件 docs/features/Fxxx-name.md（看 Links 章节）
+# 2. Links 里的 Discussion/Interview 文档（铲屎官原话在这里）
+# 3. Links 里的 Research 文档（技术约束在这里）
+```
+
+**重点找**：
+- 铲屎官的原始表述（"我要..."、"我不想..."、"我害怕..."）
+- 铲屎官的核心痛点（不是 AC 条目，而是 AC 背后的"为什么"）
+- Discussion 里的 UI/UX 设计描述（如果有）
+
+#### 0b. 自问三个问题
+
+| # | 问题 | 不合格的回答 |
+|---|------|-------------|
+| 1 | 铲屎官最初要解决的核心问题是什么？ | "看 AC 就知道了" — AC 可能不完整 |
+| 2 | 交付物能解决那个核心问题吗？ | "AC 全打勾了" — AC 打勾不等于解决问题 |
+| 3 | 铲屎官坐在 Hub 前用这个功能，体验是什么样的？ | "功能都有" — 功能有 ≠ 能用 ≠ 好用 |
+
+#### 0c. 跨猫交叉验证（强制）
+
+**自己验完后，必须让另一只猫也读原始文档并独立回答上面三个问题。**
+
+- 两只猫独立回答，不互相看答案
+- 答案对齐 → 继续 Step 1
+- 答案有分歧 → 讨论收敛后才能继续
+- 发现交付物不匹配愿景 → **停止 completion，重新打开 Feature**
+
+> **教训来源**：2026-02-27 F041 能力看板。AC 12 项全 ✅，76 tests green，PR #83 + #85 合入。但铲屎官一打开：Skills 查不到（source 全标 ext）、UI 丑到不可用（8 列 toggle grid）、多项目管理完全缺失。根因：没人回去读铲屎官原话，只对着 AC checkbox 打勾。
 
 ### Step 1: 检查 Acceptance Criteria
 
@@ -154,8 +196,9 @@ Evolved from: F032 (Agent Plugin Architecture)
 
 ## 检查清单（每次必过）
 
+- [ ] **愿景对照**：已读原始 Discussion/Interview，确认交付物匹配铲屎官核心诉求
+- [ ] **跨猫验证**：另一只猫也独立读了原始文档并确认匹配
 - [ ] Acceptance Criteria 全部 `[x]` 或已处理未完成项
-- [ ] 聚合文件 `Status: done` + `Completed: YYYY-MM-DD`
 - [ ] `Dependencies.Evolved from` 已填写（如适用）
 - [ ] 演化关系已考虑（往哪去？是否需要立项后续 Feature？）
 - [ ] `docs/BACKLOG.md` 已移除该行
@@ -192,6 +235,8 @@ Evolved from: F032 (Agent Plugin Architecture)
 
 | Mistake | Fix |
 |---------|-----|
+| **AC 全打勾就标 done，没回读原始需求** | Step 0 愿景对照（F041 血泪教训） |
+| **只自己验，不找另一只猫交叉验证** | Step 0c 跨猫验证是强制的 |
 | 忘了更新 BACKLOG | 检查清单第 5 项 |
 | Acceptance Criteria 有未完成项就标 done | Step 1 要先确认或处理 |
 | 不记录演化关系 | Step 3 是核心，必须思考 |

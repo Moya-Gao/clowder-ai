@@ -21,15 +21,25 @@ description: Verifies implementation matches spec/plan before requesting review.
 ```
 BEFORE 声称完成或提 review:
 
+0. VISION CHECK（愿景核对）🔴 新增
+   - 找到原始 Discussion/Interview 文档（铲屎官原话在里面）
+   - 读铲屎官的核心痛点（"我要..."、"我不想..."）
+   - 问自己：AC 条目是否完整覆盖了铲屎官的原始需求？
+   - 如果 AC 有遗漏（如缺 UX 验收、缺多项目场景）→ 先补 AC 再继续
+   - ⚠️ AC 是人写的，AC 本身可能不完整！
+
 1. FIND: 找到对应的 plan/spec 文档
    - docs/plans/{date}-{topic}.md
    - docs/phases/{phase-name}.md
    - 或相关设计文档
+   - 🔴 加上：Links 里的 Discussion/Interview（铲屎官原始需求）
 
 2. CREATE: 建立检查清单
    - 列出 spec 中的每一个验收标准
    - 列出 spec 中的每一个功能点
    - 列出 spec 中的每一个边界条件
+   - 🔴 加上：列出 Discussion 里的 UX 描述（"每条能力显示 XXX"）
+   - 🔴 加上：列出铲屎官明确提到的场景（多项目、管理入口等）
 
 3. VERIFY: 逐项检查
    - 每一项对应的代码在哪？
@@ -40,7 +50,10 @@ BEFORE 声称完成或提 review:
    - ✅ 已实现项
    - ⚠️ 部分实现项（说明差异）
    - ❌ 未实现项（说明原因）
+   - 🔴 加上：愿景覆盖度（Discussion 里的需求 vs 实际交付）
 ```
+
+> **教训来源**：2026-02-27 F041。spec-compliance-check 只核对 AC checkbox，但 AC 本身缺了 UX 验收（"每条能力显示名称+描述"）和场景验收（"不同项目不同配置"在 Hub 上能管理）。AC 全 ✅ 但交付物不满足愿景。根因：没人回去读原始 Discussion。
 
 ## 检查清单模板
 
@@ -50,8 +63,16 @@ BEFORE 声称完成或提 review:
 ## Spec Compliance Report
 
 **Spec 文档**: docs/plans/2026-02-10-xxx.md
+**原始需求**: docs/discussions/YYYY-MM-DD-xxx/README.md（铲屎官原话）
 **检查时间**: YYYY-MM-DD HH:MM
 **检查人**: 布偶猫
+
+### 愿景覆盖度（Step 0）
+
+| # | 铲屎官原始需求 | AC 覆盖？ | 实现覆盖？ |
+|---|---------------|-----------|-----------|
+| 1 | "我要 XXX" | AC#3 | ✅ |
+| 2 | "我不想 YYY" | ❌ AC 缺失 | ❌ 未实现 |
 
 ### 功能验收
 
@@ -76,6 +97,13 @@ BEFORE 声称完成或提 review:
 ```
 
 ## 常见遗漏类型
+
+### 0. 愿景遗漏（最致命！）
+
+AC 写偏了或不完整，AC 全打勾也不满足铲屎官需求。
+
+**检查方法**：回读 Discussion/Interview，找铲屎官原话，逐条对照 AC。
+**真实案例**：F041 Discussion 写了"每条能力显示名称+描述"，但 AC 里没有 UX 验收条目，最终交付物没有描述列。
 
 ### 1. 功能遗漏
 

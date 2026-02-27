@@ -7,11 +7,11 @@ created: 2026-02-26
 
 # F041: 能力看板 — Hub MCP/Skills 统一管理
 
-> **Status**: done
-> **Completed**: 2026-02-27
+> **Status**: in-progress
 > **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Priority**: P1（铲屎官明确需求，影响日常管理体验）
+> **Re-opened**: 2026-02-27（愿景对照失败：UI 不可用 + 多项目管理缺失 + Skills 来源分类 bug）
 
 ---
 
@@ -47,6 +47,27 @@ created: 2026-02-26
 - [x] 每猫覆盖：全局开启的能力，可对单只猫关闭（同 provider 限制见 Known Limitations）
 - [x] 猫 tab 精简：不再展示 Skills/MCP 列表，只保留模型&预算
 
+### UX 验收（🔴 Re-open 新增 — 源自 Discussion 设计但原 AC 遗漏）
+
+> 来源：Discussion README §2.2 "每条能力显示：名称 + **描述** + 类型 tag + 来源 tag + 绑定的猫"
+> 来源：Discussion README §1.2 "不想当人肉路由器——Hub 是唯一管理入口"
+> 来源：Discussion README §1.3 "不同项目需要不同的工具集配置"
+
+- [ ] 每条能力有**描述**（不是只有 raw ID），铲屎官一眼能知道这个能力干什么
+- [ ] 猫猫过滤按**猫族**（布偶猫/缅因猫/暹罗猫），不是按 8 个 cat variant（codex/gpt52/opus/opus-45/...）
+- [ ] Skills 来源分类正确：Cat Cafe 项目级 skills 标 `cat-cafe`，用户级/外部 skills 标 `external`
+- [ ] 来源过滤可用：选 "Cat Cafe" 能看到 Cat Cafe 的 skills + MCP
+- [ ] 视觉层级清晰：有分类/分组，不是纯 data grid（参考 Skills 看板的呈现水平）
+- [ ] 表格宽度合理：不需要横向滚动就能看清全部信息
+
+### 多项目管理验收（🔴 Re-open 新增 — 铲屎官核心痛点 #3）
+
+> 来源：Discussion README §1.3 "我现在甚至用你们来开发我公司内的代码。我在猫猫咖啡打开 dare-framework，让你们开发 dare-framework。"
+
+- [ ] Hub 能力看板能**选择/切换项目**（不只是管 cat-cafe 自己）
+- [ ] 不同项目的能力配置独立，在 Hub 上可见、可管理
+- [ ] API 支持 `projectId` 参数或等效的多项目路由机制
+
 ### 架构验收
 
 - [x] `.cat-cafe/capabilities.json` 存在且作为唯一真相源
@@ -57,7 +78,8 @@ created: 2026-02-26
 
 ### 边界验收
 
-- [x] 多项目隔离：不同项目可有不同能力配置
+- [x] 多项目隔离：不同项目可有不同能力配置（文件级）
+- [ ] 多项目管理：Hub 上能选择和管理不同项目的能力配置（管理级）
 - [x] 降级路径：MCP 加载失败时，HTTP callback 作为 fallback 可用
 
 ---
@@ -323,7 +345,9 @@ startup_timeout_sec = 30
 - 2026-02-27: 砚砚本地全量 review R1-R2 → 放行
 - 2026-02-27: 云端 Codex review R1-R10（系统性修复: sparse cats, prune guard, ENOENT 区分）→ R10 通过
 - 2026-02-27: PR #85 合入 main（`a36bcb4`）
-- 2026-02-27: Feature completed, PR #83 + #85 merged
+- 2026-02-27: ~~Feature completed~~ — 铲屎官验收发现 UI 不可用 + 多项目管理缺失
+- 2026-02-27: **Re-opened** — 愿景对照失败，补充 UX AC + 多项目管理 AC
+- 2026-02-27: SOP/Skills 修正：feat-completion 加愿景对照步骤、spec-compliance-check 加愿景核对、review 请求强制附原始需求文档
 
 ---
 

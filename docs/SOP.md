@@ -10,7 +10,7 @@ created: 2026-02-26
 > 三猫开发全流程的**唯一权威文档**。所有猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）和 Skills 引用本文档，不重复定义流程。
 > 冲突时以本文档为准。
 >
-> 更新日期：2026-02-16
+> 更新日期：2026-02-27
 
 ## 完整流程（6 步）
 
@@ -44,14 +44,17 @@ created: 2026-02-26
 
 ---
 
-### Step 2: 自检（Spec Compliance）
+### Step 2: 自检（Spec Compliance + Vision Alignment）
 
 **触发**: 开发完成，准备提 review 前
 **Skill**: `spec-compliance-check`
 
+- 🔴 **先做愿景核对**：回读原始 Discussion/Interview，确认 AC 完整覆盖铲屎官需求
 - 对照 plan/spec 逐项核对实现
 - 跑全量测试（`pnpm test`；Redis 改动加跑 `test:redis`）
-- 输出合规报告（✅/⚠️/❌）
+- 输出合规报告（含愿景覆盖度 + ✅/⚠️/❌）
+
+> 教训：AC 是人写的，可能不完整。只核对 AC ≠ 满足需求。详见 `spec-compliance-check` skill Step 0。
 
 **→ 下一步**: 合规通过 → Step 3
 
@@ -333,6 +336,7 @@ docs/archive/2026-02/
 
 | 更新目标 | 操作 |
 |----------|------|
+| 🔴 **愿景对照** | `feat-completion` Step 0：回读原始 Discussion + 跨猫交叉验证 |
 | `docs/features/Fxxx.md` | Status 改为 `done`，补 Completed 日期和 commit hash |
 | `docs/BACKLOG.md` | 从活跃索引表**移除**（done 的 feat 不留在 BACKLOG） |
 | `docs/features/README.md` | 确认已在"已完成 Feature"表格中 |
@@ -365,7 +369,7 @@ docs/archive/2026-02/
 | 我正在... | 用这个 Skill | SOP Step |
 |-----------|-------------|----------|
 | 开始写代码 | `using-git-worktrees` | Step 1 |
-| 写完了，准备提 review | `spec-compliance-check` | Step 2 |
+| 写完了，准备提 review | `spec-compliance-check`（含愿景核对） | Step 2 |
 | 发 review 请求给别的猫 | `cat-cafe-requesting-review` | Step 3a |
 | 收到 review 意见要处理 | `cat-cafe-receiving-review` | Step 3b |
 | Reviewer 放行，准备合入 | `merge-approval-gate` | Step 4 |

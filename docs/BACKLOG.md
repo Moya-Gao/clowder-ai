@@ -23,6 +23,7 @@ created: 2026-02-26
 | F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
 | F038 | Skills 梳理 + 按需发现机制 | in-progress | 三猫 | [F038](features/F038-skills-discovery.md) |
 | F039 | 消息排队投递 — 用户操作三模式 | in-progress | 三猫 | [F039](features/F039-message-queue-delivery.md) |
+| F041 | 能力看板 — Hub MCP/Skills 统一管理 | in-progress | 布偶猫 | [F041](features/F041-capability-dashboard.md) |
 | F042 | 提示词工程审计与优化 | in-progress | 布偶猫 | [F042](features/F042-prompt-engineering-audit.md) |
 | F043 | MCP 归一化 — Server 拆分 + 协作工具补全 | spec | 三猫 | [F043](features/F043-mcp-unification.md) |
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | [F044](features/F044-channel-activity-system.md) |

@@ -35,6 +35,9 @@ description: Cat Café enhanced code review request with mandatory self-check an
 - 对应的 plan/spec 文档路径
 - 相关 ADR（如果有架构决策）
 - Phase 设计文档（如果是 Phase 工作）
+- 🔴 **原始需求文档**（Discussion/Interview，铲屎官原话所在）— Reviewer 需要对照原始需求判断"这是铲屎官要的吗"，不只是看代码质量
+
+> **教训**：F041 review 信只附了 spec + 改动文件，没有附原始 Discussion。Reviewer（砚砚+云端 Codex）只能审代码质量和 edge cases，无法审"是否解决了铲屎官的原始问题"。结果 10 轮云端 review 全在抓 edge case，没有一轮说"UI 太丑了"或"多项目管理呢？"。
 
 ### 3. 运行测试
 
@@ -55,6 +58,11 @@ pnpm --filter @cat-cafe/api test:redis
 
 ### 背景
 {为什么做这个改动}
+
+### 铲屎官原始需求（🔴 必填）
+- Discussion/Interview: docs/discussions/{date}-{topic}/README.md
+- 铲屎官核心痛点：{用铲屎官自己的话概括，如"我都不知道你们三只猫到底挂了什么！"}
+- **请 Reviewer 对照原始需求判断：交付物是否解决了铲屎官的问题？**
 
 ### 设计文档
 - Plan: docs/plans/{date}-{topic}.md
@@ -141,6 +149,22 @@ BEFORE 发送 review 请求:
 3. 附上自检报告
 
 这样 reviewer 可以专注在重点问题上。
+```
+
+### ❌ 没有原始需求文档
+
+```
+布偶猫：@缅因猫 这是 F041 的改动，请 review
+[只附了 spec + 改动文件]
+
+⚠️ BLOCKED — 缺少原始需求文档
+
+请附上：
+- 铲屎官的 Discussion/Interview 文档在哪？
+- 铲屎官的核心痛点是什么？
+
+Reviewer 不只审代码质量，还要判断"这是铲屎官要的吗？"
+没有原始需求 = Reviewer 无法做愿景验证。
 ```
 
 ### ❌ 没有设计文档
