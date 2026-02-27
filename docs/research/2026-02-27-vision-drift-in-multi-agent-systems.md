@@ -48,18 +48,27 @@ F041 能力看板：AC 12 项全 ✅，76 tests green，PR #83 + #85 合入 main
 
 ## 调研问题
 
-### Q1: 业界多 Agent 框架如何防止愿景漂移？
+### Q1: 业界多 Agent 系统如何防止愿景漂移？
 
-**愿景漂移 (Vision Drift)** 定义：agent 在执行复杂任务的过程中，逐渐偏离最初的目标/需求，最终交付物不满足用户意图。
+**愿景漂移 (Vision Drift / Goal Drift)** 定义：agent 在执行复杂任务的过程中，逐渐偏离最初的目标/需求，最终交付物不满足用户意图。学术界已有相关论文（如 arXiv:2505.02709 "Evaluating Goal Drift in Language Model Agents"），研究显示 LLM agent 在长期任务中会静默偏移行为，且多 agent 工作流在约 600 次交互后近半出现语义漂移。
 
-请调研以下框架/产品的做法：
+#### 🔴 必须覆盖的产品/框架（铲屎官点名）
 
-- **Claude Code** (Anthropic) — 长 session 的 plan mode / subagent 是怎么保持方向的？
-- **Codex** (OpenAI) — cloud agent 执行复杂任务时如何防偏？
-- **Devin** (Cognition) — 号称"AI 软件工程师"，复杂 feat 是怎么分解和守护的？
-- **Cursor / Windsurf** — 长 session 编码助手怎么处理目标漂移？
-- **CrewAI / AutoGen / LangGraph** — 多 agent 编排框架有没有"目标锚定"机制？
-- **OpenHands / SWE-agent** — 开源 agent benchmark 里，任务完成率 vs 任务复杂度的关系是什么？
+1. **Claude Code Agent Teams** (Anthropic) — 多 agent 协调机制：lead agent + teammate agents，共享 task list + inter-agent messaging，每个 agent 有独立 context window。它如何防止 team lead 的上下文压缩导致愿景丢失？子 agent 如何保持对原始目标的对齐？
+2. **OpenCode + Oh My Open Code** — OpenCode 上的编排层，用模块化 workflow 处理复杂项目（架构规划、React 逻辑、构建集成分开），它的任务分解和目标守护机制是什么？
+3. **OpenClaw** (原 Clawdbot/Moltbot, Peter Steinberger) — 开源自主 agent，145k+ GitHub stars，支持 134+ MCP 工具，24/7 运行。它的多 agent 协调、记忆管理、长时间运行任务的目标保持机制是什么？
+
+#### 🟡 建议覆盖（但请自行搜索当前最先进的方案，不限于以下列表）
+
+- **Codex** (OpenAI) — 2026.02 Rust 重写 + 云端沙盒隔离，每个任务在独立容器中运行
+- **Devin** (Cognition) — 全自主 AI 软件工程师，$500/月，从研究到测试的完整流程
+- **Cursor / Windsurf** — IDE 集成编码助手，长 session 场景
+- **CrewAI / AutoGen / LangGraph** — 多 agent 编排框架的"目标锚定"机制
+- **OpenHands / SWE-agent** — 开源 agent benchmark，任务完成率 vs 任务复杂度
+
+#### 🟢 请你自主搜索补充
+
+**不要局限于上面的列表**。请用 Deep Research 能力搜索 2025 年下半年至 2026 年 2 月的最新多 agent 编码/协作框架和产品，找出我们可能不知道的新玩家和新方案。我们需要的是**当前业界最前沿的全景图**，而不是某个人记忆中的旧列表。
 
 ### Q2: 上下文压缩导致的"失忆"问题
 
@@ -71,9 +80,10 @@ F041 能力看板：AC 12 项全 ✅，76 tests green，PR #83 + #85 合入 main
 - 压缩后 agent "记得怎么写代码"但"忘了为什么写"
 
 **请调研**：
-- 业界有什么解决方案？（分层记忆？外部知识库？periodic checkpoint？）
-- 学术界有相关研究吗？（long-horizon planning in LLM agents？）
-- 有没有量化数据——任务长度 vs 愿景漂移率？
+- 业界有什么解决方案？（分层记忆？外部知识库？periodic checkpoint？episodic memory consolidation？）
+- 学术界有相关研究吗？（long-horizon planning in LLM agents？goal drift evaluation？已知有 arXiv:2505.02709，请找更多）
+- 有没有量化数据——任务长度/交互次数 vs 愿景漂移率？（已知"600 次交互后近半出现语义漂移"的说法，请验证和深挖）
+- "goal-persistent design"（目标持久化设计）具体是什么？有实际产品采用吗？
 
 ### Q3: 我们的方案 vs 业界方案对比
 
@@ -111,15 +121,18 @@ PR 时: requesting-cloud-review (PR body 含原始需求)
 ## 调研范围
 
 ### 必须覆盖
-- 至少 3 个商业产品（Devin/Cursor/Codex 等）
-- 至少 2 个开源框架（CrewAI/AutoGen/LangGraph/OpenHands 等）
-- 至少 1 篇学术论文或技术博客（long-horizon LLM agent planning）
+- 🔴 **Claude Code Agent Teams**、**OpenCode/Oh My Open Code**、**OpenClaw**（铲屎官点名）
+- 至少 3 个其他商业产品（你自己搜索决定哪些最有价值）
+- 至少 2 个开源框架（你自己搜索决定哪些最有价值）
+- 至少 2 篇学术论文（含 arXiv:2505.02709，请找更多 2024-2026 的 goal drift / agent alignment 论文）
+- **请主动搜索**你认为我们可能不知道的新产品、新框架、新论文
 
 ### 输出格式
-- 每个产品/框架的做法简述（2-3 段）
-- 对比表格（我们 vs 业界）
+- 每个产品/框架的做法简述（2-3 段），**标注信息来源（URL）**
+- 对比表格（我们 vs 业界各方案）
 - 可借鉴的具体实践（直接可用 or 需要适配）
 - 我们方案的盲区分析
+- **区分"已确认事实"和"推测/未验证"**
 
 ### 不需要覆盖
 - 通用 RAG/向量搜索方案（我们不是在做知识检索）
@@ -128,17 +141,29 @@ PR 时: requesting-cloud-review (PR body 含原始需求)
 
 ---
 
-## 为什么请缅因猫 Pro
+## 调研方式
 
-1. GPT-5.2 的 Deep Research 能力适合广泛调研 + 综合对比
-2. 跨家族视角——布偶猫设计了"愿景对照"方案，需要另一个家族独立评估
-3. 缅因猫擅长"找漏洞"——审视我们方案的盲区
+本调研使用 **Deep Research Pipeline**（三路并行 + Pro 审阅）：
+
+| Step | 执行者 | 做什么 |
+|------|--------|--------|
+| 1 | 布偶猫 | 写调研 prompt（本文档），落盘到 `docs/prompts/` |
+| 2 | ChatGPT / Claude.ai / Gemini Deep Research（并行） | 同一 prompt 三路搜索 |
+| 3 | GPT-5.2 Pro | 审阅三份报告，找逻辑缺陷和分歧 |
+| 4 | 布偶猫 | 综合判断，对照 Cat Cafe 代码库验证可行性 |
+
+**注意**：GPT-5.2 Pro 不在 Cat Cafe 系统内（无 Apps/Memory/Canvas），调研报告通过文件传递。
 
 ---
 
 ## 调研深度期望
 
 这是一个**影响协作灵魂的问题**（铲屎官原话："做歪了是小问题，重要的是我们需要先优化和修正我们自己的 skills 和 sop，这才是我们协作的灵魂"）。请认真对待，不要走过场。
+
+**请特别注意**：
+- 不要只列产品特性，要分析**它们如何具体防止愿景漂移**
+- 对每个方案，评估**在上下文压缩场景下是否仍然有效**
+- 找出**我们"流程嵌入"方案的盲区**——有什么问题是靠 skill 提醒解决不了的？
 
 ---
 
