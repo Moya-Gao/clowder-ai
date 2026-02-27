@@ -1,17 +1,31 @@
 ---
 feature_ids: [F032]
+related_features: [F32-b, F042]
 topics: [agent, plugin, architecture, collaboration]
 doc_kind: spec
 created: 2026-02-26
-updated: 2026-02-26
+updated: 2026-02-27
 ---
 
 # F032: Agent Plugin Architecture（CatId 松绑 + 协作规则动态化）
 
-> **Status**: done (f48f111)
+> **Status**: done (d4b85bf)
 > **Owner**: 布偶猫 (Opus 4.5) + 三猫
 > **Created**: 2026-02-26
-> **Last Updated**: 2026-02-26
+> **Last Updated**: 2026-02-27
+
+## 实现状态总览
+
+| Phase | 内容 | 状态 | 实现于 |
+|-------|------|------|--------|
+| **A** | 技术侧松绑 (CatId/AgentRegistry/catIdSchema) | ✅ 已完成 | **F32-b** (2026-02-17~21) |
+| **B1-B2** | Roster Schema + Reviewer Matcher | ✅ 已完成 | F032 (d4b85bf) |
+| **B3** | SOP/Skill 模板化 | ⏸️ 待完成 | → **F042** |
+| **C** | Thread Activity Tracking | ✅ 已完成 | F032 (d4b85bf) |
+| **D** | System Prompt 注入 | ✅ 已完成 | F032 (d4b85bf) |
+
+> **注意**: Phase A 在写本 spec 时误以为未实现，实际已由 F32-b 完成。
+> Phase B3 (SOP/Skill 动态化) 移交至 [F042](./F042-prompt-engineering-audit.md) 统一处理。
 
 ## Problem Statement
 
@@ -81,9 +95,52 @@ updated: 2026-02-26
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Phase A：技术侧松绑（原 F032 scope）
+### Phase A：技术侧松绑 ✅ **已由 F32-b 实现**
 
-#### A1. CatId 类型松绑
+> **实现时间**: 2026-02-17 ~ 2026-02-21
+> **实现者**: 布偶猫 (Opus 4.5)
+> **关键 commits**: a87afb3, d25c1a1, 5759b83, dafb5da
+
+#### A1. CatId 类型松绑 ✅
+
+```typescript
+// packages/shared/src/types/ids.ts
+export type CatId = Brand<string, 'CatId'>;  // 运行时动态，不再硬编码
+```
+
+#### A2. AgentRegistry 动态注册 ✅
+
+```typescript
+// packages/api/src/index.ts (F32-b 实现)
+const agentRegistry = new AgentRegistry();
+for (const id of catRegistry.getAllIds()) {
+  const entry = catRegistry.tryGet(id as string);
+  const { provider } = entry.config;
+  // switch on provider, create service...
+  agentRegistry.register(id as string, service);
+}
+```
+
+#### A3. catIdSchema 动态验证 ✅
+
+```typescript
+// packages/shared/src/registry/cat-id-schema.ts
+export function catIdSchema() {
+  return z.string().refine(
+    (id) => catRegistry.has(id),
+    (id) => ({ message: `Unknown cat ID: "${id}"...` }),
+  );
+}
+```
+
+---
+
+**（以下为原设计文档，保留供参考）**
+
+<details>
+<summary>原设计：Phase A 代码示例</summary>
+
+#### A1. CatId 类型松绑（原设计）
 
 ```typescript
 // Before: 编译时 Brand
@@ -93,7 +150,7 @@ type CatId = Brand<string, 'CatId'> & ('opus' | 'codex' | 'gemini');
 type CatId = Brand<string, 'CatId'>;  // 任何有效字符串
 ```
 
-#### A2. AgentRegistry 替代硬编码
+#### A2. AgentRegistry 替代硬编码（原设计）
 
 ```typescript
 // Before: index.ts 硬编码

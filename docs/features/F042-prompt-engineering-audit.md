@@ -1,5 +1,6 @@
 ---
 feature_ids: [F042]
+related_features: [F032]
 topics: [prompt, system-prompt, dynamic-injection, audit]
 doc_kind: spec
 created: 2026-02-27
@@ -152,14 +153,18 @@ Cat Cafe 项目中，提示词分散在多个层级：
 - Claude Code 的 CLAUDE.md 是 Claude 自己读的，Cat Cafe 的 SystemPromptBuilder 是我们代码拼的
 - 两者可能有冲突，以 CLAUDE.md 为准（因为 Claude 先读）
 
-## 待优化项（Phase B from F032）
+## 待优化项（承接 [F032](./F032-agent-plugin-architecture.md) Phase B3）
+
+> F032 Phase B3 (SOP/Skill 模板化) 移交本 Feature 统一处理。
+> 目标：把硬编码的协作规则改为读取 `cat-config.json` roster 动态生成。
 
 | 文件 | 问题 | 建议 |
 |------|------|------|
 | `docs/SOP.md` | Reviewer 配对表 hardcoded | 改为引用 cat-config.json |
 | `CLAUDE.md` | "找缅因猫 review" hardcoded | 改为动态 reviewer 说明 |
 | `AGENTS.md` | "找布偶猫 review" hardcoded | 改为动态 reviewer 说明 |
-| Skills | 示例只覆盖布偶↔缅因 | 泛化为 roster-based |
+| `merge-approval-gate` skill | 硬编码检查 `codex` | 改为读 roster 匹配 `peer-reviewer` 角色 |
+| 其他 Skills | 示例只覆盖布偶↔缅因 | 泛化为 roster-based |
 
 ## 下一步
 
