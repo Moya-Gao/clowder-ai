@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
@@ -22,6 +22,9 @@ import { createTaskStore } from './domains/cats/services/stores/factories/TaskSt
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
+import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
+import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
+import type { InvocationRecordStoreLike, RouterLike } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
@@ -192,6 +195,17 @@ async function main(): Promise<void> {
   const modeStore = new ModeStore();
   const modeOrchestrator = new ModeOrchestrator({ modeStore, socketManager });
 
+  // F39: Message queue delivery
+  const invocationQueue = new InvocationQueue();
+  const queueProcessor = new QueueProcessor({
+    queue: invocationQueue,
+    invocationTracker,
+    invocationRecordStore: invocationRecordStore as unknown as InvocationRecordStoreLike,
+    router: router as unknown as RouterLike,
+    socketManager,
+    log: app.log,
+  });
+
   // Register routes (socketManager injected, no circular import)
   await app.register(messagesRoutes, {
     registry,
@@ -208,6 +222,14 @@ async function main(): Promise<void> {
     draftStore,
     modeStore,
     modeOrchestrator,
+    invocationQueue,
+    queueProcessor,
+  });
+  await app.register(queueRoutes, {
+    threadStore,
+    invocationQueue,
+    queueProcessor,
+    socketManager,
   });
   await app.register(invocationsRoutes, {
     invocationRecordStore,
@@ -215,6 +237,7 @@ async function main(): Promise<void> {
     socketManager,
     router,
     invocationTracker,
+    queueProcessor,
   });
   await app.register(messageActionsRoutes, {
     messageStore,

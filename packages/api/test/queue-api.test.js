@@ -1,0 +1,376 @@
+/**
+ * Queue Management API tests (F39 Task 4)
+ * Tests: GET/DELETE/POST/PATCH queue endpoints with auth + isolation.
+ */
+
+import { describe, it, beforeEach, afterEach, mock } from 'node:test';
+import assert from 'node:assert/strict';
+import Fastify from 'fastify';
+
+const { InvocationQueue } = await import(
+  '../dist/domains/cats/services/agents/invocation/InvocationQueue.js'
+);
+
+/** Build deps with stubs */
+function buildDeps(overrides = {}) {
+  const invocationQueue = new InvocationQueue();
+  return {
+    threadStore: {
+      get: mock.fn(async (id) => ({
+        id,
+        title: 'Test Thread',
+        createdBy: 'system', // default: public thread
+      })),
+    },
+    invocationQueue,
+    queueProcessor: {
+      processNext: mock.fn(async () => ({ started: false })),
+      isPaused: mock.fn(() => false),
+    },
+    socketManager: {
+      broadcastAgentMessage: mock.fn(),
+      broadcastToRoom: mock.fn(),
+      emitToUser: mock.fn(),
+    },
+    ...overrides,
+  };
+}
+
+/** Enqueue a test entry */
+function enqueueEntry(queue, overrides = {}) {
+  return queue.enqueue({
+    threadId: 't1',
+    userId: 'user-a',
+    content: 'hello',
+    source: 'user',
+    targetCats: ['opus'],
+    intent: 'execute',
+    ...overrides,
+  });
+}
+
+describe('Queue Management API', () => {
+  let app;
+  let deps;
+
+  beforeEach(async () => {
+    deps = buildDeps();
+    const { queueRoutes } = await import('../dist/routes/queue.js');
+    app = Fastify();
+    await app.register(queueRoutes, deps);
+    await app.ready();
+  });
+
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
+  // ── Auth ──
+
+  it('returns 401 when userId header missing', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('returns 404 when thread not found', async () => {
+    deps.threadStore.get.mock.mockImplementation(async () => null);
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('returns 403 when userId does not match thread owner', async () => {
+    deps.threadStore.get.mock.mockImplementation(async () => ({
+      id: 't1',
+      title: 'Private',
+      createdBy: 'user-b', // not system, not user-a
+    }));
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    assert.equal(res.statusCode, 403);
+  });
+
+  it('allows access when createdBy is system (default thread)', async () => {
+    // Default: createdBy='system' — any user can access
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    assert.equal(res.statusCode, 200);
+  });
+
+  // ── User isolation (scopeKey) ──
+
+  it('GET /queue returns only requesting user entries', async () => {
+    enqueueEntry(deps.invocationQueue, { userId: 'user-a', content: 'a msg' });
+    enqueueEntry(deps.invocationQueue, { userId: 'user-b', content: 'b msg', targetCats: ['codex'] });
+
+    // user-a sees only their entry
+    const resA = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const bodyA = JSON.parse(resA.body);
+    assert.equal(bodyA.queue.length, 1);
+    assert.equal(bodyA.queue[0].content, 'a msg');
+
+    // user-b sees only their entry
+    const resB = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-b' },
+    });
+    const bodyB = JSON.parse(resB.body);
+    assert.equal(bodyB.queue.length, 1);
+    assert.equal(bodyB.queue[0].content, 'b msg');
+  });
+
+  it('DELETE /queue/:entryId returns 404 for another user entry', async () => {
+    const r = enqueueEntry(deps.invocationQueue, { userId: 'user-a' });
+    // user-b tries to delete user-a's entry
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/t1/queue/${r.entry.id}`,
+      headers: { 'x-cat-cafe-user': 'user-b' },
+    });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('DELETE /queue clears only requesting user entries', async () => {
+    enqueueEntry(deps.invocationQueue, { userId: 'user-a', targetCats: ['a'] });
+    enqueueEntry(deps.invocationQueue, { userId: 'user-a', targetCats: ['b'] });
+    enqueueEntry(deps.invocationQueue, { userId: 'user-b', targetCats: ['c'] });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.cleared.length, 2);
+
+    // user-b's entry unaffected
+    assert.equal(deps.invocationQueue.list('t1', 'user-b').length, 1);
+  });
+
+  it('POST /queue/next only processes requesting user queue', async () => {
+    enqueueEntry(deps.invocationQueue, { userId: 'user-a' });
+    enqueueEntry(deps.invocationQueue, { userId: 'user-b', targetCats: ['codex'] });
+
+    deps.queueProcessor.processNext.mock.mockImplementation(
+      async (threadId, userId) => {
+        // Simulate processing user's queue
+        return { started: true, entry: { userId } };
+      },
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/t1/queue/next',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.started, true);
+
+    // Verify processNext was called with user-a
+    const call = deps.queueProcessor.processNext.mock.calls[0];
+    assert.equal(call.arguments[0], 't1');
+    assert.equal(call.arguments[1], 'user-a');
+  });
+
+  // ── Functional: GET paused state (P1-2 fix) ──
+
+  it('GET /queue returns paused=true when queueProcessor reports paused', async () => {
+    enqueueEntry(deps.invocationQueue);
+    // Stub isPaused to return true
+    deps.queueProcessor.isPaused = mock.fn(() => true);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.paused, true);
+  });
+
+  it('GET /queue returns paused=false when queueProcessor reports not paused', async () => {
+    enqueueEntry(deps.invocationQueue);
+    deps.queueProcessor.isPaused = mock.fn(() => false);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.paused, false);
+  });
+
+  // ── Functional: GET ──
+
+  it('GET /queue returns entries', async () => {
+    enqueueEntry(deps.invocationQueue, { content: 'first', targetCats: ['a'] });
+    enqueueEntry(deps.invocationQueue, { content: 'second', targetCats: ['b'] });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.queue.length, 2);
+    assert.equal(body.queue[0].content, 'first');
+  });
+
+  // ── Functional: DELETE entry ──
+
+  it('DELETE /queue/:entryId removes entry and emits queue_updated', async () => {
+    const r = enqueueEntry(deps.invocationQueue);
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/t1/queue/${r.entry.id}`,
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(deps.invocationQueue.list('t1', 'user-a').length, 0);
+
+    // Should emit queue_updated
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const updateCall = emitCalls.find((c) => c.arguments[1] === 'queue_updated');
+    assert.ok(updateCall);
+    assert.equal(updateCall.arguments[2].action, 'removed');
+  });
+
+  it('DELETE /queue/:entryId rejects processing entry (409)', async () => {
+    enqueueEntry(deps.invocationQueue);
+    deps.invocationQueue.markProcessing('t1', 'user-a');
+
+    const entries = deps.invocationQueue.list('t1', 'user-a');
+    const processingEntry = entries.find((e) => e.status === 'processing');
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/t1/queue/${processingEntry.id}`,
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    assert.equal(res.statusCode, 409);
+  });
+
+  // ── Functional: POST next ──
+
+  it('POST /queue/next triggers next entry processing', async () => {
+    deps.queueProcessor.processNext.mock.mockImplementation(
+      async () => ({ started: true, entry: { id: 'e1' } }),
+    );
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/t1/queue/next',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.started, true);
+  });
+
+  it('POST /queue/next returns started=false when empty', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads/t1/queue/next',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.started, false);
+  });
+
+  // ── Functional: DELETE clear ──
+
+  it('DELETE /queue clears all entries for user', async () => {
+    enqueueEntry(deps.invocationQueue, { targetCats: ['a'] });
+    enqueueEntry(deps.invocationQueue, { targetCats: ['b'] });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.cleared.length, 2);
+    assert.equal(deps.invocationQueue.list('t1', 'user-a').length, 0);
+
+    // Should emit queue_updated with action='cleared'
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const updateCall = emitCalls.find((c) => c.arguments[1] === 'queue_updated');
+    assert.ok(updateCall);
+    assert.equal(updateCall.arguments[2].action, 'cleared');
+  });
+
+  // ── Functional: PATCH move ──
+
+  it('PATCH /queue/:entryId/move up swaps with previous entry', async () => {
+    enqueueEntry(deps.invocationQueue, { content: 'first', targetCats: ['a'] });
+    const r2 = enqueueEntry(deps.invocationQueue, { content: 'second', targetCats: ['b'] });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/t1/queue/${r2.entry.id}/move`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { direction: 'up' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const queue = deps.invocationQueue.list('t1', 'user-a');
+    assert.equal(queue[0].content, 'second');
+    assert.equal(queue[1].content, 'first');
+
+    // Should emit queue_updated with action='reordered'
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const updateCall = emitCalls.find((c) => c.arguments[1] === 'queue_updated');
+    assert.ok(updateCall);
+    assert.equal(updateCall.arguments[2].action, 'reordered');
+  });
+
+  it('PATCH /queue/:entryId/move down swaps with next entry', async () => {
+    const r1 = enqueueEntry(deps.invocationQueue, { content: 'first', targetCats: ['a'] });
+    enqueueEntry(deps.invocationQueue, { content: 'second', targetCats: ['b'] });
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/t1/queue/${r1.entry.id}/move`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { direction: 'down' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const queue = deps.invocationQueue.list('t1', 'user-a');
+    assert.equal(queue[0].content, 'second');
+  });
+
+  it('PATCH /queue/:entryId/move rejects processing entry (409)', async () => {
+    enqueueEntry(deps.invocationQueue);
+    deps.invocationQueue.markProcessing('t1', 'user-a');
+
+    const entries = deps.invocationQueue.list('t1', 'user-a');
+    const processingEntry = entries.find((e) => e.status === 'processing');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/t1/queue/${processingEntry.id}/move`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { direction: 'up' },
+    });
+    assert.equal(res.statusCode, 409);
+  });
+});

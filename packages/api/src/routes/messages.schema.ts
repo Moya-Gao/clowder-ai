@@ -23,6 +23,8 @@ export const sendMessageSchema = z.object({
   visibility: z.enum(['public', 'whisper']).optional(),
   /** F35: Whisper recipients. Required when visibility='whisper'. */
   whisperTo: z.array(catIdSchema()).optional(),
+  /** F39: Delivery mode. undefined = smart default (queue when active, immediate otherwise). */
+  deliveryMode: z.enum(['immediate', 'queue', 'force']).optional(),
 }).refine(
   (data) => data.visibility !== 'whisper' || (data.whisperTo && data.whisperTo.length > 0),
   { message: 'whisperTo must be non-empty when visibility is whisper', path: ['whisperTo'] },

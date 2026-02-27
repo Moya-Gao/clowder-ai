@@ -246,6 +246,7 @@ describe('R2: delete-guard race via POST /api/messages route', () => {
     // Mock tracker: isDeleting() → false, start() → pre-aborted controller (simulates race)
     const raceTracker = {
       isDeleting: () => false,
+      has: () => false,
       start: () => {
         const ctrl = new AbortController();
         ctrl.abort();
@@ -289,7 +290,7 @@ describe('R2: delete-guard race via POST /api/messages route', () => {
     await app.register(messagesRoutes, {
       registry: new InvocationRegistry(),
       messageStore,
-      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {} },
+      socketManager: { broadcastAgentMessage: () => {}, broadcastToRoom: () => {}, emitToUser: () => {} },
       router: mockRouter,
       threadStore,
       invocationTracker: raceTracker,

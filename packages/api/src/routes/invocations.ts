@@ -13,6 +13,7 @@ import type { IInvocationRecordStore } from '../domains/cats/services/stores/por
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { AgentRouter } from '../domains/cats/services/agents/routing/AgentRouter.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { PersistenceContext } from '../domains/cats/services/agents/routing/route-helpers.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
@@ -24,6 +25,8 @@ export interface InvocationsRoutesOptions {
   router: AgentRouter;
   invocationTracker: InvocationTracker;
   uploadDir?: string;
+  /** F39: Queue processor for auto-dequeue on retry complete */
+  queueProcessor?: QueueProcessor;
 }
 
 export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
@@ -158,6 +161,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
         );
       }, HEARTBEAT_INTERVAL_MS);
 
+      // F39: Track final status for queue auto-dequeue
+      let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
+
       try {
         opts.socketManager.broadcastToRoom(
           `thread:${record.threadId}`,
@@ -209,6 +215,7 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
           await opts.router.ackCollectedCursors(record.userId, record.threadId, cursorBoundaries);
 
           await opts.invocationRecordStore.update(id, { status: 'succeeded' });
+          finalStatus = 'succeeded';
         }
       } catch (err) {
         console.error('[invocations] Retry execution error:', err);
@@ -227,6 +234,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
       } finally {
         clearInterval(heartbeatInterval);
         opts.invocationTracker.complete(record.threadId, controller);
+        // F39: Notify queue processor for auto-dequeue chain
+        opts.queueProcessor?.onInvocationComplete(record.threadId, finalStatus)
+          .catch(() => { /* best-effort */ });
       }
     })();
   });

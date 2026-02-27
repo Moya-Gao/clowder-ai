@@ -28,8 +28,10 @@ import type { PersistenceContext } from '../domains/cats/services/agents/routing
 import { mergeTokenUsage, type TokenUsage } from '../domains/cats/services/types.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
-import type { SocketManager } from '../infrastructure/websocket/index.js';
+import { type SocketManager, buildCancelMessages } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
+import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { AutoSummarizer } from '../domains/cats/services/orchestration/AutoSummarizer.js';
 import type { ISummaryStore } from '../domains/cats/services/stores/ports/SummaryStore.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -61,6 +63,10 @@ export interface MessagesRoutesOptions {
   modeOrchestrator?: ModeOrchestrator;
   /** #80: Streaming draft store for F5 recovery */
   draftStore?: IDraftStore;
+  /** F39: Message queue for delivery-mode routing */
+  invocationQueue?: InvocationQueue;
+  /** F39: Queue processor for auto-dequeue on invocation complete */
+  queueProcessor?: QueueProcessor;
 }
 
 const getMessagesSchema = z.object({
@@ -97,6 +103,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     let whisperVisibility: 'whisper' | undefined;
     let whisperRecipients: readonly CatId[] | undefined;
 
+    // F39: Delivery mode
+    let deliveryMode: 'immediate' | 'queue' | 'force' | undefined;
+
     if (request.isMultipart()) {
       // Parse multipart: text fields + image files
       const parsed = await parseMultipart(request, uploadDir);
@@ -113,6 +122,10 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         whisperVisibility = 'whisper';
         whisperRecipients = parsed.whisperTo as CatId[];
       }
+      // F39: Extract deliveryMode from multipart
+      if (parsed.deliveryMode) {
+        deliveryMode = parsed.deliveryMode;
+      }
     } else {
       // JSON mode (backwards compatible)
       const parseResult = sendMessageSchema.safeParse(request.body);
@@ -121,6 +134,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         return { error: 'Invalid request body', details: parseResult.error.issues };
       }
       ({ content, userId: legacyUserId, threadId, idempotencyKey } = parseResult.data);
+      deliveryMode = parseResult.data.deliveryMode;
       // F35: Extract whisper fields from parsed body
       if (parseResult.data.visibility === 'whisper') {
         whisperVisibility = 'whisper';
@@ -189,6 +203,100 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
     // Server-generated idempotency key if client didn't provide one
     const resolvedIdempotencyKey = idempotencyKey ?? randomUUID();
 
+    // F39: Queue routing — determine delivery mode
+    const hasActive = opts.invocationTracker?.has(resolvedThreadId) ?? false;
+    const mode = deliveryMode ?? (hasActive ? 'queue' : 'immediate');
+
+    if (mode === 'queue' && hasActive && opts.invocationQueue) {
+      // ① Enqueue first (sync, capacity gatekeeper) — messageId is null at this point
+      const enqueueResult = opts.invocationQueue.enqueue({
+        threadId: resolvedThreadId,
+        userId,
+        content,
+        source: 'user',
+        targetCats,
+        intent: intent.intent,
+      });
+
+      // Queue full → 429, no message written (no ghost message)
+      if (enqueueResult.outcome === 'full') {
+        opts.socketManager.emitToUser(userId, 'queue_full_warning', {
+          threadId: resolvedThreadId,
+          source: 'user',
+          queueSize: opts.invocationQueue.size(resolvedThreadId, userId),
+          queue: opts.invocationQueue.list(resolvedThreadId, userId),
+        });
+        reply.status(429);
+        return {
+          error: '消息队列已满',
+          code: 'QUEUE_FULL',
+          queueSize: opts.invocationQueue.size(resolvedThreadId, userId),
+        };
+      }
+
+      // ② Write user message (message becomes visible to frontend)
+      try {
+        const userMessage = await opts.messageStore.append({
+          userId,
+          catId: null,
+          content,
+          mentions: targetCats,
+          timestamp: Date.now(),
+          threadId: resolvedThreadId,
+          ...(contentBlocks ? { contentBlocks } : {}),
+          ...(whisperVisibility && whisperRecipients
+            ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
+            : {}),
+        });
+
+        // ③ Backfill / append messageId — distinguish enqueued vs merged
+        if (enqueueResult.outcome === 'enqueued') {
+          opts.invocationQueue.backfillMessageId(
+            resolvedThreadId, userId, enqueueResult.entry!.id, userMessage.id,
+          );
+        } else {
+          opts.invocationQueue.appendMergedMessageId(
+            resolvedThreadId, userId, enqueueResult.entry!.id, userMessage.id,
+          );
+        }
+      } catch (err) {
+        // Write failed → rollback queue entry (no ghost data)
+        if (enqueueResult.outcome === 'enqueued') {
+          // rollbackEnqueue: preserves merged content from concurrent requests
+          opts.invocationQueue.rollbackEnqueue(resolvedThreadId, userId, enqueueResult.entry!.id);
+        } else {
+          opts.invocationQueue.rollbackMerge(resolvedThreadId, userId, enqueueResult.entry!.id);
+        }
+        throw err;
+      }
+
+      // Emit queue update to this user only (privacy: scopeKey isolation)
+      opts.socketManager.emitToUser(userId, 'queue_updated', {
+        threadId: resolvedThreadId,
+        queue: opts.invocationQueue.list(resolvedThreadId, userId),
+        action: enqueueResult.outcome,
+      });
+
+      reply.status(202);
+      return {
+        status: 'queued',
+        queuePosition: enqueueResult.queuePosition,
+        entryId: enqueueResult.entry?.id,
+        merged: enqueueResult.outcome === 'merged',
+      };
+    }
+
+    if (mode === 'force' && hasActive) {
+      // Cancel current invocation (same logic as WS cancel)
+      const cancelResult = opts.invocationTracker?.cancel(resolvedThreadId, userId);
+      if (cancelResult?.cancelled) {
+        for (const m of buildCancelMessages(cancelResult)) {
+          opts.socketManager.broadcastAgentMessage(m, resolvedThreadId);
+        }
+      }
+      // Fall through to immediate execution below
+    }
+
     // ① Atomic create InvocationRecord (Lua in Redis, sync Map in memory)
     if (opts.invocationRecordStore) {
       const createResult = await opts.invocationRecordStore.create({
@@ -255,6 +363,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             { threadId: resolvedThreadId, timestamp: Date.now() },
           );
         }, HEARTBEAT_INTERVAL_MS);
+
+        // F39: Track final status for queue auto-dequeue
+        let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
 
         try {
           await opts.invocationRecordStore!.update(createResult.invocationId, {
@@ -355,6 +466,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 usageByCat: Object.fromEntries(collectedUsage),
               } : {}),
             });
+            finalStatus = 'succeeded';
 
             // Push notification: cat(s) finished responding
             const pushSvc = getPushNotificationService();
@@ -409,6 +521,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         } finally {
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.complete(resolvedThreadId, controller);
+          // F39: Notify queue processor for auto-dequeue chain
+          opts.queueProcessor?.onInvocationComplete(resolvedThreadId, finalStatus)
+            .catch(() => { /* best-effort, don't crash background task */ });
         }
       })();
     } else {

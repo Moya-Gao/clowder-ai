@@ -69,6 +69,11 @@ export class SocketManager {
       const userId = authUserId || queryUserId || 'anonymous';
       console.log(`[ws] Client connected: ${socket.id} (user: ${userId})`);
 
+      // F39: Auto-join user-scoped room for emitToUser (multi-tab support)
+      if (userId !== 'anonymous') {
+        socket.join(`user:${userId}`);
+      }
+
       socket.on('disconnect', () => {
         console.log(`[ws] Client disconnected: ${socket.id}`);
       });
@@ -116,6 +121,11 @@ export class SocketManager {
 
   broadcastToRoom(room: string, event: string, data: unknown): void {
     this.io.to(room).emit(event, data);
+  }
+
+  /** F39: Emit to all sockets belonging to a specific user (multi-tab safe). */
+  emitToUser(userId: string, event: string, data: unknown): void {
+    this.io.to(`user:${userId}`).emit(event, data);
   }
 
   getIO(): Server {
