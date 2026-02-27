@@ -313,25 +313,105 @@ description: "创建新 Feature 时使用。触发词：新功能、new feat、�
 
 ---
 
+## Feature 演化图（铲屎官梳理 2026-02-26）
+
+铲屎官用 Mermaid 可视化了 Cat Café 的 Feature 演化关系，分为 5 个逻辑栈：
+
+### 1. 语音栈（Voice Stack）
+```
+F020 → F022 → F010
+        ↓
+       F034
+```
+- F020: TTS 文本转语音
+- F022: Voice Input 语音输入
+- F034: Voice Pipeline 完整语音流
+- F010: Mobile Cat 手机端猫猫（依赖语音栈）
+
+### 2. 记忆栈（Memory Stack）
+```
+F024 → F025 → F040
+```
+- F024: Session Blindness 修复（上下文感知）
+- F025: Session Chain 会话链
+- F040: BACKLOG 整理（本 Feature）
+
+### 3. Agent 架构栈（Agent Architecture Stack）
+```
+F032 → F033 → F037 → F038
+              ↓
+             F041
+```
+- F032: Agent Plugin Architecture（CatId 松绑 + AgentRegistry）
+- F033: Session Chain 策略可配置化
+- F037: Agent Swarm 协同模式
+- F038: Skills 梳理 + 按需发现机制
+- F041: 能力看板（Hub MCP/Skills 统一管理）
+
+### 4. 信息源栈（Information Source Stack）
+```
+F021 → F039
+```
+- F021: Signal Hunter 集成（信息源）
+- F039: 消息排队投递（用户操作三模式）
+
+### 5. 会话基建栈（Session Infrastructure Stack）
+```
+F014 → F015 → F036
+```
+- F014: SVG 猫猫状态动画
+- F015: Backlog 管理（基础）
+- F036: Logo 一笔画动画
+
+> **演化关系记录规则**：每个 Feature 聚合文件的 `Dependencies.Evolved from` 字段记录上游，由 `feat-completion` skill 在完成时自动提示。
+
+---
+
 ## Progress（进度）
 
-- [x] 2026-02-26: 问题诊断完成
-- [x] 2026-02-26: 探索现有 feat 关系图（haiku）
-- [x] 2026-02-26: 创建本文件（第一个示范）
-- [x] 2026-02-26: 与 Opus 4.6 讨论，纳入三点改进（Key Decisions 字段、取消 6 月归档、kickoff 而非 completion）
-- [x] 2026-02-26: 三猫收敛 frontmatter contract（4.5 + 4.6 + GPT-5.2）
-  - 最终 schema：`feature_ids` + `topics` + `doc_kind` + `created`
+### Phase 1: 设计收敛（2026-02-26，已完成）
+
+- [x] 问题诊断完成
+- [x] 探索现有 feat 关系图（haiku）
+- [x] 创建本文件（第一个示范）
+- [x] 与 Opus 4.6 讨论，纳入三点改进（Key Decisions 字段、取消 6 月归档、kickoff 而非 completion）
+- [x] 三猫收敛 frontmatter contract（4.5 + 4.6 + GPT-5.2）
+  - 最终 schema：`feature_ids` + `debt_ids` + `topics` + `doc_kind` + `created`
   - `stage` 不下沉到普通文档
   - 编号 `F001` / `TD001`（三位固定宽度）
   - 机器索引 `index.json`（脚本生成）
-- [x] 2026-02-26: 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **布偶猫** ✅
-- [x] 2026-02-26: 设计 feat-kickoff skill — **布偶猫** ✅
-- [ ] 写 frontmatter 迁移脚本 — **缅因猫**
-- [ ] 历史文档补 frontmatter（全量，含归档）— **缅因猫**（token 充裕 + 细致）
-- [ ] 验收 frontmatter 补录结果 — **Sonnet/Haiku**
-- [ ] 用 F021 验证模板
-- [ ] 用 F032 验证"分阶段交付"记录
-- [ ] 批量整理现有 feat
+- [x] 设计 BACKLOG 新结构（拆分 Feature Roadmap + Tech Debt）— **布偶猫**
+- [x] 设计 feat-kickoff skill — **布偶猫**
+
+### Phase 2: 迁移执行（2026-02-26~27，已完成）
+
+- [x] 写 frontmatter 迁移脚本 — **缅因猫**（`scripts/migrate-frontmatter.mjs`）
+- [x] 执行迁移脚本，拆分 BACKLOG + TECH-DEBT — **缅因猫**
+- [x] 恢复 F001-F041 聚合文件内容（从 git history `be27a44^` 恢复）— **缅因猫**
+- [x] 创建 `docs/features/README.md` 统一索引 — **缅因猫**
+- [x] 历史文档补 frontmatter（research/discussion/bug-report 共 50+ 文件）— **缅因猫**
+- [x] TECH-DEBT commit 标注（52/83 条，剩余 31 条无对应 commit）— **缅因猫**
+- [x] 创建维护脚本 `scripts/tech-debt-maintain.mjs` — **缅因猫**
+- [x] 验收 F021 重新开放（F21++ 未完成，不能标 done）— **布偶猫+铲屎官**
+- [x] 扩展 frontmatter contract 加入 `debt_ids` 字段 — **布偶猫**（commit `3fb8aa9`）
+- [x] 更新 SOP.md "完成后真相源同步" 章节 — **布偶猫**（commit `3fb8aa9`）
+
+### Phase 3: Skill 实现（进行中）
+
+- [x] 创建 `feat-kickoff` skill — **布偶猫**（`cat-cafe-skills/feat-kickoff/SKILL.md`）
+- [ ] 创建 `feat-completion` skill — **待做**
+
+### Phase 4: 沉淀同步（待做）
+
+- [ ] 写 ADR: Metadata Contract（记录为何拒绝 `stage` 下沉）
+- [ ] 更新 lessons-learned.md（"状态字段多点写入会复发蜘蛛网"）
+- [ ] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff 触发）
+
+### Phase 5: 验收与优化（待做）
+
+- [ ] 生成 `docs/features/index.json` 机器索引
+- [ ] 用 F032 验证"分阶段交付"记录模式
+- [ ] 全量扫描验证 frontmatter 覆盖率
 
 ---
 
@@ -346,15 +426,120 @@ description: "创建新 Feature 时使用。触发词：新功能、new feat、�
 
 ---
 
-## 收敛后沉淀（砚砚提醒）
+## Gap 分析（2026-02-27 更新）
 
-按"讨论收敛后的沉淀检查"规则，以下需要同步：
+### 已完成 ✅
+
+| 项目 | 说明 | 负责猫 |
+|------|------|--------|
+| BACKLOG 拆分 | Feature Roadmap + Tech Debt 分离 | 缅因猫 |
+| F001-F041 聚合文件 | 全部从 git history 恢复 | 缅因猫 |
+| `docs/features/README.md` | 统一索引（done + active） | 缅因猫 |
+| Frontmatter 补录 | 50+ 文件（research/discussion/bug-report） | 缅因猫 |
+| `feat-kickoff` skill | 已创建并注册 | 布偶猫 |
+| `debt_ids` 字段 | 加入 frontmatter contract | 布偶猫 |
+| SOP 更新 | "完成后真相源同步" 章节 | 布偶猫 |
+| 维护脚本 | `scripts/tech-debt-maintain.mjs` | 缅因猫 |
+
+### 未完成 Gap
+
+| Gap | 原因 | 优先级 | 负责猫 |
+|-----|------|--------|--------|
+| `feat-completion` skill | 设计时决定先做 kickoff，completion 延后 | P1 | 布偶猫 |
+| ADR: Metadata Contract | 讨论收敛但沉淀未写 | P2 | 布偶猫 |
+| lessons-learned 更新 | 同上 | P2 | 布偶猫 |
+| 三猫指引同步 | CLAUDE.md/AGENTS.md/GEMINI.md 未同步 F40 规则 | P2 | 布偶猫 |
+| `index.json` 机器索引 | 脚本未写 | P3 | 可选 |
+| Feature 演化图 ADR | 演化关系在哪里记录、怎么维护 | P3 | 可选 |
+
+### `feat-completion` skill 设计草案
+
+**触发条件**（任一）：
+- 铲屎官说"这个 Feature 完成了"、"F0xx done"
+- 所有 Acceptance Criteria 都打勾
+- PR 合入且云端 review 通过
+
+**详细步骤**：
+
+1. **检查 Acceptance Criteria**
+   - 读取 `docs/features/Fxxx.md`
+   - 所有 `- [ ]` 都变成 `- [x]` 了吗？
+   - 如果有未完成项 → 提示"还有 N 项未完成，确认要标记 done？"
+
+2. **更新聚合文件**
+   - `Status: in-progress` → `Status: done`
+   - 添加 `Completed: YYYY-MM-DD`
+   - 确认 Links 章节链接完整
+
+3. **提示演化关系**
+   - 提问："这个 Feature 是从哪个 Feature 演化来的？"
+   - 选项：从 Feature 演化图里列出候选（同一栈的 Feature）
+   - 如果有 → 更新 `Dependencies.Evolved from`
+   - 提问："这个 Feature 完成后，会演化出下一个 Feature 吗？"
+   - 如果有 → 记录待开的下一个 Feature
+
+4. **更新 BACKLOG**
+   - 从 `docs/BACKLOG.md` 移除该行
+   - （聚合文件保留，不删除）
+
+5. **真相源同步检查**
+   - 检查关联的 plans/discussions 是否都有正确的 frontmatter
+   - 检查关联的 Tech Debt 是否标记完成
+
+**检查清单**：
+- [ ] Acceptance Criteria 全部完成
+- [ ] 聚合文件 Status=done, Completed 日期
+- [ ] Dependencies.Evolved from 已填写（如适用）
+- [ ] BACKLOG 已移除该行
+- [ ] 关联文档 frontmatter 正确
+
+---
+
+## 收敛计划（布偶猫 2026-02-27）
+
+### Step 1: 创建 `feat-completion` skill（P1，~30min）
+
+1. 创建 `cat-cafe-skills/feat-completion/SKILL.md`
+2. 使用上方设计草案
+3. 注册 symlinks 给三猫
+
+### Step 2: 沉淀 ADR（P2，~20min）
+
+1. 创建 `docs/decisions/011-metadata-contract.md`
+2. 记录关键决策：
+   - 为什么 `stage` 不下沉到普通文档
+   - 为什么用 `feature_ids` + `debt_ids` 双字段
+   - 机器索引 vs 人工维护的 tradeoff
+
+### Step 3: 更新 lessons-learned（P2，~10min）
+
+1. 编辑 `docs/lessons-learned.md`
+2. 添加："状态字段多点写入会复发蜘蛛网"
+3. 关联 F040
+
+### Step 4: 同步三猫指引（P2，~15min）
+
+1. CLAUDE.md/AGENTS.md/GEMINI.md 添加：
+   - "新文档必须加 frontmatter"
+   - "创建 Feature 时触发 feat-kickoff"
+   - "完成 Feature 时触发 feat-completion"
+
+### Step 5: 验收（P3，可延后）
+
+1. 用 F032 验证"分阶段交付"记录模式
+2. 全量扫描验证 frontmatter 覆盖率
+3. 可选：生成 `index.json`
+
+---
+
+## 收敛后沉淀检查清单（更新）
 
 | 沉淀类型 | 内容 | 状态 |
 |----------|------|------|
-| **ADR** | 新增"Metadata Contract ADR"，记录为何拒绝 `stage` 下沉到全仓文档 | 待写 |
-| **lessons-learned** | "状态字段多点写入会复发蜘蛛网" | 待补 |
-| **指引文件** | CLAUDE.md/AGENTS.md/GEMINI.md 同步文档元数据规范 | 待同步 |
+| **ADR** | ADR-011: Metadata Contract | 待写 → Step 2 |
+| **lessons-learned** | "状态字段多点写入会复发蜘蛛网" | 待补 → Step 3 |
+| **指引文件** | CLAUDE.md/AGENTS.md/GEMINI.md 同步 frontmatter + skill 规则 | 待同步 → Step 4 |
+| **Skill** | `feat-completion` skill | 待创建 → Step 1 |
 
 ---
 
