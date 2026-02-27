@@ -68,6 +68,8 @@ function createMockMessageStore() {
 
 function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}) {
   const participants = { ...initialParticipants };
+  // F032 P1-2: Track activity timestamps for each participant
+  const activity = {};
   return {
     create: (userId, title, projectPath) => ({ id: `thread_mock`, projectPath: projectPath ?? 'default', title: title ?? null, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() }),
     get: (threadId) => ({ id: threadId, projectPath: threadProjectPaths[threadId] ?? 'default', title: null, createdBy: 'system', participants: participants[threadId] ?? [], lastActiveAt: Date.now(), createdAt: Date.now() }),
@@ -75,13 +77,39 @@ function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}
     listByProject: () => [],
     addParticipants: (threadId, catIds) => {
       if (!participants[threadId]) participants[threadId] = [];
+      const now = Date.now();
       for (const catId of catIds) {
         if (!participants[threadId].includes(catId)) {
           participants[threadId].push(catId);
         }
+        // Track activity
+        const key = `${threadId}:${catId}`;
+        const existing = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+        activity[key] = { lastMessageAt: now, messageCount: existing.messageCount + 1 };
       }
     },
     getParticipants: (threadId) => participants[threadId] ?? [],
+    // F032 P1-2: Return participants with activity, sorted by lastMessageAt desc
+    getParticipantsWithActivity: (threadId) => {
+      const cats = participants[threadId] ?? [];
+      return cats
+        .map((catId) => {
+          const key = `${threadId}:${catId}`;
+          const data = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+          return { catId, lastMessageAt: data.lastMessageAt, messageCount: data.messageCount };
+        })
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    },
+    // F032 P1-2: Update participant activity on message
+    updateParticipantActivity: (threadId, catId) => {
+      if (!participants[threadId]) participants[threadId] = [];
+      if (!participants[threadId].includes(catId)) {
+        participants[threadId].push(catId);
+      }
+      const key = `${threadId}:${catId}`;
+      const existing = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+      activity[key] = { lastMessageAt: Date.now(), messageCount: existing.messageCount + 1 };
+    },
     updateLastActive: () => {},
     delete: () => true,
     _participants: participants, // exposed for test assertions
@@ -858,6 +886,44 @@ describe('AgentRouter', () => {
     assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
     assert.equal(mockCodexService.invoke.mock.callCount(), 1);
     assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
+  });
+
+  test('F032 P1-1: no @ mention + no preferredCats returns participants sorted by lastMessageAt DESC', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus');
+    const mockCodexService = createMockAgentService('codex');
+    const mockGeminiService = createMockAgentService('gemini');
+
+    // Create thread store with opus and codex as participants
+    const threadStore = createMockThreadStore({ thread_activity: ['opus', 'codex'] });
+
+    // Manually set activity timestamps: codex more recent than opus
+    // (In real use, updateParticipantActivity would be called after each message)
+    const now = Date.now();
+    threadStore.updateParticipantActivity('thread_activity', 'opus');
+    // Wait a tick to ensure different timestamps
+    await new Promise(resolve => setTimeout(resolve, 5));
+    threadStore.updateParticipantActivity('thread_activity', 'codex');
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    // Use resolveTargetsAndIntent to check the order of targets
+    const result = await router.resolveTargetsAndIntent('what do you think?', 'thread_activity');
+
+    // codex should be first because it has more recent lastMessageAt
+    assert.equal(result.targetCats[0], 'codex', 'Most recently active cat (codex) should be first');
+    assert.equal(result.targetCats[1], 'opus', 'Less recently active cat (opus) should be second');
+    assert.equal(result.targetCats.length, 2);
   });
 
   test('no @ mention + no participants defaults to opus', async () => {

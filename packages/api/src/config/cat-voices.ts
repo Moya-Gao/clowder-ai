@@ -12,7 +12,7 @@
 
 import type { VoiceConfig } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
-import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
+import { loadCatConfig, getDefaultVariant, getAllCatIdsFromConfig } from './cat-config-loader.js';
 import { resolveBreedId } from './breed-resolver.js';
 
 const VOICE_ENV_KEYS = {
@@ -88,9 +88,11 @@ export function getCatVoice(catName: string): VoiceConfig {
  */
 export function getAllCatVoices(): Record<string, VoiceConfig> {
   const result: Record<string, VoiceConfig> = {};
-  const allIds = catRegistry.getAllIds().length > 0
-    ? catRegistry.getAllIds().map(String)
-    : ['opus', 'codex', 'gemini'];
+  // F032 P2: use dynamic config fallback instead of hardcoded cat names
+  const registryIds = catRegistry.getAllIds();
+  const allIds = registryIds.length > 0
+    ? registryIds.map(String)
+    : getAllCatIdsFromConfig();
   for (const catName of allIds) {
     result[catName] = getCatVoice(catName);
   }

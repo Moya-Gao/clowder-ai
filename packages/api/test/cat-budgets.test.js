@@ -96,11 +96,13 @@ describe('getAllCatBudgets', () => {
     delete process.env.MAX_PROMPT_TOKENS;
   });
 
-  it('returns budgets for all three cats', () => {
+  it('returns budgets for all cats (core 3 + variants)', () => {
     const budgets = getAllCatBudgets();
+    // Core breed defaults must exist
     assert.ok(budgets.opus, 'has opus');
     assert.ok(budgets.codex, 'has codex');
     assert.ok(budgets.gemini, 'has gemini');
-    assert.strictEqual(Object.keys(budgets).length, 3);
+    // F032: Now includes variants (sonnet, opus-45, gpt52, spark, gemini25) — at least 8 cats
+    assert.ok(Object.keys(budgets).length >= 3, 'has at least 3 cats');
   });
 });

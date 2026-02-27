@@ -14,7 +14,7 @@ import { generateThreadId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
-import type { Thread, IThreadStore } from '../ports/ThreadStore.js';
+import type { Thread, IThreadStore, ThreadParticipantActivity } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -42,6 +42,31 @@ if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
   return 0
 end
 redis.call('SADD', KEYS[2], unpack(ARGV))
+return 1
+`;
+
+/**
+ * Cloud Codex P2 fix: Atomic participant activity update guard.
+ * Only updates activity when the thread detail hash has canonical `id`.
+ * KEYS[1] = detail key, KEYS[2] = participants key, KEYS[3] = activity key
+ * ARGV[1] = catId, ARGV[2] = timestamp, ARGV[3] = ttl (or -1 for no expiration)
+ *
+ * Cloud Codex R2 P2 fix: Also refresh detail TTL to prevent detail expiring
+ * before participants/activity (which would cause routing to non-existent thread).
+ */
+const UPDATE_ACTIVITY_IF_DETAIL_HAS_ID_LUA = `
+if redis.call('HEXISTS', KEYS[1], 'id') == 0 then
+  return 0
+end
+redis.call('SADD', KEYS[2], ARGV[1])
+redis.call('HSET', KEYS[3], ARGV[1] .. ':lastMessageAt', ARGV[2])
+redis.call('HINCRBY', KEYS[3], ARGV[1] .. ':messageCount', 1)
+local ttl = tonumber(ARGV[3])
+if ttl > 0 then
+  redis.call('EXPIRE', KEYS[1], ttl)
+  redis.call('EXPIRE', KEYS[2], ttl)
+  redis.call('EXPIRE', KEYS[3], ttl)
+end
 return 1
 `;
 
@@ -148,6 +173,10 @@ export class RedisThreadStore implements IThreadStore {
       ...catIds,
     ) as number;
     if (updated === 0) return;
+
+    // Cloud Codex P1 fix: Do NOT update activity here.
+    // Activity should only be updated via updateParticipantActivity() after successful message append.
+    // Only refresh TTL for participants key.
     if (this.ttlSeconds !== null) {
       await this.redis.expire(participantsKey, this.ttlSeconds);
     }
@@ -156,6 +185,47 @@ export class RedisThreadStore implements IThreadStore {
   async getParticipants(threadId: string): Promise<CatId[]> {
     const members = await this.redis.smembers(ThreadKeys.participants(threadId));
     return members as CatId[];
+  }
+
+  /** F032 Phase C: Get participants with activity, sorted by lastMessageAt descending */
+  async getParticipantsWithActivity(threadId: string): Promise<ThreadParticipantActivity[]> {
+    const participants = await this.getParticipants(threadId);
+    if (participants.length === 0) return [];
+
+    const activityKey = ThreadKeys.activity(threadId);
+    const activityData = await this.redis.hgetall(activityKey);
+
+    const result: ThreadParticipantActivity[] = participants.map((catId) => {
+      const lastMessageAt = parseInt(activityData[`${catId}:lastMessageAt`] ?? '0', 10);
+      const messageCount = parseInt(activityData[`${catId}:messageCount`] ?? '0', 10);
+      return { catId, lastMessageAt, messageCount };
+    });
+
+    // Sort by lastMessageAt descending (most recent first)
+    result.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    return result;
+  }
+
+  /** F032 P1-2 fix: Update participant activity on every message */
+  async updateParticipantActivity(threadId: string, catId: CatId): Promise<void> {
+    // Cloud Codex P2 fix: Use Lua script to atomically check thread existence
+    // and update activity with TTL refresh.
+    const detailKey = ThreadKeys.detail(threadId);
+    const participantsKey = ThreadKeys.participants(threadId);
+    const activityKey = ThreadKeys.activity(threadId);
+    const now = Date.now();
+    const ttl = this.ttlSeconds ?? -1;
+
+    await this.redis.eval(
+      UPDATE_ACTIVITY_IF_DETAIL_HAS_ID_LUA,
+      3,
+      detailKey,
+      participantsKey,
+      activityKey,
+      catId,
+      String(now),
+      String(ttl),
+    );
   }
 
   async updateTitle(threadId: string, title: string): Promise<void> {
@@ -241,6 +311,8 @@ export class RedisThreadStore implements IThreadStore {
     const pipeline = this.redis.multi();
     pipeline.del(key);
     pipeline.del(ThreadKeys.participants(threadId));
+    // F032 Phase C: Clean up activity data
+    pipeline.del(ThreadKeys.activity(threadId));
     if (createdBy) {
       pipeline.zrem(ThreadKeys.userList(createdBy), threadId);
     }

@@ -1,6 +1,7 @@
 'use client';
 
 import { CatAvatar } from './CatAvatar';
+import { useCatData } from '@/hooks/useCatData';
 
 interface SummaryCardProps {
   topic: string;
@@ -9,10 +10,6 @@ interface SummaryCardProps {
   createdBy: string;
   timestamp: number;
 }
-
-const CAT_NAMES: Record<string, string> = {
-  opus: '布偶猫', codex: '缅因猫', gemini: '暹罗猫', system: '系统纪要',
-};
 
 function formatTime(ts: number): string {
   return new Date(ts).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
@@ -23,8 +20,11 @@ function formatTime(ts: number): string {
  * Polaroid-style card for discussion summaries.
  */
 export function SummaryCard({ topic, conclusions, openQuestions, createdBy, timestamp }: SummaryCardProps) {
-  const catName = CAT_NAMES[createdBy];
-  const creatorLabel = catName ?? '铲屎官';
+  // F032 P2: Use dynamic cat data instead of hardcoded CAT_NAMES
+  const { getCatById } = useCatData();
+  const catData = getCatById(createdBy);
+  // Special case: 'system' createdBy → '系统纪要', otherwise use cat displayName or '铲屎官'
+  const creatorLabel = createdBy === 'system' ? '系统纪要' : (catData?.displayName ?? '铲屎官');
 
   return (
     <div className="flex justify-center mb-4">
@@ -69,7 +69,7 @@ export function SummaryCard({ topic, conclusions, openQuestions, createdBy, time
         <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
           {createdBy === 'system' ? (
             <span className="text-xs">🤖</span>
-          ) : catName ? (
+          ) : catData ? (
             <CatAvatar catId={createdBy} size={16} />
           ) : (
             <span className="text-xs">👤</span>

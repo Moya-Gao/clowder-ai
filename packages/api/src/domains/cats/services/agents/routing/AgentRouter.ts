@@ -228,8 +228,12 @@ export class AgentRouter {
       )];
       if (validPreferred.length > 0) return validPreferred;
 
-      const participants = await this.threadStore.getParticipants(threadId);
-      if (participants.length > 0) return participants;
+      // F032 P1-1 fix: Use activity-based sorting for participants
+      const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
+      if (participantsWithActivity.length > 0) {
+        // Already sorted by lastMessageAt desc in ThreadStore
+        return participantsWithActivity.map(p => p.catId);
+      }
     }
 
     return [getDefaultCatId()];
@@ -256,8 +260,12 @@ export class AgentRouter {
       )];
       if (validPreferred.length > 0) return validPreferred;
 
-      const participants = await this.threadStore.getParticipants(threadId);
-      if (participants.length > 0) return participants;
+      // F032 P1-1 fix: Use activity-based sorting for participants
+      const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
+      if (participantsWithActivity.length > 0) {
+        // Already sorted by lastMessageAt desc in ThreadStore
+        return participantsWithActivity.map(p => p.catId);
+      }
     }
 
     return [getDefaultCatId()];

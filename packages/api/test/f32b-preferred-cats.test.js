@@ -63,6 +63,7 @@ function createMockAgentService(catId, responseText = 'Hello from mock') {
 function createMockThreadStoreWithPreferred(opts = {}) {
   const preferredCats = { ...opts.preferredCats };
   const participants = { ...opts.participants };
+  const activity = {};
   return {
     create: (userId, title, projectPath) => ({
       id: 'thread_mock',
@@ -87,11 +88,35 @@ function createMockThreadStoreWithPreferred(opts = {}) {
     listByProject: () => [],
     addParticipants: (threadId, catIds) => {
       if (!participants[threadId]) participants[threadId] = [];
+      const now = Date.now();
       for (const catId of catIds) {
         if (!participants[threadId].includes(catId)) participants[threadId].push(catId);
+        const key = `${threadId}:${catId}`;
+        const existing = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+        activity[key] = { lastMessageAt: now, messageCount: existing.messageCount + 1 };
       }
     },
     getParticipants: (threadId) => participants[threadId] ?? [],
+    // F032 P1-2: Return participants with activity
+    getParticipantsWithActivity: (threadId) => {
+      const cats = participants[threadId] ?? [];
+      return cats
+        .map((catId) => {
+          const key = `${threadId}:${catId}`;
+          const data = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+          return { catId, lastMessageAt: data.lastMessageAt, messageCount: data.messageCount };
+        })
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    },
+    updateParticipantActivity: (threadId, catId) => {
+      if (!participants[threadId]) participants[threadId] = [];
+      if (!participants[threadId].includes(catId)) {
+        participants[threadId].push(catId);
+      }
+      const key = `${threadId}:${catId}`;
+      const existing = activity[key] ?? { lastMessageAt: 0, messageCount: 0 };
+      activity[key] = { lastMessageAt: Date.now(), messageCount: existing.messageCount + 1 };
+    },
     updateLastActive: () => {},
     updatePreferredCats: (threadId, catIds) => {
       if (catIds.length > 0) {

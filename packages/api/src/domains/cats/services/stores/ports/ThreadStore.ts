@@ -13,6 +13,17 @@ import type { CatId } from '@cat-cafe/shared';
 export const DEFAULT_THREAD_ID = 'default';
 
 /**
+ * F032 Phase C: Participant activity data for reviewer matching.
+ */
+export interface ThreadParticipantActivity {
+  catId: CatId;
+  /** Unix timestamp of last message from this cat in the thread */
+  lastMessageAt: number;
+  /** Total message count from this cat in the thread */
+  messageCount: number;
+}
+
+/**
  * A conversation thread
  */
 export interface Thread {
@@ -43,6 +54,10 @@ export interface IThreadStore {
   listByProject(userId: string, projectPath: string): Thread[] | Promise<Thread[]>;
   addParticipants(threadId: string, catIds: CatId[]): void | Promise<void>;
   getParticipants(threadId: string): CatId[] | Promise<CatId[]>;
+  /** F032 Phase C: Get participants sorted by activity (lastMessageAt desc) */
+  getParticipantsWithActivity(threadId: string): ThreadParticipantActivity[] | Promise<ThreadParticipantActivity[]>;
+  /** F032 P1-2 fix: Update participant activity on every message (not just join) */
+  updateParticipantActivity(threadId: string, catId: CatId): void | Promise<void>;
   updateTitle(threadId: string, title: string): void | Promise<void>;
   updatePin(threadId: string, pinned: boolean): void | Promise<void>;
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
@@ -59,10 +74,17 @@ const MAX_THREADS = 100;
  */
 export class ThreadStore implements IThreadStore {
   private threads: Map<string, Thread> = new Map();
+  /** F032 Phase C: Track participant activity per thread. Key: `${threadId}:${catId}` */
+  private participantActivity: Map<string, { lastMessageAt: number; messageCount: number }> = new Map();
   private readonly maxThreads: number;
 
   constructor(options?: { maxThreads?: number }) {
     this.maxThreads = options?.maxThreads ?? MAX_THREADS;
+  }
+
+  /** F032 Phase C: Generate activity key */
+  private activityKey(threadId: string, catId: CatId): string {
+    return `${threadId}:${catId}`;
   }
 
   create(userId: string, title?: string, projectPath?: string): Thread {
@@ -120,6 +142,8 @@ export class ThreadStore implements IThreadStore {
     const thread = this.get(threadId);
     if (!thread) return;
 
+    // Cloud Codex P1 fix: Only add to participants list, do NOT update activity.
+    // Activity should only be updated via updateParticipantActivity() after successful message append.
     for (const catId of catIds) {
       if (!thread.participants.includes(catId)) {
         thread.participants.push(catId);
@@ -130,6 +154,42 @@ export class ThreadStore implements IThreadStore {
   getParticipants(threadId: string): CatId[] {
     const thread = this.get(threadId);
     return thread?.participants ?? [];
+  }
+
+  /** F032 Phase C: Get participants with activity, sorted by lastMessageAt descending */
+  getParticipantsWithActivity(threadId: string): ThreadParticipantActivity[] {
+    const participants = this.getParticipants(threadId);
+    const result: ThreadParticipantActivity[] = participants.map((catId) => {
+      const key = this.activityKey(threadId, catId);
+      const activity = this.participantActivity.get(key);
+      return {
+        catId,
+        lastMessageAt: activity?.lastMessageAt ?? 0,
+        messageCount: activity?.messageCount ?? 0,
+      };
+    });
+    // Sort by lastMessageAt descending (most recent first)
+    result.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    return result;
+  }
+
+  /** F032 P1-2 fix: Update participant activity on every message */
+  updateParticipantActivity(threadId: string, catId: CatId): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+
+    // Ensure cat is in participants list
+    if (!thread.participants.includes(catId)) {
+      thread.participants.push(catId);
+    }
+
+    // Update activity timestamp and increment count
+    const key = this.activityKey(threadId, catId);
+    const existing = this.participantActivity.get(key);
+    this.participantActivity.set(key, {
+      lastMessageAt: Date.now(),
+      messageCount: (existing?.messageCount ?? 0) + 1,
+    });
   }
 
   updateTitle(threadId: string, title: string): void {
@@ -182,7 +242,19 @@ export class ThreadStore implements IThreadStore {
 
   delete(threadId: string): boolean {
     if (threadId === DEFAULT_THREAD_ID) return false; // Cannot delete default
+    // Cloud Codex R3 P2 fix: Clean up activity entries to prevent memory leak
+    this.clearActivityForThread(threadId);
     return this.threads.delete(threadId);
+  }
+
+  /** Cloud Codex R3 P2 fix: Remove all activity entries for a thread */
+  private clearActivityForThread(threadId: string): void {
+    const prefix = `${threadId}:`;
+    for (const key of this.participantActivity.keys()) {
+      if (key.startsWith(prefix)) {
+        this.participantActivity.delete(key);
+      }
+    }
   }
 
   /** Current thread count (for testing) */
@@ -196,6 +268,8 @@ export class ThreadStore implements IThreadStore {
       let evicted = false;
       for (const key of this.threads.keys()) {
         if (key !== DEFAULT_THREAD_ID) {
+          // Cloud Codex R3 P2 fix: Clean up activity before evicting
+          this.clearActivityForThread(key);
           this.threads.delete(key);
           evicted = true;
           break;

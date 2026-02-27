@@ -325,4 +325,197 @@ describe('ThreadStore', () => {
     // Should not throw
     store.updateFavorite('nonexistent', true);
   });
+
+  // F032 Phase C: Thread activity tests
+  test('getParticipantsWithActivity() returns empty for thread with no participants', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+    const activity = store.getParticipantsWithActivity(thread.id);
+    assert.deepEqual(activity, []);
+  });
+
+  // Cloud Codex P1 fix: Tests now use updateParticipantActivity for activity tracking
+  test('getParticipantsWithActivity() tracks activity when updateParticipantActivity called', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Simulate: opus sends a message
+    store.updateParticipantActivity(thread.id, 'opus');
+    const activity1 = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity1.length, 1);
+    assert.equal(activity1[0].catId, 'opus');
+    assert.equal(activity1[0].messageCount, 1);
+    assert.ok(activity1[0].lastMessageAt > 0);
+
+    // Simulate: codex sends a message
+    store.updateParticipantActivity(thread.id, 'codex');
+    const activity2 = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity2.length, 2);
+  });
+
+  test('getParticipantsWithActivity() increments messageCount on repeated activity', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Simulate: opus sends 3 messages
+    store.updateParticipantActivity(thread.id, 'opus');
+    store.updateParticipantActivity(thread.id, 'opus');
+    store.updateParticipantActivity(thread.id, 'opus');
+
+    const activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 1);
+    assert.equal(activity[0].catId, 'opus');
+    assert.equal(activity[0].messageCount, 3);
+  });
+
+  test('getParticipantsWithActivity() sorts by lastMessageAt descending', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Simulate messages in order: opus, codex, gemini
+    store.updateParticipantActivity(thread.id, 'opus');
+    await new Promise((r) => setTimeout(r, 5)); // Small delay to ensure different timestamps
+    store.updateParticipantActivity(thread.id, 'codex');
+    await new Promise((r) => setTimeout(r, 5));
+    store.updateParticipantActivity(thread.id, 'gemini');
+
+    // Activity should be sorted: gemini (most recent), codex, opus (oldest)
+    const activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 3);
+    assert.equal(activity[0].catId, 'gemini');
+    assert.equal(activity[1].catId, 'codex');
+    assert.equal(activity[2].catId, 'opus');
+  });
+
+  // Cloud Codex P1: addParticipants should NOT update activity
+  test('addParticipants() does NOT update messageCount (activity only via updateParticipantActivity)', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Add participants — this should NOT create activity records
+    store.addParticipants(thread.id, ['opus', 'codex']);
+
+    // Activity should be zero for all participants (no messages sent yet)
+    const activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 2);
+    assert.equal(activity[0].messageCount, 0, 'messageCount should be 0 before any message');
+    assert.equal(activity[1].messageCount, 0, 'messageCount should be 0 before any message');
+  });
+
+  // F032 P1-2 fix: updateParticipantActivity tests
+  test('updateParticipantActivity() updates lastMessageAt for existing participant', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Add participant first
+    store.addParticipants(thread.id, ['opus']);
+    const before = store.getParticipantsWithActivity(thread.id);
+    const oldTimestamp = before[0].lastMessageAt;
+
+    // Wait a bit and update activity
+    await new Promise((r) => setTimeout(r, 10));
+    store.updateParticipantActivity(thread.id, 'opus');
+
+    const after = store.getParticipantsWithActivity(thread.id);
+    assert.ok(after[0].lastMessageAt > oldTimestamp, 'lastMessageAt should be updated');
+    // Cloud Codex P1 fix: addParticipants no longer sets messageCount, so first update = 1
+    assert.equal(after[0].messageCount, 1, 'messageCount should be 1 after first updateParticipantActivity');
+  });
+
+  test('updateParticipantActivity() adds new participant if not exists', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Update activity for cat not in participants list
+    store.updateParticipantActivity(thread.id, 'codex');
+
+    const participants = store.getParticipants(thread.id);
+    assert.ok(participants.includes('codex'), 'codex should be added to participants');
+
+    const activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 1);
+    assert.equal(activity[0].catId, 'codex');
+    assert.equal(activity[0].messageCount, 1);
+  });
+
+  test('updateParticipantActivity() re-sorts participants by activity', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Cloud Codex P1 fix: Use updateParticipantActivity instead of addParticipants for activity setup
+    // Simulate: opus sends message first, then codex sends message
+    store.updateParticipantActivity(thread.id, 'opus');
+    await new Promise((r) => setTimeout(r, 5));
+    store.updateParticipantActivity(thread.id, 'codex');
+
+    // codex should be first (most recent message)
+    let activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity[0].catId, 'codex');
+    assert.equal(activity[1].catId, 'opus');
+
+    // Update opus activity — now opus should be first
+    await new Promise((r) => setTimeout(r, 5));
+    store.updateParticipantActivity(thread.id, 'opus');
+
+    activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity[0].catId, 'opus', 'opus should now be first after activity update');
+    assert.equal(activity[1].catId, 'codex');
+  });
+
+  // Cloud Codex R3 P2: Activity should be cleaned up when thread is deleted
+  test('delete() cleans up activity data to prevent memory leak', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Test');
+
+    // Create activity for multiple cats
+    store.updateParticipantActivity(thread.id, 'opus');
+    store.updateParticipantActivity(thread.id, 'codex');
+
+    let activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 2, 'Should have 2 participants with activity');
+
+    // Delete the thread
+    const deleted = store.delete(thread.id);
+    assert.equal(deleted, true);
+
+    // Activity should be cleaned up
+    activity = store.getParticipantsWithActivity(thread.id);
+    assert.equal(activity.length, 0, 'Activity should be cleaned up after delete');
+  });
 });

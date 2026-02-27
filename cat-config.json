@@ -1,5 +1,69 @@
 {
-  "version": 1,
+  "version": 2,
+  "roster": {
+    "opus": {
+      "family": "ragdoll",
+      "roles": ["architect", "peer-reviewer"],
+      "lead": true,
+      "available": true,
+      "evaluation": "主架构师，深度思考能力强，代码质量高"
+    },
+    "sonnet": {
+      "family": "ragdoll",
+      "roles": ["assistant"],
+      "lead": false,
+      "available": true,
+      "evaluation": "快速灵活，适合日常对话和轻量任务"
+    },
+    "opus-45": {
+      "family": "ragdoll",
+      "roles": ["architect", "peer-reviewer"],
+      "lead": false,
+      "available": true,
+      "evaluation": "宪宪的前辈版本，推理能力深厚，但很贵！没猫粮时别找他"
+    },
+    "codex": {
+      "family": "maine-coon",
+      "roles": ["peer-reviewer", "security"],
+      "lead": true,
+      "available": true,
+      "evaluation": "代码审查专家，安全意识强，反应快"
+    },
+    "gpt52": {
+      "family": "maine-coon",
+      "roles": ["peer-reviewer", "thinker"],
+      "lead": false,
+      "available": true,
+      "evaluation": "深度思考型，审查细致，但思考太慢"
+    },
+    "spark": {
+      "family": "maine-coon",
+      "roles": ["coder"],
+      "lead": false,
+      "available": true,
+      "evaluation": "超快输出 1000+ tokens/s，适合精确点改，不会自动跑测试"
+    },
+    "gemini": {
+      "family": "siamese",
+      "roles": ["designer"],
+      "lead": true,
+      "available": true,
+      "evaluation": "视觉设计师，创意丰富，禁止写代码"
+    },
+    "gemini25": {
+      "family": "siamese",
+      "roles": ["designer"],
+      "lead": false,
+      "available": true,
+      "evaluation": "经典版暹罗猫，创意灵感丰富"
+    }
+  },
+  "reviewPolicy": {
+    "requireDifferentFamily": true,
+    "preferActiveInThread": true,
+    "preferLead": true,
+    "excludeUnavailable": true
+  },
   "breeds": [
     {
       "id": "ragdoll",
@@ -147,6 +211,33 @@
             "maxContextTokens": 60000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
+          }
+        },
+        {
+          "id": "codex-spark",
+          "catId": "spark",
+          "variantLabel": "Spark",
+          "displayName": "缅因猫 Spark",
+          "mentionPatterns": ["@spark", "@缅因spark", "@codex-spark"],
+          "provider": "openai",
+          "defaultModel": "gpt-5.3-codex-spark",
+          "mcpSupport": false,
+          "avatar": "/avatars/codex_box.png",
+          "color": { "primary": "#81C784", "secondary": "#C8E6C9" },
+          "cli": {
+            "command": "codex",
+            "outputFormat": "json",
+            "defaultArgs": ["exec", "--json", "-m", "gpt-5.3-codex-spark"]
+          },
+          "personality": "反射弧短到像没长过，爪子一抬就能把代码挠完一轮迭代 ⚡️",
+          "strengths": ["fast-coding", "quick-edits", "low-latency"],
+          "teamStrengths": "快速编码、精确点改",
+          "caution": "128k context, 不会自动跑测试",
+          "contextBudget": {
+            "maxPromptTokens": 64000,
+            "maxContextTokens": 40000,
+            "maxMessages": 100,
+            "maxContentLengthPerMsg": 8000
           }
         }
       ]

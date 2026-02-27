@@ -12,4 +12,9 @@ export const ThreadKeys = {
 
   /** Per-user thread list sorted set: threads:user:{userId} */
   userList: (userId: string) => `threads:user:${userId}`,
+
+  /** F032 Phase C: Hash with participant activity: thread:{threadId}:activity
+   *  Fields: {catId}:lastMessageAt, {catId}:messageCount
+   */
+  activity: (id: string) => `thread:${id}:activity`,
 } as const;

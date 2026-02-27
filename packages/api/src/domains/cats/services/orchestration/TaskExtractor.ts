@@ -7,11 +7,13 @@
 import { catRegistry, type CatId, type CreateTaskInput } from '@cat-cafe/shared';
 import type { StoredMessage } from '../stores/ports/MessageStore.js';
 import type { AgentService } from '../types.js';
+import { getAllCatIdsFromConfig } from '../../../../config/cat-config-loader.js';
 
 /** Get all valid catIds dynamically from the registry */
 function getValidCatIds(): readonly string[] {
   const ids = catRegistry.getAllIds();
-  return ids.length > 0 ? ids : ['opus', 'codex', 'gemini']; // fallback for tests
+  // F032 P2: use config fallback instead of hardcoded cat names
+  return ids.length > 0 ? ids : getAllCatIdsFromConfig();
 }
 
 export interface ExtractedTask {

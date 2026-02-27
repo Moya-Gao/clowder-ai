@@ -56,6 +56,7 @@ function createMockMessageStore() {
 
 function createMockThreadStore() {
   const participants = new Map();
+  const activity = new Map();
   return {
     get: () => null,
     getParticipants: (threadId) => participants.get(threadId) ?? [],
@@ -63,6 +64,33 @@ function createMockThreadStore() {
       const existing = participants.get(threadId) ?? [];
       const merged = [...new Set([...existing, ...cats])];
       participants.set(threadId, merged);
+      // Track activity
+      const now = Date.now();
+      for (const catId of cats) {
+        const key = `${threadId}:${catId}`;
+        const existing = activity.get(key) ?? { lastMessageAt: 0, messageCount: 0 };
+        activity.set(key, { lastMessageAt: now, messageCount: existing.messageCount + 1 });
+      }
+    },
+    // F032 P1-2: Return participants with activity
+    getParticipantsWithActivity: (threadId) => {
+      const cats = participants.get(threadId) ?? [];
+      return cats
+        .map((catId) => {
+          const key = `${threadId}:${catId}`;
+          const data = activity.get(key) ?? { lastMessageAt: 0, messageCount: 0 };
+          return { catId, lastMessageAt: data.lastMessageAt, messageCount: data.messageCount };
+        })
+        .sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+    },
+    updateParticipantActivity: (threadId, catId) => {
+      const cats = participants.get(threadId) ?? [];
+      if (!cats.includes(catId)) {
+        participants.set(threadId, [...cats, catId]);
+      }
+      const key = `${threadId}:${catId}`;
+      const existing = activity.get(key) ?? { lastMessageAt: 0, messageCount: 0 };
+      activity.set(key, { lastMessageAt: Date.now(), messageCount: existing.messageCount + 1 });
     },
     updateLastActive: () => {},
   };

@@ -357,6 +357,14 @@ export async function* routeSerial(
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
+        // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId);
+          } catch (activityErr) {
+            console.warn(`[routeSerial] updateParticipantActivity failed for ${catId as string}, ignoring:`, activityErr);
+          }
+        }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
         if (options.persistenceContext) {
@@ -437,6 +445,14 @@ export async function* routeSerial(
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
         }
+        // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId);
+          } catch (activityErr) {
+            console.warn(`[routeSerial] updateParticipantActivity failed for ${catId as string}, ignoring:`, activityErr);
+          }
+        }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append failed for ${catId as string}, degrading:`, err);
         if (options.persistenceContext) {
@@ -466,6 +482,14 @@ export async function* routeSerial(
         // #80: Clean up draft only after successful append
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
+        }
+        // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+        if (deps.invocationDeps.threadStore) {
+          try {
+            await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, catId);
+          } catch (activityErr) {
+            console.warn(`[routeSerial] updateParticipantActivity failed for ${catId as string}, ignoring:`, activityErr);
+          }
         }
       } catch (err) {
         console.error(`[routeSerial] messageStore.append (error+tools) failed for ${catId as string}, degrading:`, err);

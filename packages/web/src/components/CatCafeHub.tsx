@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { CatTab, SystemTab, type ConfigData, type Capabilities } from './config-viewer-tabs';
@@ -10,13 +10,13 @@ import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { HubStrategyTab } from './HubStrategyTab';
 import { HubSkillsTab } from './HubSkillsTab';
+import { useCatData } from '@/hooks/useCatData';
 
-export type HubTabId = 'opus' | 'codex' | 'gemini' | 'system' | 'skills' | 'commands' | 'env' | 'voice' | 'notify' | 'strategy';
+// F032 P2: HubTabId now uses string for dynamic cat tabs
+export type HubTabId = string;
 
-const TABS: { id: HubTabId; label: string }[] = [
-  { id: 'opus', label: '布偶猫' },
-  { id: 'codex', label: '缅因猫' },
-  { id: 'gemini', label: '暹罗猫' },
+// System tabs (non-cat) - these are static
+const SYSTEM_TABS: { id: HubTabId; label: string }[] = [
   { id: 'system', label: '系统配置' },
   { id: 'skills', label: 'Skills 看板' },
   { id: 'commands', label: '命令速查' },
@@ -33,6 +33,8 @@ const TABS: { id: HubTabId; label: string }[] = [
 export function CatCafeHub() {
   const hubState = useChatStore((s) => s.hubState);
   const closeHub = useChatStore((s) => s.closeHub);
+  // F032 P2: Get dynamic cat data
+  const { cats, getCatById } = useCatData();
 
   const open = hubState?.open ?? false;
   const requestedTab = (hubState?.tab ?? 'opus') as HubTabId;
@@ -42,10 +44,32 @@ export function CatCafeHub() {
   const [caps, setCaps] = useState<Record<string, Capabilities> | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // F032 P2: Build TABS dynamically from cat data
+  const TABS = useMemo(() => {
+    // Get unique breed default variants (one tab per breed)
+    const catTabs = cats
+      .filter(c => c.isDefaultVariant !== false) // Include default variants and those without the flag
+      .slice(0, 3) // Limit to first 3 breeds for UI space
+      .map(c => ({ id: c.id, label: c.breedDisplayName ?? c.displayName }));
+    return [...catTabs, ...SYSTEM_TABS];
+  }, [cats]);
+
   // Sync tab to store-requested tab when opening
   useEffect(() => {
     if (open) setTab(requestedTab);
   }, [open, requestedTab]);
+
+  // Cloud Codex R4 P2 fix: Fallback to valid tab when dynamic cat lookup misses
+  useEffect(() => {
+    if (!open) return;
+    // Check if current tab is valid (either in TABS or is a valid cat)
+    const isValidTab = TABS.some(t => t.id === tab) || SYSTEM_TABS.some(t => t.id === tab);
+    if (!isValidTab) {
+      // Fallback to first available cat tab, or 'system' if no cats
+      const firstCatTab = TABS.find(t => !SYSTEM_TABS.some(st => st.id === t.id));
+      setTab(firstCatTab?.id ?? 'system');
+    }
+  }, [open, tab, TABS]);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -78,10 +102,11 @@ export function CatCafeHub() {
 
   if (!open) return null;
 
-  const catId = (tab === 'opus' || tab === 'codex' || tab === 'gemini') ? tab : null;
-  const cat = catId && config?.cats[catId];
-  const budget = catId && config?.perCatBudgets[catId];
-  const catCaps = catId && caps?.[catId];
+  // F032 P2: Check if current tab is a cat tab dynamically
+  const catId = getCatById(tab) ? tab : null;
+  const cat = catId ? config?.cats[catId] : undefined;
+  const budget = catId ? config?.perCatBudgets[catId] : undefined;
+  const catCaps = catId ? caps?.[catId] : undefined;
 
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={closeHub}>

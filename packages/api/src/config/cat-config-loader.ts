@@ -7,7 +7,16 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { CatBreed, CatCafeConfig, CatConfig, CatFeatures, CatId, CatVariant } from '@cat-cafe/shared';
+import type {
+  CatBreed,
+  CatCafeConfig,
+  CatConfig,
+  CatFeatures,
+  CatId,
+  CatVariant,
+  ReviewPolicy,
+  Roster,
+} from '@cat-cafe/shared';
 import { createCatId } from '@cat-cafe/shared';
 import { z } from 'zod';
 
@@ -115,10 +124,43 @@ const catBreedSchema = z.object({
   caution: z.string().nullable().optional(), // F-Ground-3: null = explicit no-caution (R1 fix)
 });
 
-const catCafeConfigSchema = z.object({
+// ── F032: Roster schema for collaboration rules ──────────────────────
+
+/** Roster entry for a single cat */
+const rosterEntrySchema = z.object({
+  family: z.string().min(1),
+  roles: z.array(z.string().min(1)).min(1),
+  lead: z.boolean(),
+  available: z.boolean(),
+  evaluation: z.string().min(1),
+});
+
+/** Review policy configuration */
+const reviewPolicySchema = z.object({
+  requireDifferentFamily: z.boolean(),
+  preferActiveInThread: z.boolean(),
+  preferLead: z.boolean(),
+  excludeUnavailable: z.boolean(),
+});
+
+// Note: Roster, RosterEntry, ReviewPolicy types imported from @cat-cafe/shared above
+
+/** Version 1: breeds only (legacy) */
+const catCafeConfigSchemaV1 = z.object({
   version: z.literal(1),
   breeds: z.array(catBreedSchema).min(1),
 });
+
+/** Version 2: breeds + roster + reviewPolicy (F032) */
+const catCafeConfigSchemaV2 = z.object({
+  version: z.literal(2),
+  breeds: z.array(catBreedSchema).min(1),
+  roster: z.record(z.string(), rosterEntrySchema),
+  reviewPolicy: reviewPolicySchema,
+});
+
+/** Union of all versions — loader handles migration */
+const catCafeConfigSchema = z.union([catCafeConfigSchemaV1, catCafeConfigSchemaV2]);
 
 /**
  * Load and validate cat-config.json.
@@ -249,6 +291,20 @@ export function toAllCatConfigs(config: CatCafeConfig): Record<string, CatConfig
 /** Backward-compat alias — now registers all variants, not just defaults */
 export function toFlatConfigs(config: CatCafeConfig): Record<string, CatConfig> {
   return toAllCatConfigs(config);
+}
+
+/**
+ * F032 P2 cleanup: Get all cat IDs from config (replaces hardcoded fallbacks).
+ * Used by cat-voices.ts, cat-budgets.ts, TaskExtractor.ts.
+ */
+export function getAllCatIdsFromConfig(): readonly string[] {
+  try {
+    const config = getCachedConfig();
+    if (!config) return [];
+    return Object.keys(toAllCatConfigs(config));
+  } catch {
+    return []; // If config fails to load, return empty (caller decides fallback)
+  }
 }
 
 /**
@@ -409,4 +465,94 @@ export function _resetCachedConfig(): void {
   _catIdToBreed = null;
   _catIdToBreedSource = null;
   _defaultCatId = null;
+  _cachedRoster = null;
+  _cachedReviewPolicy = null;
+}
+
+// ── F032: Roster + ReviewPolicy accessors ──────────────────────────────
+
+let _cachedRoster: Roster | null = null;
+let _cachedReviewPolicy: ReviewPolicy | null = null;
+
+/** Default review policy if not configured (v1 config) */
+const DEFAULT_REVIEW_POLICY: ReviewPolicy = {
+  requireDifferentFamily: true,
+  preferActiveInThread: true,
+  preferLead: true,
+  excludeUnavailable: true,
+};
+
+/**
+ * Get roster from config. Returns empty object for v1 configs.
+ * F032: Used by reviewer matching to check roles, availability, family.
+ */
+export function getRoster(config?: CatCafeConfig): Roster {
+  if (_cachedRoster && !config) return _cachedRoster;
+
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return {};
+
+  // v1 config has no roster
+  if (cfg.version === 1) return {};
+
+  // v2 config has roster — TypeScript narrows type after version check
+  _cachedRoster = cfg.roster;
+  return _cachedRoster;
+}
+
+/**
+ * Get review policy from config. Returns defaults for v1 configs.
+ * F032: Used by reviewer matching to determine matching strategy.
+ */
+export function getReviewPolicy(config?: CatCafeConfig): ReviewPolicy {
+  if (_cachedReviewPolicy && !config) return _cachedReviewPolicy;
+
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return DEFAULT_REVIEW_POLICY;
+
+  // v1 config has no reviewPolicy → use defaults
+  if (cfg.version === 1) return DEFAULT_REVIEW_POLICY;
+
+  // v2 config has reviewPolicy — TypeScript narrows type after version check
+  _cachedReviewPolicy = cfg.reviewPolicy;
+  return _cachedReviewPolicy;
+}
+
+/**
+ * Check if a cat is available (has quota).
+ * F032: 铲屎官 40 美刀教训 — 没猫粮的猫不要找！
+ */
+export function isCatAvailable(catId: string, config?: CatCafeConfig): boolean {
+  const roster = getRoster(config);
+  const entry = roster[catId];
+  // If not in roster, assume available (backward compat)
+  return entry?.available !== false;
+}
+
+/**
+ * Get a cat's family from roster.
+ * F032: Used for "different family" rule in reviewer matching.
+ */
+export function getCatFamily(catId: string, config?: CatCafeConfig): string | undefined {
+  const roster = getRoster(config);
+  return roster[catId]?.family;
+}
+
+/**
+ * Check if a cat has a specific role.
+ * F032: Used to check if a cat can be a reviewer, architect, etc.
+ */
+export function catHasRole(catId: string, role: string, config?: CatCafeConfig): boolean {
+  const roster = getRoster(config);
+  const entry = roster[catId];
+  return entry?.roles.includes(role) ?? false;
+}
+
+/**
+ * Check if a cat is the lead of its family.
+ * F032: Used for "prefer lead" rule in reviewer matching.
+ */
+export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
+  const roster = getRoster(config);
+  return roster[catId]?.lead ?? false;
 }

@@ -61,7 +61,8 @@ describe('cat-config-loader', () => {
       delete process.env.CAT_CONFIG_PATH;
       try {
         const config = loadCatConfig();
-        assert.equal(config.version, 1);
+        // F032: version can be 1 or 2 now
+        assert.ok(config.version === 1 || config.version === 2);
         assert.ok(config.breeds.length >= 1);
       } finally {
         if (saved === undefined) {
@@ -637,15 +638,16 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.notDeepEqual(all['sonnet'].color, all['opus'].color);
   });
 
-  it('total cat count is 7 (opus + sonnet + opus-45 + codex + gpt52 + gemini + gemini25)', () => {
+  it('total cat count is 8 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25)', () => {
     const config = loadCatConfig();
     const all = toAllCatConfigs(config);
-    assert.equal(Object.keys(all).length, 7);
+    assert.equal(Object.keys(all).length, 8);
     assert.ok(all['opus']);
     assert.ok(all['sonnet']);
     assert.ok(all['opus-45']);
     assert.ok(all['codex']);
     assert.ok(all['gpt52']);
+    assert.ok(all['spark']); // F032 Phase E: new cat added
     assert.ok(all['gemini']);
     assert.ok(all['gemini25']);
   });

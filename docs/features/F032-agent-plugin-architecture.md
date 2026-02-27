@@ -8,7 +8,7 @@ updated: 2026-02-26
 
 # F032: Agent Plugin Architecture（CatId 松绑 + 协作规则动态化）
 
-> **Status**: in-progress (设计阶段)
+> **Status**: done (f48f111)
 > **Owner**: 布偶猫 (Opus 4.5) + 三猫
 > **Created**: 2026-02-26
 > **Last Updated**: 2026-02-26

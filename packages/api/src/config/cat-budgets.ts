@@ -13,7 +13,7 @@
 
 import type { ContextBudget } from '@cat-cafe/shared';
 import { catRegistry } from '@cat-cafe/shared';
-import { loadCatConfig, getDefaultVariant } from './cat-config-loader.js';
+import { loadCatConfig, getDefaultVariant, getAllCatIdsFromConfig } from './cat-config-loader.js';
 import { resolveBreedId } from './breed-resolver.js';
 
 const BUDGET_ENV_KEYS = {
@@ -120,10 +120,11 @@ export function getCatContextBudget(catName: string): ContextBudget {
  */
 export function getAllCatBudgets(): Record<string, ContextBudget> {
   const result: Record<string, ContextBudget> = {};
-  // F32-a: iterate catRegistry (includes dynamic cats), fallback to DEFAULT_BUDGETS keys
-  const allIds = catRegistry.getAllIds().length > 0
-    ? catRegistry.getAllIds().map(String)
-    : ['opus', 'codex', 'gemini'];
+  // F32-a: iterate catRegistry (includes dynamic cats), F032 P2: use config fallback
+  const registryIds = catRegistry.getAllIds();
+  const allIds = registryIds.length > 0
+    ? registryIds.map(String)
+    : getAllCatIdsFromConfig();
   for (const catName of allIds) {
     result[catName] = getCatContextBudget(catName);
   }

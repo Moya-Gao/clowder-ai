@@ -1,27 +1,25 @@
 'use client';
 
 import { useChatStore } from '@/stores/chatStore';
+import { useCatData } from '@/hooks/useCatData';
 
 /**
  * Single-cat thinking indicator.
  * Shows a simple banner when only one cat is being invoked (execute mode).
  */
 
-const CAT_NAMES: Record<string, string> = {
-  opus: '布偶猫',
-  codex: '缅因猫',
-  gemini: '暹罗猫',
-};
-
 export function ThinkingIndicator() {
   const { targetCats, catStatuses } = useChatStore();
+  // F032 P2: Use dynamic cat data instead of hardcoded CAT_NAMES
+  const { getCatById } = useCatData();
 
   if (targetCats.length !== 1) return null;
   const catId = targetCats[0];
   const status = catStatuses[catId] ?? 'pending';
   if (status === 'done') return null;
 
-  const name = CAT_NAMES[catId] ?? catId;
+  const catData = getCatById(catId);
+  const name = catData?.displayName ?? catId;
 
   return (
     <div className="px-5 py-2 border-b border-gray-200 bg-gray-50">

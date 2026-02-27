@@ -183,6 +183,30 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     const result = await store.delete('default');
     assert.equal(result, false);
   });
+
+  // Cloud Codex P2: updateParticipantActivity should check thread existence
+  it('updateParticipantActivity() does not write orphaned data for deleted thread', async () => {
+    const thread = await store.create('user1', 'Test Activity');
+    const threadId = thread.id;
+
+    // First update activity while thread exists
+    await store.updateParticipantActivity(threadId, 'opus');
+    let activity = await store.getParticipantsWithActivity(threadId);
+    assert.equal(activity.length, 1);
+    assert.equal(activity[0].messageCount, 1);
+
+    // Delete the thread
+    await store.delete(threadId);
+    assert.equal(await store.get(threadId), null);
+
+    // updateParticipantActivity should NOT create orphaned activity data
+    await store.updateParticipantActivity(threadId, 'opus');
+
+    // After thread deletion, getParticipantsWithActivity should return empty
+    // (no orphaned activity data should exist)
+    activity = await store.getParticipantsWithActivity(threadId);
+    assert.equal(activity.length, 0, 'Should not have orphaned activity data for deleted thread');
+  });
 });
 
 describe('ThreadStoreFactory', () => {

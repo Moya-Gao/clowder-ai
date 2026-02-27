@@ -41,10 +41,16 @@ export {
 export type {
   CatBreed,
   CatCafeConfig,
+  CatCafeConfigV1,
+  CatCafeConfigV2,
   CatFeatures,
   CatVariant,
   CliConfig,
   ContextBudget,
+  // F032: Roster types for collaboration rules
+  ReviewPolicy,
+  Roster,
+  RosterEntry,
 } from './cat-breed.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {

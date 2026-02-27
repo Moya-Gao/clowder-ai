@@ -327,6 +327,14 @@ export async function* routeParallel(
           if (deps.draftStore && ownInvId) {
             deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
           }
+          // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+          if (deps.invocationDeps.threadStore) {
+            try {
+              await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, msg.catId as CatId);
+            } catch (activityErr) {
+              console.warn(`[routeParallel] updateParticipantActivity failed for ${msg.catId}, ignoring:`, activityErr);
+            }
+          }
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
           if (options.persistenceContext) {
@@ -362,6 +370,14 @@ export async function* routeParallel(
           if (deps.draftStore && ownInvId) {
             deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
           }
+          // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+          if (deps.invocationDeps.threadStore) {
+            try {
+              await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, msg.catId as CatId);
+            } catch (activityErr) {
+              console.warn(`[routeParallel] updateParticipantActivity failed for ${msg.catId}, ignoring:`, activityErr);
+            }
+          }
         } catch (err) {
           console.error(`[routeParallel] messageStore.append failed for ${msg.catId}, degrading:`, err);
           if (options.persistenceContext) {
@@ -393,6 +409,14 @@ export async function* routeParallel(
             // #80: Clean up draft only after successful append
             if (deps.draftStore && ownInvId) {
               deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
+            }
+            // Cloud Codex R4 P1 fix: Update activity in isolated try/catch to not affect append status
+            if (deps.invocationDeps.threadStore) {
+              try {
+                await deps.invocationDeps.threadStore.updateParticipantActivity(threadId, msg.catId as CatId);
+              } catch (activityErr) {
+                console.warn(`[routeParallel] updateParticipantActivity failed for ${msg.catId}, ignoring:`, activityErr);
+              }
             }
           } catch (err) {
             console.error(`[routeParallel] messageStore.append (error+tools) failed for ${msg.catId}, degrading:`, err);
