@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F041]
 topics: [capability, dashboard]
 doc_kind: discussion
 created: 2026-02-26
@@ -195,16 +195,17 @@ created: 2026-02-26
 
 ---
 
-## 关联 BACKLOG 条目
+## 关联条目（F40 重构后）
 
-| 编号 | Feature | 状态 |
-|------|---------|------|
-| #101 | 能力看板 — Hub MCP/Skills 统一管理 + 配置编排 + MCP 归一 | [ ] 待做 |
-| #102 | SessionBootstrap 同步 F98 — 启动包引导路径补全 | [ ] 待做 |
-| #103 | 课件契约文档同步 — read_invocation_detail 参数差异 | [ ] 待做 |
+| 编号 | 名称 | 类型 | 状态 | 入口文档 |
+|------|------|------|------|----------|
+| F041 | 能力看板 — Hub MCP/Skills 统一管理 + 配置编排 + MCP 归一 | Feature | spec | [F041](../../features/F041-capability-dashboard.md) |
+| TD102 | SessionBootstrap 同步 F98 — 启动包引导路径补全 | Tech Debt | 待做 | [TECH-DEBT.md](../../TECH-DEBT.md) |
+| TD103 | 课件契约文档同步 — read_invocation_detail 参数差异 | Tech Debt | 待做 | [TECH-DEBT.md](../../TECH-DEBT.md) |
 
-> #102 和 #103 来自砚砚 F98 对照验收中"仍有差距"部分。#101 覆盖了"Hub 小齿轮硬编码"差距。
-> Hub 硬编码差距（`config-viewer-tabs.tsx:6`）已被 #101 能力看板覆盖，不单独登记。
+> TD102 和 TD103 来自砚砚 F98 对照验收中"仍有差距"部分。F041 覆盖了"Hub 小齿轮硬编码"差距。
+> Hub 硬编码差距（`config-viewer-tabs.tsx:6`）已被 F041 能力看板覆盖，不单独登记。
+> 编号变更（F40 重构）：原 #101→F041，#102→TD102，#103→TD103。
 
 ---
 
