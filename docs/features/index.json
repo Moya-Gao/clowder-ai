@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-02-26T00:00:00.000Z",
-  "totalDocs": 671,
-  "withFeatureIds": 199,
-  "unassignedCount": 472,
+  "generatedAt": "2026-02-27T01:10:47.860Z",
+  "totalDocs": 673,
+  "withFeatureIds": 227,
+  "unassignedCount": 446,
   "features": {
     "F005": [
       {
@@ -77,6 +77,64 @@
       }
     ],
     "F010": [
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/research/open-claw-report.md",
+        "title": "",
+        "docKind": "research",
+        "featureIds": [
+          "F010",
+          "F039"
+        ],
+        "topics": [
+          "open",
+          "claw"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/sillytavern-phone-ui-research.md",
+        "title": "SillyTavern + Phone-UI 调研报告",
+        "docKind": "research",
+        "featureIds": [
+          "F010"
+        ],
+        "topics": [
+          "sillytavern",
+          "phone"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/sillytavern-research-prompt.md",
+        "title": "研究任务：SillyTavern + Phone-UI 扩展调研",
+        "docKind": "research",
+        "featureIds": [
+          "F010"
+        ],
+        "topics": [
+          "sillytavern",
+          "prompt"
+        ],
+        "created": "2026-02-26"
+      },
       {
         "path": "docs/features/F010-mobile-cat.md",
         "title": "F010: 手机端猫猫",
@@ -232,6 +290,37 @@
     ],
     "F014": [
       {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/research/svg-frontend-research.md",
+        "title": "研究报告概览",
+        "docKind": "research",
+        "featureIds": [
+          "F014"
+        ],
+        "topics": [
+          "svg",
+          "frontend"
+        ],
+        "created": "2026-02-26"
+      },
+      {
         "path": "docs/features/F014-svg-cat-animation.md",
         "title": "F014: SVG 猫猫状态动画",
         "docKind": "note",
@@ -247,6 +336,24 @@
       }
     ],
     "F015": [
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
       {
         "path": "docs/features/F015-backlog-management.md",
         "title": "F015: Backlog 管理",
@@ -424,6 +531,64 @@
       }
     ],
     "F021": [
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md",
+        "title": "Signal Hunter 升级讨论",
+        "docKind": "discussion",
+        "featureIds": [
+          "F021"
+        ],
+        "topics": [
+          "signal",
+          "hunter",
+          "upgrade"
+        ],
+        "created": "2026-02-12"
+      },
+      {
+        "path": "docs/archive/2026-02/research/agent-memory-research-report.md",
+        "title": "Agent 记忆系统技术调研报告",
+        "docKind": "research",
+        "featureIds": [
+          "F021"
+        ],
+        "topics": [
+          "agent",
+          "memory"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/signal-hunter.md",
+        "title": "",
+        "docKind": "research",
+        "featureIds": [
+          "F021"
+        ],
+        "topics": [
+          "signal",
+          "hunter"
+        ],
+        "created": "2026-02-26"
+      },
       {
         "path": "docs/bug-report/2026-02-18-f21-cloud-review-p1-p2/bug-report.md",
         "title": "Bug Report: F21 Cloud Review P1/P2 Follow-up",
@@ -2231,6 +2396,81 @@
     ],
     "F032": [
       {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-concurrency-challenge.md",
+        "title": "A2A 调用的并发挑战",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-prompt-injection-design.md",
+        "title": "🐾 A2A Prompt 注入设计草稿",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-three-cats-synthesis.md",
+        "title": "🐾 A2A 设计三猫观点综合分析",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/maine-a2a-concurrency-evaluation.md",
+        "title": "🧱 缅因猫评估：A2A 调用并发与行为策略（独立推理过程 + 现状约束对照）",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "maine"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/research/2026-02-06-agent-teams-compare.md",
+        "title": "Claude Code Agent Teams 对 Cat Café 的借鉴研究",
+        "docKind": "research",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "agent",
+          "teams",
+          "compare"
+        ],
+        "created": "2026-02-06"
+      },
+      {
         "path": "docs/discussions/2026-02-18-f32-agent-plugin-architecture/README.md",
         "title": "F32: Agent Plugin Architecture — 讨论纪要",
         "docKind": "discussion",
@@ -2672,6 +2912,207 @@
     ],
     "F037": [
       {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-concurrency-challenge.md",
+        "title": "A2A 调用的并发挑战",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-prompt-injection-design.md",
+        "title": "🐾 A2A Prompt 注入设计草稿",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-three-cats-synthesis.md",
+        "title": "🐾 A2A 设计三猫观点综合分析",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "a2a"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/context-engineering-debate-design.md",
+        "title": "三国杀辩论赛：上下文工程版",
+        "docKind": "discussion",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "engineering"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/maine-a2a-concurrency-evaluation.md",
+        "title": "🧱 缅因猫评估：A2A 调用并发与行为策略（独立推理过程 + 现状约束对照）",
+        "docKind": "discussion",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "maine"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md",
+        "title": "🔬 案例复盘：为什么 Multi-Agent 需要 Multi-Model？",
+        "docKind": "discussion",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "multi"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md",
+        "title": "缅因猫（Codex）视角：上下文工程辩论会议纪要（融合版）",
+        "docKind": "discussion",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "result"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md",
+        "title": "暹罗猫（Gemini）视角下的上下文工程辩论纪要",
+        "docKind": "discussion",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "result"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md",
+        "title": "上下文工程辩论赛 — 布偶猫会议纪要",
+        "docKind": "discussion",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "context",
+          "enginnering",
+          "result"
+        ],
+        "created": "2026-02-07"
+      },
+      {
+        "path": "docs/archive/2026-02/research/2026-02-06-agent-teams-compare.md",
+        "title": "Claude Code Agent Teams 对 Cat Café 的借鉴研究",
+        "docKind": "research",
+        "featureIds": [
+          "F032",
+          "F037"
+        ],
+        "topics": [
+          "agent",
+          "teams",
+          "compare"
+        ],
+        "created": "2026-02-06"
+      },
+      {
+        "path": "docs/archive/2026-02/research/Cat Café Agent Orchestration Research by gemini.md",
+        "title": "**Technical Feasibility and Architectural Strategy for Multi-Agent Orchestration in Service Environments: The Cat Café Case Study**",
+        "docKind": "research",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "cat",
+          "caf",
+          "agent"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/Multi-Agent “Cat Café” Research Report by gpt.md",
+        "title": "",
+        "docKind": "research",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "multi",
+          "agent",
+          "cat"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/Multi-Agent Orchestration for Cat Café: Technical Feasibility Report claude.md",
+        "title": "Multi-Agent Orchestration for Cat Café: Technical Feasibility Report",
+        "docKind": "research",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "multi",
+          "agent",
+          "orchestration"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/archive/2026-02/research/multi-agent-framework.md",
+        "title": "",
+        "docKind": "research",
+        "featureIds": [
+          "F037"
+        ],
+        "topics": [
+          "multi",
+          "agent",
+          "framework"
+        ],
+        "created": "2026-02-26"
+      },
+      {
         "path": "docs/features/F037-agent-swarm.md",
         "title": "F037: Agent Swarm 协同模式",
         "docKind": "note",
@@ -2686,6 +3127,65 @@
       }
     ],
     "F038": [
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/cat-cafe-skills-open-source-plan.md",
+        "title": "Cat Café Skills 开源计划",
+        "docKind": "discussion",
+        "featureIds": [
+          "F038"
+        ],
+        "topics": [
+          "polish",
+          "brainstorm",
+          "cat"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md",
+        "title": "2026-02-10 UX Polish Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F038"
+        ],
+        "topics": [
+          "polish",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md",
+        "title": "Superpowers → Cat Café Skills 整合计划",
+        "docKind": "discussion",
+        "featureIds": [
+          "F038"
+        ],
+        "topics": [
+          "polish",
+          "brainstorm",
+          "superpowers"
+        ],
+        "created": "2026-02-10"
+      },
       {
         "path": "docs/discussions/2026-02-25-f38-skills-discovery/README.md",
         "title": "2026-02-25 F38: Skills 梳理 + 按需发现机制",
@@ -2714,6 +3214,20 @@
       }
     ],
     "F039": [
+      {
+        "path": "docs/archive/2026-02/research/open-claw-report.md",
+        "title": "",
+        "docKind": "research",
+        "featureIds": [
+          "F010",
+          "F039"
+        ],
+        "topics": [
+          "open",
+          "claw"
+        ],
+        "created": "2026-02-26"
+      },
       {
         "path": "docs/features/F039-message-queue-delivery.md",
         "title": "F039: 消息排队投递 — 用户操作三模式",
@@ -2772,6 +3286,24 @@
     ],
     "F040": [
       {
+        "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
+        "title": "2026-02-10 Feature Backlog Brainstorm",
+        "docKind": "discussion",
+        "featureIds": [
+          "F010",
+          "F014",
+          "F015",
+          "F021",
+          "F038",
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "brainstorm"
+        ],
+        "created": "2026-02-10"
+      },
+      {
         "path": "docs/features/F40-backlog-reorganization.md",
         "title": "F40: BACKLOG 整理与 Feature 聚合体系",
         "docKind": "note",
@@ -2795,6 +3327,50 @@
           "backlog",
           "design",
           "invite"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/mailbox/2026-02-26-f40-metadata-migration-review-request-to-opus.md",
+        "title": "9 passed, 0 failed",
+        "docKind": "mailbox",
+        "featureIds": [
+          "F040"
+        ],
+        "topics": [
+          "backlog",
+          "metadata",
+          "review"
+        ],
+        "created": "2026-02-26"
+      }
+    ],
+    "F041": [
+      {
+        "path": "docs/discussions/2026-02-26-capability-dashboard/README.md",
+        "title": "2026-02-26 能力看板 — Hub MCP/Skills 统一管理",
+        "docKind": "discussion",
+        "featureIds": [
+          "F041"
+        ],
+        "topics": [
+          "capability",
+          "dashboard"
+        ],
+        "created": "2026-02-26"
+      },
+      {
+        "path": "docs/features/F041-capability-dashboard.md",
+        "title": "F041: 能力看板 — Hub MCP/Skills 统一管理",
+        "docKind": "note",
+        "featureIds": [
+          "F041"
+        ],
+        "topics": [
+          "capability",
+          "dashboard",
+          "mcp",
+          "skills"
         ],
         "created": "2026-02-26"
       }
@@ -3500,54 +4076,6 @@
       "created": "2026-02-06"
     },
     {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-concurrency-challenge.md",
-      "title": "A2A 调用的并发挑战",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "a2a"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-prompt-injection-design.md",
-      "title": "🐾 A2A Prompt 注入设计草稿",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "a2a"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/a2a-three-cats-synthesis.md",
-      "title": "🐾 A2A 设计三猫观点综合分析",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "a2a"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/context-engineering-debate-design.md",
-      "title": "三国杀辩论赛：上下文工程版",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "engineering"
-      ],
-      "created": "2026-02-07"
-    },
-    {
       "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/intro-discuss-with-claude-app-opus4.5.md",
       "title": "cafe-shared 种子记忆",
       "docKind": "discussion",
@@ -3560,68 +4088,8 @@
       "created": "2026-02-07"
     },
     {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/maine-a2a-concurrency-evaluation.md",
-      "title": "🧱 缅因猫评估：A2A 调用并发与行为策略（独立推理过程 + 现状约束对照）",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "maine"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/multi-model-diversity-case-study.md",
-      "title": "🔬 案例复盘：为什么 Multi-Agent 需要 Multi-Model？",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "multi"
-      ],
-      "created": "2026-02-07"
-    },
-    {
       "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/cat_cafee_context_engineering_debate_log.md",
       "title": "对话记录: @布偶 @缅因 @暹罗  猫猫集合！报一下自己的模型名字！然...",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "result"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/codex-meeting-minutes.md",
-      "title": "缅因猫（Codex）视角：上下文工程辩论会议纪要（融合版）",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "result"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/gemini-meeting-minutes.md",
-      "title": "暹罗猫（Gemini）视角下的上下文工程辩论纪要",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "context",
-        "enginnering",
-        "result"
-      ],
-      "created": "2026-02-07"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-07-context-enginnering/result/ragdoll-debate-summary.md",
-      "title": "上下文工程辩论赛 — 布偶猫会议纪要",
       "docKind": "discussion",
       "featureIds": [],
       "topics": [
@@ -3667,17 +4135,6 @@
       "created": "2026-02-09"
     },
     {
-      "path": "docs/archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md",
-      "title": "2026-02-10 Feature Backlog Brainstorm",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "backlog",
-        "brainstorm"
-      ],
-      "created": "2026-02-10"
-    },
-    {
       "path": "docs/archive/2026-02/discussions/2026-02-10-pro-research-triad/gpt-pro-prompts-v1.md",
       "title": "GPT Pro 研究提示词 v1.0（A' / B / C）",
       "docKind": "discussion",
@@ -3712,53 +4169,6 @@
         "history"
       ],
       "created": "2026-02-10"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/cat-cafe-skills-open-source-plan.md",
-      "title": "Cat Café Skills 开源计划",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "polish",
-        "brainstorm",
-        "cat"
-      ],
-      "created": "2026-02-10"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md",
-      "title": "2026-02-10 UX Polish Brainstorm",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "polish",
-        "brainstorm"
-      ],
-      "created": "2026-02-10"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md",
-      "title": "Superpowers → Cat Café Skills 整合计划",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "polish",
-        "brainstorm",
-        "superpowers"
-      ],
-      "created": "2026-02-10"
-    },
-    {
-      "path": "docs/archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md",
-      "title": "Signal Hunter 升级讨论",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "signal",
-        "hunter",
-        "upgrade"
-      ],
-      "created": "2026-02-12"
     },
     {
       "path": "docs/archive/2026-02/discussions/exported-threads/thread-thread_mlc6eujjygm0qwnu.md",
@@ -6017,18 +6427,6 @@
       "created": "2026-02-05"
     },
     {
-      "path": "docs/archive/2026-02/research/2026-02-06-agent-teams-compare.md",
-      "title": "Claude Code Agent Teams 对 Cat Café 的借鉴研究",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "agent",
-        "teams",
-        "compare"
-      ],
-      "created": "2026-02-06"
-    },
-    {
       "path": "docs/archive/2026-02/research/2026-02-10-pro-research-directions-by-maine.md",
       "title": "Cat Café 三方向现状理解汇报（给 GPT Pro 课题准备）",
       "docKind": "research",
@@ -6089,17 +6487,6 @@
       "created": "2026-02-14"
     },
     {
-      "path": "docs/archive/2026-02/research/agent-memory-research-report.md",
-      "title": "Agent 记忆系统技术调研报告",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "agent",
-        "memory"
-      ],
-      "created": "2026-02-26"
-    },
-    {
       "path": "docs/archive/2026-02/research/AI-Coding-Tools-research.md",
       "title": "AI Coding Tools 调研报告 (2026-02-15)",
       "docKind": "research",
@@ -6107,18 +6494,6 @@
       "topics": [
         "coding",
         "tools"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/Cat Café Agent Orchestration Research by gemini.md",
-      "title": "**Technical Feasibility and Architectural Strategy for Multi-Agent Orchestration in Service Environments: The Cat Café Case Study**",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "cat",
-        "caf",
-        "agent"
       ],
       "created": "2026-02-26"
     },
@@ -6165,97 +6540,6 @@
       "featureIds": [],
       "topics": [
         "memskill"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/Multi-Agent “Cat Café” Research Report by gpt.md",
-      "title": "",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "multi",
-        "agent",
-        "cat"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/Multi-Agent Orchestration for Cat Café: Technical Feasibility Report claude.md",
-      "title": "Multi-Agent Orchestration for Cat Café: Technical Feasibility Report",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "multi",
-        "agent",
-        "orchestration"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/multi-agent-framework.md",
-      "title": "",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "multi",
-        "agent",
-        "framework"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/open-claw-report.md",
-      "title": "",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "open",
-        "claw"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/signal-hunter.md",
-      "title": "",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "signal",
-        "hunter"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/sillytavern-phone-ui-research.md",
-      "title": "SillyTavern + Phone-UI 调研报告",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "sillytavern",
-        "phone"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/sillytavern-research-prompt.md",
-      "title": "研究任务：SillyTavern + Phone-UI 扩展调研",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "sillytavern",
-        "prompt"
-      ],
-      "created": "2026-02-26"
-    },
-    {
-      "path": "docs/archive/2026-02/research/svg-frontend-research.md",
-      "title": "研究报告概览",
-      "docKind": "research",
-      "featureIds": [],
-      "topics": [
-        "svg",
-        "frontend"
       ],
       "created": "2026-02-26"
     },
@@ -6871,17 +7155,6 @@
         "swarm"
       ],
       "created": "2026-02-24"
-    },
-    {
-      "path": "docs/discussions/2026-02-26-capability-dashboard/README.md",
-      "title": "2026-02-26 能力看板 — Hub MCP/Skills 统一管理",
-      "docKind": "discussion",
-      "featureIds": [],
-      "topics": [
-        "capability",
-        "dashboard"
-      ],
-      "created": "2026-02-26"
     },
     {
       "path": "docs/discussions/agent-swarm-feats.md",

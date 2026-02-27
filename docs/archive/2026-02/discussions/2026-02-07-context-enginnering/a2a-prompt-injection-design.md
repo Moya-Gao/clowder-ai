@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F032, F037]
 topics: [context, enginnering, a2a]
 doc_kind: discussion
 created: 2026-02-07

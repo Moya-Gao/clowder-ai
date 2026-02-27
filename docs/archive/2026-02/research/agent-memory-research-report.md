@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F021]
 topics: [agent, memory]
 doc_kind: research
 created: 2026-02-26

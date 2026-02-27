@@ -18,7 +18,10 @@ created: 2026-02-26
 - 待补充（请补完整体目标、范围与验收标准）。
 
 ## Links
-- 待补充。
+- [Message Queue Delivery 方案](../plans/2026-02-26-message-queue-delivery.md)
+- [Message Queue Delivery 实施计划](../plans/2026-02-26-message-queue-delivery-plan.md)
+- [F39 Plan Review](../mailbox/2026-02-26-f39-message-queue-plan-review.md)
+- [OpenClaw 技术调研（Lane Queue 参考）](../archive/2026-02/research/open-claw-report.md)
 
 ## Key Decisions
 - 待补充。

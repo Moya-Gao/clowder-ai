@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F032, F037]
 topics: [agent, teams, compare]
 doc_kind: research
 created: 2026-02-06

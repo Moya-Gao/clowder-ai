@@ -18,7 +18,11 @@ created: 2026-02-26
 - 待补充（请补完整体目标、范围与验收标准）。
 
 ## Links
-- 待补充。
+- [F38 讨论记录](../discussions/2026-02-25-f38-skills-discovery/README.md)
+- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
+- [UX Polish Brainstorm](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md)
+- [Cat Café Skills 开源计划](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/cat-cafe-skills-open-source-plan.md)
+- [Superpowers 整合计划](../archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/superpowers-integration-plan.md)
 
 ## Key Decisions
 - 待补充。

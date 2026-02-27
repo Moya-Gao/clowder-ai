@@ -300,6 +300,7 @@ description: "创建新 Feature 时使用。触发词：新功能、new feat、�
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Research** | [docs/research/2026-02-25-memory-design/proposal.md](../research/2026-02-25-memory-design/proposal.md) | 三层记忆架构设计 |
+| **Archive Discussion** | [2026-02-10 Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md) | 需求池首次系统化梳理 |
 | **Discussion** | 本 thread（2026-02-26 铲屎官 + 布偶猫）| BACKLOG 问题诊断 |
 | **BACKLOG 条目** | 待登记 | - |
 

@@ -18,7 +18,8 @@ created: 2026-02-26
 - 待补充（请补完整体目标、范围与验收标准）。
 
 ## Links
-- 待补充。
+- [Feature Backlog Brainstorm](../archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
+- [SVG 前端调研](../archive/2026-02/research/svg-frontend-research.md)
 
 ## Key Decisions
 - 待补充。
