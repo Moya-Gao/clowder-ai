@@ -88,3 +88,6 @@ assets/avatars/raw/
 
 # Logo candidates (铲屎官还没决定用哪张)
 assets/logos/
+
+# External consulting notes (local only, not for cat-cafe repo)
+docs/discussions/2026-02-26-huawei-agent-spec-review/
