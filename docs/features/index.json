@@ -188,8 +188,8 @@
     },
     {
       "id": "F032",
-      "name": "Agent Plugin Architecture（CatId 松绑 + AgentRegistry）",
-      "status": "in-progress",
+      "name": "Agent Plugin Architecture（CatId 松绑 + 协作规则动态化）",
+      "status": "in-progress (设计阶段)",
       "file": "F032-agent-plugin-architecture.md"
     },
     {
@@ -237,7 +237,7 @@
     {
       "id": "F040",
       "name": "BACKLOG 整理与 Feature 聚合体系",
-      "status": "in-progress",
+      "status": "done",
       "file": "F40-backlog-reorganization.md"
     },
     {
@@ -247,5 +247,5 @@
       "file": "F041-capability-dashboard.md"
     }
   ],
-  "generated_at": "2026-02-27T03:42:41.379Z"
+  "generated_at": "2026-02-27T06:29:35.965Z"
 }

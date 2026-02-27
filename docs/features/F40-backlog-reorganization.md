@@ -7,9 +7,10 @@ created: 2026-02-26
 
 # F40: BACKLOG 整理与 Feature 聚合体系
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 布偶猫
 > **Created**: 2026-02-26
+> **Completed**: 2026-02-27
 > **Priority**: P1（基建，影响后续所有 feat 的管理方式）
 
 ---
@@ -302,6 +303,14 @@ description: "创建新 Feature 时使用。触发词：新功能、new feat、�
 
 ---
 
+## Dependencies
+
+- **Evolved from**: F025 (Session Chain) — F40 是记忆栈的延续，从 Session Chain 的上下文管理需求演化出文档追溯链需求
+- **Blocks**: 无
+- **Blocked by**: 无
+
+---
+
 ## Related Docs（冷层链接）
 
 | 类型 | 路径 | 说明 |
@@ -407,11 +416,11 @@ F014 → F015 → F036
 - [x] 更新 lessons-learned.md（LL-024: 状态字段多点写入会复发蜘蛛网）— **布偶猫**
 - [x] 同步 CLAUDE.md/AGENTS.md/GEMINI.md（frontmatter 规范 + feat-kickoff/completion 触发）— **布偶猫**
 
-### Phase 5: 验收与优化（待做）
+### Phase 5: 验收与优化（2026-02-27，已完成）
 
-- [ ] 生成 `docs/features/index.json` 机器索引
-- [ ] 用 F032 验证"分阶段交付"记录模式
-- [ ] 全量扫描验证 frontmatter 覆盖率
+- [x] 生成 `docs/features/index.json` 机器索引 — **缅因猫**（`scripts/generate-feature-index.mjs`，commit `6f69452`）
+- [x] 全量扫描验证 frontmatter 覆盖率 — **缅因猫**（`scripts/check-frontmatter.mjs`，703/707 = 99.4%）
+- [x] 用 F032 验证"分阶段交付"记录模式 — **跳过**（F032 尚未完成，后续顺便验证）
 
 ---
 
@@ -449,8 +458,8 @@ F014 → F015 → F036
 | ~~ADR: Metadata Contract~~ | ~~讨论收敛但沉淀未写~~ | ~~P2~~ | ✅ 已完成 `14a8b53` |
 | ~~lessons-learned 更新~~ | ~~同上~~ | ~~P2~~ | ✅ 已完成 LL-024 |
 | ~~三猫指引同步~~ | ~~CLAUDE.md/AGENTS.md/GEMINI.md 未同步 F40 规则~~ | ~~P2~~ | ✅ 已完成 `14a8b53` |
-| `index.json` 机器索引 | 脚本未写 | P3 | 可延后 |
-| Feature 演化图 ADR | 演化关系在哪里记录、怎么维护 | P3 | 可延后（已在 F40 文档中记录） |
+| ~~`index.json` 机器索引~~ | ~~脚本未写~~ | ~~P3~~ | ✅ 已完成 `6f69452` |
+| ~~Feature 演化图 ADR~~ | ~~演化关系在哪里记录、怎么维护~~ | ~~P3~~ | ✅ 已在 F40 文档中记录 |
 
 ### `feat-completion` skill 设计草案
 
@@ -540,6 +549,16 @@ F014 → F015 → F036
 | **lessons-learned** | LL-024: 状态字段多点写入会复发蜘蛛网 | ✅ `14a8b53` |
 | **指引文件** | CLAUDE.md/AGENTS.md/GEMINI.md 同步 frontmatter + skill 规则 | ✅ `14a8b53` |
 | **Skill** | `feat-completion` skill | ✅ `d55d3b6` |
+
+---
+
+## Timeline
+
+- 2026-02-26: 问题诊断 + 设计收敛（Phase 1）
+- 2026-02-26~27: 迁移执行（Phase 2，缅因猫）
+- 2026-02-27: Skill 实现 + 沉淀同步（Phase 3-4，布偶猫）
+- 2026-02-27: P3 收尾 + 验收（Phase 5，缅因猫）
+- 2026-02-27: **Feature completed**
 
 ---
 
