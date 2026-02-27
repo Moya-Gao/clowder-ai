@@ -139,11 +139,10 @@ P1/P2 状态: 全部已修复并确认
 可以执行合入流程。
 
 后续步骤（按 SOP Step 5 → 6 顺序执行）：
-1. 收敛 commit：git rebase -i --autosquash origin/main
-2. 开 PR + 云端 review → 使用 `requesting-cloud-review` skill（SOP Step 5）
+1. Push feature branch + 开 PR + 云端 review → 使用 `requesting-cloud-review` skill（SOP Step 5）
    （例外：铲屎官明确同意跳过时可不开 PR，标准见 SOP.md 例外路径）
-3. 合入 main：git checkout main && git merge --ff-only {branch}
-4. push main + 清理 worktree（SOP Step 6）
+2. 合入：gh pr merge --squash --delete-branch（SOP Step 6，GitHub 自动 squash）
+3. 更新本地 main + 清理 worktree（SOP Step 6）
 ```
 
 ## 常见错误

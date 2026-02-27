@@ -100,23 +100,26 @@ created: 2026-02-26
 **Skill**: `requesting-cloud-review`
 
 ```bash
-# 5a. 收敛 commit（squash/fixup review follow-up 零碎提交）
-git fetch origin
-git rebase -i --autosquash origin/main
+# 5a. Push feature branch 到 origin（PR 需要远程分支）
+git push origin {branch}
 
-# 5b. Push feature branch 到 origin（PR 需要远程分支）
-git push origin {branch} --force-with-lease
-
-# 5c. 开 PR（此时 feature 和 main 有 diff，PR 可成立）
+# 5b. 开 PR（此时 feature 和 main 有 diff，PR 可成立）
 gh pr create --base main --head {branch} --title "..." --body "..."
 
-# 5d. 触发云端 review
+# 5c. 触发云端 review
 gh pr comment {PR_NUMBER} --body "@codex review ..."
 
-# 5e. 等待云端 review 结果（⚠️ 必须等通过才能进 Step 6！）
+# 5d. 等待云端 review 结果（⚠️ 必须等通过才能进 Step 6！）
 ```
 
-**冲突处理**: rebase 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
+**冲突处理**: 如果 GitHub 提示 PR 有冲突，在 feature branch 上 rebase 解决：
+```bash
+git fetch origin
+git rebase origin/main
+# 解决冲突后
+git push origin {branch} --force-with-lease
+```
+rebase 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
 
 **云端 review 是阻塞守护**：必须等云端 Codex review 通过（0 P1/P2）才能进入 Step 6。处理方式：
 - 0 P1/P2 → 通过，进入 Step 6
@@ -133,8 +136,8 @@ gh pr comment {PR_NUMBER} --body "@codex review ..."
 **触发**: 云端 review 通过后（0 P1/P2，或 P1/P2 已在 feature branch 上修复）
 
 ```bash
-# 6a. 通过 GitHub 合入（PR 正确标记为 "Merged" ✅）
-gh pr merge {PR_NUMBER} --rebase --delete-branch
+# 6a. 通过 GitHub 合入（squash 由 GitHub 处理，PR 正确标记为 "Merged" ✅）
+gh pr merge {PR_NUMBER} --squash --delete-branch
 
 # 6b. 更新本地 main（⚠️ 必须在清理 worktree 之前！）
 cd /Users/lysander/projects/relay-station/cat-cafe
@@ -147,10 +150,12 @@ git branch -d {branch-name}
 git worktree prune
 ```
 
-**为什么用 `gh pr merge` 而不是本地 merge**：
-- 本地 `git merge --ff-only` + push 会导致 PR 在 GitHub 上显示为 "Closed" 而非 "Merged"（rebase 改变了 commit hash，GitHub 无法匹配）
-- `gh pr merge --rebase` 通过 GitHub 的合入机制，PR 正确显示为 "Merged"
+**为什么用 `gh pr merge --squash` 而不是本地 squash + merge**：
+- `gh pr merge --squash` 让 GitHub 自动将所有 commit 压缩为一个，PR 正确显示为 "Merged"
+- 本地手动 `git rebase -i --autosquash` 压缩后再 merge/push 会导致 commit hash 不匹配，PR 显示为 "Closed" 而非 "Merged"
+- 手动 squash 曾导致 3 次事故（覆盖 main 上其他猫的改动），`gh pr merge --squash` 由 GitHub 安全处理
 - `--delete-branch` 自动删除远程分支，省去 `git push origin --delete`
+- 🔴 **禁止本地 squash**：不要用 `git rebase -i --autosquash` 压缩提交，不要用 `git reset --soft` + 重提交，不要本地 `git merge --ff-only` + push
 
 ```bash
 # 6e. 兜底检查：BACKLOG 更新是否在 feature branch 阶段完成？

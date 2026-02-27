@@ -117,9 +117,11 @@ Then: Cleanup worktree (Step 5)
 **Cat Cafe 注意**：在 Cat Cafe 中，上方通用的 merge 流程被 SOP 替代。按 `docs/SOP.md` Step 5 → 6 顺序执行：
 1. **先开 PR**：使用 `requesting-cloud-review` skill push feature branch + 开 PR + 触发云端 review（SOP Step 5）
    （例外：铲屎官明确同意跳过时可不开 PR，判断标准见 `docs/SOP.md` 例外路径）
-2. **再合入 main**：`git checkout main && git merge --ff-only {branch}`
-3. **push main**（必须在清理 worktree 之前！）：`git push origin main`
+2. **通过 GitHub 合入**：`gh pr merge {PR_NUMBER} --squash --delete-branch`（GitHub 自动 squash，PR 正确标记为 "Merged"）
+3. **更新本地 main**（必须在清理 worktree 之前！）：`git checkout main && git pull origin main`
 4. **清理 worktree** (Step 5 of this skill)
+
+> 🔴 **禁止本地 merge**：不要用 `git merge --ff-only` + `git push origin main`（会导致 PR 显示为 "Closed" 而非 "Merged"）
 
 #### Option 2: Push and Create PR
 

@@ -36,16 +36,17 @@ BEFORE 开 PR:
    - 有红 → STOP，先修
 ```
 
-## Step 1: 收敛 Commit + Push Feature Branch
+## Step 1: Push Feature Branch
 
 ```bash
-# 收敛 review follow-up 零碎提交
-git fetch origin
-git rebase -i --autosquash origin/main
+# Push feature branch 到 origin（PR 需要远程分支有 diff）
+git push origin {branch}
 
-# Push feature branch（不是 main！PR 需要远程分支有 diff）
-git push origin {branch} --force-with-lease
+# 如果 GitHub 提示冲突，先在 feature branch 上 rebase 解决：
+# git fetch origin && git rebase origin/main → 解决冲突 → git push origin {branch} --force-with-lease
 ```
+
+> 🔴 **禁止手动 squash**：不要用 `git rebase -i --autosquash` 压缩提交。squash 由 Step 6 的 `gh pr merge --squash` 自动处理。
 
 ## Step 2: Create PR
 

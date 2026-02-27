@@ -389,25 +389,21 @@ pnpm install
 - **🔴 禁止在项目内部创建 worktree**：不要用 `.worktrees/` 子目录，必须放在 `relay-station/` 同级
 - **🔴 `cat-cafe-runtime` 是生产运行环境，禁止删除/清理！** 它不是开发 worktree，是铲屎官跑服务的实例
 
-#### 合入前：先收敛 commit，再 fetch + rebase（默认流程）
+#### 合入前：push feature branch + `gh pr merge --squash`（默认流程）
 
-为减少在 `main` 上处理冲突时的误回退，默认先在功能分支收敛提交历史，再同步主干并完成冲突处理：
+合入由 GitHub 处理，**禁止本地手动 squash**：
 
 ```bash
 # 在 feature/worktree 分支执行
-git fetch origin
+git push origin {branch}
 
-# 先整理本分支提交（建议保留 1~2 个语义清晰的 commit）
-git rebase -i --autosquash origin/main
-
-# 若有冲突：在当前分支解决后，先跑测试再继续
-git rebase --continue
+# 合入（SOP Step 6，GitHub 自动 squash 所有 commit 为一个）
+gh pr merge {PR_NUMBER} --squash --delete-branch
 ```
 
-- **默认要求**：先把 review follow-up 等零碎提交通过 `fixup/squash` 收敛，再进入 `fetch + rebase` 流程
-- **默认要求**：冲突优先在 feature/worktree 分支解决，再进入合入流程
+- 🔴 **禁止手动 squash**：不要用 `git rebase -i --autosquash` 压缩提交，不要用 `git reset --soft` + 重提交（曾导致 3 次覆盖 main 改动的事故）
+- **冲突处理**：如果 GitHub 提示 PR 有冲突，在 feature branch 上 `git fetch origin && git rebase origin/main` 解决后 `git push --force-with-lease`
 - **禁止默认做法**：不要在 `main` 上直接通过 merge 处理分支冲突（除非铲屎官明确要求）
-- **例外规则**：若分支已被其他猫基于开发，改写历史前先同步，必要时用 `--force-with-lease`
 
 #### 合入时：冲突处理规则
 
