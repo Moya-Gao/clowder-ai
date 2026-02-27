@@ -71,6 +71,8 @@ export interface CapabilityBoardItem {
 export interface CapabilityPatchRequest {
   /** Capability ID to modify */
   capabilityId: string;
+  /** Capability type — required to disambiguate same-name MCP/skill entries */
+  capabilityType: 'mcp' | 'skill';
   /** Scope: global toggle or per-cat override */
   scope: 'global' | 'cat';
   /** Required when scope is 'cat' */

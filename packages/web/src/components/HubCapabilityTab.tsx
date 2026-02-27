@@ -20,6 +20,7 @@ interface CapabilityBoardItem {
 
 type FilterType = 'all' | 'mcp' | 'skill';
 type FilterSource = 'all' | 'cat-cafe' | 'external';
+type FilterCat = 'all' | string;
 
 export function HubCapabilityTab() {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
@@ -27,6 +28,7 @@ export function HubCapabilityTab() {
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
+  const [filterCat, setFilterCat] = useState<FilterCat>('all');
   const [toggling, setToggling] = useState<string | null>(null);
 
   const fetchCapabilities = useCallback(async () => {
@@ -50,16 +52,17 @@ export function HubCapabilityTab() {
 
   const handleToggle = useCallback(async (
     capabilityId: string,
+    capabilityType: 'mcp' | 'skill',
     scope: 'global' | 'cat',
     enabled: boolean,
     catId?: string,
   ) => {
-    setToggling(capabilityId);
+    setToggling(`${capabilityType}:${capabilityId}`);
     try {
       const res = await apiFetch('/api/capabilities', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capabilityId, scope, enabled, catId }),
+        body: JSON.stringify({ capabilityId, capabilityType, scope, enabled, catId }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as Record<string, unknown>;
@@ -74,15 +77,16 @@ export function HubCapabilityTab() {
     }
   }, [fetchCapabilities]);
 
-  const filtered = items.filter((item) => {
-    if (filterType !== 'all' && item.type !== filterType) return false;
-    if (filterSource !== 'all' && item.source !== filterSource) return false;
-    return true;
-  });
-
   const catIds = items.length > 0
     ? Object.keys(items[0]!.cats).sort()
     : [];
+
+  const filtered = items.filter((item) => {
+    if (filterType !== 'all' && item.type !== filterType) return false;
+    if (filterSource !== 'all' && item.source !== filterSource) return false;
+    if (filterCat !== 'all' && !(filterCat in item.cats)) return false;
+    return true;
+  });
 
   if (loading) return <p className="text-sm text-gray-400">加载中...</p>;
 
@@ -114,6 +118,17 @@ export function HubCapabilityTab() {
           ]}
           onChange={(v) => setFilterSource(v as FilterSource)}
         />
+        {catIds.length > 0 && (
+          <FilterChips
+            label="猫猫"
+            value={filterCat}
+            options={[
+              { value: 'all', label: '全部' },
+              ...catIds.map((id) => ({ value: id, label: id })),
+            ]}
+            onChange={(v) => setFilterCat(v as FilterCat)}
+          />
+        )}
       </div>
 
       {/* Capability table */}
@@ -141,7 +156,7 @@ export function HubCapabilityTab() {
               </tr>
             ) : (
               filtered.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50/50">
+                <tr key={`${item.type}:${item.id}`} className="hover:bg-gray-50/50">
                   <td className="px-3 py-2 font-mono text-xs">{item.id}</td>
                   <td className="text-center px-3 py-2">
                     <TypeBadge type={item.type} />
@@ -150,28 +165,22 @@ export function HubCapabilityTab() {
                     <SourceBadge source={item.source} />
                   </td>
                   <td className="text-center px-3 py-2">
-                    {item.type === 'mcp' ? (
-                      <ToggleSwitch
-                        enabled={item.enabled}
-                        disabled={toggling === item.id}
-                        onChange={(v) => handleToggle(item.id, 'global', v)}
-                      />
-                    ) : (
-                      <span className="text-gray-300">-</span>
-                    )}
+                    <ToggleSwitch
+                      enabled={item.enabled}
+                      disabled={toggling === `${item.type}:${item.id}`}
+                      onChange={(v) => handleToggle(item.id, item.type, 'global', v)}
+                    />
                   </td>
                   {catIds.map((catId) => (
                     <td key={catId} className="text-center px-2 py-2">
-                      {item.type === 'mcp' ? (
+                      {catId in item.cats ? (
                         <ToggleSwitch
                           enabled={item.cats[catId] ?? false}
-                          disabled={toggling === item.id}
-                          onChange={(v) => handleToggle(item.id, 'cat', v, catId)}
+                          disabled={toggling === `${item.type}:${item.id}`}
+                          onChange={(v) => handleToggle(item.id, item.type, 'cat', v, catId)}
                         />
                       ) : (
-                        <span className={item.cats[catId] ? 'text-green-500' : 'text-gray-300'}>
-                          {item.cats[catId] ? 'Y' : '-'}
-                        </span>
+                        <span className="text-gray-300">–</span>
                       )}
                     </td>
                   ))}
@@ -182,10 +191,15 @@ export function HubCapabilityTab() {
         </table>
       </div>
 
-      <p className="text-xs text-gray-400">
-        共 {items.length} 项能力 (MCP: {items.filter((i) => i.type === 'mcp').length},
-        Skill: {items.filter((i) => i.type === 'skill').length})
-      </p>
+      <div className="text-xs text-gray-400 space-y-1">
+        <p>
+          共 {items.length} 项能力 (MCP: {items.filter((i) => i.type === 'mcp').length},
+          Skill: {items.filter((i) => i.type === 'skill').length})
+        </p>
+        {items.some((i) => i.type === 'skill') && (
+          <p>MCP 开关即时生效。Skill 开关仅记录状态，CLI 运行时加载不受控制。</p>
+        )}
+      </div>
     </div>
   );
 }

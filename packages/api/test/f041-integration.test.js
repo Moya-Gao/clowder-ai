@@ -166,6 +166,115 @@ describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
 });
 
 // ════════════════════════════════════════════════════
+// 1c. Hot-Reload: PATCH toggle → CLI config regenerated
+// ════════════════════════════════════════════════════
+
+describe('F041 Hot-Reload: toggle → CLI config regenerated', () => {
+  /** @type {string} */ let dir;
+
+  beforeEach(async () => { dir = await makeTmpDir('hotreload'); });
+  afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+  it('disabling MCP tool via PATCH removes it from CLI configs', async () => {
+    // 1. Seed: two MCP tools, both enabled
+    const config = {
+      version: /** @type {1} */ (1),
+      capabilities: [
+        { id: 'cat-cafe', type: /** @type {'mcp'} */ ('mcp'), enabled: true,
+          source: /** @type {'cat-cafe'} */ ('cat-cafe'),
+          mcpServer: { command: 'node', args: ['server.js'] } },
+        { id: 'filesystem', type: /** @type {'mcp'} */ ('mcp'), enabled: true,
+          source: /** @type {'external'} */ ('external'),
+          mcpServer: { command: 'npx', args: ['@mcp/fs'] } },
+      ],
+    };
+    await writeCapabilitiesConfig(dir, config);
+
+    const paths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+    };
+    await generateCliConfigs(config, paths);
+
+    // Verify both present
+    let claude = await readClaudeMcpConfig(paths.anthropic);
+    assert.ok(claude.find((s) => s.name === 'filesystem'), 'filesystem should be in Claude config');
+
+    // 2. PATCH: disable filesystem globally
+    const updated = await readCapabilitiesConfig(dir);
+    assert.ok(updated);
+    const fsCap = updated.capabilities.find((c) => c.id === 'filesystem');
+    assert.ok(fsCap);
+    fsCap.enabled = false;
+    await writeCapabilitiesConfig(dir, updated);
+    await generateCliConfigs(updated, paths);
+
+    // 3. Verify: filesystem removed from Claude/Gemini configs
+    claude = await readClaudeMcpConfig(paths.anthropic);
+    assert.ok(!claude.find((s) => s.name === 'filesystem'),
+      'filesystem should be REMOVED from Claude config after disable');
+    assert.ok(claude.find((s) => s.name === 'cat-cafe'),
+      'cat-cafe should still be present');
+
+    const gemini = await readGeminiMcpConfig(paths.google);
+    assert.ok(!gemini.find((s) => s.name === 'filesystem'),
+      'filesystem should be REMOVED from Gemini config after disable');
+
+    // Codex: should have filesystem with enabled=false
+    const codex = await readCodexMcpConfig(paths.openai);
+    const fsCodex = codex.find((s) => s.name === 'filesystem');
+    assert.ok(fsCodex, 'Codex should still list filesystem');
+    assert.equal(fsCodex.enabled, false, 'filesystem should be disabled in Codex');
+  });
+
+  it('re-enabling MCP tool via PATCH restores it in CLI configs', async () => {
+    // 1. Seed: filesystem disabled
+    const config = {
+      version: /** @type {1} */ (1),
+      capabilities: [
+        { id: 'cat-cafe', type: /** @type {'mcp'} */ ('mcp'), enabled: true,
+          source: /** @type {'cat-cafe'} */ ('cat-cafe'),
+          mcpServer: { command: 'node', args: ['server.js'] } },
+        { id: 'filesystem', type: /** @type {'mcp'} */ ('mcp'), enabled: false,
+          source: /** @type {'external'} */ ('external'),
+          mcpServer: { command: 'npx', args: ['@mcp/fs'] } },
+      ],
+    };
+    await writeCapabilitiesConfig(dir, config);
+
+    const paths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+    };
+    await generateCliConfigs(config, paths);
+
+    // Verify filesystem not in Claude
+    let claude = await readClaudeMcpConfig(paths.anthropic);
+    assert.ok(!claude.find((s) => s.name === 'filesystem'), 'filesystem starts disabled in Claude');
+
+    // 2. PATCH: re-enable filesystem
+    const updated = await readCapabilitiesConfig(dir);
+    assert.ok(updated);
+    const fsCap = updated.capabilities.find((c) => c.id === 'filesystem');
+    assert.ok(fsCap);
+    fsCap.enabled = true;
+    await writeCapabilitiesConfig(dir, updated);
+    await generateCliConfigs(updated, paths);
+
+    // 3. Verify: filesystem restored in all configs
+    claude = await readClaudeMcpConfig(paths.anthropic);
+    assert.ok(claude.find((s) => s.name === 'filesystem'),
+      'filesystem should be RESTORED in Claude config after re-enable');
+
+    const gemini = await readGeminiMcpConfig(paths.google);
+    assert.ok(gemini.find((s) => s.name === 'filesystem'),
+      'filesystem should be RESTORED in Gemini config after re-enable');
+  });
+});
+
+// ════════════════════════════════════════════════════
 // 2. Injection 互斥 (Mutual Exclusion)
 // ════════════════════════════════════════════════════
 
