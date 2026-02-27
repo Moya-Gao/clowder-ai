@@ -1,8 +1,8 @@
 {
   "generatedAt": "2026-02-26T00:00:00.000Z",
-  "totalDocs": 702,
-  "withFeatureIds": 230,
-  "unassignedCount": 472,
+  "totalDocs": 709,
+  "withFeatureIds": 253,
+  "unassignedCount": 456,
   "features": {
     "F001": [
       {
@@ -6874,7 +6874,9 @@
       "path": "docs/bug-report/86-puppeteer-process-leak/bug-report.md",
       "title": "Bug Report: #86 ImageExporter Puppeteer 进程泄漏",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F017"
+      ],
       "topics": [
         "puppeteer",
         "process",
@@ -6898,7 +6900,9 @@
       "path": "docs/bug-report/audio-block-transcript-truncate/bug-report.md",
       "title": "Bug Report: Audio 富块转写文本被截断",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F034"
+      ],
       "topics": [
         "audio",
         "block",
@@ -6910,7 +6914,9 @@
       "path": "docs/bug-report/auto-summary-misattribution-and-history-gap/bug-report.md",
       "title": "Bug Report: 自动纪要归属混淆 + 历史不可见 + 内容片段化",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F024"
+      ],
       "topics": [
         "auto",
         "summary",
@@ -6922,7 +6928,9 @@
       "path": "docs/bug-report/background-system-info-metrics-leak/bug-report.md",
       "title": "Bug Report: Background system_info Metrics Leaking as Raw JSON",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F024"
+      ],
       "topics": [
         "background",
         "system",
@@ -6934,7 +6942,9 @@
       "path": "docs/bug-report/background-system-message-variant-leak/bug-report.md",
       "title": "Bug Report - Background System Message Variant Leak",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F005"
+      ],
       "topics": [
         "background",
         "system",
@@ -6946,7 +6956,9 @@
       "path": "docs/bug-report/background-thread-tool-events-not-collapsed/bug-report.md",
       "title": "Bug Report: Background Thread Tool Events Not Collapsed",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F009"
+      ],
       "topics": [
         "background",
         "thread",
@@ -6958,7 +6970,9 @@
       "path": "docs/bug-report/brainstorm-mode-codex-cli-exit-empty-message/bug-report.md",
       "title": "Bug Report: Brainstorm 第二轮出现 Codex 空消息 + CLI 异常退出",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F011"
+      ],
       "topics": [
         "brainstorm",
         "mode",
@@ -6970,7 +6984,9 @@
       "path": "docs/bug-report/cli-image-flags-mismatch/bug-report.md",
       "title": "Bug Report: Claude/Gemini image flags mismatch causes CLI exit code 1",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F016"
+      ],
       "topics": [
         "cli",
         "image",
@@ -6982,7 +6998,9 @@
       "path": "docs/bug-report/codex-exec-image-varargs-prompt-swallow/bug-report.md",
       "title": "Bug Report: Codex `exec --image` 吞掉 prompt 导致 CLI code 1",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F016"
+      ],
       "topics": [
         "codex",
         "exec",
@@ -6994,7 +7012,9 @@
       "path": "docs/bug-report/context-health-inflated/bug-report.md",
       "title": "Bug Report: ContextHealthBar 显示严重偏高",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F024"
+      ],
       "topics": [
         "context",
         "health",
@@ -7006,7 +7026,9 @@
       "path": "docs/bug-report/delivery-cursor-stuck-on-error/bug-report.md",
       "title": "Bug Report: 增量投递 cursor 在 error 时卡住，消息无限重复投递",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F039"
+      ],
       "topics": [
         "delivery",
         "cursor",
@@ -7018,7 +7040,9 @@
       "path": "docs/bug-report/dynamic-authorization-and-git-commit-blocked/bug-report.md",
       "title": "Bug Report: 动态授权不可用 + `.git` 写入被拦截导致无法 commit",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F028"
+      ],
       "topics": [
         "dynamic",
         "authorization",
@@ -7030,7 +7054,9 @@
       "path": "docs/bug-report/evidence-anchor-boundary-and-command-prefix/bug-report.md",
       "title": "Bug Report: Evidence 锚点边界校验与命令前缀误匹配",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F013"
+      ],
       "topics": [
         "evidence",
         "anchor",
@@ -7042,7 +7068,9 @@
       "path": "docs/bug-report/file-change-event-frontend-disconnect/bug-report.md",
       "title": "Bug Report: file_change 事件后前端失联 / 会话超时",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F025"
+      ],
       "topics": [
         "file",
         "change",
@@ -7078,7 +7106,9 @@
       "path": "docs/bug-report/message-log-missing-after-auto-compact/bug-report.md",
       "title": "Bug Report: 对话记录在 Auto-Compact / 热重载后丢失",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F025"
+      ],
       "topics": [
         "message",
         "log",
@@ -7150,7 +7180,9 @@
       "path": "docs/bug-report/ux-polish-identity-a2a-actions-regression/bug-report.md",
       "title": "Bug Report: UX Polish Rebase 后 S1-S8 语义回归（身份与 A2A 操作）",
       "docKind": "bug-report",
-      "featureIds": [],
+      "featureIds": [
+        "F027"
+      ],
       "topics": [
         "polish",
         "identity",

@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F027]
 topics: [polish, identity, a2a]
 doc_kind: bug-report
 created: 2026-02-26

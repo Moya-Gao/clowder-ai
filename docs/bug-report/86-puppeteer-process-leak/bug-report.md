@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F017]
 topics: [puppeteer, process, leak]
 doc_kind: bug-report
 created: 2026-02-26

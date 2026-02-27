@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F011]
 topics: [brainstorm, mode, codex]
 doc_kind: bug-report
 created: 2026-02-26

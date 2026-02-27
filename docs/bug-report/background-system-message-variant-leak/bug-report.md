@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F005]
 topics: [background, system, message]
 doc_kind: bug-report
 created: 2026-02-26

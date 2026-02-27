@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F039]
 topics: [delivery, cursor, stuck]
 doc_kind: bug-report
 created: 2026-02-26

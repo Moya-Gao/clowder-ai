@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F025]
 topics: [message, log, missing]
 doc_kind: bug-report
 created: 2026-02-26

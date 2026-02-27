@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F028]
 topics: [dynamic, authorization, git]
 doc_kind: bug-report
 created: 2026-02-26
