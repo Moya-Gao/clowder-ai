@@ -53,7 +53,7 @@ describe('MCP Prompt Injection E2E', () => {
   });
 
   test('injected post-message endpoint succeeds with real credentials', async () => {
-    // 1. Verify cat without native MCP needs injection
+    // 1. F041: Verify injection triggers when MCP is unavailable (fallback)
     assert.equal(needsMcpInjection(false), true);
 
     // 2. Build instructions (same as route-serial does)

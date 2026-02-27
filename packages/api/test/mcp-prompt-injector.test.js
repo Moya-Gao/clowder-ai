@@ -10,14 +10,15 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
 describe('McpPromptInjector', () => {
-  it('needsMcpInjection returns false when mcpSupport is true', async () => {
+  // F041: parameter is now mcpAvailable (was mcpSupport), same boolean logic
+  it('needsMcpInjection returns false when MCP is available (no fallback needed)', async () => {
     const { needsMcpInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     assert.equal(needsMcpInjection(true), false);
   });
 
-  it('needsMcpInjection returns true when mcpSupport is false', async () => {
+  it('needsMcpInjection returns true when MCP is unavailable (fallback to HTTP callback)', async () => {
     const { needsMcpInjection } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
