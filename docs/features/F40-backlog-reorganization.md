@@ -145,11 +145,18 @@ docs/
 ```yaml
 ---
 feature_ids: [F040]           # 关联的 Feature，可为空 []
-topics: [memory, backlog]     # 松散标签，feature_ids 空时靠这个搜索
+debt_ids: [TD086]             # 关联的 Tech Debt，可为空 []（2026-02-26 新增）
+topics: [memory, backlog]     # 松散标签，feature_ids/debt_ids 空时靠这个搜索
 doc_kind: discussion          # 文档类型（必填）
 created: 2026-02-26           # 创建日期
 ---
 ```
+
+**`debt_ids` 字段说明**（2026-02-26 扩展）：
+- Bug report 通常关联到 Tech Debt（修复某个债务），而非 Feature
+- 例如：`86-puppeteer-process-leak` → `debt_ids: [TD086]`
+- 一个文档可以同时有 `feature_ids` 和 `debt_ids`（如果同时关联）
+- 判断标准：修复的是 Feature 的 bug → `feature_ids`；修复的是独立登记的 Tech Debt → `debt_ids`
 
 **`doc_kind` 枚举值**：
 - `plan` — 设计/实现计划

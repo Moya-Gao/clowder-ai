@@ -317,6 +317,43 @@ docs/archive/2026-02/
 
 ---
 
+## 完成后真相源同步（必须！）
+
+**问题根因**（2026-02-26 审计发现）：干完事情后没有更新真相源的习惯，导致 feat/debt 状态与实际情况不一致。
+
+**规则**：完成任何 Feature 或 Tech Debt 后，**必须同步更新以下真相源**，缺一不可：
+
+### Feature 完成后
+
+| 更新目标 | 操作 |
+|----------|------|
+| `docs/features/Fxxx.md` | Status 改为 `done`，补 Completed 日期和 commit hash |
+| `docs/BACKLOG.md` | 从活跃索引表**移除**（done 的 feat 不留在 BACKLOG） |
+| `docs/features/README.md` | 确认已在"已完成 Feature"表格中 |
+| 相关文档 | 确认 frontmatter `feature_ids: [Fxxx]` 已填写 |
+
+### Tech Debt 完成后
+
+| 更新目标 | 操作 |
+|----------|------|
+| `docs/TECH-DEBT.md` | 状态改为 `[x]`，补 commit hash 到备注列 |
+| 相关 bug report | 确认 frontmatter `debt_ids: [TDxxx]` 已填写（如适用） |
+
+### 检查清单（每次合入 main 后必过）
+
+```markdown
+## 真相源同步检查
+
+- [ ] 涉及的 Feature 聚合文件 Status 已更新？
+- [ ] 涉及的 BACKLOG/TECH-DEBT 条目已标记 [x]？
+- [ ] 相关文档的 feature_ids/debt_ids 已填写？
+- [ ] 活跃 feat 完成后已从 BACKLOG 移除？
+```
+
+**铁律**：合入 main 不是终点，真相源同步才是。
+
+---
+
 ## Skill 速查表
 
 | 我正在... | 用这个 Skill | SOP Step |
