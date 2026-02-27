@@ -25,6 +25,7 @@ created: 2026-02-26
 - **F20d**: CatCafeHub "语音设置" tab：可编辑术语纠正表 + initial_prompt 编辑 + 语言选择。内置词典 + localStorage 用户自定义合并。计划: 2026-02-15-voice-accuracy-and-system-whisper.md Phase B
 
 ## Links
+- [Whisper ASR 迁移 Apple Silicon 原生方案调研（替代 faster-whisper / CPU int8）](../research/whisper-asr-apple-silicon-migration.md)
 - [`2026-02-11-voice-input-design.md`](./archive/2026-02/plans/2026-02-11-voice-input-design.md)
 - [`2026-02-15-voice-accuracy-and-system-whisper.md`](./plans/2026-02-15-voice-accuracy-and-system-whisper.md)
 

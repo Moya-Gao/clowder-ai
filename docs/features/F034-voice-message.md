@@ -19,6 +19,7 @@ created: 2026-02-26
 - **F34**: 两期全部完成：F34-a TTS 基建 — Python TTS service (edge-tts) + cat-voices 配置 + TtsProviderRegistry + TtsCacheCleaner + /api/tts/* 路由 + 前端 AudioBlock + useTts hook + ChatMessage 朗读按钮。F34-b 语音消息 — 猫猫主动 {kind:'audio', text:'...'} → VoiceBlockSynthesizer 自动合成 → 微信风格语音条。三路 whitespace 防御 (Route A guard + Route B isValidRichBlock trim + Synthesizer trim)。砚砚 R9→R12 (4 轮) 放行。设计: 2026-02-21-f34b-voice-message.md
 
 ## Links
+- [A. MLX-Audio 生态（最贴 Apple Silicon 的“现成 MLX 适配”答案）](../research/TTS-research.md)
 - [`2026-02-21-f34b-voice-message.md`](./plans/2026-02-21-f34b-voice-message.md)
 
 ## Key Decisions

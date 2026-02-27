@@ -19,6 +19,7 @@ created: 2026-02-26
 - **F35**: 8223a60 + d12d3f1 + 7b7194e — 消息级 visibility: 'public' \
 
 ## Links
+- [Bug Report: Whisper 内容对其他猫不可见](../bug-report/whisper-content-invisible-to-cats/bug-report.md)
 - 历史来源：旧 BACKLOG 归档条目（be27a44^:docs/BACKLOG.md）
 
 ## Key Decisions

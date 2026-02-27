@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F008]
 topics: [context, assembler, truncation]
 doc_kind: bug-report
 created: 2026-02-24

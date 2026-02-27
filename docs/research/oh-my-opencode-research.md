@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F002]
 topics: [opencode]
 doc_kind: research
 created: 2026-02-26

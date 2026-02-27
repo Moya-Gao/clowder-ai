@@ -19,6 +19,7 @@ created: 2026-02-26
 - **F17**: Chrome headless 导出。缅因猫 3 轮 review 通过（R1 路径 + R2 安全/构建/性能 + R3 system thread）。设计: 2026-02-10-f19-f18-f17-ux-polish.md
 
 ## Links
+- [logo-动画](../research/logo-动画.md)
 - [ux-polish 2026-02-10](./archive/2026-02/discussions/2026-02-10-ux-polish-brainstorm/README.md)
 - [`2026-02-10-f19-f18-f17-ux-polish.md`](./plans/2026-02-10-f19-f18-f17-ux-polish.md)
 

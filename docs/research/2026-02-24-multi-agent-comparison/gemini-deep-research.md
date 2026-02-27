@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F002, F027]
 topics: [multi, agent, comparison]
 doc_kind: research
 created: 2026-02-24

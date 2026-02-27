@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F024]
 topics: [split, pane, invocation]
 doc_kind: bug-report
 created: 2026-02-19

@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F024]
 topics: [thread, switch, transient]
 doc_kind: bug-report
 created: 2026-02-17

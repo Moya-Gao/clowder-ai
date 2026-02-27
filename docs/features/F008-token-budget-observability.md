@@ -19,6 +19,7 @@ created: 2026-02-26
 - **F8**: 全部完成：char→token 迁移 (js-tiktoken, 16 files) + 三猫 CLI usage/cost/cache 捕获 + 前端 RightStatusPanel per-cat token 显示 + ParallelStatusBar 聚合 + inputTokens 归一化 (da75aaf) + review fix (e8d1dbd)。commits: 66a59e4→6f25a2b→e8d1dbd
 
 ## Links
+- [Bug Report: ContextAssembler 截断策略导致猫猫丢失消息结尾关键信息](../bug-report/2026-02-24-context-assembler-truncation-loses-conclusion/bug-report.md)
 - [NDJSON 宝藏调研](./archive/2026-02/research/cli-ndjson-treasure-map.md)
 
 ## Key Decisions

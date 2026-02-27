@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F035]
 topics: [whisper, content, invisible]
 doc_kind: bug-report
 created: 2026-02-26

@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F003]
 topics: [memory, design, proposal]
 doc_kind: research
 created: 2026-02-25

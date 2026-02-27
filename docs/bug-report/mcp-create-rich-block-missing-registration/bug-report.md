@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F022]
 topics: [mcp, create, rich]
 doc_kind: bug-report
 created: 2026-02-26

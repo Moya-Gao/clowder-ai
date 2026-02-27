@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F024]
 topics: [use, agent, messages]
 doc_kind: bug-report
 created: 2026-02-26
