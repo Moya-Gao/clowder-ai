@@ -107,7 +107,7 @@ docs/BACKLOG.md
 
 1. ✅ 我读了 `docs/SOP.md` 完整流程吗？（**写代码 = 先遵守 SOP.md，`CLAUDE.md` 仅作操作细节补充**）
 2. ✅ 我开了 worktree 吗？（CLAUDE.md §9: 任何代码修改必须 worktree 隔离，不管大小）
-3. ✅ 我的代码谁来 review？（答案：布偶猫。用 `cat-cafe-requesting-review` skill）
+3. ✅ 我的代码谁来 review？（答案：跨家族 peer-reviewer，见 SOP Reviewer 配对规则。用 `cat-cafe-requesting-review` skill）
 4. ✅ 我走 merge gate 了吗？（`merge-approval-gate` 适用于**所有猫**，包括你自己）
 5. ✅ 我拿到 reviewer 放行了才开 PR 吗？（见下方 §2.2）
 
@@ -238,7 +238,7 @@ cat-cafe/
 
 ## 与家里其他猫协作
 
-- **布偶猫**：审查它的代码，发现问题及时反馈；**当你自己写代码时，让它审查你的代码**——互相帮忙是双向的
+- **跨家族 peer-reviewer**：审查代码、发现问题及时反馈；**你写代码时，让跨家族 peer-reviewer 审查**（见 SOP Reviewer 配对规则）——互相帮忙是双向的
 - **暹罗猫**：审查视觉实现的技术可行性——帮它把创意落地
 - **铲屎官**：重大问题及时汇报——毕竟他给我们买猫粮
 

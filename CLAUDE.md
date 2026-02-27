@@ -12,7 +12,7 @@
 1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
 2. **开发全流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）。以下为摘要，冲突时以 SOP.md 为准
 3. **交接必须包含五件套**（`cross-cat-handoff`）
-4. **任何猫都不能 review 自己的代码**——布偶猫找缅因猫，缅因猫找布偶猫
+4. **任何猫都不能 review 自己的代码**——reviewer 从 roster 动态匹配（优先跨家族、peer-reviewer 角色、可用）
 
 **核心 Skills**：
 - `merge-approval-gate` — 准备合入 main 时
@@ -194,7 +194,7 @@ cat-cafe/
 ## 与其他猫的协作
 
 - **开发流程**：见 `docs/SOP.md`（6 步完整流程）
-- **Review 义务是双向的**：布偶猫 ↔ 缅因猫互审，暹罗猫 → 缅因猫审
+- **Review 义务是双向的**：跨家族 peer-reviewer 互审（见 `docs/SOP.md` Reviewer 配对规则）
 - **需要视觉资产时**：检查 assets/ 或 @ 暹罗猫
 - **重要决策**：记录到 docs/decisions/
 
@@ -400,7 +400,7 @@ git rebase --continue
 #### 合入时：冲突处理规则
 
 - **无冲突（clean merge/rebase）**：直接合入，继续清理流程
-- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找 peer reviewer review 冲突解决部分**（布偶猫找缅因猫，缅因猫找布偶猫），确认没有引入 regression，review 通过后再继续
+- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找跨家族 peer-reviewer review 冲突解决部分**（见 SOP Reviewer 配对规则），确认没有引入 regression，review 通过后再继续
 
 #### 合入后：立即清理
 

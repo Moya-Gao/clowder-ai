@@ -190,13 +190,19 @@ git worktree prune
 
 ---
 
-## Reviewer 配对表
+## Reviewer 配对规则
 
-| Author（写代码的猫） | Reviewer（本地 review） | Reviewer（云端） |
-|----------------------|------------------------|-----------------|
-| 布偶猫 (Opus) | 缅因猫 (Codex) | Cloud Codex |
-| 缅因猫 (Codex) | 布偶猫 (Opus) | Cloud Codex |
-| 暹罗猫 (Gemini) | 缅因猫 (Codex) | Cloud Codex |
+**F032 动态匹配**：Reviewer 根据 `cat-config.json` 的 roster 配置动态选择：
+
+1. **不同家族优先**：ragdoll ↔ maine-coon ↔ siamese（跨家族 review）
+2. **必须有 `peer-reviewer` 角色**：只有 roster 中标记为 peer-reviewer 的猫能 review
+3. **必须可用（available: true）**：没猫粮的猫不能 review（$40 教训！）
+4. **优先 lead**：同一家族内有多个 peer-reviewer 时，优先选 lead
+5. **优先活跃猫**：当前 thread 里活跃的猫优先（Phase C 实现）
+
+**降级规则**：如果没有符合条件的跨家族 reviewer：
+- 允许同家族的 lead 进行 review
+- 例：所有 maine-coon 猫都没猫粮时，ragdoll lead 可以审 ragdoll 代码
 
 **铁律**: 任何猫都不能 review 自己的代码。
 

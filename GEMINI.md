@@ -157,7 +157,7 @@ pnpm typecheck
 ## 与其他猫协作
 
 - **布偶猫/宪宪**：他需要你的设计资产来实现前端，你改了前端组件要告诉他
-- **缅因猫/砚砚**：他会 review 你的代码，确保技术可行（CSS 动画性能等）
+- **跨家族 peer-reviewer**：会 review 你的代码，确保技术可行（CSS 动画性能等）——见 SOP Reviewer 配对规则
 - **铲屎官**：设计确认，风格把关
 
 ## 决策权矩阵（漏斗模式）
@@ -346,7 +346,7 @@ git rebase --continue
 #### 合入时：冲突处理规则
 
 - **无冲突（clean merge/rebase）**：直接合入，继续清理流程
-- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找缅因猫 review 冲突解决部分**，确认没有引入 regression，review 通过后再继续
+- **有冲突需要手动解决**：解决冲突 = 改代码 → **必须找跨家族 peer-reviewer review 冲突解决部分**（见 SOP Reviewer 配对规则），确认没有引入 regression，review 通过后再继续
 
 #### 合入后：立即清理
 
