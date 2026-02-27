@@ -11,7 +11,8 @@
  */
 
 import { readdir } from 'fs/promises';
-import { join, resolve } from 'path';
+import { existsSync } from 'fs';
+import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
 import type { FastifyPluginAsync } from 'fastify';
 import { catRegistry } from '@cat-cafe/shared';
@@ -41,25 +42,39 @@ async function listSubdirs(dir: string, exclude?: string[]): Promise<string[]> {
   }
 }
 
-function getProjectRoot(): string {
-  return resolve(process.cwd(), '../..');
+/** Walk up from CWD to find pnpm-workspace.yaml — the monorepo root. */
+function findMonorepoRoot(): string {
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
+    dir = dirname(dir);
+  }
+  return process.cwd();
 }
 
+const PROJECT_ROOT = findMonorepoRoot();
+
+function getProjectRoot(): string {
+  return PROJECT_ROOT;
+}
+
+/**
+ * P1-1 fix: All CLI config paths are project-level (not user-level).
+ * This ensures multi-project isolation — different projects have different configs.
+ */
 function getDiscoveryPaths(projectRoot: string) {
-  const home = homedir();
   return {
     claudeConfig: join(projectRoot, '.mcp.json'),
-    codexConfig: join(home, '.codex', 'config.toml'),
-    geminiConfig: join(home, '.gemini', 'settings.json'),
+    codexConfig: join(projectRoot, '.codex', 'config.toml'),
+    geminiConfig: join(projectRoot, '.gemini', 'settings.json'),
   };
 }
 
 function getCliConfigPaths(projectRoot: string) {
-  const home = homedir();
   return {
     anthropic: join(projectRoot, '.mcp.json'),
-    openai: join(home, '.codex', 'config.toml'),
-    google: join(home, '.gemini', 'settings.json'),
+    openai: join(projectRoot, '.codex', 'config.toml'),
+    google: join(projectRoot, '.gemini', 'settings.json'),
   };
 }
 

@@ -305,6 +305,92 @@ describe('writeGeminiMcpConfig', () => {
   });
 });
 
+// ────────── P1-2 Regression: Preserve user's non-managed MCP servers ──────────
+
+describe('P1-2: writers preserve non-managed MCP servers', () => {
+  /** @type {string} */ let dir;
+
+  beforeEach(async () => { dir = await makeTmpDir('preserve'); });
+  afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
+
+  it('writeClaudeMcpConfig preserves user MCP servers not in managed list', async () => {
+    const file = join(dir, '.mcp.json');
+    // User already has their own MCP servers
+    await writeFile(file, JSON.stringify({
+      mcpServers: {
+        'user-custom': { command: 'my-server', args: ['--port', '9999'] },
+        'cat-cafe': { command: 'node', args: ['old-server.js'] },
+      },
+    }));
+
+    // Cat Cafe orchestrator writes only managed servers
+    await writeClaudeMcpConfig(file, [
+      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const data = JSON.parse(await readFile(file, 'utf-8'));
+    // cat-cafe should be updated
+    assert.deepEqual(data.mcpServers['cat-cafe'].args, ['new-server.js']);
+    // user-custom should still be there!
+    assert.ok(data.mcpServers['user-custom'], 'User MCP server should be preserved');
+    assert.equal(data.mcpServers['user-custom'].command, 'my-server');
+  });
+
+  it('writeCodexMcpConfig preserves user MCP servers not in managed list', async () => {
+    const file = join(dir, 'config.toml');
+    await writeFile(file, `[model]
+name = "gpt-4"
+
+[mcp_servers.user_tool]
+command = "my-tool"
+args = ["--mode", "dev"]
+enabled = true
+
+[mcp_servers.cat_cafe]
+command = "node"
+args = ["old-server.js"]
+enabled = true
+`);
+
+    await writeCodexMcpConfig(file, [
+      { name: 'cat_cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const raw = await readFile(file, 'utf-8');
+    // cat_cafe updated
+    assert.ok(raw.includes('new-server.js'));
+    // user_tool preserved
+    assert.ok(raw.includes('[mcp_servers.user_tool]'), 'User MCP server should be preserved');
+    assert.ok(raw.includes('my-tool'));
+    // model section preserved
+    assert.ok(raw.includes('[model]'));
+  });
+
+  it('writeGeminiMcpConfig preserves user MCP servers not in managed list', async () => {
+    const file = join(dir, 'settings.json');
+    await writeFile(file, JSON.stringify({
+      theme: 'dark',
+      mcpServers: {
+        'user-tool': { command: 'my-tool', args: [] },
+        'cat-cafe': { command: 'node', args: ['old-server.js'] },
+      },
+    }));
+
+    await writeGeminiMcpConfig(file, [
+      { name: 'cat-cafe', command: 'node', args: ['new-server.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const data = JSON.parse(await readFile(file, 'utf-8'));
+    // cat-cafe updated
+    assert.deepEqual(data.mcpServers['cat-cafe'].args, ['new-server.js']);
+    // user-tool preserved
+    assert.ok(data.mcpServers['user-tool'], 'User MCP server should be preserved');
+    assert.equal(data.mcpServers['user-tool'].command, 'my-tool');
+    // theme preserved
+    assert.equal(data.theme, 'dark');
+  });
+});
+
 // ────────── Round-trip tests ──────────
 
 describe('round-trip: read → write → read', () => {

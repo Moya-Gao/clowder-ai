@@ -10,7 +10,7 @@
  */
 
 import { readFile, writeFile, mkdir } from 'fs/promises';
-import { join, resolve } from 'path';
+import { resolve, relative, sep } from 'path';
 import type {
   CapabilitiesConfig,
   CapabilityEntry,
@@ -40,10 +40,21 @@ const PROVIDER_WRITERS = {
 
 // ────────── Core: Read / Write capabilities.json ──────────
 
+/** Normalize and validate that a path stays within the project tree. */
+function safePath(projectRoot: string, ...segments: string[]): string {
+  const root = resolve(projectRoot);
+  const normalized = resolve(root, ...segments);
+  const rel = relative(root, normalized);
+  if (rel.startsWith(`..${sep}`) || rel === '..') {
+    throw new Error(`Path escapes project root: ${normalized}`);
+  }
+  return normalized;
+}
+
 export async function readCapabilitiesConfig(
   projectRoot: string,
 ): Promise<CapabilitiesConfig | null> {
-  const filePath = join(projectRoot, CAT_CAFE_DIR, CAPABILITIES_FILENAME);
+  const filePath = safePath(projectRoot, CAT_CAFE_DIR, CAPABILITIES_FILENAME);
   try {
     const raw = await readFile(filePath, 'utf-8');
     const data = JSON.parse(raw) as CapabilitiesConfig;
@@ -58,9 +69,9 @@ export async function writeCapabilitiesConfig(
   projectRoot: string,
   config: CapabilitiesConfig,
 ): Promise<void> {
-  const dir = join(projectRoot, CAT_CAFE_DIR);
+  const dir = safePath(projectRoot, CAT_CAFE_DIR);
   await mkdir(dir, { recursive: true });
-  const filePath = join(dir, CAPABILITIES_FILENAME);
+  const filePath = safePath(projectRoot, CAT_CAFE_DIR, CAPABILITIES_FILENAME);
   await writeFile(filePath, JSON.stringify(config, null, 2) + '\n', 'utf-8');
 }
 
@@ -68,8 +79,8 @@ export async function writeCapabilitiesConfig(
 
 export interface DiscoveryPaths {
   claudeConfig: string;   // e.g. <projectRoot>/.mcp.json
-  codexConfig: string;    // e.g. ~/.codex/config.toml
-  geminiConfig: string;   // e.g. ~/.gemini/settings.json
+  codexConfig: string;    // e.g. <projectRoot>/.codex/config.toml
+  geminiConfig: string;   // e.g. <projectRoot>/.gemini/settings.json
 }
 
 /**
@@ -168,7 +179,7 @@ export async function bootstrapCapabilities(
 export interface CliConfigPaths {
   anthropic: string;   // e.g. <projectRoot>/.mcp.json
   openai: string;      // e.g. <projectRoot>/.codex/config.toml
-  google: string;      // e.g. ~/.gemini/settings.json
+  google: string;      // e.g. <projectRoot>/.gemini/settings.json
 }
 
 /**

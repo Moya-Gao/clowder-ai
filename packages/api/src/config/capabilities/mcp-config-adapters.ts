@@ -69,28 +69,43 @@ export async function readGeminiMcpConfig(filePath: string): Promise<McpServerDe
 
 // ────────── Writers ──────────
 
-/** Write McpServerDescriptor[] → Claude .mcp.json */
+/** Write McpServerDescriptor[] → Claude .mcp.json (merge: preserves user's non-managed servers) */
 export async function writeClaudeMcpConfig(
   filePath: string,
   servers: McpServerDescriptor[],
 ): Promise<void> {
-  const mcpServers: Record<string, Record<string, unknown>> = {};
-  for (const s of servers.filter((s) => s.enabled)) {
-    const entry: Record<string, unknown> = { command: s.command, args: s.args };
-    if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
-    if (s.workingDir) entry['cwd'] = s.workingDir;
-    mcpServers[s.name] = entry;
+  // Read existing to preserve user's own MCP servers
+  const raw = await safeReadFile(filePath);
+  const existing = raw ? safeJsonParse(raw) : null;
+  const existingServers: Record<string, unknown> =
+    existing && typeof existing['mcpServers'] === 'object' && existing['mcpServers'] !== null
+      ? { ...(existing['mcpServers'] as Record<string, unknown>) }
+      : {};
+
+  // Update managed entries (only enabled — Claude has no enabled field)
+  for (const s of servers) {
+    if (s.enabled) {
+      const entry: Record<string, unknown> = { command: s.command, args: s.args };
+      if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
+      if (s.workingDir) entry['cwd'] = s.workingDir;
+      existingServers[s.name] = entry;
+    } else {
+      // Disabled managed server → remove from config (Claude has no enabled field)
+      delete existingServers[s.name];
+    }
   }
+
+  // Keep user entries not in managed list untouched (they're already in existingServers)
   await ensureDir(filePath);
-  await writeFile(filePath, JSON.stringify({ mcpServers }, null, 2) + '\n', 'utf-8');
+  await writeFile(filePath, JSON.stringify({ mcpServers: existingServers }, null, 2) + '\n', 'utf-8');
 }
 
-/** Write McpServerDescriptor[] → Codex .codex/config.toml (MCP section only) */
+/** Write McpServerDescriptor[] → Codex .codex/config.toml (merge: preserves user's non-managed servers) */
 export async function writeCodexMcpConfig(
   filePath: string,
   servers: McpServerDescriptor[],
 ): Promise<void> {
-  // Read existing config to preserve non-MCP sections
+  // Read existing config to preserve non-MCP sections AND user's MCP servers
   const raw = await safeReadFile(filePath);
   let existing: Record<string, unknown> = {};
   if (raw) {
@@ -101,26 +116,31 @@ export async function writeCodexMcpConfig(
     }
   }
 
-  const mcpServers: Record<string, Record<string, unknown>> = {};
+  // Get existing MCP servers (user's + old managed)
+  const existingMcp: Record<string, Record<string, unknown>> =
+    existing['mcp_servers'] && typeof existing['mcp_servers'] === 'object'
+      ? { ...(existing['mcp_servers'] as Record<string, Record<string, unknown>>) }
+      : {};
+
+  // Update/add only managed entries; preserve user's own servers
   for (const s of servers) {
     const entry: Record<string, unknown> = { command: s.command, args: s.args };
     if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
-    // Codex supports enabled field; write it explicitly
     entry['enabled'] = s.enabled;
-    mcpServers[s.name] = entry;
+    existingMcp[s.name] = entry;
   }
 
-  existing['mcp_servers'] = mcpServers;
+  existing['mcp_servers'] = existingMcp;
   await ensureDir(filePath);
   await writeFile(filePath, stringifyToml(existing) + '\n', 'utf-8');
 }
 
-/** Write McpServerDescriptor[] → Gemini .gemini/settings.json (MCP section only) */
+/** Write McpServerDescriptor[] → Gemini .gemini/settings.json (merge: preserves user's non-managed servers) */
 export async function writeGeminiMcpConfig(
   filePath: string,
   servers: McpServerDescriptor[],
 ): Promise<void> {
-  // Read existing config to preserve non-MCP sections
+  // Read existing config to preserve non-MCP sections AND user's MCP servers
   const raw = await safeReadFile(filePath);
   let existing: Record<string, unknown> = {};
   if (raw) {
@@ -128,15 +148,26 @@ export async function writeGeminiMcpConfig(
     if (parsed) existing = parsed;
   }
 
-  const mcpServers: Record<string, Record<string, unknown>> = {};
-  for (const s of servers.filter((s) => s.enabled)) {
-    const entry: Record<string, unknown> = { command: s.command, args: s.args };
-    if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
-    if (s.workingDir) entry['cwd'] = s.workingDir;
-    mcpServers[s.name] = entry;
+  // Get existing MCP servers (user's + old managed)
+  const existingMcp: Record<string, unknown> =
+    existing['mcpServers'] && typeof existing['mcpServers'] === 'object'
+      ? { ...(existing['mcpServers'] as Record<string, unknown>) }
+      : {};
+
+  // Update/add managed entries; remove disabled managed; preserve user's own
+  for (const s of servers) {
+    if (s.enabled) {
+      const entry: Record<string, unknown> = { command: s.command, args: s.args };
+      if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
+      if (s.workingDir) entry['cwd'] = s.workingDir;
+      existingMcp[s.name] = entry;
+    } else {
+      // Disabled managed server → remove from config (Gemini has no enabled field)
+      delete existingMcp[s.name];
+    }
   }
 
-  existing['mcpServers'] = mcpServers;
+  existing['mcpServers'] = existingMcp;
   await ensureDir(filePath);
   await writeFile(filePath, JSON.stringify(existing, null, 2) + '\n', 'utf-8');
 }
