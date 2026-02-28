@@ -27,6 +27,13 @@ function buildDeps(overrides = {}) {
       processNext: mock.fn(async () => ({ started: false })),
       isPaused: mock.fn(() => false),
       getPauseReason: mock.fn(() => undefined),
+      clearPause: mock.fn(() => {}),
+      releaseThread: mock.fn(() => {}),
+    },
+    invocationTracker: {
+      has: mock.fn(() => false),
+      getUserId: mock.fn(() => null),
+      cancel: mock.fn(() => ({ cancelled: false, catIds: [] })),
     },
     socketManager: {
       broadcastAgentMessage: mock.fn(),
@@ -390,5 +397,97 @@ describe('Queue Management API', () => {
       payload: { direction: 'up' },
     });
     assert.equal(res.statusCode, 409);
+  });
+
+  // ── Functional: POST steer ──
+
+  it('POST /queue/:entryId/steer promote moves entry to front of queued entries', async () => {
+    enqueueEntry(deps.invocationQueue, { content: 'first', targetCats: ['opus'] });
+    const r2 = enqueueEntry(deps.invocationQueue, { content: 'second', targetCats: ['codex'] });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${r2.entry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { mode: 'promote' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const queue = deps.invocationQueue.list('t1', 'user-a');
+    assert.equal(queue[0].content, 'second');
+    assert.equal(queue[1].content, 'first');
+  });
+
+  it('POST /queue/:entryId/steer returns 409 when entry is processing', async () => {
+    enqueueEntry(deps.invocationQueue);
+    deps.invocationQueue.markProcessing('t1', 'user-a');
+    const entries = deps.invocationQueue.list('t1', 'user-a');
+    const processingEntry = entries.find((e) => e.status === 'processing');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${processingEntry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { mode: 'promote' },
+    });
+    assert.equal(res.statusCode, 409);
+  });
+
+  it('POST /queue/:entryId/steer immediate cancels active invocation and starts processing', async () => {
+    const r1 = enqueueEntry(deps.invocationQueue, { content: 'first' });
+    enqueueEntry(deps.invocationQueue, { content: 'second' });
+
+    deps.invocationTracker.has = mock.fn(() => true);
+    deps.invocationTracker.getUserId = mock.fn(() => 'user-a');
+    deps.invocationTracker.cancel = mock.fn(() => ({ cancelled: true, catIds: ['codex'] }));
+    deps.queueProcessor.processNext = mock.fn(async () => ({ started: true, entry: { id: r1.entry.id } }));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { mode: 'immediate' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(deps.invocationTracker.cancel.mock.calls.length, 1);
+    assert.equal(deps.queueProcessor.processNext.mock.calls.length, 1);
+  });
+
+  it('POST /queue/:entryId/steer immediate releases QueueProcessor mutex after cancel (P2 race)', async () => {
+    const r1 = enqueueEntry(deps.invocationQueue, { content: 'first' });
+    enqueueEntry(deps.invocationQueue, { content: 'second' });
+
+    deps.invocationTracker.has = mock.fn(() => true);
+    deps.invocationTracker.getUserId = mock.fn(() => 'user-a');
+    deps.invocationTracker.cancel = mock.fn(() => ({ cancelled: true, catIds: ['codex'] }));
+
+    let locked = true;
+    deps.queueProcessor.releaseThread = mock.fn(() => {
+      locked = false;
+    });
+    deps.queueProcessor.processNext = mock.fn(async () => {
+      if (locked) return { started: false };
+      return { started: true, entry: { id: r1.entry.id } };
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${r1.entry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-a', 'content-type': 'application/json' },
+      payload: { mode: 'immediate' },
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(deps.queueProcessor.releaseThread.mock.calls.length, 1);
+  });
+
+  it('POST /queue/:entryId/steer returns 404 for another user entry', async () => {
+    const r = enqueueEntry(deps.invocationQueue, { userId: 'user-a' });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/t1/queue/${r.entry.id}/steer`,
+      headers: { 'x-cat-cafe-user': 'user-b', 'content-type': 'application/json' },
+      payload: { mode: 'promote' },
+    });
+    assert.equal(res.statusCode, 404);
   });
 });

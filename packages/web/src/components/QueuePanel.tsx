@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useChatStore, type QueueEntry } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
+import { useToastStore } from '@/stores/toastStore';
+import { SteerQueuedEntryModal, type SteerMode } from './SteerQueuedEntryModal';
 
 interface QueuePanelProps {
   threadId: string;
@@ -18,6 +20,10 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
   const queuePaused = useChatStore((s) => s.queuePaused) ?? false;
   const queuePauseReason = useChatStore((s) => s.queuePauseReason);
   const messages = useChatStore((s) => s.messages);
+  const addToast = useToastStore((s) => s.addToast);
+
+  const [steerEntryId, setSteerEntryId] = useState<string | null>(null);
+  const [steerMode, setSteerMode] = useState<SteerMode>('immediate');
 
   const handleRemove = useCallback(async (entryId: string) => {
     await apiFetch(`/api/threads/${threadId}/queue/${entryId}`, { method: 'DELETE' });
@@ -39,10 +45,59 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
     await apiFetch(`/api/threads/${threadId}/queue`, { method: 'DELETE' });
   }, [threadId]);
 
+  const selectedSteerEntry = useMemo(
+    () => (steerEntryId ? queue.find((e) => e.id === steerEntryId) ?? null : null),
+    [queue, steerEntryId],
+  );
+
+  const handleSteerOpen = useCallback((entryId: string) => {
+    setSteerMode('immediate');
+    setSteerEntryId(entryId);
+  }, []);
+
+  const handleSteerCancel = useCallback(() => {
+    setSteerEntryId(null);
+  }, []);
+
+  const handleSteerConfirm = useCallback(async () => {
+    if (!steerEntryId) return;
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/queue/${steerEntryId}/steer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: steerMode }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg =
+          data?.code === 'ENTRY_PROCESSING'
+            ? '该消息正在处理，无法 steer'
+            : data?.error ?? 'Steer 失败，请重试';
+        addToast({
+          type: 'error',
+          title: 'Steer 失败',
+          message: msg,
+          threadId,
+          duration: 5000,
+        });
+        return;
+      }
+      setSteerEntryId(null);
+    } catch {
+      addToast({
+        type: 'error',
+        title: 'Steer 失败',
+        message: 'Steer 失败，请重试',
+        threadId,
+        duration: 5000,
+      });
+    }
+  }, [addToast, steerEntryId, steerMode, threadId]);
+
   // Don't render when queue is empty
   if (queue.length === 0) return null;
 
-  // Filter out "processing" entries — user only sees queued ones
+  // User-facing entries: show queued entries (processing steer is out-of-scope for F047)
   const visibleEntries = queue.filter((e) => e.status === 'queued');
   if (visibleEntries.length === 0 && !queuePaused) return null;
 
@@ -114,10 +169,20 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
               imageCount={imageCount}
               onRemove={handleRemove}
               onMove={handleMove}
+              onSteer={handleSteerOpen}
             />
           );
         })}
       </div>
+
+      {selectedSteerEntry && selectedSteerEntry.status === 'queued' && (
+        <SteerQueuedEntryModal
+          mode={steerMode}
+          onModeChange={setSteerMode}
+          onCancel={handleSteerCancel}
+          onConfirm={handleSteerConfirm}
+        />
+      )}
     </div>
   );
 }
@@ -132,6 +197,7 @@ function QueueEntryRow({
   imageCount,
   onRemove,
   onMove,
+  onSteer,
 }: {
   entry: QueueEntry;
   index: number;
@@ -141,6 +207,7 @@ function QueueEntryRow({
   imageCount: number;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: 'up' | 'down') => void;
+  onSteer: (id: string) => void;
 }) {
   return (
     <div className={`flex items-center gap-2 px-3 py-2 border-b last:border-b-0 ${
@@ -189,6 +256,17 @@ function QueueEntryRow({
           </button>
         )}
       </div>
+
+      {/* Steer button (F047) */}
+      <button
+        type="button"
+        data-testid={`steer-${entry.id}`}
+        onClick={() => onSteer(entry.id)}
+        className="text-xs px-3 py-1 rounded-full bg-[#9B7EBD] text-white hover:bg-[#8B6FAE] transition-colors shrink-0"
+        aria-label="Steer"
+      >
+        Steer
+      </button>
 
       {/* Remove button */}
       <button onClick={() => onRemove(entry.id)}

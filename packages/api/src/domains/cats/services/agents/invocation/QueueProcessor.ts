@@ -117,6 +117,19 @@ export class QueueProcessor {
   }
 
   /**
+   * Force-release the per-thread mutex.
+   *
+   * Used by queue steer immediate: we cancel the current invocation, but the
+   * old queue execution's `.then()` cleanup that deletes the mutex may not have
+   * run yet. Releasing early avoids a user-visible false 409 ("queue busy").
+   *
+   * Idempotent: repeated deletes are safe.
+   */
+  releaseThread(threadId: string): void {
+    this.processingThreads.delete(threadId);
+  }
+
+  /**
    * User-level entry: 铲屎官 manually triggers processing their next entry.
    */
   async processNext(

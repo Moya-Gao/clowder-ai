@@ -230,6 +230,7 @@ async function main(): Promise<void> {
     threadStore,
     invocationQueue,
     queueProcessor,
+    invocationTracker,
     socketManager,
   });
   await app.register(invocationsRoutes, {

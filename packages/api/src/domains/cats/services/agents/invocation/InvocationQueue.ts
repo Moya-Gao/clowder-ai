@@ -230,6 +230,25 @@ export class InvocationQueue {
     return true;
   }
 
+  /**
+   * Promote a queued entry to the front of queued entries (after any processing entries).
+   * Returns false if not found or entry is processing.
+   */
+  promote(threadId: string, userId: string, entryId: string): boolean {
+    const q = this.queues.get(this.scopeKey(threadId, userId));
+    if (!q) return false;
+    const idx = q.findIndex((e) => e.id === entryId);
+    if (idx === -1) return false;
+    const entry = q[idx]!;
+    if (entry.status === 'processing') return false;
+
+    q.splice(idx, 1);
+    const firstQueuedIdx = q.findIndex((e) => e.status === 'queued');
+    const insertIdx = firstQueuedIdx === -1 ? q.length : firstQueuedIdx;
+    q.splice(insertIdx, 0, entry);
+    return true;
+  }
+
   /** Mark the first queued entry as processing (stays in array). */
   markProcessing(threadId: string, userId: string): QueueEntry | null {
     const q = this.queues.get(this.scopeKey(threadId, userId));

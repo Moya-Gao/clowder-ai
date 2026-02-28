@@ -4,6 +4,7 @@
  * GET    /api/threads/:threadId/queue               → 列出队列条目
  * DELETE /api/threads/:threadId/queue/:entryId       → 撤回条目
  * POST   /api/threads/:threadId/queue/next          → 手动触发处理下一条
+ * POST   /api/threads/:threadId/queue/:entryId/steer → Steer queued entry（立即执行/提到队首）
  * PATCH  /api/threads/:threadId/queue/:entryId/move → 重排序（上移/下移）
  * DELETE /api/threads/:threadId/queue               → 清空队列
  */
@@ -16,15 +17,26 @@ import type { QueueProcessor } from '../domains/cats/services/agents/invocation/
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
+interface InvocationTrackerLike {
+  has(threadId: string): boolean;
+  getUserId(threadId: string): string | null;
+  cancel(threadId: string, requestUserId?: string): { cancelled: boolean; catIds: string[] };
+}
+
 export interface QueueRoutesOptions {
   threadStore: IThreadStore;
   invocationQueue: InvocationQueue;
   queueProcessor: QueueProcessor;
+  invocationTracker: InvocationTrackerLike;
   socketManager: SocketManager;
 }
 
 const moveBodySchema = z.object({
   direction: z.enum(['up', 'down']),
+});
+
+const steerBodySchema = z.object({
+  mode: z.enum(['promote', 'immediate']),
 });
 
 /**
@@ -62,7 +74,7 @@ async function guardThreadOwnership(
 }
 
 export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, opts) => {
-  const { threadStore, invocationQueue, queueProcessor, socketManager } = opts;
+  const { threadStore, invocationQueue, queueProcessor, invocationTracker, socketManager } = opts;
 
   // GET /api/threads/:threadId/queue
   app.get<{ Params: { threadId: string } }>(
@@ -120,6 +132,75 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       if (!guard) return;
 
       const result = await queueProcessor.processNext(threadId, guard.userId);
+      return result;
+    },
+  );
+
+  // POST /api/threads/:threadId/queue/:entryId/steer
+  app.post<{ Params: { threadId: string; entryId: string } }>(
+    '/api/threads/:threadId/queue/:entryId/steer',
+    async (request, reply) => {
+      const { threadId, entryId } = request.params;
+      const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
+      if (!guard) return;
+
+      const parseResult = steerBodySchema.safeParse(request.body);
+      if (!parseResult.success) {
+        reply.status(400);
+        return { error: 'Invalid body', details: parseResult.error.issues };
+      }
+
+      const entries = invocationQueue.list(threadId, guard.userId);
+      const entry = entries.find((e) => e.id === entryId);
+      if (!entry) {
+        reply.status(404);
+        return { error: '队列条目不存在', code: 'ENTRY_NOT_FOUND' };
+      }
+      if (entry.status === 'processing') {
+        reply.status(409);
+        return { error: '条目正在处理中，无法 steer', code: 'ENTRY_PROCESSING' };
+      }
+
+      const { mode } = parseResult.data;
+      if (mode === 'promote') {
+        invocationQueue.promote(threadId, guard.userId, entryId);
+        socketManager.emitToUser(guard.userId, 'queue_updated', {
+          threadId,
+          queue: invocationQueue.list(threadId, guard.userId),
+          action: 'steer_promote',
+        });
+        return { ok: true };
+      }
+
+      // mode === 'immediate'
+      if (invocationTracker.has(threadId)) {
+        const activeUserId = invocationTracker.getUserId(threadId);
+        if (activeUserId && activeUserId !== guard.userId) {
+          reply.status(409);
+          return { error: '当前有其他用户的调用在执行，无法立即执行', code: 'INVOCATION_ACTIVE' };
+        }
+        const cancelResult = invocationTracker.cancel(threadId, guard.userId);
+        if (!cancelResult.cancelled && invocationTracker.has(threadId)) {
+          reply.status(409);
+          return { error: '当前调用无法取消，无法立即执行', code: 'INVOCATION_CANCEL_FAILED' };
+        }
+        queueProcessor.clearPause(threadId);
+        queueProcessor.releaseThread(threadId);
+      }
+
+      invocationQueue.promote(threadId, guard.userId, entryId);
+      socketManager.emitToUser(guard.userId, 'queue_updated', {
+        threadId,
+        queue: invocationQueue.list(threadId, guard.userId),
+        action: 'steer_immediate',
+      });
+
+      const result = await queueProcessor.processNext(threadId, guard.userId);
+      if (!result.started) {
+        reply.status(409);
+        return { error: '队列繁忙，暂无法立即执行', code: 'QUEUE_BUSY' };
+      }
+
       return result;
     },
   );
