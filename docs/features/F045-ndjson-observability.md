@@ -7,7 +7,7 @@ created: 2026-02-27
 
 # F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化
 
-> **Status**: spec
+> **Status**: done (Phase 1+2 合并交付, PR #88)
 > **Owner**: 布偶猫
 > **Created**: 2026-02-27
 > **Priority**: P1
@@ -98,30 +98,30 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 ### Phase 1: Parser 补全 + Plan 持久化（MVP）
 
 **优先级最高：Plan 完整链路**
-- [ ] **Codex `todo_list` 解析**：`codex-event-transform.ts` 新增 `todo_list` started/updated/completed → `system_info` task_progress 事件（复用现有 Claude TodoWrite 链路）
-- [ ] **Plan 持久化修复**：taskProgress 快照写入后端（InvocationRecord 或 Redis），前端刷新后可恢复
-- [ ] **Codex `reasoning` 解析**：`item.completed(reasoning)` → thinking observation
+- [x] **Codex `todo_list` 解析**：`codex-event-transform.ts` 新增 `todo_list` started/updated/completed → `system_info` task_progress 事件（复用现有 Claude TodoWrite 链路）
+- [x] **Plan 持久化修复**：`TaskProgressCache`（module-level Map）+ `GET /api/threads/:id/task-progress` + 前端 mount 时自动恢复。**V1 范围：浏览器刷新，非服务重启**
+- [x] **Codex `reasoning` 解析**：`item.completed(reasoning)` → thinking system_info
 
 **Claude parser 补全**：
-- [ ] `thinking_delta` → 累积 thinking 文本，content_block_stop 时产出 thinking 消息
-- [ ] `result` error subtypes → 区分 `error_max_turns` / `error_max_budget_usd` / `error_during_execution` / `error_max_structured_output_retries`
-- [ ] `system/compact_boundary` → 压缩边界事件 + pre_tokens
-- [ ] `rate_limit_event` → 限流状态 + resetsAt/utilization
+- [x] `thinking_delta` → 累积 thinking 文本，content_block_stop 时产出 thinking 消息
+- [x] `result` error subtypes → 区分 5 种（含 `error_max_structured_output_retries`）
+- [x] `system/compact_boundary` → 压缩边界事件 + pre_tokens
+- [x] `rate_limit_event` → 限流状态 + resetsAt/utilization
 
 **Codex parser 补全**：
-- [ ] `mcp_tool_call` (started/completed) → tool_use / tool_result
-- [ ] `web_search` → system_info（query 计数，不落盘原文）
-- [ ] `item.completed(error)` → system_info warning（非致命，如 output truncated）
+- [x] `mcp_tool_call` (started/completed) → tool_use / tool_result
+- [x] `web_search` → system_info（query 计数，不落盘原文）
+- [x] `item.completed(error)` → system_info warning（非致命，如 output truncated）
 
-**数据模型**：
-- [ ] `InvocationRecord.errorSubtype?` 字段
-- [ ] `InvocationRecord.thinkingContent?` 字段（或 observations 数组，视实现复杂度定）
+**数据模型（实际偏离 spec）**：
+- ~~`InvocationRecord.errorSubtype?`~~ → 改用 error message 的 `content` 字段 JSON `{ errorSubtype }` 传递
+- ~~`InvocationRecord.thinkingContent?`~~ → 改用 `system_info` message `{ type: 'thinking', text }` 实时传递，不落盘
 
-### Phase 2: 前端可视化
+### Phase 2: 前端可视化（与 Phase 1 合并交付）
 
-- [ ] **ThinkingBlock**：消息气泡内嵌折叠区域，默认折叠（方案 A，铲屎官确认）
-- [ ] **ErrorBanner**：带具体错误类型的错误条（"超出 turn 限制" vs "预算用尽" vs "运行时错误"）
-- [ ] **Plan 持久化 UI**：浏览器刷新/页面重载后右侧看板恢复上次 taskProgress（V1 范围：module-level cache，覆盖浏览器刷新；服务重启恢复为 follow-up）
+- [x] **ThinkingBlock**：独立 `<details>` 折叠块（💭 思考过程），默认折叠 — ⚠️ **见 Gap #1**
+- [x] **ErrorBanner**：5 种 error subtype 中文标签
+- [x] **Plan 持久化 UI**：浏览器刷新/页面重载后右侧看板恢复上次 taskProgress
 
 ### 遗留（Future，不在本 Feature 范围）
 
@@ -132,15 +132,15 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 ## Acceptance Criteria
 
-- [ ] Codex `todo_list` 事件 → 右侧看板 Plan Checklist（与 Claude TodoWrite 同 UI）
-- [ ] Plan 持久化：浏览器刷新/页面重载后右侧看板恢复上次进度（V1 范围，服务重启恢复为 follow-up）
-- [ ] Claude parser 处理 `thinking_delta`（消息气泡内嵌折叠，默认折叠）
-- [ ] Codex parser 处理 `reasoning`（等同 thinking，同折叠 UI）
-- [ ] Claude parser 区分 4 种 error subtype（前端错误条显示具体原因）
-- [ ] Claude `compact_boundary` / `rate_limit_event` 解析（system_info）
-- [ ] Codex `mcp_tool_call` / `web_search` / `item.error` 解析
-- [ ] 所有新增解析均有对应单元测试（fixture-based）
-- [ ] 现有 tests 不 regress
+- [x] Codex `todo_list` 事件 → 右侧看板 Plan Checklist（与 Claude TodoWrite 同 UI）
+- [x] Plan 持久化：浏览器刷新/页面重载后右侧看板恢复上次进度（V1 范围，服务重启恢复为 follow-up）
+- [x] Claude parser 处理 `thinking_delta`（默认折叠）— ⚠️ 独立 system message，非嵌入气泡（见 Gap #1）
+- [x] Codex parser 处理 `reasoning`（等同 thinking，同折叠 UI）
+- [x] Claude parser 区分 5 种 error subtype（含 `error_max_structured_output_retries`）
+- [x] Claude `compact_boundary` / `rate_limit_event` 解析（system_info）
+- [x] Codex `mcp_tool_call` / `web_search` / `item.error` 解析
+- [x] 所有新增解析均有对应单元测试（33+ fixture-based）
+- [x] 现有 tests 不 regress（538 web + API 全过）
 
 ## Key Decisions
 
@@ -178,11 +178,11 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 ## Open Questions
 
-### OQ-1: Claude thinking 默认是否开启
-我们 spawn claude 时 `--output-format stream-json` 是否默认输出 thinking_delta？需要实测。可能需要配合 `alwaysThinkingEnabled` 或 `MAX_THINKING_TOKENS`。
+### ~~OQ-1: Claude thinking 默认是否开启~~ → 已验证
+`--output-format stream-json` 输出 `thinking_delta`（当 extended thinking 开启时）。Parser 已实现 buffer 累积 + `content_block_stop` 产出。实际是否输出取决于 Claude CLI 设置。
 
-### OQ-2: Codex 事件类型实测验证
-takopi.dev 是非官方来源。`mcp_tool_call`、`web_search`、`todo_list` 需要实测 `codex exec --json` 确认这些事件确实存在。
+### ~~OQ-2: Codex 事件类型实测验证~~ → 部分验证
+`todo_list`、`reasoning` 已在实际运行中确认存在。`mcp_tool_call`、`web_search` 已实现 parser 但未在实际 Codex 调用中观测到（需要 Codex 使用 MCP 工具或搜索时触发）。
 
 ### ~~OQ-3: 前端优先级~~ → 已决
 铲屎官确认：**Plan > Thinking > Error subtype**。Token/Cost 已有不做。
@@ -201,15 +201,58 @@ takopi.dev 是非官方来源。`mcp_tool_call`、`web_search`、`todo_list` 需
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| — | — | — | — |
+| 本地 R1 | 砚砚/Codex | P0(auth)+P1(persistence)+P2(ghost) → 修复 | 2026-02-27 |
+| 本地 R2 | 砚砚/Codex | 通过，建议"重启项目"→"浏览器刷新/页面重载" | 2026-02-27 |
+| 云端 R1 | Codex (GitHub) | 1P1 (targetCats 未恢复) → 修复 | 2026-02-28 |
+| 云端 R2 | Codex (GitHub) | 1P2 (HTTP race 覆盖 WS 状态) → 修复 | 2026-02-28 |
+| 云端 R3 | Codex (GitHub) | 2P2 (cache 泄漏 + 空 progress 恢复) → 修复 | 2026-02-28 |
+| 云端 R4 | Codex (GitHub) | 2P2 (background thinking + error label) → 修复 | 2026-02-28 |
+| 云端 R5 | Codex (GitHub) | 0 P1/P2，通过 | 2026-02-28 |
+
+## 愿景守护 — Gap 分析（2026-02-28 三猫联合评审）
+
+### Gap #1: Thinking 气泡归属 ⚠️ 需铲屎官拍板
+
+**spec 写的**："消息气泡内嵌折叠区域（方案 A）" — 暗示 thinking 嵌在 assistant 的消息气泡内部。
+
+**实际做的**：独立 `{ type: 'system', variant: 'thinking' }` 消息，在聊天流里作为独立的 `<details>` 元素渲染（💭 思考过程 + 字符数），NOT 嵌在 assistant 气泡里。
+
+**体验差异**：thinking 出现在 assistant 消息的上方（或之间），而不是"点开 assistant 气泡就能看到 thinking"。
+
+**三猫共识**：功能上可用（折叠、默认关闭），但与 spec 措辞有偏离。需铲屎官确认当前实现是否 OK，或需要改为嵌入气泡。
+
+### Gap #2: thinkingMode 默认值可能导致跨猫泄露 ⚠️
+
+**发现者**：砚砚/GPT-52
+
+**问题**：`RedisThreadStore` 的 `thinkingMode` 默认是 `debug`。`route-helpers.ts:240` 在 `play` 模式才屏蔽跨猫 thinking 进上下文。铲屎官明确说"暂不跨猫转发 thinking"，但默认 `debug` 模式下 thinking 可能被传递给其他猫作为上下文。
+
+**处置**：确认是否需要改默认为 `play`（或排查 thinkingMode 的实际使用范围）。
+
+### Gap #3: 截图证据缺失 🔴
+
+**Anti-Drift Protocol 要求**：前端 UI/UX 功能必须产出 ≤3 张截图 + "需求→截图"映射表。
+
+**现状**：F045 有前端 UI 变更（ThinkingBlock、ErrorBanner、Plan 恢复），但未产出截图证据即合入。
+
+**处置**：在 runtime 上补截图验证。
+
+### Gap #4: 持久化范围边界（已知，非 gap）
+
+**砚砚/Codex 提醒**：V1 只覆盖浏览器刷新（module-level cache），不覆盖服务重启。调用结束时 `clearTaskProgress` 清空缓存（避免内存膨胀+stale 数据）。这是 spec 中明确标注的 V1 范围，非偏离。
 
 ## Test Evidence
 
-（待开发）
+- API tests: 2613 pass (含 33+ F045 fixture-based tests)
+- Web tests: 538 pass
+- Build: clean
+- 截图证据：**待补**（见 Gap #3）
 
 ## Timeline
 
 - 2026-02-27: GPT Pro 调研报告入库 + 四猫评审
 - 2026-02-27: Spec written (feat-kickoff)
 - 2026-02-27: 铲屎官 UX 采访完成，决策记录，spec 更新
-- 2026-02-27: Phase 1 开发启动
+- 2026-02-27: Phase 1+2 合并开发启动
+- 2026-02-28: PR #88 合入 main (砚砚 R2 + 云端 R5)
+- 2026-02-28: 愿景守护 — 三猫联合评审，发现 4 gaps
