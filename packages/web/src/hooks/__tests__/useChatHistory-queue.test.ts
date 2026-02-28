@@ -109,7 +109,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
 
     apiFetchMock.mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/queue')) {
-        return Promise.resolve(new Response(JSON.stringify({ queue: queueEntries, paused: true }), { status: 200 }));
+        return Promise.resolve(new Response(JSON.stringify({ queue: queueEntries, paused: true, pauseReason: 'failed' }), { status: 200 }));
       }
       return Promise.resolve(new Response(JSON.stringify({ messages: [], hasMore: false, tasks: [] }), { status: 200 }));
     });
@@ -121,6 +121,7 @@ describe('useChatHistory queue hydration (F39 Bug 1)', () => {
     const state = useChatStore.getState();
     expect(state.queue).toHaveLength(1);
     expect(state.queuePaused).toBe(true);
+    expect(state.queuePauseReason).toBe('failed');
   });
 
   it('clears stale queue+paused when server returns empty (Cloud R1 P1)', async () => {

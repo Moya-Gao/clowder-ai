@@ -37,6 +37,7 @@ function stubDeps(overrides = {}) {
     },
     messageStore: {
       append: mock.fn(async () => ({ id: 'msg-stub' })),
+      getById: mock.fn(async () => null),
     },
     log: {
       info: mock.fn(),
@@ -254,5 +255,56 @@ describe('QueueProcessor', () => {
     );
     assert.ok(failedUpdate, 'should mark InvocationRecord as failed');
     assert.ok(failedUpdate.arguments[1].error, 'should include error message');
+  });
+
+  // ── F039 remaining bugfix: queue execution should include contentBlocks ──
+
+  it('executeEntry passes aggregated contentBlocks (messageId + mergedMessageIds) to routeExecution', async () => {
+    const contentBlocks1 = [{ type: 'image', url: 'https://example.com/1.png' }];
+    const contentBlocks2 = [{ type: 'image', url: 'https://example.com/2.png' }];
+
+    deps.messageStore.getById = mock.fn(async (id) => {
+      if (id === 'm1') return { id: 'm1', contentBlocks: contentBlocks1 };
+      if (id === 'm2') return { id: 'm2', contentBlocks: contentBlocks2 };
+      return null;
+    });
+
+    const entry = enqueueEntry(deps.queue);
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'm1');
+    deps.queue.appendMergedMessageId('t1', 'u1', entry.id, 'm2');
+
+    await processor.processNext('t1', 'u1');
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.ok(deps.router.routeExecution.mock.calls.length > 0);
+    const call = deps.router.routeExecution.mock.calls[0];
+    const opts = call.arguments[6];
+    assert.ok(opts && typeof opts === 'object', 'expected opts object');
+    assert.deepEqual(opts.contentBlocks, [...contentBlocks1, ...contentBlocks2]);
+  });
+
+  it('degrades when messageStore.getById throws: still executes without contentBlocks', async () => {
+    deps.messageStore.getById = mock.fn(async () => {
+      throw new Error('redis down');
+    });
+
+    const entry = enqueueEntry(deps.queue);
+    deps.queue.backfillMessageId('t1', 'u1', entry.id, 'm1');
+
+    await processor.processNext('t1', 'u1');
+    await new Promise((r) => setTimeout(r, 50));
+
+    assert.ok(deps.router.routeExecution.mock.calls.length > 0, 'should still execute');
+    const call = deps.router.routeExecution.mock.calls[0];
+    const opts = call.arguments[6];
+    assert.ok(opts && typeof opts === 'object', 'expected opts object');
+    assert.equal(opts.contentBlocks, undefined);
+
+    const succeededUpdate = deps.invocationRecordStore.update.mock.calls.find(
+      (c) => c.arguments[1]?.status === 'succeeded',
+    );
+    assert.ok(succeededUpdate, 'should mark InvocationRecord succeeded');
+
+    assert.ok(deps.log.warn.mock.calls.length > 0, 'should warn on messageStore failure');
   });
 });

@@ -26,6 +26,7 @@ function buildDeps(overrides = {}) {
     queueProcessor: {
       processNext: mock.fn(async () => ({ started: false })),
       isPaused: mock.fn(() => false),
+      getPauseReason: mock.fn(() => undefined),
     },
     socketManager: {
       broadcastAgentMessage: mock.fn(),
@@ -195,6 +196,7 @@ describe('Queue Management API', () => {
     enqueueEntry(deps.invocationQueue);
     // Stub isPaused to return true
     deps.queueProcessor.isPaused = mock.fn(() => true);
+    deps.queueProcessor.getPauseReason = mock.fn(() => 'canceled');
 
     const res = await app.inject({
       method: 'GET',
@@ -208,6 +210,7 @@ describe('Queue Management API', () => {
   it('GET /queue returns paused=false when queueProcessor reports not paused', async () => {
     enqueueEntry(deps.invocationQueue);
     deps.queueProcessor.isPaused = mock.fn(() => false);
+    deps.queueProcessor.getPauseReason = mock.fn(() => undefined);
 
     const res = await app.inject({
       method: 'GET',
@@ -216,6 +219,21 @@ describe('Queue Management API', () => {
     });
     const body = JSON.parse(res.body);
     assert.equal(body.paused, false);
+  });
+
+  it('GET /queue returns pauseReason when paused', async () => {
+    enqueueEntry(deps.invocationQueue);
+    deps.queueProcessor.isPaused = mock.fn(() => true);
+    deps.queueProcessor.getPauseReason = mock.fn(() => 'failed');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads/t1/queue',
+      headers: { 'x-cat-cafe-user': 'user-a' },
+    });
+    const body = JSON.parse(res.body);
+    assert.equal(body.paused, true);
+    assert.equal(body.pauseReason, 'failed');
   });
 
   // ── Functional: GET ──

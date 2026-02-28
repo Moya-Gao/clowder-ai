@@ -149,6 +149,7 @@ describe('Queue Integration (E2E scenarios)', () => {
       invocationRecordStore: recordMock.store,
       router: routerMock.router,
       socketManager: socketMock.manager,
+      messageStore: { getById: async () => null },
       log: noopLog(),
     });
   });

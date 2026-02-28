@@ -203,6 +203,7 @@ async function main(): Promise<void> {
     invocationRecordStore: invocationRecordStore as unknown as InvocationRecordStoreLike,
     router: router as unknown as RouterLike,
     socketManager,
+    messageStore,
     log: app.log,
   });
 

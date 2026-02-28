@@ -75,6 +75,7 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
       return {
         queue: invocationQueue.list(threadId, guard.userId),
         paused: queueProcessor.isPaused(threadId),
+        pauseReason: queueProcessor.getPauseReason(threadId),
       };
     },
   );

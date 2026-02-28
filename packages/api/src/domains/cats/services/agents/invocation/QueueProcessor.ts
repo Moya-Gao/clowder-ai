@@ -8,6 +8,7 @@
  */
 
 import type { QueueEntry, InvocationQueue } from './InvocationQueue.js';
+import type { IMessageStore } from '../../stores/ports/MessageStore.js';
 
 /** Minimal interfaces for deps — avoid importing full types for testability */
 
@@ -57,6 +58,7 @@ export interface QueueProcessorDeps {
   invocationRecordStore: InvocationRecordStoreLike;
   router: RouterLike;
   socketManager: SocketManagerLike;
+  messageStore: IMessageStore;
   log: LoggerLike;
 }
 
@@ -65,7 +67,7 @@ export class QueueProcessor {
   /** Per-thread mutex — prevents concurrent double-start */
   private processingThreads = new Set<string>();
   /** Tracks paused threads (set on canceled/failed, cleared on next execution) */
-  private pausedThreads = new Set<string>();
+  private pausedThreads = new Map<string, 'canceled' | 'failed'>();
 
   constructor(deps: QueueProcessorDeps) {
     this.deps = deps;
@@ -74,6 +76,12 @@ export class QueueProcessor {
   /** Check if a thread's queue is paused (canceled/failed AND has queued entries). */
   isPaused(threadId: string): boolean {
     return this.pausedThreads.has(threadId) && this.deps.queue.hasQueuedForThread(threadId);
+  }
+
+  /** Returns pause reason when paused; otherwise undefined. */
+  getPauseReason(threadId: string): 'canceled' | 'failed' | undefined {
+    if (!this.isPaused(threadId)) return undefined;
+    return this.pausedThreads.get(threadId);
   }
 
   /**
@@ -93,7 +101,7 @@ export class QueueProcessor {
       }
     } else {
       // canceled or failed → pause, notify users who have queued entries
-      this.pausedThreads.add(threadId);
+      this.pausedThreads.set(threadId, status);
       this.emitPausedToQueuedUsers(threadId, status);
     }
   }
@@ -184,7 +192,7 @@ export class QueueProcessor {
   private async executeEntry(
     entry: QueueEntry,
   ): Promise<'succeeded' | 'failed'> {
-    const { queue, invocationTracker, invocationRecordStore, router, socketManager, log } =
+    const { queue, invocationTracker, invocationRecordStore, router, socketManager, messageStore, log } =
       this.deps;
     const { threadId, userId, content, targetCats, intent, messageId } = entry;
 
@@ -232,6 +240,24 @@ export class QueueProcessor {
       // 6. Route execution
       const cursorBoundaries = new Map<string, string>();
 
+      // F039 remaining: queued image messages must be visible to cats.
+      // Aggregate contentBlocks from the stored user messages (messageId + merged).
+      const messageIds: string[] = [messageId ?? '', ...(entry.mergedMessageIds ?? [])].filter(Boolean);
+      const contentBlocks: unknown[] = [];
+      for (const id of messageIds) {
+        try {
+          const stored = await messageStore.getById(id);
+          if (stored?.contentBlocks && stored.contentBlocks.length > 0) {
+            contentBlocks.push(...stored.contentBlocks);
+          }
+        } catch (err) {
+          log.warn(
+            { threadId, entryId: entry.id, messageId: id, err },
+            '[QueueProcessor] messageStore.getById failed, degrading to text-only execution',
+          );
+        }
+      }
+
       for await (const msg of router.routeExecution(
         userId,
         content,
@@ -240,6 +266,7 @@ export class QueueProcessor {
         targetCats,
         { intent },
         {
+          ...(contentBlocks.length > 0 ? { contentBlocks } : {}),
           ...(controller.signal ? { signal: controller.signal } : {}),
           cursorBoundaries,
         },

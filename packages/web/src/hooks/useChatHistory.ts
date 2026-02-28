@@ -204,10 +204,10 @@ export function useChatHistory(threadId: string) {
       if (!res.ok) return;
       if (abortRef.current !== controller) return;
       if (threadIdRef.current !== fetchForThread) return;
-      const data = await res.json() as { queue: QueueEntry[]; paused: boolean };
+      const data = await res.json() as { queue: QueueEntry[]; paused: boolean; pauseReason?: 'canceled' | 'failed' };
       // Always sync server state — clears stale local data when server queue is empty
       setQueue(fetchForThread, data.queue);
-      setQueuePaused(fetchForThread, data.paused);
+      setQueuePaused(fetchForThread, data.paused, data.pauseReason);
     } catch (err) {
       if (isAbortError(err)) return;
     }
