@@ -1,32 +1,40 @@
 /**
  * Capabilities Route — F041 统一能力看板 API
  *
- * GET  /api/capabilities — 返回看板聚合视图 (CapabilityBoardItem[])
+ * GET  /api/capabilities — 返回看板聚合视图 (CapabilityBoardResponse)
  * PATCH /api/capabilities — 开关单个能力 (global or per-cat override)
  *
- * 安全:
- * - 需要身份校验 (resolveUserId)
- * - Skills 发现: Claude .claude/skills/, Codex ~/.codex/skills/, Gemini ~/.gemini/skills/
- * - MCP 发现: 从 .cat-cafe/capabilities.json 读取（唯一真相源）
+ * F041 Re-open fixes:
+ * - Skill descriptions from SKILL.md frontmatter
+ * - Source classification: project-level skills → 'cat-cafe'
+ * - Cat family grouping metadata for frontend
  */
 
-import { readdir } from 'fs/promises';
+import { lstat, readdir, readFile, readlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import type { FastifyPluginAsync } from 'fastify';
 import { catRegistry } from '@cat-cafe/shared';
 import type {
   CapabilityBoardItem,
+  CapabilityBoardResponse,
   CapabilityPatchRequest,
+  CatFamily,
+  SkillHealthSummary,
 } from '@cat-cafe/shared';
 import { resolveUserId } from '../utils/request-identity.js';
+import { validateProjectPath } from '../utils/project-path.js';
 import {
   readCapabilitiesConfig,
   writeCapabilitiesConfig,
   bootstrapCapabilities,
   resolveServersForCat,
   generateCliConfigs,
+  discoverExternalMcpServers,
+  type DiscoveryPaths,
 } from '../config/capabilities/capability-orchestrator.js';
 
 // ────────── Helpers ──────────
@@ -48,6 +56,49 @@ async function listSubdirs(dir: string, exclude?: string[]): Promise<string[] | 
     }
     return null;
   }
+}
+
+/** Check if a symlink at `linkPath` points to `expectedTarget`. */
+async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promise<boolean> {
+  try {
+    const stat = await lstat(linkPath);
+    if (!stat.isSymbolicLink()) return false;
+    const dest = await readlink(linkPath);
+    return dest.replace(/\/$/, '') === expectedTarget;
+  } catch {
+    return false;
+  }
+}
+
+const execFileAsync = promisify(execFile);
+
+/**
+ * Resolve canonical main repo path (not worktree path).
+ * Symlinks point to the main repo, so mount checks must use main repo path.
+ */
+let cachedMainRepoPath: string | null = null;
+let cachedMainRepoPathPromise: Promise<string> | null = null;
+async function resolveMainRepoPath(): Promise<string> {
+  if (cachedMainRepoPath) return cachedMainRepoPath;
+  if (cachedMainRepoPathPromise) return cachedMainRepoPathPromise;
+  cachedMainRepoPathPromise = (async () => {
+  try {
+    const { stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain']);
+    const firstLine = stdout.split('\n')[0] ?? '';
+    return firstLine.replace(/^worktree\s+/, '').trim();
+  } catch {
+    try {
+      const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel']);
+      return stdout.trim();
+    } catch {
+      return resolve(process.cwd(), '../..');
+    }
+  }
+  })().then((p) => {
+    cachedMainRepoPath = p;
+    return p;
+  });
+  return cachedMainRepoPathPromise;
 }
 
 /** Walk up from CWD to find pnpm-workspace.yaml — the monorepo root. */
@@ -86,6 +137,132 @@ function getCliConfigPaths(projectRoot: string) {
   };
 }
 
+interface SkillMeta {
+  description?: string;
+  triggers?: string[];
+}
+
+/**
+ * Extract description + triggers from a SKILL.md frontmatter.
+ * Triggers are embedded in descriptions:
+ *   'Triggers on "X", "Y", "Z"' or '触发词："X"、"Y"'
+ */
+async function readSkillMeta(skillDir: string): Promise<SkillMeta> {
+  const skillMdPath = join(skillDir, 'SKILL.md');
+  try {
+    const content = await readFile(skillMdPath, 'utf-8');
+    const match = content.match(/^---\n([\s\S]*?)\n---/);
+    if (!match) return {};
+    const descLine = match[1]!.split('\n').find((line) => line.startsWith('description:'));
+    if (!descLine) return {};
+    let desc = descLine.replace(/^description:\s*/, '').trim();
+    if ((desc.startsWith('"') && desc.endsWith('"')) || (desc.startsWith("'") && desc.endsWith("'"))) {
+      desc = desc.slice(1, -1);
+    }
+    if (!desc) return {};
+
+    // Extract triggers from description text
+    const triggers: string[] = [];
+    // English: Triggers on "X", "Y", "Z"
+    const enMatch = desc.match(/[Tt]riggers?\s+on\s+"([^"]+)"(,\s*"([^"]+)")*/);
+    if (enMatch) {
+      const allQuoted = desc.match(/[Tt]riggers?\s+on\s+(.*)/);
+      if (allQuoted) {
+        for (const m of allQuoted[1]!.matchAll(/"([^"]+)"/g)) {
+          triggers.push(m[1]!);
+        }
+      }
+    }
+    // Chinese: 触发词："X"、"Y" or 触发词：X、Y
+    const cnMatch = desc.match(/触发词[：:]\s*(.*)/);
+    if (cnMatch) {
+      const raw = cnMatch[1]!;
+      // Quoted: "X"、"Y"
+      for (const m of raw.matchAll(/["""]([^"""]+)["""]/g)) {
+        triggers.push(m[1]!);
+      }
+      // Unquoted fallback: X、Y、Z
+      if (triggers.length === 0) {
+        triggers.push(...raw.split(/[、,，]/).map((s) => s.trim()).filter(Boolean));
+      }
+    }
+
+    // Clean description: strip trigger suffix for display
+    let cleanDesc = desc
+      .replace(/\s*[Tt]riggers?\s+on\s+.*$/, '')
+      .replace(/\s*触发词[：:].*$/, '')
+      .replace(/\.\s*$/, '')
+      .trim();
+    if (!cleanDesc) cleanDesc = desc;
+
+    const result: SkillMeta = { description: cleanDesc };
+    if (triggers.length > 0) result.triggers = triggers;
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Parse BOOTSTRAP.md to extract skill → category mapping.
+ * Categories come from ### headers, skills from table rows.
+ */
+async function parseBootstrapCategories(skillsSrcDir: string): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  const bootstrapPath = join(skillsSrcDir, 'BOOTSTRAP.md');
+  try {
+    const content = await readFile(bootstrapPath, 'utf-8');
+    let currentCategory = '';
+    for (const line of content.split('\n')) {
+      const categoryMatch = line.match(/^###\s+(.+)/);
+      if (categoryMatch?.[1]) {
+        currentCategory = categoryMatch[1].trim();
+        continue;
+      }
+      const rowMatch = line.match(/^\|\s*`([a-z][-a-z0-9]*)`\s*\|/);
+      if (rowMatch?.[1] && currentCategory) {
+        result.set(rowMatch[1], currentCategory);
+      }
+    }
+  } catch {
+    // BOOTSTRAP.md not found — no categories
+  }
+  return result;
+}
+
+/** Known MCP server descriptions */
+const MCP_DESCRIPTIONS: Record<string, string> = {
+  'cat-cafe': '三猫协作工具 — 消息、上下文、任务、记忆、权限等',
+};
+
+/**
+ * Build cat family grouping from catRegistry.
+ * Groups catIds by breedId (e.g. ragdoll → [opus, opus-45, sonnet]).
+ */
+function buildCatFamilies(): CatFamily[] {
+  const familyMap = new Map<string, { name: string; catIds: string[] }>();
+
+  for (const catId of catRegistry.getAllIds()) {
+    const entry = catRegistry.tryGet(catId as string);
+    if (!entry) continue;
+    const breedId = entry.config.breedId ?? 'unknown';
+    const breedName = entry.config.breedDisplayName ?? breedId;
+
+    let family = familyMap.get(breedId);
+    if (!family) {
+      family = { name: breedName, catIds: [] };
+      familyMap.set(breedId, family);
+    }
+    family.catIds.push(catId as string);
+  }
+
+  return Array.from(familyMap.entries()).map(([id, f]) => ({
+    id,
+    name: f.name,
+    catIds: f.catIds.sort(),
+  }));
+}
+
 // ────────── Route Plugin ──────────
 
 export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
@@ -97,13 +274,28 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
 
-    const projectRoot = getProjectRoot();
+    // Multi-project: accept ?projectPath=... to manage capabilities for any project
+    const query = request.query as { projectPath?: string };
+    let projectRoot = getProjectRoot();
+    if (query.projectPath) {
+      const validated = await validateProjectPath(query.projectPath);
+      if (!validated) {
+        reply.status(400);
+        return { error: 'Invalid project path: must be an existing directory under home' };
+      }
+      projectRoot = validated;
+    }
+
     const home = homedir();
 
     // 1. Load or bootstrap capabilities.json
     let config = await readCapabilitiesConfig(projectRoot);
     if (!config) {
-      config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot));
+      // Multi-project: when bootstrapping a non-cat-cafe project, still point the
+      // Cat Cafe MCP server to THIS repo (host), not the managed project root.
+      config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot), {
+        catCafeRepoRoot: getProjectRoot(),
+      });
       // Cloud P1-1: bootstrap must also generate CLI configs, otherwise
       // first invocations with mcpSupport=true have no native MCP configs
       await generateCliConfigs(config, getCliConfigPaths(projectRoot));
@@ -111,15 +303,31 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
 
     // 2. Discover skills (filesystem scan — separate from MCP)
     // null = scan failed (readdir error); [] = directory exists but empty
+    const projectSkillsDir = join(projectRoot, '.claude', 'skills');
     const [claudeProjectSkills, claudeUserSkills, codexSkills, geminiSkills] = await Promise.all([
-      listSubdirs(join(projectRoot, '.claude', 'skills')),
+      listSubdirs(projectSkillsDir),
       listSubdirs(join(home, '.claude', 'skills')),
       listSubdirs(join(home, '.codex', 'skills'), ['.system']),
       listSubdirs(join(home, '.gemini', 'skills')),
     ]);
 
+    // F041 bug fix: Also scan cat-cafe-skills/ for project-level skill detection.
+    // User-level skills (e.g. ~/.claude/skills/feat-completion) are symlinks to
+    // {projectRoot}/cat-cafe-skills/feat-completion — listing cat-cafe-skills/
+    // captures them as project-owned regardless of symlink target.
+    const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
+    const catCafeOwnSkills = await listSubdirs(catCafeSkillsDir);
+    const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
+
     const allScansOk = claudeProjectSkills !== null && claudeUserSkills !== null
       && codexSkills !== null && geminiSkills !== null;
+
+    // F041 re-open: Track project-level skills for source classification
+    // Includes both .claude/skills/ AND cat-cafe-skills/ entries
+    const projectSkillNames = new Set([
+      ...(claudeProjectSkills ?? []),
+      ...(catCafeOwnSkills ?? []),
+    ]);
 
     const providerSkills: Record<string, string[]> = {
       anthropic: [...new Set([...(claudeProjectSkills ?? []), ...(claudeUserSkills ?? [])])],
@@ -132,25 +340,48 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     for (const skills of Object.values(providerSkills)) {
       for (const s of skills) allSkillNames.add(s);
     }
+    // Cloud P2: include source-only Cat Cafe skills (present in cat-cafe-skills/ but not mounted
+    // into any provider directory yet) so mount health can detect missing mounts.
+    if (catCafeOwnSkills !== null) {
+      for (const s of catCafeOwnSkills) allSkillNames.add(s);
+    }
 
     let configDirty = false;
     // Add newly discovered skills
     for (const skillName of allSkillNames) {
       const exists = config.capabilities.some((c) => c.type === 'skill' && c.id === skillName);
       if (!exists) {
+        // F041 re-open fix: project-level skills → 'cat-cafe', user-level → 'external'
+        const source = projectSkillNames.has(skillName) ? 'cat-cafe' as const : 'external' as const;
         config.capabilities.push({
           id: skillName,
           type: 'skill',
           enabled: true,
-          source: 'external',
+          source,
         });
+        configDirty = true;
+      }
+    }
+    // Also fix source for existing skills that were incorrectly classified
+    for (const cap of config.capabilities) {
+      if (cap.type !== 'skill') continue;
+      const shouldBeCatCafe = projectSkillNames.has(cap.id);
+      // Upgrade is safe when we have evidence; downgrade is only safe when cat-cafe-skills scan succeeded.
+      if (shouldBeCatCafe && cap.source !== 'cat-cafe') {
+        cap.source = 'cat-cafe';
+        configDirty = true;
+      } else if (
+        !shouldBeCatCafe &&
+        cap.source === 'cat-cafe' &&
+        catCafeOwnSkills !== null &&
+        claudeProjectSkills !== null
+      ) {
+        cap.source = 'external';
         configDirty = true;
       }
     }
     // Prune stale skills no longer on filesystem.
     // Guard: only prune when ALL provider scans succeeded (no null returns).
-    // ENOENT (dir missing) returns [] and is safe; only real I/O errors block prune.
-    // No size guard: 0 discovered skills + all scans ok = user deleted all → prune all stale.
     if (allScansOk) {
       const before = config.capabilities.length;
       config.capabilities = config.capabilities.filter(
@@ -159,11 +390,77 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       if (config.capabilities.length !== before) configDirty = true;
     }
 
+    // F041 bug fix: Discover user-level MCP servers (not just project-level).
+    // e.g. ~/.codex/config.toml has pencil, playwright, MCP_DOCKER etc.
+    // Skip URL-based servers (command='') — TD104 gap.
+    const userLevelPaths: DiscoveryPaths = {
+      claudeConfig: join(home, '.claude', 'mcp.json'),
+      codexConfig: join(home, '.codex', 'config.toml'),
+      geminiConfig: join(home, '.gemini', 'settings.json'),
+    };
+    const userLevelServers = await discoverExternalMcpServers(userLevelPaths);
+    for (const server of userLevelServers) {
+      if (!server.command) continue; // Skip URL-based (TD104)
+      const exists = config.capabilities.some(
+        (c) => c.type === 'mcp' && c.id === server.name,
+      );
+      if (!exists) {
+        const mcpServer: { command: string; args: string[]; env?: Record<string, string>; workingDir?: string } = {
+          command: server.command,
+          args: server.args,
+        };
+        if (server.env) mcpServer.env = server.env;
+        if (server.workingDir) mcpServer.workingDir = server.workingDir;
+        config.capabilities.push({
+          id: server.name,
+          type: 'mcp',
+          enabled: server.enabled,
+          source: 'external',
+          mcpServer,
+        });
+        configDirty = true;
+      }
+    }
+
     if (configDirty) {
       await writeCapabilitiesConfig(projectRoot, config);
     }
 
-    // 4. Build board items from capabilities.json
+    // 4. Build skill metadata lookup (description + triggers + category)
+    // Categories + registration must be parsed from the SAME root used for mount checks.
+    const mainRepo = await resolveMainRepoPath();
+    const mainSkillsSrc = join(mainRepo, 'cat-cafe-skills');
+    // Use dir existence (not skill count) to avoid treating existing-but-empty as "missing".
+    const mountSkillsSrc = (catCafeOwnSkills !== null && hasProjectCatCafeSkillsDir)
+      ? catCafeSkillsDir
+      : mainSkillsSrc;
+
+    const [skillCategoryMap] = await Promise.all([
+      parseBootstrapCategories(mountSkillsSrc),
+    ]);
+    const skillMetaMap = new Map<string, SkillMeta>();
+
+    const skillDirCandidates: { name: string; dir: string }[] = [];
+    for (const name of allSkillNames) {
+      skillDirCandidates.push({ name, dir: join(projectSkillsDir, name) });
+      skillDirCandidates.push({ name, dir: join(home, '.claude', 'skills', name) });
+      skillDirCandidates.push({ name, dir: join(home, '.codex', 'skills', name) });
+      skillDirCandidates.push({ name, dir: join(home, '.gemini', 'skills', name) });
+    }
+
+    const metaResults = await Promise.all(
+      skillDirCandidates.map(async ({ name, dir }) => ({
+        name,
+        meta: await readSkillMeta(dir),
+      })),
+    );
+    for (const { name, meta } of metaResults) {
+      if (meta.description && !skillMetaMap.has(name)) {
+        skillMetaMap.set(name, meta);
+      }
+    }
+
+    // 5. Build board items from capabilities.json
     const catIds = catRegistry.getAllIds().map((id) => id as string);
     const items: CapabilityBoardItem[] = [];
 
@@ -176,13 +473,16 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         const server = servers.find((s) => s.name === cap.id);
         cats[catId] = server?.enabled ?? false;
       }
-      items.push({
+      const mcpItem: CapabilityBoardItem = {
         id: cap.id,
         type: 'mcp',
         source: cap.source,
         enabled: cap.enabled,
         cats,
-      });
+      };
+      const mcpDesc = MCP_DESCRIPTIONS[cap.id];
+      if (mcpDesc) mcpItem.description = mcpDesc;
+      items.push(mcpItem);
     }
 
     // Skill capabilities (from capabilities.json, presence from filesystem)
@@ -198,16 +498,72 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         const enabled = override ? override.enabled : cap.enabled;
         cats[catId] = enabled;
       }
-      items.push({
+      const skillItem: CapabilityBoardItem = {
         id: cap.id,
         type: 'skill',
         source: cap.source,
         enabled: cap.enabled,
         cats,
-      });
+      };
+      const meta = skillMetaMap.get(cap.id);
+      if (meta?.description) skillItem.description = meta.description;
+      if (meta?.triggers) skillItem.triggers = meta.triggers;
+      const category = skillCategoryMap.get(cap.id);
+      if (category) skillItem.category = category;
+      items.push(skillItem);
     }
 
-    return items;
+    // 6. Mount health check for cat-cafe skills
+    // Multi-project: validate mounts against the selected project's cat-cafe-skills
+    // if it exists; otherwise fall back to host repo's cat-cafe-skills.
+
+    const mountSourceNames = mountSkillsSrc === catCafeSkillsDir
+      ? new Set(catCafeOwnSkills ?? [])
+      : new Set((await listSubdirs(mountSkillsSrc)) ?? []);
+    const catCafeSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'cat-cafe');
+    const providerDirs = {
+      claude: join(home, '.claude', 'skills'),
+      codex: join(home, '.codex', 'skills'),
+      gemini: join(home, '.gemini', 'skills'),
+    };
+    await Promise.all(
+      catCafeSkillItems.map(async (item) => {
+        const expectedTarget = join(mountSkillsSrc, item.id);
+        const [claude, codex, gemini] = await Promise.all([
+          isCorrectSymlink(join(providerDirs.claude, item.id), expectedTarget),
+          isCorrectSymlink(join(providerDirs.codex, item.id), expectedTarget),
+          isCorrectSymlink(join(providerDirs.gemini, item.id), expectedTarget),
+        ]);
+        item.mounts = { claude, codex, gemini };
+      }),
+    );
+
+    // Registration consistency: BOOTSTRAP.md vs source dir
+    const bootstrapNames = new Set(skillCategoryMap.keys());
+    const unregistered = [...mountSourceNames].filter((n) => !bootstrapNames.has(n));
+    const phantom = [...bootstrapNames].filter((n) => !mountSourceNames.has(n));
+    let allMounted = catCafeSkillItems.length > 0 && catCafeSkillItems.every((item) =>
+      item.mounts && Object.values(item.mounts).every(Boolean),
+    );
+    // If we have expected cat-cafe skills (source dir non-empty) but discovered none,
+    // treat as unhealthy (likely broken mounts).
+    if (!allMounted && catCafeSkillItems.length === 0 && mountSourceNames.size > 0) allMounted = false;
+    const skillHealth: SkillHealthSummary = {
+      allMounted,
+      registrationConsistent: unregistered.length === 0 && phantom.length === 0,
+      unregistered,
+      phantom,
+    };
+
+    // 7. Build response with cat family + project metadata
+    const response: CapabilityBoardResponse = {
+      items,
+      catFamilies: buildCatFamilies(),
+      projectPath: projectRoot,
+      skillHealth,
+    };
+
+    return response;
   });
 
   // ── PATCH /api/capabilities ──
@@ -232,7 +588,16 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'catId required when scope is "cat"' };
     }
 
-    const projectRoot = getProjectRoot();
+    // Multi-project: accept projectPath in body
+    let projectRoot = getProjectRoot();
+    if (body.projectPath) {
+      const validated = await validateProjectPath(body.projectPath);
+      if (!validated) {
+        reply.status(400);
+        return { error: 'Invalid project path: must be an existing directory under home' };
+      }
+      projectRoot = validated;
+    }
 
     let config = await readCapabilitiesConfig(projectRoot);
     if (!config) {

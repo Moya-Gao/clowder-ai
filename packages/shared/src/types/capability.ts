@@ -65,6 +65,54 @@ export interface CapabilityBoardItem {
   cats: Record<string, boolean>;
   /** Description if available */
   description?: string;
+  /** Skill trigger keywords (from SKILL.md frontmatter) */
+  triggers?: string[];
+  /** Skill category (from BOOTSTRAP.md, e.g. '三猫协作规则') */
+  category?: string;
+  /** Skill mount status per provider (symlink correctness check) */
+  mounts?: Record<string, boolean>;
+  /** MCP tools discovered via probe (only when ?probe=true) */
+  tools?: McpToolInfo[];
+  /** MCP connection status (only when ?probe=true) */
+  connectionStatus?: 'connected' | 'disconnected' | 'unknown';
+}
+
+/** Lightweight MCP tool info for board display */
+export interface McpToolInfo {
+  name: string;
+  description?: string;
+}
+
+/** Cat family grouping for the capability board UI */
+export interface CatFamily {
+  /** Breed ID (e.g. 'ragdoll') */
+  id: string;
+  /** Display name (e.g. '布偶猫') */
+  name: string;
+  /** All catIds belonging to this family */
+  catIds: string[];
+}
+
+/** Skill mount health summary */
+export interface SkillHealthSummary {
+  /** All Cat Cafe skills correctly symlinked to all providers */
+  allMounted: boolean;
+  /** No orphaned skills or phantom BOOTSTRAP entries */
+  registrationConsistent: boolean;
+  /** Skills in source dir but not in BOOTSTRAP.md */
+  unregistered: string[];
+  /** Skills in BOOTSTRAP.md but not in source dir */
+  phantom: string[];
+}
+
+/** Full GET /api/capabilities response (F041 re-open: includes family + project metadata) */
+export interface CapabilityBoardResponse {
+  items: CapabilityBoardItem[];
+  catFamilies: CatFamily[];
+  /** The resolved project path this response pertains to */
+  projectPath: string;
+  /** Skill mount health (only for cat-cafe skills) */
+  skillHealth?: SkillHealthSummary;
 }
 
 /** PATCH request body for toggling capabilities */
@@ -79,4 +127,6 @@ export interface CapabilityPatchRequest {
   catId?: string;
   /** New enabled state */
   enabled: boolean;
+  /** Target project path (multi-project support). If omitted, uses server default. */
+  projectPath?: string;
 }

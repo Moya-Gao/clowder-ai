@@ -1,46 +1,66 @@
 'use client';
 
 /**
- * HubCapabilityTab — F041 能力看板 tab
+ * HubCapabilityTab — F041 统一能力中心
  *
- * 展示所有 MCP 工具 + Skills，支持全局/每猫开关。
+ * 卡片式手风琴布局，MCP + Skills 合并。
+ * 全局开关 + 展开后 per-cat 开关（按猫族折叠）。
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { useChatStore } from '@/stores/chatStore';
+import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
+import type {
+  CapabilityBoardItem,
+  CapabilityBoardResponse,
+  CatFamily,
+  SkillHealthSummary,
+  ToggleHandler,
+} from './capability-board-ui';
+import {
+  CapabilitySection,
+  FilterChips,
+  SectionIconMcp,
+  SectionIconSkill,
+  SectionIconExtension,
+  SkillHealthBanner,
+  StatusDot,
+} from './capability-board-ui';
 
-interface CapabilityBoardItem {
-  id: string;
-  type: 'mcp' | 'skill';
-  source: 'cat-cafe' | 'external';
-  enabled: boolean;
-  cats: Record<string, boolean>;
-  description?: string;
-}
-
-type FilterType = 'all' | 'mcp' | 'skill';
 type FilterSource = 'all' | 'cat-cafe' | 'external';
-type FilterCat = 'all' | string;
 
 export function HubCapabilityTab() {
   const [items, setItems] = useState<CapabilityBoardItem[]>([]);
+  const [catFamilies, setCatFamilies] = useState<CatFamily[]>([]);
+  const [skillHealth, setSkillHealth] = useState<SkillHealthSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [filterType, setFilterType] = useState<FilterType>('all');
   const [filterSource, setFilterSource] = useState<FilterSource>('all');
-  const [filterCat, setFilterCat] = useState<FilterCat>('all');
   const [toggling, setToggling] = useState<string | null>(null);
 
-  const fetchCapabilities = useCallback(async () => {
+  // Multi-project state
+  const [projectPath, setProjectPath] = useState<string | null>(null);
+  const [resolvedProjectPath, setResolvedProjectPath] = useState<string>('');
+
+  const threads = useChatStore((s) => s.threads);
+  const knownProjects = useMemo(() => getProjectPaths(threads), [threads]);
+
+  const fetchCapabilities = useCallback(async (forProject?: string) => {
     setError(null);
     try {
-      const res = await apiFetch('/api/capabilities');
+      const params = forProject ? `?projectPath=${encodeURIComponent(forProject)}` : '';
+      const res = await apiFetch(`/api/capabilities${params}`);
       if (!res.ok) {
-        setError('能力列表加载失败');
+        const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+        setError((data.error as string) ?? '加载失败');
         return;
       }
-      const data = await res.json() as CapabilityBoardItem[];
-      setItems(data);
+      const data = await res.json() as CapabilityBoardResponse;
+      setItems(data.items);
+      setCatFamilies(data.catFamilies);
+      setResolvedProjectPath(data.projectPath);
+      setSkillHealth(data.skillHealth ?? null);
     } catch {
       setError('网络错误');
     } finally {
@@ -50,43 +70,81 @@ export function HubCapabilityTab() {
 
   useEffect(() => { fetchCapabilities(); }, [fetchCapabilities]);
 
-  const handleToggle = useCallback(async (
-    capabilityId: string,
-    capabilityType: 'mcp' | 'skill',
-    scope: 'global' | 'cat',
-    enabled: boolean,
-    catId?: string,
+  const switchProject = useCallback((path: string | null) => {
+    setProjectPath(path);
+    setLoading(true);
+    fetchCapabilities(path ?? undefined);
+  }, [fetchCapabilities]);
+
+  const handleToggle: ToggleHandler = useCallback(async (
+    capabilityId,
+    capabilityType,
+    enabled,
+    scope = 'global',
+    catId,
   ) => {
-    setToggling(`${capabilityType}:${capabilityId}`);
+    const toggleKey = catId
+      ? `${capabilityType}:${capabilityId}:${catId}`
+      : `${capabilityType}:${capabilityId}`;
+    setToggling(toggleKey);
     try {
+      const body: Record<string, unknown> = {
+        capabilityId,
+        capabilityType,
+        scope,
+        enabled,
+        projectPath: projectPath ?? undefined,
+      };
+      if (catId) body.catId = catId;
+
       const res = await apiFetch('/api/capabilities', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ capabilityId, capabilityType, scope, enabled, catId }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as Record<string, unknown>;
         setError((data.error as string) ?? `开关失败 (${res.status})`);
         return;
       }
-      await fetchCapabilities();
+      await fetchCapabilities(projectPath ?? undefined);
     } catch {
       setError('网络错误');
     } finally {
       setToggling(null);
     }
-  }, [fetchCapabilities]);
+  }, [fetchCapabilities, projectPath]);
 
-  const catIds = items.length > 0
-    ? Object.keys(items[0]!.cats).sort()
-    : [];
+  // Filter + group
+  const filtered = useMemo(() => {
+    if (filterSource === 'all') return items;
+    return items.filter((i) => i.source === filterSource);
+  }, [items, filterSource]);
 
-  const filtered = items.filter((item) => {
-    if (filterType !== 'all' && item.type !== filterType) return false;
-    if (filterSource !== 'all' && item.source !== filterSource) return false;
-    if (filterCat !== 'all' && !(filterCat in item.cats)) return false;
-    return true;
-  });
+  const mcpItems = useMemo(() => filtered.filter((i) => i.type === 'mcp'), [filtered]);
+  const externalSkills = useMemo(() => filtered.filter((i) => i.type === 'skill' && i.source === 'external'), [filtered]);
+
+  // Group Cat Cafe Skills by category (from BOOTSTRAP.md)
+  const catCafeSkillGroups = useMemo(() => {
+    const catCafe = filtered.filter((i) => i.type === 'skill' && i.source === 'cat-cafe');
+    const groups: { category: string; items: CapabilityBoardItem[] }[] = [];
+    const categoryMap = new Map<string, CapabilityBoardItem[]>();
+    const categoryOrder: string[] = [];
+    for (const item of catCafe) {
+      const cat = item.category ?? '未分类';
+      let arr = categoryMap.get(cat);
+      if (!arr) {
+        arr = [];
+        categoryMap.set(cat, arr);
+        categoryOrder.push(cat);
+      }
+      arr.push(item);
+    }
+    for (const cat of categoryOrder) {
+      groups.push({ category: cat, items: categoryMap.get(cat)! });
+    }
+    return groups;
+  }, [filtered]);
 
   if (loading) return <p className="text-sm text-gray-400">加载中...</p>;
 
@@ -96,17 +154,13 @@ export function HubCapabilityTab() {
         <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>
       )}
 
-      {/* Filters */}
-      <div className="flex gap-3 items-center">
-        <FilterChips
-          label="类型"
-          value={filterType}
-          options={[
-            { value: 'all', label: '全部' },
-            { value: 'mcp', label: 'MCP' },
-            { value: 'skill', label: 'Skill' },
-          ]}
-          onChange={(v) => setFilterType(v as FilterType)}
+      {/* Header: project + filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <ProjectSelector
+          resolvedPath={resolvedProjectPath}
+          knownProjects={knownProjects}
+          currentSelection={projectPath}
+          onSwitch={switchProject}
         />
         <FilterChips
           label="来源"
@@ -118,167 +172,119 @@ export function HubCapabilityTab() {
           ]}
           onChange={(v) => setFilterSource(v as FilterSource)}
         />
-        {catIds.length > 0 && (
-          <FilterChips
-            label="猫猫"
-            value={filterCat}
-            options={[
-              { value: 'all', label: '全部' },
-              ...catIds.map((id) => ({ value: id, label: id })),
-            ]}
-            onChange={(v) => setFilterCat(v as FilterCat)}
-          />
-        )}
       </div>
 
-      {/* Capability table */}
-      <div className="rounded-lg border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
-            <tr>
-              <th className="text-left px-3 py-2 font-medium">名称</th>
-              <th className="text-center px-3 py-2 font-medium w-16">类型</th>
-              <th className="text-center px-3 py-2 font-medium w-16">来源</th>
-              <th className="text-center px-3 py-2 font-medium w-16">全局</th>
-              {catIds.map((catId) => (
-                <th key={catId} className="text-center px-2 py-2 font-medium w-16">
-                  {catId}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={4 + catIds.length} className="text-center py-6 text-gray-400">
-                  无匹配能力
-                </td>
-              </tr>
-            ) : (
-              filtered.map((item) => (
-                <tr key={`${item.type}:${item.id}`} className="hover:bg-gray-50/50">
-                  <td className="px-3 py-2 font-mono text-xs">{item.id}</td>
-                  <td className="text-center px-3 py-2">
-                    <TypeBadge type={item.type} />
-                  </td>
-                  <td className="text-center px-3 py-2">
-                    <SourceBadge source={item.source} />
-                  </td>
-                  <td className="text-center px-3 py-2">
-                    <ToggleSwitch
-                      enabled={item.enabled}
-                      disabled={toggling === `${item.type}:${item.id}`}
-                      onChange={(v) => handleToggle(item.id, item.type, 'global', v)}
-                    />
-                  </td>
-                  {catIds.map((catId) => (
-                    <td key={catId} className="text-center px-2 py-2">
-                      {catId in item.cats ? (
-                        <ToggleSwitch
-                          enabled={item.cats[catId] ?? false}
-                          disabled={toggling === `${item.type}:${item.id}`}
-                          onChange={(v) => handleToggle(item.id, item.type, 'cat', v, catId)}
-                        />
-                      ) : (
-                        <span className="text-gray-300">–</span>
-                      )}
-                    </td>
-                  ))}
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      {/* Skill health banner */}
+      {skillHealth && <SkillHealthBanner health={skillHealth} items={items} />}
 
-      <div className="text-xs text-gray-400 space-y-1">
-        <p>
-          共 {items.length} 项能力 (MCP: {items.filter((i) => i.type === 'mcp').length},
-          Skill: {items.filter((i) => i.type === 'skill').length})
-        </p>
-        {items.some((i) => i.type === 'skill') && (
-          <p>MCP 开关即时生效。Skill 开关仅记录状态，CLI 运行时加载不受控制。</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ────────── Sub-components ──────────
-
-function FilterChips({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: { value: string; label: string }[];
-  onChange: (v: string) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <span className="text-xs text-gray-500">{label}:</span>
-      {options.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => onChange(opt.value)}
-          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
-            value === opt.value
-              ? 'bg-blue-50 border-blue-300 text-blue-700'
-              : 'border-gray-200 text-gray-500 hover:border-gray-300'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function TypeBadge({ type }: { type: 'mcp' | 'skill' }) {
-  return (
-    <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
-      type === 'mcp' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
-    }`}>
-      {type.toUpperCase()}
-    </span>
-  );
-}
-
-function SourceBadge({ source }: { source: 'cat-cafe' | 'external' }) {
-  return (
-    <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded font-medium ${
-      source === 'cat-cafe' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'
-    }`}>
-      {source === 'cat-cafe' ? 'cafe' : 'ext'}
-    </span>
-  );
-}
-
-function ToggleSwitch({
-  enabled,
-  disabled,
-  onChange,
-}: {
-  enabled: boolean;
-  disabled?: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <button
-      onClick={() => onChange(!enabled)}
-      disabled={disabled}
-      className={`w-8 h-4 rounded-full relative transition-colors ${
-        disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer'
-      } ${enabled ? 'bg-green-400' : 'bg-gray-300'}`}
-    >
-      <span
-        className={`absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-transform ${
-          enabled ? 'left-4' : 'left-0.5'
-        }`}
+      {/* MCP Section */}
+      <CapabilitySection
+        icon={<SectionIconMcp />}
+        title="MCP"
+        subtitle="工具服务"
+        items={mcpItems}
+        catFamilies={catFamilies}
+        toggling={toggling}
+        onToggle={handleToggle}
       />
-    </button>
+
+      {/* Cat Cafe Skills by Category */}
+      {catCafeSkillGroups.map((group) => (
+        <CapabilitySection
+          key={group.category}
+          icon={<SectionIconSkill />}
+          title={group.category}
+          subtitle="Cat Cafe Skills"
+          items={group.items}
+          catFamilies={catFamilies}
+          toggling={toggling}
+          onToggle={handleToggle}
+        />
+      ))}
+
+      {/* External Skills Section */}
+      <CapabilitySection
+        icon={<SectionIconExtension />}
+        title="Extensions"
+        subtitle="外部扩展 Skills"
+        items={externalSkills}
+        catFamilies={catFamilies}
+        toggling={toggling}
+        onToggle={handleToggle}
+      />
+
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+            <svg className="w-8 h-8 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+          </div>
+          <h3 className="text-sm font-semibold text-slate-600">没有找到匹配的能力</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-[220px]">试着切换来源筛选，或检查 MCP/Skills 配置</p>
+        </div>
+      )}
+
+      {/* Summary */}
+      <div className="pt-4 border-t border-slate-100/60 mt-4">
+        <div className="flex items-center justify-between text-xs text-slate-400">
+          <span>共 {items.length} 项</span>
+          <span className="flex gap-3">
+            <span className="flex items-center gap-1.5"><StatusDot status="connected" /> {items.filter((i) => i.connectionStatus === 'connected').length} 活跃</span>
+            <span>MCP: <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'mcp').length}</strong></span>
+            <span>Skill: <strong className="text-slate-500 font-medium">{items.filter((i) => i.type === 'skill').length}</strong></span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ────────── Project Selector ──────────
+
+function ProjectSelector({
+  resolvedPath,
+  knownProjects,
+  currentSelection,
+  onSwitch,
+}: {
+  resolvedPath: string;
+  knownProjects: string[];
+  currentSelection: string | null;
+  onSwitch: (path: string | null) => void;
+}) {
+  const allPaths = useMemo(() => {
+    const set = new Set<string>();
+    set.add(resolvedPath);
+    for (const p of knownProjects) set.add(p);
+    return Array.from(set);
+  }, [resolvedPath, knownProjects]);
+
+  if (allPaths.length <= 1) {
+    return (
+      <div className="text-xs text-gray-400 flex items-center gap-1.5">
+        <span>项目:</span>
+        <span className="text-gray-600 font-medium">{projectDisplayName(resolvedPath)}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <label htmlFor="project-select" className="text-gray-400 whitespace-nowrap">项目:</label>
+      <select
+        id="project-select"
+        value={currentSelection ?? ''}
+        onChange={(e) => onSwitch(e.target.value || null)}
+        className="flex-1 min-w-0 px-2 py-1 rounded border border-gray-200 bg-white text-gray-700 text-xs truncate"
+      >
+        <option value="">{projectDisplayName(resolvedPath)}</option>
+        {allPaths
+          .filter((p) => p !== resolvedPath || currentSelection !== null)
+          .map((path) => (
+            <option key={path} value={path}>{projectDisplayName(path)}</option>
+          ))}
+      </select>
+    </div>
   );
 }

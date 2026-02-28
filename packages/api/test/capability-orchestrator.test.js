@@ -242,6 +242,30 @@ describe('bootstrapCapabilities', () => {
     assert.equal(catCafeEntries.length, 1);
     assert.equal(catCafeEntries[0].source, 'cat-cafe');
   });
+
+  it('uses catCafeRepoRoot for cat-cafe MCP descriptor when provided', async () => {
+    const claudeFile = join(dir, '.mcp.json');
+    await writeFile(claudeFile, JSON.stringify({ mcpServers: {} }));
+
+    const config = await bootstrapCapabilities(
+      dir,
+      {
+        claudeConfig: claudeFile,
+        codexConfig: join(dir, 'nonexistent.toml'),
+        geminiConfig: join(dir, 'nonexistent.json'),
+      },
+      { catCafeRepoRoot: '/host-repo' },
+    );
+
+    const catCafe = config.capabilities.find((c) => c.id === 'cat-cafe');
+    assert.ok(catCafe);
+    assert.equal(catCafe.type, 'mcp');
+    assert.ok(catCafe.mcpServer);
+    assert.ok(
+      catCafe.mcpServer.args[0].includes('/host-repo'),
+      'cat-cafe MCP serverPath should be built from catCafeRepoRoot',
+    );
+  });
 });
 
 // ────────── Resolve per-cat ──────────

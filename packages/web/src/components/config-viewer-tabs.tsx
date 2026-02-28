@@ -1,5 +1,6 @@
 import React, { type ReactNode } from 'react';
-import type { CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
+import type { ConfigData } from './config-viewer-types';
+import type { CatData } from '@/hooks/useCatData';
 
 export type { Capabilities, CatConfig, ConfigData, ContextBudget } from './config-viewer-types';
 
@@ -22,20 +23,36 @@ function KV({ label, value }: { label: string; value: string | number | boolean 
   );
 }
 
-// F041: CatTab simplified — capabilities now in dedicated "能力看板" tab
-export function CatTab({ cat, budget }: { cat: CatConfig; budget: ContextBudget }) {
+/** Unified cat overview — all cats' model & budget in one tab */
+export function CatOverviewTab({ config, cats }: { config: ConfigData; cats: CatData[] }) {
+  // One card per breed (default variant only)
+  const breeds = cats.filter(c => c.isDefaultVariant !== false).slice(0, 3);
+
   return (
-    <Section title="模型 & 预算">
-      <div className="space-y-1.5">
-        <KV label="Provider" value={cat.provider} />
-        <KV label="Model" value={cat.model} />
-        <KV label="MCP 交付" value={cat.mcpSupport ? '原生 (--mcp-config)' : 'HTTP 回调注入'} />
-        <KV label="Prompt 上限" value={`${(budget.maxPromptTokens / 1000).toFixed(0)}k tokens`} />
-        <KV label="上下文上限" value={`${(budget.maxContextTokens / 1000).toFixed(0)}k tokens`} />
-        <KV label="消息数上限" value={budget.maxMessages} />
-        <KV label="单消息上限" value={`${(budget.maxContentLengthPerMsg / 1000).toFixed(0)}k chars`} />
-      </div>
-    </Section>
+    <div className="space-y-3">
+      {breeds.map((catData) => {
+        const cat = config.cats[catData.id];
+        const budget = config.perCatBudgets[catData.id];
+        if (!cat || !budget) return null;
+        const name = catData.breedDisplayName ?? catData.displayName;
+        return (
+          <Section key={catData.id} title={name}>
+            <div className="space-y-1.5">
+              <KV label="Provider" value={cat.provider} />
+              <KV label="Model" value={cat.model} />
+              <KV label="MCP 交付" value={cat.mcpSupport ? '原生 (--mcp-config)' : 'HTTP 回调注入'} />
+              <KV label="Prompt 上限" value={`${(budget.maxPromptTokens / 1000).toFixed(0)}k tokens`} />
+              <KV label="上下文上限" value={`${(budget.maxContextTokens / 1000).toFixed(0)}k tokens`} />
+              <KV label="消息数上限" value={budget.maxMessages} />
+              <KV label="单消息上限" value={`${(budget.maxContentLengthPerMsg / 1000).toFixed(0)}k chars`} />
+            </div>
+          </Section>
+        );
+      })}
+      {breeds.length === 0 && (
+        <p className="text-sm text-gray-400">未找到猫猫配置数据</p>
+      )}
+    </div>
   );
 }
 

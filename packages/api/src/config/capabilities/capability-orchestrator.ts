@@ -134,8 +134,9 @@ export function buildCatCafeMcpDescriptor(
 export async function bootstrapCapabilities(
   projectRoot: string,
   discoveryPaths: DiscoveryPaths,
+  opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafe = buildCatCafeMcpDescriptor(projectRoot);
+  const catCafe = buildCatCafeMcpDescriptor(opts?.catCafeRepoRoot ?? projectRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 
   const capabilities: CapabilityEntry[] = [];

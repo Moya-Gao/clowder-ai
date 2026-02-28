@@ -1,45 +1,39 @@
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { CatTab, SystemTab, type ConfigData, type CatConfig, type ContextBudget } from '@/components/config-viewer-tabs';
-
-const CAT: CatConfig = {
-  displayName: '布偶猫',
-  provider: 'anthropic',
-  model: 'claude-opus-4-5-20250214',
-  mcpSupport: true,
-};
-
-const BUDGET: ContextBudget = {
-  maxPromptTokens: 150000,
-  maxContextTokens: 200000,
-  maxMessages: 50,
-  maxContentLengthPerMsg: 64000,
-};
+import { CatOverviewTab, SystemTab, type ConfigData } from '@/components/config-viewer-tabs';
+import type { CatData } from '@/hooks/useCatData';
 
 const CONFIG: ConfigData = {
-  cats: { opus: CAT },
-  perCatBudgets: { opus: BUDGET },
+  cats: {
+    opus: { displayName: '布偶猫', provider: 'anthropic', model: 'claude-opus-4-5-20250214', mcpSupport: true },
+    codex: { displayName: '缅因猫', provider: 'openai', model: 'codex-2025-03', mcpSupport: false },
+  },
+  perCatBudgets: {
+    opus: { maxPromptTokens: 150000, maxContextTokens: 200000, maxMessages: 50, maxContentLengthPerMsg: 64000 },
+    codex: { maxPromptTokens: 100000, maxContextTokens: 128000, maxMessages: 30, maxContentLengthPerMsg: 32000 },
+  },
   a2a: { enabled: true, maxDepth: 2 },
   memory: { enabled: true, maxKeysPerThread: 50 },
   hindsight: { enabled: true, baseUrl: 'http://localhost:8888', sharedBank: 'cat-cafe-shared' },
   governance: { degradationEnabled: true, doneTimeoutMs: 300000, heartbeatIntervalMs: 30000 },
 };
 
-describe('CatTab', () => {
-  it('renders model info and budget', () => {
-    const html = renderToStaticMarkup(React.createElement(CatTab, { cat: CAT, budget: BUDGET }));
+const CATS: CatData[] = [
+  { id: 'opus', displayName: '布偶猫 Opus', breedDisplayName: '布偶猫', provider: 'anthropic', defaultModel: 'claude-opus-4-5', color: { primary: '#6366f1', secondary: '#818cf8' }, mentionPatterns: [], avatar: '', roleDescription: '', personality: '' },
+  { id: 'codex', displayName: '缅因猫 Codex', breedDisplayName: '缅因猫', provider: 'openai', defaultModel: 'codex', color: { primary: '#22c55e', secondary: '#4ade80' }, mentionPatterns: [], avatar: '', roleDescription: '', personality: '' },
+];
+
+describe('CatOverviewTab', () => {
+  it('renders all cats model info and budgets in one view', () => {
+    const html = renderToStaticMarkup(React.createElement(CatOverviewTab, { config: CONFIG, cats: CATS }));
+    expect(html).toContain('布偶猫');
     expect(html).toContain('anthropic');
     expect(html).toContain('claude-opus');
     expect(html).toContain('150k tokens');
     expect(html).toContain('原生 (--mcp-config)');
-  });
-
-  // F041: Skills/MCP display moved to dedicated 能力看板 tab
-
-  it('shows HTTP callback for non-MCP cats', () => {
-    const codexCat = { ...CAT, mcpSupport: false };
-    const html = renderToStaticMarkup(React.createElement(CatTab, { cat: codexCat, budget: BUDGET }));
+    expect(html).toContain('缅因猫');
+    expect(html).toContain('openai');
     expect(html).toContain('HTTP 回调注入');
   });
 });

@@ -296,10 +296,11 @@ describe('F32-a Mock Agent Integration', () => {
       });
       assert.equal(res.statusCode, 200);
       const body = JSON.parse(res.body);
-      // F041: response is now CapabilityBoardItem[] (array, not per-cat object)
-      assert.ok(Array.isArray(body), 'response should be an array of board items');
+      // F041 re-open: response is now { items, catFamilies, projectPath }
+      assert.ok(Array.isArray(body.items), 'response.items should be an array');
+      assert.ok(typeof body.projectPath === 'string', 'response.projectPath should be a string');
       // Each MCP item's cats map should include mock-cat with a boolean
-      for (const item of body) {
+      for (const item of body.items) {
         if (item.type === 'mcp') {
           assert.ok('mock-cat' in item.cats, 'MCP items should include mock-cat in cats map');
         }

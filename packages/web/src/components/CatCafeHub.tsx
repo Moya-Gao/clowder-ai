@@ -1,26 +1,25 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
-import { CatTab, SystemTab, type ConfigData } from './config-viewer-tabs';
+import { CatOverviewTab, SystemTab, type ConfigData } from './config-viewer-tabs';
 import { HubCommandsTab } from './HubCommandsTab';
 import { HubEnvFilesTab } from './HubEnvFilesTab';
 import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { HubStrategyTab } from './HubStrategyTab';
-import { HubSkillsTab } from './HubSkillsTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
 import { useCatData } from '@/hooks/useCatData';
 
 // F032 P2: HubTabId now uses string for dynamic cat tabs
 export type HubTabId = string;
 
-// System tabs (non-cat) - these are static
-const SYSTEM_TABS: { id: HubTabId; label: string }[] = [
+// Hub tabs — cat overview merged into single tab, Skills 看板 replaced by 能力看板
+const HUB_TABS: { id: HubTabId; label: string }[] = [
+  { id: 'cats', label: '猫猫总览' },
   { id: 'system', label: '系统配置' },
-  { id: 'capabilities', label: '能力看板' },
-  { id: 'skills', label: 'Skills 看板' },
+  { id: 'capabilities', label: '能力中心' },
   { id: 'commands', label: '命令速查' },
   { id: 'env', label: '环境 & 文件' },
   { id: 'voice', label: '语音设置' },
@@ -39,38 +38,34 @@ export function CatCafeHub() {
   const { cats, getCatById } = useCatData();
 
   const open = hubState?.open ?? false;
-  const requestedTab = (hubState?.tab ?? 'opus') as HubTabId;
+  const requestedTab = (hubState?.tab ?? 'cats') as HubTabId;
 
-  const [tab, setTab] = useState<HubTabId>('opus');
+  const [tab, setTab] = useState<HubTabId>('cats');
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
-
-  // F032 P2: Build TABS dynamically from cat data
-  const TABS = useMemo(() => {
-    // Get unique breed default variants (one tab per breed)
-    const catTabs = cats
-      .filter(c => c.isDefaultVariant !== false) // Include default variants and those without the flag
-      .slice(0, 3) // Limit to first 3 breeds for UI space
-      .map(c => ({ id: c.id, label: c.breedDisplayName ?? c.displayName }));
-    return [...catTabs, ...SYSTEM_TABS];
-  }, [cats]);
+  const [capTabEverOpened, setCapTabEverOpened] = useState(false);
 
   // Sync tab to store-requested tab when opening
   useEffect(() => {
-    if (open) setTab(requestedTab);
-  }, [open, requestedTab]);
+    if (open) {
+      // Map legacy per-cat tab IDs to unified cats tab
+      const mapped = getCatById(requestedTab) ? 'cats' : requestedTab;
+      setTab(mapped);
+    }
+  }, [open, requestedTab, getCatById]);
 
-  // Cloud Codex R4 P2 fix: Fallback to valid tab when dynamic cat lookup misses
+  // Fallback to valid tab if current is invalid
   useEffect(() => {
     if (!open) return;
-    // Check if current tab is valid (either in TABS or is a valid cat)
-    const isValidTab = TABS.some(t => t.id === tab) || SYSTEM_TABS.some(t => t.id === tab);
-    if (!isValidTab) {
-      // Fallback to first available cat tab, or 'system' if no cats
-      const firstCatTab = TABS.find(t => !SYSTEM_TABS.some(st => st.id === t.id));
-      setTab(firstCatTab?.id ?? 'system');
-    }
-  }, [open, tab, TABS]);
+    const isValid = HUB_TABS.some(t => t.id === tab);
+    if (!isValid) setTab('cats');
+  }, [open, tab]);
+
+  // Keep 能力中心 mounted after first visit so switching tabs doesn't "flash" on re-mount.
+  useEffect(() => {
+    if (!open) return;
+    if (tab === 'capabilities') setCapTabEverOpened(true);
+  }, [open, tab]);
 
   const fetchData = useCallback(async () => {
     setFetchError(null);
@@ -100,22 +95,16 @@ export function CatCafeHub() {
 
   if (!open) return null;
 
-  // F032 P2: Check if current tab is a cat tab dynamically
-  const catId = getCatById(tab) ? tab : null;
-  const cat = catId ? config?.cats[catId] : undefined;
-  const budget = catId ? config?.perCatBudgets[catId] : undefined;
-  // F041: capabilities now in dedicated tab — CatTab no longer shows caps
-
   return (
     <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50" onClick={closeHub}>
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 pt-4 pb-3" style={{ flexShrink: 0 }}>
           <h2 className="text-base font-bold">Cat Caf&eacute; Hub</h2>
           <button onClick={closeHub} className="text-gray-400 hover:text-gray-600 text-lg">&times;</button>
         </div>
 
         <div className="flex border-b border-gray-200 px-5 overflow-x-auto" style={{ flexShrink: 0 }}>
-          {TABS.map((t) => (
+          {HUB_TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
@@ -132,27 +121,25 @@ export function CatCafeHub() {
           {fetchError && (
             <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{fetchError}</p>
           )}
-          {catId && cat && budget ? (
-            <CatTab cat={cat} budget={budget} />
-          ) : tab === 'system' && config ? (
-            <SystemTab config={config} />
-          ) : tab === 'capabilities' ? (
-            <HubCapabilityTab />
-          ) : tab === 'skills' ? (
-            <HubSkillsTab />
-          ) : tab === 'commands' ? (
-            <HubCommandsTab />
-          ) : tab === 'env' ? (
-            <HubEnvFilesTab />
-          ) : tab === 'voice' ? (
-            <VoiceSettingsPanel />
-          ) : tab === 'notify' ? (
-            <PushSettingsPanel />
-          ) : tab === 'strategy' ? (
-            <HubStrategyTab />
-          ) : !config && !fetchError ? (
-            <p className="text-sm text-gray-400">加载中...</p>
-          ) : null}
+
+          {/* Keep 能力中心 mounted after first open to avoid re-mount loading flash */}
+          {(tab === 'capabilities' || capTabEverOpened) && (
+            <div className={tab === 'capabilities' ? '' : 'hidden'}>
+              <HubCapabilityTab />
+            </div>
+          )}
+
+          {tab === 'cats' && (
+            config ? <CatOverviewTab config={config} cats={cats} /> : !fetchError ? <p className="text-sm text-gray-400">加载中...</p> : null
+          )}
+          {tab === 'system' && (
+            config ? <SystemTab config={config} /> : !fetchError ? <p className="text-sm text-gray-400">加载中...</p> : null
+          )}
+          {tab === 'commands' && <HubCommandsTab />}
+          {tab === 'env' && <HubEnvFilesTab />}
+          {tab === 'voice' && <VoiceSettingsPanel />}
+          {tab === 'notify' && <PushSettingsPanel />}
+          {tab === 'strategy' && <HubStrategyTab />}
         </div>
       </div>
     </div>

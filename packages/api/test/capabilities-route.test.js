@@ -431,7 +431,7 @@ describe('GET /api/capabilities (Fastify)', () => {
     await app.close();
   });
 
-  it('returns array of CapabilityBoardItem', async () => {
+  it('returns CapabilityBoardResponse with items and catFamilies', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
 
@@ -448,17 +448,75 @@ describe('GET /api/capabilities (Fastify)', () => {
     assert.equal(res.statusCode, 200);
     const body = res.json();
 
-    // New format: array of CapabilityBoardItem
-    assert.ok(Array.isArray(body), 'response should be an array');
+    // F041 re-open: response is now { items, catFamilies, projectPath }
+    assert.ok(Array.isArray(body.items), 'response.items should be an array');
+    assert.ok(Array.isArray(body.catFamilies), 'response.catFamilies should be an array');
+    assert.ok(typeof body.projectPath === 'string', 'response.projectPath should be a string');
+    assert.ok(body.projectPath.length > 0, 'projectPath should be non-empty');
 
     // Each item should have required fields
-    for (const item of body) {
+    for (const item of body.items) {
       assert.ok(item.id, 'item should have id');
       assert.ok(['mcp', 'skill'].includes(item.type), 'type should be mcp or skill');
       assert.ok(['cat-cafe', 'external'].includes(item.source), 'source should be cat-cafe or external');
       assert.equal(typeof item.enabled, 'boolean', 'enabled should be boolean');
       assert.ok(typeof item.cats === 'object', 'cats should be an object');
     }
+
+    // catFamilies should have proper structure
+    for (const family of body.catFamilies) {
+      assert.ok(family.id, 'family should have id');
+      assert.ok(family.name, 'family should have name');
+      assert.ok(Array.isArray(family.catIds), 'family should have catIds array');
+    }
+
+    await app.close();
+  });
+
+  it('accepts ?projectPath query param for multi-project support', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    // Create a temp directory under /tmp (must be within allowed roots)
+    const projectDir = join('/tmp', `cap-route-test-multi-project-${Date.now()}`);
+    await mkdir(projectDir, { recursive: true });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}`,
+      headers: AUTH_HEADERS,
+    });
+
+    const body = res.json();
+    assert.equal(res.statusCode, 200, `Expected 200, got ${res.statusCode}: ${JSON.stringify(body)}`);
+    assert.ok(Array.isArray(body.items), 'items should be an array');
+    // projectPath should be the validated (realpath-resolved) path
+    assert.ok(body.projectPath.includes('cap-route-test'), 'projectPath should contain our test dir name');
+
+    await rm(projectDir, { recursive: true, force: true });
+    await app.close();
+  });
+
+  it('returns 400 for invalid projectPath', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/capabilities?projectPath=/nonexistent/path/xyz',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 400);
+    assert.ok(res.json().error.includes('Invalid project path'));
 
     await app.close();
   });

@@ -7,10 +7,14 @@
 export type {
   CapabilitiesConfig,
   CapabilityBoardItem,
+  CapabilityBoardResponse,
   CapabilityEntry,
   CapabilityPatchRequest,
   CatCapabilityOverride,
+  CatFamily,
   McpServerDescriptor,
+  McpToolInfo,
+  SkillHealthSummary,
 } from './capability.js';
 // Authorization types (猫猫授权系统)
 export type {
