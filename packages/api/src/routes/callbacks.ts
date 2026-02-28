@@ -68,6 +68,11 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
   threadId: z.string().min(1).optional(), // F-Swarm-6: optional cross-thread read
 });
 
+const pendingMentionsQuerySchema = callbackAuthSchema.extend({
+  // Accept both scalar and repeated query params (Fastify may surface string[]).
+  includeAcked: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
 const ackMentionsSchema = callbackAuthSchema.extend({
   upToMessageId: z.string().min(1),
 });
@@ -178,7 +183,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       if (targetCats.length > 0 && router && invocationRecordStore && record.threadId) {
         await enqueueA2ATargets(
           { router, invocationRecordStore, socketManager,
-            ...(invocationTracker ? { invocationTracker } : {}), log: app.log },
+            ...(invocationTracker ? { invocationTracker } : {}),
+            ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
+            log: app.log },
           { targetCats, content: storedContent, userId: record.userId,
             threadId: record.threadId, triggerMessage: storedMsg,
             callerCatId: senderCatId },
@@ -189,18 +196,21 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
     });
 
     app.get('/api/callbacks/pending-mentions', async (request, reply) => {
-      const parsed = callbackAuthSchema.safeParse(request.query);
+      const parsed = pendingMentionsQuerySchema.safeParse(request.query);
       if (!parsed.success) {
         reply.status(400);
         return { error: 'Missing invocationId or callbackToken' };
       }
 
-      const { invocationId, callbackToken } = parsed.data;
+      const { invocationId, callbackToken, includeAcked } = parsed.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
         return EXPIRED_CREDENTIALS_ERROR;
       }
+
+      const includeAckedValues = Array.isArray(includeAcked) ? includeAcked : (includeAcked ? [includeAcked] : []);
+      const shouldIncludeAcked = includeAckedValues.some((v) => v === '1' || v.toLowerCase() === 'true');
 
       // #77: Use mention ack cursor to filter already-processed mentions
       const catId = createCatId(record.catId);
@@ -208,9 +218,9 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         ? await deliveryCursorStore.getMentionAckCursor(record.userId, catId, record.threadId)
         : undefined;
 
-      const rawMentions = await messageStore.getMentionsFor(
-        record.catId, 20, record.userId, record.threadId, lastAckId
-      );
+      const rawMentions = shouldIncludeAcked
+        ? await messageStore.getRecentMentionsFor(record.catId, 20, record.userId, record.threadId)
+        : await messageStore.getMentionsFor(record.catId, 20, record.userId, record.threadId, lastAckId);
       // F35: Filter out whispers not intended for this cat
       const mentionViewer = { type: 'cat' as const, catId };
       const mentions = rawMentions.filter((m) => canViewMessage(m, mentionViewer));
@@ -220,6 +230,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           from: item.catId ?? item.userId,
           message: item.content,
           timestamp: item.timestamp,
+          ...(shouldIncludeAcked ? { acked: Boolean(lastAckId && item.id <= lastAckId) } : {}),
         })),
       };
     });

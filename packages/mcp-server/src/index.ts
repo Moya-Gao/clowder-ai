@@ -102,8 +102,8 @@ export function createServer(): McpServer {
     'cat_cafe_get_pending_mentions',
     'Get recent messages that @-mention you. Use this to check if anyone is trying to get your attention.',
     getPendingMentionsInputSchema,
-    async (_args: Record<string, never>) => {
-      const result = await handleGetPendingMentions(_args);
+    async (args: { includeAcked?: boolean | undefined }) => {
+      const result = await handleGetPendingMentions(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

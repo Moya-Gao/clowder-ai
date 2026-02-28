@@ -87,7 +87,12 @@ export const postMessageInputSchema = {
     .describe('Optional idempotency key for at-least-once delivery de-duplication'),
 };
 
-export const getPendingMentionsInputSchema = {};
+export const getPendingMentionsInputSchema = {
+  includeAcked: z
+    .boolean()
+    .optional()
+    .describe('When true, include acknowledged mentions for explicit history review.'),
+};
 
 export const ackMentionsInputSchema = {
   upToMessageId: z
@@ -134,8 +139,10 @@ export async function handlePostMessage(input: {
   return result;
 }
 
-export async function handleGetPendingMentions(_input: Record<string, never>): Promise<ToolResult> {
-  return callbackGet('/api/callbacks/pending-mentions');
+export async function handleGetPendingMentions(input: { includeAcked?: boolean | undefined }): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/pending-mentions', {
+    ...(input.includeAcked ? { includeAcked: '1' } : {}),
+  });
 }
 
 export async function handleAckMentions(input: {

@@ -1,6 +1,6 @@
 /**
  * Mention Ack Tests (#77)
- * 9 regression scenarios from bug report:
+ * 10 regression scenarios from bug report:
  * 1. Basic flow (get → ack → session #2 sees 0)
  * 2. Crash recovery (get → no ack → session #2 still sees same)
  * 3. Same-ms mentions (ack to 2nd → only 3rd remains)
@@ -10,6 +10,7 @@
  * 7. Pagination overflow (25 mentions / limit=20 → two rounds)
  * 8. F24 session chain (seal → new session shares cursor)
  * 9. Cascade cleanup (thread delete → cursor cleaned)
+ * 10. F27 auto-ack on enqueue (callback enqueues → pending-mentions empty)
  */
 
 import { test, describe, beforeEach } from 'node:test';
@@ -46,7 +47,7 @@ describe('Mention Ack (#77)', () => {
     socketManager = createMockSocketManager();
   });
 
-  async function createApp() {
+  async function createApp(extraOpts = {}) {
     const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
     const app = Fastify();
     await app.register(callbacksRoutes, {
@@ -55,6 +56,7 @@ describe('Mention Ack (#77)', () => {
       socketManager,
       deliveryCursorStore,
       sharedBank: 'cat-cafe-shared',
+      ...extraOpts,
     });
     return app;
   }
@@ -70,10 +72,11 @@ describe('Mention Ack (#77)', () => {
     });
   }
 
-  async function getPending(app, invocationId, callbackToken) {
+  async function getPending(app, invocationId, callbackToken, { includeAcked } = {}) {
+    const extra = includeAcked ? `&includeAcked=${encodeURIComponent(includeAcked)}` : '';
     const res = await app.inject({
       method: 'GET',
-      url: `/api/callbacks/pending-mentions?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+      url: `/api/callbacks/pending-mentions?invocationId=${invocationId}&callbackToken=${callbackToken}${extra}`,
     });
     return JSON.parse(res.body);
   }
@@ -83,6 +86,15 @@ describe('Mention Ack (#77)', () => {
       method: 'POST',
       url: '/api/callbacks/ack-mentions',
       payload: { invocationId, callbackToken, upToMessageId },
+    });
+    return { statusCode: res.statusCode, body: JSON.parse(res.body) };
+  }
+
+  async function postMessage(app, invocationId, callbackToken, content) {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: { invocationId, callbackToken, content },
     });
     return { statusCode: res.statusCode, body: JSON.parse(res.body) };
   }
@@ -361,6 +373,51 @@ describe('Mention Ack (#77)', () => {
     // Ascending order (oldest first)
     assert.equal(pending.mentions[0].message, '@opus msg 1');
     assert.equal(pending.mentions[1].message, '@opus msg 2');
+    // Backwards compat: default mode should not add extra fields.
+    assert.equal('acked' in pending.mentions[0], false);
+  });
+
+  test('pending-mentions includeAcked=1 returns acked mentions with acked:true', async () => {
+    const app = await createApp();
+
+    const m1 = appendMention('thread-A', '@opus acked msg 1', 1000);
+    const m2 = appendMention('thread-A', '@opus acked msg 2', 2000);
+
+    const sess = registry.create('user-1', 'opus', 'thread-A');
+    await ackMentions(app, sess.invocationId, sess.callbackToken, m2.id);
+
+    const pendingDefault = await getPending(app, sess.invocationId, sess.callbackToken);
+    assert.equal(pendingDefault.mentions.length, 0);
+
+    const pendingIncludeAcked = await getPending(app, sess.invocationId, sess.callbackToken, { includeAcked: '1' });
+    assert.equal(pendingIncludeAcked.mentions.length, 2);
+    assert.equal(pendingIncludeAcked.mentions[0].id, m1.id);
+    assert.equal(pendingIncludeAcked.mentions[1].id, m2.id);
+    assert.equal(pendingIncludeAcked.mentions[0].acked, true);
+    assert.equal(pendingIncludeAcked.mentions[1].acked, true);
+  });
+
+  test('pending-mentions includeAcked=1 keeps window anchored to recent mentions', async () => {
+    const app = await createApp();
+
+    const mentions = [];
+    for (let i = 1; i <= 25; i++) {
+      mentions.push(appendMention('thread-A', `@opus msg ${i}`, i * 1000));
+    }
+
+    const sess = registry.create('user-1', 'opus', 'thread-A');
+    await ackMentions(app, sess.invocationId, sess.callbackToken, mentions[9].id);
+
+    const pendingIncludeAcked = await getPending(app, sess.invocationId, sess.callbackToken, { includeAcked: '1' });
+    assert.equal(pendingIncludeAcked.mentions.length, 20);
+    assert.equal(pendingIncludeAcked.mentions[0].message, '@opus msg 6');
+    assert.equal(pendingIncludeAcked.mentions[pendingIncludeAcked.mentions.length - 1].message, '@opus msg 25');
+    assert.equal(pendingIncludeAcked.mentions.some((m) => m.message === '@opus msg 1'), false);
+
+    const m10 = pendingIncludeAcked.mentions.find((m) => m.message === '@opus msg 10');
+    const m11 = pendingIncludeAcked.mentions.find((m) => m.message === '@opus msg 11');
+    assert.equal(m10.acked, true);
+    assert.equal(m11.acked, false);
   });
 
   test('ack-mentions returns 401 for invalid credentials', async () => {
@@ -377,5 +434,105 @@ describe('Mention Ack (#77)', () => {
       },
     });
     assert.equal(res.statusCode, 401);
+  });
+
+  // ---- Test 10: Auto-ack on enqueue (F27) ----
+  test('auto-acks mention cursor when callback enqueues to parent worklist', async () => {
+    const { registerWorklist, unregisterWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    // Stubs: callbacksRoutes only calls enqueueA2ATargets when these are present.
+    // In this test we keep a parent worklist registered, so enqueue should NOT
+    // fall back to standalone invocation and these should remain unused.
+    const routerStub = { routeExecution: async function* () {} };
+    const invocationRecordStoreStub = {
+      create: async () => ({ outcome: 'duplicate' }),
+      update: async () => {},
+    };
+
+    const app = await createApp({ router: routerStub, invocationRecordStore: invocationRecordStoreStub });
+    const threadId = 'thread-f27-auto-ack';
+
+    const owner = registerWorklist(threadId, ['codex'], 5);
+    try {
+      const sender = registry.create('user-1', 'codex', threadId);
+      const r1 = await postMessage(
+        app,
+        sender.invocationId,
+        sender.callbackToken,
+        '@opus please take a look',
+      );
+      assert.equal(r1.statusCode, 200);
+      assert.equal(r1.body.status, 'ok');
+
+      // Ensure the callback path actually enqueued to the parent worklist.
+      assert.ok(owner.list.includes('codex'));
+      assert.ok(owner.list.includes('opus'));
+
+      const [triggerMessage] = messageStore.getRecent(1, 'user-1');
+      assert.ok(triggerMessage);
+
+      const cursor = await deliveryCursorStore.getMentionAckCursor('user-1', 'opus', threadId);
+      assert.equal(cursor, triggerMessage.id);
+
+      const opus = registry.create('user-1', 'opus', threadId);
+      const pending = await getPending(app, opus.invocationId, opus.callbackToken);
+      assert.equal(pending.mentions.length, 0);
+    } finally {
+      unregisterWorklist(threadId, owner);
+    }
+  });
+
+  // ---- Task 4: Edge case — enqueue twice is monotonic ----
+  test('enqueue twice: mention ack cursor is monotonic and pending-mentions stays empty', async () => {
+    const { registerWorklist, unregisterWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+    const { enqueueA2ATargets } = await import('../dist/routes/callback-a2a-trigger.js');
+
+    const routerStub = { routeExecution: async function* () {} };
+    const invocationRecordStoreStub = {
+      create: async () => ({ outcome: 'duplicate' }),
+      update: async () => {},
+    };
+
+    const app = await createApp({ router: routerStub, invocationRecordStore: invocationRecordStoreStub });
+    const threadId = 'thread-enqueue-twice-monotonic';
+
+    const owner = registerWorklist(threadId, ['codex'], 5);
+    try {
+      const sender = registry.create('user-1', 'codex', threadId);
+
+      const r1 = await postMessage(app, sender.invocationId, sender.callbackToken, '@opus ping');
+      assert.equal(r1.statusCode, 200);
+      assert.equal(r1.body.status, 'ok');
+
+      const [trigger1] = messageStore.getRecent(1, 'user-1');
+      assert.ok(trigger1);
+      assert.ok(owner.list.includes('opus'));
+
+      const cursor1 = await deliveryCursorStore.getMentionAckCursor('user-1', 'opus', threadId);
+      assert.equal(cursor1, trigger1.id);
+
+      const opus1 = registry.create('user-1', 'opus', threadId);
+      const pending1 = await getPending(app, opus1.invocationId, opus1.callbackToken);
+      assert.equal(pending1.mentions.length, 0);
+
+      await enqueueA2ATargets(
+        { router: routerStub, invocationRecordStore: invocationRecordStoreStub, socketManager, deliveryCursorStore, log: app.log },
+        { targetCats: ['opus'], content: '@opus ping', userId: 'user-1', threadId, triggerMessage: trigger1, callerCatId: 'codex' },
+      );
+
+      const cursor2 = await deliveryCursorStore.getMentionAckCursor('user-1', 'opus', threadId);
+      assert.ok(cursor2 >= cursor1);
+      assert.ok(cursor2 >= trigger1.id);
+
+      const opus2 = registry.create('user-1', 'opus', threadId);
+      const pending2 = await getPending(app, opus2.invocationId, opus2.callbackToken);
+      assert.equal(pending2.mentions.length, 0);
+    } finally {
+      unregisterWorklist(threadId, owner);
+    }
   });
 });

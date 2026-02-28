@@ -17,6 +17,7 @@ import type { CatId } from '@cat-cafe/shared';
 import { getDefaultCatId } from '../config/cat-config-loader.js';
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { StoredMessage } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import { parseIntent } from '../domains/cats/services/context/IntentParser.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -28,6 +29,7 @@ export interface A2ATriggerDeps {
   invocationRecordStore: IInvocationRecordStore;
   socketManager: SocketManager;
   invocationTracker?: InvocationTracker;
+  deliveryCursorStore?: DeliveryCursorStore;
   log: FastifyBaseLogger;
 }
 
@@ -51,19 +53,52 @@ export async function enqueueA2ATargets(
 ): Promise<{ enqueued: CatId[]; fallback: boolean }> {
   const { log } = deps;
   const { targetCats, threadId, callerCatId } = opts;
+  const triggerMessageId = opts.triggerMessage.id;
+  const { deliveryCursorStore } = deps;
 
   // F27: Try to push to parent worklist first
   if (hasWorklist(threadId)) {
     const enqueued = pushToWorklist(threadId, targetCats, callerCatId);
     if (enqueued.length > 0) {
+      if (deliveryCursorStore) {
+        // F27 + #77: Best-effort auto-ack to prevent surprise backlog when cats later
+        // call pending-mentions. This intentionally advances the mention-ack cursor
+        // using the current trigger message ID (cursor semantics, not a per-message receipt).
+        //
+        // Best-effort: ack failure should NOT fail /post-message, since the message has
+        // already been stored/broadcast; failing would cause retries/duplicates and amplify noise.
+        const ackTargets = enqueued.filter((catId) => opts.triggerMessage.mentions.includes(catId));
+        const results = await Promise.allSettled(
+          ackTargets.map((catId) =>
+            deliveryCursorStore.ackMentionCursor(
+              opts.userId,
+              catId,
+              opts.threadId,
+              triggerMessageId,
+            ),
+          ),
+        );
+        const failed = results
+          .map((r, i) => ({ r, catId: ackTargets[i] }))
+          .filter((x): x is { r: PromiseRejectedResult; catId: CatId } => x.r.status === 'rejected');
+        if (failed.length > 0) {
+          log.warn({
+            threadId,
+            triggerMessageId,
+            failedAckCats: failed.map((f) => f.catId),
+          }, '[F27] A2A callback: mention auto-ack failed (best-effort)');
+        }
+      }
       log.info({
         threadId,
+        triggerMessageId,
         enqueued,
         targetCats,
       }, '[F27] A2A callback: enqueued targets to parent worklist');
     } else {
       log.info({
         threadId,
+        triggerMessageId,
         targetCats,
       }, '[F27] A2A callback: targets not enqueued (depth limit or already in worklist)');
     }

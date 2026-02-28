@@ -83,6 +83,8 @@ export interface IMessageStore {
   getById(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string, afterMessageId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  /** Get the most recent N mentions for a cat, ascending within the returned window (oldest→newest). */
+  getRecentMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
   getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
@@ -191,6 +193,26 @@ export class MessageStore {
     }
 
     return matches; // Already ascending
+  }
+
+  /**
+   * Get mentions for a specific cat, taking the most recent N matches.
+   * Returns ascending order (oldest→newest) within the returned window.
+   */
+  getRecentMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] {
+    const n = limit ?? DEFAULT_LIMIT;
+    const matches: StoredMessage[] = [];
+
+    for (let i = this.messages.length - 1; i >= 0 && matches.length < n; i--) {
+      const msg = this.messages[i]!;
+      if (msg.deletedAt) continue;
+      if (threadId && msg.threadId !== threadId) continue;
+      if (msg.mentions.includes(catId) && (!userId || msg.userId === userId)) {
+        matches.push(msg);
+      }
+    }
+
+    return matches.reverse();
   }
 
   /**

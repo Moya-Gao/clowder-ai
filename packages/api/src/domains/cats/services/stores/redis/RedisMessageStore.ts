@@ -217,6 +217,45 @@ export class RedisMessageStore {
     return this.hydrateMessages(ids); // Already ascending
   }
 
+  /**
+   * Get the most recent N mentions for a cat, ascending within the returned window (oldest→newest).
+   */
+  async getRecentMentionsFor(
+    catId: CatId,
+    limit?: number,
+    userId?: string,
+    threadId?: string
+  ): Promise<StoredMessage[]> {
+    const n = limit ?? DEFAULT_LIMIT;
+    const mentionKey = MessageKeys.mentions(catId);
+
+    const CHUNK = 50;
+    const ids: string[] = [];
+    let offset = 0;
+
+    // Scan backward (descending) in chunks and filter down to the most recent N matches.
+    while (ids.length < n) {
+      const chunk = await this.redis.zrevrange(mentionKey, offset, offset + CHUNK - 1);
+      if (chunk.length === 0) break;
+      for (const id of chunk) {
+        if (ids.length >= n) break;
+        if (userId) {
+          const score = await this.redis.zscore(MessageKeys.user(userId), id);
+          if (score === null) continue;
+        }
+        if (threadId) {
+          const score = await this.redis.zscore(MessageKeys.thread(threadId), id);
+          if (score === null) continue;
+        }
+        ids.push(id);
+      }
+      offset += CHUNK;
+    }
+
+    if (ids.length === 0) return [];
+    return this.hydrateMessages(ids.reverse());
+  }
+
   async getBefore(
     timestamp: number,
     limit?: number,
