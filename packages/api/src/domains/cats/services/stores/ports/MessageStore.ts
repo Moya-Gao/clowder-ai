@@ -46,6 +46,8 @@ export interface StoredMessage {
   /** CatIds mentioned in this message */
   mentions: readonly CatId[];
   timestamp: number;
+  /** F045: Extended thinking content (accumulated from CLI thinking blocks). Persisted for F5 recovery. */
+  thinking?: string;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
   /** F35: Message visibility. Default 'public' (undefined = public for backward compat) */

@@ -184,6 +184,7 @@ export async function* routeParallel(
   }
 
   const catText = new Map<string, string>();
+  const catThinking = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
   const catHadError = new Set<string>();
@@ -217,6 +218,16 @@ export async function* routeParallel(
     }
     if (msg.type === 'text' && msg.content && msg.catId) {
       catText.set(msg.catId, (catText.get(msg.catId) ?? '') + msg.content);
+    }
+    // F045: Accumulate thinking blocks per cat for persistence (F5 recovery)
+    if (msg.type === 'system_info' && msg.content && msg.catId) {
+      try {
+        const parsed = JSON.parse(msg.content);
+        if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
+          const prev = catThinking.get(msg.catId) ?? '';
+          catThinking.set(msg.catId, prev ? `${prev}\n\n---\n\n${parsed.text}` : parsed.text);
+        }
+      } catch { /* ignore parse errors */ }
     }
     if (msg.type === 'error' && msg.catId) {
       catHadError.add(msg.catId);
@@ -308,6 +319,7 @@ export async function* routeParallel(
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
         const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
+        const thinking = catThinking.get(msg.catId);
         try {
           await deps.messageStore.append({
             userId,
@@ -317,6 +329,7 @@ export async function* routeParallel(
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            ...(thinking ? { thinking } : {}),
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
@@ -351,6 +364,7 @@ export async function* routeParallel(
         // F22: still attach any MCP-buffered rich blocks (cloud Codex P1: block-only responses)
         const meta = catMeta.get(msg.catId);
         const catTools = catToolEvents.get(msg.catId);
+        const thinking = catThinking.get(msg.catId);
         try {
           await deps.messageStore.append({
             userId,
@@ -360,6 +374,7 @@ export async function* routeParallel(
             origin: 'stream',
             timestamp: Date.now(),
             threadId,
+            ...(thinking ? { thinking } : {}),
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
@@ -394,6 +409,7 @@ export async function* routeParallel(
         const catTools = catToolEvents.get(msg.catId);
         if (catTools && catTools.length > 0) {
           const meta = catMeta.get(msg.catId);
+          const thinking = catThinking.get(msg.catId);
           try {
             await deps.messageStore.append({
               userId,
@@ -403,6 +419,7 @@ export async function* routeParallel(
               origin: 'stream',
               timestamp: Date.now(),
               threadId,
+              ...(thinking ? { thinking } : {}),
               ...(meta ? { metadata: meta } : {}),
               toolEvents: catTools,
               ...(ownInvId ? { extra: { stream: { invocationId: ownInvId } } } : {}),

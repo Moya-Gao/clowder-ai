@@ -1224,3 +1224,106 @@ describe('routeSerial: done-only (no text, no error) must tag origin:stream', ()
     assert.ok(isHiddenInPlay, 'done-only codex message must be hidden from opus in play mode');
   });
 });
+
+// F045: Thinking persistence tests — Red→Green per 砚砚 R1 P1
+describe('routeParallel thinking persistence (F045)', () => {
+  it('persists thinking from system_info events alongside text content', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    // Mock service that emits thinking → text → done
+    const thinkingService = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-1' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'Let me reason about this...' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'Here is my answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: thinkingService }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    assert.equal(appendCalls.length, 1, 'should store one message');
+    const stored = appendCalls[0];
+    assert.equal(stored.thinking, 'Let me reason about this...', 'thinking must be persisted');
+    assert.equal(stored.content, 'Here is my answer', 'text content must be persisted');
+  });
+
+  it('concatenates multiple thinking blocks with --- separator', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const multiThinkService = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-2' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'First thought' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'Second thought' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'done', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: multiThinkService }, appendCalls);
+
+    for await (const msg of routeParallel(deps, ['opus'], 'test', 'user1', 'thread1')) { /* drain */ }
+
+    assert.equal(appendCalls[0].thinking, 'First thought\n\n---\n\nSecond thought');
+  });
+});
+
+describe('routeSerial thinking persistence (F045)', () => {
+  it('persists thinking from system_info events alongside text content', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const thinkingService = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-think-s1' }),
+          timestamp: Date.now(),
+        };
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'thinking', text: 'Serial thinking...' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'Serial answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: thinkingService }, appendCalls);
+
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) { /* drain */ }
+
+    assert.equal(appendCalls.length, 1, 'should store one message');
+    assert.equal(appendCalls[0].thinking, 'Serial thinking...', 'thinking must be persisted in serial mode');
+    assert.ok(appendCalls[0].content.includes('Serial answer'), 'text content must be persisted');
+  });
+});

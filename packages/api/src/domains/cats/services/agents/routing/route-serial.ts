@@ -200,6 +200,7 @@ export async function* routeSerial(
     }
 
     let textContent = '';
+    let thinkingContent = '';
     let firstMetadata: MessageMetadata | undefined;
     let doneMsg: AgentMessage | undefined;
     let hadError = false;
@@ -244,6 +245,15 @@ export async function* routeSerial(
       }
       if (msg.type === 'text' && msg.content) {
         textContent += msg.content;
+      }
+      // F045: Accumulate thinking blocks for persistence (F5 recovery)
+      if (msg.type === 'system_info' && msg.content) {
+        try {
+          const parsed = JSON.parse(msg.content);
+          if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
+            thinkingContent += (thinkingContent ? '\n\n---\n\n' : '') + parsed.text;
+          }
+        } catch { /* ignore parse errors */ }
       }
       // Accumulate tool events for persistence (before draft flush so current event is available)
       const toolEvt = toStoredToolEvent(msg);
@@ -350,6 +360,7 @@ export async function* routeSerial(
           origin: 'stream',
           timestamp: Date.now(),
           threadId,
+          ...(thinkingContent ? { thinking: thinkingContent } : {}),
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
           extra: {
@@ -438,6 +449,7 @@ export async function* routeSerial(
           origin: 'stream',
           timestamp: Date.now(),
           threadId,
+          ...(thinkingContent ? { thinking: thinkingContent } : {}),
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
           extra: {
