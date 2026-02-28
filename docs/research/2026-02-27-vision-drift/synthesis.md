@@ -1,5 +1,5 @@
 ---
-feature_ids: [F041]
+feature_ids: [F041, F046]
 topics: [multi-agent, vision-alignment, goal-drift, research]
 doc_kind: research-synthesis
 created: 2026-02-27
