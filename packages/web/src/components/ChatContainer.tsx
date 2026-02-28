@@ -43,6 +43,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     viewMode, setViewMode, clearUnread,
   } = useChatStore();
 
+  // F045: Read thread-level thinkingMode for dynamic display (debug=expanded, play=collapsed)
+  const thinkingMode = useChatStore((s) => (s.threads ?? []).find((t) => t.id === threadId)?.thinkingMode ?? 'debug');
+
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
   const isExport = typeof window !== 'undefined' &&
     new URLSearchParams(window.location.search).get('export') === 'true';
@@ -139,10 +142,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
-        <ChatMessage message={msg} getCatById={getCatById} />
+        <ChatMessage message={msg} getCatById={getCatById} thinkingMode={thinkingMode} />
       </MessageActions>
     ),
-    [threadId, getCatById]
+    [threadId, getCatById, thinkingMode]
   );
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);

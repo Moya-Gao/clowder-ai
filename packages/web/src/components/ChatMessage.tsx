@@ -129,10 +129,14 @@ function renderToolEvents(events: ToolEvent[]) {
 }
 
 /** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
-function ThinkingContent({ content, className, label = '💭 心里话' }: { content: string; className?: string; label?: string }) {
+function ThinkingContent({ content, className, label = '💭 心里话', defaultExpanded = false }: { content: string; className?: string; label?: string; defaultExpanded?: boolean }) {
   // In export mode (?export=true), default to expanded so screenshots show full content
   const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
-  const [expanded, setExpanded] = useState(isExport);
+  const [expanded, setExpanded] = useState(isExport || defaultExpanded);
+  // Sync with thinkingMode toggle: when mode changes, update all blocks
+  useEffect(() => {
+    setExpanded(isExport || defaultExpanded);
+  }, [isExport, defaultExpanded]);
   const previewLength = 60;
   const preview = content.length > previewLength
     ? `${content.slice(0, previewLength)}…`
@@ -195,9 +199,11 @@ function TtsPlayButton({ messageId, text, catId, ttsState, activeMessageId, onSy
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
+  /** Thread-level thinking mode: debug = expanded by default, play = collapsed */
+  thinkingMode?: 'debug' | 'play';
 }
 
-export function ChatMessage({ message, getCatById }: ChatMessageProps) {
+export function ChatMessage({ message, getCatById, thinkingMode = 'debug' }: ChatMessageProps) {
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
@@ -360,10 +366,10 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" />
+            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={thinkingMode === 'debug'} />
           )}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
-            <ThinkingContent content={message.content} className={catStyle?.font} />
+            <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={thinkingMode === 'debug'} />
           ) : hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : hasTextContent ? (
