@@ -37,7 +37,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
-| B1 | Playwright 基础设施——前端截图/录屏自动化 | 📋 Spec | 新依赖，需铲屎官批准 |
+| B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | 📋 Spec | 无需新依赖，用已有工具 |
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
 | B3 | 需求点 checklist 格式——结构化需求追踪 | 📋 Spec | 嵌入 feat-kickoff 模板 |
 
@@ -56,7 +56,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] `feat-completion` 有跨猫签收步骤（Step 0d）
 - [x] `requesting-review` + `requesting-cloud-review` 强制附原始需求摘录
 - [x] 截图证据仅限前端 UI/UX 功能
-- [ ] Playwright 基础设施可用（B1）
+- [ ] 截图/录屏证据流程文档化，利用现有 MCP 工具（B1）
 - [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
 - [ ] 需求点 checklist 格式嵌入开发模板（B3）
 
@@ -92,7 +92,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 |------|--------|------|
 | 流程过重导致开发效率降低 | 中 | A 项都是轻量嵌入（≤5 行摘录），不是新流程 |
 | 猫猫表面合规但实质应付 | 中 | B2 Cold-start Verifier 做独立校验 |
-| Playwright 维护成本 | 低 | 只做关键路径截图，不做全量 E2E |
+| MCP 截图工具局限性 | 低 | Claude in Chrome 覆盖主流场景，特殊情况手动补 |
 | 铲屎官审美疲劳（截图太多） | 低 | 已限定 ≤3 张 + 1 段 15s 录屏 |
 
 ## Dependencies
@@ -104,7 +104,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 ## Open Questions
 
-1. **B1 Playwright 新依赖审批**：需铲屎官确认是否引入（决策权矩阵：新增外部依赖 → 铲屎官拍板）
+1. ~~**B1 Playwright 新依赖审批**~~：已解决——铲屎官指出猫猫已有浏览器 MCP（Claude in Chrome / Codex），无需引入 Playwright
 2. **B2 Cold-start Verifier 实现形态**：用独立 claude 子进程？还是 Codex sandbox？等 F041 redo 时试点确定
 
 ## Review Gate
