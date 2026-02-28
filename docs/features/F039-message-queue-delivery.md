@@ -28,5 +28,24 @@ created: 2026-02-26
 ## Dependencies
 - 无显式依赖声明
 
+## 已知 Bug / UX 改进（2026-02-27 铲屎官发现）
+
+### Bug 1: F5 刷新后队列消息状态丢失
+- **复现**：消息在队列中（queued/processing） → 按 F5 刷新 → 消息显示为"已发送"
+- **根因**：`useChatHistory.ts` 页面加载时获取 `/api/messages` 和 `/api/tasks`，但**不获取 `/api/threads/{id}/queue`**。Zustand store 重置后 `queue: []`，队列面板为空。后端有 `GET /api/threads/:threadId/queue` 端点但前端从未调用。
+- **修复方向**：在 `useChatHistory` 里加 queue 状态初始化请求
+
+### Bug 2: 队列 UI 不显示图片附件
+- **复现**：发送带图片的消息 → 消息进入队列 → QueuePanel 只显示文字，不显示图片
+- **参考**：Codex 原生队列 UI（截图 `1772263352365-9cac5ed8.png`）
+- **修复方向**：QueuePanel 渲染时检查 `QueueEntry` 是否有关联的 contentBlocks/图片
+
+### UX 改进: Steer 功能（学习 Codex 原生）
+- **描述**：Codex 原生队列有 "Steer" 按钮——用户可以在消息排队等待时追加引导（"Ask for follow-up changes"），修改猫猫处理方向
+- **参考**：截图中 Codex 队列的 Steer 按钮 + 追加输入框
+- **设计方向**：在 QueuePanel 的排队消息旁加 Steer 按钮，点击后展开追加输入框，内容合并到排队消息
+
+> 以上 3 项待 PR #90（cat-tag-regex + TD091）合入后再开 worktree 修复。
+
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。
