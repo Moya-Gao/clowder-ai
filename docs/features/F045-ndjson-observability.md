@@ -223,29 +223,42 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 **铲屎官决策**：
 - **两块并存，都保持折叠** — 🧠 Thinking 和 💭 心里话 是不同概念，各自独立折叠
-- **理想状态**（未来增强）：debug 模式展开为不同 markdown 块，play 模式保留折叠。但 thinkingMode 可随时切换，动态渲染是非 trivial 增强，暂不做
-- **当前实现**：ChatMessage.tsx 两块并存，都默认折叠 ✅
+- **动态显示**：debug 模式默认展开（便于阅读）；play 模式保持折叠；且 thinkingMode 可随时切换，已渲染消息即时响应 ✅（PR #100）
+- **当前实现**：ChatMessage.tsx 两块并存；默认折叠/展开由 thread-level `thinkingMode` 控制 ✅
 
 **相关 PR**：
-- PR #94: 区分 🧠 Thinking label vs 💭 心里话 label
-- PR #95: thinking 持久化（F5 刷新后恢复 🧠 内容）
-- PR #97: hardDelete 清除 thinking 字段（安全 P1 hotfix + 回归测试）
+  - PR #94: 区分 🧠 Thinking label vs 💭 心里话 label
+  - PR #95: thinking 持久化（F5 刷新后恢复 🧠 内容）
+  - PR #97: hardDelete 清除 thinking 字段（安全 P1 hotfix + 回归测试）
+  - PR #100: thinkingMode 动态控制 🧠/💭 折叠/展开（debug=展开，play=折叠）
 
-### Gap #2: thinkingMode 默认值可能导致跨猫泄露 ⚠️
+### Gap #2: thinkingMode 默认值可能导致跨猫泄露 ✅ 已验证无泄露 (2026-02-28)
 
 **发现者**：砚砚/GPT-52
 
-**问题**：`RedisThreadStore` 的 `thinkingMode` 默认是 `debug`。`route-helpers.ts:240` 在 `play` 模式才屏蔽跨猫 thinking 进上下文。铲屎官明确说"暂不跨猫转发 thinking"，但默认 `debug` 模式下 thinking 可能被传递给其他猫作为上下文。
+**问题（历史担忧）**：`RedisThreadStore` 的 `thinkingMode` 默认是 `debug`。我们担心 debug 模式下 🧠 Thinking 可能被传递给其他猫作为上下文，违背铲屎官“🧠 Thinking 永不跨猫”的约束。
 
-**处置**：确认是否需要改默认为 `play`（或排查 thinkingMode 的实际使用范围）。
+**结论（已验证）**：🧠 Thinking 不会进入跨猫 prompt，上述担忧不成立：
+- **prompt 组装**只使用 `StoredMessage.content`（不读取 `thinking` 字段），因此即便 thinking 持久化到 MessageStore，也不会注入到其他猫上下文
+- `thinkingMode` 目前仅影响 **💭 心里话（CLI stream output）** 的跨猫可见性策略，以及前端折叠/展开默认行为（PR #100），不影响 🧠 Thinking 的跨猫隔离
 
-### Gap #3: 截图证据缺失 🔴
+**处置**：本 gap 关闭；如未来引入“把 thinking 注入 prompt”的能力，必须重新走铲屎官拍板 + 安全评审。
+
+### Gap #3: 截图证据缺失 ✅ 已补齐 (2026-02-28)
 
 **Anti-Drift Protocol 要求**：前端 UI/UX 功能必须产出 ≤3 张截图 + "需求→截图"映射表。
 
 **现状**：F045 有前端 UI 变更（ThinkingBlock、ErrorBanner、Plan 恢复），但未产出截图证据即合入。
 
-**处置**：在 runtime 上补截图验证。
+**处置**：已在 runtime 上补截图验证，并补“需求→截图”映射表：
+
+| 需求 | 证据截图 |
+|------|----------|
+| 💭 心里话折叠默认态（play 模式） | `docs/features/assets/F045/01-play-collapsed.png` |
+| 💭 心里话展开态（可读性） | `docs/features/assets/F045/02-expanded-manual.png` |
+| F5 刷新后仍能看到消息内容（历史加载）+ 右侧状态栏显示 thinkingMode | `docs/features/assets/F045/03-after-refresh.png` |
+
+补充：15s 录屏（slideshow）`docs/features/assets/F045/04-demo-15s.mp4`
 
 ### Gap #4: 持久化范围边界（已知，非 gap）
 
@@ -254,9 +267,9 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 ## Test Evidence
 
 - API tests: 2613 pass (含 33+ F045 fixture-based tests)
-- Web tests: 538 pass
+- Web tests: 538+ pass（后续补丁 PR 累积新增用例）
 - Build: clean
-- 截图证据：**待补**（见 Gap #3）
+- 截图证据：已补（见 Gap #3）
 
 ## Timeline
 
@@ -272,3 +285,4 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 - 2026-02-28: PR #95 — Thinking 持久化（F5 recovery）
 - 2026-02-28: PR #97 — hardDelete 清除 thinking + 回归测试 (云端 P1 hotfix)
 - 2026-02-28: 铲屎官拍板 — 🧠 和 💭 并存，都保持折叠（Gap #1a）
+- 2026-02-28: PR #100 — thinkingMode 动态控制 🧠/💭 折叠/展开（debug=展开，play=折叠）
