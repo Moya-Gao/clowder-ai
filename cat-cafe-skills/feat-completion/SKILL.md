@@ -185,7 +185,7 @@ grep "F041" docs/BACKLOG.md
 **注意**：
 - 只从 BACKLOG（热层）移除
 - 聚合文件（温层）**永久保留**，不删除
-- `docs/features/README.md` 会列出所有 Feature（含 done）
+- 同时更新 `docs/features/README.md` 的「已完成 Feature」表格，避免 Feature done 后在索引层“失踪”
 
 ### Step 5: 真相源同步检查
 
@@ -225,6 +225,7 @@ Evolved from: F032 (Agent Plugin Architecture)
 - [ ] `Dependencies.Evolved from` 已填写（如适用）
 - [ ] 演化关系已考虑（往哪去？是否需要立项后续 Feature？）
 - [ ] `docs/BACKLOG.md` 已移除该行
+- [ ] `docs/features/README.md` 已补上该 Feature（已完成表格）
 - [ ] 聚合文件 `Links` 章节完整
 - [ ] 关联文档 `feature_ids` 正确
 - [ ] `Timeline` 章节有收尾记录

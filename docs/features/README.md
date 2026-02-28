@@ -37,5 +37,10 @@
 | F029 | F029: 删除右面板"任务统计"死区 + TaskExtractor 清理 | done | [F029-task-summary-right-panel-cleanup.md](./F029-task-summary-right-panel-cleanup.md) |
 | F030 | F030: 消息代码块复制按钮 + 文件路径可跳转 | done | [F030-copy-button-paths.md](./F030-copy-button-paths.md) |
 | F031 | F031: PR 双层 Review 流程（本地猫 + 云端猫） | done | [F031-review-two-layer-process.md](./F031-review-two-layer-process.md) |
+| F032 | F032: Agent Plugin Architecture（CatId 松绑 + 协作规则动态化） | done | [F032-agent-plugin-architecture.md](./F032-agent-plugin-architecture.md) |
 | F034 | F034: Voice Block 语音消息 | done | [F034-voice-message.md](./F034-voice-message.md) |
 | F035 | F035: Whisper 消息可见性（悄悄话） | done | [F035-whisper-visibility.md](./F035-whisper-visibility.md) |
+| F039 | F039: 消息排队投递 — 用户操作三模式 | done | [F039-message-queue-delivery.md](./F039-message-queue-delivery.md) |
+| F040 | F40: BACKLOG 整理与 Feature 聚合体系 | done | [F40-backlog-reorganization.md](./F40-backlog-reorganization.md) |
+| F041 | F041: 能力看板 — Hub MCP/Skills 统一管理 | done | [F041-capability-dashboard.md](./F041-capability-dashboard.md) |
+| F045 | F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | [F045-ndjson-observability.md](./F045-ndjson-observability.md) |
