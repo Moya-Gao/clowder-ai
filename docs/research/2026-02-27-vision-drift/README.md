@@ -18,8 +18,8 @@ created: 2026-02-27
 | Step | 状态 | 说明 |
 |------|------|------|
 | 1. Prompt 落盘 | Done | `docs/prompts/2026-02-27-vision-drift-research-prompt.md` |
-| 2. 三路 Deep Research | **4/6 到位** | Claude x1, GPT x2, Gemini x1 到位; Gemini 待收 2 份 |
-| 3. GPT-5.2 Pro 审阅 | Pending | 等 Step 2 全部到齐 |
+| 2. 三路 Deep Research | **Done** | Claude x1 + GPT x2 + Gemini x3 = 6 份全部到齐 |
+| 3. GPT-5.2 Pro 审阅 | **In Progress** | 写 prompt 中 |
 | 4. 布偶猫综合 + 代码库验证 | Pending | 等 Step 3 |
 
 ## 报告清单
@@ -41,9 +41,9 @@ created: 2026-02-27
 
 | # | 文件 | 语言 | 大小 | 备注 |
 |---|------|------|------|------|
-| 1 | `gemini-deep-research-1.md` | 中文 | 27KB | 已收到 |
-| 2 | `gemini-deep-research-2.md` | — | — | 待收 |
-| 3 | `gemini-deep-research-3.md` | — | — | 待收 |
+| 1 | `gemini-deep-research-1.md` | 中文 | 27KB | |
+| 2 | `gemini-deep-research-2.md` | 中文 | 43KB | |
+| 3 | `gemini-deep-research-3.md` | 中文 | 34KB | |
 
 ### GPT-5.2 Pro 审阅 (Step 3)
 
