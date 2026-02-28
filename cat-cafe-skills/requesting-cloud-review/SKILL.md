@@ -65,8 +65,10 @@ gh pr create --title "{简短标题}" --body "$(cat <<'EOF'
 ## Original Requirements（🔴 必填）
 
 - Discussion/Interview: `docs/discussions/{date}-{topic}/README.md`
-- 铲屎官核心痛点：{铲屎官原话，如"我都不知道你们三只猫到底挂了什么！"}
-- **请 Reviewer 对照原始需求判断：交付物是否解决了铲屎官的问题？**
+- **原始需求摘录（≤5 行，直接粘贴铲屎官原话）**：
+  > {例："我要能看到三只猫分别挂了哪些 Skill，按猫分类，一目了然"}
+- 铲屎官核心痛点：{用铲屎官自己的话概括}
+- **请 Reviewer 对照上面的摘录判断：交付物是否解决了铲屎官的问题？**
 
 ## Plan / ADR
 

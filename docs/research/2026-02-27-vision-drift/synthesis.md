@@ -129,12 +129,16 @@ pipeline_step: 4
 
 **成本**：改 1 个 Skill 文件。
 
-#### A3. F041 重做时加 UI 截图证据链
+#### A3. 前端 UI/UX 功能加截图证据链（仅限前端！）
 
-F041 已经 reopen（AC 里已有 UX 条目）。重做时：
-- DoD 写死：必须提交 Hub 截图（能力看板页、Skill 分类页、多项目切换页）
-- 截图附"AC ID → 截图编号"映射表
-- Review 时 reviewer 必须看截图，不能只看代码 diff
+> **铲屎官 17:24 拍板**："截图证据链不要写死——后端功能硬截图没意义，但涉及前端 UI/UX 的需要。"
+
+**适用范围**：Feature 涉及前端 UI/UX 变化时才需要截图证据链。纯后端/API/MCP 功能不需要。
+**量化上限**（砚砚建议）：3 张关键截图 + 1 段 15 秒录屏。
+**验证工具**：Playwright（CI 截图）+ Chrome MCP（布偶猫实时验证）。
+**映射格式**：截图附"AC ID → 截图编号"映射表。
+**拿捏不准时**：上升给铲屎官，可以在 worktree 启动项目让铲屎官实际体验。
+**⚠️ worktree 启动服务时必须用开发 Redis 6398**（见 CLAUDE.md #10），不能碰 runtime。
 
 **成本**：0 代码改动，流程约束。
 
@@ -174,16 +178,19 @@ AGENTS.md 缺失 #10/11（讨论收敛后的沉淀检查），是三猫指引的
 
 **成本**：中等。需要设计 prompt template，但不需要新架构。
 
-#### B3. Feature 文件增加"愿景覆盖度"字段
+#### B3. Feature 文件增加"需求点 checklist"
 
-在 `docs/features/Fxxx.md` 的 frontmatter 或正文中加：
+> **铲屎官 + 砚砚共识**：不做百分比 KPI（容易造数），改为需求点 checklist。
 
-```yaml
-vision_coverage:
-  original_requirements: 8  # Discussion 中提到的需求点数
-  ac_covered: 6             # AC 覆盖了几个
-  delivered: 5              # 实际交付了几个
-  evidence: [screenshot-1.png, screenshot-2.png]
+在 `docs/features/Fxxx.md` 完成时加：
+
+```markdown
+### 需求点 checklist
+| # | 需求点（来自 Discussion） | 证据 | 状态 |
+|---|--------------------------|------|------|
+| 1 | 能力按分类展示 | screenshot-1.png | Done |
+| 2 | 多项目切换 | screenshot-2.png | Done |
+| 3 | Cat Family 过滤 | 无 UI（后端） | N/A — 纯 API |
 ```
 
 **为什么**：可量化的"愿景覆盖率" = 可审计的"没有做歪"证据。

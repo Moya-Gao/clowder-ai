@@ -520,6 +520,21 @@ curl http://localhost:3102/api/threads | jq '.threads | length'
 
 > 来源：2026-02-13 铲屎官挑战"ADR 记结论，CLAUDE.md 记规则，但谁记'为什么'？"。详见 ADR-005 附录 C。
 
+### 12) 愿景守护（Anti-Drift Protocol）— 三猫共同遵守
+
+> 来源：2026-02-27 F041 愿景对照失败 + 6 份 Deep Research + Pro 审阅。详见 `docs/research/2026-02-27-vision-drift/synthesis.md`
+
+**铁律（Non-negotiables）**：
+1. 开始任何 Feature 前，**必须读原始 Discussion/Interview 文档**（AC 可能不完整）
+2. AC 全打勾 ≠ 完成。必须问："铲屎官坐在 Hub 前用这个功能，体验是什么样的？"
+3. 前端 UI/UX 功能必须产出截图证据（≤3 张截图 + 1 段 15s 录屏），附"需求 → 截图"映射表。纯后端功能不需要
+4. 请求 review 时，必须附**原始需求摘录（≤5 行）**，否则 reviewer 不审
+5. 拿捏不准时上升铲屎官——可以在 worktree 启动项目让铲屎官体验（⚠️ 必须用开发 Redis 6398）
+
+**Anti-Drift Ritual（每轮复述）**：
+- 上下文压缩后，重读本段落
+- 开始新子任务前，复述："当前主目标是 X，要交付的可验证证据是 Y"
+
 ## 当你不确定时
 
 1. 先看设计文档

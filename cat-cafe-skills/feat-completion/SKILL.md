@@ -76,6 +76,23 @@ grep -r "Fxxx" docs/ --include="*.md" -l
 
 > **教训来源**：2026-02-27 F041 能力看板。AC 12 项全 ✅，76 tests green，PR #83 + #85 合入。但铲屎官一打开：Skills 查不到（source 全标 ext）、UI 丑到不可用（8 列 toggle grid）、多项目管理完全缺失。根因：没人回去读铲屎官原话，只对着 AC checkbox 打勾。
 
+#### 0d. 跨猫签收记录（写入 Feature 文件）
+
+Step 0c 完成后，在 Feature aggregate 文件末尾追加签收表：
+
+```markdown
+### 愿景交叉验证签收
+| 猫猫 | 读了哪些原始文档 | 三个问题结论 | 签收 |
+|------|------------------|-------------|------|
+| 布偶猫 | F041.md, discussions/... | 1. XX 2. XX 3. XX | 通过 |
+| 缅因猫 | (同上) | 1. XX 2. XX 3. XX | 通过 |
+```
+
+**前端 UI/UX 功能额外要求**（纯后端功能跳过）：
+- ≤3 张关键截图 + 1 段 15s 录屏
+- 附"需求点 → 截图编号"映射表
+- 拿捏不准时 → 在 worktree 启动项目让铲屎官体验（⚠️ 用开发 Redis 6398）
+
 ### Step 1: 检查 Acceptance Criteria
 
 ```bash
