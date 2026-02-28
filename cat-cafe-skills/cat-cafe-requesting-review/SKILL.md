@@ -39,6 +39,12 @@ description: Cat Café enhanced code review request with mandatory self-check an
 
 > **教训**：F041 review 信只附了 spec + 改动文件，没有附原始 Discussion。Reviewer（砚砚+云端 Codex）只能审代码质量和 edge cases，无法审"是否解决了铲屎官的原始问题"。结果 10 轮云端 review 全在抓 edge case，没有一轮说"UI 太丑了"或"多项目管理呢？"。
 
+### 2.1 工具落点自检（防把改动落到主 worktree）
+
+如果你在 worktree 分支上用 Codex 的 `apply_patch` 改代码/文档：
+- `apply_patch` 可能不跟随 shell `cd`，把改动写到会话默认目录（常见是主 worktree `.../cat-cafe`）。
+- **在发 review 前必须确认**：`git status` 只在目标 worktree 里有变更，主 worktree 没有“意外脏文件”。
+
 ### 3. 运行测试
 
 ```bash

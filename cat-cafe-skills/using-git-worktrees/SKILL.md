@@ -58,6 +58,17 @@ Which would you prefer?
 
 ## Safety Verification
 
+## Codex `apply_patch` 落点陷阱（🔴 缅因猫必读）
+
+在 Codex 会话里，`apply_patch` 是一个**独立的编辑工具**，它写文件时使用的是**会话默认工作目录**，并不会因为你在 shell 里 `cd` 到 worktree 就自动跟过去。
+
+**典型后果**：
+- 你以为在 worktree 改文件，实际把改动落在主 worktree（`.../cat-cafe`），导致主 worktree 脏、diff 混乱，甚至误把收尾/修复落错分支。
+
+**规避方式（二选一）**：
+1. 使用 `apply_patch` 时，patch 里的文件名一律写**绝对路径**（指向目标 worktree）。
+2. 不用 `apply_patch`，改用在目标 worktree 里执行 `sed/perl` 或手动编辑（落点由 `cd` 决定）。
+
 ### For Project-Local Directories (.worktrees or worktrees)
 
 **MUST verify directory is ignored before creating worktree:**

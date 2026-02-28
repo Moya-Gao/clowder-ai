@@ -93,6 +93,12 @@ Step 0c 完成后，在 Feature aggregate 文件末尾追加签收表：
 - 附"需求点 → 截图编号"映射表
 - 拿捏不准时 → 在 worktree 启动项目让铲屎官体验（⚠️ 用开发 Redis 6398）
 
+#### 0e. 工具落点自检（防把改动落到主 worktree）
+
+如果你准备在 worktree 上用 Codex 的 `apply_patch` 改文档：
+- **注意**：`apply_patch` 不会跟随 shell 的 `cd`，它可能把改动写到会话默认目录（常见是主 worktree `.../cat-cafe`）。
+- **要求**：要么用绝对路径写 patch 文件名指向目标 worktree，要么改用在目标 worktree 下执行命令行编辑（`sed/perl`）。
+
 ### Step 1: 检查 Acceptance Criteria
 
 ```bash
