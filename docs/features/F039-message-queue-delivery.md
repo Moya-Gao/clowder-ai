@@ -8,9 +8,10 @@ created: 2026-02-26
 
 # F039: 消息排队投递 — 用户操作三模式
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 三猫
 > **Created**: 2026-02-26
+> **Completed**: 2026-02-28
 
 ## Why
 - 2026-02-26 铲屎官口述
@@ -21,6 +22,14 @@ created: 2026-02-26
 ## Links
 - [需求](./plans/2026-02-26-message-queue-delivery.md)
 - [技术 plan](./plans/2026-02-26-message-queue-delivery-plan.md)
+- 实现 PR（按时间）：
+  - Phase A（后端队列核心）：PR #84
+  - Phase B（前端队列 UI）：PR #86
+  - Phase C（Connector 接入 + E2E）：PR #87
+  - Force/cancel/queue 三连 bugfix：PR #89
+  - F5 hydration + 队列图片指示器（前端）：PR #92
+  - contentBlocks 透传 + pauseReason hydration（后端）：PR #96
+- Steer（队列中“把某条消息拉出来处理”）：作为独立 Feature **F047** 完成（PR #101）
 
 ## Key Decisions
 - 历史记录未单列关键决策
@@ -34,19 +43,25 @@ created: 2026-02-26
 - **复现**：消息在队列中（queued/processing） → 按 F5 刷新 → 消息显示为"已发送"
 - **根因**：`useChatHistory.ts` 页面加载时获取 `/api/messages` 和 `/api/tasks`，但**不获取 `/api/threads/{id}/queue`**。Zustand store 重置后 `queue: []`，队列面板为空。后端有 `GET /api/threads/:threadId/queue` 端点但前端从未调用。
 - **修复方向**：在 `useChatHistory` 里加 queue 状态初始化请求
+- **状态**：✅ 已修复（PR #92）
 
 ### Bug 2: 队列 UI 不显示图片附件
 - **复现**：发送带图片的消息 → 消息进入队列 → QueuePanel 只显示文字，不显示图片
 - **参考**：Codex 原生队列 UI（截图 `1772263352365-9cac5ed8.png`）
-- **修复方向**：QueuePanel 通过 `entry.messageId` 查找关联消息的 contentBlocks 显示图片指示器
-- **⚠️ 后端遗留**：`QueueEntry` 接口不携带 `contentBlocks`，`QueueProcessor.executeEntry()` 处理排队消息时也不从 messageStore 补取 contentBlocks → 猫猫实际看不到排队消息的图片。需要在 QueueProcessor 中从 messageStore 按 messageId 补取。（前端显示已修复，后端传递待修）
+- **修复方向**：
+  - 前端：QueuePanel 通过 `entry.messageId` / `mergedMessageIds` 查找关联消息的 contentBlocks 显示图片指示器
+  - 后端：QueueProcessor 执行排队消息时补取 contentBlocks 并透传到执行链路
+- **状态**：✅ 已修复（前端 PR #92；后端 PR #96）
 
 ### UX 改进: Steer 功能（学习 Codex 原生）
-- **描述**：Codex 原生队列有 "Steer" 按钮——用户可以在消息排队等待时追加引导（"Ask for follow-up changes"），修改猫猫处理方向
-- **参考**：截图中 Codex 队列的 Steer 按钮 + 追加输入框
-- **设计方向**：在 QueuePanel 的排队消息旁加 Steer 按钮，点击后展开追加输入框，内容合并到排队消息
+- **描述**：Codex 原生队列有 "Steer" 按钮：当有消息在消息队列里时，把其中一条“拉出来”立即处理（弹窗 1/2）
+- **状态**：✅ 已实现为独立 Feature **F047**（PR #101）
 
-> Bug 1 + Bug 2 前端修复：PR #TBD（fix/f039-queue-bugs）。Bug 2 后端遗留 + Steer UX 待后续处理。
+## Out of Scope / 后续能力（不阻塞 F039）
+
+### 队列持久化到 Redis（进程重启不丢队列）
+- **现状**：队列内存态，进程重启会丢失“排队中”的条目（消息正文仍在 MessageStore，可见但不再自动执行）。
+- **备注**：若要做，需要同时定义“重启恢复语义”（包括：in-flight invocation 的 orphan 处理、processing 条目的回滚/重试、pause 状态恢复等）。
 
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。
