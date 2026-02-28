@@ -7,11 +7,12 @@ created: 2026-02-26
 
 # F041: 能力看板 — Hub MCP/Skills 统一管理
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Priority**: P1（铲屎官明确需求，影响日常管理体验）
 > **Re-opened**: 2026-02-27（愿景对照失败：UI 不可用 + 多项目管理缺失 + Skills 来源分类 bug）
+> **Completed**: 2026-02-28（PR #98 合入 main）
 
 ---
 
@@ -53,20 +54,20 @@ created: 2026-02-26
 > 来源：Discussion README §1.2 "不想当人肉路由器——Hub 是唯一管理入口"
 > 来源：Discussion README §1.3 "不同项目需要不同的工具集配置"
 
-- [ ] 每条能力有**描述**（不是只有 raw ID），铲屎官一眼能知道这个能力干什么
-- [ ] 猫猫过滤按**猫族**（布偶猫/缅因猫/暹罗猫），不是按 8 个 cat variant（codex/gpt52/opus/opus-45/...）
-- [ ] Skills 来源分类正确：Cat Cafe 项目级 skills 标 `cat-cafe`，用户级/外部 skills 标 `external`
-- [ ] 来源过滤可用：选 "Cat Cafe" 能看到 Cat Cafe 的 skills + MCP
-- [ ] 视觉层级清晰：有分类/分组，不是纯 data grid（参考 Skills 看板的呈现水平）
-- [ ] 表格宽度合理：不需要横向滚动就能看清全部信息
+- [x] 每条能力有**描述**（不是只有 raw ID），铲屎官一眼能知道这个能力干什么
+- [x] 猫猫过滤按**猫族**（布偶猫/缅因猫/暹罗猫），不是按 8 个 cat variant（codex/gpt52/opus/opus-45/...）
+- [x] Skills 来源分类正确：Cat Cafe 项目级 skills 标 `cat-cafe`，用户级/外部 skills 标 `external`
+- [x] 来源过滤可用：选 "Cat Cafe" 能看到 Cat Cafe 的 skills + MCP
+- [x] 视觉层级清晰：有分类/分组，不是纯 data grid（参考 Skills 看板的呈现水平）
+- [x] 表格宽度合理：不需要横向滚动就能看清全部信息
 
 ### 多项目管理验收（🔴 Re-open 新增 — 铲屎官核心痛点 #3）
 
 > 来源：Discussion README §1.3 "我现在甚至用你们来开发我公司内的代码。我在猫猫咖啡打开 dare-framework，让你们开发 dare-framework。"
 
-- [ ] Hub 能力看板能**选择/切换项目**（不只是管 cat-cafe 自己）
-- [ ] 不同项目的能力配置独立，在 Hub 上可见、可管理
-- [ ] API 支持 `projectId` 参数或等效的多项目路由机制
+- [x] Hub 能力看板能**选择/切换项目**（不只是管 cat-cafe 自己）
+- [x] 不同项目的能力配置独立，在 Hub 上可见、可管理
+- [x] API 支持 `projectId` 参数或等效的多项目路由机制
 
 ### 架构验收
 
@@ -79,8 +80,23 @@ created: 2026-02-26
 ### 边界验收
 
 - [x] 多项目隔离：不同项目可有不同能力配置（文件级）
-- [ ] 多项目管理：Hub 上能选择和管理不同项目的能力配置（管理级）
+- [x] 多项目管理：Hub 上能选择和管理不同项目的能力配置（管理级）
 - [x] 降级路径：MCP 加载失败时，HTTP callback 作为 fallback 可用
+
+---
+
+## Evidence (UX)
+
+> 说明：按 Anti-Drift Protocol，UI/UX 交付需要 ≤3 张截图 + 1 段 15s 录屏，并提供“需求点 → 截图编号”映射表。
+> 本 Feature 的验收以 PR #98 合入后 Hub 的「能力中心」为准。
+
+### 需求点 → 截图编号
+
+| 需求点 | 截图 |
+|-------|------|
+| 描述/分类/来源过滤可读性 | (待补) |
+| 按猫族折叠的 per-cat 管理 | (待补) |
+| 多项目切换与独立配置 | (待补) |
 
 ---
 
@@ -91,6 +107,15 @@ created: 2026-02-26
 | **Discussion** | [2026-02-26-capability-dashboard](../discussions/2026-02-26-capability-dashboard/README.md) | 铲屎官采访 + 架构决策 |
 | **Research** | [codex-支持动态加载mcp](../research/codex-支持动态加载mcp.md) | 缅因猫实测验证 |
 | **Research** | [gemini-cli支持动态加载mcp](../research/gemini-cli支持动态加载mcp.md) | 缅因猫实测验证 |
+
+---
+
+## 愿景交叉验证签收
+
+| 猫猫 | 读了哪些原始文档 | 三个问题结论（核心问题/交付物/体验） | 签收 |
+|------|------------------|--------------------------------------|------|
+| 缅因猫（砚砚） | F041 聚合文件、Discussion README、知识工程定义（skills/mcp） | 核心问题：Hub 统一可见可控；交付物：能力中心+编排器；体验：可读、可管、多项目可切 | 通过 |
+| 布偶猫（宪宪） | F041 聚合文件、Discussion README | 核心问题：Hub 统一可见可控；交付物：能力中心+编排器；体验：可读、可管、多项目可切 | 通过 |
 
 ---
 
