@@ -60,91 +60,100 @@ created: 2026-02-27
 
 **核心原则**：不碰现有 MessageStore schema，可观测层是纯增量。
 
-### 多猫互操作设计
+### 铲屎官 UX 决策（2026-02-27 采访）
 
-| 数据类型 | 产生者 | 本猫可见 | 其他猫可见 | 铲屎官可见 | 持久化 |
-|----------|--------|---------|-----------|-----------|--------|
-| **thinking** | 自动（CLI 事件） | 是 | **按需查阅**（不自动转发） | 是 | InvocationRecord |
-| **plan** | 自动（todo_list / plan output） | 是 | **全局可见** | 是 | TaskStore 同步 |
-| **tool_detail** | 自动（mcp_tool_call 等） | 是 | 按需查阅 | 是 | InvocationRecord |
-| **token/cost** | 自动（usage 事件） | 是 | 全局可见 | 是 | InvocationRecord.usage |
-| **error subtype** | 自动（result error_*） | 是 | 全局可见 | 是 | InvocationRecord |
+| 问题 | 决策 | 理由 |
+|------|------|------|
+| Thinking 展示 | 方案 A：消息气泡内嵌折叠，默认折叠 | 直观，不干扰阅读 |
+| Thinking 跨猫 | **暂不转发/查阅**（遗留到未来） | CLI 输出已经很多，再加 thinking 上下文爆炸 |
+| Plan 位置 | 右侧看板（`RightStatusPanel`，已有） | 全局性，方便未来扩展 |
+| Plan 持久化 | **必须修复**：当前重启后进度丢失 | 铲屎官痛点：重启后右上角只显示"等待调用..." |
+| Token/Cost | 保持原状（已有），不在 F045 范围 | F24 已实现 |
+| 优先级排序 | **Plan > Thinking > Error subtype** | 铲屎官日常最想知道"猫做到哪了" |
 
-**thinking 不自动转发的理由**：
-- thinking 通常很长很碎（Claude extended thinking 动辄几千 token），自动塞进其他猫上下文 = 烧预算
-- 但 review 场景极有价值——砚砚 review 布偶猫代码时，能查阅布偶猫当时的思考链
-- 方案：存下来，前端有"查看思考过程"按钮，A2A 场景猫猫可主动拉取
+### 现有 Plan 系统（F26 遗产）
 
-**plan 全局可见的理由**：
-- 并行工作时知道对方在做什么是协调基础
-- Codex todo_list + Claude plan output → 统一进 TaskStore → 前端跨猫任务总览
+当前已有一套 Plan 展示链路（仅 Claude）：
+```
+Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → RightStatusPanel
+```
+
+**现有问题**：
+1. **重启丢失**：`chatStore` 纯内存，无 persist — 刷新/重启后 taskProgress 清零
+2. **仅 Claude**：只检测 `TodoWrite` / `write_todos` 工具名；Codex 的 `todo_list` 事件完全没接
+3. **无历史**：调用结束后 taskProgress 清空，无法回看
+
+### 多猫互操作设计（精简版）
+
+| 数据类型 | 本 Feature 范围 | 跨猫行为 |
+|----------|----------------|---------|
+| **thinking** | ✅ 解析 + 前端折叠 | ❌ 暂不跨猫（遗留） |
+| **plan** | ✅ 解析 + 持久化 + 右侧看板 | ✅ 全局可见（TaskStore） |
+| **error subtype** | ✅ 解析 + 错误条 | ✅ 全局可见 |
+| **token/cost** | ❌ 已有，不做 | — |
+| **tool_detail** | ❌ Phase 2（遗留） | — |
 
 ## Phase 拆分
 
-### Phase 1: Parser 补全 + 数据模型（核心）
+### Phase 1: Parser 补全 + Plan 持久化（MVP）
 
-**Claude parser 补全**（`claude-ndjson-parser.ts`）：
-- [ ] `thinking_delta` → 累积 thinking 文本，content_block_stop 时产出 observation
-- [ ] `input_json_delta` → 工具参数流式拼接，block_stop 时解析
-- [ ] `message_delta.usage` → 实时 token 计数（cumulative）
+**优先级最高：Plan 完整链路**
+- [ ] **Codex `todo_list` 解析**：`codex-event-transform.ts` 新增 `todo_list` started/updated/completed → `system_info` task_progress 事件（复用现有 Claude TodoWrite 链路）
+- [ ] **Plan 持久化修复**：taskProgress 快照写入后端（InvocationRecord 或 Redis），前端刷新后可恢复
+- [ ] **Codex `reasoning` 解析**：`item.completed(reasoning)` → thinking observation
+
+**Claude parser 补全**：
+- [ ] `thinking_delta` → 累积 thinking 文本，content_block_stop 时产出 thinking 消息
 - [ ] `result` error subtypes → 区分 `error_max_turns` / `error_max_budget_usd` / `error_during_execution` / `error_max_structured_output_retries`
 - [ ] `system/compact_boundary` → 压缩边界事件 + pre_tokens
 - [ ] `rate_limit_event` → 限流状态 + resetsAt/utilization
-- [ ] `system/status` → compacting 等状态
-- [ ] `tool_progress` → 工具执行进度
-- [ ] `structured_output` → 透传到 metadata
 
-**Codex parser 补全**（`codex-event-transform.ts`）：
-- [ ] `reasoning` → observation（thinking 等价）
-- [ ] `todo_list` (started/updated/completed) → plan observation + TaskStore 同步
-- [ ] `mcp_tool_call` (started/completed) → tool_detail observation（含 structured_content）
-- [ ] `web_search` → observation（query 默认只计数，不落盘原文）
-- [ ] `item.completed(error)` → warning observation（非致命，如 output truncated）
-- [ ] `file_change.changes[].kind` 补 `delete` 支持
+**Codex parser 补全**：
+- [ ] `mcp_tool_call` (started/completed) → tool_use / tool_result
+- [ ] `web_search` → system_info（query 计数，不落盘原文）
+- [ ] `item.completed(error)` → system_info warning（非致命，如 output truncated）
 
-**数据模型扩展**：
-- [ ] `InvocationRecord` 新增 `observations: Observation[]` 字段
-- [ ] `Observation` 类型定义：`{ kind: 'thinking' | 'plan' | 'tool_detail' | 'web_search' | 'warning' | 'system_status', catId, content, metadata, timestamp }`
-- [ ] `TokenUsage` 扩展：`rateLimitInfo?`, `compactBoundary?`
+**数据模型**：
 - [ ] `InvocationRecord.errorSubtype?` 字段
+- [ ] `InvocationRecord.thinkingContent?` 字段（或 observations 数组，视实现复杂度定）
 
-### Phase 2: 前端可视化组件
+### Phase 2: 前端可视化
 
-- [ ] **ThinkingBlock**：消息气泡内折叠/展开区域，默认折叠
-- [ ] **PlanChecklist**：实时 ✅/⬜ 列表（Codex todo_list 直接渲染；Claude plan output 解析后渲染）
-- [ ] **ToolPanel**：MCP 工具调用详情折叠区（参数 + structured_content + 执行状态）
-- [ ] **TokenHUD**：顶部/侧边栏实时 token 计数器（cumulative 刷新）
+- [ ] **ThinkingBlock**：消息气泡内嵌折叠区域，默认折叠（方案 A，铲屎官确认）
 - [ ] **ErrorBanner**：带具体错误类型的错误条（"超出 turn 限制" vs "预算用尽" vs "运行时错误"）
-- [ ] **WebSearchTag**：web search 计数小标签
+- [ ] **Plan 持久化 UI**：刷新/重启后右侧看板恢复上次 taskProgress
 
-### Phase 3: 多猫透明化
+### 遗留（Future，不在本 Feature 范围）
 
-- [ ] **CatTaskOverview**：跨猫任务总览面板（数据源：TaskStore，由 plan 事件 + MCP update_task 双通道喂入）
-- [ ] **InvocationDetail**：查看任意猫的 InvocationRecord 详情（含 thinking、tool_detail、usage）
-- [ ] **跨猫 thinking 查阅 API**：`GET /api/invocations/:id/observations?kind=thinking`
-- [ ] 前端"查看思考过程"按钮（在其他猫的消息气泡上）
+- ~~**跨猫 thinking 查阅**~~：铲屎官决策——"当真的需要的时候再设计，不然过度设计"
+- ~~**ToolPanel**~~（MCP 工具详情折叠区）：等 Codex mcp_tool_call 实测验证后再考虑
+- ~~**TokenHUD**~~：已有（F24 实现），不重做
+- ~~**CatTaskOverview 跨猫总览**~~：Plan 持久化做好后自然可扩展
 
 ## Acceptance Criteria
 
-- [ ] Claude parser 处理 thinking_delta（可折叠展示）
-- [ ] Claude parser 区分 4 种 error subtype
-- [ ] Codex parser 处理 todo_list（前端 checklist 组件）
-- [ ] Codex parser 处理 reasoning（等同 thinking）
-- [ ] 实时 token HUD 在猫猫对话过程中刷新
-- [ ] 铲屎官可以在前端查看任意猫的 thinking 记录
-- [ ] plan 事件自动同步到 TaskStore，跨猫可见
+- [ ] Codex `todo_list` 事件 → 右侧看板 Plan Checklist（与 Claude TodoWrite 同 UI）
+- [ ] Plan 持久化：刷新/重启后右侧看板恢复上次进度（不再显示空白"等待调用..."）
+- [ ] Claude parser 处理 `thinking_delta`（消息气泡内嵌折叠，默认折叠）
+- [ ] Codex parser 处理 `reasoning`（等同 thinking，同折叠 UI）
+- [ ] Claude parser 区分 4 种 error subtype（前端错误条显示具体原因）
+- [ ] Claude `compact_boundary` / `rate_limit_event` 解析（system_info）
+- [ ] Codex `mcp_tool_call` / `web_search` / `item.error` 解析
 - [ ] 所有新增解析均有对应单元测试（fixture-based）
-- [ ] 现有 1327+ tests 不 regress
+- [ ] 现有 tests 不 regress
 
 ## Key Decisions
 
 | 决策 | 选择 | 放弃的方案 | 理由 |
 |------|------|-----------|------|
 | 数据分层 | 三层（Message/Observation/Telemetry） | 扩展 AgentMessageType | 不碰现有 schema，纯增量，前端向后兼容 |
-| thinking 互操作 | 存但不自动转发 | 自动注入其他猫上下文 | 烧预算；review 时按需拉取更实际 |
-| plan 互操作 | 全局可见 + TaskStore 同步 | 仅本猫可见 | 多猫协调的基础设施 |
+| thinking 展示 | 消息气泡内嵌折叠（方案 A） | 侧边栏 / 调试开关 | 铲屎官选择：直观 |
+| thinking 跨猫 | **暂不做**（遗留） | 存+按需查阅 | 铲屎官："不然过度设计" |
+| plan 位置 | 右侧看板（复用 RightStatusPanel） | 消息流内嵌 | 已有基础设施，全局性 |
+| plan 互操作 | 全局可见 + TaskStore 同步 | 仅本猫可见 | 多猫协调基础 |
 | web_search query | 默认只计数，不落盘 | 完整记录 | 隐私安全（砚砚建议） |
-| AgentMessageType | 不新增 type | 新增 thinking/plan_update/telemetry | 保持接口稳定，用 metadata + observation 层承载 |
+| token/cost | **不做**，保持原状 | 重做 HUD | 已有（F24），不重复 |
+| AgentMessageType | 不新增 type | 新增 thinking/plan_update/telemetry | 保持接口稳定 |
 
 ## Risk / Blast Radius
 
@@ -169,17 +178,14 @@ created: 2026-02-27
 
 ## Open Questions
 
-### OQ-1: thinking 持久化周期
-thinking 数据量可能很大。保留多久？跟随 InvocationRecord TTL？还是独立策略？
-
-### OQ-2: Claude thinking 默认是否开启
+### OQ-1: Claude thinking 默认是否开启
 我们 spawn claude 时 `--output-format stream-json` 是否默认输出 thinking_delta？需要实测。可能需要配合 `alwaysThinkingEnabled` 或 `MAX_THINKING_TOKENS`。
 
-### OQ-3: Codex 事件类型实测验证
+### OQ-2: Codex 事件类型实测验证
 takopi.dev 是非官方来源。`mcp_tool_call`、`web_search`、`todo_list` 需要实测 `codex exec --json` 确认这些事件确实存在。
 
-### OQ-4: 前端优先级
-ThinkingBlock vs PlanChecklist vs TokenHUD，铲屎官日常体验哪个提升最大？
+### ~~OQ-3: 前端优先级~~ → 已决
+铲屎官确认：**Plan > Thinking > Error subtype**。Token/Cost 已有不做。
 
 ## Links
 
@@ -205,3 +211,5 @@ ThinkingBlock vs PlanChecklist vs TokenHUD，铲屎官日常体验哪个提升�
 
 - 2026-02-27: GPT Pro 调研报告入库 + 四猫评审
 - 2026-02-27: Spec written (feat-kickoff)
+- 2026-02-27: 铲屎官 UX 采访完成，决策记录，spec 更新
+- 2026-02-27: Phase 1 开发启动
