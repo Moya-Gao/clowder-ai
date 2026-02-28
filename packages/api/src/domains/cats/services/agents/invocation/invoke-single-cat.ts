@@ -24,6 +24,7 @@ import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
+import { setTaskProgress, clearTaskProgress, type CachedTaskItem } from './TaskProgressCache.js';
 
 /**
  * F-BLOAT: Context compression detection for non-Claude providers (Codex/Gemini).
@@ -565,12 +566,30 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (suppressedMissingSessionError) {
             for (const out of await processMessage(suppressedMissingSessionError)) {
               yield out;
+              // F045: Cache task_progress for persistence across page refresh
+              if (out.type === 'system_info' && out.content) {
+                try {
+                  const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+                  if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
+                    setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
+                  }
+                } catch { /* not JSON */ }
+              }
             }
             suppressedMissingSessionError = undefined;
           }
           if (suppressedTransientCliError) {
             for (const out of await processMessage(suppressedTransientCliError)) {
               yield out;
+              // F045: Cache task_progress for persistence across page refresh
+              if (out.type === 'system_info' && out.content) {
+                try {
+                  const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+                  if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
+                    setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
+                  }
+                } catch { /* not JSON */ }
+              }
             }
             suppressedTransientCliError = undefined;
           }
@@ -578,6 +597,15 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         for (const out of await processMessage(msg)) {
           yield out;
+          // F045: Cache task_progress for persistence across page refresh
+          if (out.type === 'system_info' && out.content) {
+            try {
+              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
+                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
+              }
+            } catch { /* not JSON */ }
+          }
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
@@ -608,11 +636,29 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       if (suppressedMissingSessionError) {
         for (const out of await processMessage(suppressedMissingSessionError)) {
           yield out;
+          // F045: Cache task_progress for persistence across page refresh
+          if (out.type === 'system_info' && out.content) {
+            try {
+              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
+                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
+              }
+            } catch { /* not JSON */ }
+          }
         }
       }
       if (suppressedTransientCliError) {
         for (const out of await processMessage(suppressedTransientCliError)) {
           yield out;
+          // F045: Cache task_progress for persistence across page refresh
+          if (out.type === 'system_info' && out.content) {
+            try {
+              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
+                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
+              }
+            } catch { /* not JSON */ }
+          }
         }
       }
       break;
@@ -643,5 +689,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       timestamp: Date.now(),
     };
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
+  } finally {
+    // F045: Clear cached task progress on invocation end (normal or error).
+    // Prevents unbounded memory growth and stale progress after completion.
+    clearTaskProgress(threadId, catId as string);
   }
 }

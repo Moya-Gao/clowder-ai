@@ -38,8 +38,47 @@ export function transformCodexEvent(
     };
   }
 
+  // F045: todo_list (started/updated/completed) → system_info(task_progress)
+  // Checked BEFORE item.started/item.completed type guards below
+  const isTodoList =
+    (e['type'] === 'item.started' || e['type'] === 'item.updated' || e['type'] === 'item.completed') &&
+    (e['item'] as Record<string, unknown> | undefined)?.['type'] === 'todo_list';
+  if (isTodoList) {
+    const todoItem = e['item'] as Record<string, unknown>;
+    const rawItems = Array.isArray(todoItem['todo_items']) ? todoItem['todo_items'] : [];
+    const tasks = (rawItems as Array<Record<string, unknown>>).map((t, i) => ({
+      id: typeof t['id'] === 'string' ? t['id'] : `task-${i}`,
+      subject: (typeof t['content'] === 'string' ? t['content'] : '').slice(0, 120),
+      status: typeof t['status'] === 'string' ? t['status'] : 'pending',
+    }));
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'task_progress', catId, action: 'snapshot', tasks }),
+      timestamp: Date.now(),
+    };
+  }
+
   if (e['type'] === 'item.started') {
     const item = e['item'] as Record<string, unknown> | undefined;
+
+    // F045: mcp_tool_call started → tool_use
+    if (item?.['type'] === 'mcp_tool_call') {
+      const server = typeof item['server'] === 'string' ? item['server'] : 'unknown';
+      const tool = typeof item['tool'] === 'string' ? item['tool'] : 'unknown';
+      const args =
+        typeof item['arguments'] === 'object' && item['arguments'] !== null
+          ? (item['arguments'] as Record<string, unknown>)
+          : {};
+      return {
+        type: 'tool_use',
+        catId,
+        toolName: `mcp:${server}/${tool}`,
+        toolInput: args,
+        timestamp: Date.now(),
+      };
+    }
+
     if (item?.['type'] !== 'command_execution') return null;
     const command = item['command'];
     if (typeof command !== 'string') return null;
@@ -56,20 +95,17 @@ export function transformCodexEvent(
     const message = e['message'];
     if (typeof message !== 'string') return null;
     const text = message.trim();
-    if (!text.startsWith('Reconnecting...')) return null;
-    return {
-      type: 'system_info',
-      catId,
-      content: text,
-      timestamp: Date.now(),
-    };
-  }
-
-  if (e['type'] !== 'item.completed') {
+    // Reconnecting… lines stream to UI as progress
+    if (text.startsWith('Reconnecting...')) return { type: 'system_info', catId, content: text, timestamp: Date.now() };
+    // Non-Reconnecting errors: return null — CodexAgentService collects them via
+    // collectCodexStreamError() and surfaces them as diagnostics in the exit error.
     return null;
   }
 
+  if (e['type'] !== 'item.completed') return null;
+
   const item = e['item'] as Record<string, unknown> | undefined;
+
   if (item?.['type'] === 'agent_message' && typeof item['text'] === 'string') {
     const prefix = state?.hadPriorTextTurn ? '\n\n' : '';
     if (state) state.hadPriorTextTurn = true;
@@ -85,9 +121,7 @@ export function transformCodexEvent(
     const command = typeof item['command'] === 'string' ? item['command'] : '';
     const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
     const exitCode = typeof item['exit_code'] === 'number' ? item['exit_code'] : null;
-    const output = typeof item['aggregated_output'] === 'string'
-      ? item['aggregated_output']
-      : '';
+    const output = typeof item['aggregated_output'] === 'string' ? item['aggregated_output'] : '';
 
     const sections: string[] = [];
     if (command) sections.push(`command: ${command}`);
@@ -111,12 +145,42 @@ export function transformCodexEvent(
       type: 'tool_use',
       catId,
       toolName: 'file_change',
-      toolInput: {
-        status,
-        changes: changes.length,
-      },
+      toolInput: { status, changes: changes.length },
       timestamp: Date.now(),
     };
+  }
+
+  // F045: mcp_tool_call completed → tool_result
+  if (item?.['type'] === 'mcp_tool_call') {
+    const server = typeof item['server'] === 'string' ? item['server'] : 'unknown';
+    const tool = typeof item['tool'] === 'string' ? item['tool'] : 'unknown';
+    const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
+    const result = item['result'] as Record<string, unknown> | undefined;
+    const contentArr = Array.isArray(result?.['content']) ? result['content'] : [];
+    const textParts = (contentArr as Array<Record<string, unknown>>)
+      .filter((c) => c['type'] === 'text' && typeof c['text'] === 'string')
+      .map((c) => c['text'] as string);
+    return {
+      type: 'tool_result',
+      catId,
+      content: `mcp:${server}/${tool} (${status})\n${textParts.join('\n')}`.trim(),
+      timestamp: Date.now(),
+    };
+  }
+
+  // F045: web_search → system_info — count only, no query (privacy)
+  if (item?.['type'] === 'web_search') {
+    return { type: 'system_info', catId, content: JSON.stringify({ type: 'web_search', catId, count: 1 }), timestamp: Date.now() };
+  }
+
+  // F045: reasoning → system_info(thinking)
+  if (item?.['type'] === 'reasoning' && typeof item['text'] === 'string' && item['text'].length > 0) {
+    return { type: 'system_info', catId, content: JSON.stringify({ type: 'thinking', catId, text: item['text'] }), timestamp: Date.now() };
+  }
+
+  // F045: item-level error → system_info(warning)
+  if (item?.['type'] === 'error' && typeof item['message'] === 'string') {
+    return { type: 'system_info', catId, content: JSON.stringify({ type: 'warning', catId, message: item['message'] }), timestamp: Date.now() };
   }
 
   return null;

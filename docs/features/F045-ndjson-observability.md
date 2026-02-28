@@ -67,7 +67,7 @@ created: 2026-02-27
 | Thinking 展示 | 方案 A：消息气泡内嵌折叠，默认折叠 | 直观，不干扰阅读 |
 | Thinking 跨猫 | **暂不转发/查阅**（遗留到未来） | CLI 输出已经很多，再加 thinking 上下文爆炸 |
 | Plan 位置 | 右侧看板（`RightStatusPanel`，已有） | 全局性，方便未来扩展 |
-| Plan 持久化 | **必须修复**：当前重启后进度丢失 | 铲屎官痛点：重启后右上角只显示"等待调用..." |
+| Plan 持久化 | **必须修复**：当前刷新/页面重载后进度丢失 | 铲屎官痛点：刷新后右上角只显示"等待调用..."（V1 覆盖浏览器刷新；服务重启恢复为 follow-up） |
 | Token/Cost | 保持原状（已有），不在 F045 范围 | F24 已实现 |
 | 优先级排序 | **Plan > Thinking > Error subtype** | 铲屎官日常最想知道"猫做到哪了" |
 
@@ -79,7 +79,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 ```
 
 **现有问题**：
-1. **重启丢失**：`chatStore` 纯内存，无 persist — 刷新/重启后 taskProgress 清零
+1. **刷新丢失**：`chatStore` 纯内存，无 persist — 浏览器刷新后 taskProgress 清零（服务重启同理，但 V1 仅解决浏览器刷新场景）
 2. **仅 Claude**：只检测 `TodoWrite` / `write_todos` 工具名；Codex 的 `todo_list` 事件完全没接
 3. **无历史**：调用结束后 taskProgress 清空，无法回看
 
@@ -121,7 +121,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 - [ ] **ThinkingBlock**：消息气泡内嵌折叠区域，默认折叠（方案 A，铲屎官确认）
 - [ ] **ErrorBanner**：带具体错误类型的错误条（"超出 turn 限制" vs "预算用尽" vs "运行时错误"）
-- [ ] **Plan 持久化 UI**：刷新/重启后右侧看板恢复上次 taskProgress
+- [ ] **Plan 持久化 UI**：浏览器刷新/页面重载后右侧看板恢复上次 taskProgress（V1 范围：module-level cache，覆盖浏览器刷新；服务重启恢复为 follow-up）
 
 ### 遗留（Future，不在本 Feature 范围）
 
@@ -133,7 +133,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 ## Acceptance Criteria
 
 - [ ] Codex `todo_list` 事件 → 右侧看板 Plan Checklist（与 Claude TodoWrite 同 UI）
-- [ ] Plan 持久化：刷新/重启后右侧看板恢复上次进度（不再显示空白"等待调用..."）
+- [ ] Plan 持久化：浏览器刷新/页面重载后右侧看板恢复上次进度（V1 范围，服务重启恢复为 follow-up）
 - [ ] Claude parser 处理 `thinking_delta`（消息气泡内嵌折叠，默认折叠）
 - [ ] Codex parser 处理 `reasoning`（等同 thinking，同折叠 UI）
 - [ ] Claude parser 区分 4 种 error subtype（前端错误条显示具体原因）

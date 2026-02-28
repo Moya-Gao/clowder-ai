@@ -8,7 +8,7 @@ import type {
 interface SystemInfoConsumeResult {
   consumed: boolean;
   content: string;
-  variant: 'info' | 'a2a_followup';
+  variant: 'info' | 'a2a_followup' | 'thinking';
 }
 
 export function consumeBackgroundSystemInfo(
@@ -17,7 +17,7 @@ export function consumeBackgroundSystemInfo(
   options: HandleBackgroundMessageOptions,
 ): SystemInfoConsumeResult {
   let sysContent = msg.content ?? '';
-  let sysVariant: 'info' | 'a2a_followup' = 'info';
+  let sysVariant: 'info' | 'a2a_followup' | 'thinking' = 'info';
   let consumed = false;
 
   try {
@@ -80,6 +80,10 @@ export function consumeBackgroundSystemInfo(
     } else if (parsed?.type === 'mode_switch_proposal') {
       const by = parsed.proposedBy ?? '猫猫';
       sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
+    } else if (parsed?.type === 'thinking') {
+      // F045: Render thinking as collapsible system message (matches foreground path)
+      sysContent = parsed.text ?? '';
+      sysVariant = 'thinking';
     }
   } catch {
     // Not JSON; keep original content as user-facing system info.

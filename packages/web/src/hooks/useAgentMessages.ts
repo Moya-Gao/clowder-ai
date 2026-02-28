@@ -395,6 +395,17 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
+          } else if (parsed?.type === 'thinking') {
+            // F045: Show thinking as collapsible system message in chat flow
+            addMessage({
+              id: `thinking-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
+              type: 'system',
+              variant: 'thinking',
+              catId: msg.catId,
+              content: parsed.text ?? '',
+              timestamp: Date.now(),
+            });
+            consumed = true;
           } else if (parsed?.type === 'rich_block') {
             // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
             let targetId: string | undefined;
@@ -467,7 +478,23 @@ export function useAgentMessages() {
           type: 'system',
           variant: 'error',
           catId: msg.catId,
-          content: `Error: ${msg.error ?? 'Unknown error'}`,
+          content: (() => {
+            const base = `Error: ${msg.error ?? 'Unknown error'}`;
+            try {
+              const meta = JSON.parse(msg.content ?? '{}');
+              const subtype = meta?.errorSubtype;
+              if (subtype) {
+                const labels: Record<string, string> = {
+                  error_max_turns: '超出 turn 限制',
+                  error_max_budget_usd: '预算用尽',
+                  error_during_execution: '运行时错误',
+                  error_max_structured_output_retries: '结构化输出重试超限',
+                };
+                return labels[subtype] ? `${base} (${labels[subtype]})` : base;
+              }
+            } catch { /* no subtype */ }
+            return base;
+          })(),
           timestamp: Date.now(),
         });
         // Only stop loading on isFinal; size===0 would false-positive in serial gaps

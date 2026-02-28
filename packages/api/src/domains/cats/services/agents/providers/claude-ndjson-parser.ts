@@ -19,6 +19,8 @@ export function transformClaudeEvent(
     partialTextMessageIds: Set<string>;
     /** F24-fix: Track last message_start's input tokens for context health */
     lastTurnInputTokens: number | undefined;
+    /** F045: Accumulate thinking_delta chunks until content_block_stop */
+    thinkingBuffer: string;
   },
 ): AgentMessage | AgentMessage[] | null {
   if (typeof event !== 'object' || event === null) return null;
@@ -60,10 +62,33 @@ export function transformClaudeEvent(
       return null;
     }
 
+    // F045: Reset thinking buffer when a thinking block starts
+    if (s['type'] === 'content_block_start') {
+      const contentBlock = s['content_block'] as Record<string, unknown> | undefined;
+      if (contentBlock?.['type'] === 'thinking') {
+        streamState.thinkingBuffer = '';
+      }
+      return null;
+    }
+
     if (s['type'] === 'content_block_delta') {
       const delta = s['delta'];
       if (typeof delta !== 'object' || delta === null) return null;
       const d = delta as Record<string, unknown>;
+
+      // F045: Accumulate thinking_delta
+      if (d['type'] === 'thinking_delta') {
+        if (typeof d['thinking'] === 'string') {
+          streamState.thinkingBuffer += d['thinking'];
+        }
+        return null;
+      }
+
+      // F045: Ignore signature_delta
+      if (d['type'] === 'signature_delta') {
+        return null;
+      }
+
       if (d['type'] !== 'text_delta' || typeof d['text'] !== 'string' || d['text'].length === 0) {
         return null;
       }
@@ -76,6 +101,21 @@ export function transformClaudeEvent(
         content: d['text'],
         timestamp: Date.now(),
       };
+    }
+
+    // F045: Emit accumulated thinking as system_info when block ends
+    if (s['type'] === 'content_block_stop') {
+      if (streamState.thinkingBuffer.length > 0) {
+        const text = streamState.thinkingBuffer;
+        streamState.thinkingBuffer = '';
+        return {
+          type: 'system_info',
+          catId,
+          content: JSON.stringify({ type: 'thinking', catId, text }),
+          timestamp: Date.now(),
+        };
+      }
+      return null;
     }
 
     return null;
@@ -93,6 +133,17 @@ export function transformClaudeEvent(
       };
     }
     return null;
+  }
+
+  // F045: system/compact_boundary → system_info
+  if (e['type'] === 'system' && e['subtype'] === 'compact_boundary') {
+    const preTokens = typeof e['pre_tokens'] === 'number' ? e['pre_tokens'] : undefined;
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'compact_boundary', catId, preTokens }),
+      timestamp: Date.now(),
+    };
   }
 
   // assistant → text / tool_use (multiple content blocks possible)
@@ -132,16 +183,30 @@ export function transformClaudeEvent(
     return messages.length > 0 ? messages : null;
   }
 
-  // result/error → error message
+  // F045: rate_limit_event → system_info
+  if (e['type'] === 'rate_limit_event') {
+    const utilization = typeof e['utilization'] === 'number' ? e['utilization'] : undefined;
+    const resetsAt = typeof e['resets_at'] === 'string' ? e['resets_at'] : undefined;
+    return {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({ type: 'rate_limit', catId, utilization, resetsAt }),
+      timestamp: Date.now(),
+    };
+  }
+
+  // result/error → error message (F045: include errorSubtype)
   if (e['type'] === 'result' && e['subtype'] !== 'success') {
     const rawErrors = Array.isArray(e['errors']) ? e['errors'] : [];
     const errors = rawErrors
       .filter((item): item is string => typeof item === 'string')
       .join('; ');
+    const subtype = typeof e['subtype'] === 'string' ? e['subtype'] : undefined;
     return {
       type: 'error',
       catId,
       error: errors || 'Unknown error',
+      content: JSON.stringify({ errorSubtype: subtype }),
       timestamp: Date.now(),
     };
   }

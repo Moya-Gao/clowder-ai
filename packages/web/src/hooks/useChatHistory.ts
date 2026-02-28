@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
+import type { TaskProgressItem } from '@/stores/chat-types';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;
@@ -27,6 +28,8 @@ export function useChatHistory(threadId: string) {
     prependHistory,
     setLoadingHistory,
     clearMessages,
+    setCatInvocation,
+    setThreadTargetCats,
   } = useChatStore();
   const { setTasks } = useTaskStore();
 
@@ -134,6 +137,56 @@ export function useChatHistory(threadId: string) {
     }
   }, [threadId, setTasks]);
 
+  // F045: Fetch cached task progress on mount to restore Plan Checklist after page refresh
+  const fetchTaskProgress = useCallback(async () => {
+    const fetchForThread = threadId;
+    const controller = abortRef.current;
+    if (!controller) return;
+
+    try {
+      const res = await apiFetch(
+        `/api/threads/${encodeURIComponent(fetchForThread)}/task-progress`,
+        { signal: controller.signal },
+      );
+      if (!res.ok) return;
+      if (abortRef.current !== controller) return;
+      if (threadIdRef.current !== fetchForThread) return;
+      const data = await res.json() as {
+        taskProgress?: Record<string, { tasks: Array<{ id: string; subject: string; status: string; activeForm?: string }>; lastUpdate: number }>;
+      };
+      if (data.taskProgress) {
+        const restoredCats: string[] = [];
+        for (const [catId, progress] of Object.entries(data.taskProgress)) {
+          setCatInvocation(catId, {
+            taskProgress: {
+              tasks: progress.tasks.map((t): TaskProgressItem => ({
+                id: t.id,
+                subject: t.subject,
+                status: t.status === 'in_progress' ? 'in_progress' : t.status === 'completed' ? 'completed' : 'pending',
+                ...(t.activeForm ? { activeForm: t.activeForm } : {}),
+              })),
+              lastUpdate: progress.lastUpdate,
+            },
+          });
+          // Only mark cat as "active" if it has non-empty progress.
+          // Empty tasks (from Codex todo_list clear) should not make a cat appear active.
+          if (progress.tasks.length > 0) {
+            restoredCats.push(catId);
+          }
+        }
+        // Restore targetCats so RightStatusPanel shows the Plan Checklist.
+        // Only restore if no live targetCats exist — avoids overwriting fresh
+        // intent_mode socket events when the HTTP response arrives late.
+        const currentTargets = useChatStore.getState().targetCats;
+        if (restoredCats.length > 0 && currentTargets.length === 0) {
+          setThreadTargetCats(fetchForThread, restoredCats);
+        }
+      }
+    } catch (err) {
+      if (isAbortError(err)) return;
+    }
+  }, [threadId, setCatInvocation, setThreadTargetCats]);
+
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
     // Abort any in-flight requests from previous thread
@@ -168,6 +221,7 @@ export function useChatHistory(threadId: string) {
     }
 
     void fetchTasks();
+    void fetchTaskProgress();
 
     return () => {
       abortRef.current?.abort();

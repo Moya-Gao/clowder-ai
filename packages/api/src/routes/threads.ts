@@ -20,6 +20,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getTaskProgress } from '../domains/cats/services/agents/invocation/TaskProgressCache.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -221,6 +222,30 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     } finally {
       guard?.release();
     }
+  });
+
+  // F045: GET /api/threads/:threadId/task-progress — task progress snapshot for page refresh persistence
+  app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/task-progress', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const { threadId } = request.params;
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    if (thread.createdBy !== userId && thread.createdBy !== 'system') {
+      reply.status(403);
+      return { error: 'Access denied' };
+    }
+
+    const snapshot = getTaskProgress(threadId);
+    return { threadId, taskProgress: snapshot ?? {} };
   });
 
   // F35: PATCH /api/threads/:id/reveal — reveal all whispers in a thread

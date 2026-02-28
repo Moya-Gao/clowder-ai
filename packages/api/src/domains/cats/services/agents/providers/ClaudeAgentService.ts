@@ -144,6 +144,7 @@ export class ClaudeAgentService implements AgentService {
       partialTextMessageIds: new Set<string>(),
       currentMessageId: undefined as string | undefined,
       lastTurnInputTokens: undefined as number | undefined,
+      thinkingBuffer: '' as string,
     };
 
     try {
