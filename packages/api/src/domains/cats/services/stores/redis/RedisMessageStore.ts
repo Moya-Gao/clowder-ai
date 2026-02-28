@@ -419,6 +419,7 @@ export class RedisMessageStore {
       toolEvents: '',
       metadata: '',
       extra: '',
+      thinking: '',
       mentions: '[]',
       deletedAt: String(now),
       deletedBy,
@@ -430,6 +431,7 @@ export class RedisMessageStore {
     delete msg.toolEvents;
     delete msg.metadata;
     delete msg.extra;
+    delete msg.thinking;
     msg.deletedAt = now;
     msg.deletedBy = deletedBy;
     msg._tombstone = true;

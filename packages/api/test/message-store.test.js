@@ -361,4 +361,21 @@ describe('MessageStore', () => {
     assert.ok(deleted);
     assert.equal(deleted.toolEvents, undefined);
   });
+
+  test('hardDelete() clears thinking (F045 security)', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const msg = store.append({
+      userId: 'u', catId: 'opus', content: 'response', mentions: [], timestamp: 1,
+      thinking: 'secret reasoning that must not survive hard delete',
+    });
+    assert.equal(msg.thinking, 'secret reasoning that must not survive hard delete');
+
+    const deleted = store.hardDelete(msg.id, 'admin');
+    assert.ok(deleted);
+    assert.equal(deleted.thinking, undefined, 'thinking must be cleared on hard delete');
+  });
 });

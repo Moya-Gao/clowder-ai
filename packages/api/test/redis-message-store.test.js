@@ -167,6 +167,30 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.equal(refetched.toolEvents, undefined, 'Redis should not return toolEvents after hardDelete');
   });
 
+  it('hardDelete clears thinking from returned object and Redis (F045 security)', async () => {
+    const msg = await store.append({
+      userId: 'u',
+      catId: 'opus',
+      content: 'response with thinking',
+      mentions: [],
+      timestamp: Date.now(),
+      thinking: 'secret extended reasoning that must not survive hard delete',
+    });
+    // Verify thinking was stored
+    const before = await store.getById(msg.id);
+    assert.equal(before.thinking, 'secret extended reasoning that must not survive hard delete');
+
+    // hardDelete should clear thinking
+    const deleted = await store.hardDelete(msg.id, 'admin');
+    assert.ok(deleted);
+    assert.equal(deleted.thinking, undefined, 'returned object should not carry thinking');
+    assert.equal(deleted._tombstone, true);
+
+    // Re-fetch from Redis to confirm thinking is gone
+    const refetched = await store.getById(msg.id);
+    assert.equal(refetched.thinking, undefined, 'Redis should not return thinking after hardDelete');
+  });
+
   it('message TTL is set', async () => {
     const msg = await store.append({
       userId: 'u',

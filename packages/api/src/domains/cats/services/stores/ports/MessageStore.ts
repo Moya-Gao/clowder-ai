@@ -319,6 +319,7 @@ export class MessageStore {
     delete msg.toolEvents;
     delete msg.metadata;
     delete msg.extra;
+    delete msg.thinking;
     msg.deletedAt = Date.now();
     msg.deletedBy = deletedBy;
     msg._tombstone = true;
