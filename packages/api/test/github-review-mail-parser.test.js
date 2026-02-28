@@ -129,6 +129,36 @@ describe('extractCatFromTitle', () => {
   it('returns null for incomplete tag', () => {
     assert.strictEqual(extractCatFromTitle('[布偶猫] missing emoji'), null);
   });
+
+  // ── Nickname signature formats (CLAUDE.md 签名规范) ──
+
+  it('extracts 布偶猫 from [宪宪/Opus-46🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix(F39): bugfix [宪宪/Opus-46🐾]'), '布偶猫');
+  });
+
+  it('extracts 布偶猫 from [宪宪/Opus-45🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('feat: something [宪宪/Opus-45🐾]'), '布偶猫');
+  });
+
+  it('extracts 布偶猫 from [宪宪/Sonnet🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix: thing [宪宪/Sonnet🐾]'), '布偶猫');
+  });
+
+  it('extracts 缅因猫 from [砚砚/Codex🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('review: code [砚砚/Codex🐾]'), '缅因猫');
+  });
+
+  it('extracts 缅因猫 from [砚砚/GPT-52🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('fix: test [砚砚/GPT-52🐾]'), '缅因猫');
+  });
+
+  it('extracts 缅因猫 from [Spark🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('feat: spark thing [Spark🐾]'), '缅因猫');
+  });
+
+  it('extracts 暹罗猫 from [烁烁🐾]', () => {
+    assert.strictEqual(extractCatFromTitle('design: new UI [烁烁🐾]'), '暹罗猫');
+  });
 });
 
 describe('catTagToCatId', () => {

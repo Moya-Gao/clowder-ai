@@ -266,6 +266,34 @@ export async function handleCheckPermissionStatus(input: {
   });
 }
 
+// TD091: PR tracking registration — server resolves threadId from invocation record
+export const registerPrTrackingInputSchema = {
+  repoFullName: z
+    .string()
+    .min(1)
+    .describe('Repository full name in owner/repo format (e.g. "zts212653/cat-cafe")'),
+  prNumber: z
+    .number()
+    .int()
+    .positive()
+    .describe('PR number'),
+  catId: z
+    .string()
+    .min(1)
+    .describe('Your cat ID (e.g. "opus", "codex", "gemini")'),
+};
+
+export async function handleRegisterPrTracking(input: {
+  repoFullName: string;
+  prNumber: number;
+  catId: string;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/register-pr-tracking', {
+    repoFullName: input.repoFullName,
+    prNumber: input.prNumber,
+    catId: input.catId,
+  });
+}
 
 export const callbackTools = [
   {
@@ -319,5 +347,12 @@ export const callbackTools = [
       'Check the status of a previously submitted permission request. Use the requestId returned from request_permission.',
     inputSchema: checkPermissionStatusInputSchema,
     handler: handleCheckPermissionStatus,
+  },
+  {
+    name: 'cat_cafe_register_pr_tracking',
+    description:
+      'Register a PR for email review notification routing. Call this right after `gh pr create` so that cloud Codex review emails are automatically routed to your current thread. The server resolves your threadId automatically — you only need repoFullName, prNumber, and your catId.',
+    inputSchema: registerPrTrackingInputSchema,
+    handler: handleRegisterPrTracking,
   },
 ] as const;

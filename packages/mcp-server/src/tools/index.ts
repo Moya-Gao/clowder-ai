@@ -24,6 +24,7 @@ export {
   updateTaskInputSchema,
   requestPermissionInputSchema,
   checkPermissionStatusInputSchema,
+  registerPrTrackingInputSchema,
   handlePostMessage,
   handleGetPendingMentions,
   handleAckMentions,
@@ -31,6 +32,7 @@ export {
   handleUpdateTask,
   handleRequestPermission,
   handleCheckPermissionStatus,
+  handleRegisterPrTracking,
   callbackTools,
 } from './callback-tools.js';
 

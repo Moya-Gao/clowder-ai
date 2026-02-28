@@ -106,15 +106,42 @@ export function parseGithubReviewSubject(subject: string): ParsedGithubReviewMai
 
 /**
  * Extract cat name from PR title.
- * Expected format: "[布偶猫🐾] feat: something" or "[缅因猫🐾] fix: something"
+ * Supports two signature formats (per CLAUDE.md 签名规范):
+ * - Breed name: "[布偶猫🐾]", "[缅因猫🐾]", "[暹罗猫🐾]"
+ * - Nickname:   "[宪宪/Opus-46🐾]", "[砚砚/Codex🐾]", "[烁烁🐾]", "[Spark🐾]"
  */
 export type CatTag = '布偶猫' | '缅因猫' | '暹罗猫';
 
-const CAT_TAG_REGEX = /\[(布偶猫|缅因猫|暹罗猫)🐾\]/;
+// Match any [...🐾] tag and capture the inner text before the paw emoji
+const CAT_TAG_REGEX = /\[([^\]]+?)🐾\]/;
+
+// Nickname prefix → breed mapping (CLAUDE.md 猫猫花名册)
+const NICKNAME_TO_BREED: Record<string, CatTag> = {
+  '布偶猫': '布偶猫',
+  '缅因猫': '缅因猫',
+  '暹罗猫': '暹罗猫',
+  '宪宪': '布偶猫',
+  '砚砚': '缅因猫',
+  '烁烁': '暹罗猫',
+  'Spark': '缅因猫',
+};
 
 export function extractCatFromTitle(title: string): CatTag | null {
   const match = title.match(CAT_TAG_REGEX);
-  return match ? (match[1] as CatTag) : null;
+  if (!match) return null;
+
+  const inner = match[1]!;
+  // Try direct match first (e.g. "布偶猫", "烁烁", "Spark")
+  if (NICKNAME_TO_BREED[inner]) return NICKNAME_TO_BREED[inner];
+
+  // Try nickname prefix before "/" (e.g. "宪宪/Opus-46" → "宪宪")
+  const slashIdx = inner.indexOf('/');
+  if (slashIdx > 0) {
+    const prefix = inner.slice(0, slashIdx);
+    if (NICKNAME_TO_BREED[prefix]) return NICKNAME_TO_BREED[prefix];
+  }
+
+  return null;
 }
 
 /**

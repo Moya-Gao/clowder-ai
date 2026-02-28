@@ -5,7 +5,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { createCatId } from '@cat-cafe/shared';
+import { createCatId, catRegistry } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
@@ -17,6 +17,7 @@ import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/
 import type { AgentRouter } from '../domains/cats/services/index.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
 import type { RichBlock } from '@cat-cafe/shared';
@@ -52,6 +53,8 @@ export interface CallbackRoutesOptions {
   invocationTracker?: InvocationTracker;
   /** For mention ack cursor tracking (#77) */
   deliveryCursorStore?: DeliveryCursorStore;
+  /** TD091: PR tracking registration via MCP callback */
+  prTrackingStore?: IPrTrackingStore;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -86,7 +89,7 @@ const createRichBlockSchema = callbackAuthSchema.extend({
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
     const { registry, messageStore, socketManager, taskStore, threadStore, router,
-      invocationRecordStore, invocationTracker, deliveryCursorStore } = opts;
+      invocationRecordStore, invocationTracker, deliveryCursorStore, prTrackingStore } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
       const parsed = postMessageSchema.safeParse(request.body);
@@ -393,6 +396,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }
 
       return {
+        // TD091: echo threadId so cats know which thread they're in
+        threadId: effectiveThreadId,
         messages: filtered.map((item) => ({
           id: item.id,
           userId: item.userId,
@@ -402,6 +407,57 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           timestamp: item.timestamp,
         })),
       };
+    });
+
+    // TD091: PR tracking registration via MCP callback
+    // Cats call this after `gh pr create` to register the PR for Layer 1 routing.
+    // Server resolves threadId from invocation record — cat doesn't need to know it.
+    const registerPrTrackingSchema = callbackAuthSchema.extend({
+      repoFullName: z.string().min(1).regex(/^[^/]+\/[^/]+$/, 'Must be owner/repo format'),
+      prNumber: z.number().int().positive(),
+      catId: z.string().min(1),
+    });
+
+    app.post('/api/callbacks/register-pr-tracking', async (request, reply) => {
+      if (!prTrackingStore) {
+        reply.status(503);
+        return { error: 'PR tracking not configured' };
+      }
+
+      const parsed = registerPrTrackingSchema.safeParse(request.body);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request body', details: parsed.error.issues };
+      }
+
+      const { invocationId, callbackToken, repoFullName, prNumber, catId } = parsed.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return EXPIRED_CREDENTIALS_ERROR;
+      }
+
+      if (!catRegistry.has(catId)) {
+        reply.status(400);
+        return { error: `Unknown catId: ${catId}` };
+      }
+
+      // Cloud Codex P1-2: ownership protection — reject cross-user overwrites
+      const existing = await prTrackingStore.get(repoFullName, prNumber);
+      if (existing && existing.userId !== record.userId) {
+        reply.status(409);
+        return { error: `PR ${repoFullName}#${prNumber} already registered by another user` };
+      }
+
+      const entry = await prTrackingStore.register({
+        repoFullName,
+        prNumber,
+        catId,
+        threadId: record.threadId,
+        userId: record.userId,
+      });
+
+      return { status: 'ok', threadId: record.threadId, entry };
     });
 
     // F22: Rich block creation via MCP callback

@@ -8,6 +8,7 @@
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
+import './helpers/setup-cat-registry.js';
 
 // Mock SocketManager
 function createMockSocketManager() {
@@ -1323,5 +1324,250 @@ describe('Callback Routes', () => {
     assert.ok(!contents.includes('thinking output'), 'stream must be hidden');
     assert.ok(contents.includes('legacy reply'), 'legacy must be visible');
     assert.ok(contents.includes('callback speech'), 'callback must be visible');
+  });
+
+  // ---- TD091: threadId echo in thread-context ----
+
+  test('GET thread-context response includes threadId field', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-xyz');
+
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'hi', mentions: [], timestamp: 1, threadId: 'thread-xyz',
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.threadId, 'thread-xyz', 'response must echo the invocation threadId');
+    assert.ok(Array.isArray(body.messages));
+  });
+
+  test('GET thread-context cross-thread echoes requested threadId', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-home');
+
+    messageStore.append({
+      userId: 'user-1', catId: null, content: 'msg-A', mentions: [], timestamp: 1, threadId: 'thread-other',
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&threadId=thread-other`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.threadId, 'thread-other', 'cross-thread read must echo the requested threadId');
+  });
+
+  // ---- TD091: POST /api/callbacks/register-pr-tracking ----
+
+  test('POST register-pr-tracking succeeds with valid input', async () => {
+    const { MemoryPrTrackingStore } = await import(
+      '../dist/infrastructure/email/PrTrackingStore.js'
+    );
+    const prTrackingStore = new MemoryPrTrackingStore();
+
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry, messageStore, socketManager, threadStore,
+      sharedBank: 'cat-cafe-shared', prTrackingStore,
+    });
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', 'thread-pr');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId, callbackToken,
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 99,
+        catId: 'opus',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.threadId, 'thread-pr', 'server must resolve threadId from invocation');
+    assert.equal(body.entry.repoFullName, 'zts212653/cat-cafe');
+    assert.equal(body.entry.prNumber, 99);
+    assert.equal(body.entry.catId, 'opus');
+    assert.equal(body.entry.threadId, 'thread-pr');
+    assert.ok(body.entry.registeredAt > 0);
+
+    // Verify stored in prTrackingStore
+    const found = prTrackingStore.get('zts212653/cat-cafe', 99);
+    assert.ok(found, 'entry must be stored');
+    assert.equal(found.threadId, 'thread-pr');
+  });
+
+  test('POST register-pr-tracking rejects invalid credentials', async () => {
+    const { MemoryPrTrackingStore } = await import(
+      '../dist/infrastructure/email/PrTrackingStore.js'
+    );
+    const prTrackingStore = new MemoryPrTrackingStore();
+
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry, messageStore, socketManager, threadStore,
+      sharedBank: 'cat-cafe-shared', prTrackingStore,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId: 'bogus', callbackToken: 'bogus',
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 1,
+        catId: 'opus',
+      },
+    });
+
+    assert.equal(response.statusCode, 401);
+  });
+
+  test('POST register-pr-tracking rejects unknown catId', async () => {
+    const { MemoryPrTrackingStore } = await import(
+      '../dist/infrastructure/email/PrTrackingStore.js'
+    );
+    const prTrackingStore = new MemoryPrTrackingStore();
+
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry, messageStore, socketManager, threadStore,
+      sharedBank: 'cat-cafe-shared', prTrackingStore,
+    });
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId, callbackToken,
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 1,
+        catId: 'nonexistent-cat',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = JSON.parse(response.body);
+    assert.ok(body.error.includes('Unknown catId'));
+  });
+
+  test('POST register-pr-tracking rejects overwrite from different user (P1-2 ownership)', async () => {
+    const { MemoryPrTrackingStore } = await import(
+      '../dist/infrastructure/email/PrTrackingStore.js'
+    );
+    const prTrackingStore = new MemoryPrTrackingStore();
+
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry, messageStore, socketManager, threadStore,
+      sharedBank: 'cat-cafe-shared', prTrackingStore,
+    });
+
+    // User A registers PR #42
+    const userA = registry.create('user-A', 'opus', 'thread-A');
+    const regA = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId: userA.invocationId, callbackToken: userA.callbackToken,
+        repoFullName: 'zts212653/cat-cafe', prNumber: 42, catId: 'opus',
+      },
+    });
+    assert.equal(regA.statusCode, 200);
+
+    // User B tries to overwrite PR #42
+    const userB = registry.create('user-B', 'codex', 'thread-B');
+    const regB = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId: userB.invocationId, callbackToken: userB.callbackToken,
+        repoFullName: 'zts212653/cat-cafe', prNumber: 42, catId: 'codex',
+      },
+    });
+    assert.equal(regB.statusCode, 409, 'must reject overwrite from different user');
+
+    // Original entry should be unchanged
+    const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+    assert.equal(entry.userId, 'user-A', 'original owner must be preserved');
+    assert.equal(entry.threadId, 'thread-A');
+  });
+
+  test('POST register-pr-tracking allows re-register from same user (update thread)', async () => {
+    const { MemoryPrTrackingStore } = await import(
+      '../dist/infrastructure/email/PrTrackingStore.js'
+    );
+    const prTrackingStore = new MemoryPrTrackingStore();
+
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry, messageStore, socketManager, threadStore,
+      sharedBank: 'cat-cafe-shared', prTrackingStore,
+    });
+
+    // User A registers PR #42 from thread-1
+    const inv1 = registry.create('user-A', 'opus', 'thread-1');
+    await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId: inv1.invocationId, callbackToken: inv1.callbackToken,
+        repoFullName: 'zts212653/cat-cafe', prNumber: 42, catId: 'opus',
+      },
+    });
+
+    // Same user re-registers from thread-2 (should succeed — update)
+    const inv2 = registry.create('user-A', 'opus', 'thread-2');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId: inv2.invocationId, callbackToken: inv2.callbackToken,
+        repoFullName: 'zts212653/cat-cafe', prNumber: 42, catId: 'opus',
+      },
+    });
+    assert.equal(res.statusCode, 200);
+
+    const entry = prTrackingStore.get('zts212653/cat-cafe', 42);
+    assert.equal(entry.threadId, 'thread-2', 'same user can update their own registration');
+  });
+
+  test('POST register-pr-tracking returns 503 when store not configured', async () => {
+    // Default createApp() has no prTrackingStore
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/register-pr-tracking',
+      payload: {
+        invocationId, callbackToken,
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 1,
+        catId: 'opus',
+      },
+    });
+
+    assert.equal(response.statusCode, 503);
+    const body = JSON.parse(response.body);
+    assert.ok(body.error.includes('not configured'));
   });
 });

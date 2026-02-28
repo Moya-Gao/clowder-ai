@@ -43,7 +43,7 @@ import {
   handleGetRichBlockRules,
   richBlockRulesInputSchema,
 } from './tools/index.js';
-import { createRichBlockInputSchema, handleCreateRichBlock } from './tools/callback-tools.js';
+import { createRichBlockInputSchema, handleCreateRichBlock, registerPrTrackingInputSchema, handleRegisterPrTracking } from './tools/callback-tools.js';
 
 /**
  * 创建并配置 MCP Server
@@ -202,6 +202,17 @@ export function createServer(): McpServer {
     callbackRetainMemoryInputSchema,
     async (args: { content: string; tags?: string[] | undefined; metadata?: Record<string, string> | undefined }) => {
       const result = await handleCallbackRetainMemory(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  // TD091: PR tracking registration via MCP callback
+  server.tool(
+    'cat_cafe_register_pr_tracking',
+    'Register a PR for email review notification routing. Call this right after `gh pr create` so cloud review results route to your thread. Server resolves threadId automatically.',
+    registerPrTrackingInputSchema,
+    async (args: { repoFullName: string; prNumber: number; catId: string }) => {
+      const result = await handleRegisterPrTracking(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

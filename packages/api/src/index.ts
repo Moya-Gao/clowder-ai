@@ -245,6 +245,10 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(catsRoutes);
+
+  // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
+  const prTrackingStore = new MemoryPrTrackingStore();
+
   await app.register(callbacksRoutes, {
     registry,
     messageStore,
@@ -257,6 +261,7 @@ async function main(): Promise<void> {
     invocationRecordStore,
     invocationTracker,
     deliveryCursorStore,
+    prTrackingStore,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
@@ -391,7 +396,6 @@ async function main(): Promise<void> {
 
   // GitHub Review Watcher stores + routes (BACKLOG #81)
   // Must register routes BEFORE app.listen()
-  const prTrackingStore = new MemoryPrTrackingStore();
   const processedEmailStore = new MemoryProcessedEmailStore();
   const reviewRouter = new ReviewRouter({
     prTrackingStore,
