@@ -22,6 +22,7 @@ export interface ParsedGithubReviewMail {
 
 // Match PR number — prefer "pull request #N" or trailing "(#N)", not first #token
 const PR_NUMBER_PULL_REQUEST_REGEX = /pull request #(\d+)/i;
+const PR_NUMBER_TRAILING_PR_PARENS_REGEX = /\(PR #(\d+)\)\s*$/i;
 const PR_NUMBER_TRAILING_PARENS_REGEX = /\(#(\d+)\)\s*$/;
 const PR_NUMBER_FALLBACK_REGEX = /#(\d+)/;
 
@@ -36,13 +37,15 @@ const TITLE_AFTER_NUMBER_REGEX = /#\d+:\s*(.+)$/;
 
 // Match PR title in parens: "PR Title (#123)"
 const TITLE_IN_PARENS_REGEX = /\]\s*(.+?)\s*\(#\d+\)/;
+const TITLE_IN_PR_PARENS_REGEX = /\]\s*(.+?)\s*\(PR #\d+\)/i;
 
 export function parseGithubReviewSubject(subject: string): ParsedGithubReviewMail | null {
   // Extract PR number: prefer "pull request #N" > trailing "(#N)" > first "#N"
   const prPullReq = subject.match(PR_NUMBER_PULL_REQUEST_REGEX);
+  const prTrailingPr = subject.match(PR_NUMBER_TRAILING_PR_PARENS_REGEX);
   const prTrailing = subject.match(PR_NUMBER_TRAILING_PARENS_REGEX);
   const prFallback = subject.match(PR_NUMBER_FALLBACK_REGEX);
-  const prNumStr = prPullReq?.[1] ?? prTrailing?.[1] ?? prFallback?.[1];
+  const prNumStr = prPullReq?.[1] ?? prTrailingPr?.[1] ?? prTrailing?.[1] ?? prFallback?.[1];
   if (!prNumStr) {
     return null;
   }
@@ -77,7 +80,8 @@ export function parseGithubReviewSubject(subject: string): ParsedGithubReviewMai
   // "Re:" alone is NOT enough — issue replies also start with "Re:".
   // Accept if: explicit review action OR "pull request" keyword in subject.
   const isPullRequest = /pull request/i.test(subject);
-  if (!actionMatch && !isPullRequest) {
+  const hasExplicitPrMarker = /\(PR #\d+\)/i.test(subject);
+  if (!actionMatch && !isPullRequest && !hasExplicitPrMarker) {
     return null;
   }
 
@@ -88,6 +92,12 @@ export function parseGithubReviewSubject(subject: string): ParsedGithubReviewMai
   if (titleAfter) {
     title = titleAfter.trim();
   } else {
+    const titleInPrParensMatch = subject.match(TITLE_IN_PR_PARENS_REGEX);
+    const titleInPrParens = titleInPrParensMatch?.[1];
+    if (titleInPrParens) {
+      title = titleInPrParens.trim();
+    }
+
     const titleInParensMatch = subject.match(TITLE_IN_PARENS_REGEX);
     const titleInParens = titleInParensMatch?.[1];
     if (titleInParens) {

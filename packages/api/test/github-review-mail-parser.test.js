@@ -49,6 +49,19 @@ describe('parseGithubReviewSubject', () => {
     assert.strictEqual(result, null, 'Re: alone is not enough — could be issue reply');
   });
 
+  it('parses Re: reply with explicit (PR #N) marker (cloud Codex review email)', () => {
+    const subject =
+      'Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks + pauseReasonhydration (PR #96)';
+    const result = parseGithubReviewSubject(subject);
+
+    assert.ok(result);
+    assert.strictEqual(result.prNumber, 96);
+    assert.strictEqual(result.repository, 'zts212653/cat-cafe');
+    assert.strictEqual(result.reviewType, 'unknown');
+    assert.strictEqual(result.reviewer, undefined);
+    assert.strictEqual(result.title, 'fix(F039): queue contentBlocks + pauseReasonhydration');
+  });
+
   it('parses reply to pull request notification', () => {
     const subject = 'Re: [owner/repo] @user commented on pull request #456: Some PR Title';
     const result = parseGithubReviewSubject(subject);
