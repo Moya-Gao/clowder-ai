@@ -20,7 +20,7 @@ created: 2026-02-27
 | 1. Prompt 落盘 | Done | `docs/prompts/2026-02-27-vision-drift-research-prompt.md` |
 | 2. 三路 Deep Research | **Done** | Claude x1 + GPT x2 + Gemini x3 = 6 份全部到齐 |
 | 3. GPT-5.2 Pro 审阅 | **Done** | `gpt-pro-review.md` — 5 分歧裁决 + Top5 洞察 + Top3 危险信息 |
-| 4. 布偶猫综合 + 代码库验证 | **Next** | 等铲屎官确认启动 |
+| 4. 布偶猫综合 + 代码库验证 | **Done** | `synthesis.md` — 4 个立即做 + 3 个计划做 + 4 个不做 |
 
 ## 报告清单
 
@@ -55,7 +55,7 @@ created: 2026-02-27
 
 | # | 文件 | 备注 |
 |---|------|------|
-| 1 | `synthesis.md` | 待执行 |
+| 1 | `synthesis.md` | Done — 代码库验证 + 行动清单 + 铲屎官决策点 |
 
 ## 铲屎官手抖事件记录
 
