@@ -44,3 +44,4 @@
 | F040 | F40: BACKLOG 整理与 Feature 聚合体系 | done | [F40-backlog-reorganization.md](./F40-backlog-reorganization.md) |
 | F041 | F041: 能力看板 — Hub MCP/Skills 统一管理 | done | [F041-capability-dashboard.md](./F041-capability-dashboard.md) |
 | F045 | F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | [F045-ndjson-observability.md](./F045-ndjson-observability.md) |
+| F047 | F047: Queue Steer — 队列消息“立即执行 / 提到队首” | done | [F047-queue-steer.md](./F047-queue-steer.md) |

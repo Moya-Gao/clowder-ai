@@ -7,9 +7,10 @@ created: 2026-02-28
 
 # F047: Queue Steer（队列消息一键“立即执行 / 提到队首”）
 
-> **Status**: implemented (in PR)
+> **Status**: done
 > **Owner**: 缅因猫/砚砚（Codex）
 > **Created**: 2026-02-28
+> **Completed**: 2026-02-28
 > **Priority**: P1
 
 ---
@@ -42,6 +43,7 @@ created: 2026-02-28
 | Feature（基础） | `docs/features/F039-message-queue-delivery.md` | 队列系统基础 |
 | Plan | `docs/plans/2026-02-28-f047-queue-steer.md` | 本 feature 的实现计划 |
 | Pencil | `pencil-new.pen` / nodes `58L25`, `WvfXb` | QueuePanel + Steer modal 设计稿 |
+| PR | #101 | `feat(F047): 队列 Steer（立即执行/提到队首）` |
 
 ## Implementation
 
@@ -82,4 +84,20 @@ created: 2026-02-28
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| — | — | — | — |
+| R1 | 宪宪/Opus-46 | 0 P1 / 1 P2 | 2026-02-28 |
+| R2 | 宪宪/Opus-46 | 0 P1 / 0 P2 ✅ | 2026-02-28 |
+| Cloud | chatgpt-codex-connector | 0 P1 / 0 P2 ✅ | 2026-02-28 |
+
+### 愿景交叉验证签收
+| 猫猫 | 读了哪些原始文档 | 三个问题结论 | 签收 |
+|------|------------------|-------------|------|
+| 宪宪/Opus-46 | `docs/features/F047-queue-steer.md`, `docs/plans/2026-02-28-f047-queue-steer.md` | 1) queued 消息一键拉出来处理 2) 交付物对齐（promote/immediate）3) QueuePanel 一键 Steer 弹窗二选一 | 通过 |
+| 砚砚/Codex | `docs/features/F047-queue-steer.md`, `docs/plans/2026-02-28-f047-queue-steer.md`, 铲屎官 2026-02-28 口述 | 1) 快速纠偏 2) immediate/promote 覆盖核心 3) queued 场景可直接用 | 通过 |
+
+## Dependencies
+
+- **Evolved from**: F039（消息排队投递 — 用户操作三模式）
+
+## Timeline
+
+- 2026-02-28: PR #101 merged，Feature completed

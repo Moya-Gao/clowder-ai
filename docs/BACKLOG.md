@@ -27,5 +27,4 @@ created: 2026-02-26
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | [F044](features/F044-channel-activity-system.md) |
 | F045 | NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | 布偶猫 | [F045](features/F045-ndjson-observability.md) |
 | F046 | 愿景守护协议 — Anti-Drift Protocol | in-progress | 三猫 | [F046](features/F046-anti-drift-protocol.md) |
-| F047 | Queue Steer — 队列消息立即执行/提到队首 | review | 缅因猫 | [F047](features/F047-queue-steer.md) |
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
