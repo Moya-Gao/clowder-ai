@@ -64,6 +64,7 @@ export function useAgentMessages() {
     clearCatStatuses,
     setCatInvocation,
     setMessageUsage,
+    setMessageMetadata,
     setMessageThinking,
     setPendingModeSwitchProposal,
     currentThreadId,
@@ -191,12 +192,19 @@ export function useAgentMessages() {
           const existing = activeRefs.current.get(msg.catId);
           if (existing) {
             appendToMessage(existing.id, msg.content);
+            // Merge metadata onto thinking-first placeholder (F045 P1 fix)
+            if (msg.metadata) {
+              setMessageMetadata(existing.id, msg.metadata);
+            }
           } else {
             const resumedId = findStreamingMessageId(msg.catId);
             if (resumedId) {
               // Recover background-stream message after thread switch (activeRefs are reset on switch)
               activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
               appendToMessage(resumedId, msg.content);
+              if (msg.metadata) {
+                setMessageMetadata(resumedId, msg.metadata);
+              }
             } else {
               // New stream message for this cat
               const id = `msg-${Date.now()}-${msg.catId}`;
@@ -412,6 +420,7 @@ export function useAgentMessages() {
                   catId: msg.catId,
                   content: '',
                   origin: 'stream',
+                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
                   timestamp: Date.now(),
                   isStreaming: true,
                 });
@@ -538,6 +547,7 @@ export function useAgentMessages() {
       clearCatStatuses,
       setCatInvocation,
       setPendingModeSwitchProposal,
+      setMessageMetadata,
       setMessageThinking,
       currentThreadId,
       resetTimeout,

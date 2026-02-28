@@ -191,6 +191,8 @@ interface ChatState {
   clearCatStatuses: () => void;
   setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
   setMessageUsage: (messageId: string, usage: TokenUsage) => void;
+  /** Merge metadata onto an active-thread message (parallel to setThreadMessageMetadata) */
+  setMessageMetadata: (messageId: string, metadata: ChatMessageMetadata) => void;
   /** F045: Set or append extended thinking content on an assistant message */
   setMessageThinking: (messageId: string, thinking: string) => void;
   clearMessages: () => void;
@@ -438,6 +440,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
         m.id === messageId && m.metadata ? { ...m, metadata: { ...m.metadata, usage } } : m,
       ),
     })),
+
+  setMessageMetadata: (messageId, metadata) => {
+    // Skip if message already has metadata (avoid per-chunk re-render during streaming)
+    const msg = get().messages.find((m) => m.id === messageId);
+    if (msg?.metadata) return;
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId ? { ...m, metadata } : m,
+      ),
+    }));
+  },
 
   setMessageThinking: (messageId, thinking) =>
     set((state) => ({

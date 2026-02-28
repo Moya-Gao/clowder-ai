@@ -95,6 +95,7 @@ export function consumeBackgroundSystemInfo(
             type: 'assistant',
             catId: msg.catId,
             content: '',
+            ...(msg.metadata ? { metadata: msg.metadata } : {}),
             timestamp: msg.timestamp,
             isStreaming: true,
             origin: 'stream',
