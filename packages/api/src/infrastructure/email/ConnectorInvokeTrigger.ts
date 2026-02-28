@@ -195,6 +195,8 @@ export class ConnectorInvokeTrigger {
           persistenceContext,
         },
       )) {
+        // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
+        if (controller?.signal.aborted) break;
         if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
           collectedUsage.set(
             msg.catId,
@@ -204,8 +206,17 @@ export class ConnectorInvokeTrigger {
         socketManager.broadcastAgentMessage(msg, threadId);
       }
 
-      // ⑤ Finalize: ack cursors + update status
-      if (persistenceContext.failed) {
+      // ⑤ Finalize: abort guard → persistence check → ack + succeeded
+      // F39 P1 fix (砚砚 R1): abort guard after loop — same pattern as messages.ts.
+      // When signal aborted and generator ends normally, break exits loop but
+      // post-loop code would still run ack+succeeded without this guard.
+      if (controller?.signal.aborted) {
+        finalStatus = 'canceled';
+        await invocationRecordStore.update(createResult.invocationId, {
+          status: 'canceled',
+        });
+        // Skip ack/succeeded — let finally handle cleanup
+      } else if (persistenceContext.failed) {
         const errorDetail = persistenceContext.errors
           .map(e => `${e.catId}: ${e.error}`)
           .join('; ');

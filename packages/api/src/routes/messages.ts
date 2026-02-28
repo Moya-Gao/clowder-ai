@@ -294,6 +294,19 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           opts.socketManager.broadcastAgentMessage(m, resolvedThreadId);
         }
       }
+      // F39 bugfix: Prevent QueueProcessor state poisoning — the old invocation's
+      // async cleanup will call onInvocationComplete('failed'/'canceled') which pauses
+      // the thread. Clear that preemptively since we're about to start a new invocation.
+      opts.queueProcessor?.clearPause(resolvedThreadId);
+
+      // F39 bugfix: Notify frontend that force-cancel happened (clear stale queue UI)
+      if (opts.invocationQueue) {
+        opts.socketManager.emitToUser(userId, 'queue_updated', {
+          threadId: resolvedThreadId,
+          queue: opts.invocationQueue.list(resolvedThreadId, userId),
+          action: 'force_cleared',
+        });
+      }
       // Fall through to immediate execution below
     }
 
@@ -406,6 +419,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 persistenceContext,
               },
             })) {
+              // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
+              if (controller?.signal.aborted) break;
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
                 collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
@@ -423,6 +438,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 persistenceContext,
               },
             )) {
+              // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
+              if (controller?.signal.aborted) break;
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
                 collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
@@ -430,8 +447,16 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             }
           }
 
-          // P1-2: mark failed if any message persistence failed
-          if (persistenceContext.failed) {
+          // F39 P1 fix (砚砚 R1): abort guard after loop — when signal is aborted
+          // and the generator ends normally (no throw), the break exits the loop but
+          // post-loop code would still run ack+succeeded. Guard explicitly.
+          if (controller?.signal.aborted) {
+            finalStatus = 'canceled';
+            await opts.invocationRecordStore!.update(createResult.invocationId, {
+              status: 'canceled',
+            });
+            // Skip ack/succeeded/push-notify — let finally handle cleanup
+          } else if (persistenceContext.failed) {
             const errorDetail = persistenceContext.errors
               .map(e => `${e.catId}: ${e.error}`)
               .join('; ');
@@ -495,6 +520,14 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             }
           }
         } catch (err) {
+          // F39 bugfix: detect abort (cancel/force) vs real failure
+          if (controller?.signal.aborted) {
+            finalStatus = 'canceled';
+            await opts.invocationRecordStore!.update(createResult.invocationId, {
+              status: 'canceled',
+            });
+            // Don't broadcast error for intentional cancel
+          } else {
           console.error('[messages] Background processing error:', err);
           const errorMsg = err instanceof Error ? err.message : 'Unknown error';
           await opts.invocationRecordStore!.update(createResult.invocationId, {
@@ -518,6 +551,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
               data: { threadId: resolvedThreadId, url: `/?thread=${resolvedThreadId}` },
             }).catch(() => {});
           }
+          } // end else (non-abort error)
         } finally {
           clearInterval(heartbeatInterval);
           opts.invocationTracker?.complete(resolvedThreadId, controller);

@@ -228,6 +228,9 @@ export async function* routeSerial(
       ...(staticIdentity ? { systemPrompt: staticIdentity } : {}),
       isLastCat: false,
     })) {
+      // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
+      if (signal?.aborted) break;
+
       // F22 R2 P1-1: Capture invocationId from the initial system_info
       // R3 P2: Swallow this internal message — don't forward to frontend
       if (msg.type === 'system_info' && msg.content && !ownInvocationId) {

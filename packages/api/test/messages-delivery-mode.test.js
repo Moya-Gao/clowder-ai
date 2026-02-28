@@ -330,6 +330,52 @@ describe('POST /api/messages deliveryMode', () => {
     );
   });
 
+  // ── P1 bugfix: abort mid-loop → must NOT ack or mark succeeded ──
+
+  it('bugfix: signal aborted mid-loop → should NOT ack cursors or mark succeeded', async () => {
+    // Create a controllable AbortController
+    const controller = new AbortController();
+
+    deps.invocationTracker.has.mock.mockImplementation(() => false);
+    deps.invocationTracker.start.mock.mockImplementation(() => controller);
+
+    // Router that yields one message, then aborts (simulating external force-cancel),
+    // then ends normally (no throw) — this is the exact scenario砚砚 identified.
+    deps.router.routeExecution.mock.mockImplementation(async function* () {
+      yield { type: 'text', catId: 'opus', content: 'partial output', timestamp: Date.now() };
+      // External cancel happens here (e.g., force-send from铲屎官)
+      controller.abort();
+      // Generator ends normally — no throw. The for-await break exits the loop,
+      // but post-loop code must NOT run ack+succeeded.
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      payload: { content: '测试取消', threadId: 'thread-1' },
+    });
+
+    assert.equal(res.statusCode, 200);
+
+    // Wait for background IIFE to complete
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // ackCollectedCursors should NOT be called (aborted invocation)
+    assert.equal(
+      deps.router.ackCollectedCursors.mock.calls.length, 0,
+      'should NOT ack cursors for aborted invocation',
+    );
+
+    // invocationRecordStore.update should have 'canceled', NOT 'succeeded'
+    const updateCalls = deps.invocationRecordStore.update.mock.calls;
+    const succeededCall = updateCalls.find(c => c.arguments[1]?.status === 'succeeded');
+    assert.ok(!succeededCall, 'should NOT mark as succeeded when signal aborted');
+
+    const canceledCall = updateCalls.find(c => c.arguments[1]?.status === 'canceled');
+    assert.ok(canceledCall, 'should mark as canceled when signal aborted');
+  });
+
   it('default mode with active invocation → falls back to queue', async () => {
     deps.invocationTracker.has.mock.mockImplementation(() => true);
 

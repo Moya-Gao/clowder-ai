@@ -99,6 +99,16 @@ export class QueueProcessor {
   }
 
   /**
+   * Preemptively clear paused state for a thread.
+   * Used by force-send: the old invocation's async cleanup will call
+   * onInvocationComplete('canceled'/'failed') which pauses the thread,
+   * but force-send already starts a new invocation — the pause is stale.
+   */
+  clearPause(threadId: string): void {
+    this.pausedThreads.delete(threadId);
+  }
+
+  /**
    * User-level entry: 铲屎官 manually triggers processing their next entry.
    */
   async processNext(
