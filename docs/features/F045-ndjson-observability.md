@@ -211,15 +211,25 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 ## 愿景守护 — Gap 分析（2026-02-28 三猫联合评审）
 
-### Gap #1: Thinking 气泡归属 ⚠️ 需铲屎官拍板
+### Gap #1: Thinking 气泡归属 ✅ 已修复 (PR #91)
 
 **spec 写的**："消息气泡内嵌折叠区域（方案 A）" — 暗示 thinking 嵌在 assistant 的消息气泡内部。
 
-**实际做的**：独立 `{ type: 'system', variant: 'thinking' }` 消息，在聊天流里作为独立的 `<details>` 元素渲染（💭 思考过程 + 字符数），NOT 嵌在 assistant 气泡里。
+**修复**：PR #91 将 thinking 嵌入 assistant 气泡内部，不再作为独立 system message 渲染。
 
-**体验差异**：thinking 出现在 assistant 消息的上方（或之间），而不是"点开 assistant 气泡就能看到 thinking"。
+### Gap #1a: 🧠 Thinking 与 💭 心里话 并存显示 ✅ 铲屎官已拍板 (2026-02-28)
 
-**三猫共识**：功能上可用（折叠、默认关闭），但与 spec 措辞有偏离。需铲屎官确认当前实现是否 OK，或需要改为嵌入气泡。
+**问题**：当消息同时有 🧠 Thinking（extended reasoning）和 💭 心里话（CLI stream output）时，如何显示？
+
+**铲屎官决策**：
+- **两块并存，都保持折叠** — 🧠 Thinking 和 💭 心里话 是不同概念，各自独立折叠
+- **理想状态**（未来增强）：debug 模式展开为不同 markdown 块，play 模式保留折叠。但 thinkingMode 可随时切换，动态渲染是非 trivial 增强，暂不做
+- **当前实现**：ChatMessage.tsx 两块并存，都默认折叠 ✅
+
+**相关 PR**：
+- PR #94: 区分 🧠 Thinking label vs 💭 心里话 label
+- PR #95: thinking 持久化（F5 刷新后恢复 🧠 内容）
+- PR #97: hardDelete 清除 thinking 字段（安全 P1 hotfix + 回归测试）
 
 ### Gap #2: thinkingMode 默认值可能导致跨猫泄露 ⚠️
 
@@ -256,3 +266,9 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 - 2026-02-27: Phase 1+2 合并开发启动
 - 2026-02-28: PR #88 合入 main (砚砚 R2 + 云端 R5)
 - 2026-02-28: 愿景守护 — 三猫联合评审，发现 4 gaps
+- 2026-02-28: PR #91 — Thinking 嵌入 assistant 气泡 (Gap #1 修复)
+- 2026-02-28: PR #93 — 前台 metadata merge 修复
+- 2026-02-28: PR #94 — 🧠 Thinking vs 💭 心里话 label 分离 + rate_limit/compact_boundary 消费
+- 2026-02-28: PR #95 — Thinking 持久化（F5 recovery）
+- 2026-02-28: PR #97 — hardDelete 清除 thinking + 回归测试 (云端 P1 hotfix)
+- 2026-02-28: 铲屎官拍板 — 🧠 和 💭 并存，都保持折叠（Gap #1a）
