@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
-import type { TaskProgressItem } from '@/stores/chat-types';
+import type { TaskProgressItem, QueueEntry } from '@/stores/chat-types';
 import { useTaskStore } from '@/stores/taskStore';
 import { apiFetch } from '@/utils/api-client';
 const HISTORY_PAGE_SIZE = 50;
@@ -30,6 +30,8 @@ export function useChatHistory(threadId: string) {
     clearMessages,
     setCatInvocation,
     setThreadTargetCats,
+    setQueue,
+    setQueuePaused,
   } = useChatStore();
   const { setTasks } = useTaskStore();
 
@@ -187,6 +189,29 @@ export function useChatHistory(threadId: string) {
     }
   }, [threadId, setCatInvocation, setThreadTargetCats]);
 
+  // F39 Bug 1: Fetch queue state on mount/thread-switch to survive F5 refresh
+  const fetchQueue = useCallback(async () => {
+    const fetchForThread = threadId;
+    const controller = abortRef.current;
+    if (!controller) return;
+
+    try {
+      const res = await apiFetch(
+        `/api/threads/${encodeURIComponent(fetchForThread)}/queue`,
+        { signal: controller.signal },
+      );
+      if (!res.ok) return;
+      if (abortRef.current !== controller) return;
+      if (threadIdRef.current !== fetchForThread) return;
+      const data = await res.json() as { queue: QueueEntry[]; paused: boolean };
+      // Always sync server state — clears stale local data when server queue is empty
+      setQueue(fetchForThread, data.queue);
+      setQueuePaused(fetchForThread, data.paused);
+    } catch (err) {
+      if (isAbortError(err)) return;
+    }
+  }, [threadId, setQueue, setQueuePaused]);
+
   // Load history + tasks when threadId changes (handles initial mount and navigation)
   useEffect(() => {
     // Abort any in-flight requests from previous thread
@@ -222,6 +247,7 @@ export function useChatHistory(threadId: string) {
 
     void fetchTasks();
     void fetchTaskProgress();
+    void fetchQueue();
 
     return () => {
       abortRef.current?.abort();

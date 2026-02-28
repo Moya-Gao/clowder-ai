@@ -38,14 +38,15 @@ created: 2026-02-26
 ### Bug 2: 队列 UI 不显示图片附件
 - **复现**：发送带图片的消息 → 消息进入队列 → QueuePanel 只显示文字，不显示图片
 - **参考**：Codex 原生队列 UI（截图 `1772263352365-9cac5ed8.png`）
-- **修复方向**：QueuePanel 渲染时检查 `QueueEntry` 是否有关联的 contentBlocks/图片
+- **修复方向**：QueuePanel 通过 `entry.messageId` 查找关联消息的 contentBlocks 显示图片指示器
+- **⚠️ 后端遗留**：`QueueEntry` 接口不携带 `contentBlocks`，`QueueProcessor.executeEntry()` 处理排队消息时也不从 messageStore 补取 contentBlocks → 猫猫实际看不到排队消息的图片。需要在 QueueProcessor 中从 messageStore 按 messageId 补取。（前端显示已修复，后端传递待修）
 
 ### UX 改进: Steer 功能（学习 Codex 原生）
 - **描述**：Codex 原生队列有 "Steer" 按钮——用户可以在消息排队等待时追加引导（"Ask for follow-up changes"），修改猫猫处理方向
 - **参考**：截图中 Codex 队列的 Steer 按钮 + 追加输入框
 - **设计方向**：在 QueuePanel 的排队消息旁加 Steer 按钮，点击后展开追加输入框，内容合并到排队消息
 
-> 以上 3 项待 PR #90（cat-tag-regex + TD091）合入后再开 worktree 修复。
+> Bug 1 + Bug 2 前端修复：PR #TBD（fix/f039-queue-bugs）。Bug 2 后端遗留 + Steer UX 待后续处理。
 
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。

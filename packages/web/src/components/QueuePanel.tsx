@@ -17,6 +17,7 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
   const queue = useChatStore((s) => s.queue) ?? [];
   const queuePaused = useChatStore((s) => s.queuePaused) ?? false;
   const queuePauseReason = useChatStore((s) => s.queuePauseReason);
+  const messages = useChatStore((s) => s.messages);
 
   const handleRemove = useCallback(async (entryId: string) => {
     await apiFetch(`/api/threads/${threadId}/queue/${entryId}`, { method: 'DELETE' });
@@ -95,18 +96,27 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
 
       {/* Queue entries */}
       <div className="max-h-40 overflow-y-auto">
-        {visibleEntries.map((entry, idx) => (
-          <QueueEntryRow
-            key={entry.id}
-            entry={entry}
-            index={idx}
-            isFirst={idx === 0}
-            isLast={idx === visibleEntries.length - 1}
-            isPaused={queuePaused}
-            onRemove={handleRemove}
-            onMove={handleMove}
-          />
-        ))}
+        {visibleEntries.map((entry, idx) => {
+          // Count images from primary + merged messages (Cloud R2 P2)
+          const allMsgIds = [entry.messageId, ...entry.mergedMessageIds].filter(Boolean) as string[];
+          const imageCount = allMsgIds.reduce((count, msgId) => {
+            const msg = messages.find((m) => m.id === msgId);
+            return count + (msg?.contentBlocks?.filter((b) => b.type === 'image').length ?? 0);
+          }, 0);
+          return (
+            <QueueEntryRow
+              key={entry.id}
+              entry={entry}
+              index={idx}
+              isFirst={idx === 0}
+              isLast={idx === visibleEntries.length - 1}
+              isPaused={queuePaused}
+              imageCount={imageCount}
+              onRemove={handleRemove}
+              onMove={handleMove}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -119,6 +129,7 @@ function QueueEntryRow({
   isFirst,
   isLast,
   isPaused,
+  imageCount,
   onRemove,
   onMove,
 }: {
@@ -127,6 +138,7 @@ function QueueEntryRow({
   isFirst: boolean;
   isLast: boolean;
   isPaused: boolean;
+  imageCount: number;
   onRemove: (id: string) => void;
   onMove: (id: string, direction: 'up' | 'down') => void;
 }) {
@@ -145,6 +157,14 @@ function QueueEntryRow({
           <span className="text-xs text-gray-400">
             {entry.source === 'connector' ? 'Connector' : '铲屎官'}
           </span>
+          {imageCount > 0 && (
+            <span className="flex items-center gap-0.5 text-xs text-gray-400 ml-1">
+              <svg className="w-3 h-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
+              </svg>
+              {imageCount}
+            </span>
+          )}
         </div>
       </div>
 
