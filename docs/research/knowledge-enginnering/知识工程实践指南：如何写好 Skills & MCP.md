@@ -1,5 +1,6 @@
 ---
 feature_ids: []
+debt_ids: []
 topics: [knowledge-engineering, skills, mcp]
 doc_kind: research
 created: 2026-02-27
