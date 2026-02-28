@@ -26,6 +26,8 @@ packages/web/public/worker-*.js
 .agent/
 .agents/
 .augment/
+.codex/
+.gemini/
 .kiro/
 .trae/
 *.swp
