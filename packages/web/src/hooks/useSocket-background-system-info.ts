@@ -8,7 +8,7 @@ import type {
 interface SystemInfoConsumeResult {
   consumed: boolean;
   content: string;
-  variant: 'info' | 'a2a_followup' | 'thinking';
+  variant: 'info' | 'a2a_followup';
 }
 
 export function consumeBackgroundSystemInfo(
@@ -17,7 +17,7 @@ export function consumeBackgroundSystemInfo(
   options: HandleBackgroundMessageOptions,
 ): SystemInfoConsumeResult {
   let sysContent = msg.content ?? '';
-  let sysVariant: 'info' | 'a2a_followup' | 'thinking' = 'info';
+  let sysVariant: 'info' | 'a2a_followup' = 'info';
   let consumed = false;
 
   try {
@@ -81,9 +81,28 @@ export function consumeBackgroundSystemInfo(
       const by = parsed.proposedBy ?? '猫猫';
       sysContent = `${by} 提议切换到 ${parsed.proposedMode} 模式。`;
     } else if (parsed?.type === 'thinking') {
-      // F045: Render thinking as collapsible system message (matches foreground path)
-      sysContent = parsed.text ?? '';
-      sysVariant = 'thinking';
+      // F045: Embed thinking into the assistant bubble (matches foreground path)
+      const thinkingText = parsed.text ?? '';
+      if (thinkingText) {
+        let targetId = existingRef?.id;
+        if (!targetId) {
+          // Thinking arrived before any text/tool chunk — create placeholder assistant bubble
+          const streamKey = `${msg.threadId}::${msg.catId}`;
+          targetId = `bg-think-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
+          options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
+          options.store.addMessageToThread(msg.threadId, {
+            id: targetId,
+            type: 'assistant',
+            catId: msg.catId,
+            content: '',
+            timestamp: msg.timestamp,
+            isStreaming: true,
+            origin: 'stream',
+          });
+        }
+        options.store.setThreadMessageThinking(msg.threadId, targetId, thinkingText);
+      }
+      consumed = true;
     }
   } catch {
     // Not JSON; keep original content as user-facing system info.

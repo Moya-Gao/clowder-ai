@@ -64,6 +64,7 @@ export function useAgentMessages() {
     clearCatStatuses,
     setCatInvocation,
     setMessageUsage,
+    setMessageThinking,
     setPendingModeSwitchProposal,
     currentThreadId,
   } = useChatStore();
@@ -396,15 +397,27 @@ export function useAgentMessages() {
             });
             consumed = true;
           } else if (parsed?.type === 'thinking') {
-            // F045: Show thinking as collapsible system message in chat flow
-            addMessage({
-              id: `thinking-${Date.now()}-${msg.catId}-${Math.random().toString(36).slice(2, 6)}`,
-              type: 'system',
-              variant: 'thinking',
-              catId: msg.catId,
-              content: parsed.text ?? '',
-              timestamp: Date.now(),
-            });
+            // F045: Embed thinking into the current assistant bubble (like Claude Code)
+            const thinkingText = parsed.text ?? '';
+            if (thinkingText) {
+              let ref = activeRefs.current.get(msg.catId);
+              if (!ref) {
+                // Create placeholder assistant message if none exists yet
+                const id = `msg-${Date.now()}-${msg.catId}`;
+                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+                ref = activeRefs.current.get(msg.catId)!;
+                addMessage({
+                  id: ref.id,
+                  type: 'assistant',
+                  catId: msg.catId,
+                  content: '',
+                  origin: 'stream',
+                  timestamp: Date.now(),
+                  isStreaming: true,
+                });
+              }
+              setMessageThinking(ref.id, thinkingText);
+            }
             consumed = true;
           } else if (parsed?.type === 'rich_block') {
             // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
@@ -525,6 +538,7 @@ export function useAgentMessages() {
       clearCatStatuses,
       setCatInvocation,
       setPendingModeSwitchProposal,
+      setMessageThinking,
       currentThreadId,
       resetTimeout,
       clearDoneTimeout,

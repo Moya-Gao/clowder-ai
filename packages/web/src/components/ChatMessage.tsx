@@ -245,22 +245,8 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       return <EvidencePanel data={message.evidence} />;
     }
 
-    if (message.variant === 'thinking') {
-      return (
-        <div data-message-id={message.id} className="flex justify-center mb-2">
-          <details className="max-w-[85%] w-full">
-            <summary className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 transition-colors flex items-center gap-1">
-              <span className="text-[10px]">💭</span>
-              <span>思考过程</span>
-              <span className="text-[10px] text-gray-300">({message.content.length} chars)</span>
-            </summary>
-            <pre className="mt-1 mx-4 p-2 bg-gray-50 border border-gray-100 rounded text-[11px] text-gray-500 whitespace-pre-wrap max-h-40 overflow-y-auto leading-relaxed">
-              {message.content}
-            </pre>
-          </details>
-        </div>
-      );
-    }
+    // F045: variant='thinking' is deprecated — thinking is now embedded in assistant bubbles.
+    // Legacy standalone thinking messages fall through to normal system rendering.
 
     const isLegacyError = !message.variant && message.content.trim().startsWith('Error:');
     const isError = message.variant === 'error' || isLegacyError;
@@ -373,6 +359,9 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           } : undefined}
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
+          {message.thinking && (
+            <ThinkingContent content={message.thinking} className={catStyle?.font} />
+          )}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
             <ThinkingContent content={message.content} className={catStyle?.font} />
           ) : hasBlocks ? (

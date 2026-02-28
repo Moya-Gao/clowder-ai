@@ -117,7 +117,7 @@ export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'summary' | 'connector';
   /** Visual variant for system messages */
-  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup' | 'thinking';
+  variant?: 'error' | 'info' | 'tool' | 'evidence' | 'a2a_followup';
   catId?: string;
   content: string;
   /** F97: External connector source. Present when type='connector' */
@@ -139,6 +139,8 @@ export interface ChatMessage {
   extra?: { rich?: { v: 1; blocks: RichBlock[] } };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
+  /** F045: Extended thinking content, rendered as collapsible block inside assistant bubble */
+  thinking?: string;
   /** Message origin: stream = CLI stdout (thinking), callback = MCP post_message (speech) */
   origin?: 'stream' | 'callback';
   /** F35: Message visibility. undefined/public = visible to all */

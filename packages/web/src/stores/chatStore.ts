@@ -191,6 +191,8 @@ interface ChatState {
   clearCatStatuses: () => void;
   setCatInvocation: (catId: string, info: Partial<CatInvocationInfo>) => void;
   setMessageUsage: (messageId: string, usage: TokenUsage) => void;
+  /** F045: Set or append extended thinking content on an assistant message */
+  setMessageThinking: (messageId: string, thinking: string) => void;
   clearMessages: () => void;
   setCurrentMode: (mode: ModeState | null) => void;
   setPendingModeSwitchProposal: (proposal: ModeSwitchProposal | null) => void;
@@ -213,6 +215,7 @@ interface ChatState {
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
+  setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
@@ -436,6 +439,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       ),
     })),
 
+  setMessageThinking: (messageId, thinking) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? { ...m, thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking }
+          : m,
+      ),
+    })),
+
   clearMessages: () =>
     set((state) => {
       revokeBlobUrls(state.messages);
@@ -598,6 +610,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateThreadMessage(state, threadId, messageId, (m) =>
         m.metadata ? { ...m, metadata: { ...m.metadata, usage } } : m,
       ),
+    ),
+
+  /** F045: Set/append extended thinking on an assistant message in a background thread. */
+  setThreadMessageThinking: (threadId, messageId, thinking) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking,
+      })),
     ),
 
   /** Update isStreaming for a specific message in a specific thread. */
