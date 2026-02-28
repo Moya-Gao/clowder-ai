@@ -129,7 +129,7 @@ function renderToolEvents(events: ToolEvent[]) {
 }
 
 /** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
-function ThinkingContent({ content, className }: { content: string; className?: string }) {
+function ThinkingContent({ content, className, label = '💭 心里话' }: { content: string; className?: string; label?: string }) {
   // In export mode (?export=true), default to expanded so screenshots show full content
   const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const [expanded, setExpanded] = useState(isExport);
@@ -145,7 +145,7 @@ function ThinkingContent({ content, className }: { content: string; className?: 
         className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors mb-1"
       >
         <span className="text-[10px]" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▶</span>
-        <span>💭 心里话</span>
+        <span>{label}</span>
         {!expanded && <span className="text-gray-400 truncate max-w-[200px]">{preview}</span>}
       </button>
       {expanded && (
@@ -360,7 +360,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} />
+            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" />
           )}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
             <ThinkingContent content={message.content} className={catStyle?.font} />

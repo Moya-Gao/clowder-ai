@@ -163,7 +163,7 @@ export interface Thread {
   pinnedAt?: number | null;
   favorited?: boolean;
   favoritedAt?: number | null;
-  /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking */
+  /** CLI stream visibility mode: play = 💭心里话 hidden cross-cat, debug = 💭心里话 shared cross-cat. 🧠Thinking (extended reasoning) is NEVER shared regardless of mode. */
   thinkingMode?: 'debug' | 'play';
   /** F32-b: Thread-level default cat preference */
   preferredCats?: string[];
@@ -194,6 +194,20 @@ export interface TaskProgressState {
   reasoningHint?: string;
 }
 
+/** F045: Rate limit telemetry surfaced by providers (e.g. Claude rate_limit_event) */
+export interface RateLimitTelemetry {
+  /** Utilization fraction (0..1) when available */
+  utilization?: number;
+  /** ISO timestamp string for when limits reset (provider-specific) */
+  resetsAt?: string;
+}
+
+/** F045: Context compaction boundary telemetry (e.g. Claude compact_boundary) */
+export interface CompactBoundaryTelemetry {
+  /** Pre-compaction token count when available */
+  preTokens?: number;
+}
+
 export interface CatInvocationInfo {
   sessionId?: string;
   invocationId?: string;
@@ -202,6 +216,10 @@ export interface CatInvocationInfo {
   usage?: TokenUsage;
   /** F24: Latest context health snapshot */
   contextHealth?: ContextHealthData;
+  /** F045: Provider rate limit status (telemetry) */
+  rateLimit?: RateLimitTelemetry;
+  /** F045: Compaction boundary info (telemetry) */
+  compactBoundary?: CompactBoundaryTelemetry;
   /** F24 Phase B: Session chain sequence number (0-based) */
   sessionSeq?: number;
   /** F24 Phase B: Whether the session was just sealed (triggers UI indicator) */

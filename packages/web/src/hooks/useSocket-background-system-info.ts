@@ -52,6 +52,23 @@ export function consumeBackgroundSystemInfo(
         contextHealth: parsed.health,
       });
       consumed = true;
+    } else if (parsed?.type === 'rate_limit') {
+      const targetCatId = parsed.catId ?? msg.catId;
+      options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+        rateLimit: {
+          ...(typeof parsed.utilization === 'number' ? { utilization: parsed.utilization } : {}),
+          ...(typeof parsed.resetsAt === 'string' ? { resetsAt: parsed.resetsAt } : {}),
+        },
+      });
+      consumed = true;
+    } else if (parsed?.type === 'compact_boundary') {
+      const targetCatId = parsed.catId ?? msg.catId;
+      options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+        compactBoundary: {
+          ...(typeof parsed.preTokens === 'number' ? { preTokens: parsed.preTokens } : {}),
+        },
+      });
+      consumed = true;
     } else if (parsed?.type === 'task_progress') {
       const targetCatId = parsed.catId ?? msg.catId;
       const tasks = (parsed.tasks ?? []) as TaskProgressItem[];

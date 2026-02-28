@@ -792,6 +792,50 @@ describe('background thread socket handling', () => {
       });
     });
 
+    it('consumes rate_limit system_info silently (no raw JSON system bubble)', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'rate_limit',
+          catId: 'opus',
+          utilization: 0.91,
+          resetsAt: '2026-02-28T12:00:00Z',
+        }),
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(0);
+      expect(ts.catInvocations['opus']?.rateLimit).toMatchObject({
+        utilization: 0.91,
+        resetsAt: '2026-02-28T12:00:00Z',
+      });
+    });
+
+    it('consumes compact_boundary system_info silently (no raw JSON system bubble)', () => {
+      const now = Date.now();
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'compact_boundary',
+          catId: 'opus',
+          preTokens: 42000,
+        }),
+        timestamp: now,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(0);
+      expect(ts.catInvocations['opus']?.compactBoundary).toMatchObject({ preTokens: 42000 });
+    });
+
     it('consumes context_health without catId via message catId fallback', () => {
       const now = Date.now();
 

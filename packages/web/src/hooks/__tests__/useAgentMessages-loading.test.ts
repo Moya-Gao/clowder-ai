@@ -488,4 +488,61 @@ describe('useAgentMessages loading lifecycle', () => {
     );
     expect(mockSetCatInvocation).not.toHaveBeenCalledWith(undefined, expect.anything());
   });
+
+  it('consumes system_info rate_limit silently (no raw JSON system bubble)', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const payload = JSON.stringify({
+      type: 'rate_limit',
+      catId: 'opus',
+      utilization: 0.87,
+      resetsAt: '2026-02-28T12:00:00Z',
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: payload,
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockSetCatInvocation).toHaveBeenCalledWith(
+      'opus',
+      expect.objectContaining({
+        rateLimit: expect.objectContaining({ utilization: 0.87, resetsAt: '2026-02-28T12:00:00Z' }),
+      }),
+    );
+  });
+
+  it('consumes system_info compact_boundary silently (no raw JSON system bubble)', () => {
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    const payload = JSON.stringify({
+      type: 'compact_boundary',
+      catId: 'opus',
+      preTokens: 42000,
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'opus',
+        content: payload,
+      });
+    });
+
+    expect(mockAddMessage).not.toHaveBeenCalled();
+    expect(mockSetCatInvocation).toHaveBeenCalledWith(
+      'opus',
+      expect.objectContaining({
+        compactBoundary: expect.objectContaining({ preTokens: 42000 }),
+      }),
+    );
+  });
 });

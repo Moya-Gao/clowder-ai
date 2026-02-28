@@ -394,6 +394,29 @@ export function useAgentMessages() {
               });
               consumed = true;
             }
+          } else if (parsed?.type === 'rate_limit') {
+            // F045: Telemetry only — don't show as chat bubble
+            const targetCatId = parsed.catId ?? msg.catId;
+            if (targetCatId) {
+              setCatInvocation(targetCatId, {
+                rateLimit: {
+                  ...(typeof parsed.utilization === 'number' ? { utilization: parsed.utilization } : {}),
+                  ...(typeof parsed.resetsAt === 'string' ? { resetsAt: parsed.resetsAt } : {}),
+                },
+              });
+            }
+            consumed = true;
+          } else if (parsed?.type === 'compact_boundary') {
+            // F045: Telemetry only — don't show as chat bubble
+            const targetCatId = parsed.catId ?? msg.catId;
+            if (targetCatId) {
+              setCatInvocation(targetCatId, {
+                compactBoundary: {
+                  ...(typeof parsed.preTokens === 'number' ? { preTokens: parsed.preTokens } : {}),
+                },
+              });
+            }
+            consumed = true;
           } else if (parsed?.type === 'task_progress') {
             // F26: Store task progress silently
             const tasks = (parsed.tasks ?? []) as import('../stores/chat-types').TaskProgressItem[];
