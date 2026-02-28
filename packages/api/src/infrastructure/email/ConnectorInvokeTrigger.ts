@@ -14,6 +14,8 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AgentRouter } from '../../domains/cats/services/agents/routing/AgentRouter.js';
 import type { IInvocationRecordStore } from '../../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { InvocationQueue } from '../../domains/cats/services/agents/invocation/InvocationQueue.js';
+import type { QueueProcessor } from '../../domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { SocketManager } from '../../infrastructure/websocket/index.js';
 import { getDefaultCatId } from '../../config/cat-config-loader.js';
 import type { PersistenceContext } from '../../domains/cats/services/agents/routing/route-helpers.js';
@@ -24,6 +26,8 @@ export interface ConnectorInvokeTriggerOptions {
   readonly socketManager: SocketManager;
   readonly invocationRecordStore: IInvocationRecordStore;
   readonly invocationTracker: InvocationTracker;
+  readonly invocationQueue: InvocationQueue;
+  readonly queueProcessor?: QueueProcessor;
   readonly log: FastifyBaseLogger;
 }
 
@@ -61,6 +65,52 @@ export class ConnectorInvokeTrigger {
     message: string,
     messageId: string,
   ): void {
+    const { invocationTracker, invocationQueue, socketManager, log } = this.opts;
+
+    // F39: If a cat is already running in this thread, enqueue instead of direct execution.
+    // Connector messages should never abort active invocations (铲屎官: "永远排队，永远不打断").
+    if (invocationTracker.has(threadId)) {
+      const result = invocationQueue.enqueue({
+        threadId,
+        userId,
+        content: message,
+        source: 'connector',
+        targetCats: [catId],
+        intent: 'execute',
+      });
+
+      if (result.outcome === 'full') {
+        socketManager.emitToUser(userId, 'queue_full_warning', {
+          threadId,
+          source: 'connector',
+          queueSize: invocationQueue.size(threadId, userId),
+          queue: invocationQueue.list(threadId, userId),
+        });
+        log.warn({ threadId, catId, userId },
+          '[ConnectorInvokeTrigger] Queue full, connector message not enqueued');
+        return;
+      }
+
+      // Backfill messageId (connector messages already have a messageId)
+      if (result.entry) {
+        if (result.outcome === 'enqueued') {
+          invocationQueue.backfillMessageId(threadId, userId, result.entry.id, messageId);
+        } else if (result.outcome === 'merged') {
+          invocationQueue.appendMergedMessageId(threadId, userId, result.entry.id, messageId);
+        }
+      }
+
+      socketManager.emitToUser(userId, 'queue_updated', {
+        threadId,
+        queue: invocationQueue.list(threadId, userId),
+        action: result.outcome,
+      });
+      log.info({ threadId, catId, outcome: result.outcome },
+        '[ConnectorInvokeTrigger] Queued (active invocation running)');
+      return;
+    }
+
+    // No active invocation → direct execution (existing flow)
     this.executeInBackground(threadId, catId, userId, message, messageId)
       .catch((err) => {
         // Last-resort guard: prevent unhandledRejection from pre-try errors
@@ -77,6 +127,7 @@ export class ConnectorInvokeTrigger {
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, log } = this.opts;
     const targetCats: CatId[] = [catId];
+    let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
 
     // ① Atomic create InvocationRecord
     const createResult = await invocationRecordStore.create({
@@ -100,6 +151,7 @@ export class ConnectorInvokeTrigger {
 
     try {
       if (controller?.signal.aborted) {
+        finalStatus = 'canceled';
         await invocationRecordStore.update(createResult.invocationId, { status: 'canceled' });
         log.warn(`[ConnectorInvokeTrigger] Thread ${threadId} is being deleted, skipping`);
         return;
@@ -169,6 +221,7 @@ export class ConnectorInvokeTrigger {
             usageByCat: Object.fromEntries(collectedUsage),
           } : {}),
         });
+        finalStatus = 'succeeded';
       }
 
       log.info(`[ConnectorInvokeTrigger] Invocation ${createResult.invocationId} completed for ${catId} in thread ${threadId}`);
@@ -194,6 +247,10 @@ export class ConnectorInvokeTrigger {
     } finally {
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       invocationTracker.complete(threadId, controller);
+      // F39 P1 fix: Notify queue processor for auto-dequeue chain
+      // (same pattern as messages.ts and invocations.ts)
+      this.opts.queueProcessor?.onInvocationComplete(threadId, finalStatus)
+        .catch(() => { /* best-effort, don't crash background task */ });
     }
   }
 }

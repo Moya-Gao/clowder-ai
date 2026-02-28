@@ -425,6 +425,8 @@ async function main(): Promise<void> {
     socketManager,
     invocationRecordStore,
     invocationTracker,
+    invocationQueue,
+    queueProcessor,
     log: app.log,
   });
 

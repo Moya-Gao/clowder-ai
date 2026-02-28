@@ -3,6 +3,8 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { ConnectorInvokeTrigger } from '../dist/infrastructure/email/ConnectorInvokeTrigger.js';
 
+import { InvocationQueue } from '../dist/domains/cats/services/agents/invocation/InvocationQueue.js';
+
 // ─── Mocks ───────────────────────────────────────────────────────
 
 function noopLog() {
@@ -62,9 +64,11 @@ function mockRouter(opts = {}) {
 function mockSocketManager() {
   const broadcasts = /** @type {Array<{msg: any, threadId: string}>} */ ([]);
   const roomBroadcasts = /** @type {Array<{room: string, event: string, data: any}>} */ ([]);
+  const userEmits = /** @type {Array<{userId: string, event: string, data: any}>} */ ([]);
   return {
     broadcasts,
     roomBroadcasts,
+    userEmits,
     /** @type {any} */
     manager: {
       broadcastAgentMessage(msg, threadId) {
@@ -72,6 +76,9 @@ function mockSocketManager() {
       },
       broadcastToRoom(room, event, data) {
         roomBroadcasts.push({ room, event, data });
+      },
+      emitToUser(userId, event, data) {
+        userEmits.push({ userId, event, data });
       },
     },
   };
@@ -110,11 +117,15 @@ function mockInvocationTracker() {
   const starts = /** @type {Array<{threadId: string}>} */ ([]);
   const completes = /** @type {Array<{threadId: string}>} */ ([]);
   let aborted = false;
+  const activeThreads = new Set();
 
   return {
     starts,
     completes,
     setAborted(val) { aborted = val; },
+    /** Mark a thread as having an active invocation (for queue tests) */
+    setActive(threadId) { activeThreads.add(threadId); },
+    clearActive(threadId) { activeThreads.delete(threadId); },
     /** @type {any} */
     tracker: {
       start(threadId, userId, targetCats) {
@@ -124,6 +135,9 @@ function mockInvocationTracker() {
       },
       complete(threadId, controller) {
         completes.push({ threadId });
+      },
+      has(threadId) {
+        return activeThreads.has(threadId);
       },
     },
   };
@@ -141,11 +155,15 @@ describe('ConnectorInvokeTrigger', () => {
   /** @type {ReturnType<typeof mockInvocationTracker>} */
   let trackerMock;
 
+  /** @type {InvocationQueue} */
+  let queue;
+
   beforeEach(() => {
     routerMock = mockRouter();
     socketMock = mockSocketManager();
     recordMock = mockInvocationRecordStore();
     trackerMock = mockInvocationTracker();
+    queue = new InvocationQueue();
   });
 
   function createTrigger(overrides = {}) {
@@ -154,6 +172,7 @@ describe('ConnectorInvokeTrigger', () => {
       socketManager: socketMock.manager,
       invocationRecordStore: recordMock.store,
       invocationTracker: trackerMock.tracker,
+      invocationQueue: queue,
       log: noopLog(),
       ...overrides,
     });
@@ -339,5 +358,138 @@ describe('ConnectorInvokeTrigger', () => {
 
     // Should NOT call routeExecution (error happened before)
     assert.strictEqual(routerMock.calls.length, 0);
+  });
+
+  // ── F39 Phase C: Queue mode tests ──
+
+  describe('queue mode (active invocation running)', () => {
+    it('enqueues connector message when another cat is running', async () => {
+      trackerMock.setActive('thread-1');
+      const trigger = createTrigger();
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Review msg', 'msg-1');
+      await waitForTrigger();
+
+      // Should NOT call routeExecution (queued instead)
+      assert.strictEqual(routerMock.calls.length, 0);
+      // Should NOT start tracker (no direct execution)
+      assert.strictEqual(trackerMock.starts.length, 0);
+      // Should NOT create InvocationRecord (no direct execution)
+      assert.strictEqual(recordMock.creates.length, 0);
+
+      // Queue should have the entry
+      const entries = queue.list('thread-1', 'user-1');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0].content, 'Review msg');
+      assert.strictEqual(entries[0].source, 'connector');
+      assert.strictEqual(entries[0].messageId, 'msg-1');
+      assert.deepStrictEqual(entries[0].targetCats, ['opus']);
+    });
+
+    it('emits queue_updated after enqueue', async () => {
+      trackerMock.setActive('thread-1');
+      const trigger = createTrigger();
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Review msg', 'msg-1');
+      await waitForTrigger();
+
+      const queueUpdate = socketMock.userEmits.find(e => e.event === 'queue_updated');
+      assert.ok(queueUpdate, 'Should emit queue_updated');
+      assert.strictEqual(queueUpdate.userId, 'user-1');
+      assert.strictEqual(queueUpdate.data.threadId, 'thread-1');
+      assert.strictEqual(queueUpdate.data.action, 'enqueued');
+      assert.ok(Array.isArray(queueUpdate.data.queue));
+    });
+
+    it('merges consecutive connector messages from same source', async () => {
+      trackerMock.setActive('thread-1');
+      const trigger = createTrigger();
+
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'First review', 'msg-1');
+      await waitForTrigger();
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Second review', 'msg-2');
+      await waitForTrigger();
+
+      const entries = queue.list('thread-1', 'user-1');
+      assert.strictEqual(entries.length, 1, 'Should merge into one entry');
+      assert.ok(entries[0].content.includes('First review'));
+      assert.ok(entries[0].content.includes('Second review'));
+      assert.strictEqual(entries[0].messageId, 'msg-1');
+      assert.deepStrictEqual(entries[0].mergedMessageIds, ['msg-2']);
+    });
+
+    it('emits queue_full_warning when queue is full', async () => {
+      trackerMock.setActive('thread-1');
+      const trigger = createTrigger();
+
+      // Fill the queue (5 entries = MAX_QUEUE_DEPTH)
+      // Use different targetCats to prevent merge
+      const cats = ['opus', 'codex', 'opus', 'codex', 'opus'];
+      for (let i = 0; i < 5; i++) {
+        trigger.trigger('thread-1', /** @type {any} */ (cats[i]), 'user-1', `msg ${i}`, `msg-${i}`);
+        await waitForTrigger();
+      }
+
+      // 6th message should trigger full warning
+      trigger.trigger('thread-1', /** @type {any} */ ('codex'), 'user-1', 'overflow msg', 'msg-overflow');
+      await waitForTrigger();
+
+      const fullWarning = socketMock.userEmits.find(e => e.event === 'queue_full_warning');
+      assert.ok(fullWarning, 'Should emit queue_full_warning');
+      assert.strictEqual(fullWarning.data.source, 'connector');
+
+      // Should NOT have emitted queue_updated for the overflow
+      const lastUpdate = socketMock.userEmits.filter(e => e.event === 'queue_updated');
+      // 5 successful enqueues = 5 queue_updated events (but not 6)
+      assert.strictEqual(lastUpdate.length, 5);
+    });
+
+    it('P1 fix: direct execution calls queueProcessor.onInvocationComplete on success', async () => {
+      // Codex cloud review P1: connector direct execution doesn't notify QueueProcessor,
+      // so queued follow-ups stall forever. This test verifies the fix.
+      const qpCalls = /** @type {Array<{threadId: string, status: string}>} */ ([]);
+      const mockQueueProcessor = /** @type {any} */ ({
+        async onInvocationComplete(threadId, status) {
+          qpCalls.push({ threadId, status });
+        },
+      });
+
+      const trigger = createTrigger({ queueProcessor: mockQueueProcessor });
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+      await waitForTrigger();
+
+      // Must have notified QueueProcessor with 'succeeded'
+      assert.strictEqual(qpCalls.length, 1, 'Should call onInvocationComplete once');
+      assert.strictEqual(qpCalls[0].threadId, 'thread-1');
+      assert.strictEqual(qpCalls[0].status, 'succeeded');
+    });
+
+    it('P1 fix: direct execution calls queueProcessor.onInvocationComplete on failure', async () => {
+      const qpCalls = /** @type {Array<{threadId: string, status: string}>} */ ([]);
+      const mockQueueProcessor = /** @type {any} */ ({
+        async onInvocationComplete(threadId, status) {
+          qpCalls.push({ threadId, status });
+        },
+      });
+
+      routerMock = mockRouter({ throwError: new Error('boom') });
+      const trigger = createTrigger({ router: routerMock.router, queueProcessor: mockQueueProcessor });
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'msg', 'msg-1');
+      await waitForTrigger();
+
+      assert.strictEqual(qpCalls.length, 1, 'Should call onInvocationComplete once');
+      assert.strictEqual(qpCalls[0].threadId, 'thread-1');
+      assert.strictEqual(qpCalls[0].status, 'failed');
+    });
+
+    it('executes directly when no active invocation', async () => {
+      // trackerMock.setActive NOT called → has() returns false
+      const trigger = createTrigger();
+      trigger.trigger('thread-1', /** @type {any} */ ('opus'), 'user-1', 'Review msg', 'msg-1');
+      await waitForTrigger();
+
+      // Should call routeExecution (direct execution)
+      assert.strictEqual(routerMock.calls.length, 1);
+      // Queue should be empty
+      assert.strictEqual(queue.list('thread-1', 'user-1').length, 0);
+    });
   });
 });
