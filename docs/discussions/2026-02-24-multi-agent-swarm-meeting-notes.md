@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F037, F049]
 topics: [multi, agent, swarm]
 doc_kind: discussion
 created: 2026-02-24

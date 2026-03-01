@@ -16,7 +16,6 @@ created: 2026-02-26
 |----|------|--------|-------|------|
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
-| F015 | Backlog 管理 | in-progress | 三猫 | [F015](features/F015-backlog-management.md) |
 | F021 | Signal Hunter 集成 | in-progress | 三猫 | [F021](features/F021-signal-study-mode.md) |
 | F033 | Session Chain 策略可配置化 | in-progress | 三猫 | [F033](features/F033-session-strategy-configurability.md) |
 | F036 | Logo 一笔画动画（Stroke Drawing Animation） | in-progress | 三猫 | [F036](features/F036-logo-stroke-animation.md) |
@@ -27,3 +26,4 @@ created: 2026-02-26
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | [F044](features/F044-channel-activity-system.md) |
 | F046 | 愿景守护协议 — Anti-Drift Protocol | in-progress | 三猫 | [F046](features/F046-anti-drift-protocol.md) |
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
+| F049 | Mission Control — Backlog Center（领取/派发/自动开 Thread） | spec | 三猫 | [F049](features/F049-mission-control-backlog-center.md) |

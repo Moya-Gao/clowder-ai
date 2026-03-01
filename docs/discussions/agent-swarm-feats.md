@@ -1,5 +1,5 @@
 ---
-feature_ids: []
+feature_ids: [F037, F049]
 topics: [agent, swarm, feats]
 doc_kind: discussion
 created: 2026-02-26
@@ -10,7 +10,7 @@ created: 2026-02-26
 **来源**: [Multi-Agent 协同模式讨论会议纪要](./2026-02-24-multi-agent-swarm-meeting-notes.md)
 **Thread ID**: `thread_mm1cpvpw0ndntsfc`
 **日期**: 2026-02-24
-**BACKLOG 入口**: [F37](../BACKLOG.md#feature-requests--新功能需求)
+**Feature 入口**: [F037](../features/F037-agent-swarm.md)
 
 ---
 
@@ -26,7 +26,7 @@ created: 2026-02-26
 | F-Swarm-5 | Brainstorm 收敛 → 结构化产出 | P1 | 6 | 待讨论（依赖 F-Swarm-2 结论） |
 | F-Swarm-1 | Research Swarm 产品化 | P2 | 7 | 待讨论（手动可用） |
 | F-Ground-2 | 猫猫日报 / 主动触发 | P3 | 8 | 待讨论（需 cron 基础设施） |
-| F-Swarm-3 | Backlog 领取 + 自动开新 Thread | P3 | 9 | 待讨论（前提不存在） |
+| F-Swarm-3 | Backlog 领取 + 自动开新 Thread | P3 | 9 | ✅ 已立项为 [F049](../features/F049-mission-control-backlog-center.md)（spec） |
 
 ---
 
@@ -160,6 +160,12 @@ created: 2026-02-26
 同意铲屎官的判断——**当前架构没有常驻线程，这个 feat 的前提不存在**。建议优先级降到 P3。
 
 **替代思路**：不需要猫主动监控 Backlog，而是铲屎官开新 thread 时，系统自动展示相关 Backlog 条目作为建议。类似"你可能想做的事"。这避免了 daemon 问题，把触发权留在铲屎官手里。
+
+### 2026-03-01 更新
+
+本 Feat 已被产品化为 **F049（Mission Control / Backlog Center）**：
+- 不依赖“常驻 thread”作为前提：Backlog 作为全局任务池由 Redis 活数据层承载
+- 执行仍隔离在新建 thread 内：建议领取 → 铲屎官批准 → 自动开新 thread
 
 ---
 

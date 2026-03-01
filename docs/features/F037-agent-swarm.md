@@ -13,22 +13,23 @@ created: 2026-02-26
 > **Created**: 2026-02-26
 
 ## Why
-- [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
+- [2026-02-24 讨论](../discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
 
 ## What
 - **F37**: 四猫 + 铲屎官讨论 multi-agent 协同方式借鉴。8 个 feat 拆解（4.5 初版 + 4.6 补充 + 铲屎官反馈）。追溯链：Feat 拆解（入口） → 会议纪要 → 调研报告。核心共识：Swarm 是阶段性工具（Research+Brainstorm），决策权漏斗模式，Mode 系统需从机械模板转向柔性引导。
 
 ## Links
-- [2026-02-24 讨论](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
-- [Feat 拆解（入口）](./discussions/agent-swarm-feats.md)
-- [会议纪要](./discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
-- [调研报告](./research/2026-02-24-multi-agent-comparison/)
+- [2026-02-24 讨论](../discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
+- [Feat 拆解（入口）](../discussions/agent-swarm-feats.md)
+- [会议纪要](../discussions/2026-02-24-multi-agent-swarm-meeting-notes.md)
+- [调研报告（synthesis）](../research/2026-02-24-multi-agent-comparison-synthesis.md)
+- [F049: Mission Control — Backlog Center](./F049-mission-control-backlog-center.md)
 
 ## Key Decisions
 - 历史记录未单列关键决策
 
 ## Dependencies
-- 无显式依赖声明
+- **Spawns**: F049（将 F‑Swarm‑3 产品化为 Mission Control / Backlog Center）
 
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。
