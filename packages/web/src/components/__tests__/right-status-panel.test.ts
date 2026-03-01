@@ -109,6 +109,108 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('布偶猫');
   });
 
+  it('shows non-target cat in 当前调用 when it has task progress', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming', codex: 'pending' },
+      catInvocations: {
+        opus: { startedAt: Date.now() },
+        codex: {
+          startedAt: Date.now() - 120000,
+          taskProgress: {
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' },
+            ],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'running',
+          },
+        },
+      },
+      threadId: 'thread-codex-plan',
+      messageSummary: {
+        total: 8,
+        assistant: 5,
+        system: 3,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('当前调用');
+    expect(html).toContain('缅因猫');
+    expect(html).toContain('执行计划');
+    expect(html).toContain('Reviewing PR');
+  });
+
+  it('keeps completed snapshots out of 当前调用', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming', codex: 'done' },
+      catInvocations: {
+        opus: { startedAt: Date.now() },
+        codex: {
+          startedAt: Date.now() - 120000,
+          taskProgress: {
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'completed' },
+            ],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'completed',
+          },
+        },
+      },
+      threadId: 'thread-codex-completed',
+      messageSummary: {
+        total: 8,
+        assistant: 5,
+        system: 3,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('当前调用');
+    expect(html).toContain('历史参与');
+    expect(html).toContain('布偶猫');
+    expect(html).not.toContain('Review PR');
+  });
+
+  it('keeps interrupted snapshots in 当前调用 with continue action', () => {
+    const html = render({
+      intentMode: 'execute',
+      targetCats: ['opus'],
+      catStatuses: { opus: 'streaming', codex: 'done' },
+      catInvocations: {
+        opus: { startedAt: Date.now() },
+        codex: {
+          startedAt: Date.now() - 120000,
+          taskProgress: {
+            tasks: [
+              { id: 'c-1', subject: 'Review PR', status: 'in_progress', activeForm: 'Reviewing PR' },
+            ],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'interrupted',
+          },
+        },
+      },
+      threadId: 'thread-codex-interrupted',
+      messageSummary: {
+        total: 8,
+        assistant: 5,
+        system: 3,
+        evidence: 0,
+        followup: 0,
+      },
+    });
+
+    expect(html).toContain('当前调用');
+    expect(html).toContain('缅因猫');
+    expect(html).toContain('已中断');
+    expect(html).toContain('继续');
+  });
+
   it('renders task progress when available', () => {
     const html = render({
       intentMode: 'execute',

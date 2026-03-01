@@ -83,4 +83,26 @@ describe('MobileStatusSheet', () => {
     act(() => { closeBtn?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
     expect(closed).toBe(true);
   });
+
+  it('does not mark completed snapshots as 当前调用', () => {
+    const props = {
+      ...baseProps,
+      open: true,
+      targetCats: [],
+      catStatuses: { codex: 'done' as CatStatus },
+      catInvocations: {
+        codex: {
+          startedAt: Date.now() - 1000,
+          taskProgress: {
+            tasks: [{ id: 't-1', subject: 'Done item', status: 'completed' }],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'completed' as const,
+          },
+        },
+      },
+    };
+    act(() => { root.render(React.createElement(MobileStatusSheet, props)); });
+    expect(container.textContent).toContain('猫猫状态');
+    expect(container.textContent).not.toContain('当前调用');
+  });
 });

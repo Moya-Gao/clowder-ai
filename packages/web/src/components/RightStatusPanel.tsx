@@ -296,13 +296,18 @@ export function RightStatusPanel({
 }: RightStatusPanelProps) {
   // F26: Split into active (working now) vs history (appeared before)
   const { activeCats, historyCats } = useMemo(() => {
+    const snapshotCats = Object.entries(catInvocations)
+      .filter(([, inv]) => {
+        const taskProgress = inv.taskProgress;
+        if (!taskProgress || taskProgress.tasks.length === 0) return false;
+        return taskProgress.snapshotStatus !== 'completed';
+      })
+      .map(([catId]) => catId);
+    const active = Array.from(new Set([...targetCats, ...snapshotCats]));
     const allParticipants = new Set([
-      ...targetCats,
+      ...active,
       ...Object.keys(catInvocations),
     ]);
-    const active = targetCats.length > 0
-      ? Array.from(new Set(targetCats))
-      : [];
     const history = [...allParticipants].filter((c) => !active.includes(c));
     return { activeCats: active, historyCats: history };
   }, [targetCats, catInvocations]);

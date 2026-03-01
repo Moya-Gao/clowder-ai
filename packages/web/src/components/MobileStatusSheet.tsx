@@ -30,12 +30,19 @@ export function MobileStatusSheet({
   const { getCatById } = useCatData();
 
   const activeCats = useMemo(() => {
-    return targetCats.length > 0 ? Array.from(new Set(targetCats)) : [];
-  }, [targetCats]);
+    const snapshotCats = Object.entries(catInvocations)
+      .filter(([, inv]) => {
+        const taskProgress = inv.taskProgress;
+        if (!taskProgress || taskProgress.tasks.length === 0) return false;
+        return taskProgress.snapshotStatus !== 'completed';
+      })
+      .map(([catId]) => catId);
+    return Array.from(new Set([...targetCats, ...snapshotCats]));
+  }, [targetCats, catInvocations]);
 
   const allParticipants = useMemo(() => {
-    return [...new Set([...targetCats, ...Object.keys(catInvocations)])];
-  }, [targetCats, catInvocations]);
+    return [...new Set([...activeCats, ...Object.keys(catInvocations)])];
+  }, [activeCats, catInvocations]);
 
   return (
     <>
