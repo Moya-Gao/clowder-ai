@@ -64,7 +64,7 @@ created: 2026-03-01
 | **Discussion** | `docs/discussions/2026-02-24-multi-agent-swarm-meeting-notes.md` | “两层任务面：Global vs Thread” + swarm 适用阶段 |
 | **Discussion** | `docs/discussions/agent-swarm-feats.md` | 其中的 F-Swarm-3：Backlog 领取 + 自动开新 Thread |
 | **Feature** | `docs/features/F037-agent-swarm.md` | 上游：协同范式与拆解 |
-| **Feature** | `docs/features/F040-backlog-reorganization.md` | 参考：docs 真相源与追溯链（但本 Feature 目标是产品内调度层） |
+| **Feature** | `docs/features/F40-backlog-reorganization.md` | 参考：docs 真相源与追溯链（但本 Feature 目标是产品内调度层） |
 
 ## Key Decisions
 

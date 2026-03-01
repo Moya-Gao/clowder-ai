@@ -54,5 +54,5 @@ pnpm -r --if-present run build            # ✅ exit 0 (warnings only)
 ### 相关文档
 - Feature: `docs/features/F049-mission-control-backlog-center.md`
 - 上游 Feature: `docs/features/F037-agent-swarm.md`
-- 上游机制: `docs/features/F040-backlog-reorganization.md`
+- 上游机制: `docs/features/F40-backlog-reorganization.md`
 - Discussion: `docs/discussions/2026-03-01-f049-mission-control-backlog-center/README.md`
