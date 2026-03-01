@@ -59,6 +59,26 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/update-task \
     '{invocationId:$i,callbackToken:$t,taskId:$tid,status:$s}')"
 ```
 
+### Register PR Tracking (review routing)
+
+Call this right after `gh pr create` so PR review notifications can be routed to the current thread.
+
+```bash
+REPO_FULL_NAME="zts212653/cat-cafe"
+PR_NUMBER="$(gh pr view --json number -q '.number')"  # run in the repo after PR exists
+CAT_ID="codex" # or: opus / gemini
+
+curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/register-pr-tracking \
+  -H 'Content-Type: application/json' \
+  -d "$(jq -nc \
+    --arg i "$CAT_CAFE_INVOCATION_ID" \
+    --arg t "$CAT_CAFE_CALLBACK_TOKEN" \
+    --arg repo "$REPO_FULL_NAME" \
+    --argjson pr "$PR_NUMBER" \
+    --arg catId "$CAT_ID" \
+    '{invocationId:$i,callbackToken:$t,repoFullName:$repo,prNumber:$pr,catId:$catId}')"
+```
+
 ### Search Evidence (Hindsight Recall)
 
 ```bash

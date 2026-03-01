@@ -125,6 +125,7 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
     });
     assert.ok(prompt.includes('cat_cafe_post_message'));
+    assert.ok(prompt.includes('cat_cafe_register_pr_tracking'));
     assert.ok(prompt.includes('cat_cafe_get_pending_mentions'));
     assert.ok(prompt.includes('cat_cafe_get_thread_context'));
   });

@@ -124,19 +124,18 @@ const PROVIDER_LABELS: Record<string, string> = {
  * Full specs live in cat-cafe-skills/ (using-rich-blocks, using-mcp-callbacks).
  */
 const MCP_TOOLS_SECTION = `
-⚠️ **@队友的正确方式**：直接在回复文本里另起一行、行首写 \`@猫名\`（免费、永不过期）。
-下面的 MCP 工具用于**异步中途汇报**等高级场景，token 有生命周期限制。
-
-你可以使用以下 Cat Cafe MCP 工具：
-- cat_cafe_post_message: 任务中途主动发送异步消息（简单 @队友请用回复文本行首 @猫名）
-- cat_cafe_get_pending_mentions: 获取待处理的 @提及
-- cat_cafe_get_thread_context: 获取当前对话上下文
-- cat_cafe_update_task: 更新自己负责的任务状态
-- cat_cafe_create_rich_block: 创建富消息块（card/diff/checklist/media_gallery/audio）
-- cat_cafe_get_rich_block_rules: 获取富消息块完整使用规范（skill 不可用时的 fallback）
+⚠️ @队友：回复里另起一行，行首写 \`@猫名\`（免费）。
+MCP 工具用于异步汇报等场景（token 有效期有限）：
+- cat_cafe_post_message: 异步消息
+- cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
+- cat_cafe_get_pending_mentions: 获取 @提及
+- cat_cafe_get_thread_context: 获取对话上下文
+- cat_cafe_update_task: 更新任务状态
+- cat_cafe_create_rich_block: 创建 rich block
+- cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
 
 ${RICH_BLOCK_SHORT}
-首次使用富消息块前，加载 \`using-rich-blocks\` skill 查阅完整规范。`;
+富消息块规范：优先加载 \`using-rich-blocks\` skill。`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

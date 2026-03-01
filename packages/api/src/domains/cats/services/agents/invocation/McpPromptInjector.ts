@@ -58,15 +58,14 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
   return `## 协作方式
 
 ### @队友（最常用！推荐方式）
-想 @其他猫？**直接在你的回复文本里另起一行、行首写 \`@猫名\`**。
-系统会自动检测并触发 A2A 协作，免费、永不过期。
+想 @其他猫？回复里另起一行、行首写 \`@猫名\`。
 同族多分身时用**唯一句柄**（例如 \`${exampleHandle}\`）避免歧义。
 ✅ 正确：回复末尾另起一行写 \`${exampleHandle} 请帮我 review\`
-❌ 错误：用 curl 调 post-message 只是为了 @ 队友（token 会过期！）
+❌ 错误：用 curl 调 post-message 只是为了 @ 队友
 
 ### HTTP 回调工具（异步场景）
 凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`（环境变量）
-可用工具: post-message / thread-context / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
+可用工具: post-message / register-pr-tracking / thread-context / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
 需要 curl 示例和完整用法，加载 \`using-mcp-callbacks\` skill。
 Skill 不可用时，GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\` 获取同等文档。
 需要富消息块规范，加载 \`using-rich-blocks\` skill（fallback: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\`）。
