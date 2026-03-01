@@ -1,6 +1,15 @@
 ---
 name: quality-gate
-description: Verifies implementation matches spec AND confirms evidence before completion claims. Use after finishing implementation, before requesting review, or before claiming any work is done. Triggers on "开发完了", "实现完成", "准备提 review", "phase 完成", "ready for review", "完成了", "done", "测试通过了".
+description: >
+  开发完成后的自检门禁：愿景对照 + spec 合规 + 验证。
+  Use when: 开发完了准备提 review、声称完成了、准备交付。
+  Not for: 收到 review 反馈（用 receive-review）、merge（用 merge-gate）。
+  Output: Spec 合规报告（含愿景覆盖度）。
+triggers:
+  - "开发完了"
+  - "准备 review"
+  - "自检"
+  - "声称完成"
 ---
 
 > **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 2 的执行细节。

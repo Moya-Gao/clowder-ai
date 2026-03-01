@@ -1,6 +1,14 @@
 ---
 name: worktree
-description: Use when starting any non-trivial feature work — creates an isolated git worktree with correct directory placement, Redis isolation, and safety verification
+description: >
+  创建 Git worktree 隔离开发环境，含 Redis 6398 安全配置。
+  Use when: 开始任何代码修改、新功能开发、bug fix。
+  Not for: 纯文档修改（≤5 行）、不涉及代码的讨论。
+  Output: 隔离的 worktree + 正确的 Redis/环境配置。
+triggers:
+  - "开始开发"
+  - "新 worktree"
+  - "开 worktree"
 renamed-from: using-git-worktrees
 ---
 

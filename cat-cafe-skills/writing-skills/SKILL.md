@@ -1,6 +1,14 @@
 ---
 name: writing-skills
-description: Use when creating new Cat Cafe skills, editing existing skills, or verifying skill quality before deployment. Not for using skills (just trigger the relevant skill directly).
+description: >
+  创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
+  Use when: 写新 skill、修改现有 skill、验证 skill 质量。
+  Not for: 使用 skill（直接触发对应 skill）。
+  Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
+triggers:
+  - "写 skill"
+  - "新 skill"
+  - "修改 skill"
 ---
 
 # Writing Skills — Skill 元技能

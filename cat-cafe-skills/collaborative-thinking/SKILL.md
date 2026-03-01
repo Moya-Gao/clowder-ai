@@ -1,6 +1,17 @@
 ---
 name: collaborative-thinking
-description: Three thinking modes for design and discussion. Mode A: solo brainstorm (idea → spec, 1:1 iterative). Mode B: multi-cat independent thinking (swarm, protect opinion diversity). Mode C: convergence settlement (三件套 after any discussion). Triggers on: brainstorm, 多猫讨论, 独立思考, 收敛, 沉淀, 讨论结束, design exploration, architecture discussion.
+description: >
+  单人或多猫的创意探索、独立思考、讨论收敛。
+  Use when: brainstorm、多猫独立思考、讨论结束需要收敛、方向性问题需要多视角。
+  Not for: 已有明确 spec 直接写代码、单猫执行已定方案。
+  Output: 收敛报告（共识/分歧/行动项）+ 三件套沉淀检查。
+triggers:
+  - "brainstorm"
+  - "讨论"
+  - "多猫独立思考"
+  - "收敛"
+  - "讨论结束"
+  - "总结一下"
 ---
 
 # Collaborative Thinking

@@ -279,7 +279,7 @@ function CatFamilyToggles({
 
   return (
     <div className="pt-2 border-t border-indigo-100/30">
-      <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">各猫配置</span>
+      <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">启用状态（按猫）</span>
       <div className="mt-1.5 space-y-1">
         {catFamilies.map((family) => {
           const isOpen = openFamily === family.id;

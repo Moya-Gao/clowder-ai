@@ -3,7 +3,7 @@
  * GET /api/skills — Cat Café 共享 Skills 看板数据
  *
  * 扫描 cat-cafe-skills/ 源目录，检查三猫 symlink 挂载状态，
- * 解析 BOOTSTRAP.md 提取分类和触发说明。
+ * 解析 BOOTSTRAP.md 提取分类，解析 manifest.yaml 提取触发词。
  */
 
 import { readdir, readFile, lstat, readlink, realpath } from 'fs/promises';
@@ -12,6 +12,7 @@ import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
 import { fileURLToPath } from 'url';
 import type { FastifyPluginAsync } from 'fastify';
+import { parse as parseYaml } from 'yaml';
 import { resolveUserId } from '../utils/request-identity.js';
 
 interface SkillMount {
@@ -94,6 +95,11 @@ interface BootstrapEntry {
   trigger: string;
 }
 
+interface SkillMeta {
+  description?: string;
+  triggers?: string[];
+}
+
 /** Parse BOOTSTRAP.md to extract skill entries with categories and triggers. */
 async function parseBootstrap(bootstrapPath: string): Promise<Map<string, BootstrapEntry>> {
   const result = new Map<string, BootstrapEntry>();
@@ -123,6 +129,35 @@ async function parseBootstrap(bootstrapPath: string): Promise<Map<string, Bootst
   return result;
 }
 
+/** Parse manifest.yaml and extract skill description/triggers. */
+async function parseManifestSkillMeta(skillsSrcDir: string): Promise<Map<string, SkillMeta>> {
+  const result = new Map<string, SkillMeta>();
+  const manifestPath = join(skillsSrcDir, 'manifest.yaml');
+  try {
+    const content = await readFile(manifestPath, 'utf-8');
+    const parsed = parseYaml(content) as {
+      skills?: Record<string, { description?: unknown; triggers?: unknown }>;
+    } | null;
+    if (!parsed?.skills || typeof parsed.skills !== 'object') return result;
+
+    for (const [name, meta] of Object.entries(parsed.skills)) {
+      const description = typeof meta?.description === 'string' ? meta.description.trim() : undefined;
+      const triggers = Array.isArray(meta?.triggers)
+        ? meta.triggers.filter((v): v is string => typeof v === 'string').map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      if (description || (triggers && triggers.length > 0)) {
+        result.set(name, {
+          ...(description ? { description } : {}),
+          ...(triggers && triggers.length > 0 ? { triggers } : {}),
+        });
+      }
+    }
+  } catch {
+    // manifest missing or invalid
+  }
+  return result;
+}
+
 export const skillsRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/skills', async (request, reply) => {
     const userId = resolveUserId(request);
@@ -140,9 +175,10 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       gemini: join(home, '.gemini', 'skills'),
     };
 
-    const [sourceSkills, bootstrapEntries] = await Promise.all([
+    const [sourceSkills, bootstrapEntries, manifestMeta] = await Promise.all([
       listSkillDirs(skillsSrc),
       parseBootstrap(bootstrapPath),
+      parseManifestSkillMeta(skillsSrc),
     ]);
 
     // Build mount status lookup for each source skill
@@ -157,10 +193,14 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
           isCorrectSymlink(join(catDirs.gemini, name), expectedTarget),
         ]);
         const entry = bootstrapEntries.get(name);
+        const meta = manifestMeta.get(name);
+        const trigger = meta?.triggers?.length
+          ? meta.triggers.join('、')
+          : (entry?.trigger ?? '');
         mountLookup.set(name, {
           name,
           category: entry?.category ?? '未分类',
-          trigger: entry?.trigger ?? '',
+          trigger,
           mounts: { claude, codex, gemini },
         });
       }),

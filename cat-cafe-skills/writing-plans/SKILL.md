@@ -1,6 +1,14 @@
 ---
 name: writing-plans
-description: Use when you have a spec or requirements for a multi-step task, before touching code
+description: >
+  将 spec/需求拆分为可执行的分步实施计划。
+  Use when: 有 spec 或需求，准备动手前需要拆分步骤。
+  Not for: trivial 改动（≤5 行）、已有详细计划。
+  Output: 分步实施计划（含 TDD 步骤和检查点）。
+triggers:
+  - "写计划"
+  - "implementation plan"
+  - "拆分步骤"
 ---
 
 # Writing Plans

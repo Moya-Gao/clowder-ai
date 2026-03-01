@@ -1,6 +1,15 @@
 ---
 name: receive-review
-description: Handle incoming code review feedback with Red-Green verification and no performative agreement. Use when receiving review feedback, before implementing any fixes, or when a reviewer provides comments. Triggers on "review 结果", "review 意见", "缅因猫说", "reviewer 说", "fix these", "收到 review".
+description: >
+  处理 reviewer 反馈：Red→Green 修复 + 技术论证（禁止表演性同意）。
+  Use when: 收到 review 结果、reviewer 提了 P1/P2、需要处理反馈。
+  Not for: 发 review 请求（用 request-review）、自检（用 quality-gate）。
+  Output: 逐项修复确认 + reviewer 放行。
+triggers:
+  - "review 结果"
+  - "review 意见"
+  - "reviewer 说"
+  - "fix these"
 ---
 
 > **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 3b 的执行细节。

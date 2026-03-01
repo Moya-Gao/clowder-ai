@@ -1,6 +1,15 @@
 ---
 name: tdd
-description: Use when implementing any feature or bugfix, before writing implementation code
+description: >
+  Red-Green-Refactor 测试驱动开发纪律。
+  Use when: 写新功能代码、修 bug、任何实现工作。
+  Not for: 纯文档、纯调研、已有充分测试的 trivial 改动。
+  Output: 失败测试 → 最小实现 → 重构，全程有测试保护。
+triggers:
+  - "写代码"
+  - "test first"
+  - "TDD"
+  - "红绿重构"
 ---
 
 # TDD（测试驱动开发）

@@ -1,6 +1,14 @@
 ---
 name: request-review
-description: Send a review request to another cat after quality-gate passes. Use when requesting code review, before asking a cat to review your code, or after implementation is complete and self-checked. Triggers on "请 review", "帮我看看", "request review", "请 reviewer 看看", "准备 review".
+description: >
+  向跨家族 peer-reviewer 发送 review 请求（含五件套）。
+  Use when: 自检通过后准备请其他猫 review。
+  Not for: 收到 review 结果（用 receive-review）、自检（用 quality-gate）。
+  Output: Review 请求信（存档到 docs/mailbox/）。
+triggers:
+  - "请 review"
+  - "帮我看看"
+  - "request review"
 ---
 
 > **SOP 位置**: 本 skill 是 `docs/SOP.md` Step 3a 的执行细节。

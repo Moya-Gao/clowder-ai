@@ -1,6 +1,14 @@
 ---
 name: pencil-design
-description: Use when designing UI in Pencil (creating/editing .pen files) or generating React/Tailwind code from .pen design files. Not for pure code implementation without a design file, or non-Pencil design tools.
+description: >
+  使用 Pencil MCP 创建/编辑 .pen 设计文件，或导出为 React 代码。
+  Use when: 设计 UI、编辑 .pen 文件、从设计稿生成代码。
+  Not for: 纯代码实现（无设计稿）、非 Pencil 工具的设计工作。
+  Output: .pen 设计文件 或 React/Tailwind 组件代码。
+triggers:
+  - "pencil"
+  - ".pen 文件"
+  - "设计稿"
 ---
 
 # Pencil Design — .pen 文件设计与代码导出

@@ -1,6 +1,15 @@
 ---
 name: debugging
-description: Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
+description: >
+  系统化 bug 定位：根因调查 → 模式分析 → 假设验证 → 修复。
+  Use when: 遇到 bug、测试失败、unexpected behavior。
+  Not for: 新功能开发、重构、已知原因的简单修复。
+  Output: Bug report（5件套）+ 根因 + 修复（含回归测试）。
+triggers:
+  - "bug"
+  - "报错"
+  - "test failure"
+  - "unexpected behavior"
 ---
 
 # Debugging（系统性调试）

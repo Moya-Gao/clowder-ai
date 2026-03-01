@@ -1,6 +1,14 @@
 ---
 name: deep-research
-description: Use when a technical question needs investigation across multiple sources — dispatch web cats for research, GPT-5.2 Pro for audit, coder cat for synthesis. Triggered by "调研", "research", "深度研究", or architecture decisions needing external evidence.
+description: >
+  多源深度调研管道（Web Deep Research + Coder 合成）。
+  Use when: 技术问题需要多源调查、设计决策需要证据、铲屎官说"调研"/"research"。
+  Not for: 简单搜索（直接用 WebSearch）、已有结论的确认。
+  Output: 调研报告 + 证据合成。
+triggers:
+  - "调研"
+  - "research"
+  - "深度研究"
 renamed-from: deep-research-pipeline
 ---
 

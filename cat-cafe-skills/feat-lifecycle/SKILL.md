@@ -1,19 +1,19 @@
 ---
 name: feat-lifecycle
 description: >
-  管理 Feature 的完整生命周期（kickoff / discussion / completion）。
-  Use when: 新功能立项、F0xx 讨论、feature 完成验收闭环。
-  Not for: 直接写代码、处理 review 反馈、merge 操作。
-  Output: Feature 聚合文档 + BACKLOG/追溯链同步。
+  Feature 立项、讨论、完成的全生命周期管理。
+  Use when: 开个新功能、new feature、F0xx、立项、feature 完成、验收通过、讨论新功能需求。
+  Not for: 代码实现、review、merge（那些有专门的 skill）。
+  Output: Feature 聚合文件 + BACKLOG 索引 + 真相源同步。
 triggers:
-  - "新功能"
-  - "new feat"
-  - "立项"
+  - "开个新功能"
+  - "new feature"
   - "F0xx"
-  - "讨论需求"
+  - "立项"
   - "feature 完成"
-  - "done"
+  - "F0xx done"
   - "验收通过"
+  - "讨论新功能需求"
 argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 ---
 

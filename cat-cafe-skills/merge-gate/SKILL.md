@@ -1,6 +1,17 @@
 ---
 name: merge-gate
-description: Guards merge-to-main with reviewer approval, PR creation, cloud review, and squash merge. Use when preparing to merge, creating PR, triggering cloud review, or claiming code is ready to ship. Triggers on "合入 main", "merge to main", "准备合入", "可以合了", "ready to merge", "开 PR", "create PR", "云端 review".
+description: >
+  合入 main 的完整流程：门禁检查 → PR → 云端 review → squash merge → 清理。
+  Use when: reviewer 放行后准备合入、开 PR、触发云端 review、准备 merge。
+  Not for: 开发中、review 未通过、自检未完成。
+  Output: PR merged + worktree cleaned。
+triggers:
+  - "合入 main"
+  - "merge"
+  - "准备合入"
+  - "开 PR"
+  - "cloud review"
+  - "gh pr create"
 ---
 
 # Merge Gate

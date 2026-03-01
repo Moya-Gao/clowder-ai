@@ -1,6 +1,14 @@
 ---
 name: cross-cat-handoff
-description: Enforces 5-part handoff structure when passing work between cats. Use when writing review requests, handing off to another cat, or explaining decisions to others. Triggers on "交给缅因猫", "@ 缅因猫", "交接", "handoff", "review 信", "传话".
+description: >
+  跨猫传话/交接的五件套结构（What/Why/Tradeoff/Open/Next）。
+  Use when: 交接工作给其他猫、传话、写 review 信。
+  Not for: 自己的任务、不涉及其他猫的工作。
+  Output: 结构化交接信。
+triggers:
+  - "交接"
+  - "传话"
+  - "handoff"
 ---
 
 # Cross-Cat Handoff
