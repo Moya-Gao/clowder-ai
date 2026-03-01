@@ -53,6 +53,12 @@ created: 2026-02-26
   - 后端：QueueProcessor 执行排队消息时补取 contentBlocks 并透传到执行链路
 - **状态**：✅ 已修复（前端 PR #92；后端 PR #96）
 
+### Bug 3: 撤回（取消）队列条目后前端残留
+- **复现**：在 QueuePanel 点击“撤回” → 后端已删除该 entry，但前端队列面板仍显示旧条目（直到 WS 更新到达/刷新）
+- **根因**：QueuePanel 的队列管理操作不做本地 state 更新，完全依赖 `queue_updated` WS 事件刷新 store；当 WS 延迟/丢失时 UI 会 stale
+- **修复方向**：撤回成功后本地立即更新 store（移除该 entry）并提示“已取消”；失败则回滚并 toast 错误
+- **状态**：🛠️ 修复中（本分支 `fix/f039-canceled-badge`）
+
 ### UX 改进: Steer 功能（学习 Codex 原生）
 - **描述**：Codex 原生队列有 "Steer" 按钮：当有消息在消息队列里时，把其中一条“拉出来”立即处理（弹窗 1/2）
 - **状态**：✅ 已实现为独立 Feature **F047**（PR #101）

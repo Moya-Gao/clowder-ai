@@ -20,14 +20,48 @@ export function QueuePanel({ threadId }: QueuePanelProps) {
   const queuePaused = useChatStore((s) => s.queuePaused) ?? false;
   const queuePauseReason = useChatStore((s) => s.queuePauseReason);
   const messages = useChatStore((s) => s.messages);
+  const setQueue = useChatStore((s) => s.setQueue);
   const addToast = useToastStore((s) => s.addToast);
 
   const [steerEntryId, setSteerEntryId] = useState<string | null>(null);
   const [steerMode, setSteerMode] = useState<SteerMode>('immediate');
 
   const handleRemove = useCallback(async (entryId: string) => {
-    await apiFetch(`/api/threads/${threadId}/queue/${entryId}`, { method: 'DELETE' });
-  }, [threadId]);
+    const prevQueue = queue;
+    setQueue(threadId, prevQueue.filter((e) => e.id !== entryId));
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}/queue/${entryId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const msg = data?.error ?? '撤回失败，请重试';
+        setQueue(threadId, prevQueue);
+        addToast({
+          type: 'error',
+          title: '撤回失败',
+          message: msg,
+          threadId,
+          duration: 5000,
+        });
+        return;
+      }
+      addToast({
+        type: 'success',
+        title: '已取消',
+        message: '已从队列撤回',
+        threadId,
+        duration: 2500,
+      });
+    } catch {
+      setQueue(threadId, prevQueue);
+      addToast({
+        type: 'error',
+        title: '撤回失败',
+        message: '撤回失败，请重试',
+        threadId,
+        duration: 5000,
+      });
+    }
+  }, [addToast, queue, setQueue, threadId]);
 
   const handleMove = useCallback(async (entryId: string, direction: 'up' | 'down') => {
     await apiFetch(`/api/threads/${threadId}/queue/${entryId}/move`, {
