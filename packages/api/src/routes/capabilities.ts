@@ -12,7 +12,7 @@
 
 import { lstat, readdir, readFile, readlink, realpath } from 'fs/promises';
 import { existsSync } from 'fs';
-import { join, dirname, resolve } from 'path';
+import { join, dirname, resolve, basename } from 'path';
 import { homedir } from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -80,8 +80,13 @@ async function listSkillSubdirs(dir: string, exclude?: string[]): Promise<string
   return names;
 }
 
-/** Check if a symlink at `linkPath` points to `expectedTarget`. */
-async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promise<boolean> {
+/** Accept symlink target when it points to expected path OR main-repo cat-cafe-skills/{skillName}. */
+async function isCorrectSymlink(
+  linkPath: string,
+  expectedTarget: string,
+  skillName?: string,
+  fallbackSkillsRoot?: string,
+): Promise<boolean> {
   try {
     const stat = await lstat(linkPath);
     if (!stat.isSymbolicLink()) return false;
@@ -91,7 +96,27 @@ async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promi
       realpath(absDest).catch(() => absDest),
       realpath(expectedTarget).catch(() => expectedTarget),
     ]);
-    return realDest.replace(/\/$/, '') === realExpected.replace(/\/$/, '');
+    const normalizedDest = realDest.replace(/\/$/, '');
+    const normalizedExpected = realExpected.replace(/\/$/, '');
+    if (normalizedDest === normalizedExpected) return true;
+
+    if (skillName && fallbackSkillsRoot) {
+      const parentDir = dirname(normalizedDest);
+      const nameMatches = normalizedDest.endsWith(`/${skillName}`);
+      const isCatCafeSkillsDir = basename(parentDir) === 'cat-cafe-skills';
+      const resolvedFallbackRoot = (await realpath(fallbackSkillsRoot).catch(() => fallbackSkillsRoot)).replace(/\/$/, '');
+      const inFallbackRoot = parentDir === resolvedFallbackRoot;
+      if (
+        isCatCafeSkillsDir &&
+        inFallbackRoot &&
+        nameMatches &&
+        existsSync(join(parentDir, 'manifest.yaml')) &&
+        existsSync(join(normalizedDest, 'SKILL.md'))
+      ) {
+        return true;
+      }
+    }
+    return false;
   } catch {
     return false;
   }
@@ -611,9 +636,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       catCafeSkillItems.map(async (item) => {
         const expectedTarget = join(mountSkillsSrc, item.id);
         const [claude, codex, gemini] = await Promise.all([
-          isCorrectSymlink(join(providerDirs.claude, item.id), expectedTarget),
-          isCorrectSymlink(join(providerDirs.codex, item.id), expectedTarget),
-          isCorrectSymlink(join(providerDirs.gemini, item.id), expectedTarget),
+          isCorrectSymlink(join(providerDirs.claude, item.id), expectedTarget, item.id, mainSkillsSrc),
+          isCorrectSymlink(join(providerDirs.codex, item.id), expectedTarget, item.id, mainSkillsSrc),
+          isCorrectSymlink(join(providerDirs.gemini, item.id), expectedTarget, item.id, mainSkillsSrc),
         ]);
         item.mounts = { claude, codex, gemini };
       }),

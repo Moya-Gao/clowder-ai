@@ -63,7 +63,9 @@ async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promi
       realpath(absDest).catch(() => absDest),
       realpath(expectedTarget).catch(() => expectedTarget),
     ]);
-    return realDest.replace(/\/$/, '') === realExpected.replace(/\/$/, '');
+    const normalizedDest = realDest.replace(/\/$/, '');
+    const normalizedExpected = realExpected.replace(/\/$/, '');
+    return normalizedDest === normalizedExpected;
   } catch {
     return false;
   }
