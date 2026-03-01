@@ -10,13 +10,15 @@
  * - Cat family grouping metadata for frontend
  */
 
-import { lstat, readdir, readFile, readlink } from 'fs/promises';
+import { lstat, readdir, readFile, readlink, realpath } from 'fs/promises';
 import { existsSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { fileURLToPath } from 'url';
 import type { FastifyPluginAsync } from 'fastify';
+import { parse as parseYaml } from 'yaml';
 import { catRegistry } from '@cat-cafe/shared';
 import type {
   CapabilityBoardItem,
@@ -84,7 +86,12 @@ async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promi
     const stat = await lstat(linkPath);
     if (!stat.isSymbolicLink()) return false;
     const dest = await readlink(linkPath);
-    return dest.replace(/\/$/, '') === expectedTarget;
+    const absDest = dest.startsWith('/') ? dest : resolve(dirname(linkPath), dest);
+    const [realDest, realExpected] = await Promise.all([
+      realpath(absDest).catch(() => absDest),
+      realpath(expectedTarget).catch(() => expectedTarget),
+    ]);
+    return realDest.replace(/\/$/, '') === realExpected.replace(/\/$/, '');
   } catch {
     return false;
   }
@@ -138,6 +145,22 @@ function getProjectRoot(): string {
 }
 
 /**
+ * Resolve Cat Café skills source from module location (stable), not selected project path.
+ * This avoids false "未挂载" when projectPath points to another repo (e.g. cat-cafe-runtime).
+ */
+function resolveCatCafeSkillsSourceDir(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  while (dir !== dirname(dir)) {
+    const candidate = join(dir, 'cat-cafe-skills', 'manifest.yaml');
+    if (existsSync(candidate)) return join(dir, 'cat-cafe-skills');
+    dir = dirname(dir);
+  }
+  return join(getProjectRoot(), 'cat-cafe-skills');
+}
+
+const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
+
+/**
  * P1-1 fix: All CLI config paths are project-level (not user-level).
  * This ensures multi-project isolation — different projects have different configs.
  */
@@ -173,16 +196,17 @@ async function readSkillMeta(skillDir: string): Promise<SkillMeta> {
     const content = await readFile(skillMdPath, 'utf-8');
     const match = content.match(/^---\n([\s\S]*?)\n---/);
     if (!match) return {};
-    const descLine = match[1]!.split('\n').find((line) => line.startsWith('description:'));
-    if (!descLine) return {};
-    let desc = descLine.replace(/^description:\s*/, '').trim();
-    if ((desc.startsWith('"') && desc.endsWith('"')) || (desc.startsWith("'") && desc.endsWith("'"))) {
-      desc = desc.slice(1, -1);
-    }
+    const fm = parseYaml(match[1]!) as { description?: unknown; triggers?: unknown } | null;
+    let desc = typeof fm?.description === 'string' ? fm.description.trim() : '';
     if (!desc) return {};
 
-    // Extract triggers from description text
-    const triggers: string[] = [];
+    // Prefer explicit frontmatter `triggers` when available.
+    const triggers: string[] = Array.isArray(fm?.triggers)
+      ? fm!.triggers.filter((v): v is string => typeof v === 'string').map((s) => s.trim()).filter(Boolean)
+      : [];
+
+    // Backward compatibility: extract triggers from description text for legacy skills.
+    if (triggers.length === 0) {
     // English: Triggers on "X", "Y", "Z"
     const enMatch = desc.match(/[Tt]riggers?\s+on\s+"([^"]+)"(,\s*"([^"]+)")*/);
     if (enMatch) {
@@ -205,6 +229,7 @@ async function readSkillMeta(skillDir: string): Promise<SkillMeta> {
       if (triggers.length === 0) {
         triggers.push(...raw.split(/[、,，]/).map((s) => s.trim()).filter(Boolean));
       }
+    }
     }
 
     // Clean description: strip trigger suffix for display
@@ -246,6 +271,37 @@ async function parseBootstrapCategories(skillsSrcDir: string): Promise<Map<strin
     }
   } catch {
     // BOOTSTRAP.md not found — no categories
+  }
+  return result;
+}
+
+/**
+ * Parse manifest.yaml and extract skill description/triggers.
+ * F042: manifest is the routing source-of-truth.
+ */
+async function parseManifestSkillMeta(skillsSrcDir: string): Promise<Map<string, SkillMeta>> {
+  const result = new Map<string, SkillMeta>();
+  const manifestPath = join(skillsSrcDir, 'manifest.yaml');
+  try {
+    const content = await readFile(manifestPath, 'utf-8');
+    const parsed = parseYaml(content) as {
+      skills?: Record<string, { description?: unknown; triggers?: unknown }>;
+    } | null;
+    if (!parsed?.skills || typeof parsed.skills !== 'object') return result;
+    for (const [name, meta] of Object.entries(parsed.skills)) {
+      const description = typeof meta?.description === 'string' ? meta.description.trim() : undefined;
+      const triggers = Array.isArray(meta?.triggers)
+        ? meta.triggers.filter((v): v is string => typeof v === 'string').map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      if (description || (triggers && triggers.length > 0)) {
+        result.set(name, {
+          ...(description ? { description } : {}),
+          ...(triggers && triggers.length > 0 ? { triggers } : {}),
+        });
+      }
+    }
+  } catch {
+    // manifest missing or invalid — fallback to SKILL.md metadata
   }
   return result;
 }
@@ -335,7 +391,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // User-level skills (e.g. ~/.claude/skills/feat-completion) are symlinks to
     // {projectRoot}/cat-cafe-skills/feat-completion — listing cat-cafe-skills/
     // captures them as project-owned regardless of symlink target.
-    const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
+    const catCafeSkillsDir = CAT_CAFE_SKILLS_SRC;
     const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
     const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
 
@@ -455,8 +511,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       ? catCafeSkillsDir
       : mainSkillsSrc;
 
-    const [skillCategoryMap] = await Promise.all([
+    const [skillCategoryMap, manifestMetaMap] = await Promise.all([
       parseBootstrapCategories(mountSkillsSrc),
+      parseManifestSkillMeta(mountSkillsSrc),
     ]);
     const skillMetaMap = new Map<string, SkillMeta>();
 
@@ -525,7 +582,9 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         enabled: cap.enabled,
         cats,
       };
-      const meta = skillMetaMap.get(cap.id);
+      const meta = cap.source === 'cat-cafe'
+        ? (manifestMetaMap.get(cap.id) ?? skillMetaMap.get(cap.id))
+        : skillMetaMap.get(cap.id);
       if (meta?.description) skillItem.description = meta.description;
       if (meta?.triggers) skillItem.triggers = meta.triggers;
       const category = skillCategoryMap.get(cap.id);

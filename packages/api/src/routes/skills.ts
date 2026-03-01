@@ -6,15 +6,13 @@
  * 解析 BOOTSTRAP.md 提取分类和触发说明。
  */
 
-import { readdir, readFile, lstat, readlink } from 'fs/promises';
-import { join } from 'path';
+import { readdir, readFile, lstat, readlink, realpath } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join, dirname, resolve } from 'path';
 import { homedir } from 'os';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { fileURLToPath } from 'url';
 import type { FastifyPluginAsync } from 'fastify';
 import { resolveUserId } from '../utils/request-identity.js';
-
-const execFileAsync = promisify(execFile);
 
 interface SkillMount {
   claude: boolean;
@@ -40,27 +38,18 @@ interface SkillsResponse {
   summary: SkillsSummary;
 }
 
-/**
- * Resolve canonical main repo path.
- * Uses git worktree list (works from any worktree/subdir) → rev-parse fallback → cwd fallback.
- * No hardcoded paths — inherits cwd from the API server process.
- */
-async function resolveMainRepoPath(): Promise<string> {
-  try {
-    const { stdout } = await execFileAsync('git', ['worktree', 'list', '--porcelain']);
-    const firstLine = stdout.split('\n')[0] ?? '';
-    return firstLine.replace(/^worktree\s+/, '').trim();
-  } catch {
-    try {
-      const { stdout } = await execFileAsync('git', ['rev-parse', '--show-toplevel']);
-      return stdout.trim();
-    } catch {
-      // Last resort: 2 levels up from packages/api cwd
-      const { resolve } = await import('path');
-      return resolve(process.cwd(), '../..');
-    }
+/** Resolve Cat Café skills source from module location (stable across cwd/project). */
+function resolveCatCafeSkillsSourceDir(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  while (dir !== dirname(dir)) {
+    const candidate = join(dir, 'cat-cafe-skills', 'manifest.yaml');
+    if (existsSync(candidate)) return join(dir, 'cat-cafe-skills');
+    dir = dirname(dir);
   }
+  return resolve(process.cwd(), 'cat-cafe-skills');
 }
+
+const CAT_CAFE_SKILLS_SRC = resolveCatCafeSkillsSourceDir();
 
 /** Check if a path is a symlink pointing to the expected target. */
 async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promise<boolean> {
@@ -68,8 +57,12 @@ async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promi
     const stat = await lstat(linkPath);
     if (!stat.isSymbolicLink()) return false;
     const dest = await readlink(linkPath);
-    // Normalize trailing slash
-    return dest.replace(/\/$/, '') === expectedTarget;
+    const absDest = dest.startsWith('/') ? dest : resolve(dirname(linkPath), dest);
+    const [realDest, realExpected] = await Promise.all([
+      realpath(absDest).catch(() => absDest),
+      realpath(expectedTarget).catch(() => expectedTarget),
+    ]);
+    return realDest.replace(/\/$/, '') === realExpected.replace(/\/$/, '');
   } catch {
     return false;
   }
@@ -137,8 +130,7 @@ export const skillsRoutes: FastifyPluginAsync = async (app) => {
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
     }
-    const mainRepo = await resolveMainRepoPath();
-    const skillsSrc = join(mainRepo, 'cat-cafe-skills');
+    const skillsSrc = CAT_CAFE_SKILLS_SRC;
     const bootstrapPath = join(skillsSrc, 'BOOTSTRAP.md');
     const home = homedir();
 
