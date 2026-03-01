@@ -149,6 +149,7 @@ export class CodexAgentService implements AgentService {
 
     const sandboxMode = getCodexSandboxMode();
     const approvalPolicy = getCodexApprovalPolicy();
+    const modelArgs = ['--model', this.model];
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
@@ -158,8 +159,8 @@ export class CodexAgentService implements AgentService {
     const promptArgs = ['--', effectivePrompt];
 
     const args: string[] = options?.sessionId
-      ? ['exec', 'resume', options.sessionId, '--json', ...approvalArgs, ...imageArgs, ...promptArgs]
-      : ['exec', '--json', '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, ...promptArgs];
+      ? ['exec', 'resume', options.sessionId, '--json', ...modelArgs, ...approvalArgs, ...imageArgs, ...promptArgs]
+      : ['exec', '--json', ...modelArgs, '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, ...promptArgs];
 
     const metadata: MessageMetadata = { provider: 'openai', model: this.model };
     const auditContext = options?.auditContext;

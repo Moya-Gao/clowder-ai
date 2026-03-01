@@ -100,7 +100,7 @@ test('yields session_init, text, and done on basic success', async () => {
 test('uses exec resume when sessionId is provided', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
-  const service = new CodexAgentService({ spawnFn });
+  const service = new CodexAgentService({ spawnFn, model: 'gpt-5.3-codex' });
 
   const promise = collect(
     service.invoke('Continue', { sessionId: 'existing-thread-456' })
@@ -122,6 +122,9 @@ test('uses exec resume when sessionId is provided', async () => {
   // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
   assert.ok(!args.includes('--sandbox'), 'resume args must not include --sandbox');
   assert.ok(args.includes('--json'), 'resume args must include --json');
+  const modelFlagIndex = args.indexOf('--model');
+  assert.ok(modelFlagIndex >= 0, 'resume args must include --model');
+  assert.equal(args[modelFlagIndex + 1], 'gpt-5.3-codex');
   assert.ok(args.includes('--config'), 'resume args must include approval policy override');
   assert.ok(args.includes('approval_policy=\"on-request\"'), 'default approval policy should be on-request');
   assert.ok(!args.includes('approval_policy=\\\"on-request\\\"'), 'argv should not contain literal backslash escapes');
@@ -130,7 +133,7 @@ test('uses exec resume when sessionId is provided', async () => {
 test('does not include resume when no sessionId', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
-  const service = new CodexAgentService({ spawnFn });
+  const service = new CodexAgentService({ spawnFn, model: 'gpt-5.3-codex' });
 
   const promise = collect(service.invoke('hello'));
   emitCodexEvents(proc, [
@@ -142,6 +145,9 @@ test('does not include resume when no sessionId', async () => {
   assert.equal(args[0], 'exec');
   assert.equal(args[1], '--json');
   assert.ok(!args.includes('resume'));
+  const modelFlagIndex = args.indexOf('--model');
+  assert.ok(modelFlagIndex >= 0, 'fresh exec args must include --model');
+  assert.equal(args[modelFlagIndex + 1], 'gpt-5.3-codex');
   assert.ok(args.includes('--sandbox'), 'fresh exec should include sandbox mode');
   assert.ok(args.includes('danger-full-access'), 'default sandbox should allow git writes');
   assert.ok(args.includes('approval_policy=\"on-request\"'), 'fresh exec should set default approval policy');
