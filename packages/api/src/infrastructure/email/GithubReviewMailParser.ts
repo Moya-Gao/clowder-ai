@@ -36,10 +36,23 @@ export interface InferredReviewAction {
  * not review content and were confusing cats as "fake reviews".
  */
 export function inferReviewActionFromEmailSource(source: string): InferredReviewAction {
-  const body = source.split(/\r?\n\r?\n/, 2)[1] ?? '';
-  const bodyText = body.length > 0 ? body : source;
+  // Extract body after the first header/body separator without truncating multi-paragraph bodies.
+  const sep = source.match(/\r?\n\r?\n/);
+  const bodyText =
+    sep && typeof sep.index === 'number'
+      ? source.slice(sep.index + sep[0].length)
+      : source;
 
-  const hasSetupSentence = /to use codex here,\s*create an environment for this repo\./i.test(bodyText);
+  const hasSetupSentence =
+    /to use codex here,/i.test(bodyText) &&
+    /environment for this repo\b/i.test(bodyText);
+  const hasCodexReviewTemplate =
+    /\bCodex Review\b/i.test(bodyText) && /\bReviewed commit:\b/i.test(bodyText);
+  const hasCodexReviewContent = /\bcodex review\b/i.test(bodyText);
+  const hasCodexReviewTrigger = /^\s*@codex\s+review\b/mi.test(bodyText);
+  const hasOurCodexReviewTriggerTemplate =
+    /规则：任何\s*P1\/P2\s*必须给可执行复现/i.test(bodyText) ||
+    /rules:\s*any\s*p1\/p2\s*must\s*include/i.test(bodyText);
 
   // Prefer explicit action markers in body
   const reviewed = bodyText.match(/^(.+?)\s+reviewed\s+\(/mi);
@@ -64,12 +77,27 @@ export function inferReviewActionFromEmailSource(source: string): InferredReview
     reviewer = changesRequested[1]?.trim();
   }
 
+  // Suppress our own "@codex review" trigger comment emails — they are not review feedback.
+  if (reviewType === 'commented' && hasCodexReviewTrigger && hasOurCodexReviewTriggerTemplate) {
+    return { ignorable: true, reviewType: 'unknown', reviewer: undefined };
+  }
+
+  // If the email contains the Codex review template but lacks explicit action markers,
+  // treat it as a real review (not setup noise).
+  if (reviewType === 'unknown' && hasCodexReviewTemplate) {
+    reviewType = 'reviewed';
+    const bot = bodyText.match(/\bchatgpt-codex-connector(?:\[bot\])?\b/i)?.[0];
+    reviewer = bot ? bot : reviewer;
+  }
+
   // Codex bot setup guidance (not a real review/comment we want to route).
   //
   // IMPORTANT: Scope this to setup-only Codex bot emails.
   // The same sentence can appear quoted inside real human comments/reviews.
-  const isCodexBot = reviewer ? /^chatgpt-codex-connector\[bot\]$/i.test(reviewer) : false;
-  if (hasSetupSentence && !/codex review:/i.test(bodyText) && (!reviewer || isCodexBot)) {
+  const isCodexBot = reviewer
+    ? /^chatgpt-codex-connector(?:\[bot\])?$/i.test(reviewer)
+    : false;
+  if (hasSetupSentence && !hasCodexReviewContent && (!reviewer || isCodexBot)) {
     return { ignorable: true, reviewType: 'unknown', reviewer: undefined };
   }
 

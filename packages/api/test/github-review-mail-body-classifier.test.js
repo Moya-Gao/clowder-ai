@@ -129,4 +129,70 @@ describe('GitHub review mail body classifier', () => {
     const result = inferReviewActionFromEmailSource(source);
     assert.equal(result.ignorable, true);
   });
+
+  test('detects Codex setup guidance (markdown link variant) as ignorable', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(email): classify Codex template (PR #117)',
+      '',
+      'chatgpt-codex-connector[bot] left a comment (zts212653/cat-cafe#117)',
+      '',
+      'To use Codex here, [create an environment for this repo](https://chatgpt.com/codex/settings/environments).',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, true);
+  });
+
+  test('treats Codex PR review template (with setup sentence) as real review, not ignorable', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
+      '',
+      'chatgpt-codex-connector[bot] reviewed (zts212653/cat-cafe#116)',
+      '',
+      '### 💡 Codex Review',
+      '',
+      'Here are some automated review suggestions for this pull request.',
+      '',
+      '**Reviewed commit:** `deadbeef`',
+      '',
+      'To use Codex here, create an environment for this repo.',
+      '',
+      'About Codex in GitHub',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, false);
+    assert.equal(result.reviewType, 'reviewed');
+    assert.equal(result.reviewer, 'chatgpt-codex-connector[bot]');
+  });
+
+  test('marks @codex review trigger comment as ignorable noise', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(F039): withdraw clears stale QueuePanel entry (PR #116)',
+      '',
+      'zts212653 left a comment (zts212653/cat-cafe#116)',
+      '',
+      '@codex review',
+      '',
+      '规则：任何 P1/P2 必须给可执行复现：优先 failing test，否则给确定性复现步骤。没有证据的一律降级为 P3。',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, true);
+  });
 });
