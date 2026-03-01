@@ -47,7 +47,7 @@ export function inferReviewActionFromEmailSource(source: string): InferredReview
     /to use codex here,/i.test(bodyText) &&
     /environment for this repo\b/i.test(bodyText);
   const hasCodexReviewTemplate =
-    /\bCodex Review\b/i.test(bodyText) && /\bReviewed commit:\b/i.test(bodyText);
+    /(?<!@)\bCodex Review\b/i.test(bodyText) && /\bReviewed commit:/i.test(bodyText);
   const hasCodexReviewContent = /\bcodex review\b/i.test(bodyText);
   const hasCodexReviewTrigger = /^\s*@codex\s+review\b/mi.test(bodyText);
   const hasOurCodexReviewTriggerTemplate =

@@ -176,6 +176,46 @@ describe('GitHub review mail body classifier', () => {
     assert.equal(result.reviewer, 'chatgpt-codex-connector[bot]');
   });
 
+  test('treats Codex PR review template without action markers as reviewType=reviewed', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(email): classify Codex template (PR #117)',
+      '',
+      '### 💡 Codex Review',
+      '',
+      '**Reviewed commit:** `deadbeef`',
+      '',
+      'To use Codex here, create an environment for this repo.',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, false);
+    assert.equal(result.reviewType, 'reviewed');
+  });
+
+  test('does not treat "@codex review" trigger text as a Codex template review', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] chore: trigger review (PR #1)',
+      '',
+      '@codex review',
+      '',
+      'Reviewed commit: `deadbeef`',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, false);
+    assert.equal(result.reviewType, 'unknown');
+  });
+
   test('marks @codex review trigger comment as ignorable noise', async () => {
     const { inferReviewActionFromEmailSource } = await import(
       '../dist/infrastructure/email/GithubReviewMailParser.js'
