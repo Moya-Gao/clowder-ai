@@ -74,7 +74,7 @@ describe('MessageNavigator', () => {
     const msgs = [
       makeMsg('m1', 'user'),
       makeMsg('m2', 'assistant', 'opus-45'),
-      makeMsg('m3', 'assistant', 'codex-spark'),
+      makeMsg('m3', 'assistant', 'spark'),
     ];
     const html = render(msgs);
 
@@ -82,6 +82,26 @@ describe('MessageNavigator', () => {
     expect(html).toContain('#9B7EBD');
     expect(html).toContain('#5B8C5A');
     expect(html).toContain('跳转到 布偶猫（opus-45） 的消息');
+    expect(html).toContain('跳转到 缅因猫（spark） 的消息');
+  });
+
+  it('resolves non-hyphen variant catIds during fallback', () => {
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'gpt52'),
+      makeMsg('m3', 'assistant', 'sonnet'),
+      makeMsg('m4', 'assistant', 'gemini25'),
+    ];
+    const html = render(msgs);
+
+    // base colors come from shared fallback CAT_CONFIGS
+    expect(html).toContain('#5B8C5A'); // codex
+    expect(html).toContain('#9B7EBD'); // opus
+    expect(html).toContain('#5B9BD5'); // gemini
+
+    expect(html).toContain('跳转到 缅因猫（gpt52） 的消息');
+    expect(html).toContain('跳转到 布偶猫（sonnet） 的消息');
+    expect(html).toContain('跳转到 暹罗猫（gemini25） 的消息');
   });
 
   it('includes accessibility labels', () => {

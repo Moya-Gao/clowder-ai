@@ -10,12 +10,25 @@ const MAX_DOTS = 18;
 
 type CatLookup = (id: string) => CatData | undefined;
 
+// Some variants use non-hyphen catIds (e.g. gpt52/sonnet/spark/gemini25 in cat-config.json).
+// During the brief pre-/api/cats state, we only have 3 base cats in fallback CAT_CONFIGS,
+// so we map these variant ids to a base cat for color/name consistency.
+const VARIANT_BASE_FALLBACK: Record<string, string> = {
+  gpt52: 'codex',
+  spark: 'codex',
+  sonnet: 'opus',
+  gemini25: 'gemini',
+};
+
 function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefined {
-  const direct = getCatById(catId);
+  const normalizedId = catId.toLowerCase();
+  const direct = getCatById(normalizedId);
   if (direct) return direct;
   // F32-b P4: tolerate multi-variant ids (e.g. opus-45) even before /api/cats loads
-  const base = catId.split('-')[0];
-  if (base && base !== catId) return getCatById(base);
+  const base = normalizedId.split('-')[0];
+  if (base && base !== normalizedId) return getCatById(base);
+  const mappedBase = VARIANT_BASE_FALLBACK[normalizedId];
+  if (mappedBase) return getCatById(mappedBase);
   return undefined;
 }
 
