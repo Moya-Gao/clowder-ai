@@ -66,7 +66,22 @@ describe('MessageNavigator', () => {
     const html = render(msgs);
 
     expect(html).toContain('bg-owner-primary');
-    expect(html).toContain('bg-opus-primary');
+    expect(html).toContain('#9B7EBD');
+    expect(html).toContain('#5B8C5A');
+  });
+
+  it('tolerates variant catIds before /api/cats loads', () => {
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'opus-45'),
+      makeMsg('m3', 'assistant', 'codex-spark'),
+    ];
+    const html = render(msgs);
+
+    // base colors come from shared fallback CAT_CONFIGS (opus/codex)
+    expect(html).toContain('#9B7EBD');
+    expect(html).toContain('#5B8C5A');
+    expect(html).toContain('跳转到 布偶猫（opus-45） 的消息');
   });
 
   it('includes accessibility labels', () => {

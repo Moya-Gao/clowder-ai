@@ -103,6 +103,8 @@ created: 2026-02-26
 | TD102 | **SessionBootstrap 同步 F98 — 启动包引导路径补全** | [ ] | [砚砚 F98 对照验收](./discussions/2026-02-26-capability-dashboard/README.md) | `SessionBootstrap.ts:93-101` 还在引导 `search → digest → events`，缺少 `read_invocation_detail` 和 `view=handoff` 的推荐路径。小改动。|
 | TD103 | **课件契约文档同步 — read_invocation_detail 参数差异** | [ ] | [砚砚 F98 对照验收](./discussions/2026-02-26-capability-dashboard/README.md) | 课件 `08-session-management.md:247` 写 `read_invocation_detail(invocationId)` 单参数，实现是 `sessionId + invocationId` 双参数。非功能缺失，实现更严谨，但文档需同步。|
 | TD104 | **统一能力模型 `transport` 字段（YAGNI 暂不实现）** | [ ] | [F041 技术讨论](./discussions/2026-02-26-capability-dashboard/tech-discussion-open-questions.md) | 砚砚建议统一能力内部模型含 `transport` 字段（stdio/sse/ws）。布偶猫认为当前三猫 CLI 都是 stdio，YAGNI 原则暂不加。铲屎官认可 YAGNI 但记录 debt。触发条件：接入非 stdio transport 的 MCP server 时。|
+| TD105 | **多分身（variant）UI 兼容：warning 渲染 + 圆点导航 sender 映射** | [x] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 现象：warning JSON 直出、`opus-45/codex-spark` 在导航 tooltip 显示「系统」。修复落点：`useAgentMessages.ts` 增加 warning 分支；`MessageNavigator.tsx` 改用动态 cat data + baseId fallback。commit `c0bf811` |
+| TD106 | **多分身（variant）hardcode 扫描与归一化** | [ ] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 目标：把 Web/UI 中写死 `opus/codex/gemini` 的地方统一迁移到 `useCatData()`（例：`ContextHealthBar.tsx` 的 family color、Hub/Sidebar 的固定入口、未知 catId 的统一展示策略）。|
 
 ## P3 — 可选优化
 

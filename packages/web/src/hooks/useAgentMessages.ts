@@ -462,6 +462,11 @@ export function useAgentMessages() {
               setMessageThinking(ref.id, thinkingText);
             }
             consumed = true;
+          } else if (parsed?.type === 'warning') {
+            // F045: item-level warning — render as readable system message (avoid raw JSON blob)
+            const warningText = typeof parsed.message === 'string' ? parsed.message : '';
+            sysContent = warningText ? `⚠️ ${warningText}` : '⚠️ Warning';
+            sysVariant = 'info';
           } else if (parsed?.type === 'rich_block') {
             // F22: Append rich block — prefer messageId correlation (#83 P2), fallback to activeRefs
             let targetId: string | undefined;

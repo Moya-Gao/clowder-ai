@@ -2,32 +2,32 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatMessage as ChatMessageData } from '@/stores/chatStore';
+import { formatCatName, useCatData, type CatData } from '@/hooks/useCatData';
 import { scrollToMessage } from '@/utils/scrollToMessage';
 
 /** Maximum dots rendered on the track — prevents clutter in long conversations */
 const MAX_DOTS = 18;
 
-const DOT_COLORS: Record<string, string> = {
-  opus: 'bg-opus-primary',
-  codex: 'bg-codex-primary',
-  gemini: 'bg-gemini-primary',
-};
-const SENDER_NAMES: Record<string, string> = {
-  opus: '布偶猫',
-  codex: '缅因猫',
-  gemini: '暹罗猫',
-};
+type CatLookup = (id: string) => CatData | undefined;
 
-function getDotColor(msg: ChatMessageData): string {
-  if (msg.type === 'user') return 'bg-owner-primary';
-  if (msg.catId && DOT_COLORS[msg.catId]) return DOT_COLORS[msg.catId];
-  return 'bg-gray-400';
+function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefined {
+  const direct = getCatById(catId);
+  if (direct) return direct;
+  // F32-b P4: tolerate multi-variant ids (e.g. opus-45) even before /api/cats loads
+  const base = catId.split('-')[0];
+  if (base && base !== catId) return getCatById(base);
+  return undefined;
 }
 
-function getSenderName(msg: ChatMessageData): string {
+function getSenderLabel(msg: ChatMessageData, resolveCat: (catId: string) => CatData | undefined): string {
   if (msg.type === 'user') return '铲屎官';
-  if (msg.catId && SENDER_NAMES[msg.catId]) return SENDER_NAMES[msg.catId];
-  return '系统';
+  if (msg.type !== 'assistant') return '系统';
+  const catId = msg.catId;
+  if (!catId) return '系统';
+  const cat = resolveCat(catId);
+  if (!cat) return catId;
+  const baseName = formatCatName(cat);
+  return cat.id === catId ? baseName : `${cat.displayName}（${catId}）`;
 }
 
 function formatTime(ts: number): string {
@@ -44,9 +44,20 @@ interface MessageNavigatorProps {
 }
 
 export function MessageNavigator({ messages, scrollContainerRef }: MessageNavigatorProps) {
+  const { getCatById } = useCatData();
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 1 });
   const trackRef = useRef<HTMLDivElement>(null);
+
+  const resolveCat = useCallback(
+    (catId: string) => resolveCatById(getCatById, catId),
+    [getCatById],
+  );
+
+  const getSenderName = useCallback(
+    (msg: ChatMessageData) => getSenderLabel(msg, resolveCat),
+    [resolveCat],
+  );
 
   // Filter to user + assistant only
   const navItems = useMemo(
@@ -137,13 +148,15 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
           const top = sampledItems.length <= 1
             ? 50
             : (idx / (sampledItems.length - 1)) * 100;
-          const color = getDotColor(msg);
+          const cat = msg.type === 'assistant' && msg.catId ? resolveCat(msg.catId) : undefined;
+          const className = msg.type === 'user' ? 'bg-owner-primary' : cat ? '' : 'bg-gray-400';
+          const style = msg.type === 'user' ? undefined : cat ? { backgroundColor: cat.color.primary } : undefined;
 
           return (
             <button
               key={`${msg.id}-${sourceIdx}`}
-              className={`absolute w-2 h-2 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-150 hover:scale-[2] ${color}`}
-              style={{ top: `${top}%`, left: '50%' }}
+              className={`absolute w-2 h-2 rounded-full -translate-x-1/2 -translate-y-1/2 transition-all duration-150 hover:scale-[2] ${className}`}
+              style={{ top: `${top}%`, left: '50%', ...(style ?? {}) }}
               onClick={() => scrollToMessage(msg.id)}
               onMouseEnter={() => setHoveredIdx(idx)}
               onMouseLeave={() => setHoveredIdx(null)}
@@ -169,13 +182,23 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
 }
 
 function NavTooltip({ message, topPercent }: { message: ChatMessageData; topPercent: number }) {
+  const { getCatById } = useCatData();
+  const resolveCat = useCallback(
+    (catId: string) => resolveCatById(getCatById, catId),
+    [getCatById],
+  );
+
+  const senderName = useMemo(() => {
+    return getSenderLabel(message, resolveCat);
+  }, [message, resolveCat]);
+
   return (
     <div
       className="absolute right-full mr-2 -translate-y-1/2 bg-gray-900/90 text-white text-xs rounded-lg px-2.5 py-1.5 max-w-[200px] pointer-events-none whitespace-nowrap z-50"
       style={{ top: `${topPercent}%` }}
     >
       <div className="font-medium">
-        {getSenderName(message)} · {formatTime(message.timestamp)}
+        {senderName} · {formatTime(message.timestamp)}
       </div>
       <div className="text-gray-300 truncate mt-0.5">
         {truncateContent(message.content, 40)}
