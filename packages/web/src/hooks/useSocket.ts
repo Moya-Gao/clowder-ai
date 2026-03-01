@@ -29,6 +29,17 @@ interface AgentMessage {
   timestamp: number;
 }
 
+interface ConnectorMessageEvent {
+  threadId: string;
+  message: {
+    id: string;
+    type: 'connector';
+    content: string;
+    source?: import('../stores/chat-types').ConnectorSourceData;
+    timestamp: number;
+  };
+}
+
 interface SocketIoTransportLike {
   name?: string;
   ws?: WebSocket;
@@ -306,6 +317,18 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         message: '消息队列已达上限，请管理队列后再发送',
         threadId: data.threadId,
         duration: 5000,
+      });
+    });
+
+    socket.on('connector_message', (data: ConnectorMessageEvent) => {
+      if (!data?.threadId || !data?.message?.id) return;
+      const store = useChatStore.getState();
+      store.addMessageToThread(data.threadId, {
+        id: data.message.id,
+        type: 'connector',
+        content: data.message.content ?? '',
+        ...(data.message.source ? { source: data.message.source } : {}),
+        timestamp: data.message.timestamp ?? Date.now(),
       });
     });
 

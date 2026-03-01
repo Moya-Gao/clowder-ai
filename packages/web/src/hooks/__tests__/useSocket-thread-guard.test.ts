@@ -556,4 +556,60 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
     expect(new Set(joinedRooms)).toEqual(new Set(['thread:bob-work', 'thread:thread-B']));
   });
+
+  it('connector_message from active thread is appended immediately (no F5 needed)', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connector_message', {
+        threadId: 'thread-B',
+        message: {
+          id: 'conn-1',
+          type: 'connector',
+          content: '**GitHub Review 通知**',
+          source: { connector: 'github-review', label: 'GitHub Review', icon: '🔔' },
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
+    expect(mockAddMessageToThread).toHaveBeenCalledWith(
+      'thread-B',
+      expect.objectContaining({ id: 'conn-1', type: 'connector' }),
+    );
+  });
+
+  it('connector_message from background thread is added to that thread state', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('connector_message', {
+        threadId: 'thread-A',
+        message: {
+          id: 'conn-bg-1',
+          type: 'connector',
+          content: '**GitHub Review 通知**',
+          source: { connector: 'github-review', label: 'GitHub Review', icon: '🔔' },
+          timestamp: Date.now(),
+        },
+      });
+    });
+
+    expect(mockAddMessageToThread).toHaveBeenCalledTimes(1);
+    expect(mockAddMessageToThread).toHaveBeenCalledWith(
+      'thread-A',
+      expect.objectContaining({ id: 'conn-bg-1', type: 'connector' }),
+    );
+  });
 });

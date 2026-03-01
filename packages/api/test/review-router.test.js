@@ -30,19 +30,40 @@ function mockThreadStore() {
   };
 }
 
-/** @returns {{ store: import('../dist/domains/cats/services/stores/ports/MessageStore.js').IMessageStore, messages: Array<{threadId: string, userId: string, content: string, mentions: string[], source?: object}> }} */
+/** @returns {{ store: import('../dist/domains/cats/services/stores/ports/MessageStore.js').IMessageStore, messages: Array<{threadId: string, userId: string, content: string, mentions: string[], timestamp: number, source?: object}> }} */
 function mockMessageStore() {
-  /** @type {Array<{threadId: string, userId: string, content: string, mentions: string[], source?: object}>} */
+  /** @type {Array<{threadId: string, userId: string, content: string, mentions: string[], timestamp: number, source?: object}>} */
   const messages = [];
   let counter = 0;
   const store = /** @type {any} */ ({
     append(msg) {
       counter++;
-      messages.push({ threadId: msg.threadId, userId: msg.userId, content: msg.content, mentions: msg.mentions ?? [], source: msg.source });
+      messages.push({
+        threadId: msg.threadId,
+        userId: msg.userId,
+        content: msg.content,
+        mentions: msg.mentions ?? [],
+        timestamp: msg.timestamp,
+        source: msg.source,
+      });
       return { id: `msg-${counter}`, ...msg };
     },
   });
   return { store, messages };
+}
+
+/** @returns {{ manager: { broadcastToRoom: (room: string, event: string, payload: unknown) => void }, events: Array<{room: string, event: string, payload: unknown}> }} */
+function mockSocketManager() {
+  /** @type {Array<{room: string, event: string, payload: unknown}>} */
+  const events = [];
+  return {
+    manager: {
+      broadcastToRoom(room, event, payload) {
+        events.push({ room, event, payload });
+      },
+    },
+    events,
+  };
 }
 
 function noopLog() {
@@ -82,6 +103,8 @@ describe('ReviewRouter', () => {
   let threadStore;
   /** @type {ReturnType<typeof mockMessageStore>} */
   let messageMock;
+  /** @type {ReturnType<typeof mockSocketManager>} */
+  let socketMock;
 
   /** @param {Partial<import('../dist/infrastructure/email/ReviewRouter.js').ReviewRouterOptions>} [overrides] */
   function createRouter(overrides = {}) {
@@ -90,6 +113,7 @@ describe('ReviewRouter', () => {
       processedEmailStore,
       threadStore,
       messageStore: messageMock.store,
+      socketManager: socketMock.manager,
       log: noopLog(),
       ...overrides,
     });
@@ -100,6 +124,7 @@ describe('ReviewRouter', () => {
     processedEmailStore = new MemoryProcessedEmailStore();
     threadStore = mockThreadStore();
     messageMock = mockMessageStore();
+    socketMock = mockSocketManager();
   });
 
   // ── Dedup ────────────────────────────────────────────────────────
@@ -555,6 +580,47 @@ describe('ReviewRouter', () => {
       assert.ok(msg.source, 'triage message should have source field');
       assert.strictEqual(msg.source.connector, 'github-review');
       assert.strictEqual(msg.source.icon, '⚠️');
+    });
+  });
+
+  describe('realtime connector event', () => {
+    it('broadcasts connector_message to routed thread', async () => {
+      const router = createRouter();
+      prTrackingStore.register({
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 42,
+        catId: 'opus',
+        threadId: 'thread-abc',
+        userId: 'user-1',
+      });
+
+      await router.route(makeEvent());
+
+      assert.strictEqual(socketMock.events.length, 1);
+      const evt = socketMock.events[0];
+      assert.strictEqual(evt.room, 'thread:thread-abc');
+      assert.strictEqual(evt.event, 'connector_message');
+      assert.deepStrictEqual(evt.payload, {
+        threadId: 'thread-abc',
+        message: {
+          id: 'msg-1',
+          type: 'connector',
+          content: messageMock.messages[0].content,
+          source: messageMock.messages[0].source,
+          timestamp: messageMock.messages[0].timestamp,
+        },
+      });
+    });
+
+    it('broadcasts connector_message to triage thread', async () => {
+      const router = createRouter();
+
+      await router.route(makeEvent({ catTag: undefined, catId: undefined }));
+
+      assert.strictEqual(socketMock.events.length, 1);
+      const evt = socketMock.events[0];
+      assert.strictEqual(evt.event, 'connector_message');
+      assert.ok(evt.room.startsWith('thread:thread-'));
     });
   });
 });

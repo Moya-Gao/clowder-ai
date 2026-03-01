@@ -28,6 +28,9 @@ export interface ReviewRouterOptions {
   readonly processedEmailStore: IProcessedEmailStore;
   readonly threadStore: IThreadStore;
   readonly messageStore: IMessageStore;
+  readonly socketManager?: {
+    broadcastToRoom: (room: string, event: string, data: unknown) => void;
+  };
   readonly log: FastifyBaseLogger;
   readonly triageThreadId?: string;
   readonly defaultUserId?: string;
@@ -195,6 +198,8 @@ export class ReviewRouter {
       timestamp: Date.now(),
     });
 
+    this.emitConnectorMessage(threadId, stored);
+
     return { messageId: stored.id, content };
   }
 
@@ -223,7 +228,7 @@ export class ReviewRouter {
       url: `https://github.com/${event.repository}/pull/${event.prNumber}`,
     };
 
-    await messageStore.append({
+    const stored = await messageStore.append({
       threadId,
       userId,
       catId: null,
@@ -231,6 +236,26 @@ export class ReviewRouter {
       source,
       mentions: [],
       timestamp: Date.now(),
+    });
+
+    this.emitConnectorMessage(threadId, stored);
+  }
+
+  private emitConnectorMessage(threadId: string, message: {
+    id: string;
+    content: string;
+    timestamp: number;
+    source?: ConnectorSource;
+  }): void {
+    this.opts.socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+      threadId,
+      message: {
+        id: message.id,
+        type: 'connector',
+        content: message.content,
+        ...(message.source ? { source: message.source } : {}),
+        timestamp: message.timestamp,
+      },
     });
   }
 

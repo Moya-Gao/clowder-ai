@@ -408,6 +408,7 @@ async function main(): Promise<void> {
     processedEmailStore,
     threadStore,
     messageStore,
+    socketManager,
     log: app.log,
     defaultUserId: 'default-user',
   });
