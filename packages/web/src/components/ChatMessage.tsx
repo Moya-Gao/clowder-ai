@@ -102,8 +102,6 @@ function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
   const [collapsed, setCollapsed] = useState(true);
   const hasMounted = useRef(false);
 
-  if (events.length === 0) return null;
-
   // Cloud P2: local UI toggles can change scrollHeight without scroll/resize events.
   // Emit after DOM commit so scroll-dependent UI (e.g. "↓ 到最新") can recompute.
   useLayoutEffect(() => {
@@ -115,6 +113,8 @@ function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
       window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
     }
   }, [collapsed]);
+
+  if (events.length === 0) return null;
 
   return (
     <div className="mb-3 rounded-xl border border-black/10 bg-white/65">

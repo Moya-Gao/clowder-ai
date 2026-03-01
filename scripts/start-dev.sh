@@ -21,6 +21,7 @@
 #   REDIS_BACKUP_DIR=~/.cat-cafe/redis-backups/dev
 
 set -e
+set -o pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
