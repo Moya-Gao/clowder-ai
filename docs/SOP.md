@@ -1,384 +1,76 @@
 ---
-feature_ids: []
+feature_ids: [F042]
 topics: [sop]
 doc_kind: note
 created: 2026-02-26
+updated: 2026-02-28
 ---
 
-# Cat Café 开发 SOP (Standard Operating Procedure)
+# Cat Café 开发 SOP
 
-> 三猫开发全流程的**唯一权威文档**。所有猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）和 Skills 引用本文档，不重复定义流程。
-> 冲突时以本文档为准。
->
-> 更新日期：2026-02-27
+> 三猫开发全流程的导航图。每步的详细操作在对应 skill 内。
+> 冲突时以 skill 内容为准。
 
 ## 完整流程（6 步）
 
 ```
-① 开 worktree 写代码
-      ↓
-② 自检（spec compliance）
-      ↓
-③ 请求 review → reviewer 审查 → 修复循环 → reviewer 放行
-      ↓
-④ Merge Approval Gate（检查放行信号）
-      ↓
-⑤ 开 PR + 触发云端 review → 等待通过
-      ↓
-⑥ 合入 main + push + 清理 worktree
+① worktree        → 隔离开发环境
+② quality-gate    → 自检 + 愿景对照
+③ request/receive → review 循环（P1/P2 清零）
+④ merge-gate      → 门禁检查（reviewer 放行确认）
+⑤ PR + cloud      → 开 PR + 云端 Codex review
+⑥ merge + cleanup → squash merge + 清理 worktree
 ```
 
----
+| Step | 做什么 | Skill | 详情 |
+|------|--------|-------|------|
+| ① | 创建 worktree，配置 Redis 6398 | `worktree` | 禁止直接改 main |
+| ② | 愿景对照 + spec 合规 + 跑测试 | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
+| ③a | 发 review 请求（五件套 + 证据） | `request-review` | 附原始需求摘录 |
+| ③b | 处理 review 反馈（Red→Green） | `receive-review` | 禁止表演性同意 |
+| ④ | 检查放行信号 + BACKLOG 更新 | `merge-gate` | 4 个硬性条件 |
+| ⑤ | push → PR → 云端 review → 等通过 | `merge-gate` | 模板见 `refs/pr-template.md` |
+| ⑥ | `gh pr merge --squash` → 清理 | `merge-gate` | 禁止本地 squash！ |
 
-### Step 1: 在 Worktree 中写代码
+## 例外路径
 
-**触发**: 开始任何代码修改时（不管多小）
-**Skill**: `using-git-worktrees`
+### 跳过 PR（Step 5）
 
-- 所有代码修改必须在 worktree 中进行，禁止直接改 main
-- 命名：`cat-cafe-{feature-name}`，分支：`feat/xxx`、`fix/xxx`、`refactor/xxx`
-- Worktree 中 Redis 必须用 6398（开发），禁止连 6399（生产）
-- 操作细节见各猫指引的 Worktree 章节
+三个条件全部满足才可跳过：
+1. 铲屎官在当前对话明确同意
+2. 纯文档 / ≤10 行 bug fix / typo
+3. 不涉及安全、鉴权、数据、API 变更
 
-**→ 下一步**: 开发完成后进入 Step 2
+### 极微改动直接 main（跳过全流程）
 
----
-
-### Step 2: 自检（Spec Compliance + Vision Alignment）
-
-**触发**: 开发完成，准备提 review 前
-**Skill**: `spec-compliance-check`
-
-- 🔴 **先做愿景核对**：回读原始 Discussion/Interview，确认 AC 完整覆盖铲屎官需求
-- 对照 plan/spec 逐项核对实现
-- 跑全量测试（`pnpm test`；Redis 改动加跑 `test:redis`）
-- 输出合规报告（含愿景覆盖度 + ✅/⚠️/❌）
-
-> 教训：AC 是人写的，可能不完整。只核对 AC ≠ 满足需求。详见 `spec-compliance-check` skill Step 0。
-
-**→ 下一步**: 合规通过 → Step 3
-
----
-
-### Step 3: 请求 Review + 修复循环
-
-**触发**: 自检通过后
-**Skills**: `cat-cafe-requesting-review` (3a) → `cat-cafe-receiving-review` (3b)
-
-**3a. 请求 review**
-- 用 skill 写 review 信（含五件套 + 自检报告 + 测试结果）
-- 存档到 `docs/mailbox/`
-- Reviewer 配对见下方"Reviewer 配对表"
-
-**3b. 收到 review 反馈**
-- Red→Green 方式逐个修复 P1/P2
-- 禁止表演性同意；技术分歧用论证 push back
-- **修复后回给 reviewer 确认**（不能自己判断"改对了"直接合入）
-
-**→ 下一步**: Reviewer 明确放行 → Step 4
-
----
-
-### Step 4: Merge Approval Gate
-
-**触发**: Reviewer 发出放行信号
-**Skill**: `merge-approval-gate`
-
-必须同时满足：
-1. Reviewer 有**明确放行信号**（"放行" / "LGTM" / "通过" / "可以合入"）
-2. **所有 P1/P2** 已修复并经 reviewer 确认
-3. Review 针对**当前分支/当前工作**（不是历史 review）
-4. **BACKLOG 涉及条目已更新**：本次工作关联的 BACKLOG 条目（bug fix / feature / 债务）已在 feature branch 上标 `[x]` + commit hash，纳入同一轮 review
-
-**→ 下一步**: Gate 通过 → Step 5
-
----
-
-### Step 5: 开 PR + 触发云端 Review
-
-**触发**: merge-approval-gate 通过后
-**Skill**: `requesting-cloud-review`
-
-```bash
-# 5a. Push feature branch 到 origin（PR 需要远程分支）
-git push origin {branch}
-
-# 5b. 开 PR（此时 feature 和 main 有 diff，PR 可成立）
-gh pr create --base main --head {branch} --title "..." --body "..."
-
-# 5c. 触发云端 review
-gh pr comment {PR_NUMBER} --body "@codex review ..."
-
-# 5d. 等待云端 review 结果（⚠️ 必须等通过才能进 Step 6！）
-```
-
-**冲突处理**: 如果 GitHub 提示 PR 有冲突，在 feature branch 上 rebase 解决：
-```bash
-git fetch origin
-git rebase origin/main
-# 解决冲突后
-git push origin {branch} --force-with-lease
-```
-rebase 有冲突 = 改代码 → 必须找 peer reviewer review 冲突解决部分
-
-**云端 review 是阻塞守护**：必须等云端 Codex review 通过（0 P1/P2）才能进入 Step 6。处理方式：
-- 0 P1/P2 → 通过，进入 Step 6
-- 有 P1/P2（附复现证据）→ 在 feature branch 上修复 → push → 等待 re-review
-- 有 P1/P2（无复现证据）→ 降级 P3，留 comment 说明，视为通过
-- 误报 → 留 comment 解释，视为通过
-
-**→ 下一步**: 云端 review 通过后进入 Step 6
-
----
-
-### Step 6: 合入 main + Push + 清理
-
-**触发**: 云端 review 通过后（0 P1/P2，或 P1/P2 已在 feature branch 上修复）
-
-```bash
-# 6a. 通过 GitHub 合入（squash 由 GitHub 处理，PR 正确标记为 "Merged" ✅）
-gh pr merge {PR_NUMBER} --squash --delete-branch
-
-# 6b. 更新本地 main（⚠️ 必须在清理 worktree 之前！）
-cd /Users/lysander/projects/relay-station/cat-cafe
-git checkout main
-git pull origin main
-
-# 6c. 清理 worktree + 本地分支
-git worktree remove ../cat-cafe-{feature-name}
-git branch -d {branch-name}
-git worktree prune
-```
-
-**为什么用 `gh pr merge --squash` 而不是本地 squash + merge**：
-- `gh pr merge --squash` 让 GitHub 自动将所有 commit 压缩为一个，PR 正确显示为 "Merged"
-- 本地手动 `git rebase -i --autosquash` 压缩后再 merge/push 会导致 commit hash 不匹配，PR 显示为 "Closed" 而非 "Merged"
-- 手动 squash 曾导致 3 次事故（覆盖 main 上其他猫的改动），`gh pr merge --squash` 由 GitHub 安全处理
-- `--delete-branch` 自动删除远程分支，省去 `git push origin --delete`
-- 🔴 **禁止本地 squash**：不要用 `git rebase -i --autosquash` 压缩提交，不要用 `git reset --soft` + 重提交，不要本地 `git merge --ff-only` + push
-
-```bash
-# 6e. 兜底检查：BACKLOG 更新是否在 feature branch 阶段完成？
-# 正常情况下 BACKLOG 更新应在 Step 4（merge gate）前完成并纳入 review。
-# 如果遗漏了：≤5 行改动可直接在 main 补提，>5 行需开 follow-up worktree。
-```
-
-**为什么需要兜底**：2026-02-20 审计发现 3 个已合入条目（#83/#84/F35）未标 [x]，根因是流程里没有 BACKLOG 更新步骤。现已在 Step 4 加入前置检查，6e 作为最后防线。
-
----
-
-## 例外路径：跳过 Step 5（开 PR）
-
-以下**三个条件必须全部满足**（缺一不可）：
-
-1. **铲屎官在当前对话中明确同意**跳过（不是默认、不是历史授权、不是猫自行判断）
-2. 改动属于以下类别之一：
-   - **纯文档**: 仅修改 `docs/` 目录下文件、`*.md` 文件（含 README/CLAUDE.md/AGENTS.md/GEMINI.md）、或代码注释
-   - **微量代码**: diff 总计 ≤10 行的 bug fix / typo fix / 配置调整
-3. **不涉及**：安全、鉴权、数据存储、API 接口变更
-
-**如果不确定是否需要开 PR → 默认开 PR。宁多一层守护，不少一层。**
-
----
-
-## 例外路径：极微改动直接合入 main（跳过全流程）
-
-以下**四个条件必须全部满足**，才可跳过 worktree / review / PR，直接在 main 上修改并提交：
-
-1. **类别限定**：纯日志格式调整 / 纯配置参数 / 纯注释 / 纯文档（不涉及任何业务逻辑或 API 接口）
-2. **体量限定**：diff 总计 **≤ 5 行**
-3. **类型检查通过**：改动后必须跑 `tsc --noEmit`（或 LSP 诊断无 error），通过才能提交
-4. **无测试需要**：改动不涉及任何可测行为（不需要新增/修改测试用例）
-
-**不需要铲屎官每次单独授权**——满足以上四条即可自行判断。
-
-**如果有任何一条不满足 → 回到完整 6 步 SOP。**
-
-> 规则来源：2026-02-18 审计日志时间戳改动（2 行日志格式修改），铲屎官确认此类极微改动可直接合入。
-
----
+四个条件全部满足：
+1. 纯日志/配置/注释/文档（不涉及业务逻辑）
+2. diff ≤ 5 行
+3. 类型检查通过
+4. 不涉及可测行为
 
 ## Reviewer 配对规则
 
-**F032 动态匹配**：Reviewer 根据 `cat-config.json` 的 roster 配置动态选择：
+动态匹配自 `cat-config.json`：
+1. 跨 family 优先 | 2. 必须有 peer-reviewer 角色 | 3. 必须 available
+4. 优先 lead | 5. 优先活跃猫
 
-1. **不同家族优先**：ragdoll ↔ maine-coon ↔ siamese（跨家族 review）
-2. **必须有 `peer-reviewer` 角色**：只有 roster 中标记为 peer-reviewer 的猫能 review
-3. **必须可用（available: true）**：没猫粮的猫不能 review（$40 教训！）
-4. **优先 lead**：同一家族内有多个 peer-reviewer 时，优先选 lead
-5. **优先活跃猫**：当前 thread 里活跃的猫优先（Phase C 实现）
+**降级**：无跨 family reviewer → 同 family 不同个体 → 铲屎官。
+**铁律**：同一个体不能 review 自己的代码。
 
-**降级规则**：如果没有符合条件的跨家族 reviewer：
-- 允许同家族的 lead 进行 review
-- 例：所有 maine-coon 猫都没猫粮时，ragdoll lead 可以审 ragdoll 代码
+## 代码质量工具
 
-**铁律**: 任何猫都不能 review 自己的代码。
+| 工具 | 命令 | 何时 |
+|------|------|------|
+| Biome | `pnpm check` / `pnpm check:fix` | 开发中 + Step ② |
+| TypeScript | `pnpm lint` | Step ② 必跑 |
+| shared rebuild | `pnpm --filter @cat-cafe/shared build` | shared 包改后 |
+| 目录卫生 | `pnpm check:dir-size` + `pnpm check:deps` | 新增文件时 |
 
----
+详见 ADR-010（目录卫生）。
 
-## 代码质量工具（三猫必读）
+## 文档规范
 
-开发过程中必须使用以下工具守护代码质量，不是可选的。
-
-### Biome（已配置 `biome.json`）
-
-```bash
-# 检查 lint + 格式（只报告，不修改）
-pnpm check
-
-# 自动修复
-pnpm check:fix
-
-# 对单文件增量检查（推荐在编辑后立刻跑）
-pnpm biome check <file-path>
-```
-
-- **Step 2 自检时**：`pnpm check` 必须跑，确认无 error
-- **开发过程中**：改完文件后对改动文件跑 `pnpm biome check <file>`，及时发现问题
-- **提交前**：至少对暂存文件跑一次 Biome 检查
-
-### TypeScript 类型检查
-
-```bash
-# 全量类型检查（Step 2 必跑）
-pnpm lint
-
-# 共享包改动后必须 rebuild（否则 .d.ts 过期导致下游误报）
-pnpm --filter @cat-cafe/shared build
-```
-
-### LSP 插件（各猫按自己 CLI 工具链配置）
-
-如果你的 CLI 工具支持 LSP / 代码检查插件：
-- **必须启用**，不要嫌麻烦关掉
-- **关注每次编辑后的实时诊断**，发现类型错误当场修，不要攒到最后
-- **重构/移动文件后主动触发诊断**，确认 import 链没断
-- 具体配置见各猫指引（CLAUDE.md / AGENTS.md / GEMINI.md）
-
-### JetBrains MCP（三猫共用，铲屎官 WebStorm 已开启）
-
-铲屎官的 WebStorm 已启用 MCP Server（SSE: `http://localhost:64342/sse`）。配置位置：
-- **布偶猫**：项目级 `.mcp.json`（Claude CLI 自动读取）
-- **缅因猫**：`~/.codex/config.toml` → `[mcp_servers.jetbrains]`
-
-**必须用 JetBrains MCP 的场景**（比手动 grep 替换更安全）：
-
-| 场景 | 工具 | 为什么 |
-|------|------|--------|
-| **重命名符号** | `rename_refactoring` | 理解 getter/setter、override 链，跨文件安全重命名 |
-| **检查文件问题** | `get_file_problems` | IntelliJ inspections，比 `tsc --noEmit` 更全面 |
-| **查看符号信息** | `get_symbol_info` | 跳到定义、看类型签名、看文档 |
-| **全项目搜索** | `search_in_files_by_text` | 比 grep 更精准，带高亮匹配位置 |
-
-**注意**：JetBrains MCP 依赖铲屎官的 WebStorm 开着。如果连不上，回退到 LSP + Biome。
-调研报告：`docs/research/2026-02-16_LSP_MCP_report.md`
-
-### 目录结构卫生（ADR-010）
-
-目录膨胀是代码库腐化的早期信号。三猫必须遵守以下规则：
-
-**双阈值检测**（对 `packages/api/src/` 下每个目录）：
-
-| 阈值 | .ts 文件数 | 含义 |
-|------|-----------|------|
-| **warn** | 15 | 必须在 commit message 写"为什么不拆" |
-| **error** | 25 | 必须拆分，除非走例外机制 |
-
-计数排除 `index.ts` 和 `*.d.ts`。
-
-```bash
-# 检查目录大小
-pnpm check:dir-size
-
-# 检查依赖关系（循环依赖 + 边界违规）
-pnpm check:deps
-```
-
-**例外机制**：确需超阈值的目录登记到 `.dir-exceptions.json`，必须包含 `owner` + `expiresAt`（禁止永久豁免）。
-
-**AI 结构保洁员规则**（三猫新增文件时必须遵守）：
-1. 检查目标目录是否已超 warn 阈值
-2. 若超阈值，在 commit message 说明理由或拆分
-3. 新建子目录必须满足理由白名单：职责不同 / 依赖方向不同 / 生命周期不同
-
-详见：`docs/decisions/010-directory-hygiene-anti-rot.md`
-
----
-
-## 文档归档与查找
-
-已完成的讨论、邮件、调研、计划等文档会移入 `docs/archive/YYYY-MM/` 归档目录。
-
-**归档不等于没用！** 找不到文档时，先查 archive：
-
-```
-docs/archive/2026-02/
-├── discussions/    # 已完成的讨论（圆桌、brainstorm、handoff 等）
-├── mailbox/        # 已完成的 review 信、交接信
-│   └── YYYY-MM-DD/ # 按日期子目录组织
-├── research/       # 已完成的技术调研
-├── plans/          # 已实施完成的计划
-├── bug-report/     # 已关闭的 bug report
-├── phases/         # 已完成的 phase 设计文档
-├── reports/        # 历史报告
-└── tasks/          # 已完成的任务表
-```
-
-**三猫查找规则**：
-1. 查 `docs/` 活跃目录找不到 → 去 `docs/archive/` 找
-2. 新建文档引用旧文档时，用归档后的路径（`docs/archive/2026-02/...`）
-3. ADR (`docs/decisions/`) 和 lessons (`docs/lessons-learned.md`) **永不归档**——它们是常青文档
-
----
-
-## 完成后真相源同步（必须！）
-
-**问题根因**（2026-02-26 审计发现）：干完事情后没有更新真相源的习惯，导致 feat/debt 状态与实际情况不一致。
-
-**规则**：完成任何 Feature 或 Tech Debt 后，**必须同步更新以下真相源**，缺一不可：
-
-### Feature 完成后
-
-| 更新目标 | 操作 |
-|----------|------|
-| 🔴 **愿景对照** | `feat-completion` Step 0：回读原始 Discussion + 跨猫交叉验证 |
-| `docs/features/Fxxx.md` | Status 改为 `done`，补 Completed 日期和 commit hash |
-| `docs/BACKLOG.md` | 从活跃索引表**移除**（done 的 feat 不留在 BACKLOG） |
-| `docs/features/README.md` | 确认已在"已完成 Feature"表格中 |
-| 相关文档 | 确认 frontmatter `feature_ids: [Fxxx]` 已填写 |
-
-### Tech Debt 完成后
-
-| 更新目标 | 操作 |
-|----------|------|
-| `docs/TECH-DEBT.md` | 状态改为 `[x]`，补 commit hash 到备注列 |
-| 相关 bug report | 确认 frontmatter `debt_ids: [TDxxx]` 已填写（如适用） |
-
-### 检查清单（每次合入 main 后必过）
-
-```markdown
-## 真相源同步检查
-
-- [ ] 涉及的 Feature 聚合文件 Status 已更新？
-- [ ] 涉及的 BACKLOG/TECH-DEBT 条目已标记 [x]？
-- [ ] 相关文档的 feature_ids/debt_ids 已填写？
-- [ ] 活跃 feat 完成后已从 BACKLOG 移除？
-```
-
-**铁律**：合入 main 不是终点，真相源同步才是。
-
----
-
-## Skill 速查表
-
-| 我正在... | 用这个 Skill | SOP Step |
-|-----------|-------------|----------|
-| 开始写代码 | `using-git-worktrees` | Step 1 |
-| 写完了，准备提 review | `spec-compliance-check`（含愿景核对） | Step 2 |
-| 发 review 请求给别的猫 | `cat-cafe-requesting-review` | Step 3a |
-| 收到 review 意见要处理 | `cat-cafe-receiving-review` | Step 3b |
-| Reviewer 放行，准备合入 | `merge-approval-gate` | Step 4 |
-| 放行后开 PR + 云端 review | `requesting-cloud-review` | Step 5 |
-| 不确定整体流程 | **先看本文档** | — |
-| 交接/传话给别的猫 | `cross-cat-handoff` | 任意时刻 |
-| 声称"完成了" | `verification-before-completion` | 任意时刻 |
+- `docs/` 下 `.md` 文件必须有 YAML frontmatter（ADR-011）
+- 完成后必须同步真相源（详见 `feat-lifecycle` skill）
+- 归档查找：`docs/archive/2026-02/`

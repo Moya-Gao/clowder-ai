@@ -4,7 +4,7 @@
  * Claude 通过 --mcp-config 原生支持 MCP，不需要注入。
  *
  * Skills-as-source-of-truth: Full API docs live in
- *   cat-cafe-skills/using-mcp-callbacks/SKILL.md
+ *   cat-cafe-skills/refs/mcp-callbacks.md
  * Prompt injection is minimal: credentials + tool list + skill reference.
  * HTTP endpoints preserved as fallback only.
  */
@@ -51,7 +51,7 @@ function resolveExampleHandle(opts: McpCallbackOptions): string {
 /**
  * Build MCP callback instructions for prompt injection.
  * Minimal: @teammate rules + credentials + tool list + skill reference.
- * Full API docs are in the `using-mcp-callbacks` skill (loaded on demand).
+ * Full API docs are in cat-cafe-skills/refs/mcp-callbacks.md.
  */
 export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
   const exampleHandle = resolveExampleHandle(opts);
@@ -66,9 +66,8 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
 ### HTTP 回调工具（异步场景）
 凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`（环境变量）
 可用工具: post-message / register-pr-tracking / thread-context / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
-需要 curl 示例和完整用法，加载 \`using-mcp-callbacks\` skill。
-Skill 不可用时，GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\` 获取同等文档。
-需要富消息块规范，加载 \`using-rich-blocks\` skill（fallback: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\`）。
+需要 curl 示例和完整用法，GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`。
+需要富消息块规范，GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\`。
 
 注意: 只在需要异步协作时使用。普通回复直接输出即可。`;
 }

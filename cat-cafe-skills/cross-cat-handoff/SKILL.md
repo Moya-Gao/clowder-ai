@@ -149,7 +149,7 @@ BEFORE 发送交接/传话/review请求:
 - 透明展示推理链
 - 让对方先形成自己的想法再看你的分析
 
-详见 `feat-discussion` skill 的开放讨论模式。
+详见 `feat-lifecycle` skill 的讨论阶段（开放讨论模式）。
 
 ## 常见错误
 
@@ -173,8 +173,13 @@ BEFORE 发送交接/传话/review请求:
 - [ ] Next Action: 希望接手方下一步做什么？
 ```
 
-## 相关规则
+## 下一步
 
-- CLAUDE.md 系统级协作准则第 1 条：交接/传话必须写清 WHY
-- CLAUDE.md 第 3 条：跨猫讨论用开放邀请
-- docs/mailbox/：review 信存放位置
+- 交接 review 请求 → 接收方用 `receive-review`
+- 交接开发工作 → 接收方用 `worktree` 开始
+- 交接讨论邀请 → 接收方用 `collaborative-thinking`
+
+## 参考
+
+- 五件套详见：`refs/shared-rules.md` §1
+- Review 信存放：`docs/mailbox/`

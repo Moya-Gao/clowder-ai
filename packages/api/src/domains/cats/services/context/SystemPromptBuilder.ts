@@ -121,7 +121,7 @@ const PROVIDER_LABELS: Record<string, string> = {
 
 /**
  * Skills-as-source-of-truth: MCP tools section is minimal.
- * Full specs live in cat-cafe-skills/ (using-rich-blocks, using-mcp-callbacks).
+ * Full specs live in cat-cafe-skills/refs/ (rich-blocks.md, mcp-callbacks.md).
  */
 const MCP_TOOLS_SECTION = `
 ⚠️ @队友：回复里另起一行，行首写 \`@猫名\`（免费）。
@@ -135,7 +135,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
 
 ${RICH_BLOCK_SHORT}
-富消息块规范：优先加载 \`using-rich-blocks\` skill。`;
+富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

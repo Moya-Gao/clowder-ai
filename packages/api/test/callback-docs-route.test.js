@@ -24,8 +24,8 @@ describe('Callback Docs Routes', () => {
       const body = response.json();
       assert.ok(body.instructions, 'response should have instructions field');
       assert.ok(
-        body.instructions.includes('# Using MCP Callbacks'),
-        'should contain skill heading',
+        body.instructions.includes('# MCP Callbacks HTTP API Reference'),
+        'should contain refs heading',
       );
       assert.ok(
         !body.instructions.startsWith('---'),

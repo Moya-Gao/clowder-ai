@@ -21,13 +21,10 @@ function stripFrontmatter(content: string): string {
   return match ? content.slice(match[0].length).trimStart() : content;
 }
 
-/**
- * Resolve path to a skill file relative to project root.
- * Works from both packages/api/src and packages/api/dist.
- */
-function skillPath(skillName: string): string {
+/** Resolve path to a refs file in cat-cafe-skills/refs/. */
+function refsPath(fileName: string): string {
   // From packages/api/src/routes/ → go up 4 levels to project root
-  return resolve(__dirname, '..', '..', '..', '..', 'cat-cafe-skills', skillName, 'SKILL.md');
+  return resolve(__dirname, '..', '..', '..', '..', 'cat-cafe-skills', 'refs', fileName);
 }
 
 /**
@@ -41,16 +38,16 @@ export const registerCallbackDocsRoutes: FastifyPluginAsync = async (app) => {
     return { rules: RICH_BLOCK_RULES };
   });
 
-  // MCP callback instructions — reads skill file directly (true SOT fallback)
+  // MCP callback instructions — reads refs file (SOT moved from skill to refs/)
   app.get('/api/callbacks/instructions', async (_request, reply) => {
     try {
-      const raw = await readFile(skillPath('using-mcp-callbacks'), 'utf-8');
+      const raw = await readFile(refsPath('mcp-callbacks.md'), 'utf-8');
       const instructions = stripFrontmatter(raw);
       reply.header('cache-control', 'public, max-age=3600');
       return { instructions };
     } catch {
       reply.code(503);
-      return { error: 'Skill file not readable. Ensure cat-cafe-skills/using-mcp-callbacks/SKILL.md exists.' };
+      return { error: 'Refs file not readable. Ensure cat-cafe-skills/refs/mcp-callbacks.md exists.' };
     }
   });
 };

@@ -1,0 +1,370 @@
+# Cat Café Skills Manifest — 路由单一真相源
+# 所有 skill 的触发规则、排除条件、产出契约、链式导航在此定义。
+# CLAUDE.md / AGENTS.md / GEMINI.md 的路由表当前手工同步（Wave 2 计划自动生成）。
+# lint 规则：pnpm check:skills（Wave 2 计划增强为 manifest 一致性校验）
+#
+# 更新日期：2026-02-28
+# 来源决策：F042 三层信息架构
+
+# ─── 开发流程链 ─────────────────────────────────────────
+# feat-lifecycle → writing-plans → worktree → tdd
+#     → quality-gate → request-review → receive-review
+#     → merge-gate → feat-lifecycle(完成)
+
+skills:
+
+  # ── 功能生命周期 ──
+  feat-lifecycle:
+    description: >
+      Feature 立项、讨论、完成的全生命周期管理。
+      Use when: 开个新功能、new feature、F0xx、立项、feature 完成、验收通过、讨论新功能需求。
+      Not for: 代码实现、review、merge（那些有专门的 skill）。
+      Output: Feature 聚合文件 + BACKLOG 索引 + 真相源同步。
+    triggers:
+      - "开个新功能"
+      - "new feature"
+      - "F0xx"
+      - "立项"
+      - "feature 完成"
+      - "F0xx done"
+      - "验收通过"
+      - "讨论新功能需求"
+    not_for:
+      - "写代码"
+      - "review"
+      - "merge"
+    output: "Feature aggregate file / truth-source sync"
+    next: ["writing-plans"]
+    sop_step: null
+    merged_from: ["feat-kickoff", "feat-discussion", "feat-completion"]
+
+  # ── 协作思考 ──
+  collaborative-thinking:
+    description: >
+      单人或多猫的创意探索、独立思考、讨论收敛。
+      Use when: brainstorm、多猫独立思考、讨论结束需要收敛、方向性问题需要多视角。
+      Not for: 已有明确 spec 直接写代码、单猫执行已定方案。
+      Output: 收敛报告（共识/分歧/行动项）+ 三件套沉淀检查。
+    triggers:
+      - "brainstorm"
+      - "讨论"
+      - "多猫独立思考"
+      - "收敛"
+      - "讨论结束"
+      - "总结一下"
+    not_for:
+      - "已有 spec 直接写代码"
+      - "单人执行"
+    output: "Convergence report + settlement checklist"
+    next: ["writing-plans", "feat-lifecycle"]
+    sop_step: null
+    merged_from: ["brainstorming", "multi-cat-brainstorm", "discussion-convergence"]
+
+  # ── 计划编写 ──
+  writing-plans:
+    description: >
+      将 spec/需求拆分为可执行的分步实施计划。
+      Use when: 有 spec 或需求，准备动手前需要拆分步骤。
+      Not for: trivial 改动（≤5 行）、已有详细计划。
+      Output: 分步实施计划（含 TDD 步骤和检查点）。
+    triggers:
+      - "写计划"
+      - "implementation plan"
+      - "拆分步骤"
+    not_for:
+      - "trivial 改动"
+      - "已有计划"
+    output: "Phased implementation plan"
+    next: ["worktree"]
+    sop_step: null
+    merged_from: null
+
+  # ── Worktree 隔离 ──
+  worktree:
+    description: >
+      创建 Git worktree 隔离开发环境，含 Redis 6398 安全配置。
+      Use when: 开始任何代码修改、新功能开发、bug fix。
+      Not for: 纯文档修改（≤5 行）、不涉及代码的讨论。
+      Output: 隔离的 worktree + 正确的 Redis/环境配置。
+    triggers:
+      - "开始开发"
+      - "新 worktree"
+      - "开 worktree"
+    not_for:
+      - "纯文档 ≤5 行"
+      - "不涉及代码"
+    output: "Isolated worktree with Redis 6398"
+    next: ["tdd"]
+    sop_step: 1
+    merged_from: ["using-git-worktrees"]
+
+  # ── TDD ──
+  tdd:
+    description: >
+      Red-Green-Refactor 测试驱动开发纪律。
+      Use when: 写新功能代码、修 bug、任何实现工作。
+      Not for: 纯文档、纯调研、已有充分测试的 trivial 改动。
+      Output: 失败测试 → 最小实现 → 重构，全程有测试保护。
+    triggers:
+      - "写代码"
+      - "test first"
+      - "TDD"
+      - "红绿重构"
+    not_for:
+      - "纯文档"
+      - "调研"
+    output: "Tests + implementation (red-green-refactor)"
+    next: ["quality-gate"]
+    sop_step: 1
+    merged_from: ["test-driven-development"]
+
+  # ── 调试 ──
+  debugging:
+    description: >
+      系统化 bug 定位：根因调查 → 模式分析 → 假设验证 → 修复。
+      Use when: 遇到 bug、测试失败、unexpected behavior。
+      Not for: 新功能开发、重构、已知原因的简单修复。
+      Output: Bug report（5件套）+ 根因 + 修复（含回归测试）。
+    triggers:
+      - "bug"
+      - "报错"
+      - "test failure"
+      - "unexpected behavior"
+    not_for:
+      - "新功能"
+      - "重构"
+    output: "Bug report + root cause + fix"
+    next: ["quality-gate"]
+    sop_step: null
+    merged_from: ["systematic-debugging"]
+
+  # ── 质量门禁 ──
+  quality-gate:
+    description: >
+      开发完成后的自检门禁：愿景对照 + spec 合规 + 验证。
+      Use when: 开发完了准备提 review、声称完成了、准备交付。
+      Not for: 收到 review 反馈（用 receive-review）、merge（用 merge-gate）。
+      Output: Spec 合规报告（含愿景覆盖度）。
+    triggers:
+      - "开发完了"
+      - "准备 review"
+      - "自检"
+      - "声称完成"
+    not_for:
+      - "收到 review 反馈"
+      - "merge"
+    output: "Spec compliance report + vision alignment"
+    next: ["request-review"]
+    sop_step: 2
+    merged_from: ["spec-compliance-check", "verification-before-completion"]
+
+  # ── 请求 Review ──
+  request-review:
+    description: >
+      向跨家族 peer-reviewer 发送 review 请求（含五件套）。
+      Use when: 自检通过后准备请其他猫 review。
+      Not for: 收到 review 结果（用 receive-review）、自检（用 quality-gate）。
+      Output: Review 请求信（存档到 docs/mailbox/）。
+    triggers:
+      - "请 review"
+      - "帮我看看"
+      - "request review"
+    not_for:
+      - "收到 review"
+      - "自检"
+    output: "Review request letter in docs/mailbox/"
+    next: ["receive-review"]
+    sop_step: 3
+    merged_from: ["cat-cafe-requesting-review"]
+
+  # ── 接收 Review ──
+  receive-review:
+    description: >
+      处理 reviewer 反馈：Red→Green 修复 + 技术论证（禁止表演性同意）。
+      Use when: 收到 review 结果、reviewer 提了 P1/P2、需要处理反馈。
+      Not for: 发 review 请求（用 request-review）、自检（用 quality-gate）。
+      Output: 逐项修复确认 + reviewer 放行。
+    triggers:
+      - "review 结果"
+      - "review 意见"
+      - "reviewer 说"
+      - "fix these"
+    not_for:
+      - "发 review 请求"
+      - "自检"
+    output: "Per-item fix confirmation + reviewer sign-off"
+    next: ["merge-gate"]
+    sop_step: 3
+    merged_from: ["cat-cafe-receiving-review"]
+
+  # ── 合入门禁 ──
+  merge-gate:
+    description: >
+      合入 main 的完整流程：门禁检查 → PR → 云端 review → squash merge → 清理。
+      Use when: reviewer 放行后准备合入、开 PR、触发云端 review、准备 merge。
+      Not for: 开发中、review 未通过、自检未完成。
+      Output: PR merged + worktree cleaned。
+    triggers:
+      - "合入 main"
+      - "merge"
+      - "准备合入"
+      - "开 PR"
+      - "cloud review"
+      - "gh pr create"
+    not_for:
+      - "开发中"
+      - "review 未通过"
+    output: "PR merged (squash) + worktree cleaned"
+    next: ["feat-lifecycle"]
+    sop_step: [4, 5, 6]
+    merged_from: ["merge-approval-gate", "requesting-cloud-review", "finishing-a-development-branch"]
+
+  # ── 跨猫交接 ──
+  cross-cat-handoff:
+    description: >
+      跨猫传话/交接的五件套结构（What/Why/Tradeoff/Open/Next）。
+      Use when: 交接工作给其他猫、传话、写 review 信。
+      Not for: 自己的任务、不涉及其他猫的工作。
+      Output: 结构化交接信。
+    triggers:
+      - "交接"
+      - "传话"
+      - "handoff"
+    not_for:
+      - "自己的任务"
+      - "不涉及其他猫"
+    output: "5-part handoff message"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── 并行执行 ──
+  parallel-execution:
+    description: >
+      多个独立任务的并行分发、子代理驱动、计划执行。
+      Use when: 有 2+ 个互不依赖的任务、需要子代理并行工作。
+      Not for: 单一任务、有依赖链的任务（顺序执行即可）。
+      Output: 并行任务完成 + 集成验证。
+    triggers:
+      - "多个独立任务"
+      - "并行"
+      - "parallel"
+      - "subagent"
+    not_for:
+      - "单一任务"
+      - "有依赖链"
+    output: "Parallel task completion + integration"
+    next: ["quality-gate"]
+    sop_step: null
+    merged_from: ["dispatching-parallel-agents", "subagent-driven-development", "executing-plans"]
+
+  # ── 深度调研 ──
+  deep-research:
+    description: >
+      多源深度调研管道（Web Deep Research + Coder 合成）。
+      Use when: 技术问题需要多源调查、设计决策需要证据、铲屎官说"调研"/"research"。
+      Not for: 简单搜索（直接用 WebSearch）、已有结论的确认。
+      Output: 调研报告 + 证据合成。
+    triggers:
+      - "调研"
+      - "research"
+      - "深度研究"
+    not_for:
+      - "简单搜索"
+      - "已有结论"
+    output: "Research report with evidence synthesis"
+    next: ["collaborative-thinking"]
+    sop_step: null
+    merged_from: ["deep-research-pipeline"]
+
+  # ── Skill 编写 ──
+  writing-skills:
+    description: >
+      创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
+      Use when: 写新 skill、修改现有 skill、验证 skill 质量。
+      Not for: 使用 skill（直接触发对应 skill）。
+      Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
+    triggers:
+      - "写 skill"
+      - "新 skill"
+      - "修改 skill"
+    not_for:
+      - "使用 skill"
+    output: "SKILL.md + manifest entry + symlinks"
+    next: []
+    sop_step: null
+    merged_from: null
+
+  # ── Pencil 设计 ──
+  pencil-design:
+    description: >
+      使用 Pencil MCP 创建/编辑 .pen 设计文件，或导出为 React 代码。
+      Use when: 设计 UI、编辑 .pen 文件、从设计稿生成代码。
+      Not for: 纯代码实现（无设计稿）、非 Pencil 工具的设计工作。
+      Output: .pen 设计文件 或 React/Tailwind 组件代码。
+    triggers:
+      - "pencil"
+      - ".pen 文件"
+      - "设计稿"
+    not_for:
+      - "纯代码无设计"
+    output: ".pen file or React/Tailwind component"
+    next: []
+    sop_step: null
+    merged_from: ["pencil-to-code", "pencil-renderer"]
+
+# ─── 降级为 refs/（不再是独立 skill） ─────────────────
+refs:
+  mcp-callbacks:
+    description: "HTTP callback API 参考（curl 示例）"
+    path: "refs/mcp-callbacks.md"
+    source: "using-mcp-callbacks"
+  rich-blocks:
+    description: "Rich block 创建指南（card/diff/checklist/media/audio）"
+    path: "refs/rich-blocks.md"
+    source: "using-rich-blocks"
+  pr-template:
+    description: "PR 创建模板 + @codex review 触发模板"
+    path: "refs/pr-template.md"
+    source: "requesting-cloud-review"
+  review-request-template:
+    description: "Review 请求信模板（五件套）"
+    path: "refs/review-request-template.md"
+    source: "cat-cafe-requesting-review"
+  decision-matrix:
+    description: "决策权漏斗矩阵（铲屎官/三猫/自治）"
+    path: "refs/decision-matrix.md"
+    source: "CLAUDE.md + AGENTS.md + GEMINI.md 共用"
+  commit-signatures:
+    description: "猫猫 commit 签名表"
+    path: "refs/commit-signatures.md"
+    source: "CLAUDE.md + AGENTS.md + GEMINI.md 共用"
+  shared-rules:
+    description: "三猫共用协作规则（交接五件套、提问原则、开放邀请、技术债务、Review 立场等）"
+    path: "refs/shared-rules.md"
+    source: "CLAUDE.md + AGENTS.md + GEMINI.md 去重合并"
+
+# ─── 三条铁律（仅此三条） ──────────────────────────────
+iron_laws:
+  - id: redis-sanctuary
+    rule: "Redis 6399 是铲屎官数据圣域，Worktree 开发只用 6398"
+  - id: no-self-review
+    rule: "同一个体不能 review 自己的代码（跨 family 优先，可降级到同 family 不同个体）"
+  - id: no-impersonation
+    rule: "不能冒充其他猫，身份是硬约束常量"
+
+# ─── lint 规则 ──────────────────────────────────────────
+lint:
+  rules:
+    - id: has-triggers
+      check: "每个 skill 必须有 triggers 和 not_for"
+    - id: has-output
+      check: "每个 skill 必须有 output 契约"
+    - id: next-exists
+      check: "next 指向的 skill 必须在 manifest 中存在"
+    - id: no-hardcoded-cats
+      check: "skill 内容禁止硬编码猫名句柄（用角色/roster 引用）"
+    - id: sop-consistent
+      check: "sop_step 引用与 SOP.md 一致"
+    - id: no-overmerge
+      check: "合并后的 description 不能变成'什么都能做'"

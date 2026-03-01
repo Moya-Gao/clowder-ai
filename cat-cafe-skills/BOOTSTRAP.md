@@ -1,87 +1,66 @@
 # Cat Café Skills Bootstrap
 
 <EXTREMELY_IMPORTANT>
-你已加载 Cat Café Skills。这些 skills 包含三猫协作规则和开发流程。
+你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表
+## Skills 列表（15 个）
 
-### 三猫协作规则（Cat Café 独有）
-| Skill | 触发场景 |
-|-------|----------|
-| `merge-approval-gate` | 准备合入 main 时 |
-| `spec-compliance-check` | 开发完成、准备提 review 时 |
-| `cross-cat-handoff` | 写交接/传话/review 请求时 |
-| `cat-cafe-requesting-review` | 请求本地 review 时 |
-| `cat-cafe-receiving-review` | 收到 review 反馈时 |
-| `requesting-cloud-review` | 开 PR + 触发云端 Codex review 时 |
-| `feat-discussion` | 讨论新功能需求时 |
-| `feat-kickoff` | 新 Feature 立项时（讨论收敛后决定要做） |
-| `feat-completion` | Feature 完成时（真相源同步、演化关系记录） |
-| `multi-cat-brainstorm` | 多猫独立思考 + 收敛（方向性问题、多视角决策） |
-| `discussion-convergence` | 多方讨论结束后的收敛沉淀（追溯链 + 三件套检查） |
+### 开发流程链
+```
+feat-lifecycle → writing-plans → worktree → tdd
+    → quality-gate → request-review → receive-review
+    → merge-gate → feat-lifecycle(完成)
+```
 
-### 开发流程（改进自 Superpowers）
-| Skill | 触发场景 |
-|-------|----------|
-| `brainstorming` | 开始创意工作前 |
-| `writing-plans` | 写实施计划时 |
-| `executing-plans` | 执行计划时 |
-| `test-driven-development` | 写代码前 |
-| `systematic-debugging` | 遇到 bug 时 |
-| `using-git-worktrees` | 开始功能开发时 |
-| `finishing-a-development-branch` | 功能完成准备合入时 |
-| `verification-before-completion` | 声称完成前 |
+| Skill | 触发场景 | SOP Step |
+|-------|----------|----------|
+| `feat-lifecycle` | 新功能立项/讨论/完成 | — |
+| `collaborative-thinking` | brainstorm/多猫讨论/收敛 | — |
+| `writing-plans` | 写实施计划 | — |
+| `worktree` | 开始写代码（创建隔离环境） | ① |
+| `tdd` | 写测试+实现（红绿重构） | ① |
+| `debugging` | 遇到 bug（系统化定位） | — |
+| `quality-gate` | 开发完了自检（愿景+spec+验证） | ② |
+| `request-review` | 发 review 请求给 reviewer | ③ |
+| `receive-review` | 处理 review 反馈（Red→Green） | ③ |
+| `merge-gate` | 门禁→PR→云端 review→merge→清理 | ④⑤⑥ |
+| `cross-cat-handoff` | 跨猫交接/传话（五件套） | — |
+| `parallel-execution` | 多任务并行/子代理 | — |
+| `deep-research` | 多源深度调研 | — |
+| `writing-skills` | 写新 skill | — |
+| `pencil-design` | 设计 UI / .pen 文件 | — |
 
-### 研究与调研
-| Skill | 触发场景 |
-|-------|----------|
-| `deep-research-pipeline` | 需要深度调研（多源 Deep Research + GPT Pro review + Coder 合成） |
+### 参考文件（refs/，按需读取）
 
-### 协作工具
-| Skill | 触发场景 |
-|-------|----------|
-| `dispatching-parallel-agents` | 有多个独立任务时 |
-| `subagent-driven-development` | 需要子任务驱动开发时 |
-| `writing-skills` | 写新 skill 时 |
-
-### 参考规范
-| Skill | 触发场景 |
-|-------|----------|
-| `using-rich-blocks` | 首次创建富消息块（card/diff/checklist/media_gallery/audio）前 |
-| `using-mcp-callbacks` | 非 Claude 猫（Codex/Gemini）需要使用 HTTP callback 协作工具时 |
+| 文件 | 内容 |
+|------|------|
+| `refs/shared-rules.md` | 三猫共用协作规则（单一真相源） |
+| `refs/decision-matrix.md` | 决策权漏斗矩阵 |
+| `refs/commit-signatures.md` | 猫猫签名表 + @ 句柄 |
+| `refs/pr-template.md` | PR 模板 + 云端 review 触发模板 |
+| `refs/review-request-template.md` | Review 请求信模板 |
+| `refs/mcp-callbacks.md` | HTTP callback API 参考 |
+| `refs/rich-blocks.md` | Rich block 创建指南 |
 
 ## 关键规则
 
-1. **如果 skill 适用于你的任务，你必须使用它，没有选择**
-2. **完整开发流程见 `docs/SOP.md`**（6 步：worktree → 自检 → review → merge gate → PR → 合入）
-3. **合入 main 前必须经过 reviewer 确认**（见 merge-approval-gate）
-4. **交接必须包含五件套**：What/Why/Tradeoff/Open Questions/Next Action
-5. **Review 修复后必须回给 reviewer 确认**（不能自己判断"改对了"直接合入）
-6. **Red→Green 验证**：先写失败测试，再修复
+1. **Skill 适用就必须加载，没有选择**
+2. **完整流程见 `docs/SOP.md`**
+3. **三条铁律**：Redis 6399 圣域 / 同一个体不能 self-review / 不能冒充其他猫
+4. **共用规则在 `refs/shared-rules.md`**（不在各猫文件里重复）
 
 ## 使用方式
 
-- **Claude**: Skills 自动触发（已在 ~/.claude/skills/ 配置）
+- **Claude**: Skills 自动触发（`~/.claude/skills/`）
 - **Codex**: 手动加载 `cat ~/.codex/skills/{skill-name}/SKILL.md`
-- **Gemini**: Skills 自动触发（已在 ~/.gemini/skills/ 配置）
+- **Gemini**: Skills 自动触发（`~/.gemini/skills/`）
 
-## 挂载检查（Skills 看板）
+## 新增/修改 skill
 
-运行 `pnpm check:skills` 可检查所有 Cat Café skills 是否正确挂载到三只猫。
-
-输出示例：检查每个 skill 在 `~/.claude/skills/`、`~/.codex/skills/`、`~/.gemini/skills/` 是否存在正确的 symlink。
-
-**新增 skill 时必须**：
-1. 在 `cat-cafe-skills/{skill-name}/` 创建 SKILL.md
-2. 为三只猫分别创建 symlink（`ln -s .../cat-cafe-skills/{skill-name} ~/.{claude,codex,gemini}/skills/{skill-name}`）
-3. 在本文件对应分类下注册
+1. 在 `cat-cafe-skills/{name}/` 创建 SKILL.md
+2. 在 `manifest.yaml` 添加路由条目
+3. 创建 symlink：`ln -s .../cat-cafe-skills/{name} ~/.{claude,codex,gemini}/skills/{name}`
 4. 运行 `pnpm check:skills` 验证
-
-## 来源
-
-- Cat Café 项目：/Users/lysander/projects/relay-station/cat-cafe/
-- Skills 源目录：cat-cafe-skills/
-- 决策文档：docs/decisions/009-cat-cafe-skills-distribution.md
 
 IF A SKILL APPLIES TO YOUR TASK, YOU DO NOT HAVE A CHOICE. YOU MUST USE IT.
 </EXTREMELY_IMPORTANT>

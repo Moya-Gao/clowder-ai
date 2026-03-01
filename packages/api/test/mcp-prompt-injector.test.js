@@ -53,15 +53,15 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('request-permission'), 'should list request-permission');
   });
 
-  it('buildMcpCallbackInstructions references skills (not curl endpoints)', async () => {
+  it('buildMcpCallbackInstructions references API endpoints for docs', async () => {
     const { buildMcpCallbackInstructions } = await import(
       '../dist/domains/cats/services/agents/invocation/McpPromptInjector.js'
     );
     const instructions = buildMcpCallbackInstructions({});
 
-    // Must reference skills for full docs
-    assert.ok(instructions.includes('using-mcp-callbacks'), 'should reference using-mcp-callbacks skill');
-    assert.ok(instructions.includes('using-rich-blocks'), 'should reference using-rich-blocks skill');
+    // Must reference API fallback endpoints for full docs
+    assert.ok(instructions.includes('/api/callbacks/instructions'), 'should reference instructions endpoint');
+    assert.ok(instructions.includes('/api/callbacks/rich-block-rules'), 'should reference rich-block-rules endpoint');
 
     // Must NOT contain curl examples or hardcoded URLs
     assert.ok(!instructions.includes('curl -sS'), 'should not contain curl examples');

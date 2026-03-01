@@ -13,7 +13,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Announce at start:** "I'm using the writing-plans skill to create the implementation plan."
 
-**Context:** This should be run in a dedicated worktree (created by brainstorming skill).
+**Context:** This should be run in a dedicated worktree (created by `worktree` skill).
 
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 
@@ -33,7 +33,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use parallel-execution skill (Mode C) to implement this plan task-by-task.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -102,15 +102,19 @@ After saving the plan, offer execution choice:
 
 **1. Subagent-Driven (this session)** - I dispatch fresh subagent per task, review between tasks, fast iteration
 
-**2. Parallel Session (separate)** - Open new session with executing-plans, batch execution with checkpoints
+**2. Parallel Session (separate)** - Open new session with `parallel-execution` skill (Mode C), batch execution with checkpoints
 
 **Which approach?"**
 
 **If Subagent-Driven chosen:**
-- **REQUIRED SUB-SKILL:** Use superpowers:subagent-driven-development
+- **REQUIRED SUB-SKILL:** Use `parallel-execution` skill (Mode B)
 - Stay in this session
 - Fresh subagent per task + code review
 
 **If Parallel Session chosen:**
 - Guide them to open new session in worktree
-- **REQUIRED SUB-SKILL:** New session uses superpowers:executing-plans
+- **REQUIRED SUB-SKILL:** New session uses `parallel-execution`
+
+## 下一步
+
+计划写完 → `worktree`（创建隔离开发环境）→ `tdd`（开始实现）

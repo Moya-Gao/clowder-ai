@@ -2,7 +2,7 @@
  * MCP Prompt Injection E2E Integration Test
  * 验证: 注入的 skill 引用 + 真实凭证 → 回调端点成功响应
  *
- * 模拟场景: Codex/Gemini 通过 using-mcp-callbacks skill 获取 curl 模板后，
+ * 模拟场景: Codex/Gemini 通过 refs/mcp-callbacks.md 获取 curl 模板后，
  * 用 invokeSingleCat 设置的 env vars 构造请求 → 全部 200/正确数据。
  */
 
