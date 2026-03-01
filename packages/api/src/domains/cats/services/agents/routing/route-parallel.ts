@@ -59,6 +59,14 @@ export async function* routeParallel(
   const degradationMsgs: AgentMessage[] = [];
   const boundaryByCat = new Map<CatId, string | undefined>();
 
+  // F042 Wave 3: Fetch thread participant activity once (shared across all cats).
+  let activeParticipants: { catId: CatId; lastMessageAt: number; messageCount: number }[] = [];
+  if (deps.invocationDeps.threadStore) {
+    try {
+      activeParticipants = await deps.invocationDeps.threadStore.getParticipantsWithActivity(threadId);
+    } catch { /* best-effort */ }
+  }
+
 	  const streams = await Promise.all(targetCats.map(async (catId) => {
 	    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
 	    const teammates = targetCats.filter((id) => id !== catId);
@@ -79,6 +87,7 @@ export async function* routeParallel(
 	      teammates,
 	      mcpAvailable,
 	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
+	      ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
 	    });
 
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);

@@ -5,16 +5,17 @@
  * 纯函数，无副作用。读取 CAT_CONFIGS 生成身份上下文。
  */
 
-import { catRegistry, CAT_CONFIGS } from '@cat-cafe/shared';
-import type { CatId, CatConfig } from '@cat-cafe/shared';
-import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
+import type { CatConfig, CatId } from '@cat-cafe/shared';
+import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import {
-  getRoster,
-  getReviewPolicy,
   catHasRole,
+  getReviewPolicy,
+  getRoster,
   isCatAvailable,
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
+import type { ThreadParticipantActivity } from '../stores/ports/ThreadStore.js';
+import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
 
 /**
  * Context for a single cat invocation
@@ -36,6 +37,9 @@ export interface InvocationContext {
   promptTags?: readonly string[];
   /** Whether A2A collaboration prompt should be injected (only in serial/execute mode) */
   a2aEnabled?: boolean;
+  /** F042 Wave 3: Thread-level participant activity for @ disambiguation.
+   *  Sorted by lastMessageAt desc. Injected per-invocation to survive compression. */
+  activeParticipants?: readonly ThreadParticipantActivity[];
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -327,7 +331,18 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push('思维方式：批判性分析。挑战假设，找出漏洞，提出反例。', '');
   }
 
-  // MCP tools: moved to buildStaticIdentity() for session-level injection (not per-message)
+  // F042 Wave 3: Active participant hint — re-injected per-invocation, survives compression.
+  if (context.activeParticipants && context.activeParticipants.length > 0) {
+    const topActive = context.activeParticipants
+      .filter((p) => p.catId !== context.catId)
+      .find((p) => p.lastMessageAt > 0);
+    if (topActive) {
+      const topConfig = getConfig(topActive.catId as string);
+      if (topConfig) {
+        lines.push(`最近活跃：${pickVariantMention(topActive.catId as string, topConfig)}`);
+      }
+    }
+  }
 
   return lines.join('\n');
 }

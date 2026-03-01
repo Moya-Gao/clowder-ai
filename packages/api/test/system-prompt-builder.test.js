@@ -631,4 +631,101 @@ describe('SystemPromptBuilder', () => {
     });
     assert.ok(prompt.includes('## 你当前的 Reviewers'), 'System prompt should include reviewer section');
   });
+
+  // --- F042 Wave 3: Active participant hint tests ---
+
+  test('buildInvocationContext injects most-recently-active participant', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'serial',
+      chainIndex: 2,
+      chainTotal: 2,
+      teammates: ['opus'],
+      mcpAvailable: false,
+      activeParticipants: [
+        { catId: 'opus', lastMessageAt: 2000, messageCount: 5 },
+        { catId: 'codex', lastMessageAt: 1000, messageCount: 3 },
+      ],
+    });
+    // pickVariantMention('opus', ...) matches @opus from mentionPatterns
+    // Use regex with end-of-line anchor to prevent prefix-matching (e.g., @opus matching @opus-45)
+    assert.match(ctx, /最近活跃：@opus\n|最近活跃：@opus$/, 'Should inject exact @opus (not @opus-45 etc.)');
+    assert.ok(!ctx.includes('最近活跃：@codex'), 'Self (codex) should not appear as most recently active');
+  });
+
+  test('buildInvocationContext skips self in activity list', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'serial',
+      chainIndex: 1,
+      chainTotal: 2,
+      teammates: ['codex'],
+      mcpAvailable: false,
+      activeParticipants: [
+        { catId: 'opus', lastMessageAt: 3000, messageCount: 8 },
+        { catId: 'codex', lastMessageAt: 2000, messageCount: 4 },
+      ],
+    });
+    // opus is self and most-recent, should be skipped; codex is next
+    assert.match(ctx, /最近活跃：@codex\n|最近活跃：@codex$/, 'Should inject exact @codex (not prefix match)');
+  });
+
+  test('buildInvocationContext omits hint when activeParticipants absent', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(!ctx.includes('最近活跃'), 'Should not inject when no activeParticipants');
+  });
+
+  test('buildInvocationContext omits hint when only self has activity', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'serial',
+      chainIndex: 1,
+      chainTotal: 2,
+      teammates: ['codex'],
+      mcpAvailable: false,
+      activeParticipants: [
+        { catId: 'opus', lastMessageAt: 1000, messageCount: 1 },
+        { catId: 'codex', lastMessageAt: 0, messageCount: 0 },
+      ],
+    });
+    assert.ok(!ctx.includes('最近活跃'), 'Should not inject when no non-self participant has activity');
+  });
+
+  test('buildSystemPrompt size with activeParticipants stays under 2050 chars', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'serial',
+      chainIndex: 1,
+      chainTotal: 3,
+      teammates: ['codex', 'gemini'],
+      mcpAvailable: true,
+      promptTags: ['critique'],
+      activeParticipants: [
+        { catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 },
+        { catId: 'opus', lastMessageAt: Date.now() - 1000, messageCount: 3 },
+      ],
+    });
+    assert.ok(
+      prompt.length < 2050,
+      `Prompt with activity is ${prompt.length} chars, expected < 2050`,
+    );
+  });
 });

@@ -74,6 +74,14 @@ export async function* routeSerial(
   let index = 0;
   // F27: Track how many worklist entries have had a2a_handoff emitted
   let handoffEmitted = targetCats.length; // Original targets don't get handoff events
+  // F042 Wave 3: Fetch thread participant activity once before loop (threadId doesn't change).
+  let activeParticipants: { catId: CatId; lastMessageAt: number; messageCount: number }[] = [];
+  if (deps.invocationDeps.threadStore) {
+    try {
+      activeParticipants = await deps.invocationDeps.threadStore.getParticipantsWithActivity(threadId);
+    } catch { /* best-effort: activity fetch failure does not block invocation */ }
+  }
+
   try {
   while (index < worklist.length) {
     if (signal?.aborted) break;
@@ -117,6 +125,7 @@ export async function* routeSerial(
       mcpAvailable,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
+      ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+
