@@ -46,11 +46,11 @@ function CatTaskProgress({
   threadId: string;
   taskProgress: CatInvocationInfo['taskProgress'];
 }) {
+  const { handleSend } = useSendMessage(threadId);
   if (!taskProgress || taskProgress.tasks.length === 0) return null;
   const { tasks } = taskProgress;
   const completed = tasks.filter((t) => t.status === 'completed').length;
   const status = taskProgress.snapshotStatus;
-  const { handleSend } = useSendMessage(threadId);
 
   const statusLabel =
     status === 'completed' ? '已完成'
