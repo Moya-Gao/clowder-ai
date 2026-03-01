@@ -473,6 +473,37 @@ describe('GET /api/capabilities (Fastify)', () => {
     await app.close();
   });
 
+  it('does not treat cat-cafe-skills/refs as a skill', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/capabilities',
+      headers: AUTH_HEADERS,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+
+    const catCafeSkillIds = (body.items ?? [])
+      .filter((i) => i.type === 'skill' && i.source === 'cat-cafe')
+      .map((i) => i.id);
+    assert.ok(!catCafeSkillIds.includes('refs'), 'refs/ is a reference folder, not a skill');
+
+    assert.ok(body.skillHealth, 'response.skillHealth should exist');
+    assert.ok(
+      !((body.skillHealth.unregistered ?? []).includes('refs')),
+      'refs should not be reported as unregistered',
+    );
+
+    await app.close();
+  });
+
   it('accepts ?projectPath query param for multi-project support', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');

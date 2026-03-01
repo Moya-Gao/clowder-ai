@@ -54,6 +54,7 @@ Cat Cafe 的提示词和 Skills 体系存在系统性问题：
 |---|------|------|
 | R1 | 缅因猫 compact 后自称"宪宪" | 压缩后只注入队友列表，缺"你是谁" |
 | R2 | 猫猫不用 @ 协作 | A2A 协议只在 new session/compact 后注入 |
+| R3 | 同族 reviewer 被 @ 后身份错位（把自己写成另一只猫/给出不可采信的“我跑过验证”） | 身份常量未每回合 pinned；review 请求缺少 identity 握手与证据纪律 |
 
 ---
 
@@ -257,6 +258,7 @@ skills:
 1. SystemPromptBuilder pinned 注入块（身份 + stage + A2A）
 2. Thread metadata stage 字段
 3. 回归测试（≥10 条对话场景）
+4. **验收用例：同族 reviewer 被 @ 时必须先 identity check，否则视为无效 review**（同时禁止“未贴输出摘要”的伪验证声明）
 
 ---
 

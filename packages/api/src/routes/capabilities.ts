@@ -58,6 +58,26 @@ async function listSubdirs(dir: string, exclude?: string[]): Promise<string[] | 
   }
 }
 
+/**
+ * Returns subdirectory names that contain a readable SKILL.md.
+ * This prevents non-skill folders (e.g. cat-cafe-skills/refs) from being
+ * treated as skills and synced into capabilities.json / Hub UI.
+ */
+async function listSkillSubdirs(dir: string, exclude?: string[]): Promise<string[] | null> {
+  const subdirs = await listSubdirs(dir, exclude);
+  if (subdirs == null) return null;
+  const names: string[] = [];
+  for (const name of subdirs) {
+    try {
+      await readFile(join(dir, name, 'SKILL.md'), 'utf-8');
+      names.push(name);
+    } catch {
+      // Not a skill dir (or unreadable), skip
+    }
+  }
+  return names;
+}
+
 /** Check if a symlink at `linkPath` points to `expectedTarget`. */
 async function isCorrectSymlink(linkPath: string, expectedTarget: string): Promise<boolean> {
   try {
@@ -316,7 +336,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // {projectRoot}/cat-cafe-skills/feat-completion — listing cat-cafe-skills/
     // captures them as project-owned regardless of symlink target.
     const catCafeSkillsDir = join(projectRoot, 'cat-cafe-skills');
-    const catCafeOwnSkills = await listSubdirs(catCafeSkillsDir);
+    const catCafeOwnSkills = await listSkillSubdirs(catCafeSkillsDir);
     const hasProjectCatCafeSkillsDir = existsSync(catCafeSkillsDir);
 
     const allScansOk = claudeProjectSkills !== null && claudeUserSkills !== null
@@ -517,9 +537,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     // Multi-project: validate mounts against the selected project's cat-cafe-skills
     // if it exists; otherwise fall back to host repo's cat-cafe-skills.
 
-    const mountSourceNames = mountSkillsSrc === catCafeSkillsDir
-      ? new Set(catCafeOwnSkills ?? [])
-      : new Set((await listSubdirs(mountSkillsSrc)) ?? []);
+    const mountSourceNames = new Set(
+      mountSkillsSrc === catCafeSkillsDir
+        ? (catCafeOwnSkills ?? [])
+        : ((await listSkillSubdirs(mountSkillsSrc)) ?? []),
+    );
     const catCafeSkillItems = items.filter((i) => i.type === 'skill' && i.source === 'cat-cafe');
     const providerDirs = {
       claude: join(home, '.claude', 'skills'),
