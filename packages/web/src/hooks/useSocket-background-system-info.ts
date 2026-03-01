@@ -11,6 +11,25 @@ interface SystemInfoConsumeResult {
   variant: 'info' | 'a2a_followup';
 }
 
+function recoverBackgroundStreamingMessage(
+  msg: BackgroundAgentMessage,
+  options: HandleBackgroundMessageOptions,
+): string | undefined {
+  const streamKey = `${msg.threadId}::${msg.catId}`;
+  const threadMessages = options.store.getThreadState(msg.threadId).messages;
+  for (let i = threadMessages.length - 1; i >= 0; i--) {
+    const message = threadMessages[i];
+    if (message.type === 'assistant' && message.catId === msg.catId && message.isStreaming) {
+      options.bgStreamRefs.set(streamKey, { id: message.id, threadId: msg.threadId, catId: msg.catId });
+      if (msg.metadata) {
+        options.store.setThreadMessageMetadata(msg.threadId, message.id, msg.metadata);
+      }
+      return message.id;
+    }
+  }
+  return undefined;
+}
+
 export function consumeBackgroundSystemInfo(
   msg: BackgroundAgentMessage,
   existingRef: BackgroundStreamRef | undefined,
@@ -79,6 +98,37 @@ export function consumeBackgroundSystemInfo(
         },
       });
       consumed = true;
+    } else if (parsed?.type === 'web_search') {
+      // F045: web_search tool event (privacy: no query, count only) — render as ToolEvent, not raw JSON
+      const count = typeof parsed.count === 'number' ? parsed.count : 1;
+      let targetId = existingRef?.id;
+      if (!targetId) {
+        targetId = recoverBackgroundStreamingMessage(msg, options);
+      }
+      if (!targetId) {
+        // Create placeholder assistant bubble if needed (mirrors thinking path)
+        const streamKey = `${msg.threadId}::${msg.catId}`;
+        targetId = `bg-web-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
+        options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
+        options.store.addMessageToThread(msg.threadId, {
+          id: targetId,
+          type: 'assistant',
+          catId: msg.catId,
+          content: '',
+          ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          timestamp: msg.timestamp,
+          isStreaming: true,
+          origin: 'stream',
+        });
+      }
+
+      options.store.appendToolEventToThread(msg.threadId, targetId, {
+        id: `bg-web-search-${msg.timestamp}-${options.nextBgSeq()}`,
+        type: 'tool_use',
+        label: `${msg.catId} → web_search${count > 1 ? ` x${count}` : ''}`,
+        timestamp: msg.timestamp,
+      });
+      consumed = true;
     } else if (parsed?.type === 'session_seal_requested') {
       if (parsed.catId) {
         options.store.setThreadCatInvocation(msg.threadId, parsed.catId, {
@@ -102,6 +152,9 @@ export function consumeBackgroundSystemInfo(
       const thinkingText = parsed.text ?? '';
       if (thinkingText) {
         let targetId = existingRef?.id;
+        if (!targetId) {
+          targetId = recoverBackgroundStreamingMessage(msg, options);
+        }
         if (!targetId) {
           // Thinking arrived before any text/tool chunk — create placeholder assistant bubble
           const streamKey = `${msg.threadId}::${msg.catId}`;

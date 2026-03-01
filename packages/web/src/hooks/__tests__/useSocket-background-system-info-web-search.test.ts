@@ -1,0 +1,46 @@
+import { describe, expect, it, vi } from 'vitest';
+import { consumeBackgroundSystemInfo } from '@/hooks/useSocket-background-system-info';
+
+describe('consumeBackgroundSystemInfo web_search', () => {
+  it('consumes web_search JSON (does not fall back to raw JSON system bubble)', () => {
+    const store = {
+      addMessageToThread: vi.fn(),
+      appendToThreadMessage: vi.fn(),
+      appendToolEventToThread: vi.fn(),
+      setThreadCatInvocation: vi.fn(),
+      setThreadMessageMetadata: vi.fn(),
+      setThreadMessageUsage: vi.fn(),
+      setThreadMessageThinking: vi.fn(),
+      setThreadMessageStreaming: vi.fn(),
+      setThreadLoading: vi.fn(),
+      setThreadHasActiveInvocation: vi.fn(),
+      updateThreadCatStatus: vi.fn(),
+      batchStreamChunkUpdate: vi.fn(),
+      clearThreadActiveInvocation: vi.fn(),
+      getThreadState: vi.fn(() => ({ messages: [], catStatuses: {}, catInvocations: {} })),
+    };
+    const options = {
+      store,
+      bgStreamRefs: new Map(),
+      nextBgSeq: (() => {
+        let i = 0;
+        return () => ++i;
+      })(),
+      addToast: vi.fn(),
+      clearDoneTimeout: vi.fn(),
+    };
+
+    const msg = {
+      type: 'system_info',
+      catId: 'codex',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'web_search', catId: 'codex', count: 1 }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+  });
+});
+

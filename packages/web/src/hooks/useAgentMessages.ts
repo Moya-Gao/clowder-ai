@@ -438,6 +438,41 @@ export function useAgentMessages() {
               },
             });
             consumed = true;
+          } else if (parsed?.type === 'web_search') {
+            // F045: web_search tool event (privacy: no query, count only) — render as ToolEvent, not raw JSON
+            setCatStatus(msg.catId, 'streaming');
+            const count = typeof parsed.count === 'number' ? parsed.count : 1;
+            let ref = activeRefs.current.get(msg.catId);
+            if (!ref) {
+              const resumedId = findStreamingMessageId(msg.catId);
+              if (resumedId) {
+                activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
+                ref = activeRefs.current.get(msg.catId)!;
+              } else {
+                const id = `msg-${Date.now()}-${msg.catId}`;
+                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+                ref = activeRefs.current.get(msg.catId)!;
+                addMessage({
+                  id: ref.id,
+                  type: 'assistant',
+                  catId: msg.catId,
+                  content: '',
+                  origin: 'stream',
+                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                  ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+                  timestamp: Date.now(),
+                  isStreaming: true,
+                });
+              }
+            }
+
+            appendToolEvent(ref.id, {
+              id: `toolws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              type: 'tool_use',
+              label: `${msg.catId} → web_search${count > 1 ? ` x${count}` : ''}`,
+              timestamp: Date.now(),
+            });
+            consumed = true;
           } else if (parsed?.type === 'thinking') {
             // F045: Embed thinking into the current assistant bubble (like Claude Code)
             const thinkingText = parsed.text ?? '';

@@ -543,6 +543,49 @@ describe('background thread socket handling', () => {
       expect(ts.messages[0]?.toolEvents?.[1]?.type).toBe('tool_result');
     });
 
+    it('web_search system_info adopts existing streaming assistant on active→background transition', () => {
+      const now = Date.now();
+
+      useChatStore.getState().addMessageToThread('thread-bg', {
+        id: 'existing-stream-msg',
+        type: 'assistant',
+        catId: 'codex',
+        content: '',
+        timestamp: now - 1,
+        isStreaming: true,
+        origin: 'stream',
+      });
+
+      simulateBackgroundMessage({
+        type: 'system_info',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: JSON.stringify({
+          type: 'web_search',
+          catId: 'codex',
+          count: 1,
+        }),
+        timestamp: now,
+      });
+
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'codex',
+        threadId: 'thread-bg',
+        content: 'updated chunk',
+        timestamp: now + 1,
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      const assistantMessages = ts.messages.filter((m) => m.type === 'assistant' && m.catId === 'codex');
+      expect(assistantMessages).toHaveLength(1);
+      expect(assistantMessages[0]?.id).toBe('existing-stream-msg');
+      expect(assistantMessages[0]?.content).toBe('updated chunk');
+      expect(assistantMessages[0]?.toolEvents).toHaveLength(1);
+      expect(assistantMessages[0]?.toolEvents?.[0]?.label).toContain('web_search');
+      expect(testBgStreamRefs.get('thread-bg::codex')?.id).toBe('existing-stream-msg');
+    });
+
     it('preserves system_info and a2a_handoff messages with info variant', () => {
       const now = Date.now();
 
