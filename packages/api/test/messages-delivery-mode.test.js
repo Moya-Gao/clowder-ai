@@ -249,6 +249,34 @@ describe('POST /api/messages deliveryMode', () => {
     assert.equal(deps.invocationQueue.list('thread-1', 'user-1').length, 0);
   });
 
+  it('immediate execution passes queueHasQueuedMessages fairness callback to routeExecution', async () => {
+    deps.invocationTracker.has.mock.mockImplementation(() => false);
+    deps.invocationQueue.enqueue({
+      threadId: 'thread-1',
+      userId: 'user-1',
+      content: 'queued-before',
+      source: 'user',
+      targetCats: ['opus'],
+      intent: 'execute',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/messages',
+      headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
+      payload: { content: '直接发送', threadId: 'thread-1', deliveryMode: 'immediate' },
+    });
+    assert.equal(res.statusCode, 200);
+
+    await new Promise((r) => setTimeout(r, 20));
+    assert.ok(deps.router.routeExecution.mock.calls.length > 0);
+    const call = deps.router.routeExecution.mock.calls[0];
+    const options = call.arguments[6];
+    assert.equal(typeof options?.queueHasQueuedMessages, 'function');
+    assert.equal(options.queueHasQueuedMessages('thread-1'), true);
+    assert.equal(options.queueHasQueuedMessages('thread-x'), false);
+  });
+
   // ── P1-1: multipart deliveryMode extraction ──
 
   it('multipart request with deliveryMode=force → cancels and executes immediately', async () => {

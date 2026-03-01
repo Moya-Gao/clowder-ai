@@ -78,6 +78,11 @@ export class QueueProcessor {
     return this.pausedThreads.has(threadId) && this.deps.queue.hasQueuedForThread(threadId);
   }
 
+  /** Expose queued-state for route fairness decisions in non-queue entry paths (retry/connector). */
+  hasQueuedForThread(threadId: string): boolean {
+    return this.deps.queue.hasQueuedForThread(threadId);
+  }
+
   /** Returns pause reason when paused; otherwise undefined. */
   getPauseReason(threadId: string): 'canceled' | 'failed' | undefined {
     if (!this.isPaused(threadId)) return undefined;
@@ -286,6 +291,7 @@ export class QueueProcessor {
         {
           ...(contentBlocks.length > 0 ? { contentBlocks } : {}),
           ...(controller.signal ? { signal: controller.signal } : {}),
+          queueHasQueuedMessages: (tid: string) => queue.hasQueuedForThread(tid),
           cursorBoundaries,
         },
       )) {

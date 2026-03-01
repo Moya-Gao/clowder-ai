@@ -47,6 +47,8 @@ export interface RouteOptions {
   currentUserMessageId?: string | undefined;
   /** Max A2A chain depth for routeSerial (default: MAX_A2A_DEPTH env or 2) */
   maxA2ADepth?: number | undefined;
+  /** Queue fairness hook: when true for current thread, routeSerial must stop extending A2A chain. */
+  queueHasQueuedMessages?: ((threadId: string) => boolean) | undefined;
   /** ADR-008 S3: When provided, cursor boundaries are collected here instead of acking immediately.
    *  Caller acks after invocation succeeds. If absent, legacy immediate ack behavior. */
   cursorBoundaries?: Map<string, string>;

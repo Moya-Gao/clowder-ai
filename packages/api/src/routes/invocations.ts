@@ -187,6 +187,9 @@ export const invocationsRoutes: FastifyPluginAsync<InvocationsRoutesOptions> =
             ...(storedMessage.contentBlocks ? { contentBlocks: storedMessage.contentBlocks } : {}),
             uploadDir,
             signal: controller.signal,
+            ...(opts.queueProcessor ? {
+              queueHasQueuedMessages: (tid: string) => opts.queueProcessor!.hasQueuedForThread(tid),
+            } : {}),
             cursorBoundaries,
             persistenceContext,
           },

@@ -415,6 +415,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 ...(contentBlocks ? { contentBlocks } : {}),
                 uploadDir,
                 ...(controller?.signal ? { signal: controller.signal } : {}),
+                ...(opts.invocationQueue ? {
+                  queueHasQueuedMessages: (tid: string) => opts.invocationQueue!.hasQueuedForThread(tid),
+                } : {}),
                 cursorBoundaries,
                 persistenceContext,
               },
@@ -434,6 +437,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
                 ...(contentBlocks ? { contentBlocks } : {}),
                 uploadDir,
                 ...(controller?.signal ? { signal: controller.signal } : {}),
+                ...(opts.invocationQueue ? {
+                  queueHasQueuedMessages: (tid: string) => opts.invocationQueue!.hasQueuedForThread(tid),
+                } : {}),
                 cursorBoundaries,
                 persistenceContext,
               },

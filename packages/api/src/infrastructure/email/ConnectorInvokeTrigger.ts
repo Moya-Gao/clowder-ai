@@ -125,7 +125,7 @@ export class ConnectorInvokeTrigger {
     message: string,
     messageId: string,
   ): Promise<void> {
-    const { router, socketManager, invocationRecordStore, invocationTracker, log } = this.opts;
+    const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];
     let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
 
@@ -191,6 +191,7 @@ export class ConnectorInvokeTrigger {
         targetCats, intent,
         {
           ...(controller?.signal ? { signal: controller.signal } : {}),
+          queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedForThread(tid),
           cursorBoundaries,
           persistenceContext,
         },

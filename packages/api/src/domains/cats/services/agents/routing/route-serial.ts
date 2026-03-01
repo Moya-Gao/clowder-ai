@@ -58,6 +58,7 @@ export async function* routeSerial(
     currentUserMessageId,
     modeSystemPrompt,
     modeSystemPromptByCat,
+    queueHasQueuedMessages,
   } = options;
   const previousResponses: { catId: CatId; content: string }[] = [];
   const thinkingMode = options.thinkingMode ?? 'play';
@@ -402,10 +403,24 @@ export async function* routeSerial(
         }
       }
 
-      // A2A: extend worklist if mention found + depth allows
+      // A2A: extend worklist if mention found + depth allows + queue fairness gate
       // F27: dedup only against pending (not-yet-executed) tail — cats that already ran
       // can be re-enqueued for another round (e.g. A→B→A review ping-pong).
-      if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted) {
+      let queuedMessagesPending = false;
+      if (queueHasQueuedMessages) {
+        try {
+          queuedMessagesPending = queueHasQueuedMessages(threadId);
+        } catch {
+          queuedMessagesPending = false;
+        }
+      }
+
+      if (
+        a2aMentions.length > 0
+        && worklistEntry.a2aCount < maxDepth
+        && !signal?.aborted
+        && !queuedMessagesPending
+      ) {
         const pendingTail = worklist.slice(index + 1);
         const pendingOriginalTargets = targetCats.slice(index + 1);
         for (const nextCat of a2aMentions) {

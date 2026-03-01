@@ -245,6 +245,32 @@ describe('routeSerial A2A worklist', () => {
     assert.ok(!catIds.includes('gemini'), 'gemini should NOT be invoked (2nd hop blocked by depth=1)');
   });
 
+  it('does not extend A2A worklist when queue has queued user messages', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '我先回复\n@缅因猫 帮忙继续'),
+      codex: createMockService('codex', 'should not run when queue pending'),
+    });
+
+    const messages = [];
+    for await (const msg of routeSerial(
+      deps,
+      ['opus'],
+      'test',
+      'user1',
+      'thread1',
+      { queueHasQueuedMessages: () => true },
+    )) {
+      messages.push(msg);
+    }
+
+    const codexText = messages.filter(m => m.type === 'text' && m.catId === 'codex');
+    assert.equal(codexText.length, 0, 'A2A should yield to queued user messages');
+
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 0, 'should not emit handoff when fairness guard blocks extension');
+  });
+
   it('self-mention does not trigger A2A', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
