@@ -77,6 +77,43 @@ describe('GitHub review mail body classifier', () => {
     assert.equal(result.reviewer, 'octocat');
   });
 
+  test('does not mark email ignorable when setup sentence is quoted in a normal comment', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(F039): queue contentBlocks (PR #96)',
+      '',
+      'octocat left a comment (zts212653/cat-cafe#96)',
+      '',
+      'Quoting a previous bot message for context:',
+      'To use Codex here, create an environment for this repo.',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, false);
+    assert.equal(result.reviewType, 'commented');
+    assert.equal(result.reviewer, 'octocat');
+  });
+
+  test('still marks setup-only email ignorable even when subject contains "Codex Review:"', async () => {
+    const { inferReviewActionFromEmailSource } = await import(
+      '../dist/infrastructure/email/GithubReviewMailParser.js'
+    );
+
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [owner/repo] Codex Review: cleanup parser (PR #1)',
+      '',
+      'To use Codex here, create an environment for this repo.',
+    ].join('\n');
+
+    const result = inferReviewActionFromEmailSource(source);
+    assert.equal(result.ignorable, true);
+  });
+
   test('detects Codex environment/setup guidance email as ignorable', async () => {
     const { inferReviewActionFromEmailSource } = await import(
       '../dist/infrastructure/email/GithubReviewMailParser.js'

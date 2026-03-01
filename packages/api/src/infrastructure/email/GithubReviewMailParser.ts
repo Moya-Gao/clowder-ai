@@ -36,33 +36,44 @@ export interface InferredReviewAction {
  * not review content and were confusing cats as "fake reviews".
  */
 export function inferReviewActionFromEmailSource(source: string): InferredReviewAction {
-  // Codex bot setup guidance (not a real review/comment we want to route)
-  if (/to use codex here,\s*create an environment for this repo\./i.test(source)) {
+  const body = source.split(/\r?\n\r?\n/, 2)[1] ?? '';
+  const bodyText = body.length > 0 ? body : source;
+
+  const hasSetupSentence = /to use codex here,\s*create an environment for this repo\./i.test(bodyText);
+
+  // Prefer explicit action markers in body
+  const reviewed = bodyText.match(/^(.+?)\s+reviewed\s+\(/mi);
+  const commented = bodyText.match(/^(.+?)\s+left a comment\s+\(/mi);
+  const approved = bodyText.match(/^(.+?)\s+approved\s+\(/mi);
+  const changesRequested = bodyText.match(/^(.+?)\s+requested changes\s+\(/mi);
+
+  let reviewType: ReviewType = 'unknown';
+  let reviewer: string | undefined;
+
+  if (reviewed) {
+    reviewType = 'reviewed';
+    reviewer = reviewed[1]?.trim();
+  } else if (commented) {
+    reviewType = 'commented';
+    reviewer = commented[1]?.trim();
+  } else if (approved) {
+    reviewType = 'approved';
+    reviewer = approved[1]?.trim();
+  } else if (changesRequested) {
+    reviewType = 'changes_requested';
+    reviewer = changesRequested[1]?.trim();
+  }
+
+  // Codex bot setup guidance (not a real review/comment we want to route).
+  //
+  // IMPORTANT: Scope this to setup-only Codex bot emails.
+  // The same sentence can appear quoted inside real human comments/reviews.
+  const isCodexBot = reviewer ? /^chatgpt-codex-connector\[bot\]$/i.test(reviewer) : false;
+  if (hasSetupSentence && !/codex review:/i.test(bodyText) && (!reviewer || isCodexBot)) {
     return { ignorable: true, reviewType: 'unknown', reviewer: undefined };
   }
 
-  // Prefer explicit action markers in body
-  const reviewed = source.match(/^(.+?)\s+reviewed\s+\(/mi);
-  if (reviewed) {
-    return { ignorable: false, reviewType: 'reviewed', reviewer: reviewed[1]?.trim() };
-  }
-
-  const commented = source.match(/^(.+?)\s+left a comment\s+\(/mi);
-  if (commented) {
-    return { ignorable: false, reviewType: 'commented', reviewer: commented[1]?.trim() };
-  }
-
-  const approved = source.match(/^(.+?)\s+approved\s+\(/mi);
-  if (approved) {
-    return { ignorable: false, reviewType: 'approved', reviewer: approved[1]?.trim() };
-  }
-
-  const changesRequested = source.match(/^(.+?)\s+requested changes\s+\(/mi);
-  if (changesRequested) {
-    return { ignorable: false, reviewType: 'changes_requested', reviewer: changesRequested[1]?.trim() };
-  }
-
-  return { ignorable: false, reviewType: 'unknown', reviewer: undefined };
+  return { ignorable: false, reviewType, reviewer };
 }
 
 // Match PR number — prefer "pull request #N" or trailing "(#N)", not first #token
