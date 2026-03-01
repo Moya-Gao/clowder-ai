@@ -52,6 +52,7 @@ export async function startGithubReviewWatcher(options: GithubReviewBootstrapOpt
           result.userId,
           result.content,
           result.messageId,
+          { priority: 'urgent', reason: 'github_review' },
         );
         options.log.info(
           `[GithubReviewWatcher] Triggered ${result.catId} invocation in thread ${result.threadId}`,

@@ -31,6 +31,13 @@ export interface ConnectorInvokeTriggerOptions {
   readonly log: FastifyBaseLogger;
 }
 
+export interface ConnectorTriggerPolicy {
+  /** urgent: preempt active invocation, normal: enqueue behind active work */
+  readonly priority?: 'urgent' | 'normal';
+  /** optional reason for diagnostics */
+  readonly reason?: string;
+}
+
 /**
  * Fire-and-forget invocation trigger for connector messages.
  *
@@ -64,49 +71,24 @@ export class ConnectorInvokeTrigger {
     userId: string,
     message: string,
     messageId: string,
+    policy?: ConnectorTriggerPolicy,
   ): void {
-    const { invocationTracker, invocationQueue, socketManager, log } = this.opts;
+    const { invocationTracker } = this.opts;
+    const priority = policy?.priority ?? 'normal';
 
-    // F39: If a cat is already running in this thread, enqueue instead of direct execution.
-    // Connector messages should never abort active invocations (铲屎官: "永远排队，永远不打断").
-    if (invocationTracker.has(threadId)) {
-      const result = invocationQueue.enqueue({
-        threadId,
-        userId,
-        content: message,
-        source: 'connector',
-        targetCats: [catId],
-        intent: 'execute',
-      });
-
-      if (result.outcome === 'full') {
-        socketManager.emitToUser(userId, 'queue_full_warning', {
-          threadId,
-          source: 'connector',
-          queueSize: invocationQueue.size(threadId, userId),
-          queue: invocationQueue.list(threadId, userId),
+    // Urgent connector policy: preempt active invocation in the same thread.
+    // Used for GitHub review comments so cats don't get stuck behind long queue chatter.
+    if (priority === 'urgent' && invocationTracker.has(threadId)) {
+      this.handleUrgentTrigger(threadId, catId, userId, message, messageId, policy?.reason)
+        .catch((err) => {
+          this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
         });
-        log.warn({ threadId, catId, userId },
-          '[ConnectorInvokeTrigger] Queue full, connector message not enqueued');
-        return;
-      }
+      return;
+    }
 
-      // Backfill messageId (connector messages already have a messageId)
-      if (result.entry) {
-        if (result.outcome === 'enqueued') {
-          invocationQueue.backfillMessageId(threadId, userId, result.entry.id, messageId);
-        } else if (result.outcome === 'merged') {
-          invocationQueue.appendMergedMessageId(threadId, userId, result.entry.id, messageId);
-        }
-      }
-
-      socketManager.emitToUser(userId, 'queue_updated', {
-        threadId,
-        queue: invocationQueue.list(threadId, userId),
-        action: result.outcome,
-      });
-      log.info({ threadId, catId, outcome: result.outcome },
-        '[ConnectorInvokeTrigger] Queued (active invocation running)');
+    // Normal connector policy: if a cat is already running in this thread, enqueue.
+    if (invocationTracker.has(threadId)) {
+      this.enqueueWhileActive(threadId, catId, userId, message, messageId);
       return;
     }
 
@@ -118,25 +100,138 @@ export class ConnectorInvokeTrigger {
       });
   }
 
+  private enqueueWhileActive(
+    threadId: string,
+    catId: CatId,
+    userId: string,
+    message: string,
+    messageId: string,
+  ): 'full' | 'enqueued' | 'merged' {
+    const { invocationQueue, socketManager, log } = this.opts;
+    const result = invocationQueue.enqueue({
+      threadId,
+      userId,
+      content: message,
+      source: 'connector',
+      targetCats: [catId],
+      intent: 'execute',
+    });
+
+    if (result.outcome === 'full') {
+      socketManager.emitToUser(userId, 'queue_full_warning', {
+        threadId,
+        source: 'connector',
+        queueSize: invocationQueue.size(threadId, userId),
+        queue: invocationQueue.list(threadId, userId),
+      });
+      log.warn({ threadId, catId, userId },
+        '[ConnectorInvokeTrigger] Queue full, connector message not enqueued');
+      return 'full';
+    }
+
+    if (result.entry) {
+      if (result.outcome === 'enqueued') {
+        invocationQueue.backfillMessageId(threadId, userId, result.entry.id, messageId);
+      } else if (result.outcome === 'merged') {
+        invocationQueue.appendMergedMessageId(threadId, userId, result.entry.id, messageId);
+      }
+    }
+
+    socketManager.emitToUser(userId, 'queue_updated', {
+      threadId,
+      queue: invocationQueue.list(threadId, userId),
+      action: result.outcome,
+    });
+    log.info({ threadId, catId, outcome: result.outcome },
+      '[ConnectorInvokeTrigger] Queued (active invocation running)');
+    return result.outcome;
+  }
+
+  private async handleUrgentTrigger(
+    threadId: string,
+    catId: CatId,
+    userId: string,
+    message: string,
+    messageId: string,
+    reason?: string,
+  ): Promise<void> {
+    const { invocationTracker, invocationRecordStore, log } = this.opts;
+    const idempotencyKey = `connector-${messageId}`;
+    const activeOwner = invocationTracker.getUserId(threadId);
+    if (activeOwner && activeOwner !== userId) {
+      this.enqueueWhileActive(threadId, catId, userId, message, messageId);
+      return;
+    }
+
+    // Claim idempotency winner before any cancel side-effect.
+    const createResult = await invocationRecordStore.create({
+      threadId,
+      userId,
+      targetCats: [catId],
+      intent: 'execute',
+      idempotencyKey,
+    });
+    if (createResult.outcome === 'duplicate') {
+      log.info({ threadId, catId, invocationId: createResult.invocationId }, '[ConnectorInvokeTrigger] Urgent duplicate ignored');
+      return;
+    }
+
+    const cancelResult = invocationTracker.cancel(threadId, userId);
+    log.info({ threadId, catId, cancelled: cancelResult.cancelled, reason: reason ?? 'connector_urgent' }, '[ConnectorInvokeTrigger] Urgent connector preempt');
+
+    if (cancelResult.cancelled || !invocationTracker.has(threadId)) {
+      if (cancelResult.cancelled) {
+        this.opts.queueProcessor?.clearPause(threadId);
+      }
+      await this.executeInBackground(threadId, catId, userId, message, messageId, createResult.invocationId);
+      return;
+    }
+
+    if (invocationTracker.has(threadId)) {
+      // Avoid queue race: enqueue first while thread is still observed active.
+      const enqueueOutcome = this.enqueueWhileActive(threadId, catId, userId, message, messageId);
+      if (enqueueOutcome !== 'full') {
+        await invocationRecordStore.update(createResult.invocationId, {
+          status: 'canceled',
+          error: 'urgent preempt fallback to queue',
+        });
+        return;
+      }
+      const activeOwner = invocationTracker.getUserId(threadId);
+      if (activeOwner && activeOwner !== userId) {
+        await invocationRecordStore.update(createResult.invocationId, {
+          status: 'failed',
+          error: 'urgent fallback queue full with owner mismatch',
+        });
+        return;
+      }
+    }
+
+    await this.executeInBackground(threadId, catId, userId, message, messageId, createResult.invocationId);
+  }
+
   private async executeInBackground(
     threadId: string,
     catId: CatId,
     userId: string,
     message: string,
     messageId: string,
+    existingInvocationId?: string,
   ): Promise<void> {
     const { router, socketManager, invocationRecordStore, invocationTracker, invocationQueue, log } = this.opts;
     const targetCats: CatId[] = [catId];
     let finalStatus: 'succeeded' | 'failed' | 'canceled' = 'failed';
 
     // ① Atomic create InvocationRecord
-    const createResult = await invocationRecordStore.create({
-      threadId,
-      userId,
-      targetCats,
-      intent: 'execute',
-      idempotencyKey: `connector-${messageId}`,
-    });
+    const createResult = existingInvocationId
+      ? { outcome: 'created' as const, invocationId: existingInvocationId }
+      : await invocationRecordStore.create({
+        threadId,
+        userId,
+        targetCats,
+        intent: 'execute',
+        idempotencyKey: `connector-${messageId}`,
+      });
 
     if (createResult.outcome === 'duplicate') {
       log.info(`[ConnectorInvokeTrigger] Duplicate invocation for message ${messageId}, skipping`);
