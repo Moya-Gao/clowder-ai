@@ -10,7 +10,7 @@
  * - "[owner/repo] @user requested changes on pull request #123: Title"
  */
 
-export type ReviewType = 'commented' | 'approved' | 'changes_requested' | 'unknown';
+export type ReviewType = 'commented' | 'reviewed' | 'approved' | 'changes_requested' | 'unknown';
 
 export interface ParsedGithubReviewMail {
   readonly prNumber: number;
@@ -18,6 +18,51 @@ export interface ParsedGithubReviewMail {
   readonly title: string;
   readonly reviewType: ReviewType;
   readonly reviewer: string | undefined;
+}
+
+export interface InferredReviewAction {
+  readonly ignorable: boolean;
+  readonly reviewType: ReviewType;
+  readonly reviewer: string | undefined;
+}
+
+/**
+ * Infer review action/reviewer from raw email source text.
+ *
+ * Why: Some GitHub notifications include only "(PR #N)" in subject and omit action keywords.
+ * The actionable signal ("reviewed", "left a comment") appears in the email body.
+ *
+ * This is also where we can suppress Codex environment/setup guidance comments which are
+ * not review content and were confusing cats as "fake reviews".
+ */
+export function inferReviewActionFromEmailSource(source: string): InferredReviewAction {
+  // Codex bot setup guidance (not a real review/comment we want to route)
+  if (/to use codex here,\s*create an environment for this repo\./i.test(source)) {
+    return { ignorable: true, reviewType: 'unknown', reviewer: undefined };
+  }
+
+  // Prefer explicit action markers in body
+  const reviewed = source.match(/^(.+?)\s+reviewed\s+\(/mi);
+  if (reviewed) {
+    return { ignorable: false, reviewType: 'reviewed', reviewer: reviewed[1]?.trim() };
+  }
+
+  const commented = source.match(/^(.+?)\s+left a comment\s+\(/mi);
+  if (commented) {
+    return { ignorable: false, reviewType: 'commented', reviewer: commented[1]?.trim() };
+  }
+
+  const approved = source.match(/^(.+?)\s+approved\s+\(/mi);
+  if (approved) {
+    return { ignorable: false, reviewType: 'approved', reviewer: approved[1]?.trim() };
+  }
+
+  const changesRequested = source.match(/^(.+?)\s+requested changes\s+\(/mi);
+  if (changesRequested) {
+    return { ignorable: false, reviewType: 'changes_requested', reviewer: changesRequested[1]?.trim() };
+  }
+
+  return { ignorable: false, reviewType: 'unknown', reviewer: undefined };
 }
 
 // Match PR number — prefer "pull request #N" or trailing "(#N)", not first #token

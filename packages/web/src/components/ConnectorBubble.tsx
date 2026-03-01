@@ -37,6 +37,35 @@ interface ConnectorBubbleProps {
   message: ChatMessageType;
 }
 
+function getConnectorTheme(connector: string | undefined): {
+  avatar: string;
+  label: string;
+  labelLink: string;
+  bubble: string;
+} {
+  // Default connector theme (F97): blue-gray, distinct from cat/user/system messages.
+  const defaultTheme = {
+    avatar: 'bg-blue-100 ring-2 ring-blue-200',
+    label: 'text-blue-700',
+    labelLink: 'text-blue-700 hover:text-blue-900',
+    bubble: 'border border-blue-200 bg-blue-50',
+  };
+
+  if (!connector) return defaultTheme;
+
+  // GitHub Review should stand out as "external review inbox", not look like generic system blue.
+  if (connector === 'github-review') {
+    return {
+      avatar: 'bg-slate-100 ring-2 ring-slate-200',
+      label: 'text-slate-700',
+      labelLink: 'text-slate-700 hover:text-slate-900',
+      bubble: 'border border-slate-200 bg-slate-50',
+    };
+  }
+
+  return defaultTheme;
+}
+
 /**
  * F97: Connector message bubble for external information sources (GitHub Review, etc.)
  * Left-aligned, blue-gray theme, distinct from cat/user/system messages.
@@ -45,6 +74,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
   const source = message.source;
   if (!source) return null;
 
+  const theme = getConnectorTheme(source.connector);
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
   // P3 fix (砚砚 R1): protocol whitelist — only render safe URLs as clickable links
   const rawUrl = source.url;
@@ -53,7 +83,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
   return (
     <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
       {/* Connector icon avatar */}
-      <div className="w-8 h-8 rounded-full flex-shrink-0 bg-blue-100 ring-2 ring-blue-200 flex items-center justify-center text-base">
+      <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-base ${theme.avatar}`}>
         {source.icon}
       </div>
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
@@ -63,16 +93,16 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
               href={srcUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs font-semibold text-blue-700 hover:text-blue-900 hover:underline"
+              className={`text-xs font-semibold hover:underline ${theme.labelLink}`}
             >
               {source.label}
             </a>
           ) : (
-            <span className="text-xs font-semibold text-blue-700">{source.label}</span>
+            <span className={`text-xs font-semibold ${theme.label}`}>{source.label}</span>
           )}
           <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
         </div>
-        <div className="border border-blue-200 bg-blue-50 rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden">
+        <div className={`${theme.bubble} rounded-2xl rounded-bl-sm px-4 py-3 transition-transform hover:-translate-y-0.5 overflow-hidden`}>
           {hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : (

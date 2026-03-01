@@ -13,6 +13,7 @@ import {
   extractCatFromTitle,
   catTagToCatId,
   isGithubNotification,
+  inferReviewActionFromEmailSource,
   type CatTag,
 } from './GithubReviewMailParser.js';
 
@@ -20,7 +21,7 @@ export interface GithubReviewEvent {
   readonly prNumber: number;
   readonly repository: string;
   readonly title: string;
-  readonly reviewType: 'commented' | 'approved' | 'changes_requested' | 'unknown';
+  readonly reviewType: 'commented' | 'reviewed' | 'approved' | 'changes_requested' | 'unknown';
   readonly reviewer: string | undefined;
   readonly catTag: CatTag | undefined;
   readonly catId: string | undefined;
@@ -294,7 +295,7 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
 
       for await (const message of this.client.fetch(
         { uid: `${this.lastSeenUid + 1}:*` },
-        { uid: true, envelope: true, internalDate: true },
+        { uid: true, envelope: true, internalDate: true, source: true },
       )) {
         if (message.uid <= this.lastSeenUid) continue;
 
@@ -312,6 +313,19 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
           continue;
         }
 
+        const sourceText = message.source ? String(message.source) : '';
+        const inferred = sourceText ? inferReviewActionFromEmailSource(sourceText) : null;
+        if (inferred?.ignorable) {
+          this.log.info(`[GithubReviewWatcher] Skipping ignorable GitHub email: ${subject.slice(0, 50)}...`);
+          items.push({ kind: 'skip', uid: message.uid });
+          continue;
+        }
+
+        const reviewType = parsed.reviewType === 'unknown' && inferred?.reviewType && inferred.reviewType !== 'unknown'
+          ? inferred.reviewType
+          : parsed.reviewType;
+        const reviewer = parsed.reviewer ?? inferred?.reviewer;
+
         const catTag = extractCatFromTitle(parsed.title) ?? undefined;
         const rawDate = message.internalDate;
         const receivedAt = rawDate instanceof Date ? rawDate : rawDate ? new Date(rawDate) : new Date();
@@ -321,6 +335,8 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
           uid: message.uid,
           event: {
             ...parsed,
+            reviewType,
+            reviewer,
             catTag,
             catId: catTag ? catTagToCatId(catTag) : undefined,
             emailUid: message.uid,

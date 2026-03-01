@@ -275,6 +275,8 @@ function formatReviewType(type: string): string {
       return '🔴 Changes Requested';
     case 'commented':
       return '💬 Commented';
+    case 'reviewed':
+      return '🧾 Reviewed';
     default:
       return `❓ ${type}`;
   }
