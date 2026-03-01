@@ -28,19 +28,25 @@ gh pr create --title "feat(xxx): ..." --body "$(cat <<'EOF'
 EOF
 )"
 
-# 3. 注册 PR tracking（可选，Email Watcher 用，MCP 工具调用）
+# 3. 注册 PR tracking（必做，Email Watcher / review 通知路由依赖）
 # → 调用 MCP: cat_cafe_register_pr_tracking(repoFullName, prNumber, catId)
 
-# 4. 触发云端 review（在 PR comment 中，不是 body！）
+# 4. PR body 防呆检查（禁止把 @codex review 写进描述）
+PR_BODY="$(gh pr view {PR_NUMBER} --json body --jq '.body')" || \
+  { echo "❌ 无法读取 PR body，停止流程"; exit 1; }
+printf '%s\n' "$PR_BODY" | rg -q '@codex review' && \
+  { echo "❌ 不合规：@codex review 只能写在 comment，不能写在 body"; exit 1; }
+
+# 5. 触发云端 review（在 PR comment 中，不是 body！）
 gh pr comment {PR_NUMBER} --body "@codex review ..."
 # ⚠️ 完整模板见 refs/pr-template.md「云端 Review 触发 Comment 模板」
 
-# 5. 等云端 review 通过（0 P1/P2）
+# 6. 等云端 review 通过（0 P1/P2）
 
-# 6. Squash merge（GitHub 处理，禁止本地 squash！）
+# 7. Squash merge（GitHub 处理，禁止本地 squash！）
 gh pr merge {PR_NUMBER} --squash --delete-branch
 
-# 7. 更新本地 + 清理
+# 8. 更新本地 + 清理
 git checkout main && git pull origin main
 git worktree remove ../cat-cafe-{feature-name}
 git branch -d {branch-name} && git worktree prune
@@ -50,7 +56,7 @@ git branch -d {branch-name} && git worktree prune
 
 | 结果 | 处理 |
 |------|------|
-| 0 P1/P2 | 通过，执行 Step 6 |
+| 0 P1/P2 | 通过，执行 Step 7 |
 | P1/P2 有复现证据 | 在 feature branch 修 → push → **re-trigger review** → 等通过 |
 | P1/P2 无复现证据 | 降级 P3，留 comment，视为通过 |
 | 误报 | 留 comment 解释，视为通过 |
