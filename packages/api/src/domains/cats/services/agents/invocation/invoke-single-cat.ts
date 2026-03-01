@@ -138,15 +138,24 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let hadStreamError = false;
   let hadError = false;
   let lastTasks: TaskProgressItem[] | null = null;
+  let terminalTaskProgressStatus: TaskProgressStatus | null = null;
+  let terminalInterruptReason: 'error' | 'aborted' | null = null;
+  let finalizedTaskProgressStatus: TaskProgressStatus | null = null;
 
   const maybePersistTaskProgress = async (out: AgentMessage): Promise<void> => {
     if (!deps.taskProgressStore) return;
     if (out.type !== 'system_info' || !out.content) return;
+    let tasks: TaskProgressItem[] | null = null;
     try {
       const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
       if (parsed.type !== 'task_progress' || !Array.isArray(parsed.tasks)) return;
-      const tasks = parsed.tasks as TaskProgressItem[];
+      tasks = parsed.tasks as TaskProgressItem[];
       lastTasks = tasks;
+    } catch {
+      return;
+    }
+
+    try {
       await deps.taskProgressStore.setSnapshot({
         threadId,
         catId,
@@ -155,23 +164,59 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         updatedAt: Date.now(),
         lastInvocationId: invocationId,
       });
-    } catch {
-      // not JSON / not task_progress
+    } catch (err) {
+      console.warn('[task_progress] persist running snapshot failed (degrading)', {
+        threadId,
+        catId,
+        invocationId,
+        err,
+      });
     }
   };
 
   const finalizeTaskProgress = async (): Promise<void> => {
     if (!deps.taskProgressStore || !lastTasks) return;
-    const status: TaskProgressStatus = hadError ? 'interrupted' : 'completed';
-    await deps.taskProgressStore.setSnapshot({
-      threadId,
-      catId,
-      tasks: lastTasks,
-      status,
-      updatedAt: Date.now(),
-      lastInvocationId: invocationId,
-      ...(hadError ? { interruptReason: 'error' } : {}),
-    });
+    const wasAborted = Boolean(signal?.aborted);
+
+    // Determine the terminal status once per invocation and keep it stable.
+    // In particular: if we already reached a successful terminal (`done` without error),
+    // later `AbortSignal` flips (client disconnect / iterator.return()) must NOT
+    // downgrade the snapshot to `interrupted`.
+    const status: TaskProgressStatus =
+      terminalTaskProgressStatus ??
+      (hadError || wasAborted ? 'interrupted' : 'completed');
+    const interruptReason =
+      terminalInterruptReason ??
+      (status === 'interrupted' ? (hadError ? 'error' : (wasAborted ? 'aborted' : undefined)) : undefined);
+
+    // Once we have persisted a "completed" snapshot, don't downgrade it to
+    // "interrupted" just because the request was aborted after completion
+    // (e.g. client disconnect / iterator.return()).
+    if (finalizedTaskProgressStatus === 'completed' && status === 'interrupted' && !hadError) return;
+    // Similarly, don't upgrade an interrupted snapshot back to completed.
+    if (finalizedTaskProgressStatus === 'interrupted' && status === 'completed') return;
+    if (finalizedTaskProgressStatus === status) return;
+
+    try {
+      await deps.taskProgressStore.setSnapshot({
+        threadId,
+        catId,
+        tasks: lastTasks,
+        status,
+        updatedAt: Date.now(),
+        lastInvocationId: invocationId,
+        ...(interruptReason ? { interruptReason } : {}),
+      });
+      finalizedTaskProgressStatus = status;
+    } catch (err) {
+      console.warn('[task_progress] persist final snapshot failed (degrading)', {
+        threadId,
+        catId,
+        invocationId,
+        status,
+        err,
+      });
+    }
   };
 
   try {
@@ -604,29 +649,77 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
           if (suppressedMissingSessionError) {
             for (const out of await processMessage(suppressedMissingSessionError)) {
-              yield out;
-              if (out.type === 'error') hadError = true;
+              if (out.type === 'error') {
+                hadError = true;
+                terminalTaskProgressStatus = 'interrupted';
+                terminalInterruptReason = 'error';
+              }
               await maybePersistTaskProgress(out);
+              if (out.type === 'done' && terminalTaskProgressStatus === null) {
+                if (hadError) {
+                  terminalTaskProgressStatus = 'interrupted';
+                  terminalInterruptReason = 'error';
+                } else if (signal?.aborted) {
+                  terminalTaskProgressStatus = 'interrupted';
+                  terminalInterruptReason = 'aborted';
+                } else {
+                  terminalTaskProgressStatus = 'completed';
+                  terminalInterruptReason = null;
+                }
+              }
               if (out.type === 'done') await finalizeTaskProgress();
+              yield out;
             }
             suppressedMissingSessionError = undefined;
           }
           if (suppressedTransientCliError) {
             for (const out of await processMessage(suppressedTransientCliError)) {
-              yield out;
-              if (out.type === 'error') hadError = true;
+              if (out.type === 'error') {
+                hadError = true;
+                terminalTaskProgressStatus = 'interrupted';
+                terminalInterruptReason = 'error';
+              }
               await maybePersistTaskProgress(out);
+              if (out.type === 'done' && terminalTaskProgressStatus === null) {
+                if (hadError) {
+                  terminalTaskProgressStatus = 'interrupted';
+                  terminalInterruptReason = 'error';
+                } else if (signal?.aborted) {
+                  terminalTaskProgressStatus = 'interrupted';
+                  terminalInterruptReason = 'aborted';
+                } else {
+                  terminalTaskProgressStatus = 'completed';
+                  terminalInterruptReason = null;
+                }
+              }
               if (out.type === 'done') await finalizeTaskProgress();
+              yield out;
             }
             suppressedTransientCliError = undefined;
           }
         }
 
         for (const out of await processMessage(msg)) {
-          yield out;
-          if (out.type === 'error') hadError = true;
+          if (out.type === 'error') {
+            hadError = true;
+            terminalTaskProgressStatus = 'interrupted';
+            terminalInterruptReason = 'error';
+          }
           await maybePersistTaskProgress(out);
+          if (out.type === 'done' && terminalTaskProgressStatus === null) {
+            if (hadError) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'error';
+            } else if (signal?.aborted) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'aborted';
+            } else {
+              terminalTaskProgressStatus = 'completed';
+              terminalInterruptReason = null;
+            }
+          }
           if (out.type === 'done') await finalizeTaskProgress();
+          yield out;
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
@@ -656,18 +749,50 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
       if (suppressedMissingSessionError) {
         for (const out of await processMessage(suppressedMissingSessionError)) {
-          yield out;
-          if (out.type === 'error') hadError = true;
+          if (out.type === 'error') {
+            hadError = true;
+            terminalTaskProgressStatus = 'interrupted';
+            terminalInterruptReason = 'error';
+          }
           await maybePersistTaskProgress(out);
+          if (out.type === 'done' && terminalTaskProgressStatus === null) {
+            if (hadError) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'error';
+            } else if (signal?.aborted) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'aborted';
+            } else {
+              terminalTaskProgressStatus = 'completed';
+              terminalInterruptReason = null;
+            }
+          }
           if (out.type === 'done') await finalizeTaskProgress();
+          yield out;
         }
       }
       if (suppressedTransientCliError) {
         for (const out of await processMessage(suppressedTransientCliError)) {
-          yield out;
-          if (out.type === 'error') hadError = true;
+          if (out.type === 'error') {
+            hadError = true;
+            terminalTaskProgressStatus = 'interrupted';
+            terminalInterruptReason = 'error';
+          }
           await maybePersistTaskProgress(out);
+          if (out.type === 'done' && terminalTaskProgressStatus === null) {
+            if (hadError) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'error';
+            } else if (signal?.aborted) {
+              terminalTaskProgressStatus = 'interrupted';
+              terminalInterruptReason = 'aborted';
+            } else {
+              terminalTaskProgressStatus = 'completed';
+              terminalInterruptReason = null;
+            }
+          }
           if (out.type === 'done') await finalizeTaskProgress();
+          yield out;
         }
       }
       break;
@@ -691,13 +816,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         console.warn('[audit] CAT_ERROR write failed', { threadId, invocationId, err: auditErr });
       });
 
+    hadError = true;
     yield {
       type: 'error' as const,
       catId,
       error: err instanceof Error ? err.message : String(err),
       timestamp: Date.now(),
     };
-    hadError = true;
     await finalizeTaskProgress();
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {

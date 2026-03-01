@@ -195,6 +195,231 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(snap.status, 'interrupted');
   });
 
+  it('does not emit user-visible error when taskProgressStore finalize write fails (should degrade)', async () => {
+    const store = {
+      async setSnapshot(snap) {
+        if (snap.status !== 'running') throw new Error('finalize boom');
+      },
+      async getSnapshot() {
+        return null;
+      },
+      async getThreadSnapshots() {
+        return {};
+      },
+      async deleteSnapshot() {},
+      async deleteThread() {},
+    };
+
+    const deps = { ...makeDeps(), taskProgressStore: store };
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-finalize-throws',
+      isLastCat: true,
+    }));
+
+    assert.equal(msgs.filter((m) => m.type === 'error').length, 0, 'should not surface store failures as error');
+    assert.ok(msgs.some((m) => m.type === 'done'), 'done should still be yielded');
+  });
+
+  it('finalize marks snapshot interrupted when invocation is aborted after progress (early iterator return)', async () => {
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
+    const store = new MemoryTaskProgressStore();
+    const deps = { ...makeDeps(), taskProgressStore: store };
+
+    const ac = new AbortController();
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        // no done/error — simulating request abort / early close
+      },
+    };
+
+    const it = invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-aborted',
+      isLastCat: true,
+      signal: ac.signal,
+    })[Symbol.asyncIterator]();
+
+    // consume until we see task_progress so lastTasks is populated
+    for (let i = 0; i < 5; i++) {
+      const next = await it.next();
+      assert.equal(next.done, false);
+      if (next.value?.type === 'system_info') {
+        try {
+          const parsed = JSON.parse(next.value.content);
+          if (parsed?.type === 'task_progress') break;
+        } catch {
+          // ignore
+        }
+      }
+      if (i === 4) assert.fail('expected to receive task_progress before abort');
+    }
+
+    // abort and close early
+    ac.abort();
+    await it.return();
+
+    const snap = await store.getSnapshot('thread-progress-aborted', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'interrupted');
+    assert.equal(snap.interruptReason, 'aborted');
+  });
+
+  it('does not downgrade completed snapshot when abort happens after done (consumer closes iterator)', async () => {
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
+    const store = new MemoryTaskProgressStore();
+    const deps = { ...makeDeps(), taskProgressStore: store };
+
+    const ac = new AbortController();
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const it = invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-abort-after-done',
+      isLastCat: true,
+      signal: ac.signal,
+    })[Symbol.asyncIterator]();
+
+    let sawDone = false;
+    for (let i = 0; i < 20; i++) {
+      const next = await it.next();
+      assert.equal(next.done, false);
+      if (next.value?.type === 'done') {
+        sawDone = true;
+        break;
+      }
+    }
+    assert.ok(sawDone, 'expected to see done before abort');
+
+    ac.abort();
+    await it.return();
+
+    const snap = await store.getSnapshot('thread-progress-abort-after-done', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'completed');
+    assert.equal(snap.interruptReason, undefined);
+  });
+
+  it('keeps completed status even if first finalize write fails then aborts after done', async () => {
+    const store = (() => {
+      const snaps = new Map();
+      let failOnce = true;
+      return {
+        async setSnapshot(snap) {
+          if (snap.status !== 'running' && failOnce) {
+            failOnce = false;
+            throw new Error('finalize boom once');
+          }
+          snaps.set(`${snap.threadId}:${snap.catId}`, snap);
+        },
+        async getSnapshot(threadId, catId) {
+          return snaps.get(`${threadId}:${catId}`) ?? null;
+        },
+        async getThreadSnapshots() {
+          return {};
+        },
+        async deleteSnapshot() {},
+        async deleteThread() {},
+      };
+    })();
+
+    const deps = { ...makeDeps(), taskProgressStore: store };
+    const ac = new AbortController();
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const it = invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-finalize-fails-then-abort',
+      isLastCat: true,
+      signal: ac.signal,
+    })[Symbol.asyncIterator]();
+
+    // consume until done (first finalize will throw once)
+    for (let i = 0; i < 20; i++) {
+      const next = await it.next();
+      assert.equal(next.done, false);
+      if (next.value?.type === 'done') break;
+      if (i === 19) assert.fail('expected to see done');
+    }
+
+    ac.abort();
+    await it.return();
+
+    const snap = await store.getSnapshot('thread-progress-finalize-fails-then-abort', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'completed');
+  });
+
   it('emits CAT_RESPONDED audit when service yields text + done (no errors)', async () => {
     const normalService = {
       async *invoke() {
