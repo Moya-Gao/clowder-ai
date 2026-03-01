@@ -18,6 +18,8 @@ import type { CatId } from '@cat-cafe/shared';
 export interface WorklistEntry {
   /** The mutable worklist array — push to extend */
   list: CatId[];
+  /** Number of original user-selected targets at registration time */
+  originalCount: number;
   /** A2A depth counter — incremented on each push */
   a2aCount: number;
   /** Max allowed A2A depth */
@@ -25,6 +27,11 @@ export interface WorklistEntry {
   /** Index of the cat currently being executed (updated by routeSerial).
    *  Used for dedup: cats already executed can be re-enqueued. */
   executedIndex: number;
+  /**
+   * A2A sender mapping — for each enqueued target, record who @mentioned it.
+   * Used to inject "Direct message from ...; reply to ..." into the target's prompt.
+   */
+  a2aFrom: Map<CatId, CatId>;
 }
 
 /** Per-thread worklist registry. Single-process, no cross-process needed. */
@@ -39,7 +46,14 @@ export function registerWorklist(
   worklist: CatId[],
   maxDepth: number,
 ): WorklistEntry {
-  const entry: WorklistEntry = { list: worklist, a2aCount: 0, maxDepth, executedIndex: 0 };
+  const entry: WorklistEntry = {
+    list: worklist,
+    originalCount: worklist.length,
+    a2aCount: 0,
+    maxDepth,
+    executedIndex: 0,
+    a2aFrom: new Map(),
+  };
   registry.set(threadId, entry);
   return entry;
 }
@@ -92,6 +106,18 @@ export function pushToWorklist(threadId: string, cats: CatId[], callerCatId?: Ca
       entry.a2aCount++;
       added.push(cat);
       pending.push(cat); // Keep local dedup view in sync
+      if (callerCatId !== undefined) {
+        entry.a2aFrom.set(cat, callerCatId);
+      }
+    } else if (callerCatId !== undefined) {
+      // Target already pending:
+      // - original targets must keep replying to user (no A2A sender override)
+      // - A2A-enqueued targets may update to latest sender before execution
+      const existingIndex = entry.list.findIndex((id, idx) => idx >= entry.executedIndex && id === cat);
+      const isOriginalPendingTarget = existingIndex !== -1 && existingIndex < entry.originalCount;
+      if (!isOriginalPendingTarget) {
+        entry.a2aFrom.set(cat, callerCatId);
+      }
     }
   }
   return added;

@@ -538,7 +538,6 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: true,
     });
     // Static identity content should NOT be in invocation context
-    assert.ok(!ctx.includes('布偶猫'), 'Should not contain display name (that is in static identity)');
     assert.ok(!ctx.includes('Anthropic'), 'Should not contain provider');
     assert.ok(!ctx.includes('## 协作'), 'Should not contain collaboration guide');
     // MCP tools moved to static identity (session-level, not per-message)
@@ -727,5 +726,99 @@ describe('SystemPromptBuilder', () => {
       prompt.length < 2050,
       `Prompt with activity is ${prompt.length} chars, expected < 2050`,
     );
+  });
+
+  // --- F042: pinned identity constant + direct-message reply target ---
+
+  test('buildInvocationContext includes pinned Identity line with handle + model', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.match(ctx, /^Identity:/m);
+    assert.ok(ctx.includes('@codex'));
+    assert.ok(ctx.includes('model='), 'Identity line should include model=');
+  });
+
+  test('buildInvocationContext Identity line uses resolved runtime model override', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+
+    const prev = process.env['CAT_CODEX_MODEL'];
+    process.env['CAT_CODEX_MODEL'] = 'gpt-5.9-codex-test';
+    try {
+      const ctx = buildInvocationContext({
+        catId: 'codex',
+        mode: 'independent',
+        teammates: [],
+        mcpAvailable: false,
+      });
+      assert.ok(
+        ctx.includes('model=gpt-5.9-codex-test'),
+        'Identity line should use runtime-resolved model from env override',
+      );
+    } finally {
+      if (prev === undefined) {
+        delete process.env['CAT_CODEX_MODEL'];
+      } else {
+        process.env['CAT_CODEX_MODEL'] = prev;
+      }
+    }
+  });
+
+  test('buildInvocationContext includes Direct message reply target when provided', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      directMessageFrom: 'opus',
+    });
+    assert.match(ctx, /^Direct message from @opus/m);
+    assert.ok(ctx.includes('reply to @opus'));
+  });
+
+  test('buildInvocationContext supports runtime variant cat IDs (gpt52)', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const { loadCatConfig, toAllCatConfigs } = await import(
+      '../dist/config/cat-config-loader.js'
+    );
+
+    const originalConfigs = catRegistry.getAllConfigs();
+    catRegistry.reset();
+    try {
+      const runtimeConfigs = toAllCatConfigs(loadCatConfig());
+      for (const [id, config] of Object.entries(runtimeConfigs)) {
+        catRegistry.register(id, config);
+      }
+
+      const ctx = buildInvocationContext({
+        catId: 'gpt52',
+        mode: 'independent',
+        teammates: [],
+        mcpAvailable: false,
+        directMessageFrom: 'codex',
+      });
+      assert.match(ctx, /^Identity:/m);
+      assert.ok(ctx.includes('@gpt52'));
+      assert.match(ctx, /^Direct message from @codex/m);
+      assert.ok(ctx.includes('reply to @codex'));
+    } finally {
+      catRegistry.reset();
+      for (const [id, config] of Object.entries(originalConfigs)) {
+        catRegistry.register(id, config);
+      }
+    }
   });
 });

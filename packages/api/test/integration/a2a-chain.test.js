@@ -47,7 +47,7 @@ function createMockMessageStore() {
 
 describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
   test('complete A2A chain: opus → @缅因猫 → codex invoked with previous context', async () => {
-    const { AgentRouter } = await import('../../dist/domains/cats/services/AgentRouter.js');
+    const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     // opus responds with line-start @缅因猫 mention
     const mockOpus = createMockService('opus', '代码写好了\n@缅因猫 请 review 这段代码');
@@ -72,6 +72,14 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     assert.equal(mockOpus.invoke.mock.callCount(), 1, 'opus should be called once');
     assert.equal(mockCodex.invoke.mock.callCount(), 1, 'codex should be called via A2A');
     assert.equal(mockGemini.invoke.mock.callCount(), 0, 'gemini should not be called');
+
+    // Prompt should include direct-message reply target hint for the A2A-invoked cat.
+    const codexPrompt = mockCodex.invoke.mock.calls[0]?.arguments?.[0];
+    assert.equal(typeof codexPrompt, 'string', 'codex invocation should receive a prompt string');
+    assert.ok(
+      codexPrompt.includes('Direct message from @opus'),
+      'codex prompt should instruct replying to @opus (not the user)',
+    );
 
     // Should have a2a_handoff event
     const handoffs = messages.filter(m => m.type === 'a2a_handoff');
@@ -98,7 +106,7 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
   });
 
   test('A2A depth limit prevents excessive chaining', async () => {
-    const { AgentRouter } = await import('../../dist/domains/cats/services/AgentRouter.js');
+    const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     // Chain: opus → @codex → @gemini → (blocked by depth=2)
     let opusCalls = 0;
@@ -149,8 +157,43 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     }
   });
 
+  test('P1: original pending target keeps replying to user (no direct-message override)', async () => {
+    const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
+
+    const mockOpus = createMockService('opus', '我先看一下\n@缅因猫 你也看看');
+    const mockCodex = createMockService('codex', '我来补充结论');
+    const mockGemini = createMockService('gemini', 'unused');
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: mockOpus,
+      codexService: mockCodex,
+      geminiService: mockGemini,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    }));
+
+    const messages = [];
+    for await (const msg of router.route('user-1', '@opus @codex 一起看这个问题')) {
+      messages.push(msg);
+    }
+
+    assert.equal(mockOpus.invoke.mock.callCount(), 1, 'opus should be called once');
+    assert.equal(mockCodex.invoke.mock.callCount(), 1, 'codex should be called once as original target');
+    assert.equal(mockGemini.invoke.mock.callCount(), 0, 'gemini should not be called');
+
+    const codexPrompt = mockCodex.invoke.mock.calls[0]?.arguments?.[0];
+    assert.equal(typeof codexPrompt, 'string', 'codex invocation should receive a prompt string');
+    assert.ok(
+      !codexPrompt.includes('Direct message from @opus'),
+      'original target must not be forced to reply to another cat',
+    );
+
+    const handoffs = messages.filter(m => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 0, 'no new A2A handoff should be emitted for already-pending original target');
+  });
+
   test('self-mention and non-line-start mention do not trigger A2A', async () => {
-    const { AgentRouter } = await import('../../dist/domains/cats/services/AgentRouter.js');
+    const { AgentRouter } = await import('../../dist/domains/cats/services/agents/routing/AgentRouter.js');
 
     // opus mentions itself and mentions codex mid-line (not at line start)
     const mockOpus = createMockService('opus', '我是布偶猫 @布偶猫\n之前缅因猫说的 @缅因猫 方案不错');

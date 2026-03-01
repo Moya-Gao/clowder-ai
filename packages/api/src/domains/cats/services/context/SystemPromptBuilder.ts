@@ -14,6 +14,7 @@ import {
   isCatAvailable,
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
+import { getCatModel } from '../../../../config/cat-models.js';
 import type { ThreadParticipantActivity } from '../stores/ports/ThreadStore.js';
 import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
 
@@ -37,6 +38,11 @@ export interface InvocationContext {
   promptTags?: readonly string[];
   /** Whether A2A collaboration prompt should be injected (only in serial/execute mode) */
   a2aEnabled?: boolean;
+  /**
+   * F042: Direct-message sender (A2A).
+   * When present, the invoked cat MUST reply to this cat (not the user).
+   */
+  directMessageFrom?: CatId;
   /** F042 Wave 3: Thread-level participant activity for @ disambiguation.
    *  Sorted by lastMessageAt desc. Injected per-invocation to survive compression. */
   activeParticipants?: readonly ThreadParticipantActivity[];
@@ -302,6 +308,23 @@ export function buildInvocationContext(context: InvocationContext): string {
   if (!config) return '';
 
   const lines: string[] = [];
+  const runtimeModel = (() => {
+    try {
+      return getCatModel(context.catId as string);
+    } catch {
+      return config.defaultModel;
+    }
+  })();
+
+  // F042: Identity constant — pinned per invocation to survive compression.
+  lines.push(
+    `Identity: ${config.displayName}${config.nickname ? `/${config.nickname}` : ''} (@${context.catId}, model=${runtimeModel})`,
+  );
+
+  // F042: A2A direct-message reply target.
+  if (context.directMessageFrom && context.directMessageFrom !== context.catId) {
+    lines.push(`Direct message from @${context.directMessageFrom}; reply to @${context.directMessageFrom}`);
+  }
 
   // Teammates — only list cats actually in this invocation
   if (context.teammates.length > 0) {

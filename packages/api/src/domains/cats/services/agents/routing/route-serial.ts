@@ -105,6 +105,7 @@ export async function* routeSerial(
     // Build identity: static goes in -p content (+ systemPrompt as defense-in-depth), dynamic in -p only
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
+    const directMessageFrom = worklistEntry.a2aFrom.get(catId);
     // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
     // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
     const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
@@ -125,6 +126,7 @@ export async function* routeSerial(
       mcpAvailable,
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
+      ...(directMessageFrom ? { directMessageFrom } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
     });
 
@@ -405,13 +407,21 @@ export async function* routeSerial(
       // can be re-enqueued for another round (e.g. A→B→A review ping-pong).
       if (a2aMentions.length > 0 && worklistEntry.a2aCount < maxDepth && !signal?.aborted) {
         const pendingTail = worklist.slice(index + 1);
+        const pendingOriginalTargets = targetCats.slice(index + 1);
         for (const nextCat of a2aMentions) {
           if (worklistEntry.a2aCount >= maxDepth) break;
-          if (pendingTail.includes(nextCat)) continue;
+          if (pendingTail.includes(nextCat)) {
+            // Keep original user-selected targets replying to user, not to another cat.
+            if (!pendingOriginalTargets.includes(nextCat)) {
+              worklistEntry.a2aFrom.set(nextCat, catId);
+            }
+            continue;
+          }
 
           worklist.push(nextCat);
           worklistEntry.a2aCount++;
           pendingTail.push(nextCat); // Keep dedup view in sync
+          worklistEntry.a2aFrom.set(nextCat, catId);
         }
       }
 

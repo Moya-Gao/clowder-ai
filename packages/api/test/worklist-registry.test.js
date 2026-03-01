@@ -156,6 +156,31 @@ describe('WorklistRegistry', () => {
     }
   });
 
+  test('P1: do not overwrite reply target for pending original cats', async () => {
+    const { registerWorklist, unregisterWorklist, pushToWorklist, getWorklist } = await import(
+      '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
+    );
+
+    const threadId = 'test-original-target-reply';
+    const entry = registerWorklist(threadId, ['opus', 'codex'], 10);
+
+    try {
+      // codex is an original pending target; mention should NOT set A2A sender mapping
+      assert.deepEqual(pushToWorklist(threadId, ['codex'], 'opus'), []);
+      assert.equal(getWorklist(threadId).a2aFrom.get('codex'), undefined);
+
+      // A2A-added pending targets may still refresh to latest sender before execution
+      assert.deepEqual(pushToWorklist(threadId, ['gemini'], 'opus'), ['gemini']);
+      assert.equal(getWorklist(threadId).a2aFrom.get('gemini'), 'opus');
+
+      entry.executedIndex = 1; // now codex is current, gemini still pending
+      assert.deepEqual(pushToWorklist(threadId, ['gemini'], 'codex'), []);
+      assert.equal(getWorklist(threadId).a2aFrom.get('gemini'), 'codex');
+    } finally {
+      unregisterWorklist(threadId, entry);
+    }
+  });
+
   test('multiple threads are independent', async () => {
     const { registerWorklist, unregisterWorklist, pushToWorklist, getWorklist } = await import(
       '../dist/domains/cats/services/agents/routing/WorklistRegistry.js'
