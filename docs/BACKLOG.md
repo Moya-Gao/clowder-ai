@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-02-28
+> 维护者：三猫 | 最后更新：2026-03-01
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -25,6 +25,5 @@ created: 2026-02-26
 | F042 | 提示词工程审计与优化 | in-progress | 布偶猫 | [F042](features/F042-prompt-engineering-audit.md) |
 | F043 | MCP 归一化 — Server 拆分 + 协作工具补全 | spec | 三猫 | [F043](features/F043-mcp-unification.md) |
 | F044 | Channel & Activity System — 战队频道 + 游戏活动 | spec | 布偶猫 | [F044](features/F044-channel-activity-system.md) |
-| F045 | NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | 布偶猫 | [F045](features/F045-ndjson-observability.md) |
 | F046 | 愿景守护协议 — Anti-Drift Protocol | in-progress | 三猫 | [F046](features/F046-anti-drift-protocol.md) |
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
