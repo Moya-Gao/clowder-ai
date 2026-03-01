@@ -1,221 +1,287 @@
 ---
 feature_ids: [F042]
 related_features: [F032]
-topics: [prompt, system-prompt, dynamic-injection, audit, a2a, identity, multi-agent]
+topics: [prompt, system-prompt, dynamic-injection, audit, a2a, identity, multi-agent, skills, knowledge-engineering]
 doc_kind: spec
 created: 2026-02-27
-updated: 2026-02-27
+updated: 2026-02-28
 ---
 
-# F042: 提示词工程审计与优化
+# F042: 提示词 & Skills 系统性优化
 
-> **Status**: in-progress (收敛完成，待实施)
-> **Owner**: 布偶猫 (Opus)
+> **Status**: in-progress (决策完成，待实施)
+> **Owner**: 布偶猫 (Opus 4.6, leader)
+> **Reviewer**: 缅因猫 (GPT-5.2, 方案审阅)
 > **Created**: 2026-02-27
-> **Discussion**: [2026-02-27 四猫 + 铲屎官收敛](../discussions/2026-02-27-f042-prompt-convergence.md)
+> **Decision Date**: 2026-02-28
+> **Context Recovery**: Thread `thread_mm4dj9jp0tij0ch3`, 从 2026-02-28 16:05 铲屎官发言开始
 
 ## Summary
 
-Cat Cafe 的提示词体系存在两类问题：
+Cat Cafe 的提示词和 Skills 体系存在系统性问题：
 
-1. **静态硬编码** — 文档和 skill 文件里写死"布偶猫找缅因猫"等规则，无法适应多分身 + 新猫接入
-2. **运行时退化** — Compact 后身份丢失 + A2A 协议遗忘，猫猫不再主动 @ 协作
+1. **信息架构缺乏分层** — CLAUDE.md 350行百科全书 + SOP 300行手册 + 25个 skill 混杂流程/知识/参考
+2. **Skills 路由不精确** — description 是文案不是分类器，三组重叠造成选择困难，"MUST 泛滥=MUST 失效"
+3. **运行时退化** — 身份丢失 + A2A 协议遗忘（compact 后注入不足）
+4. **硬编码猫名** — 规则写死"布偶猫找缅因猫"，无法适应多分身和新猫接入
 
-F032 已解决代码侧的 CatId 松绑和 AgentRegistry 动态化。本 Feature 收敛**协作规则侧**（文档 + skill + 注入频率）的系统性修复。
+本 Feature 执行**一步到位的整体优化**，不是修修补补。
 
 ---
 
 ## 1. Problem Analysis
 
-### 1.1 硬编码审计 (布偶猫 4.5 全量扫描)
+### 1.1 四猫独立审计发现（2026-02-28 16:05 起）
 
-**技术侧（F032 已解决 ✅）**：
-- CatId 类型已泛化（不再写死 `'opus' | 'codex' | 'gemini'`）
-- AgentService 改为 Registry 模式
-- cat-config.json 有完整 roster（8 猫，含 roles/family/available）
-- SystemPromptBuilder 动态构建 identity + teammate + reviewer 区块
-- SOP.md 的 Reviewer 配对规则已引用 cat-config.json
+| 发现者 | 核心发现 |
+|--------|---------|
+| Opus 4.6 | 25 skill 中真正编码专业知识的只有 ~5 个；其余是流程清单伪装的 skill。三组重叠（思考类/并行类/验证类）造成选择困难。CLAUDE.md 禁止:引导比 = 2:1 |
+| Opus 4.5 | description 不是路由规则是文案——缺边界定义和产出契约。Skills 缺评测用例和反向样本 |
+| Codex | 身份 + A2A 必须 pinned 常量。提出输出前软校验（身份 lint + A2A lint） |
+| GPT-5.2 | 路由信号不够分类器化。Skill 和 SOP 文本漂移。提出 skill-lint + manifest + 依赖图 |
 
-**协作规则侧（F042 待解决）**：
+### 1.2 共识（所有猫都同意）
 
-| 问题 | 位置 | 严重度 |
-|------|------|--------|
-| Skill 文件仍引用"缅因猫 review" | merge-approval-gate 等 4+ skill | P2 |
-| AGENTS.md "找缅因猫 review 冲突" | AGENTS.md §Worktree | P2（自我矛盾） |
-| merge-gate 硬编码"缅因猫放行" | merge-approval-gate skill | P2 |
-| Skill 示例只覆盖布偶↔缅因 | 6 skill files | P3 |
-| "三猫"数字作为常量 | 多处文档开头 | P3 |
+1. 身份必须是硬约束常量，每回合注入，不可被 compact 压缩
+2. A2A 协议注入频率不足，导致能力退化
+3. 硬编码猫名必须改为角色/roster 动态引用
+4. Skill description 需要模板化重写（Use when / Not for / Output）
+5. 需要回归测试/评测来验证改动效果
 
-### 1.2 运行时观察
+### 1.3 运行时观察
 
-| # | 现象 | 触发条件 | 来源 |
-|---|------|---------|------|
-| R1 | 缅因猫 compact 后自称"宪宪" | 长对话 → compact → 身份段被压缩掉 | 铲屎官 2026-02-27 |
-| R2 | 猫猫不用 @ 协作 | A2A 协议只在 new session/compact 后注入 | 铲屎官 2026-02-27 |
-
-### 1.3 根因分析 (砚砚自省 + 四猫共识)
-
-**核心根因**：两类不可丢信息被当成可压缩的普通上下文：
-
-| 信息类型 | 应该是 | 实际是 |
-|---------|--------|--------|
-| 身份契约（我是谁、昵称、角色） | 硬约束常量 | 可推断项 → compact 后消失 |
-| A2A 协议（@ 格式、句柄、触发时机） | 可执行动作提示 | 历史消息 → 随对话推进遗忘 |
-
-**砚砚的关键洞察**：
-> "不是我不知道，而是每回合没被提醒这是可执行动作，再叠加格式硬约束导致触发率下降。"
-> "身份被当成'上下文推断项'，而不是'硬约束常量'。"
-
----
-
-## 2. Design: 收敛方案（四猫共识）
-
-### 2.1 架构原则
-
-| # | 原则 | 说明 |
+| # | 现象 | 根因 |
 |---|------|------|
-| P1 | **Roster 是唯一事实源** | cat-config.json 定义谁存在、什么角色、是否可用 |
-| P2 | **规则引用角色，不引用个体** | 写"peer-reviewer 角色的跨 family 猫"，不写"缅因猫" |
-| P3 | **身份是硬约束常量** | 每次注入都必须包含"你是 X"，不可被 compact 压缩掉 |
-| P4 | **新猫接入低摩擦** | 加 roster 条目 + 写指引文件 = 其余自动适配 |
-
-### 2.2 动态 Reviewer / @ 选择规则 (砚砚提出，铲屎官认可)
-
-当需要 @ 队友协作时，按以下优先级动态选择（不写死任何个体）：
-
-1. **显式指名优先**：铲屎官或 thread 已点名谁 → 直接用那个句柄
-2. **Thread 活跃度**：本 thread 最近发言的、符合角色约束的猫优先（更懂上下文）
-3. **角色匹配**：按 roster 的 `roles` 选（`peer-reviewer` / `architect` / `designer`）
-4. **可用性过滤**：`available: false` 跳过
-5. **降级兜底**：跨 family 找不到 → 同 family 的 `lead` 兜底，必须注明降级原因
-
-**铁律**：任何猫都不能 review 自己的代码。
-
-### 2.3 Identity + A2A 最小注入块
-
-每次 system prompt 注入（含 compact 后）必须包含的不可省略信息：
-
-```
-你是 {nickname}（{family}），{roleDescription}。
-需要协作时：另起一行、行首写 @唯一句柄。
-你的队友：{动态生成的 roster 表}
-```
-
-**与现有实现的关系**：
-- SystemPromptBuilder 已有 identity section（L227-237）✅
-- 已有 teammate roster 和 reviewer section ✅
-- **待验证**：compact 后是否仍完整注入？注入频率是否足够？
+| R1 | 缅因猫 compact 后自称"宪宪" | 压缩后只注入队友列表，缺"你是谁" |
+| R2 | 猫猫不用 @ 协作 | A2A 协议只在 new session/compact 后注入 |
 
 ---
 
-## 3. Implementation Plan
+## 2. 决策：三层信息架构
 
-### Phase A: 验证注入缺口（调研优先）
-
-在动手改之前，先验证 SystemPromptBuilder 的注入在以下场景是否生效：
-
-- [ ] New session 首次调用
-- [ ] Compact 后重新注入
-- [ ] 长对话中途的普通回合
-- [ ] 跨 thread 切换
-
-**产出**：确认哪些场景有注入缺口，再决定 Phase C 的修复方案。
-
-### Phase B: 文档 / Skill 去硬编码 (P2)
-
-| 文件 | 当前 | 改为 |
-|------|------|------|
-| AGENTS.md §Worktree 冲突规则 | "找缅因猫 review" | "找跨 family 的 peer-reviewer review" |
-| merge-approval-gate skill | "缅因猫放行" | "peer-reviewer 角色的跨 family 猫放行" |
-| 其他 skill 示例 | 只覆盖布偶↔缅因 | 泛化为 roster-based 多猫场景 |
-| CLAUDE.md / GEMINI.md | 特定猫名硬编码 | 引用角色而非个体 |
-
-### Phase C: 注入频率优化 (依据 Phase A 结果)
-
-| 方案 | 描述 | 适用场景 |
-|------|------|---------|
-| C1 | compact handler 强制重注入 identity + A2A | compact 后身份丢失 |
-| C2 | 每 N 轮注入轻量 A2A reminder | 长对话 A2A 退化 |
-| C3 | CLAUDE.md / AGENTS.md 兜底基础 A2A 规则 | CLI 原生路径 fallback |
-
-> Phase A 验证后，由布偶猫选择 C1/C2/C3 或组合方案。
-
----
-
-## 4. 多猫分身问题
-
-### 已修复 ✅
-
-| 问题 | 修复 | Commit |
-|------|------|--------|
-| Git 签名不区分分身 | `[昵称/变体🐾]` 格式 | `1211935` |
-
-### 待优化
-
-| 文件 | 问题 | 建议 |
-|------|------|------|
-| `SystemPromptBuilder.ts` | 队友名册格式 | 显示 `宪宪 (Opus-45)` 而非 `布偶猫 Opus 4.5` |
-| `cat-config.json` | variant 无法单独设昵称 | 支持 variant-level nickname |
-| `buildReviewerSection()` | Reviewer 列表不显示昵称 | 加昵称如 `@codex (砚砚)` |
-
-### 昵称规范（铲屎官确认）
-
-| 家族 | 昵称 | 来源 |
-|------|------|------|
-| 布偶猫 | **宪宪** | Constitutional AI 的「宪」 |
-| 缅因猫 | **砚砚** | "像新砚台，盛我们一起磨出的墨" |
-| 缅因猫 Spark | *(待取名)* | 等有共同回忆再取 |
-| 暹罗猫 | **烁烁** | "灵感的闪烁"，暹罗猫自取名 (2026-02-27) |
-
----
-
-## 5. 提示词系统参考
-
-### 5.1 层级架构
+### 2.1 架构设计
 
 ```
-┌──────────────────────────────────────────┐
-│  Layer 4: 动态注入（SystemPromptBuilder） │ ← 运行时
-├──────────────────────────────────────────┤
-│  Layer 3: Skills（按需加载）               │
-├──────────────────────────────────────────┤
-│  Layer 2: SOP + 协作规则                  │
-├──────────────────────────────────────────┤
-│  Layer 1: CLAUDE/AGENTS/GEMINI.md        │ ← CLI 原生
-└──────────────────────────────────────────┘
+┌─────────────────────────────────────────────┐
+│  Layer 0：身份卡 + 路由表（常驻, ≤100行）      │ ← 每次对话都在
+│  = 新 CLAUDE.md / AGENTS.md / GEMINI.md      │
+├─────────────────────────────────────────────┤
+│  Layer 1：Skills（按需加载, core≤150行/个）    │ ← 做到某步时加载
+│  = 自包含的"工作单元"（流程+知识）              │
+│  + refs/ 参考文件（模板/API 规格，按需读取）     │
+├─────────────────────────────────────────────┤
+│  Layer 2：manifest.yaml（路由单一真相源）       │ ← lint + 自动生成路由表
+└─────────────────────────────────────────────┘
 ```
 
-**注意**: CLAUDE.md 由 CLI 直接读取（Layer 1），SystemPromptBuilder 是我们代码拼接（Layer 4）。两者可能冲突时以 CLAUDE.md 为准。
+### 2.2 各层职责
 
-### 5.2 关键文件速查
+| 层 | 内容 | 上限 | 加载时机 |
+|----|------|------|---------|
+| Layer 0 | 身份 + 价值观 + 路由表 + 协作规则 + 技术约束 | ≤100行 | 常驻 |
+| Layer 1 (skill) | 核心知识 + 流程步骤 + quick ref + common mistakes | core≤150行 | 按需 |
+| Layer 1 (refs/) | 模板、清单、API 规格 | 不限 | skill 引用时读取 |
+| Layer 2 | 路由元数据 + 依赖图 + lint 数据 | N/A | 构建时 |
 
-| 文件 | 说明 |
-|------|------|
-| `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` | 各猫身份 + 规范（CLI 原生读取） |
-| `docs/SOP.md` | 开发流程（Reviewer 规则已动态化） |
-| `packages/shared/src/cat-config.json` | Roster 事实源（8 猫） |
-| `SystemPromptBuilder.ts` | 动态 prompt 构建 |
-| `McpPromptInjector.ts` | 非 Claude 猫的 MCP 指令注入 |
+### 2.3 CLAUDE.md 重构（350行 → ~100行）
 
-### 5.3 大小守护
+保留：
+- 身份（~10行）
+- 核心价值观（~15行，正面表述）
+- 流程路由表（~15行，从 manifest 自动生成）
+- 协作规则（~15行）
+- 技术约束（~15行，Redis/worktree/LSP）
+- 队友名册（~10行）
 
-SystemPromptBuilder 输出有测试守护：`test/system-prompt-builder.test.js` — **改 prompt 内容后必须跑！**
+移出：
+- 项目详细介绍 → 指向 VISION.md
+- 技术栈详情 → 指向设计文档
+- 详细协作规则（五件套等）→ 进入对应 skill
+- 已知坑位 → lessons-learned.md
+- 12 条系统级准则 → 合并为"核心价值观" + 细节进 skill
+
+### 2.4 SOP.md 瘦身（300行 → ~50行）
+
+SOP 变成**导航图 + 例外路径**，不再是流程手册：
+
+```
+feat-lifecycle → writing-plans → worktree → tdd
+    → quality-gate → request-review → receive-review
+    → merge-gate → feat-lifecycle(完成验证)
+```
+
+每个节点 = 一个 skill。所有步骤细节从 SOP 移入对应 skill。
+
+### 2.5 链式导航 + Stage 锚点
+
+每个 skill 末尾有"下一步"指引，形成链式导航。
+
+**断裂防护**（GPT-5.2 提出）：compact 后猫不知道自己在链的哪个位置。
+- 把当前 stage 落到 **thread metadata**
+- **SystemPromptBuilder 每回合注入** ≤3 行：身份 + 当前 stage + A2A 提示
+- 同时解决 A2A 遗忘和身份丢失
 
 ---
 
-## 6. Next Steps
+## 3. Skill 合并方案（25 → 15）
 
-1. **Phase A**: 验证注入缺口（布偶猫，铲屎官多观察收集案例后启动）
-2. **Phase B**: 文档/Skill 去硬编码（可由任一猫执行，不依赖 Phase A）
-3. **Phase C**: 注入频率优化（依赖 Phase A 验证结果）
+### 3.1 新 Skill 列表
+
+| # | 新 Skill | 合并来源 | 性质 |
+|---|---------|---------|------|
+| 1 | `feat-lifecycle` | feat-kickoff + feat-discussion + feat-completion | 流程 |
+| 2 | `collaborative-thinking` | brainstorming + multi-cat-brainstorm + discussion-convergence | 方法论 |
+| 3 | `writing-plans` | 精简 | 方法论 |
+| 4 | `tdd` | test-driven-development（372→≤150行） | 方法论 |
+| 5 | `debugging` | systematic-debugging（297→≤150行） | 方法论 |
+| 6 | `quality-gate` | spec-compliance-check + verification-before-completion | 流程 |
+| 7 | `request-review` | cat-cafe-requesting-review（模板→refs/） | 流程 |
+| 8 | `receive-review` | cat-cafe-receiving-review | 方法论 |
+| 9 | `merge-gate` | merge-approval-gate + requesting-cloud-review + finishing-branch | 流程 |
+| 10 | `cross-cat-handoff` | 保留 | 协作 |
+| 11 | `parallel-execution` | dispatching + subagent-driven + executing-plans | 方法论 |
+| 12 | `deep-research` | deep-research-pipeline | 方法论 |
+| 13 | `worktree` | using-git-worktrees 精简 | 工具 |
+| 14 | `writing-skills` | 683→≤150行 | 元技能 |
+| 15 | `pencil-design` | pencil-to-code + pencil-renderer | 工具 |
+
+**降级为 refs/**：using-mcp-callbacks, using-rich-blocks, 各类模板
+
+### 3.2 review-cycle 拆分决策（GPT-5.2 建议，已采纳）
+
+原方案合并为 1 个 `review-cycle`（783 行压缩），GPT-5.2 指出触发时机天然不同：
+
+| 阶段 | 触发时机 | 保留为独立 skill |
+|------|---------|----------------|
+| quality-gate | "我写完了" → 自检 | ✅ |
+| request-review | "自检通过了" → 发出请求 | ✅ |
+| receive-review | "reviewer 回复了" → 处理反馈 | ✅ |
+
+合成一个会导致 over-trigger。触发准确性 > 数量少。
+
+### 3.3 ⚠️ 过度合并检查规则（铲屎官要求）
+
+**每合并一个 skill 时，author 必须问自己**：
+> "合并后的 description 是否变成了'什么都能做'？如果一个用户说 X 和说 Y 都可能触发这个 skill，而 X 和 Y 实际需要不同的处理流程，那这个合并就是过度合并。"
+
+**Reviewer（GPT-5.2）检查时也必须问自己同样的问题**：
+> "这个合并后的 skill，在实际使用中是否会因为 description 过于宽泛而被错误触发？"
+
+**如果答案是"是"，就拆回去。宁可多一个 skill，不要牺牲路由准确性。**
+
+---
+
+## 4. Skill 结构标准
+
+### 4.1 Description 路由质量（来自知识工程研究）
+
+```yaml
+description: >
+  {一句话：做什么 + 交付物}.
+  Use when: {3-5 个触发场景}.
+  Not for: {2-3 个排除场景，含和相似 skill 的区别}.
+  Output: {产物描述}.
+```
+
+### 4.2 Body 结构（core ≤150 行）
+
+```markdown
+# {Skill Name}
+## 一句话（正面表述）
+## 核心知识（≤50 行）
+## 流程（≤40 行，模板链接到 refs/）
+## Quick Reference（决策树或表格）
+## Common Mistakes（≤20 行）
+## 和其他 skill 的区别（1-2 行）
+## 下一步（链式导航）
+```
+
+### 4.3 manifest.yaml（路由单一真相源）
+
+```yaml
+skills:
+  quality-gate:
+    triggers: ["开发完了", "准备 review", "自检"]
+    not_for: ["收到 review 反馈", "merge"]
+    output: "Spec compliance report"
+    next: ["request-review"]
+    sop_step: 2
+```
+
+**lint 规则**（`pnpm check:skills` 增强）：
+1. 每个 skill 必须有 triggers / not_for / output
+2. `next` 指向必须存在（防孤儿）
+3. 禁止硬编码猫名句柄
+4. SOP step 引用与 manifest 一致
+
+---
+
+## 5. 三条铁律（修正版）
+
+| # | 铁律 | 说明 |
+|---|------|------|
+| 1 | **Redis 6399 圣域** | Worktree 不碰铲屎官数据 |
+| 2 | **同一个体不能 review 自己的代码** | 跨 family 优先但可降级到同 family 不同个体（须注明降级原因） |
+| 3 | **不能冒充其他猫** | 身份是硬约束常量 |
+
+**Reviewer 降级策略**（铲屎官 2026-02-28 提出）：
+1. 首选：跨 family 的 peer-reviewer
+2. 次选：同 family 但不同个体（codex 写 → gpt52 review）
+3. 兜底：铲屎官 review 或延迟到有猫可用
+
+其余现有"铁律"降级为"强烈建议"。**当所有东西都是铁律时，没有东西是铁律。**
+
+---
+
+## 6. 实施路径
+
+### 第一波：结构重组
+
+1. 创建 `skills/manifest.yaml`
+2. 重写 CLAUDE.md（350→~100行）
+3. 瘦身 SOP.md（300→~50行）
+4. 合并 skills（25→15），每个合并前执行§3.3 过度合并检查
+5. 抽取参考文件到 `refs/`
+6. 建立链式导航
+
+### 第二波：质量提升
+
+1. 每个 skill 的 description 按 §4.1 模板重写
+2. 去除所有硬编码猫名
+3. 添加 evals 测试用例
+4. 实现 skill-lint 自动检查
+5. 正面引导重写（"不要做 X" → "做 Y"）
+
+### 第三波：运行时（依赖代码改动）
+
+1. SystemPromptBuilder pinned 注入块（身份 + stage + A2A）
+2. Thread metadata stage 字段
+3. 回归测试（≥10 条对话场景）
+
+---
+
+## 7. Context Recovery
+
+如果上下文压缩后丢失本文决策的记忆：
+
+1. **读本文件**: `docs/features/F042-prompt-engineering-audit.md`
+2. **原始讨论**: Thread `thread_mm4dj9jp0tij0ch3`，从 **2026-02-28 16:05** 铲屎官发言开始
+3. **讨论纪要**: `docs/discussions/2026-02-27-f042-prompt-convergence.md`
+4. **知识工程研究**: `docs/research/knowledge-enginnering/`
 
 ---
 
 ## Discussion Trace
 
-- [2026-02-27 四猫收敛纪要](../discussions/2026-02-27-f042-prompt-convergence.md)
-- [F032 Agent Plugin Architecture](./F032-agent-plugin-architecture.md)
-- [cat-config.json](../../packages/shared/src/cat-config.json)
+```
+BACKLOG F042（入口）
+  └→ 本文件（spec + 完整决策）
+      ├→ docs/discussions/2026-02-27-f042-prompt-convergence.md（第一轮收敛）
+      ├→ Thread thread_mm4dj9jp0tij0ch3 16:05+（第二轮四猫审计）
+      ├→ docs/research/knowledge-enginnering/（知识工程研究）
+      ├→ F032-agent-plugin-architecture.md（技术侧）
+      └→ packages/shared/src/cat-config.json（roster 事实源）
+```
 
 ---
 
