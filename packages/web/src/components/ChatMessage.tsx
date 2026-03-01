@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { ChatMessage as ChatMessageType, MessageContent, ToolEvent } from '@/stores/chatStore';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useChatStore, type ChatMessage as ChatMessageType, type MessageContent, type ToolEvent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
 import { ConnectorBubble } from './ConnectorBubble';
 import { EvidencePanel } from './EvidencePanel';
@@ -100,13 +100,26 @@ function ExpandedToolView({ events }: { events: ToolEvent[] }) {
 
 function ToolEventsPanel({ events }: { events: ToolEvent[] }) {
   const [collapsed, setCollapsed] = useState(true);
+  const hasMounted = useRef(false);
 
   if (events.length === 0) return null;
+
+  // Cloud P2: local UI toggles can change scrollHeight without scroll/resize events.
+  // Emit after DOM commit so scroll-dependent UI (e.g. "↓ 到最新") can recompute.
+  useLayoutEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
+    }
+  }, [collapsed]);
 
   return (
     <div className="mb-3 rounded-xl border border-black/10 bg-white/65">
       <button
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => setCollapsed((v) => !v)}
         className="w-full px-3 py-2 flex items-center justify-between hover:bg-black/5 transition-colors rounded-t-xl"
       >
         <span className="text-xs text-gray-600">
@@ -133,10 +146,21 @@ function ThinkingContent({ content, className, label = '💭 心里话', default
   // In export mode (?export=true), default to expanded so screenshots show full content
   const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const [expanded, setExpanded] = useState(isExport || defaultExpanded);
-  // Sync with thinkingMode toggle: when mode changes, update all blocks
+  const hasMounted = useRef(false);
+  // Sync with global UI preference: when defaultExpanded changes, update all blocks
   useEffect(() => {
     setExpanded(isExport || defaultExpanded);
   }, [isExport, defaultExpanded]);
+  // Notify scroll-dependent UI (e.g. "↓ 到最新") after the DOM has updated.
+  useLayoutEffect(() => {
+    if (!hasMounted.current) {
+      hasMounted.current = true;
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('catcafe:chat-layout-changed'));
+    }
+  }, [expanded]);
   const previewLength = 60;
   const preview = content.length > previewLength
     ? `${content.slice(0, previewLength)}…`
@@ -145,7 +169,9 @@ function ThinkingContent({ content, className, label = '💭 心里话', default
   return (
     <div>
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => {
+          setExpanded((v) => !v);
+        }}
         className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors mb-1"
       >
         <span className="text-[10px]" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block', transition: 'transform 0.15s' }}>▶</span>
@@ -199,12 +225,11 @@ function TtsPlayButton({ messageId, text, catId, ttsState, activeMessageId, onSy
 interface ChatMessageProps {
   message: ChatMessageType;
   getCatById: (id: string) => CatData | undefined;
-  /** Thread-level thinking mode: debug = expanded by default, play = collapsed */
-  thinkingMode?: 'debug' | 'play';
 }
 
-export function ChatMessage({ message, getCatById, thinkingMode = 'debug' }: ChatMessageProps) {
+export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
+  const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
@@ -366,10 +391,10 @@ export function ChatMessage({ message, getCatById, thinkingMode = 'debug' }: Cha
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={thinkingMode === 'debug'} />
+            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} />
           )}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
-            <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={thinkingMode === 'debug'} />
+            <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={uiThinkingExpandedByDefault} />
           ) : hasBlocks ? (
             renderContentBlocks(message.contentBlocks!)
           ) : hasTextContent ? (

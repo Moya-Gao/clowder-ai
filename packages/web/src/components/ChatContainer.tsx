@@ -30,6 +30,8 @@ import { CatCafeHub } from './CatCafeHub';
 import { MobileStatusSheet } from './MobileStatusSheet';
 import { QueuePanel } from './QueuePanel';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
+import { ScrollToBottomButton } from './ScrollToBottomButton';
+import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 
 interface ChatContainerProps {
   threadId: string;
@@ -42,9 +44,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     pendingModeSwitchProposal, setPendingModeSwitchProposal,
     viewMode, setViewMode, clearUnread,
   } = useChatStore();
-
-  // F045: Read thread-level thinkingMode for dynamic display (debug=expanded, play=collapsed)
-  const thinkingMode = useChatStore((s) => (s.threads ?? []).find((t) => t.id === threadId)?.thinkingMode ?? 'debug');
+  const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
   const isExport = typeof window !== 'undefined' &&
@@ -142,10 +142,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const renderSingleMessage = useCallback(
     (msg: ChatMessageData) => (
       <MessageActions key={msg.id} message={msg} threadId={threadId}>
-        <ChatMessage message={msg} getCatById={getCatById} thinkingMode={thinkingMode} />
+        <ChatMessage message={msg} getCatById={getCatById} />
       </MessageActions>
     ),
-    [threadId, getCatById, thinkingMode]
+    [threadId, getCatById]
   );
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
@@ -294,6 +294,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             )}
             <div ref={messagesEndRef} />
           </main>
+          <ScrollToBottomButton
+            scrollContainerRef={scrollContainerRef}
+            messagesEndRef={messagesEndRef}
+            recomputeSignal={computeScrollRecomputeSignal(threadId, messages, uiThinkingExpandedByDefault ? 1 : 0)}
+            observerKey={threadId}
+          />
           {messages.length > 5 && <MessageNavigator messages={messages} scrollContainerRef={scrollContainerRef} />}
         </div>
 

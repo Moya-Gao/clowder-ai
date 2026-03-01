@@ -1,15 +1,13 @@
 /**
- * F045 P1 regression: ThinkingContent defaultExpanded + useEffect mode-sync
- *
- * Verifies:
- * 1. play mode → thinking blocks collapsed (preview shown)
- * 2. debug mode → thinking blocks expanded (full content shown)
- * 3. Toggling thinkingMode re-renders already-mounted blocks
+ * Thinking UI behavior (2026-03-01):
+ * - Default is COLLAPSED
+ * - `Thread.thinkingMode` does NOT control UI expansion/collapse
  */
 import React from 'react';
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
+import { useChatStore } from '@/stores/chatStore';
 
 // ── Stub hooks used by ChatMessage ──
 vi.mock('@/hooks/useCatData', () => ({
@@ -46,6 +44,8 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     container = document.createElement('div');
     document.body.appendChild(container);
     root = createRoot(container);
+    // Stable baseline for each test
+    useChatStore.getState().setUiThinkingExpandedByDefault(false);
   });
 
   afterEach(() => {
@@ -81,7 +81,7 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     personality: '',
   }));
 
-  it('play mode: thinking block is collapsed by default', async () => {
+  it('default: thinking block is collapsed', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     act(() => {
@@ -89,7 +89,6 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
         React.createElement(ChatMessage, {
           message: thinkingMsg as never,
           getCatById: getCatById as never,
-          thinkingMode: 'play',
         }),
       );
     });
@@ -105,7 +104,7 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
     expect(expandedBlocks.length).toBe(0);
   });
 
-  it('debug mode: thinking block is expanded by default', async () => {
+  it('global toggle: expand then collapse re-renders already-mounted blocks', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     act(() => {
@@ -113,79 +112,29 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
         React.createElement(ChatMessage, {
           message: thinkingMsg as never,
           getCatById: getCatById as never,
-          thinkingMode: 'debug',
-        }),
-      );
-    });
-
-    // Expanded: full thinking content rendered in the DOM
-    const expandedBlocks = container.querySelectorAll('.border-l-2');
-    expect(expandedBlocks.length).toBeGreaterThanOrEqual(1);
-    expect(container.textContent).toContain(THINKING_TEXT);
-  });
-
-  it('switching play→debug expands already-rendered thinking blocks', async () => {
-    const { ChatMessage } = await import('@/components/ChatMessage');
-
-    // Step 1: render in play mode (collapsed)
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMsg as never,
-          getCatById: getCatById as never,
-          thinkingMode: 'play',
         }),
       );
     });
 
     expect(container.querySelectorAll('.border-l-2').length).toBe(0);
 
-    // Step 2: re-render with debug mode (should expand via useEffect)
+    // Expand globally
     act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMsg as never,
-          getCatById: getCatById as never,
-          thinkingMode: 'debug',
-        }),
-      );
+      useChatStore.getState().setUiThinkingExpandedByDefault(true);
     });
 
     expect(container.querySelectorAll('.border-l-2').length).toBeGreaterThanOrEqual(1);
     expect(container.textContent).toContain(THINKING_TEXT);
-  });
 
-  it('switching debug→play collapses already-rendered thinking blocks', async () => {
-    const { ChatMessage } = await import('@/components/ChatMessage');
-
-    // Step 1: render in debug mode (expanded)
+    // Collapse globally again
     act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMsg as never,
-          getCatById: getCatById as never,
-          thinkingMode: 'debug',
-        }),
-      );
-    });
-
-    expect(container.querySelectorAll('.border-l-2').length).toBeGreaterThanOrEqual(1);
-
-    // Step 2: switch to play mode (should collapse via useEffect)
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMsg as never,
-          getCatById: getCatById as never,
-          thinkingMode: 'play',
-        }),
-      );
+      useChatStore.getState().setUiThinkingExpandedByDefault(false);
     });
 
     expect(container.querySelectorAll('.border-l-2').length).toBe(0);
   });
 
-  it('stream-origin messages also respect thinkingMode', async () => {
+  it('stream-origin messages also follow global toggle', async () => {
     const { ChatMessage } = await import('@/components/ChatMessage');
 
     const streamMsg = {
@@ -199,31 +148,22 @@ describe('F045: ThinkingContent thinkingMode toggle', () => {
       contentBlocks: [],
     };
 
-    // debug mode → stream-origin content expanded
     act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: streamMsg as never,
           getCatById: getCatById as never,
-          thinkingMode: 'debug',
-        }),
-      );
-    });
-
-    expect(container.querySelectorAll('.border-l-2').length).toBeGreaterThanOrEqual(1);
-    expect(container.textContent).toContain('stream inner monologue content here');
-
-    // play mode → collapsed
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: streamMsg as never,
-          getCatById: getCatById as never,
-          thinkingMode: 'play',
         }),
       );
     });
 
     expect(container.querySelectorAll('.border-l-2').length).toBe(0);
+
+    act(() => {
+      useChatStore.getState().setUiThinkingExpandedByDefault(true);
+    });
+
+    expect(container.querySelectorAll('.border-l-2').length).toBeGreaterThanOrEqual(1);
+    expect(container.textContent).toContain('stream inner monologue content here');
   });
 });

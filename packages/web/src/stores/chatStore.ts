@@ -93,6 +93,26 @@ function flattenThread(ts: ThreadState): Partial<ChatState> {
 
 const MAX_BLOB_MESSAGES = 200;
 
+const UI_THINKING_EXPANDED_KEY = 'catcafe.ui.thinkingExpandedByDefault';
+
+function loadUiThinkingExpandedByDefault(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(UI_THINKING_EXPANDED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function persistUiThinkingExpandedByDefault(next: boolean) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(UI_THINKING_EXPANDED_KEY, next ? '1' : '0');
+  } catch {
+    // ignore storage failures (privacy mode, quota, etc.)
+  }
+}
+
 function revokeBlobUrls(messages: ChatMessage[]) {
   for (const msg of messages) {
     if (msg.contentBlocks) {
@@ -171,6 +191,8 @@ interface ChatState {
   currentProjectPath: string;
   threads: Thread[];
   isLoadingThreads: boolean;
+  /** UI: Whether Thinking blocks should be expanded by default (global preference). */
+  uiThinkingExpandedByDefault: boolean;
 
   // ── Active-thread actions (operate on flat state) ──
   addMessage: (msg: ChatMessage) => void;
@@ -209,6 +231,7 @@ interface ChatState {
   updateThreadFavorite: (threadId: string, favorited: boolean) => void;
   updateThreadThinkingMode: (threadId: string, mode: 'debug' | 'play') => void;
   updateThreadPreferredCats: (threadId: string, preferredCats: string[]) => void;
+  setUiThinkingExpandedByDefault: (next: boolean) => void;
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
@@ -283,6 +306,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   currentProjectPath: 'default',
   threads: [],
   isLoadingThreads: false,
+  uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
+
+  setUiThinkingExpandedByDefault: (next) => {
+    persistUiThinkingExpandedByDefault(next);
+    set({ uiThinkingExpandedByDefault: next });
+  },
 
   // ── F39: Queue actions ──
 

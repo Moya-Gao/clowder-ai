@@ -1,11 +1,13 @@
 /**
- * F045: ThinkingContent dynamic display — debug mode expands, play mode collapses.
- * Regression test for thinkingMode toggle behavior.
+ * Thinking UI behavior (2026-03-01):
+ * - Default is COLLAPSED (reduce fatigue)
+ * - `Thread.thinkingMode` is cross-cat visibility semantics, NOT UI expansion state
  */
 import React from 'react';
 import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
+import { useChatStore } from '@/stores/chatStore';
 
 // Stub TTS hook (ChatMessage uses it)
 vi.mock('@/hooks/useTts', () => ({
@@ -43,6 +45,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
+  // Stable default for each test (independent of localStorage)
+  useChatStore.getState().setUiThinkingExpandedByDefault(false);
 });
 
 afterEach(() => {
@@ -63,14 +67,13 @@ const thinkingMessage = {
 
 const getCatById = () => undefined;
 
-describe('F045: ThinkingContent dynamic thinkingMode', () => {
-  it('play mode: thinking and stream content are collapsed by default', () => {
+describe('ThinkingContent default collapse', () => {
+  it('default: thinking and stream content are collapsed', () => {
     act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: thinkingMessage,
           getCatById,
-          thinkingMode: 'play',
         })
       );
     });
@@ -88,73 +91,24 @@ describe('F045: ThinkingContent dynamic thinkingMode', () => {
     expect(markdownDivs.length).toBe(0);
   });
 
-  it('debug mode: thinking and stream content are expanded by default', () => {
+  it('global toggle: enabling expands thinking blocks', () => {
     act(() => {
       root.render(
         React.createElement(ChatMessage, {
           message: thinkingMessage,
           getCatById,
-          thinkingMode: 'debug',
         })
       );
     });
 
-    const buttons = container.querySelectorAll('button');
-    const thinkingButton = Array.from(buttons).find((b) => b.textContent?.includes('🧠 Thinking'));
-    const heartButton = Array.from(buttons).find((b) => b.textContent?.includes('💭 心里话'));
+    expect(container.querySelectorAll('.border-l-2.border-gray-300').length).toBe(0);
 
-    expect(thinkingButton).toBeTruthy();
-    expect(heartButton).toBeTruthy();
+    // Flip global preference → should expand all blocks
+    act(() => {
+      useChatStore.getState().setUiThinkingExpandedByDefault(true);
+    });
 
-    // In debug mode, the expanded markdown content SHOULD be visible
     const markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
-    expect(markdownDivs.length).toBe(2); // one for 🧠, one for 💭
-  });
-
-  it('absent thinkingMode defaults to debug (expanded)', () => {
-    // R2 P1: when thinkingMode is not passed, should default to debug (match ThinkingModeToggle)
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMessage,
-          getCatById,
-          // thinkingMode deliberately omitted
-        })
-      );
-    });
-
-    // Should be expanded (debug default), not collapsed (play)
-    const markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
-    expect(markdownDivs.length).toBe(2); // one for 🧠, one for 💭
-  });
-
-  it('toggling from play to debug expands all blocks', () => {
-    // Start in play mode (collapsed)
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMessage,
-          getCatById,
-          thinkingMode: 'play',
-        })
-      );
-    });
-
-    let markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
-    expect(markdownDivs.length).toBe(0); // collapsed
-
-    // Switch to debug mode
-    act(() => {
-      root.render(
-        React.createElement(ChatMessage, {
-          message: thinkingMessage,
-          getCatById,
-          thinkingMode: 'debug',
-        })
-      );
-    });
-
-    markdownDivs = container.querySelectorAll('.border-l-2.border-gray-300');
-    expect(markdownDivs.length).toBe(2); // expanded
+    expect(markdownDivs.length).toBe(2); // one for 🧠, one for 💭 (stream wrapper)
   });
 });

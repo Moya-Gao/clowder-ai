@@ -200,6 +200,26 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
   );
 }
 
+/** Global UI preference: default expand/collapse for Thinking blocks */
+function ThinkingDefaultExpandToggle() {
+  const expanded = useChatStore((s) => s.uiThinkingExpandedByDefault);
+  const setExpanded = useChatStore((s) => s.setUiThinkingExpandedByDefault);
+  const toggle = useCallback(() => setExpanded(!expanded), [expanded, setExpanded]);
+
+  return (
+    <div className="flex items-center justify-between">
+      <span>Thinking 默认: <span className="font-medium">{expanded ? '📖 展开' : '🧻 折叠'}</span></span>
+      <button
+        onClick={toggle}
+        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        title={expanded ? '切换为默认折叠（减少滚动）' : '切换为默认展开（便于调试）'}
+      >
+        {expanded ? '默认折叠' : '默认展开'}
+      </button>
+    </div>
+  );
+}
+
 /** F35: Reveal all whispers in the thread (game-end reveal) */
 function RevealWhispersButton({ threadId }: { threadId: string }) {
   const [status, setStatus] = useState<'idle' | 'pending' | 'done'>('idle');
@@ -423,6 +443,7 @@ export function RightStatusPanel({
               onClick={() => copyText(threadId)}
             >{truncateId(threadId, 12)}</button>
           </div>
+          <ThinkingDefaultExpandToggle />
           <ThinkingModeToggle threadId={threadId} />
           <RevealWhispersButton threadId={threadId} />
         </div>
