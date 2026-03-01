@@ -25,6 +25,7 @@ import { InvocationTracker } from './domains/cats/services/agents/invocation/Inv
 import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { InvocationRecordStoreLike, RouterLike } from './domains/cats/services/agents/invocation/QueueProcessor.js';
+import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
 import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
@@ -118,6 +119,7 @@ async function main(): Promise<void> {
   const taskStore = createTaskStore(redis);
   const summaryStore = createSummaryStore(redis);
   const memoryStore = createMemoryStore(redis);
+  const taskProgressStore = createTaskProgressStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
   const draftStore = createDraftStore(redis);
   const sessionChainStore = createSessionChainStore(redis);
@@ -181,6 +183,7 @@ async function main(): Promise<void> {
     agentRegistry,
     registry,
     messageStore,
+    taskProgressStore,
     ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
     ...(sessionStore ? { sessionStore } : {}),
     ...(threadStore ? { threadStore } : {}),
@@ -291,6 +294,7 @@ async function main(): Promise<void> {
     deliveryCursorStore,
     invocationTracker,
     draftStore,
+    taskProgressStore,
   });
   await app.register(threadBranchRoutes, {
     threadStore,

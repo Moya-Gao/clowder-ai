@@ -39,6 +39,7 @@ import type { TranscriptWriter } from '../../session/TranscriptWriter.js';
 import type { TranscriptReader } from '../../session/TranscriptReader.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
 import type { AgentRegistry } from '../registry/AgentRegistry.js';
+import type { TaskProgressStore } from '../invocation/TaskProgressStore.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -80,6 +81,8 @@ export interface AgentRouterOptions {
   agentRegistry: AgentRegistry;
   registry: InvocationRegistry;
   messageStore: IMessageStore;
+  /** F045 Gap #4: Redis-backed task progress snapshots */
+  taskProgressStore?: TaskProgressStore;
   sessionStore?: SessionStore;
   deliveryCursorStore?: DeliveryCursorStore;
   threadStore?: IThreadStore;
@@ -110,6 +113,7 @@ export class AgentRouter {
   private transcriptReader: TranscriptReader | undefined;
   private sessionSealer: ISessionSealer | undefined;
   private draftStore: IDraftStore | undefined;
+  private taskProgressStore: TaskProgressStore | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -134,6 +138,7 @@ export class AgentRouter {
     this.transcriptReader = options.transcriptReader;
     this.sessionSealer = options.sessionSealer;
     this.draftStore = options.draftStore;
+    this.taskProgressStore = options.taskProgressStore;
   }
 
   /** Normalize speech patterns like "at 布偶" → "@布偶" */
@@ -281,6 +286,7 @@ export class AgentRouter {
         sessionManager: this.sessionManager,
         threadStore: this.threadStore,
         apiUrl: `http://127.0.0.1:${apiPort}`,
+        ...(this.taskProgressStore ? { taskProgressStore: this.taskProgressStore } : {}),
         ...(this.sessionChainStore ? { sessionChainStore: this.sessionChainStore } : {}),
         ...(this.transcriptWriter ? { transcriptWriter: this.transcriptWriter } : {}),
         ...(this.transcriptReader ? { transcriptReader: this.transcriptReader } : {}),

@@ -83,6 +83,118 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.ok(catError[0].data.error.includes('CLI'), 'cat_error should contain error message');
   });
 
+  it('persists task progress snapshot with completed status on done', async () => {
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
+    const store = new MemoryTaskProgressStore();
+    const deps = { ...makeDeps(), taskProgressStore: store };
+
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'completed' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-done',
+      isLastCat: true,
+    }));
+
+    const snap = await store.getSnapshot('thread-progress-done', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'completed');
+  });
+
+  it('persists task progress snapshot with completed status on done even when tasks are not all completed', async () => {
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
+    const store = new MemoryTaskProgressStore();
+    const deps = { ...makeDeps(), taskProgressStore: store };
+
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-done-partial',
+      isLastCat: true,
+    }));
+
+    const snap = await store.getSnapshot('thread-progress-done-partial', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'completed');
+  });
+
+  it('persists task progress snapshot with interrupted status on error', async () => {
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
+    const store = new MemoryTaskProgressStore();
+    const deps = { ...makeDeps(), taskProgressStore: store };
+
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'error', catId: 'codex', error: 'killed', timestamp: Date.now() };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    await collect(invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-error',
+      isLastCat: true,
+    }));
+
+    const snap = await store.getSnapshot('thread-progress-error', 'codex');
+    assert.ok(snap, 'snapshot should exist');
+    assert.equal(snap.status, 'interrupted');
+  });
+
   it('emits CAT_RESPONDED audit when service yields text + done (no errors)', async () => {
     const normalService = {
       async *invoke() {

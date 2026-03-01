@@ -6,13 +6,10 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
 
-const { setTaskProgress, clearTaskProgress } = await import(
-  '../dist/domains/cats/services/agents/invocation/TaskProgressCache.js'
-);
-
 describe('GET /api/threads/:threadId/task-progress', () => {
   let app;
   let threadStore;
+  let taskProgressStore;
   let threadId;
 
   beforeEach(async () => {
@@ -20,24 +17,31 @@ describe('GET /api/threads/:threadId/task-progress', () => {
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
     const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { MemoryTaskProgressStore } = await import(
+      '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
+    );
 
     threadStore = new ThreadStore();
+    taskProgressStore = new MemoryTaskProgressStore();
     app = Fastify();
-    await app.register(threadsRoutes, { threadStore });
+    await app.register(threadsRoutes, { threadStore, taskProgressStore });
     await app.ready();
 
     // Create a thread owned by alice (ID is auto-generated)
     const thread = threadStore.create('alice', 'Test Thread');
     threadId = thread.id;
 
-    // Populate task progress cache
-    setTaskProgress(threadId, 'opus', [
-      { id: 't1', subject: 'Do thing', status: 'in_progress' },
-    ]);
+    // Populate task progress snapshot
+    await taskProgressStore.setSnapshot({
+      threadId,
+      catId: 'opus',
+      tasks: [{ id: 't1', subject: 'Do thing', status: 'in_progress' }],
+      status: 'running',
+      updatedAt: Date.now(),
+    });
   });
 
   afterEach(async () => {
-    clearTaskProgress(threadId, 'opus');
     if (app) await app.close();
   });
 
@@ -81,7 +85,7 @@ describe('GET /api/threads/:threadId/task-progress', () => {
   });
 
   it('returns empty taskProgress when no cache hit', async () => {
-    clearTaskProgress(threadId, 'opus');
+    await taskProgressStore.deleteSnapshot(threadId, 'opus');
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${threadId}/task-progress`,
@@ -94,15 +98,18 @@ describe('GET /api/threads/:threadId/task-progress', () => {
 
   it('allows system-owned threads for any authenticated user', async () => {
     const sysThread = threadStore.create('system', 'Default');
-    setTaskProgress(sysThread.id, 'codex', [
-      { id: 's1', subject: 'System task', status: 'pending' },
-    ]);
+    await taskProgressStore.setSnapshot({
+      threadId: sysThread.id,
+      catId: 'codex',
+      tasks: [{ id: 's1', subject: 'System task', status: 'pending' }],
+      status: 'running',
+      updatedAt: Date.now(),
+    });
     const res = await app.inject({
       method: 'GET',
       url: `/api/threads/${sysThread.id}/task-progress`,
       headers: { 'x-cat-cafe-user': 'anyone' },
     });
     assert.equal(res.statusCode, 200);
-    clearTaskProgress(sysThread.id, 'codex');
   });
 });

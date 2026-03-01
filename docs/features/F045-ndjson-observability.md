@@ -260,9 +260,16 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 补充：15s 录屏（slideshow）`docs/features/assets/F045/04-demo-15s.mp4`
 
-### Gap #4: 持久化范围边界（已知，非 gap）
+### Gap #4: Plan/Checklist 持久化到 Redis + 继续按钮 ✅ 进行中（2026-02-28）
 
-**砚砚/Codex 提醒**：V1 只覆盖浏览器刷新（module-level cache），不覆盖服务重启。调用结束时 `clearTaskProgress` 清空缓存（避免内存膨胀+stale 数据）。这是 spec 中明确标注的 V1 范围，非偏离。
+**铲屎官痛点**：CLI 进程被杀/异常退出时，计划（todo/checklist）仍有价值，需要可恢复展示，并提供“已中断（上次进度）+ 一键继续（新 invocation）”。
+
+**处置（实现中）**：
+- 将 task progress 从 module-level cache 升级为 **Redis-backed snapshots**（按 `(threadId, catId)` 存储，带 TTL）
+- 快照包含：`tasks[]`、`status(running/completed/interrupted)`、`updatedAt`、`lastInvocationId?`、`interruptReason?`
+- 右侧看板在 `interrupted` 时展示 `继续` 按钮（带确认弹窗），点击后发送一条**可见**的 `🔁` 消息（包含上次 checklist，上下文清晰可审计），触发新的 invocation（不尝试恢复死进程）
+
+> 注：本段落会在相关 PR 合入后更新为 ✅ 已完成，并补 Timeline 记录。
 
 ## Test Evidence
 

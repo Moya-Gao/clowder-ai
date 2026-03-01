@@ -18,9 +18,9 @@ import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryS
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
+import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { getTaskProgress } from '../domains/cats/services/agents/invocation/TaskProgressCache.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -36,6 +36,8 @@ export interface ThreadsRoutesOptions {
   invocationTracker?: InvocationTracker;
   /** #80: cascade delete streaming drafts */
   draftStore?: IDraftStore;
+  /** F045: per-cat task progress snapshot store (Redis-backed when available) */
+  taskProgressStore?: TaskProgressStore;
 }
 
 const createThreadSchema = z.object({
@@ -65,7 +67,7 @@ const updateThreadSchema = z.object({
 
 export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   async (app, opts) => {
-  const { threadStore, messageStore, taskStore, memoryStore, deliveryCursorStore } = opts;
+  const { threadStore, messageStore, taskStore, memoryStore, deliveryCursorStore, taskProgressStore } = opts;
 
   // POST /api/threads - 创建对话
   app.post('/api/threads', async (request, reply) => {
@@ -205,6 +207,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
         messageStore?.deleteByThread(id),
         taskStore?.deleteByThread(id),
         memoryStore?.deleteThread(id),
+        taskProgressStore?.deleteThread(id),
         thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
         // #80: Clean up any streaming drafts for this thread
         thread && opts.draftStore ? opts.draftStore.deleteByThread(thread.createdBy, id) : undefined,
@@ -244,8 +247,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Access denied' };
     }
 
-    const snapshot = getTaskProgress(threadId);
-    return { threadId, taskProgress: snapshot ?? {} };
+    const snapshot = taskProgressStore
+      ? await taskProgressStore.getThreadSnapshots(threadId)
+      : {};
+    return { threadId, taskProgress: snapshot };
   });
 
   // F35: PATCH /api/threads/:id/reveal — reveal all whispers in a thread

@@ -302,6 +302,16 @@ export function useAgentMessages() {
         });
       } else if (msg.type === 'done') {
         setCatStatus(msg.catId, 'done');
+        const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
+        if (currentProgress?.tasks?.length) {
+          setCatInvocation(msg.catId, {
+            taskProgress: {
+              ...currentProgress,
+              snapshotStatus: currentProgress.snapshotStatus === 'interrupted' ? 'interrupted' : 'completed',
+              lastUpdate: Date.now(),
+            },
+          });
+        }
         let ref = activeRefs.current.get(msg.catId);
         if (!ref) {
           const resumedId = findStreamingMessageId(msg.catId);
@@ -424,6 +434,7 @@ export function useAgentMessages() {
               taskProgress: {
                 tasks,
                 lastUpdate: Date.now(),
+                snapshotStatus: 'running',
               },
             });
             consumed = true;
@@ -507,6 +518,17 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'error') {
         setCatStatus(msg.catId, 'error');
+        const currentProgress = useChatStore.getState().catInvocations?.[msg.catId]?.taskProgress;
+        if (currentProgress?.tasks?.length) {
+          setCatInvocation(msg.catId, {
+            taskProgress: {
+              ...currentProgress,
+              snapshotStatus: 'interrupted',
+              interruptReason: msg.error ?? 'Unknown error',
+              lastUpdate: Date.now(),
+            },
+          });
+        }
         let ref = activeRefs.current.get(msg.catId);
         if (!ref) {
           const resumedId = findStreamingMessageId(msg.catId);

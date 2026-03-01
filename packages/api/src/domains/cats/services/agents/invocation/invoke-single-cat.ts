@@ -24,7 +24,7 @@ import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
-import { setTaskProgress, clearTaskProgress, type CachedTaskItem } from './TaskProgressCache.js';
+import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
 
 /**
  * F-BLOAT: Context compression detection for non-Claude providers (Codex/Gemini).
@@ -52,6 +52,8 @@ export interface InvocationDeps {
   readonly sessionManager: SessionManager;
   readonly threadStore: IThreadStore | null;
   readonly apiUrl: string;
+  /** F045 Gap #4: Redis-backed task progress snapshots (optional in memory mode/tests) */
+  readonly taskProgressStore?: TaskProgressStore;
   /** F24: Session chain store for context health tracking */
   readonly sessionChainStore?: ISessionChainStore;
   /** F24 Phase B: Session sealer for auto-seal when context threshold reached */
@@ -134,6 +136,43 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     });
 
   let hadStreamError = false;
+  let hadError = false;
+  let lastTasks: TaskProgressItem[] | null = null;
+
+  const maybePersistTaskProgress = async (out: AgentMessage): Promise<void> => {
+    if (!deps.taskProgressStore) return;
+    if (out.type !== 'system_info' || !out.content) return;
+    try {
+      const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
+      if (parsed.type !== 'task_progress' || !Array.isArray(parsed.tasks)) return;
+      const tasks = parsed.tasks as TaskProgressItem[];
+      lastTasks = tasks;
+      await deps.taskProgressStore.setSnapshot({
+        threadId,
+        catId,
+        tasks,
+        status: 'running',
+        updatedAt: Date.now(),
+        lastInvocationId: invocationId,
+      });
+    } catch {
+      // not JSON / not task_progress
+    }
+  };
+
+  const finalizeTaskProgress = async (): Promise<void> => {
+    if (!deps.taskProgressStore || !lastTasks) return;
+    const status: TaskProgressStatus = hadError ? 'interrupted' : 'completed';
+    await deps.taskProgressStore.setSnapshot({
+      threadId,
+      catId,
+      tasks: lastTasks,
+      status,
+      updatedAt: Date.now(),
+      lastInvocationId: invocationId,
+      ...(hadError ? { interruptReason: 'error' } : {}),
+    });
+  };
 
   try {
     let sessionId: string | undefined;
@@ -566,30 +605,18 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (suppressedMissingSessionError) {
             for (const out of await processMessage(suppressedMissingSessionError)) {
               yield out;
-              // F045: Cache task_progress for persistence across page refresh
-              if (out.type === 'system_info' && out.content) {
-                try {
-                  const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
-                  if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
-                    setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
-                  }
-                } catch { /* not JSON */ }
-              }
+              if (out.type === 'error') hadError = true;
+              await maybePersistTaskProgress(out);
+              if (out.type === 'done') await finalizeTaskProgress();
             }
             suppressedMissingSessionError = undefined;
           }
           if (suppressedTransientCliError) {
             for (const out of await processMessage(suppressedTransientCliError)) {
               yield out;
-              // F045: Cache task_progress for persistence across page refresh
-              if (out.type === 'system_info' && out.content) {
-                try {
-                  const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
-                  if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
-                    setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
-                  }
-                } catch { /* not JSON */ }
-              }
+              if (out.type === 'error') hadError = true;
+              await maybePersistTaskProgress(out);
+              if (out.type === 'done') await finalizeTaskProgress();
             }
             suppressedTransientCliError = undefined;
           }
@@ -597,15 +624,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         for (const out of await processMessage(msg)) {
           yield out;
-          // F045: Cache task_progress for persistence across page refresh
-          if (out.type === 'system_info' && out.content) {
-            try {
-              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
-              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
-                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
-              }
-            } catch { /* not JSON */ }
-          }
+          if (out.type === 'error') hadError = true;
+          await maybePersistTaskProgress(out);
+          if (out.type === 'done') await finalizeTaskProgress();
         }
         if (msg.type !== 'error' && msg.type !== 'done' && msg.type !== 'session_init') {
           attemptHasContentOutput = true;
@@ -636,29 +657,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       if (suppressedMissingSessionError) {
         for (const out of await processMessage(suppressedMissingSessionError)) {
           yield out;
-          // F045: Cache task_progress for persistence across page refresh
-          if (out.type === 'system_info' && out.content) {
-            try {
-              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
-              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
-                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
-              }
-            } catch { /* not JSON */ }
-          }
+          if (out.type === 'error') hadError = true;
+          await maybePersistTaskProgress(out);
+          if (out.type === 'done') await finalizeTaskProgress();
         }
       }
       if (suppressedTransientCliError) {
         for (const out of await processMessage(suppressedTransientCliError)) {
           yield out;
-          // F045: Cache task_progress for persistence across page refresh
-          if (out.type === 'system_info' && out.content) {
-            try {
-              const parsed = JSON.parse(out.content) as { type?: string; tasks?: unknown };
-              if (parsed.type === 'task_progress' && Array.isArray(parsed.tasks)) {
-                setTaskProgress(threadId, catId as string, parsed.tasks as CachedTaskItem[]);
-              }
-            } catch { /* not JSON */ }
-          }
+          if (out.type === 'error') hadError = true;
+          await maybePersistTaskProgress(out);
+          if (out.type === 'done') await finalizeTaskProgress();
         }
       }
       break;
@@ -688,10 +697,10 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       error: err instanceof Error ? err.message : String(err),
       timestamp: Date.now(),
     };
+    hadError = true;
+    await finalizeTaskProgress();
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
-    // F045: Clear cached task progress on invocation end (normal or error).
-    // Prevents unbounded memory growth and stale progress after completion.
-    clearTaskProgress(threadId, catId as string);
+    await finalizeTaskProgress();
   }
 }

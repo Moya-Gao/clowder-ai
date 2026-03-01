@@ -155,7 +155,13 @@ export function useChatHistory(threadId: string) {
       if (abortRef.current !== controller) return;
       if (threadIdRef.current !== fetchForThread) return;
       const data = await res.json() as {
-        taskProgress?: Record<string, { tasks: Array<{ id: string; subject: string; status: string; activeForm?: string }>; lastUpdate: number }>;
+        taskProgress?: Record<string, {
+          tasks: Array<{ id: string; subject: string; status: string; activeForm?: string }>;
+          status?: 'running' | 'completed' | 'interrupted';
+          updatedAt?: number;
+          lastInvocationId?: string;
+          interruptReason?: string;
+        }>;
       };
       if (data.taskProgress) {
         const restoredCats: string[] = [];
@@ -168,7 +174,10 @@ export function useChatHistory(threadId: string) {
                 status: t.status === 'in_progress' ? 'in_progress' : t.status === 'completed' ? 'completed' : 'pending',
                 ...(t.activeForm ? { activeForm: t.activeForm } : {}),
               })),
-              lastUpdate: progress.lastUpdate,
+              lastUpdate: progress.updatedAt ?? Date.now(),
+              ...(progress.status ? { snapshotStatus: progress.status } : {}),
+              ...(progress.lastInvocationId ? { lastInvocationId: progress.lastInvocationId } : {}),
+              ...(progress.interruptReason ? { interruptReason: progress.interruptReason } : {}),
             },
           });
           // Only mark cat as "active" if it has non-empty progress.

@@ -12,6 +12,8 @@ import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 import { SessionChainPanel } from './SessionChainPanel';
+import { useSendMessage } from '@/hooks/useSendMessage';
+import { buildContinueMessage } from '@/utils/taskProgressContinue';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -35,15 +37,54 @@ interface AuditData {
 }
 
 /* ── F26: Task progress checklist ──────────────────────────── */
-function CatTaskProgress({ taskProgress }: { taskProgress: CatInvocationInfo['taskProgress'] }) {
+function CatTaskProgress({
+  catId,
+  threadId,
+  taskProgress,
+}: {
+  catId: string;
+  threadId: string;
+  taskProgress: CatInvocationInfo['taskProgress'];
+}) {
   if (!taskProgress || taskProgress.tasks.length === 0) return null;
   const { tasks } = taskProgress;
   const completed = tasks.filter((t) => t.status === 'completed').length;
+  const status = taskProgress.snapshotStatus;
+  const { handleSend } = useSendMessage(threadId);
+
+  const statusLabel =
+    status === 'completed' ? '已完成'
+    : status === 'interrupted' ? '已中断'
+    : status === 'running' ? '运行中'
+    : null;
+  const statusTone =
+    status === 'completed' ? 'bg-green-100 text-green-700'
+    : status === 'interrupted' ? 'bg-rose-100 text-rose-700'
+    : status === 'running' ? 'bg-blue-100 text-blue-700'
+    : 'bg-gray-100 text-gray-600';
 
   return (
     <div className="ml-3.5 mt-1.5">
-      <div className="text-[10px] font-medium text-gray-500 mb-1">
-        执行计划 ({completed}/{tasks.length})
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] font-medium text-gray-500">
+          执行计划 ({completed}/{tasks.length})
+          {statusLabel && (
+            <span className={`ml-1.5 px-1.5 py-0.5 rounded ${statusTone}`}>{statusLabel}</span>
+          )}
+        </div>
+        {status === 'interrupted' && (
+          <button
+            className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+            onClick={() => {
+              const ok = window.confirm('确认继续上次任务？这将发送一条可见消息并触发新的调用。');
+              if (!ok) return;
+              void handleSend(buildContinueMessage(catId, taskProgress), undefined, threadId);
+            }}
+            title="发送一条可见的“继续上次任务”消息，并触发新的调用"
+          >
+            继续
+          </button>
+        )}
       </div>
       <div className="space-y-0.5">
         {tasks.map((t) => (
@@ -69,12 +110,13 @@ function CatTaskProgress({ taskProgress }: { taskProgress: CatInvocationInfo['ta
 
 /* ── Cat invocation card (shared between active/history) ──── */
 function CatInvocationCard({
-  catId, inv, onCopy, isActive,
+  catId, inv, onCopy, isActive, threadId,
 }: {
   catId: string;
   inv: CatInvocationInfo;
   onCopy: (v: string) => void;
   isActive: boolean;
+  threadId: string;
 }) {
   const { getCatById } = useCatData();
   const cat = getCatById(catId);
@@ -105,7 +147,7 @@ function CatInvocationCard({
         </div>
       )}
       {isActive && inv.taskProgress && inv.taskProgress.tasks.length > 0 && (
-        <CatTaskProgress taskProgress={inv.taskProgress} />
+        <CatTaskProgress catId={catId} threadId={threadId} taskProgress={inv.taskProgress} />
       )}
       {(inv.sessionId || inv.invocationId) && (
         <CollapsibleIds sessionId={inv.sessionId} invocationId={inv.invocationId} onCopy={onCopy} />
@@ -311,7 +353,7 @@ export function RightStatusPanel({
                     </span>
                   </div>
                   {inv && (
-                    <CatInvocationCard catId={catId} inv={inv} onCopy={copyText} isActive />
+                    <CatInvocationCard catId={catId} inv={inv} onCopy={copyText} isActive threadId={threadId} />
                   )}
                 </div>
               );
@@ -345,7 +387,7 @@ export function RightStatusPanel({
                     </div>
                   );
                 }
-                return <CatInvocationCard key={catId} catId={catId} inv={inv} onCopy={copyText} isActive={false} />;
+                return <CatInvocationCard key={catId} catId={catId} inv={inv} onCopy={copyText} isActive={false} threadId={threadId} />;
               })}
             </div>
           )}

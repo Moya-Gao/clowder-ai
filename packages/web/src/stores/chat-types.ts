@@ -190,6 +190,12 @@ export interface TaskProgressItem {
 export interface TaskProgressState {
   tasks: TaskProgressItem[];
   lastUpdate: number;
+  /** Persisted snapshot status (Redis-backed when available) */
+  snapshotStatus?: 'running' | 'completed' | 'interrupted';
+  /** Optional: last invocation id that produced this snapshot */
+  lastInvocationId?: string;
+  /** Optional: reason for interruption (best-effort) */
+  interruptReason?: string;
   /** Codex reasoning fallback (no structured tasks) */
   reasoningHint?: string;
 }
