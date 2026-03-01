@@ -29,26 +29,48 @@ describe('getCatContextBudget', () => {
 
   it('opus default budget from cat-config.json', () => {
     const budget = getCatContextBudget('opus');
-    assert.strictEqual(budget.maxPromptTokens, 150000);
-    assert.strictEqual(budget.maxContextTokens, 100000);
+    assert.strictEqual(budget.maxPromptTokens, 180000);
+    assert.strictEqual(budget.maxContextTokens, 160000);
     assert.strictEqual(budget.maxMessages, 200);
     assert.strictEqual(budget.maxContentLengthPerMsg, 10000);
   });
 
   it('codex default budget from cat-config.json', () => {
     const budget = getCatContextBudget('codex');
-    assert.strictEqual(budget.maxPromptTokens, 100000);
-    assert.strictEqual(budget.maxContextTokens, 60000);
+    assert.strictEqual(budget.maxPromptTokens, 240000);
+    assert.strictEqual(budget.maxContextTokens, 216000);
     assert.strictEqual(budget.maxMessages, 200);
     assert.strictEqual(budget.maxContentLengthPerMsg, 10000);
   });
 
   it('gemini default budget from cat-config.json', () => {
     const budget = getCatContextBudget('gemini');
-    assert.strictEqual(budget.maxPromptTokens, 200000);
-    assert.strictEqual(budget.maxContextTokens, 150000);
+    assert.strictEqual(budget.maxPromptTokens, 350000);
+    assert.strictEqual(budget.maxContextTokens, 300000);
     assert.strictEqual(budget.maxMessages, 300);
     assert.strictEqual(budget.maxContentLengthPerMsg, 15000);
+  });
+
+  it('variant budgets from cat-config.json', () => {
+    const sonnet = getCatContextBudget('sonnet');
+    assert.strictEqual(sonnet.maxPromptTokens, 180000);
+    assert.strictEqual(sonnet.maxContextTokens, 160000);
+
+    const opus45 = getCatContextBudget('opus-45');
+    assert.strictEqual(opus45.maxPromptTokens, 180000);
+    assert.strictEqual(opus45.maxContextTokens, 160000);
+
+    const gpt52 = getCatContextBudget('gpt52');
+    assert.strictEqual(gpt52.maxPromptTokens, 240000);
+    assert.strictEqual(gpt52.maxContextTokens, 216000);
+
+    const spark = getCatContextBudget('spark');
+    assert.strictEqual(spark.maxPromptTokens, 64000);
+    assert.strictEqual(spark.maxContextTokens, 40000);
+
+    const gemini25 = getCatContextBudget('gemini25');
+    assert.strictEqual(gemini25.maxPromptTokens, 350000);
+    assert.strictEqual(gemini25.maxContextTokens, 300000);
   });
 
   it('per-cat env var overrides maxPromptTokens', () => {
@@ -57,7 +79,7 @@ describe('getCatContextBudget', () => {
     const budget = getCatContextBudget('opus');
     assert.strictEqual(budget.maxPromptTokens, 200000);
     // Other fields remain from JSON
-    assert.strictEqual(budget.maxContextTokens, 100000);
+    assert.strictEqual(budget.maxContextTokens, 160000);
   });
 
   it('global MAX_PROMPT_TOKENS fallback when no per-cat env', () => {

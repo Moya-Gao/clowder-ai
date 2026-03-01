@@ -34,9 +34,11 @@ const BUDGET_ENV_KEYS = {
  * enforcement only applies in the legacy (full-history) delivery path.
  */
 const DEFAULT_BUDGETS: Record<string, ContextBudget> = {
-  ragdoll:      { maxPromptTokens: 150000, maxContextTokens: 100000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
-  'maine-coon': { maxPromptTokens: 100000, maxContextTokens: 60000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
-  siamese:      { maxPromptTokens: 200000, maxContextTokens: 150000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
+  // Keep these in sync with project cat-config.json defaults (方案 A) so
+  // missing/invalid config doesn't silently regress budgets.
+  ragdoll:      { maxPromptTokens: 180000, maxContextTokens: 160000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  'maine-coon': { maxPromptTokens: 240000, maxContextTokens: 216000, maxMessages: 200, maxContentLengthPerMsg: 10000 },
+  siamese:      { maxPromptTokens: 350000, maxContextTokens: 300000, maxMessages: 300, maxContentLengthPerMsg: 15000 },
 };
 
 /** F32-a: Conservative fallback for unknown/dynamic cats — use smallest built-in budget */
@@ -57,9 +59,21 @@ function loadBudgetsFromJson(): Record<string, ContextBudget> {
     const config = loadCatConfig();
     cachedJsonBudgets = {};
     for (const breed of config.breeds) {
-      const variant = getDefaultVariant(breed);
-      if (variant.contextBudget) {
-        cachedJsonBudgets[breed.catId] = variant.contextBudget;
+      const defaultVariant = getDefaultVariant(breed);
+      const breedBudget = defaultVariant.contextBudget;
+      if (breedBudget) {
+        cachedJsonBudgets[breed.catId] = breedBudget;
+      }
+
+      // F32-b: variants are independent cats (sonnet, opus-45, gpt52, spark, gemini25).
+      // Variant budgets should be configurable independently, and should inherit the
+      // breed default budget when not explicitly specified.
+      for (const variant of breed.variants) {
+        if (!variant.catId) continue;
+        const effective = variant.contextBudget ?? breedBudget;
+        if (effective) {
+          cachedJsonBudgets[variant.catId] = effective;
+        }
       }
     }
     return cachedJsonBudgets;

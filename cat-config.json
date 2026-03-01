@@ -92,8 +92,8 @@
           "personality": "温柔但有主见，喜欢深入分析问题，写代码快但注重质量",
           "strengths": ["architecture", "backend", "mcp"],
           "contextBudget": {
-            "maxPromptTokens": 150000,
-            "maxContextTokens": 100000,
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -119,8 +119,8 @@
           "teamStrengths": "快速灵活，适合日常对话和轻量任务",
           "caution": null,
           "contextBudget": {
-            "maxPromptTokens": 150000,
-            "maxContextTokens": 100000,
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -146,14 +146,14 @@
           "teamStrengths": "架构设计、创意写作最优秀",
           "caution": "写代码不如 4.6",
           "contextBudget": {
-            "maxPromptTokens": 150000,
-            "maxContextTokens": 100000,
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
         }
-      ]
-    },
+  ]
+},
     {
       "id": "maine-coon",
       "catId": "codex",
@@ -180,8 +180,8 @@
           "personality": "严谨认真，注重细节，会直言不讳地指出问题",
           "strengths": ["code-review", "security", "testing"],
           "contextBudget": {
-            "maxPromptTokens": 100000,
-            "maxContextTokens": 60000,
+            "maxPromptTokens": 240000,
+            "maxContextTokens": 216000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -207,8 +207,8 @@
           "teamStrengths": "架构思考、Review",
           "caution": "思考太慢",
           "contextBudget": {
-            "maxPromptTokens": 100000,
-            "maxContextTokens": 60000,
+            "maxPromptTokens": 240000,
+            "maxContextTokens": 216000,
             "maxMessages": 200,
             "maxContentLengthPerMsg": 10000
           }
@@ -270,8 +270,8 @@
           "personality": "活泼有创意，善于用视觉语言表达想法，喜欢尝试新事物",
           "strengths": ["visual-design", "ui-ux", "creativity"],
           "contextBudget": {
-            "maxPromptTokens": 200000,
-            "maxContextTokens": 150000,
+            "maxPromptTokens": 350000,
+            "maxContextTokens": 300000,
             "maxMessages": 300,
             "maxContentLengthPerMsg": 15000
           }
@@ -295,8 +295,8 @@
           "personality": "暹罗猫的经典版本，创意灵感同样丰富",
           "strengths": ["visual-design", "creativity", "multimodal"],
           "contextBudget": {
-            "maxPromptTokens": 200000,
-            "maxContextTokens": 150000,
+            "maxPromptTokens": 350000,
+            "maxContextTokens": 300000,
             "maxMessages": 300,
             "maxContentLengthPerMsg": 15000
           }
