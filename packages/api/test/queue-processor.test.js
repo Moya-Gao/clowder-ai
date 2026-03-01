@@ -106,6 +106,19 @@ describe('QueueProcessor', () => {
     assert.equal(pausedCall.arguments[2].reason, 'canceled');
   });
 
+  it('canceled with processing-only queue → does not emit queue_paused', async () => {
+    enqueueEntry(deps.queue);
+    // Simulate steer immediate: queued entry is promoted to processing before the canceled cleanup runs.
+    deps.queue.markProcessing('t1', 'u1');
+
+    await processor.onInvocationComplete('t1', 'canceled');
+
+    assert.equal(processor.isPaused('t1'), false);
+    const emitCalls = deps.socketManager.emitToUser.mock.calls;
+    const pausedCall = emitCalls.find((c) => c.arguments[1] === 'queue_paused');
+    assert.equal(pausedCall, undefined);
+  });
+
   it('failed → pauses queue, emits queue_paused', async () => {
     enqueueEntry(deps.queue);
 
@@ -193,13 +206,13 @@ describe('QueueProcessor', () => {
   });
 
   it('isPaused returns false when queue is empty even after failed', async () => {
-    // No entries in queue — paused flag set but isPaused() returns false
+    // No entries in queue — no pause should be persisted
     await processor.onInvocationComplete('t1', 'failed');
     assert.equal(processor.isPaused('t1'), false);
 
-    // Add entry → now paused is visible
+    // Add entry → still not paused
     enqueueEntry(deps.queue);
-    assert.equal(processor.isPaused('t1'), true);
+    assert.equal(processor.isPaused('t1'), false);
 
     // Succeeded clears paused flag
     await processor.onInvocationComplete('t1', 'succeeded');

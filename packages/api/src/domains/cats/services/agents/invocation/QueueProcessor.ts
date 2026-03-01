@@ -100,7 +100,12 @@ export class QueueProcessor {
         await this.tryExecuteNextAcrossUsers(threadId);
       }
     } else {
-      // canceled or failed → pause, notify users who have queued entries
+      // canceled or failed → pause ONLY if there are queued entries to manage.
+      // (Processing-only queue should not be "paused 0" — this is a common steer/force race.)
+      if (!this.deps.queue.hasQueuedForThread(threadId)) {
+        this.pausedThreads.delete(threadId);
+        return;
+      }
       this.pausedThreads.set(threadId, status);
       this.emitPausedToQueuedUsers(threadId, status);
     }
@@ -338,7 +343,7 @@ export class QueueProcessor {
     const users = this.deps.queue.listUsersForThread(threadId);
     for (const userId of users) {
       const userQueue = this.deps.queue.list(threadId, userId);
-      if (userQueue.length === 0) continue;
+      if (!userQueue.some((e) => e.status === 'queued')) continue;
       this.deps.socketManager.emitToUser(userId, 'queue_paused', {
         threadId,
         reason,
