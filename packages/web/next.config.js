@@ -11,6 +11,10 @@ module.exports = withPWA({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   reloadOnOnline: true,
+  // Start URL is a static shell; precache it so PWA cold-open does not block on network.
+  dynamicStartUrl: false,
+  // Keep default page/document runtime caching and only override what we need.
+  extendDefaultRuntimeCaching: true,
   workboxOptions: {
     disableDevLogs: true,
     runtimeCaching: [

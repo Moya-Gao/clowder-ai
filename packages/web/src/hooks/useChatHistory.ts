@@ -9,6 +9,8 @@ const HISTORY_PAGE_SIZE = 50;
 // In export mode (?export=true), load all messages in one request for screenshot capture.
 // Normal browsing still uses 50-per-page pagination.
 const EXPORT_LIMIT = 10000;
+// Keep first-screen message priority, but don't let secondary hydration stall indefinitely.
+const SECONDARY_HYDRATION_FALLBACK_MS = 300;
 
 function isAbortError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && 'name' in err && (err as { name?: string }).name === 'AbortError';
@@ -228,6 +230,7 @@ export function useChatHistory(threadId: string) {
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     loadingRef.current = false;
+    const controller = abortRef.current;
 
     // Check if this thread has cached messages in the threadStates map.
     // If so, the store's setCurrentThread already restored them — skip API fetch.
@@ -240,26 +243,46 @@ export function useChatHistory(threadId: string) {
     // so that DraftStore drafts are merged into the response. Without this,
     // switching away and back shows stale cached messages (no streaming draft).
     const hasActiveInvocation = cached?.hasActiveInvocation === true;
+    let secondaryHydrationStarted = false;
+    const hydrateSecondaryPanels = () => {
+      if (secondaryHydrationStarted) return;
+      secondaryHydrationStarted = true;
+      if (abortRef.current !== controller || threadIdRef.current !== threadId) return;
+      if (controller.signal.aborted) return;
+      void fetchTasks();
+      void fetchTaskProgress();
+      void fetchQueue();
+    };
 
-    if (!hasCachedMessages) {
-      // During route thread switches, this effect can run before setCurrentThread.
-      // Clearing too early would wipe the previous thread snapshot in the store.
-      if (isThreadSynced) {
-        clearMessages();
+    const secondaryFallbackTimer: ReturnType<typeof setTimeout> = setTimeout(() => {
+      hydrateSecondaryPanels();
+    }, SECONDARY_HYDRATION_FALLBACK_MS);
+
+    const bootstrap = async () => {
+      try {
+        if (!hasCachedMessages) {
+          // During route thread switches, this effect can run before setCurrentThread.
+          // Clearing too early would wipe the previous thread snapshot in the store.
+          if (isThreadSynced) {
+            clearMessages();
+          }
+          await fetchHistory();
+        } else if (hasActiveInvocation) {
+          // #80 fix-A P1: Force-refresh with replace mode — the async response handler
+          // will clear stale cache after setCurrentThread has run, then set fresh data
+          // including DraftStore drafts in correct timestamp order.
+          await fetchHistory(undefined, { replace: true });
+        }
+      } finally {
+        // Prioritize first-screen messages, then hydrate secondary panels.
+        hydrateSecondaryPanels();
       }
-      void fetchHistory();
-    } else if (hasActiveInvocation) {
-      // #80 fix-A P1: Force-refresh with replace mode — the async response handler
-      // will clear stale cache after setCurrentThread has run, then set fresh data
-      // including DraftStore drafts in correct timestamp order.
-      void fetchHistory(undefined, { replace: true });
-    }
+    };
 
-    void fetchTasks();
-    void fetchTaskProgress();
-    void fetchQueue();
+    void bootstrap();
 
     return () => {
+      clearTimeout(secondaryFallbackTimer);
       abortRef.current?.abort();
     };
   }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
