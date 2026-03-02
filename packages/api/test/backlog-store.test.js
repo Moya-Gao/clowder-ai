@@ -46,6 +46,56 @@ describe('BacklogStore', () => {
     assert.equal(items[1].id, first.id);
   });
 
+  test('refreshMetadata updates docs-derived fields and appends audit entry', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: '[F049] Mission Hub',
+      summary: '来源 docs/BACKLOG.md | 状态：spec',
+      priority: 'p2',
+      tags: ['source:docs-backlog', 'feature:f049', 'status:spec'],
+      createdBy: 'user',
+    });
+
+    const refreshed = store.refreshMetadata(created.id, {
+      title: '[F049] Mission Hub (updated)',
+      summary: '来源 docs/BACKLOG.md | 状态：in-progress',
+      priority: 'p1',
+      tags: ['source:docs-backlog', 'feature:f049', 'status:in-progress'],
+      refreshedBy: 'default-user',
+    });
+
+    assert.equal(refreshed?.title, '[F049] Mission Hub (updated)');
+    assert.equal(refreshed?.priority, 'p1');
+    assert.equal(refreshed?.tags.includes('status:in-progress'), true);
+    assert.equal(refreshed?.audit.at(-1)?.action, 'refreshed');
+    assert.equal(refreshed?.audit.at(-1)?.actor.kind, 'user');
+    assert.equal(refreshed?.audit.at(-1)?.actor.id, 'default-user');
+  });
+
+  test('refreshMetadata is a no-op when metadata is unchanged', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: '[F010] Mobile',
+      summary: '来源 docs/BACKLOG.md | 状态：spec',
+      priority: 'p2',
+      tags: ['source:docs-backlog', 'feature:f010', 'status:spec'],
+      createdBy: 'user',
+    });
+
+    const beforeAuditLength = created.audit.length;
+    const beforeUpdatedAt = created.updatedAt;
+    const refreshed = store.refreshMetadata(created.id, {
+      title: '[F010] Mobile',
+      summary: '来源 docs/BACKLOG.md | 状态：spec',
+      priority: 'p2',
+      tags: ['source:docs-backlog', 'feature:f010', 'status:spec'],
+      refreshedBy: 'default-user',
+    });
+
+    assert.equal(refreshed?.audit.length, beforeAuditLength);
+    assert.equal(refreshed?.updatedAt, beforeUpdatedAt);
+  });
+
   test('suggestClaim transitions open -> suggested', () => {
     const created = store.create({
       userId: 'default-user',

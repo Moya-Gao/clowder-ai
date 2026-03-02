@@ -8,11 +8,17 @@ import { BacklogTransitionError } from '../domains/cats/services/stores/ports/Ba
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import {
+  buildBacklogInputFromFeature,
+  getFeatureTagId,
+  readActiveFeaturesFromBacklog,
+} from './backlog-doc-import.js';
 
 export interface BacklogRoutesOptions {
   backlogStore: IBacklogStore;
   threadStore: IThreadStore;
   messageStore: IMessageStore;
+  backlogDocPath?: string;
 }
 
 const createBacklogSchema = z.object({
@@ -77,8 +83,18 @@ function isTransitionError(err: unknown): boolean {
     || (err instanceof Error && /invalid backlog transition/i.test(err.message));
 }
 
+function sameTags(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false;
+  const leftSorted = [...left].sort();
+  const rightSorted = [...right].sort();
+  for (let index = 0; index < leftSorted.length; index += 1) {
+    if (leftSorted[index] !== rightSorted[index]) return false;
+  }
+  return true;
+}
+
 export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (app, opts) => {
-  const { backlogStore, threadStore, messageStore } = opts;
+  const { backlogStore, threadStore, messageStore, backlogDocPath } = opts;
 
   async function dispatchApprovedItem(item: BacklogItem, userId: string, phase: ThreadPhase) {
     const thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
@@ -129,6 +145,83 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
 
     reply.status(201);
     return item;
+  });
+
+  app.post('/api/backlog/import-active-features', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    let features;
+    try {
+      features = await readActiveFeaturesFromBacklog(backlogDocPath);
+    } catch (error) {
+      reply.status(500);
+      return {
+        error: `Failed to read docs/BACKLOG.md: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+
+    const existingItems = await backlogStore.listByUser(userId);
+    const existingByFeatureId = new Map<string, BacklogItem>();
+    for (const item of existingItems) {
+      const featureTagId = getFeatureTagId(item.tags);
+      if (featureTagId) {
+        if (existingByFeatureId.has(featureTagId)) {
+          continue;
+        }
+        existingByFeatureId.set(featureTagId, item);
+      }
+    }
+
+    const importedItemIds: string[] = [];
+    const refreshedItemIds: string[] = [];
+    let skipped = 0;
+    for (const feature of features) {
+      const featureId = feature.id.toLowerCase();
+      const importInput = buildBacklogInputFromFeature(feature, userId);
+      const existing = existingByFeatureId.get(featureId);
+      if (!existing) {
+        const created = await backlogStore.create(importInput);
+        existingByFeatureId.set(featureId, created);
+        importedItemIds.push(created.id);
+        continue;
+      }
+
+      const shouldRefresh = existing.title !== importInput.title
+        || existing.summary !== importInput.summary
+        || existing.priority !== importInput.priority
+        || !sameTags(existing.tags, importInput.tags);
+      if (!shouldRefresh) {
+        skipped += 1;
+        continue;
+      }
+
+      const refreshed = await backlogStore.refreshMetadata(existing.id, {
+        title: importInput.title,
+        summary: importInput.summary,
+        priority: importInput.priority,
+        tags: importInput.tags,
+        refreshedBy: userId,
+      });
+      if (!refreshed) {
+        skipped += 1;
+        continue;
+      }
+      existingByFeatureId.set(featureId, refreshed);
+      refreshedItemIds.push(refreshed.id);
+    }
+
+    return {
+      totalActive: features.length,
+      imported: importedItemIds.length,
+      refreshed: refreshedItemIds.length,
+      skipped,
+      importedItemIds,
+      refreshedItemIds,
+    };
   });
 
   app.get('/api/backlog/items', async (request, reply) => {

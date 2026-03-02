@@ -74,6 +74,8 @@ describe('MissionControlPage', () => {
     });
     await flush(act);
 
+    expect(container.textContent).toContain('Mission Hub');
+
     const titleInput = container.querySelector('[data-testid="mc-create-title"]') as HTMLInputElement | null;
     const summaryInput = container.querySelector('[data-testid="mc-create-summary"]') as HTMLInputElement | null;
     const submitButton = container.querySelector('[data-testid="mc-create-submit"]') as HTMLButtonElement | null;
@@ -97,6 +99,54 @@ describe('MissionControlPage', () => {
 
     expect(container.textContent).toContain('新增任务');
     expect(backend.getItems().some((item) => item.title === '新增任务')).toBe(true);
+  });
+
+  it('imports active docs backlog items via manual refresh button', async () => {
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/backlog/import-active-features' && init?.method === 'POST') {
+        backend.setItems([{
+          id: 'imported-f010',
+          userId: 'u_test',
+          title: 'F010 手机端猫猫',
+          summary: '来自 docs/BACKLOG.md',
+          priority: 'p1',
+          tags: ['source:docs-backlog', 'feature:f010'],
+          status: 'open',
+          createdBy: 'user',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          audit: [{
+            id: 'a-imported',
+            action: 'created',
+            actor: { kind: 'user', id: 'u_test' },
+            timestamp: Date.now(),
+          }],
+        } satisfies MutableBacklogItem]);
+        return Promise.resolve(mockResponse(200, { imported: 1, skipped: 0, totalActive: 1 }));
+      }
+      return backend.handleRequest(path, init);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const importButton = container.querySelector('[data-testid="mc-import-docs"]') as HTMLButtonElement | null;
+    expect(importButton).not.toBeNull();
+    expect(importButton?.textContent).toContain('从文档导入/刷新');
+    if (!importButton) return;
+
+    await act(async () => {
+      importButton.click();
+    });
+    await flush(act);
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/backlog/import-active-features',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(container.querySelector('[data-testid="mc-lane-open"]')?.textContent).toContain('F010 手机端猫猫');
   });
 
   it('moves item from open to dispatched through suggest and approve flow', async () => {

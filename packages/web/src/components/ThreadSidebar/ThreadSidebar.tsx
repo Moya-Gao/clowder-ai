@@ -250,7 +250,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
           <button
             type="button"
             onClick={() => {
-              router.push('/mission-control');
+              router.push('/mission-hub');
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 onClose?.();
               }
@@ -258,7 +258,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
             className="w-full rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
             data-testid="sidebar-mission-control"
           >
-            任务指挥中心
+            Mission Hub（任务中心）
           </button>
         </div>
 

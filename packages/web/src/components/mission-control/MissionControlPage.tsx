@@ -155,6 +155,14 @@ export function MissionControlPage() {
     await loadItems();
   }), [loadItems, withSubmitGuard]);
 
+  const handleImportFromDocs = useCallback(async () => withSubmitGuard(async () => {
+    const response = await apiFetch('/api/backlog/import-active-features', {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error(await parseError(response));
+    await loadItems();
+  }), [loadItems, withSubmitGuard]);
+
   return (
     <div className="flex h-screen bg-[#F4EFE7]">
       <div className="hidden h-full md:block">
@@ -162,8 +170,21 @@ export function MissionControlPage() {
       </div>
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden p-4 md:p-6">
         <header className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] px-4 py-3">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-[#9A866F]">Mission Control</p>
-          <h1 className="mt-1 text-lg font-semibold text-[#2B2118]">Backlog 指挥中心</h1>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-[#9A866F]">Mission Hub</p>
+              <h1 className="mt-1 text-lg font-semibold text-[#2B2118]">Backlog 任务中心</h1>
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleImportFromDocs()}
+              disabled={submitting}
+              className="rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB] disabled:opacity-40"
+              data-testid="mc-import-docs"
+            >
+              从文档导入/刷新
+            </button>
+          </div>
           <p className="mt-1 text-xs text-[#705E4C]">
             面向手机/桌面统一收集与分配。流程：Open → Suggested → Dispatched。
           </p>

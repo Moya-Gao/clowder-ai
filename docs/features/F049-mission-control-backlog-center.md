@@ -5,9 +5,9 @@ doc_kind: note
 created: 2026-03-01
 ---
 
-# F049: Mission Control — Backlog Center（领取/派发/自动开 Thread）
+# F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread）
 
-> **Status**: spec
+> **Status**: in-progress（MVP merged）
 > **Owner**: 三猫
 > **Created**: 2026-03-01
 > **Priority**: P1（指挥中心基建）
@@ -26,7 +26,7 @@ created: 2026-03-01
 
 ## What
 
-在 Cat Café 里新增一个 **Mission Control / Backlog Center**：
+在 Cat Café 里新增一个 **Mission Hub / Backlog Center**：
 
 - 作为**全局任务池（Global）**：收纳 “想法/任务/候选 Feature/Tech Debt”；
 - 支持**建议领取 → 铲屎官批准 → 自动创建执行 thread（Thread）**；
@@ -37,15 +37,16 @@ created: 2026-03-01
 ## Acceptance Criteria
 
 ### MVP（建议+批准）
-- [ ] Web/PWA 可打开 Backlog Center（手机可用）。
-- [ ] 任何人（铲屎官/猫）可创建 backlog item（标题 + 简述 + priority + tags）。
-- [ ] 猫可以对某 item 发起“建议领取”（suggest claim），并附 Why/Plan 简述。
-- [ ] 铲屎官可以一键批准/拒绝该建议。
-- [ ] 批准后系统自动创建新 thread，并：
-  - [ ] 关联 `backlogItemId`
-  - [ ] 写入 thread phase（至少：`coding` / `research` / `brainstorm`）
-  - [ ] 在新 thread 首条消息里自动注入：任务描述 + 验收标准 + 相关链接
-- [ ] Backlog item 状态自动流转：`open → approved → dispatched`（最小闭环）。
+- [x] Web/PWA 可打开 Backlog Center（手机可用）。
+- [x] 任何人（铲屎官/猫）可创建 backlog item（标题 + 简述 + priority + tags）。
+- [x] 猫可以对某 item 发起“建议领取”（suggest claim），并附 Why/Plan 简述。
+- [x] 铲屎官可以一键批准/拒绝该建议。
+- [x] 批准后系统自动创建新 thread，并：
+  - [ ] 关联 `backlogItemId`（仅有 backlog→thread 单向关联，thread 侧字段待补）
+  - [x] 写入 thread phase（至少：`coding` / `research` / `brainstorm`）
+  - [x] 在新 thread 首条消息里自动注入：任务描述 + 验收标准 + 相关链接
+- [x] Backlog item 状态自动流转：`open → approved → dispatched`（最小闭环）。
+- [x] 支持手动“从 `docs/BACKLOG.md` 导入/刷新”活跃 Feature 到 Redis backlog（显式触发，避免双真相源自动同步）。
 
 ### 并发安全（lease）
 - [ ] “执行中”态有 lease（owner + expiresAt + 心跳续租），超时可回收。
@@ -119,10 +120,10 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 
 ## Follow-up（post-merge）
 
-- [ ] NEW-1（P2）测试 fixture 对齐 `audit.actor` 结构化类型（`{ kind, id }`），避免未来 audit UI 开发时踩坑。
-- [ ] NEW-2（P3）`SuggestionDrawer` 的 `catId` 初始值从 `'codex'` 改为 `'' + useEffect`。
-- [ ] NEW-3（P3）抽取 `makeUserActor/makeCatActor/makeCreatorActor` 到 shared，去除 store 间重复。
-- [ ] NEW-4（P3）拆分 `SuggestionDrawer.tsx`，控制单文件复杂度（200+ 行告警）。
+- [x] NEW-1（P2）测试 fixture 对齐 `audit.actor` 结构化类型（`{ kind, id }`），避免未来 audit UI 开发时踩坑。
+- [x] NEW-2（P3）`SuggestionDrawer` 的 `catId` 初始值从 `'codex'` 改为 `'' + useEffect`。
+- [x] NEW-3（P3）抽取 `makeUserActor/makeCatActor/makeCreatorActor` 到 shared，去除 store 间重复。
+- [x] NEW-4（P3）拆分 `SuggestionDrawer.tsx`，控制单文件复杂度（200+ 行告警）。
 
 ## Review Gate
 | 轮次 | Reviewer | 结果 | 日期 |
@@ -131,8 +132,12 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 | R2 | @opus | 通过（Approved） | 2026-03-01 |
 
 ## Test Evidence
-（待实现）
+- `cd packages/api && node --test test/backlog-store.test.js test/backlog-routes.test.js`（含导入刷新用例）
+- `pnpm --dir packages/web test -- src/components/__tests__/mission-control-page.test.ts`
+- `pnpm --filter @cat-cafe/web build`
 
 ## Timeline
 - 2026-03-01: Kickoff（从 F037 的 F-Swarm-3 产品化而来）
 - 2026-03-01: MVP 实现完成，进入 merge-gate（R2 Approved）
+- 2026-03-02: 云端 review 修复完成，PR #131 合入 main
+- 2026-03-02: Mission Hub 命名落地 + docs backlog 手动导入/刷新能力补齐（小 PR）

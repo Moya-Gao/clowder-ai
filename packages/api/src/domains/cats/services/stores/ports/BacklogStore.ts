@@ -1,29 +1,16 @@
 import type {
-  BacklogAuditActor,
   BacklogItem,
   BacklogStatus,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  RefreshBacklogItemInput,
   SuggestBacklogClaimInput,
 } from '@cat-cafe/shared';
 import { generateSortableId } from './MessageStore.js';
+import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
 
 const MAX_BACKLOG_ITEMS = 1000;
-
-function makeUserActor(userId: string): BacklogAuditActor {
-  return { kind: 'user', id: userId };
-}
-
-function makeCatActor(catId: string): BacklogAuditActor {
-  return { kind: 'cat', id: catId };
-}
-
-function makeCreatorActor(input: CreateBacklogItemInput): BacklogAuditActor {
-  return input.createdBy === 'user'
-    ? makeUserActor(input.userId)
-    : makeCatActor(input.createdBy);
-}
 
 const EVICTION_PRIORITY: Record<BacklogStatus, number> = {
   dispatched: 0,
@@ -41,6 +28,7 @@ export class BacklogTransitionError extends Error {
 
 export interface IBacklogStore {
   create(input: CreateBacklogItemInput): BacklogItem | Promise<BacklogItem>;
+  refreshMetadata(itemId: string, input: RefreshBacklogItemInput): BacklogItem | null | Promise<BacklogItem | null>;
   get(itemId: string, userId?: string): BacklogItem | null | Promise<BacklogItem | null>;
   listByUser(userId: string): BacklogItem[] | Promise<BacklogItem[]>;
   suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
@@ -84,6 +72,39 @@ export class BacklogStore implements IBacklogStore {
     };
     this.items.set(id, item);
     return item;
+  }
+
+  refreshMetadata(itemId: string, input: RefreshBacklogItemInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+
+    const unchanged = existing.title === input.title
+      && existing.summary === input.summary
+      && existing.priority === input.priority
+      && this.sameTags(existing.tags, input.tags);
+    if (unchanged) return existing;
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      title: input.title,
+      summary: input.summary,
+      priority: input.priority,
+      tags: [...input.tags],
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'refreshed',
+          actor: makeUserActor(input.refreshedBy),
+          timestamp: now,
+          detail: 'docs-backlog-sync',
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
   }
 
   get(itemId: string, userId?: string): BacklogItem | null {
@@ -258,5 +279,15 @@ export class BacklogStore implements IBacklogStore {
     });
     const target = sorted[0];
     if (target) this.items.delete(target.id);
+  }
+
+  private sameTags(left: readonly string[], right: readonly string[]): boolean {
+    if (left.length !== right.length) return false;
+    const leftSorted = [...left].sort();
+    const rightSorted = [...right].sort();
+    for (let index = 0; index < leftSorted.length; index += 1) {
+      if (leftSorted[index] !== rightSorted[index]) return false;
+    }
+    return true;
   }
 }

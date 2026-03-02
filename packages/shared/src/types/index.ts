@@ -193,6 +193,7 @@ export type {
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  RefreshBacklogItemInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
 } from './backlog.js';

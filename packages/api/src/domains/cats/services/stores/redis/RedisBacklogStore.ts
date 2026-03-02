@@ -1,9 +1,9 @@
 import type {
-  BacklogAuditActor,
   BacklogItem,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  RefreshBacklogItemInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
 } from '@cat-cafe/shared';
@@ -12,22 +12,9 @@ import { generateSortableId } from '../ports/MessageStore.js';
 import type { IBacklogStore } from '../ports/BacklogStore.js';
 import { BacklogTransitionError } from '../ports/BacklogStore.js';
 import { BacklogKeys } from '../redis-keys/backlog-keys.js';
+import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
 
 const DEFAULT_TTL = 90 * 24 * 60 * 60; // 90 days
-
-function makeUserActor(userId: string): BacklogAuditActor {
-  return { kind: 'user', id: userId };
-}
-
-function makeCatActor(catId: string): BacklogAuditActor {
-  return { kind: 'cat', id: catId };
-}
-
-function makeCreatorActor(input: CreateBacklogItemInput): BacklogAuditActor {
-  return input.createdBy === 'user'
-    ? makeUserActor(input.userId)
-    : makeCatActor(input.createdBy);
-}
 
 export class RedisBacklogStore implements IBacklogStore {
   private readonly redis: RedisClient;
@@ -79,6 +66,39 @@ export class RedisBacklogStore implements IBacklogStore {
     }
     await pipeline.exec();
     return item;
+  }
+
+  async refreshMetadata(itemId: string, input: RefreshBacklogItemInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+
+    const unchanged = existing.title === input.title
+      && existing.summary === input.summary
+      && existing.priority === input.priority
+      && this.sameTags(existing.tags, input.tags);
+    if (unchanged) return existing;
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      title: input.title,
+      summary: input.summary,
+      priority: input.priority,
+      tags: [...input.tags],
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'refreshed',
+          actor: makeUserActor(input.refreshedBy),
+          timestamp: now,
+          detail: 'docs-backlog-sync',
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
   }
 
   async get(itemId: string, userId?: string): Promise<BacklogItem | null> {
@@ -324,5 +344,15 @@ export class RedisBacklogStore implements IBacklogStore {
     } catch {
       return fallback;
     }
+  }
+
+  private sameTags(left: readonly string[], right: readonly string[]): boolean {
+    if (left.length !== right.length) return false;
+    const leftSorted = [...left].sort();
+    const rightSorted = [...right].sort();
+    for (let index = 0; index < leftSorted.length; index += 1) {
+      if (leftSorted[index] !== rightSorted[index]) return false;
+    }
+    return true;
   }
 }

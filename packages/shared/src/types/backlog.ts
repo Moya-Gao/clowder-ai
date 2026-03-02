@@ -19,6 +19,7 @@ export interface BacklogClaimSuggestion {
 
 export type BacklogAuditAction =
   | 'created'
+  | 'refreshed'
   | 'suggested'
   | 'approved'
   | 'rejected'
@@ -63,6 +64,14 @@ export interface CreateBacklogItemInput {
   readonly priority: BacklogPriority;
   readonly tags: readonly string[];
   readonly createdBy: CatId | 'user';
+}
+
+export interface RefreshBacklogItemInput {
+  readonly title: string;
+  readonly summary: string;
+  readonly priority: BacklogPriority;
+  readonly tags: readonly string[];
+  readonly refreshedBy: string;
 }
 
 export interface SuggestBacklogClaimInput {
