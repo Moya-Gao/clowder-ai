@@ -35,7 +35,7 @@ export interface UsePushNotifyReturn {
   /** Unsubscribe from push notifications */
   unsubscribe: () => Promise<void>;
   /** Send a test push to verify it works */
-  sendTest: () => Promise<void>;
+  sendTest: () => Promise<{ ok: boolean; message: string }>;
 }
 
 export function usePushNotify(): UsePushNotifyReturn {
@@ -139,9 +139,37 @@ export function usePushNotify(): UsePushNotifyReturn {
 
   const sendTest = useCallback(async () => {
     try {
-      await apiFetch('/api/push/test', { method: 'POST' });
+      const res = await apiFetch('/api/push/test', { method: 'POST' });
+
+      let serverMessage: string | null = null;
+      try {
+        const payload = (await res.json()) as { message?: unknown; error?: unknown };
+        if (typeof payload.message === 'string' && payload.message.trim().length > 0) {
+          serverMessage = payload.message;
+        } else if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+          serverMessage = payload.error;
+        }
+      } catch {
+        // response body may be empty/non-json
+      }
+
+      if (!res.ok) {
+        return {
+          ok: false,
+          message: serverMessage ?? `请求失败（HTTP ${res.status}）`,
+        };
+      }
+
+      return {
+        ok: true,
+        message: serverMessage ?? '测试推送已发送',
+      };
     } catch (err) {
       console.error('[push] Test push failed:', err);
+      return {
+        ok: false,
+        message: '网络异常，测试通知发送失败',
+      };
     }
   }, []);
 

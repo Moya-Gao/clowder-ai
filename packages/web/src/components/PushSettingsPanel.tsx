@@ -6,9 +6,29 @@
  */
 
 import { usePushNotify } from '@/hooks/usePushNotify';
+import { useToastStore } from '@/stores/toastStore';
+import { useState } from 'react';
 
 export function PushSettingsPanel() {
   const { isSupported, isSubscribed, isLoading, subscribe, unsubscribe, sendTest } = usePushNotify();
+  const addToast = useToastStore((s) => s.addToast);
+  const [isTesting, setIsTesting] = useState(false);
+
+  const handleSendTest = async () => {
+    if (isTesting) return;
+    setIsTesting(true);
+    try {
+      const result = await sendTest();
+      addToast({
+        type: result.ok ? 'success' : 'error',
+        title: result.ok ? '测试通知已发送' : '测试通知发送失败',
+        message: result.message,
+        duration: result.ok ? 3000 : 5000,
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   if (!isSupported) {
     return (
@@ -57,10 +77,11 @@ export function PushSettingsPanel() {
 
       {isSubscribed && (
         <button
-          onClick={sendTest}
+          onClick={() => { void handleSendTest(); }}
+          disabled={isTesting}
           className="text-xs text-blue-500 hover:text-blue-700 underline"
         >
-          发送测试通知
+          {isTesting ? '发送中...' : '发送测试通知'}
         </button>
       )}
     </div>
