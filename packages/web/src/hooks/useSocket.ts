@@ -297,6 +297,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('queue_updated', (data: { threadId: string; queue: unknown[]; action: string }) => {
       const store = useChatStore.getState();
       store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
+      // Queue processor started executing an entry: restore active invocation marker
+      // so ChatInput can show "正在回复中" and Stop/queue controls after thread switches/F5.
+      if (data.action === 'processing') {
+        store.setThreadHasActiveInvocation(data.threadId, true);
+      }
       // P1 fix: 'processing' means continue/auto-dequeue resumed the queue — clear paused state
       if (data.action === 'processing' || data.action === 'cleared') {
         store.setQueuePaused(data.threadId, false);

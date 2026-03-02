@@ -44,6 +44,9 @@ const mockSetThreadMessageUsage = vi.fn();
 const mockSetThreadMessageStreaming = vi.fn();
 const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
+const mockSetQueue = vi.fn();
+const mockSetQueuePaused = vi.fn();
+const mockSetQueueFull = vi.fn();
 const mockSetThreadIntentMode = vi.fn();
 const mockSetThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
@@ -63,6 +66,9 @@ vi.mock('@/stores/chatStore', () => {
       setThreadMessageStreaming: mockSetThreadMessageStreaming,
       setThreadLoading: mockSetThreadLoading,
       setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
+      setQueue: mockSetQueue,
+      setQueuePaused: mockSetQueuePaused,
+      setQueueFull: mockSetQueueFull,
       setThreadIntentMode: mockSetThreadIntentMode,
       setThreadTargetCats: mockSetThreadTargetCats,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
@@ -157,6 +163,9 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadMessageStreaming.mockClear();
     mockSetThreadLoading.mockClear();
     mockSetThreadHasActiveInvocation.mockClear();
+    mockSetQueue.mockClear();
+    mockSetQueuePaused.mockClear();
+    mockSetQueueFull.mockClear();
     mockSetThreadIntentMode.mockClear();
     mockSetThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
@@ -364,6 +373,31 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     expect(mockAddMessageToThread.mock.calls[0]?.[1]).toMatchObject({ type: 'assistant', catId: 'opus' });
     expect(mockAppendToolEventToThread).toHaveBeenCalledTimes(1);
     expect(mockAppendToolEventToThread.mock.calls[0]?.[0]).toBe('thread-B');
+  });
+
+  it('queue_updated processing marks thread as active invocation (P1 regression)', () => {
+    mockStoreCurrentThreadId = 'thread-B';
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [
+          {
+            id: 'q1',
+            status: 'processing',
+          },
+        ],
+        action: 'processing',
+      });
+    });
+
+    expect(mockSetQueue).toHaveBeenCalledWith('thread-B', expect.any(Array));
+    expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-B', true);
   });
 
   it('socket is NOT disconnected/reconnected when callbacks change (callbacksRef pattern)', () => {
