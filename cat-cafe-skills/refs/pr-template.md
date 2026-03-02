@@ -44,10 +44,10 @@ pnpm -r --if-present run build         # 成功
 
 ---
 
-**本地 Review**: [x] {reviewer 猫名} 已 review 并放行
+**本地 Review**: [x] {reviewer 纯文本句柄，如 gpt52} 已 review 并放行
 **云端 Review**: [ ] PR 创建后在 **comment** 中触发（见下方模板）
 
-<!-- 猫猫签名: {见 refs/commit-signatures.md} -->
+<!-- 猫猫签名（纯文本，禁止 @）: 例如 缅因猫/砚砚 (codex) -->
 ```
 
 ## 云端 Review 触发 Comment 模板
@@ -71,4 +71,6 @@ PR 创建后，**立刻发一条 comment**（不是在 PR body 里写）：
 **注意**：
 - `@codex review` 必须写在 PR **comment** 中，不能写在 PR body 里
 - 写在 body 里会错误触发 Codex 获取代码修改权限，而非 review 权限
+- **PR body（含 HTML 注释）禁止出现任何 `@句柄`（例如 `(@codex)`）**
 - 铲屎官教训：2026-02-28 某 PR 在 body 里写 `@codex review`，导致 Codex 回复"需要权限"而非执行 review
+- 新增反面案例：2026-03-02 PR #160 在 body 签名写 `(@codex)`，触发环境提示评论，污染 review 流程
