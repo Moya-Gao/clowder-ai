@@ -91,7 +91,7 @@ docs/prompts/YYYY-MM-DD-{topic}-research-prompt.md
 
 ## Chrome MCP 自动化（Step 2）
 
-布偶猫可用 `mcp__claude-in-chrome__*` 工具自动发送 prompt：
+执行猫可用 `mcp__claude-in-chrome__*` 工具自动发送 prompt：
 
 - **Claude.ai**：`tabs_create_mcp` → navigate → `javascript_tool` 注入文本 → 发送
 - **ChatGPT**：同上，切换到 Deep Research 模式再发
@@ -102,7 +102,7 @@ docs/prompts/YYYY-MM-DD-{topic}-research-prompt.md
 - Claude.ai：点附件 Download 按钮
 - Gemini：分享 → 导出 Google Docs → 下载 Markdown
 
-自动下载失败时 → 召唤铲屎官手动下载，布偶猫负责重命名归档。
+自动下载失败时 → 召唤铲屎官手动下载，执行猫负责重命名归档。
 
 ## 常见错误
 

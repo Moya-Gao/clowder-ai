@@ -53,7 +53,7 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 
 4. **关联文档**：Links 章节列出相关 research/discussion；更新这些文档的 `feature_ids: [F042]`
 
-5. **Commit**：`docs(F042): kickoff {名称} [宪宪/Opus-46🐾]`，body 含 What/Why
+5. **Commit**：`docs(F042): kickoff {名称} [{猫猫签名}]`，body 含 What/Why
 
 **检查**：聚合文件创建 ✓ frontmatter 完整 ✓ BACKLOG 索引 ✓ 关联文档双向链接 ✓ 已 commit ✓
 
@@ -68,7 +68,7 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 **讨论结束必须做**：
 1. 落盘到 `docs/discussions/YYYY-MM-DD-{topic}/README.md`（含铲屎官原话、决策过程、优先级排序）
 2. BACKLOG.md 该 Feature 行 ref 讨论文档链接
-3. Commit：`docs: {topic} discussion + backlog update [宪宪/Opus-46🐾]`
+3. Commit：`docs: {topic} discussion + backlog update [{猫猫签名}]`
 
 ## 完成 (Completion)
 
@@ -100,7 +100,7 @@ grep -r "Fxxx" docs/ --include="*.md" -l  # 找关联文档
 
 **Step 5**: 真相源同步 — 所有关联文档 `feature_ids` 正确；Links 章节无遗漏
 
-**Step 6**: Commit：`docs(Fxxx): mark feature as done [宪宪/Opus-46🐾]`，body 含 What/Why/Evolved from
+**Step 6**: Commit：`docs(Fxxx): mark feature as done [{猫猫签名}]`，body 含 What/Why/Evolved from
 
 ## Quick Reference
 

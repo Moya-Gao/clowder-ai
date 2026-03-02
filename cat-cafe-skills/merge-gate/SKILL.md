@@ -42,14 +42,14 @@ EOF
 # 3. 注册 PR tracking（必做，Email Watcher / review 通知路由依赖）
 # → 调用 MCP: cat_cafe_register_pr_tracking(repoFullName, prNumber, catId)
 
-# 4. PR body 防呆检查（禁止把 @codex review 写进描述）
+# 4. PR body 防呆检查（禁止把云端 reviewer 触发句柄写进描述）
 PR_BODY="$(gh pr view {PR_NUMBER} --json body --jq '.body')" || \
   { echo "❌ 无法读取 PR body，停止流程"; exit 1; }
-printf '%s\n' "$PR_BODY" | rg -q '@codex review' && \
-  { echo "❌ 不合规：@codex review 只能写在 comment，不能写在 body"; exit 1; }
+printf '%s\n' "$PR_BODY" | rg -q '@[A-Za-z0-9_-]+ review' && \
+  { echo "❌ 不合规：云端 review 触发句柄只能写在 comment，不能写在 body"; exit 1; }
 
 # 5. 触发云端 review（在 PR comment 中，不是 body！）
-gh pr comment {PR_NUMBER} --body "@codex review ..."
+gh pr comment {PR_NUMBER} --body "@{cloud_reviewer_handle} review ..."
 # ⚠️ 完整模板见 refs/pr-template.md「云端 Review 触发 Comment 模板」
 
 # 6. 等云端 review 通过（0 P1/P2）
@@ -85,7 +85,7 @@ git branch -d {branch-name} && git worktree prune
 
 | 错误 | 正确 |
 |------|------|
-| PR body 里写 `@codex review` | 在 PR **comment** 里写（body 里写会触发代码修改权限而非 review） |
+| PR body 里写 `@{cloud_reviewer_handle} review` | 在 PR **comment** 里写（body 里写会触发代码修改权限而非 review） |
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**云端 review |
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |

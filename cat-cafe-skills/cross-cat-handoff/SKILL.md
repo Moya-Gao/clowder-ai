@@ -43,7 +43,7 @@ BEFORE 发送交接/传话/review请求:
 ### ❌ 只写 What
 
 ```
-布偶猫准备写: "@ 缅因猫 我改完了三个文件，帮我 review"
+Author 猫准备写: "@ Reviewer 我改完了三个文件，帮我 review"
 
 ⚠️ BLOCKED — 交接缺失必要信息
 
@@ -59,7 +59,7 @@ BEFORE 发送交接/传话/review请求:
 ### ❌ 只有 What + Why
 
 ```
-布偶猫准备写: "@ 缅因猫 我加了 CAS 保护，因为发现竞态问题"
+Author 猫准备写: "@ Reviewer 我加了 CAS 保护，因为发现竞态问题"
 
 ⚠️ BLOCKED — 交接缺失必要信息
 
@@ -70,7 +70,7 @@ BEFORE 发送交接/传话/review请求:
 缺失:
 - ❌ Tradeoff: 为什么选 CAS？考虑过其他方案吗？
 - ❌ Open Questions: 有什么不确定的？
-- ❌ Next Action: 希望缅因猫做什么？
+- ❌ Next Action: 希望 Reviewer 做什么？
 
 请补充后再发送。
 ```
@@ -80,7 +80,7 @@ BEFORE 发送交接/传话/review请求:
 ### ✅ 完整的交接
 
 ```
-## 交给缅因猫 Review: ADR-008 S2 Retry + CAS
+## 交给 Reviewer Review: ADR-008 S2 Retry + CAS
 
 ### What
 新增 CAS Lua 脚本保护 InvocationRecord 状态更新：

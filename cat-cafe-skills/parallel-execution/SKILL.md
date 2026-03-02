@@ -52,7 +52,7 @@ merges: dispatching-parallel-agents + subagent-driven-development + executing-pl
 **模型选择：**
 - `haiku`：文件搜索、grep、目录确认
 - `sonnet`：需要理解调用链的多文件分析
-- 几乎不用 `opus` 做 subagent（除非真正的深度架构）
+- 几乎不用高成本模型做 subagent（除非真正的深度架构）
 
 ## (B) Subagent 驱动 — Sequential with Review
 

@@ -78,7 +78,7 @@ git worktree list             # 列出所有 worktree
 git branch --merged main      # 哪些分支已合入
 ```
 
-## Codex `apply_patch` 陷阱（缅因猫必读）
+## Codex `apply_patch` 陷阱（开发猫必读）
 
 `apply_patch` 落点由**会话默认工作目录**决定，不跟着 `cd` 走。
 

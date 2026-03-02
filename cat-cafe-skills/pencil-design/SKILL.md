@@ -80,5 +80,5 @@ get_screenshot（验证）
 
 ## 下一步
 
-- Mode A 完成设计 → 告知铲屎官/暹罗猫查看截图 → 如需实现 → `worktree` → `tdd`
+- Mode A 完成设计 → 告知铲屎官/设计负责人查看截图 → 如需实现 → `worktree` → `tdd`
 - Mode B 导出代码 → 进入 `tdd` 编写测试 + 集成

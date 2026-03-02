@@ -36,7 +36,7 @@ triggers:
 
 ```
 优先级（从高到低）：
-1. 跨 family（布偶猫↔缅因猫 / 布偶猫↔暹罗猫）
+1. 跨 family（author family ↔ reviewer family）
 2. peer-reviewer 角色标记
 3. 当前可用（无正在进行的 review 任务）
 ```
