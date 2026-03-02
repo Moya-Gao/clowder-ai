@@ -40,6 +40,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | 📋 Spec | 无需新依赖，用已有工具 |
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
 | B3 | 需求点 checklist 格式——结构化需求追踪 | 📋 Spec | 嵌入 feat-kickoff 模板 |
+| B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | 📋 Spec | ← F042 Wave 2 毕业：Lint = 漂移防护 |
+| B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
+| B6 | 同族 reviewer identity check gate | 📋 Spec | ← F042 Wave 3 毕业：流程执行守护门禁 |
 
 ### 明确不做（Phase C）
 
@@ -59,6 +62,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [ ] 截图/录屏证据流程文档化，利用现有 MCP 工具（B1）
 - [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
 - [ ] 需求点 checklist 格式嵌入开发模板（B3）
+- [ ] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
+- [ ] ≥10 条对话场景回归测试就位（B5）
+- [ ] 同族 reviewer identity check gate 落地（B6）
 
 ## Links
 
@@ -72,9 +78,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | **Code** | `CLAUDE.md` §12 | 愿景守护铁律 |
 | **Code** | `AGENTS.md` §10-11 | 讨论沉淀 + 愿景守护 |
 | **Code** | `GEMINI.md` §11 | 愿景守护铁律 |
-| **Skill** | `cat-cafe-skills/feat-completion/SKILL.md` | Step 0d 跨猫签收 |
-| **Skill** | `cat-cafe-skills/cat-cafe-requesting-review/SKILL.md` | 5 行摘录规则 |
-| **Skill** | `cat-cafe-skills/requesting-cloud-review/SKILL.md` | 5 行摘录规则 |
+| **Skill** | `cat-cafe-skills/feat-lifecycle/SKILL.md` | 含 feat-completion Step 0d 跨猫签收 |
+| **Skill** | `cat-cafe-skills/request-review/SKILL.md` | 5 行摘录规则 |
+| **Skill** | `cat-cafe-skills/merge-gate/SKILL.md` | 含云端 review 摘录规则 |
 
 ## Key Decisions
 
@@ -100,6 +106,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | Feature | 关系 | 说明 |
 |---------|------|------|
 | **F041** | 🔗 触发源 | F041 愿景对照失败触发本 Feature |
+| **F042** | 🔗 毕业来源 | F042 Wave 2/3 剩余项 (B4-B6) 毕业到本 Feature |
 | **F045** | 🟢 互补 | F045 做可观测性，F046 做愿景守护，互不阻塞 |
 
 ## Open Questions
@@ -124,3 +131,4 @@ Phase A 为流程/文档变更，无代码测试。Phase B 开发时补充。
 - 2026-02-27: 砚砚独立评审 + 铲屎官 UX 决策
 - 2026-02-27: Phase A (A1-A4) 落地 → `642c31b`
 - 2026-02-27: F046 立项（本文件）
+- 2026-03-02: 吸收 F042 毕业项 B4/B5/B6（路线图收敛决策 → `docs/discussions/2026-03-02-f042-roadmap-convergence.md`）

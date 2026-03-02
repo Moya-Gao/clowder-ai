@@ -12,6 +12,7 @@ created: 2026-02-27
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F041（能力看板 + 配置编排就位后才能拆分 server）
+> **Updated**: 2026-03-02（路线图收敛 → `docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
 
 ## 与 F041 的关系
 
@@ -172,8 +173,46 @@ interface ListTasksInput {
 
 **注意**：Phase A 不依赖 F041，可以先做。
 
+## Dependencies
+
+| Feature | 关系 | 说明 |
+|---------|------|------|
+| **F041** | 🔗 前置（server 拆分） | 配置编排器就位后才能 1→3 拆分 |
+| **F042** | 🔗 毕业来源 | Thread metadata stage tracking 从 F042 Wave 3 毕业到此 |
+| **F046** | 🟢 互补 | F043 提供基建，F046 在上面做愿景守护 |
+| **F049** | 🔗 下游 | Mission Hub 需要 F043 的 `list_threads`/`feat_index` |
+
+## 知识工程栈定位
+
+F043 是知识工程栈的 **Layer 2（协作基建）**：
+
+```
+Layer 4: Mission Hub (F049) — 任务编排
+Layer 3: Anti-Drift (F046) — 愿景守护
+Layer 2: MCP Unification (F043) ← 本 Feature
+Layer 1: Prompt/Skills (F042) — 知识编码 (Done)
+Layer 0: Knowledge Engineering Research (Done)
+```
+
+### 从 F042 毕业的项目
+
+| 项目 | 原 F042 位置 | 说明 |
+|------|-------------|------|
+| Thread metadata + stage tracking | Wave 3 | 线程上下文持久化，SystemPromptBuilder 每回合注入当前 stage |
+
+### 实施优先级调整（2026-03-02 路线图收敛决策）
+
+- **Phase A 先做**：P0 `search_messages` + P1 `list_threads`/`feat_index`（不依赖 F041）
+- **Server 拆分延后**：等 F041 配置编排器就位后再做 Phase B
+- **Thread metadata stage** 纳入 Phase A 或 Phase C
+
 ## 讨论来源
 
 2026-02-27 铲屎官 + 布偶猫 (Opus 4.6) + 布偶猫 (Opus 4.5)，F037 Agent Swarm 后续讨论。
 
 核心问题由铲屎官提出："agent 之间的协作，在 thread 之内和跨 thread 会用到什么功能？现在的搜 codebase 够吗？猫猫咖啡如何进化给你们更多可能性？"
+
+## Timeline
+
+- 2026-02-27: F043 立项
+- 2026-03-02: 路线图收敛 — 纳入知识工程栈 Layer 2 + 吸收 F042 thread metadata + 延后 server 拆分

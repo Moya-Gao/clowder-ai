@@ -54,8 +54,14 @@ created: 2026-03-01
 
 ### 演进（权限棘轮）
 - [ ] 有一个配置项（once/thread/global）控制是否允许 self-claim：
-  - [ ] 默认关闭：只能“建议+批准”
+  - [ ] 默认关闭：只能”建议+批准”
   - [ ] 未来可开启：满足条件后允许猫自领（仍保留审计与回收）
+
+### Phase B：线程级路由策略（从 F042 毕业）
+- [ ] Thread-scoped routing policy（`routingPolicy` 字段 on ThreadStore）
+- [ ] AgentRouter 扩展：根据 thread routing policy 选猫
+- [ ] Hub UI: Routing Policy Tab
+- [ ] 设计来源：`feat/f042-routing-policy-scopes` 分支（1 commit, 16 files, +845 lines）
 
 ## Links
 
@@ -108,8 +114,9 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 ## Dependencies
 
 - **Evolved from**: F037
+- **F042 毕业**: `feat/f042-routing-policy-scopes` → Phase B 线程级路由策略
+- **Depends on**: F043（Phase B 需要 `list_threads`/`feat_index`）
 - **Blocks**: （待定）
-- **Blocked by**: （待定）
 
 ## Open Questions
 
@@ -141,3 +148,4 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - 2026-03-01: MVP 实现完成，进入 merge-gate（R2 Approved）
 - 2026-03-02: 云端 review 修复完成，PR #131 合入 main
 - 2026-03-02: Mission Hub 命名落地 + docs backlog 手动导入/刷新能力补齐（小 PR）
+- 2026-03-02: 路线图收敛 — 吸收 F042 routing-policy-scopes 为 Phase B（`docs/discussions/2026-03-02-f042-roadmap-convergence.md`）

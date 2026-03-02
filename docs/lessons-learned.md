@@ -522,6 +522,19 @@ created: 2026-02-26
 
 ---
 
+### LL-027: Feature spec 与代码实现的时间线漂移会误导路线决策
+- 状态：validated
+- 更新时间：2026-03-02
+- 现象：F042 的 6 个 PR 在 2026-03-01 合入 main，但 spec 的 Status 仍停留在 "in-progress (决策完成，待实施)" — 导致路线盘点时两猫都要花大量 token 做 "spec vs 实际" 的对账
+- 根因：没有 "PR 合入后更新 spec" 的强制环节
+- 对策：**Feature 相关 PR 合入后 48h 内必须同步 spec 的 Timeline/Status**。纳入 merge-gate 或 feat-lifecycle 的收尾步骤。
+- 来源锚点：
+  - `docs/discussions/2026-03-02-f042-roadmap-convergence.md`（收敛纪要）
+  - 砚砚 2026-03-01 F042 盘点分析（对账 spec vs git log）
+- 关联：F042 | merge-gate | feat-lifecycle
+
+---
+
 ## 8) 维护约定
 
 - 本文件是入口，不替代 ADR/bug-report 原文。

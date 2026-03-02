@@ -4,16 +4,17 @@ related_features: [F032]
 topics: [prompt, system-prompt, dynamic-injection, audit, a2a, identity, multi-agent, skills, knowledge-engineering]
 doc_kind: spec
 created: 2026-02-27
-updated: 2026-02-28
+updated: 2026-03-02
 ---
 
 # F042: 提示词 & Skills 系统性优化
 
-> **Status**: in-progress (决策完成，待实施)
+> **Status**: done (2026-03-02 — 核心交付完成，剩余项毕业到 F043/F046/F049)
 > **Owner**: 布偶猫 (Opus 4.6, leader)
 > **Reviewer**: 缅因猫 (GPT-5.2, 方案审阅)
 > **Created**: 2026-02-27
 > **Decision Date**: 2026-02-28
+> **Closed Date**: 2026-03-02
 > **Context Recovery**: Thread `thread_mm4dj9jp0tij0ch3`, 从 2026-02-28 16:05 铲屎官发言开始
 
 ## Summary
@@ -273,6 +274,54 @@ skills:
 
 ---
 
+## 8. Graduation Map（剩余项去向）
+
+F042 核心交付完成后，剩余的实施项按知识工程栈归属毕业到上层 Feature：
+
+| 原 F042 项目 | 毕业去向 | 理由 |
+|---|---|---|
+| 硬编码猫名清理（10 files） | **M1 收尾**（砚砚执行） | 纯清理，不涉及架构决策 |
+| skill-lint CI gate（`pnpm check:skills`） | **F046 Phase B (B4)** | Lint = 漂移防护 |
+| Thread metadata + stage | **F043 Phase A** | 线程上下文持久化 = MCP memory 职责 |
+| ≥10 条对话场景回归测试 | **F046 Phase B (B5)** | 回归测试 = 愿景守护运行时验证 |
+| 同族 reviewer identity check gate | **F046 Phase B (B6)** | 流程执行守护门禁 |
+| `feat/f042-routing-policy-scopes` 分支 | **F049 Phase B** | 线程级路由策略 ≈ 任务编排 |
+
+**原则**：F042 的知识工程方法论已沉淀在 manifest.yaml + `docs/research/knowledge-enginnering/`；Feature 层面的使命完成，后续是上层 Feature 的运用。
+
+---
+
+## 9. Deliverables Summary
+
+### 已交付
+
+| 交付物 | 证据 |
+|--------|------|
+| Skills 合并 25→15 | manifest.yaml + 15 个 SKILL.md |
+| manifest.yaml 路由真相源 | `cat-cafe-skills/manifest.yaml` |
+| 链式导航 15/15 | 每个 SKILL.md 有 `## 下一步` |
+| refs/ 抽取 | `cat-cafe-skills/refs/` |
+| Description 模板化重写 | Use when / Not for / Output 格式 |
+| Identity pinned 注入 | PR #127 (`2e652d2a`) |
+| Active participant hint | PR #120 (`ed21e3c7`) |
+| Skill frontmatter 规范化 | PR #132 (`17053aa4`) |
+| Skill mounts 稳定化 | PR #129 (`968301ea`) |
+| Symlink 修复 | PR #121 (`21f4f47c`) |
+| 知识工程研究 | `docs/research/knowledge-enginnering/` |
+
+### 已合入 PR
+
+| PR | Commit | 说明 | 日期 |
+|----|--------|------|------|
+| #114 | — | F042 首批 skill 重组 | 2026-03-01 |
+| #120 | `ed21e3c7` | Active participant hint per-invocation | 2026-03-01 |
+| #121 | `21f4f47c` | 20 broken symlinks → 12 new skill links | 2026-03-01 |
+| #127 | `2e652d2a` | Pin identity + A2A reply target | 2026-03-01 |
+| #129 | `968301ea` | Stabilize skill mounts + manifest metadata | 2026-03-01 |
+| #132 | `17053aa4` | Normalize skill frontmatter + align skills API metadata | 2026-03-01 |
+
+---
+
 ## Discussion Trace
 
 ```
@@ -281,9 +330,20 @@ BACKLOG F042（入口）
       ├→ docs/discussions/2026-02-27-f042-prompt-convergence.md（第一轮收敛）
       ├→ Thread thread_mm4dj9jp0tij0ch3 16:05+（第二轮四猫审计）
       ├→ docs/research/knowledge-enginnering/（知识工程研究）
+      ├→ docs/discussions/2026-03-02-f042-roadmap-convergence.md（关闭收敛 + 路线拉通）
       ├→ F032-agent-plugin-architecture.md（技术侧）
       └→ packages/shared/src/cat-config.json（roster 事实源）
 ```
+
+## Timeline
+
+- 2026-02-27: F042 立项（四猫审计）
+- 2026-02-28: 决策完成（三层信息架构 + Skills 合并 25→15 + manifest.yaml）
+- 2026-03-01: Wave 1 主体落地（PR #114/#120/#121/#127/#129/#132 合入 main）
+- 2026-03-01: Wave 2 部分完成（frontmatter 规范化、description 模板化）
+- 2026-03-01: Wave 3 部分完成（identity pinned + active participant hint）
+- 2026-03-02: **F042 关闭** — 剩余项毕业到 F046 (B4-B6) / F043 (thread metadata) / F049 (routing-policy-scopes)
+- 2026-03-02: 路线图收敛纪要 → `docs/discussions/2026-03-02-f042-roadmap-convergence.md`
 
 ---
 
