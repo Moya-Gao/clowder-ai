@@ -16,6 +16,9 @@
  */
 
 import { createCatId, type CatId } from '@cat-cafe/shared';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnCli, isCliError, isCliTimeout } from '../../../../../utils/cli-spawn.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import type { SpawnFn } from '../../../../../utils/cli-types.js';
@@ -115,6 +118,45 @@ function withRecentDiagnostics(base: string, recentErrors: string[]): string {
   return `${base}\n最近流错误:\n${lines.join('\n')}`;
 }
 
+function toTomlString(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * F041/F043 root fix:
+ * Ensure Codex subprocess always receives cat-cafe MCP server config
+ * based on the current thread working directory.
+ */
+function buildCatCafeMcpConfigArgs(workingDirectory?: string): string[] {
+  const candidateRoots: string[] = [];
+  if (workingDirectory) candidateRoots.push(workingDirectory);
+  candidateRoots.push(process.cwd());
+
+  // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
+  // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
+  const fileDir = dirname(fileURLToPath(import.meta.url));
+  candidateRoots.push(resolve(fileDir, '../../../../../../..'));
+
+  let serverPath: string | undefined;
+  for (const root of candidateRoots) {
+    const candidate = resolve(root, 'packages/mcp-server/dist/index.js');
+    if (existsSync(candidate)) {
+      serverPath = candidate;
+      break;
+    }
+  }
+  if (!serverPath) return [];
+
+  return [
+    '--config',
+    'mcp_servers.cat-cafe.command="node"',
+    '--config',
+    `mcp_servers.cat-cafe.args=[${toTomlString(serverPath)}]`,
+    '--config',
+    'mcp_servers.cat-cafe.enabled=true',
+  ];
+}
+
 /**
  * Service for invoking Codex via CLI subprocess.
  * Uses ChatGPT Plus/Pro subscription instead of API key.
@@ -151,6 +193,7 @@ export class CodexAgentService implements AgentService {
     const approvalPolicy = getCodexApprovalPolicy();
     const modelArgs = ['--model', this.model];
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
+    const catCafeMcpArgs = buildCatCafeMcpConfigArgs(options?.workingDirectory);
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     // --add-dir .git: 允许写入 .git/ 目录（index.lock、objects、refs），解锁 git commit
@@ -159,8 +202,14 @@ export class CodexAgentService implements AgentService {
     const promptArgs = ['--', effectivePrompt];
 
     const args: string[] = options?.sessionId
-      ? ['exec', 'resume', options.sessionId, '--json', ...modelArgs, ...approvalArgs, ...imageArgs, ...promptArgs]
-      : ['exec', '--json', ...modelArgs, '--sandbox', sandboxMode, '--add-dir', '.git', ...approvalArgs, ...imageArgs, ...promptArgs];
+      ? [
+        'exec', 'resume', options.sessionId, '--json',
+        ...modelArgs, ...approvalArgs, ...catCafeMcpArgs, ...imageArgs, ...promptArgs,
+      ]
+      : [
+        'exec', '--json', ...modelArgs, '--sandbox', sandboxMode, '--add-dir', '.git',
+        ...approvalArgs, ...catCafeMcpArgs, ...imageArgs, ...promptArgs,
+      ];
 
     const metadata: MessageMetadata = { provider: 'openai', model: this.model };
     const auditContext = options?.auditContext;
