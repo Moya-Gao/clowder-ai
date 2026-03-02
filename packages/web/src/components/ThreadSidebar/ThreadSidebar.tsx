@@ -246,6 +246,22 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
           </button>
         </div>
 
+        <div className="px-3 py-2 border-b border-owner-light">
+          <button
+            type="button"
+            onClick={() => {
+              router.push('/mission-control');
+              if (typeof window !== 'undefined' && window.innerWidth < 768) {
+                onClose?.();
+              }
+            }}
+            className="w-full rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
+            data-testid="sidebar-mission-control"
+          >
+            任务指挥中心
+          </button>
+        </div>
+
         {bindWarning && (
           <div className="px-3 py-1.5 bg-yellow-50 border-b border-yellow-200 text-[10px] text-yellow-700">
             {bindWarning}

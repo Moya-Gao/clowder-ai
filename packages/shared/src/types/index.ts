@@ -180,6 +180,22 @@ export type {
   CreateSummaryInput,
   ThreadSummary,
 } from './summary.js';
+// Backlog types (F049 Mission Control)
+export type {
+  BacklogAuditAction,
+  BacklogAuditActor,
+  BacklogAuditEntry,
+  BacklogClaimSuggestion,
+  BacklogItem,
+  BacklogPriority,
+  BacklogStatus,
+  BacklogSuggestionStatus,
+  CreateBacklogItemInput,
+  DecideBacklogClaimInput,
+  DispatchBacklogItemInput,
+  SuggestBacklogClaimInput,
+  ThreadPhase,
+} from './backlog.js';
 // Task types (毛线球)
 export type {
   CreateTaskInput,

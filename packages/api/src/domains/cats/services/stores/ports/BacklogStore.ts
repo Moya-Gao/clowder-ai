@@ -1,0 +1,262 @@
+import type {
+  BacklogAuditActor,
+  BacklogItem,
+  BacklogStatus,
+  CreateBacklogItemInput,
+  DecideBacklogClaimInput,
+  DispatchBacklogItemInput,
+  SuggestBacklogClaimInput,
+} from '@cat-cafe/shared';
+import { generateSortableId } from './MessageStore.js';
+
+const MAX_BACKLOG_ITEMS = 1000;
+
+function makeUserActor(userId: string): BacklogAuditActor {
+  return { kind: 'user', id: userId };
+}
+
+function makeCatActor(catId: string): BacklogAuditActor {
+  return { kind: 'cat', id: catId };
+}
+
+function makeCreatorActor(input: CreateBacklogItemInput): BacklogAuditActor {
+  return input.createdBy === 'user'
+    ? makeUserActor(input.userId)
+    : makeCatActor(input.createdBy);
+}
+
+const EVICTION_PRIORITY: Record<BacklogStatus, number> = {
+  dispatched: 0,
+  open: 1,
+  suggested: 2,
+  approved: 3,
+};
+
+export class BacklogTransitionError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BacklogTransitionError';
+  }
+}
+
+export interface IBacklogStore {
+  create(input: CreateBacklogItemInput): BacklogItem | Promise<BacklogItem>;
+  get(itemId: string, userId?: string): BacklogItem | null | Promise<BacklogItem | null>;
+  listByUser(userId: string): BacklogItem[] | Promise<BacklogItem[]>;
+  suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
+  decideClaim(itemId: string, input: DecideBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
+  markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null | Promise<BacklogItem | null>;
+}
+
+export class BacklogStore implements IBacklogStore {
+  private readonly items: Map<string, BacklogItem> = new Map();
+  private readonly maxItems: number;
+
+  constructor(options?: { maxItems?: number }) {
+    this.maxItems = options?.maxItems ?? MAX_BACKLOG_ITEMS;
+  }
+
+  create(input: CreateBacklogItemInput): BacklogItem {
+    this.evictIfNeeded();
+
+    const now = Date.now();
+    const id = generateSortableId(now);
+    const item: BacklogItem = {
+      id,
+      userId: input.userId,
+      title: input.title,
+      summary: input.summary,
+      priority: input.priority,
+      tags: [...input.tags],
+      status: 'open',
+      createdBy: input.createdBy,
+      createdAt: now,
+      updatedAt: now,
+      audit: [
+        {
+          id: generateSortableId(now + 1),
+          action: 'created',
+          actor: makeCreatorActor(input),
+          timestamp: now,
+          detail: input.title,
+        },
+      ],
+    };
+    this.items.set(id, item);
+    return item;
+  }
+
+  get(itemId: string, userId?: string): BacklogItem | null {
+    const item = this.items.get(itemId);
+    if (!item) return null;
+    if (userId && item.userId !== userId) return null;
+    return item;
+  }
+
+  listByUser(userId: string): BacklogItem[] {
+    const result: BacklogItem[] = [];
+    for (const item of this.items.values()) {
+      if (item.userId === userId) {
+        result.push(item);
+      }
+    }
+    result.sort((a, b) => b.createdAt - a.createdAt || b.id.localeCompare(a.id));
+    return result;
+  }
+
+  suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'open') {
+      throw new BacklogTransitionError('Invalid backlog transition: only open items can be suggested');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      status: 'suggested',
+      suggestion: {
+        catId: input.catId,
+        why: input.why,
+        plan: input.plan,
+        requestedPhase: input.requestedPhase,
+        status: 'pending',
+        suggestedAt: now,
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'suggested',
+          actor: makeCatActor(input.catId),
+          timestamp: now,
+          detail: input.plan,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  decideClaim(itemId: string, input: DecideBacklogClaimInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'suggested' || !existing.suggestion || existing.suggestion.status !== 'pending') {
+      throw new BacklogTransitionError('Invalid backlog transition: item is not waiting for decision');
+    }
+
+    const now = Date.now();
+    if (input.decision === 'reject') {
+      const rejectedSuggestionBase = {
+        ...existing.suggestion,
+        status: 'rejected' as const,
+        decidedAt: now,
+        decidedBy: input.decidedBy,
+      };
+      const rejectedSuggestion = input.note
+        ? { ...rejectedSuggestionBase, note: input.note }
+        : rejectedSuggestionBase;
+      const rejectAuditBase = {
+        id: generateSortableId(now + 1),
+        action: 'rejected' as const,
+        actor: makeUserActor(input.decidedBy),
+        timestamp: now,
+      };
+      const rejectAudit = input.note
+        ? { ...rejectAuditBase, detail: input.note }
+        : rejectAuditBase;
+      const updated: BacklogItem = {
+        ...existing,
+        status: 'open',
+        suggestion: rejectedSuggestion,
+        updatedAt: now,
+        audit: [
+          ...existing.audit,
+          rejectAudit,
+        ],
+      };
+      this.items.set(itemId, updated);
+      return updated;
+    }
+
+    const approvedSuggestionBase = {
+      ...existing.suggestion,
+      status: 'approved' as const,
+      decidedAt: now,
+      decidedBy: input.decidedBy,
+    };
+    const approvedSuggestion = input.note
+      ? { ...approvedSuggestionBase, note: input.note }
+      : approvedSuggestionBase;
+    const approveAuditBase = {
+      id: generateSortableId(now + 1),
+      action: 'approved' as const,
+      actor: makeUserActor(input.decidedBy),
+      timestamp: now,
+    };
+    const approveAudit = input.note
+      ? { ...approveAuditBase, detail: input.note }
+      : approveAuditBase;
+    const updated: BacklogItem = {
+      ...existing,
+      status: 'approved',
+      approvedAt: now,
+      suggestion: approvedSuggestion,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        approveAudit,
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status === 'dispatched') {
+      if (existing.dispatchedThreadId === input.threadId && existing.dispatchedThreadPhase === input.threadPhase) {
+        return existing;
+      }
+      throw new BacklogTransitionError('Invalid backlog transition: item already dispatched to another thread');
+    }
+    if (existing.status !== 'approved') {
+      throw new BacklogTransitionError('Invalid backlog transition: only approved items can be dispatched');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      status: 'dispatched',
+      dispatchedThreadId: input.threadId,
+      dispatchedThreadPhase: input.threadPhase,
+      dispatchedAt: now,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'dispatched',
+          actor: makeUserActor(input.dispatchedBy),
+          timestamp: now,
+          detail: `${input.threadId}:${input.threadPhase}`,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  private evictIfNeeded(): void {
+    if (this.items.size < this.maxItems) return;
+    const sorted = [...this.items.values()].sort((a, b) => {
+      const priorityDiff = EVICTION_PRIORITY[a.status] - EVICTION_PRIORITY[b.status];
+      if (priorityDiff !== 0) return priorityDiff;
+      return a.createdAt - b.createdAt || a.id.localeCompare(b.id);
+    });
+    const target = sorted[0];
+    if (target) this.items.delete(target.id);
+  }
+}

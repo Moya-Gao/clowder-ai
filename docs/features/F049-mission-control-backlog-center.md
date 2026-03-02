@@ -117,13 +117,22 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 3. “自动开 thread”是走 UI API 还是走 MCP tool（让猫也能触发）？
 4. phase 与 mode 的关系：是否按 F-Swarm-2 的“phase=柔性引导”路线前进？
 
+## Follow-up（post-merge）
+
+- [ ] NEW-1（P2）测试 fixture 对齐 `audit.actor` 结构化类型（`{ kind, id }`），避免未来 audit UI 开发时踩坑。
+- [ ] NEW-2（P3）`SuggestionDrawer` 的 `catId` 初始值从 `'codex'` 改为 `'' + useEffect`。
+- [ ] NEW-3（P3）抽取 `makeUserActor/makeCatActor/makeCreatorActor` 到 shared，去除 store 间重复。
+- [ ] NEW-4（P3）拆分 `SuggestionDrawer.tsx`，控制单文件复杂度（200+ 行告警）。
+
 ## Review Gate
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| — | — | — | — |
+| R1 | @opus | 请求修复（3 P1 + 7 P2） | 2026-03-01 |
+| R2 | @opus | 通过（Approved） | 2026-03-01 |
 
 ## Test Evidence
 （待实现）
 
 ## Timeline
 - 2026-03-01: Kickoff（从 F037 的 F-Swarm-3 产品化而来）
+- 2026-03-01: MVP 实现完成，进入 merge-gate（R2 Approved）

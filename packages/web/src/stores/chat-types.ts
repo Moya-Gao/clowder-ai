@@ -167,6 +167,8 @@ export interface Thread {
   thinkingMode?: 'debug' | 'play';
   /** F32-b: Thread-level default cat preference */
   preferredCats?: string[];
+  /** F049: workflow phase for mission-control dispatch */
+  phase?: 'coding' | 'research' | 'brainstorm';
 }
 
 /** F24: Context health data from backend */

@@ -8,6 +8,7 @@
 
 import { generateThreadId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import type { ThreadPhase } from '@cat-cafe/shared';
 
 /** Default thread ID for the lobby (backwards-compatible single-thread mode) */
 export const DEFAULT_THREAD_ID = 'default';
@@ -42,6 +43,8 @@ export interface Thread {
   thinkingMode?: 'debug' | 'play';
   /** F32-b Phase 2: Thread-level cat preference. When set, messages without @mention route to these cats instead of participants/default. */
   preferredCats?: CatId[];
+  /** F049: workflow phase for dispatch/intent guidance */
+  phase?: ThreadPhase;
 }
 
 /**
@@ -63,6 +66,7 @@ export interface IThreadStore {
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
   updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
+  updatePhase(threadId: string, phase: ThreadPhase): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -228,6 +232,11 @@ export class ThreadStore implements IThreadStore {
     } else {
       delete thread.preferredCats;
     }
+  }
+
+  updatePhase(threadId: string, phase: ThreadPhase): void {
+    const thread = this.get(threadId);
+    if (thread) thread.phase = phase;
   }
 
   updateLastActive(threadId: string): void {

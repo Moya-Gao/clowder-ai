@@ -12,6 +12,7 @@
 
 import { generateThreadId } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import type { ThreadPhase } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
 import type { Thread, IThreadStore, ThreadParticipantActivity } from '../ports/ThreadStore.js';
@@ -283,6 +284,11 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  async updatePhase(threadId: string, phase: ThreadPhase): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'phase', phase);
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -357,6 +363,9 @@ export class RedisThreadStore implements IThreadStore {
       favoritedAt: String(thread.favoritedAt ?? 0),
       thinkingMode: thread.thinkingMode ?? 'debug',
     };
+    if (thread.phase) {
+      result['phase'] = thread.phase;
+    }
     if (thread.preferredCats && thread.preferredCats.length > 0) {
       result['preferredCats'] = JSON.stringify(thread.preferredCats);
     }
@@ -380,6 +389,10 @@ export class RedisThreadStore implements IThreadStore {
       favoritedAt: favoritedAt || null,
       thinkingMode: (data['thinkingMode'] === 'debug' ? 'debug' : 'play') as 'debug' | 'play',
     };
+    const phase = this.parsePhase(data['phase']);
+    if (phase) {
+      result.phase = phase;
+    }
     if (data['preferredCats']) {
       try {
         const parsed = JSON.parse(data['preferredCats']);
@@ -390,5 +403,13 @@ export class RedisThreadStore implements IThreadStore {
       } catch { /* ignore malformed JSON — treat as no preference */ }
     }
     return result;
+  }
+
+  private parsePhase(raw: string | undefined): ThreadPhase | undefined {
+    if (!raw) return undefined;
+    if (raw === 'coding' || raw === 'research' || raw === 'brainstorm') {
+      return raw;
+    }
+    return undefined;
   }
 }
