@@ -135,7 +135,7 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string): string[] {
   // file path: packages/api/src/domains/cats/services/agents/providers/CodexAgentService.ts
   // repo root = dirname(fileURLToPath(import.meta.url)) up to .../cat-cafe
   const fileDir = dirname(fileURLToPath(import.meta.url));
-  candidateRoots.push(resolve(fileDir, '../../../../../../..'));
+  candidateRoots.push(resolve(fileDir, '../../../../../../../..'));
 
   let serverPath: string | undefined;
   for (const root of candidateRoots) {

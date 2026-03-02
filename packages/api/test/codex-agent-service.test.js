@@ -130,6 +130,28 @@ test('uses exec resume when sessionId is provided', async () => {
   assert.ok(!args.includes('approval_policy=\\\"on-request\\\"'), 'argv should not contain literal backslash escapes');
 });
 
+test('injects cat-cafe MCP config even when cwd is outside repo', async () => {
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new CodexAgentService({ spawnFn, model: 'gpt-5.3-codex' });
+  const cwdMock = mock.method(process, 'cwd', () => '/tmp/not-cat-cafe');
+
+  try {
+    const promise = collect(service.invoke('hello from outside cwd'));
+    emitCodexEvents(proc, [{ type: 'thread.started', thread_id: 't-mcp-fallback' }]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.ok(args.includes('mcp_servers.cat-cafe.command=\"node\"'));
+    const mcpArgsConfig = args.find((arg) => arg.startsWith('mcp_servers.cat-cafe.args=['));
+    assert.ok(mcpArgsConfig, 'must inject cat-cafe mcp args config');
+    assert.match(mcpArgsConfig, /packages\/mcp-server\/dist\/index\.js/);
+    assert.ok(args.includes('mcp_servers.cat-cafe.enabled=true'));
+  } finally {
+    cwdMock.mock.restore();
+  }
+});
+
 test('does not include resume when no sessionId', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
