@@ -12,20 +12,12 @@
 /// <reference lib="WebWorker" />
 declare const self: ServiceWorkerGlobalScope;
 
-interface PushData {
-  title?: string;
-  body?: string;
-  icon?: string;
-  tag?: string;
-  data?: {
-    threadId?: string;
-    url?: string;
-  };
-}
+import type { PushNotificationPayload } from '../src/utils/push-notification-policy';
+import { shouldShowSystemNotification } from '../src/utils/push-notification-policy';
 
 // Push event: 后端 web-push 推过来的通知
 self.addEventListener('push', (event: PushEvent) => {
-  let payload: PushData = {};
+  let payload: PushNotificationPayload = {};
   try {
     payload = event.data?.json() ?? {};
   } catch {
@@ -38,12 +30,12 @@ self.addEventListener('push', (event: PushEvent) => {
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clients) => {
-        // If user is actively viewing Cat Cafe, skip system notification
-        // (the in-app toast system already handles it)
+        // When Cat Cafe is focused, generic replies are suppressed because
+        // in-app toast already handles them; forced categories still show.
         const hasFocusedClient = clients.some(
           (c) => c.visibilityState === 'visible',
         );
-        if (hasFocusedClient) return;
+        if (!shouldShowSystemNotification(payload, hasFocusedClient)) return;
 
         return self.registration.showNotification(title ?? '猫猫来信', {
           body: body ?? '',
@@ -59,7 +51,7 @@ self.addEventListener('push', (event: PushEvent) => {
 // Notification click: 跳转到对应对话
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   event.notification.close();
-  const targetUrl = (event.notification.data as PushData['data'])?.url ?? '/';
+  const targetUrl = (event.notification.data as PushNotificationPayload['data'])?.url ?? '/';
 
   event.waitUntil(
     self.clients

@@ -16,6 +16,8 @@ export interface PushPayload {
   data?: {
     threadId?: string;
     url?: string;
+    forceSystemNotification?: boolean;
+    requiresDecision?: boolean;
   };
 }
 

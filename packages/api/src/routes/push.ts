@@ -114,7 +114,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       title: '🐱 猫猫测试推送',
       body: '如果你看到这条通知，说明推送配置成功了！',
       tag: 'push-test',
-      data: { url: '/' },
+      data: { url: '/', forceSystemNotification: true },
     });
 
     return { status: 'ok', message: '测试推送已发送' };

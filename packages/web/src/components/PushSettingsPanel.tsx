@@ -77,8 +77,9 @@ export function PushSettingsPanel() {
 
       {isSubscribed && (
         <button
+          type="button"
           onClick={() => { void handleSendTest(); }}
-          disabled={isTesting}
+          disabled={isTesting || isLoading}
           className="text-xs text-blue-500 hover:text-blue-700 underline"
         >
           {isTesting ? '发送中...' : '发送测试通知'}

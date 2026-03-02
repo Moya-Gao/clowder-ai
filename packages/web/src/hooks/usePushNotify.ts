@@ -138,8 +138,10 @@ export function usePushNotify(): UsePushNotifyReturn {
   }, []);
 
   const sendTest = useCallback(async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
     try {
-      const res = await apiFetch('/api/push/test', { method: 'POST' });
+      const res = await apiFetch('/api/push/test', { method: 'POST', signal: controller.signal });
 
       let serverMessage: string | null = null;
       try {
@@ -165,11 +167,19 @@ export function usePushNotify(): UsePushNotifyReturn {
         message: serverMessage ?? '测试推送已发送',
       };
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        return {
+          ok: false,
+          message: '请求超时，请检查 API 连接或推送配置',
+        };
+      }
       console.error('[push] Test push failed:', err);
       return {
         ok: false,
         message: '网络异常，测试通知发送失败',
       };
+    } finally {
+      clearTimeout(timeout);
     }
   }, []);
 

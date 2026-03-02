@@ -79,6 +79,22 @@ const getMessagesSchema = z.object({
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
 
+const DECISION_NOTIFICATION_RE =
+  /\b(review|lgtm|merge|pr)\b/i;
+
+export function shouldMarkDecisionNotification(content: string): boolean {
+  const lower = content.toLowerCase();
+  return (
+    DECISION_NOTIFICATION_RE.test(content)
+    || content.includes('合入')
+    || content.includes('审批')
+    || content.includes('批准')
+    || content.includes('决策')
+    || content.includes('请确认')
+    || content.includes('是否允许')
+    || lower.includes('can merge')
+  );
+}
 
 export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
   async (app, opts) => {
@@ -397,6 +413,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
           const persistenceContext: PersistenceContext = { failed: false, errors: [] };
           // F8: collect per-cat token usage from done events
           const collectedUsage = new Map<string, TokenUsage>();
+          // Aggregate streamed assistant text for push summary/decision classification.
+          let assistantReplyContent = '';
 
           // F11: active mode → ModeOrchestrator, otherwise → AgentRouter
           // F35: Whisper messages bypass mode orchestrator — mode uses its own
@@ -424,6 +442,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             })) {
               // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
               if (controller?.signal.aborted) break;
+              if (msg.type === 'text' && msg.content) {
+                assistantReplyContent += msg.content;
+              }
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
                 collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
@@ -446,6 +467,9 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             )) {
               // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
               if (controller?.signal.aborted) break;
+              if (msg.type === 'text' && msg.content) {
+                assistantReplyContent += msg.content;
+              }
               if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
                 collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
               }
@@ -503,12 +527,21 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             const pushSvc = getPushNotificationService();
             if (pushSvc) {
               const catNames = targetCats.join(', ');
+              const assistantText = assistantReplyContent.trim();
+              const needsDecision = assistantText.length > 0
+                ? shouldMarkDecisionNotification(assistantText)
+                : false;
+              const pushBodySource = assistantText || '猫猫已处理，请打开会话查看详情';
               pushSvc.notifyUser(userId, {
-                title: `${catNames} 回复了`,
-                body: content.slice(0, 80),
+                title: needsDecision ? `${catNames} 需要你决策` : `${catNames} 回复了`,
+                body: pushBodySource.slice(0, 80),
                 icon: targetCats.length === 1 ? `/avatars/${targetCats[0]}.png` : '/icons/icon-192x192.png',
-                tag: `cat-reply-${resolvedThreadId}`,
-                data: { threadId: resolvedThreadId, url: `/?thread=${resolvedThreadId}` },
+                tag: `${needsDecision ? 'cat-decision' : 'cat-reply'}-${resolvedThreadId}`,
+                data: {
+                  threadId: resolvedThreadId,
+                  url: `/?thread=${resolvedThreadId}`,
+                  ...(needsDecision ? { requiresDecision: true } : {}),
+                },
               }).catch(() => { /* best-effort */ });
             }
 

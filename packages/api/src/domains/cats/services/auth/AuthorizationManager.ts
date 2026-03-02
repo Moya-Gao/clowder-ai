@@ -109,7 +109,7 @@ export class AuthorizationManager {
         title: `🔐 ${catId} 需要权限`,
         body: `${req.action}: ${req.reason}`.slice(0, 120),
         tag: `auth-${record.requestId}`,
-        data: { threadId, url: `/?thread=${threadId}` },
+        data: { threadId, url: `/?thread=${threadId}`, forceSystemNotification: true },
       }).catch(() => { /* best-effort */ });
     }
 
