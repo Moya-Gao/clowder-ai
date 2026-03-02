@@ -181,6 +181,31 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('keyword=redis+lock'));
   });
 
+  test('handleListThreads forwards limit/activeSince filters', async () => {
+    const { handleListThreads } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ threads: [] }),
+      };
+    };
+
+    const result = await handleListThreads({
+      limit: 15,
+      activeSince: 1234567890,
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/list-threads'));
+    assert.ok(capturedUrl.includes('limit=15'));
+    assert.ok(capturedUrl.includes('activeSince=1234567890'));
+  });
+
   test('handles API error response', async () => {
     const { handlePostMessage } = await import(
       '../dist/tools/callback-tools.js'

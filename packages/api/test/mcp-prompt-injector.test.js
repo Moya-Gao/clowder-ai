@@ -44,6 +44,7 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('post-message'), 'should list post-message');
     assert.ok(instructions.includes('register-pr-tracking'), 'should list register-pr-tracking');
     assert.ok(instructions.includes('thread-context'), 'should list thread-context');
+    assert.ok(instructions.includes('list-threads'), 'should list list-threads');
     assert.ok(!instructions.includes('search-messages'), 'should not list non-HTTP endpoint alias');
     assert.ok(instructions.includes('catId'), 'should mention catId query filter');
     assert.ok(instructions.includes('keyword'), 'should mention keyword query filter');

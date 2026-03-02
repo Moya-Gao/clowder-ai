@@ -22,6 +22,7 @@ const EXPECTED_TOOLS = [
   'cat_cafe_ack_mentions',
   'cat_cafe_get_thread_context',
   'cat_cafe_search_messages',
+  'cat_cafe_list_threads',
   'cat_cafe_update_task',
   'cat_cafe_create_rich_block',
   'cat_cafe_get_rich_block_rules',

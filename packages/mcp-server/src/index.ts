@@ -18,6 +18,7 @@ import {
   getPendingMentionsInputSchema,
   ackMentionsInputSchema,
   getThreadContextInputSchema,
+  listThreadsInputSchema,
   updateTaskInputSchema,
   requestPermissionInputSchema,
   checkPermissionStatusInputSchema,
@@ -25,6 +26,7 @@ import {
   handleGetPendingMentions,
   handleAckMentions,
   handleGetThreadContext,
+  handleListThreads,
   handleUpdateTask,
   handleRequestPermission,
   handleCheckPermissionStatus,
@@ -134,6 +136,16 @@ export function createServer(): McpServer {
     getThreadContextInputSchema,
     async (args) => {
       const result = await handleGetThreadContext(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_list_threads',
+    'List recent thread summaries for discovery. Supports limit and activeSince filtering.',
+    listThreadsInputSchema,
+    async (args) => {
+      const result = await handleListThreads(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

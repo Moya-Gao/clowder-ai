@@ -590,6 +590,109 @@ describe('Callback Routes', () => {
     assert.equal(body.messages[1].content, 'thread-B msg 4');
   });
 
+  // ---- GET /api/callbacks/list-threads ----
+
+  test('GET list-threads returns user-scoped threads sorted by lastActiveAt desc', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const oldThread = await threadStore.create('user-1', 'Old thread');
+    const newThread = await threadStore.create('user-1', 'New thread');
+    const otherUserThread = await threadStore.create('user-2', 'Other user thread');
+
+    const oldThreadRecord = await threadStore.get(oldThread.id);
+    const newThreadRecord = await threadStore.get(newThread.id);
+    const otherThreadRecord = await threadStore.get(otherUserThread.id);
+    oldThreadRecord.lastActiveAt = 1000;
+    newThreadRecord.lastActiveAt = 2000;
+    otherThreadRecord.lastActiveAt = 3000;
+
+    await threadStore.addParticipants(newThread.id, ['opus', 'codex']);
+    await threadStore.addParticipants(oldThread.id, ['opus']);
+    await threadStore.addParticipants(otherUserThread.id, ['gpt52']);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-threads?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+
+    assert.equal(body.threads.length, 2);
+    assert.deepEqual(body.threads.map((item) => item.threadId), [newThread.id, oldThread.id]);
+    assert.deepEqual(body.threads[0], {
+      threadId: newThread.id,
+      title: 'New thread',
+      lastActiveAt: 2000,
+      messageCount: null,
+      participants: ['opus', 'codex'],
+    });
+    assert.deepEqual(body.threads[1], {
+      threadId: oldThread.id,
+      title: 'Old thread',
+      lastActiveAt: 1000,
+      messageCount: null,
+      participants: ['opus'],
+    });
+  });
+
+  test('GET list-threads supports activeSince + limit', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const t1 = await threadStore.create('user-1', 't1');
+    const t2 = await threadStore.create('user-1', 't2');
+    const t3 = await threadStore.create('user-1', 't3');
+
+    const r1 = await threadStore.get(t1.id);
+    const r2 = await threadStore.get(t2.id);
+    const r3 = await threadStore.get(t3.id);
+    r1.lastActiveAt = 100;
+    r2.lastActiveAt = 200;
+    r3.lastActiveAt = 300;
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-threads?invocationId=${invocationId}&callbackToken=${callbackToken}&activeSince=150&limit=1`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.threads.length, 1);
+    assert.equal(body.threads[0].threadId, t3.id);
+    assert.equal(body.threads[0].lastActiveAt, 300);
+  });
+
+  test('GET list-threads validates query params', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-threads?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=0&activeSince=-1`,
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Missing invocationId or callbackToken|Invalid request query/);
+  });
+
+  test('GET list-threads returns 503 when threadStore is not configured', async () => {
+    threadStore = undefined;
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-threads?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 503);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Thread store not configured/);
+  });
+
   test('GET pending-mentions only returns mentions from the same user', async () => {
     const app = await createApp();
     const { invocationId, callbackToken } = registry.create('user-1', 'opus');

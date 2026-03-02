@@ -112,6 +112,13 @@ export const getThreadContextInputSchema = {
     .describe('Optional: filter messages whose content contains this keyword (case-insensitive).'),
 };
 
+export const listThreadsInputSchema = {
+  limit: z.number().int().min(1).max(200).optional().default(20)
+    .describe('Max threads to return (default: 20).'),
+  activeSince: z.number().int().min(0).optional()
+    .describe('Optional Unix timestamp in ms; only include threads active at/after this time.'),
+};
+
 export const updateTaskInputSchema = {
   taskId: z.string().min(1).describe('The ID of the task to update'),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('New task status'),
@@ -168,6 +175,16 @@ export async function handleGetThreadContext(input: {
     ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(input.catId ? { catId: input.catId } : {}),
     ...(input.keyword ? { keyword: input.keyword } : {}),
+  });
+}
+
+export async function handleListThreads(input: {
+  limit?: number | undefined;
+  activeSince?: number | undefined;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/list-threads', {
+    ...(input.limit ? { limit: String(input.limit) } : {}),
+    ...(input.activeSince !== undefined ? { activeSince: String(input.activeSince) } : {}),
   });
 }
 
@@ -343,6 +360,12 @@ export const callbackTools = [
     description: "Search thread messages by speaker (catId/'user') and keyword. Supports cross-thread via threadId.",
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
+  },
+  {
+    name: 'cat_cafe_list_threads',
+    description: 'List thread summaries for discovery. Supports limit and activeSince filters.',
+    inputSchema: listThreadsInputSchema,
+    handler: handleListThreads,
   },
   {
     name: 'cat_cafe_update_task',

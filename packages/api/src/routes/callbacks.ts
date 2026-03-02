@@ -70,6 +70,11 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
   keyword: z.string().min(1).optional(),
 });
 
+const listThreadsQuerySchema = callbackAuthSchema.extend({
+  limit: z.coerce.number().int().min(1).max(200).optional(),
+  activeSince: z.coerce.number().int().min(0).optional(),
+});
+
 const pendingMentionsQuerySchema = callbackAuthSchema.extend({
   // Accept both scalar and repeated query params (Fastify may surface string[]).
   includeAcked: z.union([z.string(), z.array(z.string())]).optional(),
@@ -448,6 +453,43 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           timestamp: item.timestamp,
         })),
       };
+    });
+
+    app.get('/api/callbacks/list-threads', async (request, reply) => {
+      const parsed = listThreadsQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request query', details: parsed.error.issues };
+      }
+
+      const { invocationId, callbackToken, limit, activeSince } = parsed.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return EXPIRED_CREDENTIALS_ERROR;
+      }
+
+      if (!threadStore) {
+        reply.status(503);
+        return { error: 'Thread store not configured' };
+      }
+
+      const requestedLimit = limit ?? 20;
+      let threads = await threadStore.list(record.userId);
+      if (activeSince !== undefined) {
+        threads = threads.filter((thread) => thread.lastActiveAt >= activeSince);
+      }
+
+      threads.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
+      const summaries = threads.slice(0, requestedLimit).map((thread) => ({
+        threadId: thread.id,
+        ...(thread.title ? { title: thread.title } : {}),
+        lastActiveAt: thread.lastActiveAt,
+        messageCount: null,
+        participants: thread.participants,
+      }));
+
+      return { threads: summaries };
     });
 
     // TD091: PR tracking registration via MCP callback

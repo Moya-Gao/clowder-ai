@@ -107,7 +107,7 @@ interface ThreadSummary {
   threadId: string;
   title?: string;
   lastActiveAt: number;
-  messageCount: number;
+  messageCount: number | null;  // Phase A: null（后续 countByThread 增强）
   participants: CatId[];  // 参与过的猫
 }
 ```
@@ -216,4 +216,5 @@ Layer 0: Knowledge Engineering Research (Done)
 
 - 2026-02-27: F043 立项
 - 2026-03-02: 路线图收敛 — 纳入知识工程栈 Layer 2 + 吸收 F042 thread metadata + 延后 server 拆分
-- 2026-03-02: Phase A P0 实作（`cat_cafe_search_messages` + thread-context `catId/keyword` 过滤）完成，待 review/合入
+- 2026-03-02: Phase A P0 实作（`cat_cafe_search_messages` + thread-context `catId/keyword` 过滤）完成并合入 main（PR #155 / `6e647e12`）
+- 2026-03-02: Phase A P1 契约拍板（`cat_cafe_list_threads` + `/api/callbacks/list-threads`，`activeSince` 分页，`messageCount` 暂为 `null`）

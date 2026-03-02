@@ -40,6 +40,25 @@ curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVO
 curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&catId=gpt52&keyword=search"
 ```
 
+### List Threads
+```bash
+curl "$CAT_CAFE_API_URL/api/callbacks/list-threads?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"
+```
+
+可选 query 参数：
+- `limit`：返回数量上限（默认 20，最大 200）
+- `activeSince`：Unix 毫秒时间戳，仅返回此时间后活跃的 threads
+
+示例：
+```bash
+# 最近 10 个 thread
+curl "$CAT_CAFE_API_URL/api/callbacks/list-threads?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&limit=10"
+
+# 查看最近一天活跃 thread
+SINCE=$(node -e "process.stdout.write(String(Date.now()-24*60*60*1000))")
+curl "$CAT_CAFE_API_URL/api/callbacks/list-threads?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&activeSince=$SINCE"
+```
+
 ### Get Pending @Mentions
 ```bash
 curl "$CAT_CAFE_API_URL/api/callbacks/pending-mentions?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"
