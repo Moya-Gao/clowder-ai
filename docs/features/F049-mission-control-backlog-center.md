@@ -7,7 +7,7 @@ created: 2026-03-01
 
 # F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread）
 
-> **Status**: in-progress（MVP merged）
+> **Status**: in-progress（Phase3 merged）
 > **Owner**: 三猫
 > **Created**: 2026-03-01
 > **Priority**: P1（指挥中心基建）
@@ -112,14 +112,17 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 
 - **Evolved from**: F037
 - **~~F042 毕业~~**: routing-policy-scopes 已在 F042 PR #148 完成，不再需要 F049 承接
-- **Depends on**: F043（`list_threads`/`feat_index` 工具）
+- **Depends on**: F043（`list_threads`/`feat_index` 提供更完整协作基建；但 Phase4 态势图 MVP 不以其为硬阻塞）
 - **Blocks**: （待定）
 
 ## Open Questions
 
+> 注：此前“phase 与 mode 的关系”已在 F042 routing-policy-scopes（PR #148）与路线图收敛纪要中吸收，不再作为 F049 独立 Open Question。
+
 1. 与现有任务/右侧看板（F026/F045）如何对齐：共享实体还是桥接？
 2. “自动开 thread”是走 UI API 还是走 MCP tool（让猫也能触发）？
-3. phase 与 mode 的关系：是否按 F-Swarm-2 的“phase=柔性引导”路线前进？
+3. `suggest/approve/dispatch` 是否也要升级成 Redis Lua 原子链路（当前 lease 已原子化）？
+4. `selfClaimScope=once/thread/global` 的策略语义是否要继续细分（目前是 gate/可见性 + 基础阻断）？
 
 ## Phase3 Progress（2026-03-02）
 
@@ -127,6 +130,13 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - [x] `selfClaimScope=thread`：当该 cat 在其他 item 上有 active lease 时，阻断新的自领（409）；释放后可继续。
 - [x] lease 四条状态迁移（acquire/heartbeat/release/reclaim）升级为 Redis Lua/CAS 原子更新。
 - [x] Mission Hub 显式展示 policy 阻断原因（once 已消费 / thread 活跃冲突）并和 API 语义对齐。
+
+## Phase4 Scope（拟执行，2026-03-02）
+
+- [ ] **态势图（F043 对齐）**：Mission Hub 增加 thread 视图（MVP 先基于现有 `/api/threads` + `backlogItemId` 显示 thread 标题/lastActive/参与猫/跳转；后续再与 F043 `list_threads` + `feat_index` 收敛），把“全局任务面 → 线程执行面”可视化。
+- [ ] **派发链路原子化**：评估并落地 `suggest/approve/dispatch` 的 Lua/CAS 原子迁移，减少“批准后崩溃”类中间态恢复复杂度。
+- [ ] **权限棘轮语义收敛**：明确 `once/thread/global` 的运行时约束边界（幂等重试、跨 item 竞争、异常恢复），并把 UI 提示和 API 错误码对齐。
+- [ ] **愿景守护签收**：由 `@gpt52` 做 Phase4 愿景对照 review（原始需求摘录逐条签收），再进入实现。
 
 ## Follow-up（post-merge）
 
@@ -154,4 +164,5 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - 2026-03-02: 路线图收敛 — 吸收 F042 routing-policy-scopes 为 Phase B（`docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
 - 2026-03-02: Phase2 落地 — `backlogItemId` 反向关联 + lease 状态机 + self-claim 权限棘轮 gate
 - 2026-03-02: Phase3 开工 — self-claim `once/thread` 语义细化（非幂等二次自领阻断 + 活跃 lease 冲突阻断）
-- 2026-03-03: Phase3 续推 — lease 迁移改为 Redis Lua 原子更新 + Mission Hub 阻断原因文案对齐
+- 2026-03-02: Phase3 续推 — lease 迁移改为 Redis Lua 原子更新 + Mission Hub 阻断原因文案对齐
+- 2026-03-02: Phase3 合入 main — PR #158（`8714103d`）
