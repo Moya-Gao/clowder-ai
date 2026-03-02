@@ -11,16 +11,16 @@ updated: 2026-02-28
 > 三猫开发全流程的导航图。每步的详细操作在对应 skill 内。
 > 冲突时以 skill 内容为准。
 
-## 完整流程（6 步）
+## 完整流程（4 步）
 
 ```
 ① worktree        → 隔离开发环境
 ② quality-gate    → 自检 + 愿景对照
-③ request/receive → review 循环（P1/P2 清零）
-④ merge-gate      → 门禁检查（reviewer 放行确认）
-⑤ PR + cloud      → 开 PR + 云端 Codex review
-⑥ merge + cleanup → squash merge + 清理 worktree
+③ review 循环     → 本地 peer review（P1/P2 清零 + reviewer 放行）
+④ merge-gate      → 门禁 → PR → 云端 review → squash merge → 清理
 ```
+
+> **⚠️ PR 在 ③ 之后！** reviewer 放行了才能开 PR（④ merge-gate 的一部分）。
 
 | Step | 做什么 | Skill | 详情 |
 |------|--------|-------|------|
@@ -28,13 +28,11 @@ updated: 2026-02-28
 | ② | 愿景对照 + spec 合规 + 跑测试 | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
 | ③a | 发 review 请求（五件套 + 证据） | `request-review` | 附原始需求摘录 |
 | ③b | 处理 review 反馈（Red→Green） | `receive-review` | 禁止表演性同意 |
-| ④ | 检查放行信号 + BACKLOG 更新 | `merge-gate` | 4 个硬性条件 |
-| ⑤ | push → PR → 云端 review → 等通过 | `merge-gate` | 模板见 `refs/pr-template.md` |
-| ⑥ | `gh pr merge --squash` → 清理 | `merge-gate` | 禁止本地 squash！ |
+| ④ | 门禁 → PR → 云端 review → merge → 清理 | `merge-gate` | **③ 放行后才进入**，模板见 `refs/pr-template.md` |
 
 ## 例外路径
 
-### 跳过 PR（Step 5）
+### 跳过云端 review（Step ④ 中的 PR 环节）
 
 三个条件全部满足才可跳过：
 1. 铲屎官在当前对话明确同意

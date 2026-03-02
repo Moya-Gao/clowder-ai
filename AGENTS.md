@@ -47,7 +47,7 @@ feat-lifecycle → writing-plans → worktree → tdd
 | 开发完了自检 | `quality-gate` |
 | 发 review 请求 | `request-review` |
 | 处理 review 反馈 | `receive-review` |
-| 合入 main（gate→PR→merge） | `merge-gate` |
+| 合入 main（**review 放行后**→PR→云端→merge） | `merge-gate` |
 | 跨猫交接/传话 | `cross-cat-handoff` |
 | 并行多任务 | `parallel-execution` |
 | 深度调研 | `deep-research` |
