@@ -11,7 +11,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { catIdSchema } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
@@ -54,6 +54,21 @@ const listThreadsSchema = z.object({
   q: z.string().trim().min(1).max(200).optional(),
 });
 
+const threadRoutingRuleSchema = z.object({
+  avoidCats: z.array(catIdSchema()).max(10).optional(),
+  preferCats: z.array(catIdSchema()).max(10).optional(),
+  reason: z.string().trim().min(1).max(200).regex(/^[^\r\n]+$/, 'reason must be single-line').optional(),
+  expiresAt: z.number().int().positive().optional(),
+}).strict();
+
+const threadRoutingPolicySchema = z.object({
+  v: z.literal(1),
+  scopes: z.object({
+    review: threadRoutingRuleSchema.optional(),
+    architecture: threadRoutingRuleSchema.optional(),
+  }).partial().optional(),
+}).strict();
+
 const updateThreadSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   pinned: z.boolean().optional(),
@@ -61,7 +76,9 @@ const updateThreadSchema = z.object({
   thinkingMode: z.enum(['debug', 'play']).optional(),
   /** F32-b Phase 2: Update thread-level cat preference. Empty array clears. */
   preferredCats: z.array(catIdSchema()).max(10).optional(),
-}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.preferredCats !== undefined, {
+  /** F042: Thread-level routing policy by intent/scope. null clears. */
+  routingPolicy: threadRoutingPolicySchema.nullable().optional(),
+}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.preferredCats !== undefined || data.routingPolicy !== undefined, {
   message: 'At least one field must be provided',
 });
 
@@ -160,12 +177,15 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode, preferredCats } = parseResult.data;
+    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
     if (thinkingMode !== undefined) await threadStore.updateThinkingMode(id, thinkingMode);
     if (preferredCats !== undefined) await threadStore.updatePreferredCats(id, preferredCats as CatId[]);
+    if (routingPolicy !== undefined) {
+      await threadStore.updateRoutingPolicy(id, routingPolicy as ThreadRoutingPolicyV1 | null);
+    }
 
     const updated = await threadStore.get(id);
     if (!updated) {

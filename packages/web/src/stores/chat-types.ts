@@ -169,6 +169,22 @@ export interface Thread {
   preferredCats?: string[];
   /** F049: workflow phase for mission-control dispatch */
   phase?: 'coding' | 'research' | 'brainstorm';
+  /** F042: Thread-scoped routing policy (intent/scope). */
+  routingPolicy?: ThreadRoutingPolicyV1;
+}
+
+export type ThreadRoutingScope = 'review' | 'architecture';
+
+export interface ThreadRoutingRule {
+  preferCats?: string[];
+  avoidCats?: string[];
+  reason?: string;
+  expiresAt?: number;
+}
+
+export interface ThreadRoutingPolicyV1 {
+  v: 1;
+  scopes?: Partial<Record<ThreadRoutingScope, ThreadRoutingRule>>;
 }
 
 /** F24: Context health data from backend */

@@ -10,6 +10,7 @@ import { VoiceSettingsPanel } from './VoiceSettingsPanel';
 import { PushSettingsPanel } from './PushSettingsPanel';
 import { HubStrategyTab } from './HubStrategyTab';
 import { HubCapabilityTab } from './HubCapabilityTab';
+import { HubRoutingPolicyTab } from './HubRoutingPolicyTab';
 import { useCatData } from '@/hooks/useCatData';
 
 // F032 P2: HubTabId now uses string for dynamic cat tabs
@@ -20,6 +21,7 @@ const HUB_TABS: { id: HubTabId; label: string }[] = [
   { id: 'cats', label: '猫猫总览' },
   { id: 'system', label: '系统配置' },
   { id: 'capabilities', label: '能力中心' },
+  { id: 'routing', label: '路由策略' },
   { id: 'commands', label: '命令速查' },
   { id: 'env', label: '环境 & 文件' },
   { id: 'voice', label: '语音设置' },
@@ -136,6 +138,7 @@ export function CatCafeHub() {
             config ? <SystemTab config={config} /> : !fetchError ? <p className="text-sm text-gray-400">加载中...</p> : null
           )}
           {tab === 'commands' && <HubCommandsTab />}
+          {tab === 'routing' && <HubRoutingPolicyTab />}
           {tab === 'env' && <HubEnvFilesTab />}
           {tab === 'voice' && <VoiceSettingsPanel />}
           {tab === 'notify' && <PushSettingsPanel />}

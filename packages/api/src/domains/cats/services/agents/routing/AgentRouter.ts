@@ -22,6 +22,7 @@ import type { CatId, MessageContent } from '@cat-cafe/shared';
 import { getDefaultCatId } from '../../../../../config/cat-config-loader.js';
 import type { SessionStore } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../../stores/ports/ThreadStore.js';
+import type { ThreadRoutingPolicyV1, ThreadRoutingScope } from '../../stores/ports/ThreadStore.js';
 import { SessionManager } from '../../session/SessionManager.js';
 import { DeliveryCursorStore } from '../../stores/ports/DeliveryCursorStore.js';
 import { parseIntent, stripIntentTags } from '../../context/IntentParser.js';
@@ -72,6 +73,44 @@ function buildMentionData(configs: Record<string, import('@cat-cafe/shared').Cat
   );
 
   return { mentionAliases, speechMentionRe };
+}
+
+/**
+ * F042: Infer routing scope from message text (v1).
+ * Intentionally deterministic and conservative.
+ */
+function inferRoutingScope(message: string): ThreadRoutingScope | null {
+  const lower = message.toLowerCase();
+  const hasPrToken = /\bpr\b/i.test(lower);
+
+  // Review-ish cues
+  if (
+    lower.includes('review') ||
+    lower.includes('lgtm') ||
+    lower.includes('merge') ||
+    hasPrToken ||
+    message.includes('合入') ||
+    message.includes('开 PR') ||
+    message.includes('云端 review') ||
+    message.includes('帮我看看') ||
+    message.includes('请 reviewer 看看') ||
+    message.includes('请 review')
+  ) {
+    return 'review';
+  }
+
+  // Architecture-ish cues
+  if (
+    lower.includes('architecture') ||
+    lower.includes('tradeoff') ||
+    message.includes('架构') ||
+    message.includes('设计') ||
+    message.includes('方案')
+  ) {
+    return 'architecture';
+  }
+
+  return null;
 }
 
 /**
@@ -139,6 +178,65 @@ export class AgentRouter {
     this.sessionSealer = options.sessionSealer;
     this.draftStore = options.draftStore;
     this.taskProgressStore = options.taskProgressStore;
+  }
+
+  /** Pick a deterministic fallback cat when policy filters out all candidates. */
+  private pickFallbackCat(exclude: Set<string>): CatId | null {
+    const def = getDefaultCatId() as string;
+    if (!exclude.has(def) && Object.hasOwn(this.services, def)) return def as CatId;
+
+    for (const id of Object.keys(this.services).sort()) {
+      if (!exclude.has(id)) return id as CatId;
+    }
+    return null;
+  }
+
+  /** Apply thread routingPolicy (if any) to a candidate target list. */
+  private applyThreadRoutingPolicy(
+    thread: { routingPolicy?: ThreadRoutingPolicyV1 } | null | undefined,
+    message: string,
+    candidates: CatId[],
+  ): CatId[] {
+    const scope = inferRoutingScope(message);
+    if (!scope) return candidates;
+
+    const policy = thread?.routingPolicy;
+    if (!policy || policy.v !== 1 || !policy.scopes) return candidates;
+
+    const rule = policy.scopes[scope];
+    if (!rule) return candidates;
+    if (typeof rule.expiresAt === 'number' && rule.expiresAt > 0 && rule.expiresAt < Date.now()) return candidates;
+
+    // Defensive guard: data might be malformed from external persistence.
+    const avoidList = Array.isArray(rule.avoidCats) ? rule.avoidCats : [];
+    const preferList = Array.isArray(rule.preferCats) ? rule.preferCats : [];
+    const avoid = new Set(avoidList.map((id) => String(id)));
+    const prefer = preferList.map((id) => String(id)).filter((id) => !avoid.has(id));
+    const isValid = (id: string) => Object.hasOwn(this.services, id);
+
+    const filtered = candidates.filter((id) => !avoid.has(id as string));
+    const out: CatId[] = [];
+    const seen = new Set<string>();
+
+    for (const id of prefer) {
+      if (!isValid(id)) continue;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id as CatId);
+    }
+
+    for (const id of filtered) {
+      const sid = id as string;
+      if (!isValid(sid)) continue;
+      if (seen.has(sid)) continue;
+      seen.add(sid);
+      out.push(id);
+    }
+
+    if (out.length > 0) return out;
+
+    const fallback = this.pickFallbackCat(avoid);
+    return fallback ? [fallback] : candidates;
   }
 
   /** Normalize speech patterns like "at 布偶" → "@布偶" */
@@ -224,21 +322,27 @@ export class AgentRouter {
     if (mentionedCats.length > 0) return mentionedCats;
 
     if (this.threadStore) {
+      const thread = await this.threadStore.get(threadId);
+
       // F32-b Phase 2: Thread preferred cats
       // R5: Object.hasOwn + dedupe; Cloud P1: Array.isArray guard for corrupted data
-      const thread = await this.threadStore.get(threadId);
       const rawPref = Array.isArray(thread?.preferredCats) ? thread.preferredCats : [];
       const validPreferred = [...new Set(
         rawPref.filter((id) => Object.hasOwn(this.services, id as string)),
       )];
-      if (validPreferred.length > 0) return validPreferred;
+      if (validPreferred.length > 0) {
+        return this.applyThreadRoutingPolicy(thread, message, validPreferred);
+      }
 
       // F032 P1-1 fix: Use activity-based sorting for participants
       const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
       if (participantsWithActivity.length > 0) {
         // Already sorted by lastMessageAt desc in ThreadStore
-        return participantsWithActivity.map(p => p.catId);
+        return this.applyThreadRoutingPolicy(thread, message, participantsWithActivity.map(p => p.catId));
       }
+
+      // No preferredCats and no participants: default cat, then apply policy (e.g. review avoid opus)
+      return this.applyThreadRoutingPolicy(thread, message, [getDefaultCatId()]);
     }
 
     return [getDefaultCatId()];
@@ -256,21 +360,26 @@ export class AgentRouter {
     }
 
     if (this.threadStore) {
+      const thread = await this.threadStore.get(threadId);
+
       // F32-b Phase 2: Thread preferred cats
       // R5: Object.hasOwn + dedupe; Cloud P1: Array.isArray guard for corrupted data
-      const thread = await this.threadStore.get(threadId);
       const rawPref = Array.isArray(thread?.preferredCats) ? thread.preferredCats : [];
       const validPreferred = [...new Set(
         rawPref.filter((id) => Object.hasOwn(this.services, id as string)),
       )];
-      if (validPreferred.length > 0) return validPreferred;
+      if (validPreferred.length > 0) {
+        return this.applyThreadRoutingPolicy(thread, message, validPreferred);
+      }
 
       // F032 P1-1 fix: Use activity-based sorting for participants
       const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
       if (participantsWithActivity.length > 0) {
         // Already sorted by lastMessageAt desc in ThreadStore
-        return participantsWithActivity.map(p => p.catId);
+        return this.applyThreadRoutingPolicy(thread, message, participantsWithActivity.map(p => p.catId));
       }
+
+      return this.applyThreadRoutingPolicy(thread, message, [getDefaultCatId()]);
     }
 
     return [getDefaultCatId()];

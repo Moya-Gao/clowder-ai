@@ -25,6 +25,32 @@ export interface ThreadParticipantActivity {
 }
 
 /**
+ * F042 Routing Policy (v1)
+ * Thread-scoped routing preferences by "intent/scope".
+ *
+ * NOTE: This is NOT global availability.
+ * - Global roster `available=false` = technically unavailable/offline.
+ * - Thread routingPolicy = temporary preferences (budget, focus, etc.).
+ */
+export type ThreadRoutingScope = 'review' | 'architecture';
+
+export interface ThreadRoutingRule {
+  /** Prefer placing these cats first (may be injected if missing). */
+  preferCats?: CatId[];
+  /** Avoid routing to these cats unless explicitly @mentioned. */
+  avoidCats?: CatId[];
+  /** Human-readable reason (e.g. "budget"). */
+  reason?: string;
+  /** Optional expiry (epoch ms). When expired, rule is ignored. */
+  expiresAt?: number;
+}
+
+export interface ThreadRoutingPolicyV1 {
+  v: 1;
+  scopes?: Partial<Record<ThreadRoutingScope, ThreadRoutingRule>>;
+}
+
+/**
  * A conversation thread
  */
 export interface Thread {
@@ -45,6 +71,8 @@ export interface Thread {
   preferredCats?: CatId[];
   /** F049: workflow phase for dispatch/intent guidance */
   phase?: ThreadPhase;
+  /** F042: Thread-scoped routing policy (by intent/scope). */
+  routingPolicy?: ThreadRoutingPolicyV1;
 }
 
 /**
@@ -67,6 +95,8 @@ export interface IThreadStore {
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
   updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
   updatePhase(threadId: string, phase: ThreadPhase): void | Promise<void>;
+  /** F042: Set or clear thread routing policy. `null` clears. */
+  updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -237,6 +267,21 @@ export class ThreadStore implements IThreadStore {
   updatePhase(threadId: string, phase: ThreadPhase): void {
     const thread = this.get(threadId);
     if (thread) thread.phase = phase;
+  }
+
+  updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+
+    // Normalize: null or empty scopes clears policy.
+    const scopes = policy?.scopes;
+    const hasScopes = scopes && Object.keys(scopes).length > 0;
+    if (!policy || policy.v !== 1 || !hasScopes) {
+      delete thread.routingPolicy;
+      return;
+    }
+
+    thread.routingPolicy = policy;
   }
 
   updateLastActive(threadId: string): void {

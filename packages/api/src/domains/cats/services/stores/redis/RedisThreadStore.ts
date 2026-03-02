@@ -15,7 +15,12 @@ import type { CatId } from '@cat-cafe/shared';
 import type { ThreadPhase } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
-import type { Thread, IThreadStore, ThreadParticipantActivity } from '../ports/ThreadStore.js';
+import type {
+  Thread,
+  IThreadStore,
+  ThreadParticipantActivity,
+  ThreadRoutingPolicyV1,
+} from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
 const DEFAULT_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -289,6 +294,25 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'phase', phase);
   }
 
+  async updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    const scopes = policy?.scopes;
+    const hasScopes = scopes && Object.keys(scopes).length > 0;
+
+    if (!policy || policy.v !== 1 || !hasScopes) {
+      await this.redis.hdel(key, 'routingPolicy');
+      return;
+    }
+
+    await this.redis.eval(
+      HSET_IF_HAS_ID_LUA,
+      1,
+      key,
+      'routingPolicy',
+      JSON.stringify(policy),
+    );
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -369,6 +393,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.preferredCats && thread.preferredCats.length > 0) {
       result['preferredCats'] = JSON.stringify(thread.preferredCats);
     }
+    if (thread.routingPolicy) {
+      result['routingPolicy'] = JSON.stringify(thread.routingPolicy);
+    }
     return result;
   }
 
@@ -401,6 +428,16 @@ export class RedisThreadStore implements IThreadStore {
           result.preferredCats = parsed as CatId[];
         }
       } catch { /* ignore malformed JSON — treat as no preference */ }
+    }
+
+    if (data['routingPolicy']) {
+      try {
+        const parsed = JSON.parse(data['routingPolicy']);
+        // Minimal validation: object with v===1
+        if (parsed && typeof parsed === 'object' && parsed.v === 1) {
+          result.routingPolicy = parsed as ThreadRoutingPolicyV1;
+        }
+      } catch { /* ignore malformed JSON — treat as no policy */ }
     }
     return result;
   }

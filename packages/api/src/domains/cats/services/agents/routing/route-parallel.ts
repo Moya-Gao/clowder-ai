@@ -31,6 +31,7 @@ import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
+import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 
 export async function* routeParallel(
   deps: RouteStrategyDeps,
@@ -66,6 +67,13 @@ export async function* routeParallel(
       activeParticipants = await deps.invocationDeps.threadStore.getParticipantsWithActivity(threadId);
     } catch { /* best-effort */ }
   }
+  // F042: Fetch thread routingPolicy once (shared across all cats).
+  let routingPolicy: ThreadRoutingPolicyV1 | undefined;
+  if (deps.invocationDeps.threadStore) {
+    try {
+      routingPolicy = (await deps.invocationDeps.threadStore.get(threadId))?.routingPolicy;
+    } catch { /* best-effort */ }
+  }
 
 	  const streams = await Promise.all(targetCats.map(async (catId) => {
 	    const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
@@ -88,6 +96,7 @@ export async function* routeParallel(
 	      mcpAvailable,
 	      ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
 	      ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
+	      ...(routingPolicy ? { routingPolicy } : {}),
 	    });
 
     const targetContentBlocks = routeContentBlocksForCat(catId, contentBlocks);

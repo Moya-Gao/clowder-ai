@@ -15,7 +15,7 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
-import type { ThreadParticipantActivity } from '../stores/ports/ThreadStore.js';
+import type { ThreadParticipantActivity, ThreadRoutingPolicyV1 } from '../stores/ports/ThreadStore.js';
 import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
 
 /**
@@ -46,6 +46,8 @@ export interface InvocationContext {
   /** F042 Wave 3: Thread-level participant activity for @ disambiguation.
    *  Sorted by lastMessageAt desc. Injected per-invocation to survive compression. */
   activeParticipants?: readonly ThreadParticipantActivity[];
+  /** F042: Thread-scoped routing policy summary (intent/scope). Injected per-invocation. */
+  routingPolicy?: ThreadRoutingPolicyV1;
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -364,6 +366,42 @@ export function buildInvocationContext(context: InvocationContext): string {
       if (topConfig) {
         lines.push(`最近活跃：${pickVariantMention(topActive.catId as string, topConfig)}`);
       }
+    }
+  }
+
+  // F042: Thread routing policy hint — short, per-invocation, survives compression.
+  if (context.routingPolicy?.v === 1 && context.routingPolicy.scopes) {
+    const toMention = (id: string): string => {
+      const c = getConfig(id);
+      return c ? pickVariantMention(id, c) : `@${id}`;
+    };
+
+    const parts: string[] = [];
+    const scopes = context.routingPolicy.scopes;
+    const order = ['review', 'architecture'] as const;
+    for (const scope of order) {
+      const rule = scopes[scope];
+      if (!rule) continue;
+      if (typeof rule.expiresAt === 'number' && rule.expiresAt > 0 && rule.expiresAt < Date.now()) continue;
+
+      const segs: string[] = [];
+      // Defensive guard: data might be malformed from external persistence.
+      const avoidList = Array.isArray(rule.avoidCats) ? rule.avoidCats : [];
+      const preferList = Array.isArray(rule.preferCats) ? rule.preferCats : [];
+      const avoid = avoidList.slice(0, 3).map((id) => toMention(String(id)));
+      const prefer = preferList.slice(0, 3).map((id) => toMention(String(id)));
+      if (avoid.length > 0) segs.push(`avoid ${avoid.join(', ')}`);
+      if (prefer.length > 0) segs.push(`prefer ${prefer.join(', ')}`);
+      const sanitizedReason = typeof rule.reason === 'string'
+        ? rule.reason.replace(/[\r\n]+/g, ' ').trim()
+        : '';
+      if (sanitizedReason) segs.push(`(${sanitizedReason})`);
+
+      if (segs.length > 0) parts.push(`${scope} ${segs.join(' ')}`);
+    }
+
+    if (parts.length > 0) {
+      lines.push(`Routing: ${parts.join('; ')}`);
     }
   }
 

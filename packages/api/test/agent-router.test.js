@@ -66,13 +66,22 @@ function createMockMessageStore() {
   };
 }
 
-function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}) {
+function createMockThreadStore(initialParticipants = {}, threadProjectPaths = {}, threadRoutingPolicies = {}) {
   const participants = { ...initialParticipants };
   // F032 P1-2: Track activity timestamps for each participant
   const activity = {};
   return {
     create: (userId, title, projectPath) => ({ id: `thread_mock`, projectPath: projectPath ?? 'default', title: title ?? null, createdBy: userId, participants: [], lastActiveAt: Date.now(), createdAt: Date.now() }),
-    get: (threadId) => ({ id: threadId, projectPath: threadProjectPaths[threadId] ?? 'default', title: null, createdBy: 'system', participants: participants[threadId] ?? [], lastActiveAt: Date.now(), createdAt: Date.now() }),
+    get: (threadId) => ({
+      id: threadId,
+      projectPath: threadProjectPaths[threadId] ?? 'default',
+      title: null,
+      createdBy: 'system',
+      participants: participants[threadId] ?? [],
+      lastActiveAt: Date.now(),
+      createdAt: Date.now(),
+      routingPolicy: threadRoutingPolicies[threadId],
+    }),
     list: () => [],
     listByProject: () => [],
     addParticipants: (threadId, catIds) => {
@@ -174,6 +183,129 @@ function createMockAgentService(catId, responseText = 'Hello from mock') {
 }
 
 describe('AgentRouter', () => {
+  test('routingPolicy(review) avoids opus when default routing would pick opus', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const mockClaudeService = createMockAgentService('opus', 'Opus response');
+    const mockCodexService = createMockAgentService('codex', 'Codex response');
+    const mockGeminiService = createMockAgentService('gemini', 'Gemini response');
+
+    const threadStore = createMockThreadStore({}, {}, {
+      'thread-policy': { v: 1, scopes: { review: { avoidCats: ['opus'], reason: 'budget' } } },
+    });
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: mockClaudeService,
+      codexService: mockCodexService,
+      geminiService: mockGeminiService,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('帮我 review 一下', 'thread-policy');
+    assert.equal(targetCats[0], 'codex', 'Should pick deterministic non-opus fallback (codex) when opus is avoided');
+  });
+
+  test('routingPolicy(review) does not trigger on words containing "pr" like "prompt"', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({}, {}, {
+      'thread-policy': { v: 1, scopes: { review: { avoidCats: ['opus'], reason: 'budget' } } },
+    });
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus', 'Opus response'),
+      codexService: createMockAgentService('codex', 'Codex response'),
+      geminiService: createMockAgentService('gemini', 'Gemini response'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('prompt engineering 这块怎么做', 'thread-policy');
+    assert.equal(targetCats[0], 'opus', 'Should not classify "prompt" as PR/review scope');
+  });
+
+  test('routingPolicy tolerates malformed avoid/prefer lists without crashing', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({}, {}, {
+      'thread-malformed': {
+        v: 1,
+        scopes: {
+          review: {
+            avoidCats: { bad: true },
+            preferCats: 'opus',
+          },
+        },
+      },
+    });
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus', 'Opus response'),
+      codexService: createMockAgentService('codex', 'Codex response'),
+      geminiService: createMockAgentService('gemini', 'Gemini response'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('请 review 这次改动', 'thread-malformed');
+    assert.equal(targetCats[0], 'opus');
+  });
+
+  test('routingPolicy(architecture) prefers opus even when participants would route elsewhere', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 'thread-arch': ['codex'] }, {}, {
+      'thread-arch': { v: 1, scopes: { architecture: { preferCats: ['opus'] } } },
+    });
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus', 'Opus response'),
+      codexService: createMockAgentService('codex', 'Codex response'),
+      geminiService: createMockAgentService('gemini', 'Gemini response'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('这个架构 tradeoff 怎么选', 'thread-arch');
+    assert.equal(targetCats[0], 'opus', 'Should prefer opus first for architecture scope');
+    assert.ok(targetCats.includes('codex'), 'Should keep existing participant after preferred cat');
+  });
+
+  test('routingPolicy does not override explicit @mention', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({}, {}, {
+      'thread-mention': { v: 1, scopes: { review: { avoidCats: ['opus'] } } },
+    });
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus', 'Opus response'),
+      codexService: createMockAgentService('codex', 'Codex response'),
+      geminiService: createMockAgentService('gemini', 'Gemini response'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@opus 帮我 review', 'thread-mention');
+    assert.deepEqual(targetCats, ['opus']);
+  });
+
   test('routes to opus (default) when no @ mention is present', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'

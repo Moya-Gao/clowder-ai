@@ -170,6 +170,19 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(updated.favoritedAt, null);
   });
 
+  it('updateRoutingPolicy() stores and hydrates routingPolicy', async () => {
+    const thread = await store.create('user1', 'Routing Policy');
+    const policy = { v: 1, scopes: { review: { avoidCats: ['opus'], reason: 'budget' } } };
+    await store.updateRoutingPolicy(thread.id, policy);
+    const updated = await store.get(thread.id);
+    assert.deepEqual(updated.routingPolicy, policy);
+
+    // null clears
+    await store.updateRoutingPolicy(thread.id, null);
+    const cleared = await store.get(thread.id);
+    assert.equal(cleared.routingPolicy, undefined);
+  });
+
   it('delete() removes thread', async () => {
     const thread = await store.create('user1', 'To Delete');
     const result = await store.delete(thread.id);

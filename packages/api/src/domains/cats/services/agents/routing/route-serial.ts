@@ -39,6 +39,7 @@ import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
+import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -81,6 +82,13 @@ export async function* routeSerial(
     try {
       activeParticipants = await deps.invocationDeps.threadStore.getParticipantsWithActivity(threadId);
     } catch { /* best-effort: activity fetch failure does not block invocation */ }
+  }
+  // F042: Fetch thread routingPolicy once before loop (threadId doesn't change).
+  let routingPolicy: ThreadRoutingPolicyV1 | undefined;
+  if (deps.invocationDeps.threadStore) {
+    try {
+      routingPolicy = (await deps.invocationDeps.threadStore.get(threadId))?.routingPolicy;
+    } catch { /* best-effort */ }
   }
 
   try {
@@ -129,6 +137,7 @@ export async function* routeSerial(
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
       ...(directMessageFrom ? { directMessageFrom } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
+      ...(routingPolicy ? { routingPolicy } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+

@@ -273,6 +273,28 @@ describe('Thread API', () => {
     assert.equal(res.statusCode, 400);
   });
 
+  it('PATCH /api/threads/:id rejects multiline routingPolicy reason', async () => {
+    const thread = threadStore.create('alice', 'Routing Policy Validation');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: {
+        routingPolicy: {
+          v: 1,
+          scopes: {
+            review: {
+              avoidCats: ['opus'],
+              reason: 'budget\ninject',
+            },
+          },
+        },
+      },
+    });
+
+    assert.equal(res.statusCode, 400);
+  });
+
   it('DELETE /api/threads/:id removes thread', async () => {
     const thread = threadStore.create('alice', 'To Delete');
 

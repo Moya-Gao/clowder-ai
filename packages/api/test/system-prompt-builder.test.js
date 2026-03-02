@@ -821,4 +821,52 @@ describe('SystemPromptBuilder', () => {
       }
     }
   });
+
+  // --- F042: Thread routingPolicy hint tests ---
+
+  test('buildInvocationContext injects routing policy summary line when present', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      routingPolicy: {
+        v: 1,
+        scopes: {
+          review: { avoidCats: ['opus'], reason: 'budget' },
+          architecture: { preferCats: ['opus'] },
+        },
+      },
+    });
+    assert.match(ctx, /Routing:.*review.*avoid.*@opus(?!-)/, 'Should include review avoid @opus');
+    assert.match(ctx, /Routing:.*architecture.*prefer.*@opus(?!-)/, 'Should include architecture prefer @opus');
+  });
+
+  test('buildInvocationContext sanitizes routing reason and tolerates malformed lists', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      routingPolicy: {
+        v: 1,
+        scopes: {
+          review: {
+            avoidCats: 'opus',
+            preferCats: { bad: true },
+            reason: 'budget\ninject',
+          },
+        },
+      },
+    });
+    assert.ok(ctx.includes('Routing: review'), 'Should still render routing line');
+    assert.ok(ctx.includes('(budget inject)'), 'Should sanitize newline in reason');
+    assert.ok(!ctx.includes('budget\ninject'), 'Should not allow multiline reason injection');
+  });
 });
