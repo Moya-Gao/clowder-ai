@@ -68,6 +68,7 @@ Step 6: REPORT — 输出合规报告 + 证据
 ```
 
 **前端功能额外要求**：`≤3 张截图 + 1 段 15s 录屏`，附"需求 → 截图"映射表。
+执行细则：`cat-cafe-skills/refs/vision-evidence-workflow.md`。
 
 ## Quick Reference
 

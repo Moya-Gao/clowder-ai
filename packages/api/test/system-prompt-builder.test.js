@@ -787,6 +787,23 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('reply to @opus'));
   });
 
+  test('buildInvocationContext includes review identity gate instructions when required', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      directMessageFrom: 'gpt52',
+      reviewIdentityCheckFrom: 'gpt52',
+    });
+    assert.ok(ctx.includes('Review identity gate'));
+    assert.ok(ctx.includes('Identity Check:'));
+    assert.ok(ctx.includes('@codex'));
+  });
+
   test('buildInvocationContext supports runtime variant cat IDs (gpt52)', async () => {
     const { buildInvocationContext } = await import(
       '../dist/domains/cats/services/context/SystemPromptBuilder.js'

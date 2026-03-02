@@ -9,6 +9,7 @@ set -euo pipefail
 # Resolve canonical SKILLS_SRC via git main worktree (not script location).
 # This ensures correct symlink comparison even when run from a worktree.
 MAIN_REPO="$(git worktree list --porcelain | head -1 | sed 's/^worktree //')"
+WORKTREE_REPO="$(git rev-parse --show-toplevel)"
 SKILLS_SRC="$MAIN_REPO/cat-cafe-skills"
 BOOTSTRAP="$SKILLS_SRC/BOOTSTRAP.md"
 CLAUDE_SKILLS="$HOME/.claude/skills"
@@ -24,6 +25,7 @@ NC='\033[0m'
 total=0
 missing=0
 reg_warnings=0
+manifest_failures=0
 
 # ─── Part 1: Symlink Mount Check ───
 
@@ -116,16 +118,26 @@ if [ "$reg_warnings" -eq 0 ]; then
   printf "  ${GREEN}全部一致${NC}\n"
 fi
 
+# ─── Part 3: Manifest Consistency Check (blocking) ───
+
+printf "\n${BOLD}Manifest 一致性校验（阻塞）${NC}\n\n"
+if node "$WORKTREE_REPO/scripts/check-skills-manifest.mjs" "$WORKTREE_REPO"; then
+  :
+else
+  manifest_failures=$((manifest_failures + 1))
+fi
+
 # ─── Summary ───
-# Exit code: only mount failures are blocking; registration warnings are advisory.
+# Exit code: mount failures + manifest failures are blocking; registration warnings are advisory.
 
 printf "\n${BOLD}总结${NC}: %d skills, " "$total"
-if [ "$missing" -eq 0 ] && [ "$reg_warnings" -eq 0 ]; then
-  printf "${GREEN}全部正确（挂载 + 注册）${NC}\n\n"
+if [ "$missing" -eq 0 ] && [ "$reg_warnings" -eq 0 ] && [ "$manifest_failures" -eq 0 ]; then
+  printf "${GREEN}全部正确（挂载 + 注册 + manifest）${NC}\n\n"
   exit 0
 else
   [ "$missing" -gt 0 ] && printf "${RED}%d 挂载异常${NC} " "$missing"
   [ "$reg_warnings" -gt 0 ] && printf "${YELLOW}%d 注册警告${NC} " "$reg_warnings"
+  [ "$manifest_failures" -gt 0 ] && printf "${RED}%d manifest 失败${NC} " "$manifest_failures"
   printf "\n\n"
   if [ "$missing" -gt 0 ]; then
     printf "修复挂载:\n"
@@ -136,8 +148,8 @@ else
   if [ "$reg_warnings" -gt 0 ]; then
     printf "修复注册: 编辑 cat-cafe-skills/BOOTSTRAP.md 添加/移除对应条目\n\n"
   fi
-  # Only mount failures are blocking
-  if [ "$missing" -gt 0 ]; then
+  # Mount failures and manifest failures are blocking.
+  if [ "$missing" -gt 0 ] || [ "$manifest_failures" -gt 0 ]; then
     exit 1
   fi
   exit 0

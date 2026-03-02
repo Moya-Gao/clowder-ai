@@ -48,6 +48,7 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
    ---
    ```
    核心章节：Why / What / Acceptance Criteria / Links / Key Decisions / Dependencies (`Evolved from`) / Risk / Open Questions / Review Gate / Timeline
+   并在 spec 中补一节：`## 需求点 Checklist`（模板见 `cat-cafe-skills/refs/requirements-checklist-template.md`）
 
 3. **更新 BACKLOG.md**：末尾加 `| F042 | 名称 | spec | Owner | [F042](features/...) |`
 

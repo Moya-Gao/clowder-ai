@@ -40,6 +40,10 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import {
+  shouldRequireReviewIdentityGate,
+  validateReviewIdentityHandshake,
+} from '../../collaboration/review-identity-gate.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -115,6 +119,11 @@ export async function* routeSerial(
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
     const directMessageFrom = worklistEntry.a2aFrom.get(catId);
+    const reviewIdentityCheckFrom = worklistEntry.reviewIdentityCheckFrom.get(catId);
+    if (reviewIdentityCheckFrom) {
+      // One-shot gate: consume at execution time to avoid stale carry-over.
+      worklistEntry.reviewIdentityCheckFrom.delete(catId);
+    }
     // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
     // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
     const mcpAvailable = (catConfig?.mcpSupport ?? false) && !!mcpServerPath;
@@ -136,6 +145,7 @@ export async function* routeSerial(
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
       ...(directMessageFrom ? { directMessageFrom } : {}),
+      ...(reviewIdentityCheckFrom ? { reviewIdentityCheckFrom } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
       ...(routingPolicy ? { routingPolicy } : {}),
     });
@@ -347,7 +357,8 @@ export async function* routeSerial(
       const sanitized = sanitizeInjectedContent(textContent);
 
       // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
-      const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
+      const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
+      let storedContent = cleanText;
       let allRichBlocks = [...bufferedBlocks, ...textBlocks];
 
       // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
@@ -365,6 +376,18 @@ export async function* routeSerial(
       // Only share previousResponses in debug mode where cats see each other's thinking.
       if (!incrementalMode && thinkingMode === 'debug') {
         previousResponses.push({ catId, content: storedContent });
+      }
+
+      if (reviewIdentityCheckFrom) {
+        const handshake = validateReviewIdentityHandshake(storedContent, catId);
+        if (!handshake.valid) {
+          storedContent = [
+            `⚠️ Review 无效：同族 reviewer identity check 未通过（${handshake.reason ?? 'unknown reason'}）。`,
+            `请先用首行 Identity Check 声明身份后，再给出 review 结论。`,
+            '',
+            storedContent,
+          ].join('\n');
+        }
       }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
@@ -433,11 +456,21 @@ export async function* routeSerial(
         const pendingTail = worklist.slice(index + 1);
         const pendingOriginalTargets = targetCats.slice(index + 1);
         for (const nextCat of a2aMentions) {
+          const gateRequired = shouldRequireReviewIdentityGate({
+            fromCatId: catId,
+            toCatId: nextCat,
+            message: storedContent,
+          });
           if (worklistEntry.a2aCount >= maxDepth) break;
           if (pendingTail.includes(nextCat)) {
             // Keep original user-selected targets replying to user, not to another cat.
             if (!pendingOriginalTargets.includes(nextCat)) {
               worklistEntry.a2aFrom.set(nextCat, catId);
+              if (gateRequired) {
+                worklistEntry.reviewIdentityCheckFrom.set(nextCat, catId);
+              } else {
+                worklistEntry.reviewIdentityCheckFrom.delete(nextCat);
+              }
             }
             continue;
           }
@@ -446,6 +479,11 @@ export async function* routeSerial(
           worklistEntry.a2aCount++;
           pendingTail.push(nextCat); // Keep dedup view in sync
           worklistEntry.a2aFrom.set(nextCat, catId);
+          if (gateRequired) {
+            worklistEntry.reviewIdentityCheckFrom.set(nextCat, catId);
+          } else {
+            worklistEntry.reviewIdentityCheckFrom.delete(nextCat);
+          }
         }
       }
 

@@ -3,6 +3,7 @@ feature_ids: [F046]
 topics: [vision-drift, anti-drift, sop, review, process, multi-agent]
 doc_kind: spec
 created: 2026-02-27
+updated: 2026-03-02
 ---
 
 # F046: 愿景守护协议 — Anti-Drift Protocol
@@ -37,12 +38,12 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
-| B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | 📋 Spec | 无需新依赖，用已有工具 |
+| B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | ✅ Implemented（待 review） | refs 流程文档化，无需新依赖 |
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
-| B3 | 需求点 checklist 格式——结构化需求追踪 | 📋 Spec | 嵌入 feat-kickoff 模板 |
-| B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | 📋 Spec | ← F042 Wave 2 毕业：Lint = 漂移防护 |
+| B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Implemented（待 review） | 已嵌入 feat-kickoff 模板 |
+| B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Implemented（待 review） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
 | B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
-| B6 | 同族 reviewer identity check gate | 📋 Spec | ← F042 Wave 3 毕业：流程执行守护门禁 |
+| B6 | 同族 reviewer identity check gate | ✅ Implemented（待 review） | ← F042 Wave 3 毕业：流程执行守护门禁 |
 
 ### 明确不做（Phase C）
 
@@ -59,12 +60,12 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] `feat-completion` 有跨猫签收步骤（Step 0d）
 - [x] `requesting-review` + `requesting-cloud-review` 强制附原始需求摘录
 - [x] 截图证据仅限前端 UI/UX 功能
-- [ ] 截图/录屏证据流程文档化，利用现有 MCP 工具（B1）
+- [x] 截图/录屏证据流程文档化，利用现有 MCP 工具（B1）
 - [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
-- [ ] 需求点 checklist 格式嵌入开发模板（B3）
-- [ ] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
+- [x] 需求点 checklist 格式嵌入开发模板（B3）
+- [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
 - [ ] ≥10 条对话场景回归测试就位（B5）
-- [ ] 同族 reviewer identity check gate 落地（B6）
+- [x] 同族 reviewer identity check gate 落地（B6）
 
 ## Links
 
@@ -118,11 +119,24 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
-| — | — | — | — |
+| R1 | @gpt52 | pending | 2026-03-02 |
 
 ## Test Evidence
 
-Phase A 为流程/文档变更，无代码测试。Phase B 开发时补充。
+Phase A 为流程/文档变更，无代码测试。
+
+Phase B（B4/B6）代码证据（2026-03-02）：
+- `node --test scripts/check-skills-manifest.test.mjs` → 4/4 pass
+- `pnpm check:skills` → 15 skills 挂载/注册/manifest 全绿
+- `pnpm --filter @cat-cafe/api run build` → success
+- `node --test packages/api/test/review-identity-gate.test.js packages/api/test/system-prompt-builder.test.js` → 60/60 pass
+- `node --test packages/api/test/agent-router.test.js`（在 `packages/api/` 目录）→ 50/50 pass
+
+Phase B（B1/B3）文档证据（2026-03-02）：
+- `cat-cafe-skills/refs/vision-evidence-workflow.md`（B1 流程）
+- `cat-cafe-skills/refs/requirements-checklist-template.md`（B3 模板）
+- `cat-cafe-skills/quality-gate/SKILL.md` 已引用 B1 流程
+- `cat-cafe-skills/feat-lifecycle/SKILL.md` kickoff 已要求嵌入 B3 checklist
 
 ## Timeline
 
@@ -132,3 +146,7 @@ Phase A 为流程/文档变更，无代码测试。Phase B 开发时补充。
 - 2026-02-27: Phase A (A1-A4) 落地 → `642c31b`
 - 2026-02-27: F046 立项（本文件）
 - 2026-03-02: 吸收 F042 毕业项 B4/B5/B6（路线图收敛决策 → `docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
+- 2026-03-02: B1 文档化：前端截图/录屏证据流程（refs/vision-evidence-workflow）
+- 2026-03-02: B3 文档化：需求点 checklist 模板嵌入 feat-kickoff（refs/requirements-checklist-template）
+- 2026-03-02: B4 实现：`pnpm check:skills` 接入 manifest 一致性阻塞门禁（字段完整性 / next 指向 / 硬编码句柄检查）
+- 2026-03-02: B6 实现：同族 reviewer identity gate（worklist 状态承载 + invocation 注入 + route-serial 握手校验）

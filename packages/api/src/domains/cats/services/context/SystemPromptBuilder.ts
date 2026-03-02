@@ -43,6 +43,11 @@ export interface InvocationContext {
    * When present, the invoked cat MUST reply to this cat (not the user).
    */
   directMessageFrom?: CatId;
+  /**
+   * F046 B6: Same-family reviewer identity-check gate sender.
+   * When present, this invocation must start with an explicit Identity Check line.
+   */
+  reviewIdentityCheckFrom?: CatId;
   /** F042 Wave 3: Thread-level participant activity for @ disambiguation.
    *  Sorted by lastMessageAt desc. Injected per-invocation to survive compression. */
   activeParticipants?: readonly ThreadParticipantActivity[];
@@ -326,6 +331,13 @@ export function buildInvocationContext(context: InvocationContext): string {
   // F042: A2A direct-message reply target.
   if (context.directMessageFrom && context.directMessageFrom !== context.catId) {
     lines.push(`Direct message from @${context.directMessageFrom}; reply to @${context.directMessageFrom}`);
+  }
+
+  if (context.reviewIdentityCheckFrom && context.reviewIdentityCheckFrom !== context.catId) {
+    lines.push(
+      `Review identity gate: 同族 reviewer 场景。首行必须是 "Identity Check: 我是 ${config.displayName}${config.nickname ? `/${config.nickname}` : ''} (@${context.catId}, model=${runtimeModel})"。`,
+    );
+    lines.push('若缺失或不匹配，本次 review 视为无效。');
   }
 
   // Teammates — only list cats actually in this invocation

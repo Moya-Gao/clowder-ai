@@ -39,6 +39,8 @@ feat-lifecycle → writing-plans → worktree → tdd
 | `refs/commit-signatures.md` | 猫猫签名表 + @ 句柄 |
 | `refs/pr-template.md` | PR 模板 + 云端 review 触发模板 |
 | `refs/review-request-template.md` | Review 请求信模板 |
+| `refs/vision-evidence-workflow.md` | 前端截图/录屏证据流程（B1） |
+| `refs/requirements-checklist-template.md` | 需求点 checklist 模板（B3） |
 | `refs/mcp-callbacks.md` | HTTP callback API 参考 |
 | `refs/rich-blocks.md` | Rich block 创建指南 |
 

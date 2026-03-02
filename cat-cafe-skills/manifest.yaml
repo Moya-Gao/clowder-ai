@@ -331,6 +331,14 @@ refs:
     description: "Review 请求信模板（五件套）"
     path: "refs/review-request-template.md"
     source: "cat-cafe-requesting-review"
+  vision-evidence-workflow:
+    description: "前端截图/录屏证据流程（B1）"
+    path: "refs/vision-evidence-workflow.md"
+    source: "F046 Phase B B1"
+  requirements-checklist-template:
+    description: "需求点 checklist 模板（B3）"
+    path: "refs/requirements-checklist-template.md"
+    source: "F046 Phase B B3"
   decision-matrix:
     description: "决策权漏斗矩阵（铲屎官/三猫/自治）"
     path: "refs/decision-matrix.md"
