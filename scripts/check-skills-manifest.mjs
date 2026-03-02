@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from 'node:module';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
@@ -102,6 +102,17 @@ function lintManifestStructure(skillsMap) {
     if (!existsSync(skillDocPath)) {
       errors.push(`[manifest] skills.${skillName} has no matching SKILL.md at ${relative(repoRoot, skillDocPath)}`);
     }
+  }
+
+  for (const entry of readdirSync(skillsRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const skillName = entry.name;
+    const skillDocPath = join(skillsRoot, skillName, 'SKILL.md');
+    if (!existsSync(skillDocPath)) continue;
+    if (Object.prototype.hasOwnProperty.call(skillsMap, skillName)) continue;
+    errors.push(
+      `[manifest] filesystem skill "${skillName}" has SKILL.md but is missing in manifest.yaml`,
+    );
   }
 
   return errors;

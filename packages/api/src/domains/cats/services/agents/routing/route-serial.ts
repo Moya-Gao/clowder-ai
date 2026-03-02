@@ -372,12 +372,6 @@ export async function* routeSerial(
         }
       }
 
-      // In play mode, CLI stream output (thinking) is hidden from other cats.
-      // Only share previousResponses in debug mode where cats see each other's thinking.
-      if (!incrementalMode && thinkingMode === 'debug') {
-        previousResponses.push({ catId, content: storedContent });
-      }
-
       if (reviewIdentityCheckFrom) {
         const handshake = validateReviewIdentityHandshake(storedContent, catId);
         if (!handshake.valid) {
@@ -388,6 +382,13 @@ export async function* routeSerial(
             storedContent,
           ].join('\n');
         }
+      }
+
+      // In play mode, CLI stream output (thinking) is hidden from other cats.
+      // Only share previousResponses in debug mode where cats see each other's thinking.
+      // Important: push after review gate mutation so downstream cats see invalid-review marker.
+      if (!incrementalMode && thinkingMode === 'debug') {
+        previousResponses.push({ catId, content: storedContent });
       }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)

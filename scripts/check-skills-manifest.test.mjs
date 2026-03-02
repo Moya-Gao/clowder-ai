@@ -132,4 +132,19 @@ describe('check-skills-manifest.mjs', () => {
       /hardcoded|@codex|failed|error/i,
     );
   });
+
+  it('fails when filesystem has SKILL.md that is missing from manifest', () => {
+    const extraSkillDir = join(sandboxRoot, 'cat-cafe-skills', 'skill-z');
+    mkdirSync(extraSkillDir, { recursive: true });
+    writeFileSync(
+      join(extraSkillDir, 'SKILL.md'),
+      '# skill-z\n\nthis skill is intentionally not registered in manifest\n',
+      'utf-8',
+    );
+
+    assert.throws(
+      () => runChecker(sandboxRoot),
+      /manifest|skill-z|failed|error/i,
+    );
+  });
 });
