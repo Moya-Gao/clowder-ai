@@ -117,10 +117,16 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 
 ## Open Questions
 
-1. Redis key schema / index / query patterns 具体怎么定（以及是否需要 markdown 导出兜底）？
-2. 与现有任务/右侧看板（F026/F045）如何对齐：共享实体还是桥接？
-3. “自动开 thread”是走 UI API 还是走 MCP tool（让猫也能触发）？
-4. phase 与 mode 的关系：是否按 F-Swarm-2 的“phase=柔性引导”路线前进？
+1. 与现有任务/右侧看板（F026/F045）如何对齐：共享实体还是桥接？
+2. “自动开 thread”是走 UI API 还是走 MCP tool（让猫也能触发）？
+3. phase 与 mode 的关系：是否按 F-Swarm-2 的“phase=柔性引导”路线前进？
+
+## Phase3 Progress（2026-03-02）
+
+- [x] `selfClaimScope=once`：同一 cat 的第二次非幂等自领会被阻断（403）。
+- [x] `selfClaimScope=thread`：当该 cat 在其他 item 上有 active lease 时，阻断新的自领（409）；释放后可继续。
+- [x] lease 四条状态迁移（acquire/heartbeat/release/reclaim）升级为 Redis Lua/CAS 原子更新。
+- [x] Mission Hub 显式展示 policy 阻断原因（once 已消费 / thread 活跃冲突）并和 API 语义对齐。
 
 ## Follow-up（post-merge）
 
@@ -147,3 +153,5 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - 2026-03-02: Mission Hub 命名落地 + docs backlog 手动导入/刷新能力补齐（小 PR）
 - 2026-03-02: 路线图收敛 — 吸收 F042 routing-policy-scopes 为 Phase B（`docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
 - 2026-03-02: Phase2 落地 — `backlogItemId` 反向关联 + lease 状态机 + self-claim 权限棘轮 gate
+- 2026-03-02: Phase3 开工 — self-claim `once/thread` 语义细化（非幂等二次自领阻断 + 活跃 lease 冲突阻断）
+- 2026-03-03: Phase3 续推 — lease 迁移改为 Redis Lua 原子更新 + Mission Hub 阻断原因文案对齐

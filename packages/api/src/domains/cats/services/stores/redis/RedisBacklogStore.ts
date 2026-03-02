@@ -21,6 +21,266 @@ import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog
 
 const DEFAULT_TTL = 90 * 24 * 60 * 60; // 90 days
 
+/**
+ * KEYS[1] = backlog:item:{id}
+ * ARGV[1] = now
+ * ARGV[2] = catId
+ * ARGV[3] = expiresAt
+ * ARGV[4] = auditEntry(json)
+ *
+ * return: 1 success, -1 missing, -2 status!=dispatched, -3 active lease owned by another cat
+ */
+const LEASE_ACQUIRE_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local catId = ARGV[2]
+local expiresAt = tonumber(ARGV[3])
+local auditEntryRaw = ARGV[4]
+
+if redis.call('HGET', key, 'id') == false then
+  return -1
+end
+
+if redis.call('HGET', key, 'status') ~= 'dispatched' then
+  return -2
+end
+
+local leaseRaw = redis.call('HGET', key, 'lease')
+if leaseRaw and leaseRaw ~= '' then
+  local okLease, lease = pcall(cjson.decode, leaseRaw)
+  if okLease and lease and lease['state'] == 'active' and tonumber(lease['expiresAt'] or 0) > now and lease['ownerCatId'] ~= catId then
+    return -3
+  end
+end
+
+local audit = {}
+local auditRaw = redis.call('HGET', key, 'audit')
+if auditRaw and auditRaw ~= '' then
+  local okAudit, decodedAudit = pcall(cjson.decode, auditRaw)
+  if okAudit and type(decodedAudit) == 'table' then
+    audit = decodedAudit
+  end
+end
+
+local okEntry, auditEntry = pcall(cjson.decode, auditEntryRaw)
+if okEntry and type(auditEntry) == 'table' then
+  table.insert(audit, auditEntry)
+end
+
+local leaseObj = {
+  ownerCatId = catId,
+  state = 'active',
+  acquiredAt = now,
+  heartbeatAt = now,
+  expiresAt = expiresAt,
+}
+
+redis.call('HSET', key,
+  'lease', cjson.encode(leaseObj),
+  'updatedAt', tostring(now),
+  'audit', cjson.encode(audit)
+)
+
+return 1
+`;
+
+/**
+ * KEYS[1] = backlog:item:{id}
+ * ARGV[1] = now
+ * ARGV[2] = catId
+ * ARGV[3] = expiresAt
+ * ARGV[4] = auditEntry(json)
+ *
+ * return: 1 success, -1 missing, -2 status!=dispatched, -4 no active lease,
+ *         -5 owner mismatch, -6 lease expired
+ */
+const LEASE_HEARTBEAT_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local catId = ARGV[2]
+local expiresAt = tonumber(ARGV[3])
+local auditEntryRaw = ARGV[4]
+
+if redis.call('HGET', key, 'id') == false then
+  return -1
+end
+
+if redis.call('HGET', key, 'status') ~= 'dispatched' then
+  return -2
+end
+
+local leaseRaw = redis.call('HGET', key, 'lease')
+if not leaseRaw or leaseRaw == '' then
+  return -4
+end
+
+local okLease, lease = pcall(cjson.decode, leaseRaw)
+if not okLease or not lease or lease['state'] ~= 'active' then
+  return -4
+end
+
+if lease['ownerCatId'] ~= catId then
+  return -5
+end
+
+if tonumber(lease['expiresAt'] or 0) <= now then
+  return -6
+end
+
+local audit = {}
+local auditRaw = redis.call('HGET', key, 'audit')
+if auditRaw and auditRaw ~= '' then
+  local okAudit, decodedAudit = pcall(cjson.decode, auditRaw)
+  if okAudit and type(decodedAudit) == 'table' then
+    audit = decodedAudit
+  end
+end
+
+local okEntry, auditEntry = pcall(cjson.decode, auditEntryRaw)
+if okEntry and type(auditEntry) == 'table' then
+  table.insert(audit, auditEntry)
+end
+
+lease['heartbeatAt'] = now
+lease['expiresAt'] = expiresAt
+
+redis.call('HSET', key,
+  'lease', cjson.encode(lease),
+  'updatedAt', tostring(now),
+  'audit', cjson.encode(audit)
+)
+
+return 1
+`;
+
+/**
+ * KEYS[1] = backlog:item:{id}
+ * ARGV[1] = now
+ * ARGV[2] = expectedCatId(optional; empty means no owner check)
+ * ARGV[3] = actorId
+ * ARGV[4] = auditEntry(json)
+ *
+ * return: 1 success, 2 noop(no active lease), -1 missing, -2 status!=dispatched, -5 owner mismatch
+ */
+const LEASE_RELEASE_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local expectedCatId = ARGV[2]
+local actorId = ARGV[3]
+local auditEntryRaw = ARGV[4]
+
+if redis.call('HGET', key, 'id') == false then
+  return -1
+end
+
+if redis.call('HGET', key, 'status') ~= 'dispatched' then
+  return -2
+end
+
+local leaseRaw = redis.call('HGET', key, 'lease')
+if not leaseRaw or leaseRaw == '' then
+  return 2
+end
+
+local okLease, lease = pcall(cjson.decode, leaseRaw)
+if not okLease or not lease or lease['state'] ~= 'active' then
+  return 2
+end
+
+if expectedCatId ~= '' and lease['ownerCatId'] ~= expectedCatId then
+  return -5
+end
+
+local audit = {}
+local auditRaw = redis.call('HGET', key, 'audit')
+if auditRaw and auditRaw ~= '' then
+  local okAudit, decodedAudit = pcall(cjson.decode, auditRaw)
+  if okAudit and type(decodedAudit) == 'table' then
+    audit = decodedAudit
+  end
+end
+
+local okEntry, auditEntry = pcall(cjson.decode, auditEntryRaw)
+if okEntry and type(auditEntry) == 'table' then
+  table.insert(audit, auditEntry)
+end
+
+lease['state'] = 'released'
+lease['releasedAt'] = now
+lease['releasedBy'] = actorId
+
+redis.call('HSET', key,
+  'lease', cjson.encode(lease),
+  'updatedAt', tostring(now),
+  'audit', cjson.encode(audit)
+)
+
+return 1
+`;
+
+/**
+ * KEYS[1] = backlog:item:{id}
+ * ARGV[1] = now
+ * ARGV[2] = actorId
+ * ARGV[3] = auditEntry(json)
+ *
+ * return: 1 success, 2 noop(no active lease), -1 missing, -2 status!=dispatched, -7 lease not expired
+ */
+const LEASE_RECLAIM_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local actorId = ARGV[2]
+local auditEntryRaw = ARGV[3]
+
+if redis.call('HGET', key, 'id') == false then
+  return -1
+end
+
+if redis.call('HGET', key, 'status') ~= 'dispatched' then
+  return -2
+end
+
+local leaseRaw = redis.call('HGET', key, 'lease')
+if not leaseRaw or leaseRaw == '' then
+  return 2
+end
+
+local okLease, lease = pcall(cjson.decode, leaseRaw)
+if not okLease or not lease or lease['state'] ~= 'active' then
+  return 2
+end
+
+if tonumber(lease['expiresAt'] or 0) > now then
+  return -7
+end
+
+local audit = {}
+local auditRaw = redis.call('HGET', key, 'audit')
+if auditRaw and auditRaw ~= '' then
+  local okAudit, decodedAudit = pcall(cjson.decode, auditRaw)
+  if okAudit and type(decodedAudit) == 'table' then
+    audit = decodedAudit
+  end
+end
+
+local okEntry, auditEntry = pcall(cjson.decode, auditEntryRaw)
+if okEntry and type(auditEntry) == 'table' then
+  table.insert(audit, auditEntry)
+end
+
+lease['state'] = 'reclaimed'
+lease['reclaimedAt'] = now
+lease['reclaimedBy'] = actorId
+
+redis.call('HSET', key,
+  'lease', cjson.encode(lease),
+  'updatedAt', tostring(now),
+  'audit', cjson.encode(audit)
+)
+
+return 1
+`;
+
 export class RedisBacklogStore implements IBacklogStore {
   private readonly redis: RedisClient;
   private readonly ttlSeconds: number | null;
@@ -282,164 +542,159 @@ export class RedisBacklogStore implements IBacklogStore {
   }
 
   async acquireLease(itemId: string, input: AcquireBacklogLeaseInput): Promise<BacklogItem | null> {
-    const existing = await this.get(itemId);
-    if (!existing) return null;
-    if (existing.status !== 'dispatched') {
+    const now = Date.now();
+    const ttlMs = this.normalizeLeaseTtl(input.ttlMs);
+    const expiresAt = now + ttlMs;
+    const auditEntry = JSON.stringify({
+      id: generateSortableId(now + 1),
+      action: 'lease_acquired',
+      actor: makeUserActor(input.actorId),
+      timestamp: now,
+      detail: `${input.catId}:${expiresAt}`,
+    });
+
+    const result = await this.runLeaseLua(
+      LEASE_ACQUIRE_LUA,
+      itemId,
+      String(now),
+      input.catId,
+      String(expiresAt),
+      auditEntry,
+    );
+
+    if (result === -1) return null;
+    if (result === -2) {
       throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can acquire lease');
     }
-
-    const now = Date.now();
-    const currentLease = existing.lease;
-    if (this.isLeaseActive(currentLease, now) && currentLease?.ownerCatId !== input.catId) {
+    if (result === -3) {
       throw new BacklogTransitionError('Invalid backlog transition: active lease owned by another cat');
     }
+    if (result !== 1) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease acquire rejected');
+    }
 
-    const nextLease: BacklogLease = {
-      ownerCatId: input.catId,
-      state: 'active',
-      acquiredAt: now,
-      heartbeatAt: now,
-      expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
-    };
-
-    const updated: BacklogItem = {
-      ...existing,
-      lease: nextLease,
-      updatedAt: now,
-      audit: [
-        ...existing.audit,
-        {
-          id: generateSortableId(now + 1),
-          action: 'lease_acquired',
-          actor: makeUserActor(input.actorId),
-          timestamp: now,
-          detail: `${input.catId}:${nextLease.expiresAt}`,
-        },
-      ],
-    };
-    await this.writeItem(updated);
+    const updated = await this.get(itemId);
+    if (!updated) return null;
+    await this.touchLeaseTtl(updated);
     return updated;
   }
 
   async heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): Promise<BacklogItem | null> {
-    const existing = await this.get(itemId);
-    if (!existing) return null;
-    if (existing.status !== 'dispatched') {
+    const now = Date.now();
+    const ttlMs = this.normalizeLeaseTtl(input.ttlMs);
+    const expiresAt = now + ttlMs;
+    const auditEntry = JSON.stringify({
+      id: generateSortableId(now + 1),
+      action: 'lease_heartbeat',
+      actor: makeUserActor(input.actorId),
+      timestamp: now,
+      detail: `${input.catId}`,
+    });
+
+    const result = await this.runLeaseLua(
+      LEASE_HEARTBEAT_LUA,
+      itemId,
+      String(now),
+      input.catId,
+      String(expiresAt),
+      auditEntry,
+    );
+
+    if (result === -1) return null;
+    if (result === -2) {
       throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can heartbeat lease');
     }
-
-    const now = Date.now();
-    const lease = existing.lease;
-    if (!lease || lease.state !== 'active') {
+    if (result === -4) {
       throw new BacklogTransitionError('Invalid backlog transition: no active lease to heartbeat');
     }
-    if (lease.ownerCatId !== input.catId) {
+    if (result === -5) {
       throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
     }
-    if (lease.expiresAt <= now) {
+    if (result === -6) {
       throw new BacklogTransitionError('Invalid backlog transition: lease already expired');
     }
+    if (result !== 1) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease heartbeat rejected');
+    }
 
-    const updated: BacklogItem = {
-      ...existing,
-      lease: {
-        ...lease,
-        heartbeatAt: now,
-        expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
-      },
-      updatedAt: now,
-      audit: [
-        ...existing.audit,
-        {
-          id: generateSortableId(now + 1),
-          action: 'lease_heartbeat',
-          actor: makeUserActor(input.actorId),
-          timestamp: now,
-          detail: `${input.catId}`,
-        },
-      ],
-    };
-    await this.writeItem(updated);
+    const updated = await this.get(itemId);
+    if (!updated) return null;
+    await this.touchLeaseTtl(updated);
     return updated;
   }
 
   async releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): Promise<BacklogItem | null> {
-    const existing = await this.get(itemId);
-    if (!existing) return null;
-    if (existing.status !== 'dispatched') {
+    const now = Date.now();
+    const auditEntry = JSON.stringify({
+      id: generateSortableId(now + 1),
+      action: 'lease_released',
+      actor: makeUserActor(input.actorId),
+      timestamp: now,
+      detail: input.catId ?? '',
+    });
+
+    const result = await this.runLeaseLua(
+      LEASE_RELEASE_LUA,
+      itemId,
+      String(now),
+      input.catId ?? '',
+      input.actorId,
+      auditEntry,
+    );
+
+    if (result === -1) return null;
+    if (result === -2) {
       throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can release lease');
     }
-
-    const now = Date.now();
-    const lease = existing.lease;
-    if (!lease || lease.state !== 'active') {
-      return existing;
-    }
-    if (input.catId && lease.ownerCatId !== input.catId) {
+    if (result === -5) {
       throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
     }
+    if (result !== 1 && result !== 2) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease release rejected');
+    }
 
-    const updated: BacklogItem = {
-      ...existing,
-      lease: {
-        ...lease,
-        state: 'released',
-        releasedAt: now,
-        releasedBy: input.actorId,
-      },
-      updatedAt: now,
-      audit: [
-        ...existing.audit,
-        {
-          id: generateSortableId(now + 1),
-          action: 'lease_released',
-          actor: makeUserActor(input.actorId),
-          timestamp: now,
-          detail: `${lease.ownerCatId}`,
-        },
-      ],
-    };
-    await this.writeItem(updated);
+    const updated = await this.get(itemId);
+    if (!updated) return null;
+    if (result === 1) {
+      await this.touchLeaseTtl(updated);
+    }
     return updated;
   }
 
   async reclaimExpiredLease(itemId: string, input: ReclaimBacklogLeaseInput): Promise<BacklogItem | null> {
-    const existing = await this.get(itemId);
-    if (!existing) return null;
-    if (existing.status !== 'dispatched') {
+    const now = Date.now();
+    const auditEntry = JSON.stringify({
+      id: generateSortableId(now + 1),
+      action: 'lease_reclaimed',
+      actor: makeUserActor(input.actorId),
+      timestamp: now,
+      detail: '',
+    });
+
+    const result = await this.runLeaseLua(
+      LEASE_RECLAIM_LUA,
+      itemId,
+      String(now),
+      input.actorId,
+      auditEntry,
+    );
+
+    if (result === -1) return null;
+    if (result === -2) {
       throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can reclaim lease');
     }
-
-    const now = Date.now();
-    const lease = existing.lease;
-    if (!lease || lease.state !== 'active') {
-      return existing;
-    }
-    if (lease.expiresAt > now) {
+    if (result === -7) {
       throw new BacklogTransitionError('Invalid backlog transition: lease not expired yet');
     }
+    if (result !== 1 && result !== 2) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease reclaim rejected');
+    }
 
-    const updated: BacklogItem = {
-      ...existing,
-      lease: {
-        ...lease,
-        state: 'reclaimed',
-        reclaimedAt: now,
-        reclaimedBy: input.actorId,
-      },
-      updatedAt: now,
-      audit: [
-        ...existing.audit,
-        {
-          id: generateSortableId(now + 1),
-          action: 'lease_reclaimed',
-          actor: makeUserActor(input.actorId),
-          timestamp: now,
-          detail: `${lease.ownerCatId}`,
-        },
-      ],
-    };
-    await this.writeItem(updated);
+    const updated = await this.get(itemId);
+    if (!updated) return null;
+    if (result === 1) {
+      await this.touchLeaseTtl(updated);
+    }
     return updated;
   }
 
@@ -533,7 +788,19 @@ export class RedisBacklogStore implements IBacklogStore {
     return Math.floor(ttlMs);
   }
 
-  private isLeaseActive(lease: BacklogLease | undefined, now: number): boolean {
-    return Boolean(lease && lease.state === 'active' && lease.expiresAt > now);
+  private async runLeaseLua(script: string, itemId: string, ...args: string[]): Promise<number> {
+    const raw = await this.redis.eval(script, 1, BacklogKeys.detail(itemId), ...args);
+    if (typeof raw === 'number') return raw;
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed)) return parsed;
+    throw new BacklogTransitionError('Invalid backlog transition: lease script returned unexpected result');
+  }
+
+  private async touchLeaseTtl(item: BacklogItem): Promise<void> {
+    if (this.ttlSeconds === null) return;
+    const pipeline = this.redis.multi();
+    pipeline.expire(BacklogKeys.detail(item.id), this.ttlSeconds);
+    pipeline.expire(BacklogKeys.userList(item.userId), this.ttlSeconds);
+    await pipeline.exec();
   }
 }

@@ -111,6 +111,21 @@ function sameTags(left: readonly string[], right: readonly string[]): boolean {
   return true;
 }
 
+function isSelfClaimApprovedByCat(item: BacklogItem, catId: CatId): boolean {
+  if (item.status !== 'approved' && item.status !== 'dispatched') return false;
+  if (!item.suggestion) return false;
+  if (item.suggestion.catId !== catId) return false;
+  if (item.suggestion.status !== 'approved') return false;
+  return item.suggestion.note === `self-claim:${catId}`;
+}
+
+function isActiveLeaseOwner(item: BacklogItem, catId: CatId, now: number): boolean {
+  return item.status === 'dispatched'
+    && item.lease?.state === 'active'
+    && item.lease.ownerCatId === catId
+    && item.lease.expiresAt > now;
+}
+
 export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (app, opts) => {
   const { backlogStore, threadStore, messageStore, backlogDocPath } = opts;
   const resolveSelfClaimScope = opts.resolveSelfClaimScope ?? ((catId: CatId) => getMissionHubSelfClaimScope(catId));
@@ -304,18 +319,37 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       return { error: 'Backlog item not found' };
     }
 
-    try {
-      if (existing.status === 'dispatched') {
-        const thread = existing.dispatchedThreadId
-          ? await threadStore.get(existing.dispatchedThreadId)
-          : null;
-        return {
-          item: existing,
-          ...(thread ? { thread } : {}),
-          selfClaimScope,
-        };
-      }
+    if (existing.status === 'dispatched') {
+      const thread = existing.dispatchedThreadId
+        ? await threadStore.get(existing.dispatchedThreadId)
+        : null;
+      return {
+        item: existing,
+        ...(thread ? { thread } : {}),
+        selfClaimScope,
+      };
+    }
 
+    const userItems = await backlogStore.listByUser(userId);
+    const otherItems = userItems.filter((item) => item.id !== itemId);
+    if (selfClaimScope === 'once') {
+      const onceConsumed = otherItems.some((item) => isSelfClaimApprovedByCat(item, catId));
+      if (onceConsumed) {
+        reply.status(403);
+        return { error: 'Self-claim once policy already consumed for this cat' };
+      }
+    }
+
+    if (selfClaimScope === 'thread') {
+      const now = Date.now();
+      const activeLeaseConflict = otherItems.some((item) => isActiveLeaseOwner(item, catId, now));
+      if (activeLeaseConflict) {
+        reply.status(409);
+        return { error: 'Self-claim thread policy blocked by existing active leased thread' };
+      }
+    }
+
+    try {
       let next = existing;
       if (next.status === 'open') {
         const suggested = await backlogStore.suggestClaim(itemId, {

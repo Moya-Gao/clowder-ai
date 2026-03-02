@@ -460,6 +460,357 @@ describe('Backlog Routes', () => {
     assert.equal(body.thread.backlogItemId, itemId);
   });
 
+  test('self-claim once scope rejects second non-idempotent claim for same cat', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'once',
+    });
+
+    const firstCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim once first',
+        summary: 'first self-claim should pass',
+        priority: 'p1',
+        tags: ['ratchet'],
+      },
+    });
+    const firstItemId = firstCreateRes.json().id;
+
+    const firstSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'first once claim',
+        plan: 'dispatch first',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstSelfClaim.statusCode, 200);
+
+    const secondCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim once second',
+        summary: 'second self-claim should be blocked',
+        priority: 'p1',
+        tags: ['ratchet'],
+      },
+    });
+    const secondItemId = secondCreateRes.json().id;
+
+    const secondSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${secondItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'second once claim',
+        plan: 'dispatch second',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(secondSelfClaim.statusCode, 403);
+  });
+
+  test('self-claim thread scope rejects new claim when cat has another active lease', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'thread',
+    });
+
+    const firstCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim thread first',
+        summary: 'first self-claim with active lease',
+        priority: 'p1',
+        tags: ['ratchet', 'lease'],
+      },
+    });
+    const firstItemId = firstCreateRes.json().id;
+
+    const firstSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'owns this thread',
+        plan: 'dispatch and lease',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstSelfClaim.statusCode, 200);
+
+    const acquireLeaseRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/lease/acquire`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', ttlMs: 60_000 },
+    });
+    assert.equal(acquireLeaseRes.statusCode, 200);
+
+    const secondCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim thread second',
+        summary: 'should be blocked by active lease',
+        priority: 'p1',
+        tags: ['ratchet', 'lease'],
+      },
+    });
+    const secondItemId = secondCreateRes.json().id;
+
+    const secondSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${secondItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'tries to take second thread',
+        plan: 'dispatch second',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(secondSelfClaim.statusCode, 409);
+  });
+
+  test('self-claim thread scope allows new claim after previous lease release', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'thread',
+    });
+
+    const firstCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim thread release first',
+        summary: 'first thread should release lease',
+        priority: 'p1',
+        tags: ['ratchet', 'lease'],
+      },
+    });
+    const firstItemId = firstCreateRes.json().id;
+
+    const firstSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'owns this thread',
+        plan: 'dispatch first',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstSelfClaim.statusCode, 200);
+
+    const acquireLeaseRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/lease/acquire`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', ttlMs: 60_000 },
+    });
+    assert.equal(acquireLeaseRes.statusCode, 200);
+
+    const releaseLeaseRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${firstItemId}/lease/release`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex' },
+    });
+    assert.equal(releaseLeaseRes.statusCode, 200);
+
+    const secondCreateRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim thread release second',
+        summary: 'second thread should pass after release',
+        priority: 'p1',
+        tags: ['ratchet', 'lease'],
+      },
+    });
+    const secondItemId = secondCreateRes.json().id;
+
+    const secondSelfClaim = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${secondItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'second after release',
+        plan: 'dispatch second',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(secondSelfClaim.statusCode, 200);
+    assert.equal(secondSelfClaim.json().item.status, 'dispatched');
+  });
+
+  test('self-claim idempotent retry on dispatched item bypasses once-policy blockers', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'once',
+    });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'once idempotent retry target',
+        summary: 'already dispatched item should stay idempotent',
+        priority: 'p1',
+        tags: ['ratchet'],
+      },
+    });
+    const targetItemId = createRes.json().id;
+
+    const firstClaimRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${targetItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'first claim',
+        plan: 'dispatch target',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstClaimRes.statusCode, 200);
+
+    const blockerItem = await backlogStore.create({
+      userId: 'default-user',
+      title: 'once blocker',
+      summary: 'simulate another consumed once-claim item',
+      priority: 'p1',
+      tags: ['ratchet'],
+      createdBy: 'user',
+    });
+    await backlogStore.suggestClaim(blockerItem.id, {
+      catId: 'codex',
+      why: 'seed blocker',
+      plan: 'seed blocker',
+      requestedPhase: 'coding',
+    });
+    await backlogStore.decideClaim(blockerItem.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+      note: 'self-claim:codex',
+    });
+    await backlogStore.markDispatched(blockerItem.id, {
+      threadId: 'thread-once-blocker',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+
+    const retryRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${targetItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'retry claim',
+        plan: 'idempotent retry',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(retryRes.statusCode, 200);
+    assert.equal(retryRes.json().item.status, 'dispatched');
+  });
+
+  test('self-claim idempotent retry on dispatched item bypasses thread-policy blockers', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'thread',
+    });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'thread idempotent retry target',
+        summary: 'already dispatched item should stay idempotent',
+        priority: 'p1',
+        tags: ['ratchet', 'lease'],
+      },
+    });
+    const targetItemId = createRes.json().id;
+
+    const firstClaimRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${targetItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'first claim',
+        plan: 'dispatch target',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstClaimRes.statusCode, 200);
+
+    const blockerItem = await backlogStore.create({
+      userId: 'default-user',
+      title: 'thread blocker',
+      summary: 'simulate another active leased thread',
+      priority: 'p1',
+      tags: ['ratchet', 'lease'],
+      createdBy: 'user',
+    });
+    await backlogStore.suggestClaim(blockerItem.id, {
+      catId: 'codex',
+      why: 'seed blocker',
+      plan: 'seed blocker',
+      requestedPhase: 'coding',
+    });
+    await backlogStore.decideClaim(blockerItem.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+      note: 'self-claim:codex',
+    });
+    await backlogStore.markDispatched(blockerItem.id, {
+      threadId: 'thread-thread-blocker',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+    await backlogStore.acquireLease(blockerItem.id, {
+      catId: 'codex',
+      ttlMs: 60_000,
+      actorId: 'default-user',
+    });
+
+    const retryRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${targetItemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'retry claim',
+        plan: 'idempotent retry',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(retryRes.statusCode, 200);
+    assert.equal(retryRes.json().item.status, 'dispatched');
+  });
+
   test('imports active features from docs backlog and refreshes existing feature metadata', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');

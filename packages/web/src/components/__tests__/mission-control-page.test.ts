@@ -438,6 +438,132 @@ describe('MissionControlPage', () => {
     expect(selfClaimButton).toBeNull();
   });
 
+  it('shows once policy blocker reason when self-claim API rejects with once scope conflict', async () => {
+    const now = Date.now();
+    backend.setSelfClaimScope('codex', 'once');
+    backend.setItems([{
+      id: 'seed-self-claim-once',
+      userId: 'u_test',
+      title: 'once 策略阻断',
+      summary: '触发 once 阻断文案',
+      priority: 'p1',
+      tags: ['ratchet'],
+      status: 'open',
+      createdBy: 'user',
+      createdAt: now,
+      updatedAt: now,
+      audit: [{ id: 'a-self-claim-once', action: 'created', actor: { kind: 'user', id: 'u_test' }, timestamp: now }],
+    } satisfies MutableBacklogItem]);
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/backlog/items/seed-self-claim-once/self-claim' && init?.method === 'POST') {
+        return Promise.resolve(mockResponse(403, { error: 'Self-claim once policy already consumed for this cat' }));
+      }
+      return backend.handleRequest(path, init);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('once 策略阻断'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const whyInput = container.querySelector('[data-testid="mc-suggest-why"]') as HTMLTextAreaElement | null;
+    const planInput = container.querySelector('[data-testid="mc-suggest-plan"]') as HTMLTextAreaElement | null;
+    const selfClaimButton = container.querySelector('[data-testid="mc-self-claim-submit"]') as HTMLButtonElement | null;
+    expect(whyInput).not.toBeNull();
+    expect(planInput).not.toBeNull();
+    expect(selfClaimButton).not.toBeNull();
+    if (!whyInput || !planInput || !selfClaimButton) return;
+
+    await act(async () => {
+      setNativeValue(whyInput, '触发 once 阻断');
+      whyInput.dispatchEvent(new Event('input', { bubbles: true }));
+      setNativeValue(planInput, '验证阻断提示');
+      planInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      selfClaimButton.click();
+    });
+    await flush(act);
+
+    const blocker = container.querySelector('[data-testid="mc-self-claim-blocker-once"]');
+    expect(blocker).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-error"]')?.textContent).toContain('once 策略阻断');
+  });
+
+  it('shows thread policy blocker reason when self-claim API rejects with active lease conflict', async () => {
+    const now = Date.now();
+    backend.setSelfClaimScope('codex', 'thread');
+    backend.setItems([{
+      id: 'seed-self-claim-thread',
+      userId: 'u_test',
+      title: 'thread 策略阻断',
+      summary: '触发 thread 阻断文案',
+      priority: 'p1',
+      tags: ['ratchet'],
+      status: 'open',
+      createdBy: 'user',
+      createdAt: now,
+      updatedAt: now,
+      audit: [{ id: 'a-self-claim-thread', action: 'created', actor: { kind: 'user', id: 'u_test' }, timestamp: now }],
+    } satisfies MutableBacklogItem]);
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path === '/api/backlog/items/seed-self-claim-thread/self-claim' && init?.method === 'POST') {
+        return Promise.resolve(mockResponse(409, { error: 'Self-claim thread policy blocked by existing active leased thread' }));
+      }
+      return backend.handleRequest(path, init);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('thread 策略阻断'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const whyInput = container.querySelector('[data-testid="mc-suggest-why"]') as HTMLTextAreaElement | null;
+    const planInput = container.querySelector('[data-testid="mc-suggest-plan"]') as HTMLTextAreaElement | null;
+    const selfClaimButton = container.querySelector('[data-testid="mc-self-claim-submit"]') as HTMLButtonElement | null;
+    expect(whyInput).not.toBeNull();
+    expect(planInput).not.toBeNull();
+    expect(selfClaimButton).not.toBeNull();
+    if (!whyInput || !planInput || !selfClaimButton) return;
+
+    await act(async () => {
+      setNativeValue(whyInput, '触发 thread 阻断');
+      whyInput.dispatchEvent(new Event('input', { bubbles: true }));
+      setNativeValue(planInput, '验证活跃 lease 冲突提示');
+      planInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    await act(async () => {
+      selfClaimButton.click();
+    });
+    await flush(act);
+
+    const blocker = container.querySelector('[data-testid="mc-self-claim-blocker-thread"]');
+    expect(blocker).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-error"]')?.textContent).toContain('thread 策略阻断');
+  });
+
   it('shows lease controls and sends heartbeat for active lease', async () => {
     const now = Date.now();
     backend.setItems([{

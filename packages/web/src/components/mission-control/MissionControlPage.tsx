@@ -17,6 +17,25 @@ interface SelfClaimPolicyResponse {
   scopes?: Record<string, MissionHubSelfClaimScope>;
 }
 
+type SelfClaimPolicyBlocker = 'once' | 'thread' | null;
+
+function detectSelfClaimPolicyBlocker(rawError: string): SelfClaimPolicyBlocker {
+  if (rawError.includes('Self-claim once policy already consumed')) return 'once';
+  if (rawError.includes('Self-claim thread policy blocked')) return 'thread';
+  return null;
+}
+
+function formatMissionHubError(rawError: string): string {
+  const blocker = detectSelfClaimPolicyBlocker(rawError);
+  if (blocker === 'once') {
+    return 'Self-claim 被 once 策略阻断：该猫的自领额度已用完。';
+  }
+  if (blocker === 'thread') {
+    return 'Self-claim 被 thread 策略阻断：该猫已有 active lease 线程，请先释放或回收。';
+  }
+  return rawError;
+}
+
 async function parseError(response: Response): Promise<string> {
   try {
     const body = await response.json() as { error?: string };
@@ -28,6 +47,7 @@ async function parseError(response: Response): Promise<string> {
 
 export function MissionControlPage() {
   const [selfClaimScopes, setSelfClaimScopes] = useState<Record<string, MissionHubSelfClaimScope>>({});
+  const [selfClaimPolicyBlocker, setSelfClaimPolicyBlocker] = useState<SelfClaimPolicyBlocker>(null);
   const {
     items,
     loading,
@@ -101,15 +121,18 @@ export function MissionControlPage() {
 
   const withSubmitGuard = useCallback(async (task: () => Promise<void>) => {
     setSubmitting(true);
+    setSelfClaimPolicyBlocker(null);
     setError(null);
     try {
       await task();
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : '请求失败');
+      const rawError = submitError instanceof Error ? submitError.message : '请求失败';
+      setSelfClaimPolicyBlocker(detectSelfClaimPolicyBlocker(rawError));
+      setError(formatMissionHubError(rawError));
     } finally {
       setSubmitting(false);
     }
-  }, [setError, setSubmitting]);
+  }, [setError, setSelfClaimPolicyBlocker, setSubmitting]);
 
   const handleCreate = useCallback(async (payload: {
     title: string;
@@ -328,6 +351,7 @@ export function MissionControlPage() {
             submitting={submitting}
             selectedPhase={selectedPhase}
             selfClaimScopes={selfClaimScopes}
+            selfClaimPolicyBlocker={selfClaimPolicyBlocker}
             onChangePhase={setSelectedPhase}
             onSuggest={handleSuggest}
             onApprove={handleApprove}

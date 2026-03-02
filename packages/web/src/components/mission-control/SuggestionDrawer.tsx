@@ -12,6 +12,7 @@ interface SuggestionDrawerProps {
   submitting?: boolean;
   selectedPhase: ThreadPhase;
   selfClaimScopes: Record<string, MissionHubSelfClaimScope>;
+  selfClaimPolicyBlocker?: 'once' | 'thread' | null;
   onChangePhase: (phase: ThreadPhase) => void;
   onSuggest: (payload: {
     itemId: string;
@@ -40,6 +41,7 @@ export function SuggestionDrawer({
   submitting,
   selectedPhase,
   selfClaimScopes,
+  selfClaimPolicyBlocker,
   onChangePhase,
   onSuggest,
   onApprove,
@@ -67,6 +69,10 @@ export function SuggestionDrawer({
   const [plan, setPlan] = useState('');
   const [rejectNote, setRejectNote] = useState('');
   const [leaseClock, setLeaseClock] = useState(() => Date.now());
+  const leaseState = item?.lease?.state;
+  const leaseExpiresAt = item?.lease?.expiresAt;
+  const itemStatus = item?.status;
+  const itemId = item?.id;
 
   useEffect(() => {
     if (catOptions.length === 0) {
@@ -79,19 +85,18 @@ export function SuggestionDrawer({
   }, [catOptions, catId]);
 
   useEffect(() => {
-    const lease = item?.lease;
-    if (!item || item.status !== 'dispatched' || !lease || lease.state !== 'active') {
+    if (!itemId || itemStatus !== 'dispatched' || leaseState !== 'active' || !leaseExpiresAt) {
       return;
     }
 
-    const delayMs = Math.max(0, lease.expiresAt - Date.now()) + 50;
+    const delayMs = Math.max(0, leaseExpiresAt - Date.now()) + 50;
     const timer = window.setTimeout(() => {
       setLeaseClock(Date.now());
     }, delayMs);
     return () => {
       window.clearTimeout(timer);
     };
-  }, [item?.id, item?.status, item?.lease?.state, item?.lease?.expiresAt]);
+  }, [itemId, itemStatus, leaseState, leaseExpiresAt]);
 
   const statusLabel = useMemo(() => {
     if (!item) return '未选择任务';
@@ -104,9 +109,9 @@ export function SuggestionDrawer({
   const currentSelfClaimScope: MissionHubSelfClaimScope = selfClaimScopes[catId] ?? 'disabled';
   const canSelfClaim = currentSelfClaimScope !== 'disabled';
   const leaseOwnerCatId = item?.lease?.ownerCatId ?? item?.suggestion?.catId ?? catId;
-  const leaseExpiresAt = item?.lease?.expiresAt ?? 0;
-  const leaseIsActive = item?.lease?.state === 'active' && leaseExpiresAt > leaseClock;
-  const leaseExpired = item?.lease?.state === 'active' && leaseExpiresAt <= leaseClock;
+  const leaseExpiresAtMs = item?.lease?.expiresAt ?? 0;
+  const leaseIsActive = item?.lease?.state === 'active' && leaseExpiresAtMs > leaseClock;
+  const leaseExpired = item?.lease?.state === 'active' && leaseExpiresAtMs <= leaseClock;
 
   if (!item) {
     return (
@@ -147,6 +152,26 @@ export function SuggestionDrawer({
             <p>
               Self-claim policy：<span className="font-semibold">{currentSelfClaimScope}</span>
             </p>
+            {currentSelfClaimScope === 'once' && (
+              <p className="mt-1 text-[11px] text-[#846D55]">
+                once：每只猫只允许一次非幂等自领。
+              </p>
+            )}
+            {currentSelfClaimScope === 'thread' && (
+              <p className="mt-1 text-[11px] text-[#846D55]">
+                thread：同一只猫同一时间只允许一个 active lease 线程。
+              </p>
+            )}
+            {selfClaimPolicyBlocker === 'once' && (
+              <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-once">
+                当前阻断原因：once 自领额度已用完。
+              </p>
+            )}
+            {selfClaimPolicyBlocker === 'thread' && (
+              <p className="mt-1 text-[11px] text-[#A14A2D]" data-testid="mc-self-claim-blocker-thread">
+                当前阻断原因：该猫已有 active lease 线程。
+              </p>
+            )}
             {canSelfClaim ? (
               <button
                 type="button"
