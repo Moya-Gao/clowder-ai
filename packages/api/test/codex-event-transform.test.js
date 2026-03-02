@@ -106,6 +106,28 @@ test('item.started todo_list → system_info(task_progress) with initial tasks',
   assert.equal(payload.tasks[0].status, 'in_progress');
 });
 
+test('item.started todo_list (new schema: items/text/completed) → system_info(task_progress)', () => {
+  const event = {
+    type: 'item.started',
+    item: {
+      type: 'todo_list',
+      items: [
+        { text: 'Todo 1: Verify todo workflow', completed: false },
+        { text: 'Todo 2: Leave as pending sample', completed: true },
+      ],
+    },
+  };
+  const msg = transformCodexEvent(event, CAT);
+  assert.equal(msg?.type, 'system_info');
+  const payload = JSON.parse(msg?.content ?? '{}');
+  assert.equal(payload.type, 'task_progress');
+  assert.equal(payload.tasks.length, 2);
+  assert.equal(payload.tasks[0].subject, 'Todo 1: Verify todo workflow');
+  assert.equal(payload.tasks[0].status, 'pending');
+  assert.equal(payload.tasks[1].subject, 'Todo 2: Leave as pending sample');
+  assert.equal(payload.tasks[1].status, 'completed');
+});
+
 test('item.updated todo_list → system_info(task_progress) with updated tasks', () => {
   const event = {
     type: 'item.updated',

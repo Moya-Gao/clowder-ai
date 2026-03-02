@@ -45,12 +45,30 @@ export function transformCodexEvent(
     (e['item'] as Record<string, unknown> | undefined)?.['type'] === 'todo_list';
   if (isTodoList) {
     const todoItem = e['item'] as Record<string, unknown>;
-    const rawItems = Array.isArray(todoItem['todo_items']) ? todoItem['todo_items'] : [];
-    const tasks = (rawItems as Array<Record<string, unknown>>).map((t, i) => ({
-      id: typeof t['id'] === 'string' ? t['id'] : `task-${i}`,
-      subject: (typeof t['content'] === 'string' ? t['content'] : '').slice(0, 120),
-      status: typeof t['status'] === 'string' ? t['status'] : 'pending',
-    }));
+    const rawItems = Array.isArray(todoItem['todo_items'])
+      ? (todoItem['todo_items'] as Array<Record<string, unknown>>)
+      : Array.isArray(todoItem['items'])
+        ? (todoItem['items'] as Array<Record<string, unknown>>)
+        : [];
+    const tasks = rawItems.map((t, i) => {
+      const subject =
+        typeof t['content'] === 'string'
+          ? t['content']
+          : typeof t['text'] === 'string'
+            ? t['text']
+            : '';
+      const status =
+        typeof t['status'] === 'string'
+          ? t['status']
+          : typeof t['completed'] === 'boolean'
+            ? (t['completed'] ? 'completed' : 'pending')
+            : 'pending';
+      return {
+        id: typeof t['id'] === 'string' ? t['id'] : `task-${i}`,
+        subject: subject.slice(0, 120),
+        status,
+      };
+    });
     return {
       type: 'system_info',
       catId,
