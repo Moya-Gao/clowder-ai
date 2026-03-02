@@ -31,6 +31,7 @@ describe('Callback Routes', () => {
   let freshnessProvider;
   let reimportTriggerProvider;
   let threadStore;
+  let backlogStore;
   let featIndexProvider;
 
   beforeEach(async () => {
@@ -43,10 +44,14 @@ describe('Callback Routes', () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
+    const { BacklogStore } = await import(
+      '../dist/domains/cats/services/stores/ports/BacklogStore.js'
+    );
 
     registry = new InvocationRegistry();
     messageStore = new MessageStore();
     threadStore = new ThreadStore();
+    backlogStore = new BacklogStore();
     socketManager = createMockSocketManager();
     hindsightClient = {
       recall: async () => [],
@@ -68,6 +73,9 @@ describe('Callback Routes', () => {
       threadStore,
       sharedBank: 'cat-cafe-shared',
     };
+    if (backlogStore !== undefined) {
+      options.backlogStore = backlogStore;
+    }
     if (hindsightClient !== undefined) {
       options.hindsightClient = hindsightClient;
     }
@@ -729,6 +737,84 @@ describe('Callback Routes', () => {
       keyDecisions: ['A', 'B'],
       threadIds: [],
     });
+  });
+
+  test('GET feat-index enriches threadIds from backlog feature tags via thread backlogItemId mapping', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F040', name: 'Backlog Reorganization', status: 'in-progress' },
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+    ]);
+
+    const backlogF040 = await backlogStore.create({
+      userId: 'user-1',
+      title: '[F040] Backlog Reorganization',
+      summary: 'feature f040',
+      priority: 'p1',
+      tags: ['feature:f040', 'status:in-progress'],
+      createdBy: 'user',
+    });
+    const backlogF043 = await backlogStore.create({
+      userId: 'user-1',
+      title: '[F043] MCP Unification',
+      summary: 'feature f043',
+      priority: 'p2',
+      tags: ['feature:f043', 'status:spec'],
+      createdBy: 'user',
+    });
+    const backlogOtherUser = await backlogStore.create({
+      userId: 'user-2',
+      title: '[F040] Other user feature',
+      summary: 'feature f040 from another user',
+      priority: 'p2',
+      tags: ['feature:f040', 'status:spec'],
+      createdBy: 'user',
+    });
+
+    const threadA = threadStore.create('user-1', 'F040 discussion');
+    const threadB = threadStore.create('user-1', 'F043 discussion');
+    const threadOtherUser = threadStore.create('user-2', 'F040 other user');
+    threadStore.linkBacklogItem(threadA.id, backlogF040.id);
+    threadStore.linkBacklogItem(threadB.id, backlogF043.id);
+    threadStore.linkBacklogItem(threadOtherUser.id, backlogOtherUser.id);
+
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    const f040 = body.items.find((item) => item.featId === 'F040');
+    const f043 = body.items.find((item) => item.featId === 'F043');
+
+    assert.ok(f040);
+    assert.ok(f043);
+    assert.deepEqual(f040.threadIds, [threadA.id]);
+    assert.deepEqual(f043.threadIds, [threadB.id]);
+  });
+
+  test('GET feat-index degrades gracefully when threadStore enrichment fails', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+    ]);
+    threadStore = {
+      list: async () => {
+        throw new Error('boom');
+      },
+    };
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.deepEqual(body.items[0].threadIds, []);
   });
 
   test('GET feat-index supports exact featId match (case-insensitive)', async () => {

@@ -38,12 +38,12 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
-| B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | ✅ Implemented（待 review） | refs 流程文档化，无需新依赖 |
+| B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | ✅ Merged（Done） | refs 流程文档化，无需新依赖 |
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
-| B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Implemented（待 review） | 已嵌入 feat-kickoff 模板 |
-| B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Implemented（待 review） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
+| B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Merged（Done） | 已嵌入 feat-kickoff 模板 |
+| B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Merged（Done） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
 | B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
-| B6 | 同族 reviewer identity check gate | ✅ Implemented（待 review） | ← F042 Wave 3 毕业：流程执行守护门禁 |
+| B6 | 同族 reviewer identity check gate | ✅ Merged（Done） | ← F042 Wave 3 毕业：流程执行守护门禁 |
 
 ### 明确不做（Phase C）
 

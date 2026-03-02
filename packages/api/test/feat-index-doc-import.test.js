@@ -55,6 +55,38 @@ test('feature docs override backlog fields for same featId', async () => {
   }
 });
 
+test('feature doc with non-padded filename still indexes by feature_ids frontmatter', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'feat-index-doc-import-'));
+  const previousCwd = process.cwd();
+  try {
+    await createRepoSkeleton(root);
+    await writeFile(
+      join(root, 'docs', 'features', 'F40-backlog-reorganization.md'),
+      [
+        '---',
+        'feature_ids: [F040]',
+        'name: Backlog Reorganization',
+        'status: in-progress',
+        '---',
+        '',
+        '# F40: Backlog Reorganization',
+      ].join('\n'),
+      'utf8'
+    );
+
+    process.chdir(root);
+    const entries = await readFeatIndexEntries();
+    const f040 = entries.find((entry) => entry.featId === 'F040');
+
+    assert.ok(f040, 'F040 should be indexed from feature_ids even when filename is F40-*');
+    assert.equal(f040.name, 'Backlog Reorganization');
+    assert.equal(f040.status, 'in-progress');
+  } finally {
+    process.chdir(previousCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test('directory entry matching Fxxx*.md does not crash importer', async () => {
   const root = await mkdtemp(join(tmpdir(), 'feat-index-doc-import-'));
   const previousCwd = process.cwd();
@@ -114,4 +146,3 @@ test('unreadable BACKLOG.md does not crash importer', async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
-

@@ -100,7 +100,7 @@ async function readFeatureDocEntries(featuresDir: string): Promise<FeatureDocEnt
   let fileNames: string[] = [];
   try {
     fileNames = readdirSync(featuresDir)
-      .filter((name) => /^F\d{3}.*\.md$/i.test(name));
+      .filter((name) => /\.md$/i.test(name));
   } catch {
     return [];
   }

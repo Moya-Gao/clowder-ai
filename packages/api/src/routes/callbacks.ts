@@ -11,6 +11,7 @@ import type { InvocationRegistry } from '../domains/cats/services/agents/invocat
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
+import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import type { IHindsightClient } from '../domains/cats/services/orchestration/HindsightClient.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
@@ -32,12 +33,14 @@ import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { readFeatIndexEntries, type FeatIndexEntry } from './feat-index-doc-import.js';
+import { getFeatureTagId } from './backlog-doc-import.js';
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
   messageStore: IMessageStore;
   socketManager: SocketManager;
   taskStore?: ITaskStore;
+  backlogStore?: IBacklogStore;
   /** For thinking mode filtering in thread-context */
   threadStore?: IThreadStore;
   hindsightClient?: IHindsightClient;
@@ -107,9 +110,46 @@ const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,
 });
 
+function normalizeFeatId(value: string): string {
+  return value.trim().toUpperCase();
+}
+
+async function buildThreadIdsByFeatId(
+  threadStore: IThreadStore | undefined,
+  backlogStore: IBacklogStore | undefined,
+  userId: string,
+  logger: { warn: (obj: unknown, msg?: string) => void },
+): Promise<Map<string, string[]>> {
+  const mapped = new Map<string, string[]>();
+  if (!threadStore || !backlogStore) return mapped;
+
+  try {
+    const threads = await threadStore.list(userId);
+    for (const thread of threads) {
+      if (!thread.backlogItemId) continue;
+      const backlogItem = await backlogStore.get(thread.backlogItemId, userId);
+      if (!backlogItem) continue;
+      const featureTagId = getFeatureTagId(backlogItem.tags);
+      if (!featureTagId) continue;
+      const featId = normalizeFeatId(featureTagId);
+      if (featId.length === 0) continue;
+      const existing = mapped.get(featId);
+      if (!existing) {
+        mapped.set(featId, [thread.id]);
+        continue;
+      }
+      if (!existing.includes(thread.id)) existing.push(thread.id);
+    }
+  } catch (err) {
+    logger.warn({ err, userId }, '[callbacks/feat-index] threadIds enrichment degraded');
+  }
+
+  return mapped;
+}
+
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
-    const { registry, messageStore, socketManager, taskStore, threadStore, router,
+    const { registry, messageStore, socketManager, taskStore, backlogStore, threadStore, router,
       invocationRecordStore, invocationTracker, deliveryCursorStore, prTrackingStore,
       featIndexProvider } = opts;
 
@@ -516,12 +556,13 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return EXPIRED_CREDENTIALS_ERROR;
       }
 
-      const normalizedFeatId = featId?.trim().toUpperCase();
+      const normalizedFeatId = featId ? normalizeFeatId(featId) : undefined;
       const normalizedQuery = query?.trim().toLowerCase();
+      const threadIdsByFeatId = await buildThreadIdsByFeatId(threadStore, backlogStore, record.userId, app.log);
 
       let items = await (featIndexProvider ? featIndexProvider() : readFeatIndexEntries());
       if (normalizedFeatId) {
-        items = items.filter((item) => item.featId.toLowerCase() === normalizedFeatId.toLowerCase());
+        items = items.filter((item) => normalizeFeatId(item.featId) === normalizedFeatId);
       }
       if (normalizedQuery) {
         items = items.filter((item) => {
@@ -538,7 +579,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           name: item.name,
           status: item.status,
           ...(item.keyDecisions ? { keyDecisions: item.keyDecisions } : {}),
-          threadIds: [],
+          threadIds: threadIdsByFeatId.get(normalizeFeatId(item.featId)) ?? [],
         })),
       };
     });

@@ -261,6 +261,7 @@ async function main(): Promise<void> {
     messageStore,
     socketManager,
     taskStore,
+    backlogStore,
     threadStore,
     hindsightClient,
     sharedBank: sharedHindsightBank,
