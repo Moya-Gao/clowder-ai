@@ -119,7 +119,27 @@ function withRecentDiagnostics(base: string, recentErrors: string[]): string {
 }
 
 function toTomlString(value: string): string {
-  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  const escaped = value.replace(/[\u0000-\u001f\u007f"\\]/g, (char) => {
+    switch (char) {
+      case '\\':
+        return '\\\\';
+      case '"':
+        return '\\"';
+      case '\b':
+        return '\\b';
+      case '\t':
+        return '\\t';
+      case '\n':
+        return '\\n';
+      case '\f':
+        return '\\f';
+      case '\r':
+        return '\\r';
+      default:
+        return `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`;
+    }
+  });
+  return `"${escaped}"`;
 }
 
 /**
@@ -127,7 +147,10 @@ function toTomlString(value: string): string {
  * Ensure Codex subprocess always receives cat-cafe MCP server config
  * based on the current thread working directory.
  */
-function buildCatCafeMcpConfigArgs(workingDirectory?: string): string[] {
+function buildCatCafeMcpConfigArgs(
+  workingDirectory?: string,
+  callbackEnv?: Record<string, string>,
+): string[] {
   const candidateRoots: string[] = [];
   if (workingDirectory) candidateRoots.push(workingDirectory);
   candidateRoots.push(process.cwd());
@@ -147,7 +170,7 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string): string[] {
   }
   if (!serverPath) return [];
 
-  return [
+  const args = [
     '--config',
     'mcp_servers.cat-cafe.command="node"',
     '--config',
@@ -155,6 +178,21 @@ function buildCatCafeMcpConfigArgs(workingDirectory?: string): string[] {
     '--config',
     'mcp_servers.cat-cafe.enabled=true',
   ];
+
+  const callbackKeys = [
+    'CAT_CAFE_API_URL',
+    'CAT_CAFE_INVOCATION_ID',
+    'CAT_CAFE_CALLBACK_TOKEN',
+    'CAT_CAFE_USER_ID',
+    'CAT_CAFE_SIGNAL_USER',
+  ] as const;
+  for (const key of callbackKeys) {
+    const value = callbackEnv?.[key];
+    if (!value) continue;
+    args.push('--config', `mcp_servers.cat-cafe.env.${key}=${toTomlString(value)}`);
+  }
+
+  return args;
 }
 
 /**
@@ -193,7 +231,7 @@ export class CodexAgentService implements AgentService {
     const approvalPolicy = getCodexApprovalPolicy();
     const modelArgs = ['--model', this.model];
     const approvalArgs = ['--config', `approval_policy="${approvalPolicy}"`];
-    const catCafeMcpArgs = buildCatCafeMcpConfigArgs(options?.workingDirectory);
+    const catCafeMcpArgs = buildCatCafeMcpConfigArgs(options?.workingDirectory, options?.callbackEnv);
 
     // resume 子命令不接受 --sandbox（sandbox 在创建时已锁定）
     // --add-dir .git: 允许写入 .git/ 目录（index.lock、objects、refs），解锁 git commit
