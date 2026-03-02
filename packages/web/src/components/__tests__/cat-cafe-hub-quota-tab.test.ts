@@ -50,7 +50,7 @@ vi.mock('@/hooks/useCatData', () => ({
 }));
 
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(),
+  apiFetch: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))),
 }));
 
 import { CatCafeHub } from '@/components/CatCafeHub';
@@ -64,8 +64,8 @@ describe('CatCafeHub quota tab', () => {
 
   it('renders quota board + routing as a unified panel', () => {
     const html = renderToStaticMarkup(React.createElement(HubRoutingPolicyTab));
-    expect(html).toContain('猫粮额度看板（Telemetry）');
+    expect(html).toContain('猫粮看板');
     expect(html).toContain('路由策略（猫粮约束子模块）');
-    expect(html).toContain('暂无额度遥测');
+    expect(html).toContain('布偶猫');
   });
 });

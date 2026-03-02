@@ -32,3 +32,4 @@ export { registerCallbackDocsRoutes } from './callback-docs-routes.js';
 export { sessionStrategyConfigRoutes } from './session-strategy-config.js';
 export { skillsRoutes } from './skills.js';
 export { queueRoutes } from './queue.js';
+export { quotaRoutes } from './quota.js';

@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes } from './routes/index.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
@@ -252,6 +252,7 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(catsRoutes);
+  await app.register(quotaRoutes);
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = new MemoryPrTrackingStore();
