@@ -165,6 +165,11 @@
       "mentionPatterns": ["@codex", "@缅因猫", "@缅因", "@maine", "@砚砚"],
       "roleDescription": "代码审查专家，擅长安全分析、测试覆盖和代码质量把控",
       "teamStrengths": "Review、找 bug、coding 落地",
+      "features": {
+        "missionHub": {
+          "selfClaimScope": "disabled"
+        }
+      },
       "defaultVariantId": "codex-default",
       "variants": [
         {

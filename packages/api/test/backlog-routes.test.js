@@ -100,10 +100,12 @@ describe('Backlog Routes', () => {
     assert.equal(approved.item.status, 'dispatched');
     assert.equal(approved.item.dispatchedThreadPhase, 'coding');
     assert.ok(approved.thread.id);
+    assert.equal(approved.thread.backlogItemId, itemId);
 
     const thread = await threadStore.get(approved.thread.id);
     assert.ok(thread);
     assert.equal(thread?.phase, 'coding');
+    assert.equal(thread?.backlogItemId, itemId);
 
     const kickoffMessages = await messageStore.getByThread(approved.thread.id, 10, 'default-user');
     assert.equal(kickoffMessages.length, 1);
@@ -252,6 +254,212 @@ describe('Backlog Routes', () => {
     assert.match(kickoffMessages[0].content, /<claim_suggestion>/);
   });
 
+  test('lease routes: acquire -> heartbeat -> release on dispatched item', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'lease route flow',
+        summary: 'exercise lease endpoints',
+        priority: 'p1',
+        tags: ['lease'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'owner',
+        plan: 'acquire lease',
+        requestedPhase: 'coding',
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+
+    const acquireRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/lease/acquire`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', ttlMs: 30_000 },
+    });
+    assert.equal(acquireRes.statusCode, 200);
+    assert.equal(acquireRes.json().item.lease.ownerCatId, 'codex');
+    assert.equal(acquireRes.json().item.lease.state, 'active');
+
+    const heartbeatRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/lease/heartbeat`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', ttlMs: 60_000 },
+    });
+    assert.equal(heartbeatRes.statusCode, 200);
+    assert.equal(heartbeatRes.json().item.lease.ownerCatId, 'codex');
+
+    const releaseRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/lease/release`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex' },
+    });
+    assert.equal(releaseRes.statusCode, 200);
+    assert.equal(releaseRes.json().item.lease.state, 'released');
+  });
+
+  test('lease acquire rejects different owner while active', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'lease conflict',
+        summary: 'second owner should conflict',
+        priority: 'p1',
+        tags: ['lease'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'owner',
+        plan: 'acquire lease',
+        requestedPhase: 'coding',
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+
+    const firstAcquireRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/lease/acquire`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', ttlMs: 30_000 },
+    });
+    assert.equal(firstAcquireRes.statusCode, 200);
+
+    const secondAcquireRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/lease/acquire`,
+      headers: USER_HEADER,
+      payload: { catId: 'opus', ttlMs: 30_000 },
+    });
+    assert.equal(secondAcquireRes.statusCode, 409);
+  });
+
+  test('returns self-claim policy map for all cats', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: (catId) => (catId === 'codex' ? 'global' : 'disabled'),
+    });
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/backlog/self-claim-policy',
+      headers: USER_HEADER,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = response.json();
+    assert.equal(body.scopes.codex, 'global');
+    assert.equal(body.scopes.gemini, 'disabled');
+  });
+
+  test('self-claim is blocked when ratchet policy is disabled', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'disabled',
+    });
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim disabled',
+        summary: 'should require suggest+approve path',
+        priority: 'p2',
+        tags: ['ratchet'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    const selfClaimRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'want to take directly',
+        plan: 'dispatch now',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(selfClaimRes.statusCode, 403);
+  });
+
+  test('self-claim auto dispatches item when ratchet policy is global', async () => {
+    const app = await createApp({
+      resolveSelfClaimScope: () => 'global',
+    });
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'self-claim global',
+        summary: 'cat can dispatch directly',
+        priority: 'p1',
+        tags: ['ratchet'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    const selfClaimRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/self-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'owns this area',
+        plan: 'execute now',
+        requestedPhase: 'coding',
+      },
+    });
+
+    assert.equal(selfClaimRes.statusCode, 200);
+    const body = selfClaimRes.json();
+    assert.equal(body.item.status, 'dispatched');
+    assert.equal(body.item.suggestion?.catId, 'codex');
+    assert.equal(body.item.dispatchedThreadPhase, 'coding');
+    assert.equal(body.selfClaimScope, 'global');
+    assert.equal(body.thread.backlogItemId, itemId);
+  });
+
   test('imports active features from docs backlog and refreshes existing feature metadata', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');
@@ -326,6 +534,62 @@ describe('Backlog Routes', () => {
     } finally {
       await rm(tempDir, { recursive: true, force: true });
     }
+  });
+
+  test('dispatch failure does not persist thread backlogItemId before dispatched state', async () => {
+    const throwingMessageStore = {
+      append: async () => {
+        throw new Error('simulated append failure');
+      },
+      getByThread: async () => [],
+    };
+    const app = await createApp({ messageStore: throwingMessageStore });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'dispatch failure path',
+        summary: 'link should not be written before dispatched commit',
+        priority: 'p1',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'can implement',
+        plan: 'run dispatch',
+        requestedPhase: 'coding',
+      },
+    });
+
+    const approveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+
+    assert.equal(approveRes.statusCode, 500);
+
+    const itemAfterFailure = await backlogStore.get(itemId, 'default-user');
+    assert.equal(itemAfterFailure?.status, 'approved');
+    assert.equal(itemAfterFailure?.dispatchedThreadId, undefined);
+
+    const threads = await threadStore.list('default-user');
+    const createdThread = threads.find((thread) => thread.title === '[Backlog] dispatch failure path');
+    assert.ok(createdThread);
+    assert.equal(createdThread?.backlogItemId, undefined);
   });
 
   test('refresh prefers newest duplicate feature-tagged item', async () => {

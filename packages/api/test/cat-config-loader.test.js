@@ -5,7 +5,7 @@ import { writeFileSync, mkdtempSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const { loadCatConfig, getDefaultVariant, toFlatConfigs, toAllCatConfigs, findBreedByMention, isSessionChainEnabled, getDefaultCatId, buildCatIdToBreedIndex, _resetCachedConfig } =
+const { loadCatConfig, getDefaultVariant, toFlatConfigs, toAllCatConfigs, findBreedByMention, isSessionChainEnabled, getMissionHubSelfClaimScope, getDefaultCatId, buildCatIdToBreedIndex, _resetCachedConfig } =
   await import('../dist/config/cat-config-loader.js');
 
 /** Create a temp JSON file with given content, return path */
@@ -288,6 +288,24 @@ describe('cat-config-loader', () => {
         }
         _resetCachedConfig();
       }
+    });
+  });
+
+  describe('getMissionHubSelfClaimScope', () => {
+    it('returns disabled by default when missionHub feature is not configured', () => {
+      const config = loadCatConfig(writeTempConfig(validConfig()));
+      assert.equal(getMissionHubSelfClaimScope('opus', config), 'disabled');
+    });
+
+    it('reads configured missionHub self-claim scope from breed features', () => {
+      const cfg = validConfig();
+      cfg.breeds[0].features = {
+        missionHub: {
+          selfClaimScope: 'global',
+        },
+      };
+      const config = loadCatConfig(writeTempConfig(cfg));
+      assert.equal(getMissionHubSelfClaimScope('opus', config), 'global');
     });
   });
 });

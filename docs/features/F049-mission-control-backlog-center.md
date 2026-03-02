@@ -42,20 +42,20 @@ created: 2026-03-01
 - [x] 猫可以对某 item 发起“建议领取”（suggest claim），并附 Why/Plan 简述。
 - [x] 铲屎官可以一键批准/拒绝该建议。
 - [x] 批准后系统自动创建新 thread，并：
-  - [ ] 关联 `backlogItemId`（仅有 backlog→thread 单向关联，thread 侧字段待补）
+  - [x] 关联 `backlogItemId`（backlog ↔ thread 双向可追溯）
   - [x] 写入 thread phase（至少：`coding` / `research` / `brainstorm`）
   - [x] 在新 thread 首条消息里自动注入：任务描述 + 验收标准 + 相关链接
 - [x] Backlog item 状态自动流转：`open → approved → dispatched`（最小闭环）。
 - [x] 支持手动“从 `docs/BACKLOG.md` 导入/刷新”活跃 Feature 到 Redis backlog（显式触发，避免双真相源自动同步）。
 
 ### 并发安全（lease）
-- [ ] “执行中”态有 lease（owner + expiresAt + 心跳续租），超时可回收。
-- [ ] 所有状态变更有审计记录（谁、何时、对哪个 item、做了什么）。
+- [x] “执行中”态有 lease（owner + expiresAt + 心跳续租），超时可回收。
+- [x] 所有状态变更有审计记录（谁、何时、对哪个 item、做了什么）。
 
 ### 演进（权限棘轮）
-- [ ] 有一个配置项（once/thread/global）控制是否允许 self-claim：
-  - [ ] 默认关闭：只能”建议+批准”
-  - [ ] 未来可开启：满足条件后允许猫自领（仍保留审计与回收）
+- [x] 有一个配置项（once/thread/global）控制是否允许 self-claim：
+  - [x] 默认关闭：只能”建议+批准”
+  - [x] 未来可开启：满足条件后允许猫自领（仍保留审计与回收）
 
 ### ~~Phase B：线程级路由策略~~ — 已在 F042 PR #148 完成
 > **修正 (2026-03-02)**：routing-policy-scopes 已通过 PR #148 (`b0cadb6a`) 作为 F042 交付物合入 main，不再需要 F049 承接。
@@ -146,3 +146,4 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - 2026-03-02: 云端 review 修复完成，PR #131 合入 main
 - 2026-03-02: Mission Hub 命名落地 + docs backlog 手动导入/刷新能力补齐（小 PR）
 - 2026-03-02: 路线图收敛 — 吸收 F042 routing-policy-scopes 为 Phase B（`docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
+- 2026-03-02: Phase2 落地 — `backlogItemId` 反向关联 + lease 状态机 + self-claim 权限棘轮 gate

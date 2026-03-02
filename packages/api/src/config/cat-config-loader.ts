@@ -14,6 +14,7 @@ import type {
   CatFeatures,
   CatId,
   CatVariant,
+  MissionHubSelfClaimScope,
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
@@ -104,6 +105,11 @@ const catFeaturesSchema = z
   .object({
     sessionChain: z.boolean().optional(),
     sessionStrategy: sessionStrategySchema,
+    missionHub: z
+      .object({
+        selfClaimScope: z.enum(['disabled', 'once', 'thread', 'global']).optional(),
+      })
+      .optional(),
   })
   .optional();
 
@@ -432,6 +438,28 @@ export function getConfigSessionStrategy(catId: string, config?: CatCafeConfig):
   return breed.features?.sessionStrategy;
 }
 
+/**
+ * Get Mission Hub self-claim scope from cat-config.json for a cat.
+ * Defaults to 'disabled' when not configured.
+ */
+export function getMissionHubSelfClaimScope(
+  catId: string,
+  config?: CatCafeConfig,
+): MissionHubSelfClaimScope {
+  const cfg = config ?? getCachedConfig();
+  if (!cfg) return DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE;
+
+  if (!_catIdToBreed || _catIdToBreedSource !== cfg) {
+    _catIdToBreed = buildCatIdToBreedIndex(cfg);
+    _catIdToBreedSource = cfg;
+  }
+
+  const breed = _catIdToBreed.get(catId);
+  if (!breed) return DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE;
+
+  return breed.features?.missionHub?.selfClaimScope ?? DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE;
+}
+
 // ── F32-b: Default cat resolution ─────────────────────────────────────
 
 let _defaultCatId: CatId | null = null;
@@ -481,6 +509,7 @@ const DEFAULT_REVIEW_POLICY: ReviewPolicy = {
   preferLead: true,
   excludeUnavailable: true,
 };
+const DEFAULT_MISSION_HUB_SELF_CLAIM_SCOPE: MissionHubSelfClaimScope = 'disabled';
 
 /**
  * Get roster from config. Returns empty object for v1 configs.

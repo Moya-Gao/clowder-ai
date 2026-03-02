@@ -71,6 +71,8 @@ export interface Thread {
   preferredCats?: CatId[];
   /** F049: workflow phase for dispatch/intent guidance */
   phase?: ThreadPhase;
+  /** F049 Phase2: reverse link for backlog dispatch provenance */
+  backlogItemId?: string;
   /** F042: Thread-scoped routing policy (by intent/scope). */
   routingPolicy?: ThreadRoutingPolicyV1;
 }
@@ -95,6 +97,7 @@ export interface IThreadStore {
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
   updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
   updatePhase(threadId: string, phase: ThreadPhase): void | Promise<void>;
+  linkBacklogItem(threadId: string, backlogItemId: string): void | Promise<void>;
   /** F042: Set or clear thread routing policy. `null` clears. */
   updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
@@ -267,6 +270,11 @@ export class ThreadStore implements IThreadStore {
   updatePhase(threadId: string, phase: ThreadPhase): void {
     const thread = this.get(threadId);
     if (thread) thread.phase = phase;
+  }
+
+  linkBacklogItem(threadId: string, backlogItemId: string): void {
+    const thread = this.get(threadId);
+    if (thread) thread.backlogItemId = backlogItemId;
   }
 
   updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void {

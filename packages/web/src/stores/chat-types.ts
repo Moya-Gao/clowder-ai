@@ -169,6 +169,8 @@ export interface Thread {
   preferredCats?: string[];
   /** F049: workflow phase for mission-control dispatch */
   phase?: 'coding' | 'research' | 'brainstorm';
+  /** F049 Phase2: reverse link to source backlog item */
+  backlogItemId?: string;
   /** F042: Thread-scoped routing policy (intent/scope). */
   routingPolicy?: ThreadRoutingPolicyV1;
 }

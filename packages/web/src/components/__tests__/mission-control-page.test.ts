@@ -59,6 +59,7 @@ describe('MissionControlPage', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     act(() => root.unmount());
     container.remove();
   });
@@ -365,5 +366,249 @@ describe('MissionControlPage', () => {
     expect(banner).not.toBeNull();
     expect(banner?.getAttribute('role')).toBe('alert');
     expect(banner?.textContent).toContain('load failed');
+  });
+
+  it('shows self-claim button when policy allows global self-claim', async () => {
+    const now = Date.now();
+    backend.setSelfClaimScope('codex', 'global');
+    backend.setItems([{
+      id: 'seed-self-claim',
+      userId: 'u_test',
+      title: '可直接自领',
+      summary: 'policy=global 时应展示自领按钮',
+      priority: 'p1',
+      tags: ['ratchet'],
+      status: 'open',
+      createdBy: 'user',
+      createdAt: now,
+      updatedAt: now,
+      audit: [{ id: 'a-self-claim', action: 'created', actor: { kind: 'user', id: 'u_test' }, timestamp: now }],
+    } satisfies MutableBacklogItem]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('可直接自领'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const selfClaimButton = container.querySelector('[data-testid="mc-self-claim-submit"]') as HTMLButtonElement | null;
+    expect(selfClaimButton).not.toBeNull();
+  });
+
+  it('hides self-claim button when policy is disabled', async () => {
+    const now = Date.now();
+    backend.setSelfClaimScope('codex', 'disabled');
+    backend.setItems([{
+      id: 'seed-self-claim-disabled',
+      userId: 'u_test',
+      title: '禁用自领',
+      summary: 'policy=disabled 时不展示直通按钮',
+      priority: 'p2',
+      tags: ['ratchet'],
+      status: 'open',
+      createdBy: 'user',
+      createdAt: now,
+      updatedAt: now,
+      audit: [{ id: 'a-self-claim-disabled', action: 'created', actor: { kind: 'user', id: 'u_test' }, timestamp: now }],
+    } satisfies MutableBacklogItem]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('禁用自领'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const selfClaimButton = container.querySelector('[data-testid="mc-self-claim-submit"]') as HTMLButtonElement | null;
+    expect(selfClaimButton).toBeNull();
+  });
+
+  it('shows lease controls and sends heartbeat for active lease', async () => {
+    const now = Date.now();
+    backend.setItems([{
+      id: 'seed-lease-ui',
+      userId: 'u_test',
+      title: '租约任务',
+      summary: '已派发且 lease 激活',
+      priority: 'p1',
+      tags: ['lease'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 3_000,
+      updatedAt: now,
+      dispatchedAt: now - 2_000,
+      dispatchedThreadId: 'thread-lease-ui',
+      dispatchedThreadPhase: 'coding',
+      lease: {
+        ownerCatId: 'codex',
+        state: 'active',
+        acquiredAt: now - 2_000,
+        heartbeatAt: now - 1_000,
+        expiresAt: now + 30_000,
+      },
+      audit: [{ id: 'a-lease-ui', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now }],
+    } satisfies MutableBacklogItem]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('租约任务'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const heartbeatButton = container.querySelector('[data-testid="mc-lease-heartbeat"]') as HTMLButtonElement | null;
+    expect(heartbeatButton).not.toBeNull();
+    if (!heartbeatButton) return;
+
+    await act(async () => {
+      heartbeatButton.click();
+    });
+    await flush(act);
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/backlog/items/seed-lease-ui/lease/heartbeat',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('hides heartbeat and shows reclaim for expired active lease', async () => {
+    const now = Date.now();
+    backend.setItems([{
+      id: 'seed-lease-expired',
+      userId: 'u_test',
+      title: '过期租约任务',
+      summary: 'active 但 expiresAt 已过期',
+      priority: 'p1',
+      tags: ['lease'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 6_000,
+      updatedAt: now - 1_000,
+      dispatchedAt: now - 5_000,
+      dispatchedThreadId: 'thread-lease-expired',
+      dispatchedThreadPhase: 'coding',
+      lease: {
+        ownerCatId: 'codex',
+        state: 'active',
+        acquiredAt: now - 5_000,
+        heartbeatAt: now - 4_000,
+        expiresAt: now - 500,
+      },
+      audit: [{ id: 'a-lease-expired', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
+    } satisfies MutableBacklogItem]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('过期租约任务'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+
+    const heartbeatButton = container.querySelector('[data-testid="mc-lease-heartbeat"]') as HTMLButtonElement | null;
+    const reclaimButton = container.querySelector('[data-testid="mc-lease-reclaim"]') as HTMLButtonElement | null;
+    expect(heartbeatButton).toBeNull();
+    expect(reclaimButton).not.toBeNull();
+    if (!reclaimButton) return;
+
+    await act(async () => {
+      reclaimButton.click();
+    });
+    await flush(act);
+
+    expect(mockApiFetch).toHaveBeenCalledWith(
+      '/api/backlog/items/seed-lease-expired/lease/reclaim',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
+  it('switches heartbeat to reclaim after lease expiry without extra interaction', async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    vi.setSystemTime(now);
+
+    backend.setItems([{
+      id: 'seed-lease-ticking',
+      userId: 'u_test',
+      title: '租约自动过期任务',
+      summary: '打开后等待过期，应自动从 heartbeat 切到 reclaim',
+      priority: 'p1',
+      tags: ['lease'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 4_000,
+      updatedAt: now - 2_000,
+      dispatchedAt: now - 3_000,
+      dispatchedThreadId: 'thread-lease-ticking',
+      dispatchedThreadPhase: 'coding',
+      lease: {
+        ownerCatId: 'codex',
+        state: 'active',
+        acquiredAt: now - 3_000,
+        heartbeatAt: now - 2_000,
+        expiresAt: now + 1_000,
+      },
+      audit: [{ id: 'a-lease-ticking', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 3_000 }],
+    } satisfies MutableBacklogItem]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const card = Array.from(container.querySelectorAll('button')).find((button) =>
+      button.textContent?.includes('租约自动过期任务'));
+    expect(card).toBeTruthy();
+    if (!card) return;
+
+    await act(async () => {
+      card.click();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="mc-lease-heartbeat"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-lease-reclaim"]')).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1_100);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(container.querySelector('[data-testid="mc-lease-heartbeat"]')).toBeNull();
+    expect(container.querySelector('[data-testid="mc-lease-reclaim"]')).not.toBeNull();
   });
 });

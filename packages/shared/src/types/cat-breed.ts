@@ -93,7 +93,17 @@ export interface CatFeatures {
     readonly turnBudget?: number;
     readonly safetyMargin?: number;
   };
+  /** F049: Mission Hub self-claim permission ratchet scope. */
+  readonly missionHub?: {
+    /**
+     * disabled: 仅允许「建议 + 批准」
+     * once/thread/global: 允许直通 self-claim（细粒度行为由路由层定义）
+     */
+    readonly selfClaimScope?: MissionHubSelfClaimScope;
+  };
 }
+
+export type MissionHubSelfClaimScope = 'disabled' | 'once' | 'thread' | 'global';
 
 /**
  * A cat breed — the identity layer (name, avatar, color, role).

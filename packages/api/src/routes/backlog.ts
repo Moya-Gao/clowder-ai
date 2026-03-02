@@ -1,13 +1,15 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { catIdSchema } from '@cat-cafe/shared';
+import { catIdSchema, catRegistry } from '@cat-cafe/shared';
 import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
+import type { MissionHubSelfClaimScope } from '@cat-cafe/shared';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import { BacklogTransitionError } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
 import {
   buildBacklogInputFromFeature,
   getFeatureTagId,
@@ -19,6 +21,7 @@ export interface BacklogRoutesOptions {
   threadStore: IThreadStore;
   messageStore: IMessageStore;
   backlogDocPath?: string;
+  resolveSelfClaimScope?: (catId: CatId) => MissionHubSelfClaimScope;
 }
 
 const createBacklogSchema = z.object({
@@ -35,6 +38,7 @@ const suggestClaimSchema = z.object({
   plan: z.string().trim().min(1).max(1500),
   requestedPhase: z.enum(['coding', 'research', 'brainstorm']),
 });
+const selfClaimSchema = suggestClaimSchema;
 
 const decideClaimSchema = z.object({
   decision: z.enum(['approve', 'reject']),
@@ -43,6 +47,20 @@ const decideClaimSchema = z.object({
 }).refine((value) => value.decision === 'reject' || !!value.threadPhase, {
   message: 'threadPhase is required when decision=approve',
   path: ['threadPhase'],
+});
+
+const leaseAcquireSchema = z.object({
+  catId: catIdSchema(),
+  ttlMs: z.number().int().min(1).max(24 * 60 * 60 * 1000).optional().default(60_000),
+});
+
+const leaseHeartbeatSchema = z.object({
+  catId: catIdSchema(),
+  ttlMs: z.number().int().min(1).max(24 * 60 * 60 * 1000).optional().default(60_000),
+});
+
+const leaseReleaseSchema = z.object({
+  catId: catIdSchema().optional(),
 });
 
 function buildKickoffMessage(item: BacklogItem, phase: ThreadPhase): string {
@@ -95,11 +113,11 @@ function sameTags(left: readonly string[], right: readonly string[]): boolean {
 
 export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (app, opts) => {
   const { backlogStore, threadStore, messageStore, backlogDocPath } = opts;
+  const resolveSelfClaimScope = opts.resolveSelfClaimScope ?? ((catId: CatId) => getMissionHubSelfClaimScope(catId));
 
   async function dispatchApprovedItem(item: BacklogItem, userId: string, phase: ThreadPhase) {
     const thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
     await threadStore.updatePhase(thread.id, phase);
-    const refreshedThread = await threadStore.get(thread.id);
 
     await messageStore.append({
       userId,
@@ -118,6 +136,15 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     if (!dispatched) {
       return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
     }
+    try {
+      await threadStore.linkBacklogItem(thread.id, item.id);
+    } catch (err) {
+      app.log.warn(
+        { err, threadId: thread.id, backlogItemId: item.id },
+        'failed to persist thread backlog reverse link after dispatch',
+      );
+    }
+    const refreshedThread = await threadStore.get(thread.id);
     return { statusCode: 200 as const, payload: { item: dispatched, thread: refreshedThread ?? thread } };
   }
 
@@ -234,6 +261,125 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     return { items };
   });
 
+  app.get('/api/backlog/self-claim-policy', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const ids = catRegistry.getAllIds();
+    const scopes: Record<string, MissionHubSelfClaimScope> = {};
+    for (const catId of ids) {
+      scopes[catId] = resolveSelfClaimScope(catId as CatId);
+    }
+
+    return { scopes };
+  });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/self-claim', async (request, reply) => {
+    const parsed = selfClaimSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const catId = parsed.data.catId as CatId;
+    const selfClaimScope = resolveSelfClaimScope(catId);
+    if (selfClaimScope === 'disabled') {
+      reply.status(403);
+      return { error: 'Self-claim is disabled by mission hub policy' };
+    }
+
+    const itemId = request.params.id;
+    const existing = await backlogStore.get(itemId, userId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Backlog item not found' };
+    }
+
+    try {
+      if (existing.status === 'dispatched') {
+        const thread = existing.dispatchedThreadId
+          ? await threadStore.get(existing.dispatchedThreadId)
+          : null;
+        return {
+          item: existing,
+          ...(thread ? { thread } : {}),
+          selfClaimScope,
+        };
+      }
+
+      let next = existing;
+      if (next.status === 'open') {
+        const suggested = await backlogStore.suggestClaim(itemId, {
+          catId,
+          why: parsed.data.why,
+          plan: parsed.data.plan,
+          requestedPhase: parsed.data.requestedPhase as ThreadPhase,
+        });
+        if (!suggested) {
+          reply.status(404);
+          return { error: 'Backlog item not found' };
+        }
+        next = suggested;
+      }
+
+      if (next.status === 'suggested') {
+        if (!next.suggestion || next.suggestion.status !== 'pending') {
+          reply.status(409);
+          return { error: 'Invalid backlog transition: item is not waiting for decision' };
+        }
+        if (next.suggestion.catId !== catId) {
+          reply.status(409);
+          return { error: 'Invalid backlog transition: suggested owner does not match self-claim cat' };
+        }
+        const approved = await backlogStore.decideClaim(itemId, {
+          decision: 'approve',
+          decidedBy: userId,
+          note: `self-claim:${catId}`,
+        });
+        if (!approved) {
+          reply.status(404);
+          return { error: 'Backlog item not found' };
+        }
+        next = approved;
+      }
+
+      if (next.status === 'approved') {
+        if (next.suggestion?.catId && next.suggestion.catId !== catId) {
+          reply.status(409);
+          return { error: 'Invalid backlog transition: approved suggestion belongs to another cat' };
+        }
+        const dispatchedResult = await dispatchApprovedItem(
+          next,
+          userId,
+          parsed.data.requestedPhase as ThreadPhase,
+        );
+        reply.status(dispatchedResult.statusCode);
+        return {
+          ...dispatchedResult.payload,
+          selfClaimScope,
+        };
+      }
+
+      reply.status(409);
+      return { error: 'Invalid backlog transition: item is not eligible for self-claim' };
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
   app.post<{ Params: { id: string } }>('/api/backlog/items/:id/suggest-claim', async (request, reply) => {
     const parsed = suggestClaimSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -344,6 +490,153 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       const dispatchedResult = await dispatchApprovedItem(decided, userId, phase);
       reply.status(dispatchedResult.statusCode);
       return dispatchedResult.payload;
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/lease/acquire', async (request, reply) => {
+    const parsed = leaseAcquireSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const existing = await backlogStore.get(request.params.id, userId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Backlog item not found' };
+    }
+
+    try {
+      const updated = await backlogStore.acquireLease(request.params.id, {
+        catId: parsed.data.catId as CatId,
+        ttlMs: parsed.data.ttlMs,
+        actorId: userId,
+      });
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Backlog item not found' };
+      }
+      return { item: updated };
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/lease/heartbeat', async (request, reply) => {
+    const parsed = leaseHeartbeatSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const existing = await backlogStore.get(request.params.id, userId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Backlog item not found' };
+    }
+
+    try {
+      const updated = await backlogStore.heartbeatLease(request.params.id, {
+        catId: parsed.data.catId as CatId,
+        ttlMs: parsed.data.ttlMs,
+        actorId: userId,
+      });
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Backlog item not found' };
+      }
+      return { item: updated };
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/lease/release', async (request, reply) => {
+    const parsed = leaseReleaseSchema.safeParse(request.body ?? {});
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parsed.error.issues };
+    }
+
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const existing = await backlogStore.get(request.params.id, userId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Backlog item not found' };
+    }
+
+    try {
+      const updated = await backlogStore.releaseLease(request.params.id, {
+        actorId: userId,
+        ...(parsed.data.catId ? { catId: parsed.data.catId as CatId } : {}),
+      });
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Backlog item not found' };
+      }
+      return { item: updated };
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/lease/reclaim', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const existing = await backlogStore.get(request.params.id, userId);
+    if (!existing) {
+      reply.status(404);
+      return { error: 'Backlog item not found' };
+    }
+
+    try {
+      const updated = await backlogStore.reclaimExpiredLease(request.params.id, {
+        actorId: userId,
+      });
+      if (!updated) {
+        reply.status(404);
+        return { error: 'Backlog item not found' };
+      }
+      return { item: updated };
     } catch (err) {
       if (isTransitionError(err)) {
         reply.status(409);

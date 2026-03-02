@@ -1,4 +1,4 @@
-import type { CatId, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogLease, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
 
 export interface MutableBacklogSuggestion {
   catId: CatId;
@@ -14,7 +14,17 @@ export interface MutableBacklogSuggestion {
 
 export interface MutableBacklogAuditEntry {
   id: string;
-  action: 'created' | 'suggested' | 'approved' | 'rejected' | 'dispatched';
+  action:
+    | 'created'
+    | 'refreshed'
+    | 'suggested'
+    | 'approved'
+    | 'rejected'
+    | 'dispatched'
+    | 'lease_acquired'
+    | 'lease_heartbeat'
+    | 'lease_released'
+    | 'lease_reclaimed';
   actor: { kind: 'cat' | 'user'; id: string };
   timestamp: number;
   detail?: string;
@@ -35,6 +45,7 @@ export interface MutableBacklogItem {
   dispatchedAt?: number;
   audit: MutableBacklogAuditEntry[];
   suggestion?: MutableBacklogSuggestion;
+  lease?: BacklogLease;
   dispatchedThreadId?: string;
   dispatchedThreadPhase?: ThreadPhase;
 }
@@ -56,6 +67,7 @@ export function cloneItem(item: MutableBacklogItem): MutableBacklogItem {
       actor: { ...entry.actor },
     })),
     ...(item.suggestion ? { suggestion: { ...item.suggestion } } : {}),
+    ...(item.lease ? { lease: { ...item.lease } } : {}),
   };
 }
 
@@ -94,9 +106,15 @@ interface DecideClaimBody {
   note?: string;
 }
 
+interface LeaseBody {
+  catId?: CatId;
+  ttlMs?: number;
+}
+
 export interface MissionControlMockBackend {
   setItems(nextItems: MutableBacklogItem[]): void;
   getItems(): MutableBacklogItem[];
+  setSelfClaimScope(catId: CatId, scope: MissionHubSelfClaimScope): void;
   handleRequest(path: string, init?: RequestInit): Promise<Response>;
 }
 
@@ -104,12 +122,18 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
   let items: MutableBacklogItem[] = [];
   let itemSeq = 1;
   let threadSeq = 1;
+  const selfClaimScopes: Record<string, MissionHubSelfClaimScope> = {
+    codex: 'disabled',
+  };
 
   const setItems = (nextItems: MutableBacklogItem[]) => {
     items = nextItems.map((item) => cloneItem(item));
   };
 
   const getItems = () => items;
+  const setSelfClaimScope = (catId: CatId, scope: MissionHubSelfClaimScope) => {
+    selfClaimScopes[catId] = scope;
+  };
 
   const handleRequest = async (path: string, init?: RequestInit): Promise<Response> => {
     if (path === '/api/cats') {
@@ -133,6 +157,10 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
 
     if (path === '/api/backlog/items' && (!init?.method || init.method === 'GET')) {
       return mockResponse(200, { items: items.map((item) => cloneItem(item)) });
+    }
+
+    if (path === '/api/backlog/self-claim-policy' && (!init?.method || init.method === 'GET')) {
+      return mockResponse(200, { scopes: { ...selfClaimScopes } });
     }
 
     if (path === '/api/backlog/items' && init?.method === 'POST') {
@@ -231,12 +259,139 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
       });
     }
 
+    const selfClaimMatch = path.match(/^\/api\/backlog\/items\/([^/]+)\/self-claim$/);
+    if (selfClaimMatch && init?.method === 'POST') {
+      const id = decodeURIComponent(selfClaimMatch[1] ?? '');
+      const body = JSON.parse(String(init.body)) as SuggestClaimBody;
+      const scope = selfClaimScopes[body.catId] ?? 'disabled';
+      if (scope === 'disabled') return mockResponse(403, { error: 'Self-claim is disabled by mission hub policy' });
+
+      const target = items.find((item) => item.id === id);
+      if (!target) return mockResponse(404, { error: 'not found' });
+
+      const updated: MutableBacklogItem = {
+        ...target,
+        status: 'dispatched',
+        suggestion: {
+          catId: body.catId,
+          why: body.why,
+          plan: body.plan,
+          requestedPhase: body.requestedPhase,
+          status: 'approved',
+          suggestedAt: Date.now(),
+          decidedAt: Date.now(),
+          decidedBy: 'u_test',
+          note: `self-claim:${body.catId}`,
+        },
+        dispatchedThreadId: `thread-${threadSeq++}`,
+        dispatchedThreadPhase: body.requestedPhase,
+        updatedAt: Date.now(),
+      };
+      items = items.map((item) => (item.id === id ? updated : item));
+      return mockResponse(200, {
+        item: cloneItem(updated),
+        thread: { id: updated.dispatchedThreadId, backlogItemId: updated.id },
+        selfClaimScope: scope,
+      });
+    }
+
+    const leaseAcquireMatch = path.match(/^\/api\/backlog\/items\/([^/]+)\/lease\/acquire$/);
+    if (leaseAcquireMatch && init?.method === 'POST') {
+      const id = decodeURIComponent(leaseAcquireMatch[1] ?? '');
+      const body = JSON.parse(String(init.body)) as LeaseBody;
+      const target = items.find((item) => item.id === id);
+      if (!target) return mockResponse(404, { error: 'not found' });
+      const ttlMs = body.ttlMs ?? 60_000;
+      const now = Date.now();
+      const updated: MutableBacklogItem = {
+        ...target,
+        lease: {
+          ownerCatId: (body.catId ?? 'codex') as CatId,
+          state: 'active',
+          acquiredAt: now,
+          heartbeatAt: now,
+          expiresAt: now + ttlMs,
+        },
+        updatedAt: now,
+      };
+      items = items.map((item) => (item.id === id ? updated : item));
+      return mockResponse(200, { item: cloneItem(updated) });
+    }
+
+    const leaseHeartbeatMatch = path.match(/^\/api\/backlog\/items\/([^/]+)\/lease\/heartbeat$/);
+    if (leaseHeartbeatMatch && init?.method === 'POST') {
+      const id = decodeURIComponent(leaseHeartbeatMatch[1] ?? '');
+      const body = JSON.parse(String(init.body)) as LeaseBody;
+      const target = items.find((item) => item.id === id);
+      if (!target) return mockResponse(404, { error: 'not found' });
+      if (!target.lease) return mockResponse(409, { error: 'no active lease' });
+      const ttlMs = body.ttlMs ?? 60_000;
+      const now = Date.now();
+      const updated: MutableBacklogItem = {
+        ...target,
+        lease: {
+          ...target.lease,
+          state: 'active',
+          heartbeatAt: now,
+          expiresAt: now + ttlMs,
+        },
+        updatedAt: now,
+      };
+      items = items.map((item) => (item.id === id ? updated : item));
+      return mockResponse(200, { item: cloneItem(updated) });
+    }
+
+    const leaseReleaseMatch = path.match(/^\/api\/backlog\/items\/([^/]+)\/lease\/release$/);
+    if (leaseReleaseMatch && init?.method === 'POST') {
+      const id = decodeURIComponent(leaseReleaseMatch[1] ?? '');
+      const body = JSON.parse(String(init.body || '{}')) as LeaseBody;
+      const target = items.find((item) => item.id === id);
+      if (!target) return mockResponse(404, { error: 'not found' });
+      if (!target.lease) return mockResponse(409, { error: 'no active lease' });
+      const now = Date.now();
+      const updated: MutableBacklogItem = {
+        ...target,
+        lease: {
+          ...target.lease,
+          state: 'released',
+          releasedAt: now,
+          releasedBy: 'u_test',
+          ownerCatId: (body.catId ?? target.lease.ownerCatId) as CatId,
+        },
+        updatedAt: now,
+      };
+      items = items.map((item) => (item.id === id ? updated : item));
+      return mockResponse(200, { item: cloneItem(updated) });
+    }
+
+    const leaseReclaimMatch = path.match(/^\/api\/backlog\/items\/([^/]+)\/lease\/reclaim$/);
+    if (leaseReclaimMatch && init?.method === 'POST') {
+      const id = decodeURIComponent(leaseReclaimMatch[1] ?? '');
+      const target = items.find((item) => item.id === id);
+      if (!target) return mockResponse(404, { error: 'not found' });
+      if (!target.lease) return mockResponse(409, { error: 'no lease to reclaim' });
+      const now = Date.now();
+      const updated: MutableBacklogItem = {
+        ...target,
+        lease: {
+          ...target.lease,
+          state: 'reclaimed',
+          reclaimedAt: now,
+          reclaimedBy: 'u_test',
+        },
+        updatedAt: now,
+      };
+      items = items.map((item) => (item.id === id ? updated : item));
+      return mockResponse(200, { item: cloneItem(updated) });
+    }
+
     return mockResponse(500, { error: `unexpected path: ${path}` });
   };
 
   return {
     setItems,
     getItems,
+    setSelfClaimScope,
     handleRequest,
   };
 }

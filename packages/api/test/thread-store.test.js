@@ -518,4 +518,17 @@ describe('ThreadStore', () => {
     activity = store.getParticipantsWithActivity(thread.id);
     assert.equal(activity.length, 0, 'Activity should be cleaned up after delete');
   });
+
+  test('linkBacklogItem() stores reverse backlog reference on thread', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Backlog dispatch target');
+
+    store.linkBacklogItem(thread.id, 'blg_123');
+    const updated = store.get(thread.id);
+    assert.equal(updated?.backlogItemId, 'blg_123');
+  });
 });

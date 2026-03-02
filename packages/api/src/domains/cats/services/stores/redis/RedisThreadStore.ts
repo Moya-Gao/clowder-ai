@@ -294,6 +294,11 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'phase', phase);
   }
 
+  async linkBacklogItem(threadId: string, backlogItemId: string): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'backlogItemId', backlogItemId);
+  }
+
   async updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     const scopes = policy?.scopes;
@@ -390,6 +395,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.phase) {
       result['phase'] = thread.phase;
     }
+    if (thread.backlogItemId) {
+      result['backlogItemId'] = thread.backlogItemId;
+    }
     if (thread.preferredCats && thread.preferredCats.length > 0) {
       result['preferredCats'] = JSON.stringify(thread.preferredCats);
     }
@@ -419,6 +427,9 @@ export class RedisThreadStore implements IThreadStore {
     const phase = this.parsePhase(data['phase']);
     if (phase) {
       result.phase = phase;
+    }
+    if (data['backlogItemId']) {
+      result.backlogItemId = data['backlogItemId'];
     }
     if (data['preferredCats']) {
       try {

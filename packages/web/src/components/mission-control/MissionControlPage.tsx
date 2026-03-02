@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
-import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
 import { apiFetch } from '@/utils/api-client';
 import { useMissionControlStore } from '@/stores/missionControlStore';
@@ -11,6 +11,10 @@ import { SuggestionDrawer } from './SuggestionDrawer';
 
 interface BacklogListResponse {
   items?: BacklogItem[];
+}
+
+interface SelfClaimPolicyResponse {
+  scopes?: Record<string, MissionHubSelfClaimScope>;
 }
 
 async function parseError(response: Response): Promise<string> {
@@ -23,6 +27,7 @@ async function parseError(response: Response): Promise<string> {
 }
 
 export function MissionControlPage() {
+  const [selfClaimScopes, setSelfClaimScopes] = useState<Record<string, MissionHubSelfClaimScope>>({});
   const {
     items,
     loading,
@@ -53,9 +58,24 @@ export function MissionControlPage() {
     }
   }, [setError, setItems, setLoading]);
 
+  const loadSelfClaimScopes = useCallback(async () => {
+    try {
+      const response = await apiFetch('/api/backlog/self-claim-policy');
+      if (!response.ok) throw new Error(await parseError(response));
+      const body = await response.json() as SelfClaimPolicyResponse;
+      setSelfClaimScopes(body.scopes ?? {});
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : '加载 self-claim policy 失败');
+    }
+  }, [setError]);
+
   useEffect(() => {
     void loadItems();
   }, [loadItems]);
+
+  useEffect(() => {
+    void loadSelfClaimScopes();
+  }, [loadSelfClaimScopes]);
 
   useEffect(() => {
     if (items.length === 0) {
@@ -155,6 +175,77 @@ export function MissionControlPage() {
     await loadItems();
   }), [loadItems, withSubmitGuard]);
 
+  const handleSelfClaim = useCallback(async (payload: {
+    itemId: string;
+    catId: string;
+    why: string;
+    plan: string;
+    requestedPhase: ThreadPhase;
+  }) => withSubmitGuard(async () => {
+    const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/self-claim`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        catId: payload.catId,
+        why: payload.why,
+        plan: payload.plan,
+        requestedPhase: payload.requestedPhase,
+      }),
+    });
+    if (!response.ok) throw new Error(await parseError(response));
+    await loadItems();
+  }), [loadItems, withSubmitGuard]);
+
+  const handleAcquireLease = useCallback(async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
+    withSubmitGuard(async () => {
+      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/acquire`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          catId: payload.catId,
+          ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      await loadItems();
+    }), [loadItems, withSubmitGuard]);
+
+  const handleHeartbeatLease = useCallback(async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
+    withSubmitGuard(async () => {
+      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          catId: payload.catId,
+          ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      await loadItems();
+    }), [loadItems, withSubmitGuard]);
+
+  const handleReleaseLease = useCallback(async (payload: { itemId: string; catId?: string }) =>
+    withSubmitGuard(async () => {
+      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(payload.catId ? { catId: payload.catId } : {}),
+        }),
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      await loadItems();
+    }), [loadItems, withSubmitGuard]);
+
+  const handleReclaimLease = useCallback(async (payload: { itemId: string }) =>
+    withSubmitGuard(async () => {
+      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/reclaim`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error(await parseError(response));
+      await loadItems();
+    }), [loadItems, withSubmitGuard]);
+
   const handleImportFromDocs = useCallback(async () => withSubmitGuard(async () => {
     const response = await apiFetch('/api/backlog/import-active-features', {
       method: 'POST',
@@ -236,10 +327,16 @@ export function MissionControlPage() {
             item={selectedItem}
             submitting={submitting}
             selectedPhase={selectedPhase}
+            selfClaimScopes={selfClaimScopes}
             onChangePhase={setSelectedPhase}
             onSuggest={handleSuggest}
             onApprove={handleApprove}
             onReject={handleReject}
+            onSelfClaim={handleSelfClaim}
+            onAcquireLease={handleAcquireLease}
+            onHeartbeatLease={handleHeartbeatLease}
+            onReleaseLease={handleReleaseLease}
+            onReclaimLease={handleReclaimLease}
           />
         </div>
 

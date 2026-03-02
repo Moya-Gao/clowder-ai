@@ -290,4 +290,92 @@ describe('BacklogStore', () => {
     assert.equal(remaining.includes(openCandidate.id), true);
     assert.equal(remaining.includes(third.id), true);
   });
+
+  test('lease lifecycle acquire -> heartbeat -> release', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: 'Lease lifecycle',
+      summary: 'ensure lease transitions are valid',
+      priority: 'p1',
+      tags: ['lease'],
+      createdBy: 'user',
+    });
+
+    store.suggestClaim(created.id, {
+      catId: 'codex',
+      why: 'ready',
+      plan: 'dispatch then lease',
+      requestedPhase: 'coding',
+    });
+    store.decideClaim(created.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+    });
+    store.markDispatched(created.id, {
+      threadId: 'thread-lease',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+
+    const acquired = store.acquireLease(created.id, {
+      catId: 'codex',
+      ttlMs: 60_000,
+      actorId: 'default-user',
+    });
+    assert.equal(acquired?.lease?.ownerCatId, 'codex');
+    assert.equal(acquired?.lease?.state, 'active');
+
+    const previousExpiresAt = acquired?.lease?.expiresAt ?? 0;
+    const heartbeated = store.heartbeatLease(created.id, {
+      catId: 'codex',
+      ttlMs: 120_000,
+      actorId: 'default-user',
+    });
+    assert.ok((heartbeated?.lease?.expiresAt ?? 0) > previousExpiresAt);
+
+    const released = store.releaseLease(created.id, {
+      actorId: 'default-user',
+      catId: 'codex',
+    });
+    assert.equal(released?.lease?.state, 'released');
+  });
+
+  test('reclaimExpiredLease reclaims expired lease only', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: 'Lease reclaim',
+      summary: 'reclaim expired lease',
+      priority: 'p2',
+      tags: ['lease'],
+      createdBy: 'user',
+    });
+
+    store.suggestClaim(created.id, {
+      catId: 'codex',
+      why: 'ready',
+      plan: 'dispatch then lease',
+      requestedPhase: 'coding',
+    });
+    store.decideClaim(created.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+    });
+    store.markDispatched(created.id, {
+      threadId: 'thread-reclaim',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+
+    store.acquireLease(created.id, {
+      catId: 'codex',
+      ttlMs: 1,
+      actorId: 'default-user',
+    });
+    now += 10_000;
+
+    const reclaimed = store.reclaimExpiredLease(created.id, {
+      actorId: 'default-user',
+    });
+    assert.equal(reclaimed?.lease?.state, 'reclaimed');
+  });
 });

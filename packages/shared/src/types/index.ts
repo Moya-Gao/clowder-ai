@@ -60,6 +60,7 @@ export type {
   CatVariant,
   CliConfig,
   ContextBudget,
+  MissionHubSelfClaimScope,
   // F032: Roster types for collaboration rules
   ReviewPolicy,
   Roster,
@@ -182,18 +183,24 @@ export type {
 } from './summary.js';
 // Backlog types (F049 Mission Control)
 export type {
+  AcquireBacklogLeaseInput,
   BacklogAuditAction,
   BacklogAuditActor,
   BacklogAuditEntry,
   BacklogClaimSuggestion,
   BacklogItem,
+  BacklogLease,
+  BacklogLeaseState,
   BacklogPriority,
   BacklogStatus,
   BacklogSuggestionStatus,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  HeartbeatBacklogLeaseInput,
+  ReclaimBacklogLeaseInput,
   RefreshBacklogItemInput,
+  ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
 } from './backlog.js';

@@ -1,10 +1,15 @@
 import type {
+  AcquireBacklogLeaseInput,
+  BacklogLease,
   BacklogItem,
   BacklogStatus,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  HeartbeatBacklogLeaseInput,
+  ReclaimBacklogLeaseInput,
   RefreshBacklogItemInput,
+  ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
 } from '@cat-cafe/shared';
 import { generateSortableId } from './MessageStore.js';
@@ -34,6 +39,10 @@ export interface IBacklogStore {
   suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
   decideClaim(itemId: string, input: DecideBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
   markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null | Promise<BacklogItem | null>;
+  acquireLease(itemId: string, input: AcquireBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
+  heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
+  releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
+  reclaimExpiredLease(itemId: string, input: ReclaimBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
 }
 
 export class BacklogStore implements IBacklogStore {
@@ -270,6 +279,168 @@ export class BacklogStore implements IBacklogStore {
     return updated;
   }
 
+  acquireLease(itemId: string, input: AcquireBacklogLeaseInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can acquire lease');
+    }
+
+    const now = Date.now();
+    const currentLease = existing.lease;
+    if (this.isLeaseActive(currentLease, now) && currentLease?.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: active lease owned by another cat');
+    }
+
+    const nextLease: BacklogLease = {
+      ownerCatId: input.catId,
+      state: 'active',
+      acquiredAt: now,
+      heartbeatAt: now,
+      expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
+    };
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: nextLease,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_acquired',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${input.catId}:${nextLease.expiresAt}`,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can heartbeat lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      throw new BacklogTransitionError('Invalid backlog transition: no active lease to heartbeat');
+    }
+    if (lease.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
+    }
+    if (lease.expiresAt <= now) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease already expired');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        heartbeatAt: now,
+        expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_heartbeat',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${input.catId}`,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can release lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      return existing;
+    }
+    if (input.catId && lease.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        state: 'released',
+        releasedAt: now,
+        releasedBy: input.actorId,
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_released',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${lease.ownerCatId}`,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  reclaimExpiredLease(itemId: string, input: ReclaimBacklogLeaseInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can reclaim lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      return existing;
+    }
+    if (lease.expiresAt > now) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease not expired yet');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        state: 'reclaimed',
+        reclaimedAt: now,
+        reclaimedBy: input.actorId,
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_reclaimed',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${lease.ownerCatId}`,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
   private evictIfNeeded(): void {
     if (this.items.size < this.maxItems) return;
     const sorted = [...this.items.values()].sort((a, b) => {
@@ -289,5 +460,14 @@ export class BacklogStore implements IBacklogStore {
       if (leftSorted[index] !== rightSorted[index]) return false;
     }
     return true;
+  }
+
+  private normalizeLeaseTtl(ttlMs: number): number {
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) return 60_000;
+    return Math.floor(ttlMs);
+  }
+
+  private isLeaseActive(lease: BacklogLease | undefined, now: number): boolean {
+    return Boolean(lease && lease.state === 'active' && lease.expiresAt > now);
   }
 }

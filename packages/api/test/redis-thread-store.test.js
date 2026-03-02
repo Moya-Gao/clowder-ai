@@ -170,6 +170,14 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(updated.favoritedAt, null);
   });
 
+  it('linkBacklogItem() persists reverse backlog reference', async () => {
+    const thread = await store.create('user1', 'Backlog link');
+    await store.linkBacklogItem(thread.id, 'blg_123');
+
+    const updated = await store.get(thread.id);
+    assert.equal(updated?.backlogItemId, 'blg_123');
+  });
+
   it('updateRoutingPolicy() stores and hydrates routingPolicy', async () => {
     const thread = await store.create('user1', 'Routing Policy');
     const policy = { v: 1, scopes: { review: { avoidCats: ['opus'], reason: 'budget' } } };

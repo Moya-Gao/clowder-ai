@@ -1,9 +1,14 @@
 import type {
+  AcquireBacklogLeaseInput,
   BacklogItem,
+  BacklogLease,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
+  HeartbeatBacklogLeaseInput,
+  ReclaimBacklogLeaseInput,
   RefreshBacklogItemInput,
+  ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
 } from '@cat-cafe/shared';
@@ -276,6 +281,168 @@ export class RedisBacklogStore implements IBacklogStore {
     return updated;
   }
 
+  async acquireLease(itemId: string, input: AcquireBacklogLeaseInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can acquire lease');
+    }
+
+    const now = Date.now();
+    const currentLease = existing.lease;
+    if (this.isLeaseActive(currentLease, now) && currentLease?.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: active lease owned by another cat');
+    }
+
+    const nextLease: BacklogLease = {
+      ownerCatId: input.catId,
+      state: 'active',
+      acquiredAt: now,
+      heartbeatAt: now,
+      expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
+    };
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: nextLease,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_acquired',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${input.catId}:${nextLease.expiresAt}`,
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
+  async heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can heartbeat lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      throw new BacklogTransitionError('Invalid backlog transition: no active lease to heartbeat');
+    }
+    if (lease.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
+    }
+    if (lease.expiresAt <= now) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease already expired');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        heartbeatAt: now,
+        expiresAt: now + this.normalizeLeaseTtl(input.ttlMs),
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_heartbeat',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${input.catId}`,
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
+  async releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can release lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      return existing;
+    }
+    if (input.catId && lease.ownerCatId !== input.catId) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease owned by another cat');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        state: 'released',
+        releasedAt: now,
+        releasedBy: input.actorId,
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_released',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${lease.ownerCatId}`,
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
+  async reclaimExpiredLease(itemId: string, input: ReclaimBacklogLeaseInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can reclaim lease');
+    }
+
+    const now = Date.now();
+    const lease = existing.lease;
+    if (!lease || lease.state !== 'active') {
+      return existing;
+    }
+    if (lease.expiresAt > now) {
+      throw new BacklogTransitionError('Invalid backlog transition: lease not expired yet');
+    }
+
+    const updated: BacklogItem = {
+      ...existing,
+      lease: {
+        ...lease,
+        state: 'reclaimed',
+        reclaimedAt: now,
+        reclaimedBy: input.actorId,
+      },
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'lease_reclaimed',
+          actor: makeUserActor(input.actorId),
+          timestamp: now,
+          detail: `${lease.ownerCatId}`,
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
   private async writeItem(item: BacklogItem): Promise<void> {
     const key = BacklogKeys.detail(item.id);
     const pipeline = this.redis.multi();
@@ -302,6 +469,7 @@ export class RedisBacklogStore implements IBacklogStore {
       updatedAt: String(item.updatedAt),
     };
     if (item.suggestion) result['suggestion'] = JSON.stringify(item.suggestion);
+    if (item.lease) result['lease'] = JSON.stringify(item.lease);
     if (item.approvedAt) result['approvedAt'] = String(item.approvedAt);
     if (item.dispatchedAt) result['dispatchedAt'] = String(item.dispatchedAt);
     if (item.dispatchedThreadId) result['dispatchedThreadId'] = item.dispatchedThreadId;
@@ -312,6 +480,9 @@ export class RedisBacklogStore implements IBacklogStore {
   private hydrateItem(data: Record<string, string>): BacklogItem {
     const suggestion = data['suggestion']
       ? this.parseJson(data['suggestion'], null as BacklogItem['suggestion'] | null)
+      : null;
+    const lease = data['lease']
+      ? this.parseJson(data['lease'], null as BacklogLease | null)
       : null;
     const approvedAt = data['approvedAt'] ? Number.parseInt(data['approvedAt'], 10) : null;
     const dispatchedAt = data['dispatchedAt'] ? Number.parseInt(data['dispatchedAt'], 10) : null;
@@ -328,6 +499,7 @@ export class RedisBacklogStore implements IBacklogStore {
       updatedAt: Number.parseInt(data['updatedAt'] ?? '0', 10),
       audit: this.parseJson(data['audit'], []),
       ...(suggestion ? { suggestion } : {}),
+      ...(lease ? { lease } : {}),
       ...(data['dispatchedThreadId'] ? { dispatchedThreadId: data['dispatchedThreadId'] } : {}),
       ...(data['dispatchedThreadPhase']
         ? { dispatchedThreadPhase: data['dispatchedThreadPhase'] as ThreadPhase }
@@ -354,5 +526,14 @@ export class RedisBacklogStore implements IBacklogStore {
       if (leftSorted[index] !== rightSorted[index]) return false;
     }
     return true;
+  }
+
+  private normalizeLeaseTtl(ttlMs: number): number {
+    if (!Number.isFinite(ttlMs) || ttlMs <= 0) return 60_000;
+    return Math.floor(ttlMs);
+  }
+
+  private isLeaseActive(lease: BacklogLease | undefined, now: number): boolean {
+    return Boolean(lease && lease.state === 'active' && lease.expiresAt > now);
   }
 }

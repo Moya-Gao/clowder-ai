@@ -4,6 +4,7 @@ export type BacklogPriority = 'p0' | 'p1' | 'p2' | 'p3';
 export type BacklogStatus = 'open' | 'suggested' | 'approved' | 'dispatched';
 export type ThreadPhase = 'coding' | 'research' | 'brainstorm';
 export type BacklogSuggestionStatus = 'pending' | 'approved' | 'rejected';
+export type BacklogLeaseState = 'active' | 'released' | 'reclaimed';
 
 export interface BacklogClaimSuggestion {
   readonly catId: CatId;
@@ -17,13 +18,29 @@ export interface BacklogClaimSuggestion {
   readonly note?: string;
 }
 
+export interface BacklogLease {
+  readonly ownerCatId: CatId;
+  readonly state: BacklogLeaseState;
+  readonly acquiredAt: number;
+  readonly heartbeatAt: number;
+  readonly expiresAt: number;
+  readonly releasedAt?: number;
+  readonly releasedBy?: string;
+  readonly reclaimedAt?: number;
+  readonly reclaimedBy?: string;
+}
+
 export type BacklogAuditAction =
   | 'created'
   | 'refreshed'
   | 'suggested'
   | 'approved'
   | 'rejected'
-  | 'dispatched';
+  | 'dispatched'
+  | 'lease_acquired'
+  | 'lease_heartbeat'
+  | 'lease_released'
+  | 'lease_reclaimed';
 
 export interface BacklogAuditActor {
   readonly kind: 'cat' | 'user';
@@ -48,6 +65,7 @@ export interface BacklogItem {
   readonly status: BacklogStatus;
   readonly createdBy: CatId | 'user';
   readonly suggestion?: BacklogClaimSuggestion;
+  readonly lease?: BacklogLease;
   readonly dispatchedThreadId?: string;
   readonly dispatchedThreadPhase?: ThreadPhase;
   readonly createdAt: number;
@@ -91,4 +109,25 @@ export interface DispatchBacklogItemInput {
   readonly threadId: string;
   readonly threadPhase: ThreadPhase;
   readonly dispatchedBy: string;
+}
+
+export interface AcquireBacklogLeaseInput {
+  readonly catId: CatId;
+  readonly ttlMs: number;
+  readonly actorId: string;
+}
+
+export interface HeartbeatBacklogLeaseInput {
+  readonly catId: CatId;
+  readonly ttlMs: number;
+  readonly actorId: string;
+}
+
+export interface ReleaseBacklogLeaseInput {
+  readonly actorId: string;
+  readonly catId?: CatId;
+}
+
+export interface ReclaimBacklogLeaseInput {
+  readonly actorId: string;
 }
