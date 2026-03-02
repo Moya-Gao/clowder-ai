@@ -201,61 +201,77 @@ function CapabilityCard({
           }`}
       >
         <div className="overflow-hidden">
-          <div className="border-t border-indigo-100/50 px-5 py-3.5 bg-gradient-to-br from-indigo-50/50 to-white/50 text-xs text-slate-600 space-y-3">
-            {/* MCP tools */}
-            {item.type === 'mcp' && item.tools && item.tools.length > 0 && (
-              <div>
-                <span className="font-medium text-gray-500">Tools ({item.tools.length}):</span>
-                <ul className="mt-1 space-y-0.5 ml-3">
-                  {item.tools.map((tool) => (
-                    <li key={tool.name} className="flex gap-2">
-                      <code className="text-purple-600">{tool.name}</code>
-                      {tool.description && <span className="text-gray-400 truncate">{tool.description}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {item.type === 'mcp' && (!item.tools || item.tools.length === 0) && (
-              <p className="text-slate-400 italic py-1">
-                Tools 信息暂不可用（需要 MCP 探活接口）
-              </p>
-            )}
-
-            {/* Skill triggers */}
-            {item.type === 'skill' && item.triggers && item.triggers.length > 0 && (
-              <div>
-                <span className="font-medium text-slate-500 mb-2 block">触发词:</span>
-                <div className="flex flex-wrap gap-1.5 mt-1">
-                  {item.triggers.map((t) => (
-                    <span key={t} className="px-2 py-1 bg-white border border-indigo-100/50 text-indigo-600 rounded-md text-[11px] font-medium shadow-sm">
-                      &quot;{t}&quot;
-                    </span>
-                  ))}
+          {expanded && (
+            <div className="border-t border-indigo-100/50 px-5 py-3.5 bg-gradient-to-br from-indigo-50/50 to-white/50 text-xs text-slate-600 space-y-3">
+              {/* Full description */}
+              {item.description && (
+                <div>
+                  <span className="font-medium text-slate-500">描述:</span>
+                  <p className="mt-1 text-slate-600 leading-relaxed break-words">
+                    {item.description}
+                  </p>
                 </div>
-              </div>
-            )}
-            {item.type === 'skill' && (!item.triggers || item.triggers.length === 0) && (
-              <p className="text-slate-400 italic py-1">
-                无特定触发词，由上下文自动匹配
-              </p>
-            )}
+              )}
 
-            {/* Skill mount status */}
-            {item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
-              <MountStatusBadges mounts={item.mounts} />
-            )}
+              {/* MCP tools */}
+              {item.type === 'mcp' && item.tools && item.tools.length > 0 && (
+                <div>
+                  <span className="font-medium text-gray-500">Tools ({item.tools.length}):</span>
+                  <ul className="mt-1 space-y-0.5 ml-3">
+                    {item.tools.map((tool) => (
+                      <li key={tool.name} className="flex gap-2">
+                        <code className="text-purple-600">{tool.name}</code>
+                        {tool.description && <span className="text-gray-400 leading-relaxed break-words">{tool.description}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {item.type === 'mcp' && (!item.tools || item.tools.length === 0) && (
+                <p className="text-slate-400 italic py-1">
+                  {item.connectionStatus === 'disconnected'
+                    ? '探活失败或服务不可达，请检查 MCP 配置'
+                    : item.connectionStatus === 'connected'
+                      ? '已连接，但该 MCP 服务没有返回 tools'
+                      : '当前未探活（或未对任一猫启用）'}
+                </p>
+              )}
 
-            {/* Per-cat toggles (grouped by family) */}
-            {catFamilies.length > 0 && (
-              <CatFamilyToggles
-                item={item}
-                catFamilies={catFamilies}
-                toggling={toggling}
-                onToggle={onToggle}
-              />
-            )}
-          </div>
+              {/* Skill triggers */}
+              {item.type === 'skill' && item.triggers && item.triggers.length > 0 && (
+                <div>
+                  <span className="font-medium text-slate-500 mb-2 block">触发词:</span>
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {item.triggers.map((t) => (
+                      <span key={t} className="px-2 py-1 bg-white border border-indigo-100/50 text-indigo-600 rounded-md text-[11px] font-medium shadow-sm">
+                        &quot;{t}&quot;
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {item.type === 'skill' && (!item.triggers || item.triggers.length === 0) && (
+                <p className="text-slate-400 italic py-1">
+                  无特定触发词，由上下文自动匹配
+                </p>
+              )}
+
+              {/* Skill mount status */}
+              {item.type === 'skill' && item.source === 'cat-cafe' && item.mounts && (
+                <MountStatusBadges mounts={item.mounts} />
+              )}
+
+              {/* Per-cat toggles (grouped by family) */}
+              {catFamilies.length > 0 && (
+                <CatFamilyToggles
+                  item={item}
+                  catFamilies={catFamilies}
+                  toggling={toggling}
+                  onToggle={onToggle}
+                />
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

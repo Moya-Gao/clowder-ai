@@ -416,6 +416,20 @@ describe('resolveServersForCat with overrides', () => {
 // ────────── Fastify route-level tests ──────────
 
 describe('GET /api/capabilities (Fastify)', () => {
+  /** @param {string} workdir */
+  function inlineProbeServerCode(workdir) {
+    return [
+      "import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';",
+      "import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';",
+      "import { z } from 'zod';",
+      "const server = new McpServer({ name: 'probe-test-server', version: '1.0.0' });",
+      "server.tool('probe_echo', 'Probe test tool', { message: z.string().optional() }, async ({ message }) => ({ content: [{ type: 'text', text: message ?? 'ok' }] }));",
+      'const transport = new StdioServerTransport();',
+      'await server.connect(transport);',
+      `process.chdir(${JSON.stringify(workdir)});`,
+    ].join(' ');
+  }
+
   it('returns 401 when no identity header', async () => {
     const Fastify = (await import('fastify')).default;
     const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
@@ -549,6 +563,197 @@ describe('GET /api/capabilities (Fastify)', () => {
     assert.equal(res.statusCode, 400);
     assert.ok(res.json().error.includes('Invalid project path'));
 
+    await app.close();
+  });
+
+  it('probe=true returns MCP connection status and tool list', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const projectDir = join('/tmp', `cap-route-test-probe-connected-${Date.now()}`);
+    await mkdir(projectDir, { recursive: true });
+    const probeCode = inlineProbeServerCode(process.cwd());
+
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'probe-connected',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            command: 'node',
+            args: ['--input-type=module', '--eval', probeCode],
+            workingDir: process.cwd(),
+          },
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}&probe=true`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    const item = body.items.find((i) => i.type === 'mcp' && i.id === 'probe-connected');
+    assert.ok(item, 'Probe MCP item should exist');
+    assert.equal(item.connectionStatus, 'connected', 'Probe status should be connected');
+    assert.ok(Array.isArray(item.tools), 'tools should be present when probe=true');
+    assert.ok(
+      item.tools.some((tool) => tool.name === 'probe_echo'),
+      'probe_echo should be discovered from tools/list',
+    );
+
+    await rm(projectDir, { recursive: true, force: true });
+    await app.close();
+  });
+
+  it('probe=true still probes when global disabled but per-cat override enabled', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const projectDir = join('/tmp', `cap-route-test-probe-override-${Date.now()}`);
+    await mkdir(projectDir, { recursive: true });
+    const probeCode = inlineProbeServerCode(process.cwd());
+
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'probe-override',
+          type: 'mcp',
+          enabled: false,
+          source: 'external',
+          overrides: [{ catId: 'codex', enabled: true }],
+          mcpServer: {
+            command: 'node',
+            args: ['--input-type=module', '--eval', probeCode],
+            workingDir: process.cwd(),
+          },
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}&probe=true`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    const item = body.items.find((i) => i.type === 'mcp' && i.id === 'probe-override');
+    assert.ok(item, 'Override MCP item should exist');
+    assert.equal(item.cats.codex, true, 'per-cat override should mark codex as enabled');
+    assert.equal(item.connectionStatus, 'connected', 'Probe should run when any cat is enabled');
+    assert.ok(
+      Array.isArray(item.tools) && item.tools.some((tool) => tool.name === 'probe_echo'),
+      'tools/list should be available for override-enabled capability',
+    );
+
+    await rm(projectDir, { recursive: true, force: true });
+    await app.close();
+  });
+
+  it('probe=true keeps runtime PATH when capability provides custom env', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const projectDir = join('/tmp', `cap-route-test-probe-env-${Date.now()}`);
+    await mkdir(projectDir, { recursive: true });
+    const probeCode = inlineProbeServerCode(process.cwd());
+
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'probe-env',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: {
+            command: 'node',
+            args: ['--input-type=module', '--eval', probeCode],
+            env: { OPENAI_API_KEY: 'test-key' },
+            workingDir: process.cwd(),
+          },
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}&probe=true`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    const item = body.items.find((i) => i.type === 'mcp' && i.id === 'probe-env');
+    assert.ok(item, 'Probe-env MCP item should exist');
+    assert.equal(item.connectionStatus, 'connected', 'Custom env should not break stdio command resolution');
+    assert.ok(
+      Array.isArray(item.tools) && item.tools.some((tool) => tool.name === 'probe_echo'),
+      'tools/list should still succeed when custom env is provided',
+    );
+
+    await rm(projectDir, { recursive: true, force: true });
+    await app.close();
+  });
+
+  it('without probe flag keeps MCP probe fields undefined', async () => {
+    const Fastify = (await import('fastify')).default;
+    const { capabilitiesRoutes } = await import('../dist/routes/capabilities.js');
+
+    const app = Fastify();
+    await app.register(capabilitiesRoutes);
+    await app.ready();
+
+    const projectDir = join('/tmp', `cap-route-test-probe-off-${Date.now()}`);
+    await mkdir(projectDir, { recursive: true });
+    await writeCapabilitiesConfig(projectDir, {
+      version: 1,
+      capabilities: [
+        {
+          id: 'probe-off',
+          type: 'mcp',
+          enabled: true,
+          source: 'external',
+          mcpServer: { command: 'echo', args: ['ok'] },
+        },
+      ],
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/capabilities?projectPath=${encodeURIComponent(projectDir)}`,
+      headers: AUTH_HEADERS,
+    });
+    assert.equal(res.statusCode, 200);
+
+    const body = res.json();
+    const item = body.items.find((i) => i.type === 'mcp' && i.id === 'probe-off');
+    assert.ok(item, 'Probe-off MCP item should exist');
+    assert.equal(item.connectionStatus, undefined, 'connectionStatus should be absent when probe=false');
+    assert.equal(item.tools, undefined, 'tools should be absent when probe=false');
+
+    await rm(projectDir, { recursive: true, force: true });
     await app.close();
   });
 });

@@ -29,6 +29,7 @@ import type {
 } from '@cat-cafe/shared';
 import { resolveUserId } from '../utils/request-identity.js';
 import { validateProjectPath } from '../utils/project-path.js';
+import { probeMcpCapability, type McpProbeResult } from './mcp-probe.js';
 import {
   readCapabilitiesConfig,
   writeCapabilitiesConfig,
@@ -335,6 +336,7 @@ async function parseManifestSkillMeta(skillsSrcDir: string): Promise<Map<string,
 const MCP_DESCRIPTIONS: Record<string, string> = {
   'cat-cafe': '三猫协作工具 — 消息、上下文、任务、记忆、权限等',
 };
+const MAX_CONCURRENT_MCP_PROBES = 4;
 
 /**
  * Build cat family grouping from catRegistry.
@@ -376,7 +378,8 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     }
 
     // Multi-project: accept ?projectPath=... to manage capabilities for any project
-    const query = request.query as { projectPath?: string };
+    const query = request.query as { projectPath?: string; probe?: string | boolean };
+    const probeEnabled = query.probe === true || query.probe === 'true' || query.probe === '1';
     let projectRoot = getProjectRoot();
     if (query.projectPath) {
       const validated = await validateProjectPath(query.projectPath);
@@ -615,6 +618,41 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       const category = skillCategoryMap.get(cap.id);
       if (category) skillItem.category = category;
       items.push(skillItem);
+    }
+
+    // Optional MCP probe: fill connectionStatus + tools via tools/list.
+    if (probeEnabled) {
+      const mcpCaps = config.capabilities.filter((cap) => cap.type === 'mcp');
+      const mcpItemById = new Map(
+        items
+          .filter((item): item is CapabilityBoardItem & { type: 'mcp' } => item.type === 'mcp')
+          .map((item) => [item.id, item] as const),
+      );
+      const probeEntries: Array<readonly [string, McpProbeResult]> = [];
+      const probeOne = async (cap: (typeof mcpCaps)[number]): Promise<readonly [string, McpProbeResult]> => {
+          const boardItem = mcpItemById.get(cap.id);
+          const anyCatEnabled = boardItem
+            ? Object.values(boardItem.cats).some(Boolean)
+            : cap.enabled;
+          if (!anyCatEnabled) {
+            return [cap.id, { connectionStatus: 'unknown' }] as const;
+          }
+          const probe = await probeMcpCapability(cap, { projectRoot });
+          return [cap.id, probe] as const;
+      };
+      for (let i = 0; i < mcpCaps.length; i += MAX_CONCURRENT_MCP_PROBES) {
+        const chunk = mcpCaps.slice(i, i + MAX_CONCURRENT_MCP_PROBES);
+        const chunkEntries = await Promise.all(chunk.map(probeOne));
+        probeEntries.push(...chunkEntries);
+      }
+      const probeMap = new Map(probeEntries);
+      for (const item of items) {
+        if (item.type !== 'mcp') continue;
+        const probe = probeMap.get(item.id);
+        if (!probe) continue;
+        item.connectionStatus = probe.connectionStatus;
+        if (probe.tools) item.tools = probe.tools;
+      }
     }
 
     // 6. Mount health check for cat-cafe skills

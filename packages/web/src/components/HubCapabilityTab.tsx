@@ -49,8 +49,10 @@ export function HubCapabilityTab() {
   const fetchCapabilities = useCallback(async (forProject?: string) => {
     setError(null);
     try {
-      const params = forProject ? `?projectPath=${encodeURIComponent(forProject)}` : '';
-      const res = await apiFetch(`/api/capabilities${params}`);
+      const query = new URLSearchParams();
+      if (forProject) query.set('projectPath', forProject);
+      query.set('probe', 'true');
+      const res = await apiFetch(`/api/capabilities?${query.toString()}`);
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as Record<string, unknown>;
         setError((data.error as string) ?? '加载失败');

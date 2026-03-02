@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@cat-cafe/shared": "workspace:*",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "@fastify/cors": "^9.0.0",
     "@fastify/multipart": "8",
     "@fastify/static": "7",
