@@ -116,13 +116,31 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       return { error: 'No active push subscriptions for this user. Please enable push on this device first.' };
     }
 
-    await pushService.notifyUser(userId, {
+    const delivery = await pushService.notifyUser(userId, {
       title: '🐱 猫猫测试推送',
       body: '如果你看到这条通知，说明推送配置成功了！',
       tag: 'push-test',
       data: { url: '/', forceSystemNotification: true },
     });
 
-    return { status: 'ok', message: '测试推送已发送' };
+    if (delivery.delivered === 0) {
+      reply.status(502);
+      if (delivery.removed > 0 && delivery.failed === 0) {
+        return {
+          error: '该设备推送订阅已过期，请先关闭并重新开启推送后再试。',
+          delivery,
+        };
+      }
+      return {
+        error: '系统通知投递失败，请检查 API 代理/网络后重试。',
+        delivery,
+      };
+    }
+
+    return {
+      status: 'ok',
+      message: '系统通知已请求发送，请查看系统通知中心。',
+      delivery,
+    };
   });
 };

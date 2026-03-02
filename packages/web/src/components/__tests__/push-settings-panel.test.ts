@@ -72,7 +72,7 @@ describe('PushSettingsPanel test push feedback', () => {
     });
 
     const toasts = useToastStore.getState().toasts;
-    expect(toasts.some((t) => t.type === 'success' && t.title === '测试通知已发送')).toBe(true);
+    expect(toasts.some((t) => t.type === 'success' && t.title === '系统通知已请求发送')).toBe(true);
   });
 
   it('shows error toast when test push fails', async () => {
@@ -99,6 +99,6 @@ describe('PushSettingsPanel test push feedback', () => {
     });
 
     const toasts = useToastStore.getState().toasts;
-    expect(toasts.some((t) => t.type === 'error' && t.title === '测试通知发送失败')).toBe(true);
+    expect(toasts.some((t) => t.type === 'error' && t.title === '系统通知发送失败')).toBe(true);
   });
 });

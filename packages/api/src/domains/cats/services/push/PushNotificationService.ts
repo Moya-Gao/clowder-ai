@@ -68,6 +68,15 @@ export interface PushNotificationServiceOptions {
   vapidSubject: string;
 }
 
+export interface PushDeliverySummary {
+  attempted: number;
+  delivered: number;
+  failed: number;
+  removed: number;
+}
+
+type PushSendOutcome = 'delivered' | 'removed';
+
 export class PushNotificationService {
   private readonly store: IPushSubscriptionStore;
   private readonly proxy: string | undefined;
@@ -81,33 +90,51 @@ export class PushNotificationService {
   }
 
   /** Push to all subscribed devices (best-effort). */
-  async notifyAll(payload: PushPayload): Promise<void> {
+  async notifyAll(payload: PushPayload): Promise<PushDeliverySummary> {
     const subs = await this.store.listAll();
-    await this.sendToAll(subs, payload);
+    return this.sendToAll(subs, payload);
   }
 
   /** Push to a specific user's devices (best-effort). */
-  async notifyUser(userId: string, payload: PushPayload): Promise<void> {
+  async notifyUser(userId: string, payload: PushPayload): Promise<PushDeliverySummary> {
     const subs = await this.store.listByUser(userId);
-    await this.sendToAll(subs, payload);
+    return this.sendToAll(subs, payload);
   }
 
-  private async sendToAll(subs: PushSubscriptionRecord[], payload: PushPayload): Promise<void> {
-    if (subs.length === 0) return;
+  private async sendToAll(subs: PushSubscriptionRecord[], payload: PushPayload): Promise<PushDeliverySummary> {
+    if (subs.length === 0) {
+      return { attempted: 0, delivered: 0, failed: 0, removed: 0 };
+    }
 
     const body = JSON.stringify(payload);
     const results = await Promise.allSettled(
       subs.map((sub) => this.sendOne(sub, body)),
     );
 
+    const summary: PushDeliverySummary = {
+      attempted: subs.length,
+      delivered: 0,
+      failed: 0,
+      removed: 0,
+    };
+
     for (const r of results) {
-      if (r.status === 'rejected') {
-        console.warn('[push] Push delivery failed:', r.reason);
+      if (r.status === 'fulfilled') {
+        if (r.value === 'removed') {
+          summary.removed += 1;
+        } else {
+          summary.delivered += 1;
+        }
+        continue;
       }
+      summary.failed += 1;
+      console.warn('[push] Push delivery failed:', r.reason);
     }
+
+    return summary;
   }
 
-  private async sendOne(sub: PushSubscriptionRecord, body: string): Promise<void> {
+  private async sendOne(sub: PushSubscriptionRecord, body: string): Promise<PushSendOutcome> {
     const pushSub: webpush.PushSubscription = {
       endpoint: sub.endpoint,
       keys: sub.keys,
@@ -121,13 +148,14 @@ export class PushNotificationService {
     }
     try {
       await webpush.sendNotification(pushSub, body, sendOptions);
+      return 'delivered';
     } catch (err: unknown) {
       const statusCode = (err as { statusCode?: number }).statusCode;
       // 410 Gone or 404 = subscription expired, auto-cleanup
       if (statusCode === 410 || statusCode === 404) {
         console.log(`[push] Removing expired subscription: ${sub.endpoint.slice(0, 60)}...`);
         await this.store.remove(sub.endpoint);
-        return;
+        return 'removed';
       }
       throw err;
     }

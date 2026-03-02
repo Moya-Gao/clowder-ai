@@ -21,7 +21,7 @@ export function PushSettingsPanel() {
       const result = await sendTest();
       addToast({
         type: result.ok ? 'success' : 'error',
-        title: result.ok ? '测试通知已发送' : '测试通知发送失败',
+        title: result.ok ? '系统通知已请求发送' : '系统通知发送失败',
         message: result.message,
         duration: result.ok ? 3000 : 5000,
       });

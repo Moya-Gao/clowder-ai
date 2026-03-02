@@ -211,6 +211,7 @@ describe('push routes', () => {
       assert.equal(userId, 'owner');
       assert.equal(payload.tag, 'push-test');
       assert.equal(payload.data?.forceSystemNotification, true);
+      return { attempted: 1, delivered: 1, failed: 0, removed: 0 };
     };
 
     const appWithPush = Fastify();
@@ -229,5 +230,38 @@ describe('push routes', () => {
 
     assert.equal(res.statusCode, 200);
     assert.equal(called, true);
+    const body = JSON.parse(res.payload);
+    assert.match(body.message, /系统通知已请求发送/);
+    assert.equal(body.delivery.delivered, 1);
+  });
+
+  it('POST /api/push/test returns 502 when push delivery fails', async () => {
+    store.upsert({
+      endpoint: 'https://push.example.com/sub/1',
+      keys: { p256dh: 'key1', auth: 'auth1' },
+      userId: 'owner',
+      createdAt: Date.now(),
+    });
+
+    const notifyUser = async () => ({ attempted: 1, delivered: 0, failed: 1, removed: 0 });
+
+    const appWithPush = Fastify();
+    await appWithPush.register(pushRoutes, {
+      pushSubscriptionStore: store,
+      pushService: /** @type {any} */ ({ notifyUser }),
+      vapidPublicKey: 'test-vapid-key-123',
+    });
+    await appWithPush.ready();
+
+    const res = await appWithPush.inject({
+      method: 'POST',
+      url: '/api/push/test',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+
+    assert.equal(res.statusCode, 502);
+    const body = JSON.parse(res.payload);
+    assert.match(body.error, /投递失败|proxy|网络/i);
+    assert.equal(body.delivery.delivered, 0);
   });
 });

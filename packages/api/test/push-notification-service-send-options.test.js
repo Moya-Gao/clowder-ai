@@ -82,13 +82,14 @@ describe('PushNotificationService sendNotification options', () => {
     const sendMock = mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
     const service = createService();
 
-    await service.notifyUser('owner', { title: 't', body: 'b' });
+    const summary = await service.notifyUser('owner', { title: 't', body: 'b' });
 
     assert.equal(sendMock.mock.calls.length, 1);
     const options = sendMock.mock.calls[0].arguments[2];
     assert.equal(options.TTL, 60 * 60);
     assert.equal(options.timeout, 10_000);
     assert.equal(options.proxy, undefined);
+    assert.deepEqual(summary, { attempted: 1, delivered: 1, failed: 0, removed: 0 });
   });
 
   it('prefers HTTPS_PROXY and WEB_PUSH_TIMEOUT_MS when provided', async () => {
@@ -100,12 +101,13 @@ describe('PushNotificationService sendNotification options', () => {
     const sendMock = mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
     const service = createService();
 
-    await service.notifyUser('owner', { title: 't', body: 'b' });
+    const summary = await service.notifyUser('owner', { title: 't', body: 'b' });
 
     assert.equal(sendMock.mock.calls.length, 1);
     const options = sendMock.mock.calls[0].arguments[2];
     assert.equal(options.proxy, 'http://127.0.0.1:7897');
     assert.equal(options.timeout, 12_000);
+    assert.deepEqual(summary, { attempted: 1, delivered: 1, failed: 0, removed: 0 });
   });
 
   it('falls back to HTTP proxy and default timeout for invalid values', async () => {
@@ -117,11 +119,24 @@ describe('PushNotificationService sendNotification options', () => {
     const sendMock = mock.method(webpush, 'sendNotification', async () => ({ statusCode: 201 }));
     const service = createService();
 
-    await service.notifyUser('owner', { title: 't', body: 'b' });
+    const summary = await service.notifyUser('owner', { title: 't', body: 'b' });
 
     assert.equal(sendMock.mock.calls.length, 1);
     const options = sendMock.mock.calls[0].arguments[2];
     assert.equal(options.proxy, 'http://127.0.0.1:7897');
     assert.equal(options.timeout, 10_000);
+    assert.deepEqual(summary, { attempted: 1, delivered: 1, failed: 0, removed: 0 });
+  });
+
+  it('returns failed summary when web-push send rejects', async () => {
+    const sendMock = mock.method(webpush, 'sendNotification', async () => {
+      throw Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' });
+    });
+    const service = createService();
+
+    const summary = await service.notifyUser('owner', { title: 't', body: 'b' });
+
+    assert.equal(sendMock.mock.calls.length, 1);
+    assert.deepEqual(summary, { attempted: 1, delivered: 0, failed: 1, removed: 0 });
   });
 });
