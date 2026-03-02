@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { CatOverviewTab, SystemTab, type ConfigData } from './config-viewer-tabs';
@@ -21,7 +22,7 @@ const HUB_TABS: { id: HubTabId; label: string }[] = [
   { id: 'cats', label: '猫猫总览' },
   { id: 'system', label: '系统配置' },
   { id: 'capabilities', label: '能力中心' },
-  { id: 'routing', label: '路由策略' },
+  { id: 'routing', label: '猫粮看板' },
   { id: 'commands', label: '命令速查' },
   { id: 'env', label: '环境 & 文件' },
   { id: 'voice', label: '语音设置' },
