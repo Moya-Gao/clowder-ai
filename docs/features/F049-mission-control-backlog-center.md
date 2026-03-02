@@ -57,11 +57,8 @@ created: 2026-03-01
   - [ ] 默认关闭：只能”建议+批准”
   - [ ] 未来可开启：满足条件后允许猫自领（仍保留审计与回收）
 
-### Phase B：线程级路由策略（从 F042 毕业）
-- [ ] Thread-scoped routing policy（`routingPolicy` 字段 on ThreadStore）
-- [ ] AgentRouter 扩展：根据 thread routing policy 选猫
-- [ ] Hub UI: Routing Policy Tab
-- [ ] 设计来源：`feat/f042-routing-policy-scopes` 分支（1 commit, 16 files, +845 lines）
+### ~~Phase B：线程级路由策略~~ — 已在 F042 PR #148 完成
+> **修正 (2026-03-02)**：routing-policy-scopes 已通过 PR #148 (`b0cadb6a`) 作为 F042 交付物合入 main，不再需要 F049 承接。
 
 ## Links
 
@@ -114,8 +111,8 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 ## Dependencies
 
 - **Evolved from**: F037
-- **F042 毕业**: `feat/f042-routing-policy-scopes` → Phase B 线程级路由策略
-- **Depends on**: F043（Phase B 需要 `list_threads`/`feat_index`）
+- **~~F042 毕业~~**: routing-policy-scopes 已在 F042 PR #148 完成，不再需要 F049 承接
+- **Depends on**: F043（`list_threads`/`feat_index` 工具）
 - **Blocks**: （待定）
 
 ## Open Questions

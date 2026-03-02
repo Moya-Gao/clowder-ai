@@ -12,6 +12,8 @@ created: 2026-03-02
 **扇入者**: 布偶猫（铲屎官指定）
 **模式**: collaborative-thinking Mode B → Mode C
 
+> **⚠️ 修正 (2026-03-02 22:44)**：本纪要原始版本错误地将 `feat/f042-routing-policy-scopes` 标记为"未合入"并建议毕业到 F049 Phase B。实际上该分支已通过另一线程的砚砚 rebase 后以 PR #148 (`b0cadb6a`) 合入 `origin/main`。错因：盘点时本地 main 未拉最新，导致 `git cherry` 对比结果误导。这恰恰是 LL-027（spec/代码时间线漂移）的现场案例。已修正 F042/F049 spec。
+
 ---
 
 ## 背景

@@ -280,12 +280,12 @@ F042 核心交付完成后，剩余的实施项按知识工程栈归属毕业到
 
 | 原 F042 项目 | 毕业去向 | 理由 |
 |---|---|---|
-| 硬编码猫名清理（10 files） | **M1 收尾**（砚砚执行） | 纯清理，不涉及架构决策 |
+| 硬编码猫名清理（10 files） | **M1 收尾**（砚砚执行） ✅ Done | 纯清理，不涉及架构决策 |
 | skill-lint CI gate（`pnpm check:skills`） | **F046 Phase B (B4)** | Lint = 漂移防护 |
 | Thread metadata + stage | **F043 Phase A** | 线程上下文持久化 = MCP memory 职责 |
 | ≥10 条对话场景回归测试 | **F046 Phase B (B5)** | 回归测试 = 愿景守护运行时验证 |
 | 同族 reviewer identity check gate | **F046 Phase B (B6)** | 流程执行守护门禁 |
-| `feat/f042-routing-policy-scopes` 分支 | **F049 Phase B** | 线程级路由策略 ≈ 任务编排 |
+| ~~`feat/f042-routing-policy-scopes` 分支~~ | ~~F049 Phase B~~ **修正：已作为 F042 交付物合入** | PR #148 (`b0cadb6a`) 2026-03-02 合入 main |
 
 **原则**：F042 的知识工程方法论已沉淀在 manifest.yaml + `docs/research/knowledge-enginnering/`；Feature 层面的使命完成，后续是上层 Feature 的运用。
 
@@ -308,6 +308,7 @@ F042 核心交付完成后，剩余的实施项按知识工程栈归属毕业到
 | Skill mounts 稳定化 | PR #129 (`968301ea`) |
 | Symlink 修复 | PR #121 (`21f4f47c`) |
 | 知识工程研究 | `docs/research/knowledge-enginnering/` |
+| Thread-scoped routing policy | PR #148 (`b0cadb6a`) |
 
 ### 已合入 PR
 
@@ -319,6 +320,7 @@ F042 核心交付完成后，剩余的实施项按知识工程栈归属毕业到
 | #127 | `2e652d2a` | Pin identity + A2A reply target | 2026-03-01 |
 | #129 | `968301ea` | Stabilize skill mounts + manifest metadata | 2026-03-01 |
 | #132 | `17053aa4` | Normalize skill frontmatter + align skills API metadata | 2026-03-01 |
+| #148 | `b0cadb6a` | Thread-scoped routing policy by scope | 2026-03-02 |
 
 ---
 
