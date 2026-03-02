@@ -66,6 +66,8 @@ const postMessageSchema = callbackAuthSchema.extend({
 const threadContextQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   threadId: z.string().min(1).optional(), // F-Swarm-6: optional cross-thread read
+  catId: z.string().min(1).optional(),
+  keyword: z.string().min(1).optional(),
 });
 
 const pendingMentionsQuerySchema = callbackAuthSchema.extend({
@@ -312,15 +314,28 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Missing invocationId or callbackToken' };
       }
 
-      const { invocationId, callbackToken, limit, threadId: overrideThreadId } = parsed.data;
+      const {
+        invocationId,
+        callbackToken,
+        limit,
+        threadId: overrideThreadId,
+        catId: filterCatId,
+        keyword,
+      } = parsed.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
         return EXPIRED_CREDENTIALS_ERROR;
       }
 
+      if (filterCatId && filterCatId !== 'user' && !catRegistry.has(filterCatId)) {
+        reply.status(400);
+        return { error: `Unknown catId filter: ${filterCatId}` };
+      }
+
       // F-Swarm-6: allow reading a different thread's context
       const effectiveThreadId = overrideThreadId ?? record.threadId;
+      const normalizedKeyword = keyword?.toLowerCase();
 
       const requestedLimit = limit ?? 20;
       let needsPlayFilter = false;
@@ -337,6 +352,19 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const viewer = needsPlayFilter
         ? { type: 'cat' as const, catId: createCatId(record.catId) }
         : { type: 'user' as const };
+      const matchesExtraFilters = (item: Awaited<ReturnType<typeof messageStore.getByThread>>[number]): boolean => {
+        if (filterCatId) {
+          if (filterCatId === 'user') {
+            if (item.catId !== null) return false;
+          } else if (item.catId !== filterCatId) {
+            return false;
+          }
+        }
+        if (normalizedKeyword && !item.content.toLowerCase().includes(normalizedKeyword)) {
+          return false;
+        }
+        return true;
+      };
 
       if (!needsPlayFilter) {
         // Normal mode: paginate backwards collecting visible messages until we
@@ -356,6 +384,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
 
           for (const item of batch) {
             if (!canViewMessage(item, viewer)) continue;
+            if (!matchesExtraFilters(item)) continue;
             visible.push(item);
           }
 
@@ -390,6 +419,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
             // compatibility — all new writes are tagged, so untagged = legacy callback.
             const isOtherCat = item.catId && item.catId !== record.catId;
             if (!isOtherCat || item.origin !== 'stream') {
+              if (!matchesExtraFilters(item)) continue;
               visible.push(item);
             }
           }

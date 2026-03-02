@@ -106,6 +106,10 @@ export const getThreadContextInputSchema = {
     .describe('Number of recent messages to retrieve (default: 20)'),
   threadId: z.string().min(1).optional()
     .describe('Optional: read messages from a different thread. Omit to read the current thread.'),
+  catId: z.string().min(1).optional()
+    .describe("Optional: filter by speaker catId, or pass 'user' for human messages."),
+  keyword: z.string().min(1).optional()
+    .describe('Optional: filter messages whose content contains this keyword (case-insensitive).'),
 };
 
 export const updateTaskInputSchema = {
@@ -153,10 +157,17 @@ export async function handleAckMentions(input: {
   });
 }
 
-export async function handleGetThreadContext(input: { limit?: number; threadId?: string }): Promise<ToolResult> {
+export async function handleGetThreadContext(input: {
+  limit?: number | undefined;
+  threadId?: string | undefined;
+  catId?: string | undefined;
+  keyword?: string | undefined;
+}): Promise<ToolResult> {
   return callbackGet('/api/callbacks/thread-context', {
     ...(input.limit ? { limit: String(input.limit) } : {}),
     ...(input.threadId ? { threadId: input.threadId } : {}),
+    ...(input.catId ? { catId: input.catId } : {}),
+    ...(input.keyword ? { keyword: input.keyword } : {}),
   });
 }
 
@@ -324,6 +335,12 @@ export const callbackTools = [
   {
     name: 'cat_cafe_get_thread_context',
     description: 'Get recent conversation messages for context. Use this to understand what has been discussed recently. Pass threadId to read a different thread (cross-thread context).',
+    inputSchema: getThreadContextInputSchema,
+    handler: handleGetThreadContext,
+  },
+  {
+    name: 'cat_cafe_search_messages',
+    description: "Search thread messages by speaker (catId/'user') and keyword. Supports cross-thread via threadId.",
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
   },

@@ -24,6 +24,22 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
 curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"
 ```
 
+可选 query 参数：
+- `catId`：`user` 或具体猫句柄（如 `codex`、`gpt52`、`opus`）
+- `keyword`：按消息 `content` 做大小写不敏感匹配
+
+示例：
+```bash
+# 看 @codex 的消息
+curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&catId=codex"
+
+# 按关键词检索
+curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&keyword=review"
+
+# 组合过滤
+curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN&catId=gpt52&keyword=search"
+```
+
 ### Get Pending @Mentions
 ```bash
 curl "$CAT_CAFE_API_URL/api/callbacks/pending-mentions?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"

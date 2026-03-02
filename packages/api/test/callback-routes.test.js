@@ -307,6 +307,139 @@ describe('Callback Routes', () => {
     assert.equal(body.messages.length, 3);
   });
 
+  test('GET thread-context supports catId filter (cat + user)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'human message',
+      mentions: [],
+      timestamp: 1,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'opus',
+      content: 'opus reply',
+      mentions: [],
+      timestamp: 2,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'codex',
+      content: 'codex reply',
+      mentions: [],
+      timestamp: 3,
+    });
+
+    const catResponse = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&catId=codex`,
+    });
+    assert.equal(catResponse.statusCode, 200);
+    const catBody = JSON.parse(catResponse.body);
+    assert.equal(catBody.messages.length, 1);
+    assert.equal(catBody.messages[0].content, 'codex reply');
+
+    const userResponse = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&catId=user`,
+    });
+    assert.equal(userResponse.statusCode, 200);
+    const userBody = JSON.parse(userResponse.body);
+    assert.equal(userBody.messages.length, 1);
+    assert.equal(userBody.messages[0].content, 'human message');
+  });
+
+  test('GET thread-context supports keyword filter (case-insensitive)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'user-1',
+      catId: null,
+      content: 'Discuss Redis lock strategy',
+      mentions: [],
+      timestamp: 1,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'opus',
+      content: 'No database updates here',
+      mentions: [],
+      timestamp: 2,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'codex',
+      content: 'redis retry and timeout',
+      mentions: [],
+      timestamp: 3,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&keyword=ReDiS`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 2);
+    assert.equal(body.messages[0].content, 'Discuss Redis lock strategy');
+    assert.equal(body.messages[1].content, 'redis retry and timeout');
+  });
+
+  test('GET thread-context combines catId + keyword filters', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'codex',
+      content: 'redis findings',
+      mentions: [],
+      timestamp: 1,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'codex',
+      content: 'other topic',
+      mentions: [],
+      timestamp: 2,
+    });
+    messageStore.append({
+      userId: 'user-1',
+      catId: 'opus',
+      content: 'redis but different cat',
+      mentions: [],
+      timestamp: 3,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&catId=codex&keyword=redis`,
+    });
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.messages.length, 1);
+    assert.equal(body.messages[0].content, 'redis findings');
+  });
+
+  test('GET thread-context rejects unknown catId filter', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/thread-context?invocationId=${invocationId}&callbackToken=${callbackToken}&catId=unknown-cat`,
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = JSON.parse(response.body);
+    assert.match(body.error, /Unknown catId filter/);
+  });
+
   // ---- Cross-user isolation (P1 regression) ----
 
   test('GET thread-context only returns messages from the same user', async () => {

@@ -147,6 +147,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
 - cat_cafe_get_pending_mentions: 获取 @提及
 - cat_cafe_get_thread_context: 获取对话上下文
+- cat_cafe_search_messages: 检索消息
 - cat_cafe_update_task: 更新任务状态
 - cat_cafe_create_rich_block: 创建 rich block
 - cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）

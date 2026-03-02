@@ -152,6 +152,35 @@ describe('MCP Callback Tools', () => {
     assert.ok(!capturedUrl.includes('limit='));
   });
 
+  test('handleGetThreadContext forwards catId/keyword filters', async () => {
+    const { handleGetThreadContext } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ messages: [] }),
+      };
+    };
+
+    const result = await handleGetThreadContext({
+      limit: 20,
+      threadId: 'thread-42',
+      catId: 'user',
+      keyword: 'redis lock',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/thread-context'));
+    assert.ok(capturedUrl.includes('limit=20'));
+    assert.ok(capturedUrl.includes('threadId=thread-42'));
+    assert.ok(capturedUrl.includes('catId=user'));
+    assert.ok(capturedUrl.includes('keyword=redis+lock'));
+  });
+
   test('handles API error response', async () => {
     const { handlePostMessage } = await import(
       '../dist/tools/callback-tools.js'

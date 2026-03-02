@@ -216,3 +216,4 @@ Layer 0: Knowledge Engineering Research (Done)
 
 - 2026-02-27: F043 立项
 - 2026-03-02: 路线图收敛 — 纳入知识工程栈 Layer 2 + 吸收 F042 thread metadata + 延后 server 拆分
+- 2026-03-02: Phase A P0 实作（`cat_cafe_search_messages` + thread-context `catId/keyword` 过滤）完成，待 review/合入

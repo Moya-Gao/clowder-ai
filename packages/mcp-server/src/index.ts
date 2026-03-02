@@ -122,7 +122,17 @@ export function createServer(): McpServer {
     'cat_cafe_get_thread_context',
     'Get recent conversation messages for context. Use this to understand what has been discussed recently.',
     getThreadContextInputSchema,
-    async (args: { limit?: number }) => {
+    async (args) => {
+      const result = await handleGetThreadContext(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_search_messages',
+    "Search thread messages with optional catId/user and keyword filters. Supports cross-thread via threadId.",
+    getThreadContextInputSchema,
+    async (args) => {
       const result = await handleGetThreadContext(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }

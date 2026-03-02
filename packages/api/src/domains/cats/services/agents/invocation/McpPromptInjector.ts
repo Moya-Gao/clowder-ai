@@ -66,6 +66,7 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
 ### HTTP 回调工具（异步场景）
 凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`（环境变量）
 可用工具: post-message / register-pr-tracking / thread-context / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
+检索消息: 用 thread-context，并传 query 参数 \`catId\` / \`keyword\`
 需要 curl 示例和完整用法，GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`。
 需要富消息块规范，GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\`。
 
