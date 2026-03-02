@@ -45,6 +45,136 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
 | B6 | 同族 reviewer identity check gate | ✅ Merged（Done） | ← F042 Wave 3 毕业：流程执行守护门禁 |
 
+### 待开发（Phase D — @ 路由卫生 Mention Routing Hygiene）
+
+#### D.0 问题现象
+
+2026-03-02 铲屎官观察到缅因猫的 **"@ 二极管"现象**：
+
+- **不干预时**：缅因猫（Codex 和 GPT-5.2）疯狂互相 @，包括"收到，我也在等云端 review"这种**零行动**消息也会 @，导致无意义的 agent 调用浪费算力。两只缅因猫提了 PR 在等云端 review，却不停 @ 对方确认"对，我们在等"。
+- **加了 prompt 规则后**：矫枉过正，该 @ 的时候反而不 @，review 结果出来了不通知对方，导致流程卡住。
+- **布偶猫（Opus）不受影响**：能正确判断何时该 @、何时不该。
+
+**铲屎官原话**：
+> "要么往死里at 要么不at 去找不着其他猫"
+> "他可能以为布偶猫的名字叫 at xxxx 你懂吧？"
+
+#### D.1 调查过程
+
+**第一步：Prompt 层治疗（PR #159，已合入，效果失败）**
+
+给缅因猫 SystemPromptBuilder 的 WORKFLOW_TRIGGERS 加了"@ 自检三问"规则（发 @ 前问自己：需要行动？会错过？能做什么？三否则不 @），同时在 shared-rules.md 加了 §10 "@ 卫生"。
+
+结果：runtime 更新后缅因猫**仍然疯狂 @**。Prompt 软约束打不过上下文里大量 `@xxx` 模式的补全惯性。
+
+**第二步：缅因猫自述采访（Thread `thread_mm95ha2vubft1bbi` 08:13-08:15）**
+
+布偶猫设计了 4 个采访问题，两只缅因猫独立回答，结论高度一致：
+
+| 问题 | Codex 回答 | GPT-5.2 回答 |
+|------|-----------|-------------|
+| @ 前脑内决策？ | "不是触发路由，而是在对谁说话" | "更像对话对齐/点名，不是触发路由" |
+| @ vs 写名字区别？ | "路由层只看行首 @ 能不能匹配，不看是否有行动" | "理性上知道是路由，但长上下文退化成称呼前缀" |
+| 看到 § 10 规则了吗？ | "路由层不看有没有行动请求，所以废话也路由" | "看过，但软约束被高密度 @ 模式压过去" |
+| 互 @ 说"在等"期望对方做什么？ | "系统行为不是个体偶发" | "期望动作基本是无，本质是状态焦虑" |
+
+**关键发现（两只缅因猫都指出）**：
+1. 上下文里 `@xxx` 模式密度太高（元信息 `最近活跃：@opus`、`Direct message from @xxx` 等），模型补全惯性把 @ 当成"名字格式"
+2. 路由层 `a2a-mentions.ts` 只检测"行首有没有 @handle"，不检测"有没有行动请求"，所以废话也被路由
+3. Prompt 规则是软约束，在高密度 @ 上下文里被模式补全覆盖
+
+**第三步：方案讨论（铲屎官 + 三猫）**
+
+| 方案 | 提出者 | 铲屎官决策 | 理由 |
+|------|--------|-----------|------|
+| 强制 MCP 工具调用才能 @ | 铲屎官 | 暂不采用 | 可能矫枉过正，布偶猫不需要这约束 |
+| 强制冷却期（3 分钟内不能 @ 同目标 2 次以上） | 布偶猫 | **否决** | "缅因猫思考三分钟说一句废话你怎么办？" |
+| 可路由门禁（@ + 动作词才路由） | Codex + GPT-5.2 | **认可方向** | 软硬结合，不矫枉过正 |
+| 输入去惯性（元信息去 @ 前缀） | GPT-5.2 | **认可方向** | 治根——减少上下文里 @ 模式密度 |
+| 无动作 @ 反馈（不路由但给提示） | Codex | **认可方向** | 避免二极管另一端——猫不敢 @ |
+
+#### D.2 根因（四层）
+
+| 层次 | 问题 | 影响 |
+|------|------|------|
+| **语义理解** | GPT 系模型把 `@opus` 当成"名字"而不是"路由指令" | 每句话都 @，像人说"嘿 John" |
+| **任务判断** | 不会判断"这件事需不需要别人" | 小破事也 @ 人 review |
+| **上下文惯性** | 元信息里大量 `@xxx` 污染补全模式 | prompt 规则被惯性覆盖 |
+| **机制缺失** | 路由层不检查 actionability，只检查格式匹配 | 废话也被路由成 agent 调用 |
+
+#### D.3 实施方案（三个 item）
+
+**D1: Actionability Gate（可路由门禁）**
+
+- **改什么**：`packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts`
+- **现在**：行首 `@handle` 匹配成功 → 直接路由
+- **改后**：行首 `@handle` 匹配成功 → 检查同段/同句是否含动作词 → 有动作词才路由，无动作词不路由
+- **动作词初始集**（硬编码，后续可配置化）：`review`、`确认`、`处理`、`修复`、`请`、`帮`、`决策`、`看一下`、`check`、`fix`、`merge`
+- **注意**：铲屎官的 @ 不受此门禁影响（铲屎官消息走不同路径），只影响猫→猫的 A2A mention
+
+**D2: Input De-inertia（输入去惯性）**
+
+- **改什么**：`packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts`
+- **改哪些元信息**：
+  - `最近活跃：@opus` → `最近活跃：布偶猫(opus)`
+  - `Direct message from @xxx; reply to @xxx` → `Direct message from 布偶猫(opus); reply to 布偶猫(opus)`
+  - 其他注入到上下文的 `@handle` 模式
+- **目标**：把上下文里的 @ 模式密度从每条消息 2-3 个降到接近 0，让模型不再把 @ 当成"名字格式"的补全模式
+- **不改什么**：WORKFLOW_TRIGGERS 里的 `@布偶猫` 保留（那是教猫"什么时候该 @"的教学内容，不是补全污染源）
+
+**D3: No-action @ Feedback（无动作 @ 反馈）**
+
+- **改什么**：`packages/api/src/domains/cats/services/agents/routing/route-serial.ts`（或 D1 检测逻辑的下游）
+- **行为**：当 D1 判定"无动作词，不路由"时，不是静默丢弃，而是在当前猫的下一次调用中注入一条系统提示：
+  > "你上一条消息里的 @xxx 未被路由（未检测到行动请求）。如需联系对方，请明确说明需要对方做什么，例如：'请 review 这个改动\n@opus'"
+- **目的**：避免矫枉过正。猫收到反馈后知道自己的 @ 没生效，可以修正写法——而不是"怎么 @ 了没人理我"然后再 @ 十遍
+- **不要做**：不要弹窗式阻断，不要强制改写。只是提示性反馈
+
+#### D.4 不做什么
+
+| 方案 | 不做原因 |
+|------|---------|
+| 强制 MCP 工具调用 @ | 改动太大（重写整个 A2A 路由）+ 布偶猫不需要 + 工程量不匹配收益 |
+| 冷却期（时间窗口内限频） | 铲屎官否决："猫思考慢了怎么办？" + 误伤正常交互 |
+| 只改 prompt 不改机制 | **已证实无效**（PR #159 实验） |
+| 按猫种区分规则（只限缅因猫） | 增加复杂度，统一规则更简单可维护 |
+
+#### D.5 验收标准
+
+1. 缅因猫发"@opus 收到，我在等"→ **不路由**，猫收到提示
+2. 缅因猫发"请 review 这个 PR\n@opus"→ **正常路由**
+3. 布偶猫的正常 @ 行为不受影响
+4. 铲屎官的 @ 不受门禁影响
+5. SystemPromptBuilder 输出中不含 `@handle` 格式的元信息（WORKFLOW_TRIGGERS 教学内容除外）
+6. 有对应的单元测试覆盖 D1/D2/D3
+
+#### D.6 关键代码文件
+
+| 文件 | 改动 |
+|------|------|
+| `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts` | D1: actionability 检测逻辑 |
+| `packages/api/src/domains/cats/services/agents/routing/route-serial.ts` | D3: 无动作 @ 反馈注入 |
+| `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | D2: 元信息去 @ 前缀 |
+| `packages/api/test/a2a-mentions.test.js` | D1 测试 |
+| `packages/api/test/system-prompt-builder.test.js` | D2 测试（size guard + 内容校验） |
+
+#### D.7 参考资料
+
+| 资源 | 路径 |
+|------|------|
+| 原始讨论 | Thread `thread_mm95ha2vubft1bbi`，2026-03-02 04:26 起 |
+| 缅因猫采访 | 同 thread 08:13-08:15（Codex + GPT-5.2 独立回答） |
+| Prompt 治疗实验 | PR #159（已合入，效果失败） |
+| SOP 歧义修复 | PR #162（已合入，附带发现） |
+| 知识工程原则 | `docs/research/knowledge-enginnering/knowledge-engineering-skills-mcp.md` §1.1 |
+| F042 三层架构决策 | `docs/features/F042-prompt-engineering-audit.md` §2 |
+
+| ID | 内容 | 状态 | 说明 |
+|----|------|------|------|
+| D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | 📋 Spec | 详见 D.3 |
+| D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | 📋 Spec | 详见 D.3 |
+| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | 📋 Spec | 详见 D.3 |
+
 ### 明确不做（Phase C）
 
 | ID | 内容 | 理由 |
@@ -66,6 +196,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
 - [ ] ≥10 条对话场景回归测试就位（B5）
 - [x] 同族 reviewer identity check gate 落地（B6）
+- [ ] @ + 动作词才触发路由，无动作词不路由（D1）
+- [ ] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
+- [ ] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
 
 ## Links
 
@@ -114,6 +247,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 1. ~~**B1 Playwright 新依赖审批**~~：已解决——铲屎官指出猫猫已有浏览器 MCP（Claude in Chrome / Codex），无需引入 Playwright
 2. **B2 Cold-start Verifier 实现形态**：用独立 claude 子进程？还是 Codex sandbox？等 F041 redo 时试点确定
+3. **D1 动作词列表**：初始集 `review/确认/处理/修复/请/帮/决策/看一下`，是否需要可配置？还是硬编码够用？
+4. **D1 对布偶猫/暹罗猫的影响**：布偶猫 @ 行为正常，gate 是否只对缅因猫生效？还是全猫统一？（建议统一，降低复杂度）
 
 ## Review Gate
 
@@ -150,3 +285,5 @@ Phase B（B1/B3）文档证据（2026-03-02）：
 - 2026-03-02: B3 文档化：需求点 checklist 模板嵌入 feat-kickoff（refs/requirements-checklist-template）
 - 2026-03-02: B4 实现：`pnpm check:skills` 接入 manifest 一致性阻塞门禁（字段完整性 / next 指向 / 硬编码句柄检查）
 - 2026-03-02: B6 实现：同族 reviewer identity gate（worklist 状态承载 + invocation 注入 + route-serial 握手校验）
+- 2026-03-02: PR #159/#162 合入：@ 自检 prompt 规则 + SOP 流程歧义修复（prompt 层治疗，效果有限）
+- 2026-03-02: Phase D 立项：@ 路由卫生（缅因猫采访 → 机制层修复方案确定）
