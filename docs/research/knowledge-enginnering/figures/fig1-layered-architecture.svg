@@ -1,0 +1,111 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 700" width="100%" height="100%">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#4e342e" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .layer-title { font-family: 'Inter', system-ui, sans-serif; font-size: 20px; font-weight: 700; fill: #4e342e; }
+      .box-text { font-family: 'Inter', system-ui, sans-serif; font-size: 15px; font-weight: 600; fill: #5d4037; }
+      .sub-text { font-family: 'Inter', system-ui, sans-serif; font-size: 12px; font-weight: 400; fill: #795548; }
+      .arrow-text { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; font-weight: 600; fill: #8d6e63; }
+      .title { font-family: 'Inter', system-ui, sans-serif; font-size: 26px; font-weight: 800; fill: #3e2723; }
+      .badge { font-family: 'Inter', system-ui, sans-serif; font-size: 11px; font-weight: 600; fill: #ffffff; }
+    </style>
+  </defs>
+
+  <rect width="800" height="700" fill="#fdfbf7" rx="16"/>
+  <text x="400" y="55" class="title" text-anchor="middle">Agent 分层架构：协议、经验与编排</text>
+
+  <!-- Top Layer: Agent -->
+  <g transform="translate(100, 100)">
+    <rect width="600" height="130" rx="16" fill="#fff8e1" filter="url(#shadow)" stroke="#ffecb3" stroke-width="2"/>
+    <text x="300" y="32" class="layer-title" text-anchor="middle">Agent 编排层</text>
+    
+    <g transform="translate(40, 50)">
+      <rect width="120" height="60" rx="8" fill="#ffffff" stroke="#ffca28" stroke-width="2"/>
+      <text x="60" y="28" class="box-text" text-anchor="middle">Router</text>
+      <text x="60" y="46" class="sub-text" text-anchor="middle">reads metadata</text>
+      <!-- Key Icon for Routing -->
+      <circle cx="0" cy="0" r="14" fill="#ffb300"/>
+      <text x="0" y="5" class="badge" text-anchor="middle" font-size="14px">🔑</text>
+    </g>
+    
+    <g transform="translate(180, 50)">
+      <rect width="100" height="60" rx="8" fill="#ffffff" stroke="#ffca28" stroke-width="2"/>
+      <text x="50" y="35" class="box-text" text-anchor="middle">Planner</text>
+    </g>
+    
+    <g transform="translate(300, 50)">
+      <rect width="100" height="60" rx="8" fill="#ffffff" stroke="#ffca28" stroke-width="2"/>
+      <text x="50" y="35" class="box-text" text-anchor="middle">Executor</text>
+    </g>
+
+    <g transform="translate(420, 50)">
+      <rect width="120" height="60" rx="8" fill="#ffffff" stroke="#ffca28" stroke-width="2"/>
+      <text x="60" y="35" class="box-text" text-anchor="middle">Evaluator</text>
+    </g>
+  </g>
+
+  <!-- Arrow 1 -->
+  <path d="M 400 230 L 400 270" stroke="#bcaaa4" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="415" y="255" class="arrow-text">Select skill → Load body → Execute workflow</text>
+  
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#bcaaa4" />
+    </marker>
+  </defs>
+
+  <!-- Middle Layer: Skills -->
+  <g transform="translate(100, 280)">
+    <rect width="600" height="150" rx="16" fill="#fbe9e7" filter="url(#shadow)" stroke="#ffccbc" stroke-width="2"/>
+    <text x="300" y="32" class="layer-title" text-anchor="middle">Skills 经验层</text>
+    
+    <g transform="translate(50, 55)">
+      <rect width="320" height="75" rx="8" fill="#ffffff" stroke="#ff8a65" stroke-width="2"/>
+      <text x="160" y="25" class="box-text" text-anchor="middle">SKILL.md (核心执行逻辑)</text>
+      <text x="160" y="45" class="sub-text" text-anchor="middle">• workflow • output contract</text>
+      <text x="160" y="65" class="sub-text" text-anchor="middle">• QC checklist • no-surprises policy</text>
+      <!-- Guard Icon -->
+      <circle cx="0" cy="0" r="14" fill="#f4511e"/>
+      <text x="0" y="5" class="badge" text-anchor="middle" font-size="14px">🛡️</text>
+    </g>
+
+    <g transform="translate(390, 55)">
+      <rect width="160" height="75" rx="8" fill="#ffffff" stroke="#ff8a65" stroke-width="2" stroke-dasharray="4"/>
+      <text x="80" y="35" class="box-text" text-anchor="middle">refs/ scripts/ assets/</text>
+      <text x="80" y="55" class="sub-text" text-anchor="middle">(按需加载 / 辅佐材料)</text>
+    </g>
+  </g>
+
+  <!-- Arrow 2 -->
+  <path d="M 250 430 L 250 490" stroke="#bcaaa4" stroke-width="3" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="265" y="465" class="arrow-text">Call tools / Read resources</text>
+
+  <path d="M 550 490 L 550 430" stroke="#bcaaa4" stroke-width="3" stroke-dasharray="5 5" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="565" y="465" class="arrow-text">能力供给 (Supply)</text>
+
+  <!-- Bottom Layer: MCP -->
+  <g transform="translate(100, 490)">
+    <rect width="600" height="130" rx="16" fill="#e0f2f1" filter="url(#shadow)" stroke="#b2dfdb" stroke-width="2"/>
+    <text x="300" y="32" class="layer-title" text-anchor="middle">MCP 能力层</text>
+    
+    <g transform="translate(50, 50)">
+      <rect width="150" height="60" rx="8" fill="#ffffff" stroke="#26a69a" stroke-width="2"/>
+      <text x="75" y="28" class="box-text" text-anchor="middle">Tools 工具</text>
+      <text x="75" y="46" class="sub-text" text-anchor="middle">Schema 约束的动作</text>
+    </g>
+    
+    <g transform="translate(225, 50)">
+      <rect width="150" height="60" rx="8" fill="#ffffff" stroke="#26a69a" stroke-width="2"/>
+      <text x="75" y="28" class="box-text" text-anchor="middle">Resources 资源</text>
+      <text x="75" y="46" class="sub-text" text-anchor="middle">URI 结构的只读数据</text>
+    </g>
+
+    <g transform="translate(400, 50)">
+      <rect width="150" height="60" rx="8" fill="#ffffff" stroke="#26a69a" stroke-width="2"/>
+      <text x="75" y="28" class="box-text" text-anchor="middle">Prompts 提示词</text>
+      <text x="75" y="46" class="sub-text" text-anchor="middle">可复用模板</text>
+    </g>
+  </g>
+</svg>

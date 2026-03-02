@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 750" width="100%" height="100%">
+  <defs>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#4e342e" flood-opacity="0.08"/>
+    </filter>
+    <style>
+      .title { font-family: 'Inter', system-ui, sans-serif; font-size: 26px; font-weight: 800; fill: #3e2723; }
+      .node-title { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: #4e342e; }
+      .node-text { font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 400; fill: #6d4c41; }
+      .edge-text { font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 600; fill: #d84315; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#8d6e63" />
+    </marker>
+    <marker id="arrowhead-red" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#d84315" />
+    </marker>
+  </defs>
+
+  <rect width="800" height="750" fill="#fdfbf7" rx="16"/>
+  <text x="400" y="50" class="title" text-anchor="middle">路由漏斗：正文不是默认可见的！</text>
+
+  <!-- Node 1 -->
+  <g transform="translate(300, 80)">
+    <rect width="200" height="50" rx="25" fill="#e8eaf6" stroke="#c5cae9" stroke-width="2" filter="url(#shadow)"/>
+    <text x="100" y="30" class="node-title" text-anchor="middle">1. User Message</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 400 130 L 400 170" stroke="#8d6e63" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Node 2 -->
+  <g transform="translate(250, 170)">
+    <rect width="300" height="60" rx="8" fill="#fff3e0" stroke="#ffe0b2" stroke-width="2" filter="url(#shadow)"/>
+    <text x="150" y="25" class="node-title" text-anchor="middle">2. Skill Catalog Metadata</text>
+    <text x="150" y="45" class="node-text" text-anchor="middle">模型的常驻记忆：只有 name + desc</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 400 230 L 400 280" stroke="#8d6e63" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  
+  <!-- Node 3: Decision -->
+  <g transform="translate(300, 280)">
+    <polygon points="100,0 200,40 100,80 0,40" fill="#e8f5e9" stroke="#a5d6a7" stroke-width="2" filter="url(#shadow)"/>
+    <text x="100" y="35" class="node-title" text-anchor="middle">3. Semantic</text>
+    <text x="100" y="55" class="node-title" text-anchor="middle">Match?</text>
+  </g>
+
+  <!-- Arrow No -->
+  <path d="M 500 320 L 600 320 L 600 350" stroke="#d84315" stroke-width="2" stroke-dasharray="4" fill="none" marker-end="url(#arrowhead-red)"/>
+  <text x="600" y="310" class="edge-text" text-anchor="middle">No selection = No body loaded</text>
+  <g transform="translate(540, 350)">
+    <rect width="120" height="40" rx="8" fill="#ffebee" stroke="#ffcdd2" stroke-width="2"/>
+    <text x="60" y="25" class="node-text" text-anchor="middle" fill="#c62828">Fallbacks / Others</text>
+  </g>
+
+  <!-- Arrow Yes -->
+  <path d="M 400 360 L 400 410" stroke="#8d6e63" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="430" y="390" class="node-title" fill="#2e7d32">YES</text>
+
+  <!-- Node 4 -->
+  <g transform="translate(250, 410)">
+    <rect width="300" height="60" rx="8" fill="#f3e5f5" stroke="#e1bee7" stroke-width="2" filter="url(#shadow)"/>
+    <text x="150" y="25" class="node-title" text-anchor="middle">4. Load Selected SKILL.md</text>
+    <text x="150" y="45" class="node-text" text-anchor="middle">将正文加入上下文 (workflow, rules)</text>
+  </g>
+
+  <!-- Arrow -->
+  <path d="M 400 470 L 400 520" stroke="#8d6e63" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Node 5 -->
+  <g transform="translate(250, 520)">
+    <rect width="300" height="70" rx="8" fill="#e0f7fa" stroke="#b2ebf2" stroke-width="2" filter="url(#shadow)"/>
+    <text x="150" y="30" class="node-title" text-anchor="middle">5. Execute Workflow</text>
+    <text x="150" y="50" class="node-text" text-anchor="middle">按步执行：Call tools, run scripts etc.</text>
+  </g>
+
+  <!-- Arrow to 6 -->
+  <path d="M 400 590 L 400 640" stroke="#8d6e63" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Node 6 -->
+  <g transform="translate(250, 640)">
+    <rect width="300" height="60" rx="8" fill="#e8f5e9" stroke="#a5d6a7" stroke-width="2" filter="url(#shadow)"/>
+    <text x="150" y="25" class="node-title" text-anchor="middle">6. Produce Output &amp; QC</text>
+    <text x="150" y="45" class="node-text" text-anchor="middle">产出目标交付物并自检质量</text>
+  </g>
+
+  <!-- Loop back for QC fail -->
+  <path d="M 250 670 C 150 670, 150 555, 250 555" stroke="#d84315" stroke-width="2" fill="none" marker-end="url(#arrowhead-red)"/>
+  <text x="160" y="615" class="edge-text" text-anchor="middle">QC Fails → Fix!</text>
+
+</svg>
