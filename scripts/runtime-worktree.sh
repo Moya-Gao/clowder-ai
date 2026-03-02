@@ -152,6 +152,18 @@ sync_runtime_worktree() {
   if [ "$RUN_INSTALL" = "true" ]; then
     info "refreshing dependencies in runtime worktree"
     pnpm -C "$RUNTIME_DIR" install
+
+    # pnpm install can legitimately fix an incomplete lock file (e.g. a PR
+    # added a dep to package.json but forgot to commit the lock update).
+    # If pnpm-lock.yaml is the ONLY dirty file, auto-commit the drift fix
+    # so the next `start` won't be blocked by ensure_runtime_clean.
+    local lock_drift
+    lock_drift=$(git -C "$RUNTIME_DIR" diff --name-only 2>/dev/null || true)
+    if [ "$lock_drift" = "pnpm-lock.yaml" ]; then
+      info "auto-committing pnpm-lock.yaml drift fix"
+      git -C "$RUNTIME_DIR" add pnpm-lock.yaml
+      git -C "$RUNTIME_DIR" commit -m "fix(lock): auto-commit pnpm-lock.yaml drift from install"
+    fi
   fi
 
   info "sync complete"
