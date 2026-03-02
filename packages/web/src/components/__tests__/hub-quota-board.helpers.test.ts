@@ -304,6 +304,32 @@ describe('hub-quota-board.helpers', () => {
     expect(result.codex?.invocation.usage?.inputTokens).toBe(999);
   });
 
+  it('prefers active snapshot when both active and background entries lack telemetry timestamps', () => {
+    const result = collectLatestQuotaByCat({
+      currentThreadId: 'thread-active',
+      activeCatInvocations: {
+        codex: inv({
+          usage: { inputTokens: 999, outputTokens: 90 },
+        }),
+      },
+      threadStates: {
+        'thread-background': threadState({
+          lastActivity: 6_000,
+          catInvocations: {
+            codex: inv({
+              usage: { inputTokens: 111, outputTokens: 11 },
+            }),
+          },
+        }),
+      },
+    });
+
+    // Without measuredAt on both sides, active snapshot should remain preferred.
+    expect(result.codex).toBeDefined();
+    expect(result.codex?.threadId).toBe('thread-active');
+    expect(result.codex?.invocation.usage?.inputTokens).toBe(999);
+  });
+
   it('ignores invocation entries without quota-related telemetry', () => {
     const result = collectLatestQuotaByCat({
       currentThreadId: 'thread-active',

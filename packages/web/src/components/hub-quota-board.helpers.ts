@@ -97,6 +97,17 @@ export function collectLatestQuotaByCat(input: CollectQuotaInput): Record<string
     if (!incomingHasTelemetry && currentHasTelemetry) {
       return;
     }
+    if (!incomingHasTelemetry && !currentHasTelemetry) {
+      const incomingIsCurrent = threadId === currentThreadId;
+      const currentIsCurrent = current.threadId === currentThreadId;
+      if (incomingIsCurrent && !currentIsCurrent) {
+        result[catId] = { catId, threadId, updatedAt, invocation };
+        return;
+      }
+      if (!incomingIsCurrent && currentIsCurrent) {
+        return;
+      }
+    }
     if (updatedAt > current.updatedAt) {
       result[catId] = { catId, threadId, updatedAt, invocation };
       return;
