@@ -1,0 +1,213 @@
+---
+feature_ids: [F050]
+related_features: [F002, F005, F027, F032, F041, F043]
+topics: [a2a, external-agent, cli-integration, interoperability]
+doc_kind: spec
+created: 2026-03-02
+updated: 2026-03-02
+---
+
+# F050: External Agent Onboarding（A2A/CLI 接入契约）
+
+> **Status**: spec
+> **Owner**: 三猫
+> **Created**: 2026-03-02
+
+## Why
+
+我们已经有成熟的三猫协作内核，但“接入外部 agent”的边界还不清晰，导致讨论里反复出现三个关键问题：
+
+1. Cat Cafe 若要对接 A2A，到底要改什么？
+2. 被接入 agent 需要满足哪些硬条件？
+3. “任何支持 A2A 的 agent 都能接入吗？”
+
+这次要把答案写成可执行的协议契约，不再靠口头约定。
+
+---
+
+## As-Is（当前事实）
+
+### 1) 我们现有 A2A 是“内部协作链路”，不是“外部 A2A 协议适配”
+
+- 我们已有：`@mention -> worklist -> handoff` 的内部协作流（F002/F005/F027）
+- 我们还没有：A2A 协议客户端/服务端适配层（`/.well-known/agent.json`, `tasks/send` 这一套）
+
+结论：**内部 A2A 可用，但外部 A2A 接入仍缺 adapter 层。**
+
+### 2) 我们已具备三猫统一动态 MCP 注入能力
+
+- F041/F043 之后，MCP 配置可由能力编排器统一生成到 Claude/Codex/Gemini 各自配置
+- 这解决的是“工具能力注入”问题，不等于“外部 agent 接入”已完成
+
+结论：**MCP 动态注入是强基础设施，但不是外部 agent 兼容层本身。**
+
+### 3) 我们的 AgentService 接口是通用的，但 provider 入口仍受限
+
+- `AgentService.invoke(prompt, options)` 已抽象好
+- 启动注册仍是固定 provider 分支（anthropic/openai/google）
+- `cat-config` provider 枚举也仍是三值约束
+
+结论：**内核接口可扩，但入口治理与 provider schema 还需要放开。**
+
+---
+
+## Key Decision
+
+采用双通道接入模型，避免把“CLI 接入”和“A2A 协议接入”混成一类：
+
+1. **L1: CLI Adapter 通道**
+   - 目标：接入“可流式输出的外部 CLI agent”
+   - 典型对象：优化后的 DARE CLI、opencode CLI、未来其它 agent CLI
+2. **L2: A2A Protocol Adapter 通道**
+   - 目标：接入“暴露 A2A 协议端点的远程 agent”
+   - 典型对象：任何具备 AgentCard + tasks/send(+Subscribe) 能力的 A2A agent
+
+两条通道最终都收敛到统一 `AgentService` 语义。
+
+---
+
+## 接入契约（External Agent Contract v1）
+
+### A. Invocation Contract（必须）
+
+- `invoke(prompt, options)` 可异步产出消息流
+- 支持 cancellation（AbortSignal 等价语义）
+- 支持工作目录与最小环境变量透传
+
+### B. Stream Contract（必须）
+
+- 必须提供机器可解析流（JSONL/NDJSON/SSE 至少一种）
+- 至少可映射为：`session_init | text | error | done`
+- 若有工具调用事件，需能映射为 `tool_use/tool_result`（可选但强烈建议）
+
+### C. Session Contract（建议→必须）
+
+- 最小要求：单次会话可追踪 `sessionId/threadId`
+- 完整要求：跨轮 resume 能力（否则上下文成本过高）
+
+### D. Capability Contract（必须）
+
+- 可接受 Cat Cafe 的 MCP 编排结果（静态配置或运行期 reload）
+- 若不支持运行期动态注入，需提供明确降级路径
+
+### E. Collaboration Contract（L2 必须）
+
+- A2A 模式需实现：
+  - `GET /.well-known/agent.json`
+  - `POST tasks/send`（最小）
+  - `POST tasks/sendSubscribe`（建议）
+  - `tasks/get`, `tasks/cancel`（建议）
+- 认证与超时策略必须可配置
+
+### F. Safety Contract（必须）
+
+- 外部执行器命令白名单 + 参数边界
+- token/权限最小化（callback token、MCP env、审批动作）
+- 可审计（调用链可追踪）
+
+---
+
+## 结论问题逐条回答
+
+### Q1: Cat Cafe 要接入 A2A 需要做什么？
+
+最小变更集（按优先级）：
+
+1. 增加 `A2AAgentService`（L2 adapter）
+2. 把 provider schema 从三值改为“内置 + 扩展 provider”
+3. 增加外部 agent 配置模型（endpoint/auth/capabilities）
+4. 建立统一事件映射层（CLI 流与 A2A 流统一成 AgentMessage）
+5. 加入接入验收测试（协议契约测试 + 回归测试）
+
+### Q2: 被接入 agent 有什么要求？
+
+满足上述 `External Agent Contract v1` 的 A/B/D/F 是硬门槛；C/E 视接入级别（L1/L2）决定。
+
+### Q3: 任何支持 A2A 的 agent 都能接入吗？
+
+**不能直接“零改造”接入。**
+
+原因：
+
+1. A2A 标准只保证“协议互通”，不保证“协作语义互通”
+2. 我们还需要会话策略、MCP 编排、权限与审计的一致性
+3. 仍需通过 `A2AAgentService` 做语义映射与治理接入
+
+结论：**理论上可接，工程上必须过契约门禁。**
+
+---
+
+## DARE / Opencode 兼容性判断（2026-03-02 快照）
+
+### DARE（当前主干）
+
+已有能力：
+
+- 有 A2A server/client 模块（协议能力存在）
+- 有统一 `client` CLI，支持 `--output json`
+- 有运行期 MCP 管理命令（list/reload/unload）
+- 有 skill store 与 `skills:list` 动作
+
+主要 gap（对 Cat Cafe）：
+
+1. CLI 事件语义与我们现有 provider 事件模型不对齐（需专门 event mapper）
+2. 跨进程会话恢复语义不足（需要稳定 resume 协议）
+3. A2A 与外部 CLI 尚未形成单一接入面（需桥接层）
+4. 需补“被平台托管接入”视角下的鉴权/审计契约
+
+### opencode CLI
+
+当前结论：**可作为 L1 候选，但仍需按 EAC v1 跑一轮兼容基线测试后定级。**
+
+我们不再接受“只凭功能印象接入”。
+
+---
+
+## Compatibility Levels（验收分级）
+
+| Level | 定义 | 是否可上线 |
+|---|---|---|
+| L0 | 无机器流/无会话/无治理 | 否 |
+| L1 | CLI adapter 可稳定调用 + 基础治理 | 可灰度 |
+| L2 | A2A adapter 可用 + 协议闭环 | 可上线 |
+| L3 | A2A + MCP 动态注入 + 审批/审计全链闭环 | 推荐默认 |
+
+---
+
+## Acceptance Criteria
+
+- [ ] 外部 agent 接入契约（EAC v1）文档定稿
+- [ ] `A2AAgentService` 设计稿 + 接口定义完成
+- [ ] provider 扩展方案（非三值）设计完成
+- [ ] DARE CLI 兼容性测试清单完成（含 session/event/auth）
+- [ ] opencode CLI 兼容性测试清单完成
+- [ ] 至少 1 个外部 agent 通过 L1 验收
+- [ ] 至少 1 个 A2A agent 通过 L2 验收
+
+---
+
+## Links
+
+- [F032: Agent Plugin Architecture](./F032-agent-plugin-architecture.md)
+- [F041: 能力看板 — Hub MCP/Skills 统一管理](./F041-capability-dashboard.md)
+- [F043: MCP 归一化 — Server 拆分 + 协作工具补全](./F043-mcp-unification.md)
+- [F002: Agent-to-Agent 调用](./F002-agent-to-agent.md)
+- [F027: A2A 路径统一](./F027-a2a-path-unification.md)
+- [Discussion: 2026-03-02 F050 接入分析](../discussions/2026-03-02-f050-a2a-external-agent-onboarding/README.md)
+
+---
+
+## Risk
+
+1. 把“协议互通”误判成“能力等价互通”会造成后续返工
+2. 未定义事件语义映射会让接入后的 debug 成本非常高
+3. 未做接入验收分级会让质量门禁失效
+
+---
+
+## Open Questions
+
+1. L2 默认是否要求 `sendSubscribe`，还是先允许 `tasks/send` 单点接入？
+2. 外部 agent 的权限隔离由 Cat Cafe 统一托管，还是允许 adapter 自带策略？
+3. DARE/opencode 的“技能协议”是否需要抽象成统一 capability schema？
+

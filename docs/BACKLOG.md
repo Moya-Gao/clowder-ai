@@ -27,3 +27,4 @@ created: 2026-02-26
 | F046 | 愿景守护协议 — Anti-Drift Protocol | in-progress | 三猫 | [F046](features/F046-anti-drift-protocol.md) |
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
 | F049 | Mission Hub — Backlog Center（领取/派发/自动开 Thread） | in-progress | 三猫 | [F049](features/F049-mission-control-backlog-center.md) |
+| F050 | External Agent Onboarding — A2A/CLI 接入契约 | spec | 三猫 | [F050](features/F050-a2a-external-agent-onboarding.md) |
