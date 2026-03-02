@@ -1,0 +1,117 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+
+const { readFeatIndexEntries } = await import('../dist/routes/feat-index-doc-import.js');
+
+async function createRepoSkeleton(root) {
+  await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n', 'utf8');
+  await mkdir(join(root, 'docs', 'features'), { recursive: true });
+}
+
+test('feature docs override backlog fields for same featId', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'feat-index-doc-import-'));
+  const previousCwd = process.cwd();
+  try {
+    await createRepoSkeleton(root);
+    await writeFile(
+      join(root, 'docs', 'BACKLOG.md'),
+      [
+        '| ID | 名称 | Status | Owner | Link |',
+        '|----|------|--------|-------|------|',
+        '| F043 | Backlog Name | spec | 三猫 | [F043](docs/features/F043-mcp-unification.md) |',
+      ].join('\n'),
+      'utf8'
+    );
+    await writeFile(
+      join(root, 'docs', 'features', 'F043-mcp-unification.md'),
+      [
+        '---',
+        'feature_ids: [F043]',
+        'name: Feature Doc Name',
+        'status: in-progress',
+        'keyDecisions:',
+        '  - Keep feature docs as source-of-truth',
+        '---',
+        '',
+        '# F043: MCP Unification',
+      ].join('\n'),
+      'utf8'
+    );
+
+    process.chdir(root);
+    const entries = await readFeatIndexEntries();
+    const f043 = entries.find((entry) => entry.featId === 'F043');
+
+    assert.ok(f043, 'F043 should exist');
+    assert.equal(f043.name, 'Feature Doc Name');
+    assert.equal(f043.status, 'in-progress');
+    assert.deepEqual(f043.keyDecisions, ['Keep feature docs as source-of-truth']);
+  } finally {
+    process.chdir(previousCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('directory entry matching Fxxx*.md does not crash importer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'feat-index-doc-import-'));
+  const previousCwd = process.cwd();
+  try {
+    await createRepoSkeleton(root);
+    await writeFile(
+      join(root, 'docs', 'BACKLOG.md'),
+      [
+        '| ID | 名称 | Status | Owner | Link |',
+        '|----|------|--------|-------|------|',
+        '| F043 | Backlog Name | spec | 三猫 | [F043](docs/features/F043-broken.md) |',
+      ].join('\n'),
+      'utf8'
+    );
+    await mkdir(join(root, 'docs', 'features', 'F043-broken.md'), { recursive: true });
+
+    process.chdir(root);
+    const entries = await readFeatIndexEntries();
+    const f043 = entries.find((entry) => entry.featId === 'F043');
+
+    assert.ok(f043, 'F043 should still be available from backlog fallback');
+    assert.equal(f043.status, 'spec');
+  } finally {
+    process.chdir(previousCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('unreadable BACKLOG.md does not crash importer', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'feat-index-doc-import-'));
+  const previousCwd = process.cwd();
+  try {
+    await createRepoSkeleton(root);
+    await writeFile(
+      join(root, 'docs', 'features', 'F044-feature.md'),
+      [
+        '---',
+        'feature_ids: [F044]',
+        'name: Feature 044',
+        'status: spec',
+        '---',
+        '',
+        '# F044: Example',
+      ].join('\n'),
+      'utf8'
+    );
+    await mkdir(join(root, 'docs', 'BACKLOG.md'), { recursive: true });
+
+    process.chdir(root);
+    const entries = await readFeatIndexEntries();
+    const f044 = entries.find((entry) => entry.featId === 'F044');
+
+    assert.ok(f044, 'feature-doc entries should still return when BACKLOG.md is unreadable');
+    assert.equal(f044.name, 'Feature 044');
+  } finally {
+    process.chdir(previousCwd);
+    await rm(root, { recursive: true, force: true });
+  }
+});
+

@@ -31,6 +31,7 @@ import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
+import { readFeatIndexEntries, type FeatIndexEntry } from './feat-index-doc-import.js';
 
 export interface CallbackRoutesOptions {
   registry: InvocationRegistry;
@@ -55,6 +56,8 @@ export interface CallbackRoutesOptions {
   deliveryCursorStore?: DeliveryCursorStore;
   /** TD091: PR tracking registration via MCP callback */
   prTrackingStore?: IPrTrackingStore;
+  /** F043 P1: feat_index provider override for tests */
+  featIndexProvider?: () => Promise<FeatIndexEntry[]>;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -73,6 +76,12 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
 const listThreadsQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   activeSince: z.coerce.number().int().min(0).optional(),
+});
+
+const featIndexQuerySchema = callbackAuthSchema.extend({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  featId: z.string().min(1).optional(),
+  query: z.string().min(1).optional(),
 });
 
 const pendingMentionsQuerySchema = callbackAuthSchema.extend({
@@ -101,7 +110,8 @@ const createRichBlockSchema = callbackAuthSchema.extend({
 export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
     const { registry, messageStore, socketManager, taskStore, threadStore, router,
-      invocationRecordStore, invocationTracker, deliveryCursorStore, prTrackingStore } = opts;
+      invocationRecordStore, invocationTracker, deliveryCursorStore, prTrackingStore,
+      featIndexProvider } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
       const parsed = postMessageSchema.safeParse(request.body);
@@ -490,6 +500,47 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }));
 
       return { threads: summaries };
+    });
+
+    app.get('/api/callbacks/feat-index', async (request, reply) => {
+      const parsed = featIndexQuerySchema.safeParse(request.query);
+      if (!parsed.success) {
+        reply.status(400);
+        return { error: 'Invalid request query', details: parsed.error.issues };
+      }
+
+      const { invocationId, callbackToken, featId, query, limit } = parsed.data;
+      const record = registry.verify(invocationId, callbackToken);
+      if (!record) {
+        reply.status(401);
+        return EXPIRED_CREDENTIALS_ERROR;
+      }
+
+      const normalizedFeatId = featId?.trim().toUpperCase();
+      const normalizedQuery = query?.trim().toLowerCase();
+
+      let items = await (featIndexProvider ? featIndexProvider() : readFeatIndexEntries());
+      if (normalizedFeatId) {
+        items = items.filter((item) => item.featId.toLowerCase() === normalizedFeatId.toLowerCase());
+      }
+      if (normalizedQuery) {
+        items = items.filter((item) => {
+          const haystack = `${item.featId} ${item.name} ${item.status}`.toLowerCase();
+          return haystack.includes(normalizedQuery);
+        });
+      }
+
+      const requestedLimit = limit ?? 20;
+      const sliced = items.slice(0, requestedLimit);
+      return {
+        items: sliced.map((item) => ({
+          featId: item.featId,
+          name: item.name,
+          status: item.status,
+          ...(item.keyDecisions ? { keyDecisions: item.keyDecisions } : {}),
+          threadIds: [],
+        })),
+      };
     });
 
     // TD091: PR tracking registration via MCP callback

@@ -206,6 +206,33 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('activeSince=1234567890'));
   });
 
+  test('handleFeatIndex forwards limit/featId/query filters', async () => {
+    const { handleFeatIndex } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ items: [] }),
+      };
+    };
+
+    const result = await handleFeatIndex({
+      limit: 25,
+      featId: 'F043',
+      query: 'mcp',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/feat-index'));
+    assert.ok(capturedUrl.includes('limit=25'));
+    assert.ok(capturedUrl.includes('featId=F043'));
+    assert.ok(capturedUrl.includes('query=mcp'));
+  });
+
   test('handles API error response', async () => {
     const { handlePostMessage } = await import(
       '../dist/tools/callback-tools.js'

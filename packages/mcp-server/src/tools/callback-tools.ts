@@ -119,6 +119,15 @@ export const listThreadsInputSchema = {
     .describe('Optional Unix timestamp in ms; only include threads active at/after this time.'),
 };
 
+export const featIndexInputSchema = {
+  limit: z.number().int().min(1).max(100).optional().default(20)
+    .describe('Max feature entries to return (default: 20, max: 100).'),
+  featId: z.string().min(1).optional()
+    .describe('Optional exact feature ID match (case-insensitive), e.g. F043.'),
+  query: z.string().min(1).optional()
+    .describe('Optional fuzzy substring search over featId/name/status (case-insensitive).'),
+};
+
 export const updateTaskInputSchema = {
   taskId: z.string().min(1).describe('The ID of the task to update'),
   status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('New task status'),
@@ -185,6 +194,18 @@ export async function handleListThreads(input: {
   return callbackGet('/api/callbacks/list-threads', {
     ...(input.limit ? { limit: String(input.limit) } : {}),
     ...(input.activeSince !== undefined ? { activeSince: String(input.activeSince) } : {}),
+  });
+}
+
+export async function handleFeatIndex(input: {
+  limit?: number | undefined;
+  featId?: string | undefined;
+  query?: string | undefined;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/feat-index', {
+    ...(input.limit ? { limit: String(input.limit) } : {}),
+    ...(input.featId ? { featId: input.featId } : {}),
+    ...(input.query ? { query: input.query } : {}),
   });
 }
 
@@ -366,6 +387,12 @@ export const callbackTools = [
     description: 'List thread summaries for discovery. Supports limit and activeSince filters.',
     inputSchema: listThreadsInputSchema,
     handler: handleListThreads,
+  },
+  {
+    name: 'cat_cafe_feat_index',
+    description: 'Lookup feature index entries by featId or query. Returns featId/name/status/threadIds.',
+    inputSchema: featIndexInputSchema,
+    handler: handleFeatIndex,
   },
   {
     name: 'cat_cafe_update_task',

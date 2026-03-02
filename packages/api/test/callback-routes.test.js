@@ -31,6 +31,7 @@ describe('Callback Routes', () => {
   let freshnessProvider;
   let reimportTriggerProvider;
   let threadStore;
+  let featIndexProvider;
 
   beforeEach(async () => {
     const { InvocationRegistry } = await import(
@@ -54,6 +55,7 @@ describe('Callback Routes', () => {
     };
     freshnessProvider = undefined;
     reimportTriggerProvider = undefined;
+    featIndexProvider = undefined;
   });
 
   async function createApp() {
@@ -74,6 +76,9 @@ describe('Callback Routes', () => {
     }
     if (reimportTriggerProvider) {
       options.reimportTriggerProvider = reimportTriggerProvider;
+    }
+    if (featIndexProvider) {
+      options.featIndexProvider = featIndexProvider;
     }
     await app.register(callbacksRoutes, options);
     return app;
@@ -691,6 +696,120 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 503);
     const body = JSON.parse(response.body);
     assert.match(body.error, /Thread store not configured/);
+  });
+
+  // ---- GET /api/callbacks/feat-index ----
+
+  test('GET feat-index returns entries with default limit and phase-A threadIds', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F042', name: 'Prompt Engineering Audit', status: 'done' },
+      { featId: 'F043', name: 'MCP Unification', status: 'spec', keyDecisions: ['A', 'B'] },
+    ]);
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.items.length, 2);
+    assert.deepEqual(body.items[0], {
+      featId: 'F042',
+      name: 'Prompt Engineering Audit',
+      status: 'done',
+      threadIds: [],
+    });
+    assert.deepEqual(body.items[1], {
+      featId: 'F043',
+      name: 'MCP Unification',
+      status: 'spec',
+      keyDecisions: ['A', 'B'],
+      threadIds: [],
+    });
+  });
+
+  test('GET feat-index supports exact featId match (case-insensitive)', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F039', name: 'Mission Hub', status: 'in-progress' },
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+    ]);
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const hit = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}&featId=f043`,
+    });
+    assert.equal(hit.statusCode, 200);
+    const hitBody = JSON.parse(hit.body);
+    assert.equal(hitBody.items.length, 1);
+    assert.equal(hitBody.items[0].featId, 'F043');
+
+    const miss = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}&featId=F04`,
+    });
+    assert.equal(miss.statusCode, 200);
+    const missBody = JSON.parse(miss.body);
+    assert.equal(missBody.items.length, 0);
+  });
+
+  test('GET feat-index supports query fuzzy match over featId/name/status', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+      { featId: 'F046', name: 'Anti-Drift Protocol', status: 'in-progress' },
+      { featId: 'F049', name: 'Mission Hub', status: 'done' },
+    ]);
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const byFeatId = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}&query=F04`,
+    });
+    assert.equal(byFeatId.statusCode, 200);
+    const byFeatIdBody = JSON.parse(byFeatId.body);
+    assert.equal(byFeatIdBody.items.length, 3);
+
+    const byStatus = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}&query=PROGRESS`,
+    });
+    assert.equal(byStatus.statusCode, 200);
+    const byStatusBody = JSON.parse(byStatus.body);
+    assert.equal(byStatusBody.items.length, 1);
+    assert.equal(byStatusBody.items[0].featId, 'F046');
+  });
+
+  test('GET feat-index validates limit max=100', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+    ]);
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=${callbackToken}&limit=101`,
+    });
+    assert.equal(response.statusCode, 400);
+  });
+
+  test('GET feat-index returns 401 for invalid callback credentials', async () => {
+    featIndexProvider = async () => ([
+      { featId: 'F043', name: 'MCP Unification', status: 'spec' },
+    ]);
+    const app = await createApp();
+    const { invocationId } = registry.create('user-1', 'opus');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/feat-index?invocationId=${invocationId}&callbackToken=bad-token`,
+    });
+    assert.equal(response.statusCode, 401);
   });
 
   test('GET pending-mentions only returns mentions from the same user', async () => {

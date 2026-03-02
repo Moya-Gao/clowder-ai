@@ -3,7 +3,6 @@
  * Cat Café MCP Server
  * 为三只 AI 猫猫提供共享工具的 MCP Server
  */
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { initCatCafeDir } from './utils/path-validator.js';
@@ -19,6 +18,7 @@ import {
   ackMentionsInputSchema,
   getThreadContextInputSchema,
   listThreadsInputSchema,
+  featIndexInputSchema,
   updateTaskInputSchema,
   requestPermissionInputSchema,
   checkPermissionStatusInputSchema,
@@ -27,6 +27,7 @@ import {
   handleAckMentions,
   handleGetThreadContext,
   handleListThreads,
+  handleFeatIndex,
   handleUpdateTask,
   handleRequestPermission,
   handleCheckPermissionStatus,
@@ -46,7 +47,6 @@ import {
   richBlockRulesInputSchema,
 } from './tools/index.js';
 import { createRichBlockInputSchema, handleCreateRichBlock, registerPrTrackingInputSchema, handleRegisterPrTracking } from './tools/callback-tools.js';
-
 /**
  * 创建并配置 MCP Server
  */
@@ -88,7 +88,6 @@ export function createServer(): McpServer {
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
-
   // 注册 MCP 回传工具 (三猫共享)
   server.tool(
     'cat_cafe_post_message',
@@ -99,7 +98,6 @@ export function createServer(): McpServer {
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
-
   server.tool(
     'cat_cafe_get_pending_mentions',
     'Get recent messages that @-mention you. Use this to check if anyone is trying to get your attention.',
@@ -151,6 +149,16 @@ export function createServer(): McpServer {
   );
 
   server.tool(
+    'cat_cafe_feat_index',
+    'Search feature index entries by featId/query for cross-thread feature discovery.',
+    featIndexInputSchema,
+    async (args) => {
+      const result = await handleFeatIndex(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
     'cat_cafe_update_task',
     'Update the status of a task you own. Use this to mark tasks as doing/blocked/done.',
     updateTaskInputSchema,
@@ -169,7 +177,6 @@ export function createServer(): McpServer {
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );
-
   // 权限请求工具 (猫猫向铲屎官发起审批)
   server.tool(
     'cat_cafe_request_permission',

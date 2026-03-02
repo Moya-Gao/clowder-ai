@@ -118,20 +118,21 @@ interface ThreadSummary {
 
 ```typescript
 interface FeatIndexInput {
-  featId?: string;       // 查特定 feat（如 "F039"）
-  query?: string;        // 模糊搜索 feat 名称
+  limit?: number;        // 默认 20，最大 100
+  featId?: string;       // 精确匹配 featId（case-insensitive）
+  query?: string;        // 模糊匹配 featId + name + status
 }
 
 interface FeatEntry {
   featId: string;
   name: string;
-  threadIds: string[];   // 关联的 thread
+  threadIds: string[];   // Phase A 固定 []（映射基建后再填充）
   status: string;
   keyDecisions?: string[];
 }
 ```
 
-**数据源**：`docs/features/*.md` 的 frontmatter + BACKLOG.md 解析。
+**数据源**：`docs/features/*.md` frontmatter 为主，`docs/BACKLOG.md` 为补充；冲突时以 feature 文档为准。
 
 #### P2: cross_post_message
 
@@ -217,4 +218,6 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-02-27: F043 立项
 - 2026-03-02: 路线图收敛 — 纳入知识工程栈 Layer 2 + 吸收 F042 thread metadata + 延后 server 拆分
 - 2026-03-02: Phase A P0 实作（`cat_cafe_search_messages` + thread-context `catId/keyword` 过滤）完成并合入 main（PR #155 / `6e647e12`）
+- 2026-03-02: Phase A P1 `list_threads` 实作完成并合入 main（PR #156 / `2d36c89f`）
 - 2026-03-02: Phase A P1 契约拍板（`cat_cafe_list_threads` + `/api/callbacks/list-threads`，`activeSince` 分页，`messageCount` 暂为 `null`）
+- 2026-03-02: Phase A P1 `feat_index` 实作中（`/api/callbacks/feat-index` + `cat_cafe_feat_index`，`featId` 精确匹配 + `query` 模糊匹配）
