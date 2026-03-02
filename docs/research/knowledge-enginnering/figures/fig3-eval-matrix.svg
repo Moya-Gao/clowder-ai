@@ -1,69 +1,107 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 650" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 750" width="100%" height="100%">
   <defs>
     <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
       <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#4e342e" flood-opacity="0.08"/>
     </filter>
     <style>
-      .title { font-family: 'Inter', system-ui, sans-serif; font-size: 26px; font-weight: 800; fill: #3e2723; }
-      .axis-label { font-family: 'Inter', system-ui, sans-serif; font-size: 16px; font-weight: 700; fill: #5d4037; }
-      .quad-title { font-family: 'Inter', system-ui, sans-serif; font-size: 22px; font-weight: 800; }
-      .quad-desc { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; font-weight: 500; fill: #6d4c41; }
+      text { font-family: 'Inter', "Noto Sans SC", "Source Han Sans SC", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+      .title { font-size: 26px; font-weight: 800; fill: #3e2723; }
+      .title-sub { font-size: 14px; font-weight: 500; fill: #8d6e63; }
+      .axis-label { font-size: 16px; font-weight: 700; fill: #5d4037; }
+      .legend-text { font-size: 11px; font-weight: 500; fill: #795548; }
+      .quad-title { font-size: 20px; font-weight: 800; }
+      .quad-desc-1 { font-size: 14px; font-weight: 600; fill: #4e342e; }
+      .quad-desc-2 { font-size: 13px; font-weight: 500; fill: #6d4c41; }
+      .badge-text { font-size: 13px; font-weight: 700; fill: #fff; }
     </style>
     <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
       <polygon points="0 0, 10 3.5, 0 7" fill="#8d6e63" />
     </marker>
   </defs>
 
-  <rect width="800" height="650" fill="#fdfbf7" rx="16"/>
-  <text x="400" y="35" class="title" text-anchor="middle">Agent 技能评测矩阵 (触发质量 × 交付质量)</text>
+  <rect width="920" height="750" fill="#fdfbf7" rx="16"/>
+  <text x="460" y="45" class="title" text-anchor="middle">评测矩阵：触发质量 × 交付质量</text>
+  <text x="460" y="65" class="title-sub" text-anchor="middle">Routing × Delivery</text>
 
   <!-- Axes -->
-  <line x1="80" y1="335" x2="720" y2="335" stroke="#bcaaa4" stroke-width="4" marker-end="url(#arrow)"/>
-  <line x1="400" y1="580" x2="400" y2="85" stroke="#bcaaa4" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="120" y1="380" x2="800" y2="380" stroke="#bcaaa4" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="460" y1="670" x2="460" y2="90" stroke="#bcaaa4" stroke-width="4" marker-end="url(#arrow)"/>
   
-  <text x="730" y="340" class="axis-label" text-anchor="start">Routing (触发质量)</text>
-  <text x="400" y="65" class="axis-label" text-anchor="middle">Delivery (交付质量)</text>
+  <text x="815" y="385" class="axis-label" text-anchor="start">Routing / 触发质量</text>
+  <text x="460" y="80" class="axis-label" text-anchor="middle">Delivery / 交付质量</text>
+
+  <!-- Routing Legend (bottom right) -->
+  <g transform="translate(480, 580)">
+    <text x="0" y="15" class="legend-text" font-weight="700">Routing Metrics:</text>
+    <text x="0" y="30" class="legend-text">• Precision（少误触发）</text>
+    <text x="0" y="45" class="legend-text">• Recall（少漏触发）</text>
+    <text x="0" y="60" class="legend-text">• Borderline stability（灰区稳定）</text>
+  </g>
+
+  <!-- Delivery Legend (top left) -->
+  <g transform="translate(130, 290)">
+    <text x="0" y="15" class="legend-text" font-weight="700">Delivery Metrics:</text>
+    <text x="0" y="30" class="legend-text">• Output contract compliance（契约合规）</text>
+    <text x="0" y="45" class="legend-text">• Tool-call efficiency（工具效率）</text>
+    <text x="0" y="60" class="legend-text">• Recovery（失败可自救）</text>
+    <text x="0" y="75" class="legend-text">• No-surprise（无意外副作用）</text>
+  </g>
 
   <!-- Top Left Quad (High Delivery, Low Routing) -->
-  <g transform="translate(100, 120)">
-    <rect width="280" height="180" rx="12" fill="#fff3e0" filter="url(#shadow)"/>
-    <text x="140" y="60" class="quad-title" text-anchor="middle" fill="#e65100">Under-trigger</text>
-    <text x="140" y="100" class="quad-desc" text-anchor="middle">Description 太弱、缺触发词</text>
-    <text x="140" y="125" class="quad-desc" text-anchor="middle">技能做得好，但经常不被用到</text>
+  <g transform="translate(130, 120)">
+    <rect width="310" height="150" rx="12" fill="#fff3e0" filter="url(#shadow)"/>
+    <text x="155" y="45" class="quad-title" text-anchor="middle" fill="#e65100" font-size="18px">Under-trigger（该用不用）</text>
+    <text x="155" y="85" class="quad-desc-1" text-anchor="middle">Description 太弱 / 触发词不足</text>
+    <text x="155" y="115" class="quad-desc-2" text-anchor="middle">处方：补 Use when+同义词+边界样本</text>
   </g>
 
   <!-- Top Right Quad (High Delivery, High Routing) -->
-  <g transform="translate(420, 120)">
-    <rect width="280" height="180" rx="12" fill="#e8f5e9" filter="url(#shadow)"/>
-    <text x="140" y="60" class="quad-title" text-anchor="middle" fill="#2e7d32">✅ Ready to Ship</text>
-    <text x="140" y="100" class="quad-desc" text-anchor="middle">精准触发，稳定交付</text>
-    <text x="140" y="125" class="quad-desc" text-anchor="middle">满足 Output Contract 无意外</text>
+  <g transform="translate(480, 120)">
+    <rect width="310" height="150" rx="12" fill="#e8f5e9" filter="url(#shadow)"/>
+    
+    <!-- Vector Checkmark -->
+    <g transform="translate(15, 33)">
+      <circle cx="10" cy="10" r="12" fill="#2e7d32"/>
+      <path d="M6 10l3 3 6-6" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <text x="165" y="48" class="quad-title" text-anchor="middle" fill="#2e7d32" font-size="18px">Ready to Ship（可发布）</text>
+    
+    <text x="155" y="85" class="quad-desc-1" text-anchor="middle">精准触发 + 稳定交付</text>
+    <text x="155" y="115" class="quad-desc-2" text-anchor="middle">处方：覆盖全面评测，无副作用</text>
+    
+    <!-- Evals covered badge -->
+    <rect x="200" y="125" width="100" height="20" rx="10" fill="#43a047"/>
+    <text x="250" y="139" class="badge-text" text-anchor="middle" font-size="11px">Evals covered ✅</text>
   </g>
 
   <!-- Bottom Left Quad (Low Delivery, Low Routing) -->
-  <g transform="translate(100, 370)">
-    <rect width="280" height="180" rx="12" fill="#ffebee" filter="url(#shadow)"/>
-    <text x="140" y="60" class="quad-title" text-anchor="middle" fill="#c62828">Needs Redesign</text>
-    <text x="140" y="100" class="quad-desc" text-anchor="middle">重构技能，重新定义范围</text>
-    <text x="140" y="125" class="quad-desc" text-anchor="middle">或者拆分成多个细粒度技能</text>
+  <g transform="translate(130, 400)">
+    <rect width="310" height="150" rx="12" fill="#ffebee" filter="url(#shadow)"/>
+    <text x="155" y="45" class="quad-title" text-anchor="middle" fill="#c62828" font-size="18px">Needs Redesign（需要重构）</text>
+    <text x="155" y="85" class="quad-desc-1" text-anchor="middle">触发与交付都不稳</text>
+    <text x="155" y="115" class="quad-desc-2" text-anchor="middle">处方：重定义 / 拆分技能 / 重做测试</text>
   </g>
 
   <!-- Bottom Right Quad (Low Delivery, High Routing) -->
-  <g transform="translate(420, 370)">
-    <rect width="280" height="180" rx="12" fill="#f3e5f5" filter="url(#shadow)"/>
-    <text x="140" y="60" class="quad-title" text-anchor="middle" fill="#6a1b9a">Over-trigger</text>
-    <text x="140" y="100" class="quad-desc" text-anchor="middle">触发太宽（常发生误触发）</text>
-    <text x="140" y="125" class="quad-desc" text-anchor="middle">或 workflow / 自检规则太宽</text>
+  <g transform="translate(480, 400)">
+    <rect width="310" height="150" rx="12" fill="#f3e5f5" filter="url(#shadow)"/>
+    <text x="155" y="45" class="quad-title" text-anchor="middle" fill="#6a1b9a" font-size="18px">Over-trigger（不该用乱用）</text>
+    <text x="155" y="85" class="quad-desc-1" text-anchor="middle">Description 太宽 / 边界不清</text>
+    <text x="155" y="115" class="quad-desc-2" text-anchor="middle">处方：加 Not ideal for + 收紧范围 + 强化 QC</text>
   </g>
 
   <!-- Labels on Axis -->
-  <g transform="translate(385, 460) rotate(-90)">
+  <g transform="translate(470, 530) rotate(-90)">
     <text x="0" y="0" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">Low Delivery</text>
   </g>
-  <g transform="translate(385, 210) rotate(-90)">
+  <g transform="translate(470, 260) rotate(-90)">
     <text x="0" y="0" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">High Delivery</text>
   </g>
 
-  <text x="240" y="360" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">Low Routing</text>
-  <text x="560" y="360" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">High Routing</text>
+  <g transform="translate(285, 365)">
+    <text x="0" y="0" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">Low Routing</text>
+  </g>
+  <g transform="translate(635, 365)">
+    <text x="0" y="0" class="axis-label" fill="#8d6e63" font-size="15" text-anchor="middle">High Routing</text>
+  </g>
 </svg>
