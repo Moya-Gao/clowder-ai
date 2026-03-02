@@ -95,7 +95,7 @@ export function usePushNotify(): UsePushNotifyReturn {
       });
 
       const subJson = sub.toJSON();
-      await apiFetch('/api/push/subscribe', {
+      const res = await apiFetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -107,9 +107,24 @@ export function usePushNotify(): UsePushNotifyReturn {
         }),
       });
 
+      if (!res.ok) {
+        let serverMessage: string | null = null;
+        try {
+          const payload = (await res.json()) as { error?: unknown };
+          if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
+            serverMessage = payload.error;
+          }
+        } catch {
+          // ignore non-json body
+        }
+        await sub.unsubscribe().catch(() => {});
+        throw new Error(serverMessage ?? `Push subscribe failed (HTTP ${res.status})`);
+      }
+
       setIsSubscribed(true);
     } catch (err) {
       console.error('[push] Subscribe failed:', err);
+      setIsSubscribed(false);
     } finally {
       setIsLoading(false);
     }

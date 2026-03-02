@@ -175,4 +175,59 @@ describe('push routes', () => {
     });
     assert.equal(res.statusCode, 503);
   });
+
+  it('POST /api/push/test returns 409 when user has no active subscriptions', async () => {
+    const notifyUser = () => {};
+    const appWithPush = Fastify();
+    await appWithPush.register(pushRoutes, {
+      pushSubscriptionStore: store,
+      pushService: /** @type {any} */ ({ notifyUser }),
+      vapidPublicKey: 'test-vapid-key-123',
+    });
+    await appWithPush.ready();
+
+    const res = await appWithPush.inject({
+      method: 'POST',
+      url: '/api/push/test',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.payload);
+    assert.match(body.error, /No active push subscription/i);
+  });
+
+  it('POST /api/push/test sends when user has active subscriptions', async () => {
+    store.upsert({
+      endpoint: 'https://push.example.com/sub/1',
+      keys: { p256dh: 'key1', auth: 'auth1' },
+      userId: 'owner',
+      createdAt: Date.now(),
+    });
+
+    let called = false;
+    const notifyUser = async (userId, payload) => {
+      called = true;
+      assert.equal(userId, 'owner');
+      assert.equal(payload.tag, 'push-test');
+      assert.equal(payload.data?.forceSystemNotification, true);
+    };
+
+    const appWithPush = Fastify();
+    await appWithPush.register(pushRoutes, {
+      pushSubscriptionStore: store,
+      pushService: /** @type {any} */ ({ notifyUser }),
+      vapidPublicKey: 'test-vapid-key-123',
+    });
+    await appWithPush.ready();
+
+    const res = await appWithPush.inject({
+      method: 'POST',
+      url: '/api/push/test',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(called, true);
+  });
 });

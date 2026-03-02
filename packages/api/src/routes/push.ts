@@ -110,6 +110,12 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       return { error: 'Push not configured (missing VAPID keys)' };
     }
 
+    const subscriptions = await pushSubscriptionStore.listByUser(userId);
+    if (subscriptions.length === 0) {
+      reply.status(409);
+      return { error: 'No active push subscriptions for this user. Please enable push on this device first.' };
+    }
+
     await pushService.notifyUser(userId, {
       title: '🐱 猫猫测试推送',
       body: '如果你看到这条通知，说明推送配置成功了！',
