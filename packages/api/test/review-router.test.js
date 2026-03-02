@@ -10,12 +10,24 @@ import { MemoryProcessedEmailStore } from '../dist/infrastructure/email/Processe
 /** @returns {import('../dist/domains/cats/services/stores/ports/ThreadStore.js').IThreadStore} */
 function mockThreadStore() {
   let counter = 0;
+  /** @type {Map<string, {id: string, title: string | null, createdBy: string, projectPath: string, participants: string[], lastActiveAt: number, createdAt: number}>} */
+  const threads = new Map();
   return {
     create(userId, title) {
       counter++;
-      return { id: `thread-${counter}`, title: title ?? null, createdBy: userId, projectPath: '', participants: [], lastActiveAt: Date.now(), createdAt: Date.now() };
+      const thread = {
+        id: `thread-${counter}`,
+        title: title ?? null,
+        createdBy: userId,
+        projectPath: '',
+        participants: [],
+        lastActiveAt: Date.now(),
+        createdAt: Date.now(),
+      };
+      threads.set(thread.id, thread);
+      return thread;
     },
-    get() { return null; },
+    get(id) { return threads.get(id) ?? null; },
     list() { return []; },
     listByProject() { return []; },
     addParticipants() {},
@@ -377,6 +389,28 @@ describe('ReviewRouter', () => {
 
       assert.strictEqual(messageMock.messages.length, 1);
       assert.strictEqual(messageMock.messages[0].userId, 'real-user-42');
+    });
+
+    it('registry hit: stale tracking userId falls back to thread owner', async () => {
+      const router = createRouter();
+      const ownerThread = threadStore.create('alice', 'Owner thread');
+
+      prTrackingStore.register({
+        repoFullName: 'zts212653/cat-cafe',
+        prNumber: 42,
+        catId: 'opus',
+        threadId: ownerThread.id,
+        userId: 'stale-user',
+      });
+
+      const result = await router.route(makeEvent());
+
+      assert.strictEqual(messageMock.messages.length, 1);
+      assert.strictEqual(messageMock.messages[0].userId, 'alice');
+      assert.strictEqual(result.kind, 'routed');
+      if (result.kind === 'routed') {
+        assert.strictEqual(result.userId, 'alice');
+      }
     });
 
     it('fallback: message userId comes from defaultUserId', async () => {

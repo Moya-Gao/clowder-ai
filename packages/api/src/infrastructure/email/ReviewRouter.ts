@@ -52,6 +52,26 @@ export class ReviewRouter {
   }
 
   /**
+   * Resolve message ownership for registry-routed notifications.
+   * Prefer real thread owner when available so realtime/socket visibility
+   * matches F5 history query filtering by current user.
+   */
+  private async resolveRegistryUserId(threadId: string, trackingUserId: string): Promise<string> {
+    const fallbackUserId = this.resolveUserId(trackingUserId);
+    const thread = await this.opts.threadStore.get(threadId);
+    if (!thread || !thread.createdBy || thread.createdBy === 'system') {
+      return fallbackUserId;
+    }
+
+    if (thread.createdBy !== fallbackUserId) {
+      this.opts.log.warn(
+        `[ReviewRouter] Tracking user mismatch for thread ${threadId}: tracking=${fallbackUserId} owner=${thread.createdBy}; using owner`,
+      );
+    }
+    return thread.createdBy;
+  }
+
+  /**
    * Route a review event to the appropriate thread.
    * Returns the route result (routed/triage/skipped).
    */
@@ -100,18 +120,19 @@ export class ReviewRouter {
     // --- Layer 1: PrTrackingStore lookup ---
     const tracking = await prTrackingStore.get(event.repository, event.prNumber);
     if (tracking) {
+      const resolvedUserId = await this.resolveRegistryUserId(tracking.threadId, tracking.userId);
       log.info(
         `[ReviewRouter] Registry hit: PR ${event.repository}#${event.prNumber} → cat=${tracking.catId} thread=${tracking.threadId}`,
       );
 
-      const posted = await this.postReviewMessage(tracking.threadId, tracking.catId, tracking.userId, event);
+      const posted = await this.postReviewMessage(tracking.threadId, tracking.catId, resolvedUserId, event);
       await processedEmailStore.markProcessed(event.emailUid);
 
       return {
         kind: 'routed',
         threadId: tracking.threadId,
         catId: tracking.catId,
-        userId: tracking.userId,
+        userId: resolvedUserId,
         source: 'registry',
         messageId: posted.messageId,
         content: posted.content,
