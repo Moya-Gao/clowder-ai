@@ -51,6 +51,21 @@ const mockSetThreadIntentMode = vi.fn();
 const mockSetThreadTargetCats = vi.fn();
 const mockUpdateThreadCatStatus = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
+const mockGetThreadState = vi.fn(() => ({
+  messages: [],
+  isLoading: false,
+  isLoadingHistory: false,
+  hasMore: true,
+  hasActiveInvocation: false,
+  intentMode: null,
+  targetCats: [],
+  catStatuses: {},
+  catInvocations: {},
+  currentMode: null,
+  pendingModeSwitchProposal: null,
+  unreadCount: 0,
+  lastActivity: 0,
+}));
 let mockStoreCurrentThreadId = 'thread-B';
 
 vi.mock('@/stores/chatStore', () => {
@@ -73,21 +88,7 @@ vi.mock('@/stores/chatStore', () => {
       setThreadTargetCats: mockSetThreadTargetCats,
       updateThreadCatStatus: mockUpdateThreadCatStatus,
       clearThreadActiveInvocation: mockClearThreadActiveInvocation,
-      getThreadState: () => ({
-        messages: [],
-        isLoading: false,
-        isLoadingHistory: false,
-        hasMore: true,
-        hasActiveInvocation: false,
-        intentMode: null,
-        targetCats: [],
-        catStatuses: {},
-        catInvocations: {},
-        currentMode: null,
-        pendingModeSwitchProposal: null,
-        unreadCount: 0,
-        lastActivity: 0,
-      }),
+      getThreadState: mockGetThreadState,
     }),
   };
   return { useChatStore: store };
@@ -112,6 +113,7 @@ vi.mock('@/utils/api-client', () => ({
 
 // ── Import useSocket after mocks ──
 import { type SocketCallbacks, useSocket } from '../useSocket';
+import { configureDebug, invocationDebugConstants } from '@/debug/invocationEventDebug';
 
 /**
  * Minimal wrapper component to mount the useSocket hook with controlled threadId.
@@ -133,6 +135,10 @@ function simulateServerEvent(event: string, data: unknown) {
   }
 }
 
+type WindowDebugApi = {
+  dump: (options?: { rawThreadId?: boolean }) => string;
+};
+
 describe('useSocket thread guard (P1 regression: cross-thread event leakage)', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -152,6 +158,9 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     document.body.appendChild(container);
     root = createRoot(container);
     window.sessionStorage.clear();
+    window.sessionStorage.removeItem(invocationDebugConstants.STORAGE_KEY);
+    configureDebug({ enabled: false });
+    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
     mockUserId = 'test-user';
     mockStoreCurrentThreadId = 'thread-B';
     mockAddMessageToThread.mockClear();
@@ -170,6 +179,7 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
     mockSetThreadTargetCats.mockClear();
     mockUpdateThreadCatStatus.mockClear();
     mockClearThreadActiveInvocation.mockClear();
+    mockGetThreadState.mockClear();
     // Clear all socket listeners from previous tests
     mockSocket.removeAllListeners();
   });
@@ -179,6 +189,9 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
       root.unmount();
     });
     container.remove();
+    window.sessionStorage.removeItem(invocationDebugConstants.STORAGE_KEY);
+    configureDebug({ enabled: false });
+    delete (window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug;
   });
 
   it('intent_mode from active thread is forwarded to callback', () => {
@@ -398,6 +411,128 @@ describe('useSocket thread guard (P1 regression: cross-thread event leakage)', (
 
     expect(mockSetQueue).toHaveBeenCalledWith('thread-B', expect.any(Array));
     expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-B', true);
+  });
+
+  it('debug API stays unmounted by default (P0: default disabled)', () => {
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeUndefined();
+  });
+
+  it('debug disabled: queue_updated does not read thread snapshot metadata', () => {
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing' }],
+        action: 'processing',
+      });
+    });
+
+    expect(mockGetThreadState).not.toHaveBeenCalled();
+  });
+
+  it('debug disabled: queue_paused with malformed queue payload does not throw', () => {
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    expect(() => {
+      act(() => {
+        simulateServerEvent('queue_paused', {
+          threadId: 'thread-B',
+          reason: 'failed',
+          queue: [null],
+        });
+      });
+    }).not.toThrow();
+
+    expect(mockSetQueue).toHaveBeenCalledWith('thread-B', [null]);
+    expect(mockSetQueuePaused).toHaveBeenCalledWith('thread-B', true, 'failed');
+  });
+
+  it('debug enabled: non-array queue payload does not crash debug mapping', () => {
+    window.sessionStorage.setItem(invocationDebugConstants.STORAGE_KEY, '1');
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    const debugApi = (window as typeof window & { __catCafeDebug?: WindowDebugApi }).__catCafeDebug;
+    expect(debugApi).toBeDefined();
+
+    expect(() => {
+      act(() => {
+        simulateServerEvent('queue_updated', {
+          threadId: 'thread-B',
+          queue: {} as unknown as unknown[],
+          action: 'processing',
+        });
+      });
+    }).not.toThrow();
+
+    const dump = JSON.parse(debugApi!.dump({ rawThreadId: true })) as {
+      events: Array<Record<string, unknown>>;
+    };
+    const event = dump.events.find((item) => item.event === 'queue_updated');
+    expect(event?.queueLength).toBe(0);
+    expect(event?.queueStatuses).toEqual([]);
+  });
+
+  it('debug dump masks threadId by default and strips blocked fields', () => {
+    window.sessionStorage.setItem(invocationDebugConstants.STORAGE_KEY, '1');
+    const callbacks: SocketCallbacks = { onMessage: vi.fn() };
+
+    act(() => {
+      root.render(React.createElement(HookWrapper, { callbacks, threadId: 'thread-B' }));
+    });
+
+    const debugApi = (window as typeof window & { __catCafeDebug?: WindowDebugApi }).__catCafeDebug;
+    expect(debugApi).toBeDefined();
+
+    act(() => {
+      simulateServerEvent('queue_updated', {
+        threadId: 'thread-B',
+        queue: [{ id: 'q1', status: 'processing', content: 'hidden' }],
+        action: 'processing',
+      });
+    });
+
+    const maskedDump = JSON.parse(debugApi!.dump()) as {
+      meta: { marker: string; rawThreadId: boolean };
+      events: Array<Record<string, unknown>>;
+    };
+    expect(maskedDump.meta.marker).toBe('MASKED');
+    expect(maskedDump.meta.rawThreadId).toBe(false);
+    const maskedEvent = maskedDump.events.find((event) => event.event === 'queue_updated');
+    expect(maskedEvent?.threadId).not.toBe('thread-B');
+    expect(maskedEvent?.content).toBeUndefined();
+    expect(maskedEvent?.token).toBeUndefined();
+    expect(maskedEvent?.headers).toBeUndefined();
+    expect(maskedEvent?.userInput).toBeUndefined();
+
+    const rawDump = JSON.parse(debugApi!.dump({ rawThreadId: true })) as {
+      meta: { marker: string; rawThreadId: boolean };
+      events: Array<Record<string, unknown>>;
+    };
+    expect(rawDump.meta.marker).toBe('RAW');
+    expect(rawDump.meta.rawThreadId).toBe(true);
+    const rawEvent = rawDump.events.find((event) => event.event === 'queue_updated');
+    expect(rawEvent?.threadId).toBe('thread-B');
+    expect(rawEvent?.hasActiveInvocation).toBe(true);
+    expect(rawEvent?.queuePaused).toBe(false);
   });
 
   it('socket is NOT disconnected/reconnected when callbacks change (callbacksRef pattern)', () => {

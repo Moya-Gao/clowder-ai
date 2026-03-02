@@ -6,6 +6,12 @@ import { useChatStore } from '@/stores/chatStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import {
+  bootstrapDebugFromStorage,
+  ensureWindowDebugApi,
+  isDebugEnabled,
+  recordDebugEvent,
+} from '@/debug/invocationEventDebug';
 import { loadJoinedRoomsFromSession, saveJoinedRoomsToSession } from './useSocket-persistence';
 import {
   type BackgroundAgentMessage,
@@ -109,6 +115,23 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       joinedRoomsRef.current.add(`thread:${threadIdRef.current}`);
     }
     persistJoinedRooms();
+    bootstrapDebugFromStorage();
+    ensureWindowDebugApi();
+
+    const recordInvocationEvent = (event: Parameters<typeof recordDebugEvent>[0]) => {
+      if (!isDebugEnabled()) return;
+      const store = useChatStore.getState();
+      const traceThreadId = event.threadId;
+      const threadState = traceThreadId ? store.getThreadState(traceThreadId) : null;
+      recordDebugEvent({
+        ...event,
+        timestamp: event.timestamp ?? Date.now(),
+        routeThreadId: event.routeThreadId ?? threadIdRef.current,
+        storeThreadId: event.storeThreadId ?? store.currentThreadId,
+        queuePaused: event.queuePaused ?? threadState?.queuePaused,
+        hasActiveInvocation: event.hasActiveInvocation ?? threadState?.hasActiveInvocation,
+      });
+    };
 
     const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
@@ -166,6 +189,16 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         count: rejoinedRooms.length,
         rooms: rejoinedRooms,
       });
+      recordInvocationEvent({
+        event: 'connect',
+        threadId: tid ?? undefined,
+        action: getTransportName(),
+      });
+      recordInvocationEvent({
+        event: 'rejoin_rooms',
+        threadId: tid ?? undefined,
+        queueLength: rejoinedRooms.length,
+      });
     });
 
     socket.on('agent_message', (msg: AgentMessage) => {
@@ -180,6 +213,12 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       );
       // If either pointer is temporarily unavailable during thread switch,
       // route thread-tagged events to background to avoid mutating stale flat state.
+      recordInvocationEvent({
+        event: msg.type === 'done' ? 'done' : 'agent_message',
+        threadId: msg.threadId,
+        action: msg.type,
+        isFinal: msg.isFinal === true,
+      });
 
       // Defensive fallback for malformed legacy payloads (threadId missing).
       if (!msg.threadId) {
@@ -212,6 +251,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
     socket.on('intent_mode', (data: { threadId: string; mode: string; targetCats: string[] }) => {
       const routeThread = threadIdRef.current;
       const storeThread = useChatStore.getState().currentThreadId;
+      recordInvocationEvent({
+        event: 'intent_mode',
+        threadId: data.threadId,
+        mode: data.mode,
+      });
 
       // Dual-pointer guard: both route and store must agree for active-thread processing.
       // Mirrors agent_message pattern — blocks switch-window race where route already
@@ -293,6 +337,13 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       callbacksRef.current.onModeChanged?.(data);
     });
 
+    const normalizeQueueForDebug = (queue: unknown): unknown[] => (Array.isArray(queue) ? queue : []);
+    const getQueueStatusesForDebug = (queue: unknown) => normalizeQueueForDebug(queue).map((entry) => {
+      if (!entry || typeof entry !== 'object') return 'unknown';
+      const status = (entry as { status?: unknown }).status;
+      return typeof status === 'string' ? status : 'unknown';
+    });
+
     // F39: Queue events — always write via store (no dual-pointer guard needed, queue is thread-scoped)
     socket.on('queue_updated', (data: { threadId: string; queue: unknown[]; action: string }) => {
       const store = useChatStore.getState();
@@ -306,11 +357,32 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       if (data.action === 'processing' || data.action === 'cleared') {
         store.setQueuePaused(data.threadId, false);
       }
+      if (isDebugEnabled()) {
+        const stateAfterUpdate = store.getThreadState(data.threadId);
+        recordInvocationEvent({
+          event: 'queue_updated',
+          threadId: data.threadId,
+          action: data.action,
+          queueLength: normalizeQueueForDebug(data.queue).length,
+          queueStatuses: getQueueStatusesForDebug(data.queue),
+          hasActiveInvocation: data.action === 'processing' ? true : stateAfterUpdate?.hasActiveInvocation,
+          queuePaused: (data.action === 'processing' || data.action === 'cleared') ? false : stateAfterUpdate?.queuePaused,
+        });
+      }
     });
     socket.on('queue_paused', (data: { threadId: string; reason: 'canceled' | 'failed'; queue: unknown[] }) => {
       const store = useChatStore.getState();
       store.setQueue(data.threadId, data.queue as import('../stores/chat-types').QueueEntry[]);
       store.setQueuePaused(data.threadId, true, data.reason);
+      if (isDebugEnabled()) {
+        recordInvocationEvent({
+          event: 'queue_paused',
+          threadId: data.threadId,
+          reason: data.reason,
+          queueLength: normalizeQueueForDebug(data.queue).length,
+          queueStatuses: getQueueStatusesForDebug(data.queue),
+        });
+      }
     });
     socket.on('queue_full_warning', (data: { threadId: string; source: 'user' | 'connector'; queue: unknown[] }) => {
       const store = useChatStore.getState();
@@ -354,6 +426,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         transport: getTransportName(),
         details: details ?? null,
       });
+      recordInvocationEvent({
+        event: 'disconnect',
+        threadId: threadIdRef.current,
+        reason: typeof reason === 'string' ? reason : String(reason),
+      });
     });
 
     const engine = socket.io.engine as unknown as SocketIoEngineLike | undefined;
@@ -366,6 +443,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
       console.warn('[ws] Engine close', {
         reason: typeof reason === 'string' ? reason : String(reason),
         transport: getTransportName(),
+      });
+      recordInvocationEvent({
+        event: 'engine_close',
+        threadId: threadIdRef.current,
+        reason: typeof reason === 'string' ? reason : String(reason),
       });
     });
 
