@@ -226,6 +226,168 @@ describe('MissionControlPage', () => {
     expect(threadLink?.getAttribute('href')).toBe('/thread/thread-1');
   });
 
+  it('renders thread situational summary for dispatched backlog items', async () => {
+    const now = Date.now();
+    backend.setItems([{
+      id: 'seed-situation',
+      userId: 'u_test',
+      title: '态势任务',
+      summary: '应展示 thread 态势',
+      priority: 'p1',
+      tags: ['situation'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 10_000,
+      updatedAt: now - 1_000,
+      dispatchedAt: now - 5_000,
+      dispatchedThreadId: 'thread-situation-1',
+      dispatchedThreadPhase: 'coding',
+      audit: [{ id: 'a-situation', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
+    } satisfies MutableBacklogItem]);
+    backend.setThreads([{
+      id: 'thread-situation-1',
+      title: 'Thread Alpha',
+      createdBy: 'u_test',
+      lastActiveAt: now - 500,
+      participants: ['codex'],
+      backlogItemId: 'seed-situation',
+    }]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const panel = container.querySelector('[data-testid="mc-thread-situation"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('Thread Alpha');
+    expect(panel?.textContent).toContain('codex');
+    expect(panel?.textContent).toContain('态势任务');
+    expect(panel?.textContent).toContain('最近活跃');
+  });
+
+  it('shows fallback message when dispatched item has no mapped thread', async () => {
+    const now = Date.now();
+    backend.setItems([{
+      id: 'seed-no-thread',
+      userId: 'u_test',
+      title: '待映射任务',
+      summary: '应显示降级提示',
+      priority: 'p2',
+      tags: ['situation'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 10_000,
+      updatedAt: now - 1_000,
+      dispatchedAt: now - 5_000,
+      dispatchedThreadId: 'thread-missing',
+      dispatchedThreadPhase: 'coding',
+      audit: [{ id: 'a-no-thread', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
+    } satisfies MutableBacklogItem]);
+    backend.setThreads([]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const panel = container.querySelector('[data-testid="mc-thread-situation"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('待映射任务');
+    expect(panel?.textContent).toContain('暂无可关联 thread');
+  });
+
+  it('ignores stale thread-situation responses and keeps latest mapping', async () => {
+    const now = Date.now();
+    const itemA: MutableBacklogItem = {
+      id: 'seed-stale-a',
+      userId: 'u_test',
+      title: '旧任务',
+      summary: '旧请求应被丢弃',
+      priority: 'p1',
+      tags: ['situation'],
+      status: 'dispatched',
+      createdBy: 'user',
+      createdAt: now - 10_000,
+      updatedAt: now - 1_000,
+      dispatchedAt: now - 5_000,
+      dispatchedThreadId: 'thread-old',
+      dispatchedThreadPhase: 'coding',
+      audit: [{ id: 'a-stale-a', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 }],
+    };
+    const itemB: MutableBacklogItem = {
+      ...itemA,
+      id: 'seed-stale-b',
+      title: '新任务',
+      dispatchedThreadId: 'thread-new',
+      audit: [{ id: 'a-stale-b', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 3_000 }],
+    };
+
+    backend.setItems([itemA]);
+    backend.setThreads([]);
+
+    let resolveFirstThreads: ((response: Response) => void) | null = null;
+
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => {
+      if (path.startsWith('/api/threads?') && (!init?.method || init.method === 'GET')) {
+        const url = new URL(path, 'http://localhost');
+        const backlogIds = url.searchParams.get('backlogItemIds') ?? '';
+        if (backlogIds.includes(itemA.id)) {
+          return new Promise<Response>((resolve) => {
+            resolveFirstThreads = resolve;
+          });
+        }
+        if (backlogIds.includes(itemB.id)) {
+          return Promise.resolve(mockResponse(200, {
+            threads: [{
+              id: 'thread-new',
+              title: 'Thread New',
+              createdBy: 'u_test',
+              lastActiveAt: now - 200,
+              participants: ['codex'],
+              backlogItemId: itemB.id,
+            }],
+          }));
+        }
+      }
+      return backend.handleRequest(path, init);
+    });
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    expect(resolveFirstThreads).not.toBeNull();
+    if (!resolveFirstThreads) return;
+
+    await act(async () => {
+      useMissionControlStore.setState({
+        items: [itemB],
+        selectedItemId: itemB.id,
+      });
+    });
+    await flush(act);
+
+    resolveFirstThreads(mockResponse(200, {
+      threads: [{
+        id: 'thread-old',
+        title: 'Thread Old',
+        createdBy: 'u_test',
+        lastActiveAt: now - 1_000,
+        participants: ['codex'],
+        backlogItemId: itemA.id,
+      }],
+    }));
+    await flush(act);
+
+    const panel = container.querySelector('[data-testid="mc-thread-situation"]');
+    expect(panel).not.toBeNull();
+    expect(panel?.textContent).toContain('新任务');
+    expect(panel?.textContent).toContain('Thread New');
+    expect(panel?.textContent).not.toContain('Thread Old');
+  });
+
   it('rejects suggested item back to open lane', async () => {
     const now = Date.now();
     backend.setItems([{

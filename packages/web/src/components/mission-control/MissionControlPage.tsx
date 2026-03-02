@@ -1,13 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { BacklogItem, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
 import { apiFetch } from '@/utils/api-client';
 import { useMissionControlStore } from '@/stores/missionControlStore';
 import { MissionControlCard } from './MissionControlCard';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
+import { ThreadSituationPanel } from './ThreadSituationPanel';
 
 interface BacklogListResponse {
   items?: BacklogItem[];
@@ -15,6 +16,18 @@ interface BacklogListResponse {
 
 interface SelfClaimPolicyResponse {
   scopes?: Record<string, MissionHubSelfClaimScope>;
+}
+
+interface ThreadSituationSummary {
+  id: string;
+  title?: string;
+  lastActiveAt: number;
+  participants: CatId[];
+  backlogItemId?: string;
+}
+
+interface ThreadListResponse {
+  threads?: ThreadSituationSummary[];
 }
 
 type SelfClaimPolicyBlocker = 'once' | 'thread' | null;
@@ -46,8 +59,11 @@ async function parseError(response: Response): Promise<string> {
 }
 
 export function MissionControlPage() {
+  const threadSituationRequestSeq = useRef(0);
   const [selfClaimScopes, setSelfClaimScopes] = useState<Record<string, MissionHubSelfClaimScope>>({});
   const [selfClaimPolicyBlocker, setSelfClaimPolicyBlocker] = useState<SelfClaimPolicyBlocker>(null);
+  const [threadsByBacklogId, setThreadsByBacklogId] = useState<Record<string, ThreadSituationSummary>>({});
+  const [threadsLoading, setThreadsLoading] = useState(false);
   const {
     items,
     loading,
@@ -118,6 +134,43 @@ export function MissionControlPage() {
     [items],
   );
   const dispatchedItems = useMemo(() => items.filter((item) => item.status === 'dispatched'), [items]);
+  const dispatchedBacklogIds = useMemo(() => dispatchedItems.map((item) => item.id), [dispatchedItems]);
+
+  const loadThreadSituations = useCallback(async (backlogItemIds: string[]) => {
+    const requestSeq = ++threadSituationRequestSeq.current;
+    if (backlogItemIds.length === 0) {
+      setThreadsByBacklogId({});
+      setThreadsLoading(false);
+      return;
+    }
+
+    setThreadsLoading(true);
+    try {
+      const response = await apiFetch(
+        `/api/threads?backlogItemIds=${encodeURIComponent(backlogItemIds.join(','))}`,
+      );
+      if (!response.ok) throw new Error(await parseError(response));
+      const body = await response.json() as ThreadListResponse;
+      const backlogItemIdSet = new Set(backlogItemIds);
+      const next: Record<string, ThreadSituationSummary> = {};
+      for (const thread of body.threads ?? []) {
+        if (!thread.backlogItemId || !backlogItemIdSet.has(thread.backlogItemId)) continue;
+        next[thread.backlogItemId] = thread;
+      }
+      if (requestSeq !== threadSituationRequestSeq.current) return;
+      setThreadsByBacklogId(next);
+    } catch {
+      if (requestSeq !== threadSituationRequestSeq.current) return;
+      setThreadsByBacklogId({});
+    } finally {
+      if (requestSeq !== threadSituationRequestSeq.current) return;
+      setThreadsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadThreadSituations(dispatchedBacklogIds);
+  }, [dispatchedBacklogIds, loadThreadSituations]);
 
   const withSubmitGuard = useCallback(async (task: () => Promise<void>) => {
     setSubmitting(true);
@@ -346,22 +399,29 @@ export function MissionControlPage() {
             />
           </section>
 
-          <SuggestionDrawer
-            item={selectedItem}
-            submitting={submitting}
-            selectedPhase={selectedPhase}
-            selfClaimScopes={selfClaimScopes}
-            selfClaimPolicyBlocker={selfClaimPolicyBlocker}
-            onChangePhase={setSelectedPhase}
-            onSuggest={handleSuggest}
-            onApprove={handleApprove}
-            onReject={handleReject}
-            onSelfClaim={handleSelfClaim}
-            onAcquireLease={handleAcquireLease}
-            onHeartbeatLease={handleHeartbeatLease}
-            onReleaseLease={handleReleaseLease}
-            onReclaimLease={handleReclaimLease}
-          />
+          <div className="flex min-h-0 flex-col gap-3">
+            <SuggestionDrawer
+              item={selectedItem}
+              submitting={submitting}
+              selectedPhase={selectedPhase}
+              selfClaimScopes={selfClaimScopes}
+              selfClaimPolicyBlocker={selfClaimPolicyBlocker}
+              onChangePhase={setSelectedPhase}
+              onSuggest={handleSuggest}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onSelfClaim={handleSelfClaim}
+              onAcquireLease={handleAcquireLease}
+              onHeartbeatLease={handleHeartbeatLease}
+              onReleaseLease={handleReleaseLease}
+              onReclaimLease={handleReclaimLease}
+            />
+            <ThreadSituationPanel
+              dispatchedItems={dispatchedItems}
+              loading={threadsLoading}
+              threadsByBacklogId={threadsByBacklogId}
+            />
+          </div>
         </div>
 
         {(loading && items.length === 0) && (

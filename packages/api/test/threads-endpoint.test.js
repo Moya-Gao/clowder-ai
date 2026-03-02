@@ -84,6 +84,79 @@ describe('Thread API', () => {
     assert.deepEqual(titles, ['Backend Thread Search']);
   });
 
+  it('GET /api/threads filters by backlogItemIds without leaking other user threads', async () => {
+    const aliceThread = threadStore.create('alice', 'Alice Linked');
+    const bobThread = threadStore.create('bob', 'Bob Linked');
+    const aliceOther = threadStore.create('alice', 'Alice Unlinked');
+
+    threadStore.linkBacklogItem(aliceThread.id, 'b-alice-1');
+    threadStore.linkBacklogItem(bobThread.id, 'b-bob-1');
+    threadStore.linkBacklogItem(aliceOther.id, 'b-alice-2');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&backlogItemIds=b-alice-1,b-bob-1',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const threadIds = body.threads.map((thread) => thread.id);
+    const titles = body.threads.map((thread) => thread.title);
+
+    assert.ok(threadIds.includes(aliceThread.id));
+    assert.ok(!threadIds.includes(bobThread.id));
+    assert.ok(!threadIds.includes(aliceOther.id));
+    assert.ok(!titles.includes('Bob Linked'));
+  });
+
+  it('GET /api/threads supports hasBacklogItemId=true without leaking other user threads', async () => {
+    const aliceLinked = threadStore.create('alice', 'Alice Linked');
+    const aliceUnlinked = threadStore.create('alice', 'Alice Unlinked');
+    const bobLinked = threadStore.create('bob', 'Bob Linked');
+
+    threadStore.linkBacklogItem(aliceLinked.id, 'b-alice-linked');
+    threadStore.linkBacklogItem(bobLinked.id, 'b-bob-linked');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&hasBacklogItemId=true',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const threadIds = body.threads.map((thread) => thread.id);
+    const titles = body.threads.map((thread) => thread.title);
+
+    assert.ok(threadIds.includes(aliceLinked.id));
+    assert.ok(!threadIds.includes(aliceUnlinked.id));
+    assert.ok(!threadIds.includes(bobLinked.id));
+    assert.ok(!titles.includes('Bob Linked'));
+  });
+
+  it('GET /api/threads treats hasBacklogItemId=false as no filter', async () => {
+    const aliceLinked = threadStore.create('alice', 'Alice Linked');
+    const aliceUnlinked = threadStore.create('alice', 'Alice Unlinked');
+    const bobLinked = threadStore.create('bob', 'Bob Linked');
+
+    threadStore.linkBacklogItem(aliceLinked.id, 'b-alice-linked');
+    threadStore.linkBacklogItem(bobLinked.id, 'b-bob-linked');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&hasBacklogItemId=false',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    const threadIds = body.threads.map((thread) => thread.id);
+    const titles = body.threads.map((thread) => thread.title);
+
+    assert.ok(threadIds.includes(aliceLinked.id));
+    assert.ok(threadIds.includes(aliceUnlinked.id));
+    assert.ok(!threadIds.includes(bobLinked.id));
+    assert.ok(!titles.includes('Bob Linked'));
+  });
+
   it('GET /api/threads/:id returns thread details', async () => {
     const thread = threadStore.create('alice', 'Details Test');
 

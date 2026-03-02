@@ -52,7 +52,18 @@ const createThreadSchema = z.object({
 const listThreadsSchema = z.object({
   projectPath: z.string().min(1).max(500).optional(),
   q: z.string().trim().min(1).max(200).optional(),
+  backlogItemIds: z.string().trim().min(1).max(4000).optional(),
+  hasBacklogItemId: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
 });
+
+function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value === 'boolean') return value;
+  const normalized = value.toLowerCase();
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return undefined;
+}
 
 const threadRoutingRuleSchema = z.object({
   avoidCats: z.array(catIdSchema()).max(10).optional(),
@@ -131,13 +142,28 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { threads: [] };
     }
 
-    const { projectPath, q } = parseResult.data;
+    const { projectPath, q, backlogItemIds, hasBacklogItemId: hasBacklogItemIdRaw } = parseResult.data;
+    const hasBacklogItemId = parseOptionalBooleanQuery(hasBacklogItemIdRaw);
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) return { threads: [] };
 
-    const threads = projectPath
+    let threads = projectPath
       ? await threadStore.listByProject(userId, projectPath)
       : await threadStore.list(userId);
+
+    const requestedBacklogIds = backlogItemIds
+      ? new Set(backlogItemIds.split(',').map((id) => id.trim()).filter((id) => id.length > 0))
+      : null;
+
+    if (requestedBacklogIds && requestedBacklogIds.size > 0) {
+      threads = threads.filter((thread) => {
+        const linkedBacklogId = thread.backlogItemId;
+        return !!linkedBacklogId && requestedBacklogIds.has(linkedBacklogId);
+      });
+    } else if (hasBacklogItemId === true) {
+      threads = threads.filter((thread) => !!thread.backlogItemId);
+    }
+
     if (!q) return { threads };
 
     const needle = q.toLowerCase();

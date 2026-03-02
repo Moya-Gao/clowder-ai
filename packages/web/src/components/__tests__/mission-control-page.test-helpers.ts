@@ -111,15 +111,26 @@ interface LeaseBody {
   ttlMs?: number;
 }
 
+export interface MutableThreadSummary {
+  id: string;
+  title?: string;
+  createdBy: string;
+  lastActiveAt: number;
+  participants: CatId[];
+  backlogItemId?: string;
+}
+
 export interface MissionControlMockBackend {
   setItems(nextItems: MutableBacklogItem[]): void;
   getItems(): MutableBacklogItem[];
+  setThreads(nextThreads: MutableThreadSummary[]): void;
   setSelfClaimScope(catId: CatId, scope: MissionHubSelfClaimScope): void;
   handleRequest(path: string, init?: RequestInit): Promise<Response>;
 }
 
 export function createMissionControlMockBackend(): MissionControlMockBackend {
   let items: MutableBacklogItem[] = [];
+  let threads: MutableThreadSummary[] = [];
   let itemSeq = 1;
   let threadSeq = 1;
   const selfClaimScopes: Record<string, MissionHubSelfClaimScope> = {
@@ -131,6 +142,9 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
   };
 
   const getItems = () => items;
+  const setThreads = (nextThreads: MutableThreadSummary[]) => {
+    threads = nextThreads.map((thread) => ({ ...thread, participants: [...thread.participants] }));
+  };
   const setSelfClaimScope = (catId: CatId, scope: MissionHubSelfClaimScope) => {
     selfClaimScopes[catId] = scope;
   };
@@ -157,6 +171,34 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
 
     if (path === '/api/backlog/items' && (!init?.method || init.method === 'GET')) {
       return mockResponse(200, { items: items.map((item) => cloneItem(item)) });
+    }
+
+    if (path.startsWith('/api/threads') && (!init?.method || init.method === 'GET')) {
+      const url = new URL(path, 'http://localhost');
+      const backlogFilterCsv = url.searchParams.get('backlogItemIds');
+      const backlogFilters = backlogFilterCsv
+        ? new Set(
+          backlogFilterCsv
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0),
+        )
+        : null;
+
+      const filteredThreads = backlogFilters
+        ? threads.filter((thread) => thread.backlogItemId && backlogFilters.has(thread.backlogItemId))
+        : threads;
+
+      return mockResponse(200, {
+        threads: filteredThreads.map((thread) => ({
+          id: thread.id,
+          title: thread.title,
+          createdBy: thread.createdBy,
+          lastActiveAt: thread.lastActiveAt,
+          participants: [...thread.participants],
+          backlogItemId: thread.backlogItemId,
+        })),
+      });
     }
 
     if (path === '/api/backlog/self-claim-policy' && (!init?.method || init.method === 'GET')) {
@@ -391,6 +433,7 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
   return {
     setItems,
     getItems,
+    setThreads,
     setSelfClaimScope,
     handleRequest,
   };
