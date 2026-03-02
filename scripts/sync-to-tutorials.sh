@@ -129,12 +129,15 @@ cat > "$TARGET_DIR/README.md" << 'README_EOF'
 
 - **第七课**：[从猫咖到猫猫平台 — 当 AI 不只是工具](./docs/lessons/07-from-cafe-to-platform.md) — SillyTavern 取经 + Rich Blocks + 手机猫猫 + 悄悄话
   - [课后作业](./docs/lessons/07-homework.md)：最小 Rich Blocks 管线
+- **第八课**：[Session 管理 — 茶话会夺魂 bug](./docs/lessons/08-session-management.md) — 跨 thread 污染怎么来的？
+  - [课后作业](./docs/lessons/08-homework.md)：搭建最小 Session Chain 模拟器
+- **第九课**：[100% Pass — 12 条验收全绿，铲屎官说"不是我要的"](./docs/lessons/09-context-engineering.md) — 为什么 AI 做的不是你想要的？
+  - [课后作业](./docs/lessons/09-homework.md)：Skill 描述三件套 + AC 审计 + 冷启动验证
 
 ### 即将推出
 
-- 第八课：Session 管理 — 跨 thread 污染怎么来的？
-- 第九课：上下文工程 — 150k token 怎么用？
-- ...更多
+- 第十课：知识管理 — 别让 AI 随地大小拉 markdown
+- 第十一课：降级与容错 — 猫猫挂了怎么办？
 
 ## 适合谁
 
