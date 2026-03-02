@@ -8,6 +8,46 @@
 import webpush from 'web-push';
 import type { IPushSubscriptionStore, PushSubscriptionRecord } from '../stores/ports/PushSubscriptionStore.js';
 
+const DEFAULT_WEB_PUSH_TIMEOUT_MS = 10_000;
+
+function asNonEmptyString(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function isHttpProxyUrl(value: string): boolean {
+  return value.startsWith('http://') || value.startsWith('https://');
+}
+
+function resolveWebPushProxy(): string | undefined {
+  const candidates = [
+    process.env['HTTPS_PROXY'],
+    process.env['https_proxy'],
+    process.env['HTTP_PROXY'],
+    process.env['http_proxy'],
+    process.env['ALL_PROXY'],
+    process.env['all_proxy'],
+  ];
+
+  for (const candidate of candidates) {
+    const proxy = asNonEmptyString(candidate);
+    if (!proxy) continue;
+    if (isHttpProxyUrl(proxy)) return proxy;
+  }
+  return undefined;
+}
+
+function resolveWebPushTimeoutMs(): number {
+  const raw = asNonEmptyString(process.env['WEB_PUSH_TIMEOUT_MS']);
+  if (!raw) return DEFAULT_WEB_PUSH_TIMEOUT_MS;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_WEB_PUSH_TIMEOUT_MS;
+  }
+  return Math.floor(parsed);
+}
+
 export interface PushPayload {
   title: string;
   body: string;
@@ -30,9 +70,13 @@ export interface PushNotificationServiceOptions {
 
 export class PushNotificationService {
   private readonly store: IPushSubscriptionStore;
+  private readonly proxy: string | undefined;
+  private readonly timeoutMs: number;
 
   constructor(opts: PushNotificationServiceOptions) {
     this.store = opts.subscriptionStore;
+    this.proxy = resolveWebPushProxy();
+    this.timeoutMs = resolveWebPushTimeoutMs();
     webpush.setVapidDetails(opts.vapidSubject, opts.vapidPublicKey, opts.vapidPrivateKey);
   }
 
@@ -68,8 +112,15 @@ export class PushNotificationService {
       endpoint: sub.endpoint,
       keys: sub.keys,
     };
+    const sendOptions: webpush.RequestOptions = {
+      TTL: 60 * 60, // 1 hour TTL
+      timeout: this.timeoutMs,
+    };
+    if (this.proxy) {
+      sendOptions.proxy = this.proxy;
+    }
     try {
-      await webpush.sendNotification(pushSub, body, { TTL: 60 * 60 }); // 1 hour TTL
+      await webpush.sendNotification(pushSub, body, sendOptions);
     } catch (err: unknown) {
       const statusCode = (err as { statusCode?: number }).statusCode;
       // 410 Gone or 404 = subscription expired, auto-cleanup
