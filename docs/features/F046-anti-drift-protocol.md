@@ -3,7 +3,7 @@ feature_ids: [F046]
 topics: [vision-drift, anti-drift, sop, review, process, multi-agent]
 doc_kind: spec
 created: 2026-02-27
-updated: 2026-03-02
+updated: 2026-03-03
 ---
 
 # F046: 愿景守护协议 — Anti-Drift Protocol
@@ -42,7 +42,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
 | B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Merged（Done） | 已嵌入 feat-kickoff 模板 |
 | B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Merged（Done） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
-| B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
+| B5 | ≥10 条对话场景回归测试 | 📋 Spec（seed 3 条已落地） | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
 | B6 | 同族 reviewer identity check gate | ✅ Merged → **Phase D 将移除** | ← F042 Wave 3 毕业：流程执行守护门禁。根因是 resume bug 非模型混淆，格式校验≠身份验证，且 `(@catId)` 模板加剧 @ 惯性污染（见 D4） |
 
 ### 待开发（Phase D — @ 路由卫生 Mention Routing Hygiene）
@@ -218,7 +218,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
 - [x] 需求点 checklist 格式嵌入开发模板（B3）
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
-- [ ] ≥10 条对话场景回归测试就位（B5）
+- [ ] ≥10 条对话场景回归测试就位（B5，当前 seed=3）
 - [x] 同族 reviewer identity check gate 落地（B6）— **Phase D 将移除（D4）**
 - [ ] @ + 动作词才触发路由，无动作词不路由（D1）
 - [ ] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
@@ -298,6 +298,13 @@ Phase B（B1/B3）文档证据（2026-03-02）：
 - `cat-cafe-skills/quality-gate/SKILL.md` 已引用 B1 流程
 - `cat-cafe-skills/feat-lifecycle/SKILL.md` kickoff 已要求嵌入 B3 checklist
 
+Phase B（B5 seed）运行时回归证据（2026-03-03）：
+- `pnpm --filter @cat-cafe/api run build` → success
+- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 3/3 pass
+- `node --test packages/api/test/route-strategies.test.js` → 48/48 pass
+- `node --test packages/api/test/route-serial-review-identity-propagation.test.js` → 1/1 pass
+- 说明：B5 已从 0→1（seed 3 条），后续继续扩展至 ≥10 条再勾选 AC
+
 ## Timeline
 
 - 2026-02-27: F041 愿景对照失败，触发 Deep Research Pipeline
@@ -312,3 +319,4 @@ Phase B（B1/B3）文档证据（2026-03-02）：
 - 2026-03-02: B6 实现：同族 reviewer identity gate（worklist 状态承载 + invocation 注入 + route-serial 握手校验）
 - 2026-03-02: PR #159/#162 合入：@ 自检 prompt 规则 + SOP 流程歧义修复（prompt 层治疗，效果有限）
 - 2026-03-02: Phase D 立项：@ 路由卫生（缅因猫采访 → 机制层修复方案确定）
+- 2026-03-03: B5 seed 落地：新增 3 条运行时回归场景（debug 透传 / play 隔离 / review 无效标记传递）→ `packages/api/test/f046-b5-runtime-regression-seed.test.js`
