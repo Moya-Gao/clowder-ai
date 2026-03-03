@@ -80,13 +80,24 @@ export function resolveProbeTimeoutMs(
   }
 
   const command = capability.mcpServer?.command?.toLowerCase() ?? '';
-  const argsJoined = (capability.mcpServer?.args ?? []).join(' ').toLowerCase();
+  const args = capability.mcpServer?.args ?? [];
+  const argsLower = args.map((arg) => arg.toLowerCase());
+  const argsJoined = argsLower.join(' ');
 
   // npx/pnpm-dlx based servers often need extra cold-start time.
   const isNpxLike = command === 'npx' || command === 'pnpm' || command === 'pnpmx';
   const looksLikePlaywright = argsJoined.includes('playwright');
   const isDlx = argsJoined.includes('dlx') || argsJoined.includes('-y');
   if (isNpxLike && (isDlx || looksLikePlaywright)) {
+    return SLOW_START_PROBE_TIMEOUT_MS;
+  }
+
+  // Docker MCP gateway can be briefly unavailable while it reloads enabled servers.
+  const isDockerGatewayRun = command === 'docker'
+    && argsLower[0] === 'mcp'
+    && argsLower[1] === 'gateway'
+    && argsLower[2] === 'run';
+  if (isDockerGatewayRun) {
     return SLOW_START_PROBE_TIMEOUT_MS;
   }
 

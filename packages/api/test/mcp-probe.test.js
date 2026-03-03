@@ -34,5 +34,9 @@ describe('resolveProbeTimeoutMs', () => {
     const cap = makeCapability('pnpm', ['dlx', '@modelcontextprotocol/server-filesystem']);
     assert.equal(resolveProbeTimeoutMs(cap), 7000);
   });
-});
 
+  it('uses slow-start timeout for docker mcp gateway run', () => {
+    const cap = makeCapability('docker', ['mcp', 'gateway', 'run']);
+    assert.equal(resolveProbeTimeoutMs(cap), 7000);
+  });
+});
