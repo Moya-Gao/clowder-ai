@@ -36,6 +36,46 @@ describe('review-identity-gate', () => {
     assert.equal(required, false);
   });
 
+  it('does not require identity gate for same-family review acknowledgement messages', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52 收到，这轮 review 结论我按 Approve 执行',
+    });
+    assert.equal(required, false);
+  });
+
+  it('does not require identity gate for same-family approval messages that mention LGTM', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52 Approve / LGTM',
+    });
+    assert.equal(required, false);
+  });
+
+  it('requires identity gate for same-family review requests phrased as Review 请求', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52 Review 请求已整理，请帮我们看这次改动',
+    });
+    assert.equal(required, true);
+  });
+
+  it('requires identity gate for direct same-family request "@handle review ..."', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52 review this patch',
+    });
+    assert.equal(required, true);
+  });
+
   it('accepts valid identity handshake line', async () => {
     const { validateReviewIdentityHandshake } = await getModule();
     const result = validateReviewIdentityHandshake(

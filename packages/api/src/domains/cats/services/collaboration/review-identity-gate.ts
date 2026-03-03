@@ -2,9 +2,14 @@ import type { CatId } from '@cat-cafe/shared';
 import { getRoster } from '../../../../config/cat-config-loader.js';
 
 const REVIEW_REQUEST_PATTERNS: ReadonlyArray<RegExp> = [
-  /\breview\b/i,
-  /\blgtm\b/i,
+  /(^|\n)\s*@\S+\s+review\b/i,
   /请\s*review/i,
+  /review\s*请求/i,
+  /\breview\s*request\b/i,
+  /\bplease\s+review\b/i,
+  /\breview\s*(?:pls|please)\b/i,
+  /请\s*lgtm/i,
+  /求\s*lgtm/i,
   /帮我看看/i,
   /请 reviewer 看看/i,
 ];
