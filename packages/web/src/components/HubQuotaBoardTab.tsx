@@ -1,5 +1,6 @@
 'use client';
 
+// biome-ignore lint/correctness/noUnusedImports: React must be in scope for SSR JSX runtime in tests.
 import React, { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
 import {
@@ -18,6 +19,7 @@ export const POLL_INTERVAL_MS = 30_000;
 export function HubQuotaBoardTab() {
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
 
   const fetchQuota = useCallback(async () => {
     try {
@@ -40,7 +42,16 @@ export function HubQuotaBoardTab() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await apiFetch('/api/quota/refresh/claude', { method: 'POST' });
+      const refreshRes = await apiFetch('/api/quota/refresh/official', { method: 'POST' });
+      if (!refreshRes.ok) {
+        const body = (await refreshRes.json().catch(() => ({}))) as { error?: string };
+        setRefreshError(body.error ?? '获取官方额度失败');
+      } else {
+        setRefreshError(null);
+      }
+      await fetchQuota();
+    } catch {
+      setRefreshError('获取官方额度失败，请稍后重试');
       await fetchQuota();
     } finally {
       setRefreshing(false);
@@ -71,11 +82,12 @@ export function HubQuotaBoardTab() {
         <h3 className="text-xs font-semibold text-gray-700">猫粮看板</h3>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={onRefresh}
             disabled={refreshing}
             className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-red-600 text-white disabled:opacity-50"
           >
-            {refreshing ? '刷新中...' : '刷新 Claude'}
+            {refreshing ? '获取中...' : '点击获取官方额度'}
           </button>
           {quota?.fetchedAt && (
             <span className="text-[10px] text-gray-400">
@@ -84,6 +96,7 @@ export function HubQuotaBoardTab() {
           )}
         </div>
       </div>
+      {refreshError && <div className="mb-3 text-[11px] text-red-600">{refreshError}</div>}
 
       <div className="grid grid-cols-3 gap-3">
         <ClaudeCard data={claude} />

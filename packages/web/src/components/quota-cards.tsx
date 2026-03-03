@@ -1,3 +1,4 @@
+// biome-ignore lint/correctness/noUnusedImports: React must be in scope for SSR JSX runtime in tests.
 import React from 'react';
 
 // --- Types (mirror backend QuotaResponse) ---
@@ -23,6 +24,7 @@ export interface CcusageBillingBlock {
 export interface ClaudeQuota {
   platform: 'claude';
   activeBlock: CcusageBillingBlock | null;
+  usageItems?: CodexUsageItem[];
   recentBlocks: CcusageBillingBlock[];
   error?: string;
   lastChecked: string | null;
@@ -31,7 +33,9 @@ export interface ClaudeQuota {
 export interface CodexUsageItem {
   label: string;
   usedPercent: number;
+  percentKind?: 'used' | 'remaining';
   resetsAt?: string;
+  resetsText?: string;
 }
 
 export interface CodexQuota {
@@ -65,9 +69,10 @@ function ProgressBar({ percent, color }: { percent: number; color: string }) {
   );
 }
 
-function barColor(percent: number): string {
-  if (percent >= 95) return 'bg-red-500';
-  if (percent >= 80) return 'bg-amber-500';
+function barColor(percent: number, percentKind: 'used' | 'remaining' = 'used'): string {
+  const usedSignal = percentKind === 'remaining' ? 100 - percent : percent;
+  if (usedSignal >= 95) return 'bg-red-500';
+  if (usedSignal >= 80) return 'bg-amber-500';
   return 'bg-green-500';
 }
 
@@ -85,6 +90,7 @@ export function ClaudeCard({ data }: { data: ClaudeQuota }) {
   }
 
   const block = data.activeBlock;
+  const officialUsage = data.usageItems ?? [];
 
   return (
     <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
@@ -93,7 +99,25 @@ export function ClaudeCard({ data }: { data: ClaudeQuota }) {
         <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
       </div>
       <div className="h-px bg-gray-200" />
-      {block ? (
+      {officialUsage.length > 0 ? (
+        <div className="space-y-2">
+          {officialUsage.map((item) => (
+            <div key={item.label} className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-600">{item.label}</span>
+                <span className={`font-semibold ${item.usedPercent >= 95 ? 'text-red-600' : 'text-gray-900'}`}>
+                  {item.usedPercent}% used
+                </span>
+              </div>
+              <ProgressBar percent={item.usedPercent} color={barColor(item.usedPercent, 'used')} />
+              {item.resetsText && <div className="text-[10px] text-gray-400">{item.resetsText}</div>}
+              {!item.resetsText && item.resetsAt && (
+                <div className="text-[10px] text-gray-400">重置: {new Date(item.resetsAt).toLocaleString()}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : block ? (
         <>
           <div className="space-y-1">
             <div className="flex justify-between text-xs">
@@ -154,19 +178,30 @@ export function CodexCard({ data }: { data: CodexQuota }) {
             <div key={item.label} className="space-y-1">
               <div className="flex justify-between text-xs">
                 <span className="text-gray-600">{item.label}</span>
-                <span className={`font-semibold ${item.usedPercent >= 95 ? 'text-red-600' : 'text-gray-900'}`}>
-                  {item.usedPercent}%
+                <span
+                  className={`font-semibold ${
+                    item.percentKind === 'remaining'
+                      ? item.usedPercent <= 5
+                        ? 'text-red-600'
+                        : 'text-gray-900'
+                      : item.usedPercent >= 95
+                        ? 'text-red-600'
+                        : 'text-gray-900'
+                  }`}
+                >
+                  {item.usedPercent}% {item.percentKind === 'remaining' ? '剩余' : 'used'}
                 </span>
               </div>
-              <ProgressBar percent={item.usedPercent} color={barColor(item.usedPercent)} />
-              {item.resetsAt && (
+              <ProgressBar percent={item.usedPercent} color={barColor(item.usedPercent, item.percentKind ?? 'used')} />
+              {item.resetsText && <div className="text-[10px] text-gray-400">{item.resetsText}</div>}
+              {!item.resetsText && item.resetsAt && (
                 <div className="text-[10px] text-gray-400">重置: {new Date(item.resetsAt).toLocaleString()}</div>
               )}
             </div>
           ))}
         </div>
       ) : (
-        <div className="text-xs text-gray-500">暂无额度数据（由猫猫运行时浏览器推送，非按钮触发）</div>
+        <div className="text-xs text-gray-500">暂无额度数据（点击获取，需先配置本机 Chrome CDP）</div>
       )}
       {data.lastChecked && (
         <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>

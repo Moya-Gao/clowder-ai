@@ -12,6 +12,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { FastifyInstance } from 'fastify';
+import puppeteer from 'puppeteer';
 import { z } from 'zod';
 
 const execFileAsync = promisify(execFile);
@@ -40,6 +41,7 @@ export interface CcusageBillingBlock {
 export interface ClaudeQuota {
   platform: 'claude';
   activeBlock: CcusageBillingBlock | null;
+  usageItems?: CodexUsageItem[];
   recentBlocks: CcusageBillingBlock[];
   error?: string;
   lastChecked: string | null;
@@ -48,7 +50,9 @@ export interface ClaudeQuota {
 export interface CodexUsageItem {
   label: string;
   usedPercent: number;
+  percentKind?: 'used' | 'remaining';
   resetsAt?: string;
+  resetsText?: string;
 }
 
 export interface CodexQuota {
@@ -92,6 +96,128 @@ const ANTIGRAVITY: AntigravityQuota = {
   hint: '暹罗猫额度待接入（下一迭代）',
 };
 
+const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
+
+function parsePercentLine(line: string): number | null {
+  const match = line.match(/(\d{1,3})\s*%/);
+  if (!match) return null;
+  const value = Number.parseInt(match[1] ?? '', 10);
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, value));
+}
+
+function pickNear(lines: string[], idx: number, pattern: RegExp): string | undefined {
+  for (let offset = 1; offset <= 4; offset += 1) {
+    const candidate = lines[idx + offset];
+    if (!candidate) break;
+    if (pattern.test(candidate)) return candidate;
+  }
+  return undefined;
+}
+
+export function parseCodexUsageFromPageText(pageText: string): CodexUsageItem[] {
+  const lines = pageText
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const defs = [
+    {
+      token:
+        /^(GPT-5\.3-Codex-Spark\s*5\s*小时使用限额|GPT-5\.3-Codex-Spark\s*5(?:\s|-)?hour\s*usage\s*limit)$/i,
+      label: 'GPT-5.3-Codex-Spark 5小时使用限额',
+    },
+    {
+      token: /^(GPT-5\.3-Codex-Spark\s*每周使用限额|GPT-5\.3-Codex-Spark\s*weekly\s*usage\s*limit)$/i,
+      label: 'GPT-5.3-Codex-Spark 每周使用限额',
+    },
+    { token: /^(5\s*小时使用限额|5(?:\s|-)?hour usage limit)$/i, label: '5小时使用限额' },
+    { token: /^(每周使用限额|weekly usage limit)$/i, label: '每周使用限额' },
+    { token: /(代码审查|code review)/i, label: '代码审查' },
+  ] as const;
+
+  const items: CodexUsageItem[] = [];
+  for (const def of defs) {
+    const idx = lines.findIndex((l) => def.token.test(l));
+    if (idx < 0) continue;
+    const percentLine = pickNear(lines, idx, /%/);
+    const resetLine = pickNear(lines, idx, /(重置时间|resets?)/i);
+    if (!percentLine) continue;
+    const remaining = parsePercentLine(percentLine);
+    if (remaining == null) continue;
+    items.push({
+      label: def.label,
+      // Keep official value as-is: OpenAI page exposes remaining%
+      usedPercent: remaining,
+      percentKind: 'remaining',
+      ...(resetLine ? { resetsText: resetLine } : {}),
+    });
+  }
+  return items;
+}
+
+export function parseClaudeUsageFromPageText(pageText: string): CodexUsageItem[] {
+  const lines = pageText
+    .split(/\r?\n/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const defs = [
+    { token: /(current session|当前会话)/i, label: 'Current session' },
+    {
+      token: /(current week \(all models\)|本周（所有模型）|本周\(所有模型\)|本周.*all models)/i,
+      label: 'Current week (all models)',
+    },
+    {
+      token: /(current week \(sonnet only\)|本周（仅 Sonnet）|本周\(仅 Sonnet\)|本周.*sonnet)/i,
+      label: 'Current week (Sonnet only)',
+    },
+  ] as const;
+
+  const items: CodexUsageItem[] = [];
+  for (const def of defs) {
+    const idx = lines.findIndex((l) => def.token.test(l));
+    if (idx < 0) continue;
+    const percentLine = pickNear(lines, idx, /%/);
+    const resetLine = pickNear(lines, idx, /(重置|resets?)/i);
+    if (!percentLine) continue;
+    const used = parsePercentLine(percentLine);
+    if (used == null) continue;
+    items.push({
+      label: def.label,
+      usedPercent: used,
+      ...(resetLine ? { resetsText: resetLine } : {}),
+    });
+  }
+  return items;
+}
+
+async function readPageTextFromConnectedChrome(browserURL: string, url: string): Promise<string> {
+  const browser = await puppeteer.connect({ browserURL });
+  try {
+    const page = await browser.newPage();
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    const title = await page.title();
+    if (/just a moment/i.test(title)) {
+      throw new Error(`Cloudflare challenge blocked ${url}`);
+    }
+    const bodyText = await page.evaluate(
+      () => (globalThis as { document?: { body?: { innerText?: string } } }).document?.body?.innerText ?? '',
+    );
+    await page.close();
+    return bodyText;
+  } finally {
+    await browser.disconnect();
+  }
+}
+
+function isAllowedBrowserCdpUrl(browserURL: string): boolean {
+  try {
+    const parsed = new URL(browserURL);
+    return parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
+  } catch {
+    return false;
+  }
+}
+
 // --- Route ---
 
 export async function quotaRoutes(app: FastifyInstance): Promise<void> {
@@ -128,6 +254,92 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
     return { claude: claudeCache };
   });
 
+  // POST: refresh official usage pages once (manual click)
+  app.post('/api/quota/refresh/official', async (_request, reply) => {
+    const browserURL = process.env[OFFICIAL_CDP_URL_ENV];
+    if (!browserURL) {
+      const message = `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port and set this env.`;
+      const checkedAt = new Date().toISOString();
+      codexCache = {
+        platform: 'codex',
+        usageItems: [],
+        error: message,
+        lastChecked: checkedAt,
+      };
+      claudeCache = {
+        ...claudeCache,
+        error: message,
+        lastChecked: checkedAt,
+      };
+      return reply.status(400).send({
+        error: message,
+      });
+    }
+    if (!isAllowedBrowserCdpUrl(browserURL)) {
+      const message = `${OFFICIAL_CDP_URL_ENV} must be http://localhost:* or http://127.0.0.1:*`;
+      const checkedAt = new Date().toISOString();
+      codexCache = {
+        platform: 'codex',
+        usageItems: [],
+        error: message,
+        lastChecked: checkedAt,
+      };
+      claudeCache = {
+        ...claudeCache,
+        error: message,
+        lastChecked: checkedAt,
+      };
+      return reply.status(400).send({ error: message });
+    }
+
+    try {
+      const [openaiText, claudeText] = await Promise.all([
+        readPageTextFromConnectedChrome(browserURL, 'https://chatgpt.com/codex/settings/usage'),
+        readPageTextFromConnectedChrome(browserURL, 'https://claude.ai/settings/usage'),
+      ]);
+
+      const codexItems = parseCodexUsageFromPageText(openaiText);
+      const claudeItems = parseClaudeUsageFromPageText(claudeText);
+      if (codexItems.length === 0) {
+        throw new Error('Failed to parse Codex official usage page');
+      }
+      if (claudeItems.length === 0) {
+        throw new Error('Failed to parse Claude official usage page');
+      }
+
+      codexCache = {
+        platform: 'codex',
+        usageItems: codexItems,
+        lastChecked: new Date().toISOString(),
+      };
+      const { error: _oldError, ...claudeWithoutError } = claudeCache;
+      claudeCache = {
+        ...claudeWithoutError,
+        usageItems: claudeItems,
+        lastChecked: new Date().toISOString(),
+      };
+
+      return {
+        ok: true,
+        codexItems: codexItems.length,
+        claudeItems: claudeItems.length,
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      codexCache = {
+        ...codexCache,
+        error: `official fetch failed: ${message}`,
+        lastChecked: new Date().toISOString(),
+      };
+      claudeCache = {
+        ...claudeCache,
+        error: `official fetch failed: ${message}`,
+        lastChecked: new Date().toISOString(),
+      };
+      return reply.status(502).send({ error: message });
+    }
+  });
+
   // PATCH: receive Codex usage data OR scrape failure
   const codexSuccessSchema = z.object({
     usageItems: z
@@ -135,6 +347,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
         z.object({
           label: z.string().min(1),
           usedPercent: z.number().min(0).max(100),
+          percentKind: z.enum(['used', 'remaining']).optional(),
           resetsAt: z.string().optional(),
         }),
       )
@@ -167,6 +380,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
         usageItems: parsed.data.usageItems.map((item) => ({
           label: item.label,
           usedPercent: item.usedPercent,
+          ...(item.percentKind != null && { percentKind: item.percentKind }),
           ...(item.resetsAt != null && { resetsAt: item.resetsAt }),
         })),
         lastChecked: new Date().toISOString(),
