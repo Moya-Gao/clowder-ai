@@ -226,6 +226,17 @@ export const AuditEventTypes = {
 
   /** 手动绑定 CLI session (#72) */
   SESSION_BIND: 'session_bind',
+
+  // === Push Delivery Diagnostics ===
+
+  /** 用户触发测试推送 */
+  PUSH_TEST_REQUESTED: 'push_test_requested',
+  /** 测试推送结果（成功/失败 + delivery summary） */
+  PUSH_TEST_RESULT: 'push_test_result',
+  /** 订阅成功写入 */
+  PUSH_SUBSCRIPTION_UPSERTED: 'push_subscription_upserted',
+  /** 订阅移除 */
+  PUSH_SUBSCRIPTION_REMOVED: 'push_subscription_removed',
 } as const;
 
 /** Singleton instance for convenience */

@@ -6,11 +6,15 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import type { IPushSubscriptionStore } from '../domains/cats/services/stores/ports/PushSubscriptionStore.js';
 import type { PushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
+import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
 export interface PushRoutesOptions {
   pushSubscriptionStore: IPushSubscriptionStore;
   pushService: PushNotificationService | null;
   vapidPublicKey: string;
+  auditLog?: {
+    append(input: { type: string; threadId?: string; data: Record<string, unknown> }): Promise<unknown>;
+  };
 }
 
 function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
@@ -39,6 +43,28 @@ const unsubscribeSchema = z.object({
 
 export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opts) => {
   const { pushSubscriptionStore, pushService, vapidPublicKey } = opts;
+  const auditLog = opts.auditLog ?? getEventAuditLog();
+
+  function describeEndpoint(endpoint: string): string {
+    try {
+      const url = new URL(endpoint);
+      return `${url.host}...${endpoint.slice(-12)}`;
+    } catch {
+      return `invalid...${endpoint.slice(-12)}`;
+    }
+  }
+
+  async function appendPushAudit(
+    request: { log: { warn: (obj: unknown, msg?: string) => void } },
+    type: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      await auditLog.append({ type, data });
+    } catch (err) {
+      request.log.warn({ err, type }, 'push audit append failed');
+    }
+  }
 
   // GET /api/push/vapid-public-key — 前端获取 VAPID 公钥
   // enabled = pushService is fully configured (both VAPID keys present)
@@ -71,6 +97,11 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       createdAt: Date.now(),
       ...(userAgent ? { userAgent } : {}),
     });
+    await appendPushAudit(request, AuditEventTypes.PUSH_SUBSCRIPTION_UPSERTED, {
+      userId,
+      endpoint: describeEndpoint(subscription.endpoint),
+      hasUserAgent: Boolean(userAgent),
+    });
 
     return { status: 'ok' };
   });
@@ -94,6 +125,11 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       reply.status(404);
       return { error: 'Subscription not found or not owned by this user' };
     }
+    await appendPushAudit(request, AuditEventTypes.PUSH_SUBSCRIPTION_REMOVED, {
+      userId,
+      endpoint: describeEndpoint(parsed.data.endpoint),
+      removed,
+    });
     return { status: 'ok', removed };
   });
 
@@ -104,15 +140,39 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       reply.status(401);
       return { error: 'Identity required (X-Cat-Cafe-User header)' };
     }
+    await appendPushAudit(request, AuditEventTypes.PUSH_TEST_REQUESTED, {
+      userId,
+      proxyConfigured: Boolean(
+        process.env['HTTPS_PROXY']
+          || process.env['https_proxy']
+          || process.env['HTTP_PROXY']
+          || process.env['http_proxy']
+          || process.env['ALL_PROXY']
+          || process.env['all_proxy'],
+      ),
+    });
 
     if (!pushService) {
       reply.status(503);
+      await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
+        userId,
+        ok: false,
+        httpStatus: 503,
+        error: 'push_not_configured',
+      });
       return { error: 'Push not configured (missing VAPID keys)' };
     }
 
     const subscriptions = await pushSubscriptionStore.listByUser(userId);
     if (subscriptions.length === 0) {
       reply.status(409);
+      await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
+        userId,
+        ok: false,
+        httpStatus: 409,
+        error: 'no_active_subscription',
+        subscriptions: 0,
+      });
       return { error: 'No active push subscriptions for this user. Please enable push on this device first.' };
     }
 
@@ -126,16 +186,37 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     if (delivery.delivered === 0) {
       reply.status(502);
       if (delivery.removed > 0 && delivery.failed === 0) {
+        await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
+          userId,
+          ok: false,
+          httpStatus: 502,
+          error: 'subscription_expired',
+          delivery,
+        });
         return {
           error: '该设备推送订阅已过期，请先关闭并重新开启推送后再试。',
           delivery,
         };
       }
+      await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
+        userId,
+        ok: false,
+        httpStatus: 502,
+        error: 'push_delivery_failed',
+        delivery,
+      });
       return {
         error: '系统通知投递失败，请检查 API 代理/网络后重试。',
         delivery,
       };
     }
+
+    await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
+      userId,
+      ok: true,
+      httpStatus: 200,
+      delivery,
+    });
 
     return {
       status: 'ok',

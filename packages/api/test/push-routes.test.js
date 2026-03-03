@@ -10,14 +10,24 @@ describe('push routes', () => {
   let app;
   /** @type {import('../src/domains/cats/services/stores/ports/PushSubscriptionStore.js').PushSubscriptionStore} */
   let store;
+  /** @type {Array<{type:string,data:Record<string, unknown>}>} */
+  let auditEvents;
 
   beforeEach(async () => {
     store = new PushSubscriptionStore();
+    auditEvents = [];
+    const auditLog = {
+      append: async (input) => {
+        auditEvents.push({ type: input.type, data: input.data });
+        return { id: 'audit-test-id' };
+      },
+    };
     app = Fastify();
     await app.register(pushRoutes, {
       pushSubscriptionStore: store,
       pushService: null,
       vapidPublicKey: 'test-vapid-key-123',
+      auditLog,
     });
     await app.ready();
   });
@@ -28,6 +38,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: /** @type {any} */ ({ notifyUser: () => {} }), // mock
       vapidPublicKey: 'test-vapid-key-123',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await appWithPush.ready();
 
@@ -47,6 +63,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: null,
       vapidPublicKey: '',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await app2.ready();
 
@@ -67,6 +89,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: null,
       vapidPublicKey: 'partial-key-only',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await app2.ready();
 
@@ -183,6 +211,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: /** @type {any} */ ({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await appWithPush.ready();
 
@@ -195,6 +229,10 @@ describe('push routes', () => {
     assert.equal(res.statusCode, 409);
     const body = JSON.parse(res.payload);
     assert.match(body.error, /No active push subscription/i);
+    assert.equal(
+      auditEvents.some((event) => event.type === 'push_test_result' && event.data.error === 'no_active_subscription'),
+      true,
+    );
   });
 
   it('POST /api/push/test sends when user has active subscriptions', async () => {
@@ -219,6 +257,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: /** @type {any} */ ({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await appWithPush.ready();
 
@@ -233,6 +277,10 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.message, /系统通知已请求发送/);
     assert.equal(body.delivery.delivered, 1);
+    assert.equal(
+      auditEvents.some((event) => event.type === 'push_test_result' && event.data.ok === true),
+      true,
+    );
   });
 
   it('POST /api/push/test returns 502 when push delivery fails', async () => {
@@ -250,6 +298,12 @@ describe('push routes', () => {
       pushSubscriptionStore: store,
       pushService: /** @type {any} */ ({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
     });
     await appWithPush.ready();
 
@@ -263,5 +317,9 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.error, /投递失败|proxy|网络/i);
     assert.equal(body.delivery.delivered, 0);
+    assert.equal(
+      auditEvents.some((event) => event.type === 'push_test_result' && event.data.error === 'push_delivery_failed'),
+      true,
+    );
   });
 });
