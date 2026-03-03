@@ -138,8 +138,40 @@ describe('push routes', () => {
     assert.equal(res.statusCode, 200);
     const body = JSON.parse(res.payload);
     assert.equal(body.status, 'ok');
+    assert.equal(body.deduplicatedByUserAgent, 0);
     assert.equal(store.listAll().length, 1);
     assert.equal(store.listAll()[0].userAgent, 'TestAgent');
+  });
+
+  it('POST /api/push/subscribe deduplicates older subscriptions with same userAgent', async () => {
+    store.upsert({
+      endpoint: 'https://push.example.com/sub/old',
+      keys: { p256dh: 'old-key', auth: 'old-auth' },
+      userId: 'owner',
+      createdAt: Date.now() - 1000,
+      userAgent: 'TestAgent',
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/push/subscribe',
+      headers: { 'x-cat-cafe-user': 'owner' },
+      payload: {
+        subscription: {
+          endpoint: 'https://push.example.com/sub/new',
+          keys: { p256dh: 'new-key', auth: 'new-auth' },
+        },
+        userAgent: 'TestAgent',
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.deduplicatedByUserAgent, 1);
+    const all = store.listAll();
+    assert.equal(all.length, 1);
+    assert.equal(all[0].endpoint, 'https://push.example.com/sub/new');
   });
 
   it('POST /api/push/subscribe validates endpoint URL', async () => {
@@ -277,6 +309,9 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.message, /系统通知已请求发送/);
     assert.equal(body.delivery.delivered, 1);
+    assert.equal(Array.isArray(body.targets), true);
+    assert.equal(body.targets.length, 1);
+    assert.match(String(body.targets[0].endpoint), /push\.example\.com/);
     assert.equal(
       auditEvents.some((event) => event.type === 'push_test_result' && event.data.ok === true),
       true,
@@ -317,6 +352,8 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.error, /投递失败|proxy|网络/i);
     assert.equal(body.delivery.delivered, 0);
+    assert.equal(Array.isArray(body.targets), true);
+    assert.equal(body.targets.length, 1);
     assert.equal(
       auditEvents.some((event) => event.type === 'push_test_result' && event.data.error === 'push_delivery_failed'),
       true,

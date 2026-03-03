@@ -4,7 +4,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IPushSubscriptionStore } from '../domains/cats/services/stores/ports/PushSubscriptionStore.js';
+import type { IPushSubscriptionStore, PushSubscriptionRecord } from '../domains/cats/services/stores/ports/PushSubscriptionStore.js';
 import type { PushNotificationService } from '../domains/cats/services/push/PushNotificationService.js';
 import { AuditEventTypes, getEventAuditLog } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
@@ -54,6 +54,23 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     }
   }
 
+  function summarizeUserAgent(userAgent?: string): string {
+    if (!userAgent) return 'unknown';
+    if (userAgent.includes('Edg/')) return 'edge';
+    if (userAgent.includes('Chrome/')) return 'chrome';
+    if (userAgent.includes('Firefox/')) return 'firefox';
+    if (userAgent.includes('Safari/')) return 'safari';
+    return 'other';
+  }
+
+  function summarizeTargets(subscriptions: PushSubscriptionRecord[]): Array<Record<string, unknown>> {
+    return subscriptions.map((sub) => ({
+      endpoint: describeEndpoint(sub.endpoint),
+      createdAt: sub.createdAt,
+      uaFamily: summarizeUserAgent(sub.userAgent),
+    }));
+  }
+
   async function appendPushAudit(
     request: { log: { warn: (obj: unknown, msg?: string) => void } },
     type: string,
@@ -90,6 +107,18 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     }
 
     const { subscription, userAgent } = parsed.data;
+    let deduplicatedByUserAgent = 0;
+    if (userAgent) {
+      const existing = await pushSubscriptionStore.listByUser(userId);
+      for (const record of existing) {
+        if (record.endpoint === subscription.endpoint) continue;
+        if (record.userAgent !== userAgent) continue;
+        if (await pushSubscriptionStore.removeForUser(userId, record.endpoint)) {
+          deduplicatedByUserAgent += 1;
+        }
+      }
+    }
+
     await pushSubscriptionStore.upsert({
       endpoint: subscription.endpoint,
       keys: subscription.keys,
@@ -101,9 +130,10 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       userId,
       endpoint: describeEndpoint(subscription.endpoint),
       hasUserAgent: Boolean(userAgent),
+      deduplicatedByUserAgent,
     });
 
-    return { status: 'ok' };
+    return { status: 'ok', deduplicatedByUserAgent };
   });
 
   // DELETE /api/push/subscribe — 取消推送订阅
@@ -164,6 +194,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     }
 
     const subscriptions = await pushSubscriptionStore.listByUser(userId);
+    const targets = summarizeTargets(subscriptions);
     if (subscriptions.length === 0) {
       reply.status(409);
       await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
@@ -192,10 +223,12 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
           httpStatus: 502,
           error: 'subscription_expired',
           delivery,
+          targets,
         });
         return {
           error: '该设备推送订阅已过期，请先关闭并重新开启推送后再试。',
           delivery,
+          targets,
         };
       }
       await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
@@ -204,10 +237,12 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
         httpStatus: 502,
         error: 'push_delivery_failed',
         delivery,
+        targets,
       });
       return {
         error: '系统通知投递失败，请检查 API 代理/网络后重试。',
         delivery,
+        targets,
       };
     }
 
@@ -216,12 +251,14 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       ok: true,
       httpStatus: 200,
       delivery,
+      targets,
     });
 
     return {
       status: 'ok',
       message: '系统通知已请求发送，请查看系统通知中心。',
       delivery,
+      targets,
     };
   });
 };

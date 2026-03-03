@@ -14,6 +14,8 @@ declare const self: ServiceWorkerGlobalScope;
 
 import type { PushNotificationPayload } from '../src/utils/push-notification-policy';
 import {
+  isPushTestNotificationTag,
+  PUSH_TEST_NOTIFICATION_TAG,
   resetPushTestNotification,
   shouldShowSystemNotification,
 } from '../src/utils/push-notification-policy';
@@ -49,6 +51,7 @@ self.addEventListener('push', (event: PushEvent) => {
           icon: icon ?? '/icons/icon-192x192.png',
           badge: '/icons/icon-192x192.png',
           tag: tag ?? 'cat-cafe-default',
+          ...(isPushTestNotificationTag(tag) ? { renotify: true, tag: PUSH_TEST_NOTIFICATION_TAG } : {}),
           data: notifData ?? {},
         });
       }),
