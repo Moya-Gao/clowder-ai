@@ -125,6 +125,119 @@ export function buildCatCafeMcpDescriptor(
   };
 }
 
+const CAT_CAFE_SPLIT_SERVER_IDS = [
+  'cat-cafe-collab',
+  'cat-cafe-memory',
+  'cat-cafe-signals',
+] as const;
+
+function buildCatCafeSplitMcpDescriptors(
+  projectRoot: string,
+): McpServerDescriptor[] {
+  return [
+    {
+      name: 'cat-cafe-collab',
+      command: 'node',
+      args: [resolve(projectRoot, 'packages/mcp-server/dist/collab.js')],
+      enabled: true,
+      source: 'cat-cafe',
+    },
+    {
+      name: 'cat-cafe-memory',
+      command: 'node',
+      args: [resolve(projectRoot, 'packages/mcp-server/dist/memory.js')],
+      enabled: true,
+      source: 'cat-cafe',
+    },
+    {
+      name: 'cat-cafe-signals',
+      command: 'node',
+      args: [resolve(projectRoot, 'packages/mcp-server/dist/signals.js')],
+      enabled: true,
+      source: 'cat-cafe',
+    },
+  ];
+}
+
+function toCapabilityEntry(server: McpServerDescriptor): CapabilityEntry {
+  const entry: CapabilityEntry = {
+    id: server.name,
+    type: 'mcp',
+    enabled: server.enabled,
+    source: server.source,
+    mcpServer: {
+      command: server.command,
+      args: server.args,
+    },
+  };
+  if (server.env) entry.mcpServer!.env = server.env;
+  if (server.workingDir) entry.mcpServer!.workingDir = server.workingDir;
+  return entry;
+}
+
+type LegacyCatCafeSeed = {
+  enabled: boolean;
+  overrides?: CapabilityEntry['overrides'];
+  env?: Record<string, string>;
+  workingDir?: string;
+};
+
+function buildSplitCapabilityEntries(
+  projectRoot: string,
+  legacySeed?: LegacyCatCafeSeed,
+): CapabilityEntry[] {
+  const descriptors = buildCatCafeSplitMcpDescriptors(projectRoot);
+  const entries = descriptors.map((descriptor) => {
+    const entry = toCapabilityEntry(descriptor);
+    if (legacySeed) {
+      entry.enabled = legacySeed.enabled;
+      if (legacySeed.overrides) {
+        entry.overrides = legacySeed.overrides.map((o) => ({ ...o }));
+      }
+      if (legacySeed.env) {
+        entry.mcpServer!.env = { ...legacySeed.env };
+      }
+      if (legacySeed.workingDir) {
+        entry.mcpServer!.workingDir = legacySeed.workingDir;
+      }
+    }
+    return entry;
+  });
+  return entries;
+}
+
+export function migrateLegacyCatCafeCapability(
+  config: CapabilitiesConfig,
+  opts?: { catCafeRepoRoot?: string; projectRoot?: string },
+): { migrated: boolean; config: CapabilitiesConfig } {
+  const projectRoot = opts?.catCafeRepoRoot ?? opts?.projectRoot;
+  if (!projectRoot) return { migrated: false, config };
+
+  const splitSet = new Set(CAT_CAFE_SPLIT_SERVER_IDS);
+  const hasSplit = config.capabilities.some((cap) => splitSet.has(cap.id as typeof CAT_CAFE_SPLIT_SERVER_IDS[number]));
+  if (hasSplit) return { migrated: false, config };
+
+  const legacyCatCafe = config.capabilities.find((cap) => cap.type === 'mcp' && cap.id === 'cat-cafe');
+  if (!legacyCatCafe) return { migrated: false, config };
+
+  const nextCapabilities = config.capabilities.filter((cap) => cap.id !== 'cat-cafe');
+  const legacySeed: LegacyCatCafeSeed = { enabled: legacyCatCafe.enabled };
+  if (legacyCatCafe.overrides) legacySeed.overrides = legacyCatCafe.overrides;
+  if (legacyCatCafe.mcpServer?.env) legacySeed.env = legacyCatCafe.mcpServer.env;
+  if (legacyCatCafe.mcpServer?.workingDir) legacySeed.workingDir = legacyCatCafe.mcpServer.workingDir;
+  const splitEntries = buildSplitCapabilityEntries(projectRoot, legacySeed);
+  for (const splitEntry of splitEntries) {
+    nextCapabilities.unshift(splitEntry);
+  }
+  return {
+    migrated: true,
+    config: {
+      ...config,
+      capabilities: nextCapabilities,
+    },
+  };
+}
+
 // ────────── Bootstrap: Create initial capabilities.json ──────────
 
 /**
@@ -136,27 +249,21 @@ export async function bootstrapCapabilities(
   discoveryPaths: DiscoveryPaths,
   opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
-  const catCafe = buildCatCafeMcpDescriptor(opts?.catCafeRepoRoot ?? projectRoot);
+  const catCafeServers = buildCatCafeSplitMcpDescriptors(opts?.catCafeRepoRoot ?? projectRoot);
   const externals = await discoverExternalMcpServers(discoveryPaths);
 
   const capabilities: CapabilityEntry[] = [];
 
-  // Add Cat Cafe's own MCP
-  capabilities.push({
-    id: catCafe.name,
-    type: 'mcp',
-    enabled: true,
-    source: 'cat-cafe',
-    mcpServer: {
-      command: catCafe.command,
-      args: catCafe.args,
-    },
-  });
+  // Add Cat Cafe's own MCP (split servers)
+  for (const entry of buildSplitCapabilityEntries(opts?.catCafeRepoRoot ?? projectRoot)) {
+    capabilities.push(entry);
+  }
 
   // Add discovered external MCP servers
+  const splitNames = new Set(catCafeServers.map((s) => s.name));
   for (const ext of externals) {
-    // Skip cat-cafe if already discovered from existing config
-    if (ext.name === 'cat-cafe') continue;
+    // Skip built-in server names if already discovered from existing config
+    if (ext.name === 'cat-cafe' || splitNames.has(ext.name)) continue;
     const entry: CapabilityEntry = {
       id: ext.name,
       type: 'mcp',
@@ -279,10 +386,22 @@ export async function orchestrate(
   projectRoot: string,
   discoveryPaths: DiscoveryPaths,
   cliConfigPaths: CliConfigPaths,
+  opts?: { catCafeRepoRoot?: string },
 ): Promise<CapabilitiesConfig> {
   let config = await readCapabilitiesConfig(projectRoot);
   if (!config) {
-    config = await bootstrapCapabilities(projectRoot, discoveryPaths);
+    config = await bootstrapCapabilities(projectRoot, discoveryPaths, opts);
+  } else {
+    const migrated = migrateLegacyCatCafeCapability(
+      config,
+      opts?.catCafeRepoRoot
+        ? { projectRoot, catCafeRepoRoot: opts.catCafeRepoRoot }
+        : { projectRoot },
+    );
+    if (migrated.migrated) {
+      config = migrated.config;
+      await writeCapabilitiesConfig(projectRoot, config);
+    }
   }
   await generateCliConfigs(config, cliConfigPaths);
   return config;

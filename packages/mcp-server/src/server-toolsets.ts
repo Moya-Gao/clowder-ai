@@ -1,0 +1,67 @@
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import {
+  callbackTools,
+  callbackMemoryTools,
+  evidenceTools,
+  reflectTools,
+  sessionChainTools,
+  signalsTools,
+  richBlockRulesTools,
+} from './tools/index.js';
+
+type ToolDef = {
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+  handler: (args: never) => Promise<unknown>;
+};
+
+const collabTools: readonly ToolDef[] = [
+  ...callbackTools,
+  ...richBlockRulesTools,
+];
+
+const memoryTools: readonly ToolDef[] = [
+  ...callbackMemoryTools,
+  ...evidenceTools,
+  ...reflectTools,
+  ...sessionChainTools,
+];
+
+const signalTools: readonly ToolDef[] = [
+  ...signalsTools,
+];
+
+function registerTools(server: McpServer, tools: readonly ToolDef[]): void {
+  for (const tool of tools) {
+    server.tool(
+      tool.name,
+      tool.description,
+      tool.inputSchema,
+      async (args) => {
+        const result = await tool.handler(args as never);
+        return {
+          ...(result as Record<string, unknown>),
+        } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+      },
+    );
+  }
+}
+
+export function registerCollabToolset(server: McpServer): void {
+  registerTools(server, collabTools);
+}
+
+export function registerMemoryToolset(server: McpServer): void {
+  registerTools(server, memoryTools);
+}
+
+export function registerSignalToolset(server: McpServer): void {
+  registerTools(server, signalTools);
+}
+
+export function registerFullToolset(server: McpServer): void {
+  registerCollabToolset(server);
+  registerMemoryToolset(server);
+  registerSignalToolset(server);
+}

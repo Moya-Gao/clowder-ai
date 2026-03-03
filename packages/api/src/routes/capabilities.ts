@@ -34,6 +34,7 @@ import {
   readCapabilitiesConfig,
   writeCapabilitiesConfig,
   bootstrapCapabilities,
+  migrateLegacyCatCafeCapability,
   resolveServersForCat,
   generateCliConfigs,
   discoverExternalMcpServers,
@@ -334,7 +335,9 @@ async function parseManifestSkillMeta(skillsSrcDir: string): Promise<Map<string,
 
 /** Known MCP server descriptions */
 const MCP_DESCRIPTIONS: Record<string, string> = {
-  'cat-cafe': '三猫协作工具 — 消息、上下文、任务、记忆、权限等',
+  'cat-cafe-collab': '三猫协作工具 — 消息、上下文、任务、权限等（协作核心）',
+  'cat-cafe-memory': '三猫记忆工具 — 证据检索、反思、会话链回放',
+  'cat-cafe-signals': '信号猎手工具 — inbox 检索、搜索、摘要',
 };
 const MAX_CONCURRENT_MCP_PROBES = 4;
 
@@ -403,6 +406,13 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       // Cloud P1-1: bootstrap must also generate CLI configs, otherwise
       // first invocations with mcpSupport=true have no native MCP configs
       await generateCliConfigs(config, getCliConfigPaths(projectRoot));
+    } else {
+      const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot: getProjectRoot() });
+      if (migrated.migrated) {
+        config = migrated.config;
+        await writeCapabilitiesConfig(projectRoot, config);
+        await generateCliConfigs(config, getCliConfigPaths(projectRoot));
+      }
     }
 
     // 2. Discover skills (filesystem scan — separate from MCP)

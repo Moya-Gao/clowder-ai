@@ -150,18 +150,21 @@ describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
     // CLI configs should be generated after bootstrap
     await generateCliConfigs(config, cliPaths);
 
-    // Verify CLI configs exist and contain cat-cafe
+    // Verify CLI configs contain split cat-cafe servers
     const claudeServers = await readClaudeMcpConfig(cliPaths.anthropic);
-    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe'),
-      'Claude CLI config should have cat-cafe after bootstrap');
+    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-collab'));
+    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-memory'));
+    assert.ok(claudeServers.find((s) => s.name === 'cat-cafe-signals'));
 
     const codexServers = await readCodexMcpConfig(cliPaths.openai);
-    assert.ok(codexServers.find((s) => s.name === 'cat-cafe'),
-      'Codex CLI config should have cat-cafe after bootstrap');
+    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-collab'));
+    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-memory'));
+    assert.ok(codexServers.find((s) => s.name === 'cat-cafe-signals'));
 
     const geminiServers = await readGeminiMcpConfig(cliPaths.google);
-    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe'),
-      'Gemini CLI config should have cat-cafe after bootstrap');
+    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-collab'));
+    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-memory'));
+    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-signals'));
   });
 });
 
@@ -324,7 +327,7 @@ describe('F041 Discovery Consistency', () => {
   beforeEach(async () => { dir = await makeTmpDir('discovery'); });
   afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
-  it('bootstrap discovers external servers and includes cat-cafe', async () => {
+  it('bootstrap discovers external servers and includes split cat-cafe servers', async () => {
     // Seed Claude config with external server
     const claudeFile = join(dir, '.mcp.json');
     await writeFile(claudeFile, JSON.stringify({
@@ -340,12 +343,14 @@ describe('F041 Discovery Consistency', () => {
       geminiConfig: join(dir, 'nonexistent.json'),
     });
 
-    // Should have: cat-cafe (built-in) + pencil + jetbrains (discovered)
-    assert.equal(config.capabilities.length, 3);
+    // Should have: cat-cafe split(3) + pencil + jetbrains (discovered)
+    assert.equal(config.capabilities.length, 5);
 
-    const catCafe = config.capabilities.find((c) => c.id === 'cat-cafe');
-    assert.ok(catCafe);
-    assert.equal(catCafe.source, 'cat-cafe');
+    const catCafeCollab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+    assert.ok(catCafeCollab);
+    assert.equal(catCafeCollab.source, 'cat-cafe');
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
 
     const pencil = config.capabilities.find((c) => c.id === 'pencil');
     assert.ok(pencil);

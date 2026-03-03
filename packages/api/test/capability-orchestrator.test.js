@@ -10,6 +10,7 @@ import {
   writeCapabilitiesConfig,
   discoverExternalMcpServers,
   buildCatCafeMcpDescriptor,
+  migrateLegacyCatCafeCapability,
   bootstrapCapabilities,
   resolveServersForCat,
   generateCliConfigs,
@@ -189,7 +190,7 @@ describe('bootstrapCapabilities', () => {
   beforeEach(async () => { dir = await makeTmpDir('bootstrap'); });
   afterEach(async () => { await rm(dir, { recursive: true, force: true }); });
 
-  it('creates capabilities.json with cat-cafe + externals', async () => {
+  it('creates capabilities.json with split cat-cafe servers + externals', async () => {
     // Seed a Claude config with one external server
     const claudeFile = join(dir, '.mcp.json');
     await writeFile(claudeFile, JSON.stringify({
@@ -205,13 +206,21 @@ describe('bootstrapCapabilities', () => {
     });
 
     assert.equal(config.version, 1);
-    // cat-cafe + filesystem
-    assert.equal(config.capabilities.length, 2);
+    // cat-cafe split(3) + filesystem
+    assert.equal(config.capabilities.length, 4);
 
-    const catCafe = config.capabilities.find((c) => c.id === 'cat-cafe');
-    assert.ok(catCafe);
-    assert.equal(catCafe.source, 'cat-cafe');
-    assert.equal(catCafe.enabled, true);
+    const catCafeCollab = config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+    assert.ok(catCafeCollab);
+    assert.equal(catCafeCollab.source, 'cat-cafe');
+    assert.equal(catCafeCollab.enabled, true);
+
+    const catCafeMemory = config.capabilities.find((c) => c.id === 'cat-cafe-memory');
+    assert.ok(catCafeMemory);
+    assert.equal(catCafeMemory.source, 'cat-cafe');
+
+    const catCafeSignals = config.capabilities.find((c) => c.id === 'cat-cafe-signals');
+    assert.ok(catCafeSignals);
+    assert.equal(catCafeSignals.source, 'cat-cafe');
 
     const fs = config.capabilities.find((c) => c.id === 'filesystem');
     assert.ok(fs);
@@ -220,7 +229,7 @@ describe('bootstrapCapabilities', () => {
     // Also persisted to disk
     const persisted = await readCapabilitiesConfig(dir);
     assert.ok(persisted);
-    assert.equal(persisted.capabilities.length, 2);
+    assert.equal(persisted.capabilities.length, 4);
   });
 
   it('skips duplicate cat-cafe from external discovery', async () => {
@@ -237,10 +246,12 @@ describe('bootstrapCapabilities', () => {
       geminiConfig: join(dir, 'x.json'),
     });
 
-    // Only one cat-cafe entry (the built-in one, not the external duplicate)
+    // Only split built-ins should exist (legacy cat-cafe external duplicate skipped)
     const catCafeEntries = config.capabilities.filter((c) => c.id === 'cat-cafe');
-    assert.equal(catCafeEntries.length, 1);
-    assert.equal(catCafeEntries[0].source, 'cat-cafe');
+    assert.equal(catCafeEntries.length, 0);
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-collab'));
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
   });
 
   it('uses catCafeRepoRoot for cat-cafe MCP descriptor when provided', async () => {
@@ -257,14 +268,62 @@ describe('bootstrapCapabilities', () => {
       { catCafeRepoRoot: '/host-repo' },
     );
 
-    const catCafe = config.capabilities.find((c) => c.id === 'cat-cafe');
-    assert.ok(catCafe);
-    assert.equal(catCafe.type, 'mcp');
-    assert.ok(catCafe.mcpServer);
-    assert.ok(
-      catCafe.mcpServer.args[0].includes('/host-repo'),
-      'cat-cafe MCP serverPath should be built from catCafeRepoRoot',
-    );
+    const splitIds = ['cat-cafe-collab', 'cat-cafe-memory', 'cat-cafe-signals'];
+    for (const splitId of splitIds) {
+      const cap = config.capabilities.find((c) => c.id === splitId);
+      assert.ok(cap, `${splitId} should exist after bootstrap`);
+      assert.equal(cap.type, 'mcp');
+      assert.ok(cap.mcpServer);
+      assert.ok(
+        cap.mcpServer.args[0].includes('/host-repo'),
+        `${splitId} MCP serverPath should be built from catCafeRepoRoot`,
+      );
+    }
+  });
+});
+
+describe('migrateLegacyCatCafeCapability', () => {
+  it('migrates legacy cat-cafe entry to split server entries and preserves legacy flags', () => {
+    const config = makeConfig([
+      {
+        id: 'cat-cafe',
+        type: 'mcp',
+        enabled: false,
+        source: 'cat-cafe',
+        overrides: [{ catId: 'codex', enabled: true }],
+        mcpServer: {
+          command: 'node',
+          args: ['dist/index.js'],
+          env: { CAT_CAFE_FOO: 'bar' },
+          workingDir: '/tmp/cat-cafe',
+        },
+      },
+      {
+        id: 'filesystem',
+        type: 'mcp',
+        enabled: true,
+        source: 'external',
+        mcpServer: { command: 'npx', args: ['-y', '@mcp/fs'] },
+      },
+    ]);
+
+    const migrated = migrateLegacyCatCafeCapability(config, { projectRoot: '/repo' });
+    assert.equal(migrated.migrated, true);
+    const collab = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-collab');
+    const memory = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-memory');
+    const signals = migrated.config.capabilities.find((c) => c.id === 'cat-cafe-signals');
+    assert.ok(collab);
+    assert.ok(memory);
+    assert.ok(signals);
+    assert.ok(!migrated.config.capabilities.find((c) => c.id === 'cat-cafe'));
+    assert.ok(migrated.config.capabilities.find((c) => c.id === 'filesystem'));
+
+    for (const entry of [collab, memory, signals]) {
+      assert.equal(entry?.enabled, false);
+      assert.deepEqual(entry?.overrides, [{ catId: 'codex', enabled: true }]);
+      assert.deepEqual(entry?.mcpServer?.env, { CAT_CAFE_FOO: 'bar' });
+      assert.equal(entry?.mcpServer?.workingDir, '/tmp/cat-cafe');
+    }
   });
 });
 
@@ -389,8 +448,10 @@ describe('orchestrate', () => {
 
     assert.ok(config);
     assert.equal(config.version, 1);
-    // At minimum, cat-cafe's own MCP should be present
-    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe'));
+    // At minimum, split cat-cafe MCP servers should be present
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-collab'));
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-memory'));
+    assert.ok(config.capabilities.find((c) => c.id === 'cat-cafe-signals'));
   });
 
   it('uses existing capabilities.json on subsequent runs', async () => {

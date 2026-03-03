@@ -8,11 +8,11 @@ created: 2026-02-27
 
 # F043: MCP 归一化 — Server 拆分 + 协作工具补全
 
-> **Status**: spec
+> **Status**: in-progress
 > **Owner**: 布偶猫
 > **Priority**: P1
-> **依赖**: F041（能力看板 + 配置编排就位后才能拆分 server）
-> **Updated**: 2026-03-03（Phase B P2 工具落地 + timeline 对齐）
+> **依赖**: F041（能力看板 + 配置编排，现已就位）
+> **Updated**: 2026-03-03（Phase B server 拆分 + probe 修复 + timeline 对齐）
 > **Evolved to**: F052（跨线程身份隔离 — cross_post_message 的身份/上下文/路由配套）
 
 ## 与 F041 的关系
@@ -206,7 +206,7 @@ Layer 0: Knowledge Engineering Research (Done)
 ### 实施优先级调整（2026-03-02 路线图收敛决策）
 
 - **Phase A 先做**：P0 `search_messages` + P1 `list_threads`/`feat_index`（不依赖 F041）
-- **Server 拆分延后**：等 F041 配置编排器就位后再做 Phase B
+- **Server 拆分执行**：F041 配置编排器就位后推进 Phase B
 - **Thread metadata stage** 纳入 Phase A 或 Phase C
 
 ## 讨论来源
@@ -224,5 +224,6 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-02: Phase A P1 契约拍板（`cat_cafe_list_threads` + `/api/callbacks/list-threads`，`activeSince` 分页，`messageCount` 暂为 `null`）
 - 2026-03-02: Phase A P1 `feat_index` 实作完成并合入 main（PR #160 / `c8d71be0`；`/api/callbacks/feat-index` + `cat_cafe_feat_index`，`featId` 精确匹配 + `query` 模糊匹配）
 - 2026-03-03: Phase A 收口：`thread metadata stage tracking` 完成并合入 main（PR #166 / `82f0899d`，`feat_index.threadIds` 从固定空数组升级为 best-effort 真实映射）
-- 2026-03-03: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（PR #171 / `defe3db3`；宿主 CLI 文件能力保留；server 拆分仍待 F041 后续）
+- 2026-03-03: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（PR #171 / `defe3db3`；宿主 CLI 文件能力保留）
 - 2026-03-03: Phase B P2 工具完成：`cat_cafe_cross_post_message` + `cat_cafe_list_tasks`（`post-message` 支持 `threadId`，新增 `/api/callbacks/list-tasks`）
+- 2026-03-03: Phase B 核心推进：`cat-cafe` 单 server 拆分为 `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals`，并在能力编排与探测层完成迁移与稳定性修复（playwright/npx 慢启动自适应超时）。

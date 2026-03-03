@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Cat Café MCP Server (legacy all-in-one entrypoint)
- * 保持向后兼容：聚合注册 collab + memory + signals。
+ * Cat Café MCP Server — Memory Surface
+ * 只暴露记忆与回溯工具（evidence/reflect/session chain）。
  */
 
 import { fileURLToPath } from 'node:url';
@@ -9,7 +9,7 @@ import { resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { initCatCafeDir } from './utils/path-validator.js';
-import { registerFullToolset } from './server-toolsets.js';
+import { registerMemoryToolset } from './server-toolsets.js';
 
 function createBaseServer(name: string): McpServer {
   return new McpServer({
@@ -18,31 +18,26 @@ function createBaseServer(name: string): McpServer {
   });
 }
 
-export function createServer(): McpServer {
-  const server = createBaseServer('cat-cafe-mcp');
-  registerFullToolset(server);
+export function createMemoryServer(): McpServer {
+  const server = createBaseServer('cat-cafe-memory-mcp');
+  registerMemoryToolset(server);
   return server;
 }
 
-/**
- * 主函数
- */
 async function main(): Promise<void> {
   initCatCafeDir();
-  const server = createServer();
+  const server = createMemoryServer();
   const transport = new StdioServerTransport();
-  console.error('[cat-cafe] MCP Server starting...');
+  console.error('[cat-cafe-memory] MCP Server starting...');
   await server.connect(transport);
-  console.error('[cat-cafe] MCP Server running on stdio');
+  console.error('[cat-cafe-memory] MCP Server running on stdio');
 }
 
-// 仅作为入口运行时启动 (import 时跳过，避免测试阻塞在 stdio)
 const isEntryPoint = process.argv[1]
   && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
 if (isEntryPoint) {
   main().catch((err) => {
-    console.error('[cat-cafe] Fatal error:', err);
+    console.error('[cat-cafe-memory] Fatal error:', err);
     process.exit(1);
   });
 }
-

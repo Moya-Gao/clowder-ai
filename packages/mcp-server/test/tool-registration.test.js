@@ -50,6 +50,45 @@ const EXPECTED_TOOLS = [
   'cat_cafe_session_search',
 ];
 
+const EXPECTED_COLLAB_TOOLS = [
+  'cat_cafe_post_message',
+  'cat_cafe_get_pending_mentions',
+  'cat_cafe_ack_mentions',
+  'cat_cafe_get_thread_context',
+  'cat_cafe_search_messages',
+  'cat_cafe_list_threads',
+  'cat_cafe_feat_index',
+  'cat_cafe_cross_post_message',
+  'cat_cafe_list_tasks',
+  'cat_cafe_update_task',
+  'cat_cafe_create_rich_block',
+  'cat_cafe_get_rich_block_rules',
+  'cat_cafe_request_permission',
+  'cat_cafe_check_permission_status',
+  'cat_cafe_register_pr_tracking',
+];
+
+const EXPECTED_MEMORY_TOOLS = [
+  'cat_cafe_search_evidence_callback',
+  'cat_cafe_reflect_callback',
+  'cat_cafe_retain_memory_callback',
+  'cat_cafe_search_evidence',
+  'cat_cafe_reflect',
+  'cat_cafe_list_session_chain',
+  'cat_cafe_read_session_events',
+  'cat_cafe_read_session_digest',
+  'cat_cafe_read_invocation_detail',
+  'cat_cafe_session_search',
+];
+
+const EXPECTED_SIGNAL_TOOLS = [
+  'signal_list_inbox',
+  'signal_get_article',
+  'signal_search',
+  'signal_mark_read',
+  'signal_summarize',
+];
+
 describe('MCP Server Tool Registration', () => {
   test('all expected tools are registered via createServer()', async () => {
     const { createServer } = await import('../dist/index.js');
@@ -108,6 +147,39 @@ describe('MCP Server Tool Registration', () => {
     assert.ok(
       lineCount <= 350,
       `mcp-server/src/index.ts exceeds 350 lines: ${lineCount}`,
+    );
+  });
+
+  test('createCollabServer registers only collab tool surface', async () => {
+    const { createCollabServer } = await import('../dist/collab.js');
+    const server = createCollabServer();
+    const registered = Object.keys(server._registeredTools);
+
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_COLLAB_TOOLS].sort(),
+    );
+  });
+
+  test('createMemoryServer registers only memory tool surface', async () => {
+    const { createMemoryServer } = await import('../dist/memory.js');
+    const server = createMemoryServer();
+    const registered = Object.keys(server._registeredTools);
+
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_MEMORY_TOOLS].sort(),
+    );
+  });
+
+  test('createSignalsServer registers only signals tool surface', async () => {
+    const { createSignalsServer } = await import('../dist/signals.js');
+    const server = createSignalsServer();
+    const registered = Object.keys(server._registeredTools);
+
+    assert.deepEqual(
+      [...registered].sort(),
+      [...EXPECTED_SIGNAL_TOOLS].sort(),
     );
   });
 });

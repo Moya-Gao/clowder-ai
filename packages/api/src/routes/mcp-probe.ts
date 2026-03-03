@@ -16,6 +16,7 @@ export interface McpProbeResult {
 }
 
 const DEFAULT_PROBE_TIMEOUT_MS = 2500;
+const SLOW_START_PROBE_TIMEOUT_MS = 7000;
 const CLOSE_TIMEOUT_MS = 300;
 const MIN_STEP_TIMEOUT_MS = 100;
 
@@ -70,6 +71,28 @@ function normalizeTools(
   return [...byName.values()];
 }
 
+export function resolveProbeTimeoutMs(
+  capability: CapabilityEntry,
+  overrideTimeoutMs?: number,
+): number {
+  if (typeof overrideTimeoutMs === 'number' && Number.isFinite(overrideTimeoutMs) && overrideTimeoutMs > 0) {
+    return overrideTimeoutMs;
+  }
+
+  const command = capability.mcpServer?.command?.toLowerCase() ?? '';
+  const argsJoined = (capability.mcpServer?.args ?? []).join(' ').toLowerCase();
+
+  // npx/pnpm-dlx based servers often need extra cold-start time.
+  const isNpxLike = command === 'npx' || command === 'pnpm' || command === 'pnpmx';
+  const looksLikePlaywright = argsJoined.includes('playwright');
+  const isDlx = argsJoined.includes('dlx') || argsJoined.includes('-y');
+  if (isNpxLike && (isDlx || looksLikePlaywright)) {
+    return SLOW_START_PROBE_TIMEOUT_MS;
+  }
+
+  return DEFAULT_PROBE_TIMEOUT_MS;
+}
+
 export async function probeMcpCapability(
   capability: CapabilityEntry,
   options: {
@@ -80,7 +103,7 @@ export async function probeMcpCapability(
   if (capability.type !== 'mcp') return { connectionStatus: 'unknown' };
   if (!capability.mcpServer?.command) return { connectionStatus: 'unknown' };
 
-  const timeoutMs = options.timeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS;
+  const timeoutMs = resolveProbeTimeoutMs(capability, options.timeoutMs);
   const deadlineMs = Date.now() + timeoutMs;
   const serverParams: StdioServerParameters = {
     command: capability.mcpServer.command,
