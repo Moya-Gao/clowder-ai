@@ -53,7 +53,8 @@ function getTargetMentions(catId: CatId): readonly string[] {
 
 function hasMentionBoundary(ch: string | undefined): boolean {
   if (!ch) return true;
-  return /\s|[,:;.!?，。：；！？]/.test(ch);
+  if (/\s|[,:;.!?，。：；！？]/.test(ch)) return true;
+  return /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(ch);
 }
 
 function extractTargetLineTail(line: string, targetMentions: readonly string[]): string | null {

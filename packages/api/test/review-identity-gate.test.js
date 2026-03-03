@@ -86,6 +86,16 @@ describe('review-identity-gate', () => {
     assert.equal(required, true);
   });
 
+  it('requires identity gate when CJK suffix appears right after target mention', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52请 review this patch',
+    });
+    assert.equal(required, true);
+  });
+
   it('does not require identity gate when review request targets another cat and this cat is FYI only', async () => {
     const { shouldRequireReviewIdentityGate } = await getModule();
     const required = shouldRequireReviewIdentityGate({
