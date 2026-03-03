@@ -112,6 +112,95 @@ describe('Backlog Routes', () => {
     assert.match(kickoffMessages[0].content, /F049 dispatch flow/);
   });
 
+  test('suggest-claim retries from same cat are idempotent no-op', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'idempotent suggest',
+        summary: 'same cat retry should keep original suggestion payload',
+        priority: 'p2',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    const firstSuggestRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'first why',
+        plan: 'first plan',
+        requestedPhase: 'coding',
+      },
+    });
+    assert.equal(firstSuggestRes.statusCode, 200);
+
+    const secondSuggestRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'mutated why should be ignored',
+        plan: 'mutated plan should be ignored',
+        requestedPhase: 'research',
+      },
+    });
+    assert.equal(secondSuggestRes.statusCode, 200);
+    assert.equal(secondSuggestRes.json().status, 'suggested');
+    assert.equal(secondSuggestRes.json().suggestion.why, 'first why');
+    assert.equal(secondSuggestRes.json().suggestion.plan, 'first plan');
+    assert.equal(secondSuggestRes.json().suggestion.requestedPhase, 'coding');
+  });
+
+  test('suggest-claim from different cat conflicts when item already suggested', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'conflicting suggest',
+        summary: 'different cat should conflict',
+        priority: 'p2',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'first owner',
+        plan: 'first plan',
+        requestedPhase: 'coding',
+      },
+    });
+
+    const conflictRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'opus',
+        why: 'competing owner',
+        plan: 'second plan',
+        requestedPhase: 'research',
+      },
+    });
+
+    assert.equal(conflictRes.statusCode, 409);
+    assert.match(conflictRes.json().error, /already suggested by another cat/i);
+  });
+
   test('reject claim returns open state without dispatch', async () => {
     const app = await createApp();
 
@@ -154,6 +243,35 @@ describe('Backlog Routes', () => {
     const body = rejectRes.json();
     assert.equal(body.item.status, 'open');
     assert.equal(body.item.dispatchedThreadId, undefined);
+  });
+
+  test('reject on open item is idempotent no-op', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'reject no-op',
+        summary: 'reject on open should be safe',
+        priority: 'p2',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    const rejectRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'reject',
+      },
+    });
+
+    assert.equal(rejectRes.statusCode, 200);
+    assert.equal(rejectRes.json().item.status, 'open');
+    assert.equal(rejectRes.json().item.suggestion, undefined);
   });
 
   test('approve can recover from previously approved item and dispatch', async () => {
@@ -941,6 +1059,87 @@ describe('Backlog Routes', () => {
     const createdThread = threads.find((thread) => thread.title === '[Backlog] dispatch failure path');
     assert.ok(createdThread);
     assert.equal(createdThread?.backlogItemId, undefined);
+  });
+
+  test('approve retry reuses pending thread id after kickoff failure', async () => {
+    let appendAttempts = 0;
+    const flakyMessageStore = {
+      append: async (input) => {
+        appendAttempts += 1;
+        if (appendAttempts === 1) {
+          throw new Error('simulated first kickoff failure');
+        }
+        return messageStore.append(input);
+      },
+      getByThread: async (...args) => messageStore.getByThread(...args),
+    };
+    const app = await createApp({ messageStore: flakyMessageStore });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'dispatch retry should reuse thread',
+        summary: 'first kickoff fails, second retry should not create duplicate thread',
+        priority: 'p1',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'can recover dispatch',
+        plan: 'retry with stable thread',
+        requestedPhase: 'coding',
+      },
+    });
+
+    const firstApproveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+    assert.equal(firstApproveRes.statusCode, 500);
+
+    const itemAfterFailure = await backlogStore.get(itemId, 'default-user');
+    assert.equal(itemAfterFailure?.status, 'approved');
+    assert.ok(itemAfterFailure?.dispatchAttemptId);
+    assert.ok(itemAfterFailure?.pendingThreadId);
+    assert.equal(itemAfterFailure?.kickoffMessageId, undefined);
+
+    const secondApproveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+    assert.equal(secondApproveRes.statusCode, 200);
+    const secondBody = secondApproveRes.json();
+    assert.equal(secondBody.item.status, 'dispatched');
+    assert.equal(secondBody.item.pendingThreadId, itemAfterFailure?.pendingThreadId);
+    assert.equal(secondBody.item.dispatchedThreadId, itemAfterFailure?.pendingThreadId);
+    assert.ok(secondBody.item.kickoffMessageId);
+
+    const backlogThreads = (await threadStore.list('default-user'))
+      .filter((thread) => thread.title === '[Backlog] dispatch retry should reuse thread');
+    assert.equal(backlogThreads.length, 1);
+    assert.equal(backlogThreads[0].id, itemAfterFailure?.pendingThreadId);
+
+    const kickoffMessages = await messageStore.getByThread(backlogThreads[0].id, 10, 'default-user');
+    assert.equal(kickoffMessages.length, 1);
   });
 
   test('refresh prefers newest duplicate feature-tagged item', async () => {

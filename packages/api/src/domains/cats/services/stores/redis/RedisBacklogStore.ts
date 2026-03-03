@@ -11,6 +11,7 @@ import type {
   ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
+  UpdateBacklogDispatchProgressInput,
 } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
 import { generateSortableId } from '../ports/MessageStore.js';
@@ -398,6 +399,12 @@ export class RedisBacklogStore implements IBacklogStore {
   async suggestClaim(itemId: string, input: SuggestBacklogClaimInput): Promise<BacklogItem | null> {
     const existing = await this.get(itemId);
     if (!existing) return null;
+    if (existing.status === 'suggested' && existing.suggestion?.status === 'pending') {
+      if (existing.suggestion.catId === input.catId) {
+        return existing;
+      }
+      throw new BacklogTransitionError('Invalid backlog transition: item already suggested by another cat');
+    }
     if (existing.status !== 'open') {
       throw new BacklogTransitionError('Invalid backlog transition: only open items can be suggested');
     }
@@ -505,6 +512,25 @@ export class RedisBacklogStore implements IBacklogStore {
     return updated;
   }
 
+  async updateDispatchProgress(itemId: string, input: UpdateBacklogDispatchProgressInput): Promise<BacklogItem | null> {
+    const existing = await this.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'approved') {
+      throw new BacklogTransitionError('Invalid backlog transition: dispatch progress requires approved item');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      ...(input.dispatchAttemptId ? { dispatchAttemptId: input.dispatchAttemptId } : {}),
+      ...(input.pendingThreadId ? { pendingThreadId: input.pendingThreadId } : {}),
+      ...(input.kickoffMessageId ? { kickoffMessageId: input.kickoffMessageId } : {}),
+      updatedAt: now,
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
   async markDispatched(itemId: string, input: DispatchBacklogItemInput): Promise<BacklogItem | null> {
     const existing = await this.get(itemId);
     if (!existing) return null;
@@ -517,6 +543,12 @@ export class RedisBacklogStore implements IBacklogStore {
     if (existing.status !== 'approved') {
       throw new BacklogTransitionError('Invalid backlog transition: only approved items can be dispatched');
     }
+    if ((existing.dispatchAttemptId || existing.pendingThreadId) && !existing.kickoffMessageId) {
+      throw new BacklogTransitionError('Invalid backlog transition: kickoff message is required before dispatch');
+    }
+    if (existing.pendingThreadId && existing.pendingThreadId !== input.threadId) {
+      throw new BacklogTransitionError('Invalid backlog transition: pending dispatch thread mismatch');
+    }
 
     const now = Date.now();
     const updated: BacklogItem = {
@@ -524,6 +556,7 @@ export class RedisBacklogStore implements IBacklogStore {
       status: 'dispatched',
       dispatchedThreadId: input.threadId,
       dispatchedThreadPhase: input.threadPhase,
+      pendingThreadId: existing.pendingThreadId ?? input.threadId,
       dispatchedAt: now,
       updatedAt: now,
       audit: [
@@ -729,6 +762,9 @@ export class RedisBacklogStore implements IBacklogStore {
     if (item.dispatchedAt) result['dispatchedAt'] = String(item.dispatchedAt);
     if (item.dispatchedThreadId) result['dispatchedThreadId'] = item.dispatchedThreadId;
     if (item.dispatchedThreadPhase) result['dispatchedThreadPhase'] = item.dispatchedThreadPhase;
+    if (item.dispatchAttemptId) result['dispatchAttemptId'] = item.dispatchAttemptId;
+    if (item.pendingThreadId) result['pendingThreadId'] = item.pendingThreadId;
+    if (item.kickoffMessageId) result['kickoffMessageId'] = item.kickoffMessageId;
     return result;
   }
 
@@ -759,6 +795,9 @@ export class RedisBacklogStore implements IBacklogStore {
       ...(data['dispatchedThreadPhase']
         ? { dispatchedThreadPhase: data['dispatchedThreadPhase'] as ThreadPhase }
         : {}),
+      ...(data['dispatchAttemptId'] ? { dispatchAttemptId: data['dispatchAttemptId'] } : {}),
+      ...(data['pendingThreadId'] ? { pendingThreadId: data['pendingThreadId'] } : {}),
+      ...(data['kickoffMessageId'] ? { kickoffMessageId: data['kickoffMessageId'] } : {}),
       ...(approvedAt ? { approvedAt } : {}),
       ...(dispatchedAt ? { dispatchedAt } : {}),
     };

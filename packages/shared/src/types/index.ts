@@ -203,6 +203,7 @@ export type {
   ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
   ThreadPhase,
+  UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
 // Task types (毛线球)
 export type {

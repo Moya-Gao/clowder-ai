@@ -11,6 +11,7 @@ import type {
   RefreshBacklogItemInput,
   ReleaseBacklogLeaseInput,
   SuggestBacklogClaimInput,
+  UpdateBacklogDispatchProgressInput,
 } from '@cat-cafe/shared';
 import { generateSortableId } from './MessageStore.js';
 import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
@@ -38,6 +39,10 @@ export interface IBacklogStore {
   listByUser(userId: string): BacklogItem[] | Promise<BacklogItem[]>;
   suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
   decideClaim(itemId: string, input: DecideBacklogClaimInput): BacklogItem | null | Promise<BacklogItem | null>;
+  updateDispatchProgress(
+    itemId: string,
+    input: UpdateBacklogDispatchProgressInput,
+  ): BacklogItem | null | Promise<BacklogItem | null>;
   markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null | Promise<BacklogItem | null>;
   acquireLease(itemId: string, input: AcquireBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
   heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
@@ -137,6 +142,12 @@ export class BacklogStore implements IBacklogStore {
   suggestClaim(itemId: string, input: SuggestBacklogClaimInput): BacklogItem | null {
     const existing = this.items.get(itemId);
     if (!existing) return null;
+    if (existing.status === 'suggested' && existing.suggestion?.status === 'pending') {
+      if (existing.suggestion.catId === input.catId) {
+        return existing;
+      }
+      throw new BacklogTransitionError('Invalid backlog transition: item already suggested by another cat');
+    }
     if (existing.status !== 'open') {
       throw new BacklogTransitionError('Invalid backlog transition: only open items can be suggested');
     }
@@ -243,6 +254,25 @@ export class BacklogStore implements IBacklogStore {
     return updated;
   }
 
+  updateDispatchProgress(itemId: string, input: UpdateBacklogDispatchProgressInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status !== 'approved') {
+      throw new BacklogTransitionError('Invalid backlog transition: dispatch progress requires approved item');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      ...(input.dispatchAttemptId ? { dispatchAttemptId: input.dispatchAttemptId } : {}),
+      ...(input.pendingThreadId ? { pendingThreadId: input.pendingThreadId } : {}),
+      ...(input.kickoffMessageId ? { kickoffMessageId: input.kickoffMessageId } : {}),
+      updatedAt: now,
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
   markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null {
     const existing = this.items.get(itemId);
     if (!existing) return null;
@@ -255,6 +285,12 @@ export class BacklogStore implements IBacklogStore {
     if (existing.status !== 'approved') {
       throw new BacklogTransitionError('Invalid backlog transition: only approved items can be dispatched');
     }
+    if ((existing.dispatchAttemptId || existing.pendingThreadId) && !existing.kickoffMessageId) {
+      throw new BacklogTransitionError('Invalid backlog transition: kickoff message is required before dispatch');
+    }
+    if (existing.pendingThreadId && existing.pendingThreadId !== input.threadId) {
+      throw new BacklogTransitionError('Invalid backlog transition: pending dispatch thread mismatch');
+    }
 
     const now = Date.now();
     const updated: BacklogItem = {
@@ -262,6 +298,7 @@ export class BacklogStore implements IBacklogStore {
       status: 'dispatched',
       dispatchedThreadId: input.threadId,
       dispatchedThreadPhase: input.threadPhase,
+      pendingThreadId: existing.pendingThreadId ?? input.threadId,
       dispatchedAt: now,
       updatedAt: now,
       audit: [

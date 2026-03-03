@@ -68,6 +68,9 @@ export interface BacklogItem {
   readonly lease?: BacklogLease;
   readonly dispatchedThreadId?: string;
   readonly dispatchedThreadPhase?: ThreadPhase;
+  readonly dispatchAttemptId?: string;
+  readonly pendingThreadId?: string;
+  readonly kickoffMessageId?: string;
   readonly createdAt: number;
   readonly updatedAt: number;
   readonly approvedAt?: number;
@@ -109,6 +112,13 @@ export interface DispatchBacklogItemInput {
   readonly threadId: string;
   readonly threadPhase: ThreadPhase;
   readonly dispatchedBy: string;
+}
+
+export interface UpdateBacklogDispatchProgressInput {
+  readonly updatedBy: string;
+  readonly dispatchAttemptId?: string;
+  readonly pendingThreadId?: string;
+  readonly kickoffMessageId?: string;
 }
 
 export interface AcquireBacklogLeaseInput {

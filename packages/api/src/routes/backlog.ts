@@ -7,7 +7,7 @@ import type { MissionHubSelfClaimScope } from '@cat-cafe/shared';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import { BacklogTransitionError } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import { generateSortableId, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
 import {
@@ -131,17 +131,57 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
   const resolveSelfClaimScope = opts.resolveSelfClaimScope ?? ((catId: CatId) => getMissionHubSelfClaimScope(catId));
 
   async function dispatchApprovedItem(item: BacklogItem, userId: string, phase: ThreadPhase) {
-    const thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
+    let next = item;
+    if (!next.dispatchAttemptId) {
+      const updated = await backlogStore.updateDispatchProgress(item.id, {
+        updatedBy: userId,
+        dispatchAttemptId: generateSortableId(Date.now()),
+      });
+      if (!updated) {
+        return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
+      }
+      next = updated;
+    }
+
+    let thread = next.pendingThreadId ? await threadStore.get(next.pendingThreadId) : null;
+    if (next.pendingThreadId && !thread) {
+      return {
+        statusCode: 409 as const,
+        payload: { error: 'Invalid backlog transition: pending dispatch thread missing' },
+      };
+    }
+    if (!thread) {
+      thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
+      const updated = await backlogStore.updateDispatchProgress(item.id, {
+        updatedBy: userId,
+        pendingThreadId: thread.id,
+      });
+      if (!updated) {
+        return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
+      }
+      next = updated;
+    }
+
     await threadStore.updatePhase(thread.id, phase);
 
-    await messageStore.append({
-      userId,
-      catId: null,
-      threadId: thread.id,
-      content: buildKickoffMessage(item, phase),
-      mentions: [],
-      timestamp: Date.now(),
-    });
+    if (!next.kickoffMessageId) {
+      const kickoffMessage = await messageStore.append({
+        userId,
+        catId: null,
+        threadId: thread.id,
+        content: buildKickoffMessage(next, phase),
+        mentions: [],
+        timestamp: Date.now(),
+      });
+      const updated = await backlogStore.updateDispatchProgress(item.id, {
+        updatedBy: userId,
+        kickoffMessageId: kickoffMessage.id,
+      });
+      if (!updated) {
+        return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
+      }
+      next = updated;
+    }
 
     const dispatched = await backlogStore.markDispatched(item.id, {
       threadId: thread.id,
@@ -476,6 +516,9 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
 
     try {
       if (parsed.data.decision === 'reject') {
+        if (existing.status === 'open') {
+          return { item: existing };
+        }
         if (existing.status !== 'suggested') {
           reply.status(409);
           return { error: 'Invalid backlog transition: only suggested items can be rejected' };

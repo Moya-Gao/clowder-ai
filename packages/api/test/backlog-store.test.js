@@ -239,6 +239,147 @@ describe('BacklogStore', () => {
     assert.equal(second?.audit.length, first?.audit.length);
   });
 
+  test('updateDispatchProgress stores dispatch metadata on approved item', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: 'Dispatch metadata',
+      summary: 'stores attempt and pending thread id',
+      priority: 'p1',
+      tags: ['dispatch'],
+      createdBy: 'user',
+    });
+
+    store.suggestClaim(created.id, {
+      catId: 'codex',
+      why: 'owns stack',
+      plan: 'dispatch with recovery',
+      requestedPhase: 'coding',
+    });
+    store.decideClaim(created.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+    });
+
+    const updated = store.updateDispatchProgress(created.id, {
+      updatedBy: 'default-user',
+      dispatchAttemptId: 'attempt-1',
+      pendingThreadId: 'thread-pending-1',
+    });
+
+    assert.equal(updated?.status, 'approved');
+    assert.equal(updated?.dispatchAttemptId, 'attempt-1');
+    assert.equal(updated?.pendingThreadId, 'thread-pending-1');
+    assert.equal(updated?.kickoffMessageId, undefined);
+  });
+
+  test('markDispatched requires kickoffMessageId and respects pendingThreadId', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: 'Dispatch guardrails',
+      summary: 'requires kickoff and stable thread id',
+      priority: 'p1',
+      tags: ['dispatch'],
+      createdBy: 'user',
+    });
+
+    store.suggestClaim(created.id, {
+      catId: 'codex',
+      why: 'owns stack',
+      plan: 'dispatch safely',
+      requestedPhase: 'coding',
+    });
+    store.decideClaim(created.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+    });
+
+    store.updateDispatchProgress(created.id, {
+      updatedBy: 'default-user',
+      dispatchAttemptId: 'attempt-2',
+      pendingThreadId: 'thread-pending-2',
+    });
+
+    assert.throws(() => {
+      store.markDispatched(created.id, {
+        threadId: 'thread-pending-2',
+        threadPhase: 'coding',
+        dispatchedBy: 'default-user',
+      });
+    }, /kickoff message/i);
+
+    store.updateDispatchProgress(created.id, {
+      updatedBy: 'default-user',
+      kickoffMessageId: 'msg-kickoff-2',
+    });
+
+    assert.throws(() => {
+      store.markDispatched(created.id, {
+        threadId: 'thread-other',
+        threadPhase: 'coding',
+        dispatchedBy: 'default-user',
+      });
+    }, /pending dispatch thread/i);
+
+    const dispatched = store.markDispatched(created.id, {
+      threadId: 'thread-pending-2',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+    assert.equal(dispatched?.status, 'dispatched');
+    assert.equal(dispatched?.dispatchAttemptId, 'attempt-2');
+    assert.equal(dispatched?.pendingThreadId, 'thread-pending-2');
+    assert.equal(dispatched?.kickoffMessageId, 'msg-kickoff-2');
+  });
+
+  test('updateDispatchProgress blocks stale writes after item is dispatched', () => {
+    const created = store.create({
+      userId: 'default-user',
+      title: 'Dispatch stale write guard',
+      summary: 'blocks stale progress writes once dispatched',
+      priority: 'p1',
+      tags: ['dispatch'],
+      createdBy: 'user',
+    });
+
+    store.suggestClaim(created.id, {
+      catId: 'codex',
+      why: 'owns stack',
+      plan: 'dispatch safely',
+      requestedPhase: 'coding',
+    });
+    store.decideClaim(created.id, {
+      decision: 'approve',
+      decidedBy: 'default-user',
+    });
+
+    store.updateDispatchProgress(created.id, {
+      updatedBy: 'default-user',
+      dispatchAttemptId: 'attempt-stale',
+      pendingThreadId: 'thread-a',
+      kickoffMessageId: 'msg-a',
+    });
+
+    const dispatched = store.markDispatched(created.id, {
+      threadId: 'thread-a',
+      threadPhase: 'coding',
+      dispatchedBy: 'default-user',
+    });
+    assert.equal(dispatched?.status, 'dispatched');
+    assert.equal(dispatched?.pendingThreadId, 'thread-a');
+
+    assert.throws(() => {
+      store.updateDispatchProgress(created.id, {
+        updatedBy: 'default-user',
+        pendingThreadId: 'thread-b',
+      });
+    }, /dispatch progress requires approved item/i);
+
+    const after = store.get(created.id);
+    assert.equal(after?.status, 'dispatched');
+    assert.equal(after?.dispatchedThreadId, 'thread-a');
+    assert.equal(after?.pendingThreadId, 'thread-a');
+  });
+
   test('eviction prioritizes dispatched items first', () => {
     const BacklogStoreClass = store.constructor;
     const smallStore = new BacklogStoreClass({ maxItems: 2 });
