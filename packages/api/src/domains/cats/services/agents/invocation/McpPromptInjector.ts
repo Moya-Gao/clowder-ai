@@ -57,19 +57,18 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
   const exampleHandle = resolveExampleHandle(opts);
   return `## 协作方式
 
-### @队友（最常用！推荐方式）
-想 @其他猫？回复里另起一行、行首写 \`@猫名\`。
-同族多分身时用**唯一句柄**（例如 \`${exampleHandle}\`）避免歧义。
-✅ 正确：回复末尾另起一行写 \`${exampleHandle} 请帮我 review\`
-❌ 错误：用 curl 调 post-message 只是为了 @ 队友
+### @队友
+另起一行写 \`@猫名\`。
+同族多分身时用**唯一句柄**（如 \`${exampleHandle}\`）。
+✅ 正确：\`${exampleHandle} 请帮我 review\`
+❌ 错误：为了 @ 队友去调 post-message
 
-### HTTP 回调工具（异步场景）
-凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`（环境变量）
-可用工具: post-message / register-pr-tracking / thread-context / list-threads / feat-index / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
+### HTTP 回调（异步）
+凭证: \`$CAT_CAFE_INVOCATION_ID\` + \`$CAT_CAFE_CALLBACK_TOKEN\`
+可用工具: post-message / register-pr-tracking / thread-context / list-threads / feat-index / list-tasks / pending-mentions / update-task / create-rich-block / search-evidence / reflect / retain-memory / request-permission
+跨 thread 发消息: post-message + \`threadId\`
 检索消息: thread-context + \`catId\`/\`keyword\`
 检索 feature: feat-index + \`featId\`/\`query\`
-完整用法: GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`。
-需要富消息块规范，GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\`。
-
-注意: 只在需要异步协作时使用。普通回复直接输出即可。`;
+完整用法: GET \`$CAT_CAFE_API_URL/api/callbacks/instructions\`
+富消息规范: GET \`$CAT_CAFE_API_URL/api/callbacks/rich-block-rules\``;
 }

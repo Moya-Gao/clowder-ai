@@ -19,6 +19,9 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/post-message \
   -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg c "消息内容" '{invocationId:$i,callbackToken:$t,content:$c}')"
 ```
 
+可选 body 参数：
+- `threadId`：跨 thread 发消息。省略时默认发到当前 invocation 的 thread。
+
 ### Get Thread Context
 ```bash
 curl "$CAT_CAFE_API_URL/api/callbacks/thread-context?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"
@@ -89,6 +92,16 @@ curl -sS -X POST $CAT_CAFE_API_URL/api/callbacks/update-task \
   -H 'Content-Type: application/json' \
   -d "$(jq -nc --arg i "$CAT_CAFE_INVOCATION_ID" --arg t "$CAT_CAFE_CALLBACK_TOKEN" --arg tid "任务ID" --arg s "doing" '{invocationId:$i,callbackToken:$t,taskId:$tid,status:$s}')"
 ```
+
+### List Tasks
+```bash
+curl "$CAT_CAFE_API_URL/api/callbacks/list-tasks?invocationId=$CAT_CAFE_INVOCATION_ID&callbackToken=$CAT_CAFE_CALLBACK_TOKEN"
+```
+
+可选 query 参数：
+- `threadId`：仅查看特定 thread 的任务
+- `catId`：仅查看 owner 为该猫的任务
+- `status`：仅查看指定状态（`todo|doing|blocked|done`）
 
 ### Register PR Tracking
 

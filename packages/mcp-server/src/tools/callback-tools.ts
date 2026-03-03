@@ -75,6 +75,7 @@ export async function callbackGet(path: string, params?: Record<string, string>)
 
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
+  threadId: z.string().min(1).optional().describe('Optional target thread ID for cross-thread posting. Omit to post in current thread.'),
   replyTo: z
     .string()
     .optional()
@@ -134,13 +135,36 @@ export const updateTaskInputSchema = {
   why: z.string().max(1000).optional().describe('Optional note explaining the status change'),
 };
 
+export const crossPostMessageInputSchema = {
+  threadId: z.string().min(1).describe('Target thread ID to post into'),
+  content: z.string().min(1).describe('The message content to post'),
+  replyTo: z
+    .string()
+    .optional()
+    .describe('Optional message ID to reply to'),
+  clientMessageId: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Optional idempotency key for at-least-once delivery de-duplication'),
+};
+
+export const listTasksInputSchema = {
+  threadId: z.string().min(1).optional().describe('Optional thread ID filter'),
+  catId: z.string().min(1).optional().describe('Optional owner catId filter'),
+  status: z.enum(['todo', 'doing', 'blocked', 'done']).optional().describe('Optional task status filter'),
+};
+
 export async function handlePostMessage(input: {
   content: string;
+  threadId?: string | undefined;
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
   const result = await callbackPost('/api/callbacks/post-message', {
     content: input.content,
+    ...(input.threadId ? { threadId: input.threadId } : {}),
     ...(input.replyTo ? { replyTo: input.replyTo } : {}),
     clientMessageId: input.clientMessageId ?? randomUUID(),
   }, { enableOutbox: true });
@@ -218,6 +242,32 @@ export async function handleUpdateTask(input: {
     taskId: input.taskId,
     ...(input.status ? { status: input.status } : {}),
     ...(input.why ? { why: input.why } : {}),
+  });
+}
+
+export async function handleCrossPostMessage(input: {
+  threadId: string;
+  content: string;
+  replyTo?: string | undefined;
+  clientMessageId?: string | undefined;
+}): Promise<ToolResult> {
+  return handlePostMessage({
+    threadId: input.threadId,
+    content: input.content,
+    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+    ...(input.clientMessageId ? { clientMessageId: input.clientMessageId } : {}),
+  });
+}
+
+export async function handleListTasks(input: {
+  threadId?: string | undefined;
+  catId?: string | undefined;
+  status?: 'todo' | 'doing' | 'blocked' | 'done' | undefined;
+}): Promise<ToolResult> {
+  return callbackGet('/api/callbacks/list-tasks', {
+    ...(input.threadId ? { threadId: input.threadId } : {}),
+    ...(input.catId ? { catId: input.catId } : {}),
+    ...(input.status ? { status: input.status } : {}),
   });
 }
 
@@ -393,6 +443,18 @@ export const callbackTools = [
     description: 'Lookup feature index entries by featId or query. Returns featId/name/status/threadIds.',
     inputSchema: featIndexInputSchema,
     handler: handleFeatIndex,
+  },
+  {
+    name: 'cat_cafe_cross_post_message',
+    description: 'Post a message to a specific thread by threadId (cross-thread notification).',
+    inputSchema: crossPostMessageInputSchema,
+    handler: handleCrossPostMessage,
+  },
+  {
+    name: 'cat_cafe_list_tasks',
+    description: 'List tasks with optional threadId/catId/status filters for global task discovery.',
+    inputSchema: listTasksInputSchema,
+    handler: handleListTasks,
   },
   {
     name: 'cat_cafe_update_task',

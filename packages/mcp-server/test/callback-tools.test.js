@@ -74,6 +74,30 @@ describe('MCP Callback Tools', () => {
     assert.equal(body.callbackToken, 'test-token');
   });
 
+  test('handlePostMessage forwards optional threadId for cross-thread posting', async () => {
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedOptions;
+    globalThis.fetch = async (_url, options) => {
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handlePostMessage({
+      content: 'cross-thread ping',
+      threadId: 'thread-123',
+    });
+
+    assert.equal(result.isError, undefined);
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.threadId, 'thread-123');
+  });
+
   test('handlePostMessage returns error when env vars missing', async () => {
     const { handlePostMessage } = await import(
       '../dist/tools/callback-tools.js'
@@ -204,6 +228,61 @@ describe('MCP Callback Tools', () => {
     assert.ok(capturedUrl.includes('/api/callbacks/list-threads'));
     assert.ok(capturedUrl.includes('limit=15'));
     assert.ok(capturedUrl.includes('activeSince=1234567890'));
+  });
+
+  test('handleCrossPostMessage calls post-message with threadId', async () => {
+    const { handleCrossPostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    let capturedOptions;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ status: 'ok' }),
+      };
+    };
+
+    const result = await handleCrossPostMessage({
+      threadId: 'thread-cross',
+      content: 'hello from another thread',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/post-message'));
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.threadId, 'thread-cross');
+    assert.equal(body.content, 'hello from another thread');
+  });
+
+  test('handleListTasks forwards threadId/catId/status filters', async () => {
+    const { handleListTasks } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl;
+    globalThis.fetch = async (url) => {
+      capturedUrl = url;
+      return {
+        ok: true,
+        json: async () => ({ tasks: [] }),
+      };
+    };
+
+    const result = await handleListTasks({
+      threadId: 'thread-42',
+      catId: 'codex',
+      status: 'blocked',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/list-tasks'));
+    assert.ok(capturedUrl.includes('threadId=thread-42'));
+    assert.ok(capturedUrl.includes('catId=codex'));
+    assert.ok(capturedUrl.includes('status=blocked'));
   });
 
   test('handleFeatIndex forwards limit/featId/query filters', async () => {

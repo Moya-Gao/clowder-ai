@@ -13,6 +13,8 @@ import {
   getThreadContextInputSchema,
   listThreadsInputSchema,
   featIndexInputSchema,
+  crossPostMessageInputSchema,
+  listTasksInputSchema,
   updateTaskInputSchema,
   requestPermissionInputSchema,
   checkPermissionStatusInputSchema,
@@ -22,6 +24,8 @@ import {
   handleGetThreadContext,
   handleListThreads,
   handleFeatIndex,
+  handleCrossPostMessage,
+  handleListTasks,
   handleUpdateTask,
   handleRequestPermission,
   handleCheckPermissionStatus,
@@ -55,7 +59,7 @@ export function createServer(): McpServer {
     'cat_cafe_post_message',
     'Post a proactive async message to the Cat Café chat mid-task (e.g. progress updates, sharing results). To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires.',
     postMessageInputSchema,
-    async (args: { content: string; replyTo?: string | undefined }) => {
+    async (args: { content: string; threadId?: string | undefined; replyTo?: string | undefined; clientMessageId?: string | undefined }) => {
       const result = await handlePostMessage(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
@@ -116,6 +120,26 @@ export function createServer(): McpServer {
     featIndexInputSchema,
     async (args) => {
       const result = await handleFeatIndex(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_cross_post_message',
+    'Post a message into a specific thread by threadId (cross-thread notification).',
+    crossPostMessageInputSchema,
+    async (args: { threadId: string; content: string; replyTo?: string | undefined; clientMessageId?: string | undefined }) => {
+      const result = await handleCrossPostMessage(args);
+      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
+    }
+  );
+
+  server.tool(
+    'cat_cafe_list_tasks',
+    'List tasks with optional threadId/catId/status filters for global task discovery.',
+    listTasksInputSchema,
+    async (args: { threadId?: string | undefined; catId?: string | undefined; status?: 'todo' | 'doing' | 'blocked' | 'done' | undefined }) => {
+      const result = await handleListTasks(args);
       return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
     }
   );

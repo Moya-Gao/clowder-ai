@@ -46,6 +46,8 @@ describe('McpPromptInjector', () => {
     assert.ok(instructions.includes('thread-context'), 'should list thread-context');
     assert.ok(instructions.includes('list-threads'), 'should list list-threads');
     assert.ok(instructions.includes('feat-index'), 'should list feat-index');
+    assert.ok(instructions.includes('list-tasks'), 'should list list-tasks');
+    assert.ok(instructions.includes('threadId'), 'should mention threadId for cross-thread posting/filtering');
     assert.ok(!instructions.includes('search-messages'), 'should not list non-HTTP endpoint alias');
     assert.ok(instructions.includes('catId'), 'should mention catId query filter');
     assert.ok(instructions.includes('keyword'), 'should mention keyword query filter');

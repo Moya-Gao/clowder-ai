@@ -31,6 +31,7 @@ describe('Callback Routes', () => {
   let freshnessProvider;
   let reimportTriggerProvider;
   let threadStore;
+  let taskStore;
   let backlogStore;
   let featIndexProvider;
 
@@ -44,6 +45,9 @@ describe('Callback Routes', () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
+    const { TaskStore } = await import(
+      '../dist/domains/cats/services/stores/ports/TaskStore.js'
+    );
     const { BacklogStore } = await import(
       '../dist/domains/cats/services/stores/ports/BacklogStore.js'
     );
@@ -51,6 +55,7 @@ describe('Callback Routes', () => {
     registry = new InvocationRegistry();
     messageStore = new MessageStore();
     threadStore = new ThreadStore();
+    taskStore = new TaskStore();
     backlogStore = new BacklogStore();
     socketManager = createMockSocketManager();
     hindsightClient = {
@@ -75,6 +80,9 @@ describe('Callback Routes', () => {
     };
     if (backlogStore !== undefined) {
       options.backlogStore = backlogStore;
+    }
+    if (taskStore !== undefined) {
+      options.taskStore = taskStore;
     }
     if (hindsightClient !== undefined) {
       options.hindsightClient = hindsightClient;
@@ -214,6 +222,55 @@ describe('Callback Routes', () => {
     assert.equal(recent.length, 1);
     assert.equal(recent[0].content, 'idempotent message');
     assert.equal(socketManager.getMessages().length, 1);
+  });
+
+  test('POST post-message supports cross-thread send with threadId', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const threadB = await threadStore.create('user-1', 'thread-b');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        threadId: threadB.id,
+        content: 'cross-thread hello',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.threadId, threadB.id);
+
+    const threadAMessages = messageStore.getByThread(threadA.id, 20, 'user-1');
+    const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
+    assert.equal(threadAMessages.length, 0);
+    assert.equal(threadBMessages.length, 1);
+    assert.equal(threadBMessages[0].content, 'cross-thread hello');
+  });
+
+  test('POST post-message rejects cross-thread send to another user thread', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const foreignThread = await threadStore.create('user-2', 'thread-foreign');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        threadId: foreignThread.id,
+        content: 'should fail',
+      },
+    });
+
+    assert.equal(response.statusCode, 403);
   });
 
   // ---- GET /api/callbacks/pending-mentions ----
@@ -704,6 +761,81 @@ describe('Callback Routes', () => {
     assert.equal(response.statusCode, 503);
     const body = JSON.parse(response.body);
     assert.match(body.error, /Thread store not configured/);
+  });
+
+  test('GET list-tasks returns user-scoped tasks and supports filters', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const threadB = await threadStore.create('user-1', 'thread-b');
+    const threadOther = await threadStore.create('user-2', 'thread-other');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+
+    const taskA1 = await taskStore.create({
+      threadId: threadA.id,
+      title: 'task-a1',
+      why: 'a1',
+      createdBy: 'user',
+      ownerCatId: 'codex',
+    });
+    const taskA2 = await taskStore.create({
+      threadId: threadA.id,
+      title: 'task-a2',
+      why: 'a2',
+      createdBy: 'user',
+      ownerCatId: 'opus',
+    });
+    await taskStore.update(taskA2.id, { status: 'doing' });
+    const taskB1 = await taskStore.create({
+      threadId: threadB.id,
+      title: 'task-b1',
+      why: 'b1',
+      createdBy: 'user',
+      ownerCatId: 'codex',
+    });
+    await taskStore.update(taskB1.id, { status: 'blocked' });
+    await taskStore.create({
+      threadId: threadOther.id,
+      title: 'task-other',
+      why: 'other',
+      createdBy: 'user',
+      ownerCatId: 'codex',
+    });
+
+    const allRes = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-tasks?invocationId=${invocationId}&callbackToken=${callbackToken}`,
+    });
+    assert.equal(allRes.statusCode, 200);
+    const allBody = JSON.parse(allRes.body);
+    assert.deepEqual(
+      allBody.tasks.map((task) => task.id).sort(),
+      [taskA1.id, taskA2.id, taskB1.id].sort(),
+    );
+
+    const filteredRes = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-tasks?invocationId=${invocationId}&callbackToken=${callbackToken}&catId=codex&status=blocked`,
+    });
+    assert.equal(filteredRes.statusCode, 200);
+    const filteredBody = JSON.parse(filteredRes.body);
+    assert.equal(filteredBody.tasks.length, 1);
+    assert.equal(filteredBody.tasks[0].id, taskB1.id);
+  });
+
+  test('GET list-tasks rejects cross-user thread filter', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const foreignThread = await threadStore.create('user-2', 'thread-foreign');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+
+    const response = await app.inject({
+      method: 'GET',
+      url:
+        `/api/callbacks/list-tasks?invocationId=${invocationId}` +
+        `&callbackToken=${callbackToken}&threadId=${foreignThread.id}`,
+    });
+
+    assert.equal(response.statusCode, 403);
   });
 
   // ---- GET /api/callbacks/feat-index ----

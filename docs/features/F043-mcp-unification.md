@@ -12,7 +12,7 @@ created: 2026-02-27
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F041（能力看板 + 配置编排就位后才能拆分 server）
-> **Updated**: 2026-03-02（路线图收敛 → `docs/discussions/2026-03-02-f042-roadmap-convergence.md`）
+> **Updated**: 2026-03-03（Phase B P2 工具落地 + timeline 对齐）
 
 ## 与 F041 的关系
 
@@ -56,8 +56,8 @@ created: 2026-02-27
 新增：
 - `search_messages` — catId/keyword 过滤 **[P0]**
 - `list_threads` — thread 发现 **[P1]**
-- `cross_post_message` — 跨 thread 发消息 **[P2]**
-- `list_tasks` — 全局任务视图 **[P2]**
+- `cross_post_message` — 跨 thread 发消息 **[P2 ✅]**
+- `list_tasks` — 全局任务视图 **[P2 ✅]**
 
 #### ② cat-cafe-memory（记忆与回溯）
 
@@ -159,6 +159,7 @@ interface ListTasksInput {
 - [ ] F041 配置编排器能正确管理 3 个 server 的加载/卸载
 - [x] P0 search_messages 可用 + 测试
 - [x] P1 list_threads + feat_index 可用 + 测试
+- [x] P2 cross_post_message + list_tasks 可用 + 测试
 - [ ] 现有工具回归测试全部通过
 - [ ] prompt 长度显著下降（按需加载 vs 全量注入）
 
@@ -221,4 +222,6 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-02: Phase A P1 `list_threads` 实作完成并合入 main（PR #156 / `2d36c89f`）
 - 2026-03-02: Phase A P1 契约拍板（`cat_cafe_list_threads` + `/api/callbacks/list-threads`，`activeSince` 分页，`messageCount` 暂为 `null`）
 - 2026-03-02: Phase A P1 `feat_index` 实作完成并合入 main（PR #160 / `c8d71be0`；`/api/callbacks/feat-index` + `cat_cafe_feat_index`，`featId` 精确匹配 + `query` 模糊匹配）
-- 2026-03-02: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（宿主 CLI 文件能力保留；server 拆分仍待 F041 后续）
+- 2026-03-03: Phase A 收口：`thread metadata stage tracking` 完成并合入 main（PR #166 / `82f0899d`，`feat_index.threadIds` 从固定空数组升级为 best-effort 真实映射）
+- 2026-03-03: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（PR #171 / `defe3db3`；宿主 CLI 文件能力保留；server 拆分仍待 F041 后续）
+- 2026-03-03: Phase B P2 工具完成：`cat_cafe_cross_post_message` + `cat_cafe_list_tasks`（`post-message` 支持 `threadId`，新增 `/api/callbacks/list-tasks`）

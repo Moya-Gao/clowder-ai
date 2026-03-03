@@ -65,6 +65,7 @@ export interface CallbackRoutesOptions {
 
 const postMessageSchema = callbackAuthSchema.extend({
   content: z.string().min(1).max(50000),
+  threadId: z.string().min(1).optional(),
   replyTo: z.string().optional(),
   clientMessageId: z.string().min(1).max(200).optional(),
 });
@@ -160,7 +161,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid request body', details: parsed.error.issues };
       }
 
-      const { invocationId, callbackToken, content, replyTo, clientMessageId } = parsed.data;
+      const { invocationId, callbackToken, content, threadId, replyTo, clientMessageId } = parsed.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
@@ -172,6 +173,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       // Return 200 + stale_ignored to avoid retry storms from the dying CLI process.
       if (!registry.isLatest(invocationId)) {
         return { status: 'stale_ignored', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
+      }
+
+      let effectiveThreadId = record.threadId;
+      if (threadId && threadId !== record.threadId) {
+        if (!threadStore) {
+          reply.status(503);
+          return { error: 'Thread store not configured for cross-thread posting' };
+        }
+        const targetThread = await threadStore.get(threadId);
+        if (!targetThread || targetThread.createdBy !== record.userId) {
+          reply.status(403);
+          return { error: 'Thread access denied' };
+        }
+        effectiveThreadId = threadId;
       }
 
       // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
@@ -212,7 +227,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         mentions,
         origin: 'callback',
         timestamp: Date.now(),
-        threadId: record.threadId,
+        threadId: effectiveThreadId,
         ...(richBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: richBlocks } } } : {}),
       });
 
@@ -223,7 +238,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         origin: 'callback',
         messageId: storedMsg.id,
         timestamp: Date.now(),
-      }, record.threadId);
+      }, effectiveThreadId);
 
       // #83: Broadcast each extracted rich block as SSE event for live rendering
       // P2 cloud-review: include messageId for frontend correlation
@@ -233,23 +248,28 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           catId: record.catId,
           content: JSON.stringify({ type: 'rich_block', block, messageId: storedMsg.id }),
           timestamp: Date.now(),
-        }, record.threadId);
+        }, effectiveThreadId);
       }
 
       // F27: Enqueue @mentioned cats into parent worklist (unified A2A path)
-      if (targetCats.length > 0 && router && invocationRecordStore && record.threadId) {
+      if (targetCats.length > 0 && router && invocationRecordStore && effectiveThreadId) {
         await enqueueA2ATargets(
           { router, invocationRecordStore, socketManager,
             ...(invocationTracker ? { invocationTracker } : {}),
             ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
             log: app.log },
           { targetCats, content: storedContent, userId: record.userId,
-            threadId: record.threadId, triggerMessage: storedMsg,
+            threadId: effectiveThreadId, triggerMessage: storedMsg,
             callerCatId: senderCatId },
         );
       }
 
-      return { status: 'ok', replyTo, ...(clientMessageId ? { clientMessageId } : {}) };
+      return {
+        status: 'ok',
+        threadId: effectiveThreadId,
+        replyTo,
+        ...(clientMessageId ? { clientMessageId } : {}),
+      };
     });
 
     app.get('/api/callbacks/pending-mentions', async (request, reply) => {
@@ -695,7 +715,12 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
     });
 
     if (taskStore) {
-      registerCallbackTaskRoutes(app, { registry, taskStore, socketManager });
+      registerCallbackTaskRoutes(app, {
+        registry,
+        taskStore,
+        socketManager,
+        ...(threadStore ? { threadStore } : {}),
+      });
     }
 
     const memoryDeps: {
