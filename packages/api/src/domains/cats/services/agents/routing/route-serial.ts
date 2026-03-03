@@ -34,6 +34,7 @@ import {
   sanitizeInjectedContent,
   routeContentBlocksForCat,
   assembleIncrementalContext,
+  upsertMaxBoundary,
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
@@ -613,7 +614,7 @@ export async function* routeSerial(
     if (incrementalMode && deliveryBoundaryId) {
       if (options.cursorBoundaries) {
         // ADR-008 S3: defer ack — caller acks after invocation succeeds
-        options.cursorBoundaries.set(catId, deliveryBoundaryId);
+        upsertMaxBoundary(options.cursorBoundaries, catId, deliveryBoundaryId);
       } else if (deps.deliveryCursorStore) {
         // Legacy: ack immediately (deprecated route() path)
         try {

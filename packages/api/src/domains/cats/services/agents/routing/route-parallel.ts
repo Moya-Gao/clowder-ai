@@ -26,6 +26,7 @@ import {
   sanitizeInjectedContent,
   routeContentBlocksForCat,
   assembleIncrementalContext,
+  upsertMaxBoundary,
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
@@ -473,7 +474,7 @@ export async function* routeParallel(
         if (boundaryId) {
           if (options.cursorBoundaries) {
             // ADR-008 S3: defer ack — caller acks after invocation succeeds
-            options.cursorBoundaries.set(msg.catId, boundaryId);
+            upsertMaxBoundary(options.cursorBoundaries, msg.catId, boundaryId);
           } else if (deps.deliveryCursorStore) {
             // Legacy: ack immediately
             try {

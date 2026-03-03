@@ -73,6 +73,25 @@ export interface IncrementalContextResult {
   currentMessageFilteredOut: boolean;
 }
 
+/**
+ * Keep cursor boundary monotonic within one invocation.
+ * When the same cat is invoked multiple times (A2A re-entry), later passes may
+ * observe fewer relevant messages and produce an older boundary; this helper
+ * prevents regressing the deferred ack boundary.
+ *
+ * Assumes message IDs are lexicographically monotonic (timestamp+seq prefix).
+ */
+export function upsertMaxBoundary(
+  cursorBoundaries: Map<string, string>,
+  catId: string,
+  boundaryId: string,
+): void {
+  const current = cursorBoundaries.get(catId);
+  if (!current || boundaryId > current) {
+    cursorBoundaries.set(catId, boundaryId);
+  }
+}
+
 /** Get the agent service for a given cat ID */
 export function getService(services: Record<string, AgentService>, catId: CatId): AgentService {
   const service = services[catId];
