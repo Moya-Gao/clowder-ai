@@ -41,10 +41,6 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
-import {
-  shouldRequireReviewIdentityGate,
-  validateReviewIdentityHandshake,
-} from '../../collaboration/review-identity-gate.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -120,12 +116,7 @@ export async function* routeSerial(
     const catConfig: CatConfig | undefined = catRegistry.tryGet(catId as string)?.config ?? CAT_CONFIGS[catId as string];
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
     const directMessageFrom = worklistEntry.a2aFrom.get(catId);
-    const reviewIdentityCheckFrom = worklistEntry.reviewIdentityCheckFrom.get(catId);
     let mentionRoutingFeedback = null;
-    if (reviewIdentityCheckFrom) {
-      // One-shot gate: consume at execution time to avoid stale carry-over.
-      worklistEntry.reviewIdentityCheckFrom.delete(catId);
-    }
     if (deps.invocationDeps.threadStore) {
       try {
         mentionRoutingFeedback = await deps.invocationDeps.threadStore.consumeMentionRoutingFeedback(threadId, catId);
@@ -154,7 +145,6 @@ export async function* routeSerial(
       ...(promptTags && promptTags.length > 0 ? { promptTags } : {}),
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
       ...(directMessageFrom ? { directMessageFrom } : {}),
-      ...(reviewIdentityCheckFrom ? { reviewIdentityCheckFrom } : {}),
       ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
       ...(routingPolicy ? { routingPolicy } : {}),
@@ -381,18 +371,6 @@ export async function* routeSerial(
         }
       }
 
-      if (reviewIdentityCheckFrom) {
-        const handshake = validateReviewIdentityHandshake(storedContent, catId);
-        if (!handshake.valid) {
-          storedContent = [
-            `⚠️ Review 无效：同族 reviewer identity check 未通过（${handshake.reason ?? 'unknown reason'}）。`,
-            `请先用首行 Identity Check 声明身份后，再给出 review 结论。`,
-            '',
-            storedContent,
-          ].join('\n');
-        }
-      }
-
       // In play mode, CLI stream output (thinking) is hidden from other cats.
       // Only share previousResponses in debug mode where cats see each other's thinking.
       // Important: push after review gate mutation so downstream cats see invalid-review marker.
@@ -486,21 +464,11 @@ export async function* routeSerial(
         const pendingTail = worklist.slice(index + 1);
         const pendingOriginalTargets = targetCats.slice(index + 1);
         for (const nextCat of a2aMentions) {
-          const gateRequired = shouldRequireReviewIdentityGate({
-            fromCatId: catId,
-            toCatId: nextCat,
-            message: storedContent,
-          });
           if (worklistEntry.a2aCount >= maxDepth) break;
           if (pendingTail.includes(nextCat)) {
             // Keep original user-selected targets replying to user, not to another cat.
             if (!pendingOriginalTargets.includes(nextCat)) {
               worklistEntry.a2aFrom.set(nextCat, catId);
-              if (gateRequired) {
-                worklistEntry.reviewIdentityCheckFrom.set(nextCat, catId);
-              } else {
-                worklistEntry.reviewIdentityCheckFrom.delete(nextCat);
-              }
             }
             continue;
           }
@@ -509,11 +477,6 @@ export async function* routeSerial(
           worklistEntry.a2aCount++;
           pendingTail.push(nextCat); // Keep dedup view in sync
           worklistEntry.a2aFrom.set(nextCat, catId);
-          if (gateRequired) {
-            worklistEntry.reviewIdentityCheckFrom.set(nextCat, catId);
-          } else {
-            worklistEntry.reviewIdentityCheckFrom.delete(nextCat);
-          }
         }
       }
 

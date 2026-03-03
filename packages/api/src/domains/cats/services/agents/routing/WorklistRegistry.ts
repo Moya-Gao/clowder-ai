@@ -32,11 +32,6 @@ export interface WorklistEntry {
    * Used to inject "Direct message from ...; reply to ..." into the target's prompt.
    */
   a2aFrom: Map<CatId, CatId>;
-  /**
-   * F046 B6: 同族 reviewer identity check gate.
-   * For a pending target cat, records which sender triggered the same-family review gate.
-   */
-  reviewIdentityCheckFrom: Map<CatId, CatId>;
 }
 
 /** Per-thread worklist registry. Single-process, no cross-process needed. */
@@ -58,7 +53,6 @@ export function registerWorklist(
     maxDepth,
     executedIndex: 0,
     a2aFrom: new Map(),
-    reviewIdentityCheckFrom: new Map(),
   };
   registry.set(threadId, entry);
   return entry;

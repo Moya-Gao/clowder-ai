@@ -87,7 +87,7 @@ describe('F046 B5 runtime regression seed', () => {
     assert.ok(!codexService.calls[0].includes('代码完成'), 'play mode should isolate upstream response text');
   });
 
-  it('invalid same-family review marker is propagated to downstream cat in debug mode', async () => {
+  it('same-family review chain no longer injects invalid identity marker in debug mode', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const { loadCatConfig, toAllCatConfigs } = await import('../dist/config/cat-config-loader.js');
 
@@ -117,8 +117,12 @@ describe('F046 B5 runtime regression seed', () => {
 
       assert.equal(opusService.calls.length, 1, 'downstream opus should be called once');
       assert.ok(
-        opusService.calls[0].includes('⚠️ Review 无效：同族 reviewer identity check 未通过'),
-        'downstream prompt should include invalid review marker',
+        opusService.calls[0].includes('我看过了，先给结论'),
+        'downstream prompt should still include upstream review text in debug mode',
+      );
+      assert.ok(
+        !opusService.calls[0].includes('⚠️ Review 无效：同族 reviewer identity check 未通过'),
+        'downstream prompt should not contain deprecated identity invalid marker',
       );
     } finally {
       catRegistry.reset();

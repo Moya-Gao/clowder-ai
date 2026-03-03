@@ -196,8 +196,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 |----|------|------|------|
 | D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
 | D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
-| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | ✅ Implemented（pending review） | 本轮 D3 实现 + one-shot 反馈持久化 |
-| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | 📋 Spec | 详见 D.3 |
+| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | ✅ Merged（Done） | PR #194（`a93a6ea1`） |
+| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | ✅ Implemented（pending review） | 本轮 D4 实现（代码+测试+文档） |
 
 ### 明确不做（Phase C）
 
@@ -223,7 +223,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] @ + 动作词才触发路由，无动作词不路由（D1）
 - [x] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
 - [x] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
-- [ ] B6 identity check 代码和测试全部移除（D4）
+- [x] B6 identity check 代码和测试全部移除（D4）
 
 ## Links
 
@@ -305,6 +305,12 @@ Phase B（B5 seed）运行时回归证据（2026-03-03）：
 - `node --test packages/api/test/route-serial-review-identity-propagation.test.js` → 1/1 pass
 - 说明：B5 已从 0→1（seed 3 条），后续继续扩展至 ≥10 条再勾选 AC
 
+Phase D（D4）移除 identity gate 证据（2026-03-03）：
+- `packages/api/src/domains/cats/services/collaboration/review-identity-gate.ts` → deleted
+- `packages/api/test/review-identity-gate.test.js` → deleted
+- `packages/api/test/route-serial-review-identity-propagation.test.js` → deleted
+- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 第 3 条期望更新为“无 identity 无效标记”
+
 ## Timeline
 
 - 2026-02-27: F041 愿景对照失败，触发 Deep Research Pipeline
@@ -321,4 +327,5 @@ Phase B（B5 seed）运行时回归证据（2026-03-03）：
 - 2026-03-02: Phase D 立项：@ 路由卫生（缅因猫采访 → 机制层修复方案确定）
 - 2026-03-03: B5 seed 落地：新增 3 条运行时回归场景（debug 透传 / play 隔离 / review 无效标记传递）→ `packages/api/test/f046-b5-runtime-regression-seed.test.js`
 - 2026-03-03: D1+D2 合入（PR #192 / `27e5e70b`）：动作词边界门禁 + 元信息去 `@` 惯性
-- 2026-03-03: D3 实现（pending review）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费
+- 2026-03-03: D3 合入（PR #194 / `a93a6ea1`）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费
+- 2026-03-03: D4 实现（pending review）：移除 B6 identity gate 代码与测试，更新 B5 seed 第 3 条为“无 identity 无效标记”

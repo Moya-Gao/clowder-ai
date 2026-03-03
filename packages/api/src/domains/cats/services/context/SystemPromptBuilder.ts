@@ -48,11 +48,6 @@ export interface InvocationContext {
    */
   directMessageFrom?: CatId;
   /**
-   * F046 B6: Same-family reviewer identity-check gate sender.
-   * When present, this invocation must start with an explicit Identity Check line.
-   */
-  reviewIdentityCheckFrom?: CatId;
-  /**
    * F046 D3: One-shot feedback injected when previous @mention was not routed.
    * Consumed from threadStore before invocation and cleared after injection.
    */
@@ -387,13 +382,6 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push(
       '如需联系队友，请在同一段明确动作词并使用行首 mention，例如：`@opus 请 review 这个改动`（或 `@opus\\n请 review...`，中间不要空行）。',
     );
-  }
-
-  if (context.reviewIdentityCheckFrom && context.reviewIdentityCheckFrom !== context.catId) {
-    lines.push(
-      `Review identity gate: 同族 reviewer 场景。首行必须是 "Identity Check: 我是 ${config.displayName}${config.nickname ? `/${config.nickname}` : ''} (@${context.catId}, model=${runtimeModel})"。`,
-    );
-    lines.push('若缺失或不匹配，本次 review 视为无效。');
   }
 
   // Teammates — only list cats actually in this invocation
