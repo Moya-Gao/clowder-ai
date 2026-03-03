@@ -7,12 +7,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { initCatCafeDir } from './utils/path-validator.js';
 import {
-  readFileInputSchema,
-  writeFileInputSchema,
-  listFilesInputSchema,
-  handleReadFile,
-  handleWriteFile,
-  handleListFiles,
   postMessageInputSchema,
   getPendingMentionsInputSchema,
   ackMentionsInputSchema,
@@ -56,38 +50,6 @@ export function createServer(): McpServer {
     version: '0.1.0',
   });
 
-  // 注册 read_file 工具
-  server.tool(
-    'read_file',
-    'Read the contents of a file. Only files within allowed directories can be read.',
-    readFileInputSchema,
-    async (args: { path: string }) => {
-      const result = await handleReadFile(args);
-      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
-    }
-  );
-
-  // 注册 write_file 工具
-  server.tool(
-    'write_file',
-    'Write content to a file. Creates parent directories if needed.',
-    writeFileInputSchema,
-    async (args: { path: string; content: string }) => {
-      const result = await handleWriteFile(args);
-      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
-    }
-  );
-
-  // 注册 list_files 工具
-  server.tool(
-    'list_files',
-    'List files in a directory. Only directories within allowed paths can be listed.',
-    listFilesInputSchema,
-    async (args: { path: string; recursive?: boolean }) => {
-      const result = await handleListFiles(args);
-      return { ...result } as { content: Array<{ type: 'text'; text: string }>; isError?: boolean; [key: string]: unknown };
-    }
-  );
   // 注册 MCP 回传工具 (三猫共享)
   server.tool(
     'cat_cafe_post_message',

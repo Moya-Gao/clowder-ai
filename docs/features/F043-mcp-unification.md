@@ -155,9 +155,9 @@ interface ListTasksInput {
 ## 验收标准
 
 - [ ] 27 tools 拆分到 3 个独立 MCP server
-- [ ] file tools 已移除，无功能回退
+- [x] file tools 已移除，无功能回退
 - [ ] F041 配置编排器能正确管理 3 个 server 的加载/卸载
-- [ ] P0 search_messages 可用 + 测试
+- [x] P0 search_messages 可用 + 测试
 - [x] P1 list_threads + feat_index 可用 + 测试
 - [ ] 现有工具回归测试全部通过
 - [ ] prompt 长度显著下降（按需加载 vs 全量注入）
@@ -221,3 +221,4 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-02: Phase A P1 `list_threads` 实作完成并合入 main（PR #156 / `2d36c89f`）
 - 2026-03-02: Phase A P1 契约拍板（`cat_cafe_list_threads` + `/api/callbacks/list-threads`，`activeSince` 分页，`messageCount` 暂为 `null`）
 - 2026-03-02: Phase A P1 `feat_index` 实作完成并合入 main（PR #160 / `c8d71be0`；`/api/callbacks/feat-index` + `cat_cafe_feat_index`，`featId` 精确匹配 + `query` 模糊匹配）
+- 2026-03-02: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（宿主 CLI 文件能力保留；server 拆分仍待 F041 后续）

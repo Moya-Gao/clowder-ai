@@ -12,10 +12,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const EXPECTED_TOOLS = [
-  // File tools
-  'read_file',
-  'write_file',
-  'list_files',
   // Callback tools (chat + task + ack)
   'cat_cafe_post_message',
   'cat_cafe_get_pending_mentions',
@@ -91,6 +87,16 @@ describe('MCP Server Tool Registration', () => {
 
     const checkTool = server._registeredTools['cat_cafe_check_permission_status'];
     assert.ok(checkTool, 'check_permission_status tool should exist');
+  });
+
+  test('deprecated file tools are not registered', async () => {
+    const { createServer } = await import('../dist/index.js');
+    const server = createServer();
+    const registeredNames = Object.keys(server._registeredTools);
+
+    assert.ok(!registeredNames.includes('read_file'));
+    assert.ok(!registeredNames.includes('write_file'));
+    assert.ok(!registeredNames.includes('list_files'));
   });
 
   test('src/index.ts stays under 350 lines (hard limit)', () => {

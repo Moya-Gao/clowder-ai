@@ -4,19 +4,6 @@
  */
 
 export {
-  type ToolResult,
-  errorResult,
-  successResult,
-  readFileInputSchema,
-  writeFileInputSchema,
-  listFilesInputSchema,
-  handleReadFile,
-  handleWriteFile,
-  handleListFiles,
-  fileTools,
-} from './file-tools.js';
-
-export {
   postMessageInputSchema,
   getPendingMentionsInputSchema,
   ackMentionsInputSchema,
