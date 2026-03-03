@@ -257,10 +257,10 @@ describe('cat-config-loader', () => {
       assert.equal(isSessionChainEnabled('unknown-cat', config), true);
     });
 
-    it('loads project config for gemini (sessionChain: false in cat-config.json)', () => {
+    it('F053: loads project config for gemini (sessionChain: true after parity fix)', () => {
       // Uses the actual project cat-config.json
       const config = loadCatConfig();
-      assert.equal(isSessionChainEnabled('gemini', config), false);
+      assert.equal(isSessionChainEnabled('gemini', config), true);
       assert.equal(isSessionChainEnabled('opus', config), true);
       assert.equal(isSessionChainEnabled('codex', config), true);
     });

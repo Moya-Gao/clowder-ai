@@ -908,8 +908,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
   });
 
   it('F24: falls back to totalTokens when inputTokens are unavailable (totalTokens-only provider)', async () => {
-    // Use codex (sessionChain enabled) to test totalTokens fallback path.
-    // Previously used gemini, but gemini now has sessionChain=false so context_health is suppressed.
+    // Use codex to test totalTokens fallback path.
+    // (F053: gemini now also has sessionChain=true, either cat would work here.)
     const service = {
       async *invoke() {
         yield {
@@ -1713,9 +1713,8 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'must use chain-bound cliSessionId even when sessionManager returns undefined');
   });
 
-  it('F24 toggle: gemini (sessionChain=false) skips SessionRecord creation and seal check', async () => {
+  it('F053: gemini (sessionChain=true after parity fix) creates SessionRecord and participates in chain', async () => {
     let sessionRecordCreated = false;
-    let sealChecked = false;
     let transcriptWritten = false;
 
     const service = {
@@ -1732,14 +1731,15 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       },
     };
 
+    const activeRecord = { id: 'sr1', seq: 0, status: 'active', catId: 'gemini' };
     const chainStore = {
       getChain: async () => [],
-      getActive: async () => null,
-      create: async () => { sessionRecordCreated = true; return { id: 'sr1', seq: 0, status: 'active', catId: 'gemini' }; },
+      getActive: async () => sessionRecordCreated ? activeRecord : null,
+      create: async () => { sessionRecordCreated = true; return activeRecord; },
       update: async () => null,
     };
     const sealer = {
-      requestSeal: async () => { sealChecked = true; return { accepted: false }; },
+      requestSeal: async () => ({ accepted: false }),
       finalize: async () => {},
     };
     const writer = {
@@ -1758,26 +1758,16 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       threadId: 'thread-toggle', isLastCat: true,
     }));
 
-    assert.equal(sessionRecordCreated, false, 'should NOT create SessionRecord when sessionChain disabled');
-    assert.equal(sealChecked, false, 'should NOT check seal when sessionChain disabled');
-    assert.equal(transcriptWritten, false, 'should NOT write transcript when sessionChain disabled');
+    // F053: Gemini now has sessionChain=true, so it participates fully
+    assert.equal(sessionRecordCreated, true, 'F053: Gemini SHOULD create SessionRecord now');
+    assert.equal(transcriptWritten, true, 'F053: Gemini SHOULD write transcript now');
 
-    // R1 P1: context_health system_info should NOT be emitted when sessionChain is disabled
+    // context_health system_info SHOULD be emitted now
     const contextHealthMsgs = msgs.filter(m =>
       m.type === 'system_info' && m.content && m.content.includes('context_health'),
     );
-    assert.equal(contextHealthMsgs.length, 0,
-      'should NOT emit context_health system_info when sessionChain disabled');
-
-    // sessionSeq should also not appear in session_started event
-    const sessionStartedMsgs = msgs.filter(m =>
-      m.type === 'system_info' && m.content && m.content.includes('session_started'),
-    );
-    for (const ssm of sessionStartedMsgs) {
-      const parsed = JSON.parse(ssm.content);
-      assert.equal(parsed.sessionSeq, undefined,
-        'session_started should NOT include sessionSeq when sessionChain disabled');
-    }
+    assert.ok(contextHealthMsgs.length > 0,
+      'F053: Gemini SHOULD emit context_health system_info now');
   });
 
   it('F24 toggle: opus (sessionChain=true by default) DOES create SessionRecord', async () => {
@@ -1882,7 +1872,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'F-BLOAT: original prompt should still be present');
   });
 
-  it('F-BLOAT P1: Gemini (sessionChain=false) always injects systemPrompt even on resume', async () => {
+  it('F053: Gemini (sessionChain=true) skips systemPrompt on resume like other cats', async () => {
     const promptsSeen = [];
     const service = {
       async *invoke(prompt, _options) {
@@ -1909,10 +1899,10 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       isLastCat: true,
     }));
 
-    // Even though sessionId exists (resume), Gemini has sessionChain=false
-    // so systemPrompt must ALWAYS be prepended (R1 P1 fix)
-    assert.ok(promptsSeen[0].includes('You are a Siamese cat'),
-      'F-BLOAT P1: Gemini must always get systemPrompt (sessionChain=false)');
+    // F053: Gemini now has sessionChain=true, so on resume it SKIPS
+    // systemPrompt injection (same as Claude/Codex)
+    assert.ok(!promptsSeen[0].includes('You are a Siamese cat'),
+      'F053: Gemini should skip systemPrompt on resume (sessionChain=true)');
   });
 
   it('F-BLOAT: compression detection flags re-injection when tokens drop >60%', async () => {

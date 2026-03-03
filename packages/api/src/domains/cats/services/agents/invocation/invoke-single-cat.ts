@@ -299,7 +299,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F-BLOAT: Only inject staticIdentity (systemPrompt) on new sessions for cats
     // that support persistent sessions (sessionChain=true).
-    // Cats with sessionChain=false (e.g. Gemini) always need it — each turn is effectively new.
+    // Cats with sessionChain=false always need it — each turn is effectively new.
+    // Note: As of F053, all cats (including Gemini) have sessionChain=true.
     // Exception: compression detected → force re-inject (see _needsReinjection)
     //
     // Injection method: prepend to prompt string (universal, all CLIs).

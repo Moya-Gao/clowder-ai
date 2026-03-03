@@ -8,11 +8,11 @@ updated: 2026-03-03
 
 # F053: Gemini Session/Resume 语义对齐
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 缅因猫
 > **Priority**: P1
 > **依赖**: F033（Session Chain 策略）
-> **Updated**: 2026-03-03（Phase A + Phase B.1/B.2 落地）
+> **Updated**: 2026-03-03（Phase A + Phase B 全部落地）
 
 ## 愿景
 
@@ -40,7 +40,7 @@ updated: 2026-03-03
 
 1. [x] **系统文档同步**：清理 active docs 中“Gemini 不支持 UUID resume”的陈旧描述并标注历史上下文。
 2. [x] **观测与告警**：补充 Gemini resume 失败分类（missing session / cli exit / auth）统计（`resume_failure_stats`）。
-3. [ ] **策略对齐**：将 Gemini 纳入和 Claude/Codex 一致的 session strategy 讨论（seal/rotate/retry 语义）。
+3. [x] **策略对齐**：将 Gemini 纳入和 Claude/Codex 一致的 session strategy（`sessionChain: true` 启用，系统提示词改为仅注入一次，session chain 记录正常创建）。
 
 ## Acceptance Criteria
 
@@ -56,7 +56,7 @@ updated: 2026-03-03
 |----|--------|---------|----------|------|
 | R1 | “Gemini 也要走 resume/session 概念” | AC-1, AC-3 | provider 行为 + 集成回归 | [x] |
 | R2 | “先拨乱反正，别再按错误前提实现” | AC-2, AC-4 | 单测 + 文档检查 | [x] |
-| R3 | “后续策略和另外两猫一致化” | AC-5 | 观测项 + strategy 讨论记录 | [ ] |
+| R3 | “后续策略和另外两猫一致化” | AC-5 | 观测项 + strategy 讨论记录 | [x] |
 
 ## Tradeoff
 
@@ -89,3 +89,4 @@ updated: 2026-03-03
 | 2026-03-03 | Gemini provider 改为在 `sessionId` 存在时使用 `--resume` |
 | 2026-03-03 | F053 立项，进入 Phase A/B 执行 |
 | 2026-03-03 | Phase B.1/B.2 落地：文档口径同步 + resume 失败分类统计上线 |
+| 2026-03-03 | Phase B.3 落地：`sessionChain: true` 启用，系统提示词注入策略与 Claude/Codex 对齐 |

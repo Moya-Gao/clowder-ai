@@ -188,7 +188,7 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
   ].join('\n'),
   siamese: [
     '## 工作流（主动 @ 触发点）',
-    '- 完成设计/视觉资产 → @布偶猫 + @缅因猫 请确认',
+    '- 完成设计/视觉资产 → 分别 @布偶猫 和 @缅因猫 请确认（每只猫各占一行）',
     '- 遇到技术实现问题 → @布偶猫 征询',
   ].join('\n'),
 };
@@ -282,7 +282,7 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
       lines.push(`同族多分身时：默认 \`@显示名\`，其它用**唯一句柄**（例如 \`${example}\`）。`);
       lines.push(`同名队友并存时，请优先使用唯一句柄（例如 \`${example}\`）避免歧义。`);
     }
-    lines.push('格式：另起一行，在行首写 @猫名（行中间的 @ 无效）。');
+    lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行）。');
     lines.push(`✅ 正确：另起一行 ${exampleTarget}`);
     lines.push(`❌ 错误：怎么样 ${exampleTarget}？ ← 行中间无效`);
     lines.push('');
