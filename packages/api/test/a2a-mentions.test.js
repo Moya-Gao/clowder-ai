@@ -45,6 +45,12 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, []);
   });
 
+  it('does NOT route on action keyword substring collisions (prefix should not match fix)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = parseA2AMentions('@布偶猫 prefix typo', 'codex');
+    assert.deepEqual(result, []);
+  });
+
   it('does NOT trigger for non-line-start @mention', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('之前布偶猫说的 @布偶猫 方案不错', 'codex');

@@ -25,7 +25,9 @@ const TOKEN_BOUNDARY_RE = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】�
 // If the next char looks like part of a handle token, treat it as NOT a boundary.
 // This avoids prefix-matching `@opus-45` as `@opus`, while still allowing `@opus请看`.
 const HANDLE_CONTINUATION_RE = /[a-z0-9_.-]/;
-const ACTION_KEYWORDS = ['review', '确认', '处理', '修复', '请', '帮', '决策', '看一下', 'check', 'fix', 'merge'] as const;
+const CJK_ACTION_KEYWORDS = ['确认', '处理', '修复', '请', '帮', '决策', '看一下'] as const;
+const ASCII_ACTION_KEYWORDS = ['review', 'check', 'fix', 'merge'] as const;
+const ASCII_TOKEN_CHAR_RE = /[a-z0-9_]/;
 
 interface MentionPatternEntry {
   readonly catId: CatId;
@@ -102,5 +104,23 @@ function getParagraph(lines: readonly string[], lineIndex: number): string {
 }
 
 function hasActionability(paragraph: string): boolean {
-  return ACTION_KEYWORDS.some((kw) => paragraph.includes(kw));
+  if (CJK_ACTION_KEYWORDS.some((kw) => paragraph.includes(kw))) {
+    return true;
+  }
+  return ASCII_ACTION_KEYWORDS.some((kw) => containsAsciiToken(paragraph, kw));
+}
+
+function containsAsciiToken(text: string, token: string): boolean {
+  let index = text.indexOf(token);
+  while (index !== -1) {
+    const before = index > 0 ? text[index - 1] : '';
+    const after = text[index + token.length] ?? '';
+    const beforeBoundary = !before || !ASCII_TOKEN_CHAR_RE.test(before);
+    const afterBoundary = !after || !ASCII_TOKEN_CHAR_RE.test(after);
+    if (beforeBoundary && afterBoundary) {
+      return true;
+    }
+    index = text.indexOf(token, index + 1);
+  }
+  return false;
 }
