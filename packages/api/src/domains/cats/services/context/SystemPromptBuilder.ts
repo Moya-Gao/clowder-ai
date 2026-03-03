@@ -150,7 +150,8 @@ const PROVIDER_LABELS: Record<string, string> = {
  * Full specs live in cat-cafe-skills/refs/ (rich-blocks.md, mcp-callbacks.md).
  */
 const MCP_TOOLS_SECTION = `
-⚠️ @队友：回复里另起一行，行首写 \`@猫名\`（免费）。
+⚠️ @队友：回复里另起一行，行首写 \`@猫名\`，并在同一段写明确动作请求（免费）。
+动作词不限 coding：例如 \`请确认/请处理/请决策/请看一下\`。
 MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_post_message: 异步消息
 - cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
@@ -286,8 +287,8 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
       lines.push(`同族多分身时：默认 \`@显示名\`，其它用**唯一句柄**（例如 \`${example}\`）。`);
       lines.push(`同名队友并存时，请优先使用唯一句柄（例如 \`${example}\`）避免歧义。`);
     }
-    lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行）。');
-    lines.push(`✅ 正确：另起一行 ${exampleTarget}`);
+    lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行），并在同一段写动作请求。');
+    lines.push(`✅ 正确：另起一行 ${exampleTarget} 请确认这个安排`);
     lines.push(`❌ 错误：怎么样 ${exampleTarget}？ ← 行中间无效`);
     lines.push('');
   }
