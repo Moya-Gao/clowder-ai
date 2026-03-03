@@ -43,7 +43,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Merged（Done） | 已嵌入 feat-kickoff 模板 |
 | B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Merged（Done） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
 | B5 | ≥10 条对话场景回归测试 | 📋 Spec | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
-| B6 | 同族 reviewer identity check gate | ✅ Merged（Done） | ← F042 Wave 3 毕业：流程执行守护门禁 |
+| B6 | 同族 reviewer identity check gate | ✅ Merged → **Phase D 将移除** | ← F042 Wave 3 毕业：流程执行守护门禁。根因是 resume bug 非模型混淆，格式校验≠身份验证，且 `(@catId)` 模板加剧 @ 惯性污染（见 D4） |
 
 ### 待开发（Phase D — @ 路由卫生 Mention Routing Hygiene）
 
@@ -102,7 +102,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | **上下文惯性** | 元信息里大量 `@xxx` 污染补全模式 | prompt 规则被惯性覆盖 |
 | **机制缺失** | 路由层不检查 actionability，只检查格式匹配 | 废话也被路由成 agent 调用 |
 
-#### D.3 实施方案（三个 item）
+#### D.3 实施方案（四个 item）
 
 **D1: Actionability Gate（可路由门禁）**
 
@@ -118,6 +118,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - **改哪些元信息**：
   - `最近活跃：@opus` → `最近活跃：布偶猫(opus)`
   - `Direct message from @xxx; reply to @xxx` → `Direct message from 布偶猫(opus); reply to 布偶猫(opus)`
+  - B6 identity check 模板中的 `(@${context.catId})` — 由 D4 整体移除，此处不需单独处理
   - 其他注入到上下文的 `@handle` 模式
 - **目标**：把上下文里的 @ 模式密度从每条消息 2-3 个降到接近 0，让模型不再把 @ 当成"名字格式"的补全模式
 - **不改什么**：WORKFLOW_TRIGGERS 里的 `@布偶猫` 保留（那是教猫"什么时候该 @"的教学内容，不是补全污染源）
@@ -129,6 +130,23 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
   > "你上一条消息里的 @xxx 未被路由（未检测到行动请求）。如需联系对方，请明确说明需要对方做什么，例如：'请 review 这个改动\n@opus'"
 - **目的**：避免矫枉过正。猫收到反馈后知道自己的 @ 没生效，可以修正写法——而不是"怎么 @ 了没人理我"然后再 @ 十遍
 - **不要做**：不要弹窗式阻断，不要强制改写。只是提示性反馈
+
+**D4: Remove B6 Identity Check Gate（移除同族身份校验）**
+
+- **删什么**：
+  - `packages/api/src/domains/cats/services/collaboration/review-identity-gate.ts` — 整个文件删除
+  - `packages/api/test/review-identity-gate.test.js` — 对应测试删除
+  - `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` — 删除 `reviewIdentityCheckFrom` 相关逻辑（L46-50 类型声明 + L346-351 prompt 注入）
+  - `packages/api/src/domains/cats/services/agents/routing/route-serial.ts` — 删除 `reviewIdentityCheckFrom` 读写逻辑（L122-125, L375-380, L471-486）
+  - `packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts` — 删除 `reviewIdentityCheckFrom` 字段（L39, L61）
+  - `packages/api/test/system-prompt-builder.test.js` — 删除 identity check 相关测试用例
+  - `packages/api/test/route-serial-review-identity-propagation.test.js` — 整个测试文件删除
+- **为什么删**：
+  1. **根因已修**：gpt52/codex 身份混淆的根因是 resume 给错了 session，不是模型自己搞不清。resume bug 修复后再未复现
+  2. **格式校验 ≠ 身份验证**：如果模型真混淆了身份，它照样能"自信地"输出错误的 Identity Check 行。验格式无法验身份
+  3. **@ 污染源**：模板 `(@${context.catId}, model=...)` 在上下文中注入 `@xxx` 模式，加剧 D2 要治的补全惯性
+  4. **浪费 token**：每次同族 review 多一行输出 + prompt 注入，零防御价值
+- **不留降级方案**：不需要。如果未来真出现身份混淆，应在 resume/session 层做校验（确保 resume 的 session 和 catId 匹配），而不是靠模型自证
 
 #### D.4 不做什么
 
@@ -146,7 +164,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 3. 布偶猫的正常 @ 行为不受影响
 4. 铲屎官的 @ 不受门禁影响
 5. SystemPromptBuilder 输出中不含 `@handle` 格式的元信息（WORKFLOW_TRIGGERS 教学内容除外）
-6. 有对应的单元测试覆盖 D1/D2/D3
+6. B6 identity check 相关代码和测试全部移除，同族 review 不再要求首行 Identity Check
+7. 有对应的单元测试覆盖 D1/D2/D3/D4
 
 #### D.6 关键代码文件
 
@@ -154,9 +173,13 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 |------|------|
 | `packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts` | D1: actionability 检测逻辑 |
 | `packages/api/src/domains/cats/services/agents/routing/route-serial.ts` | D3: 无动作 @ 反馈注入 |
-| `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | D2: 元信息去 @ 前缀 |
+| `packages/api/src/domains/cats/services/context/SystemPromptBuilder.ts` | D2: 元信息去 @ 前缀 + D4: 删 reviewIdentityCheckFrom |
+| `packages/api/src/domains/cats/services/collaboration/review-identity-gate.ts` | D4: 整个文件删除 |
+| `packages/api/src/domains/cats/services/agents/routing/WorklistRegistry.ts` | D4: 删 reviewIdentityCheckFrom 字段 |
 | `packages/api/test/a2a-mentions.test.js` | D1 测试 |
-| `packages/api/test/system-prompt-builder.test.js` | D2 测试（size guard + 内容校验） |
+| `packages/api/test/system-prompt-builder.test.js` | D2 测试（size guard + 内容校验）+ D4 删 identity check 用例 |
+| `packages/api/test/review-identity-gate.test.js` | D4: 整个文件删除 |
+| `packages/api/test/route-serial-review-identity-propagation.test.js` | D4: 整个文件删除 |
 
 #### D.7 参考资料
 
@@ -174,6 +197,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | 📋 Spec | 详见 D.3 |
 | D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | 📋 Spec | 详见 D.3 |
 | D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | 📋 Spec | 详见 D.3 |
+| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | 📋 Spec | 详见 D.3 |
 
 ### 明确不做（Phase C）
 
@@ -195,10 +219,11 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] 需求点 checklist 格式嵌入开发模板（B3）
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
 - [ ] ≥10 条对话场景回归测试就位（B5）
-- [x] 同族 reviewer identity check gate 落地（B6）
+- [x] 同族 reviewer identity check gate 落地（B6）— **Phase D 将移除（D4）**
 - [ ] @ + 动作词才触发路由，无动作词不路由（D1）
 - [ ] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
 - [ ] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
+- [ ] B6 identity check 代码和测试全部移除（D4）
 
 ## Links
 
