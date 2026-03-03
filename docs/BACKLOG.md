@@ -29,4 +29,5 @@ created: 2026-02-26
 | F050 | External Agent Onboarding — A2A/CLI 接入契约 | spec | 三猫 | [F050](features/F050-a2a-external-agent-onboarding.md) |
 | F051 | 真实猫粮看板 — Real Quota Dashboard | in-progress | 缅因猫 | [F051](features/F051-real-quota-dashboard.md) |
 | F052 | 跨线程身份隔离与消息溯源 | spec | 布偶猫 | [F052](features/F052-cross-thread-identity-isolation.md) |
+| F053 | Gemini Session/Resume 语义对齐 | in-progress | 缅因猫 | [F053](features/F053-gemini-resume-session-parity.md) |
 <!-- F042 (提示词工程审计与优化) → done 2026-03-02, 剩余项毕业到 F043/F046/F049 -->

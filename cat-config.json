@@ -265,7 +265,7 @@
         {
           "id": "gemini-default",
           "provider": "google",
-          "defaultModel": "gemini-3-pro",
+          "defaultModel": "gemini-3.1-pro-preview",
           "mcpSupport": true,
           "cli": {
             "command": "gemini",

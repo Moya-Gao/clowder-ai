@@ -114,6 +114,24 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.ok(args.includes('-y'));
   });
 
+  test('passes --resume when sessionId is provided', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const promise = collect(service.invoke('resume prompt', { sessionId: 'sid-uuid-1234' }));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'sid-uuid-1234', model: 'auto' },
+    ]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args[0], '--resume');
+    assert.equal(args[1], 'sid-uuid-1234');
+    assert.ok(args.includes('-p'));
+    assert.ok(args.includes('resume prompt'));
+  });
+
   test('passes callbackEnv as env', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);

@@ -23,6 +23,7 @@ export const CONTEXT_WINDOW_SIZES: Record<string, number> = {
   'gemini-2.5-pro': 1_000_000,
   'gemini-2.5-flash': 1_000_000,
   'gemini-3-pro': 1_000_000,
+  'gemini-3.1-pro-preview': 1_000_000,
 };
 
 export function getContextWindowFallback(model: string): number | undefined {

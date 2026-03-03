@@ -104,12 +104,13 @@ export class GeminiAgentService implements AgentService {
     // and include image directories for tool access.
     effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
 
-    // Note: gemini CLI --resume accepts index number or "latest", not UUID.
-    // e.g. `gemini --resume 5` or `gemini --resume latest`
-    // `gemini --list-sessions` shows UUIDs but --resume doesn't accept them.
-    // Multi-session index instability makes this unreliable for programmatic use.
-    // Context history is provided via prompt prepend (ContextAssembler) instead.
-    const args: string[] = ['-p', effectivePrompt, '-o', 'stream-json', '-y'];
+    // Gemini CLI supports UUID session resume in headless mode:
+    //   gemini --resume <sessionId> -p "<prompt>" -o stream-json
+    // Prefer resume when sessionId is available so Gemini follows the same
+    // session semantics as Claude/Codex (session-chain + self-heal).
+    const args: string[] = options?.sessionId
+      ? ['--resume', options.sessionId, '-p', effectivePrompt, '-o', 'stream-json', '-y']
+      : ['-p', effectivePrompt, '-o', 'stream-json', '-y'];
     for (const dir of imageAccessDirs) {
       args.push('--include-directories', dir);
     }
