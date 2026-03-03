@@ -70,15 +70,24 @@ mkdir -p "$TARGET_DIR/docs/decisions"
 cp "$SOURCE_DIR/docs/decisions/001-agent-invocation-approach.md" "$TARGET_DIR/docs/decisions/"
 echo "  ✓ docs/decisions/001-agent-invocation-approach.md"
 
-# 3b. 复制知识工程白皮书（第十课参考资料）
+# 3b. 复制知识工程白皮书（第十课参考资料，只同步最终版）
 KE_SRC="$SOURCE_DIR/docs/research/knowledge-enginnering"
 KE_DST="$TARGET_DIR/docs/research/knowledge-enginnering"
 if [ -d "$KE_SRC" ]; then
     mkdir -p "$KE_DST/figures"
-    for f in "$KE_SRC/"*.md; do
-        filename=$(basename "$f")
-        cp "$f" "$KE_DST/"
-        echo "  ✓ docs/research/knowledge-enginnering/$filename"
+    # 只同步最终版白皮书 + 配套文件，排除重复的中文草稿版
+    KE_FILES=(
+        "knowledge-engineering-skills-mcp.md"   # 最终版白皮书
+        "templates.md"                          # 可复用模板
+        "figures.md"                            # 图表说明
+        "ragdoll-to-gpt-pro-proposal.md"        # 跨猫提案
+        "ragdool-to-gpt-pro-review.md"          # GPT-5.2 review
+    )
+    for filename in "${KE_FILES[@]}"; do
+        if [ -f "$KE_SRC/$filename" ]; then
+            cp "$KE_SRC/$filename" "$KE_DST/"
+            echo "  ✓ docs/research/knowledge-enginnering/$filename"
+        fi
     done
     # 复制 SVG 图表
     for f in "$KE_SRC/figures/"*.svg; do
