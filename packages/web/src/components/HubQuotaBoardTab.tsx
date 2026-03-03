@@ -16,7 +16,7 @@ import {
 /** How often to poll GET /api/quota while the tab is mounted (ms) */
 export const POLL_INTERVAL_MS = 30_000;
 export const RESTART_WARNING_TEXT =
-  '将尝试重启 Chrome 以开启官方额度抓取所需的 CDP（9222）。未保存页面可能受影响，是否继续？';
+  '将启动隔离浏览器窗口用于官方额度抓取（不会关闭你当前 Chrome）。首次使用请先在该窗口登录 OpenAI/Claude，是否继续？';
 
 export function shouldPromptBeforeOfficialRefresh({
   isFirstAttempt,
@@ -27,7 +27,7 @@ export function shouldPromptBeforeOfficialRefresh({
 }): boolean {
   if (isFirstAttempt) return true;
   if (!guidanceText) return false;
-  return /QUOTA_BROWSER_CDP_URL|remote-debugging-port=9222/i.test(guidanceText);
+  return /QUOTA_BROWSER_CDP_URL|remote-debugging-port=\d+/i.test(guidanceText);
 }
 
 export function HubQuotaBoardTab() {

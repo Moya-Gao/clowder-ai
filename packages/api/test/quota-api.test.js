@@ -354,6 +354,30 @@ describe('POST /api/quota/refresh/official', () => {
 });
 
 describe('CDP URL resolution', () => {
+  it('isolated mode does not probe legacy localhost:9222 CDP by default', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const probes = [];
+    const mockFetch = async (input) => {
+      const url = String(input);
+      probes.push(url);
+      if (url === 'http://127.0.0.1:9222/json/version') {
+        return new Response(JSON.stringify({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/1' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      throw new Error('ECONNREFUSED');
+    };
+    const result = await resolveBrowserCdpUrl(undefined, {
+      fetchLike: mockFetch,
+      autoStartOnMissing: false,
+      mode: 'isolated',
+      isolatedPort: 9224,
+    });
+    assert.equal('error' in result, true);
+    assert.equal(probes.some((url) => url === 'http://127.0.0.1:9222/json/version'), false);
+  });
+
   it('returns explicit env URL when it is localhost', async () => {
     const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
     const result = await resolveBrowserCdpUrl('http://127.0.0.1:9222');
@@ -375,7 +399,7 @@ describe('CDP URL resolution', () => {
       }
       return new Response('', { status: 404 });
     };
-    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch });
+    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch, mode: 'existing' });
     assert.equal('url' in result, true);
     if ('url' in result) {
       assert.equal(result.url, 'http://127.0.0.1:9222');
@@ -390,7 +414,7 @@ describe('CDP URL resolution', () => {
     const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch });
     assert.equal('error' in result, true);
     if ('error' in result) {
-      assert.match(result.error, /--remote-debugging-port=9222/);
+      assert.match(result.error, /--remote-debugging-port=\d+/);
     }
   });
 
@@ -412,6 +436,7 @@ describe('CDP URL resolution', () => {
     };
     const result = await resolveBrowserCdpUrl(undefined, {
       fetchLike: mockFetch,
+      isolatedPort: 9222,
       autoStartOnMissing: true,
       launchChrome: async (port) => {
         launchCalls += 1;
@@ -428,7 +453,35 @@ describe('CDP URL resolution', () => {
     }
   });
 
-  it('restarts Chrome when auto-start cannot expose CDP endpoint', async () => {
+  it('does not restart Chrome by default when auto-start cannot expose CDP endpoint', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    let launchCalls = 0;
+    let restartCalls = 0;
+    const mockFetch = async () => {
+      throw new Error('ECONNREFUSED');
+    };
+
+    const result = await resolveBrowserCdpUrl(undefined, {
+      fetchLike: mockFetch,
+      isolatedPort: 9222,
+      autoStartOnMissing: true,
+      launchChrome: async (port) => {
+        launchCalls += 1;
+        assert.equal(port, 9222);
+      },
+      restartChrome: async () => {
+        restartCalls += 1;
+      },
+      sleep: async () => {},
+      retryCount: 1,
+    });
+
+    assert.equal(launchCalls, 1);
+    assert.equal(restartCalls, 0);
+    assert.equal('error' in result, true);
+  });
+
+  it('restarts Chrome only when explicit opt-in is enabled', async () => {
     const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
     let endpointReady = false;
     let launchCalls = 0;
@@ -448,6 +501,7 @@ describe('CDP URL resolution', () => {
 
     const result = await resolveBrowserCdpUrl(undefined, {
       fetchLike: mockFetch,
+      isolatedPort: 9222,
       autoStartOnMissing: true,
       autoRestartOnUnavailable: true,
       launchChrome: async (port) => {
@@ -474,6 +528,7 @@ describe('CDP URL resolution', () => {
   it('returns actionable error when restart attempt fails', async () => {
     const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
     const result = await resolveBrowserCdpUrl(undefined, {
+      isolatedPort: 9222,
       autoStartOnMissing: true,
       autoRestartOnUnavailable: true,
       fetchLike: async () => {
@@ -489,13 +544,14 @@ describe('CDP URL resolution', () => {
     assert.equal('error' in result, true);
     if ('error' in result) {
       assert.match(result.error, /auto-start and restart Chrome/);
-      assert.match(result.error, /--remote-debugging-port=9222/);
+      assert.match(result.error, /--remote-debugging-port=\d+/);
     }
   });
 
   it('returns actionable error when auto-start attempt fails', async () => {
     const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
     const result = await resolveBrowserCdpUrl(undefined, {
+      isolatedPort: 9222,
       autoStartOnMissing: true,
       fetchLike: async () => {
         throw new Error('ECONNREFUSED');
@@ -508,8 +564,8 @@ describe('CDP URL resolution', () => {
     });
     assert.equal('error' in result, true);
     if ('error' in result) {
-      assert.match(result.error, /auto-start Chrome/);
-      assert.match(result.error, /--remote-debugging-port=9222/);
+      assert.match(result.error, /auto-start isolated Chrome/);
+      assert.match(result.error, /--remote-debugging-port=\d+/);
     }
   });
 });

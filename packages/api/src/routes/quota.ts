@@ -10,6 +10,9 @@
  */
 
 import { execFile } from 'node:child_process';
+import { mkdir } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyInstance } from 'fastify';
 import puppeteer from 'puppeteer';
@@ -97,9 +100,13 @@ const ANTIGRAVITY: AntigravityQuota = {
 };
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
+const BROWSER_MODE_ENV = 'QUOTA_BROWSER_MODE';
+const BROWSER_CDP_PORT_ENV = 'QUOTA_BROWSER_CDP_PORT';
+const BROWSER_PROFILE_DIR_ENV = 'QUOTA_BROWSER_PROFILE_DIR';
+const BROWSER_HEADLESS_ENV = 'QUOTA_BROWSER_HEADLESS';
 const AUTO_START_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_START';
 const AUTO_RESTART_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_RESTART';
-const LOCAL_CDP_CANDIDATES = [
+const LEGACY_LOCAL_CDP_CANDIDATES = [
   'http://127.0.0.1:9222',
   'http://localhost:9222',
   'http://127.0.0.1:9223',
@@ -107,8 +114,31 @@ const LOCAL_CDP_CANDIDATES = [
   'http://127.0.0.1:9333',
   'http://localhost:9333',
 ] as const;
-const DEFAULT_CDP_PORT = 9222;
-const DEFAULT_CDP_URL = `http://127.0.0.1:${DEFAULT_CDP_PORT}`;
+const DEFAULT_ISOLATED_CDP_PORT = 9224;
+const DEFAULT_BROWSER_MODE = 'isolated';
+
+type BrowserMode = 'isolated' | 'existing';
+
+function resolveBrowserMode(raw: string | undefined): BrowserMode {
+  if (raw === 'existing') return 'existing';
+  return 'isolated';
+}
+
+function resolveCdpPort(raw: string | undefined): number {
+  const value = Number.parseInt(raw ?? '', 10);
+  if (!Number.isFinite(value)) return DEFAULT_ISOLATED_CDP_PORT;
+  if (value < 1024 || value > 65535) return DEFAULT_ISOLATED_CDP_PORT;
+  return value;
+}
+
+function buildBrowserBaseUrl(port: number): string {
+  return `http://127.0.0.1:${port}`;
+}
+
+function buildProfileDir(raw: string | undefined): string {
+  if (raw && raw.trim()) return raw.trim();
+  return join(homedir(), '.cat-cafe', 'quota-browser-profile');
+}
 
 function parsePercentLine(line: string): number | null {
   const match = line.match(/(\d{1,3})\s*%/);
@@ -201,6 +231,30 @@ export function parseClaudeUsageFromPageText(pageText: string): CodexUsageItem[]
   return items;
 }
 
+class OfficialLoginRequiredError extends Error {
+  constructor(hostname: string) {
+    super(
+      `官方额度浏览器尚未登录 ${hostname}。请在弹出的隔离浏览器窗口完成登录后，再点击“获取官方额度”。`,
+    );
+    this.name = 'OfficialLoginRequiredError';
+  }
+}
+
+function looksLikeLoginPage(targetUrl: string, currentUrl: string, title: string, bodyText: string): boolean {
+  const current = currentUrl.toLowerCase();
+  if (current.includes('/login') || current.includes('/signin') || current.includes('/auth')) return true;
+  if (/sign in|log in|登录|authenticate|verification/i.test(title)) return true;
+  if (/sign in|log in|继续|continue with|验证码|verification code|账户/i.test(bodyText.slice(0, 5000))) {
+    return true;
+  }
+  const targetHost = new URL(targetUrl).hostname;
+  const currentHost = new URL(currentUrl).hostname;
+  if (targetHost !== currentHost && (currentHost.includes('auth') || currentHost.includes('login'))) {
+    return true;
+  }
+  return false;
+}
+
 async function readPageTextFromConnectedChrome(browserURL: string, url: string): Promise<string> {
   const browser = await puppeteer.connect({ browserURL });
   try {
@@ -210,9 +264,13 @@ async function readPageTextFromConnectedChrome(browserURL: string, url: string):
     if (/just a moment/i.test(title)) {
       throw new Error(`Cloudflare challenge blocked ${url}`);
     }
+    const currentUrl = page.url();
     const bodyText = await page.evaluate(
       () => (globalThis as { document?: { body?: { innerText?: string } } }).document?.body?.innerText ?? '',
     );
+    if (looksLikeLoginPage(url, currentUrl, title, bodyText)) {
+      throw new OfficialLoginRequiredError(new URL(url).hostname);
+    }
     await page.close();
     return bodyText;
   } finally {
@@ -231,11 +289,20 @@ function isAllowedBrowserCdpUrl(browserURL: string): boolean {
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 type SleepLike = (ms: number) => Promise<void>;
-type LaunchChromeLike = (port: number) => Promise<void>;
-type RestartChromeLike = (port: number, sleep: SleepLike) => Promise<void>;
+interface LaunchChromeConfig {
+  profileDir: string;
+  headless: boolean;
+  mode: BrowserMode;
+}
+type LaunchChromeLike = (port: number, config: LaunchChromeConfig) => Promise<void>;
+type RestartChromeLike = (port: number, sleep: SleepLike, config: LaunchChromeConfig) => Promise<void>;
 
 export interface ResolveBrowserCdpUrlOptions {
   fetchLike?: FetchLike;
+  mode?: BrowserMode;
+  isolatedPort?: number;
+  profileDir?: string;
+  headless?: boolean;
   autoStartOnMissing?: boolean;
   autoRestartOnUnavailable?: boolean;
   launchChrome?: LaunchChromeLike;
@@ -249,16 +316,31 @@ function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function autoStartChromeWithCdp(port: number): Promise<void> {
+const QUOTA_LOGIN_URLS = ['https://chatgpt.com/codex/settings/usage', 'https://claude.ai/settings/usage'] as const;
+
+async function autoStartChromeWithCdp(port: number, config: LaunchChromeConfig): Promise<void> {
   if (process.platform !== 'darwin') {
     throw new Error('auto-start via open command is only supported on macOS');
   }
-  await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
+  await mkdir(config.profileDir, { recursive: true });
+  const args = ['-na', 'Google Chrome', ...QUOTA_LOGIN_URLS, '--args', `--remote-debugging-port=${port}`];
+  if (config.mode === 'isolated') {
+    args.push(`--user-data-dir=${config.profileDir}`, '--no-first-run', '--no-default-browser-check');
+  }
+  if (config.headless) {
+    args.push('--headless=new');
+  }
+  await execFileAsync('open', args, {
     timeout: 8_000,
   });
 }
 
-async function restartChromeWithCdp(port: number, sleep: SleepLike): Promise<void> {
+async function restartChromeWithCdp(port: number, sleep: SleepLike, config: LaunchChromeConfig): Promise<void> {
+  if (config.mode === 'isolated') {
+    // Isolated mode should never quit user's running Chrome session.
+    await autoStartChromeWithCdp(port, config);
+    return;
+  }
   if (process.platform !== 'darwin') {
     throw new Error('auto-restart via open command is only supported on macOS');
   }
@@ -270,6 +352,19 @@ async function restartChromeWithCdp(port: number, sleep: SleepLike): Promise<voi
   await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
     timeout: 8_000,
   });
+}
+
+function buildCdpCandidates(mode: BrowserMode, isolatedPort: number): string[] {
+  const isolatedCandidates = [buildBrowserBaseUrl(isolatedPort), `http://localhost:${isolatedPort}`];
+  if (mode === 'isolated') return isolatedCandidates;
+  return [...isolatedCandidates, ...LEGACY_LOCAL_CDP_CANDIDATES];
+}
+
+function buildManualStartHint(mode: BrowserMode, port: number, profileDir: string): string {
+  if (mode === 'isolated') {
+    return `Start isolated Chrome with --remote-debugging-port=${port} and --user-data-dir=\"${profileDir}\", then retry.`;
+  }
+  return `Start Chrome with --remote-debugging-port=${port}, then retry.`;
 }
 
 async function hasCdpEndpoint(browserBaseUrl: string, fetchLike: FetchLike): Promise<boolean> {
@@ -291,6 +386,16 @@ export async function resolveBrowserCdpUrl(
   options: ResolveBrowserCdpUrlOptions = {},
 ): Promise<{ url: string } | { error: string }> {
   const fetchLike = options.fetchLike ?? globalThis.fetch.bind(globalThis);
+  const mode = options.mode ?? DEFAULT_BROWSER_MODE;
+  const isolatedPort = options.isolatedPort ?? DEFAULT_ISOLATED_CDP_PORT;
+  const profileDir = options.profileDir ?? buildProfileDir(undefined);
+  const launchConfig: LaunchChromeConfig = {
+    profileDir,
+    headless: options.headless ?? false,
+    mode,
+  };
+  const isolatedBrowserBaseUrl = buildBrowserBaseUrl(isolatedPort);
+  const manualStartHint = buildManualStartHint(mode, isolatedPort, profileDir);
   if (explicitUrl) {
     if (!isAllowedBrowserCdpUrl(explicitUrl)) {
       return {
@@ -300,7 +405,7 @@ export async function resolveBrowserCdpUrl(
     return { url: explicitUrl };
   }
 
-  for (const candidate of LOCAL_CDP_CANDIDATES) {
+  for (const candidate of buildCdpCandidates(mode, isolatedPort)) {
     if (await hasCdpEndpoint(candidate, fetchLike)) {
       return { url: candidate };
     }
@@ -308,28 +413,28 @@ export async function resolveBrowserCdpUrl(
 
   if (!options.autoStartOnMissing) {
     return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. ${manualStartHint}`,
     };
   }
 
   const launchChrome = options.launchChrome ?? autoStartChromeWithCdp;
   const sleep = options.sleep ?? sleepMs;
-  const autoRestartOnUnavailable = options.autoRestartOnUnavailable ?? true;
+  const autoRestartOnUnavailable = options.autoRestartOnUnavailable ?? false;
   const restartChrome = options.restartChrome ?? restartChromeWithCdp;
   const retryCount = options.retryCount ?? 6;
   const retryIntervalMs = options.retryIntervalMs ?? 400;
   try {
-    await launchChrome(DEFAULT_CDP_PORT);
+    await launchChrome(isolatedPort, launchConfig);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome but failed: ${reason}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start isolated Chrome but failed: ${reason}. ${manualStartHint}`,
     };
   }
 
   for (let i = 0; i < retryCount; i += 1) {
-    if (await hasCdpEndpoint(DEFAULT_CDP_URL, fetchLike)) {
-      return { url: DEFAULT_CDP_URL };
+    if (await hasCdpEndpoint(isolatedBrowserBaseUrl, fetchLike)) {
+      return { url: isolatedBrowserBaseUrl };
     }
     if (i < retryCount - 1) {
       await sleep(retryIntervalMs);
@@ -338,22 +443,22 @@ export async function resolveBrowserCdpUrl(
 
   if (!autoRestartOnUnavailable) {
     return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome, but CDP endpoint is still unavailable. If Chrome is already running, restart it with --remote-debugging-port=9222, then retry.`,
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start isolated Chrome, but CDP endpoint is still unavailable. ${manualStartHint}`,
     };
   }
 
   try {
-    await restartChrome(DEFAULT_CDP_PORT, sleep);
+    await restartChrome(isolatedPort, sleep, launchConfig);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome but failed during restart: ${reason}. Restart Chrome with --remote-debugging-port=9222, then retry.`,
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome but failed during restart: ${reason}. ${manualStartHint}`,
     };
   }
 
   for (let i = 0; i < retryCount; i += 1) {
-    if (await hasCdpEndpoint(DEFAULT_CDP_URL, fetchLike)) {
-      return { url: DEFAULT_CDP_URL };
+    if (await hasCdpEndpoint(isolatedBrowserBaseUrl, fetchLike)) {
+      return { url: isolatedBrowserBaseUrl };
     }
     if (i < retryCount - 1) {
       await sleep(retryIntervalMs);
@@ -361,7 +466,7 @@ export async function resolveBrowserCdpUrl(
   }
 
   return {
-    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome, but CDP endpoint is still unavailable. Restart Chrome with --remote-debugging-port=9222, then retry.`,
+    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome, but CDP endpoint is still unavailable. ${manualStartHint}`,
   };
 }
 
@@ -403,9 +508,18 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
 
   // POST: refresh official usage pages once (manual click)
   app.post('/api/quota/refresh/official', async (_request, reply) => {
+    const browserMode = resolveBrowserMode(process.env[BROWSER_MODE_ENV]);
+    const cdpPort = resolveCdpPort(process.env[BROWSER_CDP_PORT_ENV]);
+    const profileDir = buildProfileDir(process.env[BROWSER_PROFILE_DIR_ENV]);
+    const headless = process.env[BROWSER_HEADLESS_ENV] === '1';
     const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV], {
       autoStartOnMissing: process.env[AUTO_START_BROWSER_ENV] !== '0',
-      autoRestartOnUnavailable: process.env[AUTO_RESTART_BROWSER_ENV] !== '0',
+      // Restart is dangerous and opt-in only.
+      autoRestartOnUnavailable: process.env[AUTO_RESTART_BROWSER_ENV] === '1',
+      mode: browserMode,
+      isolatedPort: cdpPort,
+      profileDir,
+      headless,
     });
     if ('error' in resolved) {
       const message = resolved.error;
@@ -461,6 +575,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      const statusCode = error instanceof OfficialLoginRequiredError ? 409 : 502;
       codexCache = {
         ...codexCache,
         error: `official fetch failed: ${message}`,
@@ -471,7 +586,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
         error: `official fetch failed: ${message}`,
         lastChecked: new Date().toISOString(),
       };
-      return reply.status(502).send({ error: message });
+      return reply.status(statusCode).send({ error: message });
     }
   });
 

@@ -155,6 +155,6 @@ describe('CodexCard official-value rendering', () => {
       }),
     );
     expect(html).toContain('点击获取');
-    expect(html).toContain('配置本机 Chrome CDP');
+    expect(html).toContain('启动隔离浏览器');
   });
 });

@@ -201,7 +201,7 @@ export function CodexCard({ data }: { data: CodexQuota }) {
           ))}
         </div>
       ) : (
-        <div className="text-xs text-gray-500">暂无额度数据（点击获取，需先配置本机 Chrome CDP）</div>
+        <div className="text-xs text-gray-500">暂无额度数据（点击获取会启动隔离浏览器，首次需登录后再重试）</div>
       )}
       {data.lastChecked && (
         <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>
