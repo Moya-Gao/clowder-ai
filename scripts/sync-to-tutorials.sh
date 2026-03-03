@@ -70,7 +70,25 @@ mkdir -p "$TARGET_DIR/docs/decisions"
 cp "$SOURCE_DIR/docs/decisions/001-agent-invocation-approach.md" "$TARGET_DIR/docs/decisions/"
 echo "  ✓ docs/decisions/001-agent-invocation-approach.md"
 
-# 3. 复制愿景文档
+# 3b. 复制知识工程白皮书（第十课参考资料）
+KE_SRC="$SOURCE_DIR/docs/research/knowledge-enginnering"
+KE_DST="$TARGET_DIR/docs/research/knowledge-enginnering"
+if [ -d "$KE_SRC" ]; then
+    mkdir -p "$KE_DST/figures"
+    for f in "$KE_SRC/"*.md; do
+        filename=$(basename "$f")
+        cp "$f" "$KE_DST/"
+        echo "  ✓ docs/research/knowledge-enginnering/$filename"
+    done
+    # 复制 SVG 图表
+    for f in "$KE_SRC/figures/"*.svg; do
+        [ -f "$f" ] && cp "$f" "$KE_DST/figures/"
+    done
+    svg_count=$(ls -1 "$KE_DST/figures" 2>/dev/null | wc -l | tr -d ' ')
+    echo "  ✓ docs/research/knowledge-enginnering/figures/ ($svg_count 个 SVG)"
+fi
+
+# 4. 复制愿景文档
 cp "$SOURCE_DIR/docs/VISION.md" "$TARGET_DIR/docs/"
 echo "  ✓ docs/VISION.md"
 
