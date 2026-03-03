@@ -355,6 +355,23 @@ export function useAgentMessages() {
             const mentions = parsed.mentions as Array<{ catId: string; mentionedBy: string }>;
             sysContent = mentions.map((m) => `${m.mentionedBy} @了 ${m.catId}`).join('、');
             sysVariant = 'a2a_followup';
+          } else if (parsed?.type === 'invocation_created') {
+            // New invocation boundary: clear stale task snapshot for this cat.
+            const targetCatId = parsed.catId ?? msg.catId;
+            const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+            if (targetCatId && invocationId) {
+              setCatInvocation(targetCatId, {
+                invocationId,
+                startedAt: Date.now(),
+                taskProgress: {
+                  tasks: [],
+                  lastUpdate: Date.now(),
+                  snapshotStatus: 'running',
+                  lastInvocationId: invocationId,
+                },
+              });
+              consumed = true;
+            }
           } else if (parsed?.type === 'mode_switch_proposal') {
             // Mode switch confirmation: trigger ConfirmDialog via store
             const by = parsed.proposedBy ?? '猫猫';
@@ -429,12 +446,18 @@ export function useAgentMessages() {
             consumed = true;
           } else if (parsed?.type === 'task_progress') {
             // F26: Store task progress silently
+            const targetCatId = parsed.catId ?? msg.catId;
+            const currentInvocationId =
+              typeof parsed.invocationId === 'string'
+                ? parsed.invocationId
+                : useChatStore.getState().catInvocations?.[targetCatId]?.invocationId;
             const tasks = (parsed.tasks ?? []) as import('../stores/chat-types').TaskProgressItem[];
-            setCatInvocation(parsed.catId ?? msg.catId, {
+            setCatInvocation(targetCatId, {
               taskProgress: {
                 tasks,
                 lastUpdate: Date.now(),
                 snapshotStatus: 'running',
+                ...(currentInvocationId ? { lastInvocationId: currentInvocationId } : {}),
               },
             });
             consumed = true;

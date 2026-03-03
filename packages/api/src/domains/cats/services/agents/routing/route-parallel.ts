@@ -221,8 +221,8 @@ export async function* routeParallel(
   for await (const msg of mergeStreams(streams, (idx, err) => {
     console.error(`[routeParallel] Stream ${idx} error:`, err);
   })) {
-    // F22 R2 P1-1: Capture invocationId from the initial system_info per cat
-    // R3 P2: Swallow this internal message — don't forward to frontend
+    // F22 R2 P1-1: Capture invocationId from the initial system_info per cat.
+    // Keep forwarding this boundary event so frontend can reset stale task progress.
     if (msg.type === 'system_info' && msg.content && msg.catId && !catInvocationId.has(msg.catId)) {
       try {
         const parsed = JSON.parse(msg.content);
@@ -230,7 +230,6 @@ export async function* routeParallel(
           catInvocationId.set(msg.catId, parsed.invocationId);
           // #80 fix: seed flush baseline so interval triggers after FLUSH_INTERVAL_MS
           catFlushTime.set(msg.catId, Date.now());
-          continue;
         }
       } catch { /* ignore parse errors */ }
     }

@@ -150,6 +150,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
   let terminalInterruptReason: 'error' | 'aborted' | null = null;
   let finalizedTaskProgressStatus: TaskProgressStatus | null = null;
 
+  const attachInvocationIdToTaskProgress = (message: AgentMessage): AgentMessage => {
+    if (message.type !== 'system_info' || !message.content) return message;
+    try {
+      const parsed = JSON.parse(message.content) as Record<string, unknown>;
+      if (parsed['type'] !== 'task_progress' || typeof parsed['invocationId'] === 'string') return message;
+      return {
+        ...message,
+        content: JSON.stringify({ ...parsed, invocationId }),
+      };
+    } catch {
+      return message;
+    }
+  };
+
   const maybePersistTaskProgress = async (out: AgentMessage): Promise<void> => {
     if (!deps.taskProgressStore) return;
     if (out.type !== 'system_info' || !out.content) return;
@@ -577,7 +591,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
         outputs.push({ ...msg, isFinal: isLastCat });
       } else {
-        outputs.push(msg);
+        outputs.push(attachInvocationIdToTaskProgress(msg));
 
         // F26: Detect task management tools and emit task_progress for frontend
         if (msg.type === 'tool_use' && msg.toolName) {
@@ -586,7 +600,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
             outputs.push({
               type: 'system_info' as const,
               catId,
-              content: JSON.stringify({ type: 'task_progress', catId, ...progress }),
+              content: JSON.stringify({ type: 'task_progress', catId, invocationId, ...progress }),
               timestamp: Date.now(),
             });
           }

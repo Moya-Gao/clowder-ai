@@ -72,6 +72,20 @@ function createMockDeps(services, appendCalls) {
   };
 }
 
+function degradationSystemInfos(messages) {
+  return messages.filter((m) => {
+    if (m.type !== 'system_info') return false;
+    if (!m.content) return true;
+    try {
+      const parsed = JSON.parse(m.content);
+      // Invocation lifecycle telemetry is expected on every run and is not degradation.
+      return parsed?.type !== 'invocation_metrics' && parsed?.type !== 'invocation_created';
+    } catch {
+      return true;
+    }
+  });
+}
+
 describe('routeSerial', () => {
   it('executes single cat and yields text + done', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
@@ -952,7 +966,7 @@ describe('routeSerial degradation notification', () => {
       messages.push(msg);
     }
 
-    const sysInfos = messages.filter(m => m.type === 'system_info');
+    const sysInfos = degradationSystemInfos(messages);
     assert.ok(sysInfos.length > 0, 'should yield degradation system_info');
     assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
   });
@@ -977,7 +991,7 @@ describe('routeSerial degradation notification', () => {
       messages.push(msg);
     }
 
-    const sysInfos = messages.filter(m => m.type === 'system_info' && !m.content?.includes('invocation_metrics'));
+    const sysInfos = degradationSystemInfos(messages);
     assert.equal(sysInfos.length, 0, 'should not yield degradation when within budget');
   });
 
@@ -1006,7 +1020,7 @@ describe('routeSerial degradation notification', () => {
         messages.push(msg);
       }
 
-      const sysInfos = messages.filter(m => m.type === 'system_info');
+      const sysInfos = degradationSystemInfos(messages);
       assert.ok(sysInfos.length > 0, 'should yield degradation when token budget truncates context');
       assert.ok(sysInfos[0].content.includes('截断'), 'degradation message should mention truncation');
     } finally {
@@ -1039,7 +1053,7 @@ describe('routeParallel degradation notification', () => {
       messages.push(msg);
     }
 
-    const sysInfos = messages.filter(m => m.type === 'system_info');
+    const sysInfos = degradationSystemInfos(messages);
     assert.ok(sysInfos.length >= 2, 'should yield degradation for both cats');
   });
 
@@ -1067,7 +1081,7 @@ describe('routeParallel degradation notification', () => {
       messages.push(msg);
     }
 
-    const sysInfos = messages.filter(m => m.type === 'system_info');
+    const sysInfos = degradationSystemInfos(messages);
     assert.ok(sysInfos.length > 0, 'should yield at least one degradation system_info');
   });
 });
@@ -1320,6 +1334,38 @@ describe('routeParallel thinking persistence (F045)', () => {
 
     assert.equal(appendCalls[0].thinking, 'First thought\n\n---\n\nSecond thought');
   });
+
+  it('forwards invocation_created system_info to frontend while still persisting content', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    const service = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-par-forward-1' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'parallel answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: service }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeParallel(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const invocationCreated = messages.find((m) => (
+      m.type === 'system_info' &&
+      typeof m.content === 'string' &&
+      m.content.includes('"invocation_created"')
+    ));
+    assert.ok(invocationCreated, 'routeParallel must forward invocation_created');
+    assert.equal(appendCalls.length, 1, 'content persistence should still work');
+  });
 });
 
 describe('routeSerial thinking persistence (F045)', () => {
@@ -1351,5 +1397,37 @@ describe('routeSerial thinking persistence (F045)', () => {
     assert.equal(appendCalls.length, 1, 'should store one message');
     assert.equal(appendCalls[0].thinking, 'Serial thinking...', 'thinking must be persisted in serial mode');
     assert.ok(appendCalls[0].content.includes('Serial answer'), 'text content must be persisted');
+  });
+
+  it('forwards invocation_created system_info to frontend while still persisting content', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+
+    const service = {
+      async *invoke(_prompt) {
+        yield {
+          type: 'system_info', catId: 'opus',
+          content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-ser-forward-1' }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'text', catId: 'opus', content: 'serial answer', timestamp: Date.now() };
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const appendCalls = [];
+    const deps = createMockDeps({ opus: service }, appendCalls);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'test', 'user1', 'thread1')) {
+      messages.push(msg);
+    }
+
+    const invocationCreated = messages.find((m) => (
+      m.type === 'system_info' &&
+      typeof m.content === 'string' &&
+      m.content.includes('"invocation_created"')
+    ));
+    assert.ok(invocationCreated, 'routeSerial must forward invocation_created');
+    assert.equal(appendCalls.length, 1, 'content persistence should still work');
   });
 });

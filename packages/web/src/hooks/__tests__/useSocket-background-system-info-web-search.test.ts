@@ -42,5 +42,69 @@ describe('consumeBackgroundSystemInfo web_search', () => {
 
     expect(result.consumed).toBe(true);
   });
-});
 
+  it('consumes invocation_created and resets stale taskProgress for that cat', () => {
+    const store = {
+      addMessageToThread: vi.fn(),
+      appendToThreadMessage: vi.fn(),
+      appendToolEventToThread: vi.fn(),
+      setThreadCatInvocation: vi.fn(),
+      setThreadMessageMetadata: vi.fn(),
+      setThreadMessageUsage: vi.fn(),
+      setThreadMessageThinking: vi.fn(),
+      setThreadMessageStreaming: vi.fn(),
+      setThreadLoading: vi.fn(),
+      setThreadHasActiveInvocation: vi.fn(),
+      updateThreadCatStatus: vi.fn(),
+      batchStreamChunkUpdate: vi.fn(),
+      clearThreadActiveInvocation: vi.fn(),
+      getThreadState: vi.fn(() => ({
+        messages: [],
+        catStatuses: {},
+        catInvocations: {
+          codex: {
+            invocationId: 'inv-old',
+            taskProgress: {
+              tasks: [{ id: 'task-1', subject: 'stale', status: 'in_progress' }],
+              lastUpdate: Date.now() - 1_000,
+            },
+          },
+        },
+      })),
+    };
+    const options = {
+      store,
+      bgStreamRefs: new Map(),
+      nextBgSeq: (() => {
+        let i = 0;
+        return () => ++i;
+      })(),
+      addToast: vi.fn(),
+      clearDoneTimeout: vi.fn(),
+    };
+
+    const msg = {
+      type: 'system_info',
+      catId: 'codex',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-new-2' }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(store.setThreadCatInvocation).toHaveBeenCalledWith(
+      'thread-1',
+      'codex',
+      expect.objectContaining({
+        invocationId: 'inv-new-2',
+        taskProgress: expect.objectContaining({
+          tasks: [],
+          snapshotStatus: 'running',
+          lastInvocationId: 'inv-new-2',
+        }),
+      }),
+    );
+  });
+});

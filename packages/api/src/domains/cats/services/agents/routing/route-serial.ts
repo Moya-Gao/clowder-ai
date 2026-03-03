@@ -263,14 +263,13 @@ export async function* routeSerial(
       // F39 bugfix: stop yielding after cancel (pipe buffer may still drain)
       if (signal?.aborted) break;
 
-      // F22 R2 P1-1: Capture invocationId from the initial system_info
-      // R3 P2: Swallow this internal message — don't forward to frontend
+      // F22 R2 P1-1: Capture invocationId from the initial system_info.
+      // Keep forwarding this boundary event so frontend can reset stale task progress.
       if (msg.type === 'system_info' && msg.content && !ownInvocationId) {
         try {
           const parsed = JSON.parse(msg.content);
           if (parsed.type === 'invocation_created') {
             ownInvocationId = parsed.invocationId;
-            continue;
           }
         } catch { /* ignore parse errors */ }
       }

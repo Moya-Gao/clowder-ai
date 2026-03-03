@@ -41,7 +41,23 @@ export function consumeBackgroundSystemInfo(
 
   try {
     const parsed = JSON.parse(sysContent);
-    if (parsed?.type === 'invocation_metrics') {
+    if (parsed?.type === 'invocation_created') {
+      const targetCatId = parsed.catId ?? msg.catId;
+      const invocationId = typeof parsed.invocationId === 'string' ? parsed.invocationId : undefined;
+      if (targetCatId && invocationId) {
+        options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
+          invocationId,
+          startedAt: Date.now(),
+          taskProgress: {
+            tasks: [],
+            lastUpdate: Date.now(),
+            snapshotStatus: 'running',
+            lastInvocationId: invocationId,
+          },
+        });
+        consumed = true;
+      }
+    } else if (parsed?.type === 'invocation_metrics') {
       if (parsed.kind === 'session_started') {
         options.store.setThreadCatInvocation(msg.threadId, msg.catId, {
           sessionId: parsed.sessionId,
@@ -90,11 +106,17 @@ export function consumeBackgroundSystemInfo(
       consumed = true;
     } else if (parsed?.type === 'task_progress') {
       const targetCatId = parsed.catId ?? msg.catId;
+      const currentInvocationId =
+        typeof parsed.invocationId === 'string'
+          ? parsed.invocationId
+          : options.store.getThreadState(msg.threadId).catInvocations[targetCatId]?.invocationId;
       const tasks = (parsed.tasks ?? []) as TaskProgressItem[];
       options.store.setThreadCatInvocation(msg.threadId, targetCatId, {
         taskProgress: {
           tasks,
           lastUpdate: Date.now(),
+          snapshotStatus: 'running',
+          ...(currentInvocationId ? { lastInvocationId: currentInvocationId } : {}),
         },
       });
       consumed = true;

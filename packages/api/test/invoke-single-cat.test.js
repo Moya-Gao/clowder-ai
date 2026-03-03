@@ -120,6 +120,48 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(snap.status, 'completed');
   });
 
+  it('emits invocationId on task_progress system_info payloads', async () => {
+    const deps = makeDeps();
+    const service = {
+      async *invoke() {
+        yield {
+          type: 'system_info',
+          catId: 'codex',
+          content: JSON.stringify({
+            type: 'task_progress',
+            catId: 'codex',
+            tasks: [{ id: 't1', subject: 'A', status: 'in_progress' }],
+          }),
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'codex', timestamp: Date.now() };
+      },
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'codex',
+      service,
+      prompt: 'test',
+      userId: 'user1',
+      threadId: 'thread-progress-invocation-id',
+      isLastCat: true,
+    }));
+
+    const taskProgressMsg = msgs.find((m) => {
+      if (m.type !== 'system_info' || !m.content) return false;
+      try {
+        return JSON.parse(m.content).type === 'task_progress';
+      } catch {
+        return false;
+      }
+    });
+    assert.ok(taskProgressMsg, 'should include task_progress system_info');
+
+    const payload = JSON.parse(taskProgressMsg.content);
+    assert.equal(payload.type, 'task_progress');
+    assert.equal(payload.invocationId, 'inv-1');
+  });
+
   it('persists task progress snapshot with completed status on done even when tasks are not all completed', async () => {
     const { MemoryTaskProgressStore } = await import(
       '../dist/domains/cats/services/agents/invocation/MemoryTaskProgressStore.js'
