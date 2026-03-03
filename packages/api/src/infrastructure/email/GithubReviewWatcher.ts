@@ -9,11 +9,10 @@
 import { ImapFlow } from 'imapflow';
 import { EventEmitter } from 'node:events';
 import {
-  parseGithubReviewSubject,
+  parseGithubReviewFromSubjectAndSource,
   extractCatFromTitle,
   catTagToCatId,
   isGithubNotification,
-  inferReviewActionFromEmailSource,
   type CatTag,
 } from './GithubReviewMailParser.js';
 
@@ -306,25 +305,13 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
         }
 
         const subject = message.envelope?.subject ?? '';
-        const parsed = parseGithubReviewSubject(subject);
+        const sourceText = message.source ? String(message.source) : '';
+        const parsed = parseGithubReviewFromSubjectAndSource(subject, sourceText);
         if (!parsed) {
           this.log.info(`[GithubReviewWatcher] Skipping non-review email: ${subject.slice(0, 50)}...`);
           items.push({ kind: 'skip', uid: message.uid });
           continue;
         }
-
-        const sourceText = message.source ? String(message.source) : '';
-        const inferred = sourceText ? inferReviewActionFromEmailSource(sourceText) : null;
-        if (inferred?.ignorable) {
-          this.log.info(`[GithubReviewWatcher] Skipping ignorable GitHub email: ${subject.slice(0, 50)}...`);
-          items.push({ kind: 'skip', uid: message.uid });
-          continue;
-        }
-
-        const reviewType = parsed.reviewType === 'unknown' && inferred?.reviewType && inferred.reviewType !== 'unknown'
-          ? inferred.reviewType
-          : parsed.reviewType;
-        const reviewer = parsed.reviewer ?? inferred?.reviewer;
 
         const catTag = extractCatFromTitle(parsed.title) ?? undefined;
         const rawDate = message.internalDate;
@@ -335,8 +322,6 @@ export class GithubReviewWatcher extends EventEmitter<WatcherEventMap> {
           uid: message.uid,
           event: {
             ...parsed,
-            reviewType,
-            reviewer,
             catTag,
             catId: catTag ? catTagToCatId(catTag) : undefined,
             emailUid: message.uid,

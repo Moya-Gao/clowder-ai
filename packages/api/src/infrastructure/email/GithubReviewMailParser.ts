@@ -26,6 +26,16 @@ export interface InferredReviewAction {
   readonly reviewer: string | undefined;
 }
 
+export function normalizeLegacyPrMarkerSubject(subject: string): string | null {
+  // Legacy GitHub notification shape:
+  //   Re: [owner/repo] some title (#123)
+  // We normalize trailing "(#N)" -> "(PR #N)" so existing parser path can reuse guards.
+  if (!/^Re:\s/i.test(subject)) return null;
+  if (!REPO_REGEX.test(subject)) return null;
+  if (!/\(#\d+\)\s*$/i.test(subject)) return null;
+  return subject.replace(/\(#(\d+)\)\s*$/i, '(PR #$1)');
+}
+
 /**
  * Infer review action/reviewer from raw email source text.
  *
@@ -102,6 +112,36 @@ export function inferReviewActionFromEmailSource(source: string): InferredReview
   }
 
   return { ignorable: false, reviewType, reviewer };
+}
+
+function hasCodexReviewTemplate(source: string): boolean {
+  return /(?<!@)\bCodex Review\b/i.test(source) && /\bReviewed commit:/i.test(source);
+}
+
+export function parseGithubReviewFromSubjectAndSource(
+  subject: string,
+  source: string,
+): ParsedGithubReviewMail | null {
+  const inferred = source ? inferReviewActionFromEmailSource(source) : null;
+  if (inferred?.ignorable) return null;
+
+  let parsed = parseGithubReviewSubject(subject);
+  if (!parsed) {
+    const normalized = normalizeLegacyPrMarkerSubject(subject);
+    const hasReviewSignal =
+      (inferred?.reviewType ?? 'unknown') !== 'unknown' || hasCodexReviewTemplate(source);
+    if (normalized && hasReviewSignal) {
+      parsed = parseGithubReviewSubject(normalized);
+    }
+  }
+  if (!parsed) return null;
+
+  const reviewType =
+    parsed.reviewType === 'unknown' && inferred?.reviewType && inferred.reviewType !== 'unknown'
+      ? inferred.reviewType
+      : parsed.reviewType;
+  const reviewer = parsed.reviewer ?? inferred?.reviewer;
+  return { ...parsed, reviewType, reviewer };
 }
 
 // Match PR number — prefer "pull request #N" or trailing "(#N)", not first #token

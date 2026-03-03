@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert';
 import {
   parseGithubReviewSubject,
+  parseGithubReviewFromSubjectAndSource,
   extractCatFromTitle,
   catTagToCatId,
   isGithubNotification,
@@ -69,6 +70,42 @@ describe('parseGithubReviewSubject', () => {
     assert.ok(result);
     assert.strictEqual(result.prNumber, 456);
     assert.strictEqual(result.repository, 'owner/repo');
+  });
+
+  it('parses legacy Re: ... (#N) subject when email source contains review signal', () => {
+    const subject = 'Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)';
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)',
+      '',
+      'chatgpt-codex-connector[bot] reviewed (zts212653/cat-cafe#182)',
+      "Codex Review: Didn't find any major issues.",
+    ].join('\n');
+
+    // Subject-only parser should reject legacy marker.
+    const subjectOnly = parseGithubReviewSubject(subject);
+    assert.strictEqual(subjectOnly, null);
+
+    // Source-aware parser should normalize and parse it.
+    const result = parseGithubReviewFromSubjectAndSource(subject, source);
+    assert.ok(result);
+    assert.strictEqual(result.prNumber, 182);
+    assert.strictEqual(result.repository, 'zts212653/cat-cafe');
+    assert.strictEqual(result.reviewType, 'reviewed');
+    assert.strictEqual(result.reviewer, 'chatgpt-codex-connector[bot]');
+  });
+
+  it('keeps rejecting legacy Re: ... (#N) subject without review signal', () => {
+    const subject = 'Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)';
+    const source = [
+      'From: GitHub <notifications@github.com>',
+      'Subject: Re: [zts212653/cat-cafe] fix(quota): browser refresh fallback (#182)',
+      '',
+      'Random thread chatter without review markers.',
+    ].join('\n');
+
+    const result = parseGithubReviewFromSubjectAndSource(subject, source);
+    assert.strictEqual(result, null);
   });
 
   it('returns null for non-PR email', () => {
