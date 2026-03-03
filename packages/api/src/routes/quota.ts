@@ -97,6 +97,7 @@ const ANTIGRAVITY: AntigravityQuota = {
 };
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
+const AUTO_START_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_START';
 const LOCAL_CDP_CANDIDATES = [
   'http://127.0.0.1:9222',
   'http://localhost:9222',
@@ -105,6 +106,8 @@ const LOCAL_CDP_CANDIDATES = [
   'http://127.0.0.1:9333',
   'http://localhost:9333',
 ] as const;
+const DEFAULT_CDP_PORT = 9222;
+const DEFAULT_CDP_URL = `http://127.0.0.1:${DEFAULT_CDP_PORT}`;
 
 function parsePercentLine(line: string): number | null {
   const match = line.match(/(\d{1,3})\s*%/);
@@ -130,8 +133,7 @@ export function parseCodexUsageFromPageText(pageText: string): CodexUsageItem[] 
     .filter(Boolean);
   const defs = [
     {
-      token:
-        /^(GPT-5\.3-Codex-Spark\s*5\s*小时使用限额|GPT-5\.3-Codex-Spark\s*5(?:\s|-)?hour\s*usage\s*limit)$/i,
+      token: /^(GPT-5\.3-Codex-Spark\s*5\s*小时使用限额|GPT-5\.3-Codex-Spark\s*5(?:\s|-)?hour\s*usage\s*limit)$/i,
       label: 'GPT-5.3-Codex-Spark 5小时使用限额',
     },
     {
@@ -227,6 +229,30 @@ function isAllowedBrowserCdpUrl(browserURL: string): boolean {
 }
 
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+type SleepLike = (ms: number) => Promise<void>;
+type LaunchChromeLike = (port: number) => Promise<void>;
+
+export interface ResolveBrowserCdpUrlOptions {
+  fetchLike?: FetchLike;
+  autoStartOnMissing?: boolean;
+  launchChrome?: LaunchChromeLike;
+  sleep?: SleepLike;
+  retryCount?: number;
+  retryIntervalMs?: number;
+}
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function autoStartChromeWithCdp(port: number): Promise<void> {
+  if (process.platform !== 'darwin') {
+    throw new Error('auto-start via open command is only supported on macOS');
+  }
+  await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
+    timeout: 8_000,
+  });
+}
 
 async function hasCdpEndpoint(browserBaseUrl: string, fetchLike: FetchLike): Promise<boolean> {
   try {
@@ -244,8 +270,9 @@ async function hasCdpEndpoint(browserBaseUrl: string, fetchLike: FetchLike): Pro
 
 export async function resolveBrowserCdpUrl(
   explicitUrl: string | undefined,
-  fetchLike: FetchLike = globalThis.fetch.bind(globalThis),
+  options: ResolveBrowserCdpUrlOptions = {},
 ): Promise<{ url: string } | { error: string }> {
+  const fetchLike = options.fetchLike ?? globalThis.fetch.bind(globalThis);
   if (explicitUrl) {
     if (!isAllowedBrowserCdpUrl(explicitUrl)) {
       return {
@@ -261,8 +288,36 @@ export async function resolveBrowserCdpUrl(
     }
   }
 
+  if (!options.autoStartOnMissing) {
+    return {
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+    };
+  }
+
+  const launchChrome = options.launchChrome ?? autoStartChromeWithCdp;
+  const sleep = options.sleep ?? sleepMs;
+  const retryCount = options.retryCount ?? 6;
+  const retryIntervalMs = options.retryIntervalMs ?? 400;
+  try {
+    await launchChrome(DEFAULT_CDP_PORT);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return {
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome but failed: ${reason}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+    };
+  }
+
+  for (let i = 0; i < retryCount; i += 1) {
+    if (await hasCdpEndpoint(DEFAULT_CDP_URL, fetchLike)) {
+      return { url: DEFAULT_CDP_URL };
+    }
+    if (i < retryCount - 1) {
+      await sleep(retryIntervalMs);
+    }
+  }
+
   return {
-    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome, but CDP endpoint is still unavailable. If Chrome is already running, restart it with --remote-debugging-port=9222, then retry.`,
   };
 }
 
@@ -304,7 +359,9 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
 
   // POST: refresh official usage pages once (manual click)
   app.post('/api/quota/refresh/official', async (_request, reply) => {
-    const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV]);
+    const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV], {
+      autoStartOnMissing: process.env[AUTO_START_BROWSER_ENV] !== '0',
+    });
     if ('error' in resolved) {
       const message = resolved.error;
       const checkedAt = new Date().toISOString();

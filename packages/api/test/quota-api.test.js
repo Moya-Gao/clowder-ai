@@ -314,7 +314,9 @@ GPT-5.3-Codex-Spark weekly usage limit
 describe('POST /api/quota/refresh/official', () => {
   it('returns 400 when CDP URL env is not configured', async () => {
     const old = process.env.QUOTA_BROWSER_CDP_URL;
+    const oldAutoStart = process.env.QUOTA_BROWSER_AUTO_START;
     delete process.env.QUOTA_BROWSER_CDP_URL;
+    process.env.QUOTA_BROWSER_AUTO_START = '0';
     const app = await buildApp();
     try {
       const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
@@ -326,6 +328,8 @@ describe('POST /api/quota/refresh/official', () => {
       assert.match(quota.claude.error, /QUOTA_BROWSER_CDP_URL/);
     } finally {
       if (old != null) process.env.QUOTA_BROWSER_CDP_URL = old;
+      if (oldAutoStart != null) process.env.QUOTA_BROWSER_AUTO_START = oldAutoStart;
+      else delete process.env.QUOTA_BROWSER_AUTO_START;
       await app.close();
     }
   });
@@ -371,7 +375,7 @@ describe('CDP URL resolution', () => {
       }
       return new Response('', { status: 404 });
     };
-    const result = await resolveBrowserCdpUrl(undefined, mockFetch);
+    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch });
     assert.equal('url' in result, true);
     if ('url' in result) {
       assert.equal(result.url, 'http://127.0.0.1:9222');
@@ -383,9 +387,63 @@ describe('CDP URL resolution', () => {
     const mockFetch = async () => {
       throw new Error('connect ECONNREFUSED');
     };
-    const result = await resolveBrowserCdpUrl(undefined, mockFetch);
+    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch });
     assert.equal('error' in result, true);
     if ('error' in result) {
+      assert.match(result.error, /--remote-debugging-port=9222/);
+    }
+  });
+
+  it('auto-starts Chrome and resolves localhost:9222 when enabled', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    let started = false;
+    let launchCalls = 0;
+    const mockFetch = async (input) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:9222/json/version' && started) {
+        return new Response(
+          JSON.stringify({
+            webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/demo',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error('ECONNREFUSED');
+    };
+    const result = await resolveBrowserCdpUrl(undefined, {
+      fetchLike: mockFetch,
+      autoStartOnMissing: true,
+      launchChrome: async (port) => {
+        launchCalls += 1;
+        assert.equal(port, 9222);
+        started = true;
+      },
+      sleep: async () => {},
+      retryCount: 1,
+    });
+    assert.equal(launchCalls, 1);
+    assert.equal('url' in result, true);
+    if ('url' in result) {
+      assert.equal(result.url, 'http://127.0.0.1:9222');
+    }
+  });
+
+  it('returns actionable error when auto-start attempt fails', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const result = await resolveBrowserCdpUrl(undefined, {
+      autoStartOnMissing: true,
+      fetchLike: async () => {
+        throw new Error('ECONNREFUSED');
+      },
+      launchChrome: async () => {
+        throw new Error('permission denied');
+      },
+      sleep: async () => {},
+      retryCount: 1,
+    });
+    assert.equal('error' in result, true);
+    if ('error' in result) {
+      assert.match(result.error, /auto-start Chrome/);
       assert.match(result.error, /--remote-debugging-port=9222/);
     }
   });
