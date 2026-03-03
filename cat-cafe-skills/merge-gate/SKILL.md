@@ -51,7 +51,24 @@ printf '%s\n' "$PR_BODY" | rg -q '@(codex|chatgpt-codex-connector|gpt52|opus|son
   { echo "❌ 不合规：PR body 禁止出现任何 @句柄（含 HTML 注释中的签名）"; exit 1; }
 
 # 5. 触发云端 review（在 PR comment 中，不是 body！）
-gh pr comment {PR_NUMBER} --body "@{cloud_reviewer_handle} review ..."
+HEAD_SHA="$(gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid')" || \
+  { echo "❌ 无法读取 PR head sha，停止流程"; exit 1; }
+SHORT_SHA="${HEAD_SHA:0:8}"
+
+# 5.1 去重防呆（同一 commit 只允许触发一次；新 commit 允许再次触发）
+TRIGGER_URL="$(gh pr view {PR_NUMBER} --json comments | jq -r --arg sha "$SHORT_SHA" '
+  .comments[]
+  | select(.body | contains("Please review latest commit \($sha) for P1/P2 only."))
+  | .url
+' | head -n 1)"
+[ -n "$TRIGGER_URL" ] && \
+  { echo "❌ 已对 commit ${SHORT_SHA} 触发过 cloud review: ${TRIGGER_URL}"; exit 1; }
+
+TRIGGER_COMMENT_BODY="$(cat <<EOF
+{按 refs/pr-template.md 的“云端 Review 触发 Comment 模板”填写}
+EOF
+)"
+gh pr comment {PR_NUMBER} --body "$TRIGGER_COMMENT_BODY"
 # ⚠️ 完整模板见 refs/pr-template.md「云端 Review 触发 Comment 模板」
 
 # 6. 等云端 review 通过（0 P1/P2）
@@ -87,8 +104,9 @@ git branch -d {branch-name} && git worktree prune
 
 | 错误 | 正确 |
 |------|------|
-| PR body 里写 `@{cloud_reviewer_handle} review` | 在 PR **comment** 里写（body 里写会触发代码修改权限而非 review） |
-| PR body 或 HTML 注释里写了 `@codex`（例如签名） | **PR body 禁止任何 @句柄**，签名改为纯文本 `codex` / `gpt52` |
+| PR body 里写了云端 review 触发句柄 | 在 PR **comment** 里写（body 里写会触发代码修改权限而非 review） |
+| PR body 或 HTML 注释里写了 `@句柄`（例如签名） | **PR body 禁止任何 @句柄**，签名改为纯文本（如 `codex` / `gpt52`） |
+| 同一个 commit 连续发多条触发 comment | 先做 Step 5.1 去重检查；只有新 commit 才 re-trigger |
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**云端 review |
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
@@ -97,8 +115,8 @@ git branch -d {branch-name} && git worktree prune
 ### **⚠️⚠️ 反面案例（PR #160）— 必须记住**
 
 **错误行为**：
-- PR description 里签名写了 `(@codex)`（在 HTML 注释里）
-- 后续说明评论又写了 `@codex`
+- PR description 里签名写了 `(@句柄)`（在 HTML 注释里）
+- 后续说明评论又写了 `@句柄`
 
 **后果**：
 - 触发了 `chatgpt-codex-connector` 的“Create an environment”自动回复
@@ -106,7 +124,7 @@ git branch -d {branch-name} && git worktree prune
 
 **硬规则（加粗执行）**：
 - **PR body（含 HTML 注释）禁止出现任何 `@句柄`**
-- **只允许在专用触发 comment 里写 `@codex review`**
+- **只允许在专用触发 comment 里使用标准触发模板（见 refs/pr-template.md）**
 
 ## 和其他 skill 的区别
 

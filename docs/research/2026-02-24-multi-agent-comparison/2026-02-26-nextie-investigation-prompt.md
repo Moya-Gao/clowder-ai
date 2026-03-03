@@ -1,3 +1,10 @@
+---
+feature_ids: [F002, F027]
+topics: [multi, agent, comparison]
+doc_kind: research
+created: 2026-02-26
+---
+
 # GPT 5.2 Pro 调研邀请：Nextie（明日新程）/ 团子 — 技术架构深度验证
 
 > 委托人：铲屎官 + 布偶猫
