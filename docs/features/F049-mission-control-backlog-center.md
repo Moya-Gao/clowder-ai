@@ -7,9 +7,10 @@ created: 2026-03-01
 
 # F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread）
 
-> **Status**: in-progress（Phase3 merged）
+> **Status**: done
 > **Owner**: 三猫
 > **Created**: 2026-03-01
+> **Completed**: 2026-03-03
 > **Priority**: P1（指挥中心基建）
 
 ---
@@ -131,12 +132,12 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - [x] lease 四条状态迁移（acquire/heartbeat/release/reclaim）升级为 Redis Lua/CAS 原子更新。
 - [x] Mission Hub 显式展示 policy 阻断原因（once 已消费 / thread 活跃冲突）并和 API 语义对齐。
 
-## Phase4 Scope（拟执行，2026-03-02）
+## Phase4 Scope（已完成，2026-03-03）
 
-- [ ] **态势图（F043 对齐）**：Mission Hub 增加 thread 视图（MVP 先基于现有 `/api/threads` + `backlogItemId` 显示 thread 标题/lastActive/参与猫/跳转；后续再与 F043 `list_threads` + `feat_index` 收敛），把“全局任务面 → 线程执行面”可视化。
-- [ ] **派发链路原子化**：评估并落地 `suggest/approve/dispatch` 的 Lua/CAS 原子迁移，减少“批准后崩溃”类中间态恢复复杂度。
-- [ ] **权限棘轮语义收敛**：明确 `once/thread/global` 的运行时约束边界（幂等重试、跨 item 竞争、异常恢复），并把 UI 提示和 API 错误码对齐。
-- [ ] **愿景守护签收**：由 `@gpt52` 做 Phase4 愿景对照 review（原始需求摘录逐条签收），再进入实现。
+- [x] **态势图（F043 对齐）**：Mission Hub 已增加 thread 视图（MVP 基于 `/api/threads` + `backlogItemId` 显示 thread 标题/lastActive/参与猫/跳转），实现“全局任务面 → 线程执行面”可视化（PR #167）。
+- [x] **派发链路语义收敛（PR-A/PR-B）**：`suggest/approve/dispatch` 已收敛为可恢复、可幂等、可预期路径，并补齐崩溃窗口回归与 kickoff 幂等硬化（PR #176, PR #179）。
+- [x] **权限棘轮语义收敛**：`once/thread/global` 运行时约束、幂等重试与错误码/UI 提示已对齐（PR #158, PR #176）。
+- [x] **愿景守护签收**：本地 `@gpt52` 全量复核通过（0 P1 / 0 P2），云端 review 通过后按 merge-gate 合入。
 
 ## Follow-up（post-merge）
 
@@ -150,6 +151,9 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 |------|----------|------|------|
 | R1 | @opus | 请求修复（3 P1 + 7 P2） | 2026-03-01 |
 | R2 | @opus | 通过（Approved） | 2026-03-01 |
+| R3 | @gpt52 | Phase4 Task1 通过（0 P1 / 0 P2） | 2026-03-02 |
+| R4 | @gpt52 | Phase4 Task2A 通过（0 P1 / 0 P2） | 2026-03-03 |
+| R5 | @gpt52 | Phase4 Task2B 通过（0 P1 / 0 P2） | 2026-03-03 |
 
 ## Test Evidence
 - `cd packages/api && node --test test/backlog-store.test.js test/backlog-routes.test.js`（含导入刷新用例）
@@ -166,3 +170,7 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - 2026-03-02: Phase3 开工 — self-claim `once/thread` 语义细化（非幂等二次自领阻断 + 活跃 lease 冲突阻断）
 - 2026-03-02: Phase3 续推 — lease 迁移改为 Redis Lua 原子更新 + Mission Hub 阻断原因文案对齐
 - 2026-03-02: Phase3 合入 main — PR #158（`8714103d`）
+- 2026-03-02: Phase4 Task1 合入 main — Mission Hub thread 态势图（PR #167, `0838e48d`）
+- 2026-03-03: Phase4 Task2A 合入 main — dispatch 语义恢复与幂等收敛（PR #176, `8a936a29`）
+- 2026-03-03: Phase4 Task2B 合入 main — kickoff idempotency 硬化（PR #179, `01609dc0`）
+- 2026-03-03: Feature 完成并收口 — F049 标记 done（Phase1–Phase4 全部闭环）

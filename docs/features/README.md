@@ -45,4 +45,5 @@
 | F041 | F041: 能力看板 — Hub MCP/Skills 统一管理 | done | [F041-capability-dashboard.md](./F041-capability-dashboard.md) |
 | F045 | F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | [F045-ndjson-observability.md](./F045-ndjson-observability.md) |
 | F047 | F047: Queue Steer — 队列消息“立即执行 / 提到队首” | done | [F047-queue-steer.md](./F047-queue-steer.md) |
+| F049 | F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread） | done | [F049-mission-control-backlog-center.md](./F049-mission-control-backlog-center.md) |
 | F051 | F051: 真实猫粮看板（官方额度同值展示） | done | [F051-real-quota-dashboard.md](./F051-real-quota-dashboard.md) |
