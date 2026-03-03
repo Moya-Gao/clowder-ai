@@ -207,7 +207,7 @@ describe('F32-a Mock Agent Integration', () => {
     test('parseA2AMentions detects @模拟猫', async () => {
       const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
       const { createCatId } = await import('@cat-cafe/shared');
-      const mentions = parseA2AMentions('@模拟猫 你好', createCatId('opus'));
+      const mentions = parseA2AMentions('@模拟猫 请确认这个改动', createCatId('opus'));
       assert.ok(
         mentions.some((m) => m === 'mock-cat'),
         'should detect mock-cat',
@@ -217,7 +217,7 @@ describe('F32-a Mock Agent Integration', () => {
     test('parseA2AMentions detects @mock-cat', async () => {
       const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
       const { createCatId } = await import('@cat-cafe/shared');
-      const mentions = parseA2AMentions('@mock-cat hi', createCatId('opus'));
+      const mentions = parseA2AMentions('@mock-cat please review', createCatId('opus'));
       assert.ok(
         mentions.some((m) => m === 'mock-cat'),
         'should detect mock-cat',

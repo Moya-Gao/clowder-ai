@@ -77,8 +77,8 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     const codexPrompt = mockCodex.invoke.mock.calls[0]?.arguments?.[0];
     assert.equal(typeof codexPrompt, 'string', 'codex invocation should receive a prompt string');
     assert.ok(
-      codexPrompt.includes('Direct message from @opus'),
-      'codex prompt should instruct replying to @opus (not the user)',
+      codexPrompt.includes('Direct message from 布偶猫(opus)'),
+      'codex prompt should instruct replying to 布偶猫(opus) (not the user)',
     );
 
     // Should have a2a_handoff event
@@ -184,7 +184,7 @@ describe('A2A Chain Integration (AgentRouter end-to-end)', () => {
     const codexPrompt = mockCodex.invoke.mock.calls[0]?.arguments?.[0];
     assert.equal(typeof codexPrompt, 'string', 'codex invocation should receive a prompt string');
     assert.ok(
-      !codexPrompt.includes('Direct message from @opus'),
+      !codexPrompt.includes('Direct message from 布偶猫(opus)'),
       'original target must not be forced to reply to another cat',
     );
 

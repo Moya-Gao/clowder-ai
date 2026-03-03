@@ -25,6 +25,7 @@ const TOKEN_BOUNDARY_RE = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】�
 // If the next char looks like part of a handle token, treat it as NOT a boundary.
 // This avoids prefix-matching `@opus-45` as `@opus`, while still allowing `@opus请看`.
 const HANDLE_CONTINUATION_RE = /[a-z0-9_.-]/;
+const ACTION_KEYWORDS = ['review', '确认', '处理', '修复', '请', '帮', '决策', '看一下', 'check', 'fix', 'merge'] as const;
 
 interface MentionPatternEntry {
   readonly catId: CatId;
@@ -60,7 +61,8 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
   const found: CatId[] = [];
   const seen = new Set<string>();
   const lines = stripped.split(/\r?\n/);
-  for (const rawLine of lines) {
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const rawLine = lines[lineIndex]!;
     if (found.length >= MAX_A2A_MENTION_TARGETS) break; // 5. Safety limit
 
     const leadingWs = rawLine.match(/^\s*/)?.[0].length ?? 0;
@@ -74,6 +76,10 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
       const charAfter = normalized[entry.pattern.length];
       const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
       if (!isBoundary) continue;
+      const paragraph = getParagraph(lines, lineIndex).toLowerCase();
+      if (!hasActionability(paragraph)) {
+        break;
+      }
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);
         found.push(entry.catId);
@@ -83,4 +89,18 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
   }
 
   return found;
+}
+
+function getParagraph(lines: readonly string[], lineIndex: number): string {
+  let start = lineIndex;
+  while (start > 0 && lines[start - 1]!.trim() !== '') start -= 1;
+
+  let end = lineIndex;
+  while (end + 1 < lines.length && lines[end + 1]!.trim() !== '') end += 1;
+
+  return lines.slice(start, end + 1).join('\n');
+}
+
+function hasActionability(paragraph: string): boolean {
+  return ACTION_KEYWORDS.some((kw) => paragraph.includes(kw));
 }

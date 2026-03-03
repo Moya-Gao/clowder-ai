@@ -649,10 +649,8 @@ describe('SystemPromptBuilder', () => {
         { catId: 'codex', lastMessageAt: 1000, messageCount: 3 },
       ],
     });
-    // pickVariantMention('opus', ...) matches @opus from mentionPatterns
-    // Use regex with end-of-line anchor to prevent prefix-matching (e.g., @opus matching @opus-45)
-    assert.match(ctx, /最近活跃：@opus\n|最近活跃：@opus$/, 'Should inject exact @opus (not @opus-45 etc.)');
-    assert.ok(!ctx.includes('最近活跃：@codex'), 'Self (codex) should not appear as most recently active');
+    assert.match(ctx, /最近活跃：布偶猫\(opus\)\n|最近活跃：布偶猫\(opus\)$/, 'Should inject displayName(id) format');
+    assert.ok(!ctx.includes('最近活跃：缅因猫(codex)'), 'Self (codex) should not appear as most recently active');
   });
 
   test('buildInvocationContext skips self in activity list', async () => {
@@ -672,7 +670,7 @@ describe('SystemPromptBuilder', () => {
       ],
     });
     // opus is self and most-recent, should be skipped; codex is next
-    assert.match(ctx, /最近活跃：@codex\n|最近活跃：@codex$/, 'Should inject exact @codex (not prefix match)');
+    assert.match(ctx, /最近活跃：缅因猫\(codex\)\n|最近活跃：缅因猫\(codex\)$/, 'Should inject displayName(id) format');
   });
 
   test('buildInvocationContext omits hint when activeParticipants absent', async () => {
@@ -783,8 +781,9 @@ describe('SystemPromptBuilder', () => {
       mcpAvailable: false,
       directMessageFrom: 'opus',
     });
-    assert.match(ctx, /^Direct message from @opus/m);
-    assert.ok(ctx.includes('reply to @opus'));
+    assert.match(ctx, /^Direct message from 布偶猫\(opus\)/m);
+    assert.ok(ctx.includes('reply to 布偶猫(opus)'));
+    assert.ok(!ctx.includes('Direct message from @opus'));
   });
 
   test('buildInvocationContext includes review identity gate instructions when required', async () => {
@@ -829,8 +828,8 @@ describe('SystemPromptBuilder', () => {
       });
       assert.match(ctx, /^Identity:/m);
       assert.ok(ctx.includes('@gpt52'));
-      assert.match(ctx, /^Direct message from @codex/m);
-      assert.ok(ctx.includes('reply to @codex'));
+      assert.match(ctx, /^Direct message from 缅因猫\(codex\)/m);
+      assert.ok(ctx.includes('reply to 缅因猫(codex)'));
     } finally {
       catRegistry.reset();
       for (const [id, config] of Object.entries(originalConfigs)) {

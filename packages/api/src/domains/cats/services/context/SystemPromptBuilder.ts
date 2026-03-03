@@ -130,6 +130,11 @@ function buildCallableMentions(currentCatId: CatId): CallableMentionsResult {
   return { mentions, hasDuplicateDisplayNames, uniqueHandleExample };
 }
 
+function formatHandleFreeLabel(catId: string, config: CatConfig | undefined): string {
+  if (!config) return catId;
+  return `${config.displayName}(${catId})`;
+}
+
 const PROVIDER_LABELS: Record<string, string> = {
   anthropic: 'Anthropic',
   openai: 'OpenAI',
@@ -340,7 +345,9 @@ export function buildInvocationContext(context: InvocationContext): string {
 
   // F042: A2A direct-message reply target.
   if (context.directMessageFrom && context.directMessageFrom !== context.catId) {
-    lines.push(`Direct message from @${context.directMessageFrom}; reply to @${context.directMessageFrom}`);
+    const fromConfig = getConfig(context.directMessageFrom as string);
+    const fromLabel = formatHandleFreeLabel(context.directMessageFrom as string, fromConfig);
+    lines.push(`Direct message from ${fromLabel}; reply to ${fromLabel}`);
   }
 
   if (context.reviewIdentityCheckFrom && context.reviewIdentityCheckFrom !== context.catId) {
@@ -386,7 +393,7 @@ export function buildInvocationContext(context: InvocationContext): string {
     if (topActive) {
       const topConfig = getConfig(topActive.catId as string);
       if (topConfig) {
-        lines.push(`最近活跃：${pickVariantMention(topActive.catId as string, topConfig)}`);
+        lines.push(`最近活跃：${formatHandleFreeLabel(topActive.catId as string, topConfig)}`);
       }
     }
   }

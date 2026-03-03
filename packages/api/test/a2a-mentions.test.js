@@ -19,10 +19,30 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, ['codex']);
   });
 
-  it('detects line-start @mention with leading whitespace', async () => {
+  it('detects line-start @mention with leading whitespace when action words exist', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('  @布偶猫 你觉得呢？', 'codex');
+    const result = parseA2AMentions('  @布偶猫 请确认这个修复', 'codex');
     assert.deepEqual(result, ['opus']);
+  });
+
+  it('routes when action words are in next line of same paragraph', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n请 review 这个 PR';
+    const result = parseA2AMentions(text, 'codex');
+    assert.deepEqual(result, ['opus']);
+  });
+
+  it('does NOT route mention-only paragraph without action words', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = parseA2AMentions('@布偶猫', 'codex');
+    assert.deepEqual(result, []);
+  });
+
+  it('does NOT route when action words are outside mention paragraph', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n请 review 这个 PR';
+    const result = parseA2AMentions(text, 'codex');
+    assert.deepEqual(result, []);
   });
 
   it('does NOT trigger for non-line-start @mention', async () => {
@@ -127,7 +147,7 @@ describe('parseA2AMentions', () => {
         catRegistry.register(id, config);
       }
 
-      const text = '@opus-45 先看\n@gemini25 再看';
+      const text = '@opus-45 请看一下\n@gemini25 please review';
       const result = parseA2AMentions(text, 'gpt52');
       assert.deepEqual(result, ['opus-45', 'gemini25']);
     } finally {
