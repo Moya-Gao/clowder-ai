@@ -99,12 +99,33 @@ describe('HubQuotaBoardTab — polling', () => {
   it('warn-guard detects QUOTA_BROWSER_CDP_URL guidance text', async () => {
     const mod = await import('@/components/HubQuotaBoardTab');
     expect(
-      mod.shouldWarnBeforeOfficialRefresh(
-        'Missing QUOTA_BROWSER_CDP_URL. Start Chrome with --remote-debugging-port=9222, then retry.',
-      ),
+      mod.shouldPromptBeforeOfficialRefresh({
+        isFirstAttempt: false,
+        guidanceText: 'Missing QUOTA_BROWSER_CDP_URL. Start Chrome with --remote-debugging-port=9222, then retry.',
+      }),
     ).toBe(true);
-    expect(mod.shouldWarnBeforeOfficialRefresh('official fetch failed: timeout')).toBe(false);
-    expect(mod.shouldWarnBeforeOfficialRefresh(null)).toBe(false);
+    expect(
+      mod.shouldPromptBeforeOfficialRefresh({
+        isFirstAttempt: false,
+        guidanceText: 'official fetch failed: timeout',
+      }),
+    ).toBe(false);
+    expect(
+      mod.shouldPromptBeforeOfficialRefresh({
+        isFirstAttempt: false,
+        guidanceText: null,
+      }),
+    ).toBe(false);
+  });
+
+  it('warn-guard prompts on first click even without prior guidance text', async () => {
+    const mod = await import('@/components/HubQuotaBoardTab');
+    expect(
+      mod.shouldPromptBeforeOfficialRefresh({
+        isFirstAttempt: true,
+        guidanceText: null,
+      }),
+    ).toBe(true);
   });
 });
 
