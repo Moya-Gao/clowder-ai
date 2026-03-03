@@ -348,3 +348,45 @@ describe('POST /api/quota/refresh/official', () => {
     }
   });
 });
+
+describe('CDP URL resolution', () => {
+  it('returns explicit env URL when it is localhost', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const result = await resolveBrowserCdpUrl('http://127.0.0.1:9222');
+    assert.equal('url' in result, true);
+    if ('url' in result) {
+      assert.equal(result.url, 'http://127.0.0.1:9222');
+    }
+  });
+
+  it('auto-discovers local CDP URL when env is missing', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const mockFetch = async (input) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:9222/json/version') {
+        return new Response(JSON.stringify({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/1' }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response('', { status: 404 });
+    };
+    const result = await resolveBrowserCdpUrl(undefined, mockFetch);
+    assert.equal('url' in result, true);
+    if ('url' in result) {
+      assert.equal(result.url, 'http://127.0.0.1:9222');
+    }
+  });
+
+  it('returns actionable error when env missing and no local CDP found', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const mockFetch = async () => {
+      throw new Error('connect ECONNREFUSED');
+    };
+    const result = await resolveBrowserCdpUrl(undefined, mockFetch);
+    assert.equal('error' in result, true);
+    if ('error' in result) {
+      assert.match(result.error, /--remote-debugging-port=9222/);
+    }
+  });
+});

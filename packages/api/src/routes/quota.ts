@@ -97,6 +97,14 @@ const ANTIGRAVITY: AntigravityQuota = {
 };
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
+const LOCAL_CDP_CANDIDATES = [
+  'http://127.0.0.1:9222',
+  'http://localhost:9222',
+  'http://127.0.0.1:9223',
+  'http://localhost:9223',
+  'http://127.0.0.1:9333',
+  'http://localhost:9333',
+] as const;
 
 function parsePercentLine(line: string): number | null {
   const match = line.match(/(\d{1,3})\s*%/);
@@ -218,6 +226,46 @@ function isAllowedBrowserCdpUrl(browserURL: string): boolean {
   }
 }
 
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
+
+async function hasCdpEndpoint(browserBaseUrl: string, fetchLike: FetchLike): Promise<boolean> {
+  try {
+    const response = await fetchLike(`${browserBaseUrl}/json/version`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(1200),
+    });
+    if (!response.ok) return false;
+    const json = (await response.json()) as { webSocketDebuggerUrl?: unknown };
+    return typeof json.webSocketDebuggerUrl === 'string' && json.webSocketDebuggerUrl.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveBrowserCdpUrl(
+  explicitUrl: string | undefined,
+  fetchLike: FetchLike = globalThis.fetch.bind(globalThis),
+): Promise<{ url: string } | { error: string }> {
+  if (explicitUrl) {
+    if (!isAllowedBrowserCdpUrl(explicitUrl)) {
+      return {
+        error: `${OFFICIAL_CDP_URL_ENV} must be http://localhost:* or http://127.0.0.1:*`,
+      };
+    }
+    return { url: explicitUrl };
+  }
+
+  for (const candidate of LOCAL_CDP_CANDIDATES) {
+    if (await hasCdpEndpoint(candidate, fetchLike)) {
+      return { url: candidate };
+    }
+  }
+
+  return {
+    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port=9222, then retry.`,
+  };
+}
+
 // --- Route ---
 
 export async function quotaRoutes(app: FastifyInstance): Promise<void> {
@@ -256,9 +304,9 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
 
   // POST: refresh official usage pages once (manual click)
   app.post('/api/quota/refresh/official', async (_request, reply) => {
-    const browserURL = process.env[OFFICIAL_CDP_URL_ENV];
-    if (!browserURL) {
-      const message = `Missing ${OFFICIAL_CDP_URL_ENV}. Start Chrome with --remote-debugging-port and set this env.`;
+    const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV]);
+    if ('error' in resolved) {
+      const message = resolved.error;
       const checkedAt = new Date().toISOString();
       codexCache = {
         platform: 'codex',
@@ -275,22 +323,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
         error: message,
       });
     }
-    if (!isAllowedBrowserCdpUrl(browserURL)) {
-      const message = `${OFFICIAL_CDP_URL_ENV} must be http://localhost:* or http://127.0.0.1:*`;
-      const checkedAt = new Date().toISOString();
-      codexCache = {
-        platform: 'codex',
-        usageItems: [],
-        error: message,
-        lastChecked: checkedAt,
-      };
-      claudeCache = {
-        ...claudeCache,
-        error: message,
-        lastChecked: checkedAt,
-      };
-      return reply.status(400).send({ error: message });
-    }
+    const browserURL = resolved.url;
 
     try {
       const [openaiText, claudeText] = await Promise.all([
