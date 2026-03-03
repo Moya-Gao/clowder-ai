@@ -95,6 +95,17 @@ describe('HubQuotaBoardTab — polling', () => {
     expect(mod.POLL_INTERVAL_MS).toBeGreaterThanOrEqual(10_000);
     expect(mod.POLL_INTERVAL_MS).toBeLessThanOrEqual(60_000);
   });
+
+  it('warn-guard detects QUOTA_BROWSER_CDP_URL guidance text', async () => {
+    const mod = await import('@/components/HubQuotaBoardTab');
+    expect(
+      mod.shouldWarnBeforeOfficialRefresh(
+        'Missing QUOTA_BROWSER_CDP_URL. Start Chrome with --remote-debugging-port=9222, then retry.',
+      ),
+    ).toBe(true);
+    expect(mod.shouldWarnBeforeOfficialRefresh('official fetch failed: timeout')).toBe(false);
+    expect(mod.shouldWarnBeforeOfficialRefresh(null)).toBe(false);
+  });
 });
 
 describe('CodexCard official-value rendering', () => {

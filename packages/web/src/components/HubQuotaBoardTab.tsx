@@ -15,6 +15,13 @@ import {
 
 /** How often to poll GET /api/quota while the tab is mounted (ms) */
 export const POLL_INTERVAL_MS = 30_000;
+export const RESTART_WARNING_TEXT =
+  '将尝试重启 Chrome 以开启官方额度抓取所需的 CDP（9222）。未保存页面可能受影响，是否继续？';
+
+export function shouldWarnBeforeOfficialRefresh(message: string | null | undefined): boolean {
+  if (!message) return false;
+  return /QUOTA_BROWSER_CDP_URL|remote-debugging-port=9222/i.test(message);
+}
 
 export function HubQuotaBoardTab() {
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
@@ -40,6 +47,15 @@ export function HubQuotaBoardTab() {
   }, [fetchQuota]);
 
   const onRefresh = useCallback(async () => {
+    const guidanceText = refreshError ?? quota?.codex?.error ?? quota?.claude?.error ?? null;
+    if (shouldWarnBeforeOfficialRefresh(guidanceText)) {
+      const confirmFn: ((message?: string) => boolean) | undefined =
+        typeof window !== 'undefined' ? window.confirm : undefined;
+      const proceed = confirmFn ? confirmFn(RESTART_WARNING_TEXT) : true;
+      if (!proceed) {
+        return;
+      }
+    }
     setRefreshing(true);
     try {
       const refreshRes = await apiFetch('/api/quota/refresh/official', { method: 'POST' });
@@ -56,7 +72,7 @@ export function HubQuotaBoardTab() {
     } finally {
       setRefreshing(false);
     }
-  }, [fetchQuota]);
+  }, [fetchQuota, quota, refreshError]);
 
   // SSR / initial render: show card structure with empty state
   const claude: ClaudeQuota = quota?.claude ?? {

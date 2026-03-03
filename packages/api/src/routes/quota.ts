@@ -98,6 +98,7 @@ const ANTIGRAVITY: AntigravityQuota = {
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
 const AUTO_START_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_START';
+const AUTO_RESTART_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_RESTART';
 const LOCAL_CDP_CANDIDATES = [
   'http://127.0.0.1:9222',
   'http://localhost:9222',
@@ -231,11 +232,14 @@ function isAllowedBrowserCdpUrl(browserURL: string): boolean {
 type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 type SleepLike = (ms: number) => Promise<void>;
 type LaunchChromeLike = (port: number) => Promise<void>;
+type RestartChromeLike = (port: number, sleep: SleepLike) => Promise<void>;
 
 export interface ResolveBrowserCdpUrlOptions {
   fetchLike?: FetchLike;
   autoStartOnMissing?: boolean;
+  autoRestartOnUnavailable?: boolean;
   launchChrome?: LaunchChromeLike;
+  restartChrome?: RestartChromeLike;
   sleep?: SleepLike;
   retryCount?: number;
   retryIntervalMs?: number;
@@ -249,6 +253,20 @@ async function autoStartChromeWithCdp(port: number): Promise<void> {
   if (process.platform !== 'darwin') {
     throw new Error('auto-start via open command is only supported on macOS');
   }
+  await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
+    timeout: 8_000,
+  });
+}
+
+async function restartChromeWithCdp(port: number, sleep: SleepLike): Promise<void> {
+  if (process.platform !== 'darwin') {
+    throw new Error('auto-restart via open command is only supported on macOS');
+  }
+  // Best effort quit; ignore if app is already stopped.
+  await execFileAsync('osascript', ['-e', 'tell application "Google Chrome" to quit'], {
+    timeout: 8_000,
+  }).catch(() => undefined);
+  await sleep(400);
   await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
     timeout: 8_000,
   });
@@ -296,6 +314,8 @@ export async function resolveBrowserCdpUrl(
 
   const launchChrome = options.launchChrome ?? autoStartChromeWithCdp;
   const sleep = options.sleep ?? sleepMs;
+  const autoRestartOnUnavailable = options.autoRestartOnUnavailable ?? true;
+  const restartChrome = options.restartChrome ?? restartChromeWithCdp;
   const retryCount = options.retryCount ?? 6;
   const retryIntervalMs = options.retryIntervalMs ?? 400;
   try {
@@ -316,8 +336,32 @@ export async function resolveBrowserCdpUrl(
     }
   }
 
+  if (!autoRestartOnUnavailable) {
+    return {
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome, but CDP endpoint is still unavailable. If Chrome is already running, restart it with --remote-debugging-port=9222, then retry.`,
+    };
+  }
+
+  try {
+    await restartChrome(DEFAULT_CDP_PORT, sleep);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    return {
+      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome but failed during restart: ${reason}. Restart Chrome with --remote-debugging-port=9222, then retry.`,
+    };
+  }
+
+  for (let i = 0; i < retryCount; i += 1) {
+    if (await hasCdpEndpoint(DEFAULT_CDP_URL, fetchLike)) {
+      return { url: DEFAULT_CDP_URL };
+    }
+    if (i < retryCount - 1) {
+      await sleep(retryIntervalMs);
+    }
+  }
+
   return {
-    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start Chrome, but CDP endpoint is still unavailable. If Chrome is already running, restart it with --remote-debugging-port=9222, then retry.`,
+    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome, but CDP endpoint is still unavailable. Restart Chrome with --remote-debugging-port=9222, then retry.`,
   };
 }
 
@@ -361,6 +405,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
   app.post('/api/quota/refresh/official', async (_request, reply) => {
     const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV], {
       autoStartOnMissing: process.env[AUTO_START_BROWSER_ENV] !== '0',
+      autoRestartOnUnavailable: process.env[AUTO_RESTART_BROWSER_ENV] !== '0',
     });
     if ('error' in resolved) {
       const message = resolved.error;

@@ -428,6 +428,71 @@ describe('CDP URL resolution', () => {
     }
   });
 
+  it('restarts Chrome when auto-start cannot expose CDP endpoint', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    let endpointReady = false;
+    let launchCalls = 0;
+    let restartCalls = 0;
+    const mockFetch = async (input) => {
+      const url = String(input);
+      if (url === 'http://127.0.0.1:9222/json/version' && endpointReady) {
+        return new Response(
+          JSON.stringify({
+            webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/demo',
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        );
+      }
+      throw new Error('ECONNREFUSED');
+    };
+
+    const result = await resolveBrowserCdpUrl(undefined, {
+      fetchLike: mockFetch,
+      autoStartOnMissing: true,
+      autoRestartOnUnavailable: true,
+      launchChrome: async (port) => {
+        launchCalls += 1;
+        assert.equal(port, 9222);
+      },
+      restartChrome: async (port) => {
+        restartCalls += 1;
+        assert.equal(port, 9222);
+        endpointReady = true;
+      },
+      sleep: async () => {},
+      retryCount: 1,
+    });
+
+    assert.equal(launchCalls, 1);
+    assert.equal(restartCalls, 1);
+    assert.equal('url' in result, true);
+    if ('url' in result) {
+      assert.equal(result.url, 'http://127.0.0.1:9222');
+    }
+  });
+
+  it('returns actionable error when restart attempt fails', async () => {
+    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
+    const result = await resolveBrowserCdpUrl(undefined, {
+      autoStartOnMissing: true,
+      autoRestartOnUnavailable: true,
+      fetchLike: async () => {
+        throw new Error('ECONNREFUSED');
+      },
+      launchChrome: async () => {},
+      restartChrome: async () => {
+        throw new Error('automation denied');
+      },
+      sleep: async () => {},
+      retryCount: 1,
+    });
+    assert.equal('error' in result, true);
+    if ('error' in result) {
+      assert.match(result.error, /auto-start and restart Chrome/);
+      assert.match(result.error, /--remote-debugging-port=9222/);
+    }
+  });
+
   it('returns actionable error when auto-start attempt fails', async () => {
     const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
     const result = await resolveBrowserCdpUrl(undefined, {
