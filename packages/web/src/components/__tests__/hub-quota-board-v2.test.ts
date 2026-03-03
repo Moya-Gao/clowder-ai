@@ -5,8 +5,10 @@
  * (official page data) instead of telemetry snapshots.
  */
 import React from 'react';
+import { act } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QuotaResponse } from './quota-test-fixtures';
 
 // --- Fixtures ---
@@ -43,21 +45,42 @@ const MOCK_QUOTA_RESPONSE: QuotaResponse = {
   fetchedAt: '2026-03-02T16:45:00Z',
 };
 
+const BASE_PROBES_RESPONSE = {
+  probes: [
+    {
+      id: 'official-browser',
+      sourceKind: 'browser',
+      refreshMode: 'manual',
+      enabled: false,
+      status: 'disabled',
+      targets: ['codex', 'claude'],
+      actions: [{ kind: 'refresh', method: 'POST', path: '/api/quota/refresh/official', requiresInteractive: true }],
+      reason: 'disabled',
+    },
+  ],
+  fetchedAt: '2026-03-02T16:45:00Z',
+};
+
+function jsonResponse(payload: unknown): Response {
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
 // --- Mocks ---
 
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(() =>
-    Promise.resolve(
-      new Response(JSON.stringify(MOCK_QUOTA_RESPONSE), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    ),
-  ),
+  apiFetch: vi.fn((path: string) => {
+    if (path === '/api/quota') return Promise.resolve(jsonResponse(MOCK_QUOTA_RESPONSE));
+    if (path === '/api/quota/probes') return Promise.resolve(jsonResponse(BASE_PROBES_RESPONSE));
+    return Promise.resolve(new Response('{}', { status: 404 }));
+  }),
 }));
 
 import { HubQuotaBoardTab } from '@/components/HubQuotaBoardTab';
 import { CodexCard } from '@/components/quota-cards';
+import { apiFetch } from '@/utils/api-client';
 
 describe('HubQuotaBoardTab v2 — official quota API', () => {
   it('renders the 猫粮看板 title', () => {
@@ -126,6 +149,130 @@ describe('HubQuotaBoardTab — polling', () => {
         guidanceText: null,
       }),
     ).toBe(true);
+  });
+
+  it('builds probe hint text from official-browser probe status', async () => {
+    const mod = await import('@/components/HubQuotaBoardTab');
+    expect(
+      mod.buildOfficialProbeHint([
+        {
+          id: 'official-browser',
+          sourceKind: 'browser',
+          refreshMode: 'manual',
+          enabled: false,
+          status: 'disabled',
+          targets: ['codex', 'claude'],
+          actions: [{ kind: 'refresh', method: 'POST', path: '/api/quota/refresh/official', requiresInteractive: true }],
+          reason: 'disabled',
+        },
+      ]),
+    ).toContain('已禁用');
+    expect(
+      mod.buildOfficialProbeHint([
+        {
+          id: 'official-browser',
+          sourceKind: 'browser',
+          refreshMode: 'manual',
+          enabled: true,
+          status: 'ok',
+          targets: ['codex', 'claude'],
+          actions: [{ kind: 'refresh', method: 'POST', path: '/api/quota/refresh/official', requiresInteractive: true }],
+          reason: 'enabled',
+        },
+      ]),
+    ).toContain('已启用');
+    expect(
+      mod.buildOfficialProbeHint([
+        {
+          id: 'official-browser',
+          sourceKind: 'browser',
+          refreshMode: 'manual',
+          enabled: true,
+          status: 'error',
+          targets: ['codex', 'claude'],
+          actions: [{ kind: 'refresh', method: 'POST', path: '/api/quota/refresh/official', requiresInteractive: true }],
+          reason: 'failed',
+        },
+      ]),
+    ).toContain('运行异常');
+    expect(mod.buildOfficialProbeHint(null)).toBeNull();
+  });
+});
+
+describe('HubQuotaBoardTab — probe hint integration', () => {
+  const mockedApiFetch = vi.mocked(apiFetch);
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  async function flushEffects() {
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  it('renders disabled hint from /api/quota/probes', async () => {
+    mockedApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/quota') return Promise.resolve(jsonResponse(MOCK_QUOTA_RESPONSE));
+      if (path === '/api/quota/probes') return Promise.resolve(jsonResponse(BASE_PROBES_RESPONSE));
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubQuotaBoardTab));
+    });
+    await flushEffects();
+    expect(container.textContent).toContain('官方网页探针：已禁用');
+  });
+
+  it('renders error hint from /api/quota/probes', async () => {
+    mockedApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/quota') return Promise.resolve(jsonResponse(MOCK_QUOTA_RESPONSE));
+      if (path === '/api/quota/probes') {
+        return Promise.resolve(
+          jsonResponse({
+            ...BASE_PROBES_RESPONSE,
+            probes: [
+              {
+                ...BASE_PROBES_RESPONSE.probes[0],
+                enabled: true,
+                status: 'error',
+                reason: 'official fetch failed',
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubQuotaBoardTab));
+    });
+    await flushEffects();
+    expect(container.textContent).toContain('官方网页探针：运行异常');
   });
 });
 

@@ -78,6 +78,27 @@ export interface QuotaResponse {
   fetchedAt: string;
 }
 
+export type QuotaProbeTargetPlatform = 'claude' | 'codex' | 'antigravity';
+export type QuotaProbeRuntimeStatus = 'ok' | 'error' | 'disabled';
+
+export interface QuotaProbeAction {
+  kind: 'refresh';
+  method: 'POST';
+  path: `/api/quota/refresh/${string}`;
+  requiresInteractive: boolean;
+}
+
+export interface QuotaProbeDescriptor {
+  id: 'claude-cli' | 'official-browser' | 'antigravity-placeholder';
+  sourceKind: 'cli' | 'browser' | 'placeholder';
+  refreshMode: 'manual' | 'scheduled';
+  enabled: boolean;
+  status: QuotaProbeRuntimeStatus;
+  targets: QuotaProbeTargetPlatform[];
+  actions: QuotaProbeAction[];
+  reason: string;
+}
+
 // --- In-memory cache ---
 
 let claudeCache: ClaudeQuota = {
@@ -148,6 +169,77 @@ function buildProfileDir(raw: string | undefined): string {
 function isTruthyFlag(raw: string | undefined): boolean {
   if (!raw) return false;
   return raw === '1' || raw.toLowerCase() === 'true';
+}
+
+function hasOfficialProbeFailure(): boolean {
+  const messages = [codexCache.error, claudeCache.error].filter((message): message is string => Boolean(message));
+  return messages.some((message) => {
+    if (/temporarily disabled/i.test(message)) return false;
+    return /official fetch failed|QUOTA_BROWSER_CDP_URL|remote-debugging-port|尚未登录|CDP endpoint/i.test(message);
+  });
+}
+
+export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env): QuotaProbeDescriptor[] {
+  const officialRefreshEnabled = isTruthyFlag(env[OFFICIAL_REFRESH_ENABLED_ENV]);
+  const officialStatus: QuotaProbeRuntimeStatus = !officialRefreshEnabled
+    ? 'disabled'
+    : hasOfficialProbeFailure()
+      ? 'error'
+      : 'ok';
+  const claudeStatus: QuotaProbeRuntimeStatus = /ccusage failed/i.test(claudeCache.error ?? '') ? 'error' : 'ok';
+
+  return [
+    {
+      id: 'claude-cli',
+      sourceKind: 'cli',
+      refreshMode: 'manual',
+      enabled: true,
+      status: claudeStatus,
+      targets: ['claude'],
+      actions: [
+        {
+          kind: 'refresh',
+          method: 'POST',
+          path: '/api/quota/refresh/claude',
+          requiresInteractive: false,
+        },
+      ],
+      reason:
+        claudeStatus === 'error' ? (claudeCache.error ?? 'ccusage probe error') : 'Uses ccusage CLI output. No browser scraping.',
+    },
+    {
+      id: 'official-browser',
+      sourceKind: 'browser',
+      refreshMode: 'manual',
+      enabled: officialRefreshEnabled,
+      status: officialStatus,
+      targets: ['codex', 'claude'],
+      actions: [
+        {
+          kind: 'refresh',
+          method: 'POST',
+          path: '/api/quota/refresh/official',
+          requiresInteractive: true,
+        },
+      ],
+      reason:
+        officialStatus === 'disabled'
+          ? 'Disabled by default for risk control. Set QUOTA_OFFICIAL_REFRESH_ENABLED=1 to enable.'
+          : officialStatus === 'error'
+            ? (codexCache.error ?? claudeCache.error ?? 'official browser probe error')
+            : 'Enabled by QUOTA_OFFICIAL_REFRESH_ENABLED=1. Triggered by manual click only.',
+    },
+    {
+      id: 'antigravity-placeholder',
+      sourceKind: 'placeholder',
+      refreshMode: 'manual',
+      enabled: false,
+      status: 'disabled',
+      targets: ['antigravity'],
+      actions: [],
+      reason: 'Antigravity official probe not implemented yet.',
+    },
+  ];
 }
 
 function parsePercentLine(line: string): number | null {
@@ -493,6 +585,13 @@ export function shouldAutoStartBrowserForOfficialRefresh(
 // --- Route ---
 
 export async function quotaRoutes(app: FastifyInstance): Promise<void> {
+  app.get('/api/quota/probes', async () => {
+    return {
+      probes: listQuotaProbeDescriptors(),
+      fetchedAt: new Date().toISOString(),
+    };
+  });
+
   // GET: return all cached quota
   app.get('/api/quota', async () => {
     const response: QuotaResponse = {

@@ -18,6 +18,38 @@ export const POLL_INTERVAL_MS = 30_000;
 export const RESTART_WARNING_TEXT =
   '将启动隔离浏览器窗口用于官方额度抓取（不会关闭你当前 Chrome）。首次使用请先在该窗口登录 OpenAI/Claude，是否继续？';
 
+export interface QuotaProbeDescriptor {
+  id: 'claude-cli' | 'official-browser' | 'antigravity-placeholder';
+  sourceKind: 'cli' | 'browser' | 'placeholder';
+  refreshMode: 'manual' | 'scheduled';
+  enabled: boolean;
+  status: 'ok' | 'error' | 'disabled';
+  targets: Array<'claude' | 'codex' | 'antigravity'>;
+  actions: Array<{
+    kind: 'refresh';
+    method: 'POST';
+    path: string;
+    requiresInteractive: boolean;
+  }>;
+  reason: string;
+}
+
+function findOfficialBrowserProbe(probes: QuotaProbeDescriptor[]): QuotaProbeDescriptor | undefined {
+  return probes.find(
+    (probe) =>
+      probe.sourceKind === 'browser' && probe.actions.some((action) => action.path === '/api/quota/refresh/official'),
+  );
+}
+
+export function buildOfficialProbeHint(probes: QuotaProbeDescriptor[] | null): string | null {
+  if (!probes) return null;
+  const official = findOfficialBrowserProbe(probes);
+  if (!official) return null;
+  if (official.status === 'disabled') return '官方网页探针：已禁用（止血模式）';
+  if (official.status === 'error') return '官方网页探针：运行异常（请检查配置/登录）';
+  return '官方网页探针：已启用（仅手动触发）';
+}
+
 export function shouldPromptBeforeOfficialRefresh({
   isFirstAttempt,
   guidanceText,
@@ -32,16 +64,25 @@ export function shouldPromptBeforeOfficialRefresh({
 
 export function HubQuotaBoardTab() {
   const [quota, setQuota] = useState<QuotaResponse | null>(null);
+  const [probes, setProbes] = useState<QuotaProbeDescriptor[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [hasAttemptedOfficialRefresh, setHasAttemptedOfficialRefresh] = useState(false);
+  const officialProbeHint = buildOfficialProbeHint(probes);
 
   const fetchQuota = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/quota');
-      if (res.ok) {
-        const data = (await res.json()) as QuotaResponse;
+      const [quotaRes, probesRes] = await Promise.all([
+        apiFetch('/api/quota'),
+        apiFetch('/api/quota/probes'),
+      ]);
+      if (quotaRes.ok) {
+        const data = (await quotaRes.json()) as QuotaResponse;
         setQuota(data);
+      }
+      if (probesRes.ok) {
+        const payload = (await probesRes.json()) as { probes?: QuotaProbeDescriptor[] };
+        setProbes(payload.probes ?? null);
       }
     } catch {
       // silently fail — cards will show empty state
@@ -131,6 +172,7 @@ export function HubQuotaBoardTab() {
         </div>
       </div>
       {refreshError && <div className="mb-3 text-[11px] text-red-600">{refreshError}</div>}
+      {officialProbeHint && <div className="mb-3 text-[11px] text-amber-700">{officialProbeHint}</div>}
 
       <div className="grid grid-cols-3 gap-3">
         <ClaudeCard data={claude} />

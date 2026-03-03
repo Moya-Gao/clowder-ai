@@ -96,6 +96,84 @@ describe('GET /api/quota', () => {
   });
 });
 
+describe('GET /api/quota/probes', () => {
+  it('returns probe registry with official-browser disabled by default', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const app = await buildApp();
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/quota/probes' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(Array.isArray(body.probes), true);
+      const official = body.probes.find((probe) => probe.id === 'official-browser');
+      assert.equal(official?.enabled, false);
+      assert.equal(official?.status, 'disabled');
+      assert.deepEqual(official?.targets, ['codex', 'claude']);
+      assert.equal(official?.actions?.[0]?.path, '/api/quota/refresh/official');
+      assert.equal(official?.actions?.[0]?.requiresInteractive, true);
+      assert.match(official?.reason ?? '', /disabled by default/i);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
+  it('marks official-browser probe enabled when env toggle is set', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    const app = await buildApp();
+    try {
+      const res = await app.inject({ method: 'GET', url: '/api/quota/probes' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      const official = body.probes.find((probe) => probe.id === 'official-browser');
+      assert.equal(official?.enabled, true);
+      assert.equal(official?.status, 'ok');
+      assert.match(official?.reason ?? '', /manual click only/i);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
+  it('marks official-browser probe status=error after official refresh failure', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldAutoStart = process.env.QUOTA_BROWSER_AUTO_START;
+    const oldPort = process.env.QUOTA_BROWSER_CDP_PORT;
+    const oldCdp = process.env.QUOTA_BROWSER_CDP_URL;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.QUOTA_BROWSER_AUTO_START = '0';
+    process.env.QUOTA_BROWSER_CDP_PORT = '61234';
+    delete process.env.QUOTA_BROWSER_CDP_URL;
+    const app = await buildApp();
+    try {
+      const refreshRes = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
+      assert.equal(refreshRes.statusCode, 400);
+
+      const probeRes = await app.inject({ method: 'GET', url: '/api/quota/probes' });
+      assert.equal(probeRes.statusCode, 200);
+      const body = probeRes.json();
+      const official = body.probes.find((probe) => probe.id === 'official-browser');
+      assert.equal(official?.enabled, true);
+      assert.equal(official?.status, 'error');
+      assert.match(official?.reason ?? '', /QUOTA_BROWSER_CDP_URL/);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldAutoStart != null) process.env.QUOTA_BROWSER_AUTO_START = oldAutoStart;
+      else delete process.env.QUOTA_BROWSER_AUTO_START;
+      if (oldPort != null) process.env.QUOTA_BROWSER_CDP_PORT = oldPort;
+      else delete process.env.QUOTA_BROWSER_CDP_PORT;
+      if (oldCdp != null) process.env.QUOTA_BROWSER_CDP_URL = oldCdp;
+      else delete process.env.QUOTA_BROWSER_CDP_URL;
+      await app.close();
+    }
+  });
+});
+
 describe('PATCH /api/quota/codex — validation', () => {
   it('rejects payload without usageItems array', async () => {
     const app = await buildApp();

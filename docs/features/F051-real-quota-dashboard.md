@@ -6,13 +6,13 @@ created: 2026-03-02
 updated: 2026-03-03
 ---
 
-# F051 — 真实猫粮看板（官方额度同值展示）
+# F051 — 真实猫粮看板（官方额度同值展示 + Probe 架构）
 
-> **Status**: done
-> **Owner**: 布偶猫 (Opus)
+> **Status**: in-progress
+> **Owner**: 缅因猫 (Codex)
 > **Reviewer**: 缅因猫 (Codex / GPT-5.2) — 愿景守护重点
 > **Created**: 2026-03-02
-> **Completed**: 2026-03-02
+> **Completed (Phase 1)**: 2026-03-02
 
 ## Why
 
@@ -70,6 +70,17 @@ updated: 2026-03-03
 - **点击触发后再抓取**（on-demand），避免持续爬取影响官方服务
 - Antigravity 本轮占位，下一迭代接入
 
+### Phase 2（2026-03-03）— Probe/Collector 架构收敛
+
+为避免再次出现“行为不可解释 + 风控边界模糊”，F051 在同一 feature 下继续推进 Phase 2：
+
+- 统一 Probe Registry：CLI / Browser / Placeholder
+- 探针语义显式拆分：
+  - `enabled` = 配置开关（是否允许）
+  - `status` = 运行态（`ok | error | disabled`）
+- 新增 `targets/actions` 元数据，减少前端硬编码
+- Hub 看板显示探针运行提示（禁用 / 异常 / 启用）
+
 ## Acceptance Criteria
 
 - [x] AC-1: Codex 卡片显示的用量% 与 `chatgpt.com/codex/settings/usage` 页面一致（通过浏览器抓取推送）
@@ -79,6 +90,9 @@ updated: 2026-03-03
 - [x] AC-5: Antigravity 显示"待接入"占位（不是推导值）
 - [x] AC-6: 支持手动点击获取官方额度（Codex + Claude 同步抓取）
 - [x] AC-7: 复用本机浏览器已登录会话（CDP）抓取官方 usage 页面
+- [x] AC-8: `/api/quota/probes` 暴露 `enabled`（配置开关）与 `status`（运行态）语义，不混用
+- [x] AC-9: Probe 描述包含 `targets` 与 `actions`（refresh endpoint、interactive 约束）
+- [x] AC-10: Hub 对 `status=disabled/error/ok` 渲染对应提示；含 path-mock 集成测试覆盖
 
 ## 需求点 Checklist
 
@@ -91,6 +105,7 @@ updated: 2026-03-03
 | R5 | "antigravity 下次一定" | AC-5 | 占位文案 + 范围拍板 | [x] |
 | R6 | "我想看了，我点击看到，不需要自己打开网页" | AC-6,7 | 点击获取链路 + CDP 错误可见性 | [x] |
 | R7 | "不会一直爬，避免影响别人" | AC-6 | on-demand 触发，不做持续爬取 | [x] |
+| R8 | "按开源组件化思路重构，走正规流程" | AC-8,9,10 | Probe Registry + quality-gate + peer review | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -103,6 +118,8 @@ updated: 2026-03-03
 - 讨论原文: Thread `thread_mm8pkb8ini25oflo` (2026-03-02)
 - 关闭的 PR: #168 (本地文件解析, 方向错误), #161 (telemetry 聚合, 方向错误)
 - 合入 PR: #169 (`3f20fcde`)
+- Phase 2 Discussion: `docs/discussions/2026-03-03-f051-quota-probe-phase2/README.md`
+- Phase 2 Plan: `docs/plans/2026-03-03-f051-quota-probe-phase2.md`
 - Evolved from: F042 (提示词优化审计 → 猫粮看板需求浮现)
 - Related: Hub 猫粮看板 tab（PR #161 已合入的 UI 骨架可复用）
 
@@ -113,6 +130,8 @@ updated: 2026-03-03
 | 数据源 | 官方 usage 页面抓取 | 本地文件解析 / telemetry | 铲屎官明确要求"官方页面同值" |
 | Codex+GPT 展示 | 单卡共享额度 | 按模型分卡 | 铲屎官："他们是一个额度" |
 | Antigravity | 本轮占位 | 本轮实现 | 铲屎官："下次一定" |
+| Probe 语义 | `enabled`=配置开关, `status`=运行态 | 单一 `enabled` 混合语义 | 防止 UI/后端语义漂移 |
+| 探针元数据 | `targets + actions` | 前端硬编码 probe id/path | 扩展多源时可组合、低耦合 |
 
 ## Dependencies
 
@@ -129,8 +148,8 @@ updated: 2026-03-03
 
 ## Open Questions
 
-1. Antigravity 官方额度抓取（F052+）
-2. Codex 推送入口是否需要身份签名（安全增强）
+1. Antigravity 官方额度抓取与数据模型（F051 Phase 3）
+2. 是否需要持久化 probe snapshot（SQLite）做趋势展示
 
 ## Review Gate
 
@@ -156,3 +175,4 @@ updated: 2026-03-03
 | 2026-03-02 | 关闭 PR #168，正式立项 F051 |
 | 2026-03-02 | PR #169 合入 main（squash `3f20fcde`），F051 完成收尾 |
 | 2026-03-03 | PR #175 修复/增强：官方“剩余%”直显、CDP 错误可见、点击获取链路对齐最终愿景 |
+| 2026-03-03 | Phase 2：Probe Registry + `enabled/status` 语义 + `targets/actions` + Hub 集成测试 |
