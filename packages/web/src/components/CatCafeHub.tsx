@@ -30,6 +30,15 @@ const HUB_TABS: { id: HubTabId; label: string }[] = [
   { id: 'strategy', label: 'Session 策略' },
 ];
 
+export function resolveRequestedHubTab(
+  requestedTab: string,
+  getCatById: (catId: string) => unknown,
+): HubTabId {
+  if (requestedTab === 'quota') return 'routing';
+  if (getCatById(requestedTab)) return 'cats';
+  return requestedTab;
+}
+
 /**
  * Global Hub modal — always mounted at ChatContainer root.
  * Open/close driven by chatStore.hubState (not props).
@@ -42,8 +51,9 @@ export function CatCafeHub() {
 
   const open = hubState?.open ?? false;
   const requestedTab = (hubState?.tab ?? 'cats') as HubTabId;
+  const normalizedRequestedTab = resolveRequestedHubTab(requestedTab, getCatById);
 
-  const [tab, setTab] = useState<HubTabId>('cats');
+  const [tab, setTab] = useState<HubTabId>(normalizedRequestedTab);
   const [config, setConfig] = useState<ConfigData | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [capTabEverOpened, setCapTabEverOpened] = useState(false);
@@ -51,11 +61,9 @@ export function CatCafeHub() {
   // Sync tab to store-requested tab when opening
   useEffect(() => {
     if (open) {
-      // Map legacy per-cat tab IDs to unified cats tab
-      const mapped = getCatById(requestedTab) ? 'cats' : requestedTab;
-      setTab(mapped);
+      setTab(normalizedRequestedTab);
     }
-  }, [open, requestedTab, getCatById]);
+  }, [open, normalizedRequestedTab]);
 
   // Fallback to valid tab if current is invalid
   useEffect(() => {

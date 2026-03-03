@@ -72,7 +72,11 @@ export function HubQuotaBoardTab() {
     setHasAttemptedOfficialRefresh(true);
     setRefreshing(true);
     try {
-      const refreshRes = await apiFetch('/api/quota/refresh/official', { method: 'POST' });
+      const refreshRes = await apiFetch('/api/quota/refresh/official', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interactive: true }),
+      });
       if (!refreshRes.ok) {
         const body = (await refreshRes.json().catch(() => ({}))) as { error?: string };
         setRefreshError(body.error ?? '获取官方额度失败');

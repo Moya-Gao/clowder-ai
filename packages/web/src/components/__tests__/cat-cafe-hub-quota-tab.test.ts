@@ -53,10 +53,15 @@ vi.mock('@/utils/api-client', () => ({
   apiFetch: vi.fn(() => Promise.resolve(new Response('{}', { status: 200 }))),
 }));
 
-import { CatCafeHub } from '@/components/CatCafeHub';
+import { CatCafeHub, resolveRequestedHubTab } from '@/components/CatCafeHub';
 import { HubRoutingPolicyTab } from '@/components/HubRoutingPolicyTab';
 
 describe('CatCafeHub quota tab', () => {
+  it('maps legacy quota tab id to routing tab id', () => {
+    expect(resolveRequestedHubTab('quota', () => undefined)).toBe('routing');
+    expect(resolveRequestedHubTab('routing', () => undefined)).toBe('routing');
+  });
+
   it('renders 猫粮看板 as a hub tab label', () => {
     const html = renderToStaticMarkup(React.createElement(CatCafeHub));
     expect(html).toContain('猫粮看板');

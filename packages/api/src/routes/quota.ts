@@ -100,6 +100,7 @@ const ANTIGRAVITY: AntigravityQuota = {
 };
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
+const OFFICIAL_REFRESH_ENABLED_ENV = 'QUOTA_OFFICIAL_REFRESH_ENABLED';
 const BROWSER_MODE_ENV = 'QUOTA_BROWSER_MODE';
 const BROWSER_CDP_PORT_ENV = 'QUOTA_BROWSER_CDP_PORT';
 const BROWSER_PROFILE_DIR_ENV = 'QUOTA_BROWSER_PROFILE_DIR';
@@ -116,6 +117,10 @@ const LEGACY_LOCAL_CDP_CANDIDATES = [
 ] as const;
 const DEFAULT_ISOLATED_CDP_PORT = 9224;
 const DEFAULT_BROWSER_MODE = 'isolated';
+
+interface OfficialRefreshRequestBody {
+  interactive?: boolean;
+}
 
 type BrowserMode = 'isolated' | 'existing';
 
@@ -138,6 +143,11 @@ function buildBrowserBaseUrl(port: number): string {
 function buildProfileDir(raw: string | undefined): string {
   if (raw && raw.trim()) return raw.trim();
   return join(homedir(), '.cat-cafe', 'quota-browser-profile');
+}
+
+function isTruthyFlag(raw: string | undefined): boolean {
+  if (!raw) return false;
+  return raw === '1' || raw.toLowerCase() === 'true';
 }
 
 function parsePercentLine(line: string): number | null {
@@ -470,6 +480,16 @@ export async function resolveBrowserCdpUrl(
   };
 }
 
+export function shouldAutoStartBrowserForOfficialRefresh(
+  requestBody: unknown,
+  autoStartEnvValue: string | undefined = process.env[AUTO_START_BROWSER_ENV],
+): boolean {
+  const body = (requestBody ?? {}) as OfficialRefreshRequestBody;
+  const interactive = body?.interactive === true;
+  if (!interactive) return false;
+  return autoStartEnvValue !== '0';
+}
+
 // --- Route ---
 
 export async function quotaRoutes(app: FastifyInstance): Promise<void> {
@@ -507,13 +527,29 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
   });
 
   // POST: refresh official usage pages once (manual click)
-  app.post('/api/quota/refresh/official', async (_request, reply) => {
+  app.post('/api/quota/refresh/official', async (request, reply) => {
+    if (!isTruthyFlag(process.env[OFFICIAL_REFRESH_ENABLED_ENV])) {
+      const message = `Official quota refresh is temporarily disabled. Set ${OFFICIAL_REFRESH_ENABLED_ENV}=1 to enable it.`;
+      const checkedAt = new Date().toISOString();
+      codexCache = {
+        ...codexCache,
+        error: message,
+        lastChecked: checkedAt,
+      };
+      claudeCache = {
+        ...claudeCache,
+        error: message,
+        lastChecked: checkedAt,
+      };
+      return reply.status(503).send({ error: message });
+    }
+
     const browserMode = resolveBrowserMode(process.env[BROWSER_MODE_ENV]);
     const cdpPort = resolveCdpPort(process.env[BROWSER_CDP_PORT_ENV]);
     const profileDir = buildProfileDir(process.env[BROWSER_PROFILE_DIR_ENV]);
     const headless = process.env[BROWSER_HEADLESS_ENV] === '1';
     const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV], {
-      autoStartOnMissing: process.env[AUTO_START_BROWSER_ENV] !== '0',
+      autoStartOnMissing: shouldAutoStartBrowserForOfficialRefresh(request.body),
       // Restart is dangerous and opt-in only.
       autoRestartOnUnavailable: process.env[AUTO_RESTART_BROWSER_ENV] === '1',
       mode: browserMode,

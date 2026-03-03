@@ -312,11 +312,31 @@ GPT-5.3-Codex-Spark weekly usage limit
 });
 
 describe('POST /api/quota/refresh/official', () => {
+  it('returns 503 when official refresh is disabled by default', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const app = await buildApp();
+    try {
+      const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
+      assert.equal(res.statusCode, 503);
+      const body = res.json();
+      assert.match(body.error, /QUOTA_OFFICIAL_REFRESH_ENABLED/);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
   it('returns 400 when CDP URL env is not configured', async () => {
     const old = process.env.QUOTA_BROWSER_CDP_URL;
     const oldAutoStart = process.env.QUOTA_BROWSER_AUTO_START;
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const oldPort = process.env.QUOTA_BROWSER_CDP_PORT;
     delete process.env.QUOTA_BROWSER_CDP_URL;
     process.env.QUOTA_BROWSER_AUTO_START = '0';
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    process.env.QUOTA_BROWSER_CDP_PORT = '61234';
     const app = await buildApp();
     try {
       const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
@@ -330,13 +350,19 @@ describe('POST /api/quota/refresh/official', () => {
       if (old != null) process.env.QUOTA_BROWSER_CDP_URL = old;
       if (oldAutoStart != null) process.env.QUOTA_BROWSER_AUTO_START = oldAutoStart;
       else delete process.env.QUOTA_BROWSER_AUTO_START;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      if (oldPort != null) process.env.QUOTA_BROWSER_CDP_PORT = oldPort;
+      else delete process.env.QUOTA_BROWSER_CDP_PORT;
       await app.close();
     }
   });
 
   it('returns 400 when CDP URL is not localhost/127.0.0.1', async () => {
     const old = process.env.QUOTA_BROWSER_CDP_URL;
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
     process.env.QUOTA_BROWSER_CDP_URL = 'http://192.168.1.8:9222';
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
     const app = await buildApp();
     try {
       const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
@@ -348,8 +374,27 @@ describe('POST /api/quota/refresh/official', () => {
       assert.match(quota.claude.error, /localhost/);
     } finally {
       if (old != null) process.env.QUOTA_BROWSER_CDP_URL = old;
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
       await app.close();
     }
+  });
+});
+
+describe('official refresh auto-start guard', () => {
+  it('keeps auto-start disabled for non-interactive requests', async () => {
+    const { shouldAutoStartBrowserForOfficialRefresh } = await import('../dist/routes/quota.js');
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh(undefined), false);
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({}), false);
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: false }), false);
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: 'yes' }), false);
+  });
+
+  it('enables auto-start only when interactive=true and env is not disabled', async () => {
+    const { shouldAutoStartBrowserForOfficialRefresh } = await import('../dist/routes/quota.js');
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, undefined), true);
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, '1'), true);
+    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, '0'), false);
   });
 });
 
