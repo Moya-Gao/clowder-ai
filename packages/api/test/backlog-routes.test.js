@@ -1142,6 +1142,84 @@ describe('Backlog Routes', () => {
     assert.equal(kickoffMessages.length, 1);
   });
 
+  test('approve retry does not duplicate kickoff message after progress persistence failure', async () => {
+    let shouldFailKickoffProgressPersist = true;
+    const flakyBacklogStore = Object.create(backlogStore);
+    flakyBacklogStore.updateDispatchProgress = async (itemId, input) => {
+      if (input.kickoffMessageId && shouldFailKickoffProgressPersist) {
+        shouldFailKickoffProgressPersist = false;
+        throw new Error('simulated kickoff progress persistence failure');
+      }
+      return backlogStore.updateDispatchProgress(itemId, input);
+    };
+
+    const app = await createApp({ backlogStore: flakyBacklogStore });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: {
+        title: 'dispatch retry should dedupe kickoff append',
+        summary: 'first kickoff append succeeds but progress persistence fails',
+        priority: 'p1',
+        tags: ['dispatch'],
+      },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: {
+        catId: 'codex',
+        why: 'validate kickoff append dedupe',
+        plan: 'retry approve and ensure single kickoff',
+        requestedPhase: 'coding',
+      },
+    });
+
+    const firstApproveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+    assert.equal(firstApproveRes.statusCode, 500);
+
+    const itemAfterFailure = await backlogStore.get(itemId, 'default-user');
+    assert.equal(itemAfterFailure?.status, 'approved');
+    assert.ok(itemAfterFailure?.pendingThreadId);
+    assert.equal(itemAfterFailure?.kickoffMessageId, undefined);
+
+    const secondApproveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: {
+        decision: 'approve',
+        threadPhase: 'coding',
+      },
+    });
+    assert.equal(secondApproveRes.statusCode, 200);
+    const secondBody = secondApproveRes.json();
+    assert.equal(secondBody.item.status, 'dispatched');
+    assert.ok(secondBody.item.kickoffMessageId);
+
+    const backlogThreads = (await threadStore.list('default-user'))
+      .filter((thread) => thread.title === '[Backlog] dispatch retry should dedupe kickoff append');
+    assert.equal(backlogThreads.length, 1);
+    assert.equal(backlogThreads[0].id, itemAfterFailure?.pendingThreadId);
+
+    const kickoffMessages = await messageStore.getByThread(backlogThreads[0].id, 10, 'default-user');
+    assert.equal(kickoffMessages.length, 1);
+    assert.equal(kickoffMessages[0].id, secondBody.item.kickoffMessageId);
+  });
+
   test('refresh prefers newest duplicate feature-tagged item', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-dupe-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');

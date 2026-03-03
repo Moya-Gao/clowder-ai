@@ -18,4 +18,7 @@ export const MessageKeys = {
 
   /** Per-thread timeline sorted set: msg:thread:{threadId} */
   thread: (threadId: string) => `msg:thread:${threadId}`,
+
+  /** Idempotency index: msg:idem:{userId}:{threadId}:{key} -> messageId */
+  idempotency: (userId: string, threadId: string, key: string) => `msg:idem:${userId}:${threadId}:${key}`,
 } as const;

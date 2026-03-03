@@ -203,4 +203,33 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.ok(ttl > 0, `Expected positive TTL, got ${ttl}`);
     assert.ok(ttl <= 60, `Expected TTL <= 60, got ${ttl}`);
   });
+
+  it('append() with same idempotencyKey returns existing message', async () => {
+    const first = await store.append({
+      userId: 'u1',
+      catId: null,
+      content: 'kickoff',
+      mentions: [],
+      timestamp: Date.now(),
+      threadId: 'thread-idem',
+      idempotencyKey: 'backlog:b1:attempt:a1',
+    });
+
+    const second = await store.append({
+      userId: 'u1',
+      catId: null,
+      content: 'kickoff retried',
+      mentions: [],
+      timestamp: Date.now() + 1,
+      threadId: 'thread-idem',
+      idempotencyKey: 'backlog:b1:attempt:a1',
+    });
+
+    assert.equal(second.id, first.id);
+    assert.equal(second.content, 'kickoff');
+
+    const threadMessages = await store.getByThread('thread-idem', 10, 'u1');
+    assert.equal(threadMessages.length, 1);
+    assert.equal(threadMessages[0].id, first.id);
+  });
 });

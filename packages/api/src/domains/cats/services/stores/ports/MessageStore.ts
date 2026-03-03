@@ -71,6 +71,11 @@ export interface StoredMessage {
  */
 export type AppendMessageInput = Omit<StoredMessage, 'id' | 'threadId'> & {
   threadId?: string;
+  /**
+   * Optional idempotency token scoped to (userId + threadId + key).
+   * Reusing the same token returns the original stored message.
+   */
+  idempotencyKey?: string;
 };
 
 /**
@@ -125,25 +130,61 @@ export function generateSortableId(timestamp: number): string {
 export class MessageStore {
   private messages: StoredMessage[] = [];
   private readonly maxMessages: number;
+  private readonly idempotencyIndex = new Map<string, string>();
 
   constructor(options?: { maxMessages?: number }) {
     this.maxMessages = options?.maxMessages ?? MAX_MESSAGES;
+  }
+
+  private buildIdempotencyIndexKey(userId: string, threadId: string, idempotencyKey?: string): string | null {
+    if (!idempotencyKey) return null;
+    return `${userId}:${threadId}:${idempotencyKey}`;
+  }
+
+  private pruneIdempotencyIndexForMessageIds(messageIds: readonly string[]): void {
+    if (messageIds.length === 0) return;
+    const removedIds = new Set(messageIds);
+    for (const [key, value] of this.idempotencyIndex.entries()) {
+      if (removedIds.has(value)) {
+        this.idempotencyIndex.delete(key);
+      }
+    }
   }
 
   /**
    * Append a message to the store. Returns the stored message with generated id.
    */
   append(msg: AppendMessageInput): StoredMessage {
+    const threadId = msg.threadId ?? DEFAULT_THREAD_ID;
+    const idempotencyIndexKey = this.buildIdempotencyIndexKey(msg.userId, threadId, msg.idempotencyKey);
+    if (idempotencyIndexKey) {
+      const existingId = this.idempotencyIndex.get(idempotencyIndexKey);
+      if (existingId) {
+        const existing = this.getById(existingId);
+        if (existing) {
+          return existing;
+        }
+        this.idempotencyIndex.delete(idempotencyIndexKey);
+      }
+    }
+
+    const { idempotencyKey, ...payload } = msg;
+    void idempotencyKey;
     const stored: StoredMessage = {
-      ...msg,
+      ...payload,
       id: generateSortableId(msg.timestamp),
-      threadId: msg.threadId ?? DEFAULT_THREAD_ID,
+      threadId,
     };
     this.messages.push(stored);
+    if (idempotencyIndexKey) {
+      this.idempotencyIndex.set(idempotencyIndexKey, stored.id);
+    }
 
     // Trim oldest if over capacity
     if (this.messages.length > this.maxMessages) {
+      const removed = this.messages.slice(0, this.messages.length - this.maxMessages);
       this.messages = this.messages.slice(-this.maxMessages);
+      this.pruneIdempotencyIndexForMessageIds(removed.map((entry) => entry.id));
     }
 
     return stored;
@@ -311,8 +352,10 @@ export class MessageStore {
    * Delete all messages in a thread. Returns count of deleted messages.
    */
   deleteByThread(threadId: string): number {
+    const removed = this.messages.filter((m) => m.threadId === threadId);
     const before = this.messages.length;
     this.messages = this.messages.filter((m) => m.threadId !== threadId);
+    this.pruneIdempotencyIndexForMessageIds(removed.map((entry) => entry.id));
     return before - this.messages.length;
   }
 
@@ -345,6 +388,7 @@ export class MessageStore {
     msg.deletedAt = Date.now();
     msg.deletedBy = deletedBy;
     msg._tombstone = true;
+    this.pruneIdempotencyIndexForMessageIds([id]);
     return msg;
   }
 

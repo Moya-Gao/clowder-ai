@@ -42,9 +42,41 @@ export class RedisMessageStore {
   }
 
   async append(msg: AppendMessageInput): Promise<StoredMessage> {
-    const id = generateSortableId(msg.timestamp);
     const threadId = msg.threadId ?? DEFAULT_THREAD_ID;
-    const stored: StoredMessage = { ...msg, id, threadId };
+    const id = generateSortableId(msg.timestamp);
+    const idempotencyIndexKey = msg.idempotencyKey
+      ? MessageKeys.idempotency(msg.userId, threadId, msg.idempotencyKey)
+      : null;
+
+    if (idempotencyIndexKey) {
+      const existingId = await this.redis.get(idempotencyIndexKey);
+      if (existingId) {
+        const existingMessage = await this.getById(existingId);
+        if (existingMessage) {
+          return existingMessage;
+        }
+        await this.redis.del(idempotencyIndexKey);
+      }
+
+      const claimed = this.ttlSeconds === null
+        ? await this.redis.set(idempotencyIndexKey, id, 'NX')
+        : await this.redis.set(idempotencyIndexKey, id, 'EX', this.ttlSeconds, 'NX');
+
+      if (claimed !== 'OK') {
+        const claimedId = await this.redis.get(idempotencyIndexKey);
+        if (claimedId) {
+          const existingMessage = await this.getById(claimedId);
+          if (existingMessage) {
+            return existingMessage;
+          }
+        }
+        throw new Error('message idempotency key contention');
+      }
+    }
+
+    const { idempotencyKey, ...payload } = msg;
+    void idempotencyKey;
+    const stored: StoredMessage = { ...payload, id, threadId };
     const score = msg.timestamp;
 
     const hashKey = MessageKeys.detail(id);
@@ -101,12 +133,25 @@ export class RedisMessageStore {
       pipeline.expire(MessageKeys.TIMELINE, this.ttlSeconds);
       pipeline.expire(MessageKeys.user(msg.userId), this.ttlSeconds);
       pipeline.expire(MessageKeys.thread(threadId), this.ttlSeconds);
+      if (idempotencyIndexKey) {
+        pipeline.expire(idempotencyIndexKey, this.ttlSeconds);
+      }
       for (const catId of msg.mentions) {
         pipeline.expire(MessageKeys.mentions(catId), this.ttlSeconds);
       }
     }
 
-    await pipeline.exec();
+    try {
+      await pipeline.exec();
+    } catch (error) {
+      if (idempotencyIndexKey) {
+        const existingId = await this.redis.get(idempotencyIndexKey);
+        if (existingId === id) {
+          await this.redis.del(idempotencyIndexKey);
+        }
+      }
+      throw error;
+    }
     return stored;
   }
 

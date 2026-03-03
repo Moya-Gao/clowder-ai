@@ -264,6 +264,37 @@ describe('MessageStore', () => {
     assert.equal(msg.threadId, 'thread-abc');
   });
 
+  test('append() with same idempotencyKey returns existing message', async () => {
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
+
+    const store = new MessageStore();
+    const first = store.append({
+      userId: 'u1',
+      catId: null,
+      content: 'kickoff',
+      mentions: [],
+      timestamp: 10,
+      threadId: 'thread-abc',
+      idempotencyKey: 'backlog:b1:attempt:a1',
+    });
+
+    const second = store.append({
+      userId: 'u1',
+      catId: null,
+      content: 'kickoff retried',
+      mentions: [],
+      timestamp: 20,
+      threadId: 'thread-abc',
+      idempotencyKey: 'backlog:b1:attempt:a1',
+    });
+
+    assert.equal(first.id, second.id);
+    assert.equal(store.size, 1);
+    assert.equal(second.content, 'kickoff');
+  });
+
   test('getByThread() returns messages for a specific thread', async () => {
     const { MessageStore } = await import(
       '../dist/domains/cats/services/stores/ports/MessageStore.js'

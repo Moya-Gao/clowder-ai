@@ -169,6 +169,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
         userId,
         catId: null,
         threadId: thread.id,
+        idempotencyKey: `kickoff:${next.id}:${next.dispatchAttemptId ?? 'pending'}`,
         content: buildKickoffMessage(next, phase),
         mentions: [],
         timestamp: Date.now(),
