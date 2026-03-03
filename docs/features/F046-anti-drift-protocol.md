@@ -42,8 +42,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
 | B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Merged（Done） | 已嵌入 feat-kickoff 模板 |
 | B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Merged（Done） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
-| B5 | ≥10 条对话场景回归测试 | 📋 Spec（seed 3 条已落地） | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
-| B6 | 同族 reviewer identity check gate | ✅ Merged → **Phase D 将移除** | ← F042 Wave 3 毕业：流程执行守护门禁。根因是 resume bug 非模型混淆，格式校验≠身份验证，且 `(@catId)` 模板加剧 @ 惯性污染（见 D4） |
+| B5 | ≥10 条对话场景回归测试 | ✅ Implemented（pending review，11 条） | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
+| B6 | 同族 reviewer identity check gate | ✅ Historical（已在 D4 移除） | ← F042 Wave 3 毕业：流程执行守护门禁。根因是 resume bug 非模型混淆，格式校验≠身份验证，且 `(@catId)` 模板加剧 @ 惯性污染（见 D4） |
 
 ### 待开发（Phase D — @ 路由卫生 Mention Routing Hygiene）
 
@@ -197,7 +197,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
 | D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
 | D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | ✅ Merged（Done） | PR #194（`a93a6ea1`） |
-| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | ✅ Implemented（pending review） | 本轮 D4 实现（代码+测试+文档） |
+| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | ✅ Merged（Done） | PR #195（`3825aaea`） |
 
 ### 明确不做（Phase C）
 
@@ -218,8 +218,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
 - [x] 需求点 checklist 格式嵌入开发模板（B3）
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
-- [ ] ≥10 条对话场景回归测试就位（B5，当前 seed=3）
-- [x] 同族 reviewer identity check gate 落地（B6）— **Phase D 将移除（D4）**
+- [x] ≥10 条对话场景回归测试就位（B5，当前 11 条，待合入复核）
+- [x] 同族 reviewer identity check gate 曾落地（B6 历史项，已在 D4 移除）
 - [x] @ + 动作词才触发路由，无动作词不路由（D1）
 - [x] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
 - [x] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
@@ -298,12 +298,10 @@ Phase B（B1/B3）文档证据（2026-03-02）：
 - `cat-cafe-skills/quality-gate/SKILL.md` 已引用 B1 流程
 - `cat-cafe-skills/feat-lifecycle/SKILL.md` kickoff 已要求嵌入 B3 checklist
 
-Phase B（B5 seed）运行时回归证据（2026-03-03）：
+Phase B（B5 扩展）运行时回归证据（2026-03-03）：
 - `pnpm --filter @cat-cafe/api run build` → success
-- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 3/3 pass
-- `node --test packages/api/test/route-strategies.test.js` → 48/48 pass
-- `node --test packages/api/test/route-serial-review-identity-propagation.test.js` → 1/1 pass
-- 说明：B5 已从 0→1（seed 3 条），后续继续扩展至 ≥10 条再勾选 AC
+- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 11/11 pass
+- 说明：B5 已从 seed 3 条扩展到 11 条（覆盖 D1/D2/D3 与 debug/play 核心路径）
 
 Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - `packages/api/src/domains/cats/services/collaboration/review-identity-gate.ts` → deleted
@@ -326,6 +324,7 @@ Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - 2026-03-02: PR #159/#162 合入：@ 自检 prompt 规则 + SOP 流程歧义修复（prompt 层治疗，效果有限）
 - 2026-03-02: Phase D 立项：@ 路由卫生（缅因猫采访 → 机制层修复方案确定）
 - 2026-03-03: B5 seed 落地：新增 3 条运行时回归场景（debug 透传 / play 隔离 / review 无效标记传递）→ `packages/api/test/f046-b5-runtime-regression-seed.test.js`
+- 2026-03-03: B5 扩展：将运行时回归从 3 条扩到 11 条（D1/D2/D3 + debug/play 核心路径）
 - 2026-03-03: D1+D2 合入（PR #192 / `27e5e70b`）：动作词边界门禁 + 元信息去 `@` 惯性
 - 2026-03-03: D3 合入（PR #194 / `a93a6ea1`）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费
-- 2026-03-03: D4 实现（pending review）：移除 B6 identity gate 代码与测试，更新 B5 seed 第 3 条为“无 identity 无效标记”
+- 2026-03-03: D4 合入（PR #195 / `3825aaea`）：移除 B6 identity gate 代码与测试，更新 B5 第 3 条为“无 identity 无效标记”
