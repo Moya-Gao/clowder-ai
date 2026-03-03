@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  PUSH_TEST_NOTIFICATION_TAG,
+  resetPushTestNotification,
   shouldForceSystemNotification,
   shouldShowSystemNotification,
   type PushNotificationPayload,
@@ -12,7 +14,7 @@ describe('push notification policy', () => {
   });
 
   it('forces system notification for test push', () => {
-    const payload: PushNotificationPayload = { tag: 'push-test' };
+    const payload: PushNotificationPayload = { tag: PUSH_TEST_NOTIFICATION_TAG };
     expect(shouldForceSystemNotification(payload)).toBe(true);
     expect(shouldShowSystemNotification(payload, true)).toBe(true);
   });
@@ -52,5 +54,42 @@ describe('push notification policy', () => {
       data: { forceSystemNotification: true },
     };
     expect(shouldForceSystemNotification(payload)).toBe(true);
+  });
+
+  it('closes previous push-test notifications before showing a new one', async () => {
+    const closed: string[] = [];
+    const registry = {
+      getNotifications: async () => [
+        { close: () => closed.push('n1') },
+        { close: () => closed.push('n2') },
+      ],
+    };
+
+    await resetPushTestNotification(registry, PUSH_TEST_NOTIFICATION_TAG);
+    expect(closed).toEqual(['n1', 'n2']);
+  });
+
+  it('does not close notifications for non push-test tags', async () => {
+    const closed: string[] = [];
+    const registry = {
+      getNotifications: async () => [
+        { close: () => closed.push('n1') },
+      ],
+    };
+
+    await resetPushTestNotification(registry, 'cat-reply-thread-1');
+    expect(closed).toEqual([]);
+  });
+
+  it('does not throw when notification lookup fails', async () => {
+    const registry = {
+      getNotifications: async () => {
+        throw new Error('unsupported');
+      },
+    };
+
+    await expect(
+      resetPushTestNotification(registry, PUSH_TEST_NOTIFICATION_TAG),
+    ).resolves.toBeUndefined();
   });
 });

@@ -13,7 +13,10 @@
 declare const self: ServiceWorkerGlobalScope;
 
 import type { PushNotificationPayload } from '../src/utils/push-notification-policy';
-import { shouldShowSystemNotification } from '../src/utils/push-notification-policy';
+import {
+  resetPushTestNotification,
+  shouldShowSystemNotification,
+} from '../src/utils/push-notification-policy';
 
 // Push event: 后端 web-push 推过来的通知
 self.addEventListener('push', (event: PushEvent) => {
@@ -29,13 +32,17 @@ self.addEventListener('push', (event: PushEvent) => {
   event.waitUntil(
     self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clients) => {
+      .then(async (clients) => {
         // When Cat Cafe is focused, generic replies are suppressed because
         // in-app toast already handles them; forced categories still show.
         const hasFocusedClient = clients.some(
           (c) => c.visibilityState === 'visible',
         );
         if (!shouldShowSystemNotification(payload, hasFocusedClient)) return;
+
+        // For test pushes, drop previous same-tag notifications first so each
+        // send feels like a fresh system notification without accumulating noise.
+        await resetPushTestNotification(self.registration, tag);
 
         return self.registration.showNotification(title ?? '猫猫来信', {
           body: body ?? '',
