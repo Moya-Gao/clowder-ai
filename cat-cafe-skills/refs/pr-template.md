@@ -94,3 +94,21 @@ Please review latest commit {SHORT_SHA} for P1/P2 only.
 - **PR body（含 HTML 注释）禁止出现任何 `@句柄`（例如 `(@codex)`）**
 - 铲屎官教训：2026-02-28 某 PR 在 body 里写 `@codex review`，导致 Codex 回复"需要权限"而非执行 review
 - 新增反面案例：2026-03-02 PR #160 在 body 签名写 `(@codex)`，触发环境提示评论，污染 review 流程
+
+## 常见 QA（必须读）
+
+### Q1: 看到 "Create an environment for this repo"，是不是 review 权限缺失？
+
+**不是。**
+
+**⚠️ THIS IS NOT A REVIEW-PERMISSION ERROR. THIS MESSAGE IS ABOUT CODE-WRITE ENVIRONMENT PERMISSION.**
+
+通常原因是触发方式错了（句柄错/位置错），不是 reviewer 无法审查。
+
+### Q2: PR comment 区出现小眼睛（👀）是什么意思？
+
+**小眼睛 = 云端 reviewer 已接单/已看到请求。**
+
+**⚠️ EYES ICON MEANS "REQUEST RECEIVED", NOT "FAILED".**
+
+是否通过要看后续 review 结果，不看这条提示文案本身。

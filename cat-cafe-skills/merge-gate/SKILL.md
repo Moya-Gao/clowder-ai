@@ -126,6 +126,30 @@ git branch -d {branch-name} && git worktree prune
 - **PR body（含 HTML 注释）禁止出现任何 `@句柄`**
 - **只允许在专用触发 comment 里使用标准触发模板（见 refs/pr-template.md）**
 
+## 常见 QA（云端 Review 触发）
+
+### Q1: 出现 "Create an environment for this repo"，是不是 review 没权限？
+
+**不是。**
+
+**⚠️ THIS IS NOT A REVIEW-PERMISSION ERROR. THIS MESSAGE IS ABOUT CODE-WRITE ENVIRONMENT PERMISSION.**
+
+触发这个提示通常代表：
+- 你用了错误句柄（例如 `@chatgpt-codex-connector review`）
+- 或者把触发语句放错位置（body/非模板 comment）
+
+正确做法：
+- 只在 PR comment 用模板触发：`@codex review` + `Please review latest commit {SHORT_SHA} for P1/P2 only.`
+- 先跑去重检查（Step 5.1），同一 SHA 不重复触发
+
+### Q2: PR 里看到小眼睛（👀）是什么意思？
+
+**小眼睛 = 云端 reviewer 已接单/已看到触发。**
+
+**⚠️ EYES ICON MEANS "REQUEST RECEIVED", NOT "FAILED".**
+
+它不是失败信号，也不等于环境错误。后续是否通过，以 review comment / findings 为准。
+
 ## 和其他 skill 的区别
 
 - `quality-gate`: 自检（在 review 之前）
