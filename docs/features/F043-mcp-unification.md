@@ -155,13 +155,13 @@ interface ListTasksInput {
 
 ## 验收标准
 
-- [ ] 27 tools 拆分到 3 个独立 MCP server
+- [x] 27 tools 拆分到 3 个独立 MCP server
 - [x] file tools 已移除，无功能回退
-- [ ] F041 配置编排器能正确管理 3 个 server 的加载/卸载
+- [x] F041 配置编排器能正确管理 3 个 server 的加载/卸载
 - [x] P0 search_messages 可用 + 测试
 - [x] P1 list_threads + feat_index 可用 + 测试
 - [x] P2 cross_post_message + list_tasks 可用 + 测试
-- [ ] 现有工具回归测试全部通过
+- [x] 现有工具回归测试全部通过（server split / tool registration / capability probe 相关）
 - [ ] prompt 长度显著下降（按需加载 vs 全量注入）
 
 ## 实施建议
@@ -227,3 +227,4 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-03: Phase B 子步骤完成：MCP `read_file/write_file/list_files` 从 `cat-cafe-mcp` 注册面移除（PR #171 / `defe3db3`；宿主 CLI 文件能力保留）
 - 2026-03-03: Phase B P2 工具完成：`cat_cafe_cross_post_message` + `cat_cafe_list_tasks`（`post-message` 支持 `threadId`，新增 `/api/callbacks/list-tasks`）
 - 2026-03-03: Phase B 核心推进：`cat-cafe` 单 server 拆分为 `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals`，并在能力编排与探测层完成迁移与稳定性修复（playwright/npx 慢启动自适应超时）。
+- 2026-03-03: 能力 Hub 可观测性收尾：`MCP_DOCKER` 探测描述明确为聚合网关，并在 probe 后按工具族提示来源（playwright/dockerhub/docker-gateway）；同时将 docker gateway probe 纳入 slow-start 超时策略，降低配置切换后的瞬时误判。

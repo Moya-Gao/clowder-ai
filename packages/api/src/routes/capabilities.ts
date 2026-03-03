@@ -23,8 +23,10 @@ import { catRegistry } from '@cat-cafe/shared';
 import type {
   CapabilityBoardItem,
   CapabilityBoardResponse,
+  CapabilityEntry,
   CapabilityPatchRequest,
   CatFamily,
+  McpToolInfo,
   SkillHealthSummary,
 } from '@cat-cafe/shared';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -340,6 +342,37 @@ const MCP_DESCRIPTIONS: Record<string, string> = {
   'cat-cafe-signals': '信号猎手工具 — inbox 检索、搜索、摘要',
 };
 const MAX_CONCURRENT_MCP_PROBES = 4;
+const DOCKER_GATEWAY_DESCRIPTION_BASE = 'Docker MCP Gateway（聚合器）— 工具来自启用的子 server，不等于 Docker 本体工具集。';
+
+function isDockerGatewayCapability(cap: CapabilityEntry): boolean {
+  const command = cap.mcpServer?.command?.toLowerCase();
+  const args = cap.mcpServer?.args?.map((arg) => arg.toLowerCase()) ?? [];
+  return command === 'docker' && args[0] === 'mcp' && args[1] === 'gateway' && args[2] === 'run';
+}
+
+function inferDockerGatewayFamilies(tools: McpToolInfo[] | undefined): string[] {
+  if (!tools || tools.length === 0) return [];
+  const names = tools.map((tool) => tool.name);
+  const families: string[] = [];
+  if (names.some((name) => name.startsWith('browser_'))) families.push('playwright(browser_*)');
+  if (names.some((name) => name === 'search' || name === 'listNamespaces' || name === 'getRepositoryInfo')) {
+    families.push('dockerhub');
+  }
+  if (names.some((name) => name === 'docker' || name.startsWith('mcp-') || name === 'code-mode')) {
+    families.push('docker-gateway');
+  }
+  return families;
+}
+
+export function describeMcpCapability(cap: CapabilityEntry, tools?: McpToolInfo[]): string | undefined {
+  const known = MCP_DESCRIPTIONS[cap.id];
+  if (known) return known;
+  if (!isDockerGatewayCapability(cap)) return undefined;
+  const families = inferDockerGatewayFamilies(tools);
+  return families.length > 0
+    ? `${DOCKER_GATEWAY_DESCRIPTION_BASE} 当前探测到：${families.join(' / ')}`
+    : DOCKER_GATEWAY_DESCRIPTION_BASE;
+}
 
 /**
  * Build cat family grouping from catRegistry.
@@ -595,7 +628,7 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         enabled: cap.enabled,
         cats,
       };
-      const mcpDesc = MCP_DESCRIPTIONS[cap.id];
+      const mcpDesc = describeMcpCapability(cap);
       if (mcpDesc) mcpItem.description = mcpDesc;
       items.push(mcpItem);
     }
@@ -662,6 +695,11 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
         if (!probe) continue;
         item.connectionStatus = probe.connectionStatus;
         if (probe.tools) item.tools = probe.tools;
+        const cap = mcpCaps.find((entry) => entry.id === item.id);
+        if (cap) {
+          const dynamicDesc = describeMcpCapability(cap, probe.tools);
+          if (dynamicDesc) item.description = dynamicDesc;
+        }
       }
     }
 
