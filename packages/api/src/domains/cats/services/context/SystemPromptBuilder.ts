@@ -15,7 +15,11 @@ import {
   isCatLead,
 } from '../../../../config/cat-config-loader.js';
 import { getCatModel } from '../../../../config/cat-models.js';
-import type { ThreadParticipantActivity, ThreadRoutingPolicyV1 } from '../stores/ports/ThreadStore.js';
+import type {
+  ThreadMentionRoutingFeedback,
+  ThreadParticipantActivity,
+  ThreadRoutingPolicyV1,
+} from '../stores/ports/ThreadStore.js';
 import { RICH_BLOCK_SHORT } from './rich-block-rules.js';
 
 /**
@@ -48,6 +52,11 @@ export interface InvocationContext {
    * When present, this invocation must start with an explicit Identity Check line.
    */
   reviewIdentityCheckFrom?: CatId;
+  /**
+   * F046 D3: One-shot feedback injected when previous @mention was not routed.
+   * Consumed from threadStore before invocation and cleared after injection.
+   */
+  mentionRoutingFeedback?: ThreadMentionRoutingFeedback;
   /** F042 Wave 3: Thread-level participant activity for @ disambiguation.
    *  Sorted by lastMessageAt desc. Injected per-invocation to survive compression. */
   activeParticipants?: readonly ThreadParticipantActivity[];
@@ -348,6 +357,36 @@ export function buildInvocationContext(context: InvocationContext): string {
     const fromConfig = getConfig(context.directMessageFrom as string);
     const fromLabel = formatHandleFreeLabel(context.directMessageFrom as string, fromConfig);
     lines.push(`Direct message from ${fromLabel}; reply to ${fromLabel}`);
+  }
+
+  if (context.mentionRoutingFeedback?.items?.length) {
+    const dedupItems = context.mentionRoutingFeedback.items.filter((item, idx, arr) => (
+      arr.findIndex((candidate) => (
+        candidate.targetCatId === item.targetCatId
+        && candidate.reason === item.reason
+      )) === idx
+    ));
+    const targetLabels = dedupItems.map((item) => {
+      const cfg = getConfig(item.targetCatId as string);
+      return formatHandleFreeLabel(item.targetCatId as string, cfg);
+    });
+    const reasonOrder: Array<'no_action' | 'cross_paragraph'> = ['no_action', 'cross_paragraph'];
+    const reasons = reasonOrder.filter((reason) => dedupItems.some((item) => item.reason === reason));
+    const reasonLabel = reasons.map((reason) => (
+      reason === 'cross_paragraph'
+        ? 'reason=cross_paragraph（动作词在不同段落）'
+        : 'reason=no_action（未检测到行动请求）'
+    )).join('；');
+    const sourceSuffix = context.mentionRoutingFeedback.sourceMessageId
+      ? `sourceMessageId=${context.mentionRoutingFeedback.sourceMessageId}`
+      : `sourceTs=${context.mentionRoutingFeedback.sourceTimestamp}`;
+
+    lines.push(
+      `Routing feedback(one-shot): 你上一条给 ${targetLabels.join(' / ')} 的 @ 提及未触发路由（${reasonLabel}；${sourceSuffix}）。`,
+    );
+    lines.push(
+      '如需联系队友，请在同一段明确动作词并使用行首 mention，例如：`@opus 请 review 这个改动`（或 `@opus\\n请 review...`，中间不要空行）。',
+    );
   }
 
   if (context.reviewIdentityCheckFrom && context.reviewIdentityCheckFrom !== context.catId) {

@@ -194,9 +194,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
-| D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | 📋 Spec | 详见 D.3 |
-| D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | 📋 Spec | 详见 D.3 |
-| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | 📋 Spec | 详见 D.3 |
+| D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
+| D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
+| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | ✅ Implemented（pending review） | 本轮 D3 实现 + one-shot 反馈持久化 |
 | D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | 📋 Spec | 详见 D.3 |
 
 ### 明确不做（Phase C）
@@ -220,9 +220,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
 - [ ] ≥10 条对话场景回归测试就位（B5，当前 seed=3）
 - [x] 同族 reviewer identity check gate 落地（B6）— **Phase D 将移除（D4）**
-- [ ] @ + 动作词才触发路由，无动作词不路由（D1）
-- [ ] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
-- [ ] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
+- [x] @ + 动作词才触发路由，无动作词不路由（D1）
+- [x] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
+- [x] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
 - [ ] B6 identity check 代码和测试全部移除（D4）
 
 ## Links
@@ -320,3 +320,5 @@ Phase B（B5 seed）运行时回归证据（2026-03-03）：
 - 2026-03-02: PR #159/#162 合入：@ 自检 prompt 规则 + SOP 流程歧义修复（prompt 层治疗，效果有限）
 - 2026-03-02: Phase D 立项：@ 路由卫生（缅因猫采访 → 机制层修复方案确定）
 - 2026-03-03: B5 seed 落地：新增 3 条运行时回归场景（debug 透传 / play 隔离 / review 无效标记传递）→ `packages/api/test/f046-b5-runtime-regression-seed.test.js`
+- 2026-03-03: D1+D2 合入（PR #192 / `27e5e70b`）：动作词边界门禁 + 元信息去 `@` 惯性
+- 2026-03-03: D3 实现（pending review）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费

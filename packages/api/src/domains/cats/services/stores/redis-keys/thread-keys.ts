@@ -17,4 +17,7 @@ export const ThreadKeys = {
    *  Fields: {catId}:lastMessageAt, {catId}:messageCount
    */
   activity: (id: string) => `thread:${id}:activity`,
+
+  /** F046 D3: One-shot suppressed mention routing feedback per cat. */
+  mentionRoutingFeedback: (id: string) => `thread:${id}:mention-routing-feedback`,
 } as const;

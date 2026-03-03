@@ -19,6 +19,7 @@ import type {
   Thread,
   IThreadStore,
   ThreadParticipantActivity,
+  ThreadMentionRoutingFeedback,
   ThreadRoutingPolicyV1,
 } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
@@ -74,6 +75,18 @@ if ttl > 0 then
   redis.call('EXPIRE', KEYS[3], ttl)
 end
 return 1
+`;
+
+/**
+ * Atomically read and clear a one-shot mention-routing feedback payload.
+ * KEYS[1] = feedback hash key, ARGV[1] = catId
+ */
+const HGETDEL_LUA = `
+local value = redis.call('HGET', KEYS[1], ARGV[1])
+if value then
+  redis.call('HDEL', KEYS[1], ARGV[1])
+end
+return value
 `;
 
 export class RedisThreadStore implements IThreadStore {
@@ -299,6 +312,41 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'backlogItemId', backlogItemId);
   }
 
+  async setMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+    feedback: ThreadMentionRoutingFeedback,
+  ): Promise<void> {
+    const detailKey = ThreadKeys.detail(threadId);
+    const exists = await this.redis.hexists(detailKey, 'id');
+    if (exists === 0) return;
+
+    const feedbackKey = ThreadKeys.mentionRoutingFeedback(threadId);
+    await this.redis.hset(feedbackKey, catId, JSON.stringify(feedback));
+    if (this.ttlSeconds !== null) {
+      await this.redis.expire(feedbackKey, this.ttlSeconds);
+    }
+  }
+
+  async consumeMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+  ): Promise<ThreadMentionRoutingFeedback | null> {
+    const feedbackKey = ThreadKeys.mentionRoutingFeedback(threadId);
+    const raw = await this.redis.eval(HGETDEL_LUA, 1, feedbackKey, catId) as string | null;
+    if (!raw) return null;
+
+    try {
+      const parsed = JSON.parse(raw) as ThreadMentionRoutingFeedback;
+      if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.items)) {
+        return null;
+      }
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
   async updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     const scopes = policy?.scopes;
@@ -348,6 +396,8 @@ export class RedisThreadStore implements IThreadStore {
     pipeline.del(ThreadKeys.participants(threadId));
     // F032 Phase C: Clean up activity data
     pipeline.del(ThreadKeys.activity(threadId));
+    // F046 D3: Clean up one-shot mention-routing feedback data
+    pipeline.del(ThreadKeys.mentionRoutingFeedback(threadId));
     if (createdBy) {
       pipeline.zrem(ThreadKeys.userList(createdBy), threadId);
     }

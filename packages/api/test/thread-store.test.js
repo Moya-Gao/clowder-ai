@@ -92,6 +92,29 @@ describe('ThreadStore', () => {
     assert.deepEqual(store.getParticipants('nonexistent'), []);
   });
 
+  test('set/consumeMentionRoutingFeedback() is one-shot per thread+cat', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Feedback');
+
+    store.setMentionRoutingFeedback(thread.id, 'codex', {
+      sourceMessageId: 'msg-1',
+      sourceTimestamp: 1700000000000,
+      items: [{ targetCatId: 'opus', reason: 'no_action' }],
+    });
+
+    const first = store.consumeMentionRoutingFeedback(thread.id, 'codex');
+    assert.ok(first, 'first consume should return feedback');
+    assert.equal(first?.sourceMessageId, 'msg-1');
+    assert.deepEqual(first?.items, [{ targetCatId: 'opus', reason: 'no_action' }]);
+
+    const second = store.consumeMentionRoutingFeedback(thread.id, 'codex');
+    assert.equal(second, null, 'second consume should clear one-shot feedback');
+  });
+
   test('updateLastActive() refreshes timestamp and LRU position', async () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'

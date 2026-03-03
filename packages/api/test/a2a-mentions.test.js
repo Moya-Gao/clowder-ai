@@ -45,6 +45,29 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, []);
   });
 
+  it('records suppression reason=no_action when mention paragraph has no action keywords', async () => {
+    const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = analyzeA2AMentions('@布偶猫', 'codex');
+    assert.deepEqual(result.mentions, []);
+    assert.deepEqual(result.suppressed, [{ catId: 'opus', reason: 'no_action' }]);
+  });
+
+  it('records suppression reason=cross_paragraph when action keywords are in a different paragraph', async () => {
+    const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n请 review 这个 PR';
+    const result = analyzeA2AMentions(text, 'codex');
+    assert.deepEqual(result.mentions, []);
+    assert.deepEqual(result.suppressed, [{ catId: 'opus', reason: 'cross_paragraph' }]);
+  });
+
+  it('clears stale suppression when later mention to same cat is actionable', async () => {
+    const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n@布偶猫 请 review 这个 PR';
+    const result = analyzeA2AMentions(text, 'codex');
+    assert.deepEqual(result.mentions, ['opus']);
+    assert.deepEqual(result.suppressed, []);
+  });
+
   it('does NOT route on action keyword substring collisions (prefix should not match fix)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = parseA2AMentions('@布偶猫 prefix typo', 'codex');

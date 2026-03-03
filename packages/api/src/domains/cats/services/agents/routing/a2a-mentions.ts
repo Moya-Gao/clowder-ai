@@ -34,12 +34,28 @@ interface MentionPatternEntry {
   readonly pattern: string;
 }
 
+export type MentionSuppressionReason = 'no_action' | 'cross_paragraph';
+
+export interface SuppressedA2AMention {
+  readonly catId: CatId;
+  readonly reason: MentionSuppressionReason;
+}
+
+export interface A2AMentionAnalysis {
+  readonly mentions: CatId[];
+  readonly suppressed: SuppressedA2AMention[];
+}
+
 /**
  * Parse A2A @mentions from cat response text.
  * F27: Returns all matched CatIds (up to MAX_A2A_MENTION_TARGETS).
  */
 export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
-  if (!text) return [];
+  return analyzeA2AMentions(text, currentCatId).mentions;
+}
+
+export function analyzeA2AMentions(text: string, currentCatId: CatId): A2AMentionAnalysis {
+  if (!text) return { mentions: [], suppressed: [] };
 
   // 1. Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
@@ -61,7 +77,10 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
 
   // 3. Line-start matching with token boundary (one winning pattern per line)
   const found: CatId[] = [];
+  const suppressed = new Map<CatId, MentionSuppressionReason>();
   const seen = new Set<string>();
+  const wholeMessage = stripped.toLowerCase();
+  const wholeMessageHasActionability = hasActionability(wholeMessage);
   const lines = stripped.split(/\r?\n/);
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const rawLine = lines[lineIndex]!;
@@ -80,8 +99,14 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
       if (!isBoundary) continue;
       const paragraph = getParagraph(lines, lineIndex).toLowerCase();
       if (!hasActionability(paragraph)) {
+        if (!seen.has(entry.catId) && !suppressed.has(entry.catId)) {
+          suppressed.set(entry.catId, wholeMessageHasActionability ? 'cross_paragraph' : 'no_action');
+        }
         break;
       }
+      // If this target was previously recorded as suppressed on another line,
+      // a later actionable mention should win and clear stale suppression.
+      suppressed.delete(entry.catId);
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);
         found.push(entry.catId);
@@ -90,7 +115,10 @@ export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
     }
   }
 
-  return found;
+  return {
+    mentions: found,
+    suppressed: Array.from(suppressed, ([catId, reason]) => ({ catId, reason })),
+  };
 }
 
 function getParagraph(lines: readonly string[], lineIndex: number): string {

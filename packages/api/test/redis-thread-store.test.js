@@ -178,6 +178,23 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(updated?.backlogItemId, 'blg_123');
   });
 
+  it('set/consumeMentionRoutingFeedback() returns one-shot payload', async () => {
+    const thread = await store.create('user1', 'Feedback');
+    await store.setMentionRoutingFeedback(thread.id, 'codex', {
+      sourceMessageId: 'msg-1',
+      sourceTimestamp: 1700000000000,
+      items: [{ targetCatId: 'opus', reason: 'cross_paragraph' }],
+    });
+
+    const first = await store.consumeMentionRoutingFeedback(thread.id, 'codex');
+    assert.ok(first);
+    assert.equal(first?.sourceMessageId, 'msg-1');
+    assert.deepEqual(first?.items, [{ targetCatId: 'opus', reason: 'cross_paragraph' }]);
+
+    const second = await store.consumeMentionRoutingFeedback(thread.id, 'codex');
+    assert.equal(second, null, 'feedback should be consumed once');
+  });
+
   it('updateRoutingPolicy() stores and hydrates routingPolicy', async () => {
     const thread = await store.create('user1', 'Routing Policy');
     const policy = { v: 1, scopes: { review: { avoidCats: ['opus'], reason: 'budget' } } };

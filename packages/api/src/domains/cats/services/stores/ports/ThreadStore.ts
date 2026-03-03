@@ -50,6 +50,22 @@ export interface ThreadRoutingPolicyV1 {
   scopes?: Partial<Record<ThreadRoutingScope, ThreadRoutingRule>>;
 }
 
+export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph';
+
+export interface ThreadMentionRoutingFeedbackItem {
+  targetCatId: CatId;
+  reason: MentionRoutingSuppressionReason;
+}
+
+export interface ThreadMentionRoutingFeedback {
+  /** Optional source message id that triggered the suppression record. */
+  sourceMessageId?: string;
+  /** Unix timestamp when suppression was recorded. */
+  sourceTimestamp: number;
+  /** Suppressed mention targets + reason for each target. */
+  items: ThreadMentionRoutingFeedbackItem[];
+}
+
 /**
  * A conversation thread
  */
@@ -98,6 +114,19 @@ export interface IThreadStore {
   updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
   updatePhase(threadId: string, phase: ThreadPhase): void | Promise<void>;
   linkBacklogItem(threadId: string, backlogItemId: string): void | Promise<void>;
+  /**
+   * F046 D3: Persist one-shot feedback for suppressed A2A mentions.
+   * The next invocation of this cat in this thread should consume and clear it.
+   */
+  setMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+    feedback: ThreadMentionRoutingFeedback,
+  ): void | Promise<void>;
+  consumeMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+  ): ThreadMentionRoutingFeedback | null | Promise<ThreadMentionRoutingFeedback | null>;
   /** F042: Set or clear thread routing policy. `null` clears. */
   updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
@@ -113,6 +142,8 @@ export class ThreadStore implements IThreadStore {
   private threads: Map<string, Thread> = new Map();
   /** F032 Phase C: Track participant activity per thread. Key: `${threadId}:${catId}` */
   private participantActivity: Map<string, { lastMessageAt: number; messageCount: number }> = new Map();
+  /** F046 D3: one-shot suppressed mention feedback per thread+cat */
+  private mentionRoutingFeedback: Map<string, ThreadMentionRoutingFeedback> = new Map();
   private readonly maxThreads: number;
 
   constructor(options?: { maxThreads?: number }) {
@@ -121,6 +152,10 @@ export class ThreadStore implements IThreadStore {
 
   /** F032 Phase C: Generate activity key */
   private activityKey(threadId: string, catId: CatId): string {
+    return `${threadId}:${catId}`;
+  }
+
+  private mentionRoutingFeedbackKey(threadId: string, catId: CatId): string {
     return `${threadId}:${catId}`;
   }
 
@@ -277,6 +312,36 @@ export class ThreadStore implements IThreadStore {
     if (thread) thread.backlogItemId = backlogItemId;
   }
 
+  setMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+    feedback: ThreadMentionRoutingFeedback,
+  ): void {
+    const key = this.mentionRoutingFeedbackKey(threadId, catId);
+    const sourceMessage = feedback.sourceMessageId ? { sourceMessageId: feedback.sourceMessageId } : {};
+    this.mentionRoutingFeedback.set(key, {
+      ...sourceMessage,
+      sourceTimestamp: feedback.sourceTimestamp,
+      items: [...feedback.items],
+    });
+  }
+
+  consumeMentionRoutingFeedback(
+    threadId: string,
+    catId: CatId,
+  ): ThreadMentionRoutingFeedback | null {
+    const key = this.mentionRoutingFeedbackKey(threadId, catId);
+    const feedback = this.mentionRoutingFeedback.get(key);
+    if (!feedback) return null;
+    this.mentionRoutingFeedback.delete(key);
+    const sourceMessage = feedback.sourceMessageId ? { sourceMessageId: feedback.sourceMessageId } : {};
+    return {
+      ...sourceMessage,
+      sourceTimestamp: feedback.sourceTimestamp,
+      items: [...feedback.items],
+    };
+  }
+
   updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void {
     const thread = this.get(threadId);
     if (!thread) return;
@@ -306,6 +371,7 @@ export class ThreadStore implements IThreadStore {
     if (threadId === DEFAULT_THREAD_ID) return false; // Cannot delete default
     // Cloud Codex R3 P2 fix: Clean up activity entries to prevent memory leak
     this.clearActivityForThread(threadId);
+    this.clearMentionRoutingFeedbackForThread(threadId);
     return this.threads.delete(threadId);
   }
 
@@ -315,6 +381,15 @@ export class ThreadStore implements IThreadStore {
     for (const key of this.participantActivity.keys()) {
       if (key.startsWith(prefix)) {
         this.participantActivity.delete(key);
+      }
+    }
+  }
+
+  private clearMentionRoutingFeedbackForThread(threadId: string): void {
+    const prefix = `${threadId}:`;
+    for (const key of this.mentionRoutingFeedback.keys()) {
+      if (key.startsWith(prefix)) {
+        this.mentionRoutingFeedback.delete(key);
       }
     }
   }
@@ -332,6 +407,7 @@ export class ThreadStore implements IThreadStore {
         if (key !== DEFAULT_THREAD_ID) {
           // Cloud Codex R3 P2 fix: Clean up activity before evicting
           this.clearActivityForThread(key);
+          this.clearMentionRoutingFeedbackForThread(key);
           this.threads.delete(key);
           evicted = true;
           break;

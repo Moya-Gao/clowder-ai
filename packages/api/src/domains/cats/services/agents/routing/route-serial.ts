@@ -18,7 +18,7 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
-import { parseA2AMentions, getMaxA2ADepth } from '../routing/a2a-mentions.js';
+import { analyzeA2AMentions, getMaxA2ADepth } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
@@ -121,9 +121,17 @@ export async function* routeSerial(
     const teammates = [...new Set(worklist.filter((id) => id !== catId))];
     const directMessageFrom = worklistEntry.a2aFrom.get(catId);
     const reviewIdentityCheckFrom = worklistEntry.reviewIdentityCheckFrom.get(catId);
+    let mentionRoutingFeedback = null;
     if (reviewIdentityCheckFrom) {
       // One-shot gate: consume at execution time to avoid stale carry-over.
       worklistEntry.reviewIdentityCheckFrom.delete(catId);
+    }
+    if (deps.invocationDeps.threadStore) {
+      try {
+        mentionRoutingFeedback = await deps.invocationDeps.threadStore.consumeMentionRoutingFeedback(threadId, catId);
+      } catch (feedbackErr) {
+        console.warn(`[routeSerial] consumeMentionRoutingFeedback failed for ${catId as string}, degrading:`, feedbackErr);
+      }
     }
     // MCP documentation: Claude's MCP_TOOLS_SECTION → staticIdentity (in -p content).
     // Non-Claude HTTP callback instructions → per-message (session history may be lost on compress).
@@ -147,6 +155,7 @@ export async function* routeSerial(
       a2aEnabled: worklistEntry.a2aCount < maxDepth,
       ...(directMessageFrom ? { directMessageFrom } : {}),
       ...(reviewIdentityCheckFrom ? { reviewIdentityCheckFrom } : {}),
+      ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
       ...(routingPolicy ? { routingPolicy } : {}),
     });
@@ -392,18 +401,22 @@ export async function* routeSerial(
       }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
-      a2aMentions = parseA2AMentions(storedContent, catId);
+      const mentionAnalysis = analyzeA2AMentions(storedContent, catId);
+      a2aMentions = mentionAnalysis.mentions;
+      const suppressedMentions = mentionAnalysis.suppressed;
+      const storedTimestamp = Date.now();
+      let storedMessageId: string | undefined;
 
       // Store with actual mentions — degrade on failure to ensure done reaches frontend
       // (缅因猫 review P1-2: Redis failure must not block done yield)
       try {
-        await deps.messageStore.append({
+        const stored = await deps.messageStore.append({
           userId,
           catId,
           content: storedContent,
           mentions: a2aMentions,
           origin: 'stream',
-          timestamp: Date.now(),
+          timestamp: storedTimestamp,
           threadId,
           ...(thinkingContent ? { thinking: thinkingContent } : {}),
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
@@ -413,6 +426,7 @@ export async function* routeSerial(
             ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
           },
         });
+        storedMessageId = stored.id;
         // #80: Clean up draft only after successful append (guard: keep draft if append fails)
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
@@ -433,6 +447,21 @@ export async function* routeSerial(
             catId: catId as string,
             error: err instanceof Error ? err.message : String(err),
           });
+        }
+      }
+
+      if (suppressedMentions.length > 0 && deps.invocationDeps.threadStore) {
+        try {
+          await deps.invocationDeps.threadStore.setMentionRoutingFeedback(threadId, catId, {
+            ...(storedMessageId ? { sourceMessageId: storedMessageId } : {}),
+            sourceTimestamp: storedTimestamp,
+            items: suppressedMentions.map((entry) => ({
+              targetCatId: entry.catId,
+              reason: entry.reason,
+            })),
+          });
+        } catch (feedbackErr) {
+          console.warn(`[routeSerial] setMentionRoutingFeedback failed for ${catId as string}, degrading:`, feedbackErr);
         }
       }
 

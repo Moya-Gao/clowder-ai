@@ -41,7 +41,22 @@ function createOptionsCapturingService(catId, text = 'hello') {
   };
 }
 
-function createMockDeps(services, appendCalls) {
+function createSequentialCapturingService(catId, responses) {
+  const calls = [];
+  let index = 0;
+  return {
+    calls,
+    async *invoke(prompt) {
+      calls.push(prompt);
+      const text = responses[index] ?? responses[responses.length - 1] ?? 'ok';
+      index += 1;
+      yield { type: 'text', catId, content: text, timestamp: Date.now() };
+      yield { type: 'done', catId, timestamp: Date.now() };
+    },
+  };
+}
+
+function createMockDeps(services, appendCalls, threadStore = null) {
   let counter = 0;
   return {
     services,
@@ -54,7 +69,7 @@ function createMockDeps(services, appendCalls) {
         getOrCreate: async () => ({}),
         resolveWorkingDirectory: () => '/tmp/test',
       },
-      threadStore: null,
+      threadStore,
       apiUrl: 'http://127.0.0.1:3002',
     },
     messageStore: {
@@ -470,6 +485,56 @@ describe('routeSerial A2A worklist', () => {
     const prompt = codexService.calls[0];
     assert.ok(!prompt.includes('图灵'), 'whisper content must NOT appear in non-recipient prompt');
     assert.ok(!prompt.includes('SECRET'), 'whisper content must NOT leak via fallback injection');
+  });
+
+  it('D3 one-shot feedback: injects no_action suppression once and then clears', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('user1', 'D3 no_action');
+    const codexService = createSequentialCapturingService('codex', [
+      '@布偶猫',
+      '收到，改成可执行请求',
+      '第三次调用',
+    ]);
+    const deps = createMockDeps({ codex: codexService }, undefined, threadStore);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+    for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+    for await (const _ of routeSerial(deps, ['codex'], 'third', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+
+    assert.equal(codexService.calls.length, 3, 'codex should be called across three invocations');
+    assert.match(
+      codexService.calls[1],
+      /Routing feedback\(one-shot\): .*reason=no_action/,
+      'second invocation should include one-shot no_action feedback',
+    );
+    assert.ok(
+      !codexService.calls[2].includes('Routing feedback(one-shot):'),
+      'third invocation should not repeat one-shot feedback',
+    );
+  });
+
+  it('D3 feedback records cross_paragraph reason', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('user1', 'D3 cross_paragraph');
+    const codexService = createSequentialCapturingService('codex', [
+      '@布偶猫\n\n请 review 这个改动',
+      '收到',
+    ]);
+    const deps = createMockDeps({ codex: codexService }, undefined, threadStore);
+
+    for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+    for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+
+    assert.equal(codexService.calls.length, 2, 'codex should be called twice');
+    assert.match(
+      codexService.calls[1],
+      /Routing feedback\(one-shot\): .*reason=cross_paragraph/,
+      'second invocation should include cross_paragraph feedback reason',
+    );
   });
 
   it('sanitize should preserve normal markdown separator lines', async () => {
