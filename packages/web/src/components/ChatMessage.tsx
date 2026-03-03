@@ -143,14 +143,12 @@ function renderToolEvents(events: ToolEvent[]) {
 
 /** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
 function ThinkingContent({ content, className, label = '💭 心里话', defaultExpanded = false }: { content: string; className?: string; label?: string; defaultExpanded?: boolean }) {
-  // In export mode (?export=true), default to expanded so screenshots show full content
-  const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
-  const [expanded, setExpanded] = useState(isExport || defaultExpanded);
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const hasMounted = useRef(false);
   // Sync with global UI preference: when defaultExpanded changes, update all blocks
   useEffect(() => {
-    setExpanded(isExport || defaultExpanded);
-  }, [isExport, defaultExpanded]);
+    setExpanded(defaultExpanded);
+  }, [defaultExpanded]);
   // Notify scroll-dependent UI (e.g. "↓ 到最新") after the DOM has updated.
   useLayoutEffect(() => {
     if (!hasMounted.current) {
