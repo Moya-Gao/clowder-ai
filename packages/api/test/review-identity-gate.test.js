@@ -76,6 +76,36 @@ describe('review-identity-gate', () => {
     assert.equal(required, true);
   });
 
+  it('requires identity gate when punctuation appears right after target mention', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@gpt52: 请 review this patch',
+    });
+    assert.equal(required, true);
+  });
+
+  it('does not require identity gate when review request targets another cat and this cat is FYI only', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'codex',
+      toCatId: 'gpt52',
+      message: '@opus review this patch\n@gpt52 FYI',
+    });
+    assert.equal(required, false);
+  });
+
+  it('requires identity gate for alias mention targeting same-family reviewer', async () => {
+    const { shouldRequireReviewIdentityGate } = await getModule();
+    const required = shouldRequireReviewIdentityGate({
+      fromCatId: 'gpt52',
+      toCatId: 'codex',
+      message: '@缅因猫 review this patch',
+    });
+    assert.equal(required, true);
+  });
+
   it('accepts valid identity handshake line', async () => {
     const { validateReviewIdentityHandshake } = await getModule();
     const result = validateReviewIdentityHandshake(
