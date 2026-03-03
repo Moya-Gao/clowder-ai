@@ -242,7 +242,8 @@ describe('Multi-Cat Integration Tests', { skip: !shouldRunIntegrationTests }, ()
   /**
    * Test: Session persistence (Claude only)
    * 验证 Claude session 在多次调用间保持
-   * Note: Gemini CLI --resume 用 local index，不兼容 AgentRouter 的 sessionId
+   * Note: Gemini UUID resume 兼容性由 provider/invocation 层单测覆盖，
+   * 本集成用例只验证 Claude 的跨调用保持。
    */
   itOrSkip('maintains Claude session across multiple calls', { skip: !hasClaude, timeout: 120_000 }, async () => {
     const router = await createRealRouter();

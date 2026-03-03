@@ -23,7 +23,12 @@ import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
-import { extractTaskProgress, isMissingClaudeSessionError, isTransientCliExitCode1 } from './invoke-helpers.js';
+import {
+  classifyResumeFailure,
+  extractTaskProgress,
+  isMissingClaudeSessionError,
+  isTransientCliExitCode1,
+} from './invoke-helpers.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
 
 /**
@@ -614,6 +619,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Self-heal policy (at most one retry total):
     // 1) stale --resume session: "No conversation found with session ID ..."
     // 2) transient CLI bootstrap exit: "CLI 异常退出 (code: 1, signal: none)"
+    const initialResumeSessionId = sessionId;
+    const shouldTrackGeminiResumeFailures = catId === 'gemini' && Boolean(initialResumeSessionId);
+    const resumeFailureCounts: Partial<Record<'missing_session' | 'cli_exit' | 'auth', number>> = {};
     const maxAttempts = 2;
     let allowSessionRetry = Boolean(sessionId);
     let allowTransientRetry = true;
@@ -629,6 +637,13 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       let attemptHasContentOutput = false;
 
       for await (const msg of service.invoke(effectivePrompt, options)) {
+        if (shouldTrackGeminiResumeFailures && options.sessionId && msg.type === 'error') {
+          const failureKind = classifyResumeFailure(msg.error);
+          if (failureKind) {
+            resumeFailureCounts[failureKind] = (resumeFailureCounts[failureKind] ?? 0) + 1;
+          }
+        }
+
         if (allowSessionRetry && msg.type === 'error' && isMissingClaudeSessionError(msg.error)) {
           suppressedMissingSessionError = msg;
           continue;
@@ -799,6 +814,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         }
       }
       break;
+    }
+
+    if (shouldTrackGeminiResumeFailures && Object.keys(resumeFailureCounts).length > 0) {
+      const total = Object.values(resumeFailureCounts).reduce((sum, count) => sum + (count ?? 0), 0);
+      for (const out of await processMessage({
+        type: 'system_info' as const,
+        catId,
+        content: JSON.stringify({
+          type: 'resume_failure_stats',
+          catId,
+          invocationId,
+          sessionId: initialResumeSessionId,
+          counts: resumeFailureCounts,
+          total,
+        }),
+        timestamp: Date.now(),
+      })) {
+        await maybePersistTaskProgress(out);
+        yield out;
+      }
     }
   } catch (err) {
     // === CAT_ERROR 审计 (fire-and-forget, 缅因猫 review P2-3) ===

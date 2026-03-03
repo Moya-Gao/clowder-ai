@@ -954,6 +954,33 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(payload.health.source, 'approx');
   });
 
+  it('resume failure classification: maps missing session / cli exit / auth / unknown', async () => {
+    const { classifyResumeFailure } = await import(
+      '../dist/domains/cats/services/agents/invocation/invoke-helpers.js'
+    );
+
+    assert.equal(
+      classifyResumeFailure('No conversation found with session ID: stale-123'),
+      'missing_session',
+    );
+    assert.equal(
+      classifyResumeFailure('Gemini CLI: CLI 异常退出 (code: 1, signal: none)'),
+      'cli_exit',
+    );
+    assert.equal(
+      classifyResumeFailure('Gemini CLI: CLI 异常退出 (code: null, signal: SIGTERM)'),
+      'cli_exit',
+    );
+    assert.equal(
+      classifyResumeFailure('authentication failed: login required'),
+      'auth',
+    );
+    assert.equal(
+      classifyResumeFailure('upstream timeout'),
+      null,
+    );
+  });
+
   it('session self-heal: retries once without --resume when Claude reports missing conversation', async () => {
     let invokeCount = 0;
     const sessionDeletes = [];
@@ -1157,6 +1184,131 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       msgs.some((m) => m.type === 'error' && String(m.error).includes('CLI 异常退出')),
       'error should be preserved when partial output already streamed',
     );
+  });
+
+  it('resume failure stats: emits missing_session count after gemini self-heal success', async () => {
+    let invokeCount = 0;
+    const service = {
+      async *invoke(_prompt, _options) {
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'gemini',
+            error: 'No conversation found with session ID: missing-1',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'text', catId: 'gemini', content: 'retry-ok', timestamp: Date.now() };
+        yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'missing-1',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      userId: 'user-gemini-missing',
+      threadId: 'thread-gemini-missing',
+      isLastCat: true,
+    }));
+
+    const statsMsg = msgs.find((m) => m.type === 'system_info' && m.content?.includes('"resume_failure_stats"'));
+    assert.ok(statsMsg, 'should emit resume_failure_stats system_info');
+    const payload = JSON.parse(statsMsg.content);
+    assert.equal(payload.counts.missing_session, 1);
+    assert.equal(payload.counts.cli_exit ?? 0, 0);
+    assert.equal(payload.counts.auth ?? 0, 0);
+  });
+
+  it('resume failure stats: emits auth count and does not retry', async () => {
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        yield {
+          type: 'error',
+          catId: 'gemini',
+          error: 'authentication failed: please login',
+          timestamp: Date.now(),
+        };
+        yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'sess-auth',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      userId: 'user-gemini-auth',
+      threadId: 'thread-gemini-auth',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 1, 'auth failure should not trigger retry');
+    const statsMsg = msgs.find((m) => m.type === 'system_info' && m.content?.includes('"resume_failure_stats"'));
+    assert.ok(statsMsg, 'should emit resume_failure_stats system_info');
+    const payload = JSON.parse(statsMsg.content);
+    assert.equal(payload.counts.auth, 1);
+  });
+
+  it('resume failure stats: emits cli_exit count for transient resume bootstrap exit', async () => {
+    let invokeCount = 0;
+    const service = {
+      async *invoke() {
+        invokeCount++;
+        if (invokeCount === 1) {
+          yield {
+            type: 'error',
+            catId: 'gemini',
+            error: 'Gemini CLI: CLI 异常退出 (code: 1, signal: none)',
+            timestamp: Date.now(),
+          };
+          yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+          return;
+        }
+        yield { type: 'text', catId: 'gemini', content: 'retry-ok', timestamp: Date.now() };
+        yield { type: 'done', catId: 'gemini', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    deps.sessionManager = {
+      get: async () => 'sess-cli-exit',
+      store: async () => {},
+      delete: async () => {},
+    };
+
+    const msgs = await collect(invokeSingleCat(deps, {
+      catId: 'gemini',
+      service,
+      prompt: 'test',
+      userId: 'user-gemini-cli-exit',
+      threadId: 'thread-gemini-cli-exit',
+      isLastCat: true,
+    }));
+
+    assert.equal(invokeCount, 2, 'transient cli exit should retry once');
+    const statsMsg = msgs.find((m) => m.type === 'system_info' && m.content?.includes('"resume_failure_stats"'));
+    assert.ok(statsMsg, 'should emit resume_failure_stats system_info');
+    const payload = JSON.parse(statsMsg.content);
+    assert.equal(payload.counts.cli_exit, 1);
   });
 
   it('R7 P1: seal clears sessionManager BEFORE finalize completes (no race window)', async () => {

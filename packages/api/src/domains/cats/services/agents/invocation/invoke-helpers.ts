@@ -25,9 +25,26 @@ export function extractTaskProgress(
   };
 }
 
+export type ResumeFailureKind = 'missing_session' | 'cli_exit' | 'auth';
+
+export function classifyResumeFailure(message: string | undefined): ResumeFailureKind | null {
+  if (!message) return null;
+
+  if (/No conversation found with session ID/i.test(message)) {
+    return 'missing_session';
+  }
+  if (/CLI 异常退出 \(code:\s*(?:\d+|null)(?:,\s*signal:\s*[^)]+)?\)/i.test(message)) {
+    return 'cli_exit';
+  }
+  if (/\b(authentication failed|unauthorized|forbidden|login required|invalid credentials|auth)\b/i.test(message)) {
+    return 'auth';
+  }
+
+  return null;
+}
+
 export function isMissingClaudeSessionError(message: string | undefined): boolean {
-  if (!message) return false;
-  return /No conversation found with session ID/i.test(message);
+  return classifyResumeFailure(message) === 'missing_session';
 }
 
 export function isTransientCliExitCode1(message: string | undefined): boolean {

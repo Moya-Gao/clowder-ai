@@ -289,7 +289,7 @@ gemini -p "prompt" -o stream-json -y [-i image.png]
 ```
 
 **特殊处理：**
-- **Session 恢复限制**：`gemini --resume` 只接受数字索引（如 `5`）或 `latest`，不接受 UUID。多 session 索引不稳定，我们改用 prompt prepend 方式传递上下文
+- **Session 恢复（F053，2026-03-03）**：在当前环境（Gemini CLI 0.31.0）支持 `gemini --resume <sessionId>`（UUID），provider 已启用 resume；prompt prepend 继续用于跨猫历史补全
 - **图片支持**：通过 `-i` flag 传递
 - **Antigravity fallback**：IDE 模式不输出 NDJSON，需要通过 MCP 回传
 
@@ -357,11 +357,11 @@ const args = options?.sessionId
   : ['exec', '--json', '--sandbox', SANDBOX_MODE, '--full-auto', prompt];
 ```
 
-### 4. Gemini --resume 只接受索引
+### 4. Gemini resume 语义纠偏（F053）
 
-**问题**：`gemini --resume` 不接受 UUID，只接受数字索引或 `latest`。多 session 时索引不稳定。
+**背景**：2026-02 阶段我们曾按“index/latest only”实现降级路径。
 
-**解决**：放弃 `--resume`，改用 prompt prepend 传递历史上下文（ContextAssembler）。
+**当前结论（2026-03-03）**：Gemini CLI 0.31.0 已支持 UUID `--resume <sessionId>`，`GeminiAgentService` 已接入；prompt prepend 保留为跨猫上下文补充，不再作为 resume 的替代策略。
 
 ### 5. stderr 不能暴露给用户
 

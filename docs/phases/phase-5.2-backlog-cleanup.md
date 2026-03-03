@@ -179,13 +179,15 @@ created: 2026-02-26
 
 #### Task 10: #26 Gemini resume 调研
 **文件**: `packages/api/src/domains/cats/services/GeminiAgentService.ts`
-**当前**: 故意禁用 — `gemini --resume` 只接受 index number 不接受 UUID
+**当时现状（2026-02）**: 故意禁用 — 当时判断 `gemini --resume` 只接受 index number 不接受 UUID
 
 **调研**:
 1. 检查最新 gemini CLI 版本: `gemini --version` + `gemini --help | grep resume`
 2. 测试: `gemini --list-sessions` → 取 UUID → `gemini --resume <UUID>` 是否可行
 3. 如果可行: 接入 SessionManager (同 Claude/Codex 模式)
 4. 如果不可行: 在 BACKLOG 标注"已调研，CLI 仍不支持 UUID resume"，关闭此项
+
+> 2026-03-03 更新（F053）：Gemini CLI 0.31.0 已确认可用 UUID `--resume <sessionId>`，该项最终按“可行并接入”收敛。
 
 **Codex**: 已完整支持 ✅，标记 #26 Codex 部分为完成
 

@@ -53,7 +53,7 @@ Phase 3.5 加了很多能力（Intent、并行、Task、Summary），但铲屎�
 1. **统一性** — 三猫用同一套逻辑，不用为每个 CLI 的 resume 机制做特殊处理
 2. **可控性** — 我们控制发什么历史，能做截断和格式化
 3. **Session Resume 保留** — 作为"bonus"，Claude 的 resume 继续工作，但不依赖它作为唯一 context 来源
-4. **Gemini resume 问题规避** — Gemini CLI 的 `--resume` 用 index number（`--resume 5`）而非 UUID，多 session 并发时 index 不稳定，不可靠
+4. **Gemini resume 问题规避（历史）** — 当时（2026-02）认为 Gemini CLI `--resume` 仅支持 index（`--resume 5`）而非 UUID，見下方“决策 2”。
 
 **放弃方案 C 的原因**：实现复杂度不值得。Session resume 已经在工作（Claude/Codex），context prepend 覆盖了跨猫可见性需求。如果 prompt 里已经有历史，session resume 里重复也不会出错（模型会自己 dedupe）。
 
@@ -63,20 +63,22 @@ Phase 3.5 加了很多能力（Intent、并行、Task、Summary），但铲屎�
 
 **铲屎官信息**：Gemini CLI 和 Codex CLI 都有 resume 功能。
 
-**调研结果**：
+> 2026-03-03 更新（F053）：该段为 2026-02 的历史调研快照。当前环境（Gemini CLI 0.31.0）已确认支持 UUID `--resume <sessionId>`，provider 已接入。
+
+**当时调研结果（2026-02）**：
 - `gemini --resume` 接受 `"latest"` 或 index number（如 `--resume 5`）
 - `gemini --list-sessions` 显示 sessions 带 UUID（如 `[ede61333-fc16-47f4-8b71-53b3233196f4]`）
-- 但 `--resume` **不接受 UUID**，只接受 index 或 `"latest"`
+- 当时实测 `--resume` **不接受 UUID**，只接受 index 或 `"latest"`
 - index 在多 session 时不稳定（新 session 会改变其他 session 的 index）
 
-**代码现状**：GeminiAgentService line 152-153 注释说 "gemini CLI --resume uses local index (not UUID), incompatible"，这个判断**基本正确**但需要更新。
+**当时代码现状（2026-02）**：GeminiAgentService 注释为 "gemini CLI --resume uses local index (not UUID), incompatible"。该结论已在 F053 中纠偏。
 
-**选择：Phase 3.6 不修 Gemini resume**
+**当时选择（2026-02）：Phase 3.6 不修 Gemini resume**
 
 **理由**：
 1. 方案 B 的 prompt prepend 已经解决了 context 可见性问题
 2. Gemini resume 用 index 不可靠，需要先调用 `--list-sessions` 再解析 UUID 到 index，增加启动延迟和脆弱性
-3. 如果 Gemini CLI 未来支持 UUID resume，可以再接入
+3. 如果 Gemini CLI 未来支持 UUID resume，再接入（已在 F053，2026-03-03 落地）
 
 **Codex resume**：代码已写好（CodexAgentService line 114-116），`thread.started` 事件返回 `thread_id`，`sessionManager` 存取正常。但需要**实际验证**它是否工作（可能 Codex exec resume 需要特定条件）。
 
