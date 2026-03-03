@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-02
+> 维护者：三猫 | 最后更新：2026-03-03
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -27,4 +27,6 @@ created: 2026-02-26
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
 | F049 | Mission Hub — Backlog Center（领取/派发/自动开 Thread） | in-progress | 三猫 | [F049](features/F049-mission-control-backlog-center.md) |
 | F050 | External Agent Onboarding — A2A/CLI 接入契约 | spec | 三猫 | [F050](features/F050-a2a-external-agent-onboarding.md) |
+| F051 | 真实猫粮看板 — Real Quota Dashboard | in-progress | 缅因猫 | [F051](features/F051-real-quota-dashboard.md) |
+| F052 | 跨线程身份隔离与消息溯源 | spec | 布偶猫 | [F052](features/F052-cross-thread-identity-isolation.md) |
 <!-- F042 (提示词工程审计与优化) → done 2026-03-02, 剩余项毕业到 F043/F046/F049 -->

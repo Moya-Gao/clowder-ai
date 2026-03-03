@@ -13,6 +13,7 @@ created: 2026-02-27
 > **Priority**: P1
 > **依赖**: F041（能力看板 + 配置编排就位后才能拆分 server）
 > **Updated**: 2026-03-03（Phase B P2 工具落地 + timeline 对齐）
+> **Evolved to**: F052（跨线程身份隔离 — cross_post_message 的身份/上下文/路由配套）
 
 ## 与 F041 的关系
 
