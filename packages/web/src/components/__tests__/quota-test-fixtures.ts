@@ -33,6 +33,7 @@ export interface CodexUsageItem {
   label: string;
   usedPercent: number;
   percentKind?: 'used' | 'remaining';
+  poolId?: string;
   resetsAt?: string;
   resetsText?: string;
 }
@@ -44,15 +45,24 @@ export interface CodexQuota {
   lastChecked: string | null;
 }
 
+export interface GeminiQuota {
+  platform: 'gemini';
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
+}
+
 export interface AntigravityQuota {
   platform: 'antigravity';
-  status: 'not-yet-implemented';
-  hint: string;
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
 }
 
 export interface QuotaResponse {
   claude: ClaudeQuota;
   codex: CodexQuota;
+  gemini: GeminiQuota;
   antigravity: AntigravityQuota;
   fetchedAt: string;
 }

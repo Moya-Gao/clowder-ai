@@ -34,6 +34,7 @@ export interface CodexUsageItem {
   label: string;
   usedPercent: number;
   percentKind?: 'used' | 'remaining';
+  poolId?: string;
   resetsAt?: string;
   resetsText?: string;
 }
@@ -45,231 +46,160 @@ export interface CodexQuota {
   lastChecked: string | null;
 }
 
+export interface GeminiQuota {
+  platform: 'gemini';
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
+}
+
 export interface AntigravityQuota {
   platform: 'antigravity';
-  status: 'not-yet-implemented';
-  hint: string;
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
 }
 
 export interface QuotaResponse {
   claude: ClaudeQuota;
   codex: CodexQuota;
+  gemini: GeminiQuota;
   antigravity: AntigravityQuota;
   fetchedAt: string;
 }
 
-// --- Sub-components ---
+// --- Pool grouping ---
 
-function ProgressBar({ percent, color }: { percent: number; color: string }) {
+export interface PoolGroup {
+  poolId: string;
+  displayName: string;
+  items: CodexUsageItem[];
+}
+
+const CODEX_POOL_DISPLAY: Record<string, string> = {
+  'codex-main': '缅因猫 Codex + GPT-5.2',
+  'codex-spark': '缅因猫 Spark',
+  'codex-review': '缅因猫 代码审查',
+  'codex-overflow': '溢出额度',
+};
+
+export function groupCodexByPool(items: CodexUsageItem[]): PoolGroup[] {
+  const map = new Map<string, CodexUsageItem[]>();
+  for (const item of items) {
+    const id = item.poolId ?? 'codex-unknown';
+    const arr = map.get(id) ?? [];
+    arr.push(item);
+    map.set(id, arr);
+  }
+  const order = ['codex-main', 'codex-spark', 'codex-review', 'codex-overflow'];
+  const result: PoolGroup[] = [];
+  for (const poolId of order) {
+    const poolItems = map.get(poolId);
+    if (poolItems) {
+      result.push({
+        poolId,
+        displayName: CODEX_POOL_DISPLAY[poolId] ?? poolId,
+        items: poolItems,
+      });
+      map.delete(poolId);
+    }
+  }
+  for (const [poolId, poolItems] of map) {
+    result.push({ poolId, displayName: CODEX_POOL_DISPLAY[poolId] ?? poolId, items: poolItems });
+  }
+  return result;
+}
+
+// --- Risk & display helpers ---
+
+/** Returns utilization 0-100 (how much is USED). */
+export function toUtilization(item: CodexUsageItem): number {
+  return item.percentKind === 'remaining' ? 100 - item.usedPercent : item.usedPercent;
+}
+
+export function riskDotClass(utilization: number): string {
+  if (utilization >= 80) return 'text-rose-500';
+  if (utilization >= 50) return 'text-amber-500';
+  return 'text-emerald-500';
+}
+
+function barColor(utilization: number): string {
+  if (utilization >= 80) return 'bg-rose-500';
+  if (utilization >= 50) return 'bg-amber-400';
+  return 'bg-emerald-500';
+}
+
+function formatPercent(item: CodexUsageItem): string {
+  if (item.percentKind === 'remaining') return `${item.usedPercent}% 剩余`;
+  return `${item.usedPercent}% 已用`;
+}
+
+export function degradationHint(poolId: string | undefined, utilization: number): string | null {
+  if (utilization < 80) return null;
+  switch (poolId) {
+    case 'claude-session':
+    case 'claude-weekly-all':
+      return 'Opus 额度紧张，建议降级 Sonnet 或推迟重活';
+    case 'claude-weekly-sonnet':
+      return 'Sonnet 额度也紧张，考虑切到缅因猫';
+    case 'codex-main':
+      return '编码额度紧张，建议切到 @spark';
+    case 'codex-spark':
+      return 'Spark 额度紧张，仅剩 @gpt52 可用';
+    case 'codex-review':
+      return 'Review 额度紧张，建议切到 @gpt52 review';
+    case 'gemini-pro':
+      return 'Gemini Pro 额度紧张，建议切到 Flash';
+    case 'gemini-flash':
+      return 'Gemini Flash 额度也紧张';
+    default:
+      return null;
+  }
+}
+
+// --- Components ---
+
+function ProgressBar({ percent, utilization }: { percent: number; utilization: number }) {
   const clamped = Math.max(0, Math.min(100, percent));
+  const color = barColor(utilization);
   return (
-    <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+    <div className="w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${clamped}%` }} />
     </div>
   );
 }
 
-function barColor(percent: number, percentKind: 'used' | 'remaining' = 'used'): string {
-  const usedSignal = percentKind === 'remaining' ? 100 - percent : percent;
-  if (usedSignal >= 95) return 'bg-red-500';
-  if (usedSignal >= 80) return 'bg-amber-500';
-  return 'bg-green-500';
-}
-
-function statusBadge(level: 'ok' | 'warn' | 'high' | 'error' | 'pending'): { text: string; className: string } {
-  switch (level) {
-    case 'error':
-      return { text: '失败', className: 'bg-rose-600 text-white' };
-    case 'high':
-      return { text: '高风险', className: 'bg-rose-100 text-rose-700' };
-    case 'warn':
-      return { text: '关注', className: 'bg-amber-100 text-amber-700' };
-    case 'pending':
-      return { text: '待接入', className: 'bg-gray-200 text-gray-700' };
-    default:
-      return { text: '正常', className: 'bg-emerald-100 text-emerald-700' };
-  }
-}
-
-export function ClaudeCard({ data }: { data: ClaudeQuota }) {
-  const maxUsage = Math.max(0, ...(data.usageItems ?? []).map((item) => item.usedPercent));
-  const level = data.error ? 'error' : maxUsage >= 95 ? 'high' : maxUsage >= 80 ? 'warn' : 'ok';
-  const badge = statusBadge(level);
-
-  if (data.error) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
-        <div className="flex items-center gap-2 justify-between">
-          <span className="text-sm font-semibold text-gray-800">布偶猫 (Claude)</span>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
-          </div>
-        </div>
-        <div className="text-xs text-red-600">抓取失败: {data.error}</div>
-        <div className="text-[11px] text-gray-500">下一步：先修复抓取环境，再点击“获取官方额度”。</div>
-      </div>
-    );
-  }
-
-  const block = data.activeBlock;
-  const officialUsage = data.usageItems ?? [];
-
+export function QuotaPoolRow({ item }: { item: CodexUsageItem }) {
+  const utilization = toUtilization(item);
+  const dot = riskDotClass(utilization);
+  const hint = degradationHint(item.poolId, utilization);
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
-      <div className="flex items-center gap-2 justify-between">
-        <span className="text-sm font-semibold text-gray-800">布偶猫 (Claude)</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
+    <div className="py-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`text-sm ${dot}`} aria-hidden="true">
+            {'\u25CF'}
+          </span>
+          <span className="text-sm text-gray-700 truncate">{item.label}</span>
         </div>
+        <span
+          className={`text-sm font-semibold whitespace-nowrap ${utilization >= 80 ? 'text-rose-600' : 'text-gray-900'}`}
+        >
+          {formatPercent(item)}
+        </span>
       </div>
-      <div className="h-px bg-gray-200" />
-      {officialUsage.length > 0 ? (
-        <div className="space-y-2">
-          {officialUsage.map((item) => (
-            <div key={item.label} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">{item.label}</span>
-                <span className={`font-semibold ${item.usedPercent >= 95 ? 'text-red-600' : 'text-gray-900'}`}>
-                  {item.usedPercent}% used
-                </span>
-              </div>
-              <ProgressBar percent={item.usedPercent} color={barColor(item.usedPercent, 'used')} />
-              {item.resetsText && <div className="text-[10px] text-gray-400">{item.resetsText}</div>}
-              {!item.resetsText && item.resetsAt && (
-                <div className="text-[10px] text-gray-400">重置: {new Date(item.resetsAt).toLocaleString()}</div>
-              )}
-            </div>
-          ))}
+      <div className="mt-1 ml-5">
+        <ProgressBar
+          percent={item.percentKind === 'remaining' ? item.usedPercent : 100 - item.usedPercent}
+          utilization={utilization}
+        />
+      </div>
+      {(item.resetsText || item.resetsAt) && (
+        <div className="mt-0.5 ml-5 text-xs text-gray-400">
+          {item.resetsText ?? `resets ${new Date(item.resetsAt!).toLocaleString()}`}
         </div>
-      ) : block ? (
-        <>
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-600">当前窗口费用</span>
-              <span className="font-semibold text-gray-900">${block.costUSD.toFixed(2)}</span>
-            </div>
-            {block.burnRate && (
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">消耗速率</span>
-                <span className="text-gray-900">${block.burnRate.costPerHour.toFixed(2)}/hr</span>
-              </div>
-            )}
-            {block.projection && (
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">预计窗口总计</span>
-                <span className="text-gray-900">${block.projection.totalCost.toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-          <div className="text-[11px] text-gray-500">模型: {block.models.join(', ')}</div>
-          <div className="text-[11px] text-gray-500">
-            窗口: {new Date(block.startTime).toLocaleTimeString()} — {new Date(block.endTime).toLocaleTimeString()}
-          </div>
-        </>
-      ) : (
-        <div className="text-xs text-gray-500">暂无活跃计费窗口</div>
       )}
-      <div className="text-[11px] text-gray-500">
-        下一步：{level === 'high' ? '优先降载或切换模型' : level === 'warn' ? '建议观察并准备切换' : '保持按需刷新'}
-      </div>
-      {data.lastChecked && (
-        <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>
-      )}
-    </div>
-  );
-}
-
-export function CodexCard({ data }: { data: CodexQuota }) {
-  const maxSignal = Math.max(
-    0,
-    ...data.usageItems.map((item) => (item.percentKind === 'remaining' ? 100 - item.usedPercent : item.usedPercent)),
-  );
-  const level = data.error ? 'error' : maxSignal >= 95 ? 'high' : maxSignal >= 80 ? 'warn' : 'ok';
-  const badge = statusBadge(level);
-
-  if (data.error) {
-    return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
-        <div className="flex items-center gap-2 justify-between">
-          <span className="text-sm font-semibold text-gray-800">缅因猫 (Codex + GPT-5.2)</span>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
-            <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
-          </div>
-        </div>
-        <div className="text-xs text-red-600">抓取失败: {data.error}</div>
-        <div className="text-[11px] text-gray-500">下一步：确认浏览器登录状态和 CDP 配置，再手动刷新。</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
-      <div className="flex items-center gap-2 justify-between">
-        <span className="text-sm font-semibold text-gray-800">缅因猫 (Codex + GPT-5.2)</span>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
-          <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
-        </div>
-      </div>
-      <div className="h-px bg-gray-200" />
-      {data.usageItems.length > 0 ? (
-        <div className="space-y-2">
-          {data.usageItems.map((item) => (
-            <div key={item.label} className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-600">{item.label}</span>
-                <span
-                  className={`font-semibold ${
-                    item.percentKind === 'remaining'
-                      ? item.usedPercent <= 5
-                        ? 'text-red-600'
-                        : 'text-gray-900'
-                      : item.usedPercent >= 95
-                        ? 'text-red-600'
-                        : 'text-gray-900'
-                  }`}
-                >
-                  {item.usedPercent}% {item.percentKind === 'remaining' ? '剩余' : 'used'}
-                </span>
-              </div>
-              <ProgressBar percent={item.usedPercent} color={barColor(item.usedPercent, item.percentKind ?? 'used')} />
-              {item.resetsText && <div className="text-[10px] text-gray-400">{item.resetsText}</div>}
-              {!item.resetsText && item.resetsAt && (
-                <div className="text-[10px] text-gray-400">重置: {new Date(item.resetsAt).toLocaleString()}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="text-xs text-gray-500">暂无额度数据（点击获取会启动隔离浏览器，首次需登录后再重试）</div>
-      )}
-      <div className="text-[11px] text-gray-500">
-        下一步：{level === 'high' ? '立即节流并优先切换低成本路径' : level === 'warn' ? '建议准备切换策略' : '维持当前策略'}
-      </div>
-      {data.lastChecked && (
-        <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>
-      )}
-    </div>
-  );
-}
-
-export function AntigravityCard({ data }: { data: AntigravityQuota }) {
-  const badge = statusBadge('pending');
-  return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
-      <div className="flex items-center gap-2 justify-between">
-        <span className="text-sm font-semibold text-gray-800">暹罗猫 (Antigravity)</span>
-        <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
-      </div>
-      <div className="h-px bg-gray-200" />
-      <div className="flex flex-col items-center py-4 gap-1">
-        <span className="text-2xl">🚧</span>
-        <span className="text-xs text-gray-500">{data.hint}</span>
-      </div>
-      <div className="text-[11px] text-gray-500">下一步：保持占位，等待下一迭代接入官方额度。</div>
+      {hint && <div className="mt-0.5 ml-5 text-xs text-amber-600">{hint}</div>}
     </div>
   );
 }

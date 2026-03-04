@@ -33,6 +33,7 @@ GPT-5.3-Codex-Spark 每周使用限额
 93% 剩余
 代码审查
 56% 剩余
+剩余额度: 0
 `;
 
 const TEST_CLAUDE_TEXT = `
@@ -63,12 +64,14 @@ describe('GET /api/quota', () => {
     }
   });
 
-  it('antigravity returns not-yet-implemented status', async () => {
+  it('antigravity starts with empty usageItems (no placeholder status)', async () => {
     const app = await buildApp();
     try {
       const res = await app.inject({ method: 'GET', url: '/api/quota' });
       const body = res.json();
-      assert.equal(body.antigravity.status, 'not-yet-implemented');
+      assert.equal(body.antigravity.platform, 'antigravity');
+      assert.deepEqual(body.antigravity.usageItems, []);
+      assert.equal(body.antigravity.status, undefined);
     } finally {
       await app.close();
     }
@@ -368,36 +371,186 @@ describe('PATCH /api/quota/codex — happy path', () => {
       await app.close();
     }
   });
+
+  it('preserves poolId when pushed via PATCH', async () => {
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: {
+          usageItems: [
+            { label: '5小时使用限额', usedPercent: 97, percentKind: 'remaining', poolId: 'codex-main' },
+            { label: '代码审查', usedPercent: 56, percentKind: 'remaining', poolId: 'codex-review' },
+          ],
+        },
+      });
+      const getRes = await app.inject({ method: 'GET', url: '/api/quota' });
+      const body = getRes.json();
+      assert.equal(body.codex.usageItems[0].poolId, 'codex-main');
+      assert.equal(body.codex.usageItems[1].poolId, 'codex-review');
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('PATCH /api/quota/gemini', () => {
+  it('stores pushed Gemini quota data', async () => {
+    const app = await buildApp();
+    try {
+      const patchRes = await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/gemini',
+        payload: {
+          usageItems: [
+            { label: 'Gemini 2.5 Pro', usedPercent: 10, percentKind: 'used', poolId: 'gemini-pro' },
+            { label: 'Gemini 2.5 Flash', usedPercent: 40, percentKind: 'used', poolId: 'gemini-flash' },
+          ],
+        },
+      });
+      assert.equal(patchRes.statusCode, 200);
+      const body = patchRes.json();
+      assert.equal(body.gemini.usageItems.length, 2);
+      assert.equal(body.gemini.usageItems[0].poolId, 'gemini-pro');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('Gemini data appears in GET /api/quota', async () => {
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/gemini',
+        payload: {
+          usageItems: [{ label: 'Gemini 2.5 Pro', usedPercent: 90, percentKind: 'remaining', poolId: 'gemini-pro' }],
+        },
+      });
+      const getRes = await app.inject({ method: 'GET', url: '/api/quota' });
+      const body = getRes.json();
+      assert.ok(body.gemini);
+      assert.equal(body.gemini.platform, 'gemini');
+      assert.equal(body.gemini.usageItems.length, 1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('accepts error-only payload for Gemini', async () => {
+    const app = await buildApp();
+    try {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/gemini',
+        payload: { error: 'OAuth token expired' },
+      });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.gemini.error, 'OAuth token expired');
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('PATCH /api/quota/antigravity', () => {
+  it('stores pushed Antigravity quota data', async () => {
+    const app = await buildApp();
+    try {
+      const patchRes = await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/antigravity',
+        payload: {
+          usageItems: [{ label: 'Codeium', usedPercent: 98, percentKind: 'remaining', poolId: 'codeium-main' }],
+        },
+      });
+      assert.equal(patchRes.statusCode, 200);
+      const body = patchRes.json();
+      assert.equal(body.antigravity.platform, 'antigravity');
+      assert.equal(body.antigravity.usageItems.length, 1);
+      assert.equal(body.antigravity.usageItems[0].poolId, 'codeium-main');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('Antigravity data replaces placeholder in GET /api/quota', async () => {
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/antigravity',
+        payload: {
+          usageItems: [{ label: 'Codeium', usedPercent: 98, percentKind: 'remaining', poolId: 'codeium-main' }],
+        },
+      });
+      const getRes = await app.inject({ method: 'GET', url: '/api/quota' });
+      const body = getRes.json();
+      assert.equal(body.antigravity.platform, 'antigravity');
+      assert.ok(Array.isArray(body.antigravity.usageItems));
+      assert.equal(body.antigravity.usageItems.length, 1);
+      assert.ok(body.antigravity.lastChecked);
+      // Should NOT have the old placeholder status
+      assert.equal(body.antigravity.status, undefined);
+    } finally {
+      await app.close();
+    }
+  });
 });
 
 describe('official page parsers', () => {
-  it('parses OpenAI codex usage page into usageItems', async () => {
+  it('parses OpenAI codex usage page into usageItems with poolId', async () => {
     const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
     const items = parseCodexUsageFromPageText(TEST_OPENAI_TEXT);
-    assert.equal(items.length, 5);
+    assert.equal(items.length, 6);
     assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent]),
+      items.map((x) => [x.label, x.usedPercent, x.poolId]),
       [
-        ['GPT-5.3-Codex-Spark 5小时使用限额', 100],
-        ['GPT-5.3-Codex-Spark 每周使用限额', 93],
-        ['5小时使用限额', 97],
-        ['每周使用限额', 99],
-        ['代码审查', 56],
+        ['GPT-5.3-Codex-Spark 5小时使用限额', 100, 'codex-spark'],
+        ['GPT-5.3-Codex-Spark 每周使用限额', 93, 'codex-spark'],
+        ['5小时使用限额', 97, 'codex-main'],
+        ['每周使用限额', 99, 'codex-main'],
+        ['代码审查', 56, 'codex-review'],
+        ['溢出额度', 0, 'codex-overflow'],
       ],
     );
-    assert.ok(items.every((x) => x.percentKind === 'remaining'));
   });
 
-  it('parses Claude usage page into usageItems', async () => {
+  it('parses overflow credits line (Chinese and English)', async () => {
+    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
+    const zhItems = parseCodexUsageFromPageText('剩余额度: 0');
+    assert.equal(zhItems.length, 1);
+    assert.equal(zhItems[0].poolId, 'codex-overflow');
+    assert.equal(zhItems[0].usedPercent, 0);
+    assert.equal(zhItems[0].percentKind, 'remaining');
+
+    const enItems = parseCodexUsageFromPageText('Remaining credits: 5');
+    assert.equal(enItems.length, 1);
+    assert.equal(enItems[0].poolId, 'codex-overflow');
+    assert.equal(enItems[0].usedPercent, 5);
+  });
+
+  it('clamps overflow credits >100 to 100 (credits are not percentages)', async () => {
+    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
+    const items = parseCodexUsageFromPageText('Remaining credits: 250');
+    assert.equal(items.length, 1);
+    assert.equal(items[0].usedPercent, 100);
+    assert.equal(items[0].poolId, 'codex-overflow');
+    assert.equal(items[0].percentKind, 'remaining');
+  });
+
+  it('parses Claude usage page into usageItems with poolId', async () => {
     const { parseClaudeUsageFromPageText } = await import('../dist/routes/quota.js');
     const items = parseClaudeUsageFromPageText(TEST_CLAUDE_TEXT);
     assert.equal(items.length, 3);
     assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent]),
+      items.map((x) => [x.label, x.usedPercent, x.poolId]),
       [
-        ['Current session', 7],
-        ['Current week (all models)', 54],
-        ['Current week (Sonnet only)', 3],
+        ['Current session', 7, 'claude-session'],
+        ['Current week (all models)', 54, 'claude-weekly-all'],
+        ['Current week (Sonnet only)', 3, 'claude-weekly-sonnet'],
       ],
     );
   });

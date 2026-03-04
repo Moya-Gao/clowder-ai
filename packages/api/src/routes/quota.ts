@@ -54,6 +54,7 @@ export interface CodexUsageItem {
   label: string;
   usedPercent: number;
   percentKind?: 'used' | 'remaining';
+  poolId?: string;
   resetsAt?: string;
   resetsText?: string;
 }
@@ -65,15 +66,24 @@ export interface CodexQuota {
   lastChecked: string | null;
 }
 
+export interface GeminiQuota {
+  platform: 'gemini';
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
+}
+
 export interface AntigravityQuota {
   platform: 'antigravity';
-  status: 'not-yet-implemented';
-  hint: string;
+  usageItems: CodexUsageItem[];
+  error?: string;
+  lastChecked: string | null;
 }
 
 export interface QuotaResponse {
   claude: ClaudeQuota;
   codex: CodexQuota;
+  gemini: GeminiQuota;
   antigravity: AntigravityQuota;
   fetchedAt: string;
 }
@@ -153,19 +163,33 @@ function createInitialCodexCache(): CodexQuota {
   };
 }
 
+function createInitialGeminiCache(): GeminiQuota {
+  return {
+    platform: 'gemini',
+    usageItems: [],
+    lastChecked: null,
+  };
+}
+
+function createInitialAntigravityCache(): AntigravityQuota {
+  return {
+    platform: 'antigravity',
+    usageItems: [],
+    lastChecked: null,
+  };
+}
+
 let claudeCache: ClaudeQuota = createInitialClaudeCache();
 let codexCache: CodexQuota = createInitialCodexCache();
+let geminiCache: GeminiQuota = createInitialGeminiCache();
+let antigravityCache: AntigravityQuota = createInitialAntigravityCache();
 
 export function resetQuotaCachesForTests(): void {
   claudeCache = createInitialClaudeCache();
   codexCache = createInitialCodexCache();
+  geminiCache = createInitialGeminiCache();
+  antigravityCache = createInitialAntigravityCache();
 }
-
-const ANTIGRAVITY: AntigravityQuota = {
-  platform: 'antigravity',
-  status: 'not-yet-implemented',
-  hint: '暹罗猫额度待接入（下一迭代）',
-};
 
 const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
 const OFFICIAL_REFRESH_ENABLED_ENV = 'QUOTA_OFFICIAL_REFRESH_ENABLED';
@@ -411,15 +435,41 @@ function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
 }
 
 function buildAntigravitySummaryPlatform(): QuotaSummaryPlatform {
+  if (antigravityCache.error) {
+    return {
+      id: 'antigravity',
+      label: '暹罗猫 (Antigravity)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'error',
+      note: antigravityCache.error,
+      lastChecked: antigravityCache.lastChecked,
+    };
+  }
+  const primary = pickPrimaryUsageItem(antigravityCache.usageItems);
+  if (!primary) {
+    return {
+      id: 'antigravity',
+      label: '暹罗猫 (Antigravity)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'pending',
+      note: '暹罗猫额度待获取。',
+      lastChecked: antigravityCache.lastChecked,
+    };
+  }
+  const utilization = toUtilizationPercent(primary);
   return {
     id: 'antigravity',
     label: '暹罗猫 (Antigravity)',
-    displayPercent: null,
-    displayKind: null,
-    utilizationPercent: null,
-    status: 'pending',
-    note: ANTIGRAVITY.hint,
-    lastChecked: null,
+    displayPercent: normalizePercent(primary.usedPercent),
+    displayKind: primary.percentKind ?? 'used',
+    utilizationPercent: utilization,
+    status: statusFromUtilization(utilization),
+    note: primary.resetsText ?? primary.resetsAt ?? primary.label,
+    lastChecked: antigravityCache.lastChecked,
   };
 }
 
@@ -524,14 +574,16 @@ export function parseCodexUsageFromPageText(pageText: string): CodexUsageItem[] 
     {
       token: /^(GPT-5\.3-Codex-Spark\s*5\s*小时使用限额|GPT-5\.3-Codex-Spark\s*5(?:\s|-)?hour\s*usage\s*limit)$/i,
       label: 'GPT-5.3-Codex-Spark 5小时使用限额',
+      poolId: 'codex-spark',
     },
     {
       token: /^(GPT-5\.3-Codex-Spark\s*每周使用限额|GPT-5\.3-Codex-Spark\s*weekly\s*usage\s*limit)$/i,
       label: 'GPT-5.3-Codex-Spark 每周使用限额',
+      poolId: 'codex-spark',
     },
-    { token: /^(5\s*小时使用限额|5(?:\s|-)?hour usage limit)$/i, label: '5小时使用限额' },
-    { token: /^(每周使用限额|weekly usage limit)$/i, label: '每周使用限额' },
-    { token: /(代码审查|code review)/i, label: '代码审查' },
+    { token: /^(5\s*小时使用限额|5(?:\s|-)?hour usage limit)$/i, label: '5小时使用限额', poolId: 'codex-main' },
+    { token: /^(每周使用限额|weekly usage limit)$/i, label: '每周使用限额', poolId: 'codex-main' },
+    { token: /(代码审查|code review)/i, label: '代码审查', poolId: 'codex-review' },
   ] as const;
 
   const items: CodexUsageItem[] = [];
@@ -548,9 +600,26 @@ export function parseCodexUsageFromPageText(pageText: string): CodexUsageItem[] 
       // Keep official value as-is: OpenAI page exposes remaining%
       usedPercent: remaining,
       percentKind: 'remaining',
+      poolId: def.poolId,
       ...(resetLine ? { resetsText: resetLine } : {}),
     });
   }
+
+  // Overflow credits line: "剩余额度: N" or "Remaining credits: N"
+  const overflowPattern = /^(剩余额度|remaining credits)\s*[:：]\s*(\d+)/i;
+  for (const line of lines) {
+    const m = overflowPattern.exec(line);
+    if (m) {
+      items.push({
+        label: '溢出额度',
+        usedPercent: Math.min(Number(m[2]), 100),
+        percentKind: 'remaining',
+        poolId: 'codex-overflow',
+      });
+      break;
+    }
+  }
+
   return items;
 }
 
@@ -560,14 +629,16 @@ export function parseClaudeUsageFromPageText(pageText: string): CodexUsageItem[]
     .map((s) => s.trim())
     .filter(Boolean);
   const defs = [
-    { token: /(current session|当前会话)/i, label: 'Current session' },
+    { token: /(current session|当前会话)/i, label: 'Current session', poolId: 'claude-session' },
     {
       token: /(current week \(all models\)|本周（所有模型）|本周\(所有模型\)|本周.*all models)/i,
       label: 'Current week (all models)',
+      poolId: 'claude-weekly-all',
     },
     {
       token: /(current week \(sonnet only\)|本周（仅 Sonnet）|本周\(仅 Sonnet\)|本周.*sonnet)/i,
       label: 'Current week (Sonnet only)',
+      poolId: 'claude-weekly-sonnet',
     },
   ] as const;
 
@@ -583,6 +654,7 @@ export function parseClaudeUsageFromPageText(pageText: string): CodexUsageItem[]
     items.push({
       label: def.label,
       usedPercent: used,
+      poolId: def.poolId,
       ...(resetLine ? { resetsText: resetLine } : {}),
     });
   }
@@ -853,7 +925,8 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
     const response: QuotaResponse = {
       claude: claudeCache,
       codex: codexCache,
-      antigravity: ANTIGRAVITY,
+      gemini: geminiCache,
+      antigravity: antigravityCache,
       fetchedAt: new Date().toISOString(),
     };
     return response;
@@ -994,6 +1067,7 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
           label: z.string().min(1),
           usedPercent: z.number().min(0).max(100),
           percentKind: z.enum(['used', 'remaining']).optional(),
+          poolId: z.string().optional(),
           resetsAt: z.string().optional(),
         }),
       )
@@ -1027,11 +1101,80 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
           label: item.label,
           usedPercent: item.usedPercent,
           ...(item.percentKind != null && { percentKind: item.percentKind }),
+          ...(item.poolId != null && { poolId: item.poolId }),
           ...(item.resetsAt != null && { resetsAt: item.resetsAt }),
         })),
         lastChecked: new Date().toISOString(),
       };
     }
     return { codex: codexCache };
+  });
+
+  // PATCH: receive Gemini usage data OR error
+  const geminiPatchSchema = z.union([codexSuccessSchema, codexErrorSchema]);
+
+  app.patch('/api/quota/gemini', async (request, reply) => {
+    const parsed = geminiPatchSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid gemini usage payload',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+    if ('error' in parsed.data) {
+      geminiCache = {
+        platform: 'gemini',
+        usageItems: [],
+        error: parsed.data.error,
+        lastChecked: new Date().toISOString(),
+      };
+    } else {
+      geminiCache = {
+        platform: 'gemini',
+        usageItems: parsed.data.usageItems.map((item) => ({
+          label: item.label,
+          usedPercent: item.usedPercent,
+          ...(item.percentKind != null && { percentKind: item.percentKind }),
+          ...(item.poolId != null && { poolId: item.poolId }),
+          ...(item.resetsAt != null && { resetsAt: item.resetsAt }),
+        })),
+        lastChecked: new Date().toISOString(),
+      };
+    }
+    return { gemini: geminiCache };
+  });
+
+  // PATCH: receive Antigravity usage data OR error
+  const antigravityPatchSchema = z.union([codexSuccessSchema, codexErrorSchema]);
+
+  app.patch('/api/quota/antigravity', async (request, reply) => {
+    const parsed = antigravityPatchSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        error: 'Invalid antigravity usage payload',
+        details: parsed.error.flatten().fieldErrors,
+      });
+    }
+    if ('error' in parsed.data) {
+      antigravityCache = {
+        platform: 'antigravity',
+        usageItems: [],
+        error: parsed.data.error,
+        lastChecked: new Date().toISOString(),
+      };
+    } else {
+      antigravityCache = {
+        platform: 'antigravity',
+        usageItems: parsed.data.usageItems.map((item) => ({
+          label: item.label,
+          usedPercent: item.usedPercent,
+          ...(item.percentKind != null && { percentKind: item.percentKind }),
+          ...(item.poolId != null && { poolId: item.poolId }),
+          ...(item.resetsAt != null && { resetsAt: item.resetsAt }),
+        })),
+        lastChecked: new Date().toISOString(),
+      };
+    }
+    return { antigravity: antigravityCache };
   });
 }
