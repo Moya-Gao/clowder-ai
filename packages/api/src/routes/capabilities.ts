@@ -436,17 +436,19 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       config = await bootstrapCapabilities(projectRoot, getDiscoveryPaths(projectRoot), {
         catCafeRepoRoot: getProjectRoot(),
       });
-      // Cloud P1-1: bootstrap must also generate CLI configs, otherwise
-      // first invocations with mcpSupport=true have no native MCP configs
-      await generateCliConfigs(config, getCliConfigPaths(projectRoot));
     } else {
       const migrated = migrateLegacyCatCafeCapability(config, { catCafeRepoRoot: getProjectRoot() });
       if (migrated.migrated) {
         config = migrated.config;
         await writeCapabilitiesConfig(projectRoot, config);
-        await generateCliConfigs(config, getCliConfigPaths(projectRoot));
       }
     }
+
+    // Always regenerate CLI configs so that config changes (e.g. new env
+    // placeholders for Gemini MCP) are applied to existing environments
+    // without requiring a full re-bootstrap.  writeXxxMcpConfig functions
+    // are idempotent merge-writers, so repeated calls are safe and cheap.
+    await generateCliConfigs(config, getCliConfigPaths(projectRoot));
 
     // 2. Discover skills (filesystem scan — separate from MCP)
     // null = scan failed (readdir error); [] = directory exists but empty
