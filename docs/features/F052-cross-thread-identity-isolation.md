@@ -8,12 +8,13 @@ created: 2026-03-02
 
 # F052: 跨线程身份隔离与消息溯源
 
-> **Status**: spec
+> **Status**: done
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F043 Phase A（cross_post_message 已落地）
 > **Evolved from**: F043（跨线程传输能力）
-> **Updated**: 2026-03-02（立项）
+> **Completed**: 2026-03-04
+> **PR**: #203（squash merged）
 
 ## 愿景
 
@@ -138,24 +139,24 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 ## Acceptance Criteria
 
 ### Phase A
-- [ ] AC-A1: `cross_post_message` 存储的消息包含 `extra.crossPost.sourceThreadId`
-- [ ] AC-A2: 跨线程 codex → `@codex` 能触发目标线程的 codex A2A
-- [ ] AC-A3: 同线程 codex → `@codex` 仍然不触发（自引用过滤保持）
-- [ ] AC-A4: A2A 深度限制 (`maxDepth`) 仍然有效，防止跨线程无限回弹
+- [x] AC-A1: `cross_post_message` 存储的消息包含 `extra.crossPost.sourceThreadId`
+- [x] AC-A2: 跨线程 codex → `@codex` 能触发目标线程的 codex A2A
+- [x] AC-A3: 同线程 codex → `@codex` 仍然不触发（自引用过滤保持）
+- [x] AC-A4: A2A 深度限制 (`maxDepth`) 仍然有效，防止跨线程无限回弹
 - [x] AC-A5: 跨线程 push 通知不重复（covered by architecture: WebSocket broadcast 只执行一次，worklist 按 catId 去重，无独立 push 服务）
 
 ### Phase B
-- [ ] AC-B1: `assembleIncrementalContext` 对跨线程消息加来源标注
-- [ ] AC-B2: 前端消息气泡对跨线程消息显示来源 thread 标签
+- [x] AC-B1: `assembleIncrementalContext` 对跨线程消息加来源标注
+- [x] AC-B2: 前端消息气泡对跨线程消息显示来源 thread 标签
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "我得知道是缅因猫本地还是其他线程来的" | AC-A1, AC-B1, AC-B2 | test + UI screenshot | [ ] |
-| R2 | "别线程 codex at 我们的 codex 他无法 a2a" | AC-A2, AC-A3 | test（跨线程 @codex 触发 + 同线程不触发） | [ ] |
-| R3 | "但是调用 sonnet 是可以的"（不能回归） | AC-A2 | test（跨线程 @sonnet 仍正常） | [ ] |
-| R4 | "ux 安全 context 等等等机制都还没跟上" | AC-A1, AC-B1 | test（context 标注 + 溯源字段） | [ ] |
+| R1 | "我得知道是缅因猫本地还是其他线程来的" | AC-A1, AC-B1, AC-B2 | test + UI badge | [x] |
+| R2 | "别线程 codex at 我们的 codex 他无法 a2a" | AC-A2, AC-A3 | test（跨线程 @codex 触发 + 同线程不触发） | [x] |
+| R3 | "但是调用 sonnet 是可以的"（不能回归） | AC-A2 | test（跨线程 @sonnet 仍正常） | [x] |
+| R4 | "ux 安全 context 等等等机制都还没跟上" | AC-A1, AC-B1 | test（context 标注 + 溯源字段） | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -205,3 +206,13 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 | 2026-03-02 | 跨线程测试发现身份隔离缺口（实测 @codex 被误杀 + @sonnet 正常触发） |
 | 2026-03-02 | 架构分析完成：根因 = 全局 catId + parseA2AMentions 自引用过滤 |
 | 2026-03-02 | F052 立项，Phase A/B 拆分确认 |
+| 2026-03-04 | Phase A+B 实现（16 files, 10 new tests, 142 total pass）|
+| 2026-03-04 | 砚砚 R1→R3（2P1→1P1→0），云端 Codex review pass |
+| 2026-03-04 | PR #203 squash merged to main |
+
+## Cross-Cat Audit
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫 (Opus) | F052 spec, F043 spec, 铲屎官原话 thread | ① 核心问题=跨线程消息无来源标记+A2A误杀 ② 交付物解决了 ③ 铲屎官在UI看到蓝色badge+codex被正确A2A触发 | [x] 签收 |
+| 缅因猫 (Codex) | F052 spec, 代码diff(16 files), 测试覆盖 | R1: 2P1(WS路径遗漏) → R2: 1P1(后台线程遗漏) → R3: 0P1/P2 放行 | [x] 放行 |

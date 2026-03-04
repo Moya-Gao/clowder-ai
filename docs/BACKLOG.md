@@ -26,5 +26,4 @@ created: 2026-02-26
 | F048 | Restart Recovery — 重启自愈（Invocation/Queue 恢复） | idea | 三猫 | [F048](features/F048-restart-recovery.md) |
 | F050 | External Agent Onboarding — A2A/CLI 接入契约 | spec | 三猫 | [F050](features/F050-a2a-external-agent-onboarding.md) |
 | F051 | 猫粮看板 v2 — Quota Board (glanceable + scheduling) | in-progress | 布偶猫 | [F051](features/F051-real-quota-dashboard.md) |
-| F052 | 跨线程身份隔离与消息溯源 | spec | 布偶猫 | [F052](features/F052-cross-thread-identity-isolation.md) |
 | F054 | HCI 预热基础设施 — Social Media MCP + 内容管线 | spec | 布偶猫 | [F054](features/F054-hci-preheat-infra.md) |
