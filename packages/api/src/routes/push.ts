@@ -17,6 +17,22 @@ export interface PushRoutesOptions {
   };
 }
 
+type PushDeliveryStatus = 'ok' | 'error' | 'not_attempted';
+
+interface PushDeliverySnapshot {
+  lastAttemptAt: number | null;
+  lastHttpStatus: number | null;
+  lastResult: PushDeliveryStatus;
+  lastError: string | null;
+}
+
+interface PushDeliverySummary {
+  attempted: number;
+  delivered: number;
+  failed: number;
+  removed: number;
+}
+
 function resolveUserId(request: { headers: Record<string, string | string[] | undefined> }): string | null {
   const v = request.headers['x-cat-cafe-user'];
   if (typeof v === 'string' && v.trim().length > 0) return v.trim();
@@ -44,6 +60,29 @@ const unsubscribeSchema = z.object({
 export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opts) => {
   const { pushSubscriptionStore, pushService, vapidPublicKey } = opts;
   const auditLog = opts.auditLog ?? getEventAuditLog();
+  const deliveryByUser = new Map<string, PushDeliverySnapshot>();
+
+  function getDeliverySnapshot(userId: string): PushDeliverySnapshot {
+    return deliveryByUser.get(userId) ?? {
+      lastAttemptAt: null,
+      lastHttpStatus: null,
+      lastResult: 'not_attempted',
+      lastError: null,
+    };
+  }
+
+  function setDeliverySnapshot(userId: string, update: PushDeliverySnapshot): void {
+    deliveryByUser.set(userId, update);
+  }
+
+  function toDeliverySummary(delivery: Partial<PushDeliverySummary> | null | undefined): PushDeliverySummary {
+    return {
+      attempted: delivery?.attempted ?? 0,
+      delivered: delivery?.delivered ?? 0,
+      failed: delivery?.failed ?? 0,
+      removed: delivery?.removed ?? 0,
+    };
+  }
 
   function describeEndpoint(endpoint: string): string {
     try {
@@ -90,6 +129,38 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       return { key: null, enabled: false };
     }
     return { key: vapidPublicKey, enabled: true };
+  });
+
+  // GET /api/push/status — 前端通知能力矩阵 + 设备订阅状态 + 最近投递结果
+  app.get('/api/push/status', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header)' };
+    }
+
+    const subscriptions = await pushSubscriptionStore.listByUser(userId);
+    const capability = {
+      enabled: Boolean(vapidPublicKey) && Boolean(pushService),
+      vapidPublicKeyConfigured: Boolean(vapidPublicKey),
+      pushServiceConfigured: Boolean(pushService),
+    };
+    const delivery = getDeliverySnapshot(userId);
+    const errorHints: string[] = [];
+    if (!capability.vapidPublicKeyConfigured) errorHints.push('push_vapid_key_missing');
+    if (!capability.pushServiceConfigured) errorHints.push('push_not_configured');
+    if (subscriptions.length === 0) errorHints.push('push_subscription_missing');
+    if (delivery.lastResult === 'error') errorHints.push('push_last_delivery_failed');
+
+    return {
+      capability,
+      subscription: {
+        count: subscriptions.length,
+        targets: summarizeTargets(subscriptions),
+      },
+      delivery,
+      errorHints,
+    };
   });
 
   // POST /api/push/subscribe — 注册推送订阅
@@ -184,19 +255,34 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
 
     if (!pushService) {
       reply.status(503);
+      setDeliverySnapshot(userId, {
+        lastAttemptAt: Date.now(),
+        lastHttpStatus: 503,
+        lastResult: 'error',
+        lastError: 'push_not_configured',
+      });
       await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
         userId,
         ok: false,
         httpStatus: 503,
         error: 'push_not_configured',
       });
-      return { error: 'Push not configured (missing VAPID keys)' };
+      return {
+        error: 'Push not configured (missing VAPID keys)',
+        deliverySummary: toDeliverySummary(null),
+      };
     }
 
     const subscriptions = await pushSubscriptionStore.listByUser(userId);
     const targets = summarizeTargets(subscriptions);
     if (subscriptions.length === 0) {
       reply.status(409);
+      setDeliverySnapshot(userId, {
+        lastAttemptAt: Date.now(),
+        lastHttpStatus: 409,
+        lastResult: 'error',
+        lastError: 'no_active_subscription',
+      });
       await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
         userId,
         ok: false,
@@ -204,7 +290,10 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
         error: 'no_active_subscription',
         subscriptions: 0,
       });
-      return { error: 'No active push subscriptions for this user. Please enable push on this device first.' };
+      return {
+        error: 'No active push subscriptions for this user. Please enable push on this device first.',
+        deliverySummary: toDeliverySummary(null),
+      };
     }
 
     const delivery = await pushService.notifyUser(userId, {
@@ -217,6 +306,12 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
     if (delivery.delivered === 0) {
       reply.status(502);
       if (delivery.removed > 0 && delivery.failed === 0) {
+        setDeliverySnapshot(userId, {
+          lastAttemptAt: Date.now(),
+          lastHttpStatus: 502,
+          lastResult: 'error',
+          lastError: 'subscription_expired',
+        });
         await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
           userId,
           ok: false,
@@ -228,9 +323,16 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
         return {
           error: '该设备推送订阅已过期，请先关闭并重新开启推送后再试。',
           delivery,
+          deliverySummary: toDeliverySummary(delivery),
           targets,
         };
       }
+      setDeliverySnapshot(userId, {
+        lastAttemptAt: Date.now(),
+        lastHttpStatus: 502,
+        lastResult: 'error',
+        lastError: 'push_delivery_failed',
+      });
       await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
         userId,
         ok: false,
@@ -242,10 +344,17 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       return {
         error: '系统通知投递失败，请检查 API 代理/网络后重试。',
         delivery,
+        deliverySummary: toDeliverySummary(delivery),
         targets,
       };
     }
 
+    setDeliverySnapshot(userId, {
+      lastAttemptAt: Date.now(),
+      lastHttpStatus: 200,
+      lastResult: 'ok',
+      lastError: null,
+    });
     await appendPushAudit(request, AuditEventTypes.PUSH_TEST_RESULT, {
       userId,
       ok: true,
@@ -258,6 +367,7 @@ export const pushRoutes: FastifyPluginAsync<PushRoutesOptions> = async (app, opt
       status: 'ok',
       message: '系统通知已请求发送，请查看系统通知中心。',
       delivery,
+      deliverySummary: toDeliverySummary(delivery),
       targets,
     };
   });

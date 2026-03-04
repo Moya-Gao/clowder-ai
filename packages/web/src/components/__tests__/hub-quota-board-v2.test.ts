@@ -86,6 +86,8 @@ describe('HubQuotaBoardTab v2 — official quota API', () => {
   it('renders the 猫粮看板 title', () => {
     const html = renderToStaticMarkup(React.createElement(HubQuotaBoardTab));
     expect(html).toContain('猫粮看板');
+    expect(html).toContain('状态总览');
+    expect(html).toContain('操作建议');
   });
 
   it('renders three platform cards (claude, codex, antigravity)', () => {
@@ -180,7 +182,7 @@ describe('HubQuotaBoardTab — polling', () => {
           reason: 'enabled',
         },
       ]),
-    ).toContain('已启用');
+    ).toBeNull();
     expect(
       mod.buildOfficialProbeHint([
         {
@@ -196,6 +198,38 @@ describe('HubQuotaBoardTab — polling', () => {
       ]),
     ).toContain('运行异常');
     expect(mod.buildOfficialProbeHint(null)).toBeNull();
+  });
+
+  it('sends quota risk notification on first high-risk transition', async () => {
+    const mod = await import('@/components/HubQuotaBoardTab');
+    expect(
+      mod.shouldSendQuotaRiskNotification({
+        currentRisk: 'high',
+        previousRisk: 'warn',
+        lastAlertAt: 0,
+        nowMs: 1_000,
+      }),
+    ).toBe(true);
+  });
+
+  it('dedupes repeated high-risk notifications within time window', async () => {
+    const mod = await import('@/components/HubQuotaBoardTab');
+    expect(
+      mod.shouldSendQuotaRiskNotification({
+        currentRisk: 'high',
+        previousRisk: 'high',
+        lastAlertAt: 1_000,
+        nowMs: 1_000 + mod.QUOTA_ALERT_DEDUPE_WINDOW_MS - 1,
+      }),
+    ).toBe(false);
+    expect(
+      mod.shouldSendQuotaRiskNotification({
+        currentRisk: 'high',
+        previousRisk: 'high',
+        lastAlertAt: 1_000,
+        nowMs: 1_000 + mod.QUOTA_ALERT_DEDUPE_WINDOW_MS + 1,
+      }),
+    ).toBe(true);
   });
 });
 
@@ -245,6 +279,7 @@ describe('HubQuotaBoardTab — probe hint integration', () => {
     });
     await flushEffects();
     expect(container.textContent).toContain('官方网页探针：已禁用');
+    expect(container.textContent).toContain('止血模式');
   });
 
   it('renders error hint from /api/quota/probes', async () => {
@@ -273,6 +308,35 @@ describe('HubQuotaBoardTab — probe hint integration', () => {
     });
     await flushEffects();
     expect(container.textContent).toContain('官方网页探针：运行异常');
+    expect(container.textContent).toContain('风险提示');
+  });
+
+  it('does not render risk hint block when probe is ok and utilization is low', async () => {
+    mockedApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/quota') return Promise.resolve(jsonResponse(MOCK_QUOTA_RESPONSE));
+      if (path === '/api/quota/probes') {
+        return Promise.resolve(
+          jsonResponse({
+            ...BASE_PROBES_RESPONSE,
+            probes: [
+              {
+                ...BASE_PROBES_RESPONSE.probes[0],
+                enabled: true,
+                status: 'ok',
+                reason: 'enabled',
+              },
+            ],
+          }),
+        );
+      }
+      return Promise.resolve(new Response('{}', { status: 404 }));
+    });
+
+    await act(async () => {
+      root.render(React.createElement(HubQuotaBoardTab));
+    });
+    await flushEffects();
+    expect(container.textContent).not.toContain('风险提示');
   });
 });
 

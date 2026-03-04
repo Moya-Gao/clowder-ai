@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DEFAULT_DEDUPE_WINDOW_MS,
   PUSH_TEST_NOTIFICATION_TAG,
   resetPushTestNotification,
+  shouldSuppressDuplicateNotification,
   shouldForceSystemNotification,
   shouldShowSystemNotification,
   type PushNotificationPayload,
@@ -91,5 +93,36 @@ describe('push notification policy', () => {
     await expect(
       resetPushTestNotification(registry, PUSH_TEST_NOTIFICATION_TAG),
     ).resolves.toBeUndefined();
+  });
+
+  it('suppresses duplicate generic notifications in a short window', () => {
+    const dedupeRegistry = new Map<string, number>();
+    const payload: PushNotificationPayload = {
+      tag: 'cat-reply-thread-1',
+      data: { threadId: 'thread-1' },
+    };
+
+    expect(shouldSuppressDuplicateNotification(payload, dedupeRegistry, 1000, DEFAULT_DEDUPE_WINDOW_MS)).toBe(false);
+    expect(shouldSuppressDuplicateNotification(payload, dedupeRegistry, 1200, DEFAULT_DEDUPE_WINDOW_MS)).toBe(true);
+    expect(shouldSuppressDuplicateNotification(payload, dedupeRegistry, 1000 + DEFAULT_DEDUPE_WINDOW_MS + 1, DEFAULT_DEDUPE_WINDOW_MS)).toBe(false);
+  });
+
+  it('never suppresses decision/auth/test forced notifications', () => {
+    const dedupeRegistry = new Map<string, number>();
+
+    expect(
+      shouldSuppressDuplicateNotification({ tag: PUSH_TEST_NOTIFICATION_TAG }, dedupeRegistry, 1000, DEFAULT_DEDUPE_WINDOW_MS),
+    ).toBe(false);
+    expect(
+      shouldSuppressDuplicateNotification({ tag: 'auth-req-1' }, dedupeRegistry, 1001, DEFAULT_DEDUPE_WINDOW_MS),
+    ).toBe(false);
+    expect(
+      shouldSuppressDuplicateNotification(
+        { tag: 'cat-reply-thread-2', data: { requiresDecision: true } },
+        dedupeRegistry,
+        1002,
+        DEFAULT_DEDUPE_WINDOW_MS,
+      ),
+    ).toBe(false);
   });
 });

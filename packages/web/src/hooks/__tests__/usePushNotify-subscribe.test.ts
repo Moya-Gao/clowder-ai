@@ -67,7 +67,10 @@ describe('usePushNotify subscribe robustness', () => {
     Object.defineProperty(globalThis, 'navigator', {
       configurable: true,
       value: {
-        serviceWorker: { ready: Promise.resolve(mockRegistration) },
+        serviceWorker: {
+          ready: Promise.resolve(mockRegistration),
+          getRegistration: vi.fn(async () => mockRegistration),
+        },
       },
     });
   });
@@ -99,5 +102,33 @@ describe('usePushNotify subscribe robustness', () => {
     });
 
     expect(hookValue?.isSubscribed).toBe(false);
+  });
+
+  it('exposes actionable error when service worker is not registered', async () => {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        serviceWorker: {
+          ready: Promise.resolve(undefined),
+          getRegistration: vi.fn(async () => null),
+        },
+      },
+    });
+
+    mockApiFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ enabled: true, key: 'AQAB' }),
+    } as Response);
+
+    await act(async () => {
+      root.render(React.createElement(HookHarness, { onUpdate: (v) => { hookValue = v; } }));
+    });
+
+    await act(async () => {
+      await hookValue?.subscribe();
+    });
+
+    expect(hookValue?.isSubscribed).toBe(false);
+    expect(hookValue?.lastError).toContain('Service Worker 未注册');
   });
 });

@@ -1,5 +1,7 @@
 const withPWA = require('@ducanh2912/next-pwa').default;
 
+const enablePwaInDev = process.env.ENABLE_PWA_IN_DEV === '1';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -9,7 +11,7 @@ const nextConfig = {
 
 module.exports = withPWA({
   dest: 'public',
-  disable: process.env.NODE_ENV === 'development',
+  disable: process.env.NODE_ENV === 'development' && !enablePwaInDev,
   reloadOnOnline: true,
   // Start URL is a static shell; precache it so PWA cold-open does not block on network.
   dynamicStartUrl: false,

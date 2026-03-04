@@ -17,8 +17,11 @@ import {
   isPushTestNotificationTag,
   PUSH_TEST_NOTIFICATION_TAG,
   resetPushTestNotification,
+  shouldSuppressDuplicateNotification,
   shouldShowSystemNotification,
 } from '../src/utils/push-notification-policy';
+
+const dedupeRegistry = new Map<string, number>();
 
 // Push event: 后端 web-push 推过来的通知
 self.addEventListener('push', (event: PushEvent) => {
@@ -41,6 +44,7 @@ self.addEventListener('push', (event: PushEvent) => {
           (c) => c.visibilityState === 'visible',
         );
         if (!shouldShowSystemNotification(payload, hasFocusedClient)) return;
+        if (shouldSuppressDuplicateNotification(payload, dedupeRegistry)) return;
 
         // For test pushes, drop previous same-tag notifications first so each
         // send feels like a fresh system notification without accumulating noise.

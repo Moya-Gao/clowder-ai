@@ -5,6 +5,28 @@ import Fastify from 'fastify';
 import { pushRoutes } from '../dist/routes/push.js';
 import { PushSubscriptionStore } from '../dist/domains/cats/services/stores/ports/PushSubscriptionStore.js';
 
+/**
+ * @typedef {import('../src/domains/cats/services/push/PushNotificationService.js').PushPayload} PushPayload
+ * @typedef {import('../src/domains/cats/services/push/PushNotificationService.js').PushDeliverySummary} PushDeliverySummary
+ * @typedef {{
+ *   notifyUser: (userId: string, payload: PushPayload) => Promise<PushDeliverySummary>;
+ *   notifyAll: (payload: PushPayload) => Promise<PushDeliverySummary>;
+ * }} PushServiceMock
+ */
+
+/**
+ * @param {Partial<PushServiceMock>} [overrides]
+ * @returns {PushServiceMock}
+ */
+function makePushService(overrides = {}) {
+  const emptySummary = async () => ({ attempted: 0, delivered: 0, failed: 0, removed: 0 });
+  return {
+    notifyUser: emptySummary,
+    notifyAll: emptySummary,
+    ...overrides,
+  };
+}
+
 describe('push routes', () => {
   /** @type {import('fastify').FastifyInstance} */
   let app;
@@ -36,7 +58,7 @@ describe('push routes', () => {
     const appWithPush = Fastify();
     await appWithPush.register(pushRoutes, {
       pushSubscriptionStore: store,
-      pushService: /** @type {any} */ ({ notifyUser: () => {} }), // mock
+      pushService: makePushService(), // mock
       vapidPublicKey: 'test-vapid-key-123',
       auditLog: {
         append: async (input) => {
@@ -106,6 +128,82 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.equal(body.key, null, 'should not expose key when push is not fully configured');
     assert.equal(body.enabled, false);
+  });
+
+  it('GET /api/push/status requires auth', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/push/status',
+    });
+    assert.equal(res.statusCode, 401);
+    const body = JSON.parse(res.payload);
+    assert.match(body.error, /Identity required/i);
+  });
+
+  it('GET /api/push/status returns capability matrix + subscription summary', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/push/status',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+
+    assert.equal(body.capability.enabled, false);
+    assert.equal(body.capability.vapidPublicKeyConfigured, true);
+    assert.equal(body.capability.pushServiceConfigured, false);
+    assert.equal(body.subscription.count, 0);
+    assert.equal(Array.isArray(body.subscription.targets), true);
+    assert.equal(body.subscription.targets.length, 0);
+    assert.equal(body.delivery.lastResult, 'not_attempted');
+    assert.equal(Array.isArray(body.errorHints), true);
+    assert.equal(body.errorHints.includes('push_not_configured'), true);
+  });
+
+  it('GET /api/push/status includes last delivery after successful test push', async () => {
+    store.upsert({
+      endpoint: 'https://push.example.com/sub/1',
+      keys: { p256dh: 'key1', auth: 'auth1' },
+      userId: 'owner',
+      createdAt: Date.now(),
+      userAgent: 'Chrome/123',
+    });
+
+    const notifyUser = async () => ({ attempted: 1, delivered: 1, failed: 0, removed: 0 });
+    const appWithPush = Fastify();
+    await appWithPush.register(pushRoutes, {
+      pushSubscriptionStore: store,
+      pushService: makePushService({ notifyUser }),
+      vapidPublicKey: 'test-vapid-key-123',
+      auditLog: {
+        append: async (input) => {
+          auditEvents.push({ type: input.type, data: input.data });
+          return { id: 'audit-test-id' };
+        },
+      },
+    });
+    await appWithPush.ready();
+
+    const testRes = await appWithPush.inject({
+      method: 'POST',
+      url: '/api/push/test',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+    assert.equal(testRes.statusCode, 200);
+
+    const statusRes = await appWithPush.inject({
+      method: 'GET',
+      url: '/api/push/status',
+      headers: { 'x-cat-cafe-user': 'owner' },
+    });
+    assert.equal(statusRes.statusCode, 200);
+    const body = JSON.parse(statusRes.payload);
+    assert.equal(body.capability.enabled, true);
+    assert.equal(body.subscription.count, 1);
+    assert.equal(body.delivery.lastResult, 'ok');
+    assert.equal(body.delivery.lastHttpStatus, 200);
+    assert.equal(body.delivery.lastError, null);
+    assert.equal(body.errorHints.length, 0);
   });
 
   it('POST /api/push/subscribe requires auth', async () => {
@@ -241,7 +339,7 @@ describe('push routes', () => {
     const appWithPush = Fastify();
     await appWithPush.register(pushRoutes, {
       pushSubscriptionStore: store,
-      pushService: /** @type {any} */ ({ notifyUser }),
+      pushService: makePushService({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
       auditLog: {
         append: async (input) => {
@@ -261,6 +359,10 @@ describe('push routes', () => {
     assert.equal(res.statusCode, 409);
     const body = JSON.parse(res.payload);
     assert.match(body.error, /No active push subscription/i);
+    assert.equal(body.deliverySummary.attempted, 0);
+    assert.equal(body.deliverySummary.delivered, 0);
+    assert.equal(body.deliverySummary.failed, 0);
+    assert.equal(body.deliverySummary.removed, 0);
     assert.equal(
       auditEvents.some((event) => event.type === 'push_test_result' && event.data.error === 'no_active_subscription'),
       true,
@@ -287,7 +389,7 @@ describe('push routes', () => {
     const appWithPush = Fastify();
     await appWithPush.register(pushRoutes, {
       pushSubscriptionStore: store,
-      pushService: /** @type {any} */ ({ notifyUser }),
+      pushService: makePushService({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
       auditLog: {
         append: async (input) => {
@@ -309,6 +411,9 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.message, /系统通知已请求发送/);
     assert.equal(body.delivery.delivered, 1);
+    assert.equal(body.deliverySummary.delivered, 1);
+    assert.equal(body.deliverySummary.failed, 0);
+    assert.equal(body.deliverySummary.removed, 0);
     assert.equal(Array.isArray(body.targets), true);
     assert.equal(body.targets.length, 1);
     assert.match(String(body.targets[0].endpoint), /push\.example\.com/);
@@ -331,7 +436,7 @@ describe('push routes', () => {
     const appWithPush = Fastify();
     await appWithPush.register(pushRoutes, {
       pushSubscriptionStore: store,
-      pushService: /** @type {any} */ ({ notifyUser }),
+      pushService: makePushService({ notifyUser }),
       vapidPublicKey: 'test-vapid-key-123',
       auditLog: {
         append: async (input) => {
@@ -352,6 +457,10 @@ describe('push routes', () => {
     const body = JSON.parse(res.payload);
     assert.match(body.error, /投递失败|proxy|网络/i);
     assert.equal(body.delivery.delivered, 0);
+    assert.equal(body.deliverySummary.attempted, 1);
+    assert.equal(body.deliverySummary.delivered, 0);
+    assert.equal(body.deliverySummary.failed, 1);
+    assert.equal(body.deliverySummary.removed, 0);
     assert.equal(Array.isArray(body.targets), true);
     assert.equal(body.targets.length, 1);
     assert.equal(

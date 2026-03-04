@@ -76,15 +76,38 @@ function barColor(percent: number, percentKind: 'used' | 'remaining' = 'used'): 
   return 'bg-green-500';
 }
 
+function statusBadge(level: 'ok' | 'warn' | 'high' | 'error' | 'pending'): { text: string; className: string } {
+  switch (level) {
+    case 'error':
+      return { text: '失败', className: 'bg-rose-600 text-white' };
+    case 'high':
+      return { text: '高风险', className: 'bg-rose-100 text-rose-700' };
+    case 'warn':
+      return { text: '关注', className: 'bg-amber-100 text-amber-700' };
+    case 'pending':
+      return { text: '待接入', className: 'bg-gray-200 text-gray-700' };
+    default:
+      return { text: '正常', className: 'bg-emerald-100 text-emerald-700' };
+  }
+}
+
 export function ClaudeCard({ data }: { data: ClaudeQuota }) {
+  const maxUsage = Math.max(0, ...(data.usageItems ?? []).map((item) => item.usedPercent));
+  const level = data.error ? 'error' : maxUsage >= 95 ? 'high' : maxUsage >= 80 ? 'warn' : 'ok';
+  const badge = statusBadge(level);
+
   if (data.error) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-        <div className="flex items-center gap-2">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
+        <div className="flex items-center gap-2 justify-between">
           <span className="text-sm font-semibold text-gray-800">布偶猫 (Claude)</span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
+          </div>
         </div>
         <div className="text-xs text-red-600">抓取失败: {data.error}</div>
+        <div className="text-[11px] text-gray-500">下一步：先修复抓取环境，再点击“获取官方额度”。</div>
       </div>
     );
   }
@@ -93,10 +116,13 @@ export function ClaudeCard({ data }: { data: ClaudeQuota }) {
   const officialUsage = data.usageItems ?? [];
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
+      <div className="flex items-center gap-2 justify-between">
         <span className="text-sm font-semibold text-gray-800">布偶猫 (Claude)</span>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white">ccusage CLI</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
+        </div>
       </div>
       <div className="h-px bg-gray-200" />
       {officialUsage.length > 0 ? (
@@ -145,6 +171,9 @@ export function ClaudeCard({ data }: { data: ClaudeQuota }) {
       ) : (
         <div className="text-xs text-gray-500">暂无活跃计费窗口</div>
       )}
+      <div className="text-[11px] text-gray-500">
+        下一步：{level === 'high' ? '优先降载或切换模型' : level === 'warn' ? '建议观察并准备切换' : '保持按需刷新'}
+      </div>
       {data.lastChecked && (
         <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>
       )}
@@ -153,23 +182,37 @@ export function ClaudeCard({ data }: { data: ClaudeQuota }) {
 }
 
 export function CodexCard({ data }: { data: CodexQuota }) {
+  const maxSignal = Math.max(
+    0,
+    ...data.usageItems.map((item) => (item.percentKind === 'remaining' ? 100 - item.usedPercent : item.usedPercent)),
+  );
+  const level = data.error ? 'error' : maxSignal >= 95 ? 'high' : maxSignal >= 80 ? 'warn' : 'ok';
+  const badge = statusBadge(level);
+
   if (data.error) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-        <div className="flex items-center gap-2">
+      <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
+        <div className="flex items-center gap-2 justify-between">
           <span className="text-sm font-semibold text-gray-800">缅因猫 (Codex + GPT-5.2)</span>
-          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
+            <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
+          </div>
         </div>
         <div className="text-xs text-red-600">抓取失败: {data.error}</div>
+        <div className="text-[11px] text-gray-500">下一步：确认浏览器登录状态和 CDP 配置，再手动刷新。</div>
       </div>
     );
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
+      <div className="flex items-center gap-2 justify-between">
         <span className="text-sm font-semibold text-gray-800">缅因猫 (Codex + GPT-5.2)</span>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-600 text-white">浏览器抓取</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
+        </div>
       </div>
       <div className="h-px bg-gray-200" />
       {data.usageItems.length > 0 ? (
@@ -203,6 +246,9 @@ export function CodexCard({ data }: { data: CodexQuota }) {
       ) : (
         <div className="text-xs text-gray-500">暂无额度数据（点击获取会启动隔离浏览器，首次需登录后再重试）</div>
       )}
+      <div className="text-[11px] text-gray-500">
+        下一步：{level === 'high' ? '立即节流并优先切换低成本路径' : level === 'warn' ? '建议准备切换策略' : '维持当前策略'}
+      </div>
       {data.lastChecked && (
         <div className="text-[10px] text-gray-400">更新: {new Date(data.lastChecked).toLocaleString()}</div>
       )}
@@ -211,17 +257,19 @@ export function CodexCard({ data }: { data: CodexQuota }) {
 }
 
 export function AntigravityCard({ data }: { data: AntigravityQuota }) {
+  const badge = statusBadge('pending');
   return (
-    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3 shadow-sm">
+      <div className="flex items-center gap-2 justify-between">
         <span className="text-sm font-semibold text-gray-800">暹罗猫 (Antigravity)</span>
-        <span className="text-[10px] px-2 py-0.5 rounded bg-gray-500 text-white">待接入</span>
+        <span className={`text-[10px] px-2 py-0.5 rounded ${badge.className}`}>{badge.text}</span>
       </div>
       <div className="h-px bg-gray-200" />
       <div className="flex flex-col items-center py-4 gap-1">
         <span className="text-2xl">🚧</span>
         <span className="text-xs text-gray-500">{data.hint}</span>
       </div>
+      <div className="text-[11px] text-gray-500">下一步：保持占位，等待下一迭代接入官方额度。</div>
     </div>
   );
 }

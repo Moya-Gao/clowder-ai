@@ -52,6 +52,36 @@ export interface NotificationRegistry {
   getNotifications(options?: { tag?: string }): Promise<NotificationCloser[]>;
 }
 
+export interface NotificationDedupeRegistry {
+  get(key: string): number | undefined;
+  set(key: string, timestamp: number): void;
+}
+
+export const DEFAULT_DEDUPE_WINDOW_MS = 45_000;
+
+export function shouldDedupeNotification(payload: PushNotificationPayload): boolean {
+  if (shouldForceSystemNotification(payload)) return false;
+  const tag = payload.tag ?? '';
+  return tag.length > 0;
+}
+
+export function shouldSuppressDuplicateNotification(
+  payload: PushNotificationPayload,
+  dedupeRegistry: NotificationDedupeRegistry,
+  nowMs = Date.now(),
+  windowMs = DEFAULT_DEDUPE_WINDOW_MS,
+): boolean {
+  if (!shouldDedupeNotification(payload)) return false;
+  const tag = payload.tag as string;
+  const dedupeKey = payload.data?.threadId ? `thread:${payload.data.threadId}:${tag}` : `tag:${tag}`;
+  const lastShownAt = dedupeRegistry.get(dedupeKey);
+  if (typeof lastShownAt === 'number' && nowMs - lastShownAt < windowMs) {
+    return true;
+  }
+  dedupeRegistry.set(dedupeKey, nowMs);
+  return false;
+}
+
 /**
  * For repeated push-test sends, close previous test notifications so the next
  * showNotification is treated as a fresh entry instead of silent replacement.

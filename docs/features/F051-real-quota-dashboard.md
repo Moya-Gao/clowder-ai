@@ -1,16 +1,16 @@
 ---
 feature_ids: [F051]
-topics: [quota, dashboard, usage, chrome, browser-automation]
+topics: [quota, dashboard, usage, chrome, browser-automation, notification, pwa, ui]
 doc_kind: spec
 created: 2026-03-02
 updated: 2026-03-03
 ---
 
-# F051 — 真实猫粮看板（官方额度同值展示 + Probe 架构）
+# F051 — 真实猫粮看板（官方同值 + 系统级通知 + 产品化 UI）
 
 > **Status**: in-progress
 > **Owner**: 缅因猫 (Codex)
-> **Reviewer**: 缅因猫 (Codex / GPT-5.2) — 愿景守护重点
+> **Reviewer**: 布偶猫 (Opus) + 缅因猫 (GPT-5.2) — 愿景守护重点
 > **Created**: 2026-03-02
 > **Completed (Phase 1)**: 2026-03-02
 
@@ -29,6 +29,21 @@ updated: 2026-03-03
 - 数据源是**官方 usage 页面已登录会话**（浏览器 cookies/session）
 - 目标是支持每天节能判断（例如按周均摊安全阈值）
 
+### 2026-03-03 愿景重构（铲屎官当前口径）
+
+铲屎官新增口径明确为：
+
+> “希望这次重构后是符合我预期的猫粮看板以及通知能力，而且要好看。”
+
+对齐结论：
+- F051 不再只是“能拿到额度数据”，而是“**可持续使用的日常控制台**”
+- 输出必须覆盖两条主线：`猫粮看板` + `系统级通知`
+- 体验标准从“可用”升级为“产品级观感”（信息层级、状态可读性、视觉一致性）
+
+阶段定义：
+- **Phase 1-2（已完成）**：官方同值 + probe 架构止血
+- **Phase 3（进行中）**：通知能力可靠性 + 产品化 UI 重做
+
 ### 教训（为什么需要重新立项）
 
 | 尝试 | 方向 | 失败原因 |
@@ -40,7 +55,11 @@ updated: 2026-03-03
 
 ## What
 
-在 Cat Café Hub 的猫粮看板中，展示三只猫的**官方账号级额度**，数据直接来自各家官方 usage 页面。
+在 Cat Café Hub 中提供“猫粮决策台”：
+
+- 展示三只猫的**官方账号级额度**（官方页面同值）
+- 提供**系统级通知**（不依赖当前页面停留）
+- 以产品级 UI 呈现“额度状态、风险、动作入口、通知健康度”
 
 ### 三个数据源（对应铲屎官截图）
 
@@ -81,6 +100,22 @@ updated: 2026-03-03
 - 新增 `targets/actions` 元数据，减少前端硬编码
 - Hub 看板显示探针运行提示（禁用 / 异常 / 启用）
 
+### Phase 3（2026-03-03）— 通知能力 + UI 产品化
+
+为解决“在其他页面干活收不到通知”的体验问题，F051 扩展通知与交互目标：
+
+- 建立通知能力矩阵（in-app / 系统通知 / 设备订阅状态）并显式展示
+- 提供可诊断的通知健康信息（设备数、最近投递、失败原因、重试建议）
+- 统一“猫粮刷新 + 预警通知”交互：只在必要事件发通知，避免骚扰
+- 重做看板视觉层级（状态、阈值、趋势、操作区分组）
+
+### Phase 4-5（Roadmap，方向锚点）
+
+- **Phase 4（菜单栏）**：macOS Menu Bar companion（状态摘要、手动刷新、阈值通知）
+- **Phase 5（小组件）**：Widget/通知中心摘要卡片（桌面与移动端轻量概览）
+
+说明：Phase 4/5 是方向承诺，不阻塞 Phase 3 交付。
+
 ## Acceptance Criteria
 
 - [x] AC-1: Codex 卡片显示的用量% 与 `chatgpt.com/codex/settings/usage` 页面一致（通过浏览器抓取推送）
@@ -93,6 +128,16 @@ updated: 2026-03-03
 - [x] AC-8: `/api/quota/probes` 暴露 `enabled`（配置开关）与 `status`（运行态）语义，不混用
 - [x] AC-9: Probe 描述包含 `targets` 与 `actions`（refresh endpoint、interactive 约束）
 - [x] AC-10: Hub 对 `status=disabled/error/ok` 渲染对应提示；含 path-mock 集成测试覆盖
+- [x] AC-11: 通知设置页展示“系统通知可用性矩阵”（浏览器支持 / SW 就绪 / VAPID 可用 / 订阅存在 / 最近投递状态）
+- [x] AC-12: `/api/push/test` 返回结果在 UI 中结构化展示（成功数/失败数/过期清理数），不只给一句 toast
+- [x] AC-13: 当系统通知不可达时，UI 提供明确修复路径（例如 iPhone 必须主屏安装、权限关闭、订阅过期）
+- [x] AC-14: 猫粮看板支持阈值告警策略（例如剩余/已用超过阈值）并可触发系统通知
+- [x] AC-15: 通知触发语义去重：同一线程短时间内重复事件不会刷屏
+- [x] AC-16: 猫粮看板 UI 重做，完成“需求→截图”证据映射（桌面 + 移动）
+- [x] AC-17: 通知关键路径补齐集成测试（订阅、测试投递、失败分支、设备切换）
+- [x] AC-18: 文档明确平台边界（Web Push 与原生 APNs 的差异、iOS 条件限制）
+- [x] AC-19: 提供开发环境通知验证路径（dev 模式 SW 能力策略 + 一键自检步骤）
+- [x] AC-20: 在开工前输出 UI 文字版 wireframe（桌面/移动）并经铲屎官确认
 
 ## 需求点 Checklist
 
@@ -106,6 +151,10 @@ updated: 2026-03-03
 | R6 | "我想看了，我点击看到，不需要自己打开网页" | AC-6,7 | 点击获取链路 + CDP 错误可见性 | [x] |
 | R7 | "不会一直爬，避免影响别人" | AC-6 | on-demand 触发，不做持续爬取 | [x] |
 | R8 | "按开源组件化思路重构，走正规流程" | AC-8,9,10 | Probe Registry + quality-gate + peer review | [x] |
+| R9 | "macOS 或 iPhone 级别的通知" | AC-11,13,18,19 | 能力矩阵 + iPhone 路径提示 + 手工步骤 | [~] |
+| R10 | "在其他页面干活时也要收得到消息" | AC-11,12,17 | push 路由测试 + 设备订阅可视化 | [~] |
+| R11 | "通知能力有 bug，要修到可诊断" | AC-12,13,17 | 集成测试 + 错误文案检查 | [x] |
+| R12 | "而且要好看" | AC-16,20 | 桌面/移动截图证据 + wireframe gate | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -120,6 +169,9 @@ updated: 2026-03-03
 - 合入 PR: #169 (`3f20fcde`)
 - Phase 2 Discussion: `docs/discussions/2026-03-03-f051-quota-probe-phase2/README.md`
 - Phase 2 Plan: `docs/plans/2026-03-03-f051-quota-probe-phase2.md`
+- Phase 3 Discussion: `docs/discussions/2026-03-03-f051-notification-ui-vision-reframe/README.md`
+- Phase 3 UI Wireframe: `docs/discussions/2026-03-03-f051-phase3-ui-wireframe/README.md`
+- Phase 3 Plan: `docs/plans/2026-03-03-f051-notification-ui-productization-plan.md`
 - Evolved from: F042 (提示词优化审计 → 猫粮看板需求浮现)
 - Related: Hub 猫粮看板 tab（PR #161 已合入的 UI 骨架可复用）
 
@@ -132,11 +184,21 @@ updated: 2026-03-03
 | Antigravity | 本轮占位 | 本轮实现 | 铲屎官："下次一定" |
 | Probe 语义 | `enabled`=配置开关, `status`=运行态 | 单一 `enabled` 混合语义 | 防止 UI/后端语义漂移 |
 | 探针元数据 | `targets + actions` | 前端硬编码 probe id/path | 扩展多源时可组合、低耦合 |
+| 通知目标 | 以 Web Push 系统通知为当前主线，保留原生 App 演进位 | 站内 toast 充当“系统通知” | 铲屎官要求跨页面可达 |
+| iPhone 路线（Phase 3） | 先走 PWA Web Push（需主屏安装 + 权限） | 直接引入原生壳/APNs | 当前优先修复可达性与诊断能力 |
+| UI 标准 | 从“功能可见”升级为“产品级可读 + 可诊断” | 继续堆叠文本块 | 当前信息密度高但可读性差 |
 
 ## Dependencies
 
 - `claude-in-chrome` MCP 工具可用
 - 各家 usage 页面已登录（浏览器 session 有效）
+
+## Platform Boundary（Web Push vs 原生通知）
+
+- 当前交付是 **Web Push**：依赖浏览器 / Service Worker / 权限状态。
+- iPhone 端仅在 **PWA 主屏安装**后可用；普通 Safari 标签页不保证可达。
+- macOS 的“通知中心可见性”由浏览器通知通道承载，不等同原生 App 菜单栏常驻能力。
+- 原生 APNs / 菜单栏常驻能力属于 Phase 4/5 方向，不是本轮阻塞项。
 
 ## Risk
 
@@ -150,11 +212,12 @@ updated: 2026-03-03
 
 1. Antigravity 官方额度抓取与数据模型（F051 Phase 3）
 2. 是否需要持久化 probe snapshot（SQLite）做趋势展示
+3. Phase 4/5 的交付顺序：先菜单栏还是先小组件
 
 ## Review Gate
 
 - **愿景守护重点**: 展示值是否与官方页面一致？有没有偷偷用推导值？
-- **Reviewer**: 缅因猫负责验证"看板值 = 官方页面值"
+- **Reviewer**: 布偶猫 (Opus) 验证愿景闭环；缅因猫 (GPT-5.2) 验证语义与测试覆盖
 
 | 轮次 | Reviewer | 结果 | 备注 |
 |------|----------|------|------|
@@ -176,3 +239,8 @@ updated: 2026-03-03
 | 2026-03-02 | PR #169 合入 main（squash `3f20fcde`），F051 完成收尾 |
 | 2026-03-03 | PR #175 修复/增强：官方“剩余%”直显、CDP 错误可见、点击获取链路对齐最终愿景 |
 | 2026-03-03 | Phase 2：Probe Registry + `enabled/status` 语义 + `targets/actions` + Hub 集成测试 |
+| 2026-03-03 | 愿景重构：纳入“系统级通知 + 产品化 UI”作为 F051 Phase 3 主目标 |
+| 2026-03-03 | Review 补齐：新增 Task0（dev 通知链路）、UI wireframe gate、Phase 4/5 路线图锚点 |
+| 2026-03-03 | Phase 3 实装（中期）：通知能力矩阵 + 结构化测试投递摘要 + UI 重构 + 通知去重窗口 |
+| 2026-03-03 | Phase 3 实装（增量）：额度高风险阈值触发系统预警（含 30 分钟去重窗） |
+| 2026-03-03 | Phase 3 证据收尾：桌面/移动截图落盘 + quality-gate + 发起 peer review（@gpt52） |
