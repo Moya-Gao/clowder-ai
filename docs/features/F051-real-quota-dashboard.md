@@ -1,6 +1,6 @@
 ---
 feature_ids: [F051]
-topics: [quota, dashboard, usage, scheduling, degradation, claudebar]
+topics: [quota, dashboard, usage, scheduling, degradation, claudebar, gemini, antigravity]
 doc_kind: spec
 created: 2026-03-02
 updated: 2026-03-04
@@ -72,11 +72,30 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 > **关键洞察**：`@codex` 本地编码和云端 Codex review 消耗的是**不同的额度池**。代码审查额度见底不影响本地编码，反之亦然。这直接影响 review 调度策略。
 
-#### 暹罗猫 (Antigravity) 额度池
+#### 暹罗猫 (Gemini / Antigravity) 额度池
+
+ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
+
+**Gemini (Google AI)**
 
 | Pool | 数据源 | Cat Café 映射 | 调度意义 |
 |------|--------|--------------|---------|
-| Per-model quotas | Antigravity usage 页面 | `@gemini` `@gemini25` | 待接入 |
+| Per-model quotas | `cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` | `@gemini` `@gemini25` | Gemini 各模型余量 |
+
+- **认证**: `~/.gemini/oauth_creds.json` (Google OAuth)
+- **响应格式**: JSON `buckets[]` 含 model / remainingFraction / resetTime
+- **处理**: 按 model 分组，取每个 model 的最低 remainingFraction
+
+**Antigravity (Codeium IDE)**
+
+| Pool | 数据源 | Cat Café 映射 | 调度意义 |
+|------|--------|--------------|---------|
+| Per-model quotas | 本地 Language Server (Connect Protocol RPC) | IDE 内代码补全 | 当前能用什么模型 |
+
+- **发现机制**: `pgrep` 检测 Antigravity 进程 → 提取 CSRF token + 端口 → `lsof` 确认监听端口
+- **端点 (POST)**: `LanguageServerService/GetUserStatus` + `GetCommandModelConfigs`
+- **认证**: `X-Codeium-Csrf-Token` header (本地进程自动提取)
+- **TLS**: 先尝试 HTTPS，回退 HTTP，接受 localhost 自签名证书
 
 ### 2. Hub 猫粮看板（重做）
 
@@ -104,8 +123,12 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 │ 缅因猫 代码审查                                     │
 │ 🔴 Review        █████░░░░░  44%   resets Sat 00:26│
 │                                                    │
-│ 暹罗猫 Antigravity                                  │
-│ ⬜ 待接入                                          │
+│ 暹罗猫 Gemini                                        │
+│ 🟢 Gemini 2.5 Pro  █████████░  90%   resets Mon     │
+│ 🟡 Gemini 2.5 Flash ██████░░░░  60%   resets Mon    │
+│                                                    │
+│ Antigravity IDE                                      │
+│ 🟢 Codeium         ██████████  98%                   │
 │                                                    │
 │ 溢出额度: 0                                        │
 └──────────────────────────────────────────────────┘
@@ -162,7 +185,7 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 > v1 AC-1~22 全部已完成（2026-03-03），归档到 Timeline。以下是 v2 新增。
 
-- [ ] AC-v2-1: Hub 猫粮看板按"猫猫 + 用途"分组，缅因猫至少显示 4 个独立池（Codex 本地、Spark、代码审查、溢出额度）
+- [ ] AC-v2-1: Hub 猫粮看板按"猫猫 + 用途"分组，缅因猫至少显示 4 个独立池，暹罗猫显示 Gemini per-model 池 + Antigravity 池
 - [ ] AC-v2-2: 每个 pool 一行：色点 + 名称 + 进度条 + 百分比 + 重置时间，3 秒可读
 - [ ] AC-v2-3: 删除所有运维 UI（probe hint、CDP 配置、止血模式、通知能力矩阵）
 - [ ] AC-v2-4: 删除 SwiftBar 脚本 + `/widget/quota` 页面 + QuotaSummaryWidget 组件 + Web Push 通知基建
@@ -194,6 +217,8 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 | 通知方案 | ClaudeBar 原生 + Hub in-app | Web Push (SW + VAPID) | Web Push 在 macOS 上不可靠，ClaudeBar 完全替代 |
 | UI 风格 | ClaudeBar 式 glanceable list | 运维面板三大卡 | 铲屎官要"好看"和"一眼看到" |
 | 看板定位 | 调度决策台（额度→路由建议） | 纯展示面板 | 额度的价值在于指导调度，不是看个数字 |
+| Gemini 数据源 | ClaudeBar 同源 (Google internal API + OAuth) | 自建 scraper | ClaudeBar 已验证可行，不造轮子 |
+| Antigravity 数据源 | ClaudeBar 同源 (本地 Language Server RPC) | 无 | 本地进程自动发现，无需外部 API |
 
 ### v1 决策（保留参考）
 
@@ -205,8 +230,10 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 ## Dependencies
 
-- `ccusage` CLI 可用（Claude 额度）
-- Chrome CDP 可用 + 各家 usage 页面已登录（OpenAI 额度）
+- `ccusage` CLI 可用（Claude 额度）— 或 ClaudeBar 的 OAuth 方式 (`~/.claude/.credentials.json`)
+- Chrome CDP 可用 + OpenAI usage 页面已登录（Codex 额度）— 或 ClaudeBar 的 OAuth 方式
+- `~/.gemini/oauth_creds.json` 存在（Gemini 额度）
+- Antigravity IDE 正在运行（Antigravity 额度，本地 Language Server 自动发现）
 - ClaudeBar 安装（macOS 菜单栏 + 原生通知）
 
 ## Risk
@@ -220,7 +247,7 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 ## Open Questions
 
 1. ~~`@gpt52` (GPT-5.2) 是否有独立额度池？~~ **已确认（2026-03-04）**：GPT-5.2 和 Codex 5.3 共享同一额度池
-2. Antigravity 额度模型和抓取方式（下一迭代）
+2. ~~Antigravity 额度模型和抓取方式（下一迭代）~~ **已确认（2026-03-04）**：ClaudeBar 已实现 — Gemini 走 Google internal API，Antigravity 走本地 Language Server RPC
 3. 额度数据是否需要持久化做趋势分析（目前只做实时快照）
 4. 调度建议是否应该从"文字提示"升级为"一键切换"（影响 AgentRouter）
 
@@ -262,6 +289,8 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 | **2026-03-04** | **铲屎官不满意 v1，指出额度粒度错误 + UI 丑 + 过度工程** |
 | **2026-03-04** | **v2 重写：纠正额度模型、ClaudeBar 替代自建、UI 从运维面板→glanceable list** |
 | **2026-03-04** | **Owner 从缅因猫转移到布偶猫** |
+| **2026-03-04** | **研究 ClaudeBar 数据源：确认 Gemini (Google internal API) + Antigravity (本地 LS RPC) 已有成熟实现** |
+| **2026-03-04** | **关闭 Open Question #2 — Antigravity/Gemini 接入方式已明确** |
 
 ## Links
 
