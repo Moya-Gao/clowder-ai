@@ -182,9 +182,11 @@ export function useChatHistory(threadId: string) {
               ...(progress.interruptReason ? { interruptReason: progress.interruptReason } : {}),
             },
           });
-          // Only mark cat as "active" if it has non-empty progress.
-          // Empty tasks (from Codex todo_list clear) should not make a cat appear active.
-          if (progress.tasks.length > 0) {
+          // Only restore cats that still look active.
+          // Completed snapshots should remain in history, not current targetCats.
+          const hasTasks = progress.tasks.length > 0;
+          const isCompletedSnapshot = progress.status === 'completed';
+          if (hasTasks && !isCompletedSnapshot) {
             restoredCats.push(catId);
           }
         }
