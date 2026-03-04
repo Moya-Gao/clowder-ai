@@ -1,21 +1,21 @@
 /**
  * Quota Route — F051 真实猫粮额度 API
  *
- * 数据源：
- * 1. Claude: ccusage CLI（官方工具，直接输出计费数据）
- * 2. Codex: 浏览器抓取 chatgpt.com/codex/settings/usage（AI 猫推送）
- * 3. Antigravity: 待接入（下一迭代）
+ * 数据源（v3 对齐 ClaudeBar）：
+ * 1. Claude: Anthropic OAuth API（/api/oauth/usage）+ ccusage CLI fallback
+ * 2. Codex: OpenAI Wham API（/backend-api/wham/usage）+ PATCH 推送 fallback
+ * 3. Gemini: Google internal API + PATCH 推送 fallback
+ * 4. Antigravity: 本地 Language Server RPC + PATCH 推送 fallback
  *
- * 硬约束：看板值 = 官方页面值，不二次换算。抓取失败显示"抓取失败"。
+ * 硬约束：看板值 = 官方 API 值，不二次换算。获取失败显示"获取失败"。
  */
 
 import { execFile } from 'node:child_process';
-import { mkdir } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyInstance } from 'fastify';
-import puppeteer from 'puppeteer';
 import { z } from 'zod';
 
 const execFileAsync = promisify(execFile);
@@ -191,51 +191,9 @@ export function resetQuotaCachesForTests(): void {
   antigravityCache = createInitialAntigravityCache();
 }
 
-const OFFICIAL_CDP_URL_ENV = 'QUOTA_BROWSER_CDP_URL';
 const OFFICIAL_REFRESH_ENABLED_ENV = 'QUOTA_OFFICIAL_REFRESH_ENABLED';
-const BROWSER_MODE_ENV = 'QUOTA_BROWSER_MODE';
-const BROWSER_CDP_PORT_ENV = 'QUOTA_BROWSER_CDP_PORT';
-const BROWSER_PROFILE_DIR_ENV = 'QUOTA_BROWSER_PROFILE_DIR';
-const BROWSER_HEADLESS_ENV = 'QUOTA_BROWSER_HEADLESS';
-const AUTO_START_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_START';
-const AUTO_RESTART_BROWSER_ENV = 'QUOTA_BROWSER_AUTO_RESTART';
-const LEGACY_LOCAL_CDP_CANDIDATES = [
-  'http://127.0.0.1:9222',
-  'http://localhost:9222',
-  'http://127.0.0.1:9223',
-  'http://localhost:9223',
-  'http://127.0.0.1:9333',
-  'http://localhost:9333',
-] as const;
-const DEFAULT_ISOLATED_CDP_PORT = 9224;
-const DEFAULT_BROWSER_MODE = 'isolated';
-
-interface OfficialRefreshRequestBody {
-  interactive?: boolean;
-}
-
-type BrowserMode = 'isolated' | 'existing';
-
-function resolveBrowserMode(raw: string | undefined): BrowserMode {
-  if (raw === 'existing') return 'existing';
-  return 'isolated';
-}
-
-function resolveCdpPort(raw: string | undefined): number {
-  const value = Number.parseInt(raw ?? '', 10);
-  if (!Number.isFinite(value)) return DEFAULT_ISOLATED_CDP_PORT;
-  if (value < 1024 || value > 65535) return DEFAULT_ISOLATED_CDP_PORT;
-  return value;
-}
-
-function buildBrowserBaseUrl(port: number): string {
-  return `http://127.0.0.1:${port}`;
-}
-
-function buildProfileDir(raw: string | undefined): string {
-  if (raw && raw.trim()) return raw.trim();
-  return join(homedir(), '.cat-cafe', 'quota-browser-profile');
-}
+const CLAUDE_CREDENTIALS_PATH_ENV = 'CLAUDE_CREDENTIALS_PATH';
+const CODEX_CREDENTIALS_PATH_ENV = 'CODEX_CREDENTIALS_PATH';
 
 function isTruthyFlag(raw: string | undefined): boolean {
   if (!raw) return false;
@@ -246,7 +204,7 @@ function hasOfficialProbeFailure(): boolean {
   const messages = [codexCache.error, claudeCache.error].filter((message): message is string => Boolean(message));
   return messages.some((message) => {
     if (/temporarily disabled/i.test(message)) return false;
-    return /official fetch failed|QUOTA_BROWSER_CDP_URL|remote-debugging-port|尚未登录|CDP endpoint/i.test(message);
+    return /official fetch failed|OAuth failed|credentials/i.test(message);
   });
 }
 
@@ -280,7 +238,7 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
     },
     {
       id: 'official-browser',
-      sourceKind: 'browser',
+      sourceKind: 'cli',
       refreshMode: 'manual',
       enabled: officialRefreshEnabled,
       status: officialStatus,
@@ -290,15 +248,15 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
           kind: 'refresh',
           method: 'POST',
           path: '/api/quota/refresh/official',
-          requiresInteractive: true,
+          requiresInteractive: false,
         },
       ],
       reason:
         officialStatus === 'disabled'
           ? 'Disabled by default for risk control. Set QUOTA_OFFICIAL_REFRESH_ENABLED=1 to enable.'
           : officialStatus === 'error'
-            ? (codexCache.error ?? claudeCache.error ?? 'official browser probe error')
-            : 'Enabled by QUOTA_OFFICIAL_REFRESH_ENABLED=1. Triggered by manual click only.',
+            ? (codexCache.error ?? claudeCache.error ?? 'official OAuth probe error')
+            : 'Enabled. Uses Anthropic/OpenAI OAuth APIs (ClaudeBar-compatible).',
     },
     {
       id: 'antigravity-placeholder',
@@ -490,12 +448,12 @@ export function buildQuotaSummary(env: NodeJS.ProcessEnv = process.env): QuotaSu
   let level: QuotaRiskLevel = 'ok';
 
   if (officialProbe?.status === 'disabled') {
-    reasons.push('官方网页探针已禁用（止血模式）');
+    reasons.push('官方额度探针已禁用（止血模式）');
     level = 'warn';
   }
 
   if (officialProbe?.status === 'error') {
-    reasons.push('官方网页探针运行异常，请检查登录或 CDP 配置');
+    reasons.push('官方额度探针运行异常，请检查 OAuth 凭据配置');
     level = 'high';
   }
 
@@ -548,366 +506,345 @@ export function buildQuotaSummary(env: NodeJS.ProcessEnv = process.env): QuotaSu
   };
 }
 
-function parsePercentLine(line: string): number | null {
-  const match = line.match(/(\d{1,3})\s*%/);
-  if (!match) return null;
-  const value = Number.parseInt(match[1] ?? '', 10);
-  if (!Number.isFinite(value)) return null;
-  return Math.max(0, Math.min(100, value));
+// ============================================================
+// v3 OAuth API parsers (replaces browser page text parsing)
+// ============================================================
+
+interface ClaudeOAuthQuotaBucket {
+  used_percent?: number;
+  reset_at?: string;
 }
 
-function pickNear(lines: string[], idx: number, pattern: RegExp): string | undefined {
-  for (let offset = 1; offset <= 4; offset += 1) {
-    const candidate = lines[idx + offset];
-    if (!candidate) break;
-    if (pattern.test(candidate)) return candidate;
-  }
-  return undefined;
+interface ClaudeOAuthUsageResponse {
+  five_hour?: ClaudeOAuthQuotaBucket;
+  seven_day?: ClaudeOAuthQuotaBucket;
+  seven_day_sonnet?: ClaudeOAuthQuotaBucket;
+  seven_day_opus?: ClaudeOAuthQuotaBucket;
+  extra_usage?: { used_cents?: number; limit_cents?: number };
 }
 
-export function parseCodexUsageFromPageText(pageText: string): CodexUsageItem[] {
-  const lines = pageText
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const defs = [
-    {
-      token: /^(GPT-5\.3-Codex-Spark\s*5\s*小时使用限额|GPT-5\.3-Codex-Spark\s*5(?:\s|-)?hour\s*usage\s*limit)$/i,
-      label: 'GPT-5.3-Codex-Spark 5小时使用限额',
-      poolId: 'codex-spark',
-    },
-    {
-      token: /^(GPT-5\.3-Codex-Spark\s*每周使用限额|GPT-5\.3-Codex-Spark\s*weekly\s*usage\s*limit)$/i,
-      label: 'GPT-5.3-Codex-Spark 每周使用限额',
-      poolId: 'codex-spark',
-    },
-    { token: /^(5\s*小时使用限额|5(?:\s|-)?hour usage limit)$/i, label: '5小时使用限额', poolId: 'codex-main' },
-    { token: /^(每周使用限额|weekly usage limit)$/i, label: '每周使用限额', poolId: 'codex-main' },
-    { token: /(代码审查|code review)/i, label: '代码审查', poolId: 'codex-review' },
-  ] as const;
-
+export function parseClaudeOAuthUsageResponse(json: ClaudeOAuthUsageResponse): CodexUsageItem[] {
+  const defs: Array<{ key: keyof ClaudeOAuthUsageResponse; label: string; poolId: string }> = [
+    { key: 'five_hour', label: 'Session 5h', poolId: 'claude-session' },
+    { key: 'seven_day', label: 'Weekly all models', poolId: 'claude-weekly-all' },
+    { key: 'seven_day_sonnet', label: 'Weekly Sonnet', poolId: 'claude-weekly-sonnet' },
+    { key: 'seven_day_opus', label: 'Weekly Opus', poolId: 'claude-weekly-opus' },
+  ];
   const items: CodexUsageItem[] = [];
   for (const def of defs) {
-    const idx = lines.findIndex((l) => def.token.test(l));
-    if (idx < 0) continue;
-    const percentLine = pickNear(lines, idx, /%/);
-    const resetLine = pickNear(lines, idx, /(重置时间|resets?)/i);
-    if (!percentLine) continue;
-    const remaining = parsePercentLine(percentLine);
-    if (remaining == null) continue;
+    const bucket = json[def.key];
+    if (!bucket || typeof bucket !== 'object' || !('used_percent' in bucket)) continue;
+    const pct = (bucket as ClaudeOAuthQuotaBucket).used_percent;
+    if (pct == null || typeof pct !== 'number') continue;
     items.push({
       label: def.label,
-      // Keep official value as-is: OpenAI page exposes remaining%
-      usedPercent: remaining,
-      percentKind: 'remaining',
+      usedPercent: Math.max(0, Math.min(100, pct)),
+      percentKind: 'used',
       poolId: def.poolId,
-      ...(resetLine ? { resetsText: resetLine } : {}),
-    });
-  }
-
-  // Overflow credits line: "剩余额度: N" or "Remaining credits: N"
-  const overflowPattern = /^(剩余额度|remaining credits)\s*[:：]\s*(\d+)/i;
-  for (const line of lines) {
-    const m = overflowPattern.exec(line);
-    if (m) {
-      items.push({
-        label: '溢出额度',
-        usedPercent: Math.min(Number(m[2]), 100),
-        percentKind: 'remaining',
-        poolId: 'codex-overflow',
-      });
-      break;
-    }
-  }
-
-  return items;
-}
-
-export function parseClaudeUsageFromPageText(pageText: string): CodexUsageItem[] {
-  const lines = pageText
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const defs = [
-    { token: /(current session|当前会话)/i, label: 'Current session', poolId: 'claude-session' },
-    {
-      token: /(current week \(all models\)|本周（所有模型）|本周\(所有模型\)|本周.*all models)/i,
-      label: 'Current week (all models)',
-      poolId: 'claude-weekly-all',
-    },
-    {
-      token: /(current week \(sonnet only\)|本周（仅 Sonnet）|本周\(仅 Sonnet\)|本周.*sonnet)/i,
-      label: 'Current week (Sonnet only)',
-      poolId: 'claude-weekly-sonnet',
-    },
-  ] as const;
-
-  const items: CodexUsageItem[] = [];
-  for (const def of defs) {
-    const idx = lines.findIndex((l) => def.token.test(l));
-    if (idx < 0) continue;
-    const percentLine = pickNear(lines, idx, /%/);
-    const resetLine = pickNear(lines, idx, /(重置|resets?)/i);
-    if (!percentLine) continue;
-    const used = parsePercentLine(percentLine);
-    if (used == null) continue;
-    items.push({
-      label: def.label,
-      usedPercent: used,
-      poolId: def.poolId,
-      ...(resetLine ? { resetsText: resetLine } : {}),
+      ...((bucket as ClaudeOAuthQuotaBucket).reset_at
+        ? { resetsAt: (bucket as ClaudeOAuthQuotaBucket).reset_at }
+        : {}),
     });
   }
   return items;
 }
 
-class OfficialLoginRequiredError extends Error {
-  constructor(hostname: string) {
-    super(
-      `官方额度浏览器尚未登录 ${hostname}。请在弹出的隔离浏览器窗口完成登录后，再点击“获取官方额度”。`,
-    );
-    this.name = 'OfficialLoginRequiredError';
-  }
+interface CodexWhamRateLimitWindow {
+  used_percent?: number;
+  reset_at?: string;
+  label?: string;
 }
 
-function looksLikeLoginPage(targetUrl: string, currentUrl: string, title: string, bodyText: string): boolean {
-  const current = currentUrl.toLowerCase();
-  if (current.includes('/login') || current.includes('/signin') || current.includes('/auth')) return true;
-  if (/sign in|log in|登录|authenticate|verification/i.test(title)) return true;
-  if (/sign in|log in|继续|continue with|验证码|verification code|账户/i.test(bodyText.slice(0, 5000))) {
-    return true;
-  }
-  const targetHost = new URL(targetUrl).hostname;
-  const currentHost = new URL(currentUrl).hostname;
-  if (targetHost !== currentHost && (currentHost.includes('auth') || currentHost.includes('login'))) {
-    return true;
-  }
-  return false;
-}
-
-async function readPageTextFromConnectedChrome(browserURL: string, url: string): Promise<string> {
-  const browser = await puppeteer.connect({ browserURL });
-  try {
-    const page = await browser.newPage();
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-    const title = await page.title();
-    if (/just a moment/i.test(title)) {
-      throw new Error(`Cloudflare challenge blocked ${url}`);
-    }
-    const currentUrl = page.url();
-    const bodyText = await page.evaluate(
-      () => (globalThis as { document?: { body?: { innerText?: string } } }).document?.body?.innerText ?? '',
-    );
-    if (looksLikeLoginPage(url, currentUrl, title, bodyText)) {
-      throw new OfficialLoginRequiredError(new URL(url).hostname);
-    }
-    await page.close();
-    return bodyText;
-  } finally {
-    await browser.disconnect();
-  }
-}
-
-function isAllowedBrowserCdpUrl(browserURL: string): boolean {
-  try {
-    const parsed = new URL(browserURL);
-    return parsed.protocol === 'http:' && (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1');
-  } catch {
-    return false;
-  }
-}
-
-type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
-type SleepLike = (ms: number) => Promise<void>;
-interface LaunchChromeConfig {
-  profileDir: string;
-  headless: boolean;
-  mode: BrowserMode;
-}
-type LaunchChromeLike = (port: number, config: LaunchChromeConfig) => Promise<void>;
-type RestartChromeLike = (port: number, sleep: SleepLike, config: LaunchChromeConfig) => Promise<void>;
-
-export interface ResolveBrowserCdpUrlOptions {
-  fetchLike?: FetchLike;
-  mode?: BrowserMode;
-  isolatedPort?: number;
-  profileDir?: string;
-  headless?: boolean;
-  autoStartOnMissing?: boolean;
-  autoRestartOnUnavailable?: boolean;
-  launchChrome?: LaunchChromeLike;
-  restartChrome?: RestartChromeLike;
-  sleep?: SleepLike;
-  retryCount?: number;
-  retryIntervalMs?: number;
-}
-
-function sleepMs(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-const QUOTA_LOGIN_URLS = ['https://chatgpt.com/codex/settings/usage', 'https://claude.ai/settings/usage'] as const;
-
-async function autoStartChromeWithCdp(port: number, config: LaunchChromeConfig): Promise<void> {
-  if (process.platform !== 'darwin') {
-    throw new Error('auto-start via open command is only supported on macOS');
-  }
-  await mkdir(config.profileDir, { recursive: true });
-  const args = ['-na', 'Google Chrome', ...QUOTA_LOGIN_URLS, '--args', `--remote-debugging-port=${port}`];
-  if (config.mode === 'isolated') {
-    args.push(`--user-data-dir=${config.profileDir}`, '--no-first-run', '--no-default-browser-check');
-  }
-  if (config.headless) {
-    args.push('--headless=new');
-  }
-  await execFileAsync('open', args, {
-    timeout: 8_000,
-  });
-}
-
-async function restartChromeWithCdp(port: number, sleep: SleepLike, config: LaunchChromeConfig): Promise<void> {
-  if (config.mode === 'isolated') {
-    // Isolated mode should never quit user's running Chrome session.
-    await autoStartChromeWithCdp(port, config);
-    return;
-  }
-  if (process.platform !== 'darwin') {
-    throw new Error('auto-restart via open command is only supported on macOS');
-  }
-  // Best effort quit; ignore if app is already stopped.
-  await execFileAsync('osascript', ['-e', 'tell application "Google Chrome" to quit'], {
-    timeout: 8_000,
-  }).catch(() => undefined);
-  await sleep(400);
-  await execFileAsync('open', ['-a', 'Google Chrome', '--args', `--remote-debugging-port=${port}`], {
-    timeout: 8_000,
-  });
-}
-
-function buildCdpCandidates(mode: BrowserMode, isolatedPort: number): string[] {
-  const isolatedCandidates = [buildBrowserBaseUrl(isolatedPort), `http://localhost:${isolatedPort}`];
-  if (mode === 'isolated') return isolatedCandidates;
-  return [...isolatedCandidates, ...LEGACY_LOCAL_CDP_CANDIDATES];
-}
-
-function buildManualStartHint(mode: BrowserMode, port: number, profileDir: string): string {
-  if (mode === 'isolated') {
-    return `Start isolated Chrome with --remote-debugging-port=${port} and --user-data-dir=\"${profileDir}\", then retry.`;
-  }
-  return `Start Chrome with --remote-debugging-port=${port}, then retry.`;
-}
-
-async function hasCdpEndpoint(browserBaseUrl: string, fetchLike: FetchLike): Promise<boolean> {
-  try {
-    const response = await fetchLike(`${browserBaseUrl}/json/version`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(1200),
-    });
-    if (!response.ok) return false;
-    const json = (await response.json()) as { webSocketDebuggerUrl?: unknown };
-    return typeof json.webSocketDebuggerUrl === 'string' && json.webSocketDebuggerUrl.length > 0;
-  } catch {
-    return false;
-  }
-}
-
-export async function resolveBrowserCdpUrl(
-  explicitUrl: string | undefined,
-  options: ResolveBrowserCdpUrlOptions = {},
-): Promise<{ url: string } | { error: string }> {
-  const fetchLike = options.fetchLike ?? globalThis.fetch.bind(globalThis);
-  const mode = options.mode ?? DEFAULT_BROWSER_MODE;
-  const isolatedPort = options.isolatedPort ?? DEFAULT_ISOLATED_CDP_PORT;
-  const profileDir = options.profileDir ?? buildProfileDir(undefined);
-  const launchConfig: LaunchChromeConfig = {
-    profileDir,
-    headless: options.headless ?? false,
-    mode,
+interface CodexWhamUsageResponse {
+  rate_limit?: {
+    primary_window?: CodexWhamRateLimitWindow;
+    secondary_window?: CodexWhamRateLimitWindow;
+    spark_primary?: CodexWhamRateLimitWindow;
+    spark_secondary?: CodexWhamRateLimitWindow;
+    code_review?: CodexWhamRateLimitWindow;
   };
-  const isolatedBrowserBaseUrl = buildBrowserBaseUrl(isolatedPort);
-  const manualStartHint = buildManualStartHint(mode, isolatedPort, profileDir);
-  if (explicitUrl) {
-    if (!isAllowedBrowserCdpUrl(explicitUrl)) {
+  credits_balance?: number;
+}
+
+export function parseCodexWhamUsageResponse(json: CodexWhamUsageResponse): CodexUsageItem[] {
+  const items: CodexUsageItem[] = [];
+  const rl = json.rate_limit;
+  if (!rl) return items;
+
+  const defs: Array<{ key: keyof NonNullable<typeof rl>; label: string; poolId: string }> = [
+    { key: 'primary_window', label: '5小时使用限额', poolId: 'codex-main' },
+    { key: 'secondary_window', label: '每周使用限额', poolId: 'codex-main' },
+    { key: 'spark_primary', label: 'GPT-5.3-Codex-Spark 5小时使用限额', poolId: 'codex-spark' },
+    { key: 'spark_secondary', label: 'GPT-5.3-Codex-Spark 每周使用限额', poolId: 'codex-spark' },
+    { key: 'code_review', label: '代码审查', poolId: 'codex-review' },
+  ];
+
+  for (const def of defs) {
+    const window = rl[def.key];
+    if (!window || typeof window !== 'object') continue;
+    const pct = window.used_percent;
+    if (pct == null || typeof pct !== 'number') continue;
+    items.push({
+      label: window.label ?? def.label,
+      usedPercent: Math.max(0, Math.min(100, pct)),
+      percentKind: 'used',
+      poolId: def.poolId,
+      ...(window.reset_at ? { resetsAt: window.reset_at } : {}),
+    });
+  }
+
+  // Overflow credits
+  if ('credits_balance' in json && typeof json.credits_balance === 'number') {
+    items.push({
+      label: '溢出额度',
+      usedPercent: Math.max(0, Math.min(100, json.credits_balance)),
+      percentKind: 'remaining',
+      poolId: 'codex-overflow',
+    });
+  }
+
+  return items;
+}
+
+// ============================================================
+// v3 OAuth refresh orchestrator
+// ============================================================
+
+function loadClaudeCredentials(envPath?: string): OAuthCredentials | null {
+  const credPath = envPath || join(homedir(), '.claude', '.credentials.json');
+  try {
+    const raw = readFileSync(credPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (parsed.claudeAiOauth?.accessToken && parsed.claudeAiOauth?.refreshToken) {
       return {
-        error: `${OFFICIAL_CDP_URL_ENV} must be http://localhost:* or http://127.0.0.1:*`,
+        accessToken: parsed.claudeAiOauth.accessToken,
+        refreshToken: parsed.claudeAiOauth.refreshToken,
       };
     }
-    return { url: explicitUrl };
-  }
-
-  for (const candidate of buildCdpCandidates(mode, isolatedPort)) {
-    if (await hasCdpEndpoint(candidate, fetchLike)) {
-      return { url: candidate };
+    // Fallback: flat structure
+    if (parsed.accessToken && parsed.refreshToken) {
+      return { accessToken: parsed.accessToken, refreshToken: parsed.refreshToken };
     }
+    return null;
+  } catch {
+    return null;
   }
-
-  if (!options.autoStartOnMissing) {
-    return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. ${manualStartHint}`,
-    };
-  }
-
-  const launchChrome = options.launchChrome ?? autoStartChromeWithCdp;
-  const sleep = options.sleep ?? sleepMs;
-  const autoRestartOnUnavailable = options.autoRestartOnUnavailable ?? false;
-  const restartChrome = options.restartChrome ?? restartChromeWithCdp;
-  const retryCount = options.retryCount ?? 6;
-  const retryIntervalMs = options.retryIntervalMs ?? 400;
-  try {
-    await launchChrome(isolatedPort, launchConfig);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start isolated Chrome but failed: ${reason}. ${manualStartHint}`,
-    };
-  }
-
-  for (let i = 0; i < retryCount; i += 1) {
-    if (await hasCdpEndpoint(isolatedBrowserBaseUrl, fetchLike)) {
-      return { url: isolatedBrowserBaseUrl };
-    }
-    if (i < retryCount - 1) {
-      await sleep(retryIntervalMs);
-    }
-  }
-
-  if (!autoRestartOnUnavailable) {
-    return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start isolated Chrome, but CDP endpoint is still unavailable. ${manualStartHint}`,
-    };
-  }
-
-  try {
-    await restartChrome(isolatedPort, sleep, launchConfig);
-  } catch (error) {
-    const reason = error instanceof Error ? error.message : String(error);
-    return {
-      error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome but failed during restart: ${reason}. ${manualStartHint}`,
-    };
-  }
-
-  for (let i = 0; i < retryCount; i += 1) {
-    if (await hasCdpEndpoint(isolatedBrowserBaseUrl, fetchLike)) {
-      return { url: isolatedBrowserBaseUrl };
-    }
-    if (i < retryCount - 1) {
-      await sleep(retryIntervalMs);
-    }
-  }
-
-  return {
-    error: `Missing ${OFFICIAL_CDP_URL_ENV}. Tried to auto-start and restart Chrome, but CDP endpoint is still unavailable. ${manualStartHint}`,
-  };
 }
 
-export function shouldAutoStartBrowserForOfficialRefresh(
-  requestBody: unknown,
-  autoStartEnvValue: string | undefined = process.env[AUTO_START_BROWSER_ENV],
-): boolean {
-  const body = (requestBody ?? {}) as OfficialRefreshRequestBody;
-  const interactive = body?.interactive === true;
-  if (!interactive) return false;
-  return autoStartEnvValue !== '0';
+function loadCodexCredentials(envPath?: string): CodexOAuthCredentials | null {
+  if (!envPath) return null;
+  try {
+    const raw = readFileSync(envPath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    if (!parsed.accessToken || !parsed.refreshToken) return null;
+    return {
+      accessToken: parsed.accessToken,
+      refreshToken: parsed.refreshToken,
+      accountId: parsed.accountId,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const ANTHROPIC_USAGE_URL = 'https://api.anthropic.com/api/oauth/usage';
+const ANTHROPIC_TOKEN_REFRESH_URL = 'https://platform.claude.com/v1/oauth/token';
+const ANTHROPIC_CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
+const OPENAI_WHAM_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage';
+const OPENAI_TOKEN_REFRESH_URL = 'https://auth.openai.com/oauth/token';
+const OPENAI_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
+
+interface OAuthCredentials {
+  accessToken: string;
+  refreshToken: string;
+}
+
+interface CodexOAuthCredentials extends OAuthCredentials {
+  accountId?: string;
+}
+
+interface RefreshOAuthOptions {
+  claudeCredentials: OAuthCredentials | null;
+  codexCredentials: CodexOAuthCredentials | null;
+  fetchLike?: typeof globalThis.fetch;
+}
+
+interface RefreshOAuthProviderResult {
+  items: number;
+  error?: string;
+}
+
+interface RefreshOAuthResult {
+  claude?: RefreshOAuthProviderResult;
+  codex?: RefreshOAuthProviderResult;
+  skipped?: string[];
+}
+
+async function refreshAccessToken(
+  refreshUrl: string,
+  clientId: string,
+  refreshToken: string,
+  fetchFn: typeof globalThis.fetch,
+): Promise<string | null> {
+  try {
+    const params = new URLSearchParams({
+      grant_type: 'refresh_token',
+      client_id: clientId,
+      refresh_token: refreshToken,
+    });
+    const response = await fetchFn(refreshUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
+      body: params.toString(),
+    });
+    if (!response.ok) return null;
+    const data = (await response.json()) as { access_token?: string };
+    return data.access_token ?? null;
+  } catch {
+    return null;
+  }
+}
+
+class TokenExpiredError extends Error {
+  constructor(status: number) {
+    super(`API returned ${status}`);
+    this.name = 'TokenExpiredError';
+  }
+}
+
+async function fetchProviderUsage(
+  url: string,
+  accessToken: string,
+  extraHeaders: Record<string, string>,
+  fetchFn: typeof globalThis.fetch,
+): Promise<{ json: unknown; status: number }> {
+  const response = await fetchFn(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: 'application/json',
+      ...extraHeaders,
+    },
+  });
+  if (response.status === 401) {
+    throw new TokenExpiredError(401);
+  }
+  if (!response.ok) {
+    throw new Error(`API returned ${response.status}`);
+  }
+  const json = await response.json();
+  return { json, status: response.status };
+}
+
+export async function refreshOfficialQuotaViaOAuth(
+  options: RefreshOAuthOptions,
+): Promise<RefreshOAuthResult> {
+  const fetchFn = options.fetchLike ?? globalThis.fetch.bind(globalThis);
+  const result: RefreshOAuthResult = {};
+  const skipped: string[] = [];
+
+  const tasks: Array<Promise<void>> = [];
+
+  if (options.claudeCredentials) {
+    tasks.push(
+      (async () => {
+        const creds = options.claudeCredentials!;
+        let token = creds.accessToken;
+        try {
+          let json: unknown;
+          try {
+            ({ json } = await fetchProviderUsage(ANTHROPIC_USAGE_URL, token, {}, fetchFn));
+          } catch (err) {
+            if (err instanceof TokenExpiredError) {
+              const freshToken = await refreshAccessToken(
+                ANTHROPIC_TOKEN_REFRESH_URL, ANTHROPIC_CLIENT_ID, creds.refreshToken, fetchFn,
+              );
+              if (freshToken) {
+                token = freshToken;
+                ({ json } = await fetchProviderUsage(ANTHROPIC_USAGE_URL, token, {}, fetchFn));
+              } else {
+                throw new Error('API returned 401; token refresh failed');
+              }
+            } else {
+              throw err;
+            }
+          }
+          const items = parseClaudeOAuthUsageResponse(json as Parameters<typeof parseClaudeOAuthUsageResponse>[0]);
+          const { error: _oldError, ...claudeWithoutError } = claudeCache;
+          claudeCache = {
+            ...claudeWithoutError,
+            usageItems: items,
+            lastChecked: new Date().toISOString(),
+          };
+          result.claude = { items: items.length };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          claudeCache = {
+            ...claudeCache,
+            error: `Claude OAuth failed: ${message}`,
+            lastChecked: new Date().toISOString(),
+          };
+          result.claude = { items: 0, error: `Claude OAuth failed: ${message}` };
+        }
+      })(),
+    );
+  } else {
+    skipped.push('claude');
+  }
+
+  if (options.codexCredentials) {
+    tasks.push(
+      (async () => {
+        const creds = options.codexCredentials!;
+        let token = creds.accessToken;
+        const extraHeaders: Record<string, string> = {};
+        if (creds.accountId) {
+          extraHeaders['ChatGPT-Account-Id'] = creds.accountId;
+        }
+        try {
+          let json: unknown;
+          try {
+            ({ json } = await fetchProviderUsage(OPENAI_WHAM_USAGE_URL, token, extraHeaders, fetchFn));
+          } catch (err) {
+            if (err instanceof TokenExpiredError) {
+              const freshToken = await refreshAccessToken(
+                OPENAI_TOKEN_REFRESH_URL, OPENAI_CLIENT_ID, creds.refreshToken, fetchFn,
+              );
+              if (freshToken) {
+                token = freshToken;
+                ({ json } = await fetchProviderUsage(OPENAI_WHAM_USAGE_URL, token, extraHeaders, fetchFn));
+              } else {
+                throw new Error('API returned 401; token refresh failed');
+              }
+            } else {
+              throw err;
+            }
+          }
+          const items = parseCodexWhamUsageResponse(json as Parameters<typeof parseCodexWhamUsageResponse>[0]);
+          codexCache = {
+            platform: 'codex',
+            usageItems: items,
+            lastChecked: new Date().toISOString(),
+          };
+          result.codex = { items: items.length };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          codexCache = {
+            ...codexCache,
+            error: `Codex OAuth failed: ${message}`,
+            lastChecked: new Date().toISOString(),
+          };
+          result.codex = { items: 0, error: `Codex OAuth failed: ${message}` };
+        }
+      })(),
+    );
+  } else {
+    skipped.push('codex');
+  }
+
+  await Promise.all(tasks);
+  if (skipped.length > 0) result.skipped = skipped;
+  return result;
 }
 
 // --- Route ---
@@ -959,8 +896,8 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
     return { claude: claudeCache };
   });
 
-  // POST: refresh official usage pages once (manual click)
-  app.post('/api/quota/refresh/official', async (request, reply) => {
+  // POST: refresh official quota via OAuth APIs (v3, ClaudeBar-compatible)
+  app.post('/api/quota/refresh/official', async (_request, reply) => {
     if (!isTruthyFlag(process.env[OFFICIAL_REFRESH_ENABLED_ENV])) {
       const message = `Official quota refresh is temporarily disabled. Set ${OFFICIAL_REFRESH_ENABLED_ENV}=1 to enable it.`;
       const checkedAt = new Date().toISOString();
@@ -977,86 +914,30 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       return reply.status(503).send({ error: message });
     }
 
-    const browserMode = resolveBrowserMode(process.env[BROWSER_MODE_ENV]);
-    const cdpPort = resolveCdpPort(process.env[BROWSER_CDP_PORT_ENV]);
-    const profileDir = buildProfileDir(process.env[BROWSER_PROFILE_DIR_ENV]);
-    const headless = process.env[BROWSER_HEADLESS_ENV] === '1';
-    const resolved = await resolveBrowserCdpUrl(process.env[OFFICIAL_CDP_URL_ENV], {
-      autoStartOnMissing: shouldAutoStartBrowserForOfficialRefresh(request.body),
-      // Restart is dangerous and opt-in only.
-      autoRestartOnUnavailable: process.env[AUTO_RESTART_BROWSER_ENV] === '1',
-      mode: browserMode,
-      isolatedPort: cdpPort,
-      profileDir,
-      headless,
-    });
-    if ('error' in resolved) {
-      const message = resolved.error;
+    // Load credentials from files
+    const claudeCredentials = loadClaudeCredentials(process.env[CLAUDE_CREDENTIALS_PATH_ENV]);
+    const codexCredentials = loadCodexCredentials(process.env[CODEX_CREDENTIALS_PATH_ENV]);
+
+    if (!claudeCredentials && !codexCredentials) {
+      const message = 'No OAuth credentials found. Claude: ~/.claude/.credentials.json, Codex: set CODEX_CREDENTIALS_PATH.';
       const checkedAt = new Date().toISOString();
-      codexCache = {
-        platform: 'codex',
-        usageItems: [],
-        error: message,
-        lastChecked: checkedAt,
-      };
-      claudeCache = {
-        ...claudeCache,
-        error: message,
-        lastChecked: checkedAt,
-      };
-      return reply.status(400).send({
-        error: message,
-      });
+      codexCache = { ...codexCache, error: message, lastChecked: checkedAt };
+      claudeCache = { ...claudeCache, error: message, lastChecked: checkedAt };
+      return reply.status(400).send({ error: message });
     }
-    const browserURL = resolved.url;
 
-    try {
-      const [openaiText, claudeText] = await Promise.all([
-        readPageTextFromConnectedChrome(browserURL, 'https://chatgpt.com/codex/settings/usage'),
-        readPageTextFromConnectedChrome(browserURL, 'https://claude.ai/settings/usage'),
-      ]);
-
-      const codexItems = parseCodexUsageFromPageText(openaiText);
-      const claudeItems = parseClaudeUsageFromPageText(claudeText);
-      if (codexItems.length === 0) {
-        throw new Error('Failed to parse Codex official usage page');
-      }
-      if (claudeItems.length === 0) {
-        throw new Error('Failed to parse Claude official usage page');
-      }
-
-      codexCache = {
-        platform: 'codex',
-        usageItems: codexItems,
-        lastChecked: new Date().toISOString(),
-      };
-      const { error: _oldError, ...claudeWithoutError } = claudeCache;
-      claudeCache = {
-        ...claudeWithoutError,
-        usageItems: claudeItems,
-        lastChecked: new Date().toISOString(),
-      };
-
-      return {
-        ok: true,
-        codexItems: codexItems.length,
-        claudeItems: claudeItems.length,
-      };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const statusCode = error instanceof OfficialLoginRequiredError ? 409 : 502;
-      codexCache = {
-        ...codexCache,
-        error: `official fetch failed: ${message}`,
-        lastChecked: new Date().toISOString(),
-      };
-      claudeCache = {
-        ...claudeCache,
-        error: `official fetch failed: ${message}`,
-        lastChecked: new Date().toISOString(),
-      };
-      return reply.status(statusCode).send({ error: message });
+    const result = await refreshOfficialQuotaViaOAuth({ claudeCredentials, codexCredentials });
+    const errors = [result.claude?.error, result.codex?.error].filter(Boolean);
+    if (errors.length > 0 && (result.claude?.items ?? 0) === 0 && (result.codex?.items ?? 0) === 0) {
+      return reply.status(502).send({ error: errors.join('; ') });
     }
+    return {
+      ok: true,
+      claudeItems: result.claude?.items ?? 0,
+      codexItems: result.codex?.items ?? 0,
+      ...(errors.length > 0 ? { warnings: errors } : {}),
+      ...(result.skipped && result.skipped.length > 0 ? { skipped: result.skipped } : {}),
+    };
   });
 
   // PATCH: receive Codex usage data OR scrape failure

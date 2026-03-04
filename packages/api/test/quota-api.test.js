@@ -19,35 +19,6 @@ async function buildApp() {
   return app;
 }
 
-const TEST_OPENAI_TEXT = `
-使用情况面板
-5 小时使用限额
-97% 剩余
-重置时间：23:10
-每周使用限额
-99% 剩余
-重置时间：2026年3月9日 19:10
-GPT-5.3-Codex-Spark 5 小时使用限额
-100% 剩余
-GPT-5.3-Codex-Spark 每周使用限额
-93% 剩余
-代码审查
-56% 剩余
-剩余额度: 0
-`;
-
-const TEST_CLAUDE_TEXT = `
-Current session
-7% used
-Resets 10am (America/Los_Angeles)
-Current week (all models)
-54% used
-Resets Mar 5 at 7pm (America/Los_Angeles)
-Current week (Sonnet only)
-3% used
-Resets Mar 5 at 7pm (America/Los_Angeles)
-`;
-
 describe('GET /api/quota', () => {
   it('returns quota structure for all three platforms', async () => {
     const app = await buildApp();
@@ -116,7 +87,7 @@ describe('GET /api/quota/probes', () => {
       assert.equal(official?.status, 'disabled');
       assert.deepEqual(official?.targets, ['codex', 'claude']);
       assert.equal(official?.actions?.[0]?.path, '/api/quota/refresh/official');
-      assert.equal(official?.actions?.[0]?.requiresInteractive, true);
+      assert.equal(official?.actions?.[0]?.requiresInteractive, false);
       assert.match(official?.reason ?? '', /disabled by default/i);
     } finally {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
@@ -136,7 +107,7 @@ describe('GET /api/quota/probes', () => {
       const official = body.probes.find((probe) => probe.id === 'official-browser');
       assert.equal(official?.enabled, true);
       assert.equal(official?.status, 'ok');
-      assert.match(official?.reason ?? '', /manual click only/i);
+      assert.match(official?.reason ?? '', /OAuth/i);
     } finally {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
       else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
@@ -146,15 +117,10 @@ describe('GET /api/quota/probes', () => {
 
   it('marks official-browser probe status=error after official refresh failure', async () => {
     const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-    const oldAutoStart = process.env.QUOTA_BROWSER_AUTO_START;
-    const oldPort = process.env.QUOTA_BROWSER_CDP_PORT;
-    const oldCdp = process.env.QUOTA_BROWSER_CDP_URL;
     process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
-    process.env.QUOTA_BROWSER_AUTO_START = '0';
-    process.env.QUOTA_BROWSER_CDP_PORT = '61234';
-    delete process.env.QUOTA_BROWSER_CDP_URL;
     const app = await buildApp();
     try {
+      // No credentials files → 400 with "No OAuth credentials" error
       const refreshRes = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
       assert.equal(refreshRes.statusCode, 400);
 
@@ -164,16 +130,10 @@ describe('GET /api/quota/probes', () => {
       const official = body.probes.find((probe) => probe.id === 'official-browser');
       assert.equal(official?.enabled, true);
       assert.equal(official?.status, 'error');
-      assert.match(official?.reason ?? '', /QUOTA_BROWSER_CDP_URL/);
+      assert.match(official?.reason ?? '', /credentials/i);
     } finally {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
       else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-      if (oldAutoStart != null) process.env.QUOTA_BROWSER_AUTO_START = oldAutoStart;
-      else delete process.env.QUOTA_BROWSER_AUTO_START;
-      if (oldPort != null) process.env.QUOTA_BROWSER_CDP_PORT = oldPort;
-      else delete process.env.QUOTA_BROWSER_CDP_PORT;
-      if (oldCdp != null) process.env.QUOTA_BROWSER_CDP_URL = oldCdp;
-      else delete process.env.QUOTA_BROWSER_CDP_URL;
       await app.close();
     }
   });
@@ -227,6 +187,26 @@ describe('GET /api/quota/summary', () => {
       const body = res.json();
       assert.equal(body.risk.level, 'high');
       assert.equal(body.risk.reasons.some((reason) => /95%/.test(String(reason))), true);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
+  it('summary risk text does not reference CDP or browser terminology (v3)', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    const app = await buildApp();
+    try {
+      // Trigger error state to get risk reasons populated
+      await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
+      const res = await app.inject({ method: 'GET', url: '/api/quota/summary' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      const allReasons = body.risk.reasons.join(' ');
+      assert.equal(allReasons.includes('CDP'), false, `risk reasons should not mention CDP: ${allReasons}`);
+      assert.equal(allReasons.includes('网页探针'), false, `risk reasons should not mention 网页探针: ${allReasons}`);
     } finally {
       if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
       else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
@@ -500,132 +480,6 @@ describe('PATCH /api/quota/antigravity', () => {
   });
 });
 
-describe('official page parsers', () => {
-  it('parses OpenAI codex usage page into usageItems with poolId', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseCodexUsageFromPageText(TEST_OPENAI_TEXT);
-    assert.equal(items.length, 6);
-    assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent, x.poolId]),
-      [
-        ['GPT-5.3-Codex-Spark 5小时使用限额', 100, 'codex-spark'],
-        ['GPT-5.3-Codex-Spark 每周使用限额', 93, 'codex-spark'],
-        ['5小时使用限额', 97, 'codex-main'],
-        ['每周使用限额', 99, 'codex-main'],
-        ['代码审查', 56, 'codex-review'],
-        ['溢出额度', 0, 'codex-overflow'],
-      ],
-    );
-  });
-
-  it('parses overflow credits line (Chinese and English)', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const zhItems = parseCodexUsageFromPageText('剩余额度: 0');
-    assert.equal(zhItems.length, 1);
-    assert.equal(zhItems[0].poolId, 'codex-overflow');
-    assert.equal(zhItems[0].usedPercent, 0);
-    assert.equal(zhItems[0].percentKind, 'remaining');
-
-    const enItems = parseCodexUsageFromPageText('Remaining credits: 5');
-    assert.equal(enItems.length, 1);
-    assert.equal(enItems[0].poolId, 'codex-overflow');
-    assert.equal(enItems[0].usedPercent, 5);
-  });
-
-  it('clamps overflow credits >100 to 100 (credits are not percentages)', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseCodexUsageFromPageText('Remaining credits: 250');
-    assert.equal(items.length, 1);
-    assert.equal(items[0].usedPercent, 100);
-    assert.equal(items[0].poolId, 'codex-overflow');
-    assert.equal(items[0].percentKind, 'remaining');
-  });
-
-  it('parses Claude usage page into usageItems with poolId', async () => {
-    const { parseClaudeUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseClaudeUsageFromPageText(TEST_CLAUDE_TEXT);
-    assert.equal(items.length, 3);
-    assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent, x.poolId]),
-      [
-        ['Current session', 7, 'claude-session'],
-        ['Current week (all models)', 54, 'claude-weekly-all'],
-        ['Current week (Sonnet only)', 3, 'claude-weekly-sonnet'],
-      ],
-    );
-  });
-
-  it('does not duplicate base rows when page only contains Spark limits', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseCodexUsageFromPageText(`
-GPT-5.3-Codex-Spark 5 小时使用限额
-100% 剩余
-GPT-5.3-Codex-Spark 每周使用限额
-93% 剩余
-    `);
-    assert.deepEqual(
-      items.map((x) => x.label),
-      ['GPT-5.3-Codex-Spark 5小时使用限额', 'GPT-5.3-Codex-Spark 每周使用限额'],
-    );
-  });
-
-  it('parses English Spark quota labels without creating base phantom rows', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseCodexUsageFromPageText(`
-GPT-5.3-Codex-Spark 5 hour usage limit
-100% remaining
-GPT-5.3-Codex-Spark weekly usage limit
-93% remaining
-    `);
-    assert.deepEqual(
-      items.map((x) => x.label),
-      ['GPT-5.3-Codex-Spark 5小时使用限额', 'GPT-5.3-Codex-Spark 每周使用限额'],
-    );
-    assert.deepEqual(
-      items.map((x) => x.usedPercent),
-      [100, 93],
-    );
-  });
-
-  it('parses hyphenated English Spark 5-hour label', async () => {
-    const { parseCodexUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseCodexUsageFromPageText(`
-GPT-5.3-Codex-Spark 5-hour usage limit
-99% remaining
-GPT-5.3-Codex-Spark weekly usage limit
-93% remaining
-    `);
-    assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent]),
-      [
-        ['GPT-5.3-Codex-Spark 5小时使用限额', 99],
-        ['GPT-5.3-Codex-Spark 每周使用限额', 93],
-      ],
-    );
-  });
-
-  it('accepts Chinese all-models label in Claude usage parser', async () => {
-    const { parseClaudeUsageFromPageText } = await import('../dist/routes/quota.js');
-    const items = parseClaudeUsageFromPageText(`
-当前会话
-7% used
-本周（所有模型）
-54% used
-本周（仅 Sonnet）
-3% used
-    `);
-    assert.equal(items.length, 3);
-    assert.deepEqual(
-      items.map((x) => [x.label, x.usedPercent]),
-      [
-        ['Current session', 7],
-        ['Current week (all models)', 54],
-        ['Current week (Sonnet only)', 3],
-      ],
-    );
-  });
-});
-
 describe('POST /api/quota/refresh/official', () => {
   it('returns 503 when official refresh is disabled by default', async () => {
     const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
@@ -642,290 +496,353 @@ describe('POST /api/quota/refresh/official', () => {
       await app.close();
     }
   });
+});
 
-  it('returns 400 when CDP URL env is not configured', async () => {
-    const old = process.env.QUOTA_BROWSER_CDP_URL;
-    const oldAutoStart = process.env.QUOTA_BROWSER_AUTO_START;
-    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-    const oldPort = process.env.QUOTA_BROWSER_CDP_PORT;
-    delete process.env.QUOTA_BROWSER_CDP_URL;
-    process.env.QUOTA_BROWSER_AUTO_START = '0';
-    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
-    process.env.QUOTA_BROWSER_CDP_PORT = '61234';
-    const app = await buildApp();
-    try {
-      const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
-      assert.equal(res.statusCode, 400);
-      const body = res.json();
-      assert.match(body.error, /QUOTA_BROWSER_CDP_URL/);
-      const quota = (await app.inject({ method: 'GET', url: '/api/quota' })).json();
-      assert.match(quota.codex.error, /QUOTA_BROWSER_CDP_URL/);
-      assert.match(quota.claude.error, /QUOTA_BROWSER_CDP_URL/);
-    } finally {
-      if (old != null) process.env.QUOTA_BROWSER_CDP_URL = old;
-      if (oldAutoStart != null) process.env.QUOTA_BROWSER_AUTO_START = oldAutoStart;
-      else delete process.env.QUOTA_BROWSER_AUTO_START;
-      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
-      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-      if (oldPort != null) process.env.QUOTA_BROWSER_CDP_PORT = oldPort;
-      else delete process.env.QUOTA_BROWSER_CDP_PORT;
-      await app.close();
+// ============================================================
+// v3 OAuth API parsers (replaces browser scraping)
+// ============================================================
+
+/** Mock Anthropic OAuth API response (GET /api/oauth/usage) */
+const MOCK_CLAUDE_OAUTH_RESPONSE = {
+  five_hour: { used_percent: 7, reset_at: '2026-03-05T18:00:00Z' },
+  seven_day: { used_percent: 54, reset_at: '2026-03-06T03:00:00Z' },
+  seven_day_sonnet: { used_percent: 3, reset_at: '2026-03-06T03:00:00Z' },
+  seven_day_opus: { used_percent: 12, reset_at: '2026-03-06T03:00:00Z' },
+  extra_usage: { used_cents: 0, limit_cents: 0 },
+};
+
+/** Mock OpenAI Wham API response (GET /backend-api/wham/usage) */
+const MOCK_CODEX_WHAM_RESPONSE = {
+  rate_limit: {
+    primary_window: {
+      used_percent: 3,
+      reset_at: '2026-03-05T07:10:00Z',
+      label: '5小时使用限额',
+    },
+    secondary_window: {
+      used_percent: 1,
+      reset_at: '2026-03-09T19:10:00Z',
+      label: '每周使用限额',
+    },
+    spark_primary: {
+      used_percent: 0,
+      reset_at: '2026-03-05T08:00:00Z',
+      label: 'GPT-5.3-Codex-Spark 5小时使用限额',
+    },
+    spark_secondary: {
+      used_percent: 7,
+      reset_at: '2026-03-12T17:03:00Z',
+      label: 'GPT-5.3-Codex-Spark 每周使用限额',
+    },
+    code_review: {
+      used_percent: 44,
+      reset_at: '2026-03-08T00:26:00Z',
+      label: '代码审查',
+    },
+  },
+  credits_balance: 0,
+};
+
+describe('Claude OAuth API parser (v3)', () => {
+  it('parses Anthropic OAuth usage response into usageItems with poolId', async () => {
+    const { parseClaudeOAuthUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseClaudeOAuthUsageResponse(MOCK_CLAUDE_OAUTH_RESPONSE);
+    assert.equal(items.length, 4);
+    assert.deepEqual(
+      items.map((x) => [x.label, x.usedPercent, x.poolId]),
+      [
+        ['Session 5h', 7, 'claude-session'],
+        ['Weekly all models', 54, 'claude-weekly-all'],
+        ['Weekly Sonnet', 3, 'claude-weekly-sonnet'],
+        ['Weekly Opus', 12, 'claude-weekly-opus'],
+      ],
+    );
+  });
+
+  it('includes reset times from API response', async () => {
+    const { parseClaudeOAuthUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseClaudeOAuthUsageResponse(MOCK_CLAUDE_OAUTH_RESPONSE);
+    assert.equal(items[0].resetsAt, '2026-03-05T18:00:00Z');
+    assert.equal(items[1].resetsAt, '2026-03-06T03:00:00Z');
+  });
+
+  it('treats used_percent as utilization (not remaining)', async () => {
+    const { parseClaudeOAuthUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseClaudeOAuthUsageResponse(MOCK_CLAUDE_OAUTH_RESPONSE);
+    // API gives used_percent — percentKind should be 'used'
+    for (const item of items) {
+      assert.equal(item.percentKind, 'used');
     }
   });
 
-  it('returns 400 when CDP URL is not localhost/127.0.0.1', async () => {
-    const old = process.env.QUOTA_BROWSER_CDP_URL;
-    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-    process.env.QUOTA_BROWSER_CDP_URL = 'http://192.168.1.8:9222';
-    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
-    const app = await buildApp();
-    try {
-      const res = await app.inject({ method: 'POST', url: '/api/quota/refresh/official' });
-      assert.equal(res.statusCode, 400);
-      const body = res.json();
-      assert.match(body.error, /localhost/);
-      const quota = (await app.inject({ method: 'GET', url: '/api/quota' })).json();
-      assert.match(quota.codex.error, /localhost/);
-      assert.match(quota.claude.error, /localhost/);
-    } finally {
-      if (old != null) process.env.QUOTA_BROWSER_CDP_URL = old;
-      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
-      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
-      await app.close();
-    }
+  it('handles missing optional fields gracefully', async () => {
+    const { parseClaudeOAuthUsageResponse } = await import('../dist/routes/quota.js');
+    // Minimal response with only five_hour
+    const items = parseClaudeOAuthUsageResponse({ five_hour: { used_percent: 10 } });
+    assert.ok(items.length >= 1);
+    assert.equal(items[0].usedPercent, 10);
+    assert.equal(items[0].poolId, 'claude-session');
+  });
+
+  it('returns empty array for completely empty response', async () => {
+    const { parseClaudeOAuthUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseClaudeOAuthUsageResponse({});
+    assert.equal(items.length, 0);
   });
 });
 
-describe('official refresh auto-start guard', () => {
-  it('keeps auto-start disabled for non-interactive requests', async () => {
-    const { shouldAutoStartBrowserForOfficialRefresh } = await import('../dist/routes/quota.js');
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh(undefined), false);
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({}), false);
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: false }), false);
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: 'yes' }), false);
+describe('Codex Wham API parser (v3)', () => {
+  it('parses Wham usage response into usageItems with poolId', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
+    assert.ok(items.length >= 5);
+    const labels = items.map((x) => x.poolId);
+    assert.ok(labels.includes('codex-main'));
+    assert.ok(labels.includes('codex-spark'));
+    assert.ok(labels.includes('codex-review'));
   });
 
-  it('enables auto-start only when interactive=true and env is not disabled', async () => {
-    const { shouldAutoStartBrowserForOfficialRefresh } = await import('../dist/routes/quota.js');
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, undefined), true);
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, '1'), true);
-    assert.equal(shouldAutoStartBrowserForOfficialRefresh({ interactive: true }, '0'), false);
+  it('maps primary/secondary windows to 5h and weekly pools', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
+    const main5h = items.find((x) => x.poolId === 'codex-main' && x.label.includes('5'));
+    assert.ok(main5h);
+    assert.equal(main5h.usedPercent, 3);
+    const mainWeekly = items.find((x) => x.poolId === 'codex-main' && x.label.includes('周'));
+    assert.ok(mainWeekly);
+    assert.equal(mainWeekly.usedPercent, 1);
+  });
+
+  it('includes reset times from API response', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
+    const main5h = items.find((x) => x.poolId === 'codex-main' && x.label.includes('5'));
+    assert.ok(main5h);
+    assert.equal(main5h.resetsAt, '2026-03-05T07:10:00Z');
+  });
+
+  it('extracts credits_balance as overflow pool', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
+    const overflow = items.find((x) => x.poolId === 'codex-overflow');
+    assert.ok(overflow);
+    assert.equal(overflow.usedPercent, 0);
+    assert.equal(overflow.percentKind, 'remaining');
+  });
+
+  it('treats used_percent as utilization (not remaining)', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse(MOCK_CODEX_WHAM_RESPONSE);
+    const nonOverflow = items.filter((x) => x.poolId !== 'codex-overflow');
+    for (const item of nonOverflow) {
+      assert.equal(item.percentKind, 'used');
+    }
+  });
+
+  it('returns empty array for empty response', async () => {
+    const { parseCodexWhamUsageResponse } = await import('../dist/routes/quota.js');
+    const items = parseCodexWhamUsageResponse({});
+    assert.equal(items.length, 0);
   });
 });
 
-describe('CDP URL resolution', () => {
-  it('isolated mode does not probe legacy localhost:9222 CDP by default', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const probes = [];
-    const mockFetch = async (input) => {
-      const url = String(input);
-      probes.push(url);
-      if (url === 'http://127.0.0.1:9222/json/version') {
-        return new Response(JSON.stringify({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/1' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
-      throw new Error('ECONNREFUSED');
-    };
-    const result = await resolveBrowserCdpUrl(undefined, {
-      fetchLike: mockFetch,
-      autoStartOnMissing: false,
-      mode: 'isolated',
-      isolatedPort: 9224,
+describe('POST /api/quota/refresh/official — v3 OAuth flow', () => {
+  it('fetches Claude usage via Anthropic OAuth API and updates cache', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'test-token', refreshToken: 'test-refresh' },
+      codexCredentials: null,
+      fetchLike: async (url) => {
+        if (String(url).includes('anthropic.com')) {
+          return new Response(JSON.stringify(MOCK_CLAUDE_OAUTH_RESPONSE), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          });
+        }
+        return new Response('', { status: 404 });
+      },
     });
-    assert.equal('error' in result, true);
-    assert.equal(probes.some((url) => url === 'http://127.0.0.1:9222/json/version'), false);
+    assert.ok(result.claude);
+    assert.ok(result.claude.items > 0);
+    assert.ok(!result.claude.error);
   });
 
-  it('returns explicit env URL when it is localhost', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const result = await resolveBrowserCdpUrl('http://127.0.0.1:9222');
-    assert.equal('url' in result, true);
-    if ('url' in result) {
-      assert.equal(result.url, 'http://127.0.0.1:9222');
-    }
-  });
-
-  it('auto-discovers local CDP URL when env is missing', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const mockFetch = async (input) => {
-      const url = String(input);
-      if (url === 'http://127.0.0.1:9222/json/version') {
-        return new Response(JSON.stringify({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/1' }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' },
-        });
-      }
-      return new Response('', { status: 404 });
-    };
-    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch, mode: 'existing' });
-    assert.equal('url' in result, true);
-    if ('url' in result) {
-      assert.equal(result.url, 'http://127.0.0.1:9222');
-    }
-  });
-
-  it('returns actionable error when env missing and no local CDP found', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const mockFetch = async () => {
-      throw new Error('connect ECONNREFUSED');
-    };
-    const result = await resolveBrowserCdpUrl(undefined, { fetchLike: mockFetch });
-    assert.equal('error' in result, true);
-    if ('error' in result) {
-      assert.match(result.error, /--remote-debugging-port=\d+/);
-    }
-  });
-
-  it('auto-starts Chrome and resolves localhost:9222 when enabled', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    let started = false;
-    let launchCalls = 0;
-    const mockFetch = async (input) => {
-      const url = String(input);
-      if (url === 'http://127.0.0.1:9222/json/version' && started) {
-        return new Response(
-          JSON.stringify({
-            webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/demo',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error('ECONNREFUSED');
-    };
-    const result = await resolveBrowserCdpUrl(undefined, {
-      fetchLike: mockFetch,
-      isolatedPort: 9222,
-      autoStartOnMissing: true,
-      launchChrome: async (port) => {
-        launchCalls += 1;
-        assert.equal(port, 9222);
-        started = true;
+  it('fetches Codex usage via Wham API and updates cache', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: null,
+      codexCredentials: { accessToken: 'test-token', refreshToken: 'test-refresh', accountId: 'test-account' },
+      fetchLike: async (url) => {
+        if (String(url).includes('chatgpt.com')) {
+          return new Response(JSON.stringify(MOCK_CODEX_WHAM_RESPONSE), {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+              'x-codex-primary-used-percent': '3',
+              'x-codex-secondary-used-percent': '1',
+              'x-codex-credits-balance': '0',
+            },
+          });
+        }
+        return new Response('', { status: 404 });
       },
-      sleep: async () => {},
-      retryCount: 1,
     });
-    assert.equal(launchCalls, 1);
-    assert.equal('url' in result, true);
-    if ('url' in result) {
-      assert.equal(result.url, 'http://127.0.0.1:9222');
-    }
+    assert.ok(result.codex);
+    assert.ok(result.codex.items > 0);
+    assert.ok(!result.codex.error);
   });
 
-  it('does not restart Chrome by default when auto-start cannot expose CDP endpoint', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    let launchCalls = 0;
-    let restartCalls = 0;
-    const mockFetch = async () => {
-      throw new Error('ECONNREFUSED');
-    };
-
-    const result = await resolveBrowserCdpUrl(undefined, {
-      fetchLike: mockFetch,
-      isolatedPort: 9222,
-      autoStartOnMissing: true,
-      launchChrome: async (port) => {
-        launchCalls += 1;
-        assert.equal(port, 9222);
-      },
-      restartChrome: async () => {
-        restartCalls += 1;
-      },
-      sleep: async () => {},
-      retryCount: 1,
+  it('reports error when API returns 401 and refresh also fails', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'expired', refreshToken: 'bad' },
+      codexCredentials: null,
+      fetchLike: async () => new Response('{"error":"invalid_token"}', { status: 401 }),
     });
-
-    assert.equal(launchCalls, 1);
-    assert.equal(restartCalls, 0);
-    assert.equal('error' in result, true);
+    assert.ok(result.claude?.error);
+    assert.match(result.claude.error, /401|auth|token/i);
   });
 
-  it('restarts Chrome only when explicit opt-in is enabled', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    let endpointReady = false;
-    let launchCalls = 0;
-    let restartCalls = 0;
-    const mockFetch = async (input) => {
-      const url = String(input);
-      if (url === 'http://127.0.0.1:9222/json/version' && endpointReady) {
-        return new Response(
-          JSON.stringify({
-            webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/demo',
-          }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        );
-      }
-      throw new Error('ECONNREFUSED');
-    };
-
-    const result = await resolveBrowserCdpUrl(undefined, {
-      fetchLike: mockFetch,
-      isolatedPort: 9222,
-      autoStartOnMissing: true,
-      autoRestartOnUnavailable: true,
-      launchChrome: async (port) => {
-        launchCalls += 1;
-        assert.equal(port, 9222);
+  it('retries with refreshed token on 401 (Claude)', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    let callCount = 0;
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'expired-token', refreshToken: 'valid-refresh' },
+      codexCredentials: null,
+      fetchLike: async (url) => {
+        const urlStr = String(url);
+        // Token refresh endpoint — return new token
+        if (urlStr.includes('platform.claude.com') || urlStr.includes('auth.openai.com')) {
+          return new Response(JSON.stringify({ access_token: 'fresh-token' }), { status: 200 });
+        }
+        // Usage API
+        if (urlStr.includes('anthropic.com')) {
+          callCount++;
+          if (callCount === 1) {
+            return new Response('{"error":"invalid_token"}', { status: 401 });
+          }
+          return new Response(JSON.stringify(MOCK_CLAUDE_OAUTH_RESPONSE), { status: 200 });
+        }
+        return new Response('', { status: 404 });
       },
-      restartChrome: async (port) => {
-        restartCalls += 1;
-        assert.equal(port, 9222);
-        endpointReady = true;
-      },
-      sleep: async () => {},
-      retryCount: 1,
     });
-
-    assert.equal(launchCalls, 1);
-    assert.equal(restartCalls, 1);
-    assert.equal('url' in result, true);
-    if ('url' in result) {
-      assert.equal(result.url, 'http://127.0.0.1:9222');
-    }
+    // Should have retried and succeeded
+    assert.equal(callCount, 2, 'should call usage API twice (initial 401 + retry)');
+    assert.ok(result.claude);
+    assert.ok(result.claude.items > 0, 'should have items after refresh retry');
+    assert.ok(!result.claude.error, 'should not have error after successful retry');
   });
 
-  it('returns actionable error when restart attempt fails', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const result = await resolveBrowserCdpUrl(undefined, {
-      isolatedPort: 9222,
-      autoStartOnMissing: true,
-      autoRestartOnUnavailable: true,
-      fetchLike: async () => {
-        throw new Error('ECONNREFUSED');
+  it('retries with refreshed token on 401 (Codex)', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    let callCount = 0;
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: null,
+      codexCredentials: { accessToken: 'expired-token', refreshToken: 'valid-refresh', accountId: 'acct' },
+      fetchLike: async (url) => {
+        const urlStr = String(url);
+        if (urlStr.includes('auth.openai.com')) {
+          return new Response(JSON.stringify({ access_token: 'fresh-codex-token' }), { status: 200 });
+        }
+        if (urlStr.includes('chatgpt.com')) {
+          callCount++;
+          if (callCount === 1) {
+            return new Response('{"error":"invalid_token"}', { status: 401 });
+          }
+          return new Response(JSON.stringify(MOCK_CODEX_WHAM_RESPONSE), { status: 200 });
+        }
+        return new Response('', { status: 404 });
       },
-      launchChrome: async () => {},
-      restartChrome: async () => {
-        throw new Error('automation denied');
-      },
-      sleep: async () => {},
-      retryCount: 1,
     });
-    assert.equal('error' in result, true);
-    if ('error' in result) {
-      assert.match(result.error, /auto-start and restart Chrome/);
-      assert.match(result.error, /--remote-debugging-port=\d+/);
-    }
+    assert.equal(callCount, 2);
+    assert.ok(result.codex);
+    assert.ok(result.codex.items > 0);
+    assert.ok(!result.codex.error);
   });
 
-  it('returns actionable error when auto-start attempt fails', async () => {
-    const { resolveBrowserCdpUrl } = await import('../dist/routes/quota.js');
-    const result = await resolveBrowserCdpUrl(undefined, {
-      isolatedPort: 9222,
-      autoStartOnMissing: true,
-      fetchLike: async () => {
-        throw new Error('ECONNREFUSED');
+  it('handles both providers in parallel', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'ok', refreshToken: 'ok' },
+      codexCredentials: { accessToken: 'ok', refreshToken: 'ok', accountId: 'acct' },
+      fetchLike: async (url) => {
+        if (String(url).includes('anthropic.com')) {
+          return new Response(JSON.stringify(MOCK_CLAUDE_OAUTH_RESPONSE), { status: 200 });
+        }
+        if (String(url).includes('chatgpt.com')) {
+          return new Response(JSON.stringify(MOCK_CODEX_WHAM_RESPONSE), { status: 200 });
+        }
+        return new Response('', { status: 404 });
       },
-      launchChrome: async () => {
-        throw new Error('permission denied');
-      },
-      sleep: async () => {},
-      retryCount: 1,
     });
-    assert.equal('error' in result, true);
-    if ('error' in result) {
-      assert.match(result.error, /auto-start isolated Chrome/);
-      assert.match(result.error, /--remote-debugging-port=\d+/);
-    }
+    assert.ok(result.claude?.items > 0);
+    assert.ok(result.codex?.items > 0);
+  });
+
+  it('skips provider when credentials are null', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: null,
+      codexCredentials: null,
+      fetchLike: async () => new Response('', { status: 404 }),
+    });
+    assert.equal(result.claude, undefined);
+    assert.equal(result.codex, undefined);
+  });
+
+  it('reports skipped providers in result', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    // Only Claude has credentials, Codex should be reported as skipped
+    const result = await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'ok', refreshToken: 'ok' },
+      codexCredentials: null,
+      fetchLike: async (url) => {
+        if (String(url).includes('anthropic.com')) {
+          return new Response(JSON.stringify(MOCK_CLAUDE_OAUTH_RESPONSE), { status: 200 });
+        }
+        return new Response('', { status: 404 });
+      },
+    });
+    assert.ok(result.claude?.items > 0);
+    assert.equal(result.codex, undefined);
+    // Result should have a skipped array indicating which providers were skipped
+    assert.ok(Array.isArray(result.skipped), 'result should have skipped array');
+    assert.ok(result.skipped.includes('codex'), 'codex should be in skipped list');
+  });
+
+  it('sends form-encoded OAuth refresh request (not JSON)', async () => {
+    const { refreshOfficialQuotaViaOAuth, resetQuotaCachesForTests } = await import('../dist/routes/quota.js');
+    resetQuotaCachesForTests?.();
+    let refreshContentType = '';
+    let refreshBody = '';
+    await refreshOfficialQuotaViaOAuth({
+      claudeCredentials: { accessToken: 'expired', refreshToken: 'valid-refresh' },
+      codexCredentials: null,
+      fetchLike: async (url, init) => {
+        const urlStr = String(url);
+        if (urlStr.includes('platform.claude.com')) {
+          refreshContentType = init?.headers?.['Content-Type'] ?? '';
+          refreshBody = typeof init?.body === 'string' ? init.body : '';
+          return new Response(JSON.stringify({ access_token: 'fresh' }), { status: 200 });
+        }
+        if (urlStr.includes('anthropic.com')) {
+          return new Response('{"error":"expired"}', { status: 401 });
+        }
+        return new Response('', { status: 404 });
+      },
+    });
+    // Token refresh endpoint must receive form-encoded, not JSON
+    assert.match(refreshContentType, /x-www-form-urlencoded/, 'refresh must use form-encoded content type');
+    assert.ok(!refreshBody.startsWith('{'), 'refresh body must not be JSON');
+    assert.ok(refreshBody.includes('grant_type=refresh_token'), 'body must contain grant_type param');
+    assert.ok(refreshBody.includes('refresh_token=valid-refresh'), 'body must contain refresh_token param');
   });
 });
