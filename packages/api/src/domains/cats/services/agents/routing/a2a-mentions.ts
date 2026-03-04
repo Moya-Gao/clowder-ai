@@ -59,7 +59,7 @@ export interface A2AMentionParseOptions {
  */
 export function parseA2AMentions(
   text: string,
-  currentCatId: CatId,
+  currentCatId?: CatId,
   options: A2AMentionParseOptions = {},
 ): CatId[] {
   return analyzeA2AMentions(text, currentCatId, options).mentions;
@@ -67,7 +67,7 @@ export function parseA2AMentions(
 
 export function analyzeA2AMentions(
   text: string,
-  currentCatId: CatId,
+  currentCatId?: CatId,
   options: A2AMentionParseOptions = {},
 ): A2AMentionAnalysis {
   if (!text) return { mentions: [], suppressed: [] };
@@ -84,7 +84,7 @@ export function analyzeA2AMentions(
   // 2. Build patterns and sort longest-first to avoid prefix collisions
   const entries: MentionPatternEntry[] = [];
   for (const [id, config] of Object.entries(allConfigs)) {
-    if (id === currentCatId) continue; // 4. Filter self
+    if (currentCatId && id === currentCatId) continue; // 4. Filter self (skip when cross-thread)
     for (const pattern of config.mentionPatterns) {
       entries.push({ catId: id as CatId, pattern: pattern.toLowerCase() });
     }

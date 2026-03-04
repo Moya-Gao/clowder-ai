@@ -80,11 +80,15 @@ export function formatMessage(
 ): string {
   const time = formatTime(msg.timestamp);
   const sender = msg.source ? msg.source.label : getSenderName(msg.catId);
+  // F52: Annotate cross-thread messages with source thread
+  const crossPostTag = msg.extra?.crossPost?.sourceThreadId
+    ? ` ← from thread:${msg.extra.crossPost.sourceThreadId.slice(0, 8)}`
+    : '';
   let content = msg.content;
   if (options?.truncate && content.length > options.truncate) {
     content = truncateHeadTail(content, options.truncate);
   }
-  return `[${time} ${sender}] ${content}`;
+  return `[${time} ${sender}${crossPostTag}] ${content}`;
 }
 
 /**

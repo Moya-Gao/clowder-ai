@@ -228,3 +228,94 @@ describe('post_message A2A mention invocation', () => {
       'Self-mention must not trigger invocation');
   });
 });
+
+describe('F052: cross-thread A2A mention routing', () => {
+  let registry;
+  let messageStore;
+  let threadStore;
+  let socketManager;
+  let invocationRecordStore;
+  let mockRouter;
+
+  beforeEach(async () => {
+    const { InvocationRegistry } = await import(
+      '../dist/domains/cats/services/agents/invocation/InvocationRegistry.js'
+    );
+    const { MessageStore } = await import(
+      '../dist/domains/cats/services/stores/ports/MessageStore.js'
+    );
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    registry = new InvocationRegistry();
+    messageStore = new MessageStore();
+    threadStore = new ThreadStore();
+    socketManager = createMockSocketManager();
+    invocationRecordStore = createMockInvocationRecordStore();
+    mockRouter = createMockRouter();
+  });
+
+  async function createAppWithThreadStore() {
+    const { callbacksRoutes } = await import('../dist/routes/callbacks.js');
+    const app = Fastify();
+    await app.register(callbacksRoutes, {
+      registry,
+      messageStore,
+      threadStore,
+      socketManager,
+      router: mockRouter,
+      invocationRecordStore,
+    });
+    return app;
+  }
+
+  test('cross-thread @codex from codex is NOT filtered (includes codex in mentions)', async () => {
+    const app = await createAppWithThreadStore();
+    const sourceThread = await threadStore.create('user-1', 'A2A Source Thread');
+    const targetThread = await threadStore.create('user-1', 'A2A Target Thread');
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', sourceThread.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '@codex 请处理这个跨线程任务',
+        threadId: targetThread.id,
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const msgs = messageStore.getByThread(targetThread.id, 10, 'user-1');
+    const crossMsg = msgs.find((m) => m.content.includes('跨线程任务'));
+    assert.ok(crossMsg, 'cross-thread message should be stored');
+    assert.ok(crossMsg.mentions.includes('codex'), 'cross-thread @codex should be in mentions');
+  });
+
+  test('same-thread @codex from codex still filtered (self-reference)', async () => {
+    const app = await createAppWithThreadStore();
+    const thread = await threadStore.create('user-1', 'Self Ref Thread');
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', thread.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '@codex 请处理',
+        threadId: thread.id,
+      },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const msgs = messageStore.getByThread(thread.id, 10, 'user-1');
+    const msg = msgs.find((m) => m.content.includes('请处理'));
+    assert.ok(msg);
+    assert.ok(!msg.mentions.includes('codex'), 'same-thread @codex from codex should be filtered');
+  });
+});

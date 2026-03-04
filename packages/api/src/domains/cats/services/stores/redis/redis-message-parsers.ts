@@ -38,16 +38,16 @@ export function safeParseContentBlocks(raw: string | undefined): readonly Messag
   }
 }
 
-/** F22: Parse extra field (contains rich blocks + stream metadata) */
+/** F22+F52: Parse extra field (contains rich blocks, stream metadata, cross-post origin) */
 export function safeParseExtra(
   raw: string | undefined,
-): { rich?: RichMessageExtra; stream?: { invocationId: string } } | undefined {
+): { rich?: RichMessageExtra; stream?: { invocationId: string }; crossPost?: { sourceThreadId: string; sourceInvocationId?: string } } | undefined {
   if (!raw) return undefined;
   try {
     const parsed = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null) return undefined;
 
-    const result: { rich?: RichMessageExtra; stream?: { invocationId: string } } = {};
+    const result: { rich?: RichMessageExtra; stream?: { invocationId: string }; crossPost?: { sourceThreadId: string; sourceInvocationId?: string } } = {};
     let hasField = false;
 
     // Validate rich sub-field shape
@@ -59,6 +59,15 @@ export function safeParseExtra(
     // Validate stream sub-field shape (#80: draft dedup key)
     if (parsed.stream && typeof parsed.stream === 'object' && typeof parsed.stream.invocationId === 'string') {
       result.stream = { invocationId: parsed.stream.invocationId };
+      hasField = true;
+    }
+
+    // F52: Validate crossPost sub-field shape
+    if (parsed.crossPost && typeof parsed.crossPost === 'object' && typeof parsed.crossPost.sourceThreadId === 'string') {
+      result.crossPost = {
+        sourceThreadId: parsed.crossPost.sourceThreadId,
+        ...(typeof parsed.crossPost.sourceInvocationId === 'string' ? { sourceInvocationId: parsed.crossPost.sourceInvocationId } : {}),
+      };
       hasField = true;
     }
 

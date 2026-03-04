@@ -188,6 +188,7 @@ export function handleBackgroundAgentMessage(
         catId: msg.catId,
         content: msg.content,
         ...(msg.metadata ? { metadata: msg.metadata } : {}),
+        ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
         timestamp: msg.timestamp,
         origin: 'callback',
       });

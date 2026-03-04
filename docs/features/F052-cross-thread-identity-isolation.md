@@ -142,7 +142,7 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 - [ ] AC-A2: 跨线程 codex → `@codex` 能触发目标线程的 codex A2A
 - [ ] AC-A3: 同线程 codex → `@codex` 仍然不触发（自引用过滤保持）
 - [ ] AC-A4: A2A 深度限制 (`maxDepth`) 仍然有效，防止跨线程无限回弹
-- [ ] AC-A5: 跨线程 push 通知不重复
+- [x] AC-A5: 跨线程 push 通知不重复（covered by architecture: WebSocket broadcast 只执行一次，worklist 按 catId 去重，无独立 push 服务）
 
 ### Phase B
 - [ ] AC-B1: `assembleIncrementalContext` 对跨线程消息加来源标注

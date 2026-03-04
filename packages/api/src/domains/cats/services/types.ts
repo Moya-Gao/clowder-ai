@@ -120,6 +120,8 @@ export interface AgentMessage {
   origin?: 'stream' | 'callback';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
+  /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
+  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
   /** When this message was created */
   timestamp: number;
 }

@@ -19,6 +19,8 @@ export interface BackgroundAgentMessage {
   error?: string;
   isFinal?: boolean;
   metadata?: { provider: string; model: string; sessionId?: string; usage?: TokenUsage };
+  /** F52: Cross-thread origin metadata */
+  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
   timestamp: number;
 }
 

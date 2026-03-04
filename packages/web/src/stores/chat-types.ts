@@ -135,8 +135,11 @@ export interface ChatMessage {
     createdBy: string;
   };
   evidence?: EvidenceData;
-  /** F22: Rich blocks (card, diff, checklist, media gallery) */
-  extra?: { rich?: { v: 1; blocks: RichBlock[] } };
+  /** F22+F52: Rich blocks + cross-thread origin */
+  extra?: {
+    rich?: { v: 1; blocks: RichBlock[] };
+    crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+  };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;
   /** F045: Extended thinking content, rendered as collapsible block inside assistant bubble */

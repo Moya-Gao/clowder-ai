@@ -25,6 +25,8 @@ interface AgentMsg {
   origin?: 'stream' | 'callback';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
+  /** F52: Cross-thread origin metadata */
+  extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -184,6 +186,7 @@ export function useAgentMessages() {
             content: msg.content,
             origin: 'callback',
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
             ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
             timestamp: Date.now(),
           });

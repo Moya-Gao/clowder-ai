@@ -366,6 +366,11 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 {isRevealed ? '已揭秘' : '悄悄话'}
               </span>
             )}
+            {message.extra?.crossPost && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">
+                转发自 {message.extra.crossPost.sourceThreadId.slice(0, 8)}…
+              </span>
+            )}
             {hasTextContent && !message.isStreaming && (
               <TtsPlayButton
                 messageId={message.id}

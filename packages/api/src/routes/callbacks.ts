@@ -221,15 +221,32 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         }
       }
 
+      // F52: Detect cross-thread post (used for both A2A exemption and crossPost metadata)
+      const isCrossThread = effectiveThreadId !== record.threadId;
+
       // Parse line-start @mentions (A2A rule: only line-start, strip code blocks, single target)
       // Uses parseA2AMentions instead of resolveTargetsAndIntent to avoid
       // participants/default-opus fallback triggering on non-@ messages (P1-1)
       // and inline @mentions triggering invocations (P1-2).
+      // F52: Cross-thread posts skip self-reference filter so @codex can trigger target thread's codex
       const senderCatId = createCatId(record.catId);
-      const targetCats = parseA2AMentions(storedContent, senderCatId, { mode: mentionActionabilityMode });
+      const targetCats = parseA2AMentions(
+        storedContent,
+        isCrossThread ? undefined : senderCatId,
+        { mode: mentionActionabilityMode },
+      );
       const mentions: CatId[] = [...targetCats];
+      const crossPostExtra = isCrossThread
+        ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
+        : {};
+      const richExtra = richBlocks.length > 0
+        ? { rich: { v: 1 as const, blocks: richBlocks } }
+        : {};
+      const extra = (Object.keys(crossPostExtra).length > 0 || Object.keys(richExtra).length > 0)
+        ? { ...richExtra, ...crossPostExtra }
+        : undefined;
 
-      // Store the message (scoped to the invocation's thread)
+      // Store the message (scoped to the effective thread)
       const storedMsg = await messageStore.append({
         userId: record.userId,
         catId: record.catId,
@@ -238,7 +255,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         origin: 'callback',
         timestamp: Date.now(),
         threadId: effectiveThreadId,
-        ...(richBlocks.length > 0 ? { extra: { rich: { v: 1 as const, blocks: richBlocks } } } : {}),
+        ...(extra ? { extra } : {}),
       });
 
       socketManager.broadcastAgentMessage({
@@ -247,6 +264,8 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         content: storedContent,
         origin: 'callback',
         messageId: storedMsg.id,
+        // F52: Include crossPost in real-time broadcast so frontend shows badge immediately
+        ...(isCrossThread ? { extra: { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } } } : {}),
         timestamp: Date.now(),
       }, effectiveThreadId);
 

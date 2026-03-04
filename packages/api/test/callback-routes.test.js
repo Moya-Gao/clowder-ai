@@ -2171,4 +2171,60 @@ describe('Callback Routes', () => {
     const body = JSON.parse(response.body);
     assert.ok(body.error.includes('not configured'));
   });
+
+  // ---- F052: cross-thread identity isolation ----
+
+  test('F052: cross-thread post stores extra.crossPost metadata', async () => {
+    const app = await createApp();
+    const sourceThread = await threadStore.create('user-1', 'Source Thread');
+    const targetThread = await threadStore.create('user-1', 'Target Thread');
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', sourceThread.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'Hello from source thread',
+        threadId: targetThread.id,
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.strictEqual(body.threadId, targetThread.id);
+
+    const msgs = messageStore.getByThread(targetThread.id, 10, 'user-1');
+    const crossMsg = msgs.find((m) => m.content === 'Hello from source thread');
+    assert.ok(crossMsg, 'cross-thread message should be stored');
+    assert.ok(crossMsg.extra?.crossPost, 'should have crossPost metadata');
+    assert.strictEqual(crossMsg.extra.crossPost.sourceThreadId, sourceThread.id);
+    assert.strictEqual(crossMsg.extra.crossPost.sourceInvocationId, invocationId);
+  });
+
+  test('F052: same-thread post does NOT add crossPost metadata', async () => {
+    const app = await createApp();
+    const thread = await threadStore.create('user-1', 'Same Thread');
+
+    const { invocationId, callbackToken } = registry.create('user-1', 'codex', thread.id);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: 'Hello same thread',
+        threadId: thread.id,
+      },
+    });
+
+    assert.strictEqual(res.statusCode, 200);
+    const msgs = messageStore.getByThread(thread.id, 10, 'user-1');
+    const msg = msgs.find((m) => m.content === 'Hello same thread');
+    assert.ok(msg);
+    assert.strictEqual(msg.extra?.crossPost, undefined, 'same-thread should NOT have crossPost');
+  });
 });

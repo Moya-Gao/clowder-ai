@@ -312,6 +312,49 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
   });
 });
 
+describe('F052: cross-thread source annotation', () => {
+  test('formatMessage adds source annotation for cross-thread messages', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'codex',
+      content: 'Hello from another thread',
+      extra: {
+        crossPost: { sourceThreadId: 'source-thread-abc123' },
+      },
+    });
+    const result = formatMessage(msg);
+    assert.ok(result.includes('← from thread:source-t'), 'should contain source thread annotation (truncated to 8 chars)');
+    assert.ok(result.includes('缅因猫'), 'should still show cat name');
+  });
+
+  test('formatMessage does NOT add annotation for local messages', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'codex',
+      content: 'Hello local',
+    });
+    const result = formatMessage(msg);
+    assert.ok(!result.includes('← from thread:'), 'local message should NOT have annotation');
+  });
+
+  test('formatMessage handles crossPost without sourceThreadId gracefully', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'codex',
+      content: 'Hello',
+      extra: { crossPost: {} },
+    });
+    const result = formatMessage(msg);
+    assert.ok(!result.includes('← from thread:'), 'should not add annotation without sourceThreadId');
+  });
+});
+
 describe('assembleContext — F8 token-based truncation', () => {
   test('returns estimatedTokens in result', async () => {
     const { assembleContext } = await import(
