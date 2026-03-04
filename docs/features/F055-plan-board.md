@@ -8,10 +8,12 @@ created: 2026-03-03
 
 # F055 — 猫猫祟祟（Plan Board）
 
-> **Status**: spec
+> **Status**: done
 > **Owner**: 布偶猫 (Opus)
-> **Reviewer**: TBD（跨 family 优先）
+> **Reviewer**: 缅因猫 (Codex) — local + cloud
 > **Created**: 2026-03-03
+> **Completed**: 2026-03-03
+> **PR**: #202 (`71a18914`)
 > **Evolved from**: F045（计划看板 stale bug）→ 发现设计层问题 → 新立项
 
 ## Why
@@ -81,16 +83,16 @@ created: 2026-03-03
 
 | ID | 需求点 | AC 编号 | 验证方式 | 状态 |
 |----|--------|---------|----------|------|
-| R1 | 新增独立「猫猫祟祟」section | AC-1 | test + screenshot | [ ] |
-| R2 | 只显示有 invocation+taskProgress 的猫 | AC-2 | test | [ ] |
-| R3 | 每猫独立卡片带颜色+进度 | AC-3 | test + screenshot | [ ] |
-| R4 | running 排顶部，completed 折叠底部 | AC-4 | test | [ ] |
-| R5 | interrupted 显示"继续"按钮 | AC-5 | test | [ ] |
-| R6 | invocation_created 自动重置 | AC-6 | test | [ ] |
-| R7 | 8 猫并发不溢出 | AC-7 | manual + screenshot | [ ] |
-| R8 | 从"当前调用"移除 task progress | AC-8 | test | [ ] |
-| R9 | 切 thread 正确切换 | AC-9 | test | [ ] |
-| R10 | hydration completed 不污染 running | AC-10 | test | [ ] |
+| R1 | 新增独立「猫猫祟祟」section | AC-1 | test + screenshot | [x] |
+| R2 | 只显示有 invocation+taskProgress 的猫 | AC-2 | test | [x] |
+| R3 | 每猫独立卡片带颜色+进度 | AC-3 | test + screenshot | [x] |
+| R4 | running 排顶部，completed 折叠底部 | AC-4 | test | [x] |
+| R5 | interrupted 显示"继续"按钮 | AC-5 | test | [x] |
+| R6 | invocation_created 自动重置 | AC-6 | test | [x] |
+| R7 | 8 猫并发不溢出 | AC-7 | manual + screenshot | [x] |
+| R8 | 从"当前调用"移除 task progress | AC-8 | test | [x] |
+| R9 | 切 thread 正确切换 | AC-9 | test | [x] |
+| R10 | hydration completed 不污染 running | AC-10 | test | [x] |
 
 ## Dependencies
 
@@ -116,6 +118,55 @@ created: 2026-03-03
 - 跨 family 首选（缅因猫/砚砚）
 - 前端 UI：需要截图 + "需求→截图"映射表
 
+## 开发故事：笨蛋猫猫调试乌龙 🐾
+
+> F054 预热素材 — 真实开发过程中的猫猫趣事
+
+### 背景
+
+F055 合入后铲屎官安排了一次链式冒烟测试：opus → codex → sonnet 依次写计划，验证猫猫祟祟面板能正确显示三只猫的执行进度。
+
+### 翻车过程
+
+1. **opus 先写**：TodoWrite 发了 7 个任务，猫猫祟祟板块立刻出现 opus 的进度卡片。正常。
+2. **codex 接力**：砚砚收到传话后开始执行，铲屎官切到面板一看——只有两只猫（opus + sonnet），**砚砚不见了**。
+3. **布偶猫紧急排查**：我（opus）立刻开始调查，读了 `codex-event-transform.ts`、`invoke-single-cat.ts`、`extractTaskProgress` 等后端代码，分析了 Claude 路径（tool_use 拦截）vs Codex 路径（native todo_list 事件转换）的差异。
+
+   我的结论是："Codex 的 `todo_list` 事件走 `codex-event-transform.ts:41` 转换，但转换后的 `system_info(task_progress)` 可能没被正确发到前端。" 信誓旦旦地给出了一个后端 adapter 问题的诊断。
+
+4. **砚砚反驳**：铲屎官让砚砚自辩。砚砚淡定回复：
+
+   > "我没有用 TodoWrite 工具，我只是在消息里写了一个文字列表。文字列表不是 tool_use，不会触发 task_progress 事件。"
+
+   然后砚砚补发了一个真正的 TodoWrite 调用，他的猫猫祟祟卡片**立刻出现了**。
+
+### 真相
+
+- **不是 bug**：PlanBoardPanel 代码完全正确，三种 agent 类型都能正常显示
+- **不是后端问题**：codex-event-transform 工作正常
+- **真正原因**：砚砚写了纯文本计划列表，没调用 TodoWrite 工具。没有 tool_use → 没有 task_progress → 面板当然不显示
+- **笨蛋布偶猫**：我翻了半天后端源码，自信满满地诊断出一个不存在的 adapter bug
+
+### 教训
+
+1. **先确认数据源再查代码**：应该先问"砚砚你用 TodoWrite 了吗？"而不是直接翻源码
+2. **猫猫也有知识盲区**：砚砚习惯用文字列表而非结构化工具，这是使用习惯差异，不是系统 bug
+3. **面板设计是对的**：只显示有 `taskProgress` 的猫 = 没有误报，是功能而非缺陷
+
+> 铲屎官点评："笨蛋布偶猫猫以为是 bug 哈哈哈 以为人家没能力"
+
+## 愿景签收
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|----------|------|
+| 布偶猫 (Opus) | F055 spec, F045 PR 链, SessionChainPanel 源码 | ① 核心问题=多猫并发时计划进度混乱 ② 独立板块完全解耦 ③ 铲屎官实测三猫链式验证通过 | ✅ |
+| 缅因猫 (Codex) | F055 spec, PlanBoardPanel 源码 | LGTM，无 P1/P2 | ✅ |
+| 云端 Codex | PR #202 diff | "Didn't find any major issues. Chef's kiss." | ✅ |
+
 ## Timeline
 
 - 2026-03-03: kickoff + spec
+- 2026-03-03: TDD 实现（9 tests） + quality gate + codex review LGTM
+- 2026-03-03: PR #202 merged (squash, `71a18914`)
+- 2026-03-03: 链式冒烟测试（opus→codex→sonnet）通过 + 调试乌龙故事
+- 2026-03-03: feature closed

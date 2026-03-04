@@ -48,3 +48,4 @@
 | F047 | F047: Queue Steer — 队列消息”立即执行 / 提到队首” | done | [F047-queue-steer.md](./F047-queue-steer.md) |
 | F049 | F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread） | done | [F049-mission-control-backlog-center.md](./F049-mission-control-backlog-center.md) |
 | F053 | F053: Gemini Session/Resume 语义对齐 | done | [F053-gemini-resume-session-parity.md](./F053-gemini-resume-session-parity.md) |
+| F055 | F055: 猫猫祟祟 — Plan Board | done | [F055-plan-board.md](./F055-plan-board.md) |

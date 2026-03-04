@@ -29,4 +29,3 @@ created: 2026-02-26
 | F051 | 真实猫粮看板 — Real Quota Dashboard | in-progress | 缅因猫 | [F051](features/F051-real-quota-dashboard.md) |
 | F052 | 跨线程身份隔离与消息溯源 | spec | 布偶猫 | [F052](features/F052-cross-thread-identity-isolation.md) |
 | F054 | HCI 预热基础设施 — Social Media MCP + 内容管线 | spec | 布偶猫 | [F054](features/F054-hci-preheat-infra.md) |
-| F055 | 猫猫祟祟 — Plan Board | spec | 布偶猫 | [F055](features/F055-plan-board.md) |
