@@ -43,6 +43,8 @@
 | F039 | F039: 消息排队投递 — 用户操作三模式 | done | [F039-message-queue-delivery.md](./F039-message-queue-delivery.md) |
 | F040 | F40: BACKLOG 整理与 Feature 聚合体系 | done | [F40-backlog-reorganization.md](./F40-backlog-reorganization.md) |
 | F041 | F041: 能力看板 — Hub MCP/Skills 统一管理 | done | [F041-capability-dashboard.md](./F041-capability-dashboard.md) |
+| F042 | F042: 提示词 & Skills 系统性优化 | done | [F042-prompt-engineering-audit.md](./F042-prompt-engineering-audit.md) |
 | F045 | F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化 | done | [F045-ndjson-observability.md](./F045-ndjson-observability.md) |
-| F047 | F047: Queue Steer — 队列消息“立即执行 / 提到队首” | done | [F047-queue-steer.md](./F047-queue-steer.md) |
+| F047 | F047: Queue Steer — 队列消息”立即执行 / 提到队首” | done | [F047-queue-steer.md](./F047-queue-steer.md) |
 | F049 | F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread） | done | [F049-mission-control-backlog-center.md](./F049-mission-control-backlog-center.md) |
+| F053 | F053: Gemini Session/Resume 语义对齐 | done | [F053-gemini-resume-session-parity.md](./F053-gemini-resume-session-parity.md) |

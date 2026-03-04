@@ -13,6 +13,7 @@ updated: 2026-03-03
 > **Priority**: P1
 > **依赖**: F033（Session Chain 策略）
 > **Updated**: 2026-03-03（Phase A + Phase B 全部落地）
+> **Completed**: 2026-03-03
 
 ## 愿景
 
@@ -36,7 +37,7 @@ updated: 2026-03-03
 2. **测试补齐**：新增单测，验证 `sessionId` 传入时 CLI 参数包含 `--resume`。
 3. **Roadmap 立项**：将 Gemini session/resume 对齐显式立为 F053，避免后续讨论继续沿用错误前提。
 
-### Phase B（进行中）
+### Phase B（已完成）
 
 1. [x] **系统文档同步**：清理 active docs 中“Gemini 不支持 UUID resume”的陈旧描述并标注历史上下文。
 2. [x] **观测与告警**：补充 Gemini resume 失败分类（missing session / cli exit / auth）统计（`resume_failure_stats`）。
