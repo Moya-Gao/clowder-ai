@@ -6,7 +6,7 @@ created: 2026-02-26
 ---
 
 # Cat Cafe 技术债务
-> 维护者：三猫 | 最后更新：2026-03-01
+> 维护者：三猫 | 最后更新：2026-03-04
 > 来源：由原 `docs/BACKLOG.md` 债务段拆分。
 > 规则：每次 review 产生遗留项、或 coding 时发现新债务，**必须更新这个文件**。
 > 标记规则：`[ ]` 待做 / `[~]` 进行中 / `[x]` 已完成（附 commit 或 Phase）
@@ -135,4 +135,6 @@ created: 2026-02-26
 | TD088 | Redis PushSubscriptionStore upsert TOCTOU race | [ ] | C1+C2 云端 Codex review P3 | `hget(previousUserId)` 在 `MULTI` 外面，并发同一 endpoint 的 owner 变更有理论竞态。实际场景需同一设备两个用户同时订阅，概率极低。修复需 Lua 脚本原子化。触发条件：引入多用户并发订阅场景时。 |
 | TD090 | Codex 压缩检测 1 轮空窗（启发式盲区） | [ ] | [压缩检测讨论](./discussions/2026-02-24-compression-detection-cross-provider/README.md) | 当前检测是反应式：Codex 压缩发生在本轮，re-injection 在下一轮才生效，中间有 1 轮身份空窗。升级方向：持久化 prevFill / preflight context snapshot / 等 Codex CLI 支持独立 system prompt slot。实际影响有限，观察到事故再升级。 |
 | TD093 | ~~Gemini resume：按 thread 隔离目录 + `--resume latest`~~ | [x] | 铲屎官 2026-03-01 实测 | 已被 F053（2026-03-03）纠偏关闭：Gemini CLI 0.31.0 支持 UUID resume，现直接按 `sessionId` 恢复，无需 `latest/index` 隔离方案。 |
+| TD094 | 压缩效率检测（pre/post fillRatio delta） | [ ] | F033 毕业遗留 | 当前无法量化压缩是否有效。升级方向：SessionRecord 增加 pre/post compression fillRatio 对比。触发条件：观察到压缩策略未降低 token 消耗时。 |
+| TD095 | MEMORY.md auto-dump（猫猫自动落盘关键记忆） | [ ] | F033 毕业遗留 | 当前各猫手动维护 MEMORY.md，可能遗漏。需要猫间协调机制自动从 session events 提取关键信息。属研究方向。 |
 | TD091 | **PR Tracking 注册链路断裂 — 猫猫无法自动收到云端 review 推送** | [ ] | F045 PR #88 实际踩坑 | **问题**：完整链路（GitHub email → IMAP → ReviewRouter → ConnectorInvokeTrigger）已接通，但猫猫端注册 PR tracking 的体验断裂：(1) 没有 MCP 工具注册 PR tracking，只有裸 `curl`，猫猫需要自己拼 URL + 猜 threadId；(2) `cat_cafe_get_thread_context` 返回消息列表但**不返回 threadId**，猫猫无法获取自己所在的 threadId；(3) Skill `requesting-cloud-review` Step 2.5 写了 curl 示例但没说怎么获取 threadId，猫猫只能填 `"unknown"`（导致 Layer 1 路由失败）。**修复方向**：(A) 新增 MCP 工具 `cat_cafe_register_pr_tracking`，内部自动获取当前 threadId；或 (B) `cat_cafe_get_thread_context` 返回中加 `threadId` 字段 + 猫猫咖啡程序自动在 ConnectorInvokeTrigger 创建 PR 时帮注册；(C) SOP/Skill 补充明确说明。触发条件：下次提 PR 需要云端 review 自动回传时。 |
