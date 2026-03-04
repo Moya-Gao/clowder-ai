@@ -2,9 +2,9 @@
  * A2A Mention Detection
  * 从猫回复文本中检测对其他猫的 @mention。
  *
- * 规则 (缅因猫 P1-3 + F27 multi-mention):
+ * 规则 (F046 简化 — 行首即路由):
  * 1. 剥离围栏代码块 (```...```) 后再解析
- * 2. 仅匹配行首 mention（可带前导空白）
+ * 2. 仅匹配行首 mention（可带前导空白）→ 直接路由，无需动作词
  * 3. 长匹配优先 + token boundary，避免 `@opus-45` 误命中 `@opus`
  * 4. 过滤自调用
  * 5. F27: 返回所有匹配的猫 (上限 MAX_A2A_MENTION_TARGETS)
@@ -25,17 +25,16 @@ const TOKEN_BOUNDARY_RE = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】�
 // If the next char looks like part of a handle token, treat it as NOT a boundary.
 // This avoids prefix-matching `@opus-45` as `@opus`, while still allowing `@opus请看`.
 const HANDLE_CONTINUATION_RE = /[a-z0-9_.-]/;
-const CJK_ACTION_KEYWORDS = ['确认', '处理', '修复', '请', '帮', '决策', '看一下'] as const;
-const ASCII_ACTION_KEYWORDS = ['review', 'check', 'fix', 'merge'] as const;
-const ASCII_TOKEN_CHAR_RE = /[a-z0-9_]/;
 
 interface MentionPatternEntry {
   readonly catId: CatId;
   readonly pattern: string;
 }
 
+/** @deprecated Suppression system removed — line-start mentions always route. Kept for backward compat. */
 export type MentionSuppressionReason = 'no_action' | 'cross_paragraph';
 
+/** @deprecated Suppression system removed. Kept for backward compat. */
 export interface SuppressedA2AMention {
   readonly catId: CatId;
   readonly reason: MentionSuppressionReason;
@@ -43,35 +42,38 @@ export interface SuppressedA2AMention {
 
 export interface A2AMentionAnalysis {
   readonly mentions: CatId[];
+  /** @deprecated Always empty — suppression system removed. */
   readonly suppressed: SuppressedA2AMention[];
 }
 
+/** @deprecated Mode is ignored — line-start mentions always route regardless of mode. */
 export type MentionActionabilityMode = 'strict' | 'relaxed';
 
 export interface A2AMentionParseOptions {
-  /** strict = same paragraph only, relaxed = allow one blank line gap */
+  /** @deprecated Ignored — line-start mentions always route. Kept for backward compat. */
   readonly mode?: MentionActionabilityMode;
 }
 
 /**
  * Parse A2A @mentions from cat response text.
  * F27: Returns all matched CatIds (up to MAX_A2A_MENTION_TARGETS).
+ *
+ * Line-start @mention = always actionable. No keyword gate.
  */
 export function parseA2AMentions(
   text: string,
   currentCatId?: CatId,
-  options: A2AMentionParseOptions = {},
+  _options: A2AMentionParseOptions = {},
 ): CatId[] {
-  return analyzeA2AMentions(text, currentCatId, options).mentions;
+  return analyzeA2AMentions(text, currentCatId, _options).mentions;
 }
 
 export function analyzeA2AMentions(
   text: string,
   currentCatId?: CatId,
-  options: A2AMentionParseOptions = {},
+  _options: A2AMentionParseOptions = {},
 ): A2AMentionAnalysis {
   if (!text) return { mentions: [], suppressed: [] };
-  const mode = options.mode ?? 'strict';
 
   // 1. Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
@@ -91,12 +93,9 @@ export function analyzeA2AMentions(
   }
   entries.sort((a, b) => b.pattern.length - a.pattern.length);
 
-  // 3. Line-start matching with token boundary (one winning pattern per line)
+  // 3. Line-start matching with token boundary — always actionable (no keyword gate)
   const found: CatId[] = [];
-  const suppressed = new Map<CatId, MentionSuppressionReason>();
   const seen = new Set<string>();
-  const wholeMessage = stripped.toLowerCase();
-  const wholeMessageHasActionability = hasActionability(wholeMessage);
   const lines = stripped.split(/\r?\n/);
   for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
     const rawLine = lines[lineIndex]!;
@@ -113,19 +112,6 @@ export function analyzeA2AMentions(
       const charAfter = normalized[entry.pattern.length];
       const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
       if (!isBoundary) continue;
-      const paragraph = getParagraph(lines, lineIndex).toLowerCase();
-      const actionable = hasActionability(paragraph) || (
-        mode === 'relaxed' && hasActionabilityInAdjacentParagraph(lines, lineIndex)
-      );
-      if (!actionable) {
-        if (!seen.has(entry.catId) && !suppressed.has(entry.catId)) {
-          suppressed.set(entry.catId, wholeMessageHasActionability ? 'cross_paragraph' : 'no_action');
-        }
-        break;
-      }
-      // If this target was previously recorded as suppressed on another line,
-      // a later actionable mention should win and clear stale suppression.
-      suppressed.delete(entry.catId);
       if (!seen.has(entry.catId)) {
         seen.add(entry.catId);
         found.push(entry.catId);
@@ -134,60 +120,5 @@ export function analyzeA2AMentions(
     }
   }
 
-  return {
-    mentions: found,
-    suppressed: Array.from(suppressed, ([catId, reason]) => ({ catId, reason })),
-  };
-}
-
-function getParagraph(lines: readonly string[], lineIndex: number): string {
-  const { start, end } = getParagraphBounds(lines, lineIndex);
-  return lines.slice(start, end + 1).join('\n');
-}
-
-function getParagraphBounds(lines: readonly string[], lineIndex: number): { start: number; end: number } {
-  let start = lineIndex;
-  while (start > 0 && lines[start - 1]!.trim() !== '') start -= 1;
-
-  let end = lineIndex;
-  while (end + 1 < lines.length && lines[end + 1]!.trim() !== '') end += 1;
-
-  return { start, end };
-}
-
-function hasActionabilityInAdjacentParagraph(lines: readonly string[], lineIndex: number): boolean {
-  const { end } = getParagraphBounds(lines, lineIndex);
-  let scan = end + 1;
-  let blankLineCount = 0;
-  while (scan < lines.length && lines[scan]!.trim() === '') {
-    blankLineCount += 1;
-    scan += 1;
-  }
-  // Relaxed mode only tolerates one blank line (exactly one paragraph gap).
-  if (blankLineCount !== 1 || scan >= lines.length) {
-    return false;
-  }
-  return hasActionability(getParagraph(lines, scan).toLowerCase());
-}
-
-function hasActionability(paragraph: string): boolean {
-  if (CJK_ACTION_KEYWORDS.some((kw) => paragraph.includes(kw))) {
-    return true;
-  }
-  return ASCII_ACTION_KEYWORDS.some((kw) => containsAsciiToken(paragraph, kw));
-}
-
-function containsAsciiToken(text: string, token: string): boolean {
-  let index = text.indexOf(token);
-  while (index !== -1) {
-    const before = index > 0 ? text[index - 1] : '';
-    const after = text[index + token.length] ?? '';
-    const beforeBoundary = !before || !ASCII_TOKEN_CHAR_RE.test(before);
-    const afterBoundary = !after || !ASCII_TOKEN_CHAR_RE.test(after);
-    if (beforeBoundary && afterBoundary) {
-      return true;
-    }
-    index = text.indexOf(token, index + 1);
-  }
-  return false;
+  return { mentions: found, suppressed: [] };
 }

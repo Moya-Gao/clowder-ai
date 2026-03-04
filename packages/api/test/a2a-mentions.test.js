@@ -32,67 +32,73 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, ['opus']);
   });
 
-  it('does NOT route mention-only paragraph without action words', async () => {
+  // === Standalone mention: line-start @mention always routes ===
+
+  it('routes standalone @mention on its own line followed by content (no keywords needed)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@布偶猫', 'codex');
-    assert.deepEqual(result, []);
+    const text = '@codex\n砚砚方案如上。你按这个落地就行';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, ['codex']);
   });
 
-  it('does NOT route when action words are outside mention paragraph', async () => {
+  it('routes @mention + handoff language without action keywords', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n请 review 这个 PR';
+    const text = '@codex\n下一个你！';
+    const result = parseA2AMentions(text, 'opus');
+    assert.deepEqual(result, ['codex']);
+  });
+
+  it('routes @mention across paragraph boundary (blank line between mention and content)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n这是交接文档 blah blah';
     const result = parseA2AMentions(text, 'codex');
-    assert.deepEqual(result, []);
-  });
-
-  it('relaxed mode: routes when action words are in the next paragraph with one blank line', async () => {
-    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n请 review 这个 PR';
-    const result = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
     assert.deepEqual(result, ['opus']);
   });
 
-  it('relaxed mode: routes all mentions in the same mention paragraph when next paragraph has action words', async () => {
+  it('routes bare @mention (no other content in message)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n@缅因猫\n\n请 review 这个 PR';
-    const result = parseA2AMentions(text, 'gpt52', { mode: 'relaxed' });
+    const result = parseA2AMentions('@布偶猫', 'codex');
+    assert.deepEqual(result, ['opus']);
+  });
+
+  it('routes @mention with arbitrary text on same line (no keyword match)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const result = parseA2AMentions('@布偶猫 prefix typo', 'codex');
+    assert.deepEqual(result, ['opus']);
+  });
+
+  it('routes multiple @mentions across paragraphs', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n@缅因猫\n\n这是交接给你们的';
+    const result = parseA2AMentions(text, 'gpt52');
     assert.deepEqual(result, ['opus', 'codex']);
   });
 
-  it('relaxed mode: still does NOT route when action words are too far (two blank lines)', async () => {
+  // === Content-before-mention: 上文写内容，最后一行 @ (缅因猫习惯) ===
+
+  it('routes when content comes before @mention (content-before-mention pattern)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n\n请 review 这个 PR';
-    const result = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
-    assert.deepEqual(result, []);
+    const text = '这是交接文档，DARE 源码目录执行 + 业务项目 workspace\n是否接受完全禁用 --api-key argv\n@opus';
+    const result = parseA2AMentions(text, 'codex');
+    assert.deepEqual(result, ['opus']);
   });
 
-  it('records suppression reason=no_action when mention paragraph has no action keywords', async () => {
+  it('analyzeA2AMentions returns empty suppressed (no suppression system)', async () => {
     const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = analyzeA2AMentions('@布偶猫', 'codex');
-    assert.deepEqual(result.mentions, []);
-    assert.deepEqual(result.suppressed, [{ catId: 'opus', reason: 'no_action' }]);
-  });
-
-  it('records suppression reason=cross_paragraph when action keywords are in a different paragraph', async () => {
-    const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n请 review 这个 PR';
-    const result = analyzeA2AMentions(text, 'codex');
-    assert.deepEqual(result.mentions, []);
-    assert.deepEqual(result.suppressed, [{ catId: 'opus', reason: 'cross_paragraph' }]);
-  });
-
-  it('clears stale suppression when later mention to same cat is actionable', async () => {
-    const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const text = '@布偶猫\n\n@布偶猫 请 review 这个 PR';
-    const result = analyzeA2AMentions(text, 'codex');
     assert.deepEqual(result.mentions, ['opus']);
     assert.deepEqual(result.suppressed, []);
   });
 
-  it('does NOT route on action keyword substring collisions (prefix should not match fix)', async () => {
+  // === Backward compat: mode option is accepted but ignored ===
+
+  it('mode option is accepted but does not affect routing (backward compat)', async () => {
     const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
-    const result = parseA2AMentions('@布偶猫 prefix typo', 'codex');
-    assert.deepEqual(result, []);
+    const text = '@布偶猫\n\n这是交接文档';
+    const strict = parseA2AMentions(text, 'codex', { mode: 'strict' });
+    const relaxed = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
+    assert.deepEqual(strict, ['opus']);
+    assert.deepEqual(relaxed, ['opus']);
   });
 
   it('does NOT trigger for non-line-start @mention', async () => {

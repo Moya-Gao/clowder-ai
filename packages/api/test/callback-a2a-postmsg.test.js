@@ -180,6 +180,33 @@ describe('post_message A2A mention invocation', () => {
     assert.deepEqual(invocationRecordStore.getRecords()[0].targetCats, ['codex']);
   });
 
+  // Content-before-mention regression: 上面写内容，最后一行 @ (缅因猫习惯)
+  test('post-message with content-before-mention triggers invocation', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', { threadId: 't1' });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        content: '这是交接文档，DARE 源码目录执行\n是否接受完全禁用 --api-key argv\n@缅因猫',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+
+    const recent = messageStore.getRecent(10);
+    const lastMsg = recent[recent.length - 1];
+    assert.ok(lastMsg.mentions.includes('codex'),
+      'Content-before-mention: codex should be mentioned when @缅因猫 is on last line');
+
+    const records = invocationRecordStore.getRecords();
+    const a2aRecord = records.find(r => r.targetCats.includes('codex'));
+    assert.ok(a2aRecord, 'Content-before-mention should trigger A2A invocation for codex');
+  });
+
   test('post-message skips redundant A2A when target already covered by active parent invocation', async () => {
     const mockInvocationTracker = {
       has() { return true; },

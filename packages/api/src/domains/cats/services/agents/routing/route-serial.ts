@@ -18,7 +18,7 @@ import { resolveDefaultClaudeMcpServerPath } from '../providers/ClaudeAgentServi
 import { invokeSingleCat } from '../invocation/invoke-single-cat.js';
 import type { StoredToolEvent } from '../../stores/ports/MessageStore.js';
 import type { AgentMessage, AgentMessageType, MessageMetadata } from '../../types.js';
-import { analyzeA2AMentions, getMaxA2ADepth } from '../routing/a2a-mentions.js';
+import { parseA2AMentions, getMaxA2ADepth } from '../routing/a2a-mentions.js';
 import { registerWorklist, unregisterWorklist } from '../routing/WorklistRegistry.js';
 import { assembleContext } from '../../context/ContextAssembler.js';
 import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
@@ -41,7 +41,6 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
-import type { MentionActionabilityMode } from '../../stores/ports/ThreadStore.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -87,12 +86,10 @@ export async function* routeSerial(
   }
   // F042: Fetch thread routingPolicy once before loop (threadId doesn't change).
   let routingPolicy: ThreadRoutingPolicyV1 | undefined;
-  let mentionActionabilityMode: MentionActionabilityMode = 'strict';
   if (deps.invocationDeps.threadStore) {
     try {
       const thread = await deps.invocationDeps.threadStore.get(threadId);
       routingPolicy = thread?.routingPolicy;
-      mentionActionabilityMode = thread?.mentionActionabilityMode ?? 'strict';
     } catch { /* best-effort */ }
   }
 
@@ -383,16 +380,14 @@ export async function* routeSerial(
       }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
-      const mentionAnalysis = analyzeA2AMentions(storedContent, catId, { mode: mentionActionabilityMode });
-      a2aMentions = mentionAnalysis.mentions;
-      const suppressedMentions = mentionAnalysis.suppressed;
+      // Line-start @mention = always actionable (no keyword gate)
+      a2aMentions = parseA2AMentions(storedContent, catId);
       const storedTimestamp = Date.now();
-      let storedMessageId: string | undefined;
 
       // Store with actual mentions — degrade on failure to ensure done reaches frontend
       // (缅因猫 review P1-2: Redis failure must not block done yield)
       try {
-        const stored = await deps.messageStore.append({
+        await deps.messageStore.append({
           userId,
           catId,
           content: storedContent,
@@ -408,7 +403,6 @@ export async function* routeSerial(
             ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
           },
         });
-        storedMessageId = stored.id;
         // #80: Clean up draft only after successful append (guard: keep draft if append fails)
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
@@ -429,21 +423,6 @@ export async function* routeSerial(
             catId: catId as string,
             error: err instanceof Error ? err.message : String(err),
           });
-        }
-      }
-
-      if (suppressedMentions.length > 0 && deps.invocationDeps.threadStore) {
-        try {
-          await deps.invocationDeps.threadStore.setMentionRoutingFeedback(threadId, catId, {
-            ...(storedMessageId ? { sourceMessageId: storedMessageId } : {}),
-            sourceTimestamp: storedTimestamp,
-            items: suppressedMentions.map((entry) => ({
-              targetCatId: entry.catId,
-              reason: entry.reason,
-            })),
-          });
-        } catch (feedbackErr) {
-          console.warn(`[routeSerial] setMentionRoutingFeedback failed for ${catId as string}, degrading:`, feedbackErr);
         }
       }
 

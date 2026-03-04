@@ -147,11 +147,11 @@ describe('F046 B5 runtime regression scenarios', () => {
     }
   });
 
-  it('D1 no-action mention: should not route', async () => {
+  it('line-start @mention always routes (no keyword gate)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '@缅因猫 收到，我在等'),
-      codex: createMockService('codex', 'should not run'),
+      codex: createMockService('codex', '收到'),
     });
 
     const messages = [];
@@ -161,8 +161,8 @@ describe('F046 B5 runtime regression scenarios', () => {
 
     const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
     const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
-    assert.equal(handoffs.length, 0, 'no-action mention should not trigger handoff');
-    assert.equal(codexText.length, 0, 'no-action mention should not invoke codex');
+    assert.equal(handoffs.length, 1, 'line-start mention should trigger handoff (no keyword gate)');
+    assert.ok(codexText.length > 0, 'line-start mention should invoke codex');
   });
 
   it('D1 actionable mention in same paragraph: should route', async () => {
@@ -199,14 +199,13 @@ describe('F046 B5 runtime regression scenarios', () => {
     assert.ok(codexText.length > 0, 'CJK actionable mention should invoke codex');
   });
 
-  it('D1 hot switch relaxed: cross-paragraph actionability should route', async () => {
+  it('cross-paragraph @mention routes without mode setting (keyword gate removed)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D1 relaxed');
-    threadStore.updateMentionActionabilityMode(thread.id, 'relaxed');
+    const thread = threadStore.create('user1', 'no keyword gate');
     const deps = createMockDeps({
-      opus: createMockService('opus', '@缅因猫\n\n请 review 这个改动'),
+      opus: createMockService('opus', '@缅因猫\n\n这是交接文档'),
       codex: createMockService('codex', '收到，开始 review'),
     }, threadStore);
 
@@ -217,15 +216,15 @@ describe('F046 B5 runtime regression scenarios', () => {
 
     const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
     const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
-    assert.equal(handoffs.length, 1, 'relaxed mode should allow one-paragraph-gap routing');
-    assert.ok(codexText.length > 0, 'relaxed mode should invoke codex');
+    assert.equal(handoffs.length, 1, 'cross-paragraph mention should route (no keyword gate)');
+    assert.ok(codexText.length > 0, 'codex should be invoked');
   });
 
-  it('D1 token-boundary: "prefix" should not match action token "fix"', async () => {
+  it('line-start @mention with arbitrary text routes (no keyword matching)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({
       opus: createMockService('opus', '@缅因猫 prefix issue'),
-      codex: createMockService('codex', 'should not run'),
+      codex: createMockService('codex', '收到'),
     });
 
     const messages = [];
@@ -234,7 +233,7 @@ describe('F046 B5 runtime regression scenarios', () => {
     }
 
     const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
-    assert.equal(codexText.length, 0, 'substring token should not trigger routing');
+    assert.ok(codexText.length > 0, 'line-start @mention routes regardless of text content');
   });
 
   it('D2 metadata is handle-free in invocation context', async () => {
@@ -256,77 +255,25 @@ describe('F046 B5 runtime regression scenarios', () => {
     assert.ok(!ctx.includes('最近活跃：@opus'), 'activity should not use @handle');
   });
 
-  it('D3 one-shot feedback: injects no_action suppression once and then clears', async () => {
+  it('no routing suppression feedback injected (suppression system removed)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D3 no_action');
+    const thread = threadStore.create('user1', 'no suppression');
+    const opusService = createCapturingService('opus', '收到');
     const codexService = createSequentialCapturingService('codex', [
       '@布偶猫',
-      '收到，改成可执行请求',
-      '第三次调用',
+      '第二次调用',
     ]);
-    const deps = createMockDeps({ codex: codexService }, threadStore);
-
-    for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-    for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-    for await (const _ of routeSerial(deps, ['codex'], 'third', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-
-    assert.equal(codexService.calls.length, 3, 'codex should be called across three invocations');
-    assert.match(
-      codexService.calls[1],
-      /Routing feedback\(one-shot\): .*reason=no_action/,
-      'second invocation should include one-shot no_action feedback',
-    );
-    assert.ok(
-      !codexService.calls[2].includes('Routing feedback(one-shot):'),
-      'third invocation should not repeat one-shot feedback',
-    );
-  });
-
-  it('D3 feedback records cross_paragraph reason', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
-    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D3 cross_paragraph');
-    const codexService = createSequentialCapturingService('codex', [
-      '@布偶猫\n\n请 review 这个改动',
-      '收到',
-    ]);
-    const deps = createMockDeps({ codex: codexService }, threadStore);
+    const deps = createMockDeps({ codex: codexService, opus: opusService }, threadStore);
 
     for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
     for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
 
-    assert.equal(codexService.calls.length, 2, 'codex should be called twice');
-    assert.match(
-      codexService.calls[1],
-      /Routing feedback\(one-shot\): .*reason=cross_paragraph/,
-      'second invocation should include cross_paragraph feedback reason',
-    );
-  });
-
-  it('D3 clears stale suppression when later mention for same target is actionable', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
-    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D3 suppression clear');
-
-    const opusService = createSequentialCapturingService('opus', [
-      '@缅因猫\n\n@缅因猫 请 review 这个改动',
-      '第二次无 mention',
-    ]);
-    const codexService = createCapturingService('codex', '收到');
-    const deps = createMockDeps({ opus: opusService, codex: codexService }, threadStore);
-
-    for await (const _ of routeSerial(deps, ['opus'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-    for await (const _ of routeSerial(deps, ['opus'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-
-    assert.equal(opusService.calls.length, 2, 'opus should be called twice');
-    assert.equal(codexService.calls.length, 1, 'codex should be invoked once by actionable mention');
+    // Bare @布偶猫 now routes, and no feedback is injected
     assert.ok(
-      !opusService.calls[1].includes('Routing feedback(one-shot):'),
-      'second invocation should not receive stale suppression feedback',
+      !codexService.calls[1].includes('Routing feedback(one-shot):'),
+      'routing suppression feedback should never appear (system removed)',
     );
   });
 });

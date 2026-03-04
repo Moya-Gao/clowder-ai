@@ -487,53 +487,32 @@ describe('routeSerial A2A worklist', () => {
     assert.ok(!prompt.includes('SECRET'), 'whisper content must NOT leak via fallback injection');
   });
 
-  it('D3 one-shot feedback: injects no_action suppression once and then clears', async () => {
+  it('line-start @mention always routes without keyword gate (no suppression feedback)', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
     const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D3 no_action');
+    const thread = threadStore.create('user1', 'no suppression');
+    const opusService = createCapturingService('opus', '收到');
     const codexService = createSequentialCapturingService('codex', [
       '@布偶猫',
-      '收到，改成可执行请求',
-      '第三次调用',
+      '第二次调用',
     ]);
-    const deps = createMockDeps({ codex: codexService }, undefined, threadStore);
+    const deps = createMockDeps({ codex: codexService, opus: opusService }, undefined, threadStore);
 
-    for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {
+      messages.push(msg);
+    }
+
+    // @布偶猫 alone should now trigger A2A handoff (no keyword required)
+    const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
+    assert.equal(handoffs.length, 1, 'bare @布偶猫 should trigger A2A handoff without action keywords');
+
+    // Second invocation should NOT have any routing feedback (suppression system removed)
     for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-    for await (const _ of routeSerial(deps, ['codex'], 'third', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-
-    assert.equal(codexService.calls.length, 3, 'codex should be called across three invocations');
-    assert.match(
-      codexService.calls[1],
-      /Routing feedback\(one-shot\): .*reason=no_action/,
-      'second invocation should include one-shot no_action feedback',
-    );
     assert.ok(
-      !codexService.calls[2].includes('Routing feedback(one-shot):'),
-      'third invocation should not repeat one-shot feedback',
-    );
-  });
-
-  it('D3 feedback records cross_paragraph reason', async () => {
-    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
-    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
-    const threadStore = new ThreadStore();
-    const thread = threadStore.create('user1', 'D3 cross_paragraph');
-    const codexService = createSequentialCapturingService('codex', [
-      '@布偶猫\n\n请 review 这个改动',
-      '收到',
-    ]);
-    const deps = createMockDeps({ codex: codexService }, undefined, threadStore);
-
-    for await (const _ of routeSerial(deps, ['codex'], 'first', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-    for await (const _ of routeSerial(deps, ['codex'], 'second', 'user1', thread.id, { thinkingMode: 'debug' })) {}
-
-    assert.equal(codexService.calls.length, 2, 'codex should be called twice');
-    assert.match(
-      codexService.calls[1],
-      /Routing feedback\(one-shot\): .*reason=cross_paragraph/,
-      'second invocation should include cross_paragraph feedback reason',
+      !codexService.calls[1].includes('Routing feedback(one-shot):'),
+      'no routing feedback should be injected (suppression system removed)',
     );
   });
 

@@ -9,7 +9,7 @@ import { createCatId, catRegistry } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { InvocationRegistry } from '../domains/cats/services/agents/invocation/InvocationRegistry.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
-import type { IThreadStore, MentionActionabilityMode } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { IInvocationRecordStore } from '../domains/cats/services/stores/ports/InvocationRecordStore.js';
@@ -176,7 +176,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       }
 
       let effectiveThreadId = record.threadId;
-      let mentionActionabilityMode: MentionActionabilityMode = 'strict';
       if (threadId && threadId !== record.threadId) {
         if (!threadStore) {
           reply.status(503);
@@ -188,15 +187,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           return { error: 'Thread access denied' };
         }
         effectiveThreadId = threadId;
-        mentionActionabilityMode = targetThread.mentionActionabilityMode ?? 'strict';
-      } else if (threadStore) {
-        try {
-          const thread = await threadStore.get(effectiveThreadId);
-          mentionActionabilityMode = thread?.mentionActionabilityMode ?? 'strict';
-        } catch {
-          // best-effort fallback to strict
-          mentionActionabilityMode = 'strict';
-        }
       }
 
       // At-least-once de-duplication: retries with same clientMessageId are treated as duplicate.
@@ -233,7 +223,6 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       const targetCats = parseA2AMentions(
         storedContent,
         isCrossThread ? undefined : senderCatId,
-        { mode: mentionActionabilityMode },
       );
       const mentions: CatId[] = [...targetCats];
       const crossPostExtra = isCrossThread

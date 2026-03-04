@@ -168,8 +168,6 @@ export interface Thread {
   favoritedAt?: number | null;
   /** CLI stream visibility mode: play = 💭心里话 hidden cross-cat, debug = 💭心里话 shared cross-cat. 🧠Thinking (extended reasoning) is NEVER shared regardless of mode. */
   thinkingMode?: 'debug' | 'play';
-  /** F046 D1 hot switch: strict=same paragraph, relaxed=allow one blank line between mention and action. */
-  mentionActionabilityMode?: 'strict' | 'relaxed';
   /** F32-b: Thread-level default cat preference */
   preferredCats?: string[];
   /** F049: workflow phase for mission-control dispatch */

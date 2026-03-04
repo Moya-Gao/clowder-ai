@@ -285,9 +285,8 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
       lines.push(`同族多分身时：默认 \`@显示名\`，其它用**唯一句柄**（例如 \`${example}\`）。`);
       lines.push(`同名队友并存时，请优先使用唯一句柄（例如 \`${example}\`）避免歧义。`);
     }
-    lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行），并在同一段写动作请求。');
-    lines.push(`✅ 正确：另起一行 ${exampleTarget} 请确认这个安排`);
-    lines.push(`❌ 错误：怎么样 ${exampleTarget}？ ← 行中间无效`);
+    lines.push('格式：另起一行行首写 @猫名（行中无效，多猫各占一行），上文或下文写请求均可。');
+    lines.push(`✅ ${exampleTarget}\\n请帮忙  ✅ 内容...\\n${exampleTarget}  ❌ 行中 ${exampleTarget}`);
     lines.push('');
   }
 
@@ -351,36 +350,6 @@ export function buildInvocationContext(context: InvocationContext): string {
     const fromConfig = getConfig(context.directMessageFrom as string);
     const fromLabel = formatHandleFreeLabel(context.directMessageFrom as string, fromConfig);
     lines.push(`Direct message from ${fromLabel}; reply to ${fromLabel}`);
-  }
-
-  if (context.mentionRoutingFeedback?.items?.length) {
-    const dedupItems = context.mentionRoutingFeedback.items.filter((item, idx, arr) => (
-      arr.findIndex((candidate) => (
-        candidate.targetCatId === item.targetCatId
-        && candidate.reason === item.reason
-      )) === idx
-    ));
-    const targetLabels = dedupItems.map((item) => {
-      const cfg = getConfig(item.targetCatId as string);
-      return formatHandleFreeLabel(item.targetCatId as string, cfg);
-    });
-    const reasonOrder: Array<'no_action' | 'cross_paragraph'> = ['no_action', 'cross_paragraph'];
-    const reasons = reasonOrder.filter((reason) => dedupItems.some((item) => item.reason === reason));
-    const reasonLabel = reasons.map((reason) => (
-      reason === 'cross_paragraph'
-        ? 'reason=cross_paragraph（动作词在不同段落）'
-        : 'reason=no_action（未检测到行动请求）'
-    )).join('；');
-    const sourceSuffix = context.mentionRoutingFeedback.sourceMessageId
-      ? `sourceMessageId=${context.mentionRoutingFeedback.sourceMessageId}`
-      : `sourceTs=${context.mentionRoutingFeedback.sourceTimestamp}`;
-
-    lines.push(
-      `Routing feedback(one-shot): 你上一条给 ${targetLabels.join(' / ')} 的 @ 提及未触发路由（${reasonLabel}；${sourceSuffix}）。`,
-    );
-    lines.push(
-      '如需联系队友，请在同一段明确动作词并使用行首 mention，例如：`@opus 请 review 这个改动`（或 `@opus\\n请 review...`，中间不要空行）。',
-    );
   }
 
   // Teammates — only list cats actually in this invocation

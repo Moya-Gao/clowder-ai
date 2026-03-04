@@ -253,11 +253,10 @@ describe('Callback Routes', () => {
     assert.equal(threadBMessages[0].content, 'cross-thread hello');
   });
 
-  test('POST post-message respects target thread mentionActionabilityMode=relaxed', async () => {
+  test('POST post-message routes cross-paragraph @mention (no keyword gate)', async () => {
     const app = await createApp();
     const threadA = await threadStore.create('user-1', 'thread-a');
     const threadB = await threadStore.create('user-1', 'thread-b');
-    threadStore.updateMentionActionabilityMode(threadB.id, 'relaxed');
     const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
 
     const response = await app.inject({
