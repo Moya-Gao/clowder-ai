@@ -3,7 +3,7 @@ feature_ids: [F051]
 topics: [quota, dashboard, usage, scheduling, degradation, claudebar, gemini, antigravity]
 doc_kind: spec
 created: 2026-03-02
-updated: 2026-03-04
+updated: 2026-03-05
 ---
 
 # F051 — 猫粮看板（Quota Board）
@@ -57,9 +57,18 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 | Pool | 数据源 | Cat Café 映射 | 调度意义 |
 |------|--------|--------------|---------|
-| Session 5h | `ccusage blocks --json` | `@opus` `@sonnet` 当前窗口 | 当前能聊多少 |
-| Weekly all models | `ccusage blocks --json` | 布偶猫全家 | 本周总预算 |
-| Weekly per-model (Opus/Sonnet) | `ccusage blocks --json` | 各分身 | Opus 不够→降级 Sonnet |
+| Session 5h | Anthropic OAuth API | `@opus` `@sonnet` 当前窗口 | 当前能聊多少 |
+| Weekly all models | Anthropic OAuth API | 布偶猫全家 | 本周总预算 |
+| Weekly Sonnet | Anthropic OAuth API | `@sonnet` | Sonnet 独立限额 |
+| Weekly Opus | Anthropic OAuth API | `@opus` | Opus 不够→降级 Sonnet |
+
+**数据源详情（对齐 ClaudeBar `ClaudeAPIUsageProbe`）**：
+
+- **API**: `GET https://api.anthropic.com/api/oauth/usage`
+- **认证**: Bearer token，凭证来自 `~/.claude/.credentials.json`
+- **Token 刷新**: `POST https://platform.claude.com/v1/oauth/token`，client_id = `9d1c250a-e61b-44d9-88ed-5944d1962f5e`
+- **响应字段**: `five_hour` (session), `seven_day` (weekly all), `seven_day_sonnet`, `seven_day_opus`, `extra_usage` (付费额度 cents)
+- **Fallback**: `claude /usage` CLI 解析终端输出（ClaudeBar 的 `ClaudeUsageProbe`）
 
 #### 缅因猫 (OpenAI) 额度池 — 4 个独立池！
 
@@ -72,21 +81,30 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 > **关键洞察**：`@codex` 本地编码和云端 Codex review 消耗的是**不同的额度池**。代码审查额度见底不影响本地编码，反之亦然。这直接影响 review 调度策略。
 
+**数据源详情（对齐 ClaudeBar `CodexAPIUsageProbe`）**：
+
+- **API**: `GET https://chatgpt.com/backend-api/wham/usage`
+- **认证**: Bearer token（OpenAI OAuth），需 `ChatGPT-Account-Id` header
+- **Token 刷新**: `POST https://auth.openai.com/oauth/token`，client_id = `app_EMoamEEZ73f0CkXaXp7hrann`，grant_type = `refresh_token`
+- **响应**: HTTP headers (`x-codex-primary-used-percent`, `x-codex-secondary-used-percent`, `x-codex-credits-balance`) + JSON body (`rate_limit.primary_window.used_percent`, `reset_at` 等)
+- **Fallback**: `codex` CLI 输出解析（regex `([0-9]{1,3})%\s+left`）— ClaudeBar 的 `CodexUsageProbe`
+
 #### 暹罗猫 (Gemini / Antigravity) 额度池
 
-ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
-
-**Gemini (Google AI)**
+**Gemini (Google AI)**（对齐 ClaudeBar `GeminiAPIProbe`）
 
 | Pool | 数据源 | Cat Café 映射 | 调度意义 |
 |------|--------|--------------|---------|
-| Per-model quotas | `cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota` | `@gemini` `@gemini25` | Gemini 各模型余量 |
+| Per-model quotas | Google internal API | `@gemini` `@gemini25` | Gemini 各模型余量 |
 
-- **认证**: `~/.gemini/oauth_creds.json` (Google OAuth)
-- **响应格式**: JSON `buckets[]` 含 model / remainingFraction / resetTime
+- **API**: `POST https://cloudcode-pa.googleapis.com/v1internal:retrieveUserQuota`
+- **认证**: Bearer token，凭证来自 `~/.gemini/oauth_creds.json` (Google OAuth)
+- **请求体**: `{"project": "projectId"}` 或 `{}`
+- **响应格式**: JSON `buckets[]`，每个含 `modelId`, `remainingFraction`, `resetTime`, `tokenType`
 - **处理**: 按 model 分组，取每个 model 的最低 remainingFraction
+- **Token 刷新**: 失败时执行 `gemini` CLI 触发 OAuth 刷新
 
-**Antigravity (Codeium IDE)**
+**Antigravity (Codeium IDE)**（对齐 ClaudeBar `AntigravityUsageProbe`）
 
 | Pool | 数据源 | Cat Café 映射 | 调度意义 |
 |------|--------|--------------|---------|
@@ -96,6 +114,34 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 - **端点 (POST)**: `LanguageServerService/GetUserStatus` + `GetCommandModelConfigs`
 - **认证**: `X-Codeium-Csrf-Token` header (本地进程自动提取)
 - **TLS**: 先尝试 HTTPS，回退 HTTP，接受 localhost 自签名证书
+
+### v3 数据源架构决策（2026-03-05 纠偏）
+
+> **铲屎官原话**："你这猫猫！我让你对齐愿景看这个！你竟然到现在没看过？"
+
+**v2 的错误**：用 Puppeteer + Chrome CDP 抓取官方 usage 页面的 `innerText`，再用 regex 匹配。
+
+**问题**：
+1. 需要完整 Chrome 进程（~300MB 内存）+ CDP 调试端口
+2. 隔离 Chrome 没有登录态 → 页面是登录页 → parse 失败
+3. 页面改版（DOM/文案变化）直接炸
+4. Puppeteer 是重依赖
+
+**v3 的正确方案**（对齐 ClaudeBar 开源实现）：
+
+| Provider | v2（废弃） | v3（正确） |
+|----------|-----------|-----------|
+| Claude | CDP 抓 `claude.ai/settings/usage` | **Anthropic OAuth API** (`/api/oauth/usage`) |
+| Codex | CDP 抓 `chatgpt.com/codex/settings/usage` | **OpenAI Wham API** (`/backend-api/wham/usage`) |
+| Gemini | PATCH 推送（已实现） | **Google internal API** (保留 PATCH 作为 fallback) |
+| Antigravity | PATCH 推送（已实现） | **本地 LS RPC** (保留 PATCH 作为 fallback) |
+
+**Fallback 层级**（每个 provider）：
+1. API 直连（首选，最快最稳）
+2. CLI 解析（`claude /usage` / `codex` 终端输出）
+3. PATCH 推送（Gemini/Antigravity 现有通道保留）
+
+**砍掉**：Puppeteer 依赖、Chrome CDP 自动启动、隔离浏览器 profile、`readPageTextFromConnectedChrome`、`resolveBrowserCdpUrl` 及其全部配置项（`QUOTA_BROWSER_*` 环境变量）
 
 ### 2. Hub 猫粮看板（重做）
 
@@ -220,6 +266,16 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 | Gemini 数据源 | ClaudeBar 同源 (Google internal API + OAuth) | 自建 scraper | ClaudeBar 已验证可行，不造轮子 |
 | Antigravity 数据源 | ClaudeBar 同源 (本地 Language Server RPC) | 无 | 本地进程自动发现，无需外部 API |
 
+### v3 决策（2026-03-05 数据源纠偏）
+
+| 决策 | 选择 | 否决 | 原因 |
+|------|------|------|------|
+| Claude 数据源 | Anthropic OAuth API (`/api/oauth/usage`) | ~~CDP 抓 claude.ai~~ | API 稳定、轻量、ClaudeBar 已验证 |
+| Codex 数据源 | OpenAI Wham API (`/backend-api/wham/usage`) | ~~CDP 抓 chatgpt.com~~ | HTTP headers 直接给百分比，无需 parse DOM |
+| 浏览器依赖 | **全部砍掉** (Puppeteer + CDP + Chrome) | ~~保留作 fallback~~ | 300MB Chrome 进程 + 登录态维护 = 过度工程 |
+| Fallback 策略 | CLI 输出解析 (`claude /usage` / `codex`) | 浏览器 fallback | CLI 轻量可靠，ClaudeBar 同策略 |
+| Gemini/Antigravity | 保留 PATCH 推送 + 新增 API 直连 | 仅 PATCH | API 直连更主动，PATCH 作 fallback |
+
 ### v1 决策（保留参考）
 
 | 决策 | 选择 | 否决 | 原因 |
@@ -230,19 +286,22 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 
 ## Dependencies
 
-- `ccusage` CLI 可用（Claude 额度）— 或 ClaudeBar 的 OAuth 方式 (`~/.claude/.credentials.json`)
-- Chrome CDP 可用 + OpenAI usage 页面已登录（Codex 额度）— 或 ClaudeBar 的 OAuth 方式
+- `~/.claude/.credentials.json` 存在且含 refresh_token（Claude OAuth API）
+- OpenAI OAuth refresh_token 可用（Codex Wham API）— 凭证存储方式待定
 - `~/.gemini/oauth_creds.json` 存在（Gemini 额度）
 - Antigravity IDE 正在运行（Antigravity 额度，本地 Language Server 自动发现）
 - ClaudeBar 安装（macOS 菜单栏 + 原生通知）
+- **不再依赖**：~~Chrome~~、~~Puppeteer~~、~~CDP~~
 
 ## Risk
 
 | 风险 | 影响 | 缓解 |
 |------|------|------|
-| 官方页面结构变更 | 抓取失败 | 显示"抓取失败"，不推导冒充 |
+| OAuth token 过期/失效 | 请求 401 | 自动 refresh；失败则提示用户重新登录 |
+| API endpoint 变更 | 请求失败 | ClaudeBar 开源社区会跟进，我们同步更新 |
 | ClaudeBar 停止维护 | 菜单栏功能断 | ClaudeBar 开源可 fork；或回退到 SwiftBar |
 | OpenAI 额度池未来再拆分 | 模型需更新 | 后端返回动态 pool 列表，前端按列表渲染 |
+| Wham API 需要 account-id | 获取逻辑复杂 | 参考 ClaudeBar 实现，从 session 中提取 |
 
 ## Open Questions
 
@@ -250,15 +309,18 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 2. ~~Antigravity 额度模型和抓取方式（下一迭代）~~ **已确认（2026-03-04）**：ClaudeBar 已实现 — Gemini 走 Google internal API，Antigravity 走本地 Language Server RPC
 3. 额度数据是否需要持久化做趋势分析（目前只做实时快照）
 4. 调度建议是否应该从"文字提示"升级为"一键切换"（影响 AgentRouter）
+5. OpenAI OAuth refresh_token 如何获取和存储？ClaudeBar 用 macOS Keychain，我们 Node.js 后端可能需要文件或 env var
+6. Codex Wham API 的 `ChatGPT-Account-Id` 从哪里获取？ClaudeBar 从 session 中提取
 
-## What We're Keeping from v1
+## What We're Keeping from v1/v2
 
 - **后端 API**：`/api/quota`、`/api/quota/probes`、`/api/quota/refresh/*`（需要扩展返回粒度）
-- **ccusage CLI 集成**（Claude 额度数据源）
-- **浏览器 CDP 抓取**（OpenAI 额度数据源）
 - **On-demand 刷新模型**
 - **Probe Registry 架构**（`enabled` / `status` 语义）
+- **PATCH 推送通道**（Gemini/Antigravity 保留作为 fallback）
 - **测试覆盖**（quota-api.test.js 等）
+- **前端 glanceable list UI**（v2 已实现，保留）
+- **额度粒度模型**（4 个 Codex 池 + Claude per-model + Gemini per-model）
 
 ## What We're Dropping from v1
 
@@ -271,6 +333,11 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 | Web Push 通知基建 (SW + VAPID + 订阅管理) | 被 ClaudeBar 原生通知替代 |
 | 通知能力矩阵 UI | 不再需要（ClaudeBar 原生处理） |
 | 探针运维 UI (probe hints, CDP 配置提示) | 移到开发者控制台，不在看板里 |
+| **Puppeteer + Chrome CDP 浏览器抓取** (v3 砍) | 被 OAuth API 直连替代 |
+| **`QUOTA_BROWSER_*` 全部环境变量** (v3 砍) | 不再需要浏览器 |
+| **`readPageTextFromConnectedChrome`** (v3 砍) | 被 API 直连替代 |
+| **`resolveBrowserCdpUrl` + 自动启动逻辑** (v3 砍) | 被 API 直连替代 |
+| **`parseCodexUsageFromPageText` / `parseClaudeUsageFromPageText`** (v3 砍) | 页面文本 parser 被 JSON API 替代 |
 
 ## Review Gate (v2)
 
@@ -291,6 +358,10 @@ ClaudeBar 已实现 Gemini 和 Antigravity 的额度获取，数据源如下：
 | **2026-03-04** | **Owner 从缅因猫转移到布偶猫** |
 | **2026-03-04** | **研究 ClaudeBar 数据源：确认 Gemini (Google internal API) + Antigravity (本地 LS RPC) 已有成熟实现** |
 | **2026-03-04** | **关闭 Open Question #2 — Antigravity/Gemini 接入方式已明确** |
+| **2026-03-04** | **v2 实装完成**: TDD (44 tests) + 砚砚 R1→R2 + 云端 R1→R2，PR #207 合入 main |
+| **2026-03-04** | **Post-merge hotfix**: 错误消息去重 (`new Set()`) |
+| **2026-03-05** | **v3 数据源纠偏**: 铲屎官指出"你竟然没看 ClaudeBar 源码" |
+| **2026-03-05** | **决策**: 砍掉 Puppeteer+CDP 浏览器方案，改用 ClaudeBar 同源 OAuth API 直连 |
 
 ## Links
 
