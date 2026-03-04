@@ -1,5 +1,6 @@
 ---
 feature_ids: [F053]
+related_features: [F033]
 topics: [gemini, session, resume, parity, reliability]
 doc_kind: feature-spec
 created: 2026-03-03

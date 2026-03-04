@@ -1,5 +1,6 @@
 ---
 feature_ids: [F046]
+related_features: [F041]
 topics: [vision-drift, anti-drift, sop, review, process, multi-agent]
 doc_kind: spec
 created: 2026-02-27

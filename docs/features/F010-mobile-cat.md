@@ -1,5 +1,6 @@
 ---
 feature_ids: [F010]
+related_features: [F020, F022, F034]
 topics: [mobile, cat]
 doc_kind: note
 created: 2026-02-26

@@ -42,6 +42,7 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
    ```yaml
    ---
    feature_ids: [F042]
+   related_features: []
    topics: [关键词]
    doc_kind: spec
    created: 2026-02-28

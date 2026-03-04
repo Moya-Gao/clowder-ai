@@ -1,5 +1,6 @@
 ---
 feature_ids: [F055]
+related_features: [F045]
 topics: [plan-board, task-progress, multi-cat, right-panel, ux]
 doc_kind: spec
 created: 2026-03-03
