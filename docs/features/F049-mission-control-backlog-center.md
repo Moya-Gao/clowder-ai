@@ -114,6 +114,7 @@ F049 的核心操作包含：claim/lease/heartbeat/原子派发/审计。这是�
 - **Evolved from**: F037
 - **~~F042 毕业~~**: routing-policy-scopes 已在 F042 PR #148 完成，不再需要 F049 承接
 - **Depends on**: F043（`list_threads`/`feat_index` 提供更完整协作基建；但 Phase4 态势图 MVP 不以其为硬阻塞）
+- **Evolves into**: F058（Mission Control 增强 — bug 修复 + 可靠性 + UX）
 - **Blocks**: （待定）
 
 ## Open Questions
