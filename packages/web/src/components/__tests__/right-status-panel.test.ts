@@ -141,7 +141,8 @@ describe('RightStatusPanel', () => {
 
     expect(html).toContain('当前调用');
     expect(html).toContain('缅因猫');
-    expect(html).toContain('执行计划');
+    // F055: task progress now in 猫猫祟祟 panel, not in 当前调用
+    expect(html).toContain('猫猫祟祟');
     expect(html).toContain('Reviewing PR');
   });
 
@@ -174,12 +175,13 @@ describe('RightStatusPanel', () => {
     });
 
     expect(html).toContain('当前调用');
-    expect(html).toContain('历史参与');
     expect(html).toContain('布偶猫');
-    expect(html).not.toContain('Review PR');
+    // F055: completed plan folds in 猫猫祟祟
+    expect(html).toContain('猫猫祟祟');
+    expect(html).toContain('已完成 (1)');
   });
 
-  it('keeps interrupted snapshots in 当前调用 with continue action', () => {
+  it('keeps interrupted snapshots in 猫猫祟祟 with continue action', () => {
     const html = render({
       intentMode: 'execute',
       targetCats: ['opus'],
@@ -207,13 +209,13 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('当前调用');
+    expect(html).toContain('猫猫祟祟');
     expect(html).toContain('缅因猫');
     expect(html).toContain('已中断');
     expect(html).toContain('继续');
   });
 
-  it('renders task progress when available', () => {
+  it('renders task progress in 猫猫祟祟 panel', () => {
     const html = render({
       intentMode: 'execute',
       targetCats: ['opus'],
@@ -241,7 +243,7 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('执行计划');
+    expect(html).toContain('猫猫祟祟');
     expect(html).toContain('1/3');
     expect(html).toContain('Fix auth bug');
     expect(html).toContain('Adding caching');

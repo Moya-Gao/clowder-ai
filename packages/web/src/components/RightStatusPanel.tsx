@@ -12,8 +12,7 @@ import { useCatData, formatCatName } from '@/hooks/useCatData';
 import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 import { SessionChainPanel } from './SessionChainPanel';
-import { useSendMessage } from '@/hooks/useSendMessage';
-import { buildContinueMessage } from '@/utils/taskProgressContinue';
+import { PlanBoardPanel } from './PlanBoardPanel';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -36,87 +35,14 @@ interface AuditData {
   logFiles: string[];
 }
 
-/* ── F26: Task progress checklist ──────────────────────────── */
-function CatTaskProgress({
-  catId,
-  threadId,
-  taskProgress,
-}: {
-  catId: string;
-  threadId: string;
-  taskProgress: CatInvocationInfo['taskProgress'];
-}) {
-  const { handleSend } = useSendMessage(threadId);
-  if (!taskProgress || taskProgress.tasks.length === 0) return null;
-  const { tasks } = taskProgress;
-  const completed = tasks.filter((t) => t.status === 'completed').length;
-  const status = taskProgress.snapshotStatus;
-
-  const statusLabel =
-    status === 'completed' ? '已完成'
-    : status === 'interrupted' ? '已中断'
-    : status === 'running' ? '运行中'
-    : null;
-  const statusTone =
-    status === 'completed' ? 'bg-green-100 text-green-700'
-    : status === 'interrupted' ? 'bg-rose-100 text-rose-700'
-    : status === 'running' ? 'bg-blue-100 text-blue-700'
-    : 'bg-gray-100 text-gray-600';
-
-  return (
-    <div className="ml-3.5 mt-1.5">
-      <div className="flex items-center justify-between mb-1">
-        <div className="text-[10px] font-medium text-gray-500">
-          执行计划 ({completed}/{tasks.length})
-          {statusLabel && (
-            <span className={`ml-1.5 px-1.5 py-0.5 rounded ${statusTone}`}>{statusLabel}</span>
-          )}
-        </div>
-        {status === 'interrupted' && (
-          <button
-            className="text-[10px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
-            onClick={() => {
-              const ok = window.confirm('确认继续上次任务？这将发送一条可见消息并触发新的调用。');
-              if (!ok) return;
-              void handleSend(buildContinueMessage(catId, taskProgress), undefined, threadId);
-            }}
-            title="发送一条可见的“继续上次任务”消息，并触发新的调用"
-          >
-            继续
-          </button>
-        )}
-      </div>
-      <div className="space-y-0.5">
-        {tasks.map((t) => (
-          <div key={t.id} className="flex items-start gap-1 text-[11px] leading-tight">
-            <span className="mt-px flex-shrink-0">
-              {t.status === 'completed' ? '✅' : t.status === 'in_progress' ? '🔄' : '⬚'}
-            </span>
-            <span className={t.status === 'completed' ? 'text-gray-400 line-through' : 'text-gray-700'}>
-              {t.status === 'in_progress' ? (t.activeForm ?? t.subject) : t.subject}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="mt-1 h-1 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-green-500 rounded-full transition-all duration-300"
-          style={{ width: `${Math.round((completed / tasks.length) * 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
-
 /* ── Cat invocation card (shared between active/history) ──── */
 function CatInvocationCard({
-  catId, inv, onCopy, isActive, threadId,
+  catId, inv, onCopy, isActive,
 }: {
   catId: string;
   inv: CatInvocationInfo;
   onCopy: (v: string) => void;
   isActive: boolean;
-  threadId: string;
 }) {
   const { getCatById } = useCatData();
   const cat = getCatById(catId);
@@ -145,9 +71,6 @@ function CatInvocationCard({
         <div className="ml-3.5">
           <CatTokenUsage catId={catId} usage={inv.usage} contextHealth={inv.contextHealth} />
         </div>
-      )}
-      {isActive && inv.taskProgress && inv.taskProgress.tasks.length > 0 && (
-        <CatTaskProgress catId={catId} threadId={threadId} taskProgress={inv.taskProgress} />
       )}
       {(inv.sessionId || inv.invocationId) && (
         <CollapsibleIds sessionId={inv.sessionId} invocationId={inv.invocationId} onCopy={onCopy} />
@@ -425,7 +348,7 @@ export function RightStatusPanel({
                     </span>
                   </div>
                   {inv && (
-                    <CatInvocationCard catId={catId} inv={inv} onCopy={copyText} isActive threadId={threadId} />
+                    <CatInvocationCard catId={catId} inv={inv} onCopy={copyText} isActive />
                   )}
                 </div>
               );
@@ -459,7 +382,7 @@ export function RightStatusPanel({
                     </div>
                   );
                 }
-                return <CatInvocationCard key={catId} catId={catId} inv={inv} onCopy={copyText} isActive={false} threadId={threadId} />;
+                return <CatInvocationCard key={catId} catId={catId} inv={inv} onCopy={copyText} isActive={false} />;
               })}
             </div>
           )}
@@ -482,6 +405,8 @@ export function RightStatusPanel({
           <div className="text-right font-medium">{messageSummary.followup}</div>
         </div>
       </section>
+
+      <PlanBoardPanel threadId={threadId} catInvocations={catInvocations} />
 
       <SessionChainPanel threadId={threadId} catInvocations={catInvocations} />
 
