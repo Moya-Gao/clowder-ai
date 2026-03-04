@@ -6,6 +6,8 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes } from './routes/index.js';
+import { join } from 'path';
+import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
 import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
@@ -433,6 +435,23 @@ async function main(): Promise<void> {
     });
   } catch (err) {
     app.log.warn(`[api] Audit log write failed (best-effort): ${String(err)}`);
+  }
+
+  // Best-effort: regenerate CLI configs at startup so .gemini/settings.json
+  // always has the latest env placeholders (Gemini MCP env injection)
+  try {
+    const root = process.cwd();
+    const capConfig = await readCapabilitiesConfig(root);
+    if (capConfig) {
+      await generateCliConfigs(capConfig, {
+        anthropic: join(root, '.mcp.json'),
+        openai: join(root, '.codex', 'config.toml'),
+        google: join(root, '.gemini', 'settings.json'),
+      });
+      app.log.info('[api] CLI configs regenerated at startup');
+    }
+  } catch (err) {
+    app.log.warn(`[api] CLI config regeneration failed (best-effort): ${String(err)}`);
   }
 
   // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
