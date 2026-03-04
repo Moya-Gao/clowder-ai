@@ -163,7 +163,20 @@ interface ListTasksInput {
 - [x] P1 list_threads + feat_index 可用 + 测试
 - [x] P2 cross_post_message + list_tasks 可用 + 测试
 - [x] 现有工具回归测试全部通过（server split / tool registration / capability probe 相关）
-- [ ] prompt 长度显著下降（按需加载 vs 全量注入）
+- [x] prompt 长度显著下降（按需加载 vs 全量注入，见下方量化表）
+
+### Prompt 瘦身量化证据（拆分前后）
+
+**口径**：以“每次会话暴露给模型的 MCP tool schema 数”作为 prompt footprint 代理指标（工具面越大，系统注入越重）。  
+**取数来源**：`packages/mcp-server/test/tool-registration.test.js`（`EXPECTED_*_TOOLS` 常量，当前回归真相源）。
+
+| 指标 | 拆分前（全量注入） | 拆分后（按需加载） | 变化 |
+|------|-------------------|-------------------|------|
+| 每次默认暴露的工具数（协作主链路） | 30（legacy `cat-cafe-mcp` 全量） | 15（仅 `cat-cafe-collab`） | **-50%** |
+| 可选工具面（memory + signals） | 0（不可拆分，始终全量） | 15（`10 + 5`，按需启用） | 按需化（从“总是注入”变为“可关闭”） |
+| file tools 暴露数 | 3（`read_file/write_file/list_files`） | 0 | **-100%** |
+
+> 注：F043 立项时是 27 tools 口径；后续 Phase B 新增 P2 工具后，全量面口径为 30。量化表采用“当前代码口径”用于收尾验收。
 
 ## 实施建议
 
@@ -229,3 +242,4 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-03: Phase B P2 工具完成：`cat_cafe_cross_post_message` + `cat_cafe_list_tasks`（`post-message` 支持 `threadId`，新增 `/api/callbacks/list-tasks`）
 - 2026-03-03: Phase B 核心推进：`cat-cafe` 单 server 拆分为 `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals`，并在能力编排与探测层完成迁移与稳定性修复（playwright/npx 慢启动自适应超时）。
 - 2026-03-03: 能力 Hub 可观测性收尾：`MCP_DOCKER` 探测描述明确为聚合网关，并在 probe 后按工具族提示来源（playwright/dockerhub/docker-gateway）；同时将 docker gateway probe 纳入 slow-start 超时策略，降低配置切换后的瞬时误判。
+- 2026-03-03: 收尾补证：补齐“prompt 瘦身”量化对比（全量 30 vs 按需 15，-50%）并勾选对应 AC（按需加载 vs 全量注入）。
