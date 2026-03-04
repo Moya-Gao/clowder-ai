@@ -142,13 +142,15 @@ function renderToolEvents(events: ToolEvent[]) {
 }
 
 /** Collapsible wrapper for stream-origin messages (cat's inner thinking/CLI output) */
-function ThinkingContent({ content, className, label = '💭 心里话', defaultExpanded = false }: { content: string; className?: string; label?: string; defaultExpanded?: boolean }) {
-  const [expanded, setExpanded] = useState(defaultExpanded);
+function ThinkingContent({ content, className, label = '💭 心里话', defaultExpanded = false, expandInExport = true }: { content: string; className?: string; label?: string; defaultExpanded?: boolean; expandInExport?: boolean }) {
+  const isExport = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
+  const shouldExpand = (isExport && expandInExport) || defaultExpanded;
+  const [expanded, setExpanded] = useState(shouldExpand);
   const hasMounted = useRef(false);
   // Sync with global UI preference: when defaultExpanded changes, update all blocks
   useEffect(() => {
-    setExpanded(defaultExpanded);
-  }, [defaultExpanded]);
+    setExpanded((isExport && expandInExport) || defaultExpanded);
+  }, [isExport, expandInExport, defaultExpanded]);
   // Notify scroll-dependent UI (e.g. "↓ 到最新") after the DOM has updated.
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -389,7 +391,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
         >
           {hasToolEvents && renderToolEvents(message.toolEvents!)}
           {message.thinking && (
-            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} />
+            <ThinkingContent content={message.thinking} className={catStyle?.font} label="🧠 Thinking" defaultExpanded={uiThinkingExpandedByDefault} expandInExport={false} />
           )}
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
             <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={uiThinkingExpandedByDefault} />
