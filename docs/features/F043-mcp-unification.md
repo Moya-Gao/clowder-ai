@@ -9,11 +9,11 @@ created: 2026-02-27
 
 # F043: MCP 归一化 — Server 拆分 + 协作工具补全
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F041（能力看板 + 配置编排，现已就位）
-> **Updated**: 2026-03-03（Phase B server 拆分 + probe 修复 + timeline 对齐）
+> **Completed**: 2026-03-04
 > **Evolved to**: F052（跨线程身份隔离 — cross_post_message 的身份/上下文/路由配套）
 
 ## 与 F041 的关系
@@ -242,4 +242,18 @@ Layer 0: Knowledge Engineering Research (Done)
 - 2026-03-03: Phase B P2 工具完成：`cat_cafe_cross_post_message` + `cat_cafe_list_tasks`（`post-message` 支持 `threadId`，新增 `/api/callbacks/list-tasks`）
 - 2026-03-03: Phase B 核心推进：`cat-cafe` 单 server 拆分为 `cat-cafe-collab` / `cat-cafe-memory` / `cat-cafe-signals`，并在能力编排与探测层完成迁移与稳定性修复（playwright/npx 慢启动自适应超时）。
 - 2026-03-03: 能力 Hub 可观测性收尾：`MCP_DOCKER` 探测描述明确为聚合网关，并在 probe 后按工具族提示来源（playwright/dockerhub/docker-gateway）；同时将 docker gateway probe 纳入 slow-start 超时策略，降低配置切换后的瞬时误判。
-- 2026-03-03: 收尾补证：补齐“prompt 瘦身”量化对比（全量 30 vs 按需 15，-50%）并勾选对应 AC（按需加载 vs 全量注入）。
+- 2026-03-03: 收尾补证：补齐”prompt 瘦身”量化对比（全量 30 vs 按需 15，-50%）并勾选对应 AC（按需加载 vs 全量注入）。
+- 2026-03-04: **Feature closed** — 愿景守护审计通过（布偶猫初审 + GPT-5.2 交叉验证），铲屎官确认。
+
+## 愿景守护签收表
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫 (Opus 4.6) | F043 spec, VISION.md, tool-registration.test.js, callback-tools.test.js | ① 铲屎官不想当人肉路由器 ② 7/7 AC 通过，愿景对齐 4/5 ③ 猫能自主搜消息/发现 thread/跨 thread 通知/查 feat 映射 | ✅ |
+| 缅因猫 (GPT-5.2) | F043 spec, VISION.md, tool-registration.test.js (50/50), capability-orchestrator.test.js (51/51) | ① 铲屎官不想当路由器+猫要自主找上下文 ② 交付物直接贡献愿景 #1/#2/#3/#5 ③ 查证据/找入口/发接力棒/管任务四条链路可用 | ✅ |
+
+### GPT-5.2 Open Questions 立场（记录）
+
+1. `feat_index.threadIds` best-effort 降级为空数组：**够用**（发现入口，非强一致索引）
+2. `list_threads.messageCount` Phase A 为 null：**可接受**（契约已明确，后续增强单独跟踪）
+3. Layer 2 对 Layer 3/4 基建充分性：**充分**（thread 发现/feat 映射/跨 thread 通知/全局任务视图均已就位）
