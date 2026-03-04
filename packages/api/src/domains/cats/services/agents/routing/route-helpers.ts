@@ -179,7 +179,8 @@ export function sanitizeInjectedContent(content: string): string {
     }
 
     if (skippingHistoryEnvelope) {
-      if (trimmed === '---') {
+      // Use unique terminator to avoid false matches with markdown `---`
+      if (trimmed === '[/对话历史]' || trimmed === '---') {
         skippingHistoryEnvelope = false;
       }
       continue;
@@ -294,7 +295,7 @@ export async function assembleIncrementalContext(
 
   const boundaryId = relevant[relevant.length - 1]!.id;
   return {
-    contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n---`,
+    contextText: `[对话历史增量 - 未发送过 ${relevant.length} 条]\n${lines.join('\n')}\n[/对话历史]`,
     boundaryId,
     includesCurrentUserMessage,
     currentMessageFilteredOut,

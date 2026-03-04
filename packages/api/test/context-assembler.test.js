@@ -115,7 +115,7 @@ describe('assembleContext', () => {
     assert.ok(result.contextText.includes('[对话历史 - 最近 1 条]'));
     assert.ok(result.contextText.includes('铲屎官'));
     assert.ok(result.contextText.includes('你好世界'));
-    assert.ok(result.contextText.endsWith('---'));
+    assert.ok(result.contextText.endsWith('[/对话历史]'));
     assert.equal(result.messageCount, 1);
   });
 

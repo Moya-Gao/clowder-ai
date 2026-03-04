@@ -113,7 +113,7 @@ export function assembleContext(
   const formatted = recent.map((m) => formatMessage(m, { truncate: maxContentLength }));
 
   // Estimate overhead for header + separator
-  const overheadTokens = estimateTokens('[对话历史 - 最近 99 条]\n---');
+  const overheadTokens = estimateTokens('[对话历史 - 最近 99 条]\n[/对话历史]');
 
   let totalTokens = overheadTokens;
   let startIndex = formatted.length; // will walk backward
@@ -130,7 +130,7 @@ export function assembleContext(
   }
 
   const header = `[对话历史 - 最近 ${included.length} 条]`;
-  const contextText = `${header}\n${included.join('\n')}\n---`;
+  const contextText = `${header}\n${included.join('\n')}\n[/对话历史]`;
 
   return { contextText, messageCount: included.length, estimatedTokens: totalTokens };
 }
