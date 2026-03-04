@@ -169,6 +169,25 @@ describe('discoverExternalMcpServers', () => {
     });
     assert.deepEqual(servers, []);
   });
+
+  it('skips commandless entries (invalid for stdio config model)', async () => {
+    const geminiFile = join(dir, 'gemini.json');
+    await writeFile(geminiFile, JSON.stringify({
+      mcpServers: {
+        jetbrains: { command: '', args: [] },
+        filesystem: { command: 'npx', args: ['-y', '@mcp/fs'] },
+      },
+    }));
+
+    const servers = await discoverExternalMcpServers({
+      claudeConfig: join(dir, 'nonexistent.json'),
+      codexConfig: join(dir, 'nonexistent.toml'),
+      geminiConfig: geminiFile,
+    });
+
+    assert.equal(servers.length, 1);
+    assert.equal(servers[0].name, 'filesystem');
+  });
 });
 
 describe('buildCatCafeMcpDescriptor', () => {
@@ -382,6 +401,16 @@ describe('resolveServersForCat', () => {
     assert.deepEqual(servers[0].env, { KEY: 'val' });
     assert.equal(servers[0].workingDir, '/tmp');
   });
+
+  it('forces commandless entries disabled for cleanup', () => {
+    const config = makeConfig([
+      { id: 'jetbrains', type: 'mcp', enabled: true, source: 'external',
+        mcpServer: { command: '', args: [] } },
+    ]);
+
+    const servers = resolveServersForCat(config, 'opus');
+    assert.equal(servers[0].enabled, false);
+  });
 });
 
 // ────────── Generate CLI configs ──────────
@@ -420,6 +449,41 @@ describe('generateCliConfigs', () => {
     try { await readFile(paths.google, 'utf-8'); configCount++; } catch { /* ok */ }
 
     assert.ok(configCount > 0, 'At least one CLI config should be generated');
+  });
+
+  it('removes managed commandless entries from Gemini settings', async () => {
+    const hasGoogleCat = catRegistry.getAllIds().some((id) => {
+      const entry = catRegistry.tryGet(id);
+      return entry?.config.provider === 'google';
+    });
+    if (!hasGoogleCat) return;
+
+    const paths = {
+      anthropic: join(dir, '.mcp.json'),
+      openai: join(dir, '.codex', 'config.toml'),
+      google: join(dir, '.gemini', 'settings.json'),
+    };
+
+    // Seed an existing invalid entry (historical config).
+    await mkdir(join(dir, '.gemini'), { recursive: true });
+    await writeFile(paths.google, JSON.stringify({
+      mcpServers: {
+        jetbrains: { command: '', args: [] },
+      },
+    }));
+
+    const config = makeConfig([
+      { id: 'jetbrains', type: 'mcp', enabled: true, source: 'external',
+        mcpServer: { command: '', args: [] } },
+      { id: 'cat-cafe-collab', type: 'mcp', enabled: true, source: 'cat-cafe',
+        mcpServer: { command: 'node', args: ['collab.js'] } },
+    ]);
+
+    await generateCliConfigs(config, paths);
+    const data = JSON.parse(await readFile(paths.google, 'utf-8'));
+
+    assert.equal(data.mcpServers.jetbrains, undefined, 'invalid managed entry should be removed');
+    assert.ok(data.mcpServers['cat-cafe-collab'], 'valid managed entry should remain');
   });
 });
 

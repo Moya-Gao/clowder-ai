@@ -38,6 +38,10 @@ const PROVIDER_WRITERS = {
   google: writeGeminiMcpConfig,
 } as const;
 
+function hasUsableStdioCommand(command: string | undefined): boolean {
+  return typeof command === 'string' && command.trim().length > 0;
+}
+
 // ────────── Core: Read / Write capabilities.json ──────────
 
 /** Normalize and validate that a path stays within the project tree. */
@@ -100,6 +104,9 @@ export async function discoverExternalMcpServers(
   const result: McpServerDescriptor[] = [];
 
   for (const server of [...claude, ...codex, ...gemini]) {
+    // TD104 (URL transport) is not represented in McpServerDescriptor yet.
+    // Ignore entries without stdio command to avoid writing invalid configs.
+    if (!hasUsableStdioCommand(server.command)) continue;
     if (!seen.has(server.name)) {
       seen.add(server.name);
       result.push({ ...server, source: 'external' });
@@ -303,7 +310,10 @@ export function resolveServersForCat(
     .map((cap) => {
       // Resolve effective enabled: global + per-cat override
       const override = cap.overrides?.find((o) => o.catId === catId);
-      const enabled = override ? override.enabled : cap.enabled;
+      const enabledFromConfig = override ? override.enabled : cap.enabled;
+      // Guardrail: commandless MCP entries are invalid for current stdio model.
+      // Keep descriptor for writer cleanup (disabled => remove in Gemini/Claude).
+      const enabled = enabledFromConfig && hasUsableStdioCommand(cap.mcpServer!.command);
 
       const desc: McpServerDescriptor = {
         name: cap.id,
