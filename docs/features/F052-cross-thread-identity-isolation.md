@@ -177,6 +177,7 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 - **Evolved from**: F043（`cross_post_message` 传输能力，PR #174 已合入）
 - **Related**: F046 Phase D（@ routing 卫生，但 F052 不依赖它）
 - **Related**: F050（A2A 外部 Agent 接入，F052 的身份模型影响 F050 的跨 agent 消息）
+- **Evolves into**: F056（设计语言猫猫化 — 跨线程气泡作为打样）、F057（Thread 可发现性 — badge 增强）
 
 ## Risk
 
