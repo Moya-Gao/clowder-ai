@@ -1,241 +1,254 @@
 ---
 feature_ids: [F051]
-topics: [quota, dashboard, usage, chrome, browser-automation, notification, pwa, ui]
+topics: [quota, dashboard, usage, scheduling, degradation, claudebar]
 doc_kind: spec
 created: 2026-03-02
-updated: 2026-03-03
+updated: 2026-03-04
 ---
 
-# F051 — 真实猫粮看板（官方同值 + 系统级通知 + 产品化 UI）
+# F051 — 猫粮看板（Quota Board）
 
 > **Status**: in-progress
-> **Owner**: 缅因猫 (Codex)
-> **Reviewer**: 布偶猫 (Opus) + 缅因猫 (GPT-5.2) — 愿景守护重点
+> **Owner**: 布偶猫 (Opus) ← v2 重写后接管
+> **Reviewer**: 缅因猫 (GPT-5.2) — 愿景守护
 > **Created**: 2026-03-02
-> **Completed (Phase 1)**: 2026-03-02
+> **v1 Completed**: 2026-03-03 (Phase 1-5)
+> **v2 Rewrite**: 2026-03-04
 
 ## Why
 
-铲屎官需要知道三只猫的**真实账号级额度**，才能做节能路由决策。之前两次实现（PR #161 会话遥测、PR #168 本地文件解析）都偏离了核心需求——**看板展示的值 = 官方页面值**。
+铲屎官需要**一眼看到三只猫的真实额度**，服务两个目的：
 
-### 2026-03-03 愿景补充（最终口径）
+1. **调度降级** — 哪只猫额度快没了？路由到谁？review 用谁？
+2. **心里有数** — 不用挨个打开官方页面，扫一眼就知道全局
 
-铲屎官最终口径明确为：
+### 为什么 v1 需要重写
 
-> “希望要的效果是点击获取，你能给我呈现所有的我想看到的。点击按钮后复用当前浏览器 cookies，直接获取 OpenAI/Claude 官方额度。不是一直爬；我想看时点一下，不需要自己再打开网页。”
+v1（Phase 1-5，缅因猫实现）的核心问题：
 
-对齐结论：
-- 交互是**点击获取（on-demand）**，不是后台持续抓取
-- 数据源是**官方 usage 页面已登录会话**（浏览器 cookies/session）
-- 目标是支持每天节能判断（例如按周均摊安全阈值）
+| 问题 | 表现 |
+|------|------|
+| **额度粒度错误** | "Codex 和 GPT-5.2 同一额度池只展示一张卡" — 实际上 OpenAI 有 4 个独立池 |
+| **UI 是运维面板** | 探针状态、CDP 配置提示、止血模式 — 这些是给开发者看的，不是给铲屎官看的 |
+| **三个表面各自为政** | Hub 看板 / SwiftBar 脚本 / Widget 页面，视觉语言不统一 |
+| **过度工程** | Web Push 基建、通知能力矩阵、VAPID 配置 — 铲屎官只想看个额度 |
 
-### 2026-03-03 愿景重构（铲屎官当前口径）
+### 铲屎官原话（2026-03-04，v2 触发）
 
-铲屎官新增口径明确为：
+> "缅因猫没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑。ClaudeBar（macOS 菜单栏，一锅端多家）可以参考这个开源项目他的做法。我是想把猫猫们的猫粮以及通知能在我们的 Hub 以及 macOS 菜单和通知中心对上。"
 
-> “希望这次重构后是符合我预期的猫粮看板以及通知能力，而且要好看。”
+> "缅因猫的额度人家是有区隔的，你不应该笼统归因。至少要知道 Codex 云端 review 额度和 Codex 本地额度还有 Spark 的额度。"
 
-对齐结论：
-- F051 不再只是“能拿到额度数据”，而是“**可持续使用的日常控制台**”
-- 输出必须覆盖两条主线：`猫粮看板` + `系统级通知`
-- 体验标准从“可用”升级为“产品级观感”（信息层级、状态可读性、视觉一致性）
+### 仍然成立的原则
 
-阶段定义：
-- **Phase 1-2（已完成）**：官方同值 + probe 架构止血
-- **Phase 3（进行中）**：通知能力可靠性 + 产品化 UI 重做
-
-### 教训（为什么需要重新立项）
-
-| 尝试 | 方向 | 失败原因 |
-|------|------|----------|
-| PR #161 (砚砚) | 会话内 telemetry 聚合 | 不是账号级真实额度，是推测值 |
-| PR #168 (宪宪) | 本地 CLI/rollout 文件解析 | 虽然数据同源但二次计算，铲屎官要的是"官方页面看到什么就展示什么" |
-
-**铲屎官原话**："你就算用 chrome 去各个公司额度页面查看都比你算半天靠谱啊？"
+- **看板值 = 官方页面值**，不二次换算、不推导冒充（v1 确立，继续保持）
+- **点击获取（on-demand）**，不后台持续抓取
+- **做不到就说做不到**，显示"抓取失败/待接入"
 
 ## What
 
-在 Cat Café Hub 中提供“猫粮决策台”：
+### 1. 额度粒度模型（核心纠正）
 
-- 展示三只猫的**官方账号级额度**（官方页面同值）
-- 提供**系统级通知**（不依赖当前页面停留）
-- 以产品级 UI 呈现“额度状态、风险、动作入口、通知健康度”
+**v1 的错误**：把 OpenAI 所有额度笼统归为"缅因猫一张卡"。
 
-### 三个数据源（对应铲屎官截图）
+**v2 的真实模型**（来自 `chatgpt.com/codex/settings/usage` 官方页面截图 2026-03-04）：
 
-1. **Codex/GPT (缅因猫)** — `chatgpt.com/codex/settings/usage`
-   - Codex 和 GPT-5.2 是同一额度池，只展示一张卡
-   - 显示：用量百分比、重置时间、窗口
+#### 布偶猫 (Claude) 额度池
 
-2. **Claude (布偶猫)** — Claude Code 官方 usage 界面
-   - 显示：当前 session 用量%、本周 all models 用量%、本周 Sonnet only 用量%
-   - 重置时间
+| Pool | 数据源 | Cat Café 映射 | 调度意义 |
+|------|--------|--------------|---------|
+| Session 5h | `ccusage blocks --json` | `@opus` `@sonnet` 当前窗口 | 当前能聊多少 |
+| Weekly all models | `ccusage blocks --json` | 布偶猫全家 | 本周总预算 |
+| Weekly per-model (Opus/Sonnet) | `ccusage blocks --json` | 各分身 | Opus 不够→降级 Sonnet |
 
-3. **Antigravity (暹罗猫)** — Antigravity usage 界面（下一迭代）
-   - 显示：各模型使用率进度条（Gemini 3.1 Pro, Flash, Claude Sonnet, Opus）
+#### 缅因猫 (OpenAI) 额度池 — 4 个独立池！
 
-### 实现路径
+| Pool | 官方页面标签 | Cat Café 映射 | 调度意义 |
+|------|-------------|--------------|---------|
+| **Codex 主额度** (5h + weekly) | "5小时使用限额" + "每周使用限额" | `@codex` 本地编码 + `@gpt52` | 砚砚还能写多少代码（GPT-5.2 共享此池） |
+| **Codex-Spark 额度** (5h + weekly) | "GPT-5.3-Codex-Spark 5小时/每周" | `@spark` | Spark 还能用多少 |
+| **代码审查额度** | "代码审查 xx% 剩余" | 云端 Codex review | **review 能力快不够了→切 @gpt52** |
+| **溢出额度** | "剩余额度: 0" | 超额降级通道 | 完全没余粮时的信号 |
 
-**浏览器抓取为主**（铲屎官明确指示"用 Chrome 去看"）：
-- 使用 `claude-in-chrome` MCP 工具 / Playwright 访问官方 usage 页面
-- 解析页面内容，提取关键字段
-- 原样展示，不做二次换算
+> **关键洞察**：`@codex` 本地编码和云端 Codex review 消耗的是**不同的额度池**。代码审查额度见底不影响本地编码，反之亦然。这直接影响 review 调度策略。
 
-### 硬约束
+#### 暹罗猫 (Antigravity) 额度池
 
-- **看板值 = 官方页面值**，不二次换算、不做 fallback 叙事
-- **Codex 与 GPT-5.2 同一额度池只展示一张卡**
-- 做不到时显示"抓取失败/待接入"，**不用推导值冒充官方值**
-- **点击触发后再抓取**（on-demand），避免持续爬取影响官方服务
-- Antigravity 本轮占位，下一迭代接入
+| Pool | 数据源 | Cat Café 映射 | 调度意义 |
+|------|--------|--------------|---------|
+| Per-model quotas | Antigravity usage 页面 | `@gemini` `@gemini25` | 待接入 |
 
-### Phase 2（2026-03-03）— Probe/Collector 架构收敛
+### 2. Hub 猫粮看板（重做）
 
-为避免再次出现“行为不可解释 + 风控边界模糊”，F051 在同一 feature 下继续推进 Phase 2：
+**设计哲学**：ClaudeBar 风格的 **glanceable list**，不是运维面板。
 
-- 统一 Probe Registry：CLI / Browser / Placeholder
-- 探针语义显式拆分：
-  - `enabled` = 配置开关（是否允许）
-  - `status` = 运行态（`ok | error | disabled`）
-- 新增 `targets/actions` 元数据，减少前端硬编码
-- Hub 看板显示探针运行提示（禁用 / 异常 / 启用）
+```
+┌──────────────────────────────────────────────────┐
+│ 猫粮看板                          最后刷新 14:32  │
+│                                         [刷新全部] │
+├──────────────────────────────────────────────────┤
+│                                                    │
+│ 布偶猫 Claude                                      │
+│ 🟢 Session 5h    ████████░░  78%                   │
+│ 🟡 Weekly All    ██████░░░░  58%   resets Fri 19:00│
+│ 🟢 Weekly Opus   ████████░░  82%                   │
+│                                                    │
+│ 缅因猫 Codex + GPT-5.2 (共享池)                     │
+│ 🟢 本地编码 5h    ██████████  100%                  │
+│ 🟡 本地编码 周    ████████░░  80%   resets Sun 19:10│
+│                                                    │
+│ 缅因猫 Spark                                       │
+│ 🟢 Spark 5h      ██████████  100%                  │
+│ 🟢 Spark 周      █████████░  93%   resets Wed 17:03│
+│                                                    │
+│ 缅因猫 代码审查                                     │
+│ 🔴 Review        █████░░░░░  44%   resets Sat 00:26│
+│                                                    │
+│ 暹罗猫 Antigravity                                  │
+│ ⬜ 待接入                                          │
+│                                                    │
+│ 溢出额度: 0                                        │
+└──────────────────────────────────────────────────┘
+```
 
-### Phase 3（2026-03-03）— 通知能力 + UI 产品化
+**关键设计决策**：
 
-为解决“在其他页面干活收不到通知”的体验问题，F051 扩展通知与交互目标：
+- **一行一 pool**，不是一卡一猫。进度条 + 百分比 + 色点，3 秒读完
+- **色点语义**：🟢 >50% 健康 / 🟡 20-50% 关注 / 🔴 <20% 危险 / ⬜ 未接入
+- **删除所有运维信息**：probe hint、CDP 配置、隔离浏览器警告、止血模式 → 放到开发者控制台
+- **只有一个刷新按钮**，一键刷所有，不弹 confirm
+- **按"猫猫 + 用途"分组**，不按"provider"分组 — 因为调度决策是"哪只猫能干活"
 
-- 建立通知能力矩阵（in-app / 系统通知 / 设备订阅状态）并显式展示
-- 提供可诊断的通知健康信息（设备数、最近投递、失败原因、重试建议）
-- 统一“猫粮刷新 + 预警通知”交互：只在必要事件发通知，避免骚扰
-- 重做看板视觉层级（状态、阈值、趋势、操作区分组）
+### 3. macOS Menu Bar — 使用 ClaudeBar
 
-### Phase 4-5（已落地 v1）
+**不自建。** [ClaudeBar](https://github.com/tddworks/ClaudeBar) 已经是一个成熟的 macOS 原生菜单栏应用：
 
-- **Phase 4（菜单栏）**：SwiftBar 菜单栏 companion（状态摘要、手动刷新入口、风险原因）
-- **Phase 5（小组件）**：`/widget/quota` 轻量摘要页面（桌面/移动共用）
-- **统一摘要 API**：`GET /api/quota/summary` 作为菜单栏与小组件消费入口
+- 支持 Claude / Codex / Antigravity / Gemini 等 9 个 provider
+- 原生 Swift/SwiftUI → 真正的 macOS 通知中心集成
+- 色彩三档（绿/黄/红）+ 自动刷新 + 键盘快捷键
+- 开源免费
 
-边界说明：
-- 当前是 Web/PWA + 菜单栏插件路线，不是原生 App 的 Notification Center Widget。
-- 原生通知中心小组件/APNs 常驻能力仍属于后续演进，不阻塞 F051 当前交付。
+**我们的策略**：
+- 铲屎官直接安装 ClaudeBar 获得 macOS 菜单栏 + 原生通知
+- Cat Café Hub 专注做好"调度决策台"这个 ClaudeBar 不做的事
+- 不维护 SwiftBar 脚本、不维护 Web Push 基建
 
-## Acceptance Criteria
+### 4. 通知策略（简化）
 
-- [x] AC-1: Codex 卡片显示的用量% 与 `chatgpt.com/codex/settings/usage` 页面一致（通过浏览器抓取推送）
-- [x] AC-2: Claude 卡片显示官方额度数据（本轮使用 `ccusage` 官方工具原值展示）
-- [x] AC-3: Codex 和 GPT-5.2 只显示一张共享卡片，不分开
-- [x] AC-4: 抓取失败时显示"抓取失败"而非推导值
-- [x] AC-5: Antigravity 显示"待接入"占位（不是推导值）
-- [x] AC-6: 支持手动点击获取官方额度（Codex + Claude 同步抓取）
-- [x] AC-7: 复用本机浏览器已登录会话（CDP）抓取官方 usage 页面
-- [x] AC-8: `/api/quota/probes` 暴露 `enabled`（配置开关）与 `status`（运行态）语义，不混用
-- [x] AC-9: Probe 描述包含 `targets` 与 `actions`（refresh endpoint、interactive 约束）
-- [x] AC-10: Hub 对 `status=disabled/error/ok` 渲染对应提示；含 path-mock 集成测试覆盖
-- [x] AC-11: 通知设置页展示“系统通知可用性矩阵”（浏览器支持 / SW 就绪 / VAPID 可用 / 订阅存在 / 最近投递状态）
-- [x] AC-12: `/api/push/test` 返回结果在 UI 中结构化展示（成功数/失败数/过期清理数），不只给一句 toast
-- [x] AC-13: 当系统通知不可达时，UI 提供明确修复路径（例如 iPhone 必须主屏安装、权限关闭、订阅过期）
-- [x] AC-14: 猫粮看板支持阈值告警策略（例如剩余/已用超过阈值）并可触发系统通知
-- [x] AC-15: 通知触发语义去重：同一线程短时间内重复事件不会刷屏
-- [x] AC-16: 猫粮看板 UI 重做，完成“需求→截图”证据映射（桌面 + 移动）
-- [x] AC-17: 通知关键路径补齐集成测试（订阅、测试投递、失败分支、设备切换）
-- [x] AC-18: 文档明确平台边界（Web Push 与原生 APNs 的差异、iOS 条件限制）
-- [x] AC-19: 提供开发环境通知验证路径（dev 模式 SW 能力策略 + 一键自检步骤）
-- [x] AC-20: 在开工前输出 UI 文字版 wireframe（桌面/移动）并经铲屎官确认
-- [x] AC-21: 提供 `/api/quota/summary` 轻量摘要接口，输出风险级别、平台摘要、探针状态与动作路径
-- [x] AC-22: 提供 Phase 4/5 可用入口（SwiftBar 菜单栏脚本 + `/widget/quota` 页面）并完成基础测试
+| 表面 | 方式 | 负责方 |
+|------|------|--------|
+| macOS 菜单栏 + 通知中心 | ClaudeBar 原生通知 | ClaudeBar |
+| Hub in-app | Toast / banner（你在看 Hub 时） | Cat Café |
+| 调度告警 | Hub 内额度变红时置顶提示 | Cat Café |
 
-## 需求点 Checklist
+**砍掉**：Web Push (SW + VAPID + 订阅管理)、通知能力矩阵、设备订阅可视化。
+**原因**：macOS Web Push 不可靠（需浏览器开着），ClaudeBar 原生通知完全替代。
 
-| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
-|----|---------------------------|---------|----------|------|
-| R1 | "三只猫的额度现在到底有多少" | AC-1,2 | API + UI 对照 | [x] |
-| R2 | "codex 和 gpt 52 他们是一个额度" | AC-3 | UI 单卡展示 | [x] |
-| R3 | "用chrome去各个公司额度页面查看都比你算半天靠谱" | AC-1,2 | Codex 浏览器推送链路 | [x] |
-| R4 | "官方有什么我们看什么" | AC-4 | 云端 review + 回归测试 | [x] |
-| R5 | "antigravity 下次一定" | AC-5 | 占位文案 + 范围拍板 | [x] |
-| R6 | "我想看了，我点击看到，不需要自己打开网页" | AC-6,7 | 点击获取链路 + CDP 错误可见性 | [x] |
-| R7 | "不会一直爬，避免影响别人" | AC-6 | on-demand 触发，不做持续爬取 | [x] |
-| R8 | "按开源组件化思路重构，走正规流程" | AC-8,9,10 | Probe Registry + quality-gate + peer review | [x] |
-| R9 | "macOS 或 iPhone 级别的通知" | AC-11,13,18,19 | 能力矩阵 + iPhone 路径提示 + 手工步骤 | [~] |
-| R10 | "在其他页面干活时也要收得到消息" | AC-11,12,17,22 | push 路由测试 + 设备订阅可视化 + 菜单栏/小组件常驻概览 | [x] |
-| R11 | "通知能力有 bug，要修到可诊断" | AC-12,13,17 | 集成测试 + 错误文案检查 | [x] |
-| R12 | "而且要好看" | AC-16,20 | 桌面/移动截图证据 + wireframe gate | [x] |
+### 5. 调度降级集成（v2 新增）
 
-### 覆盖检查
-- [x] 每个需求点都能映射到至少一个 AC
-- [x] 每个 AC 都有验证方式
-- [x] 前端需求已准备需求→证据映射表
+额度数据不只是"看看"，还要服务路由决策：
 
-## Links
+| 信号 | 触发 | 建议动作 |
+|------|------|---------|
+| Claude Opus weekly < 20% | 🔴 | 降级到 Sonnet，或推迟重活到下周 |
+| Codex 代码审查 < 20% | 🔴 | Review 切到 `@gpt52`，或人工 review |
+| Codex 本地编码 < 20% | 🔴 | 编码任务切到 `@spark` |
+| Spark < 20% | 🔴 | 仅剩 `@gpt52` 或等重置 |
+| 溢出额度 = 0 | 信息 | 没有超额安全网 |
 
-- 铲屎官截图: `uploads/1772470157427-435ac123.png`（三张官方 usage 页面截图）
-- 讨论原文: Thread `thread_mm8pkb8ini25oflo` (2026-03-02)
-- 关闭的 PR: #168 (本地文件解析, 方向错误), #161 (telemetry 聚合, 方向错误)
-- 合入 PR: #169 (`3f20fcde`)
-- Phase 2 Discussion: `docs/discussions/2026-03-03-f051-quota-probe-phase2/README.md`
-- Phase 2 Plan: `docs/plans/2026-03-03-f051-quota-probe-phase2.md`
-- Phase 3 Discussion: `docs/discussions/2026-03-03-f051-notification-ui-vision-reframe/README.md`
-- Phase 3 UI Wireframe: `docs/discussions/2026-03-03-f051-phase3-ui-wireframe/README.md`
-- Phase 3 Plan: `docs/plans/2026-03-03-f051-notification-ui-productization-plan.md`
-- Phase 4/5 Plan: `docs/plans/2026-03-03-f051-phase45-menubar-widget.md`
-- Phase 4 Guide: `docs/guides/swiftbar-menubar-setup.md`
-- Evolved from: F042 (提示词优化审计 → 猫粮看板需求浮现)
-- Related: Hub 猫粮看板 tab（PR #161 已合入的 UI 骨架可复用）
+**实现路径**：Hub 看板在额度变红时显示**调度建议**（一行文字），不做自动路由（那是调度系统的事，不是看板的事）。
+
+## Acceptance Criteria (v2)
+
+> v1 AC-1~22 全部已完成（2026-03-03），归档到 Timeline。以下是 v2 新增。
+
+- [ ] AC-v2-1: Hub 猫粮看板按"猫猫 + 用途"分组，缅因猫至少显示 4 个独立池（Codex 本地、Spark、代码审查、溢出额度）
+- [ ] AC-v2-2: 每个 pool 一行：色点 + 名称 + 进度条 + 百分比 + 重置时间，3 秒可读
+- [ ] AC-v2-3: 删除所有运维 UI（probe hint、CDP 配置、止血模式、通知能力矩阵）
+- [ ] AC-v2-4: 删除 SwiftBar 脚本 + `/widget/quota` 页面 + QuotaSummaryWidget 组件 + Web Push 通知基建
+- [ ] AC-v2-5: "刷新全部"一键触发所有 provider 数据更新，无 confirm 对话框
+- [ ] AC-v2-6: 后端 `/api/quota` 返回值区分 4 个 OpenAI pool（不合并为一张卡）
+- [ ] AC-v2-7: 额度 < 20% 时显示调度建议文字（如"Review 建议切到 @gpt52"）
+- [ ] AC-v2-8: 官方页面值 = 看板值（v1 原则不变）
+- [ ] AC-v2-9: 文档中记录"使用 ClaudeBar 作为 macOS 菜单栏方案"的决策
+
+## 需求点 Checklist (v2)
+
+| ID | 需求点（铲屎官原话） | AC 编号 | 状态 |
+|----|---------------------|---------|------|
+| R-v2-1 | "缅因猫的额度人家是有区隔的，你不应该笼统归因" | AC-v2-1, AC-v2-6 | [ ] |
+| R-v2-2 | "至少要知道 codex 云端 review 额度和 codex 本地额度还有 spark 的额度" | AC-v2-1 | [ ] |
+| R-v2-3 | "直接用 ClaudeBar ok" | AC-v2-4, AC-v2-9 | [ ] |
+| R-v2-4 | "重写 f51 保证我们未来做愿景审计不偏航" | 本文件 | [ ] |
+| R-v2-5 | "缅因猫没理解我想要什么，他的小组件也还是 PWA 的组件，而且也有点丑" | AC-v2-2, AC-v2-3 | [ ] |
+| R-v2-6 | "猫粮以及通知能在 hub 以及 macos 菜单和通知中心对上" | AC-v2-4, AC-v2-9 | [ ] |
 
 ## Key Decisions
+
+### v2 决策（2026-03-04）
+
+| 决策 | 选择 | 否决 | 原因 |
+|------|------|------|------|
+| OpenAI 额度粒度 | 4 个独立池分开显示 | 合并为一张卡 | 官方页面就是分开的，且影响调度决策 |
+| macOS Menu Bar | 直接用 ClaudeBar | 自建 Swift app / Tauri / SwiftBar | 不造轮子，ClaudeBar 已支持全部 provider |
+| 通知方案 | ClaudeBar 原生 + Hub in-app | Web Push (SW + VAPID) | Web Push 在 macOS 上不可靠，ClaudeBar 完全替代 |
+| UI 风格 | ClaudeBar 式 glanceable list | 运维面板三大卡 | 铲屎官要"好看"和"一眼看到" |
+| 看板定位 | 调度决策台（额度→路由建议） | 纯展示面板 | 额度的价值在于指导调度，不是看个数字 |
+
+### v1 决策（保留参考）
 
 | 决策 | 选择 | 否决 | 原因 |
 |------|------|------|------|
 | 数据源 | 官方 usage 页面抓取 | 本地文件解析 / telemetry | 铲屎官明确要求"官方页面同值" |
-| Codex+GPT 展示 | 单卡共享额度 | 按模型分卡 | 铲屎官："他们是一个额度" |
-| Antigravity | 本轮占位 | 本轮实现 | 铲屎官："下次一定" |
-| Probe 语义 | `enabled`=配置开关, `status`=运行态 | 单一 `enabled` 混合语义 | 防止 UI/后端语义漂移 |
-| 探针元数据 | `targets + actions` | 前端硬编码 probe id/path | 扩展多源时可组合、低耦合 |
-| 通知目标 | 以 Web Push 系统通知为当前主线，保留原生 App 演进位 | 站内 toast 充当“系统通知” | 铲屎官要求跨页面可达 |
-| iPhone 路线（Phase 3） | 先走 PWA Web Push（需主屏安装 + 权限） | 直接引入原生壳/APNs | 当前优先修复可达性与诊断能力 |
-| UI 标准 | 从“功能可见”升级为“产品级可读 + 可诊断” | 继续堆叠文本块 | 当前信息密度高但可读性差 |
+| Codex+GPT 展示 | ~~单卡共享额度~~ **v2 已纠正** | — | v2: 分开显示 4 个独立池 |
+| Probe 语义 | `enabled`=配置开关, `status`=运行态 | 单一混合语义 | 防止 UI/后端语义漂移 |
 
 ## Dependencies
 
-- `claude-in-chrome` MCP 工具可用
-- 各家 usage 页面已登录（浏览器 session 有效）
-
-## Platform Boundary（Web Push vs 原生通知）
-
-- 当前交付是 **Web Push**：依赖浏览器 / Service Worker / 权限状态。
-- iPhone 端仅在 **PWA 主屏安装**后可用；普通 Safari 标签页不保证可达。
-- macOS 的“通知中心可见性”由浏览器通知通道承载，不等同原生 App 菜单栏常驻能力。
-- 原生 APNs / 菜单栏常驻能力属于 Phase 4/5 方向，不是本轮阻塞项。
+- `ccusage` CLI 可用（Claude 额度）
+- Chrome CDP 可用 + 各家 usage 页面已登录（OpenAI 额度）
+- ClaudeBar 安装（macOS 菜单栏 + 原生通知）
 
 ## Risk
 
 | 风险 | 影响 | 缓解 |
 |------|------|------|
-| 官方页面结构变更 | 抓取失败 | 显示"抓取失败"，不用推导值冒充 |
-| 浏览器 session 过期 | 无法访问 usage 页面 | 提示"需要重新登录" |
-| 页面加载慢/超时 | 数据延迟 | 缓存上次成功结果 + 时间戳 |
+| 官方页面结构变更 | 抓取失败 | 显示"抓取失败"，不推导冒充 |
+| ClaudeBar 停止维护 | 菜单栏功能断 | ClaudeBar 开源可 fork；或回退到 SwiftBar |
+| OpenAI 额度池未来再拆分 | 模型需更新 | 后端返回动态 pool 列表，前端按列表渲染 |
 
 ## Open Questions
 
-1. Antigravity 官方额度抓取与数据模型（F051 后续）
-2. 是否需要持久化 probe snapshot（SQLite）做趋势展示
-3. 是否进入原生 Notification Center Widget / APNs 常驻客户端路线
+1. ~~`@gpt52` (GPT-5.2) 是否有独立额度池？~~ **已确认（2026-03-04）**：GPT-5.2 和 Codex 5.3 共享同一额度池
+2. Antigravity 额度模型和抓取方式（下一迭代）
+3. 额度数据是否需要持久化做趋势分析（目前只做实时快照）
+4. 调度建议是否应该从"文字提示"升级为"一键切换"（影响 AgentRouter）
 
-## Review Gate
+## What We're Keeping from v1
 
-- **愿景守护重点**: 展示值是否与官方页面一致？有没有偷偷用推导值？
-- **Reviewer**: 布偶猫 (Opus) 验证愿景闭环；缅因猫 (GPT-5.2) 验证语义与测试覆盖
+- **后端 API**：`/api/quota`、`/api/quota/probes`、`/api/quota/refresh/*`（需要扩展返回粒度）
+- **ccusage CLI 集成**（Claude 额度数据源）
+- **浏览器 CDP 抓取**（OpenAI 额度数据源）
+- **On-demand 刷新模型**
+- **Probe Registry 架构**（`enabled` / `status` 语义）
+- **测试覆盖**（quota-api.test.js 等）
 
-| 轮次 | Reviewer | 结果 | 备注 |
-|------|----------|------|------|
-| Local R1-R4 | 缅因猫/砚砚 (Codex) | ✅ 通过 | 修复 2 P1 + 1 P2 |
-| Cloud R1-R3 | chatgpt-codex-connector | ✅ 通过 | 修复 1 P1 + 1 P2 |
+## What We're Dropping from v1
 
-### 愿景交叉验证签收
-| 猫猫 | 读了哪些原始文档 | 三个问题结论 | 签收 |
-|------|------------------|-------------|------|
-| 布偶猫/Opus | `docs/features/F051-real-quota-dashboard.md`, PR #169 评论链, 铲屎官 2026-03-02 原话 | 1) 要账号级真实额度 2) 已从 telemetry 转为官方源展示 3) 使用入口为猫粮看板三卡 | 通过 |
-| 缅因猫/Codex | `docs/features/F051-real-quota-dashboard.md`, PR #169 diff + tests, 铲屎官 2026-03-02 原话 | 1) 核心问题是“官方同值” 2) 本轮交付对齐（Antigravity 按拍板占位） 3) 可支持节能决策与运行时推送 | 通过 |
+| 组件 | 原因 |
+|------|------|
+| `SwiftBar 脚本` (scripts/swiftbar/) | 被 ClaudeBar 替代 |
+| `QuotaSummaryWidget.tsx` | 被 ClaudeBar 替代 |
+| `/widget/quota` 页面 | 被 ClaudeBar 替代 |
+| `/api/quota/summary` | 被 ClaudeBar 替代（可保留但非必须） |
+| Web Push 通知基建 (SW + VAPID + 订阅管理) | 被 ClaudeBar 原生通知替代 |
+| 通知能力矩阵 UI | 不再需要（ClaudeBar 原生处理） |
+| 探针运维 UI (probe hints, CDP 配置提示) | 移到开发者控制台，不在看板里 |
+
+## Review Gate (v2)
+
+- **愿景守护重点**: 额度粒度是否正确？调度映射是否对？有没有把独立池又合并了？
+- **Reviewer**: 缅因猫 (GPT-5.2) — 验证额度模型与官方页面一致
 
 ## Timeline
 
@@ -243,13 +256,18 @@ updated: 2026-03-03
 |------|------|
 | 2026-03-02 | 铲屎官提出需求；PR #161/#168 偏离方向 |
 | 2026-03-02 | 关闭 PR #168，正式立项 F051 |
-| 2026-03-02 | PR #169 合入 main（squash `3f20fcde`），F051 完成收尾 |
-| 2026-03-03 | PR #175 修复/增强：官方“剩余%”直显、CDP 错误可见、点击获取链路对齐最终愿景 |
-| 2026-03-03 | Phase 2：Probe Registry + `enabled/status` 语义 + `targets/actions` + Hub 集成测试 |
-| 2026-03-03 | 愿景重构：纳入“系统级通知 + 产品化 UI”作为 F051 Phase 3 主目标 |
-| 2026-03-03 | Review 补齐：新增 Task0（dev 通知链路）、UI wireframe gate、Phase 4/5 路线图锚点 |
-| 2026-03-03 | Phase 3 实装（中期）：通知能力矩阵 + 结构化测试投递摘要 + UI 重构 + 通知去重窗口 |
-| 2026-03-03 | Phase 3 实装（增量）：额度高风险阈值触发系统预警（含 30 分钟去重窗） |
-| 2026-03-03 | Phase 3 证据收尾：桌面/移动截图落盘 + quality-gate + 发起 peer review（@gpt52） |
-| 2026-03-03 | Phase 4 实装：新增 `GET /api/quota/summary` 与 SwiftBar 菜单栏脚本 |
-| 2026-03-03 | Phase 5 实装：新增 `/widget/quota` 轻量摘要页面并接入 Hub 入口 |
+| 2026-03-02 | PR #169 合入 main（Phase 1 完成） |
+| 2026-03-03 | Phase 2-5 全部实装（Probe Registry + 通知 + UI + SwiftBar + Widget） |
+| 2026-03-03 | Local R1-R4 + Cloud R1-R3 review 通过 |
+| **2026-03-04** | **铲屎官不满意 v1，指出额度粒度错误 + UI 丑 + 过度工程** |
+| **2026-03-04** | **v2 重写：纠正额度模型、ClaudeBar 替代自建、UI 从运维面板→glanceable list** |
+| **2026-03-04** | **Owner 从缅因猫转移到布偶猫** |
+
+## Links
+
+- 铲屎官原始截图: `uploads/1772470157427-435ac123.png`（三张官方 usage 页面）
+- 铲屎官 v2 截图: `uploads/1772614108308-299fe865.png`（OpenAI 额度粒度截图）
+- ClaudeBar: https://github.com/tddworks/ClaudeBar
+- v1 合入 PR: #169 (`3f20fcde`)
+- v1 Phase 2-5 讨论/计划: `docs/plans/2026-03-03-f051-*`
+- Evolved from: F042 (提示词优化审计 → 猫粮看板需求浮现)
