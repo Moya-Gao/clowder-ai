@@ -30,5 +30,6 @@ created: 2026-02-26
 | F052 | 跨线程身份隔离与消息溯源 | spec | 布偶猫 | [F052](features/F052-cross-thread-identity-isolation.md) |
 | F053 | Gemini Session/Resume 语义对齐 | in-progress | 缅因猫 | [F053](features/F053-gemini-resume-session-parity.md) |
 | F054 | HCI 预热基础设施 — Social Media MCP + 内容管线 | spec | 布偶猫 | [F054](features/F054-hci-preheat-infra.md) |
+| F055 | 猫猫祟祟 — Plan Board | spec | 布偶猫 | [F055](features/F055-plan-board.md) |
 <!-- F042 (提示词工程审计与优化) → done 2026-03-02, 剩余项毕业到 F043/F046/F049 -->
 <!-- F049 (Mission Hub — Backlog Center) → done 2026-03-03 -->
