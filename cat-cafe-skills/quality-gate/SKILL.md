@@ -55,16 +55,21 @@ Step 2: CREATE — 建检查清单
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
 
-Step 4: RUN — 运行验证命令（必须这次真实运行）
+Step 4: RUNTIME GUARD — 前端证据采集前先做运行态保护
+  - 若会话在 `cat-cafe-runtime`，先探活：`curl -sf http://localhost:3002/health`
+  - 服务已在线时直接复用，禁止在该会话执行 `pnpm start` / `pnpm runtime:start` / `./scripts/start-dev.sh`
+  - 确需重启时，先获铲屎官明确授权，再用 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行
+
+Step 5: RUN — 运行验证命令（必须这次真实运行）
   pnpm test                              # 必须全部通过
   pnpm lint                              # 0 errors
   pnpm -r --if-present run build         # exit 0
   # Redis 相关改动额外跑：
   pnpm --filter @cat-cafe/api test:redis
 
-Step 5: READ — 完整读输出，看 exit code，数失败数
+Step 6: READ — 完整读输出，看 exit code，数失败数
 
-Step 6: REPORT — 输出合规报告 + 证据
+Step 7: REPORT — 输出合规报告 + 证据
 ```
 
 **前端功能额外要求**：`≤3 张截图 + 1 段 15s 录屏`，附"需求 → 截图"映射表。
@@ -115,6 +120,7 @@ pnpm -r --if-present run build → exit 0 ✅
 | 测试通过就声称 phase 完成 | 还要对照 spec 逐项检查 |
 | 部分实现就提 review | P1/P2 遗漏必须当轮补完再提 review |
 | 前端功能没有截图证据 | ≤3 张截图 + 15s 录屏 + 映射表 |
+| 为了截图在 runtime 会话里重跑 `pnpm start` | 先探活复用现有 runtime；确需重启必须显式授权 |
 | Redis 改动用默认测试命令 | 必须跑 `test:redis`，禁止直连 6399 |
 
 **Red flags — 立刻 STOP**：

@@ -3,13 +3,24 @@ feature_ids: [F042]
 topics: [sop]
 doc_kind: note
 created: 2026-02-26
-updated: 2026-02-28
+updated: 2026-03-04
 ---
 
 # Cat Café 开发 SOP
 
 > 三猫开发全流程的导航图。每步的详细操作在对应 skill 内。
 > 冲突时以 skill 内容为准。
+
+## Runtime 单实例保护（P0）
+
+`../cat-cafe-runtime` 是咱们的运行态单实例（通常占用 `3002/3001`），默认视为**在线服务**，不是随手重启的实验环境。
+
+硬规则：
+1. 在 runtime 会话里，禁止执行会触发重启的命令：`pnpm start`、`pnpm runtime:start`、`./scripts/start-dev.sh`
+2. 做截图/验收/排查前，先复用现有服务（先查 `curl -sf http://localhost:3002/health`）
+3. 确实要重启，必须先拿到铲屎官明确同意，再显式设置 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行启动命令
+
+说明：`--force` 不是重启授权，不能替代第 3 条。
 
 ## 完整流程（4 步）
 

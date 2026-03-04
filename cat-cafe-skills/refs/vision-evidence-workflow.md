@@ -17,9 +17,13 @@
 ## 采集步骤
 
 1. 明确这次验收的需求点（来自 discussion/spec）。
-2. 进入目标页面，覆盖关键状态（初始态 / 成功态 / 错误态）。
-3. 先截静态图，再录 1 段 15s 内关键流程。
-4. 填写映射表并放进 quality-gate / review 请求信。
+2. **Runtime Guard（若在 `cat-cafe-runtime`）**：
+   - 先探活：`curl -sf http://localhost:3002/health`
+   - 服务在线就直接复用，禁止为截图执行 `pnpm start` / `pnpm runtime:start` / `./scripts/start-dev.sh`
+   - 确实要重启时，先拿到铲屎官明确授权，再执行 `CAT_CAFE_RUNTIME_RESTART_OK=1 pnpm start`
+3. 进入目标页面，覆盖关键状态（初始态 / 成功态 / 错误态）。
+4. 先截静态图，再录 1 段 15s 内关键流程。
+5. 填写映射表并放进 quality-gate / review 请求信。
 
 ## 需求→证据映射模板
 
@@ -36,3 +40,4 @@
 - 只贴截图，不写需求映射。
 - 录屏太长，关键行为难定位。
 - 把后端任务也强行要求截图（不需要）。
+- 为了截图在 runtime 会话里重启服务，导致在线实例中断。

@@ -26,6 +26,7 @@ git worktree add ../cat-cafe-{feature-name} -b feat/{feature-name}
 
 - 🔴 **禁止在项目内部创建**（不要用 `.worktrees/` 子目录）
 - 🔴 **`cat-cafe-runtime` 是生产环境，绝对不能删/清理！** 它不是开发 worktree
+- 🔴 **禁止在 `cat-cafe-runtime` 里执行 `pnpm start` / `pnpm runtime:start`**（会先 kill 旧 API，等于把在线 runtime 踢掉）
 
 其他项目：先查 `CLAUDE.md / AGENTS.md` 有没有指定位置 → 有就用 → 没有再问用户。
 
@@ -93,6 +94,7 @@ git branch --merged main      # 哪些分支已合入
 - [ ] 不是 `*-runtime` 命名
 - [ ] `.env.local` 包含 `REDIS_URL=redis://localhost:6398`
 - [ ] 基线测试通过（失败了先报告再问是否继续）
+- [ ] 当前会话不是 `cat-cafe-runtime` 的运行态验收会话（验收会话默认只读，不做重启命令）
 
 清理前：
 - [ ] 分支已合入 main（`git branch --merged main`）

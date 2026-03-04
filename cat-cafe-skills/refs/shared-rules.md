@@ -91,3 +91,11 @@ commit body 补一行 `Why:` 说明决策理由。
 |------|-------|--------|
 | 立项 | `feat-lifecycle` | "开个新功能"、"new feature"、"F0xx"、"立项" |
 | 完成 | `feat-lifecycle` | "feature 完成"、"F0xx done"、"验收通过" |
+
+## 12. Runtime 单实例保护（Anti-Self-TERM）
+
+- `../cat-cafe-runtime` 是单实例运行态，默认当作在线服务处理。
+- 在 runtime 会话中禁止执行重启命令：`pnpm start`、`pnpm runtime:start`、`./scripts/start-dev.sh`。
+- 前端证据采集先复用现有服务：先查 `curl -sf http://localhost:3002/health`。
+- 必须重启时先拿到铲屎官明确授权，再用 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行。
+- `--force` 只用于同步/脏树场景，不是重启 runtime 的授权令牌。

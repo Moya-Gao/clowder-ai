@@ -28,6 +28,10 @@ Defaults:
   --dir    ../cat-cafe-runtime
   --branch runtime/main-sync
   --remote origin
+
+Safety:
+  start refuses to kill an active API by default.
+  To intentionally restart runtime, set CAT_CAFE_RUNTIME_RESTART_OK=1.
 EOF
 }
 
@@ -79,6 +83,19 @@ ensure_remote_exists() {
 is_api_running() {
   local port="${API_SERVER_PORT:-3002}"
   lsof -nP -iTCP:"$port" -sTCP:LISTEN -t >/dev/null 2>&1
+}
+
+ensure_restart_authorized() {
+  if ! is_api_running; then
+    return 0
+  fi
+
+  if [ "${CAT_CAFE_RUNTIME_RESTART_OK:-0}" = "1" ]; then
+    info "CAT_CAFE_RUNTIME_RESTART_OK=1; proceeding with explicit runtime restart."
+    return 0
+  fi
+
+  die "API port appears active. Refusing to restart runtime by default (anti-self-TERM guard). If intentional, rerun with CAT_CAFE_RUNTIME_RESTART_OK=1."
 }
 
 ensure_runtime_clean() {
@@ -199,6 +216,11 @@ start_runtime_worktree() {
     info "runtime worktree missing; initializing first"
     init_runtime_worktree
   fi
+
+  # Runtime is single-instance infra; restarting an active API requires
+  # explicit opt-in so accidental `pnpm start` in runtime sessions cannot
+  # kill the live process.
+  ensure_restart_authorized
 
   if [ "$SYNC_BEFORE_START" = "true" ]; then
     if is_api_running && [ "$FORCE" != "true" ]; then
