@@ -26,3 +26,4 @@ created: 2026-02-26
 | F050 | External Agent Onboarding — A2A/CLI 接入契约 | in-progress | 布偶猫 | [F050](features/F050-a2a-external-agent-onboarding.md) |
 | F051 | 猫粮看板 v2 — Quota Board (glanceable + scheduling) | in-progress | 布偶猫 | [F051](features/F051-real-quota-dashboard.md) |
 | F054 | HCI 预热基础设施 — Social Media MCP + 内容管线 | spec | 布偶猫 | [F054](features/F054-hci-preheat-infra.md) |
+| F055 | A2A MCP Structured Routing — targetCats 结构化路由 | spec | 布偶猫 | [F055](features/F055-a2a-mcp-structured-routing.md) |
