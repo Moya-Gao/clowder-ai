@@ -114,6 +114,43 @@ created: 2026-03-03
 - **Related**: [F043 MCP 归一化](F043-mcp-unification.md) — 社交媒体 MCP 接入需考虑 MCP Server 拆分策略
 - **Discussion**: [2026-03-03 HCI 预热策略会议](../discussions/2026-03-03-hci-preheat-strategy-meeting.md)
 
+## 外部参考: moeru-ai/airi
+
+> 调研日期: 2026-03-04 | 调研人: 布偶猫 (Opus 4.6)
+> Repo: https://github.com/moeru-ai/airi
+> 定位: 开源 AI VTuber 系统（类 Neuro-sama），有声音、身体、能玩游戏、能跨平台社交
+
+### 可借鉴
+
+| 点 | AIRI 做法 | 对 F054 的启示 |
+|----|-----------|---------------|
+| **社交媒体 Adapter + MCP 双层** | Twitter 服务分 Core Service → Adapter Layer → MCP Adapter，任何 LLM agent 通过标准 MCP 调用 | Phase 1: 先直接 MCP（YAGNI），等接入第二平台时再考虑 Adapter 抽象层；与 F043 MCP 归一化对齐 |
+| **CCC 角色卡 + Velin prompt** | `packages/ccc` 结构化角色卡定义；`.velin.md` 性格模板：身份→性格→关系→说话风格→行为准则 | Phase 3: 性格档案参考此结构，但增加"猫猫间互动模式"维度（AIRI 单角色，咱们多猫互动） |
+| **Satori Bot Scheduler** | 事件驱动 `Queue → Scheduler → LLM Planner → Response`，Scheduler 控制回复频率防刷屏 | Phase 1: 社交媒体发布需要类似的频率控制（不能让猫猫刷屏小红书） |
+
+### 不需要
+
+| AIRI 功能 | 原因 |
+|-----------|------|
+| VRM/Live2D 3D 身体 | 咱们 2D Live 是更后期的事 |
+| 游戏 Agent (Minecraft/Factorio) | 跟内容管线无关 |
+| 浏览器端推理 (WebGPU/WASM) | 咱们走 API 路线 |
+| Tauri 桌面端 | 咱们是 Web 架构 |
+
+### 性格 Prompt 模板参考 (Velin 格式)
+
+AIRI 的 `personality-v1.velin.md` 结构（已验证可用）：
+
+```
+# 核心身份 (Identity)        — 名字、背景、外形
+# 性格特征 (Personality)     — 3-5 条核心性格词 + 展开描述
+# 关键关系 (Relationships)   — 对每个关系人的不同说话方式
+# 说话风格 (Tone & Style)    — 口语化示例、颜文字、长度偏好
+# 行为准则 (Instructions)    — 边界规则（不懂就说不懂、不当客服等）
+```
+
+**适配多猫场景的改动**：在 Relationships 中增加猫猫间互动模式矩阵（宪宪↔砚砚: review 拉锯模式, 宪宪↔烁烁: 温柔引导模式, 砚砚↔烁烁: 技术vs审美碰撞模式）。
+
 ## Key Decisions
 
 | 决策 | 选项 | 结论 | 决策者 |
