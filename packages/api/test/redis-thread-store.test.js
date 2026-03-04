@@ -208,6 +208,18 @@ describe('RedisThreadStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false },
     assert.equal(cleared.routingPolicy, undefined);
   });
 
+  it('updateMentionActionabilityMode() stores relaxed and clears on strict', async () => {
+    const thread = await store.create('user1', 'Mention Actionability');
+
+    await store.updateMentionActionabilityMode(thread.id, 'relaxed');
+    const updated = await store.get(thread.id);
+    assert.equal(updated?.mentionActionabilityMode, 'relaxed');
+
+    await store.updateMentionActionabilityMode(thread.id, 'strict');
+    const cleared = await store.get(thread.id);
+    assert.equal(cleared?.mentionActionabilityMode, undefined);
+  });
+
   it('delete() removes thread', async () => {
     const thread = await store.create('user1', 'To Delete');
     const result = await store.delete(thread.id);

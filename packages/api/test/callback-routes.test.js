@@ -253,6 +253,34 @@ describe('Callback Routes', () => {
     assert.equal(threadBMessages[0].content, 'cross-thread hello');
   });
 
+  test('POST post-message respects target thread mentionActionabilityMode=relaxed', async () => {
+    const app = await createApp();
+    const threadA = await threadStore.create('user-1', 'thread-a');
+    const threadB = await threadStore.create('user-1', 'thread-b');
+    threadStore.updateMentionActionabilityMode(threadB.id, 'relaxed');
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus', threadA.id);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/callbacks/post-message',
+      payload: {
+        invocationId,
+        callbackToken,
+        threadId: threadB.id,
+        content: '@缅因猫\n\n请 review 这个改动',
+      },
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.status, 'ok');
+    assert.equal(body.threadId, threadB.id);
+
+    const threadBMessages = messageStore.getByThread(threadB.id, 20, 'user-1');
+    assert.equal(threadBMessages.length, 1);
+    assert.deepEqual(threadBMessages[0].mentions, ['codex']);
+  });
+
   test('POST post-message rejects cross-thread send to another user thread', async () => {
     const app = await createApp();
     const threadA = await threadStore.create('user-1', 'thread-a');

@@ -41,6 +41,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import type { MentionActionabilityMode } from '../../stores/ports/ThreadStore.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -86,9 +87,12 @@ export async function* routeSerial(
   }
   // F042: Fetch thread routingPolicy once before loop (threadId doesn't change).
   let routingPolicy: ThreadRoutingPolicyV1 | undefined;
+  let mentionActionabilityMode: MentionActionabilityMode = 'strict';
   if (deps.invocationDeps.threadStore) {
     try {
-      routingPolicy = (await deps.invocationDeps.threadStore.get(threadId))?.routingPolicy;
+      const thread = await deps.invocationDeps.threadStore.get(threadId);
+      routingPolicy = thread?.routingPolicy;
+      mentionActionabilityMode = thread?.mentionActionabilityMode ?? 'strict';
     } catch { /* best-effort */ }
   }
 
@@ -379,7 +383,7 @@ export async function* routeSerial(
       }
 
       // A2A mention detection (缅因猫 P1-3: only after full text accumulated)
-      const mentionAnalysis = analyzeA2AMentions(storedContent, catId);
+      const mentionAnalysis = analyzeA2AMentions(storedContent, catId, { mode: mentionActionabilityMode });
       a2aMentions = mentionAnalysis.mentions;
       const suppressedMentions = mentionAnalysis.suppressed;
       const storedTimestamp = Date.now();

@@ -18,6 +18,7 @@ import { DEFAULT_THREAD_ID } from '../ports/ThreadStore.js';
 import type {
   Thread,
   IThreadStore,
+  MentionActionabilityMode,
   ThreadParticipantActivity,
   ThreadMentionRoutingFeedback,
   ThreadRoutingPolicyV1,
@@ -283,6 +284,19 @@ export class RedisThreadStore implements IThreadStore {
     await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'thinkingMode', mode);
   }
 
+  async updateMentionActionabilityMode(
+    threadId: string,
+    mode: MentionActionabilityMode,
+  ): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    // strict is default behavior; clearing keeps storage backward-compatible.
+    if (mode === 'strict') {
+      await this.redis.hdel(key, 'mentionActionabilityMode');
+      return;
+    }
+    await this.redis.eval(HSET_IF_HAS_ID_LUA, 1, key, 'mentionActionabilityMode', mode);
+  }
+
   async updatePreferredCats(threadId: string, catIds: CatId[]): Promise<void> {
     const key = ThreadKeys.detail(threadId);
     // R5 fix: dedupe at write time to prevent duplicate invocations
@@ -451,6 +465,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.preferredCats && thread.preferredCats.length > 0) {
       result['preferredCats'] = JSON.stringify(thread.preferredCats);
     }
+    if (thread.mentionActionabilityMode === 'relaxed') {
+      result['mentionActionabilityMode'] = 'relaxed';
+    }
     if (thread.routingPolicy) {
       result['routingPolicy'] = JSON.stringify(thread.routingPolicy);
     }
@@ -474,6 +491,9 @@ export class RedisThreadStore implements IThreadStore {
       favoritedAt: favoritedAt || null,
       thinkingMode: (data['thinkingMode'] === 'debug' ? 'debug' : 'play') as 'debug' | 'play',
     };
+    if (data['mentionActionabilityMode'] === 'relaxed') {
+      result.mentionActionabilityMode = 'relaxed';
+    }
     const phase = this.parsePhase(data['phase']);
     if (phase) {
       result.phase = phase;

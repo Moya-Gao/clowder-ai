@@ -132,6 +132,21 @@ describe('ThreadStore', () => {
     assert.ok(updated.lastActiveAt >= originalTime);
   });
 
+  test('updateMentionActionabilityMode() stores relaxed and clears on strict', async () => {
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const store = new ThreadStore();
+    const thread = store.create('user-1', 'Mention mode');
+
+    store.updateMentionActionabilityMode(thread.id, 'relaxed');
+    assert.equal(store.get(thread.id)?.mentionActionabilityMode, 'relaxed');
+
+    store.updateMentionActionabilityMode(thread.id, 'strict');
+    assert.equal(store.get(thread.id)?.mentionActionabilityMode, undefined);
+  });
+
   test('delete() removes thread, but not default', async () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'

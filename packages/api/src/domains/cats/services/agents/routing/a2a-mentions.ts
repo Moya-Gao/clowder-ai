@@ -46,16 +46,32 @@ export interface A2AMentionAnalysis {
   readonly suppressed: SuppressedA2AMention[];
 }
 
+export type MentionActionabilityMode = 'strict' | 'relaxed';
+
+export interface A2AMentionParseOptions {
+  /** strict = same paragraph only, relaxed = allow one blank line gap */
+  readonly mode?: MentionActionabilityMode;
+}
+
 /**
  * Parse A2A @mentions from cat response text.
  * F27: Returns all matched CatIds (up to MAX_A2A_MENTION_TARGETS).
  */
-export function parseA2AMentions(text: string, currentCatId: CatId): CatId[] {
-  return analyzeA2AMentions(text, currentCatId).mentions;
+export function parseA2AMentions(
+  text: string,
+  currentCatId: CatId,
+  options: A2AMentionParseOptions = {},
+): CatId[] {
+  return analyzeA2AMentions(text, currentCatId, options).mentions;
 }
 
-export function analyzeA2AMentions(text: string, currentCatId: CatId): A2AMentionAnalysis {
+export function analyzeA2AMentions(
+  text: string,
+  currentCatId: CatId,
+  options: A2AMentionParseOptions = {},
+): A2AMentionAnalysis {
   if (!text) return { mentions: [], suppressed: [] };
+  const mode = options.mode ?? 'strict';
 
   // 1. Strip fenced code blocks
   const stripped = text.replace(/```[\s\S]*?```/g, '');
@@ -98,7 +114,10 @@ export function analyzeA2AMentions(text: string, currentCatId: CatId): A2AMentio
       const isBoundary = !charAfter || TOKEN_BOUNDARY_RE.test(charAfter) || !HANDLE_CONTINUATION_RE.test(charAfter);
       if (!isBoundary) continue;
       const paragraph = getParagraph(lines, lineIndex).toLowerCase();
-      if (!hasActionability(paragraph)) {
+      const actionable = hasActionability(paragraph) || (
+        mode === 'relaxed' && hasActionabilityInAdjacentParagraph(lines, lineIndex)
+      );
+      if (!actionable) {
         if (!seen.has(entry.catId) && !suppressed.has(entry.catId)) {
           suppressed.set(entry.catId, wholeMessageHasActionability ? 'cross_paragraph' : 'no_action');
         }
@@ -122,13 +141,33 @@ export function analyzeA2AMentions(text: string, currentCatId: CatId): A2AMentio
 }
 
 function getParagraph(lines: readonly string[], lineIndex: number): string {
+  const { start, end } = getParagraphBounds(lines, lineIndex);
+  return lines.slice(start, end + 1).join('\n');
+}
+
+function getParagraphBounds(lines: readonly string[], lineIndex: number): { start: number; end: number } {
   let start = lineIndex;
   while (start > 0 && lines[start - 1]!.trim() !== '') start -= 1;
 
   let end = lineIndex;
   while (end + 1 < lines.length && lines[end + 1]!.trim() !== '') end += 1;
 
-  return lines.slice(start, end + 1).join('\n');
+  return { start, end };
+}
+
+function hasActionabilityInAdjacentParagraph(lines: readonly string[], lineIndex: number): boolean {
+  const { end } = getParagraphBounds(lines, lineIndex);
+  let scan = end + 1;
+  let blankLineCount = 0;
+  while (scan < lines.length && lines[scan]!.trim() === '') {
+    blankLineCount += 1;
+    scan += 1;
+  }
+  // Relaxed mode only tolerates one blank line (exactly one paragraph gap).
+  if (blankLineCount !== 1 || scan >= lines.length) {
+    return false;
+  }
+  return hasActionability(getParagraph(lines, scan).toLowerCase());
 }
 
 function hasActionability(paragraph: string): boolean {

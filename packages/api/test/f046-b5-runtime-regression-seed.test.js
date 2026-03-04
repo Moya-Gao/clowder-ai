@@ -199,6 +199,28 @@ describe('F046 B5 runtime regression scenarios', () => {
     assert.ok(codexText.length > 0, 'CJK actionable mention should invoke codex');
   });
 
+  it('D1 hot switch relaxed: cross-paragraph actionability should route', async () => {
+    const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const threadStore = new ThreadStore();
+    const thread = threadStore.create('user1', 'D1 relaxed');
+    threadStore.updateMentionActionabilityMode(thread.id, 'relaxed');
+    const deps = createMockDeps({
+      opus: createMockService('opus', '@缅因猫\n\n请 review 这个改动'),
+      codex: createMockService('codex', '收到，开始 review'),
+    }, threadStore);
+
+    const messages = [];
+    for await (const msg of routeSerial(deps, ['opus'], 'review request', 'user1', thread.id, { thinkingMode: 'debug' })) {
+      messages.push(msg);
+    }
+
+    const handoffs = messages.filter((m) => m.type === 'a2a_handoff');
+    const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
+    assert.equal(handoffs.length, 1, 'relaxed mode should allow one-paragraph-gap routing');
+    assert.ok(codexText.length > 0, 'relaxed mode should invoke codex');
+  });
+
   it('D1 token-boundary: "prefix" should not match action token "fix"', async () => {
     const { routeSerial } = await import('../dist/domains/cats/services/agents/routing/route-serial.js');
     const deps = createMockDeps({

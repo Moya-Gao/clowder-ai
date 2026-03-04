@@ -33,6 +33,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import type { MentionActionabilityMode } from '../../stores/ports/ThreadStore.js';
 
 export async function* routeParallel(
   deps: RouteStrategyDeps,
@@ -70,9 +71,12 @@ export async function* routeParallel(
   }
   // F042: Fetch thread routingPolicy once (shared across all cats).
   let routingPolicy: ThreadRoutingPolicyV1 | undefined;
+  let mentionActionabilityMode: MentionActionabilityMode = 'strict';
   if (deps.invocationDeps.threadStore) {
     try {
-      routingPolicy = (await deps.invocationDeps.threadStore.get(threadId))?.routingPolicy;
+      const thread = await deps.invocationDeps.threadStore.get(threadId);
+      routingPolicy = thread?.routingPolicy;
+      mentionActionabilityMode = thread?.mentionActionabilityMode ?? 'strict';
     } catch { /* best-effort */ }
   }
 
@@ -336,7 +340,7 @@ export async function* routeParallel(
         const catTools = catToolEvents.get(msg.catId);
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
-        const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
+        const mentions = parseA2AMentions(storedContent, msg.catId as CatId, { mode: mentionActionabilityMode });
         const thinking = catThinking.get(msg.catId);
         try {
           await deps.messageStore.append({
@@ -497,7 +501,7 @@ export async function* routeParallel(
       if (isFinal) {
         const followupMentions: Array<{ catId: string; mentionedBy: string }> = [];
         for (const [cid, text] of catText.entries()) {
-          const ms = parseA2AMentions(text, cid as CatId);
+          const ms = parseA2AMentions(text, cid as CatId, { mode: mentionActionabilityMode });
           for (const target of ms) {
             followupMentions.push({ catId: target, mentionedBy: cid });
           }

@@ -45,6 +45,27 @@ describe('parseA2AMentions', () => {
     assert.deepEqual(result, []);
   });
 
+  it('relaxed mode: routes when action words are in the next paragraph with one blank line', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n请 review 这个 PR';
+    const result = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
+    assert.deepEqual(result, ['opus']);
+  });
+
+  it('relaxed mode: routes all mentions in the same mention paragraph when next paragraph has action words', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n@缅因猫\n\n请 review 这个 PR';
+    const result = parseA2AMentions(text, 'gpt52', { mode: 'relaxed' });
+    assert.deepEqual(result, ['opus', 'codex']);
+  });
+
+  it('relaxed mode: still does NOT route when action words are too far (two blank lines)', async () => {
+    const { parseA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
+    const text = '@布偶猫\n\n\n请 review 这个 PR';
+    const result = parseA2AMentions(text, 'codex', { mode: 'relaxed' });
+    assert.deepEqual(result, []);
+  });
+
   it('records suppression reason=no_action when mention paragraph has no action keywords', async () => {
     const { analyzeA2AMentions } = await import('../dist/domains/cats/services/agents/routing/a2a-mentions.js');
     const result = analyzeA2AMentions('@布偶猫', 'codex');

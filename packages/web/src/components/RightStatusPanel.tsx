@@ -200,6 +200,53 @@ function ThinkingModeToggle({ threadId }: { threadId: string }) {
   );
 }
 
+/** Thread-level D1 hot switch: strict vs relaxed mention actionability window */
+function MentionActionabilityToggle({ threadId }: { threadId: string }) {
+  const thread = useChatStore((s) => s.threads.find((t) => t.id === threadId));
+  const updateLocal = useChatStore((s) => s.updateThreadMentionActionabilityMode);
+  const mode = thread?.mentionActionabilityMode ?? 'strict';
+  const isStrict = mode === 'strict';
+  const pendingRef = useRef(false);
+
+  const toggle = useCallback(async () => {
+    if (pendingRef.current) return;
+    pendingRef.current = true;
+    const next = isStrict ? 'relaxed' : 'strict';
+    updateLocal(threadId, next);
+    try {
+      const res = await apiFetch(`/api/threads/${threadId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mentionActionabilityMode: next }),
+      });
+      if (!res.ok) {
+        updateLocal(threadId, mode);
+      }
+    } catch {
+      updateLocal(threadId, mode);
+    } finally {
+      pendingRef.current = false;
+    }
+  }, [threadId, isStrict, mode, updateLocal]);
+
+  return (
+    <div className="flex items-center justify-between">
+      <span>提及路由: <span className="font-medium">{isStrict ? '严格' : '宽松'}</span></span>
+      <button
+        onClick={toggle}
+        className="text-[11px] px-2 py-0.5 rounded-full border border-gray-300 hover:border-gray-400 hover:bg-gray-100 transition-colors"
+        title={
+          isStrict
+            ? '切到宽松：允许 @句柄 段落后空一行再写动作词'
+            : '切到严格：要求 @句柄 与动作词在同段'
+        }
+      >
+        {isStrict ? '切换宽松' : '切换严格'}
+      </button>
+    </div>
+  );
+}
+
 /** Global UI preference: default expand/collapse for Thinking blocks */
 function ThinkingDefaultExpandToggle() {
   const expanded = useChatStore((s) => s.uiThinkingExpandedByDefault);
@@ -450,6 +497,7 @@ export function RightStatusPanel({
           </div>
           <ThinkingDefaultExpandToggle />
           <ThinkingModeToggle threadId={threadId} />
+          <MentionActionabilityToggle threadId={threadId} />
           <RevealWhispersButton threadId={threadId} />
         </div>
       </section>

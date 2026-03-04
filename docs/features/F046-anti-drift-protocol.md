@@ -109,6 +109,10 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - **改什么**：`packages/api/src/domains/cats/services/agents/routing/a2a-mentions.ts`
 - **现在**：行首 `@handle` 匹配成功 → 直接路由
 - **改后**：行首 `@handle` 匹配成功 → 检查同段/同句是否含动作词 → 有动作词才路由，无动作词不路由
+- **运行模式**：
+  - `strict`（默认）：`@handle` 与动作词必须同段
+  - `relaxed`（线程级热开关）：允许 `@handle` 段后空一行，在下一段出现动作词
+  - 入口：`PATCH /api/threads/:id { mentionActionabilityMode: 'strict' | 'relaxed' }`
 - **动作词初始集**（硬编码，后续可配置化）：`review`、`确认`、`处理`、`修复`、`请`、`帮`、`决策`、`看一下`、`check`、`fix`、`merge`
 - **注意**：铲屎官的 @ 不受此门禁影响（铲屎官消息走不同路径），只影响猫→猫的 A2A mention
 
@@ -328,3 +332,4 @@ Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - 2026-03-03: D1+D2 合入（PR #192 / `27e5e70b`）：动作词边界门禁 + 元信息去 `@` 惯性
 - 2026-03-03: D3 合入（PR #194 / `a93a6ea1`）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费
 - 2026-03-03: D4 合入（PR #195 / `3825aaea`）：移除 B6 identity gate 代码与测试，更新 B5 第 3 条为“无 identity 无效标记”
+- 2026-03-03: D1 热开关补充（本分支）：线程级 `mentionActionabilityMode` 支持 `strict/relaxed`，用于调试与非 coding 场景容错

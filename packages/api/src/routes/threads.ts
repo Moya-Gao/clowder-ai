@@ -85,11 +85,12 @@ const updateThreadSchema = z.object({
   pinned: z.boolean().optional(),
   favorited: z.boolean().optional(),
   thinkingMode: z.enum(['debug', 'play']).optional(),
+  mentionActionabilityMode: z.enum(['strict', 'relaxed']).optional(),
   /** F32-b Phase 2: Update thread-level cat preference. Empty array clears. */
   preferredCats: z.array(catIdSchema()).max(10).optional(),
   /** F042: Thread-level routing policy by intent/scope. null clears. */
   routingPolicy: threadRoutingPolicySchema.nullable().optional(),
-}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.preferredCats !== undefined || data.routingPolicy !== undefined, {
+}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.mentionActionabilityMode !== undefined || data.preferredCats !== undefined || data.routingPolicy !== undefined, {
   message: 'At least one field must be provided',
 });
 
@@ -203,11 +204,12 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy } = parseResult.data;
+    const { title, pinned, favorited, thinkingMode, mentionActionabilityMode, preferredCats, routingPolicy } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
     if (thinkingMode !== undefined) await threadStore.updateThinkingMode(id, thinkingMode);
+    if (mentionActionabilityMode !== undefined) await threadStore.updateMentionActionabilityMode(id, mentionActionabilityMode);
     if (preferredCats !== undefined) await threadStore.updatePreferredCats(id, preferredCats as CatId[]);
     if (routingPolicy !== undefined) {
       await threadStore.updateRoutingPolicy(id, routingPolicy as ThreadRoutingPolicyV1 | null);

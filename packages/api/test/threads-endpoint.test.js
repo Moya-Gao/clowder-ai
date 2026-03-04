@@ -335,6 +335,33 @@ describe('Thread API', () => {
     assert.equal(body.pinned, true);
   });
 
+  it('PATCH /api/threads/:id sets mentionActionabilityMode=relaxed', async () => {
+    const thread = threadStore.create('alice', 'Mention Mode');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { mentionActionabilityMode: 'relaxed' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.mentionActionabilityMode, 'relaxed');
+  });
+
+  it('PATCH /api/threads/:id sets mentionActionabilityMode=strict (clear relaxed override)', async () => {
+    const thread = threadStore.create('alice', 'Mention Mode Reset');
+    threadStore.updateMentionActionabilityMode(thread.id, 'relaxed');
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/threads/${thread.id}`,
+      payload: { mentionActionabilityMode: 'strict' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.mentionActionabilityMode, undefined);
+  });
+
   it('PATCH /api/threads/:id returns 400 for empty body', async () => {
     const thread = threadStore.create('alice', 'Empty Body');
 

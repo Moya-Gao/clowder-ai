@@ -51,6 +51,7 @@ export interface ThreadRoutingPolicyV1 {
 }
 
 export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph';
+export type MentionActionabilityMode = 'strict' | 'relaxed';
 
 export interface ThreadMentionRoutingFeedbackItem {
   targetCatId: CatId;
@@ -83,6 +84,12 @@ export interface Thread {
   favoritedAt?: number | null;
   /** Thinking visibility mode: play = cats can't see each other's thinking, debug = cats share thinking. Default: debug */
   thinkingMode?: 'debug' | 'play';
+  /**
+   * F046 D1 hot switch:
+   * strict  = @mention and action keyword must be in the same paragraph.
+   * relaxed = allow one blank line between @mention paragraph and action paragraph.
+   */
+  mentionActionabilityMode?: MentionActionabilityMode;
   /** F32-b Phase 2: Thread-level cat preference. When set, messages without @mention route to these cats instead of participants/default. */
   preferredCats?: CatId[];
   /** F049: workflow phase for dispatch/intent guidance */
@@ -111,6 +118,7 @@ export interface IThreadStore {
   updatePin(threadId: string, pinned: boolean): void | Promise<void>;
   updateFavorite(threadId: string, favorited: boolean): void | Promise<void>;
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void | Promise<void>;
+  updateMentionActionabilityMode(threadId: string, mode: MentionActionabilityMode): void | Promise<void>;
   updatePreferredCats(threadId: string, catIds: CatId[]): void | Promise<void>;
   updatePhase(threadId: string, phase: ThreadPhase): void | Promise<void>;
   linkBacklogItem(threadId: string, backlogItemId: string): void | Promise<void>;
@@ -288,6 +296,17 @@ export class ThreadStore implements IThreadStore {
   updateThinkingMode(threadId: string, mode: 'debug' | 'play'): void {
     const thread = this.get(threadId);
     if (thread) thread.thinkingMode = mode;
+  }
+
+  updateMentionActionabilityMode(threadId: string, mode: MentionActionabilityMode): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    // strict is default behavior, so clear explicit override to preserve backwards compatibility.
+    if (mode === 'strict') {
+      delete thread.mentionActionabilityMode;
+      return;
+    }
+    thread.mentionActionabilityMode = mode;
   }
 
   updatePreferredCats(threadId: string, catIds: CatId[]): void {
