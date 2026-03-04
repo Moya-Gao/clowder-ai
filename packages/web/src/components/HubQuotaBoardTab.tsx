@@ -132,7 +132,7 @@ export function HubQuotaBoardTab() {
   const codexPools = groupCodexByPool(quota?.codex.usageItems ?? []);
   const geminiItems = quota?.gemini?.usageItems ?? [];
   const antigravityItems = quota?.antigravity?.usageItems ?? [];
-  const errors = [refreshError, quota?.codex?.error, quota?.claude?.error, quota?.gemini?.error, quota?.antigravity?.error].filter(Boolean) as string[];
+  const errors = [...new Set([refreshError, quota?.codex?.error, quota?.claude?.error, quota?.gemini?.error, quota?.antigravity?.error].filter(Boolean) as string[])];
 
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
