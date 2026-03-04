@@ -10,7 +10,9 @@ import { describe, it } from 'node:test';
 
 async function buildApp() {
   const Fastify = (await import('fastify')).default;
-  const { quotaRoutes } = await import('../dist/routes/quota.js');
+  const quotaModule = await import('../dist/routes/quota.js');
+  quotaModule.resetQuotaCachesForTests?.();
+  const { quotaRoutes } = quotaModule;
   const app = Fastify();
   await app.register(quotaRoutes);
   await app.ready();
@@ -169,6 +171,88 @@ describe('GET /api/quota/probes', () => {
       else delete process.env.QUOTA_BROWSER_CDP_PORT;
       if (oldCdp != null) process.env.QUOTA_BROWSER_CDP_URL = oldCdp;
       else delete process.env.QUOTA_BROWSER_CDP_URL;
+      await app.close();
+    }
+  });
+});
+
+describe('GET /api/quota/summary', () => {
+  it('returns compact summary payload for menu-bar/widget consumers', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: {
+          usageItems: [{ label: '每周使用限额', usedPercent: 91, percentKind: 'remaining' }],
+        },
+      });
+
+      const res = await app.inject({ method: 'GET', url: '/api/quota/summary' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(typeof body.fetchedAt, 'string');
+      assert.equal(typeof body.risk.level, 'string');
+      assert.equal(Array.isArray(body.risk.reasons), true);
+      assert.equal(body.platforms.codex.label, '缅因猫 (Codex + GPT-5.2)');
+      assert.equal(typeof body.platforms.codex.displayPercent, 'number');
+      assert.equal(typeof body.probes.official.status, 'string');
+      assert.equal(typeof body.actions.refreshOfficialPath, 'string');
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
+  it('flags high risk when utilization crosses threshold', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = '1';
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: {
+          usageItems: [{ label: '每周使用限额', usedPercent: 95, percentKind: 'used' }],
+        },
+      });
+      const res = await app.inject({ method: 'GET', url: '/api/quota/summary' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.risk.level, 'high');
+      assert.equal(body.risk.reasons.some((reason) => /95%/.test(String(reason))), true);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+      await app.close();
+    }
+  });
+
+  it('flags warn when official browser probe is disabled', async () => {
+    const oldEnabled = process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
+    const app = await buildApp();
+    try {
+      await app.inject({
+        method: 'PATCH',
+        url: '/api/quota/codex',
+        payload: {
+          usageItems: [{ label: '每周使用限额', usedPercent: 20, percentKind: 'used' }],
+        },
+      });
+
+      const res = await app.inject({ method: 'GET', url: '/api/quota/summary' });
+      assert.equal(res.statusCode, 200);
+      const body = res.json();
+      assert.equal(body.risk.level, 'warn');
+      assert.equal(body.probes.official.status, 'disabled');
+      assert.equal(body.risk.reasons.some((reason) => /已禁用/.test(String(reason))), true);
+    } finally {
+      if (oldEnabled != null) process.env.QUOTA_OFFICIAL_REFRESH_ENABLED = oldEnabled;
+      else delete process.env.QUOTA_OFFICIAL_REFRESH_ENABLED;
       await app.close();
     }
   });

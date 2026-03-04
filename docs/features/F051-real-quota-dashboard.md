@@ -109,12 +109,15 @@ updated: 2026-03-03
 - 统一“猫粮刷新 + 预警通知”交互：只在必要事件发通知，避免骚扰
 - 重做看板视觉层级（状态、阈值、趋势、操作区分组）
 
-### Phase 4-5（Roadmap，方向锚点）
+### Phase 4-5（已落地 v1）
 
-- **Phase 4（菜单栏）**：macOS Menu Bar companion（状态摘要、手动刷新、阈值通知）
-- **Phase 5（小组件）**：Widget/通知中心摘要卡片（桌面与移动端轻量概览）
+- **Phase 4（菜单栏）**：SwiftBar 菜单栏 companion（状态摘要、手动刷新入口、风险原因）
+- **Phase 5（小组件）**：`/widget/quota` 轻量摘要页面（桌面/移动共用）
+- **统一摘要 API**：`GET /api/quota/summary` 作为菜单栏与小组件消费入口
 
-说明：Phase 4/5 是方向承诺，不阻塞 Phase 3 交付。
+边界说明：
+- 当前是 Web/PWA + 菜单栏插件路线，不是原生 App 的 Notification Center Widget。
+- 原生通知中心小组件/APNs 常驻能力仍属于后续演进，不阻塞 F051 当前交付。
 
 ## Acceptance Criteria
 
@@ -138,6 +141,8 @@ updated: 2026-03-03
 - [x] AC-18: 文档明确平台边界（Web Push 与原生 APNs 的差异、iOS 条件限制）
 - [x] AC-19: 提供开发环境通知验证路径（dev 模式 SW 能力策略 + 一键自检步骤）
 - [x] AC-20: 在开工前输出 UI 文字版 wireframe（桌面/移动）并经铲屎官确认
+- [x] AC-21: 提供 `/api/quota/summary` 轻量摘要接口，输出风险级别、平台摘要、探针状态与动作路径
+- [x] AC-22: 提供 Phase 4/5 可用入口（SwiftBar 菜单栏脚本 + `/widget/quota` 页面）并完成基础测试
 
 ## 需求点 Checklist
 
@@ -152,7 +157,7 @@ updated: 2026-03-03
 | R7 | "不会一直爬，避免影响别人" | AC-6 | on-demand 触发，不做持续爬取 | [x] |
 | R8 | "按开源组件化思路重构，走正规流程" | AC-8,9,10 | Probe Registry + quality-gate + peer review | [x] |
 | R9 | "macOS 或 iPhone 级别的通知" | AC-11,13,18,19 | 能力矩阵 + iPhone 路径提示 + 手工步骤 | [~] |
-| R10 | "在其他页面干活时也要收得到消息" | AC-11,12,17 | push 路由测试 + 设备订阅可视化 | [~] |
+| R10 | "在其他页面干活时也要收得到消息" | AC-11,12,17,22 | push 路由测试 + 设备订阅可视化 + 菜单栏/小组件常驻概览 | [x] |
 | R11 | "通知能力有 bug，要修到可诊断" | AC-12,13,17 | 集成测试 + 错误文案检查 | [x] |
 | R12 | "而且要好看" | AC-16,20 | 桌面/移动截图证据 + wireframe gate | [x] |
 
@@ -172,6 +177,8 @@ updated: 2026-03-03
 - Phase 3 Discussion: `docs/discussions/2026-03-03-f051-notification-ui-vision-reframe/README.md`
 - Phase 3 UI Wireframe: `docs/discussions/2026-03-03-f051-phase3-ui-wireframe/README.md`
 - Phase 3 Plan: `docs/plans/2026-03-03-f051-notification-ui-productization-plan.md`
+- Phase 4/5 Plan: `docs/plans/2026-03-03-f051-phase45-menubar-widget.md`
+- Phase 4 Guide: `docs/guides/swiftbar-menubar-setup.md`
 - Evolved from: F042 (提示词优化审计 → 猫粮看板需求浮现)
 - Related: Hub 猫粮看板 tab（PR #161 已合入的 UI 骨架可复用）
 
@@ -210,9 +217,9 @@ updated: 2026-03-03
 
 ## Open Questions
 
-1. Antigravity 官方额度抓取与数据模型（F051 Phase 3）
+1. Antigravity 官方额度抓取与数据模型（F051 后续）
 2. 是否需要持久化 probe snapshot（SQLite）做趋势展示
-3. Phase 4/5 的交付顺序：先菜单栏还是先小组件
+3. 是否进入原生 Notification Center Widget / APNs 常驻客户端路线
 
 ## Review Gate
 
@@ -244,3 +251,5 @@ updated: 2026-03-03
 | 2026-03-03 | Phase 3 实装（中期）：通知能力矩阵 + 结构化测试投递摘要 + UI 重构 + 通知去重窗口 |
 | 2026-03-03 | Phase 3 实装（增量）：额度高风险阈值触发系统预警（含 30 分钟去重窗） |
 | 2026-03-03 | Phase 3 证据收尾：桌面/移动截图落盘 + quality-gate + 发起 peer review（@gpt52） |
+| 2026-03-03 | Phase 4 实装：新增 `GET /api/quota/summary` 与 SwiftBar 菜单栏脚本 |
+| 2026-03-03 | Phase 5 实装：新增 `/widget/quota` 轻量摘要页面并接入 Hub 入口 |

@@ -306,6 +306,14 @@ export function HubQuotaBoardTab() {
           主动作：手动获取官方额度（交互式，会使用隔离浏览器）。
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href="/widget/quota"
+            target="_blank"
+            rel="noreferrer"
+            className="px-3 py-1.5 text-xs rounded border border-slate-300 text-slate-700 hover:bg-slate-100"
+          >
+            打开小组件视图
+          </a>
           <button
             type="button"
             onClick={onRefresh}

@@ -102,6 +102,12 @@ describe('HubQuotaBoardTab v2 — official quota API', () => {
     expect(html).toContain('点击获取官方额度');
   });
 
+  it('renders phase5 widget entry link', () => {
+    const html = renderToStaticMarkup(React.createElement(HubQuotaBoardTab));
+    expect(html).toContain('打开小组件视图');
+    expect(html).toContain('/widget/quota');
+  });
+
   it('renders antigravity as not-yet-implemented placeholder', () => {
     const html = renderToStaticMarkup(React.createElement(HubQuotaBoardTab));
     expect(html).toContain('待接入');

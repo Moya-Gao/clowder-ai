@@ -99,20 +99,67 @@ export interface QuotaProbeDescriptor {
   reason: string;
 }
 
+export type QuotaRiskLevel = 'ok' | 'warn' | 'high';
+
+export interface QuotaSummaryPlatform {
+  id: QuotaProbeTargetPlatform;
+  label: string;
+  displayPercent: number | null;
+  displayKind: 'used' | 'remaining' | null;
+  utilizationPercent: number | null;
+  status: 'ok' | 'warn' | 'error' | 'pending';
+  note: string;
+  lastChecked: string | null;
+}
+
+export interface QuotaSummaryResponse {
+  fetchedAt: string;
+  risk: {
+    level: QuotaRiskLevel;
+    reasons: string[];
+    maxUtilization: number | null;
+  };
+  platforms: {
+    codex: QuotaSummaryPlatform;
+    claude: QuotaSummaryPlatform;
+    antigravity: QuotaSummaryPlatform;
+  };
+  probes: {
+    official: Pick<QuotaProbeDescriptor, 'enabled' | 'status' | 'reason'>;
+    claudeCli: Pick<QuotaProbeDescriptor, 'enabled' | 'status' | 'reason'>;
+  };
+  actions: {
+    refreshOfficialPath: '/api/quota/refresh/official';
+    refreshClaudePath: '/api/quota/refresh/claude';
+  };
+}
+
 // --- In-memory cache ---
 
-let claudeCache: ClaudeQuota = {
-  platform: 'claude',
-  activeBlock: null,
-  recentBlocks: [],
-  lastChecked: null,
-};
+function createInitialClaudeCache(): ClaudeQuota {
+  return {
+    platform: 'claude',
+    activeBlock: null,
+    recentBlocks: [],
+    lastChecked: null,
+  };
+}
 
-let codexCache: CodexQuota = {
-  platform: 'codex',
-  usageItems: [],
-  lastChecked: null,
-};
+function createInitialCodexCache(): CodexQuota {
+  return {
+    platform: 'codex',
+    usageItems: [],
+    lastChecked: null,
+  };
+}
+
+let claudeCache: ClaudeQuota = createInitialClaudeCache();
+let codexCache: CodexQuota = createInitialCodexCache();
+
+export function resetQuotaCachesForTests(): void {
+  claudeCache = createInitialClaudeCache();
+  codexCache = createInitialCodexCache();
+}
 
 const ANTIGRAVITY: AntigravityQuota = {
   platform: 'antigravity',
@@ -240,6 +287,215 @@ export function listQuotaProbeDescriptors(env: NodeJS.ProcessEnv = process.env):
       reason: 'Antigravity official probe not implemented yet.',
     },
   ];
+}
+
+function normalizePercent(value: number): number {
+  return Math.max(0, Math.min(100, value));
+}
+
+function toUtilizationPercent(item: CodexUsageItem): number {
+  const raw = item.percentKind === 'remaining' ? 100 - item.usedPercent : item.usedPercent;
+  return normalizePercent(raw);
+}
+
+function pickPrimaryUsageItem(items: CodexUsageItem[]): CodexUsageItem | null {
+  if (items.length === 0) return null;
+  const sorted = [...items].sort((left, right) => {
+    const utilizationDiff = toUtilizationPercent(right) - toUtilizationPercent(left);
+    if (utilizationDiff !== 0) return utilizationDiff;
+    const rank = (label: string): number => {
+      if (/(weekly|每周)/i.test(label)) return 2;
+      if (/(5\s*小时|5(?:\s|-)?hour)/i.test(label)) return 1;
+      return 0;
+    };
+    return rank(right.label) - rank(left.label);
+  });
+  return sorted[0] ?? null;
+}
+
+function statusFromUtilization(utilization: number): QuotaSummaryPlatform['status'] {
+  if (utilization >= 95) return 'error';
+  if (utilization >= 80) return 'warn';
+  return 'ok';
+}
+
+function buildCodexSummaryPlatform(): QuotaSummaryPlatform {
+  if (codexCache.error) {
+    return {
+      id: 'codex',
+      label: '缅因猫 (Codex + GPT-5.2)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'error',
+      note: codexCache.error,
+      lastChecked: codexCache.lastChecked,
+    };
+  }
+  const primary = pickPrimaryUsageItem(codexCache.usageItems);
+  if (!primary) {
+    return {
+      id: 'codex',
+      label: '缅因猫 (Codex + GPT-5.2)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'pending',
+      note: '暂无官方额度数据，请先手动获取。',
+      lastChecked: codexCache.lastChecked,
+    };
+  }
+  const utilization = toUtilizationPercent(primary);
+  return {
+    id: 'codex',
+    label: '缅因猫 (Codex + GPT-5.2)',
+    displayPercent: normalizePercent(primary.usedPercent),
+    displayKind: primary.percentKind ?? 'used',
+    utilizationPercent: utilization,
+    status: statusFromUtilization(utilization),
+    note: primary.resetsText ?? primary.resetsAt ?? primary.label,
+    lastChecked: codexCache.lastChecked,
+  };
+}
+
+function buildClaudeSummaryPlatform(): QuotaSummaryPlatform {
+  if (claudeCache.error) {
+    return {
+      id: 'claude',
+      label: '布偶猫 (Claude)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'error',
+      note: claudeCache.error,
+      lastChecked: claudeCache.lastChecked,
+    };
+  }
+  const usageItems = claudeCache.usageItems ?? [];
+  const primary = pickPrimaryUsageItem(usageItems);
+  if (primary) {
+    const utilization = toUtilizationPercent(primary);
+    return {
+      id: 'claude',
+      label: '布偶猫 (Claude)',
+      displayPercent: normalizePercent(primary.usedPercent),
+      displayKind: primary.percentKind ?? 'used',
+      utilizationPercent: utilization,
+      status: statusFromUtilization(utilization),
+      note: primary.resetsText ?? primary.resetsAt ?? primary.label,
+      lastChecked: claudeCache.lastChecked,
+    };
+  }
+  if (claudeCache.activeBlock) {
+    return {
+      id: 'claude',
+      label: '布偶猫 (Claude)',
+      displayPercent: null,
+      displayKind: null,
+      utilizationPercent: null,
+      status: 'ok',
+      note: 'CLI 活跃计费窗口已加载（无百分比摘要）。',
+      lastChecked: claudeCache.lastChecked,
+    };
+  }
+  return {
+    id: 'claude',
+    label: '布偶猫 (Claude)',
+    displayPercent: null,
+    displayKind: null,
+    utilizationPercent: null,
+    status: 'pending',
+    note: '暂无 Claude 额度数据，请先手动获取。',
+    lastChecked: claudeCache.lastChecked,
+  };
+}
+
+function buildAntigravitySummaryPlatform(): QuotaSummaryPlatform {
+  return {
+    id: 'antigravity',
+    label: '暹罗猫 (Antigravity)',
+    displayPercent: null,
+    displayKind: null,
+    utilizationPercent: null,
+    status: 'pending',
+    note: ANTIGRAVITY.hint,
+    lastChecked: null,
+  };
+}
+
+export function buildQuotaSummary(env: NodeJS.ProcessEnv = process.env): QuotaSummaryResponse {
+  const probes = listQuotaProbeDescriptors(env);
+  const officialProbe = probes.find((probe) => probe.id === 'official-browser');
+  const claudeCliProbe = probes.find((probe) => probe.id === 'claude-cli');
+  const codex = buildCodexSummaryPlatform();
+  const claude = buildClaudeSummaryPlatform();
+  const antigravity = buildAntigravitySummaryPlatform();
+
+  const utilizationValues = [codex.utilizationPercent, claude.utilizationPercent].filter(
+    (value): value is number => typeof value === 'number' && Number.isFinite(value),
+  );
+  const maxUtilization = utilizationValues.length > 0 ? Math.max(...utilizationValues) : null;
+
+  const reasons: string[] = [];
+  let level: QuotaRiskLevel = 'ok';
+
+  if (officialProbe?.status === 'disabled') {
+    reasons.push('官方网页探针已禁用（止血模式）');
+    level = 'warn';
+  }
+
+  if (officialProbe?.status === 'error') {
+    reasons.push('官方网页探针运行异常，请检查登录或 CDP 配置');
+    level = 'high';
+  }
+
+  if (codex.status === 'error') {
+    reasons.push(`缅因猫额度异常：${codex.note}`);
+    level = 'high';
+  }
+
+  if (claude.status === 'error') {
+    reasons.push(`布偶猫额度异常：${claude.note}`);
+    level = 'high';
+  }
+
+  if (maxUtilization != null && maxUtilization >= 95) {
+    reasons.push(`综合利用率达到 ${maxUtilization}%（高风险）`);
+    level = 'high';
+  } else if (maxUtilization != null && maxUtilization >= 80) {
+    reasons.push(`综合利用率达到 ${maxUtilization}%（需关注）`);
+    if (level !== 'high') level = 'warn';
+  }
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    risk: {
+      level,
+      reasons,
+      maxUtilization,
+    },
+    platforms: {
+      codex,
+      claude,
+      antigravity,
+    },
+    probes: {
+      official: {
+        enabled: officialProbe?.enabled ?? false,
+        status: officialProbe?.status ?? 'disabled',
+        reason: officialProbe?.reason ?? 'official-browser probe unavailable',
+      },
+      claudeCli: {
+        enabled: claudeCliProbe?.enabled ?? true,
+        status: claudeCliProbe?.status ?? 'ok',
+        reason: claudeCliProbe?.reason ?? 'claude-cli probe unavailable',
+      },
+    },
+    actions: {
+      refreshOfficialPath: '/api/quota/refresh/official',
+      refreshClaudePath: '/api/quota/refresh/claude',
+    },
+  };
 }
 
 function parsePercentLine(line: string): number | null {
@@ -601,6 +857,11 @@ export async function quotaRoutes(app: FastifyInstance): Promise<void> {
       fetchedAt: new Date().toISOString(),
     };
     return response;
+  });
+
+  // GET: compact summary for menu bar / widget clients
+  app.get('/api/quota/summary', async () => {
+    return buildQuotaSummary();
   });
 
   // POST: refresh Claude quota via ccusage CLI
