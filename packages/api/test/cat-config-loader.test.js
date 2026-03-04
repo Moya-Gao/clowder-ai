@@ -118,13 +118,13 @@ describe('cat-config-loader', () => {
       const config = validConfig();
       config.breeds.push({
         id: 'dare-test',
-        catId: 'dare-agent',
-        name: 'DARE',
-        displayName: 'DARE',
+        catId: 'dare',
+        name: '狸花猫',
+        displayName: '狸花猫',
         avatar: '/avatars/dare.png',
-        color: { primary: '#FF6B35', secondary: '#FFE0D0' },
-        mentionPatterns: ['@dare-agent'],
-        roleDescription: 'External DARE agent',
+        color: { primary: '#D4A76A', secondary: '#F5EBD7' },
+        mentionPatterns: ['@dare'],
+        roleDescription: '确定性执行与审计引擎',
         defaultVariantId: 'dare-default',
         variants: [{
           id: 'dare-default',
@@ -137,8 +137,8 @@ describe('cat-config-loader', () => {
       const path = writeTempConfig(config);
       const loaded = loadCatConfig(path);
       const cats = toAllCatConfigs(loaded);
-      assert.ok(cats['dare-agent']);
-      assert.strictEqual(cats['dare-agent'].provider, 'dare');
+      assert.ok(cats['dare']);
+      assert.strictEqual(cats['dare'].provider, 'dare');
     });
 
     it('accepts arbitrary catId (F32-a: any non-empty string is valid)', () => {
@@ -683,7 +683,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.notDeepEqual(all['sonnet'].color, all['opus'].color);
   });
 
-  it('total cat count is 9 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare-agent)', () => {
+  it('total cat count is 9 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare)', () => {
     const config = loadCatConfig();
     const all = toAllCatConfigs(config);
     assert.equal(Object.keys(all).length, 9);
@@ -695,7 +695,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all['spark']); // F032 Phase E: new cat added
     assert.ok(all['gemini']);
     assert.ok(all['gemini25']);
-    assert.ok(all['dare-agent']); // F050: DARE external agent
+    assert.ok(all['dare']); // F050: DARE external agent (dragon-li)
   });
 });
 

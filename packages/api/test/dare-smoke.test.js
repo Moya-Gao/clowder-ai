@@ -28,7 +28,7 @@ const SKIP_REASON = !HAS_DARE
 describe('DARE Smoke Test', { skip: SKIP_REASON ?? false }, () => {
   test('DARE CLI responds to simple prompt via headless mode', { timeout: 60_000 }, async () => {
     const service = new DareAgentService({
-      catId: 'dare-agent',
+      catId: 'dare',
       darePath: DARE_PATH,
       adapter: 'openrouter',
       model: 'qwen/qwen3-coder:free',
@@ -69,7 +69,7 @@ describe('DARE Smoke Test', { skip: SKIP_REASON ?? false }, () => {
     const textMsg = messages.find((m) => m.type === 'text');
     if (textMsg) {
       assert.ok(textMsg.content.length > 0, 'text content should not be empty');
-      assert.strictEqual(textMsg.catId, 'dare-agent');
+      assert.strictEqual(textMsg.catId, 'dare');
     }
 
     // Metadata must be present with correct provider

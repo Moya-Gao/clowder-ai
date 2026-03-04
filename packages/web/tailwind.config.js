@@ -22,6 +22,12 @@ module.exports = {
           dark: 'var(--color-gemini-dark)',
           bg: 'var(--color-gemini-bg)',
         },
+        dare: {
+          primary: 'var(--color-dare-primary)',
+          light: 'var(--color-dare-light)',
+          dark: 'var(--color-dare-dark)',
+          bg: 'var(--color-dare-bg)',
+        },
         owner: {
           primary: 'var(--color-owner-primary)',
           light: 'var(--color-owner-light)',

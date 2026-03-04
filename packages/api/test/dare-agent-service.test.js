@@ -74,7 +74,7 @@ describe('DareAgentService', () => {
   test('yields session_init, text, done from headless events', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Say hello'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     const messages = await promise;
@@ -86,13 +86,13 @@ describe('DareAgentService', () => {
 
     const textMsg = messages.find((m) => m.type === 'text');
     assert.strictEqual(textMsg.content, 'Hello from DARE!');
-    assert.strictEqual(textMsg.catId, 'dare-agent');
+    assert.strictEqual(textMsg.catId, 'dare');
   });
 
   test('yields tool_use and tool_result for tool events', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Use tools'));
     emitDareEvents(proc, [SESSION_STARTED, TOOL_INVOKE, TOOL_RESULT, TASK_COMPLETED]);
     const messages = await promise;
@@ -105,7 +105,7 @@ describe('DareAgentService', () => {
   test('passes --headless and --auto-approve in CLI args', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Test prompt'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     await promise;
@@ -121,7 +121,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare-agent', spawnFn,
+      catId: 'dare', spawnFn,
       adapter: 'openrouter', model: 'zhipu/glm-4.7',
     });
     const promise = collect(service.invoke('Test'));
@@ -142,7 +142,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare-agent', spawnFn, darePath: '/opt/dare', model: 'test/model',
+      catId: 'dare', spawnFn, darePath: '/opt/dare', model: 'test/model',
     });
     const promise = collect(service.invoke('Test', { workingDirectory: '/tmp/project' }));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -162,7 +162,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare-agent', spawnFn, darePath: '/opt/dare', model: 'test/model',
+      catId: 'dare', spawnFn, darePath: '/opt/dare', model: 'test/model',
     });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -178,7 +178,7 @@ describe('DareAgentService', () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
     const service = new DareAgentService({
-      catId: 'dare-agent', spawnFn, model: 'zhipu/glm-4.7',
+      catId: 'dare', spawnFn, model: 'zhipu/glm-4.7',
     });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -193,7 +193,7 @@ describe('DareAgentService', () => {
   test('metadata.sessionId set after session_init', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     const messages = await promise;
@@ -205,7 +205,7 @@ describe('DareAgentService', () => {
   test('yields error on task.failed', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_FAILED]);
     const messages = await promise;
@@ -217,7 +217,7 @@ describe('DareAgentService', () => {
   test('yields error + done on CLI exit failure', async () => {
     const proc = createMockProcess(1);
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Test'));
     // No DARE events — process just exits with code 1
     proc.stdout.end();
@@ -238,7 +238,7 @@ describe('DareAgentService', () => {
     process.env['OPENROUTER_API_KEY'] = 'sk-test-secret-key';
     try {
       const service = new DareAgentService({
-        catId: 'dare-agent', spawnFn, adapter: 'openrouter', model: 'test/model',
+        catId: 'dare', spawnFn, adapter: 'openrouter', model: 'test/model',
       });
       const promise = collect(service.invoke('Test'));
       emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
@@ -260,7 +260,7 @@ describe('DareAgentService', () => {
   test('always yields exactly one final done', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);
-    const service = new DareAgentService({ catId: 'dare-agent', spawnFn, model: 'test/model' });
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
     const promise = collect(service.invoke('Test'));
     emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
     const messages = await promise;
