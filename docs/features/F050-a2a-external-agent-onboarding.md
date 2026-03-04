@@ -279,9 +279,9 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 - [ ] spawnCli 支持 stdin pipe（DARE control-stdin）— Phase 1 使用 `--auto-approve` 不需要 stdin
 
 ### Phase 2: 接入验收
-- [ ] DARE CLI 兼容性测试套件完成（含 session/event/auth）
-- [ ] 与现有三猫回归测试共跑通过
-- [ ] DARE 通过 L1 验收
+- [x] DARE CLI 兼容性测试套件完成（含 session/event/auth；`resume` 用例因 DARE #184 暂以 `test.skip` 标注）
+- [x] 与现有三猫回归测试共跑通过
+- [x] DARE 通过 L1 验收
 
 ### Phase 3: A2A L2（future）
 - [ ] `A2AAgentService` 设计稿 + 接口定义完成
@@ -331,4 +331,3 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 - **DARE 仓库**：`github.com/zts212653/Deterministic-Agent-Runtime-Engine`（issue #135 已基本完成）
 - **OpenRouter API key**：铲屎官已在 `~/.zshrc` 配置 `OPENROUTER_API_KEY`
 - **Evolved from**：F032（Agent Plugin Architecture）、F041/F043（MCP 统一管理）
-
