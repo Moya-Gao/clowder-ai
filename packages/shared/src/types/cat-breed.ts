@@ -114,7 +114,7 @@ export interface CatBreed {
   readonly catId: CatId;
   readonly name: string; // '布偶猫'
   readonly displayName: string;
-  /** Nickname given by 铲屎官. See docs/stories/cat-names.md */
+  /** Nickname given by 铲屎官. See docs/stories/cat-names/ */
   readonly nickname?: string;
   readonly avatar: string;
   readonly color: CatColor;

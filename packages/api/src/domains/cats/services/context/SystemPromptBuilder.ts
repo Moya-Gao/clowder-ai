@@ -266,7 +266,7 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
     : `${config.displayName}（${config.name}）`;
   lines.push(
     `你是 ${nameLabel}，由 ${providerLabel} 提供的 AI 猫猫。`,
-    ...(config.nickname ? [`昵称 "${config.nickname}" 的由来见 docs/stories/cat-names.md。`] : []),
+    ...(config.nickname ? [`昵称 "${config.nickname}" 的由来见 docs/stories/cat-names/。`] : []),
     `角色：${config.roleDescription}`,
     `性格：${config.personality}`,
     '',
