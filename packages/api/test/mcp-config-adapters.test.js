@@ -303,6 +303,44 @@ describe('writeGeminiMcpConfig', () => {
     assert.equal(data.theme, 'dark');
     assert.ok(data.mcpServers.test);
   });
+
+  it('injects callback env placeholders for managed cat-cafe servers', async () => {
+    const file = join(dir, 'settings.json');
+    await writeGeminiMcpConfig(file, [
+      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const data = JSON.parse(await readFile(file, 'utf-8'));
+    assert.deepEqual(data.mcpServers['cat-cafe-collab'].env, {
+      CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
+      CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
+      CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
+      CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
+      CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+    });
+  });
+
+  it('injects callback env placeholders for preserved legacy cat-cafe server', async () => {
+    const file = join(dir, 'settings.json');
+    await writeFile(file, JSON.stringify({
+      mcpServers: {
+        'cat-cafe': { command: 'node', args: ['legacy-index.js'] },
+      },
+    }));
+
+    await writeGeminiMcpConfig(file, [
+      { name: 'cat-cafe-collab', command: 'node', args: ['collab.js'], enabled: true, source: 'cat-cafe' },
+    ]);
+
+    const data = JSON.parse(await readFile(file, 'utf-8'));
+    assert.deepEqual(data.mcpServers['cat-cafe'].env, {
+      CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
+      CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
+      CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
+      CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
+      CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+    });
+  });
 });
 
 // ────────── P1-2 Regression: Preserve user's non-managed MCP servers ──────────

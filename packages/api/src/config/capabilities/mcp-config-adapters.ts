@@ -13,6 +13,29 @@ import { dirname } from 'path';
 import { parse as parseToml, stringify as stringifyToml } from 'smol-toml';
 import type { McpServerDescriptor } from '@cat-cafe/shared';
 
+const GEMINI_CAT_CAFE_ENV_PLACEHOLDERS: Readonly<Record<string, string>> = {
+  CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
+  CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
+  CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
+  CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
+  CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+};
+
+function isCatCafeServer(name: string): boolean {
+  return name === 'cat-cafe' || name.startsWith('cat-cafe-');
+}
+
+function ensureGeminiCatCafeEnv(
+  name: string,
+  env?: Record<string, string>,
+): Record<string, string> | undefined {
+  if (!isCatCafeServer(name)) return env;
+  return {
+    ...GEMINI_CAT_CAFE_ENV_PLACEHOLDERS,
+    ...(env ?? {}),
+  };
+}
+
 // ────────── Readers ──────────
 
 /** Read Claude .mcp.json → McpServerDescriptor[] */
@@ -158,13 +181,25 @@ export async function writeGeminiMcpConfig(
   for (const s of servers) {
     if (s.enabled) {
       const entry: Record<string, unknown> = { command: s.command, args: s.args };
-      if (s.env && Object.keys(s.env).length > 0) entry['env'] = s.env;
+      const env = ensureGeminiCatCafeEnv(s.name, s.env);
+      if (env && Object.keys(env).length > 0) entry['env'] = env;
       if (s.workingDir) entry['cwd'] = s.workingDir;
       existingMcp[s.name] = entry;
     } else {
       // Disabled managed server → remove from config (Gemini has no enabled field)
       delete existingMcp[s.name];
     }
+  }
+
+  // Keep legacy cat-cafe entries functional even when they are preserved as
+  // non-managed servers (e.g. migration leftovers in user's settings).
+  for (const [name, value] of Object.entries(existingMcp)) {
+    if (!isCatCafeServer(name)) continue;
+    if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
+    const cfg = value as Record<string, unknown>;
+    const currentEnv = toStringRecord(cfg['env']);
+    cfg['env'] = ensureGeminiCatCafeEnv(name, currentEnv);
+    existingMcp[name] = cfg;
   }
 
   existing['mcpServers'] = existingMcp;

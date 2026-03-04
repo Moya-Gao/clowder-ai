@@ -162,9 +162,21 @@ describe('F041 Cloud P1-1: bootstrap generates CLI configs', () => {
     assert.ok(codexServers.find((s) => s.name === 'cat-cafe-signals'));
 
     const geminiServers = await readGeminiMcpConfig(cliPaths.google);
-    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-collab'));
-    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-memory'));
-    assert.ok(geminiServers.find((s) => s.name === 'cat-cafe-signals'));
+    const collab = geminiServers.find((s) => s.name === 'cat-cafe-collab');
+    const memory = geminiServers.find((s) => s.name === 'cat-cafe-memory');
+    const signals = geminiServers.find((s) => s.name === 'cat-cafe-signals');
+    assert.ok(collab);
+    assert.ok(memory);
+    assert.ok(signals);
+    for (const server of [collab, memory, signals]) {
+      assert.deepEqual(server.env, {
+        CAT_CAFE_API_URL: '${CAT_CAFE_API_URL}',
+        CAT_CAFE_INVOCATION_ID: '${CAT_CAFE_INVOCATION_ID}',
+        CAT_CAFE_CALLBACK_TOKEN: '${CAT_CAFE_CALLBACK_TOKEN}',
+        CAT_CAFE_USER_ID: '${CAT_CAFE_USER_ID}',
+        CAT_CAFE_SIGNAL_USER: '${CAT_CAFE_SIGNAL_USER}',
+      });
+    }
   });
 });
 

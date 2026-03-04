@@ -329,6 +329,45 @@ describe('MCP Callback Tools', () => {
     assert.ok(result.content[0].text.includes('401'));
   });
 
+  test('adds generic @mention fallback hint on non-credential post failure', async () => {
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 400,
+      text: async () => 'Bad request',
+    });
+
+    const result = await handlePostMessage({ content: '@gemini please check' });
+    const text = result.content[0].text;
+
+    assert.equal(result.isError, true);
+    assert.ok(text.includes('这次 post-message 调用失败'));
+    assert.ok(!text.includes('token 已过期'));
+    assert.ok(text.includes('直接在你的回复文本里另起一行写 @猫名'));
+  });
+
+  test('adds credential hint on callback credential failure with @mention', async () => {
+    const { handlePostMessage } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ error: 'Invalid or expired callback credentials' }),
+    });
+
+    const result = await handlePostMessage({ content: '@codex ping' });
+    const text = result.content[0].text;
+
+    assert.equal(result.isError, true);
+    assert.ok(text.includes('callback 凭证校验失败'));
+    assert.ok(text.includes('可能是 token 过期，也可能 invocation/token 不匹配'));
+  });
+
   test('handleSearchEvidence calls callback endpoint with encoded query params', async () => {
     const { handleCallbackSearchEvidence } = await import(
       '../dist/tools/callback-memory-tools.js'

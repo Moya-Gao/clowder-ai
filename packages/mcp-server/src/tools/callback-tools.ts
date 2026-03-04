@@ -169,14 +169,24 @@ export async function handlePostMessage(input: {
     clientMessageId: input.clientMessageId ?? randomUUID(),
   }, { enableOutbox: true });
 
-  // If callback expired/failed and message contains @mentions,
-  // hint that the agent can mention cats directly in response text.
+  // If post-message failed and content contains @mentions,
+  // hint that text-based @mention is always available.
+  // Only mention credential issues when the error actually looks like auth failure.
   if (result.isError && /[@＠]/.test(input.content)) {
-    const hint = '\n\n💡 Tip: callback token 已过期。如果你想 @其他猫猫，' +
+    const original = (result.content[0] as { text: string }).text;
+    const lower = original.toLowerCase();
+    const looksLikeCredentialFailure =
+      lower.includes('callback failed (401)') ||
+      lower.includes('invalid or expired callback credentials') ||
+      lower.includes('callback token');
+    const reasonHint = looksLikeCredentialFailure
+      ? '这次 callback 凭证校验失败（可能是 token 过期，也可能 invocation/token 不匹配）。'
+      : '这次 post-message 调用失败。';
+    const hint = `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
       '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
       '（例如另起一行写 @缅因猫），系统会自动检测并触发。';
     return errorResult(
-      (result.content[0] as { text: string }).text + hint,
+      original + hint,
     );
   }
 

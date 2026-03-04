@@ -132,6 +132,31 @@ describe('GeminiAgentService (gemini-cli adapter)', () => {
     assert.ok(args.includes('resume prompt'));
   });
 
+  test('keeps --resume when callback env is present', async () => {
+    const proc = createMockProcess();
+    const spawnFn = createMockSpawnFn(proc);
+    const service = new GeminiAgentService({ spawnFn, adapter: 'gemini-cli' });
+
+    const callbackEnv = {
+      CAT_CAFE_API_URL: 'http://localhost:3002',
+      CAT_CAFE_INVOCATION_ID: 'inv-789',
+      CAT_CAFE_CALLBACK_TOKEN: 'tok-789',
+    };
+
+    const promise = collect(service.invoke('resume prompt', {
+      sessionId: 'sid-uuid-5678',
+      callbackEnv,
+    }));
+    emitGeminiEvents(proc, [
+      { type: 'init', session_id: 'sid-uuid-5678', model: 'auto' },
+    ]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    assert.equal(args[0], '--resume');
+    assert.equal(args[1], 'sid-uuid-5678');
+  });
+
   test('passes callbackEnv as env', async () => {
     const proc = createMockProcess();
     const spawnFn = createMockSpawnFn(proc);
