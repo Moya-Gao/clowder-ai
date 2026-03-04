@@ -1129,25 +1129,30 @@ describe('routeParallel degradation notification', () => {
       codex: createMockService('codex', 'codex says'),
     });
 
-    // Count is within both cats' maxMessages (codex=200, opus=200), but content size should trigger char truncation.
-    // 200 messages × ~2100 chars = ~420k > codex maxContextTokens 60k
-    const history = Array.from({ length: 200 }, (_, i) => ({
-      id: `m${i}`,
-      threadId: 'thread1',
-      userId: 'user1',
-      catId: null,
-      content: `message ${i} ` + 'y'.repeat(2100),
-      mentions: [],
-      timestamp: Date.now() - (200 - i) * 1000,
-    }));
+    // Count is within both cats' maxMessages (codex=200, opus=200), but token budget should force truncation.
+    // Override codex maxPromptTokens to a small value so assembleContext can't fit the full history.
+    process.env['CAT_CODEX_MAX_PROMPT_TOKENS'] = '500';
+    try {
+      const history = Array.from({ length: 50 }, (_, i) => ({
+        id: `m${i}`,
+        threadId: 'thread1',
+        userId: 'user1',
+        catId: null,
+        content: `message ${i} ` + 'y'.repeat(2100),
+        mentions: [],
+        timestamp: Date.now() - (50 - i) * 1000,
+      }));
 
-    const messages = [];
-    for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { history })) {
-      messages.push(msg);
+      const messages = [];
+      for await (const msg of routeParallel(deps, ['opus', 'codex'], 'test', 'user1', 'thread1', { history })) {
+        messages.push(msg);
+      }
+
+      const sysInfos = degradationSystemInfos(messages);
+      assert.ok(sysInfos.length > 0, 'should yield at least one degradation system_info');
+    } finally {
+      delete process.env['CAT_CODEX_MAX_PROMPT_TOKENS'];
     }
-
-    const sysInfos = degradationSystemInfos(messages);
-    assert.ok(sysInfos.length > 0, 'should yield at least one degradation system_info');
   });
 });
 

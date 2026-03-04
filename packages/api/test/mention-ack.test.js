@@ -461,7 +461,7 @@ describe('Mention Ack (#77)', () => {
         app,
         sender.invocationId,
         sender.callbackToken,
-        '@opus please take a look',
+        '@opus review please take a look',
       );
       assert.equal(r1.statusCode, 200);
       assert.equal(r1.body.status, 'ok');
@@ -504,7 +504,7 @@ describe('Mention Ack (#77)', () => {
     try {
       const sender = registry.create('user-1', 'codex', threadId);
 
-      const r1 = await postMessage(app, sender.invocationId, sender.callbackToken, '@opus ping');
+      const r1 = await postMessage(app, sender.invocationId, sender.callbackToken, '@opus review');
       assert.equal(r1.statusCode, 200);
       assert.equal(r1.body.status, 'ok');
 
@@ -521,7 +521,7 @@ describe('Mention Ack (#77)', () => {
 
       await enqueueA2ATargets(
         { router: routerStub, invocationRecordStore: invocationRecordStoreStub, socketManager, deliveryCursorStore, log: app.log },
-        { targetCats: ['opus'], content: '@opus ping', userId: 'user-1', threadId, triggerMessage: trigger1, callerCatId: 'codex' },
+        { targetCats: ['opus'], content: '@opus review', userId: 'user-1', threadId, triggerMessage: trigger1, callerCatId: 'codex' },
       );
 
       const cursor2 = await deliveryCursorStore.getMentionAckCursor('user-1', 'opus', threadId);

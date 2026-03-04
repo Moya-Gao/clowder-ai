@@ -59,7 +59,7 @@ export function buildMcpCallbackInstructions(opts: McpCallbackOptions): string {
 
 ### @队友
 另起一行写 \`@猫名\`（行中间无效），并在同一段写动作请求。多只猫各占一行。
-动作词不限 coding：例如 \`请确认/请处理/请决策/请看一下\`。
+动作词示例：\`请确认/请处理/请决策/请看一下\`。
 同族多分身时用**唯一句柄**（如 \`${exampleHandle}\`）。
 ✅ 正确：\`${exampleHandle} 请确认这个安排\`
 ❌ 错误：为了 @ 队友去调 post-message

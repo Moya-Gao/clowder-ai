@@ -150,8 +150,6 @@ const PROVIDER_LABELS: Record<string, string> = {
  * Full specs live in cat-cafe-skills/refs/ (rich-blocks.md, mcp-callbacks.md).
  */
 const MCP_TOOLS_SECTION = `
-⚠️ @队友：回复里另起一行，行首写 \`@猫名\`，并在同一段写明确动作请求（免费）。
-动作词不限 coding：例如 \`请确认/请处理/请决策/请看一下\`。
 MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_post_message: 异步消息
 - cat_cafe_register_pr_tracking: 注册 PR tracking（review 路由）
