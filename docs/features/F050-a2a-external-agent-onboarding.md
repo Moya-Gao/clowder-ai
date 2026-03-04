@@ -1,16 +1,16 @@
 ---
 feature_ids: [F050]
 related_features: [F002, F005, F027, F032, F041, F043]
-topics: [a2a, external-agent, cli-integration, interoperability]
+topics: [a2a, external-agent, cli-integration, interoperability, dare]
 doc_kind: spec
 created: 2026-03-02
-updated: 2026-03-02
+updated: 2026-03-04
 ---
 
 # F050: External Agent Onboarding（A2A/CLI 接入契约）
 
-> **Status**: spec
-> **Owner**: 三猫
+> **Status**: in-progress
+> **Owner**: 三猫（Phase 1 leader: 布偶猫 Opus 4.6）
 > **Created**: 2026-03-02
 
 ## Why
@@ -137,29 +137,120 @@ updated: 2026-03-02
 
 ---
 
-## DARE / Opencode 兼容性判断（2026-03-02 快照）
+## 实施计划（Phase 分拆）
 
-### DARE（当前主干）
+### Phase 1: DARE L1 CLI 接入（当前 — 2026-03-04 起）
 
-已有能力：
+**目标**：Cat Café 能通过 CLI adapter 驱动 DARE agent 完成单轮任务。
 
-- 有 A2A server/client 模块（协议能力存在）
-- 有统一 `client` CLI，支持 `--output json`
-- 有运行期 MCP 管理命令（list/reload/unload）
-- 有 skill store 与 `skills:list` 动作
+**改造清单**：
 
-主要 gap（对 Cat Cafe）：
+1. **provider schema 扩展**（P1 阻塞）
+   - `CatProvider` 从 `'anthropic' | 'openai' | 'google'` 扩展为支持 `'dare'`
+   - 文件：`packages/shared/src/types/cat.ts:12`
+   - 联动：`cat-config-loader.ts:57` 的 zod enum、`index.ts:168-180` 的 switch 分支
 
-1. CLI 事件语义与我们现有 provider 事件模型不对齐（需专门 event mapper）
-2. 跨进程会话恢复语义不足（需要稳定 resume 协议）
-3. A2A 与外部 CLI 尚未形成单一接入面（需桥接层）
-4. 需补“被平台托管接入”视角下的鉴权/审计契约
+2. **DareAgentService 实现**（P1 阻塞）
+   - 实现 `AgentService` 接口（`invoke(prompt, options) → AsyncIterable<AgentMessage>`）
+   - 参考现有：`CodexAgentService.ts`（最接近的 CLI spawn 模式）
+   - 位置：`packages/api/src/domains/cats/services/agents/providers/DareAgentService.ts`
+
+3. **spawnCli stdin 支持**（P1 阻塞）
+   - 当前 `cli-spawn.ts:75` 设 `stdin: 'ignore'`，无法写入 control 命令
+   - 改为可选 `stdin: 'pipe'`，支持 DARE `--control-stdin` 通道
+
+4. **DARE 事件映射层**（P2）
+   - DARE headless envelope → Cat Café `AgentMessage` 的转换
+   - DARE envelope 格式（`client-headless-event-envelope.v1`）：
+     ```json
+     { “schema_version”: “...”, “ts”: float, “session_id”: “...”,
+       “run_id”: “...”, “seq”: int, “event”: “...”, “data”: any }
+     ```
+   - 需映射的事件：`session.start → session_init`、`text → text`、`error → error`、`done → done`
+
+5. **cat-config 注册 DARE 猫**（P2）
+   - 在 `cat-config.json` 中可配一只 DARE 猫
+   - 需要字段：`provider: “dare”`、`model`、`darePath`（CLI 路径）
+
+### Phase 2: 接入验收 + 回归测试
+
+- 契约测试套件（headless envelope 解析、control-stdin 交互、session 生命周期）
+- 与现有三猫回归测试共跑，确保接入不破坏内部协作
+
+### Phase 3（future）: A2A L2 协议适配
+
+- `A2AAgentService` 实现
+- `/.well-known/agent.json` + `tasks/send` / `tasks/sendSubscribe`
+- 远程 agent 接入
+
+---
+
+## 测试策略
+
+### 环境准备
+
+DARE 支持 OpenRouter adapter，可用免费/低成本模型测试，不需要 OpenAI key。
+
+**环境变量**（铲屎官已在 `~/.zshrc` 中配置）：
+
+```bash
+export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
+```
+
+获取方式：[OpenRouter](https://openrouter.ai/) 注册后在 Keys 页面创建。
+
+**DARE 运行依赖**：
+
+- Python ≥ 3.12
+- 安装：`pip install -e .`（在 DARE 仓库目录）
+- DARE 仓库位置：`/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine`
+
+### 三层验证
+
+| 层级 | 命令 | 验证点 | 需要 API key |
+|------|------|--------|-------------|
+| 1. doctor | `python -m client --adapter openrouter --api-key dummy --output json doctor` | DARE 能启动、配置正确 | 否 |
+| 2. headless run | `python -m client --adapter openrouter --model zhipu/glm-4.7 --api-key $OPENROUTER_API_KEY run --task “say hello” --auto-approve --headless` | 端到端推理 + JSON 事件流 | 是 |
+| 3. Cat Café 集成 | DareAgentService 通过 spawnCli 驱动 DARE | 完整接入链路 | 是 |
+
+### DARE 协议参考
+
+**Headless 事件 envelope**（`client/render/headless.py`）：
+- schema: `client-headless-event-envelope.v1`
+- 字段：`schema_version, ts, session_id, run_id, seq, event, data`
+
+**Control-stdin 协议**（`client/render/control.py`）：
+- 请求 schema: `client-control-stdin.v1`
+- 字段：`schema_version, id, action, params`
+- 可用 action：`actions:list, status:get, approvals:list/poll/grant/deny/revoke, mcp:list/reload/show-tool, skills:list`
+
+---
+
+## DARE / Opencode 兼容性判断（2026-03-04 更新）
+
+### DARE（issue #135 修复后）
+
+已有能力（已验证）：
+
+- `run/script` 支持 `--headless` + `--control-stdin`（PR #145 合入后）
+- `script --headless` 审批超时已补（P1 已修）
+- 运行期 MCP 管理（`mcp:list/reload/show-tool`）
+- 运行期 Skills 查询（`skills:list`）
+- OpenRouter adapter 原生支持（env: `OPENROUTER_API_KEY`）
+- 结构化 JSON 事件流（headless envelope v1）
+
+剩余 gap（对 Cat Cafe 侧）：
+
+1. **我们的 provider 入口仍是三值**（Phase 1 解决）
+2. **缺 DareAgentService 实现**（Phase 1 解决）
+3. **spawnCli stdin 不可写**（Phase 1 解决）
+4. **事件映射层未实现**（Phase 1 解决）
 
 ### opencode CLI
 
 当前结论：**可作为 L1 候选，但仍需按 EAC v1 跑一轮兼容基线测试后定级。**
 
-我们不再接受“只凭功能印象接入”。
+我们不再接受”只凭功能印象接入”。
 
 ---
 
@@ -176,12 +267,25 @@ updated: 2026-03-02
 
 ## Acceptance Criteria
 
-- [ ] 外部 agent 接入契约（EAC v1）文档定稿
+### Phase 1: DARE L1 CLI 接入
+- [x] 外部 agent 接入契约（EAC v1）文档定稿
+- [x] provider schema 从三值扩展为支持 `dare`
+- [x] `DareAgentService` 实现 `AgentService` 接口
+- [x] DARE headless envelope → AgentMessage 事件映射（15 tests）
+- [x] cat-config.json 可注册 DARE 猫
+- [x] Cat Café 集成验证通过（smoke test: 真实 DARE CLI 调用）
+
+### Phase 1b: stdin 控制面（延期）
+- [ ] spawnCli 支持 stdin pipe（DARE control-stdin）— Phase 1 使用 `--auto-approve` 不需要 stdin
+
+### Phase 2: 接入验收
+- [ ] DARE CLI 兼容性测试套件完成（含 session/event/auth）
+- [ ] 与现有三猫回归测试共跑通过
+- [ ] DARE 通过 L1 验收
+
+### Phase 3: A2A L2（future）
 - [ ] `A2AAgentService` 设计稿 + 接口定义完成
-- [ ] provider 扩展方案（非三值）设计完成
-- [ ] DARE CLI 兼容性测试清单完成（含 session/event/auth）
 - [ ] opencode CLI 兼容性测试清单完成
-- [ ] 至少 1 个外部 agent 通过 L1 验收
 - [ ] 至少 1 个 A2A agent 通过 L2 验收
 
 ---
@@ -194,6 +298,8 @@ updated: 2026-03-02
 - [F002: Agent-to-Agent 调用](./F002-agent-to-agent.md)
 - [F027: A2A 路径统一](./F027-a2a-path-unification.md)
 - [Discussion: 2026-03-02 F050 接入分析](../discussions/2026-03-02-f050-a2a-external-agent-onboarding/README.md)
+- [DARE issue #135: Gap 分析](https://github.com/zts212653/Deterministic-Agent-Runtime-Engine/issues/135)
+- [DARE PR #145: Headless + Event Envelope](https://github.com/zts212653/Deterministic-Agent-Runtime-Engine/pull/145)
 
 ---
 
@@ -209,5 +315,20 @@ updated: 2026-03-02
 
 1. L2 默认是否要求 `sendSubscribe`，还是先允许 `tasks/send` 单点接入？
 2. 外部 agent 的权限隔离由 Cat Cafe 统一托管，还是允许 adapter 自带策略？
-3. DARE/opencode 的“技能协议”是否需要抽象成统一 capability schema？
+3. DARE/opencode 的”技能协议”是否需要抽象成统一 capability schema？
+4. DARE 猫是否需要参与 @mention 协作路由？（Phase 1 先不参与，只做单轮调用）
+
+## Timeline
+
+| 日期 | 事件 |
+|------|------|
+| 2026-03-02 | Kickoff — spec 定稿，EAC v1 契约设计 |
+| 2026-03-02~03 | DARE issue #135 gap 分析 + PR #145 review（缅因猫 × 2） |
+| 2026-03-04 | Phase 1 启动 — DARE L1 CLI 接入实施 |
+
+## Dependencies
+
+- **DARE 仓库**：`github.com/zts212653/Deterministic-Agent-Runtime-Engine`（issue #135 已基本完成）
+- **OpenRouter API key**：铲屎官已在 `~/.zshrc` 配置 `OPENROUTER_API_KEY`
+- **Evolved from**：F032（Agent Plugin Architecture）、F041/F043（MCP 统一管理）
 

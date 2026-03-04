@@ -56,6 +56,13 @@
       "lead": false,
       "available": true,
       "evaluation": "经典版暹罗猫，创意灵感丰富"
+    },
+    "dare-agent": {
+      "family": "dare",
+      "roles": ["coding"],
+      "lead": true,
+      "available": true,
+      "evaluation": "experimental — DARE 外部 agent (F050)"
     }
   },
   "reviewPolicy": {
@@ -305,6 +312,34 @@
             "maxMessages": 300,
             "maxContentLengthPerMsg": 15000
           }
+        }
+      ]
+    },
+    {
+      "id": "dare",
+      "catId": "dare-agent",
+      "name": "DARE Agent",
+      "displayName": "DARE",
+      "avatar": "/avatars/dare.png",
+      "color": { "primary": "#FF6B35", "secondary": "#FFE0D0" },
+      "mentionPatterns": ["@dare-agent", "@dare"],
+      "roleDescription": "External DARE agent (Deterministic Agent Runtime Engine)",
+      "defaultVariantId": "dare-default",
+      "features": {
+        "sessionChain": false
+      },
+      "variants": [
+        {
+          "id": "dare-default",
+          "provider": "dare",
+          "defaultModel": "zhipu/glm-4.7",
+          "mcpSupport": false,
+          "cli": {
+            "command": "python",
+            "outputFormat": "headless-json",
+            "defaultArgs": ["-m", "client"]
+          },
+          "personality": "Deterministic external agent, structured task execution"
         }
       ]
     }

@@ -114,6 +114,33 @@ describe('cat-config-loader', () => {
       assert.throws(() => loadCatConfig(path), /Invalid cat config/);
     });
 
+    it('accepts dare provider (F050)', () => {
+      const config = validConfig();
+      config.breeds.push({
+        id: 'dare-test',
+        catId: 'dare-agent',
+        name: 'DARE',
+        displayName: 'DARE',
+        avatar: '/avatars/dare.png',
+        color: { primary: '#FF6B35', secondary: '#FFE0D0' },
+        mentionPatterns: ['@dare-agent'],
+        roleDescription: 'External DARE agent',
+        defaultVariantId: 'dare-default',
+        variants: [{
+          id: 'dare-default',
+          provider: 'dare',
+          defaultModel: 'zhipu/glm-4.7',
+          mcpSupport: false,
+          cli: { command: 'python', outputFormat: 'headless-json' },
+        }],
+      });
+      const path = writeTempConfig(config);
+      const loaded = loadCatConfig(path);
+      const cats = toAllCatConfigs(loaded);
+      assert.ok(cats['dare-agent']);
+      assert.strictEqual(cats['dare-agent'].provider, 'dare');
+    });
+
     it('accepts arbitrary catId (F32-a: any non-empty string is valid)', () => {
       // F32-a: catId is no longer restricted to opus/codex/gemini
       const custom = validConfig();
@@ -656,10 +683,10 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.notDeepEqual(all['sonnet'].color, all['opus'].color);
   });
 
-  it('total cat count is 8 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25)', () => {
+  it('total cat count is 9 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare-agent)', () => {
     const config = loadCatConfig();
     const all = toAllCatConfigs(config);
-    assert.equal(Object.keys(all).length, 8);
+    assert.equal(Object.keys(all).length, 9);
     assert.ok(all['opus']);
     assert.ok(all['sonnet']);
     assert.ok(all['opus-45']);
@@ -668,6 +695,7 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all['spark']); // F032 Phase E: new cat added
     assert.ok(all['gemini']);
     assert.ok(all['gemini25']);
+    assert.ok(all['dare-agent']); // F050: DARE external agent
   });
 });
 
