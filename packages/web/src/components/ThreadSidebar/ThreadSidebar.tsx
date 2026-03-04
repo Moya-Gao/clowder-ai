@@ -27,6 +27,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
     setLoadingThreads,
     updateThreadTitle,
     getThreadState,
+    threadStates,
   } = useChatStore();
   const [isCreating, setIsCreating] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -223,11 +224,23 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
       const title = (thread.title ?? '').toLowerCase();
       const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
       const project = (thread.projectPath ?? '').toLowerCase();
-      return title.includes(normalizedQuery) || fallback.includes(normalizedQuery) || project.includes(normalizedQuery);
+      const threadId = thread.id.toLowerCase();
+      return title.includes(normalizedQuery) || fallback.includes(normalizedQuery) || project.includes(normalizedQuery) || threadId.includes(normalizedQuery);
     });
   }, [threads, normalizedQuery]);
 
-  const threadGroups = useMemo(() => sortAndGroupThreads(filteredThreads), [filteredThreads]);
+  const unreadIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const thread of threads) {
+      const ts = threadStates[thread.id];
+      if (ts && ts.unreadCount > 0) {
+        ids.add(thread.id);
+      }
+    }
+    return ids;
+  }, [threads, threadStates]);
+
+  const threadGroups = useMemo(() => sortAndGroupThreads(filteredThreads, unreadIds), [filteredThreads, unreadIds]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
 
@@ -272,7 +285,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="搜索对话或项目..."
+            placeholder="搜索对话、项目或 ID..."
             className="w-full rounded-lg border border-owner-light px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-owner-primary"
           />
         </div>

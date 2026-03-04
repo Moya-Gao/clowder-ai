@@ -38,24 +38,35 @@ export interface ThreadGroup {
   projectPath?: string;
 }
 
+/** Sort comparator: unread first, then by lastActiveAt descending. */
+function sortByUnreadThenActive(a: Thread, b: Thread, unreadIds?: Set<string>): number {
+  if (unreadIds) {
+    const aUnread = unreadIds.has(a.id) ? 1 : 0;
+    const bUnread = unreadIds.has(b.id) ? 1 : 0;
+    if (aUnread !== bUnread) return bUnread - aUnread;
+  }
+  return b.lastActiveAt - a.lastActiveAt;
+}
+
 /**
  * Sort and group threads into: pinned → project groups → favorites.
  * Excludes the "default" thread (lobby) which is rendered separately.
+ * Within each group: unread threads first, then by lastActiveAt descending.
  */
-export function sortAndGroupThreads(threads: Thread[]): ThreadGroup[] {
+export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>): ThreadGroup[] {
   const groups: ThreadGroup[] = [];
 
-  // 1. Pinned threads (sorted by pinnedAt desc)
+  // 1. Pinned threads (unread first, then by lastActiveAt desc)
   const pinned = threads
     .filter((t) => t.pinned && t.id !== 'default')
-    .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0));
+    .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (pinned.length > 0) {
     groups.push({ type: 'pinned', label: '置顶', threads: pinned });
   }
 
-  // 2. Regular threads grouped by project
+  // 2. Regular threads grouped by project (each group sorted)
   const regular = threads.filter((t) => !t.pinned && !t.favorited && t.id !== 'default');
-  const projectGroups = groupByProject(regular);
+  const projectGroups = groupByProject(regular, unreadIds);
   for (const [projectPath, projectThreads] of projectGroups) {
     groups.push({
       type: 'project',
@@ -65,10 +76,10 @@ export function sortAndGroupThreads(threads: Thread[]): ThreadGroup[] {
     });
   }
 
-  // 3. Favorites (sorted by favoritedAt desc, excluding pinned)
+  // 3. Favorites (unread first, then by lastActiveAt desc, excluding pinned)
   const favorited = threads
     .filter((t) => t.favorited && !t.pinned && t.id !== 'default')
-    .sort((a, b) => (b.favoritedAt ?? 0) - (a.favoritedAt ?? 0));
+    .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   if (favorited.length > 0) {
     groups.push({ type: 'favorites', label: '收藏', threads: favorited });
   }
@@ -76,12 +87,16 @@ export function sortAndGroupThreads(threads: Thread[]): ThreadGroup[] {
   return groups;
 }
 
-function groupByProject(threads: Thread[]): [string, Thread[]][] {
+function groupByProject(threads: Thread[], unreadIds?: Set<string>): [string, Thread[]][] {
   const groups = new Map<string, Thread[]>();
   for (const thread of threads) {
     const key = thread.projectPath;
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(thread);
+  }
+  // Sort threads within each project group
+  for (const [, projectThreads] of groups) {
+    projectThreads.sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
   }
   return [...groups.entries()].sort(([a], [b]) => {
     if (a === 'default') return 1;

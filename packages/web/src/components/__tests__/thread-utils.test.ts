@@ -43,27 +43,27 @@ describe('sortAndGroupThreads', () => {
     expect(groups.map((g) => g.label).sort()).toEqual(['a', 'b']);
   });
 
-  it('puts pinned threads first, sorted by pinnedAt desc', () => {
+  it('puts pinned threads first, sorted by lastActiveAt desc', () => {
     const threads = [
-      makeThread({ id: 't1', projectPath: '/proj/x' }),
-      makeThread({ id: 'p1', pinned: true, pinnedAt: 100, projectPath: '/proj/x' }),
-      makeThread({ id: 'p2', pinned: true, pinnedAt: 200, projectPath: '/proj/x' }),
+      makeThread({ id: 't1', projectPath: '/proj/x', lastActiveAt: 500 }),
+      makeThread({ id: 'p1', pinned: true, pinnedAt: 200, projectPath: '/proj/x', lastActiveAt: 1000 }),
+      makeThread({ id: 'p2', pinned: true, pinnedAt: 100, projectPath: '/proj/x', lastActiveAt: 5000 }),
     ];
     const groups = sortAndGroupThreads(threads);
     expect(groups[0].type).toBe('pinned');
-    expect(groups[0].threads.map((t) => t.id)).toEqual(['p2', 'p1']); // 200 before 100
+    expect(groups[0].threads.map((t) => t.id)).toEqual(['p2', 'p1']); // lastActiveAt 5000 before 1000
   });
 
-  it('puts favorites last, sorted by favoritedAt desc', () => {
+  it('puts favorites last, sorted by lastActiveAt desc', () => {
     const threads = [
-      makeThread({ id: 't1', projectPath: '/proj/x' }),
-      makeThread({ id: 'f1', favorited: true, favoritedAt: 100, projectPath: '/proj/x' }),
-      makeThread({ id: 'f2', favorited: true, favoritedAt: 200, projectPath: '/proj/x' }),
+      makeThread({ id: 't1', projectPath: '/proj/x', lastActiveAt: 500 }),
+      makeThread({ id: 'f1', favorited: true, favoritedAt: 100, projectPath: '/proj/x', lastActiveAt: 1000 }),
+      makeThread({ id: 'f2', favorited: true, favoritedAt: 200, projectPath: '/proj/x', lastActiveAt: 5000 }),
     ];
     const groups = sortAndGroupThreads(threads);
     const last = groups[groups.length - 1];
     expect(last.type).toBe('favorites');
-    expect(last.threads.map((t) => t.id)).toEqual(['f2', 'f1']);
+    expect(last.threads.map((t) => t.id)).toEqual(['f2', 'f1']); // lastActiveAt 5000 before 1000
   });
 
   it('pinned + favorited thread appears in pinned only', () => {
@@ -117,6 +117,64 @@ describe('sortAndGroupThreads', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].type).toBe('project');
     expect(groups[0].threads).toHaveLength(2);
+  });
+
+  it('sorts regular threads within project by lastActiveAt desc', () => {
+    const threads = [
+      makeThread({ id: 'old', projectPath: '/proj/x', lastActiveAt: 1000 }),
+      makeThread({ id: 'new', projectPath: '/proj/x', lastActiveAt: 5000 }),
+    ];
+    const groups = sortAndGroupThreads(threads);
+    expect(groups[0].threads.map((t) => t.id)).toEqual(['new', 'old']);
+  });
+
+  it('sorts unread threads before read threads within pinned group', () => {
+    const threads = [
+      makeThread({ id: 'read-new', projectPath: '/proj/x', lastActiveAt: 9000, pinned: true }),
+      makeThread({ id: 'unread-old', projectPath: '/proj/x', lastActiveAt: 1000, pinned: true }),
+    ];
+    const unreadSet = new Set(['unread-old']);
+    const groups = sortAndGroupThreads(threads, unreadSet);
+    const pinned = groups.find((g) => g.type === 'pinned')!;
+    expect(pinned.threads[0].id).toBe('unread-old'); // unread first
+    expect(pinned.threads[1].id).toBe('read-new');
+  });
+
+  it('within unread threads, still sorts by lastActiveAt desc', () => {
+    const threads = [
+      makeThread({ id: 'unread-old', projectPath: '/proj/x', lastActiveAt: 1000, pinned: true }),
+      makeThread({ id: 'unread-new', projectPath: '/proj/x', lastActiveAt: 5000, pinned: true }),
+    ];
+    const unreadSet = new Set(['unread-old', 'unread-new']);
+    const groups = sortAndGroupThreads(threads, unreadSet);
+    const pinned = groups.find((g) => g.type === 'pinned')!;
+    expect(pinned.threads[0].id).toBe('unread-new');
+    expect(pinned.threads[1].id).toBe('unread-old');
+  });
+
+  it('unread priority works across all group types', () => {
+    const threads = [
+      makeThread({ id: 'fav-read', projectPath: '/proj/x', lastActiveAt: 9000, favorited: true }),
+      makeThread({ id: 'fav-unread', projectPath: '/proj/x', lastActiveAt: 1000, favorited: true }),
+      makeThread({ id: 'reg-read', projectPath: '/proj/x', lastActiveAt: 9000 }),
+      makeThread({ id: 'reg-unread', projectPath: '/proj/x', lastActiveAt: 1000 }),
+    ];
+    const unreadSet = new Set(['fav-unread', 'reg-unread']);
+    const groups = sortAndGroupThreads(threads, unreadSet);
+    const project = groups.find((g) => g.type === 'project')!;
+    expect(project.threads[0].id).toBe('reg-unread');
+    const fav = groups.find((g) => g.type === 'favorites')!;
+    expect(fav.threads[0].id).toBe('fav-unread');
+  });
+
+  it('no unreadIds param defaults to lastActiveAt-only sort', () => {
+    const threads = [
+      makeThread({ id: 'old', projectPath: '/proj/x', lastActiveAt: 1000, pinned: true }),
+      makeThread({ id: 'new', projectPath: '/proj/x', lastActiveAt: 5000, pinned: true }),
+    ];
+    const groups = sortAndGroupThreads(threads);
+    const pinned = groups.find((g) => g.type === 'pinned')!;
+    expect(pinned.threads[0].id).toBe('new');
   });
 
   it('sorts project groups alphabetically, "default" last', () => {
