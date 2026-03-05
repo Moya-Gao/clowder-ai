@@ -60,7 +60,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 ## Key Decisions
 
-（待讨论）
+- **KD-1 (2026-03-04)**: 复用 `media_gallery` rich block，不新增类型。理由：富媒体本来就是要能发图发语音，output_image 是图片的一种来源，复用现有渲染组件最合理。（铲屎官拍板）
 
 ## Dependencies
 
@@ -74,7 +74,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 ## Open Questions
 
-1. 推荐路径 vs 备选路径：复用 `media_gallery` 还是新增 `tool_image` 类型？
+1. ~~推荐路径 vs 备选路径~~ → **已决定：复用 `media_gallery`**（KD-1）
 2. base64 图片是否需要先存到服务端再返回 URL？（大图片场景）
 
 ## Review Gate
