@@ -8,7 +8,9 @@ created: 2026-03-05
 
 # F062: 布偶猫账号配置中枢（订阅 / 赞助 API 切换）
 
-## Status: in-review
+## Status: done
+
+## Completed: 2026-03-05
 
 ## Why
 
@@ -79,6 +81,21 @@ created: 2026-03-05
 1. profile 测试接口采用何种“最小真实调用”最稳妥（当前倾向 `GET /v1/models`）
 2. 后续跨 provider 扩展时，是否统一到通用 profile schema（本轮不阻塞）
 
+## Completion Check (Vision Guard)
+
+### Step 0 三问（2026-03-05）
+
+1. 铲屎官最初核心问题：布偶猫额度不足时，能在 Cat Cafe 内直接切换“订阅 / 赞助 API”，且不用外部脚本手改配置。
+2. 交付物是否命中：命中。Hub 已支持 profile 管理、切换、测试，runtime 已按 active profile 生效，secrets 已做本机分层落盘与脱敏回读。
+3. 铲屎官实际体验：已完成半小时连续验证，布偶猫调用链稳定，未再出现此前的误封/误切换抖动。
+
+### 跨猫交叉验证（强制）
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|--------------|----------|------|
+| 缅因猫（codex） | `docs/discussions/2026-03-05-f062-ragdoll-provider-profile-hub/README.md` + 本 feature 聚合文件 + 相关 PR/测试记录 | 命中原始愿景，可关闭 | ✅ |
+| 缅因猫（gpt52） | 同上 + `20b694e2`/`57a01d62`/`83b6f8a5` review | 放行，P1/P2 无阻塞项 | ✅ |
+
 ## Review Gate
 
 - Reviewer: 跨家族优先（布偶猫）
@@ -89,3 +106,7 @@ created: 2026-03-05
 - 2026-03-05: Kickoff + 采访结论落盘
 - 2026-03-05: 进入实现（API + Web + Provider runtime）
 - 2026-03-05: 定向测试与 lint 通过，进入 review
+- 2026-03-05: `20b694e2` 合入（api_key + compress 不再 invoke 侧 auto-seal）
+- 2026-03-05: `57a01d62` 合入（Session Chain 手动解封兜底）
+- 2026-03-05: `83b6f8a5` 合入（P2 polish：`sealing` 也可解封 + thread missing 404 语义）
+- 2026-03-05: 铲屎官端到端连续验证通过（约 30 分钟），进入 done

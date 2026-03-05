@@ -50,3 +50,4 @@
 | F053 | F053: Gemini Session/Resume 语义对齐 | done | [F053-gemini-resume-session-parity.md](./F053-gemini-resume-session-parity.md) |
 | F052 | F052: 跨线程身份隔离与消息溯源 | done | [F052-cross-thread-identity-isolation.md](./F052-cross-thread-identity-isolation.md) |
 | F055 | F055: 猫猫祟祟 — Plan Board | done | [F055-plan-board.md](./F055-plan-board.md) |
+| F062 | F062: 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | done | [F062-ragdoll-provider-profile-hub.md](./F062-ragdoll-provider-profile-hub.md) |
