@@ -214,6 +214,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 - **Related**: [F060 output_image 富文本渲染](F060-output-image-rich-block.md) — 图片展示能力是基础
 - **Related**: [F058 Mission Control 增强](F058-mission-control-enhancements.md) — 运行时状态查看有重叠
+- **Related**: [F056 Cat Café 设计语言](F056-cat-cafe-design-language.md) — UI 设计语言必须对齐（猫猫化不是猫化）
 - **Inspiration**: Claude.ai Project Context + Artifacts 体验
 
 ## Key Decisions
@@ -227,12 +228,25 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 文件编辑能力 | 只读 / 可编辑 | **可编辑** — 铲屎官帮忙编辑后猫猫可直接 commit | 铲屎官 (2026-03-05) |
 | Worktree 感知 | 忽略 / 感知 | **必须感知 worktree** — 猫猫可能在不同 worktree 工作，文件系统需显示对应 worktree 的文件 | 铲屎官 (2026-03-05) |
 | 参考实现 | 自研 / 参考现有 | **参考 Claude.ai Project + Codex 布局**，取其精华 | 铲屎官 (2026-03-05) |
+| UI 设计语言 | 通用 / 猫猫化 | **对齐 F056 Cat Café 设计语言（猫猫化不是猫化）** | 铲屎官 (2026-03-05) |
+| 设计稿工具 | Figma / Pencil | **Pencil MCP**（用 `pencil-design` skill） | 铲屎官 (2026-03-05) |
+| 设计稿协作 | 单猫 / 多猫 | **暹罗猫出灵感（不画），GPT-5.2 可协助画设计稿，布偶猫用 Pencil 落地** | 铲屎官 (2026-03-05) |
 
 ## Dependencies
 
 - **Related**: F060（图片渲染能力）
 - **Related**: F058（运行时状态展示）
-- **UX Design**: 需要暹罗猫参与布局讨论
+- **Related**: F056（设计语言——UI 猫猫化风格必须对齐）
+- **UX Design**: 暹罗猫出灵感 + GPT-5.2 协助画设计稿 + 布偶猫用 Pencil MCP 落地
+
+## Design Workflow（铲屎官指定）
+
+实施前的设计稿流程：
+
+1. **灵感**：暹罗猫/烁烁提供 UX 灵感和方向建议（**不让他画**，幻觉多）
+2. **设计稿**：布偶猫用 **Pencil MCP**（`pencil-design` skill）画设计稿；如需协助可 @gpt52 一起画
+3. **设计语言**：所有 UI 元素对齐 **F056 Cat Café 设计语言**（猫猫化不是猫化）
+4. **前端实现**：设计稿确认后用 `pencil-to-code` skill 导出 React/Tailwind 代码
 
 ## Risk
 
