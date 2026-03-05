@@ -25,6 +25,20 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 
+## Straight-Line Check (A→B, No Detour)
+
+**Before splitting steps, do this first:**
+
+1. **Pin the finish line**: one-sentence B definition + acceptance criteria + "what we're NOT building"
+2. **Define terminal schema**: interfaces / types / data structures of the final form — steps are built around this, not throwaway scaffolding
+3. **Every step passes three questions:**
+   - Will this step's output stay in the final system as-is (extend only, no rewrite)? → Yes = on the line; No = detour
+   - What can we demo/test after this step? (no verifiable evidence = detour)
+   - If we remove this step, what specific cost does it add to reaching B? (can't articulate = detour)
+4. **Pure exploration = explicit Spike** (time-boxed + output is a decision/conclusion, not a deliverable)
+
+**Steps are internal implementation rhythm, NOT delivery batches.** The deliverable to the user is a complete feat matching the full spec — not a step's output. Do not expose intermediate steps as "验收点" to the user.
+
 ## Bite-Sized Task Granularity
 
 **Each step is one action (2-5 minutes):**

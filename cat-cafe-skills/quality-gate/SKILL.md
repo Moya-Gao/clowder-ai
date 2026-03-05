@@ -44,6 +44,14 @@ Step 0: VISION CHECK（愿景核对）
   ④ AC 是否完整覆盖了铲屎官的原始需求？
      → 如有遗漏，先补 AC 再继续
 
+Step 0.5: DELIVERY COMPLETENESS CHECK
+  ① 这次交付的是完整 feat 还是 feat 的一部分？
+     → 完整 feat：继续
+     → 部分：有铲屎官明确同意分批交付的记录吗？没有就继续做完
+  ② 本次产出后续需要"重写"还是"扩展"？
+     → 扩展：通过
+     → 重写：如果是已标注 Spike 且有结论，通过；否则不通过，回去重做
+
 Step 1: FIND — 找 spec/plan 文档
   - docs/plans/{date}-{topic}.md 或 docs/phases/{name}.md
   - 同时找 Discussion/Interview（铲屎官原话所在）
@@ -119,6 +127,8 @@ pnpm -r --if-present run build → exit 0 ✅
 | "应该没问题" / "probably works" | Run the command. Read the output. |
 | 测试通过就声称 phase 完成 | 还要对照 spec 逐项检查 |
 | 部分实现就提 review | P1/P2 遗漏必须当轮补完再提 review |
+| 交付半成品让铲屎官"先看看" | 交付完整 feat，步骤是内部节奏不是交付批次 |
+| 产出后续要重写而非扩展 | 如果要重写，说明绕路了（Spike 除外） |
 | 前端功能没有截图证据 | ≤3 张截图 + 15s 录屏 + 映射表 |
 | 为了截图在 runtime 会话里重跑 `pnpm start` | 先探活复用现有 runtime；确需重启必须显式授权 |
 | Redis 改动用默认测试命令 | 必须跑 `test:redis`，禁止直连 6399 |
