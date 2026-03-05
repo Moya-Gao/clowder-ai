@@ -3,7 +3,6 @@ import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdir, rm, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { tmpdir } from 'node:os';
 
 const {
   readProviderProfiles,
@@ -16,7 +15,7 @@ const {
 
 /** @param {string} prefix */
 async function makeTmpDir(prefix) {
-  const dir = join(tmpdir(), `provider-profile-store-${prefix}-${Date.now()}`);
+  const dir = join('/tmp', `provider-profile-store-${prefix}-${Date.now()}`);
   await mkdir(dir, { recursive: true });
   return dir;
 }
@@ -142,10 +141,21 @@ describe('provider profile store', () => {
     const repoRoot = await makeTmpDir('repo-main');
     const runtimeRoot = await makeTmpDir('repo-runtime');
     try {
-      await mkdir(join(repoRoot, '.git', 'worktrees', 'runtime'), { recursive: true });
+      const runtimeGitDir = join(repoRoot, '.git', 'worktrees', 'runtime');
+      await mkdir(runtimeGitDir, { recursive: true });
       await writeFile(
         join(runtimeRoot, '.git'),
-        `gitdir: ${join(repoRoot, '.git', 'worktrees', 'runtime')}\n`,
+        `gitdir: ${runtimeGitDir}\n`,
+        'utf-8',
+      );
+      await writeFile(
+        join(runtimeGitDir, 'gitdir'),
+        `${join(runtimeRoot, '.git')}\n`,
+        'utf-8',
+      );
+      await writeFile(
+        join(runtimeGitDir, 'commondir'),
+        '../..\n',
         'utf-8',
       );
 
@@ -163,20 +173,54 @@ describe('provider profile store', () => {
       assert.equal(runtime.mode, 'api_key');
       assert.equal(runtime.baseUrl, 'https://api.shared.dev');
       assert.equal(runtime.apiKey, 'sk-shared');
-
-      const metaPath = join(repoRoot, '.cat-cafe', 'provider-profiles.json');
-      const secretsPath = join(repoRoot, '.cat-cafe', 'provider-profiles.secrets.local.json');
-      const [metaRaw, secretsRaw] = await Promise.all([
-        readFile(metaPath, 'utf-8'),
-        readFile(secretsPath, 'utf-8'),
-      ]);
-      assert.ok(metaRaw.includes('sponsor-shared'));
-      assert.ok(secretsRaw.includes('sk-shared'));
     } finally {
       await Promise.all([
         rm(repoRoot, { recursive: true, force: true }),
         rm(runtimeRoot, { recursive: true, force: true }),
       ]);
+    }
+  });
+
+  it('does not allow .git pointer to redirect storage when worktree metadata is incomplete', async () => {
+    const escapedRoot = await makeTmpDir('escaped-root');
+    try {
+      await mkdir(join(escapedRoot, '.git', 'worktrees', 'runtime'), { recursive: true });
+      await writeFile(
+        join(projectRoot, '.git'),
+        `gitdir: ${join(escapedRoot, '.git', 'worktrees', 'runtime')}\n`,
+        'utf-8',
+      );
+
+      const created = await createProviderProfile(projectRoot, {
+        provider: 'anthropic',
+        name: 'sponsor-local',
+        mode: 'api_key',
+        baseUrl: 'https://api.local.dev',
+        apiKey: 'sk-local',
+        setActive: true,
+      });
+      assert.equal(created.mode, 'api_key');
+
+      const runtime = await resolveAnthropicRuntimeProfile(projectRoot);
+      assert.equal(runtime.mode, 'api_key');
+      assert.equal(runtime.baseUrl, 'https://api.local.dev');
+      assert.equal(runtime.apiKey, 'sk-local');
+
+      const localMetaPath = join(projectRoot, '.cat-cafe', 'provider-profiles.json');
+      const localSecretsPath = join(projectRoot, '.cat-cafe', 'provider-profiles.secrets.local.json');
+      const [localMetaRaw, localSecretsRaw] = await Promise.all([
+        readFile(localMetaPath, 'utf-8'),
+        readFile(localSecretsPath, 'utf-8'),
+      ]);
+      assert.ok(localMetaRaw.includes('sponsor-local'));
+      assert.ok(localSecretsRaw.includes('sk-local'));
+
+      const escapedMetaPath = join(escapedRoot, '.cat-cafe', 'provider-profiles.json');
+      const escapedSecretsPath = join(escapedRoot, '.cat-cafe', 'provider-profiles.secrets.local.json');
+      await assert.rejects(readFile(escapedMetaPath, 'utf-8'));
+      await assert.rejects(readFile(escapedSecretsPath, 'utf-8'));
+    } finally {
+      await rm(escapedRoot, { recursive: true, force: true });
     }
   });
 });
