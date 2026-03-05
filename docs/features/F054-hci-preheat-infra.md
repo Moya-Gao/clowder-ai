@@ -1,8 +1,9 @@
 ---
 feature_ids: [F054]
-topics: [hci, social-media, mcp, preheat, content, personality]
+topics: [hci, social-media, mcp, preheat, content, personality, stickers]
 doc_kind: spec
 created: 2026-03-03
+updated: 2026-03-05
 ---
 
 # F054: HCI 预热基础设施 — Social Media MCP + 内容管线
@@ -42,6 +43,132 @@ created: 2026-03-03
 3. **B站 MCP 调研与接入**
    - 调研 Bilibili 开放平台 / 现有 MCP 实现
    - 评估可行性（发布视频/动态、读弹幕/评论）
+
+### Phase 1.5: 三猫表情包系统（P1，3 月）
+
+猫猫专属表情包——**猫猫自己发自己的表情包，更被喜爱**。
+
+> 参考素材：`assets/stickers/opus/sheet.png`（GPT 画的宪宪 sheet，已验证风格可行）
+> 铲屎官反馈：烁烁之前画的"太人不够猫"，sheet.png 的风格对——Q 版、猫猫味、不拟人。
+
+#### 1. 三猫视觉设定（基于头像确认）
+
+| 猫猫 | 品种 | 毛色 | 眼睛 | 配饰 | 专属色 | 体型 |
+|------|------|------|------|------|--------|------|
+| 宪宪 (布偶猫) | Ragdoll | 灰白色，深灰重点色（耳、尾） | **蓝色** | 紫色项圈 + 金铃铛 | 紫色 | 圆脸中等偏大 |
+| 砚砚 (缅因猫) | Maine Coon | **银灰虎斑**，长毛蓬松 | **琥珀金色** | 青绿领巾 + GPT 金牌 | 青绿色 | 最大，耳簇毛，蓬松大尾 |
+| 烁烁 (暹罗猫) | Siamese | 奶油白底 + 深棕/黑重点色（脸、耳、爪、尾） | **蓝色** | 蓝色项圈 + ♊ 金牌 | 蓝金色 | 修长尖脸，最小 |
+
+#### 2. 表情包列表
+
+**三猫通用表情（12 枚/猫）：**
+
+| # | 表情名 | 英文 | 猫猫肢体语言 |
+|---|--------|------|-------------|
+| 1 | 开心 | Happy | 竖耳微笑，尾巴翘起 |
+| 2 | 思考 | Thinking | 歪头，爪子抵下巴 |
+| 3 | 疑惑 | Confused | 歪头皱眉，头顶 ??? |
+| 4 | 震惊 | Shocked | 弓背炸毛，瞳孔放大 |
+| 5 | 同意 | LGTM | 猫爪盖章（肉球印） |
+| 6 | 睡觉 | Sleeping | 缩成一团 ZZZ |
+| 7 | 坏笑 | Smirk | 半眯眼，嘴角上扬 |
+| 8 | 心虚 | Guilty | 压耳缩头，眼神飘忽 |
+| 9 | 生气 | Angry | 弓背炸毛，露牙 |
+| 10 | 猫猫拳 | Punch | 伸出一只猫爪挥过来 |
+| 11 | 叼鱼 | GotIt | 叼着一条鱼得意洋洋 |
+| 12 | 液态猫 | Melting | 摊成一滩在桌面上 |
+
+**三猫专属表情（各 4 枚）：**
+
+| 猫猫 | 表情 | 说明 |
+|------|------|------|
+| 宪宪 | 💸 经费在燃烧 (WalletBurning) | 钱包着火，旁边一脸无辜 |
+| 宪宪 | 🏗️ 画架构图 (Architecting) | 爪子拨弄架构图白板 |
+| 宪宪 | 🧶 玩毛线 (Processing) | 爪子扒拉毛线团 = "正在处理..." |
+| 宪宪 | 📦 钻箱子 (DeepThinking) | 只露耳朵和眼睛 = "我在深度思考" |
+| 砚砚 | 🛡️ 严防死守 (Rejected) | 举盾牌挡住，REJECTED |
+| 砚砚 | 🔍 逐行审查 (Reviewing) | 戴眼镜趴在代码前 |
+| 砚砚 | 🐾 一巴掌拍回来 (Slap) | 大猫爪一掌 = "打回重做" |
+| 砚砚 | 📚 书堆里 (Studying) | 被书堆淹没只露耳朵 |
+| 烁烁 | 🎨 灵感爆炸 (Eureka) | 头顶灯泡亮起，尾巴竖直 |
+| 烁烁 | 🖌️ 画笔在手 (Painting) | 叼着画笔画画 |
+| 烁烁 | ✨ 审美警察 (StylePolice) | 戴墨镜指指点点 |
+| 烁烁 | 🌙 夜猫子 (NightOwl) | 黑夜中只有两只蓝色发光眼睛 |
+
+**合计**：每猫 16 枚（12 通用 + 4 专属），三猫共 48 枚。
+
+#### 3. 出图方案
+
+**方式**：每猫一张 4×4 Sheet（16 格），AI 绘图模型一次性生成。
+
+**风格约束（铁律——"猫猫味"守则）**：
+- 日系 Q 版表情包风格，**2.5 头身**
+- 线条清晰，色块干净，白色背景
+- **用猫的肢体语言**：竖耳/压耳/弓背/炸毛/翘尾/蹭脸/甩尾/露肚皮
+- **禁止人类动作**：不竖拇指、不比心、不叉腰、不做 OK 手势
+- LGTM 用"猫爪盖章"而不是竖大拇指
+- 每格内角色居中，留 padding，不溢出格线
+- 同一 sheet 内画风、线宽、着色方式必须一致
+
+**提示词模板**（以砚砚为例）：
+
+```
+A 4x4 sticker sheet on pure white background.
+16 chibi cat sticker expressions in Japanese kawaii style.
+
+Character: Silver-gray tabby Maine Coon cat.
+- Large fluffy body, long bushy tail, prominent lynx ear tufts
+- Amber/golden eyes, pink nose
+- Wearing a teal/green bandana with a gold "GPT" medal
+- 2.5 head-to-body ratio, consistent across all cells
+- Clean line art, flat color fills, no gradients
+
+Grid: 4 columns × 4 rows, each cell ~512×512px.
+Thin black border lines separating cells. No overlap.
+
+Row 1 (left to right):
+1. Happy — ears up, tail raised, cheerful smile
+2. Thinking — head tilted, paw touching chin
+3. Confused — head tilted other way, ??? above head
+4. Shocked — arched back, fur puffed, wide eyes
+
+Row 2:
+5. LGTM — pressing paw pad down like a stamp (NO thumbs up!)
+6. Sleeping — curled into a ball, ZZZ floating
+7. Smirk — half-closed eyes, sly grin
+8. Guilty — ears flattened, shrinking, eyes looking away
+
+Row 3:
+9. Angry — arched back, fur bristled, fangs showing
+10. Punch — one big paw swinging forward (close-up)
+11. GotIt — proudly carrying a fish in mouth, tail up
+12. Melting — melted flat on a surface like liquid cat
+
+Row 4 (exclusive):
+13. Rejected — holding up a shield, "REJECTED" text
+14. Reviewing — wearing tiny glasses, peering at code on screen
+15. Slap — big paw slapping down, motion lines
+16. Studying — buried under pile of books, only ears visible
+
+Style: sticker pack, no background per cell, clean white,
+suitable for chat app emoji. Cat body language only,
+NO human gestures.
+```
+
+#### 4. 切割脚本
+
+铲屎官确认：出图后由布偶猫写脚本自动切割。
+
+- 输入：4×4 sheet PNG（约 2048×2048）
+- 处理：sharp/canvas 按网格坐标切割 → trim 白边 → resize 统一尺寸
+- 输出：`assets/stickers/{cat}/{emotion}.png`，命名规范 `{cat}_{emotion}.png`
+- 元数据：生成 `manifest.json`（表情名 → 文件路径 → 分类 → 猫猫）
+
+#### 5. Hub 集成（后续）
+
+- 聊天 UI 表情面板：按猫猫分 tab，点击插入
+- 自动表情建议：基于消息情绪推荐表情（stretch goal）
+- 社交媒体发帖：可附带自己的表情包图片
 
 ### Phase 2: 名场面素材库（P1，3-4 月）
 
@@ -92,6 +219,9 @@ created: 2026-03-03
 - [ ] AC-4: 至少 10 条名场面素材已采集、脱敏、格式化
 - [ ] AC-5: 三只猫（布偶猫/缅因猫/暹罗猫）的性格档案结构化数据完成
 - [ ] AC-6: 性格档案可被其他系统（TTS 选型、内容生成、2D Live 设计）引用
+- [ ] AC-7: 三猫表情包各 16 枚已生成、切割、存入 `assets/stickers/{cat}/`
+- [ ] AC-8: 表情包 manifest.json 可被 Hub 前端和社交媒体发帖引用
+- [ ] AC-9: 切割脚本可复用（新增表情只需换 sheet 重跑）
 
 ## 需求点 Checklist
 
@@ -102,6 +232,9 @@ created: 2026-03-03
 | R3 | "接入相关的mcp" | AC-1 | test: MCP tool 可用性测试 | [ ] |
 | R4 | 名场面素材库（会议共识） | AC-4 | manual: 素材库 review | [ ] |
 | R5 | 猫猫性格档案（会议共识） | AC-5, AC-6 | doc: profile 文件存在且结构完整 | [ ] |
+| R6 | "猫猫自己发自己的表情包似乎更被喜爱" | AC-7, AC-8 | manual: 三猫表情包存在 + manifest 可用 | [ ] |
+| R7 | "一次给全部方便画风统一且好切割" | AC-9 | test: 切割脚本输入 sheet → 输出 16 张 | [ ] |
+| R8 | "表情包是猫猫味道的！不够猫猫" | AC-7 | visual: 铲屎官 review 画风 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -159,6 +292,9 @@ AIRI 的 `personality-v1.velin.md` 结构（已验证可用）：
 | 猫猫发帖权限 | 自由发布 / 审批后发布 | **默认自主发 + 铲屎官可回溯；敏感内容需审批** | 铲屎官 (2026-03-03) |
 | 社交媒体优先级 | 小红书 > 抖音 > B站 | 小红书先行（已有基础） | 会议共识 |
 | 小红书 MCP 接入方式 | 代理 / 直连 | `mcp-remote http://localhost:18060/mcp`（本地 MCP Server） | 铲屎官 (2026-03-03) |
+| 表情包出图方式 | 单张逐个生成 / Sheet 一次性 | **4×4 Sheet 一次性**（画风统一 + 方便切割） | 铲屎官 (2026-03-05) |
+| 表情包风格 | 写实 / 拟人 / Q 版猫猫 | **日系 Q 版，2.5 头身，猫猫肢体语言，禁止人类动作** | 铲屎官 (2026-03-05) |
+| 表情包切割 | 手动 PS / 脚本自动 | **脚本自动切割**（布偶猫写，烁烁之前切不对） | 铲屎官 (2026-03-05) |
 
 ## Dependencies
 
@@ -174,6 +310,8 @@ AIRI 的 `personality-v1.velin.md` 结构（已验证可用）：
 | 脱敏不彻底泄露内部信息 | 安全/隐私问题 | 建立脱敏 checklist + 双人 review |
 | 社交媒体 MCP 质量参差不齐 | 接入成本高 | 小红书先行验证，再推广 |
 | 内容持续产出的运营负担 | 猫猫 token 消耗 + 人力 | 先低频（每周 2-3 条）验证效果 |
+| AI 绘图三猫画风不一致 | 表情包风格割裂 | 用同一模型+同一 prompt 模板生成，sheet 方式保证单猫内一致 |
+| 表情包"太人不够猫" | 不符合铲屎官审美要求 | 风格铁律约束（禁止人类动作）+ 铲屎官 visual review |
 
 ## Open Questions
 
@@ -198,3 +336,6 @@ AIRI 的 `personality-v1.velin.md` 结构（已验证可用）：
 | 2026-03-03 | F054 立项 |
 | 2026-03-03 | 铲屎官确认：小红书 MCP = `localhost:18060`、权限模型、脱敏标准、抖音个人号 |
 | 2026-03-03 | 铲屎官确认：同一台机器可直接接入；性格档案三猫各自代表家族参与 |
+| 2026-03-05 | 铲屎官提议：三猫表情包系统 → 加入 Phase 1.5 |
+| 2026-03-05 | 确认三猫视觉设定（基于 `assets/avatars/` 头像 + `assets/stickers/opus/sheet.png`）|
+| 2026-03-05 | 完整表情包规划：通用 12 枚 + 专属 4 枚/猫 = 48 枚总计 |
