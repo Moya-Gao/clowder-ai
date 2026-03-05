@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F060: output_image 富文本渲染
 
-## Status: spec
+## Status: implementing
 
 ## Why
 
@@ -61,6 +61,38 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 ## Key Decisions
 
 - **KD-1 (2026-03-04)**: 复用 `media_gallery` rich block，不新增类型。理由：富媒体本来就是要能发图发语音，output_image 是图片的一种来源，复用现有渲染组件最合理。（铲屎官拍板）
+- **KD-2 (2026-03-05)**: Phase 1 先做 Codex 路径（Codex CLI 在 `mcp_tool_call` completed 事件中暴露完整 result content 数组）。Claude CLI 内部消费 MCP tool result，不在 NDJSON 中暴露原始图片数据，需要后续 Phase 单独处理。
+
+## Implementation Plan (2026-03-05 POC 验证通过)
+
+### 调查发现
+
+1. **Codex CLI**: `item.completed` + `item.type === 'mcp_tool_call'` 的 `result.content[]` 包含 `{ type: 'image', data: base64, mimeType: string }` 块，但 `codex-event-transform.ts:178-180` 只提取 `type === 'text'` 的块，**image 块被静默丢弃**
+2. **Claude CLI**: NDJSON 流不暴露 MCP tool result 内容（Claude 内部消费后只输出 assistant text/tool_use），无法在 event transform 层拦截
+3. **前端**: `MediaGalleryBlock.tsx` 的 `<img src={item.url}>` 天然支持 `data:image/png;base64,...` data URI
+4. **Rich block 管线**: `system_info` → `{ type: 'rich_block', block: {...} }` → `useAgentMessages.ts` `appendRichBlock()` 已完整可用
+
+### Phase 1 实施步骤（Codex 路径）
+
+**Step 1**: `codex-event-transform.ts`
+- 返回类型从 `AgentMessage | null` 改为 `AgentMessage | AgentMessage[] | null`（与 `transformClaudeEvent` 一致）
+- `mcp_tool_call` completed 分支：提取 image blocks → 构造 `media_gallery` rich block → 返回 `[tool_result, system_info(rich_block)]`
+- 无 image 块时行为不变（返回单个 `tool_result`）
+
+**Step 2**: `CodexAgentService.ts`
+- 消费端适配数组返回（参照 `ClaudeAgentService.ts:224-240` 的 `Array.isArray(result)` 模式）
+
+**Step 3**: 测试
+- `codex-event-transform.test.js`: mcp_tool_call with image → returns [tool_result, system_info(rich_block)]
+- `codex-event-transform.test.js`: mcp_tool_call with multiple images → gallery has multiple items
+- `codex-event-transform.test.js`: mcp_tool_call text-only → unchanged single tool_result
+- `codex-event-transform.test.js`: image block without mimeType → graceful skip
+
+### Phase 2（后续，不在本 PR）
+
+- Claude 路径：可能需要在 MCP server 层拦截 tool result，或在 Claude CLI 侧扩展
+- 大图片优化：base64 超过阈值时存服务端返回 URL
+- AC-2 图片放大：前端 MediaGalleryBlock 添加 lightbox 交互
 
 ## Dependencies
 
@@ -75,7 +107,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 ## Open Questions
 
 1. ~~推荐路径 vs 备选路径~~ → **已决定：复用 `media_gallery`**（KD-1）
-2. base64 图片是否需要先存到服务端再返回 URL？（大图片场景）
+2. ~~base64 图片是否需要先存到服务端再返回 URL？~~ → Phase 1 直接用 data URI，大图片优化放 Phase 2
 
 ## Review Gate
 
@@ -85,3 +117,4 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 ## Timeline
 
 - 2026-03-04: Kickoff（小红书 MCP 排查中发现需求）
+- 2026-03-05: POC 验证通过 → Implementation Plan 确定 → Phase 1 开始

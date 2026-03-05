@@ -363,7 +363,7 @@
     {
       "id": "F060",
       "name": "output_image 富文本渲染",
-      "status": "unknown",
+      "status": "implementing",
       "file": "F060-output-image-rich-block.md"
     },
     {
