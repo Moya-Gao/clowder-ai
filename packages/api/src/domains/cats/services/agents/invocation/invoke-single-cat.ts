@@ -33,6 +33,9 @@ import {
 } from './invoke-helpers.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
 
+const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
+const ANTHROPIC_PROFILE_MODE_API_KEY = 'api_key';
+
 /**
  * F-BLOAT: Context compression detection for non-Claude providers (Codex/Gemini).
  *
@@ -544,64 +547,76 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               // F33: Strategy-driven seal decision (replaces F24 Phase B shouldSeal)
               if (deps.sessionSealer && deps.sessionChainStore) {
                 try {
-                  const strategy = getSessionStrategy(catId as string);
-                  const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
-                  const action = shouldTakeAction(
-                    health.fillRatio,
-                    health.windowTokens,
-                    health.usedTokens,
-                    activeRecord?.compressionCount ?? 0,
-                    strategy,
-                  );
+                  // F062-fix: third-party Anthropic-compatible gateways may report usage with
+                  // non-standard semantics (e.g. cumulative counters), which can inflate
+                  // approx context fill and trigger false-positive auto-seal.
+                  // For api_key mode + approx health, keep observability but skip auto-seal.
+                  const provider = catRegistry.tryGet(catId as string)?.config.provider;
+                  const profileMode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
+                  const skipAutoSealForApproxApiKey =
+                    provider === 'anthropic'
+                    && profileMode === ANTHROPIC_PROFILE_MODE_API_KEY
+                    && health.source === 'approx';
+                  if (!skipAutoSealForApproxApiKey) {
+                    const strategy = getSessionStrategy(catId as string);
+                    const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
+                    const action = shouldTakeAction(
+                      health.fillRatio,
+                      health.windowTokens,
+                      health.usedTokens,
+                      activeRecord?.compressionCount ?? 0,
+                      strategy,
+                    );
 
-                  switch (action.type) {
-                    case 'none':
-                      break;
-                    case 'warn':
-                      // warn is already emitted via context_health system_info above
-                      break;
-                    case 'seal':
-                    case 'seal_after_compress': {
-                      if (activeRecord) {
-                        const sealResult = await deps.sessionSealer.requestSeal({
-                          sessionId: activeRecord.id,
-                          reason: action.reason,
-                        });
-                        if (sealResult.accepted) {
-                          sessionManager.delete(userId, catId, threadId).catch(() => {});
-                          outputs.push({
-                            type: 'system_info' as const,
-                            catId,
-                            content: JSON.stringify({
-                              type: 'session_seal_requested',
-                              catId,
-                              sessionId: activeRecord.id,
-                              sessionSeq: activeRecord.seq + 1,
-                              reason: action.reason,
-                              healthSnapshot: health,
-                            }),
-                            timestamp: Date.now(),
+                    switch (action.type) {
+                      case 'none':
+                        break;
+                      case 'warn':
+                        // warn is already emitted via context_health system_info above
+                        break;
+                      case 'seal':
+                      case 'seal_after_compress': {
+                        if (activeRecord) {
+                          const sealResult = await deps.sessionSealer.requestSeal({
+                            sessionId: activeRecord.id,
+                            reason: action.reason,
                           });
-                          deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+                          if (sealResult.accepted) {
+                            sessionManager.delete(userId, catId, threadId).catch(() => {});
+                            outputs.push({
+                              type: 'system_info' as const,
+                              catId,
+                              content: JSON.stringify({
+                                type: 'session_seal_requested',
+                                catId,
+                                sessionId: activeRecord.id,
+                                sessionSeq: activeRecord.seq + 1,
+                                reason: action.reason,
+                                healthSnapshot: health,
+                              }),
+                              timestamp: Date.now(),
+                            });
+                            deps.sessionSealer.finalize({ sessionId: activeRecord.id }).catch(() => {});
+                          }
                         }
+                        break;
                       }
-                      break;
-                    }
-                    case 'allow_compress':
-                      // Don't seal — let CLI compress. Log for observability.
-                      outputs.push({
-                        type: 'system_info' as const,
-                        catId,
-                        content: JSON.stringify({
-                          type: 'strategy_allow_compress',
+                      case 'allow_compress':
+                        // Don't seal — let CLI compress. Log for observability.
+                        outputs.push({
+                          type: 'system_info' as const,
                           catId,
-                          strategy: strategy.strategy,
-                          compressionCount: activeRecord?.compressionCount ?? 0,
-                          healthSnapshot: health,
-                        }),
-                        timestamp: Date.now(),
-                      });
-                      break;
+                          content: JSON.stringify({
+                            type: 'strategy_allow_compress',
+                            catId,
+                            strategy: strategy.strategy,
+                            compressionCount: activeRecord?.compressionCount ?? 0,
+                            healthSnapshot: health,
+                          }),
+                          timestamp: Date.now(),
+                        });
+                        break;
+                    }
                   }
                 } catch {
                   /* best-effort: strategy failure doesn't break invocation */

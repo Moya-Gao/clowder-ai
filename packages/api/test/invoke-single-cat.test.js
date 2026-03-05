@@ -2061,4 +2061,109 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL, 'https://api.root.example');
     assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY, 'sk-root-profile');
   });
+
+  it('F062-fix: skips auto-seal for api_key mode when context health is approx', async () => {
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'f062-approx-no-seal-'));
+    await createProviderProfile(root, {
+      provider: 'anthropic',
+      name: 'sponsor-gateway',
+      mode: 'api_key',
+      baseUrl: 'https://api.sponsor.example',
+      apiKey: 'sk-sponsor',
+      setActive: true,
+    });
+
+    const activeRecord = {
+      id: 'sess-approx-no-seal',
+      catId: 'opus',
+      threadId: 'thread-f062-approx-no-seal',
+      userId: 'user-f062-approx-no-seal',
+      seq: 0,
+      status: 'active',
+      compressionCount: 0,
+    };
+
+    const sealRequests = [];
+    const sessionChainStore = {
+      getChain: async () => [activeRecord],
+      getActive: async () => activeRecord,
+      create: async () => activeRecord,
+      update: async () => activeRecord,
+    };
+    const sessionSealer = {
+      requestSeal: async (input) => {
+        sealRequests.push(input);
+        return { accepted: true, status: 'sealing' };
+      },
+      finalize: async () => {},
+    };
+
+    const service = {
+      async *invoke() {
+        yield { type: 'session_init', catId: 'opus', sessionId: 'cli-approx-no-seal', timestamp: Date.now() };
+        yield {
+          type: 'done',
+          catId: 'opus',
+          timestamp: Date.now(),
+          metadata: {
+            provider: 'anthropic',
+            model: 'claude-opus-4-6',
+            usage: {
+              // Simulate non-standard gateway semantics where this value is
+              // not a trustworthy "current context fill" signal.
+              inputTokens: 195000,
+              outputTokens: 10,
+              // Intentionally omit contextWindowSize so source becomes approx.
+            },
+          },
+        };
+      },
+    };
+
+    const deps = {
+      ...makeDeps(),
+      threadStore: {
+        get: async () => ({ projectPath: root }),
+      },
+      sessionChainStore,
+      sessionSealer,
+    };
+
+    try {
+      const msgs = await collect(invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'user-f062-approx-no-seal',
+        threadId: 'thread-f062-approx-no-seal',
+        isLastCat: true,
+      }));
+
+      const healthInfo = msgs.find((m) => {
+        if (m.type !== 'system_info') return false;
+        try {
+          return JSON.parse(m.content).type === 'context_health';
+        } catch {
+          return false;
+        }
+      });
+      assert.ok(healthInfo, 'should still emit context_health for observability');
+      const healthPayload = JSON.parse(healthInfo.content);
+      assert.equal(healthPayload.health.source, 'approx');
+
+      const hasSealRequested = msgs.some((m) => {
+        if (m.type !== 'system_info') return false;
+        try {
+          return JSON.parse(m.content).type === 'session_seal_requested';
+        } catch {
+          return false;
+        }
+      });
+      assert.equal(hasSealRequested, false, 'should not emit session_seal_requested on approx api_key telemetry');
+      assert.equal(sealRequests.length, 0, 'should not request seal on approx api_key telemetry');
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
