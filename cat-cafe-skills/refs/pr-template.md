@@ -54,6 +54,8 @@ pnpm -r --if-present run build         # 成功
 
 PR 创建后，**立刻发一条 comment**（不是在 PR body 里写）：
 
+> 安全建议：优先使用 `--body-file` 或单引号 heredoc，避免 shell 把反引号内容当命令执行。
+
 ```bash
 # 先拿当前 PR 的 head commit（短 SHA）
 HEAD_SHA="$(gh pr view {PR_NUMBER} --json headRefOid --jq '.headRefOid')" || \
@@ -70,6 +72,20 @@ TRIGGER_URL="$(gh pr view {PR_NUMBER} --json comments | jq -r --arg sha "$SHORT_
 [ -n "$TRIGGER_URL" ] && \
   { echo "❌ commit ${SHORT_SHA} 已触发过 review: ${TRIGGER_URL}"; exit 1; }
 ```
+
+触发后执行策略（必须遵守）：
+
+1. 进入**等待通知**模式，优先等 Cat Café 的 `GitHub Review 通知`
+2. 不要高频轮询，不要“看起来没回就再发一次”
+3. 10 分钟无通知，只允许一次人工检查：
+
+```bash
+gh pr view {PR_NUMBER} --json comments,reviews
+```
+
+4. 只有两种情况可再次触发：
+- HEAD SHA 变化（新 commit）
+- 首次触发失败被明确证实（例如 comment 未发出/被删除）
 
 ```
 @codex review
@@ -91,6 +107,7 @@ Please review latest commit {SHORT_SHA} for P1/P2 only.
 - `@codex review` 必须写在 PR **comment** 中，不能写在 PR body 里
 - 写在 body 里会错误触发 Codex 获取代码修改权限，而非 review 权限
 - 同一 commit 不要重复触发；有新 commit（新 SHA）再触发下一轮
+- 触发后等待通知；未收到通知前禁止二次触发同一 SHA
 - **PR body（含 HTML 注释）禁止出现任何 `@句柄`（例如 `(@codex)`）**
 - 铲屎官教训：2026-02-28 某 PR 在 body 里写 `@codex review`，导致 Codex 回复"需要权限"而非执行 review
 - 新增反面案例：2026-03-02 PR #160 在 body 签名写 `(@codex)`，触发环境提示评论，污染 review 流程

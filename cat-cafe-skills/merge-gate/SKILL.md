@@ -64,7 +64,7 @@ TRIGGER_URL="$(gh pr view {PR_NUMBER} --json comments | jq -r --arg sha "$SHORT_
 [ -n "$TRIGGER_URL" ] && \
   { echo "❌ 已对 commit ${SHORT_SHA} 触发过 cloud review: ${TRIGGER_URL}"; exit 1; }
 
-TRIGGER_COMMENT_BODY="$(cat <<EOF
+TRIGGER_COMMENT_BODY="$(cat <<'EOF'
 {按 refs/pr-template.md 的“云端 Review 触发 Comment 模板”填写}
 EOF
 )"
@@ -72,6 +72,16 @@ gh pr comment {PR_NUMBER} --body "$TRIGGER_COMMENT_BODY"
 # ⚠️ 完整模板见 refs/pr-template.md「云端 Review 触发 Comment 模板」
 
 # 6. 等云端 review 通过（0 P1/P2）
+# ✅ 事件驱动：优先等 Cat Café 的 “GitHub Review 通知” 消息
+# ❌ 不要做高频轮询；不要因为暂时没看到 review 就重复触发同一 SHA
+#
+# 6.1 收到通知后再读 PR 评论/Review 明细并决策
+# 6.2 若 10 分钟仍无通知，只允许做一次人工检查：
+#     gh pr view {PR_NUMBER} --json comments,reviews
+# 6.3 只有以下任一条件才允许再次触发：
+#     - HEAD SHA 变化（有新 commit）
+#     - 明确确认第一次触发失败（例如 comment 未发出/被删除）
+#     其它情况一律禁止二次触发
 
 # 7. Squash merge（GitHub 处理，禁止本地 squash！）
 gh pr merge {PR_NUMBER} --squash --delete-branch
@@ -107,6 +117,7 @@ git branch -d {branch-name} && git worktree prune
 | PR body 里写了云端 review 触发句柄 | 在 PR **comment** 里写（body 里写会触发代码修改权限而非 review） |
 | PR body 或 HTML 注释里写了 `@句柄`（例如签名） | **PR body 禁止任何 @句柄**，签名改为纯文本（如 `codex` / `gpt52`） |
 | 同一个 commit 连续发多条触发 comment | 先做 Step 5.1 去重检查；只有新 commit 才 re-trigger |
+| 触发后立刻轮询，几分钟后又手动重触发 | 等 “GitHub Review 通知” 事件；10 分钟无通知才做一次检查，且同一 SHA 禁止二次触发 |
 | 修了 P1 不 re-trigger review | 修完 push 后**必须重新触发**云端 review |
 | 本地 `git rebase -i` 手动 squash | 用 `gh pr merge --squash`（GitHub 处理） |
 | 本地 merge 后 `gh pr close` | `gh pr close` = 放弃，`gh pr merge` = 合入 |
@@ -139,7 +150,7 @@ git branch -d {branch-name} && git worktree prune
 - 或者把触发语句放错位置（body/非模板 comment）
 
 正确做法：
-- 只在 PR comment 用模板触发：`@codex review` + `Please review latest commit {SHORT_SHA} for P1/P2 only.`
+- 只在 PR comment 使用 `refs/pr-template.md` 的标准触发模板（含短 SHA 与 P1/P2 约束）
 - 先跑去重检查（Step 5.1），同一 SHA 不重复触发
 
 ### Q2: PR 里看到小眼睛（👀）是什么意思？
@@ -149,6 +160,14 @@ git branch -d {branch-name} && git worktree prune
 **⚠️ EYES ICON MEANS "REQUEST RECEIVED", NOT "FAILED".**
 
 它不是失败信号，也不等于环境错误。后续是否通过，以 review comment / findings 为准。
+
+### Q3: 触发后多久需要再操作？
+
+默认 **不操作**，等通知。
+
+- 有 `GitHub Review 通知` → 按通知处理（receive-review / merge）
+- 10 分钟无通知 → 仅做一次 `gh pr view` 检查
+- 同一 SHA 严禁重复触发云端 review comment
 
 ## 和其他 skill 的区别
 
