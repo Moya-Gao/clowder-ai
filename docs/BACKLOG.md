@@ -32,4 +32,5 @@ created: 2026-02-26
 | F058 | Mission Control 增强（F049++） | spec | 布偶猫 | [F058](features/F058-mission-control-enhancements.md) |
 | F059 | Cat Café 开源计划 — 3/30 目标 | spec | 布偶猫 | [F059](features/F059-open-source-plan.md) |
 | F060 | output_image 富文本渲染 — MCP 图片自动显示 | spec | 布偶猫 | [F060](features/F060-output-image-rich-block.md) |
+| F061 | Antigravity 接入 — 孟加拉猫（混血家族） | spec | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F062 | 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | in-review | 缅因猫 | [F062](features/F062-ragdoll-provider-profile-hub.md) |
