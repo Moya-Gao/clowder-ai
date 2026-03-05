@@ -50,9 +50,15 @@ for arg in "$@"; do
 done
 
 # 加载环境变量 (放最前面，后续函数需要端口号)
+# 顺序: .env -> .env.local (local override)
 if [ -f .env ]; then
     set -a
     source .env
+    set +a
+fi
+if [ -f .env.local ]; then
+    set -a
+    source .env.local
     set +a
 fi
 

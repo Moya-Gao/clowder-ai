@@ -16,6 +16,8 @@
  */
 
 import { type CatId, createCatId } from '@cat-cafe/shared';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { getCatModel } from '../../../../../config/cat-models.js';
 import { formatCliExitError } from '../../../../../utils/cli-format.js';
 import { isCliError, isCliTimeout, spawnCli } from '../../../../../utils/cli-spawn.js';
@@ -35,6 +37,12 @@ interface DareAgentServiceOptions {
   spawnFn?: SpawnFn;
 }
 
+const DEFAULT_DARE_PATH = '/tmp/cat-cafe-reviews/Deterministic-Agent-Runtime-Engine';
+
+function resolveDefaultDarePath(): string | undefined {
+  return existsSync(join(DEFAULT_DARE_PATH, 'client', '__main__.py')) ? DEFAULT_DARE_PATH : undefined;
+}
+
 export class DareAgentService implements AgentService {
   readonly catId: CatId;
   private readonly adapter: string;
@@ -47,11 +55,38 @@ export class DareAgentService implements AgentService {
     this.adapter = options?.adapter ?? process.env['DARE_ADAPTER'] ?? 'openrouter';
     // P1-2: Use unified model resolution chain (env CAT_*_MODEL > cat-config > fallback)
     this.model = options?.model ?? getCatModel(this.catId as string);
-    this.darePath = options?.darePath ?? process.env['DARE_PATH'];
+    this.darePath = options?.darePath ?? process.env['DARE_PATH'] ?? resolveDefaultDarePath();
     this.spawnFn = options?.spawnFn;
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
+    // Runtime mode: require resolvable DARE module path to avoid opaque "No module named client".
+    // Unit tests pass spawnFn and may not provide a real filesystem path; skip hard check there.
+    if (!this.darePath && !this.spawnFn) {
+      const metadata: MessageMetadata = { provider: 'dare', model: this.model };
+      yield {
+        type: 'error',
+        catId: this.catId,
+        error: `DARE CLI 未配置路径：请设置 DARE_PATH，或在默认路径 ${DEFAULT_DARE_PATH} 放置 DARE 仓库`,
+        metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+      return;
+    }
+    if (this.darePath && !this.spawnFn && !existsSync(join(this.darePath, 'client', '__main__.py'))) {
+      const metadata: MessageMetadata = { provider: 'dare', model: this.model };
+      yield {
+        type: 'error',
+        catId: this.catId,
+        error: `DARE_PATH 无效：${this.darePath}（未找到 client/__main__.py）`,
+        metadata,
+        timestamp: Date.now(),
+      };
+      yield { type: 'done', catId: this.catId, metadata, timestamp: Date.now() };
+      return;
+    }
+
     const args = this.buildArgs(prompt, options?.workingDirectory);
     // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
     // Thread's workingDirectory goes to --workspace instead.
