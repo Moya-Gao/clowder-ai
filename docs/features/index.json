@@ -365,7 +365,19 @@
       "name": "output_image 富文本渲染",
       "status": "unknown",
       "file": "F060-output-image-rich-block.md"
+    },
+    {
+      "id": "F061",
+      "name": "Antigravity 接入 — 孟加拉猫（混血家族）",
+      "status": "spec",
+      "file": "F061-antigravity-bengal-cat.md"
+    },
+    {
+      "id": "F062",
+      "name": "布偶猫账号配置中枢（订阅 / 赞助 API 切换）",
+      "status": "unknown",
+      "file": "F062-ragdoll-provider-profile-hub.md"
     }
   ],
-  "generated_at": "2026-03-05T07:49:11.506Z"
+  "generated_at": "2026-03-05T11:27:50.786Z"
 }
