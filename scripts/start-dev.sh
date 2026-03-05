@@ -50,17 +50,30 @@ for arg in "$@"; do
 done
 
 # 加载环境变量 (放最前面，后续函数需要端口号)
-# 顺序: .env -> .env.local (local override)
+# 默认读取 .env；.env.local 仅用于 DARE 相关白名单键，避免全量覆盖引发配置漂移。
 if [ -f .env ]; then
     set -a
     source .env
     set +a
 fi
-if [ -f .env.local ]; then
-    set -a
-    source .env.local
-    set +a
-fi
+
+load_dare_env_from_local() {
+    local env_file=".env.local"
+    [ -f "$env_file" ] || return 0
+
+    local key raw value
+    for key in DARE_PATH DARE_ADAPTER OPENROUTER_API_KEY OPENAI_API_KEY; do
+        raw=$(grep -E "^${key}=" "$env_file" | tail -n1 || true)
+        [ -n "$raw" ] || continue
+        value="${raw#*=}"
+        # 去掉包裹引号（兼容 key="value" / key='value'）
+        value="${value%\"}"; value="${value#\"}"
+        value="${value%\'}"; value="${value#\'}"
+        export "$key=$value"
+    done
+}
+
+load_dare_env_from_local
 
 # 默认端口
 API_PORT=${API_SERVER_PORT:-3002}
