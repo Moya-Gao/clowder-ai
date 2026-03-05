@@ -34,6 +34,29 @@ import { transformClaudeEvent, isResultErrorEvent, extractClaudeUsage } from './
 
 const PERMISSION_MODE = 'bypassPermissions';
 
+const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
+const ANTHROPIC_PROFILE_API_KEY = 'CAT_CAFE_ANTHROPIC_API_KEY';
+const ANTHROPIC_PROFILE_BASE_URL = 'CAT_CAFE_ANTHROPIC_BASE_URL';
+
+function buildClaudeEnvOverrides(
+  callbackEnv?: Record<string, string>,
+): Record<string, string | null> | undefined {
+  if (!callbackEnv) return undefined;
+  const env: Record<string, string | null> = { ...callbackEnv };
+  const mode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
+  if (mode === 'api_key') {
+    const apiKey = callbackEnv[ANTHROPIC_PROFILE_API_KEY]?.trim();
+    const baseUrl = callbackEnv[ANTHROPIC_PROFILE_BASE_URL]?.trim();
+    if (apiKey) env['ANTHROPIC_API_KEY'] = apiKey;
+    if (baseUrl) env['ANTHROPIC_BASE_URL'] = baseUrl;
+  } else {
+    // Subscription mode: explicitly clear inherited key-based env vars.
+    env['ANTHROPIC_API_KEY'] = null;
+    env['ANTHROPIC_BASE_URL'] = null;
+  }
+  return env;
+}
+
 /**
  * Options for constructing ClaudeAgentService (dependency injection)
  * F32-b: catId is now a constructor parameter (defaults to 'opus' for backward compat)
@@ -149,12 +172,13 @@ export class ClaudeAgentService implements AgentService {
 
     try {
       let sawResultError = false;
+      const envOverrides = buildClaudeEnvOverrides(options?.callbackEnv);
       const events = spawnCli(
         {
           command: 'claude',
           args,
           ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
-          ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
+          ...(envOverrides ? { env: envOverrides } : {}),
           ...(options?.signal ? { signal: options.signal } : {}),
         },
         this.spawnFn ? { spawnFn: this.spawnFn } : undefined

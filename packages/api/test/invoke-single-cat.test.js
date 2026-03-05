@@ -3,9 +3,10 @@
  * P1 fix: audit should emit CAT_ERROR when error was yielded during stream
  */
 
+import './helpers/setup-cat-registry.js';
 import { describe, it, before } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -2012,5 +2013,52 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
       'should surface session error if retry still fails',
     );
     assert.ok(msgs.some((m) => m.type === 'done'), 'should still emit done');
+  });
+
+  it('F062 P1: falls back to monorepo root profile when thread projectPath is absent', async () => {
+    const { createProviderProfile } = await import('../dist/config/provider-profiles.js');
+    const root = await mkdtemp(join(tmpdir(), 'f062-root-'));
+    const apiDir = join(root, 'packages', 'api');
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(join(root, 'pnpm-workspace.yaml'), 'packages:\n  - "packages/*"\n', 'utf-8');
+
+    await createProviderProfile(root, {
+      provider: 'anthropic',
+      name: 'root-sponsor',
+      mode: 'api_key',
+      baseUrl: 'https://api.root.example',
+      apiKey: 'sk-root-profile',
+      setActive: true,
+    });
+
+    const optionsSeen = [];
+    const service = {
+      async *invoke(_prompt, options) {
+        optionsSeen.push(options ?? {});
+        yield { type: 'done', catId: 'opus', timestamp: Date.now() };
+      },
+    };
+
+    const deps = makeDeps();
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(apiDir);
+      await collect(invokeSingleCat(deps, {
+        catId: 'opus',
+        service,
+        prompt: 'test',
+        userId: 'user-f062-root-fallback',
+        threadId: 'thread-f062-root-fallback',
+        isLastCat: true,
+      }));
+    } finally {
+      process.chdir(previousCwd);
+      await rm(root, { recursive: true, force: true });
+    }
+
+    const callbackEnv = optionsSeen[0]?.callbackEnv ?? {};
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_PROFILE_MODE, 'api_key');
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_BASE_URL, 'https://api.root.example');
+    assert.equal(callbackEnv.CAT_CAFE_ANTHROPIC_API_KEY, 'sk-root-profile');
   });
 });

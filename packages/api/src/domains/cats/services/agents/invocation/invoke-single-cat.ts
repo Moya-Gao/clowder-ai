@@ -9,10 +9,12 @@
  *         消息存储（由调用方在 yield 后累积并存储）。
  */
 
-import type { CatId, ContextHealth, MessageContent } from '@cat-cafe/shared';
+import { catRegistry, type CatId, type ContextHealth, type MessageContent } from '@cat-cafe/shared';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
+import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
+import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
@@ -294,6 +296,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         if (isUnderAllowedRoot(thread.projectPath)) {
           workingDirectory = thread.projectPath;
         }
+      }
+    }
+
+    // Provider profile injection (F062):
+    // Resolve active runtime profile from project-local `.cat-cafe` state and
+    // pass it to provider services via callback env.
+    const provider = catRegistry.tryGet(catId as string)?.config.provider;
+    if (provider === 'anthropic') {
+      try {
+        const projectRoot = workingDirectory ?? findMonorepoRoot(process.cwd());
+        const profile = await resolveAnthropicRuntimeProfile(projectRoot);
+        callbackEnv['CAT_CAFE_ANTHROPIC_PROFILE_MODE'] = profile.mode;
+        if (profile.mode === 'api_key') {
+          if (profile.apiKey) callbackEnv['CAT_CAFE_ANTHROPIC_API_KEY'] = profile.apiKey;
+          if (profile.baseUrl) callbackEnv['CAT_CAFE_ANTHROPIC_BASE_URL'] = profile.baseUrl;
+        }
+      } catch {
+        // Best-effort fallback: default to subscription mode when profile resolution fails.
+        callbackEnv['CAT_CAFE_ANTHROPIC_PROFILE_MODE'] = 'subscription';
       }
     }
 

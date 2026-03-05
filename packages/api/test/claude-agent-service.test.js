@@ -200,6 +200,74 @@ test('passes cwd from workingDirectory option', async () => {
   assert.equal(spawnOpts.cwd, '/my/project');
 });
 
+test('F062: subscription profile clears inherited ANTHROPIC env vars', async () => {
+  const prevApiKey = process.env['ANTHROPIC_API_KEY'];
+  const prevBaseUrl = process.env['ANTHROPIC_BASE_URL'];
+  process.env['ANTHROPIC_API_KEY'] = 'sk-inherited';
+  process.env['ANTHROPIC_BASE_URL'] = 'https://inherited.example.com';
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  try {
+    const promise = collect(service.invoke('hello', {
+      callbackEnv: {
+        CAT_CAFE_API_URL: 'http://localhost:3002',
+        CAT_CAFE_INVOCATION_ID: 'inv-1',
+        CAT_CAFE_CALLBACK_TOKEN: 'token-1',
+        CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'subscription',
+      },
+    }));
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.equal(spawnOpts.env.ANTHROPIC_API_KEY, undefined);
+    assert.equal(spawnOpts.env.ANTHROPIC_BASE_URL, undefined);
+  } finally {
+    if (prevApiKey === undefined) delete process.env['ANTHROPIC_API_KEY'];
+    else process.env['ANTHROPIC_API_KEY'] = prevApiKey;
+    if (prevBaseUrl === undefined) delete process.env['ANTHROPIC_BASE_URL'];
+    else process.env['ANTHROPIC_BASE_URL'] = prevBaseUrl;
+  }
+});
+
+test('F062: api_key profile injects ANTHROPIC_API_KEY and ANTHROPIC_BASE_URL', async () => {
+  const prevApiKey = process.env['ANTHROPIC_API_KEY'];
+  const prevBaseUrl = process.env['ANTHROPIC_BASE_URL'];
+  process.env['ANTHROPIC_API_KEY'] = 'sk-inherited';
+  process.env['ANTHROPIC_BASE_URL'] = 'https://inherited.example.com';
+
+  const proc = createMockProcess();
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  try {
+    const promise = collect(service.invoke('hello', {
+      callbackEnv: {
+        CAT_CAFE_API_URL: 'http://localhost:3002',
+        CAT_CAFE_INVOCATION_ID: 'inv-2',
+        CAT_CAFE_CALLBACK_TOKEN: 'token-2',
+        CAT_CAFE_ANTHROPIC_PROFILE_MODE: 'api_key',
+        CAT_CAFE_ANTHROPIC_API_KEY: 'sk-sponsor',
+        CAT_CAFE_ANTHROPIC_BASE_URL: 'https://sponsor.example.com',
+      },
+    }));
+    emitClaudeEvents(proc, [{ type: 'result', subtype: 'success' }]);
+    await promise;
+
+    const spawnOpts = spawnFn.mock.calls[0].arguments[2];
+    assert.equal(spawnOpts.env.ANTHROPIC_API_KEY, 'sk-sponsor');
+    assert.equal(spawnOpts.env.ANTHROPIC_BASE_URL, 'https://sponsor.example.com');
+  } finally {
+    if (prevApiKey === undefined) delete process.env['ANTHROPIC_API_KEY'];
+    else process.env['ANTHROPIC_API_KEY'] = prevApiKey;
+    if (prevBaseUrl === undefined) delete process.env['ANTHROPIC_BASE_URL'];
+    else process.env['ANTHROPIC_BASE_URL'] = prevBaseUrl;
+  }
+});
+
 test('yields error on result/error event', async () => {
   const proc = createMockProcess();
   const spawnFn = createMockSpawnFn(proc);
