@@ -34,5 +34,5 @@ created: 2026-02-26
 | F060 | output_image 富文本渲染 — MCP 图片自动显示 | in-review | 布偶猫 | [F060](features/F060-output-image-rich-block.md) |
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | spec | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F062 | 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | in-review | 缅因猫 | [F062](features/F062-ragdoll-provider-profile-hub.md) |
-| F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE | spec | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
+| F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | spec | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
 | F064 | A2A 出口检查 — 链条终止盲区修复 | in-progress | 布偶猫 | [F064](features/F064-a2a-exit-check.md) |
