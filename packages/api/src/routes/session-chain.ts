@@ -75,7 +75,11 @@ export async function sessionChainRoutes(
 
     // Verify thread ownership via session -> thread
     const thread = await threadStore.get(session.threadId);
-    if (!thread || thread.createdBy !== userId) {
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+    if (thread.createdBy !== userId) {
       reply.status(403);
       return { error: 'Access denied' };
     }
@@ -102,7 +106,11 @@ export async function sessionChainRoutes(
     }
 
     const thread = await threadStore.get(session.threadId);
-    if (!thread || thread.createdBy !== userId) {
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+    if (thread.createdBy !== userId) {
       reply.status(403);
       return { error: 'Access denied' };
     }

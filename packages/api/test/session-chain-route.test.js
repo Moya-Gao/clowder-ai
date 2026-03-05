@@ -202,6 +202,21 @@ describe('Session Chain Routes', () => {
     assert.equal(res.statusCode, 404);
   });
 
+  it('POST /api/sessions/:sessionId/unseal returns 404 when thread no longer exists', async () => {
+    const store = await setup();
+    const dangling = store.create({ cliSessionId: 'cli-dangling', threadId: 'ghost-thread', catId: 'opus', userId: 'user-1' });
+    store.update(dangling.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${dangling.id}/unseal`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 404);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.error, 'Thread not found');
+  });
+
   it('POST /api/sessions/:sessionId/unseal reopens sealed session as a new active record', async () => {
     const store = await setup();
     const sealed = store.create({ cliSessionId: 'cli-reopen', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });

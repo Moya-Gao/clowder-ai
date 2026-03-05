@@ -299,7 +299,7 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                     {session.sealReason ? ` · ${sealReasonLabel(session.sealReason)}` : ''}
                   </div>
                 </div>
-                {session.status === 'sealed' && (
+                {(session.status === 'sealed' || session.status === 'sealing') && (
                   <button
                     type="button"
                     className="text-[10px] px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
