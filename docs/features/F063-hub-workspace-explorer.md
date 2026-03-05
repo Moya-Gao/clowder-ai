@@ -85,42 +85,95 @@ created: 2026-03-05
    - runtime 的 uploads 目录浏览
    - 图片预览、文件下载
 
-## Technical Direction（待讨论）
+## Technical Direction
 
-### 后端：文件系统 API
+### 后端：文件系统 API（砚砚安全模型 v1）
 
-需要在 API 层新增文件系统相关端点：
+**API 端点**：
 
 ```
-GET /api/workspace/tree?path={dir}&depth={n}    — 目录树
-GET /api/workspace/file?path={filePath}          — 文件内容
-GET /api/workspace/search?q={keyword}&type=content|filename  — 搜索
+GET  /api/workspace/tree?worktreeId={id}&path={dir}&depth={n}
+GET  /api/workspace/file?worktreeId={id}&path={filePath}
+POST /api/workspace/search  { worktreeId, query, type: "content"|"filename", limit }
+PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSessionToken }
 ```
 
-**安全边界**：
-- 只暴露猫猫当前 worktree / 仓库目录，不暴露系统文件
-- 路径 traversal 防护（`../` 等）
-- 大文件限制（>1MB 按需分页）
-- 敏感文件过滤（`.env`、credentials 等）
+**Worktree 映射**：服务端用 `git worktree list --porcelain` 建映射 `worktreeId → realRoot`，前端只传 `worktreeId`，**绝不接受前端传绝对路径**。
 
-### 前端：布局方案
+**P0 安全模型（砚砚 review 通过的强约束）**：
 
-几种可能的 UX 布局（**需要烁烁参与讨论**）：
+1. **路径遍历防护**：`resolve(realRoot, userPath)` → `realpath` → 必须满足 `target.startsWith(realRoot + path.sep)`，否则 403
+2. **符号链接逃逸防护**：读写都做 `lstat + realpath`，跨根 symlink 直接拒绝
+3. **默认只读**：编辑模式需显式开启（UI toggle），签发短期 `edit_session_token`（30 分钟有效）
+4. **敏感文件 denylist**（读写都拦）：`.env*`、`*.pem`、`*.key`、`id_rsa*`、`.git/**`、`**/secrets/**`
+5. **大文件/二进制限制**：文本查看上限 1MB，超限只给摘要；二进制不走文本编辑接口
+6. **并发控制**：写入必须带 `baseSha256`，不一致返回 `409 Conflict`
+7. **全链路审计**：`workspace_file_read / search / write / conflict / denied` 全记录（threadId、worktreeId、path、actor）
 
-| 方案 | 描述 | 优劣 |
+**搜索后端**：Phase 1 直接用 `grep -r`（受限于 worktree root），关键词长度和结果条数有上限。后续评估是否需要索引。
+
+### 前端：UX 设计（烁烁提案 + 铲屎官拍板）
+
+**布局：「猫咖全景工坊」**
+
+```
+┌─────────────────────────────────────────────────────┐
+│  顶栏  [Thread列表] [Thread名]  ... [📁 Workspace]  │
+├──────────────────────┬──────────────────────────────┤
+│                      │  🌿 feat/f060  (worktree)    │
+│                      │  ┌──────────────────────────┐│
+│    💬 聊天区域        │  │ 📂 packages/             ││
+│    (50%)             │  │   📂 api/src/             ││
+│                      │  │     📄 codex-event-...    ││
+│                      │  │   📂 hub/src/             ││
+│  猫猫消息            │  ├──────────────────────────┤│
+│  [file:172] ← 可点击  │  │ codex-event-transform.ts ││
+│                      │  │ 172│ const imageItems =   ││
+│                      │  │ 173│   contentArr.filter  ││
+│                      │  │     ← 高亮跳转到此行      ││
+│                      │  │                    [编辑🔓]││
+├──────────────────────┴──────────────────────────────┤
+│  输入框                                              │
+└─────────────────────────────────────────────────────┘
+```
+
+**交互细节**：
+
+| 元素 | 设计 | 来源 |
 |------|------|------|
-| **侧边栏** | 类似 Claude.ai，对话左侧+文件右侧 | 标准模式，空间分配固定 |
-| **可拖拽面板** | 文件面板可拖拽、resize、最小化 | 灵活但复杂 |
-| **Tab 切换** | 对话和文件浏览器作为 Tab 切换 | 简单但不能同时看 |
-| **弹出窗口** | 点击文件链接 → 弹出 modal 查看 | 最简单但体验碎片化 |
+| 顶栏按钮 | 📁 图标，点击切换分栏显示/隐藏 | 铲屎官拍板 |
+| Worktree 指示器 | 文件面板顶部醒目标签：`🌿 feat/f060` + branch + short sha | 砚砚(安全)+烁烁(UX) |
+| 文件树 | 极简风格，悬浮显示操作按钮，类型图标区分 | 烁烁 |
+| 编辑器 | **CodeMirror 6**（轻量、可扩展、语法高亮+行号） | 烁烁提议 |
+| 只读/编辑切换 | 默认只读🔒，点击切换编辑🔓（签发 edit_session_token） | 烁烁(UX)+砚砚(安全) |
+| 文件路径联动 | 聊天中 `file:line` 格式自动变为可点击链接 → 右侧跳转高亮 | 烁烁 |
+| 正在编辑指示 | 文件图标旁显示 🐾（铲屎官）或猫猫头像 | 烁烁 |
+| 代码引用 | 铲屎官在编辑器选中代码 → 引用到对话输入框 | spec 原始需求 |
+| 文件头信息 | `branch + worktree + last_commit_short_sha` | 砚砚 |
 
-### 前端预览：技术选型
+**技术选型**：
 
-| 方案 | 描述 | 优劣 |
+| 组件 | 选择 | 理由 |
 |------|------|------|
-| **iframe sandbox** | 将 HTML/JSX 编译后注入 iframe | 安全隔离好，标准做法 |
-| **Monaco Editor + Preview** | 编辑器 + 旁边预览 | 功能强大但重 |
-| **Sandpack (CodeSandbox)** | React 专用的浏览器内编译+预览 | 开箱即用，但依赖重 |
+| 代码编辑器 | **CodeMirror 6** | 比 Monaco 轻量，语法高亮+行号+基础补全，适合"辅助编辑"场景 |
+| 前端预览 | **iframe sandbox** | Phase 2，安全隔离好，CSP 策略可控 |
+| Markdown 渲染 | **react-markdown** | 已在 Hub 中使用 |
+| 文件搜索 | 后端 `grep -r` | Phase 1 够用，后续可升级 |
+
+### 安全测试清单（砚砚门禁）
+
+| # | 测试场景 | 期望 |
+|---|---------|------|
+| 1 | `../` 路径遍历 | 403 |
+| 2 | 绝对路径 `/etc/passwd` | 403 |
+| 3 | URL 编码绕过 `%2e%2e%2f` | 403 |
+| 4 | Symlink 逃逸 | 403 |
+| 5 | Denylist 文件读取 `.env` | 403 |
+| 6 | Denylist 文件写入 `.env` | 403 |
+| 7 | 并发编辑 → 409 Conflict | 后写者收到 409 |
+| 8 | 切换 worktree 后同路径文件内容不同 | 内容确实变化 |
+| 9 | 无 edit_session_token 写入 | 401 |
+| 10 | 过期 edit_session_token 写入 | 401 |
 
 ## Acceptance Criteria
 
@@ -195,11 +248,13 @@ GET /api/workspace/search?q={keyword}&type=content|filename  — 搜索
 1. ~~布局方案？~~ → **已拍板**: 顶栏按钮切换，右侧文件面板取代状态栏，50:50 分栏
 2. ~~文件编辑能力？~~ → **已拍板**: 可编辑，铲屎官编辑后猫猫可 commit
 3. ~~Worktree 感知？~~ → **已拍板**: 必须感知，显示猫猫当前 worktree
-4. 前端预览的技术选型：iframe sandbox vs Sandpack vs 其他？
-5. 文件搜索用什么后端？直接 `grep -r` 还是建索引？
-6. 猫猫消息中的文件路径自动识别：regex 够用还是需要更智能的方案？
-7. 文件编辑的冲突处理：猫猫和铲屎官同时编辑同一文件怎么办？
-8. Worktree 切换 UI：怎么让铲屎官知道当前看的是哪个 worktree？dropdown？标签？
+4. ~~前端预览技术选型？~~ → **Phase 2 用 iframe sandbox**
+5. ~~文件搜索后端？~~ → **Phase 1 用 `grep -r`**，受限于 worktree root
+6. ~~编辑冲突处理？~~ → **baseSha256 乐观锁**，不一致 409 Conflict（砚砚方案）
+7. ~~Worktree 切换 UI？~~ → **文件面板顶部醒目标签** `🌿 branch-name` + short sha（烁烁+砚砚共识）
+8. ~~编辑器选型？~~ → **CodeMirror 6**（烁烁提议，比 Monaco 轻量）
+9. 猫猫消息中的文件路径自动识别：regex 够用还是需要更智能的方案？
+10. 移动端适配：手机上 50:50 分栏不现实，是否 Phase 1 只做桌面？
 
 ## Review Gate
 
@@ -217,3 +272,6 @@ GET /api/workspace/search?q={keyword}&type=content|filename  — 搜索
 | 2026-03-05 | 铲屎官拍板：可编辑 + 必须感知 worktree |
 | 2026-03-05 | 愿景口号：**铲屎官不用打开 IDE 也可以和猫猫们优雅协作** |
 | 2026-03-05 | F063 立项，@ 烁烁(UX) + 砚砚(安全) 参与讨论 |
+| 2026-03-05 | 烁烁 UX 提案：「猫咖全景工坊」布局 + CodeMirror 6 + 联动高亮 |
+| 2026-03-05 | 砚砚安全模型 v1：worktreeId 映射 + 路径防护 + denylist + baseSha256 乐观锁 |
+| 2026-03-05 | 三猫共识收敛：Technical Direction 定稿 |
