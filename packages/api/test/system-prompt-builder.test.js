@@ -302,6 +302,7 @@ describe('SystemPromptBuilder', () => {
     const codexId = buildStaticIdentity('codex');
     assert.ok(codexId.includes('工作流'), 'Codex should have workflow triggers');
     assert.ok(codexId.includes('@布偶猫'), 'Codex workflow should mention notifying 布偶猫');
+    assert.ok(codexId.includes('出口检查'), 'Codex workflow should include exit check');
   });
 
   test('buildStaticIdentity is deterministic', async () => {
@@ -525,6 +526,54 @@ describe('SystemPromptBuilder', () => {
     });
     assert.ok(!ctx.includes('你的队友'), 'Should not list teammates');
     assert.ok(ctx.includes('独立回答'), 'Should indicate independent mode');
+  });
+
+  test('buildInvocationContext injects A2A exit check when enabled (non-parallel)', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(ctx.includes('A2A 出口检查'), 'Should include A2A exit check hint');
+    assert.ok(ctx.includes('句中 @ 无效'), 'Should teach inline @ is invalid for routing');
+  });
+
+  test('buildInvocationContext does not inject A2A exit check in parallel mode', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'parallel',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+    });
+    assert.ok(!ctx.includes('A2A 出口检查'), 'Parallel mode should not encourage @mention chaining');
+  });
+
+  test('buildInvocationContext injects mention routing feedback when provided', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'codex',
+      mode: 'independent',
+      teammates: ['opus'],
+      mcpAvailable: false,
+      a2aEnabled: true,
+      mentionRoutingFeedback: {
+        sourceTimestamp: Date.now(),
+        items: [{ targetCatId: 'opus', reason: 'no_action' }],
+      },
+    });
+    assert.ok(ctx.includes('⚠️ 路由反馈'), 'Should include routing feedback banner');
+    assert.ok(ctx.includes('@opus'), 'Should mention the target cat');
   });
 
   test('buildInvocationContext does not contain static identity or MCP tools', async () => {

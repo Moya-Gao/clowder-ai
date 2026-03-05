@@ -177,17 +177,18 @@ const WORKFLOW_TRIGGERS: Record<string, string> = {
     '## 工作流（主动 @ 触发点）',
     '- 完成 review → @布偶猫 通知结果',
     '- 修完 bug/feature → @布偶猫 请 review',
+    '- 讨论/独立思考完成，结论需要其他猫跟进 → @ 对应猫',
+    '- 发现需要架构决策 → @布偶猫 征询',
     '- Review 布偶猫代码：每个发现必须有明确立场，禁止说"修不修都行"',
     '- 收到 review 意见：独立判断，认为自己对就 push back，不全盘接受',
     '',
-    '### @ 自检（发 @ 前必过！）',
-    '@ 是**路由指令**，不是称呼前缀。发 @ 前问自己：',
-    '1. 这条消息需要对方**采取行动**吗？（不是"知道"，是"做"）',
-    '2. 不 @ 的话对方会**错过关键信息**吗？（同 thread 本来就能看到）',
-    '3. 当前阶段对方**能做什么**吗？（等云端 review 时谁都不用 @）',
-    '三个都是"否" → 不要 @，直接写名字即可。',
-    '❌ @opus 收到，我也在等云端 review',
-    '✅ 收到，布偶猫那边也在等云端 review',
+    '### 出口检查（发消息前必问）',
+    '这件事到我这里结束了吗？不是 → 谁需要动？→ 回复末尾另起一行行首写 @句柄。',
+    '',
+    '### @ 自检',
+    '三问短路：Q1"需要对方采取行动？"= 是 → 直接 @（跳过 Q2/Q3）。',
+    '三个都是否 → 不 @，直接写名字。',
+    '❌ @opus 收到，我也在等云端 review → ✅ 收到，布偶猫那边也在等',
   ].join('\n'),
   siamese: [
     '## 工作流（主动 @ 触发点）',
@@ -373,6 +374,18 @@ export function buildInvocationContext(context: InvocationContext): string {
     lines.push('当前模式：独立思考。你和队友各自独立回答同一问题，给出你自己的观点。', '');
   } else {
     lines.push('当前模式：独立回答。', '');
+  }
+
+  // A2A: Exit check reminder — prevents "chain termination blind spot" where cats finish output
+  // without considering whether a teammate needs to act next.
+  if (context.mode !== 'parallel' && context.a2aEnabled) {
+    lines.push('A2A 出口检查：回复前问"到我这里结束了吗？"不是 → 谁需要动 → 末尾另起一行行首写 @句柄（句中 @ 无效）。', '');
+  }
+
+  // F064: One-shot feedback when previous @mention was not routed.
+  if (context.mentionRoutingFeedback && context.mentionRoutingFeedback.items?.length > 0) {
+    const items = context.mentionRoutingFeedback.items.slice(0, 2).map((it) => `@${it.targetCatId}`);
+    lines.push(`⚠️ 路由反馈：上次你提到了 ${items.join('、')} 但没有用行首 @ 路由。如果需要对方行动，请在行首独立一行写 @句柄。`, '');
   }
 
   // Prompt tags
