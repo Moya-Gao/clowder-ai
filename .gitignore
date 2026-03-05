@@ -30,6 +30,7 @@ packages/web/public/worker-*.js
 .gemini/
 .kiro/
 .trae/
+.dare/
 .codex/
 .gemini/
 *.swp
