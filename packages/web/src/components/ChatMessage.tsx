@@ -360,40 +360,47 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
       {catData && <CatAvatar catId={message.catId!} size={32} status={message.isStreaming ? 'streaming' : undefined} />}
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
         {catStyle && (
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
-              {catStyle.label}
-            </span>
-            <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
-            {isWhisper && (
-              <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
-                {isRevealed ? '已揭秘' : '悄悄话'}
+          <div className="mb-1 flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-xs font-semibold" style={{ opacity: 0.8 }}>
+                {catStyle.label}
               </span>
-            )}
+              <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+              {isWhisper && (
+                <span className={`text-xs px-1.5 py-0.5 rounded ${isRevealed ? 'bg-gray-100 text-gray-500' : 'bg-amber-100 text-amber-600'}`}>
+                  {isRevealed ? '已揭秘' : '悄悄话'}
+                </span>
+              )}
+              {hasTextContent && !message.isStreaming && (
+                <TtsPlayButton
+                  messageId={message.id}
+                  text={message.content}
+                  catId={message.catId!}
+                  ttsState={ttsState}
+                  activeMessageId={activeMessageId}
+                  onSynthesize={ttsSynthesize}
+                />
+              )}
+            </div>
             {message.extra?.crossPost && (() => {
               const sourceId = message.extra.crossPost!.sourceThreadId;
               const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
+              const shortId = sourceId.replace(/^thread_/, '').slice(0, 8);
               return (
                 <a
                   href={`/thread/${sourceId}`}
                   onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/thread/${sourceId}`); }}
-                  className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer max-w-[22ch]"
-                  title={`跳转到 ${sourceId}`}
+                  className="inline-flex items-center gap-1.5 border px-3 py-1 rounded-full bg-[#FDF6ED] border-[#E8DCCF] text-[#8D6E63] hover:bg-[#F5EDE0] transition-colors cursor-pointer w-fit max-w-full"
+                  title={sourceId}
+                  aria-label={`跳转到来源 thread ${sourceId}`}
                 >
-                  📮 {sourceId.replace(/^thread_/, '').slice(0, 8)} · <span className="truncate max-w-[12ch]">{sourceName}</span>
+                  <span className="text-[10px] font-semibold" aria-hidden>📮</span>
+                  <span className="min-w-0 truncate">
+                    {shortId} · {sourceName}
+                  </span>
                 </a>
               );
             })()}
-            {hasTextContent && !message.isStreaming && (
-              <TtsPlayButton
-                messageId={message.id}
-                text={message.content}
-                catId={message.catId!}
-                ttsState={ttsState}
-                activeMessageId={activeMessageId}
-                onSynthesize={ttsSynthesize}
-              />
-            )}
           </div>
         )}
         <div
