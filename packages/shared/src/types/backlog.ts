@@ -1,7 +1,7 @@
 import type { CatId } from './ids.js';
 
 export type BacklogPriority = 'p0' | 'p1' | 'p2' | 'p3';
-export type BacklogStatus = 'open' | 'suggested' | 'approved' | 'dispatched';
+export type BacklogStatus = 'open' | 'suggested' | 'approved' | 'dispatched' | 'done';
 export type ThreadPhase = 'coding' | 'research' | 'brainstorm';
 export type BacklogSuggestionStatus = 'pending' | 'approved' | 'rejected';
 export type BacklogLeaseState = 'active' | 'released' | 'reclaimed';
@@ -37,6 +37,7 @@ export type BacklogAuditAction =
   | 'approved'
   | 'rejected'
   | 'dispatched'
+  | 'done'
   | 'lease_acquired'
   | 'lease_heartbeat'
   | 'lease_released'
@@ -75,6 +76,8 @@ export interface BacklogItem {
   readonly updatedAt: number;
   readonly approvedAt?: number;
   readonly dispatchedAt?: number;
+  readonly doneAt?: number;
+  readonly dependencies?: BacklogDependencies;
   readonly audit: readonly BacklogAuditEntry[];
 }
 
@@ -85,6 +88,7 @@ export interface CreateBacklogItemInput {
   readonly priority: BacklogPriority;
   readonly tags: readonly string[];
   readonly createdBy: CatId | 'user';
+  readonly dependencies?: BacklogDependencies;
 }
 
 export interface RefreshBacklogItemInput {
@@ -93,6 +97,7 @@ export interface RefreshBacklogItemInput {
   readonly priority: BacklogPriority;
   readonly tags: readonly string[];
   readonly refreshedBy: string;
+  readonly dependencies?: BacklogDependencies;
 }
 
 export interface SuggestBacklogClaimInput {
@@ -140,4 +145,14 @@ export interface ReleaseBacklogLeaseInput {
 
 export interface ReclaimBacklogLeaseInput {
   readonly actorId: string;
+}
+
+export interface MarkDoneInput {
+  readonly doneBy: string;
+}
+
+export interface BacklogDependencies {
+  readonly evolvedFrom?: readonly string[];
+  readonly blockedBy?: readonly string[];
+  readonly related?: readonly string[];
 }

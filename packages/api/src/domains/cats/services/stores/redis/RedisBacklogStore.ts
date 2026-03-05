@@ -1,11 +1,13 @@
 import type {
   AcquireBacklogLeaseInput,
+  BacklogDependencies,
   BacklogItem,
   BacklogLease,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
   HeartbeatBacklogLeaseInput,
+  MarkDoneInput,
   ReclaimBacklogLeaseInput,
   RefreshBacklogItemInput,
   ReleaseBacklogLeaseInput,
@@ -341,7 +343,8 @@ export class RedisBacklogStore implements IBacklogStore {
     const unchanged = existing.title === input.title
       && existing.summary === input.summary
       && existing.priority === input.priority
-      && this.sameTags(existing.tags, input.tags);
+      && this.sameTags(existing.tags, input.tags)
+      && this.sameDependencies(existing.dependencies, input.dependencies);
     if (unchanged) return existing;
 
     const now = Date.now();
@@ -351,6 +354,7 @@ export class RedisBacklogStore implements IBacklogStore {
       summary: input.summary,
       priority: input.priority,
       tags: [...input.tags],
+      ...(input.dependencies !== undefined ? { dependencies: input.dependencies } : {}),
       updatedAt: now,
       audit: [
         ...existing.audit,
@@ -567,6 +571,34 @@ export class RedisBacklogStore implements IBacklogStore {
           actor: makeUserActor(input.dispatchedBy),
           timestamp: now,
           detail: `${input.threadId}:${input.threadPhase}`,
+        },
+      ],
+    };
+    await this.writeItem(updated);
+    return updated;
+  }
+
+  async markDone(itemId: string, input: MarkDoneInput): Promise<BacklogItem | null> {
+    const item = await this.get(itemId);
+    if (!item) return null;
+    if (item.status === 'done') return item;
+    if (item.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can be marked done');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...item,
+      status: 'done',
+      doneAt: now,
+      updatedAt: now,
+      audit: [
+        ...item.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'done',
+          actor: makeUserActor(input.doneBy),
+          timestamp: now,
         },
       ],
     };
@@ -820,6 +852,29 @@ export class RedisBacklogStore implements IBacklogStore {
       if (leftSorted[index] !== rightSorted[index]) return false;
     }
     return true;
+  }
+
+  private sameStringArray(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const as = [...a].sort();
+    const bs = [...b].sort();
+    for (let i = 0; i < as.length; i += 1) {
+      if (as[i] !== bs[i]) return false;
+    }
+    return true;
+  }
+
+  private sameDependencies(
+    a: BacklogDependencies | undefined,
+    b: BacklogDependencies | undefined,
+  ): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return this.sameStringArray(a.evolvedFrom, b.evolvedFrom)
+      && this.sameStringArray(a.blockedBy, b.blockedBy)
+      && this.sameStringArray(a.related, b.related);
   }
 
   private normalizeLeaseTtl(ttlMs: number): number {

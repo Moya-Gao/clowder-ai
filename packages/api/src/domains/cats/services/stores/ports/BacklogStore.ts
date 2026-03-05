@@ -1,5 +1,6 @@
 import type {
   AcquireBacklogLeaseInput,
+  BacklogDependencies,
   BacklogLease,
   BacklogItem,
   BacklogStatus,
@@ -7,6 +8,7 @@ import type {
   DecideBacklogClaimInput,
   DispatchBacklogItemInput,
   HeartbeatBacklogLeaseInput,
+  MarkDoneInput,
   ReclaimBacklogLeaseInput,
   RefreshBacklogItemInput,
   ReleaseBacklogLeaseInput,
@@ -19,6 +21,7 @@ import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog
 const MAX_BACKLOG_ITEMS = 1000;
 
 const EVICTION_PRIORITY: Record<BacklogStatus, number> = {
+  done: 0,
   dispatched: 0,
   open: 1,
   suggested: 2,
@@ -44,6 +47,7 @@ export interface IBacklogStore {
     input: UpdateBacklogDispatchProgressInput,
   ): BacklogItem | null | Promise<BacklogItem | null>;
   markDispatched(itemId: string, input: DispatchBacklogItemInput): BacklogItem | null | Promise<BacklogItem | null>;
+  markDone(itemId: string, input: MarkDoneInput): BacklogItem | null | Promise<BacklogItem | null>;
   acquireLease(itemId: string, input: AcquireBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
   heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
   releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
@@ -72,6 +76,7 @@ export class BacklogStore implements IBacklogStore {
       tags: [...input.tags],
       status: 'open',
       createdBy: input.createdBy,
+      ...(input.dependencies ? { dependencies: input.dependencies } : {}),
       createdAt: now,
       updatedAt: now,
       audit: [
@@ -95,7 +100,8 @@ export class BacklogStore implements IBacklogStore {
     const unchanged = existing.title === input.title
       && existing.summary === input.summary
       && existing.priority === input.priority
-      && this.sameTags(existing.tags, input.tags);
+      && this.sameTags(existing.tags, input.tags)
+      && this.sameDependencies(existing.dependencies, input.dependencies);
     if (unchanged) return existing;
 
     const now = Date.now();
@@ -105,6 +111,7 @@ export class BacklogStore implements IBacklogStore {
       summary: input.summary,
       priority: input.priority,
       tags: [...input.tags],
+      ...(input.dependencies !== undefined ? { dependencies: input.dependencies } : {}),
       updatedAt: now,
       audit: [
         ...existing.audit,
@@ -478,6 +485,35 @@ export class BacklogStore implements IBacklogStore {
     return updated;
   }
 
+
+  markDone(itemId: string, input: MarkDoneInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+    if (existing.status === 'done') return existing;
+    if (existing.status !== 'dispatched') {
+      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can be marked done');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      status: 'done',
+      doneAt: now,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'done',
+          actor: makeUserActor(input.doneBy),
+          timestamp: now,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
   private evictIfNeeded(): void {
     if (this.items.size < this.maxItems) return;
     const sorted = [...this.items.values()].sort((a, b) => {
@@ -497,6 +533,29 @@ export class BacklogStore implements IBacklogStore {
       if (leftSorted[index] !== rightSorted[index]) return false;
     }
     return true;
+  }
+
+  private sameStringArray(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    if (a.length !== b.length) return false;
+    const as = [...a].sort();
+    const bs = [...b].sort();
+    for (let i = 0; i < as.length; i += 1) {
+      if (as[i] !== bs[i]) return false;
+    }
+    return true;
+  }
+
+  private sameDependencies(
+    a: BacklogDependencies | undefined,
+    b: BacklogDependencies | undefined,
+  ): boolean {
+    if (!a && !b) return true;
+    if (!a || !b) return false;
+    return this.sameStringArray(a.evolvedFrom, b.evolvedFrom)
+      && this.sameStringArray(a.blockedBy, b.blockedBy)
+      && this.sameStringArray(a.related, b.related);
   }
 
   private normalizeLeaseTtl(ttlMs: number): number {

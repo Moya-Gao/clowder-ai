@@ -900,3 +900,95 @@ describe('MissionControlPage', () => {
     expect(container.querySelector('[data-testid="mc-lease-reclaim"]')).not.toBeNull();
   });
 });
+
+describe('MissionControlPage — Done lane + dependencies', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let backend: MissionControlMockBackend;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    backend = createMissionControlMockBackend();
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => backend.handleRequest(path, init));
+    useMissionControlStore.setState({
+      items: [],
+      loading: false,
+      submitting: false,
+      selectedItemId: null,
+      selectedPhase: 'coding',
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    root.unmount();
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  it('renders Done lane when done items exist', async () => {
+    backend.setItems([
+      {
+        id: 'done1', userId: 'default-user', title: 'Done task', summary: 'S',
+        priority: 'p2', tags: [], status: 'done', createdBy: 'user',
+        createdAt: 1000, updatedAt: 2000, doneAt: 2000, audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const doneLane = container.querySelector('[data-testid="mc-lane-done"]');
+    expect(doneLane).not.toBeNull();
+    expect(doneLane!.textContent).toContain('已完成');
+    expect(doneLane!.textContent).toContain('Done · 1');
+  });
+
+  it('Done lane is collapsed by default', async () => {
+    backend.setItems([
+      {
+        id: 'done1', userId: 'default-user', title: 'Done task', summary: 'S',
+        priority: 'p2', tags: [], status: 'done', createdBy: 'user',
+        createdAt: 1000, updatedAt: 2000, doneAt: 2000, audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const doneLane = container.querySelector('[data-testid="mc-lane-done"]');
+    // Cards should not be visible when collapsed
+    expect(doneLane!.textContent).toContain('展开 ▼');
+    expect(doneLane!.textContent).not.toContain('Done task');
+  });
+
+  it('renders dependency labels on card', async () => {
+    backend.setItems([
+      {
+        id: 'dep1', userId: 'default-user', title: 'Dep item', summary: 'S',
+        priority: 'p2', tags: [], status: 'open', createdBy: 'user',
+        createdAt: 1000, updatedAt: 2000, audit: [],
+        dependencies: { evolvedFrom: ['f049'], related: ['f037'] },
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    expect(container.textContent).toContain('← F049');
+    expect(container.textContent).toContain('↔ F037');
+  });
+});

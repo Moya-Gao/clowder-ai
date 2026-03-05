@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import { catIdSchema, catRegistry } from '@cat-cafe/shared';
-import type { BacklogItem, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, BacklogDependencies, ThreadPhase } from '@cat-cafe/shared';
 import type { CatId } from '@cat-cafe/shared';
 import type { MissionHubSelfClaimScope } from '@cat-cafe/shared';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
@@ -14,6 +14,8 @@ import {
   buildBacklogInputFromFeature,
   getFeatureTagId,
   readActiveFeaturesFromBacklog,
+  readFeatureDocStatuses,
+  readFeatureDocDependencies,
 } from './backlog-doc-import.js';
 
 export interface BacklogRoutesOptions {
@@ -109,6 +111,29 @@ function sameTags(left: readonly string[], right: readonly string[]): boolean {
     if (leftSorted[index] !== rightSorted[index]) return false;
   }
   return true;
+}
+
+function sameStringArray(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  const as = [...a].sort();
+  const bs = [...b].sort();
+  for (let i = 0; i < as.length; i += 1) {
+    if (as[i] !== bs[i]) return false;
+  }
+  return true;
+}
+
+function sameDependencies(
+  a: BacklogDependencies | undefined,
+  b: BacklogDependencies | undefined,
+): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return sameStringArray(a.evolvedFrom, b.evolvedFrom)
+    && sameStringArray(a.blockedBy, b.blockedBy)
+    && sameStringArray(a.related, b.related);
 }
 
 function isSelfClaimApprovedByCat(item: BacklogItem, catId: CatId): boolean {
@@ -262,9 +287,18 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     const importedItemIds: string[] = [];
     const refreshedItemIds: string[] = [];
     let skipped = 0;
+    // F058: Read dependencies from feature docs
+    let featureDepsMap: Map<string, import('@cat-cafe/shared').BacklogDependencies>;
+    try {
+      featureDepsMap = await readFeatureDocDependencies();
+    } catch {
+      featureDepsMap = new Map();
+    }
+
     for (const feature of features) {
       const featureId = feature.id.toLowerCase();
-      const importInput = buildBacklogInputFromFeature(feature, userId);
+      const featureDeps = featureDepsMap.get(featureId);
+      const importInput = buildBacklogInputFromFeature(feature, userId, featureDeps);
       const existing = existingByFeatureId.get(featureId);
       if (!existing) {
         const created = await backlogStore.create(importInput);
@@ -276,7 +310,8 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       const shouldRefresh = existing.title !== importInput.title
         || existing.summary !== importInput.summary
         || existing.priority !== importInput.priority
-        || !sameTags(existing.tags, importInput.tags);
+        || !sameTags(existing.tags, importInput.tags)
+        || !sameDependencies(existing.dependencies, importInput.dependencies);
       if (!shouldRefresh) {
         skipped += 1;
         continue;
@@ -287,6 +322,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
         summary: importInput.summary,
         priority: importInput.priority,
         tags: importInput.tags,
+        ...(importInput.dependencies ? { dependencies: importInput.dependencies } : {}),
         refreshedBy: userId,
       });
       if (!refreshed) {
@@ -297,13 +333,48 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       refreshedItemIds.push(refreshed.id);
     }
 
+    // F058: Mark disappeared dispatched items as done
+    const importedFeatureIds = new Set(features.map((f) => f.id.toLowerCase()));
+    const markedDoneIds: string[] = [];
+    for (const [featureId, existingItem] of existingByFeatureId) {
+      if (importedFeatureIds.has(featureId)) continue;
+      if (existingItem.status !== 'dispatched') continue;
+      try {
+        const done = await backlogStore.markDone(existingItem.id, { doneBy: userId });
+        if (done) markedDoneIds.push(done.id);
+      } catch {
+        // transition error — skip
+      }
+    }
+
+    // F058: Also mark items whose feature doc says "done"
+    let featureDocStatuses: Map<string, string>;
+    try {
+      featureDocStatuses = await readFeatureDocStatuses();
+    } catch {
+      featureDocStatuses = new Map();
+    }
+    for (const [featureId, existingItem] of existingByFeatureId) {
+      if (markedDoneIds.includes(existingItem.id)) continue;
+      if (existingItem.status !== 'dispatched') continue;
+      if (featureDocStatuses.get(featureId) !== 'done') continue;
+      try {
+        const done = await backlogStore.markDone(existingItem.id, { doneBy: userId });
+        if (done) markedDoneIds.push(done.id);
+      } catch {
+        // skip
+      }
+    }
+
     return {
       totalActive: features.length,
       imported: importedItemIds.length,
       refreshed: refreshedItemIds.length,
       skipped,
+      markedDone: markedDoneIds.length,
       importedItemIds,
       refreshedItemIds,
+      markedDoneIds,
     };
   });
 
@@ -723,4 +794,28 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       throw err;
     }
   });
+
+  app.post<{ Params: { id: string } }>('/api/backlog/items/:id/mark-done', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    try {
+      const done = await backlogStore.markDone(request.params.id, { doneBy: userId });
+      if (!done) {
+        reply.status(404);
+        return { error: 'Backlog item not found' };
+      }
+      return { item: done };
+    } catch (err) {
+      if (isTransitionError(err)) {
+        reply.status(409);
+        return { error: err instanceof Error ? err.message : 'Invalid transition' };
+      }
+      throw err;
+    }
+  });
+
 };

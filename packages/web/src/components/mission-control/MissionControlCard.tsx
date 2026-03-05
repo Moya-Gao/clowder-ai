@@ -48,6 +48,25 @@ export function MissionControlCard({ item, selected, onSelect }: MissionControlC
           建议领取：@{item.suggestion.catId} · {item.suggestion.requestedPhase}
         </p>
       )}
+      {item.dependencies && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {item.dependencies.evolvedFrom?.map((id) => (
+            <span key={`ef-${id}`} className="inline-block rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+              ← {id.toUpperCase()}
+            </span>
+          ))}
+          {item.dependencies.blockedBy?.map((id) => (
+            <span key={`bb-${id}`} className="inline-block rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+              ⊘ {id.toUpperCase()}
+            </span>
+          ))}
+          {item.dependencies.related?.map((id) => (
+            <span key={`rel-${id}`} className="inline-block rounded-md border border-gray-200 bg-gray-50 px-1.5 py-0.5 text-[10px] font-medium text-gray-600">
+              ↔ {id.toUpperCase()}
+            </span>
+          ))}
+        </div>
+      )}
     </button>
   );
 }

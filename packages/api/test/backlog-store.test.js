@@ -520,3 +520,113 @@ describe('BacklogStore', () => {
     assert.equal(reclaimed?.lease?.state, 'reclaimed');
   });
 });
+
+describe('BacklogStore markDone', () => {
+  /** @type {import('../dist/domains/cats/services/stores/ports/BacklogStore.js').BacklogStore} */
+  let store;
+  let originalDateNow;
+  let now;
+
+  beforeEach(async () => {
+    const { BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js');
+    store = new BacklogStore();
+    originalDateNow = Date.now;
+    now = 1_700_000_000_000;
+    Date.now = () => now;
+  });
+
+  afterEach(() => {
+    Date.now = originalDateNow;
+  });
+
+  function createAndDispatch() {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    store.suggestClaim(item.id, { catId: 'claude-opus', why: 'w', plan: 'p', requestedPhase: 'coding' });
+    store.decideClaim(item.id, { decision: 'approve', decidedBy: 'u1', note: 'ok' });
+    now += 1000;
+    store.updateDispatchProgress(item.id, { updatedBy: 'u1', dispatchAttemptId: 'att1' });
+    store.updateDispatchProgress(item.id, { updatedBy: 'u1', pendingThreadId: 'th1' });
+    store.updateDispatchProgress(item.id, { updatedBy: 'u1', kickoffMessageId: 'msg1' });
+    store.markDispatched(item.id, { threadId: 'th1', threadPhase: 'coding', dispatchedBy: 'u1' });
+    return item;
+  }
+
+  test('transitions dispatched → done', () => {
+    const item = createAndDispatch();
+    now += 5000;
+    const done = store.markDone(item.id, { doneBy: 'u1' });
+    assert.strictEqual(done.status, 'done');
+    assert.ok(done.doneAt > 0);
+    assert.strictEqual(done.audit.at(-1).action, 'done');
+    assert.deepStrictEqual(done.audit.at(-1).actor, { kind: 'user', id: 'u1' });
+  });
+
+  test('idempotent on already-done item', () => {
+    const item = createAndDispatch();
+    now += 5000;
+    store.markDone(item.id, { doneBy: 'u1' });
+    const again = store.markDone(item.id, { doneBy: 'u1' });
+    assert.strictEqual(again.status, 'done');
+  });
+
+  test('rejects non-dispatched items', () => {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    assert.throws(() => store.markDone(item.id, { doneBy: 'u1' }), /Invalid backlog transition/);
+  });
+
+  test('returns null for missing item', () => {
+    assert.strictEqual(store.markDone('nonexistent', { doneBy: 'u1' }), null);
+  });
+
+  test('create with dependencies preserves them', () => {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+      dependencies: { evolvedFrom: ['f049'], related: ['f037'] },
+    });
+    assert.deepStrictEqual(item.dependencies, { evolvedFrom: ['f049'], related: ['f037'] });
+  });
+
+  test('refreshMetadata with dependencies updates them', () => {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    const refreshed = store.refreshMetadata(item.id, {
+      title: 'T2', summary: 'S', priority: 'p2', tags: [], refreshedBy: 'u1',
+      dependencies: { blockedBy: ['f052'] },
+    });
+    assert.deepStrictEqual(refreshed.dependencies, { blockedBy: ['f052'] });
+  });
+
+  test('refreshMetadata triggers refresh when only dependencies change', () => {
+    const item = store.create({
+      userId: 'u1', title: 'Same', summary: 'Same', priority: 'p2', tags: ['a'],
+      createdBy: 'user', dependencies: { blockedBy: ['f001'] },
+    });
+    const beforeAuditLength = item.audit.length;
+    const refreshed = store.refreshMetadata(item.id, {
+      title: 'Same', summary: 'Same', priority: 'p2', tags: ['a'], refreshedBy: 'u1',
+      dependencies: { blockedBy: ['f001', 'f002'] },
+    });
+    assert.notEqual(refreshed.audit.length, beforeAuditLength, 'should append audit entry');
+    assert.deepStrictEqual(refreshed.dependencies, { blockedBy: ['f001', 'f002'] });
+  });
+
+  test('refreshMetadata is no-op when dependencies are identical', () => {
+    const item = store.create({
+      userId: 'u1', title: 'Same', summary: 'Same', priority: 'p2', tags: [],
+      createdBy: 'user', dependencies: { related: ['f010'] },
+    });
+    const beforeAuditLength = item.audit.length;
+    const beforeUpdatedAt = item.updatedAt;
+    const refreshed = store.refreshMetadata(item.id, {
+      title: 'Same', summary: 'Same', priority: 'p2', tags: [], refreshedBy: 'u1',
+      dependencies: { related: ['f010'] },
+    });
+    assert.equal(refreshed.audit.length, beforeAuditLength, 'should not append audit entry');
+    assert.equal(refreshed.updatedAt, beforeUpdatedAt, 'should not update timestamp');
+  });
+});

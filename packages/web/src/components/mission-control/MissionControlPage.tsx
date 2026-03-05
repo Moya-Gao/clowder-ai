@@ -134,6 +134,7 @@ export function MissionControlPage() {
     [items],
   );
   const dispatchedItems = useMemo(() => items.filter((item) => item.status === 'dispatched'), [items]);
+  const doneItems = useMemo(() => items.filter((item) => item.status === 'done'), [items]);
   const dispatchedBacklogIds = useMemo(() => dispatchedItems.map((item) => item.id), [dispatchedItems]);
 
   const loadThreadSituations = useCallback(async (backlogItemIds: string[]) => {
@@ -353,7 +354,7 @@ export function MissionControlPage() {
             </button>
           </div>
           <p className="mt-1 text-xs text-[#705E4C]">
-            面向手机/桌面统一收集与分配。流程：Open → Suggested → Dispatched。
+            面向手机/桌面统一收集与分配。流程：Open → Suggested → Dispatched → Done。
           </p>
         </header>
 
@@ -399,6 +400,10 @@ export function MissionControlPage() {
             />
           </section>
 
+          {doneItems.length > 0 && (
+            <CollapsibleDoneLane items={doneItems} selectedItemId={selectedItemId} onSelect={setSelectedItemId} />
+          )}
+
           <div className="flex min-h-0 flex-col gap-3">
             <SuggestionDrawer
               item={selectedItem}
@@ -428,6 +433,36 @@ export function MissionControlPage() {
           <p className="mt-2 text-xs text-[#8A7864]">加载 backlog 中...</p>
         )}
       </main>
+    </div>
+  );
+}
+
+function CollapsibleDoneLane({ items, selectedItemId, onSelect }: {
+  items: BacklogItem[];
+  selectedItemId: string | null;
+  onSelect: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="col-span-full rounded-2xl border border-[#D4E8D0] bg-[#F6FBF5] p-3" data-testid="mc-lane-done">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex w-full items-center justify-between text-left"
+      >
+        <div>
+          <h2 className="text-sm font-semibold text-[#2C4A28]">已完成</h2>
+          <p className="text-[11px] text-[#6B8F65]">Done · {items.length}</p>
+        </div>
+        <span className="text-xs text-[#6B8F65]">{expanded ? '收起 ▲' : '展开 ▼'}</span>
+      </button>
+      {expanded && (
+        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {items.map((item) => (
+            <MissionControlCard key={item.id} item={item} selected={selectedItemId === item.id} onSelect={onSelect} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

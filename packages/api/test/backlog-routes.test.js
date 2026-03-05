@@ -1285,3 +1285,163 @@ describe('Backlog Routes', () => {
     }
   });
 });
+
+describe('Backlog mark-done route', () => {
+  let backlogStore;
+  let threadStore;
+  let messageStore;
+
+  beforeEach(async () => {
+    const { BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    backlogStore = new BacklogStore();
+    threadStore = new ThreadStore();
+    messageStore = new MessageStore();
+  });
+
+  async function createApp() {
+    const { backlogRoutes } = await import('../dist/routes/backlog.js');
+    const app = Fastify();
+    await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
+    return app;
+  }
+
+  const H = { 'x-cat-cafe-user': 'default-user' };
+
+  async function createDispatchedItem(app) {
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/backlog/items', headers: H,
+      payload: { title: 'Done test', summary: 'S', priority: 'p2', tags: [] },
+    });
+    const itemId = createRes.json().id;
+
+    const suggestRes = await app.inject({
+      method: 'POST', url: `/api/backlog/items/${itemId}/suggest-claim`, headers: H,
+      payload: { catId: 'codex', why: 'w', plan: 'p', requestedPhase: 'coding' },
+    });
+    assert.equal(suggestRes.statusCode, 200, 'suggest should succeed');
+
+    const approveRes = await app.inject({
+      method: 'POST', url: `/api/backlog/items/${itemId}/decide-claim`, headers: H,
+      payload: { decision: 'approve', threadPhase: 'coding' },
+    });
+    assert.equal(approveRes.statusCode, 200, 'approve should succeed');
+    assert.equal(approveRes.json().item.status, 'dispatched', 'item should be dispatched');
+
+    return { id: itemId };
+  }
+
+  test('POST mark-done transitions dispatched → done', async () => {
+    const app = await createApp();
+    const item = await createDispatchedItem(app);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${item.id}/mark-done`,
+      headers: H,
+    });
+    assert.strictEqual(res.statusCode, 200);
+    const body = res.json();
+    assert.strictEqual(body.item.status, 'done');
+    assert.ok(body.item.doneAt);
+  });
+
+  test('POST mark-done rejects non-dispatched item', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/backlog/items', headers: H,
+      payload: { title: 'Open item', summary: 'S', priority: 'p2', tags: [] },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${createRes.json().id}/mark-done`,
+      headers: H,
+    });
+    assert.strictEqual(res.statusCode, 409);
+  });
+
+  test('POST mark-done returns 404 for missing item', async () => {
+    const app = await createApp();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items/nonexistent/mark-done',
+      headers: H,
+    });
+    assert.strictEqual(res.statusCode, 404);
+  });
+});
+
+describe('Import sync marks disappeared dispatched items as done', () => {
+  let backlogStore;
+  let threadStore;
+  let messageStore;
+
+  beforeEach(async () => {
+    const { BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    backlogStore = new BacklogStore();
+    threadStore = new ThreadStore();
+    messageStore = new MessageStore();
+  });
+
+  const H = { 'x-cat-cafe-user': 'default-user' };
+
+  test('dispatched item not in BACKLOG.md gets marked done on import', async () => {
+    const { backlogRoutes } = await import('../dist/routes/backlog.js');
+    const tempDir = await mkdtemp(join(tmpdir(), 'backlog-done-'));
+    const backlogPath = join(tempDir, 'BACKLOG.md');
+    // Only F001 in BACKLOG, no F999
+    await writeFile(backlogPath, [
+      '| ID | 名称 | Status | Owner | Link |',
+      '|---|---|---|---|---|',
+      '| F001 | Active Feature | in-progress | 布偶猫 | [F001](features/F001.md) |',
+    ].join('\n'));
+
+    const app = Fastify();
+    await app.register(backlogRoutes, {
+      backlogStore, threadStore, messageStore,
+      backlogDocPath: backlogPath,
+    });
+
+    // Create a dispatched item tagged as F999
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/backlog/items', headers: H,
+      payload: { title: '[F999] Ghost', summary: 'S', priority: 'p2', tags: ['source:docs-backlog', 'feature:f999'] },
+    });
+    const itemId = createRes.json().id;
+
+    // Move to dispatched via suggest → approve
+    await app.inject({
+      method: 'POST', url: `/api/backlog/items/${itemId}/suggest-claim`, headers: H,
+      payload: { catId: 'codex', why: 'w', plan: 'p', requestedPhase: 'coding' },
+    });
+    await app.inject({
+      method: 'POST', url: `/api/backlog/items/${itemId}/decide-claim`, headers: H,
+      payload: { decision: 'approve', threadPhase: 'coding' },
+    });
+
+    // Verify it's dispatched
+    const listRes = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
+    const f999Item = listRes.json().items.find(i => i.tags.includes('feature:f999'));
+    assert.strictEqual(f999Item.status, 'dispatched');
+
+    // Now import — F999 not in BACKLOG.md → should mark done
+    const importRes = await app.inject({
+      method: 'POST', url: '/api/backlog/import-active-features', headers: H,
+    });
+    assert.strictEqual(importRes.statusCode, 200);
+    const body = importRes.json();
+    assert.ok(body.markedDone > 0, 'should mark at least one item done');
+    assert.ok(body.markedDoneIds.includes(itemId), 'F999 item should be marked done');
+
+    // Verify the item is now done
+    const afterList = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
+    const doneItem = afterList.json().items.find(i => i.id === itemId);
+    assert.strictEqual(doneItem.status, 'done');
+
+    await rm(tempDir, { recursive: true, force: true });
+  });
+});

@@ -37,7 +37,7 @@ export interface MutableBacklogItem {
   summary: string;
   priority: 'p0' | 'p1' | 'p2' | 'p3';
   tags: string[];
-  status: 'open' | 'suggested' | 'approved' | 'dispatched';
+  status: 'open' | 'suggested' | 'approved' | 'dispatched' | 'done';
   createdBy: 'user' | CatId;
   createdAt: number;
   updatedAt: number;
@@ -48,6 +48,8 @@ export interface MutableBacklogItem {
   lease?: BacklogLease;
   dispatchedThreadId?: string;
   dispatchedThreadPhase?: ThreadPhase;
+  doneAt?: number;
+  dependencies?: { evolvedFrom?: string[]; blockedBy?: string[]; related?: string[] };
 }
 
 export function mockResponse(status: number, body: unknown): Response {

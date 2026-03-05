@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import type { BacklogPriority, CreateBacklogItemInput } from '@cat-cafe/shared';
+import type { BacklogDependencies, BacklogPriority, CreateBacklogItemInput } from '@cat-cafe/shared';
+import { readdir } from 'node:fs/promises';
 
 export interface BacklogFeatureRow {
   id: string;
@@ -92,7 +93,7 @@ function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
-export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: string): CreateBacklogItemInput {
+export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: string, dependencies?: BacklogDependencies): CreateBacklogItemInput {
   const title = truncate(`[${row.id}] ${row.name}`, 200);
   const summarySegments = [
     '来源 docs/BACKLOG.md',
@@ -114,6 +115,7 @@ export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: str
       `status:${statusTag}`,
     ],
     createdBy: 'user',
+    ...(dependencies && Object.keys(dependencies).length > 0 ? { dependencies } : {}),
   };
 }
 
@@ -122,6 +124,102 @@ export function getFeatureTagId(tags: readonly string[]): string | null {
     if (tag.startsWith('feature:')) return tag.slice('feature:'.length).toLowerCase();
   }
   return null;
+}
+
+
+
+export function parseFeatureDocStatus(markdown: string): string | null {
+  const match = markdown.match(/>\s*\*\*Status\*\*:\s*(\w[\w\s-]*)/i);
+  return match?.[1]?.trim().toLowerCase() ?? null;
+}
+
+function extractFeatureIds(text: string): string[] {
+  return [...text.matchAll(/F\d{3}/gi)].map((m) => m[0].toLowerCase());
+}
+
+export function parseFeatureDocDependencies(markdown: string): BacklogDependencies {
+  const evolvedFrom: string[] = [];
+  const blockedBy: string[] = [];
+  const related: string[] = [];
+
+  // 1. Extract from frontmatter related_features
+  const fmMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const relatedMatch = fmMatch[1]?.match(/related_features:\s*\[([^\]]*)\]/);
+    if (relatedMatch) {
+      related.push(...(relatedMatch[1] ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+    }
+  }
+
+  // 2. Extract from Dependencies section body
+  for (const line of markdown.split(/\r?\n/)) {
+    if (/\*\*Evolved from\*\*/i.test(line)) {
+      evolvedFrom.push(...extractFeatureIds(line));
+    }
+    if (/\*\*Blocked by\*\*/i.test(line)) {
+      blockedBy.push(...extractFeatureIds(line));
+    }
+  }
+
+  // Deduplicate; remove related entries that are specialized
+  const specialized = new Set([...evolvedFrom, ...blockedBy]);
+  const dedupRelated = [...new Set(related)].filter((id) => !specialized.has(id));
+  const dedupEvolved = [...new Set(evolvedFrom)];
+  const dedupBlocked = [...new Set(blockedBy)];
+
+  return {
+    ...(dedupEvolved.length > 0 ? { evolvedFrom: dedupEvolved } : {}),
+    ...(dedupBlocked.length > 0 ? { blockedBy: dedupBlocked } : {}),
+    ...(dedupRelated.length > 0 ? { related: dedupRelated } : {}),
+  };
+}
+
+export async function readFeatureDocStatuses(featuresDir?: string): Promise<Map<string, string>> {
+  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
+  const result = new Map<string, string>();
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return result;
+  }
+  for (const entry of entries) {
+    const match = entry.match(/^(F\d{3})/i);
+    if (!match) continue;
+    const featureId = match[1]!.toLowerCase();
+    try {
+      const fileContent = await readFile(join(dir, entry), 'utf-8');
+      const status = parseFeatureDocStatus(fileContent);
+      if (status) result.set(featureId, status);
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return result;
+}
+
+export async function readFeatureDocDependencies(featuresDir?: string): Promise<Map<string, BacklogDependencies>> {
+  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
+  const result = new Map<string, BacklogDependencies>();
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return result;
+  }
+  for (const entry of entries) {
+    const match = entry.match(/^(F\d{3})/i);
+    if (!match) continue;
+    const featureId = match[1]!.toLowerCase();
+    try {
+      const fileContent = await readFile(join(dir, entry), 'utf-8');
+      const deps = parseFeatureDocDependencies(fileContent);
+      if (Object.keys(deps).length > 0) result.set(featureId, deps);
+    } catch {
+      // skip
+    }
+  }
+  return result;
 }
 
 export async function readActiveFeaturesFromBacklog(backlogDocPath?: string): Promise<BacklogFeatureRow[]> {
