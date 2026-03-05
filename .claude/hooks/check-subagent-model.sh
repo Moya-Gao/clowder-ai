@@ -1,11 +1,19 @@
 #!/usr/bin/env bash
 # Hook: PreToolUse (matcher: "Task")
-# Enforce explicit model selection for subagent Task calls.
-# If model is omitted, subagents inherit the parent model (often Opus).
+# Enforce explicit model selection for subagent creation (Task/Agent).
+# TaskOutput and TaskStop are passthrough — they don't create subagents.
+# If model is omitted on Task, subagents inherit the parent model (often Opus).
 
 set -euo pipefail
 
 INPUT="$(cat)"
+
+# Extract tool name — only "Task" (Agent) creates subagents.
+# TaskOutput / TaskStop are read/stop operations, no model needed.
+TOOL_NAME="$(echo "$INPUT" | jq -r '.tool_name // ""' 2>/dev/null || echo "")"
+if [ "$TOOL_NAME" = "TaskOutput" ] || [ "$TOOL_NAME" = "TaskStop" ]; then
+  exit 0
+fi
 
 emit_decision() {
   local decision="$1"
