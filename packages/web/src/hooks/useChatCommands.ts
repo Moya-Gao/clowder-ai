@@ -136,7 +136,7 @@ export function useChatCommands() {
     const allPatterns = [...patternToCatId.keys()].sort((a, b) => b.length - a.length); // longest first
     const regex = allPatterns.length > 0
       ? new RegExp(`@(${allPatterns.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
-      : /@(opus|codex|gemini)/gi; // fallback
+      : /@(opus|codex|gemini|dare|dare-agent)/gi; // fallback
     return { regex, resolve: (name: string) => patternToCatId.get(name.toLowerCase()) };
   }, [cats]);
 

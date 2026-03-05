@@ -104,6 +104,19 @@ describe('MessageNavigator', () => {
     expect(html).toContain('跳转到 暹罗猫（gemini25） 的消息');
   });
 
+  it('applies dare fallback color and labels before /api/cats loads', () => {
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'assistant', 'dare'),
+      makeMsg('m3', 'assistant', 'dare-agent'),
+    ];
+    const html = render(msgs);
+
+    expect(html).toContain('#D4A76A');
+    expect(html).toContain('跳转到 狸花猫 的消息');
+    expect(html).toContain('跳转到 狸花猫（dare-agent） 的消息');
+  });
+
   it('includes accessibility labels', () => {
     const msgs = [
       makeMsg('m1', 'user'),

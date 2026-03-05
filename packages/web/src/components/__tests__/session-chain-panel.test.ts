@@ -423,6 +423,18 @@ describe('F24: SessionChainPanel', () => {
     expect(badge).not.toBeNull();
   });
 
+  it('applies dare amber colors to active session border and badge', async () => {
+    mockSessionsResponse([
+      { id: 's1', catId: 'dare', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },
+    ]);
+    renderPanel('thread-1');
+    await flushFetch();
+    const card = container.querySelector('.border-dare-primary\\/40');
+    expect(card).not.toBeNull();
+    const badge = container.querySelector('.bg-dare-light.text-dare-dark');
+    expect(badge).not.toBeNull();
+  });
+
   it('applies maine-coon variant green shades for gpt52', async () => {
     mockSessionsResponse([
       { id: 's1', catId: 'gpt52', seq: 0, status: 'active', messageCount: 2, createdAt: Date.now() },

@@ -18,7 +18,33 @@ const VARIANT_BASE_FALLBACK: Record<string, string> = {
   spark: 'codex',
   sonnet: 'opus',
   gemini25: 'gemini',
+  'dare-agent': 'dare',
 };
+
+const FALLBACK_CAT_META: Record<string, { label: string; color: string }> = {
+  opus: { label: '布偶猫', color: '#9B7EBD' },
+  codex: { label: '缅因猫', color: '#5B8C5A' },
+  gemini: { label: '暹罗猫', color: '#5B9BD5' },
+  dare: { label: '狸花猫', color: '#D4A76A' },
+};
+
+function resolveFallbackCatMeta(catId: string): { baseId: string; label: string; color: string } | undefined {
+  const normalizedId = catId.toLowerCase();
+  const direct = FALLBACK_CAT_META[normalizedId];
+  if (direct) return { baseId: normalizedId, ...direct };
+
+  const base = normalizedId.split('-')[0];
+  if (base && base !== normalizedId && FALLBACK_CAT_META[base]) {
+    return { baseId: base, ...FALLBACK_CAT_META[base] };
+  }
+
+  const mappedBase = VARIANT_BASE_FALLBACK[normalizedId];
+  if (mappedBase && FALLBACK_CAT_META[mappedBase]) {
+    return { baseId: mappedBase, ...FALLBACK_CAT_META[mappedBase] };
+  }
+
+  return undefined;
+}
 
 function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefined {
   const normalizedId = catId.toLowerCase();
@@ -38,7 +64,11 @@ function getSenderLabel(msg: ChatMessageData, resolveCat: (catId: string) => Cat
   const catId = msg.catId;
   if (!catId) return '系统';
   const cat = resolveCat(catId);
-  if (!cat) return catId;
+  if (!cat) {
+    const fallback = resolveFallbackCatMeta(catId);
+    if (!fallback) return catId;
+    return fallback.baseId === catId.toLowerCase() ? fallback.label : `${fallback.label}（${catId}）`;
+  }
   const baseName = formatCatName(cat);
   return cat.id === catId ? baseName : `${cat.displayName}（${catId}）`;
 }
@@ -162,8 +192,15 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
             ? 50
             : (idx / (sampledItems.length - 1)) * 100;
           const cat = msg.type === 'assistant' && msg.catId ? resolveCat(msg.catId) : undefined;
-          const className = msg.type === 'user' ? 'bg-owner-primary' : cat ? '' : 'bg-gray-400';
-          const style = msg.type === 'user' ? undefined : cat ? { backgroundColor: cat.color.primary } : undefined;
+          const fallback = msg.type === 'assistant' && msg.catId ? resolveFallbackCatMeta(msg.catId) : undefined;
+          const className = msg.type === 'user' ? 'bg-owner-primary' : cat || fallback ? '' : 'bg-gray-400';
+          const style = msg.type === 'user'
+            ? undefined
+            : cat
+              ? { backgroundColor: cat.color.primary }
+              : fallback
+                ? { backgroundColor: fallback.color }
+                : undefined;
 
           return (
             <button
