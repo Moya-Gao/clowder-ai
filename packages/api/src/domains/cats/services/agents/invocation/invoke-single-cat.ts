@@ -547,18 +547,20 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
               // F33: Strategy-driven seal decision (replaces F24 Phase B shouldSeal)
               if (deps.sessionSealer && deps.sessionChainStore) {
                 try {
-                  // F062-fix: third-party Anthropic-compatible gateways may report usage with
-                  // non-standard semantics (e.g. cumulative counters), which can inflate
-                  // approx context fill and trigger false-positive auto-seal.
-                  // For api_key mode + approx health, keep observability but skip auto-seal.
+                  // F062-fix:
+                  // 1) api_key + approx health can be noisy on third-party gateways
+                  // 2) api_key + compress strategy should not be force-sealed here
+                  // Keep context_health observability in both cases.
                   const provider = catRegistry.tryGet(catId as string)?.config.provider;
                   const profileMode = callbackEnv[ANTHROPIC_PROFILE_MODE_KEY];
-                  const skipAutoSealForApproxApiKey =
+                  const strategy = getSessionStrategy(catId as string);
+                  const isAnthropicApiKey =
                     provider === 'anthropic'
-                    && profileMode === ANTHROPIC_PROFILE_MODE_API_KEY
-                    && health.source === 'approx';
-                  if (!skipAutoSealForApproxApiKey) {
-                    const strategy = getSessionStrategy(catId as string);
+                    && profileMode === ANTHROPIC_PROFILE_MODE_API_KEY;
+                  const skipAutoSealForApproxApiKey = isAnthropicApiKey && health.source === 'approx';
+                  const skipAutoSealForApiKeyCompress =
+                    isAnthropicApiKey && strategy.strategy === 'compress';
+                  if (!skipAutoSealForApproxApiKey && !skipAutoSealForApiKeyCompress) {
                     const activeRecord = await deps.sessionChainStore.getActive(catId, threadId);
                     const action = shouldTakeAction(
                       health.fillRatio,
