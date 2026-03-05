@@ -257,6 +257,73 @@ describe('DareAgentService', () => {
     }
   });
 
+  test('anthropic adapter: key via ANTHROPIC_API_KEY env and endpoint via --endpoint', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const oldAnthropicKey = process.env['ANTHROPIC_API_KEY'];
+    const oldDareEndpoint = process.env['DARE_ENDPOINT'];
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-secret';
+    process.env['DARE_ENDPOINT'] = 'https://anthropic-proxy.example/v1';
+
+    try {
+      const service = new DareAgentService({
+        catId: 'dare',
+        spawnFn,
+        adapter: 'anthropic',
+        model: 'claude-3-7-sonnet-latest',
+      });
+      const promise = collect(service.invoke('Test anthropic'));
+      emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+      await promise;
+
+      const args = spawnFn.mock.calls[0].arguments[1];
+      assert.ok(!args.includes('--api-key'), `API key must not be in CLI args: ${args}`);
+      assert.ok(!args.includes('sk-ant-secret'), `secret must not appear in args`);
+
+      const endpointIdx = args.indexOf('--endpoint');
+      assert.ok(endpointIdx >= 0, `expected --endpoint in args: ${args}`);
+      assert.strictEqual(args[endpointIdx + 1], 'https://anthropic-proxy.example/v1');
+
+      const opts = spawnFn.mock.calls[0].arguments[2];
+      assert.strictEqual(opts.env['ANTHROPIC_API_KEY'], 'sk-ant-secret');
+    } finally {
+      if (oldAnthropicKey !== undefined) process.env['ANTHROPIC_API_KEY'] = oldAnthropicKey;
+      else delete process.env['ANTHROPIC_API_KEY'];
+      if (oldDareEndpoint !== undefined) process.env['DARE_ENDPOINT'] = oldDareEndpoint;
+      else delete process.env['DARE_ENDPOINT'];
+    }
+  });
+
+  test('DARE_API_KEY overrides adapter-specific key and maps to adapter env name', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const oldDareKey = process.env['DARE_API_KEY'];
+    const oldAnthropicKey = process.env['ANTHROPIC_API_KEY'];
+    process.env['DARE_API_KEY'] = 'sk-dare-override';
+    process.env['ANTHROPIC_API_KEY'] = 'sk-ant-will-be-overridden';
+
+    try {
+      const service = new DareAgentService({
+        catId: 'dare',
+        spawnFn,
+        adapter: 'anthropic',
+        model: 'claude-3-7-sonnet-latest',
+      });
+      const promise = collect(service.invoke('Test key override'));
+      emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+      await promise;
+
+      const opts = spawnFn.mock.calls[0].arguments[2];
+      assert.strictEqual(opts.env['ANTHROPIC_API_KEY'], 'sk-dare-override');
+      assert.ok(!('DARE_API_KEY' in opts.env), 'generic key should not leak to child env');
+    } finally {
+      if (oldDareKey !== undefined) process.env['DARE_API_KEY'] = oldDareKey;
+      else delete process.env['DARE_API_KEY'];
+      if (oldAnthropicKey !== undefined) process.env['ANTHROPIC_API_KEY'] = oldAnthropicKey;
+      else delete process.env['ANTHROPIC_API_KEY'];
+    }
+  });
+
   test('always yields exactly one final done', async () => {
     const proc = createMockProcess();
     const spawnFn = mock.fn(() => proc);

@@ -62,7 +62,17 @@ load_dare_env_from_local() {
     [ -f "$env_file" ] || return 0
 
     local key raw value
-    for key in DARE_PATH DARE_ADAPTER OPENROUTER_API_KEY OPENAI_API_KEY; do
+    for key in \
+        DARE_PATH \
+        DARE_ADAPTER \
+        DARE_API_KEY \
+        DARE_ENDPOINT \
+        OPENROUTER_API_KEY \
+        OPENROUTER_BASE_URL \
+        OPENAI_API_KEY \
+        OPENAI_BASE_URL \
+        ANTHROPIC_API_KEY \
+        ANTHROPIC_BASE_URL; do
         raw=$(grep -E "^${key}=" "$env_file" | tail -n1 || true)
         [ -n "$raw" ] || continue
         value="${raw#*=}"

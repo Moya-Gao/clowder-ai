@@ -97,3 +97,29 @@ printf '%s' "$CAT_CAFE_MCP_SERVER_PATH"
 
   assert.equal(output, explicitPath);
 });
+
+test('load_dare_env_from_local whitelists anthropic key+endpoint overrides', () => {
+  const scriptPath = resolve(process.cwd(), '../../scripts/start-dev.sh');
+  const output = runSourceOnlySnippet(
+    scriptPath,
+    `
+tmp_dir=$(mktemp -d)
+trap 'rm -rf "$tmp_dir"' RETURN
+cd "$tmp_dir"
+cat > .env.local <<'EOF'
+DARE_API_KEY=sk-dare-local
+DARE_ENDPOINT=https://dare-proxy.example/v1
+ANTHROPIC_API_KEY=sk-ant-local
+ANTHROPIC_BASE_URL=https://anthropic-proxy.example
+EOF
+unset DARE_API_KEY DARE_ENDPOINT ANTHROPIC_API_KEY ANTHROPIC_BASE_URL
+load_dare_env_from_local
+printf '%s|%s|%s|%s' "$DARE_API_KEY" "$DARE_ENDPOINT" "$ANTHROPIC_API_KEY" "$ANTHROPIC_BASE_URL"
+`,
+  );
+
+  assert.equal(
+    output,
+    'sk-dare-local|https://dare-proxy.example/v1|sk-ant-local|https://anthropic-proxy.example',
+  );
+});
