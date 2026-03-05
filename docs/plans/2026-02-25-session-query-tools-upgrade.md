@@ -1,5 +1,5 @@
 ---
-feature_ids: [F098]
+feature_ids: [F065]
 topics: [session, query, tools]
 doc_kind: plan
 created: 2026-02-25

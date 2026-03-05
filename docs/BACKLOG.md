@@ -36,3 +36,4 @@ created: 2026-02-26
 | F062 | 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | in-review | 缅因猫 | [F062](features/F062-ragdoll-provider-profile-hub.md) |
 | F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | spec | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
 | F064 | A2A 出口检查 — 链条终止盲区修复 | in-progress | 布偶猫 | [F064](features/F064-a2a-exit-check.md) |
+| F065 | Session Continuity — 封印重生，记忆不断 | spec | 布偶猫 | [F065](features/F065-session-continuity.md) |
