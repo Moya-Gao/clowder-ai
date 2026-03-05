@@ -38,7 +38,7 @@ import {
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
-import { extractRichFromText } from './rich-block-extract.js';
+import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 
@@ -237,6 +237,8 @@ export async function* routeSerial(
     let doneMsg: AgentMessage | undefined;
     let hadError = false;
     const collectedToolEvents: StoredToolEvent[] = [];
+    // F060: Collect rich blocks emitted inline via system_info (not MCP buffer)
+    const streamRichBlocks: import('@cat-cafe/shared').RichBlock[] = [];
     // F22 R2 P1-1: Capture own invocationId from stream (not getLatestId)
     let ownInvocationId: string | undefined;
 
@@ -283,6 +285,10 @@ export async function* routeSerial(
           const parsed = JSON.parse(msg.content);
           if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
             thinkingContent += (thinkingContent ? '\n\n---\n\n' : '') + parsed.text;
+          }
+          // F060: Collect inline rich_block for persistence (P1 fix)
+          if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
+            streamRichBlocks.push(parsed.block);
           }
         } catch { /* ignore parse errors */ }
       }
@@ -359,7 +365,7 @@ export async function* routeSerial(
       // F22: Extract cc_rich blocks from text (Route B fallback for non-MCP cats)
       const { cleanText, blocks: textBlocks } = extractRichFromText(sanitized);
       let storedContent = cleanText;
-      let allRichBlocks = [...bufferedBlocks, ...textBlocks];
+      let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...streamRichBlocks];
 
       // F34-b: Resolve voice blocks (audio with text, no url) — Route B path.
       // Route A blocks were already resolved in the callback handler.
@@ -510,7 +516,10 @@ export async function* routeSerial(
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
           extra: {
-            ...(bufferedBlocks.length > 0 ? { rich: { v: 1 as const, blocks: bufferedBlocks } } : {}),
+            ...(() => {
+              const blocks = [...bufferedBlocks, ...streamRichBlocks];
+              return blocks.length > 0 ? { rich: { v: 1 as const, blocks } } : {};
+            })(),
             ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
           },
         });

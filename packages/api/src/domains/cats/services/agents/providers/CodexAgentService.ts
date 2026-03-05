@@ -380,10 +380,19 @@ export class CodexAgentService implements AgentService {
 
         const result = transformCodexEvent(event, this.catId, codexStreamState);
         if (result !== null) {
-          if (result.type === 'session_init' && result.sessionId) {
-            metadata.sessionId = result.sessionId;
+          if (Array.isArray(result)) {
+            for (const msg of result) {
+              if (msg.type === 'session_init' && msg.sessionId) {
+                metadata.sessionId = msg.sessionId;
+              }
+              yield { ...msg, metadata };
+            }
+          } else {
+            if (result.type === 'session_init' && result.sessionId) {
+              metadata.sessionId = result.sessionId;
+            }
+            yield { ...result, metadata };
           }
-          yield { ...result, metadata };
         }
       }
 

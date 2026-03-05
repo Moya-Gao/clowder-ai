@@ -30,7 +30,7 @@ import {
 } from './route-helpers.js';
 import type { RouteStrategyDeps, RouteOptions } from './route-helpers.js';
 import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
-import { extractRichFromText } from './rich-block-extract.js';
+import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
 
@@ -207,6 +207,8 @@ export async function* routeParallel(
   const catThinking = new Map<string, string>();
   const catMeta = new Map<string, MessageMetadata>();
   const catToolEvents = new Map<string, StoredToolEvent[]>();
+  // F060: Collect inline rich blocks per cat from system_info stream
+  const catStreamRichBlocks = new Map<string, import('@cat-cafe/shared').RichBlock[]>();
   const catHadError = new Set<string>();
   // F22 R2 P1-1: Capture own invocationId per cat from stream
   const catInvocationId = new Map<string, string>();
@@ -245,6 +247,12 @@ export async function* routeParallel(
         if (parsed.type === 'thinking' && typeof parsed.text === 'string') {
           const prev = catThinking.get(msg.catId) ?? '';
           catThinking.set(msg.catId, prev ? `${prev}\n\n---\n\n${parsed.text}` : parsed.text);
+        }
+        // F060: Collect inline rich_block for persistence (P1 fix)
+        if (parsed.type === 'rich_block' && parsed.block && isValidRichBlock(parsed.block)) {
+          const arr = catStreamRichBlocks.get(msg.catId) ?? [];
+          arr.push(parsed.block);
+          catStreamRichBlocks.set(msg.catId, arr);
         }
       } catch { /* ignore parse errors */ }
     }
@@ -324,7 +332,7 @@ export async function* routeParallel(
         const sanitized = sanitizeInjectedContent(text);
         // F22: Extract cc_rich blocks from text + merge with buffered
         const { cleanText: storedContent, blocks: textBlocks } = extractRichFromText(sanitized);
-        let allRichBlocks = [...bufferedBlocks, ...textBlocks];
+        let allRichBlocks = [...bufferedBlocks, ...textBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
         // F34-b: synthesize text-only audio blocks (voice messages)
         const voiceSynth = getVoiceBlockSynthesizer();
         if (voiceSynth && allRichBlocks.some((b) => b.kind === 'audio' && 'text' in b)) {
@@ -397,7 +405,10 @@ export async function* routeParallel(
             ...(meta ? { metadata: meta } : {}),
             ...(catTools && catTools.length > 0 ? { toolEvents: catTools } : {}),
             extra: {
-              ...(bufferedBlocks.length > 0 ? { rich: { v: 1 as const, blocks: bufferedBlocks } } : {}),
+              ...(() => {
+                const blocks = [...bufferedBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
+                return blocks.length > 0 ? { rich: { v: 1 as const, blocks } } : {};
+              })(),
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });

@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F060: output_image 富文本渲染
 
-## Status: implementing
+## Status: review-passed (peer: codex)
 
 ## Why
 
@@ -33,19 +33,19 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 ## Acceptance Criteria
 
-- [ ] AC-1: MCP 工具返回 `output_image` 时，Hub 前端自动显示图片
-- [ ] AC-2: 图片可点击放大查看
-- [ ] AC-3: 对所有 MCP 工具的 output_image 生效（不限于小红书）
-- [ ] AC-4: 不需要猫猫额外操作（无需手动创建 rich block）
+- [x] AC-1: MCP 工具返回 `output_image` 时，Hub 前端自动显示图片（Phase 1: Codex 路径完成）
+- [ ] AC-2: 图片可点击放大查看（Phase 2）
+- [x] AC-3: 对所有 MCP 工具的 output_image 生效（不限于小红书）
+- [x] AC-4: 不需要猫猫额外操作（无需手动创建 rich block）
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "添加一个feat 要做富文本返回 output_image" | AC-1 | screenshot + manual | [ ] |
-| R2 | 图片可交互（放大查看） | AC-2 | manual | [ ] |
-| R3 | 通用化，不限特定 MCP | AC-3 | test | [ ] |
-| R4 | 自动化，不增加猫猫负担 | AC-4 | test | [ ] |
+| R1 | "添加一个feat 要做富文本返回 output_image" | AC-1 | screenshot + manual | [x] Phase 1 |
+| R2 | 图片可交互（放大查看） | AC-2 | manual | [ ] Phase 2 |
+| R3 | 通用化，不限特定 MCP | AC-3 | test | [x] |
+| R4 | 自动化，不增加猫猫负担 | AC-4 | test | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -118,3 +118,22 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 - 2026-03-04: Kickoff（小红书 MCP 排查中发现需求）
 - 2026-03-05: POC 验证通过 → Implementation Plan 确定 → Phase 1 开始
+- 2026-03-05: Phase 1 实现完成 + 砚砚 peer review 通过（R1→R2, 2P→0P）
+
+## Implementation Evidence (Phase 1)
+
+### 改动文件
+- `codex-event-transform.ts`: 提取 `output_image` → `media_gallery` rich block + mimeType 白名单 + 5MB base64 上限
+- `route-serial.ts` / `route-parallel.ts`: `system_info(rich_block)` 持久化到 `extra.rich`
+- `codex-event-transform.test.js`: +4 测试用例（image 提取、多图、无图不变、安全边界 ×5）
+
+### 测试结果
+- `codex-event-transform.test.js`: 29/29 pass
+- `route-strategies.test.js`: 51/51 pass
+- TypeScript: clean
+- Biome: 无新增 lint issue
+
+### Peer Review
+- Reviewer: 缅因猫/砚砚 (codex)
+- R1: Request changes (P1: 持久化缺失, P2: 无大小/类型约束)
+- R2: Approved (0 P1/P2, 1 P3 非阻塞建议)

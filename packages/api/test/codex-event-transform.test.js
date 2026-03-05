@@ -276,3 +276,248 @@ test('top-level error without Reconnecting → null (handled by service)', () =>
   const msg = transformCodexEvent(event, CAT);
   assert.equal(msg, null);
 });
+
+// ── F060: mcp_tool_call with output_image → tool_result + rich_block ──
+
+test('mcp_tool_call with image → returns array [tool_result, system_info(rich_block)]', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'xiaohongshu',
+      tool: 'get_login_qrcode',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'QR code generated' },
+          {
+            type: 'image',
+            data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+            mimeType: 'image/png',
+          },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(Array.isArray(result), 'should return array when image blocks present');
+  assert.equal(result.length, 2);
+
+  // First: normal tool_result (text parts only)
+  assert.equal(result[0].type, 'tool_result');
+  assert.ok(result[0].content.includes('QR code generated'));
+
+  // Second: system_info with rich_block payload
+  assert.equal(result[1].type, 'system_info');
+  const payload = JSON.parse(result[1].content);
+  assert.equal(payload.type, 'rich_block');
+  assert.equal(payload.block.kind, 'media_gallery');
+  assert.equal(payload.block.v, 1);
+  assert.equal(payload.block.items.length, 1);
+  assert.ok(payload.block.items[0].url.startsWith('data:image/png;base64,'));
+  assert.equal(payload.block.title, 'mcp:xiaohongshu/get_login_qrcode');
+});
+
+test('mcp_tool_call with multiple images → gallery has multiple items', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'screenshots',
+      tool: 'capture',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'Captured 2 screenshots' },
+          { type: 'image', data: 'AAAA', mimeType: 'image/png' },
+          { type: 'image', data: 'BBBB', mimeType: 'image/jpeg' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(Array.isArray(result));
+  const richMsg = result[1];
+  const payload = JSON.parse(richMsg.content);
+  assert.equal(payload.block.items.length, 2);
+  assert.ok(payload.block.items[0].url.startsWith('data:image/png;base64,'));
+  assert.ok(payload.block.items[1].url.startsWith('data:image/jpeg;base64,'));
+});
+
+test('mcp_tool_call with only text (no images) → single tool_result (unchanged)', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'filesystem',
+      tool: 'read_file',
+      status: 'completed',
+      result: { content: [{ type: 'text', text: 'file contents' }] },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(!Array.isArray(result), 'no images → single message, not array');
+  assert.equal(result.type, 'tool_result');
+  assert.ok(result.content.includes('file contents'));
+});
+
+test('mcp_tool_call image without mimeType → gracefully skipped', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'broken',
+      tool: 'bad_image',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'some text' },
+          { type: 'image', data: 'AAAA' }, // no mimeType
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  // Without valid mimeType, image block should be skipped → single tool_result
+  assert.ok(!Array.isArray(result), 'invalid image → single message');
+  assert.equal(result.type, 'tool_result');
+});
+
+test('mcp_tool_call image without data → gracefully skipped', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'broken',
+      tool: 'no_data',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'some text' },
+          { type: 'image', mimeType: 'image/png' }, // no data
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(!Array.isArray(result), 'no data → single message');
+  assert.equal(result.type, 'tool_result');
+});
+
+test('mcp_tool_call with only images (no text) → still returns array', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'image-gen',
+      tool: 'generate',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'image', data: 'CCCC', mimeType: 'image/png' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(Array.isArray(result), 'image-only → still returns array');
+  assert.equal(result[0].type, 'tool_result');
+  // tool_result content should still show the tool info even without text
+  assert.ok(result[0].content.includes('mcp:image-gen/generate'));
+  assert.equal(result[1].type, 'system_info');
+  const payload = JSON.parse(result[1].content);
+  assert.equal(payload.block.items.length, 1);
+});
+
+// ── F060 P2: mimeType whitelist + base64 size guard ──
+
+test('mcp_tool_call image with disallowed mimeType → gracefully skipped', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'evil',
+      tool: 'upload',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'ok' },
+          { type: 'image', data: 'AAAA', mimeType: 'application/octet-stream' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(!Array.isArray(result), 'disallowed mimeType → single message');
+  assert.equal(result.type, 'tool_result');
+});
+
+test('mcp_tool_call image exceeding 5MB base64 → gracefully skipped', () => {
+  const hugeData = 'A'.repeat(5 * 1024 * 1024 + 1); // Just over 5MB
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'screenshots',
+      tool: 'huge',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'big screenshot' },
+          { type: 'image', data: hugeData, mimeType: 'image/png' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(!Array.isArray(result), 'oversized base64 → single message');
+  assert.equal(result.type, 'tool_result');
+});
+
+test('mcp_tool_call image at exactly 5MB → accepted', () => {
+  const data = 'A'.repeat(5 * 1024 * 1024); // Exactly 5MB
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'screenshots',
+      tool: 'exact',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'image', data, mimeType: 'image/png' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(Array.isArray(result), 'exactly 5MB → accepted');
+  const payload = JSON.parse(result[1].content);
+  assert.equal(payload.block.items.length, 1);
+});
+
+test('mcp_tool_call mixed valid/invalid images → only valid included', () => {
+  const event = {
+    type: 'item.completed',
+    item: {
+      type: 'mcp_tool_call',
+      server: 'mixed',
+      tool: 'capture',
+      status: 'completed',
+      result: {
+        content: [
+          { type: 'text', text: 'mixed' },
+          { type: 'image', data: 'AAAA', mimeType: 'image/png' },
+          { type: 'image', data: 'BBBB', mimeType: 'text/html' },
+          { type: 'image', data: 'CCCC', mimeType: 'image/jpeg' },
+        ],
+      },
+    },
+  };
+  const result = transformCodexEvent(event, CAT);
+  assert.ok(Array.isArray(result), 'valid images present → array');
+  const payload = JSON.parse(result[1].content);
+  assert.equal(payload.block.items.length, 2, 'only image/png and image/jpeg');
+  assert.ok(payload.block.items[0].url.startsWith('data:image/png;base64,'));
+  assert.ok(payload.block.items[1].url.startsWith('data:image/jpeg;base64,'));
+});

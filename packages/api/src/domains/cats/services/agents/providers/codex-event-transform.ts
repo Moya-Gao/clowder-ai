@@ -1,6 +1,10 @@
 import type { CatId } from '@cat-cafe/shared';
 import type { AgentMessage } from '../../types.js';
 
+// F060: Allowed image MIME types and max base64 payload size (5 MB encoded ≈ 3.75 MB decoded)
+const IMAGE_MIME_WHITELIST = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp', 'image/svg+xml']);
+const MAX_BASE64_LENGTH = 5 * 1024 * 1024;
+
 /**
  * Mutable state for tracking Codex multi-turn text separation.
  * Each `item.completed` with `agent_message` is a complete turn;
@@ -23,7 +27,7 @@ export function transformCodexEvent(
   event: unknown,
   catId: CatId,
   state?: CodexStreamState,
-): AgentMessage | null {
+): AgentMessage | AgentMessage[] | null {
   if (typeof event !== 'object' || event === null) return null;
   const e = event as Record<string, unknown>;
 
@@ -168,22 +172,62 @@ export function transformCodexEvent(
     };
   }
 
-  // F045: mcp_tool_call completed → tool_result
+  // F045: mcp_tool_call completed → tool_result (+ F060: optional rich_block for images)
   if (item?.['type'] === 'mcp_tool_call') {
     const server = typeof item['server'] === 'string' ? item['server'] : 'unknown';
     const tool = typeof item['tool'] === 'string' ? item['tool'] : 'unknown';
     const status = typeof item['status'] === 'string' ? item['status'] : 'completed';
     const result = item['result'] as Record<string, unknown> | undefined;
     const contentArr = Array.isArray(result?.['content']) ? result['content'] : [];
-    const textParts = (contentArr as Array<Record<string, unknown>>)
+    const typed = contentArr as Array<Record<string, unknown>>;
+    const textParts = typed
       .filter((c) => c['type'] === 'text' && typeof c['text'] === 'string')
       .map((c) => c['text'] as string);
-    return {
+
+    const toolLabel = `mcp:${server}/${tool}`;
+    const toolResult: AgentMessage = {
       type: 'tool_result',
       catId,
-      content: `mcp:${server}/${tool} (${status})\n${textParts.join('\n')}`.trim(),
+      content: `${toolLabel} (${status})\n${textParts.join('\n')}`.trim(),
       timestamp: Date.now(),
     };
+
+    // F060: Extract image content blocks → media_gallery rich block
+    // P2 fix: mimeType whitelist + base64 size guard
+    const imageItems = typed
+      .filter((c) =>
+        c['type'] === 'image' &&
+        typeof c['data'] === 'string' &&
+        typeof c['mimeType'] === 'string' &&
+        IMAGE_MIME_WHITELIST.has(c['mimeType'] as string) &&
+        (c['data'] as string).length <= MAX_BASE64_LENGTH,
+      )
+      .map((c) => ({
+        url: `data:${c['mimeType'] as string};base64,${c['data'] as string}`,
+        alt: 'MCP tool output image',
+      }));
+
+    if (imageItems.length === 0) {
+      return toolResult;
+    }
+
+    const richBlock: AgentMessage = {
+      type: 'system_info',
+      catId,
+      content: JSON.stringify({
+        type: 'rich_block',
+        block: {
+          id: `mcp-img-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          kind: 'media_gallery',
+          v: 1,
+          title: toolLabel,
+          items: imageItems,
+        },
+      }),
+      timestamp: Date.now(),
+    };
+
+    return [toolResult, richBlock];
   }
 
   // F045: web_search → system_info — count only, no query (privacy)
