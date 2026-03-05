@@ -201,7 +201,7 @@ export function HubProviderProfilesTab() {
           projectPath: projectPath ?? undefined,
           provider: 'anthropic',
         }),
-      }) as ProfileTestResult;
+      }) as unknown as ProfileTestResult;
       setTestResultById((prev) => ({ ...prev, [profileId]: body }));
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
