@@ -87,7 +87,7 @@
     {
       "id": "F015",
       "name": "Backlog 管理",
-      "status": "in-progress",
+      "status": "done",
       "file": "F015-backlog-management.md"
     },
     {
@@ -189,13 +189,13 @@
     {
       "id": "F032",
       "name": "Agent Plugin Architecture（CatId 松绑 + 协作规则动态化）",
-      "status": "in-progress (设计阶段)",
+      "status": "done (d4b85bf)",
       "file": "F032-agent-plugin-architecture.md"
     },
     {
       "id": "F033",
       "name": "Session Chain 策略可配置化",
-      "status": "in-progress",
+      "status": "done",
       "file": "F033-session-strategy-configurability.md"
     },
     {
@@ -231,7 +231,7 @@
     {
       "id": "F039",
       "name": "消息排队投递 — 用户操作三模式",
-      "status": "in-progress",
+      "status": "done",
       "file": "F039-message-queue-delivery.md"
     },
     {
@@ -243,9 +243,129 @@
     {
       "id": "F041",
       "name": "能力看板 — Hub MCP/Skills 统一管理",
-      "status": "spec",
+      "status": "done",
       "file": "F041-capability-dashboard.md"
+    },
+    {
+      "id": "F042",
+      "name": "提示词 & Skills 系统性优化",
+      "status": "done (2026-03-02 — 核心交付完成，剩余项毕业到 F043/F046/F049)",
+      "file": "F042-prompt-engineering-audit.md"
+    },
+    {
+      "id": "F043",
+      "name": "MCP 归一化 — Server 拆分 + 协作工具补全",
+      "status": "done",
+      "file": "F043-mcp-unification.md"
+    },
+    {
+      "id": "F044",
+      "name": "Channel & Activity System（频道与活动系统）",
+      "status": "spec（五猫讨论完成，待开发）",
+      "file": "F044-channel-activity-system.md"
+    },
+    {
+      "id": "F045",
+      "name": "NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化",
+      "status": "done (Phase 1+2 合并交付, PR #88)",
+      "file": "F045-ndjson-observability.md"
+    },
+    {
+      "id": "F046",
+      "name": "愿景守护协议 — Anti-Drift Protocol",
+      "status": "in-progress",
+      "file": "F046-anti-drift-protocol.md"
+    },
+    {
+      "id": "F047",
+      "name": "Queue Steer（队列消息一键“立即执行 / 提到队首”）",
+      "status": "done",
+      "file": "F047-queue-steer.md"
+    },
+    {
+      "id": "F048",
+      "name": "Restart Recovery — 重启自愈（Invocation/Queue 恢复）",
+      "status": "idea",
+      "file": "F048-restart-recovery.md"
+    },
+    {
+      "id": "F049",
+      "name": "Mission Hub — Backlog Center（领取/派发/自动开 Thread）",
+      "status": "done",
+      "file": "F049-mission-control-backlog-center.md"
+    },
+    {
+      "id": "F050",
+      "name": "External Agent Onboarding（A2A/CLI 接入契约）",
+      "status": "in-progress",
+      "file": "F050-a2a-external-agent-onboarding.md"
+    },
+    {
+      "id": "F051",
+      "name": "— 猫粮看板（Quota Board）",
+      "status": "in-progress",
+      "file": "F051-real-quota-dashboard.md"
+    },
+    {
+      "id": "F052",
+      "name": "跨线程身份隔离与消息溯源",
+      "status": "done",
+      "file": "F052-cross-thread-identity-isolation.md"
+    },
+    {
+      "id": "F053",
+      "name": "Gemini Session/Resume 语义对齐",
+      "status": "done",
+      "file": "F053-gemini-resume-session-parity.md"
+    },
+    {
+      "id": "F054",
+      "name": "HCI 预热基础设施 — Social Media MCP + 内容管线",
+      "status": "spec",
+      "file": "F054-hci-preheat-infra.md"
+    },
+    {
+      "id": "F055",
+      "name": "A2A MCP Structured Routing（结构化路由 + targetCats）",
+      "status": "spec",
+      "file": "F055-a2a-mcp-structured-routing.md"
+    },
+    {
+      "id": "F055",
+      "name": "— 猫猫祟祟（Plan Board）",
+      "status": "done",
+      "file": "F055-plan-board.md"
+    },
+    {
+      "id": "F056",
+      "name": "Cat Café 设计语言 — 猫猫化不是猫化",
+      "status": "doing",
+      "file": "F056-cat-cafe-design-language.md"
+    },
+    {
+      "id": "F057",
+      "name": "Thread 可发现性 — 排序 + 搜索 + 猫猫工具",
+      "status": "spec",
+      "file": "F057-thread-discoverability.md"
+    },
+    {
+      "id": "F058",
+      "name": "Mission Control 增强（F049++）",
+      "status": "spec",
+      "file": "F058-mission-control-enhancements.md"
+    },
+    {
+      "id": "F059",
+      "name": "Cat Café 开源计划",
+      "status": "spec",
+      "file": "F059-open-source-plan.md"
+    },
+    {
+      "id": "F060",
+      "name": "output_image 富文本渲染",
+      "status": "unknown",
+      "file": "F060-output-image-rich-block.md"
     }
   ],
-  "generated_at": "2026-02-27T06:29:35.965Z"
+  "generated_at": "2026-03-05T07:49:11.506Z"
 }

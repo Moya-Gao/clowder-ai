@@ -41,7 +41,7 @@
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
-    "check": "pnpm biome check .",
+    "check": "pnpm biome check . && pnpm check:features",
     "check:fix": "pnpm biome check --write .",
     "test": "pnpm -r --if-present run test",
     "test:api:redis": "pnpm --filter @cat-cafe/api run test:redis",
@@ -49,6 +49,7 @@
     "check:dir-size": "bash scripts/check-dir-size.sh",
     "check:deps": "depcruise packages/api/src packages/shared/src --config .dependency-cruiser.cjs",
     "check:lockfile": "pnpm install --frozen-lockfile",
+    "check:features": "node scripts/check-feature-truth.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
     "clean": "pnpm -r run clean && rm -rf node_modules"
   },
