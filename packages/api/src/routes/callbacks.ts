@@ -80,6 +80,7 @@ const threadContextQuerySchema = callbackAuthSchema.extend({
 const listThreadsQuerySchema = callbackAuthSchema.extend({
   limit: z.coerce.number().int().min(1).max(200).optional(),
   activeSince: z.coerce.number().int().min(0).optional(),
+  keyword: z.string().trim().min(1).max(200).optional(),
 });
 
 const featIndexQuerySchema = callbackAuthSchema.extend({
@@ -550,7 +551,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         return { error: 'Invalid request query', details: parsed.error.issues };
       }
 
-      const { invocationId, callbackToken, limit, activeSince } = parsed.data;
+      const { invocationId, callbackToken, limit, activeSince, keyword } = parsed.data;
       const record = registry.verify(invocationId, callbackToken);
       if (!record) {
         reply.status(401);
@@ -567,12 +568,20 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
       if (activeSince !== undefined) {
         threads = threads.filter((thread) => thread.lastActiveAt >= activeSince);
       }
+      if (keyword) {
+        const needle = keyword.toLowerCase();
+        threads = threads.filter((thread) => {
+          const title = (thread.title ?? '').toLowerCase();
+          return title.includes(needle) || thread.id.toLowerCase().includes(needle);
+        });
+      }
 
       threads.sort((a, b) => b.lastActiveAt - a.lastActiveAt);
       const summaries = threads.slice(0, requestedLimit).map((thread) => ({
         threadId: thread.id,
         ...(thread.title ? { title: thread.title } : {}),
         lastActiveAt: thread.lastActiveAt,
+        pinned: thread.pinned ?? false,
         messageCount: null,
         participants: thread.participants,
       }));

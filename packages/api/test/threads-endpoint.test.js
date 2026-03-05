@@ -84,6 +84,21 @@ describe('Thread API', () => {
     assert.deepEqual(titles, ['Backend Thread Search']);
   });
 
+  it('GET /api/threads matches exact threadId via q', async () => {
+    const t = threadStore.create('alice', 'Some thread');
+    threadStore.create('alice', 'Another thread');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/threads?userId=alice&q=${t.id}`,
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.threads.length, 1);
+    assert.equal(body.threads[0].id, t.id);
+  });
+
   it('GET /api/threads filters by backlogItemIds without leaking other user threads', async () => {
     const aliceThread = threadStore.create('alice', 'Alice Linked');
     const bobThread = threadStore.create('bob', 'Bob Linked');

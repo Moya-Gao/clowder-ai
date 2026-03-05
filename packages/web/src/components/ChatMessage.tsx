@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useChatStore, type ChatMessage as ChatMessageType, type MessageContent, type ToolEvent } from '@/stores/chatStore';
 import { CatAvatar } from './CatAvatar';
@@ -229,7 +230,9 @@ interface ChatMessageProps {
 }
 
 export function ChatMessage({ message, getCatById }: ChatMessageProps) {
+  const router = useRouter();
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
+  const threads = useChatStore((s) => s.threads);
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
   const isUser = message.type === 'user';
   const isSystem = message.type === 'system';
@@ -367,11 +370,20 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 {isRevealed ? '已揭秘' : '悄悄话'}
               </span>
             )}
-            {message.extra?.crossPost && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600">
-                转发自 {message.extra.crossPost.sourceThreadId.slice(0, 8)}…
-              </span>
-            )}
+            {message.extra?.crossPost && (() => {
+              const sourceId = message.extra.crossPost!.sourceThreadId;
+              const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
+              return (
+                <a
+                  href={`/thread/${sourceId}`}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(`/thread/${sourceId}`); }}
+                  className="inline-flex items-center gap-0.5 text-xs px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors cursor-pointer max-w-[22ch]"
+                  title={`跳转到 ${sourceId}`}
+                >
+                  📮 {sourceId.replace(/^thread_/, '').slice(0, 8)} · <span className="truncate max-w-[12ch]">{sourceName}</span>
+                </a>
+              );
+            })()}
             {hasTextContent && !message.isStreaming && (
               <TtsPlayButton
                 messageId={message.id}

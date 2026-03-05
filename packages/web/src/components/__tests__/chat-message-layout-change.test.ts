@@ -3,6 +3,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 vi.mock('@/stores/chatStore', () => ({
   useChatStore: (selector: (s: { uiThinkingExpandedByDefault: boolean }) => unknown) => selector({ uiThinkingExpandedByDefault: false }),
 }));

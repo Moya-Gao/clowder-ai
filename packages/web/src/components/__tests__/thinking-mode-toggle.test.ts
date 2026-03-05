@@ -9,6 +9,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 // ── Stub hooks used by ChatMessage ──
 vi.mock('@/hooks/useCatData', () => ({
   useCatData: () => ({ cats: [], isLoading: false, getCatById: () => undefined, getCatsByBreed: () => new Map() }),

@@ -171,7 +171,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       const title = (thread.title ?? '').toLowerCase();
       const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
       const project = (thread.projectPath ?? '').toLowerCase();
-      return title.includes(needle) || fallback.includes(needle) || project.includes(needle);
+      return title.includes(needle) || fallback.includes(needle) || project.includes(needle) || thread.id === q;
     });
 
     return { threads: filtered };

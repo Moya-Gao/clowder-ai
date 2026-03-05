@@ -222,12 +222,14 @@ describe('MCP Callback Tools', () => {
     const result = await handleListThreads({
       limit: 15,
       activeSince: 1234567890,
+      keyword: 'design review',
     });
 
     assert.equal(result.isError, undefined);
     assert.ok(capturedUrl.includes('/api/callbacks/list-threads'));
     assert.ok(capturedUrl.includes('limit=15'));
     assert.ok(capturedUrl.includes('activeSince=1234567890'));
+    assert.ok(capturedUrl.includes('keyword=design+review'));
   });
 
   test('handleCrossPostMessage calls post-message with threadId', async () => {

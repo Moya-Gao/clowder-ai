@@ -10,6 +10,8 @@ import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } 
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 // ── Spy on useCatData — must NOT be called by ChatMessage ──
 const useCatDataSpy = vi.fn(() => ({
   cats: [],

@@ -722,6 +722,7 @@ describe('Callback Routes', () => {
       threadId: newThread.id,
       title: 'New thread',
       lastActiveAt: 2000,
+      pinned: false,
       messageCount: null,
       participants: ['opus', 'codex'],
     });
@@ -729,6 +730,7 @@ describe('Callback Routes', () => {
       threadId: oldThread.id,
       title: 'Old thread',
       lastActiveAt: 1000,
+      pinned: false,
       messageCount: null,
       participants: ['opus'],
     });
@@ -759,6 +761,24 @@ describe('Callback Routes', () => {
     assert.equal(body.threads.length, 1);
     assert.equal(body.threads[0].threadId, t3.id);
     assert.equal(body.threads[0].lastActiveAt, 300);
+  });
+
+  test('GET list-threads filters by keyword (title + threadId)', async () => {
+    const app = await createApp();
+    const { invocationId, callbackToken } = registry.create('user-1', 'opus');
+
+    await threadStore.create('user-1', 'Cat Café Design');
+    await threadStore.create('user-1', 'Redis Debugging');
+
+    const response = await app.inject({
+      method: 'GET',
+      url: `/api/callbacks/list-threads?invocationId=${invocationId}&callbackToken=${callbackToken}&keyword=design`,
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = JSON.parse(response.body);
+    assert.equal(body.threads.length, 1);
+    assert.equal(body.threads[0].title, 'Cat Café Design');
   });
 
   test('GET list-threads validates query params', async () => {

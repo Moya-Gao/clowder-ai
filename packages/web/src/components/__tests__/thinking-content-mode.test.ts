@@ -9,6 +9,8 @@ import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 // Stub TTS hook (ChatMessage uses it)
 vi.mock('@/hooks/useTts', () => ({
   useTts: () => ({ state: 'idle', synthesize: vi.fn(), activeMessageId: null }),

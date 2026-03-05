@@ -118,6 +118,8 @@ export const listThreadsInputSchema = {
     .describe('Max threads to return (default: 20).'),
   activeSince: z.number().int().min(0).optional()
     .describe('Optional Unix timestamp in ms; only include threads active at/after this time.'),
+  keyword: z.string().trim().min(1).max(200).optional()
+    .describe('Optional: filter threads whose title or threadId contains this keyword (case-insensitive).'),
 };
 
 export const featIndexInputSchema = {
@@ -224,10 +226,12 @@ export async function handleGetThreadContext(input: {
 export async function handleListThreads(input: {
   limit?: number | undefined;
   activeSince?: number | undefined;
+  keyword?: string | undefined;
 }): Promise<ToolResult> {
   return callbackGet('/api/callbacks/list-threads', {
     ...(input.limit ? { limit: String(input.limit) } : {}),
     ...(input.activeSince !== undefined ? { activeSince: String(input.activeSince) } : {}),
+    ...(input.keyword ? { keyword: input.keyword } : {}),
   });
 }
 
