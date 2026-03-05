@@ -4,6 +4,7 @@
  *
  * GET   /api/threads/:threadId/sessions            - List sessions (optional catId filter)
  * GET   /api/sessions/:sessionId                   - Get single session record
+ * POST  /api/sessions/:sessionId/unseal            - Manual unseal fallback (#F062)
  * PATCH /api/threads/:threadId/sessions/:catId/bind - Manual bind CLI session ID (#72)
  */
 
@@ -80,6 +81,78 @@ export async function sessionChainRoutes(
     }
 
     return reply.send(session);
+  });
+
+  // POST /api/sessions/:sessionId/unseal — Manual fallback (#F062)
+  // Re-open a sealed/sealing session by creating a fresh active chain record
+  // bound to the same CLI session ID.
+  app.post<{
+    Params: { sessionId: string };
+  }>('/api/sessions/:sessionId/unseal', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required (X-Cat-Cafe-User header or userId query)' };
+    }
+
+    const { sessionId } = request.params;
+    const session = await sessionChainStore.get(sessionId);
+    if (!session) {
+      return reply.status(404).send({ error: 'Session not found' });
+    }
+
+    const thread = await threadStore.get(session.threadId);
+    if (!thread || thread.createdBy !== userId) {
+      reply.status(403);
+      return { error: 'Access denied' };
+    }
+
+    if (session.status === 'active') {
+      return reply.send({ session, mode: 'already_active' as const });
+    }
+    if (session.status !== 'sealed' && session.status !== 'sealing') {
+      reply.status(409);
+      return { error: `Session status ${session.status} cannot be reopened` };
+    }
+
+    const active = await sessionChainStore.getActive(session.catId, session.threadId);
+    if (active && active.id !== session.id) {
+      reply.status(409);
+      return {
+        error: 'Another active session already exists for this cat/thread',
+        activeSessionId: active.id,
+      };
+    }
+
+    const reopened = await sessionChainStore.create({
+      cliSessionId: session.cliSessionId,
+      threadId: session.threadId,
+      catId: session.catId,
+      userId: session.userId,
+    });
+
+    getEventAuditLog()
+      .append({
+        type: AuditEventTypes.SESSION_BIND,
+        threadId: session.threadId,
+        data: {
+          mode: 'unseal_reopen',
+          fromSessionId: session.id,
+          toSessionId: reopened.id,
+          catId: session.catId,
+          cliSessionId: session.cliSessionId,
+          userId,
+        },
+      })
+      .catch(() => {
+        /* best-effort */
+      });
+
+    return reply.send({
+      mode: 'reopened' as const,
+      fromSessionId: session.id,
+      session: reopened,
+    });
   });
 
   // PATCH /api/threads/:threadId/sessions/:catId/bind — Manual bind (#72)

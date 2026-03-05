@@ -87,6 +87,8 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [unsealingSessionId, setUnsealingSessionId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Re-fetch when any cat's sessionSealed changes
   const sealSignal = Object.values(catInvocations)
@@ -130,6 +132,31 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
   // Check if any cat recently had a compact (from hooks)
   const hasRecentCompact = Object.values(catInvocations).some((inv) => inv.sessionSealed);
 
+  const handleUnseal = async (sessionId: string) => {
+    if (unsealingSessionId) return;
+    setActionError(null);
+    setUnsealingSessionId(sessionId);
+    try {
+      const res = await apiFetch(`/api/sessions/${sessionId}/unseal`, { method: 'POST' });
+      if (!res.ok) {
+        let message = `Unseal failed (${res.status})`;
+        try {
+          const data = (await res.json()) as { error?: string };
+          if (data?.error) message = data.error;
+        } catch {
+          /* best-effort */
+        }
+        setActionError(message);
+        return;
+      }
+      setRefreshKey((k) => k + 1);
+    } catch {
+      setActionError('Unseal request failed');
+    } finally {
+      setUnsealingSessionId(null);
+    }
+  };
+
   return (
     <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
       <div className="flex items-center justify-between mb-2">
@@ -138,6 +165,12 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
           {sessions.length} session{sessions.length !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {actionError && (
+        <div className="mb-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[10px] text-red-700">
+          {actionError}
+        </div>
+      )}
 
       {/* Post-compact safety alert */}
       {hasRecentCompact && (
@@ -266,6 +299,18 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                     {session.sealReason ? ` · ${sealReasonLabel(session.sealReason)}` : ''}
                   </div>
                 </div>
+                {session.status === 'sealed' && (
+                  <button
+                    type="button"
+                    className="text-[10px] px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                    onClick={() => {
+                      void handleUnseal(session.id);
+                    }}
+                    disabled={unsealingSessionId != null}
+                  >
+                    {unsealingSessionId === session.id ? '解封中…' : '解封'}
+                  </button>
+                )}
               </div>
             ))}
           </div>

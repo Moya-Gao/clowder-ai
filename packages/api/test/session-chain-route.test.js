@@ -179,4 +179,62 @@ describe('Session Chain Routes', () => {
     assert.equal(body.contextHealth.fillRatio, 0.25);
     assert.equal(body.contextHealth.source, 'exact');
   });
+
+  it('POST /api/sessions/:sessionId/unseal returns 401 without identity', async () => {
+    const store = await setup();
+    const sealed = store.create({ cliSessionId: 'cli-sealed', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sealed.id}/unseal`,
+    });
+    assert.equal(res.statusCode, 401);
+  });
+
+  it('POST /api/sessions/:sessionId/unseal returns 404 for unknown session', async () => {
+    await setup();
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/sessions/non-existent-id/unseal',
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 404);
+  });
+
+  it('POST /api/sessions/:sessionId/unseal reopens sealed session as a new active record', async () => {
+    const store = await setup();
+    const sealed = store.create({ cliSessionId: 'cli-reopen', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+    assert.equal(store.getActive('opus', 'thread-1'), null);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sealed.id}/unseal`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.mode, 'reopened');
+    assert.equal(body.fromSessionId, sealed.id);
+    assert.equal(body.session.status, 'active');
+    assert.equal(body.session.cliSessionId, 'cli-reopen');
+    assert.equal(body.session.seq, 1);
+  });
+
+  it('POST /api/sessions/:sessionId/unseal returns 409 when another active session already exists', async () => {
+    const store = await setup();
+    const sealed = store.create({ cliSessionId: 'cli-old', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+    store.update(sealed.id, { status: 'sealed', sealReason: 'threshold', sealedAt: Date.now(), updatedAt: Date.now() });
+    const active = store.create({ cliSessionId: 'cli-new', threadId: 'thread-1', catId: 'opus', userId: 'user-1' });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/sessions/${sealed.id}/unseal`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(res.statusCode, 409);
+    const body = JSON.parse(res.payload);
+    assert.equal(body.activeSessionId, active.id);
+  });
 });
