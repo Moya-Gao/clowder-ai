@@ -1,7 +1,7 @@
 // @ts-check
 import { describe, it, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdir, rm, readFile, stat } from 'node:fs/promises';
+import { mkdir, rm, readFile, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
@@ -136,5 +136,47 @@ describe('provider profile store', () => {
       }),
       /name is required/,
     );
+  });
+
+  it('shares profiles across worktrees of the same repo', async () => {
+    const repoRoot = await makeTmpDir('repo-main');
+    const runtimeRoot = await makeTmpDir('repo-runtime');
+    try {
+      await mkdir(join(repoRoot, '.git', 'worktrees', 'runtime'), { recursive: true });
+      await writeFile(
+        join(runtimeRoot, '.git'),
+        `gitdir: ${join(repoRoot, '.git', 'worktrees', 'runtime')}\n`,
+        'utf-8',
+      );
+
+      const created = await createProviderProfile(runtimeRoot, {
+        provider: 'anthropic',
+        name: 'sponsor-shared',
+        mode: 'api_key',
+        baseUrl: 'https://api.shared.dev',
+        apiKey: 'sk-shared',
+        setActive: true,
+      });
+      assert.equal(created.mode, 'api_key');
+
+      const runtime = await resolveAnthropicRuntimeProfile(repoRoot);
+      assert.equal(runtime.mode, 'api_key');
+      assert.equal(runtime.baseUrl, 'https://api.shared.dev');
+      assert.equal(runtime.apiKey, 'sk-shared');
+
+      const metaPath = join(repoRoot, '.cat-cafe', 'provider-profiles.json');
+      const secretsPath = join(repoRoot, '.cat-cafe', 'provider-profiles.secrets.local.json');
+      const [metaRaw, secretsRaw] = await Promise.all([
+        readFile(metaPath, 'utf-8'),
+        readFile(secretsPath, 'utf-8'),
+      ]);
+      assert.ok(metaRaw.includes('sponsor-shared'));
+      assert.ok(secretsRaw.includes('sk-shared'));
+    } finally {
+      await Promise.all([
+        rm(repoRoot, { recursive: true, force: true }),
+        rm(runtimeRoot, { recursive: true, force: true }),
+      ]);
+    }
   });
 });

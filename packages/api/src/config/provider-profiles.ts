@@ -13,6 +13,7 @@ import type {
   ProviderProfileView,
   UpdateProviderProfileInput,
 } from './provider-profiles.types.js';
+import { resolveProviderProfilesRoot } from './provider-profiles-root.js';
 
 export type {
   AnthropicRuntimeProfile,
@@ -124,9 +125,10 @@ async function readRaw(projectRoot: string): Promise<{
   secretsPath: string;
   dirty: boolean;
 }> {
-  const dir = safePath(projectRoot, CAT_CAFE_DIR);
-  const metaPath = safePath(projectRoot, CAT_CAFE_DIR, META_FILENAME);
-  const secretsPath = safePath(projectRoot, CAT_CAFE_DIR, SECRETS_FILENAME);
+  const storageRoot = await resolveProviderProfilesRoot(projectRoot);
+  const dir = safePath(storageRoot, CAT_CAFE_DIR);
+  const metaPath = safePath(storageRoot, CAT_CAFE_DIR, META_FILENAME);
+  const secretsPath = safePath(storageRoot, CAT_CAFE_DIR, SECRETS_FILENAME);
   await mkdir(dir, { recursive: true });
   const normalizedMeta = normalizeMeta(await readJsonOrNull<ProviderProfilesMetaFile>(metaPath));
   const normalizedSecrets = normalizeSecrets(await readJsonOrNull<ProviderProfilesSecretsFile>(secretsPath));
