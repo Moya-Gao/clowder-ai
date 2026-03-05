@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-04
+> 维护者：三猫 | 最后更新：2026-03-05
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -35,3 +35,4 @@ created: 2026-02-26
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | spec | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F062 | 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | in-review | 缅因猫 | [F062](features/F062-ragdoll-provider-profile-hub.md) |
 | F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE | spec | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
+| F064 | A2A 出口检查 — 链条终止盲区修复 | in-progress | 布偶猫 | [F064](features/F064-a2a-exit-check.md) |
