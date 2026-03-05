@@ -27,8 +27,8 @@ export function MessageActions({ message, threadId, children }: MessageActionsPr
   const removeMessage = useChatStore((s) => s.removeMessage);
   const router = useRouter();
 
-  const isUser = message.type === 'user';
-  const isAssistant = message.type === 'assistant';
+  const isUser = message.type === 'user' && !message.catId;
+  const isAssistant = message.type === 'assistant' || (message.type === 'user' && !!message.catId);
   const canAct = (isUser || isAssistant) && !message.isStreaming;
   const toolbarPositionClass = isUser ? 'top-8' : 'top-1';
 

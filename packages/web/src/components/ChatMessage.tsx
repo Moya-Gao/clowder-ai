@@ -234,7 +234,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
   const { state: ttsState, synthesize: ttsSynthesize, activeMessageId } = useTts();
   const threads = useChatStore((s) => s.threads);
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
-  const isUser = message.type === 'user';
+  const isUser = message.type === 'user' && !message.catId;
   const isSystem = message.type === 'system';
   const isSummary = message.type === 'summary';
   const isConnector = message.type === 'connector';

@@ -104,6 +104,20 @@ describe('MessageNavigator', () => {
     expect(html).toContain('跳转到 暹罗猫（gemini25） 的消息');
   });
 
+  it('treats messages with catId as assistant even when type is user', () => {
+    const msgs = [
+      makeMsg('m1', 'user'),
+      makeMsg('m2', 'user', 'gpt52'),
+      makeMsg('m3', 'assistant', 'codex'),
+    ];
+    const html = render(msgs);
+
+    expect(html).toContain('跳转到 缅因猫（gpt52） 的消息');
+
+    const ownerLabels = html.match(/跳转到 铲屎官 的消息/g) ?? [];
+    expect(ownerLabels.length).toBe(1);
+  });
+
   it('applies dare fallback color and labels before /api/cats loads', () => {
     const msgs = [
       makeMsg('m1', 'user'),

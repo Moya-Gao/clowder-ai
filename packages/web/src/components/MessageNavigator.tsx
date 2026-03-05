@@ -59,9 +59,12 @@ function resolveCatById(getCatById: CatLookup, catId: string): CatData | undefin
 }
 
 function getSenderLabel(msg: ChatMessageData, resolveCat: (catId: string) => CatData | undefined): string {
-  if (msg.type === 'user') return '铲屎官';
-  if (msg.type !== 'assistant') return '系统';
   const catId = msg.catId;
+  const isOwner = msg.type === 'user' && !catId;
+  if (isOwner) return '铲屎官';
+
+  const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!catId);
+  if (!isAssistant) return '系统';
   if (!catId) return '系统';
   const cat = resolveCat(catId);
   if (!cat) {
@@ -191,10 +194,12 @@ export function MessageNavigator({ messages, scrollContainerRef }: MessageNaviga
           const top = sampledItems.length <= 1
             ? 50
             : (idx / (sampledItems.length - 1)) * 100;
-          const cat = msg.type === 'assistant' && msg.catId ? resolveCat(msg.catId) : undefined;
-          const fallback = msg.type === 'assistant' && msg.catId ? resolveFallbackCatMeta(msg.catId) : undefined;
-          const className = msg.type === 'user' ? 'bg-owner-primary' : cat || fallback ? '' : 'bg-gray-400';
-          const style = msg.type === 'user'
+          const isOwner = msg.type === 'user' && !msg.catId;
+          const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!msg.catId);
+          const cat = isAssistant && msg.catId ? resolveCat(msg.catId) : undefined;
+          const fallback = isAssistant && msg.catId ? resolveFallbackCatMeta(msg.catId) : undefined;
+          const className = isOwner ? 'bg-owner-primary' : cat || fallback ? '' : 'bg-gray-400';
+          const style = isOwner
             ? undefined
             : cat
               ? { backgroundColor: cat.color.primary }

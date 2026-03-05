@@ -76,7 +76,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const messageSummary = useMemo(() => {
     const c = { total: messages.length, assistant: 0, system: 0, evidence: 0, followup: 0 };
     for (const msg of messages) {
-      if (msg.type === 'assistant') c.assistant++;
+      const isAssistant = msg.type === 'assistant' || (msg.type === 'user' && !!msg.catId);
+      if (isAssistant) c.assistant++;
       if (msg.type === 'system') {
         c.system++;
         if (msg.variant === 'evidence') c.evidence++;

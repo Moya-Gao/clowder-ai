@@ -18,7 +18,7 @@ interface SplitPaneCellProps {
 }
 
 function MiniMessage({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.type === 'user';
+  const isUser = msg.type === 'user' && !msg.catId;
   return (
     <div className={`flex gap-1.5 ${isUser ? 'justify-end' : ''}`}>
       {!isUser && msg.catId && (

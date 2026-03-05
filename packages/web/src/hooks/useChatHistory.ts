@@ -82,7 +82,7 @@ export function useChatHistory(threadId: string) {
         const historyMsgs = (data.messages ?? []).map(
           (m: { id: string; type: string; catId?: string; content: string; contentBlocks?: unknown[]; toolEvents?: unknown[]; metadata?: { provider: string; model: string; sessionId?: string }; origin?: 'stream' | 'callback'; thinking?: string; extra?: { rich?: { v: number; blocks: unknown[] }; crossPost?: { sourceThreadId: string; sourceInvocationId?: string } }; timestamp: number; summary?: { id: string; topic: string; conclusions: string[]; openQuestions: string[]; createdBy: string }; visibility?: 'public' | 'whisper'; whisperTo?: string[]; revealedAt?: number; isDraft?: boolean; source?: { connector: string; label: string; icon: string; url?: string } }) => ({
             id: m.id,
-            type: m.type as 'user' | 'assistant' | 'system' | 'summary' | 'connector',
+            type: (m.summary ? 'summary' : m.source ? 'connector' : m.catId ? 'assistant' : 'user') as 'user' | 'assistant' | 'summary' | 'connector',
             catId: m.catId,
             content: m.content,
             ...(m.contentBlocks ? { contentBlocks: m.contentBlocks } : {}),

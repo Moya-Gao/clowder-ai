@@ -30,8 +30,8 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('状态栏');
     expect(html).toContain('当前模式');
     expect(html).toContain('执行');
-    expect(html).toContain('提及路由');
-    expect(html).toContain('严格');
+    expect(html).toContain('当前调用');
+    expect(html).toContain('消息统计');
     expect(html).toContain('布偶猫');
     expect(html).toContain('缅因猫');
     expect(html).toContain('12');

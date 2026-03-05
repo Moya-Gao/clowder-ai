@@ -907,13 +907,12 @@ describe('AgentRouter', () => {
     const codexText = messages.filter((m) => m.type === 'text' && m.catId === 'codex');
     assert.equal(codexText.length, 1);
 
-    // Both done messages should exist, only codex isFinal
+    // Both done messages should exist. In parallel mode, whichever finishes last isFinal=true.
     const dones = messages.filter((m) => m.type === 'done');
     assert.equal(dones.length, 2);
-    const opusDone = dones.find((m) => m.catId === 'opus');
-    const codexDone = dones.find((m) => m.catId === 'codex');
-    assert.equal(opusDone?.isFinal, false);
-    assert.equal(codexDone?.isFinal, true);
+    const finalDones = dones.filter((m) => m.isFinal);
+    assert.equal(finalDones.length, 1, 'Exactly one done should be isFinal');
+    assert.ok(dones[dones.length - 1].isFinal, 'Last done should be isFinal');
   });
 
   test('session store failure degrades gracefully without crashing route', async () => {
