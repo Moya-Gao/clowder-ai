@@ -270,4 +270,20 @@ describe('DareAgentService', () => {
     // The transformer's task.completed → text, NOT done
     assert.strictEqual(doneMessages.length, 1, `expected exactly 1 done, got ${doneMessages.length}`);
   });
+
+  test('sessionId passthrough uses --session-id (not --resume)', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+
+    const promise = collect(service.invoke('Continue task', { sessionId: 'sess-42' }));
+    emitDareEvents(proc, [SESSION_STARTED, TASK_COMPLETED]);
+    await promise;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const sidIdx = args.indexOf('--session-id');
+    assert.ok(sidIdx >= 0, `expected --session-id in args: ${args}`);
+    assert.strictEqual(args[sidIdx + 1], 'sess-42');
+    assert.ok(!args.includes('--resume'), `did not expect --resume in args: ${args}`);
+  });
 });

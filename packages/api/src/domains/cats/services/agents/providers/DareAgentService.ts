@@ -87,7 +87,7 @@ export class DareAgentService implements AgentService {
       return;
     }
 
-    const args = this.buildArgs(prompt, options?.workingDirectory);
+    const args = this.buildArgs(prompt, options?.workingDirectory, options?.sessionId);
     // P1-1: cwd must ALWAYS be darePath (where `python -m client` can find the module).
     // Thread's workingDirectory goes to --workspace instead.
     const cwd = this.darePath;
@@ -151,7 +151,7 @@ export class DareAgentService implements AgentService {
     }
   }
 
-  private buildArgs(prompt: string, workspace?: string): string[] {
+  private buildArgs(prompt: string, workspace?: string, sessionId?: string): string[] {
     const args = ['-m', 'client'];
 
     args.push('--adapter', this.adapter);
@@ -164,7 +164,11 @@ export class DareAgentService implements AgentService {
 
     // P1-3: API key is passed via child env (buildEnv), NOT CLI args
 
-    args.push('run', '--task', prompt, '--auto-approve', '--headless');
+    args.push('run');
+    if (sessionId) {
+      args.push('--session-id', sessionId);
+    }
+    args.push('--task', prompt, '--auto-approve', '--headless');
 
     return args;
   }

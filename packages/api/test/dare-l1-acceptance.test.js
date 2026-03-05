@@ -148,7 +148,22 @@ describe('DARE L1 acceptance contract', () => {
     }
   });
 
-  test.skip('resume contract: sessionId passthrough (blocked by DARE issue #184)', () => {
-    // TODO(F050-Phase2): enable after DARE supports --session-id / session:resume.
+  test('resume contract: sessionId passthrough uses --session-id alias', async () => {
+    const proc = createMockProcess();
+    const spawnFn = mock.fn(() => proc);
+    const service = new DareAgentService({ catId: 'dare', spawnFn, model: 'test/model' });
+
+    const pending = collect(service.invoke('resume me', { sessionId: 'sess-resume-1' }));
+    emitDareEvents(proc, [
+      envelope('session.started', {}, 1),
+      envelope('task.completed', { rendered_output: 'ok' }, 2),
+    ]);
+    await pending;
+
+    const args = spawnFn.mock.calls[0].arguments[1];
+    const sidIdx = args.indexOf('--session-id');
+    assert.ok(sidIdx >= 0, `expected --session-id in args: ${args}`);
+    assert.equal(args[sidIdx + 1], 'sess-resume-1');
+    assert.ok(!args.includes('--resume'), `did not expect --resume in args: ${args}`);
   });
 });
