@@ -14,6 +14,7 @@ import {
 import { resolveUserId } from '../utils/request-identity.js';
 import { findMonorepoRoot } from '../utils/monorepo-root.js';
 import { validateProjectPath } from '../utils/project-path.js';
+import { buildProbeHeaders, isInvalidModelProbeError, readProbeError } from './provider-profiles-probe.js';
 
 const PROJECT_ROOT = findMonorepoRoot();
 
@@ -276,28 +277,64 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
       return { error: 'api_key profile is incomplete (baseUrl/apiKey required)' };
     }
 
-    const url = `${normalizeBaseUrl(runtime.baseUrl)}/v1/models`;
+    const baseUrl = normalizeBaseUrl(runtime.baseUrl);
+    const modelsUrl = `${baseUrl}/v1/models`;
     try {
-      const res = await fetchImpl(url, {
+      const modelsRes = await fetchImpl(modelsUrl, {
         method: 'GET',
-        headers: {
-          'x-api-key': runtime.apiKey,
-          'anthropic-version': '2023-06-01',
-        },
+        headers: buildProbeHeaders(runtime.apiKey),
       });
-      if (res.ok) {
+
+      if (modelsRes.ok) {
         return {
           ok: true,
           mode: 'api_key',
-          status: res.status,
+          status: modelsRes.status,
         };
       }
-      const text = await res.text().catch(() => '');
+
+      if (modelsRes.status === 404) {
+        const messagesRes = await fetchImpl(`${baseUrl}/v1/messages`, {
+          method: 'POST',
+          headers: {
+            ...buildProbeHeaders(runtime.apiKey),
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-3-5-haiku-latest',
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+        });
+        if (messagesRes.ok) {
+          return {
+            ok: true,
+            mode: 'api_key',
+            status: messagesRes.status,
+          };
+        }
+        const messagesError = await readProbeError(messagesRes);
+        if (messagesRes.status === 400 && isInvalidModelProbeError(messagesError)) {
+          return {
+            ok: true,
+            mode: 'api_key',
+            status: 200,
+            message: 'baseUrl and apiKey are valid; gateway rejected the probe model identifier',
+          };
+        }
+        return {
+          ok: false,
+          mode: 'api_key',
+          status: messagesRes.status,
+          error: messagesError,
+        };
+      }
+
       return {
         ok: false,
         mode: 'api_key',
-        status: res.status,
-        error: text.slice(0, 400),
+        status: modelsRes.status,
+        error: await readProbeError(modelsRes),
       };
     } catch (err) {
       reply.status(500);

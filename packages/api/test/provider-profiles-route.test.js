@@ -118,6 +118,127 @@ describe('provider profiles routes', () => {
     }
   });
 
+  it('POST /api/provider-profiles/:id/test falls back to /v1/messages when /v1/models is 404', async () => {
+    const Fastify = (await import('fastify')).default;
+    const calls = [];
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes, {
+      fetchImpl: async (url, init) => {
+        const urlString = String(url);
+        calls.push({ method: init?.method ?? 'GET', url: urlString });
+        if (urlString.endsWith('/v1/models')) {
+          return new Response('Not Found', { status: 404 });
+        }
+        if (urlString.endsWith('/v1/messages')) {
+          return new Response('{"id":"msg_test"}', { status: 200 });
+        }
+        return new Response('Unhandled URL', { status: 500 });
+      },
+    });
+    await app.ready();
+
+    const projectDir = await makeTmpDir('test-fallback');
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          provider: 'anthropic',
+          name: 'felix',
+          mode: 'api_key',
+          baseUrl: 'https://chat.nuoda.vip/claudecode',
+          apiKey: 'sk-route',
+          setActive: false,
+        }),
+      });
+      const profileId = createRes.json().profile.id;
+
+      const testRes = await app.inject({
+        method: 'POST',
+        url: `/api/provider-profiles/${profileId}/test`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          provider: 'anthropic',
+        }),
+      });
+      assert.equal(testRes.statusCode, 200);
+      const body = testRes.json();
+      assert.equal(body.ok, true);
+      assert.equal(body.status, 200);
+      assert.deepEqual(
+        calls.map((call) => `${call.method} ${new URL(call.url).pathname}`),
+        ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
+      );
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
+  it('POST /api/provider-profiles/:id/test treats invalid-model 400 as compatible success', async () => {
+    const Fastify = (await import('fastify')).default;
+    const calls = [];
+    const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
+    const app = Fastify();
+    await app.register(providerProfilesRoutes, {
+      fetchImpl: async (url, init) => {
+        const urlString = String(url);
+        calls.push({ method: init?.method ?? 'GET', url: urlString });
+        if (urlString.endsWith('/v1/models')) {
+          return new Response('Not Found', { status: 404 });
+        }
+        if (urlString.endsWith('/v1/messages')) {
+          return new Response('{"type":"error","error":{"type":"invalid_request_error","message":"invalid model"}}', { status: 400 });
+        }
+        return new Response('Unhandled URL', { status: 500 });
+      },
+    });
+    await app.ready();
+
+    const projectDir = await makeTmpDir('test-invalid-model');
+    try {
+      const createRes = await app.inject({
+        method: 'POST',
+        url: '/api/provider-profiles',
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          provider: 'anthropic',
+          name: 'felix-invalid-model',
+          mode: 'api_key',
+          baseUrl: 'https://chat.nuoda.vip/claudecode',
+          apiKey: 'sk-route',
+          setActive: false,
+        }),
+      });
+      const profileId = createRes.json().profile.id;
+
+      const testRes = await app.inject({
+        method: 'POST',
+        url: `/api/provider-profiles/${profileId}/test`,
+        headers: { ...AUTH_HEADERS, 'content-type': 'application/json' },
+        payload: JSON.stringify({
+          projectPath: projectDir,
+          provider: 'anthropic',
+        }),
+      });
+      assert.equal(testRes.statusCode, 200);
+      const body = testRes.json();
+      assert.equal(body.ok, true);
+      assert.deepEqual(
+        calls.map((call) => `${call.method} ${new URL(call.url).pathname}`),
+        ['GET /claudecode/v1/models', 'POST /claudecode/v1/messages'],
+      );
+    } finally {
+      await rm(projectDir, { recursive: true, force: true });
+      await app.close();
+    }
+  });
+
   it('rejects blank profile name in create request', async () => {
     const Fastify = (await import('fastify')).default;
     const { providerProfilesRoutes } = await import('../dist/routes/provider-profiles.js');
