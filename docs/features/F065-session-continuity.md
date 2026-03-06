@@ -8,9 +8,10 @@ created: 2026-03-05
 
 # F065: Session Continuity — 封印重生，记忆不断
 
-> 状态: spec
+> 状态: done
 > 负责猫: 布偶猫（实现）+ 缅因猫（review）
 > 日期: 2026-03-05
+> 完成日期: 2026-03-06
 > Evolved from: F024 (Session Chain + Context Health)
 
 ---
@@ -71,7 +72,7 @@ created: 2026-03-05
 | R1 | "新启动的猫需要继承过去的猫的猫猫崇崇" | AC-1, AC-2 | test: bootstrap 输出包含 task 列表 | [x] Phase A `e5082209` |
 | R2 | "搜文件树那样搜 session chain → invocation → 文件树" | AC-3, AC-4 | test: bootstrap 引导路径 + 端到端查询 | [x] Phase A `e5082209` |
 | R3 | 恢复模式是"记忆模式"（知道之前做了什么，自行决定下一步） | AC-2 | manual: 新猫不被指令式驱动 | [x] Phase A — 快照是 data marker，非指令 |
-| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-8 | test: 不同 catId 均生效 | [~] Phase A 覆盖 AC-1~6；AC-7~8 待 Phase B |
+| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-8 | test: 不同 catId 均生效 | [x] Phase A~C 全覆盖 |
 | R5 | Bootstrap 不能超预算（砚砚 review 发现） | AC-5 | test: serial/parallel/incremental 三路径 token cap | [x] Phase A — section-aware cap 2000 tokens |
 | R6 | Task 内容不能变成注入攻击（砚砚 review 发现） | AC-6 | test: 恶意 title/why 截断+转义 | [x] Phase A — sanitize() + 12 injection tests |
 
@@ -105,6 +106,7 @@ created: 2026-03-05
 | KD-5 | ThreadMemory token 上限 `min(3000, floor(maxPromptTokens * 0.03))`，下限 1200 | 砚砚分析：预算未扣 bootstrap，Spark 64k prompt 下 3% ≈ 1920 |
 | KD-6 | Task 快照格式：紧凑列表 + 焦点任务，doing>blocked>todo>done 排序，最多 8 open + 2 done | 砚砚建议，约 200-400 tokens |
 | KD-7 | Task title/why 按数据块渲染，截断 80/120 字符，含注入防护 | 砚砚 P1 安全发现 |
+| KD-8 | Handoff digest (LLM free text) 注入 bootstrap 时必须 sanitize + data-marker | 三猫愿景守护 P1 发现 |
 
 ## Dependencies
 
@@ -126,13 +128,15 @@ created: 2026-03-05
 | # | 问题 | 待定方 | 结论 |
 |---|------|--------|------|
 | OQ-1 | ThreadMemory 的 token 上限 | ✅ 已决 | `min(3000, floor(maxPromptTokens * 0.03))`，下限 1200（KD-5） |
-| OQ-2 | Phase C (handoff digest) 的优先级 | 铲屎官 | — |
+| OQ-2 | Phase C (handoff digest) 的优先级 | ✅ 已完成 | Phase C 已实现并合入（PR #240），含 Haiku LLM digest generation |
 | OQ-3 | Task 快照格式 | ✅ 已决 | 紧凑列表 + 焦点任务（KD-6） |
 
 ## Review Gate
 
-- Phase A: 布偶猫实现 → 缅因猫 review
-- Phase B/C: 待定
+- Phase A: 布偶猫实现 → 缅因猫 review → PR #229 merged ✅
+- Phase B: 布偶猫实现 → 缅因猫 review → PR #234 merged ✅
+- Phase C: 布偶猫实现 → 缅因猫 review → PR #240 merged ✅
+- Hotfix (P1 injection + P2-2 input cap): 布偶猫实现 → 缅因猫 review
 
 ## Timeline
 
@@ -142,3 +146,7 @@ created: 2026-03-05
 | 2026-03-05 | 砚砚 review OQ-1/OQ-3 → 收敛：3k cap + 紧凑快照；发现 P1 预算门禁 + injection 风险 |
 | 2026-03-05 | Phase A 实现 → 砚砚 R4→R5→R6 (5 findings → all fixed → 放行) |
 | 2026-03-05 | PR #229 merged (`e5082209`) — 云端 codex 0 P1/P2 |
+| 2026-03-05 | Phase B (ThreadMemory) 实现 → 砚砚 review → PR #234 merged |
+| 2026-03-06 | Phase C (Handoff Digest) 实现 → 砚砚 R1→R4 放行 → PR #240 merged (`460a854e`) |
+| 2026-03-06 | 三猫独立愿景守护 (gpt52 + opus-45 + codex): 1 P1 (injection gap) + 2 P2 |
+| 2026-03-06 | Hotfix: P1 sanitize + data-marker, P2-2 input token cap, P2-1 truth source closure |

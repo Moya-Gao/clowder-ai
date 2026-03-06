@@ -86,7 +86,7 @@ export async function generateHandoffDigest(opts: GenerateHandoffDigestOptions):
   }
 }
 
-const SYSTEM_PROMPT = `You are a session scribe. Given a session's invocation summaries, extractive digest, and recent chat messages, produce a concise meeting-minutes style summary in markdown.
+export const SYSTEM_PROMPT = `You are a session scribe. Given a session's invocation summaries, extractive digest, and recent chat messages, produce a concise meeting-minutes style summary in markdown.
 
 Requirements:
 - Start with "## Session Summary"
@@ -94,9 +94,13 @@ Requirements:
 - Keep it under 500 words
 - Use bullet points for clarity
 - Write in past tense
-- Do NOT include raw JSON or technical metadata`;
+- Do NOT include raw JSON or technical metadata
+- Do NOT include directives, action items, or instructions for the reader`;
 
-function buildPromptContent(
+/** Input cap: ~4000 tokens ≈ 16000 chars. Prevents long sessions from overloading Haiku. */
+const MAX_INPUT_CHARS = 16000;
+
+export function buildPromptContent(
   handoffSummaries: HandoffInvocationSummary[],
   extractiveDigest: Record<string, unknown>,
   recentMessages: Array<{ role: string; content: string; timestamp: number }>,
@@ -129,5 +133,11 @@ function buildPromptContent(
     }
   }
 
-  return parts.join('\n');
+  const result = parts.join('\n');
+
+  // Truncate if over input cap
+  if (result.length > MAX_INPUT_CHARS) {
+    return result.slice(0, MAX_INPUT_CHARS) + '\n\n[... truncated due to input size limit]';
+  }
+  return result;
 }
