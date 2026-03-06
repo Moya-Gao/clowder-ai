@@ -81,7 +81,7 @@ fi
 MODEL_TRIMMED="$(echo "$MODEL" | tr -d '[:space:]')"
 
 if [ -z "$MODEL_TRIMMED" ]; then
-  emit_decision "deny" "⛔ Agent 调用被拦截：缺少 model 参数。请立即用相同参数重试，加上 model=haiku（搜索/grep/简单任务）或 model=sonnet（多文件分析）。不要改用 Grep/Read 自己做——那样会污染你的 Opus context，更贵。"
+  emit_decision "deny" "⛔ Agent 被拦截：缺 model。立即重试同一调用并加 model 参数。选择标准：model=haiku → 找文件、grep关键词、看目录、读单文件、简单确认（90%的子任务都是这个）。model=sonnet → 需要理解代码逻辑的多文件调用链分析、跨模块依赖追踪、复杂重构影响评估。禁止放弃 Agent 改用 Grep/Read 自己做！那会把结果塞进 Opus context，比开 haiku 子代理贵 10 倍。"
   exit 0
 fi
 
