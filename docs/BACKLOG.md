@@ -32,6 +32,5 @@ created: 2026-02-26
 | F059 | Cat Café 开源计划 — 3/30 目标 | spec | 布偶猫 | [F059](features/F059-open-source-plan.md) |
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | spec | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
 | F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | in-review | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
-| F064 | A2A 出口检查 — 链条终止盲区修复 | in-progress | 布偶猫 | [F064](features/F064-a2a-exit-check.md) |
 | F065 | Session Continuity — 封印重生，记忆不断 | spec | 布偶猫 | [F065](features/F065-session-continuity.md) |
 | F066 | Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列 | spec | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |

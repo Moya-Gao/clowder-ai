@@ -76,12 +76,12 @@ doc_kind: feature
 
 ## 验收标准
 
-- [ ] 缅因猫 system prompt 中"出口检查"和"@ 自检"篇幅大致平衡
-- [ ] `a2aEnabled=true` 且非 parallel 时，invocation context 包含出口检查提示
-- [ ] `mentionRoutingFeedback` 有值时，invocation context 包含纠正提醒
-- [ ] parallel 模式不注入出口检查
-- [ ] 所有现有 system-prompt-builder 测试 + 新增测试通过
-- [ ] size guard 未超限
+- [x] 缅因猫 system prompt 中"出口检查"和"@ 自检"篇幅大致平衡（4 正面触发 + 3 行出口检查 + 3 行自检）
+- [x] `a2aEnabled=true` 且非 parallel 时，invocation context 包含出口检查提示（line 387-388）
+- [x] `mentionRoutingFeedback` 有值时，invocation context 包含纠正提醒（line 391-395）
+- [x] parallel 模式不注入出口检查（`context.mode !== 'parallel'` 条件）
+- [x] 所有现有 system-prompt-builder 测试 + 新增测试通过（57 pass）
+- [x] size guard 未超限（codex prompt 1478 chars < 2000 limit）
 
 ## 参考
 
@@ -113,3 +113,11 @@ doc_kind: feature
 - Store interface: `ThreadStore.ts:129-137`
 - 路由入口: `route-serial.ts:120-149`
 - 解析器: `a2a-mentions.ts`（需扩展）
+
+## 愿景守护签收表
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫 (opus-45) | F064 聚合文件、对话历史（铲屎官原话"他只是单纯的不at下一只猫"）、SystemPromptBuilder 代码 | ① 核心问题是链条终止盲区 ② 三层修复能解决（出口检查+比重平衡+动态注入）③ 猫猫协作时会被提示"到我这里结束了吗" | ✅ 2026-03-06 |
+
+待补：跨猫交叉验证（@codex / @gpt52）
