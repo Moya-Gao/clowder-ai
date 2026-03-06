@@ -9,6 +9,7 @@ import { MissionControlCard } from './MissionControlCard';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
 import { ThreadSituationPanel } from './ThreadSituationPanel';
+import { FeatureBirdEyePanel } from './FeatureBirdEyePanel';
 
 interface BacklogListResponse {
   items?: BacklogItem[];
@@ -424,6 +425,10 @@ export function MissionControlPage() {
             <ThreadSituationPanel
               dispatchedItems={dispatchedItems}
               loading={threadsLoading}
+              threadsByBacklogId={threadsByBacklogId}
+            />
+            <FeatureBirdEyePanel
+              items={items}
               threadsByBacklogId={threadsByBacklogId}
             />
           </div>

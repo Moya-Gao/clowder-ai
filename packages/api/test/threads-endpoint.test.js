@@ -124,6 +124,26 @@ describe('Thread API', () => {
     assert.ok(!titles.includes('Bob Linked'));
   });
 
+  it('GET /api/threads rejects backlogItemIds with more than 50 IDs', async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => `id-${i}`).join(',');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/threads?userId=alice&backlogItemIds=${encodeURIComponent(ids)}`,
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error?.includes('50'));
+  });
+
+  it('GET /api/threads accepts backlogItemIds with exactly 50 IDs', async () => {
+    const ids = Array.from({ length: 50 }, (_, i) => `id-${i}`).join(',');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/threads?userId=alice&backlogItemIds=${encodeURIComponent(ids)}`,
+    });
+    assert.equal(res.statusCode, 200);
+  });
+
   it('GET /api/threads supports hasBacklogItemId=true without leaking other user threads', async () => {
     const aliceLinked = threadStore.create('alice', 'Alice Linked');
     const aliceUnlinked = threadStore.create('alice', 'Alice Unlinked');

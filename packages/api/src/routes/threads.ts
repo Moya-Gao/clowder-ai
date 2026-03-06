@@ -136,7 +136,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
   });
 
   // GET /api/threads - 列出用户的对话
-  app.get('/api/threads', async (request) => {
+  app.get('/api/threads', async (request, reply) => {
     const parseResult = listThreadsSchema.safeParse(request.query);
     if (!parseResult.success) {
       return { threads: [] };
@@ -154,6 +154,11 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     const requestedBacklogIds = backlogItemIds
       ? new Set(backlogItemIds.split(',').map((id) => id.trim()).filter((id) => id.length > 0))
       : null;
+
+    if (requestedBacklogIds && requestedBacklogIds.size > 50) {
+      reply.status(400);
+      return { error: 'Too many backlogItemIds (max 50)' };
+    }
 
     if (requestedBacklogIds && requestedBacklogIds.size > 0) {
       threads = threads.filter((thread) => {

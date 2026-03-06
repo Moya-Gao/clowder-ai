@@ -81,7 +81,7 @@ export function ThreadSituationPanel({
                 Thread：{thread.title || thread.id}
               </p>
               <p className="text-[11px] text-[#6E5A46]">
-                最近活跃：{formatLastActive(thread.lastActiveAt)}
+                最近活跃：<span title={new Date(thread.lastActiveAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}>{formatLastActive(thread.lastActiveAt)}</span>
               </p>
               <p className="text-[11px] text-[#6E5A46]">
                 参与猫：{thread.participants.length > 0 ? thread.participants.join(', ') : '暂无'}
