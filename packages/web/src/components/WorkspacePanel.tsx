@@ -3,7 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
-import { API_URL } from '@/utils/api-client';
+import { API_URL, apiFetch } from '@/utils/api-client';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -98,7 +98,7 @@ const MenuIcon = () => (
 
 /* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
-  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults } = useWorkspace();
+  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile } = useWorkspace();
 
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
@@ -107,10 +107,15 @@ export function WorkspacePanel() {
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const editToken = useChatStore((s) => s.workspaceEditToken);
+  const editTokenExpiry = useChatStore((s) => s.workspaceEditTokenExpiry);
+  const setEditToken = useChatStore((s) => s.setWorkspaceEditToken);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [editMode, setEditMode] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80)
   const [treeBasis, setTreeBasis] = useState(40);
   const panelRef = useRef<HTMLElement>(null);
@@ -135,6 +140,7 @@ export function WorkspacePanel() {
     (path: string) => {
       setOpenFile(path);
       setSearchResults([]);
+      setEditMode(false);
     },
     [setOpenFile, setSearchResults],
   );
@@ -151,6 +157,7 @@ export function WorkspacePanel() {
     (path: string, line: number) => {
       setOpenFile(path, line);
       setSearchResults([]);
+      setEditMode(false);
     },
     [setOpenFile, setSearchResults],
   );
@@ -160,6 +167,85 @@ export function WorkspacePanel() {
       setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`` });
     },
     [setPendingChatInsert, currentThreadId],
+  );
+
+  const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
+  const canEdit = file && !file.binary && !file.truncated;
+
+  const handleToggleEdit = useCallback(async () => {
+    // If already editing with a valid token, toggle off
+    if (editMode && isTokenValid) {
+      setEditMode(false);
+      return;
+    }
+    if (!worktreeId) return;
+    setSaveError(null);
+
+    // Get or refresh token (also handles expired-token-while-editing case)
+    if (!isTokenValid) {
+      try {
+        const res = await apiFetch(`${API_URL}/api/workspace/edit-session`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ worktreeId }),
+        });
+        if (!res.ok) {
+          setSaveError('无法获取编辑权限');
+          return;
+        }
+        const data = await res.json();
+        setEditToken(data.token, data.expiresIn);
+      } catch {
+        setSaveError('网络错误');
+        return;
+      }
+    }
+    setEditMode(true);
+  }, [editMode, worktreeId, isTokenValid, setEditToken]);
+
+  const handleSave = useCallback(
+    async (newContent: string) => {
+      if (!worktreeId || !openFilePath || !file) return;
+      if (!editToken) {
+        setSaveError('编辑会话过期，请点击「编辑」按钮刷新权限后重试保存');
+        return;
+      }
+      setSaveError(null);
+      try {
+        const res = await apiFetch(`${API_URL}/api/workspace/file`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            worktreeId,
+            path: openFilePath,
+            content: newContent,
+            baseSha256: file.sha256,
+            editSessionToken: editToken,
+          }),
+        });
+        if (res.status === 409) {
+          setSaveError('冲突：文件已被修改，请重新加载');
+          return;
+        }
+        if (res.status === 401) {
+          setEditToken(null);
+          // Keep editMode=true so unsaved edits aren't lost.
+          // User can click the edit toggle to re-acquire a token and retry.
+          setSaveError('编辑会话过期，请点击「编辑」按钮刷新权限后重试保存');
+          return;
+        }
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({ error: 'Unknown error' }));
+          setSaveError(data.error || '保存失败');
+          return;
+        }
+        // Re-fetch file to get new content + sha256
+        if (openFilePath) await fetchFile(openFilePath);
+      } catch {
+        setSaveError('网络错误');
+      }
+    },
+    [worktreeId, openFilePath, file, editToken, setEditToken, fetchFile],
   );
 
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
@@ -285,15 +371,36 @@ export function WorkspacePanel() {
                   </span>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() => setOpenFile(null)}
-                className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors flex-shrink-0"
-                title="关闭文件"
-              >
-                <CloseIcon />
-              </button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={handleToggleEdit}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      editMode
+                        ? 'bg-green-600/80 text-white hover:bg-green-500'
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-white/10'
+                    }`}
+                    title={editMode ? '退出编辑' : '编辑文件'}
+                  >
+                    {editMode ? '编辑中' : '编辑'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setOpenFile(null); setEditMode(false); }}
+                  className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                  title="关闭文件"
+                >
+                  <CloseIcon />
+                </button>
+              </div>
             </div>
+            {saveError && (
+              <div className="px-3 py-1.5 text-[10px] text-red-400 bg-red-900/20 border-b border-red-900/30">
+                {saveError}
+              </div>
+            )}
             {file.binary ? (
               file.mime.startsWith('image/') ? (
                 <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
@@ -313,7 +420,7 @@ export function WorkspacePanel() {
                 </div>
               )
             ) : (
-              <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} />
+              <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} />
             )}
             {file.truncated && (
               <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">

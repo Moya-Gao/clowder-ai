@@ -57,21 +57,30 @@ export function CodeViewer({
   mime,
   path,
   scrollToLine,
+  editable = false,
+  onSave,
 }: {
   content: string;
   mime: string;
   path: string;
   scrollToLine: number | null;
+  editable?: boolean;
+  onSave?: (newContent: string) => Promise<void>;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const [hasSelection, setHasSelection] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+  const [saving, setSaving] = useState(false);
   const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
   const currentThreadId = useChatStore((s) => s.currentThreadId);
+  const baseContentRef = useRef(content);
 
   useEffect(() => {
     if (!containerRef.current) return;
     setHasSelection(false);
+    setIsDirty(false);
+    baseContentRef.current = content;
     viewRef.current?.destroy();
 
     const lang = getLanguageExtension(mime, path);
@@ -81,12 +90,16 @@ export function CodeViewer({
         basicSetup,
         lang,
         cafeTheme,
-        EditorView.editable.of(false),
-        EditorState.readOnly.of(true),
+        EditorView.editable.of(editable),
+        EditorState.readOnly.of(!editable),
         EditorView.updateListener.of((update) => {
           if (update.selectionSet) {
             const sel = getSelectionInfo(update.view);
             setHasSelection(!!sel);
+          }
+          if (update.docChanged && editable) {
+            const current = update.state.doc.toString();
+            setIsDirty(current !== baseContentRef.current);
           }
         }),
       ],
@@ -104,7 +117,33 @@ export function CodeViewer({
     return () => {
       view.destroy();
     };
-  }, [content, mime, path, scrollToLine]);
+  }, [content, mime, path, scrollToLine, editable]);
+
+  const handleSave = useCallback(async () => {
+    const view = viewRef.current;
+    if (!view || !onSave || saving) return;
+    const newContent = view.state.doc.toString();
+    if (newContent === baseContentRef.current) return;
+    setSaving(true);
+    try {
+      await onSave(newContent);
+    } finally {
+      setSaving(false);
+    }
+  }, [onSave, saving]);
+
+  // Cmd/Ctrl+S keyboard shortcut
+  useEffect(() => {
+    if (!editable || !onSave) return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        handleSave();
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [editable, onSave, handleSave]);
 
   const handleAddToChat = useCallback(() => {
     const view = viewRef.current;
@@ -119,7 +158,20 @@ export function CodeViewer({
   return (
     <div className="relative flex-1 overflow-auto text-sm">
       <div ref={containerRef} className="h-full" />
-      {hasSelection && (
+      {/* Save button (edit mode + dirty) */}
+      {editable && isDirty && (
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving}
+          className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-medium shadow-lg hover:bg-green-500 disabled:opacity-50 transition-colors z-10 animate-fade-in"
+          title="保存 (Cmd+S)"
+        >
+          {saving ? '保存中...' : '保存'}
+        </button>
+      )}
+      {/* Add to chat button (selection) */}
+      {hasSelection && !editable && (
         <button
           type="button"
           onClick={handleAddToChat}

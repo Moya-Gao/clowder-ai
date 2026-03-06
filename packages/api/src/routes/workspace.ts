@@ -1,10 +1,13 @@
 /**
  * Workspace Explorer Routes — F063
  *
- * GET  /api/workspace/worktrees — list git worktrees
- * GET  /api/workspace/tree      — directory tree (depth-limited)
- * GET  /api/workspace/file      — file content + sha256
- * POST /api/workspace/search    — content / filename search
+ * GET  /api/workspace/worktrees    — list git worktrees
+ * GET  /api/workspace/tree         — directory tree (depth-limited)
+ * GET  /api/workspace/file         — file content + sha256
+ * GET  /api/workspace/file/raw     — stream raw image content
+ * POST /api/workspace/search       — content / filename search
+ *
+ * Edit routes: see workspace-edit.ts
  */
 
 import { execFile } from 'node:child_process';

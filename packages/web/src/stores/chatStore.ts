@@ -300,9 +300,12 @@ interface ChatState {
   workspaceWorktreeId: string | null;
   workspaceOpenFilePath: string | null;
   workspaceOpenFileLine: number | null;
+  workspaceEditToken: string | null;
+  workspaceEditTokenExpiry: number | null;
   setRightPanelMode: (mode: 'status' | 'workspace') => void;
   setWorkspaceWorktreeId: (id: string | null) => void;
   setWorkspaceOpenFile: (path: string | null, line?: number | null) => void;
+  setWorkspaceEditToken: (token: string | null, expiresIn?: number) => void;
 
   // ── F63-AC15: Code-to-chat reference ──
   pendingChatInsert: { threadId: string; text: string } | null;
@@ -417,13 +420,20 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceWorktreeId: null,
   workspaceOpenFilePath: null,
   workspaceOpenFileLine: null,
+  workspaceEditToken: null,
+  workspaceEditTokenExpiry: null,
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
-  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id }),
+  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id, workspaceEditToken: null, workspaceEditTokenExpiry: null }),
   setWorkspaceOpenFile: (path, line) =>
     set({
       workspaceOpenFilePath: path,
       workspaceOpenFileLine: line ?? null,
       rightPanelMode: path ? 'workspace' : 'status',
+    }),
+  setWorkspaceEditToken: (token, expiresIn) =>
+    set({
+      workspaceEditToken: token,
+      workspaceEditTokenExpiry: token && expiresIn ? Date.now() + expiresIn * 1000 : null,
     }),
 
   // ── F63-AC15: Code-to-chat reference ──
