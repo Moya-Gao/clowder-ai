@@ -59,8 +59,10 @@ created: 2026-03-05
 | AC-2 | 新猫一醒来就知道"有 N 个任务，完成 M 个，当前在做哪个" | A |
 | AC-3 | Bootstrap 引导路径包含 `read_invocation_detail` 和 `view=handoff` 推荐 | A |
 | AC-4 | 封印重生的猫能通过已有 MCP 工具自主搜索旧 session 并恢复上下文 | A |
-| AC-5 | ThreadMemory 在每次 seal 时更新，新 session bootstrap 注入 | B |
-| AC-6 | Session 5 的猫能通过 ThreadMemory 了解 Session 1 的关键信息 | B |
+| AC-5 | Bootstrap 总 token cap 在 serial/parallel 两条路径都生效（含增量模式） | A |
+| AC-6 | Task 快照内容按数据展示处理，包含注入防护与截断测试 | A |
+| AC-7 | ThreadMemory 在每次 seal 时更新，新 session bootstrap 注入 | B |
+| AC-8 | Session 5 的猫能通过 ThreadMemory 了解 Session 1 的关键信息 | B |
 
 ## 需求点 Checklist
 
@@ -69,7 +71,9 @@ created: 2026-03-05
 | R1 | "新启动的猫需要继承过去的猫的猫猫崇崇" | AC-1, AC-2 | test: bootstrap 输出包含 task 列表 | [ ] |
 | R2 | "搜文件树那样搜 session chain → invocation → 文件树" | AC-3, AC-4 | test: bootstrap 引导路径 + 端到端查询 | [ ] |
 | R3 | 恢复模式是"记忆模式"（知道之前做了什么，自行决定下一步） | AC-2 | manual: 新猫不被指令式驱动 | [ ] |
-| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-6 | test: 不同 catId 均生效 | [ ] |
+| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-8 | test: 不同 catId 均生效 | [ ] |
+| R5 | Bootstrap 不能超预算（砚砚 review 发现） | AC-5 | test: serial/parallel/incremental 三路径 token cap | [ ] |
+| R6 | Task 内容不能变成注入攻击（砚砚 review 发现） | AC-6 | test: 恶意 title/why 截断+转义 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -98,6 +102,9 @@ created: 2026-03-05
 | KD-2 | Task 快照直接注入 bootstrap（例外于 KD-1） | Task 列表小且关键，不适合让猫自己去搜才知道有任务 |
 | KD-3 | MCP 查询工具已由 TD098 完成（view 模式 + invocation detail + search 指针），F065 只需更新 bootstrap 引导路径 | 避免重复劳动 |
 | KD-4 | 面向所有猫，不限 Claude | 铲屎官确认 Q3 |
+| KD-5 | ThreadMemory token 上限 `min(3000, floor(maxPromptTokens * 0.03))`，下限 1200 | 砚砚分析：预算未扣 bootstrap，Spark 64k prompt 下 3% ≈ 1920 |
+| KD-6 | Task 快照格式：紧凑列表 + 焦点任务，doing>blocked>todo>done 排序，最多 8 open + 2 done | 砚砚建议，约 200-400 tokens |
+| KD-7 | Task title/why 按数据块渲染，截断 80/120 字符，含注入防护 | 砚砚 P1 安全发现 |
 
 ## Dependencies
 
@@ -109,16 +116,18 @@ created: 2026-03-05
 | 风险 | 严重度 | 缓解 |
 |------|--------|------|
 | Task 列表注入增加 bootstrap prompt 长度 | 低 | Task 列表通常很短（<10 项），格式化后 <500 tokens |
+| Bootstrap 超预算（增量路径无门禁） | 高 | Phase A 同时修 serial/parallel/incremental 三路径，加 bootstrap token 扣减 |
+| Task 快照 prompt injection | 中 | 数据块标记 + 截断 + 转义 + 测试覆盖 |
 | ThreadMemory 滚动摘要质量 | 中 | Phase B 先用规则提取，质量不够再升级 LLM |
 | handoff digest 生成成本 | 低 | Phase C 可选，用便宜模型 |
 
 ## Open Questions
 
-| # | 问题 | 待定方 |
-|---|------|--------|
-| OQ-1 | ThreadMemory 的 token 上限应该设多少？（3k? 6k?） | 技术讨论 |
-| OQ-2 | Phase C (handoff digest) 的优先级——先做还是后做？ | 铲屎官 |
-| OQ-3 | Task 快照格式——紧凑列表还是详细描述？ | 技术讨论 |
+| # | 问题 | 待定方 | 结论 |
+|---|------|--------|------|
+| OQ-1 | ThreadMemory 的 token 上限 | ✅ 已决 | `min(3000, floor(maxPromptTokens * 0.03))`，下限 1200（KD-5） |
+| OQ-2 | Phase C (handoff digest) 的优先级 | 铲屎官 | — |
+| OQ-3 | Task 快照格式 | ✅ 已决 | 紧凑列表 + 焦点任务（KD-6） |
 
 ## Review Gate
 
@@ -130,3 +139,4 @@ created: 2026-03-05
 | 日期 | 事件 |
 |------|------|
 | 2026-03-05 | Kickoff — 铲屎官提出需求，分析 gap，立项 |
+| 2026-03-05 | 砚砚 review OQ-1/OQ-3 → 收敛：3k cap + 紧凑快照；发现 P1 预算门禁 + injection 风险 |
