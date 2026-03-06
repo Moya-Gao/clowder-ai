@@ -1,26 +1,39 @@
 #!/usr/bin/env python3
 """
-TTS server for Cat Cafe voice output (MLX-Audio backend, Apple Silicon native).
+TTS server for Cat Cafe voice output.
 OpenAI-compatible endpoint: POST /v1/audio/speech
+
+Supports multiple backends via TtsAdapter:
+  - mlx-audio (default): Apple Silicon native, Kokoro-82M
+  - edge-tts: Microsoft cloud TTS (fallback, no GPU needed)
 
 Usage:
   source ~/.cat-cafe/tts-venv/bin/activate
-  python scripts/tts-api.py                                              # default: Kokoro-82M
-  python scripts/tts-api.py --model mlx-community/Kokoro-82M-bf16       # explicit model
-  python scripts/tts-api.py --port 9877                                  # custom port
+  python scripts/tts-api.py                                     # default: mlx-audio
+  TTS_PROVIDER=edge-tts python scripts/tts-api.py               # edge-tts fallback
+  python scripts/tts-api.py --model mlx-community/Kokoro-82M-bf16
+  python scripts/tts-api.py --port 9877
 
-Requires: pip install mlx-audio "misaki[zh]"
+Env vars:
+  TTS_PROVIDER  — "mlx-audio" (default) or "edge-tts"
+  TTS_PORT      — server port (default: 9877)
+
+Requires (mlx-audio): pip install mlx-audio "misaki[zh]"
+Requires (edge-tts):  pip install edge-tts
 """
+
+from __future__ import annotations
 
 import argparse
 import asyncio
 import logging
+import os
+import shutil
 import signal
 import sys
 import tempfile
+from abc import ABC, abstractmethod
 from pathlib import Path
-
-import shutil
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
@@ -28,7 +41,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-MAX_INPUT_CHARS = 5000  # Limit input text length
+MAX_INPUT_CHARS = 5000
 
 log = logging.getLogger("tts-api")
 
@@ -48,11 +61,195 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-model_path: str = ""
-model_loaded: bool = False
 
-# Serialize GPU access — mlx doesn't handle concurrent synthesis well
-_synthesize_lock = asyncio.Lock()
+# ─── TTS Adapter ABC ─────────────────────────────────────────────────
+
+
+class TtsAdapter(ABC):
+    """Abstract TTS backend. Subclass to add new providers."""
+
+    @property
+    @abstractmethod
+    def name(self) -> str:
+        """Provider identifier (e.g. 'mlx-audio', 'edge-tts')."""
+        ...
+
+    @property
+    def model_name(self) -> str:
+        """Model name for health/diagnostics. Override if applicable."""
+        return "none"
+
+    @abstractmethod
+    async def synthesize(
+        self,
+        text: str,
+        voice: str,
+        lang_code: str,
+        speed: float,
+        audio_format: str,
+    ) -> tuple[bytes, str]:
+        """Synthesize text to audio bytes.
+
+        Returns:
+            (audio_bytes, actual_format) — actual_format may differ from
+            audio_format if the backend doesn't support the requested format.
+        """
+        ...
+
+    def warmup(self) -> None:
+        """Pre-load model or verify connectivity. No-op by default."""
+
+
+# ─── MLX-Audio Adapter ────────────────────────────────────────────────
+
+
+class MlxAudioAdapter(TtsAdapter):
+    """Apple Silicon native TTS via mlx-audio (Kokoro-82M default)."""
+
+    def __init__(self, model: str = "mlx-community/Kokoro-82M-bf16"):
+        self._model = model
+        self._lock = asyncio.Lock()
+
+    @property
+    def name(self) -> str:
+        return "mlx-audio"
+
+    @property
+    def model_name(self) -> str:
+        return self._model
+
+    async def synthesize(
+        self, text: str, voice: str, lang_code: str, speed: float, audio_format: str,
+    ) -> tuple[bytes, str]:
+        try:
+            from mlx_audio.tts.generate import generate_audio as tts_generate
+        except ImportError as exc:
+            raise RuntimeError(
+                "mlx_audio.tts not available — pip install mlx-audio 'misaki[zh]'"
+            ) from exc
+
+        output_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-"))
+        try:
+            async with self._lock:
+                await asyncio.to_thread(
+                    tts_generate,
+                    text=text,
+                    model=self._model,
+                    voice=voice,
+                    lang_code=lang_code,
+                    speed=speed,
+                    audio_format=audio_format,
+                    output_path=str(output_dir),
+                )
+
+            audio_files = list(output_dir.glob(f"*.{audio_format}"))
+            if not audio_files:
+                raise RuntimeError("No audio file generated")
+
+            return audio_files[0].read_bytes(), audio_format
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+    def warmup(self) -> None:
+        from mlx_audio.tts.generate import generate_audio as tts_generate
+
+        warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-warmup-"))
+        try:
+            tts_generate(
+                text="你好",
+                model=self._model,
+                voice="zm_yunjian",
+                lang_code="z",
+                output_path=str(warmup_dir),
+            )
+        except Exception:
+            pass  # Warmup may fail, model is still loaded
+        finally:
+            shutil.rmtree(warmup_dir, ignore_errors=True)
+
+
+# ─── Edge-TTS Adapter ─────────────────────────────────────────────────
+
+
+class EdgeTtsAdapter(TtsAdapter):
+    """Microsoft Edge TTS (cloud, no GPU needed). Fallback provider."""
+
+    # Kokoro voice → edge-tts voice mapping (best-effort)
+    _VOICE_MAP: dict[str, str] = {
+        "zm_yunjian": "zh-CN-YunjianNeural",
+        "zm_yunxi": "zh-CN-YunxiNeural",
+        "zm_yunyang": "zh-CN-YunyangNeural",
+        "zm_yunze": "zh-CN-YunzeNeural",
+        "zf_xiaobei": "zh-CN-XiaoxiaoNeural",
+        "zf_xiaoni": "zh-CN-XiaoyiNeural",
+        "zf_xiaoyi": "zh-CN-XiaoyiNeural",
+        "zf_yunxia": "zh-CN-XiaoxiaoNeural",
+    }
+
+    @property
+    def name(self) -> str:
+        return "edge-tts"
+
+    async def synthesize(
+        self, text: str, voice: str, lang_code: str, speed: float, audio_format: str,
+    ) -> tuple[bytes, str]:
+        try:
+            import edge_tts
+        except ImportError as exc:
+            raise RuntimeError("edge-tts not available — pip install edge-tts") from exc
+
+        # edge-tts always outputs mp3 regardless of requested format
+        actual_format = "mp3"
+        if audio_format != "mp3":
+            log.info(
+                "edge-tts only supports mp3 output, ignoring requested format '%s'",
+                audio_format,
+            )
+
+        # Map Kokoro voice names to edge-tts voice names
+        if voice in self._VOICE_MAP:
+            mapped = self._VOICE_MAP[voice]
+            log.info("Mapped Kokoro voice '%s' → edge-tts '%s'", voice, mapped)
+            voice = mapped
+        elif voice.startswith("zm_") or voice.startswith("zf_"):
+            log.warning("Unknown Kokoro voice '%s', falling back to YunxiNeural", voice)
+            voice = "zh-CN-YunxiNeural"
+
+        rate = f"{int((speed - 1) * 100):+d}%"
+        comm = edge_tts.Communicate(text=text, voice=voice, rate=rate)
+
+        audio_chunks: list[bytes] = []
+        async for chunk in comm.stream():
+            if chunk["type"] == "audio":
+                audio_chunks.append(chunk["data"])
+
+        if not audio_chunks:
+            raise RuntimeError("edge-tts returned no audio data")
+
+        return b"".join(audio_chunks), actual_format
+
+
+# ─── Factory ──────────────────────────────────────────────────────────
+
+
+def create_adapter(provider: str, model: str) -> TtsAdapter:
+    """Create TTS adapter based on provider name."""
+    if provider == "mlx-audio":
+        return MlxAudioAdapter(model=model)
+    if provider == "edge-tts":
+        return EdgeTtsAdapter()
+    raise ValueError(
+        f"Unknown TTS provider: '{provider}'. Supported: mlx-audio, edge-tts"
+    )
+
+
+# ─── Global state ─────────────────────────────────────────────────────
+
+adapter: TtsAdapter | None = None
+adapter_ready: bool = False
+
+
+# ─── API endpoints ────────────────────────────────────────────────────
 
 
 class SpeechRequest(BaseModel):
@@ -65,119 +262,97 @@ class SpeechRequest(BaseModel):
 
 
 @app.post("/v1/audio/speech")
-async def synthesize(req: SpeechRequest):
+async def synthesize_endpoint(req: SpeechRequest):
     """OpenAI-compatible TTS endpoint."""
-    if not model_loaded:
-        raise HTTPException(503, detail="Model not loaded yet")
+    if not adapter_ready or adapter is None:
+        raise HTTPException(503, detail="TTS adapter not ready yet")
 
     try:
-        from mlx_audio.tts.generate import generate_audio as tts_generate
-    except ImportError:
-        raise HTTPException(500, detail="mlx_audio.tts not available")
-
-    # Generate to temp dir, read into memory, clean up immediately
-    output_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-"))
-    try:
-        async with _synthesize_lock:
-            await asyncio.to_thread(
-                tts_generate,
-                text=req.input,
-                model=model_path,
-                voice=req.voice,
-                lang_code=req.lang_code,
-                speed=req.speed,
-                audio_format=req.response_format,
-                output_path=str(output_dir),
-            )
-
-        # Find the generated audio file
-        audio_files = list(output_dir.glob(f"*.{req.response_format}"))
-        if not audio_files:
-            raise HTTPException(500, detail="No audio file generated")
-
-        audio_path = audio_files[0]
-        audio_bytes = audio_path.read_bytes()
+        audio_bytes, actual_format = await adapter.synthesize(
+            text=req.input,
+            voice=req.voice,
+            lang_code=req.lang_code,
+            speed=req.speed,
+            audio_format=req.response_format,
+        )
 
         log.info(
-            "Synthesized %d chars → %d bytes (voice=%s, lang=%s)",
+            "Synthesized %d chars → %d bytes (provider=%s, voice=%s, format=%s)",
             len(req.input),
             len(audio_bytes),
+            adapter.name,
             req.voice,
-            req.lang_code,
+            actual_format,
         )
 
         return Response(
             content=audio_bytes,
-            media_type=f"audio/{req.response_format}",
-            headers={"Content-Disposition": f'inline; filename="speech.{req.response_format}"'},
+            media_type=f"audio/{actual_format}",
+            headers={
+                "Content-Disposition": f'inline; filename="speech.{actual_format}"',
+                "X-Audio-Format": actual_format,
+            },
         )
     except HTTPException:
         raise
     except Exception as exc:
         log.exception("Synthesis failed for %d-char input", len(req.input))
         raise HTTPException(500, detail=f"Synthesis error: {exc}") from exc
-    finally:
-        # Always clean up temp dir — prevents disk leak (R5-P1)
-        shutil.rmtree(output_dir, ignore_errors=True)
 
 
 @app.get("/health")
 async def health():
     return {
-        "status": "ok" if model_loaded else "loading",
-        "model": model_path or "none",
-        "backend": "mlx-audio",
+        "status": "ok" if adapter_ready else "loading",
+        "model": adapter.model_name if adapter else "none",
+        "backend": adapter.name if adapter else "none",
     }
 
 
-def main():
-    global model_path, model_loaded
+# ─── Main ─────────────────────────────────────────────────────────────
 
-    parser = argparse.ArgumentParser(description="Cat Cafe TTS Server (MLX-Audio)")
+
+def main():
+    global adapter, adapter_ready
+
+    parser = argparse.ArgumentParser(description="Cat Cafe TTS Server")
     parser.add_argument(
         "--model",
         default="mlx-community/Kokoro-82M-bf16",
         help="HuggingFace model repo (default: mlx-community/Kokoro-82M-bf16)",
     )
-    parser.add_argument("--port", type=int, default=9877, help="Server port (default: 9877)")
+    parser.add_argument(
+        "--port", type=int, default=9877, help="Server port (default: 9877)"
+    )
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(name)s %(levelname)s %(message)s",
+    )
 
     def handle_sigterm(signum, frame):
         log.info("Received SIGTERM, shutting down...")
         sys.exit(0)
+
     signal.signal(signal.SIGTERM, handle_sigterm)
 
-    model_path = args.model
-    log.info("=== Cat Cafe TTS Server (MLX-Audio) ===")
-    log.info("Model: %s | Port: %d", model_path, args.port)
-    log.info("Loading model (first run downloads from HuggingFace)...")
+    provider = os.environ.get("TTS_PROVIDER", "mlx-audio").strip().lower()
+
+    log.info("=== Cat Cafe TTS Server ===")
+    log.info("Provider: %s | Port: %d", provider, args.port)
 
     try:
-        from mlx_audio.tts.generate import generate_audio as tts_generate
-
-        # Warmup: run a tiny synthesis to force model download + compile
-        # Use Chinese voice (no espeak dependency needed)
-        warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-warmup-"))
-        try:
-            tts_generate(
-                text="你好",
-                model=model_path,
-                voice="zm_yunjian",
-                lang_code="z",
-                output_path=str(warmup_dir),
-            )
-        except Exception:
-            pass  # Warmup may fail, that's ok — model is loaded
-        finally:
-            shutil.rmtree(warmup_dir, ignore_errors=True)
-        model_loaded = True
+        adapter = create_adapter(provider, model=args.model)
+        log.info("Adapter: %s (model: %s)", adapter.name, adapter.model_name)
+        log.info("Running warmup...")
+        adapter.warmup()
+        adapter_ready = True
     except Exception:
-        log.exception("Failed to load model '%s'", model_path)
+        log.exception("Failed to initialize TTS adapter '%s'", provider)
         sys.exit(1)
 
-    log.info("Model loaded! API: http://localhost:%d/v1/audio/speech", args.port)
+    log.info("Ready! API: http://localhost:%d/v1/audio/speech", args.port)
     uvicorn.run(app, host="127.0.0.1", port=args.port)
 
 

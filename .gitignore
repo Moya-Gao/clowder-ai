@@ -99,3 +99,6 @@ docs/discussions/2026-02-26-huawei-agent-spec-review/
 
 # Private/confidential documents (contracts, legal, etc.)
 private/
+
+# Voice audition output (F066 — generated wav files, local only)
+voice-audition/

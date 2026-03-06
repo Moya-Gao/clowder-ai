@@ -59,9 +59,17 @@ export class MlxAudioTtsProvider implements ITtsProvider {
       const arrayBuffer = await response.arrayBuffer();
       const audio = new Uint8Array(arrayBuffer);
 
+      // Respect actual format from server (edge-tts may return mp3 when wav was requested)
+      // Whitelist to prevent path traversal via malicious header values
+      const serverFormat = response.headers.get('x-audio-format');
+      const ALLOWED_FORMATS = new Set(['wav', 'mp3']);
+      const actualFormat = (serverFormat && ALLOWED_FORMATS.has(serverFormat))
+        ? serverFormat
+        : (request.format ?? 'wav');
+
       return {
         audio,
-        format: request.format ?? 'wav',
+        format: actualFormat,
         metadata: {
           provider: this.id,
           model: this.model,

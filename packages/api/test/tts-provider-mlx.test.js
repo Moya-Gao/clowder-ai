@@ -78,4 +78,56 @@ describe('MlxAudioTtsProvider', () => {
     assert.strictEqual(capturedBody.lang_code, 'z');
     assert.strictEqual(capturedBody.response_format, 'wav');
   });
+
+  // F066: Format contract tests — edge-tts returns mp3 when wav was requested
+  it('respects x-audio-format header from server (edge-tts mp3 case)', async () => {
+    const mp3Bytes = new Uint8Array([0xff, 0xfb, 0x90, 0x00]); // fake mp3 header
+    globalThis.fetch = async () => new Response(mp3Bytes, {
+      status: 200,
+      headers: { 'x-audio-format': 'mp3' },
+    });
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    const result = await p.synthesize({ text: 'test', voice: 'v1', format: 'wav' });
+
+    // Provider must report the actual format from server, not the requested format
+    assert.strictEqual(result.format, 'mp3', 'format should match server x-audio-format header');
+    assert.ok(result.audio instanceof Uint8Array);
+    assert.strictEqual(result.audio.length, 4);
+  });
+
+  it('falls back to requested format when x-audio-format header is absent', async () => {
+    globalThis.fetch = async () => new Response(new Uint8Array([1, 2]), { status: 200 });
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    const result = await p.synthesize({ text: 'test', voice: 'v1', format: 'wav' });
+
+    assert.strictEqual(result.format, 'wav', 'format should fall back to requested format');
+  });
+
+  // F066-R2: Security — malicious x-audio-format header must be rejected
+  it('rejects malicious x-audio-format header (path traversal prevention)', async () => {
+    globalThis.fetch = async () => new Response(new Uint8Array([1]), {
+      status: 200,
+      headers: { 'x-audio-format': '../../../../etc/passwd' },
+    });
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    const result = await p.synthesize({ text: 'test', voice: 'v1', format: 'wav' });
+
+    // Must fall back to requested format, NOT use the malicious value
+    assert.strictEqual(result.format, 'wav', 'malicious header must be rejected');
+  });
+
+  it('rejects unknown x-audio-format values', async () => {
+    globalThis.fetch = async () => new Response(new Uint8Array([1]), {
+      status: 200,
+      headers: { 'x-audio-format': 'ogg' },
+    });
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    const result = await p.synthesize({ text: 'test', voice: 'v1', format: 'wav' });
+
+    assert.strictEqual(result.format, 'wav', 'unknown format must fall back to requested');
+  });
 });

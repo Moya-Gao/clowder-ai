@@ -5,15 +5,15 @@
  * GET  /api/tts/audio/:filename — Download audio file (auth-gated)
  */
 
+import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
+import { stat as fsStat, mkdir, writeFile } from 'node:fs/promises';
+import path from 'node:path';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
-import { createHash } from 'node:crypto';
-import { mkdir, writeFile, stat as fsStat } from 'node:fs/promises';
-import { createReadStream } from 'node:fs';
-import path from 'node:path';
-import { resolveUserId } from '../utils/request-identity.js';
 import { getCatVoice } from '../config/cat-voices.js';
 import type { TtsRegistry } from '../domains/cats/services/tts/TtsRegistry.js';
+import { resolveUserId } from '../utils/request-identity.js';
 
 const synthesizeSchema = z.object({
   text: z.string().min(1).max(5000),
@@ -31,10 +31,7 @@ export interface TtsRouteOptions extends FastifyPluginOptions {
   cacheDir: string;
 }
 
-export async function ttsRoutes(
-  app: FastifyInstance,
-  opts: TtsRouteOptions,
-): Promise<void> {
+export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Promise<void> {
   const { ttsRegistry, cacheDir } = opts;
 
   // Ensure cache directory exists
@@ -65,7 +62,7 @@ export async function ttsRoutes(
     const voice = voiceOverride ?? catVoice.voice;
     const langCode = langCodeOverride ?? catVoice.langCode;
     const speed = speedOverride ?? catVoice.speed ?? 1.0;
-    const format = 'wav' as const;
+    const requestedFormat = 'wav';
 
     // Get provider
     let provider;
@@ -77,24 +74,33 @@ export async function ttsRoutes(
     }
 
     // Compute cache hash: sha256(provider + model + voice + langCode + speed + format + text)
-    const hashInput = [provider.id, provider.model, voice, langCode, String(speed), format, text].join('|');
+    const hashInput = [provider.id, provider.model, voice, langCode, String(speed), requestedFormat, text].join('|');
     const hash = createHash('sha256').update(hashInput).digest('hex');
-    const filename = `${hash}.${format}`;
-    const filePath = path.join(cacheDir, filename);
 
-    // Check cache
+    // First try cache with requested format, then try with alternate format
+    let filePath: string | undefined;
     let cached = false;
-    try {
-      await fsStat(filePath);
-      cached = true;
-    } catch {
-      // Not cached
+    for (const ext of [requestedFormat, requestedFormat === 'wav' ? 'mp3' : 'wav']) {
+      const candidatePath = path.join(cacheDir, `${hash}.${ext}`);
+      try {
+        await fsStat(candidatePath);
+        filePath = candidatePath;
+        cached = true;
+        break;
+      } catch {
+        // Not cached with this extension
+      }
     }
 
     if (!cached) {
       // Synthesize
       try {
-        const result = await provider.synthesize({ text, voice, langCode, speed, format });
+        const result = await provider.synthesize({ text, voice, langCode, speed, format: requestedFormat });
+        // Double-check: only allow known audio extensions (defense in depth)
+        const allowedFormats = new Set(['wav', 'mp3']);
+        const actualFormat = allowedFormats.has(result.format) ? result.format : requestedFormat;
+        const fname = `${hash}.${actualFormat}`;
+        filePath = path.join(cacheDir, fname);
         await writeFile(filePath, result.audio);
       } catch (err) {
         request.log.error({ err, voice, langCode }, 'TTS synthesis failed');
@@ -103,8 +109,10 @@ export async function ttsRoutes(
       }
     }
 
+    // filePath is always set: either from cache lookup or synthesis
+    const resolvedFilename = path.basename(filePath ?? '');
     return {
-      audioUrl: `/api/tts/audio/${filename}`,
+      audioUrl: `/api/tts/audio/${resolvedFilename}`,
     };
   });
 
