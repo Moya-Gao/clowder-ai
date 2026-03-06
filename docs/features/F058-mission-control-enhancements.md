@@ -162,8 +162,13 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-E2: 线程态势面板无关联 thread 的项目紧凑显示 + 面板内滚动
 
 ### Phase F（右栏布局 + 鸟瞰已完成区）
-- [ ] AC-F1: 右侧栏三面板 grid 布局（保底可见区，独立滚动）
-- [ ] AC-F2: Feature 鸟瞰面板增加"已完成"折叠区（done features 默认收起，可展开回顾）
+- [x] AC-F1: 右侧栏三面板 grid 布局（保底可见区，独立滚动）
+- [x] AC-F2: Feature 鸟瞰面板增加"已完成"折叠区（done features 默认收起，可展开回顾）
+
+### Phase G（鸟瞰 UX 优化 + 历史数据补全）
+- [ ] AC-G1: 鸟瞰卡片排版优化（信息密度提高，已完成区不要横跨全宽挤压活跃卡片）
+- [ ] AC-G2: 从 `docs/features/*.md` 拉取历史 done features 补全鸟瞰数据
+- [ ] AC-G3: 利用 thread 命名（含 feat 号）通过 MCP 搜索补全 feature→thread 关联
 
 ## 需求点 Checklist
 
@@ -176,8 +181,11 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R5 | 消息不重复更可靠（砚砚增强列表） | AC-B2, AC-B3 | test（幂等回归） | [x] |
 | R6 | 态势图升级（砚砚增强列表） | AC-C1 | test + screenshot（鸟瞰视图） | [x] |
 | R7 | "从mission hub如何退出呢？" | AC-E1 | test（back button href=/） | [x] |
-| R8 | "线程态势截断看不全" | AC-E2, AC-F1 | test + screenshot（紧凑卡片 + grid 布局） | [ ] |
-| R9 | "close 的 feat 刷新后还在，需要回顾" | AC-F2 | test + screenshot（鸟瞰已完成折叠区） | [ ] |
+| R8 | "线程态势截断看不全" | AC-E2, AC-F1 | test + screenshot（紧凑卡片 + grid 布局） | [x] |
+| R9 | "close 的 feat 刷新后还在，需要回顾" | AC-F2 | test + screenshot（鸟瞰已完成折叠区） | [x] |
+| R10 | "排版难看，close 横在那里上面太短" | AC-G1 | screenshot（鸟瞰卡片排版优化） | [ ] |
+| R11 | "close的得在features里拉取补历史数据" | AC-G2 | test（features/*.md 导入 done features） | [ ] |
+| R12 | "线程搜fxx能补关联，thread命名写了feat号" | AC-G3 | test（MCP thread 搜索补关联） | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -240,4 +248,5 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-05 | Phase E：铲屎官反馈无退出按钮 + 线程态势面板截断。追加 back button + 紧凑无 thread 卡片 + 面板内滚动 |
 | 2026-03-05 | Phase E 合入 main (PR #237) — back button + thread situation compact display |
 | 2026-03-06 | 右栏布局 grid 修复直推 main (de4c3221)，铲屎官反馈仍有问题，砚砚建议 grid rows 方案 |
-| 2026-03-06 | Phase F 立项：右栏 grid 布局 + 鸟瞰已完成折叠区（铲屎官："close 的 feat 刷新后还在，需要回顾"） |
+| 2026-03-06 | Phase F 合入 main (PR #245) — bird eye done section (collapsible completed features) |
+| 2026-03-06 | Phase G：铲屎官反馈排版难看 + 历史数据缺失 + thread 关联可通过命名补全 |
