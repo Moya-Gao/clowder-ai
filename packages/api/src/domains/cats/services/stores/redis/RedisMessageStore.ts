@@ -100,6 +100,7 @@ export class RedisMessageStore {
       ...(msg.visibility ? { visibility: msg.visibility } : {}),
       ...(msg.whisperTo ? { whisperTo: JSON.stringify(msg.whisperTo) } : {}),
       ...(msg.source ? { source: JSON.stringify(msg.source) } : {}),
+      ...(msg.mentionsUser ? { mentionsUser: '1' } : {}),
     });
     if (this.ttlSeconds !== null) {
       pipeline.expire(hashKey, this.ttlSeconds);
@@ -185,6 +186,7 @@ export class RedisMessageStore {
       ...(data['whisperTo'] ? { whisperTo: safeParseMentions(data['whisperTo']) } : {}),
       ...(data['revealedAt'] ? { revealedAt: parseInt(data['revealedAt'], 10) } : {}),
       ...(parsedSource ? { source: parsedSource } : {}),
+      ...(data['mentionsUser'] === '1' ? { mentionsUser: true } : {}),
     };
   }
 
@@ -601,6 +603,7 @@ export class RedisMessageStore {
         ...(d['whisperTo'] ? { whisperTo: safeParseMentions(d['whisperTo']) } : {}),
         ...(d['revealedAt'] ? { revealedAt: parseInt(d['revealedAt'], 10) } : {}),
         ...(parsedSource ? { source: parsedSource } : {}),
+        ...(d['mentionsUser'] === '1' ? { mentionsUser: true } : {}),
       });
     }
     return messages;

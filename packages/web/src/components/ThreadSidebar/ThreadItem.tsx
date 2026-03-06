@@ -245,7 +245,7 @@ export function ThreadItem({
             </div>
           )}
           {threadState && (
-            <ThreadCatStatus threadState={threadState} unreadCount={threadState.unreadCount} />
+            <ThreadCatStatus threadState={threadState} unreadCount={threadState.unreadCount} hasUserMention={threadState.hasUserMention} />
           )}
         </div>
         <span className="text-[10px] text-gray-400 flex-shrink-0">

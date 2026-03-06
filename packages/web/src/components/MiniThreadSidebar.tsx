@@ -117,7 +117,7 @@ function MiniThreadRow({
   thread: Thread;
   isInPane?: boolean;
   isCollapsed: boolean;
-  getThreadState: (id: string) => { catStatuses: Record<string, CatStatusType>; unreadCount: number };
+  getThreadState: (id: string) => { catStatuses: Record<string, CatStatusType>; unreadCount: number; hasUserMention: boolean };
   onClick?: () => void;
 }) {
   const ts = getThreadState(thread.id);
@@ -152,7 +152,7 @@ function MiniThreadRow({
         <span className="text-xs text-gray-700 truncate flex-1 min-w-0">{title}</span>
       )}
       {ts.unreadCount > 0 && (
-        <span className="text-[8px] bg-amber-500 text-white rounded-full min-w-[14px] px-0.5 text-center leading-3 flex-shrink-0">
+        <span className={`text-[8px] ${ts.hasUserMention ? 'bg-red-500' : 'bg-amber-500'} text-white rounded-full min-w-[14px] px-0.5 text-center leading-3 flex-shrink-0`}>
           {ts.unreadCount > 9 ? '9+' : ts.unreadCount}
         </span>
       )}

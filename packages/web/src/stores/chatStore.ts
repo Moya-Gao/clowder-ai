@@ -60,6 +60,7 @@ function snapshotActive(s: ChatState): ThreadState {
     currentMode: s.currentMode,
     pendingModeSwitchProposal: s.pendingModeSwitchProposal,
     unreadCount: 0, // active thread always 0
+    hasUserMention: false,
     lastActivity: Date.now(),
     queue: s.queue,
     queuePaused: s.queuePaused,
@@ -588,6 +589,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
             ...existing,
             messages: [...existing.messages, msg],
             unreadCount: existing.unreadCount + 1,
+            hasUserMention: existing.hasUserMention || !!msg.mentionsUser,
             lastActivity: Date.now(),
           },
         },
@@ -775,11 +777,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearUnread: (threadId) =>
     set((state) => {
       const ts = state.threadStates[threadId];
-      if (!ts || ts.unreadCount === 0) return state;
+      if (!ts || (ts.unreadCount === 0 && !ts.hasUserMention)) return state;
       return {
         threadStates: {
           ...state.threadStates,
-          [threadId]: { ...ts, unreadCount: 0 },
+          [threadId]: { ...ts, unreadCount: 0, hasUserMention: false },
         },
       };
     }),

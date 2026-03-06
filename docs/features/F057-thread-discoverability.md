@@ -100,7 +100,7 @@ created: 2026-03-04
 
 ### Phase C
 - [ ] AC-C1: `list_threads` MCP 工具可用，猫猫能按名称搜索 thread
-- [ ] AC-C2: 猫猫能 @ 铲屎官，铲屎官在 thread 列表看到未读高亮
+- [x] AC-C2: 猫猫能 @ 铲屎官，铲屎官在 thread 列表看到未读高亮
 
 ## 需求点 Checklist
 
@@ -111,7 +111,7 @@ created: 2026-03-04
 | R3 | "未读要在前面" | AC-A3 | 截图对比 | [ ] |
 | R4 | "通过 thread id 搜索" | AC-B1 | 搜索框输入 ID 验证 | [ ] |
 | R5 | "你们也要有 list_threads MCP 工具" | AC-C1 | 猫猫调用工具回答问题 | [ ] |
-| R6 | "应该增加 at 铲屎官" | AC-C2 | 猫猫 @ user + 高亮验证 | [ ] |
+| R6 | "应该增加 at 铲屎官" | AC-C2 | 猫猫 @ user + 高亮验证 | [x] |
 | R7 | "转发自 badge 显示不全" | AC-B2 | badge 显示 ID+名称 | [ ] |
 
 ### 覆盖检查
@@ -157,3 +157,4 @@ created: 2026-03-04
 | 2026-03-04 | F052 实测暴露 thread 找不到的痛点 |
 | 2026-03-04 | 铲屎官提出排序+搜索+MCP 工具需求 |
 | 2026-03-04 | F057 立项 |
+| 2026-03-05 | Phase C2: 猫 @ 铲屎官能力实现（detectUserMention + WS broadcast + 🐾 badge） |

@@ -21,6 +21,7 @@ import type { InvocationTracker } from '../domains/cats/services/agents/invocati
 import type { IPrTrackingStore } from '../infrastructure/email/PrTrackingStore.js';
 import type { P0Freshness } from '../domains/cats/services/hindsight-import/p0-watermark.js';
 import { parseA2AMentions } from '../domains/cats/services/agents/routing/a2a-mentions.js';
+import { detectUserMention } from './user-mention.js';
 import type { RichBlock } from '@cat-cafe/shared';
 import { normalizeRichBlock } from '@cat-cafe/shared';
 import { extractRichFromText } from '../domains/cats/services/agents/routing/rich-block-extract.js';
@@ -226,6 +227,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         isCrossThread ? undefined : senderCatId,
       );
       const mentions: CatId[] = [...targetCats];
+      const mentionsUser = detectUserMention(storedContent);
       const crossPostExtra = isCrossThread
         ? { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } }
         : {};
@@ -242,6 +244,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         catId: record.catId,
         content: storedContent,
         mentions,
+        ...(mentionsUser ? { mentionsUser } : {}),
         origin: 'callback',
         timestamp: Date.now(),
         threadId: effectiveThreadId,
@@ -256,6 +259,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         messageId: storedMsg.id,
         // F52: Include crossPost in real-time broadcast so frontend shows badge immediately
         ...(isCrossThread ? { extra: { crossPost: { sourceThreadId: record.threadId, sourceInvocationId: invocationId } } } : {}),
+        ...(mentionsUser ? { mentionsUser } : {}),
         timestamp: Date.now(),
       }, effectiveThreadId);
 

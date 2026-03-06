@@ -152,6 +152,8 @@ export interface ChatMessage {
   whisperTo?: string[];
   /** F35: Timestamp when whisper was revealed (made public) */
   revealedAt?: number;
+  /** F057-C2: Whether this message mentions the user (@user / @铲屎官) */
+  mentionsUser?: boolean;
 }
 
 export interface Thread {
@@ -306,6 +308,8 @@ export interface ThreadState {
   currentMode: ModeState | null;
   pendingModeSwitchProposal: ModeSwitchProposal | null;
   unreadCount: number;
+  /** F057-C2: Thread has an unread @user mention from a cat */
+  hasUserMention: boolean;
   lastActivity: number;
   /** F39: Message queue entries for this thread */
   queue: QueueEntry[];
@@ -332,6 +336,7 @@ export const DEFAULT_THREAD_STATE: ThreadState = {
   currentMode: null,
   pendingModeSwitchProposal: null,
   unreadCount: 0,
+  hasUserMention: false,
   lastActivity: 0,
   queue: [],
   queuePaused: false,

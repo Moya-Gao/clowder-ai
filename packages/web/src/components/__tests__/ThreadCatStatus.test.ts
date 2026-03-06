@@ -90,6 +90,52 @@ describe('ThreadCatStatus', () => {
     );
     expect(html).toContain('text-red-500');
   });
+
+  it('shows paw badge when hasUserMention is true', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ThreadCatStatus, {
+        threadState: makeState({}, 1),
+        unreadCount: 1,
+        hasUserMention: true,
+      })
+    );
+    expect(html).toContain('🐾');
+    expect(html).toContain('猫猫 @ 了你');
+  });
+
+  it('shows red unread badge when hasUserMention is true', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ThreadCatStatus, {
+        threadState: makeState({}, 3),
+        unreadCount: 3,
+        hasUserMention: true,
+      })
+    );
+    expect(html).toContain('bg-red-500');
+    expect(html).not.toContain('bg-amber-500');
+  });
+
+  it('shows amber unread badge when no user mention', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ThreadCatStatus, {
+        threadState: makeState({}, 3),
+        unreadCount: 3,
+        hasUserMention: false,
+      })
+    );
+    expect(html).toContain('bg-amber-500');
+  });
+
+  it('renders paw even with zero unread when hasUserMention', () => {
+    const html = renderToStaticMarkup(
+      React.createElement(ThreadCatStatus, {
+        threadState: { ...DEFAULT_THREAD_STATE, hasUserMention: true },
+        unreadCount: 0,
+        hasUserMention: true,
+      })
+    );
+    expect(html).toContain('🐾');
+  });
 });
 
 describe('getCatStatusType', () => {

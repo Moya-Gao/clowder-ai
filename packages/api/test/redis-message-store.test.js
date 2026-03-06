@@ -232,4 +232,46 @@ describe('RedisMessageStore', { skip: !REDIS_URL ? 'REDIS_URL not set' : false }
     assert.equal(threadMessages.length, 1);
     assert.equal(threadMessages[0].id, first.id);
   });
+
+  it('F057-C2: mentionsUser round-trips through append/getById', async () => {
+    const msg = await store.append({
+      userId: 'u',
+      catId: 'opus',
+      content: '@铲屎官 看看这个',
+      mentions: ['opus'],
+      timestamp: Date.now(),
+      threadId: 'thread-mention-user',
+      mentionsUser: true,
+    });
+    assert.equal(msg.mentionsUser, true, 'append should return mentionsUser');
+
+    const fetched = await store.getById(msg.id);
+    assert.equal(fetched.mentionsUser, true, 'getById should deserialize mentionsUser');
+  });
+
+  it('F057-C2: mentionsUser round-trips through hydrateMessages (getByThread)', async () => {
+    const now = Date.now();
+    await store.append({
+      userId: 'u',
+      catId: 'opus',
+      content: '@user please check',
+      mentions: [],
+      timestamp: now,
+      threadId: 'thread-mention-hydrate',
+      mentionsUser: true,
+    });
+    await store.append({
+      userId: 'u',
+      catId: null,
+      content: 'normal message',
+      mentions: [],
+      timestamp: now + 1,
+      threadId: 'thread-mention-hydrate',
+    });
+
+    const msgs = await store.getByThread('thread-mention-hydrate', 10);
+    assert.equal(msgs.length, 2);
+    assert.equal(msgs[0].mentionsUser, true, 'first message should have mentionsUser');
+    assert.equal(msgs[1].mentionsUser, undefined, 'second message should not have mentionsUser');
+  });
 });

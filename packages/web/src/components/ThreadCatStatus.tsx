@@ -16,13 +16,14 @@ function aggregateStatus(ts: ThreadState): 'idle' | 'working' | 'done' | 'error'
   return 'idle';
 }
 
-export function ThreadCatStatus({ threadState, unreadCount }: {
+export function ThreadCatStatus({ threadState, unreadCount, hasUserMention }: {
   threadState: ThreadState;
   unreadCount: number;
+  hasUserMention?: boolean;
 }) {
   const status = aggregateStatus(threadState);
 
-  if (status === 'idle' && unreadCount === 0) return null;
+  if (status === 'idle' && unreadCount === 0 && !hasUserMention) return null;
 
   const statusClasses: Record<string, string> = {
     idle: 'text-gray-400',
@@ -41,8 +42,13 @@ export function ThreadCatStatus({ threadState, unreadCount }: {
       {status === 'done' && (
         <span className="text-green-500 text-[10px]">&#10003;</span>
       )}
+      {hasUserMention && (
+        <span className="text-[11px]" title="猫猫 @ 了你">🐾</span>
+      )}
       {unreadCount > 0 && (
-        <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-none">
+        <span className={`inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-white text-[10px] font-bold leading-none ${
+          hasUserMention ? 'bg-red-500' : 'bg-amber-500'
+        }`}>
           {unreadCount > 99 ? '99+' : unreadCount}
         </span>
       )}
