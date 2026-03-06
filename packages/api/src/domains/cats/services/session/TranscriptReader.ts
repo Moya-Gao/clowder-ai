@@ -50,6 +50,13 @@ export interface SearchHit {
   };
 }
 
+export interface HandoffDigestResult {
+  v: number;
+  model: string;
+  generatedAt: number;
+  body: string;
+}
+
 export interface TranscriptReaderOptions {
   dataDir: string;
 }
@@ -276,6 +283,68 @@ export class TranscriptReader {
     return events.length > 0 ? events : null;
   }
 
+  /**
+   * Read handoff digest (LLM-generated) for a sealed session.
+   * F065 Phase C: returns parsed YAML frontmatter + markdown body.
+   */
+  async readHandoffDigest(
+    sessionId: string,
+    threadId: string,
+    catId: string,
+  ): Promise<HandoffDigestResult | null> {
+    const digestPath = join(
+      this.sessionDir(threadId, catId, sessionId),
+      'digest.handoff.md',
+    );
+    try {
+      const content = await readFile(digestPath, 'utf-8');
+      return this.parseHandoffDigest(content);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Read ALL events from a sealed session transcript (no limit).
+   * F065 Phase C: needed for handoff digest generation on long sessions.
+   */
+  async readAllEvents(
+    sessionId: string,
+    threadId: string,
+    catId: string,
+  ): Promise<TranscriptEvent[]> {
+    const jsonlPath = join(
+      this.sessionDir(threadId, catId, sessionId),
+      'events.jsonl',
+    );
+
+    try {
+      await stat(jsonlPath);
+    } catch {
+      return [];
+    }
+
+    const events: TranscriptEvent[] = [];
+    const rl = createInterface({
+      input: createReadStream(jsonlPath, 'utf-8'),
+      crlfDelay: Infinity,
+    });
+
+    for await (const line of rl) {
+      if (line.trim().length === 0) continue;
+      try {
+        events.push(JSON.parse(line) as TranscriptEvent);
+      } catch { /* skip malformed */ }
+    }
+
+    return events;
+  }
+
+  /** Public accessor for session directory path. */
+  getSessionDir(threadId: string, catId: string, sessionId: string): string {
+    return this.sessionDir(threadId, catId, sessionId);
+  }
+
   /** Check if a session has a transcript on disk. */
   async hasTranscript(
     sessionId: string,
@@ -301,6 +370,34 @@ export class TranscriptReader {
 
   private sessionDir(threadId: string, catId: string, sessionId: string): string {
     return join(this.dataDir, 'threads', threadId, catId, 'sessions', sessionId);
+  }
+
+  /** Parse a handoff digest markdown file with YAML frontmatter. */
+  private parseHandoffDigest(content: string): HandoffDigestResult | null {
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+    if (!fmMatch || !fmMatch[1] || !fmMatch[2]) return null;
+
+    const frontmatter = fmMatch[1];
+    const body = fmMatch[2].trim();
+
+    // Simple YAML key-value parsing (no nested objects needed)
+    const meta: Record<string, string> = {};
+    for (const line of frontmatter.split('\n')) {
+      const colonIdx = line.indexOf(':');
+      if (colonIdx > 0) {
+        const key = line.slice(0, colonIdx).trim();
+        const val = line.slice(colonIdx + 1).trim();
+        meta[key] = val;
+      }
+    }
+
+    const v = Number(meta['v']);
+    const generatedAt = Number(meta['generatedAt']);
+    if (!Number.isFinite(v) || !meta['model'] || !Number.isFinite(generatedAt)) {
+      return null;
+    }
+
+    return { v, model: meta['model'], generatedAt, body };
   }
 
   private extractSnippet(text: string, query: string, maxLen = 200): string {

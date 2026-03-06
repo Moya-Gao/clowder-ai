@@ -50,6 +50,11 @@ import { getCatContextBudget } from './config/cat-budgets.js';
 import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter, ConnectorInvokeTrigger } from './infrastructure/email/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
+import { getConfigSessionStrategy } from './config/cat-config-loader.js';
+import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
+import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
+import { findMonorepoRoot } from './utils/monorepo-root.js';
+import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -132,12 +137,31 @@ async function main(): Promise<void> {
   const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
   const transcriptWriter = new TranscriptWriter({ dataDir: transcriptDataDir });
   const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
+  // F065 Phase C: HandoffConfig for LLM-generated digest on seal
+  const handoffConfig: HandoffConfig = {
+    getBootstrapDepth: (catId: string) =>
+      getConfigSessionStrategy(catId)?.handoff?.bootstrapDepth ?? 'extractive',
+    resolveProfile: async (threadId: string, _catId: string) => {
+      try {
+        let projectRoot = findMonorepoRoot(process.cwd());
+        const thread = await threadStore.get(threadId);
+        if (thread?.projectPath && thread.projectPath !== 'default') {
+          projectRoot = thread.projectPath;
+        }
+        const profilesRoot = await resolveProviderProfilesRoot(projectRoot);
+        const runtime = await resolveAnthropicRuntimeProfile(profilesRoot);
+        if (!runtime.apiKey) return null;
+        return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
+      } catch { return null; }
+    },
+  };
   const sessionSealer = new SessionSealer(
     sessionChainStore,
     transcriptWriter,
     threadStore,
     transcriptReader,
     (catId) => getCatContextBudget(catId).maxPromptTokens,
+    handoffConfig,
   );
 
   const sharedHindsightBank = 'cat-cafe-shared';

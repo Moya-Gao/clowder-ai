@@ -26,7 +26,7 @@ import { estimateTokens } from '../../../../../utils/token-counter.js';
 import { getEventAuditLog, AuditEventTypes } from '../../orchestration/EventAuditLog.js';
 import { formatDegradationMessage } from '../../orchestration/DegradationPolicy.js';
 import { buildSessionBootstrap } from '../../session/SessionBootstrap.js';
-import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
+import { isSessionChainEnabled, getConfigSessionStrategy } from '../../../../../config/cat-config-loader.js';
 import {
   getService,
   detectContextDegradation,
@@ -155,12 +155,14 @@ export async function* routeSerial(
     let bootstrapContext = '';
     if (isSessionChainEnabled(catId) && deps.invocationDeps.sessionChainStore && deps.invocationDeps.transcriptReader) {
       try {
+        const bootstrapDepth = getConfigSessionStrategy(catId)?.handoff?.bootstrapDepth;
         const bootstrap = await buildSessionBootstrap(
           {
             sessionChainStore: deps.invocationDeps.sessionChainStore,
             transcriptReader: deps.invocationDeps.transcriptReader,
             ...(deps.invocationDeps.taskStore ? { taskStore: deps.invocationDeps.taskStore } : {}),
             ...(deps.invocationDeps.threadStore ? { threadStore: deps.invocationDeps.threadStore } : {}),
+            ...(bootstrapDepth ? { bootstrapDepth } : {}),
           },
           catId,
           threadId,

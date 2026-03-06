@@ -43,6 +43,8 @@ export interface SessionBootstrapOptions {
   taskStore?: ITaskStore;
   /** F065 Phase B: Thread store for ThreadMemory injection */
   threadStore?: IThreadStore;
+  /** F065 Phase C: 'generative' prefers handoff digest, 'extractive' uses extractive only */
+  bootstrapDepth?: 'extractive' | 'generative';
 }
 
 /**
@@ -105,15 +107,28 @@ export async function buildSessionBootstrap(
   }
 
   let digestSection = '';
-  // 2. Previous Session Digest
+  // 2. Previous Session Digest — F065 Phase C: branch on bootstrapDepth
   let hasDigest = false;
   try {
-    const digest = await transcriptReader.readDigest(
-      prevSession.id, prevSession.threadId, prevSession.catId,
-    );
-    if (digest) {
-      digestSection = '\n[Previous Session Summary]\n' + formatDigest(digest as unknown as ExtractiveDigestV1);
-      hasDigest = true;
+    if (opts.bootstrapDepth === 'generative') {
+      // Try handoff digest first (LLM-generated)
+      const handoff = await transcriptReader.readHandoffDigest(
+        prevSession.id, prevSession.threadId, prevSession.catId,
+      );
+      if (handoff) {
+        digestSection = '\n[Previous Session Summary]\n' + handoff.body;
+        hasDigest = true;
+      }
+    }
+    // Fallback to extractive digest (or default behavior when bootstrapDepth is unset/extractive)
+    if (!hasDigest) {
+      const digest = await transcriptReader.readDigest(
+        prevSession.id, prevSession.threadId, prevSession.catId,
+      );
+      if (digest) {
+        digestSection = '\n[Previous Session Summary]\n' + formatDigest(digest as unknown as ExtractiveDigestV1);
+        hasDigest = true;
+      }
     }
   } catch {
     // Digest read failed — still inject identity + tools

@@ -10,25 +10,33 @@
  * SessionSealer is responsible for the lifecycle state machine.
  */
 
-import type { SessionStatus, SealResult } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
+import type { CatId, SealResult, SessionStatus } from '@cat-cafe/shared';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../stores/ports/ThreadStore.js';
-import type { TranscriptWriter, ExtractiveDigestV1 } from './TranscriptWriter.js';
-import type { TranscriptReader } from './TranscriptReader.js';
 import { buildThreadMemory } from './buildThreadMemory.js';
+import { generateHandoffDigest } from './HandoffDigestGenerator.js';
+import { formatEventsChat, formatEventsHandoff } from './TranscriptFormatter.js';
+import type { TranscriptReader } from './TranscriptReader.js';
+import type { ExtractiveDigestV1, TranscriptWriter } from './TranscriptWriter.js';
 
 export type SealReason = 'threshold' | 'manual' | 'error' | (string & {});
+
+/**
+ * F065 Phase C: Handoff digest configuration.
+ * Injectable functions for testability and per-thread resolution.
+ */
+export interface HandoffConfig {
+  getBootstrapDepth: (catId: string) => 'extractive' | 'generative';
+  resolveProfile: (threadId: string, catId: string) => Promise<{ apiKey: string; baseUrl: string } | null>;
+  fetchFn?: typeof fetch;
+}
 
 export interface ISessionSealer {
   /**
    * Request seal of a session. Idempotent: returns accepted=false if already sealing/sealed.
    * Fast path: only changes status + clears active pointer.
    */
-  requestSeal(args: {
-    sessionId: string;
-    reason: SealReason;
-  }): Promise<SealResult>;
+  requestSeal(args: { sessionId: string; reason: SealReason }): Promise<SealResult>;
 
   /**
    * Finalize a sealing session: write transcript, generate digest, mark sealed.
@@ -43,6 +51,7 @@ export interface ISessionSealer {
  * Uses ISessionChainStore for all state mutations.
  * Optionally uses TranscriptWriter for Phase C transcript flush.
  * F065 Phase B: Optionally updates ThreadMemory on seal.
+ * F065 Phase C: Optionally generates handoff digest via Haiku.
  */
 export class SessionSealer implements ISessionSealer {
   constructor(
@@ -51,12 +60,10 @@ export class SessionSealer implements ISessionSealer {
     private readonly threadStore?: IThreadStore,
     private readonly transcriptReader?: TranscriptReader,
     private readonly getMaxPromptTokens?: (catId: CatId) => number,
+    private readonly handoffConfig?: HandoffConfig,
   ) {}
 
-  async requestSeal(args: {
-    sessionId: string;
-    reason: SealReason;
-  }): Promise<SealResult> {
+  async requestSeal(args: { sessionId: string; reason: SealReason }): Promise<SealResult> {
     const record = await this.store.get(args.sessionId);
     if (!record) {
       return { accepted: false, status: 'sealed' };
@@ -125,15 +132,54 @@ export class SessionSealer implements ISessionSealer {
           // KD-5 dynamic cap: min(3000, floor(maxPromptTokens * 0.03)), floor 1200
           const maxPrompt = this.getMaxPromptTokens?.(record.catId as CatId) ?? 180000;
           const maxTokens = Math.max(1200, Math.min(3000, Math.floor(maxPrompt * 0.03)));
-          const updated = buildThreadMemory(
-            existingMemory,
-            digest as unknown as ExtractiveDigestV1,
-            maxTokens,
-          );
+          const updated = buildThreadMemory(existingMemory, digest as unknown as ExtractiveDigestV1, maxTokens);
           await this.threadStore.updateThreadMemory(record.threadId, updated);
         }
       } catch {
         // best-effort: thread memory update failure doesn't prevent sealing
+      }
+    }
+
+    // F065 Phase C: Generate handoff digest (best-effort, after ThreadMemory)
+    if (this.handoffConfig && this.transcriptReader) {
+      try {
+        const depth = this.handoffConfig.getBootstrapDepth(record.catId);
+        if (depth === 'generative') {
+          const profile = await this.handoffConfig.resolveProfile(record.threadId, record.catId);
+          if (profile?.apiKey) {
+            const allEvents = await this.transcriptReader.readAllEvents(record.id, record.threadId, record.catId);
+            if (allEvents.length > 0) {
+              const handoffSummaries = formatEventsHandoff(allEvents);
+              const chatMessages = formatEventsChat(allEvents);
+              const extractive = await this.transcriptReader.readDigest(record.id, record.threadId, record.catId);
+
+              const result = await generateHandoffDigest({
+                handoffSummaries,
+                extractiveDigest: extractive ?? {},
+                recentMessages: chatMessages.slice(-8),
+                apiKey: profile.apiKey,
+                baseUrl: profile.baseUrl,
+                ...(this.handoffConfig.fetchFn ? { fetchFn: this.handoffConfig.fetchFn } : {}),
+              });
+
+              if (result) {
+                const sessionDir = this.transcriptReader.getSessionDir(record.threadId, record.catId, record.id);
+                const { TranscriptWriter: TW } = await import('./TranscriptWriter.js');
+                await TW.writeHandoffDigest(
+                  sessionDir,
+                  {
+                    v: result.v,
+                    model: result.model,
+                    generatedAt: result.generatedAt,
+                  },
+                  result.body,
+                );
+              }
+            }
+          }
+        }
+      } catch {
+        // best-effort: handoff digest failure doesn't prevent sealing
       }
     }
 
