@@ -81,7 +81,7 @@ fi
 MODEL_TRIMMED="$(echo "$MODEL" | tr -d '[:space:]')"
 
 if [ -z "$MODEL_TRIMMED" ]; then
-  emit_decision "deny" "⛔ Agent 被拦截：缺 model。立即重试同一调用并加 model 参数。选择标准：model=haiku → 找文件、grep关键词、看目录、读单文件、简单确认（90%的子任务都是这个）。model=sonnet → 需要理解代码逻辑的多文件调用链分析、跨模块依赖追踪、复杂重构影响评估。禁止放弃 Agent 改用 Grep/Read 自己做！那会把结果塞进 Opus context，比开 haiku 子代理贵 10 倍。"
+  emit_decision "deny" "⛔ 重试！加 model=haiku 或 model=sonnet 重新调用同一个 Agent（Explore/Plan/general-purpose 都支持 model 参数）。haiku：找文件、grep、读文件、简单确认（默认选这个）。sonnet：多文件调用链、跨模块依赖分析。严禁退回自己 Grep/Read——Opus context 比 haiku subagent 贵 10 倍。"
   exit 0
 fi
 
