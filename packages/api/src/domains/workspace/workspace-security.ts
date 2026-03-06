@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
-import { realpath } from 'node:fs/promises';
-import { basename, relative, resolve, sep } from 'node:path';
+import { mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
@@ -127,37 +127,111 @@ export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Pr
   const entry = entries.find((e) => e.id === worktreeId);
   if (entry) return entry.root;
 
-  // Check linked roots
-  const linked = getLinkedRoots();
+  // Check linked roots (async to include config file)
+  const linked = await getLinkedRootsAsync();
   const linkedEntry = linked.find((r) => r.id === worktreeId);
   if (linkedEntry) return linkedEntry.root;
 
   throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
 }
 
+/** Build a linked root entry from name + path */
+function toLinkedEntry(name: string, rootPath: string): WorktreeEntry {
+  return {
+    id: `linked_${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+    root: resolve(rootPath),
+    branch: name,
+    head: 'linked',
+  };
+}
+
+/** Config file path for persistent linked roots */
+function linkedRootsConfigPath(): string {
+  return resolve(process.cwd(), '.cat-cafe', 'linked-roots.json');
+}
+
+/** Read persisted linked roots from config file */
+async function readLinkedRootsConfig(): Promise<Array<{ name: string; path: string }>> {
+  try {
+    const data = await readFile(linkedRootsConfigPath(), 'utf-8');
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Write linked roots config file */
+async function writeLinkedRootsConfig(entries: Array<{ name: string; path: string }>): Promise<void> {
+  const configPath = linkedRootsConfigPath();
+  await mkdir(dirname(configPath), { recursive: true });
+  await writeFile(configPath, JSON.stringify(entries, null, 2) + '\n', 'utf-8');
+}
+
 /**
- * Parse WORKSPACE_LINKED_ROOTS env var.
- * Format: "name:path,name:path" — each entry gets its own security boundary.
+ * Get all linked roots: env var + config file (merged, deduped by id).
+ * Format: env var "name:path,name:path" + .cat-cafe/linked-roots.json
  */
 export function getLinkedRoots(): WorktreeEntry[] {
+  // From env var
+  const envRoots: WorktreeEntry[] = [];
   const raw = process.env['WORKSPACE_LINKED_ROOTS'];
-  if (!raw) return [];
+  if (raw) {
+    for (const segment of raw.split(',')) {
+      const trimmed = segment.trim();
+      if (!trimmed) continue;
+      const colonIdx = trimmed.indexOf(':');
+      if (colonIdx <= 0) continue;
+      envRoots.push(toLinkedEntry(trimmed.slice(0, colonIdx).trim(), trimmed.slice(colonIdx + 1).trim()));
+    }
+  }
+  return envRoots;
+}
 
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((entry) => {
-      const colonIdx = entry.indexOf(':');
-      if (colonIdx <= 0) return null;
-      const name = entry.slice(0, colonIdx).trim();
-      const root = resolve(entry.slice(colonIdx + 1).trim());
-      return {
-        id: `linked_${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
-        root,
-        branch: name,
-        head: 'linked',
-      } satisfies WorktreeEntry;
-    })
-    .filter((e): e is WorktreeEntry => e !== null);
+/**
+ * Get all linked roots (async — includes config file).
+ * Merges env var roots + config file, deduped by id.
+ */
+export async function getLinkedRootsAsync(): Promise<WorktreeEntry[]> {
+  const envRoots = getLinkedRoots();
+  const configEntries = await readLinkedRootsConfig();
+  const configRoots = configEntries.map((e) => toLinkedEntry(e.name, e.path));
+
+  // Dedup: env wins on conflict
+  const seen = new Set(envRoots.map((r) => r.id));
+  const merged = [...envRoots];
+  for (const cr of configRoots) {
+    if (!seen.has(cr.id)) {
+      merged.push(cr);
+      seen.add(cr.id);
+    }
+  }
+  return merged;
+}
+
+/** Add a linked root to the config file. Validates path exists. */
+export async function addLinkedRoot(name: string, rootPath: string): Promise<WorktreeEntry> {
+  const resolved = resolve(rootPath);
+  // Validate path exists and is a directory
+  const st = await stat(resolved).catch(() => null);
+  if (!st || !st.isDirectory()) {
+    throw new WorkspaceSecurityError(`Path is not a directory: ${resolved}`, 'NOT_FOUND');
+  }
+
+  const entries = await readLinkedRootsConfig();
+  const entry = toLinkedEntry(name, resolved);
+  // Replace if same name exists
+  const filtered = entries.filter((e) => toLinkedEntry(e.name, e.path).id !== entry.id);
+  filtered.push({ name, path: resolved });
+  await writeLinkedRootsConfig(filtered);
+  return entry;
+}
+
+/** Remove a linked root from the config file by id. */
+export async function removeLinkedRoot(linkedId: string): Promise<boolean> {
+  const entries = await readLinkedRootsConfig();
+  const filtered = entries.filter((e) => toLinkedEntry(e.name, e.path).id !== linkedId);
+  if (filtered.length === entries.length) return false;
+  await writeLinkedRootsConfig(filtered);
+  return true;
 }

@@ -7,6 +7,7 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
 import { ChangesPanel } from './workspace/ChangesPanel';
 import { JsxPreview } from './workspace/JsxPreview';
+import { LinkedRootsManager, LinkedRootRemoveButton } from './workspace/LinkedRootsManager';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -101,7 +102,7 @@ const MenuIcon = () => (
 
 /* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
-  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile } = useWorkspace();
+  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile, fetchWorktrees } = useWorkspace();
 
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
@@ -302,18 +303,22 @@ export function WorkspacePanel() {
             <span className="text-[10px] font-mono text-owner-dark/50">{currentWorktree.head}</span>
           </div>
           {worktrees.length > 1 && (
-            <select
-              value={worktreeId ?? ''}
-              onChange={(e) => setWorktreeId(e.target.value || null)}
-              className="mt-1.5 w-full text-[10px] border border-owner-light rounded-md px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-owner-primary"
-            >
-              {worktrees.map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.head === 'linked' ? `📂 ${w.branch}` : `🌿 ${w.branch} (${w.head})`}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1 mt-1.5">
+              <select
+                value={worktreeId ?? ''}
+                onChange={(e) => setWorktreeId(e.target.value || null)}
+                className="flex-1 text-[10px] border border-owner-light rounded-md px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-owner-primary"
+              >
+                {worktrees.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.head === 'linked' ? `📂 ${w.branch}` : `🌿 ${w.branch} (${w.head})`}
+                  </option>
+                ))}
+              </select>
+              {worktreeId && <LinkedRootRemoveButton id={worktreeId} onRemoved={fetchWorktrees} />}
+            </div>
           )}
+          <LinkedRootsManager onRootsChanged={fetchWorktrees} />
         </div>
       )}
 
@@ -558,7 +563,7 @@ export function WorkspacePanel() {
                 </div>
               </div>
             ) : isJsx && jsxPreview && !editMode ? (
-              <JsxPreview code={file.content} filePath={openFilePath!} />
+              <JsxPreview code={file.content} filePath={openFilePath!} worktreeId={worktreeId} />
             ) : (
               <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} branch={currentWorktree?.branch} />
             )}

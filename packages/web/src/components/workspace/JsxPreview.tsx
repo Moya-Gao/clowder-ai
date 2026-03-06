@@ -23,12 +23,60 @@ function ensureEsbuild(): Promise<EsbuildModule> {
   return esbuildReady;
 }
 
+/** Known React-ecosystem packages → esm.sh CDN URLs */
+const ESM_SH_MAP: Record<string, string> = {
+  'react': 'https://esm.sh/react@18?dev',
+  'react/jsx-runtime': 'https://esm.sh/react@18/jsx-runtime?dev',
+  'react/jsx-dev-runtime': 'https://esm.sh/react@18/jsx-dev-runtime?dev',
+  'react-dom': 'https://esm.sh/react-dom@18?dev',
+  'react-dom/client': 'https://esm.sh/react-dom@18/client?dev',
+};
+
+/** Fetch file content from workspace API */
+async function fetchWorkspaceFile(worktreeId: string, filePath: string): Promise<string | null> {
+  const apiBase = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3101';
+  const url = `${apiBase}/api/workspace/file?worktreeId=${encodeURIComponent(worktreeId)}&path=${encodeURIComponent(filePath)}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.content ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Resolve relative path against a directory */
+function resolveRelative(from: string, rel: string): string {
+  const dir = from.includes('/') ? from.slice(0, from.lastIndexOf('/')) : '.';
+  const parts = (dir + '/' + rel).split('/').filter(Boolean);
+  const resolved: string[] = [];
+  for (const p of parts) {
+    if (p === '..') resolved.pop();
+    else if (p !== '.') resolved.push(p);
+  }
+  return resolved.join('/');
+}
+
+/** Try resolving a path with common extensions */
+const EXTENSIONS = ['', '.tsx', '.ts', '.jsx', '.js', '/index.tsx', '/index.ts', '/index.jsx', '/index.js'];
+
+async function resolveWithExtensions(worktreeId: string, basePath: string): Promise<{ path: string; content: string } | null> {
+  for (const ext of EXTENSIONS) {
+    const tryPath = basePath + ext;
+    const content = await fetchWorkspaceFile(worktreeId, tryPath);
+    if (content !== null) return { path: tryPath, content };
+  }
+  return null;
+}
+
 interface JsxPreviewProps {
   code: string;
   filePath: string;
+  worktreeId?: string | null;
 }
 
-export function JsxPreview({ code, filePath }: JsxPreviewProps) {
+export function JsxPreview({ code, filePath, worktreeId }: JsxPreviewProps) {
   const [html, setHtml] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
@@ -38,46 +86,57 @@ export function JsxPreview({ code, filePath }: JsxPreviewProps) {
     setError(null);
     try {
       const mod = await ensureEsbuild();
-
       const isTs = filePath.endsWith('.tsx') || filePath.endsWith('.ts');
+
+      // esbuild plugin: resolve local imports via workspace API, npm packages via esm.sh
+      const workspacePlugin: import('esbuild-wasm').Plugin = {
+        name: 'workspace-resolver',
+        setup(pluginBuild) {
+          // Mark npm packages as external (post-process rewrite to esm.sh)
+          pluginBuild.onResolve({ filter: /^[^./]/ }, (args) => {
+            if (ESM_SH_MAP[args.path]) {
+              return { path: ESM_SH_MAP[args.path], external: true };
+            }
+            // Unknown npm package → esm.sh fallback
+            return { path: `https://esm.sh/${args.path}?dev`, external: true };
+          });
+
+          // Resolve relative imports via workspace API
+          // stdin entry has importer="<stdin>" which is truthy but not a real path
+          pluginBuild.onResolve({ filter: /^\./ }, (args) => {
+            const base = (!args.importer || args.importer === '<stdin>') ? filePath : args.importer;
+            const resolved = resolveRelative(base, args.path);
+            return { path: resolved, namespace: 'workspace' };
+          });
+
+          // Load workspace files
+          pluginBuild.onLoad({ filter: /.*/, namespace: 'workspace' }, async (args) => {
+            if (!worktreeId) return { contents: '', loader: 'js' as const };
+            const result = await resolveWithExtensions(worktreeId, args.path);
+            if (!result) return { contents: `// Could not resolve: ${args.path}`, loader: 'js' as const };
+            const ext = result.path.split('.').pop() ?? '';
+            const loader = (['tsx', 'ts'].includes(ext) ? 'tsx' : 'jsx') as 'tsx' | 'jsx';
+            return { contents: result.content, loader, resolveDir: result.path.includes('/') ? result.path.slice(0, result.path.lastIndexOf('/')) : '.' };
+          });
+        },
+      };
+
       const result = await mod.build({
         stdin: {
           contents: code,
           loader: isTs ? 'tsx' : 'jsx',
           resolveDir: '.',
         },
-        bundle: false,
+        bundle: true,
         write: false,
         format: 'esm',
         jsx: 'automatic',
         target: 'es2020',
+        plugins: [workspacePlugin],
       });
 
-      let js = result.outputFiles?.[0]?.text ?? '';
+      const js = result.outputFiles?.[0]?.text ?? '';
 
-      // Rewrite bare React imports to esm.sh URLs so Blob URL modules can resolve them.
-      // Regexes anchored to line-start (multiline) to avoid mutating string literals —
-      // esbuild ESM output always places import/export statements at column 0.
-      const importMap: Record<string, string> = {
-        'react': 'https://esm.sh/react@18?dev',
-        'react/jsx-runtime': 'https://esm.sh/react@18/jsx-runtime?dev',
-        'react/jsx-dev-runtime': 'https://esm.sh/react@18/jsx-dev-runtime?dev',
-        'react-dom': 'https://esm.sh/react-dom@18?dev',
-        'react-dom/client': 'https://esm.sh/react-dom@18/client?dev',
-      };
-      for (const [bare, url] of Object.entries(importMap)) {
-        const escaped = bare.replace('/', '\\/');
-        // Named/default imports: lines starting with import/export keyword containing `from "bare"`
-        js = js.replace(new RegExp(`^((?:import|export)\\b.+\\bfrom\\s+)["']${escaped}["']`, 'gm'), `$1"${url}"`);
-        // Side-effect imports: `import "react"` at line start (no from keyword)
-        js = js.replace(new RegExp(`^(import\\s+)["']${escaped}["']`, 'gm'), `$1"${url}"`);
-      }
-
-      // Build an HTML document that renders the default export.
-      // The bundled code goes in its own <script> so top-level import statements
-      // remain at module scope (not inside a try block — that's a syntax error).
-      // The render script imports React.createElement for proper component rendering
-      // (direct Component() calls bypass hooks/lifecycle).
       const previewHtml = `<!DOCTYPE html>
 <html>
 <head>
@@ -90,7 +149,6 @@ export function JsxPreview({ code, filePath }: JsxPreviewProps) {
 </head>
 <body>
   <div id="root"></div>
-  <!-- Render script: loads bundled code as Blob URL module, uses createElement -->
   <script type="module">
     import { createElement } from 'https://esm.sh/react@18?dev';
     import { createRoot } from 'https://esm.sh/react-dom@18/client?dev';
@@ -124,7 +182,7 @@ export function JsxPreview({ code, filePath }: JsxPreviewProps) {
     } finally {
       setBuilding(false);
     }
-  }, [code, filePath]);
+  }, [code, filePath, worktreeId]);
 
   useEffect(() => {
     build();
@@ -154,7 +212,7 @@ export function JsxPreview({ code, filePath }: JsxPreviewProps) {
   return (
     <div className="flex-1 min-h-0 flex flex-col">
       <div className="px-2 py-1 bg-blue-900/20 text-blue-400 text-[10px] border-b border-blue-900/30 flex-shrink-0">
-        JSX Preview (esbuild-wasm) — imports beyond React may not resolve
+        JSX Preview (esbuild-wasm) — local imports resolved, npm packages via esm.sh
       </div>
       <div className="flex-1 min-h-0 bg-white">
         <iframe

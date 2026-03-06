@@ -54,10 +54,12 @@ export function useWorkspace() {
       const res = await apiFetch('/api/workspace/worktrees');
       if (res.ok) {
         const data = await res.json();
-        setWorktrees(data.worktrees ?? []);
-        // Auto-select first worktree if none selected
-        if (!worktreeId && data.worktrees?.length > 0) {
-          setWorktreeId(data.worktrees[0].id);
+        const newList: typeof worktrees = data.worktrees ?? [];
+        setWorktrees(newList);
+        // Auto-select first worktree if none selected or current was removed
+        const currentStillExists = worktreeId && newList.some((w: { id: string }) => w.id === worktreeId);
+        if (!currentStillExists && newList.length > 0) {
+          setWorktreeId(newList[0].id);
         }
       }
     } catch {
@@ -162,6 +164,7 @@ export function useWorkspace() {
     searchResults,
     loading,
     error,
+    fetchWorktrees,
     fetchTree,
     fetchFile,
     search,

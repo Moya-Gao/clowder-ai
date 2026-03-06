@@ -7,6 +7,8 @@
  * GET  /api/workspace/file/raw     — stream raw image content
  * POST /api/workspace/search       — content / filename search
  * GET  /api/workspace/diff         — git diff for worktree (changed files + unified diff)
+ * POST /api/workspace/linked-roots  — add a linked root (name + path)
+ * DELETE /api/workspace/linked-roots — remove a linked root by id
  *
  * Edit routes: see workspace-edit.ts
  */
@@ -19,7 +21,9 @@ import { extname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import {
-  getLinkedRoots,
+  addLinkedRoot,
+  getLinkedRootsAsync,
+  removeLinkedRoot,
   getWorktreeRoot,
   isDenylisted,
   listWorktrees,
@@ -105,7 +109,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/workspace/worktrees (includes linked roots)
   app.get('/api/workspace/worktrees', async () => {
     const entries = await listWorktrees();
-    const linked = getLinkedRoots();
+    const linked = await getLinkedRootsAsync();
     return { worktrees: [...entries, ...linked] };
   });
 
@@ -513,5 +517,48 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
       reply.status(500);
       return { error: 'Internal error' };
     }
+  });
+
+  // POST /api/workspace/linked-roots — add a linked root
+  app.post<{
+    Body: { name?: string; path?: string };
+  }>('/api/workspace/linked-roots', async (request, reply) => {
+    const { name, path: rootPath } = request.body ?? {};
+    if (!name || !rootPath) {
+      reply.status(400);
+      return { error: 'name and path are required' };
+    }
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+      reply.status(400);
+      return { error: 'name must be alphanumeric (with _ and -)' };
+    }
+    try {
+      const entry = await addLinkedRoot(name, rootPath);
+      return { linked: entry };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 400);
+        return { error: e.message };
+      }
+      reply.status(500);
+      return { error: 'Internal error' };
+    }
+  });
+
+  // DELETE /api/workspace/linked-roots?id=
+  app.delete<{
+    Querystring: { id?: string };
+  }>('/api/workspace/linked-roots', async (request, reply) => {
+    const { id } = request.query;
+    if (!id) {
+      reply.status(400);
+      return { error: 'id is required' };
+    }
+    const removed = await removeLinkedRoot(id);
+    if (!removed) {
+      reply.status(404);
+      return { error: 'Linked root not found in config' };
+    }
+    return { ok: true };
   });
 };
