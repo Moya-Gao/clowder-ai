@@ -69,6 +69,17 @@ describe('MissionControlPage', () => {
     delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
   });
 
+  it('renders back-to-chat link with href="/"', async () => {
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const backLink = container.querySelector('[data-testid="mc-back-to-chat"]') as HTMLAnchorElement | null;
+    expect(backLink).not.toBeNull();
+    expect(backLink?.getAttribute('href')).toBe('/');
+  });
+
   it('creates backlog items from quick create form', async () => {
     await act(async () => {
       root.render(React.createElement(MissionControlPage));
@@ -294,7 +305,7 @@ describe('MissionControlPage', () => {
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
     expect(panel?.textContent).toContain('待映射任务');
-    expect(panel?.textContent).toContain('暂无可关联 thread');
+    expect(panel?.textContent).toContain('暂无关联 thread');
   });
 
   it('ignores stale thread-situation responses and keeps latest mapping', async () => {

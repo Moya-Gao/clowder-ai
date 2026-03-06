@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import type { BacklogItem, CatId } from '@cat-cafe/shared';
+import Link from 'next/link';
 
 interface ThreadSituationSummary {
   id: string;
@@ -25,16 +25,9 @@ function formatLastActive(lastActiveAt: number): string {
   return `${Math.floor(delta / 86_400_000)} 天前`;
 }
 
-export function ThreadSituationPanel({
-  dispatchedItems,
-  loading,
-  threadsByBacklogId,
-}: ThreadSituationPanelProps) {
+export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklogId }: ThreadSituationPanelProps) {
   return (
-    <section
-      className="min-h-0 rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3"
-      data-testid="mc-thread-situation"
-    >
+    <section className="min-h-0 rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-thread-situation">
       <div className="mb-2">
         <h2 className="text-sm font-semibold text-[#2C2118]">线程态势</h2>
         <p className="text-[11px] text-[#7B6956]">Dispatched 项的执行面状态一览</p>
@@ -52,19 +45,19 @@ export function ThreadSituationPanel({
         </p>
       )}
 
-      <div className="space-y-2">
+      <div className="max-h-64 space-y-2 overflow-auto">
         {dispatchedItems.map((item) => {
           const thread = threadsByBacklogId[item.id];
           if (!thread) {
             return (
               <article
                 key={item.id}
-                className="rounded-xl border border-[#EADFCF] bg-[#FFF9F0] px-2.5 py-2"
+                className="rounded-xl border border-dashed border-[#DDCCB5] bg-[#FEFCF7] px-2.5 py-1.5"
                 data-testid={`mc-thread-situation-item-${item.id}`}
               >
-                <p className="text-xs font-semibold text-[#4B3A2A]">{item.title}</p>
-                <p className="mt-1 text-[11px] text-[#8B7864]">
-                  暂无可关联 thread（可能刚派发，稍后刷新可见）
+                <p className="text-[11px] text-[#8B7864]">
+                  <span className="font-medium text-[#4B3A2A]">{item.title}</span>
+                  {' — '}暂无关联 thread
                 </p>
               </article>
             );
@@ -77,11 +70,20 @@ export function ThreadSituationPanel({
               data-testid={`mc-thread-situation-item-${item.id}`}
             >
               <p className="text-xs font-semibold text-[#4B3A2A]">{item.title}</p>
-              <p className="mt-1 text-[11px] text-[#6E5A46]">
-                Thread：{thread.title || thread.id}
-              </p>
+              <p className="mt-1 text-[11px] text-[#6E5A46]">Thread：{thread.title || thread.id}</p>
               <p className="text-[11px] text-[#6E5A46]">
-                最近活跃：<span title={new Date(thread.lastActiveAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}>{formatLastActive(thread.lastActiveAt)}</span>
+                最近活跃：
+                <span
+                  title={new Date(thread.lastActiveAt).toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                >
+                  {formatLastActive(thread.lastActiveAt)}
+                </span>
               </p>
               <p className="text-[11px] text-[#6E5A46]">
                 参与猫：{thread.participants.length > 0 ? thread.participants.join(', ') : '暂无'}

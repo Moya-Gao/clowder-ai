@@ -154,8 +154,12 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-C3: 态势图相对时间加绝对时间 tooltip
 
 ### Phase D（实测 bug 修复）
-- [ ] AC-D1: 导入时 `in-progress`/`in-review` feature 映射为 `dispatched` 而非 `open`
-- [ ] AC-D2: 右侧面板（ThreadSituationPanel + FeatureBirdEyePanel）可见、可滚动
+- [x] AC-D1: 导入时 `in-progress`/`in-review` feature 映射为 `dispatched` 而非 `open`
+- [x] AC-D2: 右侧面板（ThreadSituationPanel + FeatureBirdEyePanel）可见、可滚动
+
+### Phase E（UX 收尾）
+- [ ] AC-E1: Mission Hub 有"← 返回"按钮可回到对话页
+- [ ] AC-E2: 线程态势面板无关联 thread 的项目紧凑显示 + 面板内滚动（max-h-64）
 
 ## 需求点 Checklist
 
@@ -225,3 +229,5 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-05 | Phase C 合入 main (PR #228) — bird eye panel + query limit + time tooltip |
 | 2026-03-05 | F058 全部 12 AC 验证通过，标记 done |
 | 2026-03-05 | 🔴 铲屎官实测发现两个 bug：导入状态全是 open + 右侧面板看不到。回退 done→in-progress，追加 Phase D |
+| 2026-03-05 | Phase D 合入 main (PR #236) — status mapping + layout overflow fix |
+| 2026-03-05 | Phase E：铲屎官反馈无退出按钮 + 线程态势面板截断。追加 back button + 紧凑无 thread 卡片 + 面板内滚动 |

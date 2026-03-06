@@ -1,15 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import Link from 'next/link';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
-import { apiFetch } from '@/utils/api-client';
 import { useMissionControlStore } from '@/stores/missionControlStore';
+import { apiFetch } from '@/utils/api-client';
+import { FeatureBirdEyePanel } from './FeatureBirdEyePanel';
 import { MissionControlCard } from './MissionControlCard';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
 import { ThreadSituationPanel } from './ThreadSituationPanel';
-import { FeatureBirdEyePanel } from './FeatureBirdEyePanel';
 
 interface BacklogListResponse {
   items?: BacklogItem[];
@@ -52,7 +53,7 @@ function formatMissionHubError(rawError: string): string {
 
 async function parseError(response: Response): Promise<string> {
   try {
-    const body = await response.json() as { error?: string };
+    const body = (await response.json()) as { error?: string };
     return body.error ?? `Request failed: ${response.status}`;
   } catch {
     return `Request failed: ${response.status}`;
@@ -86,7 +87,7 @@ export function MissionControlPage() {
     try {
       const response = await apiFetch('/api/backlog/items');
       if (!response.ok) throw new Error(await parseError(response));
-      const body = await response.json() as BacklogListResponse;
+      const body = (await response.json()) as BacklogListResponse;
       setItems(body.items ?? []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '加载 backlog 失败');
@@ -99,7 +100,7 @@ export function MissionControlPage() {
     try {
       const response = await apiFetch('/api/backlog/self-claim-policy');
       if (!response.ok) throw new Error(await parseError(response));
-      const body = await response.json() as SelfClaimPolicyResponse;
+      const body = (await response.json()) as SelfClaimPolicyResponse;
       setSelfClaimScopes(body.scopes ?? {});
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : '加载 self-claim policy 失败');
@@ -124,10 +125,7 @@ export function MissionControlPage() {
     }
   }, [items, selectedItemId, setSelectedItemId]);
 
-  const selectedItem = useMemo(
-    () => items.find((item) => item.id === selectedItemId) ?? null,
-    [items, selectedItemId],
-  );
+  const selectedItem = useMemo(() => items.find((item) => item.id === selectedItemId) ?? null, [items, selectedItemId]);
 
   const openItems = useMemo(() => items.filter((item) => item.status === 'open'), [items]);
   const suggestedItems = useMemo(
@@ -148,11 +146,9 @@ export function MissionControlPage() {
 
     setThreadsLoading(true);
     try {
-      const response = await apiFetch(
-        `/api/threads?backlogItemIds=${encodeURIComponent(backlogItemIds.join(','))}`,
-      );
+      const response = await apiFetch(`/api/threads?backlogItemIds=${encodeURIComponent(backlogItemIds.join(','))}`);
       if (!response.ok) throw new Error(await parseError(response));
-      const body = await response.json() as ThreadListResponse;
+      const body = (await response.json()) as ThreadListResponse;
       const backlogItemIdSet = new Set(backlogItemIds);
       const next: Record<string, ThreadSituationSummary> = {};
       for (const thread of body.threads ?? []) {
@@ -174,163 +170,185 @@ export function MissionControlPage() {
     void loadThreadSituations(dispatchedBacklogIds);
   }, [dispatchedBacklogIds, loadThreadSituations]);
 
-  const withSubmitGuard = useCallback(async (task: () => Promise<void>) => {
-    setSubmitting(true);
-    setSelfClaimPolicyBlocker(null);
-    setError(null);
-    try {
-      await task();
-    } catch (submitError) {
-      const rawError = submitError instanceof Error ? submitError.message : '请求失败';
-      setSelfClaimPolicyBlocker(detectSelfClaimPolicyBlocker(rawError));
-      setError(formatMissionHubError(rawError));
-    } finally {
-      setSubmitting(false);
-    }
-  }, [setError, setSelfClaimPolicyBlocker, setSubmitting]);
+  const withSubmitGuard = useCallback(
+    async (task: () => Promise<void>) => {
+      setSubmitting(true);
+      setSelfClaimPolicyBlocker(null);
+      setError(null);
+      try {
+        await task();
+      } catch (submitError) {
+        const rawError = submitError instanceof Error ? submitError.message : '请求失败';
+        setSelfClaimPolicyBlocker(detectSelfClaimPolicyBlocker(rawError));
+        setError(formatMissionHubError(rawError));
+      } finally {
+        setSubmitting(false);
+      }
+    },
+    [setError, setSubmitting],
+  );
 
-  const handleCreate = useCallback(async (payload: {
-    title: string;
-    summary: string;
-    priority: BacklogItem['priority'];
-    tags: string[];
-  }) => withSubmitGuard(async () => {
-    const response = await apiFetch('/api/backlog/items', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    const created = await response.json() as BacklogItem;
-    setSelectedItemId(created.id);
-    await loadItems();
-  }), [loadItems, setSelectedItemId, withSubmitGuard]);
-
-  const handleSuggest = useCallback(async (payload: {
-    itemId: string;
-    catId: string;
-    why: string;
-    plan: string;
-    requestedPhase: ThreadPhase;
-  }) => withSubmitGuard(async () => {
-    const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/suggest-claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        catId: payload.catId,
-        why: payload.why,
-        plan: payload.plan,
-        requestedPhase: payload.requestedPhase,
+  const handleCreate = useCallback(
+    async (payload: { title: string; summary: string; priority: BacklogItem['priority']; tags: string[] }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch('/api/backlog/items', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        const created = (await response.json()) as BacklogItem;
+        setSelectedItemId(created.id);
+        await loadItems();
       }),
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    await loadItems();
-  }), [loadItems, withSubmitGuard]);
+    [loadItems, setSelectedItemId, withSubmitGuard],
+  );
 
-  const handleApprove = useCallback(async (payload: { itemId: string; threadPhase: ThreadPhase }) => withSubmitGuard(async () => {
-    const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/decide-claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        decision: 'approve',
-        threadPhase: payload.threadPhase,
+  const handleSuggest = useCallback(
+    async (payload: { itemId: string; catId: string; why: string; plan: string; requestedPhase: ThreadPhase }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/suggest-claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            catId: payload.catId,
+            why: payload.why,
+            plan: payload.plan,
+            requestedPhase: payload.requestedPhase,
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
       }),
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    await loadItems();
-  }), [loadItems, withSubmitGuard]);
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleReject = useCallback(async (payload: { itemId: string; note?: string }) => withSubmitGuard(async () => {
-    const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/decide-claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        decision: 'reject',
-        ...(payload.note ? { note: payload.note } : {}),
+  const handleApprove = useCallback(
+    async (payload: { itemId: string; threadPhase: ThreadPhase }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/decide-claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision: 'approve',
+            threadPhase: payload.threadPhase,
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
       }),
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    await loadItems();
-  }), [loadItems, withSubmitGuard]);
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleSelfClaim = useCallback(async (payload: {
-    itemId: string;
-    catId: string;
-    why: string;
-    plan: string;
-    requestedPhase: ThreadPhase;
-  }) => withSubmitGuard(async () => {
-    const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/self-claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        catId: payload.catId,
-        why: payload.why,
-        plan: payload.plan,
-        requestedPhase: payload.requestedPhase,
+  const handleReject = useCallback(
+    async (payload: { itemId: string; note?: string }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/decide-claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision: 'reject',
+            ...(payload.note ? { note: payload.note } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
       }),
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    await loadItems();
-  }), [loadItems, withSubmitGuard]);
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleAcquireLease = useCallback(async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
-    withSubmitGuard(async () => {
-      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/acquire`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          catId: payload.catId,
-          ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
-        }),
-      });
-      if (!response.ok) throw new Error(await parseError(response));
-      await loadItems();
-    }), [loadItems, withSubmitGuard]);
+  const handleSelfClaim = useCallback(
+    async (payload: { itemId: string; catId: string; why: string; plan: string; requestedPhase: ThreadPhase }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/self-claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            catId: payload.catId,
+            why: payload.why,
+            plan: payload.plan,
+            requestedPhase: payload.requestedPhase,
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleHeartbeatLease = useCallback(async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
-    withSubmitGuard(async () => {
-      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/heartbeat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          catId: payload.catId,
-          ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
-        }),
-      });
-      if (!response.ok) throw new Error(await parseError(response));
-      await loadItems();
-    }), [loadItems, withSubmitGuard]);
+  const handleAcquireLease = useCallback(
+    async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/acquire`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            catId: payload.catId,
+            ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleReleaseLease = useCallback(async (payload: { itemId: string; catId?: string }) =>
-    withSubmitGuard(async () => {
-      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/release`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...(payload.catId ? { catId: payload.catId } : {}),
-        }),
-      });
-      if (!response.ok) throw new Error(await parseError(response));
-      await loadItems();
-    }), [loadItems, withSubmitGuard]);
+  const handleHeartbeatLease = useCallback(
+    async (payload: { itemId: string; catId: string; ttlMs?: number }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/heartbeat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            catId: payload.catId,
+            ...(payload.ttlMs ? { ttlMs: payload.ttlMs } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleReclaimLease = useCallback(async (payload: { itemId: string }) =>
-    withSubmitGuard(async () => {
-      const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/reclaim`, {
-        method: 'POST',
-      });
-      if (!response.ok) throw new Error(await parseError(response));
-      await loadItems();
-    }), [loadItems, withSubmitGuard]);
+  const handleReleaseLease = useCallback(
+    async (payload: { itemId: string; catId?: string }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/release`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(payload.catId ? { catId: payload.catId } : {}),
+          }),
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
 
-  const handleImportFromDocs = useCallback(async () => withSubmitGuard(async () => {
-    const response = await apiFetch('/api/backlog/import-active-features', {
-      method: 'POST',
-    });
-    if (!response.ok) throw new Error(await parseError(response));
-    await loadItems();
-  }), [loadItems, withSubmitGuard]);
+  const handleReclaimLease = useCallback(
+    async (payload: { itemId: string }) =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch(`/api/backlog/items/${encodeURIComponent(payload.itemId)}/lease/reclaim`, {
+          method: 'POST',
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
+
+  const handleImportFromDocs = useCallback(
+    async () =>
+      withSubmitGuard(async () => {
+        const response = await apiFetch('/api/backlog/import-active-features', {
+          method: 'POST',
+        });
+        if (!response.ok) throw new Error(await parseError(response));
+        await loadItems();
+      }),
+    [loadItems, withSubmitGuard],
+  );
 
   return (
     <div className="flex h-screen bg-[#F4EFE7]">
@@ -340,9 +358,18 @@ export function MissionControlPage() {
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden p-4 md:p-6">
         <header className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] px-4 py-3">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-[#9A866F]">Mission Hub</p>
-              <h1 className="mt-1 text-lg font-semibold text-[#2B2118]">Backlog 任务中心</h1>
+            <div className="flex items-center gap-3">
+              <Link
+                href="/"
+                className="inline-flex items-center rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2 py-1.5 text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
+                data-testid="mc-back-to-chat"
+              >
+                ← 返回
+              </Link>
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#9A866F]">Mission Hub</p>
+                <h1 className="mt-1 text-lg font-semibold text-[#2B2118]">Backlog 任务中心</h1>
+              </div>
             </div>
             <button
               type="button"
@@ -427,22 +454,21 @@ export function MissionControlPage() {
               loading={threadsLoading}
               threadsByBacklogId={threadsByBacklogId}
             />
-            <FeatureBirdEyePanel
-              items={items}
-              threadsByBacklogId={threadsByBacklogId}
-            />
+            <FeatureBirdEyePanel items={items} threadsByBacklogId={threadsByBacklogId} />
           </div>
         </div>
 
-        {(loading && items.length === 0) && (
-          <p className="mt-2 text-xs text-[#8A7864]">加载 backlog 中...</p>
-        )}
+        {loading && items.length === 0 && <p className="mt-2 text-xs text-[#8A7864]">加载 backlog 中...</p>}
       </main>
     </div>
   );
 }
 
-function CollapsibleDoneLane({ items, selectedItemId, onSelect }: {
+function CollapsibleDoneLane({
+  items,
+  selectedItemId,
+  onSelect,
+}: {
   items: BacklogItem[];
   selectedItemId: string | null;
   onSelect: (id: string) => void;
@@ -497,12 +523,7 @@ function Lane({ title, subtitle, items, selectedItemId, onSelect, testId }: Lane
           </p>
         )}
         {items.map((item) => (
-          <MissionControlCard
-            key={item.id}
-            item={item}
-            selected={selectedItemId === item.id}
-            onSelect={onSelect}
-          />
+          <MissionControlCard key={item.id} item={item} selected={selectedItemId === item.id} onSelect={onSelect} />
         ))}
       </div>
     </div>
