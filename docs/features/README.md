@@ -51,4 +51,6 @@
 | F052 | F052: 跨线程身份隔离与消息溯源 | done | [F052-cross-thread-identity-isolation.md](./F052-cross-thread-identity-isolation.md) |
 | F055 | F055: 猫猫祟祟 — Plan Board | done | [F055-plan-board.md](./F055-plan-board.md) |
 | F057 | F057: Thread 可发现性 — 排序 + 搜索 + 猫猫工具 | done | [F057-thread-discoverability.md](./F057-thread-discoverability.md) |
+| F058 | F058: Mission Control 增强（F049++） | done | [F058-mission-control-enhancements.md](./F058-mission-control-enhancements.md) |
+| F060 | F060: output_image 富文本渲染 — MCP 图片自动显示 | done | [F060-output-image-rich-block.md](./F060-output-image-rich-block.md) |
 | F062 | F062: 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | done | [F062-ragdoll-provider-profile-hub.md](./F062-ragdoll-provider-profile-hub.md) |

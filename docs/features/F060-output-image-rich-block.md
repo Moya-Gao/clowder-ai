@@ -9,6 +9,7 @@ created: 2026-03-04
 # F060: output_image 富文本渲染
 
 ## Status: done
+## Completed: 2026-03-06
 
 ## Why
 
@@ -122,6 +123,19 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 - 2026-03-04: Kickoff（小红书 MCP 排查中发现需求）
 - 2026-03-05: POC 验证通过 → Implementation Plan 确定 → Phase 1 开始
 - 2026-03-05: Phase 1 实现完成 + 砚砚 peer review 通过（R1→R2, 2P→0P）
+- 2026-03-05: Phase 2 实现完成（lightbox + copy-to-clipboard）
+- 2026-03-05: Phase 2 砚砚 peer review R1 (1P1+2P2) → R2 通过 (0P1/0P2)
+- 2026-03-05: Phase 2 云端 Codex review 通过 ("No major issues. Bravo.")
+- 2026-03-05: Phase 2 PR #238 squash merged
+- 2026-03-06: 铲屎官验收通过 ("f60 大成功！")，Feature closed
+
+## Acceptance Sign-off
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫/宪宪 | F060 spec, BACKLOG, 铲屎官原话 | 核心问题已解决，交付物完全匹配，铲屎官亲自验收通过 | ✅ |
+| 缅因猫/砚砚 | F060 spec, MediaGalleryBlock.tsx, codex-event-transform.ts | R1→R2 两轮 review，AC 对齐确认 | ✅ |
+| 铲屎官 | Hub 前端实际操作 | "验收成功"+"f60 大成功" | ✅ |
 
 ## Implementation Evidence (Phase 1)
 

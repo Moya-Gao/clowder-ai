@@ -8,7 +8,8 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress
+> **Status**: done
+> **Completed**: 2026-03-06
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
