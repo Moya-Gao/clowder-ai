@@ -225,7 +225,12 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
       const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
       const project = (thread.projectPath ?? '').toLowerCase();
       const threadId = thread.id.toLowerCase();
-      return title.includes(normalizedQuery) || fallback.includes(normalizedQuery) || project.includes(normalizedQuery) || threadId.includes(normalizedQuery);
+      return (
+        title.includes(normalizedQuery) ||
+        fallback.includes(normalizedQuery) ||
+        project.includes(normalizedQuery) ||
+        threadId.includes(normalizedQuery)
+      );
     });
   }, [threads, normalizedQuery]);
 
@@ -263,15 +268,30 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
           <button
             type="button"
             onClick={() => {
-              router.push('/mission-hub');
+              const fromParam = currentThreadId ? `?from=${encodeURIComponent(currentThreadId)}` : '';
+              router.push(`/mission-hub${fromParam}`);
               if (typeof window !== 'undefined' && window.innerWidth < 768) {
                 onClose?.();
               }
             }}
-            className="w-full rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
+            className="flex w-full items-center gap-2 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-left text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
             data-testid="sidebar-mission-control"
           >
-            Mission Hub（任务中心）
+            <svg
+              className="h-4 w-4 shrink-0 text-[#9A866F]"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7" />
+              <rect x="14" y="3" width="7" height="7" />
+              <rect x="14" y="14" width="7" height="7" />
+              <rect x="3" y="14" width="7" height="7" />
+            </svg>
+            Mission Hub
           </button>
         </div>
 

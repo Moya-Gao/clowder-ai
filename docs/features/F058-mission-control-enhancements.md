@@ -171,13 +171,13 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-G3: 利用 thread 命名（含 feat 号）通过 featureIds API 补全 feature→thread 关联
 
 ### Phase H（UX 重设计：Feature-centric 信息架构）
-- [ ] AC-H1: 侧边栏入口优化 — "Mission Hub" 加图标，替代纯文字按钮
-- [ ] AC-H2: 返回按钮改为"返回之前的 thread"（记住 referrer），而非固定返回 default thread
-- [ ] AC-H3: 主视图从 kanban 三列重构为 Feature 行列表（一行一个 Feature，显示进度 + 状态 + 线程数）
-- [ ] AC-H4: 点击 Feature 行展开 inline 详情（tasks + threads + 操作按钮 + 文档链接）
-- [ ] AC-H5: 顶部状态栏显示"N 待审批 · N 执行中 · N 已完成"
-- [ ] AC-H6: 已完成 Feature 自然沉底，折叠显示
-- [ ] AC-H7: 保留快速创建和从文档导入功能
+- [x] AC-H1: 侧边栏入口优化 — "Mission Hub" 加图标，替代纯文字按钮
+- [x] AC-H2: 返回按钮改为"返回之前的 thread"（记住 referrer），而非固定返回 default thread
+- [x] AC-H3: 主视图从 kanban 三列重构为 Feature 行列表（一行一个 Feature，显示进度 + 状态 + 线程数）
+- [x] AC-H4: 点击 Feature 行展开 inline 详情（tasks + threads + 操作按钮 + 文档链接）
+- [x] AC-H5: 顶部状态栏显示"N 待审批 · N 执行中 · N 已完成"
+- [x] AC-H6: 已完成 Feature 自然沉底，折叠显示
+- [x] AC-H7: 保留快速创建和从文档导入功能
 
 ## 需求点 Checklist
 
@@ -195,10 +195,10 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R10 | "排版难看，close 横在那里上面太短" | AC-G1 | screenshot（鸟瞰卡片排版优化） | [x] |
 | R11 | "close的得在features里拉取补历史数据" | AC-G2 | test（features/*.md 导入 done features） | [x] |
 | R12 | "线程搜fxx能补关联，thread命名写了feat号" | AC-G3 | test（MCP thread 搜索补关联） | [x] |
-| R13 | "现在这种ux太差了 可能需要tab隐藏或者切换" | AC-H3~H6 | 设计图 + screenshot（Feature 行列表） | [ ] |
-| R14 | "入口加图标好看点" | AC-H1 | screenshot（侧边栏图标） | [ ] |
-| R15 | "返回按钮得返回我之前在的thread" | AC-H2 | test（referrer-based back） | [ ] |
-| R16 | "先画出设计图我看看" | AC-H3 | Pencil 设计稿 + 铲屎官确认 | [ ] |
+| R13 | "现在这种ux太差了 可能需要tab隐藏或者切换" | AC-H3~H6 | 设计图 + screenshot（Feature 行列表） | [x] |
+| R14 | "入口加图标好看点" | AC-H1 | screenshot（侧边栏图标） | [x] |
+| R15 | "返回按钮得返回我之前在的thread" | AC-H2 | test（referrer-based back） | [x] |
+| R16 | "先画出设计图我看看" | AC-H3 | Pencil 设计稿 + 铲屎官确认 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -267,6 +267,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-06 | Phase F 合入 main (PR #245) — bird eye done section (collapsible completed features) |
 | 2026-03-06 | Phase G 合入 main (PR #247) — bird eye UX optimization + featureIds chunking + doneAt/audit fix |
 | 2026-03-06 | Phase H：铲屎官触发 UX 大讨论："太差了，需要 tab 隐藏或切换"。四猫独立思考后收敛（见下方讨论记录） |
+| 2026-03-06 | Phase H 实现完成 — Feature-row list + dep graph tabs + sidebar icon + referrer back (codex R2 PASS) |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 

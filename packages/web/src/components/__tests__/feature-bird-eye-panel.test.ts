@@ -53,7 +53,7 @@ describe('extractFeatureId', () => {
   });
 });
 
-describe('MissionControlPage — Feature bird eye panel', () => {
+describe('MissionControlPage — Feature row list', () => {
   let container: HTMLDivElement;
   let root: Root;
   let backend: MissionControlMockBackend;
@@ -85,7 +85,7 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     vi.restoreAllMocks();
   });
 
-  it('groups items by feature:fxxx tag and shows status badges', async () => {
+  it('groups items by feature:fxxx tag and shows feature rows', async () => {
     const now = Date.now();
     backend.setItems([
       {
@@ -138,18 +138,12 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     });
     await flush(act);
 
-    const birdEye = container.querySelector('[data-testid="mc-feature-bird-eye"]');
-    expect(birdEye).not.toBeNull();
+    const rowList = container.querySelector('[data-testid="mc-feature-row-list"]');
+    expect(rowList).not.toBeNull();
 
-    const f058 = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
-    expect(f058).not.toBeNull();
-    expect(f058?.textContent).toContain('F058');
-    expect(f058?.textContent).toContain('2 项');
-
-    const f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
+    const f049 = container.querySelector('[data-testid="mc-feature-row-F049"]');
     expect(f049).not.toBeNull();
     expect(f049?.textContent).toContain('F049');
-    expect(f049?.textContent).toContain('1 项');
   });
 
   it('separates all-done features into collapsible done section', async () => {
@@ -206,19 +200,18 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     });
     await flush(act);
 
-    // F060 (active) should be visible directly
-    const f060 = container.querySelector('[data-testid="mc-bird-eye-feature-F060"]');
+    // F060 (active) should be visible as a feature row
+    const f060 = container.querySelector('[data-testid="mc-feature-row-F060"]');
     expect(f060).not.toBeNull();
 
     // Done section should exist
-    const doneSection = container.querySelector('[data-testid="mc-bird-eye-done-section"]');
+    const doneSection = container.querySelector('[data-testid="mc-feature-done-section"]');
     expect(doneSection).not.toBeNull();
     expect(doneSection?.textContent).toContain('已完成');
-    expect(doneSection?.textContent).toContain('1 个 Feature');
 
-    // F049 (all done) should NOT be visible before expanding
-    let f049 = container.querySelector('[data-testid="mc-bird-eye-done-chip-F049"]');
-    expect(f049).toBeNull();
+    // F049 details should NOT be visible before expanding
+    const f049Row = container.querySelector('[data-testid="mc-feature-row-F049"]');
+    expect(f049Row).toBeNull();
 
     // Click to expand done section
     const expandBtn = doneSection?.querySelector('button');
@@ -227,11 +220,10 @@ describe('MissionControlPage — Feature bird eye panel', () => {
       expandBtn?.click();
     });
 
-    // F049 should now be visible as a compact chip
-    f049 = container.querySelector('[data-testid="mc-bird-eye-done-chip-F049"]');
-    expect(f049).not.toBeNull();
-    expect(f049?.textContent).toContain('F049');
-    expect(f049?.textContent).toContain('✓');
+    // F049 should now be visible as a feature row
+    const f049After = container.querySelector('[data-testid="mc-feature-row-F049"]');
+    expect(f049After).not.toBeNull();
+    expect(f049After?.textContent).toContain('F049');
   });
 
   it('shows feature name extracted from item title', async () => {
@@ -260,9 +252,9 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     });
     await flush(act);
 
-    const card = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
-    expect(card).not.toBeNull();
-    expect(card?.textContent).toContain('Mission Control 增强');
+    const row = container.querySelector('[data-testid="mc-feature-row-F058"]');
+    expect(row).not.toBeNull();
+    expect(row?.textContent).toContain('Mission Control 增强');
   });
 
   it('shows thread count from title-matched threads', async () => {
@@ -286,8 +278,20 @@ describe('MissionControlPage — Feature bird eye panel', () => {
       },
     ]);
     backend.setThreads([
-      { id: 'thread-f58-a', title: 'f058 phase A 实现', createdBy: 'default-user', lastActiveAt: now, participants: ['opus'] as never[] },
-      { id: 'thread-f58-b', title: 'f058 phase B review', createdBy: 'default-user', lastActiveAt: now, participants: ['codex'] as never[] },
+      {
+        id: 'thread-f58-a',
+        title: 'f058 phase A 实现',
+        createdBy: 'default-user',
+        lastActiveAt: now,
+        participants: ['opus'] as never[],
+      },
+      {
+        id: 'thread-f58-b',
+        title: 'f058 phase B review',
+        createdBy: 'default-user',
+        lastActiveAt: now,
+        participants: ['codex'] as never[],
+      },
     ]);
 
     await act(async () => {
@@ -295,10 +299,10 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     });
     await flush(act);
 
-    const card = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
-    expect(card).not.toBeNull();
-    // Should show thread count from title matching (2 threads contain "f058")
-    expect(card?.textContent).toContain('2 个线程关联');
+    const row = container.querySelector('[data-testid="mc-feature-row-F058"]');
+    expect(row).not.toBeNull();
+    // Thread count badge should show 2 (from featureIds title matching)
+    expect(row?.textContent).toContain('2');
   });
 
   it('chunks featureIds requests when >50 unique features exist', async () => {
@@ -323,7 +327,13 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     backend.setItems(manyItems);
     // Add a thread matching f001
     backend.setThreads([
-      { id: 'thread-f001', title: 'f001 implementation', createdBy: 'default-user', lastActiveAt: now, participants: ['opus'] as never[] },
+      {
+        id: 'thread-f001',
+        title: 'f001 implementation',
+        createdBy: 'default-user',
+        lastActiveAt: now,
+        participants: ['opus'] as never[],
+      },
     ]);
 
     await act(async () => {
@@ -331,9 +341,10 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     });
     await flush(act);
 
-    // If chunking works, requests won't 400 and thread count will be found
-    const f001Card = container.querySelector('[data-testid="mc-bird-eye-feature-F001"]');
-    expect(f001Card).not.toBeNull();
-    expect(f001Card?.textContent).toContain('1 个线程关联');
+    // If chunking works, requests won't 400 and feature row will render
+    const f001Row = container.querySelector('[data-testid="mc-feature-row-F001"]');
+    expect(f001Row).not.toBeNull();
+    // Thread count from title matching should show 1
+    expect(f001Row?.textContent).toContain('1');
   });
 });

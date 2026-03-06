@@ -6,8 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
 import { useMissionControlStore } from '@/stores/missionControlStore';
 import { apiFetch } from '@/utils/api-client';
-import { extractFeatureId, FeatureBirdEyePanel } from './FeatureBirdEyePanel';
-import { MissionControlCard } from './MissionControlCard';
+import { DependencyGraphTab } from './DependencyGraphTab';
+import { extractFeatureId } from './FeatureBirdEyePanel';
+import { FeatureRowList } from './FeatureRowList';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
 import { ThreadSituationPanel } from './ThreadSituationPanel';
@@ -128,13 +129,7 @@ export function MissionControlPage() {
 
   const selectedItem = useMemo(() => items.find((item) => item.id === selectedItemId) ?? null, [items, selectedItemId]);
 
-  const openItems = useMemo(() => items.filter((item) => item.status === 'open'), [items]);
-  const suggestedItems = useMemo(
-    () => items.filter((item) => item.status === 'suggested' || item.status === 'approved'),
-    [items],
-  );
   const dispatchedItems = useMemo(() => items.filter((item) => item.status === 'dispatched'), [items]);
-  const doneItems = useMemo(() => items.filter((item) => item.status === 'done'), [items]);
   const dispatchedBacklogIds = useMemo(() => dispatchedItems.map((item) => item.id), [dispatchedItems]);
 
   /** F058 Phase G: unique feature IDs from all items for thread title search */
@@ -195,10 +190,9 @@ export function MissionControlPage() {
         for (let i = 0; i < uniqueFeatureIds.length; i += CHUNK_SIZE) {
           if (controller.signal.aborted) return;
           const chunk = uniqueFeatureIds.slice(i, i + CHUNK_SIZE);
-          const response = await apiFetch(
-            `/api/threads?featureIds=${encodeURIComponent(chunk.join(','))}`,
-            { signal: controller.signal },
-          );
+          const response = await apiFetch(`/api/threads?featureIds=${encodeURIComponent(chunk.join(','))}`, {
+            signal: controller.signal,
+          });
           if (!response.ok || controller.signal.aborted) return;
           const body = (await response.json()) as { threadsByFeature?: Record<string, unknown[]> };
           for (const [fid, threads] of Object.entries(body.threadsByFeature ?? {})) {
@@ -393,49 +387,120 @@ export function MissionControlPage() {
     [loadItems, withSubmitGuard],
   );
 
+  // Status summary counts
+  const pendingCount = useMemo(
+    () => items.filter((i) => i.status === 'suggested' || i.status === 'approved').length,
+    [items],
+  );
+  const activeCount = useMemo(() => items.filter((i) => i.status === 'dispatched').length, [items]);
+  const doneCount = useMemo(() => items.filter((i) => i.status === 'done').length, [items]);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'features' | 'dependencies'>('features');
+
+  // AC-H2: Referrer-based back button — remember where we came from
+  const referrerThread = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get('from') ?? null;
+  }, []);
+
   return (
     <div className="flex h-screen bg-[#F4EFE7]">
       <div className="hidden h-full md:block">
         <ThreadSidebar />
       </div>
-      <main className="flex min-w-0 flex-1 flex-col overflow-hidden p-4 md:p-6">
-        <header className="rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <Link
-                href="/"
-                className="inline-flex items-center rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2 py-1.5 text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB]"
-                data-testid="mc-back-to-chat"
+      <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <header className="flex items-center justify-between border-b border-[#E7DAC7] bg-[#FFFDF8] px-6 py-3">
+          <div className="flex items-center gap-3">
+            <Link
+              href={referrerThread ? `/thread/${referrerThread}` : '/'}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#8B6F47] transition-colors hover:bg-[#F7EEDB]"
+              data-testid="mc-back-to-chat"
+            >
+              <svg
+                className="h-4 w-4"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                ← 返回
-              </Link>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-[#9A866F]">Mission Hub</p>
-                <h1 className="mt-1 text-lg font-semibold text-[#2B2118]">Backlog 任务中心</h1>
-              </div>
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              返回线程
+            </Link>
+            <div className="flex items-center gap-2">
+              <svg
+                className="h-5 w-5 text-[#9A866F]"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="3" y="3" width="7" height="7" />
+                <rect x="14" y="3" width="7" height="7" />
+                <rect x="14" y="14" width="7" height="7" />
+                <rect x="3" y="14" width="7" height="7" />
+              </svg>
+              <h1 className="text-lg font-bold text-[#2B2118]">Mission Hub</h1>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={() => void handleImportFromDocs()}
               disabled={submitting}
-              className="rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-2.5 py-1.5 text-xs font-medium text-[#6C563F] transition-colors hover:bg-[#F7EEDB] disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#7A6B5A] transition-colors hover:bg-[#F7EEDB] disabled:opacity-40"
               data-testid="mc-import-docs"
             >
-              从文档导入/刷新
+              从文档导入
             </button>
           </div>
-          <p className="mt-1 text-xs text-[#705E4C]">
-            面向手机/桌面统一收集与分配。流程：Open → Suggested → Dispatched → Done。
-          </p>
         </header>
 
-        <div className="mt-3">
-          <QuickCreateForm disabled={submitting} onCreate={handleCreate} />
+        {/* Tabs */}
+        <div className="flex border-b border-[#E7DAC7] bg-[#FFFDF8]">
+          <button
+            type="button"
+            onClick={() => setActiveTab('features')}
+            className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+              activeTab === 'features'
+                ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
+                : 'text-[#9A866F] hover:text-[#6B5D4F]'
+            }`}
+            data-testid="mc-tab-features"
+          >
+            功能列表
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('dependencies')}
+            className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+              activeTab === 'dependencies'
+                ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
+                : 'text-[#9A866F] hover:text-[#6B5D4F]'
+            }`}
+            data-testid="mc-tab-dependencies"
+          >
+            依赖全景
+          </button>
+        </div>
+
+        {/* Status summary bar */}
+        <div className="flex items-center gap-5 border-b border-[#E7DAC7] bg-[#FFFDF8] px-6 py-2.5">
+          <StatusDot color="bg-[#E4A853]" label={`${pendingCount} 待审批`} textColor="text-[#9A7B3D]" />
+          <StatusDot color="bg-[#5B9BD5]" label={`${activeCount} 执行中`} textColor="text-[#4A7FB5]" />
+          <StatusDot color="bg-[#7CB87C]" label={`${doneCount} 已完成`} textColor="text-[#5A9A5A]" />
         </div>
 
         {error && (
           <div
-            className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+            className="mx-6 mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
             data-testid="mc-error"
             role="alert"
           >
@@ -443,138 +508,71 @@ export function MissionControlPage() {
           </div>
         )}
 
-        <div className="mt-3 grid min-h-0 flex-1 grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="grid min-h-0 grid-cols-1 gap-3 lg:grid-cols-3">
-            <Lane
-              title="Open"
-              subtitle="待建议领取"
-              items={openItems}
-              selectedItemId={selectedItemId}
-              onSelect={setSelectedItemId}
-              testId="mc-lane-open"
-            />
-            <Lane
-              title="Suggested"
-              subtitle="待批准/已批准"
-              items={suggestedItems}
-              selectedItemId={selectedItemId}
-              onSelect={setSelectedItemId}
-              testId="mc-lane-suggested"
-            />
-            <Lane
-              title="Dispatched"
-              subtitle="执行中线程"
-              items={dispatchedItems}
-              selectedItemId={selectedItemId}
-              onSelect={setSelectedItemId}
-              testId="mc-lane-dispatched"
-            />
-          </section>
+        {/* Main content area */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          {activeTab === 'features' ? (
+            <div className="grid min-h-0 grid-cols-1 gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="space-y-4">
+                {/* Quick create */}
+                <QuickCreateForm disabled={submitting} onCreate={handleCreate} />
 
-          {doneItems.length > 0 && (
-            <CollapsibleDoneLane items={doneItems} selectedItemId={selectedItemId} onSelect={setSelectedItemId} />
+                {/* Feature row list */}
+                <FeatureRowList
+                  items={items}
+                  threadsByBacklogId={threadsByBacklogId}
+                  threadCountByFeature={threadCountByFeature}
+                  selectedItemId={selectedItemId}
+                  onSelectItem={setSelectedItemId}
+                />
+              </div>
+
+              {/* Right panel: operations */}
+              <div className="space-y-3">
+                <div className="max-h-[50vh] overflow-auto">
+                  <SuggestionDrawer
+                    item={selectedItem}
+                    submitting={submitting}
+                    selectedPhase={selectedPhase}
+                    selfClaimScopes={selfClaimScopes}
+                    selfClaimPolicyBlocker={selfClaimPolicyBlocker}
+                    onChangePhase={setSelectedPhase}
+                    onSuggest={handleSuggest}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                    onSelfClaim={handleSelfClaim}
+                    onAcquireLease={handleAcquireLease}
+                    onHeartbeatLease={handleHeartbeatLease}
+                    onReleaseLease={handleReleaseLease}
+                    onReclaimLease={handleReclaimLease}
+                  />
+                </div>
+                <div className="max-h-[30vh] overflow-auto">
+                  <ThreadSituationPanel
+                    dispatchedItems={dispatchedItems}
+                    loading={threadsLoading}
+                    threadsByBacklogId={threadsByBacklogId}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-6">
+              <DependencyGraphTab items={items} />
+            </div>
           )}
-
-          <div className="grid min-h-0 gap-3 grid-rows-[minmax(260px,2fr)_minmax(160px,1fr)_minmax(160px,1fr)]">
-            <div className="min-h-0 overflow-auto">
-            <SuggestionDrawer
-              item={selectedItem}
-              submitting={submitting}
-              selectedPhase={selectedPhase}
-              selfClaimScopes={selfClaimScopes}
-              selfClaimPolicyBlocker={selfClaimPolicyBlocker}
-              onChangePhase={setSelectedPhase}
-              onSuggest={handleSuggest}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              onSelfClaim={handleSelfClaim}
-              onAcquireLease={handleAcquireLease}
-              onHeartbeatLease={handleHeartbeatLease}
-              onReleaseLease={handleReleaseLease}
-              onReclaimLease={handleReclaimLease}
-            />
-            </div>
-            <div className="min-h-0 overflow-auto">
-            <ThreadSituationPanel
-              dispatchedItems={dispatchedItems}
-              loading={threadsLoading}
-              threadsByBacklogId={threadsByBacklogId}
-            />
-            </div>
-            <div className="min-h-0 overflow-auto">
-            <FeatureBirdEyePanel items={items} threadsByBacklogId={threadsByBacklogId} threadCountByFeature={threadCountByFeature} />
-            </div>
-          </div>
         </div>
 
-        {loading && items.length === 0 && <p className="mt-2 text-xs text-[#8A7864]">加载 backlog 中...</p>}
+        {loading && items.length === 0 && <p className="px-6 py-2 text-xs text-[#8A7864]">加载 backlog 中...</p>}
       </main>
     </div>
   );
 }
 
-function CollapsibleDoneLane({
-  items,
-  selectedItemId,
-  onSelect,
-}: {
-  items: BacklogItem[];
-  selectedItemId: string | null;
-  onSelect: (id: string) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
+function StatusDot({ color, label, textColor }: { color: string; label: string; textColor: string }) {
   return (
-    <div className="col-span-full rounded-2xl border border-[#D4E8D0] bg-[#F6FBF5] p-3" data-testid="mc-lane-done">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="flex w-full items-center justify-between text-left"
-      >
-        <div>
-          <h2 className="text-sm font-semibold text-[#2C4A28]">已完成</h2>
-          <p className="text-[11px] text-[#6B8F65]">Done · {items.length}</p>
-        </div>
-        <span className="text-xs text-[#6B8F65]">{expanded ? '收起 ▲' : '展开 ▼'}</span>
-      </button>
-      {expanded && (
-        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <MissionControlCard key={item.id} item={item} selected={selectedItemId === item.id} onSelect={onSelect} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface LaneProps {
-  title: string;
-  subtitle: string;
-  items: BacklogItem[];
-  selectedItemId: string | null;
-  onSelect: (id: string) => void;
-  testId: string;
-}
-
-function Lane({ title, subtitle, items, selectedItemId, onSelect, testId }: LaneProps) {
-  return (
-    <div className="flex min-h-0 flex-col rounded-2xl border border-[#E6DAC8] bg-[#FFF9F0] p-3" data-testid={testId}>
-      <div className="mb-2">
-        <h2 className="text-sm font-semibold text-[#2C2118]">{title}</h2>
-        <p className="text-[11px] text-[#7B6956]">
-          {subtitle} · {items.length}
-        </p>
-      </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-auto pr-1">
-        {items.length === 0 && (
-          <p className="rounded-lg border border-dashed border-[#DDCCB5] px-2 py-2 text-[11px] text-[#8B7864]">
-            暂无任务
-          </p>
-        )}
-        {items.map((item) => (
-          <MissionControlCard key={item.id} item={item} selected={selectedItemId === item.id} onSelect={onSelect} />
-        ))}
-      </div>
-    </div>
+    <span className="flex items-center gap-1.5">
+      <span className={`h-2 w-2 rounded-full ${color}`} />
+      <span className={`text-[13px] font-semibold ${textColor}`}>{label}</span>
+    </span>
   );
 }
