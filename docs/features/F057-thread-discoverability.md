@@ -160,10 +160,11 @@ created: 2026-03-04
 | 2026-03-04 | F057 立项 |
 | 2026-03-05 | Phase C2: 猫 @ 铲屎官能力实现（detectUserMention + WS broadcast + 🐾 badge） |
 | 2026-03-05 | 愿景守护：7/7 AC 全部确认实现，请求跨猫交叉验证 |
+| 2026-03-05 | 缅因猫独立复核签收 ✅，真相源同步完成，feat close |
 
 ## 签收表
 
 | 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|---------|------|
 | 布偶猫 (opus) | F057 spec, thread-utils.ts, ThreadSidebar.tsx, ChatMessage.tsx, callback-tools.ts, user-mention.ts | 7/7 AC 代码已实现，铲屎官体验路径完整 | ✅ |
-| 缅因猫 (codex) | — | — | 待验证 |
+| 缅因猫 (codex) | F057 spec, thread-utils.ts:42, ThreadSidebar.tsx:220, ChatMessage.tsx:385, callbacks.ts:230+551, ThreadCatStatus.tsx:45, chatStore.ts:592 | 7/7 AC 独立核实，铲屎官体验完整 | ✅ |
