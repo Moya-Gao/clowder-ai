@@ -432,7 +432,8 @@ export function MissionControlPage() {
             <CollapsibleDoneLane items={doneItems} selectedItemId={selectedItemId} onSelect={setSelectedItemId} />
           )}
 
-          <div className="flex min-h-0 flex-col gap-3 overflow-auto">
+          <div className="grid min-h-0 gap-3 grid-rows-[minmax(260px,2fr)_minmax(160px,1fr)_minmax(160px,1fr)]">
+            <div className="min-h-0 overflow-auto">
             <SuggestionDrawer
               item={selectedItem}
               submitting={submitting}
@@ -449,12 +450,17 @@ export function MissionControlPage() {
               onReleaseLease={handleReleaseLease}
               onReclaimLease={handleReclaimLease}
             />
+            </div>
+            <div className="min-h-0 overflow-auto">
             <ThreadSituationPanel
               dispatchedItems={dispatchedItems}
               loading={threadsLoading}
               threadsByBacklogId={threadsByBacklogId}
             />
+            </div>
+            <div className="min-h-0 overflow-auto">
             <FeatureBirdEyePanel items={items} threadsByBacklogId={threadsByBacklogId} />
+            </div>
           </div>
         </div>
 

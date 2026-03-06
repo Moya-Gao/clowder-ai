@@ -45,7 +45,7 @@ export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklo
         </p>
       )}
 
-      <div className="max-h-64 space-y-2 overflow-auto">
+      <div className="space-y-2">
         {dispatchedItems.map((item) => {
           const thread = threadsByBacklogId[item.id];
           if (!thread) {
