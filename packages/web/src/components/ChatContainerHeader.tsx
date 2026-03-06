@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
-import { PawIcon } from './icons/PawIcon';
+import { CatCafeLogo } from './icons/CatCafeLogo';
 
 interface ChatContainerHeaderProps {
   sidebarOpen: boolean;
@@ -42,7 +42,7 @@ export function ChatContainerHeader({
             />
           </svg>
         </button>
-        <PawIcon className="w-6 h-6 text-owner-primary" />
+        <CatCafeLogo className="w-8 h-8 text-owner-primary" />
         <div className="flex-1 min-w-0">
           <h1 className="text-lg font-bold text-cafe-black">Cat Cafe</h1>
           <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
