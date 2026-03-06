@@ -65,7 +65,11 @@ function buildThreadMemory(
 
 From KD-5: `min(3000, floor(maxPromptTokens * 0.03))`, floor 1200.
 
-For Phase B, use a simpler fixed cap: `MAX_THREAD_MEMORY_TOKENS = 1500` (half of the bootstrap's 2000 cap, leaving room for identity + tools + task snapshot). This fits within the existing `MAX_BOOTSTRAP_TOKENS = 2000` section-aware cap from Phase A — ThreadMemory replaces per-session digest as the primary context source.
+**Dynamic cap per KD-5 (R1 P1-2 fix):** `buildThreadMemory` receives `maxTokens` as a parameter. Callers compute it from the cat's `maxPromptTokens` via `getCatContextBudget(catId).maxPromptTokens`. Formula: `Math.max(1200, Math.min(3000, Math.floor(maxPromptTokens * 0.03)))`.
+
+For Spark (64k): cap = 1920. For Opus (180k): cap = 3000. For Gemini (350k): cap = 3000.
+
+The existing `MAX_BOOTSTRAP_TOKENS = 2000` section-aware cap from Phase A still applies as the output gate — if ThreadMemory exceeds the bootstrap budget, the section-aware logic drops lower-priority sections first (task → digest → threadMemory).
 
 ## Tasks
 
@@ -73,8 +77,11 @@ For Phase B, use a simpler fixed cap: `MAX_THREAD_MEMORY_TOKENS = 1500` (half of
 
 **Files:**
 - Modify: `packages/api/src/domains/cats/services/stores/ports/ThreadStore.ts`
+- Modify: `packages/api/src/domains/cats/services/stores/redis/RedisThreadStore.ts` (R1 P1-1: must sync interface)
 
-**What:** Add `ThreadMemoryV1` interface and two methods to `IThreadStore` + `ThreadStore`.
+**What:** Add `ThreadMemoryV1` interface and two methods to `IThreadStore` + both implementations (in-memory `ThreadStore` and `RedisThreadStore`).
+
+**R1 P1-1 fix:** `createThreadStore(redis)` defaults to Redis path. Interface changes MUST land in both implementations simultaneously to avoid compile errors. Redis implementation stores ThreadMemory as a JSON string in a hash field (e.g. `thread:{id}:memory`).
 
 **Step 1: Add ThreadMemoryV1 type**
 
@@ -299,6 +306,13 @@ export function buildThreadMemory(
     summary = allLines.join('\n');
   }
 
+  // R1 P2-1 hard-cap: if single remaining line still exceeds maxTokens,
+  // truncate it (rough char-level cut, re-estimate)
+  if (estimateTokens(summary) > maxTokens) {
+    const ratio = maxTokens / Math.max(1, estimateTokens(summary));
+    summary = summary.slice(0, Math.floor(summary.length * ratio * 0.9)) + '...';
+  }
+
   return {
     v: 1,
     summary,
@@ -332,7 +346,9 @@ git commit -m "feat(F065): add buildThreadMemory — rule-based rolling memory b
 
 **What:** After writing the extractive digest in `finalize()`, read existing ThreadMemory + the digest just written, call `buildThreadMemory()`, write result back via `ThreadStore.updateThreadMemory()`.
 
-**Dependencies:** `SessionSealer` needs `IThreadStore` and `TranscriptReader` injected. Currently it only has `ISessionChainStore` and optional `TranscriptWriter`.
+**Dependencies:** `SessionSealer` needs `IThreadStore`, `TranscriptReader`, and a way to compute per-cat token cap. Currently it only has `ISessionChainStore` and optional `TranscriptWriter`.
+
+**R1 P1-2 fix:** Inject `getMaxPromptTokens: (catId: CatId) => number` (backed by `getCatContextBudget`). Compute `maxTokens = Math.max(1200, Math.min(3000, Math.floor(getMaxPromptTokens(record.catId) * 0.03)))`.
 
 **Step 1: Write the failing test**
 
@@ -346,6 +362,7 @@ constructor(
   private readonly transcriptWriter?: TranscriptWriter,
   private readonly threadStore?: IThreadStore,
   private readonly transcriptReader?: TranscriptReader,
+  private readonly getMaxPromptTokens?: (catId: CatId) => number,
 ) {}
 ```
 
@@ -360,10 +377,13 @@ if (this.threadStore && this.transcriptReader) {
     const digest = await this.transcriptReader.readDigest(record.id, record.threadId, record.catId);
     if (digest) {
       const existingMemory = await this.threadStore.getThreadMemory(record.threadId);
+      // KD-5 dynamic cap: min(3000, floor(maxPromptTokens * 0.03)), floor 1200
+      const maxPrompt = this.getMaxPromptTokens?.(record.catId) ?? 180000;
+      const maxTokens = Math.max(1200, Math.min(3000, Math.floor(maxPrompt * 0.03)));
       const updated = buildThreadMemory(
         existingMemory,
         digest as unknown as ExtractiveDigestV1,
-        MAX_THREAD_MEMORY_TOKENS,
+        maxTokens,
       );
       await this.threadStore.updateThreadMemory(record.threadId, updated);
     }
@@ -416,7 +436,7 @@ it('includes thread memory when threadStore has memory', async () => {
 
 **Step 2: Add ThreadMemory section to buildSessionBootstrap**
 
-Read ThreadMemory from `opts.taskStore` (via a new `threadStore` dependency on `SessionBootstrapOptions`):
+Read ThreadMemory from `opts.threadStore` (via a new `threadStore` dependency on `SessionBootstrapOptions`):
 
 ```typescript
 export interface SessionBootstrapOptions {
