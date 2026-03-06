@@ -616,6 +616,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (messages.length > MAX_BLOB_MESSAGES) {
           revokeBlobUrls(messages.slice(0, messages.length - MAX_BLOB_MESSAGES));
         }
+        // F067: Notify even on active thread when tab is hidden
+        if (msg.mentionsUser && typeof document !== 'undefined' && document.hidden) {
+          fireOwnerMentionNotification(msg);
+        }
         return { messages };
       }
 
@@ -623,7 +627,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (existing.messages.some((m) => m.id === msg.id)) return state;
 
-      // F067 Phase 2: Fire macOS notification for @owner mention in background thread
+      // F067 Phase 2: Fire macOS notification for @owner mention
       if (msg.mentionsUser) fireOwnerMentionNotification(msg);
 
       return {
