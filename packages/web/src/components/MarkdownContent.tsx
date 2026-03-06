@@ -221,18 +221,69 @@ interface Props {
   className?: string;
   /** Skip slash-command prefix detection (e.g. for rich block bodyMarkdown) */
   disableCommandPrefix?: boolean;
+  /** Base directory path for resolving relative links (e.g. "docs/features") */
+  basePath?: string;
 }
 
-export function MarkdownContent({ content, className, disableCommandPrefix }: Props) {
+/** Check if href is a relative markdown link (not absolute, not external) */
+export function isRelativeMdLink(href: string | undefined): href is string {
+  if (!href) return false;
+  if (href.startsWith('http://') || href.startsWith('https://') || href.startsWith('/')) return false;
+  return /\.mdx?(?:#|$)/.test(href);
+}
+
+/** Resolve a relative path against a base directory */
+export function resolveRelativePath(base: string, relative: string): string {
+  // Strip fragment/hash
+  const clean = relative.split('#')[0];
+  // base is the directory of the current file (e.g. "docs/features")
+  const parts = base ? base.split('/') : [];
+  for (const seg of clean.split('/')) {
+    if (seg === '..') parts.pop();
+    else if (seg !== '.') parts.push(seg);
+  }
+  return parts.join('/');
+}
+
+export function MarkdownContent({ content, className, disableCommandPrefix, basePath }: Props) {
   const cmdMatch = disableCommandPrefix ? null : /^(\/\w+)/.exec(content);
   const md = cmdMatch ? content.slice(cmdMatch[1].length) : content;
+
+  const components = basePath != null ? { ...mdComponents, a: createWorkspaceLinkComponent(basePath) } : mdComponents;
 
   return (
     <div className={`markdown-content text-sm break-words ${className ?? ''}`}>
       {cmdMatch && <span className="font-semibold text-indigo-500">{cmdMatch[1]}</span>}
-      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={mdComponents}>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={components}>
         {md}
       </ReactMarkdown>
     </div>
   );
+}
+
+/** Create an `a` override that intercepts relative .md links → workspace navigation */
+function createWorkspaceLinkComponent(basePath: string): Components['a'] {
+  return function WorkspaceLink({ href, children }) {
+    const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
+
+    if (isRelativeMdLink(href)) {
+      const resolved = resolveRelativePath(basePath, href);
+      return (
+        <a
+          href="#"
+          onClick={(e) => { e.preventDefault(); setOpenFile(resolved); }}
+          className="text-blue-500 hover:text-blue-400 hover:underline break-all cursor-pointer"
+          title={`在工作区中打开 ${resolved}`}
+        >
+          {withMentions(children)}
+        </a>
+      );
+    }
+
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline break-all">
+        {withMentions(children)}
+      </a>
+    );
+  };
 }

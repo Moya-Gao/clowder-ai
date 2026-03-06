@@ -119,6 +119,7 @@ export function WorkspacePanel() {
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [editMode, setEditMode] = useState(false);
   const [markdownRendered, setMarkdownRendered] = useState(true);
+  const [htmlPreview, setHtmlPreview] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80)
   const [treeBasis, setTreeBasis] = useState(40);
@@ -170,6 +171,7 @@ export function WorkspacePanel() {
   // When a target line is set (e.g. from search), use raw mode so CodeMirror can scroll to it.
   useEffect(() => {
     setMarkdownRendered(!scrollToLine);
+    setHtmlPreview(false);
   }, [openFilePath, scrollToLine]);
 
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
@@ -186,6 +188,7 @@ export function WorkspacePanel() {
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
   const canEdit = file && !file.binary && !file.truncated;
   const isMarkdown = !!(openFilePath && (openFilePath.endsWith(".md") || openFilePath.endsWith(".mdx")));
+  const isHtml = !!(openFilePath && /\.html?$/i.test(openFilePath));
 
   const handleToggleEdit = useCallback(async () => {
     // If already editing with a valid token, toggle off
@@ -430,6 +433,20 @@ export function WorkspacePanel() {
                     {markdownRendered ? "Rendered" : "Raw"}
                   </button>
                 )}
+                {isHtml && !editMode && (
+                  <button
+                    type="button"
+                    onClick={() => setHtmlPreview((p) => !p)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      htmlPreview
+                        ? "bg-owner-primary/80 text-white hover:bg-owner-primary"
+                        : "text-gray-500 hover:text-gray-300 hover:bg-white/10"
+                    }`}
+                    title={htmlPreview ? "切换到源码" : "预览 HTML"}
+                  >
+                    {htmlPreview ? "Preview" : "Code"}
+                  </button>
+                )}
 
                 {canEdit && (
                   <button
@@ -480,7 +497,23 @@ export function WorkspacePanel() {
               )
             ) : isMarkdown && markdownRendered && !editMode ? (
               <div className="flex-1 overflow-auto bg-cafe-white p-4">
-                <MarkdownContent content={file.content} disableCommandPrefix />
+                <MarkdownContent content={file.content} disableCommandPrefix basePath={openFilePath ? openFilePath.split('/').slice(0, -1).join('/') : undefined} />
+              </div>
+            ) : isHtml && htmlPreview && !editMode ? (
+              <div className="flex-1 min-h-0 flex flex-col">
+                {/* Sandboxed preview: relative asset paths (images, CSS, JS) cannot resolve
+                    because srcDoc loads as about:srcdoc. A full asset proxy is future scope (P2D). */}
+                <div className="px-2 py-1 bg-amber-900/20 text-amber-400 text-[10px] border-b border-amber-900/30 flex-shrink-0">
+                  预览模式 — 相对资源路径（图片/CSS/JS）可能无法加载
+                </div>
+                <div className="flex-1 min-h-0 bg-white">
+                  <iframe
+                    srcDoc={file.content}
+                    sandbox="allow-scripts"
+                    title="HTML Preview"
+                    className="w-full h-full border-0"
+                  />
+                </div>
               </div>
             ) : (
               <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} branch={currentWorktree?.branch} />
