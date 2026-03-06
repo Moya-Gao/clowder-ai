@@ -53,3 +53,4 @@
 | F057 | F057: Thread 可发现性 — 排序 + 搜索 + 猫猫工具 | done | [F057-thread-discoverability.md](./F057-thread-discoverability.md) |
 | F060 | F060: output_image 富文本渲染 — MCP 图片自动显示 | done | [F060-output-image-rich-block.md](./F060-output-image-rich-block.md) |
 | F062 | F062: 布偶猫账号配置中枢（订阅 / 赞助 API 切换） | done | [F062-ragdoll-provider-profile-hub.md](./F062-ragdoll-provider-profile-hub.md) |
+| F064 | F064: A2A 出口检查 — 链条终止盲区修复 | done | [F064-a2a-exit-check.md](./F064-a2a-exit-check.md) |

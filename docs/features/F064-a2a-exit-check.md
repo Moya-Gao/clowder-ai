@@ -119,5 +119,5 @@ doc_kind: feature
 | 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|---------|------|
 | 布偶猫 (opus-45) | F064 聚合文件、对话历史（铲屎官原话"他只是单纯的不at下一只猫"）、SystemPromptBuilder 代码 | ① 核心问题是链条终止盲区 ② 三层修复能解决（出口检查+比重平衡+动态注入）③ 猫猫协作时会被提示"到我这里结束了吗" | ✅ 2026-03-06 |
-
-待补：跨猫交叉验证（@codex / @gpt52）
+| 缅因猫 (codex) | F064 聚合文件、BACKLOG.md、features/README.md、feat-lifecycle SKILL.md | 代码绿（86/86 pass），抓到尾巴：AC 未打勾 + BACKLOG 未同步 + README 缺项。补齐后支持 close | ✅ 2026-03-06 |
+| 缅因猫 (gpt52) | F064 聚合文件、BACKLOG.md、features/README.md、feat-lifecycle SKILL.md | 同上结论：实现 done 但 completion 闭环未走完。补 docs-only 收尾后可 close | ✅ 2026-03-06 |
