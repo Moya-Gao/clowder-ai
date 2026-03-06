@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Phase 2D+2E done (PR #256 merged)
+> **Status**: Phase 2 done — 愿景守护 85%+, 3 gaps identified for Phase 3
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -321,6 +321,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **愿景守护修复合入** (PR #255): P2C-fix-1 untracked diff + P2C-fix-2 worktree-aware link，砚砚 R1 通过 + 云端 P2 修复（relative path in diff header） |
 | 2026-03-06 | 铲屎官批准 Phase 2D (Linked Roots) + Phase 2E (JSX/TSX 预览) 并行开工 |
 | 2026-03-06 | **Phase 2D+2E 合入** (PR #256): Linked Roots env var + JSX/TSX esbuild-wasm preview. 砚砚 R1→R2 (3P1→0) + 云端 R1→R4 (regex hardening: side-effect imports, line-anchor, import/export keyword restriction) |
+| 2026-03-06 | 第二次愿景守护（codex + gpt52 独立审查）：主链路 85%+ 但 3 gaps — JSX 演示级(P1) / Linked Roots 需环境变量(P1) / Runtime/Audit 未进 Workspace(P2) |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -435,3 +436,36 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2E-2 | 预览 iframe：sandbox 渲染 bundled output + React/ReactDOM CDN 注入 | **done** |
 | P2E-3 | 预览开关：`.tsx`/`.jsx` 文件支持 Preview/Code 切换（复用 HTML preview 模式） | **done** |
 | P2E-4 | 错误处理：bundle 失败/运行时错误 → 友好提示（不是白屏） | **done** |
+
+### Phase 3: 愿景守护 Gaps（codex + gpt52 独立审查 2026-03-06）
+
+第二次愿景守护（Phase 2 全量合入后）两猫共识：主链路 85%+ 但 3 个 gap 阻止"愿景闭环"宣称。
+
+#### Gap 1 (P1): JSX/TSX 预览从演示级升级到真实组件级
+
+当前 `bundle: false`，只重写 React bare imports → 组件有本地依赖/UI 库/样式就掉线。
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P3-1 | `bundle: true` + esbuild resolve plugin for workspace 内本地模块 | |
+| P3-2 | 常见 UI 库 (tailwindcss, shadcn/ui) 的 CDN fallback 策略 | |
+| P3-3 | 预览错误精准定位：区分 bundle error vs runtime error vs missing dep | |
+
+#### Gap 2 (P1): Linked Roots Hub 内自助管理
+
+当前只能通过 `WORKSPACE_LINKED_ROOTS` 环境变量配置 + 重启生效，不够"优雅"。
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P3-4 | API POST/DELETE `/api/workspace/linked-roots` 动态增删 | |
+| P3-5 | 前端添加/移除 linked root UI（路径选择 + 安全校验） | |
+| P3-6 | 持久化策略：写入配置文件（不依赖环境变量重启） | |
+
+#### Gap 3 (P2): Runtime/Audit Explorer 进 Workspace
+
+审计信息目前在 RightStatusPanel，核心动作仍是"在 VSCode 中打开"。
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P3-7 | WorkspacePanel 新增 Runtime tab（session 事件/日志浏览） | |
+| P3-8 | 内联审计查看器替代 VSCode 跳转 | |
