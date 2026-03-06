@@ -125,8 +125,39 @@ export async function listWorktrees(repoRoot?: string): Promise<WorktreeEntry[]>
 export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Promise<string> {
   const entries = await listWorktrees(repoRoot);
   const entry = entries.find((e) => e.id === worktreeId);
-  if (!entry) {
-    throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
-  }
-  return entry.root;
+  if (entry) return entry.root;
+
+  // Check linked roots
+  const linked = getLinkedRoots();
+  const linkedEntry = linked.find((r) => r.id === worktreeId);
+  if (linkedEntry) return linkedEntry.root;
+
+  throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
+}
+
+/**
+ * Parse WORKSPACE_LINKED_ROOTS env var.
+ * Format: "name:path,name:path" — each entry gets its own security boundary.
+ */
+export function getLinkedRoots(): WorktreeEntry[] {
+  const raw = process.env['WORKSPACE_LINKED_ROOTS'];
+  if (!raw) return [];
+
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const colonIdx = entry.indexOf(':');
+      if (colonIdx <= 0) return null;
+      const name = entry.slice(0, colonIdx).trim();
+      const root = resolve(entry.slice(colonIdx + 1).trim());
+      return {
+        id: `linked_${name.replace(/[^a-zA-Z0-9_-]/g, '_')}`,
+        root,
+        branch: name,
+        head: 'linked',
+      } satisfies WorktreeEntry;
+    })
+    .filter((e): e is WorktreeEntry => e !== null);
 }

@@ -19,6 +19,7 @@ import { extname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import {
+  getLinkedRoots,
   getWorktreeRoot,
   isDenylisted,
   listWorktrees,
@@ -101,10 +102,11 @@ async function buildTree(root: string, dirPath: string, depth: number, maxDepth:
 }
 
 export const workspaceRoutes: FastifyPluginAsync = async (app) => {
-  // GET /api/workspace/worktrees
+  // GET /api/workspace/worktrees (includes linked roots)
   app.get('/api/workspace/worktrees', async () => {
     const entries = await listWorktrees();
-    return { worktrees: entries };
+    const linked = getLinkedRoots();
+    return { worktrees: [...entries, ...linked] };
   });
 
   // GET /api/workspace/tree?worktreeId=&path=&depth=

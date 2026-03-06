@@ -6,6 +6,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
 import { ChangesPanel } from './workspace/ChangesPanel';
+import { JsxPreview } from './workspace/JsxPreview';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -122,6 +123,7 @@ export function WorkspacePanel() {
   const [editMode, setEditMode] = useState(false);
   const [markdownRendered, setMarkdownRendered] = useState(true);
   const [htmlPreview, setHtmlPreview] = useState(false);
+  const [jsxPreview, setJsxPreview] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80)
   const [treeBasis, setTreeBasis] = useState(40);
@@ -192,6 +194,7 @@ export function WorkspacePanel() {
   const canEdit = file && !file.binary && !file.truncated;
   const isMarkdown = !!(openFilePath && (openFilePath.endsWith(".md") || openFilePath.endsWith(".mdx")));
   const isHtml = !!(openFilePath && /\.html?$/i.test(openFilePath));
+  const isJsx = !!(openFilePath && /\.[jt]sx$/i.test(openFilePath));
 
   const handleToggleEdit = useCallback(async () => {
     // If already editing with a valid token, toggle off
@@ -306,7 +309,7 @@ export function WorkspacePanel() {
             >
               {worktrees.map((w) => (
                 <option key={w.id} value={w.id}>
-                  {w.branch} ({w.head})
+                  {w.head === 'linked' ? `📂 ${w.branch}` : `🌿 ${w.branch} (${w.head})`}
                 </option>
               ))}
             </select>
@@ -472,6 +475,20 @@ export function WorkspacePanel() {
                     {htmlPreview ? "Preview" : "Code"}
                   </button>
                 )}
+                {isJsx && !editMode && (
+                  <button
+                    type="button"
+                    onClick={() => setJsxPreview((p) => !p)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      jsxPreview
+                        ? "bg-blue-600/80 text-white hover:bg-blue-500"
+                        : "text-gray-500 hover:text-gray-300 hover:bg-white/10"
+                    }`}
+                    title={jsxPreview ? "切换到源码" : "预览 JSX/TSX"}
+                  >
+                    {jsxPreview ? "Preview" : "Code"}
+                  </button>
+                )}
 
                 {canEdit && (
                   <button
@@ -540,6 +557,8 @@ export function WorkspacePanel() {
                   />
                 </div>
               </div>
+            ) : isJsx && jsxPreview && !editMode ? (
+              <JsxPreview code={file.content} filePath={openFilePath!} />
             ) : (
               <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} branch={currentWorktree?.branch} />
             )}
