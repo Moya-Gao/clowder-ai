@@ -31,7 +31,7 @@ created: 2026-02-26
 | F058 | Mission Control 增强（F049++） | in-progress | 布偶猫 | [F058](features/F058-mission-control-enhancements.md) |
 | F059 | Cat Café 开源计划 — 3/30 目标 | spec | 布偶猫 | [F059](features/F059-open-source-plan.md) |
 | F061 | Antigravity 接入 — 孟加拉猫（混血家族） | spec | 布偶猫 | [F061](features/F061-antigravity-bengal-cat.md) |
-| F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | in-review | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
+| F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | in-progress | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
 | F066 | Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列 | spec | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F068 | 新建对话弹窗 UX 优化 — 目录选择体验重做 | spec | 布偶猫 | [F068](features/F068-new-thread-dialog-ux.md) |
