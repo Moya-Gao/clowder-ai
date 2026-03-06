@@ -6,6 +6,7 @@
  * GET  /api/workspace/file         — file content + sha256
  * GET  /api/workspace/file/raw     — stream raw image content
  * POST /api/workspace/search       — content / filename search
+ * GET  /api/workspace/diff         — git diff for worktree (changed files + unified diff)
  *
  * Edit routes: see workspace-edit.ts
  */
@@ -394,6 +395,88 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
         totalMatches: results.length,
         truncated: results.length >= limit,
       };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
+        return { error: e.message };
+      }
+      reply.status(500);
+      return { error: 'Internal error' };
+    }
+  });
+
+  // GET /api/workspace/diff?worktreeId=&path= — git diff (all changed files or single file)
+  app.get<{
+    Querystring: { worktreeId?: string; path?: string };
+  }>('/api/workspace/diff', async (request, reply) => {
+    const { worktreeId, path: filePath } = request.query;
+    if (!worktreeId) {
+      reply.status(400);
+      return { error: 'worktreeId required' };
+    }
+
+    try {
+      const root = await getWorktreeRoot(worktreeId);
+
+      // Get list of changed files (staged + unstaged)
+      const { stdout: statusOut } = await execFileAsync(
+        'git',
+        ['status', '--porcelain', '-uall'],
+        { cwd: root, timeout: 5000 },
+      );
+
+      const changedFiles = statusOut
+        .trim()
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const status = line.slice(0, 2).trim();
+          let path = line.slice(3);
+          // Normalize rename paths: "old.ts -> new.ts" → "new.ts"
+          const renameIdx = path.indexOf(' -> ');
+          if (renameIdx !== -1) path = path.slice(renameIdx + 4);
+          return { status, path };
+        })
+        .filter((f) => !isDenylisted(f.path));
+
+      // Build pathspec: only diff allowed (non-denylisted) files
+      // P0 security: git diff without pathspec would leak .env/.pem/.key content
+      const allowedPaths = changedFiles.map((f) => f.path);
+      if (filePath) {
+        await resolveWorkspacePath(root, filePath); // security check
+        if (!allowedPaths.includes(filePath)) {
+          return { worktreeId, changedFiles, diff: '' };
+        }
+      }
+      const pathspec = filePath ? [filePath] : allowedPaths;
+
+      let diffOutput = '';
+      if (pathspec.length > 0) {
+        const diffArgs = ['diff', 'HEAD', '--unified=3', '--no-color', '--', ...pathspec];
+        try {
+          const { stdout } = await execFileAsync('git', diffArgs, {
+            cwd: root,
+            timeout: 10000,
+            maxBuffer: 2 * 1024 * 1024,
+          });
+          diffOutput = stdout;
+        } catch {
+          // git diff may fail on initial commits — try without HEAD
+          try {
+            const fallbackArgs = ['diff', '--cached', '--unified=3', '--no-color', '--', ...pathspec];
+            const { stdout } = await execFileAsync('git', fallbackArgs, {
+              cwd: root,
+              timeout: 10000,
+              maxBuffer: 2 * 1024 * 1024,
+            });
+            diffOutput = stdout;
+          } catch {
+            // No diff available
+          }
+        }
+      }
+
+      return { worktreeId, changedFiles, diff: diffOutput };
     } catch (e) {
       if (e instanceof WorkspaceSecurityError) {
         reply.status(e.code === 'NOT_FOUND' ? 404 : 403);

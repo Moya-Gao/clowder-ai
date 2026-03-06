@@ -5,6 +5,7 @@ import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
+import { ChangesPanel } from './workspace/ChangesPanel';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -114,6 +115,7 @@ export function WorkspacePanel() {
   const editTokenExpiry = useChatStore((s) => s.workspaceEditTokenExpiry);
   const setEditToken = useChatStore((s) => s.setWorkspaceEditToken);
 
+  const [viewMode, setViewMode] = useState<'files' | 'changes'>('files');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -337,9 +339,31 @@ export function WorkspacePanel() {
         </div>
       </form>
 
+      {/* Files / Changes toggle */}
+      <div className="flex border-b border-owner-light/40">
+        {(['files', 'changes'] as const).map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setViewMode(mode)}
+            className={`flex-1 py-1.5 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+              viewMode === mode
+                ? 'text-owner-primary border-b-2 border-owner-primary'
+                : 'text-owner-dark/40 hover:text-owner-dark/60'
+            }`}
+          >
+            {mode === 'files' ? 'Files' : 'Changes'}
+          </button>
+        ))}
+      </div>
+
       {/* Error */}
       {error && <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
 
+      {viewMode === 'changes' ? (
+        <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
+      ) : (
+      <>
       {/* Search results */}
       {searchResults.length > 0 && (
         <div className="border-b border-owner-light/40 max-h-52 overflow-y-auto">
@@ -527,6 +551,8 @@ export function WorkspacePanel() {
             )}
           </div>
         </>
+      )}
+      </> /* end viewMode=files */
       )}
     </aside>
   );
