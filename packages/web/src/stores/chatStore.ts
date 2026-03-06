@@ -298,6 +298,7 @@ interface ChatState {
   // ── F63: Workspace Explorer ──
   rightPanelMode: 'status' | 'workspace';
   workspaceWorktreeId: string | null;
+  workspaceOpenTabs: string[];
   workspaceOpenFilePath: string | null;
   workspaceOpenFileLine: number | null;
   workspaceEditToken: string | null;
@@ -305,6 +306,7 @@ interface ChatState {
   setRightPanelMode: (mode: 'status' | 'workspace') => void;
   setWorkspaceWorktreeId: (id: string | null) => void;
   setWorkspaceOpenFile: (path: string | null, line?: number | null) => void;
+  closeWorkspaceTab: (path: string) => void;
   setWorkspaceEditToken: (token: string | null, expiresIn?: number) => void;
 
   // ── F63-AC15: Code-to-chat reference ──
@@ -418,18 +420,41 @@ export const useChatStore = create<ChatState>((set, get) => ({
   // ── F63: Workspace Explorer ──
   rightPanelMode: 'status' as const,
   workspaceWorktreeId: null,
+  workspaceOpenTabs: [],
   workspaceOpenFilePath: null,
   workspaceOpenFileLine: null,
   workspaceEditToken: null,
   workspaceEditTokenExpiry: null,
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
-  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id, workspaceEditToken: null, workspaceEditTokenExpiry: null }),
-  setWorkspaceOpenFile: (path, line) =>
-    set({
-      workspaceOpenFilePath: path,
-      workspaceOpenFileLine: line ?? null,
-      rightPanelMode: path ? 'workspace' : 'status',
-    }),
+  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id, workspaceOpenTabs: [], workspaceOpenFilePath: null, workspaceOpenFileLine: null, workspaceEditToken: null, workspaceEditTokenExpiry: null }),
+  setWorkspaceOpenFile: (path, line) => {
+    if (path) {
+      const tabs = get().workspaceOpenTabs;
+      const newTabs = tabs.includes(path) ? tabs : [...tabs, path];
+      set({
+        workspaceOpenTabs: newTabs,
+        workspaceOpenFilePath: path,
+        workspaceOpenFileLine: line ?? null,
+        rightPanelMode: 'workspace',
+      });
+    } else {
+      set({
+        workspaceOpenFilePath: null,
+        workspaceOpenFileLine: null,
+      });
+    }
+  },
+  closeWorkspaceTab: (path) => {
+    const { workspaceOpenTabs: tabs, workspaceOpenFilePath: active } = get();
+    const newTabs = tabs.filter((t) => t !== path);
+    if (active === path) {
+      const idx = tabs.indexOf(path);
+      const next = newTabs[Math.min(idx, newTabs.length - 1)] ?? null;
+      set({ workspaceOpenTabs: newTabs, workspaceOpenFilePath: next, workspaceOpenFileLine: null });
+    } else {
+      set({ workspaceOpenTabs: newTabs });
+    }
+  },
   setWorkspaceEditToken: (token, expiresIn) =>
     set({
       workspaceEditToken: token,

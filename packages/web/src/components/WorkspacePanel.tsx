@@ -103,6 +103,8 @@ export function WorkspacePanel() {
 
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
+  const openTabs = useChatStore((s) => s.workspaceOpenTabs);
+  const closeTab = useChatStore((s) => s.closeWorkspaceTab);
   const openFilePath = useChatStore((s) => s.workspaceOpenFilePath);
   const scrollToLine = useChatStore((s) => s.workspaceOpenFileLine);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
@@ -368,14 +370,45 @@ export function WorkspacePanel() {
       />
 
       {/* Vertical resize handle + File viewer */}
-      {file && (
+      {(file || openTabs.length > 0) && (
         <>
           <ResizeHandle direction="vertical" onResize={handleVerticalResize} onDoubleClick={() => setTreeBasis(40)} />
           <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
-            <div className="px-3 py-1.5 bg-[#1E1E24] flex items-center justify-between">
+            {/* Tab bar */}
+            {openTabs.length > 0 && (
+              <div className="flex bg-[#1E1E24] border-b border-[#2a2a32] overflow-x-auto scrollbar-none">
+                {openTabs.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    onClick={() => setOpenFile(tab)}
+                    className={`group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono border-r border-[#2a2a32] flex-shrink-0 transition-colors ${
+                      tab === openFilePath
+                        ? 'bg-[#2a2a32] text-gray-200'
+                        : 'text-gray-500 hover:text-gray-300 hover:bg-[#252530]'
+                    }`}
+                    title={tab}
+                  >
+                    <FileIcon name={tab} />
+                    <span className="truncate max-w-[120px]">{tab.split('/').pop()}</span>
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); closeTab(tab); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); closeTab(tab); } }}
+                      className="ml-0.5 w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover:opacity-100 hover:bg-white/10 transition-opacity text-gray-500 hover:text-gray-300"
+                      title="关闭"
+                    >
+                      ×
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {file && (
+            <>
+            <div className="px-3 py-1 bg-[#1E1E24] flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
-                <FileIcon name={openFilePath ?? ''} />
-                <span className="text-[11px] text-gray-300 truncate font-mono">{openFilePath}</span>
                 {file.size > 0 && (
                   <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
                     {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
@@ -414,9 +447,9 @@ export function WorkspacePanel() {
                 )}
                 <button
                   type="button"
-                  onClick={() => { setOpenFile(null); setEditMode(false); }}
+                  onClick={() => { if (openFilePath) closeTab(openFilePath); setEditMode(false); }}
                   className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
-                  title="关闭文件"
+                  title="关闭标签页"
                 >
                   <CloseIcon />
                 </button>
@@ -456,6 +489,8 @@ export function WorkspacePanel() {
               <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
                 文件已截断 (超过 1MB)
               </div>
+            )}
+            </>
             )}
           </div>
         </>
