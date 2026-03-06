@@ -289,3 +289,80 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-05 | 烁烁 UX 提案：「猫咖全景工坊」布局 + CodeMirror 6 + 联动高亮 |
 | 2026-03-05 | 砚砚安全模型 v1：worktreeId 映射 + 路径防护 + denylist + baseSha256 乐观锁 |
 | 2026-03-05 | 三猫共识收敛：Technical Direction 定稿 |
+| 2026-03-05 | **Phase 1 合入** (PR #231): file browser + viewer + search + clickable paths |
+| 2026-03-05 | 砚砚 review: P1 目录型 symlink 逃逸 + P2 搜索 denylist 绕过 → 修复确认 |
+| 2026-03-05 | 云端 review: 0 P1/P2 → squash merge |
+| 2026-03-05 | **铲屎官反馈**: "Phase 1 UI 有点丑不够猫猫，感觉没有设计感" |
+
+## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
+
+铲屎官评价 Phase 1 UI："有点丑不够猫猫，感觉没有设计感"。以下是具体问题和改进方向。
+
+### 当前问题
+
+| # | 问题 | 当前实现 | 参考 |
+|---|------|---------|------|
+| U1 | 文件树缺乏视觉层次 | 纯文本 emoji（📂📄），无颜色区分，hover 只有灰色背景 | Claude.ai Artifacts: 文件类型图标有颜色区分，hover 有微妙渐变 |
+| U2 | 搜索栏太工具化 | 蓝色按钮 + 小 icon，像 admin 后台 | Cursor/Claude: 搜索栏内嵌，圆角大，placeholder 有引导性 |
+| U3 | 文件头区域太暗太突兀 | `bg-gray-800` 深色头 vs `bg-white` 面板体，割裂感 | Codex: 文件头用浅色高对比 + 文件类型 badge |
+| U4 | 没有 Cat Café 设计语言 | 通用灰/蓝配色，和 Hub 其他面板风格不统一 | F056 要求：猫猫化不是猫化，温暖而专业 |
+| U5 | worktree 指示器太小 | `text-[10px]` 绿色 badge，几乎看不到 | 应该醒目：分支名 + 短 SHA + 状态色 |
+| U6 | 空状态不友好 | "加载中..." 纯文字 | 应有骨架屏 / 猫猫插图 / 引导提示 |
+| U7 | 没有动画过渡 | 面板切换、文件展开/折叠无动画 | Claude.ai: 面板 slide-in，树节点 fade-in |
+| U8 | 搜索结果缺乏上下文感 | 只显示路径:行号 + 匹配行 | Cursor: 高亮关键词，显示文件类型图标，分组显示 |
+
+### 设计参考笔记
+
+**Claude.ai Artifacts Panel:**
+- 右侧面板 slide-in 动画，有 backdrop blur
+- 文件类型通过彩色图标区分（不是 emoji）
+- 代码查看器用自定义主题（不是纯 oneDark），和整体配色融合
+- 顶部有面包屑导航 + 文件元信息（大小、最后修改）
+- 滚动时顶部文件名 sticky + 渐变消融效果
+
+**OpenAI Codex Workspace:**
+- 左侧文件树 + 右侧代码查看器的经典 IDE 布局
+- 文件树项有 monospace 字体，hover 有浅色高亮
+- 搜索在文件树上方，内嵌式设计（不是独立表单）
+- 代码查看器顶部有 tab 风格的文件选择器
+- diff 视图是 inline，不是 side-by-side
+
+**我们应该做的（对齐 F056 Cat Café 设计语言）:**
+- 用项目色板（暖色系，不是纯灰蓝）
+- 文件类型用小型彩色 SVG 图标（不是 emoji）
+- 面板过渡用 Framer Motion（和 Hub 其他面板一致）
+- 搜索栏内嵌化，大圆角，带 search icon
+- 空状态展示猫猫相关的友好提示
+- 文件树 indent guide（竖线）提升层次感
+
+## Phase 2 计划
+
+### Phase 2A: UI 美化（优先，解决铲屎官反馈）
+
+| Task | 内容 | 复杂度 |
+|------|------|--------|
+| P2A-1 | 文件类型图标系统：替换 emoji 为 SVG 彩色图标（devicon 风格） | S |
+| P2A-2 | 设计语言对齐：配色、圆角、间距对齐 Hub 整体风格 | M |
+| P2A-3 | 文件树 indent guide + hover 效果 + 展开动画 | S |
+| P2A-4 | 搜索栏重新设计：内嵌式、大圆角、关键词高亮 | S |
+| P2A-5 | 面板过渡动画（Framer Motion slide-in） | S |
+| P2A-6 | worktree 指示器重新设计：醒目标签 + 状态色 | S |
+| P2A-7 | 空状态 + 加载骨架屏 | S |
+| P2A-8 | CodeMirror 主题自定义：对齐 Cat Café 配色 | M |
+
+### Phase 2B: 功能增强
+
+| Task | 内容 | AC |
+|------|------|-----|
+| P2B-1 | 图片文件预览（inline image rendering） | AC-8 |
+| P2B-2 | 文件编辑模式 + edit_session_token | AC-9 |
+| P2B-3 | Markdown 渲染模式（raw/rendered 切换） | — |
+| P2B-4 | 代码选中 → 引用到对话输入框 | — |
+| P2B-5 | 多 tab 文件查看（不是一次只看一个） | — |
+
+### Phase 2C: 预览能力
+
+| Task | 内容 | AC |
+|------|------|-----|
+| P2C-1 | HTML/JSX iframe sandbox 预览 | AC-5 |
+| P2C-2 | Diff 可视化（unified/side-by-side） | — |
