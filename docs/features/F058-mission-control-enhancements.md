@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: done
+> **Status**: in-progress
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
@@ -103,6 +103,28 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 
 态势图"最近活跃"的相对时间加 `title` tooltip 显示绝对时间（如 `2026-03-04 08:15`）。
 
+### Phase D：导入状态映射 + Layout 修复（铲屎官实测发现的 bug）
+
+> 2026-03-05 铲屎官实测截图暴露两个 Phase A 遗漏 bug。Phase A～C 代码审查全绿、云端 review 全通过，但布偶猫"愿景守护"只 grep 了代码就打勾，没有实际验证产品效果。铲屎官原话："明明不能用！刷新之后都进度不对吧？右下角那些东西看都看不到！你还不能 done"。
+
+#### D1: 导入状态映射
+
+**问题**：`buildBacklogInputFromFeature` 把 BACKLOG.md 的 `in-progress`/`in-review` 只存到 tags（`status:in-progress`），但 BacklogItem 的 `status` 永远是 `'open'`。导致 27 个 item 全堆在 Open 栏，Suggested/Dispatched 全空。
+
+**修复方案**：导入时根据 BACKLOG.md 的 feature status 映射到合理的 BacklogStatus：
+- `in-progress` → `dispatched`（正在做）
+- `in-review` → `dispatched`（在 review 也是在做）
+- `done` → `done`
+- 其他（`spec`/`idea`/`planning`）→ `open`
+
+对已存在的 item，refresh 时也同步更新 status（仅从 open→dispatched 方向，不降级）。
+
+#### D2: 右侧面板 Layout 修复
+
+**问题**：右侧 320px 放了 SuggestionDrawer + ThreadSituationPanel + FeatureBirdEyePanel，SuggestionDrawer 占满空间，后面两个面板被 `overflow-hidden` 截断，完全看不到。
+
+**修复方案**：右侧面板加 `overflow-auto`，让三个面板都可滚动访问。
+
 ### 不做的事（明确排除）
 
 | 提议 | 决定 | 理由 |
@@ -130,6 +152,10 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-C1: Feature 鸟瞰态势图：聚合显示一个 Feature 下的多个 thread 状态
 - [x] AC-C2: `/api/threads?backlogItemIds=...` 限制 ID 数量上限
 - [x] AC-C3: 态势图相对时间加绝对时间 tooltip
+
+### Phase D（实测 bug 修复）
+- [ ] AC-D1: 导入时 `in-progress`/`in-review` feature 映射为 `dispatched` 而非 `open`
+- [ ] AC-D2: 右侧面板（ThreadSituationPanel + FeatureBirdEyePanel）可见、可滚动
 
 ## 需求点 Checklist
 
@@ -198,3 +224,4 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-05 | Phase B 合入 main (PR #226) — atomic Lua + hard attemptId + TTL lock |
 | 2026-03-05 | Phase C 合入 main (PR #228) — bird eye panel + query limit + time tooltip |
 | 2026-03-05 | F058 全部 12 AC 验证通过，标记 done |
+| 2026-03-05 | 🔴 铲屎官实测发现两个 bug：导入状态全是 open + 右侧面板看不到。回退 done→in-progress，追加 Phase D |
