@@ -435,6 +435,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (messages.length > MAX_BLOB_MESSAGES) {
         revokeBlobUrls(messages.slice(0, messages.length - MAX_BLOB_MESSAGES));
       }
+      // F067: Notify on active thread when user is not focused
+      if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
+        fireOwnerMentionNotification(msg);
+      }
       return { messages };
     }),
 

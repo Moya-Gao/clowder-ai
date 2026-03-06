@@ -25,6 +25,8 @@ interface AgentMsg {
   origin?: 'stream' | 'callback';
   /** Backend stored-message ID (set for callback post-message, used for rich_block correlation) */
   messageId?: string;
+  /** F67: Whether this message @mentions the owner */
+  mentionsUser?: boolean;
   /** F52: Cross-thread origin metadata */
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
 }
@@ -187,6 +189,7 @@ export function useAgentMessages() {
             origin: 'callback',
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
             ...(msg.extra?.crossPost ? { extra: { crossPost: msg.extra.crossPost } } : {}),
+            ...(msg.mentionsUser ? { mentionsUser: true } : {}),
             ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
             timestamp: Date.now(),
           });
