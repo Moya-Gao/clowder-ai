@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { PawIcon } from './icons/PawIcon';
+import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
+import { PawIcon } from './icons/PawIcon';
 
 interface ChatContainerHeaderProps {
   sidebarOpen: boolean;
@@ -34,7 +35,11 @@ export function ChatContainerHeader({
           aria-label={sidebarOpen ? 'Hide sidebar' : 'Show sidebar'}
         >
           <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM3 15a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"
+              clipRule="evenodd"
+            />
           </svg>
         </button>
         <PawIcon className="w-6 h-6 text-owner-primary" />
@@ -50,7 +55,11 @@ export function ChatContainerHeader({
           aria-label="Signal Inbox"
         >
           <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 011.414-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 011.415-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M5.05 3.636a1 1 0 010 1.414 7 7 0 000 9.9 1 1 0 11-1.414 1.414 9 9 0 010-12.728 1 1 0 011.414 0zm9.9 0a9 9 0 010 12.728 1 1 0 01-1.414-1.414 7 7 0 000-9.9 1 1 0 011.414-1.414zM7.879 6.464a1 1 0 010 1.414 3 3 0 000 4.243 1 1 0 11-1.415 1.414 5 5 0 010-7.07 1 1 0 011.415 0zm4.242 0a5 5 0 010 7.072 1 1 0 01-1.415-1.415 3 3 0 000-4.242 1 1 0 011.415-1.415zM10 9a1 1 0 100 2 1 1 0 000-2z"
+              clipRule="evenodd"
+            />
           </svg>
         </Link>
         {authPendingCount > 0 && (
@@ -87,9 +96,15 @@ export function ChatContainerHeader({
           aria-label="打开状态面板"
         >
           <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+              clipRule="evenodd"
+            />
           </svg>
         </button>
+        {/* Desktop: workspace panel toggle (F063) */}
+        <WorkspaceToggleButton onToggleStatusPanel={onToggleStatusPanel} statusPanelOpen={statusPanelOpen} />
         {/* Desktop: status sidebar toggle */}
         <button
           onClick={onToggleStatusPanel}
@@ -97,11 +112,50 @@ export function ChatContainerHeader({
           aria-label={statusPanelOpen ? 'Hide status panel' : 'Show status panel'}
         >
           <svg className="w-5 h-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M3 4a1 1 0 011-1h12a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm2 0v12h10V4H5z"
+              clipRule="evenodd"
+            />
             {statusPanelOpen && <rect x="12" y="4" width="4" height="12" rx="0.5" opacity="0.3" />}
           </svg>
         </button>
       </div>
     </header>
+  );
+}
+
+/** F063: Toggle between status panel and workspace explorer */
+function WorkspaceToggleButton({
+  onToggleStatusPanel,
+  statusPanelOpen,
+}: {
+  onToggleStatusPanel: () => void;
+  statusPanelOpen: boolean;
+}) {
+  const rightPanelMode = useChatStore((s) => s.rightPanelMode);
+  const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+  const isWorkspace = rightPanelMode === 'workspace';
+
+  return (
+    <button
+      onClick={() => {
+        if (!statusPanelOpen) onToggleStatusPanel();
+        setRightPanelMode(isWorkspace ? 'status' : 'workspace');
+      }}
+      className={`p-1 rounded-lg hover:bg-owner-light transition-colors ml-1 hidden lg:block ${
+        isWorkspace ? 'bg-blue-50 text-blue-600' : ''
+      }`}
+      aria-label={isWorkspace ? '切换到状态面板' : '打开工作区浏览器'}
+      title={isWorkspace ? '切换到状态面板' : '工作区浏览器'}
+    >
+      <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+        <path
+          fillRule="evenodd"
+          d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
+          clipRule="evenodd"
+        />
+      </svg>
+    </button>
   );
 }

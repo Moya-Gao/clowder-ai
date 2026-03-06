@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: spec
+> **Status**: in-review (Phase 1)
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -177,17 +177,17 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 铲屎官在 Hub 中可浏览当前仓库目录树（至少 3 层深度）
-- [ ] AC-2: 点击文件可查看内容（代码文件有语法高亮+行号）
-- [ ] AC-3: 全文搜索可搜到文件内容并展示匹配上下文
-- [ ] AC-4: 猫猫消息中的文件路径可点击跳转到文件查看
+- [x] AC-1: 铲屎官在 Hub 中可浏览当前仓库目录树（至少 3 层深度）
+- [x] AC-2: 点击文件可查看内容（代码文件有语法高亮+行号）
+- [x] AC-3: 全文搜索可搜到文件内容并展示匹配上下文
+- [x] AC-4: 猫猫消息中的文件路径可点击跳转到文件查看
 - [ ] AC-5: HTML/React 组件可在 Hub 内预览渲染效果（Phase 2）
-- [ ] AC-6: 文件查看面板和对话面板可同时可见（50:50 分栏）
-- [ ] AC-7: 路径安全（不能访问仓库外的系统文件）
+- [x] AC-6: 文件查看面板和对话面板可同时可见（50:50 分栏）
+- [x] AC-7: 路径安全（不能访问仓库外的系统文件）
 - [ ] AC-8: 图片文件可直接预览
 - [ ] AC-9: 铲屎官可在 Hub 内编辑文件，猫猫可直接 commit 编辑结果
-- [ ] AC-10: 文件系统感知 worktree（显示猫猫当前 worktree 的文件，而非只有 main）
-- [ ] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
+- [x] AC-10: 文件系统感知 worktree（显示猫猫当前 worktree 的文件，而非只有 main）
+- [x] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
 
 ## 需求点 Checklist
 

@@ -34,3 +34,4 @@ export { skillsRoutes } from './skills.js';
 export { queueRoutes } from './queue.js';
 export { quotaRoutes } from './quota.js';
 export { providerProfilesRoutes } from './provider-profiles.js';
+export { workspaceRoutes } from './workspace.js';

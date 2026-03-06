@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, workspaceRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -321,6 +321,7 @@ async function main(): Promise<void> {
   await app.register(providerProfilesRoutes);
   await app.register(auditRoutes, { threadStore });
   await app.register(capabilitiesRoutes);
+  await app.register(workspaceRoutes);
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 

@@ -1,10 +1,11 @@
 'use client';
 
+import { Children, type ReactNode, useCallback, useRef, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
-import { Children, useCallback, useRef, useState, type ReactNode } from 'react';
-import { getMentionRe, getMentionToCat, getMentionColor } from '@/lib/mention-highlight';
+import remarkGfm from 'remark-gfm';
+import { getMentionColor, getMentionRe, getMentionToCat } from '@/lib/mention-highlight';
+import { useChatStore } from '@/stores/chatStore';
 
 /* ── @mention highlighting ─────────────────────────────────── */
 
@@ -23,7 +24,9 @@ function highlightMentions(text: string): ReactNode[] {
     const catId = toCat[m[1].toLowerCase()] ?? 'opus';
     const catColor = colorMap[catId] ?? '#9B7EBD';
     parts.push(
-      <span key={`m${m.index}`} className="font-semibold" style={{ color: catColor }}>{m[0]}</span>,
+      <span key={`m${m.index}`} className="font-semibold" style={{ color: catColor }}>
+        {m[0]}
+      </span>,
     );
     lastIdx = re.lastIndex;
   }
@@ -33,9 +36,7 @@ function highlightMentions(text: string): ReactNode[] {
 
 /** Process immediate string children → highlight @mentions */
 function withMentions(children: ReactNode): ReactNode {
-  return Children.map(children, (child) =>
-    typeof child === 'string' ? <>{highlightMentions(child)}</> : child,
-  );
+  return Children.map(children, (child) => (typeof child === 'string' ? <>{highlightMentions(child)}</> : child));
 }
 
 /* ── Code block with copy button ───────────────────────────── */
@@ -96,27 +97,65 @@ function linkifyFilePaths(text: string): ReactNode[] {
     const display = path;
     const isAbsolute = path.startsWith('/');
     const filePath = path.split(':')[0];
-    const absPath = isAbsolute ? filePath : (PROJECT_ROOT ? `${PROJECT_ROOT}/${filePath}` : null);
+    const absPath = isAbsolute ? filePath : PROJECT_ROOT ? `${PROJECT_ROOT}/${filePath}` : null;
     const href = absPath ? `vscode://file${absPath}${line ? `:${line}` : ''}` : null;
 
     parts.push(
       href ? (
-        <a
+        <FilePathLink
           key={`fp${m.index}`}
+          display={display}
           href={href}
-          className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-[0.85em]"
-          title={`在 VSCode 中打开 ${display}`}
-        >
-          {display}
-        </a>
+          filePath={filePath!}
+          line={line ? parseInt(line, 10) : undefined}
+        />
       ) : (
-        <span key={`fp${m.index}`} className="text-blue-400 font-mono text-[0.85em]">{display}</span>
+        <span key={`fp${m.index}`} className="text-blue-400 font-mono text-[0.85em]">
+          {display}
+        </span>
       ),
     );
     lastIdx = m.index + fullMatch.length;
   }
   if (lastIdx < text.length) parts.push(text.slice(lastIdx));
   return parts.length > 0 ? parts : [text];
+}
+
+/** F063: File path link — click opens in workspace panel, Cmd/Ctrl+click opens in VSCode */
+function FilePathLink({
+  display,
+  href,
+  filePath,
+  line,
+}: {
+  display: string;
+  href: string;
+  filePath: string;
+  line?: number;
+}) {
+  const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      // Cmd/Ctrl+click → VSCode (default link behavior)
+      if (e.metaKey || e.ctrlKey) return;
+      e.preventDefault();
+      // Regular click → open in workspace panel
+      setOpenFile(filePath, line ?? null);
+    },
+    [setOpenFile, filePath, line],
+  );
+
+  return (
+    <a
+      href={href}
+      onClick={handleClick}
+      className="text-blue-400 hover:text-blue-300 hover:underline font-mono text-[0.85em] cursor-pointer"
+      title={`点击在工作区中查看 · Cmd+Click 打开 VSCode\n${display}`}
+    >
+      {display}
+    </a>
+  );
 }
 
 /** Process string children → @mentions + file path links */
@@ -126,13 +165,15 @@ function withMentionsAndLinks(children: ReactNode): ReactNode {
     // First pass: file paths → ReactNode[]
     const linked = linkifyFilePaths(child);
     // Second pass: highlight @mentions in remaining text nodes
-    return <>{linked.map((node, i) => typeof node === 'string' ? <span key={i}>{highlightMentions(node)}</span> : node)}</>;
+    return (
+      <>{linked.map((node, i) => (typeof node === 'string' ? <span key={i}>{highlightMentions(node)}</span> : node))}</>
+    );
   });
 }
 
 /* ── Markdown component overrides ──────────────────────────── */
 const mdComponents: Components = {
-  p:  ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children)}</p>,
+  p: ({ children }) => <p className="mb-2 last:mb-0 leading-relaxed">{withMentionsAndLinks(children)}</p>,
   strong: ({ children }) => <strong className="font-semibold">{withMentions(children)}</strong>,
   em: ({ children }) => <em>{withMentions(children)}</em>,
   del: ({ children }) => <del className="opacity-60">{withMentions(children)}</del>,
@@ -158,9 +199,7 @@ const mdComponents: Components = {
   /* Code blocks with copy button */
   pre: ({ children }) => <CodeBlock>{children}</CodeBlock>,
   code: ({ className, children }) => (
-    <code className={`${className ?? ''} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`}>
-      {children}
-    </code>
+    <code className={`${className ?? ''} bg-gray-200/50 rounded px-1 py-0.5 text-[0.85em] font-mono`}>{children}</code>
   ),
 
   /* Tables (GFM) */
@@ -173,9 +212,7 @@ const mdComponents: Components = {
   th: ({ children }) => (
     <th className="border border-gray-300 px-2 py-1 text-left font-semibold text-xs">{withMentions(children)}</th>
   ),
-  td: ({ children }) => (
-    <td className="border border-gray-300 px-2 py-1">{withMentions(children)}</td>
-  ),
+  td: ({ children }) => <td className="border border-gray-300 px-2 py-1">{withMentions(children)}</td>,
 };
 
 /* ── Exported component ────────────────────────────────────── */

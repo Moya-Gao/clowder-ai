@@ -277,6 +277,15 @@ interface ChatState {
   setQueuePaused: (threadId: string, paused: boolean, reason?: 'canceled' | 'failed') => void;
   setQueueFull: (threadId: string, source: 'user' | 'connector') => void;
 
+  // ── F63: Workspace Explorer ──
+  rightPanelMode: 'status' | 'workspace';
+  workspaceWorktreeId: string | null;
+  workspaceOpenFilePath: string | null;
+  workspaceOpenFileLine: number | null;
+  setRightPanelMode: (mode: 'status' | 'workspace') => void;
+  setWorkspaceWorktreeId: (id: string | null) => void;
+  setWorkspaceOpenFile: (path: string | null, line?: number | null) => void;
+
   // ── Hub modal (F12) ──
   hubState: { open: boolean; tab: string } | null;
   openHub: (tab: string) => void;
@@ -380,6 +389,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         },
       };
     }),
+
+  // ── F63: Workspace Explorer ──
+  rightPanelMode: 'status' as const,
+  workspaceWorktreeId: null,
+  workspaceOpenFilePath: null,
+  workspaceOpenFileLine: null,
+  setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
+  setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id }),
+  setWorkspaceOpenFile: (path, line) => set({
+    workspaceOpenFilePath: path,
+    workspaceOpenFileLine: line ?? null,
+    rightPanelMode: path ? 'workspace' : 'status',
+  }),
 
   hubState: null,
   openHub: (tab) => set({ hubState: { open: true, tab } }),

@@ -15,6 +15,7 @@ import { ChatInput } from './ChatInput';
 import { ChatContainerHeader } from './ChatContainerHeader';
 import { MessageActions } from './MessageActions';
 import { RightStatusPanel } from './RightStatusPanel';
+import { WorkspacePanel } from './WorkspacePanel';
 import { ThreadSidebar } from './ThreadSidebar';
 import { ParallelStatusBar } from './ParallelStatusBar';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -42,7 +43,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     messages, hasActiveInvocation, intentMode, targetCats,
     catStatuses, catInvocations, setCurrentThread,
     pendingModeSwitchProposal, setPendingModeSwitchProposal,
-    viewMode, setViewMode, clearUnread,
+    viewMode, setViewMode, clearUnread, rightPanelMode,
   } = useChatStore();
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
@@ -344,7 +345,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
       </div>
 
-      {statusPanelOpen && (
+      {statusPanelOpen && rightPanelMode === 'status' && (
         <RightStatusPanel
           intentMode={intentMode}
           targetCats={targetCats}
@@ -353,6 +354,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           threadId={threadId}
           messageSummary={messageSummary}
         />
+      )}
+      {statusPanelOpen && rightPanelMode === 'workspace' && (
+        <WorkspacePanel />
       )}
       <MobileStatusSheet
         open={mobileStatusOpen}
