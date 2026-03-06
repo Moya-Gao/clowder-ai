@@ -319,6 +319,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **P2 fix 合入** (PR #254): rename delimiter 仅对 R/C 状态执行，砚砚 R1 通过 + 云端 "Swish!" 通过 |
 | 2026-03-06 | 砚砚+GPT-5.4 独立愿景守护审查：主链路 80% 打通，3 条猫尾巴（untracked diff / worktree-aware link / JSX 预览→Phase 3） |
 | 2026-03-06 | **愿景守护修复合入** (PR #255): P2C-fix-1 untracked diff + P2C-fix-2 worktree-aware link，砚砚 R1 通过 + 云端 P2 修复（relative path in diff header） |
+| 2026-03-06 | 铲屎官批准 Phase 2D (Linked Roots) + Phase 2E (JSX/TSX 预览) 并行开工 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -407,7 +408,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 |------|------|------|------|
 | P2C-fix-1 | untracked 文件 diff：`??` 文件在 Changes 列表可见但无 diff 内容（`git diff HEAD` 天然不覆盖未跟踪文件）→ 用 `git diff --no-index` 补充 | codex P2 + gpt52 P2 | **done** |
 | P2C-fix-2 | worktree-aware chat link：聊天中文件引用带 `🌿 branch` 文本但点击不会切换 worktree，落到错工地 | gpt52 P1 | **done** |
-| P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild)，复杂度高，**推到 Phase 3** | codex P1 + gpt52 P1 | Phase 3 |
+| P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild) → **提前到 Phase 2E** | codex P1 + gpt52 P1 | **Phase 2E** |
 
 ### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
 
@@ -417,6 +418,19 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P2D-1 | API 支持 `WORKSPACE_LINKED_ROOTS` 配置（环境变量或配置文件），格式 `name:path`，每个 root 独立路径防护 | P2 |
-| P2D-2 | worktree 列表 API 合并返回 git worktree + linked roots | P2 |
-| P2D-3 | 前端 root 选择器（复用 worktree 选择器，区分 worktree vs linked root） | P2 |
+| P2D-1 | API 支持 `WORKSPACE_LINKED_ROOTS` 配置（环境变量或配置文件），格式 `name:path`，每个 root 独立路径防护 | |
+| P2D-2 | worktree 列表 API 合并返回 git worktree + linked roots | |
+| P2D-3 | 前端 root 选择器（复用 worktree 选择器，区分 worktree vs linked root） | |
+
+### Phase 2E: JSX/TSX 组件预览（铲屎官 2026-03-06 批准提前）
+
+愿景守护审查发现：HTML 预览已有，但 React 组件（`.tsx`/`.jsx`）只能看源码不能渲染，"不开 IDE 协作前端"在 React 场景断裂。
+
+**技术方案**：esbuild WASM 浏览器端 bundling → iframe sandbox 渲染
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P2E-1 | esbuild-wasm 集成：浏览器端 bundle JSX/TSX → 可执行 JS | |
+| P2E-2 | 预览 iframe：sandbox 渲染 bundled output + React/ReactDOM CDN 注入 | |
+| P2E-3 | 预览开关：`.tsx`/`.jsx` 文件支持 Preview/Code 切换（复用 HTML preview 模式） | |
+| P2E-4 | 错误处理：bundle 失败/运行时错误 → 友好提示（不是白屏） | |
