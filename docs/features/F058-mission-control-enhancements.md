@@ -158,8 +158,12 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-D2: 右侧面板（ThreadSituationPanel + FeatureBirdEyePanel）可见、可滚动
 
 ### Phase E（UX 收尾）
-- [ ] AC-E1: Mission Hub 有"← 返回"按钮可回到对话页
-- [ ] AC-E2: 线程态势面板无关联 thread 的项目紧凑显示 + 面板内滚动（max-h-64）
+- [x] AC-E1: Mission Hub 有"← 返回"按钮可回到对话页
+- [x] AC-E2: 线程态势面板无关联 thread 的项目紧凑显示 + 面板内滚动
+
+### Phase F（右栏布局 + 鸟瞰已完成区）
+- [ ] AC-F1: 右侧栏三面板 grid 布局（保底可见区，独立滚动）
+- [ ] AC-F2: Feature 鸟瞰面板增加"已完成"折叠区（done features 默认收起，可展开回顾）
 
 ## 需求点 Checklist
 
@@ -171,6 +175,9 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R4 | 派发防崩溃（砚砚增强列表） | AC-B1 | test（Lua 原子化回归） | [x] |
 | R5 | 消息不重复更可靠（砚砚增强列表） | AC-B2, AC-B3 | test（幂等回归） | [x] |
 | R6 | 态势图升级（砚砚增强列表） | AC-C1 | test + screenshot（鸟瞰视图） | [x] |
+| R7 | "从mission hub如何退出呢？" | AC-E1 | test（back button href=/） | [x] |
+| R8 | "线程态势截断看不全" | AC-E2, AC-F1 | test + screenshot（紧凑卡片 + grid 布局） | [ ] |
+| R9 | "close 的 feat 刷新后还在，需要回顾" | AC-F2 | test + screenshot（鸟瞰已完成折叠区） | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -231,3 +238,6 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-05 | 🔴 铲屎官实测发现两个 bug：导入状态全是 open + 右侧面板看不到。回退 done→in-progress，追加 Phase D |
 | 2026-03-05 | Phase D 合入 main (PR #236) — status mapping + layout overflow fix |
 | 2026-03-05 | Phase E：铲屎官反馈无退出按钮 + 线程态势面板截断。追加 back button + 紧凑无 thread 卡片 + 面板内滚动 |
+| 2026-03-05 | Phase E 合入 main (PR #237) — back button + thread situation compact display |
+| 2026-03-06 | 右栏布局 grid 修复直推 main (de4c3221)，铲屎官反馈仍有问题，砚砚建议 grid rows 方案 |
+| 2026-03-06 | Phase F 立项：右栏 grid 布局 + 鸟瞰已完成折叠区（铲屎官："close 的 feat 刷新后还在，需要回顾"） |
