@@ -205,6 +205,7 @@ export type {
   ThreadPhase,
   BacklogDependencies,
   MarkDoneInput,
+  AtomicDispatchInput,
   UpdateBacklogDispatchProgressInput,
 } from './backlog.js';
 // Task types (毛线球)

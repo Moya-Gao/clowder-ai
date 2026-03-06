@@ -1,8 +1,9 @@
 import type {
   AcquireBacklogLeaseInput,
+  AtomicDispatchInput,
   BacklogDependencies,
-  BacklogLease,
   BacklogItem,
+  BacklogLease,
   BacklogStatus,
   CreateBacklogItemInput,
   DecideBacklogClaimInput,
@@ -15,8 +16,8 @@ import type {
   SuggestBacklogClaimInput,
   UpdateBacklogDispatchProgressInput,
 } from '@cat-cafe/shared';
-import { generateSortableId } from './MessageStore.js';
 import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
+import { generateSortableId } from './MessageStore.js';
 
 const MAX_BACKLOG_ITEMS = 1000;
 
@@ -51,7 +52,16 @@ export interface IBacklogStore {
   acquireLease(itemId: string, input: AcquireBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
   heartbeatLease(itemId: string, input: HeartbeatBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
   releaseLease(itemId: string, input: ReleaseBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
-  reclaimExpiredLease(itemId: string, input: ReclaimBacklogLeaseInput): BacklogItem | null | Promise<BacklogItem | null>;
+  reclaimExpiredLease(
+    itemId: string,
+    input: ReclaimBacklogLeaseInput,
+  ): BacklogItem | null | Promise<BacklogItem | null>;
+  /** Optional: acquire a short-lived dispatch lock to prevent concurrent dispatch races (Redis only). Returns a token on success, false if already locked. */
+  tryAcquireDispatchLock?(itemId: string, ttlMs?: number): Promise<string | false>;
+  /** Optional: release dispatch lock after successful dispatch (Redis only). Token must match the one returned by tryAcquireDispatchLock. */
+  releaseDispatchLock?(itemId: string, token: string): Promise<void>;
+  /** Optional: atomic dispatch combining progress update + markDispatched in one operation. */
+  atomicDispatch?(itemId: string, input: AtomicDispatchInput): BacklogItem | null | Promise<BacklogItem | null>;
 }
 
 export class BacklogStore implements IBacklogStore {
@@ -97,11 +107,12 @@ export class BacklogStore implements IBacklogStore {
     const existing = this.items.get(itemId);
     if (!existing) return null;
 
-    const unchanged = existing.title === input.title
-      && existing.summary === input.summary
-      && existing.priority === input.priority
-      && this.sameTags(existing.tags, input.tags)
-      && this.sameDependencies(existing.dependencies, input.dependencies);
+    const unchanged =
+      existing.title === input.title &&
+      existing.summary === input.summary &&
+      existing.priority === input.priority &&
+      this.sameTags(existing.tags, input.tags) &&
+      this.sameDependencies(existing.dependencies, input.dependencies);
     if (unchanged) return existing;
 
     const now = Date.now();
@@ -202,27 +213,20 @@ export class BacklogStore implements IBacklogStore {
         decidedAt: now,
         decidedBy: input.decidedBy,
       };
-      const rejectedSuggestion = input.note
-        ? { ...rejectedSuggestionBase, note: input.note }
-        : rejectedSuggestionBase;
+      const rejectedSuggestion = input.note ? { ...rejectedSuggestionBase, note: input.note } : rejectedSuggestionBase;
       const rejectAuditBase = {
         id: generateSortableId(now + 1),
         action: 'rejected' as const,
         actor: makeUserActor(input.decidedBy),
         timestamp: now,
       };
-      const rejectAudit = input.note
-        ? { ...rejectAuditBase, detail: input.note }
-        : rejectAuditBase;
+      const rejectAudit = input.note ? { ...rejectAuditBase, detail: input.note } : rejectAuditBase;
       const updated: BacklogItem = {
         ...existing,
         status: 'open',
         suggestion: rejectedSuggestion,
         updatedAt: now,
-        audit: [
-          ...existing.audit,
-          rejectAudit,
-        ],
+        audit: [...existing.audit, rejectAudit],
       };
       this.items.set(itemId, updated);
       return updated;
@@ -234,28 +238,21 @@ export class BacklogStore implements IBacklogStore {
       decidedAt: now,
       decidedBy: input.decidedBy,
     };
-    const approvedSuggestion = input.note
-      ? { ...approvedSuggestionBase, note: input.note }
-      : approvedSuggestionBase;
+    const approvedSuggestion = input.note ? { ...approvedSuggestionBase, note: input.note } : approvedSuggestionBase;
     const approveAuditBase = {
       id: generateSortableId(now + 1),
       action: 'approved' as const,
       actor: makeUserActor(input.decidedBy),
       timestamp: now,
     };
-    const approveAudit = input.note
-      ? { ...approveAuditBase, detail: input.note }
-      : approveAuditBase;
+    const approveAudit = input.note ? { ...approveAuditBase, detail: input.note } : approveAuditBase;
     const updated: BacklogItem = {
       ...existing,
       status: 'approved',
       approvedAt: now,
       suggestion: approvedSuggestion,
       updatedAt: now,
-      audit: [
-        ...existing.audit,
-        approveAudit,
-      ],
+      audit: [...existing.audit, approveAudit],
     };
     this.items.set(itemId, updated);
     return updated;
@@ -485,7 +482,6 @@ export class BacklogStore implements IBacklogStore {
     return updated;
   }
 
-
   markDone(itemId: string, input: MarkDoneInput): BacklogItem | null {
     const existing = this.items.get(itemId);
     if (!existing) return null;
@@ -507,6 +503,46 @@ export class BacklogStore implements IBacklogStore {
           action: 'done',
           actor: makeUserActor(input.doneBy),
           timestamp: now,
+        },
+      ],
+    };
+    this.items.set(itemId, updated);
+    return updated;
+  }
+
+  atomicDispatch(itemId: string, input: AtomicDispatchInput): BacklogItem | null {
+    const existing = this.items.get(itemId);
+    if (!existing) return null;
+
+    if (existing.status === 'dispatched') {
+      if (existing.dispatchedThreadId === input.threadId && existing.dispatchedThreadPhase === input.threadPhase) {
+        return existing;
+      }
+      throw new BacklogTransitionError('Invalid backlog transition: item already dispatched to another thread');
+    }
+    if (existing.status !== 'approved') {
+      throw new BacklogTransitionError('Invalid backlog transition: only approved items can be atomically dispatched');
+    }
+
+    const now = Date.now();
+    const updated: BacklogItem = {
+      ...existing,
+      status: 'dispatched',
+      dispatchAttemptId: input.dispatchAttemptId,
+      pendingThreadId: input.pendingThreadId,
+      kickoffMessageId: input.kickoffMessageId,
+      dispatchedThreadId: input.threadId,
+      dispatchedThreadPhase: input.threadPhase,
+      dispatchedAt: now,
+      updatedAt: now,
+      audit: [
+        ...existing.audit,
+        {
+          id: generateSortableId(now + 1),
+          action: 'dispatched',
+          actor: makeUserActor(input.dispatchedBy),
+          timestamp: now,
+          detail: `${input.threadId}:${input.threadPhase}`,
         },
       ],
     };
@@ -547,15 +583,14 @@ export class BacklogStore implements IBacklogStore {
     return true;
   }
 
-  private sameDependencies(
-    a: BacklogDependencies | undefined,
-    b: BacklogDependencies | undefined,
-  ): boolean {
+  private sameDependencies(a: BacklogDependencies | undefined, b: BacklogDependencies | undefined): boolean {
     if (!a && !b) return true;
     if (!a || !b) return false;
-    return this.sameStringArray(a.evolvedFrom, b.evolvedFrom)
-      && this.sameStringArray(a.blockedBy, b.blockedBy)
-      && this.sameStringArray(a.related, b.related);
+    return (
+      this.sameStringArray(a.evolvedFrom, b.evolvedFrom) &&
+      this.sameStringArray(a.blockedBy, b.blockedBy) &&
+      this.sameStringArray(a.related, b.related)
+    );
   }
 
   private normalizeLeaseTtl(ttlMs: number): number {

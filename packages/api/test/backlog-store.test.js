@@ -630,3 +630,94 @@ describe('BacklogStore markDone', () => {
     assert.equal(refreshed.updatedAt, beforeUpdatedAt, 'should not update timestamp');
   });
 });
+
+describe('BacklogStore atomicDispatch', () => {
+  let BacklogStore;
+
+  beforeEach(async () => {
+    ({ BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js'));
+  });
+
+  function makeApproved(store) {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    store.suggestClaim(item.id, { catId: 'claude-opus', why: 'w', plan: 'p', requestedPhase: 'coding' });
+    store.decideClaim(item.id, { decision: 'approve', decidedBy: 'u1' });
+    return store.get(item.id);
+  }
+
+  test('atomicDispatch transitions approved → dispatched in one call', () => {
+    const store = new BacklogStore();
+    const item = makeApproved(store);
+    const result = store.atomicDispatch(item.id, {
+      dispatchAttemptId: 'attempt-1',
+      pendingThreadId: 'thread-1',
+      kickoffMessageId: 'msg-1',
+      threadId: 'thread-1',
+      threadPhase: 'coding',
+      dispatchedBy: 'u1',
+    });
+    assert.ok(result);
+    assert.equal(result.status, 'dispatched');
+    assert.equal(result.dispatchAttemptId, 'attempt-1');
+    assert.equal(result.pendingThreadId, 'thread-1');
+    assert.equal(result.kickoffMessageId, 'msg-1');
+    assert.equal(result.dispatchedThreadId, 'thread-1');
+    assert.equal(result.dispatchedThreadPhase, 'coding');
+    assert.ok(result.dispatchedAt > 0);
+    assert.equal(result.audit.at(-1).action, 'dispatched');
+  });
+
+  test('atomicDispatch rejects non-approved item', () => {
+    const store = new BacklogStore();
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    assert.throws(
+      () => store.atomicDispatch(item.id, {
+        dispatchAttemptId: 'a1', pendingThreadId: 't1', kickoffMessageId: 'm1',
+        threadId: 't1', threadPhase: 'coding', dispatchedBy: 'u1',
+      }),
+      /Invalid backlog transition/,
+    );
+  });
+
+  test('atomicDispatch is idempotent for same thread', () => {
+    const store = new BacklogStore();
+    const item = makeApproved(store);
+    const input = {
+      dispatchAttemptId: 'a1', pendingThreadId: 't1', kickoffMessageId: 'm1',
+      threadId: 't1', threadPhase: 'coding', dispatchedBy: 'u1',
+    };
+    const first = store.atomicDispatch(item.id, input);
+    const second = store.atomicDispatch(item.id, input);
+    assert.equal(first.id, second.id);
+    assert.equal(second.status, 'dispatched');
+  });
+
+  test('atomicDispatch rejects dispatch to different thread', () => {
+    const store = new BacklogStore();
+    const item = makeApproved(store);
+    store.atomicDispatch(item.id, {
+      dispatchAttemptId: 'a1', pendingThreadId: 't1', kickoffMessageId: 'm1',
+      threadId: 't1', threadPhase: 'coding', dispatchedBy: 'u1',
+    });
+    assert.throws(
+      () => store.atomicDispatch(item.id, {
+        dispatchAttemptId: 'a2', pendingThreadId: 't2', kickoffMessageId: 'm2',
+        threadId: 't2', threadPhase: 'coding', dispatchedBy: 'u1',
+      }),
+      /already dispatched to another thread/,
+    );
+  });
+
+  test('atomicDispatch returns null for missing item', () => {
+    const store = new BacklogStore();
+    const result = store.atomicDispatch('nonexistent', {
+      dispatchAttemptId: 'a1', pendingThreadId: 't1', kickoffMessageId: 'm1',
+      threadId: 't1', threadPhase: 'coding', dispatchedBy: 'u1',
+    });
+    assert.equal(result, null);
+  });
+});

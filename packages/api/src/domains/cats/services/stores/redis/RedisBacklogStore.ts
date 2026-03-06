@@ -1,5 +1,6 @@
 import type {
   AcquireBacklogLeaseInput,
+  AtomicDispatchInput,
   BacklogDependencies,
   BacklogItem,
   BacklogLease,
@@ -16,9 +17,9 @@ import type {
   UpdateBacklogDispatchProgressInput,
 } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { generateSortableId } from '../ports/MessageStore.js';
 import type { IBacklogStore } from '../ports/BacklogStore.js';
 import { BacklogTransitionError } from '../ports/BacklogStore.js';
+import { generateSortableId } from '../ports/MessageStore.js';
 import { BacklogKeys } from '../redis-keys/backlog-keys.js';
 import { makeCatActor, makeCreatorActor, makeUserActor } from '../shared/backlog-audit-actors.js';
 
@@ -284,6 +285,78 @@ redis.call('HSET', key,
 return 1
 `;
 
+/**
+ * Atomic dispatch: approved → dispatched in one Redis operation.
+ * KEYS[1] = backlog:item:{id}
+ * ARGV[1] = now
+ * ARGV[2] = dispatchAttemptId
+ * ARGV[3] = pendingThreadId
+ * ARGV[4] = kickoffMessageId
+ * ARGV[5] = threadId
+ * ARGV[6] = threadPhase
+ * ARGV[7] = auditEntry(json)
+ *
+ * return: 1 success, 2 idempotent (already dispatched to same thread),
+ *         -1 missing, -2 not approved, -3 dispatched to different thread
+ */
+const ATOMIC_DISPATCH_LUA = `
+local key = KEYS[1]
+local now = tonumber(ARGV[1])
+local dispatchAttemptId = ARGV[2]
+local pendingThreadId = ARGV[3]
+local kickoffMessageId = ARGV[4]
+local threadId = ARGV[5]
+local threadPhase = ARGV[6]
+local auditEntryRaw = ARGV[7]
+
+if redis.call('HGET', key, 'id') == false then
+  return -1
+end
+
+local status = redis.call('HGET', key, 'status')
+
+if status == 'dispatched' then
+  local existingThread = redis.call('HGET', key, 'dispatchedThreadId') or ''
+  local existingPhase = redis.call('HGET', key, 'dispatchedThreadPhase') or ''
+  if existingThread == threadId and existingPhase == threadPhase then
+    return 2
+  end
+  return -3
+end
+
+if status ~= 'approved' then
+  return -2
+end
+
+local audit = {}
+local auditRaw = redis.call('HGET', key, 'audit')
+if auditRaw and auditRaw ~= '' then
+  local okAudit, decodedAudit = pcall(cjson.decode, auditRaw)
+  if okAudit and type(decodedAudit) == 'table' then
+    audit = decodedAudit
+  end
+end
+
+local okEntry, auditEntry = pcall(cjson.decode, auditEntryRaw)
+if okEntry and type(auditEntry) == 'table' then
+  table.insert(audit, auditEntry)
+end
+
+redis.call('HSET', key,
+  'status', 'dispatched',
+  'dispatchAttemptId', dispatchAttemptId,
+  'pendingThreadId', pendingThreadId,
+  'kickoffMessageId', kickoffMessageId,
+  'dispatchedThreadId', threadId,
+  'dispatchedThreadPhase', threadPhase,
+  'dispatchedAt', tostring(now),
+  'updatedAt', tostring(now),
+  'audit', cjson.encode(audit)
+)
+
+return 1
+`;
+
 export class RedisBacklogStore implements IBacklogStore {
   private readonly redis: RedisClient;
   private readonly ttlSeconds: number | null;
@@ -340,11 +413,12 @@ export class RedisBacklogStore implements IBacklogStore {
     const existing = await this.get(itemId);
     if (!existing) return null;
 
-    const unchanged = existing.title === input.title
-      && existing.summary === input.summary
-      && existing.priority === input.priority
-      && this.sameTags(existing.tags, input.tags)
-      && this.sameDependencies(existing.dependencies, input.dependencies);
+    const unchanged =
+      existing.title === input.title &&
+      existing.summary === input.summary &&
+      existing.priority === input.priority &&
+      this.sameTags(existing.tags, input.tags) &&
+      this.sameDependencies(existing.dependencies, input.dependencies);
     if (unchanged) return existing;
 
     const now = Date.now();
@@ -457,27 +531,20 @@ export class RedisBacklogStore implements IBacklogStore {
         decidedAt: now,
         decidedBy: input.decidedBy,
       };
-      const rejectedSuggestion = input.note
-        ? { ...rejectedSuggestionBase, note: input.note }
-        : rejectedSuggestionBase;
+      const rejectedSuggestion = input.note ? { ...rejectedSuggestionBase, note: input.note } : rejectedSuggestionBase;
       const rejectAuditBase = {
         id: generateSortableId(now + 1),
         action: 'rejected' as const,
         actor: makeUserActor(input.decidedBy),
         timestamp: now,
       };
-      const rejectAudit = input.note
-        ? { ...rejectAuditBase, detail: input.note }
-        : rejectAuditBase;
+      const rejectAudit = input.note ? { ...rejectAuditBase, detail: input.note } : rejectAuditBase;
       const updated: BacklogItem = {
         ...existing,
         status: 'open',
         suggestion: rejectedSuggestion,
         updatedAt: now,
-        audit: [
-          ...existing.audit,
-          rejectAudit,
-        ],
+        audit: [...existing.audit, rejectAudit],
       };
       await this.writeItem(updated);
       return updated;
@@ -489,28 +556,21 @@ export class RedisBacklogStore implements IBacklogStore {
       decidedAt: now,
       decidedBy: input.decidedBy,
     };
-    const approvedSuggestion = input.note
-      ? { ...approvedSuggestionBase, note: input.note }
-      : approvedSuggestionBase;
+    const approvedSuggestion = input.note ? { ...approvedSuggestionBase, note: input.note } : approvedSuggestionBase;
     const approveAuditBase = {
       id: generateSortableId(now + 1),
       action: 'approved' as const,
       actor: makeUserActor(input.decidedBy),
       timestamp: now,
     };
-    const approveAudit = input.note
-      ? { ...approveAuditBase, detail: input.note }
-      : approveAuditBase;
+    const approveAudit = input.note ? { ...approveAuditBase, detail: input.note } : approveAuditBase;
     const updated: BacklogItem = {
       ...existing,
       status: 'approved',
       approvedAt: now,
       suggestion: approvedSuggestion,
       updatedAt: now,
-      audit: [
-        ...existing.audit,
-        approveAudit,
-      ],
+      audit: [...existing.audit, approveAudit],
     };
     await this.writeItem(updated);
     return updated;
@@ -604,6 +664,44 @@ export class RedisBacklogStore implements IBacklogStore {
     };
     await this.writeItem(updated);
     return updated;
+  }
+
+  async atomicDispatch(itemId: string, input: AtomicDispatchInput): Promise<BacklogItem | null> {
+    const now = Date.now();
+    const auditEntry = JSON.stringify({
+      id: generateSortableId(now + 1),
+      action: 'dispatched',
+      actor: makeUserActor(input.dispatchedBy),
+      timestamp: now,
+      detail: `${input.threadId}:${input.threadPhase}`,
+    });
+
+    const raw = await this.redis.eval(
+      ATOMIC_DISPATCH_LUA,
+      1,
+      BacklogKeys.detail(itemId),
+      String(now),
+      input.dispatchAttemptId,
+      input.pendingThreadId,
+      input.kickoffMessageId,
+      input.threadId,
+      input.threadPhase,
+      auditEntry,
+    );
+
+    const code = typeof raw === 'number' ? raw : Number(raw);
+    if (code === -1) return null;
+    if (code === -2) {
+      throw new BacklogTransitionError('Invalid backlog transition: only approved items can be atomically dispatched');
+    }
+    if (code === -3) {
+      throw new BacklogTransitionError('Invalid backlog transition: item already dispatched to another thread');
+    }
+    if (code !== 1 && code !== 2) {
+      throw new BacklogTransitionError('Invalid backlog transition: atomic dispatch rejected');
+    }
+
+    return this.get(itemId);
   }
 
   async acquireLease(itemId: string, input: AcquireBacklogLeaseInput): Promise<BacklogItem | null> {
@@ -736,13 +834,7 @@ export class RedisBacklogStore implements IBacklogStore {
       detail: '',
     });
 
-    const result = await this.runLeaseLua(
-      LEASE_RECLAIM_LUA,
-      itemId,
-      String(now),
-      input.actorId,
-      auditEntry,
-    );
+    const result = await this.runLeaseLua(LEASE_RECLAIM_LUA, itemId, String(now), input.actorId, auditEntry);
 
     if (result === -1) return null;
     if (result === -2) {
@@ -804,9 +896,7 @@ export class RedisBacklogStore implements IBacklogStore {
     const suggestion = data['suggestion']
       ? this.parseJson(data['suggestion'], null as BacklogItem['suggestion'] | null)
       : null;
-    const lease = data['lease']
-      ? this.parseJson(data['lease'], null as BacklogLease | null)
-      : null;
+    const lease = data['lease'] ? this.parseJson(data['lease'], null as BacklogLease | null) : null;
     const approvedAt = data['approvedAt'] ? Number.parseInt(data['approvedAt'], 10) : null;
     const dispatchedAt = data['dispatchedAt'] ? Number.parseInt(data['dispatchedAt'], 10) : null;
     return {
@@ -824,9 +914,7 @@ export class RedisBacklogStore implements IBacklogStore {
       ...(suggestion ? { suggestion } : {}),
       ...(lease ? { lease } : {}),
       ...(data['dispatchedThreadId'] ? { dispatchedThreadId: data['dispatchedThreadId'] } : {}),
-      ...(data['dispatchedThreadPhase']
-        ? { dispatchedThreadPhase: data['dispatchedThreadPhase'] as ThreadPhase }
-        : {}),
+      ...(data['dispatchedThreadPhase'] ? { dispatchedThreadPhase: data['dispatchedThreadPhase'] as ThreadPhase } : {}),
       ...(data['dispatchAttemptId'] ? { dispatchAttemptId: data['dispatchAttemptId'] } : {}),
       ...(data['pendingThreadId'] ? { pendingThreadId: data['pendingThreadId'] } : {}),
       ...(data['kickoffMessageId'] ? { kickoffMessageId: data['kickoffMessageId'] } : {}),
@@ -866,15 +954,14 @@ export class RedisBacklogStore implements IBacklogStore {
     return true;
   }
 
-  private sameDependencies(
-    a: BacklogDependencies | undefined,
-    b: BacklogDependencies | undefined,
-  ): boolean {
+  private sameDependencies(a: BacklogDependencies | undefined, b: BacklogDependencies | undefined): boolean {
     if (!a && !b) return true;
     if (!a || !b) return false;
-    return this.sameStringArray(a.evolvedFrom, b.evolvedFrom)
-      && this.sameStringArray(a.blockedBy, b.blockedBy)
-      && this.sameStringArray(a.related, b.related);
+    return (
+      this.sameStringArray(a.evolvedFrom, b.evolvedFrom) &&
+      this.sameStringArray(a.blockedBy, b.blockedBy) &&
+      this.sameStringArray(a.related, b.related)
+    );
   }
 
   private normalizeLeaseTtl(ttlMs: number): number {
@@ -896,5 +983,30 @@ export class RedisBacklogStore implements IBacklogStore {
     pipeline.expire(BacklogKeys.detail(item.id), this.ttlSeconds);
     pipeline.expire(BacklogKeys.userList(item.userId), this.ttlSeconds);
     await pipeline.exec();
+  }
+
+  async tryAcquireDispatchLock(
+    itemId: string,
+    ttlMs = 30_000,
+  ): Promise<string | false> {
+    const key = BacklogKeys.dispatchLock(itemId);
+    const token = crypto.randomUUID();
+    const ttlSec = Math.max(1, Math.ceil(ttlMs / 1000));
+    const result = await this.redis.set(key, token, 'EX', ttlSec, 'NX');
+    return result === 'OK' ? token : false;
+  }
+
+  async releaseDispatchLock(
+    itemId: string,
+    token: string,
+  ): Promise<void> {
+    const key = BacklogKeys.dispatchLock(itemId);
+    // CAS delete: only remove if the token still matches (prevents deleting another request's lock)
+    await this.redis.eval(
+      "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+      1,
+      key,
+      token,
+    );
   }
 }

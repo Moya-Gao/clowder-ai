@@ -1012,7 +1012,10 @@ describe('Backlog Routes', () => {
       },
       getByThread: async () => [],
     };
-    const app = await createApp({ messageStore: throwingMessageStore });
+    // Disable atomicDispatch to test the multi-step fallback crash-recovery path
+    const fallbackBacklogStore = Object.create(backlogStore);
+    fallbackBacklogStore.atomicDispatch = undefined;
+    const app = await createApp({ messageStore: throwingMessageStore, backlogStore: fallbackBacklogStore });
 
     const createRes = await app.inject({
       method: 'POST',
@@ -1073,7 +1076,10 @@ describe('Backlog Routes', () => {
       },
       getByThread: async (...args) => messageStore.getByThread(...args),
     };
-    const app = await createApp({ messageStore: flakyMessageStore });
+    // Disable atomicDispatch to test the multi-step fallback crash-recovery path
+    const fallbackBacklogStore2 = Object.create(backlogStore);
+    fallbackBacklogStore2.atomicDispatch = undefined;
+    const app = await createApp({ messageStore: flakyMessageStore, backlogStore: fallbackBacklogStore2 });
 
     const createRes = await app.inject({
       method: 'POST',
@@ -1145,6 +1151,8 @@ describe('Backlog Routes', () => {
   test('approve retry does not duplicate kickoff message after progress persistence failure', async () => {
     let shouldFailKickoffProgressPersist = true;
     const flakyBacklogStore = Object.create(backlogStore);
+    // Disable atomicDispatch so the route uses the multi-step fallback path
+    flakyBacklogStore.atomicDispatch = undefined;
     flakyBacklogStore.updateDispatchProgress = async (itemId, input) => {
       if (input.kickoffMessageId && shouldFailKickoffProgressPersist) {
         shouldFailKickoffProgressPersist = false;
@@ -1282,6 +1290,89 @@ describe('Backlog Routes', () => {
       assert.equal(newerItem?.tags.includes('status:in-progress'), true);
     } finally {
       await rm(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  test('dispatch always sets dispatchAttemptId (never pending fallback)', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: { title: 'AttemptId guard', summary: 'S', priority: 'p2', tags: [] },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', why: 'w', plan: 'p', requestedPhase: 'coding' },
+    });
+
+    const approveRes = await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/decide-claim`,
+      headers: USER_HEADER,
+      payload: { decision: 'approve', threadPhase: 'coding' },
+    });
+    assert.equal(approveRes.statusCode, 200);
+    const body = approveRes.json();
+    assert.equal(body.item.status, 'dispatched');
+    assert.ok(body.item.dispatchAttemptId, 'dispatchAttemptId must be set');
+    assert.ok(
+      !body.item.dispatchAttemptId.includes('pending'),
+      'must not contain pending fallback',
+    );
+
+    // Verify kickoff message was created
+    const messages = await messageStore.getByThread(body.thread.id, 10, 'default-user');
+    assert.equal(messages.length, 1);
+  });
+
+  test('concurrent dispatch of same item produces only one thread', async () => {
+    const app = await createApp();
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/api/backlog/items',
+      headers: USER_HEADER,
+      payload: { title: 'Concurrent test', summary: 'S', priority: 'p2', tags: [] },
+    });
+    const itemId = createRes.json().id;
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/backlog/items/${itemId}/suggest-claim`,
+      headers: USER_HEADER,
+      payload: { catId: 'codex', why: 'w', plan: 'p', requestedPhase: 'coding' },
+    });
+
+    // Fire two approvals concurrently
+    const [res1, res2] = await Promise.all([
+      app.inject({
+        method: 'POST',
+        url: `/api/backlog/items/${itemId}/decide-claim`,
+        headers: USER_HEADER,
+        payload: { decision: 'approve', threadPhase: 'coding' },
+      }),
+      app.inject({
+        method: 'POST',
+        url: `/api/backlog/items/${itemId}/decide-claim`,
+        headers: USER_HEADER,
+        payload: { decision: 'approve', threadPhase: 'coding' },
+      }),
+    ]);
+    const codes = [res1.statusCode, res2.statusCode];
+    assert.ok(codes.includes(200), 'at least one dispatch should succeed');
+    // Both should reference the same thread (idempotent dispatch)
+    const bodies = [res1.json(), res2.json()];
+    const successBodies = bodies.filter((b) => b.item?.status === 'dispatched');
+    if (successBodies.length === 2) {
+      assert.equal(
+        successBodies[0].item.dispatchedThreadId,
+        successBodies[1].item.dispatchedThreadId,
+        'both should dispatch to same thread',
+      );
     }
   });
 });

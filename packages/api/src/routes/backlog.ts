@@ -1,21 +1,19 @@
+import type { BacklogDependencies, BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import { catIdSchema, catRegistry } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { catIdSchema, catRegistry } from '@cat-cafe/shared';
-import type { BacklogItem, BacklogDependencies, ThreadPhase } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
-import type { MissionHubSelfClaimScope } from '@cat-cafe/shared';
+import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
 import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import { BacklogTransitionError } from '../domains/cats/services/stores/ports/BacklogStore.js';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { generateSortableId, type IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
-import { getMissionHubSelfClaimScope } from '../config/cat-config-loader.js';
 import {
   buildBacklogInputFromFeature,
   getFeatureTagId,
   readActiveFeaturesFromBacklog,
-  readFeatureDocStatuses,
   readFeatureDocDependencies,
+  readFeatureDocStatuses,
 } from './backlog-doc-import.js';
 
 export interface BacklogRoutesOptions {
@@ -31,7 +29,10 @@ const createBacklogSchema = z.object({
   summary: z.string().trim().min(1).max(2000),
   priority: z.enum(['p0', 'p1', 'p2', 'p3']),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).optional().default([]),
-  createdBy: z.union([z.literal('user'), catIdSchema()]).optional().default('user'),
+  createdBy: z
+    .union([z.literal('user'), catIdSchema()])
+    .optional()
+    .default('user'),
 });
 
 const suggestClaimSchema = z.object({
@@ -42,23 +43,37 @@ const suggestClaimSchema = z.object({
 });
 const selfClaimSchema = suggestClaimSchema;
 
-const decideClaimSchema = z.object({
-  decision: z.enum(['approve', 'reject']),
-  note: z.string().trim().max(1000).optional(),
-  threadPhase: z.enum(['coding', 'research', 'brainstorm']).optional(),
-}).refine((value) => value.decision === 'reject' || !!value.threadPhase, {
-  message: 'threadPhase is required when decision=approve',
-  path: ['threadPhase'],
-});
+const decideClaimSchema = z
+  .object({
+    decision: z.enum(['approve', 'reject']),
+    note: z.string().trim().max(1000).optional(),
+    threadPhase: z.enum(['coding', 'research', 'brainstorm']).optional(),
+  })
+  .refine((value) => value.decision === 'reject' || !!value.threadPhase, {
+    message: 'threadPhase is required when decision=approve',
+    path: ['threadPhase'],
+  });
 
 const leaseAcquireSchema = z.object({
   catId: catIdSchema(),
-  ttlMs: z.number().int().min(1).max(24 * 60 * 60 * 1000).optional().default(60_000),
+  ttlMs: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60 * 60 * 1000)
+    .optional()
+    .default(60_000),
 });
 
 const leaseHeartbeatSchema = z.object({
   catId: catIdSchema(),
-  ttlMs: z.number().int().min(1).max(24 * 60 * 60 * 1000).optional().default(60_000),
+  ttlMs: z
+    .number()
+    .int()
+    .min(1)
+    .max(24 * 60 * 60 * 1000)
+    .optional()
+    .default(60_000),
 });
 
 const leaseReleaseSchema = z.object({
@@ -87,20 +102,21 @@ function buildKickoffMessage(item: BacklogItem, phase: ThreadPhase): string {
     `</user_input>`,
     suggestion
       ? [
-        `<claim_suggestion>`,
-        `  <cat_id>${escapeXml(suggestion.catId)}</cat_id>`,
-        `  <why>${escapeXml(suggestion.why)}</why>`,
-        `  <plan>${escapeXml(suggestion.plan)}</plan>`,
-        `</claim_suggestion>`,
-      ].join('\n')
+          `<claim_suggestion>`,
+          `  <cat_id>${escapeXml(suggestion.catId)}</cat_id>`,
+          `  <why>${escapeXml(suggestion.why)}</why>`,
+          `  <plan>${escapeXml(suggestion.plan)}</plan>`,
+          `</claim_suggestion>`,
+        ].join('\n')
       : '',
   ].filter(Boolean);
   return parts.join('\n');
 }
 
 function isTransitionError(err: unknown): boolean {
-  return err instanceof BacklogTransitionError
-    || (err instanceof Error && /invalid backlog transition/i.test(err.message));
+  return (
+    err instanceof BacklogTransitionError || (err instanceof Error && /invalid backlog transition/i.test(err.message))
+  );
 }
 
 function sameTags(left: readonly string[], right: readonly string[]): boolean {
@@ -125,15 +141,14 @@ function sameStringArray(a: readonly string[] | undefined, b: readonly string[] 
   return true;
 }
 
-function sameDependencies(
-  a: BacklogDependencies | undefined,
-  b: BacklogDependencies | undefined,
-): boolean {
+function sameDependencies(a: BacklogDependencies | undefined, b: BacklogDependencies | undefined): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
-  return sameStringArray(a.evolvedFrom, b.evolvedFrom)
-    && sameStringArray(a.blockedBy, b.blockedBy)
-    && sameStringArray(a.related, b.related);
+  return (
+    sameStringArray(a.evolvedFrom, b.evolvedFrom) &&
+    sameStringArray(a.blockedBy, b.blockedBy) &&
+    sameStringArray(a.related, b.related)
+  );
 }
 
 function isSelfClaimApprovedByCat(item: BacklogItem, catId: CatId): boolean {
@@ -145,10 +160,12 @@ function isSelfClaimApprovedByCat(item: BacklogItem, catId: CatId): boolean {
 }
 
 function isActiveLeaseOwner(item: BacklogItem, catId: CatId, now: number): boolean {
-  return item.status === 'dispatched'
-    && item.lease?.state === 'active'
-    && item.lease.ownerCatId === catId
-    && item.lease.expiresAt > now;
+  return (
+    item.status === 'dispatched' &&
+    item.lease?.state === 'active' &&
+    item.lease.ownerCatId === catId &&
+    item.lease.expiresAt > now
+  );
 }
 
 export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (app, opts) => {
@@ -156,7 +173,35 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
   const resolveSelfClaimScope = opts.resolveSelfClaimScope ?? ((catId: CatId) => getMissionHubSelfClaimScope(catId));
 
   async function dispatchApprovedItem(item: BacklogItem, userId: string, phase: ThreadPhase) {
+    // Acquire in-flight dispatch lock to prevent concurrent races (Redis only, 30s TTL)
+    let lockToken: string | false | undefined;
+    if (backlogStore.tryAcquireDispatchLock) {
+      lockToken = await backlogStore.tryAcquireDispatchLock(item.id);
+      if (!lockToken) {
+        return {
+          statusCode: 409 as const,
+          payload: { error: 'Dispatch already in-flight for this item' },
+        };
+      }
+    }
+
+    try {
+      return await dispatchApprovedItemInner(item, userId, phase);
+    } finally {
+      if (backlogStore.releaseDispatchLock && typeof lockToken === 'string') {
+        try {
+          await backlogStore.releaseDispatchLock(item.id, lockToken);
+        } catch (err) {
+          app.log.warn({ err, itemId: item.id }, 'dispatch lock release failed (best-effort)');
+        }
+      }
+    }
+  }
+
+  async function dispatchApprovedItemInner(item: BacklogItem, userId: string, phase: ThreadPhase) {
     let next = item;
+
+    // Step 1: Generate and persist attemptId (crash-recovery checkpoint)
     if (!next.dispatchAttemptId) {
       const updated = await backlogStore.updateDispatchProgress(item.id, {
         updatedBy: userId,
@@ -168,65 +213,84 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       next = updated;
     }
 
-    let thread = next.pendingThreadId ? await threadStore.get(next.pendingThreadId) : null;
-    if (next.pendingThreadId && !thread) {
-      return {
-        statusCode: 409 as const,
-        payload: { error: 'Invalid backlog transition: pending dispatch thread missing' },
-      };
+    // Step 2: Create or resume thread + persist pendingThreadId (crash-recovery checkpoint)
+    let threadId = next.pendingThreadId;
+    if (threadId) {
+      const existing = await threadStore.get(threadId);
+      if (!existing) {
+        return {
+          statusCode: 409 as const,
+          payload: { error: 'Invalid backlog transition: pending dispatch thread missing' },
+        };
+      }
     }
-    if (!thread) {
-      thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
+    if (!threadId) {
+      const thread = await threadStore.create(userId, `[Backlog] ${item.title}`, 'default');
+      threadId = thread.id;
       const updated = await backlogStore.updateDispatchProgress(item.id, {
         updatedBy: userId,
-        pendingThreadId: thread.id,
+        pendingThreadId: threadId,
       });
       if (!updated) {
         return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
       }
       next = updated;
     }
+    await threadStore.updatePhase(threadId, phase);
 
-    await threadStore.updatePhase(thread.id, phase);
-
-    if (!next.kickoffMessageId) {
+    // Step 3: Send kickoff message (idempotent via idempotencyKey)
+    let kickoffMessageId = next.kickoffMessageId;
+    if (!kickoffMessageId) {
       const kickoffMessage = await messageStore.append({
         userId,
         catId: null,
-        threadId: thread.id,
-        idempotencyKey: `kickoff:${next.id}:${next.dispatchAttemptId ?? 'pending'}`,
+        threadId,
+        idempotencyKey: `kickoff:${next.id}:${next.dispatchAttemptId}`,
         content: buildKickoffMessage(next, phase),
         mentions: [],
         timestamp: Date.now(),
       });
-      const updated = await backlogStore.updateDispatchProgress(item.id, {
-        updatedBy: userId,
-        kickoffMessageId: kickoffMessage.id,
-      });
-      if (!updated) {
-        return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
-      }
-      next = updated;
+      kickoffMessageId = kickoffMessage.id;
     }
 
-    const dispatched = await backlogStore.markDispatched(item.id, {
-      threadId: thread.id,
-      threadPhase: phase,
-      dispatchedBy: userId,
-    });
+    // Step 4: Atomic state transition (Lua) or multi-step fallback
+    let dispatched: BacklogItem | null;
+    if (backlogStore.atomicDispatch) {
+      dispatched = await backlogStore.atomicDispatch(item.id, {
+        dispatchAttemptId: next.dispatchAttemptId!,
+        pendingThreadId: threadId,
+        kickoffMessageId,
+        threadId,
+        threadPhase: phase,
+        dispatchedBy: userId,
+      });
+    } else {
+      // Fallback: persist kickoffMessageId + markDispatched
+      if (!next.kickoffMessageId) {
+        await backlogStore.updateDispatchProgress(item.id, { updatedBy: userId, kickoffMessageId });
+      }
+      dispatched = await backlogStore.markDispatched(item.id, {
+        threadId,
+        threadPhase: phase,
+        dispatchedBy: userId,
+      });
+    }
+
     if (!dispatched) {
       return { statusCode: 404 as const, payload: { error: 'Backlog item not found' } };
     }
+
+    // Step 5: Link thread → backlog item (best-effort)
     try {
-      await threadStore.linkBacklogItem(thread.id, item.id);
+      await threadStore.linkBacklogItem(threadId, item.id);
     } catch (err) {
       app.log.warn(
-        { err, threadId: thread.id, backlogItemId: item.id },
+        { err, threadId, backlogItemId: item.id },
         'failed to persist thread backlog reverse link after dispatch',
       );
     }
-    const refreshedThread = await threadStore.get(thread.id);
-    return { statusCode: 200 as const, payload: { item: dispatched, thread: refreshedThread ?? thread } };
+    const refreshedThread = await threadStore.get(threadId);
+    return { statusCode: 200 as const, payload: { item: dispatched, thread: refreshedThread } };
   }
 
   app.post('/api/backlog/items', async (request, reply) => {
@@ -307,11 +371,12 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
         continue;
       }
 
-      const shouldRefresh = existing.title !== importInput.title
-        || existing.summary !== importInput.summary
-        || existing.priority !== importInput.priority
-        || !sameTags(existing.tags, importInput.tags)
-        || !sameDependencies(existing.dependencies, importInput.dependencies);
+      const shouldRefresh =
+        existing.title !== importInput.title ||
+        existing.summary !== importInput.summary ||
+        existing.priority !== importInput.priority ||
+        !sameTags(existing.tags, importInput.tags) ||
+        !sameDependencies(existing.dependencies, importInput.dependencies);
       if (!shouldRefresh) {
         skipped += 1;
         continue;
@@ -432,9 +497,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     }
 
     if (existing.status === 'dispatched') {
-      const thread = existing.dispatchedThreadId
-        ? await threadStore.get(existing.dispatchedThreadId)
-        : null;
+      const thread = existing.dispatchedThreadId ? await threadStore.get(existing.dispatchedThreadId) : null;
       return {
         item: existing,
         ...(thread ? { thread } : {}),
@@ -503,11 +566,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
           reply.status(409);
           return { error: 'Invalid backlog transition: approved suggestion belongs to another cat' };
         }
-        const dispatchedResult = await dispatchApprovedItem(
-          next,
-          userId,
-          parsed.data.requestedPhase as ThreadPhase,
-        );
+        const dispatchedResult = await dispatchApprovedItem(next, userId, parsed.data.requestedPhase as ThreadPhase);
         reply.status(dispatchedResult.statusCode);
         return {
           ...dispatchedResult.payload,
@@ -609,9 +668,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
 
       const phase = parsed.data.threadPhase as ThreadPhase;
       if (existing.status === 'dispatched') {
-        const thread = existing.dispatchedThreadId
-          ? await threadStore.get(existing.dispatchedThreadId)
-          : null;
+        const thread = existing.dispatchedThreadId ? await threadStore.get(existing.dispatchedThreadId) : null;
         return { item: existing, ...(thread ? { thread } : {}) };
       }
 
@@ -817,5 +874,4 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       throw err;
     }
   });
-
 };

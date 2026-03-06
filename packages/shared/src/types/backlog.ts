@@ -156,3 +156,12 @@ export interface BacklogDependencies {
   readonly blockedBy?: readonly string[];
   readonly related?: readonly string[];
 }
+
+export interface AtomicDispatchInput {
+  readonly dispatchAttemptId: string;
+  readonly pendingThreadId: string;
+  readonly kickoffMessageId: string;
+  readonly threadId: string;
+  readonly threadPhase: ThreadPhase;
+  readonly dispatchedBy: string;
+}
