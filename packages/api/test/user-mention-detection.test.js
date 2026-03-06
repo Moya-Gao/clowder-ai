@@ -75,4 +75,26 @@ describe('detectUserMention', () => {
   it('R2-P2: still rejects @user followed by ASCII letter', () => {
     assert.equal(detectUserMention('@userfoo'), false);
   });
+
+  // F067 owner-config: configured mention patterns
+  it('detects configured owner @landy at line start', () => {
+    assert.equal(detectUserMention('@landy 请看'), true);
+    assert.equal(detectUserMention('@Landy 请看'), true);
+  });
+
+  it('detects configured owner @lysander at line start', () => {
+    assert.equal(detectUserMention('@lysander 帮忙确认'), true);
+  });
+
+  it('detects configured owner @l.s. at line start', () => {
+    assert.equal(detectUserMention('@l.s. 看看'), true);
+  });
+
+  it('rejects @landy continuation (e.g. @landyFoo)', () => {
+    assert.equal(detectUserMention('@landyFoo not a mention'), false);
+  });
+
+  it('accepts @landy followed by CJK text', () => {
+    assert.equal(detectUserMention('@landy请看'), true);
+  });
 });

@@ -9,6 +9,7 @@ import type { CatConfig, CatId } from '@cat-cafe/shared';
 import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
 import {
   catHasRole,
+  getOwnerConfig,
   getReviewPolicy,
   getRoster,
   isCatAvailable,
@@ -308,7 +309,12 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
   lines.push('');
 
   // 铲屎官 reference (session-level, not per-message)
-  lines.push('铲屎官是真人用户，是团队的共创伙伴。重要决策时由铲屎官拍板。', '');
+  // F067: Use owner config for name + mention handles
+  const owner = getOwnerConfig();
+  const ownerName = owner.name;
+  const ownerHandles = owner.mentionPatterns.map((p) => `\`${p}\``).join(' / ');
+  lines.push(`${ownerName}（铲屎官）是真人用户，是团队的共创伙伴。重要决策时由${ownerName}拍板。`);
+  lines.push(`需要${ownerName}关注时，另起一行行首写 ${ownerHandles}（与 @猫名 格式相同）。`, '');
 
   // Identity contract
   lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');

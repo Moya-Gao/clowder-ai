@@ -65,6 +65,8 @@ export type {
   ReviewPolicy,
   Roster,
   RosterEntry,
+  // F067: Owner config for @ mention routing
+  OwnerConfig,
 } from './cat-breed.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {

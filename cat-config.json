@@ -1,5 +1,10 @@
 {
   "version": 2,
+  "owner": {
+    "name": "Landy",
+    "aliases": ["L.S.", "Lysander"],
+    "mentionPatterns": ["@landy", "@l.s.", "@lysander"]
+  },
   "roster": {
     "opus": {
       "family": "ragdoll",

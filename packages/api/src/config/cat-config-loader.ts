@@ -15,6 +15,7 @@ import type {
   CatId,
   CatVariant,
   MissionHubSelfClaimScope,
+  OwnerConfig,
   ReviewPolicy,
   Roster,
 } from '@cat-cafe/shared';
@@ -151,18 +152,26 @@ const reviewPolicySchema = z.object({
 
 // Note: Roster, RosterEntry, ReviewPolicy types imported from @cat-cafe/shared above
 
+/** F067: Owner config schema */
+const ownerConfigSchema = z.object({
+  name: z.string().min(1),
+  aliases: z.array(z.string().min(1)),
+  mentionPatterns: z.array(mentionPatternSchema).min(1),
+});
+
 /** Version 1: breeds only (legacy) */
 const catCafeConfigSchemaV1 = z.object({
   version: z.literal(1),
   breeds: z.array(catBreedSchema).min(1),
 });
 
-/** Version 2: breeds + roster + reviewPolicy (F032) */
+/** Version 2: breeds + roster + reviewPolicy (F032) + owner (F067) */
 const catCafeConfigSchemaV2 = z.object({
   version: z.literal(2),
   breeds: z.array(catBreedSchema).min(1),
   roster: z.record(z.string(), rosterEntrySchema),
   reviewPolicy: reviewPolicySchema,
+  owner: ownerConfigSchema.optional(),
 });
 
 /** Union of all versions — loader handles migration */
@@ -495,6 +504,7 @@ export function _resetCachedConfig(): void {
   _defaultCatId = null;
   _cachedRoster = null;
   _cachedReviewPolicy = null;
+  _cachedOwner = null;
 }
 
 // ── F032: Roster + ReviewPolicy accessors ──────────────────────────────
@@ -584,4 +594,41 @@ export function catHasRole(catId: string, role: string, config?: CatCafeConfig):
 export function isCatLead(catId: string, config?: CatCafeConfig): boolean {
   const roster = getRoster(config);
   return roster[catId]?.lead ?? false;
+}
+
+// ── F067: Owner config accessor ─────────────────────────────────────
+
+/** Default owner mention patterns (backward compat when owner not configured) */
+const DEFAULT_OWNER_MENTION_PATTERNS = ['@user', '@铲屎官'];
+
+let _cachedOwner: OwnerConfig | null = null;
+
+/**
+ * Get owner config from cat-config.json.
+ * Returns a default config with @user/@铲屎官 patterns when not configured.
+ */
+export function getOwnerConfig(config?: CatCafeConfig): OwnerConfig {
+  if (_cachedOwner && !config) return _cachedOwner;
+
+  const cfg = config ?? getCachedConfig();
+
+  // v1 config or no owner → return defaults
+  if (!cfg || cfg.version === 1 || !cfg.owner) {
+    return { name: '铲屎官', aliases: [], mentionPatterns: DEFAULT_OWNER_MENTION_PATTERNS };
+  }
+
+  _cachedOwner = cfg.owner;
+  return _cachedOwner;
+}
+
+/**
+ * Get all owner mention patterns (lowercased, with @ prefix).
+ * Always includes @user and @铲屎官 as fallback patterns in addition to configured ones.
+ */
+export function getOwnerMentionPatterns(config?: CatCafeConfig): readonly string[] {
+  const owner = getOwnerConfig(config);
+  const patterns = new Set(owner.mentionPatterns.map((p) => p.toLowerCase()));
+  // Always include legacy patterns for backward compat
+  for (const p of DEFAULT_OWNER_MENTION_PATTERNS) patterns.add(p);
+  return [...patterns];
 }

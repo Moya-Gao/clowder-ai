@@ -176,6 +176,18 @@ export interface CatCafeConfigV1 {
 }
 
 /**
+ * F067: Owner (铲屎官) configuration — configurable identity for @ mention routing.
+ */
+export interface OwnerConfig {
+  /** Primary display name (e.g. "Landy") */
+  readonly name: string;
+  /** Alternative names cats may use (e.g. ["L.S.", "Lysander"]) */
+  readonly aliases: readonly string[];
+  /** Line-start mention patterns for routing detection (e.g. ["@landy", "@lysander"]) */
+  readonly mentionPatterns: readonly string[];
+}
+
+/**
  * Root config v2: breeds + roster + reviewPolicy (F032)
  */
 export interface CatCafeConfigV2 {
@@ -183,6 +195,7 @@ export interface CatCafeConfigV2 {
   readonly breeds: readonly CatBreed[];
   readonly roster: Roster;
   readonly reviewPolicy: ReviewPolicy;
+  readonly owner?: OwnerConfig;
 }
 
 /**

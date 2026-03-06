@@ -14,6 +14,7 @@ import type { CatId, ModeConfig, ModeState, BrainstormConfig, BrainstormState } 
 import { isBrainstormConfig, isBrainstormState } from '@cat-cafe/shared';
 import { routeSerial } from '../agents/routing/route-serial.js';
 import { routeParallel } from '../agents/routing/route-parallel.js';
+import { detectUserMention } from '../../../../routes/user-mention.js';
 import type { ModeHandler, ModeExecutionContext } from './mode-types.js';
 import type { AgentMessage } from '../types.js';
 import { buildBrainstormPrompt, buildModeSwitchInstruction } from './mode-prompts.js';
@@ -74,7 +75,7 @@ export class BrainstormMode implements ModeHandler {
         { ...ctx.routeOptions, promptTags: ['brainstorm-discussion'], modeSystemPromptByCat: modePromptByCat },
       )) {
         if (msg.type === 'text' && msg.content) {
-          if (msg.content.includes('@铲屎官') || msg.content.includes('@user')) {
+          if (msg.content.includes('@铲屎官') || msg.content.includes('@user') || detectUserMention(msg.content)) {
             mentionedUser = true;
             mentionCatId = msg.catId;
           }

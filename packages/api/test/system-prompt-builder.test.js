@@ -632,6 +632,18 @@ describe('SystemPromptBuilder', () => {
     assert.ok(identity.includes('铲屎官'), 'Should contain 铲屎官 reference in static identity');
   });
 
+  test('buildStaticIdentity includes configured owner name and mention handles', async () => {
+    const { buildStaticIdentity } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const identity = buildStaticIdentity('opus');
+    // Owner config has name: "Landy", mentionPatterns: ["@landy", "@l.s.", "@lysander"]
+    assert.ok(identity.includes('Landy'), 'Should include owner name from config');
+    assert.ok(identity.includes('@landy'), 'Should include @landy mention handle');
+    assert.ok(identity.includes('@lysander'), 'Should include @lysander mention handle');
+    assert.ok(identity.includes('行首'), 'Should teach line-start rule for owner mentions');
+  });
+
   // F032 Phase D2: Reviewer section tests
   test('buildReviewerSection returns reviewer list for opus (different family reviewers)', async () => {
     const { buildReviewerSection } = await import(
