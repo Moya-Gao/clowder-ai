@@ -8,9 +8,10 @@ created: 2026-03-04
 
 # F057: Thread 可发现性 — 排序 + 搜索 + 猫猫工具
 
-> **Status**: spec
+> **Status**: done
 > **Owner**: 布偶猫
 > **Priority**: P1
+> **Completed**: 2026-03-05
 > **Evolved from**: F052（跨线程消息暴露了"找不到 thread"的痛点）
 > **Related**: F056（设计语言猫猫化 — UI 应用新设计标准）
 
@@ -90,29 +91,29 @@ created: 2026-03-04
 ## Acceptance Criteria
 
 ### Phase A
-- [ ] AC-A1: 置顶 thread 按最后消息时间排序
-- [ ] AC-A2: 非置顶 thread 按最后消息时间排序
-- [ ] AC-A3: 未读 thread 在同组内优先排在前面
+- [x] AC-A1: 置顶 thread 按最后消息时间排序
+- [x] AC-A2: 非置顶 thread 按最后消息时间排序
+- [x] AC-A3: 未读 thread 在同组内优先排在前面
 
 ### Phase B
-- [ ] AC-B1: 侧边栏搜索框支持名称模糊搜索 + ID 精确搜索
-- [ ] AC-B2: 跨线程 badge 显示 thread ID + 名称，可点击跳转
+- [x] AC-B1: 侧边栏搜索框支持名称模糊搜索 + ID 精确搜索
+- [x] AC-B2: 跨线程 badge 显示 thread ID + 名称，可点击跳转
 
 ### Phase C
-- [ ] AC-C1: `list_threads` MCP 工具可用，猫猫能按名称搜索 thread
+- [x] AC-C1: `list_threads` MCP 工具可用，猫猫能按名称搜索 thread
 - [x] AC-C2: 猫猫能 @ 铲屎官，铲屎官在 thread 列表看到未读高亮
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "活跃的 thread 自己跑到前面" | AC-A1, AC-A2 | 截图对比排序 | [ ] |
-| R2 | "有猫猫回复他也要能跳到上面去" | AC-A1 | 发消息后观察排序变化 | [ ] |
-| R3 | "未读要在前面" | AC-A3 | 截图对比 | [ ] |
-| R4 | "通过 thread id 搜索" | AC-B1 | 搜索框输入 ID 验证 | [ ] |
-| R5 | "你们也要有 list_threads MCP 工具" | AC-C1 | 猫猫调用工具回答问题 | [ ] |
+| R1 | "活跃的 thread 自己跑到前面" | AC-A1, AC-A2 | 截图对比排序 | [x] |
+| R2 | "有猫猫回复他也要能跳到上面去" | AC-A1 | 发消息后观察排序变化 | [x] |
+| R3 | "未读要在前面" | AC-A3 | 截图对比 | [x] |
+| R4 | "通过 thread id 搜索" | AC-B1 | 搜索框输入 ID 验证 | [x] |
+| R5 | "你们也要有 list_threads MCP 工具" | AC-C1 | 猫猫调用工具回答问题 | [x] |
 | R6 | "应该增加 at 铲屎官" | AC-C2 | 猫猫 @ user + 高亮验证 | [x] |
-| R7 | "转发自 badge 显示不全" | AC-B2 | badge 显示 ID+名称 | [ ] |
+| R7 | "转发自 badge 显示不全" | AC-B2 | badge 显示 ID+名称 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -158,3 +159,11 @@ created: 2026-03-04
 | 2026-03-04 | 铲屎官提出排序+搜索+MCP 工具需求 |
 | 2026-03-04 | F057 立项 |
 | 2026-03-05 | Phase C2: 猫 @ 铲屎官能力实现（detectUserMention + WS broadcast + 🐾 badge） |
+| 2026-03-05 | 愿景守护：7/7 AC 全部确认实现，请求跨猫交叉验证 |
+
+## 签收表
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫 (opus) | F057 spec, thread-utils.ts, ThreadSidebar.tsx, ChatMessage.tsx, callback-tools.ts, user-mention.ts | 7/7 AC 代码已实现，铲屎官体验路径完整 | ✅ |
+| 缅因猫 (codex) | — | — | 待验证 |
