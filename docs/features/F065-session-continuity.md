@@ -68,12 +68,12 @@ created: 2026-03-05
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "新启动的猫需要继承过去的猫的猫猫崇崇" | AC-1, AC-2 | test: bootstrap 输出包含 task 列表 | [ ] |
-| R2 | "搜文件树那样搜 session chain → invocation → 文件树" | AC-3, AC-4 | test: bootstrap 引导路径 + 端到端查询 | [ ] |
-| R3 | 恢复模式是"记忆模式"（知道之前做了什么，自行决定下一步） | AC-2 | manual: 新猫不被指令式驱动 | [ ] |
-| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-8 | test: 不同 catId 均生效 | [ ] |
-| R5 | Bootstrap 不能超预算（砚砚 review 发现） | AC-5 | test: serial/parallel/incremental 三路径 token cap | [ ] |
-| R6 | Task 内容不能变成注入攻击（砚砚 review 发现） | AC-6 | test: 恶意 title/why 截断+转义 | [ ] |
+| R1 | "新启动的猫需要继承过去的猫的猫猫崇崇" | AC-1, AC-2 | test: bootstrap 输出包含 task 列表 | [x] Phase A `e5082209` |
+| R2 | "搜文件树那样搜 session chain → invocation → 文件树" | AC-3, AC-4 | test: bootstrap 引导路径 + 端到端查询 | [x] Phase A `e5082209` |
+| R3 | 恢复模式是"记忆模式"（知道之前做了什么，自行决定下一步） | AC-2 | manual: 新猫不被指令式驱动 | [x] Phase A — 快照是 data marker，非指令 |
+| R4 | 通用——所有猫封印后重启都继承上下文 | AC-1~AC-8 | test: 不同 catId 均生效 | [~] Phase A 覆盖 AC-1~6；AC-7~8 待 Phase B |
+| R5 | Bootstrap 不能超预算（砚砚 review 发现） | AC-5 | test: serial/parallel/incremental 三路径 token cap | [x] Phase A — section-aware cap 2000 tokens |
+| R6 | Task 内容不能变成注入攻击（砚砚 review 发现） | AC-6 | test: 恶意 title/why 截断+转义 | [x] Phase A — sanitize() + 12 injection tests |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -140,3 +140,5 @@ created: 2026-03-05
 |------|------|
 | 2026-03-05 | Kickoff — 铲屎官提出需求，分析 gap，立项 |
 | 2026-03-05 | 砚砚 review OQ-1/OQ-3 → 收敛：3k cap + 紧凑快照；发现 P1 预算门禁 + injection 风险 |
+| 2026-03-05 | Phase A 实现 → 砚砚 R4→R5→R6 (5 findings → all fixed → 放行) |
+| 2026-03-05 | PR #229 merged (`e5082209`) — 云端 codex 0 P1/P2 |
