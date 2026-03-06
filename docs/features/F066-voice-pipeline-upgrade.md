@@ -30,19 +30,29 @@ TTS 调研已完成（`docs/research/TTS-research.md`），升级路径明确。
 
 替换 TTS 后端，从云端迁移到 Apple Silicon 本地推理：
 
-1. **替换 Python TTS 服务**
-   - 现有 `scripts/tts-api.py` 从 edge-tts 切换到 mlx-audio
-   - 模型：`mlx-community/Kokoro-82M-bf16`（82M 轻量，MLX 原生）
-   - 中文声线：Kokoro 提供 4F+4M 中文声线（`zf_xiaobei` / `zm_yunjian` 等）
+1. **Python TTS 服务 Adapter 化重构**
+   - `scripts/tts-api.py` 引入 `TtsAdapter` 抽象：`synthesize(text, voice, model, speed) → bytes`
+   - 两个实现：`MlxAudioAdapter`（默认）+ `EdgeTtsAdapter`（fallback / 未来可选）
+   - 通过 env var `TTS_PROVIDER=mlx-audio|edge-tts` 切换（默认 mlx-audio）
+   - 未来加 CosyVoice3 / Spark-TTS 只需新增一个 Adapter 子类
    - 接口不变：`POST /v1/audio/speech`（OpenAI 兼容），Node API 零改动
 
-2. **更新 Python 依赖**
-   - `mlx-audio` + `misaki[zh]`（中文 phonemizer）
+2. **MLX-Audio 依赖 + 模型**
+   - 模型：`mlx-community/Kokoro-82M-bf16`（82M 轻量，MLX 原生）
+   - 依赖：`mlx-audio` + `misaki[zh]`（中文 phonemizer）
    - 启动时 warmup 调用预加载模型（与现有 Whisper 服务一致）
 
-3. **cat-voices.ts 声线更新**
-   - 把 edge-tts 的 voice name 替换为 Kokoro 中文 voice name
-   - 三只猫各自选一个匹配性格的声线
+3. **声线试听脚本 + 声线选择**
+   - 新建 `scripts/tts-voice-audition.py`：传 voice name + 中文文本 → 生成 wav
+   - 铲屎官试听所有 `zm_*` 声线，为每只猫选定声线
+   - 三只猫的声线期望描述（供铲屎官参考）：
+     - **宪宪** (布偶猫)：偏低沉温暖，语速略慢 (0.95)，"安静讲故事"
+     - **砚砚** (缅因猫)：清朗干脆，语速标准 (1.0)，"认真审稿的编辑"
+     - **烁烁** (暹罗猫)：明快年轻，语速略快 (1.05)，"灵感停不下来的设计师"
+
+4. **cat-voices.ts 声线更新**
+   - 铲屎官试听拍板后，更新 Kokoro voice name
+   - edge-tts voice name 保留为注释（回退参考）
 
 **不做**：不改 Node API 层、不改前端、不改 VoiceBlockSynthesizer——纯后端替换。
 
@@ -121,6 +131,8 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 |------|------|------|--------|
 | Phase 1 首发模型 | Kokoro-82M / Spark-TTS / CosyVoice3 | **Kokoro-82M**（82M 轻量、MLX 原生、中文声线充足） | 布偶猫 (基于 TTS 调研) |
 | 升级路径 | 一步到位 / 渐进 | **渐进**：Kokoro → Spark-TTS(克隆) → CosyVoice3(上限) | 布偶猫 |
+| Python TTS 替换策略 | 写死替换 / Adapter 模式 | **Adapter 模式**：`TtsAdapter` 抽象 + env var 切换 provider | 铲屎官 (2026-03-05) |
+| 声线选择流程 | 猫猫自选 / 铲屎官选 | **猫猫出期望描述 → 铲屎官试听拍板**（猫听不到声音） | 铲屎官 (2026-03-05) |
 | Phase 2 流式协议 | WebSocket / SSE | **待定**（Phase 2 plan 时决策） | — |
 | Feature 归属 | 并入 F054 / 并入 F034 / 独立 | **独立 F066**（范围自成体系，F034 已 done） | 铲屎官 (2026-03-05) |
 
@@ -160,3 +172,4 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 |------|------|
 | 2026-03-05 | AIRI 项目调研 → 发现流式语音管线 + Intent 系统参考架构 |
 | 2026-03-05 | 铲屎官确认独立立项，F066 kickoff |
+| 2026-03-05 | 铲屎官决策：Python 层用 Adapter 模式（不写死）；声线由铲屎官试听拍板 |
