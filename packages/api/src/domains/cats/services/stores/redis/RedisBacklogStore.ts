@@ -384,7 +384,7 @@ export class RedisBacklogStore implements IBacklogStore {
       summary: input.summary,
       priority: input.priority,
       tags: [...input.tags],
-      status: 'open',
+      status: input.initialStatus ?? 'open',
       createdBy: input.createdBy,
       createdAt: now,
       updatedAt: now,
@@ -413,12 +413,18 @@ export class RedisBacklogStore implements IBacklogStore {
     const existing = await this.get(itemId);
     if (!existing) return null;
 
+    // Status upgrade: only open→dispatched or open→done, never downgrade
+    const statusUpgrade = input.importStatus && existing.status === 'open' && input.importStatus !== 'open'
+      ? input.importStatus
+      : undefined;
+
     const unchanged =
       existing.title === input.title &&
       existing.summary === input.summary &&
       existing.priority === input.priority &&
       this.sameTags(existing.tags, input.tags) &&
-      this.sameDependencies(existing.dependencies, input.dependencies);
+      this.sameDependencies(existing.dependencies, input.dependencies) &&
+      !statusUpgrade;
     if (unchanged) return existing;
 
     const now = Date.now();
@@ -429,6 +435,7 @@ export class RedisBacklogStore implements IBacklogStore {
       priority: input.priority,
       tags: [...input.tags],
       ...(input.dependencies !== undefined ? { dependencies: input.dependencies } : {}),
+      ...(statusUpgrade ? { status: statusUpgrade } : {}),
       updatedAt: now,
       audit: [
         ...existing.audit,
@@ -437,7 +444,7 @@ export class RedisBacklogStore implements IBacklogStore {
           action: 'refreshed',
           actor: makeUserActor(input.refreshedBy),
           timestamp: now,
-          detail: 'docs-backlog-sync',
+          detail: statusUpgrade ? `docs-backlog-sync (status: ${statusUpgrade})` : 'docs-backlog-sync',
         },
       ],
     };

@@ -405,7 +405,7 @@ export function MissionControlPage() {
             <CollapsibleDoneLane items={doneItems} selectedItemId={selectedItemId} onSelect={setSelectedItemId} />
           )}
 
-          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 flex-col gap-3 overflow-auto">
             <SuggestionDrawer
               item={selectedItem}
               submitting={submitting}

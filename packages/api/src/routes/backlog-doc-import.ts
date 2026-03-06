@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import type { BacklogDependencies, BacklogPriority, CreateBacklogItemInput } from '@cat-cafe/shared';
+import type { BacklogDependencies, BacklogPriority, BacklogStatus, CreateBacklogItemInput } from '@cat-cafe/shared';
 import { readdir } from 'node:fs/promises';
 
 export interface BacklogFeatureRow {
@@ -89,6 +89,16 @@ function statusToPriority(status: string): BacklogPriority {
   }
 }
 
+/** Map BACKLOG.md feature status to BacklogItem workflow status. */
+export function featureStatusToBacklogStatus(featureStatus: string): BacklogStatus {
+  const normalized = normalizeStatus(featureStatus);
+  if (normalized === 'done') return 'done';
+  if (normalized === 'in-progress' || normalized === 'in-review') return 'dispatched';
+  // "done (Phase 1)" etc. — still actively working, treat as dispatched
+  if (normalized.startsWith('done-')) return 'dispatched';
+  return 'open';
+}
+
 function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
@@ -103,6 +113,7 @@ export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: str
   ].filter(Boolean);
   const summary = truncate(summarySegments.join(' | '), 2000);
   const statusTag = normalizeStatus(row.status) || 'idea';
+  const mappedStatus = featureStatusToBacklogStatus(row.status);
 
   return {
     userId,
@@ -116,6 +127,7 @@ export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: str
     ],
     createdBy: 'user',
     ...(dependencies && Object.keys(dependencies).length > 0 ? { dependencies } : {}),
+    ...(mappedStatus !== 'open' ? { initialStatus: mappedStatus } : {}),
   };
 }
 

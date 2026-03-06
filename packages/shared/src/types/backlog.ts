@@ -89,6 +89,8 @@ export interface CreateBacklogItemInput {
   readonly tags: readonly string[];
   readonly createdBy: CatId | 'user';
   readonly dependencies?: BacklogDependencies;
+  /** Optional initial status for import (skips workflow transitions). Defaults to 'open'. */
+  readonly initialStatus?: BacklogStatus;
 }
 
 export interface RefreshBacklogItemInput {
@@ -98,6 +100,8 @@ export interface RefreshBacklogItemInput {
   readonly tags: readonly string[];
   readonly refreshedBy: string;
   readonly dependencies?: BacklogDependencies;
+  /** Optional status override from import. Only upgrades (open→dispatched), never downgrades. */
+  readonly importStatus?: BacklogStatus;
 }
 
 export interface SuggestBacklogClaimInput {

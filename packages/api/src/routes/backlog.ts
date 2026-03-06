@@ -10,6 +10,7 @@ import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadS
 import { resolveUserId } from '../utils/request-identity.js';
 import {
   buildBacklogInputFromFeature,
+  featureStatusToBacklogStatus,
   getFeatureTagId,
   readActiveFeaturesFromBacklog,
   readFeatureDocDependencies,
@@ -371,12 +372,15 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
         continue;
       }
 
+      const mappedStatus = featureStatusToBacklogStatus(feature.status);
+      const needsStatusUpgrade = existing.status === 'open' && mappedStatus !== 'open';
       const shouldRefresh =
         existing.title !== importInput.title ||
         existing.summary !== importInput.summary ||
         existing.priority !== importInput.priority ||
         !sameTags(existing.tags, importInput.tags) ||
-        !sameDependencies(existing.dependencies, importInput.dependencies);
+        !sameDependencies(existing.dependencies, importInput.dependencies) ||
+        needsStatusUpgrade;
       if (!shouldRefresh) {
         skipped += 1;
         continue;
@@ -388,6 +392,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
         priority: importInput.priority,
         tags: importInput.tags,
         ...(importInput.dependencies ? { dependencies: importInput.dependencies } : {}),
+        ...(needsStatusUpgrade ? { importStatus: mappedStatus } : {}),
         refreshedBy: userId,
       });
       if (!refreshed) {

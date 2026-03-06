@@ -103,3 +103,58 @@ describe('parseFeatureDocDependencies', () => {
     assert.deepStrictEqual(deps, {});
   });
 });
+
+describe('featureStatusToBacklogStatus', () => {
+  test('maps in-progress to dispatched', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('in-progress'), 'dispatched');
+  });
+
+  test('maps in-review to dispatched', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('in-review'), 'dispatched');
+  });
+
+  test('maps done to done', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('done'), 'done');
+  });
+
+  test('maps spec to open', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('spec'), 'open');
+  });
+
+  test('maps idea to open', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('idea'), 'open');
+  });
+
+  test('maps done (Phase 1) to dispatched', async () => {
+    const { featureStatusToBacklogStatus } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(featureStatusToBacklogStatus('done (Phase 1)'), 'dispatched');
+  });
+});
+
+describe('buildBacklogInputFromFeature initialStatus', () => {
+  test('in-progress feature gets initialStatus dispatched', async () => {
+    const { buildBacklogInputFromFeature } = await import('../dist/routes/backlog-doc-import.js');
+    const row = { id: 'F064', name: 'A2A Exit Check', status: 'in-progress', owner: '布偶猫', link: 'features/F064.md' };
+    const input = buildBacklogInputFromFeature(row, 'user1');
+    assert.strictEqual(input.initialStatus, 'dispatched');
+  });
+
+  test('spec feature gets no initialStatus (defaults to open)', async () => {
+    const { buildBacklogInputFromFeature } = await import('../dist/routes/backlog-doc-import.js');
+    const row = { id: 'F055', name: 'Routing', status: 'spec', owner: '布偶猫' };
+    const input = buildBacklogInputFromFeature(row, 'user1');
+    assert.strictEqual(input.initialStatus, undefined);
+  });
+
+  test('in-review feature gets initialStatus dispatched', async () => {
+    const { buildBacklogInputFromFeature } = await import('../dist/routes/backlog-doc-import.js');
+    const row = { id: 'F063', name: 'Hub Explorer', status: 'in-review', owner: '布偶猫' };
+    const input = buildBacklogInputFromFeature(row, 'user1');
+    assert.strictEqual(input.initialStatus, 'dispatched');
+  });
+});
