@@ -1,5 +1,4 @@
-import React from 'react';
-import { act } from 'react';
+import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MissionControlPage } from '@/components/mission-control/MissionControlPage';
@@ -71,13 +70,17 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     backend = createMissionControlMockBackend();
     mockApiFetch.mockImplementation((path: string, init?: RequestInit) => backend.handleRequest(path, init));
     useMissionControlStore.setState({
-      items: [], loading: false, submitting: false,
-      selectedItemId: null, selectedPhase: 'coding', error: null,
+      items: [],
+      loading: false,
+      submitting: false,
+      selectedItemId: null,
+      selectedPhase: 'coding',
+      error: null,
     });
   });
 
   afterEach(() => {
-    root.unmount();
+    act(() => root.unmount());
     container.remove();
     vi.restoreAllMocks();
   });
@@ -86,20 +89,47 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     const now = Date.now();
     backend.setItems([
       {
-        id: 'bird-1', userId: 'default-user', title: 'Phase A', summary: 'S',
-        priority: 'p1', tags: ['source:docs-backlog', 'feature:f058', 'status:spec'], status: 'done',
-        createdBy: 'user', createdAt: now, updatedAt: now, doneAt: now, audit: [],
+        id: 'bird-1',
+        userId: 'default-user',
+        title: 'Phase A',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['source:docs-backlog', 'feature:f058', 'status:spec'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        doneAt: now,
+        audit: [],
       },
       {
-        id: 'bird-2', userId: 'default-user', title: 'Phase B', summary: 'S',
-        priority: 'p1', tags: ['source:docs-backlog', 'feature:f058', 'status:spec'], status: 'dispatched',
-        createdBy: 'user', createdAt: now, updatedAt: now, dispatchedAt: now,
-        dispatchedThreadId: 'thread-bird', dispatchedThreadPhase: 'coding', audit: [],
+        id: 'bird-2',
+        userId: 'default-user',
+        title: 'Phase B',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['source:docs-backlog', 'feature:f058', 'status:spec'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        dispatchedAt: now,
+        dispatchedThreadId: 'thread-bird',
+        dispatchedThreadPhase: 'coding',
+        audit: [],
       },
       {
-        id: 'bird-3', userId: 'default-user', title: 'Other feature', summary: 'S',
-        priority: 'p2', tags: ['source:docs-backlog', 'feature:f049'], status: 'open',
-        createdBy: 'user', createdAt: now, updatedAt: now, audit: [],
+        id: 'bird-3',
+        userId: 'default-user',
+        title: 'Other feature',
+        summary: 'S',
+        priority: 'p2',
+        tags: ['source:docs-backlog', 'feature:f049'],
+        status: 'open',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
       },
     ]);
 
@@ -113,12 +143,94 @@ describe('MissionControlPage — Feature bird eye panel', () => {
 
     const f058 = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
     expect(f058).not.toBeNull();
-    expect(f058!.textContent).toContain('F058');
-    expect(f058!.textContent).toContain('2 项');
+    expect(f058?.textContent).toContain('F058');
+    expect(f058?.textContent).toContain('2 项');
 
     const f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
     expect(f049).not.toBeNull();
-    expect(f049!.textContent).toContain('F049');
-    expect(f049!.textContent).toContain('1 项');
+    expect(f049?.textContent).toContain('F049');
+    expect(f049?.textContent).toContain('1 项');
+  });
+
+  it('separates all-done features into collapsible done section', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'active-1',
+        userId: 'default-user',
+        title: 'Active task',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f060'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        dispatchedAt: now,
+        dispatchedThreadId: 'thread-1',
+        dispatchedThreadPhase: 'coding',
+        audit: [],
+      },
+      {
+        id: 'done-1',
+        userId: 'default-user',
+        title: 'Done task A',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f049'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        doneAt: now,
+        audit: [],
+      },
+      {
+        id: 'done-2',
+        userId: 'default-user',
+        title: 'Done task B',
+        summary: 'S',
+        priority: 'p2',
+        tags: ['feature:f049'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        doneAt: now,
+        audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    // F060 (active) should be visible directly
+    const f060 = container.querySelector('[data-testid="mc-bird-eye-feature-F060"]');
+    expect(f060).not.toBeNull();
+
+    // Done section should exist
+    const doneSection = container.querySelector('[data-testid="mc-bird-eye-done-section"]');
+    expect(doneSection).not.toBeNull();
+    expect(doneSection?.textContent).toContain('已完成');
+    expect(doneSection?.textContent).toContain('1 个 Feature');
+
+    // F049 (all done) should NOT be visible before expanding
+    let f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
+    expect(f049).toBeNull();
+
+    // Click to expand done section
+    const expandBtn = doneSection?.querySelector('button');
+    expect(expandBtn).not.toBeNull();
+    await act(async () => {
+      expandBtn?.click();
+    });
+
+    // F049 should now be visible
+    f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
+    expect(f049).not.toBeNull();
+    expect(f049?.textContent).toContain('F049');
+    expect(f049?.textContent).toContain('2 项');
   });
 });
