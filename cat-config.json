@@ -34,7 +34,7 @@
       "roles": ["peer-reviewer", "thinker"],
       "lead": false,
       "available": true,
-      "evaluation": "深度思考型，审查细致，GPT-5.4 xhigh"
+      "evaluation": "深度思考型，审查细致，GPT-5.4"
     },
     "spark": {
       "family": "maine-coon",
@@ -205,7 +205,7 @@
           "displayName": "缅因猫",
           "mentionPatterns": ["@gpt52", "@gpt-52", "@gpt5.2", "@gpt-5.2", "@gpt54", "@gpt-54", "@gpt5.4", "@gpt-5.4", "@缅因gpt52"],
           "provider": "openai",
-          "defaultModel": "gpt-5.4-xhigh",
+          "defaultModel": "gpt-5.4",
           "mcpSupport": true,
           "avatar": "/avatars/gpt52.png",
           "color": { "primary": "#66BB6A", "secondary": "#C8E6C9" },
