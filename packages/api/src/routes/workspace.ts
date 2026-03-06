@@ -479,6 +479,29 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
         }
       }
 
+      // Supplement diff for untracked (??) files — git diff HEAD doesn't cover them
+      const untrackedFiles = changedFiles.filter((f) => f.status === '??');
+      const targetUntracked = filePath
+        ? untrackedFiles.filter((f) => f.path === filePath)
+        : untrackedFiles;
+
+      for (const uf of targetUntracked) {
+        try {
+          await resolveWorkspacePath(root, uf.path); // security check
+          // Use relative path so diff headers match changedFiles.path entries
+          const { stdout } = await execFileAsync(
+            'git',
+            ['diff', '--no-index', '--unified=3', '--no-color', '--', '/dev/null', uf.path],
+            { cwd: root, timeout: 5000, maxBuffer: 512 * 1024 },
+          );
+          diffOutput += stdout;
+        } catch (err: unknown) {
+          // git diff --no-index exits 1 when files differ (expected)
+          const e2 = err as { stdout?: string };
+          if (e2.stdout) diffOutput += e2.stdout;
+        }
+      }
+
       return { worktreeId, changedFiles, diff: diffOutput };
     } catch (e) {
       if (e instanceof WorkspaceSecurityError) {

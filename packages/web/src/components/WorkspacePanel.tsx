@@ -181,10 +181,11 @@ export function WorkspacePanel() {
   const handleCite = useCallback(
     (path: string) => {
       const branch = currentWorktree?.branch;
-      const suffix = branch ? ` (🌿 ${branch})` : '';
+      const wtTag = worktreeId ? `[wt:${worktreeId}]` : '';
+      const suffix = branch ? ` ${wtTag}(🌿 ${branch})` : wtTag ? ` ${wtTag}` : '';
       setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`${suffix}` });
     },
-    [setPendingChatInsert, currentThreadId, currentWorktree],
+    [setPendingChatInsert, currentThreadId, currentWorktree, worktreeId],
   );
 
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();

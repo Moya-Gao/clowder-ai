@@ -75,6 +75,7 @@ function CodeBlock({ children }: { children: ReactNode }) {
 const PROJECT_ROOT = process.env.NEXT_PUBLIC_PROJECT_ROOT ?? '';
 const FILE_PATH_RE = /(?:^|\s)`?((?:\/[\w.@-]+)+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
 const REL_PATH_RE = /(?:^|\s)`?((?:packages|src|docs|tests?)\/[\w./@-]+(?:\.[\w]+)(?::(\d+))?)(?:`?)/g;
+const WT_TAG_RE = /^\s*\[wt:([a-zA-Z0-9_/-]+)\]/;
 
 function linkifyFilePaths(text: string): ReactNode[] {
   const parts: ReactNode[] = [];
@@ -93,6 +94,11 @@ function linkifyFilePaths(text: string): ReactNode[] {
     const start = m.index + leading.length;
     if (start > lastIdx) parts.push(text.slice(lastIdx, start));
 
+    // Check for [wt:ID] tag immediately after the match
+    const afterMatch = text.slice(m.index + fullMatch.length);
+    const wtMatch = afterMatch.match(WT_TAG_RE);
+    const worktreeId = wtMatch?.[1] ?? undefined;
+
     // Strip backticks from display
     const display = path;
     const isAbsolute = path.startsWith('/');
@@ -108,6 +114,7 @@ function linkifyFilePaths(text: string): ReactNode[] {
           href={href}
           filePath={filePath!}
           line={line ? parseInt(line, 10) : undefined}
+          worktreeId={worktreeId}
         />
       ) : (
         <span key={`fp${m.index}`} className="text-blue-400 font-mono text-[0.85em]">
@@ -115,7 +122,13 @@ function linkifyFilePaths(text: string): ReactNode[] {
         </span>
       ),
     );
-    lastIdx = m.index + fullMatch.length;
+    // Skip past the [wt:ID] tag so it's not rendered as visible text
+    if (wtMatch) {
+      lastIdx = m.index + fullMatch.length + wtMatch[0].length;
+      combined.lastIndex = lastIdx;
+    } else {
+      lastIdx = m.index + fullMatch.length;
+    }
   }
   if (lastIdx < text.length) parts.push(text.slice(lastIdx));
   return parts.length > 0 ? parts : [text];
@@ -127,11 +140,13 @@ function FilePathLink({
   href,
   filePath,
   line,
+  worktreeId,
 }: {
   display: string;
   href: string;
   filePath: string;
   line?: number;
+  worktreeId?: string;
 }) {
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
 
@@ -140,10 +155,10 @@ function FilePathLink({
       // Cmd/Ctrl+click → VSCode (default link behavior)
       if (e.metaKey || e.ctrlKey) return;
       e.preventDefault();
-      // Regular click → open in workspace panel
-      setOpenFile(filePath, line ?? null);
+      // Regular click → open in workspace panel (with optional worktree switch)
+      setOpenFile(filePath, line ?? null, worktreeId ?? null);
     },
-    [setOpenFile, filePath, line],
+    [setOpenFile, filePath, line, worktreeId],
   );
 
   return (

@@ -305,7 +305,7 @@ interface ChatState {
   workspaceEditTokenExpiry: number | null;
   setRightPanelMode: (mode: 'status' | 'workspace') => void;
   setWorkspaceWorktreeId: (id: string | null) => void;
-  setWorkspaceOpenFile: (path: string | null, line?: number | null) => void;
+  setWorkspaceOpenFile: (path: string | null, line?: number | null, worktreeId?: string | null) => void;
   closeWorkspaceTab: (path: string) => void;
   setWorkspaceEditToken: (token: string | null, expiresIn?: number) => void;
 
@@ -427,16 +427,29 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceEditTokenExpiry: null,
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
   setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id, workspaceOpenTabs: [], workspaceOpenFilePath: null, workspaceOpenFileLine: null, workspaceEditToken: null, workspaceEditTokenExpiry: null }),
-  setWorkspaceOpenFile: (path, line) => {
+  setWorkspaceOpenFile: (path, line, targetWorktreeId) => {
     if (path) {
-      const tabs = get().workspaceOpenTabs;
-      const newTabs = tabs.includes(path) ? tabs : [...tabs, path];
-      set({
-        workspaceOpenTabs: newTabs,
-        workspaceOpenFilePath: path,
-        workspaceOpenFileLine: line ?? null,
-        rightPanelMode: 'workspace',
-      });
+      // Switch worktree if a different one is specified
+      if (targetWorktreeId && targetWorktreeId !== get().workspaceWorktreeId) {
+        set({
+          workspaceWorktreeId: targetWorktreeId,
+          workspaceOpenTabs: [path],
+          workspaceOpenFilePath: path,
+          workspaceOpenFileLine: line ?? null,
+          workspaceEditToken: null,
+          workspaceEditTokenExpiry: null,
+          rightPanelMode: 'workspace',
+        });
+      } else {
+        const tabs = get().workspaceOpenTabs;
+        const newTabs = tabs.includes(path) ? tabs : [...tabs, path];
+        set({
+          workspaceOpenTabs: newTabs,
+          workspaceOpenFilePath: path,
+          workspaceOpenFileLine: line ?? null,
+          rightPanelMode: 'workspace',
+        });
+      }
     } else {
       set({
         workspaceOpenFilePath: null,
