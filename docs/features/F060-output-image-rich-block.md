@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F060: output_image 富文本渲染
 
-## Status: review-passed (peer: codex)
+## Status: done (Phase 1) — Phase 2 待排期
 
 ## Why
 
@@ -35,6 +35,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 - [x] AC-1: MCP 工具返回 `output_image` 时，Hub 前端自动显示图片（Phase 1: Codex 路径完成）
 - [ ] AC-2: 图片可点击放大查看（Phase 2）
+- [ ] AC-5: 图片可复制到剪贴板（Phase 2 — 铲屎官需要方便复制图片）
 - [x] AC-3: 对所有 MCP 工具的 output_image 生效（不限于小红书）
 - [x] AC-4: 不需要猫猫额外操作（无需手动创建 rich block）
 
@@ -46,6 +47,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 | R2 | 图片可交互（放大查看） | AC-2 | manual | [ ] Phase 2 |
 | R3 | 通用化，不限特定 MCP | AC-3 | test | [x] |
 | R4 | 自动化，不增加猫猫负担 | AC-4 | test | [x] |
+| R5 | "方便我复制"（图片可复制到剪贴板） | AC-5 | manual | [ ] Phase 2 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -93,6 +95,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 - Claude 路径：可能需要在 MCP server 层拦截 tool result，或在 Claude CLI 侧扩展
 - 大图片优化：base64 超过阈值时存服务端返回 URL
 - AC-2 图片放大：前端 MediaGalleryBlock 添加 lightbox 交互
+- AC-5 图片复制：右键菜单或按钮，将图片复制到剪贴板（铲屎官需要方便复制 QR 码等）
 
 ## Dependencies
 

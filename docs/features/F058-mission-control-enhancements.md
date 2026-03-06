@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: spec
+> **Status**: done
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
@@ -114,33 +114,33 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 ## Acceptance Criteria
 
 ### Phase A（Bug 修复）
-- [ ] AC-A1: `BacklogStatus` 包含 `done`，`dispatched → done` 转换可用
-- [ ] AC-A2: 导入同步时，BACKLOG.md 中消失的 feature 对应 item 自动标 `done`
-- [ ] AC-A3: UI 有"已完成"折叠区，展示 done 状态的 item
-- [ ] AC-A4: `BacklogItem` 支持 `dependencies` 字段
-- [ ] AC-A5: UI 卡片显示依赖标签（可点击跳转）
-- [ ] AC-A6: `docs/features/*.md` 中 `Status: done` 的 feature 导入时也同步为 `done`
+- [x] AC-A1: `BacklogStatus` 包含 `done`，`dispatched → done` 转换可用
+- [x] AC-A2: 导入同步时，BACKLOG.md 中消失的 feature 对应 item 自动标 `done`
+- [x] AC-A3: UI 有"已完成"折叠区，展示 done 状态的 item
+- [x] AC-A4: `BacklogItem` 支持 `dependencies` 字段
+- [x] AC-A5: UI 卡片显示依赖标签（可点击跳转）
+- [x] AC-A6: `docs/features/*.md` 中 `Status: done` 的 feature 导入时也同步为 `done`
 
 ### Phase B（可靠性）
-- [ ] AC-B1: approve→dispatch 全链路原子化（Lua 脚本）
-- [ ] AC-B2: `dispatchAttemptId` 硬前置（无值报错）
-- [ ] AC-B3: Redis idempotency 升级为 TTL lock
+- [x] AC-B1: approve→dispatch 全链路原子化（Lua 脚本）
+- [x] AC-B2: `dispatchAttemptId` 硬前置（无值报错）
+- [x] AC-B3: Redis idempotency 升级为 TTL lock
 
 ### Phase C（UX）
-- [ ] AC-C1: Feature 鸟瞰态势图：聚合显示一个 Feature 下的多个 thread 状态
-- [ ] AC-C2: `/api/threads?backlogItemIds=...` 限制 ID 数量上限
-- [ ] AC-C3: 态势图相对时间加绝对时间 tooltip
+- [x] AC-C1: Feature 鸟瞰态势图：聚合显示一个 Feature 下的多个 thread 状态
+- [x] AC-C2: `/api/threads?backlogItemIds=...` 限制 ID 数量上限
+- [x] AC-C3: 态势图相对时间加绝对时间 tooltip
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "ft close 了他也不会更新" | AC-A1, AC-A2, AC-A6 | test（导入后 done 状态 + UI 展示） | [ ] |
-| R2 | "也不列出我们做完的" | AC-A3 | test + screenshot（已完成折叠区） | [ ] |
-| R3 | "feat 原本元数据就有依赖的 能不能也画出来" | AC-A4, AC-A5 | test + screenshot（依赖标签） | [ ] |
-| R4 | 派发防崩溃（砚砚增强列表） | AC-B1 | test（Lua 原子化回归） | [ ] |
-| R5 | 消息不重复更可靠（砚砚增强列表） | AC-B2, AC-B3 | test（幂等回归） | [ ] |
-| R6 | 态势图升级（砚砚增强列表） | AC-C1 | test + screenshot（鸟瞰视图） | [ ] |
+| R1 | "ft close 了他也不会更新" | AC-A1, AC-A2, AC-A6 | test（导入后 done 状态 + UI 展示） | [x] |
+| R2 | "也不列出我们做完的" | AC-A3 | test + screenshot（已完成折叠区） | [x] |
+| R3 | "feat 原本元数据就有依赖的 能不能也画出来" | AC-A4, AC-A5 | test + screenshot（依赖标签） | [x] |
+| R4 | 派发防崩溃（砚砚增强列表） | AC-B1 | test（Lua 原子化回归） | [x] |
+| R5 | 消息不重复更可靠（砚砚增强列表） | AC-B2, AC-B3 | test（幂等回归） | [x] |
+| R6 | 态势图升级（砚砚增强列表） | AC-C1 | test + screenshot（鸟瞰视图） | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -179,9 +179,9 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | "已完成"区是折叠区还是独立 tab？ | 倾向折叠区（默认收起） |
-| OQ-2 | 依赖标签点击跳转到哪？feature 文档还是 backlog item？ | 待讨论 |
-| OQ-3 | 鸟瞰态势图是在指挥中心内嵌还是独立页面？ | 待讨论 |
+| OQ-1 | "已完成"区是折叠区还是独立 tab？ | ✅ 折叠区（默认收起）— PR #225 |
+| OQ-2 | 依赖标签点击跳转到哪？feature 文档还是 backlog item？ | ✅ 显示标签，跳转 feature 文档 — PR #225 |
+| OQ-3 | 鸟瞰态势图是在指挥中心内嵌还是独立页面？ | ✅ 内嵌在指挥中心 — PR #228 |
 
 ## Review Gate
 
@@ -194,3 +194,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 日期 | 事件 |
 |------|------|
 | 2026-03-04 | 铲屎官报告三个 bug（同步/完成状态/依赖），结合砚砚增强列表立项 F058 |
+| 2026-03-05 | Phase A 合入 main (PR #225) — done 状态 + 导入同步 + 依赖展示 |
+| 2026-03-05 | Phase B 合入 main (PR #226) — atomic Lua + hard attemptId + TTL lock |
+| 2026-03-05 | Phase C 合入 main (PR #228) — bird eye panel + query limit + time tooltip |
+| 2026-03-05 | F058 全部 12 AC 验证通过，标记 done |

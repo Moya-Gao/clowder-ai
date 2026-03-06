@@ -96,3 +96,6 @@ assets/logos/
 
 # External consulting notes (local only, not for cat-cafe repo)
 docs/discussions/2026-02-26-huawei-agent-spec-review/
+
+# Private/confidential documents (contracts, legal, etc.)
+private/
