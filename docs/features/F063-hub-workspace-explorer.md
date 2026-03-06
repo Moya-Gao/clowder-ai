@@ -397,6 +397,16 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2C-1 | HTML/JSX iframe sandbox 预览 | AC-5 | **done** |
 | P2C-2 | Diff 可视化（unified/side-by-side） | — | **done** |
 
+### Phase 2C-fix: 愿景守护修复（2026-03-06 砚砚+GPT-5.4 审查）
+
+两猫独立审查结论：主链路 80% 已打通，但有 3 条猫尾巴。
+
+| Task | 内容 | 来源 | 优先 |
+|------|------|------|------|
+| P2C-fix-1 | untracked 文件 diff：`??` 文件在 Changes 列表可见但无 diff 内容（`git diff HEAD` 天然不覆盖未跟踪文件）→ 用 `git diff --no-index` 补充 | codex P2 + gpt52 P2 | **P1** |
+| P2C-fix-2 | worktree-aware chat link：聊天中文件引用带 `🌿 branch` 文本但点击不会切换 worktree，落到错工地 | gpt52 P1 | **P1** |
+| P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild)，复杂度高，**推到 Phase 3** | codex P1 + gpt52 P1 | Phase 3 |
+
 ### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
 
 铲屎官需求：猫猫帮外部项目（如 `studio-flow`）开发时，铲屎官想在 Hub 里看到那个项目的文件，但不想破坏安全隔离。
