@@ -3,6 +3,7 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
+import { API_URL } from '@/utils/api-client';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -294,13 +295,23 @@ export function WorkspacePanel() {
               </button>
             </div>
             {file.binary ? (
-              <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
-                <span className="text-2xl mb-2">🖼️</span>
-                <p>二进制文件</p>
-                <p className="text-[10px] mt-1">
-                  {file.mime} · {Math.round(file.size / 1024)}KB
-                </p>
-              </div>
+              file.mime.startsWith('image/') ? (
+                <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+                  <img
+                    src={`${API_URL}/api/workspace/file/raw?worktreeId=${encodeURIComponent(worktreeId ?? '')}&path=${encodeURIComponent(file.path)}`}
+                    alt={file.path}
+                    className="max-w-full max-h-full object-contain rounded"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
+                  <span className="text-2xl mb-2">📄</span>
+                  <p>二进制文件</p>
+                  <p className="text-[10px] mt-1">
+                    {file.mime} · {Math.round(file.size / 1024)}KB
+                  </p>
+                </div>
+              )
             ) : (
               <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} />
             )}

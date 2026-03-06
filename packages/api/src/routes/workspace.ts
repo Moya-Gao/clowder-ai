@@ -9,6 +9,7 @@
 
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
 import { extname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
@@ -22,7 +23,8 @@ import {
 } from '../domains/workspace/workspace-security.js';
 
 const execFileAsync = promisify(execFile);
-const MAX_FILE_SIZE = 1024 * 1024; // 1 MB
+const MAX_FILE_SIZE = 1024 * 1024; // 1 MB text preview
+const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB image preview
 const MAX_SEARCH_RESULTS = 100;
 const MAX_TREE_DEPTH = 5;
 
@@ -36,6 +38,12 @@ const MIME_MAP: Record<string, string> = {
   '.css': 'text/css',
   '.html': 'text/html',
   '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
   '.yaml': 'text/yaml',
   '.yml': 'text/yaml',
   '.toml': 'text/toml',
@@ -169,6 +177,53 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
         mime,
         truncated,
       };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
+        return { error: e.message };
+      }
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Internal error' };
+    }
+  });
+
+  // GET /api/workspace/file/raw?worktreeId=&path= — stream raw binary content
+  app.get<{
+    Querystring: { worktreeId?: string; path?: string };
+  }>('/api/workspace/file/raw', async (request, reply) => {
+    const { worktreeId, path: filePath } = request.query;
+    if (!worktreeId || !filePath) {
+      reply.status(400);
+      return { error: 'worktreeId and path required' };
+    }
+
+    try {
+      const root = await getWorktreeRoot(worktreeId);
+      const resolved = await resolveWorkspacePath(root, filePath);
+      const fileStat = await stat(resolved);
+
+      if (fileStat.isDirectory()) {
+        reply.status(400);
+        return { error: 'Path is a directory' };
+      }
+
+      const mime = guessMime(resolved);
+      if (!mime.startsWith('image/')) {
+        reply.status(400);
+        return { error: 'Raw endpoint only serves image files' };
+      }
+      if (fileStat.size > MAX_IMAGE_SIZE) {
+        reply.status(413);
+        return { error: `Image too large (${Math.round(fileStat.size / 1024 / 1024)}MB, max 10MB)` };
+      }
+      reply.header('Content-Type', mime);
+      reply.header('Content-Length', fileStat.size);
+      reply.header('Cache-Control', 'private, max-age=60');
+      return reply.send(createReadStream(resolved));
     } catch (e) {
       if (e instanceof WorkspaceSecurityError) {
         reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
