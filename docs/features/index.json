@@ -377,6 +377,12 @@
       "name": "布偶猫账号配置中枢（订阅 / 赞助 API 切换）",
       "status": "done",
       "file": "F062-ragdoll-provider-profile-hub.md"
+    },
+    {
+      "id": "F066",
+      "name": "Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列",
+      "status": "spec",
+      "file": "F066-voice-pipeline-upgrade.md"
     }
   ],
   "generated_at": "2026-03-05T23:54:00.000Z"
