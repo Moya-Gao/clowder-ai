@@ -165,10 +165,19 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-F1: 右侧栏三面板 grid 布局（保底可见区，独立滚动）
 - [x] AC-F2: Feature 鸟瞰面板增加"已完成"折叠区（done features 默认收起，可展开回顾）
 
-### Phase G（鸟瞰 UX 优化 + 历史数据补全）
-- [ ] AC-G1: 鸟瞰卡片排版优化（信息密度提高，已完成区不要横跨全宽挤压活跃卡片）
-- [ ] AC-G2: 从 `docs/features/*.md` 拉取历史 done features 补全鸟瞰数据
-- [ ] AC-G3: 利用 thread 命名（含 feat 号）通过 MCP 搜索补全 feature→thread 关联
+### Phase G（鸟瞰 UX 优化 + 历史数据补全）✅
+- [x] AC-G1: 鸟瞰卡片排版优化（feature 名称显示 + done 区紧凑 chip）
+- [x] AC-G2: 从 `docs/features/*.md` 拉取历史 done features 补全鸟瞰数据
+- [x] AC-G3: 利用 thread 命名（含 feat 号）通过 featureIds API 补全 feature→thread 关联
+
+### Phase H（UX 重设计：Feature-centric 信息架构）
+- [ ] AC-H1: 侧边栏入口优化 — "Mission Hub" 加图标，替代纯文字按钮
+- [ ] AC-H2: 返回按钮改为"返回之前的 thread"（记住 referrer），而非固定返回 default thread
+- [ ] AC-H3: 主视图从 kanban 三列重构为 Feature 行列表（一行一个 Feature，显示进度 + 状态 + 线程数）
+- [ ] AC-H4: 点击 Feature 行展开 inline 详情（tasks + threads + 操作按钮 + 文档链接）
+- [ ] AC-H5: 顶部状态栏显示"N 待审批 · N 执行中 · N 已完成"
+- [ ] AC-H6: 已完成 Feature 自然沉底，折叠显示
+- [ ] AC-H7: 保留快速创建和从文档导入功能
 
 ## 需求点 Checklist
 
@@ -183,9 +192,13 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R7 | "从mission hub如何退出呢？" | AC-E1 | test（back button href=/） | [x] |
 | R8 | "线程态势截断看不全" | AC-E2, AC-F1 | test + screenshot（紧凑卡片 + grid 布局） | [x] |
 | R9 | "close 的 feat 刷新后还在，需要回顾" | AC-F2 | test + screenshot（鸟瞰已完成折叠区） | [x] |
-| R10 | "排版难看，close 横在那里上面太短" | AC-G1 | screenshot（鸟瞰卡片排版优化） | [ ] |
-| R11 | "close的得在features里拉取补历史数据" | AC-G2 | test（features/*.md 导入 done features） | [ ] |
-| R12 | "线程搜fxx能补关联，thread命名写了feat号" | AC-G3 | test（MCP thread 搜索补关联） | [ ] |
+| R10 | "排版难看，close 横在那里上面太短" | AC-G1 | screenshot（鸟瞰卡片排版优化） | [x] |
+| R11 | "close的得在features里拉取补历史数据" | AC-G2 | test（features/*.md 导入 done features） | [x] |
+| R12 | "线程搜fxx能补关联，thread命名写了feat号" | AC-G3 | test（MCP thread 搜索补关联） | [x] |
+| R13 | "现在这种ux太差了 可能需要tab隐藏或者切换" | AC-H3~H6 | 设计图 + screenshot（Feature 行列表） | [ ] |
+| R14 | "入口加图标好看点" | AC-H1 | screenshot（侧边栏图标） | [ ] |
+| R15 | "返回按钮得返回我之前在的thread" | AC-H2 | test（referrer-based back） | [ ] |
+| R16 | "先画出设计图我看看" | AC-H3 | Pencil 设计稿 + 铲屎官确认 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -227,6 +240,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | OQ-1 | "已完成"区是折叠区还是独立 tab？ | ✅ 折叠区（默认收起）— PR #225 |
 | OQ-2 | 依赖标签点击跳转到哪？feature 文档还是 backlog item？ | ✅ 显示标签，跳转 feature 文档 — PR #225 |
 | OQ-3 | 鸟瞰态势图是在指挥中心内嵌还是独立页面？ | ✅ 内嵌在指挥中心 — PR #228 |
+| OQ-4 | Phase H 主视图用什么信息架构？ | ✅ Feature 行列表 + inline 展开（四猫讨论收敛，见下方） |
 
 ## Review Gate
 
@@ -249,4 +263,58 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-05 | Phase E 合入 main (PR #237) — back button + thread situation compact display |
 | 2026-03-06 | 右栏布局 grid 修复直推 main (de4c3221)，铲屎官反馈仍有问题，砚砚建议 grid rows 方案 |
 | 2026-03-06 | Phase F 合入 main (PR #245) — bird eye done section (collapsible completed features) |
-| 2026-03-06 | Phase G：铲屎官反馈排版难看 + 历史数据缺失 + thread 关联可通过命名补全 |
+| 2026-03-06 | Phase G 合入 main (PR #247) — bird eye UX optimization + featureIds chunking + doneAt/audit fix |
+| 2026-03-06 | Phase H：铲屎官触发 UX 大讨论："太差了，需要 tab 隐藏或切换"。四猫独立思考后收敛（见下方讨论记录） |
+
+## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
+
+### 铲屎官原话
+
+> "现在这种 ux 太差了 可能需要有些变成 tab 隐藏或者切换？你想想看跳出最开始砚砚设计的这个 ux 体验思考我要如何看什么时候可能看什么"
+> "你最好先画出设计图我看看的？别用他现在这个丑丑的 包括入口好像也能从 mission hub 纯粹文字然后加一个图标好看点 以及返回哪个按钮现在是返回 default thread 很难用 你得返回我之前在的 thread 能做到吗？"
+
+### 各猫独立提案（原始记录）
+
+#### 布偶猫 Opus 4.6（我）—— 两 Tab 方案
+- **核心思路**：读和写分开。看状态是一个模式，做操作是另一个模式。
+- Tab 1「态势总览」：Feature 鸟瞰全宽 + 活跃线程 + 快速统计（只读仪表盘）
+- Tab 2「调度工作台」：任务列表 + 状态筛选器 + 选中详情/审批面板（操作面板）
+- Done 以鸟瞰 chip 或筛选器方式呈现，不独立 Tab
+
+#### 布偶猫 Opus 4.5 —— 搜索优先 + 聚焦卡片
+- **核心洞察**：用户不是来"看 Mission Hub"的，是来"找一个答案"的。
+- 入口是搜索框（`F058` 跳到聚焦视图、`@codex` 过滤猫参与的任务）
+- 默认"今日摘要"：待审批 + 活跃线程 + 前 5 高优 Open
+- 右侧操作面板只在选中时出现
+- 🤔 不确定搜索框是否太重（铲屎官可能习惯点击不习惯打字）
+
+#### 缅因猫 GPT-5.4（砚砚）—— 三模式方案
+- **核心结论**：把 4 种完全不同的查看任务硬塞进 1 个页面，任何一种都看不好。
+- 模式 1「关注/Today」：默认页，活跃 feature + 执行中 thread + 待审批 + 异常项（30 秒回答"现在要不要我出手"）
+- 模式 2「调度/Workbench」：Open/Suggested/Approve/Dispatch 操作
+- 模式 3「回顾/History」：Done/Close + 按名称/owner 搜 + 文档入口
+- **金句**："Mission Hub 默认看'现在要处理什么'，不是'系统里所有东西'"
+- **先把用户在不同时间点的目标分开，再讨论 tab 数量**
+
+#### 布偶猫 Sonnet —— 信息密度分层 + Feature 行
+- **核心问题**：铲屎官按 Feature 想还是按任务状态想？答案是 Feature。
+- Kanban 是猫猫的工作视图，不是产品经理的决策视图
+- 主视图 = Feature 行列表（一行一个 Feature，带进度条 + 状态 + 线程数）
+- 点击展开详情（tasks + threads + 操作 + 文档链接）
+- 顶部状态栏 + 底部待操作 badge
+- 三个场景：A 扫一眼（3秒）、B 操作一件事（点展开）、C 复盘（同样点展开）
+
+### 收敛决策（Opus 4.6 综合）
+
+| 维度 | 四猫分歧 | 最终决策 | 理由 |
+|------|---------|---------|------|
+| 导航方式 | 2Tab / 搜索 / 3模式 / 密度分层 | **密度分层**（无 Tab） | 一个列表就能覆盖"扫一眼""操作""复盘"三个场景，不需要切换 |
+| 主轴 | 状态列 / 搜索 / 场景 / Feature 行 | **Feature 行** | 铲屎官心智模型是 Feature 级别不是 task 级别 |
+| Done 处理 | chip / 搜索 / 独立 / 折叠 | **自然沉底 + 折叠** | 不占主画布但可达 |
+| 搜索 | 主入口 / 不需要 | **顶部筛选框**（辅助） | 吸收 opus-45 思路但不作为主入口 |
+| 返回按钮 | 固定返回 / | **返回之前的 thread** | 铲屎官明确要求 |
+
+### Phase H 额外需求（铲屎官补充）
+- 侧边栏入口加图标（不只是纯文字"Mission Hub"）
+- 返回按钮改为返回之前所在的 thread（需记住 referrer）
+- 先出设计图再写代码
