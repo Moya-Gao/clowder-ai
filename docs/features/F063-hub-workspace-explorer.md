@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Phase 2 done — 愿景守护 85%+, 3 gaps identified for Phase 3
+> **Status**: Phase 3 P1s done (PR #257 merged) — Gap 3 (P2 Runtime/Audit) deferred
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -322,6 +322,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | 铲屎官批准 Phase 2D (Linked Roots) + Phase 2E (JSX/TSX 预览) 并行开工 |
 | 2026-03-06 | **Phase 2D+2E 合入** (PR #256): Linked Roots env var + JSX/TSX esbuild-wasm preview. 砚砚 R1→R2 (3P1→0) + 云端 R1→R4 (regex hardening: side-effect imports, line-anchor, import/export keyword restriction) |
 | 2026-03-06 | 第二次愿景守护（codex + gpt52 独立审查）：主链路 85%+ 但 3 gaps — JSX 演示级(P1) / Linked Roots 需环境变量(P1) / Runtime/Audit 未进 Workspace(P2) |
+| 2026-03-06 | **Phase 3 P1s 合入** (PR #257): JSX real bundling (workspace-resolver plugin + esm.sh fallback) + Linked Roots Hub management (API + config + UI). 砚砚 R2→R3 (2P1→0) + 云端 "no major issues" 通过 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -447,9 +448,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P3-1 | `bundle: true` + esbuild resolve plugin for workspace 内本地模块 | |
-| P3-2 | 常见 UI 库 (tailwindcss, shadcn/ui) 的 CDN fallback 策略 | |
-| P3-3 | 预览错误精准定位：区分 bundle error vs runtime error vs missing dep | |
+| P3-1 | `bundle: true` + esbuild resolve plugin for workspace 内本地模块 | **done** |
+| P3-2 | 常见 UI 库 (tailwindcss, shadcn/ui) 的 CDN fallback 策略 | **done** (esm.sh fallback) |
+| P3-3 | 预览错误精准定位：区分 bundle error vs runtime error vs missing dep | **done** |
 
 #### Gap 2 (P1): Linked Roots Hub 内自助管理
 
@@ -457,9 +458,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P3-4 | API POST/DELETE `/api/workspace/linked-roots` 动态增删 | |
-| P3-5 | 前端添加/移除 linked root UI（路径选择 + 安全校验） | |
-| P3-6 | 持久化策略：写入配置文件（不依赖环境变量重启） | |
+| P3-4 | API POST/DELETE `/api/workspace/linked-roots` 动态增删 | **done** |
+| P3-5 | 前端添加/移除 linked root UI（路径选择 + 安全校验） | **done** |
+| P3-6 | 持久化策略：写入配置文件（不依赖环境变量重启） | **done** (.cat-cafe/linked-roots.json) |
 
 #### Gap 3 (P2): Runtime/Audit Explorer 进 Workspace
 
