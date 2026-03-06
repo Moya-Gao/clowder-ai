@@ -433,8 +433,11 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
           const status = line.slice(0, 2).trim();
           let path = line.slice(3);
           // Normalize rename paths: "old.ts -> new.ts" → "new.ts"
-          const renameIdx = path.indexOf(' -> ');
-          if (renameIdx !== -1) path = path.slice(renameIdx + 4);
+          // Only apply for rename (R) or copy (C) statuses to avoid
+          // misparsing filenames that literally contain " -> "
+          if ((status.startsWith('R') || status.startsWith('C')) && path.includes(' -> ')) {
+            path = path.slice(path.indexOf(' -> ') + 4);
+          }
           return { status, path };
         })
         .filter((f) => !isDenylisted(f.path));
