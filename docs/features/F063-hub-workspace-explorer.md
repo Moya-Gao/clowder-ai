@@ -184,7 +184,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [ ] AC-5: HTML/React 组件可在 Hub 内预览渲染效果（Phase 2）
 - [x] AC-6: 文件查看面板和对话面板可同时可见（50:50 分栏）
 - [x] AC-7: 路径安全（不能访问仓库外的系统文件）
-- [ ] AC-8: 图片文件可直接预览
+- [x] AC-8: 图片文件可直接预览
 - [ ] AC-9: 铲屎官可在 Hub 内编辑文件，猫猫可直接 commit 编辑结果
 - [x] AC-10: 文件系统感知 worktree（显示猫猫当前 worktree 的文件，而非只有 main）
 - [x] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
@@ -307,6 +307,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **Phase 2B P0 合入** (PR #239): resizable split panes + auto-open workspace panel |
 | 2026-03-06 | **铲屎官反馈**: "直接点击文件然后在 chat 里 mention，选中某些行点击 add to chat" — 代码引用需求，P2B-7 升级为 P0 |
 | 2026-03-06 | **AC-15 合入** (PR #241): code-to-chat reference — 选中代码/文件 → 引用到聊天输入框，含线程隔离 |
+| 2026-03-06 | **AC-8 合入** (PR #242): image preview — 图片文件 inline 渲染，raw streaming endpoint + image-only/10MB guard |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
