@@ -186,6 +186,44 @@ export class RedisInvocationRecordStore implements IInvocationRecordStore {
     return this.get(invocationId);
   }
 
+  /**
+   * F048: Scan all invocation records matching a given status.
+   * Uses Redis SCAN (non-blocking cursor) + pipeline HGET for efficiency.
+   *
+   * IMPORTANT: ioredis SCAN does NOT auto-apply keyPrefix.
+   * We must manually prepend the prefix for matching, then strip it from results.
+   */
+  async scanByStatus(status: InvocationStatus): Promise<string[]> {
+    const prefix = (this.redis.options as { keyPrefix?: string }).keyPrefix ?? '';
+    const matchPattern = `${prefix}${InvocationKeys.detail('*')}`;
+    const ids: string[] = [];
+    let cursor = '0';
+    do {
+      const [nextCursor, keys] = await this.redis.scan(
+        cursor, 'MATCH', matchPattern, 'COUNT', 100,
+      );
+      cursor = nextCursor;
+      if (keys.length > 0) {
+        const pipeline = this.redis.pipeline();
+        for (const key of keys) {
+          // Strip prefix for HGET (ioredis auto-prefixes normal commands)
+          const bareKey = prefix && key.startsWith(prefix) ? key.slice(prefix.length) : key;
+          pipeline.hget(bareKey, 'status');
+        }
+        const results = await pipeline.exec();
+        for (let i = 0; i < keys.length; i++) {
+          const [err, val] = results![i]!;
+          if (!err && val === status) {
+            // Extract ID: strip prefix + "invoc:" prefix
+            const bareKey = prefix && keys[i]!.startsWith(prefix) ? keys[i]!.slice(prefix.length) : keys[i]!;
+            ids.push(bareKey.replace(/^invoc:/, ''));
+          }
+        }
+      }
+    } while (cursor !== '0');
+    return ids;
+  }
+
   private hydrateRecord(data: Record<string, string>): InvocationRecord {
     const errorValue = data['error'];
     const hasError = errorValue !== undefined && errorValue !== '';

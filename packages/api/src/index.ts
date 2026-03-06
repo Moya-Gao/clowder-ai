@@ -75,6 +75,8 @@ export function getSocketManager(): SocketManager {
   return socketManager;
 }
 
+const PROCESS_START_AT = Date.now();
+
 async function main(): Promise<void> {
   const app = Fastify({
     logger: {
@@ -132,6 +134,7 @@ async function main(): Promise<void> {
   const taskProgressStore = createTaskProgressStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
   const draftStore = createDraftStore(redis);
+
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain
   const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
@@ -463,6 +466,25 @@ async function main(): Promise<void> {
   const address = await app.listen({ port: PORT, host: HOST });
   app.log.info(`[api] Server running on ${address}`);
   app.log.info(`[ws] WebSocket server ready`);
+
+  // F048 Phase A: Sweep orphaned invocations from previous process crash.
+  // Runs AFTER app.listen succeeds — a process that fails to bind the port
+  // (EADDRINUSE) will never reach this point, preventing accidental sweep
+  // of a live instance's running invocations.
+  if (redis) {
+    const { StartupReconciler } = await import('./domains/cats/services/agents/invocation/StartupReconciler.js');
+    const reconciler = new StartupReconciler({
+      invocationRecordStore,
+      taskProgressStore,
+      log: app.log,
+      processStartAt: PROCESS_START_AT,
+    });
+    try {
+      await reconciler.reconcileOrphans();
+    } catch (err) {
+      app.log.warn(`[api] Startup sweep failed (best-effort): ${String(err)}`);
+    }
+  }
 
   // Log server startup to audit log (best-effort: don't crash if audit dir unwritable)
   const auditLog = getEventAuditLog();
