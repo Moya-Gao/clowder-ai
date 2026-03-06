@@ -136,7 +136,7 @@ created: 2026-03-05
 - Phase A: 布偶猫实现 → 缅因猫 review → PR #229 merged ✅
 - Phase B: 布偶猫实现 → 缅因猫 review → PR #234 merged ✅
 - Phase C: 布偶猫实现 → 缅因猫 review → PR #240 merged ✅
-- Hotfix (P1 injection + P2-2 input cap): 布偶猫实现 → 缅因猫 review
+- Hotfix (P1 injection + P2-2 input cap): 布偶猫实现 → 云端 codex R1~R8 (6P1+2P2→全清零) → PR #243 merged ✅
 
 ## Timeline
 
@@ -150,3 +150,5 @@ created: 2026-03-05
 | 2026-03-06 | Phase C (Handoff Digest) 实现 → 砚砚 R1→R4 放行 → PR #240 merged (`460a854e`) |
 | 2026-03-06 | 三猫独立愿景守护 (gpt52 + opus-45 + codex): 1 P1 (injection gap) + 2 P2 |
 | 2026-03-06 | Hotfix: P1 sanitize + data-marker, P2-2 input token cap, P2-1 truth source closure |
+| 2026-03-06 | PR #243 云端 codex R1→R8 (8 轮, 6P1+2P2→全清零), squash merged (`4a7eca0d`) |
+| 2026-03-06 | 砚砚二次独立愿景守护: 代码面全闭环, P2 真相源收口 → 本次补完 |
