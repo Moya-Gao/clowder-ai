@@ -162,11 +162,15 @@ export function WorkspacePanel() {
     [setOpenFile, setSearchResults],
   );
 
+  const currentWorktree = worktrees.find((w) => w.id === worktreeId);
+
   const handleCite = useCallback(
     (path: string) => {
-      setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`` });
+      const branch = currentWorktree?.branch;
+      const suffix = branch ? ` (🌿 ${branch})` : '';
+      setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`${suffix}` });
     },
-    [setPendingChatInsert, currentThreadId],
+    [setPendingChatInsert, currentThreadId, currentWorktree],
   );
 
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
@@ -247,8 +251,6 @@ export function WorkspacePanel() {
     },
     [worktreeId, openFilePath, file, editToken, setEditToken, fetchFile],
   );
-
-  const currentWorktree = worktrees.find((w) => w.id === worktreeId);
 
   return (
     <aside
@@ -420,7 +422,7 @@ export function WorkspacePanel() {
                 </div>
               )
             ) : (
-              <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} />
+              <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} branch={currentWorktree?.branch} />
             )}
             {file.truncated && (
               <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">

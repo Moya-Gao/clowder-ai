@@ -59,6 +59,7 @@ export function CodeViewer({
   scrollToLine,
   editable = false,
   onSave,
+  branch,
 }: {
   content: string;
   mime: string;
@@ -66,6 +67,7 @@ export function CodeViewer({
   scrollToLine: number | null;
   editable?: boolean;
   onSave?: (newContent: string) => Promise<void>;
+  branch?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -151,14 +153,15 @@ export function CodeViewer({
     const sel = getSelectionInfo(view);
     if (!sel) return;
     const lineRange = sel.startLine === sel.endLine ? `${sel.startLine}` : `${sel.startLine}-${sel.endLine}`;
-    const ref = `\`${path}:${lineRange}\`\n\`\`\`\n${sel.text}\n\`\`\``;
+    const suffix = branch ? ` (🌿 ${branch})` : '';
+    const ref = `\`${path}:${lineRange}\`${suffix}\n\`\`\`\n${sel.text}\n\`\`\``;
     setPendingChatInsert({ threadId: currentThreadId, text: ref });
-  }, [path, setPendingChatInsert, currentThreadId]);
+  }, [path, branch, setPendingChatInsert, currentThreadId]);
 
   return (
-    <div className="relative flex-1 overflow-auto text-sm">
-      <div ref={containerRef} className="h-full" />
-      {/* Save button (edit mode + dirty) */}
+    <div className="relative flex-1 min-h-0 text-sm">
+      <div className="h-full overflow-auto" ref={containerRef} />
+      {/* Floating action buttons — positioned over scroll area */}
       {editable && isDirty && (
         <button
           type="button"
