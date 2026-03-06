@@ -310,6 +310,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **AC-8 合入** (PR #242): image preview — 图片文件 inline 渲染，raw streaming endpoint + image-only/10MB guard |
 | 2026-03-06 | **AC-9 合入** (PR #244): file editing — edit_session_token + sha256 乐观锁 + per-file mutex + CodeMirror 编辑，砚砚 2 轮 + 云端 4 轮 review |
 | 2026-03-06 | **铲屎官反馈 3 个 bug**: (1) 引用到聊天不带 worktree 信息 (2) "Add to chat" 按钮固定在顶部，滚动后看不到 (3) 跨项目文件浏览需求 → 手动 link 外部 project root |
+| 2026-03-06 | **P2B-9/10 bug 修复合入** (PR #246): cite 格式加 🌿 branch 后缀 + Add to chat 按钮 sticky |
+| 2026-03-06 | **P2B-6 Markdown 渲染合入** (PR #248): rendered/raw toggle，useEffect 统一重置，砚砚 2 轮 + 云端 2 轮 |
+| 2026-03-06 | **P2B-8 多 tab 合入** (PR #250): tab bar + closeWorkspaceTab + worktree 边界清空，砚砚 R1 P1 修复 + 云端通过 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -371,16 +374,16 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | AC | 优先 |
 |------|------|-----|------|
-| P2B-1 | 文件名搜索模式：搜索栏支持 filename/path 模式切换，fuzzy match 文件名，结果显示相对路径，点击直接导航到文件树并打开 | AC-12 | **P0** |
-| P2B-2 | 消息路径点击 → workspace 联动：点击聊天消息中的文件路径，自动切换到 workspace 面板 + 打开该文件（含自动展开文件树到对应目录） | AC-13 | **P0** |
-| P2B-3 | 可拖拽分栏比例调整：横向（聊天 vs workspace）+ 纵向（文件树 vs 文件查看器），含最小宽度/高度限制（各不低于 20%），双击恢复默认 | AC-14 | **P0** |
-| P2B-4 | 图片文件预览（inline image rendering） | AC-8 | P1 |
-| P2B-5 | 文件编辑模式 + edit_session_token | AC-9 | P1 |
-| P2B-6 | Markdown 渲染模式（raw/rendered 切换） | — | P2 |
-| P2B-7 | 代码选中 → 引用到对话输入框：选中文件/代码行后点击"Add to chat"按钮，将 `file:line` 引用或选中代码片段插入聊天输入框；也支持文件树右键"复制路径" | AC-15 | **P0** |
-| P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | P2 |
-| P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **P0** |
-| P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **P0** |
+| P2B-1 | 文件名搜索模式：搜索栏支持 filename/path 模式切换，fuzzy match 文件名，结果显示相对路径，点击直接导航到文件树并打开 | AC-12 | **done** |
+| P2B-2 | 消息路径点击 → workspace 联动：点击聊天消息中的文件路径，自动切换到 workspace 面板 + 打开该文件（含自动展开文件树到对应目录） | AC-13 | **done** |
+| P2B-3 | 可拖拽分栏比例调整：横向（聊天 vs workspace）+ 纵向（文件树 vs 文件查看器），含最小宽度/高度限制（各不低于 20%），双击恢复默认 | AC-14 | **done** |
+| P2B-4 | 图片文件预览（inline image rendering） | AC-8 | **done** |
+| P2B-5 | 文件编辑模式 + edit_session_token | AC-9 | **done** |
+| P2B-6 | Markdown 渲染模式（raw/rendered 切换） | — | **done** |
+| P2B-7 | 代码选中 → 引用到对话输入框：选中文件/代码行后点击"Add to chat"按钮，将 `file:line` 引用或选中代码片段插入聊天输入框；也支持文件树右键"复制路径" | AC-15 | **done** |
+| P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | **done** |
+| P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **done** |
+| P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **done** |
 
 ### Phase 2C: 预览能力
 
