@@ -1,5 +1,5 @@
-import { create } from 'zustand';
 import { CAT_CONFIGS } from '@cat-cafe/shared';
+import { create } from 'zustand';
 import type {
   CatInvocationInfo,
   CatStatusType,
@@ -304,6 +304,10 @@ interface ChatState {
   setWorkspaceWorktreeId: (id: string | null) => void;
   setWorkspaceOpenFile: (path: string | null, line?: number | null) => void;
 
+  // ── F63-AC15: Code-to-chat reference ──
+  pendingChatInsert: { threadId: string; text: string } | null;
+  setPendingChatInsert: (insert: { threadId: string; text: string } | null) => void;
+
   // ── Hub modal (F12) ──
   hubState: { open: boolean; tab: string } | null;
   openHub: (tab: string) => void;
@@ -415,11 +419,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
   workspaceOpenFileLine: null,
   setRightPanelMode: (mode) => set({ rightPanelMode: mode }),
   setWorkspaceWorktreeId: (id) => set({ workspaceWorktreeId: id }),
-  setWorkspaceOpenFile: (path, line) => set({
-    workspaceOpenFilePath: path,
-    workspaceOpenFileLine: line ?? null,
-    rightPanelMode: path ? 'workspace' : 'status',
-  }),
+  setWorkspaceOpenFile: (path, line) =>
+    set({
+      workspaceOpenFilePath: path,
+      workspaceOpenFileLine: line ?? null,
+      rightPanelMode: path ? 'workspace' : 'status',
+    }),
+
+  // ── F63-AC15: Code-to-chat reference ──
+  pendingChatInsert: null,
+  setPendingChatInsert: (insert) => set({ pendingChatInsert: insert }),
 
   hubState: null,
   openHub: (tab) => set({ hubState: { open: true, tab } }),
@@ -521,18 +530,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
     const msg = get().messages.find((m) => m.id === messageId);
     if (msg?.metadata) return;
     set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === messageId ? { ...m, metadata } : m,
-      ),
+      messages: state.messages.map((m) => (m.id === messageId ? { ...m, metadata } : m)),
     }));
   },
 
   setMessageThinking: (messageId, thinking) =>
     set((state) => ({
       messages: state.messages.map((m) =>
-        m.id === messageId
-          ? { ...m, thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking }
-          : m,
+        m.id === messageId ? { ...m, thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking } : m,
       ),
     })),
 
@@ -574,7 +579,6 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       threads: state.threads.map((t) => (t.id === threadId ? { ...t, thinkingMode: mode } : t)),
     })),
-
 
   updateThreadPreferredCats: (threadId, preferredCats) =>
     set((state) => ({

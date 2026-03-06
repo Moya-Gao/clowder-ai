@@ -104,6 +104,8 @@ export function WorkspacePanel() {
   const openFilePath = useChatStore((s) => s.workspaceOpenFilePath);
   const scrollToLine = useChatStore((s) => s.workspaceOpenFileLine);
   const setRightPanelMode = useChatStore((s) => s.setRightPanelMode);
+  const setPendingChatInsert = useChatStore((s) => s.setPendingChatInsert);
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
@@ -152,10 +154,20 @@ export function WorkspacePanel() {
     [setOpenFile, setSearchResults],
   );
 
+  const handleCite = useCallback(
+    (path: string) => {
+      setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`` });
+    },
+    [setPendingChatInsert, currentThreadId],
+  );
+
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
 
   return (
-    <aside ref={panelRef} className="hidden lg:flex flex-1 min-w-0 border-l border-owner-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right">
+    <aside
+      ref={panelRef}
+      className="hidden lg:flex flex-1 min-w-0 border-l border-owner-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right"
+    >
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-owner-light flex items-center justify-between bg-owner-bg/50">
         <div className="flex items-center gap-2 min-w-0">
@@ -251,6 +263,7 @@ export function WorkspacePanel() {
         expandedPaths={expandedPaths}
         toggleExpand={toggleExpand}
         onSelect={handleFileSelect}
+        onCite={handleCite}
         selectedPath={openFilePath}
         hasFile={!!file}
         basisPct={treeBasis}
