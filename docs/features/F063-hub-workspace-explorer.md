@@ -313,6 +313,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **P2B-9/10 bug 修复合入** (PR #246): cite 格式加 🌿 branch 后缀 + Add to chat 按钮 sticky |
 | 2026-03-06 | **P2B-6 Markdown 渲染合入** (PR #248): rendered/raw toggle，useEffect 统一重置，砚砚 2 轮 + 云端 2 轮 |
 | 2026-03-06 | **P2B-8 多 tab 合入** (PR #250): tab bar + closeWorkspaceTab + worktree 边界清空，砚砚 R1 P1 修复 + 云端通过 |
+| 2026-03-06 | **P2B-11 + P2C-1 合入** (PR #251): 相对 md 链接 workspace 内跳转 + HTML iframe sandbox 预览，砚砚 R2/R3 通过 + 云端 R1 2P1 修复→R2，16 新测试 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -384,14 +385,14 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | **done** |
 | P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **done** |
 | P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **done** |
-| P2B-11 | **BUG**: Markdown 渲染模式下相对链接不可跳转 — `[F046](features/F046-xxx.md)` 这样的相对路径链接在 Rendered 模式下点击无效（`target="_blank"` 打开的是无意义的浏览器 URL）。应拦截相对 `.md` 链接，解析为相对于当前文件的路径，用 `setWorkspaceOpenFile` 在 workspace 内打开目标文件 | — | P2 |
+| P2B-11 | **BUG**: Markdown 渲染模式下相对链接不可跳转 — `[F046](features/F046-xxx.md)` 这样的相对路径链接在 Rendered 模式下点击无效（`target="_blank"` 打开的是无意义的浏览器 URL）。应拦截相对 `.md` 链接，解析为相对于当前文件的路径，用 `setWorkspaceOpenFile` 在 workspace 内打开目标文件 | — | **done** |
 
 ### Phase 2C: 预览能力
 
 | Task | 内容 | AC |
 |------|------|-----|
-| P2C-1 | HTML/JSX iframe sandbox 预览 | AC-5 |
-| P2C-2 | Diff 可视化（unified/side-by-side） | — |
+| P2C-1 | HTML/JSX iframe sandbox 预览 | AC-5 | **done** |
+| P2C-2 | Diff 可视化（unified/side-by-side） | — | |
 
 ### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
 
