@@ -104,6 +104,7 @@ export function WorkspaceTree({
   onSelect,
   selectedPath,
   hasFile,
+  basisPct,
 }: {
   tree: TreeNode[];
   loading: boolean;
@@ -112,9 +113,16 @@ export function WorkspaceTree({
   onSelect: (path: string) => void;
   selectedPath: string | null;
   hasFile: boolean;
+  basisPct?: number;
 }) {
   return (
-    <div className="flex-1 overflow-y-auto py-1 min-h-0" style={{ maxHeight: hasFile ? '40%' : undefined }}>
+    <div
+      className="overflow-y-auto py-1 min-h-0"
+      style={hasFile && basisPct != null
+        ? { flexBasis: `${basisPct}%`, flexGrow: 0, flexShrink: 0 }
+        : { flex: '1 1 0%' }
+      }
+    >
       {loading && tree.length === 0 ? (
         <TreeSkeleton />
       ) : tree.length === 0 ? (

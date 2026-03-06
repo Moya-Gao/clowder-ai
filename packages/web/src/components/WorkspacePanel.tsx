@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
+import { ResizeHandle } from './workspace/ResizeHandle';
 import { WorkspaceTree } from './workspace/WorkspaceTree';
 
 /* ── Search result item ──────────────────────── */
@@ -107,6 +108,16 @@ export function WorkspacePanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  // F063: vertical resize — treeBasis as percentage (20-80)
+  const [treeBasis, setTreeBasis] = useState(40);
+  const panelRef = useRef<HTMLElement>(null);
+  const handleVerticalResize = useCallback((delta: number) => {
+    if (!panelRef.current) return;
+    const totalHeight = panelRef.current.offsetHeight;
+    if (totalHeight === 0) return;
+    const pct = (delta / totalHeight) * 100;
+    setTreeBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
+  }, []);
 
   const toggleExpand = useCallback((path: string) => {
     setExpandedPaths((prev) => {
@@ -144,7 +155,7 @@ export function WorkspacePanel() {
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
 
   return (
-    <aside className="hidden lg:flex flex-1 min-w-0 border-l border-owner-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right">
+    <aside ref={panelRef} className="hidden lg:flex flex-1 min-w-0 border-l border-owner-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right">
       {/* Header */}
       <div className="px-3 py-2.5 border-b border-owner-light flex items-center justify-between bg-owner-bg/50">
         <div className="flex items-center gap-2 min-w-0">
@@ -242,47 +253,51 @@ export function WorkspacePanel() {
         onSelect={handleFileSelect}
         selectedPath={openFilePath}
         hasFile={!!file}
+        basisPct={treeBasis}
       />
 
-      {/* File viewer */}
+      {/* Vertical resize handle + File viewer */}
       {file && (
-        <div className="flex-1 flex flex-col border-t border-owner-light min-h-0 animate-fade-in">
-          <div className="px-3 py-1.5 bg-[#1E1E24] flex items-center justify-between">
-            <div className="flex items-center gap-2 min-w-0">
-              <FileIcon name={openFilePath ?? ''} />
-              <span className="text-[11px] text-gray-300 truncate font-mono">{openFilePath}</span>
-              {file.size > 0 && (
-                <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
-                  {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
-                </span>
-              )}
+        <>
+          <ResizeHandle direction="vertical" onResize={handleVerticalResize} onDoubleClick={() => setTreeBasis(40)} />
+          <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
+            <div className="px-3 py-1.5 bg-[#1E1E24] flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileIcon name={openFilePath ?? ''} />
+                <span className="text-[11px] text-gray-300 truncate font-mono">{openFilePath}</span>
+                {file.size > 0 && (
+                  <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
+                    {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpenFile(null)}
+                className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors flex-shrink-0"
+                title="关闭文件"
+              >
+                <CloseIcon />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => setOpenFile(null)}
-              className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors flex-shrink-0"
-              title="关闭文件"
-            >
-              <CloseIcon />
-            </button>
+            {file.binary ? (
+              <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
+                <span className="text-2xl mb-2">🖼️</span>
+                <p>二进制文件</p>
+                <p className="text-[10px] mt-1">
+                  {file.mime} · {Math.round(file.size / 1024)}KB
+                </p>
+              </div>
+            ) : (
+              <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} />
+            )}
+            {file.truncated && (
+              <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
+                文件已截断 (超过 1MB)
+              </div>
+            )}
           </div>
-          {file.binary ? (
-            <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
-              <span className="text-2xl mb-2">🖼️</span>
-              <p>二进制文件</p>
-              <p className="text-[10px] mt-1">
-                {file.mime} · {Math.round(file.size / 1024)}KB
-              </p>
-            </div>
-          ) : (
-            <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} />
-          )}
-          {file.truncated && (
-            <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
-              文件已截断 (超过 1MB)
-            </div>
-          )}
-        </div>
+        </>
       )}
     </aside>
   );

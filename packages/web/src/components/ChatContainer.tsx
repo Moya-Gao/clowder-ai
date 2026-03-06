@@ -33,6 +33,7 @@ import { QueuePanel } from './QueuePanel';
 import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
+import { ResizeHandle } from './workspace/ResizeHandle';
 
 interface ChatContainerProps {
   threadId: string;
@@ -55,6 +56,23 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
+  // F063: resizable split pane — chatBasis as percentage (20-80)
+  const [chatBasis, setChatBasis] = useState(50);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const handleHorizontalResize = useCallback((delta: number) => {
+    if (!containerRef.current) return;
+    const totalWidth = containerRef.current.offsetWidth;
+    if (totalWidth === 0) return;
+    const pct = (delta / totalWidth) * 100;
+    setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
+  }, []);
+
+  // F063: auto-open panel when message file path click triggers workspace mode
+  useEffect(() => {
+    if (rightPanelMode === 'workspace' && !statusPanelOpen) {
+      setStatusPanelOpen(true);
+    }
+  }, [rightPanelMode, statusPanelOpen]);
 
   // Desktop: auto-open sidebar on mount (mobile stays closed)
   useEffect(() => {
@@ -226,7 +244,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }
 
   return (
-    <div className="flex h-screen h-dvh">
+    <div ref={containerRef} className="flex h-screen h-dvh">
       {sidebarOpen && (
         <>
           {/* Backdrop — mobile only */}
@@ -241,7 +259,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         </>
       )}
 
-      <div className="flex flex-col flex-1 min-w-0">
+      <div
+        className="flex flex-col min-w-0"
+        style={statusPanelOpen && rightPanelMode === 'workspace' ? { flexBasis: `${chatBasis}%`, flexGrow: 0, flexShrink: 0 } : { flex: '1 1 0%' }}
+      >
         <ChatContainerHeader
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((v) => !v)}
@@ -356,7 +377,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         />
       )}
       {statusPanelOpen && rightPanelMode === 'workspace' && (
-        <WorkspacePanel />
+        <>
+          <ResizeHandle
+            direction="horizontal"
+            onResize={handleHorizontalResize}
+            onDoubleClick={() => setChatBasis(50)}
+          />
+          <WorkspacePanel />
+        </>
       )}
       <MobileStatusSheet
         open={mobileStatusOpen}
