@@ -199,6 +199,7 @@ async function main(): Promise<void> {
     transcriptReader,
     sessionSealer,
     draftStore,
+    taskStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

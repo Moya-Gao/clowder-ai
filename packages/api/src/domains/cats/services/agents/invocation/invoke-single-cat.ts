@@ -72,6 +72,8 @@ export interface InvocationDeps {
   readonly transcriptWriter?: TranscriptWriter;
   /** F24 Phase D: Transcript reader for reading sealed session data */
   readonly transcriptReader?: import('../../session/TranscriptReader.js').TranscriptReader;
+  /** F065: Task store for bootstrap task snapshot injection */
+  readonly taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
 }
 
 /**

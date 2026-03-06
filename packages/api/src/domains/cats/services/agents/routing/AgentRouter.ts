@@ -36,6 +36,7 @@ import type { IDraftStore } from '../../stores/ports/DraftStore.js';
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService } from '../../types.js';
 import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
+import type { ITaskStore } from '../../stores/ports/TaskStore.js';
 import type { TranscriptWriter } from '../../session/TranscriptWriter.js';
 import type { TranscriptReader } from '../../session/TranscriptReader.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
@@ -135,6 +136,8 @@ export interface AgentRouterOptions {
   sessionSealer?: ISessionSealer;
   /** #80: Streaming draft persistence store */
   draftStore?: IDraftStore;
+  /** F065: Task store for bootstrap task snapshot injection */
+  taskStore?: ITaskStore;
 }
 
 /**
@@ -153,6 +156,7 @@ export class AgentRouter {
   private sessionSealer: ISessionSealer | undefined;
   private draftStore: IDraftStore | undefined;
   private taskProgressStore: TaskProgressStore | undefined;
+  private taskStore: ITaskStore | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -178,6 +182,7 @@ export class AgentRouter {
     this.sessionSealer = options.sessionSealer;
     this.draftStore = options.draftStore;
     this.taskProgressStore = options.taskProgressStore;
+    this.taskStore = options.taskStore;
   }
 
   /** Pick a deterministic fallback cat when policy filters out all candidates. */
@@ -400,6 +405,7 @@ export class AgentRouter {
         ...(this.transcriptWriter ? { transcriptWriter: this.transcriptWriter } : {}),
         ...(this.transcriptReader ? { transcriptReader: this.transcriptReader } : {}),
         ...(this.sessionSealer ? { sessionSealer: this.sessionSealer } : {}),
+        ...(this.taskStore ? { taskStore: this.taskStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

@@ -1,18 +1,26 @@
 /**
- * SessionBootstrap — F24 Phase E
+ * SessionBootstrap — F24 Phase E + F065 Phase A
  * Builds bootstrap context for Session #2+ so cats know what happened
  * in the previous session.
  *
  * Injects:
  * 1. Session identity (seq, chain length)
  * 2. Previous session digest (extractive)
- * 3. MCP tool recall instructions
+ * 3. Task snapshot (F065: compact task list)
+ * 4. MCP tool recall instructions
  */
 
 import type { CatId } from '@cat-cafe/shared';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { TranscriptReader } from './TranscriptReader.js';
 import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
+import type { ITaskStore } from '../stores/ports/TaskStore.js';
+import { formatTaskSnapshot } from './formatTaskSnapshot.js';
+import { estimateTokens } from '../../../../utils/token-counter.js';
+
+/** Hard cap for entire bootstrap output (AC-5).
+ * Applies uniformly regardless of call path (serial/parallel/incremental). */
+const MAX_BOOTSTRAP_TOKENS = 2000;
 
 export interface BootstrapContext {
   /** Formatted bootstrap text to prepend to prompt */
@@ -21,11 +29,15 @@ export interface BootstrapContext {
   sessionSeq: number;
   /** Whether a previous digest was found and included */
   hasDigest: boolean;
+  /** F065: Whether a task snapshot was injected */
+  hasTaskSnapshot: boolean;
 }
 
 export interface SessionBootstrapOptions {
   sessionChainStore: ISessionChainStore;
   transcriptReader: TranscriptReader;
+  /** F065: Task store for task snapshot injection */
+  taskStore?: ITaskStore;
 }
 
 /**
@@ -68,6 +80,11 @@ export async function buildSessionBootstrap(
     `${sealedSessions.length} previous session(s) are sealed and searchable.`,
   );
 
+  // Build sections separately for section-aware token cap (AC-5, R4 P1-1)
+  // Priority: identity (always keep) > tools (always keep) > task snapshot > digest
+  const identitySection = parts.join('\n');
+
+  let digestSection = '';
   // 2. Previous Session Digest
   let hasDigest = false;
   try {
@@ -75,38 +92,78 @@ export async function buildSessionBootstrap(
       prevSession.id, prevSession.threadId, prevSession.catId,
     );
     if (digest) {
-      parts.push('');
-      parts.push('[Previous Session Summary]');
-      parts.push(formatDigest(digest as unknown as ExtractiveDigestV1));
+      digestSection = '\n[Previous Session Summary]\n' + formatDigest(digest as unknown as ExtractiveDigestV1);
       hasDigest = true;
     }
   } catch {
     // Digest read failed — still inject identity + tools
   }
 
-  // 3. MCP Tool Recall Instructions (E2)
-  parts.push('');
-  parts.push('[Session Recall — Available Tools]');
-  parts.push(
+  // 3. Task Snapshot (F065)
+  let taskSection = '';
+  let hasTaskSnapshot = false;
+  if (opts.taskStore) {
+    try {
+      const tasks = await opts.taskStore.listByThread(threadId);
+      const snapshot = formatTaskSnapshot(tasks);
+      if (snapshot) {
+        taskSection = '\n' + snapshot;
+        hasTaskSnapshot = true;
+      }
+    } catch {
+      // Best-effort: task snapshot failure doesn't block bootstrap
+    }
+  }
+
+  // 4. MCP Tool Recall Instructions (F065: updated with read_invocation_detail + view=handoff)
+  const toolLines: string[] = [];
+  toolLines.push('');
+  toolLines.push('[Session Recall — Available Tools]');
+  toolLines.push(
     'You have access to these tools for retrieving context from previous sessions:',
   );
-  parts.push('- cat_cafe_list_session_chain: List all sessions in this thread');
-  parts.push('- cat_cafe_session_search: Search across session transcripts and digests');
-  parts.push('- cat_cafe_read_session_digest: Read summary of a specific session');
-  parts.push('- cat_cafe_read_session_events: Read detailed events from a session');
-  parts.push('');
-  parts.push(
+  toolLines.push('- cat_cafe_list_session_chain: List all sessions in this thread');
+  toolLines.push('- cat_cafe_session_search: Search across session transcripts and digests');
+  toolLines.push('- cat_cafe_read_session_digest: Read summary of a specific session');
+  toolLines.push('- cat_cafe_read_session_events: Read detailed events (use view=handoff for per-invocation summaries)');
+  toolLines.push('- cat_cafe_read_invocation_detail: Read all events for a specific invocation');
+  toolLines.push('');
+  toolLines.push(
     'When unsure about previous decisions, file changes, or context:',
   );
-  parts.push('1. Use cat_cafe_session_search to find relevant prior sessions');
-  parts.push('2. Use cat_cafe_read_session_digest for a quick summary');
-  parts.push('3. Use cat_cafe_read_session_events for detailed events');
-  parts.push('Do NOT guess about what happened in previous sessions.');
+  toolLines.push('1. Use cat_cafe_session_search to find relevant prior sessions');
+  toolLines.push('2. Use cat_cafe_read_session_events(view=handoff) for per-invocation summaries');
+  toolLines.push('3. Use cat_cafe_read_invocation_detail to drill into a specific invocation');
+  toolLines.push('Do NOT guess about what happened in previous sessions.');
+  const toolsSection = toolLines.join('\n');
+
+  // Section-aware token cap (AC-5): identity + tools are always kept.
+  // Drop task snapshot first (least critical), then digest, to fit within budget.
+  const baseTokens = estimateTokens(identitySection + toolsSection);
+  const remainingBudget = MAX_BOOTSTRAP_TOKENS - baseTokens;
+
+  const digestTokens = hasDigest ? estimateTokens(digestSection) : 0;
+  const taskTokens = hasTaskSnapshot ? estimateTokens(taskSection) : 0;
+
+  if (digestTokens + taskTokens > remainingBudget) {
+    // Combined exceeds budget — drop task snapshot first (lower priority)
+    taskSection = '';
+    hasTaskSnapshot = false;
+
+    // If digest alone still exceeds budget, drop it too
+    if (digestTokens > remainingBudget) {
+      digestSection = '';
+      hasDigest = false;
+    }
+  }
+
+  const text = identitySection + digestSection + taskSection + toolsSection;
 
   return {
-    text: parts.join('\n'),
+    text,
     sessionSeq: currentSeq,
     hasDigest,
+    hasTaskSnapshot,
   };
 }
 

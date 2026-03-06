@@ -112,6 +112,7 @@ export async function* routeParallel(
           {
             sessionChainStore: deps.invocationDeps.sessionChainStore,
             transcriptReader: deps.invocationDeps.transcriptReader,
+            ...(deps.invocationDeps.taskStore ? { taskStore: deps.invocationDeps.taskStore } : {}),
           },
           catId,
           threadId,

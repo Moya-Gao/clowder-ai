@@ -6,7 +6,7 @@
  * Bootstrap displays 1-based for humans (seq 0 → "Session #1", seq 1 → "Session #2").
  */
 
-import { describe, it, beforeEach } from 'node:test';
+import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildSessionBootstrap } from '../dist/domains/cats/services/session/SessionBootstrap.js';
 
@@ -33,6 +33,16 @@ function createMockTranscriptReader(digests = {}) {
   return {
     async readDigest(sessionId) {
       return digests[sessionId] ?? null;
+    },
+  };
+}
+
+// --- Mock TaskStore (F065) ---
+
+function createMockTaskStore(tasks = []) {
+  return {
+    async listByThread(threadId) {
+      return tasks.filter(t => t.threadId === threadId);
     },
   };
 }
@@ -271,6 +281,210 @@ describe('SessionBootstrap', () => {
 
       // Should only read sess-1 digest (the most recent sealed session)
       assert.deepEqual(readDigestCalls, ['sess-1']);
+    });
+
+    // --- F065 Task Snapshot Tests ---
+
+    it('includes task snapshot when taskStore is provided and tasks exist', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      const reader = createMockTranscriptReader();
+      const taskStore = createMockTaskStore([
+        { id: 't1', threadId: 'thread-1', title: 'Build feature', ownerCatId: 'opus', status: 'doing', why: '', createdBy: 'user', createdAt: 1000, updatedAt: 2000 },
+        { id: 't2', threadId: 'thread-1', title: 'Write tests', ownerCatId: 'opus', status: 'todo', why: '', createdBy: 'user', createdAt: 1000, updatedAt: 2000 },
+      ]);
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader, taskStore },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      assert.equal(result.hasTaskSnapshot, true);
+      assert.ok(result.text.includes('[Task Snapshot'));
+      assert.ok(result.text.includes('Build feature'));
+      assert.ok(result.text.includes('1 doing'));
+    });
+
+    it('omits task snapshot when no tasks exist', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      const reader = createMockTranscriptReader();
+      const taskStore = createMockTaskStore([]);
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader, taskStore },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      assert.equal(result.hasTaskSnapshot, false);
+      assert.ok(!result.text.includes('[Task Snapshot'));
+    });
+
+    it('omits task snapshot when taskStore is not provided (backward compat)', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      const reader = createMockTranscriptReader();
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      assert.equal(result.hasTaskSnapshot, false);
+    });
+
+    it('task snapshot handles taskStore error gracefully', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      const reader = createMockTranscriptReader();
+      const taskStore = {
+        async listByThread() { throw new Error('redis down'); },
+      };
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader, taskStore },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      assert.equal(result.hasTaskSnapshot, false);
+      assert.ok(result.text.includes('Session #2')); // still works
+    });
+
+    // --- F065 MCP Tool Guidance Tests ---
+
+    it('includes read_invocation_detail and view=handoff in tool guidance', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      const reader = createMockTranscriptReader();
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'));
+      assert.ok(result.text.includes('view=handoff'));
+    });
+
+    // --- F065 Token Cap Regression Tests (AC-5) ---
+
+    it('drops task snapshot before digest when token cap triggers (R5 P1-1)', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      // 50 unique tools with 40-char padding → digest ≈ 1657 tokens (fits in 1864 budget alone)
+      // Combined with task snapshot ≈ 1889 tokens (exceeds 1864 budget → task dropped first)
+      const longToolDigest = {
+        v: 1,
+        sessionId: 'sess-0',
+        threadId: 'thread-1',
+        catId: 'opus',
+        seq: 0,
+        time: { createdAt: 1000000, sealedAt: 1060000 },
+        invocations: [{
+          toolNames: Array.from({ length: 50 }, (_, i) => `tool_cap_${'w'.repeat(40)}_${i}`),
+        }],
+        filesTouched: Array.from({ length: 15 }, (_, i) => ({
+          path: `src/${'nested/'.repeat(6)}file-${i}.ts`,
+          ops: ['edit'],
+        })),
+        errors: [],
+      };
+      const reader = createMockTranscriptReader({ 'sess-0': longToolDigest });
+      const tasks = Array.from({ length: 8 }, (_, i) => ({
+        id: `t${i}`, threadId: 'thread-1', title: `Task ${i}: ${'DescriptionWord '.repeat(20)}`,
+        ownerCatId: 'opus', status: 'doing', why: '', createdBy: 'user', createdAt: 1000, updatedAt: 2000,
+      }));
+      const taskStore = createMockTaskStore(tasks);
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader, taskStore },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      // Task snapshot should be dropped first (lower priority)
+      assert.equal(result.hasTaskSnapshot, false, 'task snapshot should be dropped first');
+      // Digest should survive (higher priority than task)
+      assert.equal(result.hasDigest, true, 'digest should survive when task is dropped');
+      // Tools section must survive cap
+      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'), 'tools guidance must survive cap');
+      assert.ok(result.text.includes('view=handoff'), 'view=handoff must survive cap');
+      // Identity must survive
+      assert.ok(result.text.includes('Session #2'), 'identity must survive cap');
+    });
+
+    it('enforces token cap — output <= MAX_BOOTSTRAP_TOKENS (2000)', async () => {
+      const store = createMockSessionChainStore([
+        { id: 'sess-0', catId: 'opus', threadId: 'thread-1', status: 'sealed', seq: 0 },
+        { id: 'sess-1', catId: 'opus', threadId: 'thread-1', status: 'active', seq: 1 },
+      ]);
+      // 100 unique tools with 60-char padding → digest ≈ 2800+ tokens (exceeds budget alone)
+      // Both digest and task should be dropped, leaving only identity + tools ≈ 213 tokens
+      const hugeDigest = {
+        v: 1,
+        sessionId: 'sess-0',
+        threadId: 'thread-1',
+        catId: 'opus',
+        seq: 0,
+        time: { createdAt: 1000000, sealedAt: 1060000 },
+        invocations: [{
+          toolNames: Array.from({ length: 100 }, (_, i) => `MassiveTool_${'z'.repeat(60)}_${i}`),
+        }],
+        filesTouched: Array.from({ length: 15 }, (_, i) => ({
+          path: `src/${'deep/'.repeat(10)}module-${i}.ts`,
+          ops: ['edit'],
+        })),
+        errors: Array.from({ length: 3 }, (_, i) => ({
+          at: 1100000 + i * 1000,
+          message: `Error ${i}: ${'W'.repeat(195)}`,
+        })),
+      };
+      const reader = createMockTranscriptReader({ 'sess-0': hugeDigest });
+      const tasks = Array.from({ length: 8 }, (_, i) => ({
+        id: `t${i}`, threadId: 'thread-1', title: `Big task ${i} ${'Q'.repeat(60)}`,
+        ownerCatId: 'opus', status: 'doing', why: '', createdBy: 'user', createdAt: 1000, updatedAt: 2000,
+      }));
+      const taskStore = createMockTaskStore(tasks);
+
+      const { estimateTokens } = await import('../dist/utils/token-counter.js');
+
+      const result = await buildSessionBootstrap(
+        { sessionChainStore: store, transcriptReader: reader, taskStore },
+        'opus',
+        'thread-1',
+      );
+
+      assert.ok(result);
+      const tokens = estimateTokens(result.text);
+      assert.ok(tokens <= 2000, `Expected <= 2000 tokens, got ${tokens}`);
+      // Both variable sections dropped when digest alone exceeds budget
+      assert.equal(result.hasDigest, false, 'digest should be dropped when it alone exceeds budget');
+      assert.equal(result.hasTaskSnapshot, false, 'task should be dropped when digest exceeds budget');
+      // Tools section always survives
+      assert.ok(result.text.includes('cat_cafe_read_invocation_detail'));
     });
   });
 });
