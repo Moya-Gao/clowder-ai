@@ -4,7 +4,7 @@
 #
 # Tested on Claude Code v2.1.70 (2026-03-06):
 #   Explore        → auto haiku   ✅ cheap, allow
-#   Plan           → inherits Opus ⚠️ expensive, ask
+#   Plan           → inherits Opus ✅ needs deep thinking, allow
 #   general-purpose → inherits Opus ⚠️ expensive, ask
 #   (no type)      → inherits Opus ⚠️ expensive, ask
 #
@@ -36,6 +36,11 @@ if [ "$SUBAGENT_TYPE" = "Explore" ]; then
   exit 0
 fi
 
-# Plan / general-purpose / empty → inherits Opus. Expensive. Ask.
-emit_decision "ask" "⚠️ Agent(${SUBAGENT_TYPE:-未指定}) 会继承 Opus 模型，成本高。90% 的搜索/读文件任务用 Explore（自动 haiku）就够了。确认这个任务必须用 ${SUBAGENT_TYPE:-general-purpose} 吗？如果只是搜代码/读文件，请改用 subagent_type=Explore。"
+# Plan → needs Opus-level deep thinking. Allow.
+if [ "$SUBAGENT_TYPE" = "Plan" ]; then
+  exit 0
+fi
+
+# general-purpose / empty → inherits Opus. Usually overkill. Ask.
+emit_decision "ask" "⚠️ Agent(${SUBAGENT_TYPE:-未指定}) 会继承 Opus，成本高。搜代码/读文件 → 改用 Explore（自动 haiku）。确认必须用 general-purpose？"
 exit 0
