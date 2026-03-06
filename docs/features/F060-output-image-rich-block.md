@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F060: output_image 富文本渲染
 
-## Status: done (Phase 1) — Phase 2 待排期
+## Status: done
 
 ## Why
 
@@ -34,8 +34,8 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 ## Acceptance Criteria
 
 - [x] AC-1: MCP 工具返回 `output_image` 时，Hub 前端自动显示图片（Phase 1: Codex 路径完成）
-- [ ] AC-2: 图片可点击放大查看（Phase 2）
-- [ ] AC-5: 图片可复制到剪贴板（Phase 2 — 铲屎官需要方便复制图片）
+- [x] AC-2: 图片可点击放大查看（Phase 2: PR #238）
+- [x] AC-5: 图片可复制到剪贴板（Phase 2: PR #238）
 - [x] AC-3: 对所有 MCP 工具的 output_image 生效（不限于小红书）
 - [x] AC-4: 不需要猫猫额外操作（无需手动创建 rich block）
 
@@ -44,10 +44,10 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "添加一个feat 要做富文本返回 output_image" | AC-1 | screenshot + manual | [x] Phase 1 |
-| R2 | 图片可交互（放大查看） | AC-2 | manual | [ ] Phase 2 |
+| R2 | 图片可交互（放大查看） | AC-2 | manual | [x] Phase 2 |
 | R3 | 通用化，不限特定 MCP | AC-3 | test | [x] |
 | R4 | 自动化，不增加猫猫负担 | AC-4 | test | [x] |
-| R5 | "方便我复制"（图片可复制到剪贴板） | AC-5 | manual | [ ] Phase 2 |
+| R5 | "方便我复制"（图片可复制到剪贴板） | AC-5 | manual | [x] Phase 2 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
