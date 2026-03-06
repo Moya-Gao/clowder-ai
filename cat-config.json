@@ -34,7 +34,7 @@
       "roles": ["peer-reviewer", "thinker"],
       "lead": false,
       "available": true,
-      "evaluation": "深度思考型，审查细致，但思考太慢"
+      "evaluation": "深度思考型，审查细致，GPT-5.4 xhigh"
     },
     "spark": {
       "family": "maine-coon",
@@ -201,11 +201,11 @@
         {
           "id": "codex-gpt52",
           "catId": "gpt52",
-          "variantLabel": "GPT-5.2",
+          "variantLabel": "GPT-5.4",
           "displayName": "缅因猫",
-          "mentionPatterns": ["@gpt52", "@gpt-52", "@gpt5.2", "@gpt-5.2", "@缅因gpt52"],
+          "mentionPatterns": ["@gpt52", "@gpt-52", "@gpt5.2", "@gpt-5.2", "@gpt54", "@gpt-54", "@gpt5.4", "@gpt-5.4", "@缅因gpt52"],
           "provider": "openai",
-          "defaultModel": "gpt-5.2",
+          "defaultModel": "gpt-5.4-xhigh",
           "mcpSupport": true,
           "avatar": "/avatars/gpt52.png",
           "color": { "primary": "#66BB6A", "secondary": "#C8E6C9" },
@@ -214,7 +214,7 @@
             "outputFormat": "json",
             "defaultArgs": ["exec", "--json"]
           },
-          "personality": "砚砚的经典版本，推理扎实，审查细致",
+          "personality": "砚砚的升级版本，推理更强更快，审查细致",
           "strengths": ["reasoning", "code-review", "analysis"],
           "teamStrengths": "架构思考、Review",
           "caution": "思考太慢",

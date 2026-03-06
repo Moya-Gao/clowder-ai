@@ -19,10 +19,10 @@
 |------|------|------|--------|
 | 布偶猫 (Claude) | 宪宪 | 架构、后端、MCP | `@opus` / `@sonnet` |
 | 缅因猫 (Codex) | 砚砚 | review、安全、测试 | `@codex` |
-| 缅因猫 (GPT-5.2) | 砚砚 | 架构思考、Review | `@gpt52` |
+| 缅因猫 (GPT-5.4) | 砚砚 | 架构思考、Review | `@gpt52` |
 | 暹罗猫 (Gemini) | 烁烁 | 视觉设计、创意 | `@gemini` |
 
-注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.2`）是同族不同个体，不要写在同一行当成同一个句柄（见 `cat-config.json`）。
+注：`@codex`（model=`gpt-5.3-codex`）和 `@gpt52`（model=`gpt-5.4-xhigh`）是同族不同个体，不要写在同一行当成同一个句柄（见 `cat-config.json`）。
 
 三猫都是公猫。Roster 详见 `cat-config.json`。@ 规则：另起一行行首写 `@句柄`。
 
