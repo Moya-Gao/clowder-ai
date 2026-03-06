@@ -616,8 +616,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
         if (messages.length > MAX_BLOB_MESSAGES) {
           revokeBlobUrls(messages.slice(0, messages.length - MAX_BLOB_MESSAGES));
         }
-        // F067: Notify even on active thread when tab is hidden
-        if (msg.mentionsUser && typeof document !== 'undefined' && document.hidden) {
+        // F067: Notify even on active thread when tab is not focused
+        // document.hidden is false when switching macOS apps (only true for tab switch/minimize)
+        // document.hasFocus() correctly returns false when another app is in foreground
+        if (msg.mentionsUser && typeof document !== 'undefined' && !document.hasFocus()) {
           fireOwnerMentionNotification(msg);
         }
         return { messages };
