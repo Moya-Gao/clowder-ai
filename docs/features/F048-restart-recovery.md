@@ -7,10 +7,11 @@ created: 2026-02-28
 
 # F048: Restart Recovery — 重启自愈（Invocation/Queue 恢复）
 
-> **Status**: idea  
-> **Owner**: 三猫  
-> **Created**: 2026-02-28  
+> **Status**: spec
+> **Owner**: 布偶猫
+> **Created**: 2026-02-28
 > **Priority**: P1
+> **Phase**: A/B 分段交付
 
 ---
 
@@ -24,18 +25,34 @@ created: 2026-02-28
 
 ## What
 
-把“重启后的体验”做成一个**完整能力包**：
-- Orphan recovery：重启后对 in-flight invocation 做一致性的收敛（cancel/failed + reason）
-- Queue persistence：队列条目在 Redis 持久化，重启后恢复并继续消费
-- 语义约定：processing 条目如何处理（回滚重试 / 失败提示 / 人工介入）
+分两段交付（2026-03-06 三猫讨论决策）：
 
-## Acceptance Criteria
+### Phase A — 启动收尸（轻量，correctness fix）
 
-- [ ] 重启后：所有旧的 in-flight invocation 会被标记为 `canceled` 或 `failed`（带 `reason: 'restart'` 或等价字段）
-- [ ] 重启后：队列不丢（queued 条目可恢复）；且能继续消费（不会永久卡住 mutex/paused）
-- [ ] 不出现“双执行”或不可解释的重复执行（至少给出可接受的 at-least-once 语义 + 去重策略）
-- [ ] 前端清晰可见：哪些因重启被中断、哪些仍在队列、是否需要手动继续
-- [ ] 有最小可观测性：启动自愈日志 + 指标（orphan 数量、回滚数量、恢复耗时）
+API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records → 标为 `failed(error=process_restart)` → 清理对应 TaskProgress → 写 audit log。
+
+**为什么现在就要做**：`InvocationRecordStore` 在有 Redis 时已是持久化的（`RedisInvocationRecordStore`，TTL 7 天）。执行开始后状态写成 `running`，如果 API 在终态前崩掉，record 会跨重启保留。retry 端点只允许 `failed/queued`，`running` 返回 409 → 用户看到”在跑”但永远不会结束，且无法 retry。
+
+### Phase B — 队列持久化（重型，后做）
+
+- `InvocationQueue` 迁到 Redis
+- 重启后恢复排队条目并继续消费
+- `processing` 条目回滚语义
+
+## Acceptance Criteria — Phase A
+
+- [ ] 启动时 sweep：扫描 Redis 中 status=`running` 的 invocation records，标为 `failed`（error 含 `process_restart`）
+- [ ] 启动时 sweep：扫描 status=`queued` 且创建时间 > 阈值的 records，同样收敛
+- [ ] 清理对应的 TaskProgress 快照（避免前端恢复”幽灵进度”）
+- [ ] 写 audit log（orphan 数量、收敛结果）
+- [ ] retry 端点在 sweep 后能正常工作（status=`failed` → 可 retry）
+- [ ] 有测试覆盖：模拟 stale running record → 启动 sweep → 验证状态收敛
+
+## Acceptance Criteria — Phase B（后续）
+
+- [ ] 重启后：队列不丢（queued 条目可恢复）
+- [ ] 不出现”双执行”（at-least-once + 去重）
+- [ ] 前端清晰可见：哪些因重启被中断、哪些仍在队列
 
 ## Links
 
@@ -47,7 +64,30 @@ created: 2026-02-28
 
 ## Key Decisions
 
-- “要做就做完整体验”：不做“只持久化队列但不处理 in-flight”这种半能力
+- **A/B 分段交付（2026-03-06 三猫讨论）**：不再坚持”要做就做完整体验”。Phase A 先补 correctness 缺口（启动收尸），Phase B 再做队列持久化
+- **收尸策略用 `failed` 而非新增 `interrupted` 状态**：避免前端新增渲染分支，直接清除 TaskProgress 让前端回到”无进度”态。error 字段标注 `process_restart` 作为区分
+- **不扫 ndjson 推断死亡**（否决旧分支 `fix/invocation-restart-guard` 的方案）：直接在启动时 sweep Redis stale records，更直接可靠
+
+## Evidence（三猫讨论关键证据）
+
+| 证据 | 位置 | 说明 |
+|------|------|------|
+| InvocationRecord 是 Redis 持久化 | `RedisInvocationRecordStore.ts` | 有 Redis 时用 Redis-backed store，TTL 7 天 |
+| 执行时写 `running` | `messages.ts:~400` | status update 在执行开始时 |
+| 启动无 reconcile | `index.ts:~467` | 启动流程只有 audit log + CLI config regen |
+| retry 拒绝 `running` | `invocations.ts:76` | 只允许 `failed\|queued`，running → 409 |
+| TaskProgress 也持久化 | `RedisTaskProgressStore.ts` | 前端恢复时会显示”幽灵进度” |
+| InvocationQueue 是内存态 | `InvocationQueue.ts:38` | `private queues = new Map()`，重启丢失 |
+
+## Ghost Branch Audit（2026-02-28 幽灵分支盘点）
+
+| 分支 | 结论 | 说明 |
+|------|------|------|
+| `fix/invocation-restart-guard` | ❌ 不复活 | 方案不合理（扫 ndjson），但能力需要 → F048-A |
+| `feat/f92-skills-lifecycle-hardening` | ✅ 已在 main | git cherry 确认等价，远端已删 |
+| `feat/f98-session-query-tools` | ✅ 已在 main | 行为级核对确认，远端已删 |
+| `feat/f97-connector-invoke` | ✅ 已在 main | 行为级核对确认，远端已删 |
+| `feat/f032-agent-plugin-architecture` | ✅ 已在 main | 行为级核对确认，远端已删 |
 
 ## Risk / Blast Radius
 
@@ -60,9 +100,9 @@ created: 2026-02-28
 
 ## Open Questions
 
-1. 对 Codex/Claude/Gemini provider，是否有可用的 “resume 原 session” 能力？如果没有，统一采用“重启后重新执行（replay）”语义。
-2. `processing` 队列项的默认处理：回滚为 queued 重试，还是直接 failed + toast？
-3. 重启自愈的触发点：仅启动时一次性 reconcile，还是后台周期性清理 stale invocation？
+1. Phase A sweep 阈值：`running` record 的 `updatedAt` 距今多久算 stale？（建议：启动时 **全量 sweep running**，因为重启 = 所有子进程必死；`queued` 则看创建时间 > 5min）
+2. Phase A 是否需要 WebSocket 通知前端？（建议：先不做，前端下次 poll 时自然看到 `failed`）
+3. Phase B 的触发条件：当 InvocationQueue 有明确的 Redis 迁移需求时再启动
 
 ## Review Gate
 
@@ -72,5 +112,8 @@ created: 2026-02-28
 
 ## Timeline
 
-- 2026-02-28: Kickoff（立项）
+- 2026-02-28: Kickoff（立项，从幽灵分支盘点中诞生）
+- 2026-02-28: Ghost branch audit（codex 盘点 5 条幽灵分支 → 全部确认能力已在 main）
+- 2026-03-06: 三猫讨论 → A/B 分段决策（opus 初判"不需要"被 codex+gpt52 纠正：InvocationRecord 已 Redis 持久化，卡 running 是真实 bug）
+- 2026-03-06: Status: idea → spec，Phase A ready for implementation
 

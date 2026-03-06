@@ -284,8 +284,8 @@
     },
     {
       "id": "F048",
-      "name": "Restart Recovery — 重启自愈（Invocation/Queue 恢复）",
-      "status": "idea",
+      "name": "Restart Recovery — 重启自愈（Phase A: 启动收尸）",
+      "status": "spec",
       "file": "F048-restart-recovery.md"
     },
     {
