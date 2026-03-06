@@ -188,9 +188,10 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [ ] AC-9: 铲屎官可在 Hub 内编辑文件，猫猫可直接 commit 编辑结果
 - [x] AC-10: 文件系统感知 worktree（显示猫猫当前 worktree 的文件，而非只有 main）
 - [x] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
-- [ ] AC-12: 搜索栏支持文件名搜索模式（输入文件名/路径片段 → 快速定位 + 显示相对路径 → 点击导航）
-- [ ] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
-- [ ] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
+- [x] AC-12: 搜索栏支持文件名搜索模式（输入文件名/路径片段 → 快速定位 + 显示相对路径 → 点击导航）
+- [x] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
+- [x] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
+- [ ] AC-15: 铲屎官可在文件查看器中选中代码行/文件路径，点击"引用到聊天"按钮插入到输入框（类似 Claude.ai 的 "Add to chat"）
 
 ## 需求点 Checklist
 
@@ -210,6 +211,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | R12 | "搜索我可以搜文件名吗？比如贴他的相对路径帮我导航一下？" | AC-12 | manual: 搜文件名 → 显示路径 → 点击导航 | [ ] |
 | R13 | "你们发的文本里的那些地址我点击 右边这里能打开吗？" | AC-13 | manual: 点消息中路径 → workspace 面板自动打开文件 | [ ] |
 | R14 | "要允许我能够调整两个的占比？或者说三个？聊天 然后文件系统 然后打开的文件" | AC-14 | manual: 拖拽分隔条调整三视图比例 | [ ] |
+| R15 | "直接点击一个文件然后在 chat 里 mention，或者选中某些行某个文件点击 add to chat" | AC-15 | manual: 选中代码/文件 → 点击引用 → 插入到聊天输入框 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -302,6 +304,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **Phase 2A 合入** (PR #233): UI 美化 — 拆分组件 + Cat Cafe 设计语言 + 50:50 分栏 |
 | 2026-03-06 | **铲屎官反馈**: "搜文件名导航" + "消息中路径点击打开 workspace" — 体验闭环需求 |
 | 2026-03-06 | **铲屎官反馈**: "要允许调整三个视图占比" — 可拖拽分栏需求 |
+| 2026-03-06 | **Phase 2B P0 合入** (PR #239): resizable split panes + auto-open workspace panel |
+| 2026-03-06 | **铲屎官反馈**: "直接点击文件然后在 chat 里 mention，选中某些行点击 add to chat" — 代码引用需求，P2B-7 升级为 P0 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -369,7 +373,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2B-4 | 图片文件预览（inline image rendering） | AC-8 | P1 |
 | P2B-5 | 文件编辑模式 + edit_session_token | AC-9 | P1 |
 | P2B-6 | Markdown 渲染模式（raw/rendered 切换） | — | P2 |
-| P2B-7 | 代码选中 → 引用到对话输入框 | — | P2 |
+| P2B-7 | 代码选中 → 引用到对话输入框：选中文件/代码行后点击"Add to chat"按钮，将 `file:line` 引用或选中代码片段插入聊天输入框；也支持文件树右键"复制路径" | AC-15 | **P0** |
 | P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | P2 |
 
 ### Phase 2C: 预览能力
