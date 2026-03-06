@@ -190,6 +190,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
 - [ ] AC-12: 搜索栏支持文件名搜索模式（输入文件名/路径片段 → 快速定位 + 显示相对路径 → 点击导航）
 - [ ] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
+- [ ] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
 
 ## 需求点 Checklist
 
@@ -208,6 +209,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | R11 | "咱项目是有 worktree 的！所以这点也得考虑" | AC-10 | manual: 切换查看不同 worktree | [ ] |
 | R12 | "搜索我可以搜文件名吗？比如贴他的相对路径帮我导航一下？" | AC-12 | manual: 搜文件名 → 显示路径 → 点击导航 | [ ] |
 | R13 | "你们发的文本里的那些地址我点击 右边这里能打开吗？" | AC-13 | manual: 点消息中路径 → workspace 面板自动打开文件 | [ ] |
+| R14 | "要允许我能够调整两个的占比？或者说三个？聊天 然后文件系统 然后打开的文件" | AC-14 | manual: 拖拽分隔条调整三视图比例 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -299,6 +301,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-05 | **铲屎官反馈**: "Phase 1 UI 有点丑不够猫猫，感觉没有设计感" |
 | 2026-03-06 | **Phase 2A 合入** (PR #233): UI 美化 — 拆分组件 + Cat Cafe 设计语言 + 50:50 分栏 |
 | 2026-03-06 | **铲屎官反馈**: "搜文件名导航" + "消息中路径点击打开 workspace" — 体验闭环需求 |
+| 2026-03-06 | **铲屎官反馈**: "要允许调整三个视图占比" — 可拖拽分栏需求 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -362,11 +365,12 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 |------|------|-----|------|
 | P2B-1 | 文件名搜索模式：搜索栏支持 filename/path 模式切换，fuzzy match 文件名，结果显示相对路径，点击直接导航到文件树并打开 | AC-12 | **P0** |
 | P2B-2 | 消息路径点击 → workspace 联动：点击聊天消息中的文件路径，自动切换到 workspace 面板 + 打开该文件（含自动展开文件树到对应目录） | AC-13 | **P0** |
-| P2B-3 | 图片文件预览（inline image rendering） | AC-8 | P1 |
-| P2B-4 | 文件编辑模式 + edit_session_token | AC-9 | P1 |
-| P2B-5 | Markdown 渲染模式（raw/rendered 切换） | — | P2 |
-| P2B-6 | 代码选中 → 引用到对话输入框 | — | P2 |
-| P2B-7 | 多 tab 文件查看（不是一次只看一个） | — | P2 |
+| P2B-3 | 可拖拽分栏比例调整：横向（聊天 vs workspace）+ 纵向（文件树 vs 文件查看器），含最小宽度/高度限制（各不低于 20%），双击恢复默认 | AC-14 | **P0** |
+| P2B-4 | 图片文件预览（inline image rendering） | AC-8 | P1 |
+| P2B-5 | 文件编辑模式 + edit_session_token | AC-9 | P1 |
+| P2B-6 | Markdown 渲染模式（raw/rendered 切换） | — | P2 |
+| P2B-7 | 代码选中 → 引用到对话输入框 | — | P2 |
+| P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | P2 |
 
 ### Phase 2C: 预览能力
 
