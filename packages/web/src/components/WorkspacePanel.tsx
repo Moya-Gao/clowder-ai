@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
+import { MarkdownContent } from './MarkdownContent';
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
@@ -115,6 +116,7 @@ export function WorkspacePanel() {
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [editMode, setEditMode] = useState(false);
+  const [markdownRendered, setMarkdownRendered] = useState(true);
   const [saveError, setSaveError] = useState<string | null>(null);
   // F063: vertical resize — treeBasis as percentage (20-80)
   const [treeBasis, setTreeBasis] = useState(40);
@@ -162,6 +164,12 @@ export function WorkspacePanel() {
     [setOpenFile, setSearchResults],
   );
 
+  // Reset markdown rendered mode when file changes (covers all entry points).
+  // When a target line is set (e.g. from search), use raw mode so CodeMirror can scroll to it.
+  useEffect(() => {
+    setMarkdownRendered(!scrollToLine);
+  }, [openFilePath, scrollToLine]);
+
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
 
   const handleCite = useCallback(
@@ -175,6 +183,7 @@ export function WorkspacePanel() {
 
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
   const canEdit = file && !file.binary && !file.truncated;
+  const isMarkdown = !!(openFilePath && (openFilePath.endsWith(".md") || openFilePath.endsWith(".mdx")));
 
   const handleToggleEdit = useCallback(async () => {
     // If already editing with a valid token, toggle off
@@ -374,6 +383,21 @@ export function WorkspacePanel() {
                 )}
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
+                {isMarkdown && !editMode && (
+                  <button
+                    type="button"
+                    onClick={() => setMarkdownRendered((p) => !p)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-medium transition-colors ${
+                      markdownRendered
+                        ? "bg-owner-primary/80 text-white hover:bg-owner-primary"
+                        : "text-gray-500 hover:text-gray-300 hover:bg-white/10"
+                    }`}
+                    title={markdownRendered ? "切换到源码" : "切换到渲染"}
+                  >
+                    {markdownRendered ? "Rendered" : "Raw"}
+                  </button>
+                )}
+
                 {canEdit && (
                   <button
                     type="button"
@@ -421,6 +445,10 @@ export function WorkspacePanel() {
                   </p>
                 </div>
               )
+            ) : isMarkdown && markdownRendered && !editMode ? (
+              <div className="flex-1 overflow-auto bg-cafe-white p-4">
+                <MarkdownContent content={file.content} disableCommandPrefix />
+              </div>
             ) : (
               <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} editable={editMode} onSave={handleSave} branch={currentWorktree?.branch} />
             )}

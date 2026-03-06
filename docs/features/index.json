@@ -273,7 +273,7 @@
     {
       "id": "F046",
       "name": "愿景守护协议 — Anti-Drift Protocol",
-      "status": "in-progress",
+      "status": "done",
       "file": "F046-anti-drift-protocol.md"
     },
     {
@@ -383,6 +383,12 @@
       "name": "Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列",
       "status": "spec",
       "file": "F066-voice-pipeline-upgrade.md"
+    },
+    {
+      "id": "F067",
+      "name": "Cold-start Verifier — 无历史污染的交付物验证",
+      "status": "spec",
+      "file": "F067-cold-start-verifier.md"
     }
   ],
   "generated_at": "2026-03-05T23:54:00.000Z"

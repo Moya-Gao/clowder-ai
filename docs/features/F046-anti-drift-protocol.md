@@ -4,12 +4,13 @@ related_features: [F041]
 topics: [vision-drift, anti-drift, sop, review, process, multi-agent]
 doc_kind: spec
 created: 2026-02-27
-updated: 2026-03-03
+updated: 2026-03-06
 ---
 
 # F046: 愿景守护协议 — Anti-Drift Protocol
 
-> **Status**: in-progress
+> **Status**: done
+> **Completed**: 2026-03-06
 > **Owner**: 三猫
 > **Created**: 2026-02-27
 > **Priority**: P0
@@ -40,10 +41,10 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
 | B1 | 截图/录屏证据流程——利用现有 MCP（Claude in Chrome / Codex 浏览器） | ✅ Merged（Done） | refs 流程文档化，无需新依赖 |
-| B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | 📋 Spec | 先在 F041 redo 时试点 |
+| B2 | Cold-start Verifier——独立 agent 只看需求+交付物 | ➡️ Evolved into [F067](F067-cold-start-verifier.md) | 独立立项，scope 超出 F046 主线 |
 | B3 | 需求点 checklist 格式——结构化需求追踪 | ✅ Merged（Done） | 已嵌入 feat-kickoff 模板 |
 | B4 | skill-lint CI gate（`pnpm check:skills` manifest 一致性校验） | ✅ Merged（Done） | ← F042 Wave 2 毕业：Lint = 漂移防护 |
-| B5 | ≥10 条对话场景回归测试 | ✅ Implemented（pending review，11 条） | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
+| B5 | ≥10 条对话场景回归测试 | ✅ Done（10 条，10/10 pass） | ← F042 Wave 3 毕业：回归测试 = 愿景守护运行时验证 |
 | B6 | 同族 reviewer identity check gate | ✅ Historical（已在 D4 移除） | ← F042 Wave 3 毕业：流程执行守护门禁。根因是 resume bug 非模型混淆，格式校验≠身份验证，且 `(@catId)` 模板加剧 @ 惯性污染（见 D4） |
 
 ### 待开发（Phase D — @ 路由卫生 Mention Routing Hygiene）
@@ -162,15 +163,15 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | 只改 prompt 不改机制 | **已证实无效**（PR #159 实验） |
 | 按猫种区分规则（只限缅因猫） | 增加复杂度，统一规则更简单可维护 |
 
-#### D.5 验收标准
+#### D.5 验收标准（已按 PR #206 更新）
 
-1. 缅因猫发"@opus 收到，我在等"→ **不路由**，猫收到提示
-2. 缅因猫发"请 review 这个 PR\n@opus"→ **正常路由**
-3. 布偶猫的正常 @ 行为不受影响
-4. 铲屎官的 @ 不受门禁影响
-5. SystemPromptBuilder 输出中不含 `@handle` 格式的元信息（WORKFLOW_TRIGGERS 教学内容除外）
-6. B6 identity check 相关代码和测试全部移除，同族 review 不再要求首行 Identity Check
-7. 有对应的单元测试覆盖 D1/D2/D3/D4
+1. ~~缅因猫发"@opus 收到，我在等"→ 不路由，猫收到提示~~ → **已回退**：行首 @ 即路由（铲屎官决策）
+2. 缅因猫发"请 review 这个 PR\n@opus"→ **正常路由** ✅
+3. 布偶猫的正常 @ 行为不受影响 ✅
+4. 铲屎官的 @ 不受门禁影响 ✅
+5. SystemPromptBuilder 输出中不含 `@handle` 格式的元信息（WORKFLOW_TRIGGERS 教学内容除外） ✅
+6. B6 identity check 相关代码和测试全部移除，同族 review 不再要求首行 Identity Check ✅
+7. 有对应的单元测试覆盖 D2/D4（D1/D3 keyword gate 测试随 PR #206 简化后移除） ✅
 
 #### D.6 关键代码文件
 
@@ -199,10 +200,10 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 | ID | 内容 | 状态 | 说明 |
 |----|------|------|------|
-| D1 | **Actionability Gate**——`a2a-mentions.ts` 只对 `@ + 动作词` 触发路由 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
-| D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | ✅ Merged（Done） | PR #192（`27e5e70b`） |
-| D3 | **No-action @ Feedback**——无动作 @ 时注入系统提示 | ✅ Merged（Done） | PR #194（`a93a6ea1`） |
-| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | ✅ Merged（Done） | PR #195（`3825aaea`） |
+| D1 | **Actionability Gate**——原为 `@ + 动作词` 门禁，经铲屎官否决后简化为「行首 @ 即路由」 | ✅ Done（简化） | PR #192 实现 → PR #206 回退简化（铲屎官："强匹配太挫了"） |
+| D2 | **Input De-inertia**——SystemPromptBuilder 元信息中去除 `@` 前缀 | ✅ Done | PR #192（`27e5e70b`） |
+| D3 | **No-action @ Feedback**——随 D1 简化一并移除（无 keyword gate 则无 suppression feedback） | ✅ Done（移除） | PR #194 实现 → PR #206 随 D1 一并移除 |
+| D4 | **Remove B6 Identity Check**——删除同族 reviewer 身份校验（根因是 resume bug，非模型混淆） | ✅ Done | PR #195（`3825aaea`） |
 
 ### 明确不做（Phase C）
 
@@ -220,14 +221,14 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 - [x] `requesting-review` + `requesting-cloud-review` 强制附原始需求摘录
 - [x] 截图证据仅限前端 UI/UX 功能
 - [x] 截图/录屏证据流程文档化，利用现有 MCP 工具（B1）
-- [ ] Cold-start Verifier 在至少 1 个 Feature 上试点验证（B2）
+- [x] Cold-start Verifier 概念设计完成，已毕业为独立 Feature [F067](F067-cold-start-verifier.md)（B2）
 - [x] 需求点 checklist 格式嵌入开发模板（B3）
 - [x] skill-lint CI gate 可运行 + 检测 manifest 一致性（B4）
-- [x] ≥10 条对话场景回归测试就位（B5，当前 11 条，待合入复核）
+- [x] ≥10 条对话场景回归测试就位（B5，10 条，10/10 pass）
 - [x] 同族 reviewer identity check gate 曾落地（B6 历史项，已在 D4 移除）
-- [x] @ + 动作词才触发路由，无动作词不路由（D1）
+- [x] @ 路由卫生落地：行首 @ 即路由（经铲屎官否决动作词门禁后简化，PR #206）（D1）
 - [x] SystemPromptBuilder 元信息不含 `@` 前缀（D2）
-- [x] 无动作 @ 时猫收到系统提示而非静默忽略（D3）
+- [x] 无动作 @ 反馈机制已实现后随 D1 简化一并移除（D3，PR #206）
 - [x] B6 identity check 代码和测试全部移除（D4）
 
 ## Links
@@ -276,9 +277,9 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 ## Open Questions
 
 1. ~~**B1 Playwright 新依赖审批**~~：已解决——铲屎官指出猫猫已有浏览器 MCP（Claude in Chrome / Codex），无需引入 Playwright
-2. **B2 Cold-start Verifier 实现形态**：用独立 claude 子进程？还是 Codex sandbox？等 F041 redo 时试点确定
-3. **D1 动作词列表**：初始集 `review/确认/处理/修复/请/帮/决策/看一下`，是否需要可配置？还是硬编码够用？
-4. **D1 对布偶猫/暹罗猫的影响**：布偶猫 @ 行为正常，gate 是否只对缅因猫生效？还是全猫统一？（建议统一，降低复杂度）
+2. ~~**B2 Cold-start Verifier 实现形态**~~：已毕业为 [F067](F067-cold-start-verifier.md)
+3. ~~**D1 动作词列表**~~：已解决——铲屎官否决 keyword gate 方案（PR #206），回归"行首 @ 即路由"
+4. ~~**D1 对布偶猫/暹罗猫的影响**~~：已解决——keyword gate 移除后全猫统一为行首 @ 即路由
 
 ## Review Gate
 
@@ -305,8 +306,8 @@ Phase B（B1/B3）文档证据（2026-03-02）：
 
 Phase B（B5 扩展）运行时回归证据（2026-03-03）：
 - `pnpm --filter @cat-cafe/api run build` → success
-- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 11/11 pass
-- 说明：B5 已从 seed 3 条扩展到 11 条（覆盖 D1/D2/D3 与 debug/play 核心路径）
+- `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 10/10 pass
+- 说明：B5 已从 seed 3 条扩展到 10 条（覆盖 D2 去惯性 + debug/play 核心路径；D1/D3 keyword gate 测试随 PR #206 简化后合并）
 
 Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - `packages/api/src/domains/cats/services/collaboration/review-identity-gate.ts` → deleted
@@ -334,3 +335,16 @@ Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - 2026-03-03: D3 合入（PR #194 / `a93a6ea1`）：无动作 @ one-shot 反馈（`no_action` / `cross_paragraph`）+ 跨 invocation 持久化与消费
 - 2026-03-03: D4 合入（PR #195 / `3825aaea`）：移除 B6 identity gate 代码与测试，更新 B5 第 3 条为“无 identity 无效标记”
 - 2026-03-03: D1 热开关补充（本分支）：线程级 `mentionActionabilityMode` 支持 `strict/relaxed`，用于调试与非 coding 场景容错
+- 2026-03-04: 铲屎官否决 D1 keyword gate（原话："强匹配太挫了"）→ PR #206（`08fe2667`）回退为"行首 @ 即路由"，D3 feedback 一并移除
+- 2026-03-06: 三猫愿景守护检查（Opus + Codex + GPT-5.2 独立审查）→ 共识：B2 毕业为 F067，D1/D3 AC 同步到 PR #206 后语义
+- 2026-03-06: B2 毕业为 [F067](F067-cold-start-verifier.md)，F046 正式 close
+
+## Completion Sign-off（愿景守护跨猫签收）
+
+| 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
+|------|-------------|---------|------|
+| 布偶猫 Opus 4.6 | F046 spec, F041 spec, vision-drift synthesis, 17 commits, PR #206, a2a-mentions.ts 代码验证, B5 测试运行 | 核心问题（流程层愿景守护）已解决；D1/D3 经铲屎官产品决策回退，属正常迭代；B2 转 F067 | ✅ 可 close |
+| 缅因猫 Codex | F046 spec, F041 spec, vision-drift synthesis, BACKLOG, features README, a2a-mentions.ts/route-serial.ts/SystemPromptBuilder.ts 代码验证, 96 tests 全绿 | 3 个 P1（B2 未完成 + D1/D3 spec 漂移 + completion 闭环未执行）；建议先同步 spec 再 close | ✅ 同意 close（条件：先修 3 个 P1） |
+| 缅因猫 GPT-5.2 | F046 spec, F041 spec, 关联 commit/PR 证据, a2a-mentions.ts/route-serial.ts 代码验证, B4/B5 测试运行 | 同 Codex：3 个 P1 + 1 个 P2（B5 数量）；B2 转新 feature 而非 TD | ✅ 同意 close（条件：先修 P1+P2） |
+
+**铲屎官决策**（2026-03-06）：B2 转新 Feature（F067），执行 spec 同步 + completion 闭环。
