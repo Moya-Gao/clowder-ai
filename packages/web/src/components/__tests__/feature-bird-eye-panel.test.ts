@@ -217,7 +217,7 @@ describe('MissionControlPage — Feature bird eye panel', () => {
     expect(doneSection?.textContent).toContain('1 个 Feature');
 
     // F049 (all done) should NOT be visible before expanding
-    let f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
+    let f049 = container.querySelector('[data-testid="mc-bird-eye-done-chip-F049"]');
     expect(f049).toBeNull();
 
     // Click to expand done section
@@ -227,10 +227,113 @@ describe('MissionControlPage — Feature bird eye panel', () => {
       expandBtn?.click();
     });
 
-    // F049 should now be visible
-    f049 = container.querySelector('[data-testid="mc-bird-eye-feature-F049"]');
+    // F049 should now be visible as a compact chip
+    f049 = container.querySelector('[data-testid="mc-bird-eye-done-chip-F049"]');
     expect(f049).not.toBeNull();
     expect(f049?.textContent).toContain('F049');
-    expect(f049?.textContent).toContain('2 项');
+    expect(f049?.textContent).toContain('✓');
+  });
+
+  it('shows feature name extracted from item title', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'name-1',
+        userId: 'default-user',
+        title: '[F058] Mission Control 增强',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f058'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        dispatchedAt: now,
+        dispatchedThreadId: 'thread-1',
+        dispatchedThreadPhase: 'coding',
+        audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
+    expect(card).not.toBeNull();
+    expect(card?.textContent).toContain('Mission Control 增强');
+  });
+
+  it('shows thread count from title-matched threads', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'tc-1',
+        userId: 'default-user',
+        title: '[F058] Mission Control',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f058'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        dispatchedAt: now,
+        dispatchedThreadId: 'thread-1',
+        dispatchedThreadPhase: 'coding',
+        audit: [],
+      },
+    ]);
+    backend.setThreads([
+      { id: 'thread-f58-a', title: 'f058 phase A 实现', createdBy: 'default-user', lastActiveAt: now, participants: ['opus'] as never[] },
+      { id: 'thread-f58-b', title: 'f058 phase B review', createdBy: 'default-user', lastActiveAt: now, participants: ['codex'] as never[] },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const card = container.querySelector('[data-testid="mc-bird-eye-feature-F058"]');
+    expect(card).not.toBeNull();
+    // Should show thread count from title matching (2 threads contain "f058")
+    expect(card?.textContent).toContain('2 个线程关联');
+  });
+
+  it('chunks featureIds requests when >50 unique features exist', async () => {
+    const now = Date.now();
+    // Create 55 items across 55 different features (exceeds 50 limit)
+    const manyItems = Array.from({ length: 55 }, (_, i) => {
+      const fid = String(i).padStart(3, '0');
+      return {
+        id: `chunk-${i}`,
+        userId: 'default-user',
+        title: `[F${fid}] Feature ${i}`,
+        summary: 'S',
+        priority: 'p2' as const,
+        tags: [`feature:f${fid}`],
+        status: 'open' as const,
+        createdBy: 'user' as const,
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      };
+    });
+    backend.setItems(manyItems);
+    // Add a thread matching f001
+    backend.setThreads([
+      { id: 'thread-f001', title: 'f001 implementation', createdBy: 'default-user', lastActiveAt: now, participants: ['opus'] as never[] },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    // If chunking works, requests won't 400 and thread count will be found
+    const f001Card = container.querySelector('[data-testid="mc-bird-eye-feature-F001"]');
+    expect(f001Card).not.toBeNull();
+    expect(f001Card?.textContent).toContain('1 个线程关联');
   });
 });

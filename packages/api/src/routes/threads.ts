@@ -54,6 +54,8 @@ const listThreadsSchema = z.object({
   q: z.string().trim().min(1).max(200).optional(),
   backlogItemIds: z.string().trim().min(1).max(4000).optional(),
   hasBacklogItemId: z.union([z.boolean(), z.string().trim().min(1).max(8)]).optional(),
+  /** F058 Phase G: comma-separated feature IDs to match against thread titles (e.g. "f058,f042") */
+  featureIds: z.string().trim().min(1).max(2000).optional(),
 });
 
 function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean | undefined {
@@ -142,7 +144,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { threads: [] };
     }
 
-    const { projectPath, q, backlogItemIds, hasBacklogItemId: hasBacklogItemIdRaw } = parseResult.data;
+    const { projectPath, q, backlogItemIds, hasBacklogItemId: hasBacklogItemIdRaw, featureIds } = parseResult.data;
     const hasBacklogItemId = parseOptionalBooleanQuery(hasBacklogItemIdRaw);
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) return { threads: [] };
@@ -150,6 +152,30 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     let threads = projectPath
       ? await threadStore.listByProject(userId, projectPath)
       : await threadStore.list(userId);
+
+    // F058 Phase G: Match threads by feature IDs in titles
+    if (featureIds) {
+      const ids = featureIds.split(',').map((id) => id.trim().toLowerCase()).filter((id) => /^f\d{3}$/i.test(id));
+      if (ids.length > 50) {
+        reply.status(400);
+        return { error: 'Too many featureIds (max 50)' };
+      }
+      if (ids.length > 0) {
+        const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: CatId[] }>> = {};
+        for (const thread of threads) {
+          const title = (thread.title ?? '').toLowerCase();
+          for (const fid of ids) {
+            if (title.includes(fid)) {
+              const key = fid.toUpperCase();
+              const arr = threadsByFeature[key] ?? [];
+              arr.push({ id: thread.id, title: thread.title, lastActiveAt: thread.lastActiveAt, participants: thread.participants });
+              threadsByFeature[key] = arr;
+            }
+          }
+        }
+        return { threadsByFeature };
+      }
+    }
 
     const requestedBacklogIds = backlogItemIds
       ? new Set(backlogItemIds.split(',').map((id) => id.trim()).filter((id) => id.length > 0))

@@ -14,6 +14,8 @@ interface ThreadSituationSummary {
 interface FeatureBirdEyePanelProps {
   items: BacklogItem[];
   threadsByBacklogId: Record<string, ThreadSituationSummary>;
+  /** F058 Phase G: thread count per feature from title matching */
+  threadCountByFeature?: Record<string, number>;
 }
 
 const STATUS_LABELS: Record<BacklogStatus, string> = {
@@ -71,7 +73,15 @@ function isFeatureAllDone(featureItems: BacklogItem[]): boolean {
   return featureItems.length > 0 && featureItems.every((i) => i.status === 'done');
 }
 
-export function FeatureBirdEyePanel({ items, threadsByBacklogId }: FeatureBirdEyePanelProps) {
+/** Extract readable feature name from item title like "[F058] Mission Control 增强" → "Mission Control 增强" */
+function extractFeatureName(items: BacklogItem[]): string | null {
+  const first = items[0];
+  if (!first) return null;
+  const match = first.title.match(/^\[F\d+\]\s*(.+)/);
+  return match?.[1]?.trim() ?? null;
+}
+
+export function FeatureBirdEyePanel({ items, threadsByBacklogId, threadCountByFeature }: FeatureBirdEyePanelProps) {
   const [doneExpanded, setDoneExpanded] = useState(false);
   const groups = groupByFeature(items);
   if (groups.length === 0) return null;
@@ -84,7 +94,7 @@ export function FeatureBirdEyePanel({ items, threadsByBacklogId }: FeatureBirdEy
       <h2 className="mb-2 text-sm font-semibold text-[#2C2118]">Feature 鸟瞰</h2>
       <div className="space-y-2">
         {activeGroups.map(([tag, featureItems]) => (
-          <FeatureCard key={tag} tag={tag} featureItems={featureItems} threadsByBacklogId={threadsByBacklogId} />
+          <FeatureCard key={tag} tag={tag} featureItems={featureItems} threadsByBacklogId={threadsByBacklogId} titleThreadCount={threadCountByFeature?.[tag]} />
         ))}
       </div>
       {doneGroups.length > 0 && (
@@ -98,9 +108,9 @@ export function FeatureBirdEyePanel({ items, threadsByBacklogId }: FeatureBirdEy
             <span className="text-[11px] text-[#6B8F65]">{doneExpanded ? '收起 ▲' : '展开 ▼'}</span>
           </button>
           {doneExpanded && (
-            <div className="mt-2 space-y-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               {doneGroups.map(([tag, featureItems]) => (
-                <FeatureCard key={tag} tag={tag} featureItems={featureItems} threadsByBacklogId={threadsByBacklogId} />
+                <DoneFeatureChip key={tag} tag={tag} featureItems={featureItems} />
               ))}
             </div>
           )}
@@ -114,13 +124,18 @@ function FeatureCard({
   tag,
   featureItems,
   threadsByBacklogId,
+  titleThreadCount,
 }: {
   tag: string;
   featureItems: BacklogItem[];
   threadsByBacklogId: Record<string, ThreadSituationSummary>;
+  titleThreadCount?: number;
 }) {
   const counts = countByStatus(featureItems);
   const activeThreadCount = featureItems.filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id]).length;
+  const featureName = extractFeatureName(featureItems);
+  // Combine dispatched-linked threads + title-matched threads (avoid double-counting)
+  const totalThreads = Math.max(activeThreadCount, titleThreadCount ?? 0);
 
   return (
     <article
@@ -128,8 +143,13 @@ function FeatureCard({
       data-testid={`mc-bird-eye-feature-${tag}`}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-[#4B3A2A]">{tag}</span>
-        <span className="text-[11px] text-[#8B7864]">{featureItems.length} 项</span>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs font-semibold text-[#4B3A2A] shrink-0">{tag}</span>
+          {featureName && (
+            <span className="text-[11px] text-[#8B7864] truncate">{featureName}</span>
+          )}
+        </div>
+        <span className="text-[11px] text-[#8B7864] shrink-0 ml-2">{featureItems.length} 项</span>
       </div>
       <div className="mt-1.5 flex flex-wrap gap-1">
         {(Object.entries(counts) as [BacklogStatus, number][]).map(([status, count]) => (
@@ -141,7 +161,22 @@ function FeatureCard({
           </span>
         ))}
       </div>
-      {activeThreadCount > 0 && <p className="mt-1 text-[11px] text-[#6E5A46]">{activeThreadCount} 个线程运行中</p>}
+      {totalThreads > 0 && <p className="mt-1 text-[11px] text-[#6E5A46]">{totalThreads} 个线程关联</p>}
     </article>
+  );
+}
+
+/** Compact chip for done features in the collapsed summary */
+function DoneFeatureChip({ tag, featureItems }: { tag: string; featureItems: BacklogItem[] }) {
+  const featureName = extractFeatureName(featureItems);
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-[#E8F5E2] px-2 py-0.5 text-[10px] text-[#3A6E34]"
+      data-testid={`mc-bird-eye-done-chip-${tag}`}
+    >
+      <span className="font-medium">{tag}</span>
+      {featureName && <span className="text-[#6B8F65] max-w-[120px] truncate">{featureName}</span>}
+      <span>✓</span>
+    </span>
   );
 }

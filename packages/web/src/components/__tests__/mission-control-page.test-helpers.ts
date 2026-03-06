@@ -177,6 +177,28 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
 
     if (path.startsWith('/api/threads') && (!init?.method || init.method === 'GET')) {
       const url = new URL(path, 'http://localhost');
+
+      // F058 Phase G: featureIds query returns threadsByFeature grouped response
+      const featureIdsCsv = url.searchParams.get('featureIds');
+      if (featureIdsCsv) {
+        const fids = featureIdsCsv.split(',').map((id) => id.trim().toLowerCase()).filter(Boolean);
+        // Enforce 50-ID limit (matching backend)
+        if (fids.length > 50) return mockResponse(400, { error: 'Too many featureIds (max 50)' });
+        const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: string[] }>> = {};
+        for (const thread of threads) {
+          const title = (thread.title ?? '').toLowerCase();
+          for (const fid of fids) {
+            if (title.includes(fid)) {
+              const key = fid.toUpperCase();
+              const arr = threadsByFeature[key] ?? [];
+              arr.push({ id: thread.id, title: thread.title ?? null, lastActiveAt: thread.lastActiveAt, participants: [...thread.participants] });
+              threadsByFeature[key] = arr;
+            }
+          }
+        }
+        return mockResponse(200, { threadsByFeature });
+      }
+
       const backlogFilterCsv = url.searchParams.get('backlogItemIds');
       const backlogFilters = backlogFilterCsv
         ? new Set(

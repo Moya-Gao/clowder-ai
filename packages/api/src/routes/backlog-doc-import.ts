@@ -145,6 +145,18 @@ export function parseFeatureDocStatus(markdown: string): string | null {
   return match?.[1]?.trim().toLowerCase() ?? null;
 }
 
+/** Extract feature name from heading like `# F049: Mission Hub — Backlog Center(...)` */
+export function parseFeatureDocName(markdown: string): string | null {
+  const match = markdown.match(/^#\s+F\d{3}:\s*(.+)/m);
+  return match?.[1]?.trim() ?? null;
+}
+
+/** Extract owner from `> **Owner**: 三猫` */
+function parseFeatureDocOwner(markdown: string): string {
+  const match = markdown.match(/>\s*\*\*Owner\*\*:\s*(.+)/i);
+  return match?.[1]?.trim() ?? '三猫';
+}
+
 function extractFeatureIds(text: string): string[] {
   return [...text.matchAll(/F\d{3}/gi)].map((m) => m[0].toLowerCase());
 }
@@ -238,4 +250,46 @@ export async function readActiveFeaturesFromBacklog(backlogDocPath?: string): Pr
   const resolvedPath = backlogDocPath ?? join(findMonorepoRoot(), 'docs', 'BACKLOG.md');
   const markdown = await readFile(resolvedPath, 'utf-8');
   return parseActiveFeaturesFromBacklog(markdown);
+}
+
+/**
+ * Read docs/features/*.md and return BacklogFeatureRow[] for features
+ * whose status is "done" (historical features not in BACKLOG.md).
+ * Excludes features already present in `excludeIds`.
+ */
+export async function readDoneFeatureDocsAsRows(
+  excludeIds: Set<string>,
+  featuresDir?: string,
+): Promise<BacklogFeatureRow[]> {
+  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
+  const rows: BacklogFeatureRow[] = [];
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return rows;
+  }
+  for (const entry of entries) {
+    const idMatch = entry.match(/^(F\d{3})/i);
+    if (!idMatch) continue;
+    const featureId = idMatch[1]!.toUpperCase();
+    if (excludeIds.has(featureId.toLowerCase())) continue;
+    try {
+      const content = await readFile(join(dir, entry), 'utf-8');
+      const status = parseFeatureDocStatus(content);
+      if (status !== 'done') continue;
+      const name = parseFeatureDocName(content) ?? entry.replace(/\.md$/, '');
+      const owner = parseFeatureDocOwner(content);
+      rows.push({
+        id: featureId,
+        name,
+        status: 'done',
+        owner,
+        link: `features/${entry}`,
+      });
+    } catch {
+      // skip unreadable files
+    }
+  }
+  return rows;
 }

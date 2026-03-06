@@ -192,6 +192,36 @@ describe('Thread API', () => {
     assert.ok(!titles.includes('Bob Linked'));
   });
 
+  it('GET /api/threads with featureIds returns threadsByFeature grouped by title match', async () => {
+    threadStore.create('alice', 'f058 phase A 实现');
+    threadStore.create('alice', 'f058 phase B review');
+    threadStore.create('alice', 'f042 prompt audit');
+    threadStore.create('alice', 'unrelated thread');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&featureIds=f058,f042',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(body.threadsByFeature);
+    assert.equal(body.threadsByFeature.F058?.length, 2);
+    assert.equal(body.threadsByFeature.F042?.length, 1);
+    assert.equal(body.threadsByFeature.F042[0].title, 'f042 prompt audit');
+  });
+
+  it('GET /api/threads with featureIds rejects more than 50 IDs', async () => {
+    const ids = Array.from({ length: 51 }, (_, i) => `f${String(i).padStart(3, '0')}`).join(',');
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/threads?userId=alice&featureIds=${encodeURIComponent(ids)}`,
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error?.includes('50'));
+  });
+
   it('GET /api/threads/:id returns thread details', async () => {
     const thread = threadStore.create('alice', 'Details Test');
 

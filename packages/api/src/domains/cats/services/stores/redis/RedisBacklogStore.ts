@@ -396,7 +396,18 @@ export class RedisBacklogStore implements IBacklogStore {
           timestamp: now,
           detail: input.title,
         },
+        // When importing as done, add done audit + doneAt in one shot
+        ...(input.initialStatus === 'done'
+          ? [{
+            id: generateSortableId(now + 2),
+            action: 'done' as const,
+            actor: makeCreatorActor(input),
+            timestamp: now,
+            detail: 'imported as done',
+          }]
+          : []),
       ],
+      ...(input.initialStatus === 'done' ? { doneAt: now } : {}),
     };
 
     await this.writeItem(item);

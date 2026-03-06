@@ -158,3 +158,22 @@ describe('buildBacklogInputFromFeature initialStatus', () => {
     assert.strictEqual(input.initialStatus, 'dispatched');
   });
 });
+
+describe('parseFeatureDocName', () => {
+  test('extracts name from heading like # F049: Mission Hub — Backlog Center', async () => {
+    const { parseFeatureDocName } = await import('../dist/routes/backlog-doc-import.js');
+    const md = '# F049: Mission Hub — Backlog Center\n\n> **Status**: done';
+    assert.strictEqual(parseFeatureDocName(md), 'Mission Hub — Backlog Center');
+  });
+
+  test('returns null for no heading', async () => {
+    const { parseFeatureDocName } = await import('../dist/routes/backlog-doc-import.js');
+    assert.strictEqual(parseFeatureDocName('No heading here'), null);
+  });
+
+  test('extracts from heading with extra whitespace', async () => {
+    const { parseFeatureDocName } = await import('../dist/routes/backlog-doc-import.js');
+    const md = '#  F058:  Mission Control 增强  \n';
+    assert.strictEqual(parseFeatureDocName(md), 'Mission Control 增强');
+  });
+});

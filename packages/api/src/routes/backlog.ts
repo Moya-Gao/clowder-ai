@@ -9,10 +9,12 @@ import { generateSortableId, type IMessageStore } from '../domains/cats/services
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import {
+  type BacklogFeatureRow,
   buildBacklogInputFromFeature,
   featureStatusToBacklogStatus,
   getFeatureTagId,
   readActiveFeaturesFromBacklog,
+  readDoneFeatureDocsAsRows,
   readFeatureDocDependencies,
   readFeatureDocStatuses,
 } from './backlog-doc-import.js';
@@ -22,6 +24,8 @@ export interface BacklogRoutesOptions {
   threadStore: IThreadStore;
   messageStore: IMessageStore;
   backlogDocPath?: string;
+  /** F058 Phase G: override path to docs/features/ directory for done-feature import */
+  featuresDir?: string;
   resolveSelfClaimScope?: (catId: CatId) => MissionHubSelfClaimScope;
 }
 
@@ -355,7 +359,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     // F058: Read dependencies from feature docs
     let featureDepsMap: Map<string, import('@cat-cafe/shared').BacklogDependencies>;
     try {
-      featureDepsMap = await readFeatureDocDependencies();
+      featureDepsMap = await readFeatureDocDependencies(opts.featuresDir);
     } catch {
       featureDepsMap = new Map();
     }
@@ -420,7 +424,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     // F058: Also mark items whose feature doc says "done"
     let featureDocStatuses: Map<string, string>;
     try {
-      featureDocStatuses = await readFeatureDocStatuses();
+      featureDocStatuses = await readFeatureDocStatuses(opts.featuresDir);
     } catch {
       featureDocStatuses = new Map();
     }
@@ -436,15 +440,36 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       }
     }
 
+    // F058 Phase G: Import historical done features from docs/features/*.md
+    const allKnownFeatureIds = new Set(existingByFeatureId.keys());
+    let doneFeatureRows: BacklogFeatureRow[];
+    try {
+      doneFeatureRows = await readDoneFeatureDocsAsRows(allKnownFeatureIds, opts.featuresDir);
+    } catch {
+      doneFeatureRows = [];
+    }
+    const historicalDoneIds: string[] = [];
+    for (const row of doneFeatureRows) {
+      const featureId = row.id.toLowerCase();
+      if (existingByFeatureId.has(featureId)) continue;
+      const featureDeps = featureDepsMap.get(featureId);
+      const input = buildBacklogInputFromFeature(row, userId, featureDeps);
+      const created = await backlogStore.create(input);
+      existingByFeatureId.set(featureId, created);
+      historicalDoneIds.push(created.id);
+    }
+
     return {
       totalActive: features.length,
       imported: importedItemIds.length,
       refreshed: refreshedItemIds.length,
       skipped,
       markedDone: markedDoneIds.length,
+      historicalDone: historicalDoneIds.length,
       importedItemIds,
       refreshedItemIds,
       markedDoneIds,
+      historicalDoneIds,
     };
   });
 

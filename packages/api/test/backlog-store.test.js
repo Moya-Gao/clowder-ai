@@ -631,6 +631,49 @@ describe('BacklogStore markDone', () => {
   });
 });
 
+describe('BacklogStore create with initialStatus=done', () => {
+  /** @type {import('../dist/domains/cats/services/stores/ports/BacklogStore.js').BacklogStore} */
+  let store;
+
+  beforeEach(async () => {
+    const { BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js');
+    store = new BacklogStore();
+  });
+
+  test('sets doneAt and done audit entry when initialStatus is done', () => {
+    const item = store.create({
+      userId: 'u1',
+      title: 'Historical done',
+      summary: 'S',
+      priority: 'p2',
+      tags: ['feature:f010'],
+      createdBy: 'user',
+      initialStatus: 'done',
+    });
+    assert.equal(item.status, 'done');
+    assert.ok(item.doneAt, 'doneAt should be set');
+    assert.equal(typeof item.doneAt, 'number');
+    // Should have both 'created' and 'done' audit entries
+    const actions = item.audit.map((a) => a.action);
+    assert.ok(actions.includes('created'), 'should have created audit');
+    assert.ok(actions.includes('done'), 'should have done audit');
+  });
+
+  test('does not set doneAt when initialStatus is not done', () => {
+    const item = store.create({
+      userId: 'u1',
+      title: 'Active item',
+      summary: 'S',
+      priority: 'p2',
+      tags: [],
+      createdBy: 'user',
+      initialStatus: 'dispatched',
+    });
+    assert.equal(item.status, 'dispatched');
+    assert.equal(item.doneAt, undefined);
+  });
+});
+
 describe('BacklogStore atomicDispatch', () => {
   let BacklogStore;
 

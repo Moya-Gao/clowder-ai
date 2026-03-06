@@ -2,7 +2,7 @@ import './helpers/setup-cat-registry.js';
 import { describe, test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import Fastify from 'fastify';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -932,6 +932,8 @@ describe('Backlog Routes', () => {
   test('imports active features from docs backlog and refreshes existing feature metadata', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');
+    const featuresDir = join(tempDir, 'features');
+    await mkdir(featuresDir, { recursive: true });
 
     await writeFile(backlogDocPath, `# Cat Cafe Feature Roadmap
 
@@ -942,7 +944,7 @@ describe('Backlog Routes', () => {
 `);
 
     try {
-      const app = await createApp({ backlogDocPath });
+      const app = await createApp({ backlogDocPath, featuresDir });
 
       const firstImport = await app.inject({
         method: 'POST',
@@ -1231,6 +1233,8 @@ describe('Backlog Routes', () => {
   test('refresh prefers newest duplicate feature-tagged item', async () => {
     const tempDir = await mkdtemp(join(tmpdir(), 'cat-cafe-backlog-import-dupe-'));
     const backlogDocPath = join(tempDir, 'BACKLOG.md');
+    const featuresDir = join(tempDir, 'features');
+    await mkdir(featuresDir, { recursive: true });
 
     await writeFile(backlogDocPath, `# Cat Cafe Feature Roadmap
 
@@ -1240,7 +1244,7 @@ describe('Backlog Routes', () => {
 `);
 
     try {
-      const app = await createApp({ backlogDocPath });
+      const app = await createApp({ backlogDocPath, featuresDir });
 
       const older = await backlogStore.create({
         userId: 'default-user',

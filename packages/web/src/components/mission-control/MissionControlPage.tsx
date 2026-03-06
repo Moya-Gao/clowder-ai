@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
 import { useMissionControlStore } from '@/stores/missionControlStore';
 import { apiFetch } from '@/utils/api-client';
-import { FeatureBirdEyePanel } from './FeatureBirdEyePanel';
+import { extractFeatureId, FeatureBirdEyePanel } from './FeatureBirdEyePanel';
 import { MissionControlCard } from './MissionControlCard';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
@@ -65,6 +65,7 @@ export function MissionControlPage() {
   const [selfClaimScopes, setSelfClaimScopes] = useState<Record<string, MissionHubSelfClaimScope>>({});
   const [selfClaimPolicyBlocker, setSelfClaimPolicyBlocker] = useState<SelfClaimPolicyBlocker>(null);
   const [threadsByBacklogId, setThreadsByBacklogId] = useState<Record<string, ThreadSituationSummary>>({});
+  const [threadCountByFeature, setThreadCountByFeature] = useState<Record<string, number>>({});
   const [threadsLoading, setThreadsLoading] = useState(false);
   const {
     items,
@@ -136,6 +137,16 @@ export function MissionControlPage() {
   const doneItems = useMemo(() => items.filter((item) => item.status === 'done'), [items]);
   const dispatchedBacklogIds = useMemo(() => dispatchedItems.map((item) => item.id), [dispatchedItems]);
 
+  /** F058 Phase G: unique feature IDs from all items for thread title search */
+  const uniqueFeatureIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const item of items) {
+      const fid = extractFeatureId(item.tags);
+      if (fid !== 'Untagged') ids.add(fid);
+    }
+    return [...ids];
+  }, [items]);
+
   const loadThreadSituations = useCallback(async (backlogItemIds: string[]) => {
     const requestSeq = ++threadSituationRequestSeq.current;
     if (backlogItemIds.length === 0) {
@@ -169,6 +180,38 @@ export function MissionControlPage() {
   useEffect(() => {
     void loadThreadSituations(dispatchedBacklogIds);
   }, [dispatchedBacklogIds, loadThreadSituations]);
+
+  /** F058 Phase G: Fetch thread counts by feature ID from title matching (chunked to respect 50-ID limit) */
+  useEffect(() => {
+    if (uniqueFeatureIds.length === 0) {
+      setThreadCountByFeature({});
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const CHUNK_SIZE = 50;
+        const merged: Record<string, number> = {};
+        for (let i = 0; i < uniqueFeatureIds.length; i += CHUNK_SIZE) {
+          if (controller.signal.aborted) return;
+          const chunk = uniqueFeatureIds.slice(i, i + CHUNK_SIZE);
+          const response = await apiFetch(
+            `/api/threads?featureIds=${encodeURIComponent(chunk.join(','))}`,
+            { signal: controller.signal },
+          );
+          if (!response.ok || controller.signal.aborted) return;
+          const body = (await response.json()) as { threadsByFeature?: Record<string, unknown[]> };
+          for (const [fid, threads] of Object.entries(body.threadsByFeature ?? {})) {
+            merged[fid] = (merged[fid] ?? 0) + threads.length;
+          }
+        }
+        if (!controller.signal.aborted) setThreadCountByFeature(merged);
+      } catch {
+        // ignore abort / network errors
+      }
+    })();
+    return () => controller.abort();
+  }, [uniqueFeatureIds]);
 
   const withSubmitGuard = useCallback(
     async (task: () => Promise<void>) => {
@@ -459,7 +502,7 @@ export function MissionControlPage() {
             />
             </div>
             <div className="min-h-0 overflow-auto">
-            <FeatureBirdEyePanel items={items} threadsByBacklogId={threadsByBacklogId} />
+            <FeatureBirdEyePanel items={items} threadsByBacklogId={threadsByBacklogId} threadCountByFeature={threadCountByFeature} />
             </div>
           </div>
         </div>
