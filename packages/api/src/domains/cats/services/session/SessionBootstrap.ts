@@ -15,6 +15,7 @@ import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
 import type { TranscriptReader } from './TranscriptReader.js';
 import type { ExtractiveDigestV1 } from './TranscriptWriter.js';
 import type { ITaskStore } from '../stores/ports/TaskStore.js';
+import type { IThreadStore } from '../stores/ports/ThreadStore.js';
 import { formatTaskSnapshot } from './formatTaskSnapshot.js';
 import { estimateTokens } from '../../../../utils/token-counter.js';
 
@@ -31,6 +32,8 @@ export interface BootstrapContext {
   hasDigest: boolean;
   /** F065: Whether a task snapshot was injected */
   hasTaskSnapshot: boolean;
+  /** F065 Phase B: Whether thread memory was injected */
+  hasThreadMemory: boolean;
 }
 
 export interface SessionBootstrapOptions {
@@ -38,6 +41,8 @@ export interface SessionBootstrapOptions {
   transcriptReader: TranscriptReader;
   /** F065: Task store for task snapshot injection */
   taskStore?: ITaskStore;
+  /** F065 Phase B: Thread store for ThreadMemory injection */
+  threadStore?: IThreadStore;
 }
 
 /**
@@ -81,8 +86,23 @@ export async function buildSessionBootstrap(
   );
 
   // Build sections separately for section-aware token cap (AC-5, R4 P1-1)
-  // Priority: identity (always keep) > tools (always keep) > task snapshot > digest
+  // Priority: identity (always keep) > tools (always keep) > threadMemory > digest > task snapshot
   const identitySection = parts.join('\n');
+
+  // F065 Phase B: Thread Memory (rolling summary across sealed sessions)
+  let threadMemorySection = '';
+  let hasThreadMemory = false;
+  if (opts.threadStore) {
+    try {
+      const mem = await opts.threadStore.getThreadMemory(threadId);
+      if (mem && mem.summary) {
+        threadMemorySection = `\n[Thread Memory — ${mem.sessionsIncorporated} sessions]\n${mem.summary}`;
+        hasThreadMemory = true;
+      }
+    } catch {
+      // best-effort
+    }
+  }
 
   let digestSection = '';
   // 2. Previous Session Digest
@@ -138,32 +158,40 @@ export async function buildSessionBootstrap(
   const toolsSection = toolLines.join('\n');
 
   // Section-aware token cap (AC-5): identity + tools are always kept.
-  // Drop task snapshot first (least critical), then digest, to fit within budget.
+  // Drop order: task snapshot (lowest) → digest → threadMemory (highest variable priority).
   const baseTokens = estimateTokens(identitySection + toolsSection);
   const remainingBudget = MAX_BOOTSTRAP_TOKENS - baseTokens;
 
+  const tmTokens = hasThreadMemory ? estimateTokens(threadMemorySection) : 0;
   const digestTokens = hasDigest ? estimateTokens(digestSection) : 0;
   const taskTokens = hasTaskSnapshot ? estimateTokens(taskSection) : 0;
 
-  if (digestTokens + taskTokens > remainingBudget) {
-    // Combined exceeds budget — drop task snapshot first (lower priority)
+  if (tmTokens + digestTokens + taskTokens > remainingBudget) {
+    // Drop task snapshot first (lowest priority)
     taskSection = '';
     hasTaskSnapshot = false;
 
-    // If digest alone still exceeds budget, drop it too
-    if (digestTokens > remainingBudget) {
+    if (tmTokens + digestTokens > remainingBudget) {
+      // Drop digest next
       digestSection = '';
       hasDigest = false;
+
+      if (tmTokens > remainingBudget) {
+        // Drop thread memory last resort
+        threadMemorySection = '';
+        hasThreadMemory = false;
+      }
     }
   }
 
-  const text = identitySection + digestSection + taskSection + toolsSection;
+  const text = identitySection + threadMemorySection + digestSection + taskSection + toolsSection;
 
   return {
     text,
     sessionSeq: currentSeq,
     hasDigest,
     hasTaskSnapshot,
+    hasThreadMemory,
   };
 }
 

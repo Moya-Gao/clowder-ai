@@ -46,6 +46,7 @@ import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrch
 import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
 import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
 import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
+import { getCatContextBudget } from './config/cat-budgets.js';
 import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter, ConnectorInvokeTrigger } from './infrastructure/email/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
@@ -131,7 +132,13 @@ async function main(): Promise<void> {
   const transcriptDataDir = process.env['TRANSCRIPT_DATA_DIR'] ?? './data/transcripts';
   const transcriptWriter = new TranscriptWriter({ dataDir: transcriptDataDir });
   const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
-  const sessionSealer = new SessionSealer(sessionChainStore, transcriptWriter);
+  const sessionSealer = new SessionSealer(
+    sessionChainStore,
+    transcriptWriter,
+    threadStore,
+    transcriptReader,
+    (catId) => getCatContextBudget(catId).maxPromptTokens,
+  );
 
   const sharedHindsightBank = 'cat-cafe-shared';
   const hindsightClient = createHindsightClient();

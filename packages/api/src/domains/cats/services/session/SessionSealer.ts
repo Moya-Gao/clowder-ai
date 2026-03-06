@@ -11,8 +11,12 @@
  */
 
 import type { SessionStatus, SealResult } from '@cat-cafe/shared';
+import type { CatId } from '@cat-cafe/shared';
 import type { ISessionChainStore } from '../stores/ports/SessionChainStore.js';
-import type { TranscriptWriter } from './TranscriptWriter.js';
+import type { IThreadStore } from '../stores/ports/ThreadStore.js';
+import type { TranscriptWriter, ExtractiveDigestV1 } from './TranscriptWriter.js';
+import type { TranscriptReader } from './TranscriptReader.js';
+import { buildThreadMemory } from './buildThreadMemory.js';
 
 export type SealReason = 'threshold' | 'manual' | 'error' | (string & {});
 
@@ -38,11 +42,15 @@ export interface ISessionSealer {
  * In-memory SessionSealer implementation.
  * Uses ISessionChainStore for all state mutations.
  * Optionally uses TranscriptWriter for Phase C transcript flush.
+ * F065 Phase B: Optionally updates ThreadMemory on seal.
  */
 export class SessionSealer implements ISessionSealer {
   constructor(
     private readonly store: ISessionChainStore,
     private readonly transcriptWriter?: TranscriptWriter,
+    private readonly threadStore?: IThreadStore,
+    private readonly transcriptReader?: TranscriptReader,
+    private readonly getMaxPromptTokens?: (catId: CatId) => number,
   ) {}
 
   async requestSeal(args: {
@@ -105,6 +113,27 @@ export class SessionSealer implements ISessionSealer {
         );
       } catch {
         // best-effort: transcript flush failure doesn't prevent sealing
+      }
+    }
+
+    // F065 Phase B: Update thread memory after successful digest write
+    if (this.threadStore && this.transcriptReader) {
+      try {
+        const digest = await this.transcriptReader.readDigest(record.id, record.threadId, record.catId);
+        if (digest) {
+          const existingMemory = await this.threadStore.getThreadMemory(record.threadId);
+          // KD-5 dynamic cap: min(3000, floor(maxPromptTokens * 0.03)), floor 1200
+          const maxPrompt = this.getMaxPromptTokens?.(record.catId as CatId) ?? 180000;
+          const maxTokens = Math.max(1200, Math.min(3000, Math.floor(maxPrompt * 0.03)));
+          const updated = buildThreadMemory(
+            existingMemory,
+            digest as unknown as ExtractiveDigestV1,
+            maxTokens,
+          );
+          await this.threadStore.updateThreadMemory(record.threadId, updated);
+        }
+      } catch {
+        // best-effort: thread memory update failure doesn't prevent sealing
       }
     }
 

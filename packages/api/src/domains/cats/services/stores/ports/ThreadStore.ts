@@ -50,6 +50,17 @@ export interface ThreadRoutingPolicyV1 {
   scopes?: Partial<Record<ThreadRoutingScope, ThreadRoutingRule>>;
 }
 
+/** F065 Phase B: Rolling thread-level memory across sealed sessions. */
+export interface ThreadMemoryV1 {
+  v: 1;
+  /** Rolling summary text */
+  summary: string;
+  /** Number of sealed sessions incorporated into this memory */
+  sessionsIncorporated: number;
+  /** Unix timestamp of last update */
+  updatedAt: number;
+}
+
 export type MentionRoutingSuppressionReason = 'no_action' | 'cross_paragraph';
 export type MentionActionabilityMode = 'strict' | 'relaxed';
 
@@ -98,6 +109,8 @@ export interface Thread {
   backlogItemId?: string;
   /** F042: Thread-scoped routing policy (by intent/scope). */
   routingPolicy?: ThreadRoutingPolicyV1;
+  /** F065 Phase B: Rolling memory across sealed sessions */
+  threadMemory?: ThreadMemoryV1;
 }
 
 /**
@@ -137,6 +150,10 @@ export interface IThreadStore {
   ): ThreadMentionRoutingFeedback | null | Promise<ThreadMentionRoutingFeedback | null>;
   /** F042: Set or clear thread routing policy. `null` clears. */
   updateRoutingPolicy(threadId: string, policy: ThreadRoutingPolicyV1 | null): void | Promise<void>;
+  /** F065 Phase B: Get thread memory (rolling summary). */
+  getThreadMemory(threadId: string): ThreadMemoryV1 | null | Promise<ThreadMemoryV1 | null>;
+  /** F065 Phase B: Update thread memory after session seal. */
+  updateThreadMemory(threadId: string, memory: ThreadMemoryV1): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -374,6 +391,16 @@ export class ThreadStore implements IThreadStore {
     }
 
     thread.routingPolicy = policy;
+  }
+
+  getThreadMemory(threadId: string): ThreadMemoryV1 | null {
+    const thread = this.get(threadId);
+    return thread?.threadMemory ?? null;
+  }
+
+  updateThreadMemory(threadId: string, memory: ThreadMemoryV1): void {
+    const thread = this.get(threadId);
+    if (thread) thread.threadMemory = memory;
   }
 
   updateLastActive(threadId: string): void {

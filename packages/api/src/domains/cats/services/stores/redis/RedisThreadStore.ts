@@ -22,6 +22,7 @@ import type {
   ThreadParticipantActivity,
   ThreadMentionRoutingFeedback,
   ThreadRoutingPolicyV1,
+  ThreadMemoryV1,
 } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
@@ -89,6 +90,25 @@ if value then
 end
 return value
 `;
+
+/** R1 P2-1: Shared validation for ThreadMemoryV1 JSON — rejects incomplete/corrupt data. */
+function parseThreadMemoryJson(raw: string): ThreadMemoryV1 | null {
+  try {
+    const p = JSON.parse(raw);
+    if (
+      p && typeof p === 'object' &&
+      p.v === 1 &&
+      typeof p.summary === 'string' &&
+      Number.isFinite(p.sessionsIncorporated) &&
+      Number.isFinite(p.updatedAt)
+    ) {
+      return p as ThreadMemoryV1;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export class RedisThreadStore implements IThreadStore {
   private readonly redis: RedisClient;
@@ -380,6 +400,24 @@ export class RedisThreadStore implements IThreadStore {
     );
   }
 
+  async getThreadMemory(threadId: string): Promise<ThreadMemoryV1 | null> {
+    const key = ThreadKeys.detail(threadId);
+    const raw = await this.redis.hget(key, 'threadMemory');
+    if (!raw) return null;
+    return parseThreadMemoryJson(raw);
+  }
+
+  async updateThreadMemory(threadId: string, memory: ThreadMemoryV1): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    await this.redis.eval(
+      HSET_IF_HAS_ID_LUA,
+      1,
+      key,
+      'threadMemory',
+      JSON.stringify(memory),
+    );
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -471,6 +509,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.routingPolicy) {
       result['routingPolicy'] = JSON.stringify(thread.routingPolicy);
     }
+    if (thread.threadMemory) {
+      result['threadMemory'] = JSON.stringify(thread.threadMemory);
+    }
     return result;
   }
 
@@ -519,6 +560,10 @@ export class RedisThreadStore implements IThreadStore {
           result.routingPolicy = parsed as ThreadRoutingPolicyV1;
         }
       } catch { /* ignore malformed JSON — treat as no policy */ }
+    }
+    if (data['threadMemory']) {
+      const mem = parseThreadMemoryJson(data['threadMemory']);
+      if (mem) result.threadMemory = mem;
     }
     return result;
   }
