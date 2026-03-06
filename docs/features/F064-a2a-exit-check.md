@@ -1,7 +1,7 @@
 ---
 feature_id: F064
 title: A2A 出口检查 — 链条终止盲区修复
-status: in-progress
+status: done
 owner: 布偶猫
 created: 2026-03-05
 topics: [a2a, prompt-engineering, collaboration]
