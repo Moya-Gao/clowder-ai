@@ -317,6 +317,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **P2C-2 Diff 可视化合入** (PR #253): unified/side-by-side diff viewer + ChangesPanel + API /workspace/diff，砚砚 R1→R3 (P0 denylist 泄漏+P1 rename 映射修复)，7 新测试 |
 | 2026-03-06 | 云端 review PR #253: 1 P2 — rename delimiter `" -> "` 解析对含字面 `->` 的文件名误判（应仅 R/C 状态执行 rename split） |
 | 2026-03-06 | **P2 fix 合入** (PR #254): rename delimiter 仅对 R/C 状态执行，砚砚 R1 通过 + 云端 "Swish!" 通过 |
+| 2026-03-06 | 砚砚+GPT-5.4 独立愿景守护审查：主链路 80% 打通，3 条猫尾巴（untracked diff / worktree-aware link / JSX 预览→Phase 3） |
+| 2026-03-06 | **愿景守护修复合入** (PR #255): P2C-fix-1 untracked diff + P2C-fix-2 worktree-aware link，砚砚 R1 通过 + 云端 P2 修复（relative path in diff header） |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -403,8 +405,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 来源 | 优先 |
 |------|------|------|------|
-| P2C-fix-1 | untracked 文件 diff：`??` 文件在 Changes 列表可见但无 diff 内容（`git diff HEAD` 天然不覆盖未跟踪文件）→ 用 `git diff --no-index` 补充 | codex P2 + gpt52 P2 | **P1** |
-| P2C-fix-2 | worktree-aware chat link：聊天中文件引用带 `🌿 branch` 文本但点击不会切换 worktree，落到错工地 | gpt52 P1 | **P1** |
+| P2C-fix-1 | untracked 文件 diff：`??` 文件在 Changes 列表可见但无 diff 内容（`git diff HEAD` 天然不覆盖未跟踪文件）→ 用 `git diff --no-index` 补充 | codex P2 + gpt52 P2 | **done** |
+| P2C-fix-2 | worktree-aware chat link：聊天中文件引用带 `🌿 branch` 文本但点击不会切换 worktree，落到错工地 | gpt52 P1 | **done** |
 | P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild)，复杂度高，**推到 Phase 3** | codex P1 + gpt52 P1 | Phase 3 |
 
 ### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
