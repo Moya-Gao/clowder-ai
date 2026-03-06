@@ -81,12 +81,12 @@ fi
 MODEL_TRIMMED="$(echo "$MODEL" | tr -d '[:space:]')"
 
 if [ -z "$MODEL_TRIMMED" ]; then
-  emit_decision "deny" "Task 调用缺少 model 参数。请显式设置 model（haiku/sonnet/opus），避免默认继承父模型导致不必要的高成本。"
+  emit_decision "deny" "⛔ Agent 调用被拦截：缺少 model 参数。请立即用相同参数重试，加上 model=haiku（搜索/grep/简单任务）或 model=sonnet（多文件分析）。不要改用 Grep/Read 自己做——那样会污染你的 Opus context，更贵。"
   exit 0
 fi
 
 if [ "$MODEL_TRIMMED" = "opus" ]; then
-  emit_decision "ask" "subagent 使用 opus。请确认这是必须的深度任务；多数子任务可用 haiku/sonnet 完成。"
+  emit_decision "ask" "⚠️ Agent 使用 model=opus。大多数子任务用 haiku（搜索）或 sonnet（代码分析）就够了。确认这是必须 opus 级深度的任务？"
 fi
 
 exit 0
