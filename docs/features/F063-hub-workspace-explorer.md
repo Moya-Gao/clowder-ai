@@ -191,7 +191,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-12: 搜索栏支持文件名搜索模式（输入文件名/路径片段 → 快速定位 + 显示相对路径 → 点击导航）
 - [x] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
 - [x] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
-- [ ] AC-15: 铲屎官可在文件查看器中选中代码行/文件路径，点击"引用到聊天"按钮插入到输入框（类似 Claude.ai 的 "Add to chat"）
+- [x] AC-15: 铲屎官可在文件查看器中选中代码行/文件路径，点击"引用到聊天"按钮插入到输入框（类似 Claude.ai 的 "Add to chat"）
 
 ## 需求点 Checklist
 
@@ -306,6 +306,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **铲屎官反馈**: "要允许调整三个视图占比" — 可拖拽分栏需求 |
 | 2026-03-06 | **Phase 2B P0 合入** (PR #239): resizable split panes + auto-open workspace panel |
 | 2026-03-06 | **铲屎官反馈**: "直接点击文件然后在 chat 里 mention，选中某些行点击 add to chat" — 代码引用需求，P2B-7 升级为 P0 |
+| 2026-03-06 | **AC-15 合入** (PR #241): code-to-chat reference — 选中代码/文件 → 引用到聊天输入框，含线程隔离 |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
