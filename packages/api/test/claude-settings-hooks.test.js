@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { accessSync, chmodSync, constants, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { accessSync, constants, readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -11,18 +10,23 @@ const repoRoot = resolve(testDir, '..', '..', '..');
 const settingsPath = resolve(repoRoot, '.claude', 'settings.json');
 const taskHookScript = resolve(repoRoot, '.claude', 'hooks', 'check-subagent-model.sh');
 
-function runTaskHook(toolInput, options = {}) {
+/**
+ * Run the hook script with a given tool_name and tool_input.
+ */
+function runHook(toolName, toolInput = {}) {
   return spawnSync('bash', [taskHookScript], {
     input: JSON.stringify({
       hook_event_name: 'PreToolUse',
-      tool_name: 'Task',
+      tool_name: toolName,
       tool_input: toolInput,
     }),
     encoding: 'utf8',
-    env: { ...process.env, ...options.env },
   });
 }
 
+/**
+ * Parse hook JSON decision from stdout.
+ */
 function parseHookDecision(stdout) {
   assert.ok(stdout.trim().length > 0, 'hook should emit JSON decision output');
   const parsed = JSON.parse(stdout);
@@ -31,7 +35,7 @@ function parseHookDecision(stdout) {
 }
 
 describe('project-level Claude hook settings', () => {
-  it('configures PreToolUse Task matcher to enforce model selection', () => {
+  it('configures PreToolUse Task matcher to enforce subagent gating', () => {
     const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
     const preToolUse = settings?.hooks?.PreToolUse;
 
@@ -48,114 +52,65 @@ describe('project-level Claude hook settings', () => {
     );
   });
 
-  it('ships project-local model guard hook script and keeps it executable', () => {
+  it('ships project-local hook script and keeps it executable', () => {
     accessSync(taskHookScript, constants.X_OK);
   });
+});
 
-  it('blocks Task call when model is missing', () => {
-    const result = runTaskHook({ description: 'quick search' });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    const decision = parseHookDecision(result.stdout);
-    assert.equal(decision.permissionDecision, 'deny');
-    assert.match(decision.permissionDecisionReason, /model/i);
+describe('subagent_type gating logic', () => {
+  it('silently allows TaskOutput (no JSON output)', () => {
+    const result = runHook('TaskOutput', {});
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), '', 'TaskOutput should produce no output (silent allow)');
   });
 
-  it('blocks Task call when model is null', () => {
-    const result = runTaskHook({ description: 'quick search', model: null });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    const decision = parseHookDecision(result.stdout);
-    assert.equal(decision.permissionDecision, 'deny');
-    assert.match(decision.permissionDecisionReason, /model/i);
+  it('silently allows TaskStop (no JSON output)', () => {
+    const result = runHook('TaskStop', {});
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout.trim(), '', 'TaskStop should produce no output (silent allow)');
   });
 
-  it('allows Task call for sonnet model', () => {
-    const result = runTaskHook({ description: 'quick search', model: 'sonnet' });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
+  it('allows Explore subagent (auto-haiku, cheap)', () => {
+    const result = runHook('Agent', { subagent_type: 'Explore', prompt: 'find files' });
+    assert.equal(result.status, 0, result.stderr);
+    // Explore should either silently allow or explicitly allow — never deny/ask
     const stdout = result.stdout.trim();
-    if (stdout.length === 0) return;
-
+    if (stdout.length === 0) return; // silent allow is fine
     const decision = parseHookDecision(result.stdout);
     assert.notEqual(decision.permissionDecision, 'deny');
+    assert.notEqual(decision.permissionDecision, 'ask');
   });
 
-  it('allows sonnet model even when python3 is unavailable', () => {
-    const shimDir = mkdtempSync(join(tmpdir(), 'cat-cafe-no-python-'));
-    const shimPath = join(shimDir, 'python3');
-
-    try {
-      writeFileSync(shimPath, '#!/usr/bin/env bash\nexit 127\n', 'utf8');
-      chmodSync(shimPath, 0o755);
-
-      const result = runTaskHook(
-        { description: 'quick search', model: 'sonnet' },
-        { env: { PATH: `${shimDir}:${process.env.PATH}` } },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const stdout = result.stdout.trim();
-      if (stdout.length === 0) return;
-
-      const decision = parseHookDecision(result.stdout);
-      assert.notEqual(decision.permissionDecision, 'deny');
-    } finally {
-      rmSync(shimDir, { recursive: true, force: true });
-    }
+  it('allows Plan subagent (needs Opus-level thinking)', () => {
+    const result = runHook('Agent', { subagent_type: 'Plan', prompt: 'design architecture' });
+    assert.equal(result.status, 0, result.stderr);
+    const stdout = result.stdout.trim();
+    if (stdout.length === 0) return; // silent allow is fine
+    const decision = parseHookDecision(result.stdout);
+    assert.notEqual(decision.permissionDecision, 'deny');
+    assert.notEqual(decision.permissionDecision, 'ask');
   });
 
-  it('allows sonnet model when jq is unavailable (python fallback)', () => {
-    const shimDir = mkdtempSync(join(tmpdir(), 'cat-cafe-no-jq-'));
-    const jqShimPath = join(shimDir, 'jq');
-
-    try {
-      writeFileSync(jqShimPath, '#!/usr/bin/env bash\nexit 127\n', 'utf8');
-      chmodSync(jqShimPath, 0o755);
-
-      const result = runTaskHook(
-        { description: 'quick search', model: 'sonnet' },
-        { env: { PATH: `${shimDir}:${process.env.PATH}` } },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const stdout = result.stdout.trim();
-      if (stdout.length === 0) return;
-
-      const decision = parseHookDecision(result.stdout);
-      assert.notEqual(decision.permissionDecision, 'deny');
-    } finally {
-      rmSync(shimDir, { recursive: true, force: true });
-    }
-  });
-
-  it('returns ask decision when both jq and python3 are unavailable', () => {
-    const shimDir = mkdtempSync(join(tmpdir(), 'cat-cafe-no-parser-'));
-    const jqShimPath = join(shimDir, 'jq');
-    const pyShimPath = join(shimDir, 'python3');
-
-    try {
-      writeFileSync(jqShimPath, '#!/usr/bin/env bash\nexit 127\n', 'utf8');
-      writeFileSync(pyShimPath, '#!/usr/bin/env bash\nexit 127\n', 'utf8');
-      chmodSync(jqShimPath, 0o755);
-      chmodSync(pyShimPath, 0o755);
-
-      const result = runTaskHook(
-        { description: 'quick search', model: 'sonnet' },
-        { env: { PATH: `${shimDir}:${process.env.PATH}` } },
-      );
-
-      assert.equal(result.status, 0, result.stderr || result.stdout);
-      const decision = parseHookDecision(result.stdout);
-      assert.equal(decision.permissionDecision, 'ask');
-      assert.match(decision.permissionDecisionReason, /jq|python3|解析/i);
-    } finally {
-      rmSync(shimDir, { recursive: true, force: true });
-    }
-  });
-
-  it('warns but allows Task call for opus model', () => {
-    const result = runTaskHook({ description: 'deep reasoning', model: 'opus' });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
+  it('asks for general-purpose subagent (inherits Opus, expensive)', () => {
+    const result = runHook('Agent', { subagent_type: 'general-purpose', prompt: 'do stuff' });
+    assert.equal(result.status, 0, result.stderr);
     const decision = parseHookDecision(result.stdout);
     assert.equal(decision.permissionDecision, 'ask');
-    assert.match(decision.permissionDecisionReason, /opus/i);
+    assert.match(decision.permissionDecisionReason, /Opus|general-purpose|成本/i);
+  });
+
+  it('asks when subagent_type is missing (inherits Opus)', () => {
+    const result = runHook('Agent', { prompt: 'do stuff' });
+    assert.equal(result.status, 0, result.stderr);
+    const decision = parseHookDecision(result.stdout);
+    assert.equal(decision.permissionDecision, 'ask');
+    assert.match(decision.permissionDecisionReason, /Opus|未指定|成本/i);
+  });
+
+  it('also gates legacy Task tool name (same as Agent)', () => {
+    const result = runHook('Task', { prompt: 'do stuff' });
+    assert.equal(result.status, 0, result.stderr);
+    const decision = parseHookDecision(result.stdout);
+    assert.equal(decision.permissionDecision, 'ask');
   });
 });
