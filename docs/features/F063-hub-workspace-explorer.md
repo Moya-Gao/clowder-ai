@@ -185,7 +185,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-6: 文件查看面板和对话面板可同时可见（50:50 分栏）
 - [x] AC-7: 路径安全（不能访问仓库外的系统文件）
 - [x] AC-8: 图片文件可直接预览
-- [ ] AC-9: 铲屎官可在 Hub 内编辑文件，猫猫可直接 commit 编辑结果
+- [x] AC-9: 铲屎官可在 Hub 内编辑文件，猫猫可直接 commit 编辑结果
 - [x] AC-10: 文件系统感知 worktree（显示猫猫当前 worktree 的文件，而非只有 main）
 - [x] AC-11: 顶栏有切换按钮，点击后聊天窗口缩小 + 右侧文件面板展开
 - [x] AC-12: 搜索栏支持文件名搜索模式（输入文件名/路径片段 → 快速定位 + 显示相对路径 → 点击导航）
@@ -308,6 +308,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **铲屎官反馈**: "直接点击文件然后在 chat 里 mention，选中某些行点击 add to chat" — 代码引用需求，P2B-7 升级为 P0 |
 | 2026-03-06 | **AC-15 合入** (PR #241): code-to-chat reference — 选中代码/文件 → 引用到聊天输入框，含线程隔离 |
 | 2026-03-06 | **AC-8 合入** (PR #242): image preview — 图片文件 inline 渲染，raw streaming endpoint + image-only/10MB guard |
+| 2026-03-06 | **AC-9 合入** (PR #244): file editing — edit_session_token + sha256 乐观锁 + per-file mutex + CodeMirror 编辑，砚砚 2 轮 + 云端 4 轮 review |
+| 2026-03-06 | **铲屎官反馈 3 个 bug**: (1) 引用到聊天不带 worktree 信息 (2) "Add to chat" 按钮固定在顶部，滚动后看不到 (3) 跨项目文件浏览需求 → 手动 link 外部 project root |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -377,6 +379,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P2B-6 | Markdown 渲染模式（raw/rendered 切换） | — | P2 |
 | P2B-7 | 代码选中 → 引用到对话输入框：选中文件/代码行后点击"Add to chat"按钮，将 `file:line` 引用或选中代码片段插入聊天输入框；也支持文件树右键"复制路径" | AC-15 | **P0** |
 | P2B-8 | 多 tab 文件查看（不是一次只看一个） | — | P2 |
+| P2B-9 | **BUG**: 引用到聊天不带 worktree 信息 — 格式改为 `` `path` (🌿 branch) ``，让猫猫知道引用的是哪个 worktree | AC-15 | **P0** |
+| P2B-10 | **BUG**: "Add to chat" 按钮固定在文件查看器顶部，滚动到下方代码时按钮不可见 — 改为跟随选区浮动或 sticky 在可视区域 | AC-15 | **P0** |
 
 ### Phase 2C: 预览能力
 
@@ -384,3 +388,15 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 |------|------|-----|
 | P2C-1 | HTML/JSX iframe sandbox 预览 | AC-5 |
 | P2C-2 | Diff 可视化（unified/side-by-side） | — |
+
+### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
+
+铲屎官需求：猫猫帮外部项目（如 `studio-flow`）开发时，铲屎官想在 Hub 里看到那个项目的文件，但不想破坏安全隔离。
+
+**方案**：安全隔离保持不变 + 手动 link 外部 project root
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P2D-1 | API 支持 `WORKSPACE_LINKED_ROOTS` 配置（环境变量或配置文件），格式 `name:path`，每个 root 独立路径防护 | P2 |
+| P2D-2 | worktree 列表 API 合并返回 git worktree + linked roots | P2 |
+| P2D-3 | 前端 root 选择器（复用 worktree 选择器，区分 worktree vs linked root） | P2 |
