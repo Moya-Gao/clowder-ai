@@ -315,6 +315,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **P2B-8 多 tab 合入** (PR #250): tab bar + closeWorkspaceTab + worktree 边界清空，砚砚 R1 P1 修复 + 云端通过 |
 | 2026-03-06 | **P2B-11 + P2C-1 合入** (PR #251): 相对 md 链接 workspace 内跳转 + HTML iframe sandbox 预览，砚砚 R2/R3 通过 + 云端 R1 2P1 修复→R2，16 新测试 |
 | 2026-03-06 | **P2C-2 Diff 可视化合入** (PR #253): unified/side-by-side diff viewer + ChangesPanel + API /workspace/diff，砚砚 R1→R3 (P0 denylist 泄漏+P1 rename 映射修复)，7 新测试 |
+| 2026-03-06 | 云端 review PR #253: 1 P2 — rename delimiter `" -> "` 解析对含字面 `->` 的文件名误判（应仅 R/C 状态执行 rename split）。已合入，低概率 edge case，记为 known issue |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
