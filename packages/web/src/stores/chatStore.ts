@@ -129,20 +129,35 @@ function revokeBlobUrls(messages: ChatMessage[]) {
 
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the owner */
 function fireOwnerMentionNotification(msg: ChatMessage) {
-  if (typeof window === 'undefined' || !('Notification' in window)) return;
+  if (typeof window === 'undefined' || !('Notification' in window)) {
+    console.warn('[F067] Notification API not available');
+    return;
+  }
+  console.log('[F067] fireOwnerMentionNotification called', {
+    permission: Notification.permission,
+    catId: msg.catId,
+    mentionsUser: msg.mentionsUser,
+    contentSnippet: typeof msg.content === 'string' ? msg.content.slice(0, 50) : typeof msg.content,
+  });
   if (Notification.permission !== 'granted') {
-    // Request on first mention — browser will show permission dialog
+    console.warn('[F067] Permission not granted:', Notification.permission);
     Notification.requestPermission();
     return;
   }
   const catConfig = CAT_CONFIGS[msg.catId ?? ''];
   const catName = catConfig?.displayName ?? msg.catId ?? '猫猫';
-  const preview = msg.content.replace(/\n/g, ' ').slice(0, 120);
-  new Notification(`🐾 ${catName} @ 了你`, {
-    body: preview,
-    icon: catConfig?.avatar ?? '/favicon.ico',
-    tag: `owner-mention-${msg.id}`,
-  });
+  const preview = typeof msg.content === 'string' ? msg.content.replace(/\n/g, ' ').slice(0, 120) : '';
+  try {
+    const n = new Notification(`🐾 ${catName} @ 了你`, {
+      body: preview,
+      icon: catConfig?.avatar ?? '/favicon.ico',
+      tag: `owner-mention-${msg.id}`,
+    });
+    console.log('[F067] Notification created OK:', n.title, n.body?.slice(0, 40));
+    n.onerror = (e) => console.error('[F067] Notification.onerror:', e);
+  } catch (err) {
+    console.error('[F067] new Notification() threw:', err);
+  }
 }
 
 function updateThreadMessage(
@@ -634,6 +649,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (existing.messages.some((m) => m.id === msg.id)) return state;
 
       // F067 Phase 2: Fire macOS notification for @owner mention
+      console.log('[F067] addMessageToThread bg path', { threadId, mentionsUser: msg.mentionsUser, catId: msg.catId, origin: 'origin' in msg ? msg.origin : undefined });
       if (msg.mentionsUser) fireOwnerMentionNotification(msg);
 
       return {
