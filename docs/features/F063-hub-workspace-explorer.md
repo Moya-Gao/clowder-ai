@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: in-review (Phase 1)
+> **Status**: Phase 2D+2E done (PR #256 merged)
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -320,6 +320,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | 砚砚+GPT-5.4 独立愿景守护审查：主链路 80% 打通，3 条猫尾巴（untracked diff / worktree-aware link / JSX 预览→Phase 3） |
 | 2026-03-06 | **愿景守护修复合入** (PR #255): P2C-fix-1 untracked diff + P2C-fix-2 worktree-aware link，砚砚 R1 通过 + 云端 P2 修复（relative path in diff header） |
 | 2026-03-06 | 铲屎官批准 Phase 2D (Linked Roots) + Phase 2E (JSX/TSX 预览) 并行开工 |
+| 2026-03-06 | **Phase 2D+2E 合入** (PR #256): Linked Roots env var + JSX/TSX esbuild-wasm preview. 砚砚 R1→R2 (3P1→0) + 云端 R1→R4 (regex hardening: side-effect imports, line-anchor, import/export keyword restriction) |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -408,7 +409,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 |------|------|------|------|
 | P2C-fix-1 | untracked 文件 diff：`??` 文件在 Changes 列表可见但无 diff 内容（`git diff HEAD` 天然不覆盖未跟踪文件）→ 用 `git diff --no-index` 补充 | codex P2 + gpt52 P2 | **done** |
 | P2C-fix-2 | worktree-aware chat link：聊天中文件引用带 `🌿 branch` 文本但点击不会切换 worktree，落到错工地 | gpt52 P1 | **done** |
-| P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild) → **提前到 Phase 2E** | codex P1 + gpt52 P1 | **Phase 2E** |
+| P2C-fix-3 | JSX/TSX 预览：当前只识别 `.html`，React 组件只能看源码不能渲染 → 需要 bundler (esbuild) → **提前到 Phase 2E** | codex P1 + gpt52 P1 | **done** (PR #256) |
 
 ### Phase 2D: 跨项目 Linked Roots（铲屎官 2026-03-06 提出）
 
@@ -418,9 +419,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P2D-1 | API 支持 `WORKSPACE_LINKED_ROOTS` 配置（环境变量或配置文件），格式 `name:path`，每个 root 独立路径防护 | |
-| P2D-2 | worktree 列表 API 合并返回 git worktree + linked roots | |
-| P2D-3 | 前端 root 选择器（复用 worktree 选择器，区分 worktree vs linked root） | |
+| P2D-1 | API 支持 `WORKSPACE_LINKED_ROOTS` 配置（环境变量或配置文件），格式 `name:path`，每个 root 独立路径防护 | **done** |
+| P2D-2 | worktree 列表 API 合并返回 git worktree + linked roots | **done** |
+| P2D-3 | 前端 root 选择器（复用 worktree 选择器，区分 worktree vs linked root） | **done** |
 
 ### Phase 2E: JSX/TSX 组件预览（铲屎官 2026-03-06 批准提前）
 
@@ -430,7 +431,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P2E-1 | esbuild-wasm 集成：浏览器端 bundle JSX/TSX → 可执行 JS | |
-| P2E-2 | 预览 iframe：sandbox 渲染 bundled output + React/ReactDOM CDN 注入 | |
-| P2E-3 | 预览开关：`.tsx`/`.jsx` 文件支持 Preview/Code 切换（复用 HTML preview 模式） | |
-| P2E-4 | 错误处理：bundle 失败/运行时错误 → 友好提示（不是白屏） | |
+| P2E-1 | esbuild-wasm 集成：浏览器端 bundle JSX/TSX → 可执行 JS | **done** |
+| P2E-2 | 预览 iframe：sandbox 渲染 bundled output + React/ReactDOM CDN 注入 | **done** |
+| P2E-3 | 预览开关：`.tsx`/`.jsx` 文件支持 Preview/Code 切换（复用 HTML preview 模式） | **done** |
+| P2E-4 | 错误处理：bundle 失败/运行时错误 → 友好提示（不是白屏） | **done** |
