@@ -73,6 +73,18 @@ module.exports = {
           '50%': { opacity: '1', filter: 'brightness(1.3)' },
           '100%': { opacity: '1', filter: 'brightness(1)' },
         },
+        'slide-in-right': {
+          '0%': { opacity: '0', transform: 'translateX(12px)' },
+          '100%': { opacity: '1', transform: 'translateX(0)' },
+        },
+        'tree-expand': {
+          '0%': { opacity: '0', height: '0' },
+          '100%': { opacity: '1', height: 'var(--radix-collapsible-content-height, auto)' },
+        },
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-out',
@@ -82,6 +94,9 @@ module.exports = {
         'toast-out': 'toast-out 0.3s ease-in forwards',
         'token-pulse': 'token-pulse 0.3s ease-out',
         'cost-glow': 'cost-glow 0.4s ease-out',
+        'slide-in-right': 'slide-in-right 0.2s ease-out',
+        'tree-expand': 'tree-expand 0.15s ease-out',
+        shimmer: 'shimmer 1.5s ease-in-out infinite',
       },
     },
   },

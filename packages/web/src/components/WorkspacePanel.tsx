@@ -1,125 +1,100 @@
 'use client';
 
-import { css } from '@codemirror/lang-css';
-import { html } from '@codemirror/lang-html';
-import { javascript } from '@codemirror/lang-javascript';
-import { json } from '@codemirror/lang-json';
-import { markdown } from '@codemirror/lang-markdown';
-import { EditorState } from '@codemirror/state';
-import { oneDark } from '@codemirror/theme-one-dark';
-import { basicSetup, EditorView } from 'codemirror';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { type TreeNode, useWorkspace } from '@/hooks/useWorkspace';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
+import { CodeViewer } from './workspace/CodeViewer';
+import { FileIcon } from './workspace/FileIcons';
+import { WorkspaceTree } from './workspace/WorkspaceTree';
 
-function getLanguageExtension(mime: string, path: string) {
-  if (mime === 'text/typescript' || mime === 'text/tsx' || path.endsWith('.ts') || path.endsWith('.tsx'))
-    return javascript({ typescript: true, jsx: path.endsWith('x') });
-  if (mime === 'text/javascript' || mime === 'text/jsx' || path.endsWith('.js') || path.endsWith('.jsx'))
-    return javascript({ jsx: path.endsWith('x') });
-  if (mime === 'application/json' || path.endsWith('.json')) return json();
-  if (mime === 'text/markdown' || path.endsWith('.md')) return markdown();
-  if (mime === 'text/css' || path.endsWith('.css')) return css();
-  if (mime === 'text/html' || path.endsWith('.html')) return html();
-  return javascript({ typescript: true });
-}
-
-/* ── Tree item ───────────────────── */
-function TreeItem({
-  node,
-  depth,
-  onSelect,
-  expandedPaths,
-  toggleExpand,
+/* ── Search result item ──────────────────────── */
+function SearchResultItem({
+  path: filePath,
+  line,
+  content,
+  query,
+  onClick,
 }: {
-  node: TreeNode;
-  depth: number;
-  onSelect: (path: string) => void;
-  expandedPaths: Set<string>;
-  toggleExpand: (path: string) => void;
+  path: string;
+  line: number;
+  content: string;
+  query: string;
+  onClick: () => void;
 }) {
-  const isDir = node.type === 'directory';
-  const isExpanded = expandedPaths.has(node.path);
+  const fileName = filePath.split('/').pop() ?? filePath;
+  const dir = filePath.slice(0, filePath.length - fileName.length);
+
+  const highlighted = useMemo(() => {
+    if (!query || !content) return content;
+    const idx = content.toLowerCase().indexOf(query.toLowerCase());
+    if (idx === -1) return content;
+    return (
+      <>
+        {content.slice(0, idx)}
+        <mark className="bg-owner-light text-owner-dark rounded px-0.5">{content.slice(idx, idx + query.length)}</mark>
+        {content.slice(idx + query.length)}
+      </>
+    );
+  }, [content, query]);
 
   return (
-    <div>
-      <button
-        onClick={() => (isDir ? toggleExpand(node.path) : onSelect(node.path))}
-        className="w-full text-left px-1 py-0.5 text-xs hover:bg-gray-100 rounded flex items-center gap-1 truncate"
-        style={{ paddingLeft: `${depth * 12 + 4}px` }}
-        title={node.path}
-      >
-        <span className="w-4 text-center flex-shrink-0">{isDir ? (isExpanded ? '▼' : '▶') : ''}</span>
-        <span className="flex-shrink-0">{isDir ? '📂' : '📄'}</span>
-        <span className="truncate">{node.name}</span>
-      </button>
-      {isDir &&
-        isExpanded &&
-        node.children?.map((child) => (
-          <TreeItem
-            key={child.path}
-            node={child}
-            depth={depth + 1}
-            onSelect={onSelect}
-            expandedPaths={expandedPaths}
-            toggleExpand={toggleExpand}
-          />
-        ))}
-    </div>
+    <button
+      type="button"
+      onClick={onClick}
+      className="w-full text-left px-3 py-1.5 hover:bg-owner-bg/60 transition-colors group"
+    >
+      <div className="flex items-center gap-1.5">
+        <FileIcon name={fileName} />
+        <span className="text-xs font-medium text-cafe-black truncate">{fileName}</span>
+        {line > 0 && <span className="text-[10px] text-owner-dark/50 font-mono">:{line}</span>}
+      </div>
+      {dir && <div className="text-[10px] text-gray-400 truncate ml-5">{dir}</div>}
+      {content && <div className="text-[10px] text-gray-500 truncate font-mono ml-5 mt-0.5">{highlighted}</div>}
+    </button>
   );
 }
 
-/* ── CodeMirror viewer ───────────── */
-function CodeViewer({
-  content,
-  mime,
-  path,
-  scrollToLine,
-}: {
-  content: string;
-  mime: string;
-  path: string;
-  scrollToLine: number | null;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const viewRef = useRef<EditorView | null>(null);
+/* ── SVG micro-icons ─────────────────────────── */
+const CloseIcon = () => (
+  <svg
+    width="10"
+    height="10"
+    viewBox="0 0 10 10"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    aria-hidden="true"
+  >
+    <path d="M1 1l8 8M9 1l-8 8" />
+  </svg>
+);
 
-  useEffect(() => {
-    if (!containerRef.current) return;
+const SearchIcon = () => (
+  <svg
+    className="w-3.5 h-3.5 text-owner-dark/40 flex-shrink-0"
+    viewBox="0 0 16 16"
+    fill="currentColor"
+    aria-hidden="true"
+  >
+    <path
+      fillRule="evenodd"
+      d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
 
-    // Destroy previous
-    viewRef.current?.destroy();
+const MenuIcon = () => (
+  <svg className="w-4 h-4 text-owner-primary flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+    <path
+      fillRule="evenodd"
+      d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zM2 10a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 10zm0 5.25a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
 
-    const lang = getLanguageExtension(mime, path);
-    const state = EditorState.create({
-      doc: content,
-      extensions: [basicSetup, lang, oneDark, EditorView.editable.of(false), EditorState.readOnly.of(true)],
-    });
-
-    const view = new EditorView({
-      state,
-      parent: containerRef.current,
-    });
-    viewRef.current = view;
-
-    // Scroll to line if specified
-    if (scrollToLine && scrollToLine > 0) {
-      const line = Math.min(scrollToLine, view.state.doc.lines);
-      const lineInfo = view.state.doc.line(line);
-      view.dispatch({
-        effects: EditorView.scrollIntoView(lineInfo.from, { y: 'center' }),
-      });
-    }
-
-    return () => {
-      view.destroy();
-    };
-  }, [content, mime, path, scrollToLine]);
-
-  return <div ref={containerRef} className="flex-1 overflow-auto text-sm" />;
-}
-
-/* ── Main panel ──────────────────── */
+/* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
   const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults } = useWorkspace();
 
@@ -153,9 +128,7 @@ export function WorkspacePanel() {
   const handleSearchSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (searchQuery.trim()) {
-        search(searchQuery.trim(), searchMode);
-      }
+      if (searchQuery.trim()) search(searchQuery.trim(), searchMode);
     },
     [searchQuery, searchMode, search],
   );
@@ -171,130 +144,141 @@ export function WorkspacePanel() {
   const currentWorktree = worktrees.find((w) => w.id === worktreeId);
 
   return (
-    <aside className="hidden lg:flex w-80 border-l border-owner-light bg-white/95 flex-col overflow-hidden">
+    <aside className="hidden lg:flex flex-1 min-w-0 border-l border-owner-light bg-cafe-white/95 flex-col overflow-hidden animate-slide-in-right">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-gray-200 flex items-center justify-between bg-gray-50/80">
+      <div className="px-3 py-2.5 border-b border-owner-light flex items-center justify-between bg-owner-bg/50">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-semibold text-gray-700">Workspace</span>
-          {currentWorktree && (
-            <span
-              className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded truncate max-w-[120px]"
-              title={currentWorktree.branch}
-            >
-              {currentWorktree.branch}
-            </span>
-          )}
+          <MenuIcon />
+          <span className="text-sm font-semibold text-cafe-black">Workspace</span>
         </div>
         <button
+          type="button"
           onClick={() => setRightPanelMode('status')}
-          className="text-xs text-gray-400 hover:text-gray-600 px-1.5 py-0.5 rounded hover:bg-gray-100"
+          className="w-6 h-6 flex items-center justify-center rounded-md text-owner-dark/40 hover:text-owner-dark hover:bg-owner-light/60 transition-colors"
           title="切换到状态面板"
         >
-          ✕
+          <CloseIcon />
         </button>
       </div>
 
-      {/* Worktree selector (if multiple) */}
-      {worktrees.length > 1 && (
-        <div className="px-3 py-1.5 border-b border-gray-100">
-          <select
-            value={worktreeId ?? ''}
-            onChange={(e) => setWorktreeId(e.target.value || null)}
-            className="w-full text-xs border border-gray-200 rounded px-2 py-1 bg-white"
-          >
-            {worktrees.map((w) => (
-              <option key={w.id} value={w.id}>
-                {w.branch} ({w.id})
-              </option>
-            ))}
-          </select>
+      {/* Worktree indicator */}
+      {currentWorktree && (
+        <div className="px-3 py-2 border-b border-owner-light/60 bg-owner-bg/30">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-400 flex-shrink-0" />
+            <span className="text-xs font-medium text-cafe-black truncate">{currentWorktree.branch}</span>
+            <span className="text-[10px] font-mono text-owner-dark/50">{currentWorktree.head}</span>
+          </div>
+          {worktrees.length > 1 && (
+            <select
+              value={worktreeId ?? ''}
+              onChange={(e) => setWorktreeId(e.target.value || null)}
+              className="mt-1.5 w-full text-[10px] border border-owner-light rounded-md px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-owner-primary"
+            >
+              {worktrees.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.branch} ({w.head})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
       {/* Search bar */}
-      <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-gray-100 flex gap-1">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder={searchMode === 'content' ? '搜索内容...' : '搜索文件名...'}
-          className="flex-1 text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:border-blue-400 focus:outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => setSearchMode((m) => (m === 'content' ? 'filename' : 'content'))}
-          className="text-[10px] px-1.5 py-1 rounded border border-gray-200 hover:bg-gray-50 text-gray-500"
-          title={searchMode === 'content' ? '切换到文件名搜索' : '切换到内容搜索'}
-        >
-          {searchMode === 'content' ? 'Aa' : '📄'}
-        </button>
-        <button type="submit" className="text-xs px-2 py-1 rounded bg-blue-500 text-white hover:bg-blue-600">
-          🔍
-        </button>
+      <form onSubmit={handleSearchSubmit} className="px-3 py-2 border-b border-owner-light/40">
+        <div className="flex items-center gap-1.5 bg-white/80 border border-owner-light rounded-lg px-2.5 py-1.5 focus-within:border-owner-primary focus-within:ring-1 focus-within:ring-owner-primary/20 transition-all">
+          <SearchIcon />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={searchMode === 'content' ? '搜索代码内容...' : '搜索文件名...'}
+            className="flex-1 text-xs bg-transparent text-cafe-black placeholder:text-owner-dark/30 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setSearchMode((m) => (m === 'content' ? 'filename' : 'content'))}
+            className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
+              searchMode === 'filename'
+                ? 'bg-owner-light text-owner-dark'
+                : 'text-owner-dark/40 hover:text-owner-dark/60'
+            }`}
+            title={searchMode === 'content' ? '切换到文件名搜索' : '切换到内容搜索'}
+          >
+            {searchMode === 'content' ? 'Aa' : 'File'}
+          </button>
+        </div>
       </form>
 
       {/* Error */}
-      {error && <div className="px-3 py-1.5 text-xs text-red-600 bg-red-50">{error}</div>}
+      {error && <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
 
       {/* Search results */}
       {searchResults.length > 0 && (
-        <div className="border-b border-gray-100 max-h-48 overflow-y-auto">
-          <div className="px-3 py-1 text-[10px] text-gray-400 font-semibold">搜索结果 ({searchResults.length})</div>
+        <div className="border-b border-owner-light/40 max-h-52 overflow-y-auto">
+          <div className="px-3 py-1.5 text-[10px] text-owner-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+            {searchResults.length} 个结果
+          </div>
           {searchResults.map((r, i) => (
-            <button
+            <SearchResultItem
               key={`${r.path}:${r.line}:${i}`}
+              path={r.path}
+              line={r.line}
+              content={r.content}
+              query={searchQuery}
               onClick={() => handleSearchResultClick(r.path, r.line)}
-              className="w-full text-left px-3 py-1 text-xs hover:bg-blue-50 border-b border-gray-50"
-            >
-              <div className="text-blue-600 truncate">
-                {r.path}:{r.line}
-              </div>
-              <div className="text-gray-500 truncate font-mono text-[10px]">{r.content}</div>
-            </button>
+            />
           ))}
         </div>
       )}
 
       {/* File tree */}
-      <div className="flex-1 overflow-y-auto px-1 py-1 min-h-0" style={{ maxHeight: file ? '40%' : undefined }}>
-        {loading && tree.length === 0 ? (
-          <div className="text-xs text-gray-400 p-3">加载中...</div>
-        ) : (
-          tree.map((node) => (
-            <TreeItem
-              key={node.path}
-              node={node}
-              depth={0}
-              onSelect={handleFileSelect}
-              expandedPaths={expandedPaths}
-              toggleExpand={toggleExpand}
-            />
-          ))
-        )}
-      </div>
+      <WorkspaceTree
+        tree={tree}
+        loading={loading}
+        expandedPaths={expandedPaths}
+        toggleExpand={toggleExpand}
+        onSelect={handleFileSelect}
+        selectedPath={openFilePath}
+        hasFile={!!file}
+      />
 
       {/* File viewer */}
       {file && (
-        <div className="flex-1 flex flex-col border-t border-gray-200 min-h-0">
-          <div className="px-3 py-1.5 bg-gray-800 text-gray-300 text-[10px] flex items-center justify-between">
-            <span className="truncate font-mono">{openFilePath}</span>
+        <div className="flex-1 flex flex-col border-t border-owner-light min-h-0 animate-fade-in">
+          <div className="px-3 py-1.5 bg-[#1E1E24] flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileIcon name={openFilePath ?? ''} />
+              <span className="text-[11px] text-gray-300 truncate font-mono">{openFilePath}</span>
+              {file.size > 0 && (
+                <span className="text-[9px] text-gray-500 font-mono flex-shrink-0">
+                  {file.size < 1024 ? `${file.size}B` : `${Math.round(file.size / 1024)}KB`}
+                </span>
+              )}
+            </div>
             <button
+              type="button"
               onClick={() => setOpenFile(null)}
-              className="text-gray-400 hover:text-white ml-2 flex-shrink-0"
+              className="w-5 h-5 flex items-center justify-center rounded text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors flex-shrink-0"
               title="关闭文件"
             >
-              ✕
+              <CloseIcon />
             </button>
           </div>
           {file.binary ? (
-            <div className="p-4 text-xs text-gray-500 text-center">
-              二进制文件 ({file.mime}, {Math.round(file.size / 1024)}KB)
+            <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
+              <span className="text-2xl mb-2">🖼️</span>
+              <p>二进制文件</p>
+              <p className="text-[10px] mt-1">
+                {file.mime} · {Math.round(file.size / 1024)}KB
+              </p>
             </div>
           ) : (
             <CodeViewer content={file.content} mime={file.mime} path={file.path} scrollToLine={scrollToLine} />
           )}
           {file.truncated && (
-            <div className="px-3 py-1 text-[10px] text-amber-600 bg-amber-50 border-t border-amber-200">
+            <div className="px-3 py-1.5 text-[10px] text-amber-400 bg-[#1E1E24] border-t border-amber-900/30">
               文件已截断 (超过 1MB)
             </div>
           )}
