@@ -20,6 +20,7 @@ import { InvocationRegistry } from './domains/cats/services/agents/invocation/In
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
+import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
@@ -134,6 +135,7 @@ async function main(): Promise<void> {
   const taskProgressStore = createTaskProgressStore(redis);
   const invocationRecordStore = createInvocationRecordStore(redis);
   const draftStore = createDraftStore(redis);
+  const readStateStore = createReadStateStore(redis);
 
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain
@@ -339,6 +341,7 @@ async function main(): Promise<void> {
     invocationTracker,
     draftStore,
     taskProgressStore,
+    ...(readStateStore ? { readStateStore } : {}),
   });
   await app.register(threadBranchRoutes, {
     threadStore,

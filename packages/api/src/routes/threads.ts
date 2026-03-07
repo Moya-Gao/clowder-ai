@@ -15,6 +15,7 @@ import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/servic
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
+import type { IThreadReadStateStore } from '../domains/cats/services/stores/ports/ThreadReadStateStore.js';
 import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
 import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
@@ -38,6 +39,8 @@ export interface ThreadsRoutesOptions {
   draftStore?: IDraftStore;
   /** F045: per-cat task progress snapshot store (Redis-backed when available) */
   taskProgressStore?: TaskProgressStore;
+  /** F069: per-user/per-thread read state for unread badge persistence */
+  readStateStore?: IThreadReadStateStore;
 }
 
 const createThreadSchema = z.object({
@@ -195,17 +198,31 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       threads = threads.filter((thread) => !!thread.backlogItemId);
     }
 
-    if (!q) return { threads };
+    if (q) {
+      const needle = q.toLowerCase();
+      threads = threads.filter((thread) => {
+        const title = (thread.title ?? '').toLowerCase();
+        const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
+        const project = (thread.projectPath ?? '').toLowerCase();
+        return title.includes(needle) || fallback.includes(needle) || project.includes(needle) || thread.id === q;
+      });
+    }
 
-    const needle = q.toLowerCase();
-    const filtered = threads.filter((thread) => {
-      const title = (thread.title ?? '').toLowerCase();
-      const fallback = (thread.id === 'default' ? '大厅' : '未命名对话').toLowerCase();
-      const project = (thread.projectPath ?? '').toLowerCase();
-      return title.includes(needle) || fallback.includes(needle) || project.includes(needle) || thread.id === q;
-    });
+    // F069: Hydrate unread summaries from read state store
+    if (opts.readStateStore && messageStore && threads.length > 0) {
+      const summaries = await opts.readStateStore.getUnreadSummaries(
+        userId, threads.map((t) => t.id), messageStore,
+      );
+      const summaryMap = new Map(summaries.map((s) => [s.threadId, s]));
+      return {
+        threads: threads.map((t) => {
+          const s = summaryMap.get(t.id);
+          return { ...t, unreadCount: s?.unreadCount ?? 0, hasUserMention: s?.hasUserMention ?? false };
+        }),
+      };
+    }
 
-    return { threads: filtered };
+    return { threads };
   });
 
   // GET /api/threads/:id - 获取对话详情
@@ -288,6 +305,8 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
         thread ? deliveryCursorStore?.deleteByThreadForUser(thread.createdBy, id) : undefined,
         // #80: Clean up any streaming drafts for this thread
         thread && opts.draftStore ? opts.draftStore.deleteByThread(thread.createdBy, id) : undefined,
+        // F069: Clean up read state cursors for this thread
+        opts.readStateStore?.deleteByThread(id),
       ]);
 
       // Log any cascade failures but don't fail the request
@@ -358,5 +377,48 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
 
     const revealed = await messageStore.revealWhispers(id, userId);
     return { revealed };
+  });
+
+  // F069: PATCH /api/threads/:id/read — mark thread as read up to messageId
+  const readAckSchema = z.object({
+    upToMessageId: z.string().min(1).max(100),
+  });
+
+  app.patch<{ Params: { id: string } }>('/api/threads/:id/read', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    if (!opts.readStateStore) {
+      reply.status(501);
+      return { error: 'Read state store not available' };
+    }
+
+    const { id } = request.params;
+    const thread = await threadStore.get(id);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    const parseResult = readAckSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid request body', details: parseResult.error.issues };
+    }
+
+    // P1-3: Validate upToMessageId belongs to this thread
+    if (messageStore) {
+      const msg = await messageStore.getById(parseResult.data.upToMessageId);
+      if (!msg || msg.threadId !== id) {
+        reply.status(400);
+        return { error: 'upToMessageId does not belong to this thread' };
+      }
+    }
+
+    const advanced = await opts.readStateStore.ack(userId, id, parseResult.data.upToMessageId);
+    return { advanced };
   });
 };

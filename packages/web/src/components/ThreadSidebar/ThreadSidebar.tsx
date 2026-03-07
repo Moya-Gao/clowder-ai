@@ -71,7 +71,15 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
       const res = await apiFetch('/api/threads');
       if (!res.ok) return;
       const data = await res.json();
-      setThreads(data.threads ?? []);
+      const threads = data.threads ?? [];
+      setThreads(threads);
+      // F069: Restore unread state from API
+      const { initThreadUnread } = useChatStore.getState();
+      for (const thread of threads) {
+        if (thread.unreadCount > 0 || thread.hasUserMention) {
+          initThreadUnread(thread.id, thread.unreadCount ?? 0, !!thread.hasUserMention);
+        }
+      }
     } catch {
       // Silently ignore
     } finally {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChatStore, type ChatMessage as ChatMessageData } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
 import { useTaskStore } from '@/stores/taskStore';
 import { useSocket } from '@/hooks/useSocket';
 import { useAgentMessages } from '@/hooks/useAgentMessages';
@@ -191,6 +192,17 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   }, [viewMode, splitPaneThreadIds, threadId, syncRooms]);
 
   useEffect(() => { clearUnread(threadId); }, [threadId, clearUnread]);
+
+  // F069: Ack read cursor on server when messages are loaded
+  const lastMessageId = messages[messages.length - 1]?.id;
+  useEffect(() => {
+    if (!lastMessageId) return;
+    apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ upToMessageId: lastMessageId }),
+    }).catch((err) => { console.debug('[F069] read ack failed:', err); });
+  }, [threadId, lastMessageId]);
 
   const handleStop = useCallback((overrideThreadId?: unknown) => {
     const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;

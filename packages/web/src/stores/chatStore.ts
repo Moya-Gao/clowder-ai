@@ -269,6 +269,8 @@ interface ChatState {
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
+  /** F069: Initialize unread state from API (page load recovery) */
+  initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
   /** Batch content-append + metadata + streaming + catStatus into a single set() to prevent
    *  React update-depth overflow during high-frequency background streaming. */
@@ -887,6 +889,19 @@ export const useChatStore = create<ChatState>((set, get) => ({
         threadStates: {
           ...state.threadStates,
           [threadId]: { ...ts, unreadCount: 0, hasUserMention: false },
+        },
+      };
+    }),
+
+  initThreadUnread: (threadId, unreadCount, hasUserMention) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) return state;
+      const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
+      if (existing.unreadCount === unreadCount && existing.hasUserMention === hasUserMention) return state;
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: { ...existing, unreadCount, hasUserMention },
         },
       };
     }),
