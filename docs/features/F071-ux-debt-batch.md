@@ -29,6 +29,7 @@ created: 2026-03-07
 **方案方向**：提取 lightbox 为独立组件或 hook，让 ChatMessage 中的图片也能调用。
 
 > 补充（铲屎官 2026-03-07）：聊天窗中发送的消息图片也需支持点击预览(回显)——D1 的 ContentBlocks 不区分 user/assistant 消息，统一走 lightbox，已覆盖。
+> 补充 2：发送前的待上传图片预览（ImagePreview 组件）也已支持点击 Lightbox 放大。
 
 ---
 

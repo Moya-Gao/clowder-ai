@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Lightbox } from './Lightbox';
 
 interface ImagePreviewProps {
   files: File[];
@@ -8,6 +9,8 @@ interface ImagePreviewProps {
 }
 
 export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
+  const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+
   // Create object URLs once per file set, revoke on cleanup
   const urls = useMemo(
     () => files.map((f) => URL.createObjectURL(f)),
@@ -25,26 +28,32 @@ export function ImagePreview({ files, onRemove }: ImagePreviewProps) {
   if (files.length === 0) return null;
 
   return (
-    <div className="flex gap-2 px-4 py-2 overflow-x-auto">
-      {files.map((file, i) => (
-        <div key={`${file.name}-${i}`} className="relative flex-shrink-0 group">
-          <img
-            src={urls[i]}
-            alt={file.name}
-            className="w-16 h-16 object-cover rounded-lg border border-gray-200"
-          />
-          <button
-            onClick={() => onRemove(i)}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            aria-label={`Remove ${file.name}`}
-          >
-            x
-          </button>
-          <span className="block text-[9px] text-gray-400 truncate w-16 mt-0.5 text-center">
-            {file.name}
-          </span>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="flex gap-2 px-4 py-2 overflow-x-auto">
+        {files.map((file, i) => (
+          <div key={`${file.name}-${i}`} className="relative flex-shrink-0 group">
+            <img
+              src={urls[i]}
+              alt={file.name}
+              className="w-16 h-16 object-cover rounded-lg border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setLightboxIdx(i)}
+            />
+            <button
+              onClick={() => onRemove(i)}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              aria-label={`Remove ${file.name}`}
+            >
+              x
+            </button>
+            <span className="block text-[9px] text-gray-400 truncate w-16 mt-0.5 text-center">
+              {file.name}
+            </span>
+          </div>
+        ))}
+      </div>
+      {lightboxIdx !== null && urls[lightboxIdx] && (
+        <Lightbox url={urls[lightboxIdx]} alt={files[lightboxIdx]?.name ?? 'preview'} onClose={() => setLightboxIdx(null)} />
+      )}
+    </>
   );
 }
