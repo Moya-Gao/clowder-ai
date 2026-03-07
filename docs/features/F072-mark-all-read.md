@@ -8,7 +8,9 @@ created: 2026-03-07
 
 # F072: Mark All Read — 一键清理未读 Badge
 
-## Status: spec
+## Status: done
+**Completed: 2026-03-07**
+**PR**: #270 (commit `3071eb14`)
 
 ## Why
 
@@ -28,21 +30,21 @@ created: 2026-03-07
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 用户点击"全部已读"后，所有 thread 的 unread count badge 消失
-- [ ] AC-2: 猫猫状态颜色（橙/黄/绿）不受影响，仍然正常显示
-- [ ] AC-3: 后端 ack 幂等 — 重复点击不报错
-- [ ] AC-4: 无 unread thread 时按钮禁用或隐藏
-- [ ] AC-5: 有对应的后端集成测试 + 前端交互测试
+- [x] AC-1: 用户点击"全部已读"后，所有 thread 的 unread count badge 消失
+- [x] AC-2: 猫猫状态颜色（橙/黄/绿）不受影响，仍然正常显示
+- [x] AC-3: 后端 ack 幂等 — 重复点击不报错
+- [x] AC-4: 无 unread thread 时按钮禁用或隐藏
+- [x] AC-5: 有对应的后端集成测试 + 前端交互测试
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "一键清理未读消息" | AC-1 | test + screenshot | [ ] |
-| R2 | "只看到猫猫是橙色 黄色 绿色 他的目前状态" | AC-2 | screenshot | [ ] |
-| R3 | 幂等操作，不能因重复点击出错 | AC-3 | test | [ ] |
-| R4 | 没有未读时不要显示无意义按钮 | AC-4 | screenshot | [ ] |
-| R5 | 测试覆盖 | AC-5 | test output | [ ] |
+| R1 | "一键清理未读消息" | AC-1 | test + screenshot | [x] |
+| R2 | "只看到猫猫是橙色 黄色 绿色 他的目前状态" | AC-2 | screenshot | [x] |
+| R3 | 幂等操作，不能因重复点击出错 | AC-3 | test | [x] |
+| R4 | 没有未读时不要显示无意义按钮 | AC-4 | screenshot | [x] |
+| R5 | 测试覆盖 | AC-5 | test output | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -80,9 +82,12 @@ created: 2026-03-07
 ## Timeline
 
 - 2026-03-07: Kickoff
+- 2026-03-07: Implementation + PR #270 merged
+- 2026-03-07: Feat close (cross-cat vision guard by codex)
 
 ## 签收表
 
 | 猫猫 | 读了哪些文档 | 三问结论 | 签收 |
 |------|-------------|---------|------|
-| （completion 阶段填写） | | | |
+| 布偶猫/宪宪 (opus) | F072 spec, thread 03:00 原话, threads.ts, ThreadSidebar.tsx, chatStore.ts | 核心问题=badge 噪音; 交付物=一键清零+状态色保留; 体验=点一次数字消失猫色仍在 | ✅ |
+| 缅因猫/砚砚 (codex) | F072 spec, thread 03:00 原话, threads.ts:382, ThreadSidebar.tsx:279, chatStore.ts:898 | 同上，独立验证对齐 | ✅ |
