@@ -494,7 +494,8 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 
 | Bug | 描述 | 根因 | 状态 |
 |-----|------|------|------|
-| B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | **修复中** |
+| B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | **PR #266 已修（后端+hook）** |
+| B1.1 | 切换已有 thread 或刷新页面后 workspace 不跟随项目切换 | `handleSelect` 只做路由跳转不恢复 `projectPath`；`ChatContainer` 首次挂载不从 thread 元数据恢复 `currentProjectPath` | **待修** |
 | B2 | Link External Folder "Network error" | `LinkedRootsManager.tsx` 用 raw `fetch` + `API_BASE` 而非 `apiFetch`，port 不匹配 | **PR #264 已修** |
 
 ## B1 Fix Plan — Project-Aware Workspace
@@ -513,3 +514,24 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
    - 切换 project 时自动 re-fetch worktrees
 
 3. **LinkedRootsManager**: 同样透传 `repoRoot`（add/remove linked roots 要知道归属哪个 project）
+
+## B1.1 Fix Plan — Thread Switch/Refresh Project Restoration
+
+**问题**：PR #266 修了后端 API 和 `useWorkspace` hook，但前端在以下场景不恢复 `currentProjectPath`：
+- **切换已有 thread**：`handleSelect`（ThreadSidebar.tsx:227-236）只调 `navigateToThread(threadId)`，不读 thread 的 `projectPath`
+- **页面刷新**：`currentProjectPath` 默认值是 `'default'`，ChatContainer 挂载时不从 thread 元数据恢复
+
+**数据已具备**：`Thread` 接口已有 `projectPath: string` 字段，sidebar 的 `threads` 数组包含完整元数据。
+
+**修复方案**（2 处改动）：
+
+1. **`handleSelect`**：从 `threads` 数组找到目标 thread，取 `projectPath`，调 `setCurrentProject`
+   ```ts
+   const thread = threads.find(t => t.id === threadId);
+   if (thread?.projectPath) setCurrentProject(thread.projectPath);
+   ```
+
+2. **`ChatContainer` 首次挂载**：从 API 获取当前 thread 的 `projectPath`（或从已加载的 threads 列表读取），写回 store
+   - 方案 A：在 `useEffect([threadId])` 里调 `GET /api/threads/:id` 取 projectPath
+   - 方案 B：让 `setCurrentThread` 同时接受 thread 元数据（需改 store 接口）
+   - **推荐方案 A**：最小侵入，不改 store 接口
