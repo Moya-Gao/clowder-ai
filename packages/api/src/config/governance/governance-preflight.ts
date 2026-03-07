@@ -7,6 +7,7 @@
  */
 import { lstat, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isSameProject } from '../../utils/monorepo-root.js';
 import type { Provider } from './governance-pack.js';
 import { MANAGED_BLOCK_START } from './governance-pack.js';
 import { GovernanceRegistry } from './governance-registry.js';
@@ -50,7 +51,7 @@ export async function checkGovernancePreflight(
   catProvider?: string,
 ): Promise<PreflightResult> {
   // Not an external project — always pass
-  if (projectPath === catCafeRoot) {
+  if (isSameProject(projectPath, catCafeRoot)) {
     return { ready: true };
   }
 

@@ -14,7 +14,7 @@ import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.j
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-profiles.js';
 import { getSessionStrategy, shouldTakeAction } from '../../../../../config/session-strategy.js';
-import { findMonorepoRoot } from '../../../../../utils/monorepo-root.js';
+import { findMonorepoRoot, isSameProject } from '../../../../../utils/monorepo-root.js';
 import { isUnderAllowedRoot } from '../../../../../utils/project-path.js';
 import { createPromptDigest } from '../../context/prompt-digest.js';
 import { AuditEventTypes, getEventAuditLog } from '../../orchestration/EventAuditLog.js';
@@ -307,7 +307,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // F070: Governance gate for external project dispatch
     //   1. Auto-sync governance for confirmed projects (idempotent)
     //   2. Preflight check — fail-closed if governance files missing
-    if (workingDirectory && workingDirectory !== findMonorepoRoot(process.cwd())) {
+    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd()))) {
       const catCafeRoot = findMonorepoRoot(process.cwd());
       // Auto-sync: re-bootstrap confirmed projects (handles stale versions)
       const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
