@@ -1,6 +1,6 @@
 'use client';
 
-import { type RefObject } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { MODE_OPTIONS, type CatOption } from './chat-input-options';
 
 interface ChatInputMenusProps {
@@ -18,13 +18,34 @@ export function ChatInputMenus({
   catOptions, showMentions, showModeMenu, selectedIdx,
   onSelectIdx, onInsertMention, onInsertOption, menuRef,
 }: ChatInputMenusProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollDown, setCanScrollDown] = useState(false);
+
+  // Auto-scroll selected item into view on keyboard navigation
+  const selectedRef = useCallback((node: HTMLButtonElement | null) => {
+    if (node && typeof node.scrollIntoView === 'function') {
+      node.scrollIntoView({ block: 'nearest' });
+    }
+  }, []);
+
+  // Detect if more items are hidden below
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) { setCanScrollDown(false); return; }
+    const check = () => setCanScrollDown(el.scrollHeight > el.clientHeight + el.scrollTop + 4);
+    check();
+    el.addEventListener('scroll', check);
+    return () => el.removeEventListener('scroll', check);
+  }, [catOptions, showMentions]);
+
   return (
     <>
       {showMentions && (
         <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10 max-h-80 flex flex-col">
-          <div className="overflow-y-auto flex-1">
+          <div ref={scrollRef} className="overflow-y-auto flex-1">
           {catOptions.map((opt, i) => (
-            <button key={opt.id} className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
+            <button key={opt.id} ref={i === selectedIdx ? selectedRef : undefined}
+              className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
               onMouseEnter={() => onSelectIdx(i)} onMouseDown={(e) => { e.preventDefault(); onInsertMention(opt); }}>
               <img src={opt.avatar} alt={opt.label} className="w-7 h-7 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
               <div>
@@ -34,6 +55,9 @@ export function ChatInputMenus({
             </button>
           ))}
           </div>
+          {canScrollDown && (
+            <div className="px-4 py-1 text-[10px] text-gray-400 text-center border-t border-gray-100 bg-gradient-to-t from-white shrink-0">↓ 还有更多猫猫</div>
+          )}
           {catOptions.length === 0 && (
             <div className="px-4 py-2.5 text-xs text-gray-400">无匹配猫猫</div>
           )}
