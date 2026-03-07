@@ -4,19 +4,6 @@ import { apiFetch } from '@/utils/api-client';
 import { CatSelector } from './CatSelector';
 import { projectDisplayName } from './thread-utils';
 
-interface DirEntry {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-}
-
-interface BrowseResult {
-  current: string;
-  name: string;
-  parent: string | null;
-  entries: DirEntry[];
-}
-
 /** F33: Session binding passed alongside thread creation */
 export interface SessionBinding {
   catId: string;
@@ -32,21 +19,18 @@ export function DirectoryPickerModal({
   onSelect: (projectPath: string | undefined, preferredCats?: string[], sessionBindings?: SessionBinding[]) => void;
   onCancel: () => void;
 }) {
-  const [browseData, setBrowseData] = useState<BrowseResult | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [cwdPath, setCwdPath] = useState<string | null>(null);
-  const [browseExpanded, setBrowseExpanded] = useState(false);
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
-  /** F33: Per-cat session ID inputs (catId → cliSessionId) */
   const [sessionInputs, setSessionInputs] = useState<Record<string, string>>({});
   const [bindExpanded, setBindExpanded] = useState(false);
+  const [cwdPath, setCwdPath] = useState<string | null>(null);
+  const [isPicking, setIsPicking] = useState(false);
+  const [pathInput, setPathInput] = useState('');
+  const [pathError, setPathError] = useState<string | null>(null);
   const { getCatById } = useCatData();
   const modalRef = useRef<HTMLDivElement>(null);
 
   const selectWithCats = useCallback(
     (projectPath: string | undefined) => {
-      // F33: Collect non-empty session bindings
       const bindings: SessionBinding[] = [];
       for (const [catId, sid] of Object.entries(sessionInputs)) {
         const trimmed = sid.trim();
@@ -55,7 +39,6 @@ export function DirectoryPickerModal({
         }
       }
       const cats = selectedCats.length > 0 ? selectedCats : undefined;
-      // Only pass 3rd arg when bindings exist, to preserve existing call signature
       if (bindings.length > 0) {
         onSelect(projectPath, cats, bindings);
       } else {
@@ -65,42 +48,63 @@ export function DirectoryPickerModal({
     [onSelect, selectedCats, sessionInputs],
   );
 
-  const browseTo = useCallback(async (path?: string) => {
-    setIsLoading(true);
-    setError(null);
+  // F068: Open native macOS folder picker via backend osascript
+  const pickDirectory = useCallback(async () => {
+    setIsPicking(true);
+    setPathError(null);
     try {
-      const params = path ? `?path=${encodeURIComponent(path)}` : '';
-      const res = await apiFetch(`/api/projects/browse${params}`);
+      const res = await apiFetch('/api/projects/pick-directory', { method: 'POST' });
+      if (res.status === 204) return; // User cancelled
       if (!res.ok) {
         const data = await res.json();
-        setError(data.error || 'Failed to browse');
+        setPathError(data.error || '选择失败');
         return;
       }
-      setBrowseData(await res.json());
+      const data = await res.json();
+      selectWithCats(data.path);
     } catch {
-      setError('无法连接到服务器');
+      setPathError('无法连接到服务器');
     } finally {
-      setIsLoading(false);
+      setIsPicking(false);
     }
-  }, []);
+  }, [selectWithCats]);
 
+  // F068: Submit path from text input — validate via browse endpoint before accepting
+  const handlePathSubmit = useCallback(async () => {
+    const trimmed = pathInput.trim();
+    if (!trimmed) return;
+    setPathError(null);
+    try {
+      const res = await apiFetch(`/api/projects/browse?path=${encodeURIComponent(trimmed)}`);
+      if (!res.ok) {
+        const data = await res.json();
+        setPathError(data.error || '路径无效');
+        return;
+      }
+      // Valid directory — use the canonicalized path from server
+      const data = await res.json();
+      selectWithCats(data.current);
+    } catch {
+      setPathError('无法连接到服务器');
+    }
+  }, [pathInput, selectWithCats]);
+
+  // Fetch cwd for "推荐" badge
   useEffect(() => {
     (async () => {
       try {
-        const res = await apiFetch(`/api/projects/cwd`);
+        const res = await apiFetch('/api/projects/cwd');
         if (res.ok) {
           const data = await res.json();
           setCwdPath(data.path);
-          await browseTo(data.path);
-        } else {
-          await browseTo();
         }
       } catch {
-        await browseTo();
+        // ignore — cwd is optional
       }
     })();
-  }, [browseTo]);
+  }, []);
 
+  // Escape to close
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onCancel();
@@ -110,7 +114,7 @@ export function DirectoryPickerModal({
   }, [onCancel]);
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-to-close, keyboard Escape handled by useEffect
+    // biome-ignore lint/a11y/noStaticElementInteractions: modal backdrop click-to-close
     <div
       role="presentation"
       className="fixed inset-0 bg-black/30 flex items-center justify-center z-50"
@@ -122,6 +126,7 @@ export function DirectoryPickerModal({
         ref={modalRef}
         className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] mx-4 max-h-[80vh] flex flex-col overflow-hidden"
       >
+        {/* ── Header ── */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-base font-semibold text-cafe-black">新建对话</h2>
           <button type="button" onClick={onCancel} className="text-gray-400 hover:text-gray-600 transition-colors p-1">
@@ -140,7 +145,7 @@ export function DirectoryPickerModal({
           <CatSelector selectedCats={selectedCats} onSelectionChange={setSelectedCats} />
         </div>
 
-        {/* ── F33: Session binding (only shown when cats are selected) ── */}
+        {/* ── F33: Session binding ── */}
         {selectedCats.length > 0 && (
           <div className="px-5 py-2 border-b border-gray-100">
             <button
@@ -188,15 +193,68 @@ export function DirectoryPickerModal({
           </div>
         )}
 
-        {/* ── Quick picks: one-tap project selection ── */}
-        <div className="px-5 py-3 border-b border-gray-100 space-y-1">
-          <div className="text-xs text-gray-500 font-medium mb-1.5">选择项目目录</div>
-          {/* Server cwd as recommended project (always present) */}
+        {/* ── F068: Pick folder button ── */}
+        <div className="px-5 pt-4 pb-2 flex flex-col items-center gap-2">
+          <button
+            type="button"
+            onClick={pickDirectory}
+            disabled={isPicking}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-owner-primary hover:bg-owner-dark text-white font-semibold text-sm transition-colors disabled:opacity-60 shadow-sm"
+          >
+            {isPicking ? (
+              <span className="animate-pulse">等待选择...</span>
+            ) : (
+              <>
+                <FolderOpenIcon />
+                <span>选择文件夹...</span>
+              </>
+            )}
+          </button>
+          <p className="text-[10px] text-gray-400">打开系统文件选择器，选择任意目录</p>
+          {pathError && <p className="text-[10px] text-red-500">{pathError}</p>}
+        </div>
+
+        {/* ── Divider ── */}
+        <div className="flex items-center gap-3 px-5 py-1">
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-[10px] text-gray-400">或</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+
+        {/* ── F068: Path input ── */}
+        <div className="px-5 py-2">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={pathInput}
+              onChange={(e) => setPathInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handlePathSubmit(); }}
+              placeholder="输入路径，如 /Users/lysander/projects/..."
+              className="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
+            />
+            <button
+              type="button"
+              onClick={handlePathSubmit}
+              disabled={!pathInput.trim()}
+              className="px-3 py-2 rounded-lg bg-gray-900 text-white hover:bg-gray-700 transition-colors disabled:opacity-30"
+              aria-label="跳转到路径"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Quick picks: recent projects ── */}
+        <div className="flex-1 overflow-y-auto px-5 py-2 border-t border-gray-100 space-y-1">
+          <div className="text-[10px] text-gray-400 font-medium mb-1">最近项目</div>
+
           {cwdPath && !existingProjects.includes(cwdPath) && (
             <button
               type="button"
               onClick={() => selectWithCats(cwdPath)}
-              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
               title={cwdPath}
             >
               <FolderIcon />
@@ -213,7 +271,7 @@ export function DirectoryPickerModal({
               type="button"
               key={path}
               onClick={() => selectWithCats(path)}
-              className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
               title={path}
             >
               <FolderIcon />
@@ -227,104 +285,11 @@ export function DirectoryPickerModal({
           <button
             type="button"
             onClick={() => selectWithCats(undefined)}
-            className="w-full text-left px-3 py-2.5 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
+            className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
           >
             <span className="text-base">🏠</span>
             <span>大厅 (无项目)</span>
           </button>
-        </div>
-
-        {/* ── Directory browser: collapsed on mobile by default ── */}
-        <div className="flex-1 overflow-y-auto">
-          <button
-            type="button"
-            onClick={() => setBrowseExpanded((v) => !v)}
-            className="w-full px-5 py-2.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 flex items-center justify-between transition-colors"
-          >
-            <span>浏览其他目录</span>
-            <svg
-              aria-hidden="true"
-              className={`w-3.5 h-3.5 transition-transform ${browseExpanded ? 'rotate-180' : ''}`}
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
-
-          {browseExpanded && (
-            <>
-              {browseData && (
-                <div className="px-5 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2 text-xs text-gray-500">
-                  <FolderIcon />
-                  <span className="truncate" title={browseData.current}>
-                    {browseData.current}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => selectWithCats(browseData.current)}
-                    className="ml-auto flex-shrink-0 px-2.5 py-1 rounded-md bg-owner-primary text-white text-xs hover:bg-owner-dark transition-colors"
-                  >
-                    选择此目录
-                  </button>
-                </div>
-              )}
-
-              {isLoading && <div className="text-center py-8 text-sm text-gray-400">加载中...</div>}
-              {error && <div className="text-center py-8 text-sm text-red-400">{error}</div>}
-
-              {browseData && !isLoading && (
-                <div className="py-1">
-                  {browseData.parent && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (browseData.parent) browseTo(browseData.parent);
-                      }}
-                      className="w-full text-left px-5 py-2 text-sm text-gray-500 hover:bg-gray-50 transition-colors flex items-center gap-2"
-                    >
-                      <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
-                        <path
-                          fillRule="evenodd"
-                          d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span>.. 上级目录</span>
-                    </button>
-                  )}
-
-                  {browseData.entries.length === 0 && (
-                    <div className="text-center py-6 text-xs text-gray-300">无子目录</div>
-                  )}
-
-                  {browseData.entries.map((entry) => (
-                    <button
-                      type="button"
-                      key={entry.path}
-                      onClick={() => browseTo(entry.path)}
-                      className="w-full text-left px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 group"
-                    >
-                      <FolderIcon />
-                      <span className="truncate">{entry.name}</span>
-                      <svg
-                        aria-hidden="true"
-                        className="w-3 h-3 text-gray-300 ml-auto opacity-0 group-hover:opacity-100 transition-opacity"
-                        viewBox="0 0 12 12"
-                        fill="currentColor"
-                      >
-                        <path d="M4 2l4 4-4 4V2z" />
-                      </svg>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
         </div>
       </div>
     </div>
@@ -333,13 +298,17 @@ export function DirectoryPickerModal({
 
 function FolderIcon({ className }: { className?: string }) {
   return (
-    <svg
-      aria-hidden="true"
-      className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`}
-      viewBox="0 0 16 16"
-      fill="currentColor"
-    >
+    <svg aria-hidden="true" className={`w-4 h-4 flex-shrink-0 ${className ?? ''}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1 3.5A1.5 1.5 0 012.5 2h3.879a1.5 1.5 0 011.06.44l1.122 1.12A1.5 1.5 0 009.62 4H13.5A1.5 1.5 0 0115 5.5v7a1.5 1.5 0 01-1.5 1.5h-11A1.5 1.5 0 011 12.5v-9z" />
+    </svg>
+  );
+}
+
+function FolderOpenIcon() {
+  return (
+    <svg aria-hidden="true" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor">
+      <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+      <path fillRule="evenodd" d="M2 8h16v4a2 2 0 01-2 2H4a2 2 0 01-2-2V8z" clipRule="evenodd" opacity="0.4" />
     </svg>
   );
 }
