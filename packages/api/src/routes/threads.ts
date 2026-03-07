@@ -158,21 +158,28 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
 
     // F058 Phase G: Match threads by feature IDs in titles
     if (featureIds) {
-      const ids = featureIds.split(',').map((id) => id.trim().toLowerCase()).filter((id) => /^f\d{3}$/i.test(id));
+      const ids = featureIds.split(',').map((id) => id.trim().toLowerCase()).filter((id) => /^f\d{2,4}$/i.test(id));
       if (ids.length > 50) {
         reply.status(400);
         return { error: 'Too many featureIds (max 50)' };
       }
       if (ids.length > 0) {
+        // Build variant set: "f063" also matches "f63" (no leading zeros) and vice versa
+        const variantsByCanonical = new Map<string, string[]>();
+        for (const fid of ids) {
+          const digits = fid.slice(1);
+          const noLeadingZeros = `f${Number.parseInt(digits, 10)}`;
+          const variants = new Set([fid, noLeadingZeros]);
+          variantsByCanonical.set(fid.toUpperCase(), [...variants]);
+        }
         const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: CatId[] }>> = {};
         for (const thread of threads) {
           const title = (thread.title ?? '').toLowerCase();
-          for (const fid of ids) {
-            if (title.includes(fid)) {
-              const key = fid.toUpperCase();
-              const arr = threadsByFeature[key] ?? [];
+          for (const [canonical, variants] of variantsByCanonical) {
+            if (variants.some((v) => title.includes(v))) {
+              const arr = threadsByFeature[canonical] ?? [];
               arr.push({ id: thread.id, title: thread.title, lastActiveAt: thread.lastActiveAt, participants: thread.participants });
-              threadsByFeature[key] = arr;
+              threadsByFeature[canonical] = arr;
             }
           }
         }

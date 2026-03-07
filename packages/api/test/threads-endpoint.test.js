@@ -211,6 +211,23 @@ describe('Thread API', () => {
     assert.equal(body.threadsByFeature.F042[0].title, 'f042 prompt audit');
   });
 
+  it('GET /api/threads with featureIds matches titles without leading zeros (f063 → f63)', async () => {
+    threadStore.create('alice', 'f63 文件概览的冷启动守护');
+    threadStore.create('alice', 'f63 文件预览');
+    threadStore.create('alice', 'f063 padded title');
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/threads?userId=alice&featureIds=F063',
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.ok(body.threadsByFeature);
+    // Should match both "f63" (no leading zero) and "f063" (padded) variants
+    assert.equal(body.threadsByFeature.F063?.length, 3);
+  });
+
   it('GET /api/threads with featureIds rejects more than 50 IDs', async () => {
     const ids = Array.from({ length: 51 }, (_, i) => `f${String(i).padStart(3, '0')}`).join(',');
     const res = await app.inject({
