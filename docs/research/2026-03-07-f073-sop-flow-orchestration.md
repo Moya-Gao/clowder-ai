@@ -124,15 +124,56 @@ SOP 阶段（kickoff/impl/review/merge/close）应该存在哪里？
 - 不需要铲屎官手动提醒
 - 不过度工程
 
-## 参考资料
+## 参考资料（内容摘要，供外部模型阅读）
 
-- `docs/SOP.md` — 完整 SOP 流程定义
-- `cat-cafe-skills/` — 所有 Skill 文件
-- `docs/features/F049-mission-control-backlog-center.md` — Mission Hub 设计
-- `docs/features/F058-mission-control-enhancements.md` — Mission Hub 增强
-- `docs/features/F073-sop-auto-guardian.md` — 当前 Feature spec
-- `.claude/hooks/` — 布偶猫 hook 机制
-- `.claude/settings.json` — hook 注册配置
+### A. SOP 流程定义（4 步）
+
+```
+① worktree        → 隔离开发环境
+② quality-gate    → 自检 + 愿景对照
+③ review 循环     → 本地 peer review（P1/P2 清零 + reviewer 放行）
+④ merge-gate      → 门禁 → PR → 云端 review → squash merge → 清理
+```
+
+每步有对应 Skill 文件（`cat-cafe-skills/{skill-name}/SKILL.md`），内含规则、检查项、常见错误。Skill 需要猫主动加载才生效。
+
+### B. 布偶猫 Hook 机制（Claude Code 专属）
+
+Claude Code 支持以下 hook 事件：
+- `PreCompact` — 上下文压缩前，保存当前状态到 `/tmp/` 文件
+- `SessionStart` (matcher: "compact") — 压缩后恢复，读取状态文件注入上下文
+- `PreToolUse` — 工具调用前检查（如 subagent 模型检查）
+- `PostToolUse` — 工具调用后检查（如 SOP 阶段标记）
+
+当前 F073 新增的 hook（`sop-stage-bookmark.sh`）：
+- 触发时机：`PostToolUse` / `Skill`
+- 行为：猫加载 skill → hook 自动记录 `{skill, sopStage, recordedAt}` 到 `/tmp/cat-cafe-sop-stage-{SESSION_ID}.json`
+- 局限：**只有布偶猫（Claude Code）能用**，缅因猫和暹罗猫没有 hook 机制
+
+### C. Mission Hub（所有猫共享的任务中心）
+
+Mission Hub 是基于 Redis 的全局任务调度中心（F049+F058）：
+- **BacklogItem 状态机**：`open → suggested → approved → dispatched → done`
+- **Feature 鸟瞰**：一个 Feature → 多个 Thread 的聚合状态视图
+- **依赖关系**：Feature 间的 evolvedFrom/blockedBy/related 可视化
+- **领取/派发**：建议领取 → 铲屎官批准 → 自动创建 Thread
+- **MCP 工具**：`cat_cafe_list_tasks`, `cat_cafe_update_task` 等，所有猫都能调用
+
+**当前缺口**：Mission Hub 只追踪 Feature 大状态（open/dispatched/done），不追踪 SOP 细分阶段（kickoff/impl/review/merge/close）。
+
+### D. Skill 加载的现状
+
+Skill 是 repo 级共享文件（`cat-cafe-skills/`），所有猫 clone 后都能加载。但：
+- 猫需要**主动调用** `Skill` 工具来加载
+- 没有"进入某阶段时自动加载对应 skill"的机制
+- 压缩后猫忘了"我在哪个阶段"，也就不知道该加载哪个 skill
+
+### E. 跨猫协作现状
+
+- **A2A 出口检查**：每只猫回复前问"到我这里结束了吗？"→ 不是 → 末尾行首 `@句柄` 传球
+- **@mention 路由**：Cat Café 系统检测行首 `@句柄`，自动唤醒对应猫
+- **跨线程**：`cat_cafe_cross_post_message` MCP 工具
+- **缺口**：传球后没有超时/升级机制；阶段状态不同步
 
 ## 期望产出
 
