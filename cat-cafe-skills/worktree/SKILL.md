@@ -30,6 +30,31 @@ git worktree add ../cat-cafe-{feature-name} -b feat/{feature-name}
 
 其他项目：先查 `CLAUDE.md / AGENTS.md` 有没有指定位置 → 有就用 → 没有再问用户。
 
+## 创建前：Main 同步检查（F073 门禁）
+
+开 worktree 前**必须**确认 main 与 `origin/main` 完全同步（双向）。其他猫看的是 `origin/main`，不同步 = 信息不对称。
+
+```bash
+# Step 1: 检查是否有未提交的文档变更
+git status --porcelain docs/ | head -5
+# 如果有输出 → 先 commit 再继续
+
+# Step 2: 检查 main 与 remote 双向同步
+git fetch origin main --quiet
+AHEAD=$(git rev-list --count origin/main..main)
+BEHIND=$(git rev-list --count main..origin/main)
+echo "ahead=$AHEAD behind=$BEHIND"
+# ahead > 0 → 先 git push origin main
+# behind > 0 → 先 git pull origin main
+# 两者都 = 0 → 可以继续
+```
+
+如果 main 与 remote 不同步：
+1. `git add docs/` + commit（如有未提交变更）
+2. `git pull origin main`（如果 behind > 0，先拉取其他猫的更新）
+3. `git push origin main`（如果 ahead > 0，推送本地更新）
+4. 确认 ahead=0 behind=0 后再创建 worktree
+
 ## 创建步骤
 
 ```bash
@@ -90,6 +115,7 @@ git branch --merged main      # 哪些分支已合入
 ## 安全核查
 
 创建前：
+- [ ] **Main 文档双向同步**（`git status --porcelain docs/` 无输出 + ahead=0 + behind=0，F073 门禁）
 - [ ] 目录放在 relay-station/ 同级（不在项目内部）
 - [ ] 不是 `*-runtime` 命名
 - [ ] `.env.local` 包含 `REDIS_URL=redis://localhost:6398`

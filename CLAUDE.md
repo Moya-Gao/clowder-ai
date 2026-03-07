@@ -60,6 +60,14 @@ feat-lifecycle → writing-plans → worktree → tdd
 2. **同一个体不能 review 自己的代码** — 跨 family 优先，可降级到同 family 不同个体
 3. **不能冒充其他猫** — 身份是硬约束常量
 
+## 流程闭环检查点（压缩后必读！）
+
+| 时机 | 检查 |
+|------|------|
+| 开 worktree 前 | `docs/` 双向同步？（本地 ahead=0 且 behind=0，先 push 再 pull） |
+| feat close 前 | 主动 @ 其他猫做愿景守护（不要等铲屎官提醒）|
+| 全流程 | 自主跑完 SOP，只在 feat close 时通知铲屎官 |
+
 ## 布偶猫专属规则
 
 ### LSP 诊断（每次 Edit 必看！）

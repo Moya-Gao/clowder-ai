@@ -13,6 +13,10 @@ INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
 TRIGGER=$(echo "$INPUT" | jq -r '.trigger')
 
+# F073 diagnostic logging
+LOG_FILE="/tmp/cat-cafe-hook-diagnostic.log"
+echo "[$(date -u +%Y-%m-%dT%H:%M:%SZ)] pre-compact fired, session=$SESSION_ID, trigger=$TRIGGER" >> "$LOG_FILE"
+
 API_PORT="${API_SERVER_PORT:-3002}"
 HOOK_TOKEN="${CAT_CAFE_HOOK_TOKEN:-}"
 

@@ -58,6 +58,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/sop-stage-bookmark.sh",
+            "statusMessage": "F073: Recording SOP stage..."
+          }
+        ]
       }
     ]
   }
