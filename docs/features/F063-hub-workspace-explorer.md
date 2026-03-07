@@ -494,5 +494,22 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 
 | Bug | 描述 | 根因 | 状态 |
 |-----|------|------|------|
-| B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | P1, 待修 |
-| B2 | Link External Folder "Network error" | `LinkedRootsManager.tsx` 用 raw `fetch` + `API_BASE` 而非 `apiFetch`，port 不匹配 | **本 PR 已修** |
+| B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | **修复中** |
+| B2 | Link External Folder "Network error" | `LinkedRootsManager.tsx` 用 raw `fetch` + `API_BASE` 而非 `apiFetch`，port 不匹配 | **PR #264 已修** |
+
+## B1 Fix Plan — Project-Aware Workspace
+
+**问题**：Workspace API 硬编码 `process.cwd()` 作为 git repo root，导致切换 Hub project 后文件树仍显示 cat-cafe。
+
+**修复方案**（3 层改动）：
+
+1. **后端 API**: `GET /api/workspace/worktrees` 接受 `?repoRoot=` 查询参数
+   - `listWorktrees(repoRoot)` 已支持传入 root，只需从路由层透传
+   - `linkedRootsConfigPath()` 也需要支持 project-specific config
+   - 安全：`repoRoot` 必须是绝对路径 + 目录存在检查
+
+2. **前端 hook**: `useWorkspace.fetchWorktrees()` 从 store 读 `currentProjectPath`，传给 API
+   - `currentProjectPath === 'default'` 时不传（后端 fallback 到 `process.cwd()`）
+   - 切换 project 时自动 re-fetch worktrees
+
+3. **LinkedRootsManager**: 同样透传 `repoRoot`（add/remove linked roots 要知道归属哪个 project）
