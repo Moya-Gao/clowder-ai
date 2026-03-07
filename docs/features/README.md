@@ -56,3 +56,4 @@
 | F064 | F064: A2A 出口检查 — 链条终止盲区修复 | done | [F064-a2a-exit-check.md](./F064-a2a-exit-check.md) |
 | F065 | F065: Session Continuity — 封印重生，记忆不断 | done | [F065-session-continuity.md](./F065-session-continuity.md) |
 | F046 | F046: 愿景守护协议 — Anti-Drift Protocol | done | [F046-anti-drift-protocol.md](./F046-anti-drift-protocol.md) |
+| F068 | F068: 新建对话弹窗 UX 优化 — 目录选择体验重做 | done | [F068-new-thread-dialog-ux.md](./F068-new-thread-dialog-ux.md) |

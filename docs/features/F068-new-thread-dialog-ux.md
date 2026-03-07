@@ -4,6 +4,8 @@ related_features: [F063]
 topics: [hub, ux, directory-picker, new-thread]
 doc_kind: spec
 created: 2026-03-06
+completed: 2026-03-06
+status: done
 ---
 
 # F068 — 新建对话弹窗 UX 优化
@@ -28,25 +30,25 @@ created: 2026-03-06
 
 ## Acceptance Criteria
 
-- [ ] 系统原生选择器：点击「选择文件夹」按钮，弹出 macOS 原生目录选择器（NSOpenPanel），选中后返回绝对路径
-- [ ] 后端 API：`POST /api/projects/pick-directory`，通过 `osascript -e 'POSIX path of (choose folder)'` 实现
-- [ ] 路径输入框：常驻显示，支持粘贴完整路径 + 回车/箭头按钮跳转
-- [ ] 最近项目列表：显示已有项目 + 大厅入口，一键创建对话
-- [ ] 删除自建目录浏览器（`browseExpanded` 折叠面板等）
-- [ ] 猫猫选择器保留（现有 CatSelector 组件）
-- [ ] 移动端仍可用（响应式，移动端降级为路径输入 + 最近项目）
-- [ ] 视觉设计经铲屎官确认
+- [x] 系统原生选择器：点击「选择文件夹」按钮，弹出 macOS 原生目录选择器（NSOpenPanel），选中后返回绝对路径
+- [x] 后端 API：`POST /api/projects/pick-directory`，通过 `osascript -e 'POSIX path of (choose folder)'` 实现
+- [x] 路径输入框：常驻显示，支持粘贴完整路径 + 回车/箭头按钮跳转
+- [x] 最近项目列表：显示已有项目 + 大厅入口，一键创建对话
+- [x] 删除自建目录浏览器（`browseExpanded` 折叠面板等）
+- [x] 猫猫选择器保留（现有 CatSelector 组件）
+- [ ] 移动端仍可用（响应式，移动端降级为路径输入 + 最近项目）— 待验证
+- [x] 视觉设计经铲屎官确认
 
 ## 需求点 Checklist
 
 | # | 需求 | AC 映射 | 状态 |
 |---|------|---------|------|
-| R1 | 系统原生文件选择器（osascript） | AC-1, AC-2 | 🔴 |
-| R2 | 路径输入框（常驻） | AC-3 | 🔴 |
-| R3 | 最近项目快捷入口 | AC-4 | 🔴 |
-| R4 | 删除自建目录浏览器 | AC-5 | 🔴 |
-| R5 | 移动端响应式降级 | AC-7 | 🔴 |
-| R6 | 视觉设计确认 | AC-8 | 🔴 |
+| R1 | 系统原生文件选择器（osascript） | AC-1, AC-2 | ✅ |
+| R2 | 路径输入框（常驻） | AC-3 | ✅ |
+| R3 | 最近项目快捷入口 | AC-4 | ✅ |
+| R4 | 删除自建目录浏览器 | AC-5 | ✅ |
+| R5 | 移动端响应式降级 | AC-7 | 🟡 待验证 |
+| R6 | 视觉设计确认 | AC-8 | ✅ |
 
 ## Links
 
@@ -87,3 +89,19 @@ created: 2026-03-06
 | 2026-03-06 | Kickoff — 铲屎官反馈 + 立项 |
 | 2026-03-06 | 设计迭代 — 从自建浏览器 → 系统原生选择器方案收敛 |
 | 2026-03-06 | 设计稿完成 — `designs/new-project.pen`，铲屎官确认方向 |
+| 2026-03-06 | 实现完成 — 后端 pick-directory API + 前端 DirectoryPickerModal 重写 |
+| 2026-03-06 | 砚砚本地 review R1→R2 放行 (1P1+2P2 → 0) |
+| 2026-03-06 | PR #258 合入 — 云端 review R1→R2 (2P1 误报确认 → 0)，squash merge |
+
+## Completion
+
+### 愿景三问（跨猫签收）
+
+| 问题 | 结论 | 签收猫 |
+|------|------|--------|
+| 核心问题是否被解决？ | 是 — 原生 Finder 体验 + 路径直输 + 快捷入口 | gpt52, codex, opus |
+| 交付物是否对齐原始需求？ | 是 — 铲屎官"像上传图片那样选文件夹"完全命中 | gpt52, codex, opus |
+| 铲屎官实际体验是否改善？ | 是 — 三入口 vs 旧版折叠浏览器 | gpt52, codex, opus |
+
+### 残留项
+- R5 移动端响应式降级：当前 Cat Café 仅桌面使用，移动端验证待 F010 手机端功能推进时一并确认

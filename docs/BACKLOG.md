@@ -34,4 +34,3 @@ created: 2026-02-26
 | F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | in-progress | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
 | F066 | Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列 | spec | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
-| F068 | 新建对话弹窗 UX 优化 — 目录选择体验重做 | review | 布偶猫 | [F068](features/F068-new-thread-dialog-ux.md) |
