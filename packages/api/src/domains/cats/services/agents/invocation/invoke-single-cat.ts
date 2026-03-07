@@ -304,6 +304,25 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    // F070: Governance gate for external project dispatch
+    //   1. Auto-sync governance for confirmed projects (idempotent)
+    //   2. Preflight check — fail-closed if governance files missing
+    if (workingDirectory && workingDirectory !== findMonorepoRoot(process.cwd())) {
+      const catCafeRoot = findMonorepoRoot(process.cwd());
+      // Auto-sync: re-bootstrap confirmed projects (handles stale versions)
+      const { tryGovernanceBootstrap } = await import('../../../../../config/capabilities/capability-orchestrator.js');
+      await tryGovernanceBootstrap(workingDirectory, catCafeRoot);
+      // Preflight: verify files actually exist after sync attempt (per-provider)
+      const { checkGovernancePreflight } = await import('../../../../../config/governance/governance-preflight.js');
+      const catEntry = catRegistry.tryGet(catId as string);
+      const preflight = await checkGovernancePreflight(workingDirectory, catCafeRoot, catEntry?.config.provider);
+      if (!preflight.ready) {
+        yield { type: 'system_info', catId, content: `[F070] Governance not ready: ${preflight.reason}`, timestamp: Date.now() };
+        yield { type: 'done', catId, isFinal: params.isLastCat, timestamp: Date.now() };
+        return;
+      }
+    }
+
     // Provider profile injection (F062):
     // Resolve active runtime profile from project-local `.cat-cafe` state and
     // pass it to provider services via callback env.

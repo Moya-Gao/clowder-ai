@@ -53,6 +53,8 @@ export interface CapabilitiesConfig {
   version: 1;
   /** All registered capabilities */
   capabilities: CapabilityEntry[];
+  /** F070: Governance pack metadata for this project */
+  governancePack?: GovernancePackMeta;
 }
 
 /** Capabilities board response — what the GET API returns */
@@ -113,6 +115,59 @@ export interface CapabilityBoardResponse {
   projectPath: string;
   /** Skill mount health (only for cat-cafe skills) */
   skillHealth?: SkillHealthSummary;
+  /** F070: Governance health for this project */
+  governanceHealth?: GovernanceHealthSummary;
+}
+
+// ─── F070: Portable Governance Types ──────────────────────────────
+
+/** F070: Governance rule priority in Conflict Contract */
+export type GovernanceCategory = 'hard-constraint' | 'workflow' | 'methodology' | 'advisory';
+
+/** F070: Single rule in the portable governance pack */
+export interface GovernanceRule {
+  readonly id: string;
+  readonly category: GovernanceCategory;
+  readonly description: string;
+  readonly immutable: boolean;
+}
+
+/** F070: Versioned governance pack metadata stored per-project */
+export interface GovernancePackMeta {
+  readonly packVersion: string;
+  readonly checksum: string;
+  readonly syncedAt: number;
+  readonly confirmedByUser: boolean;
+}
+
+/** F070: Per-project governance health */
+export interface GovernanceHealthSummary {
+  readonly projectPath: string;
+  readonly status: 'healthy' | 'stale' | 'missing' | 'never-synced';
+  readonly packVersion: string | null;
+  readonly lastSyncedAt: number | null;
+  readonly findings: readonly GovernanceFinding[];
+}
+
+export interface GovernanceFinding {
+  readonly category: GovernanceCategory;
+  readonly name: string;
+  readonly status: 'present' | 'missing' | 'stale';
+}
+
+/** F070: Bootstrap operation report (persisted for audit) */
+export interface BootstrapReport {
+  readonly projectPath: string;
+  readonly timestamp: number;
+  readonly packVersion: string;
+  readonly actions: readonly BootstrapAction[];
+  readonly dryRun: boolean;
+}
+
+export interface BootstrapAction {
+  readonly file: string;
+  readonly action: 'created' | 'updated' | 'skipped' | 'symlinked';
+  readonly reason: string;
 }
 
 /** PATCH request body for toggling capabilities */

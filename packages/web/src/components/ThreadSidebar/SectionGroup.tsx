@@ -1,5 +1,13 @@
 import React from 'react';
 
+/** F070: governance status dot colors */
+const GOV_STATUS_DOT: Record<string, { color: string; title: string }> = {
+  healthy: { color: 'bg-green-400', title: '治理正常' },
+  stale: { color: 'bg-yellow-400', title: '治理过期' },
+  missing: { color: 'bg-red-400', title: '治理缺失' },
+  'never-synced': { color: 'bg-gray-300', title: '未同步治理' },
+};
+
 interface SectionGroupProps {
   label: string;
   icon?: 'pin' | 'star';
@@ -7,11 +15,21 @@ interface SectionGroupProps {
   isCollapsed: boolean;
   onToggle: () => void;
   projectPath?: string;
+  governanceStatus?: string;
   children: React.ReactNode;
 }
 
 /** Collapsible section group for pinned / favorites / project threads. */
-export function SectionGroup({ label, icon, count, isCollapsed, onToggle, projectPath, children }: SectionGroupProps) {
+export function SectionGroup({
+  label,
+  icon,
+  count,
+  isCollapsed,
+  onToggle,
+  projectPath,
+  governanceStatus,
+  children,
+}: SectionGroupProps) {
   return (
     <div className="mt-1">
       <button
@@ -49,6 +67,10 @@ export function SectionGroup({ label, icon, count, isCollapsed, onToggle, projec
           </svg>
         )}
         <span className="text-xs font-medium text-gray-500 truncate">{label}</span>
+        {(() => {
+          const dot = governanceStatus ? GOV_STATUS_DOT[governanceStatus] : undefined;
+          return dot ? <span className={`w-2 h-2 rounded-full flex-shrink-0 ${dot.color}`} title={dot.title} /> : null;
+        })()}
         <span className="text-[10px] text-gray-300 flex-shrink-0 ml-auto">{count}</span>
       </button>
       {!isCollapsed && children}

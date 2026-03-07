@@ -15,6 +15,13 @@ export type {
   McpServerDescriptor,
   McpToolInfo,
   SkillHealthSummary,
+  GovernanceCategory,
+  GovernanceRule,
+  GovernancePackMeta,
+  GovernanceHealthSummary,
+  GovernanceFinding,
+  BootstrapReport,
+  BootstrapAction,
 } from './capability.js';
 // Authorization types (猫猫授权系统)
 export type {

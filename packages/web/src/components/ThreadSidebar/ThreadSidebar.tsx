@@ -34,6 +34,8 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [bindWarning, setBindWarning] = useState<string | null>(null);
+  // F070: governance health by project path
+  const [govHealth, setGovHealth] = useState<Record<string, string>>({});
 
   // Shared seq maps — created once, cross-referenced between pin/fav toggle instances
   const pinSeqMap = useRef(new Map<string, number>());
@@ -90,6 +92,24 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
   useEffect(() => {
     void loadThreads();
   }, [loadThreads]);
+
+  // F070: Fetch governance health for all registered external projects
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch('/api/governance/health');
+        if (!res.ok) return;
+        const data = (await res.json()) as { projects: { projectPath: string; status: string }[] };
+        const map: Record<string, string> = {};
+        for (const p of data.projects) {
+          map[p.projectPath] = p.status;
+        }
+        setGovHealth(map);
+      } catch {
+        // Best effort
+      }
+    })();
+  }, []);
 
   const navigateToThread = useCallback(
     (threadId: string) => {
@@ -348,6 +368,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
                 isCollapsed={isCollapsed}
                 onToggle={() => toggleGroup(groupKey)}
                 projectPath={group.projectPath}
+                governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
               >
                 {group.threads.map((t) => (
                   <ThreadItem

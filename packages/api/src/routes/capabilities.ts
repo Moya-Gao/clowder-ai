@@ -749,13 +749,25 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
       phantom,
     };
 
-    // 7. Build response with cat family + project metadata
+    // 7. F070: Governance health for external projects
+    const catCafeRoot = getProjectRoot();
+    let governanceHealth: CapabilityBoardResponse['governanceHealth'];
+    if (projectRoot !== catCafeRoot) {
+      const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
+      const registry = new GovernanceRegistry(catCafeRoot);
+      governanceHealth = await registry.checkHealth(projectRoot);
+    }
+
+    // 8. Build response with cat family + project metadata
     const response: CapabilityBoardResponse = {
       items,
       catFamilies: buildCatFamilies(),
       projectPath: projectRoot,
       skillHealth,
     };
+    if (governanceHealth) {
+      response.governanceHealth = governanceHealth;
+    }
 
     return response;
   });
@@ -833,5 +845,90 @@ export const capabilitiesRoutes: FastifyPluginAsync = async (app) => {
     await generateCliConfigs(config, getCliConfigPaths(projectRoot));
 
     return { ok: true, capability: cap };
+  });
+
+  // ── POST /api/governance/confirm — F070: First-time confirmation ──
+  app.post('/api/governance/confirm', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const body = request.body as { projectPath?: string } | undefined;
+    if (!body?.projectPath) {
+      reply.status(400);
+      return { error: 'Required: projectPath' };
+    }
+
+    const validated = await validateProjectPath(body.projectPath);
+    if (!validated) {
+      reply.status(400);
+      return { error: 'Invalid project path' };
+    }
+
+    const catCafeRoot = getProjectRoot();
+    if (validated === catCafeRoot) {
+      reply.status(400);
+      return { error: 'Cannot confirm governance for Cat Cafe itself' };
+    }
+
+    const { GovernanceBootstrapService } = await import('../config/governance/governance-bootstrap.js');
+    const service = new GovernanceBootstrapService(catCafeRoot);
+    const report = await service.bootstrap(validated, { dryRun: false });
+
+    return { ok: true, report };
+  });
+
+  // ── GET /api/governance/health — F070: All project health ──
+  app.get('/api/governance/health', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const catCafeRoot = getProjectRoot();
+    const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
+    const registry = new GovernanceRegistry(catCafeRoot);
+    const entries = await registry.listAll();
+
+    const healthResults = await Promise.all(
+      entries.map((entry) => registry.checkHealth(entry.projectPath)),
+    );
+
+    return { projects: healthResults };
+  });
+
+  // ── POST /api/governance/discover — F070: Find unsynced external projects ──
+  // Frontend sends known external projectPaths (from thread data),
+  // backend cross-references with registry to find never-synced ones.
+  app.post('/api/governance/discover', async (request, reply) => {
+    const userId = resolveUserId(request);
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    const body = request.body as { projectPaths?: string[] } | undefined;
+    if (!body?.projectPaths || !Array.isArray(body.projectPaths)) {
+      reply.status(400);
+      return { error: 'Required: projectPaths (string[])' };
+    }
+
+    const catCafeRoot = getProjectRoot();
+    const { GovernanceRegistry } = await import('../config/governance/governance-registry.js');
+    const registry = new GovernanceRegistry(catCafeRoot);
+
+    const unsynced: string[] = [];
+    for (const pp of body.projectPaths) {
+      if (typeof pp !== 'string' || pp === 'default' || pp === catCafeRoot) continue;
+      const entry = await registry.get(pp);
+      if (!entry) {
+        unsynced.push(pp);
+      }
+    }
+
+    return { unsynced };
   });
 };
