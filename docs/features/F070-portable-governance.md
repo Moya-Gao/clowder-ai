@@ -8,7 +8,7 @@ created: 2026-03-06
 
 # F070: Portable Governance — 猫咖方法论的可复制输出
 
-> Status: spec | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
+> Status: phase-1-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
 
 ## Why
 
@@ -60,54 +60,95 @@ created: 2026-03-06
 - 不新建并行配置系统（复用现有 capability-orchestrator）
 - 不强制外部项目改变已有的 build/test/style 规则
 
-## Design: 三阶段
+## Design: 三阶段 + 后续路线图
 
-### Phase A: Portable Governance Pack（定义"带什么"）
+### Phase 1: 治理骨架 + 门禁 ✅（PR #265, 2026-03-07）
 
-定义 versioned portable governance pack：
-- 版本号 + checksum + managed block 标记
-- 硬约束层：端口/Redis/身份铁律
-- 方法论层：文档架构模板 + Backlog 模板 + SOP 模板 + Feature lifecycle 模板
-- 工作流层：Skills symlink + manifest + refs
-- 协作层：shared-rules.md + A2A 规范 + 愿景守护协议
+**已落地**：
 
-TD099（hook 归一化）并入此阶段。
+| 组件 | 实现 | 文件 |
+|------|------|------|
+| Governance Pack | versioned managed block + checksum | `governance-pack.ts` |
+| Bootstrap Engine | managed blocks + skills symlinks + methodology skeleton (no-overwrite) | `governance-bootstrap.ts` |
+| Registry | 派遣审计注册表 | `governance-registry.ts` |
+| Preflight Gate | per-provider fail-closed（anthropic→CLAUDE.md, openai→AGENTS.md, google→GEMINI.md） | `governance-preflight.ts` |
+| Auto-sync | invoke-single-cat 派遣前自动重同步 confirmed 项目 | `invoke-single-cat.ts` + `capability-orchestrator.ts` |
+| API | confirm + health + discover endpoints | `capabilities.ts` |
+| Hub UI | 治理看板 + 历史项目发现 + ThreadSidebar 状态 badge | `HubGovernanceTab.tsx` + `SectionGroup.tsx` |
+| Tests | 47 tests across 7 test files, 0 failures | `test/governance/` |
 
-### Phase B: Dispatch Bootstrap Adapter（"怎么带"）
+**Phase 1 已覆盖 AC**：AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-12, AC-13, AC-14, AC-15, AC-16, AC-18(部分), AC-19
 
-首次派遣到 project X 时，在 `invoke-single-cat` 前执行幂等 bootstrap：
+**Phase 1 未覆盖**：AC-1(hooks), AC-10(协作规范显式注入), AC-11(完整闭环验证), AC-17(回流)
 
-1. 检测目标项目是否已有治理包（通过 managed block 标记 + 版本号）
-2. 写入/更新 managed block 到目标项目的 `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
-3. symlink 三家 provider skills 目录 → 猫咖 skills（`.claude/skills/` + `.codex/skills/` + `.gemini/skills/`，含 F038 workaround）
-4. 同步 hooks（TD099）
-5. 生成方法论骨架（**仅在目标文件不存在时创建，已有文件不覆盖**）：
-   - `docs/` 目录结构 + `BACKLOG.md` 模板 + `docs/features/` + SOP 模板
-   - 已有 `docs/` / `BACKLOG.md` / `docs/features/` → 跳过，记录到 bootstrap report
-   - 冲突落盘：bootstrap report 记录"已存在/跳过/冲突"明细
-   - 支持 `--dry-run` 模式：预览将要写入的文件，不实际写入
-   - 回滚语义：bootstrap report 含文件清单，可按清单逆向删除
-6. 注入任务态上下文（当前 feat 的 AC/链接/phase）
+**Review 历程**：
+- 本地 codex: R1(3P1+1P2) → R2(2P1) → R3(0P1/0P2 放行)
+- 云端 codex: 0 P1/P2
 
-**触发点双保险**（codex 硬要求）：
-- Mission Hub dispatch 时触发一次
-- `invoke-single-cat` 前再校验一次（防手工建 thread / 旁路调用）
+### Phase 2: 任务包 + 运行时反射（近期）
 
-**幂等保证**：版本戳 + checksum，重复派遣不重复写入。
+> **一句话**：让出征的猫不只"会守规矩"，还"知道自己来干嘛"。
+>
+> 三猫讨论共识（2026-03-07, opus + gpt52）
 
-**与能力 Hub 集成**：复用 `capability-orchestrator` 和 `capabilities.ts` 的跨项目 bootstrap 底座，在现有 MCP 同步旁边加治理同步。能力 Hub UI 增加治理同步状态显示。
+**2a. 派遣任务包注入**（AC-11 部分）
 
-### Phase C: Preflight Gate + 方法论更新（"确认带了" + "持续同步"）
+猫被派遣到外部项目时，system prompt 注入结构化任务包：
 
-**Preflight Gate**：
-- spawn 前检查：核心规则已注入？skills 可达？hooks 已同步？方法论骨架存在？
-- 未通过 → fail-closed，Mission Hub 显示"治理同步未完成"
-- 通过 → 正常派遣
+```
+mission:    1-3 句，这次去干嘛
+work_item:  外部项目自己的任务标识（没有则退化成 thread title）
+phase:      当前阶段（讨论中 / 实现中 / 待 review）
+done_when:  最多 3 条完成标准
+links:      相关入口链接
+```
 
-**方法论更新**：
-- 能力 Hub 的 Skills 管理页面扩展，增加"同步到外部项目"按钮
-- 猫咖 skills/方法论更新时，能力 Hub 显示外部项目的版本漂移状态
-- 支持一键同步最新版本
+原则：**带方法，不带猫咖私有账本；带这次任务包，不灌整份 spec**。
+技术路径：invoke-single-cat 从 thread metadata 提取 → system prompt injection。
+
+**2b. Provider-agnostic Hooks 契约**（AC-1 完整版, TD099）
+
+- **目标层**：定义一套 provider-agnostic 的"猫咖标准 hooks 契约"（commit guard、quality gate pre-check）
+- **适配层**：按 provider 做 adapter（`.claude/hooks/` / `.codex/hooks/` / `.gemini/hooks/`）
+- **交付层**：实现可以分批，但 spec 目标是三家一致，不降级为 claude-only
+
+**2c. 协作规范显式注入**（AC-10 完整版）
+
+managed block 扩充协作方法论段落：
+- A2A 交接五件套引用
+- 愿景守护协议引用
+- Review 流程引用（不是全文搬入，而是指向 shared-rules.md 和 skills 路由）
+
+### Phase 3: 回流 + 闭环验证（中期）
+
+> **一句话**：让猫咖不只"知道同步过没有"，还"知道这次出征带回了什么"。
+
+**3a. 执行结果最小回流**（AC-17）
+
+- 外部项目执行摘要回流到猫咖可见
+- 最小可交付内容：做了什么 / 改了哪些文件 / 当前状态 / 是否需要 review 或决策
+- Hub 治理看板能展示，不需要铲屎官去翻外部项目日志
+- 技术路径：session digest 写入外部 `.cat-cafe/digests/` + Hub 拉取展示
+
+**3b. 真实出征闭环验证**（AC-11 完整版）
+
+- 选一个真实外部项目，刻意按猫咖 SOP 跑完整闭环
+- 验证：feat 立项 → 讨论 → worktree → TDD → quality gate → review → merge
+- 记录卡点，作为后续迭代输入
+- 这是验证任务，不是代码任务
+
+**3c. Mission Hub 跨项目推进**（依赖 F058）
+
+- Hub 展示外部项目的派遣进展和任务状态
+- 依赖 F058 Mission Hub 后续 phase
+- F070 只做 governance 层面的数据暴露
+
+### 原始设计参考（Phase A/B/C → Phase 1/2/3 映射）
+
+原始三阶段设计（Phase A/B/C）已重构为上述三阶段。映射关系：
+- Phase A（定义带什么）→ Phase 1 ✅
+- Phase B（怎么带）→ Phase 1 ✅ + Phase 2（任务包 + hooks）
+- Phase C（确认带了 + 持续同步）→ Phase 1 ✅（preflight） + Phase 3（回流）
 
 ## Conflict Contract（冲突规则）
 
@@ -122,33 +163,33 @@ TD099（hook 归一化）并入此阶段。
 ## Acceptance Criteria
 
 ### 核心 AC
-- [ ] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）
-- [ ] AC-2: 已有自己 CLAUDE.md/docs/BACKLOG.md 的外部项目，managed block 共存不冲突，已有文件不被覆盖
-- [ ] AC-3: 重复派遣幂等（版本戳 + checksum）
-- [ ] AC-4: 缺失治理文件时 Preflight Gate 阻断生效（fail-closed）
-- [ ] AC-5: 回滚后可再同步（版本漂移检测 + 修复）
-- [ ] AC-6: Mission Hub 可见同步健康状态（哪个项目裸奔、版本、最近校验）
+- [ ] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）— **Phase 1 部分完成（缺 hooks）→ Phase 2b 补完**
+- [x] AC-2: 已有自己 CLAUDE.md/docs/BACKLOG.md 的外部项目，managed block 共存不冲突，已有文件不被覆盖 — **Phase 1 ✅**
+- [x] AC-3: 重复派遣幂等（版本戳 + checksum）— **Phase 1 ✅**
+- [x] AC-4: 缺失治理文件时 Preflight Gate 阻断生效（fail-closed，per-provider）— **Phase 1 ✅**
+- [x] AC-5: 回滚后可再同步（版本漂移检测 + 修复）— **Phase 1 ✅**
+- [x] AC-6: Mission Hub 可见同步健康状态（哪个项目裸奔、版本、最近校验）— **Phase 1 ✅**
 
 ### 方法论输出 AC
-- [ ] AC-7: 外部项目获得文档架构模板（docs/ 目录结构 + frontmatter 契约）
-- [ ] AC-8: 外部项目获得 Backlog 治理模板（BACKLOG.md + Feature 聚合文件模板）
-- [ ] AC-9: 外部项目获得 SOP 工作流模板 + Skills 路由
-- [ ] AC-10: 外部项目获得协作规范（shared-rules + A2A + 愿景守护）
-- [ ] AC-11: 派遣猫能在外部项目按猫咖 feat/backlog/SOP 跑完整闭环
+- [x] AC-7: 外部项目获得文档架构模板（docs/ 目录结构 + frontmatter 契约）— **Phase 1 ✅**
+- [x] AC-8: 外部项目获得 Backlog 治理模板（BACKLOG.md + Feature 聚合文件模板）— **Phase 1 ✅**
+- [x] AC-9: 外部项目获得 SOP 工作流模板 + Skills 路由 — **Phase 1 ✅**
+- [ ] AC-10: 外部项目获得协作规范（shared-rules + A2A + 愿景守护）— **Phase 1 部分（skills symlink 含 shared-rules）→ Phase 2c 显式注入**
+- [ ] AC-11: 派遣猫能在外部项目按猫咖 feat/backlog/SOP 跑完整闭环 — **Phase 2a（任务包）+ Phase 3b（验证）**
 
 ### 审计 AC（codex 硬要求）
-- [ ] AC-12: Bootstrap 触发点双保险（dispatch + invoke 前校验）
-- [ ] AC-13: 复用现有 capability-orchestrator，不新建并行系统
-- [ ] AC-14: 治理载体是 versioned portable pack（含 checksum + managed block），不是整仓镜像
-- [ ] AC-15: 派遣注册表可审计（首次派遣时间、同步版本、校验时间、状态）
-- [ ] AC-16: Bootstrap 结果落盘可回放（做了什么、跳过什么、冲突什么）
+- [x] AC-12: Bootstrap 触发点双保险（dispatch + invoke 前校验）— **Phase 1 ✅**
+- [x] AC-13: 复用现有 capability-orchestrator，不新建并行系统 — **Phase 1 ✅**
+- [x] AC-14: 治理载体是 versioned portable pack（含 checksum + managed block），不是整仓镜像 — **Phase 1 ✅**
+- [x] AC-15: 派遣注册表可审计（首次派遣时间、同步版本、校验时间、状态）— **Phase 1 ✅**
+- [x] AC-16: Bootstrap 结果落盘可回放（做了什么、跳过什么、冲突什么）— **Phase 1 ✅**
 
 ### 回流与闭环 AC（gpt52 P1-3 修复）
-- [ ] AC-17: 外部项目执行结果可回流猫咖追踪（派遣任务状态在 Mission Hub 可见，不需要去外部项目找）
-- [ ] AC-18: Bootstrap 支持 dry-run 模式 + 回滚清单（已有文件无损策略）
+- [ ] AC-17: 外部项目执行结果可回流猫咖追踪（派遣任务状态在 Mission Hub 可见，不需要去外部项目找）— **Phase 3a**
+- [x] AC-18: Bootstrap 支持 dry-run 模式 + 回滚清单（已有文件无损策略）— **Phase 1 ✅（dry-run + report 含清单）**
 
 ### 跨 provider AC（gpt52 P2-2 修复）
-- [ ] AC-19: Skills bootstrap 覆盖三家 provider（`.claude/skills/` + `.codex/skills/` + `.gemini/skills/`），不只 Claude
+- [x] AC-19: Skills bootstrap 覆盖三家 provider（`.claude/skills/` + `.codex/skills/` + `.gemini/skills/`），不只 Claude — **Phase 1 ✅**
 
 ## Dependencies
 
@@ -186,30 +227,32 @@ TD099（hook 归一化）并入此阶段。
 | 日期 | 事件 |
 |------|------|
 | 2026-03-06 | Kickoff + 三猫讨论 + spec v0 |
+| 2026-03-07 | Phase 1 完成（PR #265 merged）：治理骨架 + 门禁 + Hub 看板 |
+| 2026-03-07 | 愿景守护（gpt52）+ 后续路线图讨论（opus + gpt52 共识）|
 
 ## 需求点 Checklist
 
-| # | 需求点 | AC 映射 | 状态 |
-|---|--------|---------|------|
-| R1 | 空白项目 bootstrap | AC-1 | pending |
-| R2 | 已有规则项目共存 | AC-2 | pending |
-| R3 | 幂等同步 | AC-3 | pending |
-| R4 | Preflight Gate fail-closed | AC-4 | pending |
-| R5 | 版本漂移检测与修复 | AC-5 | pending |
-| R6 | Mission Hub 健康状态 | AC-6 | pending |
-| R7 | 文档架构模板输出 | AC-7 | pending |
-| R8 | Backlog 治理模板输出 | AC-8 | pending |
-| R9 | SOP + Skills 路由输出 | AC-9 | pending |
-| R10 | 协作规范输出 | AC-10 | pending |
-| R11 | 派遣猫完整闭环 | AC-11 | pending |
-| R12 | 双保险触发点 | AC-12 | pending |
-| R13 | 复用 capability-orchestrator | AC-13 | pending |
-| R14 | versioned portable pack | AC-14 | pending |
-| R15 | 派遣注册表审计 | AC-15 | pending |
-| R16 | Bootstrap 结果落盘 | AC-16 | pending |
-| R17 | 回流路径（Mission Hub 追踪） | AC-17 | pending |
-| R18 | dry-run + 回滚清单 | AC-18 | pending |
-| R19 | 跨 provider skills bootstrap | AC-19 | pending |
+| # | 需求点 | AC 映射 | 状态 | Phase |
+|---|--------|---------|------|-------|
+| R1 | 空白项目 bootstrap | AC-1 | partial | 1 ✅ (缺 hooks → P2b) |
+| R2 | 已有规则项目共存 | AC-2 | done | 1 ✅ |
+| R3 | 幂等同步 | AC-3 | done | 1 ✅ |
+| R4 | Preflight Gate fail-closed | AC-4 | done | 1 ✅ |
+| R5 | 版本漂移检测与修复 | AC-5 | done | 1 ✅ |
+| R6 | Mission Hub 健康状态 | AC-6 | done | 1 ✅ |
+| R7 | 文档架构模板输出 | AC-7 | done | 1 ✅ |
+| R8 | Backlog 治理模板输出 | AC-8 | done | 1 ✅ |
+| R9 | SOP + Skills 路由输出 | AC-9 | done | 1 ✅ |
+| R10 | 协作规范输出 | AC-10 | partial | 1(symlink) → P2c(显式) |
+| R11 | 派遣猫完整闭环 | AC-11 | pending | P2a + P3b |
+| R12 | 双保险触发点 | AC-12 | done | 1 ✅ |
+| R13 | 复用 capability-orchestrator | AC-13 | done | 1 ✅ |
+| R14 | versioned portable pack | AC-14 | done | 1 ✅ |
+| R15 | 派遣注册表审计 | AC-15 | done | 1 ✅ |
+| R16 | Bootstrap 结果落盘 | AC-16 | done | 1 ✅ |
+| R17 | 回流路径（Mission Hub 追踪） | AC-17 | pending | P3a |
+| R18 | dry-run + 回滚清单 | AC-18 | done | 1 ✅ |
+| R19 | 跨 provider skills bootstrap | AC-19 | done | 1 ✅ |
 
 ## Key Decisions
 
@@ -224,6 +267,9 @@ TD099（hook 归一化）并入此阶段。
 | 回流路径验收化 | 外部执行结果必须在 Mission Hub 可追踪 | gpt52 P1-3 修复 |
 | 能力 Hub 集成方法论更新 | 复用现有多项目管理 UI | 铲屎官指出 |
 | 首次确认后自动写入 | 第一次友好问确认，之后同项目自动同步 | 铲屎官拍板 2026-03-06 |
+| 任务包结构化 5 字段 | mission/work_item/phase/done_when/links — 带方法不带私有账本 | opus+gpt52 共识 2026-03-07 |
+| Hooks spec 目标三家一致 | 实现可分批，但 spec 不降级为 claude-only | gpt52 建议 2026-03-07 |
+| 回流最小可交付 | 做了什么/改了哪些文件/当前状态/是否需要决策 — Hub 可见 | gpt52 建议 2026-03-07 |
 
 ## Links
 
