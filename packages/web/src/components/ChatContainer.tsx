@@ -194,15 +194,19 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   useEffect(() => { clearUnread(threadId); }, [threadId, clearUnread]);
 
   // F069: Ack read cursor on server when messages are loaded
+  // Guard: storeThreadId lags behind the threadId prop until the setCurrentThread
+  // effect (above) runs and swaps messages. Without this check, a thread switch
+  // sends the OLD thread's lastMessageId to the NEW threadId → 400.
+  const storeThreadId = useChatStore((s) => s.currentThreadId);
   const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
-    if (!lastMessageId) return;
+    if (!lastMessageId || storeThreadId !== threadId) return;
     apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ upToMessageId: lastMessageId }),
     }).catch((err) => { console.debug('[F069] read ack failed:', err); });
-  }, [threadId, lastMessageId]);
+  }, [threadId, lastMessageId, storeThreadId]);
 
   const handleStop = useCallback((overrideThreadId?: unknown) => {
     const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;

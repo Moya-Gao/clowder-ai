@@ -53,7 +53,14 @@ export class RedisThreadReadStateStore implements IThreadReadStateStore {
 
     for (const threadId of threadIds) {
       const state = await this.get(userId, threadId);
-      const afterId = state?.lastReadMessageId;
+      // Cold-start guard: no read cursor = treat as fully read (0 unread).
+      // Pre-F069 threads have no cursor; counting all messages as unread
+      // causes every badge to reappear on every page refresh.
+      if (!state) {
+        summaries.push({ threadId, unreadCount: 0, hasUserMention: false });
+        continue;
+      }
+      const afterId = state.lastReadMessageId;
 
       const unreadMessages = await messageStore.getByThreadAfter(threadId, afterId, undefined, userId);
       // P1-2 fix: exclude user's own typed messages + deleted/tombstone messages

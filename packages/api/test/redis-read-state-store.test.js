@@ -178,26 +178,33 @@ describe('RedisThreadReadStateStore', { skip: !REDIS_URL ? 'REDIS_URL not set' :
     assert.equal(summaries[0].unreadCount, 0);
   });
 
-  it('getUnreadSummaries() treats no cursor as all unread', async () => {
+  it('getUnreadSummaries() treats no cursor as fully read (cold-start guard)', async () => {
     const tid = uniqueId('t');
     await messageStore.append({ userId: 'user1', catId: 'opus', content: 'hello', mentions: [], timestamp: Date.now() - 1000, threadId: tid });
     await messageStore.append({ userId: 'user1', catId: 'opus', content: 'world', mentions: [], timestamp: Date.now(), threadId: tid });
 
+    // No ack → no cursor → should return 0 (not "all unread")
+    // Pre-F069 threads have no cursor; treating them as all-unread
+    // causes badges to reappear on every page refresh.
     const summaries = await store.getUnreadSummaries('user1', [tid], messageStore);
-    assert.equal(summaries[0].unreadCount, 2);
+    assert.equal(summaries[0].unreadCount, 0);
+    assert.equal(summaries[0].hasUserMention, false);
   });
 
-  it('getUnreadSummaries() handles multiple threads', async () => {
+  it('getUnreadSummaries() handles multiple threads (mixed cursor states)', async () => {
     const tA = uniqueId('t');
     const tB = uniqueId('t');
-    await messageStore.append({ userId: 'user1', catId: 'opus', content: 'a', mentions: [], timestamp: Date.now(), threadId: tA });
+    const mA1 = await messageStore.append({ userId: 'user1', catId: 'opus', content: 'a1', mentions: [], timestamp: Date.now() - 2000, threadId: tA });
+    await messageStore.append({ userId: 'user1', catId: 'opus', content: 'a2', mentions: [], timestamp: Date.now() - 1000, threadId: tA });
     await messageStore.append({ userId: 'user1', catId: 'opus', content: 'b', mentions: [], timestamp: Date.now(), threadId: tB });
-    await messageStore.append({ userId: 'user1', catId: 'opus', content: 'c', mentions: [], timestamp: Date.now(), threadId: tB });
+
+    // Ack thread A at first message → 1 unread; thread B has no cursor → 0 (cold-start)
+    await store.ack('user1', tA, mA1.id);
 
     const summaries = await store.getUnreadSummaries('user1', [tA, tB], messageStore);
     const map = new Map(summaries.map((s) => [s.threadId, s]));
     assert.equal(map.get(tA).unreadCount, 1);
-    assert.equal(map.get(tB).unreadCount, 2);
+    assert.equal(map.get(tB).unreadCount, 0); // no cursor = fully read
   });
 
   // --- deleteByThread ---
