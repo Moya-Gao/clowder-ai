@@ -1,8 +1,7 @@
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import type { BacklogDependencies, BacklogPriority, BacklogStatus, CreateBacklogItemInput } from '@cat-cafe/shared';
-import { readdir } from 'node:fs/promises';
+import { gitListFeatureDocs, readBacklogContent, readFeatureDocContent } from './git-doc-reader.js';
 
 export interface BacklogFeatureRow {
   id: string;
@@ -12,22 +11,10 @@ export interface BacklogFeatureRow {
   link?: string;
 }
 
-function findMonorepoRoot(start = process.cwd()): string {
-  let current = resolve(start);
-  while (true) {
-    if (existsSync(join(current, 'pnpm-workspace.yaml'))) return current;
-    const parent = dirname(current);
-    if (parent === current) return start;
-    current = parent;
-  }
-}
-
 function parseTableCells(line: string): string[] {
   const normalized = line.trim();
   if (!normalized.startsWith('|')) return [];
-  const body = normalized.endsWith('|')
-    ? normalized.slice(1, -1)
-    : normalized.slice(1);
+  const body = normalized.endsWith('|') ? normalized.slice(1, -1) : normalized.slice(1);
   return body.split('|').map((cell) => cell.trim());
 }
 
@@ -42,7 +29,9 @@ function extractLink(linkCell: string): string | undefined {
 
 export function parseActiveFeaturesFromBacklog(markdown: string): BacklogFeatureRow[] {
   const lines = markdown.split(/\r?\n/);
-  const headerIndex = lines.findIndex((line) => /^\|\s*ID\s*\|\s*名称\s*\|\s*Status\s*\|\s*Owner\s*\|\s*Link\s*\|?\s*$/i.test(line.trim()));
+  const headerIndex = lines.findIndex((line) =>
+    /^\|\s*ID\s*\|\s*名称\s*\|\s*Status\s*\|\s*Owner\s*\|\s*Link\s*\|?\s*$/i.test(line.trim()),
+  );
   if (headerIndex < 0) return [];
 
   const rows: BacklogFeatureRow[] = [];
@@ -103,7 +92,11 @@ function truncate(text: string, max: number): string {
   return text.length <= max ? text : `${text.slice(0, max - 1)}…`;
 }
 
-export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: string, dependencies?: BacklogDependencies): CreateBacklogItemInput {
+export function buildBacklogInputFromFeature(
+  row: BacklogFeatureRow,
+  userId: string,
+  dependencies?: BacklogDependencies,
+): CreateBacklogItemInput {
   const title = truncate(`[${row.id}] ${row.name}`, 200);
   const summarySegments = [
     '来源 docs/BACKLOG.md',
@@ -120,11 +113,7 @@ export function buildBacklogInputFromFeature(row: BacklogFeatureRow, userId: str
     title,
     summary,
     priority: statusToPriority(row.status),
-    tags: [
-      'source:docs-backlog',
-      `feature:${row.id.toLowerCase()}`,
-      `status:${statusTag}`,
-    ],
+    tags: ['source:docs-backlog', `feature:${row.id.toLowerCase()}`, `status:${statusTag}`],
     createdBy: 'user',
     ...(dependencies && Object.keys(dependencies).length > 0 ? { dependencies } : {}),
     ...(mappedStatus !== 'open' ? { initialStatus: mappedStatus } : {}),
@@ -138,11 +127,17 @@ export function getFeatureTagId(tags: readonly string[]): string | null {
   return null;
 }
 
-
-
 export function parseFeatureDocStatus(markdown: string): string | null {
-  const match = markdown.match(/>\s*\*\*Status\*\*:\s*(\w[\w\s-]*)/i);
-  return match?.[1]?.trim().toLowerCase() ?? null;
+  // Prefer body status (> **Status**: xxx)
+  const bodyMatch = markdown.match(/>\s*\*\*Status\*\*:\s*(\w[\w\s-]*)/i);
+  if (bodyMatch?.[1]) return bodyMatch[1].trim().toLowerCase();
+  // Fallback: YAML frontmatter `status:` field
+  const fmMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (fmMatch) {
+    const statusMatch = fmMatch[1]?.match(/^status:\s*(.+)/m);
+    if (statusMatch?.[1]) return statusMatch[1].trim().toLowerCase();
+  }
+  return null;
 }
 
 /** Extract feature name from heading like `# F049: Mission Hub — Backlog Center(...)` */
@@ -171,7 +166,12 @@ export function parseFeatureDocDependencies(markdown: string): BacklogDependenci
   if (fmMatch) {
     const relatedMatch = fmMatch[1]?.match(/related_features:\s*\[([^\]]*)\]/);
     if (relatedMatch) {
-      related.push(...(relatedMatch[1] ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+      related.push(
+        ...(relatedMatch[1] ?? '')
+          .split(',')
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean),
+      );
     }
   }
 
@@ -198,57 +198,71 @@ export function parseFeatureDocDependencies(markdown: string): BacklogDependenci
   };
 }
 
-export async function readFeatureDocStatuses(featuresDir?: string): Promise<Map<string, string>> {
-  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
-  const result = new Map<string, string>();
-  let entries: string[];
+interface FeatureDocEntry {
+  entry: string;
+  featureId: string;
+  content: string;
+}
+
+async function listLocalFeatureDocs(dir: string): Promise<FeatureDocEntry[]> {
+  let files: string[];
   try {
-    entries = await readdir(dir);
+    files = await readdir(dir);
   } catch {
-    return result;
+    return [];
   }
+  const results: FeatureDocEntry[] = [];
+  for (const entry of files) {
+    const match = entry.match(/^(F\d{3})/i);
+    if (!match) continue;
+    try {
+      const content = await readFile(join(dir, entry), 'utf-8');
+      results.push({ entry, featureId: match[1]?.toLowerCase() ?? '', content });
+    } catch { /* skip */ }
+  }
+  return results;
+}
+
+async function listRemoteFeatureDocs(): Promise<FeatureDocEntry[]> {
+  const entries = await gitListFeatureDocs();
+  const results: FeatureDocEntry[] = [];
   for (const entry of entries) {
     const match = entry.match(/^(F\d{3})/i);
     if (!match) continue;
-    const featureId = match[1]!.toLowerCase();
-    try {
-      const fileContent = await readFile(join(dir, entry), 'utf-8');
-      const status = parseFeatureDocStatus(fileContent);
-      if (status) result.set(featureId, status);
-    } catch {
-      // skip unreadable files
-    }
+    const content = await readFeatureDocContent(entry);
+    if (content) results.push({ entry, featureId: match[1]?.toLowerCase() ?? '', content });
+  }
+  return results;
+}
+
+function getFeatureDocs(featuresDir?: string): Promise<FeatureDocEntry[]> {
+  return featuresDir ? listLocalFeatureDocs(featuresDir) : listRemoteFeatureDocs();
+}
+
+export async function readFeatureDocStatuses(featuresDir?: string): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  for (const { featureId, content } of await getFeatureDocs(featuresDir)) {
+    const status = parseFeatureDocStatus(content);
+    if (status) result.set(featureId, status);
   }
   return result;
 }
 
 export async function readFeatureDocDependencies(featuresDir?: string): Promise<Map<string, BacklogDependencies>> {
-  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
   const result = new Map<string, BacklogDependencies>();
-  let entries: string[];
-  try {
-    entries = await readdir(dir);
-  } catch {
-    return result;
-  }
-  for (const entry of entries) {
-    const match = entry.match(/^(F\d{3})/i);
-    if (!match) continue;
-    const featureId = match[1]!.toLowerCase();
-    try {
-      const fileContent = await readFile(join(dir, entry), 'utf-8');
-      const deps = parseFeatureDocDependencies(fileContent);
-      if (Object.keys(deps).length > 0) result.set(featureId, deps);
-    } catch {
-      // skip
-    }
+  for (const { featureId, content } of await getFeatureDocs(featuresDir)) {
+    const deps = parseFeatureDocDependencies(content);
+    if (Object.keys(deps).length > 0) result.set(featureId, deps);
   }
   return result;
 }
 
 export async function readActiveFeaturesFromBacklog(backlogDocPath?: string): Promise<BacklogFeatureRow[]> {
-  const resolvedPath = backlogDocPath ?? join(findMonorepoRoot(), 'docs', 'BACKLOG.md');
-  const markdown = await readFile(resolvedPath, 'utf-8');
+  if (backlogDocPath) {
+    const markdown = await readFile(backlogDocPath, 'utf-8');
+    return parseActiveFeaturesFromBacklog(markdown);
+  }
+  const markdown = await readBacklogContent();
   return parseActiveFeaturesFromBacklog(markdown);
 }
 
@@ -261,35 +275,15 @@ export async function readDoneFeatureDocsAsRows(
   excludeIds: Set<string>,
   featuresDir?: string,
 ): Promise<BacklogFeatureRow[]> {
-  const dir = featuresDir ?? join(findMonorepoRoot(), 'docs', 'features');
   const rows: BacklogFeatureRow[] = [];
-  let entries: string[];
-  try {
-    entries = await readdir(dir);
-  } catch {
-    return rows;
-  }
-  for (const entry of entries) {
-    const idMatch = entry.match(/^(F\d{3})/i);
-    if (!idMatch) continue;
-    const featureId = idMatch[1]!.toUpperCase();
-    if (excludeIds.has(featureId.toLowerCase())) continue;
-    try {
-      const content = await readFile(join(dir, entry), 'utf-8');
-      const status = parseFeatureDocStatus(content);
-      if (status !== 'done') continue;
-      const name = parseFeatureDocName(content) ?? entry.replace(/\.md$/, '');
-      const owner = parseFeatureDocOwner(content);
-      rows.push({
-        id: featureId,
-        name,
-        status: 'done',
-        owner,
-        link: `features/${entry}`,
-      });
-    } catch {
-      // skip unreadable files
-    }
+  for (const { entry, featureId, content } of await getFeatureDocs(featuresDir)) {
+    const upperId = featureId.toUpperCase();
+    if (excludeIds.has(featureId)) continue;
+    const status = parseFeatureDocStatus(content);
+    if (status !== 'done') continue;
+    const name = parseFeatureDocName(content) ?? entry.replace(/\.md$/, '');
+    const owner = parseFeatureDocOwner(content);
+    rows.push({ id: upperId, name, status: 'done', owner, link: `features/${entry}` });
   }
   return rows;
 }

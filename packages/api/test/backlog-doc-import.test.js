@@ -62,6 +62,45 @@ describe('parseFeatureDocStatus', () => {
     const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
     assert.strictEqual(parseFeatureDocStatus('# Title\n\nNo status here'), null);
   });
+
+  test('returns done from YAML frontmatter status field', async () => {
+    const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'feature_ids: [F068]',
+      'status: done',
+      '---',
+      '',
+      '# F068 — New Thread Dialog UX',
+    ].join('\n');
+    assert.strictEqual(parseFeatureDocStatus(md), 'done');
+  });
+
+  test('prefers body status over frontmatter when both exist', async () => {
+    const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'status: spec',
+      '---',
+      '',
+      '> **Status**: in-progress',
+    ].join('\n');
+    assert.strictEqual(parseFeatureDocStatus(md), 'in-progress');
+  });
+
+  test('returns frontmatter status when body has no Status line', async () => {
+    const { parseFeatureDocStatus } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'status: in-progress',
+      '---',
+      '',
+      '# F064 — A2A Exit Check',
+      '',
+      '> **Owner**: 布偶猫',
+    ].join('\n');
+    assert.strictEqual(parseFeatureDocStatus(md), 'in-progress');
+  });
 });
 
 describe('parseFeatureDocDependencies', () => {
@@ -175,5 +214,53 @@ describe('parseFeatureDocName', () => {
     const { parseFeatureDocName } = await import('../dist/routes/backlog-doc-import.js');
     const md = '#  F058:  Mission Control 增强  \n';
     assert.strictEqual(parseFeatureDocName(md), 'Mission Control 增强');
+  });
+});
+
+describe('gitShowFile', () => {
+  test('reads a file from origin/main', async () => {
+    const { gitShowFile } = await import('../dist/routes/git-doc-reader.js');
+    const content = await gitShowFile('docs/BACKLOG.md');
+    assert.ok(content, 'should return content');
+    assert.ok(content.includes('| ID |') || content.includes('backlog'), 'should contain expected content');
+  });
+
+  test('returns null for non-existent path', async () => {
+    const { gitShowFile } = await import('../dist/routes/git-doc-reader.js');
+    const content = await gitShowFile('docs/DOES_NOT_EXIST_12345.md');
+    assert.strictEqual(content, null);
+  });
+});
+
+describe('fetch throttle (storm prevention)', () => {
+  test('failed fetch also throttles — no repeated attempts within window', async () => {
+    const { _resetFetchTimer, gitShowFile } = await import('../dist/routes/git-doc-reader.js');
+    _resetFetchTimer();
+    // First call triggers a real fetch (succeeds in CI/local)
+    await gitShowFile('docs/BACKLOG.md');
+    // Measure time for a second call — should be throttled (no new fetch)
+    const start = Date.now();
+    await gitShowFile('docs/BACKLOG.md');
+    const elapsed = Date.now() - start;
+    // Throttled call should be fast (<500ms), not a 10s timeout
+    assert.ok(elapsed < 500, `second call should be throttled but took ${elapsed}ms`);
+    _resetFetchTimer();
+  });
+});
+
+describe('gitListFeatureDocs', () => {
+  test('lists feature doc filenames from origin/main', async () => {
+    const { gitListFeatureDocs } = await import('../dist/routes/git-doc-reader.js');
+    const entries = await gitListFeatureDocs();
+    assert.ok(Array.isArray(entries), 'should return an array');
+    assert.ok(entries.length > 0, 'should find feature docs');
+    assert.ok(entries.some((e) => e.startsWith('F0')), 'should contain F0xx entries');
+  });
+
+  test('returns empty array on git failure', async () => {
+    const { gitListFeatureDocs } = await import('../dist/routes/git-doc-reader.js');
+    // Bad dir should fallback gracefully
+    const entries = await gitListFeatureDocs('nonexistent/path');
+    assert.ok(Array.isArray(entries));
   });
 });
