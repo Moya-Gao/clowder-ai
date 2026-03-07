@@ -56,4 +56,14 @@ describe('governance-pack', () => {
 		const checksum = computePackChecksum();
 		assert.match(checksum, /^[0-9a-f]{12}$/);
 	});
+
+	it('collaboration standards reference shared-rules and skills', () => {
+		const block = getGovernanceManagedBlock('claude');
+		assert.ok(block.includes('shared-rules.md'));
+		assert.ok(block.includes('cat-cafe-skills'));
+	});
+
+	it('pack version is 1.1.0', () => {
+		assert.equal(GOVERNANCE_PACK_VERSION, '1.1.0');
+	});
 });

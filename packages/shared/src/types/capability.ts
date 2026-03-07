@@ -170,6 +170,20 @@ export interface BootstrapAction {
   readonly reason: string;
 }
 
+/** F070 Phase 2: Structured mission context for external project dispatch */
+export interface DispatchMissionPack {
+  /** 1-3 sentences: what this dispatch is for */
+  readonly mission: string;
+  /** External project's own work item ID, or thread title as fallback */
+  readonly workItem: string;
+  /** Current workflow phase */
+  readonly phase: string;
+  /** Up to 3 completion criteria */
+  readonly doneWhen: readonly string[];
+  /** Related entry links */
+  readonly links: readonly string[];
+}
+
 /** PATCH request body for toggling capabilities */
 export interface CapabilityPatchRequest {
   /** Capability ID to modify */

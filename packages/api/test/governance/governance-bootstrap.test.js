@@ -164,4 +164,28 @@ describe('GovernanceBootstrapService', () => {
 			assert.equal(a.action, 'skipped', `${a.file} should be skipped on second run`);
 		}
 	});
+
+	it('creates hooks symlink for claude provider', async () => {
+		// Create source hooks dir in catCafeRoot
+		await mkdir(join(catCafeRoot, '.claude', 'hooks'), { recursive: true });
+
+		const svc = new GovernanceBootstrapService(catCafeRoot);
+		await svc.bootstrap(targetProject, { dryRun: false });
+
+		const hooksPath = join(targetProject, '.claude', 'hooks');
+		const stat = await lstat(hooksPath);
+		assert.ok(stat.isSymbolicLink(), '.claude/hooks should be a symlink');
+	});
+
+	it('skips hooks symlink when source hooks dir does not exist', async () => {
+		// Don't create .claude/hooks in catCafeRoot
+		const svc = new GovernanceBootstrapService(catCafeRoot);
+		const report = await svc.bootstrap(targetProject, { dryRun: false });
+
+		// Should have no hooks action (symlinkHooks returns null when source missing)
+		const hooksAction = report.actions.find((a) => a.file.includes('hooks'));
+		assert.equal(hooksAction, undefined, 'no hooks action when source hooks dir missing');
+		// hooks dir should not exist in target
+		await assert.rejects(lstat(join(targetProject, '.claude', 'hooks')), { code: 'ENOENT' });
+	});
 });

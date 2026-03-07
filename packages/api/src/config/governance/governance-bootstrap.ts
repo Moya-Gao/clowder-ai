@@ -34,6 +34,13 @@ const PROVIDER_SKILLS_DIRS: Record<Provider, string> = {
   gemini: '.gemini/skills',
 };
 
+/** Provider hooks directory mapping (F070 Phase 2) */
+const PROVIDER_HOOKS_DIRS: Record<Provider, string> = {
+  claude: '.claude/hooks',
+  codex: '.codex/hooks',
+  gemini: '.gemini/hooks',
+};
+
 export interface BootstrapOptions {
   dryRun: boolean;
 }
@@ -64,6 +71,12 @@ export class GovernanceBootstrapService {
     for (const [provider, skillsDir] of Object.entries(PROVIDER_SKILLS_DIRS) as [Provider, string][]) {
       const action = await this.symlinkSkills(targetProject, provider, skillsDir, opts.dryRun);
       actions.push(action);
+    }
+
+    // 2b. Hooks symlinks for providers that have source hooks
+    for (const [provider, hooksDir] of Object.entries(PROVIDER_HOOKS_DIRS) as [Provider, string][]) {
+      const action = await this.symlinkHooks(targetProject, provider, hooksDir, opts.dryRun);
+      if (action) actions.push(action);
     }
 
     // 3. Methodology skeleton (only create missing files)
@@ -179,6 +192,48 @@ export class GovernanceBootstrapService {
     }
 
     return { file: skillsDir, action: 'symlinked', reason: `linked to ${sourcePath}` };
+  }
+
+  private async symlinkHooks(
+    targetProject: string,
+    _provider: Provider,
+    hooksDir: string,
+    dryRun: boolean,
+  ): Promise<BootstrapAction | null> {
+    // Source hooks dir must exist in catCafeRoot
+    const sourceHooksPath = resolve(this.catCafeRoot, hooksDir);
+    try {
+      const stat = await lstat(sourceHooksPath);
+      if (!stat.isDirectory() && !stat.isSymbolicLink()) return null;
+    } catch {
+      // Source hooks dir doesn't exist — silently skip
+      return null;
+    }
+
+    const targetPath = resolve(targetProject, hooksDir);
+
+    // Check if symlink already exists and points to the right place
+    try {
+      const stat = await lstat(targetPath);
+      if (stat.isSymbolicLink()) {
+        const currentTarget = await readlink(targetPath);
+        const resolvedCurrent = resolve(dirname(targetPath), currentTarget);
+        if (resolvedCurrent === sourceHooksPath) {
+          return { file: hooksDir, action: 'skipped', reason: 'hooks symlink already correct' };
+        }
+      }
+      return { file: hooksDir, action: 'skipped', reason: 'hooks path exists but is not a symlink to cat-cafe hooks' };
+    } catch {
+      // Doesn't exist — create
+    }
+
+    if (!dryRun) {
+      await mkdir(dirname(targetPath), { recursive: true });
+      const relPath = relative(dirname(targetPath), sourceHooksPath);
+      await symlink(relPath, targetPath);
+    }
+
+    return { file: hooksDir, action: 'symlinked', reason: `hooks linked to ${sourceHooksPath}` };
   }
 
   private async writeTemplate(

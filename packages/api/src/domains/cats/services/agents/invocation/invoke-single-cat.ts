@@ -323,6 +323,21 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
     }
 
+    // F070 Phase 2: Inject dispatch mission context for external projects
+    let missionPrefix = '';
+    if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd())) && threadStore) {
+      const thread = await threadStore.get(threadId);
+      if (thread) {
+        const { buildMissionPack, formatMissionPackPrompt } = await import('../../../../../config/governance/mission-pack.js');
+        const missionPack = buildMissionPack({
+          title: thread.title ?? undefined,
+          phase: thread.phase ?? undefined,
+          backlogItemId: thread.backlogItemId ?? undefined,
+        });
+        missionPrefix = formatMissionPackPrompt(missionPack);
+      }
+    }
+
     // Provider profile injection (F062):
     // Resolve active runtime profile from project-local `.cat-cafe` state and
     // pass it to provider services via callback env.
@@ -359,9 +374,11 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     const injectSystemPrompt = !canSkipOnResume || !isResume || forceReinjection;
 
     // Prepend staticIdentity to prompt when injection is needed
+    // F070-P2: missionPrefix (dispatch context) is prepended for external projects
+    const promptWithMission = missionPrefix ? `${missionPrefix}\n\n${prompt}` : prompt;
     const effectivePrompt = (injectSystemPrompt && params.systemPrompt)
-      ? `${params.systemPrompt}\n\n---\n\n${prompt}`
-      : prompt;
+      ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
+      : promptWithMission;
 
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
