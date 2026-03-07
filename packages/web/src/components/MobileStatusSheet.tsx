@@ -127,7 +127,7 @@ export function MobileStatusSheet({
                 })}
               </div>
             ) : (
-              <div className="text-xs text-gray-400">等待调用...</div>
+              <div className="text-xs text-gray-400">空闲</div>
             )}
           </section>
 

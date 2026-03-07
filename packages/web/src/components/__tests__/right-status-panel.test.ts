@@ -37,7 +37,7 @@ describe('RightStatusPanel', () => {
     expect(html).toContain('12');
   });
 
-  it('shows "等待调用" when no target cats', () => {
+  it('shows "空闲" when no target cats', () => {
     const html = render({
       intentMode: null,
       targetCats: [],
@@ -53,7 +53,7 @@ describe('RightStatusPanel', () => {
       },
     });
 
-    expect(html).toContain('等待调用');
+    expect(html).toContain('空闲');
   });
 
   it('renders copyable invocation and session ids in active cats', () => {

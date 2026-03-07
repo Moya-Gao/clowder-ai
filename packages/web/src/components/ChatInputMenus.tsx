@@ -21,7 +21,8 @@ export function ChatInputMenus({
   return (
     <>
       {showMentions && (
-        <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10">
+        <div ref={menuRef} className="absolute bottom-full left-4 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden w-64 z-10 max-h-80 flex flex-col">
+          <div className="overflow-y-auto flex-1">
           {catOptions.map((opt, i) => (
             <button key={opt.id} className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors ${i === selectedIdx ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
               onMouseEnter={() => onSelectIdx(i)} onMouseDown={(e) => { e.preventDefault(); onInsertMention(opt); }}>
@@ -32,7 +33,11 @@ export function ChatInputMenus({
               </div>
             </button>
           ))}
-          <div className="px-4 py-1.5 text-xs text-gray-300 border-t border-gray-100">{'\u2191\u2193 \u9009\u62E9 \u00B7 Enter \u786E\u8BA4 \u00B7 Esc \u5173\u95ED'}</div>
+          </div>
+          {catOptions.length === 0 && (
+            <div className="px-4 py-2.5 text-xs text-gray-400">无匹配猫猫</div>
+          )}
+          <div className="px-4 py-1.5 text-xs text-gray-300 border-t border-gray-100 shrink-0">{'\u2191\u2193 \u9009\u62E9 \u00B7 Enter \u786E\u8BA4 \u00B7 Esc \u5173\u95ED'}</div>
         </div>
       )}
 

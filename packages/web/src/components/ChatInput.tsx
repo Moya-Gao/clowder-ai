@@ -54,6 +54,7 @@ export function ChatInput({
   const [showModeMenu, setShowModeMenu] = useState(false);
   const [selectedIdx, setSelectedIdx] = useState(0);
   const [mentionStart, setMentionStart] = useState(-1);
+  const [mentionFilter, setMentionFilter] = useState('');
   const [images, setImages] = useState<File[]>([]);
   const [isPreparingImages, setIsPreparingImages] = useState(false);
   const [whisperMode, setWhisperMode] = useState(false);
@@ -86,8 +87,18 @@ export function ChatInput({
     });
   }, []);
 
+  const filteredCatOptions = useMemo(() => {
+    if (!mentionFilter) return catOptions;
+    const lower = mentionFilter.toLowerCase();
+    return catOptions.filter((opt) =>
+      opt.label.toLowerCase().includes(lower) ||
+      opt.insert.toLowerCase().includes(lower) ||
+      opt.id.toLowerCase().includes(lower),
+    );
+  }, [catOptions, mentionFilter]);
+
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
-  const activeOptions = activeMenu === 'mention' ? catOptions : MODE_OPTIONS;
+  const activeOptions = activeMenu === 'mention' ? filteredCatOptions : MODE_OPTIONS;
 
   const doSend = useCallback(
     (deliveryMode?: DeliveryMode) => {
@@ -159,9 +170,11 @@ export function ChatInput({
         setShowMentions(true);
         setShowModeMenu(false);
         setMentionStart(trigger.start);
+        setMentionFilter(trigger.filter);
         setSelectedIdx(0);
       } else {
         closeMenus();
+        setMentionFilter('');
       }
     },
     [closeMenus],
@@ -171,7 +184,11 @@ export function ChatInput({
     if (e.nativeEvent.isComposing) return;
     if (activeMenu) {
       if (activeOptions.length === 0) {
+        if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {
+          e.preventDefault();
+        }
         closeMenus();
+        setMentionFilter('');
         return;
       }
       if (e.key === 'ArrowDown') {
@@ -187,7 +204,7 @@ export function ChatInput({
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
         if (activeMenu === 'mention') {
-          const opt = catOptions[selectedIdx];
+          const opt = filteredCatOptions[selectedIdx];
           if (!opt) {
             closeMenus();
             return;
@@ -277,8 +294,8 @@ export function ChatInput({
   // when mode menu is open would corrupt mode selection.
   useEffect(() => {
     if (!showMentions) return;
-    setSelectedIdx((i) => Math.min(i, Math.max(0, catOptions.length - 1)));
-  }, [catOptions, showMentions]);
+    setSelectedIdx((i) => Math.min(i, Math.max(0, filteredCatOptions.length - 1)));
+  }, [filteredCatOptions, showMentions]);
 
   // Reconcile whisperTargets when whisperOptions change (e.g. after API fetch replaces fallback)
   useEffect(() => {
@@ -353,7 +370,7 @@ export function ChatInput({
       )}
 
       <ChatInputMenus
-        catOptions={catOptions}
+        catOptions={filteredCatOptions}
         showMentions={showMentions}
         showModeMenu={showModeMenu}
         selectedIdx={selectedIdx}

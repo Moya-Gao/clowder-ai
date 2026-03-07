@@ -1,0 +1,111 @@
+/**
+ * F071-D1: Regression tests for the shared Lightbox component.
+ *
+ * Tests:
+ * 1. Renders image with correct src and alt
+ * 2. Clicking backdrop (outer div) calls onClose
+ * 3. Escape key calls onClose
+ * 4. Clicking inner content does NOT close (stopPropagation)
+ * 5. Renders caption when provided
+ */
+import React from 'react';
+import { describe, expect, it, vi, beforeAll, afterAll, beforeEach, afterEach } from 'vitest';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { Lightbox } from '@/components/Lightbox';
+
+let container: HTMLDivElement;
+let root: Root;
+
+beforeAll(() => {
+  (globalThis as { React?: typeof React }).React = React;
+  (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+});
+afterAll(() => {
+  delete (globalThis as { React?: typeof React }).React;
+  delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+});
+
+beforeEach(() => {
+  container = document.createElement('div');
+  document.body.appendChild(container);
+  root = createRoot(container);
+});
+
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+});
+
+function renderLightbox(props: Partial<React.ComponentProps<typeof Lightbox>> = {}) {
+  const onClose = props.onClose ?? vi.fn();
+  act(() => {
+    root.render(React.createElement(Lightbox, {
+      url: '/test-image.png',
+      alt: 'test image',
+      onClose,
+      ...props,
+    }));
+  });
+  return { onClose };
+}
+
+describe('Lightbox', () => {
+  it('renders image with correct src and alt', () => {
+    renderLightbox({ url: '/my-image.png', alt: 'my alt' });
+    const img = container.querySelector('img');
+    expect(img).toBeDefined();
+    expect(img?.getAttribute('src')).toBe('/my-image.png');
+    expect(img?.getAttribute('alt')).toBe('my alt');
+  });
+
+  it('calls onClose when Escape key is pressed', () => {
+    const { onClose } = renderLightbox();
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onClose when backdrop is clicked', () => {
+    const { onClose } = renderLightbox();
+    const backdrop = container.querySelector('[role="dialog"]');
+    expect(backdrop).toBeDefined();
+    act(() => {
+      backdrop!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does NOT call onClose when image content is clicked', () => {
+    const { onClose } = renderLightbox();
+    const img = container.querySelector('img');
+    expect(img).toBeDefined();
+    act(() => {
+      img!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    // Click on image should be stopped by stopPropagation on inner container
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('renders caption when provided', () => {
+    renderLightbox({ caption: 'My caption text' });
+    expect(container.innerHTML).toContain('My caption text');
+  });
+
+  it('does not render caption when not provided', () => {
+    renderLightbox();
+    const paragraphs = container.querySelectorAll('p');
+    expect(paragraphs.length).toBe(0);
+  });
+
+  it('has close button that calls onClose', () => {
+    const { onClose } = renderLightbox();
+    const closeBtn = container.querySelector('button[title="Close"]');
+    expect(closeBtn).toBeDefined();
+    act(() => {
+      closeBtn!.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});

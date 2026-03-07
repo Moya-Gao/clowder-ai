@@ -57,7 +57,7 @@ export type ModeOption = typeof MODE_OPTIONS[number];
 /** Pure detection — returns menu trigger type from current input, or null. */
 export function detectMenuTrigger(val: string, selectionStart: number):
   | { type: 'mode' }
-  | { type: 'mention'; start: number }
+  | { type: 'mention'; start: number; filter: string }
   | null {
   const trimmed = val.trimStart();
   if (/^\/m(o(d(e( .*)?)?)?)?$/i.test(trimmed) && trimmed.length <= 6) {
@@ -68,8 +68,8 @@ export function detectMenuTrigger(val: string, selectionStart: number):
   if (atIdx >= 0) {
     const fragment = textBefore.slice(atIdx + 1);
     const charBefore = atIdx > 0 ? val[atIdx - 1] : ' ';
-    if (/\s/.test(charBefore!) && fragment.length <= 4 && !/\s/.test(fragment)) {
-      return { type: 'mention', start: atIdx };
+    if (/\s/.test(charBefore!) && fragment.length <= 12 && !/\s/.test(fragment)) {
+      return { type: 'mention', start: atIdx, filter: fragment };
     }
   }
   return null;

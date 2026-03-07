@@ -14,6 +14,7 @@ import { useTts, type TtsState } from '@/hooks/useTts';
 import type { CatData } from '@/hooks/useCatData';
 import { hexToRgba } from '@/lib/color-utils';
 import { API_URL } from '@/utils/api-client';
+import { Lightbox } from './Lightbox';
 
 /** Breed-level aesthetics — only changes when a new BREED is added */
 const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
@@ -23,28 +24,37 @@ const BREED_STYLES: Record<string, { radius: string; font?: string }> = {
   'dragon-li': { radius: 'rounded-lg rounded-tl-sm', font: 'font-mono' },
 };
 const DEFAULT_BREED_STYLE = { radius: 'rounded-2xl' };
-function renderContentBlocks(blocks: MessageContent[]) {
-  return blocks.map((block, i) => {
-    if (block.type === 'text') {
-      return <MarkdownContent key={i} content={block.text} />;
-    }
-    if (block.type === 'image') {
-      const src = block.url.startsWith('/uploads/')
-        ? `${API_URL}${block.url}`
-        : block.url;
-      const isSafeUrl = src.startsWith('/') || src.startsWith('http://') || src.startsWith('https://');
-      return (
-        <img
-          key={i}
-          src={src}
-          alt="attached image"
-          className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
-          onClick={() => isSafeUrl && window.open(src, '_blank', 'noopener')}
-        />
-      );
-    }
-    return null;
-  });
+
+function ContentBlocks({ blocks }: { blocks: MessageContent[] }) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  return (
+    <>
+      {blocks.map((block, i) => {
+        if (block.type === 'text') {
+          return <MarkdownContent key={i} content={block.text} />;
+        }
+        if (block.type === 'image') {
+          const src = block.url.startsWith('/uploads/')
+            ? `${API_URL}${block.url}`
+            : block.url;
+          return (
+            // biome-ignore lint/performance/noImgElement: uploaded images cannot use next/image
+            <img
+              key={i}
+              src={src}
+              alt="attached image"
+              className="max-w-full sm:max-w-sm rounded-lg mt-2 border border-gray-200 cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setLightboxSrc(src)}
+            />
+          );
+        }
+        return null;
+      })}
+      {lightboxSrc && (
+        <Lightbox url={lightboxSrc} alt="attached image" onClose={() => setLightboxSrc(null)} />
+      )}
+    </>
+  );
 }
 
 function formatTime(ts: number): string {
@@ -332,7 +342,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               : 'bg-owner-light text-owner-dark'
           }`}>
             {hasBlocks ? (
-              renderContentBlocks(message.contentBlocks!)
+              <ContentBlocks blocks={message.contentBlocks!} />
             ) : (
               <MarkdownContent content={message.content} />
             )}
@@ -421,7 +431,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
           {message.origin === 'stream' && hasTextContent && !message.isStreaming ? (
             <ThinkingContent content={message.content} className={catStyle?.font} defaultExpanded={uiThinkingExpandedByDefault} />
           ) : hasBlocks ? (
-            renderContentBlocks(message.contentBlocks!)
+            <ContentBlocks blocks={message.contentBlocks!} />
           ) : hasTextContent ? (
             <MarkdownContent content={message.content} className={catStyle?.font} />
           ) : !hasToolEvents && message.isStreaming ? (
