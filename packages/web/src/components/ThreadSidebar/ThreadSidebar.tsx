@@ -227,13 +227,16 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
   const handleSelect = useCallback(
     (threadId: string) => {
       if (threadId === currentThreadId) return;
+      // B1.1: Restore projectPath from thread metadata on switch
+      const target = threads.find((t) => t.id === threadId);
+      setCurrentProject(target?.projectPath ?? 'default');
       navigateToThread(threadId);
       // Auto-close sidebar on mobile after selecting a thread
       if (typeof window !== 'undefined' && window.innerWidth < 768) {
         onClose?.();
       }
     },
-    [currentThreadId, navigateToThread, onClose],
+    [currentThreadId, threads, setCurrentProject, navigateToThread, onClose],
   );
 
   const toggleGroup = useCallback((key: string) => {

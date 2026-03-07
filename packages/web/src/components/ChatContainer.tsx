@@ -109,6 +109,8 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   // Sync URL-driven threadId to store (store is follower, URL is source of truth)
   // setCurrentThread saves old thread state to map, restores new thread state.
+  const setCurrentProject = useChatStore((s) => s.setCurrentProject);
+  const storeThreads = useChatStore((s) => s.threads);
   const prevThreadRef = useRef(threadId);
   useEffect(() => {
     if (prevThreadRef.current !== threadId) {
@@ -122,6 +124,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     // First mount — sync threadId to store without save/restore
     setCurrentThread(threadId);
   }, [threadId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // B1.1: Restore projectPath when thread or storeThreads change.
+  // storeThreads is populated by ThreadSidebar.loadThreads shortly after mount,
+  // so this covers both page refresh (threads arrive async) and thread switch.
+  useEffect(() => {
+    const cached = storeThreads?.find((t) => t.id === threadId);
+    if (cached) {
+      setCurrentProject(cached.projectPath || 'default');
+    }
+  }, [threadId, storeThreads, setCurrentProject]);
 
   const socketCallbacks = useChatSocketCallbacks({
     threadId,
