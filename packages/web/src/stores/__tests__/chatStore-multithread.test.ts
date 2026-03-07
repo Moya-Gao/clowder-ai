@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { useChatStore } from '../chatStore';
 import type { ChatMessage } from '../chat-types';
 
@@ -277,5 +277,64 @@ describe('chatStore multi-thread state', () => {
     // switch to c
     useChatStore.getState().setCurrentThread('thread-c');
     expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['r3']);
+  });
+
+  describe('unread suppression (persistent badge fix)', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('clearUnread sets suppression that blocks initThreadUnread', () => {
+      // Background thread gets unread
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s1'));
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(1);
+
+      // User opens thread-b (simulated) — clearUnread fires
+      useChatStore.getState().clearUnread('thread-b');
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(0);
+
+      // API re-hydration arrives with stale count — should be suppressed
+      useChatStore.getState().initThreadUnread('thread-b', 1, false);
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(0);
+    });
+
+    it('suppression expires after 10s', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s2'));
+      useChatStore.getState().clearUnread('thread-b');
+
+      // Advance past suppression window
+      vi.advanceTimersByTime(11_000);
+
+      // Now initThreadUnread should work
+      useChatStore.getState().initThreadUnread('thread-b', 2, false);
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(2);
+    });
+
+    it('clearAllUnread suppresses all threads', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s3'));
+      useChatStore.getState().addMessageToThread('thread-c', makeMsg('s4'));
+
+      useChatStore.getState().clearAllUnread();
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(0);
+      expect(useChatStore.getState().threadStates['thread-c']!.unreadCount).toBe(0);
+
+      // Stale re-hydration — both suppressed
+      useChatStore.getState().initThreadUnread('thread-b', 1, false);
+      useChatStore.getState().initThreadUnread('thread-c', 3, true);
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(0);
+      expect(useChatStore.getState().threadStates['thread-c']!.unreadCount).toBe(0);
+    });
+
+    it('suppression does not block genuinely new messages via addMessageToThread', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s5'));
+      useChatStore.getState().clearUnread('thread-b');
+
+      // A genuinely new WebSocket message arrives — addMessageToThread should still work
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('s6'));
+      expect(useChatStore.getState().threadStates['thread-b']!.unreadCount).toBe(1);
+    });
   });
 });

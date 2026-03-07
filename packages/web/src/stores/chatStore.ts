@@ -208,6 +208,8 @@ interface ChatState {
   // Global state
   currentThreadId: string;
   currentProjectPath: string;
+  /** Transient: suppress initThreadUnread re-hydration for recently-cleared threads */
+  _unreadSuppressedUntil: Record<string, number>;
   threads: Thread[];
   isLoadingThreads: boolean;
   /** UI: Whether Thinking blocks should be expanded by default (global preference). */
@@ -346,6 +348,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
   currentThreadId: 'default',
   currentProjectPath: 'default',
+  _unreadSuppressedUntil: {},
   threads: [],
   isLoadingThreads: false,
   uiThinkingExpandedByDefault: loadUiThinkingExpandedByDefault(),
@@ -887,10 +890,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => {
       const ts = state.threadStates[threadId];
       if (!ts || (ts.unreadCount === 0 && !ts.hasUserMention)) return state;
+      // Suppress re-hydration from API for 10s to prevent ack race
+      const suppressUntil = Date.now() + 10_000;
       return {
         threadStates: {
           ...state.threadStates,
           [threadId]: { ...ts, unreadCount: 0, hasUserMention: false },
+        },
+        _unreadSuppressedUntil: {
+          ...state._unreadSuppressedUntil,
+          [threadId]: suppressUntil,
         },
       };
     }),
@@ -898,21 +907,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearAllUnread: () =>
     set((state) => {
       const updated: Record<string, ThreadState> = {};
+      const suppressUntil = Date.now() + 10_000;
+      const suppressed: Record<string, number> = { ...state._unreadSuppressedUntil };
       let changed = false;
       for (const [tid, ts] of Object.entries(state.threadStates)) {
         if (ts.unreadCount > 0 || ts.hasUserMention) {
           updated[tid] = { ...ts, unreadCount: 0, hasUserMention: false };
+          suppressed[tid] = suppressUntil;
           changed = true;
         } else {
           updated[tid] = ts;
         }
       }
-      return changed ? { threadStates: updated } : state;
+      return changed ? { threadStates: updated, _unreadSuppressedUntil: suppressed } : state;
     }),
 
   initThreadUnread: (threadId, unreadCount, hasUserMention) =>
     set((state) => {
       if (threadId === state.currentThreadId) return state;
+      // Skip re-hydration if this thread was recently cleared (ack race suppression)
+      const suppressUntil = state._unreadSuppressedUntil[threadId];
+      if (suppressUntil && Date.now() < suppressUntil) return state;
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       if (existing.unreadCount === unreadCount && existing.hasUserMention === hasUserMention) return state;
       return {
