@@ -489,3 +489,10 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 | P4-8 | 前端: 上传按钮 + 拖拽到目录行 drop 上传 | P0 |
 | P4-9 | 前端: 文件/目录行 hover 删除+重命名图标 | P1 |
 | P4-10 | 新建文件后自动打开 + 进入编辑模式 | P0 |
+
+## Known Bugs (Follow-up)
+
+| Bug | 描述 | 根因 | 状态 |
+|-----|------|------|------|
+| B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | P1, 待修 |
+| B2 | Link External Folder "Network error" | `LinkedRootsManager.tsx` 用 raw `fetch` + `API_BASE` 而非 `apiFetch`，port 不匹配 | **本 PR 已修** |

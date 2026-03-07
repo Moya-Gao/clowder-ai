@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useFileManagement } from '@/hooks/useFileManagement';
 import { useWorkspace } from '@/hooks/useWorkspace';
 import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
@@ -102,7 +103,7 @@ const MenuIcon = () => (
 
 /* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
-  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile, fetchWorktrees } = useWorkspace();
+  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile, fetchTree, fetchWorktrees } = useWorkspace();
 
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
@@ -116,6 +117,8 @@ export function WorkspacePanel() {
   const editToken = useChatStore((s) => s.workspaceEditToken);
   const editTokenExpiry = useChatStore((s) => s.workspaceEditTokenExpiry);
   const setEditToken = useChatStore((s) => s.setWorkspaceEditToken);
+
+  const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
 
   const [viewMode, setViewMode] = useState<'files' | 'changes'>('files');
   const [searchQuery, setSearchQuery] = useState('');
@@ -189,6 +192,57 @@ export function WorkspacePanel() {
       setPendingChatInsert({ threadId: currentThreadId, text: `\`${path}\`${suffix}` });
     },
     [setPendingChatInsert, currentThreadId, currentWorktree, worktreeId],
+  );
+
+  // File management callbacks for WorkspaceTree
+  const treeCallbacks = useMemo(
+    () => ({
+      onCreateFile: async (dirPath: string, name: string) => {
+        const path = dirPath ? `${dirPath}/${name}` : name;
+        const result = await createFile(path);
+        if (result) {
+          fetchTree();
+          setOpenFile(path);
+          setEditMode(true); // Auto-enter edit mode for new files
+        }
+        return !!result;
+      },
+      onCreateDir: async (dirPath: string, name: string) => {
+        const path = dirPath ? `${dirPath}/${name}` : name;
+        const result = await createDir(path);
+        if (result) fetchTree();
+        return !!result;
+      },
+      onDelete: async (path: string) => {
+        const name = path.includes('/') ? path.slice(path.lastIndexOf('/') + 1) : path;
+        if (!window.confirm(`删除 "${name}"？此操作不可撤销。`)) return false;
+        const ok = await deleteItem(path);
+        if (ok) {
+          closeTab(path);
+          fetchTree();
+        }
+        return ok;
+      },
+      onRename: async (oldPath: string, newName: string) => {
+        const dir = oldPath.includes('/') ? oldPath.slice(0, oldPath.lastIndexOf('/')) : '';
+        const newPath = dir ? `${dir}/${newName}` : newName;
+        const ok = await renameItem(oldPath, newPath);
+        if (ok) {
+          closeTab(oldPath);
+          setOpenFile(newPath);
+          fetchTree();
+        }
+        return ok;
+      },
+      onUpload: async (dirPath: string, files: FileList) => {
+        for (const f of Array.from(files)) {
+          const path = dirPath ? `${dirPath}/${f.name}` : f.name;
+          await uploadFile(path, f);
+        }
+        fetchTree();
+      },
+    }),
+    [createFile, createDir, deleteItem, renameItem, uploadFile, fetchTree, setOpenFile, closeTab, setEditMode],
   );
 
   const isTokenValid = editToken && editTokenExpiry && editTokenExpiry > Date.now();
@@ -403,6 +457,7 @@ export function WorkspacePanel() {
         selectedPath={openFilePath}
         hasFile={!!file}
         basisPct={treeBasis}
+        callbacks={treeCallbacks}
       />
 
       {/* Vertical resize handle + File viewer */}
