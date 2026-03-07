@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-06
+> 维护者：三猫 | 最后更新：2026-03-07
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -38,3 +38,4 @@ created: 2026-02-26
 | F070 | Portable Governance — 猫咖方法论的可复制输出 | done | 布偶猫 | [F070](features/F070-portable-governance.md) |
 | F073 | SOP Auto-Guardian — 流程自闭环守护 | spec | 布偶猫 | [F073](features/F073-sop-auto-guardian.md) |
 | F074 | Mount Directory Support — 挂载/共享目录支持 | spec | 布偶猫 | [F074](features/F074-mount-directory-support.md) |
+| F075 | 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | spec | 布偶猫 | [F075](features/F075-cat-leaderboard.md) |
