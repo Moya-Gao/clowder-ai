@@ -8,22 +8,38 @@
 
 import { realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
+import { platform } from 'node:os';
 import { resolve, relative } from 'node:path';
 
 /**
  * Allowed root directories for project paths.
- * Configurable via PROJECT_ALLOWED_ROOTS env var (colon-separated).
- * Default: homedir + /tmp + /private/tmp (macOS realpath).
+ *
+ * Default: homedir + /tmp + /private/tmp + /Volumes (macOS only).
+ *
+ * PROJECT_ALLOWED_ROOTS (colon-separated):
+ *   - Default behaviour: **replaces** built-in defaults (backward compat).
+ *   - Set PROJECT_ALLOWED_ROOTS_APPEND=true to merge with defaults instead.
  */
-const DEFAULT_ROOTS = () => [homedir(), '/tmp', '/private/tmp'];
+const DEFAULT_ROOTS = (): string[] => {
+  const roots = [homedir(), '/tmp', '/private/tmp'];
+  if (platform() === 'darwin') roots.push('/Volumes');
+  return roots;
+};
 
 const ALLOWED_ROOTS = (): string[] => {
   const envRoots = process.env['PROJECT_ALLOWED_ROOTS'];
   if (envRoots && envRoots.trim()) {
-    return envRoots.split(':').filter(Boolean);
+    const custom = envRoots.split(':').filter(Boolean);
+    const append = process.env['PROJECT_ALLOWED_ROOTS_APPEND'] === 'true';
+    return append ? [...new Set([...DEFAULT_ROOTS(), ...custom])] : custom;
   }
   return DEFAULT_ROOTS();
 };
+
+/** Expose the computed allowlist for structured error responses. */
+export function getAllowedRoots(): string[] {
+  return ALLOWED_ROOTS();
+}
 
 /**
  * Check if a path is an allowed project directory.

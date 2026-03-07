@@ -11,7 +11,7 @@ import { resolve, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { validateProjectPath, isUnderAllowedRoot } from '../utils/project-path.js';
+import { validateProjectPath, isUnderAllowedRoot, getAllowedRoots } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 const execFileAsync = promisify(execFile);
@@ -83,7 +83,11 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     const validated = await validateProjectPath(result.path);
     if (!validated) {
       reply.status(403);
-      return { error: 'Selected directory is outside allowed roots' };
+      return {
+        error: 'Selected directory is outside allowed roots',
+        selectedPath: result.path,
+        allowedRoots: getAllowedRoots(),
+      };
     }
     return { path: validated, name: basename(validated) };
   });
@@ -97,7 +101,7 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
     const validatedPath = await validateProjectPath(targetPath);
     if (!validatedPath) {
       reply.status(403);
-      return { error: 'Access denied: path must be an existing directory under home' };
+      return { error: 'Access denied: path is outside allowed roots' };
     }
 
     try {

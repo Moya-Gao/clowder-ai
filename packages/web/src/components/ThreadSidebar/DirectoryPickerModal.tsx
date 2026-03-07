@@ -210,7 +210,7 @@ export function DirectoryPickerModal({
               </>
             )}
           </button>
-          <p className="text-[10px] text-gray-400">打开系统文件选择器，选择任意目录</p>
+          <p className="text-[10px] text-gray-400">打开系统文件选择器，选择项目目录</p>
           {pathError && <p className="text-[10px] text-red-500">{pathError}</p>}
         </div>
 

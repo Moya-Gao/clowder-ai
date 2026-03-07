@@ -53,7 +53,7 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'API_SERVER_PORT', defaultValue: '3002', description: 'API 服务端口', category: 'server', sensitive: false },
   { name: 'API_SERVER_HOST', defaultValue: '127.0.0.1', description: 'API 监听地址', category: 'server', sensitive: false },
   { name: 'UPLOAD_DIR', defaultValue: './uploads', description: '文件上传目录', category: 'server', sensitive: false },
-  { name: 'PROJECT_ALLOWED_ROOTS', defaultValue: '~ (用户目录)', description: '允许访问的项目根目录（冒号分隔）', category: 'server', sensitive: false },
+  { name: 'PROJECT_ALLOWED_ROOTS', defaultValue: '~, /tmp, /private/tmp, /Volumes (macOS)', description: '允许访问的项目根目录（冒号分隔，设置后覆盖默认值；配合 PROJECT_ALLOWED_ROOTS_APPEND=true 可追加）', category: 'server', sensitive: false },
   { name: 'FRONTEND_URL', defaultValue: '(自动检测)', description: '前端 URL（导出长图用）', category: 'server', sensitive: false },
   { name: 'FRONTEND_PORT', defaultValue: '3000', description: '前端端口（导出长图用）', category: 'server', sensitive: false },
 

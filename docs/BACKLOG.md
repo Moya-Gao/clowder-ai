@@ -37,3 +37,4 @@ created: 2026-02-26
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
 | F070 | Portable Governance — 猫咖方法论的可复制输出 | done | 布偶猫 | [F070](features/F070-portable-governance.md) |
 | F073 | SOP Auto-Guardian — 流程自闭环守护 | spec | 布偶猫 | [F073](features/F073-sop-auto-guardian.md) |
+| F074 | Mount Directory Support — 挂载/共享目录支持 | spec | 布偶猫 | [F074](features/F074-mount-directory-support.md) |
