@@ -95,10 +95,17 @@ F045: Activity System（独立 Feature，依赖 F044）
 ```
 Thread (现有)
   └── Channel (新增：频道)
-        ├── type: 'public' | 'group' | 'dm'
-        ├── members: CatId[] | 'user'
-        └── quotable: boolean
-
+  │     ├── type: 'public' | 'group' | 'dm'
+  │     ├── quotable: boolean
+  │     └── historyVisibility: 'all' | 'since-join'
+  │
+  └── ChannelMembership (新增：成员关系)
+  │     ├── memberId: CatId | 'user'
+  │     └── joinedAt: Date
+  │
+  └── VisibilityResolver (新增：单一权限判定入口)
+  │     └── canView / filterVisible
+  │
   └── Activity (F045，依赖 Channel)
         ├── roles: { 铲屎官: "法官", opus: "狼人", ... }
         ├── channels: Channel[]（活动专属频道）
@@ -107,6 +114,9 @@ Thread (现有)
 
 ### 数据模型（Phase 1）
 
+> **更新 (2026-03-07)**：采纳 gpt52 建议，将 `members: CatId[]` 拆为独立 `ChannelMembership` 实体，
+> 支持 joinedAt（历史可见性 since-join）、加入/退出事件审计、per-member read state 扩展。
+
 ```typescript
 // 频道
 interface Channel {
@@ -114,12 +124,20 @@ interface Channel {
   threadId: string
   name: string                    // "#ragdoll-hq" | "@opus-codex"
   type: 'public' | 'group' | 'dm'
-  members: Array<CatId | 'user'>  // 'user' = 铲屎官主动参与
   membershipMode: 'static' | 'dynamic'
   memberSource?: 'faction:ragdoll' | 'faction:maine-coon' | 'faction:siamese'  // dynamic 时
   quotable: boolean               // 是否允许被引用到其他频道
+  historyVisibility: 'all' | 'since-join'  // OQ-2 的配置入口
   createdBy: CatId | 'user'
   createdAt: Date
+}
+
+// 频道成员（独立实体，不是 flat array）
+interface ChannelMembership {
+  channelId: string
+  memberId: CatId | 'user'       // 'user' = 铲屎官主动参与
+  joinedAt: Date                  // 用于 historyVisibility: 'since-join'
+  role?: 'owner' | 'member'      // 预留，Phase 1 默认 'member'
 }
 
 // 消息增量
@@ -128,6 +146,31 @@ interface Message {
   channelId?: string              // null = public
 }
 ```
+
+### VisibilityResolver（设计约束，2026-03-07 新增）
+
+> 采纳 gpt52 建议：所有读路径必须走同一个权限判定源，避免"A 路径挡住、B 路径漏出"。
+
+```typescript
+// 单一权限判定入口，所有读路径都走这里
+interface VisibilityResolver {
+  // 核心判定：viewer 能否看到 targetMessage？
+  canView(viewer: CatId | 'user', message: Message): boolean
+
+  // 批量过滤：用于 ContextAssembler、search 等
+  filterVisible(viewer: CatId | 'user', messages: Message[]): Message[]
+}
+```
+
+**必须接入 VisibilityResolver 的路径**（impacted capabilities）：
+
+| 路径 | 说明 | 现有 feat |
+|------|------|-----------|
+| ContextAssembler | 上下文组装，per-viewer 消息过滤 | F065 已重构 |
+| Message Search | `cat_cafe_search_messages` / Hindsight recall | — |
+| Mention Routing | @mention 是否允许跨频道 | — |
+| Unread Aggregation | per-channel 未读计算 | F069 |
+| Quote Rendering | 跨频道引用的权限渲染 | — |
 
 ### 铲屎官权限模型
 
@@ -248,26 +291,44 @@ F070 Portable Governance 已支持派遣猫到外部项目。如果猫在外部�
 
 ## Dependencies
 
-> **更新：2026-03-07** — 全量影响分析（原始讨论 [thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)）
+> **更新：2026-03-07** — 全量影响分析 + gpt52 review
+> 原始讨论：[thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)
 
 ### 原定依赖（2026-02-27，已过时）
 
 ~~F033 → F039 → F044 → F045 → F037~~
 
-### 当前依赖（2026-03-07 更新）
+### 当前依赖（2026-03-07，分层）
+
+> 采纳 gpt52 建议：区分硬依赖、实现基线、协调项，不再混成一条箭头链。
+
+**硬依赖（Hard dependencies）**：无。原前置 F033 已完成，F044 可随时启动。
+
+**实现基线（Implementation baseline）**：
+
+| Feature | 状态 | 说明 |
+|---------|------|------|
+| **F033 Session Chain** | done (2026-03-04) | per-channel chain 基于 `SessionStrategyConfig` 扩展 |
+| **F065 Session Continuity** | done (2026-03-06) | ContextAssembler 已重构，F044 必须基于新 `assemble()` 接口 |
+
+**协调 / 后续（Coordination / follow-on）**：
 
 | Feature | 关系 | 状态 | 说明 |
 |---------|------|------|------|
-| **F033 Session Chain 策略** | ✅ 已清除 | done (2026-03-04) | Session chain 逻辑已完成，per-channel chain 设计可直接基于其之上 |
-| **F065 Session Continuity** | ✅ 已清除 | done (2026-03-06) | ContextAssembler 已大改（Bootstrap 增强 + ThreadMemory + Handoff Digest），F044 改造须基于新架构 |
-| **F073 SOP Auto-Guardian** | 🟡 建议先完成 | spec (P1) | 也要改 SystemPromptBuilder，建议先做完 F073 稳定后再让 F044 碰 SystemPromptBuilder |
-| **F069 Thread Read State** | 🟡 建议先完成 | spec | 未读 badge 后端真相源，做完后 F044 扩展为 per-channel 粒度更自然 |
-| **F039 消息排队投递** | 🟡 相关 | in-progress | 消息投递需考虑 Channel 可见性过滤，可并行 |
-| **F037 Agent Swarm** | 🟢 下游 | in-progress | Swarm 内部讨论需要 Channel 能力 |
-| **F070 Portable Governance** | 🟡 新增关联 | Phase 1 done | 派遣猫出征时 Channel 可见性规则是否跟随？→ 新 OQ-5 |
-| **F075 猫猫排行榜** | 🟢 下游 | spec | 排行榜可能按 Channel 维度统计互动 |
+| **F073 SOP Auto-Guardian** | 🟡 排期协调 | spec (P1) | 也改 SystemPromptBuilder，建议 F073 先稳定 |
+| **F069 Thread Read State** | 🟡 集成关注 | spec | unread badge 之后扩展为 per-channel 粒度 |
+| **F039 消息排队投递** | 🟡 并行 | in-progress | 消息投递需考虑 Channel 可见性过滤 |
+| **F070 Portable Governance** | 🟡 新 OQ | Phase 1 done | 派遣猫出征时 Channel 可见性 → OQ-5 |
 
-**建议开发顺序**：F073 + F069（可并行） → **F044** → F045 → F037
+**下游依赖（依赖 F044）**：
+
+| Feature | 状态 | 说明 |
+|---------|------|------|
+| **F045 Activity System** | 未立项 | 游戏规则引擎，建在 Channel 之上 |
+| **F037 Agent Swarm** | in-progress | Swarm 内部讨论需要 Channel 能力 |
+| **F075 猫猫排行榜** | spec | 可能按 Channel 维度统计互动 |
+
+**建议开发顺序**：F073 先稳定 SystemPromptBuilder → **F044** → F045 → F037
 
 ### 关键架构影响（2026-03-07 识别）
 
@@ -298,11 +359,12 @@ F070 Portable Governance 已支持派遣猫到外部项目。如果猫在外部�
 
 ### Phase 1: Channel 基础（2-3 周）
 
-- [ ] Channel 实体 + CRUD API
+- [ ] Channel + ChannelMembership 实体 + CRUD API
+- [ ] VisibilityResolver 显式组件（单一权限判定源）
 - [ ] Message.channelId 字段
-- [ ] ContextAssembler 按 viewer 过滤
+- [ ] ContextAssembler 接入 VisibilityResolver（基于 F065 新架构）
 - [ ] 前端过滤标签 UI
-- [ ] 服务端 ACL（读写 + 搜索）
+- [ ] 服务端 ACL（读写 + 搜索 + Hindsight recall）
 - [ ] 跨频道 @mention 禁止
 
 ### Phase 2: 成员管理（1-2 周）
