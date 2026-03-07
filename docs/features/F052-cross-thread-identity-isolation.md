@@ -217,3 +217,27 @@ export function parseA2AMentions(text: string, currentCatId?: CatId): CatId[]
 |------|-------------|---------|------|
 | 布偶猫 (Opus) | F052 spec, F043 spec, 铲屎官原话 thread | ① 核心问题=跨线程消息无来源标记+A2A误杀 ② 交付物解决了 ③ 铲屎官在UI看到蓝色badge+codex被正确A2A触发 | [x] 签收 |
 | 缅因猫 (Codex) | F052 spec, 代码diff(16 files), 测试覆盖 | R1: 2P1(WS路径遗漏) → R2: 1P1(后台线程遗漏) → R3: 0P1/P2 放行 | [x] 放行 |
+
+## Known Bugs
+
+### Bug: 同猫跨线程消息被"自己消息"过滤吞掉 (2026-03-06)
+
+**发现场景**: F063 冷启动守护线程的 Opus 用 `cross_post_message` 向 F063 主线程发送愿景守护综合结论。目标线程的 Opus 在"对话历史增量"里看不到这条消息。
+
+**根因**: `route-helpers.ts:257-261` 的 `assembleIncrementalContext()` 在构建历史增量时，使用 `m.catId === catId` 过滤"自己发的消息"。跨线程消息虽然正确存入目标线程（带 `extra.crossPost` 元数据），但因为发送方和接收方 catId 相同（都是 `opus`），被当成"自己刚说过的话"过滤掉。
+
+**影响范围**:
+- 同猫跨线程消息：**看不到**（catId 相同 → 被过滤）
+- 异猫跨线程消息：**正常**（catId 不同 → 不被过滤）
+- 这解释了为什么跨线程通讯"有时正常、有时失灵"
+
+**独立验证**: 布偶猫(Opus 4.6) 定位 + 缅因猫(GPT-5.4) 独立复核确认
+
+**修复方向**: 对 `extra.crossPost` 消息豁免 self-filter：
+```typescript
+if (!m.extra?.crossPost && m.catId !== null && m.catId === catId) return false;
+```
+
+**回归测试**: `same cat + crossPost => should appear in 对话历史增量`
+
+**状态**: 待修复
