@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-
-const API_BASE = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3101';
+import { apiFetch } from '@/utils/api-client';
 
 interface LinkedRootsManagerProps {
   onRootsChanged: () => void;
@@ -20,7 +19,7 @@ export function LinkedRootsManager({ onRootsChanged }: LinkedRootsManagerProps) 
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/workspace/linked-roots`, {
+      const res = await apiFetch('/api/workspace/linked-roots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name.trim(), path: path.trim() }),
@@ -97,7 +96,7 @@ export function LinkedRootRemoveButton({ id, onRemoved }: { id: string; onRemove
   const handleRemove = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      const res = await fetch(`${API_BASE}/api/workspace/linked-roots?id=${encodeURIComponent(id)}`, {
+      const res = await apiFetch(`/api/workspace/linked-roots?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
       if (res.ok) onRemoved();
