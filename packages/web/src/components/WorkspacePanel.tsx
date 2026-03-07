@@ -209,7 +209,7 @@ export function WorkspacePanel() {
     // Get or refresh token (also handles expired-token-while-editing case)
     if (!isTokenValid) {
       try {
-        const res = await apiFetch(`${API_URL}/api/workspace/edit-session`, {
+        const res = await apiFetch('/api/workspace/edit-session', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ worktreeId }),
@@ -237,7 +237,7 @@ export function WorkspacePanel() {
       }
       setSaveError(null);
       try {
-        const res = await apiFetch(`${API_URL}/api/workspace/file`, {
+        const res = await apiFetch('/api/workspace/file', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

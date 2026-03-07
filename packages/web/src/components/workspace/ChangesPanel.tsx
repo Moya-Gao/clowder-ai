@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { API_URL, apiFetch } from '@/utils/api-client';
+import { apiFetch } from '@/utils/api-client';
 import { DiffViewer } from './DiffViewer';
 import { FileIcon } from './FileIcons';
 
@@ -44,7 +44,7 @@ export function ChangesPanel({ worktreeId, basisPct }: ChangesPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await apiFetch(`${API_URL}/api/workspace/diff?worktreeId=${encodeURIComponent(worktreeId)}`);
+      const res = await apiFetch(`/api/workspace/diff?worktreeId=${encodeURIComponent(worktreeId)}`);
       if (!res.ok) {
         setError('Failed to fetch changes');
         return;
