@@ -34,3 +34,4 @@ created: 2026-02-26
 | F063 | Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | in-progress | 布偶猫 | [F063](features/F063-hub-workspace-explorer.md) |
 | F066 | Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列 | spec | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
+| F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
