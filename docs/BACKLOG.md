@@ -41,3 +41,5 @@ created: 2026-02-26
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | discussing | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
 | F078 | Smart Routing & Group Mentions — 默认最近回复者 + @all/@thread 群组 mention | spec | 布偶猫 | [F078](features/F078-smart-routing-group-mentions.md) |
+| F079 | Voting System — /vote 投票 + 系统汇总 + rich block 展示 | spec | 布偶猫 | [F079](features/F079-voting-system.md) |
+| F080 | Input History Completion — Terminal 风格历史补全 + Ctrl+R 搜索 | spec | 布偶猫 | [F080](features/F080-input-history-completion.md) |
