@@ -284,8 +284,8 @@
     },
     {
       "id": "F048",
-      "name": "Restart Recovery — 重启自愈（Phase A: 启动收尸）",
-      "status": "spec",
+      "name": "Restart Recovery — 重启自愈（Invocation/Queue 恢复）",
+      "status": "Phase A done / Phase B idea",
       "file": "F048-restart-recovery.md"
     },
     {
@@ -345,13 +345,13 @@
     {
       "id": "F057",
       "name": "Thread 可发现性 — 排序 + 搜索 + 猫猫工具",
-      "status": "spec",
+      "status": "done",
       "file": "F057-thread-discoverability.md"
     },
     {
       "id": "F058",
       "name": "Mission Control 增强（F049++）",
-      "status": "spec",
+      "status": "in-progress",
       "file": "F058-mission-control-enhancements.md"
     },
     {
@@ -363,7 +363,7 @@
     {
       "id": "F060",
       "name": "output_image 富文本渲染",
-      "status": "implementing",
+      "status": "unknown",
       "file": "F060-output-image-rich-block.md"
     },
     {
@@ -375,8 +375,26 @@
     {
       "id": "F062",
       "name": "布偶猫账号配置中枢（订阅 / 赞助 API 切换）",
-      "status": "done",
+      "status": "unknown",
       "file": "F062-ragdoll-provider-profile-hub.md"
+    },
+    {
+      "id": "F063",
+      "name": "Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作",
+      "status": "Gap 4 in-progress — file management UX",
+      "file": "F063-hub-workspace-explorer.md"
+    },
+    {
+      "id": "F064",
+      "name": "A2A 出口检查 — 链条终止盲区修复",
+      "status": "unknown",
+      "file": "F064-a2a-exit-check.md"
+    },
+    {
+      "id": "F065",
+      "name": "Session Continuity — 封印重生，记忆不断",
+      "status": "unknown",
+      "file": "F065-session-continuity.md"
     },
     {
       "id": "F066",
@@ -389,7 +407,67 @@
       "name": "Cold-start Verifier — 无历史污染的交付物验证",
       "status": "spec",
       "file": "F067-cold-start-verifier.md"
+    },
+    {
+      "id": "F068",
+      "name": "— 新建对话弹窗 UX 优化",
+      "status": "unknown",
+      "file": "F068-new-thread-dialog-ux.md"
+    },
+    {
+      "id": "F069",
+      "name": "— Thread Read State (Unread Badge Persistence)",
+      "status": "unknown",
+      "file": "F069-thread-read-state.md"
+    },
+    {
+      "id": "F070",
+      "name": "Portable Governance — 猫咖方法论的可复制输出",
+      "status": "unknown",
+      "file": "F070-portable-governance.md"
+    },
+    {
+      "id": "F071",
+      "name": "UX Debt Batch — 前端小修小补合集",
+      "status": "unknown",
+      "file": "F071-ux-debt-batch.md"
+    },
+    {
+      "id": "F072",
+      "name": "Mark All Read — 一键清理未读 Badge",
+      "status": "unknown",
+      "file": "F072-mark-all-read.md"
+    },
+    {
+      "id": "F073",
+      "name": "SOP Auto-Guardian — 流程自闭环守护",
+      "status": "in-progress",
+      "file": "F073-sop-auto-guardian.md"
+    },
+    {
+      "id": "F074",
+      "name": "— Mount Directory Support（挂载/共享目录支持）",
+      "status": "unknown",
+      "file": "F074-mount-directory-support.md"
+    },
+    {
+      "id": "F075",
+      "name": "— 猫猫排行榜 (Cat Leaderboard)",
+      "status": "unknown",
+      "file": "F075-cat-leaderboard.md"
+    },
+    {
+      "id": "F076",
+      "name": "Mission Hub 跨项目作战面板",
+      "status": "unknown",
+      "file": "F076-mission-hub-cross-project.md"
+    },
+    {
+      "id": "F077",
+      "name": "— Multi-User Secure Collaboration（多用户安全协作）",
+      "status": "unknown",
+      "file": "F077-multi-user-secure-collab.md"
     }
   ],
-  "generated_at": "2026-03-05T23:54:00.000Z"
+  "generated_at": "2026-03-07T13:52:21.391Z"
 }
