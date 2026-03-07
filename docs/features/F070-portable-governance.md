@@ -79,7 +79,7 @@ TD099（hook 归一化）并入此阶段。
 
 1. 检测目标项目是否已有治理包（通过 managed block 标记 + 版本号）
 2. 写入/更新 managed block 到目标项目的 `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
-3. symlink `.claude/skills/` → 猫咖 skills（含 F038 workaround）
+3. symlink 三家 provider skills 目录 → 猫咖 skills（`.claude/skills/` + `.codex/skills/` + `.gemini/skills/`，含 F038 workaround）
 4. 同步 hooks（TD099）
 5. 生成方法论骨架（**仅在目标文件不存在时创建，已有文件不覆盖**）：
    - `docs/` 目录结构 + `BACKLOG.md` 模板 + `docs/features/` + SOP 模板
@@ -216,7 +216,7 @@ TD099（hook 归一化）并入此阶段。
 | 决策 | 理由 | 来源 |
 |------|------|------|
 | 能力注入 ≠ 治理继承 | MCP 同步不等于方法论同步 | 三猫讨论 2026-03-06 |
-| control plane 留猫咖 | 避免真相源分裂 | gpt52 建议 |
+| methodology hub 留猫咖（分区控制模型） | 避免真相源分裂 | gpt52 建议 |
 | 复用 capability-orchestrator | 不新建并行系统 | codex 硬约束 |
 | TD099 并入 Phase A | hook 归一化是闭环关键 | codex 建议 |
 | 分区控制模型 | 猫咖管"怎么做"（方法论），外部项目管"做什么"（自己的 backlog） | gpt52 P1-1 修复 |
