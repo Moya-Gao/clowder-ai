@@ -258,7 +258,8 @@ export async function assembleIncrementalContext(
     // F35: Exclude whispers not intended for this cat (play mode only)
     if (!canViewMessage(m, viewer)) return false;
     // Exclude own messages (only include user messages and other cats' messages)
-    if (m.catId !== null && m.catId === catId) return false;
+    // F052 fix: exempt cross-posted messages — same catId from another thread must be visible
+    if (!m.extra?.crossPost && m.catId !== null && m.catId === catId) return false;
     // In play mode, hide other cats' stream (thinking) messages.
     // Legacy messages (no origin) are visible for backward compatibility —
     // all new writes are tagged, so untagged = legacy callback data.
