@@ -36,3 +36,4 @@ created: 2026-02-26
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
 | F070 | Portable Governance — 猫咖方法论的可复制输出 | done | 布偶猫 | [F070](features/F070-portable-governance.md) |
+| F072 | Mark All Read — 一键清理未读 Badge | spec | 布偶猫 | [F072](features/F072-mark-all-read.md) |
