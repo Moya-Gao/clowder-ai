@@ -592,26 +592,46 @@ feat(F070): governance health API endpoints [布偶猫]
 
 ---
 
-### Task 10: Hub UI — Governance Health Tab
+### Task 10: Hub UI — Governance Health Tab + Historical Catch-Up
 
 **Files:**
 - Create: `packages/web/src/components/HubGovernanceTab.tsx`
 - Modify: `packages/web/src/components/Hub.tsx` (add tab)
+- Modify: `packages/api/src/routes/capabilities.ts` (historical scan endpoint)
 
-**Step 1: Build governance health component**
+**Step 1: Add historical project scan API**
+
+`GET /api/governance/discover` — scans all threads with external `projectPath`, cross-references governance registry, returns list of "never-synced" projects.
+
+```typescript
+// Scan threadStore for unique external projectPaths
+// Filter out cat-cafe-root itself
+// Cross-reference with governance registry
+// Return: { unsynced: [{ projectPath, threadCount, lastActivity }] }
+```
+
+**Step 2: Build governance health component**
 
 Display table of external projects with columns:
 - Project name/path
 - Governance status (healthy / stale / missing / never-synced)
 - Pack version
 - Last synced
+- Thread count (how many threads use this project)
 - Actions: Sync Now / Confirm First Time
 
-**Step 2: Wire to Hub tabs**
+**Step 3: First-deploy banner**
+
+On first load after F070 deploy, if `discover` returns unsynced projects:
+- Show banner: "N 个外部项目尚未同步猫咖治理规则"
+- List project names with one-click "Bootstrap" button per project
+- "全部同步" button for batch bootstrap (with confirmation)
+
+**Step 4: Wire to Hub tabs**
 
 Add "Governance" tab alongside existing Capability / Skills tabs.
 
-**Step 3: Commit**
+**Step 5: Commit**
 
 ```
 feat(F070): Hub governance health tab [布偶猫]
