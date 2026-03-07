@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Gap 3 implemented (PR pending) — close after merge
+> **Status**: Gap 4 in-progress — file management UX
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -471,3 +471,21 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 |------|------|------|
 | P3-7 | AuditExplorerPanel 三 tab（审计事件/Session 事件/搜索） | **done** |
 | P3-8 | 内联审计查看器替代 VSCode 跳转 + SessionChainPanel click-to-view | **done** |
+
+#### Gap 4 (P1): File Management — VSCode 级文件操作 UX
+
+铲屎官不打开 Finder/IDE 就能在 Hub 里新建文件、上传图片、管理文件。
+交互对齐 VSCode：目录行 hover 出操作图标 + inline 输入框 + 拖拽上传。
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| P4-1 | 后端: POST /api/workspace/file/create（新建文件） | P0 |
+| P4-2 | 后端: POST /api/workspace/dir/create（新建目录） | P0 |
+| P4-3 | 后端: POST /api/workspace/upload（上传文件，multipart） | P0 |
+| P4-4 | 后端: DELETE /api/workspace/file（删除文件/目录） | P1 |
+| P4-5 | 后端: POST /api/workspace/file/rename（重命名/移动） | P1 |
+| P4-6 | 前端: 目录行 hover 操作栏（新建文件/新建目录图标） | P0 |
+| P4-7 | 前端: inline 输入框（创建文件/目录/重命名） | P0 |
+| P4-8 | 前端: 上传按钮 + 拖拽到目录行 drop 上传 | P0 |
+| P4-9 | 前端: 文件/目录行 hover 删除+重命名图标 | P1 |
+| P4-10 | 新建文件后自动打开 + 进入编辑模式 | P0 |
