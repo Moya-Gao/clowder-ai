@@ -200,13 +200,15 @@ interface ActivityRole {
 - System prompt 要标注"你在哪个频道"
 - 消息历史裁剪逻辑按频道权限
 
+**更新 (2026-03-07)**：F065 已重构 ContextAssembler，新增 Bootstrap 增强 + ThreadMemory + Handoff Digest。F044 的 per-viewer 过滤需基于 F065 新架构实现
+
 **应对**：Phase 1 核心工作量
 
 ### 风险 2: Session Chain 与 Token 预算
 
 私密频道消息的 token 算谁的？布偶猫在 `#ragdoll-hq` 发了 20 条策略讨论，进不进公开频道的 context window？
 
-**建议**：先跟随 F033 Session Chain 策略完成，再决定 per-channel chain 设计
+**更新 (2026-03-07)**：F033 已完成，Session Chain 策略已落地。per-channel chain 设计可直接基于 F033 的 `SessionStrategyConfig` 扩展
 
 ### 风险 3: 消息搜索/Grep
 
@@ -235,17 +237,60 @@ grep/search 要过滤无权限消息，否则私密内容可能被搜索命中
 
 ### OQ-4: 阶段转换控制（移到 F045）
 
+### OQ-5: 派遣猫出征时 Channel 可见性（2026-03-07 新增）
+
+F070 Portable Governance 已支持派遣猫到外部项目。如果猫在外部项目工作时仍参与战队讨论：
+- Channel 可见性规则是否跨项目传递？
+- SystemPromptBuilder 注入哪些 channel 上下文？
+- 还是派遣期间暂停 channel 参与？
+
 ---
 
 ## Dependencies
 
-| Feature | 关系 | 说明 |
-|---------|------|------|
-| **F033 Session Chain 策略** | 🔴 前置 | 需要先理清 session chain 逻辑，再引入 per-channel chain |
-| **F039 消息排队投递** | 🟡 相关 | 消息投递需要考虑 Channel 可见性过滤，可并行 |
-| **F037 Agent Swarm** | 🟢 依赖 F044 | Swarm 内部讨论需要 Channel 能力 |
+> **更新：2026-03-07** — 全量影响分析（原始讨论 [thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)）
 
-**建议开发顺序**：F033 → F039 → **F044** → F045 → F037
+### 原定依赖（2026-02-27，已过时）
+
+~~F033 → F039 → F044 → F045 → F037~~
+
+### 当前依赖（2026-03-07 更新）
+
+| Feature | 关系 | 状态 | 说明 |
+|---------|------|------|------|
+| **F033 Session Chain 策略** | ✅ 已清除 | done (2026-03-04) | Session chain 逻辑已完成，per-channel chain 设计可直接基于其之上 |
+| **F065 Session Continuity** | ✅ 已清除 | done (2026-03-06) | ContextAssembler 已大改（Bootstrap 增强 + ThreadMemory + Handoff Digest），F044 改造须基于新架构 |
+| **F073 SOP Auto-Guardian** | 🟡 建议先完成 | spec (P1) | 也要改 SystemPromptBuilder，建议先做完 F073 稳定后再让 F044 碰 SystemPromptBuilder |
+| **F069 Thread Read State** | 🟡 建议先完成 | spec | 未读 badge 后端真相源，做完后 F044 扩展为 per-channel 粒度更自然 |
+| **F039 消息排队投递** | 🟡 相关 | in-progress | 消息投递需考虑 Channel 可见性过滤，可并行 |
+| **F037 Agent Swarm** | 🟢 下游 | in-progress | Swarm 内部讨论需要 Channel 能力 |
+| **F070 Portable Governance** | 🟡 新增关联 | Phase 1 done | 派遣猫出征时 Channel 可见性规则是否跟随？→ 新 OQ-5 |
+| **F075 猫猫排行榜** | 🟢 下游 | spec | 排行榜可能按 Channel 维度统计互动 |
+
+**建议开发顺序**：F073 + F069（可并行） → **F044** → F045 → F037
+
+### 关键架构影响（2026-03-07 识别）
+
+**1. ContextAssembler 已被 F065 重构**
+- F065 加了 Bootstrap 增强、ThreadMemory（线程滚动记忆）、Handoff Digest（LLM 会议纪要）
+- F044 的 per-viewer 消息过滤要基于 F065 的新 `assemble()` 接口，不是 2 月讨论时的老接口
+- 影响文件：`packages/api/src/context/` 目录
+
+**2. SystemPromptBuilder 成为热改区**
+- F073 要加 SOP 阶段感知注入
+- F044 要加频道上下文注入（"你在 #ragdoll-hq 频道"）
+- F070 已改了 Bootstrap 派遣注入
+- 建议 F073 先稳定，F044 后续增量
+
+**3. Message 模型已更复杂**
+- F039 加了消息排队
+- F065 加了 ThreadMemory
+- F072 加了 read state (mark-all-read)
+- F044 加 `channelId` 是增量，需确保兼容
+
+**4. 搜索接口需要 Channel ACL**
+- `cat_cafe_search_messages` / `cat_cafe_session_search` 等 MCP 工具需要按 viewer 过滤
+- 包括 Hindsight recall 搜索也要过滤
 
 ---
 
@@ -288,7 +333,8 @@ grep/search 要过滤无权限消息，否则私密内容可能被搜索命中
 ```
 BACKLOG.md F044（入口）
   └→ docs/features/F044-channel-activity-system.md（本文档：spec + 讨论纪要）
-      └→ thread_mm4uyww7va6y8k15（原始讨论 Thread）
+      ├→ thread_mm4uyww7va6y8k15（原始讨论 Thread，2026-02-27）
+      └→ thread_mm4uyww7va6y8k15（依赖更新讨论，2026-03-07）
 ```
 
 ---
@@ -296,7 +342,8 @@ BACKLOG.md F044（入口）
 ## Links
 
 - **讨论 Thread**: [thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)
-- **关联 Feature**: [F033 Session Chain](F033-session-strategy-configurability.md), [F037 Agent Swarm](F037-agent-swarm.md)
+- **关联 Feature**: [F033 Session Chain](F033-session-strategy-configurability.md) ✅done, [F037 Agent Swarm](F037-agent-swarm.md), [F065 Session Continuity](F065-session-continuity.md) ✅done, [F069 Read State](F069-thread-read-state.md), [F070 Governance](F070-portable-governance.md), [F073 SOP Guardian](F073-sop-auto-guardian.md), [F075 Leaderboard](F075-cat-leaderboard.md)
 - 发起讨论：2026-02-27 铲屎官 @opus45
 - 五猫参与：codex, sonnet, opus(4.6), opus-45
 - 收敛：2026-02-27 opus-45
+- 依赖更新：2026-03-07 opus(4.6) + gpt52
