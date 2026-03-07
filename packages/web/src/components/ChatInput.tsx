@@ -5,9 +5,11 @@ import { useCatData } from '@/hooks/useCatData';
 import type { UploadStatus, WhisperOptions } from '@/hooks/useSendMessage';
 import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
+import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { compressImage } from '@/utils/compressImage';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
+import { HistorySearchModal } from './HistorySearchModal';
 import {
   buildCatOptions,
   buildWhisperOptions,
@@ -60,6 +62,9 @@ export function ChatInput({
   const [whisperMode, setWhisperMode] = useState(false);
   const [whisperTargets, setWhisperTargets] = useState<Set<string>>(new Set());
   const [mobileToolbar, setMobileToolbar] = useState(false);
+  const [ghostSuggestion, setGhostSuggestion] = useState<string | null>(null);
+  const ghostRef = useRef<string | null>(null);
+  const [showHistorySearch, setShowHistorySearch] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -100,24 +105,30 @@ export function ChatInput({
   const activeMenu = showMentions ? 'mention' : showModeMenu ? 'mode' : null;
   const activeOptions = activeMenu === 'mention' ? filteredCatOptions : MODE_OPTIONS;
 
+  const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
+  const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
+
   const doSend = useCallback(
     (deliveryMode?: DeliveryMode) => {
       if (sendTemporarilyDisabled) return;
       if (whisperMode && whisperTargets.size === 0) return;
       const trimmed = input.trim();
       if (trimmed && !disabled) {
+        addHistoryEntry(trimmed);
         const whisper =
           whisperMode && whisperTargets.size > 0
             ? { visibility: 'whisper' as const, whisperTo: [...whisperTargets] }
             : undefined;
         onSend(trimmed, images.length > 0 ? images : undefined, whisper, deliveryMode);
         setInput('');
+        ghostRef.current = null;
+        setGhostSuggestion(null);
         setImages([]);
         setShowMentions(false);
         setShowModeMenu(false);
       }
     },
-    [input, disabled, onSend, images, sendTemporarilyDisabled, whisperMode, whisperTargets],
+    [input, disabled, onSend, images, sendTemporarilyDisabled, whisperMode, whisperTargets, addHistoryEntry],
   );
 
   const handleSend = useCallback(() => doSend(undefined), [doSend]);
@@ -180,8 +191,28 @@ export function ChatInput({
     [closeMenus],
   );
 
+  const handleHistorySelect = useCallback((text: string) => {
+    setInput(text);
+    setShowHistorySearch(false);
+    ghostRef.current = null;
+    setGhostSuggestion(null);
+    closeMenus();
+    setMentionFilter('');
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  }, [closeMenus]);
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
+
+    // F080: Ctrl+R opens history search (clear any active menus first)
+    if (e.ctrlKey && e.key === 'r') {
+      e.preventDefault();
+      closeMenus();
+      setMentionFilter('');
+      setShowHistorySearch(true);
+      return;
+    }
+
     if (activeMenu) {
       if (activeOptions.length === 0) {
         if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab' || e.key === 'Escape') {
@@ -221,6 +252,27 @@ export function ChatInput({
         return;
       }
     }
+
+    // F080: Tab or ArrowRight accepts ghost suggestion (only when no menu is active)
+    // ArrowRight only accepts when cursor is at end of input (no selection)
+    if (e.key === 'Tab' || e.key === 'ArrowRight') {
+      const ta = textareaRef.current;
+      const currentVal = ta?.value ?? '';
+      const cursorAtEnd = !ta || (ta.selectionStart === ta.selectionEnd && ta.selectionStart === currentVal.length);
+      if (e.key === 'ArrowRight' && !cursorAtEnd) {
+        // Let ArrowRight move cursor normally when not at end
+      } else {
+        const match = useInputHistoryStore.getState().findMatch(currentVal);
+        if (match) {
+          e.preventDefault();
+          setInput(match);
+          ghostRef.current = null;
+          setGhostSuggestion(null);
+          return;
+        }
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       // F39: Enter while cat running → queue send; normal otherwise
@@ -338,6 +390,13 @@ export function ChatInput({
     if (input) threadDrafts.set(threadId, input);
     else threadDrafts.delete(threadId);
   }, [input, threadId]);
+
+  // F080: recalculate ghost suggestion whenever input changes (covers all setInput paths)
+  useEffect(() => {
+    const match = input.trim() ? findHistoryMatch(input) : null;
+    ghostRef.current = match;
+    setGhostSuggestion(match);
+  }, [input, findHistoryMatch]);
 
   // Auto-resize textarea based on content
   useEffect(() => {
@@ -503,27 +562,39 @@ export function ChatInput({
           </svg>
         </button>
 
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          onPaste={handlePaste}
-          placeholder={
-            whisperMode
-              ? '悄悄话...'
-              : hasActiveInvocation
-                ? '继续输入，消息会排队...'
-                : '输入消息... (@ 召唤猫猫, /mode 切换模式)'
-          }
-          className={`flex-1 resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
-            whisperMode
-              ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
-              : 'border-owner-light bg-white focus:ring-owner-primary'
-          }`}
-          rows={1}
-          disabled={disabled}
-        />
+        <div className="flex-1 relative">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
+            placeholder={
+              whisperMode
+                ? '悄悄话...'
+                : hasActiveInvocation
+                  ? '继续输入，消息会排队...'
+                  : '输入消息... (@ 召唤猫猫, /mode 切换模式)'
+            }
+            className={`w-full resize-none rounded-xl border p-3 text-sm focus:outline-none focus:ring-2 placeholder:text-gray-400 ${
+              whisperMode
+                ? 'border-amber-300 bg-amber-50/50 focus:ring-amber-400'
+                : 'border-owner-light bg-white focus:ring-owner-primary'
+            }`}
+            rows={1}
+            disabled={disabled}
+          />
+          {ghostSuggestion && (
+            <div
+              data-testid="ghost-suggestion"
+              className="absolute inset-0 pointer-events-none p-3 text-sm whitespace-pre-wrap break-words overflow-hidden rounded-xl"
+              aria-hidden="true"
+            >
+              <span className="invisible">{input}</span>
+              <span className="text-gray-400">{ghostSuggestion.slice(input.length)}</span>
+            </div>
+          )}
+        </div>
 
         <ChatInputActionButton
           onTranscript={handleTranscript}
@@ -537,6 +608,13 @@ export function ChatInput({
           hasText={!!input.trim()}
         />
       </div>
+
+      {showHistorySearch && (
+        <HistorySearchModal
+          onSelect={handleHistorySelect}
+          onClose={() => setShowHistorySearch(false)}
+        />
+      )}
     </div>
   );
 }

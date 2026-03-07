@@ -4,7 +4,7 @@ related_features: []
 topics: [ux, input, terminal-style]
 doc_kind: spec
 created: 2026-03-07
-status: spec
+status: done
 ---
 
 # F080 Input History Completion
