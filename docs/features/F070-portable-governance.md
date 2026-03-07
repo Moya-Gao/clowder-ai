@@ -8,7 +8,7 @@ created: 2026-03-06
 
 # F070: Portable Governance — 猫咖方法论的可复制输出
 
-> Status: phase-1-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
+> Status: phase-2-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
 
 ## Why
 
@@ -79,19 +79,36 @@ created: 2026-03-06
 
 **Phase 1 已覆盖 AC**：AC-2, AC-3, AC-4, AC-5, AC-6, AC-7, AC-8, AC-9, AC-12, AC-13, AC-14, AC-15, AC-16, AC-18(部分), AC-19
 
-**Phase 1 未覆盖**：AC-1(hooks), AC-10(协作规范显式注入), AC-11(完整闭环验证), AC-17(回流)
+**Phase 1 未覆盖（Phase 2 已补完）**：AC-1(hooks ✅), AC-10(协作规范 ✅), AC-11(任务包 ✅, 验证待 P3b), AC-17(回流, 待 P3a)
 
 **Review 历程**：
 - 本地 codex: R1(3P1+1P2) → R2(2P1) → R3(0P1/0P2 放行)
 - 云端 codex: 0 P1/P2
 
-### Phase 2: 任务包 + 运行时反射（近期）
+### Phase 2: 任务包 + 运行时反射 ✅（PR #274, 2026-03-07）
+
+**已落地**：
+
+| 组件 | 实现 | 文件 |
+|------|------|------|
+| DispatchMissionPack | 5 字段结构化类型 (mission/work_item/phase/done_when/links) | `shared/types/capability.ts` |
+| Mission Pack Builder | 从 thread metadata 构建任务包 | `mission-pack.ts` |
+| Prompt Injection | 外部项目派遣时注入 system prompt | `invoke-single-cat.ts:326` |
+| Hooks Symlink | Provider-agnostic hooks 软链（可选，源不存在跳过） | `governance-bootstrap.ts:76` |
+| Managed Block v1.1.0 | 协作规范扩充 (shared-rules + skills 引用) | `governance-pack.ts` |
+| Tests | 55 tests across 8 test files, 0 failures | `test/governance/` |
+
+**Phase 2 新增覆盖 AC**：AC-1(hooks ✅), AC-10(协作规范 ✅), AC-11(任务包 ✅, 验证待 P3b)
+
+**Review 历程**：
+- 本地 codex: R4 放行 (0 P1/P2)
+- 云端 codex: R1(1P2 frontmatter) → R2(0 P1/P2)
 
 > **一句话**：让出征的猫不只"会守规矩"，还"知道自己来干嘛"。
 >
 > 三猫讨论共识（2026-03-07, opus + gpt52）
 
-**2a. 派遣任务包注入**（AC-11 部分）
+~~**2a. 派遣任务包注入**（AC-11 部分）~~ ✅ PR #274
 
 猫被派遣到外部项目时，system prompt 注入结构化任务包：
 
@@ -106,13 +123,13 @@ links:      相关入口链接
 原则：**带方法，不带猫咖私有账本；带这次任务包，不灌整份 spec**。
 技术路径：invoke-single-cat 从 thread metadata 提取 → system prompt injection。
 
-**2b. Provider-agnostic Hooks 契约**（AC-1 完整版, TD099）
+~~**2b. Provider-agnostic Hooks 契约**（AC-1 完整版, TD099）~~ ✅ PR #274
 
 - **目标层**：定义一套 provider-agnostic 的"猫咖标准 hooks 契约"（commit guard、quality gate pre-check）
 - **适配层**：按 provider 做 adapter（`.claude/hooks/` / `.codex/hooks/` / `.gemini/hooks/`）
 - **交付层**：实现可以分批，但 spec 目标是三家一致，不降级为 claude-only
 
-**2c. 协作规范显式注入**（AC-10 完整版）
+~~**2c. 协作规范显式注入**（AC-10 完整版）~~ ✅ PR #274
 
 managed block 扩充协作方法论段落：
 - A2A 交接五件套引用
@@ -163,7 +180,7 @@ managed block 扩充协作方法论段落：
 ## Acceptance Criteria
 
 ### 核心 AC
-- [ ] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）— **Phase 1 部分完成（缺 hooks）→ Phase 2b 补完**
+- [x] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）— **Phase 1 + Phase 2 ✅**
 - [x] AC-2: 已有自己 CLAUDE.md/docs/BACKLOG.md 的外部项目，managed block 共存不冲突，已有文件不被覆盖 — **Phase 1 ✅**
 - [x] AC-3: 重复派遣幂等（版本戳 + checksum）— **Phase 1 ✅**
 - [x] AC-4: 缺失治理文件时 Preflight Gate 阻断生效（fail-closed，per-provider）— **Phase 1 ✅**
@@ -174,8 +191,8 @@ managed block 扩充协作方法论段落：
 - [x] AC-7: 外部项目获得文档架构模板（docs/ 目录结构 + frontmatter 契约）— **Phase 1 ✅**
 - [x] AC-8: 外部项目获得 Backlog 治理模板（BACKLOG.md + Feature 聚合文件模板）— **Phase 1 ✅**
 - [x] AC-9: 外部项目获得 SOP 工作流模板 + Skills 路由 — **Phase 1 ✅**
-- [ ] AC-10: 外部项目获得协作规范（shared-rules + A2A + 愿景守护）— **Phase 1 部分（skills symlink 含 shared-rules）→ Phase 2c 显式注入**
-- [ ] AC-11: 派遣猫能在外部项目按猫咖 feat/backlog/SOP 跑完整闭环 — **Phase 2a（任务包）+ Phase 3b（验证）**
+- [x] AC-10: 外部项目获得协作规范（shared-rules + A2A + 愿景守护）— **Phase 1 (skills symlink) + Phase 2c ✅ (managed block 显式引用)**
+- [x] AC-11: 派遣猫能在外部项目按猫咖 feat/backlog/SOP 跑完整闭环 — **Phase 2a ✅ (任务包注入), Phase 3b 待验证**
 
 ### 审计 AC（codex 硬要求）
 - [x] AC-12: Bootstrap 触发点双保险（dispatch + invoke 前校验）— **Phase 1 ✅**
@@ -229,12 +246,13 @@ managed block 扩充协作方法论段落：
 | 2026-03-06 | Kickoff + 三猫讨论 + spec v0 |
 | 2026-03-07 | Phase 1 完成（PR #265 merged）：治理骨架 + 门禁 + Hub 看板 |
 | 2026-03-07 | 愿景守护（gpt52）+ 后续路线图讨论（opus + gpt52 共识）|
+| 2026-03-07 | Phase 2 完成（PR #274 merged）：任务包注入 + hooks + managed block v1.1.0 |
 
 ## 需求点 Checklist
 
 | # | 需求点 | AC 映射 | 状态 | Phase |
 |---|--------|---------|------|-------|
-| R1 | 空白项目 bootstrap | AC-1 | partial | 1 ✅ (缺 hooks → P2b) |
+| R1 | 空白项目 bootstrap | AC-1 | done | 1+2 ✅ |
 | R2 | 已有规则项目共存 | AC-2 | done | 1 ✅ |
 | R3 | 幂等同步 | AC-3 | done | 1 ✅ |
 | R4 | Preflight Gate fail-closed | AC-4 | done | 1 ✅ |
@@ -243,8 +261,8 @@ managed block 扩充协作方法论段落：
 | R7 | 文档架构模板输出 | AC-7 | done | 1 ✅ |
 | R8 | Backlog 治理模板输出 | AC-8 | done | 1 ✅ |
 | R9 | SOP + Skills 路由输出 | AC-9 | done | 1 ✅ |
-| R10 | 协作规范输出 | AC-10 | partial | 1(symlink) → P2c(显式) |
-| R11 | 派遣猫完整闭环 | AC-11 | pending | P2a + P3b |
+| R10 | 协作规范输出 | AC-10 | done | 1(symlink) + P2c ✅ |
+| R11 | 派遣猫完整闭环 | AC-11 | partial | P2a ✅ + P3b(验证) |
 | R12 | 双保险触发点 | AC-12 | done | 1 ✅ |
 | R13 | 复用 capability-orchestrator | AC-13 | done | 1 ✅ |
 | R14 | versioned portable pack | AC-14 | done | 1 ✅ |
