@@ -40,3 +40,4 @@ created: 2026-02-26
 | F075 | 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | spec | 布偶猫 | [F075](features/F075-cat-leaderboard.md) |
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | discussing | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
+| F078 | Smart Routing & Group Mentions — 默认最近回复者 + @all/@thread 群组 mention | spec | 布偶猫 | [F078](features/F078-smart-routing-group-mentions.md) |
