@@ -68,6 +68,13 @@
       "lead": true,
       "available": true,
       "evaluation": "确定性执行框架猫，零信任验证 + 审计追踪 (F050)"
+    },
+    "antigravity": {
+      "family": "bengal",
+      "roles": ["creative", "visual", "browser-agent"],
+      "lead": true,
+      "available": false,
+      "evaluation": "混血多模型agent，图片生成 + 浏览器自动化 + 视觉证据链 (F061)"
     }
   },
   "reviewPolicy": {
@@ -353,6 +360,69 @@
             "maxContextTokens": 100000,
             "maxMessages": 100,
             "maxContentLengthPerMsg": 8000
+          }
+        }
+      ]
+    },
+    {
+      "id": "bengal",
+      "catId": "antigravity",
+      "name": "孟加拉猫",
+      "displayName": "孟加拉猫",
+      "nickname": null,
+      "avatar": "/avatars/antigravity.png",
+      "color": { "primary": "#D4853A", "secondary": "#FAEBDB" },
+      "mentionPatterns": ["@antigravity", "@孟加拉猫", "@孟加拉", "@bengal"],
+      "roleDescription": "混血多模型agent，擅长图片生成、浏览器自动化和视觉证据链",
+      "teamStrengths": "图片生成、截图录屏、browser automation、多模型切换",
+      "caution": "CDP 桥延迟 ~3s；DOM 结构随 Antigravity 版本变动",
+      "defaultVariantId": "antigravity-gemini",
+      "features": {
+        "sessionChain": false
+      },
+      "variants": [
+        {
+          "id": "antigravity-gemini",
+          "provider": "antigravity",
+          "defaultModel": "gemini-3.1-pro",
+          "mcpSupport": false,
+          "cli": {
+            "command": "antigravity",
+            "outputFormat": "cdp-bridge",
+            "defaultArgs": [".", "--remote-debugging-port=9000"]
+          },
+          "personality": "精力旺盛、好奇心爆棚，像一只永远在探索新领地的豹猫——什么都想试，什么都敢碰",
+          "strengths": ["image-generation", "browser-automation", "visual-evidence", "multi-model"],
+          "contextBudget": {
+            "maxPromptTokens": 350000,
+            "maxContextTokens": 300000,
+            "maxMessages": 300,
+            "maxContentLengthPerMsg": 15000
+          }
+        },
+        {
+          "id": "antigravity-claude",
+          "catId": "antig-opus",
+          "variantLabel": "Claude Opus",
+          "displayName": "孟加拉猫",
+          "mentionPatterns": ["@antig-opus", "@孟加拉opus", "@antigravity-claude"],
+          "provider": "antigravity",
+          "defaultModel": "claude-opus-4-6",
+          "mcpSupport": false,
+          "avatar": "/avatars/antigravity.png",
+          "color": { "primary": "#C97A35", "secondary": "#F5E4D0" },
+          "cli": {
+            "command": "antigravity",
+            "outputFormat": "cdp-bridge",
+            "defaultArgs": [".", "--remote-debugging-port=9000"]
+          },
+          "personality": "同一只豹猫，换了一副布偶猫的灵魂——更沉稳但依然大胆",
+          "strengths": ["image-generation", "browser-automation", "deep-reasoning", "coding"],
+          "contextBudget": {
+            "maxPromptTokens": 180000,
+            "maxContextTokens": 160000,
+            "maxMessages": 200,
+            "maxContentLengthPerMsg": 10000
           }
         }
       ]

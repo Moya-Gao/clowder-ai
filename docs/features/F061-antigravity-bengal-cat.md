@@ -105,6 +105,12 @@ Cat Cafe AgentRouter
 2. **接入通道：CDP 桥（非 CLI spawn）** — Antigravity 是 Electron 应用，没有 headless CLI 模式
 3. **遵循 F050 External Agent Contract v1** — 但通信层用 CDP 桥替代 CLI adapter
 4. **图片生成为核心差异化能力** — 这是现有三猫都不具备的
+5. **catId: `antigravity`** — mentionPatterns: `@antigravity` / `@孟加拉猫` / `@孟加拉` / `@bengal`
+6. **双 Variant** — `antigravity-gemini`（默认，Gemini 3.1 Pro）+ `antigravity-claude`（Claude Opus 4.6），换代只改 `defaultModel` 一行
+7. **昵称留空** — 等 Antigravity 接入后让他自取名（遵循三猫命名传统）
+8. **配色：琥珀色** — Primary `#D4853A` / Secondary `#FAEBDB`（区别于狸花猫的土金色 `#D4A76A`）
+9. **吊牌符号：棱镜** — 一束光折射出多种颜色 = 一个 agent 跑多种模型
+10. **Avatar**: `assets/avatars/antigravity.png` — 垫子系列统一画风，扑击姿势体现精力旺盛
 
 ---
 
@@ -129,7 +135,7 @@ Cat Cafe AgentRouter
 
 ## Open Questions
 
-1. 孟加拉猫的**昵称**叫什么？（需要铲屎官取名）
+1. ~~孟加拉猫的**昵称**叫什么？~~ → **已决定留空，接入后自取名**
 2. Antigravity 切模型时，Cat Cafe 侧如何感知当前模型？（DOM 解析 vs API）
 3. CDP 桥是自己写还是 fork 社区项目（antigravity_phone_chat）？
 4. Antigravity 的 browser agent 能力是否暴露给 Cat Cafe 协作使用？
@@ -152,3 +158,4 @@ Cat Cafe AgentRouter
 | 日期 | 事件 |
 |------|------|
 | 2026-03-04 | Kickoff — 铲屎官定品种为孟加拉猫，spec 立项 |
+| 2026-03-06 | 猫猫档案设计 — Avatar 生成、配色确定、双 Variant 架构、cat-config.json 注册 |
