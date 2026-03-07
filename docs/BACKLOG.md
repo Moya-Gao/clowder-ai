@@ -43,3 +43,4 @@ created: 2026-02-26
 | F078 | Smart Routing & Group Mentions — 默认最近回复者 + @all/@thread 群组 mention | spec | 布偶猫 | [F078](features/F078-smart-routing-group-mentions.md) |
 | F079 | Voting System — /vote 投票 + 系统汇总 + rich block 展示 | spec | 布偶猫 | [F079](features/F079-voting-system.md) |
 | F080 | Input History Completion — Terminal 风格历史补全 + Ctrl+R 搜索 | done | 布偶猫 | [F080](features/F080-input-history-completion.md) |
+| F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |
