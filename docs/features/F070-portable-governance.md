@@ -24,9 +24,10 @@ created: 2026-03-06
 
 ### 定位
 
-- Cat Cafe = **治理中枢**（control plane）：BACKLOG/Feature/ADR/lessons 的真相源
-- 外部项目 = **执行面**（execution plane）：带着猫咖"操作系统"工作
-- 不是把外部项目变成第二个猫咖仓库，而是投影治理能力
+- Cat Cafe = **方法论中枢**（methodology hub）：SOP/Skills/协作规范/愿景守护的真相源
+- 外部项目 = **独立执行面**（independent execution plane）：用猫咖方法论模板，但拥有自己的 BACKLOG/Feature/ADR
+- **分区控制模型**：猫咖治理的是"怎么做"（方法论），外部项目治理的是"做什么"（自己的 backlog/feature）
+- 猫咖不是外部项目的 BACKLOG 真相源——猫咖只输出方法论模板和工作流规范
 
 ## Scope: 携带什么
 
@@ -42,13 +43,15 @@ created: 2026-03-06
 | 协作规范 | A2A 交接五件套、愿景守护协议、review 流程 | shared-rules.md |
 | 任务态上下文 | 当前 feat 的 AC、链接、phase | 派遣 thread 首条消息注入 |
 
-### 不携带（留在 control plane）
+### 不携带（各项目独立 or 猫咖私有）
 
 - MEMORY.md 项目细节（猫咖私有上下文）
-- BACKLOG.md 具体条目（外部项目独立管理，用猫咖模板）
-- Feature 聚合文件内容（各项目独立）
-- ADR/lessons-learned 具体条目（猫咖是真相源）
+- 猫咖自己的 BACKLOG.md 条目（猫咖自己的功能规划）
+- 猫咖自己的 Feature 聚合文件（猫咖自己的 spec）
+- 猫咖自己的 ADR/lessons-learned 条目（但方法论模板会输出）
 - SystemPromptBuilder 实现细节
+
+注：外部项目会有**自己独立的** BACKLOG.md / Feature 文件 / ADR，由外部项目的猫独立管理。猫咖输出的是方法论模板（"怎么写"），不是具体条目（"写什么"）。
 
 ## Non-goals
 
@@ -78,7 +81,12 @@ TD099（hook 归一化）并入此阶段。
 2. 写入/更新 managed block 到目标项目的 `CLAUDE.md`/`AGENTS.md`/`GEMINI.md`
 3. symlink `.claude/skills/` → 猫咖 skills（含 F038 workaround）
 4. 同步 hooks（TD099）
-5. 生成方法论骨架：`docs/` 目录结构 + `BACKLOG.md` 模板 + `docs/features/` + SOP 模板
+5. 生成方法论骨架（**仅在目标文件不存在时创建，已有文件不覆盖**）：
+   - `docs/` 目录结构 + `BACKLOG.md` 模板 + `docs/features/` + SOP 模板
+   - 已有 `docs/` / `BACKLOG.md` / `docs/features/` → 跳过，记录到 bootstrap report
+   - 冲突落盘：bootstrap report 记录"已存在/跳过/冲突"明细
+   - 支持 `--dry-run` 模式：预览将要写入的文件，不实际写入
+   - 回滚语义：bootstrap report 含文件清单，可按清单逆向删除
 6. 注入任务态上下文（当前 feat 的 AC/链接/phase）
 
 **触发点双保险**（codex 硬要求）：
@@ -107,7 +115,7 @@ TD099（hook 归一化）并入此阶段。
 |------|--------|
 | 猫咖安全铁律（端口/Redis/身份） | 不可覆盖 |
 | 猫咖协作规范（A2A/review/愿景守护） | 不可覆盖 |
-| 猫咖 SOP 工作流 | 可被外部项目扩展，不可完全替换 |
+| 猫咖 SOP 工作流 | 安全/协作底线不可替换，执行流程可由外部项目映射/裁剪 |
 | 外部项目 build/test/style/架构约束 | 外部项目优先 |
 | 任务态上下文 | 仅对当次派遣生效 |
 
@@ -115,7 +123,7 @@ TD099（hook 归一化）并入此阶段。
 
 ### 核心 AC
 - [ ] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）
-- [ ] AC-2: 已有自己 CLAUDE.md 的外部项目，managed block 共存不冲突
+- [ ] AC-2: 已有自己 CLAUDE.md/docs/BACKLOG.md 的外部项目，managed block 共存不冲突，已有文件不被覆盖
 - [ ] AC-3: 重复派遣幂等（版本戳 + checksum）
 - [ ] AC-4: 缺失治理文件时 Preflight Gate 阻断生效（fail-closed）
 - [ ] AC-5: 回滚后可再同步（版本漂移检测 + 修复）
@@ -134,6 +142,13 @@ TD099（hook 归一化）并入此阶段。
 - [ ] AC-14: 治理载体是 versioned portable pack（含 checksum + managed block），不是整仓镜像
 - [ ] AC-15: 派遣注册表可审计（首次派遣时间、同步版本、校验时间、状态）
 - [ ] AC-16: Bootstrap 结果落盘可回放（做了什么、跳过什么、冲突什么）
+
+### 回流与闭环 AC（gpt52 P1-3 修复）
+- [ ] AC-17: 外部项目执行结果可回流猫咖追踪（派遣任务状态在 Mission Hub 可见，不需要去外部项目找）
+- [ ] AC-18: Bootstrap 支持 dry-run 模式 + 回滚清单（已有文件无损策略）
+
+### 跨 provider AC（gpt52 P2-2 修复）
+- [ ] AC-19: Skills bootstrap 覆盖三家 provider（`.claude/skills/` + `.codex/skills/` + `.gemini/skills/`），不只 Claude
 
 ## Dependencies
 
@@ -192,6 +207,9 @@ TD099（hook 归一化）并入此阶段。
 | R14 | versioned portable pack | AC-14 | pending |
 | R15 | 派遣注册表审计 | AC-15 | pending |
 | R16 | Bootstrap 结果落盘 | AC-16 | pending |
+| R17 | 回流路径（Mission Hub 追踪） | AC-17 | pending |
+| R18 | dry-run + 回滚清单 | AC-18 | pending |
+| R19 | 跨 provider skills bootstrap | AC-19 | pending |
 
 ## Key Decisions
 
@@ -201,7 +219,9 @@ TD099（hook 归一化）并入此阶段。
 | control plane 留猫咖 | 避免真相源分裂 | gpt52 建议 |
 | 复用 capability-orchestrator | 不新建并行系统 | codex 硬约束 |
 | TD099 并入 Phase A | hook 归一化是闭环关键 | codex 建议 |
-| 外部项目独立管 backlog | 用猫咖模板但真相源在本地 | 铲屎官拍板 |
+| 分区控制模型 | 猫咖管"怎么做"（方法论），外部项目管"做什么"（自己的 backlog） | gpt52 P1-1 修复 |
+| 无损 bootstrap | 已有文件不覆盖，支持 dry-run + 回滚 | gpt52 P1-2 修复 |
+| 回流路径验收化 | 外部执行结果必须在 Mission Hub 可追踪 | gpt52 P1-3 修复 |
 | 能力 Hub 集成方法论更新 | 复用现有多项目管理 UI | 铲屎官指出 |
 
 ## Links
