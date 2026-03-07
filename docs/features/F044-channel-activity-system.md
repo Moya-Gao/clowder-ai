@@ -317,7 +317,7 @@ F070 Portable Governance 已支持派遣猫到外部项目。如果猫在外部�
 |---------|------|------|------|
 | **F073 SOP Auto-Guardian** | 🟡 排期协调 | spec (P1) | 也改 SystemPromptBuilder，建议 F073 先稳定 |
 | **F069 Thread Read State** | 🟡 集成关注 | spec | unread badge 之后扩展为 per-channel 粒度 |
-| **F039 消息排队投递** | 🟡 并行 | in-progress | 消息投递需考虑 Channel 可见性过滤 |
+| **F039 消息排队投递** | 🟡 并行 | in-progress | 消息投递需考虑 Channel 可见性过滤。**并行约束（gpt52）**：F039 不能自己发明可见性规则，必须走 VisibilityResolver 判定或消费其输出，禁止出现第三套 ACL 逻辑 |
 | **F070 Portable Governance** | 🟡 新 OQ | Phase 1 done | 派遣猫出征时 Channel 可见性 → OQ-5 |
 
 **下游依赖（依赖 F044）**：
