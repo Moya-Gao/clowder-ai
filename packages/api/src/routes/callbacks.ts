@@ -31,6 +31,7 @@ import { canViewMessage } from '../domains/cats/services/stores/visibility.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
+import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
 import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { readFeatIndexEntries, type FeatIndexEntry } from './feat-index-doc-import.js';
@@ -62,6 +63,8 @@ export interface CallbackRoutesOptions {
   prTrackingStore?: IPrTrackingStore;
   /** F043 P1: feat_index provider override for tests */
   featIndexProvider?: () => Promise<FeatIndexEntry[]>;
+  /** F073 P1: workflow SOP store for bulletin board */
+  workflowSopStore?: import('../domains/cats/services/stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -534,6 +537,27 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         filtered = visible.slice(-requestedLimit);
       }
 
+      // F073 P1: Look up workflow SOP for resume capsule if thread has linked backlog item
+      // P1-3: Only expose workflowSop when the thread belongs to this user
+      let workflowSop: Record<string, unknown> | undefined;
+      if (effectiveThreadId && threadStore && opts.workflowSopStore) {
+        const thread = await threadStore.get(effectiveThreadId);
+        const isOwnThread = thread && (thread.createdBy === record.userId || !overrideThreadId);
+        if (isOwnThread && thread?.backlogItemId) {
+          const sop = await opts.workflowSopStore.get(thread.backlogItemId);
+          if (sop) {
+            workflowSop = {
+              featureId: sop.featureId,
+              stage: sop.stage,
+              batonHolder: sop.batonHolder,
+              nextSkill: sop.nextSkill,
+              resumeCapsule: sop.resumeCapsule,
+              checks: sop.checks,
+            };
+          }
+        }
+      }
+
       return {
         // TD091: echo threadId so cats know which thread they're in
         threadId: effectiveThreadId,
@@ -545,6 +569,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           ...(item.contentBlocks ? { contentBlocks: item.contentBlocks } : {}),
           timestamp: item.timestamp,
         })),
+        ...(workflowSop ? { workflowSop } : {}),
       };
     });
 
@@ -751,6 +776,14 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
         taskStore,
         socketManager,
         ...(threadStore ? { threadStore } : {}),
+      });
+    }
+
+    if (opts.workflowSopStore && opts.backlogStore) {
+      registerCallbackWorkflowSopRoutes(app, {
+        registry,
+        workflowSopStore: opts.workflowSopStore,
+        backlogStore: opts.backlogStore,
       });
     }
 

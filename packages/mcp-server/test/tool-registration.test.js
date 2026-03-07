@@ -26,6 +26,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_create_rich_block',
   'cat_cafe_get_rich_block_rules',
   'cat_cafe_register_pr_tracking',
+  // Workflow SOP tools (F073 P1)
+  'cat_cafe_update_workflow',
   // Permission tools (this is the regression guard)
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
@@ -66,6 +68,7 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
   'cat_cafe_register_pr_tracking',
+  'cat_cafe_update_workflow',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [

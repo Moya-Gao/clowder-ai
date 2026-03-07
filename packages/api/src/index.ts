@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, workspaceRoutes, workspaceEditRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -23,6 +23,7 @@ import { createThreadStore } from './domains/cats/services/stores/factories/Thre
 import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
 import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
 import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
+import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
 import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
 import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
 import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
@@ -131,6 +132,7 @@ async function main(): Promise<void> {
   const threadStore = createThreadStore(redis);
   const taskStore = createTaskStore(redis);
   const backlogStore = createBacklogStore(redis);
+  const workflowSopStore = createWorkflowSopStore(redis);
   const summaryStore = createSummaryStore(redis);
   const memoryStore = createMemoryStore(redis);
   const taskProgressStore = createTaskProgressStore(redis);
@@ -317,6 +319,7 @@ async function main(): Promise<void> {
     invocationTracker,
     deliveryCursorStore,
     prTrackingStore,
+    ...(workflowSopStore ? { workflowSopStore } : {}),
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)
@@ -355,6 +358,9 @@ async function main(): Promise<void> {
   await app.register(threadExportRoutes, { threadStore });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
+  if (workflowSopStore) {
+    await app.register(workflowSopRoutes, { workflowSopStore, backlogStore });
+  }
   await app.register(summariesRoutes, { summaryStore, socketManager });
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });

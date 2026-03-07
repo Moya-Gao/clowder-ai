@@ -415,6 +415,58 @@ export async function handleRegisterPrTracking(input: {
   });
 }
 
+export const updateWorkflowInputSchema = {
+  backlogItemId: z.string().min(1).describe('The backlog item ID to update workflow SOP for'),
+  featureId: z.string().min(1).describe('Feature ID (e.g. "F073")'),
+  stage: z.enum(['kickoff', 'impl', 'quality_gate', 'review', 'merge', 'completion']).optional()
+    .describe('Current SOP stage'),
+  batonHolder: z.string().min(1).optional()
+    .describe('Unique handle of the cat currently holding the baton (e.g. "opus", "codex")'),
+  nextSkill: z.string().nullable().optional()
+    .describe('Suggested skill to load next (e.g. "tdd", "quality-gate"), or null'),
+  resumeCapsule: z.object({
+    goal: z.string().optional().describe('What we are building'),
+    done: z.array(z.string()).optional().describe('What has been completed'),
+    currentFocus: z.string().optional().describe('What we are working on right now'),
+  }).optional().describe('Resume capsule for cold start / context recovery'),
+  checks: z.object({
+    remoteMainSynced: z.enum(['attested', 'verified', 'unknown']).optional(),
+    qualityGatePassed: z.enum(['attested', 'verified', 'unknown']).optional(),
+    reviewApproved: z.enum(['attested', 'verified', 'unknown']).optional(),
+    visionGuardDone: z.enum(['attested', 'verified', 'unknown']).optional(),
+  }).optional().describe('SOP checkpoint attestations'),
+  expectedVersion: z.number().int().optional()
+    .describe('CAS: reject if current version does not match (for concurrent update safety)'),
+};
+
+export async function handleUpdateWorkflow(input: {
+  backlogItemId: string;
+  featureId: string;
+  stage?: string | undefined;
+  batonHolder?: string | undefined;
+  nextSkill?: string | null | undefined;
+  resumeCapsule?: { goal?: string; done?: string[]; currentFocus?: string } | undefined;
+  checks?: {
+    remoteMainSynced?: string;
+    qualityGatePassed?: string;
+    reviewApproved?: string;
+    visionGuardDone?: string;
+  } | undefined;
+  expectedVersion?: number | undefined;
+}): Promise<ToolResult> {
+  const body: Record<string, unknown> = {
+    backlogItemId: input.backlogItemId,
+    featureId: input.featureId,
+  };
+  if (input.stage !== undefined) body['stage'] = input.stage;
+  if (input.batonHolder !== undefined) body['batonHolder'] = input.batonHolder;
+  if (input.nextSkill !== undefined) body['nextSkill'] = input.nextSkill;
+  if (input.resumeCapsule !== undefined) body['resumeCapsule'] = input.resumeCapsule;
+  if (input.checks !== undefined) body['checks'] = input.checks;
+  if (input.expectedVersion !== undefined) body['expectedVersion'] = input.expectedVersion;
+  return callbackPost('/api/callbacks/update-workflow-sop', body);
+}
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
@@ -504,5 +556,14 @@ export const callbackTools = [
       'Register a PR for email review notification routing. Call this right after `gh pr create` so that cloud Codex review emails are automatically routed to your current thread. The server resolves your threadId automatically — you only need repoFullName, prNumber, and your catId.',
     inputSchema: registerPrTrackingInputSchema,
     handler: handleRegisterPrTracking,
+  },
+  {
+    name: 'cat_cafe_update_workflow',
+    description:
+      'Update the SOP workflow stage for a Feature (Mission Hub bulletin board). ' +
+      'Use to record current stage, baton holder, resume capsule, and checks. ' +
+      'This is information sharing, not flow control — cats decide their own actions.',
+    inputSchema: updateWorkflowInputSchema,
+    handler: handleUpdateWorkflow,
   },
 ] as const;

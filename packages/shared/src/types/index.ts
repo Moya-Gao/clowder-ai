@@ -225,6 +225,15 @@ export type {
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
+// Workflow SOP types (F073 告示牌)
+export type {
+  CheckStatus,
+  ResumeCapsule,
+  SopChecks,
+  SopStage,
+  UpdateWorkflowSopInput,
+  WorkflowSop,
+} from './workflow-sop.js';
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,
