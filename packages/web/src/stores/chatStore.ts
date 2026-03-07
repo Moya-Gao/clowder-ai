@@ -269,6 +269,8 @@ interface ChatState {
   getThreadState: (threadId: string) => ThreadState;
   incrementUnread: (threadId: string) => void;
   clearUnread: (threadId: string) => void;
+  /** F072: Clear unread badges for all threads at once */
+  clearAllUnread: () => void;
   /** F069: Initialize unread state from API (page load recovery) */
   initThreadUnread: (threadId: string, unreadCount: number, hasUserMention: boolean) => void;
   updateThreadCatStatus: (threadId: string, catId: string, status: CatStatusType) => void;
@@ -891,6 +893,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [threadId]: { ...ts, unreadCount: 0, hasUserMention: false },
         },
       };
+    }),
+
+  clearAllUnread: () =>
+    set((state) => {
+      const updated: Record<string, ThreadState> = {};
+      let changed = false;
+      for (const [tid, ts] of Object.entries(state.threadStates)) {
+        if (ts.unreadCount > 0 || ts.hasUserMention) {
+          updated[tid] = { ...ts, unreadCount: 0, hasUserMention: false };
+          changed = true;
+        } else {
+          updated[tid] = ts;
+        }
+      }
+      return changed ? { threadStates: updated } : state;
     }),
 
   initThreadUnread: (threadId, unreadCount, hasUserMention) =>

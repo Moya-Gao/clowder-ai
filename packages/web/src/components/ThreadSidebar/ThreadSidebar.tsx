@@ -276,6 +276,22 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
     return ids;
   }, [threads, threadStates]);
 
+  // F072: Mark all threads as read
+  const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+  const handleMarkAllRead = useCallback(async () => {
+    setIsMarkingAllRead(true);
+    try {
+      const res = await apiFetch('/api/threads/read/mark-all', { method: 'POST' });
+      if (res.ok) {
+        useChatStore.getState().clearAllUnread();
+      }
+    } catch (err) {
+      console.debug('[F072] mark-all-read failed:', err);
+    } finally {
+      setIsMarkingAllRead(false);
+    }
+  }, []);
+
   const threadGroups = useMemo(() => sortAndGroupThreads(filteredThreads, unreadIds), [filteredThreads, unreadIds]);
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
@@ -339,6 +355,17 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
             placeholder="搜索对话、项目或 ID..."
             className="w-full rounded-lg border border-owner-light px-2.5 py-1.5 text-xs text-gray-700 placeholder:text-gray-400 focus:outline-none focus:border-owner-primary"
           />
+          {unreadIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              disabled={isMarkingAllRead}
+              className="mt-1.5 text-[10px] text-gray-400 hover:text-owner-primary disabled:opacity-40 transition-colors"
+              data-testid="mark-all-read-btn"
+            >
+              {isMarkingAllRead ? '清理中...' : '全部已读'}
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">

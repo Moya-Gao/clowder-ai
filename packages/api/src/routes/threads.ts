@@ -379,6 +379,33 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     return { revealed };
   });
 
+  // F072: POST /api/threads/read/mark-all — mark all threads as read
+  app.post('/api/threads/read/mark-all', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    if (!opts.readStateStore || !messageStore) {
+      reply.status(501);
+      return { error: 'Read state store or message store not available' };
+    }
+
+    const threads = await threadStore.list(userId);
+    let advancedCount = 0;
+
+    for (const thread of threads) {
+      const messages = await messageStore.getByThread(thread.id);
+      if (messages.length === 0) continue;
+      const latestId = messages[messages.length - 1]!.id;
+      const advanced = await opts.readStateStore.ack(userId, thread.id, latestId);
+      if (advanced) advancedCount++;
+    }
+
+    return { advancedCount, totalThreads: threads.length };
+  });
+
   // F069: PATCH /api/threads/:id/read — mark thread as read up to messageId
   const readAckSchema = z.object({
     upToMessageId: z.string().min(1).max(100),
