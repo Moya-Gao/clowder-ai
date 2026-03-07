@@ -9,6 +9,18 @@ const DENYLIST_PATTERNS = [/^\.env/, /\.pem$/, /\.key$/, /^id_rsa/];
 
 const DENYLIST_DIRS = new Set(['.git', 'secrets']);
 
+/**
+ * In-memory registry: worktreeId → absolute root path.
+ * Populated when /api/workspace/worktrees lists foreign repos.
+ * Allows getWorktreeRoot to resolve foreign worktrees without repoRoot.
+ */
+const worktreeRegistry = new Map<string, string>();
+
+/** Register worktree entries so getWorktreeRoot can resolve them later. */
+export function registerWorktrees(entries: WorktreeEntry[]): void {
+  for (const e of entries) worktreeRegistry.set(e.id, e.root);
+}
+
 export class WorkspaceSecurityError extends Error {
   constructor(
     message: string,
@@ -131,6 +143,10 @@ export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Pr
   const linked = await getLinkedRootsAsync();
   const linkedEntry = linked.find((r) => r.id === worktreeId);
   if (linkedEntry) return linkedEntry.root;
+
+  // Check in-memory registry (populated by /worktrees?repoRoot= calls)
+  const registeredRoot = worktreeRegistry.get(worktreeId);
+  if (registeredRoot) return registeredRoot;
 
   throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
 }

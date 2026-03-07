@@ -40,6 +40,7 @@ export function useWorkspace() {
   const worktreeId = useChatStore((s) => s.workspaceWorktreeId);
   const openFilePath = useChatStore((s) => s.workspaceOpenFilePath);
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
+  const projectPath = useChatStore((s) => s.currentProjectPath);
 
   const [worktrees, setWorktrees] = useState<WorktreeEntry[]>([]);
   const [tree, setTree] = useState<TreeNode[]>([]);
@@ -48,10 +49,15 @@ export function useWorkspace() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch worktrees on mount
+  // Fetch worktrees — re-fetches when project changes
   const fetchWorktrees = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/workspace/worktrees');
+      const params = new URLSearchParams();
+      if (projectPath && projectPath !== 'default') {
+        params.set('repoRoot', projectPath);
+      }
+      const qs = params.toString();
+      const res = await apiFetch(`/api/workspace/worktrees${qs ? `?${qs}` : ''}`);
       if (res.ok) {
         const data = await res.json();
         const newList: typeof worktrees = data.worktrees ?? [];
@@ -65,7 +71,7 @@ export function useWorkspace() {
     } catch {
       /* ignore */
     }
-  }, [worktreeId, setWorktreeId]);
+  }, [worktreeId, setWorktreeId, projectPath]);
 
   useEffect(() => {
     fetchWorktrees();

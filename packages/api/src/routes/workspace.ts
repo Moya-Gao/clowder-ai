@@ -23,6 +23,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import {
   addLinkedRoot,
   getLinkedRootsAsync,
+  registerWorktrees,
   removeLinkedRoot,
   getWorktreeRoot,
   isDenylisted,
@@ -107,10 +108,31 @@ async function buildTree(root: string, dirPath: string, depth: number, maxDepth:
 
 export const workspaceRoutes: FastifyPluginAsync = async (app) => {
   // GET /api/workspace/worktrees (includes linked roots)
-  app.get('/api/workspace/worktrees', async () => {
-    const entries = await listWorktrees();
+  app.get<{ Querystring: { repoRoot?: string } }>('/api/workspace/worktrees', async (request, reply) => {
+    const { repoRoot } = request.query;
+    if (repoRoot) {
+      if (!repoRoot.startsWith('/')) {
+        reply.status(400);
+        return { error: 'repoRoot must be an absolute path' };
+      }
+      try {
+        const s = await stat(repoRoot);
+        if (!s.isDirectory()) throw new Error('not a directory');
+      } catch {
+        reply.status(400);
+        return { error: `repoRoot does not exist or is not a directory: ${repoRoot}` };
+      }
+    }
+    const entries = await listWorktrees(repoRoot || undefined);
+    // Prefix foreign repo worktree IDs with a short hash to prevent cross-repo collision
+    if (repoRoot) {
+      const prefix = createHash('sha256').update(repoRoot).digest('hex').slice(0, 6);
+      for (const e of entries) e.id = `${prefix}_${e.id}`;
+    }
     const linked = await getLinkedRootsAsync();
-    return { worktrees: [...entries, ...linked] };
+    const all = [...entries, ...linked];
+    registerWorktrees(all);
+    return { worktrees: all };
   });
 
   // GET /api/workspace/tree?worktreeId=&path=&depth=
