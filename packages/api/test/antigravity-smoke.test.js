@@ -1,5 +1,9 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
+import {
+  getAntigravitySmokeSkipReason,
+  runAntigravityRoundTripSmoke,
+} from './helpers/antigravity-smoke.js';
 
 // Skip entire suite if Antigravity is not running on port 9000
 async function isAntigravityRunning() {
@@ -14,19 +18,18 @@ async function isAntigravityRunning() {
 }
 
 const running = await isAntigravityRunning();
+const skipReason = getAntigravitySmokeSkipReason({
+  env: process.env,
+  runtimeReachable: running,
+});
 
-describe('Antigravity smoke test', { skip: !running && 'Antigravity not running on port 9000' }, () => {
+describe('Antigravity smoke test', { skip: skipReason ?? false }, () => {
   test('CDP connect → send → receive round trip', { timeout: 90_000 }, async () => {
     const { AntigravityCdpClient } = await import(
       '../dist/domains/cats/services/agents/providers/antigravity/AntigravityCdpClient.js'
     );
     const client = new AntigravityCdpClient({ port: 9000 });
-    await client.connect();
-    assert.equal(client.connected, true);
-
-    await client.newConversation();
-    await client.sendMessage('Reply with just the word "pong"');
-    const response = await client.pollResponse(60_000);
+    const response = await runAntigravityRoundTripSmoke(client);
 
     assert.ok(response, 'should receive a response');
     assert.ok(

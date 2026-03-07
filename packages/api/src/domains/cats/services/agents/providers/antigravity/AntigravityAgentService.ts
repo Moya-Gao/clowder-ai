@@ -10,7 +10,7 @@
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../../config/cat-models.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { AntigravityCdpClient } from './AntigravityCdpClient.js';
+import { AntigravityCdpClient, type PollResponseOptions } from './AntigravityCdpClient.js';
 
 /** Duck-typed CDP client interface for dependency injection */
 interface CdpClientLike {
@@ -18,7 +18,7 @@ interface CdpClientLike {
   connect(runtimeTitleHint?: string): Promise<void>;
   disconnect(): Promise<void>;
   sendMessage(text: string): Promise<void>;
-  pollResponse(timeoutMs?: number): Promise<string | null>;
+  pollResponse(timeoutMs?: number, options?: PollResponseOptions): Promise<string | null>;
   newConversation(): Promise<void>;
 }
 

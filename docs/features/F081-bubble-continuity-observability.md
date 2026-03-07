@@ -19,6 +19,8 @@ status: spec
 4. 有时最后又显示 `CLI 响应超时 (1800s)`，把“UI 丢气泡”和“后端真的静默超时”混成一团
 5. 更离奇的是，布偶猫在较早时刻就应已产出回复，但主区直到铲屎官后续再发一句提示词后，上一条 assistant 气泡才“闪现回来”，呈现出明显的错位回放 / 迟到补写
 6. 同一条 assistant 气泡并非“补回来就稳定了”，而是切到别的 thread 再切回来后还能再次消失，呈现出反复出现 / 反复消失的非单调可见性
+7. 当铲屎官绕过 Cat Café，直接在 Claude CLI 里 `resume/continue` 同一 session 时，session 会自行消费 `[对话历史增量 - 未发送过 N 条]` 并在外部推进状态；随后主区气泡可能出现迟到、错位或与前端当前可见状态不一致
+8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
 
 这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
 
@@ -92,6 +94,7 @@ status: spec
 - [ ] AC8: 右侧 task_progress 和主区 assistant bubble 可用同一 `invocationId + catId` 做关联
 - [ ] AC9: 已产出的 assistant 文本不能直到后续用户再发一句消息后才迟到出现；若发生补回，debug 证据必须能解释触发源（history refresh / draft merge / socket replay / local reconcile）
 - [ ] AC10: 同一条历史 assistant 气泡在一次会话中不能出现“补回后又因切 thread 再次消失”的抖动；若发生，debug 时间线必须显示是哪次 replace / rehydrate / reconcile 改写了它
+- [ ] AC11: debug 证据必须能区分“Cat Café 驱动的 invocation”与“外部 CLI 直接 resume/continue 导致的 session 越界推进”，避免把 out-of-band session 变化误判为主区渲染链路唯一根因
 
 ## 需求点 Checklist
 
@@ -107,6 +110,7 @@ status: spec
 | R8 | plan/bubble 可关联到同一 invocation | AC8 | test | [ ] |
 | R9 | 禁止“后续提示词触发历史气泡闪现” | AC9 | test + 现场证据 | [ ] |
 | R10 | 历史气泡可见性单调，不允许反复显隐 | AC10 | test + 现场证据 | [ ] |
+| R11 | 区分 Cat Café 内部驱动与外部 CLI 越界推进 | AC11 | debug dump + 现场证据 | [ ] |
 
 ## Key Decisions
 
@@ -122,6 +126,8 @@ status: spec
   - 原因：这说明问题不只是“气泡丢了”，还可能是“旧气泡被后续动作错误地触发回流”
 - **把“反复显隐”单独视为高价值证据**
   - 原因：这说明同一条历史 bubble 在不同恢复路径之间被重复改写，问题更像 reconcile / replace 非幂等，而不只是单次漏流
+- **外部 CLI 继续同一 session 是重要触发场景，但不能替代主区连续性修复**
+  - 原因：out-of-band session mutation 能解释部分“迟到/错位”，但不能合理化“已经显示过的气泡又被主区抹掉”
 
 ## Dependencies
 
@@ -144,6 +150,7 @@ status: spec
 1. debug mode 是只给 owner 的隐式控制台开关，还是给一个显式 UI 入口？
 2. bubble provenance 是只在 debug dump 里可见，还是在气泡操作菜单里暴露“查看来路”？
 3. active invocation 切回 thread 时，是否应该先保留本地 live bubbles，再做增量补齐，而不是先 `clearMessages()`？
+4. 对“外部 CLI 直接 resume/continue 同一 session”我们是要支持诊断、还是明确标记为 unsupported workflow？
 
 ## Review Gate
 
@@ -163,7 +170,44 @@ status: spec
 - 相关 Feature: [F055](./F055-plan-board.md)
 - 相关 Feature: [F048](./F048-restart-recovery.md)
 - 相关 Feature: [F069](./F069-thread-read-state.md)
-- 现场证据：2026-03-07 铲屎官 thread 复盘（“先看到气泡，切走再切回气泡消失” + “Claude session 已有回答，前端主区无气泡” + “08:19 的布偶猫回复直到 08:33 再发下一句提示词后才闪现回主区” + “闪现回来的同一条历史气泡在再次切换 thread 后又消失”）
+- 现场证据：2026-03-07 铲屎官 thread 复盘（“先看到气泡，切走再切回气泡消失” + “Claude session 已有回答，前端主区无气泡” + “08:19 的布偶猫回复直到 08:33 再发下一句提示词后才闪现回主区” + “闪现回来的同一条历史气泡在再次切换 thread 后又消失” + “直接在 Claude CLI 继续同一 session 时，可见 session 正在消费 `[对话历史增量 - 未发送过 2 条]` 并执行 Bash，说明 session 状态会在 Cat Café 外部前进”)
+
+## Detective Notes
+
+### 2026-03-07 砚砚侦探现场
+
+- 两条看似不同的布偶猫 session：`7ef0ef90-ac7c-4672-85f1-e1dd8d9ee444` 与 `bfe74a71-e28f-456d-83e4-ae8c5c4bce14`
+- 一条由 Cat Café runtime 驱动，一条由外部 Claude Code `resume` 直接驱动
+- 进程树向下追到最深处后，两条最终都落在同一个具体 test worker：`test/antigravity-smoke.test.js`
+- 这个 smoke test 不在单独的 opt-in 命令里，而是直接包含在 `packages/api` 默认 `pnpm test` 的 `node --test test/*.test.js` 套件中；只要机器上 `localhost:9000` 有 Antigravity 在监听，它就会自动参战
+- `antigravity-smoke.test.js` 自己声明的单测超时是 `90_000`，内部 `pollResponse()` 也只等 `60_000`
+- 但现场里两条 worker 分别静默挂了 8 分钟以上和 20 分钟以上，明显超过预期
+- `sample` 结果显示两个 worker 都不是在忙 CPU，而是在事件循环里 `kevent` 空等
+- `lsof` 结果显示两个最深 worker 都保持着到 `127.0.0.1:9000` 的 `ESTABLISHED` TCP 连接
+- `curl http://localhost:9000/json/version` 返回正常，说明 Antigravity 端口活着，但 smoke test 路径没有按预期收敛退出
+- 初步推断：这不是“前端把测试刷屏吃掉了”，而是 `antigravity-smoke` 自身存在沉默挂住/句柄未清理问题，随后被布偶猫的 CLI 静默超时和主区渲染缺失放大成更像“猫没在回话”的体验
+- 更强嫌疑点：`CDP connect → send → receive round trip` 这条测试把 `await client.disconnect()` 放在断言之后；如果 `pollResponse()` 返回 `null` 或中途抛错，WebSocket 可能不会被关闭，测试 worker 会留下对 `:9000` 的活连接
+- 进一步现场勘验后，砚砚侦探抓到真正的大尾巴：Antigravity 实际已经回了，只是我们读错了
+  - live DOM 中，`antigravity-agent-side-panel` 明确出现了 assistant 回复，包含 `Simple Pong Response`、`Thought for 4s` 和最终 `pong`
+  - `pollResponse()` 却在 `sendMessage()` 之后才记 `baselineCount`，又要求 `userMsgCount > baselineCount`，导致单次 round trip 永远不可能满足完成条件
+  - 同时它还把全局 `.codicon-loading` 当作 chat loading，并沿用旧的 `.group -> nextElementSibling` DOM 路径；而当前 Antigravity 的 user / assistant turn 已经位于同一线程根节点的相邻块中
+- `Codex app` 这条线也新增了一条高价值证据：
+  - 当前会话的 `CODEX_THREAD_ID=019cc8e5-d8bb-7411-90f8-d5e276399145` 被确认可以手动 bind 进猫猫咖啡
+  - 但 bind 成功后，猫猫咖啡主区仍然看不到这条 `Codex app` 会话里既有的聊天历史
+  - 这说明 continuity/hydration 问题并不只发生在 live socket 途中，也发生在“已知 thread id / session id 的历史回灌”这条恢复路径上
+
+### 2026-03-07 治疗结果
+
+- 新增 `packages/api/test/helpers/antigravity-smoke.js`，把 smoke gate 与 round-trip cleanup 收到同一处
+- 默认 `pnpm test` 路径下，`antigravity-smoke.test.js` 现在要求显式 `RUN_ANTIGRAVITY_SMOKE=true`；即使 `:9000` 活着，也会立即 skip
+- round-trip smoke 改为 `try/finally`，保证 `connect/newConversation/sendMessage/pollResponse` 任意一步失败后都执行 best-effort `disconnect()`
+- 新增 `test:antigravity-smoke` 脚本，给我们保留单独验收 Antigravity 的入口
+- 追加 CDP 兼容修复：`connect()` 对新目标上缺失的 `Input.enable` 不再直接判死，而是视为协议漂移后的非致命分支
+- 追加 `pollResponse()` 修复：
+  - 改为以“当前已可见的 user message count”作为期望值，不再错误要求再多出一条 user 消息
+  - 改为从 `antigravity-agent-side-panel` 的真实消息线程中读取 assistant turn，并只观察 turn 内的 loading
+  - 为防止流式半截文本，要求连续两轮读到相同回复后才返回
+- 显式 smoke 现场验证结果：两条 case 现已转绿，单条 round trip 回到约 10 秒级，不再十几分钟装死
 
 ## Timeline
 
@@ -173,3 +217,8 @@ status: spec
 | 2026-03-07 | 收敛决定：升级为完整 Feature，连续性修复 + 可观测性一起做 |
 | 2026-03-07 | 追加现场证据：较早时刻应已产出的 assistant 气泡，没有实时出现；直到铲屎官后续再发一句提示词后，旧气泡才迟到闪现回主区 |
 | 2026-03-07 | 再次追加现场证据：闪现回来的同一条历史 assistant 气泡，在后续切 thread 再切回后又消失，证明问题具有“非单调可见性 / 反复显隐”特征 |
+| 2026-03-07 | 新增触发场景：铲屎官直接在 Claude CLI 继续同一 session，可见该 session 正在外部消费“未发送过”的历史增量并推进工具执行，说明存在 out-of-band session mutation |
+| 2026-03-07 | 新增 `Codex app bind` 证据：`Codex app` thread id 已可手动绑定进猫猫咖啡，但 app 内既有聊天历史没有回灌到主区，暴露新的历史 hydration 缺口 |
+| 2026-03-07 | 砚砚进程取证：两条布偶猫 session 虽然来源不同，但最终都卡在 `packages/api/test/antigravity-smoke.test.js`；worker 处于事件循环空等，同时保持到 `127.0.0.1:9000` 的活连接 |
+| 2026-03-07 | 砚砚 DOM 取证：Antigravity 实际已经返回 `pong`，真正失效的是 `pollResponse()` 的完成判定和 DOM 读取路径 |
+| 2026-03-07 | 修复 `antigravity-smoke`：默认改为显式 opt-in，round-trip harness 强制 cleanup，`Input.enable` 缺失改为非致命协议漂移，`pollResponse()` 对齐真实 DOM；默认 `pnpm test` 立即 skip，显式 smoke 2 case 转绿并回到 10 秒级 |

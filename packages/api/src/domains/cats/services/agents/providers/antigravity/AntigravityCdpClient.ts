@@ -29,6 +29,20 @@ export interface FindEditorTargetOptions {
   titleHint?: string;
 }
 
+export interface PollResponseOptions {
+  /** Number of visible user messages expected once sendMessage() has committed */
+  expectedUserMessageCount?: number;
+  /** Test hook: shorten polling cadence for unit tests */
+  pollIntervalMs?: number;
+  /** Require the same response text this many polls in a row before returning */
+  stablePollCount?: number;
+}
+
+function isMissingCdpMethod(error: unknown, method: string): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes(`'${method}' wasn't found`) || message.includes('Method not found');
+}
+
 /** Pick the editor page target, skip Launchpad / iframes / workers.
  *  When titleHint is provided, prefer targets whose title contains it. */
 export function findEditorTarget(targets: CdpTarget[], options?: FindEditorTargetOptions): CdpTarget | null {
@@ -101,7 +115,13 @@ export class AntigravityCdpClient {
     });
 
     await this.cdp('Runtime.enable');
-    await this.cdp('Input.enable');
+    try {
+      await this.cdp('Input.enable');
+    } catch (error) {
+      // Newer Antigravity/Chrome targets may not expose Input.enable, but
+      // Input.dispatch* still works. Treat that protocol drift as non-fatal.
+      if (!isMissingCdpMethod(error, 'Input.enable')) throw error;
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -191,57 +211,104 @@ export class AntigravityCdpClient {
   /** Poll DOM for model response. Returns text or null on timeout.
    *  P1-3 fix: uses the container *after* the last user message rather than
    *  the global last <p>, which could pick up unrelated page text. */
-  async pollResponse(timeoutMs = 60_000): Promise<string | null> {
+  async pollResponse(timeoutMs = 60_000, options?: PollResponseOptions): Promise<string | null> {
     if (!this.connected) throw new Error('CDP not connected');
 
     const start = Date.now();
-    const pollInterval = 1_000;
-
-    // Snapshot: count user messages so we can detect when a new exchange completes
-    const baselineCount = await this.evaluate<number>(`document.querySelectorAll('.whitespace-pre-wrap').length`);
+    const pollInterval = options?.pollIntervalMs ?? 1_000;
+    const stablePollCount = options?.stablePollCount ?? 2;
+    const expectedUserMessageCount =
+      options?.expectedUserMessageCount ??
+      (await this.evaluate<number>(`document.querySelectorAll('.whitespace-pre-wrap').length`));
+    let lastResponseText = '';
+    let stablePolls = 0;
 
     while (Date.now() - start < timeoutMs) {
       await new Promise((r) => setTimeout(r, pollInterval));
 
       const state = await this.evaluate<string>(`(() => {
-        const loading = document.querySelector('.codicon-loading');
-        const userMsgs = document.querySelectorAll('.whitespace-pre-wrap');
+        const userMsgs = [...document.querySelectorAll('.whitespace-pre-wrap')];
+        const lastUserMsg = userMsgs[userMsgs.length - 1];
 
-        // Find the last user message, then collect all <p> text from
-        // sibling/subsequent containers (= the assistant response).
-        let responseText = '';
-        if (userMsgs.length > 0) {
-          const lastUserMsg = userMsgs[userMsgs.length - 1];
-          // Walk up to the message-level container (group), then look for
-          // the next sibling group which holds the assistant reply.
-          const userGroup = lastUserMsg.closest('.group') || lastUserMsg.parentElement;
-          if (userGroup) {
-            let sibling = userGroup.nextElementSibling;
-            const parts = [];
-            while (sibling) {
-              const ps = sibling.querySelectorAll('p');
-              for (const p of ps) {
-                const t = p.textContent?.trim();
-                if (t) parts.push(t);
+        const extractBlockText = (block) => {
+          const structured = [...block.querySelectorAll('p, li, pre, code, h1, h2, h3, h4, h5, h6')]
+            .map((el) => el.textContent?.trim())
+            .filter(Boolean);
+          if (structured.length > 0) return structured.join('\\n');
+
+          const clone = block.cloneNode(true);
+          clone.querySelectorAll('style, script, button, [aria-hidden="true"]').forEach((el) => el.remove());
+          return clone.textContent?.trim() || '';
+        };
+
+        const assistantBlocks = (() => {
+          if (!lastUserMsg) return [];
+
+          const thread = lastUserMsg.closest('.relative.flex.flex-col.gap-y-3.px-4');
+          if (thread) {
+            const wrapper = [...thread.children].find((child) => child.contains(lastUserMsg)) || thread.firstElementChild;
+            if (wrapper) {
+              const blocks = [...wrapper.children].filter((child) => {
+                const text = child.textContent?.trim() || '';
+                return text.length > 0 && !child.classList.contains('hidden');
+              });
+              const userIndex = blocks.findIndex((child) => child.contains(lastUserMsg));
+              if (userIndex >= 0) {
+                return blocks.slice(userIndex + 1).filter((child) => !child.contains(lastUserMsg));
               }
-              sibling = sibling.nextElementSibling;
             }
-            responseText = parts.join('\\n');
           }
-        }
+
+          const userGroup = lastUserMsg.closest('.group') || lastUserMsg.parentElement;
+          if (!userGroup) return [];
+          const blocks = [];
+          let sibling = userGroup.nextElementSibling;
+          while (sibling) {
+            blocks.push(sibling);
+            sibling = sibling.nextElementSibling;
+          }
+          return blocks;
+        })();
+
+        const responseParts = assistantBlocks
+          .map((block) => extractBlockText(block))
+          .map((text) => text.trim())
+          .filter(Boolean);
+        const responseText = responseParts.join('\\n').trim();
+        const hasInlineLoading = assistantBlocks.some((block) =>
+          !!block.querySelector('.codicon-loading, [aria-busy="true"]'),
+        );
 
         return JSON.stringify({
-          loading: !!loading,
           userMsgCount: userMsgs.length,
           responseText,
+          hasInlineLoading,
         });
       })()`);
 
-      const { loading, userMsgCount, responseText } = JSON.parse(state);
+      const { userMsgCount, responseText, hasInlineLoading } = JSON.parse(state) as {
+        userMsgCount: number;
+        responseText: string;
+        hasInlineLoading: boolean;
+      };
 
-      // Response arrived when: not loading, new user message visible, and response text found
-      if (!loading && userMsgCount > baselineCount && responseText) {
-        return responseText;
+      if (userMsgCount >= expectedUserMessageCount && responseText) {
+        if (hasInlineLoading) {
+          lastResponseText = responseText;
+          stablePolls = 0;
+          continue;
+        }
+
+        if (responseText === lastResponseText) {
+          stablePolls += 1;
+        } else {
+          lastResponseText = responseText;
+          stablePolls = 1;
+        }
+
+        if (stablePolls >= stablePollCount) {
+          return responseText;
+        }
       }
     }
     return null;

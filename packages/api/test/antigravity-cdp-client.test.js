@@ -94,4 +94,102 @@ describe('AntigravityCdpClient', () => {
       { message: /not connected/i }
     );
   });
+
+  test('connect tolerates missing Input.enable on newer CDP targets', async () => {
+    const savedFetch = global.fetch;
+    const savedWebSocket = global.WebSocket;
+
+    global.fetch = async () => ({
+      json: async () => [
+        { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://fake', url: '' },
+      ],
+    });
+
+    class FakeWebSocket {
+      static OPEN = 1;
+
+      constructor() {
+        this.readyState = FakeWebSocket.OPEN;
+        queueMicrotask(() => this.onopen?.());
+      }
+
+      send(raw) {
+        const { id, method } = JSON.parse(raw);
+        if (method === 'Runtime.enable') {
+          queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+          return;
+        }
+        if (method === 'Input.enable') {
+          queueMicrotask(() => this.onmessage?.({
+            data: JSON.stringify({ id, error: { message: "'Input.enable' wasn't found" } }),
+          }));
+          return;
+        }
+        queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+      }
+
+      close() {}
+    }
+
+    global.WebSocket = FakeWebSocket;
+
+    try {
+      const client = new AntigravityCdpClient({ port: 9000 });
+      await client.connect();
+      assert.equal(client.connected, true);
+      await client.disconnect();
+    } finally {
+      global.fetch = savedFetch;
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
+  test('pollResponse returns once assistant text appears for the current user message count', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const states = [
+      1,
+      JSON.stringify({ userMsgCount: 1, responseText: 'pong', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'pong', hasInlineLoading: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const response = await client.pollResponse(50, {
+      pollIntervalMs: 1,
+      stablePollCount: 2,
+    });
+
+    assert.equal(response, 'pong');
+  });
+
+  test('pollResponse waits for inline loading to clear before returning text', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const states = [
+      1,
+      JSON.stringify({ userMsgCount: 1, responseText: 'pong', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'pong', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'pong', hasInlineLoading: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const response = await client.pollResponse(50, {
+      pollIntervalMs: 1,
+      stablePollCount: 2,
+    });
+
+    assert.equal(response, 'pong');
+  });
 });
