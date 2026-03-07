@@ -1,14 +1,14 @@
 ---
 feature_ids: [F073]
-related_features: [F046, F067, F038, F042]
-topics: [sop, automation, flow-control, context-compression, self-closing, governance]
+related_features: [F046, F067, F038, F042, F049, F058]
+topics: [sop, automation, flow-control, context-compression, self-closing, governance, mission-hub]
 doc_kind: spec
 created: 2026-03-07
 ---
 
 # F073: SOP Auto-Guardian — 流程自闭环守护
 
-> **Status**: spec
+> **Status**: in-progress
 > **Owner**: 布偶猫
 > **Created**: 2026-03-07
 > **Priority**: P1
@@ -22,121 +22,217 @@ created: 2026-03-07
 **核心痛点**（铲屎官原话 2026-03-07）：
 
 > "你看你们很多时候需要我一次次的提醒。如果不唠叨你们很容易走错，特别是上下文压缩之后。"
-> "布偶猫的 hook 似乎也不怎么好使，压缩后提醒他的那个是不是也得拉出来看看为什么呢？"
+> "我不想让你们变成一个 workflow 的 node，这样没有灵魂。"
 
-**反复出现的手动提醒场景**：
+**本质问题**：SOP 上下文和接力棒没有外化到共享系统中，导致猫冷启动/压缩后失忆，铲屎官被迫当复读机。
 
-1. **冷启动守护**：铲屎官要手动告诉猫"加载 feat skill，判断能不能 close"，并协调跨线程通知
-2. **愿景守护**：铲屎官要手动提醒"先做愿景守护再 close feat"
-3. **Worktree 前置检查**：铲屎官要提醒"先 commit push main 再开 worktree，不然文档不一致"
-4. **SOP 全链路自驱**：猫猫每步都停下来问"可以继续吗？"，铲屎官期望的是全链路自驱只在 close 时通知
-5. **压缩后遗忘**：上下文压缩后猫猫忘记当前阶段和规则，hook 提醒不够可靠
+## 设计哲学（铲屎官定调 + 全猫共识 2026-03-07）
 
-**本质问题**：SOP 规则存在于 prompt/MEMORY 中（软约束），压缩后丢失。需要系统级机制（硬约束）来替代人肉提醒。
+> **"外化上下文和接力棒，不外包判断力。"**
+> "A2A 出口检查之所以有效，是因为它外化了'传球意识'，但没有夺走猫的判断力。F073 也应该复制这个成功模式。" —— 砚砚 (GPT-5.4)
 
-## What
+### 三条设计原则
 
-通过三层机制实现 SOP 流程自闭环，让铲屎官只在最终交付时介入：
-
-### Layer 1: Hook 可靠性修复
-
-**目标**：诊断并修复压缩后 hook 不生效的问题。
-
-- 调查 Claude Code 的 hook 机制（`.claude/hooks/`）在 context compaction 后的行为
-- 确认 hook 是否在压缩后被正确触发
-- 如果 hook 机制本身有限制，设计 workaround
-
-### Layer 2: SOP 阶段感知注入
-
-**目标**：SystemPromptBuilder 根据 thread/task 当前状态，自动注入对应阶段的 SOP 提醒。
-
-- 利用现有 thread metadata 或 task 状态记录"当前 SOP 阶段"（如 `sop_stage: worktree | dev | quality-gate | review | merge | completion`）
-- 每次 invocation 时 SystemPromptBuilder 读取阶段，注入对应的关键提醒（如 worktree 阶段提醒"确认 main 是最新的"）
-- 压缩后此信息不丢失（存在 thread metadata 中，不依赖上下文历史）
-
-### Layer 3: 流程门禁自动化
-
-**目标**：关键流程节点的自动检查，不需要铲屎官提醒。
-
-- **Worktree 门禁**：开 worktree 前自动检查 main 是否已 push 最新文档
-- **Feat Close 门禁**：close feat 前自动触发跨猫愿景守护（而非等铲屎官手动协调）
-- **全链路自驱**：完成开发后自动走 quality-gate → review → merge → completion，只在遇到阻塞或最终 close 时通知铲屎官
+1. **告示牌，不是控制器** — Mission Hub 存"现在在哪、球在谁手上"，猫看了自己决定行动，不被状态机推着走
+2. **门禁只守高风险点** — 只在 worktree（真相源同步）和 feat close（完成定义）两个点硬约束，其余靠 skill 导航
+3. **随模型能力递增而松绑** — 相信未来的猫更聪明，设计应该越来越信任猫的判断力
 
 ### 明确不做
 
 | 方案 | 不做原因 |
 |------|---------|
-| 常用话术编辑器 | 治标不治本——让铲屎官唠叨得更快不如让系统替他唠叨 |
-| 向量化 SOP 偏离检测 | 过度工程 |
-| 强制每步人工审批 | 与"自闭环"目标矛盾 |
+| 强制状态机控制器 | 把猫变成 workflow node，没有灵魂（铲屎官原话） |
+| 每步做成必须调用的 MCP 动作 | 猫会变成流程机器人 |
+| 常用话术编辑器 | 治标不治本 |
+| Hook/Mission Hub 代替判断 | 它们只能告诉猫"在哪、该看什么"，不能替猫决定 |
+
+## What
+
+### Phase 分层（全猫共识 + GPT Pro 研究）
+
+#### P0: Hook 健壮性 + Skill 层规则（PR #271，已实现）
+
+布偶猫专属的止血层：
+- `sop-stage-bookmark.sh` — PostToolUse hook 记录 SOP 阶段
+- `f24-post-compact-bootstrap.sh` — 压缩后恢复 SOP 阶段 + TTL 30min + 诊断日志
+- `worktree/SKILL.md` — 创建前 main 双向同步检查
+- `feat-lifecycle/SKILL.md` — completion 自动发起跨猫愿景守护
+- `CLAUDE.md` — 流程闭环检查点（压缩后常驻可见）
+
+#### P1: 告示牌（Mission Hub 可见性）
+
+Mission Hub 增加 `workflow.sop` 视图，所有猫共享：
+
+```yaml
+workflow:
+  sop:
+    stage: kickoff | impl | quality_gate | review | merge | completion
+    baton_holder: "@opus"           # 当前持棒猫
+    next_skill: "receive-review"    # 建议加载的 skill
+    resume_capsule:                 # 冷启动 30 秒接上活
+      goal: "..."
+      done: [...]
+      current_focus: "..."
+    checks:
+      remote_main_synced: attested | verified | unknown
+      quality_gate_passed: attested | verified | unknown
+      review_approved: attested | verified | unknown
+      vision_guard_done: attested | verified | unknown
+```
+
+**关键设计**：猫读 `resume_capsule` 后**自己决定**下一步，系统不强制跳转。
+
+#### P2: 接力可靠性（handoff + ack + timeout）
+
+- `cat_cafe_handoff_feature(...)` — 原子操作：更新告示牌 + 写摘要 + 发 @mention + 挂 timeout
+- `cat_cafe_ack_handoff(...)` — 接球确认，切换 baton_holder
+- 超时 → 提醒/升级给 fallback reviewer 或铲屎官，**不卡死流程**
+
+#### P3: 少量硬门禁
+
+只在两个高风险点加硬约束：
+- **开 worktree 前**：`docs/backlog/feature` 相关改动必须已到 `origin/main`（防多猫真相源冲突）
+- **feat close 前**：`PR merged + check:features 通过 + 跨猫愿景签收`（完成定义）
+- 其余维持现有铁律（Redis 6399、禁止自审、身份常量）
+
+#### P4: 导航牌 + 加速器
+
+- `sop.manifest.yaml` — 阶段 → 建议 skill → 硬规则 → 常见坑。导航牌，不是执行引擎
+- Claude hook → 调用共享 MCP 更新告示牌（不再写 `/tmp/` 当唯一来源）
+- Codex/Gemini → system prompt 规定进入 thread 先读 `get_thread_context`
+- 三家共享同一个账本、同一个恢复入口、同一个 handoff 协议
+
+### 关键概念（源自 GPT Pro 研究 + 全猫讨论）
+
+| 概念 | 含义 | 类比 |
+|------|------|------|
+| **告示牌** | 信息共享，猫看了自己行动 | 球场记分牌 |
+| **Resume Capsule** | 冷启动 30 秒接上活的结构化摘要 | 交接班日志 |
+| **Baton** | 球在谁手上 | 接力棒 |
+| **attested vs verified** | 猫声明 vs 系统验证，不造"全自动"幻觉 | 自评 vs 考试 |
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "压缩后提醒他的那个是不是也得拉出来看看为什么呢" — hook 压缩后不生效的诊断修复 | AC-1 | 诊断报告 + 修复验证 | [ ] |
-| R2 | "提醒你们要先更新 feat 或者 backlog md 在 main 上 commit push 然后才能开 worktree" — worktree 前置检查 | AC-2 | test | [ ] |
-| R3 | "feat close 是需要其他猫猫帮你在 pr 合入之后再做一次愿景守护的吧" — close 前自动触发跨猫守护 | AC-3 | 流程验证 | [ ] |
-| R4 | "写完之后自己守护愿景然后修改跑偏然后找 codex 然后他过了你开 pr...通知我你合入了就行" — 全链路自驱不问铲屎官 | AC-4 | 端到端流程验证（本 Feature 本身即为试点） | [ ] |
-| R5 | "特别是上下文压缩之后" — 压缩后 SOP 阶段不丢失 | AC-5 | test | [ ] |
+| R1 | "压缩后提醒他的那个是不是也得拉出来看看为什么呢" | AC-1 | 诊断报告 + 修复验证 | [x] P0 |
+| R2 | "先更新 feat/backlog 在 main 上 commit push 然后才能开 worktree" | AC-2 | skill 检查步骤 | [x] P0 |
+| R3 | "feat close 是需要其他猫猫帮你做一次愿景守护的吧" | AC-3 | skill @ 模板 | [x] P0 |
+| R4 | "写完之后自己守护愿景...通知我你合入了就行" | AC-4 | 端到端验证（本 Feature） | [x] P0 |
+| R5 | "特别是上下文压缩之后" | AC-5 | hook + resume capsule | [ ] P1 |
+| R6 | "所有猫都能用的综合机制"（铲屎官追问） | AC-6 | Mission Hub 共享 | [ ] P1 |
+| R7 | "不想让你们变成 workflow 的 node"（铲屎官定调） | AC-7 | 架构 review（告示牌不是控制器） | [ ] P1 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求->证据映射表（若适用）— 本 Feature 无前端 UI
 
 ## Acceptance Criteria
 
-- [ ] AC-1: Hook 压缩后行为诊断完成，问题修复或 workaround 就位
-- [ ] AC-2: Worktree skill 开 worktree 前自动检查 main 文档是否最新（warn/block）
-- [ ] AC-3: Feat-lifecycle completion skill 自动触发跨猫愿景守护（不需铲屎官手动协调）
-- [ ] AC-4: 本 Feature 从立项到 close 全程自驱，铲屎官只在最终 close 时被通知
-- [ ] AC-5: Thread/task metadata 记录 SOP 阶段，SystemPromptBuilder 注入阶段提醒，压缩后不丢失
+### P0（PR #271）
+- [x] AC-1: Hook 压缩后行为诊断完成，workaround 就位（TTL 30min + SOP 阶段恢复）
+- [x] AC-2: Worktree skill 开 worktree 前检查 main 文档双向同步
+- [x] AC-3: Feat-lifecycle completion skill 自动发起跨猫愿景守护
+- [x] AC-4: 本 Feature 全程自驱（试点验证中）
+
+### P1（告示牌）
+- [ ] AC-5: Mission Hub 支持 `workflow.sop` 结构，冷启动/压缩后可通过 MCP 恢复
+- [ ] AC-6: 所有猫（Claude/Codex/Gemini）都能通过 MCP 读写 SOP 阶段
+- [ ] AC-7: 架构 review 确认"告示牌不是控制器"——猫读信息后自己决定行动
+
+### P2（接力可靠性）
+- [ ] AC-8: `handoff_feature` 原子操作（更新告示牌 + @mention + timeout）
+- [ ] AC-9: `ack_handoff` 接球确认
+- [ ] AC-10: 超时未接 → 提醒/升级（不卡死流程）
+
+### P3（硬门禁）
+- [ ] AC-11: worktree 创建前硬检查 `origin/main` 真相源同步
+- [ ] AC-12: feat close 前硬检查完成定义（PR merged + check:features + 愿景签收）
+
+### P4（导航牌 + 加速器）
+- [ ] AC-13: `sop.manifest.yaml` 导航表（阶段 → skill → 硬规则）
+- [ ] AC-14: Claude hook 改为调用共享 MCP（不再独立写 `/tmp/`）
 
 ## Links
 
 | 类型 | 路径 | 说明 |
 |------|------|------|
-| **Related** | [F046](F046-anti-drift-protocol.md) | 愿景守护流程（本 Feature 自动化其执行） |
-| **Related** | [F067](F067-cold-start-verifier.md) | 冷启动验证器（互补：F067 验交付物，F073 验流程） |
-| **Related** | [F042](F042-prompt-engineering-audit.md) | 三层信息架构（本 Feature 利用 Skills 按需加载） |
-| **Related** | [F038](F038-skills-discovery.md) | Skills 发现机制（本 Feature 依赖 skill 自动加载） |
+| **Related** | [F046](F046-anti-drift-protocol.md) | 愿景守护流程 |
+| **Related** | [F049](F049-mission-control-backlog-center.md) | Mission Hub MVP |
+| **Related** | [F058](F058-mission-control-enhancements.md) | Mission Hub 增强 |
+| **Related** | [F042](F042-prompt-engineering-audit.md) | 三层信息架构 |
+| **Research** | `docs/research/2026-03-07-f073-sop-flow-orchestration.md` | Research 问题 |
+| **Research** | `docs/research/2026-03-07-f073-gptpro-response.md` | GPT Pro 深度分析 |
+| **Discussion** | `github.com/zts212653/cat-cafe-tutorials/issues/22` | A2A 外部讨论 |
 
 ## Key Decisions
 
-| 决策 | 选择 | 放弃的方案 | 理由 |
-|------|------|-----------|------|
-| 解决方式 | 系统级硬约束 | 常用话术编辑器 | 软约束压缩后丢失，硬约束不依赖上下文 |
-| 阶段存储 | Thread/task metadata | 上下文内标记 | Metadata 不受压缩影响 |
-| 自驱程度 | 全链路自驱，阻塞时才问 | 每步确认 | 铲屎官明确要求 |
+| # | 决策 | 选择 | 放弃的方案 | 理由 | 日期 |
+|---|------|------|-----------|------|------|
+| KD-1 | 设计哲学 | 告示牌（信息共享） | 控制器（强制状态机） | 铲屎官："不想让猫变成 workflow node" | 2026-03-07 |
+| KD-2 | 阶段存储 | Mission Hub（所有猫共享） | `/tmp/` 文件（布偶猫专属） | 跨猫可见 + 压缩不丢失 | 2026-03-07 |
+| KD-3 | 门禁范围 | 只守 worktree + close | 每步硬约束 | 信任猫的判断力，随模型能力松绑 | 2026-03-07 |
+| KD-4 | attested vs verified | 区分猫声明和系统验证 | 假装全自动 | 诚实比好看重要 | 2026-03-07 |
+| KD-5 | Phase 顺序 | 告示牌→接力→门禁→加速器 | 先做状态机 | 先可见性，后可靠性，最后硬约束 | 2026-03-07 |
 
 ## Dependencies
 
 | Feature | 关系 | 说明 |
 |---------|------|------|
+| **F049** | Depends | Mission Hub 基础设施 |
+| **F058** | Depends | Mission Hub 增强（BacklogItem 状态机） |
 | **F046** | Related | 愿景守护流程定义 |
-| **F038** | Related | Skill 发现和加载机制 |
 
 ## Risk / Blast Radius
 
 | 风险 | 严重度 | 缓解 |
 |------|--------|------|
-| Hook 机制是 Claude Code 内部的，可能无法修复 | 中 | Layer 2 (metadata 注入) 作为独立于 hook 的 workaround |
-| SOP 阶段注入增加 prompt token 消耗 | 低 | 仅注入当前阶段的关键提醒（<50 tokens） |
-| 自动触发跨猫守护可能被误触发 | 低 | 只在 feat completion 路径触发，有明确条件判断 |
+| 告示牌做成控制器（scope creep） | 高 | KD-1 硬约束 + 每个 PR review 时检查 |
+| Redis 持久化（告示牌不能断电即失忆） | 中 | 确认 AOF/RDB 策略（GPT Pro 提醒） |
+| 多猫并发更新同一 Feature 告示牌 | 中 | version + CAS（compare-and-swap） |
+| 消息与状态分裂（改了告示牌没发 @mention） | 中 | handoff 操作原子化 |
 
 ## Open Questions
 
-1. Hook 机制在 context compaction 后的具体行为是什么？（需调查）
-2. 现有 thread metadata 是否已支持自定义字段？还是需要扩展 schema？
-3. 跨猫愿景守护的自动触发：用 A2A mention 还是 MCP 工具？
+| # | 问题 | 状态 |
+|---|------|------|
+| OQ-1 | ~~Hook 在压缩后的行为~~ | ✅ P0 已诊断修复 |
+| OQ-2 | Mission Hub `workflow.sop` 的 Redis 数据结构怎么设计？ | 🔴 P1 待设计 |
+| OQ-3 | `resume_capsule` 由谁写入？猫主动 / hook 自动 / 混合？ | 🔴 P1 待定 |
+| OQ-4 | handoff timeout 多长合适？不同阶段是否不同？ | 🟡 P2 待定 |
 
 ## Review Gate
 
 | 轮次 | Reviewer | 结果 | 日期 |
 |------|----------|------|------|
+| P0 R1 | 云端 Codex | P1: push status check | 2026-03-07 |
+| P0 R2 | 云端 Codex | P1: bidirectional sync | 2026-03-07 |
+| P0 R3 | 云端 Codex | 待结果 | 2026-03-07 |
 
 ## Timeline
 
-- 2026-03-07: 铲屎官提出需求（流程自闭环、hook 不生效、压缩后遗忘）
-- 2026-03-07: F073 立项
+| 日期 | 事件 |
+|------|------|
+| 2026-03-07 | 铲屎官提出需求（流程自闭环、hook 不生效、压缩后遗忘） |
+| 2026-03-07 | F073 立项，四猫独立思考 + GPT Pro 外部研究 |
+| 2026-03-07 | 全猫共识收敛：告示牌哲学 + Phase 分层 |
+| 2026-03-07 | P0 实现完成（PR #271），云端 review 进行中 |
+| 2026-03-07 | 铲屎官定调"不想让猫变成 workflow node" |
+| 2026-03-07 | Spec 更新为收敛版本（含 P0~P4 全规划） |
+
+## 讨论记录
+
+### 四猫共识 + GPT Pro 研究收敛（2026-03-07）
+
+**参与者**：Opus 4.6、Opus 4.5、Codex（砚砚）、GPT-5.4（砚砚）、GPT Pro（外部研究）
+
+**GPT Pro 核心建议**：补"执行账本"（Stage + Baton + Resume Capsule），Mission Hub 当真相源，hook 当加速器不当唯一记忆体。
+
+**四猫共识**：
+- 吸收 Resume Capsule、Baton+ack、attested vs verified、manifest 导航
+- 不吸收强制状态机——与 Cat Café 知识驱动协作哲学矛盾
+- Phase 顺序：告示牌 → 接力 → 门禁 → 加速器
+
+**铲屎官定调**：
+> "我不想让你们变成一个 workflow 的 node，这样没有灵魂。"
+> "要相信未来的猫猫们会更聪明。"
