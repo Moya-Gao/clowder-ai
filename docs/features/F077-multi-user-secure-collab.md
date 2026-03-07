@@ -29,13 +29,13 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 4. **WS 认证** — Socket.IO 握手从 cookie/session 取身份，不再信客户端 `auth.userId`
 5. **Route audit + 三级分类** — admin / member / internal，补齐现有越权路由
 6. **Thread ACL** — `ownerUserId` + `access: private|shared` + `memberUserIds[]`
-7. **默认公共大厅收口** — 多用户模式下不再有无主公共 thread
+7. **projectPath ACL** — 每个用户绑定 `allowedProjectPaths[]`，Agent 只能在授权目录下执行
+8. **默认公共大厅收口** — 多用户模式下不再有无主公共 thread
 
 ### Phase 2: 精细控制
 1. 角色权限（admin / member / guest）
 2. 共享区高风险动作审批（非 owner 的文件编辑、agent 调用需 admin 批准）
-3. Workspace membership 接 projectPath / provider-profile / file-edit
-4. HTTPS（mkcert / Tailscale / Caddy 反代）
+3. HTTPS（mkcert / Tailscale / Caddy 反代）
 
 ### Phase 3: 开源就绪
 1. 完整的用户管理 UI
@@ -54,6 +54,7 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 - [ ] AC7: `X-Cat-Cafe-User` 仅限 internal/MCP/测试使用，浏览器端禁用
 - [ ] AC8: 现有路由越权审计完成，所有读写路由有 owner/member 校验
 - [ ] AC9: 现有单用户部署不受影响（auth 可选，默认关闭 = 向后兼容）
+- [ ] AC10: 用户只能在自己被授权的 projectPath 下操作，Agent 执行命令受 projectPath 沙盒约束
 
 ## 需求点 Checklist
 
@@ -69,6 +70,7 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 | R8 | X-Cat-Cafe-User 限制 | AC7 | test | [ ] |
 | R9 | Route audit 三级分类 | AC8 | test | [ ] |
 | R10 | 向后兼容（auth 可选） | AC9 | test | [ ] |
+| R11 | projectPath 沙盒（Agent 只在授权目录执行） | AC10 | test | [ ] |
 
 ## Key Decisions
 
@@ -102,6 +104,12 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 6. **Auth 可选（向后兼容）**
    - 默认关闭 = 单用户模式（现有行为不变）
    - `AUTH_ENABLED=true` 开启多用户模式
+
+7. **projectPath 即权限沙盒（铲屎官灵感）**
+   - 三层安全模型：认证（你是谁）→ Thread ACL（你看到什么）→ projectPath ACL（猫能碰什么文件）
+   - 每个用户绑定 `allowedProjectPaths[]`，Agent 只在授权目录执行
+   - 共享挂载目录（F074）天然成为协作边界：各人挂自己的目录，共享目录大家都能访问
+   - 不需要 OS 级用户隔离，应用层即可控制
 
 ### gpt52 关键洞察（必须在实施中体现）
 
