@@ -152,6 +152,9 @@ workflow:
 ### P4（导航牌 + 加速器）
 - [ ] AC-13: `sop.manifest.yaml` 导航表（阶段 → skill → 硬规则）
 - [ ] AC-14: Claude hook 改为调用共享 MCP（不再独立写 `/tmp/`）
+- [ ] AC-15: `baton_holder` 存唯一句柄（`opus`/`opus45`/`codex`），不存展示名（"两个 opus"事件教训）
+- [ ] AC-16: 并发写同一 Feature 时 CAS/version 冲突可检测并回读重试
+- [ ] AC-17: Mission Hub 不可用时降级为 thread 告示牌，不降级为"无状态推进"
 
 ## Links
 
@@ -174,6 +177,8 @@ workflow:
 | KD-3 | 门禁范围 | 只守 worktree + close | 每步硬约束 | 信任猫的判断力，随模型能力松绑 | 2026-03-07 |
 | KD-4 | attested vs verified | 区分猫声明和系统验证 | 假装全自动 | 诚实比好看重要 | 2026-03-07 |
 | KD-5 | Phase 顺序 | 告示牌→接力→门禁→加速器 | 先做状态机 | 先可见性，后可靠性，最后硬约束 | 2026-03-07 |
+| KD-6 | Baton 句柄 | 必须存唯一句柄（`opus`/`opus45`/`codex`） | 展示名 | "两个 opus"事件证明展示名会破坏接力 | 2026-03-07 |
+| KD-7 | 降级策略 | Mission Hub 不可用 → thread 告示牌 | 无状态推进 | 总比没有好（codex 建议） | 2026-03-07 |
 
 ## Dependencies
 
