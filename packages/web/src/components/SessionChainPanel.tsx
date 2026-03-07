@@ -37,6 +37,7 @@ interface SessionSummary {
 export interface SessionChainPanelProps {
   threadId: string;
   catInvocations: Record<string, CatInvocationInfo>;
+  onViewSession?: (sessionId: string) => void;
 }
 
 function timeAgo(ts: number): string {
@@ -83,7 +84,7 @@ const CAT_SESSION_COLORS: Record<string, { border: string; badgeBg: string; badg
 
 const DEFAULT_SESSION_COLORS = { border: 'border-gray-300/40', badgeBg: 'bg-gray-200', badgeText: 'text-gray-600' };
 
-export function SessionChainPanel({ threadId, catInvocations }: SessionChainPanelProps) {
+export function SessionChainPanel({ threadId, catInvocations, onViewSession }: SessionChainPanelProps) {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loading, setLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -300,16 +301,27 @@ export function SessionChainPanel({ threadId, catInvocations }: SessionChainPane
                   </div>
                 </div>
                 {(session.status === 'sealed' || session.status === 'sealing') && (
-                  <button
-                    type="button"
-                    className="text-[10px] px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
-                    onClick={() => {
-                      void handleUnseal(session.id);
-                    }}
-                    disabled={unsealingSessionId != null}
-                  >
-                    {unsealingSessionId === session.id ? '解封中…' : '解封'}
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {onViewSession && (
+                      <button
+                        type="button"
+                        className="text-[10px] px-2 py-0.5 rounded border border-gray-200 text-gray-600 hover:bg-gray-50"
+                        onClick={() => onViewSession(session.id)}
+                      >
+                        查看
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="text-[10px] px-2 py-0.5 rounded border border-blue-200 text-blue-600 hover:bg-blue-50 disabled:opacity-50"
+                      onClick={() => {
+                        void handleUnseal(session.id);
+                      }}
+                      disabled={unsealingSessionId != null}
+                    >
+                      {unsealingSessionId === session.id ? '解封中…' : '解封'}
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

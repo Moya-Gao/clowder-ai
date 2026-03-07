@@ -13,6 +13,7 @@ import { CatTokenUsage } from './CatTokenUsage';
 import { CatInvocationTime, CollapsibleIds } from './status-panel-parts';
 import { SessionChainPanel } from './SessionChainPanel';
 import { PlanBoardPanel } from './PlanBoardPanel';
+import { AuditExplorerPanel } from './audit/AuditExplorerPanel';
 
 export interface RightStatusPanelProps {
   intentMode: IntentMode;
@@ -27,12 +28,6 @@ export interface RightStatusPanelProps {
     evidence: number;
     followup: number;
   };
-}
-
-interface AuditData {
-  logPath: string | null;
-  eventCount: number;
-  logFiles: string[];
 }
 
 /* ── Cat invocation card (shared between active/history) ──── */
@@ -237,28 +232,20 @@ export function RightStatusPanel({
   }, [targetCats, catInvocations]);
 
   const { getCatById } = useCatData();
-  const [auditData, setAuditData] = useState<AuditData | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [viewSessionId, setViewSessionId] = useState<string | null>(null);
+
+  // Clear session viewer when switching threads
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset on threadId change only
+  React.useEffect(() => {
+    setViewSessionId(null);
+  }, [threadId]);
+
   const openHub = useChatStore((s) => s.openHub);
 
   const copyText = useCallback((value: string) => {
     void navigator.clipboard.writeText(value);
   }, []);
-
-  const fetchAudit = useCallback(async () => {
-    try {
-      const res = await apiFetch(`/api/audit/thread/${threadId}`);
-      if (!res.ok) return;
-      const data = await res.json() as { logPath: string | null; logFiles: string[]; events: unknown[] };
-      setAuditData({
-        logPath: data.logPath,
-        eventCount: data.events.length,
-        logFiles: data.logFiles,
-      });
-    } catch { /* silently ignore audit fetch failures */ }
-  }, [threadId]);
-
-  useEffect(() => { fetchAudit(); }, [fetchAudit]);
 
   return (
     <aside className="hidden lg:flex w-72 border-l border-owner-light bg-white/90 px-4 py-4 flex-col gap-4 overflow-y-auto">
@@ -362,7 +349,7 @@ export function RightStatusPanel({
 
       <PlanBoardPanel threadId={threadId} catInvocations={catInvocations} />
 
-      <SessionChainPanel threadId={threadId} catInvocations={catInvocations} />
+      <SessionChainPanel threadId={threadId} catInvocations={catInvocations} onViewSession={setViewSessionId} />
 
       <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
         <h3 className="text-xs font-semibold text-gray-700 mb-2">对话信息</h3>
@@ -381,21 +368,7 @@ export function RightStatusPanel({
         </div>
       </section>
 
-      {auditData && (
-        <section className="rounded-lg border border-gray-200 bg-gray-50/70 p-3">
-          <h3 className="text-xs font-semibold text-gray-700 mb-2">审计日志</h3>
-          <div className="text-xs space-y-1.5">
-            {auditData.logPath ? (
-              <a href={`vscode://file${auditData.logPath}`} className="text-blue-600 hover:text-blue-800 underline block truncate" title={auditData.logPath}>
-                在 VSCode 中打开
-              </a>
-            ) : (
-              <span className="text-gray-400">路径不可用 (生产模式)</span>
-            )}
-            <div className="text-gray-500">{auditData.eventCount} 条事件 · {auditData.logFiles.length} 个日志文件</div>
-          </div>
-        </section>
-      )}
+      <AuditExplorerPanel key={threadId} threadId={threadId} externalSessionId={viewSessionId} onCloseSession={() => setViewSessionId(null)} />
     </aside>
   );
 }

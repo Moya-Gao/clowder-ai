@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Phase 3 P1s done (PR #257 merged) — Gap 3 (P2 Runtime/Audit) deferred
+> **Status**: Gap 3 implemented (PR pending) — close after merge
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -462,11 +462,12 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | P3-5 | 前端添加/移除 linked root UI（路径选择 + 安全校验） | **done** |
 | P3-6 | 持久化策略：写入配置文件（不依赖环境变量重启） | **done** (.cat-cafe/linked-roots.json) |
 
-#### Gap 3 (P2): Runtime/Audit Explorer 进 Workspace
+#### Gap 3 (P2): Runtime/Audit Explorer 进 Workspace — **done**
 
-审计信息目前在 RightStatusPanel，核心动作仍是"在 VSCode 中打开"。
+RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜索三 tab），
+替代"在 VSCode 中打开"。SessionChainPanel 点击 sealed session → 跳转查看器。
 
 | Task | 内容 | 优先 |
 |------|------|------|
-| P3-7 | WorkspacePanel 新增 Runtime tab（session 事件/日志浏览） | |
-| P3-8 | 内联审计查看器替代 VSCode 跳转 | |
+| P3-7 | AuditExplorerPanel 三 tab（审计事件/Session 事件/搜索） | **done** |
+| P3-8 | 内联审计查看器替代 VSCode 跳转 + SessionChainPanel click-to-view | **done** |
