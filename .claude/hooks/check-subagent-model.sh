@@ -42,5 +42,5 @@ if [ "$SUBAGENT_TYPE" = "Plan" ]; then
 fi
 
 # general-purpose / empty → inherits Opus. Usually overkill. Ask.
-emit_decision "ask" "⚠️ Agent(${SUBAGENT_TYPE:-未指定}) 会继承 Opus，成本高。搜代码/读文件 → 改用 Explore（自动 haiku）。确认必须用 general-purpose？"
+emit_decision "ask" "⚠️ Agent(${SUBAGENT_TYPE:-未指定}) 继承 Opus。如果是搜代码/读文件/探索代码库 → 请改用 subagent_type=Explore（自动 haiku，不污染主上下文）。不要因为被拦就放弃 subagent 自己 grep——那更浪费上下文！确认必须用 general-purpose？"
 exit 0
