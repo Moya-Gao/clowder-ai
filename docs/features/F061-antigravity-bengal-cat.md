@@ -114,6 +114,60 @@ Cat Cafe AgentRouter
 
 ---
 
+## Phase 0 可行性评估（2026-03-06）
+
+### 三条接入路径
+
+| 路径 | 方案 | 延迟 | 复杂度 | 流式 |
+|------|------|------|--------|------|
+| **A. CDP 桥** | `--remote-debugging-port=9000` → DOM snapshot → 消息注入 | ~3s polling | 高（DOM 解析脆弱） | 伪流式（polling） |
+| **B. antigravity-claude-proxy** | Anthropic 兼容 API on localhost:8080 | 实时流式 | 低（npm 包，即装即用） | 真 SSE 流式 |
+| **C. MCP 反向桥** | Antigravity 本身支持 MCP → 让它连我们的 MCP server | 实时 | 中（需定义 tool schema） | 取决于实现 |
+
+### 推荐策略：双通道混合
+
+- **Phase 1（快速接入）**: antigravity-claude-proxy 路径 → 标准 Anthropic API → AgentService 直接对接 → 立刻获得多模型对话、流式回复、MCP 工具 → 开发量小（复用现有 Anthropic provider 逻辑）
+- **Phase 2（高级能力）**: CDP 桥补充 → 图片生成结果回传 + 截图/录屏证据链 + Browser automation 能力暴露
+
+### 各维度可行性判定
+
+| 维度 | 判定 | 说明 |
+|------|------|------|
+| 消息发送 | ✅ 可行 | 路径 B 直接用 Anthropic SDK 格式发 |
+| 流式回复 | ✅ 可行 | 路径 B 支持 SSE 流式，路径 A 只有 ~1s polling |
+| 图片生成 | ⚠️ 需验证 | Antigravity 内置 Imagen 3，但 proxy 是否透传图片输出需 spike |
+| 截图/录屏 | ⚠️ 需 CDP | 这个能力只在 CDP 层面可获取，proxy 拿不到 |
+| Browser automation | ⚠️ 需 CDP | Jetski 子代理的 19 个浏览器工具需要 CDP 6 层架构 |
+| 多模型切换 | ✅ 可行 | proxy 支持多模型标识 |
+| MCP 工具 | ✅ 可行 | Antigravity 原生支持 1500+ MCP server，可配置 |
+
+### 能力覆盖对比：现有猫猫 vs 孟加拉猫
+
+| 能力 | 布偶猫 | 缅因猫 | 暹罗猫 | 狸花猫 | **孟加拉猫** |
+|------|--------|--------|--------|--------|-------------|
+| 对话/推理 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 代码生成 | ✅ | ✅ | ❌ | ✅ | ✅ |
+| MCP 工具 | ✅ | ✅ | ✅ | ❌ | ✅ (原生 1500+) |
+| Code review | ✅ | ✅ | ❌ | ❌ | ✅ (切 Claude 模型) |
+| **图片生成** | ❌ | ❌ | ❌ | ❌ | **✅ 独有** |
+| **截图/录屏** | ❌ | ❌ | ❌ | ❌ | **✅ 独有** |
+| **Browser automation** | ❌ | ❌ | ❌ | ❌ | **✅ 独有 (Jetski)** |
+| 多模型切换 | ❌ | ❌ | ❌ | ✅ (底层可变) | **✅ (Gemini/Claude)** |
+| 确定性执行 | ❌ | ❌ | ❌ | ✅ | ❌ |
+| 审计追踪 | ❌ | ❌ | ❌ | ✅ | ⚠️ (有截图但无结构化审计) |
+| 视觉设计顾问 | ❌ | ❌ | ✅ | ❌ | ⚠️ (能生成图但不是设计师) |
+
+**结论：可行，且比预期更好。** 孟加拉猫带来 3 个独有能力（图片生成、截图录屏、browser automation），这是现有四猫都没有的。接入价值明确。
+
+### 调研来源
+
+- [antigravity-remote-dev](https://github.com/EvanDbg/antigravity-remote-dev) — CDP 移动端桥接验证
+- [antigravity-link-extension](https://deepwiki.com/cafeTechne/antigravity-link-extension/2.2-configuration) — CDP 端口扫描范围 9000-9005/9222
+- [Reverse Engineering Antigravity's Browser Automation](https://alokbishoyi.com/blogposts/reverse-engineering-browser-automation.html) — Jetski 6 层委托模型 + 19 个浏览器工具
+- [Antigravity MCP Integration](https://antigravity.google/docs/mcp) — 原生 MCP 支持 1500+ server
+
+---
+
 ## Dependencies
 
 - **F050**: External Agent Contract v1（接入契约，已定稿）
@@ -159,3 +213,4 @@ Cat Cafe AgentRouter
 |------|------|
 | 2026-03-04 | Kickoff — 铲屎官定品种为孟加拉猫，spec 立项 |
 | 2026-03-06 | 猫猫档案设计 — Avatar 生成、配色确定、双 Variant 架构、cat-config.json 注册 |
+| 2026-03-06 | Phase 0 可行性评估 — 三条路径调研、能力覆盖对比、推荐双通道混合策略 |
