@@ -55,7 +55,7 @@ const catVariantSchema = z.object({
   displayName: z.string().min(1).optional(), // F32-b: variant-level displayName
   variantLabel: z.string().min(1).optional(), // F32-b P4: disambiguation label
   mentionPatterns: z.array(mentionPatternSchema).optional(), // F32-b: variant-level mentions
-  provider: z.enum(['anthropic', 'openai', 'google', 'dare']),
+  provider: z.enum(['anthropic', 'openai', 'google', 'dare', 'antigravity']),
   defaultModel: z.string().min(1),
   mcpSupport: z.boolean(),
   cli: cliConfigSchema,
@@ -119,7 +119,7 @@ const catBreedSchema = z.object({
   catId: z.string().min(1),
   name: z.string().min(1),
   displayName: z.string().min(1),
-  nickname: z.string().optional(),
+  nickname: z.string().nullable().optional(),
   avatar: z.string().min(1),
   color: colorSchema,
   mentionPatterns: z.array(mentionPatternSchema).min(1),
