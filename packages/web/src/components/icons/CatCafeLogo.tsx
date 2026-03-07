@@ -8,9 +8,9 @@ export function CatCafeLogo({ className = 'w-6 h-6' }: { className?: string }) {
       <defs>
         {/* 三猫流光渐变：布偶蓝 → 缅因金 → 暹罗紫 (45°) */}
         <linearGradient id="cat-cafe-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#60A5FA" />
-          <stop offset="50%" stopColor="#FBBF24" />
-          <stop offset="100%" stopColor="#A78BFA" />
+          <stop offset="0%" stopColor="#2563EB" />
+          <stop offset="50%" stopColor="#D97706" />
+          <stop offset="100%" stopColor="#7C3AED" />
         </linearGradient>
       </defs>
       <g transform="translate(0,640) scale(0.1,-0.1)" fill="url(#cat-cafe-gradient)">
