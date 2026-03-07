@@ -1442,7 +1442,7 @@ describe('Backlog mark-done route', () => {
     assert.ok(body.item.doneAt);
   });
 
-  test('POST mark-done rejects non-dispatched item', async () => {
+  test('POST mark-done accepts open item (any status → done)', async () => {
     const app = await createApp();
     const createRes = await app.inject({
       method: 'POST', url: '/api/backlog/items', headers: H,
@@ -1454,7 +1454,8 @@ describe('Backlog mark-done route', () => {
       url: `/api/backlog/items/${createRes.json().id}/mark-done`,
       headers: H,
     });
-    assert.strictEqual(res.statusCode, 409);
+    assert.strictEqual(res.statusCode, 200);
+    assert.strictEqual(res.json().item.status, 'done');
   });
 
   test('POST mark-done returns 404 for missing item', async () => {
@@ -1468,7 +1469,7 @@ describe('Backlog mark-done route', () => {
   });
 });
 
-describe('Import sync marks disappeared dispatched items as done', () => {
+describe('Import sync marks disappeared items as done (any status)', () => {
   let backlogStore;
   let threadStore;
   let messageStore;
@@ -1536,6 +1537,67 @@ describe('Import sync marks disappeared dispatched items as done', () => {
     const afterList = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
     const doneItem = afterList.json().items.find(i => i.id === itemId);
     assert.strictEqual(doneItem.status, 'done');
+
+    await rm(tempDir, { recursive: true, force: true });
+  });
+});
+
+describe('Import sync marks suggested items as done when disappeared', () => {
+  let backlogStore;
+  let threadStore;
+  let messageStore;
+
+  beforeEach(async () => {
+    const { BacklogStore } = await import('../dist/domains/cats/services/stores/ports/BacklogStore.js');
+    const { ThreadStore } = await import('../dist/domains/cats/services/stores/ports/ThreadStore.js');
+    const { MessageStore } = await import('../dist/domains/cats/services/stores/ports/MessageStore.js');
+    backlogStore = new BacklogStore();
+    threadStore = new ThreadStore();
+    messageStore = new MessageStore();
+  });
+
+  const H = { 'x-cat-cafe-user': 'default-user' };
+
+  test('suggested item not in BACKLOG.md gets marked done on import', async () => {
+    const { backlogRoutes } = await import('../dist/routes/backlog.js');
+    const tempDir = await mkdtemp(join(tmpdir(), 'backlog-done-'));
+    const backlogPath = join(tempDir, 'BACKLOG.md');
+    await writeFile(backlogPath, [
+      '| ID | 名称 | Status | Owner | Link |',
+      '|---|---|---|---|---|',
+      '| F001 | Active Feature | in-progress | 布偶猫 | [F001](features/F001.md) |',
+    ].join('\n'));
+
+    const app = Fastify();
+    await app.register(backlogRoutes, {
+      backlogStore, threadStore, messageStore,
+      backlogDocPath: backlogPath,
+    });
+
+    // Create a suggested item tagged as F888 (not dispatched!)
+    const createRes = await app.inject({
+      method: 'POST', url: '/api/backlog/items', headers: H,
+      payload: { title: '[F888] Suggested Ghost', summary: 'S', priority: 'p2', tags: ['source:docs-backlog', 'feature:f888'] },
+    });
+    const itemId = createRes.json().id;
+    await app.inject({
+      method: 'POST', url: `/api/backlog/items/${itemId}/suggest-claim`, headers: H,
+      payload: { catId: 'codex', why: 'w', plan: 'p', requestedPhase: 'coding' },
+    });
+
+    const listRes = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
+    assert.strictEqual(listRes.json().items.find(i => i.id === itemId).status, 'suggested');
+
+    // Import — F888 not in BACKLOG.md → should mark done even though suggested
+    const importRes = await app.inject({
+      method: 'POST', url: '/api/backlog/import-active-features', headers: H,
+    });
+    assert.strictEqual(importRes.statusCode, 200);
+    const body = importRes.json();
+    assert.ok(body.markedDoneIds.includes(itemId), 'F888 suggested item should be marked done');
+
+    const afterList = await app.inject({ method: 'GET', url: '/api/backlog/items', headers: H });
+    assert.strictEqual(afterList.json().items.find(i => i.id === itemId).status, 'done');
 
     await rm(tempDir, { recursive: true, force: true });
   });

@@ -504,9 +504,6 @@ export class BacklogStore implements IBacklogStore {
     const existing = this.items.get(itemId);
     if (!existing) return null;
     if (existing.status === 'done') return existing;
-    if (existing.status !== 'dispatched') {
-      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can be marked done');
-    }
 
     const now = Date.now();
     const updated: BacklogItem = {

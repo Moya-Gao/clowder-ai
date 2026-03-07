@@ -407,12 +407,12 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       refreshedItemIds.push(refreshed.id);
     }
 
-    // F058: Mark disappeared dispatched items as done
+    // F058: Mark disappeared items as done (any non-done status)
     const importedFeatureIds = new Set(features.map((f) => f.id.toLowerCase()));
     const markedDoneIds: string[] = [];
     for (const [featureId, existingItem] of existingByFeatureId) {
       if (importedFeatureIds.has(featureId)) continue;
-      if (existingItem.status !== 'dispatched') continue;
+      if (existingItem.status === 'done') continue;
       try {
         const done = await backlogStore.markDone(existingItem.id, { doneBy: userId });
         if (done) markedDoneIds.push(done.id);
@@ -430,7 +430,7 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
     }
     for (const [featureId, existingItem] of existingByFeatureId) {
       if (markedDoneIds.includes(existingItem.id)) continue;
-      if (existingItem.status !== 'dispatched') continue;
+      if (existingItem.status === 'done') continue;
       if (featureDocStatuses.get(featureId) !== 'done') continue;
       try {
         const done = await backlogStore.markDone(existingItem.id, { doneBy: userId });

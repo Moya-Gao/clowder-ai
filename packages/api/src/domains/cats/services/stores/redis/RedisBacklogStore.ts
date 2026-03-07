@@ -660,9 +660,6 @@ export class RedisBacklogStore implements IBacklogStore {
     const item = await this.get(itemId);
     if (!item) return null;
     if (item.status === 'done') return item;
-    if (item.status !== 'dispatched') {
-      throw new BacklogTransitionError('Invalid backlog transition: only dispatched items can be marked done');
-    }
 
     const now = Date.now();
     const updated: BacklogItem = {

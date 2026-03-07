@@ -571,11 +571,38 @@ describe('BacklogStore markDone', () => {
     assert.strictEqual(again.status, 'done');
   });
 
-  test('rejects non-dispatched items', () => {
+  test('transitions open → done (disappeared feature)', () => {
     const item = store.create({
       userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
     });
-    assert.throws(() => store.markDone(item.id, { doneBy: 'u1' }), /Invalid backlog transition/);
+    now += 5000;
+    const done = store.markDone(item.id, { doneBy: 'u1' });
+    assert.strictEqual(done.status, 'done');
+    assert.ok(done.doneAt > 0);
+    assert.strictEqual(done.audit.at(-1).action, 'done');
+  });
+
+  test('transitions suggested → done (disappeared feature)', () => {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    store.suggestClaim(item.id, { catId: 'claude-opus', why: 'w', plan: 'p', requestedPhase: 'coding' });
+    now += 5000;
+    const done = store.markDone(item.id, { doneBy: 'u1' });
+    assert.strictEqual(done.status, 'done');
+    assert.ok(done.doneAt > 0);
+  });
+
+  test('transitions approved → done (disappeared feature)', () => {
+    const item = store.create({
+      userId: 'u1', title: 'T', summary: 'S', priority: 'p2', tags: [], createdBy: 'user',
+    });
+    store.suggestClaim(item.id, { catId: 'claude-opus', why: 'w', plan: 'p', requestedPhase: 'coding' });
+    store.decideClaim(item.id, { decision: 'approve', decidedBy: 'u1', note: 'ok' });
+    now += 5000;
+    const done = store.markDone(item.id, { doneBy: 'u1' });
+    assert.strictEqual(done.status, 'done');
+    assert.ok(done.doneAt > 0);
   });
 
   test('returns null for missing item', () => {
