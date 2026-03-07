@@ -69,6 +69,8 @@ export interface MessageMetadata {
   model: string;
   sessionId?: string;
   usage?: TokenUsage;
+  /** F061: false when provider cannot verify which model actually ran (e.g. CDP bridge) */
+  modelVerified?: boolean;
 }
 
 /**

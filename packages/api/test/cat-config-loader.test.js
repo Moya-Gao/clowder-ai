@@ -683,10 +683,10 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.notDeepEqual(all['sonnet'].color, all['opus'].color);
   });
 
-  it('total cat count is 9 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare)', () => {
+  it('total cat count is 11 (opus + sonnet + opus-45 + codex + gpt52 + spark + gemini + gemini25 + dare + antigravity + antig-opus)', () => {
     const config = loadCatConfig();
     const all = toAllCatConfigs(config);
-    assert.equal(Object.keys(all).length, 9);
+    assert.equal(Object.keys(all).length, 11);
     assert.ok(all['opus']);
     assert.ok(all['sonnet']);
     assert.ok(all['opus-45']);
@@ -696,6 +696,8 @@ describe('F32-b P4c: Sonnet variant in project config', () => {
     assert.ok(all['gemini']);
     assert.ok(all['gemini25']);
     assert.ok(all['dare']); // F050: DARE external agent (dragon-li)
+    assert.ok(all['antigravity']); // F061: Bengal cat (Antigravity CDP bridge)
+    assert.ok(all['antig-opus']); // F061: Bengal cat Claude variant
   });
 });
 

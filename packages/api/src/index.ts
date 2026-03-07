@@ -34,6 +34,7 @@ import { catRegistry } from '@cat-cafe/shared';
 import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, DareAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore, createDraftStore } from './domains/cats/services/index.js';
+import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import type { AgentService } from './domains/cats/services/types.js';
 import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
 import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
@@ -213,6 +214,9 @@ async function main(): Promise<void> {
         break;
       case 'dare':
         service = new DareAgentService({ catId });
+        break;
+      case 'antigravity':
+        service = new AntigravityAgentService({ catId });
         break;
       default:
         app.log.warn(`[api] Unknown provider "${provider}" for cat "${id as string}". It will not be routable.`);

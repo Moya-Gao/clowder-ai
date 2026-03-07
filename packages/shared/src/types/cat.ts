@@ -9,7 +9,7 @@ import { createCatId } from './ids.js';
 /**
  * AI provider behind a cat
  */
-export type CatProvider = 'anthropic' | 'openai' | 'google' | 'dare';
+export type CatProvider = 'anthropic' | 'openai' | 'google' | 'dare' | 'antigravity';
 
 /**
  * Cat status in the system

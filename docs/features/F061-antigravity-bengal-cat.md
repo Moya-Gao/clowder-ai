@@ -65,15 +65,15 @@ Cat Cafe AgentRouter
 
 ## Acceptance Criteria
 
-### Phase 0: Spike / 可行性验证
-- [ ] AC-1: Antigravity 启动带 `--remote-debugging-port` 并成功连接 CDP
-- [ ] AC-2: 桥服务能通过 CDP 注入消息并获取回复 DOM
-- [ ] AC-3: 回复内容可解析为纯文本/markdown（从 HTML DOM）
+### Phase 0: Spike / 可行性验证 ✅ COMPLETE
+- [x] AC-1: Antigravity 启动带 `--remote-debugging-port` 并成功连接 CDP
+- [x] AC-2: 桥服务能通过 CDP 注入消息并获取回复 DOM
+- [x] AC-3: 回复内容可解析为纯文本/markdown（从 HTML DOM）
 
-### Phase 1: Cat Cafe L1 接入
-- [ ] AC-4: `cat-config.json` 可注册孟加拉猫（provider: `antigravity`）
-- [ ] AC-5: `AntigravityAgentService` 实现 `AgentService` 接口
-- [ ] AC-6: AgentRouter 可路由消息到 Antigravity 并获取流式回复
+### Phase 1: Cat Cafe L1 接入 ✅ COMPLETE
+- [x] AC-4: `cat-config.json` 可注册孟加拉猫（provider: `antigravity`）— CatProvider 类型 + Zod enum + switch case
+- [x] AC-5: `AntigravityAgentService` 实现 `AgentService` 接口 — mock CDP 注入 + 6 tests
+- [x] AC-6: AgentRouter 可路由消息到 Antigravity 并获取流式回复 — registration test 验证通过
 - [ ] AC-7: 图片生成结果可在 Hub 前端展示（F060 rich block 联动）
 
 ### Phase 2: 证据链 + 高级能力
@@ -87,10 +87,10 @@ Cat Cafe AgentRouter
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "他是独立的！人家还有两只布偶猫可以用呢" — 独立家族，不是暹罗猫替代 | AC-4 | cat-config 注册验证 | [ ] |
+| R1 | "他是独立的！人家还有两只布偶猫可以用呢" — 独立家族，不是暹罗猫替代 | AC-4 | cat-config 注册验证 | [x] |
 | R2 | "antigravity 他的猫猫是真的能够生成图片的，这才是我一直想要接入的原因" | AC-7 | 图片生成 → Hub 展示 e2e | [ ] |
 | R3 | "他能够录视频 截图" — 证据链能力 | AC-8 | 截图/录屏回传验证 | [ ] |
-| R4 | CDP 桥可行性（社区已验证） | AC-1, AC-2, AC-3 | spike 验证 | [ ] |
+| R4 | CDP 桥可行性（社区已验证） | AC-1, AC-2, AC-3 | spike 验证 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -124,22 +124,183 @@ Cat Cafe AgentRouter
 | **B. antigravity-claude-proxy** | Anthropic 兼容 API on localhost:8080 | 实时流式 | 低（npm 包，即装即用） | 真 SSE 流式 |
 | **C. MCP 反向桥** | Antigravity 本身支持 MCP → 让它连我们的 MCP server | 实时 | 中（需定义 tool schema） | 取决于实现 |
 
-### 推荐策略：双通道混合
+### Phase 0 Spike 实测（2026-03-06 夜）
 
-- **Phase 1（快速接入）**: antigravity-claude-proxy 路径 → 标准 Anthropic API → AgentService 直接对接 → 立刻获得多模型对话、流式回复、MCP 工具 → 开发量小（复用现有 Anthropic provider 逻辑）
-- **Phase 2（高级能力）**: CDP 桥补充 → 图片生成结果回传 + 截图/录屏证据链 + Browser automation 能力暴露
+五条路径逐一实测：
 
-### 各维度可行性判定
+| 路径 | 实测结果 | 结论 |
+|------|----------|------|
+| **A. CDP 桥** | 需 `--remote-debugging-port=9000` 重启 Antigravity，社区 3+ 项目已验证 | ✅ **主路线** |
+| **B. antigravity-claude-proxy** | **Google 正在封号（ToS violation bans）** | ❌ 风险太大，放弃 |
+| **C. MCP browser tools** | 端口 62051 已通！Chrome DevTools MCP v0.12.1，25 个浏览器工具可直接调用 | ✅ browser automation 可用 |
+| **D. language_server CLI** | `-cli=true -standalone=true` 能启动 HTTP server，但 401 — OAuth 由 IDE 管理 | ❌ 独立不可用 |
+| **E. extension_server** | 端口 62054 响应但 CSRF 保护，token 从 IDE 内部传递 | ❌ 无法外部访问 |
+
+#### 关键发现
+
+1. **内置 MCP server 已可用**：Antigravity `language_server` 在端口 62051 暴露了标准 MCP 协议（JSON-RPC + SSE），Chrome DevTools MCP server v0.12.1，含 25 个浏览器工具（click/navigate/screenshot/evaluate_script 等）
+2. **language_server 有 CLI 模式**：`-cli=true -standalone=true`，Go 二进制，支持 `-cdp_port` / `-random_port` / `-persistent_mode`，但独立运行缺 OAuth
+3. **proxy 封号风险**：antigravity-claude-proxy 被 Google 视为 ToS violation，已有用户被封号/shadow-ban
+
+### CDP 桥端到端验证（2026-03-06 深夜）
+
+在五条路径实测的基础上，对 CDP 桥进行了**完整端到端验证**：消息注入 → 模型响应 → 回复读取。
+
+#### 验证环境
+
+- Antigravity 1.107.0 (Chrome/142.0, Electron 39.2.3)
+- CDP 端口: 9000 (`~/.antigravity/argv.json` 配置 `"remote-debugging-port": 9000`)
+- 模型: Gemini 3.1 Pro（默认）
+- 项目: cat-cafe（Pencil .pen 文件已打开）
+
+#### 消息注入方案对比
+
+| 方案 | 结果 | 原因 |
+|------|------|------|
+| `Input.insertText` (CDP) | ❌ 失败 | Lexical 编辑器不响应 CDP 原生 insertText |
+| `Input.dispatchKeyEvent` 逐字符 | ❌ 失败 | 同上，Lexical 不监听原生 key events |
+| `InputEvent` dispatch (React 兼容) | ❌ 失败 | Lexical 有自己的事件处理 |
+| **`document.execCommand('insertText')`** | **✅ 成功** | **Lexical 框架 hook 了 execCommand** |
+| VS Code `require('vscode')` | ❌ 不可用 | 主进程无 vscode API |
+| Monaco `editor.setValue()` | ❌ 不适用 | 聊天输入不是 Monaco 编辑器 |
+
+**关键发现：Antigravity 聊天输入框使用 [Lexical](https://lexical.dev/) 框架**（Facebook 出品），而非 Monaco 或原生 contentEditable。Lexical 通过 `document.execCommand` 拦截来处理输入，这是唯一有效的文本注入方式。
+
+#### 完整注入流程（已验证可用）
+
+```javascript
+// 1. 连接 CDP WebSocket
+const ws = new WebSocket(target.webSocketDebuggerUrl);
+
+// 2. 点击聊天输入框获取焦点（必须！execCommand 需要焦点在 Lexical 编辑器上）
+await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: cx, y: cy, button: 'left', clickCount: 1 });
+await cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cx, y: cy, button: 'left', clickCount: 1 });
+
+// 3. 通过 execCommand 注入文本
+await cdp('Runtime.evaluate', {
+  expression: `document.execCommand('insertText', false, 'your prompt here')`
+});
+
+// 4. 按 Enter 发送
+await cdp('Input.dispatchKeyEvent', { type: 'rawKeyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+```
+
+#### 端到端测试结果
+
+| 测试 | 发送消息 | 模型响应 | 响应延迟 | 结果 |
+|------|----------|----------|----------|------|
+| 测试 1 | "Reply with just the word meow" | "喵。" | ~3s (含 Thought for 1s) | ✅ 完美 |
+| 测试 2 | "Say hello" | "喵哈喽！铲屎官好呀～ 今天有什么新鲜好玩的事情要一起搞吗？" | ~2s (含 Thought for <1s) | ✅ 完美 |
+
+#### 回复读取方案
+
+模型回复渲染在 `<p>` 标签中（无特殊 class），通过以下方式可提取：
+- 用户消息：`document.querySelectorAll('.whitespace-pre-wrap')`
+- 模型思考：`button` 元素含 "Thought for" 文本
+- 模型回复：思考按钮的兄弟 `<p>` 元素
+- Polling 间隔：~1-3s 检查 DOM 变化
+
+#### AC 验证状态更新
+
+- [x] **AC-1**: Antigravity 启动带 `--remote-debugging-port` 并成功连接 CDP ✅
+- [x] **AC-2**: 桥服务能通过 CDP 注入消息并获取回复 DOM ✅
+- [x] **AC-3**: 回复内容可解析为纯文本/markdown（从 HTML DOM）✅
+
+**Phase 0 全部 AC 通过。CDP 桥方案验证成功。**
+
+#### 会话管理能力验证
+
+| 能力 | CDP 操作 | 结果 |
+|------|----------|------|
+| **新建对话** | 点击 `+` 按钮 (chat header icon 0) | ✅ 消息数归零，标题自动生成 |
+| **新对话收发** | execCommand + Enter | ✅ "2+2=?" → "2+2 等于 4 喵！🐾" (Thought for 2s) |
+| **查看历史** | 点击 🕐 按钮 (chat header icon 1) | ✅ "Past Conversations" 面板，按项目分组，显示时间戳 |
+| **恢复旧对话** | 在历史面板点击对话条目 | ✅ 7 条消息完整恢复 |
+| **模型列表** | 点击底部 model selector | ✅ 6 个模型可选 |
+| **模型切换** | 在 dropdown 中点击目标模型 | ⚠️ 部分成功 — 需更精确的点击坐标 |
+
+**可用模型列表（实测枚举）：**
+1. Gemini 3.1 Pro (High) ← 默认
+2. Gemini 3.1 Pro (Low) — 标记 "New"
+3. Gemini 3 Flash
+4. Claude Sonnet 4.6 (Thinking)
+5. Claude Opus 4.6 (Thinking)
+6. GPT-OSS 120B (Medium)
+
+**注意：实际可选模型远多于注册的 variant。** 与布偶猫只注册 opus-45/opus-46/sonnet（实际 Claude 可用模型更多）类似，cat-config.json 只注册需要的 variant 即可，无需穷举。
+
+**获取完整模型列表的 CDP 方法：**
+```javascript
+// 点击底部 model selector → 读取 dropdown 内容
+await cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x: selectorX, y: selectorY, ... });
+const models = await cdp('Runtime.evaluate', {
+  expression: `[...document.querySelectorAll('[class*="px-2"][class*="py-1"][class*="cursor-pointer"]')]
+    .filter(e => e.offsetParent !== null && e.offsetHeight < 40)
+    .map(e => e.textContent?.trim())`
+});
+```
+
+**聊天面板 UI 结构（CDP 操作参考）：**
+
+```
+Chat Header: [Title] [+新建] [🕐历史] [...更多] [X关闭]
+  - 更多菜单: Customization | MCP Servers | Export
+Chat Area: .overflow-y-auto → 对话 turns
+  - User turn: .whitespace-pre-wrap
+  - Assistant thinking: button "Thought for Xs"
+  - Assistant response: <p> elements
+Footer:
+  - 附件按钮区: [文件] [代码] [图片] [链接]
+  - 输入框: [role="textbox"][contenteditable="true"] (Lexical)
+  - 工具栏: [+] [Planning] [Model Selector] [🎙️] [Send→]
+```
+
+#### 跨项目派遣能力（F070 Portable Governance 适配）
+
+Antigravity **原生按 project/workspace 隔离对话**：Past Conversations 面板分组为 "Running in {project}" / "Recent in {project}" / "Other Conversations"。
+
+| F070 需求 | Antigravity 能力 | 满足度 |
+|-----------|-----------------|--------|
+| 项目级对话隔离 | Past Conversations 按 project 分组 | ✅ 原生 |
+| 在指定 project 开新对话 | `+` 按钮在当前 workspace 下新建 | ✅ |
+| 切换到外部项目 | 多窗口：`open -a Antigravity /path/to/project` | ✅ 新 CDP target |
+| 回到猫咖对话 | Past Conversations → "Recent in cat-cafe" | ✅ |
+| 任务态上下文注入 | 首条消息 execCommand 注入 AC/链接 | ✅ |
+| MCP 工具跨项目可用 | `~/.gemini/antigravity/mcp_config.json` 全局生效 | ✅ |
+
+**多窗口策略**：猫咖窗口保持开着，派遣到外部项目时 `open -a Antigravity /other/project` 开新窗口。CDP `/json` 返回所有窗口 target，按 `title` 区分项目。
+
+#### 冷启动 vs CLI 延迟对比
+
+| 阶段 | CLI spawn (DARE 等) | CDP 桥 (Antigravity) |
+|------|---------------------|---------------------|
+| 冷启动 | 2-10s（spawn + 加载） | ~0ms（IDE 已运行，WebSocket 持久） |
+| 消息注入 | stdin 即时 | execCommand 即时 |
+| 模型首 token | 取决于模型 API | 取决于模型 API |
+| 回复获取 | stdout NDJSON 实时 | DOM polling ~1-3s（可用 MutationObserver 降到 ~100ms） |
+| **多轮对话** | 保持进程 or 重新 spawn | **始终复用同一 WebSocket** |
+
+### 修正后的推荐策略
+
+~~双通道混合~~ → **CDP 桥是唯一安全可行路线**（已端到端验证）
+
+- **Phase 1**: CDP 桥接入 — `execCommand` 注入 + DOM polling 回复 → AgentService 适配
+- **Phase 1+**: MCP browser tools 组合 — 端口 62051 的 25 个浏览器工具同时可用
+- **Phase 2**: 图片生成回传 + 截图/录屏证据链
+
+### 各维度可行性判定（最终版）
 
 | 维度 | 判定 | 说明 |
 |------|------|------|
-| 消息发送 | ✅ 可行 | 路径 B 直接用 Anthropic SDK 格式发 |
-| 流式回复 | ✅ 可行 | 路径 B 支持 SSE 流式，路径 A 只有 ~1s polling |
-| 图片生成 | ⚠️ 需验证 | Antigravity 内置 Imagen 3，但 proxy 是否透传图片输出需 spike |
-| 截图/录屏 | ⚠️ 需 CDP | 这个能力只在 CDP 层面可获取，proxy 拿不到 |
-| Browser automation | ⚠️ 需 CDP | Jetski 子代理的 19 个浏览器工具需要 CDP 6 层架构 |
-| 多模型切换 | ✅ 可行 | proxy 支持多模型标识 |
-| MCP 工具 | ✅ 可行 | Antigravity 原生支持 1500+ MCP server，可配置 |
+| 消息发送 | ✅ **已验证** | `execCommand('insertText')` + Enter — Lexical 框架兼容 |
+| 回复读取 | ✅ **已验证** | DOM query `<p>` 元素，可解析纯文本/markdown |
+| 流式回复 | ⚠️ 伪流式 | DOM polling ~1-3s，非真 SSE 流式 |
+| 图片生成 | ✅ 可行 | DOM 中可获取 Imagen 3 生成结果（待验证具体选择器） |
+| 截图/录屏 | ✅ 可行 | CDP 原生 `Page.captureScreenshot` + MCP browser tools |
+| Browser automation | ✅ 可行 | 端口 62051 MCP 已通，25 个工具就绪 |
+| 多模型切换 | ⚠️ **部分验证** | 6 模型 dropdown 可打开，点击切换需更精确坐标；selector 在 footer |
+| 新建/恢复对话 | ✅ **已验证** | `+` 新建 / 🕐 历史面板 / 点击恢复，全部可用 |
+| MCP 工具 | ✅ 可行 | Antigravity 原生支持，配置在 `~/.gemini/antigravity/mcp_config.json` |
 
 ### 能力覆盖对比：现有猫猫 vs 孟加拉猫
 
@@ -165,6 +326,8 @@ Cat Cafe AgentRouter
 - [antigravity-link-extension](https://deepwiki.com/cafeTechne/antigravity-link-extension/2.2-configuration) — CDP 端口扫描范围 9000-9005/9222
 - [Reverse Engineering Antigravity's Browser Automation](https://alokbishoyi.com/blogposts/reverse-engineering-browser-automation.html) — Jetski 6 层委托模型 + 19 个浏览器工具
 - [Antigravity MCP Integration](https://antigravity.google/docs/mcp) — 原生 MCP 支持 1500+ server
+- [antigravity-claude-proxy](https://github.com/badrisnarayanan/antigravity-claude-proxy) — Anthropic 兼容 API，但有 ToS 封号风险
+- Antigravity `language_server` CLI 参数：`-cli` / `-standalone` / `-cdp_port` / `-persistent_mode`（实测 2026-03-06）
 
 ---
 
@@ -180,20 +343,39 @@ Cat Cafe AgentRouter
 
 ## Risk
 
+### Phase 0 Spike 发现的风险（实测验证）
+
+| # | 风险 | 严重度 | 缓解方案 | 来源 |
+|---|------|--------|----------|------|
+| R1 | **Lexical 编辑器依赖** — 消息注入依赖 `execCommand`，Lexical 升级可能破坏 | 高 | 写适配层 + 版本检测；如 Lexical 弃用 execCommand 需改用其内部 API | Spike 实测 |
+| R2 | **DOM 选择器脆弱** — 回复用 `<p>` 无 class/role，用户消息靠 `.whitespace-pre-wrap` | 高 | 多选择器 fallback + 版本适配测试 + DOM snapshot 基准比对 | Spike 实测 |
+| R3 | **伪流式延迟** — DOM polling ~1-3s，非真 SSE 流式 | 中 | MutationObserver 替代 polling 可降到 ~100ms | Spike 实测 |
+| R4 | **焦点管理** — execCommand 必须在 Lexical 编辑器获焦时才有效，需先 click | 低 | 注入前始终先执行 click 流程 | Spike 实测 |
+| R5 | **多窗口/多标签** — CDP `/json` 返回多个 target，需正确选择编辑器页面（非 Launchpad） | 低 | 按 `title` 过滤 + 支持 target 切换 | Spike 实测 |
+| R6 | **antigravity-claude-proxy 封号** — Google 正在封禁使用此 proxy 的账号（ToS violation） | 致命 | **已排除此路径**，仅用 CDP 桥 | 社区报告 |
+| R7 | **language_server 独立模式 401** — CLI standalone 模式需 OAuth，外部无法获取 | 中 | **已排除此路径**；若未来 Google 开放 CLI 认证可重新评估 | Spike 实测 |
+| R8 | **extension_server CSRF** — 端口 62054 有 CSRF token 保护 | 低 | **已排除此路径** | Spike 实测 |
+
+### 原有风险（调研阶段）
+
 1. **CDP 稳定性** — DOM 结构随 Antigravity 版本更新可能变化，桥服务需要适配
-2. **延迟** — DOM polling（~3s）比 CLI stdout 流式慢，影响交互体验
-3. **Antigravity 更新节奏** — Google 产品更新频繁，CDP 端口支持可能变动
-4. **混血身份哲学问题** — Antigravity 切到 Claude Opus 时，它和布偶猫的边界在哪？（先按"不同个体"处理）
+2. **Antigravity 更新节奏** — Google 产品更新频繁，CDP 端口支持可能变动
+3. **混血身份哲学问题** — Antigravity 切到 Claude Opus 时，它和布偶猫的边界在哪？（先按"不同个体"处理）
+4. **Antigravity 必须运行** — 与 CLI spawn 不同，CDP 桥需要 Antigravity IDE 保持运行；若铲屎官关闭则断联
 
 ---
 
 ## Open Questions
 
 1. ~~孟加拉猫的**昵称**叫什么？~~ → **已决定留空，接入后自取名**
-2. Antigravity 切模型时，Cat Cafe 侧如何感知当前模型？（DOM 解析 vs API）
-3. CDP 桥是自己写还是 fork 社区项目（antigravity_phone_chat）？
-4. Antigravity 的 browser agent 能力是否暴露给 Cat Cafe 协作使用？
-5. F050 的 EAC v1 中 Stream Contract 要求"机器可解析流"——DOM snapshot 是否满足？需要定义映射规则
+2. ~~Antigravity 切模型时，Cat Cafe 侧如何感知当前模型？~~ → 底部栏可 DOM 解析（Spike 确认显示 "Gemini 3.1 P..."）
+3. ~~CDP 桥是自己写还是 fork 社区项目？~~ → **自己写**，社区项目的 DOM 选择器已过时（Antigravity 换了 Lexical 编辑器）
+4. Antigravity 的 browser agent 能力是否暴露给 Cat Cafe 协作使用？（MCP 62051 端口已通，25 个工具可用）
+5. ~~F050 的 EAC v1 中 Stream Contract 要求"机器可解析流"~~ → DOM polling + MutationObserver 可满足，定义事件映射即可
+6. **NEW**: Lexical 编辑器的 `execCommand` hook 是否稳定？需要关注 Lexical 版本更新
+7. **NEW**: 长回复（代码块、图片等）的 DOM 结构是否与短回复一致？需要额外测试
+8. ~~cat-config 的 variant 要扩展到 6 个？~~ → 不需要，只注册需要的 variant（同布偶猫），获取方法已记录
+9. **NEW**: 模型切换的 CDP 操作需要更精准的坐标计算（当前点击有时未命中目标模型项）
 
 ---
 
@@ -214,3 +396,6 @@ Cat Cafe AgentRouter
 | 2026-03-04 | Kickoff — 铲屎官定品种为孟加拉猫，spec 立项 |
 | 2026-03-06 | 猫猫档案设计 — Avatar 生成、配色确定、双 Variant 架构、cat-config.json 注册 |
 | 2026-03-06 | Phase 0 可行性评估 — 三条路径调研、能力覆盖对比、推荐双通道混合策略 |
+| 2026-03-06 | Phase 0 Spike 实测 — 五条路径逐一验证：CDP 桥✅ / proxy❌封号 / MCP✅browser / CLI❌auth / ext❌CSRF |
+| 2026-03-06 | **Phase 0 端到端验证通过** — execCommand 注入 + Enter 发送 + DOM 回复读取，Gemini 3.1 Pro 正常响应 |
+| 2026-03-06 | 会话管理验证 — 新建对话✅ / 历史面板✅ / 恢复旧对话✅ / 模型切换⚠️ / 6 模型枚举 |
