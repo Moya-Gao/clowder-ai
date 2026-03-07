@@ -253,6 +253,200 @@ describe('triggerA2AInvocation (fallback path)', () => {
     );
     assert.equal(updates.some((u) => u.status === 'failed'), true, 'failed status should be persisted');
   });
+
+  test('calls queueProcessor.onInvocationComplete on success', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    const completions = [];
+    const mockQueueProcessor = {
+      async onInvocationComplete(threadId, status) {
+        completions.push({ threadId, status });
+      },
+    };
+
+    const mockInvocationRecordStore = {
+      create() { return { outcome: 'created', invocationId: 'inv-q1' }; },
+      update() {},
+    };
+
+    const mockInvocationTracker = {
+      has() { return false; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        queueProcessor: mockQueueProcessor,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 't-queue-ok',
+        triggerMessage: { id: 'msg-q1', threadId: 't-queue-ok', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    assert.equal(completions.length, 1, 'onInvocationComplete must be called once');
+    assert.equal(completions[0].threadId, 't-queue-ok');
+    assert.equal(completions[0].status, 'succeeded');
+  });
+
+  test('calls queueProcessor.onInvocationComplete with failed on error', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    const completions = [];
+    const mockQueueProcessor = {
+      async onInvocationComplete(threadId, status) {
+        completions.push({ threadId, status });
+      },
+    };
+
+    const mockInvocationRecordStore = {
+      create() { return { outcome: 'created', invocationId: 'inv-q2' }; },
+      update() {},
+    };
+
+    const mockInvocationTracker = {
+      has() { return false; },
+      start() { return new AbortController(); },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution() {
+        throw new Error('simulated failure');
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        queueProcessor: mockQueueProcessor,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 't-queue-err',
+        triggerMessage: { id: 'msg-q2', threadId: 't-queue-err', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    assert.equal(completions.length, 1, 'onInvocationComplete must be called on error');
+    assert.equal(completions[0].threadId, 't-queue-err');
+    assert.equal(completions[0].status, 'failed');
+  });
+
+  test('calls queueProcessor.onInvocationComplete with canceled on abort', async () => {
+    const { triggerA2AInvocation } = await import(
+      '../dist/routes/callback-a2a-trigger.js'
+    );
+
+    const completions = [];
+    const mockQueueProcessor = {
+      async onInvocationComplete(threadId, status) {
+        completions.push({ threadId, status });
+      },
+    };
+
+    const mockInvocationRecordStore = {
+      create() { return { outcome: 'created', invocationId: 'inv-q3' }; },
+      update() {},
+    };
+
+    const abortController = new AbortController();
+    const mockInvocationTracker = {
+      has() { return false; },
+      start() {
+        // Simulate abort mid-execution (e.g., force-send canceled this invocation)
+        setTimeout(() => abortController.abort(), 5);
+        return abortController;
+      },
+      complete() {},
+    };
+
+    const mockRouter = {
+      async *routeExecution(userId, content, threadId, messageId, targetCats, intent, opts) {
+        // Simulate some work before abort hits
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        if (opts?.signal?.aborted) return;
+        yield { type: 'done', catId: 'codex', isFinal: true, timestamp: Date.now() };
+      },
+    };
+
+    const mockSocketManager = {
+      broadcastAgentMessage() {},
+      broadcastToRoom() {},
+    };
+
+    const mockLog = { error() {}, warn() {}, info() {} };
+
+    await triggerA2AInvocation(
+      {
+        router: mockRouter,
+        invocationRecordStore: mockInvocationRecordStore,
+        socketManager: mockSocketManager,
+        invocationTracker: mockInvocationTracker,
+        queueProcessor: mockQueueProcessor,
+        log: mockLog,
+      },
+      {
+        targetCats: ['codex'],
+        content: '@缅因猫\nreview',
+        userId: 'user-1',
+        threadId: 't-queue-cancel',
+        triggerMessage: { id: 'msg-q3', threadId: 't-queue-cancel', userId: 'user-1',
+          catId: 'opus', content: 'test', mentions: [], timestamp: Date.now() },
+      },
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 80));
+
+    assert.equal(completions.length, 1, 'onInvocationComplete must be called on abort');
+    assert.equal(completions[0].threadId, 't-queue-cancel');
+    assert.equal(completions[0].status, 'canceled');
+  });
 });
 
 describe('enqueueA2ATargets (F27 primary path)', () => {

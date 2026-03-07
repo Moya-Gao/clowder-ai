@@ -320,6 +320,7 @@ async function main(): Promise<void> {
     deliveryCursorStore,
     prTrackingStore,
     ...(workflowSopStore ? { workflowSopStore } : {}),
+    queueProcessor,
   });
 
   // Authorization system — 猫猫动态权限 (Redis-backed when available)

@@ -65,6 +65,8 @@ export interface CallbackRoutesOptions {
   featIndexProvider?: () => Promise<FeatIndexEntry[]>;
   /** F073 P1: workflow SOP store for bulletin board */
   workflowSopStore?: import('../domains/cats/services/stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
+  /** Queue auto-dequeue on A2A invocation completion */
+  queueProcessor?: { onInvocationComplete(threadId: string, status: 'succeeded' | 'failed' | 'canceled'): Promise<void> };
 }
 
 const postMessageSchema = callbackAuthSchema.extend({
@@ -157,7 +159,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
   async (app, opts) => {
     const { registry, messageStore, socketManager, taskStore, backlogStore, threadStore, router,
       invocationRecordStore, invocationTracker, deliveryCursorStore, prTrackingStore,
-      featIndexProvider } = opts;
+      featIndexProvider, queueProcessor } = opts;
 
     app.post('/api/callbacks/post-message', async (request, reply) => {
       const parsed = postMessageSchema.safeParse(request.body);
@@ -283,6 +285,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> =
           { router, invocationRecordStore, socketManager,
             ...(invocationTracker ? { invocationTracker } : {}),
             ...(deliveryCursorStore ? { deliveryCursorStore } : {}),
+            ...(queueProcessor ? { queueProcessor } : {}),
             log: app.log },
           { targetCats, content: storedContent, userId: record.userId,
             threadId: effectiveThreadId, triggerMessage: storedMsg,
