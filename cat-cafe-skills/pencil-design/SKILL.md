@@ -20,6 +20,47 @@ Pencil 是装在 **Antigravity IDE** 上的设计扩展。
 
 配置要求：MCP 配置必须加 `--app antigravity`（不是默认 IDE）。
 
+## SOP 位置
+
+```
+feat-lifecycle → Design Gate → **pencil-design** → writing-plans → worktree → tdd
+```
+
+pencil-design 在 **spec 确认后、写代码前**。先把 UX 做对，再动手写代码。
+
+## 🔴 风格一致性门禁（Style Consistency Gate）
+
+**这是最重要的规则。** 在创建任何新设计之前，必须完成以下步骤：
+
+### Step 1: 分析现有 UI
+
+如果要设计的功能是**已有产品的扩展**（如给 Mission Hub 加新 Tab）：
+
+1. **截图现有 UI** — 用 Read 工具查看产品截图，或在浏览器中截图
+2. **提取风格特征** — 记录以下 token：
+   - 配色方案（背景色、主色、强调色）
+   - 布局模式（列表/卡片/详情面板、Tab 结构）
+   - 间距和圆角
+   - 字体层级
+3. **写入设计约束** — 在 batch_design 前明确："延续 X 风格"
+
+### Step 2: 判断设计类型
+
+| 类型 | 做法 | 例子 |
+|------|------|------|
+| **扩展现有产品** | 必须复用现有风格，作为现有界面的自然延伸 | 给 Mission Hub 加 Tab |
+| **全新独立产品** | 可以用 `get_style_guide_tags` + `get_style_guide` 探索新风格 | 新的独立工具 |
+| **重新设计** | 先对比旧设计和新方向，铲屎官确认后再动手 | 产品改版 |
+
+### Step 3: 风格验证
+
+设计完成后，`get_screenshot` 截图，然后**和现有 UI 截图并排对比**：
+- 配色一致？
+- 布局语言一致（Tab/列表/详情面板）？
+- 不会让用户觉得"换了个产品"？
+
+**踩坑教训 (F076)**：给 Mission Hub 做面板时用了深色 command-center 风格，和现有暖色调 Mission Hub 完全不搭，铲屎官原话"不能说一模一样，只能说毫不相关"。被否决后全部重做。
+
 ## 两种模式
 
 ### Mode A：Design — 创建/编辑 .pen 文件
@@ -53,25 +94,36 @@ Pencil 是装在 **Antigravity IDE** 上的设计扩展。
 ```
 设计任务
   ↓
-get_editor_state（了解现状）
+现有 UI 截图分析（扩展型设计必须！）
+  ↓
+get_editor_state（了解画布现状）
+  ↓
+get_style_guide_tags + get_style_guide（仅全新设计）
   ↓
 Mode A: batch_design（分批，≤25 ops/次）
 Mode B: batch_get → 生成 React/Tailwind
   ↓
 get_screenshot（验证）
   ↓
-有问题 → 继续 batch_design 修正
+和现有 UI 对比 → 风格一致？
+  ├─ 不一致 → 修正配色/布局后重新 batch_design
+  └─ 一致 → 请铲屎官/设计负责人 review
+       ├─ 否决 → 记录反馈 → 回到 batch_design 修正
+       └─ 通过 → 如需实现 → worktree → tdd
 ```
 
 ## Common Mistakes
 
 | 错误 | 后果 | 修复 |
 |------|------|------|
+| **🔴 不看现有 UI 就设计** | 风格断裂，被否决重做 | 先截图分析现有风格 |
+| **🔴 做独立 dashboard 而不是集成扩展** | 和产品割裂 | 问清楚是"扩展"还是"全新" |
 | 用 Read/Grep 读 .pen 文件 | 乱码，无法解析 | 只用 Pencil MCP 工具 |
 | batch_design 超过 25 ops | 工具报错 | 拆成多次调用 |
 | MCP 配置未加 `--app antigravity` | 工具不可用 | 加上后等下次激活 |
 | 跨调用复用 binding | binding 失效 | 每次调用重新声明 |
 | `open_document("new")` 后忘记保存 | 内容丢失 | 提醒用户手动 Cmd+S |
+| `get_style_guide` 的 tags 传字符串 | 参数格式错误 | 必须传 JSON 数组 |
 
 ## 和其他 Skill 的区别
 
