@@ -185,6 +185,23 @@ export function useWorkspace() {
     [worktreeId, searchSingle],
   );
 
+  // Reveal file in system file manager (Finder/Explorer)
+  const revealInFinder = useCallback(
+    async (path: string) => {
+      if (!worktreeId) return;
+      try {
+        await apiFetch('/api/workspace/reveal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ worktreeId, path }),
+        });
+      } catch {
+        /* ignore */
+      }
+    },
+    [worktreeId],
+  );
+
   return {
     worktrees,
     worktreeId,
@@ -198,5 +215,6 @@ export function useWorkspace() {
     fetchFile,
     search,
     setSearchResults,
+    revealInFinder,
   };
 }

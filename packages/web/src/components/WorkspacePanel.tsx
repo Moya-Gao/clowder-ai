@@ -104,7 +104,7 @@ const MenuIcon = () => (
 
 /* ── Main panel ──────────────────────────────── */
 export function WorkspacePanel() {
-  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile, fetchTree, fetchWorktrees } = useWorkspace();
+  const { worktrees, worktreeId, tree, file, searchResults, loading, error, search, setSearchResults, fetchFile, fetchTree, fetchWorktrees, revealInFinder } = useWorkspace();
 
   const setWorktreeId = useChatStore((s) => s.setWorkspaceWorktreeId);
   const setOpenFile = useChatStore((s) => s.setWorkspaceOpenFile);
@@ -585,6 +585,14 @@ export function WorkspacePanel() {
                   </button>
                 )}
 
+                <button
+                  type="button"
+                  onClick={() => { if (openFilePath) void revealInFinder(openFilePath); }}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                  title="在 Finder 中显示"
+                >
+                  Finder
+                </button>
                 {canEdit && (
                   <button
                     type="button"
@@ -623,6 +631,28 @@ export function WorkspacePanel() {
                     className="max-w-full max-h-full object-contain rounded"
                   />
                 </div>
+              ) : file.mime.startsWith('audio/') ? (
+                <div className="flex-1 flex flex-col items-center justify-center bg-[#1E1E24] p-6 gap-3">
+                  <span className="text-3xl">🎵</span>
+                  <audio
+                    controls
+                    src={`${API_URL}/api/workspace/file/raw?worktreeId=${encodeURIComponent(worktreeId ?? '')}&path=${encodeURIComponent(file.path)}`}
+                    className="w-full max-w-md"
+                  >
+                    浏览器不支持音频播放
+                  </audio>
+                  <p className="text-[10px] text-gray-500">{file.mime} · {Math.round(file.size / 1024)}KB</p>
+                </div>
+              ) : file.mime.startsWith('video/') ? (
+                <div className="flex-1 flex items-center justify-center bg-[#1E1E24] p-4 overflow-auto">
+                  <video
+                    controls
+                    src={`${API_URL}/api/workspace/file/raw?worktreeId=${encodeURIComponent(worktreeId ?? '')}&path=${encodeURIComponent(file.path)}`}
+                    className="max-w-full max-h-full rounded"
+                  >
+                    浏览器不支持视频播放
+                  </video>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-8 bg-[#1E1E24] text-gray-500 text-xs">
                   <span className="text-2xl mb-2">📄</span>
@@ -630,6 +660,13 @@ export function WorkspacePanel() {
                   <p className="text-[10px] mt-1">
                     {file.mime} · {Math.round(file.size / 1024)}KB
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => void revealInFinder(file.path)}
+                    className="mt-2 px-3 py-1 rounded bg-owner-light/20 text-owner-dark/60 hover:bg-owner-light/40 transition-colors text-[10px]"
+                  >
+                    在 Finder 中打开
+                  </button>
                 </div>
               )
             ) : isMarkdown && markdownRendered && !editMode ? (

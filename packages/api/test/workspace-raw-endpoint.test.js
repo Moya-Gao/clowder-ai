@@ -1,12 +1,12 @@
 /**
- * Integration tests for GET /api/workspace/file/raw — F063 AC-8 image preview
+ * Integration tests for GET /api/workspace/file/raw — F063 AC-8 image preview + Gap 5 media
  *
  * Uses the REAL workspaceRoutes plugin (not a mirror), injecting against
  * the actual production route handler. Test files are created in a temp
  * subdirectory of this worktree and cleaned up after.
  *
  * Security properties verified:
- * 1. Only image/* MIME types served (non-image → 400)
+ * 1. Only media MIME types served (image/audio/video; others → 400)
  * 2. Path traversal/denylist inherited from resolveWorkspacePath
  * 3. Correct Content-Type / Content-Length headers
  * 4. Missing params → 400, nonexistent file → 404
@@ -51,6 +51,9 @@ describe('workspace file/raw endpoint (integration)', () => {
     await writeFile(join(testBase, 'logo.png'), TINY_PNG);
     await writeFile(join(testBase, 'photo.jpg'), TINY_PNG); // fake jpg
     await writeFile(join(testBase, 'code.ts'), 'export {}');
+    // Fake audio/video files (content doesn't matter for MIME routing)
+    await writeFile(join(testBase, 'clip.mp3'), Buffer.from([0xff, 0xfb, 0x90, 0x00]));
+    await writeFile(join(testBase, 'demo.mp4'), Buffer.from([0x00, 0x00, 0x00, 0x1c]));
 
     // Register real workspaceRoutes on a Fastify instance
     app = Fastify();
@@ -94,9 +97,30 @@ describe('workspace file/raw endpoint (integration)', () => {
     assert.equal(res.headers['content-type'], 'image/jpeg');
   });
 
-  // ── Non-image files rejected ──
+  // ── Audio/video files served (Gap 5) ──
 
-  it('rejects non-image files with 400', async () => {
+  it('serves MP3 with correct Content-Type', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/file/raw?worktreeId=${worktreeId}&path=${TEST_DIR}/clip.mp3`,
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['content-type'], 'audio/mpeg');
+    assert.ok(Number(res.headers['content-length']) > 0);
+  });
+
+  it('serves MP4 with correct Content-Type', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/workspace/file/raw?worktreeId=${worktreeId}&path=${TEST_DIR}/demo.mp4`,
+    });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.headers['content-type'], 'video/mp4');
+  });
+
+  // ── Non-media files rejected ──
+
+  it('rejects non-media files with 400', async () => {
     const res = await app.inject({
       method: 'GET',
       url: `/api/workspace/file/raw?worktreeId=${worktreeId}&path=${TEST_DIR}/code.ts`,
@@ -150,5 +174,59 @@ describe('workspace file/raw endpoint (integration)', () => {
       url: `/api/workspace/file/raw?worktreeId=${worktreeId}&path=${TEST_DIR}/missing.png`,
     });
     assert.equal(res.statusCode, 404);
+  });
+});
+
+describe('workspace reveal endpoint', () => {
+  let app;
+  let worktreeId;
+
+  before(async () => {
+    const { workspaceRoutes } = await import('../dist/routes/workspace.js');
+    const { listWorktrees } = await import(
+      '../dist/domains/workspace/workspace-security.js'
+    );
+    const worktrees = await listWorktrees();
+    const wt = worktrees[0];
+    worktreeId = wt.id;
+
+    app = Fastify();
+    await app.register(workspaceRoutes);
+    await app.ready();
+  });
+
+  after(async () => {
+    await app?.close();
+  });
+
+  it('rejects missing worktreeId', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/reveal',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ path: 'README.md' }),
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('rejects missing path', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/reveal',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ worktreeId }),
+    });
+    assert.equal(res.statusCode, 400);
+  });
+
+  it('rejects path traversal', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/reveal',
+      headers: { 'content-type': 'application/json' },
+      payload: JSON.stringify({ worktreeId, path: '../../etc/passwd' }),
+    });
+    // resolveWorkspacePath may return 403 or 404 depending on traversal detection
+    assert.ok([403, 404].includes(res.statusCode));
   });
 });

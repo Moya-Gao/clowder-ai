@@ -9,6 +9,7 @@
  * GET  /api/workspace/diff         — git diff for worktree (changed files + unified diff)
  * POST /api/workspace/linked-roots  — add a linked root (name + path)
  * DELETE /api/workspace/linked-roots — remove a linked root by id
+ * POST /api/workspace/reveal         — open file in system file manager (Finder/Explorer)
  *
  * Edit routes: see workspace-edit.ts
  */
@@ -17,7 +18,7 @@ import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { extname, join, relative } from 'node:path';
+import { dirname, extname, join, relative } from 'node:path';
 import { promisify } from 'node:util';
 import type { FastifyPluginAsync } from 'fastify';
 import {
@@ -59,6 +60,16 @@ const MIME_MAP: Record<string, string> = {
   '.toml': 'text/toml',
   '.sh': 'text/x-shellscript',
   '.py': 'text/x-python',
+  // Audio
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  // Video
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
 };
 
 function guessMime(filepath: string): string {
@@ -183,7 +194,7 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const mime = guessMime(resolved);
-      const isBinary = mime.startsWith('image/');
+      const isBinary = mime.startsWith('image/') || mime.startsWith('audio/') || mime.startsWith('video/');
 
       if (isBinary) {
         return {
@@ -244,13 +255,14 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
       }
 
       const mime = guessMime(resolved);
-      if (!mime.startsWith('image/')) {
+      const isMedia = mime.startsWith('image/') || mime.startsWith('audio/') || mime.startsWith('video/');
+      if (!isMedia) {
         reply.status(400);
-        return { error: 'Raw endpoint only serves image files' };
+        return { error: 'Raw endpoint only serves image, audio, and video files' };
       }
       if (fileStat.size > MAX_IMAGE_SIZE) {
         reply.status(413);
-        return { error: `Image too large (${Math.round(fileStat.size / 1024 / 1024)}MB, max 10MB)` };
+        return { error: `File too large (${Math.round(fileStat.size / 1024 / 1024)}MB, max 10MB)` };
       }
       reply.header('Content-Type', mime);
       reply.header('Content-Length', fileStat.size);
@@ -566,5 +578,43 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
       return { error: 'Linked root not found in config' };
     }
     return { ok: true };
+  });
+
+  // POST /api/workspace/reveal — open file/directory in system file manager
+  app.post<{
+    Body: { worktreeId: string; path: string };
+  }>('/api/workspace/reveal', async (request, reply) => {
+    const { worktreeId, path: filePath } = request.body ?? {};
+    if (!worktreeId || !filePath) {
+      reply.status(400);
+      return { error: 'worktreeId and path required' };
+    }
+    try {
+      const root = await getWorktreeRoot(worktreeId);
+      const resolved = await resolveWorkspacePath(root, filePath);
+      if (process.platform === 'darwin') {
+        // macOS: open -R reveals the file in Finder
+        await execFileAsync('open', ['-R', resolved], { timeout: 5000 });
+      } else if (process.platform === 'win32') {
+        await execFileAsync('explorer', ['/select,', resolved], { timeout: 5000 });
+      } else {
+        // Linux: xdg-open can only open directories, not select files
+        const fileStat = await stat(resolved);
+        const dir = fileStat.isDirectory() ? resolved : dirname(resolved);
+        await execFileAsync('xdg-open', [dir], { timeout: 5000 });
+      }
+      return { ok: true };
+    } catch (e) {
+      if (e instanceof WorkspaceSecurityError) {
+        reply.status(e.code === 'NOT_FOUND' ? 404 : 403);
+        return { error: e.message };
+      }
+      if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+        reply.status(404);
+        return { error: 'File not found' };
+      }
+      reply.status(500);
+      return { error: 'Failed to reveal file' };
+    }
   });
 };
