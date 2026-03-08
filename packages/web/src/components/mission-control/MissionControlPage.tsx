@@ -12,6 +12,7 @@ import { FeatureRowList } from './FeatureRowList';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
 import { ThreadSituationPanel } from './ThreadSituationPanel';
+import { WorkflowSopPanel } from './WorkflowSopPanel';
 
 interface BacklogListResponse {
   items?: BacklogItem[];
@@ -69,7 +70,7 @@ export function MissionControlPage() {
   const [threadCountByFeature, setThreadCountByFeature] = useState<Record<string, number>>({});
   const [threadsByFeatureId, setThreadsByFeatureId] = useState<Record<string, ThreadSituationSummary[]>>({});
   const [threadsLoading, setThreadsLoading] = useState(false);
-  const [rightPanelTab, setRightPanelTab] = useState<'suggestion' | 'threads'>('suggestion');
+  const [rightPanelTab, setRightPanelTab] = useState<'suggestion' | 'sop' | 'threads'>('suggestion');
   const {
     items,
     loading,
@@ -552,6 +553,18 @@ export function MissionControlPage() {
                   <button
                     type="button"
                     className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      rightPanelTab === 'sop'
+                        ? 'border-b-2 border-[#8B6F47] text-[#4B3A2A]'
+                        : 'text-[#9A866F] hover:text-[#6E5A46]'
+                    }`}
+                    onClick={() => setRightPanelTab('sop')}
+                    data-testid="mc-right-tab-sop"
+                  >
+                    SOP
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
                       rightPanelTab === 'threads'
                         ? 'border-b-2 border-[#8B6F47] text-[#4B3A2A]'
                         : 'text-[#9A866F] hover:text-[#6E5A46]'
@@ -580,6 +593,9 @@ export function MissionControlPage() {
                       onReleaseLease={handleReleaseLease}
                       onReclaimLease={handleReclaimLease}
                     />
+                  )}
+                  {rightPanelTab === 'sop' && (
+                    <WorkflowSopPanel backlogItemId={selectedItemId} />
                   )}
                   {rightPanelTab === 'threads' && (
                     <ThreadSituationPanel
