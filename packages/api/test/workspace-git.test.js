@@ -5,7 +5,8 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const { parseGitLog, parseGitStatus, parseGitShow } = await import('../dist/routes/workspace-git.js');
+const { parseGitLog, parseGitStatus, parseGitShow, parseStaleBranches, parseWorktreeHealth, parseRuntimeDrift } =
+  await import('../dist/routes/workspace-git.js');
 
 describe('parseGitLog', () => {
   test('parses NUL-delimited git log output', () => {
@@ -38,7 +39,13 @@ describe('parseGitLog', () => {
 
 describe('parseGitStatus', () => {
   test('categorizes staged/unstaged/untracked', () => {
-    const mockOutput = ['M  staged-file.ts', ' M unstaged-file.ts', '?? new-file.ts', 'A  added-file.ts', 'MM both-file.ts'].join('\n');
+    const mockOutput = [
+      'M  staged-file.ts',
+      ' M unstaged-file.ts',
+      '?? new-file.ts',
+      'A  added-file.ts',
+      'MM both-file.ts',
+    ].join('\n');
     const result = parseGitStatus(mockOutput);
     assert.equal(result.staged.length, 3, 'M, A, MM are staged');
     assert.equal(result.unstaged.length, 2, 'M (unstaged) and MM');
@@ -60,7 +67,11 @@ describe('parseGitStatus', () => {
 
 describe('parseGitShow', () => {
   test('extracts changed files from --stat output', () => {
-    const mockStat = [' src/foo.ts | 12 +++---', ' src/bar.ts |  3 +++', ' 2 files changed, 9 insertions(+), 6 deletions(-)'].join('\n');
+    const mockStat = [
+      ' src/foo.ts | 12 +++---',
+      ' src/bar.ts |  3 +++',
+      ' 2 files changed, 9 insertions(+), 6 deletions(-)',
+    ].join('\n');
     const files = parseGitShow(mockStat);
     assert.equal(files.length, 2);
     assert.equal(files[0].path, 'src/foo.ts');
@@ -71,5 +82,86 @@ describe('parseGitShow', () => {
   test('returns empty for no stat lines', () => {
     assert.deepEqual(parseGitShow('just a commit message'), []);
     assert.deepEqual(parseGitShow(''), []);
+  });
+});
+
+// ── Phase 2: Health Dashboard Parsers ────────────────────────────────
+
+describe('parseStaleBranches', () => {
+  test('identifies merged branches with author and date', () => {
+    const mockOutput = [
+      'feat/f079-voting\x002026-03-05T10:00:00+08:00\x00Alice',
+      'feat/f080-completion\x002026-03-06T12:00:00+08:00\x00Bob',
+      '* main\x002026-03-07T09:00:00+08:00\x00Charlie',
+    ].join('\n');
+    const result = parseStaleBranches(mockOutput);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].name, 'feat/f079-voting');
+    assert.equal(result[0].author, 'Alice');
+    assert.ok(result[0].lastCommitDate);
+  });
+
+  test('returns empty for no merged branches', () => {
+    assert.deepEqual(parseStaleBranches(''), []);
+  });
+
+  test('excludes main, master, develop from stale list', () => {
+    const mockOutput = [
+      'main\x002026-03-07\x00X',
+      'master\x002026-03-07\x00X',
+      'develop\x002026-03-07\x00X',
+      'feat/old\x002026-03-01\x00Y',
+    ].join('\n');
+    const result = parseStaleBranches(mockOutput);
+    assert.equal(result.length, 1);
+    assert.equal(result[0].name, 'feat/old');
+  });
+});
+
+describe('parseWorktreeHealth', () => {
+  test('marks worktrees with merged branches as orphan', () => {
+    const worktreeListOutput = [
+      'worktree /Users/x/cat-cafe',
+      'HEAD abc1234567890123456789012345678901234567',
+      'branch refs/heads/main',
+      '',
+      'worktree /Users/x/cat-cafe-f079',
+      'HEAD def1234567890123456789012345678901234567',
+      'branch refs/heads/feat/f079-voting',
+      '',
+    ].join('\n');
+    const mergedBranches = new Set(['feat/f079-voting']);
+    const result = parseWorktreeHealth(worktreeListOutput, mergedBranches);
+    assert.equal(result.length, 2);
+    assert.equal(result[0].isOrphan, false);
+    assert.equal(result[1].isOrphan, true);
+    assert.equal(result[1].branch, 'feat/f079-voting');
+  });
+
+  test('handles detached HEAD worktrees', () => {
+    const output = ['worktree /Users/x/detached', 'HEAD abc1234567890123456789012345678901234567', 'detached', ''].join(
+      '\n',
+    );
+    const result = parseWorktreeHealth(output, new Set());
+    assert.equal(result.length, 1);
+    assert.equal(result[0].branch, '(detached)');
+    assert.equal(result[0].isOrphan, false);
+  });
+});
+
+describe('parseRuntimeDrift', () => {
+  test('parses rev-list --left-right count output', () => {
+    const result = parseRuntimeDrift('3\t1\n', 'abc12345', 'def67890');
+    assert.equal(result.behindMain, 3);
+    assert.equal(result.aheadOfMain, 1);
+    assert.equal(result.mainHead, 'abc12345');
+    assert.equal(result.runtimeHead, 'def67890');
+    assert.equal(result.available, true);
+  });
+
+  test('returns zero drift when in sync', () => {
+    const result = parseRuntimeDrift('0\t0\n', 'abc', 'abc');
+    assert.equal(result.aheadOfMain, 0);
+    assert.equal(result.behindMain, 0);
   });
 });
