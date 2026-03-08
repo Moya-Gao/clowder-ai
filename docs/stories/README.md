@@ -73,6 +73,7 @@ thread_ids: []             # 关联的 thread ID（可选）
 | `prompt-swap-experiment/` | 提示词对调实验 | 2026-03-03 | opus, gpt52, gemini, gemini25 |
 | `mafia-game-s5/` | 猫猫杀第五届 | 2026-03 | 全员 |
 | `king-election/` | 猫猫国王票选 | 2026-03-03 | 全员 |
+| `mafia-game-highlights/` | 猫猫杀名场面集锦（七届） | 2026-03-08 | 全员 |
 
 ## 脱敏检查清单
 
