@@ -187,4 +187,50 @@ describe('F069 Bug A: read ack thread-switch race guard', () => {
     const body = JSON.parse((ackCalls[0]![1] as { body: string }).body);
     expect(body.upToMessageId).toBe('msg-A-last');
   });
+
+  it('skips synthetic draft-*/summary-* IDs and acks with last real message', async () => {
+    // Messages list ends with synthetic rows — ack should use the real message before them
+    storeState = {
+      currentThreadId: 'thread-A',
+      messages: [
+        { id: 'msg-real-1', type: 'assistant' as const, content: 'hi', timestamp: Date.now(), catId: 'opus' },
+        { id: 'msg-real-2', type: 'assistant' as const, content: 'hey', timestamp: Date.now(), catId: 'opus' },
+        { id: 'draft-inv-123', type: 'assistant' as const, content: '...', timestamp: Date.now(), catId: 'opus' },
+        { id: 'summary-abc', type: 'assistant' as const, content: 'sum', timestamp: Date.now(), catId: 'opus' },
+      ],
+    };
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+
+    const ackCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read'),
+    );
+    expect(ackCalls.length).toBe(1);
+    const body = JSON.parse((ackCalls[0]![1] as { body: string }).body);
+    // Should use msg-real-2, not draft-inv-123 or summary-abc
+    expect(body.upToMessageId).toBe('msg-real-2');
+  });
+
+  it('does not send ack when all messages are synthetic', async () => {
+    storeState = {
+      currentThreadId: 'thread-A',
+      messages: [
+        { id: 'draft-inv-1', type: 'assistant' as const, content: '...', timestamp: Date.now(), catId: 'opus' },
+        { id: 'summary-xyz', type: 'assistant' as const, content: 'sum', timestamp: Date.now(), catId: 'opus' },
+      ],
+    };
+
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+
+    const ackCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read'),
+    );
+    expect(ackCalls.length).toBe(0);
+  });
 });

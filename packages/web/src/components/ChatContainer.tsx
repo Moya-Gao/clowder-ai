@@ -210,15 +210,23 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // effect (above) runs and swaps messages. Without this check, a thread switch
   // sends the OLD thread's lastMessageId to the NEW threadId → 400.
   const storeThreadId = useChatStore((s) => s.currentThreadId);
-  const lastMessageId = messages[messages.length - 1]?.id;
+  // Skip synthetic rows (draft-*, summary-*) — their IDs don't exist in messageStore
+  // and cause the ack PATCH to 400, leaving the read cursor stuck.
+  const lastRealMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const id = messages[i].id;
+      if (!id.startsWith('draft-') && !id.startsWith('summary-')) return id;
+    }
+    return undefined;
+  }, [messages]);
   useEffect(() => {
-    if (!lastMessageId || storeThreadId !== threadId) return;
+    if (!lastRealMessageId || storeThreadId !== threadId) return;
     apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ upToMessageId: lastMessageId }),
+      body: JSON.stringify({ upToMessageId: lastRealMessageId }),
     }).catch((err) => { console.debug('[F069] read ack failed:', err); });
-  }, [threadId, lastMessageId, storeThreadId]);
+  }, [threadId, lastRealMessageId, storeThreadId]);
 
   const handleStop = useCallback((overrideThreadId?: unknown) => {
     const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;
