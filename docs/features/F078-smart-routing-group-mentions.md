@@ -4,11 +4,12 @@ related_features: [F032, F042, F046]
 topics: [routing, mentions, ux]
 doc_kind: spec
 created: 2026-03-07
+completed: 2026-03-07
 ---
 
 # F078: Smart Routing & Group Mentions
 
-## Status: spec
+## Status: done
 
 ## Why
 
@@ -28,16 +29,16 @@ Four routing improvements:
 
 ## Acceptance Criteria
 
-- [ ] AC-1: Message without @mention routes to the cat that most recently replied in the thread
-- [ ] AC-2: New thread without participants defaults to opus (unchanged)
-- [ ] AC-3: `@all` or `@全体` routes to all available cats
-- [ ] AC-4: `@全体布偶猫` / `@all-ragdoll` routes to all ragdoll variants
-- [ ] AC-5: `@全体缅因猫` / `@all-maine-coon` routes to all maine-coon variants
-- [ ] AC-6: `@全体暹罗猫` / `@all-siamese` routes to all siamese variants
-- [ ] AC-7: `@thread` / `@本帖` / `@全体参与者` routes to all thread participants
-- [ ] AC-8: Group mentions respect cat availability (skip unavailable cats)
-- [ ] AC-9: Existing individual @mention behavior unchanged
-- [ ] AC-10: All new patterns use longest-match-first to avoid collisions
+- [x] AC-1: Message without @mention routes to the cat that most recently replied in the thread
+- [x] AC-2: New thread without participants defaults to opus (unchanged)
+- [x] AC-3: `@all` or `@全体` routes to all available cats
+- [x] AC-4: `@全体布偶猫` / `@all-ragdoll` routes to all ragdoll variants
+- [x] AC-5: `@全体缅因猫` / `@all-maine-coon` routes to all maine-coon variants
+- [x] AC-6: `@全体暹罗猫` / `@all-siamese` routes to all siamese variants
+- [x] AC-7: `@thread` / `@本帖` / `@全体参与者` routes to all thread participants
+- [x] AC-8: Group mentions respect cat availability (skip unavailable cats)
+- [x] AC-9: Existing individual @mention behavior unchanged
+- [x] AC-10: All new patterns use longest-match-first + token boundary to avoid collisions
 
 ## Links
 
@@ -48,8 +49,9 @@ Four routing improvements:
 ## Key Decisions
 
 - Group mentions are parsed BEFORE individual mentions (they are longer patterns)
-- `@thread` requires ThreadStore access; if no participants, treated as @all fallback
+- `@thread` requires ThreadStore access; if no participants, falls back to default cat (opus)
 - Breed group patterns derived from `cat-config.json` breeds array (not hardcoded)
+- Token boundary matching prevents substring collisions (e.g. `@allison` ≠ `@all`)
 
 ## Dependencies
 
@@ -73,15 +75,27 @@ Four routing improvements:
 ## Timeline
 
 - 2026-03-07: Kickoff
+- 2026-03-07: Implementation + TDD (16 tests)
+- 2026-03-07: codex local review R1 (P1 substring collision) -> fix -> R2 pass
+- 2026-03-07: PR #276 -> cloud codex review pass -> squash merge (`db432985`)
+- 2026-03-07: gpt52 vision guardian pass (5/5 dimensions)
+- 2026-03-07: Feature closed
 
 ## Requirements Checklist
 
 | # | Requirement | Source | AC | Status |
 |---|------------|--------|-----|--------|
-| R1 | Default to last replier when no @mention | Interview | AC-1 | pending |
-| R2 | New thread defaults to opus | Interview | AC-2 | pending |
-| R3 | @all broadcasts to all cats | Interview | AC-3 | pending |
-| R4 | Per-breed group mentions | Interview | AC-4,5,6 | pending |
-| R5 | @thread mentions all participants | Interview | AC-7 | pending |
-| R6 | Availability filtering | Derived | AC-8 | pending |
-| R7 | No regression on individual mentions | Derived | AC-9,10 | pending |
+| R1 | Default to last replier when no @mention | Interview | AC-1 | done |
+| R2 | New thread defaults to opus | Interview | AC-2 | done |
+| R3 | @all broadcasts to all cats | Interview | AC-3 | done |
+| R4 | Per-breed group mentions | Interview | AC-4,5,6 | done |
+| R5 | @thread mentions all participants | Interview | AC-7 | done |
+| R6 | Availability filtering | Derived | AC-8 | done |
+| R7 | No regression on individual mentions | Derived | AC-9,10 | done |
+
+## Vision Guardian Sign-off
+
+| Cat | Documents Read | Three Questions | Sign-off |
+|-----|---------------|-----------------|----------|
+| opus (self) | VISION.md, F078 spec, plan, AgentRouter.ts, tests | 1. Core problem: no-mention fanout + no group broadcast. 2. Solved: last-replier default + group mentions. 3. UX: natural continuation with explicit broadcast when needed. | Passed |
+| gpt52 (cross-family) | VISION.md, F078 spec, plan, AgentRouter.ts, tests, review mailbox | 5/5 dimensions passed. Non-blocking: spec status drift (fixed). | Passed |
