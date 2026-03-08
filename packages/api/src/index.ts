@@ -402,7 +402,7 @@ async function main(): Promise<void> {
 
   // Voting system (F079)
   const { voteRoutes } = await import('./routes/votes.js');
-  await app.register(voteRoutes, { threadStore, socketManager });
+  await app.register(voteRoutes, { threadStore, socketManager, messageStore });
 
   // Evidence search (Hindsight Recall + docs fallback)
   await app.register(evidenceRoutes, {

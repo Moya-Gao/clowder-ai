@@ -11,14 +11,15 @@ import { useChatCommands } from '../useChatCommands';
 const mocks = vi.hoisted(() => {
   const mockAddMessage = vi.fn();
   const mockApiFetch = vi.fn();
+  const mockSetShowVoteModal = vi.fn();
   const useChatStoreMock = Object.assign(
     () => ({ addMessage: mockAddMessage }),
     {
-      getState: () => ({ currentThreadId: 'thread-1' }),
+      getState: () => ({ currentThreadId: 'thread-1', setShowVoteModal: mockSetShowVoteModal }),
     },
   );
 
-  return { mockAddMessage, mockApiFetch, useChatStoreMock };
+  return { mockAddMessage, mockApiFetch, mockSetShowVoteModal, useChatStoreMock };
 });
 
 vi.mock('@/stores/chatStore', () => ({
@@ -94,6 +95,7 @@ describe('useChatCommands /vote', () => {
     root = createRoot(container);
     mocks.mockAddMessage.mockClear();
     mocks.mockApiFetch.mockReset();
+    mocks.mockSetShowVoteModal.mockClear();
   });
 
   afterEach(() => {
@@ -101,33 +103,17 @@ describe('useChatCommands /vote', () => {
     container.remove();
   });
 
-  it('/vote starts a vote successfully', async () => {
+  it('/vote with args opens vote modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
-
-    mocks.mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 201,
-      json: async () => ({
-        question: '谁最绿茶?',
-        options: ['opus', 'codex'],
-        anonymous: false,
-        deadline: Date.now() + 120000,
-        status: 'active',
-      }),
-    });
 
     const result = await act(async () =>
       processCommand('/vote 谁最绿茶? opus codex'),
     );
 
     expect(result).toBe(true);
-    expect(mocks.mockApiFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/vote/start'),
-      expect.objectContaining({ method: 'POST' }),
-    );
-
-    const msg = getLatestSystemMessage();
-    expect(msg?.content).toContain('投票已发起');
+    expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
+    // No API call — modal handles submission
+    expect(mocks.mockApiFetch).not.toHaveBeenCalled();
   });
 
   it('/vote status shows current vote', async () => {
@@ -158,22 +144,17 @@ describe('useChatCommands /vote', () => {
     expect(msg?.content).toContain('谁最绿茶');
   });
 
-  it('/vote (empty) shows status or help', async () => {
+  it('/vote (empty) opens VoteConfigModal (P1-1 fix)', async () => {
     const processCommand = await setupProcessCommand();
-
-    mocks.mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ vote: null }),
-    });
 
     const result = await act(async () =>
       processCommand('/vote'),
     );
 
     expect(result).toBe(true);
-    const msg = getLatestSystemMessage();
-    expect(msg?.content).toContain('当前没有活跃投票');
+    // Should open modal, NOT query status API
+    expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
+    expect(mocks.mockApiFetch).not.toHaveBeenCalled();
   });
 
   it('/vote cast records a vote', async () => {
@@ -263,42 +244,26 @@ describe('useChatCommands /vote', () => {
     expect(msg?.content).toContain('codex: 1 票');
   });
 
-  it('/vote rejects with too few options', async () => {
+  it('/vote with few args still opens modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
 
     const result = await act(async () =>
-      processCommand('/vote 问题? 只有一个选项'),
+      processCommand('/vote 问题?'),
     );
 
     expect(result).toBe(true);
-    const msg = getLatestSystemMessage();
-    expect(msg?.variant).toBe('error');
-    expect(msg?.content).toContain('用法');
+    expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
   });
 
-  it('/vote with --anonymous flag', async () => {
+  it('/vote with --anonymous flag opens modal (Phase 2)', async () => {
     const processCommand = await setupProcessCommand();
-
-    mocks.mockApiFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 201,
-      json: async () => ({
-        question: '谁最绿茶?',
-        options: ['opus', 'codex'],
-        anonymous: true,
-        deadline: Date.now() + 120000,
-        status: 'active',
-      }),
-    });
 
     await act(async () =>
       processCommand('/vote 谁最绿茶? opus codex --anonymous'),
     );
 
-    const body = JSON.parse(
-      (mocks.mockApiFetch.mock.calls[0] as [string, RequestInit])[1].body as string,
-    );
-    expect(body.anonymous).toBe(true);
+    expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
+    expect(mocks.mockApiFetch).not.toHaveBeenCalled();
   });
 
   it('/vote status anonymous uses voteCount (P1-2 regression)', async () => {
@@ -329,21 +294,14 @@ describe('useChatCommands /vote', () => {
     expect(msg?.content).toContain('匿名');
   });
 
-  it('/vote 409 shows already active message', async () => {
+  it('/vote with start-like args opens modal (409 handled in modal now)', async () => {
     const processCommand = await setupProcessCommand();
-
-    mocks.mockApiFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 409,
-      json: async () => ({ error: '已有活跃投票' }),
-    });
 
     await act(async () =>
       processCommand('/vote 谁最绿茶? opus codex'),
     );
 
-    const msg = getLatestSystemMessage();
-    expect(msg?.variant).toBe('error');
-    expect(msg?.content).toContain('已有活跃投票');
+    // Phase 2: modal handles API calls, so no 409 test here
+    expect(mocks.mockSetShowVoteModal).toHaveBeenCalledWith(true);
   });
 });

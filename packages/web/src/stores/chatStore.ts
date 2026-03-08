@@ -352,6 +352,10 @@ interface ChatState {
   hubState: { open: boolean; tab: string } | null;
   openHub: (tab: string) => void;
   closeHub: () => void;
+
+  // ── F079: Vote modal ──
+  showVoteModal: boolean;
+  setShowVoteModal: (show: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -517,6 +521,8 @@ export const useChatStore = create<ChatState>((set, get) => ({
   hubState: null,
   openHub: (tab) => set({ hubState: { open: true, tab } }),
   closeHub: () => set({ hubState: null }),
+  showVoteModal: false,
+  setShowVoteModal: (show) => set({ showVoteModal: show }),
 
   // ── Active-thread actions ──
 

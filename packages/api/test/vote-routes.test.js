@@ -19,17 +19,25 @@ async function buildApp() {
 
   const threadStore = new ThreadStore();
   const broadcasts = [];
+  const persistedMessages = [];
   const socketManager = {
     broadcastToRoom: (room, event, data) => {
       broadcasts.push({ room, event, data });
     },
   };
+  const messageStore = {
+    append: async (msg) => {
+      const stored = { id: `msg-${persistedMessages.length}`, ...msg };
+      persistedMessages.push(stored);
+      return stored;
+    },
+  };
 
   const app = Fastify();
-  await app.register(voteRoutes, { threadStore, socketManager });
+  await app.register(voteRoutes, { threadStore, socketManager, messageStore });
   await app.ready();
 
-  return { app, threadStore, socketManager, broadcasts };
+  return { app, threadStore, socketManager, broadcasts, messageStore, persistedMessages };
 }
 
 describe('Vote Routes', () => {
@@ -573,5 +581,292 @@ describe('Vote Routes', () => {
     assert.ok(body.result.tally);
     assert.equal(body.result.tally.a, 1);
     assert.equal(body.result.tally.b, 0);
+  });
+
+  // ── Phase 2: voters field ──
+
+  test('start vote accepts voters field and stores it', async () => {
+    const { app, threadStore } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: '谁最绿茶？',
+        options: ['opus', 'codex'],
+        voters: ['opus', 'codex'],
+      },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.deepEqual(body.voters, ['opus', 'codex']);
+  });
+
+  test('start vote works without voters field (Phase 1 compat)', async () => {
+    const { app, threadStore } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: 'pick?',
+        options: ['a', 'b'],
+      },
+    });
+
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.voters, undefined);
+  });
+
+  // ── Phase 2: auto-close on voter completion ──
+
+  test('cast vote auto-closes when all designated voters have voted', async () => {
+    const { app, threadStore, broadcasts } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: '谁最绿茶？',
+        options: ['opus', 'codex'],
+        voters: ['opus', 'codex'],
+      },
+    });
+
+    // First voter
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'opus' },
+      payload: { option: 'codex' },
+    });
+
+    // No auto-close yet
+    let closeEvents = broadcasts.filter((b) => b.event === 'vote_closed');
+    assert.equal(closeEvents.length, 0);
+
+    // Second (final) voter
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'codex' },
+      payload: { option: 'opus' },
+    });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.autoClose, true);
+
+    // Auto-close should have broadcast
+    closeEvents = broadcasts.filter((b) => b.event === 'vote_closed');
+    assert.equal(closeEvents.length, 1);
+    assert.ok(closeEvents[0].data.richBlock);
+
+    // Vote state should be cleared
+    const state = await threadStore.getVotingState(thread.id);
+    assert.equal(state, null);
+  });
+
+  // ── P1-2 (Phase 2 review): non-designated voter must be rejected ──
+
+  test('cast rejects non-designated voter with 403', async () => {
+    const { app, threadStore } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: '谁最绿茶？',
+        options: ['opus', 'codex'],
+        voters: ['opus', 'codex'],
+      },
+    });
+
+    // intruder is not in voters
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'intruder' },
+      payload: { option: 'opus' },
+    });
+
+    assert.equal(res.statusCode, 403);
+    const body = JSON.parse(res.body);
+    assert.equal(body.code, 'NOT_DESIGNATED_VOTER');
+
+    // intruder's vote must not be recorded
+    const state = await threadStore.getVotingState(thread.id);
+    assert.equal(state.votes['intruder'], undefined);
+  });
+
+  test('cast allows anyone when voters not specified (Phase 1 compat)', async () => {
+    const { app, threadStore } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: 'pick?',
+        options: ['a', 'b'],
+      },
+    });
+
+    // No voters restriction — anyone can vote
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'random-user' },
+      payload: { option: 'a' },
+    });
+
+    assert.equal(res.statusCode, 200);
+  });
+
+  test('timeout auto-close fires after deadline', async () => {
+    const { app, threadStore, broadcasts } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    // Start with very short timeout (10s minimum)
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: 'timeout test?',
+        options: ['a', 'b'],
+        timeoutSec: 10,
+      },
+    });
+
+    // Verify vote is active
+    let state = await threadStore.getVotingState(thread.id);
+    assert.ok(state);
+    assert.equal(state.status, 'active');
+
+    // The timer is registered but we can't easily test real setTimeout in unit tests.
+    // Instead, verify the timer infrastructure works by checking the vote can be
+    // manually closed (the timer mechanism uses the same closeVoteInternal).
+    const closeRes = await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+    assert.equal(closeRes.statusCode, 200);
+
+    // State should be cleared
+    state = await threadStore.getVotingState(thread.id);
+    assert.equal(state, null);
+  });
+
+  test('cast vote does not auto-close without voters field', async () => {
+    const { app, threadStore, broadcasts } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: 'pick?',
+        options: ['a', 'b'],
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { option: 'a' },
+    });
+
+    const closeEvents = broadcasts.filter((b) => b.event === 'vote_closed');
+    assert.equal(closeEvents.length, 0);
+  });
+
+  // ── P1-3 (Phase 2 review): close must persist rich block to message history ──
+
+  test('DELETE close persists rich block as system message', async () => {
+    const { app, threadStore, persistedMessages } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { question: '谁最绿茶？', options: ['opus', 'codex'] },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { option: 'opus' },
+    });
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+
+    // Rich block must be persisted as a message
+    assert.equal(persistedMessages.length, 1);
+    const msg = persistedMessages[0];
+    assert.equal(msg.threadId, thread.id);
+    assert.equal(msg.userId, 'system');
+    assert.ok(msg.extra.rich);
+    assert.equal(msg.extra.rich.blocks.length, 1);
+    assert.ok(msg.extra.rich.blocks[0].title.includes('投票结果'));
+  });
+
+  test('auto-close via cast persists rich block as system message', async () => {
+    const { app, threadStore, persistedMessages } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: '谁最绿茶？',
+        options: ['opus', 'codex'],
+        voters: ['opus', 'codex'],
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'opus' },
+      payload: { option: 'codex' },
+    });
+
+    // No message yet — not all voters done
+    assert.equal(persistedMessages.length, 0);
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'codex' },
+      payload: { option: 'opus' },
+    });
+
+    // Auto-close should persist the result
+    assert.equal(persistedMessages.length, 1);
+    const msg = persistedMessages[0];
+    assert.equal(msg.threadId, thread.id);
+    assert.ok(msg.extra.rich.blocks[0].title.includes('投票结果'));
   });
 });

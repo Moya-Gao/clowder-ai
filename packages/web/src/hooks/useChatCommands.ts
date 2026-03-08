@@ -996,7 +996,7 @@ export function useChatCommands() {
         }
 
         // /vote status — query current vote
-        if (voteArgs === 'status' || voteArgs === '') {
+        if (voteArgs === 'status') {
           try {
             const threadId = getThreadId();
             const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote`);
@@ -1042,54 +1042,8 @@ export function useChatCommands() {
           return true;
         }
 
-        // /vote <question> <option1> <option2> [...] [--anonymous] [--timeout N]
-        // Parse: first token = question (quoted or single word), rest = options + flags
-        try {
-          const threadId = getThreadId();
-          const anonymous = voteArgs.includes('--anonymous');
-          const timeoutMatch = voteArgs.match(/--timeout\s+(\d+)/);
-          const timeoutSec = timeoutMatch ? parseInt(timeoutMatch[1], 10) : 120;
-
-          // Remove flags from args
-          const cleanArgs = voteArgs.replace(/--anonymous/g, '').replace(/--timeout\s+\d+/g, '').trim();
-
-          // Parse: "question?" option1 option2 option3
-          // Question ends at '?' or is the first token
-          let question: string;
-          let optionTokens: string[];
-          const questionMarkIdx = cleanArgs.indexOf('?');
-          if (questionMarkIdx >= 0) {
-            question = cleanArgs.slice(0, questionMarkIdx + 1).trim();
-            optionTokens = cleanArgs.slice(questionMarkIdx + 1).trim().split(/\s+/).filter(Boolean);
-          } else {
-            const parts = cleanArgs.split(/\s+/);
-            question = parts[0] ?? '';
-            optionTokens = parts.slice(1);
-          }
-
-          if (!question || optionTokens.length < 2) {
-            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '用法: /vote <问题>? <选项1> <选项2> [...] [--anonymous] [--timeout 秒数]', timestamp: Date.now() });
-            return true;
-          }
-
-          const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question, options: optionTokens, anonymous, timeoutSec }),
-          });
-
-          if (res.status === 409) {
-            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '已有活跃投票，请先 /vote end', timestamp: Date.now() });
-          } else if (!res.ok) {
-            const data = await res.json().catch(() => ({}));
-            throw new Error(data.error ?? `Server error: ${res.status}`);
-          } else {
-            const data = await res.json();
-            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `投票已发起: ${data.question}\n选项: ${data.options.join(' | ')}\n${data.anonymous ? '匿名' : '实名'} | 截止: ${new Date(data.deadline).toLocaleTimeString()}\n\n投票: /vote cast <选项>\n关闭: /vote end`, timestamp: Date.now() });
-          }
-        } catch (err) {
-          addSystemError(`发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
-        }
+        // Phase 2: /vote (no args or with start args) → open VoteConfigModal
+        useChatStore.getState().setShowVoteModal(true);
         return true;
       }
 

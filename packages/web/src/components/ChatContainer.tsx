@@ -35,6 +35,8 @@ import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { ResizeHandle } from './workspace/ResizeHandle';
+import { VoteConfigModal, type VoteConfig } from './VoteConfigModal';
+import { VoteActiveBar } from './VoteActiveBar';
 
 interface ChatContainerProps {
   threadId: string;
@@ -92,6 +94,37 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   } = useChatHistory(threadId);
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
   const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
+
+  // F079: Vote modal
+  const showVoteModal = useChatStore((s) => s.showVoteModal);
+  const setShowVoteModal = useChatStore((s) => s.setShowVoteModal);
+  const { addMessage } = useChatStore();
+  const handleVoteSubmit = useCallback(async (config: VoteConfig) => {
+    setShowVoteModal(false);
+    try {
+      const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config),
+      });
+      if (res.status === 409) {
+        addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '已有活跃投票，请先 /vote end', timestamp: Date.now() });
+        return;
+      }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? `Server error: ${res.status}`);
+      }
+      const data = await res.json();
+      // Build @mention notification message and send as user message to trigger cats
+      const mentions = config.voters.map((v) => `@${v}`).join(' ');
+      const optionList = config.options.map((o) => `• ${o}`).join('\n');
+      const notifyMsg = `${mentions}\n🗳️ 投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
+      handleSend(notifyMsg);
+    } catch (err) {
+      addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: `发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });
+    }
+  }, [threadId, handleSend, setShowVoteModal, addMessage]);
 
   const messageSummary = useMemo(() => {
     const c = { total: messages.length, assistant: 0, system: 0, evidence: 0, followup: 0 };
@@ -372,6 +405,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         )}
 
         <QueuePanel threadId={threadId} />
+        <VoteActiveBar threadId={threadId} onEnd={() => {}} />
 
         <ChatInput
           key={threadId}
@@ -434,6 +468,12 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         messageSummary={messageSummary}
       />
       <CatCafeHub />
+      {showVoteModal && (
+        <VoteConfigModal
+          onSubmit={handleVoteSubmit}
+          onCancel={() => setShowVoteModal(false)}
+        />
+      )}
     </div>
   );
 }

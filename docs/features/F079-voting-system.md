@@ -4,7 +4,7 @@ related_features: [F061]
 topics: [collaboration, play-mode, rich-block, at-cat]
 doc_kind: spec
 created: 2026-03-07
-status: rework
+status: done
 ---
 
 # F079 Voting System (v2 — UX 重写)

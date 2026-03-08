@@ -125,6 +125,8 @@ export interface VotingStateV1 {
   deadline: number;  // timestamp
   createdBy: string;
   status: 'active' | 'closed';
+  /** Phase 2: designated voters (catIds). When set, auto-close when all voted. */
+  voters?: string[];
 }
 
 /**

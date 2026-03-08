@@ -10,13 +10,15 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
-import type { VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import { buildVoteTally, checkVoteCompletion } from '../domains/cats/services/agents/routing/vote-intercept.js';
+import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 
 export interface VoteRoutesOptions {
   threadStore: IThreadStore;
   socketManager: SocketManager;
+  messageStore?: IMessageStore;
 }
 
 const startVoteSchema = z.object({
@@ -24,6 +26,7 @@ const startVoteSchema = z.object({
   options: z.array(z.string().min(1).max(100)).min(2).max(20),
   anonymous: z.boolean().optional().default(false),
   timeoutSec: z.number().int().min(10).max(600).optional().default(120),
+  voters: z.array(z.string().min(1).max(50)).min(1).max(20).optional(),
 });
 
 const castVoteSchema = z.object({
@@ -35,201 +38,343 @@ function resolveUserId(request: { headers: Record<string, string | string[] | un
   return (Array.isArray(header) ? header[0] : header) ?? 'anonymous';
 }
 
+/** Phase 2: In-memory timeout timers. Cleared on close/auto-close. Lost on restart (acceptable). */
+const voteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Close a vote programmatically (timeout or auto-close). */
+async function closeVoteInternal(
+  threadId: string,
+  threadStore: IThreadStore,
+  socketManager: SocketManager,
+  messageStore?: IMessageStore,
+): Promise<void> {
+  const votingState = await threadStore.getVotingState(threadId);
+  if (!votingState || votingState.status !== 'active') return;
+
+  const tally = buildVoteTally(votingState.options, votingState.votes);
+  const totalVotes = Object.values(votingState.votes).length;
+  const fields = votingState.options.map((opt) => ({
+    label: opt,
+    value: `${tally[opt] ?? 0} 票 (${totalVotes > 0 ? Math.round(((tally[opt] ?? 0) / totalVotes) * 100) : 0}%)`,
+  }));
+
+  const publicResult = votingState.anonymous
+    ? { ...votingState, status: 'closed' as const, votes: {} as Record<string, string>, tally }
+    : { ...votingState, status: 'closed' as const, tally };
+
+  const richBlock = {
+    id: `vote-${Date.now()}`,
+    kind: 'card' as const,
+    v: 1 as const,
+    title: `📊 投票结果: ${votingState.question}`,
+    bodyMarkdown: votingState.anonymous ? `匿名投票 · ${totalVotes} 票` : `实名投票 · ${totalVotes} 票`,
+    tone: 'info' as const,
+    fields,
+  };
+
+  await threadStore.updateVotingState(threadId, null);
+  clearVoteTimer(threadId);
+  socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_closed', {
+    threadId,
+    result: publicResult,
+    richBlock,
+  });
+
+  // P1-3 fix: persist rich block as system message so it survives refresh
+  if (messageStore) {
+    try {
+      await messageStore.append({
+        userId: 'system',
+        catId: null,
+        content: `📊 投票结果: ${votingState.question}`,
+        mentions: [],
+        timestamp: Date.now(),
+        threadId,
+        extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+      });
+    } catch (err) {
+      console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+    }
+  }
+}
+
+function clearVoteTimer(threadId: string): void {
+  const timer = voteTimers.get(threadId);
+  if (timer) {
+    clearTimeout(timer);
+    voteTimers.delete(threadId);
+  }
+}
+
 export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opts) => {
-  const { threadStore, socketManager } = opts;
+  const { threadStore, socketManager, messageStore } = opts;
 
   // POST /api/threads/:threadId/vote/start — start a vote
-  app.post<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/vote/start',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const userId = resolveUserId(request);
-      const thread = await threadStore.get(threadId);
-      if (!thread) {
-        reply.status(404);
-        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
-      }
-      if (thread.createdBy !== userId) {
-        reply.status(403);
-        return { error: '无权操作此对话的投票', code: 'FORBIDDEN' };
-      }
+  app.post<{ Params: { threadId: string } }>('/api/threads/:threadId/vote/start', async (request, reply) => {
+    const { threadId } = request.params;
+    const userId = resolveUserId(request);
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+    }
+    if (thread.createdBy !== userId) {
+      reply.status(403);
+      return { error: '无权操作此对话的投票', code: 'FORBIDDEN' };
+    }
 
-      const existing = await threadStore.getVotingState(threadId);
-      if (existing && existing.status === 'active') {
-        reply.status(409);
-        return { error: '已有活跃投票', code: 'VOTE_ALREADY_ACTIVE' };
-      }
+    const existing = await threadStore.getVotingState(threadId);
+    if (existing && existing.status === 'active') {
+      reply.status(409);
+      return { error: '已有活跃投票', code: 'VOTE_ALREADY_ACTIVE' };
+    }
 
-      const parseResult = startVoteSchema.safeParse(request.body);
-      if (!parseResult.success) {
-        reply.status(400);
-        return { error: 'Invalid request', details: parseResult.error.issues };
-      }
+    const parseResult = startVoteSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid request', details: parseResult.error.issues };
+    }
 
-      const { question, options, anonymous, timeoutSec } = parseResult.data;
+    const { question, options, anonymous, timeoutSec, voters } = parseResult.data;
 
-      const votingState: VotingStateV1 = {
-        v: 1,
-        question,
-        options,
-        votes: {},
-        anonymous,
-        deadline: Date.now() + timeoutSec * 1000,
-        createdBy: userId,
-        status: 'active',
-      };
+    const votingState: VotingStateV1 = {
+      v: 1,
+      question,
+      options,
+      votes: {},
+      anonymous,
+      deadline: Date.now() + timeoutSec * 1000,
+      createdBy: userId,
+      status: 'active',
+      ...(voters ? { voters } : {}),
+    };
 
-      await threadStore.updateVotingState(threadId, votingState);
+    await threadStore.updateVotingState(threadId, votingState);
 
-      socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_started', {
-        threadId,
-        votingState,
+    // Phase 2: Register timeout auto-close
+    clearVoteTimer(threadId);
+    const timer = setTimeout(() => {
+      closeVoteInternal(threadId, threadStore, socketManager, messageStore).catch((err) => {
+        console.error(`[votes] Timeout auto-close failed for ${threadId}:`, err);
       });
+    }, timeoutSec * 1000);
+    // unref so timer doesn't keep process alive (important for tests)
+    if (typeof timer === 'object' && 'unref' in timer) timer.unref();
+    voteTimers.set(threadId, timer);
 
-      reply.status(201);
-      return votingState;
-    },
-  );
+    socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_started', {
+      threadId,
+      votingState,
+    });
+
+    reply.status(201);
+    return votingState;
+  });
 
   // POST /api/threads/:threadId/vote — cast a vote
-  app.post<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/vote',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const userId = resolveUserId(request);
-      const thread = await threadStore.get(threadId);
-      if (!thread) {
-        reply.status(404);
-        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
-      }
+  app.post<{ Params: { threadId: string } }>('/api/threads/:threadId/vote', async (request, reply) => {
+    const { threadId } = request.params;
+    const userId = resolveUserId(request);
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+    }
 
-      const votingState = await threadStore.getVotingState(threadId);
-      if (!votingState || votingState.status !== 'active') {
-        reply.status(404);
-        return { error: '当前没有活跃投票', code: 'NO_ACTIVE_VOTE' };
-      }
+    const votingState = await threadStore.getVotingState(threadId);
+    if (!votingState || votingState.status !== 'active') {
+      reply.status(404);
+      return { error: '当前没有活跃投票', code: 'NO_ACTIVE_VOTE' };
+    }
 
-      // Check deadline
-      if (Date.now() > votingState.deadline) {
-        reply.status(410);
-        return { error: '投票已超时', code: 'VOTE_EXPIRED' };
-      }
+    // Check deadline
+    if (Date.now() > votingState.deadline) {
+      reply.status(410);
+      return { error: '投票已超时', code: 'VOTE_EXPIRED' };
+    }
 
-      const parseResult = castVoteSchema.safeParse(request.body);
-      if (!parseResult.success) {
-        reply.status(400);
-        return { error: 'Invalid request', details: parseResult.error.issues };
-      }
+    const parseResult = castVoteSchema.safeParse(request.body);
+    if (!parseResult.success) {
+      reply.status(400);
+      return { error: 'Invalid request', details: parseResult.error.issues };
+    }
 
-      const { option } = parseResult.data;
-      if (!votingState.options.includes(option)) {
-        reply.status(400);
-        return { error: '无效选项', code: 'INVALID_OPTION' };
-      }
+    const { option } = parseResult.data;
+    if (!votingState.options.includes(option)) {
+      reply.status(400);
+      return { error: '无效选项', code: 'INVALID_OPTION' };
+    }
 
-      votingState.votes[userId] = option;
-      await threadStore.updateVotingState(threadId, votingState);
+    // P1-2 fix: enforce voters restriction
+    if (votingState.voters && votingState.voters.length > 0 && !votingState.voters.includes(userId)) {
+      reply.status(403);
+      return { error: '你不在投票人名单中', code: 'NOT_DESIGNATED_VOTER' };
+    }
 
-      const voteCount = Object.keys(votingState.votes).length;
+    votingState.votes[userId] = option;
+    await threadStore.updateVotingState(threadId, votingState);
 
-      if (votingState.anonymous) {
-        // Anonymous: broadcast aggregate only, no identity
-        socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_cast', {
-          threadId,
-          voteCount,
-        });
-        return { ...votingState, votes: {}, voteCount };
-      }
+    const voteCount = Object.keys(votingState.votes).length;
 
+    if (votingState.anonymous) {
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_cast', {
+        threadId,
+        voteCount,
+      });
+    } else {
       socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_cast', {
         threadId,
         userId,
         option,
       });
-      return votingState;
-    },
-  );
+    }
 
-  // GET /api/threads/:threadId/vote — get current vote
-  app.get<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/vote',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const thread = await threadStore.get(threadId);
-      if (!thread) {
-        reply.status(404);
-        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
-      }
-
-      const vote = await threadStore.getVotingState(threadId);
-      if (vote && vote.anonymous) {
-        // Strip voter identities, only show counts
-        return { vote: { ...vote, votes: {}, voteCount: Object.keys(vote.votes).length } };
-      }
-      return { vote };
-    },
-  );
-
-  // DELETE /api/threads/:threadId/vote — close vote
-  app.delete<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/vote',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const userId = resolveUserId(request);
-      const thread = await threadStore.get(threadId);
-      if (!thread) {
-        reply.status(404);
-        return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
-      }
-      if (thread.createdBy !== userId) {
-        reply.status(403);
-        return { error: '无权操作此对话的投票', code: 'FORBIDDEN' };
-      }
-
-      const votingState = await threadStore.getVotingState(threadId);
-      if (!votingState || votingState.status !== 'active') {
-        reply.status(404);
-        return { error: '当前没有活跃投票', code: 'NO_ACTIVE_VOTE' };
-      }
-
-      const result = { ...votingState, status: 'closed' as const };
-      await threadStore.updateVotingState(threadId, null);
-
-      // Build tally for rich block
-      const tally: Record<string, number> = {};
-      for (const opt of result.options) tally[opt] = 0;
-      for (const v of Object.values(result.votes)) tally[v] = (tally[v] ?? 0) + 1;
-
-      const totalVotes = Object.values(result.votes).length;
-      const fields = result.options.map((opt) => ({
+    // Phase 2: Auto-close when all designated voters have voted
+    if (checkVoteCompletion(votingState)) {
+      const tally = buildVoteTally(votingState.options, votingState.votes);
+      const totalVotes = Object.values(votingState.votes).length;
+      const fields = votingState.options.map((opt) => ({
         label: opt,
         value: `${tally[opt] ?? 0} 票 (${totalVotes > 0 ? Math.round(((tally[opt] ?? 0) / totalVotes) * 100) : 0}%)`,
       }));
 
-      // Anonymous: strip voter identities from result, add tally for frontend
-      const publicResult = result.anonymous
-        ? { ...result, votes: {} as Record<string, string>, tally }
-        : { ...result, tally };
+      const closedResult = { ...votingState, status: 'closed' as const };
+      const publicResult = votingState.anonymous
+        ? { ...closedResult, votes: {} as Record<string, string>, tally }
+        : { ...closedResult, tally };
 
       const richBlock = {
         id: `vote-${Date.now()}`,
         kind: 'card' as const,
         v: 1 as const,
-        title: `📊 投票结果: ${result.question}`,
-        bodyMarkdown: result.anonymous
-          ? `匿名投票 · ${totalVotes} 票`
-          : `实名投票 · ${totalVotes} 票`,
+        title: `📊 投票结果: ${votingState.question}`,
+        bodyMarkdown: votingState.anonymous ? `匿名投票 · ${totalVotes} 票` : `实名投票 · ${totalVotes} 票`,
         tone: 'info' as const,
         fields,
       };
 
+      await threadStore.updateVotingState(threadId, null);
+      clearVoteTimer(threadId);
       socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_closed', {
         threadId,
         result: publicResult,
         richBlock,
       });
 
-      return { result: publicResult, richBlock };
-    },
-  );
+      // P1-3 fix: persist rich block on auto-close via cast
+      if (messageStore) {
+        try {
+          await messageStore.append({
+            userId: 'system',
+            catId: null,
+            content: `📊 投票结果: ${votingState.question}`,
+            mentions: [],
+            timestamp: Date.now(),
+            threadId,
+            extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+          });
+        } catch (err) {
+          console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+        }
+      }
+
+      const baseResult = votingState.anonymous ? { ...votingState, votes: {}, voteCount } : votingState;
+      return { ...baseResult, autoClose: true };
+    }
+
+    if (votingState.anonymous) {
+      return { ...votingState, votes: {}, voteCount };
+    }
+    return votingState;
+  });
+
+  // GET /api/threads/:threadId/vote — get current vote
+  app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/vote', async (request, reply) => {
+    const { threadId } = request.params;
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+    }
+
+    const vote = await threadStore.getVotingState(threadId);
+    if (vote?.anonymous) {
+      // Strip voter identities, only show counts
+      return { vote: { ...vote, votes: {}, voteCount: Object.keys(vote.votes).length } };
+    }
+    return { vote };
+  });
+
+  // DELETE /api/threads/:threadId/vote — close vote
+  app.delete<{ Params: { threadId: string } }>('/api/threads/:threadId/vote', async (request, reply) => {
+    const { threadId } = request.params;
+    const userId = resolveUserId(request);
+    const thread = await threadStore.get(threadId);
+    if (!thread) {
+      reply.status(404);
+      return { error: '对话不存在', code: 'THREAD_NOT_FOUND' };
+    }
+    if (thread.createdBy !== userId) {
+      reply.status(403);
+      return { error: '无权操作此对话的投票', code: 'FORBIDDEN' };
+    }
+
+    const votingState = await threadStore.getVotingState(threadId);
+    if (!votingState || votingState.status !== 'active') {
+      reply.status(404);
+      return { error: '当前没有活跃投票', code: 'NO_ACTIVE_VOTE' };
+    }
+
+    const result = { ...votingState, status: 'closed' as const };
+    await threadStore.updateVotingState(threadId, null);
+    clearVoteTimer(threadId);
+
+    const tally = buildVoteTally(result.options, result.votes);
+
+    const totalVotes = Object.values(result.votes).length;
+    const fields = result.options.map((opt) => ({
+      label: opt,
+      value: `${tally[opt] ?? 0} 票 (${totalVotes > 0 ? Math.round(((tally[opt] ?? 0) / totalVotes) * 100) : 0}%)`,
+    }));
+
+    // Anonymous: strip voter identities from result, add tally for frontend
+    const publicResult = result.anonymous
+      ? { ...result, votes: {} as Record<string, string>, tally }
+      : { ...result, tally };
+
+    const richBlock = {
+      id: `vote-${Date.now()}`,
+      kind: 'card' as const,
+      v: 1 as const,
+      title: `📊 投票结果: ${result.question}`,
+      bodyMarkdown: result.anonymous ? `匿名投票 · ${totalVotes} 票` : `实名投票 · ${totalVotes} 票`,
+      tone: 'info' as const,
+      fields,
+    };
+
+    socketManager.broadcastToRoom(`thread:${threadId}`, 'vote_closed', {
+      threadId,
+      result: publicResult,
+      richBlock,
+    });
+
+    // P1-3 fix: persist rich block on manual close
+    if (messageStore) {
+      try {
+        await messageStore.append({
+          userId: 'system',
+          catId: null,
+          content: `📊 投票结果: ${result.question}`,
+          mentions: [],
+          timestamp: Date.now(),
+          threadId,
+          extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+        });
+      } catch (err) {
+        console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
+      }
+    }
+
+    return { result: publicResult, richBlock };
+  });
 };
