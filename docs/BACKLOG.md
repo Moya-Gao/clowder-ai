@@ -44,4 +44,3 @@ created: 2026-02-26
 | F080 | Input History Completion — P1 ghost text + P2 path completion | done | 布偶猫 | [F080](features/F080-input-history-completion.md) |
 | F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |
 | F082 | Git Health Panel — Repo 状态可视化（Git Log + Health Dashboard） | done | 布偶猫 | [F082](features/F082-git-health-panel.md) |
-| F083 | Design Gate + Cloud Reviewer Quota Fallback — SOP 设计确认关卡 | done | 布偶猫 | [F083](features/F083-design-gate-sop.md) |

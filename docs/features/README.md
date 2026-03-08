@@ -58,3 +58,4 @@
 | F046 | F046: 愿景守护协议 — Anti-Drift Protocol | done | [F046-anti-drift-protocol.md](./F046-anti-drift-protocol.md) |
 | F078 | F078: Smart Routing & Group Mentions — 默认最近回复者 + 群组 mention | done | [F078-smart-routing-group-mentions.md](./F078-smart-routing-group-mentions.md) |
 | F068 | F068: 新建对话弹窗 UX 优化 — 目录选择体验重做 | done | [F068-new-thread-dialog-ux.md](./F068-new-thread-dialog-ux.md) |
+| F083 | F083: Design Gate + Cloud Reviewer Quota Fallback | done | [F083-design-gate-sop.md](./F083-design-gate-sop.md) |
