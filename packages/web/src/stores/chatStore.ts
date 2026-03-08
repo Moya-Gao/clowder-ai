@@ -356,6 +356,7 @@ interface ChatState {
   setWorkspaceWorktreeId: (id: string | null) => void;
   setWorkspaceOpenFile: (path: string | null, line?: number | null, worktreeId?: string | null) => void;
   closeWorkspaceTab: (path: string) => void;
+  restoreWorkspaceTabs: (tabs: string[], openFile: string | null) => void;
   setWorkspaceEditToken: (token: string | null, expiresIn?: number) => void;
 
   // ── F63-AC15: Code-to-chat reference ──
@@ -521,6 +522,15 @@ export const useChatStore = create<ChatState>((set, get) => ({
     } else {
       set({ workspaceOpenTabs: newTabs });
     }
+  },
+  restoreWorkspaceTabs: (tabs, openFile) => {
+    set({
+      workspaceOpenTabs: tabs,
+      workspaceOpenFilePath: openFile,
+      workspaceOpenFileLine: null,
+      workspaceEditToken: null,
+      workspaceEditTokenExpiry: null,
+    });
   },
   setWorkspaceEditToken: (token, expiresIn) =>
     set({

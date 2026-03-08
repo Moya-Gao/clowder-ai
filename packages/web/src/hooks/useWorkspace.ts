@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 
@@ -16,6 +16,19 @@ export interface TreeNode {
   path: string;
   type: 'file' | 'directory';
   children?: TreeNode[];
+}
+
+/** Recursively merge lazy-loaded subtree children into the existing tree */
+function mergeSubtree(nodes: TreeNode[], targetPath: string, children: TreeNode[]): TreeNode[] {
+  return nodes.map((node) => {
+    if (node.path === targetPath && node.type === 'directory') {
+      return { ...node, children };
+    }
+    if (node.children && targetPath.startsWith(node.path + '/')) {
+      return { ...node, children: mergeSubtree(node.children, targetPath, children) };
+    }
+    return node;
+  });
 }
 
 export interface FileData {
@@ -107,6 +120,23 @@ export function useWorkspace() {
   useEffect(() => {
     if (worktreeId) fetchTree();
   }, [worktreeId, fetchTree]);
+
+  // Lazy-load subtree for a directory at max depth (children === undefined)
+  const fetchSubtree = useCallback(
+    async (dirPath: string) => {
+      if (!worktreeId) return;
+      try {
+        const params = new URLSearchParams({ worktreeId, path: dirPath, depth: '3' });
+        const res = await apiFetch(`/api/workspace/tree?${params}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const subtreeChildren: TreeNode[] = data.tree ?? [];
+        // Merge subtree into existing tree
+        setTree((prev) => mergeSubtree(prev, dirPath, subtreeChildren));
+      } catch { /* ignore */ }
+    },
+    [worktreeId],
+  );
 
   // Fetch file content
   const fetchFile = useCallback(
@@ -212,6 +242,7 @@ export function useWorkspace() {
     error,
     fetchWorktrees,
     fetchTree,
+    fetchSubtree,
     fetchFile,
     search,
     setSearchResults,

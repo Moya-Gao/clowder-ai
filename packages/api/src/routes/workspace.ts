@@ -108,8 +108,14 @@ async function buildTree(root: string, dirPath: string, depth: number, maxDepth:
     const relPath = relative(root, fullPath);
 
     if (entry.isDirectory()) {
-      const children = await buildTree(root, fullPath, depth + 1, maxDepth);
-      nodes.push({ name: entry.name, path: relPath, type: 'directory', children });
+      if (depth + 1 >= maxDepth) {
+        // At max depth: mark directory as "not loaded" (children: undefined)
+        // so frontend knows to lazy-load on expand
+        nodes.push({ name: entry.name, path: relPath, type: 'directory' });
+      } else {
+        const children = await buildTree(root, fullPath, depth + 1, maxDepth);
+        nodes.push({ name: entry.name, path: relPath, type: 'directory', children });
+      }
     } else {
       nodes.push({ name: entry.name, path: relPath, type: 'file' });
     }

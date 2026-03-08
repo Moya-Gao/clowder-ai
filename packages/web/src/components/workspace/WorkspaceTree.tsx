@@ -213,24 +213,30 @@ function TreeItem({
 
       {isDir && isExpanded && (
         <div className="relative">
-          {node.children?.map((child) => (
-            <TreeItem
-              key={child.path}
-              node={child}
-              depth={depth + 1}
-              onSelect={onSelect}
-              onCite={onCite}
-              expandedPaths={expandedPaths}
-              toggleExpand={toggleExpand}
-              selectedPath={selectedPath}
-              pendingAction={pendingAction}
-              onStartAction={onStartAction}
-              onConfirmAction={onConfirmAction}
-              onCancelAction={onCancelAction}
-              callbacks={callbacks}
-              onDrop={onDrop}
-            />
-          ))}
+          {node.children === undefined ? (
+            <div className="py-1 text-[10px] text-gray-400 animate-pulse" style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}>
+              加载中...
+            </div>
+          ) : (
+            node.children.map((child) => (
+              <TreeItem
+                key={child.path}
+                node={child}
+                depth={depth + 1}
+                onSelect={onSelect}
+                onCite={onCite}
+                expandedPaths={expandedPaths}
+                toggleExpand={toggleExpand}
+                selectedPath={selectedPath}
+                pendingAction={pendingAction}
+                onStartAction={onStartAction}
+                onConfirmAction={onConfirmAction}
+                onCancelAction={onCancelAction}
+                callbacks={callbacks}
+                onDrop={onDrop}
+              />
+            ))
+          )}
         </div>
       )}
     </div>
