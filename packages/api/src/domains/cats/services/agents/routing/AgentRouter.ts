@@ -142,6 +142,8 @@ export interface AgentRouterOptions {
   taskStore?: ITaskStore;
   /** F073 P4: Workflow SOP store for stage hint injection */
   workflowSopStore?: IWorkflowSopStore;
+  /** F070 Phase 3a: Execution digest store for dispatch backflow */
+  executionDigestStore?: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore;
 }
 
 /**
@@ -162,6 +164,7 @@ export class AgentRouter {
   private taskProgressStore: TaskProgressStore | undefined;
   private taskStore: ITaskStore | undefined;
   private workflowSopStore: IWorkflowSopStore | undefined;
+  private executionDigestStore: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -189,6 +192,7 @@ export class AgentRouter {
     this.taskProgressStore = options.taskProgressStore;
     this.taskStore = options.taskStore;
     this.workflowSopStore = options.workflowSopStore;
+    this.executionDigestStore = options.executionDigestStore;
   }
 
   /** Pick a deterministic fallback cat when policy filters out all candidates. */
@@ -520,6 +524,7 @@ export class AgentRouter {
         ...(this.sessionSealer ? { sessionSealer: this.sessionSealer } : {}),
         ...(this.taskStore ? { taskStore: this.taskStore } : {}),
         ...(this.workflowSopStore ? { workflowSopStore: this.workflowSopStore } : {}),
+        ...(this.executionDigestStore ? { executionDigestStore: this.executionDigestStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

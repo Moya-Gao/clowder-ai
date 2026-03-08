@@ -23,6 +23,8 @@ export type {
   BootstrapReport,
   BootstrapAction,
   DispatchMissionPack,
+  DispatchExecutionDigest,
+  DoneWhenResult,
 } from './capability.js';
 // Authorization types (猫猫授权系统)
 export type {

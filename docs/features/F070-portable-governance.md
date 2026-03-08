@@ -8,7 +8,7 @@ created: 2026-03-06
 
 # F070: Portable Governance — 猫咖方法论的可复制输出
 
-> Status: phase-2-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
+> Status: phase-3ac-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
 
 ## Why
 
@@ -136,29 +136,36 @@ managed block 扩充协作方法论段落：
 - 愿景守护协议引用
 - Review 流程引用（不是全文搬入，而是指向 shared-rules.md 和 skills 路由）
 
-### Phase 3: 回流 + 闭环验证（中期）
+### Phase 3: 回流 + 闭环验证
 
 > **一句话**：让猫咖不只"知道同步过没有"，还"知道这次出征带回了什么"。
 
-**3a. 执行结果最小回流**（AC-17）
+**3a. 执行结果最小回流** ✅（AC-17）
 
-- 外部项目执行摘要回流到猫咖可见
-- 最小可交付内容：做了什么 / 改了哪些文件 / 当前状态 / 是否需要 review 或决策
-- Hub 治理看板能展示，不需要铲屎官去翻外部项目日志
-- 技术路径：session digest 写入外部 `.cat-cafe/digests/` + Hub 拉取展示
+| 组件 | 实现 | 文件 |
+|------|------|------|
+| DispatchExecutionDigest | 结构化执行摘要类型 (status/doneWhenResults/filesChanged) | `shared/types/capability.ts` |
+| ExecutionDigestStore | 内存存储 + CRUD | `execution-digest-store.ts` |
+| captureExecutionDigest | 纯函数：mission pack + completion → digest | `execution-digest-capture.ts` |
+| Backflow Hook | invoke-single-cat done handler → best-effort digest capture | `invoke-single-cat.ts` |
+| API Routes | GET /api/execution-digests (?projectPath=, ?threadId=, /:id) | `execution-digests.ts` |
+| Tests | 16 tests (5 store + 5 capture + 6 routes) | `test/execution-digest-*.test.js` |
 
-**3b. 真实出征闭环验证**（AC-11 完整版）
+**3b. 真实出征闭环验证**（AC-11 完整版）— 待出征后验证
 
 - 选一个真实外部项目，刻意按猫咖 SOP 跑完整闭环
 - 验证：feat 立项 → 讨论 → worktree → TDD → quality gate → review → merge
 - 记录卡点，作为后续迭代输入
 - 这是验证任务，不是代码任务
 
-**3c. Mission Hub 跨项目推进**（依赖 F058）
+**3c. Mission Hub 跨项目推进** ✅
 
-- Hub 展示外部项目的派遣进展和任务状态
-- 依赖 F058 Mission Hub 后续 phase
-- F070 只做 governance 层面的数据暴露
+| 组件 | 实现 | 文件 |
+|------|------|------|
+| DispatchProgress | 派遣进展列表 (status badge/doneWhen checklist/files) | `DispatchProgress.tsx` |
+| GovernanceHealth 增强 | 派遣统计 (次数/完成率/标准达成率) | `GovernanceHealth.tsx` |
+| ExternalProjectTab | "派遣进展" sub-tab + digest loading | `ExternalProjectTab.tsx` |
+| Zustand Store | executionDigests + setExecutionDigests | `externalProjectStore.ts` |
 
 ### 原始设计参考（Phase A/B/C → Phase 1/2/3 映射）
 
@@ -202,7 +209,7 @@ managed block 扩充协作方法论段落：
 - [x] AC-16: Bootstrap 结果落盘可回放（做了什么、跳过什么、冲突什么）— **Phase 1 ✅**
 
 ### 回流与闭环 AC（gpt52 P1-3 修复）
-- [ ] AC-17: 外部项目执行结果可回流猫咖追踪（派遣任务状态在 Mission Hub 可见，不需要去外部项目找）— **Phase 3a**
+- [x] AC-17: 外部项目执行结果可回流猫咖追踪（派遣任务状态在 Mission Hub 可见，不需要去外部项目找）— **Phase 3a ✅ + Phase 3c ✅**
 - [x] AC-18: Bootstrap 支持 dry-run 模式 + 回滚清单（已有文件无损策略）— **Phase 1 ✅（dry-run + report 含清单）**
 
 ### 跨 provider AC（gpt52 P2-2 修复）
@@ -247,6 +254,7 @@ managed block 扩充协作方法论段落：
 | 2026-03-07 | Phase 1 完成（PR #265 merged）：治理骨架 + 门禁 + Hub 看板 |
 | 2026-03-07 | 愿景守护（gpt52）+ 后续路线图讨论（opus + gpt52 共识）|
 | 2026-03-07 | Phase 2 完成（PR #274 merged）：任务包注入 + hooks + managed block v1.1.0 |
+| 2026-03-08 | Phase 3a+3c 完成：执行结果回流 + Hub 派遣进展 tab |
 
 ## 需求点 Checklist
 
@@ -268,7 +276,7 @@ managed block 扩充协作方法论段落：
 | R14 | versioned portable pack | AC-14 | done | 1 ✅ |
 | R15 | 派遣注册表审计 | AC-15 | done | 1 ✅ |
 | R16 | Bootstrap 结果落盘 | AC-16 | done | 1 ✅ |
-| R17 | 回流路径（Mission Hub 追踪） | AC-17 | pending | P3a |
+| R17 | 回流路径（Mission Hub 追踪） | AC-17 | done | P3a+3c ✅ |
 | R18 | dry-run + 回滚清单 | AC-18 | done | 1 ✅ |
 | R19 | 跨 provider skills bootstrap | AC-19 | done | 1 ✅ |
 

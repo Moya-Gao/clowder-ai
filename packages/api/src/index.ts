@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes, executionDigestRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -139,6 +139,8 @@ async function main(): Promise<void> {
   const invocationRecordStore = createInvocationRecordStore(redis);
   const draftStore = createDraftStore(redis);
   const readStateStore = createReadStateStore(redis);
+  const { ExecutionDigestStore } = await import('./domains/projects/execution-digest-store.js');
+  const executionDigestStore = new ExecutionDigestStore();
 
   const sessionChainStore = createSessionChainStore(redis);
   // F24: Transcript Writer/Reader for session chain
@@ -243,6 +245,7 @@ async function main(): Promise<void> {
     draftStore,
     taskStore,
     ...(workflowSopStore ? { workflowSopStore } : {}),
+    executionDigestStore,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -369,6 +372,7 @@ async function main(): Promise<void> {
   const intentCardStore = new IntentCardStore();
   const needAuditFrameStore = new NeedAuditFrameStore();
   await app.register(externalProjectRoutes, { externalProjectStore, intentCardStore, needAuditFrameStore, backlogStore });
+  await app.register(executionDigestRoutes, { executionDigestStore });
   if (workflowSopStore) {
     await app.register(workflowSopRoutes, { workflowSopStore, backlogStore });
   }

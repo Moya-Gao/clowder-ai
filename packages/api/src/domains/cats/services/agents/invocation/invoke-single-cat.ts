@@ -77,6 +77,8 @@ export interface InvocationDeps {
   readonly taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
   /** F073 P4: Workflow SOP store for SOP stage hint injection */
   readonly workflowSopStore?: import('../../stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
+  /** F070 Phase 3a: Execution digest store for dispatch backflow */
+  readonly executionDigestStore?: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore;
 }
 
 /**
@@ -328,16 +330,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
     // F070 Phase 2: Inject dispatch mission context for external projects
     let missionPrefix = '';
+    let capturedMissionPack: import('@cat-cafe/shared').DispatchMissionPack | undefined;
     if (workingDirectory && !isSameProject(workingDirectory, findMonorepoRoot(process.cwd())) && threadStore) {
       const thread = await threadStore.get(threadId);
       if (thread) {
         const { buildMissionPack, formatMissionPackPrompt } = await import('../../../../../config/governance/mission-pack.js');
-        const missionPack = buildMissionPack({
+        capturedMissionPack = buildMissionPack({
           title: thread.title ?? undefined,
           phase: thread.phase ?? undefined,
           backlogItemId: thread.backlogItemId ?? undefined,
         });
-        missionPrefix = formatMissionPackPrompt(missionPack);
+        missionPrefix = formatMissionPackPrompt(capturedMissionPack);
       }
     }
 
@@ -501,6 +504,26 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           }),
           timestamp: Date.now(),
         });
+
+        // F070 Phase 3a: Capture execution digest for external project dispatch (best-effort)
+        if (capturedMissionPack && workingDirectory && deps.executionDigestStore) {
+          try {
+            const { captureExecutionDigest } = await import('../../../../../config/governance/execution-digest-capture.js');
+            const digestInput = captureExecutionDigest(
+              capturedMissionPack,
+              {
+                summary: '', // Populated by HandoffDigestGenerator in future enhancement
+                filesChanged: [],
+                blocked: false,
+                hadError: hadStreamError,
+              },
+              { projectPath: workingDirectory, threadId, catId: catId as string, userId },
+            );
+            deps.executionDigestStore.create(digestInput);
+          } catch {
+            /* best-effort: digest capture failure doesn't break invocation */
+          }
+        }
 
         // F8: Push token usage for frontend cost/token display
         if (msg.metadata?.usage) {

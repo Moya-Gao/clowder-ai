@@ -184,6 +184,31 @@ export interface DispatchMissionPack {
   readonly links: readonly string[];
 }
 
+// ─── F070 Phase 3: Execution Backflow Types ─────────────────────────
+
+/** F070 Phase 3: Per-criterion pass/fail result from mission pack evaluation */
+export interface DoneWhenResult {
+  readonly criterion: string;
+  readonly met: boolean;
+  readonly evidence: string;
+}
+
+/** F070 Phase 3: Structured execution result captured after dispatch completion */
+export interface DispatchExecutionDigest {
+  readonly id: string;
+  readonly userId: string;
+  readonly projectPath: string;
+  readonly threadId: string;
+  readonly catId: string;
+  readonly missionPack: DispatchMissionPack;
+  readonly completedAt: number;
+  readonly summary: string;
+  readonly filesChanged: readonly string[];
+  readonly status: 'completed' | 'partial' | 'blocked';
+  readonly doneWhenResults: readonly DoneWhenResult[];
+  readonly nextSteps: readonly string[];
+}
+
 /** PATCH request body for toggling capabilities */
 export interface CapabilityPatchRequest {
   /** Capability ID to modify */

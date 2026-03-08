@@ -1,9 +1,10 @@
 'use client';
 
-import type { IntentCard, SourceTag, TriageBucket } from '@cat-cafe/shared';
+import type { DispatchExecutionDigest, IntentCard, SourceTag, TriageBucket } from '@cat-cafe/shared';
 
 interface GovernanceHealthProps {
   cards: IntentCard[];
+  digests?: DispatchExecutionDigest[];
 }
 
 const BUCKET_ORDER: TriageBucket[] = ['build_now', 'clarify_first', 'validate_first', 'challenge', 'later'];
@@ -27,7 +28,7 @@ const SOURCE_COLORS: Record<SourceTag, string> = {
   Q: 'bg-blue-400', O: 'bg-green-400', D: 'bg-purple-400', R: 'bg-teal-400', A: 'bg-red-400',
 };
 
-export function GovernanceHealth({ cards }: GovernanceHealthProps) {
+export function GovernanceHealth({ cards, digests = [] }: GovernanceHealthProps) {
   const total = cards.length;
   const triaged = cards.filter((c) => c.triage).length;
   const bucketCounts = BUCKET_ORDER.map((b) => ({
@@ -118,6 +119,34 @@ export function GovernanceHealth({ cards }: GovernanceHealthProps) {
                 <span className="font-medium text-red-600">{count}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dispatch stats (F070 Phase 3c) */}
+      {digests.length > 0 && (
+        <div className="rounded-lg border border-[#E7DAC7] bg-[#FFFDF8] p-3">
+          <div className="mb-2 text-[10px] font-semibold uppercase text-[#9A866F]">Dispatch Stats</div>
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard
+              label="派遣次数"
+              value={String(digests.length)}
+              sub="total"
+            />
+            <StatCard
+              label="完成率"
+              value={`${Math.round((digests.filter((d) => d.status === 'completed').length / digests.length) * 100)}%`}
+              sub={`${digests.filter((d) => d.status === 'completed').length}/${digests.length}`}
+            />
+            <StatCard
+              label="标准达成"
+              value={(() => {
+                const allResults = digests.flatMap((d) => d.doneWhenResults);
+                if (allResults.length === 0) return '—';
+                return `${Math.round((allResults.filter((r) => r.met).length / allResults.length) * 100)}%`;
+              })()}
+              sub="doneWhen"
+            />
           </div>
         </div>
       )}

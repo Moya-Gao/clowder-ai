@@ -1,23 +1,24 @@
 'use client';
 
-import type { BacklogItem, ExternalProject, IntentCard, NeedAuditFrame as NeedAuditFrameType } from '@cat-cafe/shared';
+import type { BacklogItem, DispatchExecutionDigest, ExternalProject, IntentCard, NeedAuditFrame as NeedAuditFrameType } from '@cat-cafe/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useExternalProjectStore } from '@/stores/externalProjectStore';
 import { apiFetch } from '@/utils/api-client';
 import { CreateIntentCardForm } from './CreateIntentCardForm';
+import { DispatchProgress } from './DispatchProgress';
 import { GovernanceHealth } from './GovernanceHealth';
 import { IntentCardDetail } from './IntentCardDetail';
 import { NeedAuditFrame } from './NeedAuditFrame';
 import { TranslationMatrix } from './TranslationMatrix';
 
-type SubTab = 'features' | 'audit' | 'health';
+type SubTab = 'features' | 'audit' | 'health' | 'progress';
 
 interface ExternalProjectTabProps {
   project: ExternalProject;
 }
 
 export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
-  const { intentCards, auditFrame, setIntentCards, setAuditFrame, setLoading } = useExternalProjectStore();
+  const { intentCards, auditFrame, executionDigests, setIntentCards, setAuditFrame, setExecutionDigests, setLoading } = useExternalProjectStore();
   const [subTab, setSubTab] = useState<SubTab>('audit');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -29,14 +30,16 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
     let cancelled = false;
     setIntentCards([]);
     setAuditFrame(null);
+    setExecutionDigests([]);
     setProjectItems([]);
     setLoading(true);
 
     const load = async () => {
-      const [cardsRes, frameRes, itemsRes] = await Promise.allSettled([
+      const [cardsRes, frameRes, itemsRes, digestsRes] = await Promise.allSettled([
         apiFetch(`/api/external-projects/${project.id}/intent-cards`),
         apiFetch(`/api/external-projects/${project.id}/frame`),
         apiFetch(`/api/backlog/items?projectId=${project.id}`),
+        apiFetch(`/api/execution-digests?projectPath=${encodeURIComponent(project.sourcePath)}`),
       ]);
       if (cancelled) return;
 
@@ -52,11 +55,15 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
         const body = await itemsRes.value.json() as { items: BacklogItem[] };
         if (!cancelled) setProjectItems(body.items);
       }
+      if (digestsRes.status === 'fulfilled' && digestsRes.value.ok) {
+        const body = await digestsRes.value.json() as { digests: DispatchExecutionDigest[] };
+        if (!cancelled) setExecutionDigests(body.digests);
+      }
       if (!cancelled) setLoading(false);
     };
     void load();
     return () => { cancelled = true; };
-  }, [project.id, setIntentCards, setAuditFrame, setLoading]);
+  }, [project.id, setIntentCards, setAuditFrame, setExecutionDigests, setLoading]);
 
   const reloadProjectItems = useCallback(async () => {
     try {
@@ -110,6 +117,7 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
     { id: 'audit', label: '需求追踪' },
     { id: 'health', label: '治理健康度' },
     { id: 'features', label: '功能列表' },
+    { id: 'progress', label: '派遣进展' },
   ];
 
   return (
@@ -182,7 +190,9 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
               </>
             )}
 
-            {subTab === 'health' && <GovernanceHealth cards={intentCards} />}
+            {subTab === 'health' && <GovernanceHealth cards={intentCards} digests={executionDigests} />}
+
+            {subTab === 'progress' && <DispatchProgress digests={executionDigests} />}
 
             {subTab === 'features' && (
               projectItems.length === 0 ? (
