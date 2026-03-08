@@ -7,7 +7,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { readdir, realpath, stat } from 'node:fs/promises';
-import { resolve, basename } from 'node:path';
+import { resolve, basename, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -90,6 +90,68 @@ export const projectsRoutes: FastifyPluginAsync = async (app) => {
       };
     }
     return { path: validated, name: basename(validated) };
+  });
+
+  // GET /api/projects/complete?prefix=src/comp&cwd=/path/to/project&limit=10
+  app.get('/api/projects/complete', async (request, reply) => {
+    const query = request.query as { prefix?: string; cwd?: string; limit?: string };
+    if (!query.prefix && query.prefix !== '') {
+      reply.status(400);
+      return { error: 'prefix parameter is required' };
+    }
+    const prefix = query.prefix;
+    const limit = Math.min(Math.max(parseInt(query.limit || '10', 10) || 10, 1), 50);
+
+    // Resolve prefix: expand ~ to homedir, then resolve relative paths
+    const cwd = query.cwd || process.cwd();
+    const expandedPrefix = prefix.startsWith('~/') ? homedir() + prefix.slice(1) : prefix;
+    const absPrefix = resolve(cwd, expandedPrefix);
+
+    // Split into parent directory + name fragment
+    const parentDir = prefix.endsWith('/') ? absPrefix : dirname(absPrefix);
+    const fragment = prefix.endsWith('/') ? '' : basename(absPrefix);
+
+    // Validate parent directory
+    const validatedParent = await validateProjectPath(parentDir);
+    if (!validatedParent) {
+      reply.status(403);
+      return { error: 'Access denied: path is outside allowed roots' };
+    }
+
+    try {
+      const entries = await readdir(validatedParent, { withFileTypes: true });
+      const results: ProjectEntry[] = [];
+
+      for (const entry of entries) {
+        if (entry.name.startsWith('.')) continue;
+        if (entry.name === 'node_modules') continue;
+        if (fragment && !entry.name.startsWith(fragment)) continue;
+
+        const childPath = resolve(validatedParent, entry.name);
+        try {
+          const childReal = await realpath(childPath);
+          if (!isUnderAllowedRoot(childReal)) continue;
+          const isDir = entry.isDirectory();
+          results.push({
+            name: isDir ? `${entry.name}/` : entry.name,
+            path: childReal,
+            isDirectory: isDir,
+          });
+        } catch {
+          continue;
+        }
+      }
+
+      // Sort: directories first, then alphabetically within each group
+      results.sort((a, b) => {
+        if (a.isDirectory !== b.isDirectory) return a.isDirectory ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      return { entries: results.slice(0, limit) };
+    } catch {
+      return { entries: [] };
+    }
   });
 
   // GET /api/projects/browse?path=/some/dir - list subdirectories

@@ -7,9 +7,11 @@ import type { DeliveryMode } from '@/stores/chat-types';
 import { useChatStore } from '@/stores/chatStore';
 import { useInputHistoryStore } from '@/stores/inputHistoryStore';
 import { compressImage } from '@/utils/compressImage';
+import { usePathCompletion } from '@/hooks/usePathCompletion';
 import { ChatInputActionButton } from './ChatInputActionButton';
 import { ChatInputMenus } from './ChatInputMenus';
 import { HistorySearchModal } from './HistorySearchModal';
+import { PathCompletionMenu } from './PathCompletionMenu';
 import {
   buildCatOptions,
   buildWhisperOptions,
@@ -107,6 +109,9 @@ export function ChatInput({
 
   const addHistoryEntry = useInputHistoryStore((s) => s.addEntry);
   const findHistoryMatch = useInputHistoryStore((s) => s.findMatch);
+
+  // F080-P2: path completion
+  const pathCompletion = usePathCompletion(input);
 
   const doSend = useCallback(
     (deliveryMode?: DeliveryMode) => {
@@ -249,6 +254,36 @@ export function ChatInput({
       if (e.key === 'Escape') {
         e.preventDefault();
         closeMenus();
+        return;
+      }
+    }
+
+    // F080-P2: path completion menu keyboard navigation
+    if (pathCompletion.isOpen) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        pathCompletion.setSelectedIdx((pathCompletion.selectedIdx + 1) % pathCompletion.entries.length);
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        pathCompletion.setSelectedIdx(
+          (pathCompletion.selectedIdx - 1 + pathCompletion.entries.length) % pathCompletion.entries.length,
+        );
+        return;
+      }
+      if (e.key === 'Tab' || e.key === 'Enter') {
+        e.preventDefault();
+        const entry = pathCompletion.entries[pathCompletion.selectedIdx];
+        if (entry) {
+          const newText = pathCompletion.selectEntry(entry);
+          setInput(newText);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        pathCompletion.close();
         return;
       }
     }
@@ -428,6 +463,19 @@ export function ChatInput({
         </div>
       )}
 
+      {pathCompletion.isOpen && !activeMenu && (
+        <PathCompletionMenu
+          entries={pathCompletion.entries}
+          selectedIdx={pathCompletion.selectedIdx}
+          onSelectIdx={pathCompletion.setSelectedIdx}
+          onSelect={(entry) => {
+            const newText = pathCompletion.selectEntry(entry);
+            setInput(newText);
+            setTimeout(() => textareaRef.current?.focus(), 0);
+          }}
+        />
+      )}
+
       <ChatInputMenus
         catOptions={filteredCatOptions}
         showMentions={showMentions}
@@ -584,7 +632,7 @@ export function ChatInput({
             rows={1}
             disabled={disabled}
           />
-          {ghostSuggestion && (
+          {ghostSuggestion && !pathCompletion.isOpen && (
             <div
               data-testid="ghost-suggestion"
               className="absolute inset-0 pointer-events-none p-3 text-sm whitespace-pre-wrap break-words overflow-hidden rounded-xl"
