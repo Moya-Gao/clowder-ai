@@ -957,6 +957,142 @@ export function useChatCommands() {
         return true;
       }
 
+      // ── /vote — F079 Voting System ──
+      if (isCommandInvocation(trimmed, '/vote')) {
+        const voteArgs = trimmed.slice('/vote'.length).trim();
+
+        addMessage({
+          id: `user-${Date.now()}`,
+          type: 'user',
+          content: trimmed,
+          timestamp: Date.now(),
+        });
+
+        // /vote end — close current vote
+        if (voteArgs === 'end' || voteArgs === 'close') {
+          try {
+            const threadId = getThreadId();
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote`, {
+              method: 'DELETE',
+            });
+            if (res.status === 404) {
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票', timestamp: Date.now() });
+            } else if (!res.ok) {
+              throw new Error(`Server error: ${res.status}`);
+            } else {
+              const data = await res.json();
+              const r = data.result;
+              // Use backend tally (works for both anonymous and named votes)
+              const tallyObj = r.tally as Record<string, number> | undefined;
+              const tallyText = tallyObj
+                ? Object.entries(tallyObj).map(([opt, count]) => `  ${opt}: ${count} 票`).join('\n')
+                : '  (无投票)';
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `投票已结束: ${r.question}\n${tallyText}`, timestamp: Date.now() });
+            }
+          } catch (err) {
+            addSystemError(`投票操作失败: ${err instanceof Error ? err.message : 'Unknown'}`);
+          }
+          return true;
+        }
+
+        // /vote status — query current vote
+        if (voteArgs === 'status' || voteArgs === '') {
+          try {
+            const threadId = getThreadId();
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote`);
+            if (!res.ok) throw new Error(`Server error: ${res.status}`);
+            const data = await res.json();
+            if (data.vote) {
+              const v = data.vote;
+              // Use voteCount from backend (anonymous) or compute from votes (named)
+              const voteCount = v.voteCount ?? Object.keys(v.votes).length;
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `当前投票: ${v.question}\n选项: ${v.options.join(' | ')}\n已投: ${voteCount} 票 | ${v.anonymous ? '匿名' : '实名'}\n截止: ${new Date(v.deadline).toLocaleTimeString()}`, timestamp: Date.now() });
+            } else {
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票\n用法: /vote <问题> <选项1> <选项2> [--anonymous] [--timeout 120]', timestamp: Date.now() });
+            }
+          } catch (err) {
+            addSystemError(`查询投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
+          }
+          return true;
+        }
+
+        // /vote cast <option> — cast a vote
+        if (voteArgs.startsWith('cast ')) {
+          const option = voteArgs.slice('cast '.length).trim();
+          try {
+            const threadId = getThreadId();
+            const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ option }),
+            });
+            if (res.status === 404) {
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: '当前没有活跃投票', timestamp: Date.now() });
+            } else if (res.status === 400) {
+              const data = await res.json();
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: `投票失败: ${data.error ?? '无效选项'}`, timestamp: Date.now() });
+            } else if (!res.ok) {
+              throw new Error(`Server error: ${res.status}`);
+            } else {
+              addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `已投票: ${option}`, timestamp: Date.now() });
+            }
+          } catch (err) {
+            addSystemError(`投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
+          }
+          return true;
+        }
+
+        // /vote <question> <option1> <option2> [...] [--anonymous] [--timeout N]
+        // Parse: first token = question (quoted or single word), rest = options + flags
+        try {
+          const threadId = getThreadId();
+          const anonymous = voteArgs.includes('--anonymous');
+          const timeoutMatch = voteArgs.match(/--timeout\s+(\d+)/);
+          const timeoutSec = timeoutMatch ? parseInt(timeoutMatch[1], 10) : 120;
+
+          // Remove flags from args
+          const cleanArgs = voteArgs.replace(/--anonymous/g, '').replace(/--timeout\s+\d+/g, '').trim();
+
+          // Parse: "question?" option1 option2 option3
+          // Question ends at '?' or is the first token
+          let question: string;
+          let optionTokens: string[];
+          const questionMarkIdx = cleanArgs.indexOf('?');
+          if (questionMarkIdx >= 0) {
+            question = cleanArgs.slice(0, questionMarkIdx + 1).trim();
+            optionTokens = cleanArgs.slice(questionMarkIdx + 1).trim().split(/\s+/).filter(Boolean);
+          } else {
+            const parts = cleanArgs.split(/\s+/);
+            question = parts[0] ?? '';
+            optionTokens = parts.slice(1);
+          }
+
+          if (!question || optionTokens.length < 2) {
+            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '用法: /vote <问题>? <选项1> <选项2> [...] [--anonymous] [--timeout 秒数]', timestamp: Date.now() });
+            return true;
+          }
+
+          const res = await apiFetch(`/api/threads/${encodeURIComponent(threadId)}/vote/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ question, options: optionTokens, anonymous, timeoutSec }),
+          });
+
+          if (res.status === 409) {
+            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: '已有活跃投票，请先 /vote end', timestamp: Date.now() });
+          } else if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            throw new Error(data.error ?? `Server error: ${res.status}`);
+          } else {
+            const data = await res.json();
+            addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'info', content: `投票已发起: ${data.question}\n选项: ${data.options.join(' | ')}\n${data.anonymous ? '匿名' : '实名'} | 截止: ${new Date(data.deadline).toLocaleTimeString()}\n\n投票: /vote cast <选项>\n关闭: /vote end`, timestamp: Date.now() });
+          }
+        } catch (err) {
+          addSystemError(`发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`);
+        }
+        return true;
+      }
+
       return false;
     },
     [addMessage, mentionResolver, cats]

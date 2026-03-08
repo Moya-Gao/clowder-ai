@@ -111,6 +111,20 @@ export interface Thread {
   routingPolicy?: ThreadRoutingPolicyV1;
   /** F065 Phase B: Rolling memory across sealed sessions */
   threadMemory?: ThreadMemoryV1;
+  /** F079: Active voting state */
+  votingState?: VotingStateV1;
+}
+
+/** F079: Voting state stored in thread metadata */
+export interface VotingStateV1 {
+  v: 1;
+  question: string;
+  options: string[];
+  votes: Record<string, string>;  // catId/userId -> option
+  anonymous: boolean;
+  deadline: number;  // timestamp
+  createdBy: string;
+  status: 'active' | 'closed';
 }
 
 /**
@@ -154,6 +168,9 @@ export interface IThreadStore {
   getThreadMemory(threadId: string): ThreadMemoryV1 | null | Promise<ThreadMemoryV1 | null>;
   /** F065 Phase B: Update thread memory after session seal. */
   updateThreadMemory(threadId: string, memory: ThreadMemoryV1): void | Promise<void>;
+  /** F079: Get/update voting state */
+  getVotingState(threadId: string): VotingStateV1 | null | Promise<VotingStateV1 | null>;
+  updateVotingState(threadId: string, state: VotingStateV1 | null): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -401,6 +418,21 @@ export class ThreadStore implements IThreadStore {
   updateThreadMemory(threadId: string, memory: ThreadMemoryV1): void {
     const thread = this.get(threadId);
     if (thread) thread.threadMemory = memory;
+  }
+
+  getVotingState(threadId: string): VotingStateV1 | null {
+    const thread = this.get(threadId);
+    return thread?.votingState ?? null;
+  }
+
+  updateVotingState(threadId: string, state: VotingStateV1 | null): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    if (state === null) {
+      delete thread.votingState;
+    } else {
+      thread.votingState = state;
+    }
   }
 
   updateLastActive(threadId: string): void {

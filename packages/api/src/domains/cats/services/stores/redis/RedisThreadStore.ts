@@ -23,6 +23,7 @@ import type {
   ThreadMentionRoutingFeedback,
   ThreadRoutingPolicyV1,
   ThreadMemoryV1,
+  VotingStateV1,
 } from '../ports/ThreadStore.js';
 import { ThreadKeys } from '../redis-keys/thread-keys.js';
 
@@ -416,6 +417,39 @@ export class RedisThreadStore implements IThreadStore {
       'threadMemory',
       JSON.stringify(memory),
     );
+  }
+
+  async getVotingState(threadId: string): Promise<VotingStateV1 | null> {
+    const key = ThreadKeys.detail(threadId);
+    const raw = await this.redis.hget(key, 'votingState');
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as VotingStateV1;
+    } catch {
+      return null;
+    }
+  }
+
+  async updateVotingState(threadId: string, state: VotingStateV1 | null): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (state === null) {
+      await this.redis.eval(
+        HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'votingState',
+        '',
+      );
+      await this.redis.hdel(key, 'votingState');
+    } else {
+      await this.redis.eval(
+        HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'votingState',
+        JSON.stringify(state),
+      );
+    }
   }
 
   async updateLastActive(threadId: string): Promise<void> {

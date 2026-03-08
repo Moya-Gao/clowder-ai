@@ -399,6 +399,10 @@ async function main(): Promise<void> {
   // Mode system (F11)
   await app.register(modesRoutes, { modeStore, threadStore, socketManager });
 
+  // Voting system (F079)
+  const { voteRoutes } = await import('./routes/votes.js');
+  await app.register(voteRoutes, { threadStore, socketManager });
+
   // Evidence search (Hindsight Recall + docs fallback)
   await app.register(evidenceRoutes, {
     hindsightClient,

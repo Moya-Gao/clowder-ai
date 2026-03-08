@@ -40,6 +40,6 @@ created: 2026-02-26
 | F075 | 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | spec | 布偶猫 | [F075](features/F075-cat-leaderboard.md) |
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | discussing | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
-| F079 | Voting System — /vote 投票 + 系统汇总 + rich block 展示 | spec | 布偶猫 | [F079](features/F079-voting-system.md) |
+| F079 | Voting System — /vote 投票 + 系统汇总 + rich block 展示 | done | 布偶猫 | [F079](features/F079-voting-system.md) |
 | F080 | Input History Completion — P1 ghost text + P2 path completion | done | 布偶猫 | [F080](features/F080-input-history-completion.md) |
 | F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |

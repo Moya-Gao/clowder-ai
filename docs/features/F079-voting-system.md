@@ -4,7 +4,7 @@ related_features: []
 topics: [collaboration, play-mode, rich-block]
 doc_kind: spec
 created: 2026-03-07
-status: spec
+status: done
 ---
 
 # F079 Voting System
