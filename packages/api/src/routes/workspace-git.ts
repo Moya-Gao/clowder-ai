@@ -180,7 +180,9 @@ async function detectRuntimeDrift(repoRoot: string): Promise<RuntimeDrift | null
   const runtimePath = process.env['RUNTIME_REPO_PATH'];
   if (!runtimePath) return null;
   try {
-    const { stdout: mainRef } = await execFileAsync('git', ['rev-parse', '--short', 'HEAD'], {
+    // Always compare against main, not HEAD — HEAD varies per worktree (VG-1 P1 fix)
+    const mainBranch = 'refs/heads/main';
+    const { stdout: mainRef } = await execFileAsync('git', ['rev-parse', '--short', mainBranch], {
       cwd: repoRoot,
       timeout: 3000,
     });
@@ -190,14 +192,15 @@ async function detectRuntimeDrift(repoRoot: string): Promise<RuntimeDrift | null
     });
     const { stdout: drift } = await execFileAsync(
       'git',
-      ['rev-list', '--left-right', '--count', `HEAD...${rtRef.trim()}`],
+      ['rev-list', '--left-right', '--count', `${mainBranch}...${rtRef.trim()}`],
       { cwd: repoRoot, timeout: 5000 },
     );
     // Fetch commits that main has but runtime doesn't (behind commits)
-    const { stdout: logOut } = await execFileAsync('git', ['log', '--oneline', '-n', '20', `${rtRef.trim()}..HEAD`], {
-      cwd: repoRoot,
-      timeout: 5000,
-    });
+    const { stdout: logOut } = await execFileAsync(
+      'git',
+      ['log', '--oneline', '-n', '20', `${rtRef.trim()}..${mainBranch}`],
+      { cwd: repoRoot, timeout: 5000 },
+    );
     const behindCommits = parseDriftCommits(logOut);
     return parseRuntimeDrift(drift, mainRef.trim(), rtRef.trim(), behindCommits);
   } catch {
