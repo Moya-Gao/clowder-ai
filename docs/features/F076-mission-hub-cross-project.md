@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎
 
-> Status: discussing | Owner: 布偶猫 | Evolved from: F049(Mission Control MVP) + F058(Mission Hub 增强) + F070(Portable Governance)
+> Status: phase-1-done | Owner: 布偶猫 | Evolved from: F049(Mission Control MVP) + F058(Mission Hub 增强) + F070(Portable Governance)
 
 ## Why
 
@@ -164,12 +164,12 @@ Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → M
 
 ## Acceptance Criteria
 
-- [ ] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果
-- [ ] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示
-- [ ] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板
-- [ ] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试
-- [ ] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3
-- [ ] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链
+- [x] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果 — **Phase 1 部分完成 (Stage 0-2)**: Intent Card CRUD + computeBucket 5维评分 + A-tag 硬门禁 + NeedAuditFrame Stage 0。Stage 3 (Resolution Design) 待 Phase 2
+- [x] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示 — **Phase 1 ✅ (PR #304)**: TranslationMatrix 组件 + bucket filter + summary stats
+- [ ] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板 — **Phase 2**: 8 类信号定义完成，自动检测待实现
+- [x] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试 — **Phase 1 部分 (PR #304)**: GovernanceHealth stats cards + triage distribution。slice 完成度待 Phase 2
+- [ ] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3 — **Phase 2**: F070 Phase 3a 已提供回流接口
+- [ ] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链 — **Phase 2**
 
 ## Open Questions
 
@@ -240,3 +240,4 @@ F076 经历了完整的多阶段讨论过程（2026-03-07 全天）：
 | 2026-03-07 18:32 | 铲屎官否决初版 UX wireframe → 拍板 Tab 集成方案 + 存档当前工作 |
 | 2026-03-07 18:43 | 更新 F076 spec（本次），记录完整讨论轨迹 |
 | 2026-03-07 23:12 | 铲屎官确认按钮名统一为「导入 Backlog」（优于早期「从文档导入」），更新 spec |
+| 2026-03-08 | Phase 1 完成（PR #304 merged, `746bb79a`）：跨项目 Tab + Need Audit MVP (Stage 0-2) + 69 tests |
