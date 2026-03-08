@@ -16,12 +16,18 @@ export interface WorktreeHealth {
   isOrphan: boolean;
 }
 
+export interface DriftCommit {
+  short: string;
+  subject: string;
+}
+
 export interface RuntimeDrift {
   available: boolean;
   aheadOfMain: number;
   behindMain: number;
   runtimeHead: string;
   mainHead: string;
+  behindCommits: DriftCommit[];
 }
 
 export interface GitHealthResult {

@@ -134,15 +134,37 @@ export function parseWorktreeHealth(porcelainOutput: string, mergedBranches: Set
   return entries;
 }
 
+export interface DriftCommit {
+  short: string;
+  subject: string;
+}
+
 export interface RuntimeDrift {
   available: boolean;
   aheadOfMain: number;
   behindMain: number;
   runtimeHead: string;
   mainHead: string;
+  behindCommits: DriftCommit[];
 }
 
-export function parseRuntimeDrift(revListOutput: string, mainHead: string, runtimeHead: string): RuntimeDrift {
+export function parseDriftCommits(logOutput: string): DriftCommit[] {
+  if (!logOutput.trim()) return [];
+  return logOutput
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const [short = '', ...rest] = line.split(' ');
+      return { short, subject: rest.join(' ') };
+    });
+}
+
+export function parseRuntimeDrift(
+  revListOutput: string,
+  mainHead: string,
+  runtimeHead: string,
+  behindCommits: DriftCommit[] = [],
+): RuntimeDrift {
   const [left = '0', right = '0'] = revListOutput.trim().split('\t');
   return {
     available: true,
@@ -150,6 +172,7 @@ export function parseRuntimeDrift(revListOutput: string, mainHead: string, runti
     aheadOfMain: Number(right) || 0,
     mainHead,
     runtimeHead,
+    behindCommits,
   };
 }
 
@@ -170,9 +193,15 @@ async function detectRuntimeDrift(repoRoot: string): Promise<RuntimeDrift | null
       ['rev-list', '--left-right', '--count', `HEAD...${rtRef.trim()}`],
       { cwd: repoRoot, timeout: 5000 },
     );
-    return parseRuntimeDrift(drift, mainRef.trim(), rtRef.trim());
+    // Fetch commits that main has but runtime doesn't (behind commits)
+    const { stdout: logOut } = await execFileAsync('git', ['log', '--oneline', '-n', '20', `${rtRef.trim()}..HEAD`], {
+      cwd: repoRoot,
+      timeout: 5000,
+    });
+    const behindCommits = parseDriftCommits(logOut);
+    return parseRuntimeDrift(drift, mainRef.trim(), rtRef.trim(), behindCommits);
   } catch {
-    return { available: false, aheadOfMain: 0, behindMain: 0, runtimeHead: '', mainHead: '' };
+    return { available: false, aheadOfMain: 0, behindMain: 0, runtimeHead: '', mainHead: '', behindCommits: [] };
   }
 }
 

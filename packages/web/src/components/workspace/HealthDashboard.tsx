@@ -48,7 +48,7 @@ function DriftSection({ drift }: { drift: RuntimeDrift }) {
   }
   const inSync = drift.aheadOfMain === 0 && drift.behindMain === 0;
   return (
-    <div className="px-1 space-y-0.5">
+    <div className="px-1 space-y-1">
       {inSync ? (
         <div className="flex items-center gap-1.5 text-xs">
           <Badge label="in sync" variant="success" />
@@ -57,9 +57,21 @@ function DriftSection({ drift }: { drift: RuntimeDrift }) {
       ) : (
         <>
           {drift.behindMain > 0 && (
-            <div className="flex items-center gap-1.5 text-xs">
-              <Badge label={`-${drift.behindMain}`} variant="danger" />
-              <span className="text-cafe-black/70">behind main ({drift.mainHead})</span>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-1.5 text-xs">
+                <Badge label={`-${drift.behindMain}`} variant="danger" />
+                <span className="text-cafe-black/70">behind main ({drift.mainHead})</span>
+              </div>
+              {drift.behindCommits.length > 0 && (
+                <div className="ml-6 space-y-0.5">
+                  {drift.behindCommits.map((c) => (
+                    <div key={c.short} className="flex items-center gap-1.5 text-[10px] font-mono text-cafe-black/60">
+                      <span className="text-owner-primary/50">{c.short}</span>
+                      <span className="truncate">{c.subject}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {drift.aheadOfMain > 0 && (

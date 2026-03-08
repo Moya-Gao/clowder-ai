@@ -5,8 +5,15 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 
-const { parseGitLog, parseGitStatus, parseGitShow, parseStaleBranches, parseWorktreeHealth, parseRuntimeDrift } =
-  await import('../dist/routes/workspace-git.js');
+const {
+  parseGitLog,
+  parseGitStatus,
+  parseGitShow,
+  parseStaleBranches,
+  parseWorktreeHealth,
+  parseRuntimeDrift,
+  parseDriftCommits,
+} = await import('../dist/routes/workspace-git.js');
 
 describe('parseGitLog', () => {
   test('parses NUL-delimited git log output', () => {
@@ -149,19 +156,37 @@ describe('parseWorktreeHealth', () => {
   });
 });
 
+describe('parseDriftCommits', () => {
+  test('parses oneline git log output', () => {
+    const logOutput = 'abc1234 feat(F082): add health dashboard\ndef5678 fix(F081): bubble fix\n';
+    const commits = parseDriftCommits(logOutput);
+    assert.equal(commits.length, 2);
+    assert.equal(commits[0].short, 'abc1234');
+    assert.equal(commits[0].subject, 'feat(F082): add health dashboard');
+    assert.equal(commits[1].short, 'def5678');
+  });
+
+  test('returns empty for no output', () => {
+    assert.deepEqual(parseDriftCommits(''), []);
+  });
+});
+
 describe('parseRuntimeDrift', () => {
-  test('parses rev-list --left-right count output', () => {
-    const result = parseRuntimeDrift('3\t1\n', 'abc12345', 'def67890');
+  test('parses rev-list --left-right count output with commits', () => {
+    const commits = [{ short: 'abc', subject: 'feat: x' }];
+    const result = parseRuntimeDrift('3\t1\n', 'abc12345', 'def67890', commits);
     assert.equal(result.behindMain, 3);
     assert.equal(result.aheadOfMain, 1);
     assert.equal(result.mainHead, 'abc12345');
     assert.equal(result.runtimeHead, 'def67890');
     assert.equal(result.available, true);
+    assert.equal(result.behindCommits.length, 1);
   });
 
   test('returns zero drift when in sync', () => {
     const result = parseRuntimeDrift('0\t0\n', 'abc', 'abc');
     assert.equal(result.aheadOfMain, 0);
     assert.equal(result.behindMain, 0);
+    assert.deepEqual(result.behindCommits, []);
   });
 });
