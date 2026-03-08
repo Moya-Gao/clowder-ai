@@ -1,6 +1,15 @@
 'use client';
 
-import type { BacklogItem, DispatchExecutionDigest, ExternalProject, IntentCard, NeedAuditFrame as NeedAuditFrameType } from '@cat-cafe/shared';
+import type {
+  BacklogItem,
+  DispatchExecutionDigest,
+  ExternalProject,
+  IntentCard,
+  NeedAuditFrame as NeedAuditFrameType,
+  RefluxPattern,
+  ResolutionItem,
+  Slice,
+} from '@cat-cafe/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useExternalProjectStore } from '@/stores/externalProjectStore';
 import { apiFetch } from '@/utils/api-client';
@@ -9,16 +18,23 @@ import { DispatchProgress } from './DispatchProgress';
 import { GovernanceHealth } from './GovernanceHealth';
 import { IntentCardDetail } from './IntentCardDetail';
 import { NeedAuditFrame } from './NeedAuditFrame';
+import { RefluxCapture } from './RefluxCapture';
+import { ResolutionQueue } from './ResolutionQueue';
+import { RiskPanel } from './RiskPanel';
+import { SliceLadder } from './SliceLadder';
 import { TranslationMatrix } from './TranslationMatrix';
 
-type SubTab = 'features' | 'audit' | 'health' | 'progress';
+type SubTab = 'features' | 'audit' | 'health' | 'progress' | 'risk' | 'resolutions' | 'slices' | 'reflux';
 
 interface ExternalProjectTabProps {
   project: ExternalProject;
 }
 
 export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
-  const { intentCards, auditFrame, executionDigests, setIntentCards, setAuditFrame, setExecutionDigests, setLoading } = useExternalProjectStore();
+  const {
+    intentCards, auditFrame, executionDigests, resolutions, slices, refluxPatterns,
+    setIntentCards, setAuditFrame, setExecutionDigests, setResolutions, setSlices, setRefluxPatterns, setLoading,
+  } = useExternalProjectStore();
   const [subTab, setSubTab] = useState<SubTab>('audit');
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -31,15 +47,21 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
     setIntentCards([]);
     setAuditFrame(null);
     setExecutionDigests([]);
+    setResolutions([]);
+    setSlices([]);
+    setRefluxPatterns([]);
     setProjectItems([]);
     setLoading(true);
 
     const load = async () => {
-      const [cardsRes, frameRes, itemsRes, digestsRes] = await Promise.allSettled([
+      const [cardsRes, frameRes, itemsRes, digestsRes, resRes, slicesRes, refluxRes] = await Promise.allSettled([
         apiFetch(`/api/external-projects/${project.id}/intent-cards`),
         apiFetch(`/api/external-projects/${project.id}/frame`),
         apiFetch(`/api/backlog/items?projectId=${project.id}`),
         apiFetch(`/api/execution-digests?projectPath=${encodeURIComponent(project.sourcePath)}`),
+        apiFetch(`/api/external-projects/${project.id}/resolutions`),
+        apiFetch(`/api/external-projects/${project.id}/slices`),
+        apiFetch(`/api/external-projects/${project.id}/reflux-patterns`),
       ]);
       if (cancelled) return;
 
@@ -59,11 +81,23 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
         const body = await digestsRes.value.json() as { digests: DispatchExecutionDigest[] };
         if (!cancelled) setExecutionDigests(body.digests);
       }
+      if (resRes.status === 'fulfilled' && resRes.value.ok) {
+        const body = await resRes.value.json() as { resolutions: ResolutionItem[] };
+        if (!cancelled) setResolutions(body.resolutions);
+      }
+      if (slicesRes.status === 'fulfilled' && slicesRes.value.ok) {
+        const body = await slicesRes.value.json() as { slices: Slice[] };
+        if (!cancelled) setSlices(body.slices);
+      }
+      if (refluxRes.status === 'fulfilled' && refluxRes.value.ok) {
+        const body = await refluxRes.value.json() as { patterns: RefluxPattern[] };
+        if (!cancelled) setRefluxPatterns(body.patterns);
+      }
       if (!cancelled) setLoading(false);
     };
     void load();
     return () => { cancelled = true; };
-  }, [project.id, setIntentCards, setAuditFrame, setExecutionDigests, setLoading]);
+  }, [project.id, setIntentCards, setAuditFrame, setExecutionDigests, setResolutions, setSlices, setRefluxPatterns, setLoading]);
 
   const reloadProjectItems = useCallback(async () => {
     try {
@@ -113,11 +147,35 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
     [intentCards, setIntentCards],
   );
 
+  const loadData = useCallback(async () => {
+    const [resRes, slicesRes, refluxRes] = await Promise.allSettled([
+      apiFetch(`/api/external-projects/${project.id}/resolutions`),
+      apiFetch(`/api/external-projects/${project.id}/slices`),
+      apiFetch(`/api/external-projects/${project.id}/reflux-patterns`),
+    ]);
+    if (resRes.status === 'fulfilled' && resRes.value.ok) {
+      const body = await resRes.value.json() as { resolutions: ResolutionItem[] };
+      setResolutions(body.resolutions);
+    }
+    if (slicesRes.status === 'fulfilled' && slicesRes.value.ok) {
+      const body = await slicesRes.value.json() as { slices: Slice[] };
+      setSlices(body.slices);
+    }
+    if (refluxRes.status === 'fulfilled' && refluxRes.value.ok) {
+      const body = await refluxRes.value.json() as { patterns: RefluxPattern[] };
+      setRefluxPatterns(body.patterns);
+    }
+  }, [project.id, setResolutions, setSlices, setRefluxPatterns]);
+
   const SUB_TABS: { id: SubTab; label: string }[] = [
     { id: 'audit', label: '需求追踪' },
     { id: 'health', label: '治理健康度' },
     { id: 'features', label: '功能列表' },
     { id: 'progress', label: '派遣进展' },
+    { id: 'risk', label: '風險預警' },
+    { id: 'resolutions', label: '澄清队列' },
+    { id: 'slices', label: '切片計劃' },
+    { id: 'reflux', label: '经验回流' },
   ];
 
   return (
@@ -190,9 +248,36 @@ export function ExternalProjectTab({ project }: ExternalProjectTabProps) {
               </>
             )}
 
-            {subTab === 'health' && <GovernanceHealth cards={intentCards} digests={executionDigests} />}
+            {subTab === 'health' && <GovernanceHealth cards={intentCards} digests={executionDigests} resolutions={resolutions} slices={slices} />}
 
             {subTab === 'progress' && <DispatchProgress digests={executionDigests} />}
+
+            {subTab === 'risk' && <RiskPanel projectId={project.id} cards={intentCards} />}
+
+            {subTab === 'resolutions' && (
+              <ResolutionQueue
+                projectId={project.id}
+                resolutions={resolutions}
+                cards={intentCards}
+                onUpdate={() => void loadData()}
+              />
+            )}
+
+            {subTab === 'slices' && (
+              <SliceLadder
+                projectId={project.id}
+                slices={slices}
+                onUpdate={() => void loadData()}
+              />
+            )}
+
+            {subTab === 'reflux' && (
+              <RefluxCapture
+                projectId={project.id}
+                patterns={refluxPatterns}
+                onUpdate={() => void loadData()}
+              />
+            )}
 
             {subTab === 'features' && (
               projectItems.length === 0 ? (

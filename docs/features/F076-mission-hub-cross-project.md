@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎
 
-> Status: phase-1-done | Owner: 布偶猫 | Evolved from: F049(Mission Control MVP) + F058(Mission Hub 增强) + F070(Portable Governance)
+> Status: phase-2-done | Owner: 布偶猫 | Evolved from: F049(Mission Control MVP) + F058(Mission Hub 增强) + F070(Portable Governance)
 
 ## Why
 
@@ -164,12 +164,12 @@ Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → M
 
 ## Acceptance Criteria
 
-- [x] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果 — **Phase 1 部分完成 (Stage 0-2)**: Intent Card CRUD + computeBucket 5维评分 + A-tag 硬门禁 + NeedAuditFrame Stage 0。Stage 3 (Resolution Design) 待 Phase 2
-- [x] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示 — **Phase 1 ✅ (PR #304)**: TranslationMatrix 组件 + bucket filter + summary stats
-- [ ] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板 — **Phase 2**: 8 类信号定义完成，自动检测待实现
-- [x] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试 — **Phase 1 部分 (PR #304)**: GovernanceHealth stats cards + triage distribution。slice 完成度待 Phase 2
-- [ ] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3 — **Phase 2**: F070 Phase 3a 已提供回流接口
-- [ ] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链 — **Phase 2**
+- [x] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果 — **Phase 1 (Stage 0-2) + Phase 2 (Stage 3 Resolution Design) ✅**: 完整 pipeline 含 ResolutionStore + 5 种 resolution path + 澄清队列 UI
+- [x] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示 — **Phase 1 ✅ (PR #304)**
+- [x] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板 — **Phase 2 ✅**: RiskDetectionService 8 启发式 + RiskPanel 前端 + detect-risks API + risk-summary API
+- [x] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试 — **Phase 1+2 ✅**: GovernanceHealth 含 triage distribution + resolution progress + slice progress
+- [x] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3 — **Phase 2 ✅**: RefluxPatternStore + reflux-routes API + RefluxCapture UI（仅方法论，不含项目数据）
+- [x] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链 — **Phase 2 ✅**: SliceStore + slice-routes API + SliceLadder UI（纵切 + reorder + status transition）
 
 ## Open Questions
 
@@ -241,3 +241,4 @@ F076 经历了完整的多阶段讨论过程（2026-03-07 全天）：
 | 2026-03-07 18:43 | 更新 F076 spec（本次），记录完整讨论轨迹 |
 | 2026-03-07 23:12 | 铲屎官确认按钮名统一为「导入 Backlog」（优于早期「从文档导入」），更新 spec |
 | 2026-03-08 | Phase 1 完成（PR #304 merged, `746bb79a`）：跨项目 Tab + Need Audit MVP (Stage 0-2) + 69 tests |
+| 2026-03-08 | Phase 2 完成：Risk Detection + Resolution Design + Slice Planning + Pattern Reflux — 4 stores + 4 route files + 4 frontend components + 118 tests |

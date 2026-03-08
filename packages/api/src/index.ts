@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes, executionDigestRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes, intentCardRoutes, resolutionRoutes, sliceRoutes, refluxRoutes, executionDigestRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -371,7 +371,17 @@ async function main(): Promise<void> {
   const externalProjectStore = new ExternalProjectStore();
   const intentCardStore = new IntentCardStore();
   const needAuditFrameStore = new NeedAuditFrameStore();
-  await app.register(externalProjectRoutes, { externalProjectStore, intentCardStore, needAuditFrameStore, backlogStore });
+  const { ResolutionStore } = await import('./domains/projects/resolution-store.js');
+  const { SliceStore } = await import('./domains/projects/slice-store.js');
+  const { RefluxPatternStore } = await import('./domains/projects/reflux-pattern-store.js');
+  const resolutionStore = new ResolutionStore();
+  const sliceStore = new SliceStore();
+  const refluxPatternStore = new RefluxPatternStore();
+  await app.register(externalProjectRoutes, { externalProjectStore, needAuditFrameStore, backlogStore });
+  await app.register(intentCardRoutes, { externalProjectStore, intentCardStore });
+  await app.register(resolutionRoutes, { externalProjectStore, resolutionStore });
+  await app.register(sliceRoutes, { externalProjectStore, sliceStore });
+  await app.register(refluxRoutes, { externalProjectStore, refluxPatternStore });
   await app.register(executionDigestRoutes, { executionDigestStore });
   if (workflowSopStore) {
     await app.register(workflowSopRoutes, { workflowSopStore, backlogStore });

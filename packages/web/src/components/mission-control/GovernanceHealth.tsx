@@ -1,10 +1,12 @@
 'use client';
 
-import type { DispatchExecutionDigest, IntentCard, SourceTag, TriageBucket } from '@cat-cafe/shared';
+import type { DispatchExecutionDigest, IntentCard, ResolutionItem, Slice, SourceTag, TriageBucket } from '@cat-cafe/shared';
 
 interface GovernanceHealthProps {
   cards: IntentCard[];
   digests?: DispatchExecutionDigest[];
+  resolutions?: ResolutionItem[];
+  slices?: Slice[];
 }
 
 const BUCKET_ORDER: TriageBucket[] = ['build_now', 'clarify_first', 'validate_first', 'challenge', 'later'];
@@ -28,7 +30,7 @@ const SOURCE_COLORS: Record<SourceTag, string> = {
   Q: 'bg-blue-400', O: 'bg-green-400', D: 'bg-purple-400', R: 'bg-teal-400', A: 'bg-red-400',
 };
 
-export function GovernanceHealth({ cards, digests = [] }: GovernanceHealthProps) {
+export function GovernanceHealth({ cards, digests = [], resolutions = [], slices = [] }: GovernanceHealthProps) {
   const total = cards.length;
   const triaged = cards.filter((c) => c.triage).length;
   const bucketCounts = BUCKET_ORDER.map((b) => ({
@@ -147,6 +149,31 @@ export function GovernanceHealth({ cards, digests = [] }: GovernanceHealthProps)
               })()}
               sub="doneWhen"
             />
+          </div>
+        </div>
+      )}
+
+      {/* Resolution progress */}
+      {resolutions.length > 0 && (
+        <div className="rounded-lg border border-[#E7DAC7] bg-[#FFFDF8] p-3">
+          <div className="mb-2 text-[10px] font-semibold uppercase text-[#9A866F]">Resolution Progress</div>
+          <div className="grid grid-cols-3 gap-3">
+            <StatCard label="Open" value={String(resolutions.filter((r) => r.status === 'open').length)} sub="待解决" />
+            <StatCard label="Answered" value={String(resolutions.filter((r) => r.status === 'answered').length)} sub="已回答" />
+            <StatCard label="Escalated" value={String(resolutions.filter((r) => r.status === 'escalated').length)} sub="已升级" />
+          </div>
+        </div>
+      )}
+
+      {/* Slice progress */}
+      {slices.length > 0 && (
+        <div className="rounded-lg border border-[#E7DAC7] bg-[#FFFDF8] p-3">
+          <div className="mb-2 text-[10px] font-semibold uppercase text-[#9A866F]">Slice Progress</div>
+          <div className="grid grid-cols-4 gap-3">
+            <StatCard label="Planned" value={String(slices.filter((s) => s.status === 'planned').length)} sub="计划中" />
+            <StatCard label="In Progress" value={String(slices.filter((s) => s.status === 'in_progress').length)} sub="进行中" />
+            <StatCard label="Delivered" value={String(slices.filter((s) => s.status === 'delivered').length)} sub="已交付" />
+            <StatCard label="Validated" value={String(slices.filter((s) => s.status === 'validated').length)} sub="已验证" />
           </div>
         </div>
       )}

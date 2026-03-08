@@ -118,3 +118,10 @@ export interface CreateNeedAuditFrameInput {
   readonly currentWorkflow: string;
   readonly provenanceMap: string;
 }
+
+export interface RiskDetectionResult {
+  readonly signal: RiskSignal;
+  readonly severity: 'critical' | 'high' | 'medium';
+  readonly evidence: string;
+  readonly autoDetected: boolean;
+}

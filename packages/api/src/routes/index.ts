@@ -41,4 +41,8 @@ export { workspaceEditRoutes } from './workspace-edit.js';
 export { workspaceGitRoutes } from './workspace-git.js';
 export { voteRoutes } from './votes.js';
 export { externalProjectRoutes } from './external-projects.js';
+export { intentCardRoutes } from './intent-card-routes.js';
+export { resolutionRoutes } from './resolution-routes.js';
+export { sliceRoutes } from './slice-routes.js';
+export { refluxRoutes } from './reflux-routes.js';
 export { executionDigestRoutes } from './execution-digests.js';

@@ -248,6 +248,7 @@ export type {
   IntentCard,
   NeedAuditFrame,
   ResolutionPath,
+  RiskDetectionResult,
   RiskSignal,
   SizeBand,
   SourceTag,
@@ -255,6 +256,27 @@ export type {
   TriageIntentCardInput,
   TriageResult,
 } from './intent-card.js';
+// Resolution types (F076 Phase 2 — 风险消解)
+export type {
+  AnswerResolutionInput,
+  CreateResolutionInput,
+  ResolutionItem,
+  ResolutionStatus,
+} from './resolution.js';
+// Slice types (F076 Phase 2 — 切片)
+export type {
+  CreateSliceInput,
+  Slice,
+  SliceStatus,
+  SliceType,
+  UpdateSliceInput,
+} from './slice.js';
+// Reflux types (F076 Phase 2 — 回流)
+export type {
+  CreateRefluxPatternInput,
+  RefluxCategory,
+  RefluxPattern,
+} from './reflux.js';
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,

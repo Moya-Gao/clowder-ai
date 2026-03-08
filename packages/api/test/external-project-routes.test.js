@@ -25,13 +25,20 @@ describe('External Project Routes', () => {
     const { externalProjectRoutes } = await import(
       '../dist/routes/external-projects.js'
     );
+    const { intentCardRoutes } = await import(
+      '../dist/routes/intent-card-routes.js'
+    );
 
+    const externalProjectStore = new ExternalProjectStore();
     app = Fastify();
     await app.register(externalProjectRoutes, {
-      externalProjectStore: new ExternalProjectStore(),
-      intentCardStore: new IntentCardStore(),
+      externalProjectStore,
       needAuditFrameStore: new NeedAuditFrameStore(),
       backlogStore: new BacklogStore(),
+    });
+    await app.register(intentCardRoutes, {
+      externalProjectStore,
+      intentCardStore: new IntentCardStore(),
     });
   });
 
