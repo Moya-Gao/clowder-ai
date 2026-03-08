@@ -13,6 +13,9 @@ import { type CatId, catRegistry } from '@cat-cafe/shared';
 import { z } from 'zod';
 import type { ISessionChainStore } from '../domains/cats/services/stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
+import type { TranscriptReader } from '../domains/cats/services/session/TranscriptReader.js';
+import { backfillBoundSessionHistory } from '../domains/cats/services/session/BoundSessionHistoryImporter.js';
 import { resolveUserId } from '../utils/request-identity.js';
 import { getEventAuditLog, AuditEventTypes } from '../domains/cats/services/orchestration/EventAuditLog.js';
 
@@ -23,13 +26,15 @@ const bindSessionSchema = z.object({
 interface SessionChainRouteOptions extends FastifyPluginOptions {
   sessionChainStore: ISessionChainStore;
   threadStore: IThreadStore;
+  messageStore?: IMessageStore;
+  transcriptReader?: TranscriptReader;
 }
 
 export async function sessionChainRoutes(
   app: FastifyInstance,
   opts: SessionChainRouteOptions,
 ): Promise<void> {
-  const { sessionChainStore, threadStore } = opts;
+  const { sessionChainStore, threadStore, messageStore, transcriptReader } = opts;
 
   app.get<{
     Params: { threadId: string };
@@ -239,6 +244,15 @@ export async function sessionChainRoutes(
       data: { catId, cliSessionId, mode, sessionId: session.id, userId },
     }).catch(() => { /* best-effort */ });
 
-    return reply.send({ session, mode });
+    const historyImport = await backfillBoundSessionHistory({
+      sessionChainStore,
+      transcriptReader,
+      messageStore,
+      threadId,
+      catId: catId as CatId,
+      userId,
+    });
+
+    return reply.send({ session, mode, historyImport });
   });
 }

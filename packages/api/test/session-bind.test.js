@@ -120,10 +120,7 @@ describe('Session bind API route', () => {
     const { ThreadStore } = await import(
       '../dist/domains/cats/services/stores/ports/ThreadStore.js'
     );
-    const { bindSessionRoute } = await import(
-      '../dist/routes/session-chain.js'
-    );
-    return { SessionChainStore, ThreadStore, bindSessionRoute };
+    return { SessionChainStore, ThreadStore };
   }
 
   /**

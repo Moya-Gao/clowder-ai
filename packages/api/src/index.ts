@@ -377,7 +377,12 @@ async function main(): Promise<void> {
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
   // Session chain (F24)
-  await app.register(sessionChainRoutes, { sessionChainStore, threadStore });
+  await app.register(sessionChainRoutes, {
+    sessionChainStore,
+    threadStore,
+    messageStore,
+    transcriptReader,
+  });
   await app.register(sessionTranscriptRoutes, { sessionChainStore, threadStore, transcriptReader });
   const hookToken = process.env['CAT_CAFE_HOOK_TOKEN'] || '';
   await app.register(sessionHooksRoutes, {

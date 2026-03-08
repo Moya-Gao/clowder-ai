@@ -192,6 +192,9 @@ status: spec
   - 当前会话的 `CODEX_THREAD_ID=019cc8e5-d8bb-7411-90f8-d5e276399145` 被确认可以手动 bind 进猫猫咖啡
   - 但 bind 成功后，猫猫咖啡主区仍然看不到这条 `Codex app` 会话里既有的聊天历史
   - 这说明 continuity/hydration 问题并不只发生在 live socket 途中，也发生在“已知 thread id / session id 的历史回灌”这条恢复路径上
+  - 进一步查明后发现：这不是单纯的 Redis 丢消息，也不只是前端少渲染，而是 `bind` 当前只把 `cliSessionId` 写进 session chain，用于未来 `--resume`；主区仍只读 `messageStore + draftStore`，两者之间没有“外部 transcript/jsonl -> 主区时间线”的 backfill 桥
+  - 当前第一刀治疗已经在独立 worktree 验证通过：`bind` 响应会返回 `historyImport: { status, importedCount, reason? }`，并在 bind 时 best-effort 扫描我们自己 sealed session 的 transcript，把可导入的 `user/assistant` turn 回灌进 `messageStore`
+  - 这条第一刀故意只覆盖“我们自己可读的 transcript 源”，不假装已经解决 `Codex app` 原生历史导入；后者仍是 F081 下一个 adapter 子问题
 
 ### 2026-03-07 F081 主线新取证
 
