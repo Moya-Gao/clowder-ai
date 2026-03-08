@@ -210,12 +210,13 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   // effect (above) runs and swaps messages. Without this check, a thread switch
   // sends the OLD thread's lastMessageId to the NEW threadId → 400.
   const storeThreadId = useChatStore((s) => s.currentThreadId);
-  // Skip synthetic rows (draft-*, summary-*) — their IDs don't exist in messageStore
-  // and cause the ack PATCH to 400, leaving the read cursor stuck.
+  // Only ack with backend-persisted sortable IDs (format: 16-digit ts + 6-digit seq + 8-char hex).
+  // Frontend adds many synthetic IDs (draft-*, summary-*, bg-sys-*, bg-err-*, a2a-*, err-*, etc.)
+  // that don't exist in messageStore — sending them causes 400, leaving the cursor stuck.
   const lastRealMessageId = useMemo(() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const id = messages[i].id;
-      if (!id.startsWith('draft-') && !id.startsWith('summary-')) return id;
+      if (/^\d{16}-\d{6}-[0-9a-f]{8}$/.test(id)) return id;
     }
     return undefined;
   }, [messages]);
