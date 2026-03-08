@@ -988,7 +988,7 @@ describe('AgentRouter', () => {
     assert.deepEqual(threadStore._participants['thread_1'], ['opus', 'codex']);
   });
 
-  test('no @ mention routes to all thread participants', async () => {
+  test('no @ mention routes to last replier only (F078)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -997,8 +997,11 @@ describe('AgentRouter', () => {
     const mockCodexService = createMockAgentService('codex');
     const mockGeminiService = createMockAgentService('gemini');
 
-    // Thread already has opus + codex as participants
+    // Thread already has opus + codex as participants; codex more recent
     const threadStore = createMockThreadStore({ thread_1: ['opus', 'codex'] });
+    threadStore.updateParticipantActivity('thread_1', 'opus');
+    await new Promise(resolve => setTimeout(resolve, 5)); // ensure different timestamps
+    threadStore.updateParticipantActivity('thread_1', 'codex'); // most recent
     const router = new AgentRouter(await migrateRouterOpts({
       claudeService: mockClaudeService,
       codexService: mockCodexService,
@@ -1009,17 +1012,17 @@ describe('AgentRouter', () => {
     }));
 
     const messages = [];
-    // No @ mention — should route to existing participants
+    // No @ mention — F078: routes to last replier only (codex)
     for await (const msg of router.route('user-1', 'what do you think?', 'thread_1')) {
       messages.push(msg);
     }
 
-    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
-    assert.equal(mockCodexService.invoke.mock.callCount(), 1);
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 0, 'opus not called — not last replier');
+    assert.equal(mockCodexService.invoke.mock.callCount(), 1, 'codex called — last replier');
     assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
   });
 
-  test('F032 P1-1: no @ mention + no preferredCats returns participants sorted by lastMessageAt DESC', async () => {
+  test('F078: no @ mention returns only last replier (most recent by activity)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -1032,10 +1035,7 @@ describe('AgentRouter', () => {
     const threadStore = createMockThreadStore({ thread_activity: ['opus', 'codex'] });
 
     // Manually set activity timestamps: codex more recent than opus
-    // (In real use, updateParticipantActivity would be called after each message)
-    const now = Date.now();
     threadStore.updateParticipantActivity('thread_activity', 'opus');
-    // Wait a tick to ensure different timestamps
     await new Promise(resolve => setTimeout(resolve, 5));
     threadStore.updateParticipantActivity('thread_activity', 'codex');
 
@@ -1048,13 +1048,11 @@ describe('AgentRouter', () => {
       threadStore,
     }));
 
-    // Use resolveTargetsAndIntent to check the order of targets
+    // F078: returns only the most recent replier, not all participants
     const result = await router.resolveTargetsAndIntent('what do you think?', 'thread_activity');
 
-    // codex should be first because it has more recent lastMessageAt
-    assert.equal(result.targetCats[0], 'codex', 'Most recently active cat (codex) should be first');
-    assert.equal(result.targetCats[1], 'opus', 'Less recently active cat (opus) should be second');
-    assert.equal(result.targetCats.length, 2);
+    assert.equal(result.targetCats[0], 'codex', 'Most recently active cat (codex) should be the target');
+    assert.equal(result.targetCats.length, 1, 'F078: only last replier, not all participants');
   });
 
   test('no @ mention + no participants defaults to opus', async () => {
@@ -1084,7 +1082,7 @@ describe('AgentRouter', () => {
     assert.equal(mockGeminiService.invoke.mock.callCount(), 0);
   });
 
-  test('@three cats then no-@ routes to all three', async () => {
+  test('@three cats then no-@ routes to last replier only (F078)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -1111,12 +1109,16 @@ describe('AgentRouter', () => {
     assert.equal(mockCodexService.invoke.mock.callCount(), 1);
     assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
 
-    // Second: no @ — should still route to all three (participants remembered)
+    // Second: no @ — F078: routes to last replier only (not all three)
+    // The last participant added was gemini (serial order: opus → codex → gemini)
     for await (const _ of router.route('user-1', 'what about this?', 'thread_x')) {}
 
-    assert.equal(mockClaudeService.invoke.mock.callCount(), 2);
-    assert.equal(mockCodexService.invoke.mock.callCount(), 2);
-    assert.equal(mockGeminiService.invoke.mock.callCount(), 2);
+    // Only one cat should be called again (the most recent replier)
+    const totalSecondRound =
+      mockClaudeService.invoke.mock.callCount() +
+      mockCodexService.invoke.mock.callCount() +
+      mockGeminiService.invoke.mock.callCount();
+    assert.equal(totalSecondRound, 4, 'F078: 3 from first round + 1 from second (last replier only)');
   });
 
   test('route with explicit threadId passes it to messageStore.append', async () => {
@@ -1172,7 +1174,7 @@ describe('AgentRouter', () => {
     assert.equal(mockCodexService.invoke.mock.callCount(), 0);
   });
 
-  test('new @ mention adds to existing participants', async () => {
+  test('new @ mention adds to participants; no-@ routes to last replier (F078)', async () => {
     const { AgentRouter } = await import(
       '../dist/domains/cats/services/agents/routing/AgentRouter.js'
     );
@@ -1197,10 +1199,10 @@ describe('AgentRouter', () => {
     assert.equal(mockGeminiService.invoke.mock.callCount(), 1);
     assert.equal(mockClaudeService.invoke.mock.callCount(), 0); // not called — only @gemini
 
-    // Now no @ — should route to opus + gemini (both participants)
+    // Now no @ — F078: routes to last replier only (gemini, most recent participant)
     for await (const _ of router.route('user-1', 'looks good?', 'thread_y')) {}
-    assert.equal(mockClaudeService.invoke.mock.callCount(), 1);
-    assert.equal(mockGeminiService.invoke.mock.callCount(), 2);
+    assert.equal(mockClaudeService.invoke.mock.callCount(), 0, 'opus not called — not last replier');
+    assert.equal(mockGeminiService.invoke.mock.callCount(), 2, 'gemini called again — last replier');
     assert.deepEqual(threadStore._participants['thread_y'], ['opus', 'gemini']);
   });
 
@@ -1846,5 +1848,387 @@ describe('AgentRouter', () => {
 
     const result3 = await router.resolveTargetsAndIntent('@opus solo');
     assert.equal(result3.intent.intent, 'execute', '1 cat should default to execute');
+  });
+});
+
+// ── F078: Smart Routing & Group Mentions ─────────────────────────────
+
+describe('F078: Default to last replier', () => {
+  test('no @mention routes to most recent replier only (not all participants)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['opus', 'codex', 'gemini'] });
+    // Simulate activity: codex first, then opus most recently
+    threadStore.updateParticipantActivity('t1', 'gemini');
+    threadStore.updateParticipantActivity('t1', 'codex');
+    threadStore.updateParticipantActivity('t1', 'opus'); // most recent
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('hello', 't1');
+    assert.deepStrictEqual(targetCats, ['opus'], 'should route to last replier only');
+  });
+
+  test('no participants defaults to opus', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({});
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('hello', 't1');
+    assert.deepStrictEqual(targetCats, ['opus']);
+  });
+
+  test('explicit @mention still overrides last-replier default', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['opus', 'codex'] });
+    threadStore.updateParticipantActivity('t1', 'opus'); // most recent
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@codex 帮我看看', 't1');
+    assert.deepStrictEqual(targetCats, ['codex'], 'explicit @mention should override');
+  });
+});
+
+describe('F078: Group mentions', () => {
+  test('@all routes to all registered cats', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@all 大家好');
+    assert.ok(targetCats.length >= 3, 'should route to all registered cats');
+    assert.ok(targetCats.includes('opus'));
+    assert.ok(targetCats.includes('codex'));
+    assert.ok(targetCats.includes('gemini'));
+  });
+
+  test('@全体 routes to all registered cats', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体 大家好');
+    assert.ok(targetCats.length >= 3);
+    assert.ok(targetCats.includes('opus'));
+  });
+
+  test('@全体布偶猫 routes to all ragdoll variants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    // Register sonnet as a second ragdoll variant
+    const { catRegistry, createCatId } = await import('@cat-cafe/shared');
+    if (!catRegistry.has('sonnet')) {
+      catRegistry.register('sonnet', {
+        id: createCatId('sonnet'),
+        name: 'sonnet',
+        displayName: '布偶猫',
+        avatar: '/avatars/sonnet.png',
+        color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
+        mentionPatterns: ['@sonnet', '@布偶sonnet'],
+        provider: 'anthropic',
+        defaultModel: 'claude-sonnet-4-6',
+        mcpSupport: true,
+        breedId: 'ragdoll',
+        roleDescription: 'Fast variant',
+        personality: 'Quick and flexible',
+      });
+    }
+
+    // Need AgentRegistry with sonnet too
+    const { AgentRegistry } = await import(
+      '../dist/domains/cats/services/agents/registry/AgentRegistry.js'
+    );
+    const agentRegistry = new AgentRegistry();
+    agentRegistry.register('opus', createMockAgentService('opus'));
+    agentRegistry.register('sonnet', createMockAgentService('sonnet'));
+    agentRegistry.register('codex', createMockAgentService('codex'));
+    agentRegistry.register('gemini', createMockAgentService('gemini'));
+
+    const router = new AgentRouter({
+      agentRegistry,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体布偶猫 你们好');
+    assert.ok(targetCats.includes('opus'), 'should include opus (ragdoll)');
+    assert.ok(targetCats.includes('sonnet'), 'should include sonnet (ragdoll)');
+    assert.ok(!targetCats.includes('codex'), 'should NOT include codex (maine-coon)');
+    assert.ok(!targetCats.includes('gemini'), 'should NOT include gemini (siamese)');
+  });
+
+  test('@all-ragdoll routes to ragdoll variants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    // sonnet already registered from previous test
+    const { AgentRegistry } = await import(
+      '../dist/domains/cats/services/agents/registry/AgentRegistry.js'
+    );
+    const agentRegistry = new AgentRegistry();
+    agentRegistry.register('opus', createMockAgentService('opus'));
+    agentRegistry.register('sonnet', createMockAgentService('sonnet'));
+    agentRegistry.register('codex', createMockAgentService('codex'));
+
+    const router = new AgentRouter({
+      agentRegistry,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@all-ragdoll hello');
+    assert.ok(targetCats.includes('opus'));
+    assert.ok(targetCats.includes('sonnet'));
+    assert.ok(!targetCats.includes('codex'));
+  });
+
+  test('@thread routes to current thread participants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['opus', 'codex'] });
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@thread 大家看看', 't1');
+    assert.deepStrictEqual(new Set(targetCats), new Set(['opus', 'codex']));
+  });
+
+  test('@本帖 routes to thread participants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['opus', 'gemini'] });
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@本帖 看看', 't1');
+    assert.deepStrictEqual(new Set(targetCats), new Set(['opus', 'gemini']));
+  });
+
+  test('@全体参与者 routes to thread participants', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['codex', 'gemini'] });
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体参与者 看看', 't1');
+    assert.deepStrictEqual(new Set(targetCats), new Set(['codex', 'gemini']));
+  });
+
+  test('@thread with no participants falls back to default cat', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({});
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@thread hello', 't1');
+    assert.deepStrictEqual(targetCats, ['opus'], 'no participants → fallback to default');
+  });
+
+  test('group mentions only include cats with registered services', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    // Only register opus and codex services (not gemini)
+    const { AgentRegistry } = await import(
+      '../dist/domains/cats/services/agents/registry/AgentRegistry.js'
+    );
+    const agentRegistry = new AgentRegistry();
+    agentRegistry.register('opus', createMockAgentService('opus'));
+    agentRegistry.register('codex', createMockAgentService('codex'));
+
+    const router = new AgentRouter({
+      agentRegistry,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@all 大家好');
+    assert.ok(targetCats.includes('opus'));
+    assert.ok(targetCats.includes('codex'));
+    assert.ok(!targetCats.includes('gemini'), 'gemini has no service, should be excluded');
+  });
+
+  // P1 fix: negative cases — substring collisions must NOT trigger group mentions
+  test('@allison does NOT trigger @all (token boundary)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@allison hi');
+    // @allison is not a known mention — should fall back to default, NOT trigger @all
+    assert.ok(!targetCats.includes('codex'), '@allison should not broadcast to all cats');
+    assert.ok(!targetCats.includes('gemini'), '@allison should not broadcast to all cats');
+  });
+
+  test('@threadsafe does NOT trigger @thread (token boundary)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const threadStore = createMockThreadStore({ 't1': ['opus', 'codex'] });
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+      threadStore,
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@threadsafe hi', 't1');
+    // Should NOT route to thread participants — @threadsafe is not @thread
+    assert.equal(targetCats.length, 1, '@threadsafe should not trigger group mention');
+  });
+
+  test('@all-ragdollish does NOT trigger @all-ragdoll (token boundary)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const { catRegistry, createCatId } = await import('@cat-cafe/shared');
+    if (!catRegistry.has('sonnet')) {
+      catRegistry.register('sonnet', {
+        id: createCatId('sonnet'),
+        name: 'sonnet',
+        displayName: '布偶猫',
+        avatar: '/avatars/sonnet.png',
+        color: { primary: '#9B7EBD', secondary: '#E8DFF5' },
+        mentionPatterns: ['@sonnet', '@布偶sonnet'],
+        provider: 'anthropic',
+        defaultModel: 'claude-sonnet-4-6',
+        mcpSupport: true,
+        breedId: 'ragdoll',
+        roleDescription: 'Fast variant',
+        personality: 'Quick and flexible',
+      });
+    }
+
+    const { AgentRegistry } = await import(
+      '../dist/domains/cats/services/agents/registry/AgentRegistry.js'
+    );
+    const agentRegistry = new AgentRegistry();
+    agentRegistry.register('opus', createMockAgentService('opus'));
+    agentRegistry.register('sonnet', createMockAgentService('sonnet'));
+    agentRegistry.register('codex', createMockAgentService('codex'));
+
+    const router = new AgentRouter({
+      agentRegistry,
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    });
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@all-ragdollish hi');
+    // Should NOT trigger @all-ragdoll breed group
+    assert.ok(!targetCats.includes('sonnet'), '@all-ragdollish should not match @all-ragdoll');
+  });
+
+  test('@全体布偶猫咪 does NOT trigger @全体布偶猫 (token boundary)', async () => {
+    const { AgentRouter } = await import(
+      '../dist/domains/cats/services/agents/routing/AgentRouter.js'
+    );
+
+    const router = new AgentRouter(await migrateRouterOpts({
+      claudeService: createMockAgentService('opus'),
+      codexService: createMockAgentService('codex'),
+      geminiService: createMockAgentService('gemini'),
+      registry: createMockRegistry(),
+      messageStore: createMockMessageStore(),
+    }));
+
+    const { targetCats } = await router.resolveTargetsAndIntent('@全体布偶猫咪 hi');
+    // 咪 is not a boundary char — should NOT match @全体布偶猫
+    assert.equal(targetCats.length, 1, '@全体布偶猫咪 should not trigger breed group');
   });
 });

@@ -4,7 +4,8 @@
  *
  * Features:
  * - 有 @ 提及时路由到指定猫 + 更新对话参与者
- * - 无 @ 提及时路由到对话中所有活跃参与者
+ * - 无 @ 提及时路由到最近回复的猫 (F078)
+ * - 群组 mention: @all/@全体, @全体{breed}, @thread/@本帖 (F078)
  * - 无参与者的新对话默认路由到布偶猫 (opus)
  * - 支持中英文提及模式
  * - ideate intent + 多猫 → 并行独立思考 (routeParallel)
@@ -318,12 +319,119 @@ export class AgentRouter {
   }
 
   /**
+   * F078: Parse group mentions (@all, @全体, @全体{breed}, @all-{breed}, @thread, @本帖, @全体参与者).
+   * Returns matched CatIds or null if no group mention found.
+   * Called BEFORE individual parseMentions — group patterns are longer and take priority.
+   *
+   * P1 fix: uses token boundary check (same regex as parseMentions) to avoid
+   * substring collisions like @allison→@all or @threadsafe→@thread.
+   */
+  private async parseGroupMentions(message: string, threadId: string): Promise<CatId[] | null> {
+    const lowerMessage = this.normalizeSpeechMentions(message).toLowerCase();
+
+    // Reuse parseMentions' token boundary regex
+    const boundaryRe = /[\s,.:;!?()\[\]{}<>，。！？、：；（）【】《》「」『』〈〉]/;
+
+    /** Check if pattern appears in message with a valid token boundary after it */
+    const matchesWithBoundary = (pattern: string): boolean => {
+      const lowerPattern = pattern.toLowerCase();
+      let searchFrom = 0;
+      while (searchFrom < lowerMessage.length) {
+        const pos = lowerMessage.indexOf(lowerPattern, searchFrom);
+        if (pos === -1) return false;
+        const end = pos + lowerPattern.length;
+        const charAfter = lowerMessage[end];
+        if (!charAfter || boundaryRe.test(charAfter)) return true;
+        searchFrom = pos + 1;
+      }
+      return false;
+    };
+
+    // Build all group patterns sorted longest-first for correct priority
+    interface GroupPattern { pattern: string; resolve: () => Promise<CatId[] | null> }
+    const patterns: GroupPattern[] = [];
+
+    // Thread-scoped patterns
+    for (const pattern of ['@全体参与者', '@thread', '@本帖']) {
+      patterns.push({
+        pattern,
+        resolve: async () => {
+          if (this.threadStore) {
+            const participants = await this.threadStore.getParticipants(threadId);
+            const valid = participants.filter((id: string) => Object.hasOwn(this.services, id));
+            if (valid.length > 0) return valid as CatId[];
+          }
+          return [getDefaultCatId()];
+        },
+      });
+    }
+
+    // Breed-scoped patterns: @全体{displayName} and @all-{breedId}
+    const allConfigs = catRegistry.getAllConfigs();
+    const breedMap = new Map<string, { displayName: string; catIds: CatId[] }>();
+    for (const [catId, config] of Object.entries(allConfigs)) {
+      if (!config.breedId) continue;
+      if (!Object.hasOwn(this.services, catId)) continue;
+      const existing = breedMap.get(config.breedId);
+      if (existing) {
+        existing.catIds.push(catId as CatId);
+      } else {
+        breedMap.set(config.breedId, {
+          displayName: config.breedDisplayName ?? config.displayName,
+          catIds: [catId as CatId],
+        });
+      }
+    }
+    for (const [breedId, info] of breedMap) {
+      const catIds = info.catIds;
+      patterns.push({ pattern: `@全体${info.displayName}`, resolve: async () => catIds });
+      patterns.push({ pattern: `@all-${breedId}`, resolve: async () => catIds });
+    }
+
+    // Global @all / @全体 (shortest — must be last)
+    patterns.push({
+      pattern: '@全体',
+      resolve: async () => {
+        const allCats = Object.keys(this.services) as CatId[];
+        return allCats.length > 0 ? allCats : [getDefaultCatId()];
+      },
+    });
+    patterns.push({
+      pattern: '@all',
+      resolve: async () => {
+        const allCats = Object.keys(this.services) as CatId[];
+        return allCats.length > 0 ? allCats : [getDefaultCatId()];
+      },
+    });
+
+    // Sort longest-first to avoid prefix collisions (@全体布偶猫 before @全体)
+    patterns.sort((a, b) => b.pattern.length - a.pattern.length);
+
+    for (const { pattern, resolve } of patterns) {
+      if (matchesWithBoundary(pattern)) {
+        return resolve();
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * F078: Unified mention parser — group mentions first, then individual.
+   */
+  private async parseAllMentions(message: string, threadId: string): Promise<CatId[]> {
+    const groupResult = await this.parseGroupMentions(message, threadId);
+    if (groupResult !== null) return groupResult;
+    return this.parseMentions(message);
+  }
+
+  /**
    * Read-only target resolution: mentions → preferredCats → participants → default cat.
    * F32-b Phase 2: Thread-level preferredCats inserted between mentions and participants.
    * Does NOT mutate thread participants.
    */
   private async peekTargets(message: string, threadId: string): Promise<CatId[]> {
-    const mentionedCats = this.parseMentions(message);
+    const mentionedCats = await this.parseAllMentions(message, threadId);
     if (mentionedCats.length > 0) return mentionedCats;
 
     if (this.threadStore) {
@@ -339,11 +447,11 @@ export class AgentRouter {
         return this.applyThreadRoutingPolicy(thread, message, validPreferred);
       }
 
-      // F032 P1-1 fix: Use activity-based sorting for participants
+      // F078: Route to last replier only (not all participants)
       const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
       if (participantsWithActivity.length > 0) {
-        // Already sorted by lastMessageAt desc in ThreadStore
-        return this.applyThreadRoutingPolicy(thread, message, participantsWithActivity.map(p => p.catId));
+        // Already sorted by lastMessageAt desc in ThreadStore — take only the most recent
+        return this.applyThreadRoutingPolicy(thread, message, [participantsWithActivity[0]!.catId]);
       }
 
       // No preferredCats and no participants: default cat, then apply policy (e.g. review avoid opus)
@@ -355,7 +463,7 @@ export class AgentRouter {
 
   /** Resolve target cats and persist new mentions as thread participants */
   private async resolveTargets(message: string, threadId: string): Promise<CatId[]> {
-    const mentionedCats = this.parseMentions(message);
+    const mentionedCats = await this.parseAllMentions(message, threadId);
 
     if (mentionedCats.length > 0) {
       if (this.threadStore) {
@@ -377,11 +485,11 @@ export class AgentRouter {
         return this.applyThreadRoutingPolicy(thread, message, validPreferred);
       }
 
-      // F032 P1-1 fix: Use activity-based sorting for participants
+      // F078: Route to last replier only (not all participants)
       const participantsWithActivity = await this.threadStore.getParticipantsWithActivity(threadId);
       if (participantsWithActivity.length > 0) {
-        // Already sorted by lastMessageAt desc in ThreadStore
-        return this.applyThreadRoutingPolicy(thread, message, participantsWithActivity.map(p => p.catId));
+        // Already sorted by lastMessageAt desc in ThreadStore — take only the most recent
+        return this.applyThreadRoutingPolicy(thread, message, [participantsWithActivity[0]!.catId]);
       }
 
       return this.applyThreadRoutingPolicy(thread, message, [getDefaultCatId()]);
