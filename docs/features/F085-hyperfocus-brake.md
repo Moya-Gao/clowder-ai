@@ -46,24 +46,32 @@ status: spec
 - [ ] **AC3**: 上下文采集白名单：git status/diff/log、当前 branch、BACKLOG/TODO
 - [ ] **AC4**: 生成三猫文案（L1 温柔 / L2 关心 / L3 急了），根据忽略次数升级
 - [ ] **AC5**: 必须 typed check-in 才能继续（1=休息 / 2=收尾10min / 3=继续+理由）
-- [ ] **AC6**: Emergency bypass（输入理由 + 30min 冷却）
+- [ ] **AC6**: Emergency bypass（递增代价：30min → 45min → 第3次禁用）
 - [ ] **AC7**: 纯文本输出 + rich card 降级版
 - [ ] **AC8**: 夜间模式（23:00 后轻声细语，无闪烁）
+- [ ] **AC9**: 占位符注入防护（allowlist + escape + length cap 80）
+- [ ] **AC10**: 恶意 branch 名注入测试（含 `] @ ``` <script>`）不污染 card
+- [ ] **AC11**: 超长 branch/message 被截断测试
+- [ ] **AC12**: bypass 冷却计时跨 session 仍生效测试
+- [ ] **AC13**: 4h 内重复 bypass 升级冷却测试
+- [ ] **AC14**: 夜间模式无强刺激样式测试
 
 ### Phase 2
 
-- [ ] **AC9**: 富文本 `card` rich block 展示
-- [ ] **AC10**: Chrome 画专属撒娇图（用猫设）
-- [ ] **AC11**: 触发次数追踪 + 语气自动升级
+- [ ] **AC15**: 富文本 `card` rich block 展示
+- [ ] **AC16**: Chrome 画专属撒娇图（用猫设）
+- [ ] **AC17**: 触发次数追踪 + 语气自动升级
+- [ ] **AC18**: 肉垫点击解锁（Web 端）
 
 ### Phase 3
 
-- [ ] **AC12**: F066 声线集成
-- [ ] **AC13**: 三猫语音轮流撒娇
+- [ ] **AC19**: F066 声线集成
+- [ ] **AC20**: 三猫语音轮流撒娇
 
 ## Links
 
 - **招募令**: [懒猫国王 4.5 招募令](../stories/hyperfocus-brake/懒猫国王%204.5%20招募令：Hyperfocus%20小刹车.md)
+- **文案库**: [hyperfocus-brake-messages.md](../../cat-cafe-skills/refs/hyperfocus-brake-messages.md)（三档文案 + card 模板 + 视觉规范）
 - **依赖**: [F066 TTS 声线](F066-tts-cat-voices.md)（Phase 3）
 
 ## Key Decisions
@@ -87,15 +95,17 @@ status: spec
 
 | 风险 | 缓解 |
 |------|------|
-| 上下文采集泄露敏感信息 | 白名单 + 注入防护 |
-| 强制交互在紧急修复时反噬 | Emergency bypass + 冷却 |
+| 上下文采集泄露敏感信息 | 白名单（git/feature/todo），禁读 .env/auth/token |
+| **P1 占位符注入** | 动态上下文纯文本渲染，allowlist `[A-Za-z0-9._/-]`，max 80 chars，escape `@`/反引号/方括号 |
+| **P1 bypass 滥用** | 递增代价：30min → 45min → 第3次禁用（只允许收尾10min）|
+| 强制交互在紧急修复时反噬 | Emergency bypass + 递增冷却 + 可审计日志 |
 | `/loop` 稳定性未验证 | Hook 为主触发，`/loop` 兜底 |
 
 ## Open Questions
 
 1. ~~计时基准：wall clock vs 活跃时长~~ → 决定用活跃时长
 2. 活跃时长检测：检测 Claude Code 命令频率？5min 无输入暂停计时器？
-3. Emergency bypass 冷却时间：30min 合适吗？
+3. ~~Emergency bypass 冷却时间：30min 合适吗？~~ → 决定用递增策略（30min → 45min → 禁用）
 
 ## Review Gate
 
@@ -126,9 +136,9 @@ Phase 1 需求点追踪：
 
 ## 分工
 
-| 猫猫 | 任务 |
-|------|------|
-| **Opus 4.5** | skill 骨架 + hook 触发逻辑 + renderer 抽象 |
-| **Codex** | hook 安全审查 + emergency bypass 逻辑 + 上下文白名单 |
-| **Gemini** | 三档文案 + card 草案（已交付，待审查存入 refs/）|
-| **Opus/Sonnet** | 协助实现 + 测试 |
+| 猫猫 | 任务 | 状态 |
+|------|------|------|
+| **Opus 4.5** | skill 骨架 + hook 触发逻辑 + renderer 抽象 | pending |
+| **Codex** | hook 安全审查 + emergency bypass 逻辑 + 上下文白名单 | P1 审查完成 ✅ |
+| **Gemini** | 三档文案 + card 草案 + 视觉规范 | 已存入 refs/ ✅ |
+| **Opus/Sonnet** | 协助实现 + 测试 | pending |
