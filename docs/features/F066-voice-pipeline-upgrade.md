@@ -129,8 +129,8 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 
 | 决策 | 选项 | 结论 | 决策者 |
 |------|------|------|--------|
-| Phase 1 首发模型 | Kokoro-82M / Spark-TTS / CosyVoice3 | **Kokoro-82M**（82M 轻量、MLX 原生、中文声线充足） | 布偶猫 (基于 TTS 调研) |
-| 升级路径 | 一步到位 / 渐进 | **渐进**：Kokoro → Spark-TTS(克隆) → CosyVoice3(上限) | 布偶猫 |
+| Phase 1 首发模型 | Kokoro-82M / Qwen3-TTS / CosyVoice3 | **Qwen3-TTS 1.7B-CustomVoice**（Kokoro 质量不可接受，Qwen3 自然度+情绪控制最均衡） | 铲屎官+GPT-5.4 (2026-03-08) |
+| 升级路径 | 一步到位 / 渐进 | **渐进**：Qwen3 1.7B → 补 stream_synthesize + chunker → CosyVoice3(可选上限) | 布偶猫+GPT-5.4 |
 | Python TTS 替换策略 | 写死替换 / Adapter 模式 | **Adapter 模式**：`TtsAdapter` 抽象 + env var 切换 provider | 铲屎官 (2026-03-05) |
 | 声线选择流程 | 猫猫自选 / 铲屎官选 | **猫猫出期望描述 → 铲屎官试听拍板**（猫听不到声音） | 铲屎官 (2026-03-05) |
 | Phase 2 流式协议 | WebSocket / SSE | **待定**（Phase 2 plan 时决策） | — |
@@ -173,3 +173,35 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | 2026-03-05 | AIRI 项目调研 → 发现流式语音管线 + Intent 系统参考架构 |
 | 2026-03-05 | 铲屎官确认独立立项，F066 kickoff |
 | 2026-03-05 | 铲屎官决策：Python 层用 Adapter 模式（不写死）；声线由铲屎官试听拍板 |
+| 2026-03-07 | Phase 1 PR #234 合入 main：TtsAdapter ABC + X-Audio-Format + 双层白名单 |
+| 2026-03-07 | 铲屎官试听 Kokoro-82M → 判定"五年前机器朗读水平"，质量不可接受 |
+| 2026-03-07 | 请 GPT-5.4 Pro 做 TTS 深度调研 → 推荐 Qwen3-TTS 1.7B 首选 |
+| 2026-03-08 | GPT-5.4 调研报告完成（`docs/research/2026-03-07-Mac-M4-TTS.md`） |
+| 2026-03-08 | 声线试听 Round 1-4：Qwen3 CustomVoice + VoiceDesign，少年/正太音探索 |
+| 2026-03-08 | 方案 B 确认可行：CustomVoice aiden/ryan + "12yo boy pretending to be a cat" instruct |
+| 2026-03-08 | 铲屎官录制猫猫音参考 → Base 模型 voice clone 测试，方向正确 |
+
+## Voice Audition Progress (2026-03-08)
+
+### 模型升级决策
+- **Kokoro-82M**: 质量不可接受（"五年前机器朗读水平"）→ 淘汰
+- **首选**: Qwen3-TTS 1.7B-CustomVoice (MLX-Audio) — Apache-2.0, ~8-12GB 内存
+- **上限**: CosyVoice3 0.5B (Candle+Metal) — 中文上限更高但工程更折腾
+- **保底**: Qwen3-TTS 0.6B-CustomVoice — 更轻更快
+
+### 声线试听结论
+- **Round 1**: CustomVoice 内置声线（ryan/eric/dylan/aiden）— ryan 口语化效果好，但都是成年音
+- **Round 2**: CustomVoice + 少年音 instruct — 方向对但还不够年轻
+- **Round 3**: VoiceDesign 模型（文字描声音）— 烁烁 v1 (13yo) 成功！宪宪/砚砚仍偏青年
+- **Round 4**: VoiceDesign 年龄拉到 10-12 岁 — 效果更好但仍在迭代
+- **Voice Clone**: 铲屎官录参考音 → Base 模型克隆 — 偏女声（参考音高太高）
+- **方案 B (当前最佳)**: CustomVoice aiden/ryan + "12yo cat boy" instruct → **铲屎官认可："好听！可爱！"**
+
+### 关键发现
+- `temperature=0.3` 解决声线一致性问题
+- AIRI 的自然度来自 chunker + 播控，不只是模型（GPT-5.4 调研结论）
+- 需要 `stream_synthesize()` + AIRI 式短句 chunker 才能达到虚拟主播感
+
+### 待定
+- [ ] 铲屎官最终拍板三猫声线
+- [ ] 确定是否用 voice clone（需要调降调幅度）还是纯 instruct 路线
