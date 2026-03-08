@@ -44,7 +44,7 @@ export interface PollResponseOptions {
   stablePollCount?: number;
 }
 
-import { NEW_CONVERSATION_JS, POLL_RESPONSE_JS } from './cdp-dom-scripts.js';
+import { DISPATCH_ENTER_JS, FIND_SEND_BUTTON_JS, NEW_CONVERSATION_JS, POLL_RESPONSE_JS } from './cdp-dom-scripts.js';
 
 function isMissingCdpMethod(error: unknown, method: string): boolean {
   const message = error instanceof Error ? error.message : String(error);
@@ -215,7 +215,11 @@ export class AntigravityCdpClient {
     return result.result.value;
   }
 
-  /** Inject message into Antigravity chat and send */
+  /** Inject message into Antigravity chat and send.
+   *  Send uses a multi-strategy approach for resilience across Antigravity versions:
+   *  1. Click the send button (most reliable — bypasses keyboard event routing)
+   *  2. JS KeyboardEvent dispatch (Lexical-compatible, runs in renderer)
+   *  3. CDP Input.dispatchKeyEvent (Chrome input pipeline, least reliable for Electron) */
   async sendMessage(text: string): Promise<void> {
     if (!this.connected) throw new Error('CDP not connected');
 
@@ -236,20 +240,35 @@ export class AntigravityCdpClient {
 
     // 3. Inject text via execCommand (Lexical hook)
     await this.evaluate(`document.execCommand('insertText', false, ${JSON.stringify(text)})`);
-
-    // 4. Press Enter to send
     await new Promise((r) => setTimeout(r, 200));
+
+    // 4. Send — multi-strategy (try each until one succeeds)
+    // Strategy A: Find and click the send button
+    const sendBtnInfo = await this.evaluate<string | null>(FIND_SEND_BUTTON_JS);
+    if (sendBtnInfo) {
+      const btn = JSON.parse(sendBtnInfo);
+      await this.clickAt(btn.x, btn.y);
+      return;
+    }
+
+    // Strategy B: JS-level KeyboardEvent dispatch (Lexical catches these)
+    const dispatched = await this.evaluate<boolean>(DISPATCH_ENTER_JS);
+    if (dispatched) return;
+
+    // Strategy C: CDP Input.dispatchKeyEvent (last resort)
     await this.cdp('Input.dispatchKeyEvent', {
       type: 'rawKeyDown',
       key: 'Enter',
       code: 'Enter',
       windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
     });
     await this.cdp('Input.dispatchKeyEvent', {
       type: 'keyUp',
       key: 'Enter',
       code: 'Enter',
       windowsVirtualKeyCode: 13,
+      nativeVirtualKeyCode: 13,
     });
   }
 

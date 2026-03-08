@@ -347,6 +347,90 @@ describe('AntigravityCdpClient', () => {
     assert.equal(client.pending.size, 0);
   });
 
+  test('sendMessage clicks send button when found (strategy A)', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const cdpCalls = [];
+    const evaluateResults = [
+      // 1. textbox query → returns position
+      JSON.stringify({ x: 100, y: 200 }),
+      // 2. execCommand insertText → void
+      undefined,
+      // 3. FIND_SEND_BUTTON_JS → returns button position
+      JSON.stringify({ x: 300, y: 400 }),
+    ];
+
+    client.evaluate = async () => evaluateResults.shift();
+    client.cdp = async (method, params) => {
+      cdpCalls.push({ method, params });
+      return {};
+    };
+
+    await client.sendMessage('hello');
+
+    // Should have clicked textbox (mousePressed+Released) then send button (mousePressed+Released)
+    const mouseEvents = cdpCalls.filter(c => c.method === 'Input.dispatchMouseEvent');
+    assert.equal(mouseEvents.length, 4); // 2 for textbox click + 2 for send button click
+    // Last click should be at send button coordinates
+    assert.equal(mouseEvents[2].params.x, 300);
+    assert.equal(mouseEvents[2].params.y, 400);
+    // No keyboard events dispatched
+    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    assert.equal(keyEvents.length, 0);
+  });
+
+  test('sendMessage falls back to JS Enter when no send button (strategy B)', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const evaluateResults = [
+      JSON.stringify({ x: 100, y: 200 }), // textbox
+      undefined,                            // execCommand
+      null,                                 // FIND_SEND_BUTTON_JS → not found
+      true,                                 // DISPATCH_ENTER_JS → success
+    ];
+
+    const cdpCalls = [];
+    client.evaluate = async () => evaluateResults.shift();
+    client.cdp = async (method, params) => {
+      cdpCalls.push({ method, params });
+      return {};
+    };
+
+    await client.sendMessage('hello');
+
+    // No CDP keyboard events — JS dispatch handled it
+    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    assert.equal(keyEvents.length, 0);
+  });
+
+  test('sendMessage falls back to CDP Input when button and JS Enter both fail (strategy C)', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const evaluateResults = [
+      JSON.stringify({ x: 100, y: 200 }), // textbox
+      undefined,                            // execCommand
+      null,                                 // FIND_SEND_BUTTON_JS → not found
+      false,                                // DISPATCH_ENTER_JS → no active element
+    ];
+
+    const cdpCalls = [];
+    client.evaluate = async () => evaluateResults.shift();
+    client.cdp = async (method, params) => {
+      cdpCalls.push({ method, params });
+      return {};
+    };
+
+    await client.sendMessage('hello');
+
+    // Should fall through to CDP Input.dispatchKeyEvent
+    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    assert.equal(keyEvents.length, 2); // rawKeyDown + keyUp
+    assert.equal(keyEvents[0].params.key, 'Enter');
+  });
+
   test('pollResponse waits for inline loading to clear before returning text', async () => {
     const client = new AntigravityCdpClient();
     client.ws = { readyState: 1 };

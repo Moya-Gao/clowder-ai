@@ -46,6 +46,54 @@ export const POLL_RESPONSE_JS = `(() => {
 
 /** Find the "new conversation" button via multiple DOM strategies.
  *  Returns JSON: { x, y } or null. */
+/** Find the send/submit button near the chat input.
+ *  Returns JSON: { x, y } or null. */
+export const FIND_SEND_BUTTON_JS = `(() => {
+  // Strategy 1: button with send/submit aria-label or title
+  for (const btn of document.querySelectorAll('button')) {
+    if (btn.disabled) continue;
+    const label = (btn.getAttribute('aria-label') || btn.getAttribute('title') || '').toLowerCase();
+    if (label.includes('send') || label.includes('submit')) {
+      const r = btn.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+    }
+  }
+  // Strategy 2: codicon-send icon inside a button
+  const sendIcon = document.querySelector('.codicon-send');
+  if (sendIcon) {
+    const btn = sendIcon.closest('button, a') || sendIcon;
+    const r = btn.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+  }
+  // Strategy 3: SVG arrow-up icon (common send icon) inside button near input
+  const textbox = document.querySelector('[role="textbox"][contenteditable="true"]');
+  if (textbox) {
+    const inputArea = textbox.closest('form, [class*="input"], [class*="chat"]') || textbox.parentElement;
+    if (inputArea) {
+      for (const btn of inputArea.querySelectorAll('button')) {
+        if (btn.disabled) continue;
+        const r = btn.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && r.width < 80) {
+          return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+        }
+      }
+    }
+  }
+  return null;
+})()`;
+
+/** Dispatch Enter key via JS KeyboardEvent on the active element.
+ *  More reliable than CDP Input.dispatchKeyEvent for Lexical editors. */
+export const DISPATCH_ENTER_JS = `(() => {
+  const el = document.activeElement;
+  if (!el) return false;
+  const opts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+  el.dispatchEvent(new KeyboardEvent('keydown', opts));
+  el.dispatchEvent(new KeyboardEvent('keypress', opts));
+  el.dispatchEvent(new KeyboardEvent('keyup', opts));
+  return true;
+})()`;
+
 export const NEW_CONVERSATION_JS = `(() => {
   const candidates = document.querySelectorAll('a, button');
   for (const el of candidates) {
