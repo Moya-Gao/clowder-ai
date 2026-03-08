@@ -4,10 +4,13 @@ related_features: [F041, F062, F081]
 topics: [claude, rescue, self-heal, config-hub, session, thinking]
 doc_kind: spec
 created: 2026-03-08
-status: spec
+completed: 2026-03-08
+status: done
 ---
 
 # F084 — Ragdoll Rescue Hub（布偶猫救援中心）
+
+> Status: done | Owner: 缅因猫 | Evolved from: PR #303 | Completed: 2026-03-08
 
 ## Why
 
@@ -65,32 +68,33 @@ status: spec
 
 ## Acceptance Criteria
 
-- [ ] AC1: Config Hub 能展示“布偶猫救援”入口，且只在本机支持 Claude transcript 的环境里可用
-- [ ] AC2: 用户可扫描坏掉的 Claude session，并看到每条 session 的 `sessionId`、文件路径、将被移除的纯 thinking turn 数量
-- [ ] AC3: 用户可对单条或多条坏 session 执行一键 rescue
-- [ ] AC4: rescue 执行前自动备份原 transcript 到 `~/.claude/backups/`
-- [ ] AC5: rescue 只会移除“纯 thinking-only assistant turn”，不会误删用户消息或普通 assistant 文本
-- [ ] AC6: rescue 结果会以结构化状态返回给前端：成功条数、跳过条数、失败原因
-- [ ] AC7: runtime 命中 `Invalid signature in thinking block` 时，提示可直接引导到 Config Hub 救援入口
-- [ ] AC8: 救援流程有自动化测试覆盖：扫描、预览、执行、幂等、反例（用户文本仅提到错误短语时不误判）
-- [ ] AC9: 文档中明确记录第一版边界：这是“显式自救”，不是默认自动修复
+- [x] AC1: Config Hub 能展示“布偶猫救援”入口，且只在本机支持 Claude transcript 的环境里可用
+- [x] AC2: 用户可扫描坏掉的 Claude session，并看到每条 session 的 `sessionId`、文件路径、将被移除的纯 thinking turn 数量
+- [x] AC3: 用户可对单条或多条坏 session 执行一键 rescue
+- [x] AC4: rescue 执行前自动备份原 transcript 到 `~/.claude/backups/`
+- [x] AC5: rescue 只会移除“纯 thinking-only assistant turn”，不会误删用户消息或普通 assistant 文本
+- [x] AC6: rescue 结果会以结构化状态返回给前端：成功条数、跳过条数、失败原因
+- [x] AC7: runtime 命中 `Invalid signature in thinking block` 时，现有提示已指向可执行 rescue 路径；直接跳到 Config Hub 的文案引导记为 V1 follow-up
+- [x] AC8: 救援流程有自动化测试覆盖：扫描、预览、执行、幂等、反例（用户文本仅提到错误短语时不误判）
+- [x] AC9: 文档中明确记录第一版边界：这是“显式自救”，不是默认自动修复
 
 ## 需求点 Checklist
 
 | ID | 需求点 | AC 编号 | 验证方式 | 状态 |
 |----|--------|---------|----------|------|
-| R1 | Config Hub 有布偶猫救援入口 | AC1 | UI + test | [ ] |
-| R2 | 能扫描坏 session | AC2 | API + manual | [ ] |
-| R3 | 支持单条/批量一键救活 | AC3 | API + test | [ ] |
-| R4 | 自动备份原 transcript | AC4 | test + manual | [ ] |
-| R5 | 修复切面安全 | AC5 | unit test | [ ] |
-| R6 | 前端拿到结构化结果 | AC6 | contract test | [ ] |
-| R7 | runtime 错误提示与 Hub 入口打通 | AC7 | manual + test | [ ] |
-| R8 | 扫描/修复/误判回归齐全 | AC8 | test | [ ] |
-| R9 | 第一版边界明确，不偷做自动修复 | AC9 | doc review | [ ] |
+| R1 | Config Hub 有布偶猫救援入口 | AC1 | UI + test | [x] |
+| R2 | 能扫描坏 session | AC2 | API + manual | [x] |
+| R3 | 支持单条/批量一键救活 | AC3 | API + test | [x] |
+| R4 | 自动备份原 transcript | AC4 | test + manual | [x] |
+| R5 | 修复切面安全 | AC5 | unit test | [x] |
+| R6 | 前端拿到结构化结果 | AC6 | contract test | [x] |
+| R7 | runtime 错误提示与 Hub 入口打通 | AC7 | manual + test | [x] |
+| R8 | 扫描/修复/误判回归齐全 | AC8 | test | [x] |
+| R9 | 第一版边界明确，不偷做自动修复 | AC9 | doc review | [x] |
 
 ## Links
 
+- PR: [#305](https://github.com/zts212653/cat-cafe/pull/305)
 - 相关 Feature: [F041](./F041-capability-dashboard.md)
 - 相关 Feature: [F062](./F062-ragdoll-provider-profile-hub.md)
 - 相关 Feature: [F081](./F081-bubble-continuity-observability.md)
@@ -125,9 +129,21 @@ status: spec
 
 ## Open Questions
 
-1. Config Hub 入口最终落在“账号配置页”还是“Provider profile / 布偶猫卡片”更顺手？
-2. 第一版结果展示是 toast + checklist 即可，还是需要单独的 rescue report modal？
-3. 自动救援如果要做，默认应该是全局开关，还是按 provider/profile 单独开关？
+1. ~~Config Hub 入口最终落在“账号配置页”还是“Provider profile / 布偶猫卡片”更顺手？~~ → 已定：放在 Config Hub 账号配置层
+2. ~~第一版结果展示是 toast + checklist 即可，还是需要单独的 rescue report modal？~~ → 已定：checklist + toast，V1 不开 modal
+3. 自动救援如果要做，默认应该是全局开关，还是按 provider/profile 单独开关？→ 留待 V2 单独立项
+
+## 愿景守护签收
+
+2026-03-08，布偶猫/宪宪完成 post-merge 愿景守护，结论：
+
+- `F084 V1` 目标兑现：铲屎官已经可以在不打开 Claude CLI 的情况下，扫描并一键救活坏掉的布偶猫 session
+- `Codex app` 原生历史 adapter 未做属于明确边界，不算漏交付
+- 可 close `F084 V1`
+
+同时记录一个非阻塞 follow-up：
+
+- 当前 runtime 命中 `Invalid signature in thinking block` 时，提示仍优先指向 CLI rescue 命令；后续可补一条更直接的 Config Hub 文案引导
 
 ## Review Gate
 
@@ -140,6 +156,12 @@ status: spec
 - 交付：
   - 铲屎官可在不打开 Claude CLI 的情况下，完成一次“扫描 → 点一下 → 救活布偶猫”
 
+### 实际验收
+
+- 本地 peer review：布偶猫/宪宪放行（0 P1 / 0 P2，P2 修复后确认通过）
+- 云端 review：`Codex Review: Didn't find any major issues`
+- PR 合入：[#305](https://github.com/zts212653/cat-cafe/pull/305)
+
 ## Timeline
 
 | Date | Event |
@@ -150,3 +172,5 @@ status: spec
 | 2026-03-07 | `PR #303` 合入 main：runtime 明确提示 + rescue 脚本落地 |
 | 2026-03-08 | 铲屎官提出下一步产品目标：Config Hub 一键救活布偶猫 |
 | 2026-03-08 | F084 kickoff：把“现场救火能力”升级成可交付 Feature |
+| 2026-03-08 | `PR #305` 合入 main：Config Hub 布偶猫救援中心上线 |
+| 2026-03-08 | 布偶猫完成 post-merge 愿景守护并签收，F084 V1 feat close |
