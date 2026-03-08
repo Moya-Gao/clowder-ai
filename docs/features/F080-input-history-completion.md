@@ -4,7 +4,7 @@ related_features: []
 topics: [ux, input, terminal-style]
 doc_kind: spec
 created: 2026-03-07
-status: done
+status: active
 ---
 
 # F080 Input History Completion
@@ -72,8 +72,78 @@ Terminal 有历史补全能力（输入前缀 + Tab -> 补全历史输入），C
 
 - 跨猫 review：@codex
 
+---
+
+## Phase 2: Path & Slash Command Completion
+
+### Why
+
+Terminal 的 Tab 不只是补全历史——还能补全文件路径。铲屎官经常在聊天中提到文件路径（如 `packages/web/src/...`），手动输入又长又容易打错。
+
+铲屎官原话：
+> "在 terminal 是不是 tab 也可以补全文件名路径什么的？我们的 f80 就暂时做不到？"
+
+### What
+
+在 P1 的历史补全基础上，增加**文件路径补全源**：
+
+1. **路径检测**：输入中出现 `/`、`./`、`../`、或 `packages/` 等路径特征时，切换到路径补全模式
+2. **后端 API**：`GET /api/projects/complete?prefix=packages/web/src/comp` — 返回匹配的文件/目录列表（复用现有 `project-path.ts` 安全校验）
+3. **候选列表 UI**：路径补全用下拉候选列表（不用 ghost text，因为多候选）
+4. **补全源优先级**：路径补全 > 历史补全（检测到路径特征时切换源）
+
+### Technical Design
+
+```
+输入检测 → 是路径？
+  ├── 是 → GET /api/projects/complete?prefix={path}&limit=10
+  │        → 显示下拉候选列表（复用 ChatInputMenus 样式）
+  │        → Tab/Enter 选中 → 插入完整路径
+  └── 否 → 走 P1 历史补全（ghost text）
+```
+
+**后端**（`packages/api/src/routes/projects.ts`）：
+- 新增 `GET /api/projects/complete` endpoint
+- 复用 `project-path.ts` 的 `resolveAndValidate` 做安全校验
+- 基于当前 thread 的 `projectPath` 做相对路径 glob
+- 返回 `{ entries: [{ name, path, isDirectory }] }`，limit 默认 10
+
+**前端**（`packages/web/src/components/ChatInput.tsx`）：
+- 在 `handleChange` 中检测路径特征（正则：`(?:^|\s)([.~/][\w/.-]*|packages/[\w/.-]*)$`）
+- 检测到路径 → fetch `/api/projects/complete?prefix={match}` (debounce 200ms)
+- 显示候选下拉菜单（复用 mention menu 的 UI 模式）
+- Tab/Enter 选中插入
+
+**延迟预估**：
+- 后端 glob：本地文件系统 < 50ms
+- 网络 RTT：localhost ~1ms
+- Debounce：200ms
+- 总体用户感知延迟：~250ms（完全可接受）
+
+### Phase 2 Acceptance Criteria
+
+- [ ] 输入中出现路径特征时，触发路径补全
+- [ ] 后端 `GET /api/projects/complete` 返回匹配文件/目录列表
+- [ ] 前端显示下拉候选列表（Tab/Enter 选中）
+- [ ] 路径补全有 debounce（200ms），不影响输入流畅度
+- [ ] 后端路径校验：不能访问 allowedRoots 之外的目录
+- [ ] 目录结尾自动加 `/`，继续补全子路径
+
+### Phase 2 Dependencies
+
+- 复用 `packages/api/src/utils/project-path.ts`（已有）
+- 复用 `GET /api/projects/browse`（已有，参考实现）
+- 复用 ChatInputMenus 下拉 UI 模式（已有）
+
+### Phase 2 Risk
+
+- 低风险：后端复用已有模块，前端复用已有 UI 模式
+- 安全校验已有现成方案（project-path allowlist）
+
 ## Timeline
 
 | Date | Event |
 |------|-------|
-| 2026-03-07 | Kickoff |
+| 2026-03-07 | P1 Kickoff |
+| 2026-03-07 | P1 Done (PR #277) |
+| 2026-03-07 | P2 Kickoff |
