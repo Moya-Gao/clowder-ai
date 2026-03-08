@@ -18,10 +18,11 @@ created: 2026-03-07
 
 在 Hub Workspace Panel 中增加 Git Health 可视化，分两个 Phase：
 
-### Phase 1: Git Log Viewer（通用层）
+### Phase 1: Git Log + Status Viewer（通用层）
 - 基础 commit 历史浏览：hash、作者、时间、message
 - 支持选择分支 / worktree 查看
 - 点击 commit 可查看 changed files 摘要（`git show --stat`）
+- Git Status 展示：当前工作区状态（staged / unstaged / untracked 文件列表）
 
 ### Phase 2: Git Health Dashboard（定制层）
 - **Dirty Files**: `git status --porcelain` 分类展示（staged / unstaged / untracked）
@@ -34,7 +35,8 @@ created: 2026-03-07
 ### Phase 1
 - [ ] `GET /api/workspace/git-log` 返回 commit 列表（hash/author/date/subject）
 - [ ] 支持 `?worktreeId=xxx&limit=50&branch=main` 参数
-- [ ] 前端 WorkspacePanel 新增 "Git Log" tab，渲染 commit 列表
+- [ ] `GET /api/workspace/git-status` 返回工作区状态（staged/unstaged/untracked 分类）
+- [ ] 前端 WorkspacePanel 新增 "Git" tab，包含 Log + Status 两个区块
 - [ ] 点击 commit 展开 changed files 摘要
 
 ### Phase 2
@@ -48,8 +50,9 @@ created: 2026-03-07
 
 | # | 需求点 | 来源 | AC 映射 |
 |---|--------|------|---------|
-| R1 | 用户能在 Hub 里看 git commit 历史 | 铲屎官朋友反馈 | P1-AC1~4 |
-| R2 | 铲屎官能看到"main 脏了什么" | 铲屎官原话 | P2-AC2 |
+| R1 | 用户能在 Hub 里看 git commit 历史 | 铲屎官朋友反馈 | P1-AC1~2,5 |
+| R1b | 用户能在 Hub 里看 git status（工作区状态） | 铲屎官朋友反馈 | P1-AC3~4 |
+| R2 | 铲屎官能看到"main 脏了什么"（进阶分析） | 铲屎官原话 | P2-AC2 |
 | R3 | 能发现谁没清理 branch/worktree | 铲屎官原话 | P2-AC3~4 |
 | R4 | 能看 runtime 和 main 的差距 | 铲屎官原话 | P2-AC5 |
 
