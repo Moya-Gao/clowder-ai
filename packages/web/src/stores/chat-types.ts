@@ -139,6 +139,8 @@ export interface ChatMessage {
   extra?: {
     rich?: { v: 1; blocks: RichBlock[] };
     crossPost?: { sourceThreadId: string; sourceInvocationId?: string };
+    /** F081: Stream identity for continuity / hydration reconcile */
+    stream?: { invocationId?: string };
   };
   /** A2A chain group ID — messages in the same A2A chain share this ID */
   a2aGroupId?: string;

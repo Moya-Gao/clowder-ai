@@ -49,6 +49,8 @@ export interface BackgroundStoreLike {
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   /** F045: Set or append extended thinking on an assistant message in a background thread */
   setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
+  /** F081: Persist stream invocation identity on background assistant bubbles */
+  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;

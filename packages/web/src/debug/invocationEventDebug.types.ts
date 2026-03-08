@@ -3,6 +3,7 @@ export type DebugEventName =
   | 'disconnect'
   | 'engine_close'
   | 'intent_mode'
+  | 'history_replace'
   | 'queue_updated'
   | 'queue_paused'
   | 'agent_message'

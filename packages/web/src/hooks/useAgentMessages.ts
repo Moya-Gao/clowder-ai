@@ -70,6 +70,7 @@ export function useAgentMessages() {
     setMessageUsage,
     setMessageMetadata,
     setMessageThinking,
+    setMessageStreamInvocation,
     setPendingModeSwitchProposal,
     currentThreadId,
   } = useChatStore();
@@ -169,6 +170,10 @@ export function useAgentMessages() {
     return null;
   }, []);
 
+  const getCurrentInvocationIdForCat = useCallback((catId: string): string | undefined => {
+    return useChatStore.getState().catInvocations?.[catId]?.invocationId;
+  }, []);
+
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
       // Reset timeout on any message (keeps timer alive during streaming)
@@ -214,6 +219,7 @@ export function useAgentMessages() {
             } else {
               // New stream message for this cat
               const id = `msg-${Date.now()}-${msg.catId}`;
+              const invocationId = getCurrentInvocationIdForCat(msg.catId);
               activeRefs.current.set(msg.catId, { id, catId: msg.catId });
               addMessage({
                 id,
@@ -222,6 +228,7 @@ export function useAgentMessages() {
                 content: msg.content,
                 origin: 'stream',
                 ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
                 ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
                 timestamp: Date.now(),
                 isStreaming: true,
@@ -254,6 +261,7 @@ export function useAgentMessages() {
         let messageId = existing?.id;
         if (!messageId) {
           messageId = `msg-${Date.now()}-${msg.catId}`;
+          const invocationId = getCurrentInvocationIdForCat(msg.catId);
           activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
           addMessage({
             id: messageId,
@@ -261,6 +269,7 @@ export function useAgentMessages() {
             catId: msg.catId,
             content: '',
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
             timestamp: Date.now(),
             isStreaming: true,
           });
@@ -286,6 +295,7 @@ export function useAgentMessages() {
         let messageId = existing?.id;
         if (!messageId) {
           messageId = `msg-${Date.now()}-${msg.catId}`;
+          const invocationId = getCurrentInvocationIdForCat(msg.catId);
           activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
           addMessage({
             id: messageId,
@@ -293,6 +303,7 @@ export function useAgentMessages() {
             catId: msg.catId,
             content: '',
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
             timestamp: Date.now(),
             isStreaming: true,
           });
@@ -376,6 +387,15 @@ export function useAgentMessages() {
                   lastInvocationId: invocationId,
                 },
               });
+              const ref = activeRefs.current.get(targetCatId);
+              if (ref) {
+                setMessageStreamInvocation(ref.id, invocationId);
+              } else {
+                const resumedId = findStreamingMessageId(targetCatId);
+                if (resumedId) {
+                  setMessageStreamInvocation(resumedId, invocationId);
+                }
+              }
               consumed = true;
             }
           } else if (parsed?.type === 'mode_switch_proposal') {
@@ -479,6 +499,7 @@ export function useAgentMessages() {
                 ref = activeRefs.current.get(msg.catId)!;
               } else {
                 const id = `msg-${Date.now()}-${msg.catId}`;
+                const invocationId = getCurrentInvocationIdForCat(msg.catId);
                 activeRefs.current.set(msg.catId, { id, catId: msg.catId });
                 ref = activeRefs.current.get(msg.catId)!;
                 addMessage({
@@ -488,6 +509,7 @@ export function useAgentMessages() {
                   content: '',
                   origin: 'stream',
                   ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
                   ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
                   timestamp: Date.now(),
                   isStreaming: true,
@@ -510,6 +532,7 @@ export function useAgentMessages() {
               if (!ref) {
                 // Create placeholder assistant message if none exists yet
                 const id = `msg-${Date.now()}-${msg.catId}`;
+                const invocationId = getCurrentInvocationIdForCat(msg.catId);
                 activeRefs.current.set(msg.catId, { id, catId: msg.catId });
                 ref = activeRefs.current.get(msg.catId)!;
                 addMessage({
@@ -519,6 +542,7 @@ export function useAgentMessages() {
                   content: '',
                   origin: 'stream',
                   ...(msg.metadata ? { metadata: msg.metadata } : {}),
+                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
                   timestamp: Date.now(),
                   isStreaming: true,
                 });
@@ -546,12 +570,14 @@ export function useAgentMessages() {
               let ref = activeRefs.current.get(msg.catId);
               if (!ref) {
                 const id = `msg-${Date.now()}-${msg.catId}`;
+                const invocationId = getCurrentInvocationIdForCat(msg.catId);
                 activeRefs.current.set(msg.catId, { id, catId: msg.catId });
                 addMessage({
                   id,
                   type: 'assistant',
                   catId: msg.catId,
                   content: '',
+                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
                   timestamp: Date.now(),
                   isStreaming: true,
                 });
@@ -663,10 +689,12 @@ export function useAgentMessages() {
       setPendingModeSwitchProposal,
       setMessageMetadata,
       setMessageThinking,
+      setMessageStreamInvocation,
       currentThreadId,
       resetTimeout,
       clearDoneTimeout,
       findStreamingMessageId,
+      getCurrentInvocationIdForCat,
       setMessageUsage,
     ],
   );

@@ -127,6 +127,31 @@ function revokeBlobUrls(messages: ChatMessage[]) {
   }
 }
 
+function collectBlobUrls(messages: ChatMessage[]): Set<string> {
+  const blobUrls = new Set<string>();
+  for (const msg of messages) {
+    if (!msg.contentBlocks) continue;
+    for (const block of msg.contentBlocks) {
+      if (block.type === 'image' && block.url.startsWith('blob:')) {
+        blobUrls.add(block.url);
+      }
+    }
+  }
+  return blobUrls;
+}
+
+function revokeRemovedBlobUrls(previousMessages: ChatMessage[], nextMessages: ChatMessage[]) {
+  const retainedBlobUrls = collectBlobUrls(nextMessages);
+  for (const msg of previousMessages) {
+    if (!msg.contentBlocks) continue;
+    for (const block of msg.contentBlocks) {
+      if (block.type === 'image' && block.url.startsWith('blob:') && !retainedBlobUrls.has(block.url)) {
+        URL.revokeObjectURL(block.url);
+      }
+    }
+  }
+}
+
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the owner */
 function fireOwnerMentionNotification(msg: ChatMessage) {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -219,6 +244,7 @@ interface ChatState {
   addMessage: (msg: ChatMessage) => void;
   removeMessage: (id: string) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
+  replaceMessages: (msgs: ChatMessage[], hasMore: boolean) => void;
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
   appendToolEvent: (id: string, event: ToolEvent) => void;
@@ -238,6 +264,8 @@ interface ChatState {
   setMessageMetadata: (messageId: string, metadata: ChatMessageMetadata) => void;
   /** F045: Set or append extended thinking content on an assistant message */
   setMessageThinking: (messageId: string, thinking: string) => void;
+  /** F081: Persist stream invocation identity onto a message for replace/hydration reconcile */
+  setMessageStreamInvocation: (messageId: string, invocationId: string) => void;
   clearMessages: () => void;
   setCurrentMode: (mode: ModeState | null) => void;
   setPendingModeSwitchProposal: (proposal: ModeSwitchProposal | null) => void;
@@ -263,6 +291,7 @@ interface ChatState {
   setThreadMessageMetadata: (threadId: string, messageId: string, metadata: ChatMessageMetadata) => void;
   setThreadMessageUsage: (threadId: string, messageId: string, usage: TokenUsage) => void;
   setThreadMessageThinking: (threadId: string, messageId: string, thinking: string) => void;
+  setThreadMessageStreamInvocation: (threadId: string, messageId: string, invocationId: string) => void;
   setThreadMessageStreaming: (threadId: string, messageId: string, streaming: boolean) => void;
   setThreadLoading: (threadId: string, loading: boolean) => void;
   setThreadHasActiveInvocation: (threadId: string, active: boolean) => void;
@@ -517,6 +546,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages: [...newMsgs, ...state.messages], hasMore };
     }),
 
+  replaceMessages: (msgs, hasMore) =>
+    set((state) => {
+      revokeRemovedBlobUrls(state.messages, msgs);
+      return { messages: msgs, hasMore };
+    }),
+
   appendToLastMessage: (content) =>
     set((state) => {
       const messages = [...state.messages];
@@ -593,6 +628,21 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set((state) => ({
       messages: state.messages.map((m) =>
         m.id === messageId ? { ...m, thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking } : m,
+      ),
+    })),
+
+  setMessageStreamInvocation: (messageId, invocationId) =>
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === messageId
+          ? {
+            ...m,
+            extra: {
+              ...m.extra,
+              stream: { ...m.extra?.stream, invocationId },
+            },
+          }
+          : m,
       ),
     })),
 
@@ -776,6 +826,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
       updateThreadMessage(state, threadId, messageId, (m) => ({
         ...m,
         thinking: m.thinking ? `${m.thinking}\n\n---\n\n${thinking}` : thinking,
+      })),
+    ),
+
+  setThreadMessageStreamInvocation: (threadId, messageId, invocationId) =>
+    set((state) =>
+      updateThreadMessage(state, threadId, messageId, (m) => ({
+        ...m,
+        extra: {
+          ...m.extra,
+          stream: { ...m.extra?.stream, invocationId },
+        },
       })),
     ),
 

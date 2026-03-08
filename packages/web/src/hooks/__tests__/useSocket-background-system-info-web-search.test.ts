@@ -11,6 +11,7 @@ describe('consumeBackgroundSystemInfo web_search', () => {
       setThreadMessageMetadata: vi.fn(),
       setThreadMessageUsage: vi.fn(),
       setThreadMessageThinking: vi.fn(),
+      setThreadMessageStreamInvocation: vi.fn(),
       setThreadMessageStreaming: vi.fn(),
       setThreadLoading: vi.fn(),
       setThreadHasActiveInvocation: vi.fn(),
@@ -52,6 +53,7 @@ describe('consumeBackgroundSystemInfo web_search', () => {
       setThreadMessageMetadata: vi.fn(),
       setThreadMessageUsage: vi.fn(),
       setThreadMessageThinking: vi.fn(),
+      setThreadMessageStreamInvocation: vi.fn(),
       setThreadMessageStreaming: vi.fn(),
       setThreadLoading: vi.fn(),
       setThreadHasActiveInvocation: vi.fn(),
@@ -106,5 +108,59 @@ describe('consumeBackgroundSystemInfo web_search', () => {
         }),
       }),
     );
+  });
+
+  it('binds invocation identity onto an existing background streaming bubble', () => {
+    const store = {
+      addMessageToThread: vi.fn(),
+      appendToThreadMessage: vi.fn(),
+      appendToolEventToThread: vi.fn(),
+      setThreadCatInvocation: vi.fn(),
+      setThreadMessageMetadata: vi.fn(),
+      setThreadMessageUsage: vi.fn(),
+      setThreadMessageThinking: vi.fn(),
+      setThreadMessageStreamInvocation: vi.fn(),
+      setThreadMessageStreaming: vi.fn(),
+      setThreadLoading: vi.fn(),
+      setThreadHasActiveInvocation: vi.fn(),
+      updateThreadCatStatus: vi.fn(),
+      batchStreamChunkUpdate: vi.fn(),
+      clearThreadActiveInvocation: vi.fn(),
+      getThreadState: vi.fn(() => ({
+        messages: [{
+          id: 'bg-msg-1',
+          type: 'assistant',
+          catId: 'codex',
+          content: 'partial chunk',
+          isStreaming: true,
+          timestamp: Date.now(),
+        }],
+        catStatuses: {},
+        catInvocations: {},
+      })),
+    };
+    const options = {
+      store,
+      bgStreamRefs: new Map(),
+      nextBgSeq: (() => {
+        let i = 0;
+        return () => ++i;
+      })(),
+      addToast: vi.fn(),
+      clearDoneTimeout: vi.fn(),
+    };
+
+    const msg = {
+      type: 'system_info',
+      catId: 'codex',
+      threadId: 'thread-1',
+      content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-new-3' }),
+      timestamp: Date.now(),
+    };
+
+    const result = consumeBackgroundSystemInfo(msg, undefined, options);
+
+    expect(result.consumed).toBe(true);
+    expect(store.setThreadMessageStreamInvocation).toHaveBeenCalledWith('thread-1', 'bg-msg-1', 'inv-new-3');
   });
 });

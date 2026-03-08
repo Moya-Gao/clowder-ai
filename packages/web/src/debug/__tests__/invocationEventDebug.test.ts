@@ -45,6 +45,29 @@ describe('invocationEventDebug', () => {
     expect((window as typeof window & { __catCafeDebug?: unknown }).__catCafeDebug).toBeTruthy();
   });
 
+  it('records history_replace events with action and reason payload', () => {
+    configureDebug({ enabled: true });
+
+    recordDebugEvent({
+      event: 'history_replace',
+      threadId: 'thread-a',
+      action: 'merge_local',
+      queueLength: 3,
+      reason: 'history=2,current=3,preservedLocal=1',
+      timestamp: 42,
+    });
+
+    const dump = dumpDebugEvents({ rawThreadId: true });
+    expect(dump.events[0]).toMatchObject({
+      event: 'history_replace',
+      threadId: 'thread-a',
+      action: 'merge_local',
+      queueLength: 3,
+      reason: 'history=2,current=3,preservedLocal=1',
+      timestamp: 42,
+    });
+  });
+
   it('clamps size to min=50 max=500 and defaults invalid values to 200', () => {
     configureDebug({ enabled: true, size: 10 });
     expect(getDebugStatus().size).toBe(50);

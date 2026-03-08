@@ -35,6 +35,13 @@ function shouldClearBackgroundRefOnActiveEvent(msg: ActiveRoutedAgentMessage): b
   return false;
 }
 
+function getThreadInvocationId(
+  msg: Pick<BackgroundAgentMessage, 'threadId' | 'catId'>,
+  options: HandleBackgroundMessageOptions,
+): string | undefined {
+  return options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
+}
+
 export function clearBackgroundStreamRefForActiveEvent(
   msg: ActiveRoutedAgentMessage,
   bgStreamRefs: Map<string, BackgroundStreamRef>,
@@ -129,6 +136,7 @@ function ensureBackgroundAssistantMessage(
   }
 
   const messageId = `bg-tool-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+  const invocationId = getThreadInvocationId(msg, options);
   options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
   options.store.addMessageToThread(msg.threadId, {
     id: messageId,
@@ -136,6 +144,7 @@ function ensureBackgroundAssistantMessage(
     catId: msg.catId,
     content: '',
     ...(msg.metadata ? { metadata: msg.metadata } : {}),
+    ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
     timestamp: msg.timestamp,
     isStreaming: true,
     origin: 'stream',
@@ -218,6 +227,7 @@ export function handleBackgroundAgentMessage(
         }
       } else {
         messageId = `bg-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+        const invocationId = getThreadInvocationId(msg, options);
         options.bgStreamRefs.set(streamKey, { id: messageId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: messageId,
@@ -225,6 +235,7 @@ export function handleBackgroundAgentMessage(
           catId: msg.catId,
           content: msg.content,
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
           timestamp: msg.timestamp,
           isStreaming: !msg.isFinal,
           origin: 'stream',

@@ -55,6 +55,10 @@ export function consumeBackgroundSystemInfo(
             lastInvocationId: invocationId,
           },
         });
+        const targetId = existingRef?.id ?? recoverBackgroundStreamingMessage(msg, options);
+        if (targetId) {
+          options.store.setThreadMessageStreamInvocation(msg.threadId, targetId, invocationId);
+        }
         consumed = true;
       }
     } else if (parsed?.type === 'invocation_metrics') {
@@ -131,6 +135,7 @@ export function consumeBackgroundSystemInfo(
         // Create placeholder assistant bubble if needed (mirrors thinking path)
         const streamKey = `${msg.threadId}::${msg.catId}`;
         targetId = `bg-web-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
+        const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
         options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
         options.store.addMessageToThread(msg.threadId, {
           id: targetId,
@@ -138,6 +143,7 @@ export function consumeBackgroundSystemInfo(
           catId: msg.catId,
           content: '',
           ...(msg.metadata ? { metadata: msg.metadata } : {}),
+          ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
           timestamp: msg.timestamp,
           isStreaming: true,
           origin: 'stream',
@@ -181,6 +187,7 @@ export function consumeBackgroundSystemInfo(
           // Thinking arrived before any text/tool chunk — create placeholder assistant bubble
           const streamKey = `${msg.threadId}::${msg.catId}`;
           targetId = `bg-think-${Date.now()}-${msg.catId}-${options.nextBgSeq()}`;
+          const invocationId = options.store.getThreadState(msg.threadId).catInvocations[msg.catId]?.invocationId;
           options.bgStreamRefs.set(streamKey, { id: targetId, threadId: msg.threadId, catId: msg.catId });
           options.store.addMessageToThread(msg.threadId, {
             id: targetId,
@@ -188,6 +195,7 @@ export function consumeBackgroundSystemInfo(
             catId: msg.catId,
             content: '',
             ...(msg.metadata ? { metadata: msg.metadata } : {}),
+            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
             timestamp: msg.timestamp,
             isStreaming: true,
             origin: 'stream',

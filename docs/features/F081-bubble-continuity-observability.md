@@ -20,6 +20,7 @@ status: spec
 5. 更离奇的是，布偶猫在较早时刻就应已产出回复，但主区直到铲屎官后续再发一句提示词后，上一条 assistant 气泡才“闪现回来”，呈现出明显的错位回放 / 迟到补写
 6. 同一条 assistant 气泡并非“补回来就稳定了”，而是切到别的 thread 再切回来后还能再次消失，呈现出反复出现 / 反复消失的非单调可见性
 7. 当铲屎官绕过 Cat Café，直接在 Claude CLI 里 `resume/continue` 同一 session 时，session 会自行消费 `[对话历史增量 - 未发送过 N 条]` 并在外部推进状态；随后主区气泡可能出现迟到、错位或与前端当前可见状态不一致
+8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
 
 这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
 
@@ -187,6 +188,30 @@ status: spec
 - 初步推断：这不是“前端把测试刷屏吃掉了”，而是 `antigravity-smoke` 自身存在沉默挂住/句柄未清理问题，随后被布偶猫的 CLI 静默超时和主区渲染缺失放大成更像“猫没在回话”的体验
 - 更强嫌疑点：`CDP connect → send → receive round trip` 这条测试把 `await client.disconnect()` 放在断言之后；如果 `pollResponse()` 返回 `null` 或中途抛错，WebSocket 可能不会被关闭，测试 worker 会留下对 `:9000` 的活连接
 - 因此，后续修复需要同时覆盖两条线：一条是 `F081` 的气泡连续性/可观测性，另一条是 `antigravity-smoke` 的资源清理与硬 watchdog
+- `Codex app` 这条线也新增了一条高价值证据：
+  - 当前会话的 `CODEX_THREAD_ID=019cc8e5-d8bb-7411-90f8-d5e276399145` 被确认可以手动 bind 进猫猫咖啡
+  - 但 bind 成功后，猫猫咖啡主区仍然看不到这条 `Codex app` 会话里既有的聊天历史
+  - 这说明 continuity/hydration 问题并不只发生在 live socket 途中，也发生在“已知 thread id / session id 的历史回灌”这条恢复路径上
+
+### 2026-03-07 F081 主线新取证
+
+- 第一只前端真凶已经坐实：`packages/web/src/hooks/useChatHistory.ts` 在 active invocation 的 `replace` 恢复路径里，会先 `clearMessages()` 再灌 API 历史；如果切回 thread 后 live assistant bubble 已经到达，但 API 还没追上，这个 `replace` 会把刚看到的气泡直接抹掉
+- 第二只真凶也已经露头：即使不再粗暴清空，replace 仍然会把“同一轮 invocation 的本地 stream placeholder”和“后端追上的 draft/history”当成两个不同气泡，因为前端之前只按 `message.id` 认人：
+  - 本地 live bubble 常是 `msg-*` / `bg-*`
+  - draft 恢复是 `draft-${invocationId}`
+  - 正式持久化消息则带 `extra.stream.invocationId`
+- 过去的问题是：后端明明已经持久化了 `extra.stream.invocationId`，但 `/api/messages` → 前端 `ChatMessage` 的映射把这段身份信息丢掉了；同时本地新建的 stream bubble 也没有挂上这层身份
+- 当前 worktree 里的第一段治疗已经落地：
+  - `replace hydration` 不再盲目清空，而是做 non-destructive merge
+  - merge 不只看 `message.id`，还会按 `catId + stream.invocationId` 做同轮 invocation 对位
+  - 当 history/draft 比本地 placeholder 更新时，优先后端；当本地 live bubble 更丰富时，优先本地，避免 stale draft 造成“双胞胎”或迟到闪现
+  - active / background 两条 stream 创建路径都开始补 `extra.stream.invocationId`，避免 bubble 一旦结束 streaming 就再次失去身份
+  - debug ring buffer 新增 `history_replace` 事件，可直接看到 `preservedLocal / reconciledToHistory / replacedHistory` 这些 replace 决策痕迹
+- 回归测试已补上：
+  - “切回 thread 后 live bubble 不会被 replace 抹掉”
+  - “同 invocation 的 stale draft 不会和本地 richer bubble 变双胞胎”
+  - “同 invocation 的 richer server bubble 会替换本地 placeholder”
+  - “invocation_created 晚到时，会把 active / background placeholder bubble 绑定到正确的 `stream.invocationId`”
 
 ## Timeline
 
@@ -197,4 +222,10 @@ status: spec
 | 2026-03-07 | 追加现场证据：较早时刻应已产出的 assistant 气泡，没有实时出现；直到铲屎官后续再发一句提示词后，旧气泡才迟到闪现回主区 |
 | 2026-03-07 | 再次追加现场证据：闪现回来的同一条历史 assistant 气泡，在后续切 thread 再切回后又消失，证明问题具有“非单调可见性 / 反复显隐”特征 |
 | 2026-03-07 | 新增触发场景：铲屎官直接在 Claude CLI 继续同一 session，可见该 session 正在外部消费“未发送过”的历史增量并推进工具执行，说明存在 out-of-band session mutation |
-| 2026-03-07 | 砚砚进程取证：两条布偶猫 session 虽然来源不同，但最终都卡在 `packages/api/test/antigravity-smoke.test.js`；worker 处于事件循环空等，同时保持到 `127.0.0.1:9000` 的活连接，怀疑 smoke test 资源清理/超时收敛失效 |
+| 2026-03-07 | 新增 `Codex app bind` 证据：`Codex app` thread id 已可手动绑定进猫猫咖啡，但 app 内既有聊天历史没有回灌到主区，暴露新的历史 hydration 缺口 |
+| 2026-03-07 | 砚砚进程取证：两条布偶猫 session 虽然来源不同，但最终都卡在 `packages/api/test/antigravity-smoke.test.js`；worker 处于事件循环空等，同时保持到 `127.0.0.1:9000` 的活连接 |
+| 2026-03-07 | 砚砚 DOM 取证：Antigravity 实际已经返回 `pong`，真正失效的是 `pollResponse()` 的完成判定和 DOM 读取路径 |
+| 2026-03-07 | 修复 `antigravity-smoke`：默认改为显式 opt-in，round-trip harness 强制 cleanup，`Input.enable` 缺失改为非致命协议漂移，`pollResponse()` 对齐真实 DOM；默认 `pnpm test` 立即 skip，显式 smoke 2 case 转绿并回到 10 秒级 |
+| 2026-03-07 | F081 主线定位 `useChatHistory` 的 active-invocation `replace` 为第一只前端真凶：它会先 `clearMessages()`，导致切回 thread 后已经到达的 live bubble 被 API 历史覆盖抹掉 |
+| 2026-03-07 | F081 主线继续定位到第二层身份断层：本地 `msg-* / bg-*` placeholder、`draft-${invocationId}` 和正式 history message 之前没有统一的 stream identity，导致 replace 只能按 message.id 判断，进而出现双胞胎、迟到闪现和非单调可见性 |
+| 2026-03-07 | F081 主线第一段修复落地：replace 改为 non-destructive + invocation-aware reconcile，前端恢复 `extra.stream.invocationId` 身份链，补齐 active/background placeholder 绑定，并新增 `history_replace` debug 事件和回归测试 |

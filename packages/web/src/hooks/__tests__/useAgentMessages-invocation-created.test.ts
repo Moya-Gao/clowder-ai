@@ -17,6 +17,7 @@ const mockSetCatInvocation = vi.fn();
 const mockSetMessageUsage = vi.fn();
 const mockSetMessageMetadata = vi.fn();
 const mockSetMessageThinking = vi.fn();
+const mockSetMessageStreamInvocation = vi.fn();
 const mockSetPendingModeSwitchProposal = vi.fn();
 const mockAddMessageToThread = vi.fn();
 const mockClearThreadActiveInvocation = vi.fn();
@@ -57,6 +58,7 @@ const storeState = {
   setMessageUsage: mockSetMessageUsage,
   setMessageMetadata: mockSetMessageMetadata,
   setMessageThinking: mockSetMessageThinking,
+  setMessageStreamInvocation: mockSetMessageStreamInvocation,
   setPendingModeSwitchProposal: mockSetPendingModeSwitchProposal,
   addMessageToThread: mockAddMessageToThread,
   clearThreadActiveInvocation: mockClearThreadActiveInvocation,
@@ -99,8 +101,10 @@ describe('useAgentMessages system_info invocation_created', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     captured = undefined;
+    storeState.messages = [];
     mockAddMessage.mockClear();
     mockSetCatInvocation.mockClear();
+    mockSetMessageStreamInvocation.mockClear();
   });
 
   afterEach(() => {
@@ -139,5 +143,30 @@ describe('useAgentMessages system_info invocation_created', () => {
       (call) => call[0]?.type === 'system' && String(call[0]?.content).includes('"invocation_created"'),
     );
     expect(rawJsonBubble).toBeUndefined();
+  });
+
+  it('binds stream invocation identity onto an existing placeholder bubble when invocation_created arrives late', () => {
+    storeState.messages = [{
+      id: 'msg-live-1',
+      type: 'assistant',
+      catId: 'codex',
+      content: 'partial chunk',
+      isStreaming: true,
+      timestamp: Date.now(),
+    }];
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'system_info',
+        catId: 'codex',
+        content: JSON.stringify({ type: 'invocation_created', invocationId: 'inv-new-2' }),
+      });
+    });
+
+    expect(mockSetMessageStreamInvocation).toHaveBeenCalledWith('msg-live-1', 'inv-new-2');
   });
 });

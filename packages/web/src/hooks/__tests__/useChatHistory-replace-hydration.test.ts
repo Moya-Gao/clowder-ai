@@ -1,0 +1,298 @@
+import React from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { act } from 'react';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useChatHistory } from '../useChatHistory';
+import { useChatStore } from '@/stores/chatStore';
+import { apiFetch } from '@/utils/api-client';
+
+vi.mock('@/utils/api-client', () => ({
+  apiFetch: vi.fn(),
+}));
+
+function HookHost({ threadId }: { threadId: string }) {
+  useChatHistory(threadId);
+  return null;
+}
+
+function makeThreadBState(
+  cachedAssistantTs: number,
+  overrides?: Partial<ReturnType<typeof buildThreadBState>>,
+) {
+  return {
+    ...buildThreadBState(cachedAssistantTs),
+    ...overrides,
+  };
+}
+
+function buildThreadBState(cachedAssistantTs: number) {
+  return {
+    messages: [{
+      id: 'b1',
+      type: 'assistant' as const,
+      catId: 'opus',
+      content: 'cached assistant',
+      timestamp: cachedAssistantTs,
+    }],
+    isLoading: true,
+    isLoadingHistory: false,
+    hasMore: true,
+    hasActiveInvocation: true,
+    intentMode: 'execute' as const,
+    targetCats: ['opus'],
+    catStatuses: { opus: 'streaming' as const },
+    catInvocations: {},
+    currentMode: null,
+    pendingModeSwitchProposal: null,
+    unreadCount: 0,
+    hasUserMention: false,
+    lastActivity: cachedAssistantTs,
+    queue: [],
+    queuePaused: false,
+    queuePauseReason: undefined,
+    queueFull: false,
+    queueFullSource: undefined,
+  };
+}
+
+describe('useChatHistory replace hydration', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let revokeSpy: ReturnType<typeof vi.spyOn>;
+  const apiFetchMock = vi.mocked(apiFetch);
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    if (!globalThis.URL.revokeObjectURL) {
+      Object.defineProperty(globalThis.URL, 'revokeObjectURL', {
+        writable: true,
+        value: vi.fn(),
+      });
+    }
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    revokeSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    useChatStore.setState({
+      messages: [{ id: 'a1', type: 'user', content: 'thread-a message', timestamp: Date.now() - 2000 }],
+      isLoading: false,
+      isLoadingHistory: false,
+      hasMore: true,
+      hasActiveInvocation: false,
+      intentMode: null,
+      targetCats: [],
+      catStatuses: {},
+      catInvocations: {},
+      currentMode: null,
+      pendingModeSwitchProposal: null,
+      threadStates: {},
+      currentThreadId: 'thread-a',
+      viewMode: 'single',
+      splitPaneThreadIds: [],
+      splitPaneTargetId: null,
+      currentProjectPath: 'default',
+      threads: [],
+      isLoadingThreads: false,
+    });
+  });
+
+  afterEach(() => {
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+    revokeSpy.mockRestore();
+    apiFetchMock.mockReset();
+  });
+
+  function mountReplaceHydrationThread(threadState: ReturnType<typeof buildThreadBState>) {
+    useChatStore.setState({
+      messages: [{ id: 'a1', type: 'user', content: 'thread-a message', timestamp: Date.now() - 2000 }],
+      currentThreadId: 'thread-a',
+      threadStates: { 'thread-b': threadState },
+    });
+
+    act(() => {
+      root.render(React.createElement(HookHost, { threadId: 'thread-b' }));
+    });
+
+    act(() => {
+      useChatStore.getState().setCurrentThread('thread-b');
+    });
+  }
+
+  function installDeferredHistoryResponse() {
+    let resolveJson: ((value: unknown) => void) | null = null;
+    apiFetchMock.mockResolvedValue({
+      ok: true,
+      json: () => new Promise((resolve) => {
+        resolveJson = resolve;
+      }),
+    } as Response);
+    return {
+      waitUntilPending: async () => {
+        await act(async () => {
+          await Promise.resolve();
+        });
+      },
+      resolve: async (payload: unknown) => {
+        await act(async () => {
+          resolveJson?.(payload);
+          await Promise.resolve();
+        });
+      },
+      expectPending: () => expect(resolveJson).not.toBeNull(),
+    };
+  }
+
+  it('preserves a newer live bubble that arrived after thread switch', async () => {
+    const history = installDeferredHistoryResponse();
+    const cachedAssistantTs = Date.now() - 1000;
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs));
+
+    act(() => {
+      useChatStore.getState().addMessage({
+        id: 'live-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'live bubble arrived after switch',
+        timestamp: Date.now(),
+        isStreaming: true,
+      });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'live-1']);
+    history.expectPending();
+
+    await history.resolve({
+      messages: [{ id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs }],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'live-1']);
+  });
+
+  it('keeps a richer local stream bubble instead of a stale draft duplicate', async () => {
+    const history = installDeferredHistoryResponse();
+    const cachedAssistantTs = Date.now() - 1000;
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs, {
+      catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
+    }));
+
+    act(() => {
+      useChatStore.getState().addMessage({
+        id: 'live-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'local stream bubble is richer than stale draft',
+        timestamp: Date.now(),
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+      });
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [
+        { id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs },
+        { id: 'draft-inv-1', catId: 'opus', content: 'stale draft', origin: 'stream', timestamp: Date.now(), isDraft: true },
+      ],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'live-1']);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'draft-inv-1')).toBeUndefined();
+  });
+
+  it('prefers a richer server stream message over a local placeholder for the same invocation', async () => {
+    const history = installDeferredHistoryResponse();
+    const cachedAssistantTs = Date.now() - 1000;
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs, {
+      catInvocations: { opus: { invocationId: 'inv-1', startedAt: cachedAssistantTs } },
+    }));
+
+    act(() => {
+      useChatStore.getState().addMessage({
+        id: 'live-1',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'partial local bubble',
+        timestamp: Date.now(),
+        isStreaming: true,
+        origin: 'stream',
+        extra: { stream: { invocationId: 'inv-1' } },
+      });
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [
+        { id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs },
+        {
+          id: 'server-1',
+          catId: 'opus',
+          content: 'server caught up with a richer persisted bubble',
+          origin: 'stream',
+          timestamp: Date.now(),
+          extra: { stream: { invocationId: 'inv-1' } },
+        },
+      ],
+      hasMore: false,
+    });
+
+    expect(useChatStore.getState().messages.map((m) => m.id)).toEqual(['b1', 'server-1']);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'live-1')).toBeUndefined();
+  });
+
+  it('preserves local blob URLs when a kept stream bubble survives replace hydration', async () => {
+    const history = installDeferredHistoryResponse();
+    const cachedAssistantTs = Date.now() - 1000;
+    const blobUrl = 'blob:live-image-1';
+    mountReplaceHydrationThread(makeThreadBState(cachedAssistantTs));
+
+    act(() => {
+      useChatStore.getState().addMessage({
+        id: 'live-blob',
+        type: 'assistant',
+        catId: 'opus',
+        content: 'local image bubble',
+        contentBlocks: [{ type: 'image', url: blobUrl }],
+        timestamp: Date.now(),
+        isStreaming: true,
+        origin: 'stream',
+      });
+    });
+
+    await history.waitUntilPending();
+    history.expectPending();
+
+    await history.resolve({
+      messages: [{ id: 'b1', catId: 'opus', content: 'cached assistant', timestamp: cachedAssistantTs }],
+      hasMore: false,
+    });
+
+    expect(revokeSpy).not.toHaveBeenCalledWith(blobUrl);
+    expect(useChatStore.getState().messages.find((m) => m.id === 'live-blob')?.contentBlocks).toEqual([
+      { type: 'image', url: blobUrl },
+    ]);
+  });
+});
