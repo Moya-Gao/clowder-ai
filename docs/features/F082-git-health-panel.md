@@ -85,7 +85,7 @@ created: 2026-03-07
 
 | # | 级别 | 描述 | 状态 |
 |---|------|------|------|
-| VG-1 | **P1** | Runtime Drift 只有 ahead/behind 计数，缺差异 commit 列表 | 待铲屎官排期 |
+| VG-1 | **P1** | Runtime Drift 只有 ahead/behind 计数，缺差异 commit 列表 | ✅ PR #297 merged |
 | VG-2 | P2 | Status 文件行不能点击跳转到 diff/file 视图 | 待排期 |
 | VG-3 | P2 | Stale branch 归属靠 commit author（squash/接力场景会误归） | 待排期 |
 
@@ -100,3 +100,4 @@ created: 2026-03-07
 | 2026-03-07 | Kickoff: 铲屎官提出需求，立项 F082 |
 | 2026-03-07 | Phase 1 完成: PR #290 merged (git log + status + show viewer) |
 | 2026-03-07 | Phase 2 完成: PR #293 merged (stale branches, orphan worktrees, runtime drift) |
+| 2026-03-08 | VG-1 修复: PR #297 merged (drift commit list in Runtime Drift section) |
