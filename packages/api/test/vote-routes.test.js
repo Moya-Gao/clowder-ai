@@ -863,7 +863,7 @@ describe('Vote Routes', () => {
     assert.ok(msg.source, 'message must have source field');
     assert.equal(msg.source.connector, 'vote-result');
     assert.equal(msg.source.label, '投票结果');
-    assert.equal(msg.source.icon, '🗳️');
+    assert.equal(msg.source.icon, 'ballot');
   });
 
   test('DELETE close persists connector message with thread owner userId (not system)', async () => {

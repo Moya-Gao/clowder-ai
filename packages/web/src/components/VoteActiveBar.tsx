@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { BallotIcon } from './icons/VoteIcons';
 
 interface VoteBarState {
   question: string;
@@ -77,7 +78,7 @@ export function VoteActiveBar({ threadId, onEnd }: { threadId: string; onEnd: ()
 
   return (
     <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 flex items-center gap-3 text-sm">
-      <span className="flex-shrink-0">🗳️</span>
+      <BallotIcon className="w-5 h-5 flex-shrink-0 text-amber-700" />
       <span className="font-medium text-amber-900 truncate flex-1">投票进行中: {vote.question}</span>
       <span className="text-amber-700 flex-shrink-0">
         {progressText} · 剩余 {remaining}

@@ -126,7 +126,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
       // Build @mention notification message and send as user message to trigger cats
       const mentions = config.voters.map((v) => `@${v}`).join(' ');
       const optionList = config.options.map((o) => `• ${o}`).join('\n');
-      const notifyMsg = `${mentions}\n🗳️ 投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
+      const notifyMsg = `${mentions}\n投票请求：${data.question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${config.options[0]}]`;
       handleSend(notifyMsg);
     } catch (err) {
       addMessage({ id: `vote-${Date.now()}`, type: 'system', variant: 'error', content: `发起投票失败: ${err instanceof Error ? err.message : 'Unknown'}`, timestamp: Date.now() });

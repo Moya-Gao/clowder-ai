@@ -39,12 +39,12 @@ describe('ConnectorBubble theme', () => {
     const message: ChatMessage = {
       id: 'm-vote',
       type: 'connector',
-      content: '📊 投票结果: 谁最坏？',
+      content: '投票结果: 谁最坏？',
       timestamp: Date.now(),
       source: {
         connector: 'vote-result',
         label: '投票结果',
-        icon: '🗳️',
+        icon: 'ballot',
       },
     };
 
@@ -63,12 +63,12 @@ describe('ConnectorBubble theme', () => {
     const message: ChatMessage = {
       id: 'm-vote-rich',
       type: 'connector',
-      content: '📊 投票结果: 谁最坏？',
+      content: '投票结果: 谁最坏？',
       timestamp: Date.now(),
       source: {
         connector: 'vote-result',
         label: '投票结果',
-        icon: '🗳️',
+        icon: 'ballot',
       },
       extra: {
         rich: {
@@ -77,7 +77,7 @@ describe('ConnectorBubble theme', () => {
             id: 'vote-1',
             kind: 'card' as const,
             v: 1 as const,
-            title: '📊 投票结果: 谁最坏？',
+            title: '投票结果: 谁最坏？',
             bodyMarkdown: '实名投票 · 2 票',
             tone: 'info' as const,
             fields: [

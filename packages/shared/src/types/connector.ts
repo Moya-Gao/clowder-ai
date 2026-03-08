@@ -53,7 +53,7 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
   {
     id: 'vote-result',
     displayName: '投票结果',
-    icon: '🗳️',
+    icon: 'ballot',
     color: { primary: '#7C3AED', secondary: '#F5F3FF' },
     description: '投票系统自动汇总结果',
   },

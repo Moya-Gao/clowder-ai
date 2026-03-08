@@ -4,6 +4,7 @@ import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/ch
 import { MarkdownContent } from './MarkdownContent';
 import { RichBlocks } from './rich/RichBlocks';
 import { API_URL } from '@/utils/api-client';
+import { BallotIcon } from './icons/VoteIcons';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -96,7 +97,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
     <div data-message-id={message.id} className="flex gap-2 mb-4 items-start">
       {/* Connector icon avatar */}
       <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-base ${theme.avatar}`}>
-        {source.icon}
+        {source.connector === 'vote-result' ? <BallotIcon className="w-4 h-4" /> : source.icon}
       </div>
       <div className="max-w-[85%] md:max-w-[75%] min-w-0">
         <div className="flex items-center gap-2 mb-1">

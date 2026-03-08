@@ -129,7 +129,7 @@ describe('routeParallel vote interception', () => {
     const connectorMsgs = appendedMessages.filter((m) => m.source?.connector === 'vote-result');
     assert.equal(connectorMsgs.length, 1, 'should persist exactly one vote-result connector message');
     assert.equal(connectorMsgs[0].source.label, '投票结果');
-    assert.equal(connectorMsgs[0].source.icon, '🗳️');
+    assert.equal(connectorMsgs[0].source.icon, 'ballot');
     assert.equal(connectorMsgs[0].userId, 'user1');
   });
 

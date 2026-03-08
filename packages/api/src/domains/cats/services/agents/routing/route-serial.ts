@@ -438,7 +438,7 @@ export async function* routeSerial(
                   id: `vote-${Date.now()}`,
                   kind: 'card' as const,
                   v: 1 as const,
-                  title: `📊 投票结果: ${voteState.question}`,
+                  title: `投票结果: ${voteState.question}`,
                   bodyMarkdown: voteState.anonymous
                     ? `匿名投票 · ${totalVotes} 票`
                     : `实名投票 · ${totalVotes} 票`,
@@ -453,7 +453,7 @@ export async function* routeSerial(
                   await deps.messageStore.append({
                     userId,
                     catId: null,
-                    content: `📊 投票结果: ${voteState.question}`,
+                    content: `投票结果: ${voteState.question}`,
                     mentions: [],
                     timestamp: Date.now(),
                     threadId,

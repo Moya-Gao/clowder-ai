@@ -12,7 +12,7 @@ import type { VotingStateV1 } from '../../stores/ports/ThreadStore.js';
 export const VOTE_RESULT_SOURCE: ConnectorSource = {
   connector: 'vote-result',
   label: '投票结果',
-  icon: '🗳️',
+  icon: 'ballot',
 };
 
 const VOTE_PATTERN = /\[VOTE:(.+?)\]/;
@@ -42,7 +42,7 @@ export function checkVoteCompletion(state: VotingStateV1): boolean {
  */
 export function buildVoteNotification(question: string, options: string[]): string {
   const optionList = options.map((o) => `• ${o}`).join('\n');
-  return `🗳️ 投票请求：${question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${options[0]}]`;
+  return `投票请求：${question}\n\n选项：\n${optionList}\n\n请在回复中包含 [VOTE:你的选项]，例如 [VOTE:${options[0]}]`;
 }
 
 /**
