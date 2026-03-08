@@ -76,10 +76,18 @@ created: 2026-03-07
 - `git log` 对大仓库可能慢 → limit 参数 + 分页
 - Runtime drift 需要 runtime 目录路径配置化
 
-## Open Questions
+## Open Questions (resolved)
 
-1. Runtime 路径怎么配置？环境变量 `CAT_CAFE_RUNTIME_PATH`？还是 linked roots 里标记？
-2. Stale branches 的"猫猫归属"从 commit author 推断够准吗？还是查 branch 名前缀？
+1. ~~Runtime 路径怎么配置？~~ → 用 `RUNTIME_REPO_PATH` 环境变量
+2. ~~猫猫归属从 commit author 推断够准吗？~~ → MVP 够用，已知局限（见下）
+
+## 愿景守护发现 (GPT-5.4 + Opus 共识, 2026-03-07)
+
+| # | 级别 | 描述 | 状态 |
+|---|------|------|------|
+| VG-1 | **P1** | Runtime Drift 只有 ahead/behind 计数，缺差异 commit 列表 | 待铲屎官排期 |
+| VG-2 | P2 | Status 文件行不能点击跳转到 diff/file 视图 | 待排期 |
+| VG-3 | P2 | Stale branch 归属靠 commit author（squash/接力场景会误归） | 待排期 |
 
 ## Review Gate
 
