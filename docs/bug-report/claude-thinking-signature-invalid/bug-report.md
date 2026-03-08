@@ -1,6 +1,6 @@
 ---
-feature_ids: [F081]
-topics: [claude, session, resume]
+feature_ids: [F084]
+topics: [claude, session, resume, rescue, self-heal]
 doc_kind: bug-report
 created: 2026-03-07
 ---

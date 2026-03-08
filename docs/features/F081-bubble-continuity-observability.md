@@ -1,6 +1,6 @@
 ---
 feature_ids: [F081]
-related_features: [F045, F048, F055, F069]
+related_features: [F045, F048, F055, F069, F084]
 topics: [bubble, rendering, continuity, observability, socket, hydration, draft, timeout]
 doc_kind: spec
 created: 2026-03-07
@@ -170,6 +170,7 @@ status: spec
 - 相关 Feature: [F055](./F055-plan-board.md)
 - 相关 Feature: [F048](./F048-restart-recovery.md)
 - 相关 Feature: [F069](./F069-thread-read-state.md)
+- 相关 Feature: [F084](./F084-ragdoll-rescue-hub.md)
 - 现场证据：2026-03-07 铲屎官 thread 复盘（“先看到气泡，切走再切回气泡消失” + “Claude session 已有回答，前端主区无气泡” + “08:19 的布偶猫回复直到 08:33 再发下一句提示词后才闪现回主区” + “闪现回来的同一条历史气泡在再次切换 thread 后又消失” + “直接在 Claude CLI 继续同一 session 时，可见 session 正在消费 `[对话历史增量 - 未发送过 2 条]` 并执行 Bash，说明 session 状态会在 Cat Café 外部前进”）
 
 ## Detective Notes

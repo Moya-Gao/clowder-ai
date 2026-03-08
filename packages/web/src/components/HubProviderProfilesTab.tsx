@@ -5,6 +5,7 @@ import React from 'react';
 import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
 import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
+import { HubClaudeRescueSection } from './HubClaudeRescueSection';
 import { HubProviderProfileItem } from './HubProviderProfileItem';
 import type {
   ProfileItem,
@@ -255,6 +256,8 @@ export function HubProviderProfilesTab() {
           提示：点击“测试”会使用对应 profile 的 API key 向 baseUrl 发起请求，请确认目标地址可信。
         </p>
       </div>
+
+      <HubClaudeRescueSection />
 
       <div className="rounded-lg border border-gray-200 bg-gray-50/70 p-3 space-y-2">
         <h4 className="text-xs font-semibold text-gray-700">新建 Profile</h4>

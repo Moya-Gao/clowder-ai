@@ -34,6 +34,7 @@ export { skillsRoutes } from './skills.js';
 export { queueRoutes } from './queue.js';
 export { quotaRoutes } from './quota.js';
 export { providerProfilesRoutes } from './provider-profiles.js';
+export { claudeRescueRoutes } from './claude-rescue.js';
 export { workspaceRoutes } from './workspace.js';
 export { workflowSopRoutes } from './workflow-sop.js';
 export { workspaceEditRoutes } from './workspace-edit.js';
