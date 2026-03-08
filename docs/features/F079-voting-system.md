@@ -1,10 +1,10 @@
 ---
 feature_ids: [F079]
 related_features: [F061]
-topics: [collaboration, play-mode, rich-block, at-cat]
+topics: [collaboration, play-mode, rich-block, at-cat, connector]
 doc_kind: spec
 created: 2026-03-07
-status: done
+status: in-progress
 ---
 
 # F079 Voting System (v2 — UX 重写)
@@ -179,6 +179,41 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 - [x] AT 猫（antigravity, antig-opus）能参与投票
 - [x] VoteResultCard 正确渲染投票结果（含进度条）
 
+## Gap 3: 投票结果 Connector 气泡（独立系统通知样式）
+
+### Why
+
+当前投票结果是 rich block card 嵌在 `userId: 'system'` 的消息里，渲染为普通 system message。
+铲屎官要求投票结果像 **GitHub Review 通知**那样，有独立的 connector 气泡：
+- 左对齐、独立配色主题（区别于猫猫消息和系统消息）
+- 自带图标 + 标签头（如 🗳️ + "投票结果"）
+- 结构化字段展示
+
+参考：GitHub Review 通知走 `source: { connector: 'github-review', label: 'GitHub Review', icon: '🔔' }` 路径，
+前端 `ConnectorBubble.tsx` 根据 connector 类型匹配主题。
+
+### Scope
+
+**后端**：
+- vote close 时，message 从 `{ userId: 'system', extra: { rich } }` 改为 `{ userId: 'system', catId: null, source: { connector: 'vote-result', label: '投票结果', icon: '🗳️' } }`
+- 结果数据放 `contentBlocks` 或保留 `extra.rich`（取决于 ConnectorBubble 渲染路径）
+
+**前端**：
+- `ConnectorBubble.tsx` 增加 `vote-result` connector 主题（配色待定，建议紫金色系区分 github-review 的蓝灰）
+- `ChatMessage.tsx` 的 connector 分支已自动覆盖（只要 `source` 存在就走 ConnectorBubble）
+
+### Acceptance Criteria
+
+- [ ] 投票结果消息携带 `source: { connector: 'vote-result', label: '投票结果', icon: '🗳️' }`
+- [ ] 前端渲染为 ConnectorBubble 样式（左对齐、独立图标 + 标签、主题配色）
+- [ ] 结果内容（选项、票数、百分比、进度条）在 connector 气泡内正确展示
+- [ ] 匿名模式下不泄露投票人身份
+- [ ] 实名模式下正确列出每个选项的投票人
+
+### 讨论来源
+
+Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — 铲屎官看到手动发的投票汇总消息后提出
+
 ## Links
 
 - 讨论来源：Thread `thread_mm4dj9jp0tij0ch3` (2026-03-07 06:49)
@@ -223,3 +258,4 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 | 2026-03-08 | Phase 2 spec rewrite (本文档) |
 | 2026-03-08 | Phase 2 merged (PR #296) |
 | 2026-03-07 | Vision guard pass (codex) |
+| 2026-03-08 | Gap 3 spec: 投票结果 Connector 气泡 |
