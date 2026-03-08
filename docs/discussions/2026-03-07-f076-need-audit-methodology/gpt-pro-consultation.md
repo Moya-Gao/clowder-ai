@@ -327,8 +327,85 @@ Metadata
 [14]: https://arxiv.org/html/2409.06741v1 "https://arxiv.org/html/2409.06741v1"
 [15]: https://www.producttalk.org/opportunity-solution-trees/?srsltid=AfmBOorQsn6-t4SlHRF2SCZ1oNnN2YZZLSc7pVkAEyaQK3g8Eco4TmNI "https://www.producttalk.org/opportunity-solution-trees/?srsltid=AfmBOorQsn6-t4SlHRF2SCZ1oNnN2YZZLSc7pVkAEyaQK3g8Eco4TmNI"
 
-## 回答分析（布偶猫回填）
+## 回答分析（布偶猫）
 
-> 收到 GPT Pro 回答后，布偶猫分析哪些建议值得采纳、哪些需要调整：
+### 总体评价
 
-（待回填）
+GPT Pro 的回答不是在否定我们的方向，而是在给我们的 v1 装甲。7 个盲点里有 5 个是真枪实弹的升级，2 个是重要但可以分阶段做的。引用的方法论谱系（Volere、BABOK、ATDD、Impact Mapping、JTBD）全是正经学科，不是空话。
+
+### 逐条分析
+
+| # | GPT Pro 建议 | 采纳? | 理由 |
+|---|-------------|-------|------|
+| 1 | **加 Stage 0 framing**（sponsor/goal/metric/budget/deadline/current workflow/provenance） | **立即采纳** | 我们确实直接从 PRD 开始了，没问"谁拍板、为什么现在做"。外部项目没有这层，后面做得再精细也可能方向错。这是最关键的补丁。 |
+| 2 | **certainty 拆成 clarity + groundedness**，加 Validate First 第 5 类 | **立即采纳** | 这是整篇最锐利的洞察。"写得清楚"≠"是真的"——AI 时代的核心问题。一个句子可以极清晰但来源是 AI 脑补的。加 Validate First 类别 + Source tag（Q/O/D/R/A）硬门禁，**A 类不能进 Build Now**，这一刀直接打掉"AI 假具体"。 |
+| 3 | **Card family**（Intent + Constraint + Quality + Transition） | **采纳，但分阶段** | 企业项目确实后爆炸在非功能需求上（权限、审计、数据迁移、性能）。但一次上 4 种卡片对铲屎官的外部项目来说认知负荷太重。建议 v2 先上 Intent Card + Source tag，v3 再扩 card family。 |
+| 4 | **Domain/Data pass**（术语表+核心对象+状态变化） | **立即采纳** | "连单据、客户、审批记录这些对象是谁都没站稳"——这正是 studio-flow 的现状。没有 domain pass，纵切就是切在空气里。放在 Stage 1 和 Stage 2 之间。 |
+| 5 | **Stage 3 改名 Resolution Design**（问题/证据/样本/原型/升级） | **立即采纳** | 不是所有未知都能靠问句解决。有些要看甲方现有的 Excel/群消息/审批截图。"解疑路径设计"比"问题生成"更准确、更强。 |
+| 6 | **Granularity normalization**（INVEST 拆分门） | **采纳，合并到 Stage 1** | "登录功能完善"和"完整审核仪表盘"不能以同粒度进 triage。加一个拆分门：不够 Small 或不够 Testable 的必须继续裂解。不用单独一个 stage，合并到 Stage 1 的 Downgrade 流程里。 |
+| 7 | **Commercial packaging**（fixed-scope/discovery/T&M/waiting room） | **重要但后置** | 这是"方法论→商业模型"的桥接，对铲屎官做外部项目报价极有价值。但这属于商业决策层，不属于 F076 的技术产品范围。单独记录，作为铲屎官的商业 playbook 输入。 |
+
+### Intent Card 槽位调整
+
+GPT Pro 的两个命名优化都采纳：
+- `trigger` → `context/trigger`（企业需求不只有事件触发，还有周期/巡检/批处理）
+- `object` → `object/state`（逼出状态变化，企业复杂度藏在状态机里）
+
+Source tag 做成硬门禁是神来之笔：
+- Q = 客户明确口述
+- O = 现场观察
+- D = 现有文档/数据
+- R = 法规/合同
+- A = AI 推断
+
+**A 类不能进 Build Now** → 必须先进 Validate First → 升级为 Q/O/D/R 后才能出。
+
+### "第一版不是 MVP 功能集合，而是 MVP 学习装置"
+
+这句话重新定义了我们对甲方项目第一版的期望。不是"做出最小功能集"，而是"做出最能暴露误解的闭环"。这和 gpt52 的纵切思路完全一致，但表述更精准。
+
+### "Skeptic/Auditor Agent"
+
+GPT Pro 建议加一个专门的审计员角色，对每张卡做：补 provenance、找反例、找边界、找隐藏依赖。这在 cat-cafe 里天然适合——可以是砚砚（Codex）的新职责，他本来就擅长挑刺和找边界。
+
+### 升级后的 Need Audit Pipeline v2
+
+```
+Stage 0: Frame
+  - Sponsor / Goal / Success Metric / Budget / Deadline
+  - Current Workflow / Provenance of each claim
+
+Stage 1: Downgrade + Intent Extraction
+  - PRD → claim backlog（不叫 feature backlog）
+  - 6 槽 Intent Card（actor / context-trigger / goal / object-state / success_signal / non_goal）
+  - Source tag 硬门禁（Q/O/D/R/A）
+  - Granularity gate: 不够 Small/Testable 的必须继续裂解
+
+Stage 1.5: Domain Pass
+  - Glossary / Core entities / State machines / Data sources / Boundaries
+
+Stage 2: Validity Triage
+  - 五维评分: clarity / groundedness / necessity / coupling / size-band
+  - 5 类: Build Now / Clarify First / Validate First / Challenge / Later
+  - A-tagged cards → 强制 Validate First
+
+Stage 3: Resolution Design
+  - 约束式确认题 / 证据请求 / 样本请求 / 低保真原型 / sponsor 升级
+
+Stage 4: Slice Planning
+  - Learning Slice（校正理解）/ Value Slice（业务闭环）/ Hardening Slice（加固）
+
+(Stage 5: Commercial Packaging — 后置，铲屎官商业决策层)
+```
+
+### 方法论谱系参考（留档）
+
+| 我们的阶段 | 对应成熟方法论 |
+|-----------|--------------|
+| Stage 0 | Volere stakeholder/goal/scope + JTBD + Opportunity Solution Tree |
+| Stage 1 | Volere atomic requirement + IEEE 29148 requirement qualities |
+| Stage 1.5 | Volere business data model + domain-driven design |
+| Stage 2 | INCOSE/SEBoK traceability + BABOK requirement layers |
+| Stage 3 | ATDD / Three Amigos / Specification by Example |
+| Stage 4 | User Story Mapping / Impact Mapping |
+| Stage 5 | Volere waiting room + Agile contract models |

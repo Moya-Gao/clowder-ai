@@ -40,18 +40,30 @@ created: 2026-03-07
 
 核心洞察（gpt52）：**第一步不是拆 feat，而是先降级。** 把 PRD 从"看起来完整的需求文档"降级为"待验证的意图包"。
 
-四阶段管线：
+关键升级（GPT Pro 外部咨询）：**"写得清楚" ≠ "是真的"。** certainty 必须拆成 clarity + groundedness，加 Source tag 硬门禁（AI 推断的不能直接进 Build Now）。
+
+**Need Audit Pipeline v2**（6 阶段，含 GPT Pro 四刀升级）：
 
 | 阶段 | 做什么 | 输出 |
 |------|--------|------|
-| 1. Downgrade + Intent Extraction | PRD → 6 槽 Intent Card（actor/goal/trigger/object/success_signal/non_goal） | Translation Matrix |
-| 2. Validity Triage | 三维评分（certainty/necessity/coupling）→ 4 类（Build Now/Clarify First/Challenge/Later） | 分类标注 |
-| 3. Question Generation | 约束式确认题（"我们理解你要 A，如果不是则 B/C，默认建议 A 因为…"） | Clarification Queue |
-| 4. Slice Planning | 纵切业务链（一个角色+一条完整工作流+一个可验收结果），不横切模块 | Slice Ladder |
+| 0. Frame | 谁拍板/为什么现在做/成败看什么/时间预算/现有流程/每条说法来源 | Sponsor Map + Goal Statement |
+| 1. Downgrade + Intent Extraction | PRD → claim backlog（不叫 feature backlog）。6 槽 Intent Card + Source tag（Q/O/D/R/A）+ 粒度门禁 | Translation Matrix |
+| 1.5 Domain Pass | 术语表 / 核心对象 / 状态机 / 数据源 / 边界 | Domain Model |
+| 2. Validity Triage | 五维评分（clarity/groundedness/necessity/coupling/size-band）→ 5 类 | 分类标注 |
+| 3. Resolution Design | 约束式确认题 / 证据请求 / 样本请求 / 低保真原型 / sponsor 升级 | Clarification Queue |
+| 4. Slice Planning | Learning Slice（校正理解）/ Value Slice（业务闭环）/ Hardening Slice（加固） | Slice Ladder |
+
+Triage 5 类：**Build Now** / **Clarify First** / **Validate First**（AI 推断、看似清楚但未锚定） / **Challenge** / **Later**
+
+Source tag 硬门禁：Q=客户口述 / O=现场观察 / D=现有文档 / R=法规合同 / **A=AI 推断（不能进 Build Now）**
+
+Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / success_signal / non_goal + metadata(source_tag, decision_owner, confidence, dependency_tags)
 
 8 类风险检测信号：动词空心 / 角色缺失 / 数据源不明 / 成功信号缺失 / 边界缺失 / 依赖隐藏 / AI 假具体 / 范围膨胀
 
-详见：`docs/discussions/2026-03-07-f076-need-audit-methodology/meeting-notes.md`
+详见：
+- 多猫讨论：`docs/discussions/2026-03-07-f076-need-audit-methodology/meeting-notes.md`
+- GPT Pro 咨询：`docs/discussions/2026-03-07-f076-need-audit-methodology/gpt-pro-consultation.md`
 
 **能力 2: 渐进式交付引导（Incremental Delivery）**
 - 大愿景 → 最小可验证切片（纵切业务链，不横切模块）
@@ -123,3 +135,4 @@ created: 2026-03-07
 | 2026-03-07 | Kickoff + 采访铲屎官（5 轮 Q&A）|
 | 2026-03-07 | 采访结论写入 spec + UX wireframe + 多猫讨论 |
 | 2026-03-07 | Need Audit 方法论多猫讨论收敛（Opus + GPT-5.2）|
+| 2026-03-07 | GPT Pro 外部咨询 → Pipeline v1 升级为 v2（+Stage 0/Domain Pass/clarity+groundedness/Resolution Design）|
