@@ -7,6 +7,7 @@ import { useChatStore } from '@/stores/chatStore';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
 import { ChangesPanel } from './workspace/ChangesPanel';
+import { GitPanel } from './workspace/GitPanel';
 import { JsxPreview } from './workspace/JsxPreview';
 import { LinkedRootsManager, LinkedRootRemoveButton } from './workspace/LinkedRootsManager';
 import { CodeViewer } from './workspace/CodeViewer';
@@ -120,7 +121,7 @@ export function WorkspacePanel() {
 
   const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
 
-  const [viewMode, setViewMode] = useState<'files' | 'changes'>('files');
+  const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git'>('files');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -404,7 +405,7 @@ export function WorkspacePanel() {
 
       {/* Files / Changes toggle */}
       <div className="flex border-b border-owner-light/40">
-        {(['files', 'changes'] as const).map((mode) => (
+        {(['files', 'changes', 'git'] as const).map((mode) => (
           <button
             key={mode}
             type="button"
@@ -415,7 +416,7 @@ export function WorkspacePanel() {
                 : 'text-owner-dark/40 hover:text-owner-dark/60'
             }`}
           >
-            {mode === 'files' ? 'Files' : 'Changes'}
+            {mode === 'files' ? 'Files' : mode === 'changes' ? 'Changes' : 'Git'}
           </button>
         ))}
       </div>
@@ -423,7 +424,9 @@ export function WorkspacePanel() {
       {/* Error */}
       {error && <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
 
-      {viewMode === 'changes' ? (
+      {viewMode === 'git' ? (
+        <GitPanel />
+      ) : viewMode === 'changes' ? (
         <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
       ) : (
       <>

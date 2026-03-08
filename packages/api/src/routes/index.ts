@@ -37,4 +37,5 @@ export { providerProfilesRoutes } from './provider-profiles.js';
 export { workspaceRoutes } from './workspace.js';
 export { workflowSopRoutes } from './workflow-sop.js';
 export { workspaceEditRoutes } from './workspace-edit.js';
+export { workspaceGitRoutes } from './workspace-git.js';
 export { voteRoutes } from './votes.js';
