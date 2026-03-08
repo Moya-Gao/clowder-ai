@@ -2,6 +2,7 @@
 
 import type { BacklogItem, CatId } from '@cat-cafe/shared';
 import Link from 'next/link';
+import { extractFeatureId } from './FeatureBirdEyePanel';
 
 interface ThreadSituationSummary {
   id: string;
@@ -15,6 +16,8 @@ interface ThreadSituationPanelProps {
   dispatchedItems: BacklogItem[];
   loading: boolean;
   threadsByBacklogId: Record<string, ThreadSituationSummary>;
+  /** Fallback: threads matched by feature ID in title */
+  threadsByFeatureId?: Record<string, ThreadSituationSummary[]>;
 }
 
 function formatLastActive(lastActiveAt: number): string {
@@ -25,7 +28,12 @@ function formatLastActive(lastActiveAt: number): string {
   return `${Math.floor(delta / 86_400_000)} 天前`;
 }
 
-export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklogId }: ThreadSituationPanelProps) {
+export function ThreadSituationPanel({
+  dispatchedItems,
+  loading,
+  threadsByBacklogId,
+  threadsByFeatureId = {},
+}: ThreadSituationPanelProps) {
   return (
     <section className="min-h-0 rounded-2xl border border-[#E7DAC7] bg-[#FFFDF8] p-3" data-testid="mc-thread-situation">
       <div className="mb-2">
@@ -48,7 +56,11 @@ export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklo
       <div className="space-y-2">
         {dispatchedItems.map((item) => {
           const thread = threadsByBacklogId[item.id];
-          if (!thread) {
+          // Fallback: match by feature ID in thread title
+          const featureId = extractFeatureId(item.tags);
+          const titleMatchedThreads = featureId !== 'Untagged' ? threadsByFeatureId[featureId] ?? [] : [];
+
+          if (!thread && titleMatchedThreads.length === 0) {
             return (
               <article
                 key={item.id}
@@ -63,6 +75,10 @@ export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklo
             );
           }
 
+          // Direct backlogItemId match takes priority
+          const displayThreads = thread ? [thread] : titleMatchedThreads;
+          const matchType = thread ? 'direct' : 'title';
+
           return (
             <article
               key={item.id}
@@ -70,31 +86,38 @@ export function ThreadSituationPanel({ dispatchedItems, loading, threadsByBacklo
               data-testid={`mc-thread-situation-item-${item.id}`}
             >
               <p className="text-xs font-semibold text-[#4B3A2A]">{item.title}</p>
-              <p className="mt-1 text-[11px] text-[#6E5A46]">Thread：{thread.title || thread.id}</p>
-              <p className="text-[11px] text-[#6E5A46]">
-                最近活跃：
-                <span
-                  title={new Date(thread.lastActiveAt).toLocaleString('zh-CN', {
-                    year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                >
-                  {formatLastActive(thread.lastActiveAt)}
-                </span>
-              </p>
-              <p className="text-[11px] text-[#6E5A46]">
-                参与猫：{thread.participants.length > 0 ? thread.participants.join(', ') : '暂无'}
-              </p>
-              <Link
-                href={`/thread/${thread.id}`}
-                className="mt-1 inline-flex text-[11px] font-medium text-[#245EA8] underline-offset-2 hover:underline"
-                data-testid={`mc-thread-situation-link-${item.id}`}
-              >
-                打开 thread
-              </Link>
+              {matchType === 'title' && (
+                <p className="text-[10px] text-[#9A866F]">通过标题匹配</p>
+              )}
+              {displayThreads.map((t) => (
+                <div key={t.id} className="mt-1 border-t border-[#F0E8DA] pt-1 first:mt-0 first:border-t-0 first:pt-0">
+                  <p className="text-[11px] text-[#6E5A46]">Thread：{t.title || t.id}</p>
+                  <p className="text-[11px] text-[#6E5A46]">
+                    最近活跃：
+                    <span
+                      title={new Date(t.lastActiveAt).toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    >
+                      {formatLastActive(t.lastActiveAt)}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-[#6E5A46]">
+                    参与猫：{t.participants.length > 0 ? t.participants.join(', ') : '暂无'}
+                  </p>
+                  <Link
+                    href={`/thread/${t.id}`}
+                    className="mt-1 inline-flex text-[11px] font-medium text-[#245EA8] underline-offset-2 hover:underline"
+                    data-testid={`mc-thread-situation-link-${item.id}-${t.id}`}
+                  >
+                    打开 thread
+                  </Link>
+                </div>
+              ))}
             </article>
           );
         })}

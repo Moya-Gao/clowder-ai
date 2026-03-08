@@ -67,6 +67,7 @@ export function MissionControlPage() {
   const [selfClaimPolicyBlocker, setSelfClaimPolicyBlocker] = useState<SelfClaimPolicyBlocker>(null);
   const [threadsByBacklogId, setThreadsByBacklogId] = useState<Record<string, ThreadSituationSummary>>({});
   const [threadCountByFeature, setThreadCountByFeature] = useState<Record<string, number>>({});
+  const [threadsByFeatureId, setThreadsByFeatureId] = useState<Record<string, ThreadSituationSummary[]>>({});
   const [threadsLoading, setThreadsLoading] = useState(false);
   const {
     items,
@@ -180,13 +181,15 @@ export function MissionControlPage() {
   useEffect(() => {
     if (uniqueFeatureIds.length === 0) {
       setThreadCountByFeature({});
+      setThreadsByFeatureId({});
       return;
     }
     const controller = new AbortController();
     void (async () => {
       try {
         const CHUNK_SIZE = 50;
-        const merged: Record<string, number> = {};
+        const mergedCounts: Record<string, number> = {};
+        const mergedThreads: Record<string, ThreadSituationSummary[]> = {};
         for (let i = 0; i < uniqueFeatureIds.length; i += CHUNK_SIZE) {
           if (controller.signal.aborted) return;
           const chunk = uniqueFeatureIds.slice(i, i + CHUNK_SIZE);
@@ -194,12 +197,16 @@ export function MissionControlPage() {
             signal: controller.signal,
           });
           if (!response.ok || controller.signal.aborted) return;
-          const body = (await response.json()) as { threadsByFeature?: Record<string, unknown[]> };
+          const body = (await response.json()) as { threadsByFeature?: Record<string, ThreadSituationSummary[]> };
           for (const [fid, threads] of Object.entries(body.threadsByFeature ?? {})) {
-            merged[fid] = (merged[fid] ?? 0) + threads.length;
+            mergedCounts[fid] = (mergedCounts[fid] ?? 0) + threads.length;
+            mergedThreads[fid] = [...(mergedThreads[fid] ?? []), ...threads];
           }
         }
-        if (!controller.signal.aborted) setThreadCountByFeature(merged);
+        if (!controller.signal.aborted) {
+          setThreadCountByFeature(mergedCounts);
+          setThreadsByFeatureId(mergedThreads);
+        }
       } catch {
         // ignore abort / network errors
       }
@@ -551,6 +558,7 @@ export function MissionControlPage() {
                     dispatchedItems={dispatchedItems}
                     loading={threadsLoading}
                     threadsByBacklogId={threadsByBacklogId}
+                    threadsByFeatureId={threadsByFeatureId}
                   />
                 </div>
               </div>

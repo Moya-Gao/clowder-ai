@@ -1313,4 +1313,105 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
       value: { ...window.location, search: originalSearch },
     });
   });
+
+  it('thread-situation falls back to title-matched threads when no backlogItemId link', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'seed-title-match',
+        userId: 'u_test',
+        title: '[F099] Title Match Test',
+        summary: 'dispatched item without backlogItemId on thread',
+        priority: 'p1',
+        tags: ['feature:f099'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now - 10_000,
+        updatedAt: now - 1_000,
+        dispatchedAt: now - 5_000,
+        dispatchedThreadId: 'thread-unlinked',
+        dispatchedThreadPhase: 'coding',
+        audit: [
+          { id: 'a-tm', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 },
+        ],
+      } satisfies MutableBacklogItem,
+    ]);
+    // Thread has F099 in title but NO backlogItemId → should match via title
+    backend.setThreads([
+      {
+        id: 'thread-title-f099',
+        title: '[F099] some related thread',
+        createdBy: 'u_test',
+        lastActiveAt: now - 200,
+        participants: ['codex'],
+        // no backlogItemId!
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const panel = container.querySelector('[data-testid="mc-thread-situation"]');
+    expect(panel).not.toBeNull();
+    // Should show the title-matched thread instead of "暂无关联 thread"
+    expect(panel?.textContent).toContain('[F099] some related thread');
+    expect(panel?.textContent).toContain('通过标题匹配');
+    expect(panel?.textContent).not.toContain('暂无关联 thread');
+  });
+
+  it('thread-situation prefers direct backlogItemId over title match', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'seed-direct-pref',
+        userId: 'u_test',
+        title: '[F088] Direct Preference Test',
+        summary: 'has both direct link and title match',
+        priority: 'p1',
+        tags: ['feature:f088'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now - 10_000,
+        updatedAt: now - 1_000,
+        dispatchedAt: now - 5_000,
+        dispatchedThreadId: 'thread-direct',
+        dispatchedThreadPhase: 'coding',
+        audit: [
+          { id: 'a-dp', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 5_000 },
+        ],
+      } satisfies MutableBacklogItem,
+    ]);
+    backend.setThreads([
+      {
+        id: 'thread-direct',
+        title: 'Direct Linked Thread',
+        createdBy: 'u_test',
+        lastActiveAt: now - 100,
+        participants: ['codex'],
+        backlogItemId: 'seed-direct-pref', // direct link
+      },
+      {
+        id: 'thread-title-f088',
+        title: '[F088] title match thread',
+        createdBy: 'u_test',
+        lastActiveAt: now - 300,
+        participants: ['codex'],
+        // no backlogItemId — would match by title
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const panel = container.querySelector('[data-testid="mc-thread-situation"]');
+    expect(panel).not.toBeNull();
+    // Direct link should show, title match should NOT show
+    expect(panel?.textContent).toContain('Direct Linked Thread');
+    expect(panel?.textContent).not.toContain('通过标题匹配');
+    expect(panel?.textContent).not.toContain('[F088] title match thread');
+  });
 });
