@@ -190,7 +190,7 @@ export function handleBackgroundAgentMessage(
 
     if (msg.origin === 'callback') {
       // MCP callback message: always a separate bubble (never merge into stream)
-      const cbId = `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
+      const cbId = msg.messageId ?? `bg-cb-${msg.timestamp}-${msg.catId}-${options.nextBgSeq()}`;
       options.store.addMessageToThread(msg.threadId, {
         id: cbId,
         type: 'assistant',

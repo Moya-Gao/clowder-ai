@@ -152,6 +152,18 @@ function revokeRemovedBlobUrls(previousMessages: ChatMessage[], nextMessages: Ch
   }
 }
 
+function replaceMessageIdInList(messages: ChatMessage[], fromId: string, toId: string): ChatMessage[] {
+  if (fromId === toId) return messages;
+  const fromIndex = messages.findIndex((msg) => msg.id === fromId);
+  if (fromIndex === -1) return messages;
+
+  if (messages.some((msg) => msg.id === toId)) {
+    return messages.filter((msg) => msg.id !== fromId);
+  }
+
+  return messages.map((msg) => (msg.id === fromId ? { ...msg, id: toId } : msg));
+}
+
 /** F067 Phase 2: Fire macOS notification when a cat @mentions the owner */
 function fireOwnerMentionNotification(msg: ChatMessage) {
   if (typeof window === 'undefined' || !('Notification' in window)) return;
@@ -245,6 +257,7 @@ interface ChatState {
   removeMessage: (id: string) => void;
   prependHistory: (msgs: ChatMessage[], hasMore: boolean) => void;
   replaceMessages: (msgs: ChatMessage[], hasMore: boolean) => void;
+  replaceMessageId: (fromId: string, toId: string) => void;
   appendToLastMessage: (content: string) => void;
   appendToMessage: (id: string, content: string) => void;
   appendToolEvent: (id: string, event: ToolEvent) => void;
@@ -285,6 +298,7 @@ interface ChatState {
 
   // ── Multi-thread actions (new) ──
   addMessageToThread: (threadId: string, msg: ChatMessage) => void;
+  replaceThreadMessageId: (threadId: string, fromId: string, toId: string) => void;
   appendToThreadMessage: (threadId: string, messageId: string, content: string) => void;
   appendToolEventToThread: (threadId: string, messageId: string, event: ToolEvent) => void;
   setThreadCatInvocation: (threadId: string, catId: string, info: Partial<CatInvocationInfo>) => void;
@@ -558,6 +572,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       return { messages: msgs, hasMore };
     }),
 
+  replaceMessageId: (fromId, toId) =>
+    set((state) => {
+      const nextMessages = replaceMessageIdInList(state.messages, fromId, toId);
+      if (nextMessages === state.messages) return state;
+      revokeRemovedBlobUrls(state.messages, nextMessages);
+      return { messages: nextMessages };
+    }),
+
   appendToLastMessage: (content) =>
     set((state) => {
       const messages = [...state.messages];
@@ -758,6 +780,33 @@ export const useChatStore = create<ChatState>((set, get) => ({
             messages: [...existing.messages, msg],
             unreadCount: existing.unreadCount + 1,
             hasUserMention: existing.hasUserMention || !!msg.mentionsUser,
+            lastActivity: Date.now(),
+          },
+        },
+      };
+    }),
+
+  replaceThreadMessageId: (threadId, fromId, toId) =>
+    set((state) => {
+      if (threadId === state.currentThreadId) {
+        const nextMessages = replaceMessageIdInList(state.messages, fromId, toId);
+        if (nextMessages === state.messages) return state;
+        revokeRemovedBlobUrls(state.messages, nextMessages);
+        return { messages: nextMessages };
+      }
+
+      const existing = state.threadStates[threadId];
+      if (!existing) return state;
+
+      const nextMessages = replaceMessageIdInList(existing.messages, fromId, toId);
+      if (nextMessages === existing.messages) return state;
+      revokeRemovedBlobUrls(existing.messages, nextMessages);
+      return {
+        threadStates: {
+          ...state.threadStates,
+          [threadId]: {
+            ...existing,
+            messages: nextMessages,
             lastActivity: Date.now(),
           },
         },

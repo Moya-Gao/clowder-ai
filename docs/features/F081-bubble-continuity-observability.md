@@ -21,6 +21,7 @@ status: spec
 6. 同一条 assistant 气泡并非“补回来就稳定了”，而是切到别的 thread 再切回来后还能再次消失，呈现出反复出现 / 反复消失的非单调可见性
 7. 当铲屎官绕过 Cat Café，直接在 Claude CLI 里 `resume/continue` 同一 session 时，session 会自行消费 `[对话历史增量 - 未发送过 N 条]` 并在外部推进状态；随后主区气泡可能出现迟到、错位或与前端当前可见状态不一致
 8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
+9. `F081` 第一刀之后，主区又暴露出另一种瞬时“双影”：有时会短暂看到两条自己的消息，或者两条同样的 assistant 回复；但 `F5` 之后又只剩一条，说明服务器真相源通常只有一条，重复更像前端本地 reconcile 留下的临时 duplicate
 
 这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
 
@@ -233,3 +234,5 @@ status: spec
 | 2026-03-07 | F081 主线定位 `useChatHistory` 的 active-invocation `replace` 为第一只前端真凶：它会先 `clearMessages()`，导致切回 thread 后已经到达的 live bubble 被 API 历史覆盖抹掉 |
 | 2026-03-07 | F081 主线继续定位到第二层身份断层：本地 `msg-* / bg-*` placeholder、`draft-${invocationId}` 和正式 history message 之前没有统一的 stream identity，导致 replace 只能按 message.id 判断，进而出现双胞胎、迟到闪现和非单调可见性 |
 | 2026-03-07 | F081 主线第一段修复落地：replace 改为 non-destructive + invocation-aware reconcile，前端恢复 `extra.stream.invocationId` 身份链，补齐 active/background placeholder 绑定，并新增 `history_replace` debug 事件和回归测试 |
+| 2026-03-08 | 新增“瞬时双影”证据：主区偶发出现两条相同用户消息或两条相同 assistant 回复，但 `F5` 后恢复为一条，证明服务器真相源通常未重复，问题在前端本地 identity reconcile |
+| 2026-03-08 | 修复 identity reconcile 缺口：`POST /api/messages` 现在返回 `userMessageId` 供 `useSendMessage` 对位 optimistic user bubble；background callback assistant bubble 也改为优先使用后端真实 `messageId`，不再自造 `bg-cb-*` |

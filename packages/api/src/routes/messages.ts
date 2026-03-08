@@ -250,6 +250,8 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         };
       }
 
+      let storedUserMessageId: string | null = null;
+
       // ② Write user message (message becomes visible to frontend)
       try {
         const userMessage = await opts.messageStore.append({
@@ -264,6 +266,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
             ? { visibility: whisperVisibility, whisperTo: whisperRecipients }
             : {}),
         });
+        storedUserMessageId = userMessage.id;
 
         // ③ Backfill / append messageId — distinguish enqueued vs merged
         if (enqueueResult.outcome === 'enqueued') {
@@ -299,6 +302,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
         queuePosition: enqueueResult.queuePosition,
         entryId: enqueueResult.entry?.id,
         merged: enqueueResult.outcome === 'merged',
+        ...(storedUserMessageId ? { userMessageId: storedUserMessageId } : {}),
       };
     }
 
@@ -379,6 +383,7 @@ export const messagesRoutes: FastifyPluginAsync<MessagesRoutesOptions> =
       reply.send({
         status: 'processing',
         invocationId: createResult.invocationId,
+        userMessageId: storedUserMessage.id,
         timestamp: Date.now(),
       });
 

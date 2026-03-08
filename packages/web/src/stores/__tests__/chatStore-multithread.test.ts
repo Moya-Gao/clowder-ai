@@ -140,6 +140,51 @@ describe('chatStore multi-thread state', () => {
     });
   });
 
+  describe('replaceMessageId / replaceThreadMessageId', () => {
+    it('replaces an optimistic active-thread message id in place', () => {
+      useChatStore.getState().addMessage(makeMsg('temp-user-1', 'hello'));
+      useChatStore.getState().replaceMessageId('temp-user-1', 'msg-server-1');
+
+      const messages = useChatStore.getState().messages;
+      expect(messages).toHaveLength(1);
+      expect(messages[0].id).toBe('msg-server-1');
+      expect(messages[0].content).toBe('hello');
+    });
+
+    it('drops the optimistic active-thread duplicate when the canonical id already exists', () => {
+      useChatStore.getState().addMessage(makeMsg('temp-user-1', 'hello'));
+      useChatStore.getState().addMessage(makeMsg('msg-server-1', 'hello'));
+
+      useChatStore.getState().replaceMessageId('temp-user-1', 'msg-server-1');
+
+      const messages = useChatStore.getState().messages;
+      expect(messages).toHaveLength(1);
+      expect(messages[0].id).toBe('msg-server-1');
+    });
+
+    it('replaces an optimistic background-thread message id in place', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('temp-user-2', 'background'));
+
+      useChatStore.getState().replaceThreadMessageId('thread-b', 'temp-user-2', 'msg-server-2');
+
+      const messages = useChatStore.getState().threadStates['thread-b']!.messages;
+      expect(messages).toHaveLength(1);
+      expect(messages[0].id).toBe('msg-server-2');
+      expect(messages[0].content).toBe('background');
+    });
+
+    it('drops the optimistic background-thread duplicate when the canonical id already exists', () => {
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('temp-user-2', 'background'));
+      useChatStore.getState().addMessageToThread('thread-b', makeMsg('msg-server-2', 'background'));
+
+      useChatStore.getState().replaceThreadMessageId('thread-b', 'temp-user-2', 'msg-server-2');
+
+      const messages = useChatStore.getState().threadStates['thread-b']!.messages;
+      expect(messages).toHaveLength(1);
+      expect(messages[0].id).toBe('msg-server-2');
+    });
+  });
+
   describe('setThreadMessageStreaming', () => {
     it('updates streaming flag in active thread', () => {
       useChatStore.getState().addMessage({ ...makeMsg('m3', 'run'), type: 'assistant' });

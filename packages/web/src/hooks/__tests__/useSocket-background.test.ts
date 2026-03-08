@@ -31,6 +31,7 @@ function simulateBackgroundMessage(msg: {
   catId: string;
   threadId: string;
   content?: string;
+  messageId?: string;
   toolName?: string;
   toolInput?: Record<string, unknown>;
   error?: string;
@@ -225,6 +226,23 @@ describe('background thread socket handling', () => {
       const ts = useChatStore.getState().getThreadState('thread-bg');
       expect(ts.isLoading).toBe(false);
       expect(ts.hasActiveInvocation).toBe(false);
+    });
+
+    it('callback-origin text preserves backend messageId for exact history reconciliation', () => {
+      simulateBackgroundMessage({
+        type: 'text',
+        catId: 'opus',
+        threadId: 'thread-bg',
+        content: 'callback note',
+        origin: 'callback',
+        messageId: 'msg-callback-1',
+        timestamp: Date.now(),
+      });
+
+      const ts = useChatStore.getState().getThreadState('thread-bg');
+      expect(ts.messages).toHaveLength(1);
+      expect(ts.messages[0]?.id).toBe('msg-callback-1');
+      expect(ts.messages[0]?.origin).toBe('callback');
     });
   });
 

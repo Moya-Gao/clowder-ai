@@ -13,6 +13,7 @@ export interface BackgroundAgentMessage {
   catId: string;
   threadId: string;
   content?: string;
+  messageId?: string;
   origin?: 'stream' | 'callback';
   toolName?: string;
   toolInput?: Record<string, unknown>;

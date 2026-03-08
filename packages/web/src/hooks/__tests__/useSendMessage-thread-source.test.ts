@@ -10,6 +10,8 @@ const mockSetLoading = vi.fn();
 const mockSetHasActiveInvocation = vi.fn();
 const mockSetThreadLoading = vi.fn();
 const mockSetThreadHasActiveInvocation = vi.fn();
+const mockReplaceMessageId = vi.fn();
+const mockReplaceThreadMessageId = vi.fn();
 const mockResetRefs = vi.fn();
 const mockProcessCommand = vi.fn(async () => false);
 let storeCurrentThreadId = 'thread-stale';
@@ -35,6 +37,8 @@ vi.mock('@/stores/chatStore', () => ({
       setHasActiveInvocation: mockSetHasActiveInvocation,
       setThreadLoading: mockSetThreadLoading,
       setThreadHasActiveInvocation: mockSetThreadHasActiveInvocation,
+      replaceMessageId: mockReplaceMessageId,
+      replaceThreadMessageId: mockReplaceThreadMessageId,
       currentThreadId: storeCurrentThreadId,
     }),
     {
@@ -88,6 +92,8 @@ describe('useSendMessage thread source', () => {
     mockSetHasActiveInvocation.mockReset();
     mockSetThreadLoading.mockReset();
     mockSetThreadHasActiveInvocation.mockReset();
+    mockReplaceMessageId.mockReset();
+    mockReplaceThreadMessageId.mockReset();
     mockResetRefs.mockReset();
     mockProcessCommand.mockReset();
     mockProcessCommand.mockResolvedValue(false);
@@ -215,5 +221,86 @@ describe('useSendMessage thread source', () => {
     expect(mockSetThreadHasActiveInvocation).toHaveBeenCalledWith('thread-A', false);
     expect(mockSetLoading).not.toHaveBeenCalledWith(false);
     expect(mockSetHasActiveInvocation).not.toHaveBeenCalledWith(false);
+  });
+
+  it('reconciles an optimistic active-thread user message to the persisted server message id', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'processing', userMessageId: 'msg-server-1' }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: undefined,
+          onDone: () => {},
+        }),
+      );
+    });
+
+    const optimisticUserCall = mockAddMessage.mock.calls[0];
+    const optimisticMessage = optimisticUserCall?.[0];
+    expect(optimisticMessage).toMatchObject({ type: 'user' });
+    expect(mockReplaceThreadMessageId).toHaveBeenCalledWith('thread-route', optimisticMessage.id, 'msg-server-1');
+  });
+
+  it('uses a valid UUIDv4-shaped idempotencyKey when crypto.randomUUID is unavailable', async () => {
+    const originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', {
+      configurable: true,
+      value: { ...originalCrypto, randomUUID: undefined },
+    });
+
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'processing', userMessageId: 'msg-server-uuid' }),
+    });
+
+    try {
+      await act(async () => {
+        root.render(
+          React.createElement(SendRunner, {
+            activeThreadId: 'thread-route',
+            overrideThreadId: undefined,
+            onDone: () => {},
+          }),
+        );
+      });
+
+      const payload = JSON.parse(String(mockApiFetch.mock.calls[0]?.[1]?.body));
+      expect(payload.idempotencyKey).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+    } finally {
+      Object.defineProperty(globalThis, 'crypto', {
+        configurable: true,
+        value: originalCrypto,
+      });
+    }
+  });
+
+  it('reconciles an optimistic split-pane user message on the target thread to the persisted server message id', async () => {
+    mockApiFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: 'queued', userMessageId: 'msg-server-2' }),
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(SendRunner, {
+          activeThreadId: 'thread-route',
+          overrideThreadId: 'thread-target',
+          onDone: () => {},
+        }),
+      );
+    });
+
+    const optimisticUserCall = mockAddMessageToThread.mock.calls.find(([, msg]) =>
+      typeof msg === 'object' && msg !== null && 'type' in msg && (msg as { type?: string }).type === 'user',
+    );
+    const optimisticMessage = optimisticUserCall?.[1] as { id: string };
+    expect(optimisticUserCall?.[0]).toBe('thread-target');
+    expect(mockReplaceThreadMessageId).toHaveBeenCalledWith('thread-target', optimisticMessage.id, 'msg-server-2');
   });
 });

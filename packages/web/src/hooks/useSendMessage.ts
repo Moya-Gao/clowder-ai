@@ -23,6 +23,7 @@ export function useSendMessage(activeThreadId?: string) {
   const {
     addMessage,
     addMessageToThread,
+    replaceThreadMessageId,
     setLoading,
     setHasActiveInvocation,
     setThreadLoading,
@@ -32,6 +33,23 @@ export function useSendMessage(activeThreadId?: string) {
   const { processCommand } = useChatCommands();
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const createClientId = useCallback((): string => {
+    if (globalThis.crypto?.randomUUID) {
+      return globalThis.crypto.randomUUID();
+    }
+
+    const randomHex = (length: number) =>
+      Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+
+    return [
+      randomHex(8),
+      randomHex(4),
+      `4${randomHex(3)}`,
+      `${['8', '9', 'a', 'b'][Math.floor(Math.random() * 4)]}${randomHex(3)}`,
+      randomHex(12),
+    ].join('-');
+  }, []);
 
   const handleSend = useCallback(
     async (content: string, images?: File[], overrideThreadId?: string, whisper?: WhisperOptions, deliveryMode?: DeliveryMode) => {
@@ -48,9 +66,12 @@ export function useSendMessage(activeThreadId?: string) {
       const wasCommand = await processCommand(content, threadId);
       if (wasCommand) return;
 
+      const clientMessageId = createClientId();
+      const optimisticMessageId = `user-${clientMessageId}`;
+
       // Create user message
       const userMsg: ChatMessageData = {
-        id: `user-${Date.now()}`,
+        id: optimisticMessageId,
         type: 'user',
         content,
         timestamp: Date.now(),
@@ -91,6 +112,7 @@ export function useSendMessage(activeThreadId?: string) {
           const formData = new FormData();
           formData.append('content', content);
           formData.append('threadId', threadId);
+          formData.append('idempotencyKey', clientMessageId);
           if (deliveryMode) formData.append('deliveryMode', deliveryMode);
           if (whisper) {
             formData.append('visibility', whisper.visibility);
@@ -109,6 +131,10 @@ export function useSendMessage(activeThreadId?: string) {
             const body = await res.json().catch(() => null);
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
           }
+          const body = await res.json().catch(() => null);
+          if (body?.userMessageId) {
+            replaceThreadMessageId(threadId, optimisticMessageId, body.userMessageId);
+          }
         } else {
           const res = await apiFetch('/api/messages', {
             method: 'POST',
@@ -116,6 +142,7 @@ export function useSendMessage(activeThreadId?: string) {
             body: JSON.stringify({
               content,
               threadId,
+              idempotencyKey: clientMessageId,
               ...(whisper ? { visibility: whisper.visibility, whisperTo: whisper.whisperTo } : {}),
               ...deliveryModePayload,
             }),
@@ -123,6 +150,10 @@ export function useSendMessage(activeThreadId?: string) {
           if (!res.ok) {
             const body = await res.json().catch(() => null);
             throw new Error(body?.detail ?? `Server error: ${res.status}`);
+          }
+          const body = await res.json().catch(() => null);
+          if (body?.userMessageId) {
+            replaceThreadMessageId(threadId, optimisticMessageId, body.userMessageId);
           }
         }
         setUploadStatus('idle');
@@ -163,11 +194,13 @@ export function useSendMessage(activeThreadId?: string) {
       processCommand,
       addMessage,
       addMessageToThread,
+      replaceThreadMessageId,
       setLoading,
       setHasActiveInvocation,
       setThreadLoading,
       setThreadHasActiveInvocation,
       activeThreadId,
+      createClientId,
     ]
   );
 

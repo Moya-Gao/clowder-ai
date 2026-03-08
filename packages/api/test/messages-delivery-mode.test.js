@@ -106,6 +106,7 @@ describe('POST /api/messages deliveryMode', () => {
     assert.equal(body.merged, false);
     assert.ok(body.entryId);
     assert.equal(body.queuePosition, 1);
+    assert.match(body.userMessageId, /^msg-/);
 
     // Should NOT have created InvocationRecord (queued, not executing)
     assert.equal(deps.invocationRecordStore.create.mock.calls.length, 0);
@@ -241,6 +242,11 @@ describe('POST /api/messages deliveryMode', () => {
       headers: { 'x-cat-cafe-user': 'user-1', 'content-type': 'application/json' },
       payload: { content: '直接发送', threadId: 'thread-1', deliveryMode: 'immediate' },
     });
+
+    assert.equal(res.statusCode, 200);
+    const body = JSON.parse(res.body);
+    assert.equal(body.status, 'processing');
+    assert.match(body.userMessageId, /^msg-/);
 
     // Should go through normal path
     assert.ok(deps.invocationRecordStore.create.mock.calls.length > 0);
