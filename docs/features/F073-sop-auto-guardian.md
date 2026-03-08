@@ -2,13 +2,13 @@
 feature_ids: [F073]
 related_features: [F046, F067, F038, F042, F049, F058]
 topics: [sop, automation, flow-control, context-compression, self-closing, governance, mission-hub]
-doc_kind: spec
+doc_kind: done
 created: 2026-03-07
 ---
 
 # F073: SOP Auto-Guardian — 流程自闭环守护
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 布偶猫
 > **Created**: 2026-03-07
 > **Priority**: P1
@@ -119,9 +119,9 @@ workflow:
 | R2 | "先更新 feat/backlog 在 main 上 commit push 然后才能开 worktree" | AC-2 | skill 检查步骤 | [x] P0 |
 | R3 | "feat close 是需要其他猫猫帮你做一次愿景守护的吧" | AC-3 | skill @ 模板 | [x] P0 |
 | R4 | "写完之后自己守护愿景...通知我你合入了就行" | AC-4 | 端到端验证（本 Feature） | [x] P0 |
-| R5 | "特别是上下文压缩之后" | AC-5 | hook + resume capsule | [ ] P1 |
-| R6 | "所有猫都能用的综合机制"（铲屎官追问） | AC-6 | Mission Hub 共享 | [ ] P1 |
-| R7 | "不想让你们变成 workflow 的 node"（铲屎官定调） | AC-7 | 架构 review（告示牌不是控制器） | [ ] P1 |
+| R5 | "特别是上下文压缩之后" | AC-5 | hook + resume capsule | [x] P1 |
+| R6 | "所有猫都能用的综合机制"（铲屎官追问） | AC-6 | Mission Hub 共享 | [x] P1 |
+| R7 | "不想让你们变成 workflow 的 node"（铲屎官定调） | AC-7 | 架构 review（告示牌不是控制器） | [x] P1 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -135,15 +135,16 @@ workflow:
 - [x] AC-3: Feat-lifecycle completion skill 自动发起跨猫愿景守护
 - [x] AC-4: 本 Feature 全程自驱（试点验证中）
 
-### P1（告示牌）
-- [ ] AC-5: Mission Hub 支持 `workflow.sop` 结构，冷启动/压缩后可通过 MCP 恢复
-- [ ] AC-6: 所有猫（Claude/Codex/Gemini）都能通过 MCP 读写 SOP 阶段
-- [ ] AC-7: 架构 review 确认"告示牌不是控制器"——猫读信息后自己决定行动
+### P1（告示牌）— PR #278, #289
+- [x] AC-5: Mission Hub 支持 `workflow.sop` 结构，冷启动/压缩后可通过 MCP 恢复（WorkflowSopPanel + workflow-sop routes + resume capsule）
+- [x] AC-6: 所有猫（Claude/Codex/Gemini）都能通过 MCP 读写 SOP 阶段（`cat_cafe_update_workflow` MCP tool + CAS）
+- [x] AC-7: 架构 review 确认"告示牌不是控制器"——猫读信息后自己决定行动（2026-03-08 三猫愿景守护确认）
 
-### P2（接力可靠性）
-- [ ] AC-8: `handoff_feature` 原子操作（更新告示牌 + @mention + timeout）
-- [ ] AC-9: `ack_handoff` 接球确认
-- [ ] AC-10: 超时未接 → 提醒/升级（不卡死流程）
+### P2（接力可靠性）— **descoped from F073**
+> **决策 (2026-03-08)**：P2 从 F073 剥离。接力棒可靠传递（handoff+ack+timeout）是独立的协作问题，与 SOP 自感知属不同层面。后续如需实现，另行立项。
+- [ ] ~~AC-8: `handoff_feature` 原子操作（更新告示牌 + @mention + timeout）~~
+- [ ] ~~AC-9: `ack_handoff` 接球确认~~
+- [ ] ~~AC-10: 超时未接 → 提醒/升级（不卡死流程）~~
 
 ### P3（硬门禁）
 - [x] AC-11: worktree 创建前硬检查 `origin/main` 真相源同步（P0 实现）
@@ -202,9 +203,9 @@ workflow:
 | # | 问题 | 状态 |
 |---|------|------|
 | OQ-1 | ~~Hook 在压缩后的行为~~ | ✅ P0 已诊断修复 |
-| OQ-2 | Mission Hub `workflow.sop` 的 Redis 数据结构怎么设计？ | 🔴 P1 待设计 |
-| OQ-3 | `resume_capsule` 由谁写入？猫主动 / hook 自动 / 混合？ | 🔴 P1 待定 |
-| OQ-4 | handoff timeout 多长合适？不同阶段是否不同？ | 🟡 P2 待定 |
+| OQ-2 | ~~Mission Hub `workflow.sop` 的 Redis 数据结构怎么设计？~~ | ✅ P1 已实现（RedisWorkflowSopStore + CAS） |
+| OQ-3 | ~~`resume_capsule` 由谁写入？猫主动 / hook 自动 / 混合？~~ | ✅ 猫主动通过 MCP `cat_cafe_update_workflow` |
+| OQ-4 | handoff timeout 多长合适？不同阶段是否不同？ | 🔵 P2 descoped，后续立项时再定 |
 
 ## Review Gate
 
@@ -212,7 +213,10 @@ workflow:
 |------|----------|------|------|
 | P0 R1 | 云端 Codex | P1: push status check | 2026-03-07 |
 | P0 R2 | 云端 Codex | P1: bidirectional sync | 2026-03-07 |
-| P0 R3 | 云端 Codex | 待结果 | 2026-03-07 |
+| P0 R3 | 云端 Codex | 通过 | 2026-03-07 |
+| P4 R1 | 砚砚 (Codex) | 2P1+1P2 → R2 全修 → 放行 | 2026-03-08 |
+| P4 Cloud | 云端 Codex | 通过 (0 issues) | 2026-03-08 |
+| Close | Opus 4.5 + Codex + GPT-5.4 | 三猫愿景守护 → P2 descope → 放行 | 2026-03-08 |
 
 ## Timeline
 
@@ -221,9 +225,11 @@ workflow:
 | 2026-03-07 | 铲屎官提出需求（流程自闭环、hook 不生效、压缩后遗忘） |
 | 2026-03-07 | F073 立项，四猫独立思考 + GPT Pro 外部研究 |
 | 2026-03-07 | 全猫共识收敛：告示牌哲学 + Phase 分层 |
-| 2026-03-07 | P0 实现完成（PR #271），云端 review 进行中 |
+| 2026-03-07 | P0 实现完成（PR #271） |
 | 2026-03-07 | 铲屎官定调"不想让猫变成 workflow node" |
 | 2026-03-07 | Spec 更新为收敛版本（含 P0~P4 全规划） |
+| 2026-03-08 | P1 告示牌（PR #278, #289）、P3 门禁、P4 导航牌（PR #301）全部合入 |
+| 2026-03-08 | P2（接力可靠性）descope，三猫愿景守护通过，F073 完成 |
 
 ## 讨论记录
 

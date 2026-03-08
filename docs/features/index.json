@@ -441,7 +441,7 @@
     {
       "id": "F073",
       "name": "SOP Auto-Guardian — 流程自闭环守护",
-      "status": "in-progress",
+      "status": "done",
       "file": "F073-sop-auto-guardian.md"
     },
     {
@@ -458,7 +458,7 @@
     },
     {
       "id": "F076",
-      "name": "Mission Hub 跨项目作战面板",
+      "name": "Mission Hub 跨项目作战面板 + 甲方项目治理引擎",
       "status": "unknown",
       "file": "F076-mission-hub-cross-project.md"
     },
@@ -467,7 +467,43 @@
       "name": "— Multi-User Secure Collaboration（多用户安全协作）",
       "status": "unknown",
       "file": "F077-multi-user-secure-collab.md"
+    },
+    {
+      "id": "F078",
+      "name": "Smart Routing & Group Mentions",
+      "status": "unknown",
+      "file": "F078-smart-routing-group-mentions.md"
+    },
+    {
+      "id": "F079",
+      "name": "Voting System (v2 — UX 重写)",
+      "status": "unknown",
+      "file": "F079-voting-system.md"
+    },
+    {
+      "id": "F080",
+      "name": "Input History Completion",
+      "status": "unknown",
+      "file": "F080-input-history-completion.md"
+    },
+    {
+      "id": "F081",
+      "name": "— Bubble Continuity & Rendering Observability（猫猫气泡连续性与可观测性）",
+      "status": "unknown",
+      "file": "F081-bubble-continuity-observability.md"
+    },
+    {
+      "id": "F082",
+      "name": "Git Health Panel — Repo 状态可视化",
+      "status": "unknown",
+      "file": "F082-git-health-panel.md"
+    },
+    {
+      "id": "F083",
+      "name": "— Design Gate + Cloud Reviewer Quota Fallback",
+      "status": "unknown",
+      "file": "F083-design-gate-sop.md"
     }
   ],
-  "generated_at": "2026-03-07T13:52:21.391Z"
+  "generated_at": "2026-03-08T08:17:49.971Z"
 }
