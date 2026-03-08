@@ -72,40 +72,37 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 2. BACKLOG.md 该 Feature 行 ref 讨论文档链接
 3. Commit：`docs: {topic} discussion + backlog update [{猫猫签名}]`
 
+## Design Gate (设计确认) 🔴
+
+**Discussion → writing-plans 之间的必经关卡。UX 没确认，不准开 worktree。**
+
+按功能类型分流确认：
+
+| 类型 | 判断标准 | 确认人 | 方式 |
+|------|---------|--------|------|
+| **前端 UI/UX** | 用户能看到的改动 | **铲屎官** | wireframe → 铲屎官 OK 后继续 |
+| **纯后端** | API/数据模型/内部逻辑 | **其他猫猫** | `collaborative-thinking` 讨论达成共识 |
+| **架构级** | 跨模块、新基础设施 | **猫猫讨论 → 铲屎官拍板** | 先出方案再上报 |
+| **Trivial** | ≤5 行、纯重构、文档 | 跳过 | 跳过 Design Gate，按 SOP 例外路径判断 |
+
+**流程**：
+1. 判断功能类型 → 选择确认路径
+2. 前端：画 wireframe（Pencil / 文字版 ASCII）→ 发铲屎官 → 等 OK
+3. 后端：`collaborative-thinking` → 拉相关猫讨论 API 契约/数据模型
+4. 架构：猫猫讨论 → 结论给铲屎官 → 铲屎官拍板
+5. 确认产出归档 `docs/discussions/{date}-{fid}-design/`
+
 ## 完成 (Completion)
 
 **触发**：AC 全部打勾 + PR 合入 + 云端 review 通过。**不触发**：只是 Phase 完成 / 只是 review 过了。
 
 **Step 0: 愿景对照（必须先做，不可跳过）🔴**
 
-AC 全打勾 ≠ 完成（F041 血泪教训：12 项 AC ✅ 但 UI 不可用）。先读原始 Discussion/Interview（铲屎官原话在那里）：
-
-```bash
-grep -r "Fxxx" docs/ --include="*.md" -l  # 找关联文档
-```
-
-自问三个问题：① 铲屎官最初要解决的核心问题是什么？② 交付物能解决那个问题吗？③ 铲屎官坐在 Hub 前用这个功能，体验是什么样的？
+AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先读原始 Discussion/Interview，自问三个问题：① 铲屎官最初要解决的核心问题？② 交付物解决了吗？③ 铲屎官用这个功能体验如何？
 
 **跨猫交叉验证（强制，F073 自动化）**：
 
-你**必须自己主动发起**跨猫愿景守护，不要等铲屎官提醒。流程：
-
-1. 自己先完成三问 → 记录结论
-2. **自动 @ 其他猫**请求独立愿景守护（使用 `cat_cafe_post_message` 或直接在线程中 @）：
-   ```
-   请对 F{xxx} 做一次独立愿景守护：
-   - 加载 feat-lifecycle skill
-   - 读原始需求文档 docs/features/F{xxx}.md
-   - 独立回答三问：① 核心问题是什么 ② 交付物解决了吗 ③ 铲屎官体验如何
-   - 结论发回本线程
-   @{跨族 reviewer，参考 cat-config.json roster}
-   ```
-3. 收到其他猫的守护结论 → 对齐 → 填签收表
-4. 全部对齐后继续 Step 1
-
-**不要停下来问铲屎官"可以请其他猫 review 吗？"——直接 @，这是你的职责。**
-
-在聚合文件末尾追加签收表（猫猫 / 读了哪些文档 / 三问结论 / 签收）。
+自己先完成三问 → **自动 @ 其他猫**请求独立愿景守护（不要等铲屎官提醒，直接 @）→ 收到结论 → 对齐 → 填签收表（猫猫 / 读了哪些文档 / 三问结论 / 签收）→ 全部对齐后继续 Step 1。
 
 前端 UI/UX 额外要求：≤3 张截图 + 15s 录屏 + "需求→截图"映射表。
 
@@ -127,6 +124,7 @@ grep -r "Fxxx" docs/ --include="*.md" -l  # 找关联文档
 |------|---------|------|
 | Kickoff | 分 ID → 聚合文件 → BACKLOG → 双向链接 | `docs/features/Fxxx.md` |
 | Discussion | 采访/开放 → 落盘 → BACKLOG ref | `docs/discussions/` |
+| **Design Gate** | **分流 → 确认（UX→铲屎官/后端→猫猫/架构→两边）** | `docs/discussions/{date}-{fid}-design/` |
 | Completion | 愿景对照 → 跨猫验证 → 更新状态 → 移出 BACKLOG | `docs/features/Fxxx.md` |
 
 ## Common Mistakes
@@ -141,10 +139,12 @@ grep -r "Fxxx" docs/ --include="*.md" -l  # 找关联文档
 | 讨论完不落盘 | 讨论结束写入 `docs/discussions/` |
 | 等铲屎官手动协调跨猫守护 | 自己 @ 其他猫发起守护（F073） |
 | 每步停下来问铲屎官"可以继续吗？" | 全链路自驱，只在阻塞/close 时通知铲屎官 |
+| UX 没确认就开 worktree 写代码 | 先过 Design Gate 再动手 |
+| 后端 API 自己拍板不跟其他猫讨论 | 纯后端走 `collaborative-thinking` 拉猫讨论 |
 
 ## 下一步
 
-- Kickoff 后 → `writing-plans`（写实现计划）
+- Kickoff 后 → **Design Gate**（按类型分流确认）→ `writing-plans`
 - 开发完成后 → `quality-gate` → `request-review`
 - Review 通过后 → `merge-gate`（合入）→ 回来用 completion 闭环
 - 讨论收敛后 → `collaborative-thinking` Mode C（沉淀 ADR/规则/教训）

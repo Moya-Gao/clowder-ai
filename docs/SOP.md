@@ -22,19 +22,21 @@ updated: 2026-03-04
 
 说明：`--force` 不是重启授权，不能替代第 3 条。
 
-## 完整流程（4 步）
+## 完整流程（5 步）
 
 ```
+⓪ Design Gate    → 设计确认（UX→铲屎官/后端→猫猫/架构→两边）
 ① worktree        → 隔离开发环境
 ② quality-gate    → 自检 + 愿景对照
 ③ review 循环     → 本地 peer review（P1/P2 清零 + reviewer 放行）
 ④ merge-gate      → 门禁 → PR → 云端 review → squash merge → 清理
 ```
 
-> **⚠️ PR 在 ③ 之后！** reviewer 放行了才能开 PR（④ merge-gate 的一部分）。
+> **⚠️ Design Gate 在 ① 之前！** UX 没确认不准开 worktree。PR 在 ③ 之后。
 
 | Step | 做什么 | Skill | 详情 |
 |------|--------|-------|------|
+| ⓪ | 设计确认：前端→铲屎官画 wireframe；后端→猫猫讨论；架构→两边 | `feat-lifecycle` Design Gate | Trivial 跳过⓪，按下方例外路径判断 |
 | ① | 创建 worktree，配置 Redis 6398 | `worktree` | 禁止直接改 main |
 | ② | 愿景对照 + spec 合规 + 跑测试 | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
 | ③a | 发 review 请求（五件套 + 证据） | `request-review` | 附原始需求摘录 |

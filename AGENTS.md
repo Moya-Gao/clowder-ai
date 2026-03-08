@@ -31,7 +31,7 @@
 完整流程见 `docs/SOP.md`。每步都有对应 skill，做到哪步加载哪个：
 
 ```
-feat-lifecycle → writing-plans → worktree → tdd
+feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
     → quality-gate → request-review → receive-review
     → merge-gate → feat-lifecycle(完成)
 ```
@@ -39,6 +39,7 @@ feat-lifecycle → writing-plans → worktree → tdd
 | 我正在... | Skill |
 |-----------|-------|
 | 开始新功能/完成功能 | `feat-lifecycle` |
+| 确认 UX/API/架构设计 | `feat-lifecycle` Design Gate |
 | 探索设计/多猫讨论 | `collaborative-thinking` |
 | 写实施计划 | `writing-plans` |
 | 开 worktree 写代码 | `worktree` |

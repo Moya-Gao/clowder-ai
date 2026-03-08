@@ -27,7 +27,7 @@
 完整流程见 `docs/SOP.md`。每步都有对应 skill，做到哪步加载哪个：
 
 ```
-feat-lifecycle → writing-plans → worktree → tdd
+feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
     → quality-gate → request-review → receive-review
     → merge-gate → feat-lifecycle(完成)
 ```
@@ -35,6 +35,7 @@ feat-lifecycle → writing-plans → worktree → tdd
 | 我正在... | Skill |
 |-----------|-------|
 | 开始新功能/完成功能 | `feat-lifecycle` |
+| 确认 UX/API/架构设计 | `feat-lifecycle` Design Gate |
 | 探索设计/多猫讨论 | `collaborative-thinking` |
 | 写实施计划 | `writing-plans` |
 | 开 worktree 写代码 | `worktree` |
@@ -64,7 +65,7 @@ feat-lifecycle → writing-plans → worktree → tdd
 
 | 时机 | 检查 |
 |------|------|
-| 开 worktree 前 | `docs/` 双向同步？（本地 ahead=0 且 behind=0，先 push 再 pull） |
+| 开 worktree 前 | Design Gate 过了？`docs/` 双向同步？（ahead=0 behind=0） |
 | feat close 前 | 主动 @ 其他猫做愿景守护（不要等铲屎官提醒）|
 | 全流程 | 自主跑完 SOP，只在 feat close 时通知铲屎官 |
 

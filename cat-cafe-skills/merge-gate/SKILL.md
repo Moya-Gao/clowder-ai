@@ -169,6 +169,21 @@ git branch -d {branch-name} && git worktree prune
 - 10 分钟无通知 → 仅做一次 `gh pr view` 检查
 - 同一 SHA 严禁重复触发云端 review comment
 
+### Q4: 云端 reviewer 没猫粮了怎么办？
+
+云端 Codex 的"代码审查"额度独立于总额度，可能单独耗尽。此时降级到其他猫做 **完整 PR review**（不是跳过 review！）：
+
+| 原 reviewer | 降级到 | 说明 |
+|-------------|--------|------|
+| 缅因猫 Codex | 缅因猫 GPT-5.4 | 同族不同个体 |
+| 缅因猫 GPT-5.4 | 缅因猫 Codex | 反向降级 |
+| 布偶猫某个体 | 布偶猫其他个体 / 缅因猫 | 同族或跨族 |
+| **禁止** | 暹罗猫 | 不做代码 review（孟加拉猫 Opus 除外，底层是 Opus） |
+
+**铁律：降级后仍须校验"reviewer ≠ 作者"**——降级表是建议顺序，不能覆盖 self-review 禁令。
+
+操作：`gh pr comment {PR} --body "..."` 用标准触发模板 @ 降级 reviewer（句柄查 `cat-config.json`）。
+
 ## 和其他 skill 的区别
 
 - `quality-gate`: 自检（在 review 之前）

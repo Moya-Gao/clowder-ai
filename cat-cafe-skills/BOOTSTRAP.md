@@ -7,7 +7,7 @@
 
 ### 开发流程链
 ```
-feat-lifecycle → writing-plans → worktree → tdd
+feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
     → quality-gate → request-review → receive-review
     → merge-gate → feat-lifecycle(完成)
 ```
