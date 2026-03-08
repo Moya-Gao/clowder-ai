@@ -63,3 +63,4 @@
 | F080 | F080: Input History Completion — ghost text + path completion | done | [F080-input-history-completion.md](./F080-input-history-completion.md) |
 | F082 | F082: Git Health Panel — Repo 状态可视化 | done | [F082-git-health-panel.md](./F082-git-health-panel.md) |
 | F083 | F083: Design Gate + Cloud Reviewer Quota Fallback | done | [F083-design-gate-sop.md](./F083-design-gate-sop.md) |
+| F073 | F073: SOP Auto-Guardian — 流程自闭环守护 | done | [F073-sop-auto-guardian.md](./F073-sop-auto-guardian.md) |

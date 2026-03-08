@@ -149,6 +149,7 @@ workflow:
 ### P3（硬门禁）
 - [x] AC-11: worktree 创建前硬检查 `origin/main` 真相源同步（P0 实现）
 - [x] AC-12: feat close 前硬检查完成定义（PR merged + check:features + 愿景签收）（P0 实现）
+  > **Close 记录 (2026-03-08)**：`check:features` F073 相关项已全部通过（index-sync + backlog-active 已清零）。剩余 13 条 `backlog-missing` 为其他 feature 的历史漂移，不阻塞 F073 close。
 
 ### P4（导航牌 + 加速器）
 - [x] AC-13: `sop.manifest.yaml` 导航表（阶段 → skill → 硬规则）
