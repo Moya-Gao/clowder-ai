@@ -61,9 +61,16 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 
 8 类风险检测信号：动词空心 / 角色缺失 / 数据源不明 / 成功信号缺失 / 边界缺失 / 依赖隐藏 / AI 假具体 / 范围膨胀
 
+**GPT Pro 外部咨询关键洞察**（2026-03-07）：
+- "First version is MVP learning device, not MVP feature set" — 第一版的目的是校正团队对需求的理解，不是交付最多功能
+- "Sentences are specific, decisions are not" — 定义 AI 假具体性：AI 写的句子看起来很具体，但背后的决策（谁拍板、数据来源、边界条件）完全未锚定
+- **Provenance 升级路径**：A→Q（甲方确认）/ A→O（现场观察）/ A→D（找到文档）/ A→R（法规依据）
+- **方法论谱系**：Volere, BABOK, IEEE 29148, INCOSE, ATDD/Three Amigos, User Story Mapping, Impact Mapping, JTBD
+
 详见：
-- 多猫讨论：`docs/discussions/2026-03-07-f076-need-audit-methodology/meeting-notes.md`
-- GPT Pro 咨询：`docs/discussions/2026-03-07-f076-need-audit-methodology/gpt-pro-consultation.md`
+- 多猫讨论收敛：`docs/discussions/2026-03-07-f076-need-audit-methodology/meeting-notes.md`
+- Opus 独立思考：`docs/discussions/2026-03-07-f076-need-audit-methodology/opus-independent-thinking.md`
+- GPT Pro 咨询（含完整回复）：`docs/discussions/2026-03-07-f076-need-audit-methodology/gpt-pro-consultation.md`
 
 **能力 2: 渐进式交付引导（Incremental Delivery）**
 - 大愿景 → 最小可验证切片（纵切业务链，不横切模块）
@@ -71,13 +78,38 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 - 做完给甲方看 → 甲方在实物前才知道自己真正要什么
 - 反馈 → 调整 → 下一个切片
 
-### Mission Hub 面板（三区块）
+### Mission Hub UX 整合方案
 
-| 区块 | 功能 | 优先级 |
-|------|------|--------|
-| A: 项目健康度 | sprint 进度、feat 完成度、测试通过率 | 需要 |
-| B: 甲方需求追踪矩阵 | 甲方每一点 → 对应 feat → 当前状态 | 需要 |
-| D: 风险预警 | 需求模糊/不合理/隐性依赖/工期不匹配 | 非常重要 |
+> **重要决策 (2026-03-07 铲屎官反馈)**：F076 的 UI **不是**独立面板/dashboard，必须**集成到现有 Mission Hub 的 Tab 体系**中。
+>
+> 铲屎官原话："你看和我们的 Mission Hub 的风格不能说一模一样，只能说毫不相关。"
+
+**现有 Mission Hub 风格**（参考截图）：
+- 暖色调浅背景（cream/beige），非深色 dashboard
+- Tab 结构：功能列表 | 告示面板 | ...
+- 左侧：Feature 列表（F0xx），带状态徽章（执行中/暂停/已完成）
+- 右侧：详情面板（建议详情 / Suggestion Detail）
+- 状态栏：待审议 / 执行中 / 已完成 计数
+
+**新 UX 方案（铲屎官拍板）**：
+
+1. **导入外部项目** — Mission Hub 新增「导入项目」按钮
+2. **项目 Tab** — 每个导入的外部项目成为一个新 Tab（如 "studio-flow"），与现有「功能列表」「告示面板」并列
+3. **Tab 内 Backlog 对齐** — 进入外部项目 Tab 后，首先展示**该项目的 backlog**（复用 Mission Hub 的 feature 列表风格），实现跨项目 backlog 可视化对齐
+4. **Need Audit 功能内嵌** — 在外部项目 Tab 内，逐步添加以下治理功能：
+
+| 功能区块 | 说明 | 优先级 |
+|----------|------|--------|
+| Backlog 列表 | 外部项目的 feature/claim 列表，复用 Mission Hub 风格 | P0 基础 |
+| A: 治理+交付健康度 | triage 进度、Build Now 就绪数、open questions、slice 完成度、测试 | 需要 |
+| B: 甲方需求追踪矩阵 | 甲方原文 → Intent Card → 对应 feat → Source tag → 当前状态 | 需要 |
+| D: 风险预警 | 8 类信号检测结果 + 需求模糊/不合理/隐性依赖/工期不匹配 | 非常重要 |
+
+**设计原则**：
+- ✅ 延续 Mission Hub 暖色调 + 列表/详情 布局
+- ✅ Tab 切换自然过渡，不割裂
+- ✅ 右侧详情面板展示 Intent Card 详情（替代 Suggestion Detail）
+- ❌ ~~独立深色 dashboard~~ — 初版 wireframe 已废弃（`designs/mission-hub-坏猫采访.pen` 仅供参考）
 
 **不做的**:
 - C（猫猫派遣状态）：大概率都是布偶猫，不需要独立面板
@@ -93,6 +125,14 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 - 已部署 cat-cafe governance（CLAUDE.md, AGENTS.md）
 - **观察到的问题**：SF-025 是巨兽 feat、甲方"一点"粒度差异大、缺乏需求合理性挑战
 
+**studio-flow 资源盘点 (2026-03-07 跨线程)**：
+
+通过跨线程协作（studio-flow 布偶猫盘点），获取到以下甲方素材清单：
+- **6 个 PRD 文件**：PRD-V1.md (744行, 10模块), PRD-V2.md (474行, 甲方逐条反馈+修改), PRD-V3.md (198行, 甲方口述补充), PRD-V4.md (101行, 后期优化项), PRD-V5.md (43行, UI/动效/细节), PRD-V6.md (22行, 最终修改)
+- **25 features** (SF-001 ~ SF-027, 跳过 SF-013/SF-016)
+- **甲方验收 9 点基线**：覆盖登录安全→工作台看板→客户管理→审核流→团队管理→统计报表→系统设置→响应式→通知
+- **Trial Run 价值**：PRD-V1 最适合做 Need Audit Pipeline 首次试跑（内容最完整，且后续 PRD 可作为"甲方反馈"的真实参照）
+
 ## Dependencies
 
 | 依赖 | 关系 |
@@ -102,37 +142,86 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 | F070 Portable Governance | Related — 治理数据 + dispatch 路径 |
 | F070 Phase 3 (reflux) | Blocked by F076 — reflux 设计依赖本 feat 确定的面板和回流边界 |
 
+## Architecture
+
+**Definitive architecture**: `docs/plans/2026-03-07-f076-need-audit-architecture.md`
+
+Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → Mission Hub View → Pattern Reflux
+
 ## Acceptance Criteria
 
-（待多猫讨论 + UX 设计后细化）
-
-- [ ] AC-1: Need Audit 能力 — 输入甲方 PRD，输出结构化需求审计报告
-- [ ] AC-2: 需求追踪矩阵 — 甲方需求点 → feat 映射 → 实时状态
-- [ ] AC-3: 风险预警 — 自动检测需求模糊/不合理/依赖冲突
-- [ ] AC-4: 项目健康度仪表盘 — sprint/feat/test 三维度
-- [ ] AC-5: 知识回流 — 方法论经验沉淀（不含项目数据）
-- [ ] AC-6: 渐进交付引导 — 大需求 → 最小可验证切片 + AC
+- [ ] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果
+- [ ] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示
+- [ ] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板
+- [ ] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试
+- [ ] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3
+- [ ] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链
 
 ## Open Questions
 
 1. ~~铲屎官想在 Mission Hub 看到什么？~~ → 已回答（A+B+D）
 2. ~~"跨项目"的粒度？~~ → 项目级总览 + 甲方需求点级追踪
 3. ~~回流数据的展示形式？~~ → 只回流知识工程经验，不回流项目数据
-4. ~~Need Audit 的具体方法论？~~ → 已完成多猫讨论，四阶段管线 + 8 类风险信号
+4. ~~Need Audit 的具体方法论？~~ → 已完成多猫讨论，Pipeline v2（6 阶段）+ 8 类风险信号
 5. ~~风险预警的触发规则如何设计？~~ → 8 类检测信号已定义
-6. 与现有 Governance Tab 的整合方式？
+6. ~~UX 与现有 Mission Hub 的整合方式？~~ → 铲屎官拍板：Tab 集成方案（导入项目 → 新 Tab → Backlog 对齐 → Need Audit 内嵌）
+7. Trial Run 时机 — studio-flow PRD-V1 作为首次试跑素材，但需要避免上下文污染（744 行）
+8. 外部项目 backlog 数据如何同步到 Mission Hub？（文件读取 / API / 手动导入？）
+9. Intent Card 存储后端 — Redis? SQLite? 文件系统?
+
+## Discussion Log
+
+F076 经历了完整的多阶段讨论过程（2026-03-07 全天）：
+
+### Phase 1: 铲屎官采访 + 产品定位
+- 5 轮 Q&A，从"跨项目面板"演化为"甲方项目治理引擎"
+- 核心痛点提炼：甲方不知道自己要什么 / 需求膨胀 / 没有完成确信 / 救火员困境
+
+### Phase 2: 多猫独立思考 + 讨论收敛
+- **Opus 独立思考**：三阶段审计管线 + 5 个模糊检测启发式 → `opus-independent-thinking.md`
+- **GPT-5.2 独立思考**：强调"降级优先" + Source tag + 粒度门禁 + 五维评分
+- **收敛会议**：6 共识 + 5 分歧逐项解决 → `meeting-notes.md`
+- GPT-5.2 Phase 5 review：+2 guardrails（展示治理产物不是原始数据；起步半自动不是全自动判断）
+
+### Phase 3: GPT Pro 外部咨询
+- 铲屎官创建咨询文档，带 5 个问题给云端 GPT Pro
+- GPT Pro 回复 ~250 行，含学术引用（Volere, BABOK, IEEE 29148 等）
+- Opus 评估 7 个建议：5 采纳 / 2 延迟
+- Pipeline v1 升级为 v2：+Stage 0(Frame) / +Stage 1.5(Domain Pass) / clarity+groundedness 拆分 / +Stage 3(Resolution Design)
+- 详见 `gpt-pro-consultation.md`
+
+### Phase 4: Opus + GPT-5.2 架构定稿
+- GPT-5.2 直接读原始文档（不只看 Opus 转述），提出 +3 层需要
+- 最终 5 层架构定稿 → `docs/plans/2026-03-07-f076-need-audit-architecture.md`
+- 含：对象模型 / Intent Card v2 schema / 状态机 / 决策权矩阵 / 8 风险信号 / 方法论谱系
+
+### Phase 5: studio-flow 跨线程资源盘点
+- 跨线程协作请 studio-flow 布偶猫盘点所有甲方 PRD 素材
+- 获取：6 PRD 文件 / 25 features / 9 点验收基线 / 试跑建议
+
+### Phase 6: UX 方向修正
+- 铲屎官看了初版 wireframe（深色 dashboard 风格）→ **否决**
+- 铲屎官拍板新方案：集成到现有 Mission Hub Tab 体系（导入项目 → 新 Tab → Backlog 对齐 → Need Audit 内嵌）
+- 设计原则：延续暖色调 + 列表/详情布局，不割裂
 
 ## Links
 
 - Mission Hub: [F049](F049-mission-control-backlog-center.md), [F058](F058-mission-control-enhancements.md)
 - Governance: [F070](F070-portable-governance.md)
+- Architecture: `docs/plans/2026-03-07-f076-need-audit-architecture.md`
 - 案例项目: `/Users/lysander/projects/freelance/studio-flow`
+- 初版 UX wireframe（已废弃）: `designs/mission-hub-坏猫采访.pen`
 
 ## Timeline
 
 | 日期 | 事件 |
 |------|------|
-| 2026-03-07 | Kickoff + 采访铲屎官（5 轮 Q&A）|
-| 2026-03-07 | 采访结论写入 spec + UX wireframe + 多猫讨论 |
-| 2026-03-07 | Need Audit 方法论多猫讨论收敛（Opus + GPT-5.2）|
-| 2026-03-07 | GPT Pro 外部咨询 → Pipeline v1 升级为 v2（+Stage 0/Domain Pass/clarity+groundedness/Resolution Design）|
+| 2026-03-07 06:00 | Kickoff + 采访铲屎官（5 轮 Q&A）→ 产品定位"甲方项目治理引擎" |
+| 2026-03-07 06:20 | 采访结论写入 spec + UX wireframe（Pencil MCP）+ 多猫独立思考 |
+| 2026-03-07 06:30 | Need Audit 方法论多猫讨论收敛（Opus + GPT-5.2），Pipeline v1 定稿 |
+| 2026-03-07 07:10 | 铲屎官提议 GPT Pro 外部咨询，创建咨询文档 |
+| 2026-03-07 15:56 | GPT Pro 回复回填，Opus 评估采纳 → Pipeline v1 升级 v2 |
+| 2026-03-07 16:26 | Opus + GPT-5.2 最终架构设计定稿 — 5 层架构 + 对象模型 + 状态机 + 决策权矩阵 |
+| 2026-03-07 16:35 | studio-flow 跨线程资源盘点 → 6 PRD / 25 features / 9 点基线 |
+| 2026-03-07 18:32 | 铲屎官否决初版 UX wireframe → 拍板 Tab 集成方案 + 存档当前工作 |
+| 2026-03-07 18:43 | 更新 F076 spec（本次），记录完整讨论轨迹 |
