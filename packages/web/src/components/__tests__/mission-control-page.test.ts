@@ -281,6 +281,10 @@ describe('MissionControlPage', () => {
     });
     await flush(act);
 
+    // Switch to threads tab
+    const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
+    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
     expect(panel?.textContent).toContain('Thread Alpha');
@@ -317,6 +321,10 @@ describe('MissionControlPage', () => {
       root.render(React.createElement(MissionControlPage));
     });
     await flush(act);
+
+    // Switch to threads tab
+    const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
+    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -415,6 +423,10 @@ describe('MissionControlPage', () => {
       }),
     );
     await flush(act);
+
+    // Switch to threads tab
+    const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
+    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
@@ -1353,6 +1365,10 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
     });
     await flush(act);
 
+    // Switch to threads tab
+    const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
+    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
+
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();
     // Should show the title-matched thread instead of "暂无关联 thread"
@@ -1406,6 +1422,10 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
       root.render(React.createElement(MissionControlPage));
     });
     await flush(act);
+
+    // Switch to threads tab
+    const threadsTab = container.querySelector('[data-testid="mc-right-tab-threads"]') as HTMLButtonElement;
+    if (threadsTab) { await act(async () => { threadsTab.click(); }); await flush(act); }
 
     const panel = container.querySelector('[data-testid="mc-thread-situation"]');
     expect(panel).not.toBeNull();

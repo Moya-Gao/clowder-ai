@@ -69,6 +69,7 @@ export function MissionControlPage() {
   const [threadCountByFeature, setThreadCountByFeature] = useState<Record<string, number>>({});
   const [threadsByFeatureId, setThreadsByFeatureId] = useState<Record<string, ThreadSituationSummary[]>>({});
   const [threadsLoading, setThreadsLoading] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState<'suggestion' | 'threads'>('suggestion');
   const {
     items,
     loading,
@@ -533,33 +534,61 @@ export function MissionControlPage() {
                 />
               </div>
 
-              {/* Right panel: operations */}
-              <div className="space-y-3">
-                <div className="max-h-[50vh] overflow-auto">
-                  <SuggestionDrawer
-                    item={selectedItem}
-                    submitting={submitting}
-                    selectedPhase={selectedPhase}
-                    selfClaimScopes={selfClaimScopes}
-                    selfClaimPolicyBlocker={selfClaimPolicyBlocker}
-                    onChangePhase={setSelectedPhase}
-                    onSuggest={handleSuggest}
-                    onApprove={handleApprove}
-                    onReject={handleReject}
-                    onSelfClaim={handleSelfClaim}
-                    onAcquireLease={handleAcquireLease}
-                    onHeartbeatLease={handleHeartbeatLease}
-                    onReleaseLease={handleReleaseLease}
-                    onReclaimLease={handleReclaimLease}
-                  />
+              {/* Right panel: tabbed operations */}
+              <div className="flex min-h-0 flex-col">
+                <div className="flex border-b border-[#E7DAC7]">
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      rightPanelTab === 'suggestion'
+                        ? 'border-b-2 border-[#8B6F47] text-[#4B3A2A]'
+                        : 'text-[#9A866F] hover:text-[#6E5A46]'
+                    }`}
+                    onClick={() => setRightPanelTab('suggestion')}
+                    data-testid="mc-right-tab-suggestion"
+                  >
+                    建议详情
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                      rightPanelTab === 'threads'
+                        ? 'border-b-2 border-[#8B6F47] text-[#4B3A2A]'
+                        : 'text-[#9A866F] hover:text-[#6E5A46]'
+                    }`}
+                    onClick={() => setRightPanelTab('threads')}
+                    data-testid="mc-right-tab-threads"
+                  >
+                    线程态势
+                  </button>
                 </div>
-                <div className="max-h-[30vh] overflow-auto">
-                  <ThreadSituationPanel
-                    dispatchedItems={dispatchedItems}
-                    loading={threadsLoading}
-                    threadsByBacklogId={threadsByBacklogId}
-                    threadsByFeatureId={threadsByFeatureId}
-                  />
+                <div className="flex-1 overflow-auto">
+                  {rightPanelTab === 'suggestion' && (
+                    <SuggestionDrawer
+                      item={selectedItem}
+                      submitting={submitting}
+                      selectedPhase={selectedPhase}
+                      selfClaimScopes={selfClaimScopes}
+                      selfClaimPolicyBlocker={selfClaimPolicyBlocker}
+                      onChangePhase={setSelectedPhase}
+                      onSuggest={handleSuggest}
+                      onApprove={handleApprove}
+                      onReject={handleReject}
+                      onSelfClaim={handleSelfClaim}
+                      onAcquireLease={handleAcquireLease}
+                      onHeartbeatLease={handleHeartbeatLease}
+                      onReleaseLease={handleReleaseLease}
+                      onReclaimLease={handleReclaimLease}
+                    />
+                  )}
+                  {rightPanelTab === 'threads' && (
+                    <ThreadSituationPanel
+                      dispatchedItems={dispatchedItems}
+                      loading={threadsLoading}
+                      threadsByBacklogId={threadsByBacklogId}
+                      threadsByFeatureId={threadsByFeatureId}
+                    />
+                  )}
                 </div>
               </div>
             </div>
