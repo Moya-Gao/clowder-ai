@@ -185,11 +185,15 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
         // Enforce 50-ID limit (matching backend)
         if (fids.length > 50) return mockResponse(400, { error: 'Too many featureIds (max 50)' });
         const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: string[] }>> = {};
+        // Build fuzzy regex per feature ID (matching backend)
+        const patterns = fids.map((fid) => {
+          const num = Number.parseInt(fid.replace(/^f0*/, ''), 10);
+          return { key: fid.toUpperCase(), re: new RegExp(`(?:f(?:eat(?:ure)?)?)\\s*0*${num}(?!\\d)`, 'i') };
+        });
         for (const thread of threads) {
-          const title = (thread.title ?? '').toLowerCase();
-          for (const fid of fids) {
-            if (title.includes(fid)) {
-              const key = fid.toUpperCase();
+          const title = thread.title ?? '';
+          for (const { key, re } of patterns) {
+            if (re.test(title)) {
               const arr = threadsByFeature[key] ?? [];
               arr.push({ id: thread.id, title: thread.title ?? null, lastActiveAt: thread.lastActiveAt, participants: [...thread.participants] });
               threadsByFeature[key] = arr;

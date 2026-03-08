@@ -164,19 +164,22 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
         return { error: 'Too many featureIds (max 50)' };
       }
       if (ids.length > 0) {
-        // Build variant set: "f063" also matches "f63" (no leading zeros) and vice versa
-        const variantsByCanonical = new Map<string, string[]>();
+        // Build fuzzy regex per feature ID:
+        // f066 matches: f066, f66, F 066, feat66, feat 066, feature66, feature 066, etc.
+        const patternsByCanonical = new Map<string, RegExp>();
         for (const fid of ids) {
-          const digits = fid.slice(1);
-          const noLeadingZeros = `f${Number.parseInt(digits, 10)}`;
-          const variants = new Set([fid, noLeadingZeros]);
-          variantsByCanonical.set(fid.toUpperCase(), [...variants]);
+          const num = Number.parseInt(fid.slice(1), 10);
+          // (?:f(?:eat(?:ure)?)?) matches: f, feat, feature
+          // \s* allows optional space between prefix and number
+          // 0* allows optional leading zeros
+          // (?!\d) prevents matching f661 when looking for f66
+          patternsByCanonical.set(fid.toUpperCase(), new RegExp(`(?:f(?:eat(?:ure)?)?)\\s*0*${num}(?!\\d)`, 'i'));
         }
         const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: CatId[] }>> = {};
         for (const thread of threads) {
-          const title = (thread.title ?? '').toLowerCase();
-          for (const [canonical, variants] of variantsByCanonical) {
-            if (variants.some((v) => title.includes(v))) {
+          const title = thread.title ?? '';
+          for (const [canonical, pattern] of patternsByCanonical) {
+            if (pattern.test(title)) {
               const arr = threadsByFeature[canonical] ?? [];
               arr.push({ id: thread.id, title: thread.title, lastActiveAt: thread.lastActiveAt, participants: thread.participants });
               threadsByFeature[canonical] = arr;
