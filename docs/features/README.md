@@ -58,4 +58,8 @@
 | F046 | F046: 愿景守护协议 — Anti-Drift Protocol | done | [F046-anti-drift-protocol.md](./F046-anti-drift-protocol.md) |
 | F078 | F078: Smart Routing & Group Mentions — 默认最近回复者 + 群组 mention | done | [F078-smart-routing-group-mentions.md](./F078-smart-routing-group-mentions.md) |
 | F068 | F068: 新建对话弹窗 UX 优化 — 目录选择体验重做 | done | [F068-new-thread-dialog-ux.md](./F068-new-thread-dialog-ux.md) |
+| F070 | F070: Portable Governance — 猫咖方法论的可复制输出 | done | [F070-portable-governance.md](./F070-portable-governance.md) |
+| F079 | F079: Voting System — /vote 投票 + 自动计票 + rich block | done | [F079-voting-system.md](./F079-voting-system.md) |
+| F080 | F080: Input History Completion — ghost text + path completion | done | [F080-input-history-completion.md](./F080-input-history-completion.md) |
+| F082 | F082: Git Health Panel — Repo 状态可视化 | done | [F082-git-health-panel.md](./F082-git-health-panel.md) |
 | F083 | F083: Design Gate + Cloud Reviewer Quota Fallback | done | [F083-design-gate-sop.md](./F083-design-gate-sop.md) |
