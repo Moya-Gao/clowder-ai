@@ -37,12 +37,19 @@ const DEFAULT_MAX_TOTAL_TOKENS = 2000;
 /**
  * Get display name for a message sender.
  * catId === null → user ("铲屎官"), otherwise look up CAT_CONFIGS.
+ * For variant cats (e.g. sonnet, opus-45), includes variantLabel to distinguish same-family members.
  */
 function getSenderName(catId: string | null): string {
   if (catId === null) return '铲屎官';
   const entry = catRegistry.tryGet(catId);
-  if (entry) return entry.config.displayName;
-  return CAT_CONFIGS[catId]?.displayName ?? catId;
+  const config = entry?.config ?? CAT_CONFIGS[catId];
+  if (!config) return catId;
+  const variantLabel = config.variantLabel?.trim();
+  if (!variantLabel) return config.displayName;
+  if (config.displayName.toLowerCase().includes(variantLabel.toLowerCase())) {
+    return config.displayName;
+  }
+  return `${config.displayName}(${variantLabel})`;
 }
 
 /** Format timestamp as HH:MM */

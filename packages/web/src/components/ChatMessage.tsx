@@ -396,6 +396,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               const sourceId = message.extra.crossPost!.sourceThreadId;
               const sourceName = threads.find((t) => t.id === sourceId)?.title ?? '未命名对话';
               const shortId = sourceId.replace(/^thread_/, '').slice(0, 8);
+              const senderLabel = catStyle?.label;
               return (
                 <a
                   href={`/thread/${sourceId}`}
@@ -406,7 +407,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
                 >
                   <span className="text-[10px] font-semibold" aria-hidden>📮</span>
                   <span className="min-w-0 truncate">
-                    {shortId} · {sourceName}
+                    {senderLabel && <span className="font-medium">{senderLabel} · </span>}{shortId} · {sourceName}
                   </span>
                 </a>
               );

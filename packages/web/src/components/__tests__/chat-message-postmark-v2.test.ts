@@ -91,10 +91,12 @@ describe('ChatMessage Postmark v2 source pill', () => {
     });
 
     const pill = Array.from(container.querySelectorAll('a')).find((a) =>
-      (a.textContent ?? '').includes('mm72eyvc · F052 跨线程调度测试'),
+      (a.textContent ?? '').includes('mm72eyvc') && (a.textContent ?? '').includes('F052 跨线程调度测试'),
     );
     expect(pill).toBeTruthy();
     expect(pill?.textContent).toContain('📮');
+    // sender label: variantLabel is 'GPT-5.2', so catStyle.label = '缅因猫（GPT-5.2）'
+    expect(pill?.textContent).toContain('缅因猫（GPT-5.2）');
     expect(pill?.getAttribute('title')).toBe(sourceThreadId);
     expect(pill?.className).toContain('bg-[#FDF6ED]');
     expect(pill?.className).toContain('border-[#E8DCCF]');

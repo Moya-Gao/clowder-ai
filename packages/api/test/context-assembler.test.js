@@ -3,7 +3,7 @@
  * 测试历史 context 组装和消息格式化
  */
 
-import { test, describe } from 'node:test';
+import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 /** Helper: create a mock StoredMessage */
@@ -309,6 +309,105 @@ describe('formatMessage — head+tail truncation (#91 regression)', () => {
     const result = formatMessage(msg, { truncate: 1500 });
     assert.ok(!/\[\.\.\.truncated \d+ chars\.\.\.\]/.test(result), 'should not truncate short messages');
     assert.ok(result.includes('short message'));
+  });
+});
+
+describe('cross-post sender variant: distinguish same-family cats', () => {
+  before(async () => {
+    const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
+    // Register variant cats that exist in cat-config.json but not in static CAT_CONFIGS
+    if (!catRegistry.has('sonnet')) {
+      catRegistry.register('sonnet', {
+        id: 'sonnet', name: 'sonnet', displayName: '布偶猫', nickname: '宪宪',
+        avatar: '/avatars/sonnet.png', color: { primary: '#e0c9a0', secondary: '#f5ede0' },
+        mentionPatterns: ['@sonnet'], provider: 'anthropic', defaultModel: 'claude-sonnet-4-6',
+        mcpSupport: false, roleDescription: '', personality: '',
+        breedId: 'ragdoll', variantLabel: 'Sonnet', isDefaultVariant: false,
+      });
+    }
+    if (!catRegistry.has('opus-45')) {
+      catRegistry.register('opus-45', {
+        id: 'opus-45', name: 'opus-45', displayName: '布偶猫', nickname: '宪宪',
+        avatar: '/avatars/opus-45.png', color: { primary: '#e0c9a0', secondary: '#f5ede0' },
+        mentionPatterns: ['@opus-45'], provider: 'anthropic', defaultModel: 'claude-opus-4-5-20251101',
+        mcpSupport: false, roleDescription: '', personality: '',
+        breedId: 'ragdoll', variantLabel: 'Opus 4.5', isDefaultVariant: false,
+      });
+    }
+    if (!catRegistry.has('spark')) {
+      catRegistry.register('spark', {
+        id: 'spark', name: 'spark', displayName: '缅因猫 Spark', nickname: '砚砚',
+        avatar: '/avatars/sliced-finial/codex_box.png', color: { primary: '#81C784', secondary: '#C8E6C9' },
+        mentionPatterns: ['@spark'], provider: 'openai', defaultModel: 'gpt-5.3-codex-spark',
+        mcpSupport: false, roleDescription: '', personality: '',
+        breedId: 'maine-coon', variantLabel: 'Spark', isDefaultVariant: false,
+      });
+    }
+  });
+
+  after(async () => {
+    const { catRegistry } = await import('../node_modules/@cat-cafe/shared/dist/index.js');
+    catRegistry.reset();
+  });
+
+  test('formatMessage shows 布偶猫(Sonnet) for sonnet catId', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'sonnet',
+      content: 'Hello from sonnet',
+      extra: {
+        crossPost: { sourceThreadId: 'thread-abc123' },
+      },
+    });
+    const result = formatMessage(msg);
+    // Should show family name + variant, not just raw catId
+    assert.ok(result.includes('布偶猫'), `expected 布偶猫 family name, got: ${result}`);
+    assert.ok(result.includes('Sonnet') || result.includes('sonnet'), `expected Sonnet variant, got: ${result}`);
+    assert.ok(!/\[\d{2}:\d{2}\ssonnet(?:\s|←|\])/.test(result), `should not display raw catId 'sonnet' as sender, got: ${result}`);
+  });
+
+  test('formatMessage shows 布偶猫(Opus 4.5) for opus-45 catId', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'opus-45',
+      content: 'Hello from opus-45',
+      extra: {
+        crossPost: { sourceThreadId: 'thread-abc123' },
+      },
+    });
+    const result = formatMessage(msg);
+    assert.ok(result.includes('布偶猫'), `expected 布偶猫 family name, got: ${result}`);
+    assert.ok(result.includes('Opus 4.5') || result.includes('opus-45'), `expected Opus 4.5 variant, got: ${result}`);
+    assert.ok(!/\[\d{2}:\d{2}\sopus-45(?:\s|←|\])/.test(result), `should not display raw catId 'opus-45' as sender, got: ${result}`);
+  });
+
+  test('formatMessage avoids duplicate variant label when displayName already includes it', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'spark',
+      content: 'Hello from spark',
+    });
+    const result = formatMessage(msg);
+    assert.ok(result.includes('缅因猫 Spark'), `expected displayName to be preserved, got: ${result}`);
+    assert.ok(!result.includes('Spark(Spark)'), `should avoid duplicate variant label, got: ${result}`);
+  });
+
+  test('formatMessage for opus (main) still shows 布偶猫 without extra variant noise', async () => {
+    const { formatMessage } = await import(
+      '../dist/domains/cats/services/context/ContextAssembler.js'
+    );
+    const msg = mockMsg({
+      catId: 'opus',
+      content: 'Hello from opus',
+    });
+    const result = formatMessage(msg);
+    assert.ok(result.includes('布偶猫'), `should still show 布偶猫 for opus, got: ${result}`);
   });
 });
 
