@@ -168,6 +168,185 @@ describe('AntigravityCdpClient', () => {
     assert.equal(response, 'pong');
   });
 
+  test('cdp() includes timeout duration in error message', async () => {
+    const client = new AntigravityCdpClient({ commandTimeoutMs: 50 });
+    // Fake a connected WS that never responds
+    client.ws = {
+      readyState: 1,
+      send() { /* swallow — never respond */ },
+      close() {},
+    };
+    await assert.rejects(
+      () => client.cdp('Runtime.evaluate', {}),
+      (err) => {
+        assert.match(err.message, /CDP timeout for Runtime.evaluate/);
+        assert.match(err.message, /50ms/);
+        return true;
+      }
+    );
+  });
+
+  test('cdp() per-call timeout overrides default', async () => {
+    const client = new AntigravityCdpClient({ commandTimeoutMs: 30_000 });
+    client.ws = {
+      readyState: 1,
+      send() { /* never respond */ },
+      close() {},
+    };
+    const start = Date.now();
+    await assert.rejects(() => client.cdp('Test.method', {}, 50));
+    const elapsed = Date.now() - start;
+    assert.ok(elapsed < 1000, `Should timeout in ~50ms, took ${elapsed}ms`);
+  });
+
+  test('WebSocket close rejects all pending commands immediately', async () => {
+    const savedFetch = global.fetch;
+    const savedWebSocket = global.WebSocket;
+
+    global.fetch = async () => ({
+      json: async () => [
+        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
+      ],
+    });
+
+    let wsInstance;
+    class FakeWS {
+      static OPEN = 1;
+      constructor() {
+        this.readyState = FakeWS.OPEN;
+        wsInstance = this;
+        queueMicrotask(() => this.onopen?.());
+      }
+      send(raw) {
+        const { id, method } = JSON.parse(raw);
+        if (method === 'Runtime.enable' || method === 'Input.enable') {
+          queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+        }
+        // For other methods, do NOT respond — let them pend
+      }
+      close() { this.readyState = 3; }
+    }
+    global.WebSocket = FakeWS;
+
+    try {
+      const client = new AntigravityCdpClient({ commandTimeoutMs: 30_000 });
+      await client.connect();
+
+      // Start a command that will never get a response
+      const pendingCmd = client.cdp('Runtime.evaluate', { expression: '1+1' });
+
+      // Simulate WebSocket closing
+      queueMicrotask(() => wsInstance.onclose?.());
+
+      await assert.rejects(pendingCmd, /WebSocket closed unexpectedly/);
+    } finally {
+      global.fetch = savedFetch;
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
+  test('evaluate() surfaces CDP exception details', async () => {
+    const savedFetch = global.fetch;
+    const savedWebSocket = global.WebSocket;
+
+    global.fetch = async () => ({
+      json: async () => [
+        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
+      ],
+    });
+
+    class FakeWS {
+      static OPEN = 1;
+      constructor() {
+        this.readyState = FakeWS.OPEN;
+        queueMicrotask(() => this.onopen?.());
+      }
+      send(raw) {
+        const { id, method } = JSON.parse(raw);
+        if (method === 'Runtime.enable' || method === 'Input.enable') {
+          queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+          return;
+        }
+        // For Runtime.evaluate, return an exception result
+        queueMicrotask(() => this.onmessage?.({
+          data: JSON.stringify({
+            id,
+            result: {
+              result: { type: 'object', subtype: 'error' },
+              exceptionDetails: {
+                text: 'Uncaught',
+                exception: { description: 'ReferenceError: foo is not defined' },
+              },
+            },
+          }),
+        }));
+      }
+      close() {}
+    }
+    global.WebSocket = FakeWS;
+
+    try {
+      const client = new AntigravityCdpClient();
+      await client.connect();
+      await assert.rejects(
+        () => client.evaluate('foo'),
+        /CDP evaluate error.*ReferenceError/
+      );
+      await client.disconnect();
+    } finally {
+      global.fetch = savedFetch;
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
+  test('connect() times out with connectTimeoutMs', async () => {
+    const savedFetch = global.fetch;
+    const savedWebSocket = global.WebSocket;
+
+    global.fetch = async () => ({
+      json: async () => [
+        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
+      ],
+    });
+
+    class SlowWS {
+      static OPEN = 1;
+      constructor() { this.readyState = 0; /* never fire onopen */ }
+      close() { this.readyState = 3; }
+      send() {}
+    }
+    global.WebSocket = SlowWS;
+
+    try {
+      const client = new AntigravityCdpClient({ connectTimeoutMs: 50 });
+      await assert.rejects(
+        () => client.connect(),
+        /WebSocket connect timeout.*50ms/
+      );
+    } finally {
+      global.fetch = savedFetch;
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
+  test('disconnect clears pending command timers without leaking', async () => {
+    const client = new AntigravityCdpClient({ commandTimeoutMs: 60_000 });
+    client.ws = {
+      readyState: 1,
+      send() { /* never respond */ },
+      close() {},
+      onclose: null,
+      onerror: null,
+    };
+    // Start a command (will be pending forever)
+    const pendingCmd = client.cdp('Test.method', {});
+    // Disconnect should clear the pending map and timers
+    await client.disconnect();
+    // The pending promise should never resolve or reject (timer cleared),
+    // but the map should be empty
+    assert.equal(client.pending.size, 0);
+  });
+
   test('pollResponse waits for inline loading to clear before returning text', async () => {
     const client = new AntigravityCdpClient();
     client.ws = { readyState: 1 };
