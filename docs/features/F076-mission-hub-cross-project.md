@@ -75,7 +75,7 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 
 | 区块 | 功能 | 优先级 |
 |------|------|--------|
-| A: 项目健康度 | sprint 进度、feat 完成度、测试通过率 | 需要 |
+| A: 治理+交付健康度 | triage 进度、Build Now 就绪数、open questions、slice 完成度、测试 | 需要 |
 | B: 甲方需求追踪矩阵 | 甲方每一点 → 对应 feat → 当前状态 | 需要 |
 | D: 风险预警 | 需求模糊/不合理/隐性依赖/工期不匹配 | 非常重要 |
 
@@ -102,16 +102,20 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 | F070 Portable Governance | Related — 治理数据 + dispatch 路径 |
 | F070 Phase 3 (reflux) | Blocked by F076 — reflux 设计依赖本 feat 确定的面板和回流边界 |
 
+## Architecture
+
+**Definitive architecture**: `docs/plans/2026-03-07-f076-need-audit-architecture.md`
+
+Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → Mission Hub View → Pattern Reflux
+
 ## Acceptance Criteria
 
-（待多猫讨论 + UX 设计后细化）
-
-- [ ] AC-1: Need Audit 能力 — 输入甲方 PRD，输出结构化需求审计报告
-- [ ] AC-2: 需求追踪矩阵 — 甲方需求点 → feat 映射 → 实时状态
-- [ ] AC-3: 风险预警 — 自动检测需求模糊/不合理/依赖冲突
-- [ ] AC-4: 项目健康度仪表盘 — sprint/feat/test 三维度
-- [ ] AC-5: 知识回流 — 方法论经验沉淀（不含项目数据）
-- [ ] AC-6: 渐进交付引导 — 大需求 → 最小可验证切片 + AC
+- [ ] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果
+- [ ] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示
+- [ ] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板
+- [ ] AC-4: Governance + Delivery Health — triage 进度/Build Now 数量/open questions/slice 完成度/测试
+- [ ] AC-5: Pattern Reflux — 方法论经验沉淀（不含项目数据）。接口对齐 F070 Phase 3
+- [ ] AC-6: Slice Planning — Learning/Value/Hardening 三类切片 + 纵切业务链
 
 ## Open Questions
 
@@ -136,3 +140,4 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 | 2026-03-07 | 采访结论写入 spec + UX wireframe + 多猫讨论 |
 | 2026-03-07 | Need Audit 方法论多猫讨论收敛（Opus + GPT-5.2）|
 | 2026-03-07 | GPT Pro 外部咨询 → Pipeline v1 升级为 v2（+Stage 0/Domain Pass/clarity+groundedness/Resolution Design）|
+| 2026-03-07 | 最终架构设计定稿（Opus + GPT-5.2 + GPT Pro 综合）— 5 层架构 + 对象模型 + 状态机 + 决策权矩阵 |
