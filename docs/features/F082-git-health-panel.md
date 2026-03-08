@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F082 Git Health Panel — Repo 状态可视化
 
-> Status: wip-p2 | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer)
+> Status: done | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer)
 
 ## Why
 
@@ -91,4 +91,4 @@ created: 2026-03-07
 |------|-------|
 | 2026-03-07 | Kickoff: 铲屎官提出需求，立项 F082 |
 | 2026-03-07 | Phase 1 完成: PR #290 merged (git log + status + show viewer) |
-| 2026-03-07 | Phase 2 开发: Health Dashboard (stale branches, orphan worktrees, runtime drift) |
+| 2026-03-07 | Phase 2 完成: PR #293 merged (stale branches, orphan worktrees, runtime drift) |
