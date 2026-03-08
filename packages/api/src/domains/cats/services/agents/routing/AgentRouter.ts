@@ -43,6 +43,7 @@ import type { TranscriptReader } from '../../session/TranscriptReader.js';
 import type { ISessionSealer } from '../../session/SessionSealer.js';
 import type { AgentRegistry } from '../registry/AgentRegistry.js';
 import type { TaskProgressStore } from '../invocation/TaskProgressStore.js';
+import type { IWorkflowSopStore } from '../../stores/ports/WorkflowSopStore.js';
 
 /** Parsed mention with position for ordering */
 interface ParsedMention {
@@ -139,6 +140,8 @@ export interface AgentRouterOptions {
   draftStore?: IDraftStore;
   /** F065: Task store for bootstrap task snapshot injection */
   taskStore?: ITaskStore;
+  /** F073 P4: Workflow SOP store for stage hint injection */
+  workflowSopStore?: IWorkflowSopStore;
 }
 
 /**
@@ -158,6 +161,7 @@ export class AgentRouter {
   private draftStore: IDraftStore | undefined;
   private taskProgressStore: TaskProgressStore | undefined;
   private taskStore: ITaskStore | undefined;
+  private workflowSopStore: IWorkflowSopStore | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -184,6 +188,7 @@ export class AgentRouter {
     this.draftStore = options.draftStore;
     this.taskProgressStore = options.taskProgressStore;
     this.taskStore = options.taskStore;
+    this.workflowSopStore = options.workflowSopStore;
   }
 
   /** Pick a deterministic fallback cat when policy filters out all candidates. */
@@ -514,6 +519,7 @@ export class AgentRouter {
         ...(this.transcriptReader ? { transcriptReader: this.transcriptReader } : {}),
         ...(this.sessionSealer ? { sessionSealer: this.sessionSealer } : {}),
         ...(this.taskStore ? { taskStore: this.taskStore } : {}),
+        ...(this.workflowSopStore ? { workflowSopStore: this.workflowSopStore } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

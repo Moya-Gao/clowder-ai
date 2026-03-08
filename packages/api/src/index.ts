@@ -242,6 +242,7 @@ async function main(): Promise<void> {
     sessionSealer,
     draftStore,
     taskStore,
+    ...(workflowSopStore ? { workflowSopStore } : {}),
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

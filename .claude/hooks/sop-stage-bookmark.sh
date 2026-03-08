@@ -3,8 +3,8 @@
 # Hook: PostToolUse (matcher: "Skill")
 # Records which skill was loaded → tracks SOP stage for post-compact recovery.
 #
-# This creates a persistent marker file that survives context compression.
-# The post-compact-bootstrap hook reads this to tell the cat where they were.
+# F073 P4 (AC-14): Calls shared HTTP API to store bookmark.
+# Falls back to /tmp/ file when API is unreachable (AC-17 degradation).
 
 INPUT=$(cat)
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
@@ -32,7 +32,21 @@ case "$SKILL_NAME" in
   *)                  SOP_STAGE="other:${SKILL_NAME}" ;;
 esac
 
-# Write stage bookmark (session-isolated, no TTL — persists until overwritten)
+# F073 P4 (AC-14): Try shared HTTP API (best-effort, fire-and-forget)
+API_PORT="${API_SERVER_PORT:-3002}"
+HOOK_TOKEN="${CAT_CAFE_HOOK_TOKEN:-}"
+
+if [ -n "$HOOK_TOKEN" ]; then
+  curl -sf -o /dev/null \
+    -X POST "http://localhost:${API_PORT}/api/sessions/sop-bookmark" \
+    -H "Content-Type: application/json" \
+    -H "X-Cat-Cafe-Hook-Token: ${HOOK_TOKEN}" \
+    -d "{\"cliSessionId\": \"$SESSION_ID\", \"skill\": \"$SKILL_NAME\", \"sopStage\": \"$SOP_STAGE\"}" \
+    --connect-timeout 2 --max-time 5 2>/dev/null || true
+fi
+
+# AC-17 dual-write: always write /tmp/ file as degradation safety net.
+# Even when API succeeds, local copy ensures recovery if API is unavailable at read time.
 STAGE_FILE="/tmp/cat-cafe-sop-stage-${SESSION_ID}.json"
 jq -n \
   --arg skill "$SKILL_NAME" \

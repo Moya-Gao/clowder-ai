@@ -87,10 +87,25 @@ export async function* routeSerial(
   }
   // F042: Fetch thread routingPolicy once before loop (threadId doesn't change).
   let routingPolicy: ThreadRoutingPolicyV1 | undefined;
+  // F073 P4: SOP stage hint from workflow-sop (告示牌 — info only, cats decide actions)
+  let sopStageHint: { stage: string; suggestedSkill: string | null; featureId: string } | undefined;
   if (deps.invocationDeps.threadStore) {
     try {
       const thread = await deps.invocationDeps.threadStore.get(threadId);
       routingPolicy = thread?.routingPolicy;
+      // F073 P4: Read workflow-sop if thread is linked to a backlog item
+      if (thread?.backlogItemId && deps.invocationDeps.workflowSopStore) {
+        try {
+          const sop = await deps.invocationDeps.workflowSopStore.get(thread.backlogItemId);
+          if (sop) {
+            sopStageHint = {
+              stage: sop.stage,
+              suggestedSkill: sop.nextSkill,
+              featureId: sop.featureId,
+            };
+          }
+        } catch { /* best-effort: SOP hint failure does not block invocation */ }
+      }
     } catch { /* best-effort */ }
   }
 
@@ -150,6 +165,7 @@ export async function* routeSerial(
       ...(mentionRoutingFeedback ? { mentionRoutingFeedback } : {}),
       ...(activeParticipants.length > 0 ? { activeParticipants } : {}),
       ...(routingPolicy ? { routingPolicy } : {}),
+      ...(sopStageHint ? { sopStageHint } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+

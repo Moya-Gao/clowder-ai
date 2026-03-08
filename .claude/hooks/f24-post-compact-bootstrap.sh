@@ -60,12 +60,28 @@ fi
 
 STATE_CONTENT=$(cat "$STATE_FILE")
 
-# F073: Read SOP stage bookmark
-SOP_STAGE_FILE="/tmp/cat-cafe-sop-stage-${SESSION_ID}.json"
-if [ -f "$SOP_STAGE_FILE" ]; then
-  SOP_SKILL=$(jq -r '.skill' "$SOP_STAGE_FILE")
-  SOP_STAGE=$(jq -r '.sopStage' "$SOP_STAGE_FILE")
-  SOP_TIME=$(jq -r '.recordedAt' "$SOP_STAGE_FILE")
+# F073 P4 (AC-14): Read SOP stage bookmark from API first, /tmp/ fallback (AC-17)
+SOP_SKILL=""
+SOP_STAGE=""
+SOP_TIME=""
+SOP_BOOKMARK=$(curl -sf --max-time 3 \
+  -H "X-Cat-Cafe-Hook-Token: ${HOOK_TOKEN}" \
+  "http://localhost:${API_PORT}/api/sessions/sop-bookmark?cliSessionId=$SESSION_ID" 2>/dev/null)
+if [ $? -eq 0 ] && [ -n "$SOP_BOOKMARK" ]; then
+  SOP_SKILL=$(echo "$SOP_BOOKMARK" | jq -r '.skill // empty')
+  SOP_STAGE=$(echo "$SOP_BOOKMARK" | jq -r '.sopStage // empty')
+  SOP_TIME=$(echo "$SOP_BOOKMARK" | jq -r '.recordedAt // empty')
+fi
+# AC-17 fallback: /tmp/ file when API returned nothing
+if [ -z "$SOP_SKILL" ]; then
+  SOP_STAGE_FILE="/tmp/cat-cafe-sop-stage-${SESSION_ID}.json"
+  if [ -f "$SOP_STAGE_FILE" ]; then
+    SOP_SKILL=$(jq -r '.skill' "$SOP_STAGE_FILE")
+    SOP_STAGE=$(jq -r '.sopStage' "$SOP_STAGE_FILE")
+    SOP_TIME=$(jq -r '.recordedAt' "$SOP_STAGE_FILE")
+  fi
+fi
+if [ -n "$SOP_SKILL" ]; then
   SOP_SECTION="Last active skill: ${SOP_SKILL} (stage: ${SOP_STAGE}, at: ${SOP_TIME})
 ACTION REQUIRED: Load the '${SOP_SKILL}' skill again NOW to resume where you left off.
 Do NOT continue from memory — load the skill first, then proceed."

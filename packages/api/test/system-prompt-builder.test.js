@@ -929,4 +929,86 @@ describe('SystemPromptBuilder', () => {
     assert.ok(ctx.includes('(budget inject)'), 'Should sanitize newline in reason');
     assert.ok(!ctx.includes('budget\ninject'), 'Should not allow multiline reason injection');
   });
+
+  // --- F073 P4: SOP stage hint injection ---
+
+  test('buildInvocationContext injects SOP stage hint when sopStageHint provided', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      sopStageHint: {
+        stage: 'impl',
+        suggestedSkill: 'tdd',
+        featureId: 'F073',
+      },
+    });
+    assert.ok(ctx.includes('SOP'), 'Should contain SOP label');
+    assert.ok(ctx.includes('impl'), 'Should contain current stage');
+    assert.ok(ctx.includes('tdd'), 'Should contain suggested skill');
+    assert.ok(ctx.includes('F073'), 'Should contain feature ID');
+  });
+
+  test('buildInvocationContext omits SOP hint when sopStageHint absent', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(!ctx.includes('SOP:'), 'Should not contain SOP line when no hint');
+  });
+
+  test('buildInvocationContext SOP hint omits suggestedSkill when null', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      sopStageHint: {
+        stage: 'review',
+        suggestedSkill: null,
+        featureId: 'F080',
+      },
+    });
+    assert.ok(ctx.includes('SOP'), 'Should contain SOP label');
+    assert.ok(ctx.includes('review'), 'Should contain stage');
+    assert.ok(ctx.includes('F080'), 'Should contain feature ID');
+    assert.ok(!ctx.includes('skill'), 'Should not contain skill reference when null');
+  });
+
+  test('buildSystemPrompt size stays under 2100 chars with SOP hint', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'serial',
+      chainIndex: 1,
+      chainTotal: 3,
+      teammates: ['codex', 'gemini'],
+      mcpAvailable: true,
+      promptTags: ['critique'],
+      activeParticipants: [
+        { catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 },
+      ],
+      sopStageHint: {
+        stage: 'quality_gate',
+        suggestedSkill: 'quality-gate',
+        featureId: 'F073',
+      },
+    });
+    assert.ok(
+      prompt.length < 2100,
+      `Prompt with SOP hint is ${prompt.length} chars, expected < 2100`,
+    );
+  });
 });

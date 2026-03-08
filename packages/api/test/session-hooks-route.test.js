@@ -500,4 +500,164 @@ describe('Session Hooks Routes', () => {
       assert.equal(res.statusCode, 401);
     });
   });
+
+  // --- F073 P4: SOP stage bookmark ---
+
+  describe('POST /api/sessions/sop-bookmark (F073 P4)', () => {
+    it('stores SOP bookmark for cliSessionId', async () => {
+      const { app } = await setup();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-sop-1', skill: 'tdd', sopStage: 'development' },
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.ok, true);
+    });
+
+    it('GET retrieves stored SOP bookmark', async () => {
+      const { app } = await setup();
+
+      // Store first
+      await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-sop-2', skill: 'quality-gate', sopStage: 'quality-gate' },
+      });
+
+      // Retrieve
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=cli-sop-2',
+        headers: authHeaders(),
+      });
+
+      assert.equal(res.statusCode, 200);
+      const body = JSON.parse(res.payload);
+      assert.equal(body.skill, 'quality-gate');
+      assert.equal(body.sopStage, 'quality-gate');
+      assert.ok(body.recordedAt);
+    });
+
+    it('GET returns 404 for unknown cliSessionId', async () => {
+      const { app } = await setup();
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=unknown-cli',
+        headers: authHeaders(),
+      });
+
+      assert.equal(res.statusCode, 404);
+    });
+
+    it('POST overwrites previous bookmark for same cliSessionId', async () => {
+      const { app } = await setup();
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-sop-3', skill: 'tdd', sopStage: 'development' },
+      });
+
+      await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-sop-3', skill: 'merge-gate', sopStage: 'merge' },
+      });
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=cli-sop-3',
+        headers: authHeaders(),
+      });
+
+      const body = JSON.parse(res.payload);
+      assert.equal(body.skill, 'merge-gate');
+      assert.equal(body.sopStage, 'merge');
+    });
+
+    it('POST returns 400 for missing required fields', async () => {
+      const { app } = await setup();
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-sop-4' },
+      });
+
+      assert.equal(res.statusCode, 400);
+    });
+
+    it('requires hook token authentication', async () => {
+      const { app } = await setup({ hookToken: 'secret-token-123' });
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        payload: { cliSessionId: 'cli-sop-5', skill: 'tdd', sopStage: 'development' },
+      });
+
+      assert.equal(res.statusCode, 401);
+    });
+
+    it('TTL sweep removes entries older than 24h on next write', async () => {
+      const { app } = await setup();
+
+      // Store an old bookmark
+      await app.inject({
+        method: 'POST',
+        url: '/api/sessions/sop-bookmark',
+        headers: authHeaders(),
+        payload: { cliSessionId: 'cli-old', skill: 'tdd', sopStage: 'development' },
+      });
+
+      // Verify it exists
+      const check1 = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=cli-old',
+        headers: authHeaders(),
+      });
+      assert.equal(check1.statusCode, 200, 'old bookmark should exist initially');
+
+      // Monkey-patch Date to simulate 25h passing on next write
+      const realNow = Date.now;
+      Date.now = () => realNow() + 25 * 60 * 60 * 1000;
+      try {
+        // Write a new bookmark — triggers TTL sweep
+        await app.inject({
+          method: 'POST',
+          url: '/api/sessions/sop-bookmark',
+          headers: authHeaders(),
+          payload: { cliSessionId: 'cli-new', skill: 'merge-gate', sopStage: 'merge' },
+        });
+      } finally {
+        Date.now = realNow;
+      }
+
+      // Old bookmark should be swept
+      const check2 = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=cli-old',
+        headers: authHeaders(),
+      });
+      assert.equal(check2.statusCode, 404, 'old bookmark should be swept by TTL');
+
+      // New bookmark should still exist
+      const check3 = await app.inject({
+        method: 'GET',
+        url: '/api/sessions/sop-bookmark?cliSessionId=cli-new',
+        headers: authHeaders(),
+      });
+      assert.equal(check3.statusCode, 200, 'new bookmark should survive TTL sweep');
+    });
+  });
 });

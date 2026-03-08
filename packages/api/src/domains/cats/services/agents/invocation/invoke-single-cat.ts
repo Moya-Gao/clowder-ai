@@ -74,6 +74,8 @@ export interface InvocationDeps {
   readonly transcriptReader?: import('../../session/TranscriptReader.js').TranscriptReader;
   /** F065: Task store for bootstrap task snapshot injection */
   readonly taskStore?: import('../../stores/ports/TaskStore.js').ITaskStore;
+  /** F073 P4: Workflow SOP store for SOP stage hint injection */
+  readonly workflowSopStore?: import('../../stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
 }
 
 /**

@@ -146,15 +146,15 @@ workflow:
 - [ ] AC-10: 超时未接 → 提醒/升级（不卡死流程）
 
 ### P3（硬门禁）
-- [ ] AC-11: worktree 创建前硬检查 `origin/main` 真相源同步
-- [ ] AC-12: feat close 前硬检查完成定义（PR merged + check:features + 愿景签收）
+- [x] AC-11: worktree 创建前硬检查 `origin/main` 真相源同步（P0 实现）
+- [x] AC-12: feat close 前硬检查完成定义（PR merged + check:features + 愿景签收）（P0 实现）
 
 ### P4（导航牌 + 加速器）
-- [ ] AC-13: `sop.manifest.yaml` 导航表（阶段 → skill → 硬规则）
-- [ ] AC-14: Claude hook 改为调用共享 MCP（不再独立写 `/tmp/`）
-- [ ] AC-15: `baton_holder` 存唯一句柄（`opus`/`opus45`/`codex`），不存展示名（"两个 opus"事件教训）
-- [ ] AC-16: 并发写同一 Feature 时 CAS/version 冲突可检测并回读重试
-- [ ] AC-17: Mission Hub 不可用时降级为 thread 告示牌，不降级为"无状态推进"
+- [x] AC-13: `sop.manifest.yaml` 导航表（阶段 → skill → 硬规则）
+- [x] AC-14: Claude hook 改为调用共享 HTTP API（/tmp/ 仅作降级 fallback）
+- [x] AC-15: `baton_holder` 存唯一句柄（`opus`/`opus45`/`codex`），不存展示名（"两个 opus"事件教训）（P0 实现）
+- [x] AC-16: 并发写同一 Feature 时 CAS/version 冲突可检测并回读重试（P0 实现，Lua 原子 CAS）
+- [x] AC-17: Mission Hub 不可用时降级为 /tmp/ 告示牌，不降级为"无状态推进"
 
 ## Links
 

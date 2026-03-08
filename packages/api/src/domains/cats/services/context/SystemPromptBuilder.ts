@@ -58,6 +58,16 @@ export interface InvocationContext {
   activeParticipants?: readonly ThreadParticipantActivity[];
   /** F042: Thread-scoped routing policy summary (intent/scope). Injected per-invocation. */
   routingPolicy?: ThreadRoutingPolicyV1;
+  /**
+   * F073 P4: SOP stage hint from Mission Hub workflow-sop.
+   * Injected per-invocation so all cats (Claude/Codex/Gemini) see current stage.
+   * 告示牌哲学：猫看了自己决定行动，不被系统推着走。
+   */
+  sopStageHint?: {
+    readonly stage: string;
+    readonly suggestedSkill: string | null;
+    readonly featureId: string;
+  };
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -446,6 +456,13 @@ export function buildInvocationContext(context: InvocationContext): string {
     if (parts.length > 0) {
       lines.push(`Routing: ${parts.join('; ')}`);
     }
+  }
+
+  // F073 P4: SOP stage hint — 告示牌 (bulletin board, not controller)
+  if (context.sopStageHint) {
+    const { stage, suggestedSkill, featureId } = context.sopStageHint;
+    const skillPart = suggestedSkill ? ` → load skill: ${suggestedSkill}` : '';
+    lines.push(`SOP: ${featureId} stage=${stage}${skillPart}`);
   }
 
   return lines.join('\n');
