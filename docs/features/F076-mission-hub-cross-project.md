@@ -108,7 +108,7 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 |------|------|------|----------|
 | **基础层：Mission Hub 原有** | Feature 列表 + 状态徽章 | 读取外部项目 BACKLOG.md | Sub-tab「功能列表」 |
 | **基础层：Mission Hub 原有** | 告示面板 / Suggestions | 复用 SOP 告示牌能力 | Sub-tab「告示面板」 |
-| **基础层：Mission Hub 原有** | Backlog .md 导出 | 复用现有导出逻辑 | Header 导出按钮 |
+| **基础层：Mission Hub 原有** | 导入 Backlog | 从外部项目 BACKLOG.md 导入 feat 状态 | Header「导入 Backlog」按钮 |
 | **基础层：Mission Hub 原有** | 状态筛选（待审议/执行中/已完成） | 复用筛选组件 | Status bar |
 | **治理层：Need Audit 新增** | 需求追踪（Intent Card 列表 + Source tag） | Need Audit Pipeline | Sub-tab「需求追踪」 |
 | **治理层：Need Audit 新增** | 治理健康度 | Triage 统计 | Sub-tab「治理健康度」 |
@@ -239,3 +239,4 @@ F076 经历了完整的多阶段讨论过程（2026-03-07 全天）：
 | 2026-03-07 16:35 | studio-flow 跨线程资源盘点 → 6 PRD / 25 features / 9 点基线 |
 | 2026-03-07 18:32 | 铲屎官否决初版 UX wireframe → 拍板 Tab 集成方案 + 存档当前工作 |
 | 2026-03-07 18:43 | 更新 F076 spec（本次），记录完整讨论轨迹 |
+| 2026-03-07 23:12 | 铲屎官确认按钮名统一为「导入 Backlog」（优于早期「从文档导入」），更新 spec |
