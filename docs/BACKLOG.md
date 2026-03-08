@@ -12,8 +12,8 @@ created: 2026-02-26
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
 
-| ID   | 名称 | Status | Owner | Link |
-|------|------|--------|-------|------|
+| ID | 名称 | Status | Owner | Link |
+|----|------|--------|-------|------|
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
 | F021 | Signal Hunter 集成 | in-progress | 三猫 | [F021](features/F021-signal-study-mode.md) |
@@ -39,4 +39,3 @@ created: 2026-02-26
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | in-progress | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
 | F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |
-| F085 | Hyperfocus Brake — 猫猫健康小刹车 | spec | 布偶猫 | [F080](features/F080-hyperfocus-brake.md) |
