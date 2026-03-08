@@ -16,6 +16,7 @@ interface FeatureRowListProps {
   items: BacklogItem[];
   threadsByBacklogId: Record<string, ThreadSituationSummary>;
   threadCountByFeature: Record<string, number>;
+  threadsByFeatureId?: Record<string, ThreadSituationSummary[]>;
   selectedItemId: string | null;
   onSelectItem: (id: string) => void;
 }
@@ -74,6 +75,7 @@ export function FeatureRowList({
   items,
   threadsByBacklogId,
   threadCountByFeature,
+  threadsByFeatureId = {},
   selectedItemId,
   onSelectItem,
 }: FeatureRowListProps) {
@@ -92,6 +94,7 @@ export function FeatureRowList({
           featureItems={featureItems}
           threadsByBacklogId={threadsByBacklogId}
           threadCount={threadCountByFeature[tag] ?? 0}
+          titleMatchedThreads={threadsByFeatureId[tag] ?? []}
           expanded={expandedFeature === tag}
           onToggle={() => setExpandedFeature(expandedFeature === tag ? null : tag)}
           selectedItemId={selectedItemId}
@@ -122,6 +125,7 @@ export function FeatureRowList({
                   featureItems={featureItems}
                   threadsByBacklogId={threadsByBacklogId}
                   threadCount={threadCountByFeature[tag] ?? 0}
+          titleMatchedThreads={threadsByFeatureId[tag] ?? []}
                   expanded={expandedFeature === tag}
                   onToggle={() => setExpandedFeature(expandedFeature === tag ? null : tag)}
                   selectedItemId={selectedItemId}
@@ -141,6 +145,7 @@ function FeatureRow({
   featureItems,
   threadsByBacklogId,
   threadCount,
+  titleMatchedThreads,
   expanded,
   onToggle,
   selectedItemId,
@@ -150,6 +155,7 @@ function FeatureRow({
   featureItems: BacklogItem[];
   threadsByBacklogId: Record<string, ThreadSituationSummary>;
   threadCount: number;
+  titleMatchedThreads: ThreadSituationSummary[];
   expanded: boolean;
   onToggle: () => void;
   selectedItemId: string | null;
@@ -296,11 +302,30 @@ function FeatureRow({
                       </a>
                     );
                   })}
-                {threadCount > 0 &&
-                  featureItems.filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id]).length === 0 && (
-                    <p className="text-[11px] text-[#9A866F]">{threadCount} 个线程关联（通过标题匹配）</p>
-                  )}
-                {threadCount === 0 &&
+                {titleMatchedThreads.length > 0 &&
+                  featureItems.filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id]).length === 0 &&
+                  titleMatchedThreads.map((t) => (
+                    <a
+                      key={t.id}
+                      href={`/thread/${t.id}`}
+                      className="flex items-center gap-1.5 rounded-lg bg-[#F0EBE2] px-2.5 py-1.5 text-xs text-[#5A4A38] transition-colors hover:bg-[#EDE4D6]"
+                    >
+                      <svg
+                        className="h-3.5 w-3.5 shrink-0 text-[#9A866F]"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z" />
+                      </svg>
+                      <span className="truncate">{t.title ?? t.id}</span>
+                      <span className="ml-auto shrink-0 text-[10px] text-[#B5A48E]">标题匹配</span>
+                    </a>
+                  ))}
+                {titleMatchedThreads.length === 0 &&
                   featureItems.filter((i) => i.status === 'dispatched' && threadsByBacklogId[i.id]).length === 0 && (
                     <p className="text-[11px] text-[#B5A48E]">暂无关联线程</p>
                   )}

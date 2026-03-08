@@ -591,6 +591,7 @@ export function MissionControlPage() {
                   items={items}
                   threadsByBacklogId={threadsByBacklogId}
                   threadCountByFeature={threadCountByFeature}
+                  threadsByFeatureId={threadsByFeatureId}
                   selectedItemId={selectedItemId}
                   onSelectItem={setSelectedItemId}
                 />
