@@ -4,7 +4,7 @@ related_features: [F061]
 topics: [collaboration, play-mode, rich-block, at-cat, connector]
 doc_kind: spec
 created: 2026-03-07
-status: in-progress
+status: done
 ---
 
 # F079 Voting System (v2 — UX 重写)
@@ -204,11 +204,11 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 
 ### Acceptance Criteria
 
-- [ ] 投票结果消息携带 `source: { connector: 'vote-result', label: '投票结果', icon: '🗳️' }`
-- [ ] 前端渲染为 ConnectorBubble 样式（左对齐、独立图标 + 标签、主题配色）
-- [ ] 结果内容（选项、票数、百分比、进度条）在 connector 气泡内正确展示
-- [ ] 匿名模式下不泄露投票人身份
-- [ ] 实名模式下正确列出每个选项的投票人
+- [x] 投票结果消息携带 `source: { connector: 'vote-result', label: '投票结果', icon: '🗳️' }`
+- [x] 前端渲染为 ConnectorBubble 样式（左对齐、独立图标 + 标签、主题配色）
+- [x] 结果内容（选项、票数、百分比、进度条）在 connector 气泡内正确展示
+- [x] 匿名模式下不泄露投票人身份
+- [x] 实名模式下正确列出每个选项的投票人
 
 ### 讨论来源
 
@@ -259,3 +259,4 @@ Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — 铲屎官看到手动发
 | 2026-03-08 | Phase 2 merged (PR #296) |
 | 2026-03-07 | Vision guard pass (codex) |
 | 2026-03-08 | Gap 3 spec: 投票结果 Connector 气泡 |
+| 2026-03-08 | Gap 3 merged (PR #309) — codex R1→R2 + cloud R1→R2 |
