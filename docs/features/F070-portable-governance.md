@@ -8,7 +8,7 @@ created: 2026-03-06
 
 # F070: Portable Governance — 猫咖方法论的可复制输出
 
-> Status: phase-3ac-done | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
+> Status: done | Completed: 2026-03-08 | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
 
 ## Why
 
@@ -254,7 +254,8 @@ managed block 扩充协作方法论段落：
 | 2026-03-07 | Phase 1 完成（PR #265 merged）：治理骨架 + 门禁 + Hub 看板 |
 | 2026-03-07 | 愿景守护（gpt52）+ 后续路线图讨论（opus + gpt52 共识）|
 | 2026-03-07 | Phase 2 完成（PR #274 merged）：任务包注入 + hooks + managed block v1.1.0 |
-| 2026-03-08 | Phase 3a+3c 完成：执行结果回流 + Hub 派遣进展 tab |
+| 2026-03-08 | Phase 3a+3c 完成（PR #312 merged）：执行结果回流 + Hub 派遣进展 tab |
+| 2026-03-08 | **Feature closed** — Phase 3b（真实出征闭环验证）待实际出征时验证，功能层面已完整 |
 
 ## 需求点 Checklist
 
