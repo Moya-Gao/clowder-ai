@@ -2,66 +2,40 @@
  * Antigravity CDP Client
  * Chrome DevTools Protocol bridge to Antigravity IDE (Electron).
  *
- * Phase 0 spike 已验证:
- * - 消息注入: document.execCommand('insertText') (Lexical 编辑器唯一有效方式)
- * - 注入前必须 click 获焦
- * - 回复读取: <p> 元素 DOM polling
- * - Target 发现: /json 获取, 过滤 Launchpad
- * - CDP 端口: 9000 (~/.antigravity/argv.json)
+ * Target selection logic lives in cdp-target-selection.ts.
+ * Inline DOM scripts live in cdp-dom-scripts.ts.
  */
 
-export interface CdpTarget {
-  title: string;
-  webSocketDebuggerUrl: string;
-  type: string;
-  url: string;
-}
+import { DISPATCH_ENTER_JS, FIND_SEND_BUTTON_JS, NEW_CONVERSATION_JS, POLL_RESPONSE_JS } from './cdp-dom-scripts.js';
+import { rankEditorTargets } from './cdp-target-selection.js';
+import type { CdpTarget } from './cdp-target-selection.js';
+
+// Re-export for backward compatibility (tests import from here)
+export { findEditorTarget, rankEditorTargets, normaliseHint } from './cdp-target-selection.js';
+export type { CdpTarget, FindEditorTargetOptions } from './cdp-target-selection.js';
 
 export interface AntigravityCdpClientOptions {
   port?: number;
   host?: string;
-  /** Substring to match in target title (e.g. project name) to avoid multi-window misrouting */
   titleHint?: string;
-  /** Default timeout for CDP commands in ms (default: 10_000) */
   commandTimeoutMs?: number;
-  /** Timeout for initial WebSocket connection in ms (default: 5_000) */
   connectTimeoutMs?: number;
-  /** Timeout for target discovery fetch in ms (default: 5_000) */
   fetchTimeoutMs?: number;
-}
-
-export interface FindEditorTargetOptions {
-  /** Substring to match in target title (e.g. project name) to avoid multi-window misrouting */
-  titleHint?: string;
+  /** Timeout for health probe evaluate('1') during connect in ms (default: 2_000) */
+  probeTimeoutMs?: number;
+  /** Enable debug logging (target list, probe results, selected target) */
+  debug?: boolean;
 }
 
 export interface PollResponseOptions {
-  /** Number of visible user messages expected once sendMessage() has committed */
   expectedUserMessageCount?: number;
-  /** Test hook: shorten polling cadence for unit tests */
   pollIntervalMs?: number;
-  /** Require the same response text this many polls in a row before returning */
   stablePollCount?: number;
 }
-
-import { DISPATCH_ENTER_JS, FIND_SEND_BUTTON_JS, NEW_CONVERSATION_JS, POLL_RESPONSE_JS } from './cdp-dom-scripts.js';
 
 function isMissingCdpMethod(error: unknown, method: string): boolean {
   const message = error instanceof Error ? error.message : String(error);
   return message.includes(`'${method}' wasn't found`) || message.includes('Method not found');
-}
-
-/** Pick the editor page target, skip Launchpad / iframes / workers.
- *  When titleHint is provided, prefer targets whose title contains it. */
-export function findEditorTarget(targets: CdpTarget[], options?: FindEditorTargetOptions): CdpTarget | null {
-  const pages = targets.filter((t) => t.type === 'page' && !t.title.includes('Launchpad') && t.webSocketDebuggerUrl);
-  if (pages.length === 0) return null;
-
-  if (options?.titleHint) {
-    const hinted = pages.find((t) => t.title.includes(options.titleHint!));
-    if (hinted) return hinted;
-  }
-  return pages[0] ?? null;
 }
 
 export class AntigravityCdpClient {
@@ -71,6 +45,8 @@ export class AntigravityCdpClient {
   private readonly commandTimeoutMs: number;
   private readonly connectTimeoutMs: number;
   private readonly fetchTimeoutMs: number;
+  private readonly probeTimeoutMs: number;
+  private readonly debug: boolean;
   private ws: WebSocket | null = null;
   private idCounter = 0;
   private pending = new Map<
@@ -89,6 +65,12 @@ export class AntigravityCdpClient {
     this.commandTimeoutMs = options?.commandTimeoutMs ?? 10_000;
     this.connectTimeoutMs = options?.connectTimeoutMs ?? 5_000;
     this.fetchTimeoutMs = options?.fetchTimeoutMs ?? 5_000;
+    this.probeTimeoutMs = options?.probeTimeoutMs ?? 2_000;
+    this.debug = options?.debug ?? !!process.env['CDP_DEBUG'];
+  }
+
+  private log(...args: unknown[]): void {
+    if (this.debug) console.log('[CDP]', ...args);
   }
 
   get connected(): boolean {
@@ -99,7 +81,7 @@ export class AntigravityCdpClient {
     return `http://${this.host}:${this.port}`;
   }
 
-  /** Fetch targets and connect to editor page.
+  /** Fetch targets, probe candidates for health, and connect to the best one.
    *  @param runtimeTitleHint — overrides constructor titleHint (e.g. derived from workingDirectory) */
   async connect(runtimeTitleHint?: string): Promise<void> {
     const resp = await fetch(`${this.baseUrl}/json`, {
@@ -107,14 +89,46 @@ export class AntigravityCdpClient {
     });
     const targets = (await resp.json()) as CdpTarget[];
     const hint = runtimeTitleHint ?? this.titleHint;
-    const target = findEditorTarget(targets, hint ? { titleHint: hint } : undefined);
-    if (!target) {
+
+    this.log('targets:', targets.map((t) => ({ id: t.id, type: t.type, title: t.title, url: t.url })));
+
+    const candidates = rankEditorTargets(targets, hint ? { titleHint: hint } : undefined);
+    if (candidates.length === 0) {
       throw new Error(
         `No Antigravity editor page found on port ${this.port}. ` +
-          `Targets: ${targets.map((t) => t.title).join(', ')}`,
+          `Targets: ${targets.map((t) => `${t.type}:${t.title}`).join(', ')}`,
       );
     }
 
+    // Probe candidates in priority order — first one that passes evaluate('1') wins.
+    for (const candidate of candidates) {
+      this.log('probing:', candidate.title, candidate.url);
+      try {
+        await this.connectToTarget(candidate);
+        await this.cdp('Runtime.enable');
+        // Health probe — must respond within probeTimeoutMs
+        await this.evaluate('1', this.probeTimeoutMs);
+        this.log('probe OK:', candidate.title);
+        try {
+          await this.cdp('Input.enable');
+        } catch (error) {
+          if (!isMissingCdpMethod(error, 'Input.enable')) throw error;
+        }
+        return; // healthy — done
+      } catch (err) {
+        this.log('probe FAIL:', candidate.title, err instanceof Error ? err.message : err);
+        await this.disconnect();
+      }
+    }
+
+    throw new Error(
+      `All ${candidates.length} CDP candidates failed health probe. ` +
+        `Tried: ${candidates.map((t) => t.title).join(', ')}`,
+    );
+  }
+
+  /** Low-level: open WebSocket to a specific target and wire up handlers. */
+  private async connectToTarget(target: CdpTarget): Promise<void> {
     this.ws = new WebSocket(target.webSocketDebuggerUrl);
     this.ws.onmessage = (ev) => {
       const msg = JSON.parse(String(ev.data));
@@ -127,8 +141,6 @@ export class AntigravityCdpClient {
       }
     };
 
-    // When WebSocket closes or errors, reject all pending commands immediately
-    // instead of waiting for individual timeouts (prevents "silent stall").
     const rejectAllPending = (reason: string) => {
       for (const [id, p] of this.pending) {
         clearTimeout(p.timer);
@@ -156,15 +168,6 @@ export class AntigravityCdpClient {
         reject(new Error(`CDP WebSocket error during connect`));
       };
     });
-
-    await this.cdp('Runtime.enable');
-    try {
-      await this.cdp('Input.enable');
-    } catch (error) {
-      // Newer Antigravity/Chrome targets may not expose Input.enable, but
-      // Input.dispatch* still works. Treat that protocol drift as non-fatal.
-      if (!isMissingCdpMethod(error, 'Input.enable')) throw error;
-    }
   }
 
   async disconnect(): Promise<void> {

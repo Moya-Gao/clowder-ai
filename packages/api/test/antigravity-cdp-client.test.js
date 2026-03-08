@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AntigravityCdpClient, findEditorTarget } from
+import { AntigravityCdpClient, findEditorTarget, rankEditorTargets, normaliseHint } from
   '../dist/domains/cats/services/agents/providers/antigravity/AntigravityCdpClient.js';
 
 describe('findEditorTarget', () => {
@@ -67,6 +67,75 @@ describe('findEditorTarget with titleHint', () => {
   });
 });
 
+describe('normaliseHint', () => {
+  test('strips worktree feature suffix', () => {
+    assert.equal(normaliseHint('cat-cafe-f061-send-fix'), 'cat-cafe');
+    assert.equal(normaliseHint('cat-cafe-f061'), 'cat-cafe');
+  });
+
+  test('preserves non-worktree names', () => {
+    assert.equal(normaliseHint('cat-cafe'), 'cat-cafe');
+    assert.equal(normaliseHint('my-project'), 'my-project');
+  });
+});
+
+describe('findEditorTarget enhanced filtering', () => {
+  test('excludes workbench-jetski-agent.html targets', () => {
+    const targets = [
+      { type: 'page', title: 'agent', webSocketDebuggerUrl: 'ws://a', url: 'workbench-jetski-agent.html' },
+      { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
+    ];
+    const result = findEditorTarget(targets);
+    assert.equal(result?.webSocketDebuggerUrl, 'ws://b');
+  });
+
+  test('prefers workbench.html URL over plain page', () => {
+    const targets = [
+      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
+      { type: 'page', title: 'other', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
+    ];
+    const result = findEditorTarget(targets);
+    assert.equal(result?.webSocketDebuggerUrl, 'ws://b');
+  });
+
+  test('case-insensitive titleHint matching', () => {
+    const targets = [
+      { type: 'page', title: 'Cat-Cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
+    ];
+    const result = findEditorTarget(targets, { titleHint: 'cat-cafe' });
+    assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
+  });
+
+  test('titleHint normalises worktree suffix', () => {
+    const targets = [
+      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
+    ];
+    const result = findEditorTarget(targets, { titleHint: 'cat-cafe-f061-fix' });
+    assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
+  });
+});
+
+describe('rankEditorTargets', () => {
+  test('returns all viable targets sorted by score', () => {
+    const targets = [
+      { type: 'page', title: 'plain', webSocketDebuggerUrl: 'ws://a', url: '' },
+      { type: 'page', title: 'cat-cafe', webSocketDebuggerUrl: 'ws://b', url: 'workbench/workbench.html' },
+      { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://c', url: '' },
+    ];
+    const ranked = rankEditorTargets(targets, { titleHint: 'cat-cafe' });
+    assert.equal(ranked.length, 2); // Launchpad excluded
+    assert.equal(ranked[0].webSocketDebuggerUrl, 'ws://b'); // workbench + titleHint = score 3
+    assert.equal(ranked[1].webSocketDebuggerUrl, 'ws://a'); // score 0
+  });
+
+  test('returns empty array when no viable targets', () => {
+    const targets = [
+      { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: '' },
+    ];
+    assert.equal(rankEditorTargets(targets).length, 0);
+  });
+});
+
 describe('AntigravityCdpClient', () => {
   test('constructor defaults', () => {
     const client = new AntigravityCdpClient();
@@ -95,6 +164,59 @@ describe('AntigravityCdpClient', () => {
     );
   });
 
+  test('connect() skips unhealthy candidate and connects to next', async () => {
+    const savedFetch = global.fetch;
+    const savedWebSocket = global.WebSocket;
+
+    global.fetch = async () => ({
+      json: async () => [
+        { type: 'page', title: 'stale-editor', webSocketDebuggerUrl: 'ws://stale', url: 'workbench/workbench.html' },
+        { type: 'page', title: 'healthy-editor', webSocketDebuggerUrl: 'ws://healthy', url: 'workbench/workbench.html' },
+      ],
+    });
+
+    let connectCount = 0;
+    class ProbeWS {
+      static OPEN = 1;
+      constructor(url) {
+        this.url = url;
+        this.readyState = ProbeWS.OPEN;
+        connectCount++;
+        queueMicrotask(() => this.onopen?.());
+      }
+      send(raw) {
+        const { id, method } = JSON.parse(raw);
+        if (method === 'Runtime.enable' || method === 'Input.enable') {
+          queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+          return;
+        }
+        if (method === 'Runtime.evaluate') {
+          if (this.url === 'ws://stale') {
+            // Stale target: never respond → will timeout
+            return;
+          }
+          // Healthy target: respond OK
+          queueMicrotask(() => this.onmessage?.({
+            data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+          }));
+        }
+      }
+      close() { this.readyState = 3; }
+    }
+    global.WebSocket = ProbeWS;
+
+    try {
+      const client = new AntigravityCdpClient({ probeTimeoutMs: 50 });
+      await client.connect();
+      assert.equal(client.connected, true);
+      assert.equal(connectCount, 2); // tried stale, then healthy
+      await client.disconnect();
+    } finally {
+      global.fetch = savedFetch;
+      global.WebSocket = savedWebSocket;
+    }
+  });
+
   test('connect tolerates missing Input.enable on newer CDP targets', async () => {
     const savedFetch = global.fetch;
     const savedWebSocket = global.WebSocket;
@@ -114,9 +236,16 @@ describe('AntigravityCdpClient', () => {
       }
 
       send(raw) {
-        const { id, method } = JSON.parse(raw);
+        const { id, method, params } = JSON.parse(raw);
         if (method === 'Runtime.enable') {
           queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+          return;
+        }
+        if (method === 'Runtime.evaluate') {
+          // Health probe or other evaluate — return { result: { value: <eval> } }
+          queueMicrotask(() => this.onmessage?.({
+            data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+          }));
           return;
         }
         if (method === 'Input.enable') {
@@ -210,6 +339,7 @@ describe('AntigravityCdpClient', () => {
     });
 
     let wsInstance;
+    let evalCount = 0;
     class FakeWS {
       static OPEN = 1;
       constructor() {
@@ -221,8 +351,19 @@ describe('AntigravityCdpClient', () => {
         const { id, method } = JSON.parse(raw);
         if (method === 'Runtime.enable' || method === 'Input.enable') {
           queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
+          return;
         }
-        // For other methods, do NOT respond — let them pend
+        if (method === 'Runtime.evaluate') {
+          evalCount++;
+          // First evaluate = health probe → respond OK
+          if (evalCount === 1) {
+            queueMicrotask(() => this.onmessage?.({
+              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+            }));
+            return;
+          }
+          // Second evaluate = test's pending command → do NOT respond
+        }
       }
       close() { this.readyState = 3; }
     }
@@ -255,6 +396,7 @@ describe('AntigravityCdpClient', () => {
       ],
     });
 
+    let evalCount = 0;
     class FakeWS {
       static OPEN = 1;
       constructor() {
@@ -267,19 +409,29 @@ describe('AntigravityCdpClient', () => {
           queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
           return;
         }
-        // For Runtime.evaluate, return an exception result
-        queueMicrotask(() => this.onmessage?.({
-          data: JSON.stringify({
-            id,
-            result: {
-              result: { type: 'object', subtype: 'error' },
-              exceptionDetails: {
-                text: 'Uncaught',
-                exception: { description: 'ReferenceError: foo is not defined' },
+        if (method === 'Runtime.evaluate') {
+          evalCount++;
+          // First evaluate = health probe → respond OK
+          if (evalCount === 1) {
+            queueMicrotask(() => this.onmessage?.({
+              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+            }));
+            return;
+          }
+          // Subsequent evaluates → return exception
+          queueMicrotask(() => this.onmessage?.({
+            data: JSON.stringify({
+              id,
+              result: {
+                result: { type: 'object', subtype: 'error' },
+                exceptionDetails: {
+                  text: 'Uncaught',
+                  exception: { description: 'ReferenceError: foo is not defined' },
+                },
               },
-            },
-          }),
-        }));
+            }),
+          }));
+        }
       }
       close() {}
     }
@@ -321,7 +473,7 @@ describe('AntigravityCdpClient', () => {
       const client = new AntigravityCdpClient({ connectTimeoutMs: 50 });
       await assert.rejects(
         () => client.connect(),
-        /WebSocket connect timeout.*50ms/
+        /failed health probe/
       );
     } finally {
       global.fetch = savedFetch;
