@@ -123,7 +123,7 @@ export function WorkspacePanel() {
 
   const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git'>('files');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchMode, setSearchMode] = useState<'content' | 'filename'>('content');
+  const [searchMode, setSearchMode] = useState<'content' | 'filename' | 'all'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [editMode, setEditMode] = useState(false);
   const [markdownRendered, setMarkdownRendered] = useState(true);
@@ -385,20 +385,30 @@ export function WorkspacePanel() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={searchMode === 'content' ? '搜索代码内容...' : '搜索文件名...'}
+            placeholder={
+              searchMode === 'content' ? '搜索代码内容...'
+                : searchMode === 'filename' ? '搜索文件名/路径...'
+                : '搜索全部...'
+            }
             className="flex-1 text-xs bg-transparent text-cafe-black placeholder:text-owner-dark/30 focus:outline-none"
           />
           <button
             type="button"
-            onClick={() => setSearchMode((m) => (m === 'content' ? 'filename' : 'content'))}
+            onClick={() => setSearchMode((m) => m === 'all' ? 'filename' : m === 'filename' ? 'content' : 'all')}
             className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium transition-colors ${
-              searchMode === 'filename'
-                ? 'bg-owner-light text-owner-dark'
-                : 'text-owner-dark/40 hover:text-owner-dark/60'
+              searchMode === 'all'
+                ? 'bg-owner-primary/15 text-owner-primary'
+                : searchMode === 'filename'
+                  ? 'bg-owner-light text-owner-dark'
+                  : 'text-owner-dark/40 hover:text-owner-dark/60'
             }`}
-            title={searchMode === 'content' ? '切换到文件名搜索' : '切换到内容搜索'}
+            title={
+              searchMode === 'all' ? '全部搜索（文件名+内容）→ 点击切换到仅文件名'
+                : searchMode === 'filename' ? '文件名搜索 → 点击切换到仅内容'
+                : '内容搜索 → 点击切换到全部搜索'
+            }
           >
-            {searchMode === 'content' ? 'Aa' : 'File'}
+            {searchMode === 'all' ? 'All' : searchMode === 'filename' ? 'File' : 'Aa'}
           </button>
         </div>
       </form>
@@ -430,24 +440,46 @@ export function WorkspacePanel() {
         <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
       ) : (
       <>
-      {/* Search results */}
-      {searchResults.length > 0 && (
-        <div className="border-b border-owner-light/40 max-h-52 overflow-y-auto">
-          <div className="px-3 py-1.5 text-[10px] text-owner-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
-            {searchResults.length} 个结果
+      {/* Search results — grouped when in 'all' mode */}
+      {searchResults.length > 0 && (() => {
+        const fileHits = searchResults.filter((r) => r.matchType === 'filename');
+        const contentHits = searchResults.filter((r) => r.matchType === 'content');
+        const isGrouped = fileHits.length > 0 || contentHits.length > 0;
+        return (
+          <div className="border-b border-owner-light/40 max-h-64 overflow-y-auto">
+            {isGrouped && fileHits.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-[10px] text-owner-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                  文件名匹配 ({fileHits.length})
+                </div>
+                {fileHits.map((r, i) => (
+                  <SearchResultItem key={`f:${r.path}:${i}`} path={r.path} line={0} content="" query={searchQuery} onClick={() => handleSearchResultClick(r.path, 0)} />
+                ))}
+              </>
+            )}
+            {isGrouped && contentHits.length > 0 && (
+              <>
+                <div className="px-3 py-1.5 text-[10px] text-owner-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                  内容匹配 ({contentHits.length})
+                </div>
+                {contentHits.map((r, i) => (
+                  <SearchResultItem key={`c:${r.path}:${r.line}:${i}`} path={r.path} line={r.line} content={r.content} query={searchQuery} onClick={() => handleSearchResultClick(r.path, r.line)} />
+                ))}
+              </>
+            )}
+            {!isGrouped && (
+              <>
+                <div className="px-3 py-1.5 text-[10px] text-owner-dark/50 font-semibold uppercase tracking-wider sticky top-0 bg-cafe-white/95 backdrop-blur-sm">
+                  {searchResults.length} 个结果
+                </div>
+                {searchResults.map((r, i) => (
+                  <SearchResultItem key={`${r.path}:${r.line}:${i}`} path={r.path} line={r.line} content={r.content} query={searchQuery} onClick={() => handleSearchResultClick(r.path, r.line)} />
+                ))}
+              </>
+            )}
           </div>
-          {searchResults.map((r, i) => (
-            <SearchResultItem
-              key={`${r.path}:${r.line}:${i}`}
-              path={r.path}
-              line={r.line}
-              content={r.content}
-              query={searchQuery}
-              onClick={() => handleSearchResultClick(r.path, r.line)}
-            />
-          ))}
-        </div>
-      )}
+        );
+      })()}
 
       {/* File tree */}
       <WorkspaceTree

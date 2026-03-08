@@ -34,6 +34,8 @@ export interface SearchResult {
   content: string;
   contextBefore: string;
   contextAfter: string;
+  /** Which search mode produced this result (used by 'all' mode for grouping) */
+  matchType?: 'filename' | 'content';
 }
 
 export function useWorkspace() {
@@ -137,21 +139,42 @@ export function useWorkspace() {
     else setFile(null);
   }, [openFilePath, fetchFile]);
 
-  // Search
+  // Single-mode search helper (filename or content)
+  const searchSingle = useCallback(
+    async (query: string, type: 'content' | 'filename'): Promise<SearchResult[]> => {
+      const res = await apiFetch('/api/workspace/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ worktreeId, query, type }),
+      });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.results ?? []) as SearchResult[];
+    },
+    [worktreeId],
+  );
+
+  // Search — supports 'content', 'filename', or 'all' (fires both in parallel)
   const search = useCallback(
-    async (query: string, type: 'content' | 'filename' = 'content') => {
+    async (query: string, type: 'content' | 'filename' | 'all' = 'content') => {
       if (!worktreeId || !query.trim()) return;
       setLoading(true);
       setError(null);
       try {
-        const res = await apiFetch('/api/workspace/search', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ worktreeId, query, type }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data.results ?? []);
+        if (type === 'all') {
+          const [fileResults, contentResults] = await Promise.all([
+            searchSingle(query, 'filename'),
+            searchSingle(query, 'content'),
+          ]);
+          // Tag each result with its match type for grouped rendering
+          const tagged: SearchResult[] = [
+            ...fileResults.map((r) => ({ ...r, matchType: 'filename' as const })),
+            ...contentResults.map((r) => ({ ...r, matchType: 'content' as const })),
+          ];
+          setSearchResults(tagged);
+        } else {
+          const results = await searchSingle(query, type);
+          setSearchResults(results);
         }
       } catch {
         /* ignore */
@@ -159,7 +182,7 @@ export function useWorkspace() {
         setLoading(false);
       }
     },
-    [worktreeId],
+    [worktreeId, searchSingle],
   );
 
   return {

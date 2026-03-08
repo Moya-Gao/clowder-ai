@@ -290,51 +290,35 @@ export const workspaceRoutes: FastifyPluginAsync = async (app) => {
       const root = await getWorktreeRoot(worktreeId);
 
       if (type === 'filename') {
+        // List all non-excluded files, then post-filter on the *relative* path.
+        // We avoid using find's -path for the query because it matches against
+        // the absolute path — if the worktree root itself contains the query
+        // string, nearly every file would match (P2 from cloud review).
         const { stdout } = await execFileAsync(
           'find',
           [
             root,
-            '-type',
-            'f',
-            '-name',
-            `*${query}*`,
-            '-not',
-            '-path',
-            '*/node_modules/*',
-            '-not',
-            '-path',
-            '*/.git/*',
-            '-not',
-            '-path',
-            '*/.next/*',
-            '-not',
-            '-path',
-            '*/dist/*',
-            '-not',
-            '-path',
-            '*/secrets/*',
-            '-not',
-            '-name',
-            '.env*',
-            '-not',
-            '-name',
-            '*.pem',
-            '-not',
-            '-name',
-            '*.key',
-            '-not',
-            '-name',
-            'id_rsa*',
+            '-type', 'f',
+            '-not', '-path', '*/node_modules/*',
+            '-not', '-path', '*/.git/*',
+            '-not', '-path', '*/.next/*',
+            '-not', '-path', '*/dist/*',
+            '-not', '-path', '*/secrets/*',
+            '-not', '-name', '.env*',
+            '-not', '-name', '*.pem',
+            '-not', '-name', '*.key',
+            '-not', '-name', 'id_rsa*',
           ],
           { timeout: 5000, maxBuffer: 1024 * 1024 },
         );
 
+        const lowerQuery = query.toLowerCase();
         const results = stdout
           .trim()
           .split('\n')
           .filter(Boolean)
           .map((fullPath) => relative(root, fullPath))
-          .filter((relPath) => !isDenylisted(relPath))
+          .filter((relPath) => !isDenylisted(relPath) && relPath.toLowerCase().includes(lowerQuery))
           .slice(0, limit)
           .map((relPath) => ({
             path: relPath,

@@ -40,11 +40,11 @@ created: 2026-03-07
 - [x] 点击 commit 展开 changed files 摘要（`GET /api/workspace/git-show`）
 
 ### Phase 2
-- [ ] `GET /api/workspace/git-health` 返回综合健康数据
-- [ ] Dirty Files 区块：分类展示未提交改动
-- [ ] Stale Branches 区块：列出已合入未删的分支 + 猫猫归属
-- [ ] Orphan Worktrees 区块：标注应清理的 worktree
-- [ ] Runtime Drift 区块：显示 runtime 与 main 的 commit 差异
+- [x] `GET /api/workspace/git-health` 返回综合健康数据
+- [x] Dirty Files 区块：Phase 1 git-status 已覆盖（staged/unstaged/untracked）
+- [x] Stale Branches 区块：列出已合入未删的分支 + 猫猫归属（author）
+- [x] Orphan Worktrees 区块：标注应清理的 worktree（branch 已 merged = orphan）
+- [x] Runtime Drift 区块：显示 runtime 与 main 的 commit 差异（需设 RUNTIME_REPO_PATH）
 
 ## 需求点 Checklist
 
@@ -91,3 +91,4 @@ created: 2026-03-07
 |------|-------|
 | 2026-03-07 | Kickoff: 铲屎官提出需求，立项 F082 |
 | 2026-03-07 | Phase 1 完成: PR #290 merged (git log + status + show viewer) |
+| 2026-03-07 | Phase 2 开发: Health Dashboard (stale branches, orphan worktrees, runtime drift) |

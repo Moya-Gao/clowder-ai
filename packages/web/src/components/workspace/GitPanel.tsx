@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { GitCommit } from '../../hooks/useGitPanel';
 import { useGitPanel } from '../../hooks/useGitPanel';
+import { HealthDashboard } from './HealthDashboard';
 
 function StatusBadge({ status, variant }: { status: string; variant: 'staged' | 'unstaged' | 'untracked' }) {
   const colors = {
@@ -143,6 +144,9 @@ export function GitPanel() {
         {status && totalChanges === 0 && (
           <div className="px-3 py-2 text-xs text-green-600 border-b border-owner-light/40">Working tree clean</div>
         )}
+
+        {/* Health Dashboard (Phase 2) */}
+        <HealthDashboard />
 
         {/* Git Log Section */}
         <div>
