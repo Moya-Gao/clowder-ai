@@ -14,9 +14,11 @@ import { createToggleWithReconcile } from './toggle-with-reconcile';
 interface ThreadSidebarProps {
   /** Called to close the sidebar drawer on mobile */
   onClose?: () => void;
+  /** Override root width class (default: w-60). Use w-full when parent controls width. */
+  className?: string;
 }
 
-export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
+export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   const router = useRouter();
   const {
     threads,
@@ -298,7 +300,7 @@ export function ThreadSidebar({ onClose }: ThreadSidebarProps) {
 
   return (
     <>
-      <aside className="w-60 border-r border-owner-light bg-white flex flex-col h-full">
+      <aside className={`${className ?? 'w-60'} border-r border-owner-light bg-white flex flex-col h-full`}>
         <div className="p-3 border-b border-owner-light flex items-center justify-between">
           <span className="text-sm font-semibold text-cafe-black">对话</span>
           <button

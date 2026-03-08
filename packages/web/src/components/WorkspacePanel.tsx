@@ -13,6 +13,7 @@ import { LinkedRootsManager, LinkedRootRemoveButton } from './workspace/LinkedRo
 import { CodeViewer } from './workspace/CodeViewer';
 import { FileIcon } from './workspace/FileIcons';
 import { ResizeHandle } from './workspace/ResizeHandle';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { WorkspaceTree } from './workspace/WorkspaceTree';
 
 /* ── Search result item ──────────────────────── */
@@ -130,8 +131,8 @@ export function WorkspacePanel() {
   const [htmlPreview, setHtmlPreview] = useState(false);
   const [jsxPreview, setJsxPreview] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  // F063: vertical resize — treeBasis as percentage (20-80)
-  const [treeBasis, setTreeBasis] = useState(40);
+  // F063: vertical resize — treeBasis as percentage (20-80), persisted
+  const [treeBasis, setTreeBasis, resetTreeBasis] = usePersistedState('cat-cafe:treeBasis', 40);
   const panelRef = useRef<HTMLElement>(null);
   const handleVerticalResize = useCallback((delta: number) => {
     if (!panelRef.current) return;
@@ -498,7 +499,7 @@ export function WorkspacePanel() {
       {/* Vertical resize handle + File viewer */}
       {(file || openTabs.length > 0) && (
         <>
-          <ResizeHandle direction="vertical" onResize={handleVerticalResize} onDoubleClick={() => setTreeBasis(40)} />
+          <ResizeHandle direction="vertical" onResize={handleVerticalResize} onDoubleClick={resetTreeBasis} />
           <div className="flex-1 flex flex-col min-h-0 animate-fade-in">
             {/* Tab bar */}
             {openTabs.length > 0 && (

@@ -35,6 +35,7 @@ import { useSplitPaneKeys } from '@/hooks/useSplitPaneKeys';
 import { ScrollToBottomButton } from './ScrollToBottomButton';
 import { computeScrollRecomputeSignal } from '@/utils/scrollRecomputeSignal';
 import { ResizeHandle } from './workspace/ResizeHandle';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { VoteConfigModal, type VoteConfig } from './VoteConfigModal';
 import { VoteActiveBar } from './VoteActiveBar';
 
@@ -59,8 +60,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [statusPanelOpen, setStatusPanelOpen] = useState(true);
   const [mobileStatusOpen, setMobileStatusOpen] = useState(false);
-  // F063: resizable split pane — chatBasis as percentage (20-80)
-  const [chatBasis, setChatBasis] = useState(50);
+  // F063: resizable split pane — chatBasis as percentage (20-80), persisted
+  const [chatBasis, setChatBasis, resetChatBasis] = usePersistedState('cat-cafe:chatBasis', 50);
+  // F063 Gap 6: sidebar width in px, persisted
+  const SIDEBAR_DEFAULT = 240;
+  const [sidebarWidth, setSidebarWidth, resetSidebarWidth] = usePersistedState('cat-cafe:sidebarWidth', SIDEBAR_DEFAULT);
   const containerRef = useRef<HTMLDivElement>(null);
   const handleHorizontalResize = useCallback((delta: number) => {
     if (!containerRef.current) return;
@@ -68,7 +72,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
     if (totalWidth === 0) return;
     const pct = (delta / totalWidth) * 100;
     setChatBasis((prev) => Math.min(80, Math.max(20, prev + pct)));
-  }, []);
+  }, [setChatBasis]);
+  const handleSidebarResize = useCallback((delta: number) => {
+    setSidebarWidth((prev) => Math.min(480, Math.max(180, prev + delta)));
+  }, [setSidebarWidth]);
 
   // F063: auto-open panel when message file path click triggers workspace mode
   useEffect(() => {
@@ -323,8 +330,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
             onClick={() => setSidebarOpen(false)}
             aria-hidden="true"
           />
-          <div className="fixed inset-y-0 left-0 z-30 md:static md:z-auto">
-            <ThreadSidebar onClose={() => setSidebarOpen(false)} />
+          <div
+            className="fixed inset-y-0 left-0 z-30 md:static md:z-auto flex-shrink-0"
+            style={{ width: sidebarWidth }}
+          >
+            <ThreadSidebar onClose={() => setSidebarOpen(false)} className="w-full" />
+          </div>
+          <div className="hidden md:flex items-center">
+            <ResizeHandle direction="horizontal" onResize={handleSidebarResize} onDoubleClick={resetSidebarWidth} />
           </div>
         </>
       )}
@@ -452,7 +465,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           <ResizeHandle
             direction="horizontal"
             onResize={handleHorizontalResize}
-            onDoubleClick={() => setChatBasis(50)}
+            onDoubleClick={resetChatBasis}
           />
           <WorkspacePanel />
         </>
