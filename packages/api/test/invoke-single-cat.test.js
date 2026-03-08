@@ -997,7 +997,7 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(payload.health.source, 'approx');
   });
 
-  it('resume failure classification: maps missing session / cli exit / auth / unknown', async () => {
+  it('resume failure classification: maps missing session / cli exit / auth / invalid thinking signature / unknown', async () => {
     const { classifyResumeFailure } = await import(
       '../dist/domains/cats/services/agents/invocation/invoke-helpers.js'
     );
@@ -1017,6 +1017,12 @@ describe('invokeSingleCat audit events (P1 fix)', () => {
     assert.equal(
       classifyResumeFailure('authentication failed: login required'),
       'auth',
+    );
+    assert.equal(
+      classifyResumeFailure(
+        'API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: Invalid `signature` in `thinking` block"}}'
+      ),
+      'invalid_thinking_signature',
     );
     assert.equal(
       classifyResumeFailure('upstream timeout'),

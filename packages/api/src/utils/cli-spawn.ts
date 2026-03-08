@@ -9,6 +9,14 @@ import { parseNDJSON, isParseError } from './ndjson-parser.js';
 
 /** Fallback timeout: 30 minutes */
 const FALLBACK_TIMEOUT_MS = 1_800_000;
+type CliErrorReasonCode = 'invalid_thinking_signature';
+
+function classifyKnownCliStderr(stderr: string): CliErrorReasonCode | undefined {
+  if (/Invalid [`'"]?signature[`'"]? in [`'"]?thinking[`'"]? block/i.test(stderr)) {
+    return 'invalid_thinking_signature';
+  }
+  return undefined;
+}
 
 /** Read CLI timeout from env (ms). Supports 0 to disable. */
 function getEnvTimeoutMs(): number | undefined {
@@ -190,6 +198,7 @@ export async function* spawnCli(
     // Yield error on abnormal exit (only if WE didn't kill it)
     // Covers both non-zero exitCode AND external signal kills
     if (!killed && (exitCode !== 0 || exitSignal !== null)) {
+      const reasonCode = classifyKnownCliStderr(stderrBuffer);
       // Log stderr for debugging (never expose to users — may contain thinking/traces)
       if (stderrBuffer.trim()) {
         console.error(`[cli-spawn] ${options.command} stderr (debug only):\n${stderrBuffer.trim().slice(-1000)}`);
@@ -201,6 +210,7 @@ export async function* spawnCli(
         // Sanitized message — no raw stderr exposed to users
         message: `CLI 异常退出 (code: ${exitCode ?? 'null'}, signal: ${exitSignal ?? 'none'})`,
         command: options.command,
+        ...(reasonCode ? { reasonCode } : {}),
       };
     }
 
@@ -235,7 +245,14 @@ export async function* spawnCli(
  */
 export function isCliError(
   value: unknown
-): value is { __cliError: true; exitCode: number | null; signal: string | null; message: string; command: string } {
+): value is {
+  __cliError: true;
+  exitCode: number | null;
+  signal: string | null;
+  message: string;
+  command: string;
+  reasonCode?: CliErrorReasonCode;
+} {
   return (
     typeof value === 'object' &&
     value !== null &&

@@ -307,6 +307,29 @@ test('yields error on CLI non-zero exit', async () => {
   assert.ok(!errMsg.error.includes('authentication failed'), 'stderr should be sanitized');
 });
 
+test('yields actionable rescue hint on invalid thinking signature resume failure', async () => {
+  const proc = createMockProcess();
+  proc.kill = mock.fn(() => true);
+  const spawnFn = createMockSpawnFn(proc);
+  const service = new ClaudeAgentService({ spawnFn });
+
+  const promise = collect(service.invoke('resume me', { sessionId: 'sess-bad-thinking' }));
+
+  proc.stderr.write(
+    'API Error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"messages.1.content.0: Invalid `signature` in `thinking` block"}}\n'
+  );
+  proc.stdout.end();
+  proc._emitter.emit('exit', 1, null);
+
+  const msgs = await promise;
+  const errMsg = msgs.find((m) => m.type === 'error');
+  assert.ok(errMsg);
+  assert.ok(errMsg.error.includes('thinking signature'));
+  assert.ok(errMsg.error.includes('pnpm rescue:claude:thinking'));
+  assert.ok(errMsg.error.includes('sess-bad-thinking'));
+  assert.ok(!errMsg.error.includes('messages.1.content.0'));
+});
+
 test('does not duplicate error when result/error is followed by non-zero exit', async () => {
   const proc = createMockProcess();
   proc.kill = mock.fn(() => true);

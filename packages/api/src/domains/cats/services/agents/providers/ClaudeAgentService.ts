@@ -38,6 +38,21 @@ const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_API_KEY = 'CAT_CAFE_ANTHROPIC_API_KEY';
 const ANTHROPIC_PROFILE_BASE_URL = 'CAT_CAFE_ANTHROPIC_BASE_URL';
 
+function isInvalidThinkingSignatureMessage(message: string | undefined): boolean {
+  if (!message) return false;
+  return /Invalid [`'"]?signature[`'"]? in [`'"]?thinking[`'"]? block/i.test(message);
+}
+
+function formatThinkingSignatureRescueError(sessionId: string | undefined): string {
+  const command = sessionId
+    ? `pnpm rescue:claude:thinking -- --session ${sessionId}`
+    : 'pnpm rescue:claude:thinking -- --all-broken';
+  return [
+    'Claude CLI: 检测到损坏的 thinking signature，当前会话无法 --resume。',
+    `请先在仓库根目录运行 ${command}，再重试。`,
+  ].join(' ');
+}
+
 function buildClaudeEnvOverrides(
   callbackEnv?: Record<string, string>,
 ): Record<string, string | null> | undefined {
@@ -197,10 +212,13 @@ export class ClaudeAgentService implements AgentService {
         }
         if (isCliError(event)) {
           if (sawResultError) continue;
+          const error = event.reasonCode === 'invalid_thinking_signature'
+            ? formatThinkingSignatureRescueError(options?.sessionId)
+            : formatCliExitError('Claude CLI', event);
           yield {
             type: 'error',
             catId: this.catId,
-            error: formatCliExitError('Claude CLI', event),
+            error,
             metadata,
             timestamp: Date.now(),
           };
@@ -218,7 +236,7 @@ export class ClaudeAgentService implements AgentService {
         }
 
         const fromResultError = isResultErrorEvent(event);
-        const result = transformClaudeEvent(event, this.catId, streamState);
+        let result = transformClaudeEvent(event, this.catId, streamState);
         if (result === null) continue;
 
         if (Array.isArray(result)) {
@@ -234,6 +252,12 @@ export class ClaudeAgentService implements AgentService {
             metadata.sessionId = result.sessionId;
           }
           if (fromResultError && result.type === 'error') {
+            if (isInvalidThinkingSignatureMessage(result.error)) {
+              result = {
+                ...result,
+                error: formatThinkingSignatureRescueError(options?.sessionId),
+              };
+            }
             sawResultError = true;
           }
           yield { ...result, metadata };

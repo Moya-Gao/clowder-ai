@@ -51,6 +51,7 @@
     "check:lockfile": "pnpm install --frozen-lockfile",
     "check:features": "node scripts/check-feature-truth.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
+    "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "clean": "pnpm -r run clean && rm -rf node_modules"
   },
   "devDependencies": {

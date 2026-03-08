@@ -31,6 +31,7 @@ import {
   isMissingClaudeSessionError,
   isTransientCliExitCode1,
 } from './invoke-helpers.js';
+import type { ResumeFailureKind } from './invoke-helpers.js';
 import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './TaskProgressStore.js';
 
 const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
@@ -714,7 +715,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // 2) transient CLI bootstrap exit: "CLI 异常退出 (code: 1, signal: none)"
     const initialResumeSessionId = sessionId;
     const shouldTrackGeminiResumeFailures = catId === 'gemini' && Boolean(initialResumeSessionId);
-    const resumeFailureCounts: Partial<Record<'missing_session' | 'cli_exit' | 'auth', number>> = {};
+    const resumeFailureCounts: Partial<Record<ResumeFailureKind, number>> = {};
     const maxAttempts = 2;
     let allowSessionRetry = Boolean(sessionId);
     let allowTransientRetry = true;

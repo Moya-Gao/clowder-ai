@@ -25,7 +25,7 @@ export function extractTaskProgress(
   };
 }
 
-export type ResumeFailureKind = 'missing_session' | 'cli_exit' | 'auth';
+export type ResumeFailureKind = 'missing_session' | 'cli_exit' | 'auth' | 'invalid_thinking_signature';
 
 export function classifyResumeFailure(message: string | undefined): ResumeFailureKind | null {
   if (!message) return null;
@@ -38,6 +38,13 @@ export function classifyResumeFailure(message: string | undefined): ResumeFailur
   }
   if (/\b(authentication failed|unauthorized|forbidden|login required|invalid credentials|auth)\b/i.test(message)) {
     return 'auth';
+  }
+  if (
+    /(Invalid [`'"]?signature[`'"]? in [`'"]?thinking[`'"]? block|broken thinking signature|损坏的 thinking signature)/i.test(
+      message,
+    )
+  ) {
+    return 'invalid_thinking_signature';
   }
 
   return null;
