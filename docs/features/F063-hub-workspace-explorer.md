@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Gap 5 in-progress — Open in Finder + media preview
+> **Status**: Gap 5+6 done, Gap 7 planned
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -192,9 +192,12 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
 - [x] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
 - [x] AC-15: 铲屎官可在文件查看器中选中代码行/文件路径，点击"引用到聊天"按钮插入到输入框（类似 Claude.ai 的 "Add to chat"）
-- [ ] AC-16: 铲屎官可在文件树或文件查看器中点击 "Open in Finder" 在系统文件管理器中打开文件（Gap 5）
-- [ ] AC-17: 音频文件（mp3/wav/m4a/ogg）可在文件查看器中内嵌播放预览（Gap 5）
-- [ ] AC-18: 视频文件（mp4/webm）可在文件查看器中内嵌播放预览（Gap 5）
+- [x] AC-16: 铲屎官可在文件树或文件查看器中点击 "Open in Finder" 在系统文件管理器中打开文件（Gap 5, PR #307）
+- [x] AC-17: 音频文件（mp3/wav/m4a/ogg）可在文件查看器中内嵌播放预览（Gap 5, PR #307）
+- [x] AC-18: 视频文件（mp4/webm）可在文件查看器中内嵌播放预览（Gap 5, PR #307）
+- [x] AC-19: 面板宽度（sidebar/chat-workspace/tree-viewer）刷新后保持，双击 resize handle 重置（Gap 6, PR #308）
+- [ ] AC-20: 深层目录（depth≥4）展开时按需加载子节点（Gap 7 — 当前 depth=3 导致深层目录显示为空）
+- [ ] AC-21: 切换线程后恢复该线程上次的文件树展开状态和打开的文件标签（Gap 7）
 
 ## 需求点 Checklist
 
@@ -329,6 +332,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **Phase 3 P1s 合入** (PR #257): JSX real bundling (workspace-resolver plugin + esm.sh fallback) + Linked Roots Hub management (API + config + UI). 砚砚 R2→R3 (2P1→0) + 云端 "no major issues" 通过 |
 | 2026-03-08 | **搜索升级合入** (PR #275 + #291): featureIds 前导零匹配修复 + 三模式搜索 (All/File/Aa) + 路径匹配 |
 | 2026-03-08 | 铲屎官提出 Gap 5: Open in Finder + 音频/视频预览需求 → 记入 spec |
+| 2026-03-08 | **Gap 5 合入** (PR #307): reveal endpoint + audio/video preview + MIME extension. 砚砚 R1→R2 (1P1→0) + 云端 R1→R3 (1P1+1P2→0), 13 tests |
+| 2026-03-08 | **Gap 6 合入** (PR #308): usePersistedState hook + chatBasis/treeBasis/sidebarWidth localStorage 持久化 + 左侧栏可拖拽调宽. 砚砚 R1→R2 (1P1→0) + 云端 R1→R2 (1P2→0) |
+| 2026-03-08 | 铲屎官提出 Gap 7: (1) 深层目录显示为空(depth=3 bug) (2) 切换线程后文件树状态丢失 → 记入 spec |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -507,6 +513,30 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 | G5-3 | 前端: 音频文件内嵌预览（HTML5 `<audio>` 标签，支持 mp3/wav/m4a/ogg） | P1 |
 | G5-4 | 前端: 视频文件内嵌预览（HTML5 `<video>` 标签，支持 mp4/webm） | P1 |
 | G5-5 | 安全: reveal/open 复用 `resolveWorkspacePath` + `isDenylisted` 检查 | P0 |
+
+**Status**: Done (PR #307)
+
+### Gap 6: Panel Width Persistence + Resizable Sidebar — done
+
+铲屎官反馈（2026-03-08）："调整了右边文件栏的大小，切换走或 F5 就丢了" + "左侧栏也需要能调整宽度"
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| G6-1 | `usePersistedState` hook: localStorage-backed useState with SSR safety + reset | P0 |
+| G6-2 | chatBasis / treeBasis / sidebarWidth 持久化到 localStorage，刷新后恢复 | P0 |
+| G6-3 | ThreadSidebar 支持 className prop 覆盖宽度，ChatContainer 场景可拖拽 (180-480px) | P0 |
+| G6-4 | 双击 resize handle 恢复默认比例 | P1 |
+
+**Status**: Done (PR #308)
+
+### Gap 7: Lazy Tree Loading + Per-Thread Workspace State
+
+铲屎官反馈（2026-03-08）：(1) `docs/stories/hyperfocus-brake/` 明明有文件但显示为空 (2) 切换线程后文件树展开状态丢失
+
+| Task | 内容 | 优先 | 设计思路 |
+|------|------|------|----------|
+| G7-1 | **Bug**: 深层目录显示为空 — 当前 `buildTree()` 默认 depth=3，`docs/stories/xxx/` 的文件在 depth=4 未加载 | P1 | 展开目录时按需 fetch 子节点（lazy loading），不再依赖初始 depth 一次加载全部 |
+| G7-2 | 切换线程后恢复文件树展开状态 + 打开的文件标签 | P2 | 每个线程的 `expandedPaths` + `openTabs` + `openFilePath` 存到 `Map<threadId, WorkspaceState>`，切换线程时 save/restore |
 
 ## Known Bugs (Follow-up)
 
