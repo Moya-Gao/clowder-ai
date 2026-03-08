@@ -73,6 +73,9 @@ export function isValidRichBlock(b: unknown): b is RichBlock {
           if (!it || typeof it !== 'object') return false;
           const r = it as Record<string, unknown>;
           if (typeof r['url'] !== 'string') return false;
+          // Reject non-URL strings (e.g. text descriptions cats hallucinate as "images")
+          const url = r['url'] as string;
+          if (!/^(\/|https?:\/\/|data:)/.test(url)) return false;
           if ('alt' in r && typeof r['alt'] !== 'string') return false;
           if ('caption' in r && typeof r['caption'] !== 'string') return false;
           return true;

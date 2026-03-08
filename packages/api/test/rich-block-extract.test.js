@@ -164,6 +164,36 @@ describe('isValidRichBlock', () => {
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'media_gallery', v: 1, items: [{ url: 'http://x' }] }), true);
   });
 
+  it('rejects media_gallery item with non-URL string in url (e.g. text description)', () => {
+    // Gemini bug: putting text descriptions instead of actual URLs
+    assert.equal(isValidRichBlock({
+      id: 'b1', kind: 'media_gallery', v: 1,
+      items: [{ url: '砚砚戴着齿轮勋章的威严侧脸' }],
+    }), false);
+    assert.equal(isValidRichBlock({
+      id: 'b1', kind: 'media_gallery', v: 1,
+      items: [{ url: 'A cute cat with blue eyes sitting in a box' }],
+    }), false);
+  });
+
+  it('accepts media_gallery with valid URL formats', () => {
+    // Local path
+    assert.equal(isValidRichBlock({
+      id: 'b1', kind: 'media_gallery', v: 1,
+      items: [{ url: '/avatars/opus.png' }],
+    }), true);
+    // HTTP URL
+    assert.equal(isValidRichBlock({
+      id: 'b1', kind: 'media_gallery', v: 1,
+      items: [{ url: 'https://example.com/img.png' }],
+    }), true);
+    // Data URI
+    assert.equal(isValidRichBlock({
+      id: 'b1', kind: 'media_gallery', v: 1,
+      items: [{ url: 'data:image/png;base64,abc123' }],
+    }), true);
+  });
+
   it('rejects media_gallery item with non-string alt/caption', () => {
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'media_gallery', v: 1, items: [{ url: 'http://x', alt: 42 }] }), false);
     assert.equal(isValidRichBlock({ id: 'b1', kind: 'media_gallery', v: 1, items: [{ url: 'http://x', caption: { bad: true } }] }), false);
