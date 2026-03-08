@@ -33,6 +33,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { extractVoteFromText, checkVoteCompletion, buildVoteTally } from './vote-intercept.js';
 
 export async function* routeParallel(
   deps: RouteStrategyDeps,
@@ -350,6 +351,53 @@ export async function* routeParallel(
         // A2A only triggers in routeSerial; routeParallel stores mentions
         // but never chains (MVP safety boundary — see Phase 3.9 design doc)
         const mentions = parseA2AMentions(storedContent, msg.catId as CatId);
+
+        // F079 Phase 2: Vote interception for parallel routing.
+        // @all / multi-cat requests route here, so [VOTE:xxx] must be handled too.
+        const votedOption = extractVoteFromText(storedContent);
+        if (votedOption && deps.invocationDeps.threadStore) {
+          try {
+            const voteState = await deps.invocationDeps.threadStore.getVotingState(threadId);
+            if (voteState && voteState.status === 'active' && voteState.options.includes(votedOption)) {
+              // Parity with HTTP/routeSerial cast validations.
+              if (Date.now() > voteState.deadline) {
+                console.log(`[routeParallel] F079: Vote expired in ${threadId}, ignoring [VOTE:${votedOption}]`);
+              } else if (voteState.voters && voteState.voters.length > 0 && !voteState.voters.includes(msg.catId)) {
+                console.log(`[routeParallel] F079: ${msg.catId} not in voters list, ignoring vote`);
+              } else {
+                voteState.votes[msg.catId] = votedOption;
+                await deps.invocationDeps.threadStore.updateVotingState(threadId, voteState);
+                console.log(`[routeParallel] F079: ${msg.catId} voted [${votedOption}] in ${threadId}`);
+
+                if (checkVoteCompletion(voteState)) {
+                  const tally = buildVoteTally(voteState.options, voteState.votes);
+                  const totalVotes = Object.values(voteState.votes).length;
+                  const fields = voteState.options.map((opt) => ({
+                    label: opt,
+                    value: `${tally[opt] ?? 0} 票 (${totalVotes > 0 ? Math.round(((tally[opt] ?? 0) / totalVotes) * 100) : 0}%)`,
+                  }));
+                  const richBlock = {
+                    id: `vote-${Date.now()}`,
+                    kind: 'card' as const,
+                    v: 1 as const,
+                    title: `📊 投票结果: ${voteState.question}`,
+                    bodyMarkdown: voteState.anonymous
+                      ? `匿名投票 · ${totalVotes} 票`
+                      : `实名投票 · ${totalVotes} 票`,
+                    tone: 'info' as const,
+                    fields,
+                  };
+                  await deps.invocationDeps.threadStore.updateVotingState(threadId, null);
+                  allRichBlocks.push(richBlock);
+                  console.log(`[routeParallel] F079: Vote auto-closed in ${threadId}`);
+                }
+              }
+            }
+          } catch (voteErr) {
+            console.warn(`[routeParallel] F079: Vote interception failed for ${msg.catId}:`, voteErr);
+          }
+        }
+
         const thinking = catThinking.get(msg.catId);
         try {
           await deps.messageStore.append({
