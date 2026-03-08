@@ -8,7 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Gap 4 in-progress — file management UX
+> **Status**: Gap 5 in-progress — Open in Finder + media preview
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 
@@ -192,6 +192,9 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-13: 猫猫消息中的文件路径点击后自动切换到 workspace 面板并打开该文件（当前 AC-4 的完整体验闭环）
 - [x] AC-14: 铲屎官可拖拽调整三视图比例（聊天区 | 文件树 | 文件查看器），含最小宽度/高度限制
 - [x] AC-15: 铲屎官可在文件查看器中选中代码行/文件路径，点击"引用到聊天"按钮插入到输入框（类似 Claude.ai 的 "Add to chat"）
+- [ ] AC-16: 铲屎官可在文件树或文件查看器中点击 "Open in Finder" 在系统文件管理器中打开文件（Gap 5）
+- [ ] AC-17: 音频文件（mp3/wav/m4a/ogg）可在文件查看器中内嵌播放预览（Gap 5）
+- [ ] AC-18: 视频文件（mp4/webm）可在文件查看器中内嵌播放预览（Gap 5）
 
 ## 需求点 Checklist
 
@@ -324,6 +327,8 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-06 | **Phase 2D+2E 合入** (PR #256): Linked Roots env var + JSX/TSX esbuild-wasm preview. 砚砚 R1→R2 (3P1→0) + 云端 R1→R4 (regex hardening: side-effect imports, line-anchor, import/export keyword restriction) |
 | 2026-03-06 | 第二次愿景守护（codex + gpt52 独立审查）：主链路 85%+ 但 3 gaps — JSX 演示级(P1) / Linked Roots 需环境变量(P1) / Runtime/Audit 未进 Workspace(P2) |
 | 2026-03-06 | **Phase 3 P1s 合入** (PR #257): JSX real bundling (workspace-resolver plugin + esm.sh fallback) + Linked Roots Hub management (API + config + UI). 砚砚 R2→R3 (2P1→0) + 云端 "no major issues" 通过 |
+| 2026-03-08 | **搜索升级合入** (PR #275 + #291): featureIds 前导零匹配修复 + 三模式搜索 (All/File/Aa) + 路径匹配 |
+| 2026-03-08 | 铲屎官提出 Gap 5: Open in Finder + 音频/视频预览需求 → 记入 spec |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -490,6 +495,18 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 | P4-8 | 前端: 上传按钮 + 拖拽到目录行 drop 上传 | P0 |
 | P4-9 | 前端: 文件/目录行 hover 删除+重命名图标 | P1 |
 | P4-10 | 新建文件后自动打开 + 进入编辑模式 | P0 |
+
+### Gap 5: System Integration — Open in Finder + 媒体预览
+
+铲屎官反馈（2026-03-08）："生成了音频/视频想 share，Hub 里不能直接打开，Open in Finder 是很常用的功能"
+
+| Task | 内容 | 优先 |
+|------|------|------|
+| G5-1 | 后端: `POST /api/workspace/reveal` — 在系统文件管理器中打开文件（macOS `open -R`, Windows `explorer /select,`） | P0 |
+| G5-2 | 前端: 文件树右键菜单 + 文件查看器顶部按钮 "Open in Finder" | P0 |
+| G5-3 | 前端: 音频文件内嵌预览（HTML5 `<audio>` 标签，支持 mp3/wav/m4a/ogg） | P1 |
+| G5-4 | 前端: 视频文件内嵌预览（HTML5 `<video>` 标签，支持 mp4/webm） | P1 |
+| G5-5 | 安全: reveal/open 复用 `resolveWorkspacePath` + `isDenylisted` 检查 | P0 |
 
 ## Known Bugs (Follow-up)
 
