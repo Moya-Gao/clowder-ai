@@ -91,25 +91,39 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 - 右侧：详情面板（建议详情 / Suggestion Detail）
 - 状态栏：待审议 / 执行中 / 已完成 计数
 
-**新 UX 方案（铲屎官拍板）**：
+**新 UX 方案（铲屎官拍板 + 二次追问 2026-03-07 20:52）**：
 
 1. **导入外部项目** — Mission Hub 新增「导入项目」按钮
 2. **项目 Tab** — 每个导入的外部项目成为一个新 Tab（如 "studio-flow"），与现有「功能列表」「告示面板」并列
 3. **Tab 内 Backlog 对齐** — 进入外部项目 Tab 后，首先展示**该项目的 backlog**（复用 Mission Hub 的 feature 列表风格），实现跨项目 backlog 可视化对齐
-4. **Need Audit 功能内嵌** — 在外部项目 Tab 内，逐步添加以下治理功能：
+4. **Need Audit 功能内嵌** — 在外部项目 Tab 内，逐步添加治理功能
 
-| 功能区块 | 说明 | 优先级 |
-|----------|------|--------|
-| Backlog 列表 | 外部项目的 feature/claim 列表，复用 Mission Hub 风格 | P0 基础 |
-| A: 治理+交付健康度 | triage 进度、Build Now 就绪数、open questions、slice 完成度、测试 | 需要 |
-| B: 甲方需求追踪矩阵 | 甲方原文 → Intent Card → 对应 feat → Source tag → 当前状态 | 需要 |
-| D: 风险预警 | 8 类信号检测结果 + 需求模糊/不合理/隐性依赖/工期不匹配 | 非常重要 |
+**关键决策：外部项目 Tab 内同时具备两层能力**（铲屎官追问 20:52）
+
+> 铲屎官："原本的比如 mission → backlog md 导出的能力那些，跨界执法的时候是不兼容吗？还是也有那些能力？"
+
+**回答：兼容！** 外部项目 Tab 内是 **Mission Hub 原有能力 + Need Audit 新能力** 的融合，不是只有 Need Audit。
+
+| 层级 | 能力 | 来源 | Tab 呈现 |
+|------|------|------|----------|
+| **基础层：Mission Hub 原有** | Feature 列表 + 状态徽章 | 读取外部项目 BACKLOG.md | Sub-tab「功能列表」 |
+| **基础层：Mission Hub 原有** | 告示面板 / Suggestions | 复用 SOP 告示牌能力 | Sub-tab「告示面板」 |
+| **基础层：Mission Hub 原有** | Backlog .md 导出 | 复用现有导出逻辑 | Header 导出按钮 |
+| **基础层：Mission Hub 原有** | 状态筛选（待审议/执行中/已完成） | 复用筛选组件 | Status bar |
+| **治理层：Need Audit 新增** | 需求追踪（Intent Card 列表 + Source tag） | Need Audit Pipeline | Sub-tab「需求追踪」 |
+| **治理层：Need Audit 新增** | 治理健康度 | Triage 统计 | Sub-tab「治理健康度」 |
+| **治理层：Need Audit 新增** | 风险预警 | 8 类风险信号 | Sub-tab「风险预警」 |
+| **治理层：Need Audit 新增** | 切片计划 | Slice Planning | Sub-tab「切片计划」 |
+
+**Sub-tab 结构**：功能列表 | 告示面板 | 需求追踪 | 治理健康度 | 风险预警 | 切片计划
 
 **设计原则**：
 - ✅ 延续 Mission Hub 暖色调 + 列表/详情 布局
 - ✅ Tab 切换自然过渡，不割裂
+- ✅ 外部项目拥有 Mission Hub 全部原有能力（不降级）
+- ✅ Need Audit 功能作为额外 sub-tab 增量添加
 - ✅ 右侧详情面板展示 Intent Card 详情（替代 Suggestion Detail）
-- ❌ ~~独立深色 dashboard~~ — 初版 wireframe 已废弃（`designs/mission-hub-坏猫采访.pen` 仅供参考）
+- ❌ ~~独立深色 dashboard~~ — 初版 wireframe 已废弃
 
 **不做的**:
 - C（猫猫派遣状态）：大概率都是布偶猫，不需要独立面板
