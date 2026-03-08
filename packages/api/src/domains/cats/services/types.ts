@@ -10,16 +10,16 @@ import type { CatId, MessageContent } from '@cat-cafe/shared';
  *  so that the field has the same semantics regardless of provider.
  *  cacheReadTokens = subset of inputTokens served from cache. */
 export interface TokenUsage {
-  inputTokens?: number;            // Total input (normalised across providers) — AGGREGATED across turns
+  inputTokens?: number; // Total input (normalised across providers) — AGGREGATED across turns
   outputTokens?: number;
-  totalTokens?: number;            // Gemini fallback (doesn't split in/out)
-  cacheReadTokens?: number;        // Subset of inputTokens from cache (Claude + Codex)
-  cacheCreationTokens?: number;    // Subset of inputTokens written to cache (Claude only)
-  costUsd?: number;                // Claude only
-  durationMs?: number;             // Claude: total duration
-  durationApiMs?: number;          // Claude: pure API duration
-  numTurns?: number;               // Claude: number of turns
-  contextWindowSize?: number;      // F24: context window capacity (Claude: exact, others: fallback)
+  totalTokens?: number; // Gemini fallback (doesn't split in/out)
+  cacheReadTokens?: number; // Subset of inputTokens from cache (Claude + Codex)
+  cacheCreationTokens?: number; // Subset of inputTokens written to cache (Claude only)
+  costUsd?: number; // Claude only
+  durationMs?: number; // Claude: total duration
+  durationApiMs?: number; // Claude: pure API duration
+  numTurns?: number; // Claude: number of turns
+  contextWindowSize?: number; // F24: context window capacity (Claude: exact, others: fallback)
   /** F24-fix: Last API turn's total input tokens (= actual context fill).
    *  Unlike inputTokens which is aggregated across all turns, this value
    *  represents the single most recent API call's input size. */
@@ -35,9 +35,15 @@ export function mergeTokenUsage(existing: TokenUsage | undefined, incoming: Toke
   if (!existing) return { ...incoming };
   const result = { ...existing };
   const numericKeys: (keyof TokenUsage)[] = [
-    'inputTokens', 'outputTokens', 'totalTokens',
-    'cacheReadTokens', 'cacheCreationTokens',
-    'costUsd', 'durationMs', 'durationApiMs', 'numTurns',
+    'inputTokens',
+    'outputTokens',
+    'totalTokens',
+    'cacheReadTokens',
+    'cacheCreationTokens',
+    'costUsd',
+    'durationMs',
+    'durationApiMs',
+    'numTurns',
   ];
   for (const key of numericKeys) {
     const val = incoming[key];
@@ -94,7 +100,7 @@ export type AgentMessageType =
   | 'error'
   | 'done'
   | 'a2a_handoff'
-  | 'system_info';  // budget warnings, cancel feedback, extraction progress
+  | 'system_info'; // budget warnings, cancel feedback, extraction progress, thinking
 
 /**
  * A message yielded from an agent during invocation
@@ -160,8 +166,5 @@ export interface AgentService {
    * @param options Optional configuration
    * @returns An async iterable of agent messages
    */
-  invoke(
-    prompt: string,
-    options?: AgentServiceOptions
-  ): AsyncIterable<AgentMessage>;
+  invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage>;
 }

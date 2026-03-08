@@ -1,18 +1,11 @@
-/**
- * Antigravity CDP Client
- * Chrome DevTools Protocol bridge to Antigravity IDE (Electron).
- *
- * Target selection logic lives in cdp-target-selection.ts.
- * Inline DOM scripts live in cdp-dom-scripts.ts.
- */
+/** CDP bridge to Antigravity IDE (Electron). See also cdp-target-selection.ts, cdp-dom-scripts.ts. */
 
 import { DISPATCH_ENTER_JS, FIND_SEND_BUTTON_JS, NEW_CONVERSATION_JS, POLL_RESPONSE_JS } from './cdp-dom-scripts.js';
-import { rankEditorTargets } from './cdp-target-selection.js';
 import type { CdpTarget } from './cdp-target-selection.js';
+import { rankEditorTargets } from './cdp-target-selection.js';
 
-// Re-export for backward compatibility (tests import from here)
-export { findEditorTarget, rankEditorTargets, normaliseHint } from './cdp-target-selection.js';
 export type { CdpTarget, FindEditorTargetOptions } from './cdp-target-selection.js';
+export { findEditorTarget, normaliseHint, rankEditorTargets } from './cdp-target-selection.js';
 
 export interface AntigravityCdpClientOptions {
   port?: number;
@@ -21,9 +14,7 @@ export interface AntigravityCdpClientOptions {
   commandTimeoutMs?: number;
   connectTimeoutMs?: number;
   fetchTimeoutMs?: number;
-  /** Timeout for health probe evaluate('1') during connect in ms (default: 2_000) */
   probeTimeoutMs?: number;
-  /** Enable debug logging (target list, probe results, selected target) */
   debug?: boolean;
 }
 
@@ -31,6 +22,12 @@ export interface PollResponseOptions {
   expectedUserMessageCount?: number;
   pollIntervalMs?: number;
   stablePollCount?: number;
+  maxTimeoutMs?: number;
+}
+
+export interface PollResponseResult {
+  text: string;
+  thinking?: string;
 }
 
 function isMissingCdpMethod(error: unknown, method: string): boolean {
@@ -81,8 +78,7 @@ export class AntigravityCdpClient {
     return `http://${this.host}:${this.port}`;
   }
 
-  /** Fetch targets, probe candidates for health, and connect to the best one.
-   *  @param runtimeTitleHint — overrides constructor titleHint (e.g. derived from workingDirectory) */
+  /** Fetch targets, probe for health, connect to best candidate. */
   async connect(runtimeTitleHint?: string): Promise<void> {
     const resp = await fetch(`${this.baseUrl}/json`, {
       signal: AbortSignal.timeout(this.fetchTimeoutMs),
@@ -90,7 +86,10 @@ export class AntigravityCdpClient {
     const targets = (await resp.json()) as CdpTarget[];
     const hint = runtimeTitleHint ?? this.titleHint;
 
-    this.log('targets:', targets.map((t) => ({ id: t.id, type: t.type, title: t.title, url: t.url })));
+    this.log(
+      'targets:',
+      targets.map((t) => ({ id: t.id, type: t.type, title: t.title, url: t.url })),
+    );
 
     const candidates = rankEditorTargets(targets, hint ? { titleHint: hint } : undefined);
     if (candidates.length === 0) {
@@ -127,7 +126,7 @@ export class AntigravityCdpClient {
     );
   }
 
-  /** Low-level: open WebSocket to a specific target and wire up handlers. */
+  /** Open WebSocket to a target and wire up handlers. */
   private async connectToTarget(target: CdpTarget): Promise<void> {
     this.ws = new WebSocket(target.webSocketDebuggerUrl);
     this.ws.onmessage = (ev) => {
@@ -171,7 +170,6 @@ export class AntigravityCdpClient {
   }
 
   async disconnect(): Promise<void> {
-    // Clear all pending command timers before closing
     for (const [, p] of this.pending) {
       clearTimeout(p.timer);
     }
@@ -184,8 +182,7 @@ export class AntigravityCdpClient {
     }
   }
 
-  /** Send a CDP command and await result.
-   *  @param timeoutMs — override default command timeout for this call */
+  /** Send CDP command and await result. */
   async cdp(method: string, params: Record<string, unknown> = {}, timeoutMs?: number): Promise<unknown> {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       throw new Error('CDP not connected');
@@ -204,8 +201,7 @@ export class AntigravityCdpClient {
     });
   }
 
-  /** Evaluate JS in the Antigravity page.
-   *  Surfaces CDP-level exceptions (e.g. syntax errors in expression). */
+  /** Evaluate JS in page. Surfaces CDP exceptions. */
   async evaluate<T = unknown>(expression: string, timeoutMs?: number): Promise<T> {
     const result = (await this.cdp('Runtime.evaluate', { expression }, timeoutMs)) as {
       result: { value: T; type?: string; subtype?: string; description?: string };
@@ -218,11 +214,7 @@ export class AntigravityCdpClient {
     return result.result.value;
   }
 
-  /** Inject message into Antigravity chat and send.
-   *  Send uses a multi-strategy approach for resilience across Antigravity versions:
-   *  1. Click the send button (most reliable — bypasses keyboard event routing)
-   *  2. JS KeyboardEvent dispatch (Lexical-compatible, runs in renderer)
-   *  3. CDP Input.dispatchKeyEvent (Chrome input pipeline, least reliable for Electron) */
+  /** Inject text and send via multi-strategy: button click → JS Enter → CDP Enter. */
   async sendMessage(text: string): Promise<void> {
     if (!this.connected) throw new Error('CDP not connected');
 
@@ -275,48 +267,63 @@ export class AntigravityCdpClient {
     });
   }
 
-  /** Dispatch a mouse click at (x, y) via CDP Input events. */
+  /** Click at (x, y) via CDP. */
   private async clickAt(x: number, y: number): Promise<void> {
     await this.cdp('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
     await this.cdp('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
   }
 
-  /** Poll DOM for model response. Returns text or null on timeout. */
-  async pollResponse(timeoutMs = 60_000, options?: PollResponseOptions): Promise<string | null> {
+  /** Poll DOM for response. Idle timeout resets on activity; maxTimeoutMs is absolute ceiling. */
+  async pollResponse(idleTimeoutMs = 60_000, options?: PollResponseOptions): Promise<PollResponseResult | null> {
     if (!this.connected) throw new Error('CDP not connected');
 
     const start = Date.now();
     const pollInterval = options?.pollIntervalMs ?? 1_000;
     const stablePollCount = options?.stablePollCount ?? 2;
+    const maxTimeoutMs = options?.maxTimeoutMs ?? 300_000;
     const expectedUserMessageCount =
       options?.expectedUserMessageCount ??
       (await this.evaluate<number>(`document.querySelectorAll('.whitespace-pre-wrap').length`));
     let lastResponseText = '';
+    let lastThinkingText = '';
     let stablePolls = 0;
+    let lastActivityTime = Date.now();
 
-    while (Date.now() - start < timeoutMs) {
+    while (Date.now() - lastActivityTime < idleTimeoutMs && Date.now() - start < maxTimeoutMs) {
       await new Promise((r) => setTimeout(r, pollInterval));
 
       const state = await this.evaluate<string>(POLL_RESPONSE_JS);
-      const { userMsgCount, responseText, hasInlineLoading } = JSON.parse(state) as {
+      const parsed = JSON.parse(state) as {
         userMsgCount: number;
         responseText: string;
+        thinkingText?: string;
         hasInlineLoading: boolean;
       };
+      const { userMsgCount, responseText, hasInlineLoading } = parsed;
+      const thinkingText = parsed.thinkingText ?? '';
 
-      if (userMsgCount >= expectedUserMessageCount && responseText) {
-        if (hasInlineLoading) {
-          lastResponseText = responseText;
-          stablePolls = 0;
-          continue;
-        }
-        if (responseText === lastResponseText) {
-          stablePolls += 1;
-        } else {
-          lastResponseText = responseText;
-          stablePolls = 1;
-        }
-        if (stablePolls >= stablePollCount) return responseText;
+      if (userMsgCount < expectedUserMessageCount) continue;
+
+      // Activity detection — reset idle timer regardless of responseText presence.
+      // Model may be thinking/loading with empty responseText; that still counts as active.
+      if (hasInlineLoading || responseText !== lastResponseText || thinkingText !== lastThinkingText) {
+        lastActivityTime = Date.now();
+      }
+      if (thinkingText !== lastThinkingText) lastThinkingText = thinkingText;
+
+      if (!responseText || hasInlineLoading) {
+        lastResponseText = responseText;
+        stablePolls = 0;
+        continue;
+      }
+      if (responseText === lastResponseText) {
+        stablePolls += 1;
+      } else {
+        lastResponseText = responseText;
+        stablePolls = 1;
+      }
+      if (stablePolls >= stablePollCount) {
+        return thinkingText ? { text: responseText, thinking: thinkingText } : { text: responseText };
       }
     }
     return null;

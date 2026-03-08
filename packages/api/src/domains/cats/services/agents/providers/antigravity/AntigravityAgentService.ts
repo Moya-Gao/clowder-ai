@@ -10,7 +10,7 @@
 import { type CatId, createCatId } from '@cat-cafe/shared';
 import { getCatModel } from '../../../../../../config/cat-models.js';
 import type { AgentMessage, AgentService, AgentServiceOptions, MessageMetadata } from '../../../types.js';
-import { AntigravityCdpClient, type PollResponseOptions } from './AntigravityCdpClient.js';
+import { AntigravityCdpClient, type PollResponseOptions, type PollResponseResult } from './AntigravityCdpClient.js';
 
 /** Duck-typed CDP client interface for dependency injection */
 interface CdpClientLike {
@@ -18,7 +18,7 @@ interface CdpClientLike {
   connect(runtimeTitleHint?: string): Promise<void>;
   disconnect(): Promise<void>;
   sendMessage(text: string): Promise<void>;
-  pollResponse(timeoutMs?: number, options?: PollResponseOptions): Promise<string | null>;
+  pollResponse(idleTimeoutMs?: number, options?: PollResponseOptions): Promise<PollResponseResult | null>;
   newConversation(): Promise<void>;
 }
 
@@ -74,9 +74,9 @@ export class AntigravityAgentService implements AgentService {
       await this.cdpClient.newConversation();
       await this.cdpClient.sendMessage(prompt);
 
-      const response = await this.cdpClient.pollResponse(60_000);
+      const result = await this.cdpClient.pollResponse(60_000);
 
-      if (response === null) {
+      if (result === null) {
         yield {
           type: 'error',
           catId: this.catId,
@@ -85,10 +85,19 @@ export class AntigravityAgentService implements AgentService {
           timestamp: Date.now(),
         };
       } else {
+        if (result.thinking) {
+          yield {
+            type: 'system_info',
+            catId: this.catId,
+            content: JSON.stringify({ type: 'thinking', text: result.thinking }),
+            metadata,
+            timestamp: Date.now(),
+          };
+        }
         yield {
           type: 'text',
           catId: this.catId,
-          content: response,
+          content: result.text,
           metadata,
           timestamp: Date.now(),
         };

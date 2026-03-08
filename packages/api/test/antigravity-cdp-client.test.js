@@ -1,7 +1,11 @@
-import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { AntigravityCdpClient, findEditorTarget, rankEditorTargets, normaliseHint } from
-  '../dist/domains/cats/services/agents/providers/antigravity/AntigravityCdpClient.js';
+import { describe, test } from 'node:test';
+import {
+  AntigravityCdpClient,
+  findEditorTarget,
+  normaliseHint,
+  rankEditorTargets,
+} from '../dist/domains/cats/services/agents/providers/antigravity/AntigravityCdpClient.js';
 
 describe('findEditorTarget', () => {
   test('picks editor page, skips Launchpad', () => {
@@ -15,16 +19,12 @@ describe('findEditorTarget', () => {
   });
 
   test('returns null when no editor page found', () => {
-    const targets = [
-      { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: '' }];
     assert.equal(findEditorTarget(targets), null);
   });
 
   test('skips targets without webSocketDebuggerUrl', () => {
-    const targets = [
-      { type: 'page', title: 'Editor', webSocketDebuggerUrl: '', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'Editor', webSocketDebuggerUrl: '', url: '' }];
     assert.equal(findEditorTarget(targets), null);
   });
 
@@ -50,9 +50,7 @@ describe('findEditorTarget with titleHint', () => {
   });
 
   test('falls back to first match when titleHint has no match', () => {
-    const targets = [
-      { type: 'page', title: 'my-project — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'my-project — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
     const result = findEditorTarget(targets, { titleHint: 'no-match' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
   });
@@ -99,17 +97,13 @@ describe('findEditorTarget enhanced filtering', () => {
   });
 
   test('case-insensitive titleHint matching', () => {
-    const targets = [
-      { type: 'page', title: 'Cat-Cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'Cat-Cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
     const result = findEditorTarget(targets, { titleHint: 'cat-cafe' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
   });
 
   test('titleHint normalises worktree suffix', () => {
-    const targets = [
-      { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://a', url: '' }];
     const result = findEditorTarget(targets, { titleHint: 'cat-cafe-f061-fix' });
     assert.equal(result?.webSocketDebuggerUrl, 'ws://a');
   });
@@ -129,9 +123,7 @@ describe('rankEditorTargets', () => {
   });
 
   test('returns empty array when no viable targets', () => {
-    const targets = [
-      { type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: '' },
-    ];
+    const targets = [{ type: 'page', title: 'Launchpad', webSocketDebuggerUrl: 'ws://a', url: '' }];
     assert.equal(rankEditorTargets(targets).length, 0);
   });
 });
@@ -150,18 +142,12 @@ describe('AntigravityCdpClient', () => {
 
   test('sendMessage rejects when not connected', async () => {
     const client = new AntigravityCdpClient();
-    await assert.rejects(
-      () => client.sendMessage('hello'),
-      { message: /not connected/i }
-    );
+    await assert.rejects(() => client.sendMessage('hello'), { message: /not connected/i });
   });
 
   test('newConversation rejects when not connected', async () => {
     const client = new AntigravityCdpClient();
-    await assert.rejects(
-      () => client.newConversation(),
-      { message: /not connected/i }
-    );
+    await assert.rejects(() => client.newConversation(), { message: /not connected/i });
   });
 
   test('connect() skips unhealthy candidate and connects to next', async () => {
@@ -171,7 +157,12 @@ describe('AntigravityCdpClient', () => {
     global.fetch = async () => ({
       json: async () => [
         { type: 'page', title: 'stale-editor', webSocketDebuggerUrl: 'ws://stale', url: 'workbench/workbench.html' },
-        { type: 'page', title: 'healthy-editor', webSocketDebuggerUrl: 'ws://healthy', url: 'workbench/workbench.html' },
+        {
+          type: 'page',
+          title: 'healthy-editor',
+          webSocketDebuggerUrl: 'ws://healthy',
+          url: 'workbench/workbench.html',
+        },
       ],
     });
 
@@ -196,12 +187,16 @@ describe('AntigravityCdpClient', () => {
             return;
           }
           // Healthy target: respond OK
-          queueMicrotask(() => this.onmessage?.({
-            data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
-          }));
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+            }),
+          );
         }
       }
-      close() { this.readyState = 3; }
+      close() {
+        this.readyState = 3;
+      }
     }
     global.WebSocket = ProbeWS;
 
@@ -222,9 +217,7 @@ describe('AntigravityCdpClient', () => {
     const savedWebSocket = global.WebSocket;
 
     global.fetch = async () => ({
-      json: async () => [
-        { type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://fake', url: '' },
-      ],
+      json: async () => [{ type: 'page', title: 'cat-cafe — main.ts', webSocketDebuggerUrl: 'ws://fake', url: '' }],
     });
 
     class FakeWebSocket {
@@ -243,15 +236,19 @@ describe('AntigravityCdpClient', () => {
         }
         if (method === 'Runtime.evaluate') {
           // Health probe or other evaluate — return { result: { value: <eval> } }
-          queueMicrotask(() => this.onmessage?.({
-            data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
-          }));
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+            }),
+          );
           return;
         }
         if (method === 'Input.enable') {
-          queueMicrotask(() => this.onmessage?.({
-            data: JSON.stringify({ id, error: { message: "'Input.enable' wasn't found" } }),
-          }));
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify({ id, error: { message: "'Input.enable' wasn't found" } }),
+            }),
+          );
           return;
         }
         queueMicrotask(() => this.onmessage?.({ data: JSON.stringify({ id, result: {} }) }));
@@ -294,7 +291,7 @@ describe('AntigravityCdpClient', () => {
       stablePollCount: 2,
     });
 
-    assert.equal(response, 'pong');
+    assert.deepEqual(response, { text: 'pong' });
   });
 
   test('cdp() includes timeout duration in error message', async () => {
@@ -302,7 +299,9 @@ describe('AntigravityCdpClient', () => {
     // Fake a connected WS that never responds
     client.ws = {
       readyState: 1,
-      send() { /* swallow — never respond */ },
+      send() {
+        /* swallow — never respond */
+      },
       close() {},
     };
     await assert.rejects(
@@ -311,7 +310,7 @@ describe('AntigravityCdpClient', () => {
         assert.match(err.message, /CDP timeout for Runtime.evaluate/);
         assert.match(err.message, /50ms/);
         return true;
-      }
+      },
     );
   });
 
@@ -319,7 +318,9 @@ describe('AntigravityCdpClient', () => {
     const client = new AntigravityCdpClient({ commandTimeoutMs: 30_000 });
     client.ws = {
       readyState: 1,
-      send() { /* never respond */ },
+      send() {
+        /* never respond */
+      },
       close() {},
     };
     const start = Date.now();
@@ -333,9 +334,7 @@ describe('AntigravityCdpClient', () => {
     const savedWebSocket = global.WebSocket;
 
     global.fetch = async () => ({
-      json: async () => [
-        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
-      ],
+      json: async () => [{ type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' }],
     });
 
     let wsInstance;
@@ -357,15 +356,19 @@ describe('AntigravityCdpClient', () => {
           evalCount++;
           // First evaluate = health probe → respond OK
           if (evalCount === 1) {
-            queueMicrotask(() => this.onmessage?.({
-              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
-            }));
+            queueMicrotask(() =>
+              this.onmessage?.({
+                data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+              }),
+            );
             return;
           }
           // Second evaluate = test's pending command → do NOT respond
         }
       }
-      close() { this.readyState = 3; }
+      close() {
+        this.readyState = 3;
+      }
     }
     global.WebSocket = FakeWS;
 
@@ -391,9 +394,7 @@ describe('AntigravityCdpClient', () => {
     const savedWebSocket = global.WebSocket;
 
     global.fetch = async () => ({
-      json: async () => [
-        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
-      ],
+      json: async () => [{ type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' }],
     });
 
     let evalCount = 0;
@@ -413,24 +414,28 @@ describe('AntigravityCdpClient', () => {
           evalCount++;
           // First evaluate = health probe → respond OK
           if (evalCount === 1) {
-            queueMicrotask(() => this.onmessage?.({
-              data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
-            }));
+            queueMicrotask(() =>
+              this.onmessage?.({
+                data: JSON.stringify({ id, result: { result: { value: 1, type: 'number' } } }),
+              }),
+            );
             return;
           }
           // Subsequent evaluates → return exception
-          queueMicrotask(() => this.onmessage?.({
-            data: JSON.stringify({
-              id,
-              result: {
-                result: { type: 'object', subtype: 'error' },
-                exceptionDetails: {
-                  text: 'Uncaught',
-                  exception: { description: 'ReferenceError: foo is not defined' },
+          queueMicrotask(() =>
+            this.onmessage?.({
+              data: JSON.stringify({
+                id,
+                result: {
+                  result: { type: 'object', subtype: 'error' },
+                  exceptionDetails: {
+                    text: 'Uncaught',
+                    exception: { description: 'ReferenceError: foo is not defined' },
+                  },
                 },
-              },
+              }),
             }),
-          }));
+          );
         }
       }
       close() {}
@@ -440,10 +445,7 @@ describe('AntigravityCdpClient', () => {
     try {
       const client = new AntigravityCdpClient();
       await client.connect();
-      await assert.rejects(
-        () => client.evaluate('foo'),
-        /CDP evaluate error.*ReferenceError/
-      );
+      await assert.rejects(() => client.evaluate('foo'), /CDP evaluate error.*ReferenceError/);
       await client.disconnect();
     } finally {
       global.fetch = savedFetch;
@@ -456,25 +458,24 @@ describe('AntigravityCdpClient', () => {
     const savedWebSocket = global.WebSocket;
 
     global.fetch = async () => ({
-      json: async () => [
-        { type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' },
-      ],
+      json: async () => [{ type: 'page', title: 'editor', webSocketDebuggerUrl: 'ws://fake', url: '' }],
     });
 
     class SlowWS {
       static OPEN = 1;
-      constructor() { this.readyState = 0; /* never fire onopen */ }
-      close() { this.readyState = 3; }
+      constructor() {
+        this.readyState = 0; /* never fire onopen */
+      }
+      close() {
+        this.readyState = 3;
+      }
       send() {}
     }
     global.WebSocket = SlowWS;
 
     try {
       const client = new AntigravityCdpClient({ connectTimeoutMs: 50 });
-      await assert.rejects(
-        () => client.connect(),
-        /failed health probe/
-      );
+      await assert.rejects(() => client.connect(), /failed health probe/);
     } finally {
       global.fetch = savedFetch;
       global.WebSocket = savedWebSocket;
@@ -485,7 +486,9 @@ describe('AntigravityCdpClient', () => {
     const client = new AntigravityCdpClient({ commandTimeoutMs: 60_000 });
     client.ws = {
       readyState: 1,
-      send() { /* never respond */ },
+      send() {
+        /* never respond */
+      },
       close() {},
       onclose: null,
       onerror: null,
@@ -522,13 +525,13 @@ describe('AntigravityCdpClient', () => {
     await client.sendMessage('hello');
 
     // Should have clicked textbox (mousePressed+Released) then send button (mousePressed+Released)
-    const mouseEvents = cdpCalls.filter(c => c.method === 'Input.dispatchMouseEvent');
+    const mouseEvents = cdpCalls.filter((c) => c.method === 'Input.dispatchMouseEvent');
     assert.equal(mouseEvents.length, 4); // 2 for textbox click + 2 for send button click
     // Last click should be at send button coordinates
     assert.equal(mouseEvents[2].params.x, 300);
     assert.equal(mouseEvents[2].params.y, 400);
     // No keyboard events dispatched
-    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    const keyEvents = cdpCalls.filter((c) => c.method === 'Input.dispatchKeyEvent');
     assert.equal(keyEvents.length, 0);
   });
 
@@ -538,9 +541,9 @@ describe('AntigravityCdpClient', () => {
 
     const evaluateResults = [
       JSON.stringify({ x: 100, y: 200 }), // textbox
-      undefined,                            // execCommand
-      null,                                 // FIND_SEND_BUTTON_JS → not found
-      true,                                 // DISPATCH_ENTER_JS → success
+      undefined, // execCommand
+      null, // FIND_SEND_BUTTON_JS → not found
+      true, // DISPATCH_ENTER_JS → success
     ];
 
     const cdpCalls = [];
@@ -553,7 +556,7 @@ describe('AntigravityCdpClient', () => {
     await client.sendMessage('hello');
 
     // No CDP keyboard events — JS dispatch handled it
-    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    const keyEvents = cdpCalls.filter((c) => c.method === 'Input.dispatchKeyEvent');
     assert.equal(keyEvents.length, 0);
   });
 
@@ -563,9 +566,9 @@ describe('AntigravityCdpClient', () => {
 
     const evaluateResults = [
       JSON.stringify({ x: 100, y: 200 }), // textbox
-      undefined,                            // execCommand
-      null,                                 // FIND_SEND_BUTTON_JS → not found
-      false,                                // DISPATCH_ENTER_JS → no active element
+      undefined, // execCommand
+      null, // FIND_SEND_BUTTON_JS → not found
+      false, // DISPATCH_ENTER_JS → no active element
     ];
 
     const cdpCalls = [];
@@ -578,9 +581,177 @@ describe('AntigravityCdpClient', () => {
     await client.sendMessage('hello');
 
     // Should fall through to CDP Input.dispatchKeyEvent
-    const keyEvents = cdpCalls.filter(c => c.method === 'Input.dispatchKeyEvent');
+    const keyEvents = cdpCalls.filter((c) => c.method === 'Input.dispatchKeyEvent');
     assert.equal(keyEvents.length, 2); // rawKeyDown + keyUp
     assert.equal(keyEvents[0].params.key, 'Enter');
+  });
+
+  test('pollResponse resets idle timer on activity — does not timeout while loading', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: loading for 5 polls (each 10ms = 50ms total), then stable
+    // idleTimeoutMs = 30ms — without reset, it would timeout after 3 polls
+    const pollCount = 0;
+    const states = [
+      1, // initial userMsgCount
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial...', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial more...', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial more...', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'almost...', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(30, {
+      pollIntervalMs: 10,
+      stablePollCount: 2,
+    });
+
+    // Should succeed despite total time > 30ms, because loading kept resetting the idle timer
+    assert.deepEqual(result, { text: 'done!' });
+  });
+
+  test('pollResponse respects maxTimeoutMs absolute ceiling even during activity', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Always loading — never finishes. idleTimeoutMs = 5000 (generous) but maxTimeoutMs = 40ms
+    client.evaluate = async () => {
+      return JSON.stringify({ userMsgCount: 1, responseText: 'loading...', hasInlineLoading: true });
+    };
+
+    // First call returns userMsgCount
+    let firstCall = true;
+    const origEval = client.evaluate;
+    client.evaluate = async () => {
+      if (firstCall) {
+        firstCall = false;
+        return 1;
+      }
+      return origEval();
+    };
+
+    const result = await client.pollResponse(5000, {
+      pollIntervalMs: 5,
+      stablePollCount: 2,
+      maxTimeoutMs: 40,
+    });
+
+    // Should return null because maxTimeoutMs was hit
+    assert.equal(result, null);
+  });
+
+  test('pollResponse returns thinking text when present in DOM', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const states = [
+      1,
+      JSON.stringify({
+        userMsgCount: 1,
+        responseText: 'Hello! I am the Bengal cat!',
+        thinkingText: 'Let me think about how to respond...',
+        hasInlineLoading: false,
+      }),
+      JSON.stringify({
+        userMsgCount: 1,
+        responseText: 'Hello! I am the Bengal cat!',
+        thinkingText: 'Let me think about how to respond...',
+        hasInlineLoading: false,
+      }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(50, {
+      pollIntervalMs: 1,
+      stablePollCount: 2,
+    });
+
+    // pollResponse should return an object with both text and thinking
+    assert.equal(typeof result, 'object');
+    assert.equal(result.text, 'Hello! I am the Bengal cat!');
+    assert.equal(result.thinking, 'Let me think about how to respond...');
+  });
+
+  test('P1-fix: pollResponse resets idle timer when loading but responseText still empty', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: model is thinking (loading=true, responseText='') for several polls,
+    // then produces response. idleTimeoutMs=30ms — without fix, times out during thinking phase.
+    const states = [
+      1, // initial userMsgCount
+      JSON.stringify({ userMsgCount: 1, responseText: '', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: '', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: '', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: '', hasInlineLoading: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'answer!', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'answer!', hasInlineLoading: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(30, {
+      pollIntervalMs: 10,
+      stablePollCount: 2,
+    });
+
+    // Should NOT timeout — loading with empty text still counts as activity
+    assert.deepEqual(result, { text: 'answer!' });
+  });
+
+  test('P2-fix: thinking extraction does not swallow same-block response text', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: DOM has a single assistant block containing BOTH a <details> thinking
+    // element AND response text. The thinkingText and responseText should both be present.
+    const states = [
+      1,
+      JSON.stringify({
+        userMsgCount: 1,
+        responseText: 'The answer is 42.',
+        thinkingText: 'Hmm, let me calculate...',
+        hasInlineLoading: false,
+      }),
+      JSON.stringify({
+        userMsgCount: 1,
+        responseText: 'The answer is 42.',
+        thinkingText: 'Hmm, let me calculate...',
+        hasInlineLoading: false,
+      }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(50, {
+      pollIntervalMs: 1,
+      stablePollCount: 2,
+    });
+
+    // Both must be present — thinking must NOT swallow the response text
+    assert.equal(result.text, 'The answer is 42.');
+    assert.equal(result.thinking, 'Hmm, let me calculate...');
   });
 
   test('pollResponse waits for inline loading to clear before returning text', async () => {
@@ -605,6 +776,6 @@ describe('AntigravityCdpClient', () => {
       stablePollCount: 2,
     });
 
-    assert.equal(response, 'pong');
+    assert.deepEqual(response, { text: 'pong' });
   });
 });

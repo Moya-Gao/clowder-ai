@@ -38,10 +38,25 @@ export const POLL_RESPONSE_JS = `(() => {
     while (sib) { blocks.push(sib); sib = sib.nextElementSibling; }
     return blocks;
   })();
-  const responseParts = assistantBlocks.map((b) => extractBlockText(b)).map((t) => t.trim()).filter(Boolean);
+  const thinkingParts = [];
+  const responseParts = [];
+  for (const b of assistantBlocks) {
+    const thinkEls = b.querySelectorAll('details, [class*="thinking"], [class*="thought"]');
+    if (thinkEls.length > 0) {
+      for (const el of thinkEls) thinkingParts.push((el.textContent || '').trim());
+      const clone = b.cloneNode(true);
+      clone.querySelectorAll('details, [class*="thinking"], [class*="thought"]').forEach((el) => el.remove());
+      const remaining = extractBlockText(clone).trim();
+      if (remaining) responseParts.push(remaining);
+    } else {
+      const txt = extractBlockText(b).trim();
+      if (txt) responseParts.push(txt);
+    }
+  }
   const responseText = responseParts.join('\\n').trim();
+  const thinkingText = thinkingParts.filter(Boolean).join('\\n').trim();
   const hasInlineLoading = assistantBlocks.some((b) => !!b.querySelector('.codicon-loading, [aria-busy="true"]'));
-  return JSON.stringify({ userMsgCount: userMsgs.length, responseText, hasInlineLoading });
+  return JSON.stringify({ userMsgCount: userMsgs.length, responseText, thinkingText, hasInlineLoading });
 })()`;
 
 /** Find the "new conversation" button via multiple DOM strategies.
