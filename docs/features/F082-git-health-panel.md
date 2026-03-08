@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F082 Git Health Panel — Repo 状态可视化
 
-> Status: spec | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer)
+> Status: wip-p2 | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer)
 
 ## Why
 
@@ -32,12 +32,12 @@ created: 2026-03-07
 
 ## Acceptance Criteria
 
-### Phase 1
-- [ ] `GET /api/workspace/git-log` 返回 commit 列表（hash/author/date/subject）
-- [ ] 支持 `?worktreeId=xxx&limit=50&branch=main` 参数
-- [ ] `GET /api/workspace/git-status` 返回工作区状态（staged/unstaged/untracked 分类）
-- [ ] 前端 WorkspacePanel 新增 "Git" tab，包含 Log + Status 两个区块
-- [ ] 点击 commit 展开 changed files 摘要
+### Phase 1 ✅ (PR #290, 2026-03-07)
+- [x] `GET /api/workspace/git-log` 返回 commit 列表（hash/author/date/subject）
+- [x] 支持 `?worktreeId=xxx&limit=50` 参数
+- [x] `GET /api/workspace/git-status` 返回工作区状态（staged/unstaged/untracked 分类）
+- [x] 前端 WorkspacePanel 新增 "Git" tab，包含 Log + Status 两个区块
+- [x] 点击 commit 展开 changed files 摘要（`GET /api/workspace/git-show`）
 
 ### Phase 2
 - [ ] `GET /api/workspace/git-health` 返回综合健康数据
@@ -90,3 +90,4 @@ created: 2026-03-07
 | Date | Event |
 |------|-------|
 | 2026-03-07 | Kickoff: 铲屎官提出需求，立项 F082 |
+| 2026-03-07 | Phase 1 完成: PR #290 merged (git log + status + show viewer) |
