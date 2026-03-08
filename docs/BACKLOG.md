@@ -43,3 +43,4 @@ created: 2026-02-26
 | F079 | Voting System — /vote 投票 + 系统汇总 + rich block 展示 | done | 布偶猫 | [F079](features/F079-voting-system.md) |
 | F080 | Input History Completion — P1 ghost text + P2 path completion | done | 布偶猫 | [F080](features/F080-input-history-completion.md) |
 | F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |
+| F082 | Git Health Panel — Repo 状态可视化（Git Log + Health Dashboard） | spec | 布偶猫 | [F082](features/F082-git-health-panel.md) |

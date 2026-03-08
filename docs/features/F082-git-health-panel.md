@@ -1,0 +1,89 @@
+---
+feature_ids: [F082]
+related_features: [F063]
+topics: [workspace, git, devops, ux]
+doc_kind: spec
+created: 2026-03-07
+---
+
+# F082 Git Health Panel — Repo 状态可视化
+
+> Status: spec | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer)
+
+## Why
+
+铲屎官和朋友们使用 Hub 协作时，经常需要了解 repo 的 git 状态：main 是否干净、有没有遗留分支/worktree 没清理、runtime 和 main 差了多少。目前只能开终端手动 `git status` / `git branch`，体验断裂。
+
+## What
+
+在 Hub Workspace Panel 中增加 Git Health 可视化，分两个 Phase：
+
+### Phase 1: Git Log Viewer（通用层）
+- 基础 commit 历史浏览：hash、作者、时间、message
+- 支持选择分支 / worktree 查看
+- 点击 commit 可查看 changed files 摘要（`git show --stat`）
+
+### Phase 2: Git Health Dashboard（定制层）
+- **Dirty Files**: `git status --porcelain` 分类展示（staged / unstaged / untracked）
+- **Stale Branches**: 已合入 main 但未删除的本地/remote 分支，标注关联猫猫
+- **Orphan Worktrees**: 活跃 worktree 列表，标注哪些对应已合入分支（坏猫警报）
+- **Runtime Drift**: runtime 与 main 的 commit 差距（落后/领先几个 commit、差了哪些功能）
+
+## Acceptance Criteria
+
+### Phase 1
+- [ ] `GET /api/workspace/git-log` 返回 commit 列表（hash/author/date/subject）
+- [ ] 支持 `?worktreeId=xxx&limit=50&branch=main` 参数
+- [ ] 前端 WorkspacePanel 新增 "Git Log" tab，渲染 commit 列表
+- [ ] 点击 commit 展开 changed files 摘要
+
+### Phase 2
+- [ ] `GET /api/workspace/git-health` 返回综合健康数据
+- [ ] Dirty Files 区块：分类展示未提交改动
+- [ ] Stale Branches 区块：列出已合入未删的分支 + 猫猫归属
+- [ ] Orphan Worktrees 区块：标注应清理的 worktree
+- [ ] Runtime Drift 区块：显示 runtime 与 main 的 commit 差异
+
+## 需求点 Checklist
+
+| # | 需求点 | 来源 | AC 映射 |
+|---|--------|------|---------|
+| R1 | 用户能在 Hub 里看 git commit 历史 | 铲屎官朋友反馈 | P1-AC1~4 |
+| R2 | 铲屎官能看到"main 脏了什么" | 铲屎官原话 | P2-AC2 |
+| R3 | 能发现谁没清理 branch/worktree | 铲屎官原话 | P2-AC3~4 |
+| R4 | 能看 runtime 和 main 的差距 | 铲屎官原话 | P2-AC5 |
+
+## Links
+
+- Parent: [F063 Hub Workspace Explorer](F063-hub-workspace-explorer.md)
+- Discussion: Thread thread_mmdcsxy7ng980inj, 2026-03-07 17:14-17:20
+
+## Key Decisions
+
+- Phase 1 通用优先，Phase 2 定制层后做
+- 后端直接 `execFile('git', ...)` 调用，不引入 isomorphic-git / simple-git 等额外依赖
+- 复用现有 workspace API 的 security 层（路径校验、linked roots 权限）
+
+## Dependencies
+
+- `Evolved from`: F063 Hub Workspace Explorer（复用 worktree 选择器、workspace API 基础设施）
+
+## Risk
+
+- `git log` 对大仓库可能慢 → limit 参数 + 分页
+- Runtime drift 需要 runtime 目录路径配置化
+
+## Open Questions
+
+1. Runtime 路径怎么配置？环境变量 `CAT_CAFE_RUNTIME_PATH`？还是 linked roots 里标记？
+2. Stale branches 的"猫猫归属"从 commit author 推断够准吗？还是查 branch 名前缀？
+
+## Review Gate
+
+- Phase 完成后跑 quality-gate + 跨猫 review
+
+## Timeline
+
+| Date | Event |
+|------|-------|
+| 2026-03-07 | Kickoff: 铲屎官提出需求，立项 F082 |

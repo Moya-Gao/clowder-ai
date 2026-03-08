@@ -245,6 +245,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - **Related**: F060（图片渲染能力）
 - **Related**: F058（运行时状态展示）
 - **Related**: F056（设计语言——UI 猫猫化风格必须对齐）
+- **Evolves to**: F082（Git Health Panel — repo 状态可视化，从 workspace 基础设施衍生）
 - **UX Design**: 暹罗猫出灵感 + GPT-5.2 协助画设计稿 + 布偶猫用 Pencil MCP 落地
 
 ## Design Workflow（铲屎官指定）
