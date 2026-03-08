@@ -169,15 +169,15 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 - [x] 后端 API 4 端点 + ThreadStore 持久化（Phase 1 已完成）
 - [x] 匿名模式 strip identity（Phase 1 已完成）
 - [x] Deadline enforcement（Phase 1 已完成）
-- [ ] `/vote` 命令打开 VoteConfigModal 弹窗
-- [ ] 弹窗含：问题、选项增删、CatSelector、匿名 toggle、超时 select
-- [ ] 发起后系统自动 @ 每只被选中的猫发投票通知
-- [ ] 路由层 regex 拦截 `[VOTE:xxx]` 自动计票
-- [ ] 全员投完自动 close + 生成 rich block card
-- [ ] 超时自动 close + 生成 rich block card
-- [ ] 投票进行中指示器（ChatInput 上方）
-- [ ] AT 猫（antigravity, antig-opus）能参与投票
-- [ ] VoteResultCard 正确渲染投票结果（含进度条）
+- [x] `/vote` 命令打开 VoteConfigModal 弹窗
+- [x] 弹窗含：问题、选项增删、CatSelector、匿名 toggle、超时 select
+- [x] 发起后系统自动 @ 每只被选中的猫发投票通知
+- [x] 路由层 regex 拦截 `[VOTE:xxx]` 自动计票
+- [x] 全员投完自动 close + 生成 rich block card
+- [x] 超时自动 close + 生成 rich block card
+- [x] 投票进行中指示器（ChatInput 上方）
+- [x] AT 猫（antigravity, antig-opus）能参与投票
+- [x] VoteResultCard 正确渲染投票结果（含进度条）
 
 ## Links
 
@@ -221,3 +221,5 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 | 2026-03-07 | Kickoff + Phase 1 (backend API) |
 | 2026-03-08 | Phase 1 merged (PR #287) |
 | 2026-03-08 | Phase 2 spec rewrite (本文档) |
+| 2026-03-08 | Phase 2 merged (PR #296) |
+| 2026-03-07 | Vision guard pass (codex) |
