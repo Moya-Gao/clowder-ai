@@ -41,7 +41,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
-import { extractVoteFromText, checkVoteCompletion, buildVoteTally } from './vote-intercept.js';
+import { VOTE_RESULT_SOURCE, extractVoteFromText, checkVoteCompletion, buildVoteTally } from './vote-intercept.js';
 
 export async function* routeSerial(
   deps: RouteStrategyDeps,
@@ -448,6 +448,21 @@ export async function* routeSerial(
                 await deps.invocationDeps.threadStore.updateVotingState(threadId, null);
                 // Rich block injected into current message for frontend rendering
                 allRichBlocks.push(richBlock);
+                // Gap 3: persist separate connector message for ConnectorBubble rendering
+                try {
+                  await deps.messageStore.append({
+                    userId,
+                    catId: null,
+                    content: `📊 投票结果: ${voteState.question}`,
+                    mentions: [],
+                    timestamp: Date.now(),
+                    threadId,
+                    source: VOTE_RESULT_SOURCE,
+                    extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+                  });
+                } catch (persistErr) {
+                  console.warn(`[routeSerial] Failed to persist vote connector message:`, persistErr);
+                }
                 console.log(`[routeSerial] F079: Vote auto-closed in ${threadId}`);
               }
             }

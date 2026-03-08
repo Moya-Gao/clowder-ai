@@ -10,7 +10,7 @@
 
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { buildVoteTally, checkVoteCompletion } from '../domains/cats/services/agents/routing/vote-intercept.js';
+import { VOTE_RESULT_SOURCE, buildVoteTally, checkVoteCompletion } from '../domains/cats/services/agents/routing/vote-intercept.js';
 import type { IThreadStore, VotingStateV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
@@ -84,12 +84,13 @@ async function closeVoteInternal(
   if (messageStore) {
     try {
       await messageStore.append({
-        userId: 'system',
+        userId: votingState.createdBy,
         catId: null,
         content: `📊 投票结果: ${votingState.question}`,
         mentions: [],
         timestamp: Date.now(),
         threadId,
+        source: VOTE_RESULT_SOURCE,
         extra: { rich: { v: 1 as const, blocks: [richBlock] } },
       });
     } catch (err) {
@@ -271,6 +272,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
             mentions: [],
             timestamp: Date.now(),
             threadId,
+            source: VOTE_RESULT_SOURCE,
             extra: { rich: { v: 1 as const, blocks: [richBlock] } },
           });
         } catch (err) {
@@ -362,12 +364,13 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
     if (messageStore) {
       try {
         await messageStore.append({
-          userId: 'system',
+          userId: result.createdBy,
           catId: null,
           content: `📊 投票结果: ${result.question}`,
           mentions: [],
           timestamp: Date.now(),
           threadId,
+          source: VOTE_RESULT_SOURCE,
           extra: { rich: { v: 1 as const, blocks: [richBlock] } },
         });
       } catch (err) {

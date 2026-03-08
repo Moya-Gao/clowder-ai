@@ -5,7 +5,15 @@
  * and managing vote completion logic.
  */
 
+import type { ConnectorSource } from '@cat-cafe/shared';
 import type { VotingStateV1 } from '../../stores/ports/ThreadStore.js';
+
+/** Gap 3: vote results render as ConnectorBubble, not plain system message. */
+export const VOTE_RESULT_SOURCE: ConnectorSource = {
+  connector: 'vote-result',
+  label: '投票结果',
+  icon: '🗳️',
+};
 
 const VOTE_PATTERN = /\[VOTE:(.+?)\]/;
 

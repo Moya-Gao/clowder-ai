@@ -825,10 +825,110 @@ describe('Vote Routes', () => {
     assert.equal(persistedMessages.length, 1);
     const msg = persistedMessages[0];
     assert.equal(msg.threadId, thread.id);
-    assert.equal(msg.userId, 'system');
+    assert.equal(msg.userId, 'user-1');
     assert.ok(msg.extra.rich);
     assert.equal(msg.extra.rich.blocks.length, 1);
     assert.ok(msg.extra.rich.blocks[0].title.includes('投票结果'));
+  });
+
+  // ── Gap 3: vote result connector bubble ──
+
+  test('DELETE close persists message with vote-result connector source', async () => {
+    const { app, threadStore, persistedMessages } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { question: '谁最坏？', options: ['opus', 'codex'] },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { option: 'opus' },
+    });
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+
+    assert.equal(persistedMessages.length, 1);
+    const msg = persistedMessages[0];
+    // Must have connector source for ConnectorBubble rendering
+    assert.ok(msg.source, 'message must have source field');
+    assert.equal(msg.source.connector, 'vote-result');
+    assert.equal(msg.source.label, '投票结果');
+    assert.equal(msg.source.icon, '🗳️');
+  });
+
+  test('DELETE close persists connector message with thread owner userId (not system)', async () => {
+    const { app, threadStore, persistedMessages } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { question: '谁最坏？', options: ['opus', 'codex'] },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: { option: 'opus' },
+    });
+
+    await app.inject({
+      method: 'DELETE',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+    });
+
+    const connectorMsgs = persistedMessages.filter((m) => m.source?.connector === 'vote-result');
+    assert.equal(connectorMsgs.length, 1);
+    // userId must be thread owner, not 'system' — otherwise getByThread filters it out
+    assert.equal(connectorMsgs[0].userId, 'user-1');
+  });
+
+  test('auto-close via cast persists message with vote-result connector source', async () => {
+    const { app, threadStore, persistedMessages } = await buildApp();
+    const thread = threadStore.create('user-1', 'Test');
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote/start`,
+      headers: { 'x-cat-cafe-user': 'user-1' },
+      payload: {
+        question: '谁最坏？',
+        options: ['opus', 'codex'],
+        voters: ['opus', 'codex'],
+      },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'opus' },
+      payload: { option: 'codex' },
+    });
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/threads/${thread.id}/vote`,
+      headers: { 'x-cat-cafe-user': 'codex' },
+      payload: { option: 'opus' },
+    });
+
+    assert.equal(persistedMessages.length, 1);
+    const msg = persistedMessages[0];
+    assert.ok(msg.source, 'auto-close message must have source field');
+    assert.equal(msg.source.connector, 'vote-result');
   });
 
   test('auto-close via cast persists rich block as system message', async () => {

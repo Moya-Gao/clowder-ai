@@ -50,6 +50,13 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     color: { primary: '#2563EB', secondary: '#EFF6FF' },
     description: 'GitHub PR review 邮件通知',
   },
+  {
+    id: 'vote-result',
+    displayName: '投票结果',
+    icon: '🗳️',
+    color: { primary: '#7C3AED', secondary: '#F5F3FF' },
+    description: '投票系统自动汇总结果',
+  },
 ] as const;
 
 const connectorMap = new Map<string, ConnectorDefinition>(

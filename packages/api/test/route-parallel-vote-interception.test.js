@@ -81,6 +81,58 @@ describe('routeParallel vote interception', () => {
     assert.equal(Object.keys(state.votes).length, 2);
   });
 
+  test('auto-close persists separate connector message with vote-result source', async () => {
+    const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
+
+    let state = {
+      v: 1,
+      question: '谁最坏？',
+      options: ['opus', 'codex'],
+      votes: {},
+      anonymous: false,
+      deadline: Date.now() + 60_000,
+      createdBy: 'owner',
+      status: 'active',
+      voters: ['opus', 'codex'],
+    };
+
+    const threadStore = {
+      getVotingState: async () => state,
+      updateVotingState: async (_threadId, next) => {
+        state = next;
+      },
+      updateParticipantActivity: async () => {},
+      getParticipantsWithActivity: async () => [],
+      get: async () => null,
+    };
+
+    const appendedMessages = [];
+    const deps = createDeps(
+      {
+        opus: createVoteService('opus', 'codex'),
+        codex: createVoteService('codex', 'opus'),
+      },
+      threadStore,
+    );
+    // Override messageStore to capture appends
+    deps.messageStore.append = async (msg) => {
+      const stored = { id: `msg-${appendedMessages.length}`, ...msg };
+      appendedMessages.push(stored);
+      return stored;
+    };
+
+    for await (const _msg of routeParallel(deps, ['opus', 'codex'], 'vote', 'user1', 'thread1')) {
+      // drain
+    }
+
+    // Should have at least one connector message with vote-result source
+    const connectorMsgs = appendedMessages.filter((m) => m.source?.connector === 'vote-result');
+    assert.equal(connectorMsgs.length, 1, 'should persist exactly one vote-result connector message');
+    assert.equal(connectorMsgs[0].source.label, '投票结果');
+    assert.equal(connectorMsgs[0].source.icon, '🗳️');
+    assert.equal(connectorMsgs[0].userId, 'user1');
+  });
+
   test('ignores votes from non-designated cats', async () => {
     const { routeParallel } = await import('../dist/domains/cats/services/agents/routing/route-parallel.js');
 

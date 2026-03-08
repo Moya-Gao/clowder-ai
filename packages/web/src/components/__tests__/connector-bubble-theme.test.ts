@@ -35,6 +35,71 @@ describe('ConnectorBubble theme', () => {
     container.remove();
   });
 
+  it('uses purple theme for vote-result connector', () => {
+    const message: ChatMessage = {
+      id: 'm-vote',
+      type: 'connector',
+      content: '📊 投票结果: 谁最坏？',
+      timestamp: Date.now(),
+      source: {
+        connector: 'vote-result',
+        label: '投票结果',
+        icon: '🗳️',
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    expect(html).toContain('bg-purple-100');
+    expect(html).toContain('border-purple-200');
+    expect(html).not.toContain('bg-blue-100');
+    expect(html).not.toContain('bg-slate-100');
+  });
+
+  it('renders rich block fields inside connector bubble', () => {
+    const message: ChatMessage = {
+      id: 'm-vote-rich',
+      type: 'connector',
+      content: '📊 投票结果: 谁最坏？',
+      timestamp: Date.now(),
+      source: {
+        connector: 'vote-result',
+        label: '投票结果',
+        icon: '🗳️',
+      },
+      extra: {
+        rich: {
+          v: 1 as const,
+          blocks: [{
+            id: 'vote-1',
+            kind: 'card' as const,
+            v: 1 as const,
+            title: '📊 投票结果: 谁最坏？',
+            bodyMarkdown: '实名投票 · 2 票',
+            tone: 'info' as const,
+            fields: [
+              { label: 'opus', value: '1 票 (50%)' },
+              { label: 'codex', value: '1 票 (50%)' },
+            ],
+          }],
+        },
+      },
+    };
+
+    act(() => {
+      root.render(React.createElement(ConnectorBubble, { message }));
+    });
+
+    const html = container.innerHTML;
+    // Rich block fields should be visible inside the connector bubble
+    expect(html).toContain('opus');
+    expect(html).toContain('codex');
+    expect(html).toContain('50%');
+  });
+
   it('uses slate theme for github-review connector', () => {
     const message: ChatMessage = {
       id: 'm1',

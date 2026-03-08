@@ -2,6 +2,7 @@
 
 import type { ChatMessage as ChatMessageType, MessageContent } from '@/stores/chatStore';
 import { MarkdownContent } from './MarkdownContent';
+import { RichBlocks } from './rich/RichBlocks';
 import { API_URL } from '@/utils/api-client';
 
 function formatTime(ts: number): string {
@@ -63,6 +64,16 @@ function getConnectorTheme(connector: string | undefined): {
     };
   }
 
+  // Gap 3: Vote results get a purple theme to stand out from reviews and system messages.
+  if (connector === 'vote-result') {
+    return {
+      avatar: 'bg-purple-100 ring-2 ring-purple-200',
+      label: 'text-purple-700',
+      labelLink: 'text-purple-700 hover:text-purple-900',
+      bubble: 'border border-purple-200 bg-purple-50',
+    };
+  }
+
   return defaultTheme;
 }
 
@@ -76,6 +87,7 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
 
   const theme = getConnectorTheme(source.connector);
   const hasBlocks = message.contentBlocks && message.contentBlocks.length > 0;
+  const richBlocks = message.extra?.rich?.blocks;
   // P3 fix (砚砚 R1): protocol whitelist — only render safe URLs as clickable links
   const rawUrl = source.url;
   const srcUrl = rawUrl && /^https?:\/\//.test(rawUrl) ? rawUrl : undefined;
@@ -107,6 +119,9 @@ export function ConnectorBubble({ message }: ConnectorBubbleProps) {
             renderContentBlocks(message.contentBlocks!)
           ) : (
             <MarkdownContent content={message.content} />
+          )}
+          {richBlocks && richBlocks.length > 0 && (
+            <RichBlocks blocks={richBlocks} />
           )}
         </div>
       </div>
