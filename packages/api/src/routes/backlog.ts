@@ -479,7 +479,13 @@ export const backlogRoutes: FastifyPluginAsync<BacklogRoutesOptions> = async (ap
       reply.status(401);
       return { error: 'Identity required' };
     }
-    const items = await backlogStore.listByUser(userId);
+    const query = request.query as { projectId?: string };
+    const allItems = await backlogStore.listByUser(userId);
+    // Filter by projectId: if provided, return only that project's items;
+    // if absent, return only home items (no projectId)
+    const items = query.projectId
+      ? allItems.filter((i) => i.projectId === query.projectId)
+      : allItems.filter((i) => !i.projectId);
     return { items };
   });
 

@@ -234,6 +234,25 @@ export type {
   UpdateWorkflowSopInput,
   WorkflowSop,
 } from './workflow-sop.js';
+// External project types (F076 跨项目作战面板)
+export type {
+  CreateExternalProjectInput,
+  ExternalProject,
+} from './external-project.js';
+// Intent Card + Need Audit types (F076 需求翻译官)
+export type {
+  CreateIntentCardInput,
+  CreateNeedAuditFrameInput,
+  IntentCard,
+  NeedAuditFrame,
+  ResolutionPath,
+  RiskSignal,
+  SizeBand,
+  SourceTag,
+  TriageBucket,
+  TriageIntentCardInput,
+  TriageResult,
+} from './intent-card.js';
 // TTS types (F34 TTS Provider)
 export type {
   ITtsProvider,

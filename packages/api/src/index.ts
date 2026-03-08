@@ -5,7 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes } from './routes/index.js';
+import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { threadExportRoutes } from './routes/thread-export.js';
@@ -360,6 +360,15 @@ async function main(): Promise<void> {
   await app.register(threadExportRoutes, { threadStore });
   await app.register(tasksRoutes, { taskStore, socketManager });
   await app.register(backlogRoutes, { backlogStore, threadStore, messageStore });
+
+  // F076: External projects + Need Audit
+  const { ExternalProjectStore } = await import('./domains/projects/external-project-store.js');
+  const { IntentCardStore } = await import('./domains/projects/intent-card-store.js');
+  const { NeedAuditFrameStore } = await import('./domains/projects/need-audit-frame-store.js');
+  const externalProjectStore = new ExternalProjectStore();
+  const intentCardStore = new IntentCardStore();
+  const needAuditFrameStore = new NeedAuditFrameStore();
+  await app.register(externalProjectRoutes, { externalProjectStore, intentCardStore, needAuditFrameStore, backlogStore });
   if (workflowSopStore) {
     await app.register(workflowSopRoutes, { workflowSopStore, backlogStore });
   }

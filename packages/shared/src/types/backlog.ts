@@ -59,6 +59,7 @@ export interface BacklogAuditEntry {
 export interface BacklogItem {
   readonly id: string;
   readonly userId: string;
+  readonly projectId?: string;
   readonly title: string;
   readonly summary: string;
   readonly priority: BacklogPriority;
@@ -91,6 +92,8 @@ export interface CreateBacklogItemInput {
   readonly dependencies?: BacklogDependencies;
   /** Optional initial status for import (skips workflow transitions). Defaults to 'open'. */
   readonly initialStatus?: BacklogStatus;
+  /** Optional project scope for cross-project backlog (F076). */
+  readonly projectId?: string;
 }
 
 export interface RefreshBacklogItemInput {

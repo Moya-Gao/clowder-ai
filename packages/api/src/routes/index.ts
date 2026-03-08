@@ -39,3 +39,4 @@ export { workflowSopRoutes } from './workflow-sop.js';
 export { workspaceEditRoutes } from './workspace-edit.js';
 export { workspaceGitRoutes } from './workspace-git.js';
 export { voteRoutes } from './votes.js';
+export { externalProjectRoutes } from './external-projects.js';

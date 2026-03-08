@@ -87,6 +87,7 @@ export class BacklogStore implements IBacklogStore {
       status: input.initialStatus ?? 'open',
       createdBy: input.createdBy,
       ...(input.dependencies ? { dependencies: input.dependencies } : {}),
+      ...(input.projectId ? { projectId: input.projectId } : {}),
       createdAt: now,
       updatedAt: now,
       audit: [

@@ -1,14 +1,17 @@
 'use client';
 
-import type { BacklogItem, CatId, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
+import type { BacklogItem, CatId, ExternalProject, MissionHubSelfClaimScope, ThreadPhase } from '@cat-cafe/shared';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ThreadSidebar } from '@/components/ThreadSidebar';
 import { useMissionControlStore } from '@/stores/missionControlStore';
+import { useExternalProjectStore } from '@/stores/externalProjectStore';
 import { apiFetch } from '@/utils/api-client';
 import { DependencyGraphTab } from './DependencyGraphTab';
+import { ExternalProjectTab } from './ExternalProjectTab';
 import { extractFeatureId } from './FeatureBirdEyePanel';
 import { FeatureRowList } from './FeatureRowList';
+import { ImportProjectModal } from './ImportProjectModal';
 import { QuickCreateForm } from './QuickCreateForm';
 import { SuggestionDrawer } from './SuggestionDrawer';
 import { ThreadSituationPanel } from './ThreadSituationPanel';
@@ -404,8 +407,33 @@ export function MissionControlPage() {
   const activeCount = useMemo(() => items.filter((i) => i.status === 'dispatched').length, [items]);
   const doneCount = useMemo(() => items.filter((i) => i.status === 'done').length, [items]);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'features' | 'dependencies'>('features');
+  // Tab state (string allows project IDs as tab values)
+  const [activeTab, setActiveTab] = useState<string>('features');
+  const [showImportModal, setShowImportModal] = useState(false);
+  const { projects, setProjects, setActiveProjectId } = useExternalProjectStore();
+
+  const loadExternalProjects = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/external-projects');
+      if (res.ok) {
+        const body = await res.json() as { projects: ExternalProject[] };
+        setProjects(body.projects);
+      }
+    } catch { /* ignore */ }
+  }, [setProjects]);
+
+  useEffect(() => {
+    void loadExternalProjects();
+  }, [loadExternalProjects]);
+
+  // Sync active project
+  const activeProject = useMemo(
+    () => projects.find((p) => p.id === activeTab) ?? null,
+    [projects, activeTab],
+  );
+  useEffect(() => {
+    setActiveProjectId(activeProject?.id ?? null);
+  }, [activeProject, setActiveProjectId]);
 
   // AC-H2: Referrer-based back button — remember where we came from
   const referrerThread = useMemo(() => {
@@ -467,10 +495,25 @@ export function MissionControlPage() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#7A6B5A] transition-colors hover:bg-[#F7EEDB] disabled:opacity-40"
               data-testid="mc-import-docs"
             >
-              从文档导入
+              导入 Backlog
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#D8C6AD] bg-[#FCF7EE] px-3 py-1.5 text-xs font-medium text-[#7A6B5A] transition-colors hover:bg-[#F7EEDB]"
+              data-testid="mc-import-project"
+            >
+              + 导入项目
             </button>
           </div>
         </header>
+
+        {showImportModal && (
+          <ImportProjectModal
+            onClose={() => setShowImportModal(false)}
+            onImported={() => void loadExternalProjects()}
+          />
+        )}
 
         {/* Tabs */}
         <div className="flex border-b border-[#E7DAC7] bg-[#FFFDF8]">
@@ -498,6 +541,20 @@ export function MissionControlPage() {
           >
             依赖全景
           </button>
+          {projects.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setActiveTab(p.id)}
+              className={`px-5 py-2.5 text-[13px] font-semibold transition-colors ${
+                activeTab === p.id
+                  ? 'border-b-2 border-[#8B6F47] text-[#8B6F47]'
+                  : 'text-[#9A866F] hover:text-[#6B5D4F]'
+              }`}
+            >
+              {p.name}
+            </button>
+          ))}
         </div>
 
         {/* Status summary bar */}
@@ -519,7 +576,11 @@ export function MissionControlPage() {
 
         {/* Main content area */}
         <div className="min-h-0 flex-1 overflow-auto">
-          {activeTab === 'features' ? (
+          {activeProject ? (
+            <div className="p-6">
+              <ExternalProjectTab project={activeProject} />
+            </div>
+          ) : activeTab === 'features' ? (
             <div className="grid min-h-0 grid-cols-1 gap-4 p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
               <div className="space-y-4">
                 {/* Quick create */}
