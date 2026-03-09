@@ -61,12 +61,12 @@ tmux pane（agent 跑在这里）─┤
 ### Phase 1：tmux 基础设施 + 用户 Shell（终态基座）
 
 - [x] **Spike**：tmux CLI 调用可行性验证（2026-03-09 完成，CLI 6/6 PASS，control mode 不需要）
-- [x] TmuxGateway 服务：worktree = tmux server 生命周期管理（CLI 调用）（PR #332）
-- [x] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`（PR #332）
-- [x] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作（PR #332）
-- [x] WorkspacePanel 新增 Terminal tab — 单 shell 会话（PR #332）
+- [x] TmuxGateway 服务：worktree = tmux server 生命周期管理（CLI 调用）（PR #326）
+- [x] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`（PR #326）
+- [x] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作（PR #326 + #332 lifecycle 收口）
+- [x] WorkspacePanel 新增 Terminal tab — 单 shell 会话（PR #326）
 - [ ] tmux window/pane 列表 UI（当前只有单 shell，列表 UI 延后到 Phase 3 与 agent pane 列表一起做）
-- [x] 前端 `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach`（PR #332）
+- [x] 前端 `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach`（PR #326）
 
 ### Phase 2：Agent 在 tmux pane 里跑（后端 plumbing）
 
@@ -144,7 +144,7 @@ tmux pane（agent 跑在这里）─┤
 
 | # | 需求点 | 来源 | 状态 |
 |---|--------|------|------|
-| 1 | 浏览器内打开 terminal（单 shell） | 铲屎官 2026-03-08 | done (Phase 1, PR #332) |
+| 1 | 浏览器内打开 terminal（单 shell） | 铲屎官 2026-03-08 | done (Phase 1, PR #326 + #332) |
 | 1b | 浏览器内 tmux pane 列表 UI | 铲屎官 2026-03-08 | pending (Phase 3) |
 | 2 | 观察 agent 操作（后端 plumbing） | 铲屎官 2026-03-08 | done (Phase 2, PR #334) |
 | 2b | 观察 agent 操作（前端 UI 入口） | 铲屎官 2026-03-08 | pending (Phase 3) |
@@ -162,6 +162,6 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-09 | F089 正式立项 |
 | 2026-03-09 | Spike: tmux CLI 6/6 PASS, control mode 不需要 |
 | 2026-03-09 | 砚砚 P1 审查：双轨制 → 单源双消费（agent 在 tmux pane 里跑）|
-| 2026-03-09 | Phase 1 合入 main（PR #332）|
+| 2026-03-09 | Phase 1 合入 main（PR #326 基建 + PR #332 lifecycle 收口）|
 | 2026-03-09 | Phase 2 后端 plumbing 合入 main（PR #334）：SpawnCliOverride + FIFO + AgentPaneRegistry |
 | 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + pane list UI + worktreeId 真相源修正迁入 Phase 3 |
