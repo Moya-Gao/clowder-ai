@@ -27,15 +27,17 @@ created: 2026-03-04
 
 Clowder-ai 不是一个"管住 agent 不出错"的框架，是一个"让 agent 有灵魂地协作"的框架。
 
-### 第一性原理：面向终态，不绕路（2026-03-08 铲屎官定调）
+### 第一性原理（2026-03-08 铲屎官定调）
 
-> 铲屎官原话："我们的第一性原理就是不要绕路！猫猫们一天干的活 > 一个程序员一年！现在的世界绕路 = 犯傻！"
+完整定义见 `cat-cafe-skills/refs/shared-rules.md`「第一性原理」章节：
 
-AI agent 的开发速度是人类的 100x+。传统"先简单后复杂"的渐进策略是为了管理人类认知负荷。当执行速度不再是瓶颈，**方向正确性**才是瓶颈。
-
-**实操规则**：设计任何 Phase 路线时，先画终态，从终态反推。如果 Phase 1 的产物在 Phase 3 要拆掉重做，那 Phase 1 就是绕路。每一步的产物必须是终态的**基座**，不是**脚手架**。
-
-详细检查方法见 `cat-cafe-skills/refs/shared-rules.md` Rule 12。
+| # | 原理 | 一句话 |
+|---|------|-------|
+| P1 | 面向终态，不绕路 | 每步是基座不是脚手架 |
+| P2 | 共创伙伴，不是木头人 | 硬约束是底线，底线上释放主观能动性 |
+| P3 | 方向正确 > 执行速度 | 不确定就停→搜→问→确认→再动手 |
+| P4 | 单一真相源 | 每个概念只在一处定义 |
+| P5 | 可验证才算完成 | 证据说话，不是信心说话 |
 
 ### 三层能力边界（全猫共识，2026-03-08 讨论）
 
@@ -195,14 +197,72 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 
 ### 开源前的准备工作
 
-- [ ] 梳理代码模块边界，确认哪些可以独立抽取
-- [ ] 编写 strip 脚本：从主仓导出时自动去除敏感路径/内容
-- [ ] 去除硬编码的用户信息（userId、threadId 等）
-- [ ] 编写开源版 README、架构文档、贡献指南
-- [ ] 三猫通用版 Agent MD：CLAUDE.md + AGENTS.md + GEMINI.md（去掉内部规则/铁律/个人偏好，保留架构说明和协作约定）
-- [ ] 确认 License
-- [ ] 补充必要的注释和 JSDoc（开源代码需要比内部代码更多的文档）
-- [ ] 确认 CI/CD：开源仓的测试需要独立跑通（不依赖私有 Redis 等）
+**Phase 1: 同步管道（布偶猫 Opus 4.6，进行中）**
+
+- [x] `sync-manifest.yaml` — 定义导出白名单、transforms、denylist、provenance
+- [x] `scripts/sync-to-opensource.sh` — 五步管道（clean export → allowlist → transforms → security scan → output）
+- [x] 源码脱敏 — 个人信息从 placeholder/JSDoc/测试路径中移除
+- [x] 安全扫描 — 分层策略（API key 值零容忍/个人信息源码检查/env 变量名仅告警）
+- [x] Dry-run 通过 — 946 files, 5 transforms, 0 errors, 2 warnings
+- [ ] `cat-cafe-skills/` 加入导出 — 通用化 transform（去铲屎官个人引用）
+- [ ] `test:public` 测试套件 — 排除 Redis 依赖的测试
+- [ ] `--validate` 模式 — 在导出目录跑 install + build + smoke test
+- [ ] 仓库名更新 — 脚本/manifest 从 `cat-cafe-ai` → `clowder-ai`
+
+**Phase 2: 社区门面（待 P1 完成后）**
+
+- [ ] 开源版 README（含 Slogan + Quick Start + 架构图）
+- [ ] CONTRIBUTING.md + SECURITY.md + CODEOWNERS
+- [ ] .github/workflows/ci.yml
+- [ ] 通用版 CLAUDE.md + AGENTS.md + GEMINI.md（含铁律）
+
+**Phase 3: 打磨（待 P2 完成后）**
+
+- [ ] 补充 JSDoc
+- [ ] 更新教程仓链接
+- [ ] 两猫交叉 review 完整导出
+
+### Skills 开源策略（2026-03-09 讨论收敛）
+
+> 三猫共识：skills 不能全关也不能全开。
+
+**必须开源**（运行时依赖 + 核心差异化）：
+
+| 资产 | 理由 |
+|------|------|
+| `cat-cafe-skills/manifest.yaml` | skill 路由真相源，API capability discovery 依赖 |
+| `cat-cafe-skills/*/SKILL.md` | SystemPromptBuilder 注入 + governance bootstrap 依赖 |
+| `cat-cafe-skills/refs/shared-rules.md` | 第一性原理 + 协作规则（clowder-ai 的灵魂） |
+| `cat-cafe-skills/refs/rich-blocks.md` | 运行时功能依赖 |
+| `cat-cafe-skills/refs/mcp-callbacks.md` | MCP 集成文档 |
+| `cat-cafe-skills/refs/pr-template.md` | 社区 PR 需要 |
+| `cat-cafe-skills/refs/review-request-template.md` | review 流程需要 |
+| `cat-cafe-skills/refs/requirements-checklist-template.md` | 质量门禁需要 |
+
+**需要 transform**（通用化）：
+
+| 资产 | Transform |
+|------|-----------|
+| `shared-rules.md` | "铲屎官原话" → "team lead 经验" 等个人引用通用化 |
+| Skills 内容 | 去掉内部 Redis 6399 端口、内部 PR 流程细节 |
+
+**不开源**（内部运营）：
+
+| 资产 | 理由 |
+|------|------|
+| `refs/commit-signatures.md` | 内部签名表 |
+| `refs/hyperfocus-brake-messages.md` | 铲屎官个人风格 |
+| `refs/decision-matrix.md` | 内部决策权矩阵 |
+| `refs/vision-evidence-workflow.md` | 内部愿景守护细节 |
+
+### 商用影响分析（2026-03-09 三猫讨论）
+
+MIT 下别人可商用。三猫共识：
+
+- **护城河不在代码和 skills**：真正的差异化在经验积累（lessons-learned、decisions、三猫默契、运营 SOP）——这些不导出
+- **Skills 开源反而是拉新手段**：别人用了我们的 SOP 觉得好，会回来贡献
+- **真正的风险**：不是"别人商用"，而是"送出去多少 know-how" → 用分层 transform 控制
+- **安全面暴露**：prompt 规则公开后需更依赖代码层防护（铁律的代码层实现）
 
 ## Acceptance Criteria
 
@@ -231,7 +291,7 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 |------|------|
 | 敏感信息泄露 | strip 脚本 + 人工 review（至少两猫交叉检查） |
 | 开源后维护负担 | 先小范围（核心框架），不一步开源全部 |
-| 内部开发被开源仓拖慢 | 单向同步（主仓→开源仓），不接受开源仓反向 PR |
+| 内部开发被开源仓拖慢 | 受控回流模型：社区 PR 只进 `community/` 路径；核心路径由主仓同步 |
 
 ## Timeline
 
