@@ -1,9 +1,6 @@
-import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  getAntigravitySmokeSkipReason,
-  runAntigravityRoundTripSmoke,
-} from './helpers/antigravity-smoke.js';
+import { describe, test } from 'node:test';
+import { getAntigravitySmokeSkipReason, runAntigravityRoundTripSmoke } from './helpers/antigravity-smoke.js';
 
 // Skip entire suite if Antigravity is not running on port 9000
 async function isAntigravityRunning() {
@@ -32,10 +29,7 @@ describe('Antigravity smoke test', { skip: skipReason ?? false }, () => {
     const response = await runAntigravityRoundTripSmoke(client);
 
     assert.ok(response, 'should receive a response');
-    assert.ok(
-      response.toLowerCase().includes('pong'),
-      `response should contain "pong", got: ${response}`
-    );
+    assert.ok(response.toLowerCase().includes('pong'), `response should contain "pong", got: ${response}`);
 
     await client.disconnect();
   });
@@ -55,7 +49,7 @@ describe('Antigravity smoke test', { skip: skipReason ?? false }, () => {
     }
 
     assert.ok(messages.length >= 2, 'should have at least text + done');
-    const textMsg = messages.find(m => m.type === 'text');
+    const textMsg = messages.find((m) => m.type === 'text');
     assert.ok(textMsg, 'should have a text message');
     assert.ok(textMsg.content, 'text message should have content');
     assert.equal(messages[messages.length - 1].type, 'done');

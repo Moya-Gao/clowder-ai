@@ -1,15 +1,8 @@
-import { describe, test, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  getAntigravitySmokeSkipReason,
-  runAntigravityRoundTripSmoke,
-} from './helpers/antigravity-smoke.js';
+import { describe, mock, test } from 'node:test';
+import { getAntigravitySmokeSkipReason, runAntigravityRoundTripSmoke } from './helpers/antigravity-smoke.js';
 
-function createMockClient({
-  response = 'pong',
-  connectError = null,
-  sendError = null,
-} = {}) {
+function createMockClient({ response = 'pong', connectError = null, sendError = null } = {}) {
   return {
     connected: false,
     connect: mock.fn(async () => {
@@ -82,10 +75,7 @@ describe('runAntigravityRoundTripSmoke', () => {
   test('still disconnects when sendMessage throws', async () => {
     const client = createMockClient({ sendError: new Error('send failed') });
 
-    await assert.rejects(
-      () => runAntigravityRoundTripSmoke(client),
-      /send failed/,
-    );
+    await assert.rejects(() => runAntigravityRoundTripSmoke(client), /send failed/);
 
     assert.equal(client.disconnect.mock.callCount(), 1);
   });

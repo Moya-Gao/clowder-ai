@@ -56,7 +56,13 @@ export const POLL_RESPONSE_JS = `(() => {
   const responseText = responseParts.join('\\n').trim();
   const thinkingText = thinkingParts.filter(Boolean).join('\\n').trim();
   const hasInlineLoading = assistantBlocks.some((b) => !!b.querySelector('.codicon-loading, [aria-busy="true"]'));
-  return JSON.stringify({ userMsgCount: userMsgs.length, responseText, thinkingText, hasInlineLoading });
+  const chatScope = document.querySelector('[role="textbox"]')?.closest('.overflow-y-auto, [class*="chat"], [class*="conversation"]')?.parentElement;
+  let hasStopButton = false;
+  if (chatScope) {
+    const stopBtn = chatScope.querySelector('button[aria-label*="stop" i]:not([disabled]), button[aria-label*="cancel" i]:not([disabled]), button[title*="stop" i]:not([disabled])');
+    hasStopButton = !!(stopBtn && stopBtn.offsetParent !== null);
+  }
+  return JSON.stringify({ userMsgCount: userMsgs.length, responseText, thinkingText, hasInlineLoading, hasStopButton });
 })()`;
 
 /** Find the "new conversation" button via multiple DOM strategies.
@@ -107,6 +113,76 @@ export const DISPATCH_ENTER_JS = `(() => {
   el.dispatchEvent(new KeyboardEvent('keypress', opts));
   el.dispatchEvent(new KeyboardEvent('keyup', opts));
   return true;
+})()`;
+
+/** Read the currently selected model label from the footer model selector.
+ *  Returns the trimmed text content, e.g. "Gemini 3.1 Pro (High)". */
+export const GET_CURRENT_MODEL_JS = `(() => {
+  const selectors = [
+    '[class*="model-selector"]',
+    '[class*="ModelSelector"]',
+    'button[class*="px-2"][class*="py-1"]',
+  ];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el && el.textContent?.trim()) return el.textContent.trim();
+  }
+  const footer = document.querySelector('[class*="footer"], [class*="bottom-bar"], [class*="status"]');
+  if (footer) {
+    for (const btn of footer.querySelectorAll('button')) {
+      const t = btn.textContent?.trim() || '';
+      if (t.match(/gemini|claude|gpt|opus|sonnet|flash/i) && t.length < 60) return t;
+    }
+  }
+  for (const btn of document.querySelectorAll('button')) {
+    const t = btn.textContent?.trim() || '';
+    if (t.match(/^(Gemini|Claude|GPT)/i) && t.length < 60) return t;
+  }
+  return null;
+})()`;
+
+/** Click the model selector button to open the dropdown.
+ *  Returns JSON { x, y } of the selector, or null. */
+export const CLICK_MODEL_SELECTOR_JS = `(() => {
+  const selectors = [
+    '[class*="model-selector"]',
+    '[class*="ModelSelector"]',
+  ];
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) { const r = el.getBoundingClientRect(); if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 }); }
+  }
+  const footer = document.querySelector('[class*="footer"], [class*="bottom-bar"], [class*="status"]');
+  if (footer) {
+    for (const btn of footer.querySelectorAll('button')) {
+      const t = btn.textContent?.trim() || '';
+      if (t.match(/gemini|claude|gpt|opus|sonnet|flash/i) && t.length < 60) {
+        const r = btn.getBoundingClientRect();
+        if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+      }
+    }
+  }
+  for (const btn of document.querySelectorAll('button')) {
+    const t = btn.textContent?.trim() || '';
+    if (t.match(/^(Gemini|Claude|GPT)/i) && t.length < 60) {
+      const r = btn.getBoundingClientRect();
+      if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+    }
+  }
+  return null;
+})()`;
+
+/** Find and click a model option in the open dropdown by label substring.
+ *  Argument: __TARGET__ will be replaced at call time.
+ *  Returns true if clicked, false if not found. */
+export const FIND_MODEL_OPTION_JS = `(() => {
+  const options = [...document.querySelectorAll('[class*="px-2"][class*="py-1"][class*="cursor-pointer"], [role="option"], [role="menuitem"]')]
+    .filter(e => e.offsetParent !== null && e.offsetHeight > 0 && e.offsetHeight < 60);
+  const target = __TARGET__;
+  for (const opt of options) {
+    if ((opt.textContent || '').toLowerCase().includes(target)) { opt.click(); return true; }
+  }
+  return false;
 })()`;
 
 export const NEW_CONVERSATION_JS = `(() => {

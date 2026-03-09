@@ -754,6 +754,134 @@ describe('AntigravityCdpClient', () => {
     assert.equal(result.thinking, 'Hmm, let me calculate...');
   });
 
+  test('Bug-1: default stablePollCount is 4 — survives 3-poll output gap', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: text stays the same for 3 polls (would pass with old stablePollCount=2),
+    // then changes. With stablePollCount=4, should wait for the final text.
+    const states = [
+      1, // initial userMsgCount
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial output', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial output', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial output', hasInlineLoading: false }),
+      // 3 identical polls — stablePollCount=2 would have returned 'partial output' here!
+      JSON.stringify({ userMsgCount: 1, responseText: 'partial output continued...', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'final answer!', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'final answer!', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'final answer!', hasInlineLoading: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'final answer!', hasInlineLoading: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    // Use defaults (no explicit stablePollCount) — should now be 4
+    const result = await client.pollResponse(500, { pollIntervalMs: 1 });
+    assert.deepEqual(result, { text: 'final answer!' });
+  });
+
+  test('Bug-1: stop button presence blocks stable count', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: text is stable but stop button is present (model still generating)
+    const states = [
+      1,
+      JSON.stringify({ userMsgCount: 1, responseText: 'thinking...', hasInlineLoading: false, hasStopButton: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'thinking...', hasInlineLoading: false, hasStopButton: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'thinking...', hasInlineLoading: false, hasStopButton: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'thinking...', hasInlineLoading: false, hasStopButton: true }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(500, { pollIntervalMs: 1 });
+    assert.deepEqual(result, { text: 'done!' });
+  });
+
+  test('P1-fix: hasStopButton only detects visible stop button near chat area', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    // Simulate: hasStopButton=false even when stop button exists elsewhere in IDE.
+    // The DOM script should only look near the chat area, not globally.
+    // Here we test the polling logic: if hasStopButton is false, stable count should work normally.
+    const states = [
+      1,
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+      JSON.stringify({ userMsgCount: 1, responseText: 'done!', hasInlineLoading: false, hasStopButton: false }),
+    ];
+
+    client.evaluate = async () => {
+      const next = states.shift();
+      if (next === undefined) throw new Error('unexpected evaluate call');
+      return next;
+    };
+
+    const result = await client.pollResponse(500, { pollIntervalMs: 1 });
+    // Should return normally when stop button is NOT in chat area
+    assert.deepEqual(result, { text: 'done!' });
+  });
+
+  test('Bug-2: switchModel evaluates model detection and click scripts', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const evaluateCalls = [];
+    client.evaluate = async (expr) => {
+      evaluateCalls.push(expr);
+      if (evaluateCalls.length === 1) return 'Gemini 3.1 Pro (High)'; // getCurrentModel
+      if (evaluateCalls.length === 2) return JSON.stringify({ x: 100, y: 500 }); // CLICK_MODEL_SELECTOR
+      if (evaluateCalls.length === 3) return true; // FIND_MODEL_OPTION
+      return null;
+    };
+    // Mock cdp for clickAt calls
+    client.cdp = async () => ({});
+
+    await client.switchModel('Claude Opus 4.6 (Thinking)');
+    assert.ok(evaluateCalls.length >= 3, 'should have made evaluate calls for detection + switching');
+  });
+
+  test('Bug-2: switchModel skips if already on correct model', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    const evaluateCalls = [];
+    client.evaluate = async (expr) => {
+      evaluateCalls.push(expr);
+      // getCurrentModel → already on target
+      return 'Claude Opus 4.6 (Thinking)';
+    };
+
+    await client.switchModel('Claude Opus 4.6 (Thinking)');
+    // Should only call getCurrentModel, no click actions
+    assert.equal(evaluateCalls.length, 1);
+  });
+
+  test('Bug-2: getCurrentModel reads model from footer selector', async () => {
+    const client = new AntigravityCdpClient();
+    client.ws = { readyState: 1 };
+
+    client.evaluate = async () => 'Gemini 3.1 Pro (High)';
+
+    const model = await client.getCurrentModel();
+    assert.equal(model, 'Gemini 3.1 Pro (High)');
+  });
+
   test('pollResponse waits for inline loading to clear before returning text', async () => {
     const client = new AntigravityCdpClient();
     client.ws = { readyState: 1 };

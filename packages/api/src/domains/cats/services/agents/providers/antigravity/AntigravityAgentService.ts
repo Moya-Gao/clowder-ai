@@ -20,6 +20,21 @@ interface CdpClientLike {
   sendMessage(text: string): Promise<void>;
   pollResponse(idleTimeoutMs?: number, options?: PollResponseOptions): Promise<PollResponseResult | null>;
   newConversation(): Promise<void>;
+  getCurrentModel?(): Promise<string | null>;
+  switchModel?(targetModelLabel: string): Promise<void>;
+}
+
+/** Map cat-config model IDs to Antigravity UI dropdown labels. */
+const MODEL_LABEL_MAP: Record<string, string> = {
+  'gemini-3.1-pro': 'Gemini 3.1 Pro',
+  'gemini-3-flash': 'Gemini 3 Flash',
+  'claude-sonnet-4-6': 'Claude Sonnet 4.6',
+  'claude-opus-4-6': 'Claude Opus 4.6',
+  'gpt-oss-120b': 'GPT-OSS 120B',
+};
+
+function resolveModelLabel(modelId: string): string | undefined {
+  return MODEL_LABEL_MAP[modelId];
 }
 
 export interface AntigravityAgentServiceOptions {
@@ -53,22 +68,23 @@ export class AntigravityAgentService implements AgentService {
   }
 
   async *invoke(prompt: string, options?: AgentServiceOptions): AsyncIterable<AgentMessage> {
-    // CDP bridge cannot verify which model Antigravity actually uses —
-    // the UI model may differ from the configured variant model.
-    // Model switching is Phase 2 (AC-9). Until then, mark as unverified.
-    const metadata: MessageMetadata = {
-      provider: 'antigravity',
-      model: this.model,
-      modelVerified: false,
-    };
+    const metadata: MessageMetadata = { provider: 'antigravity', model: this.model, modelVerified: false };
 
     try {
       if (!this.cdpClient.connected) {
-        // Derive titleHint from workingDirectory (last path segment = project name)
         const titleHint = options?.workingDirectory
           ? options.workingDirectory.split('/').filter(Boolean).pop()
           : undefined;
         await this.cdpClient.connect(titleHint);
+      }
+
+      // Switch model if CDP client supports it (AC-9)
+      if (this.cdpClient.switchModel) {
+        const label = resolveModelLabel(this.model);
+        if (label) {
+          await this.cdpClient.switchModel(label);
+          metadata.modelVerified = true;
+        }
       }
 
       await this.cdpClient.newConversation();
