@@ -17,14 +17,14 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
   const wsRef = useRef<WebSocket | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const cleanupRef = useRef<(() => void) | null>(null);
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('disconnected');
 
   const connect = useCallback(async () => {
     if (!containerRef.current) return;
     setStatus('connecting');
-
     try {
-      // 1. Create session via REST (apiFetch auto-injects X-Cat-Cafe-User)
+      // POST will auto-reconnect to an existing disconnected session
       const res = await apiFetch('/api/terminal/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -34,10 +34,14 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
         setStatus('disconnected');
         return;
       }
-      const { sessionId } = (await res.json()) as { sessionId: string };
+      const { sessionId } = (await res.json()) as {
+        sessionId: string;
+        paneId: string;
+        reconnected: boolean;
+      };
       sessionIdRef.current = sessionId;
 
-      // 2. Init xterm.js
+      // Init xterm.js
       const term = new Terminal({
         cursorBlink: true,
         fontSize: 13,
@@ -55,7 +59,7 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
       terminalRef.current = term;
       fitAddonRef.current = fitAddon;
 
-      // 3. Connect WebSocket (browser WS can't set custom headers, use userId query)
+      // Connect WebSocket
       const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const apiUrl = new URL(API_URL);
       const userId = encodeURIComponent(getUserId());
@@ -78,14 +82,14 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
         setStatus('disconnected');
       };
 
-      // 4. Terminal input → WebSocket
+      // Terminal input → WebSocket
       term.onData((data) => {
         if (ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'input', data }));
         }
       });
 
-      // 5. Resize handling
+      // Resize handling
       const resizeObserver = new ResizeObserver(() => {
         fitAddon.fit();
         const dims = fitAddon.proposeDimensions();
@@ -95,15 +99,29 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
       });
       resizeObserver.observe(containerRef.current);
 
-      return () => {
+      const cleanup = () => {
         resizeObserver.disconnect();
         ws.close();
         term.dispose();
       };
+      cleanupRef.current = cleanup;
+      return cleanup;
     } catch {
       setStatus('disconnected');
     }
   }, [worktreeId]);
+
+  const closeSession = useCallback(() => {
+    cleanupRef.current?.();
+    cleanupRef.current = null;
+    terminalRef.current = null;
+    wsRef.current = null;
+    if (sessionIdRef.current) {
+      apiFetch(`/api/terminal/sessions/${sessionIdRef.current}`, { method: 'DELETE' }).catch(() => {});
+      sessionIdRef.current = null;
+    }
+    setStatus('disconnected');
+  }, []);
 
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -111,13 +129,7 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
       cleanup = fn;
     });
     return () => {
-      cleanup?.();
-      // Kill session on unmount (apiFetch auto-injects auth header)
-      if (sessionIdRef.current) {
-        apiFetch(`/api/terminal/sessions/${sessionIdRef.current}`, {
-          method: 'DELETE',
-        }).catch(() => {});
-      }
+      cleanup?.(); // Disconnect WS only — don't DELETE session
     };
   }, [connect]);
 
@@ -160,6 +172,24 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
             }}
           >
             Reconnect
+          </button>
+        )}
+        {(status === 'connected' || status === 'disconnected') && (
+          <button
+            onClick={closeSession}
+            type="button"
+            style={{
+              background: 'none',
+              border: '1px solid #6b3030',
+              color: '#f7768e',
+              padding: '2px 8px',
+              borderRadius: 4,
+              cursor: 'pointer',
+              fontSize: 11,
+              marginLeft: 'auto',
+            }}
+          >
+            Close Terminal
           </button>
         )}
       </div>

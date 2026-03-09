@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import type { FastifyPluginAsync } from 'fastify';
 import * as pty from 'node-pty';
+import { TerminalSessionStore } from '../domains/terminal/session-store.js';
 import type { TmuxGateway } from '../domains/terminal/tmux-gateway.js';
 import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { resolveUserId } from '../utils/request-identity.js';
@@ -8,68 +8,67 @@ import { resolveUserId } from '../utils/request-identity.js';
 interface TerminalRouteOpts {
   tmuxGateway: TmuxGateway;
 }
-
-interface ActiveSession {
-  id: string;
+interface PtyBinding {
   pty: pty.IPty;
-  worktreeId: string;
-  paneId: string;
 }
 
 export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app, opts) => {
   const { tmuxGateway } = opts;
-  const sessions = new Map<string, ActiveSession>();
+  const store = new TerminalSessionStore();
+  const ptys = new Map<string, PtyBinding>();
 
-  // --- Auth gate: all terminal routes require identity ---
+  // --- Auth gate ---
   app.addHook('preHandler', async (req, reply) => {
-    const userId = resolveUserId(req);
-    if (!userId) {
+    if (!resolveUserId(req)) {
       reply.status(401);
       return reply.send({ error: 'Identity required (X-Cat-Cafe-User header or userId query)' });
     }
   });
 
-  // POST /api/terminal/sessions — create a new terminal session
+  // POST /api/terminal/sessions — create or reconnect
   app.post<{
     Body: { worktreeId: string; cols?: number; rows?: number };
   }>('/api/terminal/sessions', async (req, reply) => {
     const { worktreeId, cols = 80, rows = 24 } = req.body;
+    const userId = resolveUserId(req) as string; // preHandler guarantees non-null
 
-    // P2-2: validate worktreeId is non-empty
-    if (!worktreeId) {
-      reply.status(400);
-      return reply.send({ error: 'worktreeId is required' });
-    }
+    if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
 
-    // P2-2: resolve worktreeId → filesystem root for cwd
     let cwd: string;
     try {
       cwd = await getWorktreeRoot(worktreeId);
     } catch {
-      reply.status(404);
-      return reply.send({ error: `Worktree not found: ${worktreeId}` });
+      return reply.status(404).send({ error: `Worktree not found: ${worktreeId}` });
     }
 
-    const id = randomUUID();
+    const ptyEnv = { ...process.env } as Record<string, string>;
+    const ptyOpts = { name: 'xterm-256color' as const, cols, rows, cwd, env: ptyEnv };
 
-    // Ensure tmux server + create pane
+    // Reconnect to existing disconnected session if available
+    const existing = store.findReconnectable(worktreeId, userId);
+    if (existing) {
+      const panes = await tmuxGateway.listPanes(worktreeId);
+      if (!panes.some((p) => p.paneId === existing.paneId)) {
+        store.remove(existing.id); // Stale — fall through to create new
+      } else {
+        const sock = tmuxGateway.socketName(worktreeId);
+        const ptyProcess = pty.spawn('tmux', ['-L', sock, 'attach', '-t', existing.paneId], ptyOpts);
+        ptys.set(existing.id, { pty: ptyProcess });
+        store.markConnected(existing.id);
+        return { sessionId: existing.id, paneId: existing.paneId, reconnected: true };
+      }
+    }
+
+    // Create new tmux pane + PTY
     await tmuxGateway.ensureServer(worktreeId);
     const paneId = await tmuxGateway.createPane(worktreeId, { cols, rows, cwd });
-
-    // P1-1: Spawn PTY that attaches to the tmux pane (not independent shell)
-    // `tmux attach` connects this PTY's I/O to the actual tmux pane
     const sock = tmuxGateway.socketName(worktreeId);
-    const ptyProcess = pty.spawn('tmux', ['-L', sock, 'attach', '-t', paneId], {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd,
-      env: { ...process.env } as Record<string, string>,
-    });
+    const ptyProcess = pty.spawn('tmux', ['-L', sock, 'attach', '-t', paneId], ptyOpts);
 
-    sessions.set(id, { id, pty: ptyProcess, worktreeId, paneId });
+    const session = store.create({ worktreeId, paneId, userId });
+    ptys.set(session.id, { pty: ptyProcess });
 
-    return { sessionId: id, paneId };
+    return { sessionId: session.id, paneId, reconnected: false };
   });
 
   // GET /api/terminal/sessions/:sessionId/ws — WebSocket attach
@@ -77,14 +76,20 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId/ws', { websocket: true }, (socket, req) => {
     const { sessionId } = req.params;
-    const session = sessions.get(sessionId);
+    const userId = resolveUserId(req) as string;
+    const session = store.getByIdAndUser(sessionId, userId);
+    const binding = ptys.get(sessionId);
 
     if (!session) {
-      socket.close(4004, 'Session not found');
+      socket.close(4004, 'Session not found or not yours');
+      return;
+    }
+    if (!binding) {
+      socket.close(4004, 'Session not attached');
       return;
     }
 
-    const { pty: ptyProcess } = session;
+    const { pty: ptyProcess } = binding;
 
     // PTY output → WebSocket
     const dataHandler = ptyProcess.onData((data) => {
@@ -97,7 +102,12 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     socket.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
       const msg = Buffer.isBuffer(raw) ? raw.toString() : String(raw);
       try {
-        const parsed = JSON.parse(msg) as { type: string; data?: string; cols?: number; rows?: number };
+        const parsed = JSON.parse(msg) as {
+          type: string;
+          data?: string;
+          cols?: number;
+          rows?: number;
+        };
         if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
           ptyProcess.resize(parsed.cols, parsed.rows);
         } else if (parsed.type === 'input' && typeof parsed.data === 'string') {
@@ -109,46 +119,67 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
       }
     });
 
-    // Cleanup on WS disconnect
+    // WS disconnect → mark disconnected but keep pane alive
     socket.on('close', () => {
       dataHandler.dispose();
+      ptyProcess.kill(); // Kill PTY bridge, not tmux pane
+      ptys.delete(sessionId);
+      store.markDisconnected(sessionId);
     });
 
-    // PTY exit → close WS + cleanup
+    // PTY exit (tmux pane died) → mark disconnected
     ptyProcess.onExit(() => {
       socket.close(1000, 'PTY exited');
-      sessions.delete(sessionId);
+      ptys.delete(sessionId);
+      store.markDisconnected(sessionId);
     });
   });
 
-  // DELETE /api/terminal/sessions/:sessionId — kill session
+  // DELETE /api/terminal/sessions/:sessionId
   app.delete<{
     Params: { sessionId: string };
   }>('/api/terminal/sessions/:sessionId', async (req, reply) => {
     const { sessionId } = req.params;
-    const session = sessions.get(sessionId);
-    if (!session) return reply.code(404).send({ error: 'Session not found' });
+    const userId = resolveUserId(req) as string;
+    const session = store.get(sessionId);
 
-    // P2-1: Kill PTY + tmux pane + check if server should be cleaned up
-    session.pty.kill();
+    if (!session) return reply.code(404).send({ error: 'Session not found' });
+    if (session.userId !== userId) return reply.code(403).send({ error: 'Not your session' });
+
+    // Kill PTY if still running, then kill tmux pane
+    const binding = ptys.get(sessionId);
+    if (binding) {
+      binding.pty.kill();
+      ptys.delete(sessionId);
+    }
+
+    // Kill the tmux pane
     await tmuxGateway.killPane(session.worktreeId, session.paneId);
-    sessions.delete(sessionId);
+    store.remove(sessionId);
 
     // If no more sessions for this worktree, destroy the tmux server
-    const hasRemaining = [...sessions.values()].some((s) => s.worktreeId === session.worktreeId);
-    if (!hasRemaining) {
+    if (!store.hasRemainingForWorktree(session.worktreeId)) {
       await tmuxGateway.destroyServer(session.worktreeId);
     }
 
     return { ok: true };
   });
 
-  // GET /api/terminal/sessions — list active sessions
-  app.get('/api/terminal/sessions', async () => {
-    return [...sessions.values()].map((s) => ({
+  // GET /api/terminal/sessions — filtered by userId
+  app.get<{
+    Querystring: { worktreeId?: string };
+  }>('/api/terminal/sessions', async (req) => {
+    const userId = resolveUserId(req) as string;
+    const { worktreeId } = req.query;
+    const sessions = worktreeId
+      ? store.listByUser(userId).filter((s) => s.worktreeId === worktreeId)
+      : store.listByUser(userId);
+
+    return sessions.map((s) => ({
       id: s.id,
       worktreeId: s.worktreeId,
       paneId: s.paneId,
+      status: s.status,
     }));
   });
 };
