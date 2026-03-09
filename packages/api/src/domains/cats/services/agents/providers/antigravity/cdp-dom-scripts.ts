@@ -11,11 +11,20 @@ export const POLL_RESPONSE_JS = `(() => {
   const userMsgs = [...document.querySelectorAll('.whitespace-pre-wrap')];
   const lastUserMsg = userMsgs[userMsgs.length - 1];
   const extractBlockText = (block) => {
-    const structured = [...block.querySelectorAll('p, li, pre, code, h1, h2, h3, h4, h5, h6')]
+    const clone = block.cloneNode(true);
+    // Strip hidden subtrees: collapsed thought containers, invisible elements
+    clone.querySelectorAll('style, script, [aria-hidden="true"]').forEach((el) => el.remove());
+    for (const el of clone.querySelectorAll('*')) {
+      const cls = el.className || '';
+      if (typeof cls === 'string' && (/\\bmax-h-0\\b/.test(cls) || /\\bopacity-0\\b/.test(cls) || /\\bhidden\\b/.test(cls))) {
+        el.remove();
+      }
+    }
+    // Also strip buttons (e.g. "Thought for Xs" toggle) from text extraction
+    clone.querySelectorAll('button').forEach((el) => el.remove());
+    const structured = [...clone.querySelectorAll('p, li, pre, code, h1, h2, h3, h4, h5, h6')]
       .map((el) => el.textContent?.trim()).filter(Boolean);
     if (structured.length > 0) return structured.join('\\n');
-    const clone = block.cloneNode(true);
-    clone.querySelectorAll('style, script, button, [aria-hidden="true"]').forEach((el) => el.remove());
     return clone.textContent?.trim() || '';
   };
   const assistantBlocks = (() => {
@@ -41,11 +50,43 @@ export const POLL_RESPONSE_JS = `(() => {
   const thinkingParts = [];
   const responseParts = [];
   for (const b of assistantBlocks) {
+    // Detect thinking: <details>, [class*="thinking"], [class*="thought"],
+    // or Antigravity-style: button("Thought for Xs") + adjacent collapsed container
     const thinkEls = b.querySelectorAll('details, [class*="thinking"], [class*="thought"]');
-    if (thinkEls.length > 0) {
+    const thoughtBtn = [...b.querySelectorAll('button')].find((btn) =>
+      /^Thought\\s+for\\s/i.test((btn.textContent || '').trim())
+    );
+    const hasThinking = thinkEls.length > 0 || !!thoughtBtn;
+    if (hasThinking) {
+      // Collect thinking text from all recognized thinking elements
       for (const el of thinkEls) thinkingParts.push((el.textContent || '').trim());
+      if (thoughtBtn) {
+        // Antigravity thought: collect text from collapsed sibling containers
+        let sib = thoughtBtn.nextElementSibling;
+        while (sib) {
+          const cls = sib.className || '';
+          if (typeof cls === 'string' && (/\\bmax-h-0\\b/.test(cls) || /\\bopacity-0\\b/.test(cls))) {
+            thinkingParts.push(extractBlockText(sib));
+          } else { break; }
+          sib = sib.nextElementSibling;
+        }
+      }
+      // Extract remaining visible text as response (strip thinking elements)
       const clone = b.cloneNode(true);
       clone.querySelectorAll('details, [class*="thinking"], [class*="thought"]').forEach((el) => el.remove());
+      // Also strip "Thought for" buttons and their collapsed containers
+      for (const btn of [...clone.querySelectorAll('button')]) {
+        if (/^Thought\\s+for\\s/i.test((btn.textContent || '').trim())) {
+          let ns = btn.nextElementSibling;
+          while (ns) {
+            const c = ns.className || '';
+            if (typeof c === 'string' && (/\\bmax-h-0\\b/.test(c) || /\\bopacity-0\\b/.test(c))) {
+              const next = ns.nextElementSibling; ns.remove(); ns = next;
+            } else { break; }
+          }
+          btn.remove();
+        }
+      }
       const remaining = extractBlockText(clone).trim();
       if (remaining) responseParts.push(remaining);
     } else {
