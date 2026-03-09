@@ -89,6 +89,88 @@ describe('useChatHistory thread switch ordering', () => {
     expect(state.messages).toHaveLength(0);
   });
 
+  it('F069-R4: thread with cached messages AND unreadCount > 0 triggers fetchHistory', () => {
+    // Scenario: background thread accumulated synthetic messages via WebSocket.
+    // Cache has messages but the last sortable ID is older than the server's latest.
+    // Without force-refresh, ChatContainer acks with the stale ID → badge reappears.
+    useChatStore.setState({
+      currentThreadId: 'thread-c',
+      threadStates: {
+        'thread-c': {
+          messages: [
+            { id: '0000001710000000-000001-abcd1234', type: 'assistant', catId: 'opus', content: 'old real msg', timestamp: Date.now() - 60_000 },
+            { id: 'bg-sys-1710000060000-opus-1', type: 'system', content: 'background update', timestamp: Date.now() },
+          ],
+          isLoading: false,
+          isLoadingHistory: false,
+          hasMore: true,
+          hasActiveInvocation: false,
+          intentMode: null,
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: {},
+          currentMode: null,
+          pendingModeSwitchProposal: null,
+          unreadCount: 1,
+          hasUserMention: false,
+          lastActivity: Date.now(),
+          queue: [],
+          queuePaused: false,
+          queueFull: false,
+        },
+      },
+    });
+
+    act(() => {
+      root.render(React.createElement(HookHost, { threadId: 'thread-c' }));
+    });
+
+    expect(apiFetchMock).toHaveBeenCalled();
+    const calls = apiFetchMock.mock.calls;
+    const historyCall = calls.find(([url]) => typeof url === 'string' && url.includes('/api/messages'));
+    expect(historyCall).toBeDefined();
+  });
+
+  it('cached thread with unreadCount === 0 does NOT trigger fetchHistory', () => {
+    // When unread is 0, no need to force-refresh — cache is good enough.
+    useChatStore.setState({
+      currentThreadId: 'thread-d',
+      threadStates: {
+        'thread-d': {
+          messages: [
+            { id: '0000001710000000-000001-abcd1234', type: 'assistant', catId: 'opus', content: 'cached msg', timestamp: Date.now() },
+          ],
+          isLoading: false,
+          isLoadingHistory: false,
+          hasMore: true,
+          hasActiveInvocation: false,
+          intentMode: null,
+          targetCats: [],
+          catStatuses: {},
+          catInvocations: {},
+          currentMode: null,
+          pendingModeSwitchProposal: null,
+          unreadCount: 0,
+          hasUserMention: false,
+          lastActivity: Date.now(),
+          queue: [],
+          queuePaused: false,
+          queueFull: false,
+        },
+      },
+    });
+
+    act(() => {
+      root.render(React.createElement(HookHost, { threadId: 'thread-d' }));
+    });
+
+    // Should NOT call fetchHistory (no /api/messages call) — uses cache silently.
+    // Secondary panel hydration (tasks, queue) still fires.
+    const calls = apiFetchMock.mock.calls;
+    const historyCall = calls.find(([url]) => typeof url === 'string' && url.includes('/api/messages'));
+    expect(historyCall).toBeUndefined();
+  });
+
   it('#80 fix-A: thread with cached messages AND activeInvocation still triggers fetchHistory', () => {
     // Set up: thread-b has cached messages + activeInvocation (streaming in background)
     useChatStore.setState({
@@ -107,6 +189,7 @@ describe('useChatHistory thread switch ordering', () => {
           currentMode: null,
           pendingModeSwitchProposal: null,
           unreadCount: 0,
+          hasUserMention: false,
           lastActivity: Date.now(),
           queue: [],
           queuePaused: false,

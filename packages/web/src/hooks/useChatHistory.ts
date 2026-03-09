@@ -417,10 +417,14 @@ export function useChatHistory(threadId: string) {
             clearMessages();
           }
           await fetchHistory();
-        } else if (hasActiveInvocation) {
+        } else if (hasActiveInvocation || (cached && cached.unreadCount > 0)) {
           // #80 fix-A P1: Force-refresh with replace mode — the async response handler
           // will clear stale cache after setCurrentThread has run, then set fresh data
           // including DraftStore drafts in correct timestamp order.
+          // F069-R4: Also force-refresh when the thread has unread messages. Without this,
+          // the cached message list may lack the server's latest real messages, causing
+          // the read-ack in ChatContainer to send an old sortable ID — the server still
+          // counts messages after that ID as unread, and the badge reappears.
           await fetchHistory(undefined, { replace: true });
         }
       } finally {
