@@ -42,3 +42,4 @@ created: 2026-02-26
 | F085 | Hyperfocus Brake — 猫猫健康小刹车 | spec | 布偶猫 | [F085](features/F085-hyperfocus-brake.md) |
 | F086 | Cat Orchestration — 猫猫自主协作 + 元认知系统 | spec | 布偶猫 | [F086](features/F086-cat-orchestration-multi-mention.md) |
 | F087 | CVO Bootcamp — 猫猫训练营：游戏化新手 onboarding | discussion | 布偶猫 | [F087](features/F087-cvo-bootcamp.md) |
+| F088 | Multi-Platform Chat Gateway — 聊天平台接入网关 | discussion | 布偶猫 | [F088](features/F088-multi-platform-chat-gateway.md) |
