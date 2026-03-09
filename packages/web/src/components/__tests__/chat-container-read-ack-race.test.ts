@@ -7,15 +7,10 @@ import { ChatContainer } from '@/components/ChatContainer';
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const mockApiFetch = vi.fn(async (url: string, opts?: Record<string, unknown>) => ({ ok: true }));
 
-// Sortable IDs matching backend format: 16-digit timestamp + 6-digit seq + 8-char hex
-const REAL_ID_1 = '0000001772900001-000001-aabbcc01';
-const REAL_ID_2 = '0000001772900002-000002-aabbcc02';
-const REAL_ID_3 = '0000001772900003-000003-aabbcc03';
-
 // Mutable store state — mutate between renders to simulate thread switching
 let storeState = {
   currentThreadId: 'thread-A',
-  messages: [{ id: REAL_ID_1, type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' }],
+  messages: [{ id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' }],
 };
 
 const baseStore = () => ({
@@ -119,7 +114,7 @@ vi.mock('@/components/AuthorizationCard', () => ({ AuthorizationCard: () => null
 vi.mock('@/components/WorkspacePanel', () => ({ WorkspacePanel: () => null }));
 vi.mock('@/components/icons/PawIcon', () => ({ PawIcon: () => null }));
 
-describe('F069 Bug A: read ack thread-switch race guard', () => {
+describe('F069-R5: read ack via POST /read/latest', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -138,7 +133,6 @@ describe('F069 Bug A: read ack thread-switch race guard', () => {
     document.body.appendChild(container);
     root = createRoot(container);
     mockApiFetch.mockClear();
-    // Reset to thread-A state
     storeState = {
       currentThreadId: 'thread-A',
       messages: [{ id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' }],
@@ -150,85 +144,48 @@ describe('F069 Bug A: read ack thread-switch race guard', () => {
     container.remove();
   });
 
-  it('does NOT send ack when storeThreadId lags behind prop threadId (race window)', async () => {
-    // Step 1: Render with thread-A — store is consistent
+  it('sends POST /read/latest on mount (no message ID needed)', async () => {
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
     });
-    // Allow effects to flush
     await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 
-    // The initial ack for thread-A is fine — clear mock to focus on the race
+    const ackCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
+    );
+    expect(ackCalls.length).toBe(1);
+    expect(ackCalls[0][0]).toContain('thread-A');
+    // POST with no body — server finds latest message
+    expect((ackCalls[0]![1] as { method: string }).method).toBe('POST');
+  });
+
+  it('fires new POST /read/latest when threadId changes', async () => {
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
     mockApiFetch.mockClear();
 
-    // Step 2: Simulate the race — threadId prop changes to thread-B,
-    // but store still has thread-A's currentThreadId and messages
-    // (setCurrentThread hasn't run yet)
+    // Switch to thread-B
     act(() => {
       root.render(React.createElement(ChatContainer, { threadId: 'thread-B' }));
     });
     await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 
-    // The guard should have prevented ack from firing with thread-B + 0000001772900001-000001-aabbcc01
-    const raceCalls = mockApiFetch.mock.calls.filter(
-      (call) => typeof call[0] === 'string' && call[0].includes('thread-B'),
-    );
-    expect(raceCalls.length).toBe(0);
-  });
-
-  it('sends ack correctly when store and prop threadId are consistent', async () => {
-    // Store and prop both point to thread-A
-    act(() => {
-      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
-    });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
-
-    // Should have sent ack for thread-A with 0000001772900001-000001-aabbcc01
     const ackCalls = mockApiFetch.mock.calls.filter(
-      (call) => typeof call[0] === 'string' && call[0].includes('/read'),
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
     );
     expect(ackCalls.length).toBe(1);
-    expect(ackCalls[0][0]).toContain('thread-A');
-    const body = JSON.parse((ackCalls[0]![1] as { body: string }).body);
-    expect(body.upToMessageId).toBe('0000001772900001-000001-aabbcc01');
+    expect(ackCalls[0][0]).toContain('thread-B');
   });
 
-  it('skips all synthetic IDs and acks with last sortable-format message', async () => {
-    // Messages list ends with various synthetic rows — ack should use the real sortable ID
-    storeState = {
-      currentThreadId: 'thread-A',
-      messages: [
-        { id: REAL_ID_2, type: 'assistant' as const, content: 'hi', timestamp: Date.now(), catId: 'opus' },
-        { id: REAL_ID_3, type: 'assistant' as const, content: 'hey', timestamp: Date.now(), catId: 'opus' },
-        { id: 'bg-sys-1772900004-opus-1', type: 'assistant' as const, content: 'info', timestamp: Date.now(), catId: 'opus' },
-        { id: 'draft-inv-123', type: 'assistant' as const, content: '...', timestamp: Date.now(), catId: 'opus' },
-        { id: 'summary-abc', type: 'assistant' as const, content: 'sum', timestamp: Date.now(), catId: 'opus' },
-      ],
-    };
-
-    act(() => {
-      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
-    });
-    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
-
-    const ackCalls = mockApiFetch.mock.calls.filter(
-      (call) => typeof call[0] === 'string' && call[0].includes('/read'),
-    );
-    expect(ackCalls.length).toBe(1);
-    const body = JSON.parse((ackCalls[0]![1] as { body: string }).body);
-    // Should use REAL_ID_3, not bg-sys-*, draft-*, or summary-*
-    expect(body.upToMessageId).toBe(REAL_ID_3);
-  });
-
-  it('does not send ack when all messages are synthetic', async () => {
+  it('works regardless of message content (even all-synthetic)', async () => {
+    // With R5, ack does not depend on frontend messages at all — server resolves the latest.
     storeState = {
       currentThreadId: 'thread-A',
       messages: [
         { id: 'draft-inv-1', type: 'assistant' as const, content: '...', timestamp: Date.now(), catId: 'opus' },
         { id: 'bg-sys-1772900004-opus-1', type: 'assistant' as const, content: 'info', timestamp: Date.now(), catId: 'opus' },
-        { id: 'summary-xyz', type: 'assistant' as const, content: 'sum', timestamp: Date.now(), catId: 'opus' },
-        { id: 'a2a-1772900005-codex', type: 'assistant' as const, content: 'chain', timestamp: Date.now(), catId: 'codex' },
-        { id: 'err-1772900006-opus', type: 'assistant' as const, content: 'error', timestamp: Date.now(), catId: 'opus' },
       ],
     };
 
@@ -237,9 +194,48 @@ describe('F069 Bug A: read ack thread-switch race guard', () => {
     });
     await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
 
+    // Should STILL fire — unlike old approach which skipped when no real IDs were in cache
     const ackCalls = mockApiFetch.mock.calls.filter(
-      (call) => typeof call[0] === 'string' && call[0].includes('/read'),
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
     );
-    expect(ackCalls.length).toBe(0);
+    expect(ackCalls.length).toBe(1);
+  });
+
+  it('re-acks when new messages arrive in the active thread (P1 regression)', async () => {
+    // Initial render with 1 message
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+
+    // Should have fired once on mount
+    const initialCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
+    );
+    expect(initialCalls.length).toBe(1);
+    mockApiFetch.mockClear();
+
+    // Simulate new message arriving (messages.length changes from 1 → 2)
+    storeState = {
+      currentThreadId: 'thread-A',
+      messages: [
+        { id: '0000001772900001-000001-aabbcc01', type: 'assistant' as const, content: 'hello from A', timestamp: Date.now(), catId: 'opus' },
+        { id: '0000001772900002-000002-aabbcc02', type: 'assistant' as const, content: 'new reply', timestamp: Date.now(), catId: 'opus' },
+      ],
+    };
+
+    // Re-render with updated store state (simulating store update from socket)
+    act(() => {
+      root.render(React.createElement(ChatContainer, { threadId: 'thread-A' }));
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 10)); });
+
+    // Should fire again because messageCount changed — so switching away after this
+    // will have the cursor advanced to the new message
+    const newCalls = mockApiFetch.mock.calls.filter(
+      (call) => typeof call[0] === 'string' && call[0].includes('/read/latest'),
+    );
+    expect(newCalls.length).toBe(1);
+    expect(newCalls[0][0]).toContain('thread-A');
   });
 });

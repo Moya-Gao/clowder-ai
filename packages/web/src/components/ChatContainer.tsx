@@ -245,29 +245,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   useEffect(() => { clearUnread(threadId); }, [threadId, clearUnread]);
 
-  // F069: Ack read cursor on server when messages are loaded
-  // Guard: storeThreadId lags behind the threadId prop until the setCurrentThread
-  // effect (above) runs and swaps messages. Without this check, a thread switch
-  // sends the OLD thread's lastMessageId to the NEW threadId → 400.
-  const storeThreadId = useChatStore((s) => s.currentThreadId);
-  // Only ack with backend-persisted sortable IDs (format: 16-digit ts + 6-digit seq + 8-char hex).
-  // Frontend adds many synthetic IDs (draft-*, summary-*, bg-sys-*, bg-err-*, a2a-*, err-*, etc.)
-  // that don't exist in messageStore — sending them causes 400, leaving the cursor stuck.
-  const lastRealMessageId = useMemo(() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const id = messages[i].id;
-      if (/^\d{16}-\d{6}-[0-9a-f]{8}$/.test(id)) return id;
-    }
-    return undefined;
-  }, [messages]);
+  // F069-R5: Ack read cursor server-side. The backend finds the latest real message
+  // and acks it atomically — no frontend ID guessing, no timing races with fetchHistory.
+  // Fires on thread entry AND when new messages arrive (messages.length changes),
+  // so switching away after receiving new messages still acks to the latest.
+  const messageCount = messages.length;
   useEffect(() => {
-    if (!lastRealMessageId || storeThreadId !== threadId) return;
-    apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ upToMessageId: lastRealMessageId }),
+    apiFetch(`/api/threads/${encodeURIComponent(threadId)}/read/latest`, {
+      method: 'POST',
     }).catch((err) => { console.debug('[F069] read ack failed:', err); });
-  }, [threadId, lastRealMessageId, storeThreadId]);
+  }, [threadId, messageCount]);
 
   const handleStop = useCallback((overrideThreadId?: unknown) => {
     const targetThreadId = typeof overrideThreadId === 'string' ? overrideThreadId : threadId;

@@ -458,4 +458,41 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     const advanced = await opts.readStateStore.ack(userId, id, parseResult.data.upToMessageId);
     return { advanced };
   });
+
+  // F069-R5: POST /api/threads/:id/read/latest — ack to latest real message server-side.
+  // Eliminates frontend timing races: the server finds the latest message and acks it
+  // in one atomic operation, so the client never needs to guess which ID to send.
+  app.post<{ Params: { id: string } }>('/api/threads/:id/read/latest', async (request, reply) => {
+    const userId = resolveUserId(request, {});
+    if (!userId) {
+      reply.status(401);
+      return { error: 'Identity required' };
+    }
+
+    if (!opts.readStateStore) {
+      reply.status(501);
+      return { error: 'Read state store not available' };
+    }
+
+    if (!messageStore) {
+      reply.status(501);
+      return { error: 'Message store not available' };
+    }
+
+    const { id } = request.params;
+    const thread = await threadStore.get(id);
+    if (!thread) {
+      reply.status(404);
+      return { error: 'Thread not found' };
+    }
+
+    const messages = await messageStore.getByThread(id, 1);
+    if (messages.length === 0) {
+      return { advanced: false, reason: 'no messages' };
+    }
+
+    const latestId = messages[messages.length - 1]!.id;
+    const advanced = await opts.readStateStore.ack(userId, id, latestId);
+    return { advanced, messageId: latestId };
+  });
 };
