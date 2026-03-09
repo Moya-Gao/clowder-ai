@@ -1,6 +1,6 @@
 ---
 feature_ids: [F087]
-related_features: [F059]
+related_features: [F059, F090]
 topics: [onboarding, cvo, tutorial, gamification, open-source]
 doc_kind: spec
 created: 2026-03-08

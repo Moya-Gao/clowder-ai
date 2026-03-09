@@ -1,6 +1,6 @@
 ---
 feature_ids: [F059]
-related_features: [F042, F046, F086, F087]
+related_features: [F042, F046, F086, F087, F090]
 topics: [open-source, governance, community]
 doc_kind: feature-spec
 created: 2026-03-04
