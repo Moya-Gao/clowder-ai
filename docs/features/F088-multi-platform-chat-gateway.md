@@ -41,7 +41,7 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 - OpenClaw 最重度维护的也是 Telegram（450+ 文件，核心 channel），说明 AI bot 需求最强
 - 不需要公网 webhook（支持 long polling），本地开发即可测试
 
-**为什么不选 Slack**：Slack 用户量（4000万）远小于 Telegram（10亿），且偏企业场景。MVP 先覆盖最大用户池，Slack 作为 Phase 2 企业场景补充。
+**为什么不选 Slack**：Slack 用户量（4000万）远小于 Telegram（10亿），且偏企业场景。MVP 先覆盖最大用户池，Slack 作为后续企业场景补充（Phase 4）。
 
 ## What
 
@@ -135,7 +135,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - ❌ Slack / Discord / 钉钉（Phase 4）
 - ❌ OAuth 自助接入 / 配置管理 UI（Phase 4）
 - ❌ 多账号 / 多 workspace（Phase 5）
-- ❌ 消息编辑/撤回同步
+- ❌ 消息编辑/撤回同步（Phase 5）
 - ❌ 附件/文件/图片传输
 - ❌ Outbound streaming / 流式编辑同步（Phase 5）
 
@@ -193,8 +193,9 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 ## Open Questions
 
 1. ~~MVP 先做飞书还是 Slack？~~ → **已决定：飞书 + Telegram**
-2. 群聊是 Phase 2 还是直接跳过？
-3. 是否需要消息编辑/撤回同步？（当前排除到 Phase 2+）
+2. ~~群聊是 Phase 2 还是直接跳过？~~ → **已决定：Phase 3（F077 前置）**
+3. 多猫外显策略采用哪种默认方案：前缀签名 / 多 bot / rich card？
+4. 是否需要消息编辑/撤回同步？（当前排除到 Phase 5）
 
 ## 需求点 Checklist
 
