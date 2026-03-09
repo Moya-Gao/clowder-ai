@@ -1,6 +1,6 @@
 ---
 feature_ids: [F059]
-related_features: [F042, F046, F086]
+related_features: [F042, F046, F086, F087]
 topics: [open-source, governance, community]
 doc_kind: feature-spec
 created: 2026-03-04
@@ -26,6 +26,16 @@ created: 2026-03-04
 - **软约束（愿景+信条）**= 在底线上释放主观能动性：角色定位、协作规范、质量文化、共创关系
 
 Clowder-ai 不是一个"管住 agent 不出错"的框架，是一个"让 agent 有灵魂地协作"的框架。
+
+### 第一性原理：面向终态，不绕路（2026-03-08 铲屎官定调）
+
+> 铲屎官原话："我们的第一性原理就是不要绕路！猫猫们一天干的活 > 一个程序员一年！现在的世界绕路 = 犯傻！"
+
+AI agent 的开发速度是人类的 100x+。传统"先简单后复杂"的渐进策略是为了管理人类认知负荷。当执行速度不再是瓶颈，**方向正确性**才是瓶颈。
+
+**实操规则**：设计任何 Phase 路线时，先画终态，从终态反推。如果 Phase 1 的产物在 Phase 3 要拆掉重做，那 Phase 1 就是绕路。每一步的产物必须是终态的**基座**，不是**脚手架**。
+
+详细检查方法见 `cat-cafe-skills/refs/shared-rules.md` Rule 12。
 
 ### 三层能力边界（全猫共识，2026-03-08 讨论）
 
@@ -132,7 +142,30 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 5. **仓库名**：**`clowder-ai`**（全猫投票 2026-03-08，5:1 通过）
    - clowder = 英语中"一群猫"的量词，精准传达多 Agent 协作语义
    - `-ai` 后缀区分 GitHub 上已有的 `clowder-framework` 等同名项目
-   - Tagline: *"Clowder AI — Multi-agent orchestration, from Cat Café"*
+   - Tagline: *"Hard Rails. Soft Power. Shared Mission."*
+   - GitHub description: *"Build AI teams, not just agents. Hard rails, soft power, shared mission."*
+
+### 品牌视觉资产（可复用于开源仓）
+
+现有素材（前端在用 + 已落盘）：
+
+| 资产 | 路径 | 说明 |
+|------|------|------|
+| Logo（前端在用） | `packages/web/src/components/icons/CatCafeLogo.tsx` | 三猫环绕线稿 + 流光渐变（布偶蓝→缅因金→暹罗紫），烁烁画的 |
+| Logo SVG 清理版 | `assets/icons/cat-cafe-logo-v2-clean.svg` | 可直接用于 README |
+| Logo 纯线稿 | `assets/icons/cat-cafe-logo-lineart.svg` | 单色版 |
+| Logo 描边版 | `assets/icons/cat-cafe-logo-lineart-stroke.svg` | 动画用 |
+| 三棱镜 Hero | `assets/hero-prism.svg` | Landing page 用，烁烁 2026-03-08 画的 |
+| 品牌规范 | `docs/design/clowder-ai-brand.md` | 术语、配色 token、可访问性、禁用词 |
+| Hero 动效规范 | `docs/design/hero-prism-motion.md` | 动效参数 + reduced-motion 降级 |
+| 猫猫头像全套 | `assets/avatars/` | 各猫 avatar（含 sliced-finial 风格变体） |
+| Logo 迭代探索 | `assets/logos/` | Gemini + ChatGPT 生成的历史探索稿 |
+
+**配色 token**（三猫流光渐变）：
+- Opus Blue: `#2563EB`（布偶猫/架构）→ 开源版: `#3B82F6`
+- Codex Green: `#10B981`（缅因猫/安全审计）
+- Gemini Amber: `#F59E0B`（暹罗猫/创意）
+- 背景深空灰: `#0F172A`（Midnight Cafe 风格）
 
 ### 开源版铁律（Agent 安全约束）
 
