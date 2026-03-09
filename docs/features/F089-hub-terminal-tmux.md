@@ -164,4 +164,4 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-09 | 砚砚 P1 审查：双轨制 → 单源双消费（agent 在 tmux pane 里跑）|
 | 2026-03-09 | Phase 1 合入 main（PR #332）|
 | 2026-03-09 | Phase 2 后端 plumbing 合入 main（PR #334）：SpawnCliOverride + FIFO + AgentPaneRegistry |
-| 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + worktreeId 真相源修正迁入 Phase 3 |
+| 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + pane list UI + worktreeId 真相源修正迁入 Phase 3 |
