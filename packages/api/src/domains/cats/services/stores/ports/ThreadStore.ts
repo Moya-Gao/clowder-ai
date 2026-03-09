@@ -127,6 +127,8 @@ export interface VotingStateV1 {
   status: 'active' | 'closed';
   /** Phase 2: designated voters (catIds). When set, auto-close when all voted. */
   voters?: string[];
+  /** Gap 4: catId that initiated the vote (only set for cat-initiated votes via MCP). */
+  initiatedByCat?: string;
 }
 
 /**

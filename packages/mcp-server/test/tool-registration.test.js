@@ -28,6 +28,8 @@ const EXPECTED_TOOLS = [
   'cat_cafe_register_pr_tracking',
   // Workflow SOP tools (F073 P1)
   'cat_cafe_update_workflow',
+  // F079 Gap 4: Cat-initiated voting
+  'cat_cafe_start_vote',
   // Permission tools (this is the regression guard)
   'cat_cafe_request_permission',
   'cat_cafe_check_permission_status',
@@ -69,6 +71,7 @@ const EXPECTED_COLLAB_TOOLS = [
   'cat_cafe_check_permission_status',
   'cat_cafe_register_pr_tracking',
   'cat_cafe_update_workflow',
+  'cat_cafe_start_vote',
 ];
 
 const EXPECTED_MEMORY_TOOLS = [

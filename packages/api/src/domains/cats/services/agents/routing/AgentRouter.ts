@@ -144,6 +144,8 @@ export interface AgentRouterOptions {
   workflowSopStore?: IWorkflowSopStore;
   /** F070 Phase 3a: Execution digest store for dispatch backflow */
   executionDigestStore?: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore;
+  /** F079 Bug 2: Socket manager for real-time vote result broadcast */
+  socketManager?: import('../../../../../infrastructure/websocket/SocketManager.js').SocketManager;
 }
 
 /**
@@ -165,6 +167,7 @@ export class AgentRouter {
   private taskStore: ITaskStore | undefined;
   private workflowSopStore: IWorkflowSopStore | undefined;
   private executionDigestStore: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore | undefined;
+  private socketManager: import('../../../../../infrastructure/websocket/SocketManager.js').SocketManager | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -193,6 +196,7 @@ export class AgentRouter {
     this.taskStore = options.taskStore;
     this.workflowSopStore = options.workflowSopStore;
     this.executionDigestStore = options.executionDigestStore;
+    this.socketManager = options.socketManager;
   }
 
   /** Pick a deterministic fallback cat when policy filters out all candidates. */
@@ -529,6 +533,7 @@ export class AgentRouter {
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,
       ...(this.draftStore ? { draftStore: this.draftStore } : {}),
+      ...(this.socketManager ? { socketManager: this.socketManager } : {}),
     };
   }
 

@@ -4,11 +4,11 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { z } from 'zod';
 import { normalizeRichBlock } from '@cat-cafe/shared';
+import { z } from 'zod';
+import { sendCallbackRequest } from './callback-outbox.js';
 import type { ToolResult } from './file-tools.js';
 import { errorResult, successResult } from './file-tools.js';
-import { sendCallbackRequest } from './callback-outbox.js';
 
 interface CallbackConfig {
   apiUrl: string;
@@ -75,11 +75,12 @@ export async function callbackGet(path: string, params?: Record<string, string>)
 
 export const postMessageInputSchema = {
   content: z.string().min(1).describe('The message content to post'),
-  threadId: z.string().min(1).optional().describe('Optional target thread ID for cross-thread posting. Omit to post in current thread.'),
-  replyTo: z
+  threadId: z
     .string()
+    .min(1)
     .optional()
-    .describe('Optional message ID to reply to'),
+    .describe('Optional target thread ID for cross-thread posting. Omit to post in current thread.'),
+  replyTo: z.string().optional().describe('Optional message ID to reply to'),
   clientMessageId: z
     .string()
     .min(1)
@@ -99,35 +100,64 @@ export const ackMentionsInputSchema = {
   upToMessageId: z
     .string()
     .min(1)
-    .describe('The message ID up to which mentions have been processed. Must be within the last fetched pending window.'),
+    .describe(
+      'The message ID up to which mentions have been processed. Must be within the last fetched pending window.',
+    ),
 };
 
 export const getThreadContextInputSchema = {
-  limit: z.number().int().min(1).max(200).optional().default(20)
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .default(20)
     .describe('Number of recent messages to retrieve (default: 20)'),
-  threadId: z.string().min(1).optional()
+  threadId: z
+    .string()
+    .min(1)
+    .optional()
     .describe('Optional: read messages from a different thread. Omit to read the current thread.'),
-  catId: z.string().min(1).optional()
-    .describe("Optional: filter by speaker catId, or pass 'user' for human messages."),
-  keyword: z.string().min(1).optional()
+  catId: z.string().min(1).optional().describe("Optional: filter by speaker catId, or pass 'user' for human messages."),
+  keyword: z
+    .string()
+    .min(1)
+    .optional()
     .describe('Optional: filter messages whose content contains this keyword (case-insensitive).'),
 };
 
 export const listThreadsInputSchema = {
-  limit: z.number().int().min(1).max(200).optional().default(20)
-    .describe('Max threads to return (default: 20).'),
-  activeSince: z.number().int().min(0).optional()
+  limit: z.number().int().min(1).max(200).optional().default(20).describe('Max threads to return (default: 20).'),
+  activeSince: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
     .describe('Optional Unix timestamp in ms; only include threads active at/after this time.'),
-  keyword: z.string().trim().min(1).max(200).optional()
+  keyword: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
     .describe('Optional: filter threads whose title or threadId contains this keyword (case-insensitive).'),
 };
 
 export const featIndexInputSchema = {
-  limit: z.number().int().min(1).max(100).optional().default(20)
+  limit: z
+    .number()
+    .int()
+    .min(1)
+    .max(100)
+    .optional()
+    .default(20)
     .describe('Max feature entries to return (default: 20, max: 100).'),
-  featId: z.string().min(1).optional()
-    .describe('Optional exact feature ID match (case-insensitive), e.g. F043.'),
-  query: z.string().min(1).optional()
+  featId: z.string().min(1).optional().describe('Optional exact feature ID match (case-insensitive), e.g. F043.'),
+  query: z
+    .string()
+    .min(1)
+    .optional()
     .describe('Optional fuzzy substring search over featId/name/status (case-insensitive).'),
 };
 
@@ -140,10 +170,7 @@ export const updateTaskInputSchema = {
 export const crossPostMessageInputSchema = {
   threadId: z.string().min(1).describe('Target thread ID to post into'),
   content: z.string().min(1).describe('The message content to post'),
-  replyTo: z
-    .string()
-    .optional()
-    .describe('Optional message ID to reply to'),
+  replyTo: z.string().optional().describe('Optional message ID to reply to'),
   clientMessageId: z
     .string()
     .min(1)
@@ -164,12 +191,16 @@ export async function handlePostMessage(input: {
   replyTo?: string | undefined;
   clientMessageId?: string | undefined;
 }): Promise<ToolResult> {
-  const result = await callbackPost('/api/callbacks/post-message', {
-    content: input.content,
-    ...(input.threadId ? { threadId: input.threadId } : {}),
-    ...(input.replyTo ? { replyTo: input.replyTo } : {}),
-    clientMessageId: input.clientMessageId ?? randomUUID(),
-  }, { enableOutbox: true });
+  const result = await callbackPost(
+    '/api/callbacks/post-message',
+    {
+      content: input.content,
+      ...(input.threadId ? { threadId: input.threadId } : {}),
+      ...(input.replyTo ? { replyTo: input.replyTo } : {}),
+      clientMessageId: input.clientMessageId ?? randomUUID(),
+    },
+    { enableOutbox: true },
+  );
 
   // If post-message failed and content contains @mentions,
   // hint that text-based @mention is always available.
@@ -184,12 +215,11 @@ export async function handlePostMessage(input: {
     const reasonHint = looksLikeCredentialFailure
       ? '这次 callback 凭证校验失败（可能是 token 过期，也可能 invocation/token 不匹配）。'
       : '这次 post-message 调用失败。';
-    const hint = `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
+    const hint =
+      `\n\n💡 Tip: ${reasonHint}如果你想 @其他猫猫，` +
       '不需要用这个 MCP tool——直接在你的回复文本里另起一行写 @猫名 即可' +
       '（例如另起一行写 @缅因猫），系统会自动检测并触发。';
-    return errorResult(
-      original + hint,
-    );
+    return errorResult(original + hint);
   }
 
   return result;
@@ -201,9 +231,7 @@ export async function handleGetPendingMentions(input: { includeAcked?: boolean |
   });
 }
 
-export async function handleAckMentions(input: {
-  upToMessageId: string;
-}): Promise<ToolResult> {
+export async function handleAckMentions(input: { upToMessageId: string }): Promise<ToolResult> {
   return callbackPost('/api/callbacks/ack-mentions', {
     upToMessageId: input.upToMessageId,
   });
@@ -298,9 +326,7 @@ export const createRichBlockInputSchema = {
  * Tries direct callback first; on failure, falls back to post_message with cc_rich text
  * (which is extracted server-side after #83 fix).
  */
-export async function handleCreateRichBlock(input: {
-  block: string;
-}): Promise<ToolResult> {
+export async function handleCreateRichBlock(input: { block: string }): Promise<ToolResult> {
   let parsed: unknown;
   try {
     parsed = JSON.parse(input.block);
@@ -316,9 +342,13 @@ export async function handleCreateRichBlock(input: {
   }
 
   // Route A: direct rich block callback (buffers for invocation response)
-  const result = await callbackPost('/api/callbacks/create-rich-block', {
-    block: parsed,
-  }, { enableOutbox: true });
+  const result = await callbackPost(
+    '/api/callbacks/create-rich-block',
+    {
+      block: parsed,
+    },
+    { enableOutbox: true },
+  );
   if (!result.isError) return result;
 
   // P1 cloud-review: only fallback to Route B for auth/config failures.
@@ -344,26 +374,13 @@ export async function handleCreateRichBlock(input: {
 }
 
 export const requestPermissionInputSchema = {
-  action: z
-    .string()
-    .min(1)
-    .describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
-  reason: z
-    .string()
-    .min(1)
-    .describe('Why you need this permission'),
-  context: z
-    .string()
-    .max(5000)
-    .optional()
-    .describe('Optional additional context for the request'),
+  action: z.string().min(1).describe('The action requiring permission (e.g. "git_commit", "file_delete")'),
+  reason: z.string().min(1).describe('Why you need this permission'),
+  context: z.string().max(5000).optional().describe('Optional additional context for the request'),
 };
 
 export const checkPermissionStatusInputSchema = {
-  requestId: z
-    .string()
-    .min(1)
-    .describe('The requestId returned from a previous request_permission call'),
+  requestId: z.string().min(1).describe('The requestId returned from a previous request_permission call'),
 };
 
 export async function handleRequestPermission(input: {
@@ -378,9 +395,7 @@ export async function handleRequestPermission(input: {
   });
 }
 
-export async function handleCheckPermissionStatus(input: {
-  requestId: string;
-}): Promise<ToolResult> {
+export async function handleCheckPermissionStatus(input: { requestId: string }): Promise<ToolResult> {
   return callbackGet('/api/callbacks/permission-status', {
     requestId: input.requestId,
   });
@@ -388,19 +403,9 @@ export async function handleCheckPermissionStatus(input: {
 
 // TD091: PR tracking registration — server resolves threadId from invocation record
 export const registerPrTrackingInputSchema = {
-  repoFullName: z
-    .string()
-    .min(1)
-    .describe('Repository full name in owner/repo format (e.g. "zts212653/cat-cafe")'),
-  prNumber: z
-    .number()
-    .int()
-    .positive()
-    .describe('PR number'),
-  catId: z
-    .string()
-    .min(1)
-    .describe('Your cat ID (e.g. "opus", "codex", "gemini")'),
+  repoFullName: z.string().min(1).describe('Repository full name in owner/repo format (e.g. "zts212653/cat-cafe")'),
+  prNumber: z.number().int().positive().describe('PR number'),
+  catId: z.string().min(1).describe('Your cat ID (e.g. "opus", "codex", "gemini")'),
 };
 
 export async function handleRegisterPrTracking(input: {
@@ -418,24 +423,41 @@ export async function handleRegisterPrTracking(input: {
 export const updateWorkflowInputSchema = {
   backlogItemId: z.string().min(1).describe('The backlog item ID to update workflow SOP for'),
   featureId: z.string().min(1).describe('Feature ID (e.g. "F073")'),
-  stage: z.enum(['kickoff', 'impl', 'quality_gate', 'review', 'merge', 'completion']).optional()
+  stage: z
+    .enum(['kickoff', 'impl', 'quality_gate', 'review', 'merge', 'completion'])
+    .optional()
     .describe('Current SOP stage'),
-  batonHolder: z.string().min(1).optional()
+  batonHolder: z
+    .string()
+    .min(1)
+    .optional()
     .describe('Unique handle of the cat currently holding the baton (e.g. "opus", "codex")'),
-  nextSkill: z.string().nullable().optional()
+  nextSkill: z
+    .string()
+    .nullable()
+    .optional()
     .describe('Suggested skill to load next (e.g. "tdd", "quality-gate"), or null'),
-  resumeCapsule: z.object({
-    goal: z.string().optional().describe('What we are building'),
-    done: z.array(z.string()).optional().describe('What has been completed'),
-    currentFocus: z.string().optional().describe('What we are working on right now'),
-  }).optional().describe('Resume capsule for cold start / context recovery'),
-  checks: z.object({
-    remoteMainSynced: z.enum(['attested', 'verified', 'unknown']).optional(),
-    qualityGatePassed: z.enum(['attested', 'verified', 'unknown']).optional(),
-    reviewApproved: z.enum(['attested', 'verified', 'unknown']).optional(),
-    visionGuardDone: z.enum(['attested', 'verified', 'unknown']).optional(),
-  }).optional().describe('SOP checkpoint attestations'),
-  expectedVersion: z.number().int().optional()
+  resumeCapsule: z
+    .object({
+      goal: z.string().optional().describe('What we are building'),
+      done: z.array(z.string()).optional().describe('What has been completed'),
+      currentFocus: z.string().optional().describe('What we are working on right now'),
+    })
+    .optional()
+    .describe('Resume capsule for cold start / context recovery'),
+  checks: z
+    .object({
+      remoteMainSynced: z.enum(['attested', 'verified', 'unknown']).optional(),
+      qualityGatePassed: z.enum(['attested', 'verified', 'unknown']).optional(),
+      reviewApproved: z.enum(['attested', 'verified', 'unknown']).optional(),
+      visionGuardDone: z.enum(['attested', 'verified', 'unknown']).optional(),
+    })
+    .optional()
+    .describe('SOP checkpoint attestations'),
+  expectedVersion: z
+    .number()
+    .int()
+    .optional()
     .describe('CAS: reject if current version does not match (for concurrent update safety)'),
 };
 
@@ -446,12 +468,14 @@ export async function handleUpdateWorkflow(input: {
   batonHolder?: string | undefined;
   nextSkill?: string | null | undefined;
   resumeCapsule?: { goal?: string; done?: string[]; currentFocus?: string } | undefined;
-  checks?: {
-    remoteMainSynced?: string;
-    qualityGatePassed?: string;
-    reviewApproved?: string;
-    visionGuardDone?: string;
-  } | undefined;
+  checks?:
+    | {
+        remoteMainSynced?: string;
+        qualityGatePassed?: string;
+        reviewApproved?: string;
+        visionGuardDone?: string;
+      }
+    | undefined;
   expectedVersion?: number | undefined;
 }): Promise<ToolResult> {
   const body: Record<string, unknown> = {
@@ -467,10 +491,40 @@ export async function handleUpdateWorkflow(input: {
   return callbackPost('/api/callbacks/update-workflow-sop', body);
 }
 
+// F079 Gap 4: Cat-initiated voting
+export const startVoteInputSchema = {
+  question: z.string().min(1).max(500).describe('The voting question'),
+  options: z.array(z.string().min(1).max(100)).min(2).max(20).describe('Voting options (at least 2)'),
+  voters: z
+    .array(z.string().min(1).max(50))
+    .min(1)
+    .max(20)
+    .describe('CatIds of voters (e.g. ["opus", "codex", "gemini"])'),
+  anonymous: z.boolean().optional().describe('Anonymous voting (default: false)'),
+  timeoutSec: z.number().int().min(10).max(600).optional().describe('Timeout in seconds (default: 120)'),
+};
+
+export async function handleStartVote(input: {
+  question: string;
+  options: string[];
+  voters: string[];
+  anonymous?: boolean | undefined;
+  timeoutSec?: number | undefined;
+}): Promise<ToolResult> {
+  return callbackPost('/api/callbacks/start-vote', {
+    question: input.question,
+    options: input.options,
+    voters: input.voters,
+    ...(input.anonymous !== undefined ? { anonymous: input.anonymous } : {}),
+    ...(input.timeoutSec !== undefined ? { timeoutSec: input.timeoutSec } : {}),
+  });
+}
+
 export const callbackTools = [
   {
     name: 'cat_cafe_post_message',
-    description: 'Post a proactive async message to the Cat Café chat mid-task (e.g. progress updates, sharing results). To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires.',
+    description:
+      'Post a proactive async message to the Cat Café chat mid-task (e.g. progress updates, sharing results). To simply @mention another cat at the end of your response, use @猫名 in your reply text instead — it is free and never expires.',
     inputSchema: postMessageInputSchema,
     handler: handlePostMessage,
   },
@@ -482,13 +536,15 @@ export const callbackTools = [
   },
   {
     name: 'cat_cafe_ack_mentions',
-    description: 'Acknowledge that you have processed mentions up to a specific message ID. Call this after processing mentions from get_pending_mentions to avoid seeing them again in future sessions.',
+    description:
+      'Acknowledge that you have processed mentions up to a specific message ID. Call this after processing mentions from get_pending_mentions to avoid seeing them again in future sessions.',
     inputSchema: ackMentionsInputSchema,
     handler: handleAckMentions,
   },
   {
     name: 'cat_cafe_get_thread_context',
-    description: 'Get recent conversation messages for context. Use this to understand what has been discussed recently. Pass threadId to read a different thread (cross-thread context).',
+    description:
+      'Get recent conversation messages for context. Use this to understand what has been discussed recently. Pass threadId to read a different thread (cross-thread context).',
     inputSchema: getThreadContextInputSchema,
     handler: handleGetThreadContext,
   },
@@ -565,5 +621,14 @@ export const callbackTools = [
       'This is information sharing, not flow control — cats decide their own actions.',
     inputSchema: updateWorkflowInputSchema,
     handler: handleUpdateWorkflow,
+  },
+  {
+    name: 'cat_cafe_start_vote',
+    description:
+      'Start a voting session in the current thread. Use when you need collective decision-making ' +
+      '(e.g. "REST vs GraphQL?"). Voters receive notification and reply with [VOTE:option]. ' +
+      'Auto-closes when all voters have voted or timeout expires.',
+    inputSchema: startVoteInputSchema,
+    handler: handleStartVote,
   },
 ] as const;

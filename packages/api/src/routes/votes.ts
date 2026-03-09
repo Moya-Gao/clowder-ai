@@ -39,10 +39,10 @@ function resolveUserId(request: { headers: Record<string, string | string[] | un
 }
 
 /** Phase 2: In-memory timeout timers. Cleared on close/auto-close. Lost on restart (acceptable). */
-const voteTimers = new Map<string, ReturnType<typeof setTimeout>>();
+export const voteTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 /** Close a vote programmatically (timeout or auto-close). */
-async function closeVoteInternal(
+export async function closeVoteInternal(
   threadId: string,
   threadStore: IThreadStore,
   socketManager: SocketManager,
@@ -103,7 +103,7 @@ async function closeVoteInternal(
   }
 }
 
-function clearVoteTimer(threadId: string): void {
+export function clearVoteTimer(threadId: string): void {
   const timer = voteTimers.get(threadId);
   if (timer) {
     clearTimeout(timer);

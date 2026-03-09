@@ -14,6 +14,11 @@ import { getCatContextBudget } from '../../../../../config/cat-budgets.js';
 import { checkContextBudget, type DegradationResult } from '../../orchestration/DegradationPolicy.js';
 import type { InvocationDeps } from '../invocation/invoke-single-cat.js';
 
+/** Minimal broadcast interface — avoids coupling routing layer to SocketManager concrete class */
+export interface RouteBroadcaster {
+  broadcastToRoom(room: string, event: string, data: unknown): void;
+}
+
 /** Dependencies shared across route strategies */
 export interface RouteStrategyDeps {
   services: Record<string, AgentService>;
@@ -22,6 +27,8 @@ export interface RouteStrategyDeps {
   deliveryCursorStore?: DeliveryCursorStore;
   /** #80: Streaming draft persistence store */
   draftStore?: IDraftStore;
+  /** F079 Bug 2: Optional broadcaster for real-time vote result delivery */
+  socketManager?: RouteBroadcaster;
 }
 
 /** Mutable context for tracking persistence failures across the generator boundary.

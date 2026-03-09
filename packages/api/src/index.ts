@@ -246,6 +246,7 @@ async function main(): Promise<void> {
     taskStore,
     ...(workflowSopStore ? { workflowSopStore } : {}),
     executionDigestStore,
+    socketManager,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

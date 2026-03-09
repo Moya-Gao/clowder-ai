@@ -404,10 +404,12 @@ export async function* routeParallel(
                     fields,
                   };
                   await deps.invocationDeps.threadStore.updateVotingState(threadId, null);
-                  allRichBlocks.push(richBlock);
+                  // F079 Bug 1 fix: do NOT push richBlock into allRichBlocks — that
+                  // embeds the result in the cat's own message, causing duplication.
+                  // Only the standalone connector message below should carry the result.
                   // Gap 3: persist separate connector message for ConnectorBubble rendering
                   try {
-                    await deps.messageStore.append({
+                    const stored = await deps.messageStore.append({
                       userId,
                       catId: null,
                       content: `投票结果: ${voteState.question}`,
@@ -417,6 +419,13 @@ export async function* routeParallel(
                       source: VOTE_RESULT_SOURCE,
                       extra: { rich: { v: 1 as const, blocks: [richBlock] } },
                     });
+                    // F079 Bug 2 fix: broadcast connector_message so frontend updates without F5
+                    if (deps.socketManager) {
+                      deps.socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+                        threadId,
+                        message: { id: stored.id, type: 'connector', content: stored.content, source: VOTE_RESULT_SOURCE, timestamp: stored.timestamp, extra: stored.extra },
+                      });
+                    }
                   } catch (persistErr) {
                     console.warn(`[routeParallel] Failed to persist vote connector message:`, persistErr);
                   }
