@@ -101,4 +101,4 @@ docs/discussions/2026-02-26-huawei-agent-spec-review/
 private/
 
 # Voice audition output (F066 — generated wav files, local only)
-voice-audition/
+/voice-audition/

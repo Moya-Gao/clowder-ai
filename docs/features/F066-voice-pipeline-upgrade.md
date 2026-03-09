@@ -135,6 +135,9 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | 声线选择流程 | 猫猫自选 / 铲屎官选 | **猫猫出期望描述 → 铲屎官试听拍板**（猫听不到声音） | 铲屎官 (2026-03-05) |
 | Phase 2 流式协议 | WebSocket / SSE | **待定**（Phase 2 plan 时决策） | — |
 | Feature 归属 | 并入 F054 / 并入 F034 / 独立 | **独立 F066**（范围自成体系，F034 已 done） | 铲屎官 (2026-03-05) |
+| 宪宪声线方案 | Qwen3 VoiceDesign / GPT-SoVITS | **GPT-SoVITS v2Pro + 流浪者/散兵** — VoiceDesign 9 轮抽卡不稳定 | 铲屎官 (2026-03-09) |
+| 砚砚/烁烁声线方案 | 纯 Qwen3 / 混合 | **D 型混合**：Qwen3 主线 + GPT-SoVITS 备选（砚砚=魈, 烁烁=班尼特/嘉明） | 铲屎官+GPT Pro (2026-03-09) |
+| GPT-SoVITS 版本 | v2 / v3 / v4 | **v2Pro / v2ProPlus** — 社区训练集参差，v2 更宽容 | GPT Pro 调研 (2026-03-09) |
 
 ## Dependencies
 
@@ -180,28 +183,44 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | 2026-03-08 | 声线试听 Round 1-4：Qwen3 CustomVoice + VoiceDesign，少年/正太音探索 |
 | 2026-03-08 | 方案 B 确认可行：CustomVoice aiden/ryan + "12yo boy pretending to be a cat" instruct |
 | 2026-03-08 | 铲屎官录制猫猫音参考 → Base 模型 voice clone 测试，方向正确 |
+| 2026-03-08 | Round 5-8：全中文 instruct → 砚砚 `yanyan_r8_v1` 定了，烁烁 `shuo_hinata` 定了 |
+| 2026-03-08 | 宪宪声线投票：4:1:1 确认"坏猫"人设（不是温柔布偶猫） |
+| 2026-03-08 | 委托 GPT Pro（云端砚砚）做 TTS 正太声线生态全景调研 |
+| 2026-03-09 | GPT Pro Round 1+2 调研完成：D 型混合方案 + 角色工程排序 + AI-Hobbyist 深入分析 |
+| 2026-03-09 | Round 9 负向词策略仍不稳 → 铲屎官拍板：宪宪转 GPT-SoVITS |
+| 2026-03-09 | 铲屎官最终选角：宪宪=流浪者，砚砚备选=魈，烁烁备选=班尼特/嘉明 |
+| 2026-03-09 | GPT-SoVITS v2Pro 环境部署完成（conda GPTSoVits, Mac M4 Max CPU） |
 
-## Voice Audition Progress (2026-03-08)
+## Voice Audition Progress (2026-03-09)
 
 ### 模型升级决策
 - **Kokoro-82M**: 质量不可接受（"五年前机器朗读水平"）→ 淘汰
-- **首选**: Qwen3-TTS 1.7B-CustomVoice (MLX-Audio) — Apache-2.0, ~8-12GB 内存
-- **上限**: CosyVoice3 0.5B (Candle+Metal) — 中文上限更高但工程更折腾
-- **保底**: Qwen3-TTS 0.6B-CustomVoice — 更轻更快
+- **Qwen3-TTS 1.7B VoiceDesign**: 砚砚/烁烁主线（temperature=0.3 解决一致性）
+- **GPT-SoVITS v2Pro**: 宪宪主线 + 全猫备选（角色声纹确定性）
 
-### 声线试听结论
-- **Round 1**: CustomVoice 内置声线（ryan/eric/dylan/aiden）— ryan 口语化效果好，但都是成年音
-- **Round 2**: CustomVoice + 少年音 instruct — 方向对但还不够年轻
-- **Round 3**: VoiceDesign 模型（文字描声音）— 烁烁 v1 (13yo) 成功！宪宪/砚砚仍偏青年
-- **Round 4**: VoiceDesign 年龄拉到 10-12 岁 — 效果更好但仍在迭代
-- **Voice Clone**: 铲屎官录参考音 → Base 模型克隆 — 偏女声（参考音高太高）
-- **方案 B (当前最佳)**: CustomVoice aiden/ryan + "12yo cat boy" instruct → **铲屎官认可："好听！可爱！"**
+### D 型混合方案（最终决策）
 
-### 关键发现
-- `temperature=0.3` 解决声线一致性问题
-- AIRI 的自然度来自 chunker + 播控，不只是模型（GPT-5.4 调研结论）
-- 需要 `stream_synthesize()` + AIRI 式短句 chunker 才能达到虚拟主播感
+| 猫猫 | 主线引擎 | 角色/声线 | GPT-SoVITS 备选 |
+|------|----------|-----------|-----------------|
+| **宪宪** | GPT-SoVITS v2Pro | 流浪者/散兵 | — |
+| **砚砚** | Qwen3 VoiceDesign | `yanyan_r8_v1`（傲娇冰山） | 魈 (Xiao) |
+| **烁烁** | Qwen3 VoiceDesign | `shuo_hinata`（阳光元气） | 班尼特 + 嘉明 |
+
+### GPT Pro 调研
+- 两轮调研完成：`docs/research/2026-03-08-tts-voice-ecosystem-research-*.md`
+- 核心结论："砚砚和烁烁继续吃 Qwen 的快和统一，宪宪改吃 GPT-SoVITS 的角色确定性"
+- AI-Hobbyist 原神 V2：aggregate 权重（非逐角色包），参考音频是隐藏 Boss
+- v2Pro/v2ProPlus > v3/v4：社区训练集参差，v2 更宽容
+- Mac M4 Max：CPU + streaming + cut_punc（RTF 0.526, ~1.6s/3s audio）
+
+### GPT-SoVITS 部署状态
+- [x] conda env `GPTSoVits` (Python 3.10) 创建
+- [x] GPT-SoVITS 仓库克隆 + install.sh 完成
+- [x] 预训练模型下载（v2Pro, gsv-v2final, chinese-hubert-base）
+- [ ] AI-Hobbyist 原神 V2 模型下载（铲屎官进行中）
+- [ ] 参考音频准备（流浪者、魈、班尼特、嘉明）
+- [ ] GPT-SoVITS 推理试听
 
 ### 待定
-- [ ] 铲屎官最终拍板三猫声线
-- [ ] 确定是否用 voice clone（需要调降调幅度）还是纯 instruct 路线
+- [ ] 铲屎官下载参考音频 → 推理试听
+- [ ] 烁烁 Qwen VoiceDesign → Clone 固化（如继续 Qwen 主线）
