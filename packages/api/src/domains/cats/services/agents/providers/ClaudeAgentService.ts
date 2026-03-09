@@ -188,16 +188,16 @@ export class ClaudeAgentService implements AgentService {
     try {
       let sawResultError = false;
       const envOverrides = buildClaudeEnvOverrides(options?.callbackEnv);
-      const events = spawnCli(
-        {
-          command: 'claude',
-          args,
-          ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
-          ...(envOverrides ? { env: envOverrides } : {}),
-          ...(options?.signal ? { signal: options.signal } : {}),
-        },
-        this.spawnFn ? { spawnFn: this.spawnFn } : undefined
-      );
+      const cliOpts = {
+        command: 'claude' as const,
+        args,
+        ...(options?.workingDirectory ? { cwd: options.workingDirectory } : {}),
+        ...(envOverrides ? { env: envOverrides } : {}),
+        ...(options?.signal ? { signal: options.signal } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
       for await (const event of events) {
         if (isCliTimeout(event)) {

@@ -259,18 +259,18 @@ export class CodexAgentService implements AgentService {
       // overwriting pre-copied auth.json/config.toml/sessions (see bug-report/tea-coffee/).
       const codexEnv = applyAuthMode(options?.callbackEnv ?? {});
 
-      const events = spawnCli(
-        {
-          command: 'codex',
-          args,
-          ...(options?.workingDirectory
-            ? { cwd: options.workingDirectory }
-            : {}),
-          env: codexEnv,
-          ...(options?.signal ? { signal: options.signal } : {}),
-        },
-        this.spawnFn ? { spawnFn: this.spawnFn } : undefined
-      );
+      const cliOpts = {
+        command: 'codex' as const,
+        args,
+        ...(options?.workingDirectory
+          ? { cwd: options.workingDirectory }
+          : {}),
+        env: codexEnv,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
       // Track substantive output (item.completed with text/tool results).
       // Used to suppress Codex CLI 0.98+ false exit-code-1 errors:

@@ -24,6 +24,8 @@ import type { TranscriptSessionInfo, TranscriptWriter } from '../../session/Tran
 import type { ISessionChainStore } from '../../stores/ports/SessionChainStore.js';
 import type { IThreadStore } from '../../stores/ports/ThreadStore.js';
 import type { AgentMessage, AgentService, AgentServiceOptions } from '../../types.js';
+import type { TmuxGateway } from '../../../../terminal/tmux-gateway.js';
+import type { AgentPaneRegistry } from '../../../../terminal/agent-pane-registry.js';
 import type { InvocationRegistry } from '../invocation/InvocationRegistry.js';
 import {
   classifyResumeFailure,
@@ -79,6 +81,10 @@ export interface InvocationDeps {
   readonly workflowSopStore?: import('../../stores/ports/WorkflowSopStore.js').IWorkflowSopStore;
   /** F070 Phase 3a: Execution digest store for dispatch backflow */
   readonly executionDigestStore?: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore;
+  /** F089 Phase 2: tmux gateway for agent-in-pane execution */
+  readonly tmuxGateway?: TmuxGateway;
+  /** F089 Phase 2: agent pane registry for observability */
+  readonly agentPaneRegistry?: AgentPaneRegistry;
 }
 
 /**
@@ -386,6 +392,17 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
       : promptWithMission;
 
+    // F089 Phase 2: Create tmux spawn override for agent-in-pane execution
+    let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
+    if (deps.tmuxGateway && workingDirectory) {
+      const { basename } = await import('node:path');
+      const { createTmuxSpawnOverride } = await import('../../../../terminal/tmux-agent-spawner.js');
+      const worktreeId = basename(workingDirectory);
+      spawnCliOverride = createTmuxSpawnOverride(
+        worktreeId, invocationId, deps.tmuxGateway, deps.agentPaneRegistry,
+      );
+    }
+
     const baseOptions: AgentServiceOptions = {
       callbackEnv,
       auditContext: {
@@ -398,6 +415,7 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ...(params.contentBlocks ? { contentBlocks: params.contentBlocks } : {}),
       ...(params.uploadDir ? { uploadDir: params.uploadDir } : {}),
       ...(signal ? { signal } : {}),
+      ...(spawnCliOverride ? { spawnCliOverride } : {}),
     };
 
     let lastErrorMessage: string | undefined;
@@ -982,5 +1000,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     yield { type: 'done' as const, catId, isFinal: isLastCat, timestamp: Date.now() };
   } finally {
     await finalizeTaskProgress();
+
+    // F089: Mark agent pane status when invocation completes
+    if (deps.agentPaneRegistry?.getByInvocation(invocationId)) {
+      if (hadError) {
+        deps.agentPaneRegistry.markCrashed(invocationId, null);
+      } else {
+        deps.agentPaneRegistry.markDone(invocationId, 0);
+      }
+    }
   }
 }

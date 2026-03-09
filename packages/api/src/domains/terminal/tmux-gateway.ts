@@ -102,6 +102,31 @@ export class TmuxGateway {
     return stdout;
   }
 
+  /** Create an agent pane with remain-on-exit (read-only set AFTER command starts) */
+  async createAgentPane(worktreeId: string, opts: CreatePaneOpts = {}): Promise<string> {
+    const paneId = await this.createPane(worktreeId, opts);
+    const sock = this.socketName(worktreeId);
+    // Preserve crash scene: pane stays visible after process exits
+    await exec('tmux', ['-L', sock, 'set-option', '-t', paneId, 'remain-on-exit', 'on']);
+    // NOTE: Do NOT set read-only here — select-pane -d blocks send-keys.
+    // Callers should call setPaneReadOnly() AFTER the agent command is running.
+    return paneId;
+  }
+
+  /** Execute a command in a pane via send-keys (fire-and-forget) */
+  async execInPane(worktreeId: string, paneId: string, command: string): Promise<void> {
+    const sock = this.socketName(worktreeId);
+    // send-keys with literal flag to avoid tmux key interpretation
+    await exec('tmux', ['-L', sock, 'send-keys', '-t', paneId, command, 'Enter']);
+  }
+
+  /** Toggle pane read-only mode */
+  async setPaneReadOnly(worktreeId: string, paneId: string, readOnly: boolean): Promise<void> {
+    const sock = this.socketName(worktreeId);
+    // -d = disable input (read-only), -e = enable input
+    await exec('tmux', ['-L', sock, 'select-pane', '-t', paneId, readOnly ? '-d' : '-e']);
+  }
+
   /** Kill a specific pane */
   async killPane(worktreeId: string, paneId: string): Promise<void> {
     const sock = this.socketName(worktreeId);

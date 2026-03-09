@@ -123,16 +123,16 @@ export class DareAgentService implements AgentService {
     const metadata: MessageMetadata = { provider: 'dare', model: this.model };
 
     try {
-      const events = spawnCli(
-        {
-          command: 'python',
-          args,
-          ...(cwd ? { cwd } : {}),
-          env: childEnv,
-          ...(options?.signal ? { signal: options.signal } : {}),
-        },
-        this.spawnFn ? { spawnFn: this.spawnFn } : undefined,
-      );
+      const cliOpts = {
+        command: 'python' as const,
+        args,
+        ...(cwd ? { cwd } : {}),
+        env: childEnv,
+        ...(options?.signal ? { signal: options.signal } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
       for await (const event of events) {
         if (isCliTimeout(event)) {

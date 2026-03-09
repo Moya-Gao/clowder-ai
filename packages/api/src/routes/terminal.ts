@@ -2,18 +2,20 @@ import type { FastifyPluginAsync } from 'fastify';
 import * as pty from 'node-pty';
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
 import type { TmuxGateway } from '../domains/terminal/tmux-gateway.js';
+import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';
 import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 interface TerminalRouteOpts {
   tmuxGateway: TmuxGateway;
+  agentPaneRegistry?: AgentPaneRegistry;
 }
 interface PtyBinding {
   pty: pty.IPty;
 }
 
 export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app, opts) => {
-  const { tmuxGateway } = opts;
+  const { tmuxGateway, agentPaneRegistry } = opts;
   const store = new TerminalSessionStore();
   const ptys = new Map<string, PtyBinding>();
 
@@ -180,6 +182,21 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
       worktreeId: s.worktreeId,
       paneId: s.paneId,
       status: s.status,
+    }));
+  });
+
+  // GET /api/terminal/agent-panes — list agent panes by worktree
+  app.get<{
+    Querystring: { worktreeId: string };
+  }>('/api/terminal/agent-panes', async (req, reply) => {
+    if (!agentPaneRegistry) return reply.status(501).send({ error: 'Agent pane tracking not enabled' });
+    const { worktreeId } = req.query;
+    if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
+    return agentPaneRegistry.listByWorktree(worktreeId).map((p) => ({
+      invocationId: p.invocationId,
+      paneId: p.paneId,
+      status: p.status,
+      startedAt: p.startedAt,
     }));
   });
 };

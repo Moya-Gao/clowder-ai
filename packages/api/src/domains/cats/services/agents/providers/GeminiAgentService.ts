@@ -119,18 +119,18 @@ export class GeminiAgentService implements AgentService {
       let sawResultError = false;
       let sawAssistantText = false;
       let suppressCliExitError = false;
-      const events = spawnCli(
-        {
-          command: 'gemini',
-          args,
-          ...(options?.workingDirectory
-            ? { cwd: options.workingDirectory }
-            : {}),
-          ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
-          ...(options?.signal ? { signal: options.signal } : {}),
-        },
-        this.spawnFn ? { spawnFn: this.spawnFn } : undefined
-      );
+      const cliOpts = {
+        command: 'gemini' as const,
+        args,
+        ...(options?.workingDirectory
+          ? { cwd: options.workingDirectory }
+          : {}),
+        ...(options?.callbackEnv ? { env: options.callbackEnv } : {}),
+        ...(options?.signal ? { signal: options.signal } : {}),
+      };
+      const events = options?.spawnCliOverride
+        ? options.spawnCliOverride(cliOpts)
+        : spawnCli(cliOpts, this.spawnFn ? { spawnFn: this.spawnFn } : undefined);
 
       for await (const event of events) {
         if (isCliTimeout(event)) {

@@ -146,6 +146,10 @@ export interface AgentRouterOptions {
   executionDigestStore?: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore;
   /** F079 Bug 2: Socket manager for real-time vote result broadcast */
   socketManager?: import('../../../../../infrastructure/websocket/SocketManager.js').SocketManager;
+  /** F089 Phase 2: tmux gateway for agent-in-pane execution */
+  tmuxGateway?: import('../../../../terminal/tmux-gateway.js').TmuxGateway;
+  /** F089 Phase 2: agent pane registry for observability */
+  agentPaneRegistry?: import('../../../../terminal/agent-pane-registry.js').AgentPaneRegistry;
 }
 
 /**
@@ -168,6 +172,8 @@ export class AgentRouter {
   private workflowSopStore: IWorkflowSopStore | undefined;
   private executionDigestStore: import('../../../../projects/execution-digest-store.js').ExecutionDigestStore | undefined;
   private socketManager: import('../../../../../infrastructure/websocket/SocketManager.js').SocketManager | undefined;
+  private tmuxGateway: import('../../../../terminal/tmux-gateway.js').TmuxGateway | undefined;
+  private agentPaneRegistry: import('../../../../terminal/agent-pane-registry.js').AgentPaneRegistry | undefined;
   private speechMentionRe: RegExp;
 
   constructor(options: AgentRouterOptions) {
@@ -197,6 +203,8 @@ export class AgentRouter {
     this.workflowSopStore = options.workflowSopStore;
     this.executionDigestStore = options.executionDigestStore;
     this.socketManager = options.socketManager;
+    this.tmuxGateway = options.tmuxGateway;
+    this.agentPaneRegistry = options.agentPaneRegistry;
   }
 
   /** Pick a deterministic fallback cat when policy filters out all candidates. */
@@ -529,6 +537,8 @@ export class AgentRouter {
         ...(this.taskStore ? { taskStore: this.taskStore } : {}),
         ...(this.workflowSopStore ? { workflowSopStore: this.workflowSopStore } : {}),
         ...(this.executionDigestStore ? { executionDigestStore: this.executionDigestStore } : {}),
+        ...(this.tmuxGateway ? { tmuxGateway: this.tmuxGateway } : {}),
+        ...(this.agentPaneRegistry ? { agentPaneRegistry: this.agentPaneRegistry } : {}),
       },
       messageStore: this.messageStore,
       deliveryCursorStore: this.deliveryCursorStore,

@@ -4,6 +4,7 @@
  */
 
 import type { CatId, MessageContent } from '@cat-cafe/shared';
+import type { CliSpawnOptions } from '../../../utils/cli-types.js';
 
 /** F8: Unified token usage type across all three cats.
  *  inputTokens = TOTAL input tokens (new + cached). Normalised at extraction
@@ -137,6 +138,12 @@ export interface AgentMessage {
 }
 
 /**
+ * Override factory: replaces spawnCli() for tmux-based execution.
+ * Same event contract — callers iterate events identically.
+ */
+export type SpawnCliOverride = (options: CliSpawnOptions) => AsyncGenerator<unknown, void, undefined>;
+
+/**
  * Options for invoking an agent
  */
 export interface AgentServiceOptions {
@@ -156,6 +163,8 @@ export interface AgentServiceOptions {
   auditContext?: AuditContext;
   /** Static identity prompt (Claude: --append-system-prompt, others: prepend to prompt) */
   systemPrompt?: string;
+  /** F089: Override spawnCli with tmux-based spawner (set per-invocation) */
+  spawnCliOverride?: SpawnCliOverride;
 }
 
 /**

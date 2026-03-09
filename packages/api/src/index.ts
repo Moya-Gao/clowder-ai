@@ -18,6 +18,7 @@ import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-clea
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
+import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { terminalRoutes } from './routes/terminal.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
@@ -237,6 +238,10 @@ async function main(): Promise<void> {
     agentRegistry.register(id as string, service);
   }
 
+  // F089 Phase 2: Shared instances for tmux agent pane execution
+  const tmuxGateway = new TmuxGateway();
+  const agentPaneRegistry = new AgentPaneRegistry();
+
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
     agentRegistry,
@@ -255,6 +260,8 @@ async function main(): Promise<void> {
     ...(workflowSopStore ? { workflowSopStore } : {}),
     executionDigestStore,
     socketManager,
+    tmuxGateway,
+    agentPaneRegistry,
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -406,8 +413,7 @@ async function main(): Promise<void> {
   await app.register(workspaceRoutes);
   await app.register(workspaceEditRoutes);
   await app.register(workspaceGitRoutes);
-  const tmuxGateway = new TmuxGateway();
-  await app.register(terminalRoutes, { tmuxGateway });
+  await app.register(terminalRoutes, { tmuxGateway, agentPaneRegistry });
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
