@@ -387,6 +387,67 @@ Cat Café 好用的三个前提条件中，**真正不可替代的只有愿景**
 
 ---
 
+# Part 3: GPT Pro 外部调研补充
+
+> 云端 GPT Pro 对我们讨论的验证 + 5 个业界案例 + 3 个补充建议
+
+## GPT Pro 核心评价
+
+> **"基本对，而且行业已经在产品路线里给它盖章了。"**
+
+OpenAI Frontier、Anthropic Claude Code hooks、GitHub 的 agents.md 分析都在验证这个方向。
+
+## 5 个业界案例（给高管讲）
+
+| 案例 | 核心观点 | 数据佐证 |
+|------|---------|---------|
+| **GitHub Copilot** | 真正卖的是治理能力，不是"会写代码" | 2500+ agents.md 仓库分析 |
+| **Morgan Stanley** | 金融业靠 eval + 受控检索 + 人工复核 | 98% 顾问每天使用，文档可达性 20%→80% |
+| **Replit Agent** | 长轨迹问题靠环境反馈和回滚，不是加 prompt | 10x more autonomous, 3x faster, 10x more cost-effective |
+| **Retool + Temporal** | Agent 有长时状态 = 分布式系统问题 | 10 人团队支撑每天数千次 agent run |
+| **Exa** | 多 Agent 价值在角色边界和上下文隔离 | 每天 hundreds of queries，15秒-3分钟返回 |
+
+## 三个补充建议（我们讨论未覆盖）
+
+### 1. 验证层（Verification Layer）单独拎出来
+
+GPT Pro 指出：把模型能力变成组织信任的，是**横切全栈的验证层**——eval、测试、扫描、审阅、审计、回滚。
+
+**对 Cat Café 的意义**：我们的 Review 双循环、Red→Green 都属于验证层，但没显式命名和强化。
+
+### 2. Durable Execution 是架构层能力
+
+如果任务跨小时/天、需要等待人批准、要对外部系统造成副作用：
+- State persistence、replay、timer、idempotency、retry policy 是架构能力
+- 不是实现细节
+
+**对 Cat Café 的意义**：我们用 Thread + Redis，但没有显式的 checkpoint/replay API。
+
+### 3. Economics 视角
+
+Harness 不只决定可靠性，还决定成本：
+- 更少烧 token（上下文预算管理）
+- 更少返工（验证层拦截错误）
+- 更少人工接管
+
+**对 Cat Café 的意义**：铲屎官关心猫粮消耗，这是很好的 ROI 语言。
+
+## 两句高管友好的表述
+
+**管理视角**：
+> 模型是高智商新人，Harness 是 SOP、权限系统、工单流、code review、审计日志和知识库。
+> 没有 Harness，你买到的是聪明个体；有了 Harness，你买到的是可规模化的组织能力。
+
+**工程视角**：
+> 模型给推理上限，验证层给可信下限，durable execution 给连续性，平台把三者变成 SLA。
+> 所以 2026 的壁垒，不只是模型 IQ，而是把模型 IQ 制度化的能力。
+
+**一页摘要标题**：
+> **模型给能力，Harness 给可信交付。**
+> 副标题：从 Demo 到生产，不是多一个更强模型，而是多一层上下文、控制、执行、验证的组织化系统。
+
+---
+
 ## 待决事项
 
 1. **Slogan 最终选定**：铲屎官从候选中选定，或继续迭代
