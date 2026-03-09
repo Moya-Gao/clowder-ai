@@ -22,6 +22,7 @@ status: spec
 7. 当铲屎官绕过 Cat Café，直接在 Claude CLI 里 `resume/continue` 同一 session 时，session 会自行消费 `[对话历史增量 - 未发送过 N 条]` 并在外部推进状态；随后主区气泡可能出现迟到、错位或与前端当前可见状态不一致
 8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
 9. `F081` 第一刀之后，主区又暴露出另一种瞬时“双影”：有时会短暂看到两条自己的消息，或者两条同样的 assistant 回复；但 `F5` 之后又只剩一条，说明服务器真相源通常只有一条，重复更像前端本地 reconcile 留下的临时 duplicate
+10. 进一步追查后发现，这类残余“双影”并不都来自 hydration；前台在 `thinking / rich_block / tool` 这类系统占位路径里，一旦 `activeRefs` 先丢了，却又没有先认领 store 里现存的 streaming bubble，就会重新起一个新的 assistant placeholder，形成短暂重复
 
 这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
 
@@ -217,6 +218,20 @@ status: spec
   - “同 invocation 的 stale draft 不会和本地 richer bubble 变双胞胎”
   - “同 invocation 的 richer server bubble 会替换本地 placeholder”
   - “invocation_created 晚到时，会把 active / background placeholder bubble 绑定到正确的 `stream.invocationId`”
+
+### 2026-03-08 砚砚侦探补刀：残余瞬时双影
+
+- 铲屎官继续报告：有时前端仍会短暂看到两条自己的消息或两条同样的 assistant 回复，但 `F5` 后又只剩一条
+- 这说明后端真相源通常没有重复，剩余问题更像前端本地 store 的瞬时 duplicate
+- 新红灯已坐实：`packages/web/src/hooks/useAgentMessages.ts` 在处理 `system_info.thinking` 和 `system_info.rich_block` 时，如果 `activeRefs` 已丢，但 store 里已有同猫 `isStreaming` bubble，会直接新建 placeholder，而不是先认领已有 bubble
+- 同样的“先认领再创建”缺口也存在于前台 `tool_use` / `tool_result` / `web_search` 占位路径
+- 当前修复把这几条统一收口到 `ensureActiveAssistantMessage()`：
+  - 先认 `activeRefs`
+  - 再从 store 里恢复现有 streaming bubble
+  - 前两步都失败才创建新 placeholder
+- 新增回归测试已覆盖：
+  - `thinking` 晚到 + `activeRefs` 丢失时复用旧 bubble
+  - `rich_block` 晚到 + `activeRefs` 丢失时复用旧 bubble
 
 ## Timeline
 

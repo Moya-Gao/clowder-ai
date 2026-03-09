@@ -1,76 +1,55 @@
 ---
 feature_ids: [F081]
-topics: [frontend, bubble, duplicate, reconcile, optimistic, hydration]
+topics: [bubble, duplicate, placeholder, stream, rendering]
 doc_kind: bug-report
 created: 2026-03-08
 ---
 
-# Bug Report: Frontend 瞬时双影气泡
+# Bug Report: F081 残余瞬时重复气泡
 
 ## 1. 报告人
+- 报告人：铲屎官（2026-03-08）
+- 发现方式：真实使用中偶发看到自己的消息或猫猫回复短暂出现两条；`F5` 后恢复为一条
 
-- 报告人：铲屎官
-- 发现方式：真实使用时偶发看到“自己的消息出现两条”或“同一只猫的回复出现两条”，但 `F5` 后又只剩一条
-- 时间：2026-03-08
+## 2. 复现步骤
+1. 让猫猫在前台 thread 里持续输出，尤其是会先产出 `thinking` / `web_search` / `rich_block` / tool event 的回复。
+2. 在前台仍有 streaming bubble 的窗口内，观察主区消息列表。
 
-## 2. 复现步骤（期望 vs 实际）
+期望行为：
+- 同一条用户消息或 assistant 回复在前端只显示一次。
 
-1. 在前端发送一条消息，或切到后台 thread 让猫继续回复。
-2. 观察主区时间线。
-3. 在不刷新页面的情况下，偶发会出现两条看起来是同一条的用户消息，或两条内容相同的 assistant 回复。
-4. 执行 `F5` 刷新页面后，再次观察同一 thread。
-
-期望：
-- 同一条消息在前端任意时刻都只应有一个可见实例。
-
-实际：
-- 前端本地 store 偶尔短暂保留了“optimistic / placeholder”和“正式历史消息”两份。
-- `F5` 之后服务器历史只有一条，因此重复会消失。
+实际行为：
+- 主区偶发会短暂出现两条内容相同的气泡。
+- 页面 `F5` 后只剩一条，说明服务器真相源通常并没有真的存两份。
 
 ## 3. 根因分析
-
-这次不是后端存了重复消息，而是前端本地 reconcile 还留了身份缺口：
-
-1. **用户消息硬根因**
-   - `useSendMessage.ts` 会先写一个 optimistic user bubble，ID 形如 `user-*`
-   - `POST /api/messages` 虽然早就知道真实的 `storedUserMessage.id`，但之前没有把它回给前端
-   - 前端因此无法把 optimistic user bubble 改名成真实 message id
-   - 当后续 history replace / rehydrate 带回正式历史消息时，就会短暂出现两条用户消息
-
-2. **assistant callback 背景链路根因**
-   - active thread 的 callback assistant message 已使用后端 `messageId`
-   - 但 background thread 的 callback message 之前会自行生成 `bg-cb-*` synthetic id
-   - 当同一条 callback 消息后来以正式历史形式出现时，前端就会暂时保留 synthetic bubble + persisted bubble 两份
-
-3. **为什么 F5 后会恢复正常**
-   - `F5` 后前端重建状态，只读取服务器真相源
-   - 服务器里本来就只有一条，所以刷新后重复消失
+- 上一刀 `F081` 修掉了“replace hydration 抹掉已显示气泡”，但还留下另一条身份断层：
+  - 前台 `useAgentMessages.ts` 在处理 `thinking` / `rich_block`，以及部分 `tool_use` / `tool_result` / `web_search` 占位时，只认 `activeRefs.current`
+  - 一旦 `activeRefs` 因切换、重建或时序窗口丢失，而 store 里其实已经有一条对应的 `isStreaming` assistant bubble，这些路径不会像普通 `text` 那样先“认领旧 bubble”，而是直接再起一条新的 placeholder
+- 因为这份重复只存在于前端本地 store，等历史重新拉齐或 `F5` 后按服务器真相源重建时，就只剩一条
 
 ## 4. 修复方案
+- 抽出统一的 `ensureActiveAssistantMessage()`：
+  - 先看 `activeRefs`
+  - 再看 store 里已有的同猫 `isStreaming` bubble
+  - 只有前两步都找不到时才创建新的 placeholder
+- 让前台这几类 assistant 占位都共用同一套认领逻辑：
+  - `tool_use`
+  - `tool_result`
+  - `system_info.web_search`
+  - `system_info.thinking`
+  - `system_info.rich_block`
 
-1. 在 `chatStore` 增加 `replaceMessageId / replaceThreadMessageId`
-   - 用于把 optimistic / placeholder bubble 原地对位成真实 message id
-   - 如果真实 id 已存在，则丢掉临时 duplicate，只保留 canonical message
-
-2. `POST /api/messages` 响应增加 `userMessageId`
-   - queue / immediate 两条路径都回传真实 user message id
-
-3. `useSendMessage` 改为：
-   - 为每次发送生成稳定 `idempotencyKey`
-   - optimistic bubble 先用临时 id
-   - 收到响应后按 `threadId` 调 `replaceThreadMessageId(...)` 做精确 reconcile
-
-4. background callback assistant message 改为优先使用后端 `messageId`
-   - 不再无条件生成 `bg-cb-*`
+为什么选它：
+- 这是根因层修复，不是继续在 replace/hydration 末端做补丁式去重。
+- 能统一“前台普通文本”和“前台系统消息占位”的身份恢复语义。
 
 ## 5. 验证方式
-
-- Web 回归：
-  - `useSendMessage-thread-source.test.ts`
-  - `chatStore-multithread.test.ts`
-  - `useSocket-background.test.ts`
-- API 回归：
-  - `messages-delivery-mode.test.js`
-- 结果：
-  - Web `86/86` 绿
-  - API `11/11` 绿
+- 新增回归测试：
+  - 当 store 里已存在 streaming bubble，而 `thinking` 晚到且 `activeRefs` 丢失时，应复用旧 bubble
+  - 当 store 里已存在 streaming bubble，而 `rich_block` 晚到且 `activeRefs` 丢失时，应复用旧 bubble
+- 回归现有相关测试：
+  - `useAgentMessages-invocation-created`
+  - `useChatHistory-replace-hydration`
+  - `useSendMessage-thread-source`
+  - `chatStore-multithread`

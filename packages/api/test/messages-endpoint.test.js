@@ -248,6 +248,27 @@ describe('GET /api/messages', () => {
     assert.equal(body.messages[0].toolEvents, undefined, 'should not include toolEvents when absent');
   });
 
+  it('preserves stream invocation identity for persisted assistant messages', async () => {
+    messageStore.append({
+      userId: 'default-user',
+      catId: 'opus',
+      content: 'persisted stream bubble',
+      mentions: [],
+      timestamp: 4500,
+      origin: 'stream',
+      extra: {
+        stream: {
+          invocationId: 'inv-stream-1',
+        },
+      },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/api/messages' });
+    const body = JSON.parse(res.body);
+    assert.equal(body.messages.length, 1);
+    assert.deepEqual(body.messages[0].extra?.stream, { invocationId: 'inv-stream-1' });
+  });
+
   it('filters by userId', async () => {
     messageStore.append({
       userId: 'alice',

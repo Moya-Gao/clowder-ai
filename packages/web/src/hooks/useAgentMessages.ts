@@ -174,6 +174,45 @@ export function useAgentMessages() {
     return useChatStore.getState().catInvocations?.[catId]?.invocationId;
   }, []);
 
+  const ensureActiveAssistantMessage = useCallback((
+    catId: string,
+    metadata?: AgentMsg['metadata'],
+  ): string => {
+    const existing = activeRefs.current.get(catId);
+    if (existing?.id) {
+      if (metadata) {
+        setMessageMetadata(existing.id, metadata);
+      }
+      return existing.id;
+    }
+
+    const resumedId = findStreamingMessageId(catId);
+    if (resumedId) {
+      activeRefs.current.set(catId, { id: resumedId, catId });
+      if (metadata) {
+        setMessageMetadata(resumedId, metadata);
+      }
+      return resumedId;
+    }
+
+    const id = `msg-${Date.now()}-${catId}`;
+    const invocationId = getCurrentInvocationIdForCat(catId);
+    activeRefs.current.set(catId, { id, catId });
+    addMessage({
+      id,
+      type: 'assistant',
+      catId,
+      content: '',
+      origin: 'stream',
+      ...(metadata ? { metadata } : {}),
+      ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+      ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+      timestamp: Date.now(),
+      isStreaming: true,
+    });
+    return id;
+  }, [addMessage, findStreamingMessageId, getCurrentInvocationIdForCat, setMessageMetadata]);
+
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
       // Reset timeout on any message (keeps timer alive during streaming)
@@ -257,23 +296,7 @@ export function useAgentMessages() {
           }
         }
 
-        const existing = activeRefs.current.get(msg.catId);
-        let messageId = existing?.id;
-        if (!messageId) {
-          messageId = `msg-${Date.now()}-${msg.catId}`;
-          const invocationId = getCurrentInvocationIdForCat(msg.catId);
-          activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
-          addMessage({
-            id: messageId,
-            type: 'assistant',
-            catId: msg.catId,
-            content: '',
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-            timestamp: Date.now(),
-            isStreaming: true,
-          });
-        }
+        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
         appendToolEvent(messageId, {
           id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -291,23 +314,7 @@ export function useAgentMessages() {
         }
       } else if (msg.type === 'tool_result') {
         setCatStatus(msg.catId, 'streaming');
-        const existing = activeRefs.current.get(msg.catId);
-        let messageId = existing?.id;
-        if (!messageId) {
-          messageId = `msg-${Date.now()}-${msg.catId}`;
-          const invocationId = getCurrentInvocationIdForCat(msg.catId);
-          activeRefs.current.set(msg.catId, { id: messageId, catId: msg.catId });
-          addMessage({
-            id: messageId,
-            type: 'assistant',
-            catId: msg.catId,
-            content: '',
-            ...(msg.metadata ? { metadata: msg.metadata } : {}),
-            ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-            timestamp: Date.now(),
-            isStreaming: true,
-          });
-        }
+        const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
         const detail = compactToolResultDetail(msg.content ?? '');
         appendToolEvent(messageId, {
@@ -491,33 +498,9 @@ export function useAgentMessages() {
             // F045: web_search tool event (privacy: no query, count only) — render as ToolEvent, not raw JSON
             setCatStatus(msg.catId, 'streaming');
             const count = typeof parsed.count === 'number' ? parsed.count : 1;
-            let ref = activeRefs.current.get(msg.catId);
-            if (!ref) {
-              const resumedId = findStreamingMessageId(msg.catId);
-              if (resumedId) {
-                activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
-                ref = activeRefs.current.get(msg.catId)!;
-              } else {
-                const id = `msg-${Date.now()}-${msg.catId}`;
-                const invocationId = getCurrentInvocationIdForCat(msg.catId);
-                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-                ref = activeRefs.current.get(msg.catId)!;
-                addMessage({
-                  id: ref.id,
-                  type: 'assistant',
-                  catId: msg.catId,
-                  content: '',
-                  origin: 'stream',
-                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
-                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-                  ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
-                  timestamp: Date.now(),
-                  isStreaming: true,
-                });
-              }
-            }
+            const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
 
-            appendToolEvent(ref.id, {
+            appendToolEvent(messageId, {
               id: `toolws-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
               type: 'tool_use',
               label: `${msg.catId} → web_search${count > 1 ? ` x${count}` : ''}`,
@@ -528,26 +511,8 @@ export function useAgentMessages() {
             // F045: Embed thinking into the current assistant bubble (like Claude Code)
             const thinkingText = parsed.text ?? '';
             if (thinkingText) {
-              let ref = activeRefs.current.get(msg.catId);
-              if (!ref) {
-                // Create placeholder assistant message if none exists yet
-                const id = `msg-${Date.now()}-${msg.catId}`;
-                const invocationId = getCurrentInvocationIdForCat(msg.catId);
-                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-                ref = activeRefs.current.get(msg.catId)!;
-                addMessage({
-                  id: ref.id,
-                  type: 'assistant',
-                  catId: msg.catId,
-                  content: '',
-                  origin: 'stream',
-                  ...(msg.metadata ? { metadata: msg.metadata } : {}),
-                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-                  timestamp: Date.now(),
-                  isStreaming: true,
-                });
-              }
-              setMessageThinking(ref.id, thinkingText);
+              const messageId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
+              setMessageThinking(messageId, thinkingText);
             }
             consumed = true;
           } else if (parsed?.type === 'warning') {
@@ -566,24 +531,8 @@ export function useAgentMessages() {
             }
 
             if (!targetId) {
-              // Fallback: activeRefs (streaming context / Route A)
-              let ref = activeRefs.current.get(msg.catId);
-              if (!ref) {
-                const id = `msg-${Date.now()}-${msg.catId}`;
-                const invocationId = getCurrentInvocationIdForCat(msg.catId);
-                activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-                addMessage({
-                  id,
-                  type: 'assistant',
-                  catId: msg.catId,
-                  content: '',
-                  ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-                  timestamp: Date.now(),
-                  isStreaming: true,
-                });
-                ref = activeRefs.current.get(msg.catId)!;
-              }
-              targetId = ref.id;
+              // Fallback: recover the active stream bubble before creating a placeholder.
+              targetId = ensureActiveAssistantMessage(msg.catId, msg.metadata);
             }
 
             if (parsed.block) {
@@ -695,6 +644,7 @@ export function useAgentMessages() {
       clearDoneTimeout,
       findStreamingMessageId,
       getCurrentInvocationIdForCat,
+      ensureActiveAssistantMessage,
       setMessageUsage,
     ],
   );
