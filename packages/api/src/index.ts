@@ -5,6 +5,7 @@
 
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fastifyWebsocket from '@fastify/websocket';
 import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes, intentCardRoutes, resolutionRoutes, sliceRoutes, refluxRoutes, executionDigestRoutes } from './routes/index.js';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
@@ -16,6 +17,8 @@ import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProv
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
+import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
+import { terminalRoutes } from './routes/terminal.js';
 import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
 import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
 import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
@@ -92,6 +95,9 @@ async function main(): Promise<void> {
     origin: resolveFrontendCorsOrigins(process.env, app.log),
     credentials: true,
   });
+
+  // WebSocket support (F089 terminal)
+  await app.register(fastifyWebsocket);
 
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
@@ -398,6 +404,8 @@ async function main(): Promise<void> {
   await app.register(workspaceRoutes);
   await app.register(workspaceEditRoutes);
   await app.register(workspaceGitRoutes);
+  const tmuxGateway = new TmuxGateway();
+  await app.register(terminalRoutes, { tmuxGateway });
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 

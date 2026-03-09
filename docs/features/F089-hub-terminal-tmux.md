@@ -25,21 +25,25 @@ created: 2026-03-09
 
 ## What
 
-### 双轨制架构（GPT Pro + 布偶猫共识）
+### 单源双消费架构（砚砚 P1 审查修正）
 
 ```
-Machine Track（不变）：spawn → pipe → NDJSON → 后端解析 → socket.io → 前端
-Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/websocket → xterm.js
+                     ┌─ pipe-pane tee ─→ 机器解析（NDJSON/结构化事件）→ socket.io → 前端
+tmux pane（agent 跑在这里）─┤
+                     └─ node-pty attach ─→ @fastify/websocket → xterm.js（人类观看/接管）
 ```
 
-两条轨道互不干扰。机器轨继续走 pipe + NDJSON；人类轨走 tmux + PTY + plain WebSocket。
+**一个 agent = 一个 tmux pane。** 机器侧和人类侧消费同一个运行时的输出，不是两套进程。
+
+旧版"双轨制"的问题：机器轨 spawn+pipe 是独立进程，人类轨 tmux pane 是另一个——铲屎官在浏览器里看到的不是 agent 真正在干的事。
 
 ### tmux 架构
 
 - **一个 worktree = 一个 tmux server**：`tmux -L catcafe-{worktreeId}`
 - **用户 shell = tmux 里的一个 window/pane**
-- **agent watch = tmux 里的另一个 pane**（read-only）
-- **takeover = 把 watch pane 从 read-only 切到 read-write**
+- **agent = tmux 里的另一个 pane**（Phase 1 先做用户 shell，Phase 2 加 agent pane）
+- **观看 agent = 前端 attach 到 agent pane**（read-only）
+- **接管 agent = 切换 pane 为 read-write**
 
 ### 技术栈
 
@@ -49,27 +53,30 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 | terminal 传输 | `@fastify/websocket`（plain WS） | **已在 package.json，零新依赖** |
 | 结构化事件 | `socket.io`（不变） | 现有基础设施 |
 | 后端 PTY | `node-pty` | 跨平台，xterm.js 生态配套 |
-| tmux 集成 | control mode (`-CC`) | 文本协议，可编程控制 |
+| tmux 集成 | CLI 调用 (`execFile`) | 一次一个命令，简单可靠，就是终态 |
 | 进程监控 | `pidtree` + `pidusage` | 跨平台（macOS + Linux） |
 
 ## Acceptance Criteria
 
 ### Phase 1：tmux 基础设施 + 用户 Shell（终态基座）
 
-- [ ] **Spike（最先做）**：tmux control mode (-CC) 解析可行性验证——能跑通 create/resize/kill 再继续
-- [ ] TmuxGateway 服务：worktree = tmux server 生命周期管理
+- [x] **Spike**：tmux CLI 调用可行性验证（2026-03-09 完成，CLI 6/6 PASS，control mode 不需要）
+- [ ] TmuxGateway 服务：worktree = tmux server 生命周期管理（CLI 调用）
 - [ ] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`
 - [ ] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作
 - [ ] WorkspacePanel 新增 Terminal tab
 - [ ] tmux window/pane 列表 UI
 - [ ] 前端 `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach`
 
-### Phase 2：Agent Watch Pane
+### Phase 2：Agent 在 tmux pane 里跑 + 可观测
 
-- [ ] Agent 启动时自动在 tmux 里开 watch pane（`select-pane -d` read-only）
+> 核心变化：agent（Claude CLI / Codex CLI）直接在 tmux pane 里启动，不是独立 spawn+pipe。
+
+- [ ] Agent invocation 在 tmux pane 里直跑 CLI 命令（非交互 shell 包裹，避免 prompt/ANSI 污染机器解析边界）
+- [ ] `pipe-pane -O` tee pane 输出给机器侧解析器（NDJSON/结构化事件）
 - [ ] `remain-on-exit` 保留崩溃现场
-- [ ] 前端点 pane 即可 attach 观看 agent 操作
-- [ ] `pipe-pane -O` tee 日志给解析器
+- [ ] 前端 attach 到 agent pane = 实时观看 agent 操作
+- [ ] `select-pane -d` 默认 read-only（防误触）
 
 ### Phase 3：Takeover + 进程监控
 
@@ -95,11 +102,12 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 
 ## Key Decisions
 
-1. **双轨制**：机器轨（pipe+NDJSON）不动，人类轨（tmux+PTY+WS）新增（GPT Pro 建议，布偶猫验证）
+1. **单源双消费**：agent 在 tmux pane 里跑，`pipe-pane` tee 给机器解析，前端 attach 同一 pane 观看（砚砚 P1 审查修正，取代旧版"双轨制"）
 2. **从 Day 1 底层就是 tmux**：不走"先纯 PTY 再叠 tmux"的绕路（P1 面向终态不绕路）
 3. **workspace 级 tmux server**：一个 worktree = 一个 tmux server，不是 per-invocation
 4. **plain WebSocket**：terminal 字节流用 `@fastify/websocket`，结构化事件继续用 socket.io
 5. **macOS 优先**：进程监控用 pidtree/pidusage（跨平台），不用 Linux cgroup
+6. **tmux CLI 调用就是终态**：不需要 control mode (-CC)，Spike 2026-03-09 验证
 
 ## Dependencies
 
@@ -111,13 +119,13 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 | 风险 | 缓解 |
 |------|------|
 | node-pty macOS 需要编译原生模块 | 确认 Xcode CLI tools |
-| tmux control mode 解析复杂 | GPT Pro 给了详细协议说明 |
+| agent spawn 迁移到 tmux pane | Phase 2 渐进式——Phase 1 先做用户 shell，验证基础设施 |
 | terminal 安全 | 本地环境风险低；WS 路由加 session token 校验 |
-| NDJSON 被 PTY ANSI 污染 | 双轨制已规避——机器轨永远走 pipe |
+| pipe-pane tee 性能 | 机器解析只需要 NDJSON 行，丢弃 ANSI 不影响 |
 
 ## Open Questions
 
-1. ~~tmux control mode 的解析库——自己写还是找现成的？~~ → **Phase 1 Spike 验证后决定**
+1. ~~tmux control mode 的解析库——自己写还是找现成的？~~ → **不需要 control mode (-CC)。** CLI 调用（`execFile('tmux', [...])`）就是终态——主动操作（create/resize/kill）和被动监听（`pipe-pane -O` tee agent pane 输出流）都用 CLI 设置。control mode (-CC) 是 tmux 内部事件流（窗口创建/关闭等），跟 pane I/O 无关，我们不需要。Spike 2026-03-09 验证 CLI 6/6 全 PASS。
 2. Phase 2 agent watch pane 里要不要做 ANSI → 结构化数据的解析（类似 F061 的 thinking 提取）？
 3. 多 worktree 同时 active 时，tmux server 生命周期怎么回收？
 4. **Phase 4 是终态的一部分**——CLI spawn 就是我们的 agent 入口（不会被 SDK 替代），stdin pipe 是 takeover 的程序化升级
@@ -145,3 +153,5 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 | 2026-03-08 | GPT Pro 咨询：双轨制架构 + 技术选型（Part 1-2） |
 | 2026-03-08 | 布偶猫 codebase 验证 + 修正为面向终态直线版（Part 3） |
 | 2026-03-09 | F089 正式立项 |
+| 2026-03-09 | Spike: tmux CLI 6/6 PASS, control mode 不需要 |
+| 2026-03-09 | 砚砚 P1 审查：双轨制 → 单源双消费（agent 在 tmux pane 里跑）|

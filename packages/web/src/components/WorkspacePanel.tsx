@@ -8,6 +8,7 @@ import { API_URL, apiFetch } from '@/utils/api-client';
 import { MarkdownContent } from './MarkdownContent';
 import { ChangesPanel } from './workspace/ChangesPanel';
 import { GitPanel } from './workspace/GitPanel';
+import { TerminalTab } from './workspace/TerminalTab';
 import { JsxPreview } from './workspace/JsxPreview';
 import { LinkedRootsManager, LinkedRootRemoveButton } from './workspace/LinkedRootsManager';
 import { CodeViewer } from './workspace/CodeViewer';
@@ -136,7 +137,7 @@ export function WorkspacePanel() {
 
   const { createFile, createDir, deleteItem, renameItem, uploadFile } = useFileManagement();
 
-  const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git'>('files');
+  const [viewMode, setViewMode] = useState<'files' | 'changes' | 'git' | 'terminal'>('files');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchMode, setSearchMode] = useState<'content' | 'filename' | 'all'>('all');
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -465,7 +466,7 @@ export function WorkspacePanel() {
 
       {/* Files / Changes toggle */}
       <div className="flex border-b border-owner-light/40">
-        {(['files', 'changes', 'git'] as const).map((mode) => (
+        {(['files', 'changes', 'git', 'terminal'] as const).map((mode) => (
           <button
             key={mode}
             type="button"
@@ -476,7 +477,7 @@ export function WorkspacePanel() {
                 : 'text-owner-dark/40 hover:text-owner-dark/60'
             }`}
           >
-            {mode === 'files' ? 'Files' : mode === 'changes' ? 'Changes' : 'Git'}
+            {mode === 'files' ? 'Files' : mode === 'changes' ? 'Changes' : mode === 'git' ? 'Git' : 'Term'}
           </button>
         ))}
       </div>
@@ -484,7 +485,15 @@ export function WorkspacePanel() {
       {/* Error */}
       {error && <div className="px-3 py-2 text-xs text-red-600 bg-red-50/80 border-b border-red-100">{error}</div>}
 
-      {viewMode === 'git' ? (
+      {viewMode === 'terminal' ? (
+        worktreeId ? (
+          <TerminalTab worktreeId={worktreeId} />
+        ) : (
+          <div className="flex items-center justify-center h-full text-sm text-owner-dark/50">
+            请先选择一个 Worktree
+          </div>
+        )
+      ) : viewMode === 'git' ? (
         <GitPanel />
       ) : viewMode === 'changes' ? (
         <ChangesPanel worktreeId={worktreeId} basisPct={treeBasis} />
