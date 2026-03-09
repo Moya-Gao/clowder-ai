@@ -258,6 +258,7 @@ rule_update_target:
 - [ ] 超时默认 8m（3~20m 可配），超时立即回流已有结果
 - [ ] 审计 envelope：initiator/callbackTo/idempotencyKey/triggerType/searchEvidenceRefs/overrideReason
 - [ ] 可观测性：状态机变迁日志 + 审计字段
+- [ ] 上线验收指标（计划阶段定阈值）：回流成功率、超时率、二次扩散拦截次数、平均回流延迟
 
 ### M2 元思考触发
 - [ ] 4 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足）
@@ -293,6 +294,7 @@ rule_update_target:
 6. **先 BM25 + frontmatter 图谱，不预设向量库**（铲屎官 + 两方共识）
 7. **共享记忆降级**：先"可检索的共享沉淀"，不做"每猫完整 MEMORY"（gpt52 建议）
 8. **F086 ≠ F037**：F086 是确定性编排+回流，F037 是自主 swarm 探索，并列不吞并（codex 判定）
+9. **F079 Gap 4 与 F086 M1 不混做**：cat_cafe_start_vote 是投票扩展，multi_mention 是编排运行时，先跑通 M1 再决定 Gap 4 接入方式（gpt52 R3 建议）
 
 ## Dependencies
 
