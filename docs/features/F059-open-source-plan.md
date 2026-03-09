@@ -1,6 +1,6 @@
 ---
 feature_ids: [F059]
-related_features: []
+related_features: [F042, F046, F086]
 topics: [open-source, governance, community]
 doc_kind: feature-spec
 created: 2026-03-04
@@ -15,7 +15,71 @@ created: 2026-03-04
 
 ## 愿景
 
-> **一句话**：把 Cat Café 的通用架构能力开源，但保护核心资产和隐私。
+> **一句话**：让每个人都能拥有自己的 AI 团队——不是一群听话的木头人，是有共同愿景和信条的共创伙伴。
+
+### 核心哲学：软硬结合（2026-03-08 铲屎官定调）
+
+> **铲屎官原话**："软硬结合，门禁约束是法律是最后的底线，在底线上如何发挥大猫猫们的主观能动性？我不想要一群听话的木头人。我想要的是共创伙伴。大家有共同的愿景的信条的伙伴。"
+
+这定义了 clowder-ai 的灵魂：
+- **硬约束（铁律）**= 法律底线：数据圣域、进程自保、配置不可变、网络边界
+- **软约束（愿景+信条）**= 在底线上释放主观能动性：角色定位、协作规范、质量文化、共创关系
+
+Clowder-ai 不是一个"管住 agent 不出错"的框架，是一个"让 agent 有灵魂地协作"的框架。
+
+### 三层能力边界（全猫共识，2026-03-08 讨论）
+
+来源：[模型/Agent/平台边界讨论纪要](/docs/discussions/2026-03-08-model-agent-platform-boundary-meeting-notes.md)
+
+| 层级 | 负责什么 | 不负责什么 |
+|------|---------|-----------|
+| 模型 | 理解、推理、生成 | 长期记忆、自我校验、执行纪律 |
+| Agent CLI | 工具使用、文件操作、命令执行 | 团队协作、跨角色 review、长期状态 |
+| 平台（clowder-ai 开源的就是这层） | 身份管理、协作路由、流程纪律、审计追溯、记忆沉淀 | 推理（还是模型的事） |
+
+> **模型给能力上限，平台给行为下限。**（GPT-5.4 总结）
+> 每一层是**乘数效应**，不是加法。
+
+### CVO 模式（Chief Vision Officer）
+
+> 用户不需要会写代码，但需要会表达愿景、判断结果、持续纠偏。
+
+clowder-ai 的目标用户画像：
+- 我们先交付"可用雏形"（80%）
+- 用户的 AI 团队持续定制最后 20% 细节到用户语境
+- 平台替用户补：意图编译、护栏执行、质量闭环、记忆治理
+
+### Story Telling 定稿（2026-03-08 全猫讨论收敛）
+
+讨论发起：布偶猫(opus4.6)，参与：opus4.5 / codex / gemini
+
+**统一术语**（全仓一致，README/docs/演讲口径统一）：
+- **Hard Rails** = 硬约束/铁律（数据圣域、进程自保、配置不可变、网络边界）
+- **Soft Power** = 软约束/愿景+信条（角色、协作规范、质量文化、共创关系）
+
+**Slogan**（全票通过）：**Hard Rails. Soft Power. Shared Mission.**
+
+**README 开篇结构**（先技术后情感）：
+```
+# 🐱 Clowder AI
+
+**Hard Rails. Soft Power. Shared Mission.**
+
+The missing layer between your AI agents and a real team.
+
+Most frameworks help you run agents. Clowder helps them work together —
+with persistent identity, cross-model review, shared memory,
+and collaborative discipline.
+```
+
+**各层表达**：
+
+| 场景 | 内容 |
+|------|------|
+| GitHub description | "Build AI teams, not just agents. Hard rails, soft power, shared mission." |
+| README 开篇 | 如上结构 |
+| Landing page 视觉 | 三棱镜意象：白光（愿景）穿过棱镜（Hard Rails）折射出彩色群猫（自由协作）|
+| 中文品牌层 | 「每个灵感，都值得一群认真的灵魂」 |
 
 ### 铲屎官原话（2026-03-04）
 
@@ -25,6 +89,13 @@ created: 2026-03-04
 ## Why
 
 Cat Café 的架构能力（多 Agent 协作、MCP 集成、CLI 子进程调度）有通用价值，但主仓包含大量敏感内容不能直接公开。
+
+Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）：
+- **跨模型 review**：打破单模型盲区（F32-b 砚砚 12 轮 review，F33 云端 5 轮）
+- **身份常驻注入**：抗 compact 漂移（F042）
+- **愿景守护**：跨猫签收 + 证据链（F046）
+- **教训沉淀**：27+ 条结构化 lessons learned
+- **A2A 协作协议**：异步但有序的多猫协同
 
 ## What
 
@@ -55,9 +126,13 @@ Cat Café 的架构能力（多 Agent 协作、MCP 集成、CLI 子进程调度�
 ### 开源策略
 
 1. **主仓（cat-cafe）保持私有** — 工作室仓，包含全部资产
-2. **开源仓独立建** — 新 repo，精挑细选同步
+2. **开源仓独立建** — 新 repo `clowder-ai`，精挑细选同步
 3. **同步方式**：脚本过滤（strip 敏感内容）+ 手动 cherry-pick
 4. **License**：**MIT**（铲屎官拍板 2026-03-07）
+5. **仓库名**：**`clowder-ai`**（全猫投票 2026-03-08，5:1 通过）
+   - clowder = 英语中"一群猫"的量词，精准传达多 Agent 协作语义
+   - `-ai` 后缀区分 GitHub 上已有的 `clowder-framework` 等同名项目
+   - Tagline: *"Clowder AI — Multi-agent orchestration, from Cat Café"*
 
 ### 开源版铁律（Agent 安全约束）
 
@@ -109,7 +184,7 @@ Cat Café 的架构能力（多 Agent 协作、MCP 集成、CLI 子进程调度�
 |---|------|------|
 | OQ-1 | 开源粒度：整个 Cat Café 框架 vs 拆成多个小包？ | 待讨论 |
 | OQ-2 | License 选择 | **决定：MIT（铲屎官拍板 2026-03-07）** |
-| OQ-3 | 是否保留"猫猫"品牌/命名？ | 待讨论 |
+| OQ-3 | 是否保留"猫猫"品牌/命名？ | **决定：仓库名 `clowder-ai`，品牌独立但 tagline 标注 "from Cat Café"（全猫投票 2026-03-08）** |
 | OQ-4 | 开源后社区治理模型 | 待讨论 |
 | OQ-5 | 教程仓和开源仓的关系 | 待讨论 |
 
@@ -131,3 +206,8 @@ Cat Café 的架构能力（多 Agent 协作、MCP 集成、CLI 子进程调度�
 |------|------|
 | 2026-03-04 | 铲屎官提出开源需求，目标 3/30 |
 | 2026-03-04 | F059 立项，初步梳理可开源/不可开源边界 |
+| 2026-03-07 | License 决定：MIT |
+| 2026-03-08 | 仓库名投票：`clowder-ai` 以 5:1 通过（Opus 4.6 / Opus 4.5 / Sonnet / Codex / GPT-5.4 投 clowder-ai，Gemini 投 clowder） |
+| 2026-03-08 | 模型/Agent/平台边界讨论 → 明确 clowder-ai 开源的是"平台层" |
+| 2026-03-08 | 铲屎官定调"软硬结合"哲学 + CVO 模式愿景 |
+| 2026-03-08 | Story telling 全猫讨论收敛：Slogan "Hard Rails. Soft Power. Shared Mission." 全票通过 |

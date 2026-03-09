@@ -241,4 +241,4 @@ F076 经历了完整的多阶段讨论过程（2026-03-07 全天）：
 | 2026-03-07 18:43 | 更新 F076 spec（本次），记录完整讨论轨迹 |
 | 2026-03-07 23:12 | 铲屎官确认按钮名统一为「导入 Backlog」（优于早期「从文档导入」），更新 spec |
 | 2026-03-08 | Phase 1 完成（PR #304 merged, `746bb79a`）：跨项目 Tab + Need Audit MVP (Stage 0-2) + 69 tests |
-| 2026-03-08 | Phase 2 完成：Risk Detection + Resolution Design + Slice Planning + Pattern Reflux — 4 stores + 4 route files + 4 frontend components + 118 tests |
+| 2026-03-08 | Phase 2 完成（PR #315 merged, `83fd2e74`）：Risk Detection + Resolution Design + Slice Planning + Pattern Reflux — 4 stores + 5 route files + 4 frontend components + 65 new tests. Codex R1-R4（1 P1 cross-project reorder escalation → fixed）+ 云端 review 通过 |

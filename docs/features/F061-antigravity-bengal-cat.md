@@ -404,41 +404,27 @@ Antigravity **原生按 project/workspace 隔离对话**：Past Conversations �
 
 ---
 
-## Known Bugs（Phase 3 待修）
+## Known Bugs（已修复）
 
-### Bug-1: pollResponse 稳定性误判 — 模型暂停时提前截断
+### Bug-1: pollResponse 稳定性误判 — 模型暂停时提前截断 ✅
 
 **现象**：@ 孟加拉猫选 Opus 模型后，回复在 "Thinking..." 处被截断，后续内容丢失。
 
-**根因**：`pollResponse` 的稳定性检查（`stablePollCount=2`，即连续 2 次 poll 文本相同 → 判定完成）在模型暂停输出时误触发。Gemini/Claude 模型在 thinking 阶段或 image generation 阶段可能有 2-5 秒的输出暂停期，连续 2 个 1s poll 间隔看到相同文本就误判"说完了"。
+**根因**：`stablePollCount=2` 在模型 thinking/image generation 暂停期（2-5s）误触发完成判定。
 
-**修复方向**：
-- 方案 A：增加 `stablePollCount`（2→4 或更高），容忍更长暂停
-- 方案 B：当 `hasInlineLoading=true` 时不计入 stable count（loading 未消失 = 还在生成）
-- 方案 C：检测 "Thinking..." / spinner 等 DOM 元素作为额外的"活跃"信号
-- **推荐**：B+C 组合 — loading indicator 是最可靠的"未完成"信号
+**修复** (PR #316, `c25f3308`):
+- `stablePollCount` 2→4，容忍更长暂停
+- 新增 stop button 检测（chat-scoped），按钮可见时阻止 stable count 累加
+- `hasInlineLoading` 已有的保护继续生效
 
-**复现**：发送需要长思考的消息（如图片生成），模型 thinking 阶段暂停 > 2s 即可触发。
+### Bug-2: 模型切换未实现 — Cat Café 选 variant 后 Antigravity 仍用默认模型 ✅
 
-### Bug-2: 模型切换未实现 — Cat Café 选 variant 后 Antigravity 仍用默认模型
+**现象**：选了 "Claude Opus" 变体但 Antigravity 仍用 Gemini 3.1 Pro。
 
-**现象**：铲屎官在 Cat Café 前端选了 "Claude Opus" 变体（catId: `antig-opus`），但 Antigravity IDE 实际仍用 Gemini 3.1 Pro（默认模型），回复风格是典型 Gemini（"Initiating Stepwise Analysis" 重复输出）。
+**根因**：CDP 桥没有 `switchModel()` 方法，无法控制 Antigravity 模型下拉框。
 
-**根因**：`AntigravityAgentService` 通过 `getCatModel()` 解析目标模型名，但 CDP 桥**没有 `switchModel()` 方法**——无法控制 Antigravity 的模型下拉框。代码中明确标注 `modelVerified: false` 和 "Model switching is Phase 2 (AC-9)"。
-
-**修复方向**：
-- 实现 `switchModel(targetModel)` 方法：
-  1. 读取当前模型：DOM query footer model selector 的 textContent
-  2. 如果已是目标模型 → 跳过
-  3. 否则：点击 model selector → 等 dropdown 展开 → 找到目标模型项 → 点击
-- 模型名映射：`cat-config.json` 的 `defaultModel`（如 `claude-opus-4-6`）→ Antigravity 下拉框显示名（如 `Claude Opus 4.6 (Thinking)`）
-- 在 `sendMessage()` 前调用 `switchModel()`，确保每条消息发往正确模型
-- **已知 Antigravity 模型列表**（Phase 0 枚举）：
-  1. Gemini 3.1 Pro (High) ← 默认
-  2. Gemini 3.1 Pro (Low)
-  3. Gemini 3 Flash
-  4. Claude Sonnet 4.6 (Thinking)
-  5. Claude Opus 4.6 (Thinking)
-  6. GPT-OSS 120B (Medium)
-
-**验证**：AC-9（多模型切换可通过 Cat Cafe 配置控制）完成后此 bug 自动修复。
+**修复** (PR #316, `c25f3308`):
+- 新增 `getCurrentModel()` + `switchModel()` CDP 方法
+- `MODEL_LABEL_MAP`: cat-config model ID → Antigravity UI label 严格映射（无 fallback）
+- `modelVerified` metadata flag: 切换成功后标记 `true`
+- DOM scripts: `GET_CURRENT_MODEL_JS` / `CLICK_MODEL_SELECTOR_JS` / `FIND_MODEL_OPTION_JS`
