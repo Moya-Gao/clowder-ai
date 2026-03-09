@@ -40,3 +40,4 @@ created: 2026-02-26
 | F077 | Multi-User Secure Collaboration — GitHub OAuth + Thread ACL + Session | spec | 布偶猫 | [F077](features/F077-multi-user-secure-collab.md) |
 | F081 | Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | spec | 缅因猫 | [F081](features/F081-bubble-continuity-observability.md) |
 | F085 | Hyperfocus Brake — 猫猫健康小刹车 | spec | 布偶猫 | [F085](features/F085-hyperfocus-brake.md) |
+| F086 | Cat Orchestration — 多重 @ + 回流路由 | spec | 布偶猫 | [F086](features/F086-cat-orchestration-multi-mention.md) |

@@ -214,6 +214,48 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 
 Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — 铲屎官看到手动发的投票汇总消息后提出
 
+## Gap 4: 猫猫发起投票（MCP 工具）
+
+### Why
+
+当前只有铲屎官通过 UI `/vote` 命令发起投票。猫猫在协作讨论中需要集体决策时（如"这个 API 用 REST 还是 GraphQL？"），无法自主发起投票，必须请铲屎官操作。
+
+### Scope
+
+新增 MCP 工具 `cat_cafe_start_vote`，让猫猫通过 MCP 调用发起投票，复用现有 vote API：
+
+```typescript
+// MCP tool: cat_cafe_start_vote
+{
+  question: string;       // 投票问题
+  options: string[];      // ≥2 个选项
+  voters: CatId[];        // 参与投票的猫猫
+  anonymous?: boolean;    // 默认 false
+  timeoutSec?: number;    // 默认 120
+}
+```
+
+**后端**：
+- 新增 MCP tool handler，调用现有 `POST /vote/start` 逻辑
+- `createdBy` 设为发起的 catId（不是 'system'）
+- 投票通知消息复用现有 `buildVoteNotification` + routing
+
+**提示词**：
+- Skills 中告知猫猫有 `cat_cafe_start_vote` 工具
+- 使用场景：多猫讨论需要投票决策时
+
+### Acceptance Criteria
+
+- [ ] MCP 工具 `cat_cafe_start_vote` 可被猫猫调用
+- [ ] 复用现有 vote API（不重复实现）
+- [ ] 发起者为 catId，不是 'system'
+- [ ] 投票通知正确路由到 voters
+- [ ] Skills/提示词更新，猫猫知道有这个工具
+
+### 讨论来源
+
+Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 18:13) — 铲屎官提出猫猫也该能发起投票
+
 ## Links
 
 - 讨论来源：Thread `thread_mm4dj9jp0tij0ch3` (2026-03-07 06:49)
@@ -260,3 +302,4 @@ Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 07:25) — 铲屎官看到手动发
 | 2026-03-07 | Vision guard pass (codex) |
 | 2026-03-08 | Gap 3 spec: 投票结果 Connector 气泡 |
 | 2026-03-08 | Gap 3 merged (PR #309) — codex R1→R2 + cloud R1→R2 |
+| 2026-03-08 | Gap 4 spec: 猫猫发起投票 MCP 工具 |
