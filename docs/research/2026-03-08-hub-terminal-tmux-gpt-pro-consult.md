@@ -217,8 +217,8 @@ GPT Pro 提了 cgroup v2 + systemd-run，这是 Linux 方案。我们开发环�
 - `pidusage`（跨平台，用 `ps -o %cpu,%mem` on macOS）
 - macOS 没有 cgroup，资源限制可以考虑 `launchd` 或暂时不做
 
-**修正 2：Claude Agent SDK 还不是我们的路径**
-GPT Pro 提到 Agent SDK 作为长期替代。这值得调研但不是短期行动——我们当前的 CLI spawn + NDJSON 链路稳定运行着全部功能（MCP、session resume、worktree 等），切 SDK 是大工程。先把 terminal 做了，SDK 迁移是独立 feature。
+**修正 2：CLI spawn 就是终态，不是过渡方案**
+GPT Pro 提到 Agent SDK 作为长期替代。但铲屎官明确：我们的终态就是 CLI spawn（Claude Code CLI / Codex CLI / Gemini CLI）。这些 CLI 就是 agent 入口，不会被 SDK 替代。Phase 4 的 stdin pipe 是 takeover 的程序化升级，不是 SDK 迁移的前置步骤。
 
 **修正 3：`@fastify/websocket` 是白送的**
 已经在 `package.json` 里了，只是没人用。加 terminal WS 路由不需要装新依赖，直接 `import` 就行。这让 Phase 1 更简单。
