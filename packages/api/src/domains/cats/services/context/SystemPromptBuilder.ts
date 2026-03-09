@@ -170,6 +170,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_update_task: 更新任务状态
 - cat_cafe_create_rich_block: 创建 rich block
 - cat_cafe_get_rich_block_rules: 获取 rich block 规则（fallback）
+- cat_cafe_multi_mention: 并行拉1-3只猫讨论同一问题（先搜后问：必须带searchEvidenceRefs或overrideReason）
 
 ${RICH_BLOCK_SHORT}
 富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
