@@ -1258,7 +1258,7 @@ describe('AgentRouter', () => {
     };
 
     const threadStore = createMockThreadStore({}, {
-      'thread-proj': '/Users/lysander/projects/cat-cafe',
+      'thread-proj': '/home/user/projects/cat-cafe',
     });
 
     const router = new AgentRouter(await migrateRouterOpts({
@@ -1275,7 +1275,7 @@ describe('AgentRouter', () => {
     }
 
     assert.ok(receivedOptions);
-    assert.equal(receivedOptions.workingDirectory, '/Users/lysander/projects/cat-cafe');
+    assert.equal(receivedOptions.workingDirectory, '/home/user/projects/cat-cafe');
   });
 
   test('does NOT pass workingDirectory when thread has default projectPath', async () => {

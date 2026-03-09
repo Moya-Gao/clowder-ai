@@ -10,7 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
-const FOREIGN_PROJECT = '/Users/lysander/projects/freelance/studio-flow';
+const FOREIGN_PROJECT = '/home/user/projects/studio-flow';
 const threads = [
   { id: 'thread-foreign', projectPath: FOREIGN_PROJECT },
   { id: 'thread-default', projectPath: 'default' },

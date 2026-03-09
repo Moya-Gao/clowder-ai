@@ -23,7 +23,7 @@ describe('isUnderAllowedRoot', () => {
   });
 
   it('rejects path with home prefix but no separator boundary', () => {
-    // /Users/lysander-evil should NOT pass for home = /Users/lysander
+    // /home/user-evil should NOT pass for home = /home/user
     const fakePath = homedir() + '-evil/data';
     assert.strictEqual(isUnderAllowedRoot(fakePath), false);
   });

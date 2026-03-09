@@ -1,0 +1,110 @@
+# sync-manifest.yaml — Cat Café → Clowder AI 开源同步清单
+# 版本: 2
+# 更新: 2026-03-09
+# 三猫共识: allowlist export（白名单导出），不是 blacklist deletion
+
+version: 2
+target_repo: clowder-ai
+license: MIT
+
+# ── 整包导出（managed_roots）──────────────────────────────────
+# 整个目录树导出，包含 package.json/tsconfig/src/test 等所有构建闭包文件
+managed_roots:
+  - packages/api
+  - packages/web
+  - packages/shared
+  - packages/mcp-server
+  - cat-cafe-skills        # 运行时依赖 + 核心差异化
+
+# ── 单文件导出（managed_files）────────────────────────────────
+managed_files:
+  - package.json
+  - pnpm-workspace.yaml
+  - pnpm-lock.yaml
+  - tsconfig.base.json
+  - biome.json
+  - .gitignore
+  - .npmrc
+
+# ── 脚本导出（managed_scripts）────────────────────────────────
+managed_scripts:
+  - scripts/check-dir-size.sh
+  - scripts/start-dev.sh
+
+# ── 排除（即使在 managed_roots 内也不导出）─────────────────────
+excluded:
+  # 内部文档
+  - docs/
+  - designs/
+  - assets/
+  # 内部运营 skills refs
+  - cat-cafe-skills/refs/commit-signatures.md
+  - cat-cafe-skills/refs/hyperfocus-brake-messages.md
+  - cat-cafe-skills/refs/decision-matrix.md
+  - cat-cafe-skills/refs/vision-evidence-workflow.md
+  # 同步脚本自身
+  - scripts/sync-to-opensource.sh
+  - scripts/sync-to-tutorials.sh
+  - sync-manifest.yaml
+  # 敏感配置
+  - cat-config.json          # 由 transform 生成脱敏版
+  - CLAUDE.md                # 由 transform 生成通用版
+  - AGENTS.md                # 由 transform 生成通用版
+  - GEMINI.md                # 由 transform 生成通用版
+  # 运行时/部署
+  - .env
+  - .env.*
+  - .claude/
+  - node_modules/
+  - dist/
+  - .next/
+  # 杂项
+  - "*.pen"
+  - cdp-eval-test.cjs
+  - cdp-send-diag.cjs
+  - "story-export*.png"
+
+# ── Transforms（导出时生成/替换的文件）────────────────────────
+transforms:
+  - target: cat-config.json
+    type: generate
+    description: "脱敏可运行版配置（含通用 owner section）"
+
+  - target: CLAUDE.md
+    type: generate
+    description: "通用版 Claude Agent 指南（含铁律，去内部规则）"
+
+  - target: AGENTS.md
+    type: generate
+    description: "通用版 OpenAI/Codex Agent 指南"
+
+  - target: GEMINI.md
+    type: generate
+    description: "通用版 Gemini Agent 指南"
+
+  - target: LICENSE
+    type: generate
+    description: "MIT License"
+
+  - target: cat-cafe-skills/refs/shared-rules.md
+    type: sanitize
+    description: "通用化第一性原理（去铲屎官个人引用）"
+
+# ── Denylist patterns（文件名匹配，零容忍）────────────────────
+denylist_patterns:
+  - ".env"
+  - ".env.*"
+  - ".pem"
+  - ".key"
+  - ".p12"
+  - "cookies.json"
+  - "dump.rdb"
+
+# ── Provenance（同步元数据）────────────────────────────────────
+provenance:
+  source_commit_sha: required
+  manifest_version: required
+  included_file_count: required
+  excluded_file_count: required
+  transform_count: required
+  secret_scan_result: required

@@ -64,7 +64,7 @@ export function LinkedRootsManager({ onRootsChanged }: LinkedRootsManagerProps) 
       />
       <input
         type="text"
-        placeholder="Absolute path (e.g. /Users/lysander/projects/studio-flow)"
+        placeholder="Absolute path (e.g. /home/user/projects/studio-flow)"
         value={path}
         onChange={(e) => setPath(e.target.value)}
         className="w-full text-[10px] border border-owner-light rounded px-2 py-1 bg-white/80 text-cafe-black focus:outline-none focus:border-owner-primary"

@@ -64,12 +64,12 @@ describe('CardBlock Markdown rendering (#85 T8)', () => {
       kind: 'card',
       v: 1,
       title: 'Path Card',
-      bodyMarkdown: '/Users/lysander/projects is the path',
+      bodyMarkdown: '/home/user/projects is the path',
     });
     // The full path must be present — not truncated by command-prefix logic
-    expect(html).toContain('/Users/lysander/projects');
-    // The "/Users" prefix specifically must NOT be stripped
-    expect(html).toContain('/Users');
+    expect(html).toContain('/home/user/projects');
+    // The "/home" prefix specifically must NOT be stripped
+    expect(html).toContain('/home');
   });
 
   it('does not strip /api prefix from bodyMarkdown', () => {

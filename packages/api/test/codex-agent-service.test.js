@@ -682,7 +682,7 @@ test('maps command execution lifecycle into tool_use and tool_result', async () 
         id: 'cmd-1',
         type: 'command_execution',
         command: '/bin/zsh -lc pwd',
-        aggregated_output: '/Users/lysander/projects/relay-station/cat-cafe\n',
+        aggregated_output: '/home/user/projects/cat-cafe\n',
         exit_code: 0,
         status: 'completed',
       },
@@ -702,7 +702,7 @@ test('maps command execution lifecycle into tool_use and tool_result', async () 
   assert.equal(toolUse.toolInput.command, '/bin/zsh -lc pwd');
 
   assert.ok(toolResult, 'should emit tool_result for command_execution completion');
-  assert.match(toolResult.content, /\/Users\/lysander\/projects\/relay-station\/cat-cafe/);
+  assert.match(toolResult.content, /\/home\/user\/projects\/cat-cafe/);
   assert.match(toolResult.content, /exit_code:\s*0/);
 });
 

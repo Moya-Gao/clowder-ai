@@ -15,12 +15,12 @@ describe('ExternalProjectStore', () => {
     const project = store.create('user1', {
       name: 'studio-flow',
       description: 'Freelance project',
-      sourcePath: '/Users/lysander/projects/freelance/studio-flow',
+      sourcePath: '/home/user/projects/studio-flow',
     });
     assert.ok(project.id.startsWith('ep-'));
     assert.equal(project.userId, 'user1');
     assert.equal(project.name, 'studio-flow');
-    assert.equal(project.sourcePath, '/Users/lysander/projects/freelance/studio-flow');
+    assert.equal(project.sourcePath, '/home/user/projects/studio-flow');
     assert.equal(project.backlogPath, 'docs/BACKLOG.md');
     assert.ok(project.createdAt > 0);
     assert.equal(project.createdAt, project.updatedAt);

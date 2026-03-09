@@ -243,8 +243,8 @@ describe('ThreadStore', () => {
     );
 
     const store = new ThreadStore();
-    const thread = store.create('user-1', 'In project', '/Users/lysander/projects/cat-cafe');
-    assert.equal(thread.projectPath, '/Users/lysander/projects/cat-cafe');
+    const thread = store.create('user-1', 'In project', '/home/user/projects/cat-cafe');
+    assert.equal(thread.projectPath, '/home/user/projects/cat-cafe');
   });
 
   test('get() auto-created default thread has projectPath "default"', async () => {

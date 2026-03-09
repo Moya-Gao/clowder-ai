@@ -229,7 +229,7 @@ export function DirectoryPickerModal({
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handlePathSubmit(); }}
-              placeholder="输入路径，如 /Users/lysander/projects/..."
+              placeholder="输入路径，如 /home/user/projects/..."
               className="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
             />
             <button

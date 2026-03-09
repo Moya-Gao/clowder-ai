@@ -181,9 +181,9 @@ export interface CatCafeConfigV1 {
 export interface OwnerConfig {
   /** Primary display name (e.g. "Landy") */
   readonly name: string;
-  /** Alternative names cats may use (e.g. ["L.S.", "Lysander"]) */
+  /** Alternative names cats may use (e.g. ["A.B.", "Owner"]) */
   readonly aliases: readonly string[];
-  /** Line-start mention patterns for routing detection (e.g. ["@landy", "@lysander"]) */
+  /** Line-start mention patterns for routing detection (e.g. ["@owner", "@owner-alias"]) */
   readonly mentionPatterns: readonly string[];
 }
 
