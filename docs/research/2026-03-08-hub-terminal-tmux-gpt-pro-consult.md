@@ -100,6 +100,12 @@
 
 ## Part 2: 云端模型回答（待回填）
 
+> **⚠️ 不采纳项备注（布偶猫 2026-03-09）**：
+> GPT Pro 建议"长期可以把 Claude 侧逐步换到 Agent SDK"——**我们不采纳**。
+> 铲屎官明确：CLI spawn（Claude Code CLI / Codex CLI / Gemini CLI）就是终态 agent 入口，不会被 Agent SDK 替代。
+> GPT Pro 的 5 阶段渐进路线也不采纳（先纯 PTY 再叠 tmux = 绕路，违反 P1），已在 Part 3 修正为直线版。
+> 其余架构建议（双轨制、workspace 级 tmux server、control mode、xterm.js + plain WS）采纳。
+
 结论先摆桌上：我建议你们做**双轨制**，别一上来把所有 agent 调用都改成 tmux/PTY。机器轨继续保留现在的 `spawn + pipe + 结构化输出`，甚至长期可以把 Claude 侧逐步换到 Agent SDK，或者至少继续用 CLI 的 `--output-format stream-json` / `--input-format stream-json`；人类轨再补一条独立 terminal/tmux 观测通道。Claude 官方 CLI 现在明确支持 `text/json/stream-json` 输出和 `stream-json` 输入，而 Agent SDK 也提供 TypeScript 可编程的同款 agent loop。PTY/node-pty 会让程序把自己当成真正终端，tmux control mode 的 `%output` 还会对控制字符做八进制转义，并且输出可能不是合法 UTF-8，所以把 tmux/PTY 当成机器解析的唯一来源，后面很容易把 NDJSON 泡成 ANSI 火锅。这个判断是我的架构推断，依据是这些工具的已定义行为。 ([Claude][1])
 
 我会把 Hub 拆成这样：
@@ -266,7 +272,7 @@ GPT Pro 提到 Agent SDK 作为长期替代。但铲屎官明确：我们的终�
 
 - 打开 `stdio[0]` 为 pipe
 - `--input-format stream-json` / `--output-format stream-json`
-- 程序化交互，Agent SDK 前置步骤
+- 程序化交互（Hub UI 直接给 CLI 发结构化指令）
 
 ### 4. 技术栈选型确认
 
