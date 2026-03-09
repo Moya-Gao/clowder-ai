@@ -23,7 +23,7 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 
 1. **Outbound Adapter 层** — 把猫猫的 AgentMessage 回复到外部平台
 2. **Webhook Receiver** — `/api/connectors/:connectorId/webhook` 通用入口
-3. **平台 Adapter** — 首批：飞书、Slack（可并行扩展 Discord、钉钉等）
+3. **平台 Adapter** — MVP 单平台（飞书 **或** Slack），后续可并行扩展 Discord、钉钉等
 4. **Thread Mapping** — 外部对话 ID ↔ Cat Café threadId 双向映射
 
 ### 我们已有的基建（~70%）
@@ -45,7 +45,7 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 
 | 组件 | 复杂度 | 说明 | 修正后工期 |
 |------|--------|------|-----------|
-| **Outbound delivery hook** | **中-高** | 在 agent 回复 streaming 流里插钩子，route-serial/parallel 改造 | 2-3天 |
+| **Outbound delivery hook** | **中-高** | **final-only**：agent 回复完成后一次性发送，不做 streaming/edit；改造 route-serial 完成回调 | 2-3天 |
 | Webhook receiver 路由 | 低 | 通用 webhook 入口 + 签名校验 | 0.5天 |
 | **ConnectorThreadBinding store** | **中** | 外部 conversation_id ↔ threadId，新真相源 + 去重 | 1-1.5天 |
 | 飞书 Adapter（`@larksuiteoapi/node-sdk`） | 中 | inbound webhook + outbound reply | 1-2天 |
@@ -79,7 +79,9 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - 静态 token（env 配置 bot token / app secret）
 - 纯文本 + Markdown
 - Webhook 签名校验
+- 入站消息幂等去重（同一外部消息重放不触发重复 invoke，沿用 GitHub review 的 UID 去重纪律）
 - 基本 thread mapping
+- **Outbound = final-only**（agent 回复完成后一次性发送，不做流式/编辑同步）
 
 **显式排除（Phase 2+）**：
 - ❌ 群聊 / @mention 触发
@@ -90,6 +92,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - ❌ 附件/文件/图片传输
 - ❌ 配置管理 UI
 - ❌ 第二平台
+- ❌ Outbound streaming / 流式编辑同步（MVP = final-only）
 
 ### 为什么不是"好几个月"
 
@@ -107,11 +110,14 @@ Outbound 不是挂 callback 就完事——需要改造 route-serial/parallel �
 - [ ] AC-2: 外部 DM 自动映射到 Cat Café thread（ConnectorThreadBinding）
 - [ ] AC-3: Webhook 签名校验通过
 - [ ] AC-4: 现有 Web UI 功能不受影响
+- [ ] AC-5: 入站消息幂等——同一外部消息重放不触发重复 invoke（沿用 UID 去重纪律）
+- [ ] AC-6: Outbound = final-only——agent 回复完成后一次性发送到外部平台
 
 ### Phase 2+
-- [ ] AC-5: 群聊消息 @猫猫 → 仅 @mention 触发回复
-- [ ] AC-6: 支持 2+ 平台
-- [ ] AC-7: 管理员可通过 UI 配置连接器
+- [ ] AC-7: 群聊消息 @猫猫 → 仅 @mention 触发回复
+- [ ] AC-8: 支持 2+ 平台
+- [ ] AC-9: 管理员可通过 UI 配置连接器
+- [ ] AC-10: Outbound streaming（流式输出到外部平台）
 
 ## Dependencies
 
@@ -136,9 +142,10 @@ Outbound 不是挂 callback 就完事——需要改造 route-serial/parallel �
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
 | R1 | "飞书等聊天软件的Gateway能力" | AC-1 | E2E test | [ ] |
-| R2 | 消息双向通（收+回） | AC-1 | E2E test | [ ] |
+| R2 | 消息双向通（收+回） | AC-1, AC-6 | E2E test | [ ] |
 | R3 | 不影响现有功能 | AC-4 | 回归测试 | [ ] |
 | R4 | 并发 feat 快速交付 | — | 工期跟踪 | [ ] |
+| R5 | 入站幂等（不重复触发） | AC-5 | 重放测试 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
