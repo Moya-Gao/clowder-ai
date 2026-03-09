@@ -146,7 +146,7 @@ pending → running → partial | done | timeout | failed
 
 > **设计决策**：不写抽象的"要有元认知"，写成硬触发器 + 默认动作。（gpt52 建议 2026-03-08）
 
-#### 四个触发器
+#### 五个触发器
 
 | 触发器 | 场景 | 默认动作 |
 |--------|------|---------|
@@ -154,6 +154,7 @@ pending → running → partial | done | timeout | failed
 | **B: 跨领域问题** | 涉及前端/安全/性能/UX 等非自身专长 | 先搜对应领域文档 → 再 @ 对应领域的猫 |
 | **C: 高不确定性** | 方案不确定、多种选择难以取舍 | 先搜历史讨论 → 再拉猫获取多视角 |
 | **D: 信息不足** | 发现自己对上下文了解不够 | **先 search（messages/docs/evidence）→ 再问人** |
+| **E: 新领域侦查** | 要写新代码/MCP/集成时，先摸清现有体系 | **先从 feats/README 顺藤摸瓜 → 读相关 spec/discussion → 再动手** |
 
 #### 硬检查 + 软引导（gpt52 建议：别变流程主义）
 
@@ -261,8 +262,9 @@ rule_update_target:
 - [ ] 上线验收指标（计划阶段定阈值）：回流成功率、超时率、二次扩散拦截次数、平均回流延迟
 
 ### M2 元思考触发
-- [ ] 4 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足）
+- [ ] 5 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足/新领域侦查）
 - [ ] 每个触发器有默认动作（先搜 → 再决定是否拉猫）
+- [ ] 触发器 E "新领域侦查"：写新代码前先从 feats 顺藤摸瓜，摸清现有体系
 - [ ] multi_mention 调用时硬检查：缺少 searchEvidenceRefs 且无 overrideReason → 拒绝调用
 - [ ] 普通工作不加负担（硬检查只在触发 multi_mention 时）
 - [ ] feat-lifecycle Design Gate 加入"是否先搜了现状"检查
@@ -289,12 +291,62 @@ rule_update_target:
 1. **三段拆分不绑定**：M1/M2/M3 独立可验收，不一锅炖（codex + gpt52 共识）
 2. **首版硬限制 targets ≤ 3**：防扩散优先于灵活性（codex 安全建议）
 3. **回流发原文不发摘要**：先保真，再考虑压缩（两方共识）
-4. **元思考是硬触发器不是口号**：可触发、可记录、可验证（gpt52 建议）
+4. **元思考是硬触发器不是口号**：可触发、可记录、可验证（gpt52 建议），含侦查阶段（铲屎官补充）
 5. **反思胶囊 6 固定字段**：不自由发挥，强制结构化（gpt52 建议）
 6. **先 BM25 + frontmatter 图谱，不预设向量库**（铲屎官 + 两方共识）
 7. **共享记忆降级**：先"可检索的共享沉淀"，不做"每猫完整 MEMORY"（gpt52 建议）
 8. **F086 ≠ F037**：F086 是确定性编排+回流，F037 是自主 swarm 探索，并列不吞并（codex 判定）
 9. **F079 Gap 4 与 F086 M1 不混做**：cat_cafe_start_vote 是投票扩展，multi_mention 是编排运行时，先跑通 M1 再决定 Gap 4 接入方式（gpt52 R3 建议）
+
+## M1 Integration Design（侦查结果 2026-03-08）
+
+> 铲屎官指示："写 MCP 时需要考虑现有 MCP 体系，从 feat 顺藤摸瓜。"
+
+### MCP 体系集成点
+
+| 现有组件 | 路径 | F086 如何集成 |
+|---------|------|--------------|
+| **collab server** | `packages/mcp-server/src/collab.ts` | `multi_mention` 注册到 collab toolset（必加载） |
+| **callback bridge** | `packages/mcp-server/src/tools/callback-tools.ts` | 新增 handler，走 `callbackPost('/api/callbacks/multi-mention', ...)` |
+| **callback auth** | `packages/api/src/routes/callback-auth-schema.ts` | 复用 `invocationId + callbackToken` 验证 |
+| **callback routes** | `packages/api/src/routes/callbacks.ts` | 新增 `/api/callbacks/multi-mention` 端点 |
+| **WorklistRegistry** | `packages/api/src/.../routing/WorklistRegistry.ts` | M1 不复用 worklist（parallel 独立调度），但需防冲突 |
+| **F055 targetCats** | `callback-a2a-trigger.ts` | 被 @ 猫的回答通过 targetCats 路由回 callbackTo |
+| **a2a-mentions** | `packages/api/src/.../routing/a2a-mentions.ts` | 被 @ 猫禁止二次扩散：响应中 @ mention 被忽略 |
+| **SystemPromptBuilder** | `packages/api/src/.../context/SystemPromptBuilder.ts` | 注入 "你正在回答 {initiator} 的问题" 上下文 |
+| **vote-intercept** | `packages/api/src/.../routing/vote-intercept.ts` | 参考模式：MCP 发起 → routing 拦截 → 状态追踪 → 结果聚合 |
+
+### MCP 工具注册模式（遵循现有模式）
+
+```
+1. callback-tools.ts: 定义 inputSchema (zod) + handler (callbackPost)
+2. server-toolsets.ts: 注册到 collab toolset
+3. callbacks.ts: 后端路由 + auth 验证
+4. 新增: multi-mention-orchestrator.ts (状态机 + 超时 + 回流聚合)
+```
+
+### 关键设计决策（基于侦查）
+
+1. **放 collab server 不放 memory**：multi_mention 是协作核心工具，所有猫必须可用
+2. **不复用 WorklistRegistry**：worklist 是 serial route 的线程局部状态，M1 是独立的 parallel 调度，混用会冲突。但需要注意：如果 callbackTo 猫当前在 serial route 中，回流消息不能破坏 worklist
+3. **复用 F055 targetCats 做回流**：被 @ 猫回答后，通过 `targetCats: [callbackTo]` 路由回发起者，不造新轮子
+4. **防扩散在 SystemPromptBuilder 注入**：被 @ 猫的 system prompt 加 "不要 @ 其他猫"，同时 a2a-mentions 解析层做硬拦截（双保险）
+5. **状态机独立于 route strategy**：新增 `MultiMentionOrchestrator` 管理 pending→done 生命周期，不嵌入 route-serial/parallel
+
+### 与现有 A2A 的关系
+
+```
+现有 A2A（文本 @）:
+  猫回答 → a2a-mentions 解析 → WorklistRegistry 入队 → serial route 执行
+  限制: ≤2 targets，serial only，无回流保证
+
+F086 multi_mention（MCP 工具）:
+  猫调 MCP → callback → MultiMentionOrchestrator → parallel 调度 targets
+  → 每只猫回答 → targetCats 路由回 callbackTo → 聚合 → 通知发起者
+  限制: ≤3 targets，parallel only（首版），有状态机保证
+
+两者并存：文本 @ 仍然工作（向后兼容），multi_mention 是结构化升级路径
+```
 
 ## Dependencies
 
@@ -339,3 +391,6 @@ rule_update_target:
 | 2026-03-08 | 知识工程体系现状梳理（F038-F046 + F070） |
 | 2026-03-08 | codex + gpt52 R1 评审：三段拆分 + 安全护栏 + 硬触发器 + 反思胶囊 |
 | 2026-03-08 | codex + gpt52 R2 评审：0 blocking，4 Open Questions 收敛，可进 Design Gate |
+| 2026-03-08 | codex R3：可观测性指标 AC + F079/F086 分离规则 |
+| 2026-03-08 | Design Gate 通过 — 铲屎官确认方向 + 要求先侦查 MCP 体系再动手 |
+| 2026-03-08 | MCP 体系侦查完成：collab server / callback bridge / WorklistRegistry / F055 targetCats 集成设计 |
