@@ -61,25 +61,30 @@ tmux pane（agent 跑在这里）─┤
 ### Phase 1：tmux 基础设施 + 用户 Shell（终态基座）
 
 - [x] **Spike**：tmux CLI 调用可行性验证（2026-03-09 完成，CLI 6/6 PASS，control mode 不需要）
-- [ ] TmuxGateway 服务：worktree = tmux server 生命周期管理（CLI 调用）
-- [ ] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`
-- [ ] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作
-- [ ] WorkspacePanel 新增 Terminal tab
-- [ ] tmux window/pane 列表 UI
-- [ ] 前端 `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach`
+- [x] TmuxGateway 服务：worktree = tmux server 生命周期管理（CLI 调用）（PR #332）
+- [x] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`（PR #332）
+- [x] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作（PR #332）
+- [x] WorkspacePanel 新增 Terminal tab — 单 shell 会话（PR #332）
+- [ ] tmux window/pane 列表 UI（当前只有单 shell，列表 UI 延后到 Phase 3 与 agent pane 列表一起做）
+- [x] 前端 `@xterm/xterm` + `@xterm/addon-fit` + `@xterm/addon-attach`（PR #332）
 
-### Phase 2：Agent 在 tmux pane 里跑 + 可观测
+### Phase 2：Agent 在 tmux pane 里跑（后端 plumbing）
 
 > 核心变化：agent（Claude CLI / Codex CLI）直接在 tmux pane 里启动，不是独立 spawn+pipe。
+> 注：Phase 2 scope = 后端 runtime plumbing。前端 agent pane UI 入口移至 Phase 3（2026-03-09 愿景守护复盘，砚砚/GPT-5.4 指出 spec AC 与交付不符，按 P4 单一真相源原则调整分界）。
 
-- [ ] Agent invocation 在 tmux pane 里直跑 CLI 命令（非交互 shell 包裹，避免 prompt/ANSI 污染机器解析边界）
-- [ ] `pipe-pane -O` tee pane 输出给机器侧解析器（NDJSON/结构化事件）
-- [ ] `remain-on-exit` 保留崩溃现场
-- [ ] 前端 attach 到 agent pane = 实时观看 agent 操作
-- [ ] `select-pane -d` 默认 read-only（防误触）
+- [x] Agent invocation 在 tmux pane 里直跑 CLI 命令（`SpawnCliOverride` + `TmuxAgentSpawner`，PR #334）
+- [x] FIFO-based tee pane 输出给机器侧 NDJSON 解析器（`spawnCliInTmux` FIFO pipeline，PR #334）
+- [x] `remain-on-exit` 保留崩溃现场（`TmuxGateway.createAgentPane`，PR #334）
+- [x] `select-pane -d` 默认 read-only（`TmuxGateway.setPaneReadOnly`，PR #334）
+- [x] `AgentPaneRegistry` 内存跟踪 + `GET /api/terminal/agent-panes` 端点（PR #334）
+- [x] Two-stage kill: C-c → 3s grace → kill-pane（砚砚 P2 审查修正，PR #334）
 
-### Phase 3：Takeover + 进程监控
+### Phase 3：Agent 可观测 UI + Takeover + 进程监控
 
+- [ ] **tmux pane 列表 UI**（含用户 shell + agent pane，Phase 1 延后项 + Phase 2 迁入项合并）
+- [ ] **前端 agent pane attach/watch UI**（从 Phase 2 迁入，见 Timeline 2026-03-09 条目）
+- [ ] **agent 侧 `worktreeId` 改用 canonical id**（当前 `basename(workingDirectory)` 推导与 workspace-security `_head` 后缀规则可能错位，见 `invoke-single-cat.ts:397` vs `workspace-security.ts:112`）
 - [ ] `select-pane -e` 切换 watch → takeover
 - [ ] takeover 时暂停机器轨 NDJSON 解析（防干扰）
 - [ ] `pidtree` + `pidusage` 进程树监控
@@ -139,11 +144,13 @@ tmux pane（agent 跑在这里）─┤
 
 | # | 需求点 | 来源 | 状态 |
 |---|--------|------|------|
-| 1 | 浏览器内打开 terminal | 铲屎官 2026-03-08 | pending |
-| 2 | 观察 agent 操作 | 铲屎官 2026-03-08 | pending |
-| 3 | 崩溃现场保留 | 铲屎官 2026-03-08 | pending |
-| 4 | 手动接管 agent | 铲屎官 2026-03-08 | pending |
-| 5 | 进程树可视化 | 铲屎官 2026-03-08 | pending |
+| 1 | 浏览器内打开 terminal（单 shell） | 铲屎官 2026-03-08 | done (Phase 1, PR #332) |
+| 1b | 浏览器内 tmux pane 列表 UI | 铲屎官 2026-03-08 | pending (Phase 3) |
+| 2 | 观察 agent 操作（后端 plumbing） | 铲屎官 2026-03-08 | done (Phase 2, PR #334) |
+| 2b | 观察 agent 操作（前端 UI 入口） | 铲屎官 2026-03-08 | pending (Phase 3) |
+| 3 | 崩溃现场保留 | 铲屎官 2026-03-08 | done (Phase 2, remain-on-exit) |
+| 4 | 手动接管 agent | 铲屎官 2026-03-08 | pending (Phase 3) |
+| 5 | 进程树可视化 | 铲屎官 2026-03-08 | pending (Phase 3) |
 
 ## Timeline
 
@@ -155,3 +162,6 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-09 | F089 正式立项 |
 | 2026-03-09 | Spike: tmux CLI 6/6 PASS, control mode 不需要 |
 | 2026-03-09 | 砚砚 P1 审查：双轨制 → 单源双消费（agent 在 tmux pane 里跑）|
+| 2026-03-09 | Phase 1 合入 main（PR #332）|
+| 2026-03-09 | Phase 2 后端 plumbing 合入 main（PR #334）：SpawnCliOverride + FIFO + AgentPaneRegistry |
+| 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + worktreeId 真相源修正迁入 Phase 3 |
