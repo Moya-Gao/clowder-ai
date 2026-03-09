@@ -405,3 +405,28 @@ F086 multi_mention（MCP 工具）:
 | 2026-03-09 | M2 元思考触发器实施完成（5 trigger rules §13 + Design Gate 先搜现状 + collaborative-thinking §13 ref + 6 guard tests）|
 | 2026-03-09 | M3 反思胶囊 + 文档关系索引实施完成（capsule schema + feat-lifecycle Step 0.5 + build-doc-index.mjs + PoC capsule + 5 guard tests）|
 | 2026-03-09 | Feature complete — M1 PR #321 + M2 PR #324 + M3 PR #325 全部合入 main，28 ACs 全部通过 |
+| 2026-03-09 | Post-completion fix: shared-rules L0 governance digest 注入 SystemPromptBuilder（见下方 Key Decision #3）|
+
+## Key Decision #3: shared-rules 注入机制（Post-completion Discovery）
+
+> 发现时机：F086 feature close 后，铲屎官在另一线程指出"猫猫们对 shared-rules 的注入方式很疑惑——只有一个 link，他们根本不知道还有这玩意"
+> 参与者：铲屎官 + gpt52（方案设计）+ opus 4.6（实施简化）
+> 决策方式：铲屎官拍板 quick fix
+
+**问题**：`governance-pack.ts:27` 和 `CLAUDE.md` 都只写了文件路径引用 `cat-cafe-skills/refs/shared-rules.md`。猫猫启动时看不到实际内容，除非主动 `Read` 该文件。F086 M2 给 shared-rules 加了第一性原理和触发器，但注入机制没变——内容更丰富了，猫还是看不到。
+
+**讨论收敛的方案**（gpt52 + opus 4.6 共识）：
+- 三层注入：L0 常驻（原则+底线）→ L1 场景切片（按 context 选择）→ L2 按需读取
+- L0 最小集合：P1-P5 + W1-W3 + Rule 10(@卫生) + Rule 12(Anti-Self-TERM)
+- Phase 1 quick fix: 在 `buildStaticIdentity` 注入 L0 compact digest (~150 chars)
+- Phase 2 (未来): 编译 `governance-pack.json` + L1 场景切片 + 审计字段
+
+**实施**（quick fix）：
+- `SystemPromptBuilder.ts`: 新增 `GOVERNANCE_L0_DIGEST` 常量，在身份契约后注入
+- 测试 size guard 从 2500 → 2700（容纳 L0 digest 增量 ~150 chars）
+- `governance-pack.ts` 不变（那是 F070 外部项目注入用的）
+
+**放弃的方案**：
+1. 全文注入 shared-rules.md — token 浪费，规则噪音
+2. governance-pack 手写摘要 — 破坏 P4 单一真相源
+3. 向量库检索 — 过度工程，规则不适合 embedding

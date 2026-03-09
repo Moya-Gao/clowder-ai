@@ -460,7 +460,7 @@ describe('SystemPromptBuilder', () => {
     }
   });
 
-  test('buildStaticIdentity roster size with full runtime config is under 2500', async () => {
+  test('buildStaticIdentity roster size with full runtime config is under 2700 (raised for L0 governance digest)', async () => {
     const { buildSystemPrompt } = await import(
       '../dist/domains/cats/services/context/SystemPromptBuilder.js'
     );
@@ -486,8 +486,8 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(
-        prompt.length < 2500,
-        `Full runtime prompt is ${prompt.length} chars, expected < 2500`
+        prompt.length < 2700,
+        `Full runtime prompt is ${prompt.length} chars, expected < 2700`
       );
     } finally {
       catRegistry.reset();

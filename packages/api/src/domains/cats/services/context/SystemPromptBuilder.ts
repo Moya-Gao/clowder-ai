@@ -174,6 +174,17 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 ${RICH_BLOCK_SHORT}
 富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
 
+/**
+ * L0 Governance Digest — always-on first principles & operational floor.
+ * Compiled from cat-cafe-skills/refs/shared-rules.md (single source of truth).
+ * F086 post-completion: cats couldn't see shared-rules content, only a link.
+ * Design decision: inject compact L0 digest, not full text. See F086 spec.
+ */
+const GOVERNANCE_L0_DIGEST = `## 团队信条（shared-rules.md）
+P1面向终态不绕路 P2共创伙伴不是木头人 P3方向正确>速度 P4单一真相源 P5可验证才算完成
+W1猫是Agent不是API W2共享才成团队 W3用户是CVO不是路由器
+@是路由指令——发前问"到我这里结束了吗？" | runtime禁止擅自重启`;
+
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */
 const WORKFLOW_TRIGGERS: Record<string, string> = {
@@ -328,6 +339,10 @@ export function buildStaticIdentity(catId: CatId, options?: StaticIdentityOption
 
   // Identity contract
   lines.push('身份契约：你是 Cat Café 家庭成员。讨论团队时用"我们/咱们"，不用"你们/他们"指代三猫团队（引用外部评价除外）。');
+
+  // L0 Governance Digest — always-on principles from shared-rules.md (F086 post-completion fix)
+  // Source of truth: cat-cafe-skills/refs/shared-rules.md
+  lines.push('', GOVERNANCE_L0_DIGEST);
 
   // MCP tools documentation — ONLY for Claude (--append-system-prompt survives compression).
   // Non-Claude cats (Codex/Gemini) inject HTTP callback instructions per-message
