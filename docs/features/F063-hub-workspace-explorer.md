@@ -8,9 +8,10 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: Gap 5+6 done, Gap 7 planned
+> **Status**: done
 > **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
+> **Completed**: 2026-03-09
 
 ## Why
 
@@ -181,7 +182,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-2: 点击文件可查看内容（代码文件有语法高亮+行号）
 - [x] AC-3: 全文搜索可搜到文件内容并展示匹配上下文
 - [x] AC-4: 猫猫消息中的文件路径可点击跳转到文件查看
-- [ ] AC-5: HTML/React 组件可在 Hub 内预览渲染效果（Phase 2）
+- [x] AC-5: HTML/React 组件可在 Hub 内预览渲染效果（Phase 2, PR #251 HTML + PR #256 JSX esbuild-wasm + PR #257 real bundling）
 - [x] AC-6: 文件查看面板和对话面板可同时可见（50:50 分栏）
 - [x] AC-7: 路径安全（不能访问仓库外的系统文件）
 - [x] AC-8: 图片文件可直接预览
@@ -196,33 +197,33 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 - [x] AC-17: 音频文件（mp3/wav/m4a/ogg）可在文件查看器中内嵌播放预览（Gap 5, PR #307）
 - [x] AC-18: 视频文件（mp4/webm）可在文件查看器中内嵌播放预览（Gap 5, PR #307）
 - [x] AC-19: 面板宽度（sidebar/chat-workspace/tree-viewer）刷新后保持，双击 resize handle 重置（Gap 6, PR #308）
-- [ ] AC-20: 深层目录（depth≥4）展开时按需加载子节点（Gap 7 — 当前 depth=3 导致深层目录显示为空）
-- [ ] AC-21: 切换线程后恢复该线程上次的文件树展开状态和打开的文件标签（Gap 7）
+- [x] AC-20: 深层目录（depth≥4）展开时按需加载子节点（Gap 7, PR #311）
+- [x] AC-21: 切换线程后恢复该线程上次的文件树展开状态和打开的文件标签（Gap 7, PR #311）
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "我得打开 vscode 或者 webstorm 然后搜索你说的文件" | AC-1, AC-2 | manual: Hub 内查看文件 | [ ] |
-| R2 | "所有和提示词注入有关的代码？我就得想好久得搜什么关键字" | AC-3 | manual: Hub 内全文搜索 | [ ] |
-| R3 | "猫猫提到了个文件，此时我翻半天，还得找行号" | AC-4 | manual: 点击文件路径跳转 | [ ] |
-| R4 | "claude ai 里面前端他们也能帮你直接打开文件系统 html jsx 直接展示" | AC-5 | manual: Hub 内渲染预览 | [ ] |
-| R5 | "如果定位问题遇到困难铲屎官一起帮忙会很有用" | AC-1, AC-2, AC-3 | manual: 铲屎官在 Hub 内查看代码协助排查 | [ ] |
-| R6 | "审计日志...事实上确实很多时候需要协助查看" | — (Phase 3) | Phase 3 实现后验证 | [ ] |
-| R7 | "文件系统指的是你们的运行仓库的文件" | AC-7 | test: 仅暴露仓库内文件 | [ ] |
-| R8 | "这个是我们非常重要的一环体验？如何 ux 如何布局？" | AC-6, AC-11 | visual: 烁烁 review 布局 | [ ] |
-| R9 | "聊天窗口变小 文件系统右边代替状态栏出来 五五开" | AC-6, AC-11 | manual: 顶栏按钮切换分栏 | [ ] |
-| R10 | "如果是可以编辑的话 那有什么我帮你们编辑 复制进来" | AC-9 | manual: 铲屎官编辑+猫猫 commit | [ ] |
-| R11 | "咱项目是有 worktree 的！所以这点也得考虑" | AC-10 | manual: 切换查看不同 worktree | [ ] |
-| R12 | "搜索我可以搜文件名吗？比如贴他的相对路径帮我导航一下？" | AC-12 | manual: 搜文件名 → 显示路径 → 点击导航 | [ ] |
-| R13 | "你们发的文本里的那些地址我点击 右边这里能打开吗？" | AC-13 | manual: 点消息中路径 → workspace 面板自动打开文件 | [ ] |
-| R14 | "要允许我能够调整两个的占比？或者说三个？聊天 然后文件系统 然后打开的文件" | AC-14 | manual: 拖拽分隔条调整三视图比例 | [ ] |
-| R15 | "直接点击一个文件然后在 chat 里 mention，或者选中某些行某个文件点击 add to chat" | AC-15 | manual: 选中代码/文件 → 点击引用 → 插入到聊天输入框 | [ ] |
+| R1 | "我得打开 vscode 或者 webstorm 然后搜索你说的文件" | AC-1, AC-2 | manual: Hub 内查看文件 | [x] |
+| R2 | "所有和提示词注入有关的代码？我就得想好久得搜什么关键字" | AC-3 | manual: Hub 内全文搜索 | [x] |
+| R3 | "猫猫提到了个文件，此时我翻半天，还得找行号" | AC-4 | manual: 点击文件路径跳转 | [x] |
+| R4 | "claude ai 里面前端他们也能帮你直接打开文件系统 html jsx 直接展示" | AC-5 | manual: Hub 内渲染预览 | [x] |
+| R5 | "如果定位问题遇到困难铲屎官一起帮忙会很有用" | AC-1, AC-2, AC-3 | manual: 铲屎官在 Hub 内查看代码协助排查 | [x] |
+| R6 | "审计日志...事实上确实很多时候需要协助查看" | — (Phase 3) | Phase 3 实现后验证 | [x] |
+| R7 | "文件系统指的是你们的运行仓库的文件" | AC-7 | test: 仅暴露仓库内文件 | [x] |
+| R8 | "这个是我们非常重要的一环体验？如何 ux 如何布局？" | AC-6, AC-11 | visual: 烁烁 review 布局 | [x] |
+| R9 | "聊天窗口变小 文件系统右边代替状态栏出来 五五开" | AC-6, AC-11 | manual: 顶栏按钮切换分栏 | [x] |
+| R10 | "如果是可以编辑的话 那有什么我帮你们编辑 复制进来" | AC-9 | manual: 铲屎官编辑+猫猫 commit | [x] |
+| R11 | "咱项目是有 worktree 的！所以这点也得考虑" | AC-10 | manual: 切换查看不同 worktree | [x] |
+| R12 | "搜索我可以搜文件名吗？比如贴他的相对路径帮我导航一下？" | AC-12 | manual: 搜文件名 → 显示路径 → 点击导航 | [x] |
+| R13 | "你们发的文本里的那些地址我点击 右边这里能打开吗？" | AC-13 | manual: 点消息中路径 → workspace 面板自动打开文件 | [x] |
+| R14 | "要允许我能够调整两个的占比？或者说三个？聊天 然后文件系统 然后打开的文件" | AC-14 | manual: 拖拽分隔条调整三视图比例 | [x] |
+| R15 | "直接点击一个文件然后在 chat 里 mention，或者选中某些行某个文件点击 add to chat" | AC-15 | manual: 选中代码/文件 → 点击引用 → 插入到聊天输入框 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）— Phase 2 时补充
+- [x] 前端需求已准备需求→证据映射表（若适用）— 23 PR 全量映射
 
 ## Links
 
@@ -335,6 +336,10 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 | 2026-03-08 | **Gap 5 合入** (PR #307): reveal endpoint + audio/video preview + MIME extension. 砚砚 R1→R2 (1P1→0) + 云端 R1→R3 (1P1+1P2→0), 13 tests |
 | 2026-03-08 | **Gap 6 合入** (PR #308): usePersistedState hook + chatBasis/treeBasis/sidebarWidth localStorage 持久化 + 左侧栏可拖拽调宽. 砚砚 R1→R2 (1P1→0) + 云端 R1→R2 (1P2→0) |
 | 2026-03-08 | 铲屎官提出 Gap 7: (1) 深层目录显示为空(depth=3 bug) (2) 切换线程后文件树状态丢失 → 记入 spec |
+| 2026-03-08 | **Gap 7 合入** (PR #311): lazy tree loading (on-expand fetch) + per-thread workspace state (expandedPaths + openTabs + openFilePath save/restore). 砚砚 review 通过 + 云端通过 |
+| 2026-03-08 | **B1.1 修复合入** (PR #269): thread switch + page refresh 恢复 projectPath |
+| 2026-03-09 | 愿景守护（布偶猫自检 + 砚砚独立核实放行）：23 PR 全 merged, AC-1~21 全覆盖, R1~R15 全解决, Gap 1~7 全关闭 |
+| 2026-03-09 | **Feature closed** — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 ✅ |
 
 ## Phase 1 UI 改进需求（铲屎官反馈 2026-03-05）
 
@@ -543,7 +548,7 @@ RightStatusPanel 内嵌 AuditExplorerPanel（审计事件 + Session 事件 + 搜
 | Bug | 描述 | 根因 | 状态 |
 |-----|------|------|------|
 | B1 | 切换 Hub project 后 Workspace 仍显示 cat-cafe 文件 | 后端 `listWorktrees()` 用 `process.cwd()` 固定指向 cat-cafe，前端无 project context | **PR #266 已修（后端+hook）** |
-| B1.1 | 切换已有 thread 或刷新页面后 workspace 不跟随项目切换 | `handleSelect` 只做路由跳转不恢复 `projectPath`；`ChatContainer` 首次挂载不从 thread 元数据恢复 `currentProjectPath` | **待修** |
+| B1.1 | 切换已有 thread 或刷新页面后 workspace 不跟随项目切换 | `handleSelect` 只做路由跳转不恢复 `projectPath`；`ChatContainer` 首次挂载不从 thread 元数据恢复 `currentProjectPath` | **PR #269 已修** |
 | B2 | Link External Folder "Network error" | `LinkedRootsManager.tsx` 用 raw `fetch` + `API_BASE` 而非 `apiFetch`，port 不匹配 | **PR #264 已修** |
 
 ## B1 Fix Plan — Project-Aware Workspace

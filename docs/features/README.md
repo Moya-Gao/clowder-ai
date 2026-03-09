@@ -65,3 +65,4 @@
 | F083 | F083: Design Gate + Cloud Reviewer Quota Fallback | done | [F083-design-gate-sop.md](./F083-design-gate-sop.md) |
 | F084 | F084: Ragdoll Rescue Hub — 一键救活布偶猫 | done | [F084-ragdoll-rescue-hub.md](./F084-ragdoll-rescue-hub.md) |
 | F073 | F073: SOP Auto-Guardian — 流程自闭环守护 | done | [F073-sop-auto-guardian.md](./F073-sop-auto-guardian.md) |
+| F063 | F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作 | done | [F063-hub-workspace-explorer.md](./F063-hub-workspace-explorer.md) |
