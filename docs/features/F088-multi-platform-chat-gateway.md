@@ -159,14 +159,12 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 1. **多用户安全模型**：群聊场景引入非 owner 用户，需要权限隔离（F077 前置，MVP 不碰）
 2. **平台 API 变更**：飞书/Telegram SDK 更新频率，需要适配层
 3. **消息格式损失**：复杂 rich content 在转换中可能丢失信息
-4. **Telegram 网络**：中国大陆访问 Telegram API 需要代理，部署环境需考虑
 
 ## Open Questions
 
 1. ~~MVP 先做飞书还是 Slack？~~ → **已决定：飞书 + Telegram**
 2. 群聊是 Phase 2 还是直接跳过？
 3. 是否需要消息编辑/撤回同步？（当前排除到 Phase 2+）
-4. Telegram 在国内部署是否需要走 Cloudflare Tunnel？（已有 F076 基建）
 
 ## 需求点 Checklist
 
