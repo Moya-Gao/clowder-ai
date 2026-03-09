@@ -25,6 +25,10 @@ managed_files:
   - biome.json
   - .gitignore
   - .npmrc
+  - CONTRIBUTING.md
+  - SECURITY.md
+  - CODEOWNERS
+  - .github/workflows/ci.yml
 
 # ── 脚本导出（managed_scripts）────────────────────────────────
 managed_scripts:
@@ -51,6 +55,10 @@ excluded:
   - CLAUDE.md                # 由 transform 生成通用版
   - AGENTS.md                # 由 transform 生成通用版
   - GEMINI.md                # 由 transform 生成通用版
+  - README.md                # 由 transform 替换为开源版
+  - README.opensource.md     # 源文件，不直接导出
+  - .github/pull_request_template.md           # 由 transform 替换为开源版
+  - .github/pull_request_template.opensource.md # 源文件，不直接导出
   # 运行时/部署
   - .env
   - .env.*
@@ -89,6 +97,16 @@ transforms:
   - target: cat-cafe-skills/refs/shared-rules.md
     type: sanitize
     description: "通用化第一性原理（去铲屎官个人引用）"
+
+  - target: README.md
+    type: generate
+    source: README.opensource.md
+    description: "开源版 README（从 README.opensource.md 复制）"
+
+  - target: .github/pull_request_template.md
+    type: generate
+    source: .github/pull_request_template.opensource.md
+    description: "开源版 PR 模板（去内部路径引用和猫猫签名）"
 
 # ── Denylist patterns（文件名匹配，零容忍）────────────────────
 denylist_patterns:

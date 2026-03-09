@@ -154,6 +154,7 @@ done
 # 2c: 复制 managed_files（单文件，从 manifest 读取）
 for f in "${MANAGED_FILES[@]}"; do
   if [ -f "$STAGING_DIR/$f" ]; then
+    mkdir -p "$FILTERED_DIR/$(dirname "$f")"
     cp "$STAGING_DIR/$f" "$FILTERED_DIR/$f"
     INCLUDED=$((INCLUDED + 1))
     echo "  ✓ $f"
@@ -424,6 +425,21 @@ if [ -f "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md" ]; then
     -e 's/lysander/owner/g' \
     "$FILTERED_DIR/cat-cafe-skills/BOOTSTRAP.md"
   echo "  ✓ BOOTSTRAP.md (sanitized)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3i: README.md — 复制开源版替换内部版
+if [ -f "$STAGING_DIR/README.opensource.md" ]; then
+  cp "$STAGING_DIR/README.opensource.md" "$FILTERED_DIR/README.md"
+  echo "  ✓ README.md (opensource version)"
+  TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
+fi
+
+# 3j: .github/pull_request_template.md — 复制开源版替换内部版
+if [ -f "$STAGING_DIR/.github/pull_request_template.opensource.md" ]; then
+  mkdir -p "$FILTERED_DIR/.github"
+  cp "$STAGING_DIR/.github/pull_request_template.opensource.md" "$FILTERED_DIR/.github/pull_request_template.md"
+  echo "  ✓ .github/pull_request_template.md (opensource version)"
   TRANSFORM_COUNT=$((TRANSFORM_COUNT + 1))
 fi
 

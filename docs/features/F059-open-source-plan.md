@@ -211,10 +211,10 @@ Cat Café 内部实践已验证的核心增量（vs 裸 API / 单 Agent CLI）�
 
 **Phase 2: 社区门面（待 P1 完成后）**
 
-- [ ] 开源版 README（含 Slogan + Quick Start + 架构图）
-- [ ] CONTRIBUTING.md + SECURITY.md + CODEOWNERS
-- [ ] .github/workflows/ci.yml
-- [ ] 通用版 CLAUDE.md + AGENTS.md + GEMINI.md（含铁律）
+- [x] 开源版 README（含 Slogan + Quick Start + 架构图）
+- [x] CONTRIBUTING.md + SECURITY.md + CODEOWNERS
+- [x] .github/workflows/ci.yml
+- [x] 通用版 CLAUDE.md + AGENTS.md + GEMINI.md（含铁律）— P1 已在 sync 脚本 transforms 中实现
 
 **Phase 3: 打磨（待 P2 完成后）**
 
