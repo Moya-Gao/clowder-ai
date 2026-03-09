@@ -7,7 +7,7 @@ export interface WarnLoggerLike {
 }
 
 const DEFAULT_FRONTEND_BASE_URL = 'http://localhost:3001';
-const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3001'];
+const DEFAULT_CORS_ORIGINS = ['http://localhost:3000', 'http://localhost:3001', 'https://cafe.clowder-ai.com'];
 
 /**
  * Match origins from private networks (RFC 1918 + Tailscale CGNAT 100.64/10 + loopback).
