@@ -34,7 +34,7 @@ import { InvocationQueue } from './domains/cats/services/agents/invocation/Invoc
 import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import type { InvocationRecordStoreLike, RouterLike } from './domains/cats/services/agents/invocation/QueueProcessor.js';
 import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
-import { catRegistry } from '@cat-cafe/shared';
+import { catRegistry, type CatId } from '@cat-cafe/shared';
 import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
 import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
 import { ClaudeAgentService, CodexAgentService, GeminiAgentService, DareAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore, createDraftStore } from './domains/cats/services/index.js';
@@ -61,6 +61,8 @@ import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js'
 import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
 import { findMonorepoRoot } from './utils/monorepo-root.js';
 import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
+import { startConnectorGateway, loadConnectorGatewayConfig } from './infrastructure/connectors/connector-gateway-bootstrap.js';
+import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 
 import type { RedisClient } from '@cat-cafe/shared/utils';
 
@@ -520,6 +522,10 @@ async function main(): Promise<void> {
   });
   await app.register(prTrackingRoutes, { prTrackingStore });
 
+  // F088: Register connector webhook routes BEFORE listen (Fastify requires it)
+  const connectorWebhookHandlers = new Map<string, import('./routes/connector-webhooks.js').ConnectorWebhookHandler>();
+  await app.register(connectorWebhookRoutes, { handlers: connectorWebhookHandlers });
+
   // Start listening
   const address = await app.listen({ port: PORT, host: HOST });
   app.log.info(`[api] Server running on ${address}`);
@@ -590,6 +596,35 @@ async function main(): Promise<void> {
     invokeTrigger,
   });
 
+  // F088: Start connector gateway (best-effort, after listen)
+  let connectorGatewayHandle: Awaited<ReturnType<typeof startConnectorGateway>> = null;
+  try {
+    const gatewayConfig = loadConnectorGatewayConfig();
+    connectorGatewayHandle = await startConnectorGateway(gatewayConfig, {
+      messageStore: {
+        async append(input) {
+          const result = await messageStore.append(input);
+          return { id: result.id };
+        },
+      },
+      threadStore,
+      invokeTrigger,
+      socketManager,
+      defaultUserId: 'default-user',
+      defaultCatId: 'opus' as CatId,
+      log: app.log,
+    });
+    if (connectorGatewayHandle) {
+      invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
+      for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
+        connectorWebhookHandlers.set(id, handler);
+      }
+      app.log.info('[api] Connector gateway started');
+    }
+  } catch (err) {
+    app.log.warn(`[api] Connector gateway startup failed (best-effort): ${String(err)}`);
+  }
+
   // Graceful shutdown handler: persist Redis before exit
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
@@ -631,6 +666,13 @@ async function main(): Promise<void> {
         await stopGithubReviewWatcher();
       } catch (err) {
         app.log.error(`[api] GithubReviewWatcher stop failed: ${String(err)}`);
+      }
+
+      // Stop connector gateway
+      try {
+        await connectorGatewayHandle?.stop();
+      } catch (err) {
+        app.log.error(`[api] ConnectorGateway stop failed: ${String(err)}`);
       }
 
       // Close WebSocket connections

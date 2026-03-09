@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: discussion
+> Owner: 布偶猫 | Status: impl-complete (pending live testing)
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Why
@@ -71,7 +71,7 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 | 组件 | 复杂度 | 说明 | 修正后工期 |
 |------|--------|------|-----------|
 | **Outbound delivery hook** | **中-高** | **final-only**：agent 回复完成后一次性发送，不做 streaming/edit；基于 route-serial 完成回调 | 2-3天 |
-| Webhook receiver 路由 | 低 | 通用 webhook 入口 + 签名校验 | 0.5天 |
+| Webhook receiver 路由 | 低 | 通用 webhook 入口 + verification token 校验 | 0.5天 |
 | **ConnectorThreadBinding store** | **中** | 外部 conversation_id ↔ threadId，新真相源 + 去重 | 1-1.5天 |
 | 飞书 Adapter（`@larksuiteoapi/node-sdk`） | 中 | inbound webhook + outbound reply | 1-2天 |
 | Telegram Adapter（`grammy`） | **低-中** | long polling inbound + Bot API outbound（最简单的平台 SDK） | 1天 |
@@ -105,7 +105,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - 单 Owner（铲屎官本人）
 - 静态 token（env 配置 bot token / app secret）
 - 纯文本 + Markdown
-- Webhook 签名校验（飞书）/ Bot API auth（Telegram）
+- 飞书 webhook verification token 校验（fail-closed）/ Bot API auth（Telegram）
 - 入站消息幂等去重（同一外部消息重放不触发重复 invoke，沿用 GitHub review 的 UID 去重纪律）
 - 基本 thread mapping（ConnectorThreadBinding）
 - **Outbound = final-only**（agent 回复完成后一次性发送，不做流式/编辑同步）
@@ -133,13 +133,13 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 ## Acceptance Criteria
 
 ### MVP（Phase 1）— 飞书 + Telegram DM-only
-- [ ] AC-1: 飞书 DM 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回飞书
-- [ ] AC-2: Telegram DM 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回 Telegram
-- [ ] AC-3: 外部 DM 自动映射到 Cat Café thread（ConnectorThreadBinding）
-- [ ] AC-4: Webhook 签名校验通过（飞书）/ Bot API auth 通过（Telegram）
-- [ ] AC-5: 现有 Web UI 功能不受影响
-- [ ] AC-6: 入站消息幂等——同一外部消息重放不触发重复 invoke（沿用 UID 去重纪律）
-- [ ] AC-7: Outbound = final-only——agent 回复完成后一次性发送到外部平台
+- [x] AC-1: 飞书 DM 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回飞书 (integration test)
+- [x] AC-2: Telegram DM 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回 Telegram (integration test)
+- [x] AC-3: 外部 DM 自动映射到 Cat Café thread（ConnectorThreadBinding）(7 + 6 unit tests)
+- [x] AC-4: 飞书 webhook verification token 校验（fail-closed: 未配置则拒绝启动）/ Bot API auth 通过（Telegram）(adapter tests)
+- [ ] AC-5: 现有 Web UI 功能不受影响 (regression pending)
+- [x] AC-6: 入站消息幂等——同一外部消息重放不触发重复 invoke（integration test）
+- [x] AC-7: Outbound = final-only——agent 回复完成后一次性发送到外部平台 (wired in trigger)
 
 ### Phase 2+
 - [ ] AC-8: Slack adapter 接入

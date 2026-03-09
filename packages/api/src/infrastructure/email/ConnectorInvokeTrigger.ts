@@ -11,15 +11,16 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import type { AgentRouter } from '../../domains/cats/services/agents/routing/AgentRouter.js';
-import type { IInvocationRecordStore } from '../../domains/cats/services/stores/ports/InvocationRecordStore.js';
-import type { InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
-import type { InvocationQueue } from '../../domains/cats/services/agents/invocation/InvocationQueue.js';
-import type { QueueProcessor } from '../../domains/cats/services/agents/invocation/QueueProcessor.js';
-import type { SocketManager } from '../../infrastructure/websocket/index.js';
 import { getDefaultCatId } from '../../config/cat-config-loader.js';
+import type { InvocationQueue } from '../../domains/cats/services/agents/invocation/InvocationQueue.js';
+import type { InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { QueueProcessor } from '../../domains/cats/services/agents/invocation/QueueProcessor.js';
+import type { AgentRouter } from '../../domains/cats/services/agents/routing/AgentRouter.js';
 import type { PersistenceContext } from '../../domains/cats/services/agents/routing/route-helpers.js';
+import type { IInvocationRecordStore } from '../../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import { mergeTokenUsage, type TokenUsage } from '../../domains/cats/services/types.js';
+import type { SocketManager } from '../../infrastructure/websocket/index.js';
+import type { OutboundDeliveryHook } from '../connectors/OutboundDeliveryHook.js';
 
 export interface ConnectorInvokeTriggerOptions {
   readonly router: AgentRouter;
@@ -28,6 +29,7 @@ export interface ConnectorInvokeTriggerOptions {
   readonly invocationTracker: InvocationTracker;
   readonly invocationQueue: InvocationQueue;
   readonly queueProcessor?: QueueProcessor;
+  readonly outboundHook?: OutboundDeliveryHook;
   readonly log: FastifyBaseLogger;
 }
 
@@ -55,6 +57,11 @@ export class ConnectorInvokeTrigger {
     this.opts = opts;
   }
 
+  /** Late-bind outbound hook (set after gateway bootstrap) */
+  setOutboundHook(hook: OutboundDeliveryHook): void {
+    (this.opts as { outboundHook?: OutboundDeliveryHook }).outboundHook = hook;
+  }
+
   /**
    * Trigger a cat invocation for a connector message.
    * Returns immediately — execution happens in background.
@@ -79,10 +86,9 @@ export class ConnectorInvokeTrigger {
     // Urgent connector policy: preempt active invocation in the same thread.
     // Used for GitHub review comments so cats don't get stuck behind long queue chatter.
     if (priority === 'urgent' && invocationTracker.has(threadId)) {
-      this.handleUrgentTrigger(threadId, catId, userId, message, messageId, policy?.reason)
-        .catch((err) => {
-          this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
-        });
+      this.handleUrgentTrigger(threadId, catId, userId, message, messageId, policy?.reason).catch((err) => {
+        this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
+      });
       return;
     }
 
@@ -93,11 +99,10 @@ export class ConnectorInvokeTrigger {
     }
 
     // No active invocation → direct execution (existing flow)
-    this.executeInBackground(threadId, catId, userId, message, messageId)
-      .catch((err) => {
-        // Last-resort guard: prevent unhandledRejection from pre-try errors
-        this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
-      });
+    this.executeInBackground(threadId, catId, userId, message, messageId).catch((err) => {
+      // Last-resort guard: prevent unhandledRejection from pre-try errors
+      this.opts.log.error(`[ConnectorInvokeTrigger] Unhandled: ${err instanceof Error ? err.message : String(err)}`);
+    });
   }
 
   private enqueueWhileActive(
@@ -124,8 +129,7 @@ export class ConnectorInvokeTrigger {
         queueSize: invocationQueue.size(threadId, userId),
         queue: invocationQueue.list(threadId, userId),
       });
-      log.warn({ threadId, catId, userId },
-        '[ConnectorInvokeTrigger] Queue full, connector message not enqueued');
+      log.warn({ threadId, catId, userId }, '[ConnectorInvokeTrigger] Queue full, connector message not enqueued');
       return 'full';
     }
 
@@ -142,8 +146,10 @@ export class ConnectorInvokeTrigger {
       queue: invocationQueue.list(threadId, userId),
       action: result.outcome,
     });
-    log.info({ threadId, catId, outcome: result.outcome },
-      '[ConnectorInvokeTrigger] Queued (active invocation running)');
+    log.info(
+      { threadId, catId, outcome: result.outcome },
+      '[ConnectorInvokeTrigger] Queued (active invocation running)',
+    );
     return result.outcome;
   }
 
@@ -172,12 +178,18 @@ export class ConnectorInvokeTrigger {
       idempotencyKey,
     });
     if (createResult.outcome === 'duplicate') {
-      log.info({ threadId, catId, invocationId: createResult.invocationId }, '[ConnectorInvokeTrigger] Urgent duplicate ignored');
+      log.info(
+        { threadId, catId, invocationId: createResult.invocationId },
+        '[ConnectorInvokeTrigger] Urgent duplicate ignored',
+      );
       return;
     }
 
     const cancelResult = invocationTracker.cancel(threadId, userId);
-    log.info({ threadId, catId, cancelled: cancelResult.cancelled, reason: reason ?? 'connector_urgent' }, '[ConnectorInvokeTrigger] Urgent connector preempt');
+    log.info(
+      { threadId, catId, cancelled: cancelResult.cancelled, reason: reason ?? 'connector_urgent' },
+      '[ConnectorInvokeTrigger] Urgent connector preempt',
+    );
 
     if (cancelResult.cancelled || !invocationTracker.has(threadId)) {
       if (cancelResult.cancelled) {
@@ -226,12 +238,12 @@ export class ConnectorInvokeTrigger {
     const createResult = existingInvocationId
       ? { outcome: 'created' as const, invocationId: existingInvocationId }
       : await invocationRecordStore.create({
-        threadId,
-        userId,
-        targetCats,
-        intent: 'execute',
-        idempotencyKey: `connector-${messageId}`,
-      });
+          threadId,
+          userId,
+          targetCats,
+          intent: 'execute',
+          idempotencyKey: `connector-${messageId}`,
+        });
 
     if (createResult.outcome === 'duplicate') {
       log.info(`[ConnectorInvokeTrigger] Duplicate invocation for message ${messageId}, skipping`);
@@ -258,46 +270,36 @@ export class ConnectorInvokeTrigger {
       });
 
       heartbeatInterval = setInterval(() => {
-        socketManager.broadcastToRoom(
-          `thread:${threadId}`,
-          'heartbeat',
-          { threadId, timestamp: Date.now() },
-        );
+        socketManager.broadcastToRoom(`thread:${threadId}`, 'heartbeat', { threadId, timestamp: Date.now() });
       }, HEARTBEAT_INTERVAL_MS);
 
       // ③ Set status running + broadcast intent
       await invocationRecordStore.update(createResult.invocationId, { status: 'running' });
 
-      socketManager.broadcastToRoom(
-        `thread:${threadId}`,
-        'intent_mode',
-        { threadId, mode: 'execute', targetCats },
-      );
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'intent_mode', { threadId, mode: 'execute', targetCats });
 
       // ④ Run routeExecution and broadcast each agent message
       const cursorBoundaries = new Map<string, string>();
       const persistenceContext: PersistenceContext = { failed: false, errors: [] };
       const collectedUsage = new Map<string, TokenUsage>();
+      const collectedTextParts: string[] = [];
 
       const intent = { intent: 'execute' as const, explicit: false, promptTags: [] as string[] };
 
-      for await (const msg of router.routeExecution(
-        userId, message, threadId, messageId,
-        targetCats, intent,
-        {
-          ...(controller?.signal ? { signal: controller.signal } : {}),
-          queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedForThread(tid),
-          cursorBoundaries,
-          persistenceContext,
-        },
-      )) {
+      for await (const msg of router.routeExecution(userId, message, threadId, messageId, targetCats, intent, {
+        ...(controller?.signal ? { signal: controller.signal } : {}),
+        queueHasQueuedMessages: (tid: string) => invocationQueue.hasQueuedForThread(tid),
+        cursorBoundaries,
+        persistenceContext,
+      })) {
         // F39 bugfix: stop broadcasting after cancel (drain pipe buffer silently)
         if (controller?.signal.aborted) break;
         if (msg.type === 'done' && msg.catId && msg.metadata?.usage) {
-          collectedUsage.set(
-            msg.catId,
-            mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage),
-          );
+          collectedUsage.set(msg.catId, mergeTokenUsage(collectedUsage.get(msg.catId), msg.metadata.usage));
+        }
+        // Collect text content for outbound delivery (final-only)
+        if (msg.type === 'text' && typeof msg.content === 'string') {
+          collectedTextParts.push(msg.content);
         }
         socketManager.broadcastAgentMessage(msg, threadId);
       }
@@ -313,9 +315,7 @@ export class ConnectorInvokeTrigger {
         });
         // Skip ack/succeeded — let finally handle cleanup
       } else if (persistenceContext.failed) {
-        const errorDetail = persistenceContext.errors
-          .map(e => `${e.catId}: ${e.error}`)
-          .join('; ');
+        const errorDetail = persistenceContext.errors.map((e) => `${e.catId}: ${e.error}`).join('; ');
         await invocationRecordStore.update(createResult.invocationId, {
           status: 'failed',
           error: `Connector invoke: message delivered but persistence failed: ${errorDetail}`,
@@ -324,14 +324,26 @@ export class ConnectorInvokeTrigger {
         await router.ackCollectedCursors(userId, threadId, cursorBoundaries);
         await invocationRecordStore.update(createResult.invocationId, {
           status: 'succeeded',
-          ...(collectedUsage.size > 0 ? {
-            usageByCat: Object.fromEntries(collectedUsage),
-          } : {}),
+          ...(collectedUsage.size > 0
+            ? {
+                usageByCat: Object.fromEntries(collectedUsage),
+              }
+            : {}),
         });
         finalStatus = 'succeeded';
+
+        // ⑥ Outbound delivery: send final text to bound external chats
+        if (this.opts.outboundHook && collectedTextParts.length > 0) {
+          const finalContent = collectedTextParts.join('');
+          this.opts.outboundHook.deliver(threadId, finalContent).catch((err) => {
+            log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
+          });
+        }
       }
 
-      log.info(`[ConnectorInvokeTrigger] Invocation ${createResult.invocationId} completed for ${catId} in thread ${threadId}`);
+      log.info(
+        `[ConnectorInvokeTrigger] Invocation ${createResult.invocationId} completed for ${catId} in thread ${threadId}`,
+      );
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Unknown error';
       log.error(`[ConnectorInvokeTrigger] Invocation failed: ${errorMsg}`);
@@ -342,22 +354,28 @@ export class ConnectorInvokeTrigger {
           status: 'failed',
           error: errorMsg,
         });
-      } catch { /* best-effort */ }
+      } catch {
+        /* best-effort */
+      }
 
-      socketManager.broadcastAgentMessage({
-        type: 'error',
-        catId: getDefaultCatId(),
-        error: `Connector invoke failed: ${errorMsg}`,
-        isFinal: true,
-        timestamp: Date.now(),
-      }, threadId);
+      socketManager.broadcastAgentMessage(
+        {
+          type: 'error',
+          catId: getDefaultCatId(),
+          error: `Connector invoke failed: ${errorMsg}`,
+          isFinal: true,
+          timestamp: Date.now(),
+        },
+        threadId,
+      );
     } finally {
       if (heartbeatInterval) clearInterval(heartbeatInterval);
       invocationTracker.complete(threadId, controller);
       // F39 P1 fix: Notify queue processor for auto-dequeue chain
       // (same pattern as messages.ts and invocations.ts)
-      this.opts.queueProcessor?.onInvocationComplete(threadId, finalStatus)
-        .catch(() => { /* best-effort, don't crash background task */ });
+      this.opts.queueProcessor?.onInvocationComplete(threadId, finalStatus).catch(() => {
+        /* best-effort, don't crash background task */
+      });
     }
   }
 }

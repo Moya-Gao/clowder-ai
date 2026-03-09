@@ -1,0 +1,40 @@
+import type { ConnectorThreadBinding } from '@cat-cafe/shared';
+
+export interface IConnectorThreadBindingStore {
+  bind(connectorId: string, externalChatId: string, threadId: string, userId: string): ConnectorThreadBinding;
+  getByExternal(connectorId: string, externalChatId: string): ConnectorThreadBinding | null;
+  getByThread(threadId: string): ConnectorThreadBinding[];
+  remove(connectorId: string, externalChatId: string): boolean;
+}
+
+export class MemoryConnectorThreadBindingStore implements IConnectorThreadBindingStore {
+  private readonly bindings = new Map<string, ConnectorThreadBinding>();
+
+  private key(connectorId: string, externalChatId: string): string {
+    return `${connectorId}:${externalChatId}`;
+  }
+
+  bind(connectorId: string, externalChatId: string, threadId: string, userId: string): ConnectorThreadBinding {
+    const binding: ConnectorThreadBinding = {
+      connectorId,
+      externalChatId,
+      threadId,
+      userId,
+      createdAt: Date.now(),
+    };
+    this.bindings.set(this.key(connectorId, externalChatId), binding);
+    return binding;
+  }
+
+  getByExternal(connectorId: string, externalChatId: string): ConnectorThreadBinding | null {
+    return this.bindings.get(this.key(connectorId, externalChatId)) ?? null;
+  }
+
+  getByThread(threadId: string): ConnectorThreadBinding[] {
+    return [...this.bindings.values()].filter((b) => b.threadId === threadId);
+  }
+
+  remove(connectorId: string, externalChatId: string): boolean {
+    return this.bindings.delete(this.key(connectorId, externalChatId));
+  }
+}

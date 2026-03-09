@@ -40,6 +40,24 @@ export interface ConnectorDefinition {
   readonly description: string;
 }
 
+// ── Thread Binding (external platform ↔ Cat Café thread) ──
+
+/** Bidirectional mapping between an external chat and a Cat Café thread. */
+export interface ConnectorThreadBinding {
+  readonly connectorId: string;
+  readonly externalChatId: string;
+  readonly threadId: string;
+  readonly userId: string;
+  readonly createdAt: number;
+}
+
+/** Target for outbound delivery after agent execution completes. */
+export interface OutboundDeliveryTarget {
+  readonly connectorId: string;
+  readonly externalChatId: string;
+  readonly metadata?: Record<string, unknown>;
+}
+
 // ── Connector Registry ──
 
 const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
@@ -56,6 +74,20 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     icon: 'ballot',
     color: { primary: '#7C3AED', secondary: '#F5F3FF' },
     description: '投票系统自动汇总结果',
+  },
+  {
+    id: 'feishu',
+    displayName: '飞书',
+    icon: '🔵',
+    color: { primary: '#3370FF', secondary: '#E8F0FE' },
+    description: '飞书机器人',
+  },
+  {
+    id: 'telegram',
+    displayName: 'Telegram',
+    icon: '✈️',
+    color: { primary: '#0088CC', secondary: '#E3F2FD' },
+    description: 'Telegram Bot',
   },
 ] as const;
 

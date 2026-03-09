@@ -42,6 +42,8 @@ export type {
 export type {
   ConnectorDefinition,
   ConnectorSource,
+  ConnectorThreadBinding,
+  OutboundDeliveryTarget,
 } from './connector.js';
 export {
   getAllConnectorDefinitions,
