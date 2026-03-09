@@ -64,6 +64,8 @@ Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
   - 🔴 交付物必须核实 commit/PR 状态（git log --grep + gh pr list）
     spec checkbox 是记录工具，不是真相源（LL-029）
+  - 🔴 新增 MCP 工具 → `MCP_TOOLS_SECTION` 更新了吗？（F086 教训：造了工具猫不知道）
+  - 🔴 新增行为规则 → governance digest / shared-rules 注入更新了吗？
 
 Step 4: RUNTIME GUARD — 前端证据采集前先做运行态保护
   - 若会话在 `cat-cafe-runtime`，先探活：`curl -sf http://localhost:3002/health`

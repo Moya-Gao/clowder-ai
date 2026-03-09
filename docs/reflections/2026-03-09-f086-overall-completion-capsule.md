@@ -20,10 +20,12 @@ created: 2026-03-09
 1. **M3 PR #325 云端 review 持续 8 轮**：doc-index 脚本是"简单"的工具代码，但 CRLF 处理、block-style YAML、fresh checkout 等边界场景一轮一轮暴露。教训：即使是"简单"工具脚本，也需要完善的跨平台测试矩阵。
 2. **PR 合入后仍有 review 到达**：PR #325 在 R5 后自动 squash merge，但 R6-R8 仍在 review merge commit。这导致 confusion——以为在 review 分支代码，实际在 review 已合入的代码。需要更好的 PR lifecycle awareness。
 3. **Vision guard 跨猫请求无回应**：向 codex 发送了 F086 完整愿景守护请求但未收到回复。可能原因：异步消息在不同 thread 容易被淹没。回退方案：codex 的 Design Gate 评审 + gpt52 的 M1 vision guard 已覆盖。
+4. **新 MCP 工具没有注入 prompt — 造了工具猫不知道**：M1 写了 `cat_cafe_multi_mention` 编排器，M2 写了触发器规则，但**完全忘了在 `MCP_TOOLS_SECTION` 里告诉猫猫有这个工具**。L0 governance digest 也漏了——shared-rules 内容丰富了，注入机制没变。根因：把"工具技术上可用"等同于"猫认知上可用"，违反 P5（可验证才算完成）——只验证了代码能跑，没验证目标用户能感知。
 
 ## Trigger Missed
 
 - **M3 doc-index 的跨平台边界场景**：应在实现时就预判 CRLF/block-YAML/absent-file 三类边界，而不是等 cloud review 逐轮暴露。触发器 C（高不确定性）本应在写 YAML parser 时就触发"这有多少种格式？"的自检。
+- **新 MCP 工具的"感知层"更新**：造了 `multi_mention` 工具后，应立即触发"目标用户怎么知道有这个东西？"的自检。触发器 E（新领域侦查）是双向的——进去之前要侦查现有体系，出来之后也要更新感知层（prompt 注入、文档、changelog）。
 
 ## Doc Links
 
@@ -37,3 +39,4 @@ created: 2026-03-09
 
 - **云端 review 后合入前的检查**：需要确认 review 针对的 commit 确实是当前 HEAD，而不是已 merge 的旧代码
 - **YAML parser 实现 checklist**：遇到需要 parse YAML 的场景，先列出已知格式变种（inline array、block array、multiline string、CRLF）再实现
+- **新 MCP 工具 = 必须更新 prompt**：在 quality-gate checklist 加入"新增 MCP 工具 → `MCP_TOOLS_SECTION` 更新了吗？新增行为规则 → L0/L1 governance digest 更新了吗？"
