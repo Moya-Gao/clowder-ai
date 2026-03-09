@@ -39,17 +39,19 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 | Agent 路由全流程 | ✅ 已有 | `AgentRouter.ts` |
 | GitHub Review Watcher（参考实现） | ✅ 已有 | `GithubReviewWatcher.ts` |
 
-### 需要新建的（~30%）
+### 需要新建的（~40%，经缅因猫 review 修正）
 
-| 组件 | 复杂度 | 说明 |
-|------|--------|------|
-| Outbound reply 接口 + agent 回复钩子 | 中 | AgentMessage → 平台消息格式转换 + 发送 |
-| Webhook receiver 路由 | 低 | 通用 webhook 入口 + 签名校验 |
-| Thread mapping store | 低-中 | 外部 conversation_id ↔ threadId |
-| 飞书 Adapter（`@larksuiteoapi/node-sdk`） | 中 | inbound webhook + outbound reply |
-| Slack Adapter（`@slack/bolt`） | 中 | Socket Mode / Events API + reply |
-| 消息格式双向转换 | 中 | Markdown ↔ Slack BlockKit / 飞书 RichText |
-| 平台 Auth（OAuth / Bot Token） | 低 | 飞书 App ID+Secret / Slack Bot Token |
+> 原估 30% 偏乐观。Outbound 不是挂 callback 就完事，需要改造 route-serial/parallel 的 streaming 流；Thread mapping 是新真相源，不是白送的字段。
+
+| 组件 | 复杂度 | 说明 | 修正后工期 |
+|------|--------|------|-----------|
+| **Outbound delivery hook** | **中-高** | 在 agent 回复 streaming 流里插钩子，route-serial/parallel 改造 | 2-3天 |
+| Webhook receiver 路由 | 低 | 通用 webhook 入口 + 签名校验 | 0.5天 |
+| **ConnectorThreadBinding store** | **中** | 外部 conversation_id ↔ threadId，新真相源 + 去重 | 1-1.5天 |
+| 飞书 Adapter（`@larksuiteoapi/node-sdk`） | 中 | inbound webhook + outbound reply | 1-2天 |
+| Slack Adapter（`@slack/bolt`） | 中 | Socket Mode / Events API + reply | 1-2天 |
+| 消息格式双向转换 | 中 | Markdown ↔ 飞书 RichText / Slack BlockKit | 1天 |
+| 平台 Auth（MVP: 静态 token） | 低 | env 配置 bot token / app secret | 0.5天 |
 
 ## 工期评估（猫猫并发速度）
 
@@ -57,28 +59,52 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 
 OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent 基础设施**（我们已有）。真正的 channel adapter 层，每个平台 ~1000-2000 LOC。
 
-### 按阶段
+### 按阶段（经缅因猫 review 修正）
 
 | 阶段 | 内容 | 猫猫天数 | 并行度 |
 |------|------|---------|--------|
-| **MVP** | 单渠道 DM 双向对话（飞书 or Slack） | 3-4天 | 2猫 |
-| **Phase 2** | 第二渠道 + 群聊支持 + thread mapping | 3-4天 | 3猫 |
-| **Phase 3** | 通用 Gateway 基座 + 配置 UI + 更多渠道 | 5-7天 | 3猫 |
+| **MVP** | 单平台 DM-only 双向对话（飞书 **或** Slack） | 5-7天 | 2猫 |
+| **Phase 2** | 第二平台 + 群聊（需 F077 前置） | 3-4天 | 3猫 |
+| **Phase 3** | 通用 Gateway 基座 + OAuth 自助接入 + 配置 UI + 更多渠道 | 5-7天 | 3猫 |
 | **Phase 4** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 |
 
-**MVP 到可用：3-4 天。全量 Gateway：3-4 周。**
+**MVP 到可用：5-7 天（单平台）。全量 Gateway：3-4 周。**
 
-### 为什么不是砚砚说的"好几个月"
+#### MVP Scope 硬边界（缅因猫 + 布偶猫共识）
 
-砚砚的评估（6-10 周）包含了"OpenClaw 级产品化"（pairing / channel policy / 多账号 / 运维安全 / 回放重试 / 配置产品化）。如果目标是 OpenClaw 的成熟度，这个估算合理。但 MVP 不需要这些——我们先做"飞书 DM + 单 owner + 能收能回"就够了。
+**包含**：
+- 单平台（飞书 **或** Slack，二选一）
+- DM-only（私聊）
+- 单 Owner（铲屎官本人）
+- 静态 token（env 配置 bot token / app secret）
+- 纯文本 + Markdown
+- Webhook 签名校验
+- 基本 thread mapping
 
-**核心论点：我们不是从零建 Gateway，是在已跑通的 Connector 框架上加 outbound + 新 adapter。**
+**显式排除（Phase 2+）**：
+- ❌ 群聊 / @mention 触发
+- ❌ 多用户 / 权限隔离（依赖 F077）
+- ❌ OAuth 自助接入
+- ❌ 多账号 / 多 workspace
+- ❌ 消息编辑/撤回同步
+- ❌ 附件/文件/图片传输
+- ❌ 配置管理 UI
+- ❌ 第二平台
+
+### 为什么不是"好几个月"
+
+初始评估分歧已通过 review 收敛：
+- **布偶猫初始估 3-4 天** → 低估了 outbound streaming 改造 + thread mapping 新真相源
+- **缅因猫初始估 6-10 周** → 口径按 OpenClaw 级产品化，scope 偏大
+- **收敛共识：MVP 5-7 天，全量 3-4 周**
+
+Outbound 不是挂 callback 就完事——需要改造 route-serial/parallel 的 streaming 流，这是首个平台最难的 50%，不是轻松的 30%。
 
 ## Acceptance Criteria
 
-### MVP（Phase 1）
-- [ ] AC-1: 飞书/Slack 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回飞书/Slack
-- [ ] AC-2: 外部对话自动映射到 Cat Café thread
+### MVP（Phase 1）— 单平台 DM-only
+- [ ] AC-1: 飞书**或**Slack DM 发消息 → Cat Café 收到 → 触发猫猫回复 → 回复发回原平台
+- [ ] AC-2: 外部 DM 自动映射到 Cat Café thread（ConnectorThreadBinding）
 - [ ] AC-3: Webhook 签名校验通过
 - [ ] AC-4: 现有 Web UI 功能不受影响
 
