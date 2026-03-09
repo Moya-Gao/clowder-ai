@@ -83,7 +83,7 @@ async function closeVoteInternal(
   // P1-3 fix: persist rich block as system message so it survives refresh
   if (messageStore) {
     try {
-      await messageStore.append({
+      const stored = await messageStore.append({
         userId: votingState.createdBy,
         catId: null,
         content: `投票结果: ${votingState.question}`,
@@ -92,6 +92,10 @@ async function closeVoteInternal(
         threadId,
         source: VOTE_RESULT_SOURCE,
         extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+      });
+      socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+        threadId,
+        message: { id: stored.id, type: 'connector', content: stored.content, source: VOTE_RESULT_SOURCE, timestamp: stored.timestamp, extra: stored.extra },
       });
     } catch (err) {
       console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
@@ -265,7 +269,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
       // P1-3 fix: persist rich block on auto-close via cast
       if (messageStore) {
         try {
-          await messageStore.append({
+          const stored = await messageStore.append({
             userId: 'system',
             catId: null,
             content: `投票结果: ${votingState.question}`,
@@ -274,6 +278,10 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
             threadId,
             source: VOTE_RESULT_SOURCE,
             extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+          });
+          socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+            threadId,
+            message: { id: stored.id, type: 'connector', content: stored.content, source: VOTE_RESULT_SOURCE, timestamp: stored.timestamp, extra: stored.extra },
           });
         } catch (err) {
           console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);
@@ -363,7 +371,7 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
     // P1-3 fix: persist rich block on manual close
     if (messageStore) {
       try {
-        await messageStore.append({
+        const stored = await messageStore.append({
           userId: result.createdBy,
           catId: null,
           content: `投票结果: ${result.question}`,
@@ -372,6 +380,10 @@ export const voteRoutes: FastifyPluginAsync<VoteRoutesOptions> = async (app, opt
           threadId,
           source: VOTE_RESULT_SOURCE,
           extra: { rich: { v: 1 as const, blocks: [richBlock] } },
+        });
+        socketManager.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+          threadId,
+          message: { id: stored.id, type: 'connector', content: stored.content, source: VOTE_RESULT_SOURCE, timestamp: stored.timestamp, extra: stored.extra },
         });
       } catch (err) {
         console.warn(`[votes] Failed to persist vote result for ${threadId}:`, err);

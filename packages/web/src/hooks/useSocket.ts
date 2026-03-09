@@ -42,6 +42,7 @@ interface ConnectorMessageEvent {
     type: 'connector';
     content: string;
     source?: import('../stores/chat-types').ConnectorSourceData;
+    extra?: Record<string, unknown>;
     timestamp: number;
   };
 }
@@ -405,6 +406,7 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         type: 'connector',
         content: data.message.content ?? '',
         ...(data.message.source ? { source: data.message.source } : {}),
+        ...(data.message.extra ? { extra: data.message.extra } : {}),
         timestamp: data.message.timestamp ?? Date.now(),
       });
     });
