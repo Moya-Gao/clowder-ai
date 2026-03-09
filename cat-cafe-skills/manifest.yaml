@@ -313,6 +313,27 @@ skills:
     sop_step: null
     merged_from: ["pencil-to-code", "pencil-renderer"]
 
+  # ── 健康提醒 (F085) ──
+  hyperfocus-brake:
+    description: >
+      铲屎官健康提醒：三猫撒娇打断 hyperfocus。
+      Use when: hook 触发提醒、用户输入 /hyperfocus-brake。
+      Not for: 正常工作流程、非铲屎官用户。
+      Output: 三猫温柔提醒 + typed check-in。
+    triggers:
+      - "hyperfocus"
+      - "休息提醒"
+      - "健康检查"
+      - "/hyperfocus-brake"
+    not_for:
+      - "正常工作"
+      - "非铲屎官"
+    output: "Three-cat empathetic check-in"
+    next: []
+    sop_step: null
+    merged_from: null
+    feature: "F085"
+
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:
   mcp-callbacks:
