@@ -115,57 +115,35 @@ export const DISPATCH_ENTER_JS = `(() => {
   return true;
 })()`;
 
-/** Read the currently selected model label from the footer model selector.
- *  Returns the trimmed text content, e.g. "Gemini 3.1 Pro (High)". */
+/** Read the currently selected model label from the Antigravity model selector.
+ *  Real DOM: <span class="...select-none...text-xs opacity-70">Gemini 3.1 Pro (High)</span>
+ *  inside a cursor-pointer flex container. */
 export const GET_CURRENT_MODEL_JS = `(() => {
-  const selectors = [
-    '[class*="model-selector"]',
-    '[class*="ModelSelector"]',
-    'button[class*="px-2"][class*="py-1"]',
-  ];
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el && el.textContent?.trim()) return el.textContent.trim();
-  }
-  const footer = document.querySelector('[class*="footer"], [class*="bottom-bar"], [class*="status"]');
-  if (footer) {
-    for (const btn of footer.querySelectorAll('button')) {
-      const t = btn.textContent?.trim() || '';
-      if (t.match(/gemini|claude|gpt|opus|sonnet|flash/i) && t.length < 60) return t;
-    }
-  }
-  for (const btn of document.querySelectorAll('button')) {
-    const t = btn.textContent?.trim() || '';
-    if (t.match(/^(Gemini|Claude|GPT)/i) && t.length < 60) return t;
+  const MODEL_RE = /gemini|claude|gpt|opus|sonnet|flash/i;
+  const span = document.querySelector('span.select-none[class*="opacity"]');
+  if (span && MODEL_RE.test(span.textContent || '')) return span.textContent.trim();
+  for (const el of document.querySelectorAll('[class*="cursor-pointer"] span, [class*="cursor-pointer"]')) {
+    const t = (el.textContent || '').trim();
+    if (MODEL_RE.test(t) && t.length < 60) return t;
   }
   return null;
 })()`;
 
-/** Click the model selector button to open the dropdown.
- *  Returns JSON { x, y } of the selector, or null. */
+/** Click the model selector to open the dropdown.
+ *  Real DOM: parent div with cursor-pointer containing model label span.
+ *  Returns JSON { x, y } of the clickable element, or null. */
 export const CLICK_MODEL_SELECTOR_JS = `(() => {
-  const selectors = [
-    '[class*="model-selector"]',
-    '[class*="ModelSelector"]',
-  ];
-  for (const sel of selectors) {
-    const el = document.querySelector(sel);
-    if (el) { const r = el.getBoundingClientRect(); if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 }); }
+  const MODEL_RE = /gemini|claude|gpt|opus|sonnet|flash/i;
+  const span = document.querySelector('span.select-none[class*="opacity"]');
+  if (span && MODEL_RE.test(span.textContent || '')) {
+    const clickTarget = span.closest('[class*="cursor-pointer"]') || span;
+    const r = clickTarget.getBoundingClientRect();
+    if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
   }
-  const footer = document.querySelector('[class*="footer"], [class*="bottom-bar"], [class*="status"]');
-  if (footer) {
-    for (const btn of footer.querySelectorAll('button')) {
-      const t = btn.textContent?.trim() || '';
-      if (t.match(/gemini|claude|gpt|opus|sonnet|flash/i) && t.length < 60) {
-        const r = btn.getBoundingClientRect();
-        if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
-      }
-    }
-  }
-  for (const btn of document.querySelectorAll('button')) {
-    const t = btn.textContent?.trim() || '';
-    if (t.match(/^(Gemini|Claude|GPT)/i) && t.length < 60) {
-      const r = btn.getBoundingClientRect();
+  for (const el of document.querySelectorAll('[class*="cursor-pointer"]')) {
+    const t = (el.textContent || '').trim();
+    if (MODEL_RE.test(t) && t.length < 60) {
+      const r = el.getBoundingClientRect();
       if (r.width > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
     }
   }
@@ -176,8 +154,11 @@ export const CLICK_MODEL_SELECTOR_JS = `(() => {
  *  Argument: __TARGET__ will be replaced at call time.
  *  Returns true if clicked, false if not found. */
 export const FIND_MODEL_OPTION_JS = `(() => {
-  const options = [...document.querySelectorAll('[class*="px-2"][class*="py-1"][class*="cursor-pointer"], [role="option"], [role="menuitem"]')]
-    .filter(e => e.offsetParent !== null && e.offsetHeight > 0 && e.offsetHeight < 60);
+  const visible = e => e.offsetParent !== null && e.offsetHeight > 0 && e.offsetHeight < 60;
+  const options = [...document.querySelectorAll(
+    '[role="option"], [role="menuitem"], [role="menuitemradio"], ' +
+    '[class*="cursor-pointer"][class*="py-1"], [class*="cursor-pointer"][class*="hover\\\\:"]'
+  )].filter(visible);
   const target = __TARGET__;
   for (const opt of options) {
     if ((opt.textContent || '').toLowerCase().includes(target)) { opt.click(); return true; }
