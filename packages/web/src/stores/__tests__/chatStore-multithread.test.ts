@@ -304,6 +304,28 @@ describe('chatStore multi-thread state', () => {
     });
   });
 
+  describe('setThreadTargetCats pre-seeds catStatuses (yellow cat fix)', () => {
+    it('background thread gets pending catStatuses when targetCats are set', () => {
+      // Simulate the background intent_mode sequence from useSocket.ts:
+      // 1. setThreadIntentMode clears catStatuses to {}
+      useChatStore.getState().setThreadIntentMode('thread-b', 'execute');
+      expect(useChatStore.getState().threadStates['thread-b']!.catStatuses).toEqual({});
+
+      // 2. setThreadTargetCats should pre-seed with 'pending' (like active path)
+      useChatStore.getState().setThreadTargetCats('thread-b', ['opus', 'codex']);
+      const ts = useChatStore.getState().threadStates['thread-b']!;
+      expect(ts.targetCats).toEqual(['opus', 'codex']);
+      expect(ts.catStatuses).toEqual({ opus: 'pending', codex: 'pending' });
+    });
+
+    it('active thread also gets pending catStatuses from setThreadTargetCats', () => {
+      // Active thread path should mirror background behavior
+      useChatStore.getState().setThreadTargetCats('thread-a', ['gemini']);
+      expect(useChatStore.getState().targetCats).toEqual(['gemini']);
+      expect(useChatStore.getState().catStatuses).toEqual({ gemini: 'pending' });
+    });
+  });
+
   it('handles rapid multi-thread switches', () => {
     // thread-a: add message
     useChatStore.getState().addMessage(makeMsg('r1'));

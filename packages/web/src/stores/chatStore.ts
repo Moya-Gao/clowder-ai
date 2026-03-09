@@ -973,11 +973,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
       };
     }),
 
-  /** Update targetCats for a specific thread (active or background). */
+  /** Update targetCats for a specific thread (active or background).
+   *  Also pre-seeds catStatuses with 'pending' — mirrors active setTargetCats
+   *  so ThreadCatStatus renders the working indicator immediately. */
   setThreadTargetCats: (threadId, cats) =>
     set((state) => {
       if (threadId === state.currentThreadId) {
-        return { targetCats: cats };
+        return { targetCats: cats, catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])) };
       }
       const existing = state.threadStates[threadId] ?? { ...DEFAULT_THREAD_STATE };
       return {
@@ -986,6 +988,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
           [threadId]: {
             ...existing,
             targetCats: cats,
+            catStatuses: Object.fromEntries(cats.map((c) => [c, 'pending' as const])),
             lastActivity: Date.now(),
           },
         },
