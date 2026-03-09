@@ -276,13 +276,13 @@ rule_update_target:
 - [x] 不滥用：不是每个问题都拉全体
 
 ### M3 反思沉淀
-- [ ] 反思胶囊 schema 定义（6 固定字段，不允许自由散文）
-- [ ] 胶囊存 `docs/reflections/YYYY-MM-DD-{topic}-capsule.md`，feature spec 只挂链接
-- [ ] feat-lifecycle completion 中触发反思胶囊
-- [ ] 反思结果有明确 `rule_update_target`（回写到哪个文件）
-- [ ] 文档关系索引（title + summary + frontmatter edges + backlinks）
-- [ ] 索引按需构建 + 本地缓存，CI 仅做一致性检查
-- [ ] 跨猫可检索：所有猫能查到同一份结构化沉淀
+- [x] 反思胶囊 schema 定义（6 固定字段，不允许自由散文）
+- [x] 胶囊存 `docs/reflections/YYYY-MM-DD-{topic}-capsule.md`，feature spec 只挂链接
+- [x] feat-lifecycle completion 中触发反思胶囊
+- [x] 反思结果有明确 `rule_update_target`（回写到哪个文件）
+- [x] 文档关系索引（title + summary + frontmatter edges + backlinks）
+- [x] 索引按需构建 + 本地缓存，CI 仅做一致性检查
+- [x] 跨猫可检索：所有猫能查到同一份结构化沉淀
 
 ### 非目标（首版明确不做）
 - ❌ 向量库（除非实测证明比 BM25 更好）
@@ -402,3 +402,4 @@ F086 multi_mention（MCP 工具）:
 | 2026-03-09 | 第一性原理梳理：gpt52 盘点 + opus 4.6 review×2 + opus 4.5 独立思考 → [ADR-012](../decisions/012-first-principles-map.md) accepted |
 | 2026-03-09 | P1-P5 公理 + W1-W6 世界观写入 [shared-rules.md](../../cat-cafe-skills/refs/shared-rules.md)，三层治理结构落地 |
 | 2026-03-09 | M2 元思考触发器实施完成（5 trigger rules §13 + Design Gate 先搜现状 + collaborative-thinking §13 ref + 6 guard tests）|
+| 2026-03-09 | M3 反思胶囊 + 文档关系索引实施完成（capsule schema + feat-lifecycle Step 0.5 + build-doc-index.mjs + PoC capsule + 5 guard tests）|

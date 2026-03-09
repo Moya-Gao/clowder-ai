@@ -117,6 +117,17 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 
 前端 UI/UX 额外要求：≤3 张截图 + 15s 录屏 + "需求→截图"映射表。
 
+**Step 0.5: 反思胶囊（F086 M3）🔴**
+
+愿景对照 + 跨猫验证之后、AC 打勾之前，写一个反思胶囊：
+
+1. 从 `docs/reflections/README.md` 复制模板
+2. 填 6 个固定章节（What Worked / What Failed / Trigger Missed / Doc Links / Rule Update Target）
+3. 保存到 `docs/reflections/YYYY-MM-DD-{topic}-capsule.md`
+4. Feature spec 只挂链接，不把正文塞回去
+
+**不能跳过**：每个 milestone/feature 完成都要写。没有就写"无"，不允许省略章节。
+
 **Step 1**: AC 全部 `[x]`；未完成项先确认（完成 / 转 TD / 确认不需要）
 
 **Step 2**: 聚合文件 → `Status: done`，加 `Completed: YYYY-MM-DD`，Timeline 加收尾记录
