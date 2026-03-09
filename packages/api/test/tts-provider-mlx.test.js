@@ -130,4 +130,46 @@ describe('MlxAudioTtsProvider', () => {
 
     assert.strictEqual(result.format, 'wav', 'unknown format must fall back to requested');
   });
+
+  // F066: Clone param passthrough tests
+  it('sends clone params (refAudio, refText, instruct, temperature) to TTS server', async () => {
+    let capturedBody;
+    globalThis.fetch = async (_url, init) => {
+      capturedBody = JSON.parse(init.body);
+      return new Response(new Uint8Array([1]), { status: 200 });
+    };
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    await p.synthesize({
+      text: '你好',
+      voice: 'wanderer',
+      langCode: 'zh',
+      refAudio: '/path/to/ref.wav',
+      refText: '参考文本',
+      instruct: '用调皮的语气说话',
+      temperature: 0.3,
+    });
+
+    assert.strictEqual(capturedBody.ref_audio, '/path/to/ref.wav');
+    assert.strictEqual(capturedBody.ref_text, '参考文本');
+    assert.strictEqual(capturedBody.instruct, '用调皮的语气说话');
+    assert.strictEqual(capturedBody.temperature, 0.3);
+  });
+
+  it('omits clone params from body when not provided', async () => {
+    let capturedBody;
+    globalThis.fetch = async (_url, init) => {
+      capturedBody = JSON.parse(init.body);
+      return new Response(new Uint8Array([1]), { status: 200 });
+    };
+
+    const p = new MlxAudioTtsProvider({ baseUrl: 'http://test:9877' });
+    await p.synthesize({ text: 'test', voice: 'v1' });
+
+    assert.strictEqual(capturedBody.ref_audio, undefined, 'ref_audio should be absent');
+    assert.strictEqual(capturedBody.ref_text, undefined, 'ref_text should be absent');
+    assert.strictEqual(capturedBody.instruct, undefined, 'instruct should be absent');
+    // temperature is not sent when not provided
+    assert.strictEqual(capturedBody.temperature, undefined, 'temperature should be absent');
+  });
 });

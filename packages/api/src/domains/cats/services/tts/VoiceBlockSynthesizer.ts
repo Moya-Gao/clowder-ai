@@ -109,8 +109,19 @@ export class VoiceBlockSynthesizer {
     const speed = catVoice.speed ?? 1.0;
     const format = 'wav' as const;
 
-    // Cache hash (same logic as tts.ts route)
-    const hashInput = [provider.id, provider.model, voice, langCode, String(speed), format, text].join('|');
+    // F066: Clone fields from E-type voice config
+    const refAudio = catVoice.refAudio;
+    const refText = catVoice.refText;
+    const instruct = catVoice.instruct;
+    const temperature = catVoice.temperature;
+
+    // Cache hash — includes clone params for distinct cache entries per voice config
+    const hashParts = [provider.id, provider.model, voice, langCode, String(speed), format, text];
+    if (refAudio) hashParts.push(refAudio);
+    if (refText) hashParts.push(refText);
+    if (instruct) hashParts.push(instruct);
+    if (temperature != null) hashParts.push(String(temperature));
+    const hashInput = hashParts.join('|');
     const hash = createHash('sha256').update(hashInput).digest('hex');
     const filename = `${hash}.${format}`;
     const filePath = path.join(this.cacheDir, filename);
@@ -123,7 +134,17 @@ export class VoiceBlockSynthesizer {
     } catch { /* not cached */ }
 
     if (!cached) {
-      const result = await provider.synthesize({ text, voice, langCode, speed, format });
+      const result = await provider.synthesize({
+        text,
+        voice,
+        langCode,
+        speed,
+        format,
+        ...(refAudio ? { refAudio } : {}),
+        ...(refText ? { refText } : {}),
+        ...(instruct ? { instruct } : {}),
+        ...(temperature != null ? { temperature } : {}),
+      });
       await writeFile(filePath, result.audio);
     }
 

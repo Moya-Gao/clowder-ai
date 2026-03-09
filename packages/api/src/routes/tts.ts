@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { stat as fsStat, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import type { TtsSynthesizeRequest } from '@cat-cafe/shared';
 import type { FastifyInstance, FastifyPluginOptions } from 'fastify';
 import { z } from 'zod';
 import { getCatVoice } from '../config/cat-voices.js';
@@ -63,6 +64,11 @@ export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Pr
     const langCode = langCodeOverride ?? catVoice.langCode;
     const speed = speedOverride ?? catVoice.speed ?? 1.0;
     const requestedFormat = 'wav';
+    // F066: Clone params from per-cat voice config
+    const refAudio = catVoice.refAudio;
+    const refText = catVoice.refText;
+    const instruct = catVoice.instruct;
+    const temperature = catVoice.temperature;
 
     // Get provider
     let provider;
@@ -73,8 +79,13 @@ export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Pr
       return { error: 'No TTS provider available' };
     }
 
-    // Compute cache hash: sha256(provider + model + voice + langCode + speed + format + text)
-    const hashInput = [provider.id, provider.model, voice, langCode, String(speed), requestedFormat, text].join('|');
+    // Compute cache hash: includes clone params so different voices get distinct cache entries
+    const hashParts = [provider.id, provider.model, voice, langCode, String(speed), requestedFormat, text];
+    if (refAudio) hashParts.push(refAudio);
+    if (refText) hashParts.push(refText);
+    if (instruct) hashParts.push(instruct);
+    if (temperature != null) hashParts.push(String(temperature));
+    const hashInput = hashParts.join('|');
     const hash = createHash('sha256').update(hashInput).digest('hex');
 
     // First try cache with requested format, then try with alternate format
@@ -95,7 +106,18 @@ export async function ttsRoutes(app: FastifyInstance, opts: TtsRouteOptions): Pr
     if (!cached) {
       // Synthesize
       try {
-        const result = await provider.synthesize({ text, voice, langCode, speed, format: requestedFormat });
+        const synthRequest: TtsSynthesizeRequest = {
+          text,
+          voice,
+          langCode,
+          speed,
+          format: requestedFormat,
+          ...(refAudio ? { refAudio } : {}),
+          ...(refText ? { refText } : {}),
+          ...(instruct ? { instruct } : {}),
+          ...(temperature != null ? { temperature } : {}),
+        };
+        const result = await provider.synthesize(synthRequest);
         // Double-check: only allow known audio extensions (defense in depth)
         const allowedFormats = new Set(['wav', 'mp3']);
         const actualFormat = allowedFormats.has(result.format) ? result.format : requestedFormat;

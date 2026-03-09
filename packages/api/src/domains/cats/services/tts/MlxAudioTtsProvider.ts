@@ -31,14 +31,20 @@ export class MlxAudioTtsProvider implements ITtsProvider {
 
   async synthesize(request: TtsSynthesizeRequest): Promise<TtsSynthesizeResult> {
     const url = `${this.baseUrl}/v1/audio/speech`;
-    const body = {
+
+    // F066: Build request body with optional clone params for Qwen3-TTS Base
+    const body = JSON.stringify({
       input: request.text,
       voice: request.voice,
       model: this.model,
       response_format: request.format ?? 'wav',
       speed: request.speed ?? 1.0,
       lang_code: request.langCode ?? 'z',
-    };
+      ...(request.refAudio ? { ref_audio: request.refAudio } : {}),
+      ...(request.refText ? { ref_text: request.refText } : {}),
+      ...(request.instruct ? { instruct: request.instruct } : {}),
+      ...(request.temperature != null ? { temperature: request.temperature } : {}),
+    });
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
@@ -47,7 +53,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
       const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
+        body,
         signal: controller.signal,
       });
 
@@ -63,9 +69,7 @@ export class MlxAudioTtsProvider implements ITtsProvider {
       // Whitelist to prevent path traversal via malicious header values
       const serverFormat = response.headers.get('x-audio-format');
       const ALLOWED_FORMATS = new Set(['wav', 'mp3']);
-      const actualFormat = (serverFormat && ALLOWED_FORMATS.has(serverFormat))
-        ? serverFormat
-        : (request.format ?? 'wav');
+      const actualFormat = serverFormat && ALLOWED_FORMATS.has(serverFormat) ? serverFormat : (request.format ?? 'wav');
 
       return {
         audio,

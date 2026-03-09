@@ -24,6 +24,7 @@ import {
   getVoiceBlockSynthesizer,
   VoiceBlockSynthesizer,
 } from '../dist/domains/cats/services/tts/VoiceBlockSynthesizer.js';
+import { getCatVoice } from '../dist/config/cat-voices.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,14 +48,18 @@ function makeMockRegistry({ synthesize } = {}) {
 }
 
 /**
- * Compute the cache filename the synthesizer would produce for `opus` cat with
- * default voice settings (zm_yunjian, z, 0.95) and the given text.
+ * Compute the cache filename the synthesizer would produce for `opus` cat
+ * with the actual voice config and the given text.
  * Mirrors the hash logic in VoiceBlockSynthesizer.synthesizeToFile.
  */
 function expectedCacheFilename(text) {
-  // Default opus voice from cat-voices: voice=zm_yunjian, langCode=z, speed=0.95
-  const hashInput = ['mock', 'test', 'zm_yunjian', 'z', '0.95', 'wav', text].join('|');
-  const hash = createHash('sha256').update(hashInput).digest('hex');
+  const v = getCatVoice('opus');
+  const hashParts = ['mock', 'test', v.voice, v.langCode, String(v.speed ?? 1), 'wav', text];
+  if (v.refAudio) hashParts.push(v.refAudio);
+  if (v.refText) hashParts.push(v.refText);
+  if (v.instruct) hashParts.push(v.instruct);
+  if (v.temperature != null) hashParts.push(String(v.temperature));
+  const hash = createHash('sha256').update(hashParts.join('|')).digest('hex');
   return `${hash}.wav`;
 }
 
@@ -232,6 +237,21 @@ describe('VoiceBlockSynthesizer.resolveVoiceBlocks — synthesis', () => {
     assert.equal(receivedArgs.text, 'Hello world');
     assert.equal(receivedArgs.format, 'wav');
     assert.ok(typeof receivedArgs.voice === 'string', 'voice passed to synthesize');
+
+    // F066: clone params should be passed through from getCatVoice('opus')
+    const opusVoice = getCatVoice('opus');
+    if (opusVoice.refAudio) {
+      assert.equal(receivedArgs.refAudio, opusVoice.refAudio, 'refAudio passed through');
+    }
+    if (opusVoice.refText) {
+      assert.equal(receivedArgs.refText, opusVoice.refText, 'refText passed through');
+    }
+    if (opusVoice.instruct) {
+      assert.equal(receivedArgs.instruct, opusVoice.instruct, 'instruct passed through');
+    }
+    if (opusVoice.temperature != null) {
+      assert.equal(receivedArgs.temperature, opusVoice.temperature, 'temperature passed through');
+    }
   });
 
   it('trims whitespace from block text before synthesis', async () => {

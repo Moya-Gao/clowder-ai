@@ -5,21 +5,22 @@ OpenAI-compatible endpoint: POST /v1/audio/speech
 
 Supports multiple backends via TtsAdapter:
   - mlx-audio (default): Apple Silicon native, Kokoro-82M
+  - qwen3-clone: Qwen3-TTS Base + ref_audio voice cloning
   - edge-tts: Microsoft cloud TTS (fallback, no GPU needed)
 
 Usage:
   source ~/.cat-cafe/tts-venv/bin/activate
-  python scripts/tts-api.py                                     # default: mlx-audio
+  python scripts/tts-api.py                                     # default: mlx-audio (Kokoro-82M)
+  TTS_PROVIDER=qwen3-clone python scripts/tts-api.py            # Qwen3-TTS Base clone
   TTS_PROVIDER=edge-tts python scripts/tts-api.py               # edge-tts fallback
-  python scripts/tts-api.py --model mlx-community/Kokoro-82M-bf16
   python scripts/tts-api.py --port 9877
 
 Env vars:
-  TTS_PROVIDER  — "mlx-audio" (default) or "edge-tts"
+  TTS_PROVIDER  — "mlx-audio" (default), "qwen3-clone", or "edge-tts"
   TTS_PORT      — server port (default: 9877)
 
-Requires (mlx-audio): pip install mlx-audio "misaki[zh]"
-Requires (edge-tts):  pip install edge-tts
+Requires (qwen3-clone/mlx-audio): pip install mlx-audio "misaki[zh]"
+Requires (edge-tts):               pip install edge-tts
 """
 
 from __future__ import annotations
@@ -229,17 +230,117 @@ class EdgeTtsAdapter(TtsAdapter):
         return b"".join(audio_chunks), actual_format
 
 
+# ─── Qwen3 Clone Adapter ────────────────────────────────────────────
+
+
+class Qwen3CloneAdapter(TtsAdapter):
+    """Qwen3-TTS Base + ref_audio zero-shot voice cloning (E-type unified scheme).
+
+    Uses mlx-audio's generate_audio with ref_audio/ref_text/instruct params
+    for voice cloning from reference audio. Supports mixed Chinese/English text.
+    """
+
+    DEFAULT_MODEL = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
+
+    def __init__(self, model: str | None = None):
+        self._model = model or self.DEFAULT_MODEL
+        self._lock = asyncio.Lock()
+
+    @property
+    def name(self) -> str:
+        return "qwen3-clone"
+
+    @property
+    def model_name(self) -> str:
+        return self._model
+
+    async def synthesize(
+        self,
+        text: str,
+        voice: str,
+        lang_code: str,
+        speed: float,
+        audio_format: str,
+        *,
+        ref_audio: str | None = None,
+        ref_text: str | None = None,
+        instruct: str | None = None,
+        temperature: float = 0.3,
+    ) -> tuple[bytes, str]:
+        try:
+            from mlx_audio.tts.generate import generate_audio as tts_generate
+        except ImportError as exc:
+            raise RuntimeError(
+                "mlx_audio.tts not available — pip install mlx-audio 'misaki[zh]'"
+            ) from exc
+
+        if ref_audio and not Path(ref_audio).exists():
+            raise RuntimeError(f"Reference audio not found: {ref_audio}")
+
+        output_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-clone-"))
+        try:
+            kwargs: dict = {
+                "text": text,
+                "model": self._model,
+                "lang_code": lang_code,
+                "speed": speed,
+                "audio_format": audio_format,
+                "output_path": str(output_dir),
+                "temperature": temperature,
+            }
+            # Clone mode: ref_audio + ref_text (voice param not used)
+            if ref_audio:
+                kwargs["ref_audio"] = ref_audio
+                if ref_text:
+                    kwargs["ref_text"] = ref_text
+                if instruct:
+                    kwargs["instruct"] = instruct
+            else:
+                # Fallback: use voice param like Kokoro adapter
+                kwargs["voice"] = voice
+
+            async with self._lock:
+                await asyncio.to_thread(tts_generate, **kwargs)
+
+            audio_files = list(output_dir.glob(f"*.{audio_format}"))
+            if not audio_files:
+                raise RuntimeError("No audio file generated")
+
+            return audio_files[0].read_bytes(), audio_format
+        finally:
+            shutil.rmtree(output_dir, ignore_errors=True)
+
+    def warmup(self) -> None:
+        from mlx_audio.tts.generate import generate_audio as tts_generate
+
+        warmup_dir = Path(tempfile.mkdtemp(prefix="cat-cafe-tts-clone-warmup-"))
+        try:
+            tts_generate(
+                text="你好",
+                model=self._model,
+                voice="zm_yunjian",
+                lang_code="z",
+                output_path=str(warmup_dir),
+            )
+        except Exception:
+            pass  # Warmup may fail, model is still loaded
+        finally:
+            shutil.rmtree(warmup_dir, ignore_errors=True)
+
+
 # ─── Factory ──────────────────────────────────────────────────────────
 
 
 def create_adapter(provider: str, model: str) -> TtsAdapter:
     """Create TTS adapter based on provider name."""
+    if provider == "qwen3-clone":
+        return Qwen3CloneAdapter(model=model if model != "mlx-community/Kokoro-82M-bf16" else None)
     if provider == "mlx-audio":
         return MlxAudioAdapter(model=model)
     if provider == "edge-tts":
         return EdgeTtsAdapter()
     raise ValueError(
-        f"Unknown TTS provider: '{provider}'. Supported: mlx-audio, edge-tts"
+        f"Unknown TTS provider: '{provider}'. Supported: qwen3-clone, mlx-audio, edge-tts"
     )
 
 
@@ -259,6 +360,11 @@ class SpeechRequest(BaseModel):
     response_format: str = Field(default="wav")
     speed: float = Field(default=1.0, ge=0.5, le=2.0)
     lang_code: str = Field(default="z")
+    # F066: Qwen3-TTS Base clone mode fields
+    ref_audio: str | None = Field(default=None)
+    ref_text: str | None = Field(default=None)
+    instruct: str | None = Field(default=None)
+    temperature: float = Field(default=0.3, ge=0.0, le=2.0)
 
 
 @app.post("/v1/audio/speech")
@@ -268,13 +374,22 @@ async def synthesize_endpoint(req: SpeechRequest):
         raise HTTPException(503, detail="TTS adapter not ready yet")
 
     try:
-        audio_bytes, actual_format = await adapter.synthesize(
-            text=req.input,
-            voice=req.voice,
-            lang_code=req.lang_code,
-            speed=req.speed,
-            audio_format=req.response_format,
-        )
+        # Build base kwargs for all adapters
+        synth_kwargs: dict = {
+            "text": req.input,
+            "voice": req.voice,
+            "lang_code": req.lang_code,
+            "speed": req.speed,
+            "audio_format": req.response_format,
+        }
+        # Pass clone params if adapter supports them (Qwen3CloneAdapter)
+        if isinstance(adapter, Qwen3CloneAdapter):
+            synth_kwargs["ref_audio"] = req.ref_audio
+            synth_kwargs["ref_text"] = req.ref_text
+            synth_kwargs["instruct"] = req.instruct
+            synth_kwargs["temperature"] = req.temperature
+
+        audio_bytes, actual_format = await adapter.synthesize(**synth_kwargs)
 
         log.info(
             "Synthesized %d chars → %d bytes (provider=%s, voice=%s, format=%s)",

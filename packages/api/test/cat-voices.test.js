@@ -25,22 +25,22 @@ describe('getCatVoice', () => {
   it('returns opus default voice', () => {
     const voice = getCatVoice('opus');
     assert.strictEqual(voice.voice, 'zm_yunjian');
-    assert.strictEqual(voice.langCode, 'z');
-    assert.strictEqual(voice.speed, 0.95);
+    assert.strictEqual(voice.langCode, 'zh');
+    assert.strictEqual(voice.speed, 1.0);
   });
 
   it('returns codex default voice', () => {
     const voice = getCatVoice('codex');
-    assert.strictEqual(voice.voice, 'zm_yunxi');
-    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.voice, 'zm_yunjian');
+    assert.strictEqual(voice.langCode, 'zh');
     assert.strictEqual(voice.speed, 1.0);
   });
 
   it('returns gemini default voice', () => {
     const voice = getCatVoice('gemini');
-    assert.strictEqual(voice.voice, 'zm_yunyang');
-    assert.strictEqual(voice.langCode, 'z');
-    assert.strictEqual(voice.speed, 1.05);
+    assert.strictEqual(voice.voice, 'zm_yunjian');
+    assert.strictEqual(voice.langCode, 'zh');
+    assert.strictEqual(voice.speed, 1.0);
   });
 
   it('per-cat env var overrides voice ID', () => {
@@ -49,8 +49,8 @@ describe('getCatVoice', () => {
     const voice = getCatVoice('opus');
     assert.strictEqual(voice.voice, 'custom_voice_id');
     // langCode and speed remain from default
-    assert.strictEqual(voice.langCode, 'z');
-    assert.strictEqual(voice.speed, 0.95);
+    assert.strictEqual(voice.langCode, 'zh');
+    assert.strictEqual(voice.speed, 1.0);
   });
 
   it('env var with whitespace is trimmed', () => {
@@ -70,7 +70,7 @@ describe('getCatVoice', () => {
   it('unknown cat falls back to global default', () => {
     const voice = getCatVoice('unknown-cat');
     assert.strictEqual(voice.voice, 'zm_yunjian');
-    assert.strictEqual(voice.langCode, 'z');
+    assert.strictEqual(voice.langCode, 'zh');
     assert.strictEqual(voice.speed, 1.0);
   });
 
@@ -98,5 +98,60 @@ describe('getAllCatVoices', () => {
     assert.ok(voices.opus, 'has opus');
     assert.ok(voices.codex, 'has codex');
     assert.ok(voices.gemini, 'has gemini');
+  });
+});
+
+// F066: Clone field tests
+describe('VoiceConfig clone fields', () => {
+  beforeEach(() => {
+    clearVoiceCache();
+    delete process.env.CAT_OPUS_TTS_VOICE;
+    delete process.env.CAT_CODEX_TTS_VOICE;
+    delete process.env.CAT_GEMINI_TTS_VOICE;
+  });
+
+  afterEach(() => {
+    clearVoiceCache();
+  });
+
+  it('opus voice has clone fields (refAudio, refText, instruct, temperature)', () => {
+    const voice = getCatVoice('opus');
+    assert.ok(voice.refAudio, 'opus has refAudio');
+    assert.ok(voice.refAudio.includes('流浪者'), 'opus refAudio is Wanderer');
+    assert.ok(voice.refText, 'opus has refText');
+    assert.ok(voice.instruct, 'opus has instruct');
+    assert.strictEqual(voice.temperature, 0.3);
+  });
+
+  it('codex voice has clone fields', () => {
+    const voice = getCatVoice('codex');
+    assert.ok(voice.refAudio, 'codex has refAudio');
+    assert.ok(voice.refAudio.includes('魈'), 'codex refAudio is Xiao');
+    assert.ok(voice.instruct?.includes('傲娇'), 'codex instruct matches character');
+    assert.strictEqual(voice.temperature, 0.3);
+  });
+
+  it('gemini voice has clone fields', () => {
+    const voice = getCatVoice('gemini');
+    assert.ok(voice.refAudio, 'gemini has refAudio');
+    assert.ok(voice.refAudio.includes('班尼特'), 'gemini refAudio is Bennett');
+    assert.ok(voice.instruct?.includes('阳光'), 'gemini instruct matches character');
+    assert.strictEqual(voice.temperature, 0.3);
+  });
+
+  it('env var override preserves clone fields', () => {
+    process.env.CAT_OPUS_TTS_VOICE = 'custom_voice';
+    clearVoiceCache();
+    const voice = getCatVoice('opus');
+    assert.strictEqual(voice.voice, 'custom_voice');
+    // Clone fields still come from base config
+    assert.ok(voice.refAudio, 'clone fields preserved after voice override');
+    assert.strictEqual(voice.temperature, 0.3);
+  });
+
+  it('unknown cat fallback has no clone fields', () => {
+    const voice = getCatVoice('unknown-cat');
+    assert.strictEqual(voice.refAudio, undefined);
+    assert.strictEqual(voice.instruct, undefined);
   });
 });
