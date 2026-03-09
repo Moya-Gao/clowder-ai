@@ -4,7 +4,7 @@ related_features: [F066]
 topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
-status: spec
+status: phase1-done
 ---
 
 # F085 Hyperfocus Brake — 猫猫健康小刹车
@@ -41,20 +41,20 @@ status: spec
 
 ### Phase 1 (MVP)
 
-- [ ] **AC1**: skill `hyperfocus-brake` 可通过 `/loop 90m /hyperfocus-brake` 触发
-- [ ] **AC2**: Hook (`PostToolUse`) 累计活跃时长，到阈值触发 skill
-- [ ] **AC3**: 上下文采集白名单：git status/diff/log、当前 branch、BACKLOG/TODO
-- [ ] **AC4**: 生成三猫文案（L1 温柔 / L2 关心 / L3 急了），根据忽略次数升级
-- [ ] **AC5**: 必须 typed check-in 才能继续（1=休息 / 2=收尾10min / 3=继续+理由）
-- [ ] **AC6**: Emergency bypass（递增代价：30min → 45min → 第3次禁用）
-- [ ] **AC7**: 纯文本输出 + rich card 降级版
-- [ ] **AC8**: 夜间模式（23:00 后轻声细语，无闪烁）
-- [ ] **AC9**: 占位符注入防护（allowlist + escape + length cap 80）
-- [ ] **AC10**: 恶意 branch 名注入测试（含 `] @ ``` <script>`）不污染 card
-- [ ] **AC11**: 超长 branch/message 被截断测试
-- [ ] **AC12**: bypass 冷却计时跨 session 仍生效测试
-- [ ] **AC13**: 4h 内重复 bypass 升级冷却测试
-- [ ] **AC14**: 夜间模式无强刺激样式测试
+- [x] **AC1**: skill `hyperfocus-brake` 可通过 `/loop 90m /hyperfocus-brake` 触发
+- [x] **AC2**: Hook (`PostToolUse`) 累计活跃时长，到阈值触发 skill
+- [x] **AC3**: 上下文采集白名单：git status/diff/log、当前 branch、BACKLOG/TODO
+- [x] **AC4**: 生成三猫文案（L1 温柔 / L2 关心 / L3 急了），根据忽略次数升级
+- [x] **AC5**: 必须 typed check-in 才能继续（1=休息 / 2=收尾10min / 3=继续+理由）
+- [x] **AC6**: Emergency bypass（递增代价：30min → 45min → 第3次禁用）
+- [x] **AC7**: 纯文本输出 + rich card 降级版
+- [x] **AC8**: 夜间模式（23:00 后轻声细语，无闪烁）
+- [x] **AC9**: 占位符注入防护（allowlist + escape + length cap 80）
+- [x] **AC10**: 恶意 branch 名注入测试（含 `] @ ``` <script>`）不污染 card
+- [x] **AC11**: 超长 branch/message 被截断测试
+- [x] **AC12**: bypass 冷却计时跨 session 仍生效测试
+- [x] **AC13**: 4h 内重复 bypass 升级冷却测试
+- [x] **AC14**: 夜间模式无强刺激样式测试
 
 ### Phase 2
 
@@ -109,7 +109,7 @@ status: spec
 
 ## Review Gate
 
-- [ ] Phase 1: 砚砚 Codex review hook 安全性
+- [x] Phase 1: 砚砚 Codex review hook 安全性 (R1-R4 本地 + R1-R2 云端, PR #329)
 - [ ] Phase 2: 烁烁 review 视觉设计
 - [ ] Phase 3: F066 owner review 声线集成
 
@@ -120,6 +120,9 @@ status: spec
 | 2026-03-08 | 云端 Opus 4.5 发布招募令 |
 | 2026-03-08 | 咖啡馆三猫讨论 + Opus 4.5 组织收敛 |
 | 2026-03-08 | 立项 F085 |
+| 2026-03-09 | Phase 1 实现 (Opus 4.5 初版 + Opus 4.6 修复) |
+| 2026-03-09 | Codex review R1-R4 (6 P1 修复) + 云端 R1-R2 |
+| 2026-03-09 | Phase 1 合入 main (PR #329, `3387f853`) |
 
 ## 需求点 Checklist
 
@@ -127,18 +130,18 @@ Phase 1 需求点追踪：
 
 | # | 需求点 | 来源 | 状态 | 验证方式 |
 |---|--------|------|------|----------|
-| 1 | 90min 活跃时长触发 | 招募令 | spec | 测试 |
-| 2 | 三猫联合撒娇 | 招募令 | spec | 人工验收 |
-| 3 | 上下文感知（git/branch/todo）| 招募令 | spec | 测试 |
-| 4 | typed check-in 门槛 | 讨论共识 | spec | 测试 |
-| 5 | emergency bypass | 砚砚 Codex | spec | 测试 |
-| 6 | 夜间模式 | 烁烁 | spec | 人工验收 |
+| 1 | 90min 活跃时长触发 | 招募令 | done | state.test.sh |
+| 2 | 三猫联合撒娇 | 招募令 | done | messages.sh + integration |
+| 3 | 上下文感知（git/branch/todo）| 招募令 | done | sanitizer.test.sh |
+| 4 | typed check-in 门槛 | 讨论共识 | done | state.test.sh |
+| 5 | emergency bypass | 砚砚 Codex | done | state.test.sh |
+| 6 | 夜间模式 | 烁烁 | done | integration.test.sh |
 
 ## 分工
 
 | 猫猫 | 任务 | 状态 |
 |------|------|------|
-| **Opus 4.5** | skill 骨架 + hook 触发逻辑 + renderer 抽象 | pending |
-| **Codex** | hook 安全审查 + emergency bypass 逻辑 + 上下文白名单 | P1 审查完成 ✅ |
+| **Opus 4.5** | skill 骨架 + hook 触发逻辑 + renderer 抽象 | 初版完成，Opus 4.6 接力修复 ✅ |
+| **Codex** | hook 安全审查 + emergency bypass 逻辑 + 上下文白名单 | R1-R4 review 完成 ✅ |
 | **Gemini** | 三档文案 + card 草案 + 视觉规范 | 已存入 refs/ ✅ |
-| **Opus/Sonnet** | 协助实现 + 测试 | pending |
+| **Opus 4.6** | R1-R4 修复 + 云端 review + merge | Phase 1 合入 main ✅ |
