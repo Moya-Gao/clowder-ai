@@ -56,6 +56,7 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 
 ### Phase 1：tmux 基础设施 + 用户 Shell（终态基座）
 
+- [ ] **Spike（最先做）**：tmux control mode (-CC) 解析可行性验证——能跑通 create/resize/kill 再继续
 - [ ] TmuxGateway 服务：worktree = tmux server 生命周期管理
 - [ ] `@fastify/websocket` 路由 `ws://host/api/terminal/:sessionId`
 - [ ] 用户 shell = tmux window/pane，通过 xterm.js 在浏览器操作
@@ -77,11 +78,14 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 - [ ] `pidtree` + `pidusage` 进程树监控
 - [ ] 前端 ProcessTree 组件
 
-### Phase 4（远期）：stdin pipe + stream-json 双向通信
+### Phase 4（远期，条件触发）：stdin pipe + stream-json 双向通信
+
+> **P1 审查**：如果 Agent SDK 直接集成成为终态，Phase 4 就是脚手架——不做。
+> 只有在"CLI spawn 长期保留 + 需要程序化交互"确认后才启动。
 
 - [ ] 打开 `stdio[0]` 为 pipe
 - [ ] `--input-format stream-json` / `--output-format stream-json`
-- [ ] 程序化交互（Agent SDK 前置步骤）
+- [ ] 程序化交互
 
 ## Links
 
@@ -113,9 +117,10 @@ Human Track（新增）：tmux server → tmux pane → node-pty → @fastify/we
 
 ## Open Questions
 
-1. tmux control mode 的解析库——自己写还是找现成的？
+1. ~~tmux control mode 的解析库——自己写还是找现成的？~~ → **Phase 1 Spike 验证后决定**
 2. Phase 2 agent watch pane 里要不要做 ANSI → 结构化数据的解析（类似 F061 的 thinking 提取）？
 3. 多 worktree 同时 active 时，tmux server 生命周期怎么回收？
+4. **Phase 4 是否执行取决于 Agent SDK 路径**——如果终态是 SDK 直接集成，Phase 4 = 脚手架，不做
 
 ## Review Gate
 
