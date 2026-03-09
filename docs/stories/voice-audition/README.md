@@ -97,28 +97,65 @@ tags: [voice, tts, f066]
 | 8 | 人设校正（坏猫/傲娇/阳光） | 砚砚定了！宪宪还在抽卡... |
 | 9 | 负向词策略（GPT Pro 建议） | 宪宪仍不稳 → "这抽卡质量还是不行" |
 | **转折** | **GPT-SoVITS 角色声纹** | **放弃 VoiceDesign 抽卡，转向游戏角色预训练模型** |
+| GPT-SoVITS R1 | cut5 拆句 + 4 角色 | 班尼特不错，流浪者奇怪，嘉明广东腔，魈句读问题 |
+| GPT-SoVITS R2 | cut0 不拆句 | 韵律改善但英文全乱码（"P1"→"Pone"） |
+| GPT-SoVITS R3 | 纯中文文本 | 声线可用但限制明显（只能纯中文） |
+| **最终逆转** | **Qwen3-TTS Base clone** | **用原神参考音频 + Qwen3 clone = 完美！三猫统一引擎！** |
 
-## D 型混合方案（最终决策）
+## D 型混合方案 → E 型统一方案（最终逆转！）
 
-GPT Pro（云端砚砚）两轮深度调研后，确立了 **D 型混合方案**：
+GPT Pro（云端砚砚）两轮深度调研后，最初确立了 **D 型混合方案**：
 
 > 砚砚和烁烁继续吃 Qwen 的"快"和"统一"，宪宪改吃 GPT-SoVITS 的"角色确定性"；
 > 把不确定性留给参考音频，不要再留给 VoiceDesign 抽卡。
 
-### 最终声线选角
+### GPT-SoVITS 试听（R1-R3）
 
-| 猫猫 | 主线引擎 | 角色/声线 | GPT-SoVITS 备选 |
-|------|----------|-----------|-----------------|
-| **宪宪** | GPT-SoVITS v2Pro | 流浪者/散兵（毒舌坏猫） | — (主线即此) |
-| **砚砚** | Qwen3 VoiceDesign | `yanyan_r8_v1`（傲娇冰山） | 魈 (Xiao) |
-| **烁烁** | Qwen3 VoiceDesign | `shuo_hinata`（阳光元气） | 班尼特 + 嘉明 |
+GPT-SoVITS v2Pro 部署在 Mac M4 Max CPU 上做了三轮试听：
+- **R1**（cut5 拆句）：流浪者"太好笑了很奇怪"、嘉明广东腔太奇怪、魈句读问题、**班尼特不错**
+- **R2**（cut0 不拆句）：韵律改善，但英文词全部乱码（"P1"→"Pone"、"bug"→乱音）
+- **R3**（纯中文）：修复了英文问题，声线试听质量可用
 
-### 技术栈决策
+**铲屎官关键反馈**："笑死我了 他们讲英文简直瞎讲 为什么会这样 qwen3 的就不会"
 
-- GPT-SoVITS 版本：**v2Pro / v2ProPlus**（不用 v3/v4，社区模型训练集参差不齐，v2 更宽容）
-- Mac M4 Max 部署：**CPU + streaming + cut_punc**（MPS 仍是实验选项）
-- AI-Hobbyist 模型结构：aggregate 权重（非逐角色独立包），**参考音频是隐藏 Boss**
-- 许可证：AI-Hobbyist 标 AGPL-3.0 + 禁商用，内部工具风险低但非法律干净
+GPT-SoVITS 的文本前端对英文处理极弱——这是结构性问题，不是调参能解决的。
+
+### 关键逆转：Qwen3-TTS Base clone 模式！(2026-03-09)
+
+铲屎官灵光一闪："Qwen3 不是有参考语音的 clone 功能吗？我们试试用他！"
+
+**技术发现**：Qwen3-TTS 1.7B **Base** 模型支持 `ref_audio` 参数做 zero-shot 声音克隆，而且可以叠加 `instruct` 控制情绪风格！
+
+```python
+generate_audio(
+    text="...",
+    model="mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16",
+    ref_audio="genshin/流浪者/vo_wanderer_dialog_greetingMorning.wav",
+    ref_text="快醒醒，太阳要晒屁股咯。",
+    instruct="用一个调皮狡黠的少年语气说话，带着得意和戏弄",
+    lang_code="zh",
+    temperature=0.3,
+)
+```
+
+**优势 vs GPT-SoVITS**：
+1. **中英混合不乱码**（"TypeScript"/"PR"/"P1" 正常发音！）
+2. **`instruct` 叠加**：克隆声线 + 情绪指令双层控制
+3. **MLX 原生**：Apple Silicon 优化，无需 conda/PYTHONPATH 黑魔法
+4. **统一引擎**：三只猫都走一条管线，维护成本低
+
+**铲屎官评价**："牛逼！是我要的了！真的比这个好多了！甚至你都能当了流浪者哈哈哈"
+
+### E 型统一方案（最终选角）🎉
+
+| 猫猫 | 引擎 | 角色参考 | 参考音频 | instruct 风格 |
+|------|------|---------|---------|--------------|
+| **宪宪** | Qwen3 Base clone | 流浪者 v2 | `vo_wanderer_dialog_greetingMorning.wav` | 调皮狡黠、得意戏弄 |
+| **砚砚** | Qwen3 Base clone | 魈 v2 | `vo_xiao_dialog_close2.wav` | 傲娇冰山、表面严厉实际关心 |
+| **烁烁** | Qwen3 Base clone | 班尼特 v1 | `vo_bennett_dialog_greetingNight.wav` | 阳光开心、充满热情兴奋 |
+
+脚本：`scripts/tts-qwen3-clone-audition.py`
+试听文件：`voice-audition/qwen3-clone/`
 
 ### GPT Pro 调研贡献
 
@@ -127,7 +164,16 @@ GPT Pro（云端砚砚）两轮深度调研后，确立了 **D 型混合方案**
 角色工程排序（GPT Pro 原始推荐 → 铲屎官覆盖）：
 - 宪宪：~~行秋 > 平藏 ≈ 林尼 > 流浪者~~ → **铲屎官选定流浪者**
 - 砚砚备选：~~重云 > 彦卿 > 米卡~~ → **铲屎官选定魈 (Xiao)**
-- 烁烁备选：嘉明 > 班尼特 > 米沙 → **铲屎官：班尼特/嘉明都试试**
+- 烁烁备选：嘉明 > 班尼特 > 米沙 → **铲屎官选定班尼特**
+
+### 技术栈最终决策
+
+- **引擎**: Qwen3-TTS 1.7B Base（`mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16`）
+- **模式**: `ref_audio` zero-shot clone + `instruct` 风格叠加
+- **参考音频来源**: AI-Hobbyist 原神 V2 语音数据集（作为参考音频，非训练权重）
+- **框架**: MLX-Audio on Apple Silicon
+- **Temperature**: 0.3（一致性保证）
+- GPT-SoVITS 保留为离线声库工具（不再是主线引擎）
 
 ## 关键发现
 
@@ -138,8 +184,11 @@ GPT Pro（云端砚砚）两轮深度调研后，确立了 **D 型混合方案**
 5. **角色灵感有效**：描述具体动漫角色比抽象描述效果更好（Round 4 证明）
 6. **VoiceDesign 是抽卡**：同一 instruct 可能出男声也可能出女声，需要多试
 
-7. **GPT-SoVITS 角色包是终极方案**：当 VoiceDesign 抽不到满意声线时，预训练角色声纹提供确定性
+7. **GPT-SoVITS 角色包是确定性方案**：当 VoiceDesign 抽不到满意声线时，预训练角色声纹提供确定性
 8. **v2Pro > v3/v4**：社区训练集质量参差不齐，v2 家族更宽容（GPT Pro 调研结论）
+9. **GPT-SoVITS 英文处理极弱**：中英混合文本会乱码（"P1"→"Pone"），结构性缺陷
+10. **Qwen3 Base clone 是最终答案**：`ref_audio` + `instruct` 双层控制，中英混合不乱码，MLX 原生，三猫统一管线
+11. **参考音频选择很关键**：同一角色不同台词的情绪/时长差异显著影响克隆效果
 
 ## 铲屎官金句
 
@@ -151,3 +200,6 @@ GPT Pro（云端砚砚）两轮深度调研后，确立了 **D 型混合方案**
 - "这抽卡质量还是不行！看看新研究吧 大宝贝"（Round 9 后放弃 VoiceDesign）
 - "你用流浪者，砚砚 xiao，烁烁...那就是点赞哥了！"（最终选角）
 - "烁烁 班尼特/嘉明 都听听试试看～"（GPT-SoVITS 试听）
+- "笑死我了 他们讲英文简直瞎讲 为什么会这样 qwen3 的就不会"（GPT-SoVITS 英文乱码）
+- "Qwen3 不是有参考语音的 clone 功能吗？我们试试用他！"（灵光一闪改变一切）
+- "牛逼！是我要的了！真的比这个好多了！甚至你都能当了流浪者哈哈哈"（Qwen3 clone 大获全胜）
