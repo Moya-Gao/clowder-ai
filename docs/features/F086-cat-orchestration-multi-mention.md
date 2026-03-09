@@ -62,8 +62,17 @@ created: 2026-03-08
   callbackTo: CatId;          // 必填，回流目标
   context?: string;           // 附加上下文
   idempotencyKey?: string;    // 幂等键，防重复触发
+  timeoutMinutes?: number;    // 默认 8，范围 3~20
+  searchEvidenceRefs?: string[];  // M2 触发时的搜索证据
+  overrideReason?: string;    // 跳过 searchEvidenceRefs 时必填
 }
 ```
+
+**审计 envelope**（统一记录，排查断链用）：
+- `initiator` / `callbackTo` / `idempotencyKey`
+- `triggerType`（哪个触发器触发的：high-impact / cross-domain / uncertain / info-gap）
+- `searchEvidenceRefs[]`（先搜了什么）
+- `overrideReason?`（为什么跳过搜索）
 
 **首版约束**（codex 安全建议）：
 - `targets.length <= 3`（硬限制，后续按需放宽）
@@ -71,6 +80,7 @@ created: 2026-03-08
 - `callbackTo` 必填
 - 被召唤猫禁止二次扩散（@ mention 被忽略）
 - 调用频率限制 + 幂等键 + 超时回收
+- **超时默认 8 分钟**，允许 3~20 分钟覆盖（超时立即进 partial/timeout，回流已有结果）
 
 #### 回流状态机
 
@@ -145,16 +155,22 @@ pending → running → partial | done | timeout | failed
 | **C: 高不确定性** | 方案不确定、多种选择难以取舍 | 先搜历史讨论 → 再拉猫获取多视角 |
 | **D: 信息不足** | 发现自己对上下文了解不够 | **先 search（messages/docs/evidence）→ 再问人** |
 
-#### 每个触发器的验证方式
+#### 硬检查 + 软引导（gpt52 建议：别变流程主义）
 
-- 触发器 D 最关键（铲屎官采访中活生生的反面教材）：可检查"在 multi_mention 之前是否有 search 调用"
-- Skills 中写入具体规则，不是 nudge 而是**检查项**
+**硬检查**（触发 multi_mention 时强制）：
+- 必须携带 `searchEvidenceRefs[]`（至少 1 条搜索证据）
+- 除非填 `overrideReason`（显式声明为什么跳过搜索）
+- 这是唯一的强制点，不对普通工作加负担
+
+**软引导**（Skills/提示词层面）：
+- 四个触发器场景写入 Skills，作为猫猫自检参考
+- 不是每次做事都要"填表"，只在触发 multi_mention 时才检查
 
 #### 实现方式
 
 - 更新协作类 Skills / shared-rules：加入触发器表
-- feat-lifecycle 的 Design Gate 中加入"是否先搜了现状"检查
-- 不强制所有场景都触发（避免形式主义），但高影响决策**必须**先搜
+- feat-lifecycle Design Gate 加入"是否先搜了现状"检查
+- multi_mention MCP 工具层面：缺少 `searchEvidenceRefs` 且无 `overrideReason` → 拒绝调用
 
 ### M3 反思沉淀 — 反思胶囊 + 文档关系网
 
@@ -183,6 +199,12 @@ rule_update_target:
   - "feat-lifecycle SKILL: Design Gate 加搜索检查"
 ```
 
+#### 反思胶囊落点
+
+- 独立目录 `docs/reflections/`（一胶囊一文件）
+- 命名：`YYYY-MM-DD-{topic}-capsule.md`
+- Feature 文件只保留索引链接，不把反思正文塞回 spec（避免越滚越大）
+
 #### 反思触发点
 
 在 feat-lifecycle completion 的 Step 0（愿景对照）之后、Step 1（AC 打勾）之前，加入反思胶囊环节。
@@ -196,7 +218,8 @@ rule_update_target:
 **实现路径**：
 1. 先做 `title + summary + frontmatter edges + backlinks` 的文档关系索引
 2. 搜索默认仍是名字/BM25/metadata grep
-3. 向量库只有在实测"比直接搜名字更快更准"时再引入
+3. **构建时机**：按需构建 + 本地缓存（最轻）；CI 仅做一致性检查（frontmatter/schema/link），暂不做全量重建
+4. 向量库只有在实测"比直接搜名字更快更准"时再引入
 
 #### 跨猫共享知识（降级方案）
 
@@ -232,19 +255,25 @@ rule_update_target:
 - [ ] 防扩散：被 @ 猫不能再 @ 其他猫
 - [ ] 幂等键 + 超时回收
 - [ ] CLI @ 限制 ≤2 保持不变
-- [ ] 可观测性：状态机变迁日志
+- [ ] 超时默认 8m（3~20m 可配），超时立即回流已有结果
+- [ ] 审计 envelope：initiator/callbackTo/idempotencyKey/triggerType/searchEvidenceRefs/overrideReason
+- [ ] 可观测性：状态机变迁日志 + 审计字段
 
 ### M2 元思考触发
 - [ ] 4 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足）
 - [ ] 每个触发器有默认动作（先搜 → 再决定是否拉猫）
+- [ ] multi_mention 调用时硬检查：缺少 searchEvidenceRefs 且无 overrideReason → 拒绝调用
+- [ ] 普通工作不加负担（硬检查只在触发 multi_mention 时）
 - [ ] feat-lifecycle Design Gate 加入"是否先搜了现状"检查
 - [ ] 不滥用：不是每个问题都拉全体
 
 ### M3 反思沉淀
-- [ ] 反思胶囊 schema 定义（6 固定字段）
+- [ ] 反思胶囊 schema 定义（6 固定字段，不允许自由散文）
+- [ ] 胶囊存 `docs/reflections/YYYY-MM-DD-{topic}-capsule.md`，feature spec 只挂链接
 - [ ] feat-lifecycle completion 中触发反思胶囊
 - [ ] 反思结果有明确 `rule_update_target`（回写到哪个文件）
-- [ ] 文档关系索引（title + summary + frontmatter edges）
+- [ ] 文档关系索引（title + summary + frontmatter edges + backlinks）
+- [ ] 索引按需构建 + 本地缓存，CI 仅做一致性检查
 - [ ] 跨猫可检索：所有猫能查到同一份结构化沉淀
 
 ### 非目标（首版明确不做）
@@ -283,12 +312,16 @@ rule_update_target:
 - M3 中不确定性：反思胶囊的实际使用率待验证
 - 提示词膨胀：每加一层指南都增加 prompt 长度
 
-## Open Questions
+## Open Questions (Resolved)
 
-- M1: 超时时间多长？（与 vote 的 2min 不同，讨论可能需要更长）
-- M2: 触发器如何防止变成形式主义？（每次都"搜了"但没真看）
-- M3: 反思胶囊存哪里？独立目录 `docs/reflections/` 还是嵌入 feature 文件？
-- M3: 文档关系索引的构建时机？CI？启动时？按需？
+> 以下 4 个问题在 codex + gpt52 第二轮评审中收敛（2026-03-08 20:56-20:57）
+
+| 问题 | 默认值 | 来源 |
+|------|--------|------|
+| M1 超时 | 默认 8m，范围 3~20m，超时立即回流 | codex + gpt52 一致 |
+| M2 防形式主义 | 只在 multi_mention 时硬检查 searchEvidenceRefs，普通工作不加负担 | gpt52 建议 |
+| M3 胶囊落点 | `docs/reflections/YYYY-MM-DD-{topic}-capsule.md`，feature 只挂链接 | codex + gpt52 一致 |
+| M3 索引构建 | 按需 + 本地缓存，CI 只检查一致性 | codex + gpt52 一致 |
 
 ## Review Gate
 
@@ -302,4 +335,5 @@ rule_update_target:
 | 2026-03-08 | Kickoff — 铲屎官提出需求 |
 | 2026-03-08 | 铲屎官采访：痛点澄清 + 愿景扩展（工具→意识→反思三层） |
 | 2026-03-08 | 知识工程体系现状梳理（F038-F046 + F070） |
-| 2026-03-08 | codex + gpt52 独立评审：三段拆分 + 安全护栏 + 硬触发器 + 反思胶囊 |
+| 2026-03-08 | codex + gpt52 R1 评审：三段拆分 + 安全护栏 + 硬触发器 + 反思胶囊 |
+| 2026-03-08 | codex + gpt52 R2 评审：0 blocking，4 Open Questions 收敛，可进 Design Gate |
