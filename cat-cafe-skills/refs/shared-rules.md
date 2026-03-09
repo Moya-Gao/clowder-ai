@@ -193,3 +193,21 @@ commit body 补一行 `Why:` 说明决策理由。
 - 前端证据采集先复用现有服务：先查 `curl -sf http://localhost:3002/health`。
 - 必须重启时先拿到铲屎官明确授权，再用 `CAT_CAFE_RUNTIME_RESTART_OK=1` 执行。
 - `--force` 只用于同步/脏树场景，不是重启 runtime 的授权令牌。
+
+## 13. 元思考触发器 §13（F086 M2）
+
+调用 `cat_cafe_multi_mention` 前，**必须先搜后问**（MCP 层硬检查：缺少 `searchEvidenceRefs` 且无 `overrideReason` → 拒绝调用）。
+
+| 触发器 | 场景 | 默认动作 |
+|--------|------|---------|
+| **A: 高影响决策** | 架构选型、API 契约、跨模块改动 | 先搜 `docs/decisions/` → 再决定是否 multi_mention |
+| **B: 跨领域问题** | 涉及前端/安全/性能/UX 等非自身专长 | 先搜对应领域文档 → 再 @ 对应领域的猫 |
+| **C: 高不确定性** | 方案不确定、多种选择难以取舍 | 先搜历史讨论 → 再拉猫获取多视角 |
+| **D: 信息不足** | 发现自己对上下文了解不够 | 先 search（messages/docs/evidence）→ 再问人 |
+| **E: 新领域侦查** | 要写新代码/MCP/集成时，先摸清现有体系 | 先从 `docs/features/README.md` 顺藤摸瓜 → 读相关 spec/discussion → 再动手 |
+
+**硬检查 vs 软引导**：
+- **硬**：`multi_mention` MCP 调用必须带 `searchEvidenceRefs[]`（≥1 条）或 `overrideReason`
+- **软**：触发器表是自检参考，不是每次工作都要填表——只在调 `multi_mention` 时强制
+
+**不滥用**：不是每个问题都拉全体。优先级：自己搜 → 搜不到再拉 1-2 只对口猫 → 真正跨领域才拉 3 只。

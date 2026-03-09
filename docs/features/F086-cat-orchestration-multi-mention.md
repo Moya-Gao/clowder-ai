@@ -267,13 +267,13 @@ rule_update_target:
   - 平均回流延迟 ≤ timeout × 1.1（不超过设定超时的 110%）
 
 ### M2 元思考触发
-- [ ] 5 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足/新领域侦查）
-- [ ] 每个触发器有默认动作（先搜 → 再决定是否拉猫）
-- [ ] 触发器 E "新领域侦查"：写新代码前先从 feats 顺藤摸瓜，摸清现有体系
-- [ ] multi_mention 调用时硬检查：缺少 searchEvidenceRefs 且无 overrideReason → 拒绝调用
-- [ ] 普通工作不加负担（硬检查只在触发 multi_mention 时）
-- [ ] feat-lifecycle Design Gate 加入"是否先搜了现状"检查
-- [ ] 不滥用：不是每个问题都拉全体
+- [x] 5 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足/新领域侦查）
+- [x] 每个触发器有默认动作（先搜 → 再决定是否拉猫）
+- [x] 触发器 E "新领域侦查"：写新代码前先从 feats 顺藤摸瓜，摸清现有体系
+- [x] multi_mention 调用时硬检查：缺少 searchEvidenceRefs 且无 overrideReason → 拒绝调用
+- [x] 普通工作不加负担（硬检查只在触发 multi_mention 时）
+- [x] feat-lifecycle Design Gate 加入"是否先搜了现状"检查
+- [x] 不滥用：不是每个问题都拉全体
 
 ### M3 反思沉淀
 - [ ] 反思胶囊 schema 定义（6 固定字段，不允许自由散文）
@@ -401,3 +401,4 @@ F086 multi_mention（MCP 工具）:
 | 2026-03-08 | MCP 体系侦查完成：collab server / callback bridge / WorklistRegistry / F055 targetCats 集成设计 |
 | 2026-03-09 | 第一性原理梳理：gpt52 盘点 + opus 4.6 review×2 + opus 4.5 独立思考 → [ADR-012](../decisions/012-first-principles-map.md) accepted |
 | 2026-03-09 | P1-P5 公理 + W1-W6 世界观写入 [shared-rules.md](../../cat-cafe-skills/refs/shared-rules.md)，三层治理结构落地 |
+| 2026-03-09 | M2 元思考触发器实施完成（5 trigger rules §13 + Design Gate 先搜现状 + collaborative-thinking §13 ref + 6 guard tests）|

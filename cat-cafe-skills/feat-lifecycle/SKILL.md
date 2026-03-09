@@ -85,6 +85,15 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 | **架构级** | 跨模块、新基础设施 | **猫猫讨论 → 铲屎官拍板** | 先出方案再上报 |
 | **Trivial** | ≤5 行、纯重构、文档 | 跳过 | 跳过 Design Gate，按 SOP 例外路径判断 |
 
+**前置检查（F086 M2）**：
+开 Design Gate 前，先做触发器 E "新领域侦查"：
+1. 读 `docs/features/README.md` 找相关 Feature
+2. 读相关 Feature spec 的 Key Decisions / Open Questions
+3. 搜 `docs/discussions/` 看有没有前人讨论过类似问题
+4. 把发现记录到 Design Gate 讨论里（避免重复造轮子）
+
+详见 `shared-rules.md` §13 元思考触发器。先搜现状，再开讨论。
+
 **流程**：
 1. 判断功能类型 → 选择确认路径
 2. 前端：画 wireframe（Pencil / 文字版 ASCII）→ 发铲屎官 → 等 OK

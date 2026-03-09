@@ -37,6 +37,9 @@ triggers:
 
 ## Mode B: 多猫独立思考
 
+**何时启动 Mode B？** 参见 `shared-rules.md` §13 元思考触发器 A-D。
+调 `cat_cafe_multi_mention` 前必须带搜索证据（`searchEvidenceRefs`）。
+
 **⚠️ 成本警告**：Swarm token 消耗是单猫 N 倍（N = 参与猫数）。实现细节不值得开 swarm。
 
 **6 阶段流程**：
