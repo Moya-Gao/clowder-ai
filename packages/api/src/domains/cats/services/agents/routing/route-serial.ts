@@ -41,6 +41,7 @@ import { getRichBlockBuffer } from '../invocation/RichBlockBuffer.js';
 import { extractRichFromText, isValidRichBlock } from './rich-block-extract.js';
 import { getVoiceBlockSynthesizer } from '../../tts/VoiceBlockSynthesizer.js';
 import type { ThreadRoutingPolicyV1 } from '../../stores/ports/ThreadStore.js';
+import { detectUserMention } from '../../../../../routes/user-mention.js';
 import { VOTE_RESULT_SOURCE, extractVoteFromText, checkVoteCompletion, buildVoteTally } from './vote-intercept.js';
 
 export async function* routeSerial(
@@ -380,6 +381,9 @@ export async function* routeSerial(
     // blocks must be persisted even when the cat emits no text (cloud Codex P1).
     const bufferedBlocks = getRichBlockBuffer().consume(threadId, catId as string, ownInvocationId);
 
+    // F061: Detect @owner mentions in agent response for browser notification
+    let mentionsUser = false;
+
     if (textContent) {
       const sanitized = sanitizeInjectedContent(textContent);
 
@@ -482,6 +486,9 @@ export async function* routeSerial(
 
       const storedTimestamp = Date.now();
 
+      // F061: Detect @owner mentions in agent response for browser notification
+      mentionsUser = storedContent ? detectUserMention(storedContent) : false;
+
       // Store with actual mentions — degrade on failure to ensure done reaches frontend
       // (缅因猫 review P1-2: Redis failure must not block done yield)
       try {
@@ -493,6 +500,7 @@ export async function* routeSerial(
           origin: 'stream',
           timestamp: storedTimestamp,
           threadId,
+          ...(mentionsUser ? { mentionsUser } : {}),
           ...(thinkingContent ? { thinking: thinkingContent } : {}),
           ...(firstMetadata ? { metadata: firstMetadata } : {}),
           ...(collectedToolEvents.length > 0 ? { toolEvents: collectedToolEvents } : {}),
@@ -704,7 +712,7 @@ export async function* routeSerial(
     // Yield buffered done with correct isFinal (evaluated AFTER worklist may have grown)
     // MUST always reach here regardless of append success (缅因猫 review P1-2)
     if (doneMsg) {
-      yield { ...doneMsg, isFinal: index === worklist.length - 1 };
+      yield { ...doneMsg, ...(mentionsUser ? { mentionsUser } : {}), isFinal: index === worklist.length - 1 };
     }
 
     // F27: Advance executedIndex so pushToWorklist knows which cats are done

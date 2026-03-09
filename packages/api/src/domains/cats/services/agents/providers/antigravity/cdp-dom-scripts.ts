@@ -68,9 +68,47 @@ export const POLL_RESPONSE_JS = `(() => {
 /** Find the "new conversation" button via multiple DOM strategies.
  *  Returns JSON: { x, y } or null. */
 /** Find the send/submit button near the chat input.
+ *  Real DOM: <button class="flex items-center p-1 rounded-full...">Send</button>
+ *  in a sibling branch of the textbox container, not inside its ancestor tree.
  *  Returns JSON: { x, y } or null. */
 export const FIND_SEND_BUTTON_JS = `(() => {
-  // Strategy 1: button with send/submit aria-label or title
+  // Strategy 1: walk up from textbox to find send button in sibling branch
+  // (scoped to composer area — preferred over global matching to avoid toolbar false positives)
+  // Sub-pass A: prefer button with send/submit text; Sub-pass B: any small button as fallback
+  const textbox = document.querySelector('[role="textbox"][contenteditable="true"]');
+  if (textbox) {
+    for (let ancestor = textbox.parentElement; ancestor; ancestor = ancestor.parentElement) {
+      const btns = ancestor.querySelectorAll('button:not([disabled])');
+      const siblings = [...btns].filter(b => !b.contains(textbox));
+      if (siblings.length === 0) continue;
+      // Sub-pass A: prefer button whose text is "send" or "submit"
+      for (const btn of siblings) {
+        const t = (btn.textContent || '').trim().toLowerCase();
+        if (t === 'send' || t === 'submit') {
+          const r = btn.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+        }
+      }
+      // Sub-pass B: any small visible button (e.g. icon-only send)
+      for (const btn of siblings) {
+        const r = btn.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0 && r.width < 80) {
+          return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+        }
+      }
+      break;
+    }
+  }
+  // Strategy 2: button whose visible text is "Send" or "Submit" (global fallback)
+  for (const btn of document.querySelectorAll('button')) {
+    if (btn.disabled) continue;
+    const t = (btn.textContent || '').trim().toLowerCase();
+    if (t === 'send' || t === 'submit') {
+      const r = btn.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
+    }
+  }
+  // Strategy 3: button with send/submit aria-label/title, or codicon-send icon
   for (const btn of document.querySelectorAll('button')) {
     if (btn.disabled) continue;
     const label = (btn.getAttribute('aria-label') || btn.getAttribute('title') || '').toLowerCase();
@@ -79,26 +117,11 @@ export const FIND_SEND_BUTTON_JS = `(() => {
       if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
     }
   }
-  // Strategy 2: codicon-send icon inside a button
   const sendIcon = document.querySelector('.codicon-send');
   if (sendIcon) {
     const btn = sendIcon.closest('button, a') || sendIcon;
     const r = btn.getBoundingClientRect();
     if (r.width > 0 && r.height > 0) return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
-  }
-  // Strategy 3: SVG arrow-up icon (common send icon) inside button near input
-  const textbox = document.querySelector('[role="textbox"][contenteditable="true"]');
-  if (textbox) {
-    const inputArea = textbox.closest('form, [class*="input"], [class*="chat"]') || textbox.parentElement;
-    if (inputArea) {
-      for (const btn of inputArea.querySelectorAll('button')) {
-        if (btn.disabled) continue;
-        const r = btn.getBoundingClientRect();
-        if (r.width > 0 && r.height > 0 && r.width < 80) {
-          return JSON.stringify({ x: r.x + r.width/2, y: r.y + r.height/2 });
-        }
-      }
-    }
   }
   return null;
 })()`;

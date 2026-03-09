@@ -130,6 +130,8 @@ export interface AgentMessage {
   messageId?: string;
   /** F52: Cross-thread origin metadata (set for cross-thread callback messages) */
   extra?: { crossPost?: { sourceThreadId: string; sourceInvocationId?: string } };
+  /** F061: Whether this message mentions the owner (@user/@铲屎官/configured patterns) */
+  mentionsUser?: boolean;
   /** When this message was created */
   timestamp: number;
 }
