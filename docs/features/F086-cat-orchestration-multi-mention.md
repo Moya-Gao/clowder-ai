@@ -35,32 +35,61 @@ created: 2026-03-08
 | F046 | 知识**怎么守护** — 愿景守护 / 反漂移协议 | done |
 | F070 | 知识**怎么移植** — Portable Governance（外部项目引导） | done |
 
-**还没解决的（F086 要做的）**：
+**F086 要补的缺口**：
 
 | 缺口 | 问题 |
 |------|------|
 | 猫猫**主动协作** | 不知道什么时候该拉人，工具也不够流畅 |
 | **元反思循环** | 做完事不会系统性反思"学到了什么" |
 | **知识沉淀** | 反思结果没有变成可复用的知识影响未来行为 |
-| **跨猫共享记忆** | 只有布偶猫有 MEMORY.md，其他猫每次从零开始 |
+| **跨猫可检索沉淀** | 只有布偶猫有 MEMORY.md，其他猫缺少可检索的共享真相源 |
 
-## What — 分阶段实施
+## What — 三个 Milestone
 
-### Phase 1: 工具层 — 多重 @ + 回流路由
+> **设计决策**：不一锅炖，不绑成一次交付。三段独立可验收。（codex + gpt52 共识 2026-03-08）
 
-**目标**：让猫猫有流畅的多猫协作工具。
+### M1 编排运行时 — 多重 @ + 回流路由
+
+**目标**：最小闭环的多猫协作工具。
 
 #### MCP 工具设计
 
 ```typescript
 // cat_cafe_multi_mention
 {
-  targets: CatId[];      // 要 @ 的猫猫列表
-  question: string;      // 问题/请求内容
-  mode: 'parallel' | 'sequential';
-  context?: string;      // 附加上下文
+  targets: CatId[];           // ≤3（首版硬限制）
+  question: string;           // 问题/请求内容
+  callbackTo: CatId;          // 必填，回流目标
+  context?: string;           // 附加上下文
+  idempotencyKey?: string;    // 幂等键，防重复触发
 }
 ```
+
+**首版约束**（codex 安全建议）：
+- `targets.length <= 3`（硬限制，后续按需放宽）
+- `parallel only`（sequential 延后）
+- `callbackTo` 必填
+- 被召唤猫禁止二次扩散（@ mention 被忽略）
+- 调用频率限制 + 幂等键 + 超时回收
+
+#### 回流状态机
+
+```
+pending → running → partial | done | timeout | failed
+```
+
+| 状态 | 含义 |
+|------|------|
+| `pending` | multi_mention 已发出，等待 targets 响应 |
+| `running` | 至少一只猫已开始回答 |
+| `partial` | 部分猫已回答，部分超时/失败 |
+| `done` | 所有 targets 都已回答 |
+| `timeout` | 超时未全部响应，已有回答回流给发起者 |
+| `failed` | 全部失败（如所有猫不可达） |
+
+**部分失败策略**：已收到的回答照常回流，未收到的标注"超时/不可达"。不阻塞发起者。
+
+**回流载荷**：首版发原文（每只猫的完整回答），不做摘要。
 
 #### 交互流程
 
@@ -69,7 +98,11 @@ created: 2026-03-08
     ↓
 布偶猫思考后，需要收集意见
     ↓
-调 cat_cafe_multi_mention({ targets, question, mode: 'parallel' })
+调 cat_cafe_multi_mention({
+  targets: ['codex', 'gemini', 'gpt52'],
+  question: "这个 API 设计你们怎么看？",
+  callbackTo: 'opus'
+})
     ↓
 三只猫各自收到消息（在 thread 里，天然透明）
   ├── codex 回答 → 自动路由回 opus
@@ -84,99 +117,101 @@ created: 2026-03-08
 | 层面 | 规则 |
 |------|------|
 | CLI @ | 保留 ≤2 限制（防提示词注入） |
-| MCP multi_mention | 无上限（猫猫自主意图，非输入解析） |
+| MCP multi_mention | **≤3 targets**（首版硬限制） |
 | 被 @ 猫 | **禁止** 再 @ 其他猫（防级联广播） |
-| 回流 | 自动路由回发起者 |
+| 白名单 | 仅已注册 catId，不接受任意字符串 |
+| 回流 | 自动路由回 callbackTo，不经过铲屎官 |
 
 #### 后端改动
 
 1. 新增 MCP tool handler `cat_cafe_multi_mention`
-2. routing 层：`callbackTo: CatId` 回流标记
+2. routing 层：`callbackTo: CatId` 回流标记 + 状态机
 3. 防扩散：被召唤猫的 @ mention 被忽略
-4. system prompt 注入："你正在回答 {发起者} 的问题"
+4. system prompt 注入："你正在回答 {发起者} 的问题，回答后会自动路由回去"
+5. 可观测性：状态机变迁日志 + 超时/失败报告
 
-### Phase 2: 意识层 — 元认知触发点
+### M2 元思考触发 — 先搜后问、先想后拉
 
-**目标**：让猫猫知道**什么时候该拉人**，不只是有工具能拉。
+**目标**：把"什么时候该拉人"从口号变成**可触发、可记录、可验证**的行为规则。
 
-#### 核心机制
+> **设计决策**：不写抽象的"要有元认知"，写成硬触发器 + 默认动作。（gpt52 建议 2026-03-08）
 
-在关键决策点注入"元认知 prompt"：
+#### 四个触发器
 
-1. **设计决策时**："这个决策影响范围大吗？要不要拉其他猫看看？"
-2. **遇到不确定性时**："我不确定这个方案，其他猫有没有不同视角？"
-3. **跨领域时**："这涉及前端/安全/性能，对应领域的猫有没有看过？"
+| 触发器 | 场景 | 默认动作 |
+|--------|------|---------|
+| **A: 高影响决策** | 架构选型、API 契约、跨模块改动 | 先搜现有决策（docs/decisions/） → 再决定是否 multi_mention |
+| **B: 跨领域问题** | 涉及前端/安全/性能/UX 等非自身专长 | 先搜对应领域文档 → 再 @ 对应领域的猫 |
+| **C: 高不确定性** | 方案不确定、多种选择难以取舍 | 先搜历史讨论 → 再拉猫获取多视角 |
+| **D: 信息不足** | 发现自己对上下文了解不够 | **先 search（messages/docs/evidence）→ 再问人** |
+
+#### 每个触发器的验证方式
+
+- 触发器 D 最关键（铲屎官采访中活生生的反面教材）：可检查"在 multi_mention 之前是否有 search 调用"
+- Skills 中写入具体规则，不是 nudge 而是**检查项**
 
 #### 实现方式
 
-- Skills 中加入"协作判断指南"：什么场景该拉人、拉谁
-- 不是强制规则，是 nudge（轻推）— 猫猫自己判断
-- 关键：让猫猫内化"多视角会发现更多东西"的意识
+- 更新协作类 Skills / shared-rules：加入触发器表
+- feat-lifecycle 的 Design Gate 中加入"是否先搜了现状"检查
+- 不强制所有场景都触发（避免形式主义），但高影响决策**必须**先搜
 
-### Phase 3: 反思层 — 元反思 + 知识沉淀
+### M3 反思沉淀 — 反思胶囊 + 文档关系网
 
-**目标**：做完事会反思，反思结果能影响未来行为。
+**目标**：轻量反思 + 知识沉淀，让经验回到行为里。
 
-#### 反思循环设计
+> **设计决策**：不回到 hindsight（token 黑洞），不上向量库（首版），不做自动长摘要。（三方共识 2026-03-08）
 
+#### 反思胶囊 Schema
+
+> 固定字段，不自由发挥（gpt52 建议）
+
+```yaml
+capsule_id: "F086-M1-2026-03-08"
+context: "M1 multi_mention 实现"
+what_worked:
+  - "回流状态机设计清晰，部分失败策略好用"
+what_failed:
+  - "首版没做 sequential，有用户场景需要"
+trigger_missed:
+  - "实现前没先搜 F055 的 targetCats 设计，重复造了轮子"
+doc_links:
+  - "docs/features/F055-a2a-mcp-structured-routing.md"
+  - "docs/decisions/ADR-xxx.md"
+rule_update_target:
+  - "shared-rules.md: 加入'实现前先搜现有路由设计'"
+  - "feat-lifecycle SKILL: Design Gate 加搜索检查"
 ```
-feat 完成
-    ↓
-触发反思环节（可以在 feat-lifecycle completion 里加）
-    ↓
-三个问题：
-  1. 这次学到了什么新东西？（技术/协作/流程）
-  2. 哪里做得好，想保持？
-  3. 哪里做得不好，下次怎么改？
-    ↓
-反思结果沉淀：
-  - 技术类 → lessons-learned.md（已有，但需系统化触发）
-  - 协作类 → 协作指南更新
-  - 流程类 → SOP/Skills 更新
-```
 
-#### 知识沉淀的"回到行为"机制
+#### 反思触发点
 
-反思完了写进文档只是第一步，关键是**怎么回到行为里**：
+在 feat-lifecycle completion 的 Step 0（愿景对照）之后、Step 1（AC 打勾）之前，加入反思胶囊环节。
 
-- **Skills 层**：反思发现的模式 → 更新 skill 的"Use when" / "Not for"
-- **提示词层**：高频教训 → 写入 CLAUDE.md 或 shared-rules
-- **记忆层**：猫猫个体的经验 → MEMORY.md（但目前只有布偶猫有…）
+#### 知识图谱方向（docs/frontmatter 当图来用）
 
-#### 跨猫共享记忆（待讨论）
+铲屎官原话：
+> "你们的知识体系完全还是可以使用我们现在的 docs 来建立，但是是否有些东西可以丢到一个轻量专门的向量库？但有个条件就是他得用处得比你们直接搜名字更快更有用。"
+> "我们或许这里要存也是维护文档的 link，构建文档网络。标题、摘要，有点像 Obsidian 建立起来的图谱。甚至你们现在每个文档都有 metadata 的，其实天然就是一张网络了。"
 
-这是最大的开放问题：
-- 现在只有布偶猫有 MEMORY.md（Claude Code 的 auto memory 功能）
-- 砚砚（Codex）每次从零开始，靠 SOP + Skills 获取上下文
-- 烁烁（Gemini）同理
-- 需要一种跨猫的"共享知识库"
+**实现路径**：
+1. 先做 `title + summary + frontmatter edges + backlinks` 的文档关系索引
+2. 搜索默认仍是名字/BM25/metadata grep
+3. 向量库只有在实测"比直接搜名字更快更准"时再引入
+
+#### 跨猫共享知识（降级方案）
+
+> **设计决策**：首版不做"每只猫都有完整长期记忆"，先解决"大家能查到同一份真相源"。（gpt52 建议 2026-03-08）
+
+- 共享的是**可检索的结构化沉淀**（反思胶囊 + 文档链接网络）
+- 不是"每只猫都有 MEMORY.md"
+- 先解决"大家能查到同一份真相源"，再谈个体长期记忆
 
 #### ⚠️ Hindsight (cat_cafe_reflect) 已废弃
 
 铲屎官明确表示 (2026-03-08)：hindsight 反思功能**废弃**——大量 token 消耗但效果不好。
 当前猫猫实际常用的是搜索类工具（search_evidence, session_search, read_session_events）。
 
-**教训**：元反思不能走"自动生成大段反思摘要"的路（token 黑洞），需要更轻量的方案。
-可能方向：结构化的检查清单（而非自由文本反思）、事件驱动的知识捕获（而非 session 结束时回顾全部）。
-
-#### 知识图谱方向（铲屎官补充 2026-03-08 20:48）
-
-铲屎官原话：
-> "你们的知识体系完全还是可以使用我们现在的 docs 来建立，但是是否有些东西可以丢到一个轻量专门的向量库？但有个条件就是他得用处得比你们直接搜名字更快更有用。"
-> "我们或许这里要存也是维护文档的 link，构建文档网络。标题、摘要，有点像 Obsidian 建立起来的图谱。甚至你们现在每个文档都有 metadata 的，其实天然就是一张网络了。但是如何更高效？"
-
-**关键洞察**：
-
-1. **不是另建一套系统**：复用现有 docs + frontmatter metadata，它们天然就是一张网络
-2. **不存全文，存关系**：文档 link、标题、摘要 → 构建文档网络/图谱（类 Obsidian）
-3. **向量库的条件**：必须比 BM25/grep 搜名字**更快更有用**，否则不如不做
-4. **参考 Claude Code ToolSearch**：简单的 BM25 关键词匹配已经能解决很多路由问题
-5. **现有基础**：frontmatter (`feature_ids`, `related_features`, `topics`, `doc_kind`) 天然是图的节点和边
-
-**可能的实现路径**：
-- 轻量索引层：扫描所有 docs 的 frontmatter → 构建关系图（feature→docs, topic→docs）
-- 搜索增强：在现有 grep/BM25 基础上，加上"相关文档推荐"（沿着图的边走）
-- 向量库（可选）：只有当 BM25 不够用时才引入，不预设
+**教训**：元反思不能走"自动生成大段反思摘要"的路（token 黑洞）。
 
 #### 活生生的反面教材（布偶猫自省 2026-03-08）
 
@@ -184,26 +219,51 @@ feat 完成
 
 > "你自己回顾你刚刚采访的错误，你并没有先搜、先了解、高效的理解我们，然后再问再想。"
 
-**正确的采访流程应该是**：先搜索相关文档 → 理解现状 → 带着上下文提问 → 而不是从零开始问铲屎官已经沉淀过的东西。
-
 ## Acceptance Criteria
 
-### Phase 1（工具层）
+### M1 编排运行时
 - [ ] MCP 工具 `cat_cafe_multi_mention` 可被猫猫调用
-- [ ] parallel 模式：所有 targets 同时收到消息
-- [ ] 回流路由：被 @ 猫的回答自动路由回发起者
+- [ ] `targets <= 3` 硬限制
+- [ ] `parallel only`（首版）
+- [ ] `callbackTo` 必填
+- [ ] 回流状态机：pending → running → partial | done | timeout | failed
+- [ ] 部分失败策略：已收到回答照常回流，未收到标注超时
+- [ ] 回流载荷：原文（首版不做摘要）
 - [ ] 防扩散：被 @ 猫不能再 @ 其他猫
+- [ ] 幂等键 + 超时回收
 - [ ] CLI @ 限制 ≤2 保持不变
+- [ ] 可观测性：状态机变迁日志
 
-### Phase 2（意识层）
-- [ ] Skills/提示词包含"协作判断指南"
-- [ ] 猫猫在关键决策点能自主判断是否拉人
-- [ ] 不滥用（不是每个问题都拉全体）
+### M2 元思考触发
+- [ ] 4 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足）
+- [ ] 每个触发器有默认动作（先搜 → 再决定是否拉猫）
+- [ ] feat-lifecycle Design Gate 加入"是否先搜了现状"检查
+- [ ] 不滥用：不是每个问题都拉全体
 
-### Phase 3（反思层）
-- [ ] feat 完成时有系统性反思环节
-- [ ] 反思结果沉淀到对应知识层（lessons/skills/prompt）
-- [ ] 跨猫共享记忆方案落地
+### M3 反思沉淀
+- [ ] 反思胶囊 schema 定义（6 固定字段）
+- [ ] feat-lifecycle completion 中触发反思胶囊
+- [ ] 反思结果有明确 `rule_update_target`（回写到哪个文件）
+- [ ] 文档关系索引（title + summary + frontmatter edges）
+- [ ] 跨猫可检索：所有猫能查到同一份结构化沉淀
+
+### 非目标（首版明确不做）
+- ❌ 向量库（除非实测证明比 BM25 更好）
+- ❌ 自动长摘要（hindsight 路线已废弃）
+- ❌ 无限扩散 swarm（targets 上限 3）
+- ❌ sequential 模式（延后）
+- ❌ 每只猫都有完整长期记忆
+
+## Key Decisions
+
+1. **三段拆分不绑定**：M1/M2/M3 独立可验收，不一锅炖（codex + gpt52 共识）
+2. **首版硬限制 targets ≤ 3**：防扩散优先于灵活性（codex 安全建议）
+3. **回流发原文不发摘要**：先保真，再考虑压缩（两方共识）
+4. **元思考是硬触发器不是口号**：可触发、可记录、可验证（gpt52 建议）
+5. **反思胶囊 6 固定字段**：不自由发挥，强制结构化（gpt52 建议）
+6. **先 BM25 + frontmatter 图谱，不预设向量库**（铲屎官 + 两方共识）
+7. **共享记忆降级**：先"可检索的共享沉淀"，不做"每猫完整 MEMORY"（gpt52 建议）
+8. **F086 ≠ F037**：F086 是确定性编排+回流，F037 是自主 swarm 探索，并列不吞并（codex 判定）
 
 ## Dependencies
 
@@ -212,29 +272,28 @@ feat 完成
 - Builds on: F043（MCP 归一化 — 查询和发现）
 - Builds on: F046（愿景守护 — 反漂移协议）
 - Builds on: F070（Portable Governance — 知识移植）
-- Related: F055（A2A MCP Structured Routing）
-- Related: F037（Agent Swarm）
+- Related: F055（A2A MCP Structured Routing — targetCats，M1 实现前先搜这个！）
+- Related: F037（Agent Swarm — 并列关系，不互相吞并）
 - Related: F038（Skills 发现机制）
 
 ## Risk
 
-- Phase 1 中风险：回流路由是 routing 核心改动
-- Phase 2 低风险：主要是提示词更新
-- Phase 3 高不确定性：跨猫共享记忆的技术方案待探索
-- 提示词膨胀：每加一层意识/反思指南都增加 prompt 长度
+- M1 中风险：回流路由是 routing 核心改动，需严格测试
+- M2 低风险：主要是提示词/skills 更新，但需防止形式主义
+- M3 中不确定性：反思胶囊的实际使用率待验证
+- 提示词膨胀：每加一层指南都增加 prompt 长度
 
 ## Open Questions
 
-- Phase 1: sequential 模式是否先做？还是先只做 parallel？
-- Phase 2: "协作判断指南"怎么写才不会变成空洞的口号？需要具体场景
-- Phase 3: 跨猫共享记忆用什么机制？MCP memory server？共享文件？
-- Phase 3: 反思环节是自动触发还是猫猫主动？
-- 和 F037 Agent Swarm 的关系：是 swarm 的子集还是独立能力？
-- 和 cat-cafe-memory MCP 的关系：能否复用 `cat_cafe_reflect` 工具？
+- M1: 超时时间多长？（与 vote 的 2min 不同，讨论可能需要更长）
+- M2: 触发器如何防止变成形式主义？（每次都"搜了"但没真看）
+- M3: 反思胶囊存哪里？独立目录 `docs/reflections/` 还是嵌入 feature 文件？
+- M3: 文档关系索引的构建时机？CI？启动时？按需？
 
 ## Review Gate
 
 - 跨猫 review：@codex（安全边界）+ @gpt52（架构 + 元认知视角）
+- 设计评审已完成首轮（2026-03-08，见 Timeline）
 
 ## Timeline
 
@@ -243,3 +302,4 @@ feat 完成
 | 2026-03-08 | Kickoff — 铲屎官提出需求 |
 | 2026-03-08 | 铲屎官采访：痛点澄清 + 愿景扩展（工具→意识→反思三层） |
 | 2026-03-08 | 知识工程体系现状梳理（F038-F046 + F070） |
+| 2026-03-08 | codex + gpt52 独立评审：三段拆分 + 安全护栏 + 硬触发器 + 反思胶囊 |
