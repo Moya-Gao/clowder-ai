@@ -1,6 +1,7 @@
 ---
 feature_ids: [F086]
 related_features: [F079, F055, F037, F038, F040, F042, F043, F046, F070]
+related_decisions: [012]
 topics: [collaboration, routing, mcp, multi-mention, orchestration, meta-cognition, knowledge-engineering, reflection]
 doc_kind: spec
 created: 2026-03-08
@@ -398,3 +399,5 @@ F086 multi_mention（MCP 工具）:
 | 2026-03-08 | codex R3：可观测性指标 AC + F079/F086 分离规则 |
 | 2026-03-08 | Design Gate 通过 — 铲屎官确认方向 + 要求先侦查 MCP 体系再动手 |
 | 2026-03-08 | MCP 体系侦查完成：collab server / callback bridge / WorklistRegistry / F055 targetCats 集成设计 |
+| 2026-03-09 | 第一性原理梳理：gpt52 盘点 + opus 4.6 review×2 + opus 4.5 独立思考 → [ADR-012](../decisions/012-first-principles-map.md) accepted |
+| 2026-03-09 | P1-P5 公理 + W1-W6 世界观写入 [shared-rules.md](../../cat-cafe-skills/refs/shared-rules.md)，三层治理结构落地 |
