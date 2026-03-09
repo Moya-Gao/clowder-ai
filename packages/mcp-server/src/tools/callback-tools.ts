@@ -491,6 +491,53 @@ export async function handleUpdateWorkflow(input: {
   return callbackPost('/api/callbacks/update-workflow-sop', body);
 }
 
+// ============ Multi-Mention (F086) ============
+
+export const multiMentionInputSchema = {
+  targets: z.array(z.string().min(1)).min(1).max(3).describe('Cat IDs to invoke in parallel (max 3). Example: ["codex","gemini"]'),
+  question: z.string().min(1).max(5000).describe('The question or request for the target cats'),
+  callbackTo: z.string().min(1).describe('Cat ID to route all responses back to (required, usually yourself)'),
+  context: z.string().max(5000).optional().describe('Additional context to include for the targets'),
+  idempotencyKey: z.string().min(1).max(200).optional().describe('Idempotency key to prevent duplicate dispatches within the same thread'),
+  timeoutMinutes: z.number().int().min(3).max(20).optional().describe('Timeout in minutes (default 8, range 3-20)'),
+  searchEvidenceRefs: z.array(z.string()).optional().describe('References to searches you performed before calling this tool (required unless overrideReason provided). Enforces "先搜后问" principle.'),
+  overrideReason: z.string().min(1).max(500).optional().describe('Why you are skipping search evidence (required if searchEvidenceRefs omitted)'),
+  triggerType: z.enum(['high-impact', 'cross-domain', 'uncertain', 'info-gap', 'recon']).optional().describe('Which meta-thinking trigger motivated this call'),
+};
+
+export async function handleMultiMention(input: {
+  targets: string[];
+  question: string;
+  callbackTo: string;
+  context?: string | undefined;
+  idempotencyKey?: string | undefined;
+  timeoutMinutes?: number | undefined;
+  searchEvidenceRefs?: string[] | undefined;
+  overrideReason?: string | undefined;
+  triggerType?: 'high-impact' | 'cross-domain' | 'uncertain' | 'info-gap' | 'recon' | undefined;
+}): Promise<ToolResult> {
+  // Client-side validation: searchEvidenceRefs or overrideReason required
+  if (!input.searchEvidenceRefs?.length && !input.overrideReason) {
+    return errorResult(
+      'multi_mention requires searchEvidenceRefs (what did you search first?) ' +
+      'or overrideReason (why are you skipping search?). ' +
+      'This enforces the "先搜后问" principle — search before asking.',
+    );
+  }
+
+  return callbackPost('/api/callbacks/multi-mention', {
+    targets: input.targets,
+    question: input.question,
+    callbackTo: input.callbackTo,
+    ...(input.context ? { context: input.context } : {}),
+    ...(input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : {}),
+    ...(input.timeoutMinutes !== undefined ? { timeoutMinutes: input.timeoutMinutes } : {}),
+    ...(input.searchEvidenceRefs ? { searchEvidenceRefs: input.searchEvidenceRefs } : {}),
+    ...(input.overrideReason ? { overrideReason: input.overrideReason } : {}),
+    ...(input.triggerType ? { triggerType: input.triggerType } : {}),
+  });
+}
+
 // F079 Gap 4: Cat-initiated voting
 export const startVoteInputSchema = {
   question: z.string().min(1).max(500).describe('The voting question'),
@@ -621,6 +668,16 @@ export const callbackTools = [
       'This is information sharing, not flow control — cats decide their own actions.',
     inputSchema: updateWorkflowInputSchema,
     handler: handleUpdateWorkflow,
+  },
+  {
+    name: 'cat_cafe_multi_mention',
+    description:
+      'Invoke up to 3 cats in parallel to gather perspectives on a question. ' +
+      'All responses are automatically routed back to callbackTo. ' +
+      'Requires searchEvidenceRefs (what you searched first) or overrideReason. ' +
+      'Use this instead of multiple @mentions when you need structured multi-cat collaboration with guaranteed response aggregation.',
+    inputSchema: multiMentionInputSchema,
+    handler: handleMultiMention,
   },
   {
     name: 'cat_cafe_start_vote',

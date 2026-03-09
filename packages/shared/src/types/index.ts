@@ -284,3 +284,20 @@ export type {
   TtsSynthesizeResult,
   VoiceConfig,
 } from './tts.js';
+// Multi-mention types (F086 Cat Orchestration)
+export type {
+	MultiMentionRequest,
+	MultiMentionResponse,
+	MultiMentionResponseStatus,
+	MultiMentionResult,
+	MultiMentionStatus,
+	MultiMentionTriggerType,
+} from './multi-mention.js';
+export {
+	ALL_MULTI_MENTION_STATUSES,
+	DEFAULT_TIMEOUT_MINUTES,
+	MAX_MULTI_MENTION_TARGETS,
+	MAX_TIMEOUT_MINUTES,
+	MIN_TIMEOUT_MINUTES,
+	MULTI_MENTION_TERMINAL_STATES,
+} from './multi-mention.js';

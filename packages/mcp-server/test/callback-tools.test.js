@@ -889,4 +889,116 @@ describe('MCP Callback Tools', () => {
     assert.equal(capturedBody.block.type, undefined);
     assert.equal(capturedBody.block.v, 1);
   });
+
+  // ---- F086: multi_mention ----
+
+  test('handleMultiMention calls /api/callbacks/multi-mention with correct payload', async () => {
+    const { handleMultiMention } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedUrl, capturedOptions;
+    globalThis.fetch = async (url, options) => {
+      capturedUrl = url;
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ requestId: 'req-123', status: 'pending' }),
+      };
+    };
+
+    const result = await handleMultiMention({
+      targets: ['codex', 'gemini'],
+      question: 'What do you think about this API design?',
+      callbackTo: 'opus',
+      timeoutMinutes: 8,
+      searchEvidenceRefs: ['docs/features/F055.md'],
+      triggerType: 'cross-domain',
+    });
+
+    assert.equal(result.isError, undefined);
+    assert.ok(capturedUrl.includes('/api/callbacks/multi-mention'));
+    const body = JSON.parse(capturedOptions.body);
+    assert.deepEqual(body.targets, ['codex', 'gemini']);
+    assert.equal(body.question, 'What do you think about this API design?');
+    assert.equal(body.callbackTo, 'opus');
+    assert.equal(body.timeoutMinutes, 8);
+    assert.deepEqual(body.searchEvidenceRefs, ['docs/features/F055.md']);
+    assert.equal(body.triggerType, 'cross-domain');
+    assert.equal(body.invocationId, 'test-invocation');
+    assert.equal(body.callbackToken, 'test-token');
+  });
+
+  test('handleMultiMention rejects missing searchEvidenceRefs and overrideReason', async () => {
+    const { handleMultiMention } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    const result = await handleMultiMention({
+      targets: ['codex'],
+      question: 'test',
+      callbackTo: 'opus',
+    });
+
+    assert.equal(result.isError, true);
+    assert.ok(result.content[0].text.includes('searchEvidenceRefs'));
+    assert.ok(result.content[0].text.includes('先搜后问'));
+  });
+
+  test('handleMultiMention accepts overrideReason instead of searchEvidenceRefs', async () => {
+    const { handleMultiMention } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedOptions;
+    globalThis.fetch = async (_url, options) => {
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ requestId: 'req-456', status: 'pending' }),
+      };
+    };
+
+    const result = await handleMultiMention({
+      targets: ['codex'],
+      question: 'Urgent: production issue',
+      callbackTo: 'opus',
+      overrideReason: 'Production emergency, no time to search',
+    });
+
+    assert.equal(result.isError, undefined);
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.overrideReason, 'Production emergency, no time to search');
+    assert.equal(body.searchEvidenceRefs, undefined);
+  });
+
+  test('handleMultiMention omits optional fields when undefined', async () => {
+    const { handleMultiMention } = await import(
+      '../dist/tools/callback-tools.js'
+    );
+
+    let capturedOptions;
+    globalThis.fetch = async (_url, options) => {
+      capturedOptions = options;
+      return {
+        ok: true,
+        json: async () => ({ requestId: 'req-789', status: 'pending' }),
+      };
+    };
+
+    const result = await handleMultiMention({
+      targets: ['codex'],
+      question: 'test',
+      callbackTo: 'opus',
+      searchEvidenceRefs: ['docs/test.md'],
+    });
+
+    assert.equal(result.isError, undefined);
+    const body = JSON.parse(capturedOptions.body);
+    assert.equal(body.context, undefined);
+    assert.equal(body.idempotencyKey, undefined);
+    assert.equal(body.timeoutMinutes, undefined);
+    assert.equal(body.overrideReason, undefined);
+    assert.equal(body.triggerType, undefined);
+  });
 });

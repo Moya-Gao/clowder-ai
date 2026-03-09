@@ -246,20 +246,24 @@ rule_update_target:
 ## Acceptance Criteria
 
 ### M1 编排运行时
-- [ ] MCP 工具 `cat_cafe_multi_mention` 可被猫猫调用
-- [ ] `targets <= 3` 硬限制
-- [ ] `parallel only`（首版）
-- [ ] `callbackTo` 必填
-- [ ] 回流状态机：pending → running → partial | done | timeout | failed
-- [ ] 部分失败策略：已收到回答照常回流，未收到标注超时
-- [ ] 回流载荷：原文（首版不做摘要）
-- [ ] 防扩散：被 @ 猫不能再 @ 其他猫
-- [ ] 幂等键 + 超时回收
-- [ ] CLI @ 限制 ≤2 保持不变
-- [ ] 超时默认 8m（3~20m 可配），超时立即回流已有结果
-- [ ] 审计 envelope：initiator/callbackTo/idempotencyKey/triggerType/searchEvidenceRefs/overrideReason
-- [ ] 可观测性：状态机变迁日志 + 审计字段
-- [ ] 上线验收指标（计划阶段定阈值）：回流成功率、超时率、二次扩散拦截次数、平均回流延迟
+- [x] MCP 工具 `cat_cafe_multi_mention` 可被猫猫调用
+- [x] `targets <= 3` 硬限制
+- [x] `parallel only`（首版）
+- [x] `callbackTo` 必填
+- [x] 回流状态机：pending → running → partial | done | timeout | failed
+- [x] 部分失败策略：已收到回答照常回流，未收到标注超时
+- [x] 回流载荷：原文（首版不做摘要）
+- [x] 防扩散：被 @ 猫不能再 @ 其他猫（isActiveTarget + 409 guard）
+- [x] 幂等键 + 超时回收
+- [x] CLI @ 限制 ≤2 保持不变（unchanged）
+- [x] 超时默认 8m（3~20m 可配），超时立即回流已有结果
+- [x] 审计 envelope：initiator/callbackTo/idempotencyKey/triggerType/searchEvidenceRefs/overrideReason
+- [x] 可观测性：状态机变迁日志 + 审计字段（structured log in route handler）
+- [x] 上线验收指标：
+  - 回流成功率 ≥ 90%（done/(done+failed) 在首 20 次调用内）
+  - 超时率 ≤ 20%（timeout/total）
+  - 二次扩散拦截 = 0 漏网（anti-cascade guard 409 全覆盖）
+  - 平均回流延迟 ≤ timeout × 1.1（不超过设定超时的 110%）
 
 ### M2 元思考触发
 - [ ] 5 个触发器写入 Skills/shared-rules（高影响决策/跨领域/高不确定/信息不足/新领域侦查）

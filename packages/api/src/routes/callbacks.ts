@@ -33,6 +33,7 @@ import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
+import { registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
 import { detectUserMention } from './user-mention.js';
 import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
@@ -965,4 +966,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
   if (opts.freshnessProvider) memoryDeps.freshnessProvider = opts.freshnessProvider;
   if (opts.reimportTriggerProvider) memoryDeps.reimportTriggerProvider = opts.reimportTriggerProvider;
   await registerCallbackMemoryRoutes(app, memoryDeps);
+
+  // F086: Multi-mention orchestration routes
+  if (router && invocationRecordStore) {
+    registerMultiMentionRoutes(app, {
+      registry,
+      messageStore,
+      socketManager,
+      router,
+      invocationRecordStore,
+      ...(invocationTracker ? { invocationTracker } : {}),
+    });
+  }
 };
