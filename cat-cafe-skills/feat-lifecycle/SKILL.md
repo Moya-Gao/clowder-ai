@@ -96,6 +96,8 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 
 **触发**：AC 全部打勾 + PR 合入 + 云端 review 通过。**不触发**：只是 Phase 完成 / 只是 review 过了。
 
+**🔴 交付物核实铁律（LL-029）**：spec checkbox 是记录工具，不是真相源。声称"完成"或"未完成"前，**必须**核实实际 commit/PR 状态（`git log --grep` + `gh pr list`）。只读 .md 就下结论 = 睁眼说瞎话。
+
 **Step 0: 愿景对照（必须先做，不可跳过）🔴**
 
 AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先读原始 Discussion/Interview，自问三个问题：① 铲屎官最初要解决的核心问题？② 交付物解决了吗？③ 铲屎官用这个功能体验如何？
@@ -139,6 +141,7 @@ AC 全打勾 ≠ 完成（F041 教训：12 项 AC ✅ 但 UI 不可用）。先�
 | 讨论完不落盘 | 讨论结束写入 `docs/discussions/` |
 | 等铲屎官手动协调跨猫守护 | 自己 @ 其他猫发起守护（F073） |
 | 每步停下来问铲屎官"可以继续吗？" | 全链路自驱，只在阻塞/close 时通知铲屎官 |
+| 只看 spec checkbox 就声称完成/未完成 | 核实 git log + PR 状态 + 实际 commit（LL-029）|
 | UX 没确认就开 worktree 写代码 | 先过 Design Gate 再动手 |
 | 后端 API 自己拍板不跟其他猫讨论 | 纯后端走 `collaborative-thinking` 拉猫讨论 |
 

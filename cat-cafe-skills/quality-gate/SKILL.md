@@ -62,6 +62,8 @@ Step 2: CREATE — 建检查清单
 
 Step 3: VERIFY — 逐项检查
   - 代码在哪？有测试覆盖？边界处理了？
+  - 🔴 交付物必须核实 commit/PR 状态（git log --grep + gh pr list）
+    spec checkbox 是记录工具，不是真相源（LL-029）
 
 Step 4: RUNTIME GUARD — 前端证据采集前先做运行态保护
   - 若会话在 `cat-cafe-runtime`，先探活：`curl -sf http://localhost:3002/health`
@@ -92,6 +94,7 @@ Step 7: REPORT — 输出合规报告 + 证据
 | 构建成功 | build 命令：exit 0 | lint 通过不代表编译通过 |
 | Bug 修了 | 原症状测试：通过 | 代码改了，以为修了 |
 | 需求满足 | spec + Discussion 逐项打勾 | 测试通过就完事 |
+| Feature 完成/未完成 | git log + PR 状态 + spec 逐项 | 只看 spec checkbox 就下结论 |
 
 **合规报告模板**：
 
@@ -132,6 +135,7 @@ pnpm -r --if-present run build → exit 0 ✅
 | 前端功能没有截图证据 | ≤3 张截图 + 15s 录屏 + 映射表 |
 | 为了截图在 runtime 会话里重跑 `pnpm start` | 先探活复用现有 runtime；确需重启必须显式授权 |
 | Redis 改动用默认测试命令 | 必须跑 `test:redis`，禁止直连 6399 |
+| 只看 spec checkbox 就声称完成/未完成 | 核实 `git log --grep` + `gh pr list` + 实际 commit（LL-029）|
 
 **Red flags — 立刻 STOP**：
 - 用 "should"、"probably"、"seems to"

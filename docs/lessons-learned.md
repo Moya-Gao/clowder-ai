@@ -547,6 +547,19 @@ created: 2026-02-26
 - 来源锚点：2026-03-05 铲屎官反馈 + 布偶猫/缅因猫联合分析
 - 关联：writing-plans | quality-gate
 
+### LL-029: 交付物验证不能只看 spec checkbox——必须核实 commit/PR
+- 状态：validated
+- 更新时间：2026-03-09
+- 现象：猫猫声称 feature 完成/未完成，只看了 spec 文件的 checkbox 状态就下结论，没有去核实 git log、PR、实际 commit。导致"睁眼说瞎话"——spec 可能漏标、错标，与实际代码状态不一致。
+- 根因：偷懒走捷径。spec checkbox 是人工维护的元数据，不是交付证据本身。把"关于证据的描述"当成了"证据"。
+- 对策：
+  1. 验证交付物时，至少核实两层：spec checkbox + 实际 commit/PR 状态
+  2. "完成"的证据链：spec AC ✅ + commit 存在 + PR merged + 测试通过
+  3. "未完成"也需要证据：具体哪条 AC 缺失 + 对应代码/PR 确实没有
+  4. 不要只读 .md 文件就下结论——.md 是索引，git 才是真相
+- 来源锚点：2026-03-09 铲屎官发现布偶猫(另一线程)只看 spec 就声称 feat 未完成
+- 关联：P5（可验证才算完成）| quality-gate | feat-lifecycle
+
 ---
 
 ## 8) 维护约定
