@@ -8,8 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: done | Completed: 2026-03-09
-> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
+> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 planned
+> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Why
@@ -85,18 +85,35 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 
 OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent 基础设施**（我们已有）。真正的 channel adapter 层，每个平台 ~1000-2000 LOC。
 
-### 按阶段（经缅因猫 review 修正，铲屎官确认双平台 MVP）
+### 按阶段（经缅因猫 review 修正 + 铲屎官 Phase 2 优先级调整）
 
-| 阶段 | 内容 | 猫猫天数 | 并行度 |
-|------|------|---------|--------|
-| **MVP** | 飞书 + Telegram DM-only 双向对话 | **7-9天** | 2-3猫 |
-| **Phase 2** | Slack + 群聊（需 F077 前置） | 3-4天 | 3猫 |
-| **Phase 3** | 通用 Gateway 基座 + OAuth 自助接入 + 配置 UI + Discord/钉钉 | 5-7天 | 3猫 |
-| **Phase 4** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 |
+| 阶段 | 内容 | 猫猫天数 | 并行度 | 前置 |
+|------|------|---------|--------|------|
+| **Phase 1 (MVP)** ✅ | 飞书 + Telegram DM-only 双向对话 | **完成** | — | — |
+| **Phase 2** | 多猫身份 + 分角色展示 + 外部 @路由 | 3-5天 | 2-3猫 | — |
+| **Phase 3** | 群聊 + 多人 + 权限隔离 | 3-4天 | 3猫 | F077 |
+| **Phase 4** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
+| **Phase 5** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**MVP 到可用：7-9 天（双平台）。全量 Gateway：3-4 周。**
+**Phase 1 已完成（PR #328）。Phase 2 是下一个里程碑。全量 Gateway：3-4 周。**
 
-> MVP 工期说明：基座（outbound hook + thread mapping + webhook receiver）5-7 天，两个 adapter 可并行开发。Telegram adapter 比飞书简单（long polling + 最开放的 Bot API），边际成本 ~1-2 天。
+#### Phase 2 详细拆解（多猫身份 + 分角色展示）
+
+铲屎官明确要求：先让外部平台能看到"三只猫各自在说话"，再做群聊/多人。
+
+| 子项 | 说明 | 复杂度 |
+|------|------|--------|
+| **外部 @路由** | 外部消息 `@布偶` / `@缅因` → 路由到指定猫（而非 defaultCatId） | 中 |
+| **多猫身份映射** | 每只猫在外部平台的显示名/头像（可能需要多 bot 或消息前缀 `[布偶猫🐱]`） | 中 |
+| **分角色展示** | 多猫接力时，外部看到分角色对话（而非一个 bot 说所有话） | 中-高 |
+| **outbound 按猫路由** | OutboundDeliveryHook 区分是哪只猫的回复，标注身份后发送 | 低-中 |
+
+> 平台限制：飞书/Telegram 单 bot 只有一个身份。分角色展示的实现方案需要探索：
+> - 方案 A：消息前缀 `[布偶猫🐱]` / `[缅因猫🐱]`（最简单，单 bot）
+> - 方案 B：多个 bot 各自回帖（每只猫一个 bot token，最真实但配置重）
+> - 方案 C：Telegram 用 `sendMessage` 不同 `parse_mode` + 签名行；飞书用 rich text 卡片头部区分
+>
+> 需要在 Phase 2 kickoff 时做 Design Gate 选型。
 
 #### MVP Scope 硬边界（缅因猫 + 布偶猫共识，铲屎官确认双平台）
 
@@ -111,16 +128,16 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - 基本 thread mapping（ConnectorThreadBinding）
 - **Outbound = final-only**（agent 回复完成后一次性发送，不做流式/编辑同步）
 
-**显式排除（Phase 2+）**：
-- ❌ 群聊 / @mention 触发
-- ❌ 多用户 / 权限隔离（依赖 F077）
-- ❌ OAuth 自助接入
-- ❌ 多账号 / 多 workspace
+**显式排除（后续 Phase）**：
+- ❌ 多猫身份映射 / 分角色展示 / 外部 @路由（**Phase 2** — 下一优先级）
+- ❌ 群聊 / @mention 触发（Phase 3，依赖 F077）
+- ❌ 多用户 / 权限隔离（Phase 3，依赖 F077）
+- ❌ Slack / Discord / 钉钉（Phase 4）
+- ❌ OAuth 自助接入 / 配置管理 UI（Phase 4）
+- ❌ 多账号 / 多 workspace（Phase 5）
 - ❌ 消息编辑/撤回同步
 - ❌ 附件/文件/图片传输
-- ❌ 配置管理 UI
-- ❌ Slack / Discord / 钉钉（Phase 2-3）
-- ❌ Outbound streaming / 流式编辑同步（MVP = final-only）
+- ❌ Outbound streaming / 流式编辑同步（Phase 5）
 
 ### 为什么不是"好几个月"
 
@@ -142,12 +159,24 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-6: 入站消息幂等——同一外部消息重放不触发重复 invoke（integration test）
 - [x] AC-7: Outbound = final-only——agent 回复完成后一次性发送到外部平台 (wired in trigger)
 
-### Phase 2+
-- [ ] AC-8: Slack adapter 接入
-- [ ] AC-9: 群聊消息 @猫猫 → 仅 @mention 触发回复
-- [ ] AC-10: 支持 3+ 平台
-- [ ] AC-11: 管理员可通过 UI 配置连接器
-- [ ] AC-12: Outbound streaming（流式输出到外部平台）
+### Phase 2 — 多猫身份 + 分角色展示
+- [ ] AC-8: 外部消息 `@布偶` / `@缅因` → 路由到指定猫（而非 defaultCatId）
+- [ ] AC-9: 外部回帖标明是哪只猫在说话（方案待 Design Gate 选型）
+- [ ] AC-10: 多猫接力时，外部看到分角色对话
+
+### Phase 3 — 群聊 + 多人
+- [ ] AC-11: 群聊消息 @猫猫 → 仅 @mention 触发回复（依赖 F077）
+- [ ] AC-12: 多用户权限隔离（非 owner 用户能力边界）
+
+### Phase 4 — 更多平台 + 自助接入
+- [ ] AC-13: Slack adapter 接入
+- [ ] AC-14: 支持 3+ 平台
+- [ ] AC-15: 管理员可通过 UI 配置连接器
+- [ ] AC-16: OAuth 自助接入流程
+
+### Phase 5 — 产品化
+- [ ] AC-17: Outbound streaming（流式输出到外部平台）
+- [ ] AC-18: 多账号 / 多 workspace
 
 ## Dependencies
 
