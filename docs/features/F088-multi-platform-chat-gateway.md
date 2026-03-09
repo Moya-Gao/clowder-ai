@@ -2,13 +2,14 @@
 feature_ids: [F088]
 related_features: [F050, F077, F044]
 topics: [gateway, connector, feishu, telegram, slack, discord, chat-platform]
-doc_kind: discussion
+doc_kind: spec
 created: 2026-03-09
 ---
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: impl-complete (pending live testing)
+> Owner: 布偶猫 | Status: done | Completed: 2026-03-09
+> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Why
@@ -170,14 +171,14 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "飞书等聊天软件的Gateway能力" | AC-1, AC-2 | E2E test | [ ] |
-| R2 | 消息双向通（收+回） | AC-1, AC-2, AC-7 | E2E test | [ ] |
-| R3 | "来个海外的" — Telegram | AC-2 | E2E test | [ ] |
+| R1 | "飞书等聊天软件的Gateway能力" | AC-1, AC-2 | E2E test | [x] |
+| R2 | 消息双向通（收+回） | AC-1, AC-2, AC-7 | E2E test | [x] |
+| R3 | "来个海外的" — Telegram | AC-2 | E2E test | [x] |
 | R4 | 不影响现有功能 | AC-5 | 回归测试 | [ ] |
-| R5 | 并发 feat 快速交付 | — | 工期跟踪 | [ ] |
-| R6 | 入站幂等（不重复触发） | AC-6 | 重放测试 | [ ] |
+| R5 | 并发 feat 快速交付 | — | 工期跟踪 | [x] |
+| R6 | 入站幂等（不重复触发） | AC-6 | 重放测试 | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
 - [x] 每个 AC 都有验证方式
-- [ ] 前端需求已准备需求→证据映射表（若适用）
+- [x] 前端需求已准备需求→证据映射表（不适用——F088 MVP 无前端改动）
