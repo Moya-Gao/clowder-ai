@@ -3,8 +3,9 @@ feature_ids: [F086]
 related_features: [F079, F055, F037, F038, F040, F042, F043, F046, F070]
 related_decisions: [012]
 topics: [collaboration, routing, mcp, multi-mention, orchestration, meta-cognition, knowledge-engineering, reflection]
-doc_kind: spec
+doc_kind: done
 created: 2026-03-08
+completed: 2026-03-09
 ---
 
 # F086 Cat Orchestration — 猫猫自主协作 + 元认知系统
@@ -403,3 +404,4 @@ F086 multi_mention（MCP 工具）:
 | 2026-03-09 | P1-P5 公理 + W1-W6 世界观写入 [shared-rules.md](../../cat-cafe-skills/refs/shared-rules.md)，三层治理结构落地 |
 | 2026-03-09 | M2 元思考触发器实施完成（5 trigger rules §13 + Design Gate 先搜现状 + collaborative-thinking §13 ref + 6 guard tests）|
 | 2026-03-09 | M3 反思胶囊 + 文档关系索引实施完成（capsule schema + feat-lifecycle Step 0.5 + build-doc-index.mjs + PoC capsule + 5 guard tests）|
+| 2026-03-09 | Feature complete — M1 PR #321 + M2 PR #324 + M3 PR #325 全部合入 main，28 ACs 全部通过 |
