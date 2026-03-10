@@ -218,12 +218,12 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-H7: 保留快速创建和从文档导入功能
 
 ### Phase I（Progress Dashboard + Doc 模板统一）
-- [ ] AC-I1: `cat-cafe-skills/refs/feature-doc-template.md` 存在且经铲屎官确认
-- [ ] AC-I2: `feat-lifecycle` skill kickoff 自动复制模板
-- [ ] AC-I3: Feature Row 点击展开一级（Phase 进度条 + Timeline/Risk/PR）
-- [ ] AC-I4: Phase 条目点击展开二级（AC 列表 + 完成状态）
-- [ ] AC-I5: 依赖图 tab 有数据（≥3 个 Feature 有依赖关系）
-- [ ] AC-I6: 历史 feature docs 批量迁移完成（parser 需要的字段补齐）
+- [x] AC-I1: `cat-cafe-skills/refs/feature-doc-template.md` 存在且经铲屎官确认
+- [x] AC-I2: `feat-lifecycle` skill kickoff 自动复制模板
+- [x] AC-I3: Feature Row 点击展开一级（Phase 进度条 + Timeline/Risk/PR）
+- [x] AC-I4: Phase 条目点击展开二级（AC 列表 + 完成状态）
+- [x] AC-I5: 依赖图 tab 有数据（≥3 个 Feature 有依赖关系）
+- [ ] AC-I6: 历史 feature docs 批量迁移完成（parser 需要的字段补齐）— 遗留，铲屎官确认可延后
 
 ## 需求点 Checklist
 
@@ -245,10 +245,10 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R14 | "入口加图标好看点" | AC-H1 | screenshot（侧边栏图标） | [x] |
 | R15 | "返回按钮得返回我之前在的thread" | AC-H2 | test（referrer-based back） | [x] |
 | R16 | "先画出设计图我看看" | AC-H3 | Pencil 设计稿 + 铲屎官确认 | [x] |
-| R17 | "我发现有个东西可以做！我不知道feat进度如何了" | AC-I3, AC-I4 | Progress Dashboard 行内展开 | [ ] |
-| R18 | "feat互相依赖有点bug 看不到有向图" | AC-I5 | 依赖图有数据 | [ ] |
-| R19 | "skills/feat 从现在要统一模板" | AC-I1, AC-I2 | 模板存在 + 立项自动使用 | [ ] |
-| R20 | "历史的做一次迁移" | AC-I6 | 批量迁移完成 | [ ] |
+| R17 | "我发现有个东西可以做！我不知道feat进度如何了" | AC-I3, AC-I4 | Progress Dashboard 行内展开 | [x] |
+| R18 | "feat互相依赖有点bug 看不到有向图" | AC-I5 | 依赖图有数据 | [x] |
+| R19 | "skills/feat 从现在要统一模板" | AC-I1, AC-I2 | 模板存在 + 立项自动使用 | [x] |
+| R20 | "历史的做一次迁移" | AC-I6 | 批量迁移完成 | [ ] 遗留 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC

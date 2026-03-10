@@ -39,16 +39,10 @@ argument-hint: "[阶段: kickoff|discussion|completion] [F0xx 或主题]"
 
 2. **创建聚合文件** `docs/features/Fxxx-name.md`（kebab-case 文件名）
 
-   ```yaml
-   ---
-   feature_ids: [F042]
-   related_features: []
-   topics: [关键词]
-   doc_kind: spec
-   created: 2026-02-28
-   ---
-   ```
-   核心章节：Why / What / Acceptance Criteria / Links / Key Decisions / Dependencies (`Evolved from`) / Risk / Open Questions / Review Gate / Timeline
+   **从标准模板创建**：复制 `cat-cafe-skills/refs/feature-doc-template.md` 中「模板正文」部分，替换占位符（`{NNN}`/`{Feature Name}`/`{YYYY-MM-DD}` 等）。模板包含 Dashboard parser 所需的全部硬性格式。
+
+   轻量 Feature（≤1 Phase）可省略 Timeline/Review Gate/Links/Key Decisions，但 Frontmatter + Status 行 + Why + What + AC + Dependencies 必须保留。
+
    并在 spec 中补一节：`## 需求点 Checklist`（模板见 `cat-cafe-skills/refs/requirements-checklist-template.md`）
 
 3. **更新 BACKLOG.md**：末尾加 `| F042 | 名称 | spec | Owner | [F042](features/...) |`
