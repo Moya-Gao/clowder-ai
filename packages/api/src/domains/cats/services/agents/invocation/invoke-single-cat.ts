@@ -392,15 +392,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       ? `${params.systemPrompt}\n\n---\n\n${promptWithMission}`
       : promptWithMission;
 
-    // F089 Phase 2: Create tmux spawn override for agent-in-pane execution
+    // F089 Phase 2+3: Create tmux spawn override for agent-in-pane execution
     let spawnCliOverride: AgentServiceOptions['spawnCliOverride'];
     if (deps.tmuxGateway && workingDirectory) {
-      const { basename } = await import('node:path');
+      const { resolveWorktreeIdByPath } = await import('../../../../workspace/workspace-security.js');
       const { createTmuxSpawnOverride } = await import('../../../../terminal/tmux-agent-spawner.js');
-      const worktreeId = basename(workingDirectory);
-      spawnCliOverride = createTmuxSpawnOverride(
-        worktreeId, invocationId, deps.tmuxGateway, deps.agentPaneRegistry,
-      );
+      try {
+        const worktreeId = await resolveWorktreeIdByPath(workingDirectory);
+        spawnCliOverride = createTmuxSpawnOverride(
+          worktreeId, invocationId, userId, deps.tmuxGateway, deps.agentPaneRegistry,
+        );
+      } catch {
+        console.warn(`[invoke-single-cat] resolveWorktreeIdByPath failed for ${workingDirectory} — skipping tmux pane (agent runs without tmux)`);
+      }
     }
 
     const baseOptions: AgentServiceOptions = {

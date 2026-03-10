@@ -5,6 +5,8 @@ import { Terminal } from '@xterm/xterm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_URL, apiFetch } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
+import { AgentPaneList } from './AgentPaneList';
+import { AgentPaneViewer } from './AgentPaneViewer';
 import '@xterm/xterm/css/xterm.css';
 
 interface TerminalTabProps {
@@ -12,6 +14,7 @@ interface TerminalTabProps {
 }
 
 export function TerminalTab({ worktreeId }: TerminalTabProps) {
+  const [watchingPane, setWatchingPane] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -133,8 +136,17 @@ export function TerminalTab({ worktreeId }: TerminalTabProps) {
     };
   }, [connect]);
 
+  if (watchingPane) {
+    return <AgentPaneViewer worktreeId={worktreeId} paneId={watchingPane} onBack={() => setWatchingPane(null)} />;
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <AgentPaneList
+        worktreeId={worktreeId}
+        onSelectPane={setWatchingPane}
+        selectedPaneId={watchingPane ?? undefined}
+      />
       <div
         style={{
           display: 'flex',

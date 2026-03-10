@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import * as pty from 'node-pty';
+import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';
 import { TerminalSessionStore } from '../domains/terminal/session-store.js';
 import type { TmuxGateway } from '../domains/terminal/tmux-gateway.js';
-import type { AgentPaneRegistry } from '../domains/terminal/agent-pane-registry.js';
 import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
@@ -54,7 +54,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
         store.remove(existing.id); // Stale — fall through to create new
       } else {
         const sock = tmuxGateway.socketName(worktreeId);
-        const ptyProcess = pty.spawn('tmux', ['-L', sock, 'attach', '-t', existing.paneId], ptyOpts);
+        const ptyProcess = pty.spawn(tmuxGateway.tmuxBin, ['-L', sock, 'attach', '-t', existing.paneId], ptyOpts);
         ptys.set(existing.id, { pty: ptyProcess });
         store.markConnected(existing.id);
         return { sessionId: existing.id, paneId: existing.paneId, reconnected: true };
@@ -65,7 +65,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     await tmuxGateway.ensureServer(worktreeId);
     const paneId = await tmuxGateway.createPane(worktreeId, { cols, rows, cwd });
     const sock = tmuxGateway.socketName(worktreeId);
-    const ptyProcess = pty.spawn('tmux', ['-L', sock, 'attach', '-t', paneId], ptyOpts);
+    const ptyProcess = pty.spawn(tmuxGateway.tmuxBin, ['-L', sock, 'attach', '-t', paneId], ptyOpts);
 
     const session = store.create({ worktreeId, paneId, userId });
     ptys.set(session.id, { pty: ptyProcess });
@@ -185,18 +185,73 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     }));
   });
 
-  // GET /api/terminal/agent-panes — list agent panes by worktree
+  // GET /api/terminal/agent-panes — list agent panes by worktree + user
   app.get<{
     Querystring: { worktreeId: string };
   }>('/api/terminal/agent-panes', async (req, reply) => {
     if (!agentPaneRegistry) return reply.status(501).send({ error: 'Agent pane tracking not enabled' });
+    const userId = resolveUserId(req) as string;
     const { worktreeId } = req.query;
     if (!worktreeId) return reply.status(400).send({ error: 'worktreeId is required' });
-    return agentPaneRegistry.listByWorktree(worktreeId).map((p) => ({
+    return agentPaneRegistry.listByWorktreeAndUser(worktreeId, userId).map((p) => ({
       invocationId: p.invocationId,
       paneId: p.paneId,
       status: p.status,
       startedAt: p.startedAt,
     }));
+  });
+
+  // GET /api/terminal/agent-panes/:paneId/ws — read-only attach to agent pane
+  app.get<{
+    Params: { paneId: string };
+    Querystring: { worktreeId: string };
+  }>('/api/terminal/agent-panes/:paneId/ws', { websocket: true }, (socket, req) => {
+    const { paneId } = req.params;
+    const { worktreeId } = req.query;
+    const userId = resolveUserId(req) as string;
+
+    if (!worktreeId || !agentPaneRegistry) {
+      socket.close(4004, 'Agent pane tracking not enabled or missing worktreeId');
+      return;
+    }
+
+    const panes = agentPaneRegistry.listByWorktreeAndUser(worktreeId, userId);
+    const paneInfo = panes.find((p) => p.paneId === paneId);
+    if (!paneInfo) {
+      socket.close(4004, 'Agent pane not found or not yours');
+      return;
+    }
+
+    const sock = tmuxGateway.socketName(worktreeId);
+    const ptyProcess = pty.spawn(tmuxGateway.tmuxBin, ['-L', sock, 'attach', '-r', '-t', paneId], {
+      name: 'xterm-256color',
+      cols: 80,
+      rows: 24,
+    });
+
+    const dataHandler = ptyProcess.onData((data) => {
+      if (socket.readyState === 1) socket.send(data);
+    });
+
+    socket.on('message', (raw: Buffer | ArrayBuffer | Buffer[]) => {
+      const msg = Buffer.isBuffer(raw) ? raw.toString() : String(raw);
+      try {
+        const parsed = JSON.parse(msg) as { type: string; cols?: number; rows?: number };
+        if (parsed.type === 'resize' && parsed.cols && parsed.rows) {
+          ptyProcess.resize(parsed.cols, parsed.rows);
+        }
+      } catch {
+        /* ignore non-JSON */
+      }
+    });
+
+    socket.on('close', () => {
+      dataHandler.dispose();
+      ptyProcess.kill();
+    });
+
+    ptyProcess.onExit(() => {
+      socket.close(1000, 'Agent pane exited');
+    });
   });
 };

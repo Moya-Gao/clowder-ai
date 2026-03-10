@@ -151,6 +151,28 @@ export async function getWorktreeRoot(worktreeId: string, repoRoot?: string): Pr
   throw new WorkspaceSecurityError(`Worktree not found: ${worktreeId}`, 'NOT_FOUND');
 }
 
+/**
+ * Reverse lookup: given an absolute directory path, find its canonical worktreeId.
+ * Checks git worktrees, linked roots, and in-memory registry.
+ */
+export async function resolveWorktreeIdByPath(dirPath: string, repoRoot?: string): Promise<string> {
+  const resolved = resolve(dirPath);
+
+  const entries = await listWorktrees(repoRoot);
+  const entry = entries.find((e) => e.root === resolved);
+  if (entry) return entry.id;
+
+  const linked = await getLinkedRootsAsync();
+  const linkedEntry = linked.find((r) => r.root === resolved);
+  if (linkedEntry) return linkedEntry.id;
+
+  for (const [id, root] of worktreeRegistry.entries()) {
+    if (root === resolved) return id;
+  }
+
+  throw new WorkspaceSecurityError(`No worktree found for path: ${dirPath}`, 'NOT_FOUND');
+}
+
 /** Build a linked root entry from name + path */
 function toLinkedEntry(name: string, rootPath: string): WorktreeEntry {
   return {

@@ -82,9 +82,9 @@ tmux pane（agent 跑在这里）─┤
 
 ### Phase 3：Agent 可观测 UI + Takeover + 进程监控
 
-- [ ] **tmux pane 列表 UI**（含用户 shell + agent pane，Phase 1 延后项 + Phase 2 迁入项合并）
-- [ ] **前端 agent pane attach/watch UI**（从 Phase 2 迁入，见 Timeline 2026-03-09 条目）
-- [ ] **agent 侧 `worktreeId` 改用 canonical id**（当前 `basename(workingDirectory)` 推导与 workspace-security `_head` 后缀规则可能错位，见 `invoke-single-cat.ts:397` vs `workspace-security.ts:112`）
+- [x] **tmux pane 列表 UI**（含用户 shell + agent pane，AgentPaneList 组件，Phase 3a）
+- [x] **前端 agent pane attach/watch UI**（AgentPaneViewer + WS endpoint `/api/terminal/agent-panes/:paneId/ws`，Phase 3a）
+- [x] **agent 侧 `worktreeId` 改用 canonical id**（`resolveWorktreeIdByPath()` 替代 `basename()`，Phase 3a）
 - [ ] `select-pane -e` 切换 watch → takeover
 - [ ] takeover 时暂停机器轨 NDJSON 解析（防干扰）
 - [ ] `pidtree` + `pidusage` 进程树监控
@@ -146,9 +146,9 @@ tmux pane（agent 跑在这里）─┤
 | # | 需求点 | 来源 | 状态 |
 |---|--------|------|------|
 | 1 | 浏览器内打开 terminal（单 shell） | 铲屎官 2026-03-08 | done (Phase 1, PR #326 + #332) |
-| 1b | 浏览器内 tmux pane 列表 UI | 铲屎官 2026-03-08 | pending (Phase 3) |
+| 1b | 浏览器内 tmux pane 列表 UI | 铲屎官 2026-03-08 | done (Phase 3a, AgentPaneList) |
 | 2 | 观察 agent 操作（后端 plumbing） | 铲屎官 2026-03-08 | done (Phase 2, PR #334) |
-| 2b | 观察 agent 操作（前端 UI 入口） | 铲屎官 2026-03-08 | pending (Phase 3) |
+| 2b | 观察 agent 操作（前端 UI 入口） | 铲屎官 2026-03-08 | done (Phase 3a, AgentPaneViewer) |
 | 3 | 崩溃现场保留 | 铲屎官 2026-03-08 | done (Phase 2, remain-on-exit) |
 | 4 | 手动接管 agent | 铲屎官 2026-03-08 | pending (Phase 3) |
 | 5 | 进程树可视化 | 铲屎官 2026-03-08 | pending (Phase 3) |
@@ -168,3 +168,4 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + pane list UI + worktreeId 真相源修正迁入 Phase 3 |
 | 2026-03-10 | **Bug fix #1**: `@fastify/websocket`（Phase 2 PR #334 引入）全局抢占 HTTP upgrade → Socket.IO WebSocket 握手 404 → 前端消息气泡全部消失。修复：`index.ts` 加 `onRequest` hook 对 `/socket.io/` 路径 hijack（布偶猫 Opus 4.6 定位+修复）|
 | 2026-03-10 | **Bug fix #2**: `TmuxGateway` 无条件创建 → 所有有 workingDirectory 的 agent 调用走 tmux pane → runtime 无 tmux 时 CLI exit 1 → 猫猫静默失败。修复：改为 `CAT_CAFE_TMUX_AGENT=1` opt-in，默认关闭（布偶猫 Opus 4.6 定位+修复）|
+| 2026-03-10 | Phase 3a: worktreeId canonical fix + AgentPaneList + AgentPaneViewer + agent pane WS endpoint (read-only attach) |

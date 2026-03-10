@@ -190,6 +190,7 @@ export async function* spawnCliInTmux(
 export function createTmuxSpawnOverride(
   worktreeId: string,
   invocationId: string,
+  userId: string,
   tmuxGateway: TmuxGateway,
   agentPaneRegistry?: AgentPaneRegistry,
 ): SpawnCliOverride {
@@ -209,7 +210,7 @@ export function createTmuxSpawnOverride(
         const ev = value as Record<string, unknown>;
         if (ev['__tmuxPaneCreated'] && typeof ev['paneId'] === 'string') {
           paneId = ev['paneId'];
-          agentPaneRegistry?.register(invocationId, worktreeId, paneId);
+          agentPaneRegistry?.register(invocationId, worktreeId, paneId, userId);
         }
         yield value;
       }

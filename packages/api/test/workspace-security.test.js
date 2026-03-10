@@ -162,4 +162,29 @@ describe('workspace-security', () => {
       (err) => err.code === 'NOT_FOUND',
     );
   });
+
+  // -- resolveWorktreeIdByPath (F089 Phase 3a) --
+
+  it('resolveWorktreeIdByPath returns canonical id for known worktree root', async () => {
+    const entries = await mod.listWorktrees();
+    assert.ok(entries.length > 0, 'should have at least one worktree');
+    const first = entries[0];
+    const resolvedId = await mod.resolveWorktreeIdByPath(first.root);
+    assert.strictEqual(resolvedId, first.id);
+  });
+
+  it('resolveWorktreeIdByPath throws NOT_FOUND for unknown path', async () => {
+    await assert.rejects(
+      () => mod.resolveWorktreeIdByPath('/nonexistent/path/xyzzy'),
+      (err) => err.code === 'NOT_FOUND',
+    );
+  });
+
+  it('resolveWorktreeIdByPath handles all worktree entries consistently', async () => {
+    const entries = await mod.listWorktrees();
+    for (const entry of entries) {
+      const resolvedId = await mod.resolveWorktreeIdByPath(entry.root);
+      assert.strictEqual(resolvedId, entry.id, `mismatch for root=${entry.root}`);
+    }
+  });
 });

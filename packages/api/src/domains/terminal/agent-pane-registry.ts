@@ -9,6 +9,7 @@ export interface AgentPaneInfo {
 	invocationId: string;
 	worktreeId: string;
 	paneId: string;
+	userId: string;
 	status: AgentPaneStatus;
 	exitCode?: number | null;
 	signal?: string | null;
@@ -18,11 +19,12 @@ export interface AgentPaneInfo {
 export class AgentPaneRegistry {
 	private panes = new Map<string, AgentPaneInfo>();
 
-	register(invocationId: string, worktreeId: string, paneId: string): void {
+	register(invocationId: string, worktreeId: string, paneId: string, userId: string): void {
 		this.panes.set(invocationId, {
 			invocationId,
 			worktreeId,
 			paneId,
+			userId,
 			status: 'running',
 			startedAt: Date.now(),
 		});
@@ -32,8 +34,10 @@ export class AgentPaneRegistry {
 		return this.panes.get(invocationId);
 	}
 
-	listByWorktree(worktreeId: string): AgentPaneInfo[] {
-		return Array.from(this.panes.values()).filter((p) => p.worktreeId === worktreeId);
+	listByWorktreeAndUser(worktreeId: string, userId: string): AgentPaneInfo[] {
+		return Array.from(this.panes.values()).filter(
+			(p) => p.worktreeId === worktreeId && p.userId === userId,
+		);
 	}
 
 	markDone(invocationId: string, exitCode: number | null): void {
