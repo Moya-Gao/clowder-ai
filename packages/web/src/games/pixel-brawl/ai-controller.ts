@@ -1,8 +1,8 @@
 import type { GameState } from './game-state';
 import type { FighterId } from './types';
-import { ATTACK_RANGE } from './types';
+import { ATTACK_RANGE, SKILLS, FIGHTER_STATS } from './types';
 
-export type AiAction = 'idle' | 'move_left' | 'move_right' | 'attack';
+export type AiAction = 'idle' | 'move_left' | 'move_right' | 'attack' | 'skill';
 
 interface Rng {
   random(): number;
@@ -20,9 +20,19 @@ export class AiController {
     const opp = gs.getOpponent(this.fighterId);
     const dist = Math.abs(me.x - opp.x);
 
-    // In attack range → high chance to attack
+    // Stunned → forced idle
+    if (me.stunMs > 0) return 'idle';
+
+    // Check skill opportunity: off cooldown + in skill range
+    const skillDef = SKILLS[FIGHTER_STATS[this.fighterId].skillId];
+    if (me.skillCooldownMs <= 0 && dist <= skillDef.range) {
+      // 15% chance to use skill when available (R4 tuning)
+      if (this.rng.random() < 0.15) return 'skill';
+    }
+
+    // In attack range → measured attack (30% for balanced 4-cat pacing)
     if (dist <= ATTACK_RANGE && me.attackCooldownMs <= 0) {
-      return this.rng.random() < 0.7 ? 'attack' : 'idle';
+      return this.rng.random() < 0.3 ? 'attack' : 'idle';
     }
 
     // Out of range → move toward opponent

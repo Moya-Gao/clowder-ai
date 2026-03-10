@@ -1,8 +1,25 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { FighterId } from '@/games/pixel-brawl/types';
 
 type GameMode = 'pvai' | 'aivai';
+
+const ALL_FIGHTERS: FighterId[] = ['opus46', 'opus45', 'codex', 'gpt54'];
+const PVP_FIGHTERS: FighterId[] = ['opus46', 'codex'];
+
+/** Load pixel fonts from Google Fonts */
+function ensureFontsLoaded(): Promise<void> {
+  const id = 'pixel-brawl-fonts';
+  if (document.getElementById(id)) return document.fonts.ready.then(() => {});
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href =
+    'https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&display=swap';
+  document.head.appendChild(link);
+  return document.fonts.ready.then(() => {});
+}
 
 export default function PixelBrawlPage() {
   const gameContainerRef = useRef<HTMLDivElement>(null);
@@ -12,8 +29,10 @@ export default function PixelBrawlPage() {
   const startGame = useCallback(async (mode: GameMode) => {
     if (!gameContainerRef.current) return;
 
-    // Destroy previous game if restarting
     gameRef.current?.destroy(true);
+
+    // Ensure pixel fonts are loaded before Phaser renders text
+    await ensureFontsLoaded();
 
     const Phaser = (await import('phaser')).default;
     const { BattleScene } = await import(
@@ -31,8 +50,12 @@ export default function PixelBrawlPage() {
       scene: [BattleScene],
     });
 
-    // Pass mode to scene
-    gameRef.current.scene.start('BattleScene', { mode, seed: Date.now() });
+    const fighters = mode === 'aivai' ? ALL_FIGHTERS : PVP_FIGHTERS;
+    gameRef.current.scene.start('BattleScene', {
+      mode,
+      seed: Date.now(),
+      fighters,
+    });
     setStarted(true);
   }, []);
 
@@ -52,7 +75,7 @@ export default function PixelBrawlPage() {
         width: '100vw',
         height: '100vh',
         backgroundColor: '#000',
-        fontFamily: 'monospace',
+        fontFamily: '"Silkscreen", monospace',
       }}
     >
       {!started && (
@@ -67,16 +90,17 @@ export default function PixelBrawlPage() {
         >
           <h1
             style={{
-              fontSize: '32px',
+              fontSize: '24px',
               color: '#F1E28A',
               margin: 0,
-              letterSpacing: '4px',
+              letterSpacing: '2px',
+              fontFamily: '"Press Start 2P", monospace',
             }}
           >
             PIXEL BRAWL
           </h1>
-          <p style={{ fontSize: '14px', color: '#3A4658', margin: 0 }}>
-            Cat Café Fighting Demo
+          <p style={{ fontSize: '12px', color: '#3A4658', margin: 0 }}>
+            Cat Caf&eacute; Fighting Demo
           </p>
           <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
             <button
@@ -87,12 +111,12 @@ export default function PixelBrawlPage() {
                 backgroundColor: '#1E2430',
                 color: '#00F0FF',
                 border: '2px solid #3A4658',
-                fontFamily: 'monospace',
+                fontFamily: '"Silkscreen", monospace',
                 fontSize: '14px',
                 cursor: 'pointer',
               }}
             >
-              AI vs AI
+              4-Cat Brawl (AI)
             </button>
             <button
               type="button"
@@ -102,7 +126,7 @@ export default function PixelBrawlPage() {
                 backgroundColor: '#1E2430',
                 color: '#2FA56E',
                 border: '2px solid #3A4658',
-                fontFamily: 'monospace',
+                fontFamily: '"Silkscreen", monospace',
                 fontSize: '14px',
                 cursor: 'pointer',
               }}
@@ -111,7 +135,7 @@ export default function PixelBrawlPage() {
             </button>
           </div>
           <p style={{ fontSize: '10px', color: '#3A4658', margin: 0 }}>
-            Player controls: A/D move | J attack | R restart
+            Player: A/D move | J attack | K skill | R restart
           </p>
         </div>
       )}
