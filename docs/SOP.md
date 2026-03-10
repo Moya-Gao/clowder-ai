@@ -80,6 +80,11 @@ updated: 2026-03-04
 
 详见 ADR-010（目录卫生）。
 
+## 环境变量注册（必读！）
+
+新增 `process.env.XXX` 引用 → **必须在 `packages/api/src/config/env-registry.ts` 的 `ENV_VARS` 数组注册**。
+前端「环境 & 文件」页面自动展示，不注册 = 铲屎官看不到 = 不存在。
+
 ## 文档规范
 
 - `docs/` 下 `.md` 文件必须有 YAML frontmatter（ADR-011）
