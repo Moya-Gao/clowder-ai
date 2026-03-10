@@ -27,11 +27,13 @@ export interface VoiceSession {
 
 interface VoiceSessionActions {
   session: VoiceSession | null;
-  /** Start voice companion — binds to current thread + cat, unlocks autoplay */
-  start: (threadId: string, catId: string) => void;
+  /** Start voice companion — binds to current thread + cat */
+  start: (threadId: string, catId: string, autoplayUnlocked: boolean) => void;
   /** Stop voice companion */
   stop: () => void;
   setPlaybackState: (state: PlaybackState) => void;
+  /** Confirm autoplay is unlocked (called on first successful play) */
+  confirmAutoplayUnlocked: () => void;
   /** Mark an audio block as auto-played */
   markPlayed: (blockId: string) => void;
   /** Check if a block has been auto-played */
@@ -43,7 +45,7 @@ let sessionCounter = 0;
 export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
   session: null,
 
-  start: (threadId, catId) => {
+  start: (threadId, catId, autoplayUnlocked) => {
     sessionCounter++;
     set({
       session: {
@@ -51,7 +53,7 @@ export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
         boundThreadId: threadId,
         activeCatId: catId,
         voiceMode: true,
-        autoplayUnlocked: true,
+        autoplayUnlocked,
         playbackState: 'idle',
         playedBlockIds: new Set(),
       },
@@ -59,6 +61,12 @@ export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
   },
 
   stop: () => set({ session: null }),
+
+  confirmAutoplayUnlocked: () => {
+    const { session } = get();
+    if (!session) return;
+    set({ session: { ...session, autoplayUnlocked: true } });
+  },
 
   setPlaybackState: (playbackState) => {
     const { session } = get();

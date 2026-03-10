@@ -13,8 +13,9 @@ import { useVoiceSessionStore } from '@/stores/voiceSessionStore';
  * Visual: pill-shaped floating button above ChatInput.
  */
 
-/** Unlock browser autoplay by creating and resuming an AudioContext */
-function unlockAutoplay(): void {
+/** Unlock browser autoplay by creating and resuming an AudioContext.
+ *  Returns true if unlock succeeded, false otherwise. */
+function unlockAutoplay(): boolean {
   try {
     const ctx = new AudioContext();
     // Play a tiny silent buffer to fully unlock autoplay
@@ -24,8 +25,9 @@ function unlockAutoplay(): void {
     source.connect(ctx.destination);
     source.start(0);
     ctx.resume();
+    return ctx.state !== 'suspended';
   } catch {
-    // Best-effort — some browsers may not need this
+    return false;
   }
 }
 
@@ -46,8 +48,8 @@ export function VoiceCompanionButton({ threadId, defaultCatId }: VoiceCompanionB
     if (isActive) {
       stop();
     } else {
-      unlockAutoplay();
-      start(threadId, defaultCatId);
+      const unlocked = unlockAutoplay();
+      start(threadId, defaultCatId, unlocked);
     }
   }, [isActive, threadId, defaultCatId, start, stop]);
 

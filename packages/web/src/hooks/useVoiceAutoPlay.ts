@@ -32,10 +32,16 @@ function cleanupAutoplay(): void {
   }
 }
 
-async function fetchAndPlay(block: RichAudioBlock): Promise<void> {
+async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Promise<void> {
   cleanupAutoplay();
 
-  const { markPlayed, setPlaybackState } = useVoiceSessionStore.getState();
+  const { markPlayed, setPlaybackState, confirmAutoplayUnlocked } = useVoiceSessionStore.getState();
+
+  /** Check that the session that triggered this play is still the active one */
+  function isSessionStale(): boolean {
+    const { session } = useVoiceSessionStore.getState();
+    return !session?.voiceMode || session.sessionId !== originSessionId;
+  }
 
   try {
     let blobUrl: string;
@@ -43,6 +49,10 @@ async function fetchAndPlay(block: RichAudioBlock): Promise<void> {
     if (block.url.startsWith('/api/')) {
       const res = await apiFetch(block.url);
       if (!res.ok) return;
+      if (isSessionStale()) {
+        cleanupAutoplay();
+        return;
+      }
       const blob = await res.blob();
       blobUrl = URL.createObjectURL(blob);
       autoplayBlobUrl = blobUrl;
@@ -50,9 +60,7 @@ async function fetchAndPlay(block: RichAudioBlock): Promise<void> {
       blobUrl = block.url;
     }
 
-    // Re-check voice mode is still active after async fetch
-    const { session } = useVoiceSessionStore.getState();
-    if (!session?.voiceMode) {
+    if (isSessionStale()) {
       cleanupAutoplay();
       return;
     }
@@ -71,6 +79,8 @@ async function fetchAndPlay(block: RichAudioBlock): Promise<void> {
     };
 
     await audio.play();
+    // First successful play confirms autoplay is truly unlocked
+    confirmAutoplayUnlocked();
     markPlayed(block.id);
   } catch {
     setPlaybackState('idle');
@@ -116,7 +126,7 @@ export function useVoiceAutoPlay(): void {
     if (messages.length <= prevCount) return;
 
     const block = findUnplayedAudioBlock(messages.slice(prevCount));
-    if (block) fetchAndPlay(block);
+    if (block) fetchAndPlay(block, session.sessionId);
   }, [messages, session]);
 
   // Cleanup on unmount or voice mode stop
