@@ -96,7 +96,9 @@ status: spec
 - [ ] AC8: 右侧 task_progress 和主区 assistant bubble 可用同一 `invocationId + catId` 做关联
 - [ ] AC9: 已产出的 assistant 文本不能直到后续用户再发一句消息后才迟到出现；若发生补回，debug 证据必须能解释触发源（history refresh / draft merge / socket replay / local reconcile）
 - [ ] AC10: 同一条历史 assistant 气泡在一次会话中不能出现“补回后又因切 thread 再次消失”的抖动；若发生，debug 时间线必须显示是哪次 replace / rehydrate / reconcile 改写了它
-- [ ] AC11: debug 证据必须能区分“Cat Café 驱动的 invocation”与“外部 CLI 直接 resume/continue 导致的 session 越界推进”，避免把 out-of-band session 变化误判为主区渲染链路唯一根因
+- [ ] AC11: debug 证据必须能区分”Cat Café 驱动的 invocation”与”外部 CLI 直接 resume/continue 导致的 session 越界推进”，避免把 out-of-band session 变化误判为主区渲染链路唯一根因
+- [ ] AC12: 写路径清点完成：所有能写 `messages`/`catStatuses`/`unreadCount`/`hasActiveInvocation` 的入口均已列出，标注真相源 vs 派生
+- [ ] AC13: 状态矩阵完成：`active/background/refresh/switch-away/stream/callback/done/error/timeout` 全场景的四字段预期状态已列出
 
 ## 需求点 Checklist
 
@@ -110,9 +112,11 @@ status: spec
 | R6 | debug mode 可导出完整时间线 | AC6 | manual + test | [ ] |
 | R7 | 关键 race 有回归测试 | AC7 | test | [ ] |
 | R8 | plan/bubble 可关联到同一 invocation | AC8 | test | [ ] |
-| R9 | 禁止“后续提示词触发历史气泡闪现” | AC9 | test + 现场证据 | [ ] |
+| R9 | 禁止”后续提示词触发历史气泡闪现” | AC9 | test + 现场证据 | [ ] |
 | R10 | 历史气泡可见性单调，不允许反复显隐 | AC10 | test + 现场证据 | [ ] |
 | R11 | 区分 Cat Café 内部驱动与外部 CLI 越界推进 | AC11 | debug dump + 现场证据 | [ ] |
+| R12 | 写路径清点 | AC12 | audit 文档 | [x] |
+| R13 | 状态矩阵 | AC13 | audit 文档 | [x] |
 
 ## Key Decisions
 
@@ -173,6 +177,7 @@ status: spec
 - 相关 Feature: [F048](./F048-restart-recovery.md)
 - 相关 Feature: [F069](./F069-thread-read-state.md)
 - 相关 Feature: [F084](./F084-ragdoll-rescue-hub.md)
+- **写路径审计**: [F081-write-path-audit.md](./F081-write-path-audit.md)（2026-03-10, 56 messages + 28 catStatuses + 8 unread + 12 hasActiveInvocation 写入点）
 - 现场证据：2026-03-07 铲屎官 thread 复盘（“先看到气泡，切走再切回气泡消失” + “Claude session 已有回答，前端主区无气泡” + “08:19 的布偶猫回复直到 08:33 再发下一句提示词后才闪现回主区” + “闪现回来的同一条历史气泡在再次切换 thread 后又消失” + “直接在 Claude CLI 继续同一 session 时，可见 session 正在消费 `[对话历史增量 - 未发送过 2 条]` 并执行 Bash，说明 session 状态会在 Cat Café 外部前进”）
 
 ## Detective Notes
