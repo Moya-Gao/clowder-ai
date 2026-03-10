@@ -177,9 +177,8 @@ sync_runtime_worktree() {
     local lock_drift
     lock_drift=$(git -C "$RUNTIME_DIR" diff --name-only 2>/dev/null || true)
     if [ "$lock_drift" = "pnpm-lock.yaml" ]; then
-      info "auto-committing pnpm-lock.yaml drift fix"
-      git -C "$RUNTIME_DIR" add pnpm-lock.yaml
-      git -C "$RUNTIME_DIR" commit -m "fix(lock): auto-commit pnpm-lock.yaml drift from install"
+      info "lock drift detected — stashing instead of committing (avoids branch divergence)"
+      git -C "$RUNTIME_DIR" stash push -m "lock-drift-auto-stash" -- pnpm-lock.yaml
     fi
   fi
 
