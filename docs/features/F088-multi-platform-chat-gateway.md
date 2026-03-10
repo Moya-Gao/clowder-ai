@@ -8,8 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1-4+A+B+4fix done | Phase C next
-> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
+> Owner: 布偶猫 | Status: Phase 1-4+A+B+4fix+C done | Phase 5 next
+> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | [#353](https://github.com/zts212653/cat-cafe/pull/353) (Phase C) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 > 用户文档: [IM 平台接入指南](../guides/im-platform-setup.md) | [IM 使用指南](../guides/im-usage-guide.md) | [设计讨论纪要](../discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md)
 
@@ -137,7 +137,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 | **Phase 8** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
 | **Phase 9** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**Phase 1+2+3+A+B+4 已完成。下一里程碑：Phase 5（图片）→ 6（语音）→ 7（群聊）。**
+**Phase 1+2+3+A+B+4+C 已完成。下一里程碑：Phase 5（图片）→ 6（语音）→ 7（群聊）。**
 
 #### Phase 2 详细拆解（多猫身份 + 分角色展示）
 
@@ -237,6 +237,36 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-17: agent 完成后最终更新为完整回复 — onStreamEnd removes cursor indicator, 2 tests
 - [x] AC-18: 编辑频率限流（2s interval + 200 char delta，避免触发平台 rate limit）— configurable thresholds, 1 test
 
+### Phase C — 架构归一（命令管道统一 + 跨平台 Thread）
+- [x] AC-C1: `CommandResult` 新增 `contextThreadId` — 所有 4 个命令（/where /new /threads /use）返回关联的 thread ID，用于管道落库
+- [x] AC-C2: `ConnectorRouter.storeCommandExchange()` — 把 inbound 命令 + outbound 系统响应成对写入 messageStore + WebSocket 广播，前端可见 — 3 router tests
+- [x] AC-C3: 无 contextThreadId 时优雅降级 — storeCommandExchange 返回 undefined，不报错不广播 — 1 router test
+- [x] AC-C4: `/threads` 跨平台 — 从 `threadStore.list(userId)` 全局查询替代 `bindingStore.listByUser()`，飞书/Telegram 看到同一份 thread 列表 — 1 command-layer test
+- [x] AC-C5: `/use` 跨平台 — 同上，从全局 threadStore 搜索 prefix match — 1 command-layer test
+- [x] AC-C6: `/threads` 在有 binding 时返回 contextThreadId（R1 P1 修复）— 2 command-layer tests
+- [x] AC-C7: `system-command` connector 定义注册 — 系统命令响应有独立 source（icon ⚙️, label "⚙️ Cat Café"）— shared types
+- [x] AC-C8: Bootstrap deps 补齐 `threadStore.list()` 方法签名 — connector-gateway-bootstrap.ts
+
+#### Phase C 实现细节
+
+**核心设计决策**：
+
+1. **命令消息入管道** — 每次命令交互存储 2 条消息：inbound（source=connector）+ outbound（source=system-command），timestamp 差 1ms 保序
+2. **跨平台 thread 切换** — `/threads` 和 `/use` 从 connector-scoped `bindingStore.listByUser()` 改为 `threadStore.list(userId)`，thread 是全局资源不属于某个 connector
+3. **contextThreadId 语义** — 不是"命令创建了什么 thread"，而是"这次命令交互应该记录到哪个 thread"。`/threads` 在有 binding 时用当前 binding 的 threadId，`/where` 无 binding 时返回 undefined（不存储）
+4. **RouteResult 扩展** — command 路径返回 `{ kind: 'command', threadId?, messageId? }`，调用方可追踪存储结果
+
+**关键文件**：
+
+| 文件 | 行数 | 改动内容 |
+|------|------|----------|
+| `ConnectorCommandLayer.ts` | 140 | +contextThreadId, +handleThreads 传 externalChatId, +threadStore.list() |
+| `ConnectorRouter.ts` | 227 | +storeCommandExchange() 私有方法, +RouteResult command variant |
+| `connector-gateway-bootstrap.ts` | ~230 | +list() in deps wiring |
+| `connector.ts` (shared) | 113 | +system-command connector definition |
+
+**Review 历程**：codex R1 发现 `/threads` 缺少 contextThreadId (P1) → Red→Green 修复 → R2 放行 (0 P1/P2) → 云端 0 P1/P2 → PR #353 squash merged
+
 ### Phase 5 — 图片/文件收发
 - [ ] AC-19: 接收用户发送的图片消息（飞书 image / Telegram photo）→ 下载 → 存储 → 传递给猫
 - [ ] AC-20: 接收用户发送的文件消息 → 下载 → 传递给猫
@@ -304,7 +334,7 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - **Phase A** ✅: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见（PR #344 + #346）
 - **Phase B** ✅: IM 命令集 `/new /threads /use /where` + activeThread + deep link（PR #349）
 - **Phase 4-fix** ✅: StreamingOutboundHook 接入调用链 + 命令回复走 MessageEnvelope（愿景守护 P1+P2 修复，PR #350）
-- **Phase C**: 架构归一 — 全链路统一管道 + `/link` 正式绑定 + 跨平台 thread 视图
+- **Phase C** ✅: 架构归一 — 命令管道统一（storeCommandExchange）+ 跨平台 `/threads` `/use`（threadStore.list）+ system-command connector（PR #353）
 
 否决：不做自动按话题分 thread；不把 IM 事件绕回 GitHub transport
 
