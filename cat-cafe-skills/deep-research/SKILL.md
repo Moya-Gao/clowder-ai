@@ -95,18 +95,61 @@ docs/prompts/YYYY-MM-DD-{topic}-research-prompt.md
 
 ## Chrome MCP 自动化（Step 2）
 
-执行猫可用 `mcp__claude-in-chrome__*` 工具自动发送 prompt：
+执行猫可用 `mcp__claude-in-chrome__*` 工具自动发送 prompt + 附件 + 提取回复。
 
-- **Claude.ai**：`tabs_create_mcp` → navigate → `javascript_tool` 注入文本 → 发送
-- **ChatGPT**：同上，切换到 Deep Research 模式再发
-- **Gemini**：⚠️ contenteditable 不接受标准 clipboard paste → **fallback：铲屎官手动粘贴**
+**详细 DOM 选择器和代码片段见各平台 ref**：
+- **ChatGPT** → `refs/chatgpt-browser-automation.md`（2026-03-10 实测验证 ✅）
+- **Claude.ai** → `refs/claude-ai-browser-automation.md`（2026-03-10 实测验证 ✅）
+- **Gemini** → `refs/gemini-browser-automation.md`（2026-03-10 实测验证 ✅）
 
-**报告下载卡点**（Chrome MCP 无法跨域读 iframe）：
-- ChatGPT：点报告卡片标题栏 ↓ 图标
-- Claude.ai：点附件 Download 按钮
-- Gemini：分享 → 导出 Google Docs → 下载 Markdown
+### ChatGPT 自动化摘要（已验证）
 
-自动下载失败时 → 召唤铲屎官手动下载，执行猫负责重命名归档。
+| 步骤 | 方法 | 关键选择器 |
+|------|------|-----------|
+| 注入文本 | `execCommand('insertText')` | `#prompt-textarea` |
+| 上传文件 | DataTransfer API 注入 file input | `querySelectorAll('input[type="file"]')[0]` |
+| 切换深度研究 | 点击侧栏或 `+` 菜单 | `[data-testid="deep-research-sidebar-item"]` |
+| 发送 | 点击发送按钮 / 按 Enter | 输入框右侧圆形按钮 |
+| 等待完成 | 轮询停止按钮是否消失 | `button[aria-label="停止生成"]` |
+| 复制回复 | 点击复制按钮 → 读剪贴板 | `[data-testid="copy-turn-action-button"]` |
+
+### 文件上传工作流（提示词在输入框，ref 文档用文件上传）
+
+```
+1. 猫本地读取 ref .md 文件内容
+2. JS: new File([content], 'filename.md', {type: 'text/markdown'})
+3. JS: DataTransfer → fileInput.files = dt.files → dispatch 'change'
+4. 文件卡片出现在输入框上方
+5. 同时 execCommand 注入提示词文本
+6. 发送
+```
+
+### Gemini 自动化摘要（已验证）
+
+| 步骤 | 方法 | 关键选择器 |
+|------|------|-----------|
+| 注入文本 | `execCommand('insertText')` ✅ | `.ql-editor[contenteditable="true"]`（Quill） |
+| 切换 Deep Research | 工具菜单 | 点击「工具」→「Deep Research」 |
+| 发送 | 点击发送按钮 | 输入框右侧蓝色箭头 |
+| 确认计划 | 点击「开始研究」 | ← Gemini 独有！ChatGPT/Claude 无此步骤 |
+| 等待完成 | 轮询停止按钮消失 | 或检查「分享和导出」按钮出现 |
+| 导出 | 分享和导出 → 导出到 Google 文档 | 报告面板顶部按钮 |
+| 下载 MD | Google Docs: 文件 → 下载 → Markdown | 标准 Google Docs 操作 |
+
+> **重要更正**：之前记录的"contenteditable 不接受 execCommand"是错误的。Gemini Quill 编辑器完全支持。
+
+### 报告提取（2026-03-10 实测确认）
+
+- **GPT Pro 回复**：`copy-turn-action-button` + `clipboard.readText()` ✅ 全自动
+- **✅ GPT 深度研究报告**：API 提取法（`backend-api/conversation/{id}` + Bearer token）
+  - 报告在 widget state JSON → `report_message.content.parts[0]` = 完整 Markdown
+  - Blob 下载 → `cp` 归档（详见 `refs/chatgpt-browser-automation.md`）
+- **✅ Claude.ai 报告**：Artifact 面板原生 "Download as Markdown" 按钮（blob URL，同源 DOM）
+  - 点击 Copy options → Download as Markdown → 自动下载 .md 文件
+  - 比 ChatGPT 简单得多——无需 API 提取（详见 `refs/claude-ai-browser-automation.md`）
+- **✅ Gemini 报告**：导出到 Google Docs → 文件 → 下载 → Markdown (.md)
+  - 两跳路径（Gemini → Google Docs → 本地），比 ChatGPT/Claude 多一步
+  - 下载文件名 = Google Docs 文档标题 + `.md`（详见 `refs/gemini-browser-automation.md`）
 
 ## 常见错误
 
