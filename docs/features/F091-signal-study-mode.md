@@ -82,6 +82,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [F21++ 设计文档（2026-02-26 feat 采访）](../plans/2026-02-26-f21-study-mode-design.md)
 - [F021 聚合文件](./F021-signal-study-mode.md)
 - [Signal 信源缺口审计](../plans/2026-02-20-f21-signal-sources-gap.md)
+- [UX Wireframe](../../designs/f091-signal-study-mode.pen) — 三屏 wireframe（Pencil）
 
 ## 铲屎官原话（2026-03-10 Design Gate）
 
@@ -134,4 +135,25 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 ## Timeline
 
 - 2026-03-10: Kickoff + Design Gate 通过，面向终态不分阶段
-- 2026-03-10: UX wireframe 设计（设计先行，代码是最廉价的）
+- 2026-03-10: UX wireframe 完成（3 屏：文章详情+Study折叠区、对话链接注入流程、播客播放器）
+
+## UX Wireframe 设计说明
+
+### Screen A: 文章详情 + Study 折叠区
+- 两列布局：左列文章列表（320px），右列详情（fill）
+- 列表项有 study 的显示绿色 badge（"2 studies"），无 study 的显示状态 badge（"inbox"）
+- 详情区：Tier badge + 状态 → 标题 → 来源/时间 → 三个 action 按钮 → AI 摘要 → **Study Mode 折叠区**
+- Study 折叠区（淡灰底 + 边框）：笔记卡片（参与猫 badge + 洞见预览）+ 播客卡片（播放器 + 声线标识）
+- "开始学习"按钮紫色突出，"在对话中讨论"灰色次级
+
+### Screen B: 对话中贴链接 → 上下文注入
+- 铲屎官在 thread 中贴 signal:// 链接
+- 系统蓝色提示条："已识别 Signal 文章，自动注入文章上下文到猫猫 system prompt"
+- 猫猫回复直接体现对文章内容的理解（不是泛泛而谈）
+- 这是**主入口**——铲屎官日常场景是聊天碰撞灵感
+
+### Screen C: 播客播放器（双模式）
+- 精华版/深度版 pill 切换
+- 播放控制：上一个 / 播放 / 下一个 + 进度条 + 时间
+- "正在说话"指示器：高亮当前说话的猫，灰色显示其他猫（可 2-3 只）
+- 对话稿预览：每猫用自己的颜色标注
