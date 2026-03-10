@@ -8,9 +8,11 @@ created: 2026-03-05
 
 # F066: Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列
 
-> **Status**: spec
+> **Status**: phase1-done
 > **Owner**: 布偶猫 (Opus 4.6)
 > **Created**: 2026-03-05
+> **Phase 1 Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成
+> **Phase 2/3**: 流式分句 + 播放队列，拆分为未来独立 Feature
 
 ## Why
 
@@ -93,23 +95,23 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 
 ## Acceptance Criteria
 
-- [ ] AC-1: TTS 合成完全在本地 Apple Silicon 完成，不依赖外部云服务
-- [ ] AC-2: 现有语音消息功能（F034）不受影响——微信风格语音条、缓存、降级全部正常
-- [ ] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）
-- [ ] AC-4: (Phase 2) LLM 流式输出到首次发声延迟 < 2 秒
-- [ ] AC-5: (Phase 2) 长文本（>100 字）合成延迟比全文合成降低 50%+
-- [ ] AC-6: (Phase 3) 双猫对话稿可按 queue 模式交替播放
-- [ ] AC-7: (Phase 3) 用户可暂停/跳过正在播放的语音
+- [x] AC-1: TTS 合成完全在本地 Apple Silicon 完成，不依赖外部云服务 ✅ Qwen3-TTS 1.7B Base clone via mlx-audio
+- [x] AC-2: 现有语音消息功能（F034）不受影响——微信风格语音条、缓存、降级全部正常 ✅ PR #333 回归测试通过
+- [x] AC-3: 中文合成质量主观评估不低于 edge-tts（铲屎官试听确认）✅ 铲屎官："牛逼！是我要的了！"
+- [ ] AC-4: (Phase 2) LLM 流式输出到首次发声延迟 < 2 秒 → 拆分至未来 Feature
+- [ ] AC-5: (Phase 2) 长文本（>100 字）合成延迟比全文合成降低 50%+ → 拆分至未来 Feature
+- [ ] AC-6: (Phase 3) 双猫对话稿可按 queue 模式交替播放 → 拆分至未来 Feature
+- [ ] AC-7: (Phase 3) 用户可暂停/跳过正在播放的语音 → 拆分至未来 Feature
 
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | 简陋方案升级——从 edge-tts 换成本地 TTS | AC-1, AC-2 | test: mlx-audio 本地合成 + F034 回归测试 | [ ] |
-| R2 | 中文声音质量不能倒退 | AC-3 | manual: 铲屎官试听对比 | [ ] |
-| R3 | F021++ 播客需要流式合成（AIRI 调研启发） | AC-4, AC-5 | test: 首次发声延迟测量 | [ ] |
-| R4 | 双猫交替对话播放（AIRI Intent 系统启发） | AC-6 | test: queue 行为验证 | [ ] |
-| R5 | 用户可控制播放 | AC-7 | manual: 暂停/跳过操作 | [ ] |
+| R1 | 简陋方案升级——从 edge-tts 换成本地 TTS | AC-1, AC-2 | test: mlx-audio 本地合成 + F034 回归测试 | [x] |
+| R2 | 中文声音质量不能倒退 | AC-3 | manual: 铲屎官试听对比 | [x] |
+| R3 | F021++ 播客需要流式合成（AIRI 调研启发） | AC-4, AC-5 | test: 首次发声延迟测量 | [ ] 拆分 |
+| R4 | 双猫交替对话播放（AIRI Intent 系统启发） | AC-6 | test: queue 行为验证 | [ ] 拆分 |
+| R5 | 用户可控制播放 | AC-7 | manual: 暂停/跳过操作 | [ ] 拆分 |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -197,6 +199,10 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 | 2026-03-09 | Qwen3-TTS Base clone 试听（45 wav）→ 铲屎官："牛逼！是我要的了！" |
 | 2026-03-09 | **E 型统一方案确立**：三猫全走 Qwen3 Base clone + 原神参考音频 |
 | 2026-03-09 | 最终选角拍板：宪宪=流浪者v2，砚砚=魈v2，烁烁=班尼特v1 |
+| 2026-03-09 | PR #333 合入 main (f27b827d)：Qwen3CloneAdapter + E 型统一声线 + 全链路 clone passthrough |
+| 2026-03-09 | 三猫语音实测聊天 — clone 模式端到端验证通过 |
+| 2026-03-09 | 发现长文本 clone timeout bug（30s→35.6s）→ hotfix e57d81ae（120s clone timeout）|
+| 2026-03-09 | 缅因猫 GPT-5.4 + 布偶猫愿景守护 → **Phase 1 closed** |
 
 ## Voice Audition Progress (2026-03-09)
 
@@ -227,5 +233,62 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 - [x] clone API 调研（`ref_audio` + `ref_text` + `instruct` 三参数）
 - [x] 试听脚本：`scripts/tts-qwen3-clone-audition.py`
 - [x] 全量试听（9 preset × 5 texts = 45 wav）→ 铲屎官拍板通过！
-- [ ] 声线配置固化到 `cat-voices.ts`（Phase 1 集成时做）
-- [ ] 烁烁 Qwen3 VoiceDesign `shuo_hinata` → clone 模式迁移确认
+- [x] 声线配置固化到 `cat-voices.ts` — PR #333 合入 main (f27b827d)
+- [x] 烁烁 Qwen3 VoiceDesign `shuo_hinata` → clone 模式迁移完成（全部统一 Base clone）
+
+## Phase 1 交付物（2026-03-09 合入 main）
+
+| 交付物 | PR/Commit | 说明 |
+|--------|-----------|------|
+| TtsAdapter ABC + MlxAudio/EdgeTts 实现 | PR #234 (2026-03-07) | Python TTS 服务 Adapter 化重构 |
+| Qwen3-TTS Base clone Adapter | PR #333 (2026-03-09) | `Qwen3CloneAdapter` + ref_audio/ref_text/instruct 全链路 |
+| VoiceBlockSynthesizer clone passthrough | PR #333 | clone 参数从 cat-voices → synthesize() 全链路透传 |
+| cat-voices.ts E 型统一配置 | PR #333 | 三猫声线：流浪者/魈/班尼特 + Kokoro 兼容 voice ID |
+| Clone-aware timeout (30s→120s) | e57d81ae | 长文本 clone 合成防超时 |
+| 缅因猫 R1→R3 review + 云端 review | PR #333 | 5 findings (3P1+1P2) 全部修复 |
+
+## 踩坑复盘 / 调试心得（2026-03-09）
+
+### 坑 1: Kokoro-82M 质量远低于预期
+- **现象**：Kokoro-82M 中文合成效果像"五年前的机器朗读"，韵律生硬
+- **根因**：Kokoro 是 82M 超轻量模型，中文训练数据不足
+- **教训**：TTS 模型参数量对中文质量影响巨大；轻量模型省算力但品质落差大。先做 A/B 试听再集成
+
+### 坑 2: Qwen3-TTS VoiceDesign 抽卡式不稳定
+- **现象**：同一 voice description 每次生成的声线差异大（9 轮试听仍不收敛）
+- **根因**：VoiceDesign 是 zero-shot 文本描述到声线的映射，本质是 sampling，高 variance
+- **教训**：VoiceDesign 适合探索不适合生产。生产环境需要确定性声线 → Base clone 用 `ref_audio` 锚定
+
+### 坑 3: GPT-SoVITS 英文处理是结构性缺陷
+- **现象**：81 个 wav 中，所有含英文的文本都出现乱码/断裂
+- **根因**：GPT-SoVITS 以中文/日文为主训练，英文 phonemizer 基本不可用
+- **教训**：Cat Café 内容中英混杂频率高（代码术语、猫名等），GPT-SoVITS 不适合做在线引擎。降级为离线声库工具
+
+### 坑 4: Clone 合成超时导致语音降级
+- **现象**：长文本（~200 字"坏猫计划"）发送后显示 `🔇 语音合成失败`
+- **根因**：Qwen3-TTS Base clone 合成 200 字中文需要 ~35.6s，超过 `MlxAudioTtsProvider` 默认 30s timeout
+- **修复**：检测 `refAudio` 或 `instruct` 参数存在时，自动将 timeout 提升到 `Math.max(this.timeoutMs, 120_000)`
+- **教训**：clone 模式比标准合成慢 3-5x（Kokoro 82M ~3s vs Qwen3 clone ~35s）。新 provider/模式必须重新评估 timeout
+
+### 坑 5: Voice ID 不兼容导致 clone 失败
+- **现象**：`wanderer`/`xiao`/`bennett` 作为 voice ID 时 Kokoro 报错，clone 模式也可能受影响
+- **根因**：这些是"化妆品名"（cosmetic names），Kokoro 合法 voice ID 是 `zm_*` 系列。虽然 clone 模式用 ref_audio 覆盖声线，但 voice 参数仍需合法
+- **修复**：所有猫统一恢复为 `zm_yunjian`（Kokoro 兼容 ID）
+- **教训**：voice ID 是模型层面的标识符，不是用户友好名。cat-voices.ts 的 `voice` 字段必须用模型认可的值
+
+### 坑 6: VoiceBlockSynthesizer 未透传 clone 参数
+- **现象**：通过 `/api/tts/speech` 直接调用可以 clone，但语音消息气泡（Route A/B）不 clone
+- **根因**：`VoiceBlockSynthesizer.synthesize()` 只传了 `text/voice/langCode/speed/format`，clone 参数（refAudio/refText/instruct/temperature）被丢弃
+- **修复**：从 `getCatVoice()` 提取 clone 字段 → 透传到 `provider.synthesize()` + 加入 cache hash
+- **教训**：多层透传链路（config → service → provider）每层都需要确认参数传递，不能假设"上层已处理"
+
+### 坑 7: Runtime 激活 TTS_PROVIDER
+- **现象**：铲屎官执行 `TTS_PROVIDER=qwen3-clone python3 tts-api.py` 后发现仍显示 `mlx-audio`
+- **根因**：在 cat-cafe-runtime 目录下运行的是旧代码（未 pull 最新 main）
+- **教训**：合入 main ≠ 部署到 runtime。runtime 是独立的生产环境，需要铲屎官主动更新
+
+### 坑 8: Cache key 缺少 refText 导致声线串台
+- **现象**：Code review 发现的潜在 bug — 同一 text + 不同 refText 会命中同一缓存
+- **根因**：`/api/tts/speech` 路由的 cache hash 只包含 refAudio/instruct，漏了 refText
+- **修复**：在 `tts.ts` 和 `VoiceBlockSynthesizer.ts` 的 hashParts 中加入 refText
+- **教训**：引入新参数时，搜索所有 hash/cache/key 计算点，确保无遗漏
