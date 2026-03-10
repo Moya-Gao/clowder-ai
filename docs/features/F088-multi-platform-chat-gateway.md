@@ -8,8 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 done
-> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | Phase 2 PR: TBD | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
+> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 done | Phase 3 in progress
+> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Why
@@ -91,11 +91,15 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 |------|------|---------|--------|------|
 | **Phase 1 (MVP)** ✅ | 飞书 + Telegram DM-only 双向对话 | **完成** | — | — |
 | **Phase 2** ✅ | 多猫身份 + 分角色展示 + 外部 @路由 | **完成** | — | — |
-| **Phase 3** | 群聊 + 多人 + 权限隔离 | 3-4天 | 3猫 | F077 |
-| **Phase 4** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
-| **Phase 5** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
+| **Phase 3** | 富文本卡片（rich block → 飞书 card / Telegram formatted） | 2-3天 | 1猫 | — |
+| **Phase 4** | 消息编辑模拟流式（agent 回复过程实时更新到外部平台） | 2-3天 | 1猫 | Phase 3 |
+| **Phase 5** | 图片/文件收发（双向：接收用户图片 + 发送猫的图片） | 2-3天 | 1猫 | — |
+| **Phase 6** | 语音消息（接收语音 → STT → 猫处理 → TTS → 发送语音） | 4-5天 | 1猫 | 外部 STT/TTS |
+| **Phase 7** | 群聊 + 多人 + 权限隔离 | 3-4天 | 3猫 | F077 |
+| **Phase 8** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
+| **Phase 9** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**Phase 1+2 已完成。下一里程碑：Phase 3（群聊 + 多人）。全量 Gateway：3-4 周。**
+**Phase 1+2 已完成。下一里程碑：Phase 3（富文本卡片）→ 4（模拟流式）→ 5（图片）→ 6（语音）。**
 
 #### Phase 2 详细拆解（多猫身份 + 分角色展示）
 
@@ -130,14 +134,15 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 
 **显式排除（后续 Phase）**：
 - ✅ ~~多猫身份映射 / 分角色展示 / 外部 @路由~~ — **Phase 2 已完成**
-- ❌ 群聊 / @mention 触发（Phase 3，依赖 F077）
-- ❌ 多用户 / 权限隔离（Phase 3，依赖 F077）
-- ❌ Slack / Discord / 钉钉（Phase 4）
-- ❌ OAuth 自助接入 / 配置管理 UI（Phase 4）
-- ❌ 多账号 / 多 workspace（Phase 5）
-- ❌ 消息编辑/撤回同步（Phase 5）
-- ❌ 附件/文件/图片传输
-- ❌ Outbound streaming / 流式编辑同步（Phase 5）
+- 🚧 富文本卡片 rich block → card 映射（Phase 3，进行中）
+- 🚧 消息编辑模拟流式（Phase 4）
+- 🚧 图片/文件收发（Phase 5）
+- 🚧 语音消息 STT/TTS（Phase 6）
+- ❌ 群聊 / @mention 触发（Phase 7，依赖 F077）
+- ❌ 多用户 / 权限隔离（Phase 7，依赖 F077）
+- ❌ Slack / Discord / 钉钉（Phase 8）
+- ❌ OAuth 自助接入 / 配置管理 UI（Phase 8）
+- ❌ 多账号 / 多 workspace（Phase 9）
 
 ### 为什么不是"好几个月"
 
@@ -164,19 +169,41 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-9: 外部回帖标明是哪只猫在说话（方案 A: 消息前缀 `[布偶猫🐱]`，8 unit tests）
 - [x] AC-10: 多猫接力时，外部看到分角色对话（ConnectorInvokeTrigger 传透 catId → OutboundDeliveryHook 前缀，3 integration tests）
 
-### Phase 3 — 群聊 + 多人
-- [ ] AC-11: 群聊消息 @猫猫 → 仅 @mention 触发回复（依赖 F077）
-- [ ] AC-12: 多用户权限隔离（非 owner 用户能力边界）
+### Phase 3 — 富文本卡片（rich block → platform card）
+- [ ] AC-11: Cat Café rich block（check-in card、audio reminder 等）→ 飞书消息卡片 JSON（interactive card）
+- [ ] AC-12: Cat Café rich block → Telegram formatted message（HTML/MarkdownV2 + inline keyboard）
+- [ ] AC-13: OutboundDeliveryHook 自动检测 rich block 类型，选择纯文本降级 or 卡片格式
+- [ ] AC-14: 飞书卡片支持按钮交互回调（card action callback → ConnectorRouter）
 
-### Phase 4 — 更多平台 + 自助接入
-- [ ] AC-13: Slack adapter 接入
-- [ ] AC-14: 支持 3+ 平台
-- [ ] AC-15: 管理员可通过 UI 配置连接器
-- [ ] AC-16: OAuth 自助接入流程
+### Phase 4 — 消息编辑模拟流式
+- [ ] AC-15: agent 开始处理时发送"思考中..."占位消息
+- [ ] AC-16: agent streaming 过程中，定期 patch/edit 占位消息更新内容（飞书 `im.message.patch` / Telegram `editMessageText`）
+- [ ] AC-17: agent 完成后最终更新为完整回复
+- [ ] AC-18: 编辑频率限流（避免触发平台 rate limit）
 
-### Phase 5 — 产品化
-- [ ] AC-17: Outbound streaming（流式输出到外部平台）
-- [ ] AC-18: 多账号 / 多 workspace
+### Phase 5 — 图片/文件收发
+- [ ] AC-19: 接收用户发送的图片消息（飞书 image / Telegram photo）→ 下载 → 存储 → 传递给猫
+- [ ] AC-20: 接收用户发送的文件消息 → 下载 → 传递给猫
+- [ ] AC-21: 猫的回复包含图片时 → 上传到平台 → 发送图片消息（飞书 `im.image.create` / Telegram `sendPhoto`）
+
+### Phase 6 — 语音消息
+- [ ] AC-22: 接收用户语音消息 → 下载音频 → STT 转文字 → 作为文本消息传给猫
+- [ ] AC-23: 猫的文字回复 → TTS 合成语音 → 上传 → 发送语音消息到外部平台
+- [ ] AC-24: STT/TTS 服务可配置（支持多个 provider：Whisper / Azure / 讯飞等）
+
+### Phase 7 — 群聊 + 多人
+- [ ] AC-25: 群聊消息 @猫猫 → 仅 @mention 触发回复（依赖 F077）
+- [ ] AC-26: 多用户权限隔离（非 owner 用户能力边界）
+
+### Phase 8 — 更多平台 + 自助接入
+- [ ] AC-27: Slack adapter 接入
+- [ ] AC-28: 支持 3+ 平台
+- [ ] AC-29: 管理员可通过 UI 配置连接器
+- [ ] AC-30: OAuth 自助接入流程
+
+### Phase 9 — 产品化
+- [ ] AC-31: 多账号 / 多 workspace
+- [ ] AC-32: 运维监控 + 审计日志
 
 ## Dependencies
 
