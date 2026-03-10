@@ -316,39 +316,24 @@ test_wrap_up_uses_10min_cooldown() {
   teardown
 }
 
-# Test 13: session isolation — different session_ids get different state files (R2 P1-4)
-test_session_isolation() {
+# Test 13: cross-session sharing — different sessions share the same state file
+# (protects the human, not the cat session)
+test_cross_session_sharing() {
   setup
   source "$STATE_SCRIPT"
 
-  # Set up two different sessions
-  export HYPERFOCUS_SESSION_ID="session-aaa"
   init_state
-  set_field "active_work_ms" "9000000"  # 150min for session A
+  set_field "active_work_ms" "9000000"  # 150min
 
-  export HYPERFOCUS_SESSION_ID="session-bbb"
-  init_state
-  set_field "active_work_ms" "1000000"  # ~17min for session B
-
-  # Session B should NOT see session A's active_work_ms
-  local b_active
-  b_active=$(get_field "active_work_ms")
-  if ! assert_eq "1000000" "$b_active" "session B should have its own state, not session A's"; then
-    unset HYPERFOCUS_SESSION_ID
+  # Re-source to simulate a new session — should see the same state
+  source "$STATE_SCRIPT"
+  local active
+  active=$(get_field "active_work_ms")
+  if ! assert_eq "9000000" "$active" "new session should see existing state (user-level sharing)"; then
     teardown; return 1
   fi
 
-  # Switch back to session A — should still have 150min
-  export HYPERFOCUS_SESSION_ID="session-aaa"
-  local a_active
-  a_active=$(get_field "active_work_ms")
-  if ! assert_eq "9000000" "$a_active" "session A should retain its own state"; then
-    unset HYPERFOCUS_SESSION_ID
-    teardown; return 1
-  fi
-
-  unset HYPERFOCUS_SESSION_ID
-  echo "✓ test_session_isolation"
+  echo "✓ test_cross_session_sharing"
   teardown
 }
 
@@ -428,7 +413,7 @@ run_all_tests() {
   test_state_file_rejects_symlink || ((failed++))
   test_dismissed_resets_after_cooldown || ((failed++))
   test_wrap_up_uses_10min_cooldown || ((failed++))
-  test_session_isolation || ((failed++))
+  test_cross_session_sharing || ((failed++))
   test_bypass_escalation_cooldown || ((failed++))
   test_night_mode_detection || ((failed++))
 

@@ -6,14 +6,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 从 stdin 读取 JSON 输入（必须在 source state.sh 之前，以提取 session_id）
+# 从 stdin 读取 JSON 输入
 INPUT=$(cat)
 
-# P1-4: 提取 session_id 实现会话隔离
-export HYPERFOCUS_SESSION_ID
-HYPERFOCUS_SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "default"')
-
-# 引入状态管理函数（STATE_FILE 路径依赖 HYPERFOCUS_SESSION_ID）
+# 引入状态管理函数（用户级状态文件，跨 session 共享）
 source "$SCRIPT_DIR/state.sh"
 
 # 记录这次活动
