@@ -46,8 +46,12 @@ export class MlxAudioTtsProvider implements ITtsProvider {
       ...(request.temperature != null ? { temperature: request.temperature } : {}),
     });
 
+    // F066: Clone mode (Qwen3-TTS) is much slower than Kokoro — use longer timeout
+    const hasCloneParams = !!(request.refAudio || request.instruct);
+    const effectiveTimeout = hasCloneParams ? Math.max(this.timeoutMs, 120_000) : this.timeoutMs;
+
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timer = setTimeout(() => controller.abort(), effectiveTimeout);
 
     try {
       const response = await fetch(url, {
