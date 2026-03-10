@@ -455,6 +455,28 @@ export function createMissionControlMockBackend(): MissionControlMockBackend {
       return mockResponse(200, { item: cloneItem(updated) });
     }
 
+    const url = new URL(path, 'http://localhost');
+    if (url.pathname === '/api/backlog/feature-doc-detail') {
+      const featureId = url.searchParams.get('featureId') ?? 'F000';
+      return mockResponse(200, {
+        featureId: featureId.toUpperCase(),
+        status: 'in-progress',
+        owner: '布偶猫',
+        phases: [
+          { id: 'A', name: '基础架构', acs: [
+            { id: 'AC-A1', text: 'Remote sync', done: true },
+            { id: 'AC-A2', text: 'YAML parsing', done: true },
+          ]},
+          { id: 'B', name: '线程关联', acs: [
+            { id: 'AC-B1', text: 'Fuzzy matching', done: true },
+            { id: 'AC-B2', text: 'Progress dashboard', done: false },
+          ]},
+        ],
+        risks: [{ risk: 'Format inconsistency', mitigation: 'Standard template' }],
+        dependencies: {},
+      });
+    }
+
     return mockResponse(500, { error: `unexpected path: ${path}` });
   };
 

@@ -1,5 +1,6 @@
 ---
 feature_ids: [F044]
+related_features: [F033, F045, F065, F073]
 topics: [channel, activity, game, collaboration]
 doc_kind: spec
 created: 2026-02-27

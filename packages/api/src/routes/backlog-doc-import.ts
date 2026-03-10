@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { BacklogDependencies, BacklogPriority, BacklogStatus, CreateBacklogItemInput } from '@cat-cafe/shared';
+import type { BacklogDependencies, BacklogPriority, BacklogStatus, CreateBacklogItemInput, FeatureDocAC, FeatureDocPhase, FeatureDocRisk } from '@cat-cafe/shared';
 import { gitListFeatureDocs, readBacklogContent, readFeatureDocContent } from './git-doc-reader.js';
 
 export interface BacklogFeatureRow {
@@ -147,7 +147,7 @@ export function parseFeatureDocName(markdown: string): string | null {
 }
 
 /** Extract owner from `> **Owner**: 三猫` */
-function parseFeatureDocOwner(markdown: string): string {
+export function parseFeatureDocOwner(markdown: string): string {
   const match = markdown.match(/>\s*\*\*Owner\*\*:\s*(.+)/i);
   return match?.[1]?.trim() ?? '三猫';
 }
@@ -196,6 +196,51 @@ export function parseFeatureDocDependencies(markdown: string): BacklogDependenci
     ...(dedupBlocked.length > 0 ? { blockedBy: dedupBlocked } : {}),
     ...(dedupRelated.length > 0 ? { related: dedupRelated } : {}),
   };
+}
+
+export function parseFeatureDocPhases(markdown: string): FeatureDocPhase[] {
+  const phaseRegex = /^###\s+Phase\s+([A-Z])[\s:：]+(.+)/gim;
+  const phases: Array<{ id: string; name: string }> = [];
+  let m: RegExpExecArray | null;
+  while ((m = phaseRegex.exec(markdown)) !== null) {
+    const id = m[1];
+    const name = m[2];
+    if (id && name) phases.push({ id: id.toUpperCase(), name: name.trim() });
+  }
+  if (phases.length === 0) return [];
+
+  const acLineRegex = /^-\s+\[([ xX])\]\s+(AC-([A-Z])\d+)[:\s：]+(.+)/gm;
+  const acsByPhase = new Map<string, FeatureDocAC[]>();
+  while ((m = acLineRegex.exec(markdown)) !== null) {
+    const checkbox = m[1];
+    const acId = m[2];
+    const phaseChar = m[3];
+    const acText = m[4];
+    if (!checkbox || !acId || !phaseChar || !acText) continue;
+    const phaseId = phaseChar.toUpperCase();
+    const list = acsByPhase.get(phaseId) ?? [];
+    list.push({ id: acId, text: acText.trim(), done: checkbox.toLowerCase() === 'x' });
+    acsByPhase.set(phaseId, list);
+  }
+
+  return phases.map((p) => ({ id: p.id, name: p.name, acs: acsByPhase.get(p.id) ?? [] }));
+}
+
+export function parseFeatureDocRisks(markdown: string): FeatureDocRisk[] {
+  const sections = markdown.split(/^(?=##\s)/m);
+  const riskSection = sections.find((s) => /^##\s*Risk/i.test(s));
+  if (!riskSection) return [];
+  const rows = riskSection.split('\n').filter((l) => l.startsWith('|'));
+  const headerSkipped = rows.slice(rows.findIndex((r) => r.includes('---')) + 1);
+  return headerSkipped
+    .map((row) => {
+      const cells = row.split('|').map((c) => c.trim()).filter(Boolean);
+      if (cells.length < 2) return null;
+      const risk = cells[0];
+      const mitigation = cells[cells.length - 1];
+      return risk && mitigation ? { risk, mitigation } : null;
+    })
+    .filter((r): r is FeatureDocRisk => r !== null);
 }
 
 interface FeatureDocEntry {

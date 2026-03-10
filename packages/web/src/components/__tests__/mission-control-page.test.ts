@@ -1435,3 +1435,158 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
     expect(panel?.textContent).not.toContain('[F088] title match thread');
   });
 });
+
+describe('Feature progress panel', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+  let backend: MissionControlMockBackend;
+
+  beforeAll(() => {
+    (globalThis as { React?: typeof React }).React = React;
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  });
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+    backend = createMissionControlMockBackend();
+    mockApiFetch.mockImplementation((path: string, init?: RequestInit) => backend.handleRequest(path, init));
+    // Wire native fetch to the mock backend so useFeatureDocDetail (which uses fetch) is intercepted
+    vi.stubGlobal('fetch', (input: RequestInfo | URL, init?: RequestInit) => {
+      const path = typeof input === 'string' ? input : input instanceof URL ? input.pathname + input.search : (input as Request).url;
+      return backend.handleRequest(path, init);
+    });
+    useMissionControlStore.setState({
+      items: [],
+      loading: false,
+      submitting: false,
+      selectedItemId: null,
+      selectedPhase: 'coding',
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    act(() => root.unmount());
+    container.remove();
+    vi.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    delete (globalThis as { React?: typeof React }).React;
+    delete (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT;
+  });
+
+  it('shows phase progress bars when feature row is expanded', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'fp-item-1',
+        userId: 'u_test',
+        title: '[F058] Phase Progress Test',
+        summary: 'dispatched item with feature tag',
+        priority: 'p1',
+        tags: ['feature:f058'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now - 5_000,
+        updatedAt: now - 1_000,
+        dispatchedAt: now - 4_000,
+        dispatchedThreadId: 'thread-fp-1',
+        dispatchedThreadPhase: 'coding',
+        audit: [
+          { id: 'a-fp-1', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 },
+        ],
+      } satisfies MutableBacklogItem,
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const featureRow = container.querySelector('[data-testid="mc-feature-row-F058"]');
+    expect(featureRow).not.toBeNull();
+    if (!featureRow) return;
+
+    const toggleButton = featureRow.querySelector('button');
+    expect(toggleButton).not.toBeNull();
+    if (!toggleButton) return;
+
+    await act(async () => {
+      toggleButton.click();
+    });
+    await flush(act);
+    await flush(act);
+
+    const progressPanel = container.querySelector('[data-testid="mc-progress-panel"]');
+    expect(progressPanel).not.toBeNull();
+
+    const phaseA = container.querySelector('[data-testid="mc-phase-A"]');
+    expect(phaseA).not.toBeNull();
+
+    const phaseB = container.querySelector('[data-testid="mc-phase-B"]');
+    expect(phaseB).not.toBeNull();
+  });
+
+  it('shows AC checklist when phase is expanded', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'fp-item-2',
+        userId: 'u_test',
+        title: '[F058] Phase Progress AC Test',
+        summary: 'dispatched item for AC drilldown',
+        priority: 'p1',
+        tags: ['feature:f058'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now - 5_000,
+        updatedAt: now - 1_000,
+        dispatchedAt: now - 4_000,
+        dispatchedThreadId: 'thread-fp-2',
+        dispatchedThreadPhase: 'coding',
+        audit: [
+          { id: 'a-fp-2', action: 'dispatched', actor: { kind: 'user', id: 'u_test' }, timestamp: now - 4_000 },
+        ],
+      } satisfies MutableBacklogItem,
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const featureRow = container.querySelector('[data-testid="mc-feature-row-F058"]');
+    expect(featureRow).not.toBeNull();
+    if (!featureRow) return;
+
+    const toggleButton = featureRow.querySelector('button');
+    expect(toggleButton).not.toBeNull();
+    if (!toggleButton) return;
+
+    await act(async () => {
+      toggleButton.click();
+    });
+    await flush(act);
+    await flush(act);
+
+    const progressPanel = container.querySelector('[data-testid="mc-progress-panel"]');
+    expect(progressPanel).not.toBeNull();
+    if (!progressPanel) return;
+
+    const phaseToggleB = container.querySelector('[data-testid="mc-phase-toggle-B"]') as HTMLButtonElement | null;
+    expect(phaseToggleB).not.toBeNull();
+    if (!phaseToggleB) return;
+
+    await act(async () => {
+      phaseToggleB.click();
+    });
+
+    const phaseAcsB = container.querySelector('[data-testid="mc-phase-acs-B"]');
+    expect(phaseAcsB).not.toBeNull();
+    expect(phaseAcsB?.textContent).toContain('Progress dashboard');
+  });
+});

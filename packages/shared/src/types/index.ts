@@ -221,6 +221,10 @@ export type {
   MarkDoneInput,
   AtomicDispatchInput,
   UpdateBacklogDispatchProgressInput,
+  FeatureDocAC,
+  FeatureDocPhase,
+  FeatureDocRisk,
+  FeatureDocDetail,
 } from './backlog.js';
 // Task types (毛线球)
 export type {

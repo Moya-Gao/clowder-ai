@@ -100,6 +100,7 @@ import {
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
+  featureDocDetailRoutes,
   externalProjectRoutes,
   intentCardRoutes,
   invocationsRoutes,
@@ -500,6 +501,7 @@ async function main(): Promise<void> {
   await app.register(projectsRoutes);
   await app.register(exportRoutes, { messageStore, threadStore });
   await app.register(configRoutes);
+  await app.register(featureDocDetailRoutes);
   await app.register(providerProfilesRoutes);
   await app.register(claudeRescueRoutes);
   await app.register(auditRoutes, { threadStore });

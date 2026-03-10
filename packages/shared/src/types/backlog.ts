@@ -172,3 +172,29 @@ export interface AtomicDispatchInput {
   readonly threadPhase: ThreadPhase;
   readonly dispatchedBy: string;
 }
+
+export interface FeatureDocAC {
+  readonly id: string;
+  readonly text: string;
+  readonly done: boolean;
+}
+
+export interface FeatureDocPhase {
+  readonly id: string;
+  readonly name: string;
+  readonly acs: readonly FeatureDocAC[];
+}
+
+export interface FeatureDocRisk {
+  readonly risk: string;
+  readonly mitigation: string;
+}
+
+export interface FeatureDocDetail {
+  readonly featureId: string;
+  readonly status: string | null;
+  readonly owner: string | null;
+  readonly phases: readonly FeatureDocPhase[];
+  readonly risks: readonly FeatureDocRisk[];
+  readonly dependencies: BacklogDependencies;
+}
