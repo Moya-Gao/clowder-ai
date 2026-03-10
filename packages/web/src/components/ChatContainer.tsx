@@ -38,6 +38,8 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { VoteConfigModal, type VoteConfig } from './VoteConfigModal';
 import { VoteActiveBar } from './VoteActiveBar';
+import { VoiceCompanionButton } from './VoiceCompanionButton';
+import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 
 interface ChatContainerProps {
   threadId: string;
@@ -223,6 +225,9 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
   const { cancelInvocation, syncRooms } = useSocket(socketCallbacks, threadId);
 
+  // F092: Voice Companion auto-play
+  useVoiceAutoPlay();
+
   useSplitPaneKeys();
   const splitPaneThreadIds = useChatStore((s) => s.splitPaneThreadIds);
   const setSplitPaneThreadIds = useChatStore((s) => s.setSplitPaneThreadIds);
@@ -406,6 +411,14 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <QueuePanel threadId={threadId} />
         <VoteActiveBar threadId={threadId} onEnd={() => {}} />
+
+        {/* F092: Voice Companion toggle */}
+        <div className="flex justify-center py-1">
+          <VoiceCompanionButton
+            threadId={threadId}
+            defaultCatId={targetCats[0] || 'opus'}
+          />
+        </div>
 
         <ChatInput
           key={threadId}
