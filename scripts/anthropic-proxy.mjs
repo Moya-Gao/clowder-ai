@@ -1,18 +1,32 @@
 #!/usr/bin/env node
 
 /**
- * Anthropic API Reverse Proxy
+ * Anthropic API Gateway Proxy
  *
- * 用于代理第三方 Anthropic API 网关（如 felix-2），修复已知兼容性问题：
- * - 透传所有请求/响应，不改写内容
- * - 记录请求元数据用于调试
- * - 未来可在此层修复 thinking signature 等问题
+ * All api_key profile requests are routed through this proxy automatically.
+ * Target resolution: reads registered upstreams from a JSON config file.
+ * Each upstream gets a slug; CLI baseUrl is set to http://localhost:PORT/SLUG
+ * and the proxy strips the slug prefix, forwarding to the real upstream.
  *
- * 用法: node scripts/anthropic-proxy.mjs --target https://chat.nuoda.vip/claudecode --port 9877
+ * Config file: .cat-cafe/proxy-upstreams.json (auto-managed by API)
+ *   { "felix-2": "https://chat.nuoda.vip/claudecode" }
+ *
+ * Request flow:
+ *   CLI → http://127.0.0.1:9877/felix-2/v1/messages
+ *   Proxy strips "/felix-2" → forwards to https://chat.nuoda.vip/claudecode/v1/messages
+ *
+ * Startup: automatically started by start-dev.sh
+ * Config:  ANTHROPIC_PROXY_PORT (default 9877), ANTHROPIC_PROXY_DEBUG=1
  */
 
 import { createServer } from 'node:http';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { URL } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const PROJECT_ROOT = resolve(__dirname, '..');
 
 const args = process.argv.slice(2);
 
@@ -21,23 +35,59 @@ function getArg(name) {
   return idx >= 0 && idx + 1 < args.length ? args[idx + 1] : undefined;
 }
 
-const TARGET_BASE = (getArg('target') || process.env.ANTHROPIC_PROXY_TARGET || '').replace(/\/+$/, '');
 const PORT = parseInt(getArg('port') || process.env.ANTHROPIC_PROXY_PORT || '9877', 10);
 const DEBUG = args.includes('--debug') || process.env.ANTHROPIC_PROXY_DEBUG === '1';
+const UPSTREAMS_PATH = resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
 
-if (!TARGET_BASE) {
-  console.error('Usage: anthropic-proxy.mjs --target <base-url> [--port 9877] [--debug]');
-  process.exit(1);
+/** Load upstream mapping from config file. Re-read on each request for hot-reload. */
+function loadUpstreams() {
+  try {
+    const raw = readFileSync(UPSTREAMS_PATH, 'utf-8');
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 let requestCounter = 0;
 
 const server = createServer(async (req, res) => {
   const reqId = ++requestCounter;
-  const targetUrl = new URL(req.url || '/', TARGET_BASE);
+  const path = req.url || '/';
+
+  // Parse slug from path: /SLUG/v1/messages → slug="SLUG", rest="/v1/messages"
+  const match = path.match(/^\/([a-zA-Z0-9_-]+)(\/.*)?$/);
+  if (!match) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      type: 'error',
+      error: { type: 'proxy_error', message: `Invalid path: ${path}. Expected /<upstream-slug>/...` },
+    }));
+    return;
+  }
+
+  const slug = match[1];
+  const restPath = match[2] || '/';
+
+  const upstreams = loadUpstreams();
+  const targetBase = upstreams[slug]?.replace(/\/+$/, '');
+
+  if (!targetBase) {
+    res.writeHead(404, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({
+      type: 'error',
+      error: {
+        type: 'proxy_error',
+        message: `Unknown upstream "${slug}". Known: [${Object.keys(upstreams).join(', ')}]`,
+      },
+    }));
+    return;
+  }
+
+  const targetUrl = new URL(restPath, targetBase);
 
   if (DEBUG) {
-    console.log(`[proxy #${reqId}] ${req.method} ${req.url} → ${targetUrl.href}`);
+    console.log(`[proxy #${reqId}] ${req.method} ${path} → [${slug}] ${targetUrl.href}`);
   }
 
   // Collect request body
@@ -47,19 +97,14 @@ const server = createServer(async (req, res) => {
   }
   const body = Buffer.concat(chunks);
 
-  // Parse request body for logging
-  let parsedBody;
-  try {
-    parsedBody = JSON.parse(body.toString('utf-8'));
-  } catch {
-    parsedBody = null;
+  if (DEBUG && body.length > 0) {
+    try {
+      const parsed = JSON.parse(body.toString('utf-8'));
+      console.log(`[proxy #${reqId}] model=${parsed.model}, stream=${parsed.stream}, thinking=${JSON.stringify(parsed.thinking)}`);
+    } catch { /* not JSON */ }
   }
 
-  if (DEBUG && parsedBody) {
-    console.log(`[proxy #${reqId}] model=${parsedBody.model}, stream=${parsedBody.stream}, thinking=${JSON.stringify(parsedBody.thinking)}`);
-  }
-
-  // Forward headers (strip host, add proxy marker)
+  // Forward headers (strip hop-by-hop)
   const forwardHeaders = {};
   for (const [key, value] of Object.entries(req.headers)) {
     if (key === 'host' || key === 'connection') continue;
@@ -73,15 +118,12 @@ const server = createServer(async (req, res) => {
       ...(body.length > 0 ? { body } : {}),
     });
 
-    // Forward response status + headers
     const responseHeaders = {};
     for (const [key, value] of upstream.headers.entries()) {
-      // Skip hop-by-hop headers
       if (['transfer-encoding', 'connection', 'keep-alive'].includes(key.toLowerCase())) continue;
       responseHeaders[key] = value;
     }
 
-    // SSE detection — Anthropic streaming uses text/event-stream
     const isSSE = (upstream.headers.get('content-type') || '').includes('text/event-stream');
 
     res.writeHead(upstream.status, responseHeaders);
@@ -93,8 +135,6 @@ const server = createServer(async (req, res) => {
       return;
     }
 
-    // Stream the response through
-    // For SSE: flush after each chunk so CLI receives events immediately
     const reader = upstream.body.getReader();
     let totalBytes = 0;
 
@@ -103,14 +143,9 @@ const server = createServer(async (req, res) => {
         const { done, value } = await reader.read();
         if (done) break;
         totalBytes += value.length;
-
-        // res.write returns false when the kernel buffer is full;
-        // for SSE we still want to push immediately — Node http will
-        // flush on the next tick. No explicit cork/uncork needed.
         res.write(value);
 
         if (DEBUG && isSSE) {
-          // Log SSE event types for debugging (lightweight parse)
           const text = Buffer.from(value).toString('utf-8');
           const events = text.match(/event:\s*(\S+)/g);
           if (events) console.log(`[proxy #${reqId}] SSE events: ${events.join(', ')}`);
@@ -124,13 +159,17 @@ const server = createServer(async (req, res) => {
     }
   } catch (err) {
     console.error(`[proxy #${reqId}] upstream error:`, err.message);
-    res.writeHead(502, { 'content-type': 'application/json' });
+    if (!res.headersSent) {
+      res.writeHead(502, { 'content-type': 'application/json' });
+    }
     res.end(JSON.stringify({ type: 'error', error: { type: 'proxy_error', message: err.message } }));
   }
 });
 
 server.listen(PORT, '127.0.0.1', () => {
+  const upstreams = loadUpstreams();
+  const slugs = Object.keys(upstreams);
   console.log(`[anthropic-proxy] listening on http://127.0.0.1:${PORT}`);
-  console.log(`[anthropic-proxy] → target: ${TARGET_BASE}`);
+  console.log(`[anthropic-proxy] upstreams: ${slugs.length > 0 ? slugs.join(', ') : '(none — add to .cat-cafe/proxy-upstreams.json)'}`);
   console.log(`[anthropic-proxy] debug: ${DEBUG ? 'ON' : 'OFF'}`);
 });

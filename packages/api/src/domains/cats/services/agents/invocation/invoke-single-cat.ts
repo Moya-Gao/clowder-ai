@@ -10,6 +10,8 @@
  */
 
 import { catRegistry, type CatId, type ContextHealth, type MessageContent } from '@cat-cafe/shared';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { isSessionChainEnabled } from '../../../../../config/cat-config-loader.js';
 import { getContextWindowFallback } from '../../../../../config/context-window-sizes.js';
 import { resolveAnthropicRuntimeProfile } from '../../../../../config/provider-profiles.js';
@@ -38,6 +40,29 @@ import type { TaskProgressItem, TaskProgressStatus, TaskProgressStore } from './
 
 const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_MODE_API_KEY = 'api_key';
+
+/** Derive a URL-safe slug from profile ID for proxy routing. */
+function deriveProxySlug(profileId: string): string {
+  // "profile-a247a834-1ac1-4752-aa73-6bd159b9acc5" → "a247a834"
+  const match = profileId.match(/^profile-([a-f0-9]+)/);
+  return match?.[1] ?? profileId.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/** Register/update upstream mapping in .cat-cafe/proxy-upstreams.json (hot-reloaded by proxy). */
+function registerProxyUpstream(projectRoot: string, slug: string, targetUrl: string): void {
+  const dir = resolve(projectRoot, '.cat-cafe');
+  const filePath = resolve(dir, 'proxy-upstreams.json');
+  let upstreams: Record<string, string> = {};
+  try {
+    if (existsSync(filePath)) {
+      upstreams = JSON.parse(readFileSync(filePath, 'utf-8'));
+    }
+  } catch { /* start fresh */ }
+  if (upstreams[slug] === targetUrl) return; // no change
+  upstreams[slug] = targetUrl;
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  writeFileSync(filePath, JSON.stringify(upstreams, null, 2) + '\n');
+}
 
 /**
  * F-BLOAT: Context compression detection for non-Claude providers (Codex/Gemini).
@@ -363,6 +388,8 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
     // Provider profile injection (F062):
     // Resolve active runtime profile from project-local `.cat-cafe` state and
     // pass it to provider services via callback env.
+    // api_key profiles are automatically routed through the local anthropic-proxy
+    // gateway (started by start-dev.sh) for unified logging/fixing.
     const provider = catRegistry.tryGet(catId as string)?.config.provider;
     if (provider === 'anthropic') {
       try {
@@ -371,7 +398,19 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
         callbackEnv['CAT_CAFE_ANTHROPIC_PROFILE_MODE'] = profile.mode;
         if (profile.mode === 'api_key') {
           if (profile.apiKey) callbackEnv['CAT_CAFE_ANTHROPIC_API_KEY'] = profile.apiKey;
-          if (profile.baseUrl) callbackEnv['CAT_CAFE_ANTHROPIC_BASE_URL'] = profile.baseUrl;
+          if (profile.baseUrl) {
+            // Route through local proxy gateway if enabled (default: on).
+            // Proxy uses slug-based routing: /SLUG/v1/messages → upstream/v1/messages
+            const proxyPort = process.env['ANTHROPIC_PROXY_PORT'] || '9877';
+            const proxyEnabled = process.env['ANTHROPIC_PROXY_ENABLED'] !== '0';
+            if (proxyEnabled) {
+              const slug = deriveProxySlug(profile.id);
+              registerProxyUpstream(projectRoot, slug, profile.baseUrl);
+              callbackEnv['CAT_CAFE_ANTHROPIC_BASE_URL'] = `http://127.0.0.1:${proxyPort}/${slug}`;
+            } else {
+              callbackEnv['CAT_CAFE_ANTHROPIC_BASE_URL'] = profile.baseUrl;
+            }
+          }
         }
         if (profile.modelOverride) {
           callbackEnv['CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE'] = profile.modelOverride;

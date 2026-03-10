@@ -405,6 +405,17 @@ main() {
     echo ""
     echo -e "${CYAN}启动服务...${NC}"
 
+    # Anthropic API Gateway Proxy (api_key profiles auto-routed here)
+    PROXY_PORT=${ANTHROPIC_PROXY_PORT:-9877}
+    if [ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ]; then
+        echo "  启动 Anthropic Proxy (端口 $PROXY_PORT)..."
+        ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT &
+        sleep 1
+        echo -e "${GREEN}  ✓ Anthropic Proxy 已启动${NC}"
+    else
+        echo -e "${YELLOW}  ⚠ Anthropic Proxy 已禁用 (ANTHROPIC_PROXY_ENABLED=0)${NC}"
+    fi
+
     # Whisper ASR Server (语音输入)
     WHISPER_PORT=${WHISPER_PORT:-9876}
     if [ -f "scripts/whisper-server.sh" ]; then
@@ -460,6 +471,7 @@ main() {
     echo "服务地址："
     echo "  - Frontend: http://localhost:$WEB_PORT"
     echo "  - API:      http://localhost:$API_PORT"
+    echo "  - Proxy:    http://localhost:$PROXY_PORT"
     echo "  - Whisper:  http://localhost:$WHISPER_PORT"
     echo -e "  - 前端模式: $PWA_INFO"
     echo -e "  - 存储:     $STORAGE_INFO"
