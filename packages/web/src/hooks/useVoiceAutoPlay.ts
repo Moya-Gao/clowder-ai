@@ -113,18 +113,28 @@ export function useVoiceAutoPlay(): void {
   const messages = useChatStore((s) => s.messages);
   const session = useVoiceSessionStore((s) => s.session);
   const prevMessageCountRef = useRef(messages.length);
+  const prevSessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    // Gate on voiceMode only — autoplayUnlocked is NOT a hard gate.
-    // Even if initial unlock was false-negative (AudioContext.resume() is async),
-    // we still attempt audio.play(). If it succeeds → confirmAutoplayUnlocked().
-    // If it fails → browser truly blocked, but we don't prevent future attempts
-    // because user interaction may have unlocked autoplay by then.
     if (!session?.voiceMode) {
       prevMessageCountRef.current = messages.length;
+      prevSessionIdRef.current = null;
       return;
     }
 
+    const isNewSession = prevSessionIdRef.current !== session.sessionId;
+    prevSessionIdRef.current = session.sessionId;
+
+    if (isNewSession) {
+      // Voice companion just activated — scan ALL existing messages for
+      // the latest unplayed audio block and play it immediately.
+      const block = findUnplayedAudioBlock(messages);
+      prevMessageCountRef.current = messages.length;
+      if (block) fetchAndPlay(block, session.sessionId);
+      return;
+    }
+
+    // Ongoing session — only look at newly added messages
     const prevCount = prevMessageCountRef.current;
     prevMessageCountRef.current = messages.length;
 
