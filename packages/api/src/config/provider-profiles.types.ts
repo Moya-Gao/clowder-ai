@@ -7,6 +7,8 @@ export interface ProviderProfileMeta {
   name: string;
   mode: ProviderProfileMode;
   baseUrl?: string;
+  /** Override model identifier when this profile is active (e.g. "opus[1m]") */
+  modelOverride?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -28,6 +30,7 @@ export interface CreateProviderProfileInput {
   mode: ProviderProfileMode;
   baseUrl?: string;
   apiKey?: string;
+  modelOverride?: string;
   setActive?: boolean;
 }
 
@@ -36,6 +39,7 @@ export interface UpdateProviderProfileInput {
   mode?: ProviderProfileMode;
   baseUrl?: string;
   apiKey?: string;
+  modelOverride?: string | null;
 }
 
 export interface AnthropicRuntimeProfile {
@@ -43,6 +47,7 @@ export interface AnthropicRuntimeProfile {
   mode: ProviderProfileMode;
   baseUrl?: string;
   apiKey?: string;
+  modelOverride?: string;
 }
 
 export interface ProviderProfilesMetaFile {

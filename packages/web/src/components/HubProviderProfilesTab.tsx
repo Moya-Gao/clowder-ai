@@ -6,9 +6,8 @@ import { apiFetch } from '@/utils/api-client';
 import { useChatStore } from '@/stores/chatStore';
 import { getProjectPaths, projectDisplayName } from './ThreadSidebar/thread-utils';
 import { HubClaudeRescueSection } from './HubClaudeRescueSection';
-import { HubProviderProfileItem } from './HubProviderProfileItem';
+import { HubProviderProfileItem, type ProfileEditPayload } from './HubProviderProfileItem';
 import type {
-  ProfileItem,
   ProfileMode,
   ProfileTestResult,
   ProviderProfilesResponse,
@@ -29,6 +28,7 @@ export function HubProviderProfilesTab() {
   const [createMode, setCreateMode] = useState<ProfileMode>('subscription');
   const [createBaseUrl, setCreateBaseUrl] = useState('');
   const [createApiKey, setCreateApiKey] = useState('');
+  const [createModelOverride, setCreateModelOverride] = useState('');
 
   const fetchProfiles = useCallback(async (forProject?: string) => {
     setError(null);
@@ -100,12 +100,14 @@ export function HubProviderProfilesTab() {
           mode: createMode,
           ...(createBaseUrl.trim() ? { baseUrl: createBaseUrl.trim() } : {}),
           ...(createApiKey.trim() ? { apiKey: createApiKey.trim() } : {}),
+          ...(createModelOverride.trim() ? { modelOverride: createModelOverride.trim() } : {}),
           setActive: true,
         }),
       });
       setCreateName('');
       setCreateBaseUrl('');
       setCreateApiKey('');
+      setCreateModelOverride('');
       setCreateMode('subscription');
       await refresh();
     } catch (err) {
@@ -113,7 +115,7 @@ export function HubProviderProfilesTab() {
     } finally {
       setBusyId(null);
     }
-  }, [callApi, createApiKey, createBaseUrl, createMode, createName, projectPath, refresh]);
+  }, [callApi, createApiKey, createBaseUrl, createMode, createModelOverride, createName, projectPath, refresh]);
 
   const activateProfile = useCallback(async (profileId: string) => {
     setBusyId(profileId);
@@ -153,35 +155,16 @@ export function HubProviderProfilesTab() {
     }
   }, [callApi, projectPath, refresh]);
 
-  const editProfile = useCallback(async (profile: ProfileItem) => {
-    const nextName = window.prompt('新的 profile 名称：', profile.name);
-    if (nextName == null) return;
-    const trimmedName = nextName.trim();
-    if (!trimmedName) {
-      setError('profile 名称不能为空');
-      return;
-    }
-    let nextBaseUrl = profile.baseUrl ?? '';
-    if (profile.mode === 'api_key') {
-      const asked = window.prompt('新的 Base URL（api_key 模式）：', profile.baseUrl ?? '');
-      if (asked == null) return;
-      nextBaseUrl = asked.trim();
-      if (!nextBaseUrl) {
-        setError('api_key 模式必须提供 baseUrl');
-        return;
-      }
-    }
-    setBusyId(profile.id);
+  const saveProfile = useCallback(async (profileId: string, payload: ProfileEditPayload) => {
+    setBusyId(profileId);
     setError(null);
     try {
-      await callApi(`/api/provider-profiles/${profile.id}`, {
+      await callApi(`/api/provider-profiles/${profileId}`, {
         method: 'PATCH',
         body: JSON.stringify({
           projectPath: projectPath ?? undefined,
           provider: 'anthropic',
-          name: trimmedName,
-          mode: profile.mode,
-          ...(profile.mode === 'api_key' ? { baseUrl: nextBaseUrl } : {}),
+          ...payload,
         }),
       });
       await refresh();
@@ -292,6 +275,12 @@ export function HubProviderProfilesTab() {
               />
             </>
           )}
+          <input
+            value={createModelOverride}
+            onChange={(e) => setCreateModelOverride(e.target.value)}
+            placeholder="模型覆盖（可选，例如 opus[1m]）"
+            className="px-2 py-1.5 rounded border border-gray-200 bg-white text-xs md:col-span-2"
+          />
         </div>
         <button
           type="button"
@@ -315,7 +304,7 @@ export function HubProviderProfilesTab() {
               busy={busyId === profile.id}
               testResult={testResult}
               onActivate={activateProfile}
-              onEdit={editProfile}
+              onSave={saveProfile}
               onTest={testProfile}
               onDelete={deleteProfile}
             />

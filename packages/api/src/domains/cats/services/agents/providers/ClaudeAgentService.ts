@@ -37,6 +37,7 @@ const PERMISSION_MODE = 'bypassPermissions';
 const ANTHROPIC_PROFILE_MODE_KEY = 'CAT_CAFE_ANTHROPIC_PROFILE_MODE';
 const ANTHROPIC_PROFILE_API_KEY = 'CAT_CAFE_ANTHROPIC_API_KEY';
 const ANTHROPIC_PROFILE_BASE_URL = 'CAT_CAFE_ANTHROPIC_BASE_URL';
+const ANTHROPIC_MODEL_OVERRIDE_KEY = 'CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE';
 
 function isInvalidThinkingSignatureMessage(message: string | undefined): boolean {
   if (!message) return false;
@@ -140,12 +141,15 @@ export class ClaudeAgentService implements AgentService {
     // Claude CLI print mode has no direct image attach flag; provide path hints and grant dir access.
     effectivePrompt = appendLocalImagePathHints(effectivePrompt, imagePaths);
 
+    // Profile-level model override (e.g. "opus[1m]") takes precedence over constructor model
+    const effectiveModel = options?.callbackEnv?.[ANTHROPIC_MODEL_OVERRIDE_KEY]?.trim() || this.model;
+
     const args: string[] = [
       '-p', effectivePrompt,
       '--output-format', 'stream-json',
       '--include-partial-messages',
       '--verbose',
-      '--model', this.model,
+      '--model', effectiveModel,
       '--permission-mode', PERMISSION_MODE,
       // Skip global user settings to prevent config pollution across sessions
       '--setting-sources', 'project,local',
@@ -177,7 +181,7 @@ export class ClaudeAgentService implements AgentService {
       }));
     }
 
-    const metadata: MessageMetadata = { provider: 'anthropic', model: this.model };
+    const metadata: MessageMetadata = { provider: 'anthropic', model: effectiveModel };
     const streamState = {
       partialTextMessageIds: new Set<string>(),
       currentMessageId: undefined as string | undefined,

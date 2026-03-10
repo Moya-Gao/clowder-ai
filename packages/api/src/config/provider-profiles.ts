@@ -186,6 +186,7 @@ export async function createProviderProfile(
     name: trimmedName,
     mode: input.mode,
     ...(input.baseUrl ? { baseUrl: input.baseUrl.trim().replace(/\/+$/, '') } : {}),
+    ...(input.modelOverride?.trim() ? { modelOverride: input.modelOverride.trim() } : {}),
     createdAt: now,
     updatedAt: now,
   };
@@ -225,6 +226,11 @@ export async function updateProviderProfile(
     const trimmed = input.baseUrl.trim();
     if (trimmed) profile.baseUrl = trimmed.replace(/\/+$/, '');
     else delete profile.baseUrl;
+  }
+  if (input.modelOverride === null || input.modelOverride === '') {
+    delete profile.modelOverride;
+  } else if (typeof input.modelOverride === 'string') {
+    profile.modelOverride = input.modelOverride.trim();
   }
   if (input.mode) profile.mode = input.mode;
   profile.updatedAt = new Date().toISOString();
@@ -311,6 +317,7 @@ export async function resolveAnthropicRuntimeProfile(projectRoot: string): Promi
         mode: 'api_key',
         baseUrl: profile.baseUrl,
         apiKey,
+        ...(profile.modelOverride ? { modelOverride: profile.modelOverride } : {}),
       };
     }
   }
@@ -318,6 +325,7 @@ export async function resolveAnthropicRuntimeProfile(projectRoot: string): Promi
   return {
     id: DEFAULT_SUBSCRIPTION_PROFILE_ID,
     mode: 'subscription',
+    ...(profile.modelOverride ? { modelOverride: profile.modelOverride } : {}),
   };
 }
 
@@ -338,11 +346,13 @@ export async function resolveAnthropicRuntimeProfileById(
       mode: 'api_key',
       baseUrl: profile.baseUrl,
       apiKey,
+      ...(profile.modelOverride ? { modelOverride: profile.modelOverride } : {}),
     };
   }
 
   return {
     id: profile.id,
     mode: 'subscription',
+    ...(profile.modelOverride ? { modelOverride: profile.modelOverride } : {}),
   };
 }

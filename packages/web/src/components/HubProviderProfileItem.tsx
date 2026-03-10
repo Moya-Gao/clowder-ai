@@ -1,5 +1,13 @@
-import React from 'react';
-import type { ProfileItem, ProfileTestResult } from './hub-provider-profiles.types';
+import React, { useCallback, useState } from 'react';
+import type { ProfileItem, ProfileMode, ProfileTestResult } from './hub-provider-profiles.types';
+
+export interface ProfileEditPayload {
+  name: string;
+  mode: ProfileMode;
+  baseUrl?: string;
+  apiKey?: string;
+  modelOverride?: string | null;
+}
 
 interface HubProviderProfileItemProps {
   profile: ProfileItem;
@@ -7,7 +15,7 @@ interface HubProviderProfileItemProps {
   busy: boolean;
   testResult?: ProfileTestResult;
   onActivate: (profileId: string) => void;
-  onEdit: (profile: ProfileItem) => void;
+  onSave: (profileId: string, payload: ProfileEditPayload) => Promise<void>;
   onTest: (profileId: string) => void;
   onDelete: (profileId: string) => void;
 }
@@ -18,10 +26,90 @@ export function HubProviderProfileItem({
   busy,
   testResult,
   onActivate,
-  onEdit,
+  onSave,
   onTest,
   onDelete,
 }: HubProviderProfileItemProps) {
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(profile.name);
+  const [editMode, setEditMode] = useState<ProfileMode>(profile.mode);
+  const [editBaseUrl, setEditBaseUrl] = useState(profile.baseUrl ?? '');
+  const [editApiKey, setEditApiKey] = useState('');
+  const [editModelOverride, setEditModelOverride] = useState(profile.modelOverride ?? '');
+
+  const startEdit = useCallback(() => {
+    setEditName(profile.name);
+    setEditMode(profile.mode);
+    setEditBaseUrl(profile.baseUrl ?? '');
+    setEditApiKey('');
+    setEditModelOverride(profile.modelOverride ?? '');
+    setEditing(true);
+  }, [profile]);
+
+  const cancelEdit = useCallback(() => setEditing(false), []);
+
+  const saveEdit = useCallback(async () => {
+    await onSave(profile.id, {
+      name: editName.trim(),
+      mode: editMode,
+      ...(editMode === 'api_key' && editBaseUrl.trim() ? { baseUrl: editBaseUrl.trim() } : {}),
+      ...(editApiKey.trim() ? { apiKey: editApiKey.trim() } : {}),
+      modelOverride: editModelOverride.trim() || null,
+    });
+    setEditing(false);
+  }, [onSave, profile.id, editName, editMode, editBaseUrl, editApiKey, editModelOverride]);
+
+  const inputCls = 'px-2 py-1 rounded border border-gray-200 bg-white text-xs w-full';
+
+  if (editing) {
+    return (
+      <div className="rounded-lg border-2 border-blue-300 bg-blue-50/30 p-3 space-y-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="名称" className={inputCls} />
+          <select value={editMode} onChange={(e) => setEditMode(e.target.value as ProfileMode)} className={inputCls}>
+            <option value="subscription">subscription（自有订阅）</option>
+            <option value="api_key">api_key（赞助 API）</option>
+          </select>
+          {editMode === 'api_key' && (
+            <>
+              <input value={editBaseUrl} onChange={(e) => setEditBaseUrl(e.target.value)} placeholder="Base URL" className={`${inputCls} md:col-span-2`} />
+              <input
+                value={editApiKey}
+                onChange={(e) => setEditApiKey(e.target.value)}
+                placeholder={profile.hasApiKey ? 'API Key（留空保持不变）' : 'API Key'}
+                className={`${inputCls} md:col-span-2`}
+              />
+            </>
+          )}
+          <input
+            value={editModelOverride}
+            onChange={(e) => setEditModelOverride(e.target.value)}
+            placeholder="模型覆盖（可选，例如 opus[1m]）"
+            className={`${inputCls} md:col-span-2`}
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={saveEdit}
+            disabled={busy}
+            className="px-3 py-1 rounded bg-blue-600 text-white text-xs hover:bg-blue-700 disabled:opacity-50"
+          >
+            {busy ? '保存中...' : '保存'}
+          </button>
+          <button
+            type="button"
+            onClick={cancelEdit}
+            disabled={busy}
+            className="px-3 py-1 rounded border border-gray-200 text-gray-600 text-xs hover:bg-gray-50"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-3">
       <div className="flex items-start justify-between gap-3">
@@ -36,6 +124,9 @@ export function HubProviderProfileItem({
               ? `baseUrl: ${profile.baseUrl ?? '(未设置)'} · apiKey: ${profile.hasApiKey ? '已配置' : '未配置'}`
               : '走本机订阅登录态（不使用 API key）'}
           </p>
+          {profile.modelOverride && (
+            <p className="text-xs text-indigo-600 mt-0.5">model: {profile.modelOverride}</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-1.5 shrink-0">
           {!isActive && (
@@ -51,7 +142,7 @@ export function HubProviderProfileItem({
           <button
             type="button"
             className="px-2 py-1 rounded border border-gray-200 text-gray-700 text-xs hover:bg-gray-50"
-            onClick={() => onEdit(profile)}
+            onClick={startEdit}
             disabled={busy}
           >
             编辑

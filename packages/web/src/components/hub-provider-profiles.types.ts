@@ -6,6 +6,7 @@ export interface ProfileItem {
   name: string;
   mode: ProfileMode;
   baseUrl?: string;
+  modelOverride?: string;
   hasApiKey: boolean;
   createdAt: string;
   updatedAt: string;

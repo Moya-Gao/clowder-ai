@@ -32,6 +32,7 @@ const createBodySchema = z.object({
   mode: modeEnum,
   baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
+  modelOverride: z.string().optional(),
   setActive: z.boolean().optional(),
 });
 
@@ -42,6 +43,7 @@ const updateBodySchema = z.object({
   mode: modeEnum.optional(),
   baseUrl: z.string().optional(),
   apiKey: z.string().optional(),
+  modelOverride: z.string().nullable().optional(),
 });
 
 const activateBodySchema = z.object({
@@ -121,6 +123,7 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
         mode: body.mode as ProviderProfileMode,
         ...(body.baseUrl ? { baseUrl: body.baseUrl } : {}),
         ...(body.apiKey ? { apiKey: body.apiKey } : {}),
+        ...(body.modelOverride ? { modelOverride: body.modelOverride } : {}),
         ...(body.setActive != null ? { setActive: body.setActive } : {}),
       });
       return {
@@ -162,6 +165,7 @@ export const providerProfilesRoutes: FastifyPluginAsync<ProviderProfilesRoutesOp
           ...(parsed.data.mode != null ? { mode: parsed.data.mode as ProviderProfileMode } : {}),
           ...(parsed.data.baseUrl != null ? { baseUrl: parsed.data.baseUrl } : {}),
           ...(parsed.data.apiKey != null ? { apiKey: parsed.data.apiKey } : {}),
+          ...(parsed.data.modelOverride !== undefined ? { modelOverride: parsed.data.modelOverride } : {}),
         },
       );
       return { projectPath: projectRoot, profile };

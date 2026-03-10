@@ -363,6 +363,9 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
           if (profile.apiKey) callbackEnv['CAT_CAFE_ANTHROPIC_API_KEY'] = profile.apiKey;
           if (profile.baseUrl) callbackEnv['CAT_CAFE_ANTHROPIC_BASE_URL'] = profile.baseUrl;
         }
+        if (profile.modelOverride) {
+          callbackEnv['CAT_CAFE_ANTHROPIC_MODEL_OVERRIDE'] = profile.modelOverride;
+        }
       } catch {
         // Best-effort fallback: default to subscription mode when profile resolution fails.
         callbackEnv['CAT_CAFE_ANTHROPIC_PROFILE_MODE'] = 'subscription';
