@@ -111,7 +111,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [F21++ 设计文档（2026-02-26 feat 采访）](../plans/2026-02-26-f21-study-mode-design.md)
 - [F021 聚合文件](./F021-signal-study-mode.md)
 - [Signal 信源缺口审计](../plans/2026-02-20-f21-signal-sources-gap.md)
-- [UX Wireframe](../../designs/mission-hub-f091-signal-study-mode.pen) — 三屏 wireframe（Pencil，在 Mission Hub 画布上）
+- [UX Wireframe](../../designs/mission-hub-f091-signal-study-mode.pen) — 五屏 wireframe（Pencil，在 Mission Hub 画布上）
+- [Implementation Plan](../plans/2026-03-10-f091-signal-study-mode.md) — 7 层 20 个 task 的实施计划
 
 ## 铲屎官原话（2026-03-10 Design Gate）
 
