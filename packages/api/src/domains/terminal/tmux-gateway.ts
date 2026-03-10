@@ -1,15 +1,61 @@
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
+import { accessSync, constants, statSync } from 'node:fs';
 import { promisify } from 'node:util';
 import type { CreatePaneOpts, PaneInfo } from './types.js';
 
 const exec = promisify(execFile);
+
+/** Check that a path is a regular file AND is executable */
+function isExecutable(p: string): boolean {
+  try {
+    if (!statSync(p).isFile()) return false;
+    accessSync(p, constants.X_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve the absolute path to the tmux binary.
+ * Priority: CAT_CAFE_TMUX_PATH env → well-known Homebrew/system paths → PATH lookup.
+ */
+function resolveTmuxBin(): string {
+  // biome-ignore lint/complexity/useLiteralKeys: process.env requires bracket notation for non-standard keys
+  const envPath = process.env['CAT_CAFE_TMUX_PATH'];
+  if (envPath && isExecutable(envPath)) return envPath;
+
+  const candidates = [
+    '/opt/homebrew/bin/tmux',   // macOS ARM Homebrew
+    '/usr/local/bin/tmux',      // macOS Intel Homebrew / Linux manual
+    '/usr/bin/tmux',            // system package
+  ];
+  for (const p of candidates) {
+    if (isExecutable(p)) return p;
+  }
+
+  // Last resort: ask the shell (execFileSync inherits PATH from current process)
+  try {
+    return execFileSync('/usr/bin/which', ['tmux'], { encoding: 'utf8' }).trim();
+  } catch {
+    throw new Error(
+      'tmux not found. Install tmux or set CAT_CAFE_TMUX_PATH to its absolute path.',
+    );
+  }
+}
 
 /**
  * Manages tmux servers: one tmux server per worktree.
  * Uses CLI mode (execFile per command) — simple, reliable, and the terminal endstate.
  */
 export class TmuxGateway {
+  /** Absolute path to the tmux binary, resolved once at construction */
+  readonly tmuxBin: string;
   private activeServers = new Set<string>();
+
+  constructor() {
+    this.tmuxBin = resolveTmuxBin();
+  }
 
   /** Socket name for a worktree */
   socketName(worktreeId: string): string {
@@ -23,7 +69,7 @@ export class TmuxGateway {
 
     // Check if server already running
     try {
-      await exec('tmux', ['-L', sock, 'list-sessions']);
+      await exec(this.tmuxBin, ['-L', sock, 'list-sessions']);
       this.activeServers.add(worktreeId);
     } catch {
       // Server not running — will be created on first createPane
@@ -41,15 +87,15 @@ export class TmuxGateway {
 
     if (!this.activeServers.has(worktreeId)) {
       // Create new session (this starts the tmux server)
-      await exec('tmux', ['-L', sock, 'new-session', '-d', '-x', String(cols), '-y', String(rows), '-c', cwd, shell]);
+      await exec(this.tmuxBin, ['-L', sock, 'new-session', '-d', '-x', String(cols), '-y', String(rows), '-c', cwd, shell]);
       this.activeServers.add(worktreeId);
     } else {
       // Add window to existing session
-      await exec('tmux', ['-L', sock, 'new-window', '-c', cwd, shell]);
+      await exec(this.tmuxBin, ['-L', sock, 'new-window', '-c', cwd, shell]);
     }
 
     // Get the pane ID of the most recently created pane
-    const { stdout } = await exec('tmux', ['-L', sock, 'display-message', '-p', '#{pane_id}']);
+    const { stdout } = await exec(this.tmuxBin, ['-L', sock, 'display-message', '-p', '#{pane_id}']);
     return stdout.trim();
   }
 
@@ -57,7 +103,7 @@ export class TmuxGateway {
   async listPanes(worktreeId: string): Promise<PaneInfo[]> {
     const sock = this.socketName(worktreeId);
     try {
-      const { stdout } = await exec('tmux', [
+      const { stdout } = await exec(this.tmuxBin, [
         '-L',
         sock,
         'list-panes',
@@ -86,19 +132,19 @@ export class TmuxGateway {
   /** Resize a pane */
   async resizePane(worktreeId: string, paneId: string, cols: number, rows: number): Promise<void> {
     const sock = this.socketName(worktreeId);
-    await exec('tmux', ['-L', sock, 'resize-pane', '-t', paneId, '-x', String(cols), '-y', String(rows)]);
+    await exec(this.tmuxBin, ['-L', sock, 'resize-pane', '-t', paneId, '-x', String(cols), '-y', String(rows)]);
   }
 
   /** Send keys (text + Enter) to a pane */
   async sendKeys(worktreeId: string, paneId: string, text: string): Promise<void> {
     const sock = this.socketName(worktreeId);
-    await exec('tmux', ['-L', sock, 'send-keys', '-t', paneId, text, 'Enter']);
+    await exec(this.tmuxBin, ['-L', sock, 'send-keys', '-t', paneId, text, 'Enter']);
   }
 
   /** Capture pane content as text */
   async capturePane(worktreeId: string, paneId: string): Promise<string> {
     const sock = this.socketName(worktreeId);
-    const { stdout } = await exec('tmux', ['-L', sock, 'capture-pane', '-t', paneId, '-p']);
+    const { stdout } = await exec(this.tmuxBin, ['-L', sock, 'capture-pane', '-t', paneId, '-p']);
     return stdout;
   }
 
@@ -107,7 +153,7 @@ export class TmuxGateway {
     const paneId = await this.createPane(worktreeId, opts);
     const sock = this.socketName(worktreeId);
     // Preserve crash scene: pane stays visible after process exits
-    await exec('tmux', ['-L', sock, 'set-option', '-t', paneId, 'remain-on-exit', 'on']);
+    await exec(this.tmuxBin, ['-L', sock, 'set-option', '-t', paneId, 'remain-on-exit', 'on']);
     // NOTE: Do NOT set read-only here — select-pane -d blocks send-keys.
     // Callers should call setPaneReadOnly() AFTER the agent command is running.
     return paneId;
@@ -117,21 +163,21 @@ export class TmuxGateway {
   async execInPane(worktreeId: string, paneId: string, command: string): Promise<void> {
     const sock = this.socketName(worktreeId);
     // send-keys with literal flag to avoid tmux key interpretation
-    await exec('tmux', ['-L', sock, 'send-keys', '-t', paneId, command, 'Enter']);
+    await exec(this.tmuxBin, ['-L', sock, 'send-keys', '-t', paneId, command, 'Enter']);
   }
 
   /** Toggle pane read-only mode */
   async setPaneReadOnly(worktreeId: string, paneId: string, readOnly: boolean): Promise<void> {
     const sock = this.socketName(worktreeId);
     // -d = disable input (read-only), -e = enable input
-    await exec('tmux', ['-L', sock, 'select-pane', '-t', paneId, readOnly ? '-d' : '-e']);
+    await exec(this.tmuxBin, ['-L', sock, 'select-pane', '-t', paneId, readOnly ? '-d' : '-e']);
   }
 
   /** Kill a specific pane */
   async killPane(worktreeId: string, paneId: string): Promise<void> {
     const sock = this.socketName(worktreeId);
     try {
-      await exec('tmux', ['-L', sock, 'kill-pane', '-t', paneId]);
+      await exec(this.tmuxBin, ['-L', sock, 'kill-pane', '-t', paneId]);
     } catch {
       // Pane already dead
     }
@@ -141,7 +187,7 @@ export class TmuxGateway {
   async destroyServer(worktreeId: string): Promise<void> {
     const sock = this.socketName(worktreeId);
     try {
-      await exec('tmux', ['-L', sock, 'kill-server']);
+      await exec(this.tmuxBin, ['-L', sock, 'kill-server']);
     } catch {
       // Already dead
     }

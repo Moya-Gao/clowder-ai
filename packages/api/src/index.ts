@@ -251,8 +251,16 @@ async function main(): Promise<void> {
 
   // F089 Phase 2: Shared instances for tmux agent pane execution (opt-in)
   const enableTmuxAgent = process.env['CAT_CAFE_TMUX_AGENT'] === '1';
-  const tmuxGateway = enableTmuxAgent ? new TmuxGateway() : undefined;
-  const agentPaneRegistry = enableTmuxAgent ? new AgentPaneRegistry() : undefined;
+  let tmuxGateway: TmuxGateway | undefined;
+  if (enableTmuxAgent) {
+    try {
+      tmuxGateway = new TmuxGateway();
+      app.log.info(`[tmux] enabled — binary: ${tmuxGateway.tmuxBin}`);
+    } catch (err) {
+      app.log.error(`[tmux] CAT_CAFE_TMUX_AGENT=1 but tmux not found: ${(err as Error).message}`);
+    }
+  }
+  const agentPaneRegistry = tmuxGateway ? new AgentPaneRegistry() : undefined;
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
