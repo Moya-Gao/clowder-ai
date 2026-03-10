@@ -37,6 +37,9 @@ function mockThreadStore() {
     get(id) {
       return threads.get(id) ?? null;
     },
+    list() {
+      return [...threads.values()];
+    },
   };
 }
 

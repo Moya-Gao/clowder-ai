@@ -89,6 +89,13 @@ const CONNECTOR_DEFINITIONS: readonly ConnectorDefinition[] = [
     color: { primary: '#0088CC', secondary: '#E3F2FD' },
     description: 'Telegram Bot',
   },
+  {
+    id: 'system-command',
+    displayName: '⚙️ Cat Café',
+    icon: '⚙️',
+    color: { primary: '#6B7280', secondary: '#F9FAFB' },
+    description: '系统命令响应',
+  },
 ] as const;
 
 const connectorMap = new Map<string, ConnectorDefinition>(

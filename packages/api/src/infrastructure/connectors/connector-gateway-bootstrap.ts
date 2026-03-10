@@ -53,6 +53,12 @@ export interface ConnectorGatewayDeps {
       | { id: string; title?: string | null; createdAt?: number }
       | null
       | Promise<{ id: string; title?: string | null; createdAt?: number } | null>;
+    /** Phase C: cross-platform thread listing */
+    list(
+      userId: string,
+    ):
+      | Array<{ id: string; title?: string | null; lastActiveAt?: number }>
+      | Promise<Array<{ id: string; title?: string | null; lastActiveAt?: number }>>;
   };
   readonly invokeTrigger: {
     trigger(threadId: string, catId: CatId, userId: string, message: string, messageId: string): void;

@@ -29,6 +29,7 @@ function stubThreadStore(data) {
       return entry;
     },
     get: async (id) => map.get(id) ?? null,
+    list: async () => [...map.values()],
   };
 }
 
@@ -147,38 +148,14 @@ describe('ConnectorCommandLayer', () => {
     assert.ok(result.newActiveThreadId);
   });
 
-  it('/threads lists recent threads with titles', async () => {
-    const bindings = new Map();
-    const store = {
-      ...stubStore(),
-      bind: async (cId, eCId, tId, uId) => {
-        const b = { connectorId: cId, externalChatId: eCId, threadId: tId, userId: uId, createdAt: Date.now() };
-        bindings.set(`${cId}:${eCId}`, b);
-        return b;
-      },
-      listByUser: async () => [
-        {
-          connectorId: 'feishu',
-          externalChatId: 'c1',
-          threadId: 'thread-aaa111',
-          userId: 'user1',
-          createdAt: Date.now(),
-        },
-        {
-          connectorId: 'feishu',
-          externalChatId: 'c2',
-          threadId: 'thread-bbb222',
-          userId: 'user1',
-          createdAt: Date.now(),
-        },
-      ],
-    };
+  it('/threads lists recent threads with titles (cross-platform)', async () => {
+    // Phase C: /threads now uses threadStore.list() — shows ALL user threads
     const threadStore = stubThreadStore([
       { id: 'thread-aaa111', title: '飞书Bug' },
       { id: 'thread-bbb222', title: '新功能讨论' },
     ]);
     const layer = new ConnectorCommandLayer({
-      bindingStore: store,
+      bindingStore: stubStore(),
       threadStore,
       frontendBaseUrl: 'https://cafe.example.com',
     });
@@ -187,6 +164,43 @@ describe('ConnectorCommandLayer', () => {
     assert.ok(result.response.includes('飞书Bug'));
     assert.ok(result.response.includes('新功能讨论'));
     assert.ok(result.response.includes('/use'));
+  });
+
+  it('/threads returns contextThreadId when binding exists (Phase C P1 fix)', async () => {
+    const binding = {
+      connectorId: 'feishu',
+      externalChatId: 'chat1',
+      threadId: 'thread-aaa111',
+      userId: 'user1',
+      createdAt: Date.now(),
+    };
+    const threadStore = stubThreadStore([
+      { id: 'thread-aaa111', title: '飞书Bug' },
+      { id: 'thread-bbb222', title: '新功能讨论' },
+    ]);
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(binding),
+      threadStore,
+      frontendBaseUrl: 'https://cafe.example.com',
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
+    assert.equal(result.kind, 'threads');
+    assert.equal(result.contextThreadId, 'thread-aaa111');
+    assert.ok(result.response.includes('飞书Bug'));
+  });
+
+  it('/threads omits contextThreadId when no binding exists', async () => {
+    const threadStore = stubThreadStore([
+      { id: 'thread-aaa111', title: '飞书Bug' },
+    ]);
+    const layer = new ConnectorCommandLayer({
+      bindingStore: stubStore(),
+      threadStore,
+      frontendBaseUrl: 'https://cafe.example.com',
+    });
+    const result = await layer.handle('feishu', 'chat1', 'user1', '/threads');
+    assert.equal(result.kind, 'threads');
+    assert.equal(result.contextThreadId, undefined);
   });
 
   it('/threads returns helpful message when empty', async () => {
@@ -200,7 +214,8 @@ describe('ConnectorCommandLayer', () => {
     assert.ok(result.response.includes('没有'));
   });
 
-  it('/use switches to an existing thread by prefix', async () => {
+  it('/use switches to an existing thread by prefix (cross-platform)', async () => {
+    // Phase C: /use now searches threadStore.list() — can switch to any thread
     const bindings = new Map();
     const store = {
       ...stubStore(),
@@ -209,24 +224,11 @@ describe('ConnectorCommandLayer', () => {
         bindings.set(`${cId}:${eCId}`, b);
         return b;
       },
-      listByUser: async () => [
-        {
-          connectorId: 'feishu',
-          externalChatId: 'c1',
-          threadId: 'thread-target-xyz',
-          userId: 'user1',
-          createdAt: Date.now(),
-        },
-        {
-          connectorId: 'feishu',
-          externalChatId: 'c2',
-          threadId: 'thread-other-abc',
-          userId: 'user1',
-          createdAt: Date.now(),
-        },
-      ],
     };
-    const threadStore = stubThreadStore([{ id: 'thread-target-xyz', title: '目标Thread' }]);
+    const threadStore = stubThreadStore([
+      { id: 'thread-target-xyz', title: '目标Thread' },
+      { id: 'thread-other-abc', title: '其他Thread' },
+    ]);
     const layer = new ConnectorCommandLayer({
       bindingStore: store,
       threadStore,

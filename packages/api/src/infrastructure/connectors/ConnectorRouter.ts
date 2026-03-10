@@ -27,7 +27,7 @@ import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
 export type RouteResult =
   | { kind: 'routed'; threadId: string; messageId: string }
   | { kind: 'skipped'; reason: string }
-  | { kind: 'command' };
+  | { kind: 'command'; threadId?: string; messageId?: string };
 
 export interface ConnectorRouterOptions {
   readonly bindingStore: IConnectorThreadBindingStore;
@@ -98,7 +98,6 @@ export class ConnectorRouter {
       if (cmdResult.kind !== 'not-command' && cmdResult.response) {
         const adapter = this.opts.adapters?.get(connectorId);
         if (adapter) {
-          // P2 fix: use MessageEnvelope when adapter supports it
           if (adapter.sendFormattedReply) {
             const envelope = this.formatter.formatCommand(cmdResult.response);
             await adapter.sendFormattedReply(externalChatId, envelope);
@@ -106,8 +105,15 @@ export class ConnectorRouter {
             await adapter.sendReply(externalChatId, cmdResult.response);
           }
         }
+        // Phase C: store command exchange in messageStore + broadcast
+        const stored = await this.storeCommandExchange(
+          connectorId, cmdResult.contextThreadId, text, cmdResult.response,
+        );
         log.info({ connectorId, command: cmdResult.kind }, '[ConnectorRouter] Command handled');
-        return { kind: 'command' as const };
+        const result: RouteResult = { kind: 'command' };
+        if (cmdResult.contextThreadId) (result as { threadId?: string }).threadId = cmdResult.contextThreadId;
+        if (stored?.responseId) (result as { messageId?: string }).messageId = stored.responseId;
+        return result;
       }
     }
 
@@ -172,5 +178,50 @@ export class ConnectorRouter {
       threadId: binding.threadId,
       messageId: stored.id,
     };
+  }
+
+  /** Phase C: Store command inbound + outbound in messageStore, broadcast to WebSocket */
+  private async storeCommandExchange(
+    connectorId: string,
+    threadId: string | undefined,
+    commandText: string,
+    responseText: string,
+  ): Promise<{ commandId: string; responseId: string } | undefined> {
+    if (!threadId) return undefined;
+    const { messageStore, socketManager } = this.opts;
+    const def = getConnectorDefinition(connectorId);
+    const now = Date.now();
+
+    // Store inbound command
+    const cmdMsg = await messageStore.append({
+      threadId,
+      userId: this.opts.defaultUserId,
+      catId: null,
+      content: commandText,
+      source: { connector: connectorId, label: def?.displayName ?? connectorId, icon: def?.icon ?? '💬' },
+      mentions: [],
+      timestamp: now,
+    });
+
+    // Store outbound system response
+    const resMsg = await messageStore.append({
+      threadId,
+      userId: this.opts.defaultUserId,
+      catId: null,
+      content: responseText,
+      source: { connector: 'system-command', label: '⚙️ Cat Café', icon: '⚙️' },
+      mentions: [],
+      timestamp: now + 1,
+    });
+
+    // Broadcast both
+    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+      threadId, messageId: cmdMsg.id, connectorId, content: commandText,
+    });
+    socketManager?.broadcastToRoom(`thread:${threadId}`, 'connector_message', {
+      threadId, messageId: resMsg.id, connectorId: 'system-command', content: responseText,
+    });
+
+    return { commandId: cmdMsg.id, responseId: resMsg.id };
   }
 }

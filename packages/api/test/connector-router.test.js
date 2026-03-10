@@ -273,5 +273,82 @@ describe('ConnectorRouter', () => {
       assert.equal(r2.kind, 'skipped');
       assert.equal(r2.reason, 'duplicate');
     });
+
+    it('stores command exchange in messageStore when contextThreadId present (Phase C)', async () => {
+      const ctxRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'Thread info here', contextThreadId: 'thread-ctx-1' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+      const result = await ctxRouter.route('feishu', 'chat-123', '/where', 'ext-ctx-1');
+      assert.equal(result.kind, 'command');
+      assert.equal(result.threadId, 'thread-ctx-1');
+      assert.ok(result.messageId);
+      // Two messages stored: inbound command + outbound response
+      assert.equal(messageStore.messages.length, 2);
+      assert.equal(messageStore.messages[0].content, '/where');
+      assert.equal(messageStore.messages[0].source.connector, 'feishu');
+      assert.equal(messageStore.messages[1].content, 'Thread info here');
+      assert.equal(messageStore.messages[1].source.connector, 'system-command');
+    });
+
+    it('broadcasts command exchange to WebSocket (Phase C)', async () => {
+      const ctxSocket = mockSocketManager();
+      const ctxRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager: ctxSocket,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/new': { kind: 'new', response: 'Created!', newActiveThreadId: 'thread-new', contextThreadId: 'thread-new' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+      await ctxRouter.route('feishu', 'chat-123', '/new Test', 'ext-ctx-2');
+      // Two broadcasts: inbound command + outbound response
+      assert.equal(ctxSocket.broadcasts.length, 2);
+      assert.equal(ctxSocket.broadcasts[0].room, 'thread:thread-new');
+      assert.equal(ctxSocket.broadcasts[0].data.connectorId, 'feishu');
+      assert.equal(ctxSocket.broadcasts[1].room, 'thread:thread-new');
+      assert.equal(ctxSocket.broadcasts[1].data.connectorId, 'system-command');
+    });
+
+    it('skips messageStore when contextThreadId absent (Phase C)', async () => {
+      // /where without binding → no contextThreadId → no messages stored
+      const ctxRouter = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'No binding' },
+        }),
+        adapters: new Map([['feishu', mockAdapter()]]),
+      });
+      const result = await ctxRouter.route('feishu', 'chat-123', '/where', 'ext-ctx-3');
+      assert.equal(result.kind, 'command');
+      assert.equal(result.threadId, undefined);
+      assert.equal(messageStore.messages.length, 0);
+    });
   });
 });
