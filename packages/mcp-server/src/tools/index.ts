@@ -82,6 +82,10 @@ export {
 } from './signals-tools.js';
 
 export {
+  signalStudyTools,
+} from './signal-study-tools.js';
+
+export {
   richBlockRulesInputSchema,
   handleGetRichBlockRules,
   richBlockRulesTools,

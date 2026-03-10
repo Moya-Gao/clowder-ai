@@ -36,6 +36,8 @@ export interface UpdateSignalArticleInput {
   readonly status?: SignalArticleStatus | undefined;
   readonly tags?: readonly string[] | undefined;
   readonly summary?: string | undefined;
+  readonly note?: string | undefined;
+  readonly deletedAt?: string | undefined;
 }
 
 function withinDateRange(targetIso: string, from: string | undefined, to: string | undefined): boolean {
@@ -125,6 +127,9 @@ async function selectInboxArticles(
     }
 
     const article = detail.article;
+    if (article.deletedAt) {
+      continue;
+    }
     if (article.status !== 'inbox') {
       continue;
     }
@@ -243,6 +248,7 @@ export class SignalArticleQueryService {
     const details = await readArticleDetailsSafely(records, this.deps.readArticleDocument);
 
     const matched = details
+      .filter((detail) => !detail.article.deletedAt)
       .filter((detail) => (options.status ? detail.article.status === options.status : true))
       .filter((detail) => (options.source ? detail.article.source === options.source : true))
       .filter((detail) => (options.tier ? detail.article.tier === options.tier : true))
@@ -253,6 +259,7 @@ export class SignalArticleQueryService {
           detail.article.url,
           detail.article.source,
           detail.article.summary ?? '',
+          detail.article.note ?? '',
           ...detail.article.tags,
           detail.content,
         ].map((value) => value.toLowerCase());
@@ -279,16 +286,20 @@ export class SignalArticleQueryService {
     if (!detail) {
       return null;
     }
-    const { summary: _previousSummary, ...articleWithoutSummary } = detail.article;
+    const { summary: _previousSummary, note: _previousNote, ...articleBase } = detail.article;
     const nextSummary =
       input.summary === undefined
         ? detail.article.summary
         : input.summary.trim();
+    const nextNote = input.note === undefined ? detail.article.note : input.note;
+    const nextDeletedAt = input.deletedAt === undefined ? detail.article.deletedAt : input.deletedAt;
     const nextArticle: SignalArticle = SignalArticleSchema.parse({
-      ...articleWithoutSummary,
+      ...articleBase,
       ...(input.status ? { status: input.status } : {}),
       ...(input.tags ? { tags: Array.from(input.tags) } : {}),
       ...(nextSummary ? { summary: nextSummary } : {}),
+      ...(nextNote ? { note: nextNote } : {}),
+      ...(nextDeletedAt ? { deletedAt: nextDeletedAt } : {}),
     }) as SignalArticle;
 
     await writeArticleDocument({

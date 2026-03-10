@@ -6,6 +6,7 @@ import {
   reflectTools,
   sessionChainTools,
   signalsTools,
+  signalStudyTools,
   richBlockRulesTools,
 } from './tools/index.js';
 
@@ -30,6 +31,7 @@ const memoryTools: readonly ToolDef[] = [
 
 const signalTools: readonly ToolDef[] = [
   ...signalsTools,
+  ...signalStudyTools,
 ];
 
 function registerTools(server: McpServer, tools: readonly ToolDef[]): void {

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SignalArticle, SignalArticleStatus, SignalTier } from '@cat-cafe/shared';
 import {
+  deleteSignalArticle,
   fetchSignalArticle,
   fetchSignalStats,
   fetchSignalsInbox,
@@ -12,6 +13,7 @@ import {
   updateSignalArticle,
 } from '@/utils/signals-api';
 import { filterSignalArticles, type SignalArticleFilters } from '@/utils/signals-view';
+import { BatchActionBar } from './BatchActionBar';
 import { SignalArticleDetail as SignalArticleDetailPanel } from './SignalArticleDetail';
 import { SignalArticleList } from './SignalArticleList';
 import { SignalNav } from './SignalNav';
@@ -58,6 +60,16 @@ export function SignalInboxView() {
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+
+  const toggleBatchSelect = useCallback((articleId: string) => {
+    setBatchSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(articleId)) next.delete(articleId);
+      else next.add(articleId);
+      return next;
+    });
+  }, []);
 
   const refreshInbox = useCallback(async () => {
     setLoading(true);
@@ -155,6 +167,29 @@ export function SignalInboxView() {
     }
   }, []);
 
+  const handleNoteChange = useCallback(async (articleId: string, note: string) => {
+    setError(null);
+    try {
+      const updated = await updateSignalArticle(articleId, { note });
+      setItems((current) => current.map((item) => (item.id === articleId ? updated : item)));
+      setSelectedArticle((current) => (current && current.id === articleId ? updated : current));
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : '保存备注失败');
+    }
+  }, []);
+
+  const handleDelete = useCallback(async (articleId: string) => {
+    setError(null);
+    try {
+      await deleteSignalArticle(articleId);
+      setItems((current) => current.filter((item) => item.id !== articleId));
+      setSelectedArticle(null);
+      setSelectedArticleId(null);
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : '删除失败');
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-owner-bg via-cafe-white to-cafe-white">
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-5 sm:px-6">
@@ -229,11 +264,18 @@ export function SignalInboxView() {
         <section className="grid gap-4 lg:grid-cols-[1.25fr_1fr]">
           <div className="space-y-2">
             <div className="text-sm text-gray-500">{loading ? '加载中...' : `共 ${filteredItems.length} 篇`}</div>
+            <BatchActionBar
+              selectedIds={batchSelected}
+              onClear={() => setBatchSelected(new Set())}
+              onComplete={() => void refreshInbox()}
+            />
             <SignalArticleList
               items={filteredItems}
               selectedArticleId={selectedArticleId}
               onSelect={handleSelectArticle}
               onStatusChange={handleStatusChange}
+              selectedIds={batchSelected}
+              onToggleSelect={toggleBatchSelect}
             />
           </div>
           <SignalArticleDetailPanel
@@ -241,6 +283,8 @@ export function SignalInboxView() {
             isLoading={detailLoading}
             onStatusChange={handleStatusChange}
             onTagsChange={handleTagsChange}
+            onNoteChange={handleNoteChange}
+            onDelete={handleDelete}
           />
         </section>
       </main>

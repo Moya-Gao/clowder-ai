@@ -1,4 +1,4 @@
-import type { SignalArticle, SignalSource, SignalTier, SignalArticleStatus } from '@cat-cafe/shared';
+import type { SignalArticle, SignalSource, SignalTier, SignalArticleStatus, StudyMeta } from '@cat-cafe/shared';
 import { apiFetch } from '@/utils/api-client';
 
 export interface SignalArticleDetail extends SignalArticle {
@@ -33,6 +33,8 @@ export interface SignalArticleUpdateInput {
   readonly status?: SignalArticleStatus | undefined;
   readonly tags?: readonly string[] | undefined;
   readonly summary?: string | undefined;
+  readonly note?: string | undefined;
+  readonly deletedAt?: string | undefined;
 }
 
 function appendIfPresent(params: URLSearchParams, key: string, value: string | number | undefined): void {
@@ -164,4 +166,55 @@ export async function fetchSignalStats(): Promise<SignalArticleStats> {
   const response = await apiFetch('/api/signals/stats');
   await requireOk(response);
   return (await response.json()) as SignalArticleStats;
+}
+
+// --- F091: Study Mode API extensions ---
+
+export async function deleteSignalArticle(articleId: string): Promise<void> {
+  const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}`, {
+    method: 'DELETE',
+  });
+  await requireOk(response);
+}
+
+export async function batchSignalArticles(
+  ids: readonly string[],
+  action: 'update' | 'delete',
+  fields?: Omit<SignalArticleUpdateInput, 'deletedAt'>,
+): Promise<{ affected: number }> {
+  const response = await apiFetch('/api/signals/articles/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ids, action, fields }),
+  });
+  await requireOk(response);
+  return (await response.json()) as { affected: number };
+}
+
+export async function fetchStudyMeta(articleId: string): Promise<StudyMeta> {
+  const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}/study`);
+  await requireOk(response);
+  const data = (await response.json()) as { meta: StudyMeta };
+  return data.meta;
+}
+
+export async function linkSignalThread(articleId: string, threadId: string): Promise<StudyMeta> {
+  const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}/threads`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ threadId }),
+  });
+  await requireOk(response);
+  const data = (await response.json()) as { meta: StudyMeta };
+  return data.meta;
+}
+
+export async function unlinkSignalThread(articleId: string, threadId: string): Promise<StudyMeta> {
+  const response = await apiFetch(
+    `/api/signals/articles/${encodeURIComponent(articleId)}/threads/${encodeURIComponent(threadId)}`,
+    { method: 'DELETE' },
+  );
+  await requireOk(response);
+  const data = (await response.json()) as { meta: StudyMeta };
+  return data.meta;
 }

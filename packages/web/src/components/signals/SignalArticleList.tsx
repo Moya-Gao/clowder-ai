@@ -7,6 +7,8 @@ interface SignalArticleListProps {
   readonly selectedArticleId: string | null;
   readonly onSelect: (article: SignalArticle) => void;
   readonly onStatusChange: (articleId: string, status: SignalArticleStatus) => Promise<void>;
+  readonly selectedIds?: ReadonlySet<string>;
+  readonly onToggleSelect?: (articleId: string) => void;
 }
 
 const statusClassMap: Record<SignalArticleStatus, string> = {
@@ -34,6 +36,8 @@ export function SignalArticleList({
   selectedArticleId,
   onSelect,
   onStatusChange,
+  selectedIds,
+  onToggleSelect,
 }: SignalArticleListProps) {
   if (items.length === 0) {
     return (
@@ -66,6 +70,15 @@ export function SignalArticleList({
               ].join(' ')}
             >
               <div className="flex items-start justify-between gap-2">
+                {onToggleSelect && (
+                  <input
+                    type="checkbox"
+                    checked={selectedIds?.has(article.id) ?? false}
+                    onChange={(e) => { e.stopPropagation(); onToggleSelect(article.id); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="mt-1 shrink-0"
+                  />
+                )}
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <SignalTierBadge tier={article.tier} />
@@ -74,8 +87,14 @@ export function SignalArticleList({
                     </span>
                   </div>
                   <p className="mt-2 line-clamp-2 text-sm font-semibold text-cafe-black">{article.title}</p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {article.source} · {formatDate(article.fetchedAt)}
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
+                    <span>{article.source} · {formatDate(article.fetchedAt)}</span>
+                    {article.note && <span title="有备注" className="text-opus-dark">✎</span>}
+                    {(article.studyCount ?? 0) > 0 && (
+                      <span title={`学习 ${article.studyCount} 次`} className="rounded bg-opus-bg px-1 text-[10px] text-opus-dark">
+                        学{article.studyCount}
+                      </span>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1">

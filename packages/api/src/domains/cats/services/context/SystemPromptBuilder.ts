@@ -68,6 +68,18 @@ export interface InvocationContext {
     readonly suggestedSkill: string | null;
     readonly featureId: string;
   };
+  /**
+   * F091: Active Signal articles in discussion context.
+   * Injected when 铲屎官 links a Signal article in the thread.
+   */
+  activeSignals?: readonly {
+    readonly id: string;
+    readonly title: string;
+    readonly source: string;
+    readonly tier: number;
+    readonly contentSnippet: string;
+    readonly note?: string | undefined;
+  }[];
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -480,6 +492,16 @@ export function buildInvocationContext(context: InvocationContext): string {
     const { stage, suggestedSkill, featureId } = context.sopStageHint;
     const skillPart = suggestedSkill ? ` → load skill: ${suggestedSkill}` : '';
     lines.push(`SOP: ${featureId} stage=${stage}${skillPart}`);
+  }
+
+  // F091: Active Signal articles in discussion context
+  if (context.activeSignals && context.activeSignals.length > 0) {
+    lines.push('Signal articles linked to this thread:');
+    for (const s of context.activeSignals) {
+      lines.push(`### [${s.id}] ${s.title} (${s.source}/T${s.tier})`);
+      if (s.note) lines.push(`Note: ${s.note}`);
+      lines.push(s.contentSnippet);
+    }
   }
 
   return lines.join('\n');

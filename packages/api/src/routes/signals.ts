@@ -32,11 +32,20 @@ const updateArticleBodySchema = z
     status: SignalArticleStatusSchema.optional(),
     tags: z.array(z.string().min(1).max(80)).max(32).optional(),
     summary: z.string().max(4000).optional(),
+    note: z.string().max(2000).optional(),
+    deletedAt: z.string().optional(),
   })
   .refine(
-    (value) => value.status !== undefined || value.tags !== undefined || value.summary !== undefined,
+    (value) =>
+      value.status !== undefined ||
+      value.tags !== undefined ||
+      value.summary !== undefined ||
+      value.note !== undefined ||
+      value.deletedAt !== undefined,
     'At least one field is required',
   );
+
+
 
 const updateSourceBodySchema = z.object({
   enabled: z.boolean(),

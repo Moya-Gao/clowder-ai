@@ -18,11 +18,13 @@ export {
 } from './message.schema.js';
 export type {
   SignalArticleInput,
+  SignalArticleUpdateInput,
   SignalSourceInput,
 } from './signals.schema.js';
 export {
   SignalArticleSchema,
   SignalArticleStatusSchema,
+  SignalArticleUpdateSchema,
   SignalCategorySchema,
   SignalFetchMethodSchema,
   SignalKeywordFilterSchema,

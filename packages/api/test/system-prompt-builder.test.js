@@ -167,7 +167,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 2000 chars (F-Ground-3: raised from 1400 for teammate roster)', async () => {
+  test('output size is under 2100 chars (F091: raised from 2000 for signal context headroom)', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -179,8 +179,8 @@ describe('SystemPromptBuilder', () => {
       promptTags: ['critique'],
     });
     assert.ok(
-      prompt.length < 2000,
-      `Prompt is ${prompt.length} chars, expected < 2000`
+      prompt.length < 2100,
+      `Prompt is ${prompt.length} chars, expected < 2100`
     );
   });
 
@@ -486,8 +486,8 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(
-        prompt.length < 2700,
-        `Full runtime prompt is ${prompt.length} chars, expected < 2700`
+        prompt.length < 2850,
+        `Full runtime prompt is ${prompt.length} chars, expected < 2850`
       );
     } finally {
       catRegistry.reset();
@@ -782,8 +782,8 @@ describe('SystemPromptBuilder', () => {
       ],
     });
     assert.ok(
-      prompt.length < 2050,
-      `Prompt with activity is ${prompt.length} chars, expected < 2050`,
+      prompt.length < 2150,
+      `Prompt with activity is ${prompt.length} chars, expected < 2150`,
     );
   });
 
@@ -987,7 +987,7 @@ describe('SystemPromptBuilder', () => {
     assert.ok(!ctx.includes('skill'), 'Should not contain skill reference when null');
   });
 
-  test('buildSystemPrompt size stays under 2100 chars with SOP hint', async () => {
+  test('buildSystemPrompt size stays under 2200 chars with SOP hint', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -1007,8 +1007,8 @@ describe('SystemPromptBuilder', () => {
       },
     });
     assert.ok(
-      prompt.length < 2100,
-      `Prompt with SOP hint is ${prompt.length} chars, expected < 2100`,
+      prompt.length < 2200,
+      `Prompt with SOP hint is ${prompt.length} chars, expected < 2200`,
     );
   });
 });

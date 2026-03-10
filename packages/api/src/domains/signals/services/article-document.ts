@@ -82,6 +82,9 @@ function toSignalArticle(record: InboxRecord, frontmatter: Record<string, unknow
   const status = statusResult.success ? statusResult.data : 'inbox';
   const summary = pickString(frontmatter, ['summary']);
 
+  const note = pickString(frontmatter, ['note']);
+  const deletedAt = pickString(frontmatter, ['deletedAt']);
+
   return SignalArticleSchema.parse({
     id: pickString(frontmatter, ['id']) ?? record.id,
     title: pickString(frontmatter, ['title']) ?? record.title,
@@ -93,6 +96,8 @@ function toSignalArticle(record: InboxRecord, frontmatter: Record<string, unknow
     status,
     tags: toStringArray(frontmatter['tags']),
     ...(summary ? { summary } : {}),
+    ...(note ? { note } : {}),
+    ...(deletedAt ? { deletedAt } : {}),
     filePath: record.filePath,
   }) as SignalArticle;
 }
@@ -113,9 +118,9 @@ export function toUpdatedFrontmatter(
   previousFrontmatter: Record<string, unknown>,
   article: SignalArticle,
 ): Record<string, unknown> {
-  const { summary: _previousSummary, ...frontmatterWithoutSummary } = previousFrontmatter;
+  const { summary: _prevSummary, note: _prevNote, deletedAt: _prevDeleted, ...base } = previousFrontmatter;
   return {
-    ...frontmatterWithoutSummary,
+    ...base,
     id: article.id,
     title: article.title,
     url: article.url,
@@ -126,6 +131,8 @@ export function toUpdatedFrontmatter(
     status: article.status,
     tags: article.tags,
     ...(article.summary ? { summary: article.summary } : {}),
+    ...(article.note ? { note: article.note } : {}),
+    ...(article.deletedAt ? { deletedAt: article.deletedAt } : {}),
   };
 }
 

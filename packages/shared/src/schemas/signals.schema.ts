@@ -65,7 +65,20 @@ export const SignalArticleSchema = z.object({
   tags: z.array(z.string()),
   summary: z.string().optional(),
   filePath: z.string().min(1),
+  note: z.string().optional(),
+  deletedAt: z.string().optional(),
+  studyCount: z.number().int().nonnegative().optional(),
+  lastStudiedAt: z.string().optional(),
+});
+
+export const SignalArticleUpdateSchema = z.object({
+  status: SignalArticleStatusSchema.optional(),
+  tags: z.array(z.string()).optional(),
+  summary: z.string().optional(),
+  note: z.string().optional(),
+  deletedAt: z.string().optional(),
 });
 
 export type SignalSourceInput = z.infer<typeof SignalSourceSchema>;
 export type SignalArticleInput = z.infer<typeof SignalArticleSchema>;
+export type SignalArticleUpdateInput = z.infer<typeof SignalArticleUpdateSchema>;

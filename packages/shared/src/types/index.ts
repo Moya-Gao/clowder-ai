@@ -190,6 +190,14 @@ export type {
   SignalSourceSchedule,
   SignalTier,
 } from './signals.js';
+// Study types (F091 Signal Study Mode)
+export type {
+  ArtifactJobState,
+  ArtifactKind,
+  StudyArtifact,
+  StudyMeta,
+  StudyThreadLink,
+} from './study.js';
 // Summary types (拍立得照片墙)
 export type {
   CreateSummaryInput,

@@ -61,4 +61,8 @@ export interface SignalArticle {
   readonly tags: readonly string[];
   readonly summary?: string | undefined;
   readonly filePath: string;
+  readonly note?: string | undefined;
+  readonly deletedAt?: string | undefined;
+  readonly studyCount?: number | undefined;
+  readonly lastStudiedAt?: string | undefined;
 }

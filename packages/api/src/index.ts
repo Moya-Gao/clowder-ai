@@ -72,6 +72,7 @@ import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBloc
 import type { AgentService } from './domains/cats/services/types.js';
 import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
 import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
+import { createSignalArticleLookup } from './domains/signals/services/signal-thread-lookup.js';
 import {
   loadConnectorGatewayConfig,
   startConnectorGateway,
@@ -123,6 +124,9 @@ import {
   sessionHooksRoutes,
   sessionStrategyConfigRoutes,
   sessionTranscriptRoutes,
+  signalCollectionRoutes,
+  signalPodcastRoutes,
+  signalStudyRoutes,
   signalsRoutes,
   skillsRoutes,
   sliceRoutes,
@@ -388,6 +392,7 @@ async function main(): Promise<void> {
     socketManager,
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
+    signalArticleLookup: createSignalArticleLookup(),
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -610,6 +615,9 @@ async function main(): Promise<void> {
     threadStore,
   });
   await app.register(signalsRoutes);
+  await app.register(signalStudyRoutes);
+  await app.register(signalCollectionRoutes);
+  await app.register(signalPodcastRoutes);
 
   // Serve uploaded files (images)
   const uploadDir = process.env['UPLOAD_DIR'] ?? './uploads';
