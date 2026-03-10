@@ -8,6 +8,13 @@ export interface CommandResult {
   readonly contextThreadId?: string;
 }
 
+interface ThreadEntry {
+  id: string;
+  title?: string | null;
+  lastActiveAt?: number;
+  backlogItemId?: string;
+}
+
 export interface ConnectorCommandLayerDeps {
   readonly bindingStore: IConnectorThreadBindingStore;
   readonly threadStore: {
@@ -19,11 +26,14 @@ export interface ConnectorCommandLayerDeps {
       | null
       | Promise<{ id: string; title?: string | null; createdAt?: number } | null>;
     /** List threads owned by userId (sorted by lastActiveAt desc). Phase C: cross-platform thread view */
-    list(
-      userId: string,
-    ):
-      | Array<{ id: string; title?: string | null; lastActiveAt?: number }>
-      | Promise<Array<{ id: string; title?: string | null; lastActiveAt?: number }>>;
+    list(userId: string): ThreadEntry[] | Promise<ThreadEntry[]>;
+  };
+  /** Phase D: optional backlog store for feat-number matching in /use */
+  readonly backlogStore?: {
+    get(
+      itemId: string,
+      userId?: string,
+    ): { tags: readonly string[] } | null | Promise<{ tags: readonly string[] } | null>;
   };
   readonly frontendBaseUrl: string;
 }
@@ -45,7 +55,7 @@ export class ConnectorCommandLayer {
       case '/threads':
         return this.handleThreads(connectorId, externalChatId, userId);
       case '/use':
-        return this.handleUse(connectorId, externalChatId, userId, args[0]);
+        return this.handleUse(connectorId, externalChatId, userId, args.join(' '));
       default:
         return { kind: 'not-command' };
     }
@@ -99,14 +109,19 @@ export class ConnectorCommandLayer {
     if (threads.length === 0) {
       return { kind: 'threads', response: '📋 还没有 thread。发送消息或用 /new 创建一个吧！' };
     }
+    // Phase D: resolve feat badges for threads with backlogItemId
+    const featBadges = await this.resolveFeatBadges(threads, userId);
     const lines = threads.map((t, i) => {
       const title = t.title ?? '(无标题)';
       const shortId = t.id.slice(0, 8);
-      return `${i + 1}. ${title} [${shortId}]`;
+      const badge = featBadges.get(t.id);
+      return badge
+        ? `${i + 1}. ${title} [${badge}] [${shortId}]`
+        : `${i + 1}. ${title} [${shortId}]`;
     });
     const result: CommandResult = {
       kind: 'threads',
-      response: `📋 最近的 threads:\n\n${lines.join('\n')}\n\n用 /use <ID前缀> 切换`,
+      response: `📋 最近的 threads:\n\n${lines.join('\n')}\n\n用 /use F088 或 /use 关键词 或 /use 3 切换`,
     };
     if (binding) {
       return { ...result, contextThreadId: binding.threadId };
@@ -118,16 +133,25 @@ export class ConnectorCommandLayer {
     connectorId: string,
     externalChatId: string,
     userId: string,
-    idPrefix?: string,
+    input?: string,
   ): Promise<CommandResult> {
-    if (!idPrefix) {
-      return { kind: 'use', response: '❌ 请指定 thread ID 前缀，例如: /use abc123\n用 /threads 查看可用列表。' };
+    if (!input) {
+      return {
+        kind: 'use',
+        response: '❌ 用法: /use F088 | /use 关键词 | /use 3 | /use <ID前缀>\n用 /threads 查看可用列表。',
+      };
     }
-    // Phase C: cross-platform — search ALL user threads, not just current connector
     const allThreads = await this.deps.threadStore.list(userId);
-    const match = allThreads.find((t) => t.id.startsWith(idPrefix));
+
+    // Phase D: cascade matching (feat号 → 列表序号 → ID前缀 → title关键词)
+    const match =
+      (await this.matchByFeatId(input, allThreads, userId)) ??
+      this.matchByListIndex(input, allThreads) ??
+      this.matchByIdPrefix(input, allThreads) ??
+      this.matchByTitle(input, allThreads);
+
     if (!match) {
-      return { kind: 'use', response: `❌ 找不到以 "${idPrefix}" 开头的 thread。用 /threads 查看可用列表。` };
+      return { kind: 'use', response: `❌ 找不到匹配 "${input}" 的 thread。用 /threads 查看可用列表。` };
     }
     await this.deps.bindingStore.bind(connectorId, externalChatId, match.id, userId);
     const title = match.title ?? '(无标题)';
@@ -138,5 +162,80 @@ export class ConnectorCommandLayer {
       contextThreadId: match.id,
       response: `🔄 已切换到: ${title}\nID: ${match.id.slice(0, 8)}\n🔗 ${deepLink}`,
     };
+  }
+
+  // --- Phase D: matching helpers ---
+
+  /** Match by feature number (e.g., /use F088). Async because it needs backlogStore. */
+  private async matchByFeatId(
+    input: string,
+    threads: ThreadEntry[],
+    userId: string,
+  ): Promise<ThreadEntry | null> {
+    if (!/^F\d+$/i.test(input)) return null;
+    const { backlogStore } = this.deps;
+    if (!backlogStore) return null;
+    const targetFeat = input.toUpperCase();
+    const matches: ThreadEntry[] = [];
+    for (const t of threads) {
+      if (!t.backlogItemId) continue;
+      const item = await backlogStore.get(t.backlogItemId, userId);
+      if (!item) continue;
+      const featTags = this.extractFeatIds(item.tags);
+      if (featTags.includes(targetFeat)) matches.push(t);
+    }
+    if (matches.length === 0) return null;
+    // Multiple threads for same feat → pick most recently active
+    return matches.reduce((a, b) => ((a.lastActiveAt ?? 0) >= (b.lastActiveAt ?? 0) ? a : b));
+  }
+
+  /** Match by 1-based index from /threads listing (e.g., /use 3). */
+  private matchByListIndex(input: string, threads: ThreadEntry[]): ThreadEntry | null {
+    if (!/^\d+$/.test(input)) return null;
+    const idx = parseInt(input, 10);
+    const list = threads.slice(0, 10); // Same slice as /threads output
+    if (idx < 1 || idx > list.length) return null;
+    return list[idx - 1] ?? null;
+  }
+
+  /** Match by thread ID prefix (existing Phase C behavior). */
+  private matchByIdPrefix(input: string, threads: ThreadEntry[]): ThreadEntry | null {
+    return threads.find((t) => t.id.startsWith(input)) ?? null;
+  }
+
+  /** Match by thread title substring (case-insensitive). */
+  private matchByTitle(input: string, threads: ThreadEntry[]): ThreadEntry | null {
+    const query = input.toLowerCase();
+    const matches = threads.filter((t) => t.title?.toLowerCase().includes(query));
+    if (matches.length === 0) return null;
+    // Multiple matches → pick most recently active
+    return matches.reduce((a, b) => ((a.lastActiveAt ?? 0) >= (b.lastActiveAt ?? 0) ? a : b));
+  }
+
+  /** Extract ALL normalized feat IDs from backlog item tags. Returns e.g. ['F066', 'F088'] or empty array. */
+  private extractFeatIds(tags: readonly string[]): string[] {
+    const feats: string[] = [];
+    for (const tag of tags) {
+      if (tag.startsWith('feature:')) feats.push(tag.slice('feature:'.length).toUpperCase());
+    }
+    return feats;
+  }
+
+  /** Resolve feat badges for threads (used by /threads display). */
+  private async resolveFeatBadges(
+    threads: ThreadEntry[],
+    userId: string,
+  ): Promise<Map<string, string>> {
+    const badges = new Map<string, string>();
+    const { backlogStore } = this.deps;
+    if (!backlogStore) return badges;
+    for (const t of threads) {
+      if (!t.backlogItemId) continue;
+      const item = await backlogStore.get(t.backlogItemId, userId);
+      if (!item) continue;
+      const featIds = this.extractFeatIds(item.tags);
+      if (featIds.length > 0) badges.set(t.id, featIds.join(','));
+    }
+    return badges;
   }
 }

@@ -53,12 +53,19 @@ export interface ConnectorGatewayDeps {
       | { id: string; title?: string | null; createdAt?: number }
       | null
       | Promise<{ id: string; title?: string | null; createdAt?: number } | null>;
-    /** Phase C: cross-platform thread listing */
+    /** Phase C: cross-platform thread listing. Phase D: backlogItemId for feat matching */
     list(
       userId: string,
     ):
-      | Array<{ id: string; title?: string | null; lastActiveAt?: number }>
-      | Promise<Array<{ id: string; title?: string | null; lastActiveAt?: number }>>;
+      | Array<{ id: string; title?: string | null; lastActiveAt?: number; backlogItemId?: string }>
+      | Promise<Array<{ id: string; title?: string | null; lastActiveAt?: number; backlogItemId?: string }>>;
+  };
+  /** Phase D: optional backlog store for feat-number matching in /use */
+  readonly backlogStore?: {
+    get(
+      itemId: string,
+      userId?: string,
+    ): { tags: readonly string[] } | null | Promise<{ tags: readonly string[] } | null>;
   };
   readonly invokeTrigger: {
     trigger(threadId: string, catId: CatId, userId: string, message: string, messageId: string): void;
@@ -126,6 +133,7 @@ export async function startConnectorGateway(
   const commandLayer = new ConnectorCommandLayer({
     bindingStore,
     threadStore: deps.threadStore,
+    ...(deps.backlogStore ? { backlogStore: deps.backlogStore } : {}),
     frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',
   });
 
