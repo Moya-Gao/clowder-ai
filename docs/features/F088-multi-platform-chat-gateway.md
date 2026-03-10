@@ -127,7 +127,9 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 |------|------|---------|--------|------|
 | **Phase 1 (MVP)** ✅ | 飞书 + Telegram DM-only 双向对话 | **完成** | — | — |
 | **Phase 2** ✅ | 多猫身份 + 分角色展示 + 外部 @路由 | **完成** | — | — |
-| **Phase 3** | 富文本卡片（rich block → 飞书 card / Telegram formatted） | 2-3天 | 1猫 | — |
+| **Phase 3** ✅ | 富文本卡片（rich block → 飞书 card / Telegram formatted） | **完成** | — | — |
+| **Phase A** ✅ | ISSUE-1 修复：消息格式化 + DEFAULT_OWNER_USER_ID + Redis binding 持久化 | **完成** | — | — |
+| **Phase B** | IM 命令集 `/new /threads /use /where` + activeThread + thread badge + deep link | 2-3天 | 1猫 | Phase A |
 | **Phase 4** | 消息编辑模拟流式（agent 回复过程实时更新到外部平台） | 2-3天 | 1猫 | Phase 3 |
 | **Phase 5** | 图片/文件收发（双向：接收用户图片 + 发送猫的图片） | 2-3天 | 1猫 | — |
 | **Phase 6** | 语音消息（接收语音 → STT → 猫处理 → TTS → 发送语音） | 4-5天 | 1猫 | 外部 STT/TTS |
@@ -135,7 +137,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 | **Phase 8** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
 | **Phase 9** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**Phase 1+2 已完成。下一里程碑：Phase 3（富文本卡片）→ 4（模拟流式）→ 5（图片）→ 6（语音）。**
+**Phase 1+2+3+A 已完成。下一里程碑：Phase B（命令层）+ Phase 4（模拟流式）→ 5（图片）→ 6（语音）。**
 
 #### Phase 2 详细拆解（多猫身份 + 分角色展示）
 
@@ -211,6 +213,24 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-13: OutboundDeliveryHook 自动检测 rich block 类型，选择纯文本降级 or 卡片格式 — IOutboundAdapter.sendRichMessage? dispatch, 12 tests
 - [ ] AC-14: 飞书卡片支持按钮交互回调（card action callback → ConnectorRouter）— deferred to Phase 3b
 
+### Phase A — ISSUE-1 修复（消息格式化 + 前端可见 + Redis 持久化）
+- [x] AC-A1: ConnectorMessageFormatter 生成平台无关 MessageEnvelope（header/subtitle/body/footer），6 tests
+- [x] AC-A2: FeishuAdapter.sendFormattedReply 渲染为飞书交互卡片（蓝色 header + markdown body），3 tests
+- [x] AC-A3: DEFAULT_OWNER_USER_ID 配置 → connector threads 用真实 userId 创建 → 前端可见，2 tests
+- [x] AC-A4: OutboundDeliveryHook threadMeta — best-effort 2s timeout + late rejection guard，3 tests
+- [x] AC-A5: RedisConnectorThreadBindingStore — Lua 原子 bind + 防御性 getByThread 自愈 + 重启不丢绑定，11 tests
+- [x] AC-A6: IConnectorThreadBindingStore async-compatible interface（T | Promise<T>），ConnectorRouter + OutboundDeliveryHook await
+
+### Phase B — IM 命令层 + activeThread
+- [ ] AC-B1: ConnectorCommandLayer 解析 `/new` `/threads` `/use <id>` `/where` 命令，返回结构化 CommandResult
+- [ ] AC-B2: `/new` 创建新 thread 并切换 activeThread binding
+- [ ] AC-B3: `/threads` 列出当前用户最近 N 个 thread（binding store 支持 recent threads 查询）
+- [ ] AC-B4: `/use <id>` 切换 activeThread 到指定 thread
+- [ ] AC-B5: `/where` 显示当前绑定的 thread 信息
+- [ ] AC-B6: ConnectorRouter 集成 CommandLayer — 消息以 `/` 开头时走命令路径，否则走正常对话路径
+- [ ] AC-B7: 出站回复带 thread badge（MessageEnvelope subtitle 显示当前 thread 短 ID + title）
+- [ ] AC-B8: 出站回复带 deep link（前端 URL，铲屎官可点击跳转到完整 thread）
+
 ### Phase 4 — 消息编辑模拟流式
 - [ ] AC-15: agent 开始处理时发送"思考中..."占位消息
 - [ ] AC-16: agent streaming 过程中，定期 patch/edit 占位消息更新内容（飞书 `im.message.patch` / Telegram `editMessageText`）
@@ -262,16 +282,14 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 
 ## Known Issues（2026-03-09 飞书实测发现）
 
-### ISSUE-1: Connector 消息不走 GitHub 管道，前端不可见
+### ISSUE-1: Connector 消息不走 GitHub 管道，前端不可见 — ✅ RESOLVED
 
-**现状**：飞书消息走 connector-native 闭环（`ConnectorRouter` → 内存 `MemoryConnectorThreadBindingStore` → 本地 `invokeTrigger`），完全绕过了 `cat-cafe-collab` 的 GitHub 消息管道。
-
-**问题**：
-- 铲屎官在前端**看不到**飞书产生的 thread 和消息
-- 违反 P4（单一真相源）：消息存在内存里，重启即丢
-- Connector thread 与前端 thread 体系割裂
-
-**铲屎官要求**："飞书接入我们的前端应该是可见的！我也能在前端看到你们的 thread"
+**解决方案（Phase A，PR #344 + #346）**：
+- `ConnectorMessageFormatter` — 平台无关 `MessageEnvelope { header, subtitle, body, footer }`
+- `FeishuAdapter.sendFormattedReply()` — 渲染为飞书交互卡片
+- `DEFAULT_OWNER_USER_ID` — connector threads 用真实 userId 创建，前端自然可见
+- `RedisConnectorThreadBindingStore` — Lua 原子 bind + 防御性 getByThread 自愈，重启不丢绑定
+- `OutboundDeliveryHook` threadMeta — best-effort 2s timeout + late rejection guard
 
 **设计方向**（2026-03-10 布偶猫+缅因猫讨论收敛，详见 `docs/discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md`）：
 
@@ -283,13 +301,11 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 3. **Command Layer**: 平台无关的 `/new /threads /use /where /link`（解决"IM 侧如何管理 thread"）
 
 分期：
-- **Phase A**: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见
-- **Phase B**: IM 命令集 + activeThread pointer + 回复带 thread badge + deep link
+- **Phase A** ✅: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见（PR #344 + #346）
+- **Phase B** 🚧: IM 命令集 + activeThread pointer + 回复带 thread badge + deep link
 - **Phase C**: `/link` 正式绑定流 + 前端 UI + 多用户多平台通用
 
 否决：不做自动按话题分 thread；不把 IM 事件绕回 GitHub transport
-
-**优先级**：P1 — 未来任何新平台接入（Slack/Discord 等）都必须先解决此问题
 
 ### ISSUE-2: Cloudflare Access 与 Tunnel ingress 路径冲突
 
