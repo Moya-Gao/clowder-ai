@@ -271,3 +271,51 @@ fileInput.dispatchEvent(new Event('change', { bubbles: true }));
 10. 解析 JSON: 找最大 tool 消息 → widget state → report_message.content.parts[0]
 11. Blob 下载 → 猫用 cp 移到 docs/research/YYYY-MM-DD-{topic}/chatgpt/report.md
 ```
+
+## 图片生成（2026-03-10 实测验证 ✅）
+
+### 入口
+
+- **专用页面**：`chatgpt.com/images`（左侧栏「图片」）
+- **对话中**：直接描述要画的图，GPT-4o 自动调用 DALL-E
+
+### 流程（/images 页面）
+
+```
+1. 导航到 chatgpt.com/images
+2. execCommand 注入 prompt 到 #prompt-textarea
+3. 按 Enter 发送
+4. 等待生成（~10-20秒）
+5. 点击图片 → 灯箱/编辑器模式
+6. 右上角「保存」按钮下载 PNG
+```
+
+### 图片交互选择器
+
+**对话内（hover 图片时）**：
+
+| 元素 | 选择器 |
+|------|--------|
+| 下载 | `button "下载此图片"` |
+| 喜欢 | `button "喜欢此图片"` |
+| 不喜欢 | `button "不喜欢此图片"` |
+| 分享 | `button "分享此图片"` |
+
+**灯箱/编辑器模式（点击图片后）**：
+
+| 元素 | 说明 |
+|------|------|
+| 「保存」按钮 | 右上角，下载 PNG |
+| 「选择区域」 | 局部编辑（inpainting） |
+| 「分享」 | 右上角分享按钮 |
+| `...` 按钮 | 更多选项 |
+| `textbox`（描述编辑） | 底部输入框，可文字修改图片 |
+| `button "关闭"` | 退出编辑器 |
+
+### 风格预设
+
+图片页面有预设风格卡片（漫画风潮、繁花之驱、鎏金塑像、蜡笔画风、时尚追踪等），可点选后再输入 prompt。
+
+### 下载文件命名
+
+`ChatGPT Image {年}年{月}月{日}日 {HH_MM_SS}.png`（~1MB PNG）
