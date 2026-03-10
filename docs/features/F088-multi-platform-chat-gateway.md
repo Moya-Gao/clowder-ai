@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1-4+A+B done | Phase 4-fix pending
+> Owner: 布偶猫 | Status: Phase 1-4+A+B+4fix done | Phase C next
 > PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 > 用户文档: [IM 平台接入指南](../guides/im-platform-setup.md) | [IM 使用指南](../guides/im-usage-guide.md) | [设计讨论纪要](../discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md)
@@ -303,7 +303,7 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 分期：
 - **Phase A** ✅: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见（PR #344 + #346）
 - **Phase B** ✅: IM 命令集 `/new /threads /use /where` + activeThread + deep link（PR #349）
-- **Phase 4-fix**: StreamingOutboundHook 接入调用链 + 命令回复走 MessageEnvelope（愿景守护 P1+P2 修复）
+- **Phase 4-fix** ✅: StreamingOutboundHook 接入调用链 + 命令回复走 MessageEnvelope（愿景守护 P1+P2 修复，PR #350）
 - **Phase C**: 架构归一 — 全链路统一管道 + `/link` 正式绑定 + 跨平台 thread 视图
 
 否决：不做自动按话题分 thread；不把 IM 事件绕回 GitHub transport
