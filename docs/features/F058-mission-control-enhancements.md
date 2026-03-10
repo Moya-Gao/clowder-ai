@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress
+> **Status**: in-progress (Phase I)
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
@@ -125,6 +125,44 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 
 **修复方案**：右侧面板加 `overflow-auto`，让三个面板都可滚动访问。
 
+### Phase I：Feature Progress Dashboard + Doc 模板统一
+
+> 2026-03-10 铲屎官看完两个 UX 方案后指出："行内展开为什么不能展开完整的？Phase 还能展开子项！" 然后追加要求：统一 feature doc 格式 + 建模板 + 历史迁移。
+
+#### I1: Feature Doc 标准模板
+
+**决策**：在 `cat-cafe-skills/refs/feature-doc-template.md` 建立标准模板，规范 YAML frontmatter、Phase 标题、AC 格式、Dependencies 段落。
+
+**目的**：Progress Dashboard parser 需要从 feature docs 自动提取 Phase 进度、AC 完成度。格式统一 = parser 可靠。
+
+**规则**：
+- 未来所有新 Feature 立项时必须按模板创建 feature doc
+- `feat-lifecycle` skill 的 kickoff 流程自动复制模板
+
+#### I2: 行内多级展开 Progress Dashboard
+
+**UX 方案**（铲屎官拍板）：行内多级展开，不需要独立详情页。
+
+- 点击 Feature Row → 一级展开（Phase 进度条 + Timeline/Risk/PR 三栏）
+- 点击某个 Phase → 二级展开（该 Phase 下的 AC 列表 + 完成状态）
+- 全部可折叠，不占空间
+
+**数据源**：从 `docs/features/*.md` 解析 Phase 结构、AC checklist、Dependencies、Risk。
+
+#### I3: 依赖图数据修复
+
+**根因**：`DependencyGraphTab` 组件无 bug，但 BacklogItem 的 `dependencies` 字段为空——feature docs 历史上没有统一声明依赖关系。
+
+**修复**：
+1. 确保所有活跃 feature docs 加上 `related_features` YAML 字段和 `Dependencies` 段落
+2. 重新 import 后依赖图自动有数据
+
+#### I4: 历史 Feature Doc 迁移
+
+**决策**：在 I1 模板经铲屎官确认后，做一次批量迁移——把历史 feature docs 的关键字段补齐（frontmatter + Dependencies + AC 格式统一）。
+
+**范围**：只补 parser 需要的结构化字段，不重写内容。
+
 ### 不做的事（明确排除）
 
 | 提议 | 决定 | 理由 |
@@ -179,6 +217,14 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-H6: 已完成 Feature 自然沉底，折叠显示
 - [x] AC-H7: 保留快速创建和从文档导入功能
 
+### Phase I（Progress Dashboard + Doc 模板统一）
+- [ ] AC-I1: `cat-cafe-skills/refs/feature-doc-template.md` 存在且经铲屎官确认
+- [ ] AC-I2: `feat-lifecycle` skill kickoff 自动复制模板
+- [ ] AC-I3: Feature Row 点击展开一级（Phase 进度条 + Timeline/Risk/PR）
+- [ ] AC-I4: Phase 条目点击展开二级（AC 列表 + 完成状态）
+- [ ] AC-I5: 依赖图 tab 有数据（≥3 个 Feature 有依赖关系）
+- [ ] AC-I6: 历史 feature docs 批量迁移完成（parser 需要的字段补齐）
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -199,6 +245,10 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R14 | "入口加图标好看点" | AC-H1 | screenshot（侧边栏图标） | [x] |
 | R15 | "返回按钮得返回我之前在的thread" | AC-H2 | test（referrer-based back） | [x] |
 | R16 | "先画出设计图我看看" | AC-H3 | Pencil 设计稿 + 铲屎官确认 | [x] |
+| R17 | "我发现有个东西可以做！我不知道feat进度如何了" | AC-I3, AC-I4 | Progress Dashboard 行内展开 | [ ] |
+| R18 | "feat互相依赖有点bug 看不到有向图" | AC-I5 | 依赖图有数据 | [ ] |
+| R19 | "skills/feat 从现在要统一模板" | AC-I1, AC-I2 | 模板存在 + 立项自动使用 | [ ] |
+| R20 | "历史的做一次迁移" | AC-I6 | 批量迁移完成 | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -221,6 +271,9 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | KD-3 | `done` 作为第五个 BacklogStatus | 最小改动，符合现有状态机模式 | 2026-03-04 |
 | KD-4 | 从"无 Tab"回退到"两 Tab"（功能列表 + 依赖全景） | 操作型和理解型是本质不同的视角 | 2026-03-06 |
 | KD-5 | 依赖全景节点禁止突破屏幕宽度 | 铲屎官明确要求，用拓扑布局自适应 | 2026-03-06 |
+| KD-6 | Feature doc 标准模板 + 未来立项自动使用 | Progress Dashboard parser 需要统一格式才能可靠提取 | 2026-03-10 |
+| KD-7 | Progress Dashboard 用行内多级展开，不做独立详情页 | 铲屎官："行内展开为什么不能展开完整的？Phase 还能展开子项！"——两种方案不冲突 | 2026-03-10 |
+| KD-8 | 历史 feature docs 在模板确认后批量迁移 | 只补 parser 需要的结构化字段，不重写内容 | 2026-03-10 |
 
 ## Dependencies
 
@@ -268,6 +321,8 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-06 | Phase G 合入 main (PR #247) — bird eye UX optimization + featureIds chunking + doneAt/audit fix |
 | 2026-03-06 | Phase H：铲屎官触发 UX 大讨论："太差了，需要 tab 隐藏或切换"。四猫独立思考后收敛（见下方讨论记录） |
 | 2026-03-06 | Phase H 实现完成 — Feature-row list + dep graph tabs + sidebar icon + referrer back (codex R2 PASS) |
+| 2026-03-10 | Phase I 讨论：铲屎官看两个 UX 方案 → 拍板"行内多级展开" + 要求统一 feature doc 模板 |
+| 2026-03-10 | 模板 `cat-cafe-skills/refs/feature-doc-template.md` 创建，记录 KD-6~8 |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 
