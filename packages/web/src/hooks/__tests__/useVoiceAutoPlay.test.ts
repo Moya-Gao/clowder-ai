@@ -66,14 +66,16 @@ describe('voiceSessionStore session-binding contracts', () => {
     expect(useVoiceSessionStore.getState().hasPlayed('audio-1')).toBe(false);
   });
 
-  it('autoplayUnlocked=false blocks auto-play gate', () => {
+  it('autoplayUnlocked=false does NOT block auto-play (soft gate)', () => {
     useVoiceSessionStore.getState().start('t1', 'opus', false);
     const session = useVoiceSessionStore.getState().session!;
 
-    // The hook checks session.voiceMode && session.autoplayUnlocked
+    // autoplayUnlocked is false but voiceMode is true — hook still attempts play.
+    // This prevents false-negative lockout from async AudioContext.resume().
+    // On successful audio.play(), confirmAutoplayUnlocked() upgrades the flag.
     expect(session.voiceMode).toBe(true);
     expect(session.autoplayUnlocked).toBe(false);
-    // Hook would early-return because autoplayUnlocked is false
+    // Hook gates on voiceMode only, so this session WILL attempt auto-play
   });
 
   it('confirmAutoplayUnlocked upgrades false → true after first successful play', () => {

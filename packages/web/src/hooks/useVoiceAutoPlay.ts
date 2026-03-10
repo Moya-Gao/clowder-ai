@@ -115,7 +115,12 @@ export function useVoiceAutoPlay(): void {
   const prevMessageCountRef = useRef(messages.length);
 
   useEffect(() => {
-    if (!session?.voiceMode || !session.autoplayUnlocked) {
+    // Gate on voiceMode only — autoplayUnlocked is NOT a hard gate.
+    // Even if initial unlock was false-negative (AudioContext.resume() is async),
+    // we still attempt audio.play(). If it succeeds → confirmAutoplayUnlocked().
+    // If it fails → browser truly blocked, but we don't prevent future attempts
+    // because user interaction may have unlocked autoplay by then.
+    if (!session?.voiceMode) {
       prevMessageCountRef.current = messages.length;
       return;
     }
