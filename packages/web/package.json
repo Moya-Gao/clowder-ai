@@ -25,6 +25,7 @@
     "codemirror": "^6.0.2",
     "esbuild-wasm": "^0.27.3",
     "next": "^14.1.0",
+    "phaser": "^3.90.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^10.1.0",
