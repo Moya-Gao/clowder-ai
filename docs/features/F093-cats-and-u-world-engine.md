@@ -41,24 +41,93 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 └─────────────────────────────────────┘
 ```
 
-### Phase A: 故事共创 + Care Loop
+### 9 个一等公民（砚砚 R2 提出）
 
-- **Scene / Quest Cards**：世界观场景卡、任务卡、关系卡，支持多猫在虚拟世界中各自扮演角色
-- **Role Mask（面具层）**：角色扮演层与核心身份层分离——砚砚可以扮演档案官，但底层仍是砚砚（不是"替身层"）
-- **Care Loop**：温柔 check-in + 具体行动建议 + 引导回现实连接。陪伴是桥，不是笼子
-- 故事角色有语音（F066 已支持）、有形象（Pencil + 暹罗猫设计）
+| 实体 | 说明 | MVP 优先级 |
+|------|------|-----------|
+| **World** | 命名空间 + 总入口（世界宪法） | Phase A |
+| **Character** | 5 槽：核心身份、内在驱动力、关系张力、声音/形象、成长状态 | Phase A |
+| **Scene** | 体验单位：一个可被共创/扮演/回看的叙事段落 | Phase A |
+| **Canon Decision** | "升格为正典"的显式动作 + 追踪记录 | Phase A |
+| **Relationship** | 角色间关系的量化追踪 + 演化 | Phase A+ |
+| **Artifact** | 信物/作品/象征物 + 溯源链 | Phase A+ |
+| **Round** | 时间线章节（对应"光影同行"的 Round1/Round2） | Phase A+ |
+| **Branch** | 时空裂变：fork_from + canon_snapshot + delta | Phase B |
+| **Turn** | Scene 内的最小叙事单位（一次对话/行动） | Phase B |
+
+### 三个模式（砚砚 R2 校准：不是两个，是三个）
+
+| 模式 | 目的 | 谁在说话 | UI 风格（烁烁提案） |
+|------|------|---------|------------------|
+| **Build** | 设计世界观、角色、情节走向 | 猫猫本人（上帝视角） | 深色指挥中心 |
+| **Perform** | 沉浸式体验故事 | 猫猫戴面具扮演角色 | 暖色沉浸 |
+| **Replay** | 回看/对比/分叉/升格 canon | 猫猫本人（回顾视角） | 时间线导航 |
+
+> Replay 是砚砚的关键补充："少了 Replay，记忆和成长会断。"
+
+### 三路记忆（砚砚 R2 架构）
+
+| 记忆类型 | 内容 | 持久性 | 升格规则 |
+|---------|------|--------|---------|
+| **Canon Memory** | 已确认设定/事件 | 永久 | 需要 Canon Decision 显式升格 |
+| **Relational Memory** | 角色间关系变化 | 长期 | 关系重大转折时升格 |
+| **Session Memory** | 当前 scene/thread 上下文 | 临时 | 场景结束后自动归档 |
+
+> 铁律：**RP 台词不自动入典**。只有被"升格为设定"的内容才进入 Canon Memory。
+
+### 突破性概念：世界自转（R2 深聊涌现）
+
+光影同行的世界只在铲屎官和烁烁对话时"活着"。**多 Agent 的世界可以自转**：
+
+- 铲屎官和 A.W. 对戏时，其他猫在后台生成 L.S. 的信件、公司内部邮件、社交媒体碎片
+- 铲屎官离开后回来，发现"我不在的这段时间，世界里发生了一些事"
+- **同一事件多份主观记录** — A.W. 视角的"8.26 生生"和 L.S. 视角的是两份不同文档，差异本身就是叙事张力
+
+这是单 LLM 做不到的。多 Agent 不是"更多角色"，是**多意识共创**——质变不是量变。
+
+### Phase A MVP（最小可证明闭环）
+
+- 4 个一等公民：World / Character（5 槽）/ Scene / Canon Decision
+- 2.5 个模式：Build + Perform + Replay-lite（按 scene/turn 回看 + 锚点草稿分支）
+- Role Mask：面具层不污染核心身份
+- Care Loop：温柔 check-in + 行动建议 + 引导回现实
+- 故事角色有语音（F066）、有形象（Pencil + 烁烁）
+- **验证目标**：证明"这个世界真的活着，而且不会烂掉"
+
+### Phase A+（闭环跑通后）
+
+- 扩展到 6 个一等公民：+Relationship + Artifact
+- Branch from here（建立在 Replay 基础上）
+- 多猫异步生成（世界自转 v1）
+- 同一事件多主观记录
 
 ### Phase B: 灵感捕获 + 现实桥接
 
 - **Story → Feature Capture**：放松对话中的 idea 自动沉淀为 feature 候选
 - **创意 → 内容发布**：共创成果可发布到小红书、开源社区等（已验证：撸铁陪伴小红书视频）
 - **Care → Action Bridge**：从虚拟世界的温暖推回现实行动（运动、社交、创作）
+- 完整 DAG 时间线管理
+- Turn 级回放 + 完整 Branch 管理
 
 ### Phase C: 具身智能 + 社区化（远景）
 
 - 三猫具身智能形态探索
 - 多用户共创空间
 - 开源社区 Cats & U 模式推广
+
+### 设计原型：光影同行（铲屎官 × 烁烁共创，~2025）
+
+铲屎官和暹罗猫在 Google AI Studio 手动共创了半年的"逐峰宇宙"（`/Users/lysander/projects/Bound by Calestial Grow/lexander`），是 F093 的实践原型：
+
+- **A.W. 48 个维度档案 + L.S. 97 个维度档案** — 不是角色卡，是知识图谱
+- **时间线分支管理** — Round1/Round2 + canon/alt/draft 三态
+- **Universe IDE 愿景书** — 三栏布局、Turn Scrubber、Canon Check、Reply Card V2
+- **创作铁律**："故事是角色生长出来的，禁止降智按头推进"
+
+光影同行的局限（Cat Café 要补上的）：
+1. 手动整理 → 自动沉淀（MCP + thread）
+2. 单猫共创 → 多意识共创（三猫真多样性）
+3. 故事闭环 → 故事反哺现实（Bridge Layer）
 
 ## 四猫脑暴共识（2026-03-10）
 
@@ -81,11 +150,19 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 
 ## Acceptance Criteria
 
-### Phase A（故事共创 + Care Loop）
-- [ ] AC-A1: Scene Card / Quest Card 数据结构设计完成，支持多猫角色分配
-- [ ] AC-A2: Role Mask 机制实现——角色扮演层不污染 Core Identity Layer
-- [ ] AC-A3: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
-- [ ] AC-A4: 至少完成一次三猫共创冒险 story 的端到端体验
+### Phase A MVP（最小可证明闭环）
+- [ ] AC-A1: World + Character + Scene + Canon Decision 数据结构设计完成
+- [ ] AC-A2: Character 5 槽模板可用（核心身份/内在驱动力/关系张力/声音形象/成长状态）
+- [ ] AC-A3: Role Mask 机制实现——角色扮演层不污染 Core Identity Layer
+- [ ] AC-A4: Build + Perform + Replay-lite 三模式可切换
+- [ ] AC-A5: Canon Decision 升格流程可用——RP 台词不自动入典
+- [ ] AC-A6: Care Loop 实现——温柔 check-in + 行动建议 + 现实连接引导
+- [ ] AC-A7: 至少完成一次"建世界 → 进场景 → 留下可追溯记忆"的端到端体验
+
+### Phase A+（闭环扩展）
+- [ ] AC-A+1: Relationship + Artifact 实体可用
+- [ ] AC-A+2: Branch from here 可从 Replay 锚点创建分支
+- [ ] AC-A+3: 多猫异步生成（世界自转 v1）可用
 
 ### Phase B（灵感捕获 + 现实桥接）
 - [ ] AC-B1: 放松对话中的 idea 可自动标记为 feature 候选
@@ -123,6 +200,11 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 | KD-2 | 三层架构：Core Identity / World / Bridge | 砚砚提出，四猫共识，Bridge 层是独有差异点 | 2026-03-10 |
 | KD-3 | 角色扮演用"面具层"不是"替身层" | 身份不可污染，信任不可丢 | 2026-03-10 |
 | KD-4 | 命名 "Cats & U" 而非技术名 | 铲屎官原话，有情感温度 | 2026-03-10 |
+| KD-5 | 三模式（Build/Perform/Replay）不是两模式 | 砚砚 R2：少了 Replay 记忆和成长会断 | 2026-03-10 |
+| KD-6 | MVP 先做 4 个一等公民，不做全部 9 个 | 砚砚 R2：先证明"世界活着且不会烂"，再扩展 | 2026-03-10 |
+| KD-7 | Story→Feature 放 Phase B 不放 MVP | 砚砚 R2：Bridge 层价值建立在 World 层稳定之上 | 2026-03-10 |
+| KD-8 | 多 Agent 做"多意识共创"不是"更多角色" | R2 深聊共识：世界自转 + 多主观记录是质变 | 2026-03-10 |
+| KD-9 | 光影同行 Universe IDE 愿景书作为正式设计输入 | 铲屎官半年实践经验，不从零设计 | 2026-03-10 |
 
 ## Timeline
 
@@ -131,6 +213,8 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 | 2026-03-10 | 凌晨"撸铁陪伴"事件触发愿景讨论 |
 | 2026-03-10 | 四猫脑暴（opus×2 + gpt52 + gemini），形成三层架构共识 |
 | 2026-03-10 | 立项 |
+| 2026-03-10 | 铲屎官分享光影同行（BCCG）项目，四猫研读 145+ 角色档案 + Universe IDE 愿景书 |
+| 2026-03-10 | 第二轮深聊（opus × gpt52）：9 一等公民 + 三模式 + 三路记忆 + 世界自转 |
 
 ## Review Gate
 
@@ -146,3 +230,6 @@ Cat Café 的愿景从第一天就是"三只猫的家"，不是冰冷的协作�
 | **Feature** | `docs/features/F066-voice-messages.md` | 语音消息基础 |
 | **Feature** | `docs/features/F092-voice-companion-experience.md` | 语音陪伴体验 |
 | **Competitor** | SillyTavern Docs | 砚砚竞品调研参考 |
+| **Design Input** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/IDE/愿景书.md` | Universe IDE 愿景书 v1.2（正式设计输入） |
+| **Design Input** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/IDE/共创模式-低保真设计图.md` | 低保真 UI 设计 |
+| **Reference** | `/Users/lysander/projects/Bound by Calestial Grow/lexander/RAG/` | 光影同行角色档案体系（A.W. 48 + L.S. 97 个维度文件） |
