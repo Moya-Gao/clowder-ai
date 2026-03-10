@@ -4,7 +4,7 @@ export interface ClaudeRescueSessionItem {
   sessionId: string;
   transcriptPath: string;
   removableThinkingTurns: number;
-  detectedBy: 'api_error_entry';
+  detectedBy: 'api_error_entry' | 'short_signature';
 }
 
 export interface ClaudeRescueResultItem {

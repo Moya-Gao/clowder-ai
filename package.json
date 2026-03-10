@@ -52,6 +52,7 @@
     "check:features": "node scripts/check-feature-truth.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
+    "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",
     "clean": "pnpm -r run clean && rm -rf node_modules"
   },
   "devDependencies": {

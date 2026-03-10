@@ -8,7 +8,7 @@ export interface BrokenClaudeThinkingSession {
   sessionId: string;
   transcriptPath: string;
   removableThinkingTurns: number;
-  detectedBy: 'api_error_entry';
+  detectedBy: 'api_error_entry' | 'short_signature';
 }
 
 export interface ClaudeThinkingRescueScanResult {
@@ -42,8 +42,40 @@ export interface ClaudeThinkingRescueOptions {
   dryRun?: boolean;
 }
 
+/**
+ * Signatures from official Anthropic API are variable-length and typically > 400 bytes.
+ * Third-party gateways (or CLI internal thinking) may produce short stub signatures
+ * (e.g. 212 bytes) that fail verification on --resume. Detect these proactively.
+ */
+const MIN_VALID_SIGNATURE_LENGTH = 300;
+
+export function hasShortThinkingSignature(entry: unknown): boolean {
+  if (!entry || typeof entry !== 'object') return false;
+  const candidate = entry as {
+    type?: unknown;
+    message?: { role?: unknown; content?: unknown };
+  };
+  if (candidate.type !== 'assistant') return false;
+  if (!candidate.message || typeof candidate.message !== 'object') return false;
+  if (candidate.message.role !== 'assistant') return false;
+  const { content } = candidate.message;
+  if (!Array.isArray(content)) return false;
+  return content.some(
+    (item) =>
+      item &&
+      typeof item === 'object' &&
+      'type' in item &&
+      item.type === 'thinking' &&
+      'signature' in item &&
+      typeof item.signature === 'string' &&
+      item.signature.length > 0 &&
+      item.signature.length < MIN_VALID_SIGNATURE_LENGTH,
+  );
+}
+
 interface ParsedTranscriptScan {
   hasApiErrorEntry: boolean;
+  hasShortSignature: boolean;
   removableThinkingTurns: number;
 }
 
@@ -134,6 +166,7 @@ function isThinkingSignatureApiErrorEntry(entry: unknown): boolean {
 
 function scanTranscript(rawContent: string): ParsedTranscriptScan {
   let hasApiErrorEntry = false;
+  let hasShortSignature = false;
   let removableThinkingTurns = 0;
 
   for (const line of rawContent.split('\n')) {
@@ -142,12 +175,13 @@ function scanTranscript(rawContent: string): ParsedTranscriptScan {
       const parsed = JSON.parse(line) as unknown;
       if (isPureThinkingAssistantTurn(parsed)) removableThinkingTurns++;
       if (isThinkingSignatureApiErrorEntry(parsed)) hasApiErrorEntry = true;
+      if (hasShortThinkingSignature(parsed)) hasShortSignature = true;
     } catch {
       // Ignore malformed lines while scanning; they are not rescue targets.
     }
   }
 
-  return { hasApiErrorEntry, removableThinkingTurns };
+  return { hasApiErrorEntry, hasShortSignature, removableThinkingTurns };
 }
 
 async function walkJsonlFiles(rootDir: string): Promise<string[]> {
@@ -237,13 +271,13 @@ export async function findBrokenClaudeThinkingSessions(
     }
 
     const scan = scanTranscript(content);
-    if (!scan.hasApiErrorEntry) continue;
+    if (!scan.hasApiErrorEntry && !scan.hasShortSignature) continue;
 
     sessions.push({
       sessionId: path.basename(transcriptPath, '.jsonl'),
       transcriptPath,
       removableThinkingTurns: scan.removableThinkingTurns,
-      detectedBy: 'api_error_entry',
+      detectedBy: scan.hasApiErrorEntry ? 'api_error_entry' : 'short_signature',
     });
   }
 
