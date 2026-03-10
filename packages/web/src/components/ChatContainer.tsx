@@ -54,8 +54,10 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const uiThinkingExpandedByDefault = useChatStore((s) => s.uiThinkingExpandedByDefault);
 
   // Export mode: ?export=true triggers print-friendly layout (no scroll containers)
-  const isExport = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('export') === 'true';
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isExport = searchParams?.get('export') === 'true';
+  // AC-6: research=multi hint from Signal study "多猫研究" button
+  const isResearchMode = searchParams?.get('research') === 'multi';
   const { clearTasks } = useTaskStore();
   const { getCatById } = useCatData();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -412,6 +414,11 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
         <QueuePanel threadId={threadId} />
         <VoteActiveBar threadId={threadId} onEnd={() => {}} />
 
+        {isResearchMode && (
+          <div className="mx-4 mb-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+            多猫研究模式 — 文章上下文已注入。请输入研究问题，猫猫会自动调用 multi_mention 邀请其他猫参与分析。
+          </div>
+        )}
         <ChatInput
           key={threadId}
           threadId={threadId}

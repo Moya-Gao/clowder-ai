@@ -151,7 +151,7 @@ export interface AgentRouterOptions {
   /** F089 Phase 2: agent pane registry for observability */
   agentPaneRegistry?: import('../../../../terminal/agent-pane-registry.js').AgentPaneRegistry;
   /** F091: Signal article lookup for thread context injection */
-  signalArticleLookup?: (threadId: string) => Promise<readonly { id: string; title: string; source: string; tier: number; contentSnippet: string; note?: string | undefined }[]>;
+  signalArticleLookup?: (threadId: string) => Promise<readonly { id: string; title: string; source: string; tier: number; contentSnippet: string; note?: string | undefined; relatedDiscussions?: readonly { sessionId: string; snippet: string; score: number }[] | undefined }[]>;
 }
 
 /**

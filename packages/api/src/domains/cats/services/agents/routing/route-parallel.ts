@@ -108,7 +108,7 @@ export async function* routeParallel(
 	      })
 	      : '';
 	    // F091: Inject linked signal articles into context
-	    let activeSignals: readonly { id: string; title: string; source: string; tier: number; contentSnippet: string; note?: string | undefined }[] | undefined;
+	    let activeSignals: readonly { id: string; title: string; source: string; tier: number; contentSnippet: string; note?: string | undefined; relatedDiscussions?: readonly { sessionId: string; snippet: string; score: number }[] | undefined }[] | undefined;
 	    if (deps.invocationDeps.signalArticleLookup) {
 	      try {
 	        const signals = await deps.invocationDeps.signalArticleLookup(threadId);

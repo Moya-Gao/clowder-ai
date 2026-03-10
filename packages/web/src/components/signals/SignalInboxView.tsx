@@ -3,13 +3,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { SignalArticle, SignalArticleStatus, SignalTier } from '@cat-cafe/shared';
 import {
+  createCollection,
   deleteSignalArticle,
+  fetchCollections,
   fetchSignalArticle,
   fetchSignalStats,
   fetchSignalsInbox,
   searchSignals,
+  updateCollection,
   type SignalArticleDetail,
   type SignalArticleStats,
+  type StudyCollection,
   updateSignalArticle,
 } from '@/utils/signals-api';
 import { filterSignalArticles, type SignalArticleFilters } from '@/utils/signals-view';
@@ -18,6 +22,7 @@ import { SignalArticleDetail as SignalArticleDetailPanel } from './SignalArticle
 import { SignalArticleList } from './SignalArticleList';
 import { SignalNav } from './SignalNav';
 import { SignalStatsCards } from './SignalStatsCards';
+import { StudyTimeline } from './StudyTimeline';
 
 const initialFilters: SignalArticleFilters = {
   query: '',
@@ -61,6 +66,27 @@ export function SignalInboxView() {
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [batchSelected, setBatchSelected] = useState<Set<string>>(new Set());
+  const [collections, setCollections] = useState<readonly StudyCollection[]>([]);
+
+  // Load collections on mount
+  useEffect(() => {
+    fetchCollections().then(setCollections).catch(() => {});
+  }, []);
+
+  const handleAddToCollection = useCallback(async (collectionId: string) => {
+    if (!selectedArticle) return;
+    const col = collections.find((c) => c.id === collectionId);
+    if (!col) return;
+    const updated = await updateCollection(collectionId, {
+      articleIds: [...col.articleIds, selectedArticle.id],
+    });
+    setCollections((prev) => prev.map((c) => (c.id === collectionId ? updated : c)));
+  }, [selectedArticle, collections]);
+
+  const handleCreateCollection = useCallback(async (name: string) => {
+    const col = await createCollection(name, selectedArticle ? [selectedArticle.id] : []);
+    setCollections((prev) => [...prev, col]);
+  }, [selectedArticle]);
 
   const toggleBatchSelect = useCallback((articleId: string) => {
     setBatchSelected((prev) => {
@@ -285,8 +311,13 @@ export function SignalInboxView() {
             onTagsChange={handleTagsChange}
             onNoteChange={handleNoteChange}
             onDelete={handleDelete}
+            collections={collections}
+            onAddToCollection={handleAddToCollection}
+            onCreateCollection={handleCreateCollection}
           />
         </section>
+
+        <StudyTimeline />
       </main>
     </div>
   );

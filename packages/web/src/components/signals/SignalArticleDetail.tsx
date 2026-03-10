@@ -13,6 +13,10 @@ interface SignalArticleDetailProps {
   readonly onTagsChange: (articleId: string, tags: readonly string[]) => Promise<void>;
   readonly onNoteChange?: (articleId: string, note: string) => Promise<void>;
   readonly onDelete?: (articleId: string) => Promise<void>;
+  readonly collections?: readonly { id: string; name: string }[] | undefined;
+  readonly onAddToCollection?: (collectionId: string) => Promise<void>;
+  readonly onCreateCollection?: (name: string) => Promise<void>;
+  readonly onCollectionChanged?: () => void;
 }
 
 function formatDate(input: string): string {
@@ -29,7 +33,7 @@ function formatDate(input: string): string {
   });
 }
 
-export function SignalArticleDetail({ article, isLoading, onStatusChange, onTagsChange, onNoteChange, onDelete }: SignalArticleDetailProps) {
+export function SignalArticleDetail({ article, isLoading, onStatusChange, onTagsChange, onNoteChange, onDelete, collections, onAddToCollection, onCreateCollection, onCollectionChanged }: SignalArticleDetailProps) {
   const [pendingTag, setPendingTag] = useState('');
   const [noteText, setNoteText] = useState('');
   const [noteOpen, setNoteOpen] = useState(false);
@@ -83,6 +87,27 @@ export function SignalArticleDetail({ article, isLoading, onStatusChange, onTags
     const meta = await unlinkSignalThread(article.id, threadId);
     setStudyMeta(meta);
   }, [article]);
+
+  const refreshStudyMeta = useCallback(() => {
+    if (!article) return;
+    fetchStudyMeta(article.id)
+      .then(setStudyMeta)
+      .catch(() => {});
+  }, [article]);
+
+  const handleCollectionAdd = useCallback(async (collectionId: string) => {
+    if (!onAddToCollection) return;
+    await onAddToCollection(collectionId);
+    refreshStudyMeta();
+    onCollectionChanged?.();
+  }, [onAddToCollection, refreshStudyMeta, onCollectionChanged]);
+
+  const handleCollectionCreate = useCallback(async (name: string) => {
+    if (!onCreateCollection) return;
+    await onCreateCollection(name);
+    refreshStudyMeta();
+    onCollectionChanged?.();
+  }, [onCreateCollection, refreshStudyMeta, onCollectionChanged]);
 
   const discussedLink = useMemo(() => {
     if (!article) {
@@ -171,6 +196,10 @@ export function SignalArticleDetail({ article, isLoading, onStatusChange, onTags
         onStartStudy={() => { window.location.href = discussedLink; }}
         onLinkThread={handleLinkThread}
         onUnlinkThread={handleUnlinkThread}
+        collections={collections}
+        onAddToCollection={handleCollectionAdd}
+        onCreateCollection={handleCollectionCreate}
+        onStudyMetaRefresh={refreshStudyMeta}
       />
       <section className="mt-4">
         <div className="flex items-center justify-between">

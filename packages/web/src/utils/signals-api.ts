@@ -218,3 +218,100 @@ export async function unlinkSignalThread(articleId: string, threadId: string): P
   const data = (await response.json()) as { meta: StudyMeta };
   return data.meta;
 }
+
+// --- F091 Phase 4: Collection API ---
+
+export interface StudyCollection {
+  readonly id: string;
+  readonly name: string;
+  readonly articleIds: readonly string[];
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export async function fetchCollections(): Promise<readonly StudyCollection[]> {
+  const response = await apiFetch('/api/signals/collections');
+  await requireOk(response);
+  const data = (await response.json()) as { collections: readonly StudyCollection[] };
+  return data.collections;
+}
+
+export async function createCollection(name: string, articleIds?: readonly string[]): Promise<StudyCollection> {
+  const response = await apiFetch('/api/signals/collections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, articleIds }),
+  });
+  await requireOk(response);
+  const data = (await response.json()) as { collection: StudyCollection };
+  return data.collection;
+}
+
+export async function updateCollection(id: string, patch: { name?: string; articleIds?: readonly string[] }): Promise<StudyCollection> {
+  const response = await apiFetch(`/api/signals/collections/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  await requireOk(response);
+  const data = (await response.json()) as { collection: StudyCollection };
+  return data.collection;
+}
+
+export async function deleteCollection(id: string): Promise<void> {
+  const response = await apiFetch(`/api/signals/collections/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  await requireOk(response);
+}
+
+// --- F091 Phase 4: Podcast API ---
+
+export interface PodcastSegment {
+  readonly speaker: string;
+  readonly text: string;
+  readonly durationEstimate: number;
+}
+
+export interface PodcastScript {
+  readonly mode: string;
+  readonly segments: readonly PodcastSegment[];
+  readonly totalDuration: number;
+}
+
+export async function fetchPodcastScript(
+  articleId: string,
+  artifactId: string,
+): Promise<{ artifact: import('@cat-cafe/shared').StudyArtifact; script: PodcastScript }> {
+  const response = await apiFetch(
+    `/api/signals/articles/${encodeURIComponent(articleId)}/podcast/${encodeURIComponent(artifactId)}`,
+  );
+  await requireOk(response);
+  return (await response.json()) as { artifact: import('@cat-cafe/shared').StudyArtifact; script: PodcastScript };
+}
+
+export async function generatePodcast(articleId: string, mode: 'essence' | 'deep' = 'essence'): Promise<{ artifact: import('@cat-cafe/shared').StudyArtifact }> {
+  const response = await apiFetch(`/api/signals/articles/${encodeURIComponent(articleId)}/podcast`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mode }),
+  });
+  await requireOk(response);
+  return (await response.json()) as { artifact: import('@cat-cafe/shared').StudyArtifact };
+}
+
+// --- F091 Phase 4: Timeline API ---
+
+export interface TimelineEntry {
+  readonly articleId: string;
+  readonly articleTitle: string;
+  readonly source: string;
+  readonly lastStudiedAt: string;
+  readonly artifacts: readonly { id: string; kind: string; state: string; createdAt: string }[];
+  readonly threads: readonly { threadId: string; linkedAt: string }[];
+}
+
+export async function fetchStudyTimeline(days?: number): Promise<{ entries: readonly TimelineEntry[]; days: number }> {
+  const url = days ? `/api/signals/timeline?days=${days}` : '/api/signals/timeline';
+  const response = await apiFetch(url);
+  await requireOk(response);
+  return (await response.json()) as { entries: readonly TimelineEntry[]; days: number };
+}

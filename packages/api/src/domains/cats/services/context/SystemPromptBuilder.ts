@@ -79,6 +79,11 @@ export interface InvocationContext {
     readonly tier: number;
     readonly contentSnippet: string;
     readonly note?: string | undefined;
+    readonly relatedDiscussions?: readonly {
+      readonly sessionId: string;
+      readonly snippet: string;
+      readonly score: number;
+    }[] | undefined;
   }[];
 }
 
@@ -501,6 +506,13 @@ export function buildInvocationContext(context: InvocationContext): string {
       lines.push(`### [${s.id}] ${s.title} (${s.source}/T${s.tier})`);
       if (s.note) lines.push(`Note: ${s.note}`);
       lines.push(s.contentSnippet);
+      // AC-10: Related discussions from our memory architecture (session search)
+      if (s.relatedDiscussions && s.relatedDiscussions.length > 0) {
+        lines.push('Related past discussions:');
+        for (const d of s.relatedDiscussions) {
+          lines.push(`- [session:${d.sessionId}] ${d.snippet}`);
+        }
+      }
     }
   }
 

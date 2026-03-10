@@ -392,7 +392,7 @@ async function main(): Promise<void> {
     socketManager,
     ...(tmuxGateway ? { tmuxGateway } : {}),
     ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
-    signalArticleLookup: createSignalArticleLookup(),
+    signalArticleLookup: createSignalArticleLookup({ transcriptReader }),
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });

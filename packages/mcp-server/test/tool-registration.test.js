@@ -42,12 +42,19 @@ const EXPECTED_TOOLS = [
   // Direct evidence/reflect tools
   'cat_cafe_search_evidence',
   'cat_cafe_reflect',
-  // Signal Hunter tools (F21 S5)
+  // Signal Hunter tools (F21 S5) + F091 Study tools
   'signal_list_inbox',
   'signal_get_article',
   'signal_search',
   'signal_mark_read',
   'signal_summarize',
+  'signal_start_study',
+  'signal_save_notes',
+  'signal_list_studies',
+  'signal_generate_podcast',
+  'signal_update_article',
+  'signal_delete_article',
+  'signal_link_thread',
   // Session chain tools
   'cat_cafe_list_session_chain',
   'cat_cafe_read_session_events',
@@ -96,6 +103,13 @@ const EXPECTED_SIGNAL_TOOLS = [
   'signal_search',
   'signal_mark_read',
   'signal_summarize',
+  'signal_start_study',
+  'signal_save_notes',
+  'signal_list_studies',
+  'signal_generate_podcast',
+  'signal_update_article',
+  'signal_delete_article',
+  'signal_link_thread',
 ];
 
 describe('MCP Server Tool Registration', () => {

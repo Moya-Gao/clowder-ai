@@ -132,6 +132,27 @@ export class StudyMetaService {
     return updated;
   }
 
+  async addCollection(articleId: string, articleFilePath: string, collectionId: string): Promise<StudyMeta> {
+    const meta = await this.readMeta(articleId, articleFilePath);
+    if (meta.collections.includes(collectionId)) return meta;
+    const updated: StudyMeta = {
+      ...meta,
+      collections: [...meta.collections, collectionId],
+    };
+    await this.writeMeta(articleFilePath, updated);
+    return updated;
+  }
+
+  async removeCollection(articleId: string, articleFilePath: string, collectionId: string): Promise<StudyMeta> {
+    const meta = await this.readMeta(articleId, articleFilePath);
+    const updated: StudyMeta = {
+      ...meta,
+      collections: meta.collections.filter((c) => c !== collectionId),
+    };
+    await this.writeMeta(articleFilePath, updated);
+    return updated;
+  }
+
   getSidecarDir(articleFilePath: string): string {
     return sidecarDir(articleFilePath);
   }

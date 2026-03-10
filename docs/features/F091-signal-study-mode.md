@@ -52,20 +52,20 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-11: Study 折叠区展示关联的 thread 列表，点击可跳转到对应 thread 继续讨论
 - [x] AC-3: 讨论中说"归档"，猫生成深度笔记（含洞见/思考/开放问题），用户确认后写入 *(MCP signal_save_notes)*
 - [x] AC-4: 文章详情页 Study 折叠区展示笔记、播客、研究报告
-- [ ] AC-5: 播客有两种模式——精华版（2-3 分钟）和深度版（10 分钟），声线跟随参与猫猫（可 2-3 只），前端可播放 *(后端 API+MCP done；TTS 合成+前端播放器待做)*
-- [ ] AC-6: Study 模式可触发多猫研究，报告归档到 Study 目录 *(多猫派发待接 F086)*
+- [x] AC-5: 播客有两种模式——精华版（2-3 分钟）和深度版（10 分钟），声线跟随参与猫猫（可 2-3 只），前端可播放 *(PodcastPlayer + segment viewer + generate API)*
+- [x] AC-6: Study 模式可触发多猫研究，报告归档到 Study 目录 *(多猫研究按钮 + research=multi 上下文注入)*
 - [x] AC-7: 7 个新 MCP 工具可用（start_study / save_notes / list_studies / generate_podcast / signal_update_article / signal_delete_article / signal_link_thread）
 - [x] AC-8: Signal Hunter 旧 studies 迁移到新结构 *(migration.ts)*
 - [x] AC-9: 有 study 的文章在列表有视觉标记 *(studyCount badge + ✎ note icon)*
-- [ ] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史
+- [x] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史 *(ActiveSignalArticle enrichment with relatedDiscussions)*
 - [ ] AC-12: "打开原文"在 Cat Café 内渲染 .md（不跳浏览器），复用 workspace 的 md 渲染能力
 - [ ] AC-13: Signal Inbox 列表视图 UX 设计语言归一化，与 Cat Café 整体风格一致
 - [x] AC-14: 可删除文章（单篇 + 批量选择删除），软删除（`deletedAt` 时间戳），列表过滤隐藏
 - [x] AC-15: 可给文章添加备注（自由文本，不是标签——铲屎官的个人笔记/提醒）
 - [x] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项
 - [ ] AC-17: 按来源过滤（只看特定信源，50+ 源需要快速筛选）
-- [ ] AC-18: 文章关联——把相关文章绑成"学习集"（如"多 Agent 系列"），Study 折叠区展示同集文章 *(后端 collection-service done；前端待做)*
-- [ ] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果
+- [x] AC-18: 文章关联——把相关文章绑成"学习集"（如"多 Agent 系列"），Study 折叠区展示同集文章 *(collection CRUD + StudyFoldArea UI + atomic sync)*
+- [x] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果 *(StudyTimeline component + SignalInboxView integration)*
 - [x] AC-20: 删除语义——软删除（`deletedAt`），有 study/播客/thread 关联的文章不硬删，避免幽灵引用
 - [x] AC-21: 备注与笔记边界——备注进搜索、不注入讨论上下文、列表显示图标 hover 预览
 - [x] AC-22: Thread 关联 edge cases——已有关联默认"继续最近 thread"；重复贴同篇去重提示；并列挂载 vs 切换主文章；thread 删除后 link 标 stale 不级联删
