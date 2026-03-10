@@ -249,9 +249,10 @@ async function main(): Promise<void> {
     agentRegistry.register(id as string, service);
   }
 
-  // F089 Phase 2: Shared instances for tmux agent pane execution
-  const tmuxGateway = new TmuxGateway();
-  const agentPaneRegistry = new AgentPaneRegistry();
+  // F089 Phase 2: Shared instances for tmux agent pane execution (opt-in)
+  const enableTmuxAgent = process.env['CAT_CAFE_TMUX_AGENT'] === '1';
+  const tmuxGateway = enableTmuxAgent ? new TmuxGateway() : undefined;
+  const agentPaneRegistry = enableTmuxAgent ? new AgentPaneRegistry() : undefined;
 
   // Shared AgentRouter — used by messagesRoutes and invocationsRoutes
   const router = new AgentRouter({
@@ -271,8 +272,8 @@ async function main(): Promise<void> {
     ...(workflowSopStore ? { workflowSopStore } : {}),
     executionDigestStore,
     socketManager,
-    tmuxGateway,
-    agentPaneRegistry,
+    ...(tmuxGateway ? { tmuxGateway } : {}),
+    ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
   });
 
   const autoSummarizer = new AutoSummarizer({ messageStore, summaryStore });
@@ -424,7 +425,9 @@ async function main(): Promise<void> {
   await app.register(workspaceRoutes);
   await app.register(workspaceEditRoutes);
   await app.register(workspaceGitRoutes);
-  await app.register(terminalRoutes, { tmuxGateway, agentPaneRegistry });
+  if (tmuxGateway && agentPaneRegistry) {
+    await app.register(terminalRoutes, { tmuxGateway, agentPaneRegistry });
+  }
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
