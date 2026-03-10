@@ -2,13 +2,19 @@
 name: writing-skills
 description: >
   创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
-  Use when: 写新 skill、修改现有 skill、验证 skill 质量。
+  Use when: 写新 skill、修改现有 skill、验证 skill 质量；
+  或者功能实现中产出了 SKILL.md / cat-cafe-skills/ 新目录 / manifest.yaml skill 条目。
   Not for: 使用 skill（直接触发对应 skill）。
   Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
 triggers:
   - "写 skill"
   - "新 skill"
   - "修改 skill"
+  - "SKILL.md"
+  - "cat-cafe-skills/"
+  - "manifest.yaml skill"
+  - "创建 hook"
+  - "新增 hook"
 ---
 
 # Writing Skills — Skill 元技能
@@ -96,6 +102,7 @@ description: Use when creating new skills, editing existing skills, or verifying
 |------|------|------|
 | Description 含流程摘要 | 猫猫走捷径不读 SKILL.md | 只写触发条件 |
 | 忘记 symlink | 某只猫找不到 skill | 补 symlink + check:skills |
+| 功能实现时产出了 skill 但没加载 writing-skills | 漏 symlink、漏 manifest、漏 BOOTSTRAP | **动了 cat-cafe-skills/ 就必须加载本 skill** |
 | 忘记 manifest 注册 | check:skills 报警告 | 添加 manifest 条目 |
 | 文件 >150 行 | 超出 token 预算 | 重材料移到 refs/ |
 | Name 含特殊字符 | YAML 解析失败 | 只用字母、数字、连字符 |

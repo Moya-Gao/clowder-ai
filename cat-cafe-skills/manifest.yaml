@@ -281,13 +281,19 @@ skills:
   writing-skills:
     description: >
       创建或修改 Cat Café skill 的元技能（含 CSO、测试、发布）。
-      Use when: 写新 skill、修改现有 skill、验证 skill 质量。
+      Use when: 写新 skill、修改现有 skill、验证 skill 质量；
+      或者功能实现中产出了 SKILL.md / cat-cafe-skills/ 新目录 / manifest.yaml skill 条目。
       Not for: 使用 skill（直接触发对应 skill）。
       Output: 新/更新的 SKILL.md + manifest 条目 + symlinks。
     triggers:
       - "写 skill"
       - "新 skill"
       - "修改 skill"
+      - "SKILL.md"
+      - "cat-cafe-skills/"
+      - "manifest.yaml skill"
+      - "创建 hook"
+      - "新增 hook"
     not_for:
       - "使用 skill"
     output: "SKILL.md + manifest entry + symlinks"
@@ -312,6 +318,44 @@ skills:
     next: []
     sop_step: null
     merged_from: ["pencil-to-code", "pencil-renderer"]
+
+  # ── 富媒体消息 ──
+  rich-messaging:
+    description: >
+      富媒体消息发送：语音、图片、卡片、清单、代码 diff。
+      Use when: 发语音、发图、发卡片、展示结构化信息、庆祝、给我听听、给我看看。
+      Not for: 纯文字聊天、技术讨论、日常回复。
+      Output: rich block 附着在消息上。
+    triggers:
+      - "发语音"
+      - "说一句"
+      - "录一段"
+      - "用语音说"
+      - "voice"
+      - "audio"
+      - "发图"
+      - "发张图"
+      - "看图"
+      - "截图给我看"
+      - "screenshot"
+      - "发个卡片"
+      - "rich block"
+      - "checklist"
+      - "发个清单"
+      - "庆祝一下"
+      - "展示一下"
+      - "给我听听"
+      - "给我看看"
+      - "show me"
+    not_for:
+      - "纯文字聊天"
+      - "技术讨论"
+      - "日常回复"
+    output: "Rich block attached to message"
+    next: []
+    sop_step: null
+    merged_from: null
+    feature: "F066"
 
   # ── 健康提醒 (F085) ──
   hyperfocus-brake:

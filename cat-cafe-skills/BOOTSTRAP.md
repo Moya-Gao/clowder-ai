@@ -3,7 +3,7 @@
 <EXTREMELY_IMPORTANT>
 你已加载 Cat Café Skills。路由规则定义在 `cat-cafe-skills/manifest.yaml`。
 
-## Skills 列表（15 个）
+## Skills 列表（17 个）
 
 ### 开发流程链
 ```
@@ -29,6 +29,8 @@ feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → 
 | `deep-research` | 多源深度调研 | — |
 | `writing-skills` | 写新 skill | — |
 | `pencil-design` | 设计 UI / .pen 文件 | — |
+| `rich-messaging` | 发语音/发图/发卡片/富媒体 | — |
+| `hyperfocus-brake` | 铲屎官健康提醒/三猫撒娇打断 | — |
 
 ### 参考文件（refs/，按需读取）
 
