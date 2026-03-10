@@ -38,7 +38,6 @@ import { ResizeHandle } from './workspace/ResizeHandle';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { VoteConfigModal, type VoteConfig } from './VoteConfigModal';
 import { VoteActiveBar } from './VoteActiveBar';
-import { VoiceCompanionButton } from './VoiceCompanionButton';
 import { useVoiceAutoPlay } from '@/hooks/useVoiceAutoPlay';
 
 interface ChatContainerProps {
@@ -348,6 +347,7 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
           onOpenMobileStatus={() => setMobileStatusOpen(true)}
           statusPanelOpen={statusPanelOpen}
           onToggleStatusPanel={() => setStatusPanelOpen((v) => !v)}
+          defaultCatId={targetCats[0] || 'opus'}
         />
 
         <ModeStatusBar />
@@ -411,14 +411,6 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
 
         <QueuePanel threadId={threadId} />
         <VoteActiveBar threadId={threadId} onEnd={() => {}} />
-
-        {/* F092: Voice Companion toggle */}
-        <div className="flex justify-center py-1">
-          <VoiceCompanionButton
-            threadId={threadId}
-            defaultCatId={targetCats[0] || 'opus'}
-          />
-        </div>
 
         <ChatInput
           key={threadId}

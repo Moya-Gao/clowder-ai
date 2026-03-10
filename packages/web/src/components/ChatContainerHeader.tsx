@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { useChatStore } from '@/stores/chatStore';
 import { ExportButton } from './ExportButton';
 import { CatCafeLogo } from './icons/CatCafeLogo';
+import { VoiceCompanionButton } from './VoiceCompanionButton';
 
 interface ChatContainerHeaderProps {
   sidebarOpen: boolean;
@@ -13,6 +14,8 @@ interface ChatContainerHeaderProps {
   onOpenMobileStatus: () => void;
   statusPanelOpen: boolean;
   onToggleStatusPanel: () => void;
+  /** F092: Default cat for voice companion */
+  defaultCatId: string;
 }
 
 export function ChatContainerHeader({
@@ -25,6 +28,7 @@ export function ChatContainerHeader({
   onOpenMobileStatus,
   statusPanelOpen,
   onToggleStatusPanel,
+  defaultCatId,
 }: ChatContainerHeaderProps) {
   return (
     <header className="border-b border-owner-light bg-owner-bg safe-area-top">
@@ -48,6 +52,7 @@ export function ChatContainerHeader({
           <p className="text-xs text-gray-500">三只 AI 猫猫的协作空间</p>
         </div>
         <ExportButton threadId={threadId} />
+        <VoiceCompanionButton threadId={threadId} defaultCatId={defaultCatId} />
         <Link
           href="/signals"
           className="p-1 rounded-lg hover:bg-owner-light transition-colors"
