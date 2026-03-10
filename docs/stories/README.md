@@ -74,6 +74,7 @@ thread_ids: []             # 关联的 thread ID（可选）
 | `mafia-game-s5/` | 猫猫杀第五届 | 2026-03 | 全员 |
 | `king-election/` | 猫猫国王票选 | 2026-03-03 | 全员 |
 | `mafia-game-highlights/` | 猫猫杀名场面集锦（七届） | 2026-03-08 | 全员 |
+| `late-night-gym-companionship/` | 深夜撸铁前的猫猫陪伴 | 2026-03-10 | opus, opus-45, gpt52, gemini |
 
 ## 脱敏检查清单
 
