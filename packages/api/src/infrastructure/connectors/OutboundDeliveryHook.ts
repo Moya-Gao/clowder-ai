@@ -1,10 +1,18 @@
+import { type CatId, catRegistry, type RichBlock } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
-import { catRegistry, type CatId } from '@cat-cafe/shared';
+import { renderAllRichBlocksPlaintext } from './rich-block-plaintext.js';
 
 export interface IOutboundAdapter {
   readonly connectorId: string;
   sendReply(externalChatId: string, content: string, metadata?: Record<string, unknown>): Promise<void>;
+  sendRichMessage?(
+    externalChatId: string,
+    textContent: string,
+    blocks: RichBlock[],
+    catDisplayName: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<void>;
 }
 
 export interface OutboundDeliveryHookOptions {
@@ -16,17 +24,16 @@ export interface OutboundDeliveryHookOptions {
 export class OutboundDeliveryHook {
   constructor(private readonly opts: OutboundDeliveryHookOptions) {}
 
-  async deliver(threadId: string, content: string, catId?: CatId): Promise<void> {
+  async deliver(threadId: string, content: string, catId?: CatId, richBlocks?: RichBlock[]): Promise<void> {
     const bindings = this.opts.bindingStore.getByThread(threadId);
     if (bindings.length === 0) return;
 
-    let finalContent = content;
-    if (catId) {
-      const entry = catRegistry.tryGet(catId);
-      if (entry) {
-        finalContent = `[${entry.config.displayName}🐱] ${content}`;
-      }
-    }
+    const entry = catId ? catRegistry.tryGet(catId) : undefined;
+    const catDisplayName = entry?.config.displayName ?? '';
+    const textPrefix = catDisplayName ? `[${catDisplayName}🐱] ` : '';
+    const finalContent = `${textPrefix}${content}`;
+
+    const hasRichBlocks = richBlocks && richBlocks.length > 0;
 
     await Promise.allSettled(
       bindings.map(async (binding) => {
@@ -36,7 +43,21 @@ export class OutboundDeliveryHook {
           return;
         }
         try {
-          await adapter.sendReply(binding.externalChatId, finalContent, undefined);
+          if (hasRichBlocks && adapter.sendRichMessage) {
+            await adapter.sendRichMessage(
+              binding.externalChatId,
+              content,
+              richBlocks,
+              catDisplayName || 'Cat',
+              undefined,
+            );
+          } else if (hasRichBlocks) {
+            // Fallback: append plaintext-rendered blocks to text
+            const blockText = renderAllRichBlocksPlaintext(richBlocks);
+            await adapter.sendReply(binding.externalChatId, `${finalContent}\n\n${blockText}`, undefined);
+          } else {
+            await adapter.sendReply(binding.externalChatId, finalContent, undefined);
+          }
         } catch (err) {
           this.opts.log.error(
             {

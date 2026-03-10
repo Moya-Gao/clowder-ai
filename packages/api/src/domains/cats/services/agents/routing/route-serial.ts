@@ -509,6 +509,10 @@ export async function* routeSerial(
             ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
           },
         });
+        // F088-P3: Stash rich blocks for outbound delivery
+        if (options.persistenceContext && allRichBlocks.length > 0) {
+          options.persistenceContext.richBlocks = allRichBlocks;
+        }
         // #80: Clean up draft only after successful append (guard: keep draft if append fails)
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);
@@ -623,6 +627,16 @@ export async function* routeSerial(
             ...(ownInvocationId ? { stream: { invocationId: ownInvocationId } } : {}),
           },
         });
+        // F088-P3: Stash rich blocks for outbound delivery (no-text branch)
+        if (options.persistenceContext) {
+          const noTextBlocks = [...bufferedBlocks, ...streamRichBlocks];
+          if (noTextBlocks.length > 0) {
+            options.persistenceContext.richBlocks = [
+              ...(options.persistenceContext.richBlocks ?? []),
+              ...noTextBlocks,
+            ];
+          }
+        }
         // #80: Clean up draft only after successful append
         if (deps.draftStore && ownInvocationId) {
           deps.draftStore.delete(userId, threadId, ownInvocationId)?.catch?.(noop);

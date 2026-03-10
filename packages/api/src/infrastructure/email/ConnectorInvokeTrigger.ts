@@ -332,10 +332,11 @@ export class ConnectorInvokeTrigger {
         });
         finalStatus = 'succeeded';
 
-        // ⑥ Outbound delivery: send final text to bound external chats
-        if (this.opts.outboundHook && collectedTextParts.length > 0) {
+        // ⑥ Outbound delivery: send final text + rich blocks to bound external chats
+        const richBlocks = persistenceContext.richBlocks;
+        if (this.opts.outboundHook && (collectedTextParts.length > 0 || (richBlocks && richBlocks.length > 0))) {
           const finalContent = collectedTextParts.join('');
-          this.opts.outboundHook.deliver(threadId, finalContent, catId).catch((err) => {
+          this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks).catch((err) => {
             log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
           });
         }

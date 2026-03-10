@@ -176,6 +176,43 @@ describe('FeishuAdapter', () => {
 		});
 	});
 
+	describe('sendRichMessage()', () => {
+		it('sends interactive card via Lark API', async () => {
+			const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (params) => {
+				sendCalls.push(params);
+			});
+
+			const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+			await adapter.sendRichMessage('oc_chat_789', 'text', blocks, '布偶猫');
+
+			assert.equal(sendCalls.length, 1);
+			assert.equal(sendCalls[0].msgType, 'interactive');
+			assert.equal(sendCalls[0].chatId, 'oc_chat_789');
+			const card = JSON.parse(sendCalls[0].content);
+			assert.ok(card.header.title.content.includes('布偶猫'));
+			assert.ok(card.header.title.content.includes('Review'));
+		});
+
+		it('includes all block types in card elements', async () => {
+			const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (params) => {
+				sendCalls.push(params);
+			});
+
+			const blocks = [
+				{ id: 'b1', kind: 'card', v: 1, title: 'Summary', bodyMarkdown: 'Done' },
+				{ id: 'b2', kind: 'checklist', v: 1, items: [{ id: 'i1', text: 'Task A', checked: true }] },
+			];
+			await adapter.sendRichMessage('oc_chat', 'text', blocks, '缅因猫');
+
+			const card = JSON.parse(sendCalls[0].content);
+			assert.ok(card.elements.length >= 2);
+		});
+	});
+
 	describe('verifyEventToken()', () => {
 		it('returns true when header.token matches verificationToken', () => {
 			const adapter = new FeishuAdapter(
@@ -226,6 +263,25 @@ describe('FeishuAdapter', () => {
 				{ verificationToken: 'my-secret-token' },
 			);
 			assert.equal(adapter.verifyEventToken({}), false);
+		});
+	});
+
+	// P1-2: textContent must not be discarded when both text and blocks present
+	describe('sendRichMessage() text preservation', () => {
+		it('includes textContent in card elements alongside blocks', async () => {
+			const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (params) => {
+				sendCalls.push(params);
+			});
+
+			const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+			await adapter.sendRichMessage('oc_chat', 'Cat reply text here', blocks, '布偶猫');
+
+			const card = JSON.parse(sendCalls[0].content);
+			const allContent = JSON.stringify(card.elements);
+			assert.ok(allContent.includes('Cat reply text here'), 'textContent must appear in card elements');
+			assert.ok(allContent.includes('LGTM'), 'block content must also appear');
 		});
 	});
 });

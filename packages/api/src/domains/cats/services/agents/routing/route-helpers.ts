@@ -38,6 +38,8 @@ export interface PersistenceContext {
   failed: boolean;
   /** Error details for diagnostics */
   errors: Array<{ catId: string; error: string }>;
+  /** F088-P3: Rich blocks consumed during this invocation, for outbound delivery */
+  richBlocks?: import('@cat-cafe/shared').RichBlock[];
 }
 
 /** Common options for both strategies */

@@ -170,10 +170,10 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-10: 多猫接力时，外部看到分角色对话（ConnectorInvokeTrigger 传透 catId → OutboundDeliveryHook 前缀，3 integration tests）
 
 ### Phase 3 — 富文本卡片（rich block → platform card）
-- [ ] AC-11: Cat Café rich block（check-in card、audio reminder 等）→ 飞书消息卡片 JSON（interactive card）
-- [ ] AC-12: Cat Café rich block → Telegram formatted message（HTML/MarkdownV2 + inline keyboard）
-- [ ] AC-13: OutboundDeliveryHook 自动检测 rich block 类型，选择纯文本降级 or 卡片格式
-- [ ] AC-14: 飞书卡片支持按钮交互回调（card action callback → ConnectorRouter）
+- [x] AC-11: Cat Café rich block（check-in card、audio reminder 等）→ 飞书消息卡片 JSON（interactive card）— feishu-card-formatter + FeishuAdapter.sendRichMessage, 8 tests
+- [x] AC-12: Cat Café rich block → Telegram formatted message（HTML parse_mode）— telegram-html-formatter + TelegramAdapter.sendRichMessage, 9 tests
+- [x] AC-13: OutboundDeliveryHook 自动检测 rich block 类型，选择纯文本降级 or 卡片格式 — IOutboundAdapter.sendRichMessage? dispatch, 12 tests
+- [ ] AC-14: 飞书卡片支持按钮交互回调（card action callback → ConnectorRouter）— deferred to Phase 3b
 
 ### Phase 4 — 消息编辑模拟流式
 - [ ] AC-15: agent 开始处理时发送"思考中..."占位消息

@@ -11,7 +11,9 @@
 
 import type { FastifyBaseLogger } from 'fastify';
 import { Bot } from 'grammy';
+import type { RichBlock } from '@cat-cafe/shared';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import { formatTelegramHtml } from './telegram-html-formatter.js';
 
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
 
@@ -109,6 +111,25 @@ export class TelegramAdapter implements IOutboundAdapter {
    */
   async stopPolling(): Promise<void> {
     await this.bot.stop();
+  }
+
+  /**
+   * Send a rich message as Telegram HTML-formatted text.
+   */
+  async sendRichMessage(
+    externalChatId: string,
+    textContent: string,
+    blocks: RichBlock[],
+    catDisplayName: string,
+  ): Promise<void> {
+    const html = formatTelegramHtml(blocks, catDisplayName, textContent);
+
+    if (this.sendMessageFn) {
+      await this.sendMessageFn(externalChatId, html, { parse_mode: 'HTML' });
+      return;
+    }
+
+    await this.bot.api.sendMessage(externalChatId, html, { parse_mode: 'HTML' });
   }
 
   /**

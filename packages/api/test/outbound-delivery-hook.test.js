@@ -127,4 +127,97 @@ describe('OutboundDeliveryHook', () => {
 		await hook.deliver('thread-abc', 'Hello!', 'nonexistent-cat');
 		assert.equal(feishuMock.sent[0].content, 'Hello!');
 	});
+
+	// Phase 3: rich block delivery
+	it('calls sendRichMessage when adapter supports it and blocks provided', async () => {
+		const richSent = [];
+		const richAdapter = {
+			connectorId: 'feishu',
+			async sendReply(externalChatId, content) {
+				feishuMock.sent.push({ externalChatId, content });
+			},
+			async sendRichMessage(externalChatId, textContent, blocks, catDisplayName) {
+				richSent.push({ externalChatId, textContent, blocks, catDisplayName });
+			},
+		};
+		hook = new OutboundDeliveryHook({
+			bindingStore,
+			adapters: new Map([['feishu', richAdapter]]),
+			log: noopLog(),
+		});
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+		const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+		await hook.deliver('thread-abc', 'Summary text', 'opus', blocks);
+
+		assert.equal(richSent.length, 1);
+		assert.equal(richSent[0].catDisplayName, '布偶猫');
+		assert.equal(richSent[0].blocks.length, 1);
+		assert.equal(feishuMock.sent.length, 0); // sendReply NOT called
+	});
+
+	it('falls back to sendReply with plaintext when adapter lacks sendRichMessage', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+		const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+		await hook.deliver('thread-abc', 'Summary', 'opus', blocks);
+
+		assert.equal(feishuMock.sent.length, 1);
+		// Should contain both text prefix and plaintext-rendered block
+		assert.ok(feishuMock.sent[0].content.includes('[布偶猫🐱]'));
+		assert.ok(feishuMock.sent[0].content.includes('Review'));
+		assert.ok(feishuMock.sent[0].content.includes('LGTM'));
+	});
+
+	it('sends text via sendReply when no rich blocks (backward compat)', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+		await hook.deliver('thread-abc', 'Hello!', 'opus', undefined);
+		assert.equal(feishuMock.sent.length, 1);
+		assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+	});
+
+	it('sends text via sendReply when rich blocks is empty array', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+		await hook.deliver('thread-abc', 'Hello!', 'opus', []);
+		assert.equal(feishuMock.sent.length, 1);
+		assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+	});
+
+	// P1-1: block-only responses (empty content) must still trigger delivery
+	it('delivers rich blocks even when text content is empty', async () => {
+		const richSent = [];
+		const richAdapter = {
+			connectorId: 'feishu',
+			async sendReply(externalChatId, content) {
+				feishuMock.sent.push({ externalChatId, content });
+			},
+			async sendRichMessage(externalChatId, textContent, blocks, catDisplayName) {
+				richSent.push({ externalChatId, textContent, blocks, catDisplayName });
+			},
+		};
+		hook = new OutboundDeliveryHook({
+			bindingStore,
+			adapters: new Map([['feishu', richAdapter]]),
+			log: noopLog(),
+		});
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+		const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Status', bodyMarkdown: 'Done' }];
+		await hook.deliver('thread-abc', '', 'opus', blocks);
+
+		assert.equal(richSent.length, 1);
+		assert.equal(richSent[0].blocks.length, 1);
+		assert.equal(feishuMock.sent.length, 0); // sendReply NOT called
+	});
+
+	it('falls back to plaintext for block-only when adapter lacks sendRichMessage', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+
+		const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Status', bodyMarkdown: 'Done' }];
+		await hook.deliver('thread-abc', '', 'opus', blocks);
+
+		assert.equal(feishuMock.sent.length, 1);
+		assert.ok(feishuMock.sent[0].content.includes('Status'));
+		assert.ok(feishuMock.sent[0].content.includes('Done'));
+	});
 });

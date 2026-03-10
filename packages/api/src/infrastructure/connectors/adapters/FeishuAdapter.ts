@@ -11,7 +11,9 @@
 
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
+import type { RichBlock } from '@cat-cafe/shared';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import { formatFeishuCard } from './feishu-card-formatter.js';
 
 export interface FeishuInboundMessage {
   chatId: string;
@@ -136,6 +138,37 @@ export class FeishuAdapter implements IOutboundAdapter {
         receive_id: externalChatId,
         msg_type: 'text',
         content: JSON.stringify({ text: content }),
+      },
+    });
+  }
+
+  /**
+   * Send a rich message as Feishu interactive card.
+   */
+  async sendRichMessage(
+    externalChatId: string,
+    textContent: string,
+    blocks: RichBlock[],
+    catDisplayName: string,
+  ): Promise<void> {
+    const card = formatFeishuCard(blocks, catDisplayName, textContent);
+    const params = {
+      chatId: externalChatId,
+      content: JSON.stringify(card),
+      msgType: 'interactive',
+    };
+
+    if (this.sendMessageFn) {
+      await this.sendMessageFn(params);
+      return;
+    }
+
+    await this.client.im.message.create({
+      params: { receive_id_type: 'chat_id' },
+      data: {
+        receive_id: externalChatId,
+        msg_type: 'interactive',
+        content: JSON.stringify(card),
       },
     });
   }

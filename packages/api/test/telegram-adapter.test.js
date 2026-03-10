@@ -123,10 +123,65 @@ describe('TelegramAdapter', () => {
 		});
 	});
 
+	describe('sendRichMessage()', () => {
+		it('sends HTML-formatted message with parse_mode', async () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (chatId, text, opts) => {
+				sendCalls.push({ chatId, text, opts });
+			});
+
+			const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+			await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+
+			assert.equal(sendCalls.length, 1);
+			assert.equal(sendCalls[0].chatId, '1001');
+			assert.deepEqual(sendCalls[0].opts, { parse_mode: 'HTML' });
+			assert.ok(sendCalls[0].text.includes('<b>'));
+			assert.ok(sendCalls[0].text.includes('布偶猫'));
+			assert.ok(sendCalls[0].text.includes('Review'));
+		});
+
+		it('formats checklist blocks as HTML', async () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (chatId, text, opts) => {
+				sendCalls.push({ chatId, text, opts });
+			});
+
+			const blocks = [{
+				id: 'b2', kind: 'checklist', v: 1,
+				items: [{ id: 'i1', text: 'Done', checked: true }, { id: 'i2', text: 'Pending' }],
+			}];
+			await adapter.sendRichMessage('1001', 'text', blocks, '布偶猫');
+
+			assert.ok(sendCalls[0].text.includes('✅ Done'));
+			assert.ok(sendCalls[0].text.includes('☐ Pending'));
+		});
+	});
+
 	describe('connectorId', () => {
 		it('is telegram', () => {
 			const adapter = new TelegramAdapter('test-token', noopLog());
 			assert.equal(adapter.connectorId, 'telegram');
+		});
+	});
+
+	// P1-2: textContent must not be discarded when both text and blocks present
+	describe('sendRichMessage() text preservation', () => {
+		it('includes textContent in HTML output alongside blocks', async () => {
+			const adapter = new TelegramAdapter('test-token', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (chatId, text, opts) => {
+				sendCalls.push({ chatId, text, opts });
+			});
+
+			const blocks = [{ id: 'b1', kind: 'card', v: 1, title: 'Review', bodyMarkdown: 'LGTM' }];
+			await adapter.sendRichMessage('1001', 'Cat reply text here', blocks, '布偶猫');
+
+			assert.equal(sendCalls.length, 1);
+			assert.ok(sendCalls[0].text.includes('Cat reply text here'), 'textContent must appear in output');
+			assert.ok(sendCalls[0].text.includes('Review'), 'block content must also appear');
 		});
 	});
 });

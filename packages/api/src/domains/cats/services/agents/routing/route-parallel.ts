@@ -456,6 +456,13 @@ export async function* routeParallel(
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });
+          // F088-P3: Stash rich blocks for outbound delivery
+          if (options.persistenceContext && allRichBlocks.length > 0) {
+            options.persistenceContext.richBlocks = [
+              ...(options.persistenceContext.richBlocks ?? []),
+              ...allRichBlocks,
+            ];
+          }
           // #80: Clean up draft only after successful append
           if (deps.draftStore && ownInvId) {
             deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
@@ -504,6 +511,16 @@ export async function* routeParallel(
               ...(ownInvId ? { stream: { invocationId: ownInvId } } : {}),
             },
           });
+          // F088-P3: Stash rich blocks for outbound delivery (no-text branch)
+          if (options.persistenceContext) {
+            const noTextBlocks = [...bufferedBlocks, ...(catStreamRichBlocks.get(msg.catId) ?? [])];
+            if (noTextBlocks.length > 0) {
+              options.persistenceContext.richBlocks = [
+                ...(options.persistenceContext.richBlocks ?? []),
+                ...noTextBlocks,
+              ];
+            }
+          }
           // #80: Clean up draft only after successful append
           if (deps.draftStore && ownInvId) {
             deps.draftStore.delete(userId, threadId, ownInvId)?.catch?.(noop);
