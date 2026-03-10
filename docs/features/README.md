@@ -71,3 +71,4 @@
 | F066 | F066: Voice Pipeline Upgrade — 本地 TTS 语音基础设施 | done | [F066-voice-pipeline-upgrade.md](./F066-voice-pipeline-upgrade.md) |
 | F085 | F085: Hyperfocus Brake — 猫猫健康小刹车 | done | [F085-hyperfocus-brake.md](./F085-hyperfocus-brake.md) |
 | F081 | F081: Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | done | [F081-bubble-continuity-observability.md](./F081-bubble-continuity-observability.md) |
+| F091 | F091: Signal Study Mode — 信号学习伴侣 | done | [F091-signal-study-mode.md](./F091-signal-study-mode.md) |
