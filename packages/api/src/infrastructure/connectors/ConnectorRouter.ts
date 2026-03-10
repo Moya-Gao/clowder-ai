@@ -83,12 +83,12 @@ export class ConnectorRouter {
     }
 
     // 2. Lookup or create binding
-    let binding = bindingStore.getByExternal(connectorId, externalChatId);
+    let binding = await bindingStore.getByExternal(connectorId, externalChatId);
     if (!binding) {
       const def = getConnectorDefinition(connectorId);
       const title = `${def?.displayName ?? connectorId} DM`;
       const thread = await threadStore.create(this.opts.defaultUserId, title);
-      binding = bindingStore.bind(connectorId, externalChatId, thread.id, this.opts.defaultUserId);
+      binding = await bindingStore.bind(connectorId, externalChatId, thread.id, this.opts.defaultUserId);
       log.info(
         { connectorId, externalChatId, threadId: thread.id },
         '[ConnectorRouter] New thread created for external chat',

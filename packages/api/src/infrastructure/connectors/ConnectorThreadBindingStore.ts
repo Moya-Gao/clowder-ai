@@ -1,10 +1,18 @@
 import type { ConnectorThreadBinding } from '@cat-cafe/shared';
 
 export interface IConnectorThreadBindingStore {
-  bind(connectorId: string, externalChatId: string, threadId: string, userId: string): ConnectorThreadBinding;
-  getByExternal(connectorId: string, externalChatId: string): ConnectorThreadBinding | null;
-  getByThread(threadId: string): ConnectorThreadBinding[];
-  remove(connectorId: string, externalChatId: string): boolean;
+  bind(
+    connectorId: string,
+    externalChatId: string,
+    threadId: string,
+    userId: string,
+  ): ConnectorThreadBinding | Promise<ConnectorThreadBinding>;
+  getByExternal(
+    connectorId: string,
+    externalChatId: string,
+  ): ConnectorThreadBinding | null | Promise<ConnectorThreadBinding | null>;
+  getByThread(threadId: string): ConnectorThreadBinding[] | Promise<ConnectorThreadBinding[]>;
+  remove(connectorId: string, externalChatId: string): boolean | Promise<boolean>;
 }
 
 export class MemoryConnectorThreadBindingStore implements IConnectorThreadBindingStore {

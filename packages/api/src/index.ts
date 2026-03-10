@@ -728,6 +728,7 @@ async function main(): Promise<void> {
       socketManager,
       defaultUserId: 'default-user',
       defaultCatId: 'opus' as CatId,
+      redis: redisClient ?? undefined,
       log: app.log,
     });
     if (connectorGatewayHandle) {

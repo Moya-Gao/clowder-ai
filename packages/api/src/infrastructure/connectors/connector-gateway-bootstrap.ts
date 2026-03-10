@@ -11,6 +11,7 @@
  */
 
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
+import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
@@ -19,6 +20,7 @@ import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { type IOutboundAdapter, OutboundDeliveryHook } from './OutboundDeliveryHook.js';
+import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
 
 export interface ConnectorGatewayConfig {
   telegramBotToken?: string | undefined;
@@ -54,6 +56,7 @@ export interface ConnectorGatewayDeps {
     | undefined;
   readonly defaultUserId: string;
   readonly defaultCatId: CatId;
+  readonly redis?: RedisClient | undefined;
   readonly log: FastifyBaseLogger;
 }
 
@@ -89,8 +92,11 @@ export async function startConnectorGateway(
     return null;
   }
 
-  const bindingStore = new MemoryConnectorThreadBindingStore();
+  const bindingStore = deps.redis
+    ? new RedisConnectorThreadBindingStore(deps.redis)
+    : new MemoryConnectorThreadBindingStore();
   const dedup = new InboundMessageDedup();
+  log.info({ store: deps.redis ? 'redis' : 'memory' }, '[ConnectorGateway] Binding store initialized');
   const adapters = new Map<string, IOutboundAdapter>();
   const webhookHandlers = new Map<string, ConnectorWebhookHandler>();
   const stopFns: Array<() => Promise<void>> = [];

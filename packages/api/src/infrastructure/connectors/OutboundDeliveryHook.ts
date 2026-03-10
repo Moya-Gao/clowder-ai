@@ -1,7 +1,7 @@
 import { type CatId, catRegistry, type RichBlock } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
-import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { ConnectorMessageFormatter, type MessageEnvelope } from './ConnectorMessageFormatter.js';
+import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { renderAllRichBlocksPlaintext } from './rich-block-plaintext.js';
 
 export interface IOutboundAdapter {
@@ -42,7 +42,7 @@ export class OutboundDeliveryHook {
     richBlocks?: RichBlock[],
     threadMeta?: ThreadMeta,
   ): Promise<void> {
-    const bindings = this.opts.bindingStore.getByThread(threadId);
+    const bindings = await this.opts.bindingStore.getByThread(threadId);
     if (bindings.length === 0) return;
 
     const entry = catId ? catRegistry.tryGet(catId) : undefined;
