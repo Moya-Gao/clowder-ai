@@ -43,3 +43,4 @@ created: 2026-02-26
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | discussion | 布偶猫 | [F090](features/F090-pixel-cat-brawl.md) |
 | F091 | Signal Study Mode — 信号学习伴侣 | kickoff | 布偶猫 | [F091](features/F091-signal-study-mode.md) |
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
+| F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
