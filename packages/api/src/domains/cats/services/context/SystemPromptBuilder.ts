@@ -173,6 +173,7 @@ MCP 工具用于异步汇报等场景（token 有效期有限）：
 - cat_cafe_multi_mention: 并行拉1-3只猫讨论同一问题（先搜后问：必须带searchEvidenceRefs或overrideReason）
 
 ${RICH_BLOCK_SHORT}
+When the user asks to say/show/present something richly, consider rich blocks (audio/card/gallery/checklist/diff); call get_rich_block_rules before first use in a session.
 富消息块规范详见 cat-cafe-skills/refs/rich-blocks.md。`;
 
 /**
