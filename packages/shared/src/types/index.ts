@@ -307,3 +307,10 @@ export {
 	MIN_TIMEOUT_MINUTES,
 	MULTI_MENTION_TERMINAL_STATES,
 } from './multi-mention.js';
+// Brake types (F085 Phase 4 — 平台级健康守护)
+export type {
+	BrakeCheckinRequest,
+	BrakeCheckinResponse,
+	BrakeEvent,
+	BrakeState,
+} from './brake.js';

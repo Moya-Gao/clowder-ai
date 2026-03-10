@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { BrakeModal } from '@/components/BrakeModal';
 import { ToastContainer } from '@/components/ToastContainer';
 import './globals.css';
 
@@ -32,6 +33,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className="min-h-screen">
         {children}
+        <BrakeModal />
         <ToastContainer />
       </body>
     </html>

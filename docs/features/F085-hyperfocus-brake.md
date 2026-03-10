@@ -75,12 +75,12 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 **Gap**: Phase 1-3 的 hook 方案绑在 Claude Code 的 `settings.json` 上，只有布偶猫能触发提醒。砚砚（Codex）和烁烁（Gemini）的 session 完全不覆盖。根因：把平台级能力挂在了 agent 工具链上。
 
-- [ ] **AC21**: 后端 API 活跃时长追踪 — 每次 API 请求更新 `lastActivityTs`，5min 间隔检测
-- [ ] **AC22**: 后端触发判定 — 到阈值推 WebSocket event `brake:trigger` 给前端
-- [ ] **AC23**: 前端 UI 通知 — 订阅 brake event，弹猫猫提醒卡片（含头像 + 撒娇文案）
-- [ ] **AC24**: 前端 check-in 交互 — 三选一（休息/收尾/继续）直接在前端完成
+- [x] **AC21**: 后端 API 活跃时长追踪 — 每次 API 请求更新 `lastActivityTs`，5min 间隔检测
+- [x] **AC22**: 后端触发判定 — 到阈值推 WebSocket event `brake:trigger` 给前端
+- [x] **AC23**: 前端 UI 通知 — 订阅 brake event，弹猫猫提醒卡片（含头像 + 撒娇文案）
+- [x] **AC24**: 前端 check-in 交互 — 三选一（休息/收尾/继续）直接在前端完成
 - [ ] **AC25**: 前端 TTS 播放 — 触发时自动播放三猫语音撒娇
-- [ ] **AC26**: 三猫全覆盖 — 无论铲屎官在跟哪只猫聊天，都能触发提醒
+- [x] **AC26**: 三猫全覆盖 — 无论铲屎官在跟哪只猫聊天，都能触发提醒
 - [ ] **AC27**: agent hook 退役 — Phase 4 上线后移除 `pretool-brake-check.sh` + `hyperfocus-brake-timer.sh`
 
 ## Links

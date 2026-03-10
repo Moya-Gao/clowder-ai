@@ -47,3 +47,4 @@ export { sliceRoutes } from './slice-routes.js';
 export { refluxRoutes } from './reflux-routes.js';
 export { executionDigestRoutes } from './execution-digests.js';
 export { featureDocDetailRoutes } from './feature-doc-detail.js';
+export { brakeRoutes } from './brake.js';

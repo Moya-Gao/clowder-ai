@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useChatStore } from '@/stores/chatStore';
+import { useBrakeStore } from '@/stores/brakeStore';
 import { useToastStore } from '@/stores/toastStore';
 import { API_URL } from '@/utils/api-client';
 import { getUserId } from '@/utils/userId';
@@ -409,6 +410,11 @@ export function useSocket(callbacks: SocketCallbacks, threadId?: string) {
         ...(data.message.extra ? { extra: data.message.extra } : {}),
         timestamp: data.message.timestamp ?? Date.now(),
       });
+    });
+
+    // F085 Phase 4: Hyperfocus brake trigger from backend activity tracking
+    socket.on('brake:trigger', (data: { level: 1 | 2 | 3; activeMinutes: number; nightMode: boolean; timestamp: number }) => {
+      useBrakeStore.getState().show(data);
     });
 
     socket.on('connect_error', (error: Error & { description?: unknown; context?: unknown }) => {

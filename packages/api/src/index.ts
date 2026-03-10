@@ -85,6 +85,7 @@ import {
   stopGithubReviewWatcher,
 } from './infrastructure/email/index.js';
 import { SocketManager } from './infrastructure/websocket/index.js';
+import { ActivityTracker } from './domains/health/ActivityTracker.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
 import {
   auditRoutes,
@@ -135,6 +136,7 @@ import {
   workspaceEditRoutes,
   workspaceGitRoutes,
   workspaceRoutes,
+  brakeRoutes,
 } from './routes/index.js';
 import { prTrackingRoutes } from './routes/pr-tracking.js';
 import { terminalRoutes } from './routes/terminal.js';
@@ -196,6 +198,35 @@ async function main(): Promise<void> {
   // Initialize WebSocket manager BEFORE routes (injected via opts, no circular import).
   // IMPORTANT: Socket.io must attach to the SAME server Fastify listens on.
   socketManager = new SocketManager(app.server, invocationTracker);
+
+  // F085 Phase 4: Platform-level activity tracker (hyperfocus brake)
+  const activityTracker = new ActivityTracker();
+  const brakeThresholdMs = parseInt(process.env['HYPERFOCUS_THRESHOLD_MS'] ?? `${90 * 60_000}`, 10);
+  app.addHook('onRequest', (request, _reply, done) => {
+    // Skip non-API paths and brake endpoints (avoid trigger-on-checkin loop)
+    if (!request.url.startsWith('/api/') || request.url.startsWith('/api/brake/')) {
+      done();
+      return;
+    }
+    const userId =
+      (typeof request.headers['x-cat-cafe-user'] === 'string' && request.headers['x-cat-cafe-user'].trim()) ||
+      (request.query as Record<string, unknown>)?.['userId'] as string ||
+      null;
+    if (userId) {
+      activityTracker.recordActivity(userId);
+      const level = activityTracker.shouldTrigger(userId, brakeThresholdMs);
+      if (level > 0 && socketManager) {
+        activityTracker.markTriggered(userId, level as 1 | 2 | 3);
+        socketManager.emitToUser(userId, 'brake:trigger', {
+          level,
+          activeMinutes: Math.round(activityTracker.getState(userId).activeWorkMs / 60_000),
+          nightMode: ActivityTracker.isNightMode(),
+          timestamp: Date.now(),
+        });
+      }
+    }
+    done();
+  });
 
   // Create shared service instances for MCP callback flow
   const registry = new InvocationRegistry();
@@ -416,6 +447,7 @@ async function main(): Promise<void> {
   });
   await app.register(catsRoutes);
   await app.register(quotaRoutes);
+  await app.register(brakeRoutes, { activityTracker });
 
   // TD091: Create prTrackingStore early so callbacks can use it for MCP registration
   const prTrackingStore = new MemoryPrTrackingStore();
