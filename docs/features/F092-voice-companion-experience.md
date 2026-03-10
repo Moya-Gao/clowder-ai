@@ -83,6 +83,7 @@ created: 2026-03-10
 - [ ] AC-3: 支持语音指令或快捷操作切换 thread
 - [ ] AC-4: 语音输入错误率显著降低（主观体验 + 可量化指标）
 - [ ] AC-5: 完整的 hands-free 循环：语音输入 → 猫猫语音回复 → 自动播放 → 继续对话
+- [ ] AC-6: 硬件验证通过（DJI Mic Mini + AirPods + Flic/Watch 联合工作）
 
 ## 需求点 Checklist
 
@@ -109,7 +110,61 @@ created: 2026-03-10
 
 ## Key Decisions
 
-（立项阶段，待讨论后填写）
+> 2026-03-10 布偶猫×缅因猫(GPT-5.4) 架构讨论共识
+
+### KD-1: Voice = Channel，但 VoiceSession 独立于 Thread
+
+语音走 F088 Connector 框架（VoiceAdapter implements IOutboundAdapter），但新增独立的 `VoiceSession` 状态对象。原因：语音是"设备上的连续会话"，UI 上看哪个 thread 和耳朵里绑定哪个 thread 可能不同。
+
+```typescript
+interface VoiceSession {
+  sessionId: string;
+  boundThreadId: string;     // 耳朵绑到哪个 thread
+  activeCatId: CatId;        // 当前对话猫（单 speaker）
+  voiceMode: boolean;
+  autoplayUnlocked: boolean; // 用户手势解锁过
+  lastHeardMessageId: string;
+  playbackState: 'idle' | 'playing' | 'queued';
+  pendingIntent: VoiceIntent | null;
+}
+```
+
+**存储**：内存（MemoryVoiceSessionStore）+ 可选 Redis 持久化（RedisVoiceSessionStore），和 ConnectorThreadBindingStore 同模式。VoiceSession 是 ephemeral 的，关页面即结束。
+
+### KD-2: 两段式意图识别（确定性 parser 先行）
+
+- **第一段：确定性 regex parser**（<5ms）：`切到 F092` / `叫宪宪` / `再说一遍` / `暂停` / `继续` / `静音`
+- **第二段：低置信度交本地 LLM**（~200ms）：模糊命令、自然语句、feature 别名
+- 低置信 thread switch 必须二次确认，不直接跳
+
+### KD-3: 双通道输出（GPT-5.4 原话）
+
+> "voice reply is presentation, text reply is coordination artifact"
+
+Voice mode 下猫猫双通道输出：
+- 给铲屎官耳朵：audio rich block（演出）
+- 给系统/其他猫：text message（工作记录）
+
+### KD-4: UX 六答共识
+
+| 问题 | 共识 |
+|------|------|
+| Voice Mode 开启 | 明确"开始语音陪伴"按钮（autoplay 解锁点）；Watch/Flic 是后续快捷入口 |
+| Thread 切换反馈 | 极简：`已切到 F092，砚砚在。` 不要长句 |
+| 多猫默认 at 谁 | 默认 activeCatId（上次对话的猫），说"叫宪宪"才切 |
+| 错误恢复 | 短撤销窗口：用户可立即说"不是，回去" |
+| 播放队列 | single-speaker latest-wins，`再说一遍` 回放 |
+| Thinking 反馈 | 三态：listening(提示音) → thinking(>1.2s补"收到，我想一下") → speaking(直接播) |
+
+### KD-5: 分阶段实施（GPT-5.4 建议，布偶猫采纳）
+
+```
+P0 本周末: Start Voice Companion 按钮 + one thread + one cat + PTT + auto-play + 现有 ASR+LLM后修
+P1: thread switch intent + active cat switch + replay/pause + Watch/Flic shortcut
+P2: channel 化接入 F088 + voice session persistence + richer routing / haptics
+```
+
+原则：**先做 usable，再做 beautiful，再做 elegant**
 
 ## Dependencies
 
@@ -224,3 +279,5 @@ Phase 3（拓展）: Qwen3.5-35B-A3B 多模态 + VL + Embedding 全矩阵
 - 2026-03-10: Kickoff + spec 创建 [宪宪/Opus-46🐾]
 - 2026-03-10: L3 LLM 后修完成（Qwen3-4B-Instruct-2507）[宪宪/Opus-46🐾]
 - 2026-03-10: Qwen3 全家桶调研 + 本地模型矩阵规划 [宪宪/Opus-46🐾]
+- 2026-03-10: GPT Pro 软件+硬件两轮调研完成 [宪宪/Opus-46🐾 派发]
+- 2026-03-10: 架构设计讨论（VoiceSession + 双通道输出 + UX 六答）[宪宪×砚砚(GPT-5.4)]
