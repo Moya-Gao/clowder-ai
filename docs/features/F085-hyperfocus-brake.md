@@ -4,7 +4,9 @@ related_features: [F066]
 topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
+completed: 2026-03-09
 status: done
+reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 ---
 
 # F085 Hyperfocus Brake — 猫猫健康小刹车
@@ -59,9 +61,9 @@ status: done
 ### Phase 2
 
 - [x] **AC15**: 富文本 `card` rich block 展示
-- [ ] **AC16**: Chrome 画专属撒娇图（用猫设）— 延期
+- ~~AC16~~: Chrome 画专属撒娇图 → 裁出为独立 TD（非核心体验，不阻塞 F085 close）
 - [x] **AC17**: 触发次数追踪 + 语气自动升级（card tone: L1=info, L2=warning, L3=danger）
-- [ ] **AC18**: 肉垫点击解锁（Web 端）— 延期
+- ~~AC18~~: 肉垫点击解锁 → 裁出为独立 TD（Web 端交互增强，非核心）
 
 ### Phase 3
 
