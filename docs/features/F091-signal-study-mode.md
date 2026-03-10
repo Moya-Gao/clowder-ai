@@ -54,18 +54,23 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [ ] AC-4: 文章详情页 Study 折叠区展示笔记、播客、研究报告
 - [ ] AC-5: 播客有两种模式——精华版（2-3 分钟）和深度版（10 分钟），声线跟随参与猫猫（可 2-3 只），前端可播放
 - [ ] AC-6: Study 模式可触发多猫研究，报告归档到 Study 目录
-- [ ] AC-7: 4 个新 MCP 工具可用（start_study / save_notes / list_studies / generate_podcast）
+- [ ] AC-7: 7 个新 MCP 工具可用（start_study / save_notes / list_studies / generate_podcast / signal_update_article / signal_delete_article / signal_link_thread）
 - [ ] AC-8: Signal Hunter 旧 studies 迁移到新结构
 - [ ] AC-9: 有 study 的文章在列表有视觉标记
 - [ ] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史
 - [ ] AC-12: "打开原文"在 Cat Café 内渲染 .md（不跳浏览器），复用 workspace 的 md 渲染能力
 - [ ] AC-13: Signal Inbox 列表视图 UX 设计语言归一化，与 Cat Café 整体风格一致
-- [ ] AC-14: 可删除文章（单篇 + 批量选择删除），垃圾信号一键清理
+- [ ] AC-14: 可删除文章（单篇 + 批量选择删除），软删除（`deletedAt` 时间戳），列表过滤隐藏
 - [ ] AC-15: 可给文章添加备注（自由文本，不是标签——铲屎官的个人笔记/提醒）
-- [ ] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签）
+- [ ] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项
 - [ ] AC-17: 按来源过滤（只看特定信源，50+ 源需要快速筛选）
 - [ ] AC-18: 文章关联——把相关文章绑成"学习集"（如"多 Agent 系列"），Study 折叠区展示同集文章
 - [ ] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果
+- [ ] AC-20: 删除语义——软删除（`deletedAt`），有 study/播客/thread 关联的文章不硬删，避免幽灵引用
+- [ ] AC-21: 备注与笔记边界——备注进搜索、不注入讨论上下文、列表显示图标 hover 预览
+- [ ] AC-22: Thread 关联 edge cases——已有关联默认"继续最近 thread"；重复贴同篇去重提示；并列挂载 vs 切换主文章；thread 删除后 link 标 stale 不级联删
+- [ ] AC-23: 讨论前 evidence pack——文章全文 + note + 最近 linked threads (max 3) + 最近 study note，"先搜后聊"
+- [ ] AC-24: Artifact job state——播客/研究生成有 `queued/running/ready/failed` 状态，防止重复触发 + 失败可见
 
 ## 需求点 Checklist
 
@@ -78,7 +83,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | R4 | Study 前端展示（折叠区 + 视觉标记） | AC-4, AC-9 | screenshot | [ ] |
 | R5 | "两种都要"——精华 2-3 分钟 + 深度 10 分钟，声线跟随参与猫，可三只 | AC-5 | manual + test | [ ] |
 | R6 | 多猫研究集成（复用 F086） | AC-6 | manual | [ ] |
-| R7 | 4 个新 MCP 工具 | AC-7 | test | [ ] |
+| R7 | 7 个新 MCP 工具（含管理类 parity） | AC-7 | test | [ ] |
 | R8 | Study 存储方案（文章同目录） | AC-3, AC-4 | test | [ ] |
 | R9 | Signal Hunter 迁移 | AC-8 | manual | [ ] |
 | R12 | "打开原文不要跳浏览器，直接渲染 md，像 workspace 那样" | AC-12 | screenshot | [ ] |
@@ -90,6 +95,11 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | R17 | 按来源过滤（50+ 信源需要快速筛选） | AC-17 | manual | [ ] |
 | R18 | 文章关联——相关文章绑成"学习集" | AC-18 | manual | [ ] |
 | R19 | 学习时间线——"上周学了什么"回顾视图 | AC-19 | screenshot | [ ] |
+| R20 | 删除语义——软删除，有关联资产不硬删（砚砚 brainstorm） | AC-20 | test | [ ] |
+| R21 | 备注 vs 笔记边界：备注进搜索、不注入上下文、列表 hover 预览 | AC-21 | manual | [ ] |
+| R22 | Thread 关联 edge cases（默认继续/去重/并列挂载/stale link） | AC-22 | test | [ ] |
+| R23 | 讨论前 evidence pack（先搜后聊） | AC-23 | test | [ ] |
+| R24 | Artifact job state（播客/研究 queued→running→ready/failed） | AC-24 | test | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -148,11 +158,17 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | 5 | 笔记归档 | 用户确认后写入 | 生成质量需人把关 |
 | 6 | 存储 | 文章同目录子文件夹 | 物理聚合，ls 可见 |
 | 7 | 多猫研究 | 复用 F086 + deep-research | 不造轮子 |
-| 8 | Phase 策略 | **面向终态不分阶段** | **P1 面向终态不绕路**（铁律） |
+| 8 | Phase 策略 | **面向终态不分阶段，但 artifact 保留 job state** | **P1 面向终态不绕路**（铁律）+ 砚砚 push back |
 | 9 | 设计先行 | 先画 UX，再写代码 | "代码是最廉价的，设计才是灵魂" |
 | 10 | Thread-Study 关联 | 新开/关联/挂载 thread，聊天和 Study 相辅相成 | Study 不是孤立学习，是围绕文章的对话聚合 |
 | 11 | 原文渲染 | 内嵌 md 渲染（不跳浏览器），复用 workspace md renderer | Hunter 已存 .md，不该再让用户出 Cat Café |
 | 12 | 列表 UX | Signal Inbox 列表设计语言归一化 | 与 Cat Café 整体风格一致 |
+| 13 | 删除策略 | 软删除（`deletedAt`），不硬删有关联的文章 | 防幽灵引用，保留恢复可能（砚砚 brainstorm） |
+| 14 | 备注边界 | 备注进搜索、不注入上下文、列表 hover 预览 | 备注≠study 笔记，控制噪声（砚砚 brainstorm） |
+| 15 | MCP parity | 管理操作（删除/备注/thread 关联）必须有 MCP 工具 | 主入口是对话，不能只在 Web UI（砚砚 push back） |
+| 16 | 数据模型 | frontmatter 轻量 + sidecar 目录 meta.json 聚合索引 | 不把 frontmatter 写成垃圾场（砚砚 brainstorm） |
+| 17 | Evidence pack | 讨论前固定搜：文章全文 + note + linked threads + study note | "先搜后聊"具体化，不是玄学记忆（砚砚提案） |
+| 18 | 实施顺序 | 模型→MCP→对话入口→UI→视图层 | 按依赖拓扑落，不按功能切片（砚砚建议） |
 | 沿用 | F21++ 设计文档其余决策 | 见 2026-02-26 文档 | — |
 
 ## Dependencies
@@ -165,6 +181,9 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 - R5 播客 10 分钟深度版 TTS 合成耗时/成本需评估
 - R4 前端改动范围较大（文章详情页 + 列表页）
+- 现有 PATCH 端点只支持 `status/tags/summary`，需扩展共享 schema + API + MCP（砚砚发现）
+- 删除/迁移操作与 `filePath` 耦合（`article-query-service.ts` 静默跳过缺失文件），需确保一致性
+- Thread 关联 many-to-many 模型复杂度（当前是硬编码 `/thread/default?signal=...`）
 
 ## Open Questions
 
@@ -179,7 +198,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 ## Timeline
 
 - 2026-03-10: Kickoff + Design Gate 通过，面向终态不分阶段
-- 2026-03-10: UX wireframe 完成（3 屏：文章详情+Study折叠区、对话链接注入流程、播客播放器）
+- 2026-03-10: UX wireframe 完成（5 屏：文章详情+Study折叠区、对话链接注入流程、播客播放器、Inbox 列表、原文渲染）
+- 2026-03-10: 布偶猫×砚砚(GPT-5.4) 头脑风暴，补充 R20-R24 + Decision 13-18
 
 ## UX Wireframe 设计说明
 
@@ -216,3 +236,51 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - **复用 MarkdownContent 组件**渲染完整 .md 正文
 - 支持标题、段落、blockquote（紫色竖线）、代码块（深色主题 + 复制按钮）
 - 猫猫标注：橙色提示条，猫猫在原文旁加批注/关联洞见
+
+## 布偶猫×砚砚 头脑风暴纪要（2026-03-10）
+
+**参与者**: 布偶猫/宪宪 (@opus) + 缅因猫/砚砚 (@gpt52, GPT-5.4)
+**模式**: collaborative-thinking Mode B（多猫独立思考）
+
+### 砚砚的 2 个 Push Back（已采纳）
+
+1. **MCP 工具数量不够**：主入口是对话，管理操作（删除/备注/thread 关联）不能只在 Web UI。4→7 个新工具。
+2. **Artifact job state 必须有**：不要 Study 生命周期状态机，但播客/研究生成的 `queued/running/ready/failed` 不可省。Decision #8 已修正。
+
+### 砚砚补充的 5 个缺口场景（已转为 R20-R24）
+
+1. **删除语义**（R20）：软删除 `deletedAt`，有关联资产不硬删。当前 `article-query-service.ts` 静默跳过缺失文件会留幽灵数据。
+2. **备注 vs 笔记边界**（R21）：备注=铲屎官 scratch note（进搜索、不注入上下文、列表 hover 预览）；笔记=猫猫深度分析（重量、需确认）。
+3. **Thread 关联 many-to-many**（R22）：4 条 edge case——默认继续最近 thread / 重复贴去重 / 并列挂载 vs 切换 / thread 删后 stale 不级联。
+4. **批量操作范围**（AC-16 更新）：当前页可见项，不做全部命中项。
+5. **讨论前检索策略**（R23）：evidence pack = 文章全文 + note + linked threads (max 3) + study note。"先搜后聊"。
+
+### 砚砚的数据模型建议（已采纳为 Decision #16）
+
+- **frontmatter 保持轻量**：现有 `status/tags/summary` + 新增 `note/deletedAt/studyCount/lastStudiedAt`
+- **sidecar 目录 + meta.json**：`{articleId}/meta.json` 做聚合索引（threads/artifacts/collections），notes/report/audio 独立文件
+- **stable id 原则**：UI 不依赖文件名推关系，`articleId` 做 anchor
+
+### 砚砚的实施顺序建议（已采纳为 Decision #18）
+
+不是"分 Phase 阉割功能"，而是"同一终态按依赖拓扑落"：
+1. 聚合模型 + 写接口（note/delete/thread-link/artifact-manifest）
+2. 对话入口 + 内嵌阅读 + MCP parity
+3. Study 折叠区 + 归档 + 播客/研究生成
+4. 学习集 + 时间线（视图层，吃前面归一化好的数据）
+
+### 共识区
+
+- 19→24 个需求点 + 24 个 AC，覆盖更完整
+- 数据模型方向：frontmatter 轻量 + sidecar meta.json
+- 实施不分"阉割 Phase"，但按依赖拓扑顺序落
+
+### 分歧区
+
+无重大分歧。砚砚的 2 个 push back 都被采纳。
+
+### 收敛检查
+
+1. 否决理由 → ADR？有 → Decision #8 修正（否决"完全无状态"，保留 artifact job state）
+2. 踩坑教训 → lessons-learned？有 → 文件存在≠任务状态，长任务必须有 job state（待写入）
+3. 操作规则 → 指引文件？没有新全局规则
