@@ -753,4 +753,12 @@ describe('GPT-5.2 variant mention aliases in project config', () => {
     assert.ok(gpt52.mentionPatterns.includes('@gpt5.2'));
     assert.ok(gpt52.mentionPatterns.includes('@gpt-5.2'));
   });
+
+  it('includes stable @gpt alias for gpt52 variant', () => {
+    const config = loadCatConfig();
+    const all = toAllCatConfigs(config);
+    const gpt52 = all['gpt52'];
+    assert.ok(gpt52, 'gpt52 cat config exists');
+    assert.ok(gpt52.mentionPatterns.includes('@gpt'));
+  });
 });
