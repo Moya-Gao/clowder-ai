@@ -58,6 +58,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [ ] AC-8: Signal Hunter 旧 studies 迁移到新结构
 - [ ] AC-9: 有 study 的文章在列表有视觉标记
 - [ ] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史
+- [ ] AC-12: "打开原文"在 Cat Café 内渲染 .md（不跳浏览器），复用 workspace 的 md 渲染能力
+- [ ] AC-13: Signal Inbox 列表视图 UX 设计语言归一化，与 Cat Café 整体风格一致
 
 ## 需求点 Checklist
 
@@ -73,6 +75,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | R7 | 4 个新 MCP 工具 | AC-7 | test | [ ] |
 | R8 | Study 存储方案（文章同目录） | AC-3, AC-4 | test | [ ] |
 | R9 | Signal Hunter 迁移 | AC-8 | manual | [ ] |
+| R12 | "打开原文不要跳浏览器，直接渲染 md，像 workspace 那样" | AC-12 | screenshot | [ ] |
+| R13 | "hunter 列表 UX 设计语言归一化" | AC-13 | screenshot | [ ] |
 | R10 | "记忆是 thread session 搜来的"——用 cat-cafe-memory，不走 RAG | AC-10 | test | [ ] |
 
 ### 覆盖检查
@@ -100,6 +104,10 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 > **"代码是最廉价的。我们的设计、我们的思想碰撞才是灵魂。"**
 >
 > "讨论的话可以让我选择新开 thread 或者关联哪个 thread？甚至把什么 thread 给挂载进来！聊天和这个是相辅相成的。"
+>
+> "打开原文能不能——hunter 的时候就保存了 md 的？不要让我跳转浏览器，而是直接渲染，和我们的 workspace 那个系统做的那样，能够渲染 md 文档！"
+>
+> "hunter 列表的 UX 设计你也要记得设计语言归一化。"
 
 ## Key Decisions
 
@@ -115,6 +123,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | 8 | Phase 策略 | **面向终态不分阶段** | **P1 面向终态不绕路**（铁律） |
 | 9 | 设计先行 | 先画 UX，再写代码 | "代码是最廉价的，设计才是灵魂" |
 | 10 | Thread-Study 关联 | 新开/关联/挂载 thread，聊天和 Study 相辅相成 | Study 不是孤立学习，是围绕文章的对话聚合 |
+| 11 | 原文渲染 | 内嵌 md 渲染（不跳浏览器），复用 workspace md renderer | Hunter 已存 .md，不该再让用户出 Cat Café |
+| 12 | 列表 UX | Signal Inbox 列表设计语言归一化 | 与 Cat Café 整体风格一致 |
 | 沿用 | F21++ 设计文档其余决策 | 见 2026-02-26 文档 | — |
 
 ## Dependencies
@@ -163,3 +173,18 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 播放控制：上一个 / 播放 / 下一个 + 进度条 + 时间
 - "正在说话"指示器：高亮当前说话的猫，灰色显示其他猫（可 2-3 只）
 - 对话稿预览：每猫用自己的颜色标注
+
+### Screen D: Signal Inbox 列表（设计归一化）
+- 标题 + 实时统计（今日/未读计数）
+- 搜索栏（pill 形状，搜文章/标签/来源）
+- Tab 过滤：全部 / 未读 / 已学习（绿色书本图标）/ 收藏
+- 列表卡片：Tier badge + 来源 + 时间 → 标题 → 标签 pills
+- 未读文章有红点指示 + 淡蓝背景
+- Study badge 绿色带数字（2/1）——一目了然
+
+### Screen E: 原文内嵌 Markdown 渲染
+- "返回详情"导航 + "浏览器打开"fallback 按钮
+- 文章元信息条（Tier + 来源 + 日期）
+- **复用 MarkdownContent 组件**渲染完整 .md 正文
+- 支持标题、段落、blockquote（紫色竖线）、代码块（深色主题 + 复制按钮）
+- 猫猫标注：橙色提示条，猫猫在原文旁加批注/关联洞见
