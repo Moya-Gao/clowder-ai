@@ -126,6 +126,7 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 - **Research**: [TTS 选型调研](../research/TTS-research.md) — MLX-Audio / CosyVoice3 / Piper / MeloTTS 对比
 - **Research**: [F034 TTS Provider 架构计划](../plans/2026-02-21-f34-tts-provider-architecture.md) — ITtsProvider 架构设计
 - **External**: [moeru-ai/airi](https://github.com/moeru-ai/airi) — pipelines-audio 包的流式管线 + Intent 系统参考
+- **Reflection**: [反思胶囊](../reflections/2026-03-09-f066-voice-pipeline-capsule.md) — 经验沉淀
 
 ## Key Decisions
 
