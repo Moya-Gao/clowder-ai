@@ -145,7 +145,7 @@ describe('createTmuxSpawnOverride', () => {
 
 	it('override yields events and registers pane in AgentPaneRegistry', async () => {
 		const invocationId = 'override-inv-1';
-		const override = createTmuxSpawnOverride(WORKTREE, invocationId, gateway, registry);
+		const override = createTmuxSpawnOverride(WORKTREE, invocationId, 'test-user', gateway, registry);
 
 		const events = [];
 		for await (const event of override({
@@ -167,7 +167,7 @@ describe('createTmuxSpawnOverride', () => {
 	});
 
 	it('override works without AgentPaneRegistry', async () => {
-		const override = createTmuxSpawnOverride(WORKTREE, 'override-inv-2', gateway);
+		const override = createTmuxSpawnOverride(WORKTREE, 'override-inv-2', 'test-user', gateway);
 
 		const events = [];
 		for await (const event of override({

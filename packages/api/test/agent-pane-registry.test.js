@@ -69,4 +69,27 @@ describe('AgentPaneRegistry', () => {
 	it('listByWorktreeAndUser returns empty for unknown worktree', () => {
 		assert.deepEqual(registry.listByWorktreeAndUser('nope', 'user-1'), []);
 	});
+
+	it('long-running task that just finished remains visible', () => {
+		registry.register('inv-long', 'wt-a', '%0', 'user-1');
+		// Simulate a 2-hour run by backdating startedAt
+		const info = registry.getByInvocation('inv-long');
+		info.startedAt = Date.now() - 2 * 3_600_000;
+		// Just finished now
+		registry.markDone('inv-long', 0);
+		const list = registry.listByWorktreeAndUser('wt-a', 'user-1');
+		assert.equal(list.length, 1, 'recently finished long task should still be visible');
+		assert.equal(list[0].invocationId, 'inv-long');
+	});
+
+	it('finished task older than 1h is filtered from list', () => {
+		registry.register('inv-old', 'wt-a', '%0', 'user-1');
+		const info = registry.getByInvocation('inv-old');
+		info.startedAt = Date.now() - 4 * 3_600_000;
+		registry.markDone('inv-old', 0);
+		// Backdate finishedAt to 2 hours ago
+		info.finishedAt = Date.now() - 2 * 3_600_000;
+		const list = registry.listByWorktreeAndUser('wt-a', 'user-1');
+		assert.equal(list.length, 0, 'task finished >1h ago should be filtered');
+	});
 });

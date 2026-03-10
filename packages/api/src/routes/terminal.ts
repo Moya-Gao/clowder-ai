@@ -7,7 +7,7 @@ import { getWorktreeRoot } from '../domains/workspace/workspace-security.js';
 import { resolveUserId } from '../utils/request-identity.js';
 
 interface TerminalRouteOpts {
-  tmuxGateway: TmuxGateway;
+  tmuxGateway?: TmuxGateway;
   agentPaneRegistry?: AgentPaneRegistry;
 }
 interface PtyBinding {
@@ -27,10 +27,17 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     }
   });
 
+  // GET /api/terminal/status — availability check for frontend
+  app.get('/api/terminal/status', async () => {
+    return { available: !!tmuxGateway };
+  });
+
   // POST /api/terminal/sessions — create or reconnect
   app.post<{
     Body: { worktreeId: string; cols?: number; rows?: number };
   }>('/api/terminal/sessions', async (req, reply) => {
+    if (!tmuxGateway)
+      return reply.status(503).send({ error: 'Terminal not available (CAT_CAFE_TMUX_AGENT not enabled)' });
     const { worktreeId, cols = 80, rows = 24 } = req.body;
     const userId = resolveUserId(req) as string; // preHandler guarantees non-null
 
@@ -145,6 +152,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     const userId = resolveUserId(req) as string;
     const session = store.get(sessionId);
 
+    if (!tmuxGateway) return reply.code(503).send({ error: 'Terminal not available' });
     if (!session) return reply.code(404).send({ error: 'Session not found' });
     if (session.userId !== userId) return reply.code(403).send({ error: 'Not your session' });
 
@@ -210,7 +218,7 @@ export const terminalRoutes: FastifyPluginAsync<TerminalRouteOpts> = async (app,
     const { worktreeId } = req.query;
     const userId = resolveUserId(req) as string;
 
-    if (!worktreeId || !agentPaneRegistry) {
+    if (!worktreeId || !agentPaneRegistry || !tmuxGateway) {
       socket.close(4004, 'Agent pane tracking not enabled or missing worktreeId');
       return;
     }

@@ -3,69 +3,142 @@
  * 后端 API 入口
  */
 
-import Fastify from 'fastify';
+import { type CatId, catRegistry } from '@cat-cafe/shared';
+import type { RedisClient } from '@cat-cafe/shared/utils';
+import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
 import cors from '@fastify/cors';
 import fastifyWebsocket from '@fastify/websocket';
-import { messagesRoutes, catsRoutes, callbacksRoutes, threadsRoutes, uploadsRoutes, projectsRoutes, tasksRoutes, backlogRoutes, summariesRoutes, exportRoutes, configRoutes, memoryRoutes, commandsRoutes, signalsRoutes, evidenceRoutes, memoryPublishRoutes, reflectRoutes, invocationsRoutes, messageActionsRoutes, threadBranchRoutes, auditRoutes, capabilitiesRoutes, callbackAuthRoutes, authorizationRoutes, modesRoutes, sessionChainRoutes, sessionTranscriptRoutes, sessionHooksRoutes, ttsRoutes, pushRoutes, registerCallbackDocsRoutes, sessionStrategyConfigRoutes, skillsRoutes, queueRoutes, quotaRoutes, providerProfilesRoutes, claudeRescueRoutes, workspaceRoutes, workflowSopRoutes, workspaceEditRoutes, workspaceGitRoutes, externalProjectRoutes, intentCardRoutes, resolutionRoutes, sliceRoutes, refluxRoutes, executionDigestRoutes } from './routes/index.js';
+import Fastify from 'fastify';
 import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
-import { threadExportRoutes } from './routes/thread-export.js';
-import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
-import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
+import { getCatContextBudget } from './config/cat-budgets.js';
+import { getConfigSessionStrategy, loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
+import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
+import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
+import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
+import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
+import { assertStorageReady } from './config/storage-guard.js';
+import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
+import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
+import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
+import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
+import type {
+  InvocationRecordStoreLike,
+  RouterLike,
+} from './domains/cats/services/agents/invocation/QueueProcessor.js';
+import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
+import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
+import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
+import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
+import {
+  AgentRouter,
+  AuditEventTypes,
+  ClaudeAgentService,
+  CodexAgentService,
+  createDraftStore,
+  createHindsightClient,
+  createInvocationRecordStore,
+  createSessionChainStore,
+  DareAgentService,
+  DeliveryCursorStore,
+  GeminiAgentService,
+  getEventAuditLog,
+  MemoryGovernanceStore,
+} from './domains/cats/services/index.js';
+import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
+import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrchestrator.js';
 import { initPushNotificationService } from './domains/cats/services/push/PushNotificationService.js';
+import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
+import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
+import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
+import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
+import { createAuthorizationAuditStore } from './domains/cats/services/stores/factories/AuthorizationAuditStoreFactory.js';
+import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
+import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
+import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
+import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
+import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
+import { createPushSubscriptionStore } from './domains/cats/services/stores/factories/PushSubscriptionStoreFactory.js';
+import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
+import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
+import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
+import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
+import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
+import { ModeStore } from './domains/cats/services/stores/ports/ModeStore.js';
 import { MlxAudioTtsProvider } from './domains/cats/services/tts/MlxAudioTtsProvider.js';
+import { TtsRegistry } from './domains/cats/services/tts/TtsRegistry.js';
 import { startTtsCacheCleaner } from './domains/cats/services/tts/tts-cache-cleaner.js';
 import { initVoiceBlockSynthesizer } from './domains/cats/services/tts/VoiceBlockSynthesizer.js';
-import { SocketManager } from './infrastructure/websocket/index.js';
-import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
-import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
-import { terminalRoutes } from './routes/terminal.js';
-import { InvocationRegistry } from './domains/cats/services/agents/invocation/InvocationRegistry.js';
-import { createMessageStore } from './domains/cats/services/stores/factories/MessageStoreFactory.js';
-import { createRedisClient, SessionStore } from '@cat-cafe/shared/utils';
-import { createThreadStore } from './domains/cats/services/stores/factories/ThreadStoreFactory.js';
-import { createReadStateStore } from './domains/cats/services/stores/factories/ReadStateStoreFactory.js';
-import { createTaskStore } from './domains/cats/services/stores/factories/TaskStoreFactory.js';
-import { createBacklogStore } from './domains/cats/services/stores/factories/BacklogStoreFactory.js';
-import { createWorkflowSopStore } from './domains/cats/services/stores/factories/WorkflowSopStoreFactory.js';
-import { createSummaryStore } from './domains/cats/services/stores/factories/SummaryStoreFactory.js';
-import { createMemoryStore } from './domains/cats/services/stores/factories/MemoryStoreFactory.js';
-import { InvocationTracker } from './domains/cats/services/agents/invocation/InvocationTracker.js';
-import { InvocationQueue } from './domains/cats/services/agents/invocation/InvocationQueue.js';
-import { QueueProcessor } from './domains/cats/services/agents/invocation/QueueProcessor.js';
-import type { InvocationRecordStoreLike, RouterLike } from './domains/cats/services/agents/invocation/QueueProcessor.js';
-import { createTaskProgressStore } from './domains/cats/services/agents/invocation/createTaskProgressStore.js';
-import { catRegistry, type CatId } from '@cat-cafe/shared';
-import { loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
-import { AgentRegistry } from './domains/cats/services/agents/registry/AgentRegistry.js';
-import { ClaudeAgentService, CodexAgentService, GeminiAgentService, DareAgentService, AgentRouter, DeliveryCursorStore, getEventAuditLog, AuditEventTypes, createHindsightClient, MemoryGovernanceStore, createInvocationRecordStore, createSessionChainStore, createDraftStore } from './domains/cats/services/index.js';
-import { AntigravityAgentService } from './domains/cats/services/agents/providers/antigravity/AntigravityAgentService.js';
 import type { AgentService } from './domains/cats/services/types.js';
-import { AuthorizationManager } from './domains/cats/services/auth/AuthorizationManager.js';
-import { createAuthorizationRuleStore } from './domains/cats/services/stores/factories/AuthorizationRuleStoreFactory.js';
-import { createPendingRequestStore } from './domains/cats/services/stores/factories/PendingRequestStoreFactory.js';
-import { createAuthorizationAuditStore } from './domains/cats/services/stores/factories/AuthorizationAuditStoreFactory.js';
-import { AutoSummarizer } from './domains/cats/services/orchestration/AutoSummarizer.js';
-import { assertStorageReady } from './config/storage-guard.js';
-import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
-import { ModeStore } from './domains/cats/services/stores/ports/ModeStore.js';
-import { ModeOrchestrator } from './domains/cats/services/orchestration/ModeOrchestrator.js';
-import { TranscriptWriter } from './domains/cats/services/session/TranscriptWriter.js';
-import { TranscriptReader } from './domains/cats/services/session/TranscriptReader.js';
-import { SessionSealer } from './domains/cats/services/session/SessionSealer.js';
-import { getCatContextBudget } from './config/cat-budgets.js';
-import { startGithubReviewWatcher, stopGithubReviewWatcher, MemoryPrTrackingStore, MemoryProcessedEmailStore, ReviewRouter, ConnectorInvokeTrigger } from './infrastructure/email/index.js';
-import { prTrackingRoutes } from './routes/pr-tracking.js';
-import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
-import { getConfigSessionStrategy } from './config/cat-config-loader.js';
-import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
-import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
-import { findMonorepoRoot } from './utils/monorepo-root.js';
-import type { HandoffConfig } from './domains/cats/services/session/SessionSealer.js';
-import { startConnectorGateway, loadConnectorGatewayConfig } from './infrastructure/connectors/connector-gateway-bootstrap.js';
+import { AgentPaneRegistry } from './domains/terminal/agent-pane-registry.js';
+import { TmuxGateway } from './domains/terminal/tmux-gateway.js';
+import {
+  loadConnectorGatewayConfig,
+  startConnectorGateway,
+} from './infrastructure/connectors/connector-gateway-bootstrap.js';
+import {
+  ConnectorInvokeTrigger,
+  MemoryProcessedEmailStore,
+  MemoryPrTrackingStore,
+  ReviewRouter,
+  startGithubReviewWatcher,
+  stopGithubReviewWatcher,
+} from './infrastructure/email/index.js';
+import { SocketManager } from './infrastructure/websocket/index.js';
 import { connectorWebhookRoutes } from './routes/connector-webhooks.js';
-
-import type { RedisClient } from '@cat-cafe/shared/utils';
+import {
+  auditRoutes,
+  authorizationRoutes,
+  backlogRoutes,
+  callbackAuthRoutes,
+  callbacksRoutes,
+  capabilitiesRoutes,
+  catsRoutes,
+  claudeRescueRoutes,
+  commandsRoutes,
+  configRoutes,
+  evidenceRoutes,
+  executionDigestRoutes,
+  exportRoutes,
+  externalProjectRoutes,
+  intentCardRoutes,
+  invocationsRoutes,
+  memoryPublishRoutes,
+  memoryRoutes,
+  messageActionsRoutes,
+  messagesRoutes,
+  modesRoutes,
+  projectsRoutes,
+  providerProfilesRoutes,
+  pushRoutes,
+  queueRoutes,
+  quotaRoutes,
+  reflectRoutes,
+  refluxRoutes,
+  registerCallbackDocsRoutes,
+  resolutionRoutes,
+  sessionChainRoutes,
+  sessionHooksRoutes,
+  sessionStrategyConfigRoutes,
+  sessionTranscriptRoutes,
+  signalsRoutes,
+  skillsRoutes,
+  sliceRoutes,
+  summariesRoutes,
+  tasksRoutes,
+  threadBranchRoutes,
+  threadsRoutes,
+  ttsRoutes,
+  uploadsRoutes,
+  workflowSopRoutes,
+  workspaceEditRoutes,
+  workspaceGitRoutes,
+  workspaceRoutes,
+} from './routes/index.js';
+import { prTrackingRoutes } from './routes/pr-tracking.js';
+import { terminalRoutes } from './routes/terminal.js';
+import { threadExportRoutes } from './routes/thread-export.js';
+import { findMonorepoRoot } from './utils/monorepo-root.js';
 
 const PORT = parseInt(process.env['API_SERVER_PORT'] ?? '3002', 10);
 const HOST = process.env['API_SERVER_HOST'] ?? '127.0.0.1';
@@ -138,8 +211,8 @@ async function main(): Promise<void> {
     } catch (err) {
       await redis.quit().catch(() => {});
       throw new Error(
-        `[api] Redis PING failed: ${err instanceof Error ? err.message : err}. `
-        + 'Check REDIS_URL or set MEMORY_STORE=1 for memory mode.',
+        `[api] Redis PING failed: ${err instanceof Error ? err.message : err}. ` +
+          'Check REDIS_URL or set MEMORY_STORE=1 for memory mode.',
       );
     }
   }
@@ -169,8 +242,7 @@ async function main(): Promise<void> {
   const transcriptReader = new TranscriptReader({ dataDir: transcriptDataDir });
   // F065 Phase C: HandoffConfig for LLM-generated digest on seal
   const handoffConfig: HandoffConfig = {
-    getBootstrapDepth: (catId: string) =>
-      getConfigSessionStrategy(catId)?.handoff?.bootstrapDepth ?? 'extractive',
+    getBootstrapDepth: (catId: string) => getConfigSessionStrategy(catId)?.handoff?.bootstrapDepth ?? 'extractive',
     resolveProfile: async (threadId: string, _catId: string) => {
       try {
         let projectRoot = findMonorepoRoot(process.cwd());
@@ -182,7 +254,9 @@ async function main(): Promise<void> {
         const runtime = await resolveAnthropicRuntimeProfile(profilesRoot);
         if (!runtime.apiKey) return null;
         return { apiKey: runtime.apiKey, baseUrl: runtime.baseUrl || 'https://api.anthropic.com' };
-      } catch { return null; }
+      } catch {
+        return null;
+      }
     },
   };
   const sessionSealer = new SessionSealer(
@@ -433,9 +507,10 @@ async function main(): Promise<void> {
   await app.register(workspaceRoutes);
   await app.register(workspaceEditRoutes);
   await app.register(workspaceGitRoutes);
-  if (tmuxGateway && agentPaneRegistry) {
-    await app.register(terminalRoutes, { tmuxGateway, agentPaneRegistry });
-  }
+  await app.register(terminalRoutes, {
+    ...(tmuxGateway ? { tmuxGateway } : {}),
+    ...(agentPaneRegistry ? { agentPaneRegistry } : {}),
+  });
   await app.register(skillsRoutes);
   await app.register(memoryRoutes, { memoryStore, threadStore });
 
@@ -461,7 +536,9 @@ async function main(): Promise<void> {
       await initRuntimeOverrides(redis);
       app.log.info('[api] Session strategy runtime overrides hydrated from Redis');
     } catch (err) {
-      app.log.warn(`[api] Session strategy hydration failed (best-effort, continuing with empty cache): ${String(err)}`);
+      app.log.warn(
+        `[api] Session strategy hydration failed (best-effort, continuing with empty cache): ${String(err)}`,
+      );
     }
   }
   await app.register(sessionStrategyConfigRoutes);
@@ -518,14 +595,15 @@ async function main(): Promise<void> {
   const vapidPrivateKey = process.env['VAPID_PRIVATE_KEY'] ?? '';
   const vapidSubject = process.env['VAPID_SUBJECT'] ?? 'mailto:cat-cafe@localhost';
   const pushSubscriptionStore = createPushSubscriptionStore(redis);
-  const pushService = vapidPublicKey && vapidPrivateKey
-    ? initPushNotificationService({
-        subscriptionStore: pushSubscriptionStore,
-        vapidPublicKey,
-        vapidPrivateKey,
-        vapidSubject,
-      })
-    : null;
+  const pushService =
+    vapidPublicKey && vapidPrivateKey
+      ? initPushNotificationService({
+          subscriptionStore: pushSubscriptionStore,
+          vapidPublicKey,
+          vapidPrivateKey,
+          vapidSubject,
+        })
+      : null;
   if (pushService) {
     app.log.info('[api] Web Push enabled (VAPID configured)');
   } else {
@@ -722,8 +800,12 @@ async function main(): Promise<void> {
     }
   };
 
-  process.once('SIGTERM', () => { void shutdown('SIGTERM'); });
-  process.once('SIGINT', () => { void shutdown('SIGINT'); });
+  process.once('SIGTERM', () => {
+    void shutdown('SIGTERM');
+  });
+  process.once('SIGINT', () => {
+    void shutdown('SIGINT');
+  });
 }
 
 main().catch((err) => {

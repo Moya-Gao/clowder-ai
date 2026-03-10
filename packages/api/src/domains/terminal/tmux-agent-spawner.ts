@@ -103,9 +103,10 @@ export async function* spawnCliInTmux(
     if (killed) return;
     killed = true;
     const sock = tmuxGateway.socketName(options.worktreeId);
+    const bin = tmuxGateway.tmuxBin;
     // Phase 1: Send C-c (graceful interrupt)
     try {
-      await execAsync('tmux', ['-L', sock, 'send-keys', '-t', paneId, 'C-c', '']);
+      await execAsync(bin, ['-L', sock, 'send-keys', '-t', paneId, 'C-c', '']);
     } catch {
       /* pane already dead — nothing to kill */
       return;
@@ -114,8 +115,8 @@ export async function* spawnCliInTmux(
     await new Promise((r) => setTimeout(r, 3000));
     try {
       // Check if pane still exists before killing
-      await execAsync('tmux', ['-L', sock, 'list-panes', '-t', paneId]);
-      await execAsync('tmux', ['-L', sock, 'kill-pane', '-t', paneId]);
+      await execAsync(bin, ['-L', sock, 'list-panes', '-t', paneId]);
+      await execAsync(bin, ['-L', sock, 'kill-pane', '-t', paneId]);
     } catch {
       /* pane exited during grace period — expected */
     }
