@@ -4,7 +4,8 @@ related_features: [F045, F048, F055, F069, F084]
 topics: [bubble, rendering, continuity, observability, socket, hydration, draft, timeout]
 doc_kind: spec
 created: 2026-03-07
-status: spec
+status: done
+completed: 2026-03-10
 ---
 
 # F081 — Bubble Continuity & Rendering Observability（猫猫气泡连续性与可观测性）
@@ -83,39 +84,40 @@ status: spec
 
 ## Acceptance Criteria
 
-- [ ] AC1: 如果 assistant 气泡已经显示给铲屎官，切到别的 thread 再切回时，该气泡不会无声消失
-- [ ] AC2: active invocation 恢复时，history replace / draft merge 不会覆盖掉更新的本地 live bubble
-- [ ] AC3: 当 provider/session 内已产出文本，但主区没有气泡时，debug 证据能明确指出断在 provider / socket / store / hydration 的哪一层
-- [ ] AC4: timeout 诊断能明确区分“UI 丢气泡”和“后端 1800s 静默超时”
-- [ ] AC5: 每条 assistant bubble 可追踪其来源：`live_socket` / `background_socket` / `draft_rehydrate` / `persisted_history`
-- [ ] AC6: debug mode 支持导出 invocation 时间线，至少包含：socket 连接状态、agent_message 类型、history replace、clearMessages、draft merge、bubble add/update/remove
-- [ ] AC7: 存在自动化回归测试覆盖：
+- [x] AC1: 如果 assistant 气泡已经显示给铲屎官，切到别的 thread 再切回时，该气泡不会无声消失 *(PR #288 non-destructive merge + #337 activeRefs recovery)*
+- [x] AC2: active invocation 恢复时，history replace / draft merge 不会覆盖掉更新的本地 live bubble *(PR #288)*
+- [~] AC3: 当 provider/session 内已产出文本，但主区没有气泡时，debug 证据能明确指出断在 provider / socket / store / hydration 的哪一层 *(部分完成：ring buffer + history_replace 事件已有，无完整 debug UI → TD)*
+- [~] AC4: timeout 诊断能明确区分”UI 丢气泡”和”后端 1800s 静默超时” *(部分完成：smoke test 假超时已修 #281，无系统化 timeout diagnosis → TD)*
+- [~] AC5: 每条 assistant bubble 可追踪其来源：`live_socket` / `background_socket` / `draft_rehydrate` / `persisted_history` *(部分完成：invocationId 身份链已打通 #288，无完整 provenance 枚举 → TD)*
+- [ ] AC6: debug mode 支持导出 invocation 时间线，至少包含：socket 连接状态、agent_message 类型、history replace、clearMessages、draft merge、bubble add/update/remove *(未做 → TD)*
+- [x] AC7: 存在自动化回归测试覆盖：
   - 先看到 assistant 气泡，切 thread 再切回，气泡仍在
   - tool-first / text-later invocation 不丢 bubble
   - socket reconnect 后 active invocation 可恢复
   - history replace 不覆盖更新的 live bubble
-- [ ] AC8: 右侧 task_progress 和主区 assistant bubble 可用同一 `invocationId + catId` 做关联
-- [ ] AC9: 已产出的 assistant 文本不能直到后续用户再发一句消息后才迟到出现；若发生补回，debug 证据必须能解释触发源（history refresh / draft merge / socket replay / local reconcile）
-- [ ] AC10: 同一条历史 assistant 气泡在一次会话中不能出现“补回后又因切 thread 再次消失”的抖动；若发生，debug 时间线必须显示是哪次 replace / rehydrate / reconcile 改写了它
-- [ ] AC11: debug 证据必须能区分”Cat Café 驱动的 invocation”与”外部 CLI 直接 resume/continue 导致的 session 越界推进”，避免把 out-of-band session 变化误判为主区渲染链路唯一根因
-- [ ] AC12: 写路径清点完成：所有能写 `messages`/`catStatuses`/`unreadCount`/`hasActiveInvocation` 的入口均已列出，标注真相源 vs 派生
-- [ ] AC13: 状态矩阵完成：`active/background/refresh/switch-away/stream/callback/done/error/timeout` 全场景的四字段预期状态已列出
+  *(PRs #288, #310, #318, #337 均含回归测试)*
+- [~] AC8: 右侧 task_progress 和主区 assistant bubble 可用同一 `invocationId + catId` 做关联 *(部分完成：invocationId 已打通，无显式 UI 关联 → TD)*
+- [x] AC9: 已产出的 assistant 文本不能直到后续用户再发一句消息后才迟到出现；若发生补回，debug 证据必须能解释触发源（history refresh / draft merge / socket replay / local reconcile）*(PR #288 non-destructive merge)*
+- [x] AC10: 同一条历史 assistant 气泡在一次会话中不能出现”补回后又因切 thread 再次消失”的抖动；若发生，debug 时间线必须显示是哪次 replace / rehydrate / reconcile 改写了它 *(PRs #288 + #337)*
+- [ ] AC11: debug 证据必须能区分”Cat Café 驱动的 invocation”与”外部 CLI 直接 resume/continue 导致的 session 越界推进”，避免把 out-of-band session 变化误判为主区渲染链路唯一根因 *(未做 → TD)*
+- [x] AC12: 写路径清点完成：所有能写 `messages`/`catStatuses`/`unreadCount`/`hasActiveInvocation` 的入口均已列出，标注真相源 vs 派生 *(F081-write-path-audit.md)*
+- [x] AC13: 状态矩阵完成：`active/background/refresh/switch-away/stream/callback/done/error/timeout` 全场景的四字段预期状态已列出 *(F081-write-path-audit.md)*
 
 ## 需求点 Checklist
 
 | ID | 需求点 | AC 编号 | 验证方式 | 状态 |
 |----|--------|---------|----------|------|
-| R1 | 已显示气泡切线程不消失 | AC1 | test + 手工复现 | [ ] |
-| R2 | rehydrate 不覆盖 live bubble | AC2 | test | [ ] |
-| R3 | 链路断点可定位 | AC3 | debug dump + 复现 | [ ] |
-| R4 | timeout 与 UI 丢流可区分 | AC4 | test + 现场证据 | [ ] |
-| R5 | bubble provenance 可追踪 | AC5 | test | [ ] |
-| R6 | debug mode 可导出完整时间线 | AC6 | manual + test | [ ] |
-| R7 | 关键 race 有回归测试 | AC7 | test | [ ] |
-| R8 | plan/bubble 可关联到同一 invocation | AC8 | test | [ ] |
-| R9 | 禁止”后续提示词触发历史气泡闪现” | AC9 | test + 现场证据 | [ ] |
-| R10 | 历史气泡可见性单调，不允许反复显隐 | AC10 | test + 现场证据 | [ ] |
-| R11 | 区分 Cat Café 内部驱动与外部 CLI 越界推进 | AC11 | debug dump + 现场证据 | [ ] |
+| R1 | 已显示气泡切线程不消失 | AC1 | test + 手工复现 | [x] |
+| R2 | rehydrate 不覆盖 live bubble | AC2 | test | [x] |
+| R3 | 链路断点可定位 | AC3 | debug dump + 复现 | [~] TD |
+| R4 | timeout 与 UI 丢流可区分 | AC4 | test + 现场证据 | [~] TD |
+| R5 | bubble provenance 可追踪 | AC5 | test | [~] TD |
+| R6 | debug mode 可导出完整时间线 | AC6 | manual + test | [ ] TD |
+| R7 | 关键 race 有回归测试 | AC7 | test | [x] |
+| R8 | plan/bubble 可关联到同一 invocation | AC8 | test | [~] TD |
+| R9 | 禁止”后续提示词触发历史气泡闪现” | AC9 | test + 现场证据 | [x] |
+| R10 | 历史气泡可见性单调，不允许反复显隐 | AC10 | test + 现场证据 | [x] |
+| R11 | 区分 Cat Café 内部驱动与外部 CLI 越界推进 | AC11 | debug dump + 现场证据 | [ ] TD |
 | R12 | 写路径清点 | AC12 | audit 文档 | [x] |
 | R13 | 状态矩阵 | AC13 | audit 文档 | [x] |
 
@@ -179,6 +181,7 @@ status: spec
 - 相关 Feature: [F069](./F069-thread-read-state.md)
 - 相关 Feature: [F084](./F084-ragdoll-rescue-hub.md)
 - **写路径审计**: [F081-write-path-audit.md](./F081-write-path-audit.md)（2026-03-10, 56 messages + 28 catStatuses + 8 unread + 12 hasActiveInvocation 写入点）
+- **反思胶囊**: [2026-03-10-f081-bubble-continuity-capsule.md](../reflections/2026-03-10-f081-bubble-continuity-capsule.md)
 - 现场证据：2026-03-07 铲屎官 thread 复盘（“先看到气泡，切走再切回气泡消失” + “Claude session 已有回答，前端主区无气泡” + “08:19 的布偶猫回复直到 08:33 再发下一句提示词后才闪现回主区” + “闪现回来的同一条历史气泡在再次切换 thread 后又消失” + “直接在 Claude CLI 继续同一 session 时，可见 session 正在消费 `[对话历史增量 - 未发送过 2 条]` 并执行 Bash，说明 session 状态会在 Cat Café 外部前进”）
 
 ## Detective Notes
@@ -270,3 +273,7 @@ status: spec
 | 2026-03-07 | F081 主线第一段修复落地：replace 改为 non-destructive + invocation-aware reconcile，前端恢复 `extra.stream.invocationId` 身份链，补齐 active/background placeholder 绑定，并新增 `history_replace` debug 事件和回归测试 |
 | 2026-03-08 | 新增“瞬时双影”证据：主区偶发出现两条相同用户消息或两条相同 assistant 回复，但 `F5` 后恢复为一条，证明服务器真相源通常未重复，问题在前端本地 identity reconcile |
 | 2026-03-08 | 修复 identity reconcile 缺口：`POST /api/messages` 现在返回 `userMessageId` 供 `useSendMessage` 对位 optimistic user bubble；background callback assistant bubble 也改为优先使用后端真实 `messageId`，不再自造 `bg-cb-*` |
+| 2026-03-09 | PR #318 消除 thinking/rich_block/tool 路径的残余瞬时双影 |
+| 2026-03-10 | PR #337 修复 activeRefs 在 hydration swap 后失效导致 stream 中途停止 |
+| 2026-03-10 | 写路径审计完成（104 写入点 + 13 场景状态矩阵） |
+| 2026-03-10 | **Feature closed** — 核心连续性 AC 全部完成（AC1/2/7/9/10/12/13），observability 层（AC3-6/8/11）降为 Tech Debt |
