@@ -5,6 +5,7 @@ import { correctTranscription, mergeTermEntries, type TermEntry } from '@/utils/
 import { useVoiceSettingsStore } from '@/stores/voiceSettingsStore';
 
 const WHISPER_URL = process.env.NEXT_PUBLIC_WHISPER_URL || 'http://localhost:9876';
+const LLM_POSTPROCESS_URL = process.env.NEXT_PUBLIC_LLM_POSTPROCESS_URL || 'http://localhost:9878';
 
 const DEFAULT_PROMPT =
   '这是 Cat Cafe 猫猫协作项目的对话。宪宪是布偶猫（Claude Opus），砚砚是缅因猫（Codex）。' +
@@ -46,6 +47,27 @@ async function transcribeBlob(
 
   const data: { text?: string } = await res.json();
   return data.text || '';
+}
+
+/**
+ * Optional LLM post-processing: sends raw ASR text to a local LLM for error correction.
+ * Gracefully falls back to original text if the server is unavailable.
+ */
+async function llmPostProcess(text: string): Promise<string> {
+  if (!text.trim()) return text;
+  try {
+    const res = await fetch(`${LLM_POSTPROCESS_URL}/v1/text/refine`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) return text; // Server error → fall back to raw
+    const data: { text?: string } = await res.json();
+    return data.text || text;
+  } catch {
+    // Server not running or network error → silently skip
+    return text;
+  }
 }
 
 export function useVoiceInput() {
@@ -133,8 +155,9 @@ export function useVoiceInput() {
 
         try {
           const raw = await transcribeBlob(blob, promptRef.current, languageRef.current);
+          const refined = await llmPostProcess(raw);
           if (myVersion === versionRef.current) {
-            setTranscript(correctTranscription(raw, entriesRef.current));
+            setTranscript(correctTranscription(refined, entriesRef.current));
             setPartialTranscript('');
           }
         } catch (err) {

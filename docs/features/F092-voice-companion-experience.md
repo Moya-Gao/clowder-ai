@@ -1,7 +1,7 @@
 ---
 feature_ids: [F092]
 related_features: [F066, F086]
-topics: [voice, companion, hands-free, TTS, STT, AirPods, typeless]
+topics: [voice, companion, hands-free, TTS, STT, AirPods, typeless, Qwen3, MLX, local-LLM]
 doc_kind: spec
 created: 2026-03-10
 ---
@@ -151,6 +151,76 @@ created: 2026-03-10
 - [ ] Design Gate 通过（前端 UX → 铲屎官确认）
 - [ ] voice mode 注入方案经其他猫 review
 
+## 第五子系统：本地 Qwen3 模型矩阵（M4 Pro Max 128GB）
+
+> 2026-03-10 调研发现：Qwen3 全家桶覆盖语音+文本+视觉+搜索+安全，全部可在铲屎官的 M4 Pro Max 128GB 本地运行。
+
+### 核心语音管道（Phase 1 → 正在做）
+
+| 层 | 模型 | 大小 | 用途 | 状态 |
+|----|------|------|------|------|
+| L1 ASR | ~~Whisper Large V3 Turbo~~ → **Qwen3-ASR-1.7B** | ~1.7GB | 语音→文字 | 🔜 待换 |
+| L2 术语词典 | voice-terms.json + custom terms | — | 系统性修正 | ✅ 已有 |
+| L3 LLM 后修 | **Qwen3-4B-Instruct-2507** (4bit) | ~2.5GB | 上下文修正 | ✅ 刚完成 |
+| TTS | **Qwen3-TTS-1.7B-CustomVoice** | ~1.7GB | 文字→语音 | ✅ 已有 |
+
+### MoE 宝藏模型（Phase 2 → 探索）
+
+MoE 架构：总参数大（质量高），激活参数小（速度快，≈ dense 3B 推理速度）。
+
+| 模型 | 总参/激活参 | 4bit 大小 | 能做什么 | 探索优先级 |
+|------|------------|-----------|----------|-----------|
+| **Qwen3-Omni-30B-A3B** | 30B/3B | ~15GB | 🌟 **终极形态**：一个模型替代 ASR+LLM+TTS 三件套，直接听→理解→说 | P0 |
+| **Qwen3.5-35B-A3B** | 35B/3B | ~18GB | 多模态（图+文），截图理解、设计稿分析、OCR | P1 |
+| **Qwen3-30B-A3B-Instruct-2507** | 30B/3B | ~15GB | 文本推理，可做本地智能路由/摘要/翻译 | P2 |
+| **Qwen3-Next-80B-A3B** | 80B/3B | ~40GB | 超大专家池但只激活 3B，128GB 能装但紧 | P3 |
+
+### 辅助能力模型（Phase 3 → 按需）
+
+| 类别 | 模型 | 大小 | 用途 |
+|------|------|------|------|
+| 视觉 | Qwen3-VL-8B | ~5GB@4bit | 截图理解、UI 分析 |
+| 向量化 | Qwen3-Embedding-0.6B | 极小 | 本地 RAG 向量检索 |
+| 多模态向量 | Qwen3-VL-Embedding-2B | ~1.5GB | 图片+文字混合检索 |
+| 重排序 | Qwen3-Reranker-0.6B | 极小 | 搜索结果质量提升 |
+| 安全 | Qwen3Guard-Gen-0.6B | ~0.4GB | 内容安全检测 |
+| 语音设计 | Qwen3-TTS-VoiceDesign | ~1.7GB | 设计新声线风格 |
+
+### 内存预算（128GB）
+
+```
+Phase 1 同时运行：ASR(1.7) + LLM后修(2.5) + TTS(1.7) = ~6GB
+Phase 2 加 Omni：Omni(15) + VL(5) = ~20GB
+Phase 3 全开：+ Embedding(0.4) + Reranker(0.4) + Guard(0.4) ≈ ~27GB
+系统 + 应用预留：~30GB
+─────────────────────────────────────────
+总计 ~57GB，128GB 还剩 71GB 随便浪
+```
+
+### 外包策略：哪些活给本地 MoE，哪些留给云端猫猫
+
+| 任务 | 本地 MoE 能做？ | 留给云端猫猫？ | 原因 |
+|------|----------------|--------------|------|
+| 语音转写+理解 | ✅ Omni | — | 低延迟，本地秒回 |
+| 截图理解/OCR | ✅ VL / Qwen3.5 | — | 不用传云端，隐私+速度 |
+| 消息分类/路由 | ✅ 30B-A3B | — | 毫秒级响应 |
+| 简单问答/翻译 | ✅ 4B-Instruct | — | 省云端额度 |
+| 内容摘要 | ✅ 30B-A3B | — | 预处理减轻猫猫负担 |
+| **架构设计** | ❌ | ✅ Opus/GPT-5.4 | 需要深度推理 |
+| **代码编写** | ❌ | ✅ 猫猫+工具链 | 需要文件操作+上下文 |
+| **跨猫讨论/Review** | ❌ | ✅ 猫猫记忆+判断 | 需要项目记忆 |
+| **产品决策** | ❌ | ✅ 铲屎官+猫猫 | 需要愿景理解 |
+
+### 探索路线图
+
+```
+Phase 1（现在）: Qwen3-ASR + Qwen3-4B后修 + Qwen3-TTS 三件套
+Phase 2（下一步）: Qwen3-Omni 三合一替代三件套
+Phase 3（拓展）: Qwen3.5-35B-A3B 多模态 + VL + Embedding 全矩阵
+```
+
 ## Timeline
 
 - 2026-03-10: Kickoff + spec 创建 [宪宪/Opus-46🐾]
+- 2026-03-10: L3 LLM 后修完成（Qwen3-4B-Instruct-2507）[宪宪/Opus-46🐾]
+- 2026-03-10: Qwen3 全家桶调研 + 本地模型矩阵规划 [宪宪/Opus-46🐾]
