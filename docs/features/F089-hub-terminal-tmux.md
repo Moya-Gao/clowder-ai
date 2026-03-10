@@ -113,6 +113,7 @@ tmux pane（agent 跑在这里）─┤
 4. **plain WebSocket**：terminal 字节流用 `@fastify/websocket`，结构化事件继续用 socket.io。**⚠️ `@fastify/websocket` 全局注册会抢占 HTTP upgrade 事件，导致 Socket.IO WebSocket 握手 404（polling 不受影响）。修复：`onRequest` hook 对 `/socket.io/` 路径 `reply.hijack()`，让 Socket.IO 自行处理。**
 5. **macOS 优先**：进程监控用 pidtree/pidusage（跨平台），不用 Linux cgroup
 6. **tmux CLI 调用就是终态**：不需要 control mode (-CC)，Spike 2026-03-09 验证
+7. **tmux agent spawner opt-in**：`CAT_CAFE_TMUX_AGENT=1` 才启用。Phase 2 PR #334 无条件创建 `TmuxGateway`，导致所有有 `workingDirectory` 的 agent 调用走 tmux pane——runtime 没配 tmux 时 CLI 直接 exit 1，猫猫全部静默失败。修复后默认关闭，Phase 3 完成 + tmux 环境就绪后再开启。
 
 ## Dependencies
 
@@ -165,4 +166,5 @@ tmux pane（agent 跑在这里）─┤
 | 2026-03-09 | Phase 1 合入 main（PR #326 基建 + PR #332 lifecycle 收口）|
 | 2026-03-09 | Phase 2 后端 plumbing 合入 main（PR #334）：SpawnCliOverride + FIFO + AgentPaneRegistry |
 | 2026-03-09 | 愿景守护（砚砚/GPT-5.4）：Phase 2 AC "前端 attach agent pane" 未交付前端 UI → 按 P4 原则调整 spec：后端 plumbing 留 Phase 2（已完成），前端 UI 入口 + pane list UI + worktreeId 真相源修正迁入 Phase 3 |
-| 2026-03-10 | **Bug fix**: `@fastify/websocket`（Phase 2 PR #334 引入）全局抢占 HTTP upgrade → Socket.IO WebSocket 握手 404 → 前端消息气泡全部消失。修复：`index.ts` 加 `onRequest` hook 对 `/socket.io/` 路径 hijack（布偶猫 Opus 4.6 定位+修复）|
+| 2026-03-10 | **Bug fix #1**: `@fastify/websocket`（Phase 2 PR #334 引入）全局抢占 HTTP upgrade → Socket.IO WebSocket 握手 404 → 前端消息气泡全部消失。修复：`index.ts` 加 `onRequest` hook 对 `/socket.io/` 路径 hijack（布偶猫 Opus 4.6 定位+修复）|
+| 2026-03-10 | **Bug fix #2**: `TmuxGateway` 无条件创建 → 所有有 workingDirectory 的 agent 调用走 tmux pane → runtime 无 tmux 时 CLI exit 1 → 猫猫静默失败。修复：改为 `CAT_CAFE_TMUX_AGENT=1` opt-in，默认关闭（布偶猫 Opus 4.6 定位+修复）|
