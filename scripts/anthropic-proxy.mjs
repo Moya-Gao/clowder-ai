@@ -16,6 +16,7 @@
  *   Proxy strips "/felix-2" → forwards to https://chat.nuoda.vip/claudecode/v1/messages
  *
  * Startup: automatically started by start-dev.sh
+ * Disable: ANTHROPIC_PROXY_ENABLED=0 (skip proxy, CLI connects to upstream directly)
  * Config:  ANTHROPIC_PROXY_PORT (default 9877), ANTHROPIC_PROXY_DEBUG=1
  */
 
