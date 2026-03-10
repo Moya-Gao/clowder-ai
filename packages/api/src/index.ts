@@ -102,6 +102,17 @@ async function main(): Promise<void> {
   // WebSocket support (F089 terminal)
   await app.register(fastifyWebsocket);
 
+  // Prevent Fastify from intercepting Socket.IO paths — Socket.IO handles
+  // them via its own http server listeners (both polling and WebSocket).
+  // Without this, @fastify/websocket causes Fastify to send 404 for
+  // /socket.io/ upgrade requests, killing WebSocket transport entirely.
+  app.addHook('onRequest', (_request, reply, done) => {
+    if (_request.url.startsWith('/socket.io/')) {
+      reply.hijack();
+    }
+    done();
+  });
+
   // Health check
   app.get('/health', async () => ({ status: 'ok', timestamp: Date.now() }));
 
