@@ -5,7 +5,7 @@ topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
 completed: 2026-03-09
-status: done
+status: active
 reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 ---
 
@@ -22,7 +22,7 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 ## What
 
-一个 **skill + hook** 组合，每 90 分钟（可配置）活跃工作后触发三猫联合撒娇提醒。
+一个 **平台级健康守护**，每 90 分钟（可配置）活跃工作后触发三猫联合撒娇提醒。
 
 ### 核心机制
 
@@ -35,9 +35,10 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 | Phase | 内容 | 交付物 |
 |-------|------|--------|
-| **1 - MVP** | skill + hook + 三猫文案 + typed check-in | 可用的健康提醒 |
-| **2 - 增强** | 富文本 card + 触发次数升级语气 + Chrome 画图 | 更丰富的视觉 |
-| **3 - 声控** | F066 声线集成 + 语音撒娇 | 三猫语音轮流撒娇 |
+| **1 - MVP** | skill + hook + 三猫文案 + typed check-in | 可用的健康提醒 ✅ |
+| **2 - 增强** | 富文本 card + 触发次数升级语气 | 更丰富的视觉 ✅ |
+| **3 - 声控** | F066 声线集成 + 语音撒娇 | 三猫语音轮流撒娇 ✅ |
+| **4 - 平台化** | 从 agent hook 迁移到后端 API + 前端 UI | 三猫全覆盖、无 agent 依赖 |
 
 ## Acceptance Criteria
 
@@ -70,6 +71,18 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 - [x] **AC19**: F066 声线集成（speaker 字段 + VoiceBlockSynthesizer per-block override）
 - [x] **AC20**: 三猫语音轮流撒娇（宪宪→砚砚→烁烁，各用自己声线）
 
+### Phase 4 (平台化)
+
+**Gap**: Phase 1-3 的 hook 方案绑在 Claude Code 的 `settings.json` 上，只有布偶猫能触发提醒。砚砚（Codex）和烁烁（Gemini）的 session 完全不覆盖。根因：把平台级能力挂在了 agent 工具链上。
+
+- [ ] **AC21**: 后端 API 活跃时长追踪 — 每次 API 请求更新 `lastActivityTs`，5min 间隔检测
+- [ ] **AC22**: 后端触发判定 — 到阈值推 WebSocket event `brake:trigger` 给前端
+- [ ] **AC23**: 前端 UI 通知 — 订阅 brake event，弹猫猫提醒卡片（含头像 + 撒娇文案）
+- [ ] **AC24**: 前端 check-in 交互 — 三选一（休息/收尾/继续）直接在前端完成
+- [ ] **AC25**: 前端 TTS 播放 — 触发时自动播放三猫语音撒娇
+- [ ] **AC26**: 三猫全覆盖 — 无论铲屎官在跟哪只猫聊天，都能触发提醒
+- [ ] **AC27**: agent hook 退役 — Phase 4 上线后移除 `pretool-brake-check.sh` + `hyperfocus-brake-timer.sh`
+
 ## Links
 
 - **招募令**: [懒猫国王 4.5 招募令](../stories/hyperfocus-brake/懒猫国王%204.5%20招募令：Hyperfocus%20小刹车.md)
@@ -86,6 +99,7 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 肉垫点击 | → Phase 2 (Web) | 砚砚建议 |
 | 三猫调用 | orchestrator 生成三段文案 | GPT-5.4 建议，不真拉三模型 |
 | 声线顺序 | 宪宪 → 砚砚 → 烁烁 | 按家族顺序 |
+| Phase 4 平台化 | hook → API + 前端 | Phase 1-3 只覆盖 Claude，砚砚烁烁无保护 |
 
 ## Dependencies
 
@@ -128,6 +142,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | 2026-03-09 | Phase 2: rich block card + audio (`562581aa`) |
 | 2026-03-09 | Phase 3: 三猫语音轮流 + speaker override |
 | 2026-03-09 | Codex review Phase 2+3 LGTM |
+| 2026-03-10 | Bug: PostToolUse stdout 不被 Claude Code 注入 AI 上下文，拆为 Post+Pre 双 hook (`d3befc91`) |
+| 2026-03-10 | Gap 识别: hook 方案只覆盖布偶猫 → 立项 Phase 4 平台化 |
 
 ## 需求点 Checklist
 
