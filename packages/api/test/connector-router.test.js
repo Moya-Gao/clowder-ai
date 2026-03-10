@@ -224,6 +224,49 @@ describe('ConnectorRouter', () => {
       assert.equal(cmdTrigger.calls.length, 0);
     });
 
+    it('uses sendFormattedReply (MessageEnvelope) when adapter supports it', async () => {
+      // Replace adapter with one that has sendFormattedReply
+      const envelopeCalls = [];
+      const formattedAdapter = {
+        async sendReply() { throw new Error('should not be called'); },
+        async sendFormattedReply(externalChatId, envelope) {
+          envelopeCalls.push({ externalChatId, envelope });
+        },
+      };
+      const adaptersMap = new Map();
+      adaptersMap.set('feishu', formattedAdapter);
+      const router2 = new ConnectorRouter({
+        bindingStore,
+        dedup: new InboundMessageDedup(),
+        messageStore,
+        threadStore,
+        invokeTrigger: cmdTrigger,
+        socketManager,
+        defaultUserId: 'owner-1',
+        defaultCatId: 'opus',
+        log: noopLog(),
+        commandLayer: mockCommandLayer({
+          '/where': { kind: 'where', response: 'You are here' },
+        }),
+        adapters: adaptersMap,
+      });
+
+      const result = await router2.route('feishu', 'chat-123', '/where', 'ext-fmt-1');
+      assert.equal(result.kind, 'command');
+      assert.equal(envelopeCalls.length, 1);
+      assert.equal(envelopeCalls[0].envelope.header, '⚙️ Cat Café');
+      assert.equal(envelopeCalls[0].envelope.body, 'You are here');
+      assert.ok(envelopeCalls[0].envelope.footer); // has timestamp
+    });
+
+    it('falls back to sendReply when adapter lacks sendFormattedReply', async () => {
+      // Default mockAdapter has no sendFormattedReply
+      const result = await commandRouter.route('feishu', 'chat-123', '/where', 'ext-fb-1');
+      assert.equal(result.kind, 'command');
+      assert.equal(adapterSendCalls.length, 1);
+      assert.equal(adapterSendCalls[0].content, 'You are here');
+    });
+
     it('still dedup-checks before command handling', async () => {
       await commandRouter.route('feishu', 'chat-123', '/where', 'ext-dup');
       const r2 = await commandRouter.route('feishu', 'chat-123', '/where', 'ext-dup');

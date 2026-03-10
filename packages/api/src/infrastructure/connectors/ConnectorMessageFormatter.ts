@@ -56,4 +56,14 @@ export class ConnectorMessageFormatter {
 
     return { header, subtitle, body: input.body, footer };
   }
+
+  /** Format a system/command response (no cat identity, lightweight envelope). */
+  formatCommand(body: string): MessageEnvelope {
+    return {
+      header: '⚙️ Cat Café',
+      subtitle: '',
+      body,
+      footer: new Date().toISOString().slice(11, 16),
+    };
+  }
 }

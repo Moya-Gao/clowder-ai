@@ -22,6 +22,7 @@ import { mergeTokenUsage, type TokenUsage } from '../../domains/cats/services/ty
 import type { SocketManager } from '../../infrastructure/websocket/index.js';
 import { getMultiMentionOrchestrator } from '../../routes/callback-multi-mention-routes.js';
 import type { OutboundDeliveryHook, ThreadMeta } from '../connectors/OutboundDeliveryHook.js';
+import type { StreamingOutboundHook } from '../connectors/StreamingOutboundHook.js';
 
 export interface ConnectorInvokeTriggerOptions {
   readonly router: AgentRouter;
@@ -31,6 +32,7 @@ export interface ConnectorInvokeTriggerOptions {
   readonly invocationQueue: InvocationQueue;
   readonly queueProcessor?: QueueProcessor;
   readonly outboundHook?: OutboundDeliveryHook;
+  readonly streamingHook?: StreamingOutboundHook;
   readonly threadMetaLookup?: (threadId: string) => ThreadMeta | undefined | Promise<ThreadMeta | undefined>;
   readonly log: FastifyBaseLogger;
 }
@@ -62,6 +64,11 @@ export class ConnectorInvokeTrigger {
   /** Late-bind outbound hook (set after gateway bootstrap) */
   setOutboundHook(hook: OutboundDeliveryHook): void {
     (this.opts as { outboundHook?: OutboundDeliveryHook }).outboundHook = hook;
+  }
+
+  /** Late-bind streaming hook (set after gateway bootstrap) */
+  setStreamingHook(hook: StreamingOutboundHook): void {
+    (this.opts as { streamingHook?: StreamingOutboundHook }).streamingHook = hook;
   }
 
   /**
@@ -288,6 +295,16 @@ export class ConnectorInvokeTrigger {
       const collectedUsage = new Map<string, TokenUsage>();
       const collectedTextParts: string[] = [];
 
+      // Phase 4: Start streaming placeholder on external platforms
+      // Fire-and-forget for the loop, but save the promise so onStreamEnd can await it
+      // to prevent race (onStreamEnd before onStreamStart finishes registering sessions).
+      let streamStartPromise: Promise<void> | undefined;
+      if (this.opts.streamingHook) {
+        streamStartPromise = this.opts.streamingHook.onStreamStart(threadId, catId).catch((err) => {
+          log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamStart failed');
+        });
+      }
+
       const intent = { intent: 'execute' as const, explicit: false, promptTags: [] as string[] };
 
       for await (const msg of router.routeExecution(userId, message, threadId, messageId, targetCats, intent, {
@@ -304,6 +321,13 @@ export class ConnectorInvokeTrigger {
         // Collect text content for outbound delivery (final-only)
         if (msg.type === 'text' && typeof msg.content === 'string') {
           collectedTextParts.push(msg.content);
+          // Phase 4: Stream accumulated text to external platforms
+          if (this.opts.streamingHook) {
+            const accumulated = collectedTextParts.join('');
+            this.opts.streamingHook.onStreamChunk(threadId, accumulated).catch((err) => {
+              log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamChunk failed');
+            });
+          }
         }
         socketManager.broadcastAgentMessage(msg, threadId);
       }
@@ -338,8 +362,23 @@ export class ConnectorInvokeTrigger {
 
         // ⑥ Outbound delivery: send final text + rich blocks to bound external chats
         const richBlocks = persistenceContext.richBlocks;
+        const finalContent = collectedTextParts.join('');
+
+        // Phase 4: Finalize streaming — ensure start completed before ending
+        if (this.opts.streamingHook) {
+          if (streamStartPromise) {
+            const STREAM_START_TIMEOUT_MS = 5000;
+            await Promise.race([
+              streamStartPromise,
+              new Promise<void>((resolve) => setTimeout(resolve, STREAM_START_TIMEOUT_MS)),
+            ]);
+          }
+          await this.opts.streamingHook.onStreamEnd(threadId, finalContent).catch((err) => {
+            log.warn({ err, threadId }, '[ConnectorInvokeTrigger] StreamingHook.onStreamEnd failed');
+          });
+        }
+
         if (this.opts.outboundHook && (collectedTextParts.length > 0 || (richBlocks && richBlocks.length > 0))) {
-          const finalContent = collectedTextParts.join('');
           // Best-effort threadMeta lookup — must not block invocation completion
           let threadMeta;
           try {

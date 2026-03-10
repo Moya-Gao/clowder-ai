@@ -18,6 +18,7 @@ import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
+import { ConnectorMessageFormatter } from './ConnectorMessageFormatter.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
@@ -61,6 +62,8 @@ export interface ConnectorRouterOptions {
 }
 
 export class ConnectorRouter {
+  private readonly formatter = new ConnectorMessageFormatter();
+
   constructor(private readonly opts: ConnectorRouterOptions) {}
 
   /** Build @-mention patterns from catRegistry for parseMentions. */
@@ -95,7 +98,13 @@ export class ConnectorRouter {
       if (cmdResult.kind !== 'not-command' && cmdResult.response) {
         const adapter = this.opts.adapters?.get(connectorId);
         if (adapter) {
-          await adapter.sendReply(externalChatId, cmdResult.response);
+          // P2 fix: use MessageEnvelope when adapter supports it
+          if (adapter.sendFormattedReply) {
+            const envelope = this.formatter.formatCommand(cmdResult.response);
+            await adapter.sendFormattedReply(externalChatId, envelope);
+          } else {
+            await adapter.sendReply(externalChatId, cmdResult.response);
+          }
         }
         log.info({ connectorId, command: cmdResult.kind }, '[ConnectorRouter] Command handled');
         return { kind: 'command' as const };

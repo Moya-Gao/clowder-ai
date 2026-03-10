@@ -775,6 +775,7 @@ async function main(): Promise<void> {
     });
     if (connectorGatewayHandle) {
       invokeTrigger.setOutboundHook(connectorGatewayHandle.outboundHook);
+      invokeTrigger.setStreamingHook(connectorGatewayHandle.streamingHook);
       for (const [id, handler] of connectorGatewayHandle.webhookHandlers) {
         connectorWebhookHandlers.set(id, handler);
       }
