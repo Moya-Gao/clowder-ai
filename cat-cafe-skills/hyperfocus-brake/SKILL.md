@@ -30,13 +30,44 @@ PostToolUse hook 累计活跃时间
         ↓
 到达阈值 (默认 90min)
         ↓
-触发 L1 温柔提醒
+systemMessage 告知猫猫触发
+        ↓
+猫猫发送三件套：
+  1. audio rich block（语音撒娇，用当前猫的文案）
+  2. card rich block（结构化 check-in 卡片）
+  3. 纯文本 fallback（保底）
         ↓
 用户选择:
   [1] 立刻休息 → 重置计时器
   [2] 收尾 10min → 10min 后再次提醒
   [3] 紧急跳过 → bypass + 冷却递增
 ```
+
+## Rich Block 发送指令
+
+收到 hook 的 systemMessage 后，**必须**用 `cat_cafe_create_rich_block` 发送：
+
+### 1. Audio（语音撒娇）
+```json
+{"id": "brake-audio-{{timestamp}}", "kind": "audio", "v": 1, "text": "{{当前猫对应档位的文案}}"}
+```
+
+### 2. Card（check-in 卡片）
+```json
+{
+  "id": "brake-card-{{timestamp}}", "kind": "card", "v": 1,
+  "title": "🐾 休息提醒 L{{level}}",
+  "tone": "warning",
+  "bodyMarkdown": "铲屎官，你已经专注工作 **{{minutes}} 分钟**啦！\n\n🐱 宪宪：{{opus_msg}}\n🦁 砚砚：{{codex_msg}}\n🐈 烁烁：{{gemini_msg}}",
+  "fields": [
+    {"label": "[1] 立刻休息", "value": "5min，重置计时器"},
+    {"label": "[2] 收尾", "value": "10min 后再提醒"},
+    {"label": "[3] 继续", "value": "bypass（冷却递增）"}
+  ]
+}
+```
+
+发完 rich blocks 后，再输出纯文本 `请输入数字 (1/2/3):` 等待铲屎官选择。
 
 ## 三档撒娇
 

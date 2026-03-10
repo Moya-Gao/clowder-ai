@@ -141,13 +141,81 @@ ${bypass_option}
 EOF
 }
 
+# 生成 rich block JSON（card + audio）供猫猫通过 MCP 发送
+render_rich_blocks() {
+  local level="$1"
+  local branch="${2:-unknown}"
+  local minutes="${3:-90}"
+  local cat_family="${4:-opus}"  # 当前猫：opus/codex/gemini
+  local night_mode
+  night_mode=$(is_night_mode)
+
+  local messages
+  messages=$(get_messages "$level" "$branch" "$minutes" "$night_mode")
+
+  local opus_msg codex_msg gemini_msg
+  opus_msg=$(echo "$messages" | jq -r '.opus')
+  codex_msg=$(echo "$messages" | jq -r '.codex')
+  gemini_msg=$(echo "$messages" | jq -r '.gemini')
+
+  # 选当前猫的文案做语音
+  local voice_text
+  case "$cat_family" in
+    opus)   voice_text="$opus_msg" ;;
+    codex)  voice_text="$codex_msg" ;;
+    gemini) voice_text="$gemini_msg" ;;
+    *)      voice_text="$opus_msg" ;;
+  esac
+
+  local ts
+  ts=$(date +%s)
+
+  local bypass_count cooldown
+  bypass_count=$(get_field "bypass_count")
+  cooldown=$(get_bypass_cooldown)
+
+  local bypass_value
+  if [[ "$cooldown" == "-1" ]]; then
+    bypass_value="已禁用（今日次数达上限）"
+  else
+    bypass_value="bypass（冷却 ${cooldown}min）"
+  fi
+
+  # 输出 audio + card JSON
+  jq -n \
+    --arg audio_id "brake-audio-$ts" \
+    --arg card_id "brake-card-$ts" \
+    --arg voice_text "$voice_text" \
+    --argjson level "$level" \
+    --arg minutes "$minutes" \
+    --arg opus_msg "$opus_msg" \
+    --arg codex_msg "$codex_msg" \
+    --arg gemini_msg "$gemini_msg" \
+    --arg bypass_value "$bypass_value" \
+    '{
+      audio: {id: $audio_id, kind: "audio", v: 1, text: $voice_text},
+      card: {
+        id: $card_id, kind: "card", v: 1,
+        title: ("🐾 休息提醒 L" + ($level | tostring)),
+        tone: (if $level >= 3 then "danger" elif $level >= 2 then "warning" else "info" end),
+        bodyMarkdown: ("铲屎官，你已经专注工作 **" + $minutes + " 分钟**啦！\n\n🐱 宪宪：" + $opus_msg + "\n🦁 砚砚：" + $codex_msg + "\n🐈 烁烁：" + $gemini_msg),
+        fields: [
+          {label: "[1] 立刻休息", value: "5min，重置计时器"},
+          {label: "[2] 收尾", value: "10min 后再提醒"},
+          {label: "[3] 继续", value: $bypass_value}
+        ]
+      }
+    }'
+}
+
 # 如果直接运行
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   case "${1:-help}" in
-    messages)   get_messages "${2:-1}" "${3:-main}" "${4:-90}" "${5:-false}" ;;
-    render)     render_checkin "${2:-1}" "${3:-main}" "${4:-90}" ;;
+    messages)     get_messages "${2:-1}" "${3:-main}" "${4:-90}" "${5:-false}" ;;
+    render)       render_checkin "${2:-1}" "${3:-main}" "${4:-90}" ;;
+    rich-blocks)  render_rich_blocks "${2:-1}" "${3:-main}" "${4:-90}" "${5:-opus}" ;;
     *)
-      echo "Usage: $0 {messages|render} [level] [branch] [minutes]"
+      echo "Usage: $0 {messages|render|rich-blocks} [level] [branch] [minutes] [cat_family]"
       exit 1
       ;;
   esac
