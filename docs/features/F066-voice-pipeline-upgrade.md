@@ -8,11 +8,11 @@ created: 2026-03-05
 
 # F066: Voice Pipeline Upgrade — 本地 TTS + 流式合成 + 播放队列
 
-> **Status**: phase1-done
+> **Status**: done
 > **Owner**: 布偶猫 (Opus 4.6)
 > **Created**: 2026-03-05
-> **Phase 1 Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成
-> **Phase 2/3**: 流式分句 + 播放队列，拆分为未来独立 Feature
+> **Closed**: 2026-03-09 — 本地 TTS 语音基础设施落地完成（Qwen3-TTS Base clone + E 型统一方案）
+> **未来方向**: 流式分句（Phase 2）+ 播放队列（Phase 3）拆分为独立 Feature
 
 ## Why
 
@@ -28,9 +28,9 @@ TTS 调研已完成（`docs/research/TTS-research.md`），升级路径明确。
 
 ## What
 
-### Phase 1: 本地 TTS — edge-tts → MLX-Audio + Kokoro-82M（P0）
+### Phase 1: 本地 TTS — edge-tts → Qwen3-TTS Base clone（P0）✅ Done
 
-替换 TTS 后端，从云端迁移到 Apple Silicon 本地推理：
+替换 TTS 后端，从云端迁移到 Apple Silicon 本地推理。最终方案：Qwen3-TTS 1.7B Base clone + 原神角色参考音频（E 型统一方案）：
 
 1. **Python TTS 服务 Adapter 化重构**
    - `scripts/tts-api.py` 引入 `TtsAdapter` 抽象：`synthesize(text, voice, model, speed) → bytes`
@@ -131,7 +131,7 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 
 | 决策 | 选项 | 结论 | 决策者 |
 |------|------|------|--------|
-| Phase 1 首发模型 | Kokoro-82M / Qwen3-TTS / CosyVoice3 | **Qwen3-TTS 1.7B-CustomVoice**（Kokoro 质量不可接受，Qwen3 自然度+情绪控制最均衡） | 铲屎官+GPT-5.4 (2026-03-08) |
+| Phase 1 首发模型 | Kokoro-82M / Qwen3-TTS / CosyVoice3 | **Qwen3-TTS 1.7B Base clone**（Kokoro 质量不可接受→Qwen3 VoiceDesign 不稳定→GPT-SoVITS 英文弱→Base clone + ref_audio 锚定声线最终胜出） | 铲屎官 (2026-03-09) |
 | 升级路径 | 一步到位 / 渐进 | **渐进**：Qwen3 1.7B → 补 stream_synthesize + chunker → CosyVoice3(可选上限) | 布偶猫+GPT-5.4 |
 | Python TTS 替换策略 | 写死替换 / Adapter 模式 | **Adapter 模式**：`TtsAdapter` 抽象 + env var 切换 provider | 铲屎官 (2026-03-05) |
 | 声线选择流程 | 猫猫自选 / 铲屎官选 | **猫猫出期望描述 → 铲屎官试听拍板**（猫听不到声音） | 铲屎官 (2026-03-05) |
@@ -162,10 +162,10 @@ LLM 边生成文字，TTS 边合成语音，减少首次发声延迟：
 
 ## Open Questions
 
-1. Kokoro-82M 的中文声线哪个最适合每只猫？→ Phase 1 实现后试听决定
-2. 流式合成用 WebSocket 还是 SSE？→ Phase 2 plan 时决策
-3. F021++ 播客的对话稿格式？→ 与 F021++ 联动设计
-4. 未来是否需要声音克隆（Spark-TTS）？→ 等 Phase 1 跑稳后评估
+1. ~~Kokoro-82M 的中文声线哪个最适合每只猫？~~ → **已决**：Kokoro 淘汰，改用 Qwen3 Base clone + 原神角色参考音频（E 型统一方案）
+2. 流式合成用 WebSocket 还是 SSE？→ Phase 2 plan 时决策（已拆分至未来 Feature）
+3. F021++ 播客的对话稿格式？→ 与 F021++ 联动设计（已拆分至未来 Feature）
+4. ~~未来是否需要声音克隆（Spark-TTS）？~~ → **已决**：Qwen3 Base clone 已满足需求，Spark-TTS 暂不需要
 
 ## Review Gate
 
