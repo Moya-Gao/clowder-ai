@@ -26,6 +26,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 把 Signal 从 RSS 阅读器升级为学习伴侣：
 - **对话优先**的双入口触发 Study（对话中贴链接为主入口，Signal 页面"开始学习"为辅）
+- **Thread-Study 关联**：开始学习时可选择新开 thread / 关联已有 thread / 挂载已有 thread——聊天和 Study 相辅相成
 - 文章上下文自动注入猫的 system prompt
 - 深度学习笔记归档（用户确认后写入）
 - 播客生成（两种模式：2-3 分钟精华 + 10 分钟深度讨论，声线跟随参与猫猫）
@@ -46,8 +47,9 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 ## Acceptance Criteria
 
-- [ ] AC-1: Signal 文章详情页有"开始学习"按钮，点击后跳转 thread 并自动注入文章上下文
+- [ ] AC-1: Signal 文章详情页有"开始学习"按钮，可选择新开 thread / 关联已有 thread / 挂载已有 thread，并自动注入文章上下文
 - [ ] AC-2: 对话中贴 Signal 文章链接时，猫猫自动识别并获取文章上下文
+- [ ] AC-11: Study 折叠区展示关联的 thread 列表，点击可跳转到对应 thread 继续讨论
 - [ ] AC-3: 讨论中说"归档"，猫生成深度笔记（含洞见/思考/开放问题），用户确认后写入
 - [ ] AC-4: 文章详情页 Study 折叠区展示笔记、播客、研究报告
 - [ ] AC-5: 播客有两种模式——精华版（2-3 分钟）和深度版（10 分钟），声线跟随参与猫猫（可 2-3 只），前端可播放
@@ -61,7 +63,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "和猫猫们聊的多，聊天才能碰撞灵感"——对话入口优先，贴链接猫识别 | AC-1, AC-2 | manual + test | [ ] |
+| R1 | "和猫猫们聊的多，聊天才能碰撞灵感"——对话入口优先，贴链接猫识别 | AC-1, AC-2, AC-11 | manual + test | [ ] |
+| R11 | "可以让我选择新开 thread 或者关联哪个 thread？甚至挂载进来！聊天和 Study 相辅相成" | AC-1, AC-11 | manual + test | [ ] |
 | R2 | 文章上下文自动注入 system prompt，猫读原文然后和铲屎官讲 | AC-2 | test | [ ] |
 | R3 | 深度学习笔记归档（用户确认后写入） | AC-3 | manual + test | [ ] |
 | R4 | Study 前端展示（折叠区 + 视觉标记） | AC-4, AC-9 | screenshot | [ ] |
@@ -82,7 +85,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [F21++ 设计文档（2026-02-26 feat 采访）](../plans/2026-02-26-f21-study-mode-design.md)
 - [F021 聚合文件](./F021-signal-study-mode.md)
 - [Signal 信源缺口审计](../plans/2026-02-20-f21-signal-sources-gap.md)
-- [UX Wireframe](../../designs/f091-signal-study-mode.pen) — 三屏 wireframe（Pencil）
+- [UX Wireframe](../../designs/mission-hub-f091-signal-study-mode.pen) — 三屏 wireframe（Pencil，在 Mission Hub 画布上）
 
 ## 铲屎官原话（2026-03-10 Design Gate）
 
@@ -95,6 +98,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 > **"你记得我们的铁律：我们是面向终态，不绕路，我不建议做绕路的特性。"**
 >
 > **"代码是最廉价的。我们的设计、我们的思想碰撞才是灵魂。"**
+>
+> "讨论的话可以让我选择新开 thread 或者关联哪个 thread？甚至把什么 thread 给挂载进来！聊天和这个是相辅相成的。"
 
 ## Key Decisions
 
@@ -109,6 +114,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | 7 | 多猫研究 | 复用 F086 + deep-research | 不造轮子 |
 | 8 | Phase 策略 | **面向终态不分阶段** | **P1 面向终态不绕路**（铁律） |
 | 9 | 设计先行 | 先画 UX，再写代码 | "代码是最廉价的，设计才是灵魂" |
+| 10 | Thread-Study 关联 | 新开/关联/挂载 thread，聊天和 Study 相辅相成 | Study 不是孤立学习，是围绕文章的对话聚合 |
 | 沿用 | F21++ 设计文档其余决策 | 见 2026-02-26 文档 | — |
 
 ## Dependencies
