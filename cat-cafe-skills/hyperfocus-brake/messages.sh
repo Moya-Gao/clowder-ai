@@ -158,15 +158,6 @@ render_rich_blocks() {
   codex_msg=$(echo "$messages" | jq -r '.codex')
   gemini_msg=$(echo "$messages" | jq -r '.gemini')
 
-  # 选当前猫的文案做语音
-  local voice_text
-  case "$cat_family" in
-    opus)   voice_text="$opus_msg" ;;
-    codex)  voice_text="$codex_msg" ;;
-    gemini) voice_text="$gemini_msg" ;;
-    *)      voice_text="$opus_msg" ;;
-  esac
-
   local ts
   ts=$(date +%s)
 
@@ -181,11 +172,10 @@ render_rich_blocks() {
     bypass_value="bypass（冷却 ${cooldown}min）"
   fi
 
-  # 输出 audio + card JSON
+  # P3: 三猫语音轮流撒娇（宪宪→砚砚→烁烁），每条带 speaker 字段指定声线
   jq -n \
-    --arg audio_id "brake-audio-$ts" \
+    --arg ts "$ts" \
     --arg card_id "brake-card-$ts" \
-    --arg voice_text "$voice_text" \
     --argjson level "$level" \
     --arg minutes "$minutes" \
     --arg opus_msg "$opus_msg" \
@@ -193,7 +183,11 @@ render_rich_blocks() {
     --arg gemini_msg "$gemini_msg" \
     --arg bypass_value "$bypass_value" \
     '{
-      audio: {id: $audio_id, kind: "audio", v: 1, text: $voice_text},
+      voices: [
+        {id: ("brake-voice-opus-" + $ts), kind: "audio", v: 1, text: $opus_msg, speaker: "opus"},
+        {id: ("brake-voice-codex-" + $ts), kind: "audio", v: 1, text: $codex_msg, speaker: "codex"},
+        {id: ("brake-voice-gemini-" + $ts), kind: "audio", v: 1, text: $gemini_msg, speaker: "gemini"}
+      ],
       card: {
         id: $card_id, kind: "card", v: 1,
         title: ("🐾 休息提醒 L" + ($level | tostring)),

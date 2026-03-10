@@ -4,7 +4,7 @@ related_features: [F066]
 topics: [健康, 提醒, hook, skill, 猫设]
 doc_kind: spec
 created: 2026-03-08
-status: phase1-done
+status: done
 ---
 
 # F085 Hyperfocus Brake — 猫猫健康小刹车
@@ -58,15 +58,15 @@ status: phase1-done
 
 ### Phase 2
 
-- [ ] **AC15**: 富文本 `card` rich block 展示
-- [ ] **AC16**: Chrome 画专属撒娇图（用猫设）
-- [ ] **AC17**: 触发次数追踪 + 语气自动升级
-- [ ] **AC18**: 肉垫点击解锁（Web 端）
+- [x] **AC15**: 富文本 `card` rich block 展示
+- [ ] **AC16**: Chrome 画专属撒娇图（用猫设）— 延期
+- [x] **AC17**: 触发次数追踪 + 语气自动升级（card tone: L1=info, L2=warning, L3=danger）
+- [ ] **AC18**: 肉垫点击解锁（Web 端）— 延期
 
 ### Phase 3
 
-- [ ] **AC19**: F066 声线集成
-- [ ] **AC20**: 三猫语音轮流撒娇
+- [x] **AC19**: F066 声线集成（speaker 字段 + VoiceBlockSynthesizer per-block override）
+- [x] **AC20**: 三猫语音轮流撒娇（宪宪→砚砚→烁烁，各用自己声线）
 
 ## Links
 
@@ -110,8 +110,7 @@ status: phase1-done
 ## Review Gate
 
 - [x] Phase 1: 砚砚 Codex review hook 安全性 (R1-R4 本地 + R1-R2 云端, PR #329)
-- [ ] Phase 2: 烁烁 review 视觉设计
-- [ ] Phase 3: F066 owner review 声线集成
+- [x] Phase 2+3: 砚砚 Codex review LGTM (0 P1/P2, P3 补测试已修)
 
 ## Timeline
 
@@ -123,6 +122,10 @@ status: phase1-done
 | 2026-03-09 | Phase 1 实现 (Opus 4.5 初版 + Opus 4.6 修复) |
 | 2026-03-09 | Codex review R1-R4 (6 P1 修复) + 云端 R1-R2 |
 | 2026-03-09 | Phase 1 合入 main (PR #329, `3387f853`) |
+| 2026-03-09 | Bug fix: 切 thread 时钟归零 (`74d24bdb`) |
+| 2026-03-09 | Phase 2: rich block card + audio (`562581aa`) |
+| 2026-03-09 | Phase 3: 三猫语音轮流 + speaker override |
+| 2026-03-09 | Codex review Phase 2+3 LGTM |
 
 ## 需求点 Checklist
 

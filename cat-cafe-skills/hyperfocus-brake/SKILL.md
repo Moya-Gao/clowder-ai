@@ -47,10 +47,13 @@ systemMessage 告知猫猫触发
 
 收到 hook 的 systemMessage 后，**必须**用 `cat_cafe_create_rich_block` 发送：
 
-### 1. Audio（语音撒娇）
+### 1. 三猫语音轮流撒娇（P3: 每条用 `speaker` 指定声线）
 ```json
-{"id": "brake-audio-{{timestamp}}", "kind": "audio", "v": 1, "text": "{{当前猫对应档位的文案}}"}
+{"id": "brake-voice-opus-{{ts}}", "kind": "audio", "v": 1, "text": "{{opus_msg}}", "speaker": "opus"}
+{"id": "brake-voice-codex-{{ts}}", "kind": "audio", "v": 1, "text": "{{codex_msg}}", "speaker": "codex"}
+{"id": "brake-voice-gemini-{{ts}}", "kind": "audio", "v": 1, "text": "{{gemini_msg}}", "speaker": "gemini"}
 ```
+发送顺序：宪宪 → 砚砚 → 烁烁（按家族顺序），每条独立调 `create_rich_block`。
 
 ### 2. Card（check-in 卡片）
 ```json

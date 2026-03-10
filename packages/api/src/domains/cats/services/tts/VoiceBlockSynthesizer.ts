@@ -62,7 +62,11 @@ export class VoiceBlockSynthesizer {
       }
 
       try {
-        const result = await this.synthesizeToFile(text, catId);
+        // F085-P3: per-block speaker override for multi-cat voice
+        const voiceCatId = ('speaker' in block && typeof block.speaker === 'string')
+          ? block.speaker
+          : catId;
+        const result = await this.synthesizeToFile(text, voiceCatId);
         resolved.push({
           ...block,
           url: result.audioUrl,

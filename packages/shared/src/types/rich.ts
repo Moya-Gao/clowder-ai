@@ -57,6 +57,9 @@ export interface RichAudioBlock extends RichBlockBase {
   url: string;
   /** F34-b: Voice message text (what the cat "said"). Present = voice message style. */
   text?: string;
+  /** F085-P3: Override voice — use this cat's voice instead of the message sender's.
+   *  Enables multi-cat voice in a single message (e.g. three cats taking turns). */
+  speaker?: string;
   title?: string;
   durationSec?: number;
   mimeType?: string;

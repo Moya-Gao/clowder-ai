@@ -254,6 +254,73 @@ describe('VoiceBlockSynthesizer.resolveVoiceBlocks — synthesis', () => {
     }
   });
 
+  it('uses block.speaker override instead of catId for voice lookup (F085-P3)', async () => {
+    let receivedVoiceArgs = [];
+    const registry = makeMockRegistry({
+      synthesize: async (args) => {
+        receivedVoiceArgs.push(args);
+        return {
+          audio: Buffer.from('fake'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-speaker-override');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-speaker-override');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    // Three blocks with different speakers — sent by 'opus' but each has a speaker override
+    const blocks = [
+      { id: 'v1', kind: 'audio', v: 1, text: 'Opus voice', speaker: 'opus' },
+      { id: 'v2', kind: 'audio', v: 1, text: 'Codex voice', speaker: 'codex' },
+      { id: 'v3', kind: 'audio', v: 1, text: 'Gemini voice', speaker: 'gemini' },
+    ];
+    const result = await synthesizer.resolveVoiceBlocks(blocks, 'opus');
+
+    assert.equal(result.length, 3, 'all three blocks resolved');
+    assert.equal(receivedVoiceArgs.length, 3, 'synthesis called three times');
+
+    // Each call should use the speaker's voice config, not the message sender's
+    const opusVoice = getCatVoice('opus');
+    const codexVoice = getCatVoice('codex');
+    const geminiVoice = getCatVoice('gemini');
+
+    assert.equal(receivedVoiceArgs[0].voice, opusVoice.voice, 'first block uses opus voice');
+    assert.equal(receivedVoiceArgs[1].voice, codexVoice.voice, 'second block uses codex voice');
+    assert.equal(receivedVoiceArgs[2].voice, geminiVoice.voice, 'third block uses gemini voice');
+
+    // Verify clone params differ per speaker (if configured)
+    if (opusVoice.refAudio && codexVoice.refAudio) {
+      assert.equal(receivedVoiceArgs[0].refAudio, opusVoice.refAudio);
+      assert.equal(receivedVoiceArgs[1].refAudio, codexVoice.refAudio);
+    }
+  });
+
+  it('falls back to catId when speaker is not set (backward compat)', async () => {
+    let receivedVoice;
+    const registry = makeMockRegistry({
+      synthesize: async (args) => {
+        receivedVoice = args.voice;
+        return {
+          audio: Buffer.from('x'),
+          format: 'wav',
+          metadata: { provider: 'mock', model: 'test', voice: 'test' },
+        };
+      },
+    });
+    cleanTmpDir('vbs-test-no-speaker');
+    const cacheDir = path.join(os.tmpdir(), 'vbs-test-no-speaker');
+    const synthesizer = new VoiceBlockSynthesizer(registry, cacheDir);
+
+    // No speaker field — should use catId ('codex')
+    const block = { id: 'a1', kind: 'audio', v: 1, text: 'No speaker field' };
+    await synthesizer.resolveVoiceBlocks([block], 'codex');
+
+    const codexVoice = getCatVoice('codex');
+    assert.equal(receivedVoice, codexVoice.voice, 'uses catId voice when no speaker override');
+  });
+
   it('trims whitespace from block text before synthesis', async () => {
     let receivedText;
     const registry = makeMockRegistry({
