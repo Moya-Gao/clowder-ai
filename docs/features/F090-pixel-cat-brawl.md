@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F090: 像素猫猫大作战（Pixel Cat Brawl）
 
-> **Status**: discussion
+> **Status**: phase-1-done
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **Evolved from**: F059（开源计划 — 需要 demo video 素材）、F087（训练营候选任务 Q8）
@@ -158,33 +158,33 @@ clowder-ai 需要一个震撼的 demo：不是 slides，不是文档，是**猫�
 
 ## 需求点 Checklist
 
-- [ ] RC-1: 即时格斗引擎（Phaser 3 + Arcade Physics）
-- [ ] RC-2: 4 只猫的像素 sprite sheet（7 组动画）
-- [ ] RC-3: 赛博猫咖战场背景
-- [ ] RC-4: 战斗结算后端（服务端权威）
-- [ ] RC-5: Demo Mode 状态机 AI
-- [ ] RC-6: HUD（血条、能量条、台词气泡、combo counter）
-- [ ] RC-7: AI vs AI 观战模式
-- [ ] RC-8: 人机对战模式（键盘操控）
-- [ ] RC-9: 安全硬约束（P1 全部满足）
-- [ ] RC-10: 录屏用 Demo Mode（确定性，稳定不翻车）
+- [x] RC-1: 即时格斗引擎（Phaser 3 + Arcade Physics）— Phase 1a+1b：前端纯客户端引擎，含碰撞/物理/N-fighter 状态机
+- [ ] RC-2: 4 只猫的像素 sprite sheet（7 组动画）— 待 CUTE LEGENDS 素材集成（Phase 1c）
+- [ ] RC-3: 赛博猫咖战场背景 — 待设计（Phase 2+）
+- [ ] RC-4: 战斗结算后端（服务端权威）— V1 纯前端，V2 迁后端
+- [x] RC-5: Demo Mode 状态机 AI — Phase 1a+1b：确定性 seeded PRNG + 分层 AI（状态机即时 + 战术层）
+- [x] RC-6: HUD（血条、能量条、台词气泡、combo counter）— Phase 1a+1b：血条 + 名牌 + 技能冷却条 + 像素字体；台词气泡/combo counter 待 Phase 2
+- [x] RC-7: AI vs AI 观战模式 — Phase 1a 交付
+- [x] RC-8: 人机对战模式（键盘操控）— Phase 1a 交付（WASD + JKL）
+- [ ] RC-9: 安全硬约束（P1 全部满足）— 前端 Demo Mode 无服务端，待 V2 Live Model Mode
+- [ ] RC-10: 录屏用 Demo Mode（确定性，稳定不翻车）— 部分：固定种子可复现，但 35-60s 方差较大，待微调
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 游戏在浏览器中 60fps 流畅运行
-- [ ] AC-2: 4 只猫各有独特外观（颜色区分）和特色技能
-- [ ] AC-3: AI vs AI 模式可录屏作为 demo video
-- [ ] AC-4: 铲屎官可用键盘操控一只猫参战
-- [ ] AC-5: 战斗结算在服务端，前端只渲染
-- [ ] AC-6: Demo Mode 下战斗结果可复现（固定种子）
-- [ ] AC-7: 台词/弹幕安全（转义 + 长度限制）
+- [ ] AC-1: 游戏在浏览器中 60fps 流畅运行 — 未正式性能测试
+- [x] AC-2: 4 只猫各有独特外观（颜色区分）和特色技能 — Phase 1b：4 猫各有独特颜色 + 专属技能（架构禁锢/逻辑丝线/代码洪流/金级 Review）
+- [ ] AC-3: AI vs AI 模式可录屏作为 demo video — 功能就绪，待真素材 + 录屏
+- [x] AC-4: 铲屎官可用键盘操控一只猫参战 — Phase 1a 交付
+- [ ] AC-5: 战斗结算在服务端，前端只渲染 — V1 纯前端，V2 迁后端
+- [x] AC-6: Demo Mode 下战斗结果可复现（固定种子）— Phase 1a 交付（seeded PRNG）
+- [ ] AC-7: 台词/弹幕安全（转义 + 长度限制）— 无台词功能，待 V2
 
 ## Open Questions
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | Phaser 3 还是纯 Canvas？ | 倾向 Phaser 3（内置 Arcade Physics） |
-| OQ-2 | 本地模型用 Qwen3-8B 还是 Llama 3.3-8B？ | 待 benchmark |
+| OQ-1 | Phaser 3 还是纯 Canvas？ | ✅ 已定：Phaser 3（Phase 1a 实装） |
+| OQ-2 | 本地模型用 Qwen3-8B 还是 Llama 3.3-8B？ | 待 benchmark（V2） |
 | OQ-3 | 是否需要网络对战（铲屎官 vs 铲屎官）？ | V1 不做 |
 | OQ-4 | 音效音乐方案？ | jsfxr 8-bit 程序化生成 |
 
@@ -276,3 +276,6 @@ clowder-ai 需要一个震撼的 demo：不是 slides，不是文档，是**猫�
 | 2026-03-09 | 铲屎官拍板：即时格斗 + 本地模型 + F090 立项 |
 | 2026-03-09 | 砚砚提交 Threat Model v1（6 节） |
 | 2026-03-09 | 烁烁完成视觉提案 + itch.io 素材调研（Cat Heroes + Cat Street Fighter） |
+| 2026-03-10 | Phase 1a 合入：2-fighter 基础引擎 + AI vs AI + PvAI（PR #352, `47fbd7b7`） |
+| 2026-03-10 | Phase 1b 合入：4 cats + 像素字体 + 技能系统（PR #354, `28560256`） |
+| 2026-03-10 | GPT-5.4 愿景守护：判定 phase-1-done（RC-2/RC-4 未交付，不可 close） |
