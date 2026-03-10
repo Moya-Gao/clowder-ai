@@ -27,6 +27,7 @@ created: 2026-02-26
 - [feat 采访 2026-02-26](./plans/2026-02-26-f21-study-mode-design.md)
 - [`2026-02-26-f21-study-mode-design.md`](./plans/2026-02-26-f21-study-mode-design.md)
 - **Upstream**: [F066 Voice Pipeline Upgrade](F066-voice-pipeline-upgrade.md) — R5 播客依赖流式合成 + 播放队列
+- **Evolved to**: [F091 Signal Study Mode](F091-signal-study-mode.md) — F21++ 学习伴侣独立立项
 
 ## Key Decisions
 - 历史记录未单列关键决策

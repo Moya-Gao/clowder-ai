@@ -1,5 +1,5 @@
 ---
-feature_ids: [F021]
+feature_ids: [F021, F091]
 topics: [study, mode, design]
 doc_kind: plan
 created: 2026-02-26
