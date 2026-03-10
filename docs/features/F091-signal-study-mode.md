@@ -27,13 +27,14 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 把 Signal 从 RSS 阅读器升级为学习伴侣：
 - **对话优先**的双入口触发 Study（对话中贴链接为主入口，Signal 页面"开始学习"为辅）
-- **Thread-Study 关联**：开始学习时可选择新开 thread / 关联已有 thread / 挂载已有 thread——聊天和 Study 相辅相成
+- **Thread-Study 关联**：开始学习时默认跳转 thread 并注入上下文，支持手动关联已有 thread
 - 文章上下文自动注入猫的 system prompt
 - 深度学习笔记归档（用户确认后写入）
 - 播客生成（两种模式：2-3 分钟精华 + 10 分钟深度讨论，声线跟随参与猫猫）
 - 多猫研究集成（复用 F086 多猫编排）
 - Study 前端展示（文章详情页折叠区）
 - 记忆对接（用 cat-cafe-memory session search，不走 RAG）
+- "打开原文"保留外链跳转（铲屎官确认：给人展示来源时跳浏览器是正确行为），详情页内嵌 markdown 渲染供日常阅读
 
 ## Evolved from
 
@@ -60,11 +61,11 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-9: 有 study 的文章在列表有视觉标记 *(studyCount badge + ✎ note icon)*
 - [x] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史 *(ActiveSignalArticle enrichment with relatedDiscussions)*
 - [x] AC-12: "打开原文"保留外链跳转（铲屎官确认：需要给人展示来源时跳浏览器是正确行为），详情页已内嵌 markdown 渲染供日常阅读
-- [~] AC-13: Signal Inbox 列表视图 UX 设计语言归一化 *(deferred: 待独立 UX pass)*
+- [~] AC-13: Signal Inbox 列表视图 UX 设计语言归一化 *(转出为 TD: Signal Inbox UX 归一化)*
 - [x] AC-14: 可删除文章（单篇 + 批量选择删除），软删除（`deletedAt` 时间戳），列表过滤隐藏
 - [x] AC-15: 可给文章添加备注（自由文本，不是标签——铲屎官的个人笔记/提醒）
 - [x] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项
-- [~] AC-17: 按来源过滤 *(deferred: 50+ 源过滤交互设计待定)*
+- [x] AC-17: 按来源过滤（只看特定信源，50+ 源需要快速筛选）*(signals-view.ts source 条件 + SignalInboxView 来源下拉 + API source param)*
 - [x] AC-18: 文章关联——把相关文章绑成"学习集"（如"多 Agent 系列"），Study 折叠区展示同集文章 *(collection CRUD + StudyFoldArea UI + atomic sync)*
 - [x] AC-19: 学习时间线——"上周学了什么"回顾视图，按时间线展示 study 成果 *(StudyTimeline component + SignalInboxView integration)*
 - [x] AC-20: 删除语义——软删除（`deletedAt`），有 study/播客/thread 关联的文章不硬删，避免幽灵引用
@@ -88,12 +89,12 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | R8 | Study 存储方案（文章同目录） | AC-3, AC-4 | test | [x] |
 | R9 | Signal Hunter 迁移 | AC-8 | manual | [x] |
 | R12 | "打开原文不要跳浏览器"→ 铲屎官确认保留外链（给人 show 来源） | AC-12 | 铲屎官确认 | [x] |
-| R13 | "hunter 列表 UX 设计语言归一化" | AC-13 | screenshot | [~] deferred |
+| R13 | "hunter 列表 UX 设计语言归一化" | AC-13 | screenshot | [~] 转出 TD |
 | R10 | "记忆是 thread session 搜来的"——用 cat-cafe-memory，不走 RAG | AC-10 | test | [x] |
 | R14 | "有的时候拉到了一堆垃圾就想干掉！"——删除文章（单篇+批量） | AC-14, AC-16 | manual | [x] |
 | R15 | "添加备注"——铲屎官给文章加个人笔记/提醒 | AC-15 | manual | [x] |
 | R16 | 批量操作（多选 → 删除/标已读/归档/加标签） | AC-16 | manual | [x] |
-| R17 | 按来源过滤（50+ 信源需要快速筛选） | AC-17 | manual | [~] deferred |
+| R17 | 按来源过滤（50+ 信源需要快速筛选） | AC-17 | manual | [x] |
 | R18 | 文章关联——相关文章绑成"学习集" | AC-18 | manual | [x] |
 | R19 | 学习时间线——"上周学了什么"回顾视图 | AC-19 | screenshot | [x] |
 | R20 | 删除语义——软删除，有关联资产不硬删（砚砚 brainstorm） | AC-20 | test | [x] |
@@ -162,9 +163,9 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | 7 | 多猫研究 | 复用 F086 + deep-research | 不造轮子 |
 | 8 | Phase 策略 | **面向终态不分阶段，但 artifact 保留 job state** | **P1 面向终态不绕路**（铁律）+ 砚砚 push back |
 | 9 | 设计先行 | 先画 UX，再写代码 | "代码是最廉价的，设计才是灵魂" |
-| 10 | Thread-Study 关联 | 新开/关联/挂载 thread，聊天和 Study 相辅相成 | Study 不是孤立学习，是围绕文章的对话聚合 |
-| 11 | 原文渲染 | 内嵌 md 渲染（不跳浏览器），复用 workspace md renderer | Hunter 已存 .md，不该再让用户出 Cat Café |
-| 12 | 列表 UX | Signal Inbox 列表设计语言归一化 | 与 Cat Café 整体风格一致 |
+| 10 | Thread-Study 关联 | 默认跳转 thread + 手动关联，聊天和 Study 相辅相成 | 满足核心场景，完整 picker 为过度设计 |
+| 11 | 原文阅读 | 详情页内嵌 md 渲染 + "打开原文"保留外链跳转 | 铲屎官确认：给人 show 来源时需要跳浏览器 |
+| 12 | 列表 UX | Signal Inbox 列表 UX 归一化转出为 TD | 独立 UX pass，不阻塞学习伴侣核心 |
 | 13 | 删除策略 | 软删除（`deletedAt`），不硬删有关联的文章 | 防幽灵引用，保留恢复可能（砚砚 brainstorm） |
 | 14 | 备注边界 | 备注进搜索、不注入上下文、列表 hover 预览 | 备注≠study 笔记，控制噪声（砚砚 brainstorm） |
 | 15 | MCP parity | 管理操作（删除/备注/thread 关联）必须有 MCP 工具 | 主入口是对话，不能只在 Web UI（砚砚 push back） |
