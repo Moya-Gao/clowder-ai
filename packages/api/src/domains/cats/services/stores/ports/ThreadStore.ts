@@ -113,6 +113,8 @@ export interface Thread {
   threadMemory?: ThreadMemoryV1;
   /** F079: Active voting state */
   votingState?: VotingStateV1;
+  /** F092: Voice companion mode — when true, cats should prioritize audio rich blocks. */
+  voiceMode?: boolean;
 }
 
 /** F079: Voting state stored in thread metadata */
@@ -175,6 +177,8 @@ export interface IThreadStore {
   /** F079: Get/update voting state */
   getVotingState(threadId: string): VotingStateV1 | null | Promise<VotingStateV1 | null>;
   updateVotingState(threadId: string, state: VotingStateV1 | null): void | Promise<void>;
+  /** F092: Update voice companion mode. */
+  updateVoiceMode(threadId: string, voiceMode: boolean): void | Promise<void>;
   updateLastActive(threadId: string): void | Promise<void>;
   delete(threadId: string): boolean | Promise<boolean>;
 }
@@ -436,6 +440,16 @@ export class ThreadStore implements IThreadStore {
       delete thread.votingState;
     } else {
       thread.votingState = state;
+    }
+  }
+
+  updateVoiceMode(threadId: string, voiceMode: boolean): void {
+    const thread = this.get(threadId);
+    if (!thread) return;
+    if (voiceMode) {
+      thread.voiceMode = true;
+    } else {
+      delete thread.voiceMode;
     }
   }
 

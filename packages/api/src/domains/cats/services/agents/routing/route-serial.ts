@@ -90,10 +90,13 @@ export async function* routeSerial(
   let routingPolicy: ThreadRoutingPolicyV1 | undefined;
   // F073 P4: SOP stage hint from workflow-sop (告示牌 — info only, cats decide actions)
   let sopStageHint: { stage: string; suggestedSkill: string | null; featureId: string } | undefined;
+  // F092: Voice companion mode
+  let voiceMode: boolean | undefined;
   if (deps.invocationDeps.threadStore) {
     try {
       const thread = await deps.invocationDeps.threadStore.get(threadId);
       routingPolicy = thread?.routingPolicy;
+      voiceMode = thread?.voiceMode;
       // F073 P4: Read workflow-sop if thread is linked to a backlog item
       if (thread?.backlogItemId && deps.invocationDeps.workflowSopStore) {
         try {
@@ -177,6 +180,7 @@ export async function* routeSerial(
       ...(routingPolicy ? { routingPolicy } : {}),
       ...(sopStageHint ? { sopStageHint } : {}),
       ...(activeSignals ? { activeSignals } : {}),
+      ...(voiceMode ? { voiceMode } : {}),
     });
 
     // F24 Phase E: Bootstrap context for Session #2+

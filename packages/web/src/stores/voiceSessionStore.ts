@@ -1,6 +1,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { apiFetch } from '@/utils/api-client';
 
 /**
  * F092: Voice Companion Session — manages voice mode state.
@@ -23,6 +24,17 @@ export interface VoiceSession {
   playbackState: PlaybackState;
   /** Track which audio block IDs have been auto-played (avoid replays on re-render) */
   playedBlockIds: Set<string>;
+}
+
+/** Fire-and-forget: notify backend about voice mode toggle for prompt injection. */
+function syncVoiceModeToBackend(threadId: string, voiceMode: boolean): void {
+  apiFetch(`/api/threads/${threadId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ voiceMode }),
+  }).catch(() => {
+    // Best-effort — voice mode prompt injection is non-critical path
+  });
 }
 
 interface VoiceSessionActions {
@@ -58,9 +70,16 @@ export const useVoiceSessionStore = create<VoiceSessionActions>((set, get) => ({
         playedBlockIds: new Set(),
       },
     });
+    syncVoiceModeToBackend(threadId, true);
   },
 
-  stop: () => set({ session: null }),
+  stop: () => {
+    const { session } = get();
+    set({ session: null });
+    if (session?.boundThreadId) {
+      syncVoiceModeToBackend(session.boundThreadId, false);
+    }
+  },
 
   confirmAutoplayUnlocked: () => {
     const { session } = get();

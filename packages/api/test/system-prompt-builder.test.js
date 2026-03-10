@@ -1011,4 +1011,60 @@ describe('SystemPromptBuilder', () => {
       `Prompt with SOP hint is ${prompt.length} chars, expected < 2200`,
     );
   });
+
+  // --- F092: Voice Mode prompt injection ---
+
+  test('buildInvocationContext includes voice mode instructions when voiceMode=true', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+      voiceMode: true,
+    });
+    assert.ok(ctx.includes('Voice Mode ON'), 'Should include voice mode header');
+    assert.ok(ctx.includes('audio rich block'), 'Should mention audio rich block');
+  });
+
+  test('buildInvocationContext omits voice mode instructions when voiceMode absent', async () => {
+    const { buildInvocationContext } = await import(
+      '../dist/domains/cats/services/context/SystemPromptBuilder.js'
+    );
+    const ctx = buildInvocationContext({
+      catId: 'opus',
+      mode: 'independent',
+      teammates: [],
+      mcpAvailable: false,
+    });
+    assert.ok(!ctx.includes('Voice Mode ON'), 'Should not include voice mode header');
+  });
+
+  test('buildSystemPrompt size stays under 2400 chars with voice mode + SOP hint', async () => {
+    const build = await getBuilder();
+    const prompt = build({
+      catId: 'opus',
+      mode: 'serial',
+      chainIndex: 1,
+      chainTotal: 3,
+      teammates: ['codex', 'gemini'],
+      mcpAvailable: true,
+      promptTags: ['critique'],
+      activeParticipants: [
+        { catId: 'codex', lastMessageAt: Date.now(), messageCount: 5 },
+      ],
+      sopStageHint: {
+        stage: 'quality_gate',
+        suggestedSkill: 'quality-gate',
+        featureId: 'F073',
+      },
+      voiceMode: true,
+    });
+    assert.ok(
+      prompt.length < 2400,
+      `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2400`,
+    );
+  });
 });

@@ -452,6 +452,21 @@ export class RedisThreadStore implements IThreadStore {
     }
   }
 
+  async updateVoiceMode(threadId: string, voiceMode: boolean): Promise<void> {
+    const key = ThreadKeys.detail(threadId);
+    if (voiceMode) {
+      await this.redis.eval(
+        HSET_IF_HAS_ID_LUA,
+        1,
+        key,
+        'voiceMode',
+        '1',
+      );
+    } else {
+      await this.redis.hdel(key, 'voiceMode');
+    }
+  }
+
   async updateLastActive(threadId: string): Promise<void> {
     const now = String(Date.now());
     const key = ThreadKeys.detail(threadId);
@@ -546,6 +561,9 @@ export class RedisThreadStore implements IThreadStore {
     if (thread.threadMemory) {
       result['threadMemory'] = JSON.stringify(thread.threadMemory);
     }
+    if (thread.voiceMode) {
+      result['voiceMode'] = '1';
+    }
     return result;
   }
 
@@ -598,6 +616,9 @@ export class RedisThreadStore implements IThreadStore {
     if (data['threadMemory']) {
       const mem = parseThreadMemoryJson(data['threadMemory']);
       if (mem) result.threadMemory = mem;
+    }
+    if (data['voiceMode'] === '1') {
+      result.voiceMode = true;
     }
     return result;
   }

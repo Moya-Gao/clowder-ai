@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F092 — Cats & U 语音陪伴体验
 
-> **Status**: spec
+> **Status**: in-progress (P0 complete)
 > **Owner**: 布偶猫 (Opus 4.6)
 > **Evolved from**: F066 (Voice Pipeline Upgrade) + F086 (Cat Orchestration)
 > **Related**: F066, F086
@@ -34,10 +34,10 @@ created: 2026-03-10
 **目标**：thread/session 级别的 voice mode flag，开启后猫猫**每条回复都自动发 audio rich block**。
 
 需要调研：
-- [ ] voice mode 应该是 thread 级别还是 session 级别？
-- [ ] 如何注入 system prompt？（类似 SOP stage hint 的机制）
-- [ ] 是否需要"auto voice"（系统自动加 audio block）vs "explicit voice"（猫猫自己记得发）？
-- [ ] voice mode 下纯文字消息是否仍然需要？（代码/表格不适合语音）
+- [x] voice mode 应该是 thread 级别还是 session 级别？→ **thread 级别**（Thread.voiceMode boolean）
+- [x] 如何注入 system prompt？→ **InvocationContext.voiceMode → SystemPromptBuilder 注入 4 行指令**
+- [x] 是否需要"auto voice"（系统自动加 audio block）vs "explicit voice"（猫猫自己记得发）？→ **explicit voice + prompt injection**，系统 auto voice 作为后续兜底
+- [x] voice mode 下纯文字消息是否仍然需要？→ **是**，代码/表格用文字，但加语音摘要
 
 #### 2. Voice Auto-Play（前端自动播放）
 
@@ -78,8 +78,8 @@ created: 2026-03-10
 
 ## Acceptance Criteria
 
-- [ ] AC-1: voice mode 开关可用，开启后猫猫每条回复自动附带 audio block
-- [ ] AC-2: voice mode 下前端自动播放语音消息，AirPods 场景无需手动操作
+- [x] AC-1: voice mode 开关可用，开启后猫猫每条回复自动附带 audio block
+- [x] AC-2: voice mode 下前端自动播放语音消息，AirPods 场景无需手动操作
 - [ ] AC-3: 支持语音指令或快捷操作切换 thread
 - [ ] AC-4: 语音输入错误率显著降低（主观体验 + 可量化指标）
 - [ ] AC-5: 完整的 hands-free 循环：语音输入 → 猫猫语音回复 → 自动播放 → 继续对话
@@ -91,7 +91,7 @@ created: 2026-03-10
 |----|---------------------------|---------|----------|------|
 | R1 | "如何直接按什么说话" — AirPods 语音输入触发 | AC-2,AC-5 | manual: AirPods 实测 | [ ] |
 | R2 | "按什么切换成哪个 thread" — 语音/按键 thread 切换 | AC-3 | manual: 语音指令实测 | [ ] |
-| R3 | "猫猫能够稳定记得发语音" — voice mode 心智模型 | AC-1 | test: voice mode flag 注入验证 | [ ] |
+| R3 | "猫猫能够稳定记得发语音" — voice mode 心智模型 | AC-1 | test: voice mode flag 注入验证 | [x] |
 | R4 | "一边有氧运动一边和你们交流" — 完整 hands-free 循环 | AC-5 | manual: 铲屎官撸铁实测 | [ ] |
 | R5 | "语音输入很多错误" — STT 质量优化 | AC-4 | manual: 中英混合句子对比测试 | [ ] |
 | R6 | "typeless 那种接入模型优化文本" — LLM 后处理 STT | AC-4 | test: 后处理前后准确率对比 | [ ] |
@@ -281,3 +281,12 @@ Phase 3（拓展）: Qwen3.5-35B-A3B 多模态 + VL + Embedding 全矩阵
 - 2026-03-10: Qwen3 全家桶调研 + 本地模型矩阵规划 [宪宪/Opus-46🐾]
 - 2026-03-10: GPT Pro 软件+硬件两轮调研完成 [宪宪/Opus-46🐾 派发]
 - 2026-03-10: 架构设计讨论（VoiceSession + 双通道输出 + UX 六答）[宪宪×砚砚(GPT-5.4)]
+- 2026-03-10: P0 前端实现 — VoiceSession store + auto-play hook + header Voice Companion 按钮 [宪宪/Opus-46🐾]
+- 2026-03-10: Qwen3-ASR server 脚本 + API wrapper（替代 Whisper）[宪宪/Opus-46🐾]
+- 2026-03-10: auto-play existing audio blocks on voice companion start (PR #352 fix) [宪宪/Opus-46🐾]
+- 2026-03-10: Voice Mode prompt injection — 全链路打通 [宪宪/Opus-46🐾]
+  - Thread.voiceMode field + ThreadStore/RedisThreadStore CRUD
+  - PATCH /api/threads/:id voiceMode handler
+  - route-serial/route-parallel → InvocationContext.voiceMode → SystemPromptBuilder 注入
+  - 前端 voiceSessionStore fire-and-forget PATCH on start/stop
+  - 3 new tests in system-prompt-builder.test.js (injection + omission + size guard)

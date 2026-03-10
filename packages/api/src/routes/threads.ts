@@ -109,6 +109,8 @@ const updateThreadSchema = z
     preferredCats: z.array(catIdSchema()).max(10).optional(),
     /** F042: Thread-level routing policy by intent/scope. null clears. */
     routingPolicy: threadRoutingPolicySchema.nullable().optional(),
+    /** F092: Voice companion mode toggle. */
+    voiceMode: z.boolean().optional(),
   })
   .refine(
     (data) =>
@@ -117,7 +119,8 @@ const updateThreadSchema = z
       data.favorited !== undefined ||
       data.thinkingMode !== undefined ||
       data.preferredCats !== undefined ||
-      data.routingPolicy !== undefined,
+      data.routingPolicy !== undefined ||
+      data.voiceMode !== undefined,
     {
       message: 'At least one field must be provided',
     },
@@ -301,7 +304,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Thread not found' };
     }
 
-    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy } = parseResult.data;
+    const { title, pinned, favorited, thinkingMode, preferredCats, routingPolicy, voiceMode } = parseResult.data;
     if (title !== undefined) await threadStore.updateTitle(id, title);
     if (pinned !== undefined) await threadStore.updatePin(id, pinned);
     if (favorited !== undefined) await threadStore.updateFavorite(id, favorited);
@@ -310,6 +313,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     if (routingPolicy !== undefined) {
       await threadStore.updateRoutingPolicy(id, routingPolicy as ThreadRoutingPolicyV1 | null);
     }
+    if (voiceMode !== undefined) await threadStore.updateVoiceMode(id, voiceMode);
 
     const updated = await threadStore.get(id);
     if (!updated) {

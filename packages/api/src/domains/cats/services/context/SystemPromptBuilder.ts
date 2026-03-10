@@ -85,6 +85,11 @@ export interface InvocationContext {
       readonly score: number;
     }[] | undefined;
   }[];
+  /**
+   * F092: Voice companion mode.
+   * When true, cats should prioritize audio rich blocks for spoken output.
+   */
+  voiceMode?: boolean;
 }
 
 /** Get all cat configs — registry first, fallback to static CAT_CONFIGS */
@@ -497,6 +502,17 @@ export function buildInvocationContext(context: InvocationContext): string {
     const { stage, suggestedSkill, featureId } = context.sopStageHint;
     const skillPart = suggestedSkill ? ` → load skill: ${suggestedSkill}` : '';
     lines.push(`SOP: ${featureId} stage=${stage}${skillPart}`);
+  }
+
+  // F092: Voice companion mode — instruct cats to prioritize audio output
+  if (context.voiceMode) {
+    lines.push(
+      '🎙️ Voice Mode ON: 铲屎官正在语音陪伴模式（AirPods，双手不空）。',
+      '- 每条回复用 audio rich block 发语音（call get_rich_block_rules if unsure）',
+      '- 文字是给日志看的，语音才是给铲屎官耳朵的输出',
+      '- 代码/表格/长内容仍用文字，但加一段语音摘要',
+      '',
+    );
   }
 
   // F091: Active Signal articles in discussion context
