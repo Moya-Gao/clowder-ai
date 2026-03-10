@@ -7,7 +7,7 @@ created: 2026-02-26
 
 # Cat Cafe Feature Roadmap
 
-> 维护者：三猫 | 最后更新：2026-03-09
+> 维护者：三猫 | 最后更新：2026-03-10
 >
 > **规则**：只放活跃 Feature（idea/spec/in-progress/review），done 后移除。
 > 详细信息见 `docs/features/Fxxx-*.md`。
@@ -43,6 +43,7 @@ created: 2026-02-26
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | [F090](features/F090-pixel-cat-brawl.md) |
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
+| F094 | Feature 文档债务清理 — 全量迁移到黄金模板标准 | spec | 布偶猫 | [F094](features/F094-feature-doc-debt-cleanup.md) |
 
 ## Tech Debt
 
