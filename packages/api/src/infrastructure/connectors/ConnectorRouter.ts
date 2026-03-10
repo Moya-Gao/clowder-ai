@@ -15,10 +15,11 @@
  */
 
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
-import { getConnectorDefinition } from '@cat-cafe/shared';
+import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { InboundMessageDedup } from './InboundMessageDedup.js';
+import { parseMentions } from './mention-parser.js';
 
 export type RouteResult = { kind: 'routed'; threadId: string; messageId: string } | { kind: 'skipped'; reason: string };
 
@@ -55,6 +56,18 @@ export interface ConnectorRouterOptions {
 export class ConnectorRouter {
   constructor(private readonly opts: ConnectorRouterOptions) {}
 
+  /** Build @-mention patterns from catRegistry for parseMentions. */
+  private getMentionPatterns(): Map<string, string[]> {
+    const patterns = new Map<string, string[]>();
+    for (const catId of catRegistry.getAllIds()) {
+      const entry = catRegistry.tryGet(catId);
+      if (entry?.config.mentionPatterns && entry.config.mentionPatterns.length > 0) {
+        patterns.set(catId, [...entry.config.mentionPatterns]);
+      }
+    }
+    return patterns;
+  }
+
   async route(
     connectorId: string,
     externalChatId: string,
@@ -90,13 +103,17 @@ export class ConnectorRouter {
       icon: def?.icon ?? '💬',
     };
 
+    // Parse @-mentions to determine target cat
+    const mentionPatterns = this.getMentionPatterns();
+    const { targetCatId } = parseMentions(text, mentionPatterns, this.opts.defaultCatId);
+
     const stored = await messageStore.append({
       threadId: binding.threadId,
       userId: this.opts.defaultUserId,
       catId: null,
       content: text,
       source,
-      mentions: [this.opts.defaultCatId],
+      mentions: [targetCatId],
       timestamp: Date.now(),
     });
 
@@ -108,8 +125,8 @@ export class ConnectorRouter {
       content: text,
     });
 
-    // 5. Trigger cat invocation
-    invokeTrigger.trigger(binding.threadId, this.opts.defaultCatId, this.opts.defaultUserId, text, stored.id);
+    // 5. Trigger cat invocation (use parsed targetCatId)
+    invokeTrigger.trigger(binding.threadId, targetCatId, this.opts.defaultUserId, text, stored.id);
 
     log.info(
       {

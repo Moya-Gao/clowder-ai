@@ -335,7 +335,7 @@ export class ConnectorInvokeTrigger {
         // ⑥ Outbound delivery: send final text to bound external chats
         if (this.opts.outboundHook && collectedTextParts.length > 0) {
           const finalContent = collectedTextParts.join('');
-          this.opts.outboundHook.deliver(threadId, finalContent).catch((err) => {
+          this.opts.outboundHook.deliver(threadId, finalContent, catId).catch((err) => {
             log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
           });
         }

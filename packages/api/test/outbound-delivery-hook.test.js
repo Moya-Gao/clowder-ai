@@ -2,6 +2,12 @@ import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { OutboundDeliveryHook } from '../dist/infrastructure/connectors/OutboundDeliveryHook.js';
 import { MemoryConnectorThreadBindingStore } from '../dist/infrastructure/connectors/ConnectorThreadBindingStore.js';
+import { CAT_CONFIGS, catRegistry } from '@cat-cafe/shared';
+
+// Bootstrap catRegistry for tests
+for (const [id, config] of Object.entries(CAT_CONFIGS)) {
+	if (!catRegistry.has(id)) catRegistry.register(id, config);
+}
 
 function noopLog() {
 	const noop = () => {};
@@ -100,5 +106,25 @@ describe('OutboundDeliveryHook', () => {
 		bindingStore.bind('discord', 'chat-1', 'thread-abc', 'user-1');
 		await hook.deliver('thread-abc', 'Hello');
 		assert.equal(feishuMock.sent.length, 0);
+	});
+
+	// Phase 2: cat identity prefix
+	it('prepends cat display name prefix when catId is provided', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+		await hook.deliver('thread-abc', 'Hello!', 'opus');
+		assert.equal(feishuMock.sent.length, 1);
+		assert.match(feishuMock.sent[0].content, /^\[布偶猫🐱\] Hello!$/);
+	});
+
+	it('sends plain content when catId is omitted (backward compat)', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+		await hook.deliver('thread-abc', 'Hello!');
+		assert.equal(feishuMock.sent[0].content, 'Hello!');
+	});
+
+	it('sends plain content when catId is unknown', async () => {
+		bindingStore.bind('feishu', 'chat-1', 'thread-abc', 'user-1');
+		await hook.deliver('thread-abc', 'Hello!', 'nonexistent-cat');
+		assert.equal(feishuMock.sent[0].content, 'Hello!');
 	});
 });

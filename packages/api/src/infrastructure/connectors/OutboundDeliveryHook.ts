@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger } from 'fastify';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
+import { catRegistry, type CatId } from '@cat-cafe/shared';
 
 export interface IOutboundAdapter {
   readonly connectorId: string;
@@ -15,9 +16,17 @@ export interface OutboundDeliveryHookOptions {
 export class OutboundDeliveryHook {
   constructor(private readonly opts: OutboundDeliveryHookOptions) {}
 
-  async deliver(threadId: string, content: string): Promise<void> {
+  async deliver(threadId: string, content: string, catId?: CatId): Promise<void> {
     const bindings = this.opts.bindingStore.getByThread(threadId);
     if (bindings.length === 0) return;
+
+    let finalContent = content;
+    if (catId) {
+      const entry = catRegistry.tryGet(catId);
+      if (entry) {
+        finalContent = `[${entry.config.displayName}🐱] ${content}`;
+      }
+    }
 
     await Promise.allSettled(
       bindings.map(async (binding) => {
@@ -27,7 +36,7 @@ export class OutboundDeliveryHook {
           return;
         }
         try {
-          await adapter.sendReply(binding.externalChatId, content, undefined);
+          await adapter.sendReply(binding.externalChatId, finalContent, undefined);
         } catch (err) {
           this.opts.log.error(
             {

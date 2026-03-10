@@ -8,8 +8,8 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 planned
-> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
+> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 done
+> PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | Phase 2 PR: TBD | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 
 ## Why
@@ -90,12 +90,12 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 | 阶段 | 内容 | 猫猫天数 | 并行度 | 前置 |
 |------|------|---------|--------|------|
 | **Phase 1 (MVP)** ✅ | 飞书 + Telegram DM-only 双向对话 | **完成** | — | — |
-| **Phase 2** | 多猫身份 + 分角色展示 + 外部 @路由 | 3-5天 | 2-3猫 | — |
+| **Phase 2** ✅ | 多猫身份 + 分角色展示 + 外部 @路由 | **完成** | — | — |
 | **Phase 3** | 群聊 + 多人 + 权限隔离 | 3-4天 | 3猫 | F077 |
 | **Phase 4** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
 | **Phase 5** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**Phase 1 已完成（PR #328）。Phase 2 是下一个里程碑。全量 Gateway：3-4 周。**
+**Phase 1+2 已完成。下一里程碑：Phase 3（群聊 + 多人）。全量 Gateway：3-4 周。**
 
 #### Phase 2 详细拆解（多猫身份 + 分角色展示）
 
@@ -129,7 +129,7 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 - **Outbound = final-only**（agent 回复完成后一次性发送，不做流式/编辑同步）
 
 **显式排除（后续 Phase）**：
-- ❌ 多猫身份映射 / 分角色展示 / 外部 @路由（**Phase 2** — 下一优先级）
+- ✅ ~~多猫身份映射 / 分角色展示 / 外部 @路由~~ — **Phase 2 已完成**
 - ❌ 群聊 / @mention 触发（Phase 3，依赖 F077）
 - ❌ 多用户 / 权限隔离（Phase 3，依赖 F077）
 - ❌ Slack / Discord / 钉钉（Phase 4）
@@ -160,9 +160,9 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-7: Outbound = final-only——agent 回复完成后一次性发送到外部平台 (wired in trigger)
 
 ### Phase 2 — 多猫身份 + 分角色展示
-- [ ] AC-8: 外部消息 `@布偶` / `@缅因` → 路由到指定猫（而非 defaultCatId）
-- [ ] AC-9: 外部回帖标明是哪只猫在说话（方案待 Design Gate 选型）
-- [ ] AC-10: 多猫接力时，外部看到分角色对话
+- [x] AC-8: 外部消息 `@布偶` / `@缅因` → 路由到指定猫（parseMentions + ConnectorRouter, 11+9 unit tests）
+- [x] AC-9: 外部回帖标明是哪只猫在说话（方案 A: 消息前缀 `[布偶猫🐱]`，8 unit tests）
+- [x] AC-10: 多猫接力时，外部看到分角色对话（ConnectorInvokeTrigger 传透 catId → OutboundDeliveryHook 前缀，3 integration tests）
 
 ### Phase 3 — 群聊 + 多人
 - [ ] AC-11: 群聊消息 @猫猫 → 仅 @mention 触发回复（依赖 F077）
@@ -194,7 +194,7 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 
 1. ~~MVP 先做飞书还是 Slack？~~ → **已决定：飞书 + Telegram**
 2. ~~群聊是 Phase 2 还是直接跳过？~~ → **已决定：Phase 3（F077 前置）**
-3. 多猫外显策略采用哪种默认方案：前缀签名 / 多 bot / rich card？
+3. ~~多猫外显策略采用哪种默认方案：前缀签名 / 多 bot / rich card？~~ → **已决定：方案 A（消息前缀 `[布偶猫🐱]`），最简单、跨平台兼容、单 bot**
 4. 是否需要消息编辑/撤回同步？（当前排除到 Phase 5）
 
 ## 需求点 Checklist

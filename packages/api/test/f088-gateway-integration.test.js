@@ -315,5 +315,66 @@ describe('F088 Gateway Integration', () => {
 			assert.equal(h.telegramSent[0].text, 'Reply to both!');
 			assert.equal(h.feishuSent[0].content, 'Reply to both!');
 		});
+
+		it('prefixes reply with cat identity when catId provided', async () => {
+			const h = buildTestHarness();
+			const r = await h.router.route('telegram', 'tg-chat', 'hello', 'tg-1');
+
+			await h.outboundHook.deliver(r.threadId, 'Hello!', 'opus');
+
+			assert.equal(h.telegramSent.length, 1);
+			assert.match(h.telegramSent[0].text, /^\[布偶猫🐱\] Hello!$/);
+		});
+	});
+
+	describe('Phase 2: @-mention routing + identity prefix', () => {
+		it('@codex in Telegram → triggers codex + prefixed reply', async () => {
+			const h = buildTestHarness();
+
+			// 1. Inbound message with @codex mention
+			const r = await h.router.route(
+				'telegram',
+				'tg-chat',
+				'@codex please review this PR',
+				'tg-mention-1',
+			);
+			assert.equal(r.kind, 'routed');
+
+			// 2. Verify cat invocation targeted codex (not default opus)
+			assert.equal(h.triggerCalls.length, 1);
+			assert.equal(h.triggerCalls[0].catId, 'codex');
+
+			// 3. Verify mentions stored in message
+			assert.deepEqual(h.messageStore.messages[0].mentions, ['codex']);
+
+			// 4. Simulate outbound with codex identity
+			await h.outboundHook.deliver(r.threadId, 'LGTM!', 'codex');
+			assert.equal(h.telegramSent.length, 1);
+			assert.match(h.telegramSent[0].text, /^\[缅因猫🐱\] LGTM!$/);
+		});
+
+		it('@布偶猫 in Feishu → triggers opus + prefixed reply', async () => {
+			const h = buildTestHarness();
+
+			const r = await h.router.route(
+				'feishu',
+				'fs-chat',
+				'@布偶猫 帮我看看这个',
+				'fs-mention-1',
+			);
+			assert.equal(r.kind, 'routed');
+			assert.equal(h.triggerCalls[0].catId, 'opus');
+			assert.deepEqual(h.messageStore.messages[0].mentions, ['opus']);
+
+			await h.outboundHook.deliver(r.threadId, '好的！', 'opus');
+			assert.match(h.feishuSent[0].content, /^\[布偶猫🐱\] 好的！$/);
+		});
+
+		it('no mention → default cat (opus) invoked', async () => {
+			const h = buildTestHarness();
+
+			await h.router.route('telegram', 'tg-chat', 'hello cats!', 'tg-no-mention');
+			assert.equal(h.triggerCalls[0].catId, 'opus');
+		});
 	});
 });
