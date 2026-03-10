@@ -646,6 +646,18 @@ export function WorkspacePanel() {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    if (!openFilePath) return;
+                    const abs = currentWorktree ? `${currentWorktree.root}/${openFilePath}` : openFilePath;
+                    void navigator.clipboard.writeText(abs);
+                  }}
+                  className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
+                  title="复制绝对路径"
+                >
+                  Path
+                </button>
+                <button
+                  type="button"
                   onClick={() => { if (openFilePath) void revealInFinder(openFilePath); }}
                   className="px-2 py-0.5 rounded text-[10px] font-medium text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-colors"
                   title="在 Finder 中显示"

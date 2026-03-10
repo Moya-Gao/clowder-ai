@@ -37,6 +37,12 @@ const UploadIcon = () => (
     <path d="M8 1L3 6h3v5h4V6h3L8 1zM2 13h12v2H2v-2z" />
   </svg>
 );
+const CopyPathIcon = () => (
+  <svg width="10" height="10" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+    <path d="M4 1.5A1.5 1.5 0 015.5 0h5A1.5 1.5 0 0112 1.5v9a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 014 10.5v-9zM5.5 1a.5.5 0 00-.5.5v9a.5.5 0 00.5.5h5a.5.5 0 00.5-.5v-9a.5.5 0 00-.5-.5h-5z" />
+    <path d="M2 4.5A1.5 1.5 0 013.5 3H4v8.5a.5.5 0 00.5.5H10v.5a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 012 12.5v-8z" />
+  </svg>
+);
 
 const hoverBtn =
   'opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-owner-dark/40 hover:text-owner-primary hover:bg-owner-light/60 transition-all';
@@ -186,6 +192,10 @@ function TreeItem({
               <CiteIcon />
             </button>
           )}
+          <button type="button" className={hoverBtn} title="复制路径"
+            onClick={(e) => { e.stopPropagation(); void navigator.clipboard.writeText(node.path); }}>
+            <CopyPathIcon />
+          </button>
           {callbacks.onRename && (
             <button type="button" className={hoverBtn} title="重命名"
               onClick={(e) => { e.stopPropagation(); onStartAction({ type: 'rename', targetPath: node.path }); }}>
