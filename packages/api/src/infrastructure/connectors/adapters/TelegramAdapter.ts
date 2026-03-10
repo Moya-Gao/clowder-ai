@@ -9,10 +9,10 @@
  * F088 Multi-Platform Chat Gateway
  */
 
+import type { RichBlock } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import { Bot } from 'grammy';
-import type { RichBlock } from '@cat-cafe/shared';
-import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
 import { formatTelegramHtml } from './telegram-html-formatter.js';
 
 const TELEGRAM_MAX_MESSAGE_LENGTH = 4096;
@@ -24,7 +24,7 @@ export interface TelegramInboundMessage {
   senderId: string;
 }
 
-export class TelegramAdapter implements IOutboundAdapter {
+export class TelegramAdapter implements IStreamableOutboundAdapter {
   readonly connectorId = 'telegram';
   private readonly bot: Bot;
   private readonly log: FastifyBaseLogger;
@@ -130,6 +130,24 @@ export class TelegramAdapter implements IOutboundAdapter {
     }
 
     await this.bot.api.sendMessage(externalChatId, html, { parse_mode: 'HTML' });
+  }
+
+  /**
+   * Send a placeholder message for streaming and return its message ID.
+   */
+  async sendPlaceholder(externalChatId: string, text: string): Promise<string> {
+    const msg = await this.bot.api.sendMessage(Number(externalChatId), text);
+    return String(msg.message_id);
+  }
+
+  /**
+   * Edit an already-sent message in place (for streaming progressive updates).
+   * Truncates to Telegram's 4096-char limit.
+   */
+  async editMessage(externalChatId: string, platformMessageId: string, text: string): Promise<void> {
+    const truncated =
+      text.length > TELEGRAM_MAX_MESSAGE_LENGTH ? `${text.slice(0, TELEGRAM_MAX_MESSAGE_LENGTH - 1)}…` : text;
+    await this.bot.api.editMessageText(Number(externalChatId), Number(platformMessageId), truncated);
   }
 
   /**

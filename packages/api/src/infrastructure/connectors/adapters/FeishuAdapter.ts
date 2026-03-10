@@ -9,11 +9,11 @@
  * F088 Multi-Platform Chat Gateway
  */
 
+import type { RichBlock } from '@cat-cafe/shared';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
-import type { RichBlock } from '@cat-cafe/shared';
-import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
 import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
+import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
 import { formatFeishuCard } from './feishu-card-formatter.js';
 
 export interface FeishuInboundMessage {
@@ -28,13 +28,14 @@ export interface FeishuAdapterOptions {
   verificationToken?: string | undefined;
 }
 
-export class FeishuAdapter implements IOutboundAdapter {
+export class FeishuAdapter implements IStreamableOutboundAdapter {
   readonly connectorId = 'feishu';
   private readonly client: lark.Client;
   private readonly log: FastifyBaseLogger;
   private readonly verificationToken: string | null;
   private sendMessageFn: ((params: { chatId: string; content: string; msgType: string }) => Promise<unknown>) | null =
     null;
+  private editMessageFn: ((params: { messageId: string; content: string }) => Promise<unknown>) | null = null;
 
   constructor(appId: string, appSecret: string, log: FastifyBaseLogger, options?: FeishuAdapterOptions) {
     this.client = new lark.Client({
@@ -214,10 +215,61 @@ export class FeishuAdapter implements IOutboundAdapter {
   }
 
   /**
+   * Send a placeholder text message and return its platform message ID.
+   * Used as the first step in edit-in-place streaming.
+   */
+  async sendPlaceholder(externalChatId: string, text: string): Promise<string> {
+    if (this.sendMessageFn) {
+      const result = (await this.sendMessageFn({
+        chatId: externalChatId,
+        content: text,
+        msgType: 'text',
+      })) as { message_id?: string } | undefined;
+      return result?.message_id ?? '';
+    }
+
+    const resp = await this.client.im.message.create({
+      params: { receive_id_type: 'chat_id' },
+      data: {
+        receive_id: externalChatId,
+        msg_type: 'text',
+        content: JSON.stringify({ text }),
+      },
+    });
+    return resp?.data?.message_id ?? '';
+  }
+
+  /**
+   * Edit an already-sent message in place.
+   * Uses Lark im.message.patch API. Supports text messages sent within 14 days.
+   */
+  async editMessage(_externalChatId: string, platformMessageId: string, text: string): Promise<void> {
+    if (this.editMessageFn) {
+      await this.editMessageFn({ messageId: platformMessageId, content: text });
+      return;
+    }
+
+    await this.client.im.message.patch({
+      path: { message_id: platformMessageId },
+      data: {
+        content: JSON.stringify({ text }),
+      },
+    });
+  }
+
+  /**
    * Test helper: inject a mock send function.
    * @internal
    */
   _injectSendMessage(fn: (params: { chatId: string; content: string; msgType: string }) => Promise<unknown>): void {
     this.sendMessageFn = fn;
+  }
+
+  /**
+   * Test helper: inject a mock edit function.
+   * @internal
+   */
+  _injectEditMessage(fn: (params: { messageId: string; content: string }) => Promise<unknown>): void {
+    this.editMessageFn = fn;
   }
 }

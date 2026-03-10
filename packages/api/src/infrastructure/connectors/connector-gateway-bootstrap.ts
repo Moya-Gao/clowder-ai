@@ -16,11 +16,13 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
+import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
-import { type IOutboundAdapter, OutboundDeliveryHook } from './OutboundDeliveryHook.js';
+import { type IOutboundAdapter, type IStreamableOutboundAdapter, OutboundDeliveryHook } from './OutboundDeliveryHook.js';
 import { RedisConnectorThreadBindingStore } from './RedisConnectorThreadBindingStore.js';
+import { StreamingOutboundHook } from './StreamingOutboundHook.js';
 
 export interface ConnectorGatewayConfig {
   telegramBotToken?: string | undefined;
@@ -45,6 +47,12 @@ export interface ConnectorGatewayDeps {
   };
   readonly threadStore: {
     create(userId: string, title?: string): { id: string } | Promise<{ id: string }>;
+    get(
+      id: string,
+    ):
+      | { id: string; title?: string | null; createdAt?: number }
+      | null
+      | Promise<{ id: string; title?: string | null; createdAt?: number } | null>;
   };
   readonly invokeTrigger: {
     trigger(threadId: string, catId: CatId, userId: string, message: string, messageId: string): void;
@@ -58,10 +66,12 @@ export interface ConnectorGatewayDeps {
   readonly defaultCatId: CatId;
   readonly redis?: RedisClient | undefined;
   readonly log: FastifyBaseLogger;
+  readonly frontendBaseUrl?: string | undefined;
 }
 
 export interface ConnectorGatewayHandle {
   readonly outboundHook: OutboundDeliveryHook;
+  readonly streamingHook: StreamingOutboundHook;
   readonly webhookHandlers: Map<string, ConnectorWebhookHandler>;
   stop(): Promise<void>;
 }
@@ -107,6 +117,12 @@ export async function startConnectorGateway(
   // making them visible in the frontend thread list. (F088 ISSUE-1 fix)
   const effectiveUserId = config.ownerUserId || deps.defaultUserId;
 
+  const commandLayer = new ConnectorCommandLayer({
+    bindingStore,
+    threadStore: deps.threadStore,
+    frontendBaseUrl: deps.frontendBaseUrl ?? 'http://localhost:3001',
+  });
+
   const connectorRouter = new ConnectorRouter({
     bindingStore,
     dedup,
@@ -117,6 +133,8 @@ export async function startConnectorGateway(
     defaultUserId: effectiveUserId,
     defaultCatId: deps.defaultCatId,
     log,
+    commandLayer,
+    adapters,
   });
 
   // ── Telegram (long polling) ──
@@ -166,6 +184,10 @@ export async function startConnectorGateway(
           return { kind: 'skipped', reason: result.reason };
         }
 
+        if (result.kind === 'command') {
+          return { kind: 'processed', messageId: 'command' };
+        }
+
         return { kind: 'processed', messageId: result.messageId };
       },
     });
@@ -179,8 +201,23 @@ export async function startConnectorGateway(
     log,
   });
 
+  // Build streamable adapters map (only adapters with sendPlaceholder + editMessage)
+  const streamableAdapters = new Map<string, IStreamableOutboundAdapter>();
+  for (const [id, adapter] of adapters) {
+    if ('sendPlaceholder' in adapter && 'editMessage' in adapter) {
+      streamableAdapters.set(id, adapter as IStreamableOutboundAdapter);
+    }
+  }
+
+  const streamingHook = new StreamingOutboundHook({
+    bindingStore,
+    adapters: streamableAdapters,
+    log,
+  });
+
   return {
     outboundHook,
+    streamingHook,
     webhookHandlers,
     async stop() {
       await Promise.allSettled(stopFns.map((fn) => fn()));

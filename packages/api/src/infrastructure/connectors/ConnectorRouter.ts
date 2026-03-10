@@ -17,11 +17,16 @@
 import type { CatId, ConnectorSource } from '@cat-cafe/shared';
 import { catRegistry, getConnectorDefinition } from '@cat-cafe/shared';
 import type { FastifyBaseLogger } from 'fastify';
+import type { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import type { IConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import type { InboundMessageDedup } from './InboundMessageDedup.js';
 import { parseMentions } from './mention-parser.js';
+import type { IOutboundAdapter } from './OutboundDeliveryHook.js';
 
-export type RouteResult = { kind: 'routed'; threadId: string; messageId: string } | { kind: 'skipped'; reason: string };
+export type RouteResult =
+  | { kind: 'routed'; threadId: string; messageId: string }
+  | { kind: 'skipped'; reason: string }
+  | { kind: 'command' };
 
 export interface ConnectorRouterOptions {
   readonly bindingStore: IConnectorThreadBindingStore;
@@ -51,6 +56,8 @@ export interface ConnectorRouterOptions {
   readonly defaultUserId: string;
   readonly defaultCatId: CatId;
   readonly log: FastifyBaseLogger;
+  readonly commandLayer?: ConnectorCommandLayer | undefined;
+  readonly adapters?: Map<string, IOutboundAdapter> | undefined;
 }
 
 export class ConnectorRouter {
@@ -80,6 +87,19 @@ export class ConnectorRouter {
     if (dedup.isDuplicate(connectorId, externalChatId, externalMessageId)) {
       log.info({ connectorId, externalMessageId }, '[ConnectorRouter] Duplicate message skipped');
       return { kind: 'skipped', reason: 'duplicate' };
+    }
+
+    // 1b. Command interception — handle /commands before agent routing
+    if (this.opts.commandLayer && text.trim().startsWith('/')) {
+      const cmdResult = await this.opts.commandLayer.handle(connectorId, externalChatId, this.opts.defaultUserId, text);
+      if (cmdResult.kind !== 'not-command' && cmdResult.response) {
+        const adapter = this.opts.adapters?.get(connectorId);
+        if (adapter) {
+          await adapter.sendReply(externalChatId, cmdResult.response);
+        }
+        log.info({ connectorId, command: cmdResult.kind }, '[ConnectorRouter] Command handled');
+        return { kind: 'command' as const };
+      }
     }
 
     // 2. Lookup or create binding

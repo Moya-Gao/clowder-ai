@@ -13,7 +13,7 @@ import { join } from 'path';
 import { generateCliConfigs, readCapabilitiesConfig } from './config/capabilities/capability-orchestrator.js';
 import { getCatContextBudget } from './config/cat-budgets.js';
 import { getConfigSessionStrategy, loadCatConfig, toAllCatConfigs } from './config/cat-config-loader.js';
-import { resolveFrontendCorsOrigins } from './config/frontend-origin.js';
+import { resolveFrontendBaseUrl, resolveFrontendCorsOrigins } from './config/frontend-origin.js';
 import { resolveAnthropicRuntimeProfile } from './config/provider-profiles.js';
 import { resolveProviderProfilesRoot } from './config/provider-profiles-root.js';
 import { initRuntimeOverrides } from './config/session-strategy-overrides.js';
@@ -102,8 +102,8 @@ import {
   evidenceRoutes,
   executionDigestRoutes,
   exportRoutes,
-  featureDocDetailRoutes,
   externalProjectRoutes,
+  featureDocDetailRoutes,
   intentCardRoutes,
   invocationsRoutes,
   memoryPublishRoutes,
@@ -727,6 +727,7 @@ async function main(): Promise<void> {
   }
 
   // Phase 3b: connector invoke trigger (auto-invoke cat after review email routing)
+  const frontendBaseUrl = resolveFrontendBaseUrl(process.env, app.log);
   const invokeTrigger = new ConnectorInvokeTrigger({
     router,
     socketManager,
@@ -740,6 +741,7 @@ async function main(): Promise<void> {
       return {
         threadShortId: threadId.slice(0, 15),
         threadTitle: thread.title ?? undefined,
+        deepLinkUrl: `${frontendBaseUrl}/threads/${threadId}`,
       };
     },
     log: app.log,

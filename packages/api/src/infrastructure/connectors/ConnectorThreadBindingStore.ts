@@ -13,6 +13,11 @@ export interface IConnectorThreadBindingStore {
   ): ConnectorThreadBinding | null | Promise<ConnectorThreadBinding | null>;
   getByThread(threadId: string): ConnectorThreadBinding[] | Promise<ConnectorThreadBinding[]>;
   remove(connectorId: string, externalChatId: string): boolean | Promise<boolean>;
+  listByUser(
+    connectorId: string,
+    userId: string,
+    limit?: number,
+  ): ConnectorThreadBinding[] | Promise<ConnectorThreadBinding[]>;
 }
 
 export class MemoryConnectorThreadBindingStore implements IConnectorThreadBindingStore {
@@ -44,5 +49,10 @@ export class MemoryConnectorThreadBindingStore implements IConnectorThreadBindin
 
   remove(connectorId: string, externalChatId: string): boolean {
     return this.bindings.delete(this.key(connectorId, externalChatId));
+  }
+
+  listByUser(connectorId: string, userId: string, limit?: number): ConnectorThreadBinding[] {
+    const all = [...this.bindings.values()].filter((b) => b.connectorId === connectorId && b.userId === userId);
+    return limit ? all.slice(0, limit) : all;
   }
 }

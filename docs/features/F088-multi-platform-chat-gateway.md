@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1 done | Phase 2 done | Phase 3 in progress
+> Owner: 布偶猫 | Status: Phase 1-3+A done | Phase B+4 in review
 > PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
 > 用户文档: [IM 平台接入指南](../guides/im-platform-setup.md) | [IM 使用指南](../guides/im-usage-guide.md) | [设计讨论纪要](../discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md)
@@ -129,15 +129,15 @@ OpenClaw 用了 ~98.5K LOC 做 25+ 平台，但其中 **一半以上是 AI agent
 | **Phase 2** ✅ | 多猫身份 + 分角色展示 + 外部 @路由 | **完成** | — | — |
 | **Phase 3** ✅ | 富文本卡片（rich block → 飞书 card / Telegram formatted） | **完成** | — | — |
 | **Phase A** ✅ | ISSUE-1 修复：消息格式化 + DEFAULT_OWNER_USER_ID + Redis binding 持久化 | **完成** | — | — |
-| **Phase B** | IM 命令集 `/new /threads /use /where` + activeThread + thread badge + deep link | 2-3天 | 1猫 | Phase A |
-| **Phase 4** | 消息编辑模拟流式（agent 回复过程实时更新到外部平台） | 2-3天 | 1猫 | Phase 3 |
+| **Phase B** ✅ | IM 命令集 `/new /threads /use /where` + activeThread + deep link | **完成** | — | — |
+| **Phase 4** ✅ | 消息编辑模拟流式（placeholder → rate-limited edits → final） | **完成** | — | — |
 | **Phase 5** | 图片/文件收发（双向：接收用户图片 + 发送猫的图片） | 2-3天 | 1猫 | — |
 | **Phase 6** | 语音消息（接收语音 → STT → 猫处理 → TTS → 发送语音） | 4-5天 | 1猫 | 外部 STT/TTS |
 | **Phase 7** | 群聊 + 多人 + 权限隔离 | 3-4天 | 3猫 | F077 |
 | **Phase 8** | 更多平台（Slack/Discord）+ OAuth + 配置 UI | 5-7天 | 3猫 | — |
 | **Phase 9** | 产品化（多账号/多workspace/运维/审计） | 5-7天 | 3猫 | — |
 
-**Phase 1+2+3+A 已完成。下一里程碑：Phase B（命令层）+ Phase 4（模拟流式）→ 5（图片）→ 6（语音）。**
+**Phase 1+2+3+A+B+4 已完成。下一里程碑：Phase 5（图片）→ 6（语音）→ 7（群聊）。**
 
 #### Phase 2 详细拆解（多猫身份 + 分角色展示）
 
@@ -222,20 +222,20 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 - [x] AC-A6: IConnectorThreadBindingStore async-compatible interface（T | Promise<T>），ConnectorRouter + OutboundDeliveryHook await
 
 ### Phase B — IM 命令层 + activeThread
-- [ ] AC-B1: ConnectorCommandLayer 解析 `/new` `/threads` `/use <id>` `/where` 命令，返回结构化 CommandResult
-- [ ] AC-B2: `/new` 创建新 thread 并切换 activeThread binding
-- [ ] AC-B3: `/threads` 列出当前用户最近 N 个 thread（binding store 支持 recent threads 查询）
-- [ ] AC-B4: `/use <id>` 切换 activeThread 到指定 thread
-- [ ] AC-B5: `/where` 显示当前绑定的 thread 信息
-- [ ] AC-B6: ConnectorRouter 集成 CommandLayer — 消息以 `/` 开头时走命令路径，否则走正常对话路径
-- [ ] AC-B7: 出站回复带 thread badge（MessageEnvelope subtitle 显示当前 thread 短 ID + title）
-- [ ] AC-B8: 出站回复带 deep link（前端 URL，铲屎官可点击跳转到完整 thread）
+- [x] AC-B1: ConnectorCommandLayer 解析 `/new` `/threads` `/use <id>` `/where` 命令，返回结构化 CommandResult — 12 unit tests
+- [x] AC-B2: `/new` 创建新 thread 并切换 activeThread binding — ConnectorCommandLayer.handleNew + bind
+- [x] AC-B3: `/threads` 列出当前用户最近 N 个 thread — listByUser (Memory + Redis ZADD/ZREVRANGE), 3 Redis tests
+- [x] AC-B4: `/use <id>` 切换 activeThread 到指定 thread — prefix match + rebind
+- [x] AC-B5: `/where` 显示当前绑定的 thread 信息 + deep link
+- [x] AC-B6: ConnectorRouter 集成 CommandLayer — `/` 开头走命令路径，否则正常对话路径, 4 router tests
+- [x] AC-B7: 出站回复带 deep link（前端 URL，threadMetaLookup 返回 deepLinkUrl）— wired in index.ts
+- [x] AC-B8: 命令响应包含中文 UX + deep link + thread 短 ID
 
 ### Phase 4 — 消息编辑模拟流式
-- [ ] AC-15: agent 开始处理时发送"思考中..."占位消息
-- [ ] AC-16: agent streaming 过程中，定期 patch/edit 占位消息更新内容（飞书 `im.message.patch` / Telegram `editMessageText`）
-- [ ] AC-17: agent 完成后最终更新为完整回复
-- [ ] AC-18: 编辑频率限流（避免触发平台 rate limit）
+- [x] AC-15: agent 开始处理时发送"思考中..."占位消息 — StreamingOutboundHook.onStreamStart, 2 tests
+- [x] AC-16: agent streaming 过程中，定期 patch/edit 占位消息更新内容（飞书 `im.message.patch` / Telegram `editMessageText`）— onStreamChunk rate-limited, 3 tests
+- [x] AC-17: agent 完成后最终更新为完整回复 — onStreamEnd removes cursor indicator, 2 tests
+- [x] AC-18: 编辑频率限流（2s interval + 200 char delta，避免触发平台 rate limit）— configurable thresholds, 1 test
 
 ### Phase 5 — 图片/文件收发
 - [ ] AC-19: 接收用户发送的图片消息（飞书 image / Telegram photo）→ 下载 → 存储 → 传递给猫
@@ -302,7 +302,7 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 
 分期：
 - **Phase A** ✅: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见（PR #344 + #346）
-- **Phase B** 🚧: IM 命令集 + activeThread pointer + 回复带 thread badge + deep link
+- **Phase B** ✅: IM 命令集 `/new /threads /use /where` + activeThread + deep link
 - **Phase C**: `/link` 正式绑定流 + 前端 UI + 多用户多平台通用
 
 否决：不做自动按话题分 thread；不把 IM 事件绕回 GitHub transport

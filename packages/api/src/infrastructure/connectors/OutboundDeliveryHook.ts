@@ -17,6 +17,14 @@ export interface IOutboundAdapter {
   sendFormattedReply?(externalChatId: string, envelope: MessageEnvelope): Promise<void>;
 }
 
+/** Adapter that supports edit-in-place streaming (placeholder → progressive edits). */
+export interface IStreamableOutboundAdapter extends IOutboundAdapter {
+  /** Send a placeholder message and return its platform-level message ID. */
+  sendPlaceholder(externalChatId: string, text: string): Promise<string>;
+  /** Edit an already-sent message in place. */
+  editMessage(externalChatId: string, platformMessageId: string, text: string): Promise<void>;
+}
+
 export interface ThreadMeta {
   readonly threadShortId: string;
   readonly threadTitle?: string | undefined;

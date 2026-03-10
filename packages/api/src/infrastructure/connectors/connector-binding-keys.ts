@@ -9,4 +9,7 @@ export const ConnectorBindingKeys = {
 
   /** Set of forward keys per thread (reverse index): connector-binding-rev:{threadId} */
   byThread: (threadId: string) => `connector-binding-rev:${threadId}`,
+
+  /** Sorted set of bindings per user (score = createdAt): connector-binding-user:{connectorId}:{userId} */
+  byUser: (connectorId: string, userId: string) => `connector-binding-user:${connectorId}:${userId}`,
 } as const;
