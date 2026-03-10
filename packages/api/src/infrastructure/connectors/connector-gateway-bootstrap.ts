@@ -25,6 +25,8 @@ export interface ConnectorGatewayConfig {
   feishuAppId?: string | undefined;
   feishuAppSecret?: string | undefined;
   feishuVerificationToken?: string | undefined;
+  /** Override owner userId for connector threads. Read from DEFAULT_OWNER_USER_ID env. */
+  ownerUserId?: string | undefined;
 }
 
 export interface ConnectorGatewayDeps {
@@ -67,6 +69,7 @@ export function loadConnectorGatewayConfig(): ConnectorGatewayConfig {
     feishuAppId: process.env['FEISHU_APP_ID'],
     feishuAppSecret: process.env['FEISHU_APP_SECRET'],
     feishuVerificationToken: process.env['FEISHU_VERIFICATION_TOKEN'],
+    ownerUserId: process.env['DEFAULT_OWNER_USER_ID'],
   };
 }
 
@@ -92,6 +95,12 @@ export async function startConnectorGateway(
   const webhookHandlers = new Map<string, ConnectorWebhookHandler>();
   const stopFns: Array<() => Promise<void>> = [];
 
+  // Use ownerUserId from config (DEFAULT_OWNER_USER_ID env) if set,
+  // otherwise fall back to deps.defaultUserId.
+  // This ensures connector threads are created with the real owner's userId,
+  // making them visible in the frontend thread list. (F088 ISSUE-1 fix)
+  const effectiveUserId = config.ownerUserId || deps.defaultUserId;
+
   const connectorRouter = new ConnectorRouter({
     bindingStore,
     dedup,
@@ -99,7 +108,7 @@ export async function startConnectorGateway(
     threadStore: deps.threadStore,
     invokeTrigger: deps.invokeTrigger,
     socketManager: deps.socketManager,
-    defaultUserId: deps.defaultUserId,
+    defaultUserId: effectiveUserId,
     defaultCatId: deps.defaultCatId,
     log,
   });

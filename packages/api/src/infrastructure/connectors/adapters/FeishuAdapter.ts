@@ -13,6 +13,7 @@ import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { RichBlock } from '@cat-cafe/shared';
 import type { IOutboundAdapter } from '../OutboundDeliveryHook.js';
+import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
 import { formatFeishuCard } from './feishu-card-formatter.js';
 
 export interface FeishuInboundMessage {
@@ -152,6 +153,45 @@ export class FeishuAdapter implements IOutboundAdapter {
     catDisplayName: string,
   ): Promise<void> {
     const card = formatFeishuCard(blocks, catDisplayName, textContent);
+    const params = {
+      chatId: externalChatId,
+      content: JSON.stringify(card),
+      msgType: 'interactive',
+    };
+
+    if (this.sendMessageFn) {
+      await this.sendMessageFn(params);
+      return;
+    }
+
+    await this.client.im.message.create({
+      params: { receive_id_type: 'chat_id' },
+      data: {
+        receive_id: externalChatId,
+        msg_type: 'interactive',
+        content: JSON.stringify(card),
+      },
+    });
+  }
+
+  /**
+   * Send a formatted reply using MessageEnvelope (platform-agnostic public layer).
+   * Renders as Feishu interactive card.
+   */
+  async sendFormattedReply(externalChatId: string, envelope: MessageEnvelope): Promise<void> {
+    const card = {
+      header: {
+        title: { tag: 'plain_text' as const, content: envelope.header },
+        template: 'blue' as const,
+      },
+      elements: [
+        { tag: 'markdown' as const, content: `**${envelope.subtitle}**` },
+        { tag: 'markdown' as const, content: envelope.body },
+        { tag: 'hr' as const },
+        { tag: 'markdown' as const, content: envelope.footer },
+      ],
+    };
+
     const params = {
       chatId: externalChatId,
       content: JSON.stringify(card),

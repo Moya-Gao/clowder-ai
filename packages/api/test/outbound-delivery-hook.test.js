@@ -220,4 +220,77 @@ describe('OutboundDeliveryHook', () => {
 		assert.ok(feishuMock.sent[0].content.includes('Status'));
 		assert.ok(feishuMock.sent[0].content.includes('Done'));
 	});
+
+	// Phase A: MessageEnvelope formatted reply
+	describe('sendFormattedReply (MessageEnvelope)', () => {
+		it('calls sendFormattedReply when adapter supports it and threadMeta provided', async () => {
+			const formattedCalls = [];
+			const richAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendFormattedReply(chatId, envelope) {
+					formattedCalls.push({ chatId, envelope });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', richAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'oc_chat_1', 'thread-1', 'user-1');
+
+			await hook.deliver('thread-1', 'Hello from cat!', 'opus', undefined, {
+				threadShortId: 'T42',
+				threadTitle: '飞书登录bug排查',
+				featId: 'F088',
+			});
+
+			assert.equal(formattedCalls.length, 1);
+			assert.equal(feishuMock.sent.length, 0, 'sendReply should NOT be called');
+			assert.equal(formattedCalls[0].chatId, 'oc_chat_1');
+			const env = formattedCalls[0].envelope;
+			assert.ok(env.header.includes('布偶猫'), 'header should contain cat display name');
+			assert.ok(env.subtitle.includes('T42'), 'subtitle should have thread short ID');
+			assert.ok(env.subtitle.includes('F088'), 'subtitle should have feat ID');
+			assert.equal(env.body, 'Hello from cat!');
+		});
+
+		it('falls back to sendReply when adapter has no sendFormattedReply', async () => {
+			bindingStore.bind('feishu', 'oc_chat_1', 'thread-1', 'user-1');
+
+			await hook.deliver('thread-1', 'Hello!', 'opus', undefined, {
+				threadShortId: 'T1',
+			});
+
+			assert.equal(feishuMock.sent.length, 1);
+			assert.ok(feishuMock.sent[0].content.includes('Hello!'));
+		});
+
+		it('falls back to sendReply when no threadMeta provided (legacy path)', async () => {
+			const formattedCalls = [];
+			const richAdapter = {
+				connectorId: 'feishu',
+				async sendReply(chatId, content) {
+					feishuMock.sent.push({ chatId, content });
+				},
+				async sendFormattedReply(chatId, envelope) {
+					formattedCalls.push({ chatId, envelope });
+				},
+			};
+			hook = new OutboundDeliveryHook({
+				bindingStore,
+				adapters: new Map([['feishu', richAdapter]]),
+				log: noopLog(),
+			});
+			bindingStore.bind('feishu', 'oc_chat_1', 'thread-1', 'user-1');
+
+			// No threadMeta → legacy plain text path
+			await hook.deliver('thread-1', 'Old style message', 'opus');
+
+			assert.equal(formattedCalls.length, 0, 'sendFormattedReply should NOT be called without threadMeta');
+			assert.equal(feishuMock.sent.length, 1);
+		});
+	});
 });

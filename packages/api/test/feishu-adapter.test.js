@@ -266,6 +266,56 @@ describe('FeishuAdapter', () => {
 		});
 	});
 
+	describe('sendFormattedReply()', () => {
+		it('sends interactive card from MessageEnvelope', async () => {
+			const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (params) => {
+				sendCalls.push(params);
+			});
+
+			await adapter.sendFormattedReply('oc_chat_123', {
+				header: '🐱 布偶猫/宪宪',
+				subtitle: 'T12 飞书登录bug排查 · F088',
+				body: '看了一下回调逻辑，问题出在 OAuth token 过期。',
+				footer: '📎 https://cafe.clowder-ai.com/t/abc123 · 01:22',
+			});
+
+			assert.equal(sendCalls.length, 1);
+			assert.equal(sendCalls[0].msgType, 'interactive');
+			assert.equal(sendCalls[0].chatId, 'oc_chat_123');
+
+			const card = JSON.parse(sendCalls[0].content);
+			assert.equal(card.header.title.content, '🐱 布偶猫/宪宪');
+			assert.equal(card.header.template, 'blue');
+			// Should have subtitle, body, hr, footer as elements
+			const allContent = JSON.stringify(card.elements);
+			assert.ok(allContent.includes('T12 飞书登录bug排查'), 'subtitle should be in elements');
+			assert.ok(allContent.includes('OAuth token'), 'body should be in elements');
+			assert.ok(allContent.includes('cafe.clowder-ai.com'), 'footer with deep link should be in elements');
+		});
+
+		it('renders body with markdown support', async () => {
+			const adapter = new FeishuAdapter('app-id', 'app-secret', noopLog());
+			const sendCalls = [];
+			adapter._injectSendMessage(async (params) => {
+				sendCalls.push(params);
+			});
+
+			await adapter.sendFormattedReply('oc_chat', {
+				header: '🐱 Cat',
+				subtitle: 'T1',
+				body: '**bold** and `code`',
+				footer: '12:00',
+			});
+
+			const card = JSON.parse(sendCalls[0].content);
+			const bodyEl = card.elements.find((e) => e.content && e.content.includes('**bold**'));
+			assert.ok(bodyEl, 'body element should preserve markdown');
+			assert.equal(bodyEl.tag, 'markdown');
+		});
+	});
+
 	// P1-2: textContent must not be discarded when both text and blocks present
 	describe('sendRichMessage() text preservation', () => {
 		it('includes textContent in card elements alongside blocks', async () => {

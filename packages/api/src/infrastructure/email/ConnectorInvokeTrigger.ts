@@ -21,7 +21,7 @@ import type { IInvocationRecordStore } from '../../domains/cats/services/stores/
 import { mergeTokenUsage, type TokenUsage } from '../../domains/cats/services/types.js';
 import type { SocketManager } from '../../infrastructure/websocket/index.js';
 import { getMultiMentionOrchestrator } from '../../routes/callback-multi-mention-routes.js';
-import type { OutboundDeliveryHook } from '../connectors/OutboundDeliveryHook.js';
+import type { OutboundDeliveryHook, ThreadMeta } from '../connectors/OutboundDeliveryHook.js';
 
 export interface ConnectorInvokeTriggerOptions {
   readonly router: AgentRouter;
@@ -31,6 +31,7 @@ export interface ConnectorInvokeTriggerOptions {
   readonly invocationQueue: InvocationQueue;
   readonly queueProcessor?: QueueProcessor;
   readonly outboundHook?: OutboundDeliveryHook;
+  readonly threadMetaLookup?: (threadId: string) => ThreadMeta | undefined | Promise<ThreadMeta | undefined>;
   readonly log: FastifyBaseLogger;
 }
 
@@ -339,7 +340,24 @@ export class ConnectorInvokeTrigger {
         const richBlocks = persistenceContext.richBlocks;
         if (this.opts.outboundHook && (collectedTextParts.length > 0 || (richBlocks && richBlocks.length > 0))) {
           const finalContent = collectedTextParts.join('');
-          this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks).catch((err) => {
+          // Best-effort threadMeta lookup — must not block invocation completion
+          let threadMeta;
+          try {
+            const LOOKUP_TIMEOUT_MS = 2000;
+            const rawResult = this.opts.threadMetaLookup?.(threadId);
+            if (rawResult) {
+              // Guard late rejections after timeout wins the race
+              const lookupPromise = Promise.resolve(rawResult).catch((err: unknown) => {
+                log.warn({ err, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup late rejection');
+                return undefined;
+              });
+              const timeout = new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), LOOKUP_TIMEOUT_MS));
+              threadMeta = await Promise.race([lookupPromise, timeout]);
+            }
+          } catch (lookupErr) {
+            log.warn({ err: lookupErr, threadId }, '[ConnectorInvokeTrigger] threadMetaLookup failed, falling back to plain reply');
+          }
+          this.opts.outboundHook.deliver(threadId, finalContent, catId, richBlocks, threadMeta).catch((err) => {
             log.error({ err, threadId }, '[ConnectorInvokeTrigger] Outbound delivery error');
           });
         }

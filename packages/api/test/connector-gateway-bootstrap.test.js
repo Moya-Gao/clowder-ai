@@ -157,6 +157,68 @@ describe('ConnectorGateway Bootstrap', () => {
 		await handle.stop();
 	});
 
+	it('uses ownerUserId from config for thread creation instead of deps.defaultUserId', async () => {
+		const createdThreads = [];
+		const deps = {
+			...baseDeps,
+			defaultUserId: 'fallback-user',
+			threadStore: {
+				create(userId, title) {
+					const t = { id: 'thread-owned', createdBy: userId, title };
+					createdThreads.push(t);
+					return t;
+				},
+			},
+		};
+
+		const config = {
+			feishuAppId: 'test-app-id',
+			feishuAppSecret: 'test-app-secret',
+			feishuVerificationToken: 'test-token',
+			ownerUserId: 'lysander-real-id',
+		};
+		const handle = await startConnectorGateway(config, deps);
+		assert.ok(handle);
+
+		const feishuHandler = handle.webhookHandlers.get('feishu');
+		await feishuHandler.handleWebhook(
+			{
+				header: { event_type: 'im.message.receive_v1', event_id: 'evt-1', token: 'test-token' },
+				event: {
+					sender: { sender_id: { open_id: 'ou_user' } },
+					message: {
+						message_id: 'om_owner_test',
+						chat_id: 'oc_owner_chat',
+						chat_type: 'p2p',
+						content: JSON.stringify({ text: 'test owner' }),
+						message_type: 'text',
+					},
+				},
+			},
+			{},
+		);
+
+		assert.equal(createdThreads.length, 1);
+		assert.equal(createdThreads[0].createdBy, 'lysander-real-id', 'thread should be created with ownerUserId, not fallback');
+		await handle.stop();
+	});
+
+	it('loadConnectorGatewayConfig reads DEFAULT_OWNER_USER_ID from env', async () => {
+		const { loadConnectorGatewayConfig } = await import('../dist/infrastructure/connectors/connector-gateway-bootstrap.js');
+		const originalEnv = process.env['DEFAULT_OWNER_USER_ID'];
+		try {
+			process.env['DEFAULT_OWNER_USER_ID'] = 'env-owner-123';
+			const config = loadConnectorGatewayConfig();
+			assert.equal(config.ownerUserId, 'env-owner-123');
+		} finally {
+			if (originalEnv === undefined) {
+				delete process.env['DEFAULT_OWNER_USER_ID'];
+			} else {
+				process.env['DEFAULT_OWNER_USER_ID'] = originalEnv;
+			}
+		}
+	});
+
 	it('feishu webhook handler rejects events with invalid verification token', async () => {
 		const config = {
 			feishuAppId: 'test-app-id',

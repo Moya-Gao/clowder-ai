@@ -694,6 +694,14 @@ async function main(): Promise<void> {
     invocationTracker,
     invocationQueue,
     queueProcessor,
+    threadMetaLookup: async (threadId) => {
+      const thread = await threadStore.get(threadId);
+      if (!thread) return undefined;
+      return {
+        threadShortId: threadId.slice(0, 15),
+        threadTitle: thread.title ?? undefined,
+      };
+    },
     log: app.log,
   });
 
