@@ -121,6 +121,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
 
   const { invocationId, callbackToken } = registry.create(userId, catId, threadId);
 
+  // DIAG: ghost-thread bug — log invocation creation with thread binding
+  console.info('[DIAG/ghost-thread] invokeSingleCat: created invocation', {
+    invocationId,
+    catId,
+    threadId,
+    userId,
+  });
+
   // F22 R2 P1-1: Expose invocationId to caller (route-serial/parallel) so they can
   // use it for RichBlockBuffer.consume() instead of getLatestId() which is wrong
   // under preemption — old invocation A would steal new invocation B's blocks.
@@ -438,6 +446,14 @@ export async function* invokeSingleCat(deps: InvocationDeps, params: InvocationP
       }
 
       if (msg.type === 'session_init' && msg.sessionId) {
+        // DIAG: ghost-thread bug — log session binding to verify threadId correctness
+        console.info('[DIAG/ghost-thread] session_init: binding session', {
+          cliSessionId: msg.sessionId,
+          threadId,
+          catId,
+          userId,
+          invocationId,
+        });
         try {
           await sessionManager.store(userId, catId, threadId, msg.sessionId);
         } catch {

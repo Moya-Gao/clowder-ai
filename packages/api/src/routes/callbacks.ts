@@ -234,6 +234,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     let effectiveThreadId = record.threadId;
     if (threadId && threadId !== record.threadId) {
+      // DIAG: Cross-thread routing debug (ghost-thread bug — opus session responding in wrong thread)
+      app.log.info(
+        {
+          invocationId,
+          catId: record.catId,
+          recordThreadId: record.threadId,
+          requestedThreadId: threadId,
+        },
+        '[DIAG/ghost-thread] post-message: cross-thread detected',
+      );
       if (!threadStore) {
         reply.status(503);
         return { error: 'Thread store not configured for cross-thread posting' };
@@ -380,6 +390,16 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
 
     const includeAckedValues = Array.isArray(includeAcked) ? includeAcked : includeAcked ? [includeAcked] : [];
     const shouldIncludeAcked = includeAckedValues.some((v) => v === '1' || v.toLowerCase() === 'true');
+
+    // DIAG: ghost-thread bug — log which thread this invocation thinks it owns
+    app.log.debug(
+      {
+        invocationId,
+        catId: record.catId,
+        threadId: record.threadId,
+      },
+      '[DIAG/ghost-thread] pending-mentions: polling',
+    );
 
     // #77: Use mention ack cursor to filter already-processed mentions
     const catId = createCatId(record.catId);
