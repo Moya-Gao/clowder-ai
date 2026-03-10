@@ -32,9 +32,11 @@ const storeState = {
     catId?: string;
     content: string;
     isStreaming?: boolean;
+    origin?: 'stream' | 'callback';
+    extra?: { stream?: { invocationId?: string } };
     timestamp: number;
   }>,
-  catInvocations: {} as Record<string, unknown>,
+  catInvocations: {} as Record<string, { invocationId?: string }>,
   addMessage: mockAddMessage,
   appendToMessage: mockAppendToMessage,
   appendToolEvent: mockAppendToolEvent,
@@ -159,5 +161,51 @@ describe('useAgentMessages placeholder recovery', () => {
 
     expect(mockAddMessage).not.toHaveBeenCalled();
     expect(mockAppendRichBlock).toHaveBeenCalledWith('msg-live-2', expect.objectContaining({ id: 'rb-1' }));
+  });
+
+  it('recovers when replace hydration swaps the local stream id to a persisted server id mid-stream', () => {
+    storeState.catInvocations = { opus: { invocationId: 'inv-live-1' } };
+
+    act(() => {
+      root.render(React.createElement(Harness));
+    });
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: 'hello',
+        origin: 'stream',
+      });
+    });
+
+    const localBubble = mockAddMessage.mock.calls.at(-1)?.[0];
+    expect(localBubble?.id).toBeTruthy();
+
+    // Hydration replaces the optimistic/local bubble with the persisted server message.
+    storeState.messages = [{
+      id: 'msg-server-1',
+      type: 'assistant',
+      catId: 'opus',
+      content: 'hello',
+      origin: 'stream',
+      extra: { stream: { invocationId: 'inv-live-1' } },
+      isStreaming: false,
+      timestamp: Date.now(),
+    }];
+    mockAppendToMessage.mockClear();
+    mockSetStreaming.mockClear();
+
+    act(() => {
+      captured?.handleAgentMessage({
+        type: 'text',
+        catId: 'opus',
+        content: ' world',
+        origin: 'stream',
+      });
+    });
+
+    expect(mockSetStreaming).toHaveBeenCalledWith('msg-server-1', true);
+    expect(mockAppendToMessage).toHaveBeenCalledWith('msg-server-1', ' world');
   });
 });

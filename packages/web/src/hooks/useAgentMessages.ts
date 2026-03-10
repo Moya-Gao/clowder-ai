@@ -159,40 +159,73 @@ export function useAgentMessages() {
     [],
   );
 
-  const findStreamingMessageId = useCallback((catId: string): string | null => {
+  const getCurrentInvocationIdForCat = useCallback((catId: string): string | undefined => {
+    return useChatStore.getState().catInvocations?.[catId]?.invocationId;
+  }, []);
+
+  const findRecoverableAssistantMessage = useCallback((catId: string) => {
     const currentMessages = useChatStore.getState().messages;
     for (let i = currentMessages.length - 1; i >= 0; i--) {
       const msg = currentMessages[i];
       if (msg.type === 'assistant' && msg.catId === catId && msg.isStreaming) {
-        return msg.id;
+        return { id: msg.id, needsStreamingRestore: false };
       }
     }
-    return null;
-  }, []);
 
-  const getCurrentInvocationIdForCat = useCallback((catId: string): string | undefined => {
-    return useChatStore.getState().catInvocations?.[catId]?.invocationId;
-  }, []);
+    const invocationId = getCurrentInvocationIdForCat(catId);
+    if (!invocationId) return null;
+
+    for (let i = currentMessages.length - 1; i >= 0; i--) {
+      const msg = currentMessages[i];
+      if (msg.type !== 'assistant' || msg.catId !== catId) continue;
+      if (msg.extra?.stream?.invocationId !== invocationId) continue;
+      return { id: msg.id, needsStreamingRestore: !msg.isStreaming };
+    }
+
+    return null;
+  }, [getCurrentInvocationIdForCat]);
+
+  const getOrRecoverActiveAssistantMessageId = useCallback((
+    catId: string,
+    metadata?: AgentMsg['metadata'],
+    options?: { ensureStreaming?: boolean },
+  ): string | null => {
+    const currentMessages = useChatStore.getState().messages;
+    const existing = activeRefs.current.get(catId);
+    if (existing?.id) {
+      const found = currentMessages.find((msg) => msg.id === existing.id && msg.type === 'assistant');
+      if (found) {
+        if (options?.ensureStreaming && !found.isStreaming) {
+          setStreaming(found.id, true);
+        }
+        if (metadata) {
+          setMessageMetadata(found.id, metadata);
+        }
+        return found.id;
+      }
+      activeRefs.current.delete(catId);
+    }
+
+    const recovered = findRecoverableAssistantMessage(catId);
+    if (!recovered) return null;
+
+    activeRefs.current.set(catId, { id: recovered.id, catId });
+    if (options?.ensureStreaming && recovered.needsStreamingRestore) {
+      setStreaming(recovered.id, true);
+    }
+    if (metadata) {
+      setMessageMetadata(recovered.id, metadata);
+    }
+    return recovered.id;
+  }, [findRecoverableAssistantMessage, setMessageMetadata, setStreaming]);
 
   const ensureActiveAssistantMessage = useCallback((
     catId: string,
     metadata?: AgentMsg['metadata'],
   ): string => {
-    const existing = activeRefs.current.get(catId);
-    if (existing?.id) {
-      if (metadata) {
-        setMessageMetadata(existing.id, metadata);
-      }
-      return existing.id;
-    }
-
-    const resumedId = findStreamingMessageId(catId);
-    if (resumedId) {
-      activeRefs.current.set(catId, { id: resumedId, catId });
-      if (metadata) {
-        setMessageMetadata(resumedId, metadata);
-      }
-      return resumedId;
+    const existingId = getOrRecoverActiveAssistantMessageId(catId, metadata, { ensureStreaming: true });
+    if (existingId) {
+      return existingId;
     }
 
     const id = `msg-${Date.now()}-${catId}`;
@@ -211,7 +244,7 @@ export function useAgentMessages() {
       isStreaming: true,
     });
     return id;
-  }, [addMessage, findStreamingMessageId, getCurrentInvocationIdForCat, setMessageMetadata]);
+  }, [addMessage, getCurrentInvocationIdForCat, getOrRecoverActiveAssistantMessageId]);
 
   const handleAgentMessage = useCallback(
     (msg: AgentMsg) => {
@@ -239,40 +272,26 @@ export function useAgentMessages() {
           });
         } else {
           // CLI stream message (thinking): append to active stream bubble
-          const existing = activeRefs.current.get(msg.catId);
-          if (existing) {
-            appendToMessage(existing.id, msg.content);
-            // Merge metadata onto thinking-first placeholder (F045 P1 fix)
-            if (msg.metadata) {
-              setMessageMetadata(existing.id, msg.metadata);
-            }
+          const messageId = getOrRecoverActiveAssistantMessageId(msg.catId, msg.metadata, { ensureStreaming: true });
+          if (messageId) {
+            appendToMessage(messageId, msg.content);
           } else {
-            const resumedId = findStreamingMessageId(msg.catId);
-            if (resumedId) {
-              // Recover background-stream message after thread switch (activeRefs are reset on switch)
-              activeRefs.current.set(msg.catId, { id: resumedId, catId: msg.catId });
-              appendToMessage(resumedId, msg.content);
-              if (msg.metadata) {
-                setMessageMetadata(resumedId, msg.metadata);
-              }
-            } else {
-              // New stream message for this cat
-              const id = `msg-${Date.now()}-${msg.catId}`;
-              const invocationId = getCurrentInvocationIdForCat(msg.catId);
-              activeRefs.current.set(msg.catId, { id, catId: msg.catId });
-              addMessage({
-                id,
-                type: 'assistant',
-                catId: msg.catId,
-                content: msg.content,
-                origin: 'stream',
-                ...(msg.metadata ? { metadata: msg.metadata } : {}),
-                ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
-                ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
-                timestamp: Date.now(),
-                isStreaming: true,
-              });
-            }
+            // New stream message for this cat
+            const id = `msg-${Date.now()}-${msg.catId}`;
+            const invocationId = getCurrentInvocationIdForCat(msg.catId);
+            activeRefs.current.set(msg.catId, { id, catId: msg.catId });
+            addMessage({
+              id,
+              type: 'assistant',
+              catId: msg.catId,
+              content: msg.content,
+              origin: 'stream',
+              ...(msg.metadata ? { metadata: msg.metadata } : {}),
+              ...(invocationId ? { extra: { stream: { invocationId } } } : {}),
+              ...(a2aGroupRef.current ? { a2aGroupId: a2aGroupRef.current } : {}),
+              timestamp: Date.now(),
+              isStreaming: true,
+            });
           }
         }
       } else if (msg.type === 'tool_use') {
@@ -336,15 +355,9 @@ export function useAgentMessages() {
             },
           });
         }
-        let ref = activeRefs.current.get(msg.catId);
-        if (!ref) {
-          const resumedId = findStreamingMessageId(msg.catId);
-          if (resumedId) {
-            ref = { id: resumedId, catId: msg.catId };
-          }
-        }
-        if (ref) {
-          setStreaming(ref.id, false);
+        const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+        if (messageId) {
+          setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
         if (msg.isFinal) {
@@ -394,14 +407,9 @@ export function useAgentMessages() {
                   lastInvocationId: invocationId,
                 },
               });
-              const ref = activeRefs.current.get(targetCatId);
-              if (ref) {
-                setMessageStreamInvocation(ref.id, invocationId);
-              } else {
-                const resumedId = findStreamingMessageId(targetCatId);
-                if (resumedId) {
-                  setMessageStreamInvocation(resumedId, invocationId);
-                }
+              const targetId = getOrRecoverActiveAssistantMessageId(targetCatId);
+              if (targetId) {
+                setMessageStreamInvocation(targetId, invocationId);
               }
               consumed = true;
             }
@@ -573,15 +581,9 @@ export function useAgentMessages() {
             },
           });
         }
-        let ref = activeRefs.current.get(msg.catId);
-        if (!ref) {
-          const resumedId = findStreamingMessageId(msg.catId);
-          if (resumedId) {
-            ref = { id: resumedId, catId: msg.catId };
-          }
-        }
-        if (ref) {
-          setStreaming(ref.id, false);
+        const messageId = getOrRecoverActiveAssistantMessageId(msg.catId);
+        if (messageId) {
+          setStreaming(messageId, false);
           activeRefs.current.delete(msg.catId);
         }
         addMessage({
@@ -636,14 +638,13 @@ export function useAgentMessages() {
       clearCatStatuses,
       setCatInvocation,
       setPendingModeSwitchProposal,
-      setMessageMetadata,
       setMessageThinking,
       setMessageStreamInvocation,
       currentThreadId,
       resetTimeout,
       clearDoneTimeout,
-      findStreamingMessageId,
       getCurrentInvocationIdForCat,
+      getOrRecoverActiveAssistantMessageId,
       ensureActiveAssistantMessage,
       setMessageUsage,
     ],

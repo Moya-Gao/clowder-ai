@@ -23,6 +23,7 @@ status: spec
 8. 现在已经证明 `Codex app` 的 thread id 也可以手动 bind 进猫猫咖啡，但 bind 成功后，先前已经存在于 app 里的聊天历史并没有回灌到主区；换句话说，我们能把猫绑进来，却没把它已经说过的话带进来
 9. `F081` 第一刀之后，主区又暴露出另一种瞬时“双影”：有时会短暂看到两条自己的消息，或者两条同样的 assistant 回复；但 `F5` 之后又只剩一条，说明服务器真相源通常只有一条，重复更像前端本地 reconcile 留下的临时 duplicate
 10. 进一步追查后发现，这类残余“双影”并不都来自 hydration；前台在 `thinking / rich_block / tool` 这类系统占位路径里，一旦 `activeRefs` 先丢了，却又没有先认领 store 里现存的 streaming bubble，就会重新起一个新的 assistant placeholder，形成短暂重复
+11. 继续收尾时又发现另一种更隐蔽的症状：主区的 streaming 气泡有时会在中途停止增长，除非 `F5` 才能看到更完整的最终内容；这说明不只是“会不会多起一个泡”，还可能是“后续 chunk 写到了已经失效的旧 message id”
 
 这说明我们现在缺的不是单点补丁，而是**猫猫气泡生命周期的真相源**：
 
@@ -218,6 +219,19 @@ status: spec
   - 当 history/draft 比本地 placeholder 更新时，优先后端；当本地 live bubble 更丰富时，优先本地，避免 stale draft 造成“双胞胎”或迟到闪现
   - active / background 两条 stream 创建路径都开始补 `extra.stream.invocationId`，避免 bubble 一旦结束 streaming 就再次失去身份
   - debug ring buffer 新增 `history_replace` 事件，可直接看到 `preservedLocal / reconciledToHistory / replacedHistory` 这些 replace 决策痕迹
+
+### 2026-03-09 增量停止刷新取证
+
+- 新现场不是“服务器没有继续产出”，而是“前端继续写 chunk 的目标 id 失效了”
+- `replace hydration` 允许把同一 `catId + invocationId` 的本地 streaming bubble 换成正式历史消息，这是对的
+- 但 `useAgentMessages.ts` 的 `activeRefs.current` 之前没有验证这个缓存 id 在 store 里是否还存在
+- 一旦 replace 已把本地 bubble 换成 server message，`activeRefs` 仍指向旧 id；后续 text/tool/thinking 继续往旧 id append，就像写进空气
+- 这解释了为什么主区会“卡住”，而 `F5` 后又能看到更完整的最终内容：服务器真相源还在长，只是前端 live append 失联了
+- 当前治疗策略是：
+  - 先验证 `activeRefs` 指向的 message 还活着
+  - 如果已经失效，则优先找现存的 `isStreaming` assistant bubble
+  - 再找同一 `catId + invocationId` 的正式历史消息并重新认领
+  - 必要时把被 hydration 换成正式历史的目标消息重新标成 `isStreaming`
 - 回归测试已补上：
   - “切回 thread 后 live bubble 不会被 replace 抹掉”
   - “同 invocation 的 stale draft 不会和本地 richer bubble 变双胞胎”
