@@ -20,6 +20,7 @@ import type { PersistenceContext } from '../../domains/cats/services/agents/rout
 import type { IInvocationRecordStore } from '../../domains/cats/services/stores/ports/InvocationRecordStore.js';
 import { mergeTokenUsage, type TokenUsage } from '../../domains/cats/services/types.js';
 import type { SocketManager } from '../../infrastructure/websocket/index.js';
+import { getMultiMentionOrchestrator } from '../../routes/callback-multi-mention-routes.js';
 import type { OutboundDeliveryHook } from '../connectors/OutboundDeliveryHook.js';
 
 export interface ConnectorInvokeTriggerOptions {
@@ -186,6 +187,8 @@ export class ConnectorInvokeTrigger {
     }
 
     const cancelResult = invocationTracker.cancel(threadId, userId);
+    // Also abort any active multi-mention dispatches for this thread
+    getMultiMentionOrchestrator().abortByThread(threadId);
     log.info(
       { threadId, catId, cancelled: cancelResult.cancelled, reason: reason ?? 'connector_urgent' },
       '[ConnectorInvokeTrigger] Urgent connector preempt',

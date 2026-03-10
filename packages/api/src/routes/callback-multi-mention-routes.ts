@@ -98,7 +98,7 @@ async function dispatchToTarget(
   log: FastifyBaseLogger,
 ): Promise<void> {
   const orch = getMultiMentionOrchestrator();
-  const { router, invocationRecordStore, socketManager, invocationTracker } = deps;
+  const { router, invocationRecordStore, socketManager } = deps;
 
   try {
     // Build the message for this target
@@ -130,7 +130,14 @@ async function dispatchToTarget(
 
     // Collect response text from the routing execution
     let responseText = '';
-    const controller = invocationTracker?.start(threadId, userId, [targetCatId]);
+    const toolsUsed: string[] = [];
+
+    // Each dispatch gets its OWN AbortController, registered with the orchestrator.
+    // This avoids InvocationTracker's per-thread singleton constraint (which aborts
+    // concurrent dispatches), while still allowing thread-level cancel (stop button)
+    // and delete guard to propagate via orchestrator.abortByThread().
+    const controller = new AbortController();
+    orch.registerDispatch(requestId, targetCatId, controller);
 
     try {
       for await (const msg of router.routeExecution(
@@ -140,31 +147,45 @@ async function dispatchToTarget(
         createResult.invocationId,
         [targetCatId],
         intent,
-        {
-          ...(controller?.signal ? { signal: controller.signal } : {}),
-        },
+        { signal: controller.signal },
       )) {
-        if (controller?.signal.aborted) break;
+        if (controller.signal.aborted) break;
 
-        // Capture text content for response aggregation
-        if (msg.type === 'text' && msg.catId === targetCatId) {
-          responseText += msg.content;
+        // Capture text + tool usage for response aggregation
+        if (msg.catId === targetCatId) {
+          if (msg.type === 'text' && msg.content) {
+            responseText += msg.content;
+          } else if (msg.type === 'tool_use' && msg.toolName) {
+            toolsUsed.push(msg.toolName);
+          }
         }
 
         socketManager.broadcastAgentMessage(msg, threadId);
       }
 
       await invocationRecordStore.update(createResult.invocationId, {
-        status: controller?.signal.aborted ? 'canceled' : 'succeeded',
+        status: controller.signal.aborted ? 'canceled' : 'succeeded',
       });
     } finally {
-      if (controller) invocationTracker?.complete(threadId, controller);
+      orch.unregisterDispatch(requestId, targetCatId);
     }
 
+    // If aborted (stop button / preempt / thread cancel), do NOT record response
+    // or flush result — the partial/empty text would produce a misleading summary.
+    if (controller.signal.aborted) {
+      log.info({ requestId, targetCatId }, '[F086] Multi-mention dispatch aborted, skipping recordResponse');
+      return;
+    }
+
+    // If no text captured but tools were used, generate a tool-usage summary
+    // so the aggregation doesn't show "(空回答)" for cats that responded via tools
+    const finalResponse =
+      responseText || (toolsUsed.length > 0 ? `(通过工具回复: ${[...new Set(toolsUsed)].join(', ')})` : '');
+
     // Record response in orchestrator
-    const newStatus = orch.recordResponse(requestId, targetCatId, responseText);
+    const newStatus = orch.recordResponse(requestId, targetCatId, finalResponse);
     log.info(
-      { requestId, targetCatId, newStatus, responseLength: responseText.length },
+      { requestId, targetCatId, newStatus, responseLength: finalResponse.length, toolsUsed: toolsUsed.length },
       '[F086] Multi-mention response recorded',
     );
 

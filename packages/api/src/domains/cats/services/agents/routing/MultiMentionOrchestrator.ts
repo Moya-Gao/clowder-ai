@@ -44,6 +44,11 @@ export class MultiMentionOrchestrator {
   private readonly entries = new Map<string, OrchestratorEntry>();
   private readonly idempotencyIndex = new Map<string, string>(); // "threadId:key" → requestId
 
+  // Dispatch controller tracking: allows thread-level cancel/delete to propagate
+  // to individual multi-mention dispatches without the per-thread singleton constraint
+  // of InvocationTracker (which would cause concurrent dispatches to abort each other).
+  private readonly dispatchControllers = new Map<string, AbortController>(); // "requestId:catId" → controller
+
   create(params: MultiMentionCreateParams): MultiMentionRequest {
     // Validation
     if (params.targets.length === 0 || params.targets.length > MAX_MULTI_MENTION_TARGETS) {
@@ -200,6 +205,55 @@ export class MultiMentionOrchestrator {
       }
     }
     return results;
+  }
+
+  // ── Dispatch controller lifecycle ──────────────────────────────────
+
+  /** Register an AbortController for a specific dispatch (requestId + catId). */
+  registerDispatch(requestId: string, catId: CatId, controller: AbortController): void {
+    this.dispatchControllers.set(`${requestId}:${catId as string}`, controller);
+  }
+
+  /** Unregister a dispatch controller (called on completion). */
+  unregisterDispatch(requestId: string, catId: CatId): void {
+    this.dispatchControllers.delete(`${requestId}:${catId as string}`);
+  }
+
+  /**
+   * Abort all active dispatches for a thread.
+   * Called by cancel paths (stop button, preempt, thread cancel).
+   */
+  abortByThread(threadId: string): number {
+    let aborted = 0;
+    for (const entry of this.entries.values()) {
+      if (entry.request.threadId !== threadId) continue;
+      if (MULTI_MENTION_TERMINAL_STATES.has(entry.request.status)) continue;
+      for (const target of entry.request.targets) {
+        const key = `${entry.request.id}:${target as string}`;
+        const controller = this.dispatchControllers.get(key);
+        if (controller && !controller.signal.aborted) {
+          controller.abort();
+          aborted++;
+        }
+      }
+    }
+    return aborted;
+  }
+
+  /**
+   * Check if any dispatches are actively running for a thread.
+   * Called by delete guard to prevent deletion while dispatches are in-flight.
+   */
+  hasActiveDispatches(threadId: string): boolean {
+    for (const entry of this.entries.values()) {
+      if (entry.request.threadId !== threadId) continue;
+      if (MULTI_MENTION_TERMINAL_STATES.has(entry.request.status)) continue;
+      for (const target of entry.request.targets) {
+        const key = `${entry.request.id}:${target as string}`;
+        if (this.dispatchControllers.has(key)) return true;
+      }
+    }
+    return false;
   }
 
   private transition(requestId: string, to: MultiMentionStatus): void {

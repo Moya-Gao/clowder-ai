@@ -31,9 +31,9 @@ import { enqueueA2ATargets } from './callback-a2a-trigger.js';
 import { callbackAuthSchema } from './callback-auth-schema.js';
 import { EXPIRED_CREDENTIALS_ERROR } from './callback-errors.js';
 import { registerCallbackMemoryRoutes } from './callback-memory-routes.js';
+import { getMultiMentionOrchestrator, registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { registerCallbackTaskRoutes } from './callback-task-routes.js';
 import { registerCallbackWorkflowSopRoutes } from './callback-workflow-sop-routes.js';
-import { registerMultiMentionRoutes } from './callback-multi-mention-routes.js';
 import { type FeatIndexEntry, readFeatIndexEntries } from './feat-index-doc-import.js';
 import { detectUserMention } from './user-mention.js';
 import { clearVoteTimer, closeVoteInternal, voteTimers } from './votes.js';
@@ -977,5 +977,7 @@ export const callbacksRoutes: FastifyPluginAsync<CallbackRoutesOptions> = async 
       invocationRecordStore,
       ...(invocationTracker ? { invocationTracker } : {}),
     });
+    // Wire orchestrator into SocketManager for cancel propagation (P1-1 fix)
+    socketManager.setMultiMentionOrchestrator(getMultiMentionOrchestrator());
   }
 };

@@ -338,6 +338,96 @@ describe('MultiMentionOrchestrator', () => {
 
 	// ── findByThread ────────────────────────────────────────────────
 
+	// ── dispatch controller tracking (P1-1 / P1-2 fix) ────────────
+
+	test('registerDispatch + abortByThread aborts all dispatches for thread', () => {
+		const req = orch.create({
+			threadId: 'thread1',
+			initiator,
+			callbackTo: initiator,
+			targets: [catA, catB],
+			question: 'test',
+			timeoutMinutes: 8,
+		});
+		orch.start(req.id);
+
+		const ctrlA = new AbortController();
+		const ctrlB = new AbortController();
+		orch.registerDispatch(req.id, catA, ctrlA);
+		orch.registerDispatch(req.id, catB, ctrlB);
+
+		// Both should be active
+		assert.equal(orch.hasActiveDispatches('thread1'), true);
+		assert.equal(orch.hasActiveDispatches('other-thread'), false);
+
+		// Abort all dispatches for thread1
+		const aborted = orch.abortByThread('thread1');
+		assert.equal(aborted, 2);
+		assert.equal(ctrlA.signal.aborted, true);
+		assert.equal(ctrlB.signal.aborted, true);
+	});
+
+	test('unregisterDispatch removes controller from tracking', () => {
+		const req = orch.create({
+			threadId: 'thread1',
+			initiator,
+			callbackTo: initiator,
+			targets: [catA],
+			question: 'test',
+			timeoutMinutes: 8,
+		});
+		orch.start(req.id);
+
+		const ctrl = new AbortController();
+		orch.registerDispatch(req.id, catA, ctrl);
+		assert.equal(orch.hasActiveDispatches('thread1'), true);
+
+		orch.unregisterDispatch(req.id, catA);
+		assert.equal(orch.hasActiveDispatches('thread1'), false);
+
+		// abortByThread should not abort the already-unregistered controller
+		const aborted = orch.abortByThread('thread1');
+		assert.equal(aborted, 0);
+		assert.equal(ctrl.signal.aborted, false);
+	});
+
+	test('abortByThread ignores terminal requests', () => {
+		const req = orch.create({
+			threadId: 'thread1',
+			initiator,
+			callbackTo: initiator,
+			targets: [catA],
+			question: 'test',
+			timeoutMinutes: 8,
+		});
+		orch.start(req.id);
+		orch.recordResponse(req.id, catA, 'done'); // transitions to 'done'
+
+		const ctrl = new AbortController();
+		orch.registerDispatch(req.id, catA, ctrl);
+
+		// Request is terminal, so abortByThread should skip it
+		const aborted = orch.abortByThread('thread1');
+		assert.equal(aborted, 0);
+		assert.equal(ctrl.signal.aborted, false);
+	});
+
+	test('hasActiveDispatches returns false when no controllers registered', () => {
+		const req = orch.create({
+			threadId: 'thread1',
+			initiator,
+			callbackTo: initiator,
+			targets: [catA],
+			question: 'test',
+			timeoutMinutes: 8,
+		});
+		orch.start(req.id);
+		// Request is running but no dispatch controllers registered
+		assert.equal(orch.hasActiveDispatches('thread1'), false);
+	});
+
+	// ── findByThread ────────────────────────────────────────────────
+
 	test('findActiveByThread returns active requests', () => {
 		orch.create({
 			threadId: 'thread1',

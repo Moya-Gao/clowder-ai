@@ -11,6 +11,7 @@ created: 2026-03-09
 > Owner: 布偶猫 | Status: Phase 1 done | Phase 2 done | Phase 3 in progress
 > PR: [#328](https://github.com/zts212653/cat-cafe/pull/328) (Phase 1) | [#336](https://github.com/zts212653/cat-cafe/pull/336) (Phase 2) | Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw)
+> 用户文档: [IM 平台接入指南](../guides/im-platform-setup.md) | [IM 使用指南](../guides/im-usage-guide.md) | [设计讨论纪要](../discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md)
 
 ## Why
 
@@ -51,6 +52,41 @@ OpenClaw 项目（~98.5K LOC）提供了 25+ 平台接入的参考架构，但�
 2. **Webhook Receiver** — `/api/connectors/:connectorId/webhook` 通用入口
 3. **平台 Adapter** — MVP：飞书 + Telegram，后续可并行扩展 Slack、Discord、钉钉等
 4. **Thread Mapping** — 外部对话 ID ↔ Cat Café threadId 双向映射
+
+### 公共层架构原则（2026-03-10 补充）
+
+> **能沉淀到公共层的就做成公共的，禁止每个 adapter 各做一套。**
+
+```
+┌─ 平台无关公共层 ─────────────────────────────────────┐
+│                                                       │
+│  ConnectorMessageFormatter                            │
+│    → MessageEnvelope { header, subtitle, body, footer}│
+│                                                       │
+│  ConnectorCommandLayer                                │
+│    → /new /threads /use /where /link 命令解析          │
+│                                                       │
+│  IConnectorThreadBindingStore (Redis)                 │
+│    → Principal Link + Session Binding + recent threads│
+│                                                       │
+│  ConnectorRouter                                      │
+│    → 入站路由：dedup → binding → store → invoke       │
+│                                                       │
+│  OutboundDeliveryHook                                 │
+│    → 出站路由：thread → binding → adapter.send        │
+│                                                       │
+└───────────────────────────────────────────────────────┘
+          ↕                    ↕                ↕
+   FeishuAdapter        TelegramAdapter    SlackAdapter
+   (仅平台协议)          (仅平台协议)      (仅平台协议)
+```
+
+每个 Adapter 只做三件事：
+1. **parseEvent** — 把平台 webhook 转成统一 `InboundMessage`
+2. **formatMessage(envelope)** — 把 `MessageEnvelope` 转成平台格式（飞书 card / Telegram MarkdownV2 / Slack blocks）
+3. **sendMessage** — 调平台 API 发送
+
+所有业务逻辑（thread 管理、命令解析、消息格式生成、binding 持久化）都在公共层。
 
 ### 我们已有的基建（~60%）
 
@@ -223,6 +259,45 @@ Outbound 不是挂 callback 就完事——需要基于现有 streaming pipeline
 2. ~~群聊是 Phase 2 还是直接跳过？~~ → **已决定：Phase 3（F077 前置）**
 3. ~~多猫外显策略采用哪种默认方案：前缀签名 / 多 bot / rich card？~~ → **已决定：方案 A（消息前缀 `[布偶猫🐱]`），最简单、跨平台兼容、单 bot**
 4. 是否需要消息编辑/撤回同步？（当前排除到 Phase 5）
+
+## Known Issues（2026-03-09 飞书实测发现）
+
+### ISSUE-1: Connector 消息不走 GitHub 管道，前端不可见
+
+**现状**：飞书消息走 connector-native 闭环（`ConnectorRouter` → 内存 `MemoryConnectorThreadBindingStore` → 本地 `invokeTrigger`），完全绕过了 `cat-cafe-collab` 的 GitHub 消息管道。
+
+**问题**：
+- 铲屎官在前端**看不到**飞书产生的 thread 和消息
+- 违反 P4（单一真相源）：消息存在内存里，重启即丢
+- Connector thread 与前端 thread 体系割裂
+
+**铲屎官要求**："飞书接入我们的前端应该是可见的！我也能在前端看到你们的 thread"
+
+**设计方向**（2026-03-10 布偶猫+缅因猫讨论收敛，详见 `docs/discussions/2026-03-10-f088-connector-thread-unification-meeting-notes.md`）：
+
+核心结论：**统一的是 Cat Café thread/message core，不是 GitHub transport**。GitHub 也是 connector。
+
+三层架构：
+1. **Principal Link**: `connector + externalSenderId → internalUserId`（解决"IM 用户是谁"）
+2. **Session Binding**: `connector + externalChatId → activeThreadId` + recent threads（解决"当前指向哪个 thread"）
+3. **Command Layer**: 平台无关的 `/new /threads /use /where /link`（解决"IM 侧如何管理 thread"）
+
+分期：
+- **Phase A**: `DEFAULT_OWNER_USER_ID` 单 owner bootstrap + Redis 持久化 + 前端自然可见
+- **Phase B**: IM 命令集 + activeThread pointer + 回复带 thread badge + deep link
+- **Phase C**: `/link` 正式绑定流 + 前端 UI + 多用户多平台通用
+
+否决：不做自动按话题分 thread；不把 IM 事件绕回 GitHub transport
+
+**优先级**：P1 — 未来任何新平台接入（Slack/Discord 等）都必须先解决此问题
+
+### ISSUE-2: Cloudflare Access 与 Tunnel ingress 路径冲突
+
+**现象**：`cafe.clowder-ai.com` 配了 Cloudflare Access 保护，webhook 请求被 302 到登录页。创建 path-scoped bypass Application 后，请求不再 302 但被路由到了前端（3001）而非 API（3002），疑似 Access Application 与 tunnel ingress 规则冲突。
+
+**临时方案**：飞书 webhook URL 使用 `api.clowder-ai.com`（无 Access 保护的备用子域名），webhook 安全性靠应用层 verification token。
+
+**长期方案**：排查 `cafe.clowder-ai.com` 的 Access bypass + tunnel ingress 共存问题，统一为单域名。
 
 ## 需求点 Checklist
 

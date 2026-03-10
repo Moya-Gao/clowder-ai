@@ -7,21 +7,22 @@
  * DELETE /api/threads/:id  - 删除对话
  */
 
+import type { CatId } from '@cat-cafe/shared';
+import { catIdSchema } from '@cat-cafe/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { catIdSchema } from '@cat-cafe/shared';
-import type { CatId } from '@cat-cafe/shared';
-import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
+import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
+import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
+import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
+import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
-import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { IThreadReadStateStore } from '../domains/cats/services/stores/ports/ThreadReadStateStore.js';
-import type { DeliveryCursorStore } from '../domains/cats/services/stores/ports/DeliveryCursorStore.js';
-import type { InvocationTracker } from '../domains/cats/services/agents/invocation/InvocationTracker.js';
-import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftStore.js';
-import type { TaskProgressStore } from '../domains/cats/services/agents/invocation/TaskProgressStore.js';
+import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
 
 export interface ThreadsRoutesOptions {
   threadStore: IThreadStore;
@@ -70,36 +71,59 @@ function parseOptionalBooleanQuery(value: string | boolean | undefined): boolean
   return undefined;
 }
 
-const threadRoutingRuleSchema = z.object({
-  avoidCats: z.array(catIdSchema()).max(10).optional(),
-  preferCats: z.array(catIdSchema()).max(10).optional(),
-  reason: z.string().trim().min(1).max(200).regex(/^[^\r\n]+$/, 'reason must be single-line').optional(),
-  expiresAt: z.number().int().positive().optional(),
-}).strict();
+const threadRoutingRuleSchema = z
+  .object({
+    avoidCats: z.array(catIdSchema()).max(10).optional(),
+    preferCats: z.array(catIdSchema()).max(10).optional(),
+    reason: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .regex(/^[^\r\n]+$/, 'reason must be single-line')
+      .optional(),
+    expiresAt: z.number().int().positive().optional(),
+  })
+  .strict();
 
-const threadRoutingPolicySchema = z.object({
-  v: z.literal(1),
-  scopes: z.object({
-    review: threadRoutingRuleSchema.optional(),
-    architecture: threadRoutingRuleSchema.optional(),
-  }).partial().optional(),
-}).strict();
+const threadRoutingPolicySchema = z
+  .object({
+    v: z.literal(1),
+    scopes: z
+      .object({
+        review: threadRoutingRuleSchema.optional(),
+        architecture: threadRoutingRuleSchema.optional(),
+      })
+      .partial()
+      .optional(),
+  })
+  .strict();
 
-const updateThreadSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  pinned: z.boolean().optional(),
-  favorited: z.boolean().optional(),
-  thinkingMode: z.enum(['debug', 'play']).optional(),
-  /** F32-b Phase 2: Update thread-level cat preference. Empty array clears. */
-  preferredCats: z.array(catIdSchema()).max(10).optional(),
-  /** F042: Thread-level routing policy by intent/scope. null clears. */
-  routingPolicy: threadRoutingPolicySchema.nullable().optional(),
-}).refine((data) => data.title !== undefined || data.pinned !== undefined || data.favorited !== undefined || data.thinkingMode !== undefined || data.preferredCats !== undefined || data.routingPolicy !== undefined, {
-  message: 'At least one field must be provided',
-});
+const updateThreadSchema = z
+  .object({
+    title: z.string().trim().min(1).max(200).optional(),
+    pinned: z.boolean().optional(),
+    favorited: z.boolean().optional(),
+    thinkingMode: z.enum(['debug', 'play']).optional(),
+    /** F32-b Phase 2: Update thread-level cat preference. Empty array clears. */
+    preferredCats: z.array(catIdSchema()).max(10).optional(),
+    /** F042: Thread-level routing policy by intent/scope. null clears. */
+    routingPolicy: threadRoutingPolicySchema.nullable().optional(),
+  })
+  .refine(
+    (data) =>
+      data.title !== undefined ||
+      data.pinned !== undefined ||
+      data.favorited !== undefined ||
+      data.thinkingMode !== undefined ||
+      data.preferredCats !== undefined ||
+      data.routingPolicy !== undefined,
+    {
+      message: 'At least one field must be provided',
+    },
+  );
 
-export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
-  async (app, opts) => {
+export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (app, opts) => {
   const { threadStore, messageStore, taskStore, memoryStore, deliveryCursorStore, taskProgressStore } = opts;
 
   // POST /api/threads - 创建对话
@@ -133,7 +157,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     // F32-b Phase 2: Set preferred cats if provided at creation time
     if (preferredCats && preferredCats.length > 0) {
       await threadStore.updatePreferredCats(thread.id, preferredCats as CatId[]);
-      thread = await threadStore.get(thread.id) ?? thread;
+      thread = (await threadStore.get(thread.id)) ?? thread;
     }
 
     reply.status(201);
@@ -152,13 +176,14 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     const userId = resolveUserId(request, { defaultUserId: 'default-user' });
     if (!userId) return { threads: [] };
 
-    let threads = projectPath
-      ? await threadStore.listByProject(userId, projectPath)
-      : await threadStore.list(userId);
+    let threads = projectPath ? await threadStore.listByProject(userId, projectPath) : await threadStore.list(userId);
 
     // F058 Phase G: Match threads by feature IDs in titles
     if (featureIds) {
-      const ids = featureIds.split(',').map((id) => id.trim().toLowerCase()).filter((id) => /^f\d{2,4}$/i.test(id));
+      const ids = featureIds
+        .split(',')
+        .map((id) => id.trim().toLowerCase())
+        .filter((id) => /^f\d{2,4}$/i.test(id));
       if (ids.length > 50) {
         reply.status(400);
         return { error: 'Too many featureIds (max 50)' };
@@ -175,13 +200,21 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
           // (?!\d) prevents matching f661 when looking for f66
           patternsByCanonical.set(fid.toUpperCase(), new RegExp(`(?:f(?:eat(?:ure)?)?)\\s*0*${num}(?!\\d)`, 'i'));
         }
-        const threadsByFeature: Record<string, Array<{ id: string; title: string | null; lastActiveAt: number; participants: CatId[] }>> = {};
+        const threadsByFeature: Record<
+          string,
+          Array<{ id: string; title: string | null; lastActiveAt: number; participants: CatId[] }>
+        > = {};
         for (const thread of threads) {
           const title = thread.title ?? '';
           for (const [canonical, pattern] of patternsByCanonical) {
             if (pattern.test(title)) {
               const arr = threadsByFeature[canonical] ?? [];
-              arr.push({ id: thread.id, title: thread.title, lastActiveAt: thread.lastActiveAt, participants: thread.participants });
+              arr.push({
+                id: thread.id,
+                title: thread.title,
+                lastActiveAt: thread.lastActiveAt,
+                participants: thread.participants,
+              });
               threadsByFeature[canonical] = arr;
             }
           }
@@ -191,7 +224,12 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     }
 
     const requestedBacklogIds = backlogItemIds
-      ? new Set(backlogItemIds.split(',').map((id) => id.trim()).filter((id) => id.length > 0))
+      ? new Set(
+          backlogItemIds
+            .split(',')
+            .map((id) => id.trim())
+            .filter((id) => id.length > 0),
+        )
       : null;
 
     if (requestedBacklogIds && requestedBacklogIds.size > 50) {
@@ -221,7 +259,9 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     // F069: Hydrate unread summaries from read state store
     if (opts.readStateStore && messageStore && threads.length > 0) {
       const summaries = await opts.readStateStore.getUnreadSummaries(
-        userId, threads.map((t) => t.id), messageStore,
+        userId,
+        threads.map((t) => t.id),
+        messageStore,
       );
       const summaryMap = new Map(summaries.map((s) => [s.threadId, s]));
       return {
@@ -288,7 +328,10 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
     // Atomic: guardDelete checks has() + marks "deleting" in one synchronous tick.
     // While guard is held, start() returns pre-aborted controller for this thread.
     const guard = opts.invocationTracker?.guardDelete(id);
-    if (guard && !guard.acquired) {
+    // Also check multi-mention dispatches (P1-2: they run outside InvocationTracker)
+    const hasMMDispatches = getMultiMentionOrchestrator().hasActiveDispatches(id);
+    if ((guard && !guard.acquired) || hasMMDispatches) {
+      if (guard?.acquired) guard.release(); // Release tracker guard if we're blocking on MM
       reply.status(409);
       return {
         error: '猫猫正在工作中',
@@ -353,9 +396,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> =
       return { error: 'Access denied' };
     }
 
-    const snapshot = taskProgressStore
-      ? await taskProgressStore.getThreadSnapshots(threadId)
-      : {};
+    const snapshot = taskProgressStore ? await taskProgressStore.getThreadSnapshots(threadId) : {};
     return { threadId, taskProgress: snapshot };
   });
 

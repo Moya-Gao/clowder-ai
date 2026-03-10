@@ -9,13 +9,14 @@
  * DELETE /api/threads/:threadId/queue               → 清空队列
  */
 
-import type { FastifyPluginAsync, FastifyRequest, FastifyReply } from 'fastify';
+import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { InvocationQueue } from '../domains/cats/services/agents/invocation/InvocationQueue.js';
 import type { QueueProcessor } from '../domains/cats/services/agents/invocation/QueueProcessor.js';
+import type { IThreadStore } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import type { SocketManager } from '../infrastructure/websocket/index.js';
 import { resolveUserId } from '../utils/request-identity.js';
+import { getMultiMentionOrchestrator } from './callback-multi-mention-routes.js';
 
 interface InvocationTrackerLike {
   has(threadId: string): boolean;
@@ -77,20 +78,17 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
   const { threadStore, invocationQueue, queueProcessor, invocationTracker, socketManager } = opts;
 
   // GET /api/threads/:threadId/queue
-  app.get<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/queue',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
-      if (!guard) return;
+  app.get<{ Params: { threadId: string } }>('/api/threads/:threadId/queue', async (request, reply) => {
+    const { threadId } = request.params;
+    const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
+    if (!guard) return;
 
-      return {
-        queue: invocationQueue.list(threadId, guard.userId),
-        paused: queueProcessor.isPaused(threadId),
-        pauseReason: queueProcessor.getPauseReason(threadId),
-      };
-    },
-  );
+    return {
+      queue: invocationQueue.list(threadId, guard.userId),
+      paused: queueProcessor.isPaused(threadId),
+      pauseReason: queueProcessor.getPauseReason(threadId),
+    };
+  });
 
   // DELETE /api/threads/:threadId/queue/:entryId
   app.delete<{ Params: { threadId: string; entryId: string }; Querystring: { deleteMessage?: string } }>(
@@ -124,17 +122,14 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
   );
 
   // POST /api/threads/:threadId/queue/next
-  app.post<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/queue/next',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
-      if (!guard) return;
+  app.post<{ Params: { threadId: string } }>('/api/threads/:threadId/queue/next', async (request, reply) => {
+    const { threadId } = request.params;
+    const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
+    if (!guard) return;
 
-      const result = await queueProcessor.processNext(threadId, guard.userId);
-      return result;
-    },
-  );
+    const result = await queueProcessor.processNext(threadId, guard.userId);
+    return result;
+  });
 
   // POST /api/threads/:threadId/queue/:entryId/steer
   app.post<{ Params: { threadId: string; entryId: string } }>(
@@ -180,6 +175,8 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
           return { error: '当前有其他用户的调用在执行，无法立即执行', code: 'INVOCATION_ACTIVE' };
         }
         const cancelResult = invocationTracker.cancel(threadId, guard.userId);
+        // Also abort any active multi-mention dispatches for this thread
+        getMultiMentionOrchestrator().abortByThread(threadId);
         if (!cancelResult.cancelled && invocationTracker.has(threadId)) {
           reply.status(409);
           return { error: '当前调用无法取消，无法立即执行', code: 'INVOCATION_CANCEL_FAILED' };
@@ -243,21 +240,18 @@ export const queueRoutes: FastifyPluginAsync<QueueRoutesOptions> = async (app, o
   );
 
   // DELETE /api/threads/:threadId/queue
-  app.delete<{ Params: { threadId: string } }>(
-    '/api/threads/:threadId/queue',
-    async (request, reply) => {
-      const { threadId } = request.params;
-      const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
-      if (!guard) return;
+  app.delete<{ Params: { threadId: string } }>('/api/threads/:threadId/queue', async (request, reply) => {
+    const { threadId } = request.params;
+    const guard = await guardThreadOwnership(request, reply, threadStore, threadId);
+    if (!guard) return;
 
-      const cleared = invocationQueue.clear(threadId, guard.userId);
-      socketManager.emitToUser(guard.userId, 'queue_updated', {
-        threadId,
-        queue: [],
-        action: 'cleared',
-      });
+    const cleared = invocationQueue.clear(threadId, guard.userId);
+    socketManager.emitToUser(guard.userId, 'queue_updated', {
+      threadId,
+      queue: [],
+      action: 'cleared',
+    });
 
-      return { cleared };
-    },
-  );
+    return { cleared };
+  });
 };

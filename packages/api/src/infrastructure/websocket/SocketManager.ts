@@ -4,11 +4,14 @@
  */
 
 import { Server as HttpServer } from 'node:http';
-import { Server, Socket } from 'socket.io';
 import { createCatId } from '@cat-cafe/shared';
+import { Server, Socket } from 'socket.io';
 import { resolveFrontendCorsOrigins } from '../../config/frontend-origin.js';
+import type {
+  CancelResult,
+  InvocationTracker,
+} from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 import type { AgentMessage } from '../../domains/cats/services/types.js';
-import type { CancelResult, InvocationTracker } from '../../domains/cats/services/agents/invocation/InvocationTracker.js';
 
 /**
  * Build the sequence of AgentMessages to broadcast after a successful cancel.
@@ -44,9 +47,11 @@ export function buildCancelMessages(result: CancelResult): AgentMessage[] {
 export class SocketManager {
   private io: Server;
   private invocationTracker: InvocationTracker | null;
+  private multiMentionOrchestrator: { abortByThread(threadId: string): number } | null;
 
   constructor(httpServer: HttpServer, invocationTracker?: InvocationTracker) {
     this.invocationTracker = invocationTracker ?? null;
+    this.multiMentionOrchestrator = null;
     const corsOrigins = resolveFrontendCorsOrigins(process.env, console);
     this.io = new Server(httpServer, {
       cors: {
@@ -60,12 +65,10 @@ export class SocketManager {
 
   private setupEventHandlers(): void {
     this.io.on('connection', (socket: Socket) => {
-      const authUserId = typeof socket.handshake.auth?.['userId'] === 'string'
-        ? socket.handshake.auth['userId'].trim()
-        : '';
-      const queryUserId = typeof socket.handshake.query['userId'] === 'string'
-        ? socket.handshake.query['userId'].trim()
-        : '';
+      const authUserId =
+        typeof socket.handshake.auth?.['userId'] === 'string' ? socket.handshake.auth['userId'].trim() : '';
+      const queryUserId =
+        typeof socket.handshake.query['userId'] === 'string' ? socket.handshake.query['userId'].trim() : '';
       const userId = authUserId || queryUserId || 'anonymous';
       console.log(`[ws] Client connected: ${socket.id} (user: ${userId})`);
 
@@ -98,6 +101,8 @@ export class SocketManager {
         }
         const result = this.invocationTracker.cancel(data.threadId, userId);
         if (result.cancelled) {
+          // Only abort multi-mention dispatches when ownership check passed
+          this.multiMentionOrchestrator?.abortByThread(data.threadId);
           const catIds = result.catIds.length > 0 ? result.catIds : ['opus'];
           console.log(`[ws] Cancelled invocation for thread: ${data.threadId} (cats: ${catIds.join(',')})`);
           for (const msg of buildCancelMessages(result)) {
@@ -106,6 +111,11 @@ export class SocketManager {
         }
       });
     });
+  }
+
+  /** Wire MultiMentionOrchestrator for cancel propagation (set after construction to avoid circular imports). */
+  setMultiMentionOrchestrator(orch: { abortByThread(threadId: string): number }): void {
+    this.multiMentionOrchestrator = orch;
   }
 
   /**

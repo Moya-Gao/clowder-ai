@@ -419,6 +419,81 @@ describe('Multi-Mention Routes', () => {
 		assert.ok(body.error.includes('Anti-cascade'));
 	});
 
+	// ── InvocationTracker concurrent abort bug ──────────────────────
+
+	test('concurrent dispatches are NOT aborted by InvocationTracker (per-thread singleton)', async () => {
+		// Reproduce the bug: InvocationTracker.start() aborts prior invocation
+		// for the same threadId, causing all but the last dispatch to lose their response.
+		resetMultiMentionOrchestrator();
+
+		const { InvocationTracker } = await import(
+			'../dist/domains/cats/services/agents/invocation/InvocationTracker.js'
+		);
+		const tracker = new InvocationTracker();
+
+		// Slow mock router: each target yields text after a delay, giving tracker
+		// time to abort earlier dispatches
+		const slowRouter = {
+			async *routeExecution(userId, message, threadId, invId, targetCats, intent, opts) {
+				const catId = targetCats[0];
+				// Small delay to let concurrent starts happen
+				await new Promise((r) => setTimeout(r, 30));
+				// Check if we've been aborted
+				if (opts?.signal?.aborted) return;
+				yield { type: 'text', catId, content: `Reply from ${catId}`, timestamp: Date.now() };
+				yield { type: 'done', catId, isFinal: true, timestamp: Date.now() };
+			},
+		};
+
+		// Re-create app with invocationTracker
+		const trackerApp = Fastify({ logger: false });
+		const { registerMultiMentionRoutes } = await import(
+			'../dist/routes/callback-multi-mention-routes.js'
+		);
+		registerMultiMentionRoutes(trackerApp, {
+			registry: mockRegistry,
+			messageStore: mockMessageStore,
+			socketManager: mockSocket,
+			router: slowRouter,
+			invocationRecordStore: mockInvocationRecordStore,
+			invocationTracker: tracker,
+		});
+		await trackerApp.ready();
+
+		// Use a separate creds so initiator (codex) is different from all targets
+		const callerCreds = mockRegistry.register('codex', 'thread-1', 'user-1');
+
+		await trackerApp.inject({
+			method: 'POST',
+			url: '/api/callbacks/multi-mention',
+			payload: {
+				invocationId: callerCreds.invocationId,
+				callbackToken: callerCreds.callbackToken,
+				targets: ['opus', 'gemini'],
+				question: 'Test concurrent dispatch',
+				callbackTo: 'codex',
+			},
+		});
+
+		// Wait for all dispatches to complete
+		await new Promise((r) => setTimeout(r, 500));
+
+		// The aggregated result should contain replies from BOTH cats
+		const stored = mockMessageStore.getMessages();
+		const resultMsg = stored.find((m) => m.content.includes('Multi-Mention 结果汇总'));
+		assert.ok(resultMsg, 'Should have aggregated result');
+		assert.ok(
+			resultMsg.content.includes('Reply from opus'),
+			`Opus response missing. Got:\n${resultMsg?.content}`,
+		);
+		assert.ok(
+			resultMsg.content.includes('Reply from gemini'),
+			`Gemini response missing. Got:\n${resultMsg?.content}`,
+		);
+
+		await trackerApp.close();
+	});
+
 	// ── Idempotency ───────────────────────────────────────────────────
 
 	test('idempotency key returns same requestId', async () => {
