@@ -153,7 +153,7 @@ Voice mode 下猫猫双通道输出：
 | Thread 切换反馈 | 极简：`已切到 F092，砚砚在。` 不要长句 |
 | 多猫默认 at 谁 | 默认 activeCatId（上次对话的猫），说"叫宪宪"才切 |
 | 错误恢复 | 短撤销窗口：用户可立即说"不是，回去" |
-| 播放队列 | single-speaker latest-wins，`再说一遍` 回放 |
+| 播放队列 | FIFO 顺序播放（最早未播的先播），`再说一遍` 回放 |
 | Thinking 反馈 | 三态：listening(提示音) → thinking(>1.2s补"收到，我想一下") → speaking(直接播) |
 
 ### KD-5: 分阶段实施（GPT-5.4 建议，布偶猫采纳）

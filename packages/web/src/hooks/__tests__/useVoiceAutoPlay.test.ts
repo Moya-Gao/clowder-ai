@@ -11,7 +11,7 @@ import { useVoiceSessionStore } from '@/stores/voiceSessionStore';
 
 // Mock apiFetch and Audio to avoid JSDOM issues
 vi.mock('@/utils/api-client', () => ({
-  apiFetch: vi.fn(),
+  apiFetch: vi.fn().mockResolvedValue({ ok: true }),
 }));
 
 // Mock HTML Audio element
@@ -88,14 +88,16 @@ describe('voiceSessionStore session-binding contracts', () => {
 });
 
 describe('findUnplayedAudioBlock logic (via store contracts)', () => {
-  it('latest-wins: only the last audio block in newest message matters', () => {
+  it('FIFO: oldest unplayed audio block is found first', () => {
     useVoiceSessionStore.getState().start('t1', 'opus', true);
 
-    // Simulate: message has 2 audio blocks, only the second should be "found"
-    // Mark the first as played
-    useVoiceSessionStore.getState().markPlayed('audio-1');
+    // audio-1 not yet played → should be found first (oldest)
+    expect(useVoiceSessionStore.getState().hasPlayed('audio-1')).toBe(false);
+    expect(useVoiceSessionStore.getState().hasPlayed('audio-2')).toBe(false);
 
-    // audio-2 is not played yet
+    // After marking audio-1 as played, audio-2 becomes the next candidate
+    useVoiceSessionStore.getState().markPlayed('audio-1');
+    expect(useVoiceSessionStore.getState().hasPlayed('audio-1')).toBe(true);
     expect(useVoiceSessionStore.getState().hasPlayed('audio-2')).toBe(false);
   });
 

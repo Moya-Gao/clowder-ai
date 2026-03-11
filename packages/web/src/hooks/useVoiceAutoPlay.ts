@@ -87,11 +87,11 @@ async function fetchAndPlay(block: RichAudioBlock, originSessionId: string): Pro
   }
 }
 
-/** Scan new messages for the latest unplayed audio block (latest-wins per KD-4) */
+/** Scan messages for the oldest unplayed audio block (FIFO playback order). */
 function findUnplayedAudioBlock(
   newMessages: ReadonlyArray<{ type: string; extra?: { rich?: { blocks: Array<{ kind: string; id: string }> } } }>,
 ): RichAudioBlock | null {
-  for (let i = newMessages.length - 1; i >= 0; i--) {
+  for (let i = 0; i < newMessages.length; i++) {
     const msg = newMessages[i];
     if (msg.type !== 'assistant') continue;
 
@@ -99,11 +99,10 @@ function findUnplayedAudioBlock(
     if (!blocks) continue;
 
     const audioBlocks = blocks.filter((b): b is RichAudioBlock => b.kind === 'audio');
-    if (audioBlocks.length === 0) continue;
-
-    const lastBlock = audioBlocks[audioBlocks.length - 1];
-    if (!useVoiceSessionStore.getState().hasPlayed(lastBlock.id)) {
-      return lastBlock;
+    for (const block of audioBlocks) {
+      if (!useVoiceSessionStore.getState().hasPlayed(block.id)) {
+        return block;
+      }
     }
   }
   return null;
@@ -111,14 +110,35 @@ function findUnplayedAudioBlock(
 
 export function useVoiceAutoPlay(): void {
   const messages = useChatStore((s) => s.messages);
+  const currentThreadId = useChatStore((s) => s.currentThreadId);
   const session = useVoiceSessionStore((s) => s.session);
   const prevMessageCountRef = useRef(messages.length);
   const prevSessionIdRef = useRef<string | null>(null);
+  const prevThreadIdRef = useRef<string>(currentThreadId);
 
   useEffect(() => {
     if (!session?.voiceMode) {
       prevMessageCountRef.current = messages.length;
       prevSessionIdRef.current = null;
+      prevThreadIdRef.current = currentThreadId;
+      return;
+    }
+
+    // Guard: only auto-play when viewing the bound thread
+    if (currentThreadId !== session.boundThreadId) {
+      // Thread switched away — reset prevCount so returning doesn't replay
+      prevMessageCountRef.current = 0;
+      prevThreadIdRef.current = currentThreadId;
+      return;
+    }
+
+    const threadChanged = prevThreadIdRef.current !== currentThreadId;
+    prevThreadIdRef.current = currentThreadId;
+
+    // If we just switched back to the bound thread, reset message tracking
+    // to current length to avoid replaying old messages
+    if (threadChanged) {
+      prevMessageCountRef.current = messages.length;
       return;
     }
 
@@ -142,7 +162,7 @@ export function useVoiceAutoPlay(): void {
 
     const block = findUnplayedAudioBlock(messages.slice(prevCount));
     if (block) fetchAndPlay(block, session.sessionId);
-  }, [messages, session]);
+  }, [messages, session, currentThreadId]);
 
   // Cleanup on unmount or voice mode stop
   useEffect(() => {
