@@ -81,9 +81,12 @@ def _do_transcribe(audio_path: str, language: str) -> str:
         wav_path = _convert_to_wav(audio_path)
 
     try:
+        # output_path → /dev/null: mlx-audio always writes {output_path}.txt to disk;
+        # we only need the return value, so discard the file write.
         result = generate_transcription(
             model=_model,
             audio=wav_path,
+            output_path="/dev/null",
             verbose=False,
         )
         return result.text.strip() if hasattr(result, "text") else str(result).strip()

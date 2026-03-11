@@ -77,6 +77,9 @@ test-audit-logs/
 tmp/
 temp/
 
+# ASR runtime artifact (mlx-audio writes transcript.txt to CWD)
+transcript.txt
+
 # Redis dump
 dump.rdb
 dump.rdb.backup*
