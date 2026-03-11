@@ -8,7 +8,9 @@ created: 2026-03-07
 
 # F075 — 猫猫排行榜 (Cat Leaderboard)
 
-> **Status**: spec | **Owner**: 三猫
+> **Status**: Phase A done / Phase B spec / Phase C spec | **Owner**: 布偶猫
+> **Priority**: P1（Phase A 已交付，整 feat 未 close）
+> **Phase**: A ✅ / B spec / C spec
 
 ## Why
 
@@ -21,6 +23,25 @@ created: 2026-03-07
 ## What
 
 Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
+
+### 分阶段交付状态
+
+#### Phase A（已完成）
+- 排行榜基础盘面：@ 互动统计 4 项 + 工作统计 3 项
+- 时间范围筛选：全部 / 7 天 / 30 天
+- 前端入口：**当前实现挂在 `Cat Café Hub` modal 的「排行榜」tab**
+- 后端基础：`GET /api/leaderboard/stats`
+
+#### Phase B（待实现）
+- "笨蛋猫猫"排行榜 + 情绪分析
+- 游戏战绩面板
+- 申诉机制 / 负向榜单治理在产品里的真正落点
+- 排行榜入口与当前运行态对齐（当前本地 runtime 仍停留在旧版 Hub）
+
+#### Phase C（待实现）
+- 成就徽章系统
+- CVO 能力等级追踪
+- F087 Bootcamp 事件写入闭环
 
 ### 排行榜分类
 
@@ -84,18 +105,26 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 - **Feature 文档**：BACKLOG.md 已完成 feature 的参与者
 - **游戏记录**：需要新的存储结构（或复用 thread metadata）
 
-## Acceptance Criteria
+## Acceptance Criteria — Phase A（已完成）
 
-- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
-- [ ] Mission Hub 新增「排行榜」Tab
-- [ ] @ 互动统计面板（至少 4 个维度）
-- [ ] 工作统计面板（至少 3 个维度）
-- [ ] 笨蛋猫猫排行榜（含情绪分析）
-- [ ] 游戏战绩面板（至少猫猫杀 + 谁是卧底）
-- [ ] 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
-- [ ] CVO 能力等级追踪（Lv.1-5，跨 session 持久化）
-- [ ] 时间范围筛选（全部 / 近 7 天 / 近 30 天）
-- [ ] 移动端适配
+- [x] AC-A1: 本文档在 Phase A 收口后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+- [x] AC-A2: `Cat Café Hub` 新增「排行榜」Tab（当前实现入口）
+- [x] AC-A3: @ 互动统计面板（4 个维度：最爱猫猫 / 深夜劳模 / 连续宠幸 / 话唠猫猫）
+- [x] AC-A4: 工作统计面板（3 个维度：commit / review / bug fix）
+- [x] AC-A5: 时间范围筛选（全部 / 近 7 天 / 近 30 天）
+
+## Acceptance Criteria — Phase B（待实现）
+
+- [ ] AC-B1: "笨蛋猫猫"排行榜（含情绪分析）
+- [ ] AC-B2: 游戏战绩面板（至少猫猫杀 + 谁是卧底）
+- [ ] AC-B3: 排行榜入口与 Mission Hub / 当前运行态对齐，不能只停留在旧 runtime 看不到的状态
+- [ ] AC-B4: 移动端适配
+
+## Acceptance Criteria — Phase C（待实现）
+
+- [ ] AC-C1: 成就徽章系统（通用框架 + CVO 成就 + 日常成就）
+- [ ] AC-C2: CVO 能力等级追踪（Lv.1-5，跨 session 持久化）
+- [ ] AC-C3: `POST /api/leaderboard/events` + F087 接入闭环
 
 ## 需求点 Checklist
 
@@ -115,9 +144,11 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 ## Links
 
 - 讨论来源：Thread `thread_ux-debt-f071`（2026-03-07 04:07-04:39）
+- 实施计划：`docs/plans/2026-03-11-f075-cat-leaderboard-phase-a.md`
 - 关联：[F044 Channel & Activity System](F044-channel-activity-system.md)（游戏活动框架）
 - 关联：[F021 Signal Hunter](F021-signal-study-mode.md)（数据分析模式参考）
 - 关联：[F087 CVO Bootcamp](F087-cvo-bootcamp.md)（成就系统的主要消费者）
+- 反思胶囊：`docs/reflections/2026-03-11-f075-phase-a-capsule.md`
 
 ## Key Decisions
 
@@ -130,6 +161,7 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 7. **视觉原型落盘** — `designs/mission-hub-坏猫采访.pen` Frame ID: `T49Td`（暹罗猫设计）。
 8. **笨蛋榜治理：申诉 + 开关 + 可见性分级** — 趣味互动而非绩效考核，铲屎官拥有最终裁量权。
 9. **事件接入契约：幂等键 + 去重窗口 + dead-letter** — F087 等外部系统通过统一接口写入事件。
+10. **Phase A 真相源** — PR #371 只交付基础排行榜（@/工作统计 + range filter），不能把整 feat 误判为已完成。
 
 ## Dependencies
 
@@ -143,6 +175,16 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 - 游戏战绩需要手动录入或从聊天记录解析 → MVP 可从消息关键词提取
 - 笨蛋榜可能让猫猫"不开心" → 申诉机制 + 开关策略 + 趣味化视觉（见治理规则）
 - F087 事件写入可能丢失 → 幂等键 + 重试 + dead-letter 日志（见接入契约）
+- Phase A 已 merge，但当前本地 runtime 仍是旧版 Hub（截图证据见 `docs/features/assets/F075/phase-a-vision-guard-runtime-stale.png`）→ 不可误称“用户已在运行态看到排行榜”
+
+## Evidence（2026-03-11 愿景守护）
+
+| 证据 | 位置 | 结论 |
+|------|------|------|
+| PR #371 已 merge | `24b2274c` / GitHub PR #371 | Phase A 代码确实进入 `main` |
+| API/纯函数测试 | `node --test packages/api/test/leaderboard/*.test.js` | 11/11 通过，Phase A 统计逻辑有回归保护 |
+| 当前运行态截图 | `docs/features/assets/F075/phase-a-vision-guard-runtime-stale.png` | 本地 `Cat Café Hub` 仍无「排行榜」tab，runtime 未同步 |
+| 当前 API 运行态 | `curl http://localhost:3002/api/leaderboard/stats?range=all` | 返回 404，说明 API 进程也是旧版本 |
 
 ## 事件接入契约（F087 Bootcamp → F075 Leaderboard）
 
@@ -233,6 +275,7 @@ F087 Bootcamp 检测到用户完成 CVO 决策
 1. 游戏战绩是手动录入还是自动从聊天记录解析？
 2. ~~排行榜是否对所有猫猫可见~~ → 已定义可见性规则（见治理规则）
 3. 情绪分析的阈值如何设定？→ MVP 用关键词匹配 + 铲屎官校准，后续可接模型
+4. 排行榜最终产品入口是 `Cat Café Hub` modal 还是 `Mission Hub` 主页面？PR #371 当前只落在前者，后者未集成
 
 ## Review Gate
 
@@ -249,6 +292,8 @@ F087 Bootcamp 检测到用户完成 CVO 决策
 | 2026-03-11 | 缅因猫 review: 2×P1 + 2×P2 |
 | 2026-03-11 | 补充事件接入契约 + 笨蛋榜治理规则 + 指标计算口径 |
 | 2026-03-11 | 修复 P1: eventId 加 nonce 防同日事件压扁 + source 枚举补 `system` |
+| 2026-03-11 | Phase A merged: PR #371 / `24b2274c`（@ 互动统计 + 工作统计 + range filter） |
+| 2026-03-11 | GPT-5.4 愿景守护：判定 **Phase A done, feat not close**（Phase B/C 未交付；当前 runtime 仍停在旧版 Hub） |
 
 ## 故事
 

@@ -452,14 +452,14 @@
     },
     {
       "id": "F074",
-      "name": "F074: Mount Directory Support — 挂载/共享目录支持",
-      "status": "done | **Owner**: 布偶猫 | **Completed**: 2026-03-11",
+      "name": "Mount Directory Support — 挂载/共享目录支持",
+      "status": "done | **Owner**: 布偶猫",
       "file": "F074-mount-directory-support.md"
     },
     {
       "id": "F075",
       "name": "— 猫猫排行榜 (Cat Leaderboard)",
-      "status": "spec | **Owner**: 三猫",
+      "status": "Phase A done / Phase B spec / Phase C spec | **Owner**: 布偶猫",
       "file": "F075-cat-leaderboard.md"
     },
     {
@@ -601,5 +601,5 @@
       "file": "F097-cli-output-collapsible-ux.md"
     }
   ],
-  "generated_at": "2026-03-11T12:13:46.658Z"
+  "generated_at": "2026-03-11T13:30:46.562Z"
 }
