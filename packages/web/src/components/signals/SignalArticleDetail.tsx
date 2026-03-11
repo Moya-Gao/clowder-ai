@@ -238,6 +238,7 @@ export function SignalArticleDetail({ article, isLoading, onStatusChange, onTags
             value={pendingTag}
             onChange={(event) => setPendingTag(event.target.value)}
             onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
               if (event.key === 'Enter') {
                 event.preventDefault();
                 void addPendingTag();

@@ -119,6 +119,7 @@ export function VoteConfigModal({
                     maxLength={100}
                     className="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
                     onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return;
                       if (e.key === 'Enter') {
                         e.preventDefault();
                         if (i === options.length - 1) addOption();

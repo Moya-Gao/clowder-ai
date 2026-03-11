@@ -116,4 +116,40 @@ describe('InlineTreeInput', () => {
     expect(input?.placeholder).toContain('目录名');
     root.unmount();
   });
+
+  it('ignores Enter during IME composition', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    const onConfirm = vi.fn();
+
+    act(() => {
+      root.render(
+        React.createElement(InlineTreeInput, {
+          depth: 0,
+          kind: 'directory',
+          onConfirm,
+          onCancel: vi.fn(),
+        }),
+      );
+    });
+
+    const input = container.querySelector('input')!;
+    // Type some text
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(input, 'ios');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Simulate Enter during IME composition (isComposing = true)
+    act(() => {
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+      Object.defineProperty(event, 'isComposing', { value: true });
+      input.dispatchEvent(event);
+    });
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    root.unmount();
+  });
 });

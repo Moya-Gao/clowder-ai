@@ -26,6 +26,7 @@ export function InlineTreeInput({ depth, kind, defaultValue = '', onConfirm, onC
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (e.nativeEvent.isComposing) return;
       if (e.key === 'Enter' && value.trim()) {
         e.preventDefault();
         onConfirm(value.trim());

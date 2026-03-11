@@ -41,7 +41,7 @@ export function HistorySearchModal({ onSelect, onClose }: HistorySearchModalProp
         setSelectedIdx((i) => Math.max(i - 1, 0));
         return;
       }
-      if (e.key === 'Enter' && results.length > 0) {
+      if (e.key === 'Enter' && results.length > 0 && !e.nativeEvent.isComposing) {
         e.preventDefault();
         onSelect(results[selectedIdx]);
       }

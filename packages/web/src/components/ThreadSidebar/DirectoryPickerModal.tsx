@@ -124,7 +124,7 @@ export function DirectoryPickerModal({
     >
       <div
         ref={modalRef}
-        className="bg-white rounded-xl shadow-2xl w-full max-w-[480px] mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-[640px] mx-4 max-h-[85vh] flex flex-col overflow-hidden"
       >
         {/* ── Header ── */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
@@ -228,7 +228,7 @@ export function DirectoryPickerModal({
               type="text"
               value={pathInput}
               onChange={(e) => setPathInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handlePathSubmit(); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handlePathSubmit(); }}
               placeholder="输入路径，如 /home/user/projects/..."
               className="flex-1 text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
             />

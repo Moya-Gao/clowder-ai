@@ -236,4 +236,39 @@ describe('ChatInput history completion', () => {
     const searchModal = container.querySelector('[data-testid="history-search"]');
     expect(searchModal).not.toBeNull();
   });
+
+  it('does not select history item on Enter during IME composition', () => {
+    useInputHistoryStore.setState({ entries: ['hello world', 'test message'] });
+
+    const onSend = vi.fn();
+    act(() => {
+      root.render(React.createElement(ChatInput, { threadId: 'thread-1', onSend }));
+    });
+    // Open search modal
+    act(() => { pressKey(getTextarea(), 'r', { ctrlKey: true }); });
+
+    const searchModal = container.querySelector('[data-testid="history-search"]');
+    expect(searchModal).not.toBeNull();
+
+    const searchInput = searchModal!.querySelector('input') as HTMLInputElement;
+    expect(searchInput).not.toBeNull();
+
+    // Type a search term
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(searchInput, 'hel');
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+
+    // Simulate Enter during IME composition
+    act(() => {
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+      Object.defineProperty(event, 'isComposing', { value: true });
+      searchInput.dispatchEvent(event);
+    });
+
+    // Search modal should still be open (not dismissed by IME Enter)
+    const modalAfter = container.querySelector('[data-testid="history-search"]');
+    expect(modalAfter).not.toBeNull();
+  });
 });

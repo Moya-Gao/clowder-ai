@@ -65,6 +65,7 @@ export function BindSessionInput({
         value={value}
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
+          if (e.nativeEvent.isComposing) return;
           if (e.key === 'Enter') void handleBind();
           if (e.key === 'Escape') {
             setOpen(false);
