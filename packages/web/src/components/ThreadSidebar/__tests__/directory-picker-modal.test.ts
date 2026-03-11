@@ -189,7 +189,7 @@ describe('DirectoryPickerModal', () => {
     render();
     await flush();
     const inputs = Array.from(container.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
-    const pathInput = inputs.find((i) => i.placeholder.includes('输入路径'));
+    const pathInput = inputs.find((i) => i.placeholder.includes('路径'));
     expect(pathInput).toBeTruthy();
   });
 
@@ -203,15 +203,15 @@ describe('DirectoryPickerModal', () => {
     });
     const fns = render();
     await flush();
-    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('输入路径')) as HTMLInputElement;
-    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
-    expect(goBtn).toBeTruthy();
+    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('路径')) as HTMLInputElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       nativeInputValueSetter.call(input, '/Users/test/new-path');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();
+    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
+    expect(goBtn).toBeTruthy();
     await act(async () => { goBtn.click(); await new Promise((r) => setTimeout(r, 0)); });
     expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: canonicalPath }));
   });
@@ -225,14 +225,14 @@ describe('DirectoryPickerModal', () => {
     });
     const fns = render();
     await flush();
-    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('输入路径')) as HTMLInputElement;
-    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
+    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('路径')) as HTMLInputElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
       nativeInputValueSetter.call(input, '/root/evil');
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await flush();
+    const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
     await act(async () => { goBtn.click(); await new Promise((r) => setTimeout(r, 0)); });
     expect(fns.onSelect).not.toHaveBeenCalled();
     expect(container.textContent).toContain('Access denied');
@@ -252,6 +252,13 @@ describe('DirectoryPickerModal', () => {
   it('passes selected cats as preferredCats when quick pick is clicked', async () => {
     setupCwdSuccess();
     const fns = render();
+    await flush();
+    // Expand cat selector first (collapsed by default)
+    const expandBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('选猫猫'),
+    );
+    expect(expandBtn).toBeTruthy();
+    act(() => { expandBtn!.click(); });
     await flush();
     const catChip = Array.from(container.querySelectorAll('button')).find(
       (b) => b.textContent?.includes('布偶猫'),
