@@ -69,35 +69,35 @@ export function SignalArticleList({
                 selected ? 'border-owner-primary ring-1 ring-owner-primary/40' : 'border-gray-200 hover:border-owner-light',
               ].join(' ')}
             >
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start gap-3">
                 {onToggleSelect && (
                   <input
                     type="checkbox"
                     checked={selectedIds?.has(article.id) ?? false}
                     onChange={(e) => { e.stopPropagation(); onToggleSelect(article.id); }}
                     onClick={(e) => e.stopPropagation()}
-                    className="mt-1 shrink-0"
+                    className="mt-1.5 shrink-0"
                   />
                 )}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-cafe-black">{article.title}</p>
+                  <div className="mt-1.5 flex items-center gap-2">
                     <SignalTierBadge tier={article.tier} />
                     <span className={`rounded px-2 py-0.5 text-[11px] font-medium ${statusClassMap[article.status]}`}>
                       {article.status}
                     </span>
-                  </div>
-                  <p className="mt-2 line-clamp-2 text-sm font-semibold text-cafe-black">{article.title}</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-500">
-                    <span>{article.source} · {formatDate(article.fetchedAt)}</span>
+                    <span className="text-xs text-gray-400">·</span>
+                    <span className="text-xs text-gray-500">{article.source}</span>
+                    <span className="text-xs text-gray-500">{formatDate(article.fetchedAt)}</span>
                     {article.note && <span title="有备注" className="text-opus-dark">✎</span>}
                     {(article.studyCount ?? 0) > 0 && (
                       <span title={`学习 ${article.studyCount} 次`} className="rounded bg-opus-bg px-1 text-[10px] text-opus-dark">
                         学{article.studyCount}
                       </span>
                     )}
-                  </p>
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-1">
+                <div className="flex shrink-0 gap-1 pt-0.5">
                   <button
                     type="button"
                     onClick={(event) => {
