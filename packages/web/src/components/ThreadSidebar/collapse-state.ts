@@ -42,17 +42,13 @@ export function initCollapsedSet(allGroupKeys: string[], storage: StorageLike): 
 }
 
 /** Determine if a group should render as collapsed. */
-export function shouldCollapse(
-  groupKey: string,
-  collapsedSet: Set<string>,
-  searchQuery: string,
-): boolean {
+export function shouldCollapse(groupKey: string, collapsedSet: Set<string>, searchQuery: string): boolean {
   if (searchQuery.length > 0) return false;
   return collapsedSet.has(groupKey);
 }
 
 /** Before storage is read, default to collapsed (prevents first-render flicker). */
-export function shouldCollapseBeforeInit(_groupKey: string): boolean {
+export function shouldCollapseBeforeInit(_groupKey: string): boolean { // eslint-disable-line @typescript-eslint/no-unused-vars
   return true;
 }
 

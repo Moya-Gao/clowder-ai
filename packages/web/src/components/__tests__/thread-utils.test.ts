@@ -1,11 +1,12 @@
-import { describe, it, expect } from 'vitest';
-import {
-  sortAndGroupThreads,
-  formatRelativeTime,
-  projectDisplayName,
-  getProjectPaths,
-} from '../ThreadSidebar/thread-utils';
+import { describe, expect, it } from 'vitest';
 import type { Thread } from '@/stores/chat-types';
+import {
+  formatRelativeTime,
+  getProjectPaths,
+  projectDisplayName,
+  sortAndGroupThreads,
+  sortAndGroupThreadsWithWorkspace,
+} from '../ThreadSidebar/thread-utils';
 
 function makeThread(overrides: Partial<Thread> & { id: string }): Thread {
   return {
@@ -252,5 +253,99 @@ describe('getProjectPaths', () => {
   it('returns empty for no project threads', () => {
     const threads = [makeThread({ id: 't1', projectPath: 'default' })];
     expect(getProjectPaths(threads)).toEqual([]);
+  });
+});
+
+// ── sortAndGroupThreadsWithWorkspace ─────────────────
+
+const NOW = 1710000000000;
+const DAY = 86400_000;
+
+describe('sortAndGroupThreadsWithWorkspace', () => {
+  it('produces groups in order: pinned → recent → active projects → archived → favorites', () => {
+    const threads = [
+      makeThread({ id: 'p1', pinned: true, lastActiveAt: NOW }),
+      makeThread({ id: 't1', projectPath: '/proj/active', lastActiveAt: NOW - 2 * DAY }),
+      makeThread({ id: 't2', projectPath: '/proj/old', lastActiveAt: NOW - 30 * DAY }),
+      makeThread({ id: 'f1', favorited: true, lastActiveAt: NOW - 1 * DAY }),
+    ];
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      new Set(),
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+    const types = groups.map((g) => g.type);
+    expect(types).toEqual(['pinned', 'recent', 'project', 'archived-container', 'favorites']);
+  });
+
+  it('recent section contains cross-project threads sorted by lastActiveAt', () => {
+    const threads = [
+      makeThread({ id: 't1', projectPath: '/proj/a', lastActiveAt: NOW - 5 * DAY }),
+      makeThread({ id: 't2', projectPath: '/proj/b', lastActiveAt: NOW - 1 * DAY }),
+      makeThread({ id: 't3', projectPath: '/proj/a', lastActiveAt: NOW }),
+    ];
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      new Set(),
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+    const recent = groups.find((g) => g.type === 'recent');
+    expect(recent).toBeDefined();
+    expect(recent!.threads.map((t) => t.id)).toEqual(['t3', 't2', 't1']);
+  });
+
+  it('archived-container has archivedGroups with nested project groups', () => {
+    const threads = [
+      makeThread({ id: 't1', projectPath: '/proj/old-a', lastActiveAt: NOW - 30 * DAY }),
+      makeThread({ id: 't2', projectPath: '/proj/old-b', lastActiveAt: NOW - 20 * DAY }),
+    ];
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      new Set(),
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+    const archived = groups.find((g) => g.type === 'archived-container');
+    expect(archived).toBeDefined();
+    expect(archived!.archivedGroups).toHaveLength(2);
+    expect(archived!.label).toMatch(/其他项目 \(2\)/);
+  });
+
+  it('pinned projects stay in active section even when old', () => {
+    const threads = [makeThread({ id: 't1', projectPath: '/proj/old-pinned', lastActiveAt: NOW - 60 * DAY })];
+    const pinnedProjects = new Set(['/proj/old-pinned']);
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      pinnedProjects,
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+    const active = groups.filter((g) => g.type === 'project');
+    expect(active.map((g) => g.projectPath)).toContain('/proj/old-pinned');
+    const archived = groups.find((g) => g.type === 'archived-container');
+    expect(archived).toBeUndefined();
+  });
+
+  it('skips sections that would be empty', () => {
+    const threads = [makeThread({ id: 't1', projectPath: '/proj/a', lastActiveAt: NOW - 2 * DAY })];
+    const groups = sortAndGroupThreadsWithWorkspace(
+      threads,
+      undefined,
+      new Set(),
+      { activeCutoffMs: 7 * DAY, recentLimit: 8 },
+      NOW,
+    );
+    const types = groups.map((g) => g.type);
+    expect(types).not.toContain('pinned');
+    expect(types).not.toContain('favorites');
+    expect(types).not.toContain('archived-container');
+    expect(types).toContain('recent');
+    expect(types).toContain('project');
   });
 });

@@ -1,4 +1,5 @@
 import type { Thread } from '@/stores/chat-types';
+import { getRecentThreads, splitIntoActiveAndArchived } from './active-workspace';
 
 export function formatRelativeTime(ts: number, compact = false): string {
   const diff = Date.now() - ts;
@@ -32,10 +33,12 @@ export function getProjectPaths(threads: Thread[]): string[] {
 
 /** Thread group for sidebar rendering */
 export interface ThreadGroup {
-  type: 'pinned' | 'project' | 'favorites';
+  type: 'pinned' | 'recent' | 'project' | 'archived-container' | 'favorites';
   label: string;
   threads: Thread[];
   projectPath?: string;
+  /** For archived-container: nested project groups */
+  archivedGroups?: ThreadGroup[];
 }
 
 /** Sort comparator: unread first, then by lastActiveAt descending. */
@@ -77,6 +80,86 @@ export function sortAndGroupThreads(threads: Thread[], unreadIds?: Set<string>):
   }
 
   // 3. Favorites (unread first, then by lastActiveAt desc, excluding pinned)
+  const favorited = threads
+    .filter((t) => t.favorited && !t.pinned && t.id !== 'default')
+    .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
+  if (favorited.length > 0) {
+    groups.push({ type: 'favorites', label: '收藏', threads: favorited });
+  }
+
+  return groups;
+}
+
+export interface WorkspaceConfig {
+  activeCutoffMs: number;
+  recentLimit: number;
+}
+
+const DEFAULT_CONFIG: WorkspaceConfig = {
+  activeCutoffMs: 7 * 86400_000,
+  recentLimit: 8,
+};
+
+/**
+ * Sort and group threads with active workspace layout:
+ * pinned → recent → active projects → archived-container → favorites
+ */
+export function sortAndGroupThreadsWithWorkspace(
+  threads: Thread[],
+  unreadIds: Set<string> | undefined,
+  pinnedProjects: Set<string>,
+  config: WorkspaceConfig = DEFAULT_CONFIG,
+  now: number = Date.now(),
+): ThreadGroup[] {
+  const groups: ThreadGroup[] = [];
+
+  // 1. Pinned threads
+  const pinned = threads
+    .filter((t) => t.pinned && t.id !== 'default')
+    .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));
+  if (pinned.length > 0) {
+    groups.push({ type: 'pinned', label: '置顶', threads: pinned });
+  }
+
+  // 2. Recent threads (cross-project, excluding pinned/default)
+  const recent = getRecentThreads(threads, config.recentLimit, now);
+  if (recent.length > 0) {
+    groups.push({ type: 'recent', label: '最近对话', threads: recent });
+  }
+
+  // 3. Project groups split into active/archived
+  const regular = threads.filter((t) => !t.pinned && !t.favorited && t.id !== 'default');
+  const projectGroupEntries = groupByProject(regular, unreadIds);
+  const allProjectGroups: ThreadGroup[] = projectGroupEntries.map(([projectPath, projectThreads]) => ({
+    type: 'project' as const,
+    label: projectDisplayName(projectPath),
+    threads: projectThreads,
+    projectPath,
+  }));
+
+  const { active, archived } = splitIntoActiveAndArchived(
+    allProjectGroups,
+    threads,
+    pinnedProjects,
+    config.activeCutoffMs,
+    now,
+  );
+
+  for (const g of active) {
+    groups.push(g);
+  }
+
+  if (archived.length > 0) {
+    const allArchivedThreads = archived.flatMap((g) => g.threads);
+    groups.push({
+      type: 'archived-container',
+      label: `其他项目 (${archived.length})`,
+      threads: allArchivedThreads,
+      archivedGroups: archived,
+    });
+  }
+
+  // 4. Favorites
   const favorited = threads
     .filter((t) => t.favorited && !t.pinned && t.id !== 'default')
     .sort((a, b) => sortByUnreadThenActive(a, b, unreadIds));

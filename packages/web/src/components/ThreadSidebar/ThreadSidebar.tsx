@@ -8,9 +8,10 @@ import { TaskPanel } from '../TaskPanel';
 import { DirectoryPickerModal, type SessionBinding } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
-import { getProjectPaths, sortAndGroupThreads } from './thread-utils';
+import { getProjectPaths, sortAndGroupThreadsWithWorkspace } from './thread-utils';
 import { createToggleWithReconcile } from './toggle-with-reconcile';
 import { useCollapseState } from './use-collapse-state';
+import { useProjectPins } from './use-project-pins';
 
 interface ThreadSidebarProps {
   /** Called to close the sidebar drawer on mobile */
@@ -285,7 +286,12 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
     }
   }, []);
 
-  const threadGroups = useMemo(() => sortAndGroupThreads(filteredThreads, unreadIds), [filteredThreads, unreadIds]);
+  // F095 Phase B: Active workspace grouping
+  const { pinnedProjects, toggleProjectPin } = useProjectPins();
+  const threadGroups = useMemo(
+    () => sortAndGroupThreadsWithWorkspace(filteredThreads, unreadIds, pinnedProjects),
+    [filteredThreads, unreadIds, pinnedProjects],
+  );
   const existingProjects = useMemo(() => getProjectPaths(threads), [threads]);
   const showDefaultThread = normalizedQuery.length === 0 || '大厅'.includes(normalizedQuery);
 
@@ -409,17 +415,88 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
 
           {threadGroups.map((group) => {
             const groupKey = group.projectPath ?? group.type;
+            const icon =
+              group.type === 'pinned'
+                ? ('pin' as const)
+                : group.type === 'favorites'
+                  ? ('star' as const)
+                  : group.type === 'recent'
+                    ? ('clock' as const)
+                    : undefined;
+
+            // Archived container: render nested project groups
+            if (group.type === 'archived-container') {
+              return (
+                <SectionGroup
+                  key="archived-container"
+                  label={group.label}
+                  icon="archive"
+                  count={group.archivedGroups?.length ?? 0}
+                  isCollapsed={isCollapsed('archived-container')}
+                  onToggle={() => toggleGroup('archived-container')}
+                >
+                  {group.archivedGroups?.map((sub) => {
+                    const subKey = sub.projectPath ?? sub.type;
+                    return (
+                      <SectionGroup
+                        key={subKey}
+                        label={sub.label}
+                        count={sub.threads.length}
+                        isCollapsed={isCollapsed(subKey)}
+                        onToggle={() => toggleGroup(subKey)}
+                        projectPath={sub.projectPath}
+                        governanceStatus={sub.projectPath ? govHealth[sub.projectPath] : undefined}
+                        onToggleProjectPin={
+                          sub.projectPath ? () => toggleProjectPin(sub.projectPath!) : undefined
+                        }
+                        isProjectPinned={
+                          sub.projectPath ? pinnedProjects.has(sub.projectPath) : undefined
+                        }
+                      >
+                        {sub.threads.map((t) => (
+                          <ThreadItem
+                            key={t.id}
+                            id={t.id}
+                            title={t.title}
+                            participants={t.participants}
+                            lastActiveAt={t.lastActiveAt}
+                            isActive={currentThreadId === t.id}
+                            onSelect={handleSelect}
+                            onDelete={handleDelete}
+                            onRename={handleRename}
+                            onTogglePin={handleTogglePin}
+                            onToggleFavorite={handleToggleFavorite}
+                            onUpdatePreferredCats={handleUpdatePreferredCats}
+                            isPinned={t.pinned}
+                            isFavorited={t.favorited}
+                            threadState={getThreadState(t.id)}
+                            indented
+                            preferredCats={t.preferredCats}
+                          />
+                        ))}
+                      </SectionGroup>
+                    );
+                  })}
+                </SectionGroup>
+              );
+            }
 
             return (
               <SectionGroup
                 key={groupKey}
                 label={group.label}
-                icon={group.type === 'pinned' ? 'pin' : group.type === 'favorites' ? 'star' : undefined}
+                icon={icon}
                 count={group.threads.length}
                 isCollapsed={isCollapsed(groupKey)}
                 onToggle={() => toggleGroup(groupKey)}
                 projectPath={group.projectPath}
                 governanceStatus={group.projectPath ? govHealth[group.projectPath] : undefined}
+                onToggleProjectPin={
+                  group.type === 'project' && group.projectPath ? () => toggleProjectPin(group.projectPath!) : undefined
+                }
+                isProjectPinned={
+                  group.type === 'project' && group.projectPath ? pinnedProjects.has(group.projectPath) : undefined
+                }
               >
                 {group.threads.map((t) => (
                   <ThreadItem
