@@ -3,13 +3,21 @@ feature_ids: [F042]
 topics: [sop]
 doc_kind: note
 created: 2026-02-26
-updated: 2026-03-04
+updated: 2026-03-11
 ---
 
 # Cat Café 开发 SOP
 
 > 三猫开发全流程的导航图。每步的详细操作在对应 skill 内。
 > 冲突时以 skill 内容为准。
+
+## 愿景驱动（核心原则）
+
+Cat Café 的开发是**愿景驱动**的。和铲屎官确认了 feature 的愿景后：
+
+- **没达成愿景 = 没完成**，必须继续做，不能半路停下来问"要不要继续"（§17）
+- **唯一停下来的理由**：发现了原本没发现的、确实解决不了的阻塞（技术限制/外部依赖不可用），此时升级铲屎官
+- SOP 每步自动推进，全链路闭环到愿景守护通过为止
 
 ## Runtime 单实例保护（P0）
 
@@ -27,21 +35,24 @@ updated: 2026-03-04
 ```
 ⓪ Design Gate    → 设计确认（UX→铲屎官/后端→猫猫/架构→两边）
 ① worktree        → 隔离开发环境
-② quality-gate    → 自检 + 愿景对照
+② quality-gate    → 自检 + 愿景对照 + 设计稿对照
 ③ review 循环     → 本地 peer review（P1/P2 清零 + reviewer 放行）
 ④ merge-gate      → 门禁 → PR → 云端 review → squash merge → 清理
+⑤ 愿景守护       → 非作者非 reviewer 的猫做愿景三问 → 放行 close / 踢回
 ```
 
 > **⚠️ Design Gate 在 ① 之前！** UX 没确认不准开 worktree。PR 在 ③ 之后。
+> **⚠️ 全链路自动推进（§17）！** SOP 有写下一步 → 直接做，不要停下来问铲屎官。
 
 | Step | 做什么 | Skill | 详情 |
 |------|--------|-------|------|
 | ⓪ | 设计确认：前端→铲屎官画 wireframe；后端→猫猫讨论；架构→两边 | `feat-lifecycle` Design Gate | Trivial 跳过⓪，按下方例外路径判断 |
 | ① | 创建 worktree，配置 Redis 6398 | `worktree` | 禁止直接改 main |
-| ② | 愿景对照 + spec 合规 + 跑测试 | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
+| ② | 愿景对照 + spec 合规 + 跑测试 + **有 .pen 则设计稿对照** | `quality-gate` | AC ≠ 完成，问"铲屎官体验如何？" |
 | ③a | 发 review 请求（五件套 + 证据） | `request-review` | 附原始需求摘录 |
 | ③b | 处理 review 反馈（Red→Green） | `receive-review` | 禁止表演性同意 |
 | ④ | 门禁 → PR → 云端 review → merge → 清理 | `merge-gate` | **③ 放行后才进入**，模板见 `refs/pr-template.md` |
+| ⑤ | 愿景守护 + feat close（feature 最后一个 Phase 时） | `feat-lifecycle` completion | 守护猫 ≠ 作者 ≠ reviewer，动态选（查 roster） |
 
 ## 例外路径
 

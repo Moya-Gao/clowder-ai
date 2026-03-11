@@ -24,12 +24,13 @@
 
 ## 开发流程（SOP 导航）
 
-完整流程见 `docs/SOP.md`。每步都有对应 skill，做到哪步加载哪个：
+完整流程见 `docs/SOP.md`。愿景驱动：确认了 feat 就必须达成愿景，没达成 = 没完成。
+每步自动推进（§17），做到哪步加载哪个：
 
 ```
 feat-lifecycle → Design Gate(设计确认) → writing-plans → worktree → tdd
     → quality-gate → request-review → receive-review
-    → merge-gate → feat-lifecycle(完成)
+    → merge-gate → ⑤愿景守护(非作者非reviewer的猫) → feat-lifecycle(完成)
 ```
 
 | 我正在... | Skill |
