@@ -84,4 +84,23 @@ describe('toCliEvents', () => {
     const events = toCliEvents([], '   ');
     expect(events).toHaveLength(0);
   });
+
+  it('extracts file_path from truncated JSON via regex fallback', () => {
+    // safeJsonPreview truncates at 200 chars — Edit tool has long old_string/new_string
+    const truncatedDetail = '{"file_path":"src/components/ChatMessage.tsx","old_string":"some long code that gets trunca';
+    const toolEvents: ToolEvent[] = [
+      { id: 't1', type: 'tool_use', label: 'opus → Edit', detail: truncatedDetail, timestamp: 1000 },
+    ];
+    const events = toCliEvents(toolEvents, undefined);
+    expect(events[0].label).toBe('Edit src/components/ChatMessage.tsx');
+  });
+
+  it('extracts command from truncated JSON via regex fallback', () => {
+    const truncatedDetail = '{"command":"pnpm --filter @cat-cafe/web test","timeout":60000,"some_other_field":"this gets trunca';
+    const toolEvents: ToolEvent[] = [
+      { id: 't1', type: 'tool_use', label: 'opus → Bash', detail: truncatedDetail, timestamp: 1000 },
+    ];
+    const events = toCliEvents(toolEvents, undefined);
+    expect(events[0].label).toBe('Bash pnpm --filter @cat-cafe/web test');
+  });
 });

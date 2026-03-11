@@ -7,26 +7,34 @@ function cleanToolLabel(label: string): string {
   return arrowIdx >= 0 ? label.slice(arrowIdx + 3) : label;
 }
 
+function truncateArg(val: string, max = 60): string {
+  return val.length > max ? `${val.slice(0, max - 3)}...` : val;
+}
+
+/** Regex patterns for extracting args from truncated JSON (safeJsonPreview truncates at 200 chars) */
+const ARG_KEYS = ['file_path', 'command', 'pattern', 'url', 'query', 'prompt'] as const;
+
 /** Extract primary argument from JSON tool input detail for inline display.
- *  e.g. '{"file_path":"src/index.ts"}' → "src/index.ts" */
+ *  Handles both valid and truncated JSON (common when safeJsonPreview cuts at 200 chars). */
 function extractPrimaryArg(detail?: string): string | undefined {
   if (!detail) return undefined;
   try {
     const obj = JSON.parse(detail) as Record<string, unknown>;
-    // Common tool arg names in preference order
-    for (const key of ['file_path', 'command', 'pattern', 'url', 'query', 'prompt', 'content']) {
+    for (const key of ARG_KEYS) {
       const val = obj[key];
-      if (typeof val === 'string' && val.length > 0) {
-        return val.length > 60 ? `${val.slice(0, 57)}...` : val;
-      }
+      if (typeof val === 'string' && val.length > 0) return truncateArg(val);
     }
-    // Fallback: first short string value
     for (const val of Object.values(obj)) {
-      if (typeof val === 'string' && val.length > 0 && val.length <= 80) {
-        return val.length > 60 ? `${val.slice(0, 57)}...` : val;
-      }
+      if (typeof val === 'string' && val.length > 0 && val.length <= 80) return truncateArg(val);
     }
-  } catch { /* not valid JSON, ignore */ }
+  } catch {
+    // Truncated JSON — use regex to extract known arg values
+    for (const key of ARG_KEYS) {
+      const re = new RegExp(`"${key}"\\s*:\\s*"([^"]+)"`);
+      const m = detail.match(re);
+      if (m?.[1]) return truncateArg(m[1]);
+    }
+  }
   return undefined;
 }
 
