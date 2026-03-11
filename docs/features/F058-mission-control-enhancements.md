@@ -356,6 +356,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-10 | 模板 `cat-cafe-skills/refs/feature-doc-template.md` 创建，记录 KD-6~8 |
 | 2026-03-10 | 🔴 铲屎官实测发现依赖全景 tab 还是平铺卡片网格，不是 DAG 拓扑。KD-2 被 KD-4/KD-5 推翻。追加 Phase J |
 | 2026-03-11 | Phase J 合入 main (PR #360) — React Flow + dagre DAG 拓扑图，三种边类型，节点点击详情面板。砚砚 R1+R2 + 云端 R1+R2 全过 |
+| 2026-03-11 | Phase J UX 迭代 (PR #367) — 默认 scope="仅有依赖"(connected-only)，scope filter 三档，stats bar，parser 读 body Related + F\d{3} 规范化。四猫讨论收敛，砚砚 R1(P1+P2)+R2 LGTM + 云端 pass |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 
