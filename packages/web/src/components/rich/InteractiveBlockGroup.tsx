@@ -88,7 +88,7 @@ export function InteractiveBlockGroup({
   }, [allSelected, submitted, blocks, selections, messageId]);
 
   return (
-    <div className="space-y-2 rounded-xl border-2 border-dashed border-blue-200 dark:border-blue-800 p-2">
+    <div className="space-y-3 rounded-2xl border-2 border-dashed border-purple-200 dark:border-purple-800/50 p-3">
       {blocks.map((block) => (
         <InteractiveBlock
           key={block.id}
@@ -105,14 +105,21 @@ export function InteractiveBlockGroup({
           type="button"
           disabled={!allSelected}
           onClick={handleGroupSubmit}
-          className={`w-full py-2 rounded-lg text-sm font-medium transition-colors
+          className={`w-full py-2.5 rounded-full text-sm font-semibold transition-all flex items-center justify-center gap-2
             ${
               allSelected
-                ? 'bg-blue-500 text-white hover:bg-blue-600 cursor-pointer'
+                ? 'bg-purple-500 text-white hover:bg-purple-600 cursor-pointer'
                 : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
             }`}
         >
-          全部提交 ({selections.size}/{blocks.length})
+          全部提交
+          <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+            allSelected
+              ? 'bg-white/20 text-white'
+              : 'bg-purple-100 dark:bg-purple-900/50 text-purple-500 dark:text-purple-400'
+          }`}>
+            {selections.size}/{blocks.length}
+          </span>
         </button>
       )}
     </div>

@@ -71,7 +71,7 @@ function SelectInteraction({
   };
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       {options.map((opt) => {
         const isSelected = highlightId === opt.id;
         return (
@@ -80,18 +80,25 @@ function SelectInteraction({
             type="button"
             disabled={disabled}
             onClick={() => handleClick(opt.id)}
-            className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors
+            className={`w-full text-left px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all flex items-center gap-2.5
               ${
                 isSelected
-                  ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300'
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
                   : disabled
                     ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/20 cursor-pointer'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-950/20 cursor-pointer'
               }`}
           >
-            {opt.emoji && <span className="mr-1.5">{opt.emoji}</span>}
-            <span className="font-medium">{opt.label}</span>
-            {opt.description && <span className="block text-xs text-gray-500 mt-0.5">{opt.description}</span>}
+            {opt.emoji && <span className="text-lg shrink-0">{opt.emoji}</span>}
+            <div className="flex-1 min-w-0">
+              <span className={`font-semibold ${isSelected ? 'text-purple-600 dark:text-purple-400' : ''}`}>{opt.label}</span>
+              {opt.description && <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</span>}
+            </div>
+            {isSelected && (
+              <svg className="w-4.5 h-4.5 text-purple-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
           </button>
         );
       })}
@@ -99,8 +106,11 @@ function SelectInteraction({
         <button
           type="button"
           onClick={() => onSelect([pendingId])}
-          className="mt-2 px-4 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+          className="mt-2 w-full py-2.5 bg-purple-500 text-white rounded-full text-sm font-semibold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1.5"
         >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
           确认选择
         </button>
       )}
@@ -141,35 +151,48 @@ function MultiSelectInteraction({
   };
 
   return (
-    <div className="space-y-1">
-      {options.map((opt) => (
-        <label
-          key={opt.id}
-          className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm cursor-pointer transition-colors
-            ${
-              checked.has(opt.id)
-                ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40'
-                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300'
-            }
-            ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-        >
-          <input
-            type="checkbox"
-            checked={checked.has(opt.id)}
+    <div className="space-y-2">
+      {options.map((opt) => {
+        const isChecked = checked.has(opt.id);
+        return (
+          <button
+            key={opt.id}
+            type="button"
             disabled={disabled}
-            onChange={() => toggle(opt.id)}
-            className="rounded"
-          />
-          {opt.emoji && <span>{opt.emoji}</span>}
-          <span>{opt.label}</span>
-        </label>
-      ))}
+            onClick={() => toggle(opt.id)}
+            className={`flex items-center gap-2.5 w-full px-4 py-3 rounded-xl border-[1.5px] text-sm transition-all text-left
+              ${
+                isChecked
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30'
+                  : 'border-gray-200 dark:border-gray-700 hover:border-purple-300'
+              }
+              ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <span
+              className={`shrink-0 w-5 h-5 rounded-md flex items-center justify-center transition-colors ${
+                isChecked ? 'bg-purple-500' : 'border-[1.5px] border-gray-300 dark:border-gray-600'
+              }`}
+            >
+              {isChecked && (
+                <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              )}
+            </span>
+            {opt.emoji && <span className="text-base">{opt.emoji}</span>}
+            <span className={`font-semibold ${isChecked ? 'text-purple-600 dark:text-purple-400' : ''}`}>{opt.label}</span>
+          </button>
+        );
+      })}
       {!disabled && !hideSubmit && checked.size > 0 && (
         <button
           type="button"
           onClick={() => onSelect([...checked])}
-          className="mt-2 px-4 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+          className="mt-2 w-full py-2.5 bg-purple-500 text-white rounded-full text-sm font-semibold hover:bg-purple-600 transition-colors flex items-center justify-center gap-1.5"
         >
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
           确认选择 ({checked.size})
         </button>
       )}
@@ -249,7 +272,7 @@ function CardGridInteraction({
       {[...groups.entries()].map(([groupName, groupOpts]) => (
         <div key={groupName}>
           {groupName && <div className="text-xs text-gray-500 mb-1 mt-2 font-medium">{groupName}</div>}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
             {groupOpts.map((opt) => {
               const isSelected = selectedIds.includes(opt.id);
               const isPending = pendingId === opt.id;
@@ -260,20 +283,20 @@ function CardGridInteraction({
                   type="button"
                   disabled={disabled}
                   onClick={() => handleCardClick(opt.id)}
-                  className={`p-3 rounded-xl border text-center text-sm transition-all
+                  className={`p-4 rounded-2xl border-[1.5px] text-center text-sm transition-all
                     ${
                       isSelected || isPending
-                        ? 'border-blue-400 bg-blue-50 dark:bg-blue-950/40 ring-2 ring-blue-400'
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-950/30 ring-2 ring-purple-400/50'
                         : isHighlighted
-                          ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-950/40 scale-105'
+                          ? 'border-purple-400 bg-purple-50/80 dark:bg-purple-950/20 scale-105'
                           : disabled
                             ? 'border-gray-200 dark:border-gray-700 opacity-50 cursor-not-allowed'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 hover:shadow-sm cursor-pointer'
+                            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-purple-300 hover:shadow-sm cursor-pointer'
                     }`}
                 >
-                  {opt.emoji && <div className="text-2xl mb-1">{opt.emoji}</div>}
-                  <div className="font-medium">{opt.label}</div>
-                  {opt.description && <div className="text-xs text-gray-500 mt-0.5">{opt.description}</div>}
+                  {opt.emoji && <div className="text-2xl mb-1.5">{opt.emoji}</div>}
+                  <div className={`font-semibold ${isSelected || isPending ? 'text-purple-600 dark:text-purple-400' : ''}`}>{opt.label}</div>
+                  {opt.description && <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{opt.description}</div>}
                 </button>
               );
             })}
@@ -322,38 +345,52 @@ function ConfirmInteraction({
   };
 
   return (
-    <div className="flex gap-2">
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => handleClick('__confirm__')}
-        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border
-          ${
-            selectedId === '__confirm__'
-              ? 'bg-blue-500 border-blue-500 text-white'
-              : disabled
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-400 cursor-pointer'
-          }`}
-      >
-        {confirmOpt.emoji && `${confirmOpt.emoji} `}
-        {confirmOpt.label}
-      </button>
+    <div className="flex gap-3">
       <button
         type="button"
         disabled={disabled}
         onClick={() => handleClick('__cancel__')}
-        className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors border
+        className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
           ${
             selectedId === '__cancel__'
-              ? 'bg-blue-500 border-blue-500 text-white'
-              : disabled
-                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:border-blue-400 cursor-pointer'
+              ? 'bg-red-50 dark:bg-red-950/30 border-red-400 text-red-600 dark:text-red-400'
+              : disabled && selectedId
+                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                : disabled
+                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-red-50/50 dark:bg-red-950/10 border-red-200 dark:border-red-800 text-red-500 hover:bg-red-50 hover:border-red-300 cursor-pointer'
           }`}
       >
+        {selectedId !== '__cancel__' && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        )}
         {cancelOpt.emoji && `${cancelOpt.emoji} `}
         {cancelOpt.label}
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => handleClick('__confirm__')}
+        className={`flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all border-[1.5px] flex items-center justify-center gap-1.5
+          ${
+            selectedId === '__confirm__'
+              ? 'bg-green-50 dark:bg-green-950/30 border-green-500 text-green-600 dark:text-green-400'
+              : disabled && selectedId
+                ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 opacity-50 cursor-not-allowed'
+                : disabled
+                  ? 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-green-50/50 dark:bg-green-950/10 border-green-200 dark:border-green-800 text-green-600 hover:bg-green-50 hover:border-green-300 cursor-pointer'
+          }`}
+      >
+        {selectedId !== '__confirm__' && (
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+        {confirmOpt.emoji && `${confirmOpt.emoji} `}
+        {confirmOpt.label}
       </button>
     </div>
   );
@@ -410,9 +447,9 @@ export function InteractiveBlock({ block, messageId, pendingMode, onPendingChang
   );
 
   return (
-    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-3">
-      {block.title && <div className="font-medium text-sm mb-1">{block.title}</div>}
-      {block.description && <div className="text-xs text-gray-500 mb-2">{block.description}</div>}
+    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+      {block.title && <div className="font-semibold text-sm mb-1">{block.title}</div>}
+      {block.description && <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">{block.description}</div>}
       {block.interactiveType === 'select' && (
         <SelectInteraction
           options={block.options}
