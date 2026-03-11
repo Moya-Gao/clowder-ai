@@ -16,7 +16,7 @@ created: 2026-02-26
 |----|------|--------|-------|------|
 | F010 | 手机端猫猫 | in-progress | 三猫 | [F010](features/F010-mobile-cat.md) |
 | F014 | SVG 猫猫状态动画 | in-progress | 三猫 | [F014](features/F014-svg-cat-animation.md) |
-| F021 | Signal Hunter 集成 | in-progress | 三猫 | [F021](features/F021-signal-study-mode.md) |
+| F021 | Signal Hunter 集成 | done | 三猫 | [F021](features/F021-signal-study-mode.md) |
 | F036 | Logo 一笔画动画（Stroke Drawing Animation） | in-progress | 三猫 | [F036](features/F036-logo-stroke-animation.md) |
 | F037 | Agent Swarm 协同模式 | in-progress | 三猫 | [F037](features/F037-agent-swarm.md) |
 | F038 | Skills 梳理 + 按需发现机制 | in-progress | 三猫 | [F038](features/F038-skills-discovery.md) |
@@ -41,6 +41,7 @@ created: 2026-02-26
 | F088 | Multi-Platform Chat Gateway — 飞书/Telegram 多平台网关 | phase3-done | 布偶猫 | [F088](features/F088-multi-platform-chat-gateway.md) |
 | F089 | Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性 | spec | 布偶猫 | [F089](features/F089-hub-terminal-tmux.md) |
 | F090 | Pixel Cat Brawl — 像素猫猫大作战：即时格斗 demo game | phase-1-done | 布偶猫 | [F090](features/F090-pixel-cat-brawl.md) |
+| F091 | Signal Study Mode — 信号学习伴侣 | done | 布偶猫 | [F091](features/F091-signal-study-mode.md) |
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
 | F094 | Feature 文档债务清理 — 全量迁移到黄金模板标准 | spec | 布偶猫 | [F094](features/F094-feature-doc-debt-cleanup.md) |

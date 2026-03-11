@@ -8,9 +8,10 @@ created: 2026-02-26
 
 # F021: Signal Hunter 集成
 
-> **Status**: in-progress
+> **Status**: done
 > **Owner**: 三猫
 > **Created**: 2026-02-26
+> **Completed**: 2026-03-10
 
 ## Why
 - [讨论 2026-02-12](./archive/2026-02/discussions/2026-02-12-signal-hunter-upgrade/README.md)
