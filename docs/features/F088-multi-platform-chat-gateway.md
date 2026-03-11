@@ -116,6 +116,7 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | 2026-03-09 | Phase 4 完成 (PR #350) |
 | 2026-03-10 | Phase C 架构归一完成 (PR #353) |
 | 2026-03-11 | Phase 5+6 media/voice merged (PR #362) |
+| 2026-03-11 | Phase 5b Feishu native upload + media cleanup merged (PR #364) |
 
 ## 参考文件
 
