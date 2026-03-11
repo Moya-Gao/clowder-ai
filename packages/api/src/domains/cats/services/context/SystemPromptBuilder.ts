@@ -207,7 +207,12 @@ When the user asks to say/show/present something richly, consider rich blocks (a
 const GOVERNANCE_L0_DIGEST = `## 团队信条（shared-rules.md）
 P1面向终态不绕路 P2共创伙伴不是木头人 P3方向正确>速度 P4单一真相源 P5可验证才算完成
 W1猫是Agent不是API W2共享才成团队 W3用户是CVO不是路由器
-@是路由指令——发前问"到我这里结束了吗？" | runtime禁止擅自重启`;
+@是路由指令——发前问"到我这里结束了吗？" | runtime禁止擅自重启
+
+## 质量纪律（覆盖"先简单后复杂"——方向错误的加速=浪费）
+- Bug先定位根因再修，禁止猜测修补。复现→日志→调用链→根因→动手
+- 不确定方向：停→搜→问→确认→再动手，禁止"先做了再说"
+- "完成"附证据（测试/截图/日志）。Bug先红后绿`;
 
 /** Per-breed workflow triggers: when to proactively @ other cats.
  *  Keyed by breedId so all variants of a breed share the same workflow. */

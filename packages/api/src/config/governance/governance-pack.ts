@@ -6,7 +6,7 @@
  */
 import { createHash } from 'node:crypto';
 
-export const GOVERNANCE_PACK_VERSION = '1.1.0';
+export const GOVERNANCE_PACK_VERSION = '1.2.0';
 
 export const MANAGED_BLOCK_START = '<!-- CAT-CAFE-GOVERNANCE-START -->';
 export const MANAGED_BLOCK_END = '<!-- CAT-CAFE-GOVERNANCE-END -->';
@@ -24,7 +24,12 @@ const HARD_CONSTRAINTS = `## Cat Cafe Governance Rules (Auto-managed)
 - Vision Guardian: Read original requirements before starting. AC completion ≠ feature complete.
 - Review flow: quality-gate → request-review → receive-review → merge-gate
 - Skills are available via symlinked cat-cafe-skills/ — load the relevant skill before each workflow step
-- Shared rules: See cat-cafe-skills/refs/shared-rules.md for full collaboration contract`;
+- Shared rules: See cat-cafe-skills/refs/shared-rules.md for full collaboration contract
+
+### Quality Discipline (overrides "try simplest approach first")
+- **Bug: find root cause before fixing**. No guess-and-patch. Steps: reproduce → logs → call chain → confirm root cause → fix
+- **Uncertain direction: stop → search → ask → confirm → then act**. Never "just try it first"
+- **"Done" requires evidence** (tests pass / screenshot / logs). Bug fix = red test first, then green`;
 
 const METHODOLOGY_INTRO = `### Knowledge Engineering
 - Documents use YAML frontmatter (feature_ids, topics, doc_kind, created)

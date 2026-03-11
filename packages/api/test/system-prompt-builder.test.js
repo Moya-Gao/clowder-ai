@@ -167,7 +167,7 @@ describe('SystemPromptBuilder', () => {
     assert.equal(a, b);
   });
 
-  test('output size is under 2100 chars (F091: raised from 2000 for signal context headroom)', async () => {
+  test('output size is under 2300 chars (raised for quality discipline section)', async () => {
     const build = await getBuilder();
     const prompt = build({
       catId: 'opus',
@@ -179,8 +179,8 @@ describe('SystemPromptBuilder', () => {
       promptTags: ['critique'],
     });
     assert.ok(
-      prompt.length < 2100,
-      `Prompt is ${prompt.length} chars, expected < 2100`
+      prompt.length < 2300,
+      `Prompt is ${prompt.length} chars, expected < 2300`
     );
   });
 
@@ -486,8 +486,8 @@ describe('SystemPromptBuilder', () => {
         promptTags: ['critique'],
       });
       assert.ok(
-        prompt.length < 2850,
-        `Full runtime prompt is ${prompt.length} chars, expected < 2850`
+        prompt.length < 3050,
+        `Full runtime prompt is ${prompt.length} chars, expected < 3050`
       );
     } finally {
       catRegistry.reset();
@@ -782,8 +782,8 @@ describe('SystemPromptBuilder', () => {
       ],
     });
     assert.ok(
-      prompt.length < 2150,
-      `Prompt with activity is ${prompt.length} chars, expected < 2150`,
+      prompt.length < 2350,
+      `Prompt with activity is ${prompt.length} chars, expected < 2350`,
     );
   });
 
@@ -1007,8 +1007,8 @@ describe('SystemPromptBuilder', () => {
       },
     });
     assert.ok(
-      prompt.length < 2200,
-      `Prompt with SOP hint is ${prompt.length} chars, expected < 2200`,
+      prompt.length < 2400,
+      `Prompt with SOP hint is ${prompt.length} chars, expected < 2400`,
     );
   });
 
@@ -1063,8 +1063,8 @@ describe('SystemPromptBuilder', () => {
       voiceMode: true,
     });
     assert.ok(
-      prompt.length < 2400,
-      `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2400`,
+      prompt.length < 2600,
+      `Prompt with voice mode + SOP hint is ${prompt.length} chars, expected < 2600`,
     );
   });
 });
