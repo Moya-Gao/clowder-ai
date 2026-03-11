@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress (Phase J ✅, AC-I6 遗留) | **Owner**: 布偶猫
+> **Status**: done | **Completed**: 2026-03-11 | **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
 > **Evolved from**: F049（MVP 使用中发现的 bug + 增强需求）
@@ -357,6 +357,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-10 | 🔴 铲屎官实测发现依赖全景 tab 还是平铺卡片网格，不是 DAG 拓扑。KD-2 被 KD-4/KD-5 推翻。追加 Phase J |
 | 2026-03-11 | Phase J 合入 main (PR #360) — React Flow + dagre DAG 拓扑图，三种边类型，节点点击详情面板。砚砚 R1+R2 + 云端 R1+R2 全过 |
 | 2026-03-11 | Phase J UX 迭代 (PR #367) — 默认 scope="仅有依赖"(connected-only)，scope filter 三档，stats bar，parser 读 body Related + F\d{3} 规范化。四猫讨论收敛，砚砚 R1(P1+P2)+R2 LGTM + 云端 pass |
+| 2026-03-11 | **F058 marked as done** — 愿景守护通过，10 Phase 全部合入，AC-I6（历史 doc 迁移）明确遗留延后，反思胶囊已写 |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 
