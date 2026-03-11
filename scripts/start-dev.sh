@@ -380,6 +380,10 @@ main() {
     echo -e "${CYAN}检查端口...${NC}"
     kill_port $API_PORT "API"
     kill_port $WEB_PORT "Frontend"
+    kill_port ${ANTHROPIC_PROXY_PORT:-9877} "Proxy"
+    kill_port ${WHISPER_PORT:-9876} "ASR"
+    kill_port ${TTS_PORT:-9879} "TTS"
+    kill_port ${LLM_POSTPROCESS_PORT:-9878} "LLM后修"
 
     # 2. 清理缓存
     clean_cache
