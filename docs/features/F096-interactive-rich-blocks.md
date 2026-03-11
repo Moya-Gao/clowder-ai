@@ -8,7 +8,7 @@ created: 2026-03-11
 
 # F096: Interactive Rich Blocks — 可交互富文本组件
 
-> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -94,20 +94,20 @@ interface InteractiveOption {
 
 ## Acceptance Criteria
 
-### Phase A（核心交互框架）
+### Phase A（核心交互框架） ✅
 
-- [ ] AC-A1: `RichBlockKind` 新增 `'interactive'`，类型定义含 4 种 interactiveType
-- [ ] AC-A2: 前端 `InteractiveBlock.tsx` 渲染器，支持 select / multi-select / card-grid / confirm
-- [ ] AC-A3: 用户选择后自动发送消息（填入 ChatInput + submit）
-- [ ] AC-A4: 交互完成后 block 变为 disabled 状态 + 回显已选
-- [ ] AC-A5: `cat_cafe_create_rich_block` MCP 工具支持 `kind: 'interactive'`
-- [ ] AC-A6: 后端 Zod 校验支持 interactive block schema
-- [ ] AC-A7: card-grid 的 `allowRandom` 实现随机选择动画
+- [x] AC-A1: `RichBlockKind` 新增 `'interactive'`，类型定义含 4 种 interactiveType
+- [x] AC-A2: 前端 `InteractiveBlock.tsx` 渲染器，支持 select / multi-select / card-grid / confirm
+- [x] AC-A3: 用户选择后自动发送消息（填入 ChatInput + submit）
+- [x] AC-A4: 交互完成后 block 变为 disabled 状态 + 回显已选
+- [x] AC-A5: `cat_cafe_create_rich_block` MCP 工具支持 `kind: 'interactive'`
+- [x] AC-A6: 后端 Zod 校验支持 interactive block schema
+- [x] AC-A7: card-grid 的 `allowRandom` 实现随机选择动画
 
-### Phase B（渐进增强）
+### Phase B（渐进增强） ✅
 
-- [ ] AC-B1: 非交互客户端降级为纯文本展示（option 列表 + "请输入编号选择"）
-- [ ] AC-B2: Rich Block Rules 文档更新，猫猫知道怎么用 interactive block
+- [x] AC-B1: 非交互客户端降级为纯文本展示（option 列表 + "请输入编号选择"）
+- [x] AC-B2: Rich Block Rules 文档更新，猫猫知道怎么用 interactive block
 
 ## Dependencies
 
@@ -146,6 +146,7 @@ interface InteractiveOption {
 |------|------|
 | 2026-03-11 | 铲屎官提出可交互富文本需求（F087 Design Gate 讨论中） |
 | 2026-03-11 | F096 立项，从 F087 Design Gate 讨论中提取为独立 Feature |
+| 2026-03-11 | Phase A+B merged (PR #365) — codex 3轮 review + cloud 3轮 review |
 
 ## Review Gate
 
@@ -165,10 +166,10 @@ interface InteractiveOption {
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
 |----|---------------------------|---------|----------|------|
-| R1 | "弹出一个东西让我选和☑️" | AC-A2, AC-A3 | test + screenshot | [ ] |
-| R2 | "别的地方还能用" — 通用组件 | AC-A1~A6 | 多场景 test | [ ] |
-| R3 | F087 训练营选任务需要 card-grid | AC-A2, AC-A7 | F087 集成测试 | [ ] |
-| R4 | 随机抽功能 | AC-A7 | manual + screenshot | [ ] |
+| R1 | "弹出一个东西让我选和☑️" | AC-A2, AC-A3 | test + screenshot | [x] |
+| R2 | "别的地方还能用" — 通用组件 | AC-A1~A6 | 多场景 test | [x] |
+| R3 | F087 训练营选任务需要 card-grid | AC-A2, AC-A7 | F087 集成测试 | [x] |
+| R4 | 随机抽功能 | AC-A7 | manual + screenshot | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
