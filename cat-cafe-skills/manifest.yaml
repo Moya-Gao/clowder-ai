@@ -400,6 +400,28 @@ skills:
     merged_from: null
     feature: "F085"
 
+  # ── AI 图片生成 ──
+  image-generation:
+    description: >
+      通过 Chrome MCP 浏览器自动化，在 Gemini / ChatGPT 上生成图片并下载。
+      Use when: 需要生成概念图、UI 参考图、像素画素材、猫猫头像、任何图片资产。
+      Not for: Pencil .pen 文件内的简单形状/布局（用 pencil-design）。
+      Output: 生成的图片文件（PNG）保存到项目 assets/ 目录。
+    triggers:
+      - "生成图片"
+      - "画一张"
+      - "generate image"
+      - "AI 画图"
+      - "画头像"
+      - "画个"
+    not_for:
+      - "Pencil 内部设计"
+      - "简单形状布局"
+    output: "Generated PNG saved to assets/"
+    next: []
+    sop_step: null
+    merged_from: null
+
 # ─── 降级为 refs/（不再是独立 skill） ─────────────────
 refs:
   mcp-callbacks:
