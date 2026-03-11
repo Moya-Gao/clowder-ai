@@ -254,3 +254,4 @@ created: 2026-03-10
 | **当前模板** | `docs/features/TEMPLATE.md` | 已升级到黄金模板 |
 | **审计报告** | `docs/features/assets/F094/phase-a-audit.md` | 实测分档与缺失项 |
 | **审计明细** | `docs/features/assets/F094/phase-a-audit.json` | 机器可读缺失清单 |
+| **Reflection** | `docs/reflections/2026-03-11-f094-feature-doc-debt-cleanup-capsule.md` | 完成反思胶囊 |

@@ -72,3 +72,4 @@
 | F085 | F085: Hyperfocus Brake — 猫猫健康小刹车 (Phase 5: UX 增强) | active | [F085-hyperfocus-brake.md](./F085-hyperfocus-brake.md) |
 | F081 | F081: Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | done | [F081-bubble-continuity-observability.md](./F081-bubble-continuity-observability.md) |
 | F091 | F091: Signal Study Mode — 信号学习伴侣 | done | [F091-signal-study-mode.md](./F091-signal-study-mode.md) |
+| F094 | F094: Feature 文档债务清理 — 全量迁移到黄金模板标准 | done | [F094-feature-doc-debt-cleanup.md](./F094-feature-doc-debt-cleanup.md) |
