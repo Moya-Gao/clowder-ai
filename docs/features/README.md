@@ -75,5 +75,6 @@
 | F081 | F081: Bubble Continuity & Rendering Observability — 气泡连续性 + 渲染链路可观测性 | done | [F081-bubble-continuity-observability.md](./F081-bubble-continuity-observability.md) |
 | F091 | F091: Signal Study Mode — 信号学习伴侣 | done | [F091-signal-study-mode.md](./F091-signal-study-mode.md) |
 | F094 | F094: Feature 文档债务清理 — 全量迁移到黄金模板标准 | done | [F094-feature-doc-debt-cleanup.md](./F094-feature-doc-debt-cleanup.md) |
+| F095 | F095: Thread Sidebar 导航体验升级 | done | [F095-sidebar-collapse-memory.md](./F095-sidebar-collapse-memory.md) |
 | F096 | F096: Interactive Rich Blocks — 可交互富文本组件 | done | [F096-interactive-rich-blocks.md](./F096-interactive-rich-blocks.md) |
 | F058 | F058: Mission Control 增强（F049++） | done | [F058-mission-control-enhancements.md](./F058-mission-control-enhancements.md) |

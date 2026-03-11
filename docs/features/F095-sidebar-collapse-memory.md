@@ -4,11 +4,15 @@ related_features: []
 topics: [frontend, ux, sidebar, navigation]
 doc_kind: spec
 created: 2026-03-10
+completed: 2026-03-11
+status: done
 ---
 
 # F095: Thread Sidebar 导航体验升级
 
 > **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
+**Completed: 2026-03-11**
+**Implementation**: PR #366 / #370 / #373 / #376
 
 ## Why
 
@@ -175,6 +179,8 @@ Sidebar 布局从上到下：
 | 2026-03-11 | Phase A merged (PR #366) |
 | 2026-03-11 | Phase B merged (PR #370) |
 | 2026-03-11 | Phase C merged (PR #373) |
+| 2026-03-11 | Modal UX hotfix merged (PR #376) — 项目列表前置、猫猫选择默认折叠 |
+| 2026-03-11 | 愿景守护通过，feature close |
 
 ## Review Gate
 
@@ -187,3 +193,5 @@ Sidebar 布局从上到下：
 | 类型 | 路径 | 说明 |
 |------|------|------|
 | **Discussion** | Thread `thread_mm4dj9jp0tij0ch3` 2026-03-11 | 铲屎官需求 + 缅因猫讨论 |
+| **Design** | `designs/sidebar-navigation.pen` | Phase B/C 设计稿与导航终态 wireframe |
+| **Reflection** | `docs/reflections/2026-03-11-f095-thread-sidebar-navigation-capsule.md` | 完成阶段反思胶囊 |
