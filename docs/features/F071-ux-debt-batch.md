@@ -1,116 +1,184 @@
 ---
 feature_ids: [F071]
-related_features: [F039]
+related_features: [F039, F075]
 topics: [ux, frontend, debt, image, status, mention]
 doc_kind: spec
 created: 2026-03-07
+completed: 2026-03-11
 ---
 
 # F071: UX Debt Batch — 前端小修小补合集
 
-> **Status**: spec | **Owner**: 布偶猫
-> Status: spec | Owner: 布偶猫 | Type: debt batch
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P2
+**Completed: 2026-03-11**
+**Implementation**: PR #268 (`ed06a8c7`)
+**Follow-up fixes**: `a26ca1b7`（待上传图片预览）/ `e9249040`（mention 自动滚动 + “还有更多猫猫”提示）
 
 ## Why
 
-随着猫猫家族壮大和功能累积，前端出现了几个体验痛点。单个都不大，合并为一个 debt batch 统一追踪。
+随着猫猫家族壮大和功能累积，前端出现了几个高频但零碎的 UX 痛点。单个都不大，但都直接影响铲屎官日常聊天体验，适合合并成一个 debt batch 统一收口。
+
+### 铲屎官原话（2026-03-07）
+
+> "上传的图片上传后不支持预览"
+>
+> "发送消息当前thread没有消息和猫猫在处理；但是任然提示有猫猫正在工作"
+>
+> "@现在猫猫家族 的成员太多了。。我都看不到都有谁了 如何优化？"
+>
+> "聊天窗中发送的消息 图片支持点击预览(回显)"
+>
+> "d1 的这个图片预览如果我只是在上传的过程中 他能够也支持你这个预览吗？"
+>
+> "按键盘往下的时候只有这四只猫可以选 但是其实其他猫猫藏在下面了"
 
 ## What
 
-本 feature 作为债务批处理，集中收口图片预览、猫猫状态面板、@mention 列表三个高频 UX 问题。
+本 feature 作为债务批处理，集中收口图片预览、猫猫状态面板、@ mention 列表三个高频 UX 问题，并把 merge 后才暴露出的两个真实使用边角一并收进真相源。
 
-### Issues
+### D1: 图片预览统一为 Lightbox 体验
 
-### D1: 上传图片不支持预览（点击放大）
+**问题**：用户在聊天中上传图片后，图片内嵌在消息里，但点击只能新标签页打开；发送前的待上传图片也只有缩略图，没有放大预览。
 
-**现象**：用户在聊天中上传图片后，图片内嵌在消息里，但点击只能在新标签页打开，没有 lightbox 预览体验。
+**根因**：`ChatMessage.tsx` 使用 `window.open(url, '_blank')`，没有复用项目里已有的 rich media lightbox 交互；`ImagePreview.tsx` 只有缩略图和删除按钮，没有放大路径。
 
-**根因**：`ChatMessage.tsx` 中图片的 click handler 是 `window.open(url, '_blank')`（新标签页打开），没有接入 lightbox 组件。而项目中已有 `MediaGalleryBlock.tsx` 实现了完整的 lightbox（全屏遮罩 + Esc 关闭 + 点击背景关闭），但只用于 rich block 的 media_gallery 类型，普通消息图片没有复用。
-
-**关键文件**：
-- `packages/web/src/components/ChatMessage.tsx` — 图片渲染 + click handler
-- `packages/web/src/components/rich/MediaGalleryBlock.tsx` — 已有 lightbox 实现
-
-**方案方向**：提取 lightbox 为独立组件或 hook，让 ChatMessage 中的图片也能调用。
-
-> 补充（铲屎官 2026-03-07）：聊天窗中发送的消息图片也需支持点击预览(回显)——D1 的 ContentBlocks 不区分 user/assistant 消息，统一走 lightbox，已覆盖。
-> 补充 2：发送前的待上传图片预览（ImagePreview 组件）也已支持点击 Lightbox 放大。
-
----
-
-### D2: 猫猫状态面板幽灵状态（F5/切换 thread 后）
-
-**现象**：当前 thread 没有猫猫在处理消息，但"猫猫状态"面板仍显示"等待调用..."。一般发生在 F5 刷新或切换到其他 thread 再切回来后。
-
-**根因**：`chatStore.setCurrentThread()` 切换线程时，从 `threadStates` map 恢复状态。如果是 F5 后首次访问，走 `DEFAULT_THREAD_STATE`（`catStatuses: {}`）。问题在于没有从后端同步当前 thread 的实际运行状态——WebSocket 的 `intent_mode` 事件只在新 intent 到达时更新，不会在重连后回放。
+**最终交付**：
+- 提取共享 `Lightbox.tsx`，复用到普通消息图片与 rich block 媒体预览
+- `ChatMessage.tsx` 的图片点击改为 inline lightbox，用户消息和猫猫消息统一支持
+- `ImagePreview.tsx` 的待上传图片缩略图支持点击放大预览
+- 保留 Esc 关闭、点击背景关闭、复制图片链接按钮
 
 **关键文件**：
-- `packages/web/src/stores/chatStore.ts` — `setCurrentThread()` 状态恢复逻辑
-- `packages/web/src/hooks/useSocket.ts` — WS `intent_mode` 事件处理
-- `packages/web/src/hooks/useChatSocketCallbacks.ts` — `onIntentMode` 回调
-- `packages/web/src/components/RightStatusPanel.tsx` — `activeCats` 计算 + "等待调用..." 显示逻辑
+- `packages/web/src/components/ChatMessage.tsx`
+- `packages/web/src/components/ImagePreview.tsx`
+- `packages/web/src/components/Lightbox.tsx`
+- `packages/web/src/components/rich/MediaGalleryBlock.tsx`
 
-**方案方向**：
-- 方案 A：WS 重连/thread 切换时，向后端请求当前 thread 的活跃 invocation 状态，用于初始化 `catStatuses`
-- 方案 B：如果 `catStatuses` 为空且没有活跃 invocation，不显示"等待调用..."面板（只在有 targetCats 或活跃 invocation 时才显示）
+### D2: 猫猫状态面板去掉误导性的幽灵“等待调用...”
 
----
+**问题**：当前 thread 没有猫猫在处理消息，但状态面板在 F5 或切 thread 后仍显示“等待调用...”，让铲屎官误以为还有活跃任务。
 
-### D3: @ 猫猫下拉列表过长，无法快速选择
+**根因**：切换线程或冷启动时 `catStatuses` 可能为空，而 WebSocket 不会回放旧的 `intent_mode`；这时 UI 用“等待调用...”兜底，文案语义比真实状态更强，导致误导。
 
-**现象**：猫猫家族成员已达 9+ 个（布偶猫×3 + 缅因猫×3 + 暹罗猫×2 + 狸花猫 + 孟加拉猫×2），@ mention 下拉列表很长，难以一眼看清。
-
-**根因**：`ChatInputMenus.tsx` 的 mention 下拉：
-1. 没有 `max-height` / `overflow-y: auto`，列表无限增长不可滚动
-2. 没有搜索过滤——输入 `@op` 不会过滤到 opus 相关选项，仍显示全部
-3. 没有按家族分组——全部平铺
+**最终交付**：
+- `RightStatusPanel.tsx` 与 `MobileStatusSheet.tsx` 在无活跃 invocation 时统一显示“空闲”
+- 不再声称“等待调用...”，避免把“没有状态”误写成“马上要工作”
 
 **关键文件**：
-- `packages/web/src/components/ChatInputMenus.tsx` — 下拉 UI 渲染
-- `packages/web/src/components/chat-input-options.ts` — `buildCatOptions()` + `detectMenuTrigger()`
-- `packages/web/src/components/ChatInput.tsx` — 状态管理 + 键盘处理
+- `packages/web/src/components/RightStatusPanel.tsx`
+- `packages/web/src/components/MobileStatusSheet.tsx`
 
-**方案方向**：
-1. **搜索过滤**（优先级最高）：`@` 后输入的文字用于过滤，匹配 mentionPatterns
-2. **max-height + 滚动**：给下拉加 `max-h-64 overflow-y-auto`
-3. **家族分组**（可选）：按 breed 分组显示，加分隔线和小标题
+### D3: @ mention 下拉从“堆一长列”改成可过滤、可滚动、可见性明确
+
+**问题**：猫猫家族成员增多后，@ mention 下拉变得很长。起初虽然加了滚动，但 macOS 隐藏滚动条，铲屎官看起来只像“只有前四只猫可以选”。
+
+**根因**：
+1. 初版下拉没有输入过滤，输入 `@op` 仍显示全部
+2. 初版下拉没有滚动容器，列表无限增长
+3. 加上滚动后，键盘导航不会自动滚动到当前选项，也没有“下面还有猫”提示
+
+**最终交付**：
+- `ChatInput.tsx` 基于 `label` / `id` / `insert` 做 mention 过滤
+- `ChatInputMenus.tsx` 增加 `max-h-80` 滚动容器和“无匹配猫猫”空态
+- `chat-input-options.ts` 将 mention fragment limit 从 4 提升到 12，减少刚输入就截断的情况
+- 键盘 ArrowUp / ArrowDown 选中隐藏项时自动 `scrollIntoView`
+- 列表底部仍有隐藏项时显示“↓ 还有更多猫猫”提示
+- 空结果时只拦截 plain `Enter`，保留 `Shift+Enter` 换行语义
+
+> 铲屎官评价："你这只心机小坏猫！是不想让大家看到都接入了什么猫猫吗？"  
+> 结论：不是心机，是滚动 affordance 不够。
+
+**关键文件**：
+- `packages/web/src/components/ChatInput.tsx`
+- `packages/web/src/components/ChatInputMenus.tsx`
+- `packages/web/src/components/chat-input-options.ts`
 
 ## Priority
 
 | Issue | Severity | Effort |
 |-------|----------|--------|
-| D1 图片预览 | P3 | S (复用已有 lightbox) |
-| D2 幽灵状态 | P2 | M (需要状态同步逻辑) |
-| D3 mention 列表 | P2 | S (搜索过滤 + 滚动) |
+| D1 图片预览 | P3 | S |
+| D2 幽灵状态 | P2 | M |
+| D3 mention 列表 | P2 | S |
 
 ## Acceptance Criteria
 
 ### Phase A（Debt Batch 修复）
-- [x] AC-A1: 点击消息中的图片，弹出 lightbox 全屏预览（Esc/点击背景关闭）。
-- [x] AC-A2: F5 刷新或切换 thread 后，无活跃 invocation 时不显示“等待调用...”。
-- [x] AC-A3: @ mention 下拉支持输入过滤 + 滚动，9+ 个猫也能快速定位。
+- [x] AC-A1: 点击已发送/回显消息中的图片，弹出 lightbox 全屏预览（Esc/点击背景关闭，支持复制图片链接）。
+- [x] AC-A2: 发送前的待上传图片缩略图支持同样的 lightbox 放大预览。
+- [x] AC-A3: F5 刷新或切换 thread 后，无活跃 invocation 时状态面板显示“空闲”，不再误导为“等待调用...”。
+- [x] AC-A4: @ mention 下拉支持输入过滤、空结果提示、滚动容器，9+ 个猫也能快速定位。
+- [x] AC-A5: @ mention 下拉在键盘导航时会自动滚动到当前项，并在存在隐藏项时明确提示“↓ 还有更多猫猫”。
+
+## 需求点 Checklist
+
+| ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
+|----|---------------------------|---------|----------|------|
+| R1 | 上传后的消息图片支持点击预览（含回显） | AC-A1 | `pnpm --filter @cat-cafe/web test` + PR #268 | [x] |
+| R2 | 发送前的待上传图片也支持点击预览 | AC-A2 | code review + `a26ca1b7` | [x] |
+| R3 | 无活跃任务时不要再显示“有猫猫在工作” | AC-A3 | `right-status-panel.test.ts` + PR #268 | [x] |
+| R4 | @ 列表成员太多时能过滤和滚动 | AC-A4 | `chat-input-mention-filter.test.ts` + PR #268 | [x] |
+| R5 | 键盘导航时隐藏的猫猫也能被看见，并提示下面还有更多 | AC-A5 | `e9249040` + `chat-input-menus.test.tsx` | [x] |
+
+### 覆盖检查
+- [x] 每个需求点都能映射到至少一个 AC
+- [x] 每个 AC 都有验证方式
+- [x] 前端需求已通过 review/test/真实使用反馈完成需求→证据映射
 
 ## Dependencies
 
 - **Evolved from**: F039（消息队列与状态呈现基线）
 - **Blocked by**: 无
-- **Related**: F071（本体）/ 前端状态一致性与输入体验优化
+- **Related**: F075（@ mention 优化直接引出了猫猫排行榜想法）
 
 ## Risk
 
 | 风险 | 缓解 |
 |------|------|
-| debt batch 合并过多小改动，回归面扩大 | 每个子项保留独立验证点，按 D1/D2/D3 分项验收 |
-| UI 细节修复在跨线程场景复现不稳定 | 增加 thread 切换/F5 的固定回归脚本与人工验证 checklist |
+| debt batch 合并多个小改动，容易漏掉边角交互 | 用 D1/D2/D3 分项验收，review 中补齐回归测试 |
+| 滚动容器类问题在本地容易被隐藏滚动条掩盖 | 增加键盘导航实测 + “还有更多”可见性提示 |
 
-## D3 后续修复
+## Key Decisions
 
-### D3.1: 键盘导航不自动滚动 + 隐藏猫猫无提示
+| # | 决策 | 理由 | 日期 |
+|---|------|------|------|
+| KD-1 | 共享 `Lightbox.tsx` 而不是继续 `window.open` | 消息图片、rich block、待上传图片要统一体验，避免重复实现 | 2026-03-07 |
+| KD-2 | D2 用“空闲”文案兜底，而不是在本轮补后端状态回放 | 原始痛点是“误导”，先保证文案真实，比做不完整同步更稳 | 2026-03-07 |
+| KD-3 | D3 先上过滤 + 滚动 + affordance，不做 breed 分组 | 这是最小有效解，能直接解决“看不见/选不到” | 2026-03-07 |
+| KD-4 | mention 空结果时只拦截 plain `Enter`，保留 `Shift+Enter` 换行 | 云端 review 指出语义回归，修成更精确的键位处理 | 2026-03-07 |
 
-**现象**：`max-h-80` 滚动容器加上后，macOS 隐藏滚动条导致铲屎官以为只有 4 只猫可选。键盘 ArrowDown 选中了下方猫猫但滚动区没跟着走，看起来像"布偶猫只展示自家人+砚砚，把其他猫藏起来了"。
+## Timeline
 
-**修复**：
-- `selectedRef` callback：键盘选中时 `scrollIntoView({ block: 'nearest' })` 自动跟随
-- `canScrollDown` 状态：检测滚动区是否还有隐藏内容，显示"↓ 还有更多猫猫"提示
+| 日期 | 事件 |
+|------|------|
+| 2026-03-07 | 铲屎官提出 3 个 UX 问题，F071 建 spec 并进入 debt batch 实现 |
+| 2026-03-07 | @codex 本地 review 发现 2P1 + 1P2；补齐文档、回归测试与空结果 Enter 处理 |
+| 2026-03-07 | 云端 review 发现 `Shift+Enter` 被误拦截；修复后 PR #268 合入（`ed06a8c7`） |
+| 2026-03-07 | merge 后补充 `a26ca1b7`：待上传图片也支持 Lightbox 预览 |
+| 2026-03-07 | merge 后补充 `e9249040`：mention 列表键盘自动滚动 + “还有更多猫猫”提示 |
+| 2026-03-11 | @gpt52 愿景守护复核原始需求、PR/commit 与真相源，同步反思胶囊并执行 feat close |
 
-> 铲屎官评价："你这只心机小坏猫！是不想让大家看到都接入了什么猫猫吗？" —— 冤枉！是 UX 疏忽不是心机！
+## Review Gate
+
+- 本地 review：@codex（2P1 + 1P2，修复后 re-review 放行）
+- 云端 review：1 个 P2（`Shift+Enter` 语义）修复后通过
+- 愿景守护 / feat close：@gpt52
+
+## Links
+
+| 类型 | 路径 | 说明 |
+|------|------|------|
+| **Feature** | `docs/features/F039-message-queue-delivery.md` | D2 的状态呈现基线 |
+| **Feature** | `docs/features/F075-cat-leaderboard.md` | D3 优化后引出的后续想法 |
+| **Mailbox** | `docs/mailbox/2026-03-07-f071-ux-debt-review-request.md` | 布偶猫发给 codex 的 review 请求 |
+| **Reflection** | `docs/reflections/2026-03-11-f071-ux-debt-capsule.md` | 本次 feat close 的反思胶囊 |
+| **Code** | `packages/web/src/components/Lightbox.tsx` | D1 共享 Lightbox 实现 |
+| **Code** | `packages/web/src/components/ChatInput.tsx` | D3 过滤与空结果按键语义 |
+
+## 愿景交叉验证签收
+
+| 猫猫 | 读了哪些文档 | 三问结论（核心问题 / 交付物 / 体验） | 签收 |
+|------|-------------|-------------------------------------|------|
+| 布偶猫/宪宪 (opus) | F071 spec、PR #268、自测结果、后续 `a26ca1b7` / `e9249040` | 核心问题是 3 个高频 UX 刺点；交付物覆盖 D1/D2/D3 及两处补丁；铲屎官日常聊天路径已顺手很多 | ✅ |
+| 缅因猫/砚砚 (codex) | F071 spec、原始对话、分支 diff、PR #268、本地测试 | 初审抓出 2P1 + 1P2；修复后复审通过，确认可 merge；说明交付物经 review 打磨后已达标 | ✅ |
+| 缅因猫/砚砚 (gpt52) | F071 spec、原始对话、PR #268、`a26ca1b7`、`e9249040`、反思胶囊 | 核心问题是“聊天时几个小刺反复打断体验”；最终交付既解决主诉求，也补上真实使用才暴露的边角；现在可以从 active backlog 正式移出 | ✅ 可 close |

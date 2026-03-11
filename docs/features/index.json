@@ -351,7 +351,7 @@
     {
       "id": "F058",
       "name": "Mission Control 增强（F049++）",
-      "status": "in-progress (Phase J ✅, AC-I6 遗留) | **Owner**: 布偶猫",
+      "status": "done | **Completed**: 2026-03-11 | **Owner**: 布偶猫",
       "file": "F058-mission-control-enhancements.md"
     },
     {
@@ -435,7 +435,7 @@
     {
       "id": "F071",
       "name": "UX Debt Batch — 前端小修小补合集",
-      "status": "spec | **Owner**: 布偶猫",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P2",
       "file": "F071-ux-debt-batch.md"
     },
     {
@@ -585,15 +585,21 @@
     {
       "id": "F095",
       "name": "Thread Sidebar 导航体验升级",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "in-progress | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F095-sidebar-collapse-memory.md"
     },
     {
       "id": "F096",
       "name": "Interactive Rich Blocks — 可交互富文本组件",
-      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "status": "done | **Owner**: 布偶猫 | **Priority**: P1",
       "file": "F096-interactive-rich-blocks.md"
+    },
+    {
+      "id": "F097",
+      "name": "CLI Output Collapsible UX — 聊天气泡折叠式重构",
+      "status": "spec | **Owner**: 布偶猫 | **Priority**: P1",
+      "file": "F097-cli-output-collapsible-ux.md"
     }
   ],
-  "generated_at": "2026-03-11T10:09:18.201Z"
+  "generated_at": "2026-03-11T12:13:46.658Z"
 }

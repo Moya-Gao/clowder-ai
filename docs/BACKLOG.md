@@ -31,7 +31,6 @@ created: 2026-02-26
 | F066 | Voice Pipeline Upgrade — Phase 4: TTS 韧性增强 | in-progress | 布偶猫 | [F066](features/F066-voice-pipeline-upgrade.md) |
 | F067 | Cold-start Verifier — 无历史污染的交付物验证 | spec | 布偶猫 | [F067](features/F067-cold-start-verifier.md) |
 | F069 | Thread Read State — 未读 Badge 后端真相源 | spec | 布偶猫 | [F069](features/F069-thread-read-state.md) |
-| F071 | UX Debt Batch — 前端小修小补合集 | spec | 布偶猫 | [F071](features/F071-ux-debt-batch.md) |
 | F074 | Mount Directory Support — 挂载/共享目录支持 | spec | 布偶猫 | [F074](features/F074-mount-directory-support.md) |
 | F075 | 猫猫排行榜 (Cat Leaderboard) — 互动统计 + 游戏战绩 + 情绪分析 | spec | 布偶猫 | [F075](features/F075-cat-leaderboard.md) |
 | F076 | Mission Hub 跨项目作战面板 — 派遣进展 + 回流摘要 + 决策中枢 | phase-2-done | 布偶猫 | [F076](features/F076-mission-hub-cross-project.md) |
