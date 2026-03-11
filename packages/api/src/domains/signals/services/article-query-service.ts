@@ -20,6 +20,7 @@ export interface ListInboxOptions {
   readonly limit?: number | undefined;
   readonly source?: string | undefined;
   readonly tier?: SignalTier | undefined;
+  readonly status?: SignalArticleStatus | 'all' | undefined;
 }
 
 export interface SearchSignalArticlesOptions {
@@ -130,7 +131,8 @@ async function selectInboxArticles(
     if (article.deletedAt) {
       continue;
     }
-    if (article.status !== 'inbox') {
+    const wantedStatus = options.status ?? 'inbox';
+    if (wantedStatus !== 'all' && article.status !== wantedStatus) {
       continue;
     }
     if (options.source && article.source !== options.source) {

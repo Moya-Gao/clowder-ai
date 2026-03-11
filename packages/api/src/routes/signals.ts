@@ -11,6 +11,7 @@ const listInboxQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   source: z.string().min(1).max(200).optional(),
   tier: z.enum(['1', '2', '3', '4']).optional(),
+  status: z.enum(['all', 'inbox', 'read', 'starred', 'archived']).optional(),
 });
 
 const articleByUrlQuerySchema = z.object({
@@ -102,6 +103,7 @@ export const signalsRoutes: FastifyPluginAsync = async (app) => {
       limit: parsed.data.limit,
       source: parsed.data.source,
       tier: toSignalTier(parsed.data.tier),
+      status: parsed.data.status,
     });
 
     return { items };

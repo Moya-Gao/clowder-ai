@@ -27,6 +27,7 @@ export interface SignalsInboxOptions {
   readonly limit?: number | undefined;
   readonly source?: string | undefined;
   readonly tier?: SignalTier | undefined;
+  readonly status?: 'all' | 'inbox' | 'read' | 'starred' | 'archived' | undefined;
 }
 
 export interface SignalArticleUpdateInput {
@@ -82,6 +83,7 @@ export async function fetchSignalsInbox(options: SignalsInboxOptions = {}): Prom
       limit: options.limit ?? 20,
       source: options.source,
       tier: options.tier,
+      status: options.status,
     }),
   );
   await requireOk(response);

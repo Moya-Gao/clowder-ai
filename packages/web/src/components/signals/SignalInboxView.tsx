@@ -42,18 +42,6 @@ function toSignalTier(value: string | undefined): SignalTier | undefined {
   return parsed as SignalTier;
 }
 
-function toSignalStatus(value: FormDataEntryValue | null): SignalArticleStatus | undefined {
-  if (typeof value !== 'string') return undefined;
-  switch (value) {
-    case 'inbox':
-    case 'read':
-    case 'starred':
-    case 'archived':
-      return value;
-    default:
-      return undefined;
-  }
-}
 
 export function SignalInboxView() {
   const [items, setItems] = useState<readonly SignalArticle[]>([]);
@@ -97,11 +85,16 @@ export function SignalInboxView() {
     });
   }, []);
 
-  const refreshInbox = useCallback(async () => {
+  const refreshInbox = useCallback(async (statusOverride?: SignalArticleFilters['status']) => {
     setLoading(true);
     setError(null);
     try {
-      const [inboxItems, statsData] = await Promise.all([fetchSignalsInbox({ limit: 80 }), fetchSignalStats()]);
+      const activeStatus = statusOverride ?? filters.status;
+      const statusParam = activeStatus === 'all' ? ('all' as const) : activeStatus === 'inbox' ? undefined : activeStatus;
+      const [inboxItems, statsData] = await Promise.all([
+        fetchSignalsInbox({ limit: 80, status: statusParam }),
+        fetchSignalStats(),
+      ]);
       setItems(inboxItems);
       setShowServerSearchResults(false);
       setStats(statsData);
@@ -110,10 +103,16 @@ export function SignalInboxView() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filters.status]);
 
   useEffect(() => {
     void refreshInbox();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
+  }, []);
+
+  const handleStatusTab = useCallback((status: SignalArticleFilters['status']) => {
+    setFilters((current) => ({ ...current, status }));
+    void refreshInbox(status);
   }, [refreshInbox]);
 
   const filteredItems = useMemo(
@@ -131,15 +130,15 @@ export function SignalInboxView() {
       return;
     }
     const formData = new FormData(event.currentTarget);
-    const selectedStatus = formData.get('status');
     const selectedSource = formData.get('source');
     const selectedTier = formData.get('tier');
+    const statusForSearch = filters.status === 'all' ? undefined : filters.status === 'inbox' ? undefined : (filters.status as SignalArticleStatus);
 
     setLoading(true);
     try {
       const result = await searchSignals(query, {
         limit: 80,
-        status: toSignalStatus(selectedStatus),
+        status: statusForSearch,
         source:
           typeof selectedSource === 'string' && selectedSource !== 'all'
             ? selectedSource
@@ -155,7 +154,7 @@ export function SignalInboxView() {
     } finally {
       setLoading(false);
     }
-  }, [filters.query, refreshInbox]);
+  }, [filters.query, filters.status, refreshInbox]);
 
   const handleSelectArticle = useCallback(async (article: SignalArticle) => {
     setSelectedArticleId(article.id);
@@ -229,26 +228,30 @@ export function SignalInboxView() {
           </div>
         </header>
 
-        <form onSubmit={handleSearchSubmit} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid gap-2 md:grid-cols-5">
+        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm space-y-3">
+          <div className="flex gap-1">
+            {([['inbox', 'Inbox'], ['read', '已读'], ['all', '全部']] as const).map(([key, label]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleStatusTab(key)}
+                className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
+                  filters.status === key
+                    ? 'bg-owner-primary text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <form onSubmit={handleSearchSubmit} className="grid gap-2 md:grid-cols-4">
             <input
               value={filters.query}
               onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))}
               placeholder="搜索标题、来源、标签..."
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm md:col-span-2"
             />
-            <select
-              value={filters.status}
-              onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value as SignalArticleFilters['status'] }))}
-              name="status"
-              className="rounded-lg border border-gray-200 px-3 py-2 text-sm"
-            >
-              <option value="all">状态: 全部</option>
-              <option value="inbox">inbox</option>
-              <option value="read">read</option>
-              <option value="starred">starred</option>
-              <option value="archived">archived</option>
-            </select>
             <select
               value={filters.tier}
               onChange={(event) => setFilters((current) => ({ ...current, tier: event.target.value as SignalArticleFilters['tier'] }))}
@@ -272,16 +275,11 @@ export function SignalInboxView() {
                 <option key={source} value={source}>{source}</option>
               ))}
             </select>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="submit" className="rounded-lg bg-owner-primary px-3 py-2 text-sm font-semibold text-white hover:bg-owner-dark">
-              搜索 / 刷新
+            <button type="submit" className="rounded-lg bg-owner-primary px-3 py-2 text-sm font-semibold text-white hover:bg-owner-dark md:col-span-4">
+              搜索
             </button>
-            <button type="button" onClick={() => void refreshInbox()} className="rounded-lg border border-owner-light px-3 py-2 text-sm text-owner-dark hover:bg-owner-bg">
-              仅刷新 Inbox
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
 
         <SignalStatsCards stats={stats} />
 
