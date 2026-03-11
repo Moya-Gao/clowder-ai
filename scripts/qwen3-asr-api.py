@@ -71,7 +71,7 @@ def _convert_to_wav(src_path: str) -> str:
     return wav_path
 
 
-def _do_transcribe(audio_path: str, language: str) -> str:
+def _do_transcribe(audio_path: str, language: str, initial_prompt: str = "") -> str:
     """Synchronous transcription using mlx-audio (runs in thread pool)."""
     from mlx_audio.stt.generate import generate_transcription
 
@@ -83,12 +83,10 @@ def _do_transcribe(audio_path: str, language: str) -> str:
     try:
         # output_path → /dev/null: mlx-audio always writes {output_path}.txt to disk;
         # we only need the return value, so discard the file write.
-        result = generate_transcription(
-            model=_model,
-            audio=wav_path,
-            output_path="/dev/null",
-            verbose=False,
-        )
+        kwargs = dict(model=_model, audio=wav_path, output_path="/dev/null", verbose=False)
+        if initial_prompt:
+            kwargs["context"] = initial_prompt
+        result = generate_transcription(**kwargs)
         return result.text.strip() if hasattr(result, "text") else str(result).strip()
     finally:
         if wav_path != audio_path:
@@ -120,7 +118,7 @@ async def transcribe(
 
     try:
         async with _transcribe_lock:
-            text = await asyncio.to_thread(_do_transcribe, tmp_path, language)
+            text = await asyncio.to_thread(_do_transcribe, tmp_path, language, initial_prompt)
         log.info(
             "Transcribed %d bytes → %d chars (lang=%s)", len(content), len(text), language
         )
@@ -157,11 +155,7 @@ def main():
         level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
     )
 
-    def handle_sigterm(signum, frame):
-        log.info("Received SIGTERM, shutting down...")
-        sys.exit(0)
-
-    signal.signal(signal.SIGTERM, handle_sigterm)
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 
     _model_path = args.model
     log.info("=== Cat Cafe Qwen3-ASR Server (MLX) ===")
