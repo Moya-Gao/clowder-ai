@@ -99,8 +99,10 @@ ensure_restart_authorized() {
 }
 
 ensure_runtime_clean() {
+  # -uno: ignore untracked files — runtime artifacts (ASR transcript.txt, logs)
+  # are harmless for ff-only merge and should not block startup.
   local dirty
-  dirty=$(git -C "$RUNTIME_DIR" status --short 2>/dev/null || true)
+  dirty=$(git -C "$RUNTIME_DIR" status --short -uno 2>/dev/null || true)
   if [ -n "$dirty" ] && [ "$FORCE" != "true" ]; then
     die "runtime worktree has local changes. Commit/stash first, or re-run with --force."
   fi
