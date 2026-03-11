@@ -82,7 +82,8 @@ function rewriteSSEChunk(text, state) {
   // SSE events are separated by double newlines.
   // A chunk may contain partial events; accumulate in state.buffer.
   const input = (state.buffer || '') + text;
-  const parts = input.split('\n\n');
+  // SSE spec allows \r\n line endings; normalize before splitting
+  const parts = input.replace(/\r\n/g, '\n').split('\n\n');
   // Last part may be incomplete — save it
   state.buffer = parts.pop() || '';
 
@@ -237,15 +238,19 @@ const server = createServer(async (req, res) => {
     const reader = upstream.body.getReader();
     let totalBytes = 0;
     const sseState = {};  // SSE rewrite state (buffer, tracking)
+    // P1 fix: Use TextDecoder in streaming mode to handle multi-byte UTF-8
+    // characters split across chunk boundaries (e.g. CJK, emoji).
+    const textDecoder = new TextDecoder('utf-8');
 
     try {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        const raw = Buffer.from(value).toString('utf-8');
         totalBytes += value.length;
 
         if (isSSE) {
+          // stream: true keeps incomplete multi-byte sequences for next chunk
+          const raw = textDecoder.decode(value, { stream: true });
           const rewritten = rewriteSSEChunk(raw, sseState);
           if (rewritten) res.write(rewritten);
 
@@ -257,7 +262,15 @@ const server = createServer(async (req, res) => {
           res.write(value);
         }
       }
-      // Flush any remaining buffer
+      // Flush TextDecoder (any remaining bytes from incomplete multi-byte sequence)
+      if (isSSE) {
+        const flushed = textDecoder.decode();  // no args = flush
+        if (flushed) {
+          const rewritten = rewriteSSEChunk(flushed, sseState);
+          if (rewritten) res.write(rewritten);
+        }
+      }
+      // Flush any remaining SSE buffer
       if (isSSE && sseState.buffer?.trim()) {
         res.write(sseState.buffer + '\n\n');
       }
