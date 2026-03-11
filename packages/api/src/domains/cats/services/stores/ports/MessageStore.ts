@@ -93,13 +93,40 @@ export interface IMessageStore {
   /** Get a single message by its ID. Returns null if not found. */
   getById(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   getRecent(limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string, afterMessageId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getMentionsFor(
+    catId: CatId,
+    limit?: number,
+    userId?: string,
+    threadId?: string,
+    afterMessageId?: string,
+  ): StoredMessage[] | Promise<StoredMessage[]>;
   /** Get the most recent N mentions for a cat, ascending within the returned window (oldest→newest). */
-  getRecentMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getRecentMentionsFor(
+    catId: CatId,
+    limit?: number,
+    userId?: string,
+    threadId?: string,
+  ): StoredMessage[] | Promise<StoredMessage[]>;
+  getBefore(
+    timestamp: number,
+    limit?: number,
+    userId?: string,
+    beforeId?: string,
+  ): StoredMessage[] | Promise<StoredMessage[]>;
   getByThread(threadId: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getByThreadAfter(threadId: string, afterId?: string, limit?: number, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
-  getByThreadBefore(threadId: string, timestamp: number, limit?: number, beforeId?: string, userId?: string): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThreadAfter(
+    threadId: string,
+    afterId?: string,
+    limit?: number,
+    userId?: string,
+  ): StoredMessage[] | Promise<StoredMessage[]>;
+  getByThreadBefore(
+    threadId: string,
+    timestamp: number,
+    limit?: number,
+    beforeId?: string,
+    userId?: string,
+  ): StoredMessage[] | Promise<StoredMessage[]>;
   /** Delete all messages in a thread (cascade delete support) */
   deleteByThread(threadId: string): number | Promise<number>;
   /** ADR-008 D3: Soft delete — set deletedAt/deletedBy. Returns null if not found. */
@@ -110,6 +137,11 @@ export interface IMessageStore {
   restore(id: string): StoredMessage | null | Promise<StoredMessage | null>;
   /** F35: Reveal whispers in a thread sent by userId (set revealedAt). Returns count revealed. */
   revealWhispers(threadId: string, userId: string): number | Promise<number>;
+  /** F096: Update message extra data (for interactive block state persistence). Returns null if not found. */
+  updateExtra(
+    id: string,
+    extra: NonNullable<StoredMessage['extra']>,
+  ): StoredMessage | null | Promise<StoredMessage | null>;
 }
 
 /** Max messages to keep in memory */
@@ -224,7 +256,13 @@ export class MessageStore {
    * When afterMessageId is provided, only returns mentions with id > afterMessageId.
    * Returns the oldest N matches (ascending) — R4 P1 contract.
    */
-  getMentionsFor(catId: CatId, limit?: number, userId?: string, threadId?: string, afterMessageId?: string): StoredMessage[] {
+  getMentionsFor(
+    catId: CatId,
+    limit?: number,
+    userId?: string,
+    threadId?: string,
+    afterMessageId?: string,
+  ): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
 
@@ -335,7 +373,7 @@ export class MessageStore {
     timestamp: number,
     limit?: number,
     beforeId?: string,
-    userId?: string
+    userId?: string,
   ): StoredMessage[] {
     const n = limit ?? DEFAULT_LIMIT;
     const matches: StoredMessage[] = [];
@@ -425,6 +463,16 @@ export class MessageStore {
       }
     }
     return count;
+  }
+
+  /**
+   * F096: Update message extra data (for interactive block state persistence).
+   */
+  updateExtra(id: string, extra: NonNullable<StoredMessage['extra']>): StoredMessage | null {
+    const msg = this.messages.find((m) => m.id === id);
+    if (!msg) return null;
+    msg.extra = extra;
+    return msg;
   }
 
   /**

@@ -7,7 +7,7 @@
 
 // ── Block Kinds ─────────────────────────────────────────────
 
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio';
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio' | 'interactive';
 
 // ── Base ────────────────────────────────────────────────────
 
@@ -65,6 +65,29 @@ export interface RichAudioBlock extends RichBlockBase {
   mimeType?: string;
 }
 
+/** F096: Interactive rich block — user can select/confirm within the block */
+export interface InteractiveOption {
+  id: string;
+  label: string;
+  emoji?: string;
+  description?: string;
+  level?: number;
+  group?: string;
+}
+
+export interface RichInteractiveBlock extends RichBlockBase {
+  kind: 'interactive';
+  interactiveType: 'select' | 'multi-select' | 'card-grid' | 'confirm';
+  title?: string;
+  description?: string;
+  options: InteractiveOption[];
+  maxSelect?: number;
+  allowRandom?: boolean;
+  messageTemplate?: string;
+  disabled?: boolean;
+  selectedIds?: string[];
+}
+
 // ── Union ───────────────────────────────────────────────────
 
 export type RichBlock =
@@ -72,7 +95,8 @@ export type RichBlock =
   | RichDiffBlock
   | RichChecklistBlock
   | RichMediaGalleryBlock
-  | RichAudioBlock;
+  | RichAudioBlock
+  | RichInteractiveBlock;
 
 // ── Container (stored in StoredMessage.extra.rich) ──────────
 
@@ -83,7 +107,7 @@ export interface RichMessageExtra {
 
 // ── Normalization (#85 format tolerance) ────────────────────
 
-const VALID_KINDS: readonly string[] = ['card', 'diff', 'checklist', 'media_gallery', 'audio'];
+const VALID_KINDS: readonly string[] = ['card', 'diff', 'checklist', 'media_gallery', 'audio', 'interactive'];
 
 /**
  * #85: Normalize a raw rich block object (mutating).

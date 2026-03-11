@@ -15,6 +15,7 @@
 | checklist | 待办项、检查清单、验证步骤 |
 | media_gallery | 截图、设计稿、多图对比 |
 | audio | 问候、情感表达（系统自动合成语音） |
+| interactive | 需要用户选择/确认的场景（选方案、选猫、确认操作） |
 
 ### 不用 rich block
 
@@ -31,6 +32,7 @@
 | checklist | items (id+text) | title |
 | media_gallery | items (url) | title, alt, caption |
 | audio | text | — |
+| interactive | interactiveType, options (id+label) | title, description, maxSelect, allowRandom, messageTemplate |
 
 ## 创建方式
 
@@ -44,6 +46,20 @@
 ````
 
 优先用 HTTP callback。`cc_rich` 仅在 HTTP 不可用时使用。
+
+### interactive 类型
+
+| interactiveType | 说明 | 用户操作 | 自动发送消息 |
+|-----------------|------|---------|-------------|
+| select | 单选列表 | 点一个选项 | "我选了：方案 A" |
+| multi-select | 多选列表 | 勾选多个→确认 | "我选了：Node.js, pnpm" |
+| card-grid | 卡片网格 | 点一张卡片 | "我选了：🎲 猫猫盲盒" |
+| confirm | 确认/取消 | 点按钮 | "确认" / "取消" |
+
+- `messageTemplate`：自定义模板，`{selection}` 占位符。例："我选了 {selection} 作为引导猫"
+- `allowRandom`：card-grid 显示"🎲 随机抽"按钮
+- `maxSelect`：multi-select 最大选择数
+- 用户选择后 block 自动变 disabled，选择结果持久化（刷新不丢）
 
 ### card tone 语义
 

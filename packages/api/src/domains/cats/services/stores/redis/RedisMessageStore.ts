@@ -14,10 +14,17 @@
 
 import type { CatId } from '@cat-cafe/shared';
 import type { RedisClient } from '@cat-cafe/shared/utils';
-import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
 import type { AppendMessageInput, StoredMessage } from '../ports/MessageStore.js';
+import { DEFAULT_THREAD_ID, generateSortableId } from '../ports/MessageStore.js';
 import { MessageKeys } from '../redis-keys/message-keys.js';
-import { safeParseMentions, safeParseToolEvents, safeParseContentBlocks, safeParseMetadata, safeParseExtra, safeParseConnectorSource } from './redis-message-parsers.js';
+import {
+  safeParseConnectorSource,
+  safeParseContentBlocks,
+  safeParseExtra,
+  safeParseMentions,
+  safeParseMetadata,
+  safeParseToolEvents,
+} from './redis-message-parsers.js';
 
 const DEFAULT_LIMIT = 50;
 const DEFAULT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
@@ -58,9 +65,10 @@ export class RedisMessageStore {
         await this.redis.del(idempotencyIndexKey);
       }
 
-      const claimed = this.ttlSeconds === null
-        ? await this.redis.set(idempotencyIndexKey, id, 'NX')
-        : await this.redis.set(idempotencyIndexKey, id, 'EX', this.ttlSeconds, 'NX');
+      const claimed =
+        this.ttlSeconds === null
+          ? await this.redis.set(idempotencyIndexKey, id, 'NX')
+          : await this.redis.set(idempotencyIndexKey, id, 'EX', this.ttlSeconds, 'NX');
 
       if (claimed !== 'OK') {
         const claimedId = await this.redis.get(idempotencyIndexKey);
@@ -181,7 +189,9 @@ export class RedisMessageStore {
       ...(deletedAt ? { deletedAt, deletedBy: data['deletedBy'] ?? '' } : {}),
       ...(data['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
       ...(data['thinking'] ? { thinking: data['thinking'] } : {}),
-      ...(data['origin'] === 'stream' || data['origin'] === 'callback' ? { origin: data['origin'] as 'stream' | 'callback' } : {}),
+      ...(data['origin'] === 'stream' || data['origin'] === 'callback'
+        ? { origin: data['origin'] as 'stream' | 'callback' }
+        : {}),
       ...(data['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
       ...(data['whisperTo'] ? { whisperTo: safeParseMentions(data['whisperTo']) } : {}),
       ...(data['revealedAt'] ? { revealedAt: parseInt(data['revealedAt'], 10) } : {}),
@@ -210,7 +220,7 @@ export class RedisMessageStore {
     limit?: number,
     userId?: string,
     threadId?: string,
-    afterMessageId?: string
+    afterMessageId?: string,
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const mentionKey = MessageKeys.mentions(catId);
@@ -220,7 +230,9 @@ export class RedisMessageStore {
     if (effectiveAfter) {
       const rank = await this.redis.zrank(mentionKey, effectiveAfter);
       if (rank === null) {
-        console.warn(`[MentionAck] cursor ${effectiveAfter} not in mention set for ${catId}, falling back to full pending`);
+        console.warn(
+          `[MentionAck] cursor ${effectiveAfter} not in mention set for ${catId}, falling back to full pending`,
+        );
         effectiveAfter = undefined;
       }
     }
@@ -271,7 +283,7 @@ export class RedisMessageStore {
     catId: CatId,
     limit?: number,
     userId?: string,
-    threadId?: string
+    threadId?: string,
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const mentionKey = MessageKeys.mentions(catId);
@@ -303,19 +315,12 @@ export class RedisMessageStore {
     return this.hydrateMessages(ids.reverse());
   }
 
-  async getBefore(
-    timestamp: number,
-    limit?: number,
-    userId?: string,
-    beforeId?: string
-  ): Promise<StoredMessage[]> {
+  async getBefore(timestamp: number, limit?: number, userId?: string, beforeId?: string): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = userId ? MessageKeys.user(userId) : MessageKeys.TIMELINE;
 
     if (!beforeId) {
-      const ids = await this.redis.zrevrangebyscore(
-        key, `(${timestamp}`, '-inf', 'LIMIT', 0, n
-      );
+      const ids = await this.redis.zrevrangebyscore(key, `(${timestamp}`, '-inf', 'LIMIT', 0, n);
       if (ids.length === 0) return [];
       return this.hydrateMessages(ids.reverse());
     }
@@ -348,7 +353,7 @@ export class RedisMessageStore {
     threadId: string,
     afterId?: string,
     limit?: number,
-    userId?: string
+    userId?: string,
   ): Promise<StoredMessage[]> {
     const key = MessageKeys.thread(threadId);
 
@@ -391,16 +396,14 @@ export class RedisMessageStore {
     timestamp: number,
     limit?: number,
     beforeId?: string,
-    userId?: string
+    userId?: string,
   ): Promise<StoredMessage[]> {
     const n = limit ?? DEFAULT_LIMIT;
     const key = MessageKeys.thread(threadId);
     const fetchN = userId ? n * 2 : n;
 
     if (!beforeId) {
-      const ids = await this.redis.zrevrangebyscore(
-        key, `(${timestamp}`, '-inf', 'LIMIT', 0, fetchN
-      );
+      const ids = await this.redis.zrevrangebyscore(key, `(${timestamp}`, '-inf', 'LIMIT', 0, fetchN);
       if (ids.length === 0) return [];
       const messages = await this.hydrateMessages(ids.reverse());
       if (!userId) return messages;
@@ -422,16 +425,14 @@ export class RedisMessageStore {
     key: string,
     timestamp: number,
     beforeId: string,
-    limit: number
+    limit: number,
   ): Promise<string[]> {
     const CHUNK = 50;
     const filtered: string[] = [];
     let offset = 0;
 
     while (filtered.length < limit) {
-      const chunk = await this.redis.zrevrangebyscore(
-        key, String(timestamp), '-inf', 'LIMIT', offset, CHUNK
-      );
+      const chunk = await this.redis.zrevrangebyscore(key, String(timestamp), '-inf', 'LIMIT', offset, CHUNK);
       if (chunk.length === 0) break;
 
       for (const id of chunk) {
@@ -558,6 +559,15 @@ export class RedisMessageStore {
     return count;
   }
 
+  /** F096: Update message extra data (for interactive block state persistence). */
+  async updateExtra(id: string, extra: NonNullable<StoredMessage['extra']>): Promise<StoredMessage | null> {
+    const msg = await this.getById(id);
+    if (!msg) return null;
+    await this.redis.hset(MessageKeys.detail(id), { extra: JSON.stringify(extra) });
+    msg.extra = extra;
+    return msg;
+  }
+
   /** Hydrate message IDs into full StoredMessage objects */
   private async hydrateMessages(ids: string[], options?: { includeDeleted?: boolean }): Promise<StoredMessage[]> {
     const pipeline = this.redis.multi();
@@ -598,7 +608,9 @@ export class RedisMessageStore {
         ...(deletedAt ? { deletedAt, deletedBy: d['deletedBy'] ?? '' } : {}),
         ...(d['_tombstone'] === '1' ? { _tombstone: true as const } : {}),
         ...(d['thinking'] ? { thinking: d['thinking'] } : {}),
-        ...(d['origin'] === 'stream' || d['origin'] === 'callback' ? { origin: d['origin'] as 'stream' | 'callback' } : {}),
+        ...(d['origin'] === 'stream' || d['origin'] === 'callback'
+          ? { origin: d['origin'] as 'stream' | 'callback' }
+          : {}),
         ...(d['visibility'] === 'whisper' ? { visibility: 'whisper' as const } : {}),
         ...(d['whisperTo'] ? { whisperTo: safeParseMentions(d['whisperTo']) } : {}),
         ...(d['revealedAt'] ? { revealedAt: parseInt(d['revealedAt'], 10) } : {}),

@@ -3,29 +3,6 @@
  * 导出所有类型定义
  */
 
-// Capability types (F041 统一能力模型)
-export type {
-  CapabilitiesConfig,
-  CapabilityBoardItem,
-  CapabilityBoardResponse,
-  CapabilityEntry,
-  CapabilityPatchRequest,
-  CatCapabilityOverride,
-  CatFamily,
-  McpServerDescriptor,
-  McpToolInfo,
-  SkillHealthSummary,
-  GovernanceCategory,
-  GovernanceRule,
-  GovernancePackMeta,
-  GovernanceHealthSummary,
-  GovernanceFinding,
-  BootstrapReport,
-  BootstrapAction,
-  DispatchMissionPack,
-  DispatchExecutionDigest,
-  DoneWhenResult,
-} from './capability.js';
 // Authorization types (猫猫授权系统)
 export type {
   AuthorizationAuditEntry,
@@ -38,17 +15,68 @@ export type {
   PermissionStatusResponse,
   RespondScope,
 } from './authorization.js';
-// Connector types (F97 外部信息源抽象)
+// Backlog types (F049 Mission Control)
 export type {
-  ConnectorDefinition,
-  ConnectorSource,
-  ConnectorThreadBinding,
-  OutboundDeliveryTarget,
-} from './connector.js';
-export {
-  getAllConnectorDefinitions,
-  getConnectorDefinition,
-} from './connector.js';
+  AcquireBacklogLeaseInput,
+  AtomicDispatchInput,
+  BacklogAuditAction,
+  BacklogAuditActor,
+  BacklogAuditEntry,
+  BacklogClaimSuggestion,
+  BacklogDependencies,
+  BacklogItem,
+  BacklogLease,
+  BacklogLeaseState,
+  BacklogPriority,
+  BacklogStatus,
+  BacklogSuggestionStatus,
+  CreateBacklogItemInput,
+  DecideBacklogClaimInput,
+  DispatchBacklogItemInput,
+  FeatureDocAC,
+  FeatureDocDetail,
+  FeatureDocPhase,
+  FeatureDocRisk,
+  HeartbeatBacklogLeaseInput,
+  MarkDoneInput,
+  ReclaimBacklogLeaseInput,
+  RefreshBacklogItemInput,
+  ReleaseBacklogLeaseInput,
+  SuggestBacklogClaimInput,
+  ThreadPhase,
+  UpdateBacklogDispatchProgressInput,
+} from './backlog.js';
+// Brake types (F085 Phase 4 — 平台级健康守护)
+export type {
+  BrakeCheckinRequest,
+  BrakeCheckinResponse,
+  BrakeEvent,
+  BrakeSettings,
+  BrakeState,
+} from './brake.js';
+// Capability types (F041 统一能力模型)
+export type {
+  BootstrapAction,
+  BootstrapReport,
+  CapabilitiesConfig,
+  CapabilityBoardItem,
+  CapabilityBoardResponse,
+  CapabilityEntry,
+  CapabilityPatchRequest,
+  CatCapabilityOverride,
+  CatFamily,
+  DispatchExecutionDigest,
+  DispatchMissionPack,
+  DoneWhenResult,
+  GovernanceCategory,
+  GovernanceFinding,
+  GovernanceHealthSummary,
+  GovernancePackMeta,
+  GovernanceRule,
+  McpServerDescriptor,
+  McpToolInfo,
+  SkillHealthSummary,
+} from './capability.js';
 // Cat types
 export type {
   CatColor,
@@ -73,13 +101,24 @@ export type {
   CliConfig,
   ContextBudget,
   MissionHubSelfClaimScope,
+  // F067: Owner config for @ mention routing
+  OwnerConfig,
   // F032: Roster types for collaboration rules
   ReviewPolicy,
   Roster,
   RosterEntry,
-  // F067: Owner config for @ mention routing
-  OwnerConfig,
 } from './cat-breed.js';
+// Connector types (F97 外部信息源抽象)
+export type {
+  ConnectorDefinition,
+  ConnectorSource,
+  ConnectorThreadBinding,
+  OutboundDeliveryTarget,
+} from './connector.js';
+export {
+  getAllConnectorDefinitions,
+  getConnectorDefinition,
+} from './connector.js';
 // Deliberate types (4-E 两轮制 - 类型预埋)
 export type {
   DeliberateEvent,
@@ -87,6 +126,11 @@ export type {
   DeliberateSession,
   DeliberateTransition,
 } from './deliberate.js';
+// External project types (F076 跨项目作战面板)
+export type {
+  CreateExternalProjectInput,
+  ExternalProject,
+} from './external-project.js';
 // ID types
 export type {
   CatId,
@@ -106,6 +150,21 @@ export {
   generateSessionId,
   generateThreadId,
 } from './ids.js';
+// Intent Card + Need Audit types (F076 需求翻译官)
+export type {
+  CreateIntentCardInput,
+  CreateNeedAuditFrameInput,
+  IntentCard,
+  NeedAuditFrame,
+  ResolutionPath,
+  RiskDetectionResult,
+  RiskSignal,
+  SizeBand,
+  SourceTag,
+  TriageBucket,
+  TriageIntentCardInput,
+  TriageResult,
+} from './intent-card.js';
 // Memory types (F3-lite 显式记忆)
 export type {
   MemoryEntry,
@@ -150,8 +209,39 @@ export {
   isDevLoopConfig,
   isDevLoopState,
 } from './modes.js';
+// Multi-mention types (F086 Cat Orchestration)
+export type {
+  MultiMentionRequest,
+  MultiMentionResponse,
+  MultiMentionResponseStatus,
+  MultiMentionResult,
+  MultiMentionStatus,
+  MultiMentionTriggerType,
+} from './multi-mention.js';
+export {
+  ALL_MULTI_MENTION_STATUSES,
+  DEFAULT_TIMEOUT_MINUTES,
+  MAX_MULTI_MENTION_TARGETS,
+  MAX_TIMEOUT_MINUTES,
+  MIN_TIMEOUT_MINUTES,
+  MULTI_MENTION_TERMINAL_STATES,
+} from './multi-mention.js';
+// Reflux types (F076 Phase 2 — 回流)
+export type {
+  CreateRefluxPatternInput,
+  RefluxCategory,
+  RefluxPattern,
+} from './reflux.js';
+// Resolution types (F076 Phase 2 — 风险消解)
+export type {
+  AnswerResolutionInput,
+  CreateResolutionInput,
+  ResolutionItem,
+  ResolutionStatus,
+} from './resolution.js';
 // Rich block types (F22 Rich Blocks 富消息系统)
 export type {
+  InteractiveOption,
   RichAudioBlock,
   RichBlock,
   RichBlockBase,
@@ -159,6 +249,7 @@ export type {
   RichCardBlock,
   RichChecklistBlock,
   RichDiffBlock,
+  RichInteractiveBlock,
   RichMediaGalleryBlock,
   RichMessageExtra,
 } from './rich.js';
@@ -190,6 +281,16 @@ export type {
   SignalSourceSchedule,
   SignalTier,
 } from './signals.js';
+// Slice types (F076 Phase 2 — 切片)
+export type {
+  CreateSliceInput,
+  Slice,
+  SliceStatus,
+  SliceType,
+  UpdateSliceInput,
+} from './slice.js';
+// STT types (F088 Phase 6 — Speech-to-Text)
+export type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from './stt.js';
 // Study types (F091 Signal Study Mode)
 export type {
   ArtifactJobState,
@@ -203,37 +304,6 @@ export type {
   CreateSummaryInput,
   ThreadSummary,
 } from './summary.js';
-// Backlog types (F049 Mission Control)
-export type {
-  AcquireBacklogLeaseInput,
-  BacklogAuditAction,
-  BacklogAuditActor,
-  BacklogAuditEntry,
-  BacklogClaimSuggestion,
-  BacklogItem,
-  BacklogLease,
-  BacklogLeaseState,
-  BacklogPriority,
-  BacklogStatus,
-  BacklogSuggestionStatus,
-  CreateBacklogItemInput,
-  DecideBacklogClaimInput,
-  DispatchBacklogItemInput,
-  HeartbeatBacklogLeaseInput,
-  ReclaimBacklogLeaseInput,
-  RefreshBacklogItemInput,
-  ReleaseBacklogLeaseInput,
-  SuggestBacklogClaimInput,
-  ThreadPhase,
-  BacklogDependencies,
-  MarkDoneInput,
-  AtomicDispatchInput,
-  UpdateBacklogDispatchProgressInput,
-  FeatureDocAC,
-  FeatureDocPhase,
-  FeatureDocRisk,
-  FeatureDocDetail,
-} from './backlog.js';
 // Task types (毛线球)
 export type {
   CreateTaskInput,
@@ -241,6 +311,13 @@ export type {
   TaskStatus,
   UpdateTaskInput,
 } from './task.js';
+// TTS types (F34 TTS Provider)
+export type {
+  ITtsProvider,
+  TtsSynthesizeRequest,
+  TtsSynthesizeResult,
+  VoiceConfig,
+} from './tts.js';
 // Workflow SOP types (F073 告示牌)
 export type {
   CheckStatus,
@@ -250,78 +327,3 @@ export type {
   UpdateWorkflowSopInput,
   WorkflowSop,
 } from './workflow-sop.js';
-// External project types (F076 跨项目作战面板)
-export type {
-  CreateExternalProjectInput,
-  ExternalProject,
-} from './external-project.js';
-// Intent Card + Need Audit types (F076 需求翻译官)
-export type {
-  CreateIntentCardInput,
-  CreateNeedAuditFrameInput,
-  IntentCard,
-  NeedAuditFrame,
-  ResolutionPath,
-  RiskDetectionResult,
-  RiskSignal,
-  SizeBand,
-  SourceTag,
-  TriageBucket,
-  TriageIntentCardInput,
-  TriageResult,
-} from './intent-card.js';
-// Resolution types (F076 Phase 2 — 风险消解)
-export type {
-  AnswerResolutionInput,
-  CreateResolutionInput,
-  ResolutionItem,
-  ResolutionStatus,
-} from './resolution.js';
-// Slice types (F076 Phase 2 — 切片)
-export type {
-  CreateSliceInput,
-  Slice,
-  SliceStatus,
-  SliceType,
-  UpdateSliceInput,
-} from './slice.js';
-// Reflux types (F076 Phase 2 — 回流)
-export type {
-  CreateRefluxPatternInput,
-  RefluxCategory,
-  RefluxPattern,
-} from './reflux.js';
-// TTS types (F34 TTS Provider)
-export type {
-  ITtsProvider,
-  TtsSynthesizeRequest,
-  TtsSynthesizeResult,
-  VoiceConfig,
-} from './tts.js';
-// Multi-mention types (F086 Cat Orchestration)
-export type {
-	MultiMentionRequest,
-	MultiMentionResponse,
-	MultiMentionResponseStatus,
-	MultiMentionResult,
-	MultiMentionStatus,
-	MultiMentionTriggerType,
-} from './multi-mention.js';
-export {
-	ALL_MULTI_MENTION_STATUSES,
-	DEFAULT_TIMEOUT_MINUTES,
-	MAX_MULTI_MENTION_TARGETS,
-	MAX_TIMEOUT_MINUTES,
-	MIN_TIMEOUT_MINUTES,
-	MULTI_MENTION_TERMINAL_STATES,
-} from './multi-mention.js';
-// Brake types (F085 Phase 4 — 平台级健康守护)
-export type {
-	BrakeCheckinRequest,
-	BrakeCheckinResponse,
-	BrakeEvent,
-	BrakeSettings,
-	BrakeState,
-} from './brake.js';
-// STT types (F088 Phase 6 — Speech-to-Text)
-export type { ISttProvider, SttTranscribeRequest, SttTranscribeResult } from './stt.js';

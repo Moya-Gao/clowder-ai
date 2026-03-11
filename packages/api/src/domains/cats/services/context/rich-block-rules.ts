@@ -60,4 +60,5 @@ export const RICH_BLOCK_RULES = `### 富消息块使用规则（B 风格：平�
  */
 export const RICH_BLOCK_SHORT = `富消息块：结构化信息用富块，普通对话不用。先写 1-2 句摘要再发。
 ⚠️ 字段名是 "kind"（不是 "type"！），必须有 "v": 1 和唯一 id。
-支持: card / diff / checklist / media_gallery / audio。`;
+支持: card / diff / checklist / media_gallery / audio / interactive。
+interactive: 用户可交互选择（select/multi-select/card-grid/confirm），详见 rich-blocks rules。`;

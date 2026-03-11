@@ -5,9 +5,10 @@ import { AudioBlock } from './AudioBlock';
 import { CardBlock } from './CardBlock';
 import { ChecklistBlock } from './ChecklistBlock';
 import { DiffBlock } from './DiffBlock';
+import { InteractiveBlock } from './InteractiveBlock';
 import { MediaGalleryBlock } from './MediaGalleryBlock';
 
-function RichBlockRenderer({ block, catId }: { block: RichBlock; catId?: string }) {
+function RichBlockRenderer({ block, catId, messageId }: { block: RichBlock; catId?: string; messageId?: string }) {
   switch (block.kind) {
     case 'card':
       return <CardBlock block={block} />;
@@ -19,6 +20,8 @@ function RichBlockRenderer({ block, catId }: { block: RichBlock; catId?: string 
       return <MediaGalleryBlock block={block} />;
     case 'audio':
       return <AudioBlock block={block} catId={catId} />;
+    case 'interactive':
+      return <InteractiveBlock block={block} messageId={messageId} />;
     default:
       return (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-xs text-gray-400">
@@ -28,12 +31,12 @@ function RichBlockRenderer({ block, catId }: { block: RichBlock; catId?: string 
   }
 }
 
-export function RichBlocks({ blocks, catId }: { blocks: RichBlock[]; catId?: string }) {
+export function RichBlocks({ blocks, catId, messageId }: { blocks: RichBlock[]; catId?: string; messageId?: string }) {
   if (blocks.length === 0) return null;
   return (
     <div className="mt-2 space-y-2">
       {blocks.map((block) => (
-        <RichBlockRenderer key={block.id} block={block} catId={catId} />
+        <RichBlockRenderer key={block.id} block={block} catId={catId} messageId={messageId} />
       ))}
     </div>
   );

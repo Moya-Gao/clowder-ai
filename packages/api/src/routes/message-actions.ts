@@ -27,9 +27,7 @@ const restoreBodySchema = z.object({
   userId: z.string().min(1).max(100),
 });
 
-export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOptions> =
-  async (app, opts) => {
-
+export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOptions> = async (app, opts) => {
   // DELETE /api/messages/:id — soft or hard delete a single message
   app.delete<{ Params: { id: string } }>('/api/messages/:id', async (request, reply) => {
     const parseResult = deleteBodySchema.safeParse(request.body);
@@ -84,11 +82,11 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
         return { error: '删除失败', code: 'DELETE_FAILED' };
       }
 
-      opts.socketManager.broadcastToRoom(
-        `thread:${deleted.threadId}`,
-        'message_hard_deleted',
-        { messageId: id, threadId: deleted.threadId, deletedBy: userId },
-      );
+      opts.socketManager.broadcastToRoom(`thread:${deleted.threadId}`, 'message_hard_deleted', {
+        messageId: id,
+        threadId: deleted.threadId,
+        deletedBy: userId,
+      });
 
       return {
         id: deleted.id,
@@ -106,11 +104,11 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
       return { error: '消息不存在', code: 'MESSAGE_NOT_FOUND' };
     }
 
-    opts.socketManager.broadcastToRoom(
-      `thread:${deleted.threadId}`,
-      'message_deleted',
-      { messageId: id, threadId: deleted.threadId, deletedBy: userId },
-    );
+    opts.socketManager.broadcastToRoom(`thread:${deleted.threadId}`, 'message_deleted', {
+      messageId: id,
+      threadId: deleted.threadId,
+      deletedBy: userId,
+    });
 
     return {
       id: deleted.id,
@@ -162,11 +160,10 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
       return { error: '恢复失败', code: 'RESTORE_FAILED' };
     }
 
-    opts.socketManager.broadcastToRoom(
-      `thread:${restored.threadId}`,
-      'message_restored',
-      { messageId: id, threadId: restored.threadId },
-    );
+    opts.socketManager.broadcastToRoom(`thread:${restored.threadId}`, 'message_restored', {
+      messageId: id,
+      threadId: restored.threadId,
+    });
 
     return {
       id: restored.id,
@@ -174,5 +171,68 @@ export const messageActionsRoutes: FastifyPluginAsync<MessageActionsRoutesOption
       content: restored.content,
       timestamp: restored.timestamp,
     };
+  });
+
+  // F096: PATCH /api/messages/:id/block-state — persist interactive block state
+  const patchBlockStateSchema = z.object({
+    userId: z.string().min(1).max(100),
+    blockId: z.string().min(1),
+    disabled: z.boolean().optional(),
+    selectedIds: z.array(z.string()).optional(),
+  });
+
+  app.patch<{ Params: { id: string } }>('/api/messages/:id/block-state', async (request, reply) => {
+    const parsed = patchBlockStateSchema.safeParse(request.body);
+    if (!parsed.success) {
+      reply.status(400);
+      return { error: 'Invalid request', details: parsed.error.issues };
+    }
+
+    const { id } = request.params;
+    const { userId, blockId, disabled, selectedIds } = parsed.data;
+    const msg = await opts.messageStore.getById(id);
+    if (!msg) {
+      reply.status(404);
+      return { error: 'Message not found' };
+    }
+
+    // P1-1 fix: Authorization — caller must own message or be thread creator
+    if (msg.userId !== userId) {
+      if (opts.threadStore) {
+        const thread = await opts.threadStore.get(msg.threadId);
+        if (!thread || thread.createdBy !== userId) {
+          reply.status(403);
+          return { error: 'Unauthorized', code: 'UNAUTHORIZED' };
+        }
+      } else {
+        reply.status(403);
+        return { error: 'Unauthorized', code: 'UNAUTHORIZED' };
+      }
+    }
+
+    if (!msg.extra?.rich?.blocks) {
+      reply.status(404);
+      return { error: 'Message has no rich blocks' };
+    }
+
+    const block = msg.extra.rich.blocks.find((b) => b.id === blockId);
+    if (!block) {
+      reply.status(404);
+      return { error: `Block ${blockId} not found` };
+    }
+
+    // P2-2 fix: only allow patching interactive blocks
+    if (block.kind !== 'interactive') {
+      reply.status(400);
+      return { error: `Block ${blockId} is not interactive (kind: ${block.kind})` };
+    }
+
+    // Merge patch into block
+    const mutable = block as unknown as Record<string, unknown>;
+    if (disabled !== undefined) mutable['disabled'] = disabled;
+    if (selectedIds !== undefined) mutable['selectedIds'] = selectedIds;
+
+    await opts.messageStore.updateExtra(id, msg.extra);
+    return { status: 'ok' };
   });
 };

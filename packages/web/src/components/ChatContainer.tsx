@@ -105,6 +105,16 @@ export function ChatContainer({ threadId }: ChatContainerProps) {
   const { handleSend, uploadStatus, uploadError } = useSendMessage(threadId);
   const { pending: authPending, respond: authRespond, handleAuthRequest, handleAuthResponse } = useAuthorization(threadId);
 
+  // F096: Listen for interactive block send events
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const text = (e as CustomEvent<{ text: string }>).detail.text;
+      if (text) handleSend(text);
+    };
+    window.addEventListener('cat-cafe:interactive-send', handler);
+    return () => window.removeEventListener('cat-cafe:interactive-send', handler);
+  }, [handleSend]);
+
   // F079: Vote modal
   const showVoteModal = useChatStore((s) => s.showVoteModal);
   const setShowVoteModal = useChatStore((s) => s.setShowVoteModal);

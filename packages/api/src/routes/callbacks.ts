@@ -152,6 +152,27 @@ const richBlockSchema = z.discriminatedUnion('kind', [
     durationSec: z.number().optional(),
     mimeType: z.string().optional(),
   }),
+  z.object({
+    id: z.string().min(1),
+    kind: z.literal('interactive'),
+    v: z.literal(1),
+    interactiveType: z.enum(['select', 'multi-select', 'card-grid', 'confirm']),
+    title: z.string().optional(),
+    description: z.string().optional(),
+    options: z.array(z.object({
+      id: z.string().min(1),
+      label: z.string().min(1),
+      emoji: z.string().optional(),
+      description: z.string().optional(),
+      level: z.number().optional(),
+      group: z.string().optional(),
+    })).min(1),
+    maxSelect: z.number().int().min(1).optional(),
+    allowRandom: z.boolean().optional(),
+    messageTemplate: z.string().optional(),
+    disabled: z.boolean().optional(),
+    selectedIds: z.array(z.string()).optional(),
+  }),
 ]);
 const createRichBlockSchema = callbackAuthSchema.extend({
   block: richBlockSchema,

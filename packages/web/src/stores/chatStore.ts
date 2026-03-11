@@ -263,6 +263,8 @@ interface ChatState {
   appendToolEvent: (id: string, event: ToolEvent) => void;
   /** F22: Append a rich block to a message */
   appendRichBlock: (id: string, block: RichBlock) => void;
+  /** F096: Update a specific rich block within a message */
+  updateRichBlock: (messageId: string, blockId: string, patch: Record<string, unknown>) => void;
   setStreaming: (id: string, streaming: boolean) => void;
   setLoading: (loading: boolean) => void;
   setHasActiveInvocation: (v: boolean) => void;
@@ -618,6 +620,26 @@ export const useChatStore = create<ChatState>((set, get) => ({
         // Defensive dedup by block.id (server already deduplicates, this is a safety net)
         if (rich.blocks.some((b: { id: string }) => b.id === block.id)) return m;
         return { ...m, extra: { ...m.extra, rich: { ...rich, blocks: [...rich.blocks, block] } } };
+      }),
+    })),
+
+  /** F096: Update a specific rich block within a message (e.g. set disabled + selectedIds) */
+  updateRichBlock: (messageId: string, blockId: string, patch: Record<string, unknown>) =>
+    set((state) => ({
+      messages: state.messages.map((m) => {
+        if (m.id !== messageId || !m.extra?.rich?.blocks) return m;
+        return {
+          ...m,
+          extra: {
+            ...m.extra,
+            rich: {
+              ...m.extra.rich,
+              blocks: m.extra.rich.blocks.map((b) =>
+                b.id === blockId ? { ...b, ...patch } : b,
+              ),
+            },
+          },
+        };
       }),
     })),
 

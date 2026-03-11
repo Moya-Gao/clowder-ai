@@ -127,8 +127,8 @@ interface InteractiveOption {
 
 | # | 问题 | 状态 |
 |---|------|------|
-| OQ-1 | 是否支持 block 状态持久化（刷新后仍显示 disabled + 已选）？ | ⬜ 未定 |
-| OQ-2 | card-grid 随机选择的动画效果？ | ⬜ 未定 |
+| OQ-1 | 是否支持 block 状态持久化（刷新后仍显示 disabled + 已选）？ | ✅ → KD-4 |
+| OQ-2 | card-grid 随机选择的动画效果？ | ✅ → KD-5 |
 
 ## Key Decisions
 
@@ -137,6 +137,8 @@ interface InteractiveOption {
 | KD-1 | 交互结果 = 自动发消息，后端零改动 | 最小侵入，猫猫无需特殊处理 | 2026-03-11 |
 | KD-2 | 4 种 interactiveType 覆盖主要场景 | select/multi-select/card-grid/confirm 足够通用 | 2026-03-11 |
 | KD-3 | 交互后 block 变 disabled | 防止重复操作，保留选择记录 | 2026-03-11 |
+| KD-4 | 持久化到 `message.extra.rich`（PATCH endpoint） | 终态基座，刷新不丢状态（P1：每步产物是终态） | 2026-03-11 |
+| KD-5 | 随机选择用闪烁高亮减速动画（CSS + setInterval） | 有期待感，纯前端实现无需额外库 | 2026-03-11 |
 
 ## Timeline
 

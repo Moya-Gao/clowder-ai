@@ -62,10 +62,12 @@ export interface ToolEvent {
 }
 
 /** F22: Rich block types for frontend rendering */
-export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio';
+export type RichBlockKind = 'card' | 'diff' | 'checklist' | 'media_gallery' | 'audio' | 'interactive';
 
 export interface RichCardBlock {
-  id: string; kind: 'card'; v: 1;
+  id: string;
+  kind: 'card';
+  v: 1;
   title: string;
   bodyMarkdown?: string;
   tone?: 'info' | 'success' | 'warning' | 'danger';
@@ -73,20 +75,26 @@ export interface RichCardBlock {
 }
 
 export interface RichDiffBlock {
-  id: string; kind: 'diff'; v: 1;
+  id: string;
+  kind: 'diff';
+  v: 1;
   filePath: string;
   diff: string;
   languageHint?: string;
 }
 
 export interface RichChecklistBlock {
-  id: string; kind: 'checklist'; v: 1;
+  id: string;
+  kind: 'checklist';
+  v: 1;
   title?: string;
   items: Array<{ id: string; text: string; checked?: boolean }>;
 }
 
 export interface RichMediaGalleryBlock {
-  id: string; kind: 'media_gallery'; v: 1;
+  id: string;
+  kind: 'media_gallery';
+  v: 1;
   title?: string;
   items: Array<{ url: string; alt?: string; caption?: string }>;
 }
@@ -94,7 +102,9 @@ export interface RichMediaGalleryBlock {
 /** F34: Audio block for TTS playback.
  *  F34-b: `text` = voice message (cat "spoke" it). */
 export interface RichAudioBlock {
-  id: string; kind: 'audio'; v: 1;
+  id: string;
+  kind: 'audio';
+  v: 1;
   url: string;
   /** F34-b: Voice message text. Present = voice message style. */
   text?: string;
@@ -103,7 +113,39 @@ export interface RichAudioBlock {
   mimeType?: string;
 }
 
-export type RichBlock = RichCardBlock | RichDiffBlock | RichChecklistBlock | RichMediaGalleryBlock | RichAudioBlock;
+/** F096: Interactive block option */
+export interface InteractiveOption {
+  id: string;
+  label: string;
+  emoji?: string;
+  description?: string;
+  level?: number;
+  group?: string;
+}
+
+/** F096: Interactive rich block — user can select/confirm within the block */
+export interface RichInteractiveBlock {
+  id: string;
+  kind: 'interactive';
+  v: 1;
+  interactiveType: 'select' | 'multi-select' | 'card-grid' | 'confirm';
+  title?: string;
+  description?: string;
+  options: InteractiveOption[];
+  maxSelect?: number;
+  allowRandom?: boolean;
+  messageTemplate?: string;
+  disabled?: boolean;
+  selectedIds?: string[];
+}
+
+export type RichBlock =
+  | RichCardBlock
+  | RichDiffBlock
+  | RichChecklistBlock
+  | RichMediaGalleryBlock
+  | RichAudioBlock
+  | RichInteractiveBlock;
 
 /** F97: External connector source info (only when type='connector') */
 export interface ConnectorSourceData {
