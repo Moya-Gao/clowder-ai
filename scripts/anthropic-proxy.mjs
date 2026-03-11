@@ -38,7 +38,8 @@ function getArg(name) {
 
 const PORT = parseInt(getArg('port') || process.env.ANTHROPIC_PROXY_PORT || '9877', 10);
 const DEBUG = args.includes('--debug') || process.env.ANTHROPIC_PROXY_DEBUG === '1';
-const UPSTREAMS_PATH = resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
+const UPSTREAMS_PATH = getArg('upstreams') || process.env.ANTHROPIC_PROXY_UPSTREAMS_PATH
+  || resolve(PROJECT_ROOT, '.cat-cafe', 'proxy-upstreams.json');
 
 /** Load upstream mapping from config file. Re-read on each request for hot-reload. */
 function loadUpstreams() {
@@ -175,6 +176,7 @@ server.listen(PORT, '127.0.0.1', () => {
   const upstreams = loadUpstreams();
   const slugs = Object.keys(upstreams);
   console.log(`[anthropic-proxy] listening on http://127.0.0.1:${PORT}`);
-  console.log(`[anthropic-proxy] upstreams: ${slugs.length > 0 ? slugs.join(', ') : '(none — add to .cat-cafe/proxy-upstreams.json)'}`);
+  console.log(`[anthropic-proxy] upstreams file: ${UPSTREAMS_PATH}`);
+  console.log(`[anthropic-proxy] upstreams: ${slugs.length > 0 ? slugs.join(', ') : '(none)'}`);
   console.log(`[anthropic-proxy] debug: ${DEBUG ? 'ON' : 'OFF'}`);
 });

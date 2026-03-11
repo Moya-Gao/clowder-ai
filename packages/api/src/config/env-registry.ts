@@ -124,6 +124,7 @@ export const ENV_VARS: EnvDefinition[] = [
   { name: 'ANTHROPIC_PROXY_ENABLED', defaultValue: '1', description: 'Anthropic 代理网关开关（0 关闭）', category: 'proxy', sensitive: false },
   { name: 'ANTHROPIC_PROXY_PORT', defaultValue: '9877', description: '代理网关监听端口', category: 'proxy', sensitive: false },
   { name: 'ANTHROPIC_PROXY_DEBUG', defaultValue: '(未设置)', description: '设为 1 启用代理调试日志', category: 'proxy', sensitive: false },
+  { name: 'ANTHROPIC_PROXY_UPSTREAMS_PATH', defaultValue: '.cat-cafe/proxy-upstreams.json', description: 'upstream 配置文件路径（解决 runtime 与源码分离问题）', category: 'proxy', sensitive: false },
 
   // --- connector ---
   { name: 'TELEGRAM_BOT_TOKEN', defaultValue: '(未设置 → 不启用)', description: 'Telegram Bot Token', category: 'connector', sensitive: true },

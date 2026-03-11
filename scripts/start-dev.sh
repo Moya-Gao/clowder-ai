@@ -409,7 +409,8 @@ main() {
     PROXY_PORT=${ANTHROPIC_PROXY_PORT:-9877}
     if [ "${ANTHROPIC_PROXY_ENABLED:-1}" != "0" ]; then
         echo "  启动 Anthropic Proxy (端口 $PROXY_PORT)..."
-        ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT &
+        PROXY_UPSTREAMS="${ANTHROPIC_PROXY_UPSTREAMS_PATH:-$PROJECT_DIR/.cat-cafe/proxy-upstreams.json}"
+        ANTHROPIC_PROXY_PORT=$PROXY_PORT node scripts/anthropic-proxy.mjs --port $PROXY_PORT --upstreams "$PROXY_UPSTREAMS" &
         PROXY_PID=$!
         sleep 1
         if kill -0 $PROXY_PID 2>/dev/null; then
