@@ -8,7 +8,7 @@ created: 2026-03-10
 
 # F095: Thread Sidebar 导航体验升级
 
-> **Status**: in-progress | **Owner**: 布偶猫 | **Priority**: P1
+> **Status**: done | **Owner**: 布偶猫 | **Priority**: P1
 
 ## Why
 
@@ -75,7 +75,7 @@ Sidebar 布局从上到下：
 - "最近对话"段：纯前端计算，取 `threads.sort(lastActiveAt).slice(0, 8)`
 - "活跃项目"判断：纯前端计算，基于 threads 的 `lastActiveAt`
 
-### Phase C: 新建对话增强
+### Phase C: 新建对话增强 ✅
 
 改善创建 Thread 的体验。
 
@@ -110,11 +110,11 @@ Sidebar 布局从上到下：
 - [x] AC-B7: 50 个项目时 sidebar 仍然可用（活跃区仅展示 3-5 个活跃项目）
 
 ### Phase C（新建对话增强）
-- [ ] AC-C1: 新建对话时可填写 thread title
-- [ ] AC-C2: 新建对话时可从下拉选择关联的活跃 feat
-- [ ] AC-C3: 新建对话时可勾选"创建后置顶"
-- [ ] AC-C4: 项目列表按最近活跃排序（不再纯字母序）
-- [ ] AC-C5: 后端 `POST /api/threads` 支持 `backlogItemId` 和 `pinned` 入参
+- [x] AC-C1: 新建对话时可填写 thread title
+- [x] AC-C2: 新建对话时可从下拉选择关联的活跃 feat
+- [x] AC-C3: 新建对话时可勾选"创建后置顶"
+- [x] AC-C4: 项目列表按最近活跃排序（不再纯字母序）
+- [x] AC-C5: 后端 `POST /api/threads` 支持 `backlogItemId` 和 `pinned` 入参
 
 ## 需求点 Checklist
 
@@ -123,12 +123,12 @@ Sidebar 布局从上到下：
 | R1 | "能够记录我是不是展开或者默认折叠" | AC-A1~A4 | test + manual | [x] |
 | R2 | "默认折叠" | AC-A3 | test | [x] |
 | R3 | 搜到了但分组折叠看不到（缅因猫发现） | AC-A5 | test | [x] |
-| R4 | "我想用的 cat cafe 在这么下面" | AC-B1~B5 | screenshot | [ ] |
-| R5 | "如果后续我们有 20 个项目 50 个项目怎么办" | AC-B2~B7 | test + screenshot | [ ] |
-| R6 | "我可以填写他的 thread 名字" | AC-C1 | test + manual | [ ] |
-| R7 | "甚至直接关联某个 feat" | AC-C2 | test + manual | [ ] |
-| R8 | "我可以选择直接置顶" | AC-C3 | test + manual | [ ] |
-| R9 | "新建的那个窗口可能需要大点" | AC-C4 | screenshot | [ ] |
+| R4 | "我想用的 cat cafe 在这么下面" | AC-B1~B5 | screenshot | [x] |
+| R5 | "如果后续我们有 20 个项目 50 个项目怎么办" | AC-B2~B7 | test + screenshot | [x] |
+| R6 | "我可以填写他的 thread 名字" | AC-C1 | test + manual | [x] |
+| R7 | "甚至直接关联某个 feat" | AC-C2 | test + manual | [x] |
+| R8 | "我可以选择直接置顶" | AC-C3 | test + manual | [x] |
+| R9 | "新建的那个窗口可能需要大点" | AC-C4 | screenshot | [x] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -174,6 +174,7 @@ Sidebar 布局从上到下：
 | 2026-03-11 | Scope 扩展为导航体验升级（铲屎官确认终态方向 + 缅因猫讨论） |
 | 2026-03-11 | Phase A merged (PR #366) |
 | 2026-03-11 | Phase B merged (PR #370) |
+| 2026-03-11 | Phase C merged (PR #373) |
 
 ## Review Gate
 
