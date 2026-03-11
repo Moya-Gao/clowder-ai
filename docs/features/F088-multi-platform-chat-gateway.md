@@ -100,6 +100,8 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 
 - **ISSUE-1**: Connector 消息不走统一管道 — **✅ Phase A+B+C 已解决**。详见 [架构归一设计](assets/F088/architecture-unification.md)
 - **ISSUE-2**: Cloudflare Access 与 webhook 路径冲突 — 临时用 `api.clowder-ai.com`。详见 [架构归一设计](assets/F088/architecture-unification.md#issue-2-cloudflare-access-与-tunnel-ingress-路径冲突)
+- **ISSUE-3**: 排队路径丢失媒体上下文 — 猫忙时，connector 图片消息排队后重放为 text-only（contentBlocks 未持久化到 messageStore）。直接调用路径正常。需改 messageStore schema + QueueProcessor 恢复链路。**愿景层高优 gap**（"共享记忆"）。
+- **ISSUE-4**: Connector 媒体文件是本地缓存，非持久 artifact — MediaCleanupJob 24h TTL 后删除，历史消息中的本地 URL 会失效。原件仍在 Feishu/Telegram 平台。如需持久化，应存 platform key 而非本地 URL。
 
 ## Open Questions (resolved)
 

@@ -74,7 +74,8 @@ created: 2026-03-09
 
 ### Phase 5 — 图片/文件收发
 - [x] AC-19: 接收用户图片 → 下载 → 存储 → 传递给猫（contentBlocks + absPath）
-- [x] AC-20: 接收用户文件 → 下载 → 传递给猫（contentBlocks + absPath）
+- [x] AC-20: 接收用户文件 → 下载 → 本地缓存 + 文本描述传递给猫
+  - ⚠️ 文件内容提取（PDF/文档解析）→ 结构化输入传递给猫：future phase
 - [x] AC-21: 猫的图片回复 → Telegram 原生 InputFile / Feishu 原生 /im/v1/images 上传
 - [x] AC-F1: Feishu 原生图片上传（FeishuTokenManager + /im/v1/images multipart）
 - [x] AC-C1: ConnectorMediaService 定期清理超龄文件（MediaCleanupJob, 24h TTL）
