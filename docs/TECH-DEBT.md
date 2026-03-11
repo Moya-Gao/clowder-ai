@@ -105,6 +105,7 @@ created: 2026-02-26
 | TD104 | **统一能力模型 `transport` 字段（YAGNI 暂不实现）** | [ ] | [F041 技术讨论](./discussions/2026-02-26-capability-dashboard/tech-discussion-open-questions.md) | 砚砚建议统一能力内部模型含 `transport` 字段（stdio/sse/ws）。布偶猫认为当前三猫 CLI 都是 stdio，YAGNI 原则暂不加。铲屎官认可 YAGNI 但记录 debt。触发条件：接入非 stdio transport 的 MCP server 时。|
 | TD105 | **多分身（variant）UI 兼容：warning 渲染 + 圆点导航 sender 映射** | [x] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 现象：warning JSON 直出、`opus-45/codex-spark` 在导航 tooltip 显示「系统」。修复落点：`useAgentMessages.ts` 增加 warning 分支；`MessageNavigator.tsx` 改用动态 cat data + baseId fallback。commit `c0bf811` |
 | TD106 | **多分身（variant）hardcode 扫描与归一化** | [ ] | [bug report](./bug-report/2026-03-01-variant-ui-warning-and-navigator/bug-report.md) | 目标：把 Web/UI 中写死 `opus/codex/gemini` 的地方统一迁移到 `useCatData()`（例：`ContextHealthBar.tsx` 的 family color、Hub/Sidebar 的固定入口、未知 catId 的统一展示策略）。|
+| TD107 | **Signal Inbox 列表 UX 设计语言归一化** | [ ] | F091 AC-13 转出 | Owner: 暹罗猫。Signal list_inbox 的卡片样式、排版、交互与 Cat Café 整体设计语言对齐。|
 
 ## P3 — 可选优化
 

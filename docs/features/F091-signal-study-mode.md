@@ -61,7 +61,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] AC-9: 有 study 的文章在列表有视觉标记 *(studyCount badge + ✎ note icon)*
 - [x] AC-10: 记忆对接用 cat-cafe-memory session search（不走 RAG），猫猫讨论前能搜到相关历史 *(ActiveSignalArticle enrichment with relatedDiscussions)*
 - [x] AC-12: "打开原文"保留外链跳转（铲屎官确认：需要给人展示来源时跳浏览器是正确行为），详情页已内嵌 markdown 渲染供日常阅读
-- [~] AC-13: Signal Inbox 列表视图 UX 设计语言归一化 *(转出为 BACKLOG TD-signal-inbox-ux)*
+- [~] AC-13: Signal Inbox 列表视图 UX 设计语言归一化 *(转出为 TECH-DEBT.md TD107)*
 - [x] AC-14: 可删除文章（单篇 + 批量选择删除），软删除（`deletedAt` 时间戳），列表过滤隐藏
 - [x] AC-15: 可给文章添加备注（自由文本，不是标签——铲屎官的个人笔记/提醒）
 - [x] AC-16: 批量操作（多选 → 删除/标已读/归档/加标签），范围=当前页可见项
@@ -89,7 +89,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 | R8 | Study 存储方案（文章同目录） | AC-3, AC-4 | test | [x] |
 | R9 | Signal Hunter 迁移 | AC-8 | manual | [x] |
 | R12 | "打开原文不要跳浏览器"→ 铲屎官确认保留外链（给人 show 来源） | AC-12 | 铲屎官确认 | [x] |
-| R13 | "hunter 列表 UX 设计语言归一化" | AC-13 | screenshot | [~] 转出 TD-signal-inbox-ux |
+| R13 | "hunter 列表 UX 设计语言归一化" | AC-13 | screenshot | [~] 转出 TECH-DEBT.md TD107 |
 | R10 | "记忆是 thread session 搜来的"——用 cat-cafe-memory，不走 RAG | AC-10 | test | [x] |
 | R14 | "有的时候拉到了一堆垃圾就想干掉！"——删除文章（单篇+批量） | AC-14, AC-16 | manual | [x] |
 | R15 | "添加备注"——铲屎官给文章加个人笔记/提醒 | AC-15 | manual | [x] |
@@ -197,7 +197,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - [x] Design Gate: UX 确认（铲屎官 2026-03-10）
 - [x] 本地猫 review（codex R1+R2，2026-03-10）
 - [x] 云端 review（PR #348 R1+R2，2026-03-10）
-- [x] 愿景守护 close review（gpt52 2026-03-10：第二次守护后铲屎官拍板缩 scope，AC-13 转出 TD-signal-inbox-ux）
+- [x] 愿景守护 close review（gpt52 2026-03-10：第二次守护后铲屎官拍板缩 scope，AC-13 转出 TECH-DEBT.md TD107）
 
 ## Timeline
 
@@ -207,7 +207,7 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - 2026-03-10: Phase 1-3 实现合入 main (PR #348)，17/24 AC done
 - 2026-03-10: 砚砚(GPT-5.4) 愿景守护：**不可 close**，剩余 7 AC 待补（AC-5/6/10/12/13/17/18/19）
 - 2026-03-10: Phase 4 实现合入 main (PR #351)，22/24 AC done — codex R1→R5 五轮 review
-- 2026-03-10: 砚砚(GPT-5.4) 第二次愿景守护 → 铲屎官拍板缩 scope（AC-1 partial→done, AC-12 行为正确→done, AC-13 转出 TD-signal-inbox-ux, AC-17 已实现→done）→ close
+- 2026-03-10: 砚砚(GPT-5.4) 第二次愿景守护 → 铲屎官拍板缩 scope（AC-1 partial→done, AC-12 行为正确→done, AC-13 转出 TECH-DEBT.md TD107, AC-17 已实现→done）→ close
 
 ## UX Wireframe 设计说明
 

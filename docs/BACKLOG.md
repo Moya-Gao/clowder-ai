@@ -44,9 +44,3 @@ created: 2026-02-26
 | F092 | Cats & U 语音陪伴体验 — hands-free 语音交互 | spec | 布偶猫 | [F092](features/F092-voice-companion-experience.md) |
 | F093 | Cats & U 陪伴式共创世界引擎 — 万物有灵 | spec | 布偶猫 | [F093](features/F093-cats-and-u-world-engine.md) |
 | F094 | Feature 文档债务清理 — 全量迁移到黄金模板标准 | spec | 布偶猫 | [F094](features/F094-feature-doc-debt-cleanup.md) |
-
-## Tech Debt
-
-| ID | 名称 | 来源 | Owner | 状态 |
-|----|------|------|-------|------|
-| TD-signal-inbox-ux | Signal Inbox 列表 UX 设计语言归一化 | F091 AC-13 转出 | 暹罗猫 | todo |
