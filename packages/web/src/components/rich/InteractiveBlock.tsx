@@ -13,9 +13,11 @@ export function buildSelectionMessage(
   options: Array<{ id: string; label: string; emoji?: string }>,
   selectedIds: string[],
   messageTemplate?: string,
+  title?: string,
 ): string {
   if (interactiveType === 'confirm') {
-    return selectedIds[0] === '__confirm__' ? '确认' : '取消';
+    const action = selectedIds[0] === '__confirm__' ? '确认' : '取消';
+    return title ? `${action} — ${title}` : action;
   }
 
   const selected = selectedIds.map((id) => options.find((o) => o.id === id)).filter(Boolean) as typeof options;
@@ -25,7 +27,8 @@ export function buildSelectionMessage(
     return messageTemplate.replace('{selection}', labels.join(', '));
   }
 
-  return `我选了：${labels.join(', ')}`;
+  const base = `我选了：${labels.join(', ')}`;
+  return title ? `${base}（${title}）` : base;
 }
 
 // ── Helpers ─────────────────────────────────────────────────
@@ -55,16 +58,20 @@ function SelectInteraction({
   selectedIds: string[];
   onSelect: (ids: string[]) => void;
 }) {
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  // When disabled (already submitted), show the committed selection; otherwise show pending
+  const highlightId = disabled ? selectedIds[0] ?? null : pendingId;
+
   return (
     <div className="space-y-1">
       {options.map((opt) => {
-        const isSelected = selectedIds.includes(opt.id);
+        const isSelected = highlightId === opt.id;
         return (
           <button
             key={opt.id}
             type="button"
             disabled={disabled}
-            onClick={() => !disabled && onSelect([opt.id])}
+            onClick={() => !disabled && setPendingId(opt.id)}
             className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors
               ${
                 isSelected
@@ -80,6 +87,15 @@ function SelectInteraction({
           </button>
         );
       })}
+      {!disabled && pendingId && (
+        <button
+          type="button"
+          onClick={() => onSelect([pendingId])}
+          className="mt-2 px-4 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 transition-colors"
+        >
+          确认选择
+        </button>
+      )}
     </div>
   );
 }
@@ -314,7 +330,7 @@ export function InteractiveBlock({ block, messageId }: { block: RichInteractiveB
       setLocalSelectedIds(optionIds);
 
       // Build and send message
-      const text = buildSelectionMessage(block.interactiveType, block.options, optionIds, block.messageTemplate);
+      const text = buildSelectionMessage(block.interactiveType, block.options, optionIds, block.messageTemplate, block.title);
       dispatchInteractiveSend(text);
 
       // P2-1 fix: write back to store so re-mount/thread-switch preserves state

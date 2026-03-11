@@ -5,12 +5,19 @@ import { describe, it, expect } from 'vitest';
 import { buildSelectionMessage } from '@/components/rich/InteractiveBlock';
 
 describe('F096: buildSelectionMessage', () => {
-  it('select — default template', () => {
+  it('select — default template (no title)', () => {
     const result = buildSelectionMessage('select', [
       { id: 'a', label: '方案 A' },
       { id: 'b', label: '方案 B' },
     ], ['a']);
     expect(result).toBe('我选了：方案 A');
+  });
+
+  it('select — default template with title context', () => {
+    const result = buildSelectionMessage('select', [
+      { id: 'a', label: '方案 A' },
+    ], ['a'], undefined, '选一个方案');
+    expect(result).toBe('我选了：方案 A（选一个方案）');
   });
 
   it('multi-select — multiple items', () => {
@@ -28,14 +35,24 @@ describe('F096: buildSelectionMessage', () => {
     expect(result).toBe('我选了：🎲 猫猫盲盒');
   });
 
-  it('confirm — confirm action', () => {
+  it('confirm — confirm action (no title)', () => {
     const result = buildSelectionMessage('confirm', [], ['__confirm__']);
     expect(result).toBe('确认');
   });
 
-  it('confirm — cancel action', () => {
+  it('confirm — cancel action (no title)', () => {
     const result = buildSelectionMessage('confirm', [], ['__cancel__']);
     expect(result).toBe('取消');
+  });
+
+  it('confirm — confirm with title context', () => {
+    const result = buildSelectionMessage('confirm', [], ['__confirm__'], undefined, '确认部署到生产环境？');
+    expect(result).toBe('确认 — 确认部署到生产环境？');
+  });
+
+  it('confirm — cancel with title context', () => {
+    const result = buildSelectionMessage('confirm', [], ['__cancel__'], undefined, '删除分支？');
+    expect(result).toBe('取消 — 删除分支？');
   });
 
   it('custom messageTemplate', () => {
