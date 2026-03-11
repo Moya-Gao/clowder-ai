@@ -101,6 +101,29 @@ function LoaderIcon() {
   );
 }
 
+/* ── Breed-tinted dark background helper ── */
+
+function breedDarkBg(hex: string | undefined): string {
+  if (!hex) return 'rgb(30, 27, 46)'; // default dark violet (ragdoll fallback)
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  // Mix 15% breed color + 85% near-black base
+  const base = { r: 15, g: 17, b: 30 };
+  const mix = 0.15;
+  return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
+}
+
+function breedDividerColor(hex: string | undefined): string {
+  if (!hex) return 'rgb(55, 48, 75)';
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  const base = { r: 40, g: 38, b: 55 };
+  const mix = 0.2;
+  return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
+}
+
 /* ── Status helpers ── */
 
 const STATUS_LABEL: Record<CliStatus, string> = {
@@ -252,9 +275,16 @@ interface CliOutputBlockProps {
   status: CliStatus;
   thinkingMode?: 'debug' | 'play';
   defaultExpanded?: boolean;
+  breedColor?: string;
 }
 
-export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded = false }: CliOutputBlockProps) {
+export function CliOutputBlock({
+  events,
+  status,
+  thinkingMode,
+  defaultExpanded = false,
+  breedColor,
+}: CliOutputBlockProps) {
   const isExport =
     typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('export') === 'true';
   const forceExpanded = status === 'streaming' || isExport;
@@ -302,13 +332,17 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
     setExpanded((v) => !v);
   };
 
+  const darkBg = breedDarkBg(breedColor);
+  const dividerBg = breedDividerColor(breedColor);
+
   return (
-    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden bg-slate-800">
-      {/* Summary / header bar — slate-800 matching Pencil design */}
+    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: darkBg }}>
+      {/* Summary / header bar — breed-tinted dark */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono bg-slate-800 text-slate-400 hover:bg-slate-700/50 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
+        style={{ backgroundColor: darkBg }}
       >
         <span className="text-violet-600">
           <ChevronIcon expanded={expanded} />
@@ -328,8 +362,8 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
 
       {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" className="bg-slate-800 text-slate-200 text-xs">
-          <div className="h-px bg-slate-700" />
+        <div data-testid="cli-output-body" className="text-slate-200 text-xs" style={{ backgroundColor: darkBg }}>
+          <div className="h-px" style={{ backgroundColor: dividerBg }} />
           {/* Collapsible tools section */}
           {toolUses.length > 0 && (
             <ToolsSection
@@ -348,7 +382,7 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div className="h-px bg-slate-700 mx-0" />
+                  <div className="h-px mx-0" style={{ backgroundColor: dividerBg }} />
                   <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
                 </>
               )}

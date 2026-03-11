@@ -324,6 +324,7 @@ export function ChatMessage({ message, getCatById }: ChatMessageProps) {
               status={cliStatus}
               thinkingMode={currentThread?.thinkingMode}
               defaultExpanded={uiThinkingExpandedByDefault}
+              breedColor={catData?.color.primary}
             />
           )}
           {message.extra?.rich?.blocks && message.extra.rich.blocks.length > 0 && (
