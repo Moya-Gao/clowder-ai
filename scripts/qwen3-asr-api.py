@@ -83,7 +83,7 @@ def _do_transcribe(audio_path: str, language: str) -> str:
     try:
         result = generate_transcription(
             model=_model,
-            audio_path=wav_path,
+            audio=wav_path,
             format="txt",
             verbose=False,
         )
