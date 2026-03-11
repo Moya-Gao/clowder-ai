@@ -104,23 +104,23 @@ function LoaderIcon() {
 /* ── Breed-tinted dark background helper ── */
 
 function breedDarkBg(hex: string | undefined): string {
-  if (!hex) return 'rgb(30, 27, 46)'; // default dark violet (ragdoll fallback)
+  if (!hex) return 'rgb(38, 30, 58)'; // default dark violet (ragdoll fallback)
   const r = Number.parseInt(hex.slice(1, 3), 16);
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
-  // Mix 15% breed color + 85% near-black base
-  const base = { r: 15, g: 17, b: 30 };
-  const mix = 0.15;
+  // Mix 30% breed color + 70% near-black base — visible breed tint
+  const base = { r: 18, g: 18, b: 28 };
+  const mix = 0.3;
   return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
 }
 
 function breedDividerColor(hex: string | undefined): string {
-  if (!hex) return 'rgb(55, 48, 75)';
+  if (!hex) return 'rgb(60, 50, 80)';
   const r = Number.parseInt(hex.slice(1, 3), 16);
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
-  const base = { r: 40, g: 38, b: 55 };
-  const mix = 0.2;
+  const base = { r: 45, g: 42, b: 60 };
+  const mix = 0.3;
   return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
 }
 

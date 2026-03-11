@@ -3,19 +3,36 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
-/** Breed-tinted semi-transparent background for thinking block */
+/** Breed-tinted background for thinking block — lighter than CLI block */
 function thinkingBg(hex: string | undefined): string {
-  if (!hex) return 'rgba(30, 27, 46, 0.35)';
+  if (!hex) return 'rgb(35, 30, 52)';
   const r = Number.parseInt(hex.slice(1, 3), 16);
   const g = Number.parseInt(hex.slice(3, 5), 16);
   const b = Number.parseInt(hex.slice(5, 7), 16);
-  // Very subtle breed tint — 8% breed color, 92% near-black, at 35% opacity
-  const base = { r: 15, g: 17, b: 30 };
-  const mix = 0.08;
-  const mr = Math.round(base.r * (1 - mix) + r * mix);
-  const mg = Math.round(base.g * (1 - mix) + g * mix);
-  const mb = Math.round(base.b * (1 - mix) + b * mix);
-  return `rgba(${mr}, ${mg}, ${mb}, 0.35)`;
+  // 20% breed color — visible but lighter than CLI block (30%)
+  const base = { r: 22, g: 22, b: 35 };
+  const mix = 0.2;
+  return `rgb(${Math.round(base.r * (1 - mix) + r * mix)}, ${Math.round(base.g * (1 - mix) + g * mix)}, ${Math.round(base.b * (1 - mix) + b * mix)})`;
+}
+
+function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="flex-shrink-0 transition-transform duration-150"
+      style={{ color: color || '#7C3AED', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
 }
 
 /** Collapsible wrapper for thinking content (🧠 Thinking only — CLI output moved to CliOutputBlock) */
@@ -66,19 +83,9 @@ export function ThinkingContent({
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-gray-500 hover:text-gray-400 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 transition-colors"
       >
-        <span
-          className="text-[10px]"
-          style={{
-            color: breedColor || '#7C3AED',
-            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
-            display: 'inline-block',
-            transition: 'transform 0.15s',
-          }}
-        >
-          ▶
-        </span>
+        <ThinkingChevron expanded={expanded} color={breedColor} />
         <span>{label}</span>
         {!expanded && <span className="text-gray-400 truncate max-w-[200px]">{preview}</span>}
       </button>
