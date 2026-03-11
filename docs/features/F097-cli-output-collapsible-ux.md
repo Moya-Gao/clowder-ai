@@ -313,6 +313,33 @@ Phase A 写完代码 → review → merge，全程没有拿 runtime 截图和 Pe
 - 颜色 token 全部精确值（#22D3EE check、#E2E8F0 tool name、#64748B detail、#4ADE80 success、#CBD5E1 stdout 等）
 - 布局间距（padding、gap、cornerRadius 等）
 
+### 第三轮反思（2026-03-11 10:09，铲屎官三图对比）
+
+**铲屎官给了三张图**：① 我的实现（runtime）② 我画的设计稿（完成态）③ 我画的设计稿（streaming 态）
+
+**图1（实现）的问题——和图2/图3（设计）的 gap**：
+
+| # | 设计稿有 | 实现缺失/错误 | 根因 |
+|---|---------|-------------|------|
+| 1 | Header: `CLI 输出 · 已完成 · 6 tools · 2m15s 共享给其他猫` | 只有 `49 tools`，无状态、无时长、无可见性 chip | runtime 仍在跑旧 ToolEventsPanel 或 label 适配层有 bug |
+| 2 | Tool 行: `✓ 🔧 Read src/components/index.ts` | 显示 `✓ 🔧 opus → Bash` — catId 前缀暴露，无参数 | **label 格式错误**：`useAgentMessages` 生成 `${catId} → ${toolName}`，CliOutputBlock 直接展示 |
+| 3 | 结果摘要: `Bash pnpm test` 旁有绿色 `12 passed` | 无任何结果摘要 | tool_result detail 没被解析为行内摘要 |
+| 4 | Active tool: 紫色半透明 bg + 左边框 + spinner + 亮色文字 | 代码有但 runtime 可能没触发（status 判断/label 匹配问题） | 需验证 streaming 态是否正确高亮 |
+| 5 | `── stdout ──` 分隔 + 输出文本 | 代码有但 runtime 是否渲染取决于 textEvents 是否非空 | 需验证 streamContent 是否正确传入 |
+| 6 | SVG icons 清晰精致 | stroke-based SVG 在 11-12px 下太细，不够醒目 | 设计稿用 icon font 渲染，天然粗一些；SVG stroke 需要调整 strokeWidth |
+
+**核心根因：label 适配层 `toCliEvents.ts` 直接透传了 `${catId} → ${toolName}` 格式的 label，没有解析出纯工具名 + 参数。**
+
+这导致：
+- ToolRow 的 `label.split(' ')[0]` 拿到的是 `"opus"` 不是 `"Read"`
+- args 部分变成 `"→ Bash"` 而不是 `"src/components/index.ts"`
+- 整个工具列表变成无意义的 `opus → X` 重复列表
+
+**修复方案**：
+1. `toCliEvents.ts` 中 strip `catId → ` 前缀，只保留 `toolName args`
+2. 如果原始 label 无 args（如 `opus → Bash`），至少显示正确的工具名 `Bash`
+3. tool_result 的 detail 解析短摘要（如 `12 passed`），显示在行内
+
 ## Timeline
 
 | 日期 | 事件 |
