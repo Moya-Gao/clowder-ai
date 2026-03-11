@@ -9,6 +9,8 @@ status: spec
 
 # F069 — Thread Read State (Unread Badge Persistence)
 
+> **Status**: spec | **Owner**: 三猫
+
 ## Why
 
 F5 刷新后，线程列表的未读 badge（绿色/橙色猫猫标签）全部消失。铲屎官报告："一按 F5 没读过的消息也都消失了，比如原本有 5 条没读，现在就会变成空的。"
@@ -34,6 +36,7 @@ F5 刷新后，线程列表的未读 badge（绿色/橙色猫猫标签）全部�
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] F5 刷新后未读 badge 正确恢复
 - [ ] 打开线程后 badge 清零，服务端同步更新已读游标
 - [ ] 多标签页打开同一用户：一个标签页 ack 后，另一个刷新也能看到已读状态
@@ -49,6 +52,7 @@ F5 刷新后，线程列表的未读 badge（绿色/橙色猫猫标签）全部�
 
 ## Dependencies
 
+- **Evolved from**: F039（前端队列 UI 与 threadStates 模型）
 - `Evolved from`: F039（前端队列 UI，建立了 threadStates / unreadCount / hasUserMention 内存模型）
 
 ## Risk

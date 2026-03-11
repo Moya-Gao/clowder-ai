@@ -1,5 +1,6 @@
 ---
 feature_ids: [F048]
+related_features: [F039]
 topics: [restart, recovery, invocation, queue, redis]
 doc_kind: note
 created: 2026-02-28
@@ -7,8 +8,7 @@ created: 2026-02-28
 
 # F048: Restart Recovery — 重启自愈（Invocation/Queue 恢复）
 
-> **Status**: Phase A done / Phase B idea
-> **Owner**: 布偶猫
+> **Status**: Phase A done / Phase B idea | **Owner**: 布偶猫
 > **Created**: 2026-02-28
 > **Priority**: P1（Phase A 已交付）
 > **Phase**: A ✅ / B idle
@@ -41,6 +41,7 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 
 ## Acceptance Criteria — Phase A
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] 启动时 sweep：扫描 Redis 中 status=`running` 的 invocation records，标为 `failed`（error 含 `process_restart`）
 - [x] 启动时 sweep：扫描 status=`queued` 且创建时间 > 阈值的 records，同样收敛
 - [x] 清理对应的 TaskProgress 快照（避免前端恢复”幽灵进度”）
@@ -96,6 +97,7 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 
 ## Dependencies
 
+- **Related**: F039（消息排队投递）
 - Redis（持久化、CAS、启动 reconcile）
 
 ## Open Questions
@@ -120,4 +122,3 @@ API 重启后，sweep Redis 里残留的 `running`/`queued` invocation records �
 - 2026-03-06: Status: idea → spec，Phase A ready for implementation
 - 2026-03-06: Phase A 实现 + codex R1→R5 + gpt52 R1→R2 + 云端 R1 → PR #249 squash merged
 - 2026-03-06: Phase A done，Phase B idle（队列持久化，待需求驱动）
-

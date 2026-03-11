@@ -8,11 +8,45 @@ created: 2026-03-09
 
 # F061 CDP 接入困难与解决方案复盘
 
+> **Status**: done | **Owner**: 布偶猫/宪宪
 > **Feature**: [F061 Antigravity 接入 — 孟加拉猫](F061-antigravity-bengal-cat.md)
 > **时间跨度**: 2026-03-04 ~ 2026-03-09（6 天，25+ commits，7 PRs）
 > **作者**: 布偶猫/宪宪
 
 ---
+
+## Why
+
+F061 主线交付后，需要把“接入不可控 Web IDE 的真实踩坑”结构化沉淀，避免后续类似 CDP 集成重复交学费。
+
+## What
+
+1. 系统盘点 F061 的 8 类典型困难（注入、按钮定位、轮询、thinking 提取等）
+2. 每类困难给出根因、可复用修法与对应 PR 证据
+3. 抽取通用模式，并评估迁移到 ChatGPT Pro Web 的可复用性
+
+## Acceptance Criteria
+
+### Phase A（问题复盘）
+- [x] AC-A1: 至少 8 类困难均提供“症状/根因/方案”三元组。
+- [x] AC-A2: 每类困难均附关联 PR 或实现证据，便于回溯。
+
+### Phase B（方法沉淀）
+- [x] AC-B1: 输出跨项目可复用模式（DOM 私有 API、hidden 状态、轮询误判等）。
+- [x] AC-B2: 给出 ChatGPT Pro Web 接入可行性评估与预期新增风险。
+
+## Dependencies
+
+- **Evolved from**: F061 主线实现（Antigravity/CDP 接入）
+- **Blocked by**: 无
+- **Related**: F050（外部 Agent 接入）/ F060（多模态与 rich 输出链路）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 外部 Web IDE DOM 结构持续变更导致复盘快速过时 | 保留“模式级结论”而非绑定单一选择器；遇变更先走模式排查 |
+| 读者只看结论不看证据，导致误用策略 | 每条结论附 PR 线索与失败案例，要求先复现再复用 |
 
 ## 一句话总结
 

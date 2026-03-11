@@ -9,6 +9,8 @@ status: done
 
 # F080 Input History Completion
 
+> **Status**: done | **Owner**: 布偶猫
+
 ## Why
 
 Terminal 有历史补全能力（输入前缀 + Tab -> 补全历史输入），Cat Cafe Hub 没有。铲屎官经常重复输入类似内容（如"笨蛋猫猫"），需要 terminal 风格的输入效率提升。
@@ -37,12 +39,12 @@ Terminal 有历史补全能力（输入前缀 + Tab -> 补全历史输入），C
 
 ## Acceptance Criteria
 
-- [x] 用户输入自动存储到历史（最近 500 条）
-- [x] 输入时显示灰色历史建议（前缀匹配）
-- [x] Tab 或 -> 键接受建议
-- [x] Ctrl+R 打开历史搜索弹窗
-- [x] 历史搜索支持模糊匹配
-- [x] 历史全局共享（决定：全局，不按 thread 隔离）
+- [x] AC-A1: 用户输入自动存储到历史（最近 500 条）
+- [x] AC-A2: 输入时显示灰色历史建议（前缀匹配）
+- [x] AC-A3: Tab 或 -> 键接受建议
+- [x] AC-A4: Ctrl+R 打开历史搜索弹窗
+- [x] AC-A5: 历史搜索支持模糊匹配
+- [x] AC-A6: 历史全局共享（决定：全局，不按 thread 隔离）
 
 ## Links
 
@@ -56,7 +58,7 @@ Terminal 有历史补全能力（输入前缀 + Tab -> 补全历史输入），C
 
 ## Dependencies
 
-- 无外部依赖，纯前端功能
+- **Related**: 无（纯前端功能）
 
 ## Risk
 

@@ -8,9 +8,8 @@ created: 2026-03-05
 
 # F062: 布偶猫账号配置中枢（订阅 / 赞助 API 切换）
 
-## Status: done
-
-## Completed: 2026-03-05
+> **Status**: done | **Owner**: 三猫
+> **Completed**: 2026-03-05
 
 ## Why
 
@@ -33,6 +32,7 @@ created: 2026-03-05
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: Hub 可新增/编辑/删除布偶猫 profile，并显示当前 active
 - [x] AC-2: Hub 可在 `subscription` 与 `api_key` profile 间切换
 - [x] AC-3: `api_key` profile 的 `baseUrl/apiKey` 能被布偶猫调用链读取并应用
@@ -67,6 +67,7 @@ created: 2026-03-05
 
 ## Dependencies
 
+- **Related**: F041（Hub/配置中枢基础）+ F061（外部 agent 接入配套）
 - `Evolved from`: F041（Hub/配置中枢基础）
 - `Related`: F061（已存在，不复用编号）
 

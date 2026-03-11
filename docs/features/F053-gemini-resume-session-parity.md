@@ -9,8 +9,7 @@ updated: 2026-03-03
 
 # F053: Gemini Session/Resume 语义对齐
 
-> **Status**: done
-> **Owner**: 缅因猫
+> **Status**: done | **Owner**: 缅因猫
 > **Priority**: P1
 > **依赖**: F033（Session Chain 策略）
 > **Updated**: 2026-03-03（Phase A + Phase B 全部落地）
@@ -20,7 +19,9 @@ updated: 2026-03-03
 
 > **一句话**：Gemini 在咱们系统里也必须是“有 session、可 resume”的一等公民，不再走一次性降级路径。
 
-## Why（纠偏原因）
+## Why
+
+### 纠偏原因
 
 我们之前长期把 Gemini CLI 当成“不支持 UUID resume”的提供方，这个前提已经被本机实测推翻（2026-03-03）：
 
@@ -30,7 +31,9 @@ updated: 2026-03-03
 
 旧前提导致了不必要的实现降级：`GeminiAgentService` 里曾显式注释“resume 不支持 UUID”，并忽略 `options.sessionId`。
 
-## What（本 Feature 做什么）
+## What
+
+### 本 Feature 做什么
 
 ### Phase A（已完成）
 
@@ -46,19 +49,35 @@ updated: 2026-03-03
 
 ## Acceptance Criteria
 
-- [x] AC-1: `GeminiAgentService` 在 `sessionId` 存在时使用 `--resume <sessionId>`。
-- [x] AC-2: `GeminiAgentService` 单测覆盖 resume 参数分支。
-- [x] AC-3: 维持无 `sessionId` 时的原有 headless 调用分支。
-- [x] AC-4: active docs 清除“Gemini 不支持 UUID resume”旧说法并统一口径（历史文档保留时间上下文）。
-- [x] AC-5: 补充 resume 失败观测项并输出到可追踪日志（`resume_failure_stats`）。
+### Phase A（Provider 能力纠偏）
+- [x] AC-A1: `GeminiAgentService` 在 `sessionId` 存在时使用 `--resume <sessionId>`。
+- [x] AC-A2: `GeminiAgentService` 单测覆盖 resume 参数分支。
+- [x] AC-A3: 维持无 `sessionId` 时的原有 headless 调用分支。
+
+### Phase B（系统口径与观测对齐）
+- [x] AC-B1: active docs 清除“Gemini 不支持 UUID resume”旧说法并统一口径（历史文档保留时间上下文）。
+- [x] AC-B2: 补充 resume 失败观测项并输出到可追踪日志（`resume_failure_stats`）。
+
+## Dependencies
+
+- **Evolved from**: F033（Session Chain 策略与前置能力）
+- **Blocked by**: 无
+- **Related**: F053（本体）/ Gemini provider 运行时稳定性议题
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| CLI 版本差异导致 `--resume` 行为变化 | 保留失败分类与版本相关观测，异常时快速回滚到无 session 分支 |
+| 跨目录 project bucket 导致 sessionId 不可复用 | 增加跨目录用例并在文档中保留操作约束 |
 
 ## 需求点 Checklist
 
 | ID | 需求点 | AC 编号 | 验证方式 | 状态 |
 |----|--------|---------|----------|------|
-| R1 | “Gemini 也要走 resume/session 概念” | AC-1, AC-3 | provider 行为 + 集成回归 | [x] |
-| R2 | “先拨乱反正，别再按错误前提实现” | AC-2, AC-4 | 单测 + 文档检查 | [x] |
-| R3 | “后续策略和另外两猫一致化” | AC-5 | 观测项 + strategy 讨论记录 | [x] |
+| R1 | “Gemini 也要走 resume/session 概念” | AC-A1, AC-A3 | provider 行为 + 集成回归 | [x] |
+| R2 | “先拨乱反正，别再按错误前提实现” | AC-A2, AC-B1 | 单测 + 文档检查 | [x] |
+| R3 | “后续策略和另外两猫一致化” | AC-B2 | 观测项 + strategy 讨论记录 | [x] |
 
 ## Tradeoff
 

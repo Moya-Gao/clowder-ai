@@ -9,8 +9,7 @@ created: 2026-02-27
 
 # F043: MCP 归一化 — Server 拆分 + 协作工具补全
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F041（能力看板 + 配置编排，现已就位）
 > **Completed**: 2026-03-04
@@ -190,7 +189,10 @@ interface ListTasksInput {
 
 **注意**：Phase A 不依赖 F041，可以先做。
 
+## Acceptance Criteria
+- [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 ## Dependencies
+- **Related**: 无
 
 | Feature | 关系 | 说明 |
 |---------|------|------|
@@ -229,6 +231,10 @@ Layer 0: Knowledge Engineering Research (Done)
 
 核心问题由铲屎官提出："agent 之间的协作，在 thread 之内和跨 thread 会用到什么功能？现在的搜 codebase 够吗？猫猫咖啡如何进化给你们更多可能性？"
 
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Timeline
 
 - 2026-02-27: F043 立项

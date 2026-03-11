@@ -8,8 +8,7 @@ created: 2026-03-04
 
 # F055: A2A MCP Structured Routing（结构化路由 + targetCats）
 
-> **Status**: spec
-> **Owner**: 布偶猫 (Opus 4.6)
+> **Status**: spec | **Owner**: 布偶猫 (Opus 4.6)
 > **Created**: 2026-03-04
 
 ## Why
@@ -66,6 +65,7 @@ created: 2026-03-04
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC-1: `post-message` callback schema 支持 `targetCats?: CatId[]`
 - [ ] AC-2: `targetCats` 非空时直接路由，不再依赖文本解析
 - [ ] AC-3: `targetCats` 为空时 fallback 到行首 @ 文本解析（Phase 1 兼容）

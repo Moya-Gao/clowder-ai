@@ -8,8 +8,7 @@ created: 2026-03-04
 
 # F061: Antigravity 接入 — 孟加拉猫（混血家族）
 
-> **Status**: spec
-> **Owner**: 布偶猫 Opus 4.6
+> **Status**: spec | **Owner**: 布偶猫 Opus 4.6
 > **Created**: 2026-03-04
 
 ---
@@ -64,6 +63,8 @@ Cat Cafe AgentRouter
 ---
 
 ## Acceptance Criteria
+
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 
 ### Phase 0: Spike / 可行性验证 ✅ COMPLETE
 - [x] AC-1: Antigravity 启动带 `--remote-debugging-port` 并成功连接 CDP

@@ -9,13 +9,50 @@ updated: 2026-03-02
 
 # F042: 提示词 & Skills 系统性优化
 
-> **Status**: done (2026-03-02 — 核心交付完成，剩余项毕业到 F043/F046/F049)
-> **Owner**: 布偶猫 (Opus 4.6, leader)
+> **Status**: done | **Owner**: 布偶猫 (Opus 4.6, leader)
 > **Reviewer**: 缅因猫 (GPT-5.2, 方案审阅)
 > **Created**: 2026-02-27
 > **Decision Date**: 2026-02-28
 > **Closed Date**: 2026-03-02
 > **Context Recovery**: Thread `thread_mm4dj9jp0tij0ch3`, 从 2026-02-28 16:05 铲屎官发言开始
+
+## Why
+
+F042 的目标是纠正提示词与 skills 体系的系统性退化：信息架构混杂、路由不精确、compact 后身份/A2A 协议遗忘、硬编码猫名无法适配多分身。
+
+## What
+
+1. 定义并落地三层信息架构（Layer 0/1/2）
+2. CLAUDE/SOP 瘦身，流程细节迁移到 skills
+3. 技能体系从 25 合并到 15，并引入 manifest + lint 治理
+4. 引入 stage 锚点与 pinned 注入，降低 compact 退化
+
+## Acceptance Criteria
+
+### Phase A（三层架构）
+- [x] AC-A1: 三层信息架构定稿并作为团队执行基线。
+- [x] AC-A2: CLAUDE.md 与 SOP.md 按“导航 + 按需加载”重构。
+
+### Phase B（skills 重组）
+- [x] AC-B1: skills 从 25 收敛至 15，触发边界可解释。
+- [x] AC-B2: 每个 skill 具备 Use when/Not for/Output 的路由约束。
+
+### Phase C（运行时守护）
+- [x] AC-C1: stage 锚点 + system prompt 注入策略落地。
+- [x] AC-C2: 硬编码猫名治理与 reviewer 降级策略形成统一规则。
+
+## Dependencies
+
+- **Evolved from**: F032（身份/角色/协作规则松绑）
+- **Blocked by**: 无（后续收口毕业到 F043/F046/F049）
+- **Related**: F043（MCP 归一化）/ F046（Anti-drift）/ F049（Mission 控制）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 过度合并 skill 导致触发漂移 | 采用“过度合并检查规则”与 reviewer 双重审查 |
+| 文档与 runtime 规则再次分叉 | 以 manifest 作为单一真相源并配套 lint |
 
 ## Summary
 

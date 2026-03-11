@@ -9,7 +9,7 @@ completed: 2026-03-07
 
 # F078: Smart Routing & Group Mentions
 
-## Status: done
+> **Status**: done | **Owner**: 布偶猫
 
 ## Why
 
@@ -29,16 +29,16 @@ Four routing improvements:
 
 ## Acceptance Criteria
 
-- [x] AC-1: Message without @mention routes to the cat that most recently replied in the thread
-- [x] AC-2: New thread without participants defaults to opus (unchanged)
-- [x] AC-3: `@all` or `@全体` routes to all available cats
-- [x] AC-4: `@全体布偶猫` / `@all-ragdoll` routes to all ragdoll variants
-- [x] AC-5: `@全体缅因猫` / `@all-maine-coon` routes to all maine-coon variants
-- [x] AC-6: `@全体暹罗猫` / `@all-siamese` routes to all siamese variants
-- [x] AC-7: `@thread` / `@本帖` / `@全体参与者` routes to all thread participants
-- [x] AC-8: Group mentions respect cat availability (skip unavailable cats)
-- [x] AC-9: Existing individual @mention behavior unchanged
-- [x] AC-10: All new patterns use longest-match-first + token boundary to avoid collisions
+- [x] AC-A1: Message without @mention routes to the cat that most recently replied in the thread
+- [x] AC-A2: New thread without participants defaults to opus (unchanged)
+- [x] AC-A3: `@all` or `@全体` routes to all available cats
+- [x] AC-A4: `@全体布偶猫` / `@all-ragdoll` routes to all ragdoll variants
+- [x] AC-A5: `@全体缅因猫` / `@all-maine-coon` routes to all maine-coon variants
+- [x] AC-A6: `@全体暹罗猫` / `@all-siamese` routes to all siamese variants
+- [x] AC-A7: `@thread` / `@本帖` / `@全体参与者` routes to all thread participants
+- [x] AC-A8: Group mentions respect cat availability (skip unavailable cats)
+- [x] AC-A9: Existing individual @mention behavior unchanged
+- [x] AC-A10: All new patterns use longest-match-first + token boundary to avoid collisions
 
 ## Links
 
@@ -55,8 +55,8 @@ Four routing improvements:
 
 ## Dependencies
 
-- Evolved from: F032 (thread-level cat selection), F046 (A2A mention simplification)
-- Related: F042 (prompt engineering audit -- routing policy)
+- **Evolved from**: F032 (thread-level cat selection), F046 (A2A mention simplification)
+- **Related**: F042 (prompt engineering audit -- routing policy)
 
 ## Risk
 

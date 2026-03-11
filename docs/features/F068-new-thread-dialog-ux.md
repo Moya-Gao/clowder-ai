@@ -10,6 +10,8 @@ status: done
 
 # F068 — 新建对话弹窗 UX 优化
 
+> **Status**: done | **Owner**: 三猫
+
 ## Why
 
 铲屎官反馈"新建对话"弹窗**太难用**：
@@ -30,6 +32,7 @@ status: done
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] 系统原生选择器：点击「选择文件夹」按钮，弹出 macOS 原生目录选择器（NSOpenPanel），选中后返回绝对路径
 - [x] 后端 API：`POST /api/projects/pick-directory`，通过 `osascript -e 'POSIX path of (choose folder)'` 实现
 - [x] 路径输入框：常驻显示，支持粘贴完整路径 + 回车/箭头按钮跳转
@@ -65,6 +68,7 @@ status: done
 
 ## Dependencies
 
+- **Evolved from**: F063（Hub Workspace Explorer）
 - Evolved from: F063 (Hub Workspace Explorer)
 
 ## Risk

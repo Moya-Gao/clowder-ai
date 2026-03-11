@@ -8,8 +8,7 @@ created: 2026-02-27
 
 # F044: Channel & Activity System（频道与活动系统）
 
-> **Status**: spec（五猫讨论完成，待开发）
-> **Owner**: 布偶猫
+> **Status**: spec（五猫讨论完成，待开发） | **Owner**: 布偶猫
 > **Created**: 2026-02-27
 
 ## Why
@@ -291,6 +290,7 @@ F070 Portable Governance 已支持派遣猫到外部项目。如果猫在外部�
 ---
 
 ## Dependencies
+- **Related**: 无
 
 > **更新：2026-03-07** — 全量影响分析 + gpt52 review
 > 原始讨论：[thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)
@@ -402,6 +402,8 @@ BACKLOG.md F044（入口）
 
 ---
 
+## Acceptance Criteria
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 ## Links
 
 - **讨论 Thread**: [thread_mm4uyww7va6y8k15](cat-cafe://thread/mm4uyww7va6y8k15)
@@ -410,3 +412,9 @@ BACKLOG.md F044（入口）
 - 五猫参与：codex, sonnet, opus(4.6), opus-45
 - 收敛：2026-02-27 opus-45
 - 依赖更新：2026-03-07 opus(4.6) + gpt52
+
+
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |

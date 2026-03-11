@@ -1,5 +1,6 @@
 ---
 feature_ids: [F047]
+related_features: [F039]
 topics: [queue, steer, ux, chat]
 doc_kind: note
 created: 2026-02-28
@@ -7,8 +8,7 @@ created: 2026-02-28
 
 # F047: Queue Steer（队列消息一键“立即执行 / 提到队首”）
 
-> **Status**: done
-> **Owner**: 缅因猫/砚砚（Codex）
+> **Status**: done | **Owner**: 缅因猫/砚砚（Codex）
 > **Created**: 2026-02-28
 > **Completed**: 2026-02-28
 > **Priority**: P1
@@ -28,6 +28,7 @@ created: 2026-02-28
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] `queued` 条目显示 Steer（`processing` 不显示）
 - [x] Steer 弹窗提供「立即执行 / 提到队首」并可取消
 - [x] 立即执行：有猫在跑时会先 cancel，再立刻执行被 Steer 的条目

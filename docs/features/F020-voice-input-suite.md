@@ -1,5 +1,6 @@
 ---
 feature_ids: [F020]
+related_features: []
 topics: [voice, input, suite]
 doc_kind: note
 created: 2026-02-26
@@ -8,8 +9,7 @@ created: 2026-02-26
 
 # F020: 语音输入 M1 MVP
 
-> **Status**: done
-> **Owner**: 三猫
+> **Status**: done | **Owner**: 三猫
 > **Created**: 2026-02-26
 
 ## Why
@@ -24,6 +24,9 @@ created: 2026-02-26
 - **F20c**: 已独立实现为 relay-station 平级项目（非 cat-cafe 子包）。macOS 全局热键（⌥Space）+ Whisper 转写 + 术语纠正 + 打字到任意 app。
 - **F20d**: CatCafeHub "语音设置" tab：可编辑术语纠正表 + initial_prompt 编辑 + 语言选择。内置词典 + localStorage 用户自定义合并。计划: 2026-02-15-voice-accuracy-and-system-whisper.md Phase B
 
+## Acceptance Criteria
+- [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 ## Links
 - [Whisper ASR 迁移 Apple Silicon 原生方案调研（替代 faster-whisper / CPU int8）](../research/whisper-asr-apple-silicon-migration.md)
 - [`2026-02-11-voice-input-design.md`](./archive/2026-02/plans/2026-02-11-voice-input-design.md)
@@ -33,7 +36,13 @@ created: 2026-02-26
 - Phase B
 
 ## Dependencies
+- **Related**: 无
 - 无显式依赖声明
+
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。

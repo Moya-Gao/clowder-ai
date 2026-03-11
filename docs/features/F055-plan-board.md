@@ -8,8 +8,7 @@ created: 2026-03-03
 
 # F055 — 猫猫祟祟（Plan Board）
 
-> **Status**: done
-> **Owner**: 布偶猫 (Opus)
+> **Status**: done | **Owner**: 布偶猫 (Opus)
 > **Reviewer**: 缅因猫 (Codex) — local + cloud
 > **Created**: 2026-03-03
 > **Completed**: 2026-03-03
@@ -68,6 +67,7 @@ created: 2026-03-03
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - **AC-1**: 右侧状态栏出现独立的「猫猫祟祟」section，位于 SessionChainPanel 附近
 - **AC-2**: 只显示当前 thread 中有过 invocation 且有 taskProgress 的猫
 - **AC-3**: 每猫独立卡片，卡片显示：猫名（带颜色标识）+ 进度条 + 任务数

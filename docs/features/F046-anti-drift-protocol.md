@@ -9,9 +9,8 @@ updated: 2026-03-06
 
 # F046: 愿景守护协议 — Anti-Drift Protocol
 
-> **Status**: done
+> **Status**: done | **Owner**: 三猫
 > **Completed**: 2026-03-06
-> **Owner**: 三猫
 > **Created**: 2026-02-27
 > **Priority**: P0
 
@@ -216,6 +215,8 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 - [x] 三猫指引文件包含「愿景守护」铁律段落
 - [x] `feat-completion` 有跨猫签收步骤（Step 0d）
 - [x] `requesting-review` + `requesting-cloud-review` 强制附原始需求摘录
@@ -267,6 +268,7 @@ F041 能力看板暴露致命问题：AC 12 项全绿、76 测试全过、14 轮
 | 铲屎官审美疲劳（截图太多） | 低 | 已限定 ≤3 张 + 1 段 15s 录屏 |
 
 ## Dependencies
+- **Related**: 无
 
 | Feature | 关系 | 说明 |
 |---------|------|------|
@@ -315,6 +317,10 @@ Phase D（D4）移除 identity gate 证据（2026-03-03）：
 - `packages/api/test/route-serial-review-identity-propagation.test.js` → deleted
 - `node --test packages/api/test/f046-b5-runtime-regression-seed.test.js` → 第 3 条期望更新为“无 identity 无效标记”
 
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Timeline
 
 - 2026-02-27: F041 愿景对照失败，触发 Deep Research Pipeline

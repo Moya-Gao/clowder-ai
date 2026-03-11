@@ -1,5 +1,6 @@
 ---
 feature_ids: [F040]
+related_features: []
 topics: [backlog, reorganization]
 doc_kind: note
 created: 2026-02-26
@@ -7,8 +8,7 @@ created: 2026-02-26
 
 # F40: BACKLOG 整理与 Feature 聚合体系
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Completed**: 2026-02-27
 > **Priority**: P1（基建，影响后续所有 feat 的管理方式）
@@ -212,6 +212,9 @@ created: 2026-02-26           # 创建日期
 - 影响范围：...
 - 回滚方案：...
 
+## Acceptance Criteria
+- [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 ## Dependencies
 - **Blocked by**: Fxxx
 - **Blocks**: Fxxx
@@ -226,6 +229,11 @@ created: 2026-02-26           # 创建日期
 ## Test Evidence（测试证据）
 - 单元测试：`pnpm test` 通过
 - 集成测试：...
+
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 
 ## Timeline
 - YYYY-MM-DD: Spec written

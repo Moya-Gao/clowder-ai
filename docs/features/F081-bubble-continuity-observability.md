@@ -10,6 +10,8 @@ completed: 2026-03-10
 
 # F081 — Bubble Continuity & Rendering Observability（猫猫气泡连续性与可观测性）
 
+> **Status**: done | **Owner**: 布偶猫
+
 ## Why
 
 铲屎官连续报了同一类痛点，但它们表面上长得像不同 bug：
@@ -83,6 +85,8 @@ completed: 2026-03-10
 - 不做全新的复杂调试中心；先做最小但足够定位现场的一版
 
 ## Acceptance Criteria
+
+- [x] AC-A1: 气泡连续性与可观测性修复主链路已完成（详见下方条目）
 
 - [x] AC1: 如果 assistant 气泡已经显示给铲屎官，切到别的 thread 再切回时，该气泡不会无声消失 *(PR #288 non-destructive merge + #337 activeRefs recovery)*
 - [x] AC2: active invocation 恢复时，history replace / draft merge 不会覆盖掉更新的本地 live bubble *(PR #288)*

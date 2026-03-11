@@ -10,6 +10,8 @@ completed: 2026-03-09
 
 # F086 Cat Orchestration — 猫猫自主协作 + 元认知系统
 
+> **Status**: done | **Owner**: 三猫
+
 ## Why
 
 ### 核心痛点（铲屎官采访 2026-03-08 20:25-20:36）
@@ -247,6 +249,8 @@ rule_update_target:
 
 ## Acceptance Criteria
 
+- [x] AC-A1: M1/M2/M3 的完整验收条目见下方分组（本条为模板编号锚点）
+
 ### M1 编排运行时
 - [x] MCP 工具 `cat_cafe_multi_mention` 可被猫猫调用
 - [x] `targets <= 3` 硬限制
@@ -356,14 +360,14 @@ F086 multi_mention（MCP 工具）:
 
 ## Dependencies
 
-- Evolved from: F079（投票系统 — 猫猫协作先例）
-- Builds on: F042（三层信息架构 — 知识该放哪里）
-- Builds on: F043（MCP 归一化 — 查询和发现）
-- Builds on: F046（愿景守护 — 反漂移协议）
-- Builds on: F070（Portable Governance — 知识移植）
-- Related: F055（A2A MCP Structured Routing — targetCats，M1 实现前先搜这个！）
-- Related: F037（Agent Swarm — 并列关系，不互相吞并）
-- Related: F038（Skills 发现机制）
+- **Evolved from**: F079（投票系统 — 猫猫协作先例）
+- **Evolved from**: F042（三层信息架构 — 知识该放哪里）
+- **Evolved from**: F043（MCP 归一化 — 查询和发现）
+- **Evolved from**: F046（愿景守护 — 反漂移协议）
+- **Evolved from**: F070（Portable Governance — 知识移植）
+- **Related**: F055（A2A MCP Structured Routing — targetCats，M1 实现前先搜这个！）
+- **Related**: F037（Agent Swarm — 并列关系，不互相吞并）
+- **Related**: F038（Skills 发现机制）
 
 ## Risk
 

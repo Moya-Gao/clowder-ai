@@ -8,7 +8,9 @@ created: 2026-03-06
 
 # F070: Portable Governance — 猫咖方法论的可复制输出
 
-> Status: done | Completed: 2026-03-08 | Owner: 布偶猫 | Evolved from: F041(能力Hub) + F042(三层架构) + F046(愿景守护)
+> **Status**: done | **Owner**: 布偶猫
+> **Completed**: 2026-03-08
+> **Evolved from**: F041（能力Hub）+ F042（三层架构）+ F046（愿景守护）
 
 ## Why
 
@@ -186,6 +188,8 @@ managed block 扩充协作方法论段落：
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 ### 核心 AC
 - [x] AC-1: 空白外部项目首次派遣，自动 bootstrap 完整治理骨架（managed block + skills + hooks + 方法论模板）— **Phase 1 + Phase 2 ✅**
 - [x] AC-2: 已有自己 CLAUDE.md/docs/BACKLOG.md 的外部项目，managed block 共存不冲突，已有文件不被覆盖 — **Phase 1 ✅**
@@ -217,6 +221,8 @@ managed block 扩充协作方法论段落：
 
 ## Dependencies
 
+- **Evolved from**: F041/F042（能力 Hub + 三层架构）
+- **Related**: F046/F049/F058（愿景守护与 Mission Hub 基础设施）
 | 依赖 | 关系 |
 |------|------|
 | F041 能力 Hub | Evolved from — 复用其跨项目 bootstrap 底座 |

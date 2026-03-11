@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F072: Mark All Read — 一键清理未读 Badge
 
-## Status: done
+> **Status**: done | **Owner**: 三猫
 **Completed: 2026-03-07**
 **PR**: #270 (commit `3071eb14`)
 
@@ -30,6 +30,7 @@ created: 2026-03-07
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: 用户点击"全部已读"后，所有 thread 的 unread count badge 消失
 - [x] AC-2: 猫猫状态颜色（橙/黄/绿）不受影响，仍然正常显示
 - [x] AC-3: 后端 ack 幂等 — 重复点击不报错
@@ -63,6 +64,7 @@ created: 2026-03-07
 
 ## Dependencies
 
+- **Evolved from**: F069（Thread Read State 基础设施）
 - F069 Thread Read State（已完成，read cursor 基础设施）
 
 ## Risk

@@ -8,8 +8,7 @@ created: 2026-03-07
 
 # F073: SOP Auto-Guardian — 流程自闭环守护
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Created**: 2026-03-07
 > **Priority**: P1
 
@@ -129,6 +128,8 @@ workflow:
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 ### P0（PR #271）
 - [x] AC-1: Hook 压缩后行为诊断完成，workaround 就位（TTL 30min + SOP 阶段恢复）
 - [x] AC-2: Worktree skill 开 worktree 前检查 main 文档双向同步
@@ -184,6 +185,7 @@ workflow:
 
 ## Dependencies
 
+- **Related**: F046/F049/F058（愿景守护与 Mission Hub 依赖链）
 | Feature | 关系 | 说明 |
 |---------|------|------|
 | **F049** | Depends | Mission Hub 基础设施 |

@@ -1,0 +1,1065 @@
+{
+  "generatedAt": "2026-03-11T08:30:25.762Z",
+  "generatedDate": "2026-03-11",
+  "featuresDir": "/Users/lysander/projects/relay-station/cat-cafe-F094-phase-b-doc-fixes/docs/features",
+  "featuresDirRelative": "docs/features",
+  "checks": [
+    {
+      "key": "fm_feature_ids",
+      "label": "frontmatter.feature_ids"
+    },
+    {
+      "key": "fm_related_features",
+      "label": "frontmatter.related_features"
+    },
+    {
+      "key": "fm_topics",
+      "label": "frontmatter.topics"
+    },
+    {
+      "key": "fm_doc_kind",
+      "label": "frontmatter.doc_kind"
+    },
+    {
+      "key": "fm_created",
+      "label": "frontmatter.created"
+    },
+    {
+      "key": "status_line",
+      "label": "Status line (`> **Status**: ... | **Owner**: ...`)"
+    },
+    {
+      "key": "section_why",
+      "label": "## Why"
+    },
+    {
+      "key": "section_what",
+      "label": "## What"
+    },
+    {
+      "key": "section_acceptance_criteria",
+      "label": "## Acceptance Criteria"
+    },
+    {
+      "key": "section_dependencies",
+      "label": "## Dependencies"
+    },
+    {
+      "key": "ac_format",
+      "label": "AC format (`- [ ] AC-A1: ...`)"
+    },
+    {
+      "key": "dependency_tags",
+      "label": "Dependency tags (`Evolved from/Blocked by/Related`)"
+    },
+    {
+      "key": "section_risk",
+      "label": "## Risk"
+    }
+  ],
+  "summary": {
+    "totalDocs": 97,
+    "tierCounts": {
+      "green": 97,
+      "yellow": 0,
+      "red": 0
+    },
+    "averageScorePercent": 100,
+    "missingFrequency": {},
+    "duplicateFeatureIds": [
+      {
+        "featureId": "F055",
+        "files": [
+          "F055-a2a-mcp-structured-routing.md",
+          "F055-plan-board.md"
+        ]
+      },
+      {
+        "featureId": "F061",
+        "files": [
+          "F061-antigravity-bengal-cat.md",
+          "F061-cdp-integration-retrospective.md"
+        ]
+      },
+      {
+        "featureId": "F081",
+        "files": [
+          "F081-bubble-continuity-observability.md",
+          "F081-write-path-audit.md"
+        ]
+      }
+    ]
+  },
+  "records": [
+    {
+      "file": "F001-config-visibility.md",
+      "featureId": "F001",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F002-agent-to-agent.md",
+      "featureId": "F002",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F003-hindsight-lite.md",
+      "featureId": "F003",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F004-runtime-config.md",
+      "featureId": "F004",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F005-a2a-follow-up.md",
+      "featureId": "F005",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F006-thread-title-editor.md",
+      "featureId": "F006",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F007-thread-title-search.md",
+      "featureId": "F007",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F008-token-budget-observability.md",
+      "featureId": "F008",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F009-tool-use-tool-result.md",
+      "featureId": "F009",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F010-mobile-cat.md",
+      "featureId": "F010",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F011-mode-system.md",
+      "featureId": "F011",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F012-feature-discoverability.md",
+      "featureId": "F012",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F013-audit-log-v2.md",
+      "featureId": "F013",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F014-svg-cat-animation.md",
+      "featureId": "F014",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F015-backlog-management.md",
+      "featureId": "F015",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F016-codex-oauth-memory-loop.md",
+      "featureId": "F016",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F017-export-dialog-image.md",
+      "featureId": "F017",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F018-toolbar-collapse.md",
+      "featureId": "F018",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F019-dynamic-elapsed-timer.md",
+      "featureId": "F019",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F020-voice-input-suite.md",
+      "featureId": "F020",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F021-signal-study-mode.md",
+      "featureId": "F021",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F022-rich-blocks.md",
+      "featureId": "F022",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F023-directory-corrosion-defense.md",
+      "featureId": "F023",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F024-context-monitoring.md",
+      "featureId": "F024",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F025-reliability-engineering.md",
+      "featureId": "F025",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F026-ui-dashboard-upgrade.md",
+      "featureId": "F026",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F027-a2a-path-unification.md",
+      "featureId": "F027",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F028-cross-channel-authorization.md",
+      "featureId": "F028",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F029-task-summary-right-panel-cleanup.md",
+      "featureId": "F029",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F030-copy-button-paths.md",
+      "featureId": "F030",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F031-review-two-layer-process.md",
+      "featureId": "F031",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F032-agent-plugin-architecture.md",
+      "featureId": "F032",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F033-session-strategy-configurability.md",
+      "featureId": "F033",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F034-voice-message.md",
+      "featureId": "F034",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F035-whisper-visibility.md",
+      "featureId": "F035",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F036-logo-stroke-animation.md",
+      "featureId": "F036",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F037-agent-swarm.md",
+      "featureId": "F037",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F038-skills-discovery.md",
+      "featureId": "F038",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F039-message-queue-delivery.md",
+      "featureId": "F039",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F40-backlog-reorganization.md",
+      "featureId": "F040",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F041-capability-dashboard.md",
+      "featureId": "F041",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F042-prompt-engineering-audit.md",
+      "featureId": "F042",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F043-mcp-unification.md",
+      "featureId": "F043",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F044-channel-activity-system.md",
+      "featureId": "F044",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F045-ndjson-observability.md",
+      "featureId": "F045",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F046-anti-drift-protocol.md",
+      "featureId": "F046",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F047-queue-steer.md",
+      "featureId": "F047",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F048-restart-recovery.md",
+      "featureId": "F048",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F049-mission-control-backlog-center.md",
+      "featureId": "F049",
+      "frontmatterDocKind": "note",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F050-a2a-external-agent-onboarding.md",
+      "featureId": "F050",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F051-real-quota-dashboard.md",
+      "featureId": "F051",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F052-cross-thread-identity-isolation.md",
+      "featureId": "F052",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F053-gemini-resume-session-parity.md",
+      "featureId": "F053",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F054-hci-preheat-infra.md",
+      "featureId": "F054",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F055-a2a-mcp-structured-routing.md",
+      "featureId": "F055",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F055-plan-board.md",
+      "featureId": "F055",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F056-cat-cafe-design-language.md",
+      "featureId": "F056",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F057-thread-discoverability.md",
+      "featureId": "F057",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F058-mission-control-enhancements.md",
+      "featureId": "F058",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F059-open-source-plan.md",
+      "featureId": "F059",
+      "frontmatterDocKind": "feature-spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F060-output-image-rich-block.md",
+      "featureId": "F060",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F061-antigravity-bengal-cat.md",
+      "featureId": "F061",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F061-cdp-integration-retrospective.md",
+      "featureId": "F061",
+      "frontmatterDocKind": "retrospective",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F062-ragdoll-provider-profile-hub.md",
+      "featureId": "F062",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F063-hub-workspace-explorer.md",
+      "featureId": "F063",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F064-a2a-exit-check.md",
+      "featureId": "F064",
+      "frontmatterDocKind": "feature",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F065-session-continuity.md",
+      "featureId": "F065",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F066-voice-pipeline-upgrade.md",
+      "featureId": "F066",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F067-cold-start-verifier.md",
+      "featureId": "F067",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F068-new-thread-dialog-ux.md",
+      "featureId": "F068",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F069-thread-read-state.md",
+      "featureId": "F069",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F070-portable-governance.md",
+      "featureId": "F070",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F071-ux-debt-batch.md",
+      "featureId": "F071",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F072-mark-all-read.md",
+      "featureId": "F072",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F073-sop-auto-guardian.md",
+      "featureId": "F073",
+      "frontmatterDocKind": "done",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F074-mount-directory-support.md",
+      "featureId": "F074",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F075-cat-leaderboard.md",
+      "featureId": "F075",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F076-mission-hub-cross-project.md",
+      "featureId": "F076",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F077-multi-user-secure-collab.md",
+      "featureId": "F077",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F078-smart-routing-group-mentions.md",
+      "featureId": "F078",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F079-voting-system.md",
+      "featureId": "F079",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F080-input-history-completion.md",
+      "featureId": "F080",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F081-bubble-continuity-observability.md",
+      "featureId": "F081",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F081-write-path-audit.md",
+      "featureId": "F081",
+      "frontmatterDocKind": "audit",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F082-git-health-panel.md",
+      "featureId": "F082",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F083-design-gate-sop.md",
+      "featureId": "F083",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F084-ragdoll-rescue-hub.md",
+      "featureId": "F084",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F085-hyperfocus-brake.md",
+      "featureId": "F085",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F086-cat-orchestration-multi-mention.md",
+      "featureId": "F086",
+      "frontmatterDocKind": "done",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F087-cvo-bootcamp.md",
+      "featureId": "F087",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F088-multi-platform-chat-gateway.md",
+      "featureId": "F088",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F089-hub-terminal-tmux.md",
+      "featureId": "F089",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F090-pixel-cat-brawl.md",
+      "featureId": "F090",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F091-signal-study-mode.md",
+      "featureId": "F091",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F092-voice-companion-experience.md",
+      "featureId": "F092",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F093-cats-and-u-world-engine.md",
+      "featureId": "F093",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    },
+    {
+      "file": "F094-feature-doc-debt-cleanup.md",
+      "featureId": "F094",
+      "frontmatterDocKind": "spec",
+      "scorePercent": 100,
+      "passedChecks": 13,
+      "totalChecks": 13,
+      "tier": "green",
+      "missing": []
+    }
+  ]
+}

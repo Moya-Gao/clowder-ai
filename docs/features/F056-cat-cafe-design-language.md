@@ -8,8 +8,7 @@ created: 2026-03-04
 
 # F056: Cat Café 设计语言 — 猫猫化不是猫化
 
-> **Status**: doing
-> **Owner**: 砚砚/GPT-5.2 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向
+> **Status**: doing | **Owner**: 砚砚/GPT-5.2 主导设计执行 + 布偶猫工程架构 + 烁烁概念方向
 > **Priority**: P1
 > **Evolved from**: F051（猫粮看板猫爪导航概念）、F052 Phase C（跨线程气泡设计打样）
 

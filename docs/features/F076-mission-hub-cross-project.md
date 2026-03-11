@@ -8,7 +8,8 @@ created: 2026-03-07
 
 # F076: Mission Hub 跨项目作战面板 + 甲方项目治理引擎
 
-> Status: phase-2-done | Owner: 布偶猫 | Evolved from: F049(Mission Control MVP) + F058(Mission Hub 增强) + F070(Portable Governance)
+> **Status**: phase-2-done | **Owner**: 布偶猫
+> **Evolved from**: F049（Mission Control MVP）+ F058（Mission Hub 增强）+ F070（Portable Governance）
 
 ## Why
 
@@ -149,6 +150,8 @@ Intent Card 槽位（v2）：actor / context-trigger / goal / object-state / suc
 
 ## Dependencies
 
+- **Evolved from**: F049/F058（Mission Hub 基座）
+- **Related**: F070（治理回流与 dispatch 边界）
 | 依赖 | 关系 |
 |------|------|
 | F049 Mission Control MVP | Evolved from — 单项目任务调度基座 |
@@ -164,6 +167,7 @@ Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → M
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: Need Audit Pipeline — Stage 0~3 全流程可执行，输出 Intent Cards + Triage 结果 — **Phase 1 (Stage 0-2) + Phase 2 (Stage 3 Resolution Design) ✅**: 完整 pipeline 含 ResolutionStore + 5 种 resolution path + 澄清队列 UI
 - [x] AC-2: Translation Matrix — 甲方原文 → Intent Card → Source tag → Triage 状态实时展示 — **Phase 1 ✅ (PR #304)**
 - [x] AC-3: Risk Detection — 8 类信号自动/半自动检测 + 风险预警面板 — **Phase 2 ✅**: RiskDetectionService 8 启发式 + RiskPanel 前端 + detect-risks API + risk-summary API
@@ -182,6 +186,10 @@ Five-layer architecture: Ingestion → Audit Workbench → Planning Bridge → M
 7. Trial Run 时机 — studio-flow PRD-V1 作为首次试跑素材，但需要避免上下文污染（744 行）
 8. 外部项目 backlog 数据如何同步到 Mission Hub？（文件读取 / API / 手动导入？）
 9. Intent Card 存储后端 — Redis? SQLite? 文件系统?
+
+## Risk
+
+- Scope 膨胀风险：跨项目治理与 Mission Hub 本体迭代容易互相挤压，需维持分阶段交付与回归门禁。
 
 ## Discussion Log
 

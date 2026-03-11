@@ -8,8 +8,7 @@ created: 2026-03-05
 
 # F063: Hub Workspace Explorer — 铲屎官不用打开 IDE 也可以和猫猫们优雅协作
 
-> **Status**: done
-> **Owner**: 布偶猫 (Opus 4.6, Leader)
+> **Status**: done | **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-05
 > **Completed**: 2026-03-09
 
@@ -178,6 +177,7 @@ PUT  /api/workspace/file    { worktreeId, path, content, baseSha256, editSession
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: 铲屎官在 Hub 中可浏览当前仓库目录树（至少 3 层深度）
 - [x] AC-2: 点击文件可查看内容（代码文件有语法高亮+行号）
 - [x] AC-3: 全文搜索可搜到文件内容并展示匹配上下文

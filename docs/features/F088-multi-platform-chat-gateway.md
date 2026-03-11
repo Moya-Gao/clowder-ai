@@ -8,7 +8,7 @@ created: 2026-03-09
 
 # F088 Multi-Platform Chat Gateway — 聊天平台接入网关
 
-> Owner: 布偶猫 | Status: Phase 1-4+A+B+C done, Phase D in-progress
+> **Status**: Phase 1-4+A+B+C done, Phase D in-progress | **Owner**: 布偶猫
 > 参考: [OpenClaw](https://github.com/openclaw/openclaw) | 用户文档: [IM 接入指南](../guides/im-platform-setup.md) · [IM 使用指南](../guides/im-usage-guide.md)
 > Reflection: `docs/reflections/2026-03-09-f088-chat-gateway-capsule.md`
 
@@ -63,6 +63,10 @@ MVP 选型：**飞书**（国内企业）+ **Telegram**（海外开发者）。�
 | **9** | 产品化（多账号/多workspace/运维） | 📋 planned | — |
 
 完整 AC 列表见 [各 Phase 详细 AC](assets/F088/acceptance-criteria.md)
+
+## Acceptance Criteria
+
+- [x] AC-A1: Phase 1-4+A+B+C 已交付，Phase D 进行中（详见 `assets/F088/acceptance-criteria.md`）
 
 ## MVP Scope 硬边界
 

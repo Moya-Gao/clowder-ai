@@ -10,6 +10,8 @@ status: done
 
 # F083 — Design Gate + Cloud Reviewer Quota Fallback
 
+> **Status**: done | **Owner**: 布偶猫
+
 ## Why
 
 铲屎官发现猫猫有时 UX 没确认就直接开写代码，写完才发现不是他想要的。F076 Mission Hub 那次布偶猫做对了（采访→画图→讨论），但不是每次都这么做。需要把"先确认设计再动手"固化到 SOP 里。
@@ -32,13 +34,13 @@ status: done
 
 ## Acceptance Criteria
 
-- [x] feat-lifecycle SKILL.md 含 Design Gate section
-- [x] SOP.md 流程从 4 步变 5 步（⓪ Design Gate）
-- [x] CLAUDE.md / AGENTS.md / GEMINI.md 流程链 + 表格同步
-- [x] manifest.yaml / BOOTSTRAP.md 流程链同步
-- [x] merge-gate Q4 FAQ：降级策略 + self-review 护栏
-- [x] Trivial 路径无路由冲突（R2 修复）
-- [x] `pnpm check:skills` 全绿
+- [x] AC-A1: feat-lifecycle SKILL.md 含 Design Gate section
+- [x] AC-A2: SOP.md 流程从 4 步变 5 步（⓪ Design Gate）
+- [x] AC-A3: CLAUDE.md / AGENTS.md / GEMINI.md 流程链 + 表格同步
+- [x] AC-A4: manifest.yaml / BOOTSTRAP.md 流程链同步
+- [x] AC-A5: merge-gate Q4 FAQ：降级策略 + self-review 护栏
+- [x] AC-A6: Trivial 路径无路由冲突（R2 修复）
+- [x] AC-A7: `pnpm check:skills` 全绿
 
 ## Links
 
@@ -54,7 +56,11 @@ status: done
 
 ## Dependencies
 
-- Evolved from: F042（三层信息架构 + Skills 优化）
+- **Evolved from**: F042（三层信息架构 + Skills 优化）
+
+## Risk
+
+- 低风险：文档与流程规则调整，已通过 `pnpm check:skills` 验证。
 
 ## Review Gate
 

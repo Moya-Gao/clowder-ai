@@ -8,13 +8,18 @@ created: 2026-03-07
 
 # F071: UX Debt Batch — 前端小修小补合集
 
+> **Status**: spec | **Owner**: 布偶猫
 > Status: spec | Owner: 布偶猫 | Type: debt batch
 
 ## Why
 
 随着猫猫家族壮大和功能累积，前端出现了几个体验痛点。单个都不大，合并为一个 debt batch 统一追踪。
 
-## Issues
+## What
+
+本 feature 作为债务批处理，集中收口图片预览、猫猫状态面板、@mention 列表三个高频 UX 问题。
+
+### Issues
 
 ### D1: 上传图片不支持预览（点击放大）
 
@@ -78,11 +83,25 @@ created: 2026-03-07
 | D2 幽灵状态 | P2 | M (需要状态同步逻辑) |
 | D3 mention 列表 | P2 | S (搜索过滤 + 滚动) |
 
-## AC (Acceptance Criteria)
+## Acceptance Criteria
 
-- [x] D1: 点击消息中的图片，弹出 lightbox 全屏预览（Esc/点击背景关闭）
-- [x] D2: F5 刷新或切换 thread 后，无活跃 invocation 时不显示"等待调用..."
-- [x] D3: @ mention 下拉支持输入过滤 + 滚动，9+ 个猫也能快速定位
+### Phase A（Debt Batch 修复）
+- [x] AC-A1: 点击消息中的图片，弹出 lightbox 全屏预览（Esc/点击背景关闭）。
+- [x] AC-A2: F5 刷新或切换 thread 后，无活跃 invocation 时不显示“等待调用...”。
+- [x] AC-A3: @ mention 下拉支持输入过滤 + 滚动，9+ 个猫也能快速定位。
+
+## Dependencies
+
+- **Evolved from**: F039（消息队列与状态呈现基线）
+- **Blocked by**: 无
+- **Related**: F071（本体）/ 前端状态一致性与输入体验优化
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| debt batch 合并过多小改动，回归面扩大 | 每个子项保留独立验证点，按 D1/D2/D3 分项验收 |
+| UI 细节修复在跨线程场景复现不稳定 | 增加 thread 切换/F5 的固定回归脚本与人工验证 checklist |
 
 ## D3 后续修复
 

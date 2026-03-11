@@ -8,8 +8,7 @@ created: 2026-03-02
 
 # F052: 跨线程身份隔离与消息溯源
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F043 Phase A（cross_post_message 已落地）
 > **Evolved from**: F043（跨线程传输能力）
@@ -37,7 +36,7 @@ Cat Café 的每条 Thread 是一条独立工作流。多条 Thread 并行时，
 3. Thread A 的 codex 在消息里 `@codex`，**Thread B 的 codex 能被 A2A 触发**（当前被自引用过滤器误杀）
 4. 不会自动拉 Thread A 的完整上下文——但跨线程消息**自带来源标记**，猫可以按需用 `get_thread_context(threadId=A)` 主动拉
 
-## Why（问题分析）
+## Why
 
 ### 根因：`catId` 是全局的，没有 Thread 作用域
 

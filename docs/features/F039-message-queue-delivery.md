@@ -1,5 +1,6 @@
 ---
 feature_ids: [F039]
+related_features: []
 topics: [message, queue, delivery]
 doc_kind: note
 created: 2026-02-26
@@ -8,8 +9,7 @@ created: 2026-02-26
 
 # F039: 消息排队投递 — 用户操作三模式
 
-> **Status**: done
-> **Owner**: 三猫
+> **Status**: done | **Owner**: 三猫
 > **Created**: 2026-02-26
 > **Completed**: 2026-02-28
 
@@ -19,6 +19,8 @@ created: 2026-02-26
 ## What
 - **F39**: 猫在跑时支持排队发送/强制发送/取消三模式。InvocationQueue per-thread FIFO + scopeKey 用户隔离 + 同源合并 + 前端 QueuePanel + cancel 后暂停管理。砚砚 R1→R8 放行。优先级在 #97 3c 之前（队列是 3c 的基础设施）。需求 · 技术 plan。
 
+## Acceptance Criteria
+- [x] AC-A1: 本文档已补齐模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 ## Links
 - [需求](./plans/2026-02-26-message-queue-delivery.md)
 - [技术 plan](./plans/2026-02-26-message-queue-delivery-plan.md)
@@ -35,6 +37,7 @@ created: 2026-02-26
 - 历史记录未单列关键决策
 
 ## Dependencies
+- **Related**: 无
 - 无显式依赖声明
 
 ## 已知 Bug / UX 改进（2026-02-27 铲屎官发现）
@@ -69,5 +72,9 @@ created: 2026-02-26
 - **现状**：队列内存态，进程重启会丢失“排队中”的条目（消息正文仍在 MessageStore，可见但不再自动执行）。
 - **备注**：若要做，需要同时定义“重启恢复语义”（包括：in-flight invocation 的 orphan 处理、processing 条目的回滚/重试、pause 状态恢复等）。
 
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。

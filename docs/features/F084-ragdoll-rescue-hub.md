@@ -10,7 +10,8 @@ status: done
 
 # F084 — Ragdoll Rescue Hub（布偶猫救援中心）
 
-> Status: done | Owner: 缅因猫 | Evolved from: PR #303 | Completed: 2026-03-08
+> **Status**: done | **Owner**: 缅因猫
+> **Evolved from**: PR #303 | **Completed**: 2026-03-08
 
 ## Why
 
@@ -67,6 +68,8 @@ status: done
 - 不承诺恢复私有 thinking 历史，只承诺“把坏 session 救回可 resume”
 
 ## Acceptance Criteria
+
+- [x] AC-A1: Rescue Hub 主链路能力已交付（详见下方条目）
 
 - [x] AC1: Config Hub 能展示“布偶猫救援”入口，且只在本机支持 Claude transcript 的环境里可用
 - [x] AC2: 用户可扫描坏掉的 Claude session，并看到每条 session 的 `sessionId`、文件路径、将被移除的纯 thinking turn 数量

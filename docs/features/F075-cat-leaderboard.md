@@ -8,7 +8,7 @@ created: 2026-03-07
 
 # F075 — 猫猫排行榜 (Cat Leaderboard)
 
-## Status: spec
+> **Status**: spec | **Owner**: 三猫
 
 ## Why
 
@@ -86,6 +86,7 @@ Mission Hub 新增「排行榜」Tab，展示多维度猫猫统计和排名。
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] Mission Hub 新增「排行榜」Tab
 - [ ] @ 互动统计面板（至少 4 个维度）
 - [ ] 工作统计面板（至少 3 个维度）

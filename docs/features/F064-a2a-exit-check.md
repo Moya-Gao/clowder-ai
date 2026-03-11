@@ -1,4 +1,6 @@
 ---
+feature_ids: [F064]
+related_features: [F046, F055]
 feature_id: F064
 title: A2A 出口检查 — 链条终止盲区修复
 status: done
@@ -9,6 +11,42 @@ doc_kind: feature
 ---
 
 # F064: A2A 出口检查 — 链条终止盲区修复
+
+> **Status**: done | **Owner**: 布偶猫
+
+## Why
+
+F064 的核心动机是修复 A2A 协作中的“链条终止盲区”：该 @ 下一只猫时没有触发动作，导致铲屎官被迫充当手动路由器。
+
+## What
+
+1. 在 shared-rules 增加发送前出口检查与三问短路
+2. 调整缅因猫 workflow trigger 的正负信号比重
+3. 打通 `mentionRoutingFeedback` 的提示词读侧注入，形成纠偏反馈
+
+## Acceptance Criteria
+
+### Phase A（规则与提示词）
+- [x] AC-A1: 发送前出口检查规则写入 shared-rules 并明确短路条件。
+- [x] AC-A2: 缅因猫 workflow trigger 正面触发与抑制规则完成平衡调整。
+
+### Phase B（运行时注入）
+- [x] AC-B1: 非 parallel 且 a2aEnabled 时注入出口检查提示。
+- [x] AC-B2: `mentionRoutingFeedback` read-side 注入与测试覆盖完成。
+- [ ] AC-B3: write-side 自动回写尚未接入（列为已知债务并保留后续方案）。
+
+## Dependencies
+
+- **Evolved from**: F046（Anti-Drift 协议）
+- **Blocked by**: 无
+- **Related**: F055（A2A MCP Structured Routing）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 纠偏提醒误报触发 mention spam | 仅在满足动作词/行首规则时写入反馈，且设置 TTL |
+| 只做 read-side 导致闭环不完整 | 明确 write-side 作为后续任务并记录代码入口 |
 
 ## 问题
 

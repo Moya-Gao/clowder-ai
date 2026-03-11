@@ -1,5 +1,6 @@
 ---
 feature_ids: [F041]
+related_features: []
 topics: [capability, dashboard]
 doc_kind: note
 created: 2026-02-26
@@ -7,8 +8,7 @@ created: 2026-02-26
 
 # F041: 能力看板 — Hub MCP/Skills 统一管理
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Created**: 2026-02-26
 > **Priority**: P1（铲屎官明确需求，影响日常管理体验）
 > **Re-opened**: 2026-02-27（愿景对照失败：UI 不可用 + 多项目管理缺失 + Skills 来源分类 bug）
@@ -39,6 +39,8 @@ created: 2026-02-26
 ---
 
 ## Acceptance Criteria
+
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 
 ### 功能验收
 
@@ -353,6 +355,10 @@ startup_timeout_sec = 30
 
 ---
 
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Timeline
 
 - 2026-02-26: 铲屎官提出需求，采访澄清

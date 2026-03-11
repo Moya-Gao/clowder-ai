@@ -9,6 +9,8 @@ created: 2026-03-09
 
 # F089 Hub Terminal & tmux Integration — 浏览器终端 + 猫猫可观测性
 
+> **Status**: in-progress | **Owner**: 布偶猫
+
 ## Why
 
 ### 核心需求（铲屎官 2026-03-08）
@@ -57,6 +59,8 @@ tmux pane（agent 跑在这里）─┤
 | 进程监控 | `pidtree` + `pidusage` | 跨平台（macOS + Linux） |
 
 ## Acceptance Criteria
+
+- [x] AC-A1: tmux 单源双消费架构已落地并通过 Phase 1-3a 验证
 
 ### Phase 1：tmux 基础设施 + 用户 Shell（终态基座）
 
@@ -117,8 +121,8 @@ tmux pane（agent 跑在这里）─┤
 
 ## Dependencies
 
-- Evolved from: **F063**（Workspace Explorer 提供了文件/tab 基础，Terminal 是自然延伸）
-- Related: **F061**（CDP Bridge 的子进程管理、crash recovery 经验可复用）
+- **Evolved from**: F063（Workspace Explorer 提供了文件/tab 基础，Terminal 是自然延伸）
+- **Related**: F061（CDP Bridge 的子进程管理、crash recovery 经验可复用）
 
 ## Risk
 

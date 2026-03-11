@@ -1,5 +1,6 @@
 ---
 feature_ids: [F049]
+related_features: [F037, F058]
 topics: [mission-control, backlog, tasking, swarm]
 doc_kind: note
 created: 2026-03-01
@@ -7,8 +8,7 @@ created: 2026-03-01
 
 # F049: Mission Hub — Backlog Center（领取/派发/自动开 Thread）
 
-> **Status**: done
-> **Owner**: 三猫
+> **Status**: done | **Owner**: 三猫
 > **Created**: 2026-03-01
 > **Completed**: 2026-03-03
 > **Priority**: P1（指挥中心基建）
@@ -37,6 +37,7 @@ created: 2026-03-01
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 ### MVP（建议+批准）
 - [x] Web/PWA 可打开 Backlog Center（手机可用）。
 - [x] 任何人（铲屎官/猫）可创建 backlog item（标题 + 简述 + priority + tags）。

@@ -9,10 +9,47 @@ updated: 2026-02-27
 
 # F032: Agent Plugin Architecture（CatId 松绑 + 协作规则动态化）
 
-> **Status**: done (d4b85bf)
-> **Owner**: 布偶猫 (Opus 4.5) + 三猫
+> **Status**: done | **Owner**: 布偶猫 (Opus 4.5) + 三猫
 > **Created**: 2026-02-26
 > **Last Updated**: 2026-02-27
+
+## Why
+
+F032 解决的是“身份/角色/协作规则”被硬编码导致的系统不可扩展问题：多分身并存后，静态 `CatId`、写死 reviewer 规则、缺少 thread 活跃度排序都会让协作链路失真。
+
+## What
+
+1. 技术侧松绑（CatId/AgentRegistry/catIdSchema 动态化）
+2. 协作规则动态化（Roster Schema + Reviewer Matcher）
+3. Thread Activity Tracking 与 system prompt 注入机制补齐
+
+## Acceptance Criteria
+
+### Phase A（技术侧松绑）
+- [x] AC-A1: `CatId` 从硬编码枚举改为运行时动态模型。
+- [x] AC-A2: `AgentRegistry` 支持按 roster/provider 动态注册服务。
+- [x] AC-A3: `catIdSchema` 动态验证已落地并可拦截未知 catId。
+
+### Phase B（协作规则动态化）
+- [x] AC-B1: Team Roster Schema 与 Reviewer Matcher 已实现并投入使用。
+- [ ] AC-B2: SOP/Skill 模板化在 F042 继续推进（本 feature 不再单独交付）。
+
+### Phase C/D
+- [x] AC-C1: Thread activity tracking 已落地，reviewer 可按 thread 活跃度优先。
+- [x] AC-D1: System prompt 注入路径已落地并完成验收。
+
+## Dependencies
+
+- **Evolved from**: F32-b（CatId/AgentRegistry 技术侧松绑先导工作）
+- **Blocked by**: F042（SOP/Skill 模板化收口）
+- **Related**: F032（本体）/ F042（提示词与 skills 系统性优化）
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| B2 迁移到 F042 后出现边界不清 | 在 F042 保留“来源于 F032 的 B3 scope”并做完成态回链 |
+| 多分身 roster 演进导致 reviewer 规则漂移 | 所有规则回收到 roster + manifest，禁止硬编码猫名 |
 
 ## 实现状态总览
 

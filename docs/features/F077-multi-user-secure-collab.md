@@ -8,9 +8,8 @@ created: 2026-03-07
 
 # F077 — Multi-User Secure Collaboration（多用户安全协作）
 
-## Status: spec
-## Owner: 布偶猫
-## Evolved from: F074（挂载目录支持暴露了零认证裸跑问题）
+> **Status**: spec | **Owner**: 布偶猫
+> **Evolved from**: F074（挂载目录支持暴露了零认证裸跑问题）
 
 ## Why
 
@@ -45,6 +44,7 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 ## Acceptance Criteria
 
 ### Phase 1 MVP
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC1: GitHub OAuth 登录流程完整（authorize → callback → session → /api/me）
 - [ ] AC2: 未登录用户访问任何 API 返回 401（除 /api/auth/* 和健康检查）
 - [ ] AC3: 铲屎官（admin）可生成邀请链接，朋友用 GitHub 登录后成为 member
@@ -127,6 +127,7 @@ GitHub OAuth 认证 + Thread ACL + Redis Session，实现安全的多用户协�
 
 ## Dependencies
 
+- **Evolved from**: F074（挂载目录支持）
 - F074（已完成）— 挂载目录支持
 - Redis 基础设施（已有）
 

@@ -8,8 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress (Phase J ✅, AC-I6 遗留)
-> **Owner**: 布偶猫
+> **Status**: in-progress (Phase J ✅, AC-I6 遗留) | **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
 > **Evolved from**: F049（MVP 使用中发现的 bug + 增强需求）
@@ -25,7 +24,7 @@ F049 MVP 让铲屎官有了一个任务指挥中心，但实际使用中暴露�
 > "我发现我们的 f49 有 bug？现在 ft 同步好像只会增量 比如有 ft close 了他也不会更新，也不列出我们做完的 以及 feat 原本元数据就有依赖的 这个能不能也画出来？"
 > "我觉得我们可以做一个 f49 ++ 单独的立项？新的 id 依赖 f49"
 
-## Why（问题分析）
+## Why
 
 ### Bug：指挥中心的数据盲区
 

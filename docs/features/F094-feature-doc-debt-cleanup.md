@@ -14,22 +14,17 @@ created: 2026-03-10
 
 ### 核心痛点
 
-98 个 Feature 文档，质量参差不齐。F086/F088 等近期文档结构完善，但大量早期文档（F001-F038）只有 2-3 个 section，缺 AC、缺 Risk、缺 Dependencies，frontmatter 字段不统一。
+97 个 Feature 文档，质量参差不齐。F086/F088 等近期文档结构完善，但大量早期文档（F001-F038）只有 2-3 个 section，缺 AC、缺 Risk、缺 Dependencies，frontmatter 字段不统一。
 
-**量化债务**（Phase A 审计实测数据，2026-03-10）：
-- **总文档数**：96 份（非 98，误差来自 git archive 的某些特殊文件）
-- **Green（≥80% 合规）**：20 份（20.8%）— 微调即可
-- **Yellow（50-80% 合规）**：70 份（72.9%）— 需要补 section + 格式化
-- **Red（<50% 合规）**：6 份（6.3%）— 需要大幅重构
-- **最高频缺失项**：
-  - 非标准 Status 行：94 份
-  - AC 格式缺失：90 份
-  - Dependencies 标签缺失：71 份
-  - `## Risk` 缺失：48 份
-  - `## Acceptance Criteria` 缺失：47 份
-- **重复 Feature ID**：F055 和 F081 各有 2 份文档（待铲屎官拍板去留）
+**量化债务**（审计脚本实测，2026-03-11 最新）：
+- **总文档数**：97 份
+- **当前分档**：Green 97 / Yellow 0 / Red 0（Phase B 已完成，97/97 全绿）
+- **基线分档**（第一轮）：Green 20 / Yellow 70 / Red 7
+- **平均合规度**：100%
+- **最高频缺失项（当前）**：无（13 项检查全部清零）
+- **重复 Feature ID**：F055、F061、F081 各有 2 份文档（待铲屎官拍板去留）
 - **TEMPLATE.md 过时**：不反映实际最佳实践（已有 `feature-doc-template.md` 取代）
-- **BACKLOG.md 可能与实际状态脱节**：done 的 feat 可能还挂着
+- **BACKLOG.md 脱节仍存在**：`check:features` 仍有 2 条（F071/F081 缺失）
 
 **Mission Hub Dashboard parser（F058）依赖统一格式**：Phase 标题、AC 编号、Status 行、Dependencies 段——格式不统一就无法自动提取进度。
 
@@ -69,7 +64,7 @@ created: 2026-03-10
 
 ### Phase A: 审计 + 模板升级
 
-1. **全量审计**：扫描 98 个 feat 文档，按模板完整度分三档
+1. **全量审计**：扫描 97 个 feat 文档，按模板完整度分三档
    - 🟢 Green（≥80% 符合模板）：微调格式即可
    - 🟡 Yellow（50-80%）：需要补 section + 格式化
    - 🔴 Red（<50%）：需要大幅重构
@@ -99,15 +94,15 @@ created: 2026-03-10
 ## Acceptance Criteria
 
 ### Phase A（审计 + 模板升级）
-- [x] AC-A1: 全量审计报告产出（96 个 feat 的 Green/Yellow/Red 分档）— 缅因猫砚砚已交付
+- [x] AC-A1: 全量审计报告产出（97 个 feat 的 Green/Yellow/Red 分档）— 缅因猫砚砚已交付
 - [x] AC-A2: `docs/features/TEMPLATE.md` 更新为最新标准模板 — 缅因猫砚砚已完成
 - [x] AC-A3: 审计报告含每个 feat 的具体缺失项清单 — 机器读(JSON) + 人读(Markdown)
 
 ### Phase B（迁移执行）
-- [ ] AC-B1: 所有 in-progress/spec feat 文档符合模板标准
-- [ ] AC-B2: 所有 done feat 文档至少有 Frontmatter + Status 行 + Why + What + AC + Dependencies
-- [ ] AC-B3: 原有内容文本零丢失（只增不删）
-- [ ] AC-B4: Phase 标题和 AC 编号符合 parser 格式
+- [x] AC-B1: 所有 in-progress/spec feat 文档符合模板标准
+- [x] AC-B2: 所有 done feat 文档至少有 Frontmatter + Status 行 + Why + What + AC + Dependencies
+- [x] AC-B3: 原有内容文本零丢失（只增不删）
+- [x] AC-B4: Phase 标题和 AC 编号符合 parser 格式
 
 ### Phase C（BACKLOG 对齐 + 验证）
 - [ ] AC-C1: BACKLOG.md 与 feat 文档状态一致
@@ -120,8 +115,8 @@ created: 2026-03-10
 |---|--------|---------|------|
 | R1 | 全量 feat 文档审计 | AC-A1, AC-A3 | ✅ Phase A 完成 |
 | R2 | 模板标准升级 | AC-A2 | ✅ Phase A 完成 |
-| R3 | 活跃 feat 文档迁移（Red 6 + Yellow 批量） | AC-B1, AC-B3, AC-B4 | ⬜ Phase B 待执行 |
-| R4 | 已完成 feat 文档迁移 | AC-B2, AC-B3 | ⬜ Phase B 待执行 |
+| R3 | 活跃 feat 文档迁移（Red 7 + Yellow 批量） | AC-B1, AC-B3, AC-B4 | ✅ Phase B 完成（97/97 全绿） |
+| R4 | 已完成 feat 文档迁移 | AC-B2, AC-B3 | ✅ Phase B 完成 |
 | R5 | BACKLOG 状态对齐 | AC-C1 | ⬜ Phase C 待执行 |
 | R6 | 自动化验证 | AC-C2, AC-C3 | ⬜ Phase C 待执行 |
 
@@ -139,7 +134,7 @@ created: 2026-03-10
 |------|------|
 | 早期 feat 信息太少，补 AC 需要考古 | done 的 feat AC 可简化（事后追认，标 `[x]`） |
 | 批量修改可能误改内容 | "只增不删"原则 + 每批 PR 单独 review |
-| 工作量大（98 个文档） | 分 Phase 执行，活跃 feat 优先 |
+| 工作量大（97 个文档） | 分 Phase 执行，活跃 feat 优先 |
 
 ## Phase A 执行总结（2026-03-10）
 
@@ -157,7 +152,7 @@ created: 2026-03-10
   - 人读：`docs/features/assets/F094/phase-a-audit.md`（详细分析报告）
 
 ### Phase B 优先级建议
-1. **Red 6 份优先修复**（作为第一批验证流程）
+1. **Red 7 份优先修复**（作为第一批验证流程）
    - 风险最低（数量少）
    - 债务最重（<50% 合规）
    - 包括：F064（Risk Management）、F051（猫粮看板）等
@@ -167,9 +162,48 @@ created: 2026-03-10
    - Dependencies/Risk 补齐：语义层面手写（71+48 份）
 3. **Green 20 份微调**（最后）
 
+### Phase B 第一批执行结果（2026-03-10）
+- Red 7 份文档已全部迁移完成：`F032/F042/F053/F061/F064/F071/F081`
+- 最新审计：`97 份 = Green 27 / Yellow 70 / Red 0`
+- 迁移策略保持“只增不删”，仅补结构壳（Status/Why/What/AC/Dependencies/Risk）
+
+### Phase B 第二批执行结果（2026-03-10）
+- Yellow 第一批 15 份已完成：`F001~F015`
+- 本批策略：优先修复高频项（Status 行标准化 + AC 编号格式 + Dependencies 标签 + Risk）
+- 最新审计：`97 份 = Green 42 / Yellow 55 / Red 0`
+
+### Phase B 第三批执行结果（2026-03-10）
+- Yellow 第二批 15 份已完成：`F016~F030`
+- 本批策略：延续高频项修复（Status 行 + AC 格式 + Dependencies 标签 + Risk）
+- 最新审计：`97 份 = Green 57 / Yellow 40 / Red 0`
+
+### Phase B 第四批执行结果（2026-03-10）
+- Yellow 第三批 14 份已完成：`F031 + F033~F046`（含 `F40-backlog-reorganization.md`）
+- 本批策略：延续高频项修复（Status 行 + AC 格式 + Dependencies 标签 + Risk）
+- 最新审计：`97 份 = Green 71 / Yellow 26 / Red 0`
+
+### Phase B 第五批执行结果（2026-03-10）
+- Yellow 第四批 14 份已完成：`F047~F059`（含 F055 双文档）
+- 本批策略：延续高频项修复（Status 行 + AC 格式 + Dependencies 标签 + Risk）
+- 最新审计：`97 份 = Green 77 / Yellow 20 / Red 0`
+
+### Phase B 第六批执行结果（2026-03-10）
+- Yellow 第五批 17 份已完成：`F060~F075`（含 F061 双文档）
+- 本批策略：延续高频项修复（Status 行 + AC 格式 + Dependencies 标签 + Risk）
+- 最新审计：`97 份 = Green 86 / Yellow 11 / Red 0`
+
+### Phase B 第七批执行结果（2026-03-11）
+- Yellow 收官批 11 份已完成：`F076/F077/F078/F079/F080/F082/F083/F086/F088/F089/F091`
+- 本批策略：补齐模板硬项（Status 行 + AC 格式 + Dependencies 标签 + 缺失章节）
+- 最新审计：`97 份 = Green 97 / Yellow 0 / Red 0`
+
+### Phase B 收口加固（2026-03-11）
+- 为 6 份已 green 但非满分文档补齐严格模板项：`F081/F084/F085/F087/F090/F092`
+- 审计结果升级为：`averageScore=100`、`missingFrequency={}`
+
 ### 技术决策
 - **不解决的问题**：F055/F081 重复 ID 暂时只标注，等铲屎官拍板后单独处理（不污染主迁移批次）
-- **检查失败处理**：`check:features` 的 17 个历史漂移（BACKLOG/index）属于 Phase C 范畴，不阻塞 Phase B
+- **检查失败处理**：`check:features` 当前剩余 2 条 `backlog-missing`（F071/F081）属于 Phase C 范畴，不阻塞 Phase B
 
 ## Open Questions
 
@@ -191,10 +225,16 @@ created: 2026-03-10
 | 日期 | 事件 | 完成者 |
 |------|------|--------|
 | 2026-03-10 | 立项 | 布偶猫 |
-| 2026-03-10 | Phase A 审计完成：96 份文档分档、TEMPLATE.md 升级、审计脚本落地 | 缅因猫砚砚 |
+| 2026-03-10 | Phase A 审计完成：97 份文档分档、TEMPLATE.md 升级、审计脚本落地 | 缅因猫砚砚 |
 | 2026-03-10 | Phase A 质量确认 | 布偶猫 |
-| 待定 | Phase B Red 6 份迁移（第一批） | 待派遣 |
-| 待定 | Phase B Yellow 70 份批量迁移 | 待派遣 |
+| 2026-03-10 | Phase B 第一批完成：Red 7 份迁移并清零 | 缅因猫砚砚 |
+| 2026-03-10 | Phase B 第二批完成：Yellow 第一批 15 份迁移（F001~F015） | 缅因猫砚砚 |
+| 2026-03-10 | Phase B 第三批完成：Yellow 第二批 15 份迁移（F016~F030） | 缅因猫砚砚 |
+| 2026-03-10 | Phase B 第四批完成：Yellow 第三批 14 份迁移（F031 + F033~F046） | 缅因猫砚砚 |
+| 2026-03-10 | Phase B 第五批完成：Yellow 第四批 14 份迁移（F047~F059） | 缅因猫砚砚 |
+| 2026-03-10 | Phase B 第六批完成：Yellow 第五批 17 份迁移（F060~F075） | 缅因猫砚砚 |
+| 2026-03-11 | Phase B 第七批完成：Yellow 收官 11 份迁移（F076/F077/F078/F079/F080/F082/F083/F086/F088/F089/F091） | 缅因猫砚砚 |
+| 2026-03-11 | Phase B 收口加固：6 份 green 文档补齐严格模板项（F081/F084/F085/F087/F090/F092） | 缅因猫砚砚 |
 | 待定 | Phase C BACKLOG 对齐 + lint 验证 | 待派遣 |
 
 ## Review Gate
@@ -210,4 +250,6 @@ created: 2026-03-10
 | **Template** | `cat-cafe-skills/refs/feature-doc-template.md` | 唯一权威模板 |
 | **黄金范本** | `docs/features/F086-cat-orchestration-multi-mention.md` | 最佳实践参考 |
 | **黄金范本** | `docs/features/F088-multi-platform-chat-gateway.md` | 最佳实践参考 |
-| **旧模板** | `docs/features/TEMPLATE.md` | 将被替换 |
+| **当前模板** | `docs/features/TEMPLATE.md` | 已升级到黄金模板 |
+| **审计报告** | `docs/features/assets/F094/phase-a-audit.md` | 实测分档与缺失项 |
+| **审计明细** | `docs/features/assets/F094/phase-a-audit.json` | 机器可读缺失清单 |

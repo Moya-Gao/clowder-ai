@@ -8,8 +8,7 @@ created: 2026-03-06
 
 # F067: Cold-start Verifier — 无历史污染的交付物验证
 
-> **Status**: spec
-> **Owner**: 布偶猫
+> **Status**: spec | **Owner**: 布偶猫
 > **Created**: 2026-03-06
 > **Priority**: P2
 > **Evolved from**: F046 B2
@@ -42,6 +41,7 @@ F041 能力看板事件证明：参与开发的猫猫会被上下文惯性影响
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] Cold-start Verifier prompt template 设计完成
 - [ ] 在至少 1 个 Feature 上试点验证
 - [ ] 试点结果记录（Verifier 是否发现了人工未发现的偏离？）
@@ -57,6 +57,7 @@ F041 能力看板事件证明：参与开发的猫猫会被上下文惯性影响
 
 ## Dependencies
 
+- **Evolved from**: F046（从 F046 B2 毕业）
 | Feature | 关系 | 说明 |
 |---------|------|------|
 | **F046** | Evolved from | 从 F046 B2 毕业 |

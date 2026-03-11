@@ -9,8 +9,7 @@ updated: 2026-03-04
 
 # F050: External Agent Onboarding（A2A/CLI 接入契约）
 
-> **Status**: in-progress
-> **Owner**: 三猫（Phase 1 leader: 布偶猫 Opus 4.6）
+> **Status**: in-progress | **Owner**: 三猫（Phase 1 leader: 布偶猫 Opus 4.6）
 > **Created**: 2026-03-02
 
 ## Why
@@ -22,6 +21,10 @@ updated: 2026-03-04
 3. “任何支持 A2A 的 agent 都能接入吗？”
 
 这次要把答案写成可执行的协议契约，不再靠口头约定。
+
+## What
+
+定义并落地外部 Agent 接入契约（EAC v1），把接入路径拆成 L1 CLI Adapter 与 L2 A2A Protocol Adapter 两条通道，先完成 DARE 的 L1 生产可用接入，再推进 L2 协议适配。
 
 ---
 
@@ -267,6 +270,8 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 ### Phase 1: DARE L1 CLI 接入
 - [x] 外部 agent 接入契约（EAC v1）文档定稿
 - [x] provider schema 从三值扩展为支持 `dare`
@@ -330,4 +335,4 @@ export OPENROUTER_API_KEY=”sk-or-v1-...”  # OpenRouter API key
 
 - **DARE 仓库**：`github.com/zts212653/Deterministic-Agent-Runtime-Engine`（issue #135 已基本完成）
 - **OpenRouter API key**：铲屎官已在 `~/.zshrc` 配置 `OPENROUTER_API_KEY`
-- **Evolved from**：F032（Agent Plugin Architecture）、F041/F043（MCP 统一管理）
+- **Evolved from**: F032（Agent Plugin Architecture）、F041/F043（MCP 统一管理）

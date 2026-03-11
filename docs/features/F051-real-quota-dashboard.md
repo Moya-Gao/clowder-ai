@@ -9,8 +9,7 @@ updated: 2026-03-05
 
 # F051 — 猫粮看板（Quota Board）
 
-> **Status**: in-progress
-> **Owner**: 布偶猫 (Opus) ← v2 重写后接管
+> **Status**: in-progress | **Owner**: 布偶猫 (Opus) ← v2 重写后接管
 > **Reviewer**: 缅因猫 (GPT-5.2) — 愿景守护
 > **Created**: 2026-03-02
 > **v1 Completed**: 2026-03-03 (Phase 1-5)
@@ -232,6 +231,7 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 > v1 AC-1~22 全部已完成（2026-03-03），归档到 Timeline。以下是 v2 新增。
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC-v2-1: Hub 猫粮看板按"猫猫 + 用途"分组，缅因猫至少显示 4 个独立池，暹罗猫显示 Gemini per-model 池 + Antigravity 池
 - [ ] AC-v2-2: 每个 pool 一行：色点 + 名称 + 进度条 + 百分比 + 重置时间，3 秒可读
 - [ ] AC-v2-3: 删除所有运维 UI（probe hint、CDP 配置、止血模式、通知能力矩阵）
@@ -287,6 +287,7 @@ v1（Phase 1-5，缅因猫实现）的核心问题：
 
 ## Dependencies
 
+- **Related**: F042（提示词优化审计）
 - `~/.claude/.credentials.json` 存在且含 refresh_token（Claude OAuth API）
 - OpenAI OAuth refresh_token 可用（Codex Wham API）— 凭证存储方式待定
 - `~/.gemini/oauth_creds.json` 存在（Gemini 额度）

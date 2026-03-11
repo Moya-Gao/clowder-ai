@@ -8,9 +8,8 @@ created: 2026-03-07
 
 # F074 — Mount Directory Support（挂载/共享目录支持）
 
-## Status: spec
-## Owner: 布偶猫
-## Evolved from: F068（新建对话 UX）
+> **Status**: spec | **Owner**: 布偶猫
+> **Evolved from**: F068（新建对话 UX）
 
 ## Why
 
@@ -29,6 +28,7 @@ created: 2026-03-07
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC1: `/Volumes/xxx` 路径通过 `validateProjectPath` 校验（默认配置下）
 - [ ] AC2: `PROJECT_ALLOWED_ROOTS` 为追加模式（默认 roots 始终保留）
 - [ ] AC3: `PROJECT_ALLOWED_ROOTS_REPLACE=true` 时仍可完全覆盖（向后兼容）
@@ -59,6 +59,7 @@ created: 2026-03-07
 
 ## Dependencies
 
+- **Related**: F063/F068（workspace explorer + new-thread UX）
 - 无硬依赖
 
 ## Risk

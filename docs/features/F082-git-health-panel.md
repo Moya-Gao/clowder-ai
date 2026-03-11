@@ -8,7 +8,8 @@ created: 2026-03-07
 
 # F082 Git Health Panel — Repo 状态可视化
 
-> Status: done | Owner: 布偶猫 | Evolved from: F063 (Hub Workspace Explorer) | Completed: 2026-03-08
+> **Status**: done | **Owner**: 布偶猫
+> **Evolved from**: F063 (Hub Workspace Explorer) | **Completed**: 2026-03-08
 
 ## Why
 
@@ -31,6 +32,8 @@ created: 2026-03-07
 - **Runtime Drift**: runtime 与 main 的 commit 差距（落后/领先几个 commit、差了哪些功能）
 
 ## Acceptance Criteria
+
+- [x] AC-A1: Git Health Panel 核心能力（Phase 1 + Phase 2）已交付并通过愿景守护验收
 
 ### Phase 1 ✅ (PR #290, 2026-03-07)
 - [x] `GET /api/workspace/git-log` 返回 commit 列表（hash/author/date/subject）
@@ -69,7 +72,7 @@ created: 2026-03-07
 
 ## Dependencies
 
-- `Evolved from`: F063 Hub Workspace Explorer（复用 worktree 选择器、workspace API 基础设施）
+- **Evolved from**: F063 Hub Workspace Explorer（复用 worktree 选择器、workspace API 基础设施）
 
 ## Risk
 

@@ -50,6 +50,7 @@
     "check:deps": "depcruise packages/api/src packages/shared/src --config .dependency-cruiser.cjs",
     "check:lockfile": "pnpm install --frozen-lockfile",
     "check:features": "node scripts/check-feature-truth.mjs",
+    "audit:feature-docs": "node scripts/audit-feature-doc-template.mjs",
     "check:skills": "bash scripts/check-skills-mount.sh",
     "rescue:claude:thinking": "node ./scripts/rescue-claude-thinking-signature.mjs",
     "proxy:anthropic": "node ./scripts/anthropic-proxy.mjs",

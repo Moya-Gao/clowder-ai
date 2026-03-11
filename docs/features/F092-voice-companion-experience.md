@@ -8,8 +8,7 @@ created: 2026-03-10
 
 # F092 — Cats & U 语音陪伴体验
 
-> **Status**: in-progress (P0 complete)
-> **Owner**: 布偶猫 (Opus 4.6)
+> **Status**: in-progress (P0 complete) | **Owner**: 布偶猫 (Opus 4.6)
 > **Evolved from**: F066 (Voice Pipeline Upgrade) + F086 (Cat Orchestration)
 > **Related**: F066, F086
 
@@ -78,12 +77,12 @@ created: 2026-03-10
 
 ## Acceptance Criteria
 
-- [x] AC-1: voice mode 开关可用，开启后猫猫每条回复自动附带 audio block
-- [x] AC-2: voice mode 下前端自动播放语音消息，AirPods 场景无需手动操作
-- [ ] AC-3: 支持语音指令或快捷操作切换 thread
-- [ ] AC-4: 语音输入错误率显著降低（主观体验 + 可量化指标）
-- [ ] AC-5: 完整的 hands-free 循环：语音输入 → 猫猫语音回复 → 自动播放 → 继续对话
-- [ ] AC-6: 硬件验证通过（DJI Mic Mini + AirPods + Flic/Watch 联合工作）
+- [x] AC-A1: voice mode 开关可用，开启后猫猫每条回复自动附带 audio block
+- [x] AC-A2: voice mode 下前端自动播放语音消息，AirPods 场景无需手动操作
+- [ ] AC-A3: 支持语音指令或快捷操作切换 thread
+- [ ] AC-A4: 语音输入错误率显著降低（主观体验 + 可量化指标）
+- [ ] AC-A5: 完整的 hands-free 循环：语音输入 → 猫猫语音回复 → 自动播放 → 继续对话
+- [ ] AC-A6: 硬件验证通过（DJI Mic Mini + AirPods + Flic/Watch 联合工作）
 
 ## 需求点 Checklist
 

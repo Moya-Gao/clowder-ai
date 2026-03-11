@@ -9,11 +9,15 @@ status: done
 
 # F079 Voting System (v2 — UX 重写)
 
+> **Status**: done | **Owner**: 布偶猫
+
 ## Why
 
 多猫协作时经常需要投票决策（如"谁最绿茶"、狼人杀投票等），目前只能人工统计。需要系统化的投票机制 + 自动汇总 + rich block 展示。
 
-## Phase 1 回顾 (PR #287, 已合入)
+## What
+
+### Phase 1 回顾 (PR #287, 已合入)
 
 后端基础设施已就绪：
 - `VotingStateV1` 类型 + ThreadStore/RedisThreadStore 持久化
@@ -25,7 +29,7 @@ status: done
 
 **Phase 1 问题**：前端 UX 极差（CLI 单行解析、没有通知猫猫、手动 cast/end）。
 
-## Phase 2 Spec (本次重写)
+### Phase 2 Spec (本次重写)
 
 ### 核心交互流程
 
@@ -166,18 +170,18 @@ AT 猫（antigravity, antig-opus）通过 CDP bridge 通信，回复文本一样
 
 ## Acceptance Criteria
 
-- [x] 后端 API 4 端点 + ThreadStore 持久化（Phase 1 已完成）
-- [x] 匿名模式 strip identity（Phase 1 已完成）
-- [x] Deadline enforcement（Phase 1 已完成）
-- [x] `/vote` 命令打开 VoteConfigModal 弹窗
-- [x] 弹窗含：问题、选项增删、CatSelector、匿名 toggle、超时 select
-- [x] 发起后系统自动 @ 每只被选中的猫发投票通知
-- [x] 路由层 regex 拦截 `[VOTE:xxx]` 自动计票
-- [x] 全员投完自动 close + 生成 rich block card
-- [x] 超时自动 close + 生成 rich block card
-- [x] 投票进行中指示器（ChatInput 上方）
-- [x] AT 猫（antigravity, antig-opus）能参与投票
-- [x] VoteResultCard 正确渲染投票结果（含进度条）
+- [x] AC-A1: 后端 API 4 端点 + ThreadStore 持久化（Phase 1 已完成）
+- [x] AC-A2: 匿名模式 strip identity（Phase 1 已完成）
+- [x] AC-A3: Deadline enforcement（Phase 1 已完成）
+- [x] AC-A4: `/vote` 命令打开 VoteConfigModal 弹窗
+- [x] AC-A5: 弹窗含：问题、选项增删、CatSelector、匿名 toggle、超时 select
+- [x] AC-A6: 发起后系统自动 @ 每只被选中的猫发投票通知
+- [x] AC-A7: 路由层 regex 拦截 `[VOTE:xxx]` 自动计票
+- [x] AC-A8: 全员投完自动 close + 生成 rich block card
+- [x] AC-A9: 超时自动 close + 生成 rich block card
+- [x] AC-A10: 投票进行中指示器（ChatInput 上方）
+- [x] AC-A11: AT 猫（antigravity, antig-opus）能参与投票
+- [x] AC-A12: VoteResultCard 正确渲染投票结果（含进度条）
 
 ## Gap 3: 投票结果 Connector 气泡（独立系统通知样式）
 
@@ -272,10 +276,10 @@ Thread `thread_mmgfvvq1iut03rjs` (2026-03-08 18:13) — 铲屎官提出猫猫也
 
 ## Dependencies
 
-- 依赖 rich block 系统（已有）
-- 依赖路由层消息处理 pipeline（已有）
-- 依赖 CatSelector 组件（已有）
-- 依赖 AT 猫 routing（F061 已完成 Phase 1）
+- **Related**: rich block 系统（已有）
+- **Related**: 路由层消息处理 pipeline（已有）
+- **Related**: CatSelector 组件（已有）
+- **Evolved from**: AT 猫 routing（F061 已完成 Phase 1）
 
 ## Risk
 

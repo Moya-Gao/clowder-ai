@@ -10,6 +10,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 
 # F085 Hyperfocus Brake — 猫猫健康小刹车
 
+> **Status**: in-progress (phase 1-3 done, phase 4 pending) | **Owner**: 布偶猫
+
 ## Why
 
 铲屎官有 ADHD + ASD，hyperfocus 特质让他能进入超级深度的心流状态，但**没有自动刹车**。他不会像普通人一样"累了就不想干了"——会一直干到身体物理罢工。
@@ -41,6 +43,8 @@ reflection: docs/reflections/2026-03-09-f085-hyperfocus-brake-capsule.md
 | **5 - UX 增强** | Hub 开关 + TTS 自动播放 + 猫猫图片 | 完整感官体验 |
 
 ## Acceptance Criteria
+
+- [x] AC-A1: Hyperfocus Brake 核心提醒链路已交付（详见下方条目）
 
 ### Phase 1 (MVP)
 

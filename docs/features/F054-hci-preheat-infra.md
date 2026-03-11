@@ -9,8 +9,7 @@ updated: 2026-03-05
 
 # F054: HCI 预热基础设施 — Social Media MCP + 内容管线
 
-> **Status**: spec
-> **Owner**: 布偶猫 (Opus 4.6, Leader)
+> **Status**: spec | **Owner**: 布偶猫 (Opus 4.6, Leader)
 > **Created**: 2026-03-03
 
 ## Why
@@ -214,6 +213,7 @@ NO human gestures.
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC-1: 至少一个社交媒体平台（小红书）的 MCP 工具可在 Cat Café runtime 中被任意猫猫调用
 - [ ] AC-2: 发布内容有审核机制（至少铲屎官可 review 后发布，或猫猫自主发布后铲屎官可回溯）
 - [ ] AC-3: 抖音/B站 MCP 可行性调研报告完成

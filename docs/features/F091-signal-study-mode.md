@@ -8,8 +8,7 @@ created: 2026-03-10
 
 # F091: Signal Study Mode — 信号学习伴侣
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Created**: 2026-03-10
 > **Completed**: 2026-03-10
 
@@ -48,6 +47,8 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 - `F-Swarm-1` — 多猫深度研究群
 
 ## Acceptance Criteria
+
+- [x] AC-A1: Study Mode 端到端主链路已完成（详细 AC 见下方条目）
 
 - [x] AC-1: Signal 文章详情页有"开始学习"按钮，默认跳转 thread 并自动注入文章上下文；手动关联 thread 支持手输 ID *(scope reduced: 完整 picker deferred，当前行为满足铲屎官核心场景)*
 - [x] AC-2: 对话中贴 Signal 文章链接时，猫猫自动识别并获取文章上下文 *(thread-article 关联后 activeSignals 自动注入 contentSnippet+note)*
@@ -176,9 +177,9 @@ F021 Signal Hunter 完成了 RSS 抓取 + 打分 + 收件箱的基础版。但�
 
 ## Dependencies
 
-- F021 (done) — Signal 基础设施
-- F034 (done) — TTS provider
-- F066 (done) — 语音管线
+- **Evolved from**: F021 (done) — Signal 基础设施
+- **Related**: F034 (done) — TTS provider
+- **Related**: F066 (done) — 语音管线
 
 ## Risk
 

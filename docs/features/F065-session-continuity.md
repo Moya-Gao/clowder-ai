@@ -8,8 +8,7 @@ created: 2026-03-05
 
 # F065: Session Continuity — 封印重生，记忆不断
 
-> 状态: done
-> 负责猫: 布偶猫（实现）+ 缅因猫（review）
+> **Status**: done | **Owner**: 布偶猫（实现）+ 缅因猫（review）
 > 日期: 2026-03-05
 > 完成日期: 2026-03-06
 > Evolved from: F024 (Session Chain + Context Health)
@@ -53,6 +52,8 @@ created: 2026-03-05
 2. Session 2 bootstrap 优先用 handoff digest，没有则降级用 extractive
 
 ## Acceptance Criteria
+
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 
 | # | AC | Phase |
 |---|-----|-------|
@@ -110,6 +111,7 @@ created: 2026-03-05
 
 ## Dependencies
 
+- **Related**: F024（Session Chain + Context Health）+ F046（Anti-Drift Protocol）
 - `Evolved from` **F024** (Session Chain + Context Health) — F024 提供了完整的 session lifecycle + 存储 + 基础 MCP 工具
 - `Related` **F046** (Anti-Drift Protocol) — ThreadMemory 有助于防偏航
 

@@ -8,8 +8,7 @@ created: 2026-03-04
 
 # F057: Thread 可发现性 — 排序 + 搜索 + 猫猫工具
 
-> **Status**: done
-> **Owner**: 布偶猫
+> **Status**: done | **Owner**: 布偶猫
 > **Priority**: P1
 > **Completed**: 2026-03-05
 > **Evolved from**: F052（跨线程消息暴露了"找不到 thread"的痛点）

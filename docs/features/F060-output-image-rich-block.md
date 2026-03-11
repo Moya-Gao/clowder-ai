@@ -8,8 +8,8 @@ created: 2026-03-04
 
 # F060: output_image 富文本渲染
 
-## Status: done
-## Completed: 2026-03-06
+> **Status**: done | **Owner**: 三猫
+> **Completed**: 2026-03-06
 
 ## Why
 
@@ -34,6 +34,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [x] AC-1: MCP 工具返回 `output_image` 时，Hub 前端自动显示图片（Phase 1: Codex 路径完成）
 - [x] AC-2: 图片可点击放大查看（Phase 2: PR #238）
 - [x] AC-5: 图片可复制到剪贴板（Phase 2: PR #238）
@@ -100,6 +101,7 @@ MCP tool result 中的 `output_image` 是 base64 编码图片。需要在消息�
 
 ## Dependencies
 
+- **Related**: F022（rich blocks 基础设施）+ 小红书 MCP 集成
 - `Evolved from`: F022（rich blocks 基础设施）
 - `Related`: 小红书 MCP 集成
 

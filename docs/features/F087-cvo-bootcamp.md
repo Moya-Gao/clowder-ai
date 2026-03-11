@@ -8,8 +8,7 @@ created: 2026-03-08
 
 # F087: 猫猫训练营（CVO Bootcamp）
 
-> **Status**: spec
-> **Owner**: 布偶猫
+> **Status**: spec | **Owner**: 布偶猫
 > **Priority**: P2
 > **Evolved from**: F059（开源计划 — clowder-ai 需要 onboarding 体验）
 > **Related**: F075（成就/排行榜系统）, F090（像素猫猫大作战）, F096（可交互富文本）

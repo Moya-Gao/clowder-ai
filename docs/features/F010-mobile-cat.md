@@ -9,8 +9,7 @@ created: 2026-02-26
 
 # F010: 手机端猫猫
 
-> **Status**: in-progress
-> **Owner**: 三猫
+> **Status**: in-progress | **Owner**: 三猫
 > **Created**: 2026-02-26
 
 ## Why
@@ -18,6 +17,9 @@ created: 2026-02-26
 
 ## What
 - **F10**: 路线图：2026-02-20-mobile-cat-roadmap.md。决策：PWA 先行（两猫独立思考共识 + 铲屎官确认）。Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）。关联：F20/F22/F34。参考 Happy + OpenClaw
+
+## Acceptance Criteria
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 
 ## Links
 - [brainstorm 2026-02-10](./archive/2026-02/discussions/2026-02-10-feature-backlog-brainstorm/README.md)
@@ -31,10 +33,16 @@ created: 2026-02-26
 - Phase A PWA 手机化 → B TTS/Voice Block → C 推送 → D 原生壳（如需要）
 
 ## Dependencies
+- **Related**: F010（保留原始依赖记录见下）
 - F20/F22/F34
 - F020
 - F022
 - F034
+
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 
 ## Timeline
 - 从历史 BACKLOG 归档恢复（`be27a44^`）。

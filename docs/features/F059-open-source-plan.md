@@ -8,10 +8,7 @@ created: 2026-03-04
 
 # F059: Cat Café 开源计划
 
-> **Status**: spec
-> **Owner**: 布偶猫
-> **Priority**: P2
-> **Target**: 2026-03-30（铲屎官定）
+> **Status**: spec | **Owner**: 布偶猫 | **Priority**: P2 | **Target**: 2026-03-30（铲屎官定）
 
 ## 愿景
 
@@ -266,6 +263,7 @@ MIT 下别人可商用。三猫共识：
 
 ## Acceptance Criteria
 
+- [ ] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
 - [ ] AC-1: 开源仓可独立 clone + install + 基础功能运行
 - [ ] AC-2: 开源仓不包含任何铲屎官个人信息/内部讨论
 - [ ] AC-3: 主仓 → 开源仓的同步脚本可重复执行
@@ -283,6 +281,7 @@ MIT 下别人可商用。三猫共识：
 
 ## Dependencies
 
+- **Related**: F042/F046/F086/F087/F090（开源边界与治理约束来源）
 - 无硬依赖，但 F056（设计语言）完成后 UI 组件更稳定，开源质量更高
 
 ## Risk

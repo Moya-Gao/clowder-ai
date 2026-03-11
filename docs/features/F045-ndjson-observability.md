@@ -1,5 +1,6 @@
 ---
 feature_ids: [F045]
+related_features: []
 topics: [ndjson, observability, transform, thinking, plan, telemetry, ux]
 doc_kind: spec
 created: 2026-02-27
@@ -7,8 +8,7 @@ created: 2026-02-27
 
 # F045: NDJSON 可观测性 — CLI 事件流全量解析 + 多猫透明化
 
-> **Status**: done (Phase 1+2 合并交付, PR #88)
-> **Owner**: 布偶猫
+> **Status**: done (Phase 1+2 合并交付, PR #88) | **Owner**: 布偶猫
 > **Created**: 2026-02-27
 > **Priority**: P1
 
@@ -132,6 +132,8 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 
 ## Acceptance Criteria
 
+- [x] AC-A1: 本文档需在本轮迁移后维持模板核心结构（Status/Why/What/Dependencies/Risk/Timeline）。
+
 - [x] Codex `todo_list` 事件 → 右侧看板 Plan Checklist（与 Claude TodoWrite 同 UI）
 - [x] Plan 持久化：浏览器刷新/页面重载后右侧看板恢复上次进度（V1 范围，服务重启恢复为 follow-up）
 - [x] Claude parser 处理 `thinking_delta`（默认折叠）— ⚠️ 独立 system message，非嵌入气泡（见 Gap #1）
@@ -166,6 +168,7 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 | 前端渲染性能（thinking 很长） | 低 | 虚拟化滚动 + 默认折叠 |
 
 ## Dependencies
+- **Related**: 无
 
 | Feature | 关系 | 说明 |
 |---------|------|------|
@@ -278,6 +281,10 @@ Claude TodoWrite tool_use → extractTaskProgress() → system_info WS → Right
 - Build: clean
 - 截图证据：已补（见 Gap #3）
 
+## Risk
+| 风险 | 缓解 |
+|------|------|
+| 历史文档口径与当前实现可能漂移 | 在 F094 批次里持续复跑审计脚本并按批次回填 |
 ## Timeline
 
 - 2026-02-27: GPT Pro 调研报告入库 + 四猫评审

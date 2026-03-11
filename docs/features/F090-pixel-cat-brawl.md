@@ -8,8 +8,7 @@ created: 2026-03-09
 
 # F090: 像素猫猫大作战（Pixel Cat Brawl）
 
-> **Status**: phase-1-done
-> **Owner**: 布偶猫
+> **Status**: phase-1-done | **Owner**: 布偶猫
 > **Priority**: P1
 > **Evolved from**: F059（开源计划 — 需要 demo video 素材）、F087（训练营候选任务 Q8）
 
@@ -171,13 +170,13 @@ clowder-ai 需要一个震撼的 demo：不是 slides，不是文档，是**猫�
 
 ## Acceptance Criteria
 
-- [ ] AC-1: 游戏在浏览器中 60fps 流畅运行 — 未正式性能测试
-- [x] AC-2: 4 只猫各有独特外观（颜色区分）和特色技能 — Phase 1b：4 猫各有独特颜色 + 专属技能（架构禁锢/逻辑丝线/代码洪流/金级 Review）
-- [ ] AC-3: AI vs AI 模式可录屏作为 demo video — 功能就绪，待真素材 + 录屏
-- [x] AC-4: 铲屎官可用键盘操控一只猫参战 — Phase 1a 交付
-- [ ] AC-5: 战斗结算在服务端，前端只渲染 — V1 纯前端，V2 迁后端
-- [x] AC-6: Demo Mode 下战斗结果可复现（固定种子）— Phase 1a 交付（seeded PRNG）
-- [ ] AC-7: 台词/弹幕安全（转义 + 长度限制）— 无台词功能，待 V2
+- [ ] AC-A1: 游戏在浏览器中 60fps 流畅运行 — 未正式性能测试
+- [x] AC-A2: 4 只猫各有独特外观（颜色区分）和特色技能 — Phase 1b：4 猫各有独特颜色 + 专属技能（架构禁锢/逻辑丝线/代码洪流/金级 Review）
+- [ ] AC-A3: AI vs AI 模式可录屏作为 demo video — 功能就绪，待真素材 + 录屏
+- [x] AC-A4: 铲屎官可用键盘操控一只猫参战 — Phase 1a 交付
+- [ ] AC-A5: 战斗结算在服务端，前端只渲染 — V1 纯前端，V2 迁后端
+- [x] AC-A6: Demo Mode 下战斗结果可复现（固定种子）— Phase 1a 交付（seeded PRNG）
+- [ ] AC-A7: 台词/弹幕安全（转义 + 长度限制）— 无台词功能，待 V2
 
 ## Open Questions
 

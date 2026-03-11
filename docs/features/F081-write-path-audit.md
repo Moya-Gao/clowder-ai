@@ -9,8 +9,42 @@ status: active
 
 # F081 Appendix — Bubble/Thread State Write-Path Audit
 
+> **Status**: in-progress | **Owner**: 布偶猫
 > 起因：铲屎官 2026-03-09 "别让铲屎官发现什么你们修什么？修了一个另一个又出现问？"
 > gpt52 提议系统级全量审计，opus 对齐到 F081 scope。
+
+## Why
+
+F081 附录文档用于把“消息/未读/猫状态”的写路径一次性摸清，避免继续头痛医头脚痛医脚，形成可追溯的状态机真相源。
+
+## What
+
+1. 盘点 `messages/catStatuses/unreadCount/hasActiveInvocation` 的写入入口
+2. 建立 thread lifecycle 场景矩阵，标记已修与剩余风险
+3. 输出固定的风险清单与后续 TODO，作为回归基线
+
+## Acceptance Criteria
+
+### Phase A（写路径审计）
+- [x] AC-A1: 四类关键状态字段的写入点完成全量盘点并可定位到文件/行号。
+- [x] AC-A2: thread lifecycle 场景矩阵覆盖 active/background/F5/切换/超时关键路径。
+
+### Phase B（风险与闭环）
+- [x] AC-B1: 已知风险与已修复项形成映射表（风险→修复→PR）。
+- [ ] AC-B2: Remaining Gaps 列表逐项关闭（当前仍在进行）。
+
+## Dependencies
+
+- **Evolved from**: F069（线程已读状态）/ F072（批量已读）
+- **Blocked by**: 无
+- **Related**: F081（Bubble continuity observability）/ 前端状态机一致性治理
+
+## Risk
+
+| 风险 | 缓解 |
+|------|------|
+| 写路径分散导致修复互相覆盖 | 固定 write-path inventory + 场景矩阵，变更必须回填 |
+| catStatuses 与 hasActiveInvocation 脱节引发幽灵状态 | 追加联动断言与 E2E 生命周期测试 |
 
 ## 1. State Fields Under Audit
 
