@@ -181,14 +181,34 @@ function ToolsSection({
   toolUses,
   toolResults,
   lastToolId,
+  status,
   onUserInteract,
 }: {
   toolUses: CliEvent[];
   toolResults: CliEvent[];
   lastToolId: string | undefined;
+  status: CliStatus;
   onUserInteract: () => void;
 }) {
-  const [toolsExpanded, setToolsExpanded] = useState(true);
+  // streaming 时展开看进度，done/failed 时自动折叠成一行
+  const isStreaming = status === 'streaming';
+  const [toolsExpanded, setToolsExpanded] = useState(isStreaming);
+  const toolsUserInteracted = useRef(false);
+
+  // streaming → done：自动折叠（除非用户手动展开过）
+  const prevStatus = useRef(status);
+  useEffect(() => {
+    if (prevStatus.current === 'streaming' && !isStreaming && !toolsUserInteracted.current) {
+      setToolsExpanded(false);
+    }
+    prevStatus.current = status;
+  }, [status, isStreaming]);
+
+  // streaming 时强制展开
+  if (isStreaming && !toolsExpanded) {
+    setToolsExpanded(true);
+  }
+
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
   return (
@@ -198,6 +218,7 @@ function ToolsSection({
         data-testid="tools-section-toggle"
         className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 hover:bg-slate-700/30 transition-colors rounded"
         onClick={() => {
+          toolsUserInteracted.current = true;
           setToolsExpanded((v) => !v);
           onUserInteract();
         }}
@@ -315,6 +336,7 @@ export function CliOutputBlock({ events, status, thinkingMode, defaultExpanded =
               toolUses={toolUses}
               toolResults={toolResults}
               lastToolId={lastToolId}
+              status={status}
               onUserInteract={() => {
                 userInteracted.current = true;
               }}
