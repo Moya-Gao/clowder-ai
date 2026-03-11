@@ -8,7 +8,7 @@ created: 2026-03-04
 
 # F058: Mission Control 增强（F049++）
 
-> **Status**: in-progress (Phase I)
+> **Status**: in-progress (Phase J)
 > **Owner**: 布偶猫
 > **Priority**: P1
 > **依赖**: F049（Mission Control MVP 已合入）
@@ -163,12 +163,36 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 
 **范围**：只补 parser 需要的结构化字段，不重写内容。
 
+### Phase J：依赖全景 DAG 拓扑图（KD-2 推翻，铲屎官要求）
+
+> 2026-03-10 铲屎官实测 Mission Hub 截图后指出："依赖全景 tab 不是愿景里的样子！"当前实现是平铺卡片网格 + 文本列表，不是真正的 DAG 有向图。Phase H 设计稿评审已经要求 DAG 拓扑（KD-4/KD-5），但实现时没有跟上。
+
+#### J1: DAG 拓扑布局引擎
+
+**问题**：`DependencyGraphTab.tsx` 用 `grid-cols-2/3/4` 把节点平铺成网格，依赖关系只用文本标签和底部 edge list 展示。没有引入任何图形布局库。
+
+**方案**：引入 `@xyflow/react`（React Flow v12）实现真正的 DAG：
+- 使用 dagre 自动布局算法生成层级拓扑
+- Feature 节点保留当前卡片样式（ID + 名称 + 状态色）
+- 三种 edge 类型用不同颜色/样式的箭头连线：
+  - 演化 (evolved): 蓝色实线箭头
+  - 阻塞 (blocked): 红色虚线箭头
+  - 关联 (related): 灰色点线双向
+- 已完成节点半透明（opacity-50）
+- **约束**：节点禁止突破屏幕宽度（KD-5），使用 `fitView` 自适应
+
+#### J2: 交互增强
+
+- 节点可点击，弹出 tooltip 显示完整依赖列表
+- 鼠标 hover 高亮关联边
+- 保留 Legend（图例）在顶部
+
 ### 不做的事（明确排除）
 
 | 提议 | 决定 | 理由 |
 |------|------|------|
 | 自动同步（无需点按钮） | ❌ 不做 | 增加后台轮询复杂度，手动刷新足够 |
-| 依赖关系可视化图谱 | ❌ 不做 | 标签展示已够用，图谱是过度设计 |
+| ~~依赖关系可视化图谱~~ | ✅ Phase J | KD-2 已被 KD-4/KD-5 推翻：铲屎官要求 DAG 拓扑，标签展示不够 |
 | 跨 Feature 甘特图 | ❌ 不做 | 不是项目管理工具 |
 
 ## Acceptance Criteria
@@ -225,6 +249,13 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 - [x] AC-I5: 依赖图 tab 有数据（≥3 个 Feature 有依赖关系）
 - [ ] AC-I6: 历史 feature docs 批量迁移完成（parser 需要的字段补齐）— 遗留，铲屎官确认可延后
 
+### Phase J（依赖全景 DAG 拓扑图）
+- [ ] AC-J1: 依赖全景 tab 使用 DAG 拓扑布局（非平铺网格），节点有层级方向
+- [ ] AC-J2: 三种依赖类型用不同颜色/线型的箭头连线（演化=蓝实线/阻塞=红虚线/关联=灰点线）
+- [ ] AC-J3: 已完成节点半透明（opacity-50），不抢活跃节点视觉焦点
+- [ ] AC-J4: 所有节点约束在屏幕宽度内（KD-5），fitView 自适应
+- [ ] AC-J5: 节点可交互（hover 高亮关联边，点击弹出详情）
+
 ## 需求点 Checklist
 
 | ID | 需求点（铲屎官原话/转述） | AC 编号 | 验证方式 | 状态 |
@@ -249,6 +280,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | R18 | "feat互相依赖有点bug 看不到有向图" | AC-I5 | 依赖图有数据 | [x] |
 | R19 | "skills/feat 从现在要统一模板" | AC-I1, AC-I2 | 模板存在 + 立项自动使用 | [x] |
 | R20 | "历史的做一次迁移" | AC-I6 | 批量迁移完成 | [ ] 遗留 |
+| R21 | "依赖全景 tab 不是愿景里的样子！不是 DAG 拓扑！" | AC-J1~J5 | DAG 拓扑图 + 箭头连线 + fitView | [ ] |
 
 ### 覆盖检查
 - [x] 每个需求点都能映射到至少一个 AC
@@ -267,7 +299,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | # | 决策 | 理由 | 日期 |
 |---|------|------|------|
 | KD-1 | Bug 修复（Phase A）和增强（Phase B/C）分开 Phase | Bug 是必须修的，增强可以按优先级排 | 2026-03-04 |
-| KD-2 | 依赖展示用标签而非图谱 | 够用且实现简单，图谱是过度设计 | 2026-03-04 |
+| KD-2 | ~~依赖展示用标签而非图谱~~ → **Phase J 推翻** | 铲屎官实测后要求 DAG 拓扑（KD-4/KD-5），标签不够 | 2026-03-04 → 2026-03-10 |
 | KD-3 | `done` 作为第五个 BacklogStatus | 最小改动，符合现有状态机模式 | 2026-03-04 |
 | KD-4 | 从"无 Tab"回退到"两 Tab"（功能列表 + 依赖全景） | 操作型和理解型是本质不同的视角 | 2026-03-06 |
 | KD-5 | 依赖全景节点禁止突破屏幕宽度 | 铲屎官明确要求，用拓扑布局自适应 | 2026-03-06 |
@@ -323,6 +355,7 @@ approve→dispatch 的多步操作（改状态→开 thread→写消息→标记
 | 2026-03-06 | Phase H 实现完成 — Feature-row list + dep graph tabs + sidebar icon + referrer back (codex R2 PASS) |
 | 2026-03-10 | Phase I 讨论：铲屎官看两个 UX 方案 → 拍板"行内多级展开" + 要求统一 feature doc 模板 |
 | 2026-03-10 | 模板 `cat-cafe-skills/refs/feature-doc-template.md` 创建，记录 KD-6~8 |
+| 2026-03-10 | 🔴 铲屎官实测发现依赖全景 tab 还是平铺卡片网格，不是 DAG 拓扑。KD-2 被 KD-4/KD-5 推翻。追加 Phase J |
 
 ## Phase H 讨论记录（2026-03-06 四猫 UX 需求分析）
 
