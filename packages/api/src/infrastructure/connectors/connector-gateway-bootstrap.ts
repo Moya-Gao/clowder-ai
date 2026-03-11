@@ -16,12 +16,14 @@ import type { RedisClient } from '@cat-cafe/shared/utils';
 import type { FastifyBaseLogger } from 'fastify';
 import type { ConnectorWebhookHandler, WebhookHandleResult } from '../../routes/connector-webhooks.js';
 import { FeishuAdapter } from './adapters/FeishuAdapter.js';
+import { FeishuTokenManager } from './adapters/FeishuTokenManager.js';
 import { TelegramAdapter } from './adapters/TelegramAdapter.js';
 import { ConnectorCommandLayer } from './ConnectorCommandLayer.js';
 import { ConnectorRouter } from './ConnectorRouter.js';
 import { MemoryConnectorThreadBindingStore } from './ConnectorThreadBindingStore.js';
 import { InboundMessageDedup } from './InboundMessageDedup.js';
 import { ConnectorMediaService } from './media/ConnectorMediaService.js';
+import { MediaCleanupJob } from './media/MediaCleanupJob.js';
 import {
   type IOutboundAdapter,
   type IStreamableOutboundAdapter,
@@ -202,6 +204,12 @@ export async function startConnectorGateway(
     const feishu = new FeishuAdapter(config.feishuAppId!, config.feishuAppSecret!, log, {
       verificationToken: config.feishuVerificationToken,
     });
+    // Inject token manager for native media upload (Feishu /im/v1/images + /im/v1/files)
+    const feishuTokenManager = new FeishuTokenManager({
+      appId: config.feishuAppId!,
+      appSecret: config.feishuAppSecret!,
+    });
+    feishu._injectTokenManager(feishuTokenManager);
     adapters.set('feishu', feishu);
 
     // Register webhook handler for the route
@@ -298,11 +306,22 @@ export async function startConnectorGateway(
     log,
   });
 
+  // Phase 5b: Media file cleanup (24h TTL, sweep every hour)
+  const cleanupJob = new MediaCleanupJob({
+    mediaDir: resolvedMediaDir,
+    ttlMs: 24 * 60 * 60 * 1000,
+    intervalMs: 60 * 60 * 1000,
+    log,
+  });
+  cleanupJob.start();
+  log.info('[ConnectorGateway] Media cleanup job started (24h TTL, 1h sweep)');
+
   return {
     outboundHook,
     streamingHook,
     webhookHandlers,
     async stop() {
+      cleanupJob.stop();
       await Promise.allSettled(stopFns.map((fn) => fn()));
       log.info('[ConnectorGateway] Stopped');
     },

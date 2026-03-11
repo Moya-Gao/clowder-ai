@@ -9,11 +9,13 @@
  * F088 Multi-Platform Chat Gateway
  */
 
+import { createReadStream } from 'node:fs';
 import type { RichBlock } from '@cat-cafe/shared';
 import * as lark from '@larksuiteoapi/node-sdk';
 import type { FastifyBaseLogger } from 'fastify';
 import type { MessageEnvelope } from '../ConnectorMessageFormatter.js';
 import type { IStreamableOutboundAdapter } from '../OutboundDeliveryHook.js';
+import type { FeishuTokenManager } from './FeishuTokenManager.js';
 import { formatFeishuCard } from './feishu-card-formatter.js';
 
 export interface FeishuAttachment {
@@ -43,6 +45,8 @@ export interface FeishuMediaPayload {
   fileKey?: string;
   /** Fallback URL when platform key is not available (outbound from Cat Café) */
   url?: string;
+  /** Absolute filesystem path for upload (from mediaPathResolver) */
+  absPath?: string;
 }
 
 export interface FeishuAdapterOptions {
@@ -55,6 +59,8 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
   private readonly client: lark.Client;
   private readonly log: FastifyBaseLogger;
   private readonly verificationToken: string | null;
+  private tokenManager: FeishuTokenManager | null = null;
+  private uploadFetchFn: typeof fetch = globalThis.fetch;
   private sendMessageFn: ((params: { chatId: string; content: string; msgType: string }) => Promise<unknown>) | null =
     null;
   private editMessageFn: ((params: { messageId: string; content: string }) => Promise<unknown>) | null = null;
@@ -216,26 +222,81 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
 
   /**
    * Phase 5: Send a media message (image, file, or audio) to a Feishu chat.
+   * Priority: platform key > upload via absPath > text link fallback.
    */
   async sendMedia(externalChatId: string, payload: FeishuMediaPayload): Promise<void> {
-    // Platform key path — use native Feishu media API
+    // Path 1: Platform key — use native Feishu media API directly
     if (payload.imageKey || payload.fileKey) {
-      const typeMap = {
-        image: () => ({ msgType: 'image', content: JSON.stringify({ image_key: payload.imageKey }) }),
-        file: () => ({ msgType: 'file', content: JSON.stringify({ file_key: payload.fileKey }) }),
-        audio: () => ({ msgType: 'audio', content: JSON.stringify({ file_key: payload.fileKey }) }),
-      } as const;
-      const entry = typeMap[payload.type];
-      if (!entry) return;
-      const { msgType, content } = entry();
-      await this.sendLarkMessage(externalChatId, msgType, content);
+      await this.sendWithPlatformKey(externalChatId, payload);
       return;
     }
-    // URL fallback — send as text link (Feishu upload API requires separate integration)
+    // Path 2: Upload local file to Feishu → get platform key → send native
+    if (payload.absPath && this.tokenManager) {
+      const uploaded = await this.uploadToFeishu(payload.absPath, payload.type);
+      if (uploaded) {
+        await this.sendWithPlatformKey(externalChatId, { ...payload, ...uploaded });
+        return;
+      }
+    }
+    // Path 3: URL fallback — send as text link
     if (payload.url) {
       const label = payload.type === 'image' ? '🖼️' : payload.type === 'audio' ? '🔊' : '📎';
       await this.sendReply(externalChatId, `${label} ${payload.url}`);
     }
+  }
+
+  private async sendWithPlatformKey(externalChatId: string, payload: FeishuMediaPayload): Promise<void> {
+    const typeMap = {
+      image: () => ({ msgType: 'image', content: JSON.stringify({ image_key: payload.imageKey }) }),
+      file: () => ({ msgType: 'file', content: JSON.stringify({ file_key: payload.fileKey }) }),
+      audio: () => ({ msgType: 'audio', content: JSON.stringify({ file_key: payload.fileKey }) }),
+    } as const;
+    const entry = typeMap[payload.type];
+    if (!entry) return;
+    const { msgType, content } = entry();
+    await this.sendLarkMessage(externalChatId, msgType, content);
+  }
+
+  /**
+   * Upload a local file to Feishu and return the platform key.
+   * Images → /im/v1/images, files/audio → /im/v1/files.
+   */
+  private async uploadToFeishu(
+    absPath: string,
+    type: 'image' | 'file' | 'audio',
+  ): Promise<{ imageKey?: string; fileKey?: string } | null> {
+    const token = await this.tokenManager!.getTenantAccessToken();
+    const fileStream = createReadStream(absPath);
+    const form = new FormData();
+
+    if (type === 'image') {
+      form.append('image_type', 'message');
+      form.append('image', new Blob([await streamToBuffer(fileStream)]));
+      const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/images', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form,
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { data?: { image_key?: string } };
+      const imageKey = data.data?.image_key;
+      return imageKey ? { imageKey } : null;
+    }
+
+    // file or audio
+    const fileType = type === 'audio' ? 'opus' : 'stream';
+    form.append('file_type', fileType);
+    form.append('file_name', absPath.split('/').pop() ?? 'file');
+    form.append('file', new Blob([await streamToBuffer(fileStream)]));
+    const res = await this.uploadFetchFn('https://open.feishu.cn/open-apis/im/v1/files', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { data?: { file_key?: string } };
+    const fileKey = data.data?.file_key;
+    return fileKey ? { fileKey } : null;
   }
 
   async sendReply(externalChatId: string, content: string): Promise<void> {
@@ -307,4 +368,29 @@ export class FeishuAdapter implements IStreamableOutboundAdapter {
   _injectEditMessage(fn: (params: { messageId: string; content: string }) => Promise<unknown>): void {
     this.editMessageFn = fn;
   }
+
+  /**
+   * Test helper: inject a FeishuTokenManager.
+   * @internal
+   */
+  _injectTokenManager(tm: FeishuTokenManager): void {
+    this.tokenManager = tm;
+  }
+
+  /**
+   * Test helper: inject a mock fetch for upload APIs.
+   * @internal
+   */
+  _injectUploadFetch(fn: typeof fetch): void {
+    this.uploadFetchFn = fn;
+  }
+}
+
+/** Read a Node.js ReadStream into a Buffer. */
+async function streamToBuffer(stream: import('node:fs').ReadStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+  }
+  return Buffer.concat(chunks);
 }

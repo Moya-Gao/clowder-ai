@@ -75,13 +75,14 @@ created: 2026-03-09
 ### Phase 5 — 图片/文件收发
 - [x] AC-19: 接收用户图片 → 下载 → 存储 → 传递给猫（contentBlocks + absPath）
 - [x] AC-20: 接收用户文件 → 下载 → 传递给猫（contentBlocks + absPath）
-- [x] AC-21: 猫的图片回复 → Telegram 原生发送（InputFile）/ Feishu 文本链接 fallback
-  - ⚠️ Feishu 原生图片上传待 follow-up（需 tenant_access_token + /im/v1/images）
+- [x] AC-21: 猫的图片回复 → Telegram 原生 InputFile / Feishu 原生 /im/v1/images 上传
+- [x] AC-F1: Feishu 原生图片上传（FeishuTokenManager + /im/v1/images multipart）
+- [x] AC-C1: ConnectorMediaService 定期清理超龄文件（MediaCleanupJob, 24h TTL）
 
 ### Phase 6 — 语音消息
 - [x] AC-22: 接收语音 → STT → 文本消息（WhisperSttProvider）
-- [x] AC-23: 文字回复 → TTS → Telegram 原生发送（InputFile）/ Feishu 文本链接 fallback
-  - ⚠️ Feishu 原生音频上传待 follow-up
+- [x] AC-23: 文字回复 → TTS → Telegram 原生 InputFile / Feishu 原生 /im/v1/files 上传
+- [x] AC-F2: Feishu 原生音频上传（FeishuTokenManager + /im/v1/files multipart）
 - [x] AC-24: STT/TTS provider 可配置（ISttProvider + SttRegistry）
 
 ### Phase 7 — 群聊 + 多人
