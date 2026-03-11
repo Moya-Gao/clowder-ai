@@ -1,67 +1,19 @@
 'use client';
 
-import type { LeaderboardRange, LeaderboardStatsResponse, RankedCat, StreakCat } from '@cat-cafe/shared';
+import type { LeaderboardRange, LeaderboardStatsResponse } from '@cat-cafe/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/utils/api-client';
+import { CatHeroCard, ComingSoon, MiniRanked, SectionCard, StreakRanked, WorkMetric } from './leaderboard-cards';
+
+/* -- Design tokens from designs/f075-cat-leaderboard.pen (lzNOb) -- */
+const FONTS_URL =
+  'https://fonts.googleapis.com/css2?family=Fraunces:wght@500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap';
 
 const RANGE_OPTIONS: { value: LeaderboardRange; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: '7d', label: '7 天' },
   { value: '30d', label: '30 天' },
 ];
-
-function Medal({ rank }: { rank: number }) {
-  if (rank === 1) return <span className="text-lg">🥇</span>;
-  if (rank === 2) return <span className="text-lg">🥈</span>;
-  if (rank === 3) return <span className="text-lg">🥉</span>;
-  return <span className="text-sm text-gray-400">#{rank}</span>;
-}
-
-function RankedList({ items, unit }: { items: RankedCat[]; unit: string }) {
-  if (items.length === 0) return <p className="text-sm text-gray-400">暂无数据</p>;
-  return (
-    <ul className="space-y-2">
-      {items.map((cat) => (
-        <li key={cat.catId} className="flex items-center gap-2">
-          <Medal rank={cat.rank} />
-          <span className="font-medium text-sm">{cat.displayName}</span>
-          <span className="text-xs text-gray-500 ml-auto">
-            {cat.count} {unit}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function StreakList({ items }: { items: StreakCat[] }) {
-  if (items.length === 0) return <p className="text-sm text-gray-400">暂无数据</p>;
-  return (
-    <ul className="space-y-2">
-      {items.map((cat) => (
-        <li key={cat.catId} className="flex items-center gap-2">
-          <Medal rank={cat.rank} />
-          <span className="font-medium text-sm">{cat.displayName}</span>
-          <span className="text-xs text-gray-500 ml-auto">
-            连续 {cat.currentStreak} 天 (最长 {cat.maxStreak})
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function StatCard({ title, emoji, children }: { title: string; emoji: string; children: React.ReactNode }) {
-  return (
-    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-      <h3 className="text-sm font-bold text-gray-700">
-        <span className="mr-1.5">{emoji}</span>
-        {title}
-      </h3>
-      {children}
-    </div>
-  );
-}
 
 export function HubLeaderboardTab() {
   const [data, setData] = useState<LeaderboardStatsResponse | null>(null);
@@ -74,11 +26,8 @@ export function HubLeaderboardTab() {
     setError(null);
     try {
       const res = await apiFetch(`/api/leaderboard/stats?range=${r}`);
-      if (res.ok) {
-        setData((await res.json()) as LeaderboardStatsResponse);
-      } else {
-        setError('排行榜加载失败');
-      }
+      if (res.ok) setData((await res.json()) as LeaderboardStatsResponse);
+      else setError('排行榜加载失败');
     } catch {
       setError('网络错误');
     } finally {
@@ -90,21 +39,32 @@ export function HubLeaderboardTab() {
     fetchStats(range);
   }, [range, fetchStats]);
 
+  const top3 = data?.mentions.favoriteCat.slice(0, 3) ?? [];
+
   return (
-    <div className="space-y-4">
+    <div
+      className="flex flex-col gap-6 p-6 rounded-xl overflow-y-auto"
+      style={{ background: '#F4EFE7', fontFamily: 'Plus Jakarta Sans, sans-serif' }}
+    >
+      <link rel="stylesheet" href={FONTS_URL} />
+
+      {/* Header + Range Filter */}
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-bold text-gray-800">猫猫排行榜</h2>
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-0.5">
+        <h2 className="text-xl font-medium" style={{ fontFamily: 'Fraunces, serif', color: '#2D2D2D' }}>
+          Cat Leaderboard
+        </h2>
+        <div className="flex gap-3">
           {RANGE_OPTIONS.map((opt) => (
             <button
               type="button"
               key={opt.value}
               onClick={() => setRange(opt.value)}
-              className={`px-3 py-1 text-xs rounded-md transition-colors ${
+              className="rounded-lg px-4 py-2.5 text-[13px] font-medium transition-colors"
+              style={
                 range === opt.value
-                  ? 'bg-white text-blue-600 shadow-sm font-medium'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
+                  ? { background: '#8B6F47', color: '#FFFFFF' }
+                  : { background: 'transparent', color: '#8E8E93' }
+              }
             >
               {opt.label}
             </button>
@@ -112,33 +72,61 @@ export function HubLeaderboardTab() {
         </div>
       </div>
 
-      {error && <p className="text-sm text-red-500 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
-      {loading && !data && <p className="text-sm text-gray-400">加载中...</p>}
+      {error && (
+        <p className="text-sm rounded-lg px-3 py-2" style={{ color: '#D4845E', background: 'rgba(212,132,94,0.1)' }}>
+          {error}
+        </p>
+      )}
+      {loading && !data && (
+        <p className="text-sm" style={{ color: '#8E8E93' }}>
+          加载中...
+        </p>
+      )}
 
       {data && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <StatCard title="最受欢迎" emoji="⭐">
-            <RankedList items={data.mentions.favoriteCat} unit="次被 @" />
-          </StatCard>
-          <StatCard title="夜猫子" emoji="🌙">
-            <RankedList items={data.mentions.nightOwl} unit="次深夜 @" />
-          </StatCard>
-          <StatCard title="话痨" emoji="💬">
-            <RankedList items={data.mentions.chatty} unit="条消息" />
-          </StatCard>
-          <StatCard title="连续签到" emoji="🔥">
-            <StreakList items={data.mentions.streak} />
-          </StatCard>
-          <StatCard title="代码贡献" emoji="💻">
-            <RankedList items={data.work.commits} unit="次提交" />
-          </StatCard>
-          <StatCard title="Bug 猎手" emoji="🐛">
-            <RankedList items={data.work.bugFixes} unit="个修复" />
-          </StatCard>
-          <StatCard title="Review 达人" emoji="👀">
-            <RankedList items={data.work.reviews} unit="次 review" />
-          </StatCard>
-        </div>
+        <>
+          {/* Hero — Most Beloved */}
+          <SectionCard title="本周之星">
+            <p className="text-[13px]" style={{ color: '#8E8E93' }}>
+              Who is the most beloved feline?
+            </p>
+            <div className="grid grid-cols-3 gap-5">
+              {top3.map((cat) => (
+                <CatHeroCard key={cat.catId} cat={cat} unit="times mentioned" />
+              ))}
+            </div>
+          </SectionCard>
+
+          {/* Work Stats — 搬砖排行 */}
+          <SectionCard title="搬砖排行">
+            <div className="grid grid-cols-3 gap-4">
+              <WorkMetric cat={data.work.commits[0]} label="Commits" />
+              <WorkMetric cat={data.work.reviews[0]} label="Reviews" />
+              <WorkMetric cat={data.work.bugFixes[0]} label="Bug Fixes" />
+            </div>
+          </SectionCard>
+
+          {/* Mention Stats Grid */}
+          <div className="grid grid-cols-2 gap-6">
+            <SectionCard title="夜猫子 🌙">
+              <MiniRanked items={data.mentions.nightOwl} unit="次深夜 @" />
+            </SectionCard>
+            <SectionCard title="话痨 💬">
+              <MiniRanked items={data.mentions.chatty} unit="条消息" />
+            </SectionCard>
+            <SectionCard title="连续签到 🔥">
+              <StreakRanked items={data.mentions.streak} />
+            </SectionCard>
+            <ComingSoon label="翻车现场 😹" />
+          </div>
+
+          {/* Phase B/C Placeholders */}
+          <div className="grid grid-cols-3 gap-6">
+            <ComingSoon label="成就墙 🎖️" />
+            <ComingSoon label="CVO 能力等级 🐾" />
+            <ComingSoon label="游戏竞技场 🎮" />
+          </div>
+        </>
       )}
     </div>
   );
