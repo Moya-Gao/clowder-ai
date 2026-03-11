@@ -3,6 +3,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
+/** Convert hex to rgba with given opacity */
+function breedBg(hex: string | undefined, opacity: number): string {
+  if (!hex) return `rgba(148, 130, 180, ${opacity})`; // muted purple fallback
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
   return (
     <svg
@@ -23,7 +32,7 @@ function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: strin
   );
 }
 
-/** Lightweight disclosure row for thinking content — no heavy card, just inline fold */
+/** Lightweight disclosure row for thinking — breed-tinted light bg, dark text */
 export function ThinkingContent({
   content,
   className,
@@ -61,23 +70,23 @@ export function ThinkingContent({
   const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
 
   return (
-    <div className="mt-1 mb-0.5">
+    <div
+      className="mt-1 mb-0.5 rounded-lg overflow-hidden"
+      style={{ backgroundColor: breedBg(breedColor, 0.08) }}
+    >
       <button
         type="button"
         onClick={() => {
           setExpanded((v) => !v);
         }}
-        className="flex items-center gap-1.5 text-[11px] font-mono text-slate-500 hover:text-slate-400 transition-colors"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-700 hover:text-slate-900 transition-colors"
       >
         <ThinkingChevron expanded={expanded} color={breedColor} />
-        <span>{label}</span>
-        {!expanded && <span className="text-slate-500/60 truncate max-w-[240px]">{preview}</span>}
+        <span className="font-medium">{label}</span>
+        {!expanded && <span className="text-slate-500 truncate max-w-[240px]">{preview}</span>}
       </button>
       {expanded && (
-        <div
-          className="mt-1 ml-[3px] pl-3 text-xs text-slate-600 leading-relaxed"
-          style={{ borderLeft: `2px solid ${breedColor || '#94A3B8'}` }}
-        >
+        <div className="px-3 pb-2 text-xs text-slate-700 leading-relaxed">
           <MarkdownContent content={content} className={className} />
         </div>
       )}

@@ -4,6 +4,17 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from '@/components/MarkdownContent';
 import type { CliEvent, CliStatus } from '@/stores/chat-types';
 
+/* ── Helpers ── */
+
+/** Convert hex to rgba with given opacity */
+function breedBg(hex: string | undefined, opacity: number): string {
+  if (!hex) return `rgba(148, 130, 180, ${opacity})`; // muted purple fallback
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 /* ── Inline SVG icons (Lucide-style, F056 compliant — no emoji) ── */
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -28,18 +39,7 @@ function ChevronIcon({ expanded }: { expanded: boolean }) {
 
 function WrenchIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 opacity-60"
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-60">
       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
@@ -47,18 +47,7 @@ function WrenchIcon() {
 
 function CheckIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 text-cyan-400"
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-emerald-600">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -66,14 +55,7 @@ function CheckIcon() {
 
 function PawPrint() {
   return (
-    <svg
-      aria-hidden="true"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="currentColor"
-      className="flex-shrink-0 opacity-60"
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 opacity-60">
       <path d="M12 15C15 15 17.5 17 17.5 19.5C17.5 21 16 22.5 12 22.5C8 22.5 6.5 21 6.5 19.5C6.5 17 9 15 12 15Z" />
       <ellipse cx="6" cy="11.5" rx="2.5" ry="3" />
       <ellipse cx="12" cy="10" rx="3" ry="3.5" />
@@ -84,18 +66,7 @@ function PawPrint() {
 
 function LoaderIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      width="12"
-      height="12"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 animate-spin opacity-60"
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-spin opacity-60">
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   );
@@ -161,8 +132,8 @@ function ToolRow({
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'bg-white/5 border-l-2' : ''}`}
-      style={isActive ? { borderLeftColor: accentColor || '#94A3B8' } : undefined}
+      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'border-l-2' : ''}`}
+      style={isActive ? { borderLeftColor: accentColor || '#94A3B8', backgroundColor: 'rgba(0,0,0,0.03)' } : undefined}
       onClick={() => {
         setRowExpanded((v) => !v);
         onUserInteract?.();
@@ -170,7 +141,7 @@ function ToolRow({
     >
       <div className="flex items-center gap-2">
         {isActive ? <LoaderIcon /> : hasResult ? <CheckIcon /> : <WrenchIcon />}
-        <span className="text-slate-200 font-medium">{event.label}</span>
+        <span className="text-slate-800 font-medium">{event.label}</span>
         {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
       </div>
       {rowExpanded && hasResult && <div className="mt-1 pl-5 text-slate-500 whitespace-pre-wrap">{event.detail}</div>}
@@ -178,7 +149,7 @@ function ToolRow({
   );
 }
 
-/* ── Collapsible tools section (tools collapse independently, stdout stays visible) ── */
+/* ── Collapsible tools section ── */
 
 function ToolsSection({
   toolUses,
@@ -195,12 +166,10 @@ function ToolsSection({
   onUserInteract: () => void;
   accentColor?: string;
 }) {
-  // streaming 时展开看进度，done/failed 时自动折叠成一行
   const isStreaming = status === 'streaming';
   const [toolsExpanded, setToolsExpanded] = useState(isStreaming);
   const toolsUserInteracted = useRef(false);
 
-  // streaming → done：自动折叠（除非用户手动展开过）
   const prevStatus = useRef(status);
   useEffect(() => {
     if (prevStatus.current === 'streaming' && !isStreaming && !toolsUserInteracted.current) {
@@ -209,7 +178,6 @@ function ToolsSection({
     prevStatus.current = status;
   }, [status, isStreaming]);
 
-  // streaming 时强制展开
   if (isStreaming && !toolsExpanded) {
     setToolsExpanded(true);
   }
@@ -221,7 +189,7 @@ function ToolsSection({
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 hover:bg-slate-700/30 transition-colors rounded"
+        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-600 hover:text-slate-800 transition-colors rounded"
         onClick={() => {
           toolsUserInteracted.current = true;
           setToolsExpanded((v) => !v);
@@ -275,13 +243,10 @@ export function CliOutputBlock({
   const userInteracted = useRef(false);
   const hasMounted = useRef(false);
 
-  // Streaming → always expanded (unless user pinned collapsed, which doesn't make sense for streaming)
-  // Done + no user interaction → allow auto-collapse
   if (forceExpanded && !expanded) {
     setExpanded(true);
   }
 
-  // P1-2: auto-collapse when streaming→done and user hasn't interacted
   const prevStatusRef = useRef(status);
   useEffect(() => {
     if (prevStatusRef.current === 'streaming' && status !== 'streaming' && !userInteracted.current) {
@@ -290,7 +255,6 @@ export function CliOutputBlock({
     prevStatusRef.current = status;
   }, [status]);
 
-  // Notify scroll-dependent UI after DOM commit
   // biome-ignore lint/correctness/useExhaustiveDependencies: expanded is intentional — dispatch on toggle
   useLayoutEffect(() => {
     if (!hasMounted.current) {
@@ -315,15 +279,18 @@ export function CliOutputBlock({
     setExpanded((v) => !v);
   };
 
-  const accent = breedColor || '#94A3B8'; // fallback to slate-400, not purple
+  const accent = breedColor || '#94A3B8';
 
   return (
-    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden bg-[#1E1E2E]">
-      {/* Summary / header bar — neutral dark surface, breed accent on chevron */}
+    <div
+      className="mt-2 mb-1 rounded-[10px] overflow-hidden"
+      style={{ backgroundColor: breedBg(breedColor, 0.12) }}
+    >
+      {/* Header — breed-tinted, slightly deeper */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors bg-[#1E1E2E]"
+        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-700 hover:text-slate-900 transition-colors"
       >
         <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
@@ -341,11 +308,14 @@ export function CliOutputBlock({
         </span>
       </button>
 
-      {/* Expanded body */}
+      {/* Expanded body — slightly lighter inner area */}
       {expanded && (
-        <div data-testid="cli-output-body" className="text-slate-200 text-xs bg-[#1E1E2E]">
-          <div className="h-px bg-slate-700/50" />
-          {/* Collapsible tools section */}
+        <div
+          data-testid="cli-output-body"
+          className="text-xs"
+          style={{ backgroundColor: breedBg(breedColor, 0.06) }}
+        >
+          <div className="h-px" style={{ backgroundColor: breedBg(breedColor, 0.15) }} />
           {toolUses.length > 0 && (
             <ToolsSection
               toolUses={toolUses}
@@ -359,16 +329,15 @@ export function CliOutputBlock({
             />
           )}
 
-          {/* stdout section — always visible when block is expanded */}
           {textEvents.length > 0 && (
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div className="h-px mx-0 bg-slate-700/50" />
-                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
+                  <div className="h-px mx-0" style={{ backgroundColor: breedBg(breedColor, 0.15) }} />
+                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-500">─── stdout ───</div>
                 </>
               )}
-              <div className="px-3 py-2 font-mono text-[11px] text-slate-300 leading-relaxed cli-output-md">
+              <div className="px-3 py-2 font-mono text-[11px] text-slate-800 leading-relaxed cli-output-md">
                 <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
               </div>
             </>
