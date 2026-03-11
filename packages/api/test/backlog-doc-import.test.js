@@ -141,6 +141,50 @@ describe('parseFeatureDocDependencies', () => {
     const deps = parseFeatureDocDependencies(md);
     assert.deepStrictEqual(deps, {});
   });
+
+  test('extracts Related from body text (not just frontmatter)', async () => {
+    const { parseFeatureDocDependencies } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'feature_ids: [F055]',
+      '---',
+      '',
+      '- **Evolved from**: F050',
+      '- **Related**: F046（Anti-Drift Protocol）',
+      '- **Related**: F042（Prompt Engineering Audit）',
+    ].join('\n');
+    const deps = parseFeatureDocDependencies(md);
+    assert.deepStrictEqual(deps.evolvedFrom, ['f050']);
+    assert.deepStrictEqual(deps.related?.sort(), ['f042', 'f046']);
+  });
+
+  test('rejects non-F\\d{3} frontmatter related_features (e.g. F32-b)', async () => {
+    const { parseFeatureDocDependencies } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'related_features: [F032, F32-b, F049]',
+      '---',
+      '',
+      '# Test',
+    ].join('\n');
+    const deps = parseFeatureDocDependencies(md);
+    // F32-b should be rejected, only F032 and F049 accepted
+    assert.deepStrictEqual(deps.related?.sort(), ['f032', 'f049']);
+  });
+
+  test('filters placeholder Related lines (无/TBD)', async () => {
+    const { parseFeatureDocDependencies } = await import('../dist/routes/backlog-doc-import.js');
+    const md = [
+      '---',
+      'feature_ids: [F094]',
+      '---',
+      '',
+      '- **Related**: 无',
+      '- **Blocked by**: 待定',
+    ].join('\n');
+    const deps = parseFeatureDocDependencies(md);
+    assert.deepStrictEqual(deps, {});
+  });
 });
 
 describe('featureStatusToBacklogStatus', () => {

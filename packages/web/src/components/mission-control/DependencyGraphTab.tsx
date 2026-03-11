@@ -1,88 +1,25 @@
 'use client';
 
-import type { BacklogItem, BacklogStatus } from '@cat-cafe/shared';
-import dagre from '@dagrejs/dagre';
-import {
-  type Edge,
-  Handle,
-  MarkerType,
-  type Node,
-  type NodeProps,
-  Position,
-  ReactFlow,
-  useEdgesState,
-  useNodesState,
-} from '@xyflow/react';
+import { type BacklogItem, type BacklogStatus } from '@cat-cafe/shared';
+import { Handle, type Node, type NodeProps, Position, ReactFlow, useEdgesState, useNodesState } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { extractFeatureId } from './FeatureBirdEyePanel';
+import {
+  buildFeatureRecords,
+  buildReactFlowGraph,
+  buildTooltip,
+  type DagScope,
+  EDGE_STYLES,
+  type FeatureNodeData,
+  filterByScope,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  SCOPE_LABELS,
+  STATUS_COLORS,
+} from './dag-graph-utils';
 
 interface DependencyGraphTabProps {
   items: BacklogItem[];
-}
-
-interface FeatureNodeData {
-  featureId: string;
-  name: string;
-  status: BacklogStatus;
-  evolvedFrom: string[];
-  blockedBy: string[];
-  related: string[];
-  [key: string]: unknown;
-}
-
-const STATUS_COLORS: Record<BacklogStatus, { border: string; bg: string; dot: string }> = {
-  open: { border: '#C4B5A0', bg: '#FFFDF8', dot: '#C4B5A0' },
-  suggested: { border: '#E4A853', bg: '#FFFBF0', dot: '#E4A853' },
-  approved: { border: '#E4A853', bg: '#FFFBF0', dot: '#E4A853' },
-  dispatched: { border: '#5B9BD5', bg: '#F5F9FF', dot: '#5B9BD5' },
-  done: { border: '#7CB87C', bg: '#F5FFF5', dot: '#7CB87C' },
-};
-
-const EDGE_STYLES = {
-  evolved: { stroke: '#5B9BD5', strokeDasharray: undefined, label: '演化' },
-  blocked: { stroke: '#E05252', strokeDasharray: '6 3', label: '阻塞' },
-  related: { stroke: '#9A866F', strokeDasharray: '3 3', label: '关联' },
-} as const;
-
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 70;
-
-function featureStatus(featureItems: BacklogItem[]): BacklogStatus {
-  if (featureItems.some((i) => i.status === 'suggested' || i.status === 'approved')) return 'suggested';
-  if (featureItems.some((i) => i.status === 'dispatched')) return 'dispatched';
-  if (featureItems.some((i) => i.status === 'open')) return 'open';
-  return 'done';
-}
-
-function featureName(featureItems: BacklogItem[]): string {
-  const first = featureItems[0];
-  if (!first) return '';
-  return first.title.match(/^\[F\d+\]\s*(.+)/)?.[1]?.trim() ?? first.title;
-}
-
-function layoutDag(nodes: Node<FeatureNodeData>[], edges: Edge[]) {
-  const g = new dagre.graphlib.Graph();
-  g.setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: 'TB', nodesep: 40, ranksep: 60, marginx: 20, marginy: 20 });
-  for (const n of nodes) g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  for (const e of edges) g.setEdge(e.source, e.target);
-  dagre.layout(g);
-  return {
-    nodes: nodes.map((n) => {
-      const p = g.node(n.id);
-      return { ...n, position: { x: p.x - NODE_WIDTH / 2, y: p.y - NODE_HEIGHT / 2 } };
-    }),
-    edges,
-  };
-}
-
-function buildTooltip(data: FeatureNodeData): string {
-  const lines = [`${data.featureId}: ${data.name}`];
-  if (data.evolvedFrom.length) lines.push(`演化自: ${data.evolvedFrom.join(', ')}`);
-  if (data.blockedBy.length) lines.push(`被阻塞: ${data.blockedBy.join(', ')}`);
-  if (data.related.length) lines.push(`关联: ${data.related.join(', ')}`);
-  return lines.join('\n');
 }
 
 function FeatureNode({ data }: NodeProps<Node<FeatureNodeData>>) {
@@ -114,97 +51,20 @@ function FeatureNode({ data }: NodeProps<Node<FeatureNodeData>>) {
 
 const nodeTypes = { feature: FeatureNode };
 
-interface FeatureRecord {
-  id: string;
-  name: string;
-  status: BacklogStatus;
-  evolvedFrom: string[];
-  blockedBy: string[];
-  related: string[];
-}
-
-function collectDeps(featureItems: BacklogItem[]) {
-  const evolved = new Set<string>();
-  const blocked = new Set<string>();
-  const related = new Set<string>();
-  for (const item of featureItems) {
-    for (const d of item.dependencies?.evolvedFrom ?? []) evolved.add(d.toUpperCase());
-    for (const d of item.dependencies?.blockedBy ?? []) blocked.add(d.toUpperCase());
-    for (const d of item.dependencies?.related ?? []) related.add(d.toUpperCase());
-  }
-  return { evolvedFrom: [...evolved], blockedBy: [...blocked], related: [...related] };
-}
-
-function buildFeatureRecords(items: BacklogItem[]): FeatureRecord[] {
-  const groups = new Map<string, BacklogItem[]>();
-  for (const item of items) {
-    const fid = extractFeatureId(item.tags);
-    if (fid === 'Untagged') continue;
-    const list = groups.get(fid) ?? [];
-    list.push(item);
-    groups.set(fid, list);
-  }
-  const result: FeatureRecord[] = [];
-  for (const [fid, fi] of groups) {
-    result.push({ id: fid, name: featureName(fi), status: featureStatus(fi), ...collectDeps(fi) });
-  }
-  return result.sort((a, b) => a.id.localeCompare(b.id));
-}
-
-function makeEdge(src: string, tgt: string, type: keyof typeof EDGE_STYLES, width = 2): Edge {
-  const s = EDGE_STYLES[type];
-  const arrow = { type: MarkerType.ArrowClosed, color: s.stroke } as const;
-  return {
-    id: `${src}-${tgt}-${type}`,
-    source: src,
-    target: tgt,
-    style: { stroke: s.stroke, strokeWidth: width, strokeDasharray: s.strokeDasharray },
-    markerEnd: arrow,
-    ...(type === 'related' && { markerStart: arrow }),
-    label: s.label,
-    labelStyle: { fontSize: 10, fill: s.stroke },
-    interactionWidth: 20,
-  };
-}
-
-function collectEdges(records: FeatureRecord[]): Edge[] {
-  const nodeIds = new Set(records.map((n) => n.id));
-  const seenRelated = new Set<string>();
-  const edges: Edge[] = [];
-  for (const node of records) {
-    edges.push(...node.evolvedFrom.filter((d) => nodeIds.has(d)).map((d) => makeEdge(d, node.id, 'evolved')));
-    edges.push(...node.blockedBy.filter((d) => nodeIds.has(d)).map((d) => makeEdge(d, node.id, 'blocked')));
-    for (const d of node.related) {
-      if (!nodeIds.has(d)) continue;
-      const key = [node.id, d].sort().join(':');
-      if (seenRelated.has(key)) continue;
-      seenRelated.add(key);
-      edges.push(makeEdge(node.id, d, 'related', 1.5));
-    }
-  }
-  return edges;
-}
-
-function buildReactFlowGraph(records: FeatureRecord[]) {
-  const rfNodes: Node<FeatureNodeData>[] = records.map((n) => ({
-    id: n.id,
-    type: 'feature',
-    position: { x: 0, y: 0 },
-    data: {
-      featureId: n.id,
-      name: n.name,
-      status: n.status,
-      evolvedFrom: n.evolvedFrom,
-      blockedBy: n.blockedBy,
-      related: n.related,
-    },
-  }));
-  return layoutDag(rfNodes, collectEdges(records));
-}
+const STATUS_LABEL: Record<BacklogStatus, string> = {
+  open: '待建议',
+  suggested: '待审批',
+  approved: '待审批',
+  dispatched: '执行中',
+  done: '已完成',
+};
 
 export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
-  const featureNodes = useMemo(() => buildFeatureRecords(items), [items]);
-  const layouted = useMemo(() => buildReactFlowGraph(featureNodes), [featureNodes]);
+  const allRecords = useMemo(() => buildFeatureRecords(items), [items]);
+  const [scope, setScope] = useState<DagScope>('connected');
+
+  const filtered = useMemo(() => filterByScope(allRecords, scope), [allRecords, scope]);
+  const layouted = useMemo(() => buildReactFlowGraph(filtered), [filtered]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(layouted.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(layouted.edges);
@@ -215,11 +75,10 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
     setEdges(layouted.edges);
   }, [layouted, setNodes, setEdges]);
 
-  // Sync selected node detail when data refreshes (avoid stale snapshot)
   useEffect(() => {
     setSelectedNode((prev) => {
       if (!prev) return null;
-      const updated = featureNodes.find((n) => n.id === prev.featureId);
+      const updated = filtered.find((n) => n.id === prev.featureId);
       if (!updated) return null;
       return {
         featureId: updated.id,
@@ -230,7 +89,7 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
         related: updated.related,
       };
     });
-  }, [featureNodes]);
+  }, [filtered]);
 
   const onInit = useCallback((instance: { fitView: () => void }) => {
     instance.fitView();
@@ -240,7 +99,7 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
     setSelectedNode((prev) => (prev?.featureId === node.data.featureId ? null : node.data));
   }, []);
 
-  if (featureNodes.length === 0) {
+  if (allRecords.length === 0) {
     return (
       <div className="flex items-center justify-center py-12 text-sm text-[#9A866F]" data-testid="mc-dep-graph-empty">
         暂无 Feature 依赖数据
@@ -250,6 +109,28 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
 
   return (
     <div data-testid="mc-dep-graph">
+      {/* Toolbar: scope filter + stats */}
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#E7DAC7] bg-[#FFFDF8] px-3 py-2">
+        <div className="flex items-center gap-2">
+          {(Object.keys(SCOPE_LABELS) as DagScope[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setScope(s)}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                scope === s ? 'bg-[#8B6F47] text-white' : 'bg-[#F5EDE0] text-[#9A866F] hover:bg-[#E7DAC7]'
+              }`}
+              data-testid={`mc-dep-scope-${s}`}
+            >
+              {SCOPE_LABELS[s]}
+            </button>
+          ))}
+        </div>
+        <span className="text-[11px] text-[#9A866F]" data-testid="mc-dep-stats">
+          {filtered.length} 个 Feature / {layouted.edges.length} 条依赖
+        </span>
+      </div>
+
       {/* Legend */}
       <div className="mb-3 flex flex-wrap items-center gap-4 rounded-xl border border-[#E7DAC7] bg-[#FFFDF8] px-3 py-2">
         <LegendDot color="#E4A853" label="待审批" />
@@ -265,29 +146,34 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
         </span>
       </div>
 
-      {/* DAG graph — constrained to container (KD-5 fitView) */}
-      <div className="h-[500px] w-full rounded-xl border border-[#E7DAC7] bg-[#FFFDF8]">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          onInit={onInit}
-          onNodeClick={onNodeClick}
-          onPaneClick={() => setSelectedNode(null)}
-          fitView
-          fitViewOptions={{ padding: 0.2 }}
-          minZoom={0.3}
-          maxZoom={1.5}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          edgesFocusable
-          proOptions={{ hideAttribution: true }}
-        />
-      </div>
+      {/* DAG graph or empty state */}
+      {filtered.length === 0 ? (
+        <div className="flex items-center justify-center rounded-xl border border-[#E7DAC7] bg-[#FFFDF8] py-16 text-sm text-[#9A866F]">
+          当前筛选无有依赖关系的 Feature — 尝试切换到「全部」或刷新依赖数据
+        </div>
+      ) : (
+        <div className="h-[500px] w-full rounded-xl border border-[#E7DAC7] bg-[#FFFDF8]">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            nodeTypes={nodeTypes}
+            onInit={onInit}
+            onNodeClick={onNodeClick}
+            onPaneClick={() => setSelectedNode(null)}
+            fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.3}
+            maxZoom={1.5}
+            nodesDraggable={false}
+            nodesConnectable={false}
+            edgesFocusable
+            proOptions={{ hideAttribution: true }}
+          />
+        </div>
+      )}
 
-      {/* Node detail panel (AC-J5) */}
       {selectedNode && <NodeDetailPanel data={selectedNode} onClose={() => setSelectedNode(null)} />}
     </div>
   );
@@ -295,9 +181,6 @@ export function DependencyGraphTab({ items }: DependencyGraphTabProps) {
 
 function NodeDetailPanel({ data, onClose }: { data: FeatureNodeData; onClose: () => void }) {
   const colors = STATUS_COLORS[data.status];
-  const statusLabel = { open: '待建议', suggested: '待审批', approved: '待审批', dispatched: '执行中', done: '已完成' }[
-    data.status
-  ];
   return (
     <div className="mt-3 rounded-xl border border-[#E7DAC7] bg-[#FFFDF8] p-4" data-testid="mc-dep-node-detail">
       <div className="flex items-center justify-between">
@@ -308,7 +191,7 @@ function NodeDetailPanel({ data, onClose }: { data: FeatureNodeData; onClose: ()
             className="rounded-md px-1.5 py-0.5 text-[10px] font-medium"
             style={{ backgroundColor: colors.bg, color: colors.border }}
           >
-            {statusLabel}
+            {STATUS_LABEL[data.status]}
           </span>
         </div>
         <button type="button" onClick={onClose} className="text-xs text-[#9A866F] hover:text-[#5A4A38]">

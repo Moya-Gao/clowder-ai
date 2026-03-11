@@ -1196,7 +1196,20 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
         createdAt: now,
         updatedAt: now,
         audit: [],
-        dependencies: { evolvedFrom: ['f069'] },
+        dependencies: { evolvedFrom: ['F069'] },
+      },
+      {
+        id: 'tab-2',
+        userId: 'default-user',
+        title: '[F069] Dep target',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f069'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
       },
     ]);
 
@@ -1390,6 +1403,19 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
         audit: [],
         dependencies: { evolvedFrom: ['F049'] },
       },
+      {
+        id: 'click-2',
+        userId: 'u',
+        title: '[F049] Dep Target',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f049'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
     ]);
 
     await act(async () => {
@@ -1435,6 +1461,7 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
         createdAt: now,
         updatedAt: now,
         audit: [],
+        dependencies: { evolvedFrom: ['F069'] },
       },
       {
         id: 'vanish-2',
@@ -1474,6 +1501,78 @@ describe('MissionControlPage — Tabs + Status bar + Dep graph', () => {
       closeBtn.click();
     });
     expect(container.querySelector('[data-testid="mc-dep-node-detail"]')).toBeNull();
+  });
+
+  it('defaults to connected scope, hides isolated nodes, shows stats', async () => {
+    const now = Date.now();
+    backend.setItems([
+      {
+        id: 'scope-1',
+        userId: 'u',
+        title: '[F070] Connected A',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f070'],
+        status: 'dispatched',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+        dependencies: { evolvedFrom: ['F069'] },
+      },
+      {
+        id: 'scope-2',
+        userId: 'u',
+        title: '[F069] Connected B',
+        summary: 'S',
+        priority: 'p1',
+        tags: ['feature:f069'],
+        status: 'done',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
+      {
+        id: 'scope-3',
+        userId: 'u',
+        title: '[F001] Isolated',
+        summary: 'S',
+        priority: 'p3',
+        tags: ['feature:f001'],
+        status: 'open',
+        createdBy: 'user',
+        createdAt: now,
+        updatedAt: now,
+        audit: [],
+      },
+    ]);
+
+    await act(async () => {
+      root.render(React.createElement(MissionControlPage));
+    });
+    await flush(act);
+
+    const depsTab = container.querySelector('[data-testid="mc-tab-dependencies"]') as HTMLButtonElement;
+    await act(async () => {
+      depsTab.click();
+    });
+
+    // Default scope = connected: F070 + F069 visible, F001 hidden
+    expect(container.querySelector('[data-testid="mc-dep-node-F070"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-dep-node-F069"]')).not.toBeNull();
+    expect(container.querySelector('[data-testid="mc-dep-node-F001"]')).toBeNull();
+
+    // Stats bar shows count
+    const stats = container.querySelector('[data-testid="mc-dep-stats"]');
+    expect(stats?.textContent).toContain('2 个 Feature');
+
+    // Switch to "all" scope — isolated node appears
+    const allBtn = container.querySelector('[data-testid="mc-dep-scope-all"]') as HTMLButtonElement;
+    await act(async () => {
+      allBtn.click();
+    });
+    expect(container.querySelector('[data-testid="mc-dep-node-F001"]')).not.toBeNull();
   });
 
   it('referrer-based back button links to referrer thread when ?from= present', async () => {

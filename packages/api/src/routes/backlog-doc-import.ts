@@ -1,6 +1,14 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { BacklogDependencies, BacklogPriority, BacklogStatus, CreateBacklogItemInput, FeatureDocAC, FeatureDocPhase, FeatureDocRisk } from '@cat-cafe/shared';
+import type {
+  BacklogDependencies,
+  BacklogPriority,
+  BacklogStatus,
+  CreateBacklogItemInput,
+  FeatureDocAC,
+  FeatureDocPhase,
+  FeatureDocRisk,
+} from '@cat-cafe/shared';
 import { gitListFeatureDocs, readBacklogContent, readFeatureDocContent } from './git-doc-reader.js';
 
 export interface BacklogFeatureRow {
@@ -156,40 +164,41 @@ function extractFeatureIds(text: string): string[] {
   return [...text.matchAll(/F\d{3}/gi)].map((m) => m[0].toLowerCase());
 }
 
-export function parseFeatureDocDependencies(markdown: string): BacklogDependencies {
+function extractFrontmatterRelated(markdown: string): string[] {
+  const fmMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!fmMatch) return [];
+  const relatedMatch = fmMatch[1]?.match(/related_features:\s*\[([^\]]*)\]/);
+  if (!relatedMatch) return [];
+  // Use extractFeatureIds to normalize — rejects non-F\d{3} values like "F32-b"
+  return extractFeatureIds(relatedMatch[1] ?? '');
+}
+
+const PLACEHOLDER_RE = /^(无|待定|tbd|n\/a|—|-)$/i;
+
+function extractBodyDeps(markdown: string) {
   const evolvedFrom: string[] = [];
   const blockedBy: string[] = [];
   const related: string[] = [];
-
-  // 1. Extract from frontmatter related_features
-  const fmMatch = markdown.match(/^---\s*\n([\s\S]*?)\n---/);
-  if (fmMatch) {
-    const relatedMatch = fmMatch[1]?.match(/related_features:\s*\[([^\]]*)\]/);
-    if (relatedMatch) {
-      related.push(
-        ...(relatedMatch[1] ?? '')
-          .split(',')
-          .map((s) => s.trim().toLowerCase())
-          .filter(Boolean),
-      );
-    }
-  }
-
-  // 2. Extract from Dependencies section body
   for (const line of markdown.split(/\r?\n/)) {
-    if (/\*\*Evolved from\*\*/i.test(line)) {
-      evolvedFrom.push(...extractFeatureIds(line));
-    }
-    if (/\*\*Blocked by\*\*/i.test(line)) {
-      blockedBy.push(...extractFeatureIds(line));
+    if (/\*\*Evolved from\*\*/i.test(line)) evolvedFrom.push(...extractFeatureIds(line));
+    if (/\*\*Blocked by\*\*/i.test(line)) blockedBy.push(...extractFeatureIds(line));
+    if (/\*\*Related\*\*/i.test(line)) {
+      const afterColon = line.replace(/.*\*\*Related\*\*\s*[:：]?\s*/i, '').trim();
+      if (!PLACEHOLDER_RE.test(afterColon)) related.push(...extractFeatureIds(line));
     }
   }
+  return { evolvedFrom, blockedBy, related };
+}
 
-  // Deduplicate; remove related entries that are specialized
-  const specialized = new Set([...evolvedFrom, ...blockedBy]);
-  const dedupRelated = [...new Set(related)].filter((id) => !specialized.has(id));
-  const dedupEvolved = [...new Set(evolvedFrom)];
-  const dedupBlocked = [...new Set(blockedBy)];
+export function parseFeatureDocDependencies(markdown: string): BacklogDependencies {
+  const fmRelated = extractFrontmatterRelated(markdown);
+  const body = extractBodyDeps(markdown);
+  const allRelated = [...fmRelated, ...body.related];
+
+  const specialized = new Set([...body.evolvedFrom, ...body.blockedBy]);
+  const dedupRelated = [...new Set(allRelated)].filter((id) => !specialized.has(id));
+  const dedupEvolved = [...new Set(body.evolvedFrom)];
+  const dedupBlocked = [...new Set(body.blockedBy)];
 
   return {
     ...(dedupEvolved.length > 0 ? { evolvedFrom: dedupEvolved } : {}),
@@ -234,7 +243,10 @@ export function parseFeatureDocRisks(markdown: string): FeatureDocRisk[] {
   const headerSkipped = rows.slice(rows.findIndex((r) => r.includes('---')) + 1);
   return headerSkipped
     .map((row) => {
-      const cells = row.split('|').map((c) => c.trim()).filter(Boolean);
+      const cells = row
+        .split('|')
+        .map((c) => c.trim())
+        .filter(Boolean);
       if (cells.length < 2) return null;
       const risk = cells[0];
       const mitigation = cells[cells.length - 1];
@@ -263,7 +275,9 @@ async function listLocalFeatureDocs(dir: string): Promise<FeatureDocEntry[]> {
     try {
       const content = await readFile(join(dir, entry), 'utf-8');
       results.push({ entry, featureId: match[1]?.toLowerCase() ?? '', content });
-    } catch { /* skip */ }
+    } catch {
+      /* skip */
+    }
   }
   return results;
 }
