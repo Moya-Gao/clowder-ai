@@ -3,48 +3,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { MarkdownContent } from './MarkdownContent';
 
-/* ── Same surface colors as CliOutputBlock — design-aligned ── */
+/* Same surface colors as CliOutputBlock — unified dark panels */
 const SURFACE = '#283548';
 const SURFACE_INNER = '#243040';
+const DIVIDER = '#334155';
 
 function ThinkingChevron({ expanded, color }: { expanded: boolean; color?: string }) {
   return (
-    <svg
-      aria-hidden="true"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 transition-transform duration-150"
-      style={{ color: color || '#94A3B8', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color || '#6B7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 transition-transform duration-150" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }
 
-/** Brain SVG icon — matches design */
+/** Brain SVG — from Pencil design (🧠 thinking icon) */
 function BrainIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="flex-shrink-0 opacity-70"
-    >
-      <path d="M12 2a5 5 0 0 1 4.9 4 4.5 4.5 0 0 1 2.1 4 5 5 0 0 1-1 6.4V20a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2v-3.6A5 5 0 0 1 5 10a4.5 4.5 0 0 1 2.1-4A5 5 0 0 1 12 2z" />
-      <path d="M12 2v8" />
-      <path d="M8 6h8" />
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0" style={{ color: '#94A3B8' }}>
+      <path d="M9.5 2a3.5 3.5 0 0 0-3.2 2.1A3.5 3.5 0 0 0 4 7.5a3.5 3.5 0 0 0 .7 2.1A4 4 0 0 0 4 12a4 4 0 0 0 1.5 3.1A3.5 3.5 0 0 0 9 18.5a3.5 3.5 0 0 0 3-1.7" />
+      <path d="M14.5 2a3.5 3.5 0 0 1 3.2 2.1A3.5 3.5 0 0 1 20 7.5a3.5 3.5 0 0 1-.7 2.1A4 4 0 0 1 20 12a4 4 0 0 1-1.5 3.1 3.5 3.5 0 0 1-3.5 3.4 3.5 3.5 0 0 1-3-1.7" />
+      <path d="M12 2v20" />
     </svg>
   );
 }
@@ -85,29 +63,26 @@ export function ThinkingContent({
   }, [expanded]);
   const previewLength = 60;
   const preview = content.length > previewLength ? `${content.slice(0, previewLength)}…` : content;
-  const accent = breedColor || '#94A3B8';
 
   return (
-    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: SURFACE }}>
+    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: SURFACE, borderRadius: 10 }}>
       <button
         type="button"
-        onClick={() => {
-          setExpanded((v) => !v);
-        }}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
-        style={{ backgroundColor: SURFACE }}
+        onClick={() => { setExpanded((v) => !v); }}
+        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
+        style={{ padding: '8px 12px', backgroundColor: SURFACE }}
       >
-        <span style={{ color: accent }}>
-          <ThinkingChevron expanded={expanded} color={accent} />
+        <span style={{ color: breedColor || '#6B7280' }}>
+          <ThinkingChevron expanded={expanded} color={breedColor} />
         </span>
         <BrainIcon />
-        <span className="font-medium">{label}</span>
-        {!expanded && <span className="text-slate-500 truncate max-w-[240px]">{preview}</span>}
+        <span className="font-medium" style={{ color: '#94A3B8' }}>{label}</span>
+        {!expanded && <span className="truncate max-w-[240px]" style={{ color: '#6B7280' }}>{preview}</span>}
       </button>
       {expanded && (
         <div style={{ backgroundColor: SURFACE_INNER }}>
-          <div className="h-px" style={{ backgroundColor: '#334155' }} />
-          <div className="px-3 py-2 text-xs text-slate-300 leading-relaxed">
+          <div style={{ height: 1, backgroundColor: DIVIDER }} />
+          <div style={{ padding: '8px 12px 10px 12px', color: '#CBD5E1' }} className="text-xs leading-relaxed">
             <MarkdownContent content={content} className={className} />
           </div>
         </div>

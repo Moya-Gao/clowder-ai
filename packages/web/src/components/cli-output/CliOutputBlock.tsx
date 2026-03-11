@@ -14,31 +14,35 @@ function hexToRgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-/* ── Inline SVG icons (Lucide-style, F056 compliant) ── */
+/** Lighten a hex color toward white by ratio (0-1) */
+function lighten(hex: string, ratio: number): string {
+  const r = Number.parseInt(hex.slice(1, 3), 16);
+  const g = Number.parseInt(hex.slice(3, 5), 16);
+  const b = Number.parseInt(hex.slice(5, 7), 16);
+  const lr = Math.round(r + (255 - r) * ratio);
+  const lg = Math.round(g + (255 - g) * ratio);
+  const lb = Math.round(b + (255 - b) * ratio);
+  return `rgb(${lr}, ${lg}, ${lb})`;
+}
+
+/* ── Design-aligned surface colors (~15% lighter than #1E293B) ── */
+const SURFACE = '#283548';
+const SURFACE_INNER = '#243040';
+const DIVIDER = '#334155';
+
+/* ── Inline SVG icons (Lucide-style, from Pencil design) ── */
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
-    <svg
-      aria-hidden="true"
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="transition-transform duration-150 flex-shrink-0"
-      style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}
-    >
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="transition-transform duration-150 flex-shrink-0" style={{ transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }
 
-function WrenchIcon() {
+function WrenchIcon({ className }: { className?: string }) {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 opacity-60">
+    <svg aria-hidden="true" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`flex-shrink-0 ${className ?? ''}`}>
       <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
     </svg>
   );
@@ -46,15 +50,23 @@ function WrenchIcon() {
 
 function CheckIcon() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-cyan-400">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22D3EE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function LoaderIcon({ color }: { color?: string }) {
+  return (
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={color || 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-spin">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   );
 }
 
 function PawPrint() {
   return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="flex-shrink-0 opacity-60">
+    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="#64748B" className="flex-shrink-0">
       <path d="M12 15C15 15 17.5 17 17.5 19.5C17.5 21 16 22.5 12 22.5C8 22.5 6.5 21 6.5 19.5C6.5 17 9 15 12 15Z" />
       <ellipse cx="6" cy="11.5" rx="2.5" ry="3" />
       <ellipse cx="12" cy="10" rx="3" ry="3.5" />
@@ -62,19 +74,6 @@ function PawPrint() {
     </svg>
   );
 }
-
-function LoaderIcon() {
-  return (
-    <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 animate-spin opacity-80">
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
-/* ── Dark surface colors — design-aligned, ~15% lighter than #1E293B ── */
-const SURFACE = '#283548';
-const SURFACE_INNER = '#243040';
-const DIVIDER = '#334155';
 
 /* ── Status helpers ── */
 
@@ -101,7 +100,6 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
     timestamps.length >= 2 && status !== 'streaming'
       ? ` · ${formatDuration(Math.max(...timestamps) - Math.min(...timestamps))}`
       : '';
-
   if (status === 'streaming') {
     const last = [...events].reverse().find((e) => e.kind === 'tool_use');
     return `CLI Output · ${statusLabel}${last ? ` · ${last.label}...` : ''}`;
@@ -115,43 +113,59 @@ function buildSummary(events: CliEvent[], status: CliStatus): string {
   return `CLI Output · ${statusLabel} · ${lineCount} line${lineCount !== 1 ? 's' : ''}${duration}`;
 }
 
-/* ── Tool row (individually collapsible) ── */
+/* ── Tool row — design: [status] [wrench] [name] [detail] [result] ── */
 
 function ToolRow({
   event,
   isActive,
   onUserInteract,
-  accentColor,
+  accent,
 }: {
   event: CliEvent;
   isActive: boolean;
   onUserInteract?: () => void;
-  accentColor?: string;
+  accent: string;
 }) {
   const [rowExpanded, setRowExpanded] = useState(false);
   const hasResult = event.detail != null;
-  // Active tool gets breed-tinted highlight background
-  const activeBg = isActive && accentColor ? hexToRgba(accentColor, 0.2) : undefined;
+  // Design: active = breed bg 12% + left border 2px + lighter text
+  const accentLight = lighten(accent, 0.6); // ~#C084FC equivalent
+  const accentVeryLight = lighten(accent, 0.9); // ~#F5F3FF equivalent
+
   return (
     <button
       type="button"
       data-testid={`tool-row-${event.id}`}
-      className={`w-full text-left cursor-pointer px-2 py-[5px] rounded font-mono text-[11px] ${isActive ? 'border-l-2' : ''}`}
+      className="w-full text-left cursor-pointer rounded font-mono text-[11px] flex items-center gap-2"
       style={{
-        borderLeftColor: isActive ? (accentColor || '#94A3B8') : undefined,
-        backgroundColor: activeBg,
+        padding: '5px 8px',
+        borderRadius: 4,
+        backgroundColor: isActive ? hexToRgba(accent, 0.12) : undefined,
+        borderLeft: isActive ? `2px solid ${accent}` : undefined,
       }}
       onClick={() => {
         setRowExpanded((v) => !v);
         onUserInteract?.();
       }}
     >
-      <div className="flex items-center gap-2">
-        {isActive ? <LoaderIcon /> : hasResult ? <CheckIcon /> : <WrenchIcon />}
-        <span className="text-slate-200 font-medium">{event.label}</span>
-        {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        {/* Status icon */}
+        {isActive ? <LoaderIcon color={accentLight} /> : hasResult ? <CheckIcon /> : null}
+        {/* Wrench icon */}
+        <WrenchIcon />
+        {/* Tool label (full) */}
+        <span className="truncate" style={{ color: isActive ? accentVeryLight : '#E2E8F0' }}>
+          <span className="font-medium">{event.label?.split(' ')[0]}</span>
+          {event.label?.includes(' ') && (
+            <span style={{ color: isActive ? accentLight : '#64748B' }}>{` ${event.label.split(' ').slice(1).join(' ')}`}</span>
+          )}
+        </span>
       </div>
-      {rowExpanded && hasResult && <div className="mt-1 pl-5 text-slate-500 whitespace-pre-wrap">{event.detail}</div>}
+      {/* Detail — hidden by default, shown on click */}
+      {hasResult && !rowExpanded && <ChevronIcon expanded={false} />}
+      {rowExpanded && hasResult && event.detail && (
+        <div className="w-full mt-1 pl-7 whitespace-pre-wrap text-[10px]" style={{ color: '#64748B' }}>{event.detail}</div>
+      )}
     </button>
   );
 }
@@ -164,14 +178,14 @@ function ToolsSection({
   lastToolId,
   status,
   onUserInteract,
-  accentColor,
+  accent,
 }: {
   toolUses: CliEvent[];
   toolResults: CliEvent[];
   lastToolId: string | undefined;
   status: CliStatus;
   onUserInteract: () => void;
-  accentColor?: string;
+  accent: string;
 }) {
   const isStreaming = status === 'streaming';
   const [toolsExpanded, setToolsExpanded] = useState(isStreaming);
@@ -192,11 +206,12 @@ function ToolsSection({
   const toolSummary = `${toolUses.length} tool${toolUses.length > 1 ? 's' : ''}`;
 
   return (
-    <div className="py-1">
+    <div style={{ padding: '4px 12px' }}>
       <button
         type="button"
         data-testid="tools-section-toggle"
-        className="w-full flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-mono text-slate-400 hover:text-slate-300 transition-colors rounded"
+        className="w-full flex items-center gap-1.5 px-2 py-1.5 text-[11px] font-mono rounded transition-colors"
+        style={{ color: '#94A3B8' }}
         onClick={() => {
           toolsUserInteracted.current = true;
           setToolsExpanded((v) => !v);
@@ -216,7 +231,7 @@ function ToolsSection({
                 event={{ ...e, detail: result?.detail ?? e.detail }}
                 isActive={e.id === lastToolId}
                 onUserInteract={onUserInteract}
-                accentColor={accentColor}
+                accent={accent}
               />
             );
           })}
@@ -280,28 +295,27 @@ export function CliOutputBlock({
   const toolResults = events.filter((e) => e.kind === 'tool_result');
   const textEvents = events.filter((e) => e.kind === 'text');
   const lastToolId = status === 'streaming' ? [...events].reverse().find((e) => e.kind === 'tool_use')?.id : undefined;
+  const accent = breedColor || '#7C3AED';
 
   const handleToggle = () => {
     userInteracted.current = true;
     setExpanded((v) => !v);
   };
 
-  const accent = breedColor || '#94A3B8';
-
   return (
-    <div className="mt-2 mb-1 rounded-[10px] overflow-hidden" style={{ backgroundColor: SURFACE }}>
-      {/* Header */}
+    <div className="mt-2 mb-1 overflow-hidden" style={{ backgroundColor: SURFACE, borderRadius: 10 }}>
+      {/* Header — design: chevron(accent) + summary(slate-400) + paw chip */}
       <button
         type="button"
         onClick={handleToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-slate-400 hover:brightness-110 transition-colors"
-        style={{ backgroundColor: SURFACE }}
+        className="w-full flex items-center gap-2 text-[11px] font-mono transition-colors"
+        style={{ padding: '8px 12px', color: '#94A3B8', backgroundColor: SURFACE }}
       >
         <span style={{ color: accent }}>
           <ChevronIcon expanded={expanded} />
         </span>
         <span className="font-medium">{summary}</span>
-        <span className="ml-auto flex items-center gap-1 text-[10px] text-slate-500">
+        <span className="ml-auto flex items-center gap-1" style={{ color: '#64748B', fontSize: 10 }}>
           {thinkingMode === 'debug' ? (
             <>
               <PawPrint />
@@ -313,33 +327,34 @@ export function CliOutputBlock({
         </span>
       </button>
 
-      {/* Expanded body — slightly lighter inner surface */}
+      {/* Expanded body */}
       {expanded && (
-        <div data-testid="cli-output-body" className="text-slate-200 text-xs" style={{ backgroundColor: SURFACE_INNER }}>
-          <div className="h-px" style={{ backgroundColor: DIVIDER }} />
+        <div data-testid="cli-output-body" style={{ backgroundColor: SURFACE_INNER }}>
+          <div style={{ height: 1, backgroundColor: DIVIDER }} />
           {toolUses.length > 0 && (
             <ToolsSection
               toolUses={toolUses}
               toolResults={toolResults}
               lastToolId={lastToolId}
               status={status}
-              onUserInteract={() => {
-                userInteracted.current = true;
-              }}
-              accentColor={accent}
+              onUserInteract={() => { userInteracted.current = true; }}
+              accent={accent}
             />
           )}
-
           {textEvents.length > 0 && (
             <>
               {toolUses.length > 0 && (
                 <>
-                  <div className="h-px mx-0" style={{ backgroundColor: DIVIDER }} />
-                  <div className="px-3 pt-2 pb-1 font-mono text-[10px] text-slate-600">─── stdout ───</div>
+                  <div style={{ height: 1, backgroundColor: DIVIDER }} />
+                  <div style={{ padding: '8px 12px 4px 12px', fontFamily: 'JetBrains Mono, monospace', fontSize: 10, color: '#475569' }}>
+                    ─── stdout ───
+                  </div>
                 </>
               )}
-              <div className="px-3 py-2 font-mono text-[11px] text-slate-300 leading-relaxed cli-output-md">
-                <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
+              <div style={{ padding: '8px 12px 10px 12px' }} className="font-mono text-[11px] leading-relaxed cli-output-md" >
+                <span style={{ color: '#CBD5E1' }}>
+                  <MarkdownContent content={textEvents.map((e) => e.content).join('\n')} />
+                </span>
               </div>
             </>
           )}
