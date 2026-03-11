@@ -28,7 +28,16 @@ export function getProjectPaths(threads: Thread[]): string[] {
       paths.add(t.projectPath);
     }
   }
-  return [...paths].sort();
+  // F095 Phase C (AC-C4): Sort by most recent thread activity, not alphabetically
+  const pathList = [...paths];
+  const activityMap = new Map<string, number>();
+  for (const t of threads) {
+    if (t.projectPath && t.projectPath !== 'default') {
+      const current = activityMap.get(t.projectPath) ?? 0;
+      if (t.lastActiveAt > current) activityMap.set(t.projectPath, t.lastActiveAt);
+    }
+  }
+  return pathList.sort((a, b) => (activityMap.get(b) ?? 0) - (activityMap.get(a) ?? 0));
 }
 
 /** Thread group for sidebar rendering */

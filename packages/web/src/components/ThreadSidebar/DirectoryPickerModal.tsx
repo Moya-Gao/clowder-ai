@@ -10,13 +10,29 @@ export interface SessionBinding {
   cliSessionId: string;
 }
 
+/** F095 Phase C: All options collected by the new-thread modal */
+export interface NewThreadOptions {
+  projectPath?: string;
+  preferredCats?: string[];
+  sessionBindings?: SessionBinding[];
+  title?: string;
+  pinned?: boolean;
+  backlogItemId?: string;
+}
+
+interface BacklogItemSummary {
+  id: string;
+  title: string;
+  status: string;
+}
+
 export function DirectoryPickerModal({
   existingProjects,
   onSelect,
   onCancel,
 }: {
   existingProjects: string[];
-  onSelect: (projectPath: string | undefined, preferredCats?: string[], sessionBindings?: SessionBinding[]) => void;
+  onSelect: (opts: NewThreadOptions) => void;
   onCancel: () => void;
 }) {
   const [selectedCats, setSelectedCats] = useState<string[]>([]);
@@ -29,7 +45,31 @@ export function DirectoryPickerModal({
   const { getCatById } = useCatData();
   const modalRef = useRef<HTMLDivElement>(null);
 
-  const selectWithCats = useCallback(
+  // F095 Phase C: new fields
+  const [threadTitle, setThreadTitle] = useState('');
+  const [pinOnCreate, setPinOnCreate] = useState(false);
+  const [backlogItems, setBacklogItems] = useState<BacklogItemSummary[]>([]);
+  const [selectedBacklogItemId, setSelectedBacklogItemId] = useState('');
+
+  // Fetch active backlog items for feat dropdown
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await apiFetch('/api/backlog/items');
+        if (res.ok) {
+          const data = await res.json();
+          const active = (data.items ?? []).filter(
+            (item: BacklogItemSummary) => item.status !== 'done' && item.status !== 'cancelled',
+          );
+          setBacklogItems(active);
+        }
+      } catch {
+        // ignore — backlog is optional
+      }
+    })();
+  }, []);
+
+  const selectWithOptions = useCallback(
     (projectPath: string | undefined) => {
       const bindings: SessionBinding[] = [];
       for (const [catId, sid] of Object.entries(sessionInputs)) {
@@ -38,14 +78,16 @@ export function DirectoryPickerModal({
           bindings.push({ catId, cliSessionId: trimmed });
         }
       }
-      const cats = selectedCats.length > 0 ? selectedCats : undefined;
-      if (bindings.length > 0) {
-        onSelect(projectPath, cats, bindings);
-      } else {
-        onSelect(projectPath, cats);
-      }
+      onSelect({
+        projectPath,
+        preferredCats: selectedCats.length > 0 ? selectedCats : undefined,
+        sessionBindings: bindings.length > 0 ? bindings : undefined,
+        title: threadTitle.trim() || undefined,
+        pinned: pinOnCreate || undefined,
+        backlogItemId: selectedBacklogItemId || undefined,
+      });
     },
-    [onSelect, selectedCats, sessionInputs],
+    [onSelect, selectedCats, sessionInputs, threadTitle, pinOnCreate, selectedBacklogItemId],
   );
 
   // F068: Open native macOS folder picker via backend osascript
@@ -61,13 +103,13 @@ export function DirectoryPickerModal({
         return;
       }
       const data = await res.json();
-      selectWithCats(data.path);
+      selectWithOptions(data.path);
     } catch {
       setPathError('无法连接到服务器');
     } finally {
       setIsPicking(false);
     }
-  }, [selectWithCats]);
+  }, [selectWithOptions]);
 
   // F068: Submit path from text input — validate via browse endpoint before accepting
   const handlePathSubmit = useCallback(async () => {
@@ -83,11 +125,11 @@ export function DirectoryPickerModal({
       }
       // Valid directory — use the canonicalized path from server
       const data = await res.json();
-      selectWithCats(data.current);
+      selectWithOptions(data.current);
     } catch {
       setPathError('无法连接到服务器');
     }
-  }, [pathInput, selectWithCats]);
+  }, [pathInput, selectWithOptions]);
 
   // Fetch cwd for "推荐" badge
   useEffect(() => {
@@ -138,6 +180,18 @@ export function DirectoryPickerModal({
               />
             </svg>
           </button>
+        </div>
+
+        {/* ── F095 Phase C: Thread title ── */}
+        <div className="px-5 py-3 border-b border-gray-100">
+          <input
+            type="text"
+            value={threadTitle}
+            onChange={(e) => setThreadTitle(e.target.value)}
+            placeholder="对话标题（可选）"
+            maxLength={200}
+            className="w-full text-sm px-3 py-2 rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary"
+          />
         </div>
 
         {/* ── Cat selector ── */}
@@ -192,6 +246,35 @@ export function DirectoryPickerModal({
             )}
           </div>
         )}
+
+        {/* ── F095 Phase C: Feat association + Pin on create ── */}
+        <div className="px-5 py-2 border-b border-gray-100 flex items-center gap-3">
+          {backlogItems.length > 0 && (
+            <div className="flex-1 min-w-0">
+              <select
+                value={selectedBacklogItemId}
+                onChange={(e) => setSelectedBacklogItemId(e.target.value)}
+                className="w-full text-xs px-2 py-1.5 rounded border border-gray-200 bg-white focus:outline-none focus:ring-1 focus:ring-owner-primary text-gray-600"
+              >
+                <option value="">关联 Feature（可选）</option>
+                {backlogItems.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={pinOnCreate}
+              onChange={(e) => setPinOnCreate(e.target.checked)}
+              className="rounded border-gray-300 text-owner-primary focus:ring-owner-primary"
+            />
+            <span>创建后置顶</span>
+          </label>
+        </div>
 
         {/* ── F068: Pick folder button ── */}
         <div className="px-5 pt-4 pb-2 flex flex-col items-center gap-2">
@@ -253,7 +336,7 @@ export function DirectoryPickerModal({
           {cwdPath && !existingProjects.includes(cwdPath) && (
             <button
               type="button"
-              onClick={() => selectWithCats(cwdPath)}
+              onClick={() => selectWithOptions(cwdPath)}
               className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2 ring-1 ring-owner-primary/30 bg-owner-bg/50"
               title={cwdPath}
             >
@@ -270,7 +353,7 @@ export function DirectoryPickerModal({
             <button
               type="button"
               key={path}
-              onClick={() => selectWithCats(path)}
+              onClick={() => selectWithOptions(path)}
               className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
               title={path}
             >
@@ -284,7 +367,7 @@ export function DirectoryPickerModal({
 
           <button
             type="button"
-            onClick={() => selectWithCats(undefined)}
+            onClick={() => selectWithOptions(undefined)}
             className="w-full text-left px-3 py-2 text-sm text-gray-500 hover:bg-owner-bg rounded-lg transition-colors flex items-center gap-2"
           >
             <span className="text-base">🏠</span>

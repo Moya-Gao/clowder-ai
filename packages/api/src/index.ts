@@ -502,6 +502,7 @@ async function main(): Promise<void> {
     invocationTracker,
     draftStore,
     taskProgressStore,
+    backlogStore,
     ...(readStateStore ? { readStateStore } : {}),
   });
   await app.register(threadBranchRoutes, {

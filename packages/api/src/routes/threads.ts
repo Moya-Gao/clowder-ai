@@ -18,6 +18,7 @@ import type { IDraftStore } from '../domains/cats/services/stores/ports/DraftSto
 import type { IMemoryStore } from '../domains/cats/services/stores/ports/MemoryStore.js';
 import type { IMessageStore } from '../domains/cats/services/stores/ports/MessageStore.js';
 import type { ITaskStore } from '../domains/cats/services/stores/ports/TaskStore.js';
+import type { IBacklogStore } from '../domains/cats/services/stores/ports/BacklogStore.js';
 import type { IThreadReadStateStore } from '../domains/cats/services/stores/ports/ThreadReadStateStore.js';
 import type { IThreadStore, ThreadRoutingPolicyV1 } from '../domains/cats/services/stores/ports/ThreadStore.js';
 import { validateProjectPath } from '../utils/project-path.js';
@@ -42,6 +43,8 @@ export interface ThreadsRoutesOptions {
   taskProgressStore?: TaskProgressStore;
   /** F069: per-user/per-thread read state for unread badge persistence */
   readStateStore?: IThreadReadStateStore;
+  /** F095 Phase C: validate backlogItemId on thread creation */
+  backlogStore?: IBacklogStore;
 }
 
 const createThreadSchema = z.object({
@@ -51,6 +54,10 @@ const createThreadSchema = z.object({
   projectPath: z.string().min(1).max(500).optional(),
   /** F32-b Phase 2: Thread-level cat preference (validated against catRegistry) */
   preferredCats: z.array(catIdSchema()).max(10).optional(),
+  /** F095 Phase C: Pin thread on creation */
+  pinned: z.boolean().optional(),
+  /** F095 Phase C: Associate thread with a backlog item at creation */
+  backlogItemId: z.string().min(1).max(100).optional(),
 });
 
 const listThreadsSchema = z.object({
@@ -137,7 +144,7 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
       return { error: 'Invalid request body', details: parseResult.error.issues };
     }
 
-    const { userId: legacyUserId, title, projectPath, preferredCats } = parseResult.data;
+    const { userId: legacyUserId, title, projectPath, preferredCats, pinned, backlogItemId } = parseResult.data;
     const userId = resolveUserId(request, { fallbackUserId: legacyUserId });
     if (!userId) {
       reply.status(401);
@@ -160,6 +167,27 @@ export const threadsRoutes: FastifyPluginAsync<ThreadsRoutesOptions> = async (ap
     // F32-b Phase 2: Set preferred cats if provided at creation time
     if (preferredCats && preferredCats.length > 0) {
       await threadStore.updatePreferredCats(thread.id, preferredCats as CatId[]);
+    }
+
+    // F095 Phase C: Pin thread on creation
+    if (pinned) {
+      await threadStore.updatePin(thread.id, true);
+    }
+
+    // F095 Phase C: Link backlog item on creation (validate existence first)
+    if (backlogItemId) {
+      if (opts.backlogStore) {
+        const item = await opts.backlogStore.get(backlogItemId, userId);
+        if (!item) {
+          reply.status(400);
+          return { error: 'Invalid backlogItemId: backlog item not found or not owned by user' };
+        }
+      }
+      await threadStore.linkBacklogItem(thread.id, backlogItemId);
+    }
+
+    // Re-fetch if any post-create mutations applied
+    if ((preferredCats && preferredCats.length > 0) || pinned || backlogItemId) {
       thread = (await threadStore.get(thread.id)) ?? thread;
     }
 

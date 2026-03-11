@@ -42,6 +42,114 @@ describe('Thread API', () => {
     assert.deepEqual(body.participants, []);
   });
 
+  it('POST /api/threads with pinned=true creates a pinned thread', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'Pinned Chat', pinned: true },
+    });
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.pinned, true);
+    assert.ok(body.pinnedAt);
+  });
+
+  it('POST /api/threads with backlogItemId links the thread when item exists', async () => {
+    // Pre-create the backlog item so validation passes
+    const { BacklogStore } = await import(
+      '../dist/domains/cats/services/stores/ports/BacklogStore.js'
+    );
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const backlogStore = new BacklogStore();
+    const item = backlogStore.create({
+      userId: 'alice', title: 'F095 Sidebar', summary: 'sidebar nav',
+      priority: 'medium', tags: [], createdBy: 'user',
+    });
+
+    const localThreadStore = new ThreadStore();
+    const localApp = Fastify();
+    await localApp.register(threadsRoutes, { threadStore: localThreadStore, backlogStore });
+    await localApp.ready();
+
+    const res = await localApp.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'Feat Thread', backlogItemId: item.id },
+    });
+    assert.equal(res.statusCode, 201);
+    const body = JSON.parse(res.body);
+    assert.equal(body.backlogItemId, item.id);
+
+    await localApp.close();
+  });
+
+  it('POST /api/threads rejects non-existent backlogItemId with 400', async () => {
+    const { BacklogStore } = await import(
+      '../dist/domains/cats/services/stores/ports/BacklogStore.js'
+    );
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const backlogStore = new BacklogStore();
+    // No items created — 'ghost-feat' does not exist
+
+    const localThreadStore = new ThreadStore();
+    const localApp = Fastify();
+    await localApp.register(threadsRoutes, { threadStore: localThreadStore, backlogStore });
+    await localApp.ready();
+
+    const res = await localApp.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'Ghost Thread', backlogItemId: 'ghost-feat' },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error?.includes('backlog'));
+
+    await localApp.close();
+  });
+
+  it('POST /api/threads rejects cross-user backlogItemId with 400', async () => {
+    const { BacklogStore } = await import(
+      '../dist/domains/cats/services/stores/ports/BacklogStore.js'
+    );
+    const { threadsRoutes } = await import('../dist/routes/threads.js');
+    const { ThreadStore } = await import(
+      '../dist/domains/cats/services/stores/ports/ThreadStore.js'
+    );
+
+    const backlogStore = new BacklogStore();
+    // Create item owned by bob
+    const bobItem = backlogStore.create({
+      userId: 'bob', title: 'Bob Feature', summary: 'bob only',
+      priority: 'medium', tags: [], createdBy: 'user',
+    });
+
+    const localThreadStore = new ThreadStore();
+    const localApp = Fastify();
+    await localApp.register(threadsRoutes, { threadStore: localThreadStore, backlogStore });
+    await localApp.ready();
+
+    // Alice tries to link bob's item
+    const res = await localApp.inject({
+      method: 'POST',
+      url: '/api/threads',
+      payload: { userId: 'alice', title: 'Cross User', backlogItemId: bobItem.id },
+    });
+    assert.equal(res.statusCode, 400);
+    const body = JSON.parse(res.body);
+    assert.ok(body.error?.includes('backlog'));
+
+    await localApp.close();
+  });
+
   it('POST /api/threads returns 401 for missing identity', async () => {
     const res = await app.inject({
       method: 'POST',

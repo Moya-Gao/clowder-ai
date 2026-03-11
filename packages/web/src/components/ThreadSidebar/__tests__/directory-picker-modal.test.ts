@@ -64,6 +64,7 @@ describe('DirectoryPickerModal', () => {
   function setupCwdSuccess() {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
       return jsonFail();
     });
   }
@@ -103,7 +104,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(cwdBtn).toBeTruthy();
     act(() => { cwdBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH, undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: CWD_PATH }));
   });
 
   it('calls onSelect with existing project path when existing project is clicked', async () => {
@@ -116,7 +117,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(projectBtn).toBeTruthy();
     act(() => { projectBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(existingPath, undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: existingPath }));
   });
 
   // ── Lobby selection ────────────────────────────────────────
@@ -130,7 +131,7 @@ describe('DirectoryPickerModal', () => {
     );
     expect(lobbyBtn).toBeTruthy();
     act(() => { lobbyBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(undefined, undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: undefined }));
   });
 
   // ── F068: Pick directory button ────────────────────────────
@@ -149,6 +150,7 @@ describe('DirectoryPickerModal', () => {
     const pickedPath = '/Users/test/projects/new-project';
     mockApiFetch.mockImplementation((path: string, opts?: { method?: string }) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path === '/api/projects/pick-directory' && opts?.method === 'POST') {
         return jsonOk({ path: pickedPath, name: 'new-project' });
       }
@@ -161,12 +163,13 @@ describe('DirectoryPickerModal', () => {
     )!;
     await act(async () => { pickBtn.click(); await new Promise((r) => setTimeout(r, 0)); });
     expect(mockApiFetch).toHaveBeenCalledWith('/api/projects/pick-directory', { method: 'POST' });
-    expect(fns.onSelect).toHaveBeenCalledWith(pickedPath, undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: pickedPath }));
   });
 
   it('does not call onSelect when user cancels native picker (204)', async () => {
     mockApiFetch.mockImplementation((path: string, opts?: { method?: string }) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path === '/api/projects/pick-directory' && opts?.method === 'POST') return noContent();
       return jsonFail();
     });
@@ -185,21 +188,22 @@ describe('DirectoryPickerModal', () => {
     setupCwdSuccess();
     render();
     await flush();
-    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
-    expect(input).toBeTruthy();
-    expect(input.placeholder).toContain('输入路径');
+    const inputs = Array.from(container.querySelectorAll('input[type="text"]')) as HTMLInputElement[];
+    const pathInput = inputs.find((i) => i.placeholder.includes('输入路径'));
+    expect(pathInput).toBeTruthy();
   });
 
   it('validates path via browse API and calls onSelect with canonicalized path', async () => {
     const canonicalPath = '/Users/test/new-path';
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path.startsWith('/api/projects/browse')) return jsonOk({ current: canonicalPath, name: 'new-path', parent: null, entries: [] });
       return jsonFail();
     });
     const fns = render();
     await flush();
-    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('输入路径')) as HTMLInputElement;
     const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
     expect(goBtn).toBeTruthy();
     act(() => {
@@ -209,18 +213,19 @@ describe('DirectoryPickerModal', () => {
     });
     await flush();
     await act(async () => { goBtn.click(); await new Promise((r) => setTimeout(r, 0)); });
-    expect(fns.onSelect).toHaveBeenCalledWith(canonicalPath, undefined);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: canonicalPath }));
   });
 
   it('shows error when path input validation fails', async () => {
     mockApiFetch.mockImplementation((path: string) => {
       if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({ items: [] });
       if (path.startsWith('/api/projects/browse')) return jsonFail(403, 'Access denied');
       return jsonFail();
     });
     const fns = render();
     await flush();
-    const input = container.querySelector('input[type="text"]') as HTMLInputElement;
+    const input = Array.from(container.querySelectorAll('input[type="text"]')).find((i) => (i as HTMLInputElement).placeholder.includes('输入路径')) as HTMLInputElement;
     const goBtn = container.querySelector('button[aria-label="跳转到路径"]') as HTMLButtonElement;
     act(() => {
       const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
@@ -257,7 +262,92 @@ describe('DirectoryPickerModal', () => {
       (b) => b.textContent?.includes('推荐'),
     );
     act(() => { cwdBtn!.click(); });
-    expect(fns.onSelect).toHaveBeenCalledWith(CWD_PATH, ['opus']);
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ projectPath: CWD_PATH, preferredCats: ['opus'] }));
+  });
+
+  // ── F095 Phase C: Title input ────────────────────────────
+
+  it('shows thread title input field', async () => {
+    setupCwdSuccess();
+    render();
+    await flush();
+    const titleInput = Array.from(container.querySelectorAll('input')).find(
+      (i) => (i as HTMLInputElement).placeholder.includes('对话标题'),
+    ) as HTMLInputElement;
+    expect(titleInput).toBeTruthy();
+    expect(titleInput.maxLength).toBe(200);
+  });
+
+  it('shows pin checkbox', async () => {
+    setupCwdSuccess();
+    render();
+    await flush();
+    expect(container.textContent).toContain('创建后置顶');
+    const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    expect(checkbox).toBeTruthy();
+  });
+
+  // ── F095 Phase C: Title/Pin/Backlog values flow into onSelect ──
+
+  it('passes threadTitle in onSelect when title is filled', async () => {
+    setupCwdSuccess();
+    const fns = render();
+    await flush();
+    const titleInput = Array.from(container.querySelectorAll('input')).find(
+      (i) => (i as HTMLInputElement).placeholder.includes('对话标题'),
+    ) as HTMLInputElement;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+      setter.call(titleInput, '我的新对话');
+      titleInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await flush();
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('推荐'),
+    );
+    act(() => { cwdBtn!.click(); });
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ title: '我的新对话' }));
+  });
+
+  it('passes pinned=true in onSelect when pin checkbox is checked', async () => {
+    setupCwdSuccess();
+    const fns = render();
+    await flush();
+    const checkbox = container.querySelector('input[type="checkbox"]') as HTMLInputElement;
+    act(() => { checkbox.click(); });
+    await flush();
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('推荐'),
+    );
+    act(() => { cwdBtn!.click(); });
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ pinned: true }));
+  });
+
+  it('passes backlogItemId in onSelect when feat is selected from dropdown', async () => {
+    mockApiFetch.mockImplementation((path: string) => {
+      if (path === '/api/projects/cwd') return jsonOk({ path: CWD_PATH });
+      if (path === '/api/backlog/items') return jsonOk({
+        items: [
+          { id: 'bl-001', title: 'F095 侧栏导航', status: 'in-progress' },
+          { id: 'bl-002', title: 'F042 提示词审计', status: 'open' },
+        ],
+      });
+      return jsonFail();
+    });
+    const fns = render();
+    await flush();
+    const select = container.querySelector('select') as HTMLSelectElement;
+    expect(select).toBeTruthy();
+    act(() => {
+      select.value = 'bl-001';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await flush();
+    const cwdBtn = Array.from(container.querySelectorAll('button')).find(
+      (b) => b.textContent?.includes('推荐'),
+    );
+    act(() => { cwdBtn!.click(); });
+    expect(fns.onSelect).toHaveBeenCalledWith(expect.objectContaining({ backlogItemId: 'bl-001' }));
   });
 
   // ── Escape key ────────────────────────────────────────────

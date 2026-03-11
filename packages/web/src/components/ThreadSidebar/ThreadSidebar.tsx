@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Thread, useChatStore } from '@/stores/chatStore';
 import { apiFetch } from '@/utils/api-client';
 import { TaskPanel } from '../TaskPanel';
-import { DirectoryPickerModal, type SessionBinding } from './DirectoryPickerModal';
+import { DirectoryPickerModal, type NewThreadOptions } from './DirectoryPickerModal';
 import { SectionGroup } from './SectionGroup';
 import { ThreadItem } from './ThreadItem';
 import { getProjectPaths, sortAndGroupThreadsWithWorkspace } from './thread-utils';
@@ -122,7 +122,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
   );
 
   const createInProject = useCallback(
-    async (projectPath?: string, preferredCats?: string[], sessionBindings?: SessionBinding[]) => {
+    async (opts: NewThreadOptions) => {
       setIsCreating(true);
       setShowPicker(false);
       try {
@@ -130,17 +130,20 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ...(projectPath ? { projectPath } : {}),
-            ...(preferredCats?.length ? { preferredCats } : {}),
+            ...(opts.projectPath ? { projectPath: opts.projectPath } : {}),
+            ...(opts.preferredCats?.length ? { preferredCats: opts.preferredCats } : {}),
+            ...(opts.title ? { title: opts.title } : {}),
+            ...(opts.pinned ? { pinned: opts.pinned } : {}),
+            ...(opts.backlogItemId ? { backlogItemId: opts.backlogItemId } : {}),
           }),
         });
         if (!res.ok) return;
         const thread: Thread = await res.json();
 
         // F33: Bind external sessions after thread creation (best-effort, parallel)
-        if (sessionBindings?.length) {
+        if (opts.sessionBindings?.length) {
           const results = await Promise.allSettled(
-            sessionBindings.map(({ catId, cliSessionId }) =>
+            opts.sessionBindings.map(({ catId, cliSessionId }) =>
               apiFetch(`/api/threads/${thread.id}/sessions/${catId}/bind`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
@@ -155,7 +158,7 @@ export function ThreadSidebar({ onClose, className }: ThreadSidebarProps) {
           }
         }
 
-        if (projectPath) setCurrentProject(projectPath);
+        if (opts.projectPath) setCurrentProject(opts.projectPath);
         navigateToThread(thread.id);
         // Auto-close sidebar on mobile after creating a new conversation
         if (typeof window !== 'undefined' && window.innerWidth < 768) {

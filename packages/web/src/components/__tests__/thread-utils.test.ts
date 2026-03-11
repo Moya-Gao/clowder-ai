@@ -240,19 +240,29 @@ describe('projectDisplayName', () => {
 // ── getProjectPaths ────────────────────────────────
 
 describe('getProjectPaths', () => {
-  it('returns sorted unique non-default paths', () => {
+  it('returns unique non-default paths sorted by most recent activity', () => {
     const threads = [
-      makeThread({ id: 't1', projectPath: '/proj/b' }),
-      makeThread({ id: 't2', projectPath: '/proj/a' }),
-      makeThread({ id: 't3', projectPath: '/proj/b' }),
+      makeThread({ id: 't1', projectPath: '/proj/b', lastActiveAt: 1000 }),
+      makeThread({ id: 't2', projectPath: '/proj/a', lastActiveAt: 5000 }),
+      makeThread({ id: 't3', projectPath: '/proj/b', lastActiveAt: 2000 }),
       makeThread({ id: 't4', projectPath: 'default' }),
     ];
+    // /proj/a has most recent activity (5000), then /proj/b (max 2000)
     expect(getProjectPaths(threads)).toEqual(['/proj/a', '/proj/b']);
   });
 
   it('returns empty for no project threads', () => {
     const threads = [makeThread({ id: 't1', projectPath: 'default' })];
     expect(getProjectPaths(threads)).toEqual([]);
+  });
+
+  it('sorts most recently active project first (AC-C4)', () => {
+    const threads = [
+      makeThread({ id: 't1', projectPath: '/proj/alpha', lastActiveAt: 100 }),
+      makeThread({ id: 't2', projectPath: '/proj/beta', lastActiveAt: 500 }),
+      makeThread({ id: 't3', projectPath: '/proj/gamma', lastActiveAt: 300 }),
+    ];
+    expect(getProjectPaths(threads)).toEqual(['/proj/beta', '/proj/gamma', '/proj/alpha']);
   });
 });
 
